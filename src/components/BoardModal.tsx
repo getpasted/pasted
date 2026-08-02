@@ -244,7 +244,7 @@ export const BoardModal: React.FC<BoardModalProps> = ({
                   : 'settings-tab-idle border-transparent text-gray-400'
               }`}
             >
-              Manual Bin
+              Manual
             </button>
             <button
               type="button"
@@ -255,7 +255,7 @@ export const BoardModal: React.FC<BoardModalProps> = ({
                   : 'settings-tab-idle border-transparent text-gray-400'
               }`}
             >
-              Smart Bin
+              Smart
             </button>
             <button
               type="button"
@@ -266,7 +266,7 @@ export const BoardModal: React.FC<BoardModalProps> = ({
                   : 'settings-tab-idle border-transparent text-gray-400'
               }`}
             >
-              Filter Bin
+              Filter
             </button>
           </div>
         </div>
@@ -513,7 +513,7 @@ export const BoardModal: React.FC<BoardModalProps> = ({
               type="submit"
               className="board-modal-ok-btn px-5 py-2 rounded-xl bg-white hover:bg-gray-200 text-black font-semibold text-xs shadow-md transition-all active:scale-95 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-[#212121]"
             >
-              {editingBoard ? 'Save Changes' : 'OK'}
+              Save
             </button>
           </div>
         </form>
