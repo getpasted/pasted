@@ -267,6 +267,8 @@ pub fn run() {
             commands::delete_clip,
             commands::toggle_pin_clip,
             commands::assign_clip_board,
+            commands::add_clip_to_board,
+            commands::remove_clip_from_board,
             commands::copy_clip_to_system,
             commands::get_boards,
             commands::create_board,

@@ -144,6 +144,26 @@ pub fn assign_clip_board(
 }
 
 #[tauri::command]
+pub fn add_clip_to_board(
+    clip_id: i64,
+    board_id: i64,
+    db: State<'_, Arc<DbState>>,
+) -> Result<(), String> {
+    db.add_clip_to_board(clip_id, board_id)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn remove_clip_from_board(
+    clip_id: i64,
+    board_id: i64,
+    db: State<'_, Arc<DbState>>,
+) -> Result<(), String> {
+    db.remove_clip_from_board(clip_id, board_id)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub fn copy_clip_to_system(
     text: Option<String>,
     image_base64: Option<String>,

@@ -179,6 +179,23 @@ impl DbState {
             [],
         );
 
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS clip_boards (
+                clip_id INTEGER NOT NULL REFERENCES clips(id) ON DELETE CASCADE,
+                board_id INTEGER NOT NULL REFERENCES boards(id) ON DELETE CASCADE,
+                PRIMARY KEY (clip_id, board_id)
+            )",
+            [],
+        )?;
+        let _ = conn.execute("CREATE INDEX IF NOT EXISTS idx_clip_boards_board_id ON clip_boards (board_id)", []);
+        let _ = conn.execute("CREATE INDEX IF NOT EXISTS idx_clip_boards_clip_id ON clip_boards (clip_id)", []);
+
+        let _ = conn.execute(
+            "INSERT OR IGNORE INTO clip_boards (clip_id, board_id)
+             SELECT id, board_id FROM clips WHERE board_id IS NOT NULL",
+            [],
+        );
+
         let _ = conn.execute(
             "CREATE TABLE IF NOT EXISTS activity_logs (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -603,21 +620,25 @@ impl DbState {
                 if !cond_sqls.is_empty() {
                     let combined = cond_sqls.join(join_op);
                     if let Some(bid) = board_id {
-                        sql.push_str(&format!(" AND (({}) OR board_id = ?)", combined));
+                        sql.push_str(&format!(" AND (({}) OR board_id = ? OR id IN (SELECT clip_id FROM clip_boards WHERE board_id = ?))", combined));
+                        query_params.push(Box::new(bid));
                         query_params.push(Box::new(bid));
                     } else {
                         sql.push_str(&format!(" AND ({})", combined));
                     }
                 } else if let Some(bid) = board_id {
-                    sql.push_str(" AND board_id = ?");
+                    sql.push_str(" AND (board_id = ? OR id IN (SELECT clip_id FROM clip_boards WHERE board_id = ?))");
+                    query_params.push(Box::new(bid));
                     query_params.push(Box::new(bid));
                 }
             } else if let Some(bid) = board_id {
-                sql.push_str(" AND board_id = ?");
+                sql.push_str(" AND (board_id = ? OR id IN (SELECT clip_id FROM clip_boards WHERE board_id = ?))");
+                query_params.push(Box::new(bid));
                 query_params.push(Box::new(bid));
             }
         } else if let Some(bid) = board_id {
-            sql.push_str(" AND board_id = ?");
+            sql.push_str(" AND (board_id = ? OR id IN (SELECT clip_id FROM clip_boards WHERE board_id = ?))");
+            query_params.push(Box::new(bid));
             query_params.push(Box::new(bid));
         }
 
@@ -1003,9 +1024,40 @@ impl DbState {
 
     pub fn assign_to_board(&self, clip_id: i64, board_id: Option<i64>) -> Result<()> {
         let conn = self.conn.lock();
+        if let Some(bid) = board_id {
+            conn.execute(
+                "INSERT OR REPLACE INTO clip_boards (clip_id, board_id) VALUES (?1, ?2)",
+                params![clip_id, bid],
+            )?;
+            conn.execute(
+                "UPDATE clips SET board_id = ?1 WHERE id = ?2",
+                params![bid, clip_id],
+            )?;
+        } else {
+            conn.execute("DELETE FROM clip_boards WHERE clip_id = ?1", params![clip_id])?;
+            conn.execute("UPDATE clips SET board_id = NULL WHERE id = ?1", params![clip_id])?;
+        }
+        Ok(())
+    }
+
+    pub fn add_clip_to_board(&self, clip_id: i64, board_id: i64) -> Result<()> {
+        let conn = self.conn.lock();
+        conn.execute(
+            "INSERT OR REPLACE INTO clip_boards (clip_id, board_id) VALUES (?1, ?2)",
+            params![clip_id, board_id],
+        )?;
         conn.execute(
             "UPDATE clips SET board_id = ?1 WHERE id = ?2",
             params![board_id, clip_id],
+        )?;
+        Ok(())
+    }
+
+    pub fn remove_clip_from_board(&self, clip_id: i64, board_id: i64) -> Result<()> {
+        let conn = self.conn.lock();
+        conn.execute(
+            "DELETE FROM clip_boards WHERE clip_id = ?1 AND board_id = ?2",
+            params![clip_id, board_id],
         )?;
         Ok(())
     }
@@ -1075,18 +1127,19 @@ impl DbState {
 
                     if !cond_sqls.is_empty() {
                         let combined = cond_sqls.join(join_op);
-                        let sql = format!("SELECT COUNT(*) FROM clips WHERE (is_trashed IS NULL OR is_trashed = 0) AND (({}) OR board_id = ?)", combined);
+                        let sql = format!("SELECT COUNT(*) FROM clips WHERE (is_trashed IS NULL OR is_trashed = 0) AND (({}) OR board_id = ? OR id IN (SELECT clip_id FROM clip_boards WHERE board_id = ?))", combined);
+                        query_params.push(Box::new(id));
                         query_params.push(Box::new(id));
                         let param_refs: Vec<&dyn rusqlite::ToSql> = query_params.iter().map(|p| p.as_ref()).collect();
                         conn.query_row(&sql, param_refs.as_slice(), |r| r.get(0)).unwrap_or(0)
                     } else {
-                        conn.query_row("SELECT COUNT(*) FROM clips WHERE (is_trashed IS NULL OR is_trashed = 0) AND board_id = ?1", params![id], |r| r.get(0)).unwrap_or(0)
+                        conn.query_row("SELECT COUNT(*) FROM clips WHERE (is_trashed IS NULL OR is_trashed = 0) AND (board_id = ?1 OR id IN (SELECT clip_id FROM clip_boards WHERE board_id = ?1))", params![id], |r| r.get(0)).unwrap_or(0)
                     }
                 } else {
-                    conn.query_row("SELECT COUNT(*) FROM clips WHERE (is_trashed IS NULL OR is_trashed = 0) AND board_id = ?1", params![id], |r| r.get(0)).unwrap_or(0)
+                    conn.query_row("SELECT COUNT(*) FROM clips WHERE (is_trashed IS NULL OR is_trashed = 0) AND (board_id = ?1 OR id IN (SELECT clip_id FROM clip_boards WHERE board_id = ?1))", params![id], |r| r.get(0)).unwrap_or(0)
                 }
             } else {
-                conn.query_row("SELECT COUNT(*) FROM clips WHERE (is_trashed IS NULL OR is_trashed = 0) AND board_id = ?1", params![id], |r| r.get(0)).unwrap_or(0)
+                conn.query_row("SELECT COUNT(*) FROM clips WHERE (is_trashed IS NULL OR is_trashed = 0) AND (board_id = ?1 OR id IN (SELECT clip_id FROM clip_boards WHERE board_id = ?1))", params![id], |r| r.get(0)).unwrap_or(0)
             };
 
             boards.push(Board {
@@ -1145,6 +1198,7 @@ impl DbState {
 
     pub fn delete_board(&self, id: i64) -> Result<()> {
         let conn = self.conn.lock();
+        conn.execute("DELETE FROM clip_boards WHERE board_id = ?1", params![id])?;
         conn.execute("UPDATE clips SET board_id = NULL WHERE board_id = ?1", params![id])?;
         conn.execute("DELETE FROM boards WHERE id = ?1", params![id])?;
         Ok(())

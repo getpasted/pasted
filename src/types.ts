@@ -80,6 +80,7 @@ export interface ClipItem {
   is_pinned: boolean;
   is_protected?: boolean;
   board_id: number | null;
+  board_ids?: number[];
   note?: string | null;
   created_at: string;
 }

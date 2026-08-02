@@ -838,17 +838,37 @@ export default function App() {
   };
 
   const handleAssignBoard = async (clipId: number, boardId: number | null) => {
-    // 0ms optimistic state mutation
+    const targetClip = allClips.find((c) => c.id === clipId);
+    const oldBoardId = targetClip?.board_id;
+
+    // 0ms optimistic state mutation for clip
     setAllClips((prev) =>
       prev.map((c) => (c.id === clipId ? { ...c, board_id: boardId } : c))
     );
     setSelectedClip((prev) => (prev && prev.id === clipId ? { ...prev, board_id: boardId } : prev));
 
+    // 0ms optimistic board count update for sidebar badge
+    if (oldBoardId !== boardId) {
+      setBoards((prev) =>
+        prev.map((b) => {
+          if (b.id === oldBoardId) {
+            return { ...b, clip_count: Math.max(0, (b.clip_count || 1) - 1) };
+          }
+          if (b.id === boardId) {
+            return { ...b, clip_count: (b.clip_count || 0) + 1 };
+          }
+          return b;
+        })
+      );
+    }
+
     try {
       await invoke('assign_clip_board', { clipId, boardId });
+      fetchBoards();
     } catch (e) {
       console.error(e);
       fetchClips();
+      fetchBoards();
     }
   };
 
