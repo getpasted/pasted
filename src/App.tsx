@@ -17,7 +17,7 @@ import { ActivityLogView } from './components/ActivityLogView';
 import { AnalyticsView } from './components/AnalyticsView';
 import { HelpView } from './components/HelpView';
 import { soundManager } from './utils/sound';
-import { Clipboard, AlertTriangle, Edit3, Trash2, Pause, Disc, Square } from 'lucide-react';
+import { Clipboard, AlertTriangle, Edit3, Trash2, Pause, Disc, Square, StickyNote } from 'lucide-react';
 import './App.css';
 
 export default function App() {
@@ -282,6 +282,10 @@ export default function App() {
   // Custom Bin Deletion Confirmation Modal State
   const [binToDelete, setBinToDelete] = useState<Board | null>(null);
 
+  // Custom Note Editing Modal State
+  const [notePromptClip, setNotePromptClip] = useState<ClipItem | null>(null);
+  const [notePromptText, setNotePromptText] = useState<string>('');
+
   // Resizable Column Widths (stored in localStorage with min/max bounds)
   const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
     const saved = localStorage.getItem('pasted_sidebar_width');
@@ -364,7 +368,11 @@ export default function App() {
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        if (binToDelete) {
+        if (notePromptClip) {
+          e.preventDefault();
+          e.stopPropagation();
+          setNotePromptClip(null);
+        } else if (binToDelete) {
           e.preventDefault();
           e.stopPropagation();
           setBinToDelete(null);
@@ -390,7 +398,7 @@ export default function App() {
     };
     window.addEventListener('keydown', handleGlobalKeyDown, true);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown, true);
-  }, [binToDelete, isClearConfirmOpen, boardContextMenu, contextMenu, isBoardModalOpen]);
+  }, [notePromptClip, binToDelete, isClearConfirmOpen, boardContextMenu, contextMenu, isBoardModalOpen]);
 
   // Load saved settings from SQLite database on mount
   useEffect(() => {
@@ -752,9 +760,13 @@ export default function App() {
       setAllClips((prev) =>
         prev.map((c) => (c.id === id ? { ...c, is_protected: isNowProtected } : c))
       );
+      setClips((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, is_protected: isNowProtected } : c))
+      );
       if (selectedClip && selectedClip.id === id) {
         setSelectedClip((prev) => (prev ? { ...prev, is_protected: isNowProtected } : null));
       }
+      fetchClips();
     } catch (e) {
       console.error('Failed to toggle protected state:', e);
     }
@@ -836,10 +848,10 @@ export default function App() {
     }
   };
 
-  const handleAddToSequentialStack = async (text: string | null) => {
-    if (!text) return;
+  const handleAddToSequentialStack = async (clip: ClipItem) => {
+    const textToPush = clip.text_content || (clip.content_type === 'image' ? '[Image Clip]' : 'Clip item');
     try {
-      await invoke('push_sequential_item', { item: text });
+      await invoke('push_sequential_item', { item: textToPush });
       soundManager.playStackSound(appSettings.enableSounds);
       fetchSequentialStatus();
     } catch (e) {
@@ -847,20 +859,9 @@ export default function App() {
     }
   };
 
-  const handlePromptAddNote = async (clip: ClipItem) => {
-    const existingNote = clip.note || '';
-    const newNote = window.prompt('Enter note/annotation for clip:', existingNote);
-    if (newNote !== null) {
-      try {
-        await invoke('update_clip_note', {
-          clipId: clip.id,
-          note: newNote.trim() || null,
-        });
-        fetchClips();
-      } catch (e) {
-        console.error(e);
-      }
-    }
+  const handlePromptAddNote = (clip: ClipItem) => {
+    setNotePromptClip(clip);
+    setNotePromptText(clip.note || '');
   };
 
   const handleUpdateClipNoteLocally = useCallback((clipId: number, newNote: string | null) => {
@@ -1218,7 +1219,7 @@ export default function App() {
           onApplyFilter={(filter) => handleApplyFilterToClip(contextMenu.clip, filter)}
           onAddNote={() => handlePromptAddNote(contextMenu.clip)}
           onDeleteNote={() => handleDeleteNoteFromClip(contextMenu.clip.id)}
-          onAddToStack={() => handleAddToSequentialStack(contextMenu.clip.text_content)}
+          onAddToStack={() => handleAddToSequentialStack(contextMenu.clip)}
           onTogglePin={() => handleTogglePin(contextMenu.clip.id)}
           onToggleProtected={() => handleToggleProtected(contextMenu.clip.id)}
           onDelete={(e) => handleDeleteClip(contextMenu.clip.id, e?.altKey)}
@@ -1318,6 +1319,60 @@ export default function App() {
                 className="px-4 py-1.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-semibold transition-colors shadow-md cursor-pointer"
               >
                 Delete Bin
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add / Edit Note Modal */}
+      {notePromptClip && (
+        <div className="fixed inset-0 z-[10000] bg-black/60 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-150 select-none">
+          <div className="bg-[#212121] border border-gray-700/80 rounded-2xl p-5 max-w-md w-full shadow-2xl space-y-4 text-gray-100 font-sans">
+            <div className="flex items-center space-x-3">
+              <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 shrink-0">
+                <StickyNote className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-gray-100">{notePromptClip.note ? 'Edit Clip Note' : 'Add Note to Clip'}</h3>
+                <p className="text-xs text-gray-400 mt-0.5">Attach custom annotations or metadata to this clip.</p>
+              </div>
+            </div>
+
+            <textarea
+              value={notePromptText}
+              onChange={(e) => setNotePromptText(e.target.value)}
+              placeholder="Type your note here..."
+              rows={4}
+              autoFocus
+              className="w-full bg-[#181818] border border-gray-700/80 rounded-xl p-3 text-xs text-gray-200 placeholder-gray-500 focus:outline-none focus:border-amber-500 transition-colors resize-none font-sans"
+            />
+
+            <div className="flex justify-end space-x-2">
+              <button
+                type="button"
+                onClick={() => setNotePromptClip(null)}
+                className="px-4 py-1.5 rounded-xl bg-[#343744] hover:bg-[#3d4150] text-gray-200 text-xs font-semibold transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    await invoke('update_clip_note', {
+                      clipId: notePromptClip.id,
+                      note: notePromptText.trim() || null,
+                    });
+                    setNotePromptClip(null);
+                    fetchClips();
+                  } catch (e) {
+                    console.error(e);
+                  }
+                }}
+                className="px-4 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold transition-colors shadow-md cursor-pointer"
+              >
+                Save Note
               </button>
             </div>
           </div>

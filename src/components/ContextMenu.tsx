@@ -9,11 +9,13 @@ import {
   StickyNote,
   ListPlus,
   Pin,
+  PinOff,
   Trash2,
   Trash,
   ChevronRight,
   Sparkles,
   Shield,
+  ShieldOff,
 } from 'lucide-react';
 
 interface ContextMenuProps {
@@ -109,7 +111,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
 
       <div className="my-1 border-t border-gray-800" />
 
-      {/* Copy to Bin */}
+      {/* Bin */}
       <div
         className="relative"
         onMouseEnter={() => setActiveSubmenu('boards')}
@@ -118,7 +120,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
         <button className="w-full flex items-center justify-between px-3 py-1.5 rounded-md hover:bg-blue-600/30 hover:text-white transition-colors">
           <div className="flex items-center space-x-2.5">
             <FolderPlus className="w-3.5 h-3.5 text-amber-400" />
-            <span>Copy to Bin</span>
+            <span>Bin</span>
           </div>
           <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
         </button>
@@ -237,7 +239,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
         className="w-full flex items-center space-x-2.5 px-3 py-1.5 rounded-md hover:bg-blue-600/30 hover:text-white transition-colors"
       >
         <StickyNote className="w-3.5 h-3.5 text-amber-400" />
-        <span>{clip.note ? 'Notes...' : 'Add Note...'}</span>
+        <span>{clip.note ? 'Edit Note' : 'Add Note'}</span>
       </button>
 
       {/* Remove Note */}
@@ -274,7 +276,11 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
         }}
         className="w-full flex items-center space-x-2.5 px-3 py-1.5 rounded-md hover:bg-blue-600/30 hover:text-white transition-colors"
       >
-        <Pin className="w-3.5 h-3.5 text-orange-500 fill-orange-500/20 pin-icon" />
+        {clip.is_pinned ? (
+          <PinOff className="w-3.5 h-3.5 text-gray-400" />
+        ) : (
+          <Pin className="w-3.5 h-3.5 text-orange-500 fill-orange-500/20 pin-icon" />
+        )}
         <span>{clip.is_pinned ? 'Unpin' : 'Pin'}</span>
       </button>
 
@@ -287,7 +293,11 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
           }}
           className="w-full flex items-center space-x-2.5 px-3 py-1.5 rounded-md hover:bg-blue-600/30 hover:text-white transition-colors"
         >
-          <Shield className="w-3.5 h-3.5 text-cyan-400" />
+          {clip.is_protected ? (
+            <ShieldOff className="w-3.5 h-3.5 text-gray-400" />
+          ) : (
+            <Shield className="w-3.5 h-3.5 text-cyan-400" />
+          )}
           <span>{clip.is_protected ? 'Unprotect' : 'Protect'}</span>
         </button>
       )}
