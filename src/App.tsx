@@ -348,7 +348,11 @@ export default function App() {
 
   useEffect(() => {
     if (!boardContextMenu) return;
-    const handleClickOutside = () => setBoardContextMenu(null);
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && target.closest('.board-context-menu')) return;
+      setBoardContextMenu(null);
+    };
     window.addEventListener('mousedown', handleClickOutside);
     return () => window.removeEventListener('mousedown', handleClickOutside);
   }, [boardContextMenu]);
@@ -1192,26 +1196,30 @@ export default function App() {
             top: Math.min(boardContextMenu.y, window.innerHeight - 100),
             left: Math.min(boardContextMenu.x, window.innerWidth - 180),
           }}
-          className="fixed z-[9999] min-w-[170px] glass-hud rounded-xl p-1.5 shadow-2xl text-xs font-medium space-y-0.5 animate-in fade-in zoom-in-95 duration-100"
+          className="board-context-menu fixed z-[9999] min-w-[170px] glass-hud rounded-xl p-1.5 shadow-2xl text-xs font-medium space-y-0.5 animate-in fade-in zoom-in-95 duration-100"
+          onMouseDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
         >
           <button
+            type="button"
             onClick={() => {
               const b = boardContextMenu.board;
               setBoardContextMenu(null);
               setEditingBoard(b);
               setIsBoardModalOpen(true);
             }}
-            className="w-full flex items-center space-x-2 px-2.5 py-1.5 rounded-md hover:bg-blue-600 hover:text-white transition-colors"
+            className="w-full flex items-center space-x-2 px-2.5 py-1.5 rounded-md hover:bg-blue-600 hover:text-white transition-colors cursor-pointer"
           >
             <Edit3 className="w-3.5 h-3.5" />
             <span>Edit Bin...</span>
           </button>
           <div className="border-t border-white/10 my-1" />
           <button
+            type="button"
             onClick={async (e) => {
               e.stopPropagation();
               const b = boardContextMenu.board;
+              setBoardContextMenu(null);
               if (confirm(`Delete bin "${b.name}"?`)) {
                 try {
                   await invoke('delete_board', { id: b.id });
@@ -1224,9 +1232,8 @@ export default function App() {
                   console.error(err);
                 }
               }
-              setBoardContextMenu(null);
             }}
-            className="w-full flex items-center space-x-2 px-2.5 py-1.5 rounded-md text-red-400 hover:bg-red-600 hover:text-white transition-colors"
+            className="w-full flex items-center space-x-2 px-2.5 py-1.5 rounded-md text-red-400 hover:bg-red-600 hover:text-white transition-colors cursor-pointer"
           >
             <Trash2 className="w-3.5 h-3.5" />
             <span>Delete Bin</span>
