@@ -746,20 +746,32 @@ export default function App() {
   const [deletingClipIds, setDeletingClipIds] = useState<Set<number>>(new Set());
 
   const handleTogglePin = async (id: number) => {
+    // 0ms optimistic state mutation
+    setAllClips((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, is_pinned: !c.is_pinned } : c))
+    );
+    setSelectedClip((prev) => (prev && prev.id === id ? { ...prev, is_pinned: !prev.is_pinned } : prev));
+
     try {
       await invoke('toggle_pin_clip', { id });
-      fetchClips();
     } catch (e) {
       console.error(e);
+      fetchClips();
     }
   };
 
   const handleToggleProtected = async (id: number) => {
+    // 0ms optimistic state mutation
+    setAllClips((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, is_protected: !c.is_protected } : c))
+    );
+    setSelectedClip((prev) => (prev && prev.id === id ? { ...prev, is_protected: !prev.is_protected } : prev));
+
     try {
       await invoke('toggle_clip_protected', { clipId: id });
-      fetchClips();
     } catch (e) {
       console.error('Failed to toggle protected state:', e);
+      fetchClips();
     }
   };
 
@@ -816,11 +828,17 @@ export default function App() {
   };
 
   const handleAssignBoard = async (clipId: number, boardId: number | null) => {
+    // 0ms optimistic state mutation
+    setAllClips((prev) =>
+      prev.map((c) => (c.id === clipId ? { ...c, board_id: boardId } : c))
+    );
+    setSelectedClip((prev) => (prev && prev.id === clipId ? { ...prev, board_id: boardId } : prev));
+
     try {
       await invoke('assign_clip_board', { clipId, boardId });
-      fetchClips();
     } catch (e) {
       console.error(e);
+      fetchClips();
     }
   };
 
@@ -1350,15 +1368,17 @@ export default function App() {
               <button
                 type="button"
                 onClick={async () => {
+                  const newNote = notePromptText.trim() || null;
+                  handleUpdateClipNoteLocally(notePromptClip.id, newNote);
+                  setNotePromptClip(null);
                   try {
                     await invoke('update_clip_note', {
                       clipId: notePromptClip.id,
-                      note: notePromptText.trim() || null,
+                      note: newNote,
                     });
-                    setNotePromptClip(null);
-                    fetchClips();
                   } catch (e) {
                     console.error(e);
+                    fetchClips();
                   }
                 }}
                 className="px-4 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold transition-colors shadow-md cursor-pointer"
