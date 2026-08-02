@@ -354,11 +354,18 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
         )}
       </div>
 
-      {clip.is_pinned && (
-        <div className="absolute top-2 right-2">
-          <Pin className="w-3.5 h-3.5 text-orange-500 fill-orange-500 pin-icon" />
-        </div>
-      )}
+      <div className="absolute top-2 right-2 flex items-center space-x-1 pointer-events-none">
+        {clip.is_protected && (
+          <span title="Protected Clip">
+            <Shield className="w-3.5 h-3.5 text-cyan-400 fill-cyan-400/20 shrink-0" />
+          </span>
+        )}
+        {clip.is_pinned && (
+          <span title="Pinned Clip">
+            <Pin className="w-3.5 h-3.5 text-orange-500 fill-orange-500 pin-icon shrink-0" />
+          </span>
+        )}
+      </div>
     </div>
   );
 };

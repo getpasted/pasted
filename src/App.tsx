@@ -756,16 +756,7 @@ export default function App() {
 
   const handleToggleProtected = async (id: number) => {
     try {
-      const isNowProtected = await invoke<boolean>('toggle_clip_protected', { clipId: id });
-      setAllClips((prev) =>
-        prev.map((c) => (c.id === id ? { ...c, is_protected: isNowProtected } : c))
-      );
-      setClips((prev) =>
-        prev.map((c) => (c.id === id ? { ...c, is_protected: isNowProtected } : c))
-      );
-      if (selectedClip && selectedClip.id === id) {
-        setSelectedClip((prev) => (prev ? { ...prev, is_protected: isNowProtected } : null));
-      }
+      await invoke('toggle_clip_protected', { clipId: id });
       fetchClips();
     } catch (e) {
       console.error('Failed to toggle protected state:', e);
