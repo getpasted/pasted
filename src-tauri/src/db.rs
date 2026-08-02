@@ -179,6 +179,55 @@ impl DbState {
             "CREATE INDEX IF NOT EXISTS idx_clips_protected ON clips (is_protected, created_at DESC)",
             [],
         );
+        let _ = conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_clips_active_timeline ON clips (is_trashed, is_pinned DESC, created_at DESC)",
+            [],
+        );
+
+        // FTS5 Full-Text Search Virtual Table Setup
+        let fts_res = conn.execute(
+            "CREATE VIRTUAL TABLE IF NOT EXISTS clips_fts USING fts5(
+                text_content,
+                note,
+                source_app,
+                content='clips',
+                content_rowid='id'
+            )",
+            [],
+        );
+
+        if fts_res.is_ok() {
+            let _ = conn.execute(
+                "CREATE TRIGGER IF NOT EXISTS clips_ai AFTER INSERT ON clips BEGIN
+                    INSERT INTO clips_fts(rowid, text_content, note, source_app)
+                    VALUES (new.id, new.text_content, new.note, new.source_app);
+                END;",
+                [],
+            );
+            let _ = conn.execute(
+                "CREATE TRIGGER IF NOT EXISTS clips_ad AFTER DELETE ON clips BEGIN
+                    INSERT INTO clips_fts(clips_fts, rowid, text_content, note, source_app)
+                    VALUES ('delete', old.id, old.text_content, old.note, old.source_app);
+                END;",
+                [],
+            );
+            let _ = conn.execute(
+                "CREATE TRIGGER IF NOT EXISTS clips_au AFTER UPDATE ON clips BEGIN
+                    INSERT INTO clips_fts(clips_fts, rowid, text_content, note, source_app)
+                    VALUES ('delete', old.id, old.text_content, old.note, old.source_app);
+                    INSERT INTO clips_fts(rowid, text_content, note, source_app)
+                    VALUES (new.id, new.text_content, new.note, new.source_app);
+                END;",
+                [],
+            );
+
+            let _ = conn.execute(
+                "INSERT INTO clips_fts(rowid, text_content, note, source_app)
+                 SELECT id, text_content, note, source_app FROM clips
+                 WHERE id NOT IN (SELECT rowid FROM clips_fts)",
+                [],
+            );
+        }
 
         conn.execute(
             "CREATE TABLE IF NOT EXISTS clip_boards (
@@ -647,13 +696,21 @@ impl DbState {
         }
 
         if let Some(q) = search_query {
-            if !q.trim().is_empty() {
-                sql.push_str(" AND (text_content LIKE ? OR source_app LIKE ? OR content_type LIKE ? OR note LIKE ?)");
-                let pattern = format!("%{}%", q.trim());
-                query_params.push(Box::new(pattern.clone()));
-                query_params.push(Box::new(pattern.clone()));
-                query_params.push(Box::new(pattern.clone()));
-                query_params.push(Box::new(pattern));
+            let cleaned = q.trim();
+            if !cleaned.is_empty() {
+                let fts_query = cleaned.replace('"', "\"\"").replace('*', "");
+                if !fts_query.trim().is_empty() {
+                    sql.push_str(" AND (id IN (SELECT rowid FROM clips_fts WHERE clips_fts MATCH ?) OR content_type LIKE ?)");
+                    query_params.push(Box::new(format!("\"{}\"*", fts_query)));
+                    query_params.push(Box::new(format!("%{}%", cleaned)));
+                } else {
+                    sql.push_str(" AND (text_content LIKE ? OR source_app LIKE ? OR content_type LIKE ? OR note LIKE ?)");
+                    let pattern = format!("%{}%", cleaned);
+                    query_params.push(Box::new(pattern.clone()));
+                    query_params.push(Box::new(pattern.clone()));
+                    query_params.push(Box::new(pattern.clone()));
+                    query_params.push(Box::new(pattern));
+                }
             }
         }
 
@@ -1634,5 +1691,26 @@ mod tests {
         assert!(index_names.contains(&"idx_clips_pinned_created".to_string()));
         assert!(index_names.contains(&"idx_clips_board_created".to_string()));
         assert!(index_names.contains(&"idx_clips_hash".to_string()));
+        assert!(index_names.contains(&"idx_clips_active_timeline".to_string()));
+    }
+
+    #[test]
+    fn test_fts5_search_indexing() {
+        let db = setup_test_db();
+
+        let clip1 = db
+            .save_clip("text", Some("Supercalifragilisticexpialidocious secret token"), None, None, "HashFTS1", "IntelliJ")
+            .unwrap();
+        let _clip2 = db
+            .save_clip("text", Some("Unrelated standard content text"), None, None, "HashFTS2", "Safari")
+            .unwrap();
+
+        let search_res = db.get_clips(Some("Supercalifragilisticexpialidocious"), None, false).unwrap();
+        assert_eq!(search_res.len(), 1);
+        assert_eq!(search_res[0].id, clip1.id);
+
+        db.delete_clip(clip1.id).unwrap();
+        let search_after_delete = db.get_clips(Some("Supercalifragilisticexpialidocious"), None, false).unwrap();
+        assert_eq!(search_after_delete.len(), 0);
     }
 }
