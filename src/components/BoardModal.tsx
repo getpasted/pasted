@@ -104,17 +104,6 @@ export const BoardModal: React.FC<BoardModalProps> = ({
     if (isOpen) {
       setErrors({});
 
-      invoke<string[]>('get_installed_applications')
-        .then((apps) => {
-          setInstalledApps(apps);
-          if (apps.length > 0 && conditions[0].value === '1Password' && !apps.includes('1Password')) {
-            setConditions((prev) =>
-              prev.map((c, idx) => (idx === 0 ? { ...c, value: apps[0] } : c))
-            );
-          }
-        })
-        .catch(console.error);
-
       if (editingBoard) {
         setName(editingBoard.name);
         setSelectedColor(editingBoard.color || '#3b82f6');
@@ -132,13 +121,17 @@ export const BoardModal: React.FC<BoardModalProps> = ({
                   value: c.value || '',
                 }))
               );
+            } else {
+              setConditions([{ id: '1', target: 'source_app', operator: 'is', value: '' }]);
             }
             setMatchCondition(parsed.match || 'any');
           } catch (e) {
             console.error(e);
+            setConditions([{ id: '1', target: 'source_app', operator: 'is', value: '' }]);
           }
         } else {
           setModalTab('bin');
+          setConditions([{ id: '1', target: 'source_app', operator: 'is', value: '' }]);
         }
       } else {
         setName('');
@@ -147,6 +140,12 @@ export const BoardModal: React.FC<BoardModalProps> = ({
         setModalTab('bin');
         setConditions([{ id: '1', target: 'source_app', operator: 'is', value: '1Password' }]);
       }
+
+      invoke<string[]>('get_installed_applications')
+        .then((apps) => {
+          setInstalledApps(apps);
+        })
+        .catch(console.error);
     }
   }, [isOpen, editingBoard]);
 
