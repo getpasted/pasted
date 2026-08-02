@@ -548,7 +548,7 @@ impl DbState {
         }
 
         let mut sql = String::from(
-            "SELECT id, content_type, text_content, NULL as html_content, NULL as image_base64, content_hash, source_app, is_pinned, is_protected, board_id, note, is_trashed, trashed_at, created_at 
+            "SELECT id, content_type, text_content, NULL as html_content, image_base64, content_hash, source_app, is_pinned, is_protected, board_id, note, is_trashed, trashed_at, created_at 
              FROM clips WHERE (is_trashed IS NULL OR is_trashed = 0)"
         );
 
