@@ -265,7 +265,7 @@ export const BoardModal: React.FC<BoardModalProps> = ({
             <button
               type="button"
               onClick={() => setModalTab('bin')}
-              className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all border ${
+              className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-none border ${
                 modalTab === 'bin'
                   ? 'settings-tab-active bg-[#383838] text-white border-gray-500/80 shadow-md'
                   : 'settings-tab-idle border-transparent text-gray-400'
@@ -276,7 +276,7 @@ export const BoardModal: React.FC<BoardModalProps> = ({
             <button
               type="button"
               onClick={() => setModalTab('smart')}
-              className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all border ${
+              className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-none border ${
                 modalTab === 'smart'
                   ? 'settings-tab-active bg-[#383838] text-white border-gray-500/80 shadow-md'
                   : 'settings-tab-idle border-transparent text-gray-400'
@@ -287,7 +287,7 @@ export const BoardModal: React.FC<BoardModalProps> = ({
             <button
               type="button"
               onClick={() => setModalTab('filter')}
-              className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all border ${
+              className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-none border ${
                 modalTab === 'filter'
                   ? 'settings-tab-active bg-[#383838] text-white border-gray-500/80 shadow-md'
                   : 'settings-tab-idle border-transparent text-gray-400'
