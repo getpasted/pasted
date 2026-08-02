@@ -1205,14 +1205,14 @@ export default function App() {
             className="w-full flex items-center space-x-2 px-2.5 py-1.5 rounded-md hover:bg-blue-600 hover:text-white transition-colors"
           >
             <Edit3 className="w-3.5 h-3.5" />
-            <span>Edit Pasteboard...</span>
+            <span>Edit Bin...</span>
           </button>
           <div className="border-t border-white/10 my-1" />
           <button
             onClick={async () => {
               const b = boardContextMenu.board;
               setBoardContextMenu(null);
-              if (confirm(`Delete pasteboard "${b.name}"?`)) {
+              if (confirm(`Delete bin "${b.name}"?`)) {
                 try {
                   await invoke('delete_board', { id: b.id });
                   fetchBoards();
@@ -1228,7 +1228,7 @@ export default function App() {
             className="w-full flex items-center space-x-2 px-2.5 py-1.5 rounded-md text-red-400 hover:bg-red-600 hover:text-white transition-colors"
           >
             <Trash2 className="w-3.5 h-3.5" />
-            <span>Delete Pasteboard</span>
+            <span>Delete Bin</span>
           </button>
         </div>
       )}

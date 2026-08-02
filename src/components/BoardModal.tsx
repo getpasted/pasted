@@ -244,7 +244,7 @@ export const BoardModal: React.FC<BoardModalProps> = ({
                   : 'settings-tab-idle border-transparent text-gray-400'
               }`}
             >
-              Pasteboard
+              Manual Bin
             </button>
             <button
               type="button"
@@ -255,7 +255,7 @@ export const BoardModal: React.FC<BoardModalProps> = ({
                   : 'settings-tab-idle border-transparent text-gray-400'
               }`}
             >
-              Smart Pasteboard
+              Smart Bin
             </button>
             <button
               type="button"
@@ -266,7 +266,7 @@ export const BoardModal: React.FC<BoardModalProps> = ({
                   : 'settings-tab-idle border-transparent text-gray-400'
               }`}
             >
-              Filterboard
+              Filter Bin
             </button>
           </div>
         </div>

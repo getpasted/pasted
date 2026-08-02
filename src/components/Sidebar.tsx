@@ -450,7 +450,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
         </div>
 
-        {/* Section 2: Pasteboards */}
+        {/* Section 2: Bins */}
         <div>
           <div
             onClick={() => setIsPasteboardsOpen(!isPasteboardsOpen)}
@@ -458,7 +458,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             title="Click to toggle section"
           >
             <span className="text-[11px] font-semibold text-gray-400/90 group-hover:text-gray-200 transition-colors tracking-tight">
-              Pasteboards
+              Bins
             </span>
             <button
               onClick={(e) => {
@@ -466,7 +466,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 onOpenNewBoardModal();
               }}
               className="sidebar-add-btn text-gray-400 hover:text-white p-0.5 rounded transition-colors cursor-pointer"
-              title="Create Custom / Smart Board"
+              title="Create Custom / Smart Bin"
             >
               <Plus className="w-3.5 h-3.5" strokeWidth={2} />
             </button>
