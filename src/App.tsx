@@ -17,7 +17,7 @@ import { ActivityLogView } from './components/ActivityLogView';
 import { AnalyticsView } from './components/AnalyticsView';
 import { HelpView } from './components/HelpView';
 import { soundManager } from './utils/sound';
-import { Clipboard, AlertTriangle, Edit3, Trash2, Pause, Disc, Square, StickyNote } from 'lucide-react';
+import { Clipboard, AlertTriangle, Edit3, Trash2, Pause, Disc, Square, StickyNote, Pin, X } from 'lucide-react';
 import './App.css';
 
 export default function App() {
@@ -55,6 +55,7 @@ export default function App() {
   const [clips, setClips] = useState<ClipItem[]>(allClips);
   const [trashedClips, setTrashedClips] = useState<ClipItem[]>([]);
   const [selectedClip, setSelectedClip] = useState<ClipItem | null>(null);
+  const [selectedClipIds, setSelectedClipIds] = useState<Set<number>>(new Set());
   const [, setSelectedIndex] = useState<number>(0);
   const [totalClipCount, setTotalClipCount] = useState<number>(0);
 
@@ -1197,15 +1198,35 @@ export default function App() {
                     <ClipCard
                       key={clip.id}
                       clip={clip}
-                      isSelected={selectedClip?.id === clip.id}
+                      isSelected={selectedClipIds.has(clip.id) || selectedClip?.id === clip.id}
                       isDeleting={deletingClipIds.has(clip.id)}
                       isTrashMode={currentTab === 'trash'}
                       isQueueMode={currentTab === 'sequential'}
                       queueIndex={queueIndex}
                       rowHeight={appSettings.rowHeight}
-                      onSelect={() => {
+                      onSelect={(e) => {
                         setSelectedClip(clip);
                         setSelectedIndex(index);
+
+                        if (e.metaKey || e.ctrlKey) {
+                          setSelectedClipIds((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(clip.id)) next.delete(clip.id);
+                            else next.add(clip.id);
+                            return next;
+                          });
+                        } else if (e.shiftKey && selectedClip) {
+                          const currIdx = displayedClips.findIndex((c) => c.id === clip.id);
+                          const lastIdx = displayedClips.findIndex((c) => c.id === selectedClip.id);
+                          if (currIdx !== -1 && lastIdx !== -1) {
+                            const start = Math.min(currIdx, lastIdx);
+                            const end = Math.max(currIdx, lastIdx);
+                            const rangeIds = displayedClips.slice(start, end + 1).map((c) => c.id);
+                            setSelectedClipIds(new Set(rangeIds));
+                          }
+                        } else {
+                          setSelectedClipIds(new Set([clip.id]));
+                        }
                       }}
                       onPin={() => handleTogglePin(clip.id)}
                       onToggleProtected={() => handleToggleProtected(clip.id)}
@@ -1238,6 +1259,81 @@ export default function App() {
                 })
               )}
             </div>
+
+            {/* Floating Glass Batch Action Bar */}
+            {selectedClipIds.size > 1 && (
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-40 bg-[#1e2029]/95 backdrop-blur-xl border border-cyan-500/40 rounded-2xl px-4 py-2 shadow-2xl flex items-center space-x-3 text-xs animate-in fade-in slide-in-from-bottom-2 duration-150">
+                <span className="font-bold text-cyan-400 font-mono text-[11px] bg-cyan-950/80 px-2 py-0.5 rounded-full border border-cyan-800/60">
+                  {selectedClipIds.size} Selected
+                </span>
+                <div className="h-4 w-px bg-gray-700" />
+                <button
+                  onClick={async () => {
+                    const ids = Array.from(selectedClipIds);
+                    setAllClips((prev) =>
+                      prev.map((c) => (ids.includes(c.id) ? { ...c, is_pinned: true } : c))
+                    );
+                    try {
+                      await invoke('batch_pin_clips', { ids, pinState: true });
+                    } catch (err) {
+                      console.error(err);
+                      fetchClips();
+                    }
+                  }}
+                  className="flex items-center space-x-1 hover:text-cyan-300 transition-colors font-medium cursor-pointer"
+                >
+                  <Pin className="w-3.5 h-3.5 text-orange-400" />
+                  <span>Pin All</span>
+                </button>
+                <button
+                  onClick={async () => {
+                    const ids = Array.from(selectedClipIds);
+                    setAllClips((prev) =>
+                      prev.map((c) => (ids.includes(c.id) ? { ...c, is_pinned: false } : c))
+                    );
+                    try {
+                      await invoke('batch_pin_clips', { ids, pinState: false });
+                    } catch (err) {
+                      console.error(err);
+                      fetchClips();
+                    }
+                  }}
+                  className="flex items-center space-x-1 hover:text-cyan-300 transition-colors font-medium cursor-pointer"
+                >
+                  <Pin className="w-3.5 h-3.5 text-gray-400 opacity-60" />
+                  <span>Unpin All</span>
+                </button>
+                <div className="h-4 w-px bg-gray-700" />
+                <button
+                  onClick={async () => {
+                    const ids = Array.from(selectedClipIds);
+                    setAllClips((prev) => prev.filter((c) => !ids.includes(c.id)));
+                    setSelectedClipIds(new Set());
+                    if (selectedClip && ids.includes(selectedClip.id)) setSelectedClip(null);
+                    try {
+                      await invoke('batch_trash_clips', { ids });
+                      fetchClips();
+                      fetchTrashedClips();
+                    } catch (err) {
+                      console.error(err);
+                      fetchClips();
+                      fetchTrashedClips();
+                    }
+                  }}
+                  className="flex items-center space-x-1 text-red-400 hover:text-red-300 transition-colors font-medium cursor-pointer"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Trash Selected</span>
+                </button>
+                <button
+                  onClick={() => setSelectedClipIds(new Set())}
+                  className="p-1 text-gray-400 hover:text-white rounded-full hover:bg-gray-800 transition-colors cursor-pointer"
+                  title="Deselect All"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
           </div>
 
           {/* List Resizer Handle (Exact 1px visual border line with grab target extending to right) */}

@@ -1027,7 +1027,45 @@ impl DbState {
                 }
             }
         }
-        Ok(updated_count)
+    pub fn batch_pin_clips(&self, ids: Vec<i64>, pin_state: bool) -> Result<()> {
+        let conn = self.conn.lock();
+        let val = if pin_state { 1 } else { 0 };
+        for id in ids {
+            conn.execute("UPDATE clips SET is_pinned = ?1 WHERE id = ?2", params![val, id])?;
+        }
+        Ok(())
+    }
+
+    pub fn batch_trash_clips(&self, ids: Vec<i64>) -> Result<()> {
+        let conn = self.conn.lock();
+        for id in ids {
+            conn.execute(
+                "UPDATE clips SET is_trashed = 1, trashed_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?1 AND (is_protected IS NULL OR is_protected = 0)",
+                params![id],
+            )?;
+        }
+        let _ = self.enforce_trash_limit_internal(&conn);
+        Ok(())
+    }
+
+    pub fn batch_assign_board_clips(&self, ids: Vec<i64>, board_id: Option<i64>) -> Result<()> {
+        let conn = self.conn.lock();
+        for clip_id in ids {
+            if let Some(bid) = board_id {
+                conn.execute(
+                    "INSERT OR REPLACE INTO clip_boards (clip_id, board_id) VALUES (?1, ?2)",
+                    params![clip_id, bid],
+                )?;
+                conn.execute(
+                    "UPDATE clips SET board_id = ?1 WHERE id = ?2",
+                    params![bid, clip_id],
+                )?;
+            } else {
+                conn.execute("DELETE FROM clip_boards WHERE clip_id = ?1", params![clip_id])?;
+                conn.execute("UPDATE clips SET board_id = NULL WHERE id = ?1", params![clip_id])?;
+            }
+        }
+        Ok(())
     }
 
     pub fn get_analytics_summary(&self) -> Result<AnalyticsSummary> {
@@ -1846,5 +1884,21 @@ mod tests {
         let versions = db.get_clip_versions(clip.id).unwrap();
         assert_eq!(versions.len(), 2);
         assert_eq!(versions[0].text_content, "Transformed Uppercase Content");
+    }
+
+    #[test]
+    fn test_batch_operations() {
+        let db = setup_test_db();
+        let clip1 = db.save_clip("text", Some("Batch 1"), None, None, "HashB1", "App").unwrap();
+        let clip2 = db.save_clip("text", Some("Batch 2"), None, None, "HashB2", "App").unwrap();
+
+        db.batch_pin_clips(vec![clip1.id, clip2.id], true).unwrap();
+        let pinned = db.get_clips(None, None, true).unwrap();
+        assert_eq!(pinned.len(), 2);
+
+        db.batch_trash_clips(vec![clip1.id]).unwrap();
+        let trashed = db.get_trashed_clips().unwrap();
+        assert_eq!(trashed.len(), 1);
+        assert_eq!(trashed[0].id, clip1.id);
     }
 }

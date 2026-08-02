@@ -32,7 +32,7 @@ interface ClipCardProps {
   isQueueMode?: boolean;
   queueIndex?: number;
   rowHeight?: 'small' | 'medium' | 'large';
-  onSelect: () => void;
+  onSelect: (e: React.MouseEvent) => void;
   onPin: () => void;
   onToggleProtected?: () => void;
   onDelete: (e?: React.MouseEvent) => void;

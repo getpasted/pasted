@@ -190,6 +190,32 @@ pub fn create_tag(
 }
 
 #[tauri::command]
+pub fn batch_pin_clips(
+    ids: Vec<i64>,
+    pin_state: bool,
+    db: State<'_, Arc<DbState>>,
+) -> Result<(), String> {
+    db.batch_pin_clips(ids, pin_state).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn batch_trash_clips(
+    ids: Vec<i64>,
+    db: State<'_, Arc<DbState>>,
+) -> Result<(), String> {
+    db.batch_trash_clips(ids).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn batch_assign_board_clips(
+    ids: Vec<i64>,
+    board_id: Option<i64>,
+    db: State<'_, Arc<DbState>>,
+) -> Result<(), String> {
+    db.batch_assign_board_clips(ids, board_id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub fn copy_clip_to_system(
     text: Option<String>,
     image_base64: Option<String>,
