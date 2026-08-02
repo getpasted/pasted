@@ -16,6 +16,7 @@ pub struct ClipItem {
     pub is_pinned: bool,
     pub is_protected: bool,
     pub board_id: Option<i64>,
+    pub board_ids: Option<Vec<i64>>,
     pub note: Option<String>,
     pub is_trashed: bool,
     pub trashed_at: Option<String>,
@@ -528,6 +529,7 @@ impl DbState {
              FROM clips WHERE id = ?1",
             params![id],
             |row| {
+                let bid: Option<i64> = row.get(9)?;
                 Ok(ClipItem {
                     id: row.get(0)?,
                     content_type: row.get(1)?,
@@ -538,7 +540,8 @@ impl DbState {
                     source_app: row.get(6)?,
                     is_pinned: row.get::<_, i32>(7)? != 0,
                     is_protected: row.get::<_, i32>(8)? != 0,
-                    board_id: row.get(9)?,
+                    board_id: bid,
+                    board_ids: bid.map(|b| vec![b]),
                     note: row.get(10)?,
                     is_trashed: row.get::<_, i32>(11)? != 0,
                     trashed_at: row.get(12)?,
@@ -565,7 +568,8 @@ impl DbState {
         }
 
         let mut sql = String::from(
-            "SELECT id, content_type, text_content, NULL as html_content, image_base64, content_hash, source_app, is_pinned, is_protected, board_id, note, is_trashed, trashed_at, created_at 
+            "SELECT id, content_type, text_content, NULL as html_content, image_base64, content_hash, source_app, is_pinned, is_protected, board_id, note, is_trashed, trashed_at, created_at,
+             (SELECT GROUP_CONCAT(board_id) FROM clip_boards WHERE clip_id = clips.id) as board_ids_str
              FROM clips WHERE (is_trashed IS NULL OR is_trashed = 0)"
         );
 
@@ -659,6 +663,22 @@ impl DbState {
 
         let mut stmt = conn.prepare(&sql)?;
         let clip_iter = stmt.query_map(param_refs.as_slice(), |row| {
+            let primary_bid: Option<i64> = row.get(9)?;
+            let board_ids_str: Option<String> = row.get(14)?;
+            let mut b_ids = Vec::new();
+            if let Some(b) = primary_bid {
+                b_ids.push(b);
+            }
+            if let Some(ref s) = board_ids_str {
+                for part in s.split(',') {
+                    if let Ok(parsed_id) = part.parse::<i64>() {
+                        if !b_ids.contains(&parsed_id) {
+                            b_ids.push(parsed_id);
+                        }
+                    }
+                }
+            }
+
             Ok(ClipItem {
                 id: row.get(0)?,
                 content_type: row.get(1)?,
@@ -669,7 +689,8 @@ impl DbState {
                 source_app: row.get(6)?,
                 is_pinned: row.get::<_, i32>(7)? != 0,
                 is_protected: row.get::<_, i32>(8)? != 0,
-                board_id: row.get(9)?,
+                board_id: primary_bid,
+                board_ids: Some(b_ids),
                 note: row.get(10)?,
                 is_trashed: row.get::<_, i32>(11)? != 0,
                 trashed_at: row.get(12)?,
@@ -691,6 +712,7 @@ impl DbState {
              FROM clips WHERE is_trashed = 1 ORDER BY trashed_at DESC"
         )?;
         let clip_iter = stmt.query_map([], |row| {
+            let bid: Option<i64> = row.get(9)?;
             Ok(ClipItem {
                 id: row.get(0)?,
                 content_type: row.get(1)?,
@@ -701,7 +723,8 @@ impl DbState {
                 source_app: row.get(6)?,
                 is_pinned: row.get::<_, i32>(7)? != 0,
                 is_protected: row.get::<_, i32>(8)? != 0,
-                board_id: row.get(9)?,
+                board_id: bid,
+                board_ids: bid.map(|b| vec![b]),
                 note: row.get(10)?,
                 is_trashed: row.get::<_, i32>(11)? != 0,
                 trashed_at: row.get(12)?,
@@ -722,6 +745,7 @@ impl DbState {
              FROM clips WHERE is_protected = 1 AND (is_trashed IS NULL OR is_trashed = 0) ORDER BY created_at DESC"
         )?;
         let clip_iter = stmt.query_map([], |row| {
+            let bid: Option<i64> = row.get(9)?;
             Ok(ClipItem {
                 id: row.get(0)?,
                 content_type: row.get(1)?,
@@ -732,7 +756,8 @@ impl DbState {
                 source_app: row.get(6)?,
                 is_pinned: row.get::<_, i32>(7)? != 0,
                 is_protected: row.get::<_, i32>(8)? != 0,
-                board_id: row.get(9)?,
+                board_id: bid,
+                board_ids: bid.map(|b| vec![b]),
                 note: row.get(10)?,
                 is_trashed: row.get::<_, i32>(11)? != 0,
                 trashed_at: row.get(12)?,

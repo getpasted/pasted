@@ -568,7 +568,7 @@ export default function App() {
 
           if (conds.length > 0) {
             list = list.filter((clip) => {
-              if (clip.board_id === selectedBoardId) return true;
+              if (clip.board_id === selectedBoardId || (clip.board_ids && clip.board_ids.includes(selectedBoardId))) return true;
 
               const checkCond = (cond: { type: string; operator?: string; value: string }) => {
                 const val = (cond.value || '').toLowerCase().trim();
@@ -592,13 +592,13 @@ export default function App() {
               }
             });
           } else {
-            list = list.filter((c) => c.board_id === selectedBoardId);
+            list = list.filter((c) => c.board_id === selectedBoardId || (c.board_ids && c.board_ids.includes(selectedBoardId)));
           }
         } catch {
-          list = list.filter((c) => c.board_id === selectedBoardId);
+          list = list.filter((c) => c.board_id === selectedBoardId || (c.board_ids && c.board_ids.includes(selectedBoardId)));
         }
       } else {
-        list = list.filter((c) => c.board_id === selectedBoardId);
+        list = list.filter((c) => c.board_id === selectedBoardId || (c.board_ids && c.board_ids.includes(selectedBoardId)));
       }
     }
 
@@ -843,9 +843,31 @@ export default function App() {
 
     // 0ms optimistic state mutation for clip
     setAllClips((prev) =>
-      prev.map((c) => (c.id === clipId ? { ...c, board_id: boardId } : c))
+      prev.map((c) => {
+        if (c.id !== clipId) return c;
+        const currentBids = c.board_ids ? [...c.board_ids] : (c.board_id ? [c.board_id] : []);
+        let nextBids: number[];
+        if (boardId === null) {
+          nextBids = [];
+        } else {
+          nextBids = Array.from(new Set([...currentBids, boardId]));
+        }
+        return {
+          ...c,
+          board_id: boardId,
+          board_ids: nextBids,
+        };
+      })
     );
-    setSelectedClip((prev) => (prev && prev.id === clipId ? { ...prev, board_id: boardId } : prev));
+    setSelectedClip((prev) =>
+      prev && prev.id === clipId
+        ? {
+            ...prev,
+            board_id: boardId,
+            board_ids: boardId === null ? [] : Array.from(new Set([...(prev.board_ids || []), boardId])),
+          }
+        : prev
+    );
 
     // 0ms optimistic board count update for sidebar badge
     if (oldBoardId !== boardId) {
