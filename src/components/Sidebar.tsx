@@ -1,5 +1,4 @@
 import React from 'react';
-import { invoke } from '@tauri-apps/api/core';
 import { formatEmojiIcon } from '../utils/emoji';
 import {
   Clipboard,
@@ -28,9 +27,10 @@ interface SidebarProps {
   selectedBoardId: number | null;
   setSelectedBoardId: (id: number | null) => void;
   boards: Board[];
-  onRefreshBoards: () => void;
+  onRefreshBoards?: () => void;
   onOpenNewBoardModal: () => void;
   onEditBoard?: (board: Board) => void;
+  onDeleteBoard?: (board: Board) => void;
   onBoardContextMenu?: (x: number, y: number, board: Board) => void;
   searchQuery: string;
   setSearchQuery: (q: string) => void;
@@ -52,9 +52,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   selectedBoardId,
   setSelectedBoardId,
   boards,
-  onRefreshBoards,
   onOpenNewBoardModal,
   onEditBoard,
+  onDeleteBoard,
   onBoardContextMenu,
   searchQuery,
   setSearchQuery,
@@ -562,20 +562,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           type="button"
                           onPointerDown={(e) => e.stopPropagation()}
                           onMouseDown={(e) => e.stopPropagation()}
-                          onClick={async (e) => {
+                          onClick={(e) => {
                             e.stopPropagation();
-                            if (confirm(`Delete bin "${b.name}"?`)) {
-                              try {
-                                await invoke('delete_board', { id: b.id });
-                                onRefreshBoards();
-                                if (selectedBoardId === b.id) {
-                                  setCurrentTab('all');
-                                  setSelectedBoardId(null);
-                                }
-                              } catch (err) {
-                                console.error(err);
-                              }
-                            }
+                            if (onDeleteBoard) onDeleteBoard(b);
                           }}
                           className="p-1 text-gray-400 hover:text-red-400 hover:bg-white/10 rounded transition-colors cursor-pointer"
                           title="Delete Bin"

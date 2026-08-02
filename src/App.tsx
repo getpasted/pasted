@@ -279,6 +279,9 @@ export default function App() {
     board: Board;
   } | null>(null);
 
+  // Custom Bin Deletion Confirmation Modal State
+  const [binToDelete, setBinToDelete] = useState<Board | null>(null);
+
   // Resizable Column Widths (stored in localStorage with min/max bounds)
   const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
     const saved = localStorage.getItem('pasted_sidebar_width');
@@ -924,6 +927,7 @@ export default function App() {
           setEditingBoard(board);
           setIsBoardModalOpen(true);
         }}
+        onDeleteBoard={(board) => setBinToDelete(board)}
         onBoardContextMenu={(x, y, board) => setBoardContextMenu({ x, y, board })}
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
@@ -1216,22 +1220,11 @@ export default function App() {
           <div className="border-t border-white/10 my-1" />
           <button
             type="button"
-            onClick={async (e) => {
+            onClick={(e) => {
               e.stopPropagation();
               const b = boardContextMenu.board;
               setBoardContextMenu(null);
-              if (confirm(`Delete bin "${b.name}"?`)) {
-                try {
-                  await invoke('delete_board', { id: b.id });
-                  fetchBoards();
-                  if (selectedBoardId === b.id) {
-                    setCurrentTab('all');
-                    setSelectedBoardId(null);
-                  }
-                } catch (err) {
-                  console.error(err);
-                }
-              }
+              setBinToDelete(b);
             }}
             className="w-full flex items-center space-x-2 px-2.5 py-1.5 rounded-md text-red-400 hover:bg-red-600 hover:text-white transition-colors cursor-pointer"
           >
@@ -1252,6 +1245,52 @@ export default function App() {
         }}
         onRefreshBoards={fetchBoards}
       />
+
+      {/* Delete Bin Confirmation Modal */}
+      {binToDelete && (
+        <div className="fixed inset-0 z-[10000] bg-black/60 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-150">
+          <div className="bg-[#212121] border border-gray-700/80 rounded-2xl p-5 max-w-sm w-full shadow-2xl space-y-4">
+            <div className="flex items-center space-x-3">
+              <div className="p-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-gray-100">Delete Bin "{binToDelete.name}"?</h3>
+                <p className="text-xs text-gray-400 mt-0.5">Clips in this bin will be unassigned and preserved.</p>
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setBinToDelete(null)}
+                className="px-4 py-1.5 rounded-xl bg-[#343744] hover:bg-[#3d4150] text-gray-200 text-xs font-semibold transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    await invoke('delete_board', { id: binToDelete.id });
+                    setBinToDelete(null);
+                    fetchBoards();
+                    if (selectedBoardId === binToDelete.id) {
+                      setCurrentTab('all');
+                      setSelectedBoardId(null);
+                    }
+                  } catch (err) {
+                    console.error(err);
+                  }
+                }}
+                className="px-4 py-1.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-semibold transition-colors shadow-md cursor-pointer"
+              >
+                Delete Bin
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Clear History Confirmation Modal */}
       {isClearConfirmOpen && (
