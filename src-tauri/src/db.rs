@@ -1032,24 +1032,61 @@ impl DbState {
         for (id, name, icon, color, smart_rule, shortcut, created_at) in board_rows {
             let count: i64 = if let Some(ref sr_json) = smart_rule {
                 if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(sr_json) {
-                    let rule_type = parsed["type"].as_str().unwrap_or("");
-                    let rule_val = parsed["value"].as_str().unwrap_or("");
-                    if rule_type == "content_type" {
-                        conn.query_row("SELECT COUNT(*) FROM clips WHERE content_type = ?1", params![rule_val], |r| r.get(0)).unwrap_or(0)
-                    } else if rule_type == "source_app" {
-                        let pat = format!("%{}%", rule_val);
-                        conn.query_row("SELECT COUNT(*) FROM clips WHERE source_app LIKE ?1", params![pat], |r| r.get(0)).unwrap_or(0)
-                    } else if rule_type == "contains" {
-                        let pat = format!("%{}%", rule_val);
-                        conn.query_row("SELECT COUNT(*) FROM clips WHERE text_content LIKE ?1", params![pat], |r| r.get(0)).unwrap_or(0)
+                    let match_mode = parsed["match"].as_str().unwrap_or("any");
+                    let is_and = match_mode == "all";
+                    let join_op = if is_and { " AND " } else { " OR " };
+
+                    let mut cond_sqls: Vec<String> = Vec::new();
+                    let mut query_params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
+
+                    if let Some(conds) = parsed["conditions"].as_array() {
+                        for cond in conds {
+                            let c_type = cond["type"].as_str().unwrap_or("");
+                            let c_val = cond["value"].as_str().unwrap_or("");
+                            if !c_val.trim().is_empty() {
+                                if c_type == "content_type" {
+                                    cond_sqls.push("content_type = ?".to_string());
+                                    query_params.push(Box::new(c_val.to_string()));
+                                } else if c_type == "source_app" {
+                                    cond_sqls.push("source_app LIKE ?".to_string());
+                                    query_params.push(Box::new(format!("%{}%", c_val)));
+                                } else if c_type == "contains" {
+                                    cond_sqls.push("text_content LIKE ?".to_string());
+                                    query_params.push(Box::new(format!("%{}%", c_val)));
+                                }
+                            }
+                        }
                     } else {
-                        conn.query_row("SELECT COUNT(*) FROM clips WHERE board_id = ?1", params![id], |r| r.get(0)).unwrap_or(0)
+                        let rule_type = parsed["type"].as_str().unwrap_or("");
+                        let rule_val = parsed["value"].as_str().unwrap_or("");
+                        if !rule_val.trim().is_empty() {
+                            if rule_type == "content_type" {
+                                cond_sqls.push("content_type = ?".to_string());
+                                query_params.push(Box::new(rule_val.to_string()));
+                            } else if rule_type == "source_app" {
+                                cond_sqls.push("source_app LIKE ?".to_string());
+                                query_params.push(Box::new(format!("%{}%", rule_val)));
+                            } else if rule_type == "contains" {
+                                cond_sqls.push("text_content LIKE ?".to_string());
+                                query_params.push(Box::new(format!("%{}%", rule_val)));
+                            }
+                        }
+                    }
+
+                    if !cond_sqls.is_empty() {
+                        let combined = cond_sqls.join(join_op);
+                        let sql = format!("SELECT COUNT(*) FROM clips WHERE (is_trashed IS NULL OR is_trashed = 0) AND (({}) OR board_id = ?)", combined);
+                        query_params.push(Box::new(id));
+                        let param_refs: Vec<&dyn rusqlite::ToSql> = query_params.iter().map(|p| p.as_ref()).collect();
+                        conn.query_row(&sql, param_refs.as_slice(), |r| r.get(0)).unwrap_or(0)
+                    } else {
+                        conn.query_row("SELECT COUNT(*) FROM clips WHERE (is_trashed IS NULL OR is_trashed = 0) AND board_id = ?1", params![id], |r| r.get(0)).unwrap_or(0)
                     }
                 } else {
-                    conn.query_row("SELECT COUNT(*) FROM clips WHERE board_id = ?1", params![id], |r| r.get(0)).unwrap_or(0)
+                    conn.query_row("SELECT COUNT(*) FROM clips WHERE (is_trashed IS NULL OR is_trashed = 0) AND board_id = ?1", params![id], |r| r.get(0)).unwrap_or(0)
                 }
             } else {
-                conn.query_row("SELECT COUNT(*) FROM clips WHERE board_id = ?1", params![id], |r| r.get(0)).unwrap_or(0)
+                conn.query_row("SELECT COUNT(*) FROM clips WHERE (is_trashed IS NULL OR is_trashed = 0) AND board_id = ?1", params![id], |r| r.get(0)).unwrap_or(0)
             };
 
             boards.push(Board {

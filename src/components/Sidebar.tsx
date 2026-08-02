@@ -524,15 +524,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     <div className="flex items-center justify-end shrink-0 pl-1">
                       {/* Default State: Smart Rule Icon + Clip Count Badge */}
                       <div className={`flex items-center space-x-1.5 ${isDragging ? '' : 'group-hover:hidden'}`}>
-                        {b.smart_rule && (
-                          <span title="Smart Pasteboard Rule Active">
-                            <Sparkles className="w-3 h-3 text-amber-400" />
+                        {b.smart_rule ? (
+                          <span
+                            title={`Smart Bin Rule Active (${b.clip_count ?? 0} matching clips)`}
+                            className="sidebar-badge text-[11px] px-1.5 py-0.5 rounded-md bg-white/10 text-gray-300 font-mono flex items-center space-x-1"
+                          >
+                            <Sparkles className="w-3 h-3 text-amber-400 shrink-0" />
+                            <span>{b.clip_count ?? 0}</span>
                           </span>
-                        )}
-                        {!!b.clip_count && b.clip_count > 0 && (
-                          <span className="sidebar-badge text-[11px] px-1.5 py-0.5 rounded-md bg-white/10 text-gray-300 font-mono">
-                            {b.clip_count}
-                          </span>
+                        ) : (
+                          !!b.clip_count && b.clip_count > 0 && (
+                            <span className="sidebar-badge text-[11px] px-1.5 py-0.5 rounded-md bg-white/10 text-gray-300 font-mono">
+                              {b.clip_count}
+                            </span>
+                          )
                         )}
                       </div>
 
