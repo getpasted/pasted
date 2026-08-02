@@ -1278,17 +1278,15 @@ export default function App() {
                 </span>
                 <div className="h-4 w-px bg-gray-700" />
                 <button
-                  onClick={async () => {
+                  onClick={() => {
                     const ids = Array.from(selectedClipIds);
                     setAllClips((prev) =>
                       prev.map((c) => (ids.includes(c.id) ? { ...c, is_pinned: true } : c))
                     );
-                    try {
-                      await invoke('batch_pin_clips', { ids, pinState: true });
-                    } catch (err) {
+                    invoke('batch_pin_clips', { ids, pinState: true }).catch((err) => {
                       console.error(err);
                       fetchClips();
-                    }
+                    });
                   }}
                   className="flex items-center space-x-1 hover:text-cyan-300 transition-colors font-medium cursor-pointer"
                 >
@@ -1296,17 +1294,15 @@ export default function App() {
                   <span>Pin All</span>
                 </button>
                 <button
-                  onClick={async () => {
+                  onClick={() => {
                     const ids = Array.from(selectedClipIds);
                     setAllClips((prev) =>
                       prev.map((c) => (ids.includes(c.id) ? { ...c, is_pinned: false } : c))
                     );
-                    try {
-                      await invoke('batch_pin_clips', { ids, pinState: false });
-                    } catch (err) {
+                    invoke('batch_pin_clips', { ids, pinState: false }).catch((err) => {
                       console.error(err);
                       fetchClips();
-                    }
+                    });
                   }}
                   className="flex items-center space-x-1 hover:text-cyan-300 transition-colors font-medium cursor-pointer"
                 >
@@ -1315,20 +1311,16 @@ export default function App() {
                 </button>
                 <div className="h-4 w-px bg-gray-700" />
                 <button
-                  onClick={async () => {
+                  onClick={() => {
                     const ids = Array.from(selectedClipIds);
                     setAllClips((prev) => prev.filter((c) => !ids.includes(c.id)));
                     setSelectedClipIds(new Set());
                     if (selectedClip && ids.includes(selectedClip.id)) setSelectedClip(null);
-                    try {
-                      await invoke('batch_trash_clips', { ids });
-                      fetchClips();
-                      fetchTrashedClips();
-                    } catch (err) {
+                    invoke('batch_trash_clips', { ids }).catch((err) => {
                       console.error(err);
                       fetchClips();
                       fetchTrashedClips();
-                    }
+                    });
                   }}
                   className="flex items-center space-x-1 text-red-400 hover:text-red-300 transition-colors font-medium cursor-pointer"
                 >
