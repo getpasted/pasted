@@ -134,7 +134,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
               }}
               className="w-full text-left px-3 py-1.5 rounded-md hover:bg-blue-600/30 hover:text-white"
             >
-              Unassigned
+              – None –
             </button>
 
             {boards.filter((b) => !b.smart_rule).map((b) => (
