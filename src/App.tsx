@@ -360,6 +360,38 @@ export default function App() {
     return () => window.removeEventListener('mousedown', handleClickOutside);
   }, [boardContextMenu]);
 
+  // Global Escape key listener to cancel any active modal or context menu
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (binToDelete) {
+          e.preventDefault();
+          e.stopPropagation();
+          setBinToDelete(null);
+        } else if (isClearConfirmOpen) {
+          e.preventDefault();
+          e.stopPropagation();
+          setIsClearConfirmOpen(false);
+        } else if (boardContextMenu) {
+          e.preventDefault();
+          e.stopPropagation();
+          setBoardContextMenu(null);
+        } else if (contextMenu) {
+          e.preventDefault();
+          e.stopPropagation();
+          setContextMenu(null);
+        } else if (isBoardModalOpen) {
+          e.preventDefault();
+          e.stopPropagation();
+          setIsBoardModalOpen(false);
+          setEditingBoard(null);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKeyDown, true);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown, true);
+  }, [binToDelete, isClearConfirmOpen, boardContextMenu, contextMenu, isBoardModalOpen]);
+
   // Load saved settings from SQLite database on mount
   useEffect(() => {
     invoke<Record<string, string>>('get_all_app_settings')
