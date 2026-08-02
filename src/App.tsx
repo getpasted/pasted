@@ -1259,7 +1259,7 @@ export default function App() {
             </div>
 
             <p className="text-xs text-gray-300 leading-relaxed bg-[#191b22] p-3 rounded-xl border border-gray-700/70">
-              Are you sure you want to delete all unpinned clipboard history? Pinned clips and custom pasteboard definitions will be safely preserved.
+              Are you sure you want to delete all unpinned clipboard history? Pinned clips and custom bin definitions will be safely preserved.
             </p>
 
             <div className="flex justify-end space-x-3 pt-2">

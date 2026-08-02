@@ -486,11 +486,11 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
         );
       })()}
 
-      {/* Quick Board Assignment & Note Section */}
-      <div className="preview-pasteboard-bar px-4 py-2 flex items-center justify-between text-xs border-b">
+      {/* Quick Bin Assignment & Note Section */}
+      <div className="preview-bin-bar px-4 py-2 flex items-center justify-between text-xs border-b">
         <div className="flex items-center space-x-2">
           <Folder className="w-3.5 h-3.5" />
-          <span>Pasteboard:</span>
+          <span>Bin:</span>
           <select
             value={clip.board_id ?? ''}
             onChange={(e) => {

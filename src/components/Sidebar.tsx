@@ -71,7 +71,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   // Section Collapse State
   const [isClipsOpen, setIsClipsOpen] = React.useState(true);
-  const [isPasteboardsOpen, setIsPasteboardsOpen] = React.useState(true);
+  const [isBinsOpen, setIsBinsOpen] = React.useState(true);
   const [isToolsOpen, setIsToolsOpen] = React.useState(true);
 
   // Board Drag & Drop Reorder State with 150ms Debounce
@@ -453,7 +453,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* Section 2: Bins */}
         <div>
           <div
-            onClick={() => setIsPasteboardsOpen(!isPasteboardsOpen)}
+            onClick={() => setIsBinsOpen(!isBinsOpen)}
             className="px-2.5 pb-1 flex items-center justify-between cursor-pointer select-none group"
             title="Click to toggle section"
           >
@@ -473,7 +473,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
           <div
             className={`transition-all duration-150 ease-in-out ${
-              isPasteboardsOpen ? 'max-h-[500px] opacity-100 mt-0 overflow-visible' : 'max-h-0 opacity-0 overflow-hidden'
+              isBinsOpen ? 'max-h-[500px] opacity-100 mt-0 overflow-visible' : 'max-h-0 opacity-0 overflow-hidden'
             }`}
           >
             <nav
@@ -550,7 +550,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             if (onEditBoard) onEditBoard(b);
                           }}
                           className="p-1 text-gray-400 hover:text-blue-400 hover:bg-white/10 rounded transition-colors cursor-pointer"
-                          title="Edit Pasteboard"
+                          title="Edit Bin"
                         >
                           <Edit3 className="w-3.5 h-3.5" />
                         </button>
@@ -558,7 +558,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           type="button"
                           onClick={async (e) => {
                             e.stopPropagation();
-                            if (confirm(`Delete pasteboard "${b.name}"?`)) {
+                            if (confirm(`Delete bin "${b.name}"?`)) {
                               try {
                                 await invoke('delete_board', { id: b.id });
                                 onRefreshBoards();
@@ -572,7 +572,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             }
                           }}
                           className="p-1 text-gray-400 hover:text-red-400 hover:bg-white/10 rounded transition-colors cursor-pointer"
-                          title="Delete Pasteboard"
+                          title="Delete Bin"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>

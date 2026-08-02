@@ -121,7 +121,7 @@ impl HotkeyManager {
             }
         }
 
-        // 9. Pasteboard Hotkeys
+        // 9. Bin Hotkeys
         if let Ok(boards) = db.get_boards() {
             for b in boards {
                 if let Some(sc) = b.shortcut {

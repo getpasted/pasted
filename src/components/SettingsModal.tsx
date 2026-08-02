@@ -389,7 +389,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       {isAltPressed ? 'Delete All Clips:' : 'Trash All Clips:'}
                     </span>
                     <p className="text-[11px] text-gray-400/90 leading-normal mt-0.5">
-                      Moves all unpinned and unprotected clips (including clips assigned to Pasteboards) into Trash. Hold Option ⌥ to permanently delete.
+                      Moves all unpinned and unprotected clips (including clips assigned to Bins) into Trash. Hold Option ⌥ to permanently delete.
                     </p>
                   </div>
                   <button
@@ -712,15 +712,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </p>
             </div>
 
-            {/* Custom Pasteboard Hotkeys */}
+            {/* Custom Bin Hotkeys */}
             <div className="space-y-2">
               <h4 className="font-bold text-gray-400 uppercase tracking-wider text-[10px]">
-                Custom Pasteboard Hotkeys ({boards?.length || 0})
+                Custom Bin Hotkeys ({boards?.length || 0})
               </h4>
 
               {(!boards || boards.length === 0) ? (
                 <p className="text-[11px] text-gray-500 italic p-2.5 bg-[#181818] rounded-xl border border-gray-800">
-                  No custom pasteboards created yet. Create pasteboards in the sidebar to assign global shortcuts.
+                  No custom bins created yet. Create bins in the sidebar to assign global shortcuts.
                 </p>
               ) : (
                 boards.map((b) => (
@@ -1072,7 +1072,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </div>
 
               <p className="text-xs theme-text-muted leading-relaxed">
-                All your clipboard history items, custom notes, smart pasteboards, and filter pipelines are currently saved <strong>100% locally and securely</strong> on this device inside your private SQLite database.
+                All your clipboard history items, custom notes, smart bins, and filter pipelines are currently saved <strong>100% locally and securely</strong> on this device inside your private SQLite database.
               </p>
 
               <div className="p-3 bg-gray-800/40 rounded-lg border border-gray-700/50 space-y-1.5 text-[11px] theme-text-muted">

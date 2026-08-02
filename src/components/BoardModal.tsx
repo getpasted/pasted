@@ -37,7 +37,7 @@ export const BoardModal: React.FC<BoardModalProps> = ({
   onClose,
   onRefreshBoards,
 }) => {
-  const [modalTab, setModalTab] = useState<'pasteboard' | 'smart' | 'filter'>('pasteboard');
+  const [modalTab, setModalTab] = useState<'bin' | 'smart' | 'filter'>('bin');
   const [name, setName] = useState('');
   const [selectedColor, setSelectedColor] = useState('#3b82f6');
   const [icon, setIcon] = useState('📂');
@@ -138,13 +138,13 @@ export const BoardModal: React.FC<BoardModalProps> = ({
             console.error(e);
           }
         } else {
-          setModalTab('pasteboard');
+          setModalTab('bin');
         }
       } else {
         setName('');
         setSelectedColor('#3b82f6');
         setIcon('📂');
-        setModalTab('pasteboard');
+        setModalTab('bin');
         setConditions([{ id: '1', target: 'source_app', operator: 'is', value: '1Password' }]);
       }
     }
@@ -237,9 +237,9 @@ export const BoardModal: React.FC<BoardModalProps> = ({
           <div className="flex theme-surface bg-[#181818] p-1 rounded-xl border border-gray-700/70 space-x-1">
             <button
               type="button"
-              onClick={() => setModalTab('pasteboard')}
+              onClick={() => setModalTab('bin')}
               className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all border ${
-                modalTab === 'pasteboard'
+                modalTab === 'bin'
                   ? 'settings-tab-active bg-[#383838] text-white border-gray-500/80 shadow-md'
                   : 'settings-tab-idle border-transparent text-gray-400'
               }`}
@@ -389,7 +389,7 @@ export const BoardModal: React.FC<BoardModalProps> = ({
             </div>
           </div>
 
-          {/* Smart Pasteboard Multi-Condition Builder */}
+          {/* Smart Bin Multi-Condition Builder */}
           {modalTab === 'smart' && (
             <div className="p-4 theme-surface bg-[#1b1c24] rounded-2xl border border-gray-700/80 space-y-3">
               {conditions.map((c) => (

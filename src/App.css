@@ -989,20 +989,20 @@ html.light .copy-clip-main-btn:hover {
   background-color: #0052a3 !important;
 }
 
-/* Pasteboard / Add Note Action Bar */
-.preview-pasteboard-bar {
+/* Bin / Add Note Action Bar */
+.preview-bin-bar {
   background-color: #171717;
   border-color: #2b2b2b;
   color: #d1d5db;
 }
 
-html.light .preview-pasteboard-bar {
+html.light .preview-bin-bar {
   background-color: #e8e8ed !important;
   border-color: #d1d1d6 !important;
   color: #1c1c1e !important;
 }
 
-html.light .preview-pasteboard-bar select {
+html.light .preview-bin-bar select {
   background-color: #ffffff !important;
   border-color: #c7c7cc !important;
   color: #1c1c1e !important;

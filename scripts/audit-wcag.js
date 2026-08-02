@@ -36,7 +36,7 @@ function getContrastRatio(hex1, hex2) {
 const testPairs = [
   // LIGHT SCHEME PAIRS
   { name: 'Light Mode - Copy Clip Button Text vs BG', fg: '#ffffff', bg: '#0066cc', minRatio: 4.5, scheme: 'Light' },
-  { name: 'Light Mode - Pasteboard Bar Text vs BG', fg: '#1c1c1e', bg: '#e8e8ed', minRatio: 4.5, scheme: 'Light' },
+  { name: 'Light Mode - Bin Bar Text vs BG', fg: '#1c1c1e', bg: '#e8e8ed', minRatio: 4.5, scheme: 'Light' },
   { name: 'Light Mode - Add Note Button Text vs BG', fg: '#713f12', bg: '#fef08a', minRatio: 4.5, scheme: 'Light' },
   { name: 'Light Mode - Notes Header Text vs BG', fg: '#b45309', bg: '#fefce8', minRatio: 4.5, scheme: 'Light' },
   { name: 'Light Mode - Note Item Text vs Row BG', fg: '#451a03', bg: '#ffffff', minRatio: 4.5, scheme: 'Light' },
@@ -46,7 +46,7 @@ const testPairs = [
 
   // DARK SCHEME PAIRS
   { name: 'Dark Mode - Copy Clip Button Text vs BG', fg: '#000000', bg: '#ffffff', minRatio: 4.5, scheme: 'Dark' },
-  { name: 'Dark Mode - Pasteboard Bar Text vs BG', fg: '#d1d5db', bg: '#171717', minRatio: 4.5, scheme: 'Dark' },
+  { name: 'Dark Mode - Bin Bar Text vs BG', fg: '#d1d5db', bg: '#171717', minRatio: 4.5, scheme: 'Dark' },
   { name: 'Dark Mode - Add Note Button Text vs BG', fg: '#fcd34d', bg: '#451a03', minRatio: 4.5, scheme: 'Dark' },
   { name: 'Dark Mode - Notes Header Text vs BG', fg: '#fbbf24', bg: '#171510', minRatio: 4.5, scheme: 'Dark' },
   { name: 'Dark Mode - Note Item Text vs Row BG', fg: '#fef3c7', bg: '#171510', minRatio: 4.5, scheme: 'Dark' },
