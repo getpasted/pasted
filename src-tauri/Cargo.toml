@@ -1,0 +1,55 @@
+[package]
+name = "pasted"
+version = "1.0.0"
+description = "Pasted - Native, Subscription-Free Clipboard Manager"
+authors = ["Antigravity"]
+edition = "2021"
+default-run = "pasted"
+
+[lib]
+name = "pasted_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "pasted"
+path = "src/main.rs"
+
+[[bin]]
+name = "pasted-cli"
+path = "src/bin/pasted_cli.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["macos-private-api", "tray-icon"] }
+tauri-plugin-opener = "2"
+tauri-plugin-global-shortcut = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rusqlite = { version = "0.32", features = ["bundled"] }
+arboard = "3.4"
+sha2 = "0.10"
+chrono = { version = "0.4", features = ["serde"] }
+regex = "1.10"
+parking_lot = "0.12"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp"] }
+base64 = "0.22"
+once_cell = "1.20"
+tauri-plugin-autostart = "2"
+tauri-plugin-single-instance = "2"
+window-vibrancy = "0.6"
+dirs = "6.0"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc = "0.2"
+
+[lints.rust]
+unexpected_cfgs = "allow"
+
+[profile.release]
+lto = true
+codegen-units = 1
+panic = "abort"
+opt-level = "z"
+strip = true

@@ -1,0 +1,899 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { Reorder, AnimatePresence } from 'framer-motion';
+import { formatClipDateTime } from '../utils/date';
+import { ClipItem, Board, FilterRule, ClipNote, parseClipNotes, serializeClipNotes } from '../types';
+import { parseColor, ColorFormats } from '../utils/color';
+import { soundManager } from '../utils/sound';
+import { detectSmartFilterRecommendations } from '../utils/smartFilterDetector';
+import {
+  Copy,
+  Check,
+  Trash2,
+  Sliders,
+  Folder,
+  FileText,
+  StickyNote,
+  Eye,
+  Edit3,
+  Palette,
+  Sparkles,
+  X,
+  ScanText,
+  ArrowUp,
+  ArrowDown,
+  GripVertical,
+} from 'lucide-react';
+import { invoke } from '@tauri-apps/api/core';
+
+interface ClipPreviewProps {
+  clip: ClipItem | null;
+  boards: Board[];
+  filters: FilterRule[];
+  onUpdateClip: () => void;
+  onDeleteClip: (id: number) => void;
+  onUpdateClipNote?: (clipId: number, noteContent: string | null) => void;
+}
+
+interface NoteRowItemProps {
+  noteItem: ClipNote;
+  index: number;
+  totalNotes: number;
+  noteBoxRef: React.RefObject<HTMLDivElement | null>;
+  editingNoteId: string | null;
+  editingNoteText: string;
+  setEditingNoteId: (id: string | null) => void;
+  setEditingNoteText: (text: string) => void;
+  saveNotes: (notes: ClipNote[]) => void;
+  notesRef: React.MutableRefObject<ClipNote[]>;
+  handleUpdateNoteItem: (id: string, text: string) => void;
+  handleMoveNoteUp: (index: number) => void;
+  handleMoveNoteDown: (index: number) => void;
+  handleDeleteNoteItem: (id: string) => void;
+  setViewingNote: (note: ClipNote | null) => void;
+}
+
+const NoteRowItem: React.FC<NoteRowItemProps> = ({
+  noteItem,
+  index,
+  totalNotes,
+  noteBoxRef,
+  editingNoteId,
+  editingNoteText,
+  setEditingNoteId,
+  setEditingNoteText,
+  saveNotes,
+  notesRef,
+  handleUpdateNoteItem,
+  handleMoveNoteUp,
+  handleMoveNoteDown,
+  handleDeleteNoteItem,
+  setViewingNote,
+}) => {
+  return (
+    <Reorder.Item
+      key={noteItem.id}
+      value={noteItem}
+      drag={totalNotes > 1 ? 'y' : false}
+      dragConstraints={noteBoxRef}
+      dragElastic={0}
+      onDragEnd={() => {
+        if (totalNotes > 1) {
+          saveNotes(notesRef.current);
+        }
+      }}
+      layout="position"
+      initial={{ opacity: 0, height: 0 }}
+      animate={{ opacity: 1, height: 'auto' }}
+      exit={{ opacity: 0, x: -24, scale: 0.95, height: 0 }}
+      transition={{ duration: 0 }}
+      className={`note-row group min-h-[38px] px-3 py-2 bg-[#171510] hover:bg-[#201d16] flex items-center justify-between space-x-3 border-transparent select-none ${
+        totalNotes > 1 ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'
+      }`}
+    >
+      {editingNoteId === noteItem.id ? (
+        <div className="flex-1 flex flex-col space-y-2 p-1">
+          <textarea
+            rows={3}
+            value={editingNoteText}
+            onChange={(e) => setEditingNoteText(e.target.value)}
+            className="w-full bg-transparent border-none outline-none focus:outline-none focus:ring-0 text-xs text-amber-200 resize-y min-h-[60px] note-input font-sans leading-relaxed"
+            autoFocus
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') setEditingNoteId(null);
+            }}
+          />
+          <div className="flex items-center justify-end space-x-2">
+            <button
+              type="button"
+              onClick={() => setEditingNoteId(null)}
+              className="px-2.5 py-1 bg-[#2c2921] hover:bg-[#3a362c] text-gray-300 rounded text-xs font-medium transition-colors cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => handleUpdateNoteItem(noteItem.id, editingNoteText)}
+              className="flex items-center space-x-1 px-2.5 py-1 bg-amber-600 hover:bg-amber-500 text-white rounded text-xs font-semibold shadow cursor-pointer"
+            >
+              <Check className="w-3.5 h-3.5" />
+              <span>Save</span>
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="flex items-start space-x-2 truncate flex-1 select-none py-1">
+            {totalNotes > 1 && (
+              <GripVertical className="w-3.5 h-3.5 text-amber-400/40 group-hover:text-amber-400 shrink-0 transition-colors mt-0.5 note-icon-btn" />
+            )}
+            <span className="note-text text-xs text-amber-100 font-normal whitespace-pre-wrap break-words leading-relaxed select-none">
+              {noteItem.text}
+            </span>
+          </div>
+
+          <div className="opacity-40 group-hover:opacity-100 transition-opacity duration-150 flex items-center space-x-1 shrink-0">
+            {totalNotes > 1 && (
+              <>
+                <button
+                  type="button"
+                  disabled={index === 0}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleMoveNoteUp(index);
+                  }}
+                  className="note-icon-btn p-1 text-amber-400/70 hover:text-amber-200 disabled:opacity-20 rounded transition-colors"
+                  title="Move Note Up"
+                >
+                  <ArrowUp className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  disabled={index === totalNotes - 1}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleMoveNoteDown(index);
+                  }}
+                  className="note-icon-btn p-1 text-amber-400/70 hover:text-amber-200 disabled:opacity-20 rounded transition-colors"
+                  title="Move Note Down"
+                >
+                  <ArrowDown className="w-3.5 h-3.5" />
+                </button>
+              </>
+            )}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setViewingNote(noteItem);
+              }}
+              className="note-icon-btn p-1 text-amber-400/70 hover:text-amber-200 hover:bg-white/10 rounded transition-colors"
+              title="View Note Modal"
+            >
+              <Eye className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setEditingNoteId(noteItem.id);
+                setEditingNoteText(noteItem.text);
+              }}
+              className="note-icon-btn p-1 text-amber-400/70 hover:text-amber-200 hover:bg-white/10 rounded transition-colors"
+              title="Edit Note"
+            >
+              <Edit3 className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDeleteNoteItem(noteItem.id);
+              }}
+              className="note-icon-btn p-1 text-amber-400/70 hover:text-red-400 hover:bg-white/10 rounded transition-colors"
+              title="Delete Note"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </>
+      )}
+    </Reorder.Item>
+  );
+};
+
+const CLEVER_PLACEHOLDERS = [
+  "Add a note before future-you forgets why you copied this...",
+  "Jot down your secret brilliance...",
+  "What's the tea on this snippet?...",
+  "Note to self: Don't lose this thought...",
+  "Drop some wisdom, context, or grocery items...",
+];
+
+export const ClipPreview: React.FC<ClipPreviewProps> = ({
+  clip,
+  boards,
+  filters,
+  onUpdateClip,
+  onDeleteClip,
+  onUpdateClipNote,
+}) => {
+  const [copied, setCopied] = useState(false);
+  const [copiedFormat, setCopiedFormat] = useState<string | null>(null);
+  const [transformedText, setTransformedText] = useState<string | null>(null);
+  const [activeFilterName, setActiveFilterName] = useState<string | null>(null);
+  const [notes, setNotes] = useState<ClipNote[]>(() => parseClipNotes(clip?.note));
+  const notesRef = useRef(notes);
+  const noteBoxRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    notesRef.current = notes;
+  }, [notes]);
+
+  const [isAddingNote, setIsAddingNote] = useState<boolean>(false);
+  const [newNoteText, setNewNoteText] = useState<string>('');
+  const [placeholderText, setPlaceholderText] = useState<string>(CLEVER_PLACEHOLDERS[0]);
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [editingNoteText, setEditingNoteText] = useState<string>('');
+  const [viewingNote, setViewingNote] = useState<ClipNote | null>(null);
+  const [isOcrLoading, setIsOcrLoading] = useState<boolean>(false);
+  const [resolvedImageBase64, setResolvedImageBase64] = useState<string | null>(clip?.image_base64 || null);
+
+  useEffect(() => {
+    if (clip?.content_type === 'image') {
+      if (clip.image_base64) {
+        setResolvedImageBase64(clip.image_base64);
+      } else {
+        invoke<string | null>('get_clip_image', { id: clip.id })
+          .then((b64) => setResolvedImageBase64(b64))
+          .catch(console.error);
+      }
+    } else {
+      setResolvedImageBase64(null);
+    }
+  }, [clip?.id, clip?.image_base64, clip?.content_type]);
+
+  useEffect(() => {
+    setTransformedText(null);
+    setActiveFilterName(null);
+    const parsed = parseClipNotes(clip?.note);
+    setNotes(parsed);
+    notesRef.current = parsed;
+    setIsAddingNote(false);
+    setNewNoteText('');
+    setEditingNoteId(null);
+    setViewingNote(null);
+    setIsOcrLoading(false);
+    setCopiedFormat(null);
+  }, [clip]);
+
+  const saveNotes = (updatedNotes: ClipNote[]) => {
+    if (!clip) return;
+    setNotes(updatedNotes);
+    const serialized = serializeClipNotes(updatedNotes);
+    clip.note = serialized;
+    if (onUpdateClipNote) {
+      onUpdateClipNote(clip.id, serialized);
+    }
+    invoke('update_clip_note', {
+      clipId: clip.id,
+      note: serialized,
+    }).catch((e) => console.error('Failed to update clip note:', e));
+  };
+
+  const handleCreateNote = () => {
+    if (!newNoteText.trim()) return;
+    const newNote: ClipNote = {
+      id: `note-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      text: newNoteText.trim(),
+      created_at: new Date().toISOString(),
+    };
+    const updated = [...notes, newNote];
+    setNewNoteText('');
+    setIsAddingNote(false);
+    saveNotes(updated);
+  };
+
+  const handleUpdateNoteItem = (id: string, text: string) => {
+    const updated = notes
+      .map((n) => (n.id === id ? { ...n, text: text.trim() } : n))
+      .filter((n) => n.text.length > 0);
+    setEditingNoteId(null);
+    saveNotes(updated);
+  };
+
+  const handleDeleteNoteItem = (id: string) => {
+    const updated = notes.filter((n) => n.id !== id);
+    setNotes(updated);
+    saveNotes(updated);
+  };
+
+  const handleMoveNoteUp = (index: number) => {
+    if (index === 0) return;
+    const reordered = [...notes];
+    const [item] = reordered.splice(index, 1);
+    reordered.splice(index - 1, 0, item);
+    saveNotes(reordered);
+  };
+
+  const handleMoveNoteDown = (index: number) => {
+    if (index === notes.length - 1) return;
+    const reordered = [...notes];
+    const [item] = reordered.splice(index, 1);
+    reordered.splice(index + 1, 0, item);
+    saveNotes(reordered);
+  };
+
+  const handleRunOCR = async () => {
+    if (!clip) return;
+    setIsOcrLoading(true);
+    try {
+      await invoke<string>('extract_ocr_from_clip', { clipId: clip.id });
+      soundManager.playCopySound(true);
+      onUpdateClip();
+    } catch (e) {
+      console.error('OCR Extraction Failed:', e);
+    } finally {
+      setIsOcrLoading(false);
+    }
+  };
+
+  if (!clip) {
+    return (
+      <div data-tauri-drag-region className="flex-1 col-preview h-screen flex flex-col items-center justify-center text-gray-500 bg-[#212121] p-8 select-none border-l border-[#2b2b2b]">
+        <div data-tauri-drag-region className="w-16 h-16 rounded-2xl bg-[#181818] border border-gray-700/60 flex items-center justify-center mb-4 shadow-xl">
+          <FileText className="w-8 h-8 text-gray-400" />
+        </div>
+        <p data-tauri-drag-region className="text-sm font-medium text-gray-300">No Clip Selected</p>
+        <p data-tauri-drag-region className="text-xs text-gray-500 mt-1 max-w-xs text-center">
+          Select an item from history or right-click to copy, filter, add notes, or organize.
+        </p>
+      </div>
+    );
+  }
+
+  const displayText = transformedText ?? clip.text_content ?? '';
+  const colorData: ColorFormats | null =
+    clip.content_type === 'color' || (displayText && displayText.length < 30)
+      ? parseColor(displayText)
+      : null;
+
+  const handleCopy = async () => {
+    try {
+      await invoke('copy_clip_to_system', {
+        text: displayText,
+        imageBase64: clip.content_type === 'image' ? clip.image_base64 : null,
+      });
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleCopySpecificFormat = async (label: string, value: string) => {
+    try {
+      await invoke('copy_clip_to_system', { text: value, imageBase64: null });
+      setCopiedFormat(label);
+      soundManager.playCopySound(true);
+      setTimeout(() => setCopiedFormat(null), 2000);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleApplyFilter = async (filter: FilterRule) => {
+    if (!clip.text_content) return;
+    try {
+      const res = await invoke<string>('transform_text', {
+        input: clip.text_content,
+        filterType: filter.filter_type,
+        config: filter.config,
+      });
+      setTransformedText(res);
+      setActiveFilterName(filter.name);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleResetTransform = () => {
+    setTransformedText(null);
+    setActiveFilterName(null);
+  };
+
+  const handleAssignBoard = async (boardId: number | null) => {
+    try {
+      await invoke('assign_clip_board', { clipId: clip.id, boardId });
+      onUpdateClip();
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const charCount = displayText.length;
+  const wordCount = displayText.trim() ? displayText.trim().split(/\s+/).length : 0;
+  const lineCount = displayText ? displayText.split('\n').length : 0;
+
+  return (
+    <div className="flex-1 col-preview h-screen flex flex-col bg-[#212121] border-l border-[#2b2b2b] overflow-hidden">
+      {/* Finder Top Header Bar */}
+      <div
+        data-tauri-drag-region
+        className="h-[60px] border-b border-[#2b2b2b] bg-[#171717]/80 backdrop-blur-md px-4 flex items-center justify-between cursor-default titlebar-drag-handle shrink-0"
+      >
+        <div data-tauri-drag-region className="flex items-center space-x-3 titlebar-drag-handle">
+          <span data-tauri-drag-region className="text-xs font-semibold px-2.5 py-1 rounded-md bg-gray-800 text-gray-200 border border-gray-700 capitalize titlebar-drag-handle">
+            {clip.content_type}
+          </span>
+          <span data-tauri-drag-region className="text-xs text-gray-300 font-medium truncate max-w-[200px] titlebar-drag-handle">
+            {clip.source_app}
+          </span>
+        </div>
+
+        <div className="flex items-center space-x-2 titlebar-no-drag">
+          <button
+            onClick={handleCopy}
+            className="copy-clip-main-btn flex items-center space-x-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold shadow-md hover:-translate-y-0.5 active:scale-95 transition-all"
+          >
+            {copied ? (
+              <>
+                <Check className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Copied!</span>
+              </>
+            ) : (
+              <>
+                <Copy className="w-3.5 h-3.5" />
+                <span>Copy Clip</span>
+              </>
+            )}
+          </button>
+
+          <button
+            onClick={() => onDeleteClip(clip.id)}
+            className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-gray-800 hover:scale-110 active:scale-95 rounded-lg transition-all"
+            title="Delete Clip"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* Smart Recommended Actions Bar */}
+      {(() => {
+        const currentText = transformedText !== null ? transformedText : (clip.text_content || '');
+        const { detectedTypes, recommendedFilters } = detectSmartFilterRecommendations(currentText, filters);
+        if (recommendedFilters.length === 0) return null;
+
+        return (
+          <div className="px-4 py-2 bg-cyan-950/30 border-b border-cyan-800/40 flex items-center justify-between text-xs space-x-2 overflow-x-auto">
+            <div className="flex items-center space-x-1.5 shrink-0 text-cyan-400 font-semibold text-[11px]">
+              <Sparkles className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
+              <span>Smart Actions ({detectedTypes.join(', ')}):</span>
+            </div>
+            <div className="flex items-center space-x-1.5 overflow-x-auto scrollbar-none py-0.5">
+              {recommendedFilters.map((f) => (
+                <button
+                  key={f.id}
+                  onClick={() => handleApplyFilter(f)}
+                  className="px-2 py-0.5 rounded-md bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-200 border border-cyan-500/40 text-[11px] font-medium transition-all flex items-center space-x-1 whitespace-nowrap shadow-sm hover:scale-105"
+                  title={`Apply ${f.name}`}
+                >
+                  <span>{f.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Quick Board Assignment & Note Section */}
+      <div className="preview-pasteboard-bar px-4 py-2 flex items-center justify-between text-xs border-b">
+        <div className="flex items-center space-x-2">
+          <Folder className="w-3.5 h-3.5" />
+          <span>Pasteboard:</span>
+          <select
+            value={clip.board_id ?? ''}
+            onChange={(e) => {
+              const val = e.target.value;
+              handleAssignBoard(val ? Number(val) : null);
+            }}
+            className="bg-[#181818] border border-gray-700 text-gray-200 text-xs rounded-md px-2 py-1 focus:outline-none focus:border-gray-500"
+          >
+            <option value="">Unassigned</option>
+            {boards.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={() => {
+              if (!isAddingNote) {
+                const nextIdx = Math.floor(Math.random() * CLEVER_PLACEHOLDERS.length);
+                setPlaceholderText(CLEVER_PLACEHOLDERS[nextIdx]);
+              }
+              setIsAddingNote(!isAddingNote);
+            }}
+            className="add-note-btn flex items-center space-x-1.5 px-3 py-1 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:bg-amber-500/30 text-xs font-semibold transition-all cursor-pointer"
+          >
+            <StickyNote className="w-3.5 h-3.5" />
+            <span>+ Add Note</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Multi-Note Container (Inline Input Row, Framer Motion Animated Reordering, Non-Selectable) */}
+      {(notes.length > 0 || isAddingNote) && (
+        <div className="px-4 py-2.5 bg-amber-950/20 border-b border-amber-500/20 space-y-2 note-container select-none">
+          <div className="note-header-text flex items-center space-x-1.5 text-[11px] font-semibold text-amber-400 uppercase tracking-wider select-none">
+            <StickyNote className="w-3.5 h-3.5" />
+            <span>Notes ({notes.length})</span>
+          </div>
+
+          <div ref={noteBoxRef} className="note-row-box relative rounded-xl border border-amber-500/30 overflow-hidden shadow-sm bg-[#171510] divide-y divide-amber-500/20">
+            <Reorder.Group
+              axis="y"
+              values={notes}
+              onReorder={(newOrder) => {
+                setNotes(newOrder);
+              }}
+              className="divide-y divide-amber-500/20"
+            >
+              <AnimatePresence initial={false}>
+                {notes.map((noteItem, index) => (
+                  <NoteRowItem
+                    key={noteItem.id}
+                    noteItem={noteItem}
+                    index={index}
+                    totalNotes={notes.length}
+                    noteBoxRef={noteBoxRef}
+                    editingNoteId={editingNoteId}
+                    editingNoteText={editingNoteText}
+                    setEditingNoteId={setEditingNoteId}
+                    setEditingNoteText={setEditingNoteText}
+                    saveNotes={saveNotes}
+                    notesRef={notesRef}
+                    handleUpdateNoteItem={handleUpdateNoteItem}
+                    handleMoveNoteUp={handleMoveNoteUp}
+                    handleMoveNoteDown={handleMoveNoteDown}
+                    handleDeleteNoteItem={handleDeleteNoteItem}
+                    setViewingNote={setViewingNote}
+                  />
+                ))}
+              </AnimatePresence>
+            </Reorder.Group>
+
+            {/* Inline New Multiline Note Input Drawer */}
+            {isAddingNote && (
+              <div className="note-input-row p-3 bg-[#221f17] flex flex-col space-y-2 border-t border-amber-500/20 animate-in fade-in duration-100">
+                <textarea
+                  rows={3}
+                  placeholder={placeholderText}
+                  value={newNoteText}
+                  onChange={(e) => setNewNoteText(e.target.value)}
+                  className="w-full bg-transparent border-none outline-none focus:outline-none focus:ring-0 text-xs text-amber-100 placeholder-amber-400/50 resize-y min-h-[60px] note-input font-sans leading-relaxed"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape') {
+                      setIsAddingNote(false);
+                      setNewNoteText('');
+                    }
+                  }}
+                />
+                <div className="flex items-center justify-end space-x-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsAddingNote(false);
+                      setNewNoteText('');
+                    }}
+                    className="px-3 py-1 bg-[#2c2921] hover:bg-[#3a362c] text-gray-300 rounded-md text-xs font-medium transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCreateNote}
+                    className="flex items-center space-x-1 px-3 py-1 bg-amber-600 hover:bg-amber-500 text-white rounded-md text-xs font-semibold shadow cursor-pointer"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Save</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Main Preview Workspace */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 font-mono text-xs">
+        {activeFilterName && (
+          <div className="flex items-center justify-between px-3 py-2 bg-indigo-500/20 border border-indigo-500/40 rounded-lg text-indigo-300">
+            <div className="flex items-center space-x-2">
+              <Sliders className="w-4 h-4 text-cyan-400" />
+              <span>Filtered via: <strong>{activeFilterName}</strong></span>
+            </div>
+            <button
+              onClick={handleResetTransform}
+              className="text-xs underline hover:text-white"
+            >
+              Reset
+            </button>
+          </div>
+        )}
+
+        {/* Color Palette Card Mode */}
+        {colorData ? (
+          <div className="p-6 bg-[#161820] rounded-2xl border border-gray-800 shadow-2xl space-y-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2 text-amber-400 font-sans font-semibold text-xs">
+                <Palette className="w-4 h-4" />
+                <span>Color Inspector & Swatch Card</span>
+              </div>
+              <span className="text-[10px] text-gray-500 font-mono">WCAG Contrast Rated</span>
+            </div>
+
+            <div className="flex items-center space-x-6">
+              <div
+                className="w-24 h-24 rounded-2xl border-2 border-white/20 shadow-2xl transition-all duration-300 relative group shrink-0"
+                style={{
+                  backgroundColor: colorData.hex,
+                  boxShadow: `0 12px 32px ${colorData.hex}44`,
+                }}
+              >
+                <input
+                  type="color"
+                  value={colorData.hex}
+                  onChange={(e) => setTransformedText(e.target.value)}
+                  className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                  title="Click to pick color"
+                />
+              </div>
+
+              <div className="flex-1 space-y-2 font-sans">
+                <div className="text-xl font-bold text-gray-100 font-mono tracking-wider">
+                  {colorData.hex.toUpperCase()}
+                </div>
+                <div className="text-xs text-gray-400 font-mono">
+                  {colorData.rgb}
+                </div>
+                <div className="text-xs text-gray-400 font-mono">
+                  {colorData.hsl}
+                </div>
+              </div>
+            </div>
+
+            {/* Formats Grid */}
+            <div className="grid grid-cols-2 gap-2 font-sans">
+              {[
+                { label: 'HEX', val: colorData.hex },
+                { label: 'RGB', val: colorData.rgb },
+                { label: 'HSL', val: colorData.hsl },
+                { label: 'Tailwind BG', val: colorData.tailwindBg },
+              ].map((fmt) => (
+                <button
+                  key={fmt.label}
+                  onClick={() => handleCopySpecificFormat(fmt.label, fmt.val)}
+                  className="flex items-center justify-between px-3 py-2 rounded-xl bg-[#1d202c] hover:bg-[#272b3c] border border-gray-800 hover:border-gray-700 text-xs transition-all group"
+                >
+                  <div className="flex flex-col text-left truncate pr-2">
+                    <span className="text-[10px] text-gray-400 uppercase font-semibold">{fmt.label}</span>
+                    <span className="font-mono text-gray-200 truncate text-[11px]">{fmt.val}</span>
+                  </div>
+                  {copiedFormat === fmt.label ? (
+                    <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  ) : (
+                    <Copy className="w-3.5 h-3.5 text-gray-500 group-hover:text-gray-200 shrink-0 transition-colors" />
+                  )}
+                </button>
+              ))}
+            </div>
+
+            {/* Contrast Ratio Preview */}
+            <div className="pt-2 border-t border-gray-800/80 flex items-center justify-between text-xs font-sans">
+              <div
+                className="px-3 py-1.5 rounded-lg font-semibold flex items-center space-x-1.5 border border-white/10"
+                style={{ backgroundColor: colorData.hex, color: '#ffffff' }}
+              >
+                <span>White Text</span>
+                <span className="text-[10px] opacity-80">({colorData.contrastWithWhite}:1)</span>
+              </div>
+              <div
+                className="px-3 py-1.5 rounded-lg font-semibold flex items-center space-x-1.5 border border-black/10"
+                style={{ backgroundColor: colorData.hex, color: '#000000' }}
+              >
+                <span>Black Text</span>
+                <span className="text-[10px] opacity-80">({colorData.contrastWithBlack}:1)</span>
+              </div>
+            </div>
+          </div>
+        ) : clip.content_type === 'image' ? (
+          <div className="space-y-4 font-sans">
+            <div className="flex flex-col items-center justify-center p-6 bg-[#161820] rounded-xl border border-gray-800 shadow-inner">
+              {resolvedImageBase64 ? (
+                <img
+                  src={resolvedImageBase64}
+                  alt="Full Preview"
+                  className="max-h-96 object-contain rounded-lg shadow-2xl"
+                />
+              ) : (
+                <div className="flex items-center space-x-2 text-gray-400 py-12">
+                  <Sparkles className="w-5 h-5 animate-spin text-cyan-400" />
+                  <span>Loading image preview...</span>
+                </div>
+              )}
+            </div>
+
+            {/* Native macOS Vision OCR Card */}
+            <div className="p-4 bg-[#161820] rounded-xl border border-gray-800 space-y-3 shadow-lg">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2 text-cyan-400 font-semibold text-xs">
+                  <ScanText className="w-4 h-4" />
+                  <span>Extracted Image Text (macOS Vision OCR)</span>
+                </div>
+
+                <div className="flex items-center space-x-1.5">
+                  {clip.text_content && (
+                    <button
+                      onClick={() => handleCopySpecificFormat('OCR Text', clip.text_content || '')}
+                      className="p-1.5 rounded-lg bg-cyan-950/80 hover:bg-cyan-900 border border-cyan-700/60 text-cyan-300 transition-all cursor-pointer"
+                      title={copiedFormat === 'OCR Text' ? 'Copied!' : 'Copy Extracted Text'}
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                  <button
+                    onClick={handleRunOCR}
+                    disabled={isOcrLoading}
+                    className="p-1.5 rounded-lg bg-white hover:bg-gray-200 text-black transition-all shadow cursor-pointer"
+                    title={isOcrLoading ? 'Extracting...' : clip.text_content ? 'Re-Run OCR' : 'Extract Text (OCR)'}
+                  >
+                    <Sparkles className={`w-3.5 h-3.5 text-cyan-600 ${isOcrLoading ? 'animate-spin' : ''}`} />
+                  </button>
+                </div>
+              </div>
+
+              {clip.text_content ? (
+                <div className="p-3.5 bg-[#0f1118] border border-gray-800/80 rounded-xl text-gray-200 font-mono text-xs whitespace-pre-wrap leading-relaxed select-text shadow-inner max-h-60 overflow-y-auto">
+                  {clip.text_content}
+                </div>
+              ) : (
+                <p className="text-xs text-gray-400 italic">
+                  Click "Extract Text (OCR)" above or copy screenshot to run native macOS Vision text recognition.
+                </p>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="p-4 bg-[#171717] rounded-xl border border-[#2f2f2f] text-gray-200 leading-relaxed overflow-x-auto whitespace-pre-wrap selection:bg-gray-700 selection:text-white shadow-inner">
+            {displayText}
+          </div>
+        )}
+      </div>
+
+      {/* Sleek Filter Pipeline Selector Bar */}
+      {clip.content_type !== 'image' && filters.length > 0 && (
+        <div className="px-4 py-2.5 bg-[#171717] border-t border-[#2b2b2b] select-none">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center space-x-2 shrink-0">
+              <Sliders className="w-4 h-4 text-cyan-400" />
+              <span className="text-xs font-semibold text-gray-300">Apply Filter:</span>
+            </div>
+
+            {/* Dropdown Selector */}
+            <div className="flex-1 max-w-xs relative">
+              <select
+                value={activeFilterName || ''}
+                onChange={(e) => {
+                  const selectedName = e.target.value;
+                  if (!selectedName) {
+                    handleResetTransform();
+                  } else {
+                    const found = filters.find((f) => f.name === selectedName);
+                    if (found) handleApplyFilter(found);
+                  }
+                }}
+                className={`w-full bg-[#181818] border text-xs rounded-xl px-3 py-1.5 focus:outline-none transition-all cursor-pointer font-medium ${
+                  activeFilterName
+                    ? 'border-cyan-500 text-cyan-300 bg-cyan-950/40 ring-1 ring-cyan-500/40'
+                    : 'border-gray-700/80 text-gray-300 hover:border-gray-600'
+                }`}
+              >
+                <option value="">⚡ Raw Original Text (No Filter)</option>
+                {filters.map((f) => (
+                  <option key={f.id} value={f.name}>
+                    {f.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Reset Action */}
+            {activeFilterName && (
+              <button
+                onClick={handleResetTransform}
+                className="flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-cyan-950/60 hover:bg-cyan-900/80 border border-cyan-700/60 text-cyan-300 text-xs font-semibold transition-all shrink-0"
+                title="Reset to raw clip text"
+              >
+                <span>Reset</span>
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Stats Footer */}
+      <div className="px-4 py-2.5 bg-[#171717] border-t border-[#2b2b2b] flex items-center justify-between text-[11px] text-gray-500">
+        <div className="flex items-center space-x-4">
+          <span>Chars: <strong className="text-gray-300">{charCount}</strong></span>
+          <span>Words: <strong className="text-gray-300">{wordCount}</strong></span>
+          <span>Lines: <strong className="text-gray-300">{lineCount}</strong></span>
+        </div>
+        <div>
+          <span>Captured: {formatClipDateTime(clip.created_at)}</span>
+        </div>
+      </div>
+
+      {/* Dedicated Full Note Viewer Modal */}
+      {viewingNote && clip && (
+        <div className="fixed inset-0 z-[99999] bg-black/75 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-150">
+          <div className="bg-[#1a1813] border border-amber-500/40 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
+            {/* Modal Header */}
+            <div className="px-5 py-3.5 border-b border-amber-500/20 bg-[#14120e] flex items-center justify-between">
+              <div className="flex items-center space-x-2 text-amber-400 font-semibold text-sm">
+                <StickyNote className="w-4 h-4" />
+                <span>Note Annotation</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setViewingNote(null)}
+                className="p-1 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
+                title="Close"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-5 overflow-y-auto space-y-3">
+              <div className="bg-[#12100c] border border-amber-500/30 rounded-xl p-4 text-amber-100 font-mono text-xs whitespace-pre-wrap leading-relaxed select-text shadow-inner">
+                {viewingNote.text}
+              </div>
+
+              <div className="flex items-center justify-between text-[11px] text-amber-400/70 font-sans px-1">
+                <span>App Source: <strong className="text-amber-200">{clip.source_app}</strong></span>
+                <span>{viewingNote.text.length} Characters</span>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-5 py-3 border-t border-amber-500/20 bg-[#14120e] flex items-center justify-end space-x-2">
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(viewingNote.text || '');
+                  soundManager.playCopySound(true);
+                }}
+                className="flex items-center space-x-1.5 px-3 py-1.5 bg-amber-950/80 hover:bg-amber-900 text-amber-300 border border-amber-700/50 rounded-xl text-xs font-semibold transition-all cursor-pointer"
+              >
+                <Copy className="w-3.5 h-3.5" />
+                <span>Copy Note</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewingNote(null)}
+                className="px-3 py-1.5 bg-[#26231c] hover:bg-[#343026] text-amber-200 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};

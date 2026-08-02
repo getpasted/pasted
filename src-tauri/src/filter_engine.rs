@@ -1,0 +1,496 @@
+use once_cell::sync::Lazy;
+use regex::Regex;
+use serde_json::Value;
+
+static RE_HTML: Lazy<Regex> = Lazy::new(|| Regex::new(r"<[^>]*>").unwrap());
+static RE_EMOJI: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F700}-\u{1F77F}\u{1F780}-\u{1F7FF}\u{1F800}-\u{1F8FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]").unwrap()
+});
+static RE_MD_BOLD: Lazy<Regex> = Lazy::new(|| Regex::new(r"\*\*([^*]+)\*\*|__([^_]+)__").unwrap());
+static RE_MD_ITALIC: Lazy<Regex> = Lazy::new(|| Regex::new(r"\*([^*]+)\*|_([^_]+)_").unwrap());
+static RE_MD_CODE: Lazy<Regex> = Lazy::new(|| Regex::new(r"`{1,3}([^`]+)`{1,3}").unwrap());
+static RE_MD_HEADER: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?m)^#+\s+").unwrap());
+static RE_URL_TRACKING: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"[?&](?:utm_source|utm_medium|utm_campaign|utm_term|utm_content|fbclid|gclid|msclkid|mc_eid|_hsenc|ref)=[^&\s]+").unwrap()
+});
+
+pub fn apply_filter(input: &str, filter_type: &str, config: Option<&str>) -> Result<String, String> {
+    match filter_type {
+        "pipeline" => {
+            if let Some(cfg_str) = config {
+                if let Ok(steps) = serde_json::from_str::<Vec<Value>>(cfg_str) {
+                    let mut current = input.to_string();
+                    for step in steps {
+                        let f_type = step["filter_type"].as_str().unwrap_or("");
+                        let f_cfg = if step["config"].is_string() {
+                            step["config"].as_str().map(|s| s.to_string())
+                        } else if !step["config"].is_null() {
+                            Some(step["config"].to_string())
+                        } else {
+                            None
+                        };
+                        current = apply_filter(&current, f_type, f_cfg.as_deref())?;
+                    }
+                    return Ok(current);
+                }
+            }
+            Ok(input.to_string())
+        }
+        "lowercase" => Ok(input.to_lowercase()),
+        "uppercase" => Ok(input.to_uppercase()),
+        "titlecase" => Ok(to_title_case(input)),
+        "camelcase" => Ok(to_camel_case(input)),
+        "snakecase" => Ok(to_snake_case(input)),
+        "kebabcase" => Ok(to_kebab_case(input)),
+        "strip_html" => Ok(strip_html_tags(input)),
+        "trim" => Ok(input.lines().map(|l| l.trim()).collect::<Vec<_>>().join("\n").trim().to_string()),
+        "strip_newlines" => Ok(input.replace("\r\n", " ").replace('\n', " ").trim().to_string()),
+        "url_encode" => Ok(urlencoding::encode(input).into_owned()),
+        "url_decode" => urlencoding::decode(input)
+            .map(|s| s.into_owned())
+            .map_err(|e| e.to_string()),
+        "base64_encode" => Ok(base64::Engine::encode(&base64::engine::general_purpose::STANDARD, input.as_bytes())),
+        "base64_decode" => {
+            let bytes = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, input.trim())
+                .map_err(|e| e.to_string())?;
+            String::from_utf8(bytes).map_err(|e| e.to_string())
+        }
+        "json_format" => {
+            let parsed: Value = serde_json::from_str(input).map_err(|e| format!("Invalid JSON: {}", e))?;
+            serde_json::to_string_pretty(&parsed).map_err(|e| e.to_string())
+        }
+        "json_minify" => {
+            let parsed: Value = serde_json::from_str(input).map_err(|e| format!("Invalid JSON: {}", e))?;
+            serde_json::to_string(&parsed).map_err(|e| e.to_string())
+        }
+        "strip_emojis" => Ok(strip_emojis(input)),
+        "smileys_to_emoji" => Ok(convert_smileys_to_emoji(input)),
+        "sentence_case" => Ok(to_sentence_case(input)),
+        "constant_case" => Ok(to_snake_case(input).to_uppercase()),
+        "alternating_case" => Ok(to_alternating_case(input)),
+        "smart_punctuation" => Ok(apply_smart_punctuation(input)),
+        "straighten_punctuation" => Ok(straighten_punctuation(input)),
+        "strip_markdown" => Ok(strip_markdown_tags(input)),
+        "strip_empty_lines" => Ok(strip_empty_lines(input)),
+        "reverse_lines" => Ok(reverse_lines(input)),
+        "sort_lines_asc" => Ok(sort_lines(input, false)),
+        "sort_lines_desc" => Ok(sort_lines(input, true)),
+        "sort_by_length" => Ok(sort_by_length(input)),
+        "dedupe_lines" => Ok(dedupe_lines(input)),
+        "number_lines" => Ok(number_lines(input)),
+        "quote_text" => Ok(quote_text(input)),
+        "clean_url_tracking" => Ok(clean_url_tracking_params(input)),
+        "extract_urls" => Ok(extract_by_regex(input, r"https?://[^\s\)]+")),
+        "extract_emails" => Ok(extract_by_regex(input, r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}")),
+        "extract_phones" => Ok(extract_by_regex(input, r"\b(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b")),
+        "extract_ips" => Ok(extract_by_regex(input, r"\b(?:\d{1,3}\.){3}\d{1,3}\b")),
+        "extract_numbers" => Ok(extract_by_regex(input, r"\b\d+(?:\.\d+)?\b")),
+        "html_encode" => Ok(encode_html(input)),
+        "html_decode" => Ok(decode_html(input)),
+        "hex_encode" => Ok(encode_hex(input)),
+        "hex_decode" => decode_hex(input),
+        "shell_script" => run_shell_script(input, config.unwrap_or("cat")),
+        "wrap_tags" => {
+            let tag = config.unwrap_or("div");
+            Ok(format!("<{}>{}</{}>", tag, input, tag))
+        }
+        "regex" => {
+            if let Some(cfg_str) = config {
+                if let Ok(json) = serde_json::from_str::<Value>(cfg_str) {
+                    let pattern = json["pattern"].as_str().unwrap_or("");
+                    let replacement = json["replacement"].as_str().unwrap_or("");
+                    if !pattern.is_empty() {
+                        let re = Regex::new(pattern).map_err(|e| format!("Invalid Regex: {}", e))?;
+                        return Ok(re.replace_all(input, replacement).to_string());
+                    }
+                }
+            }
+            Ok(input.to_string())
+        }
+        _ => {
+            if let Some(cfg_str) = config {
+                if let Ok(json) = serde_json::from_str::<Value>(cfg_str) {
+                    if let Some(pattern) = json["pattern"].as_str() {
+                        let replacement = json["replacement"].as_str().unwrap_or("");
+                        if !pattern.is_empty() {
+                            let re = Regex::new(pattern).map_err(|e| format!("Invalid Regex: {}", e))?;
+                            return Ok(re.replace_all(input, replacement).to_string());
+                        }
+                    }
+                }
+                if !cfg_str.trim().is_empty() {
+                    return run_shell_script(input, cfg_str);
+                }
+            }
+            Ok(input.to_string())
+        }
+    }
+}
+
+fn to_sentence_case(s: &str) -> String {
+    let mut result = String::new();
+    let mut capitalize_next = true;
+    for c in s.chars() {
+        if capitalize_next && c.is_alphabetic() {
+            result.push_str(&c.to_uppercase().to_string());
+            capitalize_next = false;
+        } else {
+            result.push(c);
+            if c == '.' || c == '!' || c == '?' {
+                capitalize_next = true;
+            }
+        }
+    }
+    result
+}
+
+fn to_alternating_case(s: &str) -> String {
+    let mut result = String::new();
+    let mut upper = false;
+    for c in s.chars() {
+        if c.is_alphabetic() {
+            if upper {
+                result.push_str(&c.to_uppercase().to_string());
+            } else {
+                result.push_str(&c.to_lowercase().to_string());
+            }
+            upper = !upper;
+        } else {
+            result.push(c);
+        }
+    }
+    result
+}
+
+fn straighten_punctuation(s: &str) -> String {
+    s.replace(['“', '”'], "\"")
+        .replace(['‘', '’'], "'")
+        .replace('—', "--")
+        .replace('…', "...")
+}
+
+fn strip_markdown_tags(s: &str) -> String {
+    let step1 = RE_MD_BOLD.replace_all(s, "$1$2");
+    let step2 = RE_MD_ITALIC.replace_all(&step1, "$1$2");
+    let step3 = RE_MD_CODE.replace_all(&step2, "$1");
+    let step4 = RE_MD_HEADER.replace_all(&step3, "");
+    step4.to_string()
+}
+
+fn strip_empty_lines(s: &str) -> String {
+    s.lines()
+        .filter(|l| !l.trim().is_empty())
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn strip_emojis(s: &str) -> String {
+    RE_EMOJI.replace_all(s, "").to_string()
+}
+
+fn convert_smileys_to_emoji(s: &str) -> String {
+    s.replace(":-D", "😃")
+        .replace(":D", "😃")
+        .replace(":-)", "🙂")
+        .replace(":)", "🙂")
+        .replace(":^)", "🙂")
+        .replace(";--)", "😉")
+        .replace(";-)", "😉")
+        .replace(";)", "😉")
+        .replace(":-(", "🙁")
+        .replace(":(", "🙁")
+        .replace(":-P", "😛")
+        .replace(":P", "😛")
+        .replace(":-p", "😛")
+        .replace(":p", "😛")
+        .replace(":-O", "😮")
+        .replace(":O", "😮")
+        .replace(":-o", "😮")
+        .replace(":o", "😮")
+        .replace("<3", "❤️")
+}
+
+fn reverse_lines(s: &str) -> String {
+    let mut lines: Vec<&str> = s.lines().collect();
+    lines.reverse();
+    lines.join("\n")
+}
+
+fn sort_by_length(s: &str) -> String {
+    let mut lines: Vec<&str> = s.lines().collect();
+    lines.sort_by_key(|l| l.len());
+    lines.join("\n")
+}
+
+fn clean_url_tracking_params(s: &str) -> String {
+    let mut result = RE_URL_TRACKING.replace_all(s, "").to_string();
+    result = result.replace("?&", "?");
+    if result.ends_with('?') {
+        result.pop();
+    }
+    result
+}
+
+fn apply_smart_punctuation(s: &str) -> String {
+    s.replace("...", "…")
+        .replace("--", "—")
+        .replace("\"\"", "\"")
+        .replace(" \"", " “")
+        .replace("\"", "”")
+        .replace(" '", " ‘")
+        .replace("'", "’")
+}
+
+fn extract_by_regex(s: &str, pattern: &str) -> String {
+    if let Ok(re) = Regex::new(pattern) {
+        let matches: Vec<&str> = re.find_iter(s).map(|m| m.as_str()).collect();
+        if matches.is_empty() {
+            s.to_string()
+        } else {
+            matches.join("\n")
+        }
+    } else {
+        s.to_string()
+    }
+}
+
+fn sort_lines(s: &str, reverse: bool) -> String {
+    let mut lines: Vec<&str> = s.lines().collect();
+    lines.sort_unstable();
+    if reverse {
+        lines.reverse();
+    }
+    lines.join("\n")
+}
+
+fn dedupe_lines(s: &str) -> String {
+    let mut seen = std::collections::HashSet::new();
+    let mut result = Vec::new();
+    for line in s.lines() {
+        if seen.insert(line) {
+            result.push(line);
+        }
+    }
+    result.join("\n")
+}
+
+fn number_lines(s: &str) -> String {
+    s.lines()
+        .enumerate()
+        .map(|(i, l)| format!("{}. {}", i + 1, l))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn quote_text(s: &str) -> String {
+    s.lines()
+        .map(|l| format!("> {}", l))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn encode_html(s: &str) -> String {
+    s.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+        .replace('\'', "&#39;")
+}
+
+fn decode_html(s: &str) -> String {
+    s.replace("&quot;", "\"")
+        .replace("&#39;", "'")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&amp;", "&")
+}
+
+fn encode_hex(s: &str) -> String {
+    s.bytes().map(|b| format!("{:02x}", b)).collect::<Vec<_>>().join(" ")
+}
+
+fn decode_hex(s: &str) -> Result<String, String> {
+    let clean = s.replace(' ', "");
+    if !clean.len().is_multiple_of(2) {
+        return Err("Invalid hex string length".to_string());
+    }
+    let mut bytes = Vec::new();
+    for i in (0..clean.len()).step_by(2) {
+        let byte = u8::from_str_radix(&clean[i..i + 2], 16).map_err(|e| e.to_string())?;
+        bytes.push(byte);
+    }
+    String::from_utf8(bytes).map_err(|e| e.to_string())
+}
+
+fn run_shell_script(input: &str, script: &str) -> Result<String, String> {
+    #[cfg(unix)]
+    {
+        use std::io::Write;
+        use std::process::{Command, Stdio};
+
+        let mut child = Command::new("sh")
+            .arg("-c")
+            .arg(script)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .map_err(|e| format!("Failed to spawn shell script: {}", e))?;
+
+        if let Some(mut stdin) = child.stdin.take() {
+            let _ = stdin.write_all(input.as_bytes());
+        }
+
+        let output = child
+            .wait_with_output()
+            .map_err(|e| format!("Script execution failed: {}", e))?;
+
+        if output.status.success() {
+            String::from_utf8(output.stdout).map_err(|e| e.to_string())
+        } else {
+            let err = String::from_utf8_lossy(&output.stderr);
+            Err(format!("Script exited with error: {}", err))
+        }
+    }
+
+    #[cfg(not(unix))]
+    {
+        Ok(input.to_string())
+    }
+}
+
+fn to_title_case(s: &str) -> String {
+    let mut c = s.chars();
+    match c.next() {
+        None => String::new(),
+        Some(f) => f.to_uppercase().collect::<String>() + &s[f.len_utf8()..].to_lowercase(),
+    }
+}
+
+fn to_camel_case(s: &str) -> String {
+    let words: Vec<&str> = s.split(|c: char| !c.is_alphanumeric()).filter(|w| !w.is_empty()).collect();
+    if words.is_empty() {
+        return String::new();
+    }
+    let mut res = words[0].to_lowercase();
+    for w in &words[1..] {
+        let mut chars = w.chars();
+        if let Some(first) = chars.next() {
+            res.push_str(&first.to_uppercase().to_string());
+            res.push_str(&chars.as_str().to_lowercase());
+        }
+    }
+    res
+}
+
+fn to_snake_case(s: &str) -> String {
+    s.split(|c: char| !c.is_alphanumeric())
+        .filter(|w| !w.is_empty())
+        .map(|w| w.to_lowercase())
+        .collect::<Vec<String>>()
+        .join("_")
+}
+
+fn to_kebab_case(s: &str) -> String {
+    s.split(|c: char| !c.is_alphanumeric())
+        .filter(|w| !w.is_empty())
+        .map(|w| w.to_lowercase())
+        .collect::<Vec<String>>()
+        .join("-")
+}
+
+fn strip_html_tags(s: &str) -> String {
+    RE_HTML.replace_all(s, "").to_string()
+}
+
+mod urlencoding {
+    pub fn encode(data: &str) -> std::borrow::Cow<'_, str> {
+        let mut encoded = String::with_capacity(data.len());
+        for byte in data.bytes() {
+            match byte {
+                b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                    encoded.push(byte as char);
+                }
+                _ => {
+                    encoded.push_str(&format!("%{:02X}", byte));
+                }
+            }
+        }
+        std::borrow::Cow::Owned(encoded)
+    }
+
+    pub fn decode(data: &str) -> Result<std::borrow::Cow<'_, str>, String> {
+        let mut decoded = Vec::with_capacity(data.len());
+        let bytes = data.as_bytes();
+        let mut i = 0;
+        while i < bytes.len() {
+            if bytes[i] == b'%' {
+                if i + 2 < bytes.len() {
+                    let hex = std::str::from_utf8(&bytes[i + 1..i + 3]).map_err(|e| e.to_string())?;
+                    let byte = u8::from_str_radix(hex, 16).map_err(|e| e.to_string())?;
+                    decoded.push(byte);
+                    i += 3;
+                } else {
+                    return Err("Incomplete hex sequence".to_string());
+                }
+            } else if bytes[i] == b'+' {
+                decoded.push(b' ');
+                i += 1;
+            } else {
+                decoded.push(bytes[i]);
+                i += 1;
+            }
+        }
+        String::from_utf8(decoded)
+            .map(std::borrow::Cow::Owned)
+            .map_err(|e| e.to_string())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_case_transformations() {
+        assert_eq!(apply_filter("hello world", "uppercase", None).unwrap(), "HELLO WORLD");
+        assert_eq!(apply_filter("HELLO WORLD", "lowercase", None).unwrap(), "hello world");
+        assert_eq!(apply_filter("hello world", "titlecase", None).unwrap(), "Hello world");
+        assert_eq!(apply_filter("hello world", "camelcase", None).unwrap(), "helloWorld");
+        assert_eq!(apply_filter("hello world", "snakecase", None).unwrap(), "hello_world");
+        assert_eq!(apply_filter("hello world", "kebabcase", None).unwrap(), "hello-world");
+        assert_eq!(apply_filter("hello world", "constant_case", None).unwrap(), "HELLO_WORLD");
+    }
+
+    #[test]
+    fn test_cleaners_and_sanitizers() {
+        assert_eq!(apply_filter("   hello   ", "trim", None).unwrap(), "hello");
+        assert_eq!(apply_filter("hello\nworld", "strip_newlines", None).unwrap(), "hello world");
+        assert_eq!(apply_filter("<p>Hello <b>World</b></p>", "strip_html", None).unwrap(), "Hello World");
+    }
+
+    #[test]
+    fn test_encodings() {
+        let b64_encoded = apply_filter("Pasted App", "base64_encode", None).unwrap();
+        let b64_decoded = apply_filter(&b64_encoded, "base64_decode", None).unwrap();
+        assert_eq!(b64_decoded, "Pasted App");
+
+        let url_encoded = apply_filter("hello world!", "url_encode", None).unwrap();
+        let url_decoded = apply_filter(&url_encoded, "url_decode", None).unwrap();
+        assert_eq!(url_decoded, "hello world!");
+
+        let hex_encoded = apply_filter("Pasted", "hex_encode", None).unwrap();
+        let hex_decoded = apply_filter(&hex_encoded, "hex_decode", None).unwrap();
+        assert_eq!(hex_decoded, "Pasted");
+    }
+
+    #[test]
+    fn test_smart_punctuation() {
+        let text = "--- test...";
+        let smart = apply_filter(text, "smart_punctuation", None).unwrap();
+        assert!(smart.contains("—"));
+
+        let straight = apply_filter("“Hello”", "straighten_punctuation", None).unwrap();
+        assert_eq!(straight, "\"Hello\"");
+    }
+}

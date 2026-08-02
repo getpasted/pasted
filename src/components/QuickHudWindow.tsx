@@ -1,0 +1,204 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { Search, Sparkles, Clipboard, Command, X } from 'lucide-react';
+import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
+import { ClipItem } from '../types';
+
+export const QuickHudWindow: React.FC = () => {
+  const [clips, setClips] = useState<ClipItem[]>(() => {
+    try {
+      const cached = localStorage.getItem('pasted_cache_hud_clips');
+      return cached ? JSON.parse(cached) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [search, setSearch] = useState('');
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const fetchClips = async () => {
+    try {
+      const result = await invoke<ClipItem[]>('get_clips', { searchQuery: search || null, boardId: null, onlyPinned: false });
+      const topClips = result.slice(0, 9);
+      setClips(topClips);
+      setSelectedIndex(0);
+      if (!search) {
+        try {
+          localStorage.setItem('pasted_cache_hud_clips', JSON.stringify(result));
+        } catch {
+          // Ignore
+        }
+      }
+    } catch (e) {
+      console.error('Failed to fetch clips for HUD:', e);
+    }
+  };
+
+  useEffect(() => {
+    fetchClips();
+  }, [search]);
+
+  useEffect(() => {
+    document.documentElement.classList.add('hud-mode');
+    document.body.classList.add('hud-mode');
+    const rootEl = document.getElementById('root');
+    if (rootEl) rootEl.classList.add('hud-mode');
+
+    return () => {
+      document.documentElement.classList.remove('hud-mode');
+      document.body.classList.remove('hud-mode');
+      if (rootEl) rootEl.classList.remove('hud-mode');
+    };
+  }, []);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+
+
+
+    const unlistenFocus = listen('tauri://focus', () => {
+      fetchClips();
+      setTimeout(() => inputRef.current?.focus(), 50);
+    });
+
+    const unlistenPos = listen<{
+      flipped: boolean;
+      cursorX: number;
+      cursorY: number;
+    }>('hud_position_updated', () => {});
+
+    const handleKeyDown = async (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        await invoke('toggle_hud_window');
+        return;
+      }
+
+      // Check number keys 1-9
+      if (/^[1-9]$/.test(e.key) && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        const idx = parseInt(e.key, 10) - 1;
+        if (clips[idx]) {
+          e.preventDefault();
+          await invoke('paste_clip_by_id', { clipId: clips[idx].id });
+        }
+        return;
+      }
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setSelectedIndex((prev) => (prev + 1) % Math.max(1, clips.length));
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setSelectedIndex((prev) => (prev - 1 + clips.length) % Math.max(1, clips.length));
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (clips[selectedIndex]) {
+          await invoke('paste_clip_by_id', { clipId: clips[selectedIndex].id });
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      unlistenFocus.then((f) => f());
+      unlistenPos.then((f) => f());
+    };
+  }, [clips, selectedIndex]);
+
+  return (
+    <div className="w-screen h-screen p-0 bg-transparent flex flex-col font-sans select-none overflow-hidden no-drag relative">
+      <div className="flex-1 bg-[#171717]/95 backdrop-blur-2xl rounded-xl border border-gray-700/80 flex flex-col overflow-hidden no-drag z-10 shadow-none">
+        {/* Header Bar */}
+        <div className="p-3 border-b border-gray-800 flex items-center space-x-2.5 bg-[#212121]/60 no-drag">
+          <Clipboard className="w-4 h-4 text-cyan-400 shrink-0" />
+          <div className="relative flex-1">
+            <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-gray-400" />
+            <input
+              ref={inputRef}
+              type="text"
+              placeholder="Search or press 1-9 to paste..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full bg-[#141414] border border-gray-700/60 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500 font-mono no-drag"
+            />
+          </div>
+          <span className="text-[10px] font-mono px-2 py-1 rounded bg-cyan-950/80 border border-cyan-800/60 text-cyan-300 font-bold flex items-center space-x-1 shrink-0">
+            <Command className="w-2.5 h-2.5" />
+            <span>Shift V</span>
+          </span>
+          <button
+            onClick={() => invoke('toggle_hud_window')}
+            className="p-1 rounded-md hover:bg-gray-800 text-gray-400 hover:text-white transition-colors shrink-0 no-drag"
+            title="Close HUD (Esc)"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Recent Clips 1..9 */}
+        <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
+          {clips.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-48 text-center text-gray-500 space-y-1.5 p-4">
+              <Sparkles className="w-6 h-6 text-gray-600" />
+              <p className="text-xs font-semibold text-gray-400">No matching clips</p>
+            </div>
+          ) : (
+            clips.map((clip, index) => {
+              const isSel = index === selectedIndex;
+              return (
+                <div
+                  key={clip.id}
+                  onClick={() => invoke('paste_clip_by_id', { clipId: clip.id })}
+                  className={`p-2.5 rounded-xl border transition-colors duration-75 cursor-pointer flex items-center justify-between space-x-3 ${
+                    isSel
+                      ? 'bg-cyan-950/70 border-cyan-500 text-white shadow-md'
+                      : 'bg-[#212121]/80 border-gray-800/80 text-gray-300 hover:bg-[#2a2a2a]'
+                  }`}
+                >
+                  <div className="flex items-center space-x-2.5 min-w-0 flex-1">
+                    <span
+                      className={`w-5 h-5 rounded-md flex items-center justify-center font-mono text-[11px] font-extrabold shrink-0 ${
+                        isSel
+                          ? 'bg-cyan-500 text-black shadow'
+                          : 'bg-gray-800 text-gray-300 border border-gray-700'
+                      }`}
+                    >
+                      {index + 1}
+                    </span>
+
+                    <div className="min-w-0 flex-1">
+                      {clip.content_type === 'image' && clip.image_base64 ? (
+                        <div className="flex items-center space-x-2">
+                          <img
+                            src={clip.image_base64}
+                            alt="Clip Preview"
+                            className="h-8 w-12 object-cover rounded border border-gray-700"
+                          />
+                          <span className="text-xs font-mono text-gray-400 truncate">
+                            {clip.text_content ? `[OCR] ${clip.text_content}` : 'Screenshot Image'}
+                          </span>
+                        </div>
+                      ) : (
+                        <p className="text-xs font-mono truncate leading-snug">
+                          {clip.text_content}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Bottom Quick Help Bar */}
+        <div className="px-3 py-2 bg-[#121212] border-t border-gray-800/80 flex items-center justify-between text-[10px] text-gray-500 font-mono">
+          <span>Press 1-9 or Enter to paste</span>
+          <span>Esc to exit</span>
+        </div>
+      </div>
+    </div>
+  );
+};

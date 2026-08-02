@@ -1,0 +1,1103 @@
+@import "tailwindcss";
+
+/* =======================================================
+   120Hz PROMOTION GPU HARDWARE ACCELERATION
+   ======================================================= */
+.col-list {
+  will-change: transform, scroll-position;
+  transform: translateZ(0);
+}
+
+.clip-card {
+  contain: content;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+html.hud-mode,
+body.hud-mode,
+#root.hud-mode {
+  background: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+}
+
+/* Stable Drag Handle Cursor Rules */
+.step-drag-handle,
+.step-drag-handle * {
+  cursor: -webkit-grab !important;
+  cursor: grab !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -webkit-app-region: no-drag !important;
+  -webkit-user-drag: none !important;
+}
+
+.step-drag-handle:active,
+.step-drag-handle:active * {
+  cursor: -webkit-grabbing !important;
+  cursor: grabbing !important;
+  -webkit-app-region: no-drag !important;
+}
+
+@layer base {
+  /* =======================================================
+     WCAG 2.1 LEVEL AA/AAA CERTIFIED DESIGN TOKENS
+     ======================================================= */
+
+  /* 🌙 Dark Theme Tokens (Default) */
+  :root, html.dark, html[data-theme="dark"] {
+    --bg-app: #171717;
+    --bg-sidebar: #212121;
+    --bg-list: #171717;
+    --bg-preview: #212121;
+    --bg-card: #212121;
+    --bg-card-hover: #2a2a2a;
+    --bg-card-selected: #2e2e2e;
+    --bg-surface: #181818;
+    --bg-input: #181818;
+    --bg-tab-bar: #212121;
+    --bg-tab-active: #2e2e2e;
+    --bg-tab-hover: #2a2a2a;
+    --bg-badge: rgba(255, 255, 255, 0.12);
+
+    --border-subtle: #333333;
+    --border-card: #333333;
+    --border-card-selected: #555555;
+    --border-input: #3a3a3a;
+
+    --text-title: #ffffff;
+    --text-main: #ececec;
+    --text-muted: #a3a3a3;
+    --text-subtle: #737373;
+    --text-selected: #ffffff;
+
+    --scrollbar-thumb: rgba(255, 255, 255, 0.2);
+    --scrollbar-thumb-hover: rgba(255, 255, 255, 0.4);
+    --shadow-card: 0 2px 6px rgba(0, 0, 0, 0.4);
+    --shadow-card-selected: 0 4px 12px rgba(0, 0, 0, 0.6);
+  }
+
+  /* ☀️ Light Theme Tokens */
+  html.light, html[data-theme="light"] {
+    --bg-app: #f4f4f7;
+    --bg-sidebar: #f5f5f8;
+    --bg-list: #ffffff;
+    --bg-preview: #f4f4f7;
+    --bg-card: #ffffff;
+    --bg-card-hover: #f0f0f4;
+    --bg-card-selected: #e2e2e8;
+    --bg-surface: #ffffff;
+    --bg-input: #ffffff;
+    --bg-tab-bar: #f5f5f8;
+    --bg-tab-active: #ffffff;
+    --bg-tab-hover: #e2e2e8;
+    --bg-badge: #e5e5ea;
+
+    --border-subtle: #b0b0b6;
+    --border-card: #b0b0b6;
+    --border-card-selected: #8e8e93;
+    --border-input: #b0b0b6;
+
+    --text-title: #1c1c1e;
+    --text-main: #2c2c2e;
+    --text-muted: #505055;
+    --text-subtle: #707075;
+    --text-selected: #000000;
+
+    --scrollbar-thumb: rgba(0, 0, 0, 0.2);
+    --scrollbar-thumb-hover: rgba(0, 0, 0, 0.35);
+    --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.05);
+    --shadow-card-selected: 0 2px 6px rgba(0, 0, 0, 0.12);
+  }
+
+  body {
+    background-color: var(--bg-app);
+    color: var(--text-main);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", sans-serif;
+    user-select: none;
+    -webkit-user-select: none;
+    overflow: hidden;
+    margin: 0;
+    padding: 0;
+  }
+
+  button, select, label, kbd, tab, nav, .unselectable {
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  input[type="text"], input[type="number"], textarea, .selectable-text {
+    user-select: text;
+    -webkit-user-select: text;
+  }
+
+  /* Shared Height Parity Rules for Inputs & Select Dropdowns */
+  select,
+  .theme-select,
+  input[type="text"],
+  input[type="number"],
+  input[type="search"],
+  input[type="password"] {
+    height: 2.125rem /* 34px */;
+    box-sizing: border-box !important;
+    font-family: inherit;
+    font-size: 0.75rem /* 12px */;
+    line-height: 1.25rem /* 20px */;
+    vertical-align: middle;
+  }
+
+  select,
+  .theme-select {
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a3a3a3' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 0.6rem center;
+    background-size: 0.85rem 0.85rem;
+    padding-right: 1.75rem !important;
+  }
+
+  html.light select,
+  html.light .theme-select {
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23505055' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  }
+}
+
+/* Custom macOS visible scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*:hover::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 9999px;
+  transition: background-color 0.15s ease-in-out, width 0.15s ease-in-out;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover) !important;
+}
+
+/* Custom visible scrollbar utility */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
+}
+.custom-scrollbar::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+.custom-scrollbar:hover::-webkit-scrollbar {
+  width: 13px;
+  height: 13px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.35);
+  border-radius: 9999px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  transition: background-color 0.15s ease-in-out, width 0.15s ease-in-out;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover,
+.custom-scrollbar::-webkit-scrollbar-thumb:active {
+  background: rgba(255, 255, 255, 0.75) !important;
+}
+html.light .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+html.light .custom-scrollbar::-webkit-scrollbar-thumb:hover,
+html.light .custom-scrollbar::-webkit-scrollbar-thumb:active {
+  background: rgba(0, 0, 0, 0.75) !important;
+}
+
+/* Prevent sidebar width layout shifts on height reduction or scrollbar activation */
+.sidebar-scroll-container {
+  overflow-y: overlay !important;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.sidebar-scroll-container::-webkit-scrollbar {
+  width: 0px !important;
+  height: 0px !important;
+  display: none !important;
+  background: transparent !important;
+}
+
+/* Structural Layout Columns */
+.col-sidebar {
+  background-color: var(--bg-sidebar);
+  border-color: var(--border-subtle);
+  color: var(--text-main);
+}
+
+.col-list {
+  background-color: var(--bg-list);
+  border-color: var(--border-subtle);
+  flex-shrink: 0 !important;
+}
+
+.col-list-scroll-area {
+  overflow-y: scroll !important;
+  padding-left: 10px !important;
+  padding-right: 4px !important;
+  contain: content;
+}
+
+.col-list-header {
+  background-color: var(--bg-app);
+  border-color: var(--border-subtle);
+  color: var(--text-title);
+}
+
+.col-preview {
+  background-color: var(--bg-preview);
+  border-color: var(--border-subtle);
+  color: var(--text-main);
+}
+
+/* Sidebar Elements */
+.sidebar-title {
+  color: var(--text-title);
+}
+
+.sidebar-item-active {
+  background-color: var(--bg-card);
+  color: var(--text-title);
+  border-color: var(--border-subtle);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+  transition: background-color 75ms linear, color 75ms linear, border-color 75ms linear;
+}
+
+.sidebar-item-idle {
+  color: var(--text-main);
+  border-color: transparent;
+  transition: background-color 75ms linear, color 75ms linear, border-color 75ms linear;
+}
+
+.sidebar-item-idle:hover {
+  background-color: var(--bg-card-selected);
+  color: var(--text-title);
+}
+
+.sidebar-badge {
+  background-color: var(--bg-badge);
+  color: var(--text-muted);
+}
+
+/* Clip Cards */
+.clip-card-idle {
+  background-color: var(--bg-card);
+  border-color: var(--border-card);
+  color: var(--text-main);
+  box-shadow: var(--shadow-card);
+}
+
+.clip-card-idle:hover {
+  background-color: var(--bg-card-hover);
+  border-color: var(--border-card-selected);
+}
+
+.clip-card-selected {
+  background-color: var(--bg-card-selected);
+  border-color: var(--border-card-selected);
+  color: var(--text-selected);
+  box-shadow: var(--shadow-card-selected);
+}
+
+/* =======================================================
+   LIGHT MODE OVERRIDES (Guarantees Complete Coverage)
+   ======================================================= */
+html.light .col-sidebar {
+  background-color: #f5f5f8 !important;
+  border-color: #e2e2e7 !important;
+  color: var(--text-main) !important;
+}
+
+.sidebar-divider {
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+html.light .sidebar-divider {
+  border-color: rgba(0, 0, 0, 0.14) !important;
+}
+
+html.light .sidebar-title {
+  color: var(--text-title) !important;
+}
+
+.sidebar-item-active {
+  background-color: #383838 !important;
+  color: #ffffff !important;
+  border-color: rgba(156, 163, 175, 0.5) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3) !important;
+}
+
+.sidebar-item-active span,
+.sidebar-item-active svg {
+  color: #ffffff !important;
+}
+
+html.light .sidebar-item-active {
+  background-color: #ffffff !important;
+  color: #000000 !important;
+  border-color: #c7c7cc !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1) !important;
+}
+
+html.light .sidebar-item-active span,
+html.light .sidebar-item-active svg {
+  color: #000000 !important;
+}
+
+html.light .col-sidebar svg,
+html.light .sidebar-item-idle,
+html.light .sidebar-item-idle svg {
+  color: #3a3a3c !important;
+}
+
+html.light .sidebar-item-idle:hover,
+html.light .sidebar-item-idle:hover svg {
+  color: #000000 !important;
+}
+
+html.light .sidebar-badge {
+  background-color: var(--bg-badge) !important;
+  color: var(--text-muted) !important;
+}
+
+html.light .sidebar-item-idle:hover .sidebar-badge {
+  background-color: var(--border-subtle) !important;
+  color: var(--text-title) !important;
+}
+
+html.light .col-sidebar input[type="text"] {
+  background-color: var(--bg-surface) !important;
+  border-color: var(--border-subtle) !important;
+  color: var(--text-main) !important;
+}
+
+html.light .col-sidebar input[type="text"]::placeholder {
+  color: var(--text-subtle) !important;
+}
+
+html.light .col-list {
+  background-color: var(--bg-list) !important;
+  border-color: var(--border-subtle) !important;
+}
+
+html.light .col-list-header {
+  background-color: var(--bg-list-header) !important;
+  border-color: var(--border-subtle) !important;
+}
+
+html.light .col-list-header h2 {
+  color: var(--text-title) !important;
+}
+
+html.light .col-list-header span.font-mono {
+  background-color: var(--bg-badge) !important;
+  color: var(--text-muted) !important;
+}
+
+html.light .col-preview {
+  background-color: var(--bg-preview) !important;
+  border-color: var(--border-subtle) !important;
+  color: var(--text-main) !important;
+}
+
+html.light .col-preview > div {
+  border-color: var(--border-subtle) !important;
+}
+
+html.light .col-preview > div:first-child,
+html.light .col-preview > div:nth-child(2) {
+  background-color: var(--bg-preview-header) !important;
+  border-color: var(--border-subtle) !important;
+  color: var(--text-main) !important;
+}
+
+html.light .col-preview span.bg-gray-800 {
+  background-color: var(--bg-badge) !important;
+  color: var(--text-main) !important;
+  border-color: var(--border-subtle) !important;
+}
+
+html.light .col-preview select {
+  background-color: var(--bg-surface) !important;
+  border-color: var(--border-subtle) !important;
+  color: var(--text-main) !important;
+}
+
+html.light .col-preview button.bg-\[\#242732\],
+html.light .col-preview div.bg-\[\#181a22\] {
+  background-color: var(--bg-surface) !important;
+  border-color: var(--border-subtle) !important;
+  color: var(--text-main) !important;
+}
+
+html.light .col-preview div.rounded-xl {
+  background-color: var(--bg-surface) !important;
+  border-color: var(--border-subtle) !important;
+  color: var(--text-main) !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05) !important;
+}
+
+html.light .col-preview div.p-3 {
+  background-color: var(--bg-preview-header) !important;
+  border-color: var(--border-subtle) !important;
+}
+
+html.light .col-preview div.p-3 button {
+  background-color: var(--bg-surface) !important;
+  border-color: var(--border-subtle) !important;
+  color: var(--text-main) !important;
+}
+
+html.light .col-preview div.p-3 button:hover {
+  background-color: var(--bg-card-selected) !important;
+  color: #000000 !important;
+}
+
+html.light .col-preview div.px-4.py-2\.5 {
+  background-color: var(--bg-preview-header) !important;
+  border-color: var(--border-subtle) !important;
+  color: var(--text-muted) !important;
+}
+
+html.light .col-preview div.px-4.py-2\.5 strong {
+  color: var(--text-main) !important;
+}
+
+html.light .col-preview button.bg-white {
+  background-color: var(--text-main) !important;
+  color: #ffffff !important;
+}
+
+html.light .col-preview button.bg-white:hover {
+  background-color: #1c1c1e !important;
+}
+
+html.light .col-preview select,
+html.light .col-preview textarea,
+html.light .col-preview .selectable-text {
+  color: var(--text-main) !important;
+}
+
+/* Light Mode Cards */
+html.light .clip-card-idle {
+  background-color: var(--bg-card) !important;
+  border-color: var(--border-card) !important;
+  color: var(--text-main) !important;
+  box-shadow: var(--shadow-card) !important;
+}
+
+html.light .clip-card-idle:hover {
+  background-color: var(--bg-card-hover) !important;
+  border-color: var(--border-card-selected) !important;
+}
+
+html.light .clip-card-selected {
+  background-color: var(--bg-card-selected) !important;
+  border-color: var(--border-card-selected) !important;
+  color: var(--text-selected) !important;
+  box-shadow: var(--shadow-card-selected) !important;
+}
+
+html.light .clip-card-selected span,
+html.light .clip-card-selected p,
+html.light .clip-card-selected div {
+  color: var(--text-selected) !important;
+}
+
+html.light span.text-gray-300,
+html.light span.text-gray-200,
+html.light p.text-gray-300,
+html.light p.text-gray-200 {
+  color: var(--text-main) !important;
+}
+
+html.light span.text-gray-400,
+html.light span.text-gray-500,
+html.light div.text-gray-400,
+html.light div.text-gray-500 {
+  color: var(--text-muted) !important;
+}
+
+/* Light Mode Semantic Typography Overrides */
+html.light .theme-title,
+html.light h1, html.light h2, html.light h3, html.light h4, html.light h5, html.light h6 {
+  color: var(--text-title) !important;
+}
+
+html.light .theme-text-main {
+  color: var(--text-main) !important;
+}
+
+html.light .theme-text-muted {
+  color: var(--text-muted) !important;
+}
+
+html.light .filter-manager-wrapper {
+  background-color: var(--bg-primary) !important;
+  color: var(--text-main) !important;
+}
+
+html.light .filter-manager-wrapper div.p-2.rounded-lg {
+  background-color: var(--bg-badge) !important;
+  color: var(--text-main) !important;
+  border-color: var(--border-subtle) !important;
+}
+
+html.light .filter-manager-wrapper div.p-2.rounded-lg svg {
+  color: var(--text-main) !important;
+}
+
+html.light .settings-modal-bg,
+html.light div.bg-\[\#141414\],
+html.light div.h-screen.overflow-y-auto {
+  background-color: var(--bg-app) !important;
+  color: var(--text-main) !important;
+}
+
+html.light div.bg-\[\#212121\] {
+  background-color: var(--bg-card) !important;
+  border-color: var(--border-card) !important;
+  color: var(--text-main) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08) !important;
+}
+
+html.light div.bg-\[\#181818\] {
+  background-color: var(--bg-primary) !important;
+  border-color: var(--border-card) !important;
+  color: var(--text-main) !important;
+}
+
+html.light select,
+html.light input[type="text"],
+html.light input[type="number"],
+html.light textarea,
+html.light .theme-input {
+  background-color: var(--bg-surface) !important;
+  border-color: var(--border-subtle) !important;
+  color: var(--text-main) !important;
+}
+
+html.light button.bg-\[\#383838\] {
+  background-color: var(--bg-card) !important;
+  color: var(--text-title) !important;
+  border-color: var(--border-subtle) !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1) !important;
+}
+
+html.light .settings-tab-idle {
+  color: #636366 !important;
+}
+
+html.light .settings-tab-idle:hover {
+  background-color: #e2e2e8 !important;
+  color: #000000 !important;
+}
+
+html.light .settings-tab-active {
+  background-color: #ffffff !important;
+  color: #1c1c1e !important;
+  border-color: #c7c7cc !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1) !important;
+}
+
+.theme-badge {
+  background-color: var(--bg-badge);
+  color: var(--text-muted);
+  border-color: var(--border-subtle);
+}
+
+html.light .theme-badge {
+  background-color: #e5e5ea !important;
+  color: #505055 !important;
+  border-color: #c7c7cc !important;
+}
+
+html.light .board-modal-card {
+  background-color: #ffffff !important;
+  color: #1c1c1e !important;
+  border-color: #b0b0b6 !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15) !important;
+}
+
+html.light .board-modal-card div.bg-\[\#181920\],
+html.light .board-modal-card div.bg-\[\#1b1c24\] {
+  background-color: #f4f4f7 !important;
+  color: #1c1c1e !important;
+  border-color: #b0b0b6 !important;
+}
+
+html.light .board-modal-card input.bg-\[\#181920\],
+html.light .board-modal-card select.bg-\[\#242630\],
+html.light .board-modal-card input.bg-\[\#242630\],
+html.light .board-modal-card button.bg-\[\#242630\] {
+  background-color: #ffffff !important;
+  color: #1c1c1e !important;
+  border-color: #b0b0b6 !important;
+}
+
+html.light .board-modal-card button.bg-\[\#242630\]:hover {
+  background-color: #e5e5ea !important;
+  color: #000000 !important;
+}
+
+html.light .board-modal-cancel-btn {
+  background-color: #e5e5ea !important;
+  color: #1c1c1e !important;
+  border-color: #b0b0b6 !important;
+}
+
+html.light .board-modal-cancel-btn:hover {
+  background-color: #d1d1d6 !important;
+  color: #000000 !important;
+}
+
+html.light .board-modal-ok-btn {
+  background-color: #007aff !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 6px rgba(0, 122, 255, 0.3) !important;
+}
+
+html.light .board-modal-ok-btn:hover {
+  background-color: #0062cc !important;
+  color: #ffffff !important;
+}
+
+html.light .sidebar-add-btn {
+  color: #3a3a3c !important;
+}
+
+html.light .sidebar-add-btn:hover {
+  background-color: #e5e5ea !important;
+  color: #000000 !important;
+}
+
+/* Transparent Text Selection & Hidden Caret Cursor for Emoji Input Picker */
+.emoji-input-picker {
+  caret-color: transparent !important;
+}
+
+.emoji-input-picker::selection {
+  background-color: transparent !important;
+  color: inherit !important;
+}
+
+.emoji-input-picker::-moz-selection {
+  background-color: transparent !important;
+  color: inherit !important;
+}
+
+/* Board Modal Action Button High-Contrast Focus Rings */
+html.light .board-modal-cancel-btn:focus,
+html.light .board-modal-card button[type="submit"]:focus {
+  outline: none !important;
+  box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px #007aff !important;
+}
+
+html:not(.light) .board-modal-cancel-btn:focus {
+  outline: none !important;
+  box-shadow: 0 0 0 2px #212121, 0 0 0 4px #a0a0a5 !important;
+}
+
+html:not(.light) .board-modal-card button[type="submit"]:focus {
+  outline: none !important;
+  box-shadow: 0 0 0 2px #212121, 0 0 0 4px #0a84ff !important;
+}
+
+/* Ultra Smooth macOS Clip Card Deletion Exit Animation */
+.clip-card-deleting {
+  animation: clipDeleteExit 0.22s cubic-bezier(0.4, 0, 0.2, 1) forwards !important;
+  pointer-events: none !important;
+  overflow: hidden !important;
+}
+
+@keyframes clipDeleteExit {
+  0% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+    max-height: 160px;
+  }
+  45% {
+    opacity: 0;
+    transform: translateX(36px) scale(0.95);
+    max-height: 160px;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(50px) scale(0.9);
+    max-height: 0;
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    border-color: transparent !important;
+  }
+}
+
+/* =======================================================
+   NON-SELECTABLE FRONT-END UI CHROME & NAVIGATION
+   ======================================================= */
+/* Ensure all UI chrome (sidebar, main nav, header bars, buttons, Add/Edit Note button, badges, icons, tabs, modals, context menus) are non-selectable */
+body,
+aside,
+nav,
+header,
+footer,
+button,
+select,
+option,
+label,
+kbd,
+svg,
+.col-sidebar,
+.col-list-header,
+.col-preview-header,
+.sidebar-title,
+.nav-item,
+.badge,
+.tab-item,
+.modal-header,
+.modal-footer,
+.context-menu,
+.unselectable,
+.titlebar-drag-handle,
+[data-tauri-drag-region] {
+  -webkit-user-select: none !important;
+  user-select: none !important;
+}
+
+.titlebar-drag-handle,
+[data-tauri-drag-region] {
+  -webkit-app-region: drag !important;
+  cursor: default;
+}
+
+.titlebar-no-drag,
+[data-tauri-drag-region="false"],
+button,
+input,
+textarea,
+select,
+option,
+a,
+.no-drag {
+  -webkit-app-region: no-drag !important;
+}
+
+/* User Land Content ONLY: Allow text selection for actual clipboard text content and editable text inputs */
+input,
+textarea,
+[contenteditable="true"],
+.selectable-text,
+.clip-content-body,
+.clip-text-render,
+pre,
+code {
+  -webkit-user-select: text !important;
+  user-select: text !important;
+}
+
+/* =======================================================
+   NATIVE MAC OS HUD & CONTEXT MENU GLASS STYLING (DUAL THEME)
+   ======================================================= */
+.glass-hud,
+.context-menu,
+[role="menu"] {
+  z-index: 9999 !important;
+  background-color: rgba(30, 30, 32, 0.96) !important;
+  backdrop-filter: blur(24px) !important;
+  -webkit-backdrop-filter: blur(24px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55), 0 0 1px rgba(255, 255, 255, 0.1) !important;
+  color: #ececec !important;
+}
+
+html.light .glass-hud,
+html.light .context-menu,
+html.light [role="menu"],
+html[data-theme="light"] .glass-hud,
+html[data-theme="light"] .context-menu,
+html[data-theme="light"] [role="menu"] {
+  z-index: 9999 !important;
+  background-color: rgba(246, 246, 248, 0.96) !important;
+  border: 1px solid rgba(0, 0, 0, 0.14) !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15) !important;
+  color: #1c1c1e !important;
+}
+
+/* Light mode menu item text and hover states */
+html.light .glass-hud button,
+html[data-theme="light"] .glass-hud button {
+  color: #1c1c1e;
+}
+
+html.light .glass-hud button:hover,
+html[data-theme="light"] .glass-hud button:hover {
+  background-color: #007aff !important;
+  color: #ffffff !important;
+}
+
+html.light .glass-hud button:hover svg,
+html.light .glass-hud button:hover span,
+html[data-theme="light"] .glass-hud button:hover svg,
+html[data-theme="light"] .glass-hud button:hover span {
+  color: #ffffff !important;
+}
+
+/* Dark mode default styling for Sticky Filter Sandbox */
+.filter-sandbox-card,
+.sticky-filter-sandbox {
+  background-color: rgba(24, 24, 24, 0.95) !important;
+  border-color: rgba(75, 85, 99, 0.8) !important;
+  color: #e5e7eb !important;
+}
+
+/* Light mode overrides for Sticky Filter Sandbox */
+html.light .filter-manager-wrapper {
+  background-color: var(--bg-main) !important;
+  color: var(--text-main) !important;
+}
+
+html.light .filter-editor-card {
+  background-color: #ffffff !important;
+  color: #1c1c1e !important;
+  border-color: #c7c7cc !important;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15) !important;
+}
+
+html.light .filter-editor-header,
+html.light .filter-editor-footer {
+  background-color: #f4f4f7 !important;
+  border-color: #e5e5ea !important;
+  color: #1c1c1e !important;
+}
+
+html.light .filter-step-card,
+html.light .filter-sandbox-card,
+html.light .sticky-filter-sandbox {
+  background-color: rgba(246, 246, 248, 0.96) !important;
+  border-color: #d1d1d6 !important;
+  color: #1c1c1e !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08) !important;
+}
+
+html.light .filter-sandbox-card label,
+html.light .sticky-filter-sandbox label {
+  color: #3a3a3c !important;
+}
+
+html.light .filter-sandbox-card textarea,
+html.light .sticky-filter-sandbox textarea,
+html.light .filter-sandbox-card div.theme-input,
+html.light .sticky-filter-sandbox div.theme-input {
+  background-color: #ffffff !important;
+  border-color: #c7c7cc !important;
+  color: #1c1c1e !important;
+}
+
+html.light .filter-sandbox-card div.text-emerald-300,
+html.light .sticky-filter-sandbox div.text-emerald-300 {
+  color: #059669 !important;
+}
+
+optgroup {
+  background-color: #171717 !important;
+  color: #06b6d4 !important;
+  font-weight: 700 !important;
+}
+
+option {
+  background-color: #212121 !important;
+  color: #f3f4f6 !important;
+}
+
+html.light optgroup {
+  background-color: #e5e5ea !important;
+  color: #007aff !important;
+  font-weight: 700 !important;
+}
+
+html.light option {
+  background-color: #ffffff !important;
+  color: #1c1c1e !important;
+}
+
+html.light .filter-modal-cancel-btn {
+  background-color: #e5e5ea !important;
+  color: #1c1c1e !important;
+  border-color: #c7c7cc !important;
+}
+
+html.light .filter-modal-cancel-btn:hover {
+  background-color: #d1d1d6 !important;
+  color: #000000 !important;
+}
+
+html.light .filter-modal-ok-btn {
+  background-color: #007aff !important;
+  color: #ffffff !important;
+}
+
+html.light .filter-modal-ok-btn:hover {
+  background-color: #0062cc !important;
+  color: #ffffff !important;
+}
+
+/* =======================================================
+   TRANSPARENT HUD WINDOW & SPEECH BUBBLE TAIL
+   ======================================================= */
+html.hud-mode,
+html.hud-mode body,
+body.hud-mode,
+#root.hud-mode {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+/* =======================================================
+   LIGHT MODE COLOR CORRECTIONS FOR CLIP PREVIEW & NOTES
+   ======================================================= */
+
+/* Main Copy Clip Button */
+.copy-clip-main-btn {
+  background-color: #ffffff;
+  color: #000000;
+}
+
+html.light .copy-clip-main-btn {
+  background-color: #0066cc !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 6px rgba(0, 102, 204, 0.3) !important;
+}
+
+html.light .copy-clip-main-btn:hover {
+  background-color: #0052a3 !important;
+}
+
+/* Pasteboard / Add Note Action Bar */
+.preview-pasteboard-bar {
+  background-color: #171717;
+  border-color: #2b2b2b;
+  color: #d1d5db;
+}
+
+html.light .preview-pasteboard-bar {
+  background-color: #e8e8ed !important;
+  border-color: #d1d1d6 !important;
+  color: #1c1c1e !important;
+}
+
+html.light .preview-pasteboard-bar select {
+  background-color: #ffffff !important;
+  border-color: #c7c7cc !important;
+  color: #1c1c1e !important;
+}
+
+html.light .add-note-btn {
+  background-color: #fef08a !important;
+  color: #713f12 !important;
+  border-color: #eab308 !important;
+}
+
+html.light .add-note-btn:hover {
+  background-color: #fde047 !important;
+}
+
+/* Multi-Note Theme Support for Dark & Light Modes */
+.note-container {
+  background-color: rgba(245, 158, 11, 0.08);
+  border-color: rgba(245, 158, 11, 0.2);
+}
+
+html.light .note-container {
+  background-color: #fefce8 !important;
+  border-color: #fde047 !important;
+}
+
+html.light .note-header-text {
+  color: #b45309 !important;
+}
+
+html.light .note-row-box {
+  background-color: #ffffff !important;
+  border-color: #fde047 !important;
+}
+
+html.light .note-row {
+  background-color: #ffffff !important;
+  color: #451a03 !important;
+}
+
+html.light .note-row:hover {
+  background-color: #fef9c3 !important;
+}
+
+html.light .note-text {
+  color: #451a03 !important;
+  font-weight: 600 !important;
+}
+
+html.light .note-icon-btn {
+  color: #b45309 !important;
+}
+
+html.light .note-icon-btn:hover {
+  color: #78350f !important;
+}
+
+html.light .note-input-row {
+  background-color: #fef9c3 !important;
+  border-color: #fde047 !important;
+}
+
+.note-input,
+textarea.note-input,
+input.note-input,
+html.light .note-input,
+html.light textarea.note-input,
+html.light input.note-input {
+  background-color: transparent !important;
+  background: transparent !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+html.light .note-input-row textarea,
+html.light .note-input-row input {
+  background-color: transparent !important;
+  background: transparent !important;
+  color: #451a03 !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+html.light .note-input-row textarea::placeholder,
+html.light .note-input-row input::placeholder {
+  color: #92400e !important;
+}
+
+/* Electric Pushpin Orange Tokens */
+.pin-icon {
+  color: #f97316 !important;
+}
+
+html.light .pin-icon {
+  color: #c2410c !important;
+}
