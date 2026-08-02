@@ -68,30 +68,40 @@ export default function App() {
   }, []);
 
   const handleRestoreClip = async (clipId: number) => {
+    // 0ms optimistic local state mutation
+    const restored = trashedClips.find((c) => c.id === clipId);
+    setTrashedClips((prev) => prev.filter((c) => c.id !== clipId));
+    if (restored) {
+      setAllClips((prev) => [restored, ...prev]);
+    }
     try {
       await invoke('restore_clip', { id: clipId });
-      fetchClips();
-      fetchTrashedClips();
     } catch (err) {
       console.error(err);
+      fetchClips();
+      fetchTrashedClips();
     }
   };
 
   const handlePurgeClipPermanently = async (clipId: number) => {
+    // 0ms optimistic local state mutation
+    setTrashedClips((prev) => prev.filter((c) => c.id !== clipId));
     try {
       await invoke('purge_clip_permanently', { id: clipId });
-      fetchTrashedClips();
     } catch (err) {
       console.error(err);
+      fetchTrashedClips();
     }
   };
 
   const handleEmptyTrash = async () => {
+    // 0ms optimistic local state mutation
+    setTrashedClips([]);
     try {
       await invoke('empty_trash');
-      fetchTrashedClips();
     } catch (err) {
       console.error(err);
+      fetchTrashedClips();
     }
   };
 
