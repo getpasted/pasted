@@ -164,6 +164,32 @@ pub fn remove_clip_from_board(
 }
 
 #[tauri::command]
+pub fn reorder_pinned_clips(
+    ids: Vec<i64>,
+    db: State<'_, Arc<DbState>>,
+) -> Result<(), String> {
+    db.reorder_pinned_clips(ids).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn get_clip_versions(
+    clip_id: i64,
+    db: State<'_, Arc<DbState>>,
+) -> Result<Vec<crate::db::ClipVersion>, String> {
+    db.get_clip_versions(clip_id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn create_tag(
+    name: String,
+    color: String,
+    db: State<'_, Arc<DbState>>,
+) -> Result<crate::db::Board, String> {
+    db.create_board_with_type(&name, "Tag", &color, None, "tag")
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub fn copy_clip_to_system(
     text: Option<String>,
     image_base64: Option<String>,

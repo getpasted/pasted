@@ -11,10 +11,12 @@ pub struct ClipItem {
     pub text_content: Option<String>,
     pub html_content: Option<String>,
     pub image_base64: Option<String>,
+    pub image_path: Option<String>,
     pub content_hash: String,
     pub source_app: String,
     pub is_pinned: bool,
     pub is_protected: bool,
+    pub pin_order: i32,
     pub board_id: Option<i64>,
     pub board_ids: Option<Vec<i64>>,
     pub note: Option<String>,
@@ -38,8 +40,17 @@ pub struct Board {
     pub icon: String,
     pub color: String,
     pub smart_rule: Option<String>, // JSON string for auto-smart rules
+    pub board_type: String, // "category" or "tag"
     pub shortcut: Option<String>,
     pub clip_count: Option<i64>,
+    pub created_at: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ClipVersion {
+    pub id: i64,
+    pub clip_id: i64,
+    pub text_content: String,
     pub created_at: String,
 }
 
@@ -167,9 +178,26 @@ impl DbState {
         let _ = conn.execute("ALTER TABLE clips ADD COLUMN is_trashed INTEGER DEFAULT 0", []);
         let _ = conn.execute("ALTER TABLE clips ADD COLUMN trashed_at DATETIME", []);
         let _ = conn.execute("ALTER TABLE clips ADD COLUMN is_protected INTEGER DEFAULT 0", []);
+        let _ = conn.execute("ALTER TABLE clips ADD COLUMN image_path TEXT", []);
+        let _ = conn.execute("ALTER TABLE clips ADD COLUMN pin_order INTEGER DEFAULT 0", []);
         let _ = conn.execute("ALTER TABLE boards ADD COLUMN smart_rule TEXT", []);
+        let _ = conn.execute("ALTER TABLE boards ADD COLUMN board_type TEXT DEFAULT 'category'", []);
         let _ = conn.execute("ALTER TABLE boards ADD COLUMN shortcut TEXT", []);
         let _ = conn.execute("ALTER TABLE filters ADD COLUMN shortcut TEXT", []);
+
+        let _ = conn.execute(
+            "CREATE TABLE IF NOT EXISTS clip_versions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                clip_id INTEGER NOT NULL REFERENCES clips(id) ON DELETE CASCADE,
+                text_content TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )",
+            [],
+        );
+        let _ = conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_clip_versions_clip_id ON clip_versions(clip_id, created_at DESC)",
+            [],
+        );
 
         let _ = conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_clips_trashed ON clips (is_trashed, created_at DESC)",
@@ -574,27 +602,29 @@ impl DbState {
 
     fn get_clip_by_id_internal(&self, conn: &Connection, id: i64) -> Result<ClipItem> {
         conn.query_row(
-            "SELECT id, content_type, text_content, html_content, image_base64, content_hash, source_app, is_pinned, is_protected, board_id, note, is_trashed, trashed_at, created_at 
+            "SELECT id, content_type, text_content, html_content, image_base64, image_path, content_hash, source_app, is_pinned, is_protected, COALESCE(pin_order, 0), board_id, note, is_trashed, trashed_at, created_at 
              FROM clips WHERE id = ?1",
             params![id],
             |row| {
-                let bid: Option<i64> = row.get(9)?;
+                let bid: Option<i64> = row.get(11)?;
                 Ok(ClipItem {
                     id: row.get(0)?,
                     content_type: row.get(1)?,
                     text_content: row.get(2)?,
                     html_content: row.get(3)?,
                     image_base64: row.get(4)?,
-                    content_hash: row.get(5)?,
-                    source_app: row.get(6)?,
-                    is_pinned: row.get::<_, i32>(7)? != 0,
-                    is_protected: row.get::<_, i32>(8)? != 0,
+                    image_path: row.get(5)?,
+                    content_hash: row.get(6)?,
+                    source_app: row.get(7)?,
+                    is_pinned: row.get::<_, i32>(8)? != 0,
+                    is_protected: row.get::<_, i32>(9)? != 0,
+                    pin_order: row.get(10)?,
                     board_id: bid,
                     board_ids: bid.map(|b| vec![b]),
-                    note: row.get(10)?,
-                    is_trashed: row.get::<_, i32>(11)? != 0,
-                    trashed_at: row.get(12)?,
-                    created_at: row.get(13)?,
+                    note: row.get(12)?,
+                    is_trashed: row.get::<_, i32>(13)? != 0,
+                    trashed_at: row.get(14)?,
+                    created_at: row.get(15)?,
                 })
             },
         )
@@ -617,7 +647,7 @@ impl DbState {
         }
 
         let mut sql = String::from(
-            "SELECT id, content_type, text_content, NULL as html_content, image_base64, content_hash, source_app, is_pinned, is_protected, board_id, note, is_trashed, trashed_at, created_at,
+            "SELECT id, content_type, text_content, NULL as html_content, image_base64, image_path, content_hash, source_app, is_pinned, is_protected, COALESCE(pin_order, 0), board_id, note, is_trashed, trashed_at, created_at,
              (SELECT GROUP_CONCAT(board_id) FROM clip_boards WHERE clip_id = clips.id) as board_ids_str
              FROM clips WHERE (is_trashed IS NULL OR is_trashed = 0)"
         );
@@ -714,14 +744,14 @@ impl DbState {
             }
         }
 
-        sql.push_str(" ORDER BY is_pinned DESC, created_at DESC LIMIT 500");
+        sql.push_str(" ORDER BY is_pinned DESC, pin_order ASC, created_at DESC LIMIT 500");
 
         let param_refs: Vec<&dyn rusqlite::ToSql> = query_params.iter().map(|p| p.as_ref()).collect();
 
         let mut stmt = conn.prepare(&sql)?;
         let clip_iter = stmt.query_map(param_refs.as_slice(), |row| {
-            let primary_bid: Option<i64> = row.get(9)?;
-            let board_ids_str: Option<String> = row.get(14)?;
+            let primary_bid: Option<i64> = row.get(11)?;
+            let board_ids_str: Option<String> = row.get(16)?;
             let mut b_ids = Vec::new();
             if let Some(b) = primary_bid {
                 b_ids.push(b);
@@ -742,16 +772,18 @@ impl DbState {
                 text_content: row.get(2)?,
                 html_content: row.get(3)?,
                 image_base64: row.get(4)?,
-                content_hash: row.get(5)?,
-                source_app: row.get(6)?,
-                is_pinned: row.get::<_, i32>(7)? != 0,
-                is_protected: row.get::<_, i32>(8)? != 0,
+                image_path: row.get(5)?,
+                content_hash: row.get(6)?,
+                source_app: row.get(7)?,
+                is_pinned: row.get::<_, i32>(8)? != 0,
+                is_protected: row.get::<_, i32>(9)? != 0,
+                pin_order: row.get(10)?,
                 board_id: primary_bid,
                 board_ids: Some(b_ids),
-                note: row.get(10)?,
-                is_trashed: row.get::<_, i32>(11)? != 0,
-                trashed_at: row.get(12)?,
-                created_at: row.get(13)?,
+                note: row.get(12)?,
+                is_trashed: row.get::<_, i32>(13)? != 0,
+                trashed_at: row.get(14)?,
+                created_at: row.get(15)?,
             })
         })?;
 
@@ -765,27 +797,29 @@ impl DbState {
     pub fn get_trashed_clips(&self) -> Result<Vec<ClipItem>> {
         let conn = self.conn.lock();
         let mut stmt = conn.prepare_cached(
-            "SELECT id, content_type, text_content, NULL as html_content, NULL as image_base64, content_hash, source_app, is_pinned, is_protected, board_id, note, is_trashed, trashed_at, created_at 
+            "SELECT id, content_type, text_content, NULL as html_content, NULL as image_base64, image_path, content_hash, source_app, is_pinned, is_protected, COALESCE(pin_order, 0), board_id, note, is_trashed, trashed_at, created_at 
              FROM clips WHERE is_trashed = 1 ORDER BY trashed_at DESC"
         )?;
         let clip_iter = stmt.query_map([], |row| {
-            let bid: Option<i64> = row.get(9)?;
+            let bid: Option<i64> = row.get(11)?;
             Ok(ClipItem {
                 id: row.get(0)?,
                 content_type: row.get(1)?,
                 text_content: row.get(2)?,
                 html_content: row.get(3)?,
                 image_base64: row.get(4)?,
-                content_hash: row.get(5)?,
-                source_app: row.get(6)?,
-                is_pinned: row.get::<_, i32>(7)? != 0,
-                is_protected: row.get::<_, i32>(8)? != 0,
+                image_path: row.get(5)?,
+                content_hash: row.get(6)?,
+                source_app: row.get(7)?,
+                is_pinned: row.get::<_, i32>(8)? != 0,
+                is_protected: row.get::<_, i32>(9)? != 0,
+                pin_order: row.get(10)?,
                 board_id: bid,
                 board_ids: bid.map(|b| vec![b]),
-                note: row.get(10)?,
-                is_trashed: row.get::<_, i32>(11)? != 0,
-                trashed_at: row.get(12)?,
-                created_at: row.get(13)?,
+                note: row.get(12)?,
+                is_trashed: row.get::<_, i32>(13)? != 0,
+                trashed_at: row.get(14)?,
+                created_at: row.get(15)?,
             })
         })?;
         let mut clips = Vec::new();
@@ -798,27 +832,29 @@ impl DbState {
     pub fn get_protected_clips(&self) -> Result<Vec<ClipItem>> {
         let conn = self.conn.lock();
         let mut stmt = conn.prepare_cached(
-            "SELECT id, content_type, text_content, NULL as html_content, NULL as image_base64, content_hash, source_app, is_pinned, is_protected, board_id, note, is_trashed, trashed_at, created_at 
+            "SELECT id, content_type, text_content, NULL as html_content, NULL as image_base64, image_path, content_hash, source_app, is_pinned, is_protected, COALESCE(pin_order, 0), board_id, note, is_trashed, trashed_at, created_at 
              FROM clips WHERE is_protected = 1 AND (is_trashed IS NULL OR is_trashed = 0) ORDER BY created_at DESC"
         )?;
         let clip_iter = stmt.query_map([], |row| {
-            let bid: Option<i64> = row.get(9)?;
+            let bid: Option<i64> = row.get(11)?;
             Ok(ClipItem {
                 id: row.get(0)?,
                 content_type: row.get(1)?,
                 text_content: row.get(2)?,
                 html_content: row.get(3)?,
                 image_base64: row.get(4)?,
-                content_hash: row.get(5)?,
-                source_app: row.get(6)?,
-                is_pinned: row.get::<_, i32>(7)? != 0,
-                is_protected: row.get::<_, i32>(8)? != 0,
+                image_path: row.get(5)?,
+                content_hash: row.get(6)?,
+                source_app: row.get(7)?,
+                is_pinned: row.get::<_, i32>(8)? != 0,
+                is_protected: row.get::<_, i32>(9)? != 0,
+                pin_order: row.get(10)?,
                 board_id: bid,
                 board_ids: bid.map(|b| vec![b]),
-                note: row.get(10)?,
-                is_trashed: row.get::<_, i32>(11)? != 0,
-                trashed_at: row.get(12)?,
-                created_at: row.get(13)?,
+                note: row.get(12)?,
+                is_trashed: row.get::<_, i32>(13)? != 0,
+                trashed_at: row.get(14)?,
+                created_at: row.get(15)?,
             })
         })?;
         let mut clips = Vec::new();
@@ -1147,8 +1183,8 @@ impl DbState {
     #[allow(clippy::type_complexity)]
     pub fn get_boards(&self) -> Result<Vec<Board>> {
         let conn = self.conn.lock();
-        let mut stmt = conn.prepare("SELECT id, name, icon, color, smart_rule, shortcut, created_at FROM boards ORDER BY id ASC")?;
-        let board_rows: Vec<(i64, String, String, String, Option<String>, Option<String>, String)> = stmt
+        let mut stmt = conn.prepare("SELECT id, name, icon, color, smart_rule, COALESCE(board_type, 'category'), shortcut, created_at FROM boards ORDER BY id ASC")?;
+        let board_rows: Vec<(i64, String, String, String, Option<String>, String, Option<String>, String)> = stmt
             .query_map([], |row| {
                 Ok((
                     row.get(0)?,
@@ -1158,12 +1194,13 @@ impl DbState {
                     row.get(4)?,
                     row.get(5)?,
                     row.get(6)?,
+                    row.get(7)?,
                 ))
             })?
             .collect::<Result<Vec<_>, _>>()?;
 
         let mut boards = Vec::new();
-        for (id, name, icon, color, smart_rule, shortcut, created_at) in board_rows {
+        for (id, name, icon, color, smart_rule, board_type, shortcut, created_at) in board_rows {
             let count: i64 = if let Some(ref sr_json) = smart_rule {
                 if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(sr_json) {
                     let match_mode = parsed["match"].as_str().unwrap_or("any");
@@ -1230,6 +1267,7 @@ impl DbState {
                 icon,
                 color,
                 smart_rule,
+                board_type,
                 shortcut,
                 clip_count: Some(count),
                 created_at,
@@ -1244,15 +1282,15 @@ impl DbState {
         Ok(())
     }
 
-    pub fn create_board(&self, name: &str, icon: &str, color: &str, smart_rule: Option<&str>) -> Result<Board> {
+    pub fn create_board_with_type(&self, name: &str, icon: &str, color: &str, smart_rule: Option<&str>, board_type: &str) -> Result<Board> {
         let conn = self.conn.lock();
         conn.execute(
-            "INSERT INTO boards (name, icon, color, smart_rule) VALUES (?1, ?2, ?3, ?4)",
-            params![name, icon, color, smart_rule],
+            "INSERT INTO boards (name, icon, color, smart_rule, board_type) VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![name, icon, color, smart_rule, board_type],
         )?;
         let id = conn.last_insert_rowid();
         conn.query_row(
-            "SELECT id, name, icon, color, smart_rule, shortcut, created_at FROM boards WHERE id = ?1",
+            "SELECT id, name, icon, color, smart_rule, COALESCE(board_type, 'category'), shortcut, created_at FROM boards WHERE id = ?1",
             params![id],
             |row| {
                 Ok(Board {
@@ -1261,12 +1299,69 @@ impl DbState {
                     icon: row.get(2)?,
                     color: row.get(3)?,
                     smart_rule: row.get(4)?,
-                    shortcut: row.get(5)?,
+                    board_type: row.get(5)?,
+                    shortcut: row.get(6)?,
                     clip_count: Some(0),
-                    created_at: row.get(6)?,
+                    created_at: row.get(7)?,
                 })
             },
         )
+    }
+
+    pub fn create_board(&self, name: &str, icon: &str, color: &str, smart_rule: Option<&str>) -> Result<Board> {
+        self.create_board_with_type(name, icon, color, smart_rule, "category")
+    }
+
+    pub fn reorder_pinned_clips(&self, ids: Vec<i64>) -> Result<()> {
+        let conn = self.conn.lock();
+        for (idx, id) in ids.iter().enumerate() {
+            conn.execute(
+                "UPDATE clips SET pin_order = ?1 WHERE id = ?2",
+                params![idx as i32, id],
+            )?;
+        }
+        Ok(())
+    }
+
+    pub fn save_clip_version(&self, clip_id: i64, text: &str) -> Result<ClipVersion> {
+        let conn = self.conn.lock();
+        conn.execute(
+            "INSERT INTO clip_versions (clip_id, text_content) VALUES (?1, ?2)",
+            params![clip_id, text],
+        )?;
+        let id = conn.last_insert_rowid();
+        conn.query_row(
+            "SELECT id, clip_id, text_content, created_at FROM clip_versions WHERE id = ?1",
+            params![id],
+            |row| {
+                Ok(ClipVersion {
+                    id: row.get(0)?,
+                    clip_id: row.get(1)?,
+                    text_content: row.get(2)?,
+                    created_at: row.get(3)?,
+                })
+            },
+        )
+    }
+
+    pub fn get_clip_versions(&self, clip_id: i64) -> Result<Vec<ClipVersion>> {
+        let conn = self.conn.lock();
+        let mut stmt = conn.prepare(
+            "SELECT id, clip_id, text_content, created_at FROM clip_versions WHERE clip_id = ?1 ORDER BY created_at DESC",
+        )?;
+        let rows = stmt.query_map(params![clip_id], |row| {
+            Ok(ClipVersion {
+                id: row.get(0)?,
+                clip_id: row.get(1)?,
+                text_content: row.get(2)?,
+                created_at: row.get(3)?,
+            })
+        })?;
+        let mut list = Vec::new();
+        for r in rows {
+            list.push(r?);
+        }
+        Ok(list)
     }
 
     pub fn update_board(&self, id: i64, name: &str, icon: &str, color: &str, smart_rule: Option<&str>) -> Result<()> {
@@ -1712,5 +1807,44 @@ mod tests {
         db.delete_clip(clip1.id).unwrap();
         let search_after_delete = db.get_clips(Some("Supercalifragilisticexpialidocious"), None, false).unwrap();
         assert_eq!(search_after_delete.len(), 0);
+    }
+
+    #[test]
+    fn test_unified_taxonomy_and_tags() {
+        let db = setup_test_db();
+        let tag = db.create_board_with_type("CodeSnippet", "Tag", "#06b6d4", None, "tag").unwrap();
+        assert_eq!(tag.board_type, "tag");
+
+        let boards = db.get_boards().unwrap();
+        assert!(boards.iter().any(|b| b.id == tag.id && b.board_type == "tag"));
+    }
+
+    #[test]
+    fn test_pin_reordering() {
+        let db = setup_test_db();
+        let clip1 = db.save_clip("text", Some("First Pinned"), None, None, "HashP1", "App").unwrap();
+        let clip2 = db.save_clip("text", Some("Second Pinned"), None, None, "HashP2", "App").unwrap();
+        db.toggle_pin(clip1.id).unwrap();
+        db.toggle_pin(clip2.id).unwrap();
+
+        db.reorder_pinned_clips(vec![clip2.id, clip1.id]).unwrap();
+        let clips = db.get_clips(None, None, true).unwrap();
+        assert_eq!(clips[0].id, clip2.id);
+        assert_eq!(clips[1].id, clip1.id);
+    }
+
+    #[test]
+    fn test_clip_version_history() {
+        let db = setup_test_db();
+        let clip = db.save_clip("text", Some("Original Content"), None, None, "HashV1", "App").unwrap();
+
+        let v1 = db.save_clip_version(clip.id, "Original Content").unwrap();
+        let v2 = db.save_clip_version(clip.id, "Transformed Uppercase Content").unwrap();
+        assert!(v1.id > 0);
+        assert!(v2.id > 0);
+
+        let versions = db.get_clip_versions(clip.id).unwrap();
+        assert_eq!(versions.len(), 2);
+        assert_eq!(versions[0].text_content, "Transformed Uppercase Content");
     }
 }

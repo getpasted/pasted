@@ -75,10 +75,12 @@ export interface ClipItem {
   text_content: string | null;
   html_content: string | null;
   image_base64: string | null;
+  image_path?: string | null;
   content_hash: string;
   source_app: string;
   is_pinned: boolean;
   is_protected?: boolean;
+  pin_order?: number;
   board_id: number | null;
   board_ids?: number[];
   note?: string | null;
@@ -91,8 +93,16 @@ export interface Board {
   icon: string;
   color: string;
   smart_rule?: string | null;
+  board_type?: 'category' | 'tag';
   shortcut?: string | null;
   clip_count?: number | null;
+  created_at: string;
+}
+
+export interface ClipVersion {
+  id: number;
+  clip_id: number;
+  text_content: string;
   created_at: string;
 }
 
