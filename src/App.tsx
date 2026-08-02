@@ -1000,11 +1000,11 @@ export default function App() {
                     : currentTab === 'protected'
                     ? 'Protected'
                     : currentTab === 'notes'
-                    ? 'Notes'
+                    ? 'Noted'
                     : currentTab === 'sequential'
                     ? 'Queue'
                     : currentTab === 'trash'
-                    ? 'Trash'
+                    ? 'Trashed'
                     : selectedBoardId
                     ? boards.find((b) => b.id === selectedBoardId)?.name || 'Board'
                     : 'All History'}

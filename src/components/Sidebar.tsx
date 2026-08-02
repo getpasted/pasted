@@ -341,6 +341,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
               <button
                 onClick={() => {
+                  setCurrentTab('sequential');
+                  setSelectedBoardId(null);
+                }}
+                className={`group w-full h-8 flex items-center justify-between px-2.5 rounded-md transition-colors duration-100 cursor-pointer ${
+                  currentTab === 'sequential'
+                    ? 'sidebar-item-active bg-[#3b3b3e] text-white font-medium'
+                    : 'sidebar-item-idle text-[#e3e3e5] hover:bg-white/5 font-normal'
+                }`}
+              >
+                <div className="flex items-center space-x-3">
+                  <ListOrdered className="w-4 h-4 text-purple-400 shrink-0" strokeWidth={1.8} />
+                  <span className="truncate">Queue</span>
+                </div>
+                {seqStatus?.is_active && (
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                )}
+              </button>
+
+              <button
+                onClick={() => {
                   setCurrentTab('pinned');
                   setSelectedBoardId(null);
                 }}
@@ -396,32 +416,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
               >
                 <div className="flex items-center space-x-3">
                   <StickyNote className="w-4 h-4 text-emerald-400 shrink-0" strokeWidth={1.8} />
-                  <span className="truncate">Notes</span>
+                  <span className="truncate">Noted</span>
                 </div>
                 {!!notesCount && notesCount > 0 && (
                   <span className="sidebar-badge text-[11px] px-1.5 py-0.5 rounded-md bg-white/10 text-gray-300 font-mono">
                     {notesCount}
                   </span>
-                )}
-              </button>
-
-              <button
-                onClick={() => {
-                  setCurrentTab('sequential');
-                  setSelectedBoardId(null);
-                }}
-                className={`group w-full h-8 flex items-center justify-between px-2.5 rounded-md transition-colors duration-100 cursor-pointer ${
-                  currentTab === 'sequential'
-                    ? 'sidebar-item-active bg-[#3b3b3e] text-white font-medium'
-                    : 'sidebar-item-idle text-[#e3e3e5] hover:bg-white/5 font-normal'
-                }`}
-              >
-                <div className="flex items-center space-x-3">
-                  <ListOrdered className="w-4 h-4 text-[#0a84ff] shrink-0" strokeWidth={1.8} />
-                  <span className="truncate">Queue</span>
-                </div>
-                {seqStatus?.is_active && (
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                 )}
               </button>
 
@@ -438,7 +438,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               >
                 <div className="flex items-center space-x-3">
                   <Trash2 className="w-4 h-4 text-rose-400 shrink-0" strokeWidth={1.8} />
-                  <span className="truncate">Trash</span>
+                  <span className="truncate">Trashed</span>
                 </div>
                 {!!trashedCount && trashedCount > 0 && (
                   <span className="sidebar-badge text-[11px] px-1.5 py-0.5 rounded-md bg-rose-500/20 text-rose-300 font-mono">
