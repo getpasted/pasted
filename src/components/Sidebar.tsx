@@ -545,6 +545,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       <div className={`${isDragging ? 'hidden' : 'hidden group-hover:flex'} items-center space-x-1`}>
                         <button
                           type="button"
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onMouseDown={(e) => e.stopPropagation()}
                           onClick={(e) => {
                             e.stopPropagation();
                             if (onEditBoard) onEditBoard(b);
@@ -556,6 +558,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         </button>
                         <button
                           type="button"
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onMouseDown={(e) => e.stopPropagation()}
                           onClick={async (e) => {
                             e.stopPropagation();
                             if (confirm(`Delete bin "${b.name}"?`)) {

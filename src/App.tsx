@@ -1209,9 +1209,9 @@ export default function App() {
           </button>
           <div className="border-t border-white/10 my-1" />
           <button
-            onClick={async () => {
+            onClick={async (e) => {
+              e.stopPropagation();
               const b = boardContextMenu.board;
-              setBoardContextMenu(null);
               if (confirm(`Delete bin "${b.name}"?`)) {
                 try {
                   await invoke('delete_board', { id: b.id });
@@ -1224,6 +1224,7 @@ export default function App() {
                   console.error(err);
                 }
               }
+              setBoardContextMenu(null);
             }}
             className="w-full flex items-center space-x-2 px-2.5 py-1.5 rounded-md text-red-400 hover:bg-red-600 hover:text-white transition-colors"
           >

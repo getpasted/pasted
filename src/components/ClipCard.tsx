@@ -231,7 +231,11 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
       )}
 
       {/* Hover Action Buttons */}
-      <div className="absolute right-2 bottom-2 opacity-0 group-hover:opacity-100 transition-opacity flex items-center space-x-1 bg-gray-950/95 p-1 rounded-lg border border-gray-700/80 shadow-xl">
+      <div
+        onPointerDown={(e) => e.stopPropagation()}
+        onMouseDown={(e) => e.stopPropagation()}
+        className="absolute right-2 bottom-2 opacity-0 group-hover:opacity-100 transition-opacity flex items-center space-x-1 bg-gray-950/95 p-1 rounded-lg border border-gray-700/80 shadow-xl"
+      >
         <button
           onClick={handleCopy}
           className="p-1 text-gray-400 hover:text-white rounded hover:bg-gray-800"
