@@ -1027,6 +1027,8 @@ impl DbState {
                 }
             }
         }
+        Ok(updated_count)
+    }
     pub fn batch_pin_clips(&self, ids: Vec<i64>, pin_state: bool) -> Result<()> {
         let conn = self.conn.lock();
         let val = if pin_state { 1 } else { 0 };

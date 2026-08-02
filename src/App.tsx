@@ -1198,21 +1198,30 @@ export default function App() {
                     <ClipCard
                       key={clip.id}
                       clip={clip}
-                      isSelected={selectedClipIds.has(clip.id) || selectedClip?.id === clip.id}
+                      isSelected={selectedClipIds.size > 0 ? selectedClipIds.has(clip.id) : selectedClip?.id === clip.id}
                       isDeleting={deletingClipIds.has(clip.id)}
                       isTrashMode={currentTab === 'trash'}
                       isQueueMode={currentTab === 'sequential'}
                       queueIndex={queueIndex}
                       rowHeight={appSettings.rowHeight}
                       onSelect={(e) => {
-                        setSelectedClip(clip);
                         setSelectedIndex(index);
 
                         if (e.metaKey || e.ctrlKey) {
                           setSelectedClipIds((prev) => {
                             const next = new Set(prev);
-                            if (next.has(clip.id)) next.delete(clip.id);
-                            else next.add(clip.id);
+                            if (next.has(clip.id)) {
+                              next.delete(clip.id);
+                              if (selectedClip?.id === clip.id) {
+                                const remaining = Array.from(next);
+                                const lastId = remaining[remaining.length - 1];
+                                const nextSelected = displayedClips.find((c) => c.id === lastId);
+                                setSelectedClip(nextSelected || null);
+                              }
+                            } else {
+                              next.add(clip.id);
+                              setSelectedClip(clip);
+                            }
                             return next;
                           });
                         } else if (e.shiftKey && selectedClip) {
@@ -1225,6 +1234,7 @@ export default function App() {
                             setSelectedClipIds(new Set(rangeIds));
                           }
                         } else {
+                          setSelectedClip(clip);
                           setSelectedClipIds(new Set([clip.id]));
                         }
                       }}
