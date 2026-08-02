@@ -37,10 +37,13 @@ export const BoardModal: React.FC<BoardModalProps> = ({
   onClose,
   onRefreshBoards,
 }) => {
-  const [modalTab, setModalTab] = useState<'bin' | 'smart' | 'filter'>('bin');
-  const [name, setName] = useState('');
-  const [selectedColor, setSelectedColor] = useState('#3b82f6');
-  const [icon, setIcon] = useState('📂');
+  const [modalTab, setModalTab] = useState<'bin' | 'smart' | 'filter'>(() => {
+    if (editingBoard?.smart_rule) return 'smart';
+    return 'bin';
+  });
+  const [name, setName] = useState(() => editingBoard?.name || '');
+  const [selectedColor, setSelectedColor] = useState(() => editingBoard?.color || '#3b82f6');
+  const [icon, setIcon] = useState(() => (editingBoard ? formatEmojiIcon(editingBoard.icon) : '📂'));
 
   // Form Validation State
   const [errors, setErrors] = useState<{ name?: boolean; color?: boolean; icon?: boolean }>({});
@@ -49,10 +52,35 @@ export const BoardModal: React.FC<BoardModalProps> = ({
   const [installedApps, setInstalledApps] = useState<string[]>([]);
 
   // Multi-condition Smart Rules state
-  const [conditions, setConditions] = useState<SmartConditionRow[]>([
-    { id: '1', target: 'source_app', operator: 'is', value: '1Password' },
-  ]);
-  const [matchCondition, setMatchCondition] = useState<'any' | 'all'>('any');
+  const [conditions, setConditions] = useState<SmartConditionRow[]>(() => {
+    if (editingBoard?.smart_rule) {
+      try {
+        const parsed = JSON.parse(editingBoard.smart_rule);
+        if (parsed.conditions && parsed.conditions.length > 0) {
+          return parsed.conditions.map((c: any, i: number) => ({
+            id: String(i + 1),
+            target: c.type || 'source_app',
+            operator: c.operator || 'is',
+            value: c.value || '',
+          }));
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    return [{ id: '1', target: 'source_app', operator: 'is', value: '1Password' }];
+  });
+  const [matchCondition, setMatchCondition] = useState<'any' | 'all'>(() => {
+    if (editingBoard?.smart_rule) {
+      try {
+        const parsed = JSON.parse(editingBoard.smart_rule);
+        return parsed.match || 'any';
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    return 'any';
+  });
 
   const modalRef = React.useRef<HTMLDivElement>(null);
 

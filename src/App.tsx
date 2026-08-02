@@ -1235,6 +1235,7 @@ export default function App() {
 
       {/* Custom Board Creator / Editor Modal */}
       <BoardModal
+        key={editingBoard ? `edit-${editingBoard.id}` : 'new-bin'}
         isOpen={isBoardModalOpen}
         editingBoard={editingBoard}
         onClose={() => {
