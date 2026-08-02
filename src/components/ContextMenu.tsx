@@ -137,7 +137,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
               Unassigned
             </button>
 
-            {boards.map((b) => (
+            {boards.filter((b) => !b.smart_rule).map((b) => (
               <button
                 key={b.id}
                 onClick={() => {

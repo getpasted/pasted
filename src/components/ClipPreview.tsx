@@ -500,7 +500,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
             className="bg-[#181818] border border-gray-700 text-gray-200 text-xs rounded-md px-2 py-1 focus:outline-none focus:border-gray-500"
           >
             <option value="">Unassigned</option>
-            {boards.map((b) => (
+            {boards.filter((b) => !b.smart_rule).map((b) => (
               <option key={b.id} value={b.id}>
                 {b.name}
               </option>
