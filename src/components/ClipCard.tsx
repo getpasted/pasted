@@ -21,6 +21,7 @@ import {
   ArrowRightCircle,
   MinusCircle,
   Shield,
+  ShieldOff,
 } from 'lucide-react';
 
 interface ClipCardProps {
@@ -320,11 +321,15 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
                   onToggleProtected();
                 }}
                 className={`p-1 rounded hover:bg-gray-800 ${
-                  clip.is_protected ? 'text-cyan-400 fill-cyan-400/20' : 'text-gray-400 hover:text-cyan-300'
+                  clip.is_protected ? 'text-cyan-400' : 'text-gray-400 hover:text-cyan-300'
                 }`}
                 title={clip.is_protected ? 'Unprotect Clip' : 'Protect Clip'}
               >
-                <Shield className="w-3.5 h-3.5" />
+                {clip.is_protected ? (
+                  <ShieldOff className="w-3.5 h-3.5 text-cyan-400" />
+                ) : (
+                  <Shield className="w-3.5 h-3.5" />
+                )}
               </button>
             )}
 
@@ -362,6 +367,7 @@ export const ClipCard = React.memo(ClipCardComponent, (prevProps, nextProps) => 
   return (
     prevProps.clip.id === nextProps.clip.id &&
     prevProps.clip.is_pinned === nextProps.clip.is_pinned &&
+    prevProps.clip.is_protected === nextProps.clip.is_protected &&
     prevProps.clip.note === nextProps.clip.note &&
     prevProps.isSelected === nextProps.isSelected &&
     prevProps.isDeleting === nextProps.isDeleting &&
