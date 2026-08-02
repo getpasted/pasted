@@ -485,9 +485,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 const isDragging = activeDragBoardId === b.id;
 
                 return (
-                  <button
+                  <div
                     key={b.id}
-                    type="button"
+                    role="button"
+                    tabIndex={0}
                     onPointerDown={() => handlePointerDownBoard(b.id)}
                     onPointerEnter={() => handlePointerEnterBoard(b.id)}
                     onPointerUp={handlePointerUpBoard}
@@ -503,6 +504,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     }}
                     onContextMenu={(e) => {
                       e.preventDefault();
+                      e.stopPropagation();
                       if (onBoardContextMenu) onBoardContextMenu(e.clientX, e.clientY, b);
                     }}
                     className={`group w-full h-8 flex items-center justify-between px-2.5 rounded-md select-none transition-all duration-100 ${
@@ -582,7 +584,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         </button>
                       </div>
                     </div>
-                  </button>
+                  </div>
                 );
               })}
             </nav>
