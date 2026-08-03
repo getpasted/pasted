@@ -818,24 +818,40 @@ svg,
  * resolves the cursor again for every child node, which makes a single button
  * flicker between Safari's arrow and the pointer while the mouse moves over it.
  */
-:where(button:not(:disabled), [role="button"]:not([aria-disabled="true"]), a, select:not(:disabled), label[for]),
-:where(button:not(:disabled), [role="button"]:not([aria-disabled="true"]), a, select:not(:disabled), label[for]) *,
+button:not(:disabled),
+button:not(:disabled) *,
+[role="button"]:not([aria-disabled="true"]),
+[role="button"]:not([aria-disabled="true"]) *,
+a,
+a *,
+select:not(:disabled),
+select:not(:disabled) *,
+label[for],
+label[for] *,
 .cursor-pointer,
 .cursor-pointer * {
   cursor: pointer !important;
 }
 
-:where(button, [role="button"], select):disabled,
-:where(button, [role="button"], select):disabled *,
-:where([aria-disabled="true"]),
-:where([aria-disabled="true"]) *,
+button:disabled,
+button:disabled *,
+[role="button"]:disabled,
+[role="button"]:disabled *,
+select:disabled,
+select:disabled *,
+[aria-disabled="true"],
+[aria-disabled="true"] *,
 .cursor-not-allowed,
 .cursor-not-allowed * {
   cursor: not-allowed !important;
 }
 
-:where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), textarea, [contenteditable="true"]),
-:where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), textarea, [contenteditable="true"]) * {
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]) *,
+textarea,
+textarea *,
+[contenteditable="true"],
+[contenteditable="true"] * {
   cursor: text !important;
 }
 
