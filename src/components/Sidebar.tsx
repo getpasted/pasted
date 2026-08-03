@@ -502,6 +502,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       if (isManualBin) {
                         e.preventDefault();
                         e.stopPropagation();
+                        e.dataTransfer.dropEffect = 'copy';
+                        setDropTargetBoardId(b.id);
+                      }
+                    }}
+                    onDragEnter={(e) => {
+                      if (isManualBin) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        e.dataTransfer.dropEffect = 'copy';
                         setDropTargetBoardId(b.id);
                       }
                     }}
@@ -740,6 +749,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <Search className="w-3.5 h-3.5 absolute left-3 top-2 text-gray-400/80" />
           <input
             type="text"
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck={false}
             placeholder="Search (try regex: app: type:)..."
             value={searchQuery}
             onFocus={() => setIsSearchFocused(true)}

@@ -127,6 +127,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
       onContextMenu={onContextMenu}
       draggable={true}
       onDragStart={(e) => {
+        e.dataTransfer.effectAllowed = 'copyMove';
         e.dataTransfer.setData('text/plain', String(clip.id));
         e.dataTransfer.setData('clip_id', String(clip.id));
         if (onDragStart) onDragStart(e, clip.id);

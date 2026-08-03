@@ -12,6 +12,9 @@
   contain: content;
   transform: translateZ(0);
   backface-visibility: hidden;
+  -webkit-user-drag: element !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
 }
 
 html.hud-mode,
