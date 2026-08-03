@@ -469,6 +469,11 @@ export default function App() {
       : null;
   }, [allClips, boards, draggedClipId, selectedClipIds]);
 
+  const clipSelectionVersion = useMemo(
+    () => `${selectedClip?.id ?? ''}:${Array.from(selectedClipIds).sort((a, b) => a - b).join(',')}`,
+    [selectedClip?.id, selectedClipIds]
+  );
+
   const getPointerDropTarget = useCallback((x: number, y: number) => {
     const target = document
       .elementFromPoint(x, y)
@@ -1048,6 +1053,7 @@ export default function App() {
                       isQueueMode={currentTab === 'sequential'}
                       queueIndex={queueIndex}
                       rowHeight={appSettings.rowHeight}
+                      selectionVersion={clipSelectionVersion}
                       setDraggedClipId={setDraggedClipId}
                       onPointerDragStart={(id) => {
                         setDraggedClipId(id);

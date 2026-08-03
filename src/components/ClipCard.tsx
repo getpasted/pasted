@@ -32,6 +32,7 @@ interface ClipCardProps {
   isQueueMode?: boolean;
   queueIndex?: number;
   rowHeight?: 'small' | 'medium' | 'large';
+  selectionVersion: string;
   onSelect: (e: React.MouseEvent) => void;
   onPin: () => void;
   onToggleProtected?: () => void;
@@ -449,13 +450,27 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
 };
 
 export const ClipCard = React.memo(ClipCardComponent, (prevProps, nextProps) => {
+  const previousBoardIds = prevProps.clip.board_ids ?? [];
+  const nextBoardIds = nextProps.clip.board_ids ?? [];
   return (
     prevProps.clip.id === nextProps.clip.id &&
+    prevProps.clip.content_type === nextProps.clip.content_type &&
+    prevProps.clip.text_content === nextProps.clip.text_content &&
+    prevProps.clip.image_base64 === nextProps.clip.image_base64 &&
+    prevProps.clip.source_app === nextProps.clip.source_app &&
+    prevProps.clip.created_at === nextProps.clip.created_at &&
     prevProps.clip.is_pinned === nextProps.clip.is_pinned &&
     prevProps.clip.is_protected === nextProps.clip.is_protected &&
     prevProps.clip.note === nextProps.clip.note &&
+    prevProps.clip.board_id === nextProps.clip.board_id &&
+    previousBoardIds.length === nextBoardIds.length &&
+    previousBoardIds.every((id, index) => id === nextBoardIds[index]) &&
     prevProps.isSelected === nextProps.isSelected &&
     prevProps.isDeleting === nextProps.isDeleting &&
-    prevProps.rowHeight === nextProps.rowHeight
+    prevProps.isTrashMode === nextProps.isTrashMode &&
+    prevProps.isQueueMode === nextProps.isQueueMode &&
+    prevProps.queueIndex === nextProps.queueIndex &&
+    prevProps.rowHeight === nextProps.rowHeight &&
+    prevProps.selectionVersion === nextProps.selectionVersion
   );
 });
