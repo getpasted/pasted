@@ -27,6 +27,8 @@ import {
 interface ClipCardProps {
   clip: ClipItem;
   isSelected: boolean;
+  isDragging?: boolean;
+  isDragInProgress?: boolean;
   isDeleting?: boolean;
   isTrashMode?: boolean;
   isQueueMode?: boolean;
@@ -53,6 +55,8 @@ interface ClipCardProps {
 const ClipCardComponent: React.FC<ClipCardProps> = ({
   clip,
   isSelected,
+  isDragging = false,
+  isDragInProgress = false,
   isDeleting = false,
   isTrashMode = false,
   isQueueMode = false,
@@ -192,14 +196,14 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
         window.addEventListener('pointerup', handlePointerEnd);
         window.addEventListener('pointercancel', handlePointerCancel);
       }}
-      className={`clip-card group relative rounded-xl cursor-pointer select-none border transition-[background-color,border-color,box-shadow] duration-75 ease-out ${paddingClass} ${
+      className={`clip-card group relative rounded-xl cursor-pointer select-none border transition-[background-color,border-color,box-shadow,opacity,transform] duration-75 ease-out ${paddingClass} ${
         isDeleting
           ? 'clip-card-deleting'
           : `${isSelected
               ? 'clip-card-selected bg-[#2f2f2f] border-[#444444] shadow-md ring-1 ring-white/10'
-              : 'clip-card-idle bg-[#212121] hover:bg-[#262626] border-[#2f2f2f] hover:border-[#383838] hover:shadow-md'
+              : `clip-card-idle bg-[#212121] border-[#2f2f2f] ${isDragInProgress ? '' : 'hover:bg-[#262626] hover:border-[#383838] hover:shadow-md'}`
             }`
-      }`}
+      } ${isDragInProgress ? 'clip-card-drag-muted' : ''} ${isDragging ? 'opacity-45 scale-[0.985] ring-1 ring-emerald-400/30 border-emerald-400/50 shadow-none' : ''}`}
     >
       {/* Header Info */}
       <div className={`flex items-center justify-between ${headerTextClass} text-gray-400 mb-1`}>
@@ -314,7 +318,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
       <div
         onPointerDown={(e) => e.stopPropagation()}
         onMouseDown={(e) => e.stopPropagation()}
-        className="absolute right-2 bottom-2 opacity-0 group-hover:opacity-100 transition-opacity flex items-center space-x-1 bg-gray-950/95 p-1 rounded-lg border border-gray-700/80 shadow-xl"
+        className={`absolute right-2 bottom-2 opacity-0 transition-opacity flex items-center space-x-1 bg-gray-950/95 p-1 rounded-lg border border-gray-700/80 shadow-xl ${isDragInProgress ? '' : 'group-hover:opacity-100'}`}
       >
         <button
           onClick={handleCopy}

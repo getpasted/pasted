@@ -364,6 +364,8 @@ export default function App() {
 
   return (
     <div className={`flex h-screen w-screen overflow-hidden bg-[#171717] text-gray-100 font-sans ${clipDragPreview ? 'cursor-grabbing' : ''} ${
+      draggedClipId !== null ? 'is-dragging-clip' : ''
+    } ${
       isResizingSidebar || isResizingList ? 'is-resizing-columns' : ''
     }`}>
       {clipDragPreview && (() => {
@@ -581,6 +583,8 @@ export default function App() {
                       key={clip.id}
                       clip={clip}
                       isSelected={selectedClipIds.size > 0 ? selectedClipIds.has(clip.id) : selectedClip?.id === clip.id}
+                      isDragging={draggedClipId === clip.id}
+                      isDragInProgress={draggedClipId !== null}
                       isTrashMode={currentTab === 'trash'}
                       isQueueMode={currentTab === 'sequential'}
                       queueIndex={queueIndex}

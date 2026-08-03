@@ -312,6 +312,28 @@ html.light .custom-scrollbar::-webkit-scrollbar-thumb:active {
   color: var(--text-main) !important;
 }
 
+/* Clip-to-Bin dragging is a focused interaction mode. Preserve Clip cards as
+   hit-testable reorder targets, but mute their children and all unrelated
+   controls so only eligible Bin targets respond visually. */
+.is-dragging-clip button,
+.is-dragging-clip input,
+.is-dragging-clip select,
+.is-dragging-clip textarea,
+.is-dragging-clip a,
+.is-dragging-clip .column-resizer,
+.is-dragging-clip .column-resizer * {
+  pointer-events: none !important;
+}
+
+.is-dragging-clip .clip-card-drag-muted > * {
+  pointer-events: none !important;
+}
+
+.is-dragging-clip .column-resizer-line,
+.is-dragging-clip .group:hover > .column-resizer-line {
+  background-color: var(--border-subtle);
+}
+
 .sidebar-badge {
   background-color: var(--bg-badge);
   color: var(--text-muted);
