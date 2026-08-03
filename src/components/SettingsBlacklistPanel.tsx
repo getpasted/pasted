@@ -45,7 +45,7 @@ export function SettingsBlacklistPanel({
   };
 
   return (
-    <div className="theme-panel p-6 rounded-2xl border space-y-4 text-xs">
+    <div className="settings-panel theme-panel p-6 rounded-2xl border space-y-4 text-xs">
       <h4 className="font-bold text-gray-100 uppercase tracking-wider text-[11px]">
         Ignore from the Following Apps:
       </h4>

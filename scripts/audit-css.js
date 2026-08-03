@@ -9,7 +9,7 @@ import fs from 'node:fs';
 const css = fs.readFileSync('src/App.css', 'utf8');
 const IMPORTANT_BUDGET = 206;
 const COMPATIBILITY_SELECTOR_BUDGET = 117;
-const UTILITY_COUPLED_SELECTOR_BUDGET = 29;
+const UTILITY_COUPLED_SELECTOR_BUDGET = 28;
 const HARD_CODED_SURFACE_BUDGET = 133;
 
 const readFilesRecursively = (directory, extension) => fs.readdirSync(directory, { withFileTypes: true })

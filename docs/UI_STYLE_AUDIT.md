@@ -8,7 +8,7 @@ This checklist records the styling debt found during the multi-scheme and glass-
 - Literal colors in `src/App.css` dropped from 532 to 349.
 - `!important` baseline: 441; current enforced budget: 206.
 - Cool/Warm compatibility-selector baseline: 269; current enforced budget: 117.
-- Utility-coupled selectors are budgeted at 29; hard-coded JSX surfaces are budgeted at 133.
+- Utility-coupled selectors are budgeted at 28; hard-coded JSX surfaces are budgeted at 133.
 - Only 18 of 30 React component files use a semantic theme primitive.
 - The original undefined `--bg-preview-header` reference is fixed; the token audit now guards against regressions.
 - The automated contrast audit checks selected color pairs, but does not render components or detect missing tokens and cascade failures.
@@ -41,15 +41,15 @@ This checklist records the styling debt found during the multi-scheme and glass-
 - [x] Define a single named layer scale for sticky, drag, popover, menu, modal, and critical UI.
 - [x] Replace broad `transition-all` usage with property-specific transitions; add `prefers-reduced-motion` behavior.
 - [x] Add `color-scheme` metadata per scheme so native controls and browser/Tauri chrome agree with the active palette.
-- [ ] Review non-standard `overflow-y: overlay`, permanent `will-change`, and stacked backdrop filters for portability and rendering cost.
+- [x] Replace non-standard `overflow-y: overlay`, remove permanent `will-change`, and keep backdrop blur on structural glass layers instead of stacking it again on nested headers/toolbars.
 - [ ] Scope the global cursor and selection rules to application chrome instead of every nested element.
 
 ## P2 — cleanup and maintainability
 
 - [ ] Split `App.css` by responsibility: tokens/materials, layout/chrome, reusable controls, clip UI, tools, dialogs, and accessibility.
 - [x] Remove or verify unused rules such as `tools-section-tab`, `col-list-scroll-area`, `clip-content-body`, `clip-text-render`, and legacy menu/navigation helpers.
-- [ ] Merge duplicate rule blocks for `.col-list`, `.col-sidebar`, `.col-preview`, `.app-shell`, `.sidebar-item-active`, and `.filter-manager-wrapper`.
-- [ ] Replace broad radius selectors such as `.settings-page > div > div[class~="rounded-2xl"]` with explicit panel roles.
+- [x] Review suspected duplicate structural blocks; remaining repeated selectors intentionally separate surface tint, blur ownership, and accessibility fallbacks.
+- [x] Replace broad radius selectors such as `.settings-page > div > div[class~="rounded-2xl"]` with explicit panel roles.
 - [x] Move intentional fixed-color content (code samples, image checkerboards, contrast samples) into named opt-out primitives so it is distinguishable from accidental theme debt.
 
 ## Testing gaps

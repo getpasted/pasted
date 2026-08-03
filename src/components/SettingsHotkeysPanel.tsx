@@ -136,7 +136,7 @@ export function SettingsHotkeysPanel({
   };
 
   return (
-    <div className="theme-panel p-6 rounded-2xl border space-y-6 text-xs">
+    <div className="settings-panel theme-panel p-6 rounded-2xl border space-y-6 text-xs">
       <div className="flex items-center justify-between">
         <h3 className="font-bold text-sm text-gray-100">Global Application Hotkeys</h3>
         <button type="button" onClick={() => void restoreDefaults()} className="flex items-center space-x-1.5 px-3 py-1 bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded-lg text-gray-300 transition-colors">

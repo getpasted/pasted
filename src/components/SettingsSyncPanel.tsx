@@ -45,7 +45,7 @@ export function SettingsSyncPanel({
   };
 
   return (
-    <div className="theme-panel p-6 rounded-2xl border space-y-5 text-xs">
+    <div className="settings-panel theme-panel p-6 rounded-2xl border space-y-5 text-xs">
       <div className="p-5 theme-surface bg-[#181818] rounded-xl border border-gray-700/80 space-y-3">
         <div className="flex items-center space-x-3">
           <div className="p-2.5 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400">

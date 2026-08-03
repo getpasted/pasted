@@ -57,7 +57,7 @@ export function SettingsGeneralPanel({
   };
 
   return (
-          <div className="theme-panel p-6 rounded-2xl border space-y-6 text-xs">
+          <div className="settings-panel theme-panel p-6 rounded-2xl border space-y-6 text-xs">
             {/* General Preferences */}
             <div className="space-y-3">
               {/* Appearance Mode Switcher */}

@@ -643,10 +643,7 @@ html:is(.cool, .warm) .custom-scrollbar::-webkit-scrollbar-thumb:active {
 
 .col-sidebar,
 .col-list,
-.col-preview,
-.col-list-header,
-.col-preview-header,
-.theme-toolbar {
+.col-preview {
   -webkit-backdrop-filter: blur(var(--material-blur)) saturate(var(--material-saturation));
   backdrop-filter: blur(var(--material-blur)) saturate(var(--material-saturation));
 }
@@ -662,10 +659,7 @@ html:is(.cool, .warm) .custom-scrollbar::-webkit-scrollbar-thumb:active {
 
   .col-sidebar,
   .col-list,
-  .col-preview,
-  .col-list-header,
-  .col-preview-header,
-  .theme-toolbar {
+  .col-preview {
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }
@@ -2261,7 +2255,7 @@ html:is(.cool, .warm) .tools-page [class~="bg-amber-950/40"] {
 
 .app-dialog-panel,
 .bin-modal-card,
-.settings-page > div > div[class~="rounded-2xl"] {
+.settings-panel {
   border-radius: var(--radius-panel);
 }
 
