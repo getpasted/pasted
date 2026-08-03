@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import { safeInvoke as invoke } from './utils/tauri';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { ClipItem, Board, FilterRule, SequentialStatus, getClipNoteSummary } from './types';
+import { ClipItem, Board, FilterRule, SequentialStatus } from './types';
 import { Sidebar } from './components/Sidebar';
 import { ClipCard } from './components/ClipCard';
 import { ClipPreview } from './components/ClipPreview';
@@ -23,6 +23,7 @@ import { soundManager } from './utils/sound';
 import { startWindowDrag } from './utils/windowDrag';
 import { useColumnResize } from './hooks/useColumnResize';
 import { useAppSettings } from './hooks/useAppSettings';
+import { useClipViews } from './hooks/useClipViews';
 import { Clipboard, Trash2, Pause, Disc, Square, Pin, X } from 'lucide-react';
 import './App.css';
 
@@ -287,156 +288,21 @@ export default function App() {
     }
   }, [fetchTotalClipCount]);
 
-  // Instantaneous (0ms) In-Memory View Filtering Memo
-  const displayedClips = useMemo(() => {
-    if (currentTab === 'sequential') {
-      if (seqStatus && seqStatus.queue && seqStatus.queue.length > 0) {
-        return seqStatus.queue.map((text, idx): ClipItem => ({
-          id: 999000 + idx,
-          content_type: 'text',
-          text_content: text,
-          html_content: null,
-          image_base64: null,
-          content_hash: `queue_${idx}`,
-          source_app: `Queue Position #${idx + 1}`,
-          board_id: null,
-          is_pinned: false,
-          note: null,
-          created_at: new Date().toISOString(),
-        }));
-      }
-      return [];
-    }
-
-    let list = allClips;
-
-    const applySearchFilter = (items: ClipItem[], rawQuery: string) => {
-      const trimmed = rawQuery.trim();
-      if (!trimmed) return items;
-      const lower = trimmed.toLowerCase();
-
-      if (lower.startsWith('regex:')) {
-        const pattern = trimmed.slice(6);
-        try {
-          const re = new RegExp(pattern, 'i');
-          return items.filter(
-            (c) =>
-              (c.text_content && re.test(c.text_content)) ||
-              (c.source_app && re.test(c.source_app)) ||
-              (c.note && re.test(c.note))
-          );
-        } catch {
-          return items.filter((c) => c.text_content?.toLowerCase().includes(lower));
-        }
-      } else if (lower.startsWith('app:')) {
-        const targetApp = lower.slice(4).trim();
-        return items.filter((c) => c.source_app?.toLowerCase().includes(targetApp));
-      } else if (lower.startsWith('type:')) {
-        const targetType = lower.slice(5).trim();
-        return items.filter((c) => c.content_type?.toLowerCase().includes(targetType));
-      } else if (lower === 'has:note') {
-        return items.filter((c) => c.note && c.note.trim().length > 0);
-      } else if (lower === 'is:pinned') {
-        return items.filter((c) => c.is_pinned);
-      } else if (lower === 'is:protected') {
-        return items.filter((c) => c.is_protected);
-      } else {
-        return items.filter(
-          (c) =>
-            c.text_content?.toLowerCase().includes(lower) ||
-            c.source_app?.toLowerCase().includes(lower) ||
-            getClipNoteSummary(c.note).toLowerCase().includes(lower) ||
-            c.content_type?.toLowerCase().includes(lower)
-        );
-      }
-    };
-
-    if (currentTab === 'trash') {
-      list = applySearchFilter(trashedClips, searchQuery);
-      return list;
-    } else {
-      list = applySearchFilter(list, searchQuery);
-    }
-
-    if (currentTab === 'board' && selectedBoardId !== null) {
-      const activeBin = boards.find((b) => b.id === selectedBoardId);
-      if (activeBin && activeBin.smart_rule) {
-        try {
-          const parsed = JSON.parse(activeBin.smart_rule);
-          const matchMode = parsed.match || 'any';
-          const conds: Array<{ type: string; operator?: string; value: string }> =
-            parsed.conditions || (parsed.type ? [{ type: parsed.type, value: parsed.value }] : []);
-
-          if (conds.length > 0) {
-            list = list.filter((clip) => {
-              if (clip.board_id === selectedBoardId || (clip.board_ids && clip.board_ids.includes(selectedBoardId))) return true;
-
-              const checkCond = (cond: { type: string; operator?: string; value: string }) => {
-                const val = (cond.value || '').toLowerCase().trim();
-                if (!val) return false;
-                if (cond.type === 'content_type') {
-                  return clip.content_type?.toLowerCase() === val;
-                }
-                if (cond.type === 'source_app') {
-                  return clip.source_app?.toLowerCase().includes(val);
-                }
-                if (cond.type === 'contains') {
-                  return clip.text_content?.toLowerCase().includes(val);
-                }
-                return false;
-              };
-
-              if (matchMode === 'all') {
-                return conds.every(checkCond);
-              } else {
-                return conds.some(checkCond);
-              }
-            });
-          } else {
-            list = list.filter((c) => c.board_id === selectedBoardId || (c.board_ids && c.board_ids.includes(selectedBoardId)));
-          }
-        } catch {
-          list = list.filter((c) => c.board_id === selectedBoardId || (c.board_ids && c.board_ids.includes(selectedBoardId)));
-        }
-      } else {
-        list = list.filter((c) => c.board_id === selectedBoardId || (c.board_ids && c.board_ids.includes(selectedBoardId)));
-      }
-    }
-
-    if (currentTab === 'pinned') {
-      list = list.filter((c) => c.is_pinned);
-    } else if (currentTab === 'protected') {
-      list = list.filter((c) => c.is_protected);
-    } else if (currentTab === 'notes') {
-      list = list.filter((c) => c.note && c.note.trim().length > 0);
-    }
-
-    return list;
-  }, [allClips, trashedClips, searchQuery, currentTab, selectedBoardId, seqStatus, boards]);
-
-  // Memoized Sidebar Counts (0ms loop avoiding 1500 array iterations per render)
-  const { pinnedCount, protectedCount, notesCount } = useMemo(() => {
-    let pinned = 0;
-    let protectedClips = 0;
-    let notes = 0;
-    for (let i = 0; i < allClips.length; i++) {
-      const c = allClips[i];
-      if (c.is_pinned) pinned++;
-      if (c.is_protected) protectedClips++;
-      if (c.note && c.note.trim().length > 0) notes++;
-    }
-    return { pinnedCount: pinned, protectedCount: protectedClips, notesCount: notes };
-  }, [allClips]);
-
-  // Fast O(1) Sequential Queue Index Lookup
-  const queuedIndexMap = useMemo(() => {
-    const map = new Map<string, number>();
-    const queue = seqStatus?.queue || [];
-    for (let i = 0; i < queue.length; i++) {
-      if (!map.has(queue[i])) map.set(queue[i], i + 1);
-    }
-    return map;
-  }, [seqStatus?.queue]);
+  const {
+    displayedClips,
+    pinnedCount,
+    protectedCount,
+    notesCount,
+    queuedIndexMap,
+  } = useClipViews({
+    allClips,
+    trashedClips,
+    boards,
+    currentTab,
+    selectedBoardId,
+    searchQuery,
+    sequentialStatus: seqStatus,
+  });
 
   // Keep selected clip valid on view switch
   useEffect(() => {
