@@ -106,6 +106,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   }, [boards, boardOrder]);
 
   const handlePointerDownBoard = (boardId: number) => {
+    if (draggedClipId !== null && draggedClipId !== undefined) return;
     if (dragTimerRef.current) clearTimeout(dragTimerRef.current);
     dragTimerRef.current = setTimeout(() => {
       setActiveDragBoardId(boardId);
@@ -121,6 +122,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   const handlePointerEnterBoard = (targetBoardId: number) => {
+    if (draggedClipId !== null && draggedClipId !== undefined) return;
     if (!activeDragBoardId || activeDragBoardId === targetBoardId) return;
 
     const currentOrder = sortedBoards.map((b) => b.id);
@@ -532,7 +534,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     onDragLeave={(e) => {
                       if (isManualBin) {
                         e.preventDefault();
-                        if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const x = e.clientX;
+                        const y = e.clientY;
+                        if (x <= rect.left || x >= rect.right || y <= rect.top || y >= rect.bottom) {
                           setDropTargetBoardId(null);
                         }
                       }
