@@ -15,7 +15,6 @@ import {
   ScanText,
   RotateCcw,
   Trash,
-  X,
   Eye,
   EyeOff,
   ArrowRightCircle,
@@ -75,7 +74,6 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
   onPointerDragCancel,
 }) => {
   const [copied, setCopied] = React.useState(false);
-  const [isAltPressed, setIsAltPressed] = React.useState(false);
   const [showRevealed, setShowRevealed] = useState(false);
   const pointerDragRef = React.useRef<{
     pointerId: number;
@@ -86,21 +84,6 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
   const removePointerListenersRef = React.useRef<(() => void) | null>(null);
   const suppressClickRef = React.useRef(false);
   const isSensitive = isSensitiveText(clip.text_content);
-
-  React.useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.altKey) setIsAltPressed(true);
-    };
-    const handleKeyUp = (e: KeyboardEvent) => {
-      if (!e.altKey) setIsAltPressed(false);
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
-    };
-  }, []);
 
   React.useEffect(() => () => removePointerListenersRef.current?.(), []);
 
@@ -441,9 +424,9 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
                   ? 'text-gray-600 cursor-not-allowed opacity-50'
                   : 'text-gray-400 hover:text-red-400 hover:bg-gray-800'
               }`}
-              title={clip.is_protected ? 'Clip is Protected. Unprotect first to delete.' : isAltPressed ? 'Permanently Delete (Option held)' : 'Move to Trash'}
+              title={clip.is_protected ? 'Clip is Protected. Unprotect first to delete.' : 'Move to Trash (Option-click to permanently delete)'}
             >
-              {isAltPressed ? <X className="w-3.5 h-3.5 text-red-400" /> : <Trash2 className="w-3.5 h-3.5" />}
+              <Trash2 className="w-3.5 h-3.5" />
             </button>
           </>
         )}

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Minus } from 'lucide-react';
-import { invoke } from '@tauri-apps/api/core';
+import { safeInvoke as invoke } from '../utils/tauri';
 import { Board } from '../types';
 import { formatEmojiIcon } from '../utils/emoji';
 

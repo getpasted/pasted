@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { invoke } from '@tauri-apps/api/core';
+import { safeInvoke as invoke } from '../utils/tauri';
 import {
   BookOpen,
   Terminal,
@@ -37,7 +37,7 @@ export const HelpView: React.FC = () => {
   };
 
   return (
-    <div className="flex-1 bg-[#141414] text-gray-100 font-sans h-screen flex flex-col overflow-hidden select-none">
+    <div className="tools-page help-page flex-1 bg-[#141414] text-gray-100 font-sans h-screen flex flex-col overflow-hidden select-none">
       {/* Header Bar */}
       <div className="h-[60px] border-b border-[#2b2b2b] bg-[#171717]/80 backdrop-blur-md px-6 flex items-center justify-between shrink-0 no-drag">
         <div className="flex items-center space-x-2.5">

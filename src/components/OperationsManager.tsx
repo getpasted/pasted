@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Operation } from '../types';
 import { Wrench, Sparkles, Trash2, Edit3, Code2, Play } from 'lucide-react';
-import { invoke } from '@tauri-apps/api/core';
+import { safeInvoke as invoke } from '../utils/tauri';
 import { OperationEditorModal, CATEGORIES } from './OperationEditorModal';
 
 interface OperationsManagerProps {
@@ -228,7 +228,7 @@ export const OperationsManager: React.FC<OperationsManagerProps> = ({
   return isEmbedded ? (
     content
   ) : (
-    <div className="flex-1 h-screen overflow-y-auto p-6 space-y-6 select-none bg-[#171717] filter-manager-wrapper">
+    <div className="tools-page operations-page flex-1 h-screen overflow-y-auto p-6 space-y-6 select-none bg-[#171717] filter-manager-wrapper">
       {content}
     </div>
   );

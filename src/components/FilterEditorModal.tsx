@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { FilterRule, Operation } from '../types';
 import { Sliders, Plus, Trash2, X, Play, ArrowDown, ArrowUp, GripVertical, Wrench, RotateCcw } from 'lucide-react';
 import { Reorder, useDragControls } from 'framer-motion';
-import { invoke } from '@tauri-apps/api/core';
+import { safeInvoke as invoke } from '../utils/tauri';
 import { HotkeyRecorder } from './HotkeyRecorder';
 import { OperationEditorModal } from './OperationEditorModal';
 

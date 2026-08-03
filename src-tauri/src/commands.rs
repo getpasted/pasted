@@ -524,7 +524,7 @@ pub fn paste_all_sequential(
     if let Ok(mut cb) = Clipboard::new() {
         let _ = cb.set_text(&combined);
     }
-    seq.stop_queue();
+    seq.clear_queue();
     let updated = seq.get_status();
     let _ = app.emit("sequential-updated", updated);
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { invoke } from '@tauri-apps/api/core';
+import { safeInvoke as invoke } from '../utils/tauri';
 import {
   Activity,
   Trash2,
@@ -12,8 +12,6 @@ import {
   Pause,
   Play,
 } from 'lucide-react';
-
-import { listen } from '@tauri-apps/api/event';
 
 export interface ActivityLog {
   id: number;
@@ -40,18 +38,10 @@ export const ActivityLogView: React.FC = () => {
 
     const interval = setInterval(() => {
       fetchLogs();
-    }, 1500);
-
-    let unlistenLog: Promise<() => void> | null = null;
-    if (typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__) {
-      unlistenLog = listen('activity-log-added', () => {
-        fetchLogs();
-      });
-    }
+    }, 5000);
 
     return () => {
       clearInterval(interval);
-      if (unlistenLog) unlistenLog.then((f) => f());
     };
   }, []);
 
@@ -151,7 +141,7 @@ export const ActivityLogView: React.FC = () => {
   });
 
   return (
-    <div className="flex-1 bg-[#141414] text-gray-100 font-sans h-screen flex flex-col overflow-hidden">
+    <div className="tools-page activity-page flex-1 bg-[#141414] text-gray-100 font-sans h-screen flex flex-col overflow-hidden">
       {/* Header Bar */}
       <div className="h-[60px] border-b border-[#2b2b2b] bg-[#171717]/80 backdrop-blur-md px-6 flex items-center justify-between shrink-0 no-drag">
         <div className="flex items-center space-x-2.5">

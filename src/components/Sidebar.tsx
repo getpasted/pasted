@@ -594,9 +594,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         ? 'cursor-not-allowed'
                         : isClipDragging
                         ? 'cursor-grabbing'
-                        : sortedBoards.length > 1
-                        ? 'cursor-grab active:cursor-grabbing'
-                        : 'cursor-pointer'
+                        : 'cursor-pointer active:cursor-grabbing'
                     } ${
                       isDropTarget
                         ? 'bg-emerald-500/15 border border-emerald-400/80 ring-2 ring-emerald-400/25 shadow-lg text-emerald-50 z-30 relative'

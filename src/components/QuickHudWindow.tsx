@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, Sparkles, Clipboard, Command, X } from 'lucide-react';
-import { invoke } from '@tauri-apps/api/core';
+import { safeInvoke as invoke } from '../utils/tauri';
 import { listen } from '@tauri-apps/api/event';
 import { ClipItem } from '../types';
 
@@ -16,6 +16,10 @@ export const QuickHudWindow: React.FC = () => {
   const [search, setSearch] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const clipsRef = useRef(clips);
+  const selectedIndexRef = useRef(selectedIndex);
+  clipsRef.current = clips;
+  selectedIndexRef.current = selectedIndex;
 
   const fetchClips = async () => {
     try {
@@ -34,6 +38,8 @@ export const QuickHudWindow: React.FC = () => {
       console.error('Failed to fetch clips for HUD:', e);
     }
   };
+  const fetchClipsRef = useRef(fetchClips);
+  fetchClipsRef.current = fetchClips;
 
   useEffect(() => {
     fetchClips();
@@ -62,7 +68,7 @@ export const QuickHudWindow: React.FC = () => {
 
     if (typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__) {
       unlistenFocus = listen('tauri://focus', () => {
-        fetchClips();
+        fetchClipsRef.current();
         setTimeout(() => inputRef.current?.focus(), 50);
       });
 
@@ -83,23 +89,25 @@ export const QuickHudWindow: React.FC = () => {
       // Check number keys 1-9
       if (/^[1-9]$/.test(e.key) && !e.metaKey && !e.ctrlKey && !e.altKey) {
         const idx = parseInt(e.key, 10) - 1;
-        if (clips[idx]) {
+        const currentClips = clipsRef.current;
+        if (currentClips[idx]) {
           e.preventDefault();
-          await invoke('paste_clip_by_id', { clipId: clips[idx].id });
+          await invoke('paste_clip_by_id', { clipId: currentClips[idx].id });
         }
         return;
       }
 
       if (e.key === 'ArrowDown') {
         e.preventDefault();
-        setSelectedIndex((prev) => (prev + 1) % Math.max(1, clips.length));
+        setSelectedIndex((prev) => (prev + 1) % Math.max(1, clipsRef.current.length));
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
-        setSelectedIndex((prev) => (prev - 1 + clips.length) % Math.max(1, clips.length));
+        setSelectedIndex((prev) => (prev - 1 + clipsRef.current.length) % Math.max(1, clipsRef.current.length));
       } else if (e.key === 'Enter') {
         e.preventDefault();
-        if (clips[selectedIndex]) {
-          await invoke('paste_clip_by_id', { clipId: clips[selectedIndex].id });
+        const selectedClip = clipsRef.current[selectedIndexRef.current];
+        if (selectedClip) {
+          await invoke('paste_clip_by_id', { clipId: selectedClip.id });
         }
       }
     };
@@ -110,7 +118,7 @@ export const QuickHudWindow: React.FC = () => {
       if (unlistenFocus) unlistenFocus.then((f) => f());
       if (unlistenPos) unlistenPos.then((f) => f());
     };
-  }, [clips, selectedIndex]);
+  }, []);
 
   return (
     <div className="w-screen h-screen p-0 bg-transparent flex flex-col font-sans select-none overflow-hidden no-drag relative">

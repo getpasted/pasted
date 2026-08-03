@@ -4,6 +4,7 @@ use std::fs;
 use std::path::PathBuf;
 use parking_lot::Mutex;
 
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ClipItem {
     pub id: i64,
@@ -496,7 +497,11 @@ impl DbState {
 
     pub fn get_total_clip_count(&self) -> Result<i64> {
         let conn = self.conn.lock();
-        conn.query_row("SELECT COUNT(*) FROM clips", [], |r| r.get(0))
+        conn.query_row(
+            "SELECT COUNT(*) FROM clips WHERE is_trashed IS NULL OR is_trashed = 0",
+            [],
+            |r| r.get(0),
+        )
     }
 
     pub fn save_clip(
@@ -543,12 +548,25 @@ impl DbState {
             .and_then(|v: String| v.parse().ok())
             .unwrap_or(900);
 
+        self.enforce_history_limit_with_count_internal(conn, keep_count)
+    }
+
+    fn enforce_history_limit_with_count_internal(
+        &self,
+        conn: &Connection,
+        keep_count: i64,
+    ) -> Result<()> {
+        let keep_count = keep_count.max(0);
+
         let enable_trash: String = conn
             .query_row("SELECT value FROM settings WHERE key = 'enableTrash'", [], |r| r.get(0))
             .unwrap_or_else(|_| "true".to_string());
 
         let active_count: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM clips WHERE is_pinned = 0 AND is_trashed = 0",
+            "SELECT COUNT(*) FROM clips
+             WHERE is_pinned = 0
+               AND (is_protected IS NULL OR is_protected = 0)
+               AND (is_trashed IS NULL OR is_trashed = 0)",
             [],
             |r| r.get(0),
         ).unwrap_or(0);
@@ -556,7 +574,11 @@ impl DbState {
         if active_count > keep_count {
             let excess = active_count - keep_count;
             let mut stmt = conn.prepare(
-                "SELECT id FROM clips WHERE is_pinned = 0 AND is_trashed = 0 ORDER BY created_at ASC LIMIT ?1"
+                "SELECT id FROM clips
+                 WHERE is_pinned = 0
+                   AND (is_protected IS NULL OR is_protected = 0)
+                   AND (is_trashed IS NULL OR is_trashed = 0)
+                 ORDER BY created_at ASC, id ASC LIMIT ?1"
             )?;
             let ids: Vec<i64> = stmt
                 .query_map(params![excess], |r| r.get(0))?
@@ -595,7 +617,14 @@ impl DbState {
             .unwrap_or(500);
 
         let _ = conn.execute(
-            "DELETE FROM clips WHERE is_trashed = 1 AND id NOT IN (SELECT id FROM clips WHERE is_trashed = 1 ORDER BY trashed_at DESC, id DESC LIMIT ?1)",
+            "DELETE FROM clips
+             WHERE is_trashed = 1
+               AND (is_protected IS NULL OR is_protected = 0)
+               AND id NOT IN (
+                   SELECT id FROM clips
+                   WHERE is_trashed = 1 AND (is_protected IS NULL OR is_protected = 0)
+                   ORDER BY trashed_at DESC, id DESC LIMIT ?1
+               )",
             params![capacity],
         );
         Ok(())
@@ -754,7 +783,7 @@ impl DbState {
             }
         }
 
-        sql.push_str(" ORDER BY is_pinned DESC, pin_order ASC, created_at DESC LIMIT 500");
+        sql.push_str(" ORDER BY is_pinned DESC, pin_order ASC, created_at DESC");
 
         let param_refs: Vec<&dyn rusqlite::ToSql> = query_params.iter().map(|p| p.as_ref()).collect();
 
@@ -928,8 +957,14 @@ impl DbState {
 
     pub fn empty_trash(&self) -> Result<()> {
         let conn = self.conn.lock();
-        let count: i64 = conn.query_row("SELECT COUNT(*) FROM clips WHERE is_trashed = 1", [], |r| r.get(0)).unwrap_or(0);
-        let mut stmt = conn.prepare_cached("DELETE FROM clips WHERE is_trashed = 1")?;
+        let count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM clips WHERE is_trashed = 1 AND (is_protected IS NULL OR is_protected = 0)",
+            [],
+            |r| r.get(0),
+        ).unwrap_or(0);
+        let mut stmt = conn.prepare_cached(
+            "DELETE FROM clips WHERE is_trashed = 1 AND (is_protected IS NULL OR is_protected = 0)"
+        )?;
         stmt.execute([])?;
         let _ = self.log_activity_internal(&conn, "trash_emptied", &format!("Emptied Trash (permanently deleted {} items)", count));
         Ok(())
@@ -1040,24 +1075,26 @@ impl DbState {
         Ok(updated_count)
     }
     pub fn batch_pin_clips(&self, ids: Vec<i64>, pin_state: bool) -> Result<()> {
-        let conn = self.conn.lock();
+        let mut conn = self.conn.lock();
+        let tx = conn.transaction()?;
         let val = if pin_state { 1 } else { 0 };
         for id in ids {
-            conn.execute("UPDATE clips SET is_pinned = ?1 WHERE id = ?2", params![val, id])?;
+            tx.execute("UPDATE clips SET is_pinned = ?1 WHERE id = ?2", params![val, id])?;
         }
-        Ok(())
+        tx.commit()
     }
 
     pub fn batch_trash_clips(&self, ids: Vec<i64>) -> Result<()> {
-        let conn = self.conn.lock();
+        let mut conn = self.conn.lock();
+        let tx = conn.transaction()?;
         for id in ids {
-            conn.execute(
+            tx.execute(
                 "UPDATE clips SET is_trashed = 1, trashed_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?1 AND (is_protected IS NULL OR is_protected = 0)",
                 params![id],
             )?;
         }
-        let _ = self.enforce_trash_limit_internal(&conn);
-        Ok(())
+        self.enforce_trash_limit_internal(&tx)?;
+        tx.commit()
     }
 
     pub fn batch_assign_board_clips(&self, ids: Vec<i64>, board_id: Option<i64>) -> Result<()> {
@@ -1379,14 +1416,15 @@ impl DbState {
     }
 
     pub fn reorder_pinned_clips(&self, ids: Vec<i64>) -> Result<()> {
-        let conn = self.conn.lock();
+        let mut conn = self.conn.lock();
+        let tx = conn.transaction()?;
         for (idx, id) in ids.iter().enumerate() {
-            conn.execute(
+            tx.execute(
                 "UPDATE clips SET pin_order = ?1 WHERE id = ?2",
                 params![idx as i32, id],
             )?;
         }
-        Ok(())
+        tx.commit()
     }
 
     pub fn save_clip_version(&self, clip_id: i64, text: &str) -> Result<ClipVersion> {
@@ -1440,27 +1478,31 @@ impl DbState {
     }
 
     pub fn delete_board(&self, id: i64) -> Result<()> {
-        let conn = self.conn.lock();
-        conn.execute("DELETE FROM clip_boards WHERE board_id = ?1", params![id])?;
-        conn.execute("UPDATE clips SET board_id = NULL WHERE board_id = ?1", params![id])?;
-        conn.execute("DELETE FROM boards WHERE id = ?1", params![id])?;
-        Ok(())
+        let mut conn = self.conn.lock();
+        let tx = conn.transaction()?;
+        tx.execute("DELETE FROM clip_boards WHERE board_id = ?1", params![id])?;
+        tx.execute("UPDATE clips SET board_id = NULL WHERE board_id = ?1", params![id])?;
+        tx.execute("DELETE FROM boards WHERE id = ?1", params![id])?;
+        tx.commit()
     }
 
     pub fn clear_history(&self) -> Result<()> {
         let conn = self.conn.lock();
-        conn.execute("DELETE FROM clips WHERE is_pinned = 0", [])?;
+        conn.execute(
+            "DELETE FROM clips WHERE is_pinned = 0 AND (is_protected IS NULL OR is_protected = 0)",
+            [],
+        )?;
         Ok(())
     }
 
     pub fn export_backup_json(&self) -> Result<String> {
-        let clips = self.get_clips(None, None, false)?;
+        let clips = self.get_all_clips_for_backup()?;
         let boards = self.get_boards()?;
         let filters = self.get_filters()?;
         let operations = self.get_operations()?;
 
         let payload = BackupPayload {
-            version: 1,
+            version: 2,
             timestamp: chrono::Utc::now().to_rfc3339(),
             clips,
             boards,
@@ -1474,37 +1516,170 @@ impl DbState {
     pub fn import_backup_json(&self, json_str: &str) -> Result<usize> {
         let payload: BackupPayload = serde_json::from_str(json_str)
             .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
-
-        let mut imported = 0;
-        for clip in payload.clips {
-            let res = self.save_clip(
-                &clip.content_type,
-                clip.text_content.as_deref(),
-                clip.html_content.as_deref(),
-                clip.image_base64.as_deref(),
-                &clip.content_hash,
-                &clip.source_app,
-            );
-            if res.is_ok() {
-                imported += 1;
-            }
-        }
+        let mut conn = self.conn.lock();
+        let tx = conn.transaction()?;
+        let mut board_id_map = std::collections::HashMap::new();
 
         for board in payload.boards {
-            let _ = self.create_board_with_type(
-                &board.name,
-                &board.icon,
-                &board.color,
-                board.smart_rule.as_deref(),
-                &board.board_type,
-            );
+            let existing_id = tx.query_row(
+                "SELECT id FROM boards WHERE name = ?1 AND COALESCE(board_type, 'category') = ?2 LIMIT 1",
+                params![board.name, board.board_type],
+                |row| row.get::<_, i64>(0),
+            ).ok();
+            let new_id = if let Some(id) = existing_id {
+                tx.execute(
+                    "UPDATE boards SET icon = ?1, color = ?2, smart_rule = ?3, shortcut = ?4 WHERE id = ?5",
+                    params![board.icon, board.color, board.smart_rule, board.shortcut, id],
+                )?;
+                id
+            } else {
+                tx.execute(
+                    "INSERT INTO boards (name, icon, color, smart_rule, board_type, shortcut, created_at)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                    params![board.name, board.icon, board.color, board.smart_rule, board.board_type, board.shortcut, board.created_at],
+                )?;
+                tx.last_insert_rowid()
+            };
+            board_id_map.insert(board.id, new_id);
         }
 
         for filter in payload.filters {
-            let _ = self.create_filter(&filter.name, &filter.filter_type, filter.config.as_deref(), filter.shortcut.as_deref());
+            let existing_id = tx.query_row(
+                "SELECT id FROM filters WHERE name = ?1 AND filter_type = ?2 LIMIT 1",
+                params![filter.name, filter.filter_type],
+                |row| row.get::<_, i64>(0),
+            ).ok();
+            if let Some(id) = existing_id {
+                tx.execute(
+                    "UPDATE filters SET config = ?1, shortcut = ?2 WHERE id = ?3",
+                    params![filter.config, filter.shortcut, id],
+                )?;
+            } else {
+                tx.execute(
+                    "INSERT INTO filters (name, filter_type, config, shortcut, created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
+                    params![filter.name, filter.filter_type, filter.config, filter.shortcut, filter.created_at],
+                )?;
+            }
         }
 
+        for operation in payload.operations {
+            let existing_id = tx.query_row(
+                "SELECT id FROM operations WHERE name = ?1 AND op_type = ?2 LIMIT 1",
+                params![operation.name, operation.op_type],
+                |row| row.get::<_, i64>(0),
+            ).ok();
+            if let Some(id) = existing_id {
+                tx.execute(
+                    "UPDATE operations SET config = ?1, category = ?2 WHERE id = ?3",
+                    params![operation.config, operation.category, id],
+                )?;
+            } else {
+                tx.execute(
+                    "INSERT INTO operations (name, op_type, config, category, created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
+                    params![operation.name, operation.op_type, operation.config, operation.category, operation.created_at],
+                )?;
+            }
+        }
+
+        let mut imported = 0;
+        for clip in payload.clips {
+            let mapped_primary_board = clip.board_id.and_then(|id| board_id_map.get(&id).copied());
+            tx.execute(
+                "INSERT INTO clips (
+                    content_type, text_content, html_content, image_base64, image_path, content_hash,
+                    source_app, is_pinned, is_protected, pin_order, board_id, note,
+                    is_trashed, trashed_at, created_at
+                 ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)
+                 ON CONFLICT(content_hash) DO UPDATE SET
+                    content_type = excluded.content_type,
+                    text_content = excluded.text_content,
+                    html_content = excluded.html_content,
+                    image_base64 = excluded.image_base64,
+                    image_path = excluded.image_path,
+                    source_app = excluded.source_app,
+                    is_pinned = excluded.is_pinned,
+                    is_protected = excluded.is_protected,
+                    pin_order = excluded.pin_order,
+                    board_id = excluded.board_id,
+                    note = excluded.note,
+                    is_trashed = excluded.is_trashed,
+                    trashed_at = excluded.trashed_at,
+                    created_at = excluded.created_at",
+                params![
+                    clip.content_type, clip.text_content, clip.html_content, clip.image_base64,
+                    clip.image_path, clip.content_hash, clip.source_app, clip.is_pinned,
+                    clip.is_protected, clip.pin_order, mapped_primary_board, clip.note,
+                    clip.is_trashed, clip.trashed_at, clip.created_at,
+                ],
+            )?;
+            let new_clip_id = tx.query_row(
+                "SELECT id FROM clips WHERE content_hash = ?1",
+                params![clip.content_hash],
+                |row| row.get::<_, i64>(0),
+            )?;
+            tx.execute("DELETE FROM clip_boards WHERE clip_id = ?1", params![new_clip_id])?;
+            for old_board_id in clip.board_ids.unwrap_or_default() {
+                if let Some(new_board_id) = board_id_map.get(&old_board_id) {
+                    tx.execute(
+                        "INSERT OR IGNORE INTO clip_boards (clip_id, board_id) VALUES (?1, ?2)",
+                        params![new_clip_id, new_board_id],
+                    )?;
+                }
+            }
+            if let Some(new_board_id) = mapped_primary_board {
+                tx.execute(
+                    "INSERT OR IGNORE INTO clip_boards (clip_id, board_id) VALUES (?1, ?2)",
+                    params![new_clip_id, new_board_id],
+                )?;
+            }
+            imported += 1;
+        }
+
+        tx.commit()?;
         Ok(imported)
+    }
+
+    fn get_all_clips_for_backup(&self) -> Result<Vec<ClipItem>> {
+        let conn = self.conn.lock();
+        let mut stmt = conn.prepare(
+            "SELECT id, content_type, text_content, html_content, image_base64, image_path,
+                    content_hash, source_app, is_pinned, is_protected, COALESCE(pin_order, 0),
+                    board_id, note, COALESCE(is_trashed, 0), trashed_at, created_at,
+                    (SELECT GROUP_CONCAT(board_id) FROM clip_boards WHERE clip_id = clips.id)
+             FROM clips ORDER BY created_at DESC, id DESC"
+        )?;
+        let rows = stmt.query_map([], |row| {
+            let primary_board_id: Option<i64> = row.get(11)?;
+            let board_ids_csv: Option<String> = row.get(16)?;
+            let mut board_ids = primary_board_id.into_iter().collect::<Vec<_>>();
+            for value in board_ids_csv.unwrap_or_default().split(',') {
+                if let Ok(id) = value.parse::<i64>() {
+                    if !board_ids.contains(&id) {
+                        board_ids.push(id);
+                    }
+                }
+            }
+            Ok(ClipItem {
+                id: row.get(0)?,
+                content_type: row.get(1)?,
+                text_content: row.get(2)?,
+                html_content: row.get(3)?,
+                image_base64: row.get(4)?,
+                image_path: row.get(5)?,
+                content_hash: row.get(6)?,
+                source_app: row.get(7)?,
+                is_pinned: row.get::<_, i32>(8)? != 0,
+                is_protected: row.get::<_, i32>(9)? != 0,
+                pin_order: row.get(10)?,
+                board_id: primary_board_id,
+                board_ids: Some(board_ids),
+                note: row.get(12)?,
+                is_trashed: row.get::<_, i32>(13)? != 0,
+                trashed_at: row.get(14)?,
+                created_at: row.get(15)?,
+            })
+        })?;
+        rows.collect()
     }
 
     pub fn set_vault_passcode(&self, passcode: &str) -> Result<()> {
@@ -1650,13 +1825,7 @@ impl DbState {
 
     pub fn purge_old_clips(&self, keep_count: i64) -> Result<()> {
         let conn = self.conn.lock();
-        conn.execute(
-            "DELETE FROM clips WHERE id NOT IN (
-                SELECT id FROM clips ORDER BY is_pinned DESC, created_at DESC LIMIT ?1
-            ) AND is_pinned = 0",
-            params![keep_count],
-        )?;
-        Ok(())
+        self.enforce_history_limit_with_count_internal(&conn, keep_count)
     }
 
     pub fn save_setting(&self, key: &str, value: &str) -> Result<()> {
@@ -1762,10 +1931,70 @@ mod tests {
         let active_after_purge = db.get_clips(None, None, false).unwrap();
         assert_eq!(active_after_purge.len(), 1);
 
+        // Every bulk and retention path must preserve protected clips.
+        db.clear_history().unwrap();
+        db.purge_old_clips(0).unwrap();
+        let active_after_clear = db.get_clips(None, None, false).unwrap();
+        assert_eq!(active_after_clear.len(), 1);
+        assert!(active_after_clear[0].is_protected);
+
         // Unprotect and verify delete works
         db.toggle_protected(clip.id).unwrap();
         db.delete_clip(clip.id).unwrap();
         assert_eq!(db.get_clips(None, None, false).unwrap().len(), 0);
+    }
+
+    #[test]
+    fn test_retention_uses_trash_and_excludes_pinned_and_protected_clips() {
+        let db = setup_test_db();
+        let pinned = db.save_clip("text", Some("Pinned"), None, None, "ret-pin", "App").unwrap();
+        let protected = db.save_clip("text", Some("Protected"), None, None, "ret-prot", "App").unwrap();
+        db.toggle_pin(pinned.id).unwrap();
+        db.toggle_protected(protected.id).unwrap();
+
+        for index in 0..3 {
+            db.save_clip(
+                "text",
+                Some(&format!("Regular {index}")),
+                None,
+                None,
+                &format!("ret-{index}"),
+                "App",
+            ).unwrap();
+        }
+
+        db.purge_old_clips(1).unwrap();
+
+        let active = db.get_clips(None, None, false).unwrap();
+        assert_eq!(active.iter().filter(|clip| !clip.is_pinned && !clip.is_protected).count(), 1);
+        assert!(active.iter().any(|clip| clip.id == pinned.id));
+        assert!(active.iter().any(|clip| clip.id == protected.id));
+        assert_eq!(db.get_trashed_clips().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn test_retention_without_trash_keeps_requested_unpinned_capacity() {
+        let db = setup_test_db();
+        db.save_setting("enableTrash", "false").unwrap();
+        let pinned = db.save_clip("text", Some("Pinned"), None, None, "purge-pin", "App").unwrap();
+        db.toggle_pin(pinned.id).unwrap();
+        for index in 0..4 {
+            db.save_clip(
+                "text",
+                Some(&format!("Regular {index}")),
+                None,
+                None,
+                &format!("purge-{index}"),
+                "App",
+            ).unwrap();
+        }
+
+        db.purge_old_clips(2).unwrap();
+
+        let active = db.get_clips(None, None, false).unwrap();
+        assert_eq!(active.iter().filter(|clip| !clip.is_pinned).count(), 2);
+        assert!(active.iter().any(|clip| clip.id == pinned.id));
+        assert!(db.get_trashed_clips().unwrap().is_empty());
     }
 
     #[test]
@@ -1840,6 +2069,7 @@ mod tests {
         let trashed = db.get_trashed_clips().unwrap();
         assert_eq!(trashed.len(), 1);
         assert_eq!(trashed[0].id, clip1.id);
+        assert_eq!(db.get_total_clip_count().unwrap(), 1);
 
         // Restore clip
         db.restore_clip(clip1.id).unwrap();
@@ -2043,8 +2273,25 @@ mod tests {
     #[test]
     fn test_backup_export_import() {
         let db = setup_test_db();
-        let _clip = db.save_clip("text", Some("Backup Test Item"), None, None, "HashBK1", "VSCode").unwrap();
-        let _board = db.create_board("DevBin", "Code", "#3b82f6", None).unwrap();
+        let clip = db.save_clip(
+            "text",
+            Some("Backup Test Item"),
+            Some("<strong>Backup Test Item</strong>"),
+            None,
+            "HashBK1",
+            "VSCode",
+        ).unwrap();
+        let trashed = db.save_clip("text", Some("In Trash"), None, None, "HashBK2", "Notes").unwrap();
+        let board = db.create_board("DevBin", "Code", "#3b82f6", None).unwrap();
+        let tag = db.create_board_with_type("BackupTag", "Tag", "#f59e0b", None, "tag").unwrap();
+        db.assign_to_board(clip.id, Some(board.id)).unwrap();
+        db.add_clip_to_board(clip.id, tag.id).unwrap();
+        db.update_clip_note(clip.id, Some("Restore this note")).unwrap();
+        db.toggle_pin(clip.id).unwrap();
+        db.toggle_protected(clip.id).unwrap();
+        db.delete_clip(trashed.id).unwrap();
+        db.create_filter("Backup Filter", "trim", Some("{}"), Some("Alt+B")).unwrap();
+        db.create_operation("Backup Operation", "uppercase", Some("{}"), Some("Backup Tools")).unwrap();
 
         let json = db.export_backup_json().unwrap();
         assert!(json.contains("Backup Test Item"));
@@ -2052,10 +2299,50 @@ mod tests {
 
         let db2 = setup_test_db();
         let imported_count = db2.import_backup_json(&json).unwrap();
-        assert_eq!(imported_count, 1);
-        let clips = db2.get_clips(None, None, false).unwrap();
-        assert_eq!(clips.len(), 1);
-        assert_eq!(clips[0].text_content.as_deref(), Some("Backup Test Item"));
+        assert_eq!(imported_count, 2);
+
+        let restored = db2.get_all_clips_for_backup().unwrap();
+        let restored_clip = restored.iter().find(|item| item.content_hash == "HashBK1").unwrap();
+        assert_eq!(restored_clip.text_content.as_deref(), Some("Backup Test Item"));
+        assert_eq!(restored_clip.html_content.as_deref(), Some("<strong>Backup Test Item</strong>"));
+        assert_eq!(restored_clip.note.as_deref(), Some("Restore this note"));
+        assert!(restored_clip.is_pinned);
+        assert!(restored_clip.is_protected);
+        assert!(!restored_clip.is_trashed);
+
+        let restored_trashed = restored.iter().find(|item| item.content_hash == "HashBK2").unwrap();
+        assert!(restored_trashed.is_trashed);
+        assert!(restored_trashed.trashed_at.is_some());
+
+        let restored_boards = db2.get_boards().unwrap();
+        let restored_bin = restored_boards.iter().find(|item| item.name == "DevBin").unwrap();
+        let restored_tag = restored_boards.iter().find(|item| item.name == "BackupTag").unwrap();
+        let restored_board_ids = restored_clip.board_ids.as_ref().unwrap();
+        assert!(restored_board_ids.contains(&restored_bin.id));
+        assert!(restored_board_ids.contains(&restored_tag.id));
+        assert!(db2.get_filters().unwrap().iter().any(|item| item.name == "Backup Filter" && item.shortcut.as_deref() == Some("Alt+B")));
+        assert!(db2.get_operations().unwrap().iter().any(|item| item.name == "Backup Operation" && item.category == "Backup Tools"));
+    }
+
+    #[test]
+    fn test_backup_export_is_not_limited_to_visible_history() {
+        let db = setup_test_db();
+        for index in 0..501 {
+            db.save_clip(
+                "text",
+                Some(&format!("Backup item {index}")),
+                None,
+                None,
+                &format!("backup-limit-{index}"),
+                "App",
+            ).unwrap();
+        }
+
+        let json = db.export_backup_json().unwrap();
+        let payload: BackupPayload = serde_json::from_str(&json).unwrap();
+        assert_eq!(payload.version, 2);
+        assert_eq!(payload.clips.len(), 501);
+        assert_eq!(db.get_clips(None, None, false).unwrap().len(), 501);
     }
 
     #[test]

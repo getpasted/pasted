@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { invoke } from '@tauri-apps/api/core';
+import { safeInvoke as invoke } from '../utils/tauri';
 import {
   BarChart3,
   PieChart,
@@ -66,7 +66,7 @@ export const AnalyticsView: React.FC = () => {
   };
 
   return (
-    <div className="flex-1 h-screen bg-[#171717] text-white p-6 overflow-y-auto font-sans select-none">
+    <div className="tools-page analytics-page flex-1 h-screen bg-[#171717] text-white p-6 overflow-y-auto font-sans select-none">
       {/* Header */}
       <div className="flex items-center justify-between pb-6 border-b border-gray-800 mb-6">
         <div>

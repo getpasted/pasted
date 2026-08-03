@@ -24,7 +24,7 @@ import {
   GripVertical,
   History,
 } from 'lucide-react';
-import { invoke } from '@tauri-apps/api/core';
+import { safeInvoke as invoke } from '../utils/tauri';
 
 interface ClipPreviewProps {
   clip: ClipItem | null;

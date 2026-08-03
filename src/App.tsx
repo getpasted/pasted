@@ -73,6 +73,7 @@ export default function App() {
     setTrashedClips((prev) => prev.filter((c) => c.id !== clipId));
     if (restored) {
       setAllClips((prev) => [restored, ...prev]);
+      setTotalClipCount((prev) => prev + 1);
     }
     try {
       await invoke('restore_clip', { id: clipId });
@@ -84,6 +85,7 @@ export default function App() {
   };
 
   const handlePurgeClipPermanently = async (clipId: number) => {
+    if (trashedClips.find((clip) => clip.id === clipId)?.is_protected) return;
     // 0ms optimistic local state mutation
     setTrashedClips((prev) => prev.filter((c) => c.id !== clipId));
     try {
@@ -96,7 +98,7 @@ export default function App() {
 
   const handleEmptyTrash = async () => {
     // 0ms optimistic local state mutation
-    setTrashedClips([]);
+    setTrashedClips((prev) => prev.filter((clip) => clip.is_protected));
     try {
       await invoke('empty_trash');
     } catch (err) {
@@ -121,7 +123,8 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isBoardModalOpen, setIsBoardModalOpen] = useState<boolean>(false);
   const [editingBoard, setEditingBoard] = useState<Board | null>(null);
-  const [isClearConfirmOpen, setIsClearConfirmOpen] = useState<boolean>(false);
+  const [clearHistoryMode, setClearHistoryMode] = useState<'trash' | 'purge' | null>(null);
+  const isClearConfirmOpen = clearHistoryMode !== null;
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
 
   const clearConfirmModalRef = useRef<HTMLDivElement>(null);
@@ -132,7 +135,7 @@ export default function App() {
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        setIsClearConfirmOpen(false);
+        setClearHistoryMode(null);
         return;
       }
 
@@ -389,7 +392,7 @@ export default function App() {
         } else if (isClearConfirmOpen) {
           e.preventDefault();
           e.stopPropagation();
-          setIsClearConfirmOpen(false);
+          setClearHistoryMode(null);
         } else if (boardContextMenu) {
           e.preventDefault();
           e.stopPropagation();
@@ -776,6 +779,7 @@ export default function App() {
         setSelectedIndex((prev) => {
           const next = Math.min(prev + 1, displayedClips.length - 1);
           setSelectedClip(displayedClips[next]);
+          setSelectedClipIds(new Set([displayedClips[next].id]));
           return next;
         });
       } else if (e.key === 'ArrowUp') {
@@ -783,6 +787,7 @@ export default function App() {
         setSelectedIndex((prev) => {
           const next = Math.max(prev - 1, 0);
           setSelectedClip(displayedClips[next]);
+          setSelectedClipIds(new Set([displayedClips[next].id]));
           return next;
         });
       } else if (e.key === 'Enter' && selectedClip) {
@@ -800,7 +805,6 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [displayedClips, selectedClip]);
 
-  const [deletingClipIds] = useState<Set<number>>(new Set());
   const [draggedClipId, setDraggedClipId] = useState<number | null>(null);
   const [pointerDropTargetBoardId, setPointerDropTargetBoardId] = useState<number | null>(null);
   const [clipDragPreview, setClipDragPreview] = useState<{ clipId: number; x: number; y: number } | null>(null);
@@ -963,7 +967,9 @@ export default function App() {
   };
 
   const handleBatchTrash = useCallback(() => {
-    const ids = Array.from(selectedClipIds);
+    const ids = Array.from(selectedClipIds).filter(
+      (id) => !allClips.find((clip) => clip.id === id)?.is_protected
+    );
     if (ids.length === 0) return;
 
     const trashedItems = allClips.filter((c) => ids.includes(c.id));
@@ -971,7 +977,7 @@ export default function App() {
     // 0ms instant Frame 1 optimistic local state mutations
     setAllClips((prev) => prev.filter((c) => !ids.includes(c.id)));
     setTrashedClips((prev) => [...trashedItems, ...prev]);
-    setSelectedClipIds(new Set());
+    setSelectedClipIds((prev) => new Set(Array.from(prev).filter((id) => !ids.includes(id))));
     if (selectedClip && ids.includes(selectedClip.id)) {
       setSelectedClip(null);
     }
@@ -987,6 +993,7 @@ export default function App() {
 
   const handleDeleteClip = useCallback(
     (id: number, forcePermanent = false) => {
+      if (allClips.find((clip) => clip.id === id)?.is_protected) return;
       if (selectedClipIds.size > 1 && selectedClipIds.has(id)) {
         handleBatchTrash();
         return;
@@ -1161,10 +1168,11 @@ export default function App() {
   };
 
   const handleClearHistory = async () => {
+    if (!clearHistoryMode) return;
     try {
-      await invoke('clear_history');
-      setIsClearConfirmOpen(false);
-      fetchClips();
+      await invoke(clearHistoryMode === 'purge' ? 'purge_unpinned_clips' : 'trash_unpinned_clips');
+      setClearHistoryMode(null);
+      await Promise.all([fetchClips(), fetchTrashedClips(), fetchBoards()]);
     } catch (e) {
       console.error(e);
     }
@@ -1274,7 +1282,7 @@ export default function App() {
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
         seqStatus={seqStatus}
-        onClearHistory={() => setIsClearConfirmOpen(true)}
+        onClearHistory={() => setClearHistoryMode('purge')}
         pinnedCount={pinnedCount}
         protectedCount={protectedCount}
         notesCount={notesCount}
@@ -1322,7 +1330,8 @@ export default function App() {
           onRefreshFilters={fetchFilters}
           boards={boards}
           onRefreshBoards={fetchBoards}
-          onClearHistory={() => setIsClearConfirmOpen(true)}
+          onRefreshClips={fetchClips}
+          onClearHistory={(permanent) => setClearHistoryMode(permanent ? 'purge' : 'trash')}
           onResetColumnWidths={() => {
             setSidebarWidth(240);
             setClipsListWidth(340);
@@ -1444,7 +1453,6 @@ export default function App() {
                       key={clip.id}
                       clip={clip}
                       isSelected={selectedClipIds.size > 0 ? selectedClipIds.has(clip.id) : selectedClip?.id === clip.id}
-                      isDeleting={deletingClipIds.has(clip.id)}
                       isTrashMode={currentTab === 'trash'}
                       isQueueMode={currentTab === 'sequential'}
                       queueIndex={queueIndex}
@@ -1643,11 +1651,13 @@ export default function App() {
                   return { ...c, board_id: boardId, board_ids: nextBids };
                 })
               );
-              invoke('batch_assign_board_clips', { ids, boardId }).catch((e) => {
-                console.error(e);
-                fetchClips();
-                fetchBoards();
-              });
+              invoke('batch_assign_board_clips', { ids, boardId })
+                .then(() => fetchBoards())
+                .catch((e) => {
+                  console.error(e);
+                  fetchClips();
+                  fetchBoards();
+                });
             } else {
               handleAssignBoard(contextMenu.clip.id, boardId);
             }
@@ -1826,18 +1836,24 @@ export default function App() {
                 <AlertTriangle className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-gray-100">Clear Clipboard History?</h3>
-                <p className="text-xs text-gray-400">This action cannot be undone.</p>
+                <h3 className="text-base font-bold text-gray-100">
+                  {clearHistoryMode === 'purge' ? 'Delete Clipboard History?' : 'Trash Clipboard History?'}
+                </h3>
+                <p className="text-xs text-gray-400">
+                  {clearHistoryMode === 'purge' ? 'This action cannot be undone.' : 'Items can be restored from Trash.'}
+                </p>
               </div>
             </div>
 
             <p className="text-xs text-gray-300 leading-relaxed bg-[#191b22] p-3 rounded-xl border border-gray-700/70">
-              Are you sure you want to delete all unpinned clipboard history? Pinned clips and custom bin definitions will be safely preserved.
+              {clearHistoryMode === 'purge'
+                ? 'Permanently delete all unpinned and unprotected clipboard history? Pinned clips, protected clips, and Bin definitions will be preserved.'
+                : 'Move all unpinned and unprotected clipboard history into Trash? Pinned clips, protected clips, and Bin definitions will be preserved.'}
             </p>
 
             <div className="flex justify-end space-x-3 pt-2">
               <button
-                onClick={() => setIsClearConfirmOpen(false)}
+                onClick={() => setClearHistoryMode(null)}
                 className="px-4 py-2 rounded-xl bg-[#343744] hover:bg-[#3d4150] text-gray-200 text-xs font-semibold transition-colors"
               >
                 Cancel
@@ -1846,7 +1862,7 @@ export default function App() {
                 onClick={handleClearHistory}
                 className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-semibold shadow-lg shadow-red-600/30 transition-all hover:scale-105 active:scale-95"
               >
-                Clear History
+                {clearHistoryMode === 'purge' ? 'Delete History' : 'Move to Trash'}
               </button>
             </div>
           </div>

@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api/core';
+import { safeInvoke as invoke } from './tauri';
 
 // macOS-style Web Audio API sound synthesizer for Pasted interaction sounds
 class SoundManager {

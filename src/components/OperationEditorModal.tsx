@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Operation } from '../types';
 import { Wrench, X, Play } from 'lucide-react';
-import { invoke } from '@tauri-apps/api/core';
+import { safeInvoke as invoke } from '../utils/tauri';
 
 interface OperationEditorModalProps {
   operation: Operation | null;

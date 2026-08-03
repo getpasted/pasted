@@ -55,6 +55,8 @@ body.hud-mode,
   /* 🌙 Dark Theme Tokens (Default) */
   :root, html.dark, html[data-theme="dark"] {
     --bg-app: #171717;
+    --bg-main: #171717;
+    --bg-primary: #181818;
     --bg-sidebar: #212121;
     --bg-list: #171717;
     --bg-preview: #212121;
@@ -88,6 +90,8 @@ body.hud-mode,
   /* ☀️ Light Theme Tokens */
   html.light, html[data-theme="light"] {
     --bg-app: #f4f4f7;
+    --bg-main: #f4f4f7;
+    --bg-primary: #ffffff;
     --bg-sidebar: #f5f5f8;
     --bg-list: #ffffff;
     --bg-preview: #f4f4f7;
@@ -173,10 +177,6 @@ body.hud-mode,
 
 /* Custom macOS visible scrollbars */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-*:hover::-webkit-scrollbar {
   width: 10px;
   height: 10px;
 }
@@ -200,10 +200,6 @@ body.hud-mode,
 .custom-scrollbar::-webkit-scrollbar {
   width: 7px;
   height: 7px;
-}
-.custom-scrollbar:hover::-webkit-scrollbar {
-  width: 13px;
-  height: 13px;
 }
 .custom-scrollbar::-webkit-scrollbar-track {
   background: transparent;
@@ -594,6 +590,7 @@ html.light select,
 html.light input[type="text"],
 html.light input[type="number"],
 html.light textarea,
+html.light input[type="password"],
 html.light .theme-input {
   background-color: var(--bg-surface) !important;
   border-color: var(--border-subtle) !important;
@@ -790,25 +787,33 @@ svg,
 
 .titlebar-drag-handle,
 [data-tauri-drag-region] {
-  -webkit-app-region: drag !important;
   cursor: default;
 }
 
-.titlebar-no-drag,
-[data-tauri-drag-region="false"],
-button,
-input,
-textarea,
-select,
-option,
-a,
-.no-drag,
-.clip-card,
-.col-sidebar,
-.sidebar-scroll-container,
-[role="button"],
-[draggable="true"] {
-  -webkit-app-region: no-drag !important;
+/*
+ * Keep cursors stable across nested icons/text inside controls. WebKit otherwise
+ * resolves the cursor again for every child node, which makes a single button
+ * flicker between Safari's arrow and the pointer while the mouse moves over it.
+ */
+:where(button:not(:disabled), [role="button"]:not([aria-disabled="true"]), a, select:not(:disabled), label[for]),
+:where(button:not(:disabled), [role="button"]:not([aria-disabled="true"]), a, select:not(:disabled), label[for]) *,
+.cursor-pointer,
+.cursor-pointer * {
+  cursor: pointer !important;
+}
+
+:where(button, [role="button"], select):disabled,
+:where(button, [role="button"], select):disabled *,
+:where([aria-disabled="true"]),
+:where([aria-disabled="true"]) *,
+.cursor-not-allowed,
+.cursor-not-allowed * {
+  cursor: not-allowed !important;
+}
+
+:where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), textarea, [contenteditable="true"]),
+:where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), textarea, [contenteditable="true"]) * {
+  cursor: text !important;
 }
 
 /* User Land Content ONLY: Allow text selection for actual clipboard text content and editable text inputs */
@@ -1112,4 +1117,134 @@ html.light .note-input-row input::placeholder {
 
 html.light .pin-icon {
   color: #c2410c !important;
+}
+
+/* =======================================================
+   TOOLS PAGES — SHARED LIGHT/DARK SURFACE CONTRACT
+   ======================================================= */
+.tools-page {
+  background-color: var(--bg-app) !important;
+  color: var(--text-main) !important;
+}
+
+html.light .tools-page [class~="bg-[#171717]/80"],
+html.light .tools-page [class~="bg-[#171717]/95"] {
+  background-color: rgba(250, 250, 252, 0.94) !important;
+  border-color: var(--border-subtle) !important;
+}
+
+html.light .tools-page [class~="bg-[#171717]/50"] {
+  background-color: #eeeef2 !important;
+  border-color: var(--border-subtle) !important;
+}
+
+html.light .tools-page [class~="bg-[#212121]"],
+html.light .tools-page [class~="bg-[#222225]"],
+html.light .tools-page [class~="bg-gray-900/80"],
+html.light .tools-page [class~="bg-gray-900"] {
+  background-color: var(--bg-surface) !important;
+  border-color: var(--border-card) !important;
+  color: var(--text-main) !important;
+}
+
+html.light .tools-page [class~="bg-gray-800"],
+html.light .tools-page [class~="bg-gray-800/80"],
+html.light .tools-page [class~="bg-gray-800/40"],
+html.light .tools-page [class~="hover:bg-gray-800"]:hover {
+  background-color: var(--bg-tab-hover) !important;
+  border-color: var(--border-subtle) !important;
+}
+
+html.light .tools-page [class~="border-gray-800"],
+html.light .tools-page [class~="border-gray-700"],
+html.light .tools-page [class~="border-gray-700/80"],
+html.light .tools-page [class~="border-[#2b2b2b]"] {
+  border-color: var(--border-subtle) !important;
+}
+
+html.light .tools-page .text-white,
+html.light .tools-page .text-gray-100 {
+  color: var(--text-title) !important;
+}
+
+html.light .tools-page .text-gray-200,
+html.light .tools-page .text-gray-300 {
+  color: var(--text-main) !important;
+}
+
+html.light .tools-page .text-gray-400,
+html.light .tools-page .text-gray-500 {
+  color: var(--text-muted) !important;
+}
+
+html.light .tools-page .text-cyan-300,
+html.light .tools-page .text-cyan-400 {
+  color: #087b8c !important;
+}
+
+html.light .tools-page .text-emerald-300,
+html.light .tools-page .text-emerald-400,
+html.light .tools-page .text-green-400 {
+  color: #047857 !important;
+}
+
+html.light .tools-page .text-amber-300,
+html.light .tools-page .text-amber-400 {
+  color: #9a5b00 !important;
+}
+
+html.light .tools-page .text-purple-300,
+html.light .tools-page .text-purple-400 {
+  color: #7e22ce !important;
+}
+
+html.light .tools-page .text-rose-400,
+html.light .tools-page .text-red-400,
+html.light .tools-page .text-pink-400 {
+  color: #be123c !important;
+}
+
+html.light .tools-page [class~="bg-cyan-950/80"],
+html.light .tools-page [class~="bg-cyan-950/60"],
+html.light .tools-page [class~="bg-cyan-950/40"],
+html.light .tools-page [class~="bg-cyan-950/30"] {
+  background-color: #e6f7fa !important;
+  border-color: #78cbd6 !important;
+}
+
+html.light .tools-page [class~="bg-amber-950/80"],
+html.light .tools-page [class~="bg-amber-950/40"] {
+  background-color: #fff6df !important;
+  border-color: #e6bc64 !important;
+}
+
+/* Command examples intentionally remain dark in either application theme. */
+html.light .help-page [class~="bg-black/70"],
+html.light .help-page [class~="bg-black/60"] {
+  background-color: #252629 !important;
+  border-color: #4b4d52 !important;
+  color: #f4f4f5 !important;
+}
+
+html.light .help-page [class~="bg-black/70"] .text-gray-200,
+html.light .help-page [class~="bg-black/70"] .text-gray-300,
+html.light .help-page [class~="bg-black/60"] .text-gray-200,
+html.light .help-page [class~="bg-black/60"] .text-gray-300 {
+  color: #f4f4f5 !important;
+}
+
+html.light .help-page [class~="bg-black/70"] .text-emerald-400,
+html.light .help-page [class~="bg-black/60"] .text-emerald-400 {
+  color: #6ee7b7 !important;
+}
+
+html.light .settings-page button[class~="bg-[#383838]"] {
+  background-color: #2f6fed !important;
+  border-color: #245dcc !important;
+  color: #ffffff !important;
+}
+
+html.light .settings-page button[class~="bg-[#383838]"] svg,
+html.light .settings-page button[class~="bg-[#383838]"] span {
+  color: #ffffff !important;
 }

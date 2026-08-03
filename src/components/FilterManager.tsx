@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FilterRule } from '../types';
 import { Sliders, Trash2, Code2, Edit3, Sparkles, Copy, Play, Download, Wrench } from 'lucide-react';
-import { invoke } from '@tauri-apps/api/core';
+import { safeInvoke as invoke } from '../utils/tauri';
 import { FilterEditorModal } from './FilterEditorModal';
 import { OperationsManager } from './OperationsManager';
 import { HotkeyRecorder } from './HotkeyRecorder';
@@ -110,7 +110,7 @@ export const FilterManager: React.FC<FilterManagerProps> = ({ filters, onRefresh
   const openCreateOpRef = React.useRef<(() => void) | null>(null);
 
   return (
-    <div className="flex-1 h-screen flex flex-col overflow-hidden bg-[#171717] select-none filter-manager-wrapper">
+    <div className="tools-page filters-page flex-1 h-screen flex flex-col overflow-hidden bg-[#171717] select-none filter-manager-wrapper">
       {/* 60px Native Titlebar Header Section with Full-Height Square Section Tabs */}
       <div
         data-tauri-drag-region

@@ -1,7 +1,7 @@
 import React from 'react';
 import { SequentialStatus } from '../types';
 import { Disc, ArrowRightCircle, Layers } from 'lucide-react';
-import { invoke } from '@tauri-apps/api/core';
+import { safeInvoke as invoke } from '../utils/tauri';
 
 interface SequentialQueueBarProps {
   status: SequentialStatus | null;

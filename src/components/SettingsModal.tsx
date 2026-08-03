@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { AppSettings, BlacklistApp, FilterRule, Board } from '../types';
-import { invoke } from '@tauri-apps/api/core';
+import { safeInvoke as invoke } from '../utils/tauri';
 import { HotkeyRecorder } from './HotkeyRecorder';
 import {
   Sliders,
@@ -30,7 +30,8 @@ interface SettingsModalProps {
   onRefreshFilters?: () => void;
   boards?: Board[];
   onRefreshBoards?: () => void;
-  onClearHistory?: () => void;
+  onRefreshClips?: () => void;
+  onClearHistory?: (permanent: boolean) => void;
   onResetColumnWidths?: () => void;
 }
 
@@ -45,12 +46,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onRefreshFilters,
   boards = [],
   onRefreshBoards,
+  onRefreshClips,
   onClearHistory,
   onResetColumnWidths,
 }) => {
   const [activeTab, setActiveTab] = useState<'general' | 'hotkeys' | 'blacklist' | 'sync'>('general');
   const [newAppNameInput, setNewAppNameInput] = useState('');
-  const [passcodeInput, setPasscodeInput] = useState('');
   const [accessibilityStatus, setAccessibilityStatus] = useState<{ is_trusted: boolean; is_dev_mode: boolean } | null>(null);
   const [isAltPressed, setIsAltPressed] = useState(false);
 
@@ -77,7 +78,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     };
 
     checkPerm();
-    const interval = setInterval(checkPerm, 1000);
+    const interval = setInterval(checkPerm, 10000);
     window.addEventListener('focus', checkPerm);
 
     return () => {
@@ -87,11 +88,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   }, []);
 
   return (
-    <div data-tauri-drag-region className="flex-1 settings-modal-bg h-screen overflow-y-auto bg-[#141414] text-gray-100 font-sans select-none flex flex-col items-center p-6">
-      <div data-tauri-drag-region className="w-full max-w-xl space-y-6">
+    <div className="tools-page settings-page flex-1 settings-modal-bg h-screen overflow-y-auto bg-[#141414] text-gray-100 font-sans select-none flex flex-col items-center p-6">
+      <div className="w-full max-w-xl space-y-6">
         {/* macOS Native Style Segmented Tab Header */}
         <div data-tauri-drag-region className="flex items-center justify-center">
-          <div data-tauri-drag-region className="flex items-center bg-[#212121] p-1 rounded-xl border border-gray-700/80 shadow-lg space-x-1">
+          <div className="flex items-center bg-[#212121] p-1 rounded-xl border border-gray-700/80 shadow-lg space-x-1 titlebar-no-drag">
             <button
               onClick={() => setActiveTab('general')}
               className={`flex flex-col items-center justify-center px-4 py-2 rounded-lg text-xs font-semibold transition-all border ${
@@ -396,23 +397,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </div>
                   <button
                     type="button"
-                    onClick={async (e) => {
-                      if (e.altKey || isAltPressed) {
-                        try {
-                          await invoke('purge_unpinned_clips');
-                          onClearHistory?.();
-                        } catch (err) {
-                          console.error(err);
-                        }
-                      } else {
-                        try {
-                          await invoke('trash_unpinned_clips');
-                          onClearHistory?.();
-                        } catch (err) {
-                          console.error(err);
-                        }
-                      }
-                    }}
+                    onClick={(e) => onClearHistory?.(e.altKey || isAltPressed)}
                     className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 transition-all shrink-0 cursor-pointer"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
@@ -1067,7 +1052,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
                 <div>
                   <h4 className="text-sm font-bold theme-title">Backup & Restore Vault (.json)</h4>
-                  <p className="text-[11px] theme-text-muted">Export all clips, Bins, Tags, and Filters to a JSON file or restore from a backup.</p>
+                  <p className="text-[11px] theme-text-muted">Export all clips, Trash, Bins, Tags, Filters, and Operations to a JSON file or restore from a backup.</p>
                 </div>
               </div>
 
@@ -1110,51 +1095,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         alert(`Successfully imported ${importedCount} items from backup!`);
                         if (onRefreshBoards) onRefreshBoards();
                         if (onRefreshFilters) onRefreshFilters();
+                        if (onRefreshClips) onRefreshClips();
                       } catch (err) {
                         alert('Failed to import backup file. Invalid format.');
                       }
                     }}
                   />
                 </label>
-              </div>
-            </div>
-
-            {/* Passcode Vault Protection Section */}
-            <div className="p-5 theme-surface bg-[#181818] rounded-xl border border-gray-700/80 space-y-3">
-              <div className="flex items-center space-x-3">
-                <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400">
-                  <Lock className="w-5 h-5" />
-                </div>
-                <div>
-                  <h4 className="text-sm font-bold theme-title">Vault Master Passcode</h4>
-                  <p className="text-[11px] theme-text-muted">Set a master passcode to protect sensitive clips and locked notes.</p>
-                </div>
-              </div>
-
-              <div className="flex items-center space-x-2 pt-1">
-                <input
-                  type="password"
-                  placeholder="Set or change passcode..."
-                  value={passcodeInput}
-                  onChange={(e) => setPasscodeInput(e.target.value)}
-                  className="w-56 bg-[#262626] border border-gray-700 rounded-xl px-3 py-2 text-gray-100 text-xs focus:outline-none focus:border-amber-500 font-mono"
-                />
-                <button
-                  type="button"
-                  onClick={async () => {
-                    if (!passcodeInput.trim()) return;
-                    try {
-                      await invoke('set_vault_passcode', { passcode: passcodeInput.trim() });
-                      alert('Vault passcode saved successfully!');
-                      setPasscodeInput('');
-                    } catch (e) {
-                      console.error('Failed to set passcode:', e);
-                    }
-                  }}
-                  className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white font-semibold rounded-xl text-xs transition-all shadow-md cursor-pointer"
-                >
-                  Save Passcode
-                </button>
               </div>
             </div>
 
