@@ -2,10 +2,8 @@ import React, { useState } from 'react';
 import { AppSettings, BlacklistApp, FilterRule, Board } from '../types';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { HotkeyRecorder } from './HotkeyRecorder';
+import { SettingsTabs, type SettingsTab } from './SettingsTabs';
 import {
-  Sliders,
-  Command,
-  Shield,
   Cloud,
   Plus,
   Trash2,
@@ -50,7 +48,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onClearHistory,
   onResetColumnWidths,
 }) => {
-  const [activeTab, setActiveTab] = useState<'general' | 'hotkeys' | 'blacklist' | 'sync'>('general');
+  const [activeTab, setActiveTab] = useState<SettingsTab>('general');
   const [newAppNameInput, setNewAppNameInput] = useState('');
   const [accessibilityStatus, setAccessibilityStatus] = useState<{ is_trusted: boolean; is_dev_mode: boolean } | null>(null);
   const [isAltPressed, setIsAltPressed] = useState(false);
@@ -69,6 +67,37 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       window.removeEventListener('keyup', handleKeyUp);
     };
   }, []);
+
+  const handleRestoreHotkeyDefaults = async () => {
+    const defaults: Partial<AppSettings> = {
+      hudHotkey: 'Alt+Shift+V',
+      seqToggleHotkey: 'Alt+Shift+C',
+      seqPopHotkey: 'Alt+Shift+X',
+      pasteLastFilterHotkey: '',
+      openFilterWindowHotkey: '',
+      openMainWindowHotkey: '',
+      pasteClip1Hotkey: '',
+      pasteClip2Hotkey: '',
+      pasteClip3Hotkey: '',
+      pasteClip4Hotkey: '',
+      pasteClip5Hotkey: '',
+      pasteClip6Hotkey: '',
+      pasteClip7Hotkey: '',
+      pasteClip8Hotkey: '',
+      pasteClip9Hotkey: '',
+    };
+
+    onUpdateSettings(defaults);
+    try {
+      await invoke('register_hud_shortcut', { shortcutStr: defaults.hudHotkey });
+      for (const [key, value] of Object.entries(defaults)) {
+        if (key === 'hudHotkey') continue;
+        await invoke('register_app_setting_hotkey', { key, value });
+      }
+    } catch (error) {
+      console.error('Failed to restore default hotkeys:', error);
+    }
+  };
 
   React.useEffect(() => {
     const checkPerm = () => {
@@ -90,58 +119,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   return (
     <div className="tools-page settings-page flex-1 settings-modal-bg h-screen overflow-y-auto bg-[#141414] text-gray-100 font-sans select-none flex flex-col items-center p-6">
       <div className="w-full max-w-xl space-y-6">
-        {/* macOS Native Style Segmented Tab Header */}
-        <div data-tauri-drag-region className="flex items-center justify-center">
-          <div className="flex items-center bg-[#212121] p-1 rounded-xl border border-gray-700/80 shadow-lg space-x-1 titlebar-no-drag">
-            <button
-              onClick={() => setActiveTab('general')}
-              className={`flex flex-col items-center justify-center px-4 py-2 rounded-lg text-xs font-semibold transition-all border ${
-                activeTab === 'general'
-                  ? 'settings-tab-active bg-[#383838] text-white border-gray-500/80 shadow-md'
-                  : 'settings-tab-idle border-transparent text-gray-400'
-              }`}
-            >
-              <Sliders className="w-4 h-4 mb-1" />
-              <span>General</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('hotkeys')}
-              className={`flex flex-col items-center justify-center px-4 py-2 rounded-lg text-xs font-semibold transition-all border ${
-                activeTab === 'hotkeys'
-                  ? 'settings-tab-active bg-[#383838] text-white border-gray-500/80 shadow-md'
-                  : 'settings-tab-idle border-transparent text-gray-400'
-              }`}
-            >
-              <Command className="w-4 h-4 mb-1" />
-              <span>Hotkeys</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('blacklist')}
-              className={`flex flex-col items-center justify-center px-4 py-2 rounded-lg text-xs font-semibold transition-all border ${
-                activeTab === 'blacklist'
-                  ? 'settings-tab-active bg-[#383838] text-white border-gray-500/80 shadow-md'
-                  : 'settings-tab-idle border-transparent text-gray-400'
-              }`}
-            >
-              <Shield className="w-4 h-4 mb-1" />
-              <span>Blacklist</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('sync')}
-              className={`flex flex-col items-center justify-center px-4 py-2 rounded-lg text-xs font-semibold transition-all border ${
-                activeTab === 'sync'
-                  ? 'settings-tab-active bg-[#383838] text-white border-gray-500/80 shadow-md'
-                  : 'settings-tab-idle border-transparent text-gray-400'
-              }`}
-            >
-              <Cloud className="w-4 h-4 mb-1" />
-              <span>Sync</span>
-            </button>
-          </div>
-        </div>
+        <SettingsTabs activeTab={activeTab} onChange={setActiveTab} />
 
         {/* TAB 1: GENERAL */}
         {activeTab === 'general' && (
@@ -648,7 +626,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <div className="flex items-center justify-between">
               <h3 className="font-bold text-sm text-gray-100">Global Application Hotkeys</h3>
               <button
-                onClick={() => alert('Hotkeys restored to defaults.')}
+                type="button"
+                onClick={handleRestoreHotkeyDefaults}
                 className="flex items-center space-x-1.5 px-3 py-1 bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded-lg text-gray-300 transition-colors"
               >
                 <RotateCcw className="w-3.5 h-3.5" />

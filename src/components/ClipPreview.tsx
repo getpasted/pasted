@@ -435,7 +435,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
         className="h-[60px] border-b border-[#2b2b2b] bg-[#171717]/80 backdrop-blur-md px-4 flex items-center justify-between cursor-default titlebar-drag-handle shrink-0"
       >
         <div data-tauri-drag-region className="flex items-center space-x-3 titlebar-drag-handle">
-          <span data-tauri-drag-region className="text-xs font-semibold px-2.5 py-1 rounded-md bg-gray-800 text-gray-200 border border-gray-700 capitalize titlebar-drag-handle">
+          <span data-tauri-drag-region className="clip-type-badge text-xs font-semibold px-2.5 py-1 rounded-md bg-gray-800 text-gray-200 border border-gray-700 capitalize titlebar-drag-handle">
             {clip.content_type}
           </span>
           <span data-tauri-drag-region className="text-xs text-gray-300 font-medium truncate max-w-[200px] titlebar-drag-handle">

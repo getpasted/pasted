@@ -136,7 +136,7 @@ export const OperationsManager: React.FC<OperationsManagerProps> = ({
       <div className="flex items-center space-x-2 overflow-x-auto pb-2 scrollbar-none">
         <button
           onClick={() => setActiveCategory('All')}
-          className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
+          className={`ui-pill px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-all ${
             activeCategory === 'All'
               ? 'bg-amber-600 text-white shadow'
               : 'bg-[#212121] text-gray-400 hover:text-white hover:bg-gray-800'
@@ -150,7 +150,7 @@ export const OperationsManager: React.FC<OperationsManagerProps> = ({
             <button
               key={cat}
               onClick={() => setActiveCategory(cat)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
+              className={`ui-pill px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-all ${
                 activeCategory === cat
                   ? 'bg-amber-600 text-white shadow'
                   : 'bg-[#212121] text-gray-400 hover:text-white hover:bg-gray-800'

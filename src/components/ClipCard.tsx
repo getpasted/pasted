@@ -208,7 +208,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
               <GripVertical className="w-3.5 h-3.5" />
             </div>
           )}
-          <div className="p-1 rounded bg-gray-900/90 border border-gray-700/60">
+          <div className="clip-type-icon p-1 rounded bg-gray-900/90 border border-gray-700/60">
             {getIcon()}
           </div>
           <span className="font-medium text-gray-300 truncate max-w-[120px]">

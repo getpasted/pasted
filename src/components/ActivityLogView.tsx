@@ -6,6 +6,7 @@ import {
   RotateCcw,
   ShieldAlert,
   ShieldCheck,
+  ShieldOff,
   Edit3,
   Trash,
   Search,
@@ -15,9 +16,9 @@ import {
 
 export interface ActivityLog {
   id: number;
-  event_type: String;
-  description: String;
-  created_at: String;
+  event_type: string;
+  description: string;
+  created_at: string;
 }
 
 export const ActivityLogView: React.FC = () => {
@@ -54,7 +55,7 @@ export const ActivityLogView: React.FC = () => {
     }
   };
 
-  const getEventBadge = (type: string) => {
+  const getEventBadge = (type: string, description: string) => {
     switch (type) {
       case 'recording_manually_paused':
         return (
@@ -91,6 +92,13 @@ export const ActivityLogView: React.FC = () => {
             <span>Trashed</span>
           </div>
         );
+      case 'clips_trashed_all':
+        return (
+          <div className="flex items-center space-x-1.5 px-2 py-0.5 rounded bg-rose-500/20 text-rose-400 border border-rose-500/30 text-[11px] font-semibold">
+            <Trash2 className="w-3.5 h-3.5" />
+            <span>Trashed All</span>
+          </div>
+        );
       case 'clip_restored':
         return (
           <div className="flex items-center space-x-1.5 px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 text-[11px] font-semibold">
@@ -106,6 +114,26 @@ export const ActivityLogView: React.FC = () => {
             <span>Purged</span>
           </div>
         );
+      case 'clips_purged_all':
+        return (
+          <div className="flex items-center space-x-1.5 px-2 py-0.5 rounded bg-red-600/20 text-red-400 border border-red-500/30 text-[11px] font-semibold">
+            <Trash className="w-3.5 h-3.5" />
+            <span>Purged All</span>
+          </div>
+        );
+      case 'clip_protected_toggled': {
+        const isProtected = description.startsWith('Protected ');
+        return (
+          <div className={`flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold ${
+            isProtected
+              ? 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30'
+              : 'bg-gray-700/50 text-gray-300 border-gray-600'
+          }`}>
+            {isProtected ? <ShieldCheck className="w-3.5 h-3.5" /> : <ShieldOff className="w-3.5 h-3.5" />}
+            <span>{isProtected ? 'Protected' : 'Unprotected'}</span>
+          </div>
+        );
+      }
       case 'note_updated':
         return (
           <div className="flex items-center space-x-1.5 px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[11px] font-semibold">
@@ -131,9 +159,10 @@ export const ActivityLogView: React.FC = () => {
       l.event_type.toLowerCase().includes(filter.toLowerCase());
     if (!matchesSearch) return false;
     if (selectedTypeFilter === 'all') return true;
-    if (selectedTypeFilter === 'trashed') return l.event_type === 'clip_trashed';
+    if (selectedTypeFilter === 'trashed') return l.event_type === 'clip_trashed' || l.event_type === 'clips_trashed_all';
     if (selectedTypeFilter === 'restored') return l.event_type === 'clip_restored';
-    if (selectedTypeFilter === 'purged') return l.event_type === 'clip_deleted' || l.event_type === 'trash_emptied';
+    if (selectedTypeFilter === 'purged') return l.event_type === 'clip_deleted' || l.event_type === 'trash_emptied' || l.event_type === 'clips_purged_all';
+    if (selectedTypeFilter === 'protection') return l.event_type === 'clip_protected_toggled';
     if (selectedTypeFilter === 'paused') return l.event_type === 'recording_auto_paused' || l.event_type === 'recording_manually_paused';
     if (selectedTypeFilter === 'resumed') return l.event_type === 'recording_auto_resumed' || l.event_type === 'recording_manually_resumed';
     if (selectedTypeFilter === 'notes') return l.event_type === 'note_updated';
@@ -162,6 +191,7 @@ export const ActivityLogView: React.FC = () => {
             <option value="trashed">Trashed</option>
             <option value="restored">Restored</option>
             <option value="purged">Purged / Permanently Deleted</option>
+            <option value="protection">Protection Changed</option>
             <option value="paused">Auto-Paused</option>
             <option value="resumed">Auto-Resumed</option>
             <option value="notes">Notes Updated</option>
@@ -203,14 +233,14 @@ export const ActivityLogView: React.FC = () => {
               className="bg-[#212121] border border-gray-800 rounded-xl p-3.5 flex items-center justify-between hover:border-gray-700 transition-colors shadow-sm"
             >
               <div className="flex items-center space-x-3.5 min-w-0 flex-1 pr-4">
-                {getEventBadge(log.event_type as string)}
+                {getEventBadge(log.event_type, log.description)}
                 <span className="text-xs text-gray-200 truncate font-medium">
                   {log.description}
                 </span>
               </div>
 
               <span className="text-[11px] font-mono text-gray-400 shrink-0">
-                {new Date(log.created_at as string).toLocaleTimeString([], {
+                {new Date(log.created_at).toLocaleTimeString([], {
                   hour: '2-digit',
                   minute: '2-digit',
                   second: '2-digit',

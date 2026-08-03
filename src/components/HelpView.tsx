@@ -57,9 +57,9 @@ export const HelpView: React.FC = () => {
         <div className="w-56 border-r border-[#2b2b2b] bg-[#171717]/50 p-3 space-y-1 shrink-0 overflow-y-auto">
           <button
             onClick={() => setActiveSubTab('cli')}
-            className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+            className={`help-topic-button w-full flex items-center justify-between px-3 py-2 text-xs font-semibold transition-all cursor-pointer border ${
               activeSubTab === 'cli'
-                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
+                ? 'is-selected bg-cyan-500/20 text-cyan-300 border-cyan-500/40 shadow-sm'
                 : 'text-gray-400 hover:text-white hover:bg-white/5'
             }`}
           >
@@ -72,9 +72,9 @@ export const HelpView: React.FC = () => {
 
           <button
             onClick={() => setActiveSubTab('hotkeys')}
-            className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+            className={`help-topic-button w-full flex items-center justify-between px-3 py-2 text-xs font-semibold transition-all cursor-pointer border ${
               activeSubTab === 'hotkeys'
-                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
+                ? 'is-selected bg-cyan-500/20 text-cyan-300 border-cyan-500/40 shadow-sm'
                 : 'text-gray-400 hover:text-white hover:bg-white/5'
             }`}
           >
@@ -87,9 +87,9 @@ export const HelpView: React.FC = () => {
 
           <button
             onClick={() => setActiveSubTab('autopause')}
-            className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+            className={`help-topic-button w-full flex items-center justify-between px-3 py-2 text-xs font-semibold transition-all cursor-pointer border ${
               activeSubTab === 'autopause'
-                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
+                ? 'is-selected bg-cyan-500/20 text-cyan-300 border-cyan-500/40 shadow-sm'
                 : 'text-gray-400 hover:text-white hover:bg-white/5'
             }`}
           >
@@ -102,9 +102,9 @@ export const HelpView: React.FC = () => {
 
           <button
             onClick={() => setActiveSubTab('trash')}
-            className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+            className={`help-topic-button w-full flex items-center justify-between px-3 py-2 text-xs font-semibold transition-all cursor-pointer border ${
               activeSubTab === 'trash'
-                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
+                ? 'is-selected bg-cyan-500/20 text-cyan-300 border-cyan-500/40 shadow-sm'
                 : 'text-gray-400 hover:text-white hover:bg-white/5'
             }`}
           >
@@ -117,9 +117,9 @@ export const HelpView: React.FC = () => {
 
           <button
             onClick={() => setActiveSubTab('filters')}
-            className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+            className={`help-topic-button w-full flex items-center justify-between px-3 py-2 text-xs font-semibold transition-all cursor-pointer border ${
               activeSubTab === 'filters'
-                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
+                ? 'is-selected bg-cyan-500/20 text-cyan-300 border-cyan-500/40 shadow-sm'
                 : 'text-gray-400 hover:text-white hover:bg-white/5'
             }`}
           >

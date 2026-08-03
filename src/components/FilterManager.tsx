@@ -120,7 +120,7 @@ export const FilterManager: React.FC<FilterManagerProps> = ({ filters, onRefresh
         <div data-tauri-drag-region className="flex h-full items-stretch titlebar-drag-handle">
           <button
             onClick={() => setActiveSubTab('pipelines')}
-            className={`h-full px-5 flex items-center space-x-2 border-r border-[#2b2b2b] text-xs font-bold transition-all relative ${
+            className={`tools-section-tab h-full px-5 flex items-center space-x-2 border-r border-[#2b2b2b] text-xs font-bold transition-all relative ${
               activeSubTab === 'pipelines'
                 ? 'bg-[#222225] text-cyan-400 border-b-2 border-b-cyan-400'
                 : 'bg-transparent text-gray-400 hover:text-gray-200 hover:bg-white/5'
@@ -134,7 +134,7 @@ export const FilterManager: React.FC<FilterManagerProps> = ({ filters, onRefresh
           </button>
           <button
             onClick={() => setActiveSubTab('operations')}
-            className={`h-full px-5 flex items-center space-x-2 border-r border-[#2b2b2b] text-xs font-bold transition-all relative ${
+            className={`tools-section-tab h-full px-5 flex items-center space-x-2 border-r border-[#2b2b2b] text-xs font-bold transition-all relative ${
               activeSubTab === 'operations'
                 ? 'bg-[#222225] text-amber-400 border-b-2 border-b-amber-400'
                 : 'bg-transparent text-gray-400 hover:text-gray-200 hover:bg-white/5'
@@ -232,7 +232,7 @@ export const FilterManager: React.FC<FilterManagerProps> = ({ filters, onRefresh
               <button
                 key={cat}
                 onClick={() => setActiveCategory(cat)}
-                className={`px-3 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
+                className={`ui-pill px-3 py-1 text-xs font-semibold whitespace-nowrap transition-all ${
                   activeCategory === cat
                     ? 'bg-cyan-600 text-white shadow'
                     : 'bg-[#212121] text-gray-400 hover:text-white hover:bg-gray-800'

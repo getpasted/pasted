@@ -523,6 +523,12 @@ html.light .clip-card-selected div {
   color: var(--text-selected) !important;
 }
 
+html.light .clip-card-idle .text-gray-100,
+html.light .clip-card-idle .text-gray-200,
+html.light .clip-card-idle .text-gray-300 {
+  color: var(--text-main) !important;
+}
+
 html.light span.text-gray-300,
 html.light span.text-gray-200,
 html.light p.text-gray-300,
@@ -1283,4 +1289,73 @@ html.light .app-dialog-cancel {
 html.light .app-dialog-cancel:hover {
   background: var(--bg-card-hover) !important;
   color: var(--text-title) !important;
+}
+
+/* =======================================================
+   SEMANTIC CORNER RADII & CONTROL SURFACES
+   ======================================================= */
+:root {
+  --radius-control: 10px;
+  --radius-field: 10px;
+  --radius-card: 14px;
+  --radius-panel: 18px;
+  --radius-pill: 999px;
+}
+
+.clip-card,
+.theme-card-idle,
+.filter-sandbox-card {
+  border-radius: var(--radius-card) !important;
+}
+
+.app-dialog-panel,
+.board-modal-card,
+.settings-page > div > div[class~="rounded-2xl"] {
+  border-radius: var(--radius-panel) !important;
+}
+
+.ui-pill {
+  border-radius: var(--radius-pill) !important;
+}
+
+.column-resizer-line {
+  background-color: var(--border-subtle);
+}
+
+.group:hover > .column-resizer-line,
+.column-resizer-line.is-active {
+  background-color: var(--text-subtle);
+}
+
+.help-topic-button {
+  border-radius: var(--radius-control);
+  border-color: var(--border-subtle);
+}
+
+.help-topic-button.is-selected {
+  border-color: rgba(6, 182, 212, 0.4);
+}
+
+.tools-section-tab {
+  border-radius: 0 !important;
+}
+
+html.light button[class~="bg-gray-800"],
+html.light button[class~="bg-gray-800/80"],
+html.light button[class~="bg-[#343744]"] {
+  background-color: var(--bg-tab-hover) !important;
+  border-color: var(--border-card) !important;
+  color: var(--text-main) !important;
+}
+
+html.light .clip-type-icon,
+html.light .clip-type-badge {
+  background-color: var(--bg-badge) !important;
+  border-color: var(--border-card) !important;
+  color: var(--text-main) !important;
+}
+
+.clip-type-icon,
+.clip-type-badge {
+  border-radius: 7px !important;
 }

@@ -1289,11 +1289,7 @@ export default function App() {
           className="relative w-[1px] h-screen cursor-col-resize z-30 shrink-0 select-none group"
           title="Drag to resize sidebar width"
         >
-          <div
-            className={`w-[1px] h-full transition-colors ${
-              isResizingSidebar ? 'bg-[#0a84ff]' : 'bg-[#2d2d2d] group-hover:bg-[#0a84ff]'
-            }`}
-          />
+          <div className={`column-resizer-line w-[1px] h-full transition-colors ${isResizingSidebar ? 'is-active' : ''}`} />
           <div className="absolute inset-y-0 -left-1 -right-1 z-40 cursor-col-resize" />
         </div>
       )}
@@ -1594,11 +1590,7 @@ export default function App() {
             className="relative w-[1px] h-screen cursor-col-resize z-20 shrink-0 select-none group"
             title="Drag to resize clips list width"
           >
-            <div
-              className={`w-[1px] h-full transition-colors ${
-                isResizingList ? 'bg-[#0a84ff]' : 'bg-[#2b2b2b] group-hover:bg-[#0a84ff]'
-              }`}
-            />
+            <div className={`column-resizer-line w-[1px] h-full transition-colors ${isResizingList ? 'is-active' : ''}`} />
             <div className="absolute inset-y-0 left-0 -right-2 z-20 cursor-col-resize" />
           </div>
 
