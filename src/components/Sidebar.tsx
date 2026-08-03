@@ -517,11 +517,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     }}
                     onDragLeave={(e) => {
                       e.preventDefault();
-                      const rect = e.currentTarget.getBoundingClientRect();
-                      const x = e.clientX;
-                      const y = e.clientY;
-                      if (x <= rect.left || x >= rect.right || y <= rect.top || y >= rect.bottom) {
-                        setDropTargetBoardId(null);
+                      if (e.relatedTarget && !e.currentTarget.contains(e.relatedTarget as Node)) {
+                        setDropTargetBoardId((prev) => (prev === b.id ? null : prev));
                       }
                     }}
                     onDrop={(e) => {
