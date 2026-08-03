@@ -11,7 +11,6 @@ interface ClipDragPreview {
 interface PinnedLayoutSnapshot {
   topById: Map<number, number>;
   heightById: Map<number, number>;
-  centerById: Map<number, number>;
   firstTop: number;
   gap: number;
 }
@@ -92,7 +91,6 @@ export function useClipBinDrag({
     pinnedLayoutSnapshotRef.current = {
       topById: new Map(rendered.map((item) => [item.id, item.top])),
       heightById: new Map(rendered.map((item) => [item.id, item.height])),
-      centerById: new Map(rendered.map((item) => [item.id, item.center])),
       firstTop: rendered[0]?.top ?? 0,
       gap: measuredGaps.length > 0
         ? measuredGaps.reduce((sum, gap) => sum + gap, 0) / measuredGaps.length
@@ -140,12 +138,19 @@ export function useClipBinDrag({
     const draggedClip = originalPinned.find((clip) => clip.id === clipId);
     if (!draggedClip) return;
     const remainingPinned = originalPinned.filter((clip) => clip.id !== clipId);
-    const renderedCenters = remainingPinned
-      .map((clip) => layout.centerById.get(clip.id))
-      .filter((center): center is number => center !== undefined)
-      .sort((left, right) => left - right);
-    if (renderedCenters.length !== remainingPinned.length) return;
-    const insertionIndex = renderedCenters.filter((center) => y >= center).length;
+    const draggedOriginalIndex = originalPinned.findIndex((clip) => clip.id === clipId);
+    let insertionIndex = draggedOriginalIndex;
+    remainingPinned.forEach((clip, remainingIndex) => {
+      const originalIndex = originalPinned.findIndex((item) => item.id === clip.id);
+      const top = layout.topById.get(clip.id);
+      const height = layout.heightById.get(clip.id);
+      if (top === undefined || height === undefined) return;
+      if (originalIndex < draggedOriginalIndex && y <= top + height) {
+        insertionIndex = Math.min(insertionIndex, remainingIndex);
+      } else if (originalIndex > draggedOriginalIndex && y >= top) {
+        insertionIndex = Math.max(insertionIndex, remainingIndex + 1);
+      }
+    });
     const reordered = [...remainingPinned];
     reordered.splice(insertionIndex, 0, draggedClip);
     const orderedWithRanks = reordered.map((clip, index) => ({ ...clip, pin_order: index }));

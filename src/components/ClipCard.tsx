@@ -21,7 +21,6 @@ import {
   MinusCircle,
   Shield,
   ShieldOff,
-  GripVertical,
 } from 'lucide-react';
 
 interface ClipCardProps {
@@ -245,11 +244,6 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
       {/* Header Info */}
       <div className={`flex items-center justify-between ${headerTextClass} text-gray-400 mb-1`}>
         <div className="flex items-center space-x-2">
-          {clip.is_pinned && (
-            <div title="Drag to reorder pinned clip" className="p-0.5 text-gray-500 hover:text-orange-400 cursor-grab active:cursor-grabbing">
-              <GripVertical className="w-3.5 h-3.5" />
-            </div>
-          )}
           <div className="clip-type-icon p-1 rounded bg-gray-900/90 border border-gray-700/60">
             {getIcon()}
           </div>
@@ -276,7 +270,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
             )
           )}
           {clip.content_type === 'image' && clip.text_content && (
-            <span title="OCR Text Recognized" className="px-1 py-0.5 rounded bg-cyan-950/80 border border-cyan-800/60 text-cyan-300 text-[9px] font-sans font-bold flex items-center space-x-0.5">
+            <span title="OCR Text Recognized" className="clip-ocr-badge px-1 py-0.5 rounded border text-[9px] font-sans font-bold flex items-center space-x-0.5">
               <ScanText className="w-2.5 h-2.5" />
               <span>OCR</span>
             </span>
@@ -284,6 +278,11 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
           {noteSummary && (
             <span title={`Notes: ${noteSummary}`}>
               <StickyNote className="w-3 h-3 text-amber-400" />
+            </span>
+          )}
+          {clip.is_pinned && (
+            <span title="Pinned Clip">
+              <Pin className="w-3.5 h-3.5 text-orange-500 fill-orange-500 pin-icon shrink-0" />
             </span>
           )}
           <span>{formatClipTime(clip.created_at)}</span>
@@ -355,7 +354,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
       <div
         onPointerDown={(e) => e.stopPropagation()}
         onMouseDown={(e) => e.stopPropagation()}
-        className={`absolute right-2 bottom-2 transition-opacity flex items-center space-x-1 bg-gray-950/95 p-1 rounded-lg border border-gray-700/80 shadow-xl ${showActions && !isDragInProgress ? 'visible opacity-100' : 'invisible opacity-0 pointer-events-none'}`}
+        className={`clip-card-actions absolute right-2 bottom-2 transition-opacity flex items-center space-x-1 p-1 rounded-lg border shadow-xl ${showActions && !isDragInProgress ? 'visible opacity-100' : 'invisible opacity-0 pointer-events-none'}`}
       >
         <button
           onClick={handleCopy}
@@ -474,18 +473,6 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
         )}
       </div>
 
-      <div className="absolute top-2 right-2 flex items-center space-x-1 pointer-events-none">
-        {clip.is_protected && (
-          <span title="Protected Clip">
-            <Shield className="w-3.5 h-3.5 text-cyan-400 fill-cyan-400/20 shrink-0" />
-          </span>
-        )}
-        {clip.is_pinned && (
-          <span title="Pinned Clip">
-            <Pin className="w-3.5 h-3.5 text-orange-500 fill-orange-500 pin-icon shrink-0" />
-          </span>
-        )}
-      </div>
     </div>
   );
 };

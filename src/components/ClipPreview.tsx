@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Reorder, AnimatePresence } from 'framer-motion';
 import { formatClipDateTime } from '../utils/date';
 import { ClipItem, Bin, FilterRule, ClipNote, parseClipNotes, serializeClipNotes, ClipVersion } from '../types';
 import { parseColor, ColorFormats } from '../utils/color';
@@ -22,6 +21,7 @@ import {
   History,
 } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
+import { useStableVerticalReorder } from '../hooks/useStableVerticalReorder';
 
 interface ClipPreviewProps {
   clip: ClipItem | null;
@@ -158,6 +158,24 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
     }).catch((e) => console.error('Failed to update clip note:', e));
   };
 
+  const {
+    activeId: activeNoteId,
+    offsets: noteReorderOffsets,
+    isSettling: isNoteReorderSettling,
+    startPointerReorder: startNotePointerReorder,
+  } = useStableVerticalReorder({
+    itemIds: notes.map((note) => note.id),
+    containerRef: noteBoxRef,
+    disabled: notes.length < 2 || editingNoteId !== null,
+    onCommit: (orderedIds) => {
+      const byId = new Map(notesRef.current.map((note) => [note.id, note]));
+      const reordered = orderedIds
+        .map((id) => byId.get(id))
+        .filter((note): note is ClipNote => Boolean(note));
+      saveNotes(reordered);
+    },
+  });
+
   const handleCreateNote = () => {
     if (!newNoteText.trim()) return;
     const newNote: ClipNote = {
@@ -182,22 +200,6 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   const handleDeleteNoteItem = (id: string) => {
     const updated = notes.filter((n) => n.id !== id);
     saveNotes(updated);
-  };
-
-  const handleMoveNoteUp = (index: number) => {
-    if (index === 0) return;
-    const reordered = [...notes];
-    const [item] = reordered.splice(index, 1);
-    reordered.splice(index - 1, 0, item);
-    saveNotes(reordered);
-  };
-
-  const handleMoveNoteDown = (index: number) => {
-    if (index === notes.length - 1) return;
-    const reordered = [...notes];
-    const [item] = reordered.splice(index, 1);
-    reordered.splice(index + 1, 0, item);
-    saveNotes(reordered);
   };
 
   const handleRunOCR = async () => {
@@ -438,7 +440,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
         </div>
       </div>
 
-      {/* Multi-Note Container (Inline Input Row, Framer Motion Animated Reordering, Non-Selectable) */}
+      {/* Multi-Note Container (Inline Input Row, Stable Animated Reordering, Non-Selectable) */}
       {(notes.length > 0 || isAddingNote) && (
         <div className="px-4 py-2.5 bg-amber-950/20 border-b border-amber-500/20 space-y-2 note-container select-none">
           <div className="note-header-text flex items-center space-x-1.5 text-[11px] font-semibold text-amber-400 uppercase tracking-wider select-none">
@@ -446,42 +448,31 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
             <span>Notes ({notes.length})</span>
           </div>
 
-          <div ref={noteBoxRef} className="note-row-box relative rounded-xl border border-amber-500/30 overflow-hidden shadow-sm bg-[#171510] divide-y divide-amber-500/20">
-            <Reorder.Group
-              axis="y"
-              values={notes}
-              onReorder={(newOrder) => {
-                setNotes(newOrder);
-              }}
-              className="divide-y divide-amber-500/20"
-            >
-              <AnimatePresence initial={false}>
-                {notes.map((noteItem, index) => (
+          <div
+            ref={noteBoxRef}
+            className={`note-row-stack relative space-y-2 ${isNoteReorderSettling ? 'is-settling-stable-reorder' : ''}`}
+          >
+                {notes.map((noteItem) => (
                   <NoteRowItem
                     key={noteItem.id}
                     noteItem={noteItem}
-                    index={index}
                     totalNotes={notes.length}
-                    noteBoxRef={noteBoxRef}
                     editingNoteId={editingNoteId}
                     editingNoteText={editingNoteText}
                     setEditingNoteId={setEditingNoteId}
                     setEditingNoteText={setEditingNoteText}
-                    saveNotes={saveNotes}
-                    notesRef={notesRef}
                     handleUpdateNoteItem={handleUpdateNoteItem}
-                    handleMoveNoteUp={handleMoveNoteUp}
-                    handleMoveNoteDown={handleMoveNoteDown}
                     handleDeleteNoteItem={handleDeleteNoteItem}
                     setViewingNote={setViewingNote}
+                    isDragging={activeNoteId === noteItem.id}
+                    reorderOffsetY={noteReorderOffsets[noteItem.id] ?? 0}
+                    onReorderPointerDown={(event) => startNotePointerReorder(noteItem.id, event)}
                   />
                 ))}
-              </AnimatePresence>
-            </Reorder.Group>
 
-            {/* Inline New Multiline Note Input Drawer */}
+            {/* Inline New Note Card */}
             {isAddingNote && (
-              <div className="note-input-row p-3 bg-[#221f17] flex flex-col space-y-2 border-t border-amber-500/20 animate-in fade-in duration-100">
+              <div className="note-input-row p-3 rounded-lg border border-amber-500/25 bg-[#221f17] flex flex-col space-y-2 animate-in fade-in duration-100">
                 <textarea
                   rows={3}
                   placeholder={placeholderText}

@@ -11,6 +11,7 @@ type MockClip = {
   line_count: number;
   is_pinned: number;
   is_protected: number;
+  pin_order: number;
   is_trashed: number;
   bin_id: number | null;
   bin_ids: number[];
@@ -29,6 +30,7 @@ let mockClips: MockClip[] = [
     line_count: 1,
     is_pinned: 0,
     is_protected: 0,
+    pin_order: 0,
     is_trashed: 0,
     bin_id: null,
     bin_ids: [],
@@ -44,13 +46,14 @@ let mockClips: MockClip[] = [
     line_count: 1,
     is_pinned: 0,
     is_protected: 0,
+    pin_order: 0,
     is_trashed: 0,
     bin_id: null,
     bin_ids: [],
   },
 ];
 
-const mockBins = [
+let mockBins = [
   { id: 1, name: 'My Manual Bin', icon: '📂', color: '#3b82f6', smart_rule: null, bin_type: 'category' },
   { id: 2, name: 'Work Bin', icon: '💼', color: '#10b981', smart_rule: '', bin_type: 'category' },
 ];
@@ -151,6 +154,81 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       const binId = args?.binId === null ? null : Number(args?.binId);
       if (binId === null || Number.isInteger(binId)) assignMockClips(ids, binId);
       return true as unknown as T;
+    }
+    case 'create_bin': {
+      const id = Math.max(0, ...mockBins.map((bin) => bin.id)) + 1;
+      mockBins.push({
+        id,
+        name: typeof args?.name === 'string' ? args.name : 'Untitled Bin',
+        icon: typeof args?.icon === 'string' ? args.icon : '📂',
+        color: typeof args?.color === 'string' ? args.color : '#3b82f6',
+        smart_rule: typeof args?.smartRule === 'string' ? args.smartRule : null,
+        bin_type: 'category',
+      });
+      return id as unknown as T;
+    }
+    case 'update_bin': {
+      const bin = mockBins.find((item) => item.id === Number(args?.id));
+      if (bin) {
+        if (typeof args?.name === 'string') bin.name = args.name;
+        if (typeof args?.icon === 'string') bin.icon = args.icon;
+        if (typeof args?.color === 'string') bin.color = args.color;
+        bin.smart_rule = typeof args?.smartRule === 'string' ? args.smartRule : null;
+      }
+      return null as unknown as T;
+    }
+    case 'delete_bin': {
+      const id = Number(args?.id);
+      mockBins = mockBins.filter((bin) => bin.id !== id);
+      for (const clip of mockClips) {
+        clip.bin_ids = clip.bin_ids.filter((binId) => binId !== id);
+        if (clip.bin_id === id) clip.bin_id = null;
+      }
+      return null as unknown as T;
+    }
+    case 'toggle_pin_clip': {
+      const clip = mockClips.find((item) => item.id === Number(args?.id));
+      if (clip) {
+        const nextPinned = clip.is_pinned === 0;
+        if (nextPinned) {
+          for (const item of mockClips) {
+            if (item.is_pinned) item.pin_order += 1;
+          }
+        }
+        clip.is_pinned = nextPinned ? 1 : 0;
+        clip.pin_order = 0;
+      }
+      return Boolean(clip?.is_pinned) as unknown as T;
+    }
+    case 'batch_pin_clips': {
+      const ids = Array.isArray(args?.ids) ? args.ids.map(Number).filter(Number.isInteger) : [];
+      const pinState = Boolean(args?.pinState);
+      if (pinState) {
+        for (const clip of mockClips) {
+          if (clip.is_pinned && !ids.includes(clip.id)) clip.pin_order += ids.length;
+        }
+      }
+      ids.forEach((id, index) => {
+        const clip = mockClips.find((item) => item.id === id);
+        if (clip) {
+          clip.is_pinned = pinState ? 1 : 0;
+          clip.pin_order = pinState ? index : 0;
+        }
+      });
+      return null as unknown as T;
+    }
+    case 'reorder_pinned_clips': {
+      const ids = Array.isArray(args?.ids) ? args.ids.map(Number).filter(Number.isInteger) : [];
+      ids.forEach((id, index) => {
+        const clip = mockClips.find((item) => item.id === id);
+        if (clip?.is_pinned) clip.pin_order = index;
+      });
+      return null as unknown as T;
+    }
+    case 'toggle_clip_protected': {
+      const clip = mockClips.find((item) => item.id === Number(args?.clipId));
+      if (clip) clip.is_protected = clip.is_protected ? 0 : 1;
+      return null as unknown as T;
     }
     default:
       return null as unknown as T;

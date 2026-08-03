@@ -272,6 +272,59 @@ html.light .custom-scrollbar::-webkit-scrollbar-thumb:active {
   color: var(--text-title);
 }
 
+.sidebar-nav-row {
+  box-sizing: border-box;
+  width: 100%;
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  padding-inline: 0.625rem;
+  border: 1px solid transparent;
+  border-radius: 0.375rem;
+}
+
+.sidebar-nav-icon {
+  width: 1rem;
+  height: 1rem;
+  flex: 0 0 1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.sidebar-nav-icon-emoji {
+  font-size: 0.875rem;
+  overflow: visible;
+}
+
+.sidebar-bin-drop-eligible {
+  background-color: rgba(6, 78, 59, 0.15) !important;
+  border-color: rgba(16, 185, 129, 0.45) !important;
+  border-style: dashed !important;
+}
+
+.sidebar-bin-drop-target {
+  background-color: rgba(16, 185, 129, 0.15) !important;
+  border-color: rgba(52, 211, 153, 0.8) !important;
+  border-style: solid !important;
+}
+
+.sidebar-bin-ineligible {
+  background-color: rgba(255, 255, 255, 0.025) !important;
+  border-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+html.light .sidebar-bin-drop-eligible,
+html.light .sidebar-bin-drop-target {
+  color: #065f46 !important;
+}
+
+html.light .sidebar-bin-ineligible {
+  background-color: rgba(0, 0, 0, 0.025) !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+}
+
 .sidebar-item-active {
   background-color: var(--bg-card);
   color: var(--text-title);
@@ -289,6 +342,12 @@ html.light .custom-scrollbar::-webkit-scrollbar-thumb:active {
 .sidebar-item-hovered {
   background-color: var(--bg-card-selected);
   color: var(--text-title);
+}
+
+.sidebar-bin-drag-source {
+  opacity: 0.6;
+  background-color: var(--bg-card-hover) !important;
+  box-shadow: inset 0 0 0 1px var(--border-subtle), var(--shadow-card);
 }
 
 /* Column resizing is an exclusive interaction mode. Pointer capture keeps the
@@ -336,6 +395,17 @@ html.light .custom-scrollbar::-webkit-scrollbar-thumb:active {
   box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.16), var(--shadow-card-selected) !important;
 }
 
+.clip-ocr-badge {
+  background-color: rgba(8, 51, 68, 0.8);
+  border-color: rgba(21, 94, 117, 0.6);
+  color: #67e8f9;
+}
+
+.clip-card-actions {
+  background-color: rgba(3, 7, 18, 0.95);
+  border-color: rgba(55, 65, 81, 0.8);
+}
+
 .clip-card-drag-source {
   opacity: 0.5 !important;
   border-color: rgba(52, 211, 153, 0.8) !important;
@@ -347,8 +417,15 @@ html.light .custom-scrollbar::-webkit-scrollbar-thumb:active {
   transition-property: background-color, border-color, box-shadow, opacity !important;
 }
 
-.is-settling-bin-reorder [data-bin-order-id] {
+.is-settling-stable-reorder [data-stable-reorder-id] {
   transition-property: background-color, border-color, box-shadow, opacity, color !important;
+}
+
+html.is-stable-reordering,
+html.is-stable-reordering * {
+  cursor: grabbing !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
 }
 
 /* =======================================================
@@ -505,13 +582,13 @@ html.light .col-preview div.p-3 button:hover {
   color: #000000 !important;
 }
 
-html.light .col-preview div.px-4.py-2\.5 {
+html.light .col-preview div.px-4.py-2\.5:not(.note-container) {
   background-color: var(--bg-preview-header) !important;
   border-color: var(--border-subtle) !important;
   color: var(--text-muted) !important;
 }
 
-html.light .col-preview div.px-4.py-2\.5 strong {
+html.light .col-preview div.px-4.py-2\.5:not(.note-container) strong {
   color: var(--text-main) !important;
 }
 
@@ -545,7 +622,7 @@ html.light .clip-card-hovered {
 }
 
 html.light .clip-card-selected {
-  background-color: var(--bg-card-selected) !important;
+  background-color: #f0f0f3 !important;
   border-color: var(--text-subtle) !important;
   color: var(--text-selected) !important;
   box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.16), var(--shadow-card-selected) !important;
@@ -555,6 +632,27 @@ html.light .clip-card-selected span,
 html.light .clip-card-selected p,
 html.light .clip-card-selected div {
   color: var(--text-selected) !important;
+}
+
+html.light .clip-ocr-badge,
+html.light .clip-ocr-badge span {
+  background-color: #dff6fa !important;
+  border-color: #56a9b8 !important;
+  color: #0e5e70 !important;
+}
+
+html.light .clip-card-actions {
+  background-color: rgba(255, 255, 255, 0.96) !important;
+  border-color: #b0b0b6 !important;
+  box-shadow: 0 4px 12px rgba(28, 28, 30, 0.16) !important;
+}
+
+html.light .clip-card-actions button.text-gray-400 {
+  color: #505055 !important;
+}
+
+html.light .clip-card-actions button:hover {
+  background-color: #e5e5ea !important;
 }
 
 html.light .clip-card-idle .text-gray-100,
@@ -1080,13 +1178,13 @@ html.light .preview-bin-bar select {
 }
 
 html.light .add-note-btn {
-  background-color: #fef08a !important;
-  color: #713f12 !important;
-  border-color: #eab308 !important;
+  background-color: #ffffff !important;
+  color: #9a4d08 !important;
+  border-color: #d6a84e !important;
 }
 
 html.light .add-note-btn:hover {
-  background-color: #fde047 !important;
+  background-color: #fff8e8 !important;
 }
 
 /* Multi-Note Theme Support for Dark & Light Modes */
@@ -1096,26 +1194,39 @@ html.light .add-note-btn:hover {
 }
 
 html.light .note-container {
-  background-color: #fefce8 !important;
-  border-color: #fde047 !important;
+  background-color: #f7f7f8 !important;
+  border-color: #d1d1d6 !important;
+}
+
+html.light .col-preview > .note-container {
+  border-color: #d1d1d6 !important;
 }
 
 html.light .note-header-text {
   color: #b45309 !important;
 }
 
-html.light .note-row-box {
-  background-color: #ffffff !important;
-  border-color: #fde047 !important;
+.note-row {
+  background-color: #171510;
+  border-color: rgba(245, 158, 11, 0.22);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+}
+
+.note-row:hover {
+  background-color: #201d16;
+  border-color: rgba(245, 158, 11, 0.36);
 }
 
 html.light .note-row {
   background-color: #ffffff !important;
+  border-color: #d7d7dc !important;
   color: #451a03 !important;
+  box-shadow: 0 1px 2px rgba(28, 28, 30, 0.06);
 }
 
 html.light .note-row:hover {
-  background-color: #fef9c3 !important;
+  background-color: #fffaf0 !important;
+  border-color: #e7b84b !important;
 }
 
 html.light .note-text {
@@ -1132,8 +1243,8 @@ html.light .note-icon-btn:hover {
 }
 
 html.light .note-input-row {
-  background-color: #fef9c3 !important;
-  border-color: #fde047 !important;
+  background-color: #ffffff !important;
+  border-color: #d6a84e !important;
 }
 
 .note-input,
@@ -1162,6 +1273,144 @@ html.light .note-input-row input {
 html.light .note-input-row textarea::placeholder,
 html.light .note-input-row input::placeholder {
   color: #92400e !important;
+}
+
+/* Note viewer modal */
+.clip-note-viewer-overlay {
+  background-color: rgba(0, 0, 0, 0.68);
+}
+
+.clip-note-viewer-card,
+.clip-note-viewer-body {
+  background-color: #1a1813;
+}
+
+.clip-note-viewer-card {
+  border-color: rgba(245, 158, 11, 0.4);
+}
+
+.clip-note-viewer-bar {
+  background-color: #14120e;
+  border-color: rgba(245, 158, 11, 0.2);
+}
+
+.clip-note-viewer-title {
+  color: #fbbf24;
+}
+
+.clip-note-viewer-close {
+  color: #9ca3af;
+}
+
+.clip-note-viewer-close:hover {
+  background-color: #29251d;
+  color: #ffffff;
+}
+
+.clip-note-viewer-content {
+  background-color: #12100c;
+  border-color: rgba(245, 158, 11, 0.3);
+  color: #fef3c7;
+}
+
+.clip-note-viewer-meta {
+  color: rgba(251, 191, 36, 0.72);
+}
+
+.clip-note-viewer-meta-strong {
+  color: #fde68a;
+}
+
+.clip-note-viewer-copy {
+  background-color: rgba(69, 26, 3, 0.8);
+  border-color: rgba(180, 83, 9, 0.55);
+  color: #fcd34d;
+}
+
+.clip-note-viewer-copy:hover {
+  background-color: #78350f;
+}
+
+.clip-note-viewer-dismiss {
+  background-color: #26231c;
+  color: #fde68a;
+}
+
+.clip-note-viewer-dismiss:hover {
+  background-color: #343026;
+}
+
+.clip-note-viewer-close:focus-visible,
+.clip-note-viewer-copy:focus-visible,
+.clip-note-viewer-dismiss:focus-visible {
+  outline: 2px solid #f59e0b;
+  outline-offset: 2px;
+}
+
+html.light .clip-note-viewer-overlay {
+  background-color: rgba(30, 30, 35, 0.34);
+}
+
+html.light .clip-note-viewer-card,
+html.light .clip-note-viewer-body {
+  background-color: #fffdf7;
+}
+
+html.light .clip-note-viewer-card {
+  border-color: #e7b84b;
+  box-shadow: 0 24px 70px rgba(63, 44, 16, 0.22);
+}
+
+html.light .clip-note-viewer-bar {
+  background-color: #fffbeb;
+  border-color: #f3d27a;
+}
+
+html.light .clip-note-viewer-title {
+  color: #b45309;
+}
+
+html.light .clip-note-viewer-close {
+  color: #71717a;
+}
+
+html.light .clip-note-viewer-close:hover {
+  background-color: #fef3c7;
+  color: #451a03;
+}
+
+html.light .clip-note-viewer-content {
+  background-color: #ffffff;
+  border-color: #f3d27a;
+  color: #451a03;
+  box-shadow: inset 0 1px 2px rgba(120, 53, 15, 0.05);
+}
+
+html.light .clip-note-viewer-meta {
+  color: #a16207;
+}
+
+html.light .clip-note-viewer-meta-strong {
+  color: #78350f;
+}
+
+html.light .clip-note-viewer-copy {
+  background-color: #fef3c7;
+  border-color: #d97706;
+  color: #92400e;
+}
+
+html.light .clip-note-viewer-copy:hover {
+  background-color: #fde68a;
+}
+
+html.light .clip-note-viewer-dismiss {
+  background-color: #f3f4f6;
+  color: #3f3f46;
+}
+
+html.light .clip-note-viewer-dismiss:hover {
+  background-color: #e5e7eb;
 }
 
 /* Electric Pushpin Orange Tokens */

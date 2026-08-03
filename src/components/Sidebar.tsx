@@ -91,15 +91,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const wasClipDraggingRef = React.useRef(false);
   const isPointerOverSidebarRef = React.useRef(false);
   const isClipDragging = draggedClipId !== null && draggedClipId !== undefined;
-  const isSidebarHoverMuted = isClipDragging || isPostDragHoverSuppressed;
+  const {
+    activeDragBinId,
+    sortedBins,
+    binListRef,
+    binReorderOffsets,
+    isBinReorderSettling,
+    isBinReorderActive,
+    startBinDrag: handlePointerDownBin,
+    consumeBinDragClick,
+  } = useSidebarBinOrder(bins, isClipDragging);
+  const isAnySidebarDrag = isClipDragging || isBinReorderActive;
+  const isSidebarHoverMuted = isAnySidebarDrag || isPostDragHoverSuppressed;
 
   React.useLayoutEffect(() => {
-    if (isClipDragging) setHoveredSidebarControl(null);
-    if (wasClipDraggingRef.current && !isClipDragging) {
+    if (isAnySidebarDrag) setHoveredSidebarControl(null);
+    if (wasClipDraggingRef.current && !isAnySidebarDrag) {
       setIsPostDragHoverSuppressed(isPointerOverSidebarRef.current);
     }
-    wasClipDraggingRef.current = isClipDragging;
-  }, [isClipDragging]);
+    wasClipDraggingRef.current = isAnySidebarDrag;
+  }, [isAnySidebarDrag]);
 
   const handleSidebarPointerEnter = () => {
     isPointerOverSidebarRef.current = true;
@@ -120,18 +131,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const handleSidebarPointerLeave = () => {
     isPointerOverSidebarRef.current = false;
     setHoveredSidebarControl(null);
-    if (!isClipDragging) setIsPostDragHoverSuppressed(false);
+    if (!isAnySidebarDrag) setIsPostDragHoverSuppressed(false);
   };
-  const {
-    activeDragBinId,
-    sortedBins,
-    binReorderOffsets,
-    isBinReorderSettling,
-    startBinDrag: handlePointerDownBin,
-    finishBinDrag: handlePointerUpBin,
-    cancelBinDrag: handlePointerCancelBin,
-    moveDraggedBinToPosition: handlePointerMoveBin,
-  } = useSidebarBinOrder(bins, isClipDragging);
 
   const getBinIcon = (iconName: string) => {
     return <span className="text-sm">{formatEmojiIcon(iconName)}</span>;
@@ -324,7 +325,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     data-sidebar-hover-key={`clip:${item.tab}`}
                     onClick={() => navigateTo(item.tab)}
                     disabled={isClipDragging}
-                    className={`w-full h-8 flex items-center justify-between px-2.5 rounded-md transition-colors duration-100 cursor-pointer ${
+                    className={`sidebar-nav-row justify-between transition-colors duration-100 cursor-pointer ${
                       currentTab === item.tab && (item.tab !== 'all' || selectedBinId === null)
                         ? 'sidebar-item-active bg-[#3b3b3e] text-white font-medium'
                         : hoveredSidebarControl === `clip:${item.tab}`
@@ -332,8 +333,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         : 'sidebar-item-idle text-[#e3e3e5] font-normal'
                     }`}
                   >
-                    <div className="flex items-center space-x-3">
-                      {React.cloneElement(item.icon, { className: item.icon.props.className.replace('w-5 h-5', 'w-4 h-4 shrink-0'), strokeWidth: 1.8 })}
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="sidebar-nav-icon">
+                        {React.cloneElement(item.icon, { className: item.icon.props.className.replace('w-5 h-5', 'w-4 h-4 shrink-0'), strokeWidth: 1.8 })}
+                      </span>
                       <span className="truncate">{item.label}</span>
                     </div>
                     {item.tab === 'sequential' && seqStatus?.is_active ? (
@@ -382,13 +385,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
             }`}
           >
             <nav
-              className={`space-y-0.5 ${isBinReorderSettling ? 'is-settling-bin-reorder' : ''}`}
-              onPointerUp={handlePointerUpBin}
-              onPointerLeave={handlePointerCancelBin}
-              onPointerMove={(event) => {
-                if (activeDragBinId === null) return;
-                handlePointerMoveBin(event.clientY);
-              }}
+              ref={binListRef}
+              className={`space-y-0.5 ${isBinReorderSettling ? 'is-settling-stable-reorder' : ''}`}
             >
               {sortedBins.map((b) => {
                 const isDragging = activeDragBinId === b.id;
@@ -405,7 +403,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 return (
                   <div
                     key={b.id}
-                    data-bin-order-id={b.id}
+                    data-stable-reorder-id={String(b.id)}
                     style={binReorderOffsets[b.id] !== undefined ? {
                       transform: `translateY(${binReorderOffsets[b.id]}px)`,
                       zIndex: activeDragBinId === b.id ? 20 : 10,
@@ -421,8 +419,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         ? 'Smart Bin — populated automatically by rules'
                         : undefined
                     }
-                    onPointerDown={() => handlePointerDownBin(b.id)}
-                    onPointerUp={handlePointerUpBin}
+                    onPointerDown={(event) => handlePointerDownBin(String(b.id), event)}
                     onDragOver={(e) => {
                       if (!isManualBin || isDisabledDropTarget) return;
                       e.preventDefault();
@@ -477,6 +474,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       }
                     }}
                     onClick={() => {
+                      if (consumeBinDragClick()) return;
                       if (!activeDragBinId) {
                         setCurrentTab('bin');
                         setSelectedBinId(b.id);
@@ -487,7 +485,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       e.stopPropagation();
                       if (onBinContextMenu) onBinContextMenu(e.clientX, e.clientY, b);
                     }}
-                    className={`w-full h-8 flex items-center justify-between px-2.5 rounded-md select-none transition-all duration-100 ${
+                    className={`sidebar-nav-row justify-between select-none transition-all duration-100 ${
                       isDisabledDropTarget || isIneligibleSmartBin
                         ? 'cursor-not-allowed'
                         : isClipDragging
@@ -495,13 +493,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         : 'cursor-pointer active:cursor-grabbing'
                     } ${
                       isDropTarget
-                        ? 'bg-emerald-500/15 border border-emerald-400/80 ring-2 ring-emerald-400/25 shadow-lg text-emerald-50 z-30 relative'
+                        ? 'sidebar-bin-drop-target ring-2 ring-emerald-400/25 shadow-lg text-emerald-50 z-30 relative'
                         : isDisabledDropTarget || isIneligibleSmartBin
-                        ? 'bg-white/[0.025] border border-white/5 text-gray-600 opacity-50 cursor-not-allowed'
+                        ? 'sidebar-bin-ineligible text-gray-600 opacity-50 cursor-not-allowed'
                         : isClipDragging && isManualBin
-                        ? 'bg-emerald-950/15 border border-dashed border-emerald-500/45 text-emerald-100 font-normal'
+                        ? 'sidebar-bin-drop-eligible text-emerald-100 font-normal'
                         : isDragging
-                        ? 'bg-[#0a84ff]/30 shadow-md ring-1 ring-inset ring-[#0a84ff]/70 rounded-md z-20 relative pointer-events-none'
+                        ? 'sidebar-bin-drag-source rounded-md z-20 relative pointer-events-none'
                         : currentTab === 'bin' && selectedBinId === b.id
                         ? 'sidebar-item-active bg-[#3b3b3e] text-white font-medium'
                         : isBinHovered
@@ -509,8 +507,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         : 'sidebar-item-idle text-[#e3e3e5] font-normal'
                     }`}
                   >
-                    <div className="flex items-center space-x-2.5 truncate pr-1">
-                      <span className="shrink-0 text-[#0a84ff]">{getBinIcon(b.icon)}</span>
+                    <div className="flex items-center gap-3 truncate pr-1 min-w-0">
+                      <span className="sidebar-nav-icon sidebar-nav-icon-emoji text-[#0a84ff]">{getBinIcon(b.icon)}</span>
                       <span className="truncate">{b.name}</span>
                     </div>
 
@@ -595,7 +593,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   data-sidebar-hover-key={`tool:${item.tab}`}
                   onClick={() => navigateTo(item.tab)}
                   disabled={isClipDragging}
-                  className={`w-full h-8 flex items-center space-x-3 px-2.5 rounded-md transition-colors duration-100 cursor-pointer ${
+                  className={`sidebar-nav-row gap-3 transition-colors duration-100 cursor-pointer ${
                     currentTab === item.tab
                       ? 'sidebar-item-active bg-[#3b3b3e] text-white font-medium'
                       : hoveredSidebarControl === `tool:${item.tab}`
@@ -603,7 +601,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       : 'sidebar-item-idle text-[#e3e3e5] font-normal'
                   }`}
                 >
-                  {React.cloneElement(item.icon, { className: item.icon.props.className.replace('w-5 h-5', 'w-4 h-4 shrink-0'), strokeWidth: 1.8 })}
+                  <span className="sidebar-nav-icon">
+                    {React.cloneElement(item.icon, { className: item.icon.props.className.replace('w-5 h-5', 'w-4 h-4 shrink-0'), strokeWidth: 1.8 })}
+                  </span>
                   <span className="truncate">{item.label}</span>
                 </button>
               ))}

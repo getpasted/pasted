@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { FilterRule, Operation } from '../types';
 import { Sliders, Plus, Trash2, X, Play, ArrowDown, ArrowUp, GripVertical, Wrench, RotateCcw } from 'lucide-react';
-import { Reorder, useDragControls } from 'framer-motion';
 import { safeInvoke as invoke } from '../utils/tauri';
+import { useStableVerticalReorder } from '../hooks/useStableVerticalReorder';
 import { HotkeyRecorder } from './HotkeyRecorder';
 import { OperationEditorModal } from './OperationEditorModal';
 import { startWindowDrag } from '../utils/windowDrag';
@@ -82,6 +82,9 @@ const StepReorderCard: React.FC<{
   onUpdate: (updates: Partial<FilterStep>) => void;
   operationsList: Operation[];
   setIsOpModalOpen: (open: boolean) => void;
+  isDragging: boolean;
+  reorderOffsetY: number;
+  onReorderPointerDown: (event: React.PointerEvent) => void;
 }> = ({
   step,
   idx,
@@ -93,54 +96,19 @@ const StepReorderCard: React.FC<{
   onUpdate,
   operationsList,
   setIsOpModalOpen,
+  isDragging,
+  reorderOffsetY,
+  onReorderPointerDown,
 }) => {
-  const dragControls = useDragControls();
-  const [isDragging, setIsDragging] = useState(false);
-
-  useEffect(() => {
-    if (isDragging) {
-      const styleEl = document.createElement('style');
-      styleEl.id = 'force-drag-cursor';
-      styleEl.innerHTML = `* { cursor: grabbing !important; -webkit-user-select: none !important; user-select: none !important; }`;
-      document.head.appendChild(styleEl);
-
-      const handlePointerUp = () => {
-        setIsDragging(false);
-        document.getElementById('force-drag-cursor')?.remove();
-      };
-
-      window.addEventListener('pointerup', handlePointerUp);
-      window.addEventListener('mouseup', handlePointerUp);
-      return () => {
-        document.getElementById('force-drag-cursor')?.remove();
-        window.removeEventListener('pointerup', handlePointerUp);
-        window.removeEventListener('mouseup', handlePointerUp);
-      };
-    }
-  }, [isDragging]);
-
   return (
-    <>
-      {isDragging && (
-        <div
-          className="fixed inset-0 z-[999999] cursor-grabbing select-none"
-          style={{ cursor: 'grabbing' }}
-        />
-      )}
-      <Reorder.Item
-        value={step}
-        id={step.id}
-        dragControls={dragControls}
-        dragListener={false}
-        onDragStart={() => setIsDragging(true)}
-        onDragEnd={() => {
-          setIsDragging(false);
-          document.getElementById('force-drag-cursor')?.remove();
-        }}
-        layout
-        transition={{ type: 'spring', stiffness: 500, damping: 35 }}
-        className={`filter-step-card p-3.5 bg-[#1a1a1c] rounded-xl border space-y-3 relative group shadow-md select-none ${
-          isDragging ? 'z-50 border-cyan-500/70 opacity-75 shadow-md shadow-cyan-500/10 scale-[1.01]' : 'border-gray-800'
+      <div
+        data-stable-reorder-id={step.id}
+        style={reorderOffsetY !== 0 || isDragging ? {
+          transform: `translateY(${reorderOffsetY}px)`,
+          zIndex: isDragging ? 50 : 10,
+        } : undefined}
+        className={`filter-step-card p-3.5 bg-[#1a1a1c] rounded-xl border space-y-3 relative group shadow-md select-none transition-[background-color,border-color,box-shadow,opacity,transform] duration-100 ease-out ${
+          isDragging ? 'z-50 border-cyan-500/70 opacity-75 shadow-md shadow-cyan-500/10' : 'border-gray-800'
         }`}
       >
         {/* Step Header */}
@@ -152,13 +120,10 @@ const StepReorderCard: React.FC<{
             </span>
             <button
               type="button"
-              onPointerDown={(e) => {
-                e.preventDefault();
-                setIsDragging(true);
-                dragControls.start(e);
-              }}
+              onPointerDown={onReorderPointerDown}
               className="step-drag-handle titlebar-no-drag p-1.5 text-gray-400 hover:text-white rounded hover:bg-gray-800/80 touch-none select-none shrink-0 border-0 outline-none"
               style={{ touchAction: 'none' }}
+              title="Drag to reorder step"
             >
               <GripVertical className="w-4 h-4 pointer-events-none" />
             </button>
@@ -325,8 +290,7 @@ const StepReorderCard: React.FC<{
           </div>
         )}
       </div>
-    </Reorder.Item>
-    </>
+    </div>
   );
 };
 
@@ -343,6 +307,22 @@ export const FilterEditorModal: React.FC<FilterEditorModalProps> = ({
   const [testOutput, setTestOutput] = useState('');
   const [operationsList, setOperationsList] = useState<Operation[]>([]);
   const [isOpModalOpen, setIsOpModalOpen] = useState(false);
+  const stepListRef = useRef<HTMLDivElement>(null);
+  const {
+    activeId: activeStepId,
+    offsets: stepReorderOffsets,
+    isSettling: isStepReorderSettling,
+    startPointerReorder: startStepPointerReorder,
+  } = useStableVerticalReorder({
+    itemIds: steps.map((step) => step.id),
+    containerRef: stepListRef,
+    onCommit: (orderedIds) => {
+      setSteps((current) => {
+        const byId = new Map(current.map((step) => [step.id, step]));
+        return orderedIds.map((id) => byId.get(id)).filter((step): step is FilterStep => Boolean(step));
+      });
+    },
+  });
 
   const refreshOps = () => {
     invoke<Operation[]>('get_operations')
@@ -685,7 +665,10 @@ export const FilterEditorModal: React.FC<FilterEditorModalProps> = ({
 
             {/* Dark Wrapper Container */}
             <div className="bg-[#121214] p-3 rounded-2xl border border-gray-800/80 space-y-2.5 shadow-inner">
-              <Reorder.Group values={steps} onReorder={setSteps} className="space-y-2.5">
+              <div
+                ref={stepListRef}
+                className={`space-y-2.5 ${isStepReorderSettling ? 'is-settling-stable-reorder' : ''}`}
+              >
                 {steps.map((step, idx) => (
                   <StepReorderCard
                     key={step.id}
@@ -699,9 +682,12 @@ export const FilterEditorModal: React.FC<FilterEditorModalProps> = ({
                     onUpdate={(updates) => handleUpdateStep(step.id, updates)}
                     operationsList={operationsList}
                     setIsOpModalOpen={setIsOpModalOpen}
+                    isDragging={activeStepId === step.id}
+                    reorderOffsetY={stepReorderOffsets[step.id] ?? 0}
+                    onReorderPointerDown={(event) => startStepPointerReorder(step.id, event)}
                   />
                 ))}
-              </Reorder.Group>
+              </div>
 
               {/* Bottom Add Step Button inside dark wrapper */}
               <div className="pt-1 flex justify-center">

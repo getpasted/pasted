@@ -2905,6 +2905,8 @@ mod tests {
             .create_bin_with_type("Important", "Tag", "#f59e0b", None, "tag")
             .unwrap();
 
+        assert!(db.toggle_pin(clip1.id).unwrap());
+        assert!(db.toggle_protected(clip1.id).unwrap());
         db.assign_to_bin(clip1.id, Some(first_bin.id)).unwrap();
         db.add_clip_to_bin(clip1.id, tag.id).unwrap();
         db.assign_to_bin(clip1.id, Some(second_bin.id)).unwrap();
@@ -2916,6 +2918,8 @@ mod tests {
         let second_bin_clips = db.get_clips(None, Some(second_bin.id), false).unwrap();
         assert_eq!(second_bin_clips.len(), 1);
         assert_eq!(second_bin_clips[0].id, clip1.id);
+        assert!(second_bin_clips[0].is_pinned);
+        assert!(second_bin_clips[0].is_protected);
         assert!(second_bin_clips[0]
             .bin_ids
             .as_ref()
@@ -2926,6 +2930,8 @@ mod tests {
         let unassigned = db.get_clips(None, None, false).unwrap();
         let clip1_after_unassign = unassigned.iter().find(|clip| clip.id == clip1.id).unwrap();
         assert_eq!(clip1_after_unassign.bin_id, None);
+        assert!(clip1_after_unassign.is_pinned);
+        assert!(clip1_after_unassign.is_protected);
         assert_eq!(
             clip1_after_unassign.bin_ids.as_ref().unwrap(),
             &vec![tag.id]
@@ -2939,12 +2945,14 @@ mod tests {
             .get_clips(None, Some(first_bin.id), false)
             .unwrap()
             .is_empty());
-        assert_eq!(
-            db.get_clips(None, Some(second_bin.id), false)
-                .unwrap()
-                .len(),
-            2
-        );
+        let batch_assigned = db.get_clips(None, Some(second_bin.id), false).unwrap();
+        assert_eq!(batch_assigned.len(), 2);
+        let protected_pinned = batch_assigned
+            .iter()
+            .find(|clip| clip.id == clip1.id)
+            .unwrap();
+        assert!(protected_pinned.is_pinned);
+        assert!(protected_pinned.is_protected);
     }
 
     #[test]

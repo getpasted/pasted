@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useLayoutEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { safeInvoke as invoke } from './utils/tauri';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { ClipItem, Bin } from './types';
@@ -88,15 +88,24 @@ export default function App() {
   const [selectedClip, setSelectedClip] = useState<ClipItem | null>(null);
   const [selectedClipIds, setSelectedClipIds] = useState<Set<number>>(new Set());
   const [hoveredClipId, setHoveredClipId] = useState<number | null>(null);
-  const [, setSelectedIndex] = useState<number>(0);
+  const [, setSelectedIndex] = useState<number>(-1);
   const [currentTab, setCurrentTab] = useState<string>('all');
   const [selectedBinId, setSelectedBinId] = useState<number | null>(null);
+  const selectionViewKey = currentTab === 'bin' ? `bin:${selectedBinId ?? 'none'}` : `section:${currentTab}`;
+  const selectedClipByViewRef = useRef<Map<string, number | null>>(new Map());
+  const activeSelectionViewRef = useRef<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isBinModalOpen, setIsBinModalOpen] = useState<boolean>(false);
   const [editingBin, setEditingBin] = useState<Bin | null>(null);
   const [clearHistoryMode, setClearHistoryMode] = useState<ClearHistoryMode | null>(null);
   const isClearConfirmOpen = clearHistoryMode !== null;
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
+
+  const clearClipSelection = useCallback(() => {
+    setSelectedClip(null);
+    setSelectedClipIds(new Set());
+    setSelectedIndex(-1);
+  }, []);
 
   const handleToggleCopyQueue = async () => {
     try {
@@ -216,20 +225,74 @@ export default function App() {
     sequentialStatus: seqStatus,
   });
 
-  // Keep selected clip valid on view switch
-  useEffect(() => {
-    if (displayedClips.length > 0) {
-      setSelectedClip((prev) => {
-        if (prev) {
-          const found = displayedClips.find((c) => c.id === prev.id);
-          return found || displayedClips[0];
-        }
-        return displayedClips[0];
-      });
-    } else {
+  // Each section and Bin remembers its own inspector selection. Moving into a
+  // view restores that clip (or its first eligible clip), while an explicit
+  // dismissal remains dismissed until the user navigates away.
+  useLayoutEffect(() => {
+    const displayedIds = new Set(displayedClips.map((clip) => clip.id));
+    const viewChanged = activeSelectionViewRef.current !== selectionViewKey;
+    const rememberedId = selectedClipByViewRef.current.get(selectionViewKey);
+    activeSelectionViewRef.current = selectionViewKey;
+
+    const selectFallback = () => {
+      const fallback = displayedClips[0] ?? null;
+      selectedClipByViewRef.current.set(selectionViewKey, fallback?.id ?? null);
+      setSelectedClip(fallback);
+      setSelectedClipIds(fallback ? new Set([fallback.id]) : new Set());
+      setSelectedIndex(fallback ? 0 : -1);
+    };
+
+    if (displayedClips.length === 0) {
+      selectedClipByViewRef.current.set(selectionViewKey, null);
       setSelectedClip(null);
+      setSelectedClipIds(new Set());
+      setSelectedIndex(-1);
+      return;
     }
-  }, [displayedClips]);
+
+    if (viewChanged) {
+      const rememberedClip = typeof rememberedId === 'number'
+        ? displayedClips.find((clip) => clip.id === rememberedId)
+        : null;
+      const nextClip = rememberedClip ?? displayedClips[0];
+      const nextIndex = displayedClips.findIndex((clip) => clip.id === nextClip.id);
+      selectedClipByViewRef.current.set(selectionViewKey, nextClip.id);
+      setSelectedClip(nextClip);
+      setSelectedClipIds(new Set([nextClip.id]));
+      setSelectedIndex(nextIndex);
+      return;
+    }
+
+    if (selectedClip) {
+      const currentIndex = displayedClips.findIndex((clip) => clip.id === selectedClip.id);
+      if (currentIndex === -1) {
+        selectFallback();
+        return;
+      }
+
+      const currentClip = displayedClips[currentIndex];
+      selectedClipByViewRef.current.set(selectionViewKey, currentClip.id);
+      setSelectedClip(currentClip);
+      setSelectedIndex(currentIndex);
+    } else if (typeof rememberedId === 'number' && !displayedIds.has(rememberedId)) {
+      // A selected clip was removed before its deletion/update completed.
+      selectFallback();
+      return;
+    } else {
+      selectedClipByViewRef.current.set(selectionViewKey, null);
+      setSelectedClipIds(new Set());
+      setSelectedIndex(-1);
+      return;
+    }
+
+    setSelectedClipIds((previous) => {
+      const next = new Set(Array.from(previous).filter((id) => displayedIds.has(id)));
+      if (next.size === previous.size && Array.from(next).every((id) => previous.has(id))) {
+        return previous;
+      }
+      return next;
+    });
+  }, [displayedClips, selectedClip?.id, selectionViewKey]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -601,7 +664,13 @@ export default function App() {
             )}
 
             {/* Clips List Content */}
-            <div data-clip-list className="flex-1 overflow-y-auto pl-3 pr-3 py-3 space-y-2.5 custom-scrollbar">
+            <div
+              data-clip-list
+              className="flex-1 overflow-y-auto pl-3 pr-3 py-3 space-y-2.5 custom-scrollbar"
+              onClick={(event) => {
+                if (event.target === event.currentTarget) clearClipSelection();
+              }}
+            >
               {displayedClips.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-center p-6 text-gray-500 select-none">
                   <Clipboard className="w-10 h-10 mb-3 opacity-30 stroke-1" />
@@ -676,8 +745,13 @@ export default function App() {
                             setSelectedClipIds(new Set(rangeIds));
                           }
                         } else {
-                          setSelectedClip(clip);
-                          setSelectedClipIds(new Set([clip.id]));
+                          const isOnlySelectedClip = selectedClip?.id === clip.id && selectedClipIds.size <= 1;
+                          if (isOnlySelectedClip) {
+                            clearClipSelection();
+                          } else {
+                            setSelectedClip(clip);
+                            setSelectedClipIds(new Set([clip.id]));
+                          }
                         }
                       }}
                       onPin={() => handleTogglePin(clip.id)}
@@ -786,7 +860,7 @@ export default function App() {
                   <span>Trash</span>
                 </button>
                 <button
-                  onClick={() => setSelectedClipIds(new Set())}
+                  onClick={clearClipSelection}
                   className="p-0.5 text-gray-400 hover:text-white rounded-full hover:bg-gray-800 transition-colors cursor-pointer shrink-0 ml-0.5"
                   title="Deselect All"
                 >
