@@ -1,14 +1,13 @@
 import React, { useState } from 'react';
 import { AppSettings, BlacklistApp, FilterRule, Board } from '../types';
 import { safeInvoke as invoke } from '../utils/tauri';
-import { HotkeyRecorder } from './HotkeyRecorder';
 import { SettingsTabs, type SettingsTab } from './SettingsTabs';
 import { SettingsBlacklistPanel } from './SettingsBlacklistPanel';
+import { SettingsHotkeysPanel } from './SettingsHotkeysPanel';
 import { SettingsSyncPanel } from './SettingsSyncPanel';
 import { useAltKeyPressed } from '../hooks/useAltKeyPressed';
 import {
   Trash2,
-  ShieldCheck,
   RotateCcw,
   Sun,
   Moon,
@@ -48,56 +47,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onResetColumnWidths,
 }) => {
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
-  const [accessibilityStatus, setAccessibilityStatus] = useState<{ is_trusted: boolean; is_dev_mode: boolean } | null>(null);
   const isAltPressed = useAltKeyPressed();
-
-  const handleRestoreHotkeyDefaults = async () => {
-    const defaults: Partial<AppSettings> = {
-      hudHotkey: 'Alt+Shift+V',
-      seqToggleHotkey: 'Alt+Shift+C',
-      seqPopHotkey: 'Alt+Shift+X',
-      pasteLastFilterHotkey: '',
-      openFilterWindowHotkey: '',
-      openMainWindowHotkey: '',
-      pasteClip1Hotkey: '',
-      pasteClip2Hotkey: '',
-      pasteClip3Hotkey: '',
-      pasteClip4Hotkey: '',
-      pasteClip5Hotkey: '',
-      pasteClip6Hotkey: '',
-      pasteClip7Hotkey: '',
-      pasteClip8Hotkey: '',
-      pasteClip9Hotkey: '',
-    };
-
-    onUpdateSettings(defaults);
-    try {
-      await invoke('register_hud_shortcut', { shortcutStr: defaults.hudHotkey });
-      for (const [key, value] of Object.entries(defaults)) {
-        if (key === 'hudHotkey') continue;
-        await invoke('register_app_setting_hotkey', { key, value });
-      }
-    } catch (error) {
-      console.error('Failed to restore default hotkeys:', error);
-    }
-  };
-
-  React.useEffect(() => {
-    const checkPerm = () => {
-      invoke<{ is_trusted: boolean; is_dev_mode: boolean }>('check_accessibility_permission')
-        .then(setAccessibilityStatus)
-        .catch(() => setAccessibilityStatus({ is_trusted: true, is_dev_mode: false }));
-    };
-
-    checkPerm();
-    const interval = setInterval(checkPerm, 10000);
-    window.addEventListener('focus', checkPerm);
-
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener('focus', checkPerm);
-    };
-  }, []);
 
   return (
     <div className="tools-page settings-page flex-1 settings-modal-bg h-screen overflow-y-auto bg-[#141414] text-gray-100 font-sans select-none flex flex-col items-center p-6">
@@ -605,258 +555,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
         {/* TAB 2: HOTKEYS */}
         {activeTab === 'hotkeys' && (
-          <div className="bg-[#212121] p-6 rounded-2xl border border-gray-700/80 shadow-2xl space-y-6 text-xs text-gray-200">
-            <div className="flex items-center justify-between">
-              <h3 className="font-bold text-sm text-gray-100">Global Application Hotkeys</h3>
-              <button
-                type="button"
-                onClick={handleRestoreHotkeyDefaults}
-                className="flex items-center space-x-1.5 px-3 py-1 bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded-lg text-gray-300 transition-colors"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-                <span>Restore Defaults</span>
-              </button>
-            </div>
-
-            {/* macOS Accessibility Permission Card */}
-            <div className="p-3.5 bg-[#181818] rounded-xl border border-gray-700/80 space-y-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <ShieldCheck className={`w-4 h-4 ${accessibilityStatus?.is_trusted ? 'text-green-400' : 'text-amber-400'}`} />
-                  <span className="font-bold text-xs text-gray-200">macOS System Accessibility Permission</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  {accessibilityStatus?.is_dev_mode && (
-                    <span className="text-[9px] font-mono px-2 py-0.5 rounded bg-cyan-950/80 border border-cyan-800/60 text-cyan-300 font-bold shrink-0 whitespace-nowrap">
-                      DEV MODE
-                    </span>
-                  )}
-                  <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border ${
-                    accessibilityStatus?.is_trusted
-                      ? 'bg-green-500/20 text-green-300 border-green-500/30'
-                      : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
-                  }`}>
-                    {accessibilityStatus?.is_trusted ? 'GRANTED' : 'REQUIRED'}
-                  </span>
-                  <button
-                    onClick={async () => {
-                      await invoke('request_accessibility_permission');
-                      setTimeout(async () => {
-                        const res = await invoke<{ is_trusted: boolean; is_dev_mode: boolean }>('check_accessibility_permission');
-                        setAccessibilityStatus(res);
-                      }, 1500);
-                    }}
-                    className="px-2.5 py-1 bg-gray-800 hover:bg-gray-700 text-gray-200 hover:text-white border border-gray-600 rounded-lg text-[10px] font-semibold transition-colors cursor-pointer"
-                  >
-                    Open System Settings
-                  </button>
-                </div>
-              </div>
-              <p className="text-[11px] text-gray-400 leading-normal">
-                macOS requires Accessibility access for global hotkeys. {accessibilityStatus?.is_dev_mode ? (
-                  <span>Running in <strong>development mode</strong>: grant permission to your active IDE / terminal host application under System Settings &gt; Privacy &amp; Security &gt; Accessibility.</span>
-                ) : (
-                  <span>Grant permission to <strong>Pasted.app</strong> under System Settings &gt; Privacy &amp; Security &gt; Accessibility.</span>
-                )}
-              </p>
-            </div>
-
-            {/* Custom Bin Hotkeys */}
-            <div className="space-y-2">
-              <h4 className="font-bold text-gray-400 uppercase tracking-wider text-[10px]">
-                Custom Bin Hotkeys ({boards?.length || 0})
-              </h4>
-
-              {(!boards || boards.length === 0) ? (
-                <p className="text-[11px] text-gray-500 italic p-2.5 bg-[#181818] rounded-xl border border-gray-800">
-                  No custom bins created yet. Create bins in the sidebar to assign global shortcuts.
-                </p>
-              ) : (
-                boards.map((b) => (
-                  <div key={b.id} className="flex items-center justify-between p-2.5 bg-[#181818] rounded-xl border border-gray-700/80">
-                    <span className="font-medium text-gray-200">{b.name}</span>
-                    <HotkeyRecorder
-                      value={b.shortcut}
-                      onChange={async (newShortcut) => {
-                        try {
-                          await invoke('update_board_shortcut', { id: b.id, shortcut: newShortcut });
-                          if (onRefreshBoards) onRefreshBoards();
-                        } catch (err) {
-                          console.error(err);
-                        }
-                      }}
-                    />
-                  </div>
-                ))
-              )}
-            </div>
-
-            {/* Filter Pipeline Hotkeys */}
-            <div className="space-y-2 pt-3 border-t border-gray-700/80">
-              <h4 className="font-bold theme-text-muted uppercase tracking-wider text-[10px]">
-                Filter Pipeline Hotkeys ({filters.length})
-              </h4>
-              <p className="text-[11px] theme-text-muted">
-                Assign custom shortcuts to trigger automated text filters instantly.
-              </p>
-
-              <div className="space-y-2 pt-1 max-h-60 overflow-y-auto pr-1">
-                {filters.map((f) => (
-                  <div key={f.id} className="flex items-center justify-between p-2.5 bg-[#181818] rounded-xl border border-gray-700/80 theme-surface">
-                    <div>
-                      <span className="font-bold text-gray-200 theme-text-main block">{f.name}</span>
-                      <span className="text-[10px] font-mono text-cyan-400/80">{f.filter_type}</span>
-                    </div>
-                    <HotkeyRecorder
-                      value={f.shortcut}
-                      onChange={async (newShortcut) => {
-                        try {
-                          await invoke('update_filter_shortcut', { id: f.id, shortcut: newShortcut });
-                          if (onRefreshFilters) onRefreshFilters();
-                        } catch (err) {
-                          console.error(err);
-                        }
-                      }}
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="space-y-2 pt-2 border-t border-gray-700/80">
-              <h4 className="font-bold text-gray-400 uppercase tracking-wider text-[10px]">
-                Actions
-              </h4>
-
-              <div className="flex items-center justify-between p-2.5 bg-[#181818] rounded-xl border border-gray-700/80">
-                <span className="font-medium text-gray-200">HUD</span>
-                <HotkeyRecorder
-                  value={settings.hudHotkey === '' ? null : (settings.hudHotkey || 'Alt+Shift+V')}
-                  onChange={async (newKey) => {
-                    const updated = newKey === null ? '' : newKey;
-                    onUpdateSettings({ hudHotkey: updated });
-                    try {
-                      await invoke('register_hud_shortcut', { shortcutStr: updated });
-                    } catch (err) {
-                      console.error('Failed to register HUD shortcut:', err);
-                    }
-                  }}
-                />
-              </div>
-
-              <div className="flex items-center justify-between p-2.5 bg-[#181818] rounded-xl border border-gray-700/80">
-                <span className="font-medium text-gray-200">Enable/Disable Queue</span>
-                <HotkeyRecorder
-                  value={settings.seqToggleHotkey === '' ? null : (settings.seqToggleHotkey || 'Alt+Shift+C')}
-                  onChange={async (newKey) => {
-                    const val = newKey === null ? '' : newKey;
-                    onUpdateSettings({ seqToggleHotkey: val });
-                    try {
-                      await invoke('register_app_setting_hotkey', { key: 'seqToggleHotkey', value: val });
-                    } catch (err) {
-                      console.error(err);
-                    }
-                  }}
-                />
-              </div>
-
-              <div className="flex items-center justify-between p-2.5 bg-[#181818] rounded-xl border border-gray-700/80">
-                <span className="font-medium text-gray-200">Paste Next Item from Queue</span>
-                <HotkeyRecorder
-                  value={settings.seqPopHotkey === '' ? null : (settings.seqPopHotkey || 'Alt+Shift+X')}
-                  onChange={async (newKey) => {
-                    const val = newKey === null ? '' : newKey;
-                    onUpdateSettings({ seqPopHotkey: val });
-                    try {
-                      await invoke('register_app_setting_hotkey', { key: 'seqPopHotkey', value: val });
-                    } catch (err) {
-                      console.error(err);
-                    }
-                  }}
-                />
-              </div>
-
-              <div className="flex items-center justify-between p-2.5 bg-[#181818] rounded-xl border border-gray-700/80">
-                <span className="font-medium text-gray-200">Paste with Last Filter</span>
-                <HotkeyRecorder
-                  value={settings.pasteLastFilterHotkey === '' ? null : (settings.pasteLastFilterHotkey || null)}
-                  onChange={async (newKey) => {
-                    const val = newKey === null ? '' : newKey;
-                    onUpdateSettings({ pasteLastFilterHotkey: val });
-                    try {
-                      await invoke('register_app_setting_hotkey', { key: 'pasteLastFilterHotkey', value: val });
-                    } catch (err) {
-                      console.error(err);
-                    }
-                  }}
-                />
-              </div>
-
-              <div className="flex items-center justify-between p-2.5 bg-[#181818] rounded-xl border border-gray-700/80">
-                <span className="font-medium text-gray-200">Open Filter Window</span>
-                <HotkeyRecorder
-                  value={settings.openFilterWindowHotkey === '' ? null : (settings.openFilterWindowHotkey || null)}
-                  onChange={async (newKey) => {
-                    const val = newKey === null ? '' : newKey;
-                    onUpdateSettings({ openFilterWindowHotkey: val });
-                    try {
-                      await invoke('register_app_setting_hotkey', { key: 'openFilterWindowHotkey', value: val });
-                    } catch (err) {
-                      console.error(err);
-                    }
-                  }}
-                />
-              </div>
-
-              <div className="flex items-center justify-between p-2.5 bg-[#181818] rounded-xl border border-gray-700/80">
-                <span className="font-medium text-gray-200">Toggle Main Window</span>
-                <HotkeyRecorder
-                  value={settings.openMainWindowHotkey === '' ? null : (settings.openMainWindowHotkey || null)}
-                  onChange={async (newKey) => {
-                    const val = newKey === null ? '' : newKey;
-                    onUpdateSettings({ openMainWindowHotkey: val });
-                    try {
-                      await invoke('register_app_setting_hotkey', { key: 'openMainWindowHotkey', value: val });
-                    } catch (err) {
-                      console.error(err);
-                    }
-                  }}
-                />
-              </div>
-            </div>
-
-            {/* Paste Recent Clippings */}
-            <div className="space-y-2 pt-2">
-              <h4 className="font-bold text-gray-400 uppercase tracking-wider text-[10px]">
-                Paste Recent Clippings
-              </h4>
-
-              {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => {
-                const keyName = `pasteClip${num}Hotkey` as keyof AppSettings;
-                return (
-                  <div
-                    key={num}
-                    className="flex items-center justify-between p-2.5 bg-[#181818] rounded-xl border border-gray-700/80"
-                  >
-                    <span className="font-medium text-gray-300">Paste Clipping {num}</span>
-                    <HotkeyRecorder
-                      value={(settings[keyName] as string) || null}
-                      onChange={async (newKey) => {
-                        const val = newKey || '';
-                        onUpdateSettings({ [keyName]: val });
-                        try {
-                          await invoke('register_app_setting_hotkey', { key: keyName, value: val });
-                        } catch (err) {
-                          console.error(err);
-                        }
-                      }}
-                    />
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+          <SettingsHotkeysPanel
+            settings={settings}
+            boards={boards}
+            filters={filters}
+            onUpdateSettings={onUpdateSettings}
+            onRefreshBoards={onRefreshBoards}
+            onRefreshFilters={onRefreshFilters}
+          />
         )}
 
         {/* TAB 3: BLACKLIST */}
