@@ -86,7 +86,42 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const [dropTargetBinId, setDropTargetBinId] = React.useState<number | null>(null);
   const [isSearchFocused, setIsSearchFocused] = React.useState(false);
+  const [isPostDragHoverSuppressed, setIsPostDragHoverSuppressed] = React.useState(false);
+  const [hoveredSidebarControl, setHoveredSidebarControl] = React.useState<string | null>(null);
+  const wasClipDraggingRef = React.useRef(false);
+  const isPointerOverSidebarRef = React.useRef(false);
   const isClipDragging = draggedClipId !== null && draggedClipId !== undefined;
+  const isSidebarHoverMuted = isClipDragging || isPostDragHoverSuppressed;
+
+  React.useLayoutEffect(() => {
+    if (isClipDragging) setHoveredSidebarControl(null);
+    if (wasClipDraggingRef.current && !isClipDragging) {
+      setIsPostDragHoverSuppressed(isPointerOverSidebarRef.current);
+    }
+    wasClipDraggingRef.current = isClipDragging;
+  }, [isClipDragging]);
+
+  const handleSidebarPointerEnter = () => {
+    isPointerOverSidebarRef.current = true;
+  };
+
+  const handleSidebarPointerMove = (event: React.PointerEvent<HTMLElement>) => {
+    if (isSidebarHoverMuted) {
+      if (hoveredSidebarControl !== null) setHoveredSidebarControl(null);
+      return;
+    }
+    const control = (event.target as HTMLElement).closest<HTMLElement>('[data-sidebar-hover-key]');
+    const nextKey = control && event.currentTarget.contains(control)
+      ? control.dataset.sidebarHoverKey ?? null
+      : null;
+    if (nextKey !== hoveredSidebarControl) setHoveredSidebarControl(nextKey);
+  };
+
+  const handleSidebarPointerLeave = () => {
+    isPointerOverSidebarRef.current = false;
+    setHoveredSidebarControl(null);
+    if (!isClipDragging) setIsPostDragHoverSuppressed(false);
+  };
   const {
     activeDragBinId,
     sortedBins,
@@ -130,7 +165,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   if (isCollapsed) {
     return (
-      <aside className="w-[100px] col-sidebar h-screen flex flex-col items-center border-r border-[#2d2d2d] bg-[#212121]/90 backdrop-blur-xl select-none">
+      <aside
+        onPointerEnter={handleSidebarPointerEnter}
+        onPointerMove={handleSidebarPointerMove}
+        onPointerLeave={handleSidebarPointerLeave}
+        className={`w-[100px] col-sidebar h-screen flex flex-col items-center border-r border-[#2d2d2d] bg-[#212121]/90 backdrop-blur-xl select-none ${isSidebarHoverMuted ? 'suppress-sidebar-hover' : ''}`}
+      >
         {/* Dedicated 56px Top Header Drag Region for Traffic Lights */}
         <div
           onMouseDown={startWindowDrag}
@@ -138,12 +178,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
         />
 
         {/* Scrollable Nav Items Container for small window heights */}
-        <div className={`w-full flex-1 overflow-y-auto overflow-x-hidden sidebar-scroll-container flex flex-col items-center gap-1.5 py-2 px-1 custom-scrollbar ${isClipDragging ? 'pointer-events-none' : ''}`}>
+        <div className="w-full flex-1 overflow-y-auto overflow-x-hidden sidebar-scroll-container flex flex-col items-center gap-1.5 py-2 px-1 custom-scrollbar">
           {/* Expand Sidebar Toggle Button (Safely placed below traffic light zone) */}
           <button
+            data-sidebar-hover-key="expand"
             onClick={() => setIsCollapsed(false)}
             disabled={isClipDragging}
-            className={`w-9 h-9 flex items-center justify-center p-0 text-gray-400 rounded-xl transition-colors duration-75 border border-transparent shrink-0 ${isClipDragging ? 'cursor-default' : 'hover:text-white hover:bg-white/10 hover:border-white/10 cursor-pointer'}`}
+            className={`w-9 h-9 flex items-center justify-center p-0 rounded-xl transition-colors duration-75 border shrink-0 ${isClipDragging ? 'text-gray-400 border-transparent cursor-default' : `cursor-pointer ${hoveredSidebarControl === 'expand' ? 'sidebar-item-hovered border-white/10' : 'text-gray-400 border-transparent'}`}`}
             title="Expand Sidebar (⌘\)"
           >
             <PanelLeftOpen className="w-5 h-5 text-gray-300" />
@@ -156,12 +197,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {clipNavItems.map((item) => (
             <button
               key={item.tab}
+              data-sidebar-hover-key={`clip:${item.tab}`}
               onClick={() => navigateTo(item.tab)}
               disabled={isClipDragging}
               className={`w-9 h-9 flex items-center justify-center p-0 rounded-xl transition-colors duration-75 border shrink-0 cursor-pointer ${
                 currentTab === item.tab && (item.tab !== 'all' || selectedBinId === null)
                   ? 'sidebar-item-active bg-[#383838] text-white border-gray-600/70 shadow-sm'
-                  : `sidebar-item-idle border-transparent text-gray-400 ${isClipDragging ? '' : 'hover:bg-[#2a2a2a] hover:text-white'}`
+                  : hoveredSidebarControl === `clip:${item.tab}`
+                  ? 'sidebar-item-hovered border-transparent'
+                  : 'sidebar-item-idle border-transparent text-gray-400'
               }`}
               title={item.title}
             >
@@ -178,6 +222,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {sortedBins.map((b) => (
             <button
               key={b.id}
+              data-sidebar-hover-key={`bin:${b.id}`}
               onClick={() => {
                 setCurrentTab('bin');
                 setSelectedBinId(b.id);
@@ -186,7 +231,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
               className={`w-9 h-9 flex items-center justify-center p-0 rounded-xl transition-colors duration-75 border shrink-0 cursor-pointer ${
                 currentTab === 'bin' && selectedBinId === b.id
                   ? 'sidebar-item-active bg-[#383838] text-white border-gray-600/70 shadow-sm'
-                  : `sidebar-item-idle border-transparent text-gray-400 ${isClipDragging ? '' : 'hover:bg-[#2a2a2a] hover:text-white'}`
+                  : hoveredSidebarControl === `bin:${b.id}`
+                  ? 'sidebar-item-hovered border-transparent'
+                  : 'sidebar-item-idle border-transparent text-gray-400'
               }`}
               title={b.name}
             >
@@ -201,12 +248,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {toolNavItems.map((item) => (
             <button
               key={item.tab}
+              data-sidebar-hover-key={`tool:${item.tab}`}
               onClick={() => navigateTo(item.tab)}
               disabled={isClipDragging}
               className={`w-9 h-9 flex items-center justify-center p-0 rounded-xl transition-colors duration-75 border shrink-0 cursor-pointer ${
                 currentTab === item.tab
                   ? 'sidebar-item-active bg-[#383838] text-white border-gray-600/70 shadow-sm'
-                  : `sidebar-item-idle border-transparent text-gray-400 ${isClipDragging ? '' : 'hover:bg-[#2a2a2a] hover:text-white'}`
+                  : hoveredSidebarControl === `tool:${item.tab}`
+                  ? 'sidebar-item-hovered border-transparent'
+                  : 'sidebar-item-idle border-transparent text-gray-400'
               }`}
               title={item.title}
             >
@@ -221,7 +271,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   return (
     <aside
       style={{ width: `${sidebarWidth}px` }}
-      className="col-sidebar shrink-0 h-screen flex flex-col justify-between bg-[#212121]/90 backdrop-blur-xl select-none"
+      onPointerEnter={handleSidebarPointerEnter}
+      onPointerMove={handleSidebarPointerMove}
+      onPointerLeave={handleSidebarPointerLeave}
+      className={`col-sidebar shrink-0 h-screen flex flex-col justify-between bg-[#212121]/90 backdrop-blur-xl select-none ${isSidebarHoverMuted ? 'suppress-sidebar-hover' : ''}`}
     >
       {/* Finder-esque Liquid Glass 60px Top Header */}
       <div
@@ -230,9 +283,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
       >
         <div className="flex items-center pl-20 titlebar-drag-handle" />
         <button
+          data-sidebar-hover-key="collapse"
           onClick={() => setIsCollapsed(true)}
           disabled={isClipDragging}
-          className={`p-1.5 text-gray-400 rounded-lg transition-colors titlebar-no-drag ${isClipDragging ? 'pointer-events-none cursor-default' : 'hover:text-white hover:bg-[#2c2c2c] cursor-pointer'}`}
+          className={`p-1.5 rounded-lg transition-colors titlebar-no-drag ${isClipDragging ? 'text-gray-400 cursor-default' : `cursor-pointer ${hoveredSidebarControl === 'collapse' ? 'sidebar-item-hovered' : 'text-gray-400'}`}`}
           title="Collapse Sidebar (⌘\)"
         >
           <PanelLeftClose className="w-4 h-4 text-gray-300" />
@@ -242,13 +296,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Sidebar Navigation Content (Scrollable) */}
       <div className="flex-1 overflow-y-auto sidebar-scroll-container px-2.5 py-2 space-y-3 text-[13px]">
         {/* Section 1: Clips */}
-        <div className={isClipDragging ? 'pointer-events-none' : ''}>
+        <div>
           <div
+            data-sidebar-hover-key="section:clips"
             onClick={isClipDragging ? undefined : () => setIsClipsOpen(!isClipsOpen)}
-            className={`px-2.5 pb-1 flex items-center justify-between select-none ${isClipDragging ? 'cursor-default' : 'cursor-pointer group'}`}
+            className={`px-2.5 pb-1 flex items-center justify-between select-none ${isClipDragging ? 'cursor-default' : 'cursor-pointer'}`}
             title="Click to toggle section"
           >
-            <span className={`text-[11px] font-semibold text-gray-400/90 transition-colors tracking-tight ${isClipDragging ? '' : 'group-hover:text-gray-200'}`}>
+            <span className={`text-[11px] font-semibold transition-colors tracking-tight ${hoveredSidebarControl === 'section:clips' ? 'text-gray-200' : 'text-gray-400/90'}`}>
               Clips
             </span>
           </div>
@@ -263,12 +318,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 return (
                   <button
                     key={item.tab}
+                    data-sidebar-hover-key={`clip:${item.tab}`}
                     onClick={() => navigateTo(item.tab)}
                     disabled={isClipDragging}
-                    className={`group w-full h-8 flex items-center justify-between px-2.5 rounded-md transition-colors duration-100 cursor-pointer ${
+                    className={`w-full h-8 flex items-center justify-between px-2.5 rounded-md transition-colors duration-100 cursor-pointer ${
                       currentTab === item.tab && (item.tab !== 'all' || selectedBinId === null)
                         ? 'sidebar-item-active bg-[#3b3b3e] text-white font-medium'
-                        : `sidebar-item-idle text-[#e3e3e5] font-normal ${isClipDragging ? '' : 'hover:bg-white/5'}`
+                        : hoveredSidebarControl === `clip:${item.tab}`
+                        ? 'sidebar-item-hovered font-normal'
+                        : 'sidebar-item-idle text-[#e3e3e5] font-normal'
                     }`}
                   >
                     <div className="flex items-center space-x-3">
@@ -294,20 +352,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* Section 2: Bins */}
         <div>
           <div
+            data-sidebar-hover-key="section:bins"
             onClick={isClipDragging ? undefined : () => setIsBinsOpen(!isBinsOpen)}
-            className={`px-2.5 pb-1 flex items-center justify-between select-none ${isClipDragging ? 'pointer-events-none cursor-default' : 'cursor-pointer group'}`}
+            className={`px-2.5 pb-1 flex items-center justify-between select-none ${isClipDragging ? 'cursor-default' : 'cursor-pointer'}`}
             title="Click to toggle section"
           >
-            <span className={`text-[11px] font-semibold text-gray-400/90 transition-colors tracking-tight ${isClipDragging ? '' : 'group-hover:text-gray-200'}`}>
+            <span className={`text-[11px] font-semibold transition-colors tracking-tight ${hoveredSidebarControl === 'section:bins' ? 'text-gray-200' : 'text-gray-400/90'}`}>
               Bins
             </span>
             <button
+              data-sidebar-hover-key="create-bin"
               onClick={(e) => {
                 e.stopPropagation();
                 onOpenNewBinModal();
               }}
               disabled={isClipDragging}
-              className={`sidebar-add-btn text-gray-400 p-0.5 rounded transition-colors ${isClipDragging ? 'cursor-default' : 'hover:text-white cursor-pointer'}`}
+              className={`sidebar-add-btn p-0.5 rounded transition-colors ${isClipDragging ? 'text-gray-400 cursor-default' : `cursor-pointer ${hoveredSidebarControl === 'create-bin' ? 'text-white' : 'text-gray-400'}`}`}
               title="Create Custom / Smart Bin"
             >
               <Plus className="w-3.5 h-3.5" strokeWidth={2} />
@@ -333,10 +393,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   (dropTargetBinId === b.id || pointerDropTargetBinId === b.id) &&
                   isManualBin &&
                   !isDisabledDropTarget;
+                const isBinHovered = !isSidebarHoverMuted && hoveredSidebarControl === `bin:${b.id}`;
 
                 return (
                   <div
                     key={b.id}
+                    data-sidebar-hover-key={`bin:${b.id}`}
                     data-bin-drop-id={isManualBin && !isDisabledDropTarget ? b.id : undefined}
                     role="button"
                     tabIndex={0}
@@ -414,7 +476,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       e.stopPropagation();
                       if (onBinContextMenu) onBinContextMenu(e.clientX, e.clientY, b);
                     }}
-                    className={`group w-full h-8 flex items-center justify-between px-2.5 rounded-md select-none transition-all duration-100 ${
+                    className={`w-full h-8 flex items-center justify-between px-2.5 rounded-md select-none transition-all duration-100 ${
                       isDisabledDropTarget || isIneligibleSmartBin
                         ? 'cursor-not-allowed'
                         : isClipDragging
@@ -431,7 +493,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         ? 'bg-[#0a84ff]/30 shadow-md ring-1 ring-inset ring-[#0a84ff]/70 rounded-md z-20 relative'
                         : currentTab === 'bin' && selectedBinId === b.id
                         ? 'sidebar-item-active bg-[#3b3b3e] text-white font-medium'
-                        : 'sidebar-item-idle text-[#e3e3e5] hover:bg-white/5 font-normal'
+                        : isBinHovered
+                        ? 'sidebar-item-hovered font-normal'
+                        : 'sidebar-item-idle text-[#e3e3e5] font-normal'
                     }`}
                   >
                     <div className="flex items-center space-x-2.5 truncate pr-1">
@@ -441,7 +505,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
                     {/* Right side container */}
                     <div className="flex items-center justify-end shrink-0 pl-1">
-                      <div className={`flex items-center space-x-1.5 ${isClipDragging || isDragging ? '' : 'group-hover:hidden'}`}>
+                      <div className={`flex items-center space-x-1.5 ${isBinHovered && !isDragging ? 'hidden' : ''}`}>
                         {b.smart_rule ? (
                           <span
                             title={`Smart Bin Rule Active (${b.clip_count ?? 0} matching clips)`}
@@ -460,7 +524,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       </div>
 
                       {/* Hover State: Edit & Trash action buttons (hidden when dragging) */}
-                      <div className={`${isClipDragging || isDragging ? 'hidden' : 'hidden group-hover:flex'} items-center space-x-1`}>
+                      <div className={`${isBinHovered && !isDragging ? 'flex' : 'hidden'} items-center space-x-1`}>
                         <button
                           type="button"
                           onPointerDown={(e) => e.stopPropagation()}
@@ -497,13 +561,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* Section 3: Tools */}
-        <div className={isClipDragging ? 'pointer-events-none' : ''}>
+        <div>
           <div
+            data-sidebar-hover-key="section:tools"
             onClick={isClipDragging ? undefined : () => setIsToolsOpen(!isToolsOpen)}
-            className={`px-2.5 pb-1 flex items-center justify-between select-none ${isClipDragging ? 'cursor-default' : 'cursor-pointer group'}`}
+            className={`px-2.5 pb-1 flex items-center justify-between select-none ${isClipDragging ? 'cursor-default' : 'cursor-pointer'}`}
             title="Click to toggle section"
           >
-            <span className={`text-[11px] font-semibold text-gray-400/90 transition-colors tracking-tight ${isClipDragging ? '' : 'group-hover:text-gray-200'}`}>
+            <span className={`text-[11px] font-semibold transition-colors tracking-tight ${hoveredSidebarControl === 'section:tools' ? 'text-gray-200' : 'text-gray-400/90'}`}>
               Tools
             </span>
           </div>
@@ -516,12 +581,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {toolNavItems.map((item) => (
                 <button
                   key={item.tab}
+                  data-sidebar-hover-key={`tool:${item.tab}`}
                   onClick={() => navigateTo(item.tab)}
                   disabled={isClipDragging}
-                  className={`group w-full h-8 flex items-center space-x-3 px-2.5 rounded-md transition-colors duration-100 cursor-pointer ${
+                  className={`w-full h-8 flex items-center space-x-3 px-2.5 rounded-md transition-colors duration-100 cursor-pointer ${
                     currentTab === item.tab
                       ? 'sidebar-item-active bg-[#3b3b3e] text-white font-medium'
-                      : `sidebar-item-idle text-[#e3e3e5] font-normal ${isClipDragging ? '' : 'hover:bg-white/5'}`
+                      : hoveredSidebarControl === `tool:${item.tab}`
+                      ? 'sidebar-item-hovered font-normal'
+                      : 'sidebar-item-idle text-[#e3e3e5] font-normal'
                   }`}
                 >
                   {React.cloneElement(item.icon, { className: item.icon.props.className.replace('w-5 h-5', 'w-4 h-4 shrink-0'), strokeWidth: 1.8 })}
@@ -534,7 +602,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* Pinned Bottom Search Bar Footer */}
-      <div className={`p-2.5 border-t border-white/10 shrink-0 relative ${isClipDragging ? 'pointer-events-none' : ''}`}>
+      <div className="p-2.5 border-t border-white/10 shrink-0 relative">
         {!isClipDragging && isSearchFocused && !searchQuery.includes(':') && (
           <div className="absolute bottom-11 left-2.5 right-2.5 bg-[#1c1e26]/95 backdrop-blur-xl border border-cyan-500/40 rounded-xl p-1.5 shadow-2xl z-50 text-xs space-y-0.5 animate-in fade-in slide-in-from-bottom-2 duration-150">
             {[

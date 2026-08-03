@@ -27,6 +27,8 @@ import {
 interface ClipCardProps {
   clip: ClipItem;
   isSelected: boolean;
+  isHovered?: boolean;
+  showActions?: boolean;
   isDragging?: boolean;
   isDragInProgress?: boolean;
   isDeleting?: boolean;
@@ -55,6 +57,8 @@ interface ClipCardProps {
 const ClipCardComponent: React.FC<ClipCardProps> = ({
   clip,
   isSelected,
+  isHovered = false,
+  showActions = false,
   isDragging = false,
   isDragInProgress = false,
   isDeleting = false,
@@ -150,7 +154,21 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
           window.removeEventListener('pointermove', handlePointerMove);
           window.removeEventListener('pointerup', handlePointerEnd);
           window.removeEventListener('pointercancel', handlePointerCancel);
+          window.removeEventListener('keydown', handleKeyDown);
           removePointerListenersRef.current = null;
+        };
+
+        const suppressClickUntilPointerRelease = () => {
+          suppressClickRef.current = true;
+          const clearSuppression = () => {
+            window.removeEventListener('pointerup', clearSuppression);
+            window.removeEventListener('pointercancel', clearSuppression);
+            setTimeout(() => {
+              suppressClickRef.current = false;
+            }, 0);
+          };
+          window.addEventListener('pointerup', clearSuppression);
+          window.addEventListener('pointercancel', clearSuppression);
         };
 
         const handlePointerMove = (event: PointerEvent) => {
@@ -190,20 +208,33 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
           if (onPointerDragCancel) onPointerDragCancel();
         };
 
+        const handleKeyDown = (event: KeyboardEvent) => {
+          const drag = pointerDragRef.current;
+          if (event.key !== 'Escape' || !drag?.active) return;
+          event.preventDefault();
+          event.stopPropagation();
+          pointerDragRef.current = null;
+          removeListeners();
+          suppressClickUntilPointerRelease();
+          if (setDraggedClipId) setDraggedClipId(null);
+          if (onPointerDragCancel) onPointerDragCancel();
+        };
+
         removePointerListenersRef.current?.();
         removePointerListenersRef.current = removeListeners;
         window.addEventListener('pointermove', handlePointerMove, { passive: false });
         window.addEventListener('pointerup', handlePointerEnd);
         window.addEventListener('pointercancel', handlePointerCancel);
+        window.addEventListener('keydown', handleKeyDown);
       }}
-      className={`clip-card group relative rounded-xl cursor-pointer select-none border transition-[background-color,border-color,box-shadow,opacity,transform] duration-75 ease-out ${paddingClass} ${
+      className={`clip-card relative rounded-xl cursor-pointer select-none border transition-[background-color,border-color,box-shadow,opacity,transform] duration-75 ease-out ${paddingClass} ${
         isDeleting
           ? 'clip-card-deleting'
           : `${isSelected
-              ? 'clip-card-selected bg-[#2f2f2f] border-[#444444] shadow-md ring-1 ring-white/10'
-              : `clip-card-idle bg-[#212121] border-[#2f2f2f] ${isDragInProgress ? '' : 'hover:bg-[#262626] hover:border-[#383838] hover:shadow-md'}`
+              ? 'clip-card-selected'
+              : `clip-card-idle bg-[#212121] border-[#2f2f2f] ${isHovered && !isDragInProgress ? 'clip-card-hovered' : ''}`
             }`
-      } ${isDragInProgress ? 'clip-card-drag-muted' : ''} ${isDragging ? 'opacity-45 scale-[0.985] ring-1 ring-emerald-400/30 border-emerald-400/50 shadow-none' : ''}`}
+      } ${isDragging ? 'clip-card-drag-source' : ''}`}
     >
       {/* Header Info */}
       <div className={`flex items-center justify-between ${headerTextClass} text-gray-400 mb-1`}>
@@ -318,7 +349,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
       <div
         onPointerDown={(e) => e.stopPropagation()}
         onMouseDown={(e) => e.stopPropagation()}
-        className={`absolute right-2 bottom-2 opacity-0 transition-opacity flex items-center space-x-1 bg-gray-950/95 p-1 rounded-lg border border-gray-700/80 shadow-xl ${isDragInProgress ? '' : 'group-hover:opacity-100'}`}
+        className={`absolute right-2 bottom-2 transition-opacity flex items-center space-x-1 bg-gray-950/95 p-1 rounded-lg border border-gray-700/80 shadow-xl ${showActions && !isDragInProgress ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
       >
         <button
           onClick={handleCopy}
@@ -470,6 +501,10 @@ export const ClipCard = React.memo(ClipCardComponent, (prevProps, nextProps) => 
     previousBinIds.length === nextBinIds.length &&
     previousBinIds.every((id, index) => id === nextBinIds[index]) &&
     prevProps.isSelected === nextProps.isSelected &&
+    prevProps.isHovered === nextProps.isHovered &&
+    prevProps.showActions === nextProps.showActions &&
+    prevProps.isDragging === nextProps.isDragging &&
+    prevProps.isDragInProgress === nextProps.isDragInProgress &&
     prevProps.isDeleting === nextProps.isDeleting &&
     prevProps.isTrashMode === nextProps.isTrashMode &&
     prevProps.isQueueMode === nextProps.isQueueMode &&

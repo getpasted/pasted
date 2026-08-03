@@ -87,6 +87,7 @@ export default function App() {
 
   const [selectedClip, setSelectedClip] = useState<ClipItem | null>(null);
   const [selectedClipIds, setSelectedClipIds] = useState<Set<number>>(new Set());
+  const [hoveredClipId, setHoveredClipId] = useState<number | null>(null);
   const [, setSelectedIndex] = useState<number>(0);
   const [currentTab, setCurrentTab] = useState<string>('all');
   const [selectedBinId, setSelectedBinId] = useState<number | null>(null);
@@ -337,6 +338,34 @@ export default function App() {
     assignClipToBin: handleAssignClipToBin,
   });
 
+  useEffect(() => {
+    if (draggedClipId !== null) setHoveredClipId(null);
+
+    const updateHoveredClip = (event: PointerEvent) => {
+      if (draggedClipId !== null) {
+        setHoveredClipId((current) => current === null ? current : null);
+        return;
+      }
+      const card = document
+        .elementFromPoint(event.clientX, event.clientY)
+        ?.closest<HTMLElement>('[data-clip-id]');
+      const candidateId = Number(card?.dataset.clipId);
+      const nextId = Number.isInteger(candidateId) && candidateId > 0 ? candidateId : null;
+      setHoveredClipId((current) => current === nextId ? current : nextId);
+    };
+
+    const clearHoveredClipOutsideWindow = (event: PointerEvent) => {
+      if (!event.relatedTarget) setHoveredClipId(null);
+    };
+
+    window.addEventListener('pointermove', updateHoveredClip, { passive: true });
+    window.addEventListener('pointerout', clearHoveredClipOutsideWindow);
+    return () => {
+      window.removeEventListener('pointermove', updateHoveredClip);
+      window.removeEventListener('pointerout', clearHoveredClipOutsideWindow);
+    };
+  }, [draggedClipId]);
+
   const handleAssignBin = useCallback(
     (clipId: number, binId: number | null) => assignClipToBin(clipId, binId),
     [assignClipToBin],
@@ -436,7 +465,7 @@ export default function App() {
       {!isSidebarCollapsed && (
         <div
           onPointerDown={handleSidebarPointerDown}
-          className="column-resizer relative w-[1px] h-screen cursor-col-resize z-30 shrink-0 select-none touch-none group"
+          className="column-resizer relative w-[1px] h-screen cursor-col-resize z-30 shrink-0 select-none touch-none"
           title="Drag to resize sidebar width"
         >
           <div className={`column-resizer-line w-[1px] h-full transition-colors ${isResizingSidebar ? 'is-active' : ''}`} />
@@ -583,6 +612,8 @@ export default function App() {
                       key={clip.id}
                       clip={clip}
                       isSelected={selectedClipIds.size > 0 ? selectedClipIds.has(clip.id) : selectedClip?.id === clip.id}
+                      isHovered={hoveredClipId === clip.id}
+                      showActions={selectedClip?.id === clip.id}
                       isDragging={draggedClipId === clip.id}
                       isDragInProgress={draggedClipId !== null}
                       isTrashMode={currentTab === 'trash'}
@@ -592,6 +623,7 @@ export default function App() {
                       selectionVersion={clipSelectionVersion}
                       setDraggedClipId={setDraggedClipId}
                       onPointerDragStart={(id) => {
+                        setHoveredClipId(null);
                         setDraggedClipId(id);
                       }}
                       onPointerDragMove={(x, y) => {
@@ -659,6 +691,9 @@ export default function App() {
                       onCopy={() => handleCopyClip(clip)}
                       onContextMenu={(e) => {
                         e.preventDefault();
+                        setSelectedIndex(index);
+                        setSelectedClip(clip);
+                        setSelectedClipIds(new Set([clip.id]));
                         setContextMenu({
                           x: e.clientX,
                           y: e.clientY,
@@ -735,7 +770,7 @@ export default function App() {
           {/* List Resizer Handle (Exact 1px visual border line with grab target extending to right) */}
           <div
             onPointerDown={handleListPointerDown}
-            className="column-resizer relative w-[1px] h-screen cursor-col-resize z-20 shrink-0 select-none touch-none group"
+            className="column-resizer relative w-[1px] h-screen cursor-col-resize z-20 shrink-0 select-none touch-none"
             title="Drag to resize clips list width"
           >
             <div className={`column-resizer-line w-[1px] h-full transition-colors ${isResizingList ? 'is-active' : ''}`} />

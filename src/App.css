@@ -286,7 +286,7 @@ html.light .custom-scrollbar::-webkit-scrollbar-thumb:active {
   transition: background-color 75ms linear, color 75ms linear, border-color 75ms linear;
 }
 
-.sidebar-item-idle:hover {
+.sidebar-item-hovered {
   background-color: var(--bg-card-selected);
   color: var(--text-title);
 }
@@ -307,30 +307,8 @@ html.light .custom-scrollbar::-webkit-scrollbar-thumb:active {
   cursor: col-resize !important;
 }
 
-.is-resizing-columns .sidebar-item-idle:hover {
-  background-color: transparent !important;
-  color: var(--text-main) !important;
-}
-
-/* Clip-to-Bin dragging is a focused interaction mode. Preserve Clip cards as
-   hit-testable reorder targets, but mute their children and all unrelated
-   controls so only eligible Bin targets respond visually. */
-.is-dragging-clip button,
-.is-dragging-clip input,
-.is-dragging-clip select,
-.is-dragging-clip textarea,
-.is-dragging-clip a,
-.is-dragging-clip .column-resizer,
-.is-dragging-clip .column-resizer * {
-  pointer-events: none !important;
-}
-
-.is-dragging-clip .clip-card-drag-muted > * {
-  pointer-events: none !important;
-}
-
 .is-dragging-clip .column-resizer-line,
-.is-dragging-clip .group:hover > .column-resizer-line {
+.is-dragging-clip .column-resizer:hover > .column-resizer-line {
   background-color: var(--border-subtle);
 }
 
@@ -347,16 +325,22 @@ html.light .custom-scrollbar::-webkit-scrollbar-thumb:active {
   box-shadow: var(--shadow-card);
 }
 
-.clip-card-idle:hover {
-  background-color: var(--bg-card-hover);
-  border-color: var(--border-card-selected);
+.clip-card-hovered {
+  border-color: var(--text-subtle) !important;
 }
 
 .clip-card-selected {
   background-color: var(--bg-card-selected);
-  border-color: var(--border-card-selected);
+  border-color: var(--text-subtle) !important;
   color: var(--text-selected);
-  box-shadow: var(--shadow-card-selected);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.16), var(--shadow-card-selected) !important;
+}
+
+.clip-card-drag-source {
+  opacity: 0.5 !important;
+  transform: scale(0.98) !important;
+  border-color: rgba(52, 211, 153, 0.8) !important;
+  box-shadow: 0 0 0 2px rgba(52, 211, 153, 0.3) !important;
 }
 
 /* =======================================================
@@ -410,8 +394,8 @@ html.light .sidebar-item-idle svg {
   color: #3a3a3c !important;
 }
 
-html.light .sidebar-item-idle:hover,
-html.light .sidebar-item-idle:hover svg {
+html.light .sidebar-item-hovered,
+html.light .sidebar-item-hovered svg {
   color: #000000 !important;
 }
 
@@ -420,7 +404,7 @@ html.light .sidebar-badge {
   color: var(--text-muted) !important;
 }
 
-html.light .sidebar-item-idle:hover .sidebar-badge {
+html.light .sidebar-item-hovered .sidebar-badge {
   background-color: var(--border-subtle) !important;
   color: var(--text-title) !important;
 }
@@ -546,16 +530,17 @@ html.light .clip-card-idle {
   box-shadow: var(--shadow-card) !important;
 }
 
-html.light .clip-card-idle:hover {
-  background-color: var(--bg-card-hover) !important;
-  border-color: var(--border-card-selected) !important;
+html.light .clip-card-hovered {
+  background-color: var(--bg-card) !important;
+  border-color: var(--text-subtle) !important;
+  box-shadow: var(--shadow-card) !important;
 }
 
 html.light .clip-card-selected {
   background-color: var(--bg-card-selected) !important;
-  border-color: var(--border-card-selected) !important;
+  border-color: var(--text-subtle) !important;
   color: var(--text-selected) !important;
-  box-shadow: var(--shadow-card-selected) !important;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.16), var(--shadow-card-selected) !important;
 }
 
 html.light .clip-card-selected span,
@@ -1377,10 +1362,11 @@ html.light .app-dialog-cancel:hover {
   background-color: var(--border-subtle);
 }
 
-.group:hover > .column-resizer-line,
+.column-resizer:hover > .column-resizer-line,
 .column-resizer-line.is-active {
   background-color: var(--text-subtle);
 }
+
 
 .help-topic-button {
   border-radius: var(--radius-control);
