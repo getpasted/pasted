@@ -16,8 +16,12 @@ import { QuickHudWindow } from './components/QuickHudWindow';
 import { ActivityLogView } from './components/ActivityLogView';
 import { AnalyticsView } from './components/AnalyticsView';
 import { HelpView } from './components/HelpView';
+import { BoardContextMenu } from './components/BoardContextMenu';
+import { DeleteBoardDialog } from './components/DeleteBoardDialog';
+import { ClipNoteDialog } from './components/ClipNoteDialog';
+import { ClearHistoryDialog, type ClearHistoryMode } from './components/ClearHistoryDialog';
 import { soundManager } from './utils/sound';
-import { Clipboard, AlertTriangle, Edit3, Trash2, Pause, Disc, Square, StickyNote, Pin, X } from 'lucide-react';
+import { Clipboard, Trash2, Pause, Disc, Square, Pin, X } from 'lucide-react';
 import './App.css';
 
 const DEFAULT_BLACKLIST_APPS: BlacklistApp[] = [
@@ -130,48 +134,9 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isBoardModalOpen, setIsBoardModalOpen] = useState<boolean>(false);
   const [editingBoard, setEditingBoard] = useState<Board | null>(null);
-  const [clearHistoryMode, setClearHistoryMode] = useState<'trash' | 'purge' | null>(null);
+  const [clearHistoryMode, setClearHistoryMode] = useState<ClearHistoryMode | null>(null);
   const isClearConfirmOpen = clearHistoryMode !== null;
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
-
-  const clearConfirmModalRef = useRef<HTMLDivElement>(null);
-
-  // Focus Trap for Clear History Confirmation Modal
-  useEffect(() => {
-    if (!isClearConfirmOpen) return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setClearHistoryMode(null);
-        return;
-      }
-
-      if (e.key === 'Tab' && clearConfirmModalRef.current) {
-        const focusables = clearConfirmModalRef.current.querySelectorAll<HTMLElement>(
-          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
-        );
-        if (focusables.length === 0) return;
-
-        const firstElement = focusables[0];
-        const lastElement = focusables[focusables.length - 1];
-
-        if (e.shiftKey) {
-          if (document.activeElement === firstElement) {
-            e.preventDefault();
-            lastElement.focus();
-          }
-        } else {
-          if (document.activeElement === lastElement) {
-            e.preventDefault();
-            firstElement.focus();
-          }
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isClearConfirmOpen]);
 
   // App Settings State
   const [appSettings, setAppSettings] = useState<AppSettings>({
@@ -1698,43 +1663,18 @@ export default function App() {
 
       {/* Root-Level macOS Right-Click Context Menu for Custom Boards */}
       {boardContextMenu && (
-        <div
-          style={{
-            top: Math.min(boardContextMenu.y, window.innerHeight - 100),
-            left: Math.min(boardContextMenu.x, window.innerWidth - 180),
+        <BoardContextMenu
+          menu={boardContextMenu}
+          onEdit={(board) => {
+            setBoardContextMenu(null);
+            setEditingBoard(board);
+            setIsBoardModalOpen(true);
           }}
-          className="board-context-menu fixed z-[9999] min-w-[170px] glass-hud rounded-xl p-1.5 shadow-2xl text-xs font-medium space-y-0.5 animate-in fade-in zoom-in-95 duration-100"
-          onMouseDown={(e) => e.stopPropagation()}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <button
-            type="button"
-            onClick={() => {
-              const b = boardContextMenu.board;
-              setBoardContextMenu(null);
-              setEditingBoard(b);
-              setIsBoardModalOpen(true);
-            }}
-            className="w-full flex items-center space-x-2 px-2.5 py-1.5 rounded-md hover:bg-blue-600 hover:text-white transition-colors cursor-pointer"
-          >
-            <Edit3 className="w-3.5 h-3.5" />
-            <span>Edit Bin...</span>
-          </button>
-          <div className="border-t border-white/10 my-1" />
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              const b = boardContextMenu.board;
-              setBoardContextMenu(null);
-              setBinToDelete(b);
-            }}
-            className="w-full flex items-center space-x-2 px-2.5 py-1.5 rounded-md text-red-400 hover:bg-red-600 hover:text-white transition-colors cursor-pointer"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-            <span>Delete Bin</span>
-          </button>
-        </div>
+          onDelete={(board) => {
+            setBoardContextMenu(null);
+            setBinToDelete(board);
+          }}
+        />
       )}
 
       {/* Custom Board Creator / Editor Modal */}
@@ -1751,146 +1691,52 @@ export default function App() {
 
       {/* Delete Bin Confirmation Modal */}
       {binToDelete && (
-        <div className="fixed inset-0 z-[10000] bg-black/60 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-150">
-          <div className="bg-[#212121] border border-gray-700/80 rounded-2xl p-5 max-w-sm w-full shadow-2xl space-y-4">
-            <div className="flex items-center space-x-3">
-              <div className="p-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 shrink-0">
-                <Trash2 className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-sm font-bold text-gray-100">Delete Bin "{binToDelete.name}"?</h3>
-                <p className="text-xs text-gray-400 mt-0.5">Clips in this bin will be unassigned and preserved.</p>
-              </div>
-            </div>
-
-            <div className="flex justify-end space-x-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setBinToDelete(null)}
-                className="px-4 py-1.5 rounded-xl bg-[#343744] hover:bg-[#3d4150] text-gray-200 text-xs font-semibold transition-colors cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={async () => {
-                  try {
-                    await invoke('delete_board', { id: binToDelete.id });
-                    setBinToDelete(null);
-                    fetchBoards();
-                    if (selectedBoardId === binToDelete.id) {
-                      setCurrentTab('all');
-                      setSelectedBoardId(null);
-                    }
-                  } catch (err) {
-                    console.error(err);
-                  }
-                }}
-                className="px-4 py-1.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-semibold transition-colors shadow-md cursor-pointer"
-              >
-                Delete Bin
-              </button>
-            </div>
-          </div>
-        </div>
+        <DeleteBoardDialog
+          board={binToDelete}
+          onCancel={() => setBinToDelete(null)}
+          onConfirm={async (board) => {
+            try {
+              await invoke('delete_board', { id: board.id });
+              setBinToDelete(null);
+              fetchBoards();
+              if (selectedBoardId === board.id) {
+                setCurrentTab('all');
+                setSelectedBoardId(null);
+              }
+            } catch (err) {
+              console.error(err);
+            }
+          }}
+        />
       )}
 
       {/* Add / Edit Note Modal */}
       {notePromptClip && (
-        <div className="fixed inset-0 z-[10000] bg-black/60 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-150 select-none">
-          <div className="bg-[#212121] border border-gray-700/80 rounded-2xl p-5 max-w-md w-full shadow-2xl space-y-4 text-gray-100 font-sans">
-            <div className="flex items-center space-x-3">
-              <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 shrink-0">
-                <StickyNote className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-sm font-bold text-gray-100">{notePromptClip.note ? 'Edit Clip Note' : 'Add Note to Clip'}</h3>
-                <p className="text-xs text-gray-400 mt-0.5">Attach custom annotations or metadata to this clip.</p>
-              </div>
-            </div>
-
-            <textarea
-              value={notePromptText}
-              onChange={(e) => setNotePromptText(e.target.value)}
-              placeholder="Type your note here..."
-              rows={4}
-              autoFocus
-              className="w-full bg-[#181818] border border-gray-700/80 rounded-xl p-3 text-xs text-gray-200 placeholder-gray-500 focus:outline-none focus:border-amber-500 transition-colors resize-none font-sans"
-            />
-
-            <div className="flex justify-end space-x-2">
-              <button
-                type="button"
-                onClick={() => setNotePromptClip(null)}
-                className="px-4 py-1.5 rounded-xl bg-[#343744] hover:bg-[#3d4150] text-gray-200 text-xs font-semibold transition-colors cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={async () => {
-                  const newNote = notePromptText.trim() || null;
-                  handleUpdateClipNoteLocally(notePromptClip.id, newNote);
-                  setNotePromptClip(null);
-                  try {
-                    await invoke('update_clip_note', {
-                      clipId: notePromptClip.id,
-                      note: newNote,
-                    });
-                  } catch (e) {
-                    console.error(e);
-                    fetchClips();
-                  }
-                }}
-                className="px-4 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold transition-colors shadow-md cursor-pointer"
-              >
-                Save Note
-              </button>
-            </div>
-          </div>
-        </div>
+        <ClipNoteDialog
+          clip={notePromptClip}
+          text={notePromptText}
+          onTextChange={setNotePromptText}
+          onCancel={() => setNotePromptClip(null)}
+          onSave={async (clip, note) => {
+            handleUpdateClipNoteLocally(clip.id, note);
+            setNotePromptClip(null);
+            try {
+              await invoke('update_clip_note', { clipId: clip.id, note });
+            } catch (error) {
+              console.error(error);
+              fetchClips();
+            }
+          }}
+        />
       )}
 
       {/* Clear History Confirmation Modal */}
-      {isClearConfirmOpen && (
-        <div ref={clearConfirmModalRef} className="fixed inset-0 bg-black/75 backdrop-blur-md z-50 flex items-center justify-center p-4 select-none">
-          <div className="bg-[#212121] w-full max-w-md rounded-2xl p-6 space-y-4 border border-red-500/40 shadow-2xl text-gray-100 font-sans">
-            <div className="flex items-center space-x-3 text-red-400">
-              <div className="p-2.5 rounded-xl bg-red-500/20 border border-red-500/30">
-                <AlertTriangle className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-gray-100">
-                  {clearHistoryMode === 'purge' ? 'Delete Clipboard History?' : 'Trash Clipboard History?'}
-                </h3>
-                <p className="text-xs text-gray-400">
-                  {clearHistoryMode === 'purge' ? 'This action cannot be undone.' : 'Items can be restored from Trash.'}
-                </p>
-              </div>
-            </div>
-
-            <p className="text-xs text-gray-300 leading-relaxed bg-[#191b22] p-3 rounded-xl border border-gray-700/70">
-              {clearHistoryMode === 'purge'
-                ? 'Permanently delete all unpinned and unprotected clipboard history? Pinned clips, protected clips, and Bin definitions will be preserved.'
-                : 'Move all unpinned and unprotected clipboard history into Trash? Pinned clips, protected clips, and Bin definitions will be preserved.'}
-            </p>
-
-            <div className="flex justify-end space-x-3 pt-2">
-              <button
-                onClick={() => setClearHistoryMode(null)}
-                className="px-4 py-2 rounded-xl bg-[#343744] hover:bg-[#3d4150] text-gray-200 text-xs font-semibold transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleClearHistory}
-                className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-semibold shadow-lg shadow-red-600/30 transition-all hover:scale-105 active:scale-95"
-              >
-                {clearHistoryMode === 'purge' ? 'Delete History' : 'Move to Trash'}
-              </button>
-            </div>
-          </div>
-        </div>
+      {clearHistoryMode && (
+        <ClearHistoryDialog
+          mode={clearHistoryMode}
+          onCancel={() => setClearHistoryMode(null)}
+          onConfirm={handleClearHistory}
+        />
       )}
     </div>
   );

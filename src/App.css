@@ -1248,3 +1248,39 @@ html.light .settings-page button[class~="bg-[#383838]"] svg,
 html.light .settings-page button[class~="bg-[#383838]"] span {
   color: #ffffff !important;
 }
+
+/* Shared application dialogs use the same semantic surfaces in either theme. */
+html.light .app-dialog-panel {
+  background: var(--bg-card) !important;
+  border-color: var(--border-card) !important;
+  color: var(--text-main) !important;
+}
+
+html.light .app-dialog-panel .text-gray-100,
+html.light .app-dialog-panel .text-gray-200,
+html.light .app-dialog-panel .text-gray-300 {
+  color: var(--text-title) !important;
+}
+
+html.light .app-dialog-panel .text-gray-400,
+html.light .app-dialog-panel .text-gray-500 {
+  color: var(--text-muted) !important;
+}
+
+html.light .app-dialog-input,
+html.light .app-dialog-message {
+  background: var(--bg-input) !important;
+  border-color: var(--border-input) !important;
+  color: var(--text-main) !important;
+}
+
+html.light .app-dialog-cancel {
+  background: var(--bg-tab-active) !important;
+  border-color: var(--border-card) !important;
+  color: var(--text-main) !important;
+}
+
+html.light .app-dialog-cancel:hover {
+  background: var(--bg-card-hover) !important;
+  color: var(--text-title) !important;
+}
