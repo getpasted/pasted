@@ -792,47 +792,71 @@ export default function App() {
     });
   };
 
-  const handleDeleteClip = (id: number, forcePermanent = false) => {
-    const isBatch = selectedClipIds.size > 1 && selectedClipIds.has(id);
-    const targetIds = isBatch ? Array.from(selectedClipIds) : [id];
-    const trashedItems = allClips.filter((c) => targetIds.includes(c.id));
+  const handleBatchTrash = useCallback(() => {
+    const ids = Array.from(selectedClipIds);
+    if (ids.length === 0) return;
 
-    // 0ms optimistic local state mutation - items vanish instantly on Frame 1
-    setAllClips((prev) => prev.filter((c) => !targetIds.includes(c.id)));
-    if (selectedClip && targetIds.includes(selectedClip.id)) {
+    const trashedItems = allClips.filter((c) => ids.includes(c.id));
+
+    // 0ms instant Frame 1 optimistic local state mutations
+    setAllClips((prev) => prev.filter((c) => !ids.includes(c.id)));
+    setTrashedClips((prev) => [...trashedItems, ...prev]);
+    setSelectedClipIds(new Set());
+    if (selectedClip && ids.includes(selectedClip.id)) {
       setSelectedClip(null);
     }
-    setSelectedClipIds((prev) => {
-      const next = new Set(prev);
-      targetIds.forEach((tid) => next.delete(tid));
-      return next;
+    setTotalClipCount((prev) => Math.max(0, prev - ids.length));
+
+    // Async background IPC - zero UI blocking
+    invoke('batch_trash_clips', { ids }).catch((err) => {
+      console.error('Failed to batch trash clips:', err);
+      fetchClips();
+      fetchTrashedClips();
     });
+  }, [selectedClipIds, allClips, selectedClip, fetchClips, fetchTrashedClips]);
 
-    if (!forcePermanent && appSettings.enableTrash !== false) {
-      setTrashedClips((prev) => [...trashedItems, ...prev]);
-    }
+  const handleDeleteClip = useCallback(
+    (id: number, forcePermanent = false) => {
+      if (selectedClipIds.size > 1 && selectedClipIds.has(id)) {
+        handleBatchTrash();
+        return;
+      }
 
-    setTotalClipCount((prev) => Math.max(0, prev - targetIds.length));
+      const trashedItem = allClips.find((c) => c.id === id);
 
-    if (isBatch) {
-      invoke('batch_trash_clips', { ids: targetIds }).catch((e) => {
-        console.error(e);
-        fetchClips();
-        fetchTrashedClips();
+      // 0ms optimistic local state mutation - items vanish instantly on Frame 1
+      setAllClips((prev) => prev.filter((c) => c.id !== id));
+      setSelectedClipIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
       });
-    } else if (forcePermanent || appSettings.enableTrash === false) {
-      invoke('purge_clip_permanently', { id }).catch((e) => {
-        console.error(e);
-        fetchClips();
-      });
-    } else {
-      invoke('delete_clip', { id }).catch((e) => {
-        console.error(e);
-        fetchClips();
-        fetchTrashedClips();
-      });
-    }
-  };
+
+      if (selectedClip?.id === id) {
+        setSelectedClip(null);
+      }
+
+      if (trashedItem && !forcePermanent && appSettings.enableTrash !== false) {
+        setTrashedClips((prev) => [trashedItem, ...prev]);
+      }
+
+      setTotalClipCount((prev) => Math.max(0, prev - 1));
+
+      if (forcePermanent || appSettings.enableTrash === false) {
+        invoke('purge_clip_permanently', { id }).catch((e) => {
+          console.error(e);
+          fetchClips();
+        });
+      } else {
+        invoke('delete_clip', { id }).catch((e) => {
+          console.error(e);
+          fetchClips();
+          fetchTrashedClips();
+        });
+      }
+    },
+    [selectedClipIds, handleBatchTrash, allClips, selectedClip, appSettings.enableTrash, fetchClips, fetchTrashedClips]
+  );
 
   const handleCopyClip = async (clip: ClipItem) => {
     try {
@@ -1327,17 +1351,7 @@ export default function App() {
                 </button>
                 <div className="h-4 w-px bg-gray-700" />
                 <button
-                  onClick={() => {
-                    const ids = Array.from(selectedClipIds);
-                    setAllClips((prev) => prev.filter((c) => !ids.includes(c.id)));
-                    setSelectedClipIds(new Set());
-                    if (selectedClip && ids.includes(selectedClip.id)) setSelectedClip(null);
-                    invoke('batch_trash_clips', { ids }).catch((err) => {
-                      console.error(err);
-                      fetchClips();
-                      fetchTrashedClips();
-                    });
-                  }}
+                  onClick={handleBatchTrash}
                   className="flex items-center space-x-1 text-red-400 hover:text-red-300 transition-colors font-medium cursor-pointer"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
