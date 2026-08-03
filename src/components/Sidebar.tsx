@@ -491,7 +491,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
             >
               {sortedBoards.map((b) => {
                 const isDragging = activeDragBoardId === b.id;
-                const isDropTarget = dropTargetBoardId === b.id;
+                const isManualBin = !b.smart_rule || b.smart_rule.trim() === '';
+                const isDropTarget = dropTargetBoardId === b.id && isManualBin;
 
                 return (
                   <div
@@ -502,6 +503,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     onPointerEnter={() => handlePointerEnterBoard(b.id)}
                     onPointerUp={handlePointerUpBoard}
                     onDragOver={(e) => {
+                      if (!isManualBin) return;
                       e.preventDefault();
                       e.stopPropagation();
                       e.dataTransfer.dropEffect = 'copy';
@@ -510,25 +512,37 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       }
                     }}
                     onDragEnter={(e) => {
+                      if (!isManualBin) return;
                       e.preventDefault();
                       e.stopPropagation();
                       e.dataTransfer.dropEffect = 'copy';
                       setDropTargetBoardId(b.id);
                     }}
                     onDragLeave={(e) => {
+                      if (!isManualBin) return;
                       e.preventDefault();
                       if (e.relatedTarget && !e.currentTarget.contains(e.relatedTarget as Node)) {
                         setDropTargetBoardId((prev) => (prev === b.id ? null : prev));
                       }
                     }}
                     onDrop={(e) => {
+                      if (!isManualBin) return;
                       e.preventDefault();
                       e.stopPropagation();
                       setDropTargetBoardId(null);
-                      const rawId = e.dataTransfer.getData('text/plain') || e.dataTransfer.getData('clip_id');
-                      const clipId = Number(rawId) || draggedClipId;
-                      if (clipId && onClipDropOnBoard) {
-                        onClipDropOnBoard(clipId, b.id);
+                      const rawText = e.dataTransfer.getData('text/plain');
+                      const rawClipId = e.dataTransfer.getData('clip_id');
+                      const parsedText = parseInt(rawText, 10);
+                      const parsedClip = parseInt(rawClipId, 10);
+                      const targetClipId =
+                        !isNaN(parsedText) && parsedText > 0
+                          ? parsedText
+                          : !isNaN(parsedClip) && parsedClip > 0
+                          ? parsedClip
+                          : draggedClipId;
+
+                      if (targetClipId && onClipDropOnBoard) {
+                        onClipDropOnBoard(targetClipId, b.id);
                       }
                     }}
                     onClick={() => {
@@ -550,8 +564,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       sortedBoards.length > 1 ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'
                     } ${
                       isDropTarget
-                        ? 'bg-cyan-900/90 border border-cyan-400 ring-2 ring-cyan-500/80 shadow-lg text-white font-bold scale-[1.02] z-30 relative'
-                        : draggedClipId !== null
+                        ? 'bg-cyan-900 border-2 border-cyan-300 ring-4 ring-cyan-500/60 shadow-2xl text-white font-bold scale-[1.04] z-30 relative'
+                        : draggedClipId !== null && isManualBin
                         ? 'bg-cyan-950/20 border border-dashed border-cyan-500/50 text-cyan-200 font-normal'
                         : isDragging
                         ? 'bg-[#0a84ff]/30 shadow-md ring-1 ring-inset ring-[#0a84ff]/70 rounded-md z-20 relative'
@@ -568,7 +582,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     {/* Right side container */}
                     <div className="flex items-center justify-end shrink-0 pl-1 pointer-events-none">
                       {isDropTarget ? (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-400 text-black font-bold shrink-0">
+                        <span className="text-[10px] px-2 py-0.5 rounded bg-cyan-400 text-black font-extrabold shadow shrink-0">
                           Drop
                         </span>
                       ) : (
