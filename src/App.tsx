@@ -52,7 +52,6 @@ export default function App() {
       return [];
     }
   });
-  const [clips, setClips] = useState<ClipItem[]>(allClips);
   const [trashedClips, setTrashedClips] = useState<ClipItem[]>([]);
   const [selectedClip, setSelectedClip] = useState<ClipItem | null>(null);
   const [selectedClipIds, setSelectedClipIds] = useState<Set<number>>(new Set());
@@ -497,7 +496,6 @@ export default function App() {
         onlyPinned: false,
       });
       setAllClips(fullRes);
-      setClips(fullRes);
       fetchTotalClipCount();
       try {
         localStorage.setItem('pasted_cache_clips', JSON.stringify(fullRes.slice(0, 50)));
@@ -723,20 +721,20 @@ export default function App() {
         return;
       }
 
-      if (clips.length === 0) return;
+      if (displayedClips.length === 0) return;
 
       if (e.key === 'ArrowDown') {
         e.preventDefault();
         setSelectedIndex((prev) => {
-          const next = Math.min(prev + 1, clips.length - 1);
-          setSelectedClip(clips[next]);
+          const next = Math.min(prev + 1, displayedClips.length - 1);
+          setSelectedClip(displayedClips[next]);
           return next;
         });
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
         setSelectedIndex((prev) => {
           const next = Math.max(prev - 1, 0);
-          setSelectedClip(clips[next]);
+          setSelectedClip(displayedClips[next]);
           return next;
         });
       } else if (e.key === 'Enter' && selectedClip) {
@@ -752,7 +750,7 @@ export default function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [clips, selectedClip]);
+  }, [displayedClips, selectedClip]);
 
   const [deletingClipIds] = useState<Set<number>>(new Set());
 
