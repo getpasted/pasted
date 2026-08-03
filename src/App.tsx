@@ -612,6 +612,30 @@ export default function App() {
     return list;
   }, [allClips, trashedClips, searchQuery, currentTab, selectedBoardId, seqStatus, boards]);
 
+  // Memoized Sidebar Counts (0ms loop avoiding 1500 array iterations per render)
+  const { pinnedCount, protectedCount, notesCount } = useMemo(() => {
+    let pinned = 0;
+    let protectedClips = 0;
+    let notes = 0;
+    for (let i = 0; i < allClips.length; i++) {
+      const c = allClips[i];
+      if (c.is_pinned) pinned++;
+      if (c.is_protected) protectedClips++;
+      if (c.note && c.note.trim().length > 0) notes++;
+    }
+    return { pinnedCount: pinned, protectedCount: protectedClips, notesCount: notes };
+  }, [allClips]);
+
+  // Fast O(1) Sequential Queue Index Lookup
+  const queuedIndexMap = useMemo(() => {
+    const map = new Map<string, number>();
+    const queue = seqStatus?.queue || [];
+    for (let i = 0; i < queue.length; i++) {
+      if (!map.has(queue[i])) map.set(queue[i], i + 1);
+    }
+    return map;
+  }, [seqStatus?.queue]);
+
   // Keep selected clip valid on view switch
   useEffect(() => {
     if (displayedClips.length > 0) {
@@ -1068,9 +1092,9 @@ export default function App() {
         setSearchQuery={setSearchQuery}
         seqStatus={seqStatus}
         onClearHistory={() => setIsClearConfirmOpen(true)}
-        pinnedCount={allClips.filter((c) => c.is_pinned).length}
-        protectedCount={allClips.filter((c) => c.is_protected).length}
-        notesCount={allClips.filter((c) => c.note && c.note.trim().length > 0).length}
+        pinnedCount={pinnedCount}
+        protectedCount={protectedCount}
+        notesCount={notesCount}
         trashedCount={trashedClips.length}
         totalClipCount={totalClipCount}
         isCollapsed={isSidebarCollapsed}
@@ -1230,9 +1254,7 @@ export default function App() {
                 </div>
               ) : (
                 displayedClips.map((clip, index) => {
-                  const queuedItems = seqStatus?.queue || [];
-                  const qIdx = clip.text_content ? queuedItems.indexOf(clip.text_content) : -1;
-                  const queueIndex = qIdx !== -1 ? qIdx + 1 : undefined;
+                  const queueIndex = clip.text_content ? queuedIndexMap.get(clip.text_content) : undefined;
 
                   return (
                     <ClipCard
@@ -1284,15 +1306,17 @@ export default function App() {
                       onRestore={() => handleRestoreClip(clip.id)}
                       onPurgePermanently={() => handlePurgeClipPermanently(clip.id)}
                       onRemoveFromQueue={() => {
-                        if (qIdx !== -1) {
-                          invoke('remove_sequential_item_by_index', { index: qIdx }).then(fetchSequentialStatus);
+                        const idx = queueIndex !== undefined ? queueIndex - 1 : -1;
+                        if (idx !== -1) {
+                          invoke('remove_sequential_item_by_index', { index: idx }).then(fetchSequentialStatus);
                         }
                       }}
                       onPasteQueueItem={() => {
-                        if (qIdx === 0) {
+                        const idx = queueIndex !== undefined ? queueIndex - 1 : -1;
+                        if (idx === 0) {
                           invoke('pop_sequential_paste').then(fetchSequentialStatus);
-                        } else if (qIdx !== -1) {
-                          invoke('remove_sequential_item_by_index', { index: qIdx }).then(fetchSequentialStatus);
+                        } else if (idx !== -1) {
+                          invoke('remove_sequential_item_by_index', { index: idx }).then(fetchSequentialStatus);
                         }
                       }}
                       onCopy={() => handleCopyClip(clip)}
@@ -1312,11 +1336,11 @@ export default function App() {
 
             {/* Floating Glass Batch Action Bar */}
             {selectedClipIds.size > 1 && (
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-40 bg-[#1e2029]/95 backdrop-blur-xl border border-cyan-500/40 rounded-2xl px-4 py-2 shadow-2xl flex items-center space-x-3 text-xs animate-in fade-in slide-in-from-bottom-2 duration-150">
-                <span className="font-bold text-cyan-400 font-mono text-[11px] bg-cyan-950/80 px-2 py-0.5 rounded-full border border-cyan-800/60">
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-40 bg-[#1e2029]/95 backdrop-blur-xl border border-cyan-500/40 rounded-2xl px-4 py-2 shadow-2xl flex items-center space-x-3 text-xs whitespace-nowrap animate-in fade-in slide-in-from-bottom-2 duration-150 max-w-max min-w-max select-none">
+                <span className="font-bold text-cyan-400 font-mono text-[11px] bg-cyan-950/80 px-2.5 py-1 rounded-full border border-cyan-800/60 whitespace-nowrap shrink-0">
                   {selectedClipIds.size} Selected
                 </span>
-                <div className="h-4 w-px bg-gray-700" />
+                <div className="h-4 w-px bg-gray-700/80 shrink-0" />
                 <button
                   onClick={() => {
                     const ids = Array.from(selectedClipIds);
@@ -1328,10 +1352,10 @@ export default function App() {
                       fetchClips();
                     });
                   }}
-                  className="flex items-center space-x-1 hover:text-cyan-300 transition-colors font-medium cursor-pointer"
+                  className="flex items-center space-x-1.5 hover:text-cyan-300 transition-colors font-medium cursor-pointer whitespace-nowrap shrink-0"
                 >
-                  <Pin className="w-3.5 h-3.5 text-orange-400" />
-                  <span>Pin All</span>
+                  <Pin className="w-3.5 h-3.5 text-orange-400 shrink-0" />
+                  <span className="whitespace-nowrap">Pin All</span>
                 </button>
                 <button
                   onClick={() => {
@@ -1344,25 +1368,25 @@ export default function App() {
                       fetchClips();
                     });
                   }}
-                  className="flex items-center space-x-1 hover:text-cyan-300 transition-colors font-medium cursor-pointer"
+                  className="flex items-center space-x-1.5 hover:text-cyan-300 transition-colors font-medium cursor-pointer whitespace-nowrap shrink-0"
                 >
-                  <Pin className="w-3.5 h-3.5 text-gray-400 opacity-60" />
-                  <span>Unpin All</span>
+                  <Pin className="w-3.5 h-3.5 text-gray-400 opacity-60 shrink-0" />
+                  <span className="whitespace-nowrap">Unpin All</span>
                 </button>
-                <div className="h-4 w-px bg-gray-700" />
+                <div className="h-4 w-px bg-gray-700/80 shrink-0" />
                 <button
                   onClick={handleBatchTrash}
-                  className="flex items-center space-x-1 text-red-400 hover:text-red-300 transition-colors font-medium cursor-pointer"
+                  className="flex items-center space-x-1.5 text-red-400 hover:text-red-300 transition-colors font-medium cursor-pointer whitespace-nowrap shrink-0"
                 >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>Trash Selected</span>
+                  <Trash2 className="w-3.5 h-3.5 shrink-0" />
+                  <span className="whitespace-nowrap">Trash Selected</span>
                 </button>
                 <button
                   onClick={() => setSelectedClipIds(new Set())}
-                  className="p-1 text-gray-400 hover:text-white rounded-full hover:bg-gray-800 transition-colors cursor-pointer"
+                  className="p-1 text-gray-400 hover:text-white rounded-full hover:bg-gray-800 transition-colors cursor-pointer shrink-0"
                   title="Deselect All"
                 >
-                  <X className="w-3.5 h-3.5" />
+                  <X className="w-3.5 h-3.5 shrink-0" />
                 </button>
               </div>
             )}
