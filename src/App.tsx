@@ -1,8 +1,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { safeInvoke as invoke } from './utils/tauri';
-import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { ClipItem, Board, FilterRule, SequentialStatus } from './types';
+import { ClipItem, Board, FilterRule } from './types';
 import { Sidebar } from './components/Sidebar';
 import { ClipCard } from './components/ClipCard';
 import { ClipPreview } from './components/ClipPreview';
@@ -25,6 +24,7 @@ import { useColumnResize } from './hooks/useColumnResize';
 import { useAppSettings } from './hooks/useAppSettings';
 import { useClipViews } from './hooks/useClipViews';
 import { useClipBoardDrag } from './hooks/useClipBoardDrag';
+import { useAppData } from './hooks/useAppData';
 import { Clipboard, Trash2, Pause, Disc, Square, Pin, X } from 'lucide-react';
 import './App.css';
 
@@ -52,89 +52,6 @@ export default function App() {
     }
   }, []);
 
-  const [allClips, setAllClips] = useState<ClipItem[]>(() => {
-    try {
-      const cached = localStorage.getItem('pasted_cache_clips');
-      return cached ? JSON.parse(cached) : [];
-    } catch {
-      return [];
-    }
-  });
-  const [trashedClips, setTrashedClips] = useState<ClipItem[]>([]);
-  const [selectedClip, setSelectedClip] = useState<ClipItem | null>(null);
-  const [selectedClipIds, setSelectedClipIds] = useState<Set<number>>(new Set());
-  const [, setSelectedIndex] = useState<number>(0);
-  const [totalClipCount, setTotalClipCount] = useState<number>(0);
-
-  const fetchTrashedClips = useCallback(async () => {
-    try {
-      const res = await invoke<ClipItem[]>('get_trashed_clips');
-      setTrashedClips(res);
-    } catch (err) {
-      console.error('Failed to fetch trashed clips:', err);
-    }
-  }, []);
-
-  const handleRestoreClip = async (clipId: number) => {
-    // 0ms optimistic local state mutation
-    const restored = trashedClips.find((c) => c.id === clipId);
-    setTrashedClips((prev) => prev.filter((c) => c.id !== clipId));
-    if (restored) {
-      setAllClips((prev) => [restored, ...prev]);
-      setTotalClipCount((prev) => prev + 1);
-    }
-    try {
-      await invoke('restore_clip', { id: clipId });
-    } catch (err) {
-      console.error(err);
-      fetchClips();
-      fetchTrashedClips();
-    }
-  };
-
-  const handlePurgeClipPermanently = async (clipId: number) => {
-    if (trashedClips.find((clip) => clip.id === clipId)?.is_protected) return;
-    // 0ms optimistic local state mutation
-    setTrashedClips((prev) => prev.filter((c) => c.id !== clipId));
-    try {
-      await invoke('purge_clip_permanently', { id: clipId });
-    } catch (err) {
-      console.error(err);
-      fetchTrashedClips();
-    }
-  };
-
-  const handleEmptyTrash = async () => {
-    // 0ms optimistic local state mutation
-    setTrashedClips((prev) => prev.filter((clip) => clip.is_protected));
-    try {
-      await invoke('empty_trash');
-    } catch (err) {
-      console.error(err);
-      fetchTrashedClips();
-    }
-  };
-
-  const [boards, setBoards] = useState<Board[]>(() => {
-    try {
-      const cached = localStorage.getItem('pasted_cache_boards');
-      return cached ? JSON.parse(cached) : [];
-    } catch {
-      return [];
-    }
-  });
-  const [filters, setFilters] = useState<FilterRule[]>([]);
-  const [seqStatus, setSeqStatus] = useState<SequentialStatus | null>(null);
-
-  const [currentTab, setCurrentTab] = useState<string>('all');
-  const [selectedBoardId, setSelectedBoardId] = useState<number | null>(null);
-  const [searchQuery, setSearchQuery] = useState<string>('');
-  const [isBoardModalOpen, setIsBoardModalOpen] = useState<boolean>(false);
-  const [editingBoard, setEditingBoard] = useState<Board | null>(null);
-  const [clearHistoryMode, setClearHistoryMode] = useState<ClearHistoryMode | null>(null);
-  const isClearConfirmOpen = clearHistoryMode !== null;
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
-
   const {
     appSettings,
     blacklistApps,
@@ -144,18 +61,41 @@ export default function App() {
     toggleBlacklistRule: handleToggleBlacklistRule,
   } = useAppSettings();
 
-  // Pause & Blacklist Live Monitoring State
-  const [isClipboardPaused, setIsClipboardPaused] = useState<boolean>(false);
-  const [ignoredAppStatus, setIgnoredAppStatus] = useState<{ app_name: string; timestamp: number } | null>(null);
+  const {
+    allClips,
+    setAllClips,
+    trashedClips,
+    setTrashedClips,
+    boards,
+    setBoards,
+    filters,
+    sequentialStatus: seqStatus,
+    totalClipCount,
+    setTotalClipCount,
+    isClipboardPaused,
+    ignoredAppStatus,
+    fetchClips,
+    fetchTrashedClips,
+    fetchBoards,
+    fetchFilters,
+    fetchSequentialStatus,
+    toggleClipboardPause: handleToggleClipboardPause,
+    restoreClip: handleRestoreClip,
+    purgeClipPermanently: handlePurgeClipPermanently,
+    emptyTrash: handleEmptyTrash,
+  } = useAppData(appSettings.enableSounds);
 
-  const handleToggleClipboardPause = async () => {
-    try {
-      const paused = await invoke<boolean>('toggle_clipboard_pause');
-      setIsClipboardPaused(paused);
-    } catch (e) {
-      console.error('Failed to toggle clipboard pause:', e);
-    }
-  };
+  const [selectedClip, setSelectedClip] = useState<ClipItem | null>(null);
+  const [selectedClipIds, setSelectedClipIds] = useState<Set<number>>(new Set());
+  const [, setSelectedIndex] = useState<number>(0);
+  const [currentTab, setCurrentTab] = useState<string>('all');
+  const [selectedBoardId, setSelectedBoardId] = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [isBoardModalOpen, setIsBoardModalOpen] = useState<boolean>(false);
+  const [editingBoard, setEditingBoard] = useState<Board | null>(null);
+  const [clearHistoryMode, setClearHistoryMode] = useState<ClearHistoryMode | null>(null);
+  const isClearConfirmOpen = clearHistoryMode !== null;
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
 
   const handleToggleCopyQueue = async () => {
     try {
@@ -259,36 +199,6 @@ export default function App() {
     return () => window.removeEventListener('contextmenu', handleGlobalContextMenu);
   }, []);
 
-  // Fetch Total Clip Count
-  const fetchTotalClipCount = useCallback(async () => {
-    try {
-      const count = await invoke<number>('get_total_clip_count');
-      setTotalClipCount(count);
-    } catch (e) {
-      console.error('Failed to fetch total count:', e);
-    }
-  }, []);
-
-  // Fetch Clips from Backend SQLite (Only runs when clips change)
-  const fetchClips = useCallback(async () => {
-    try {
-      const fullRes = await invoke<ClipItem[]>('get_clips', {
-        searchQuery: null,
-        boardId: null,
-        onlyPinned: false,
-      });
-      setAllClips(fullRes);
-      fetchTotalClipCount();
-      try {
-        localStorage.setItem('pasted_cache_clips', JSON.stringify(fullRes.slice(0, 50)));
-      } catch {
-        // Ignore cache limits
-      }
-    } catch (e) {
-      console.error('Failed to fetch clips:', e);
-    }
-  }, [fetchTotalClipCount]);
-
   const {
     displayedClips,
     pinnedCount,
@@ -319,89 +229,6 @@ export default function App() {
       setSelectedClip(null);
     }
   }, [displayedClips]);
-
-  // Fetch Boards
-  const fetchBoards = useCallback(async () => {
-    try {
-      const res = await invoke<Board[]>('get_boards');
-      setBoards(res);
-      try {
-        localStorage.setItem('pasted_cache_boards', JSON.stringify(res));
-      } catch {
-        // Ignore cache limits
-      }
-    } catch (e) {
-      console.error('Failed to fetch boards:', e);
-    }
-  }, []);
-
-  // Fetch Filters
-  const fetchFilters = useCallback(async () => {
-    try {
-      const res = await invoke<FilterRule[]>('get_filters');
-      setFilters(res);
-    } catch (e) {
-      console.error('Failed to fetch filters:', e);
-    }
-  }, []);
-
-  // Fetch Sequential Status
-  const fetchSequentialStatus = useCallback(async () => {
-    try {
-      const res = await invoke<SequentialStatus>('get_sequential_status');
-      setSeqStatus(res);
-    } catch (e) {
-      console.error('Failed to fetch sequential status:', e);
-    }
-  }, []);
-
-  useEffect(() => {
-    Promise.all([
-      fetchClips(),
-      fetchBoards(),
-      fetchFilters(),
-      fetchSequentialStatus(),
-      fetchTrashedClips(),
-      invoke<boolean>('is_clipboard_paused')
-        .then((paused) => setIsClipboardPaused(paused))
-        .catch((e) => console.error(e)),
-    ]).catch(console.error);
-  }, [fetchClips, fetchBoards, fetchFilters, fetchSequentialStatus, fetchTrashedClips]);
-
-  // Event Listeners for Tauri Rust backend
-  useEffect(() => {
-    if (typeof window === 'undefined' || !(window as any).__TAURI_INTERNALS__) return;
-
-    const unlistenClip = listen<ClipItem>('clip-added', () => {
-      fetchClips();
-      soundManager.playCopySound(appSettings.enableSounds);
-    });
-
-    const unlistenSeq = listen<SequentialStatus>('sequential-updated', (evt) => {
-      setSeqStatus(evt.payload);
-    });
-
-    const unlistenBlacklist = listen<{ app_name: string }>('blacklist-clip-ignored', (evt) => {
-      setIgnoredAppStatus({ app_name: evt.payload.app_name, timestamp: Date.now() });
-      setTimeout(() => {
-        setIgnoredAppStatus(null);
-      }, 4000);
-    });
-
-    const unlistenPause = listen<{ is_paused: boolean; auto_paused_by: string | null }>(
-      'clipboard-pause-changed',
-      (evt) => {
-        setIsClipboardPaused(evt.payload.is_paused);
-      }
-    );
-
-    return () => {
-      unlistenClip.then((f) => f());
-      unlistenSeq.then((f) => f());
-      unlistenBlacklist.then((f) => f());
-      unlistenPause.then((f) => f());
-    };
-  }, [fetchClips, appSettings.enableSounds]);
 
   // Keyboard navigation
   useEffect(() => {
