@@ -493,8 +493,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             >
               {sortedBoards.map((b) => {
                 const isDragging = activeDragBoardId === b.id;
-                const isManualBin = !b.smart_rule || b.smart_rule.trim() === '';
-                const isDropTarget = dropTargetBoardId === b.id && isManualBin;
+                const isDropTarget = dropTargetBoardId === b.id;
 
                 return (
                   <div
@@ -503,20 +502,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     tabIndex={0}
                     onPointerDown={() => handlePointerDownBoard(b.id)}
                     onMouseEnter={() => {
-                      if (draggedClipId !== null && draggedClipId !== undefined && isManualBin) {
+                      if (draggedClipId !== null && draggedClipId !== undefined) {
                         setDropTargetBoardId(b.id);
                       }
                     }}
                     onMouseLeave={(e) => {
-                      if (isManualBin) {
-                        const rect = e.currentTarget.getBoundingClientRect();
-                        if (e.clientX <= rect.left || e.clientX >= rect.right || e.clientY <= rect.top || e.clientY >= rect.bottom) {
-                          setDropTargetBoardId(null);
-                        }
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      if (e.clientX <= rect.left || e.clientX >= rect.right || e.clientY <= rect.top || e.clientY >= rect.bottom) {
+                        setDropTargetBoardId(null);
                       }
                     }}
                     onMouseUp={(e) => {
-                      if (draggedClipId !== null && draggedClipId !== undefined && isManualBin) {
+                      if (draggedClipId !== null && draggedClipId !== undefined) {
                         e.preventDefault();
                         e.stopPropagation();
                         if (onClipDropOnBoard) onClipDropOnBoard(draggedClipId, b.id);
@@ -525,14 +522,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       }
                     }}
                     onPointerEnter={() => {
-                      if (draggedClipId !== null && isManualBin) {
+                      if (draggedClipId !== null && draggedClipId !== undefined) {
                         setDropTargetBoardId(b.id);
                       } else {
                         handlePointerEnterBoard(b.id);
                       }
                     }}
                     onPointerUp={() => {
-                      if (draggedClipId !== null && draggedClipId !== undefined && isManualBin) {
+                      if (draggedClipId !== null && draggedClipId !== undefined) {
                         if (onClipDropOnBoard) onClipDropOnBoard(draggedClipId, b.id);
                         setDropTargetBoardId(null);
                         if (setDraggedClipId) setDraggedClipId(null);
@@ -541,42 +538,34 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       }
                     }}
                     onDragOver={(e) => {
-                      if (isManualBin) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        e.dataTransfer.dropEffect = 'copy';
-                        setDropTargetBoardId(b.id);
-                      }
+                      e.preventDefault();
+                      e.stopPropagation();
+                      e.dataTransfer.dropEffect = 'copy';
+                      setDropTargetBoardId(b.id);
                     }}
                     onDragEnter={(e) => {
-                      if (isManualBin) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        e.dataTransfer.dropEffect = 'copy';
-                        setDropTargetBoardId(b.id);
-                      }
+                      e.preventDefault();
+                      e.stopPropagation();
+                      e.dataTransfer.dropEffect = 'copy';
+                      setDropTargetBoardId(b.id);
                     }}
                     onDragLeave={(e) => {
-                      if (isManualBin) {
-                        e.preventDefault();
-                        const rect = e.currentTarget.getBoundingClientRect();
-                        const x = e.clientX;
-                        const y = e.clientY;
-                        if (x <= rect.left || x >= rect.right || y <= rect.top || y >= rect.bottom) {
-                          setDropTargetBoardId(null);
-                        }
+                      e.preventDefault();
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      const x = e.clientX;
+                      const y = e.clientY;
+                      if (x <= rect.left || x >= rect.right || y <= rect.top || y >= rect.bottom) {
+                        setDropTargetBoardId(null);
                       }
                     }}
                     onDrop={(e) => {
-                      if (isManualBin) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setDropTargetBoardId(null);
-                        const rawId = e.dataTransfer.getData('text/plain') || e.dataTransfer.getData('clip_id');
-                        const clipId = Number(rawId) || draggedClipId;
-                        if (clipId && onClipDropOnBoard) {
-                          onClipDropOnBoard(clipId, b.id);
-                        }
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setDropTargetBoardId(null);
+                      const rawId = e.dataTransfer.getData('text/plain') || e.dataTransfer.getData('clip_id');
+                      const clipId = Number(rawId) || draggedClipId;
+                      if (clipId && onClipDropOnBoard) {
+                        onClipDropOnBoard(clipId, b.id);
                       }
                     }}
                     onClick={() => {
@@ -599,7 +588,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     } ${
                       isDropTarget
                         ? 'bg-cyan-900/90 border border-cyan-400 ring-2 ring-cyan-500/80 shadow-lg text-white font-bold scale-[1.02] z-30 relative'
-                        : draggedClipId !== null && isManualBin
+                        : draggedClipId !== null
                         ? 'bg-cyan-950/20 border border-dashed border-cyan-500/50 text-cyan-200 font-normal'
                         : isDragging
                         ? 'bg-[#0a84ff]/30 shadow-md ring-1 ring-inset ring-[#0a84ff]/70 rounded-md z-20 relative'
