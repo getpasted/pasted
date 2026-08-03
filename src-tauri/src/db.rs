@@ -134,6 +134,7 @@ impl DbState {
         let conn = self.conn.lock();
 
         // High-performance SQLite configuration
+        conn.pragma_update(None, "foreign_keys", "ON")?;
         let _ = conn.pragma_update(None, "journal_mode", "WAL");
         let _ = conn.pragma_update(None, "synchronous", "NORMAL");
         let _ = conn.pragma_update(None, "temp_store", "MEMORY");
@@ -912,10 +913,40 @@ impl DbState {
     }
 
     pub fn update_clip_text(&self, clip_id: i64, text: &str) -> Result<()> {
-        let conn = self.conn.lock();
-        let mut stmt = conn.prepare_cached("UPDATE clips SET text_content = ?1 WHERE id = ?2")?;
-        stmt.execute(params![text, clip_id])?;
-        Ok(())
+        let mut conn = self.conn.lock();
+        let tx = conn.transaction()?;
+        let previous_text: Option<String> = tx.query_row(
+            "SELECT text_content FROM clips WHERE id = ?1",
+            params![clip_id],
+            |row| row.get(0),
+        )?;
+
+        if previous_text.as_deref() == Some(text) {
+            return tx.commit();
+        }
+
+        if let Some(previous_text) = previous_text {
+            tx.execute(
+                "INSERT INTO clip_versions (clip_id, text_content) VALUES (?1, ?2)",
+                params![clip_id, previous_text],
+            )?;
+            tx.execute(
+                "DELETE FROM clip_versions
+                 WHERE clip_id = ?1
+                   AND id NOT IN (
+                       SELECT id FROM clip_versions
+                       WHERE clip_id = ?1
+                       ORDER BY id DESC
+                       LIMIT 50
+                   )",
+                params![clip_id],
+            )?;
+        }
+        tx.execute(
+            "UPDATE clips SET text_content = ?1 WHERE id = ?2",
+            params![text, clip_id],
+        )?;
+        tx.commit()
     }
 
     pub fn delete_clip(&self, id: i64) -> Result<()> {
@@ -1040,36 +1071,35 @@ impl DbState {
         })?;
 
         let mut updated_count = 0;
-        for r in rows {
-            if let Ok((id, c_type, text_opt, source_opt)) = r {
-                let source = source_opt.unwrap_or_default();
-                if source.is_empty() || source == "System Clipboard" || source == "Unknown" {
-                    let text = text_opt.unwrap_or_default();
-                    let inferred_app = if c_type == "code"
-                        || text.contains("function ")
-                        || text.contains("const ")
-                        || text.contains("let ")
-                        || text.contains("import ")
-                        || text.contains("pub fn ")
-                        || text.contains("class ")
-                    {
-                        "VS Code"
-                    } else if c_type == "link" || text.starts_with("http://") || text.starts_with("https://") {
-                        "Browser"
-                    } else if c_type == "color" || text.starts_with('#') {
-                        "Color Picker"
-                    } else if c_type == "image" {
-                        "Screenshot"
-                    } else {
-                        "macOS System"
-                    };
+        for row in rows {
+            let (id, c_type, text_opt, source_opt) = row?;
+            let source = source_opt.unwrap_or_default();
+            if source.is_empty() || source == "System Clipboard" || source == "Unknown" {
+                let text = text_opt.unwrap_or_default();
+                let inferred_app = if c_type == "code"
+                    || text.contains("function ")
+                    || text.contains("const ")
+                    || text.contains("let ")
+                    || text.contains("import ")
+                    || text.contains("pub fn ")
+                    || text.contains("class ")
+                {
+                    "VS Code"
+                } else if c_type == "link" || text.starts_with("http://") || text.starts_with("https://") {
+                    "Browser"
+                } else if c_type == "color" || text.starts_with('#') {
+                    "Color Picker"
+                } else if c_type == "image" {
+                    "Screenshot"
+                } else {
+                    "macOS System"
+                };
 
-                    let _ = conn.execute(
-                        "UPDATE clips SET source_app = ?1 WHERE id = ?2",
-                        params![inferred_app, id],
-                    );
-                    updated_count += 1;
-                }
+                conn.execute(
+                    "UPDATE clips SET source_app = ?1 WHERE id = ?2",
+                    params![inferred_app, id],
+                )?;
+                updated_count += 1;
             }
         }
         Ok(updated_count)
@@ -1126,7 +1156,7 @@ impl DbState {
     }
 
     pub fn get_analytics_summary(&self) -> Result<AnalyticsSummary> {
-        let _ = self.backfill_analytics();
+        self.backfill_analytics()?;
         let conn = self.conn.lock();
 
         let (total_clips, total_chars): (i64, i64) = conn.query_row(
@@ -1427,31 +1457,10 @@ impl DbState {
         tx.commit()
     }
 
-    pub fn save_clip_version(&self, clip_id: i64, text: &str) -> Result<ClipVersion> {
-        let conn = self.conn.lock();
-        conn.execute(
-            "INSERT INTO clip_versions (clip_id, text_content) VALUES (?1, ?2)",
-            params![clip_id, text],
-        )?;
-        let id = conn.last_insert_rowid();
-        conn.query_row(
-            "SELECT id, clip_id, text_content, created_at FROM clip_versions WHERE id = ?1",
-            params![id],
-            |row| {
-                Ok(ClipVersion {
-                    id: row.get(0)?,
-                    clip_id: row.get(1)?,
-                    text_content: row.get(2)?,
-                    created_at: row.get(3)?,
-                })
-            },
-        )
-    }
-
     pub fn get_clip_versions(&self, clip_id: i64) -> Result<Vec<ClipVersion>> {
         let conn = self.conn.lock();
         let mut stmt = conn.prepare(
-            "SELECT id, clip_id, text_content, created_at FROM clip_versions WHERE clip_id = ?1 ORDER BY created_at DESC",
+            "SELECT id, clip_id, text_content, created_at FROM clip_versions WHERE clip_id = ?1 ORDER BY created_at DESC, id DESC",
         )?;
         let rows = stmt.query_map(params![clip_id], |row| {
             Ok(ClipVersion {
@@ -2212,15 +2221,25 @@ mod tests {
         let db = setup_test_db();
         let clip = db.save_clip("text", Some("Original Content"), None, None, "HashV1", "App").unwrap();
 
-        let v1 = db.save_clip_version(clip.id, "Original Content").unwrap();
-        let v2 = db.save_clip_version(clip.id, "Transformed Uppercase Content").unwrap();
-        assert!(v1.id > 0);
-        assert!(v2.id > 0);
+        db.update_clip_text(clip.id, "Transformed Uppercase Content").unwrap();
+        db.update_clip_text(clip.id, "Transformed Uppercase Content").unwrap();
+        db.update_clip_text(clip.id, "Final Content").unwrap();
 
         let versions = db.get_clip_versions(clip.id).unwrap();
         assert_eq!(versions.len(), 2);
-        assert_eq!(versions[0].text_content, "Original Content");
-        assert_eq!(versions[1].text_content, "Transformed Uppercase Content");
+        assert_eq!(versions[0].text_content, "Transformed Uppercase Content");
+        assert_eq!(versions[1].text_content, "Original Content");
+
+        let updated = db.get_clips(None, None, false).unwrap();
+        assert_eq!(updated[0].text_content.as_deref(), Some("Final Content"));
+
+        for index in 0..55 {
+            db.update_clip_text(clip.id, &format!("Revision {index}")).unwrap();
+        }
+        assert_eq!(db.get_clip_versions(clip.id).unwrap().len(), 50);
+
+        db.purge_clip_permanently(clip.id).unwrap();
+        assert!(db.get_clip_versions(clip.id).unwrap().is_empty());
     }
 
     #[test]

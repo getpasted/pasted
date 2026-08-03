@@ -277,22 +277,28 @@ export default function App() {
   const [isResizingSidebar, setIsResizingSidebar] = useState(false);
   const [isResizingList, setIsResizingList] = useState(false);
 
-  const handleSidebarMouseDown = (e: React.MouseEvent) => {
+  const handleSidebarPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return;
     e.preventDefault();
+    const handle = e.currentTarget;
+    const pointerId = e.pointerId;
+    handle.setPointerCapture(pointerId);
     const startX = e.clientX;
     const startWidth = isSidebarCollapsed ? 100 : sidebarWidth;
 
-    const handleMouseMove = (moveEvent: MouseEvent) => {
+    const handlePointerMove = (moveEvent: PointerEvent) => {
       const delta = moveEvent.clientX - startX;
       const newWidth = Math.min(Math.max(startWidth + delta, 180), 360);
       setSidebarWidth(newWidth);
       localStorage.setItem('pasted_sidebar_width', newWidth.toString());
     };
 
-    const handleMouseUp = () => {
+    const handlePointerEnd = () => {
       setIsResizingSidebar(false);
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerEnd);
+      window.removeEventListener('pointercancel', handlePointerEnd);
+      if (handle.hasPointerCapture(pointerId)) handle.releasePointerCapture(pointerId);
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
     };
@@ -300,26 +306,33 @@ export default function App() {
     setIsResizingSidebar(true);
     document.body.style.cursor = 'col-resize';
     document.body.style.userSelect = 'none';
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerEnd);
+    window.addEventListener('pointercancel', handlePointerEnd);
   };
 
-  const handleListMouseDown = (e: React.MouseEvent) => {
+  const handleListPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return;
     e.preventDefault();
+    const handle = e.currentTarget;
+    const pointerId = e.pointerId;
+    handle.setPointerCapture(pointerId);
     const startX = e.clientX;
     const startWidth = clipsListWidth;
 
-    const handleMouseMove = (moveEvent: MouseEvent) => {
+    const handlePointerMove = (moveEvent: PointerEvent) => {
       const delta = moveEvent.clientX - startX;
       const newWidth = Math.min(Math.max(startWidth + delta, 280), 520);
       setClipsListWidth(newWidth);
       localStorage.setItem('pasted_list_width', newWidth.toString());
     };
 
-    const handleMouseUp = () => {
+    const handlePointerEnd = () => {
       setIsResizingList(false);
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerEnd);
+      window.removeEventListener('pointercancel', handlePointerEnd);
+      if (handle.hasPointerCapture(pointerId)) handle.releasePointerCapture(pointerId);
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
     };
@@ -327,8 +340,9 @@ export default function App() {
     setIsResizingList(true);
     document.body.style.cursor = 'col-resize';
     document.body.style.userSelect = 'none';
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerEnd);
+    window.addEventListener('pointercancel', handlePointerEnd);
   };
 
   useEffect(() => {
@@ -1218,7 +1232,9 @@ export default function App() {
   }
 
   return (
-    <div className={`flex h-screen w-screen overflow-hidden bg-[#171717] text-gray-100 font-sans ${clipDragPreview ? 'cursor-grabbing' : ''}`}>
+    <div className={`flex h-screen w-screen overflow-hidden bg-[#171717] text-gray-100 font-sans ${clipDragPreview ? 'cursor-grabbing' : ''} ${
+      isResizingSidebar || isResizingList ? 'is-resizing-columns' : ''
+    }`}>
       {clipDragPreview && (() => {
         const previewClip = allClips.find((clip) => clip.id === clipDragPreview.clipId);
         if (!previewClip) return null;
@@ -1286,8 +1302,8 @@ export default function App() {
       {/* Sidebar Resizer Handle (Only active when sidebar is expanded) */}
       {!isSidebarCollapsed && (
         <div
-          onMouseDown={handleSidebarMouseDown}
-          className="relative w-[1px] h-screen cursor-col-resize z-30 shrink-0 select-none group"
+          onPointerDown={handleSidebarPointerDown}
+          className="column-resizer relative w-[1px] h-screen cursor-col-resize z-30 shrink-0 select-none touch-none group"
           title="Drag to resize sidebar width"
         >
           <div className={`column-resizer-line w-[1px] h-full transition-colors ${isResizingSidebar ? 'is-active' : ''}`} />
@@ -1587,8 +1603,8 @@ export default function App() {
 
           {/* List Resizer Handle (Exact 1px visual border line with grab target extending to right) */}
           <div
-            onMouseDown={handleListMouseDown}
-            className="relative w-[1px] h-screen cursor-col-resize z-20 shrink-0 select-none group"
+            onPointerDown={handleListPointerDown}
+            className="column-resizer relative w-[1px] h-screen cursor-col-resize z-20 shrink-0 select-none touch-none group"
             title="Drag to resize clips list width"
           >
             <div className={`column-resizer-line w-[1px] h-full transition-colors ${isResizingList ? 'is-active' : ''}`} />

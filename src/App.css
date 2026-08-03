@@ -291,6 +291,27 @@ html.light .custom-scrollbar::-webkit-scrollbar-thumb:active {
   color: var(--text-title);
 }
 
+/* Column resizing is an exclusive interaction mode. Pointer capture keeps the
+   active divider live while every unrelated control is temporarily inert. */
+.is-resizing-columns {
+  cursor: col-resize !important;
+}
+
+.is-resizing-columns * {
+  pointer-events: none !important;
+}
+
+.is-resizing-columns .column-resizer,
+.is-resizing-columns .column-resizer * {
+  pointer-events: auto !important;
+  cursor: col-resize !important;
+}
+
+.is-resizing-columns .sidebar-item-idle:hover {
+  background-color: transparent !important;
+  color: var(--text-main) !important;
+}
+
 .sidebar-badge {
   background-color: var(--bg-badge);
   color: var(--text-muted);
