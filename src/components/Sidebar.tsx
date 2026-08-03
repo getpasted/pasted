@@ -21,6 +21,7 @@ import {
   Shield,
 } from 'lucide-react';
 import { Bin, SequentialStatus } from '../types';
+import { useSidebarBinOrder } from '../hooks/useSidebarBinOrder';
 
 interface SidebarProps {
   currentTab: string;
@@ -83,69 +84,41 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [isBinsOpen, setIsBinsOpen] = React.useState(true);
   const [isToolsOpen, setIsToolsOpen] = React.useState(true);
 
-  // Bin Drag & Drop Reorder State with 150ms Debounce
-  const [activeDragBinId, setActiveDragBinId] = React.useState<number | null>(null);
   const [dropTargetBinId, setDropTargetBinId] = React.useState<number | null>(null);
   const [isSearchFocused, setIsSearchFocused] = React.useState(false);
-  const dragTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const [binOrder, setBinOrder] = React.useState<number[]>(() => {
-    try {
-      const saved = localStorage.getItem('pasted_bin_order');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
-
-  const sortedBins = React.useMemo(() => {
-    if (!binOrder || binOrder.length === 0) return bins;
-    return [...bins].sort((a, b) => {
-      const indexA = binOrder.indexOf(a.id);
-      const indexB = binOrder.indexOf(b.id);
-      if (indexA === -1 && indexB === -1) return 0;
-      if (indexA === -1) return 1;
-      if (indexB === -1) return -1;
-      return indexA - indexB;
-    });
-  }, [bins, binOrder]);
-
-  const handlePointerDownBin = (binId: number) => {
-    if (draggedClipId !== null && draggedClipId !== undefined) return;
-    if (dragTimerRef.current) clearTimeout(dragTimerRef.current);
-    dragTimerRef.current = setTimeout(() => {
-      setActiveDragBinId(binId);
-    }, 150);
-  };
-
-  const handlePointerUpBin = () => {
-    if (dragTimerRef.current) {
-      clearTimeout(dragTimerRef.current);
-      dragTimerRef.current = null;
-    }
-    setActiveDragBinId(null);
-  };
-
-  const handlePointerEnterBin = (targetBinId: number) => {
-    if (draggedClipId !== null && draggedClipId !== undefined) return;
-    if (!activeDragBinId || activeDragBinId === targetBinId) return;
-
-    const currentOrder = sortedBins.map((b) => b.id);
-    const fromIndex = currentOrder.indexOf(activeDragBinId);
-    const toIndex = currentOrder.indexOf(targetBinId);
-    if (fromIndex === -1 || toIndex === -1) return;
-
-    const newOrder = [...currentOrder];
-    const [moved] = newOrder.splice(fromIndex, 1);
-    newOrder.splice(toIndex, 0, moved);
-
-    setBinOrder(newOrder);
-    localStorage.setItem('pasted_bin_order', JSON.stringify(newOrder));
-  };
+  const isClipDragging = draggedClipId !== null && draggedClipId !== undefined;
+  const {
+    activeDragBinId,
+    sortedBins,
+    startBinDrag: handlePointerDownBin,
+    cancelBinDrag: handlePointerUpBin,
+    moveDraggedBinBefore: handlePointerEnterBin,
+  } = useSidebarBinOrder(bins, isClipDragging);
 
   const getBinIcon = (iconName: string) => {
     return <span className="text-sm">{formatEmojiIcon(iconName)}</span>;
   };
+
+  const navigateTo = (tab: string) => {
+    setCurrentTab(tab);
+    setSelectedBinId(null);
+  };
+
+  const collapsedClipItems = [
+    { tab: 'all', title: 'All Clips', icon: <Clipboard className="w-5 h-5 text-[#0a84ff]" /> },
+    { tab: 'sequential', title: 'Queue', icon: <ListOrdered className="w-5 h-5 text-purple-400" /> },
+    { tab: 'pinned', title: 'Pinned', icon: <Pin className="w-5 h-5 text-orange-500 fill-orange-500/20 pin-icon" /> },
+    { tab: 'protected', title: 'Protected', icon: <Shield className="w-5 h-5 text-cyan-400" /> },
+    { tab: 'notes', title: 'Noted', icon: <StickyNote className="w-5 h-5 text-emerald-400" /> },
+    { tab: 'trash', title: 'Trashed', icon: <Trash2 className="w-5 h-5 text-rose-400" /> },
+  ];
+  const collapsedToolItems = [
+    { tab: 'analytics', title: 'Analytics & Insights', icon: <BarChart3 className="w-5 h-5 text-purple-400" /> },
+    { tab: 'filters', title: 'Filters & Operations', icon: <Sliders className="w-5 h-5 text-[#0a84ff]" /> },
+    { tab: 'activity', title: 'Activity Log', icon: <Activity className="w-5 h-5 text-cyan-400" /> },
+    { tab: 'help', title: 'Help & Documentation', icon: <HelpCircle className="w-5 h-5 text-cyan-400" /> },
+    { tab: 'settings', title: 'Settings', icon: <Settings className="w-5 h-5 text-[#0a84ff]" /> },
+  ];
 
   if (isCollapsed) {
     return (
@@ -171,65 +144,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <div className="w-8 border-t border-white/10 sidebar-divider" />
           </div>
 
-          <button
-            onClick={() => {
-              setCurrentTab('all');
-              setSelectedBinId(null);
-            }}
-            className={`w-9 h-9 flex items-center justify-center p-0 rounded-xl transition-colors duration-75 border shrink-0 cursor-pointer ${
-              currentTab === 'all' && selectedBinId === null
-                ? 'sidebar-item-active bg-[#383838] text-white border-gray-600/70 shadow-sm'
-                : 'sidebar-item-idle border-transparent text-gray-400 hover:bg-[#2a2a2a] hover:text-white'
-            }`}
-            title="All Clips"
-          >
-            <Clipboard className="w-5 h-5" />
-          </button>
-
-          <button
-            onClick={() => {
-              setCurrentTab('pinned');
-              setSelectedBinId(null);
-            }}
-            className={`w-9 h-9 flex items-center justify-center p-0 rounded-xl transition-colors duration-75 border shrink-0 cursor-pointer ${
-              currentTab === 'pinned'
-                ? 'sidebar-item-active bg-[#383838] text-white border-gray-600/70 shadow-sm'
-                : 'sidebar-item-idle border-transparent text-gray-400 hover:bg-[#2a2a2a] hover:text-white'
-            }`}
-            title="Pinned"
-          >
-            <Pin className="w-5 h-5 text-orange-500 fill-orange-500/20 pin-icon" />
-          </button>
-
-          <button
-            onClick={() => {
-              setCurrentTab('notes');
-              setSelectedBinId(null);
-            }}
-            className={`w-9 h-9 flex items-center justify-center p-0 rounded-xl transition-colors duration-75 border shrink-0 cursor-pointer ${
-              currentTab === 'notes'
-                ? 'sidebar-item-active bg-[#383838] text-white border-gray-600/70 shadow-sm'
-                : 'sidebar-item-idle border-transparent text-gray-400 hover:bg-[#2a2a2a] hover:text-white'
-            }`}
-            title="Clip Notes"
-          >
-            <StickyNote className="w-5 h-5 text-emerald-400" />
-          </button>
-
-          <button
-            onClick={() => {
-              setCurrentTab('sequential');
-              setSelectedBinId(null);
-            }}
-            className={`w-9 h-9 flex items-center justify-center p-0 rounded-xl transition-colors duration-75 border shrink-0 cursor-pointer ${
-              currentTab === 'sequential'
-                ? 'sidebar-item-active bg-[#383838] text-white border-gray-600/70 shadow-sm'
-                : 'sidebar-item-idle border-transparent text-gray-400 hover:bg-[#2a2a2a] hover:text-white'
-            }`}
-            title="Queue"
-          >
-            <ListOrdered className="w-5 h-5" />
-          </button>
+          {collapsedClipItems.map((item) => (
+            <button
+              key={item.tab}
+              onClick={() => navigateTo(item.tab)}
+              className={`w-9 h-9 flex items-center justify-center p-0 rounded-xl transition-colors duration-75 border shrink-0 cursor-pointer ${
+                currentTab === item.tab && (item.tab !== 'all' || selectedBinId === null)
+                  ? 'sidebar-item-active bg-[#383838] text-white border-gray-600/70 shadow-sm'
+                  : 'sidebar-item-idle border-transparent text-gray-400 hover:bg-[#2a2a2a] hover:text-white'
+              }`}
+              title={item.title}
+            >
+              {item.icon}
+            </button>
+          ))}
 
           {sortedBins.length > 0 && (
             <div className="w-full flex items-center justify-center py-1 shrink-0">
@@ -237,7 +165,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
           )}
 
-          {sortedBins.slice(0, 4).map((b) => (
+          {sortedBins.map((b) => (
             <button
               key={b.id}
               onClick={() => {
@@ -259,35 +187,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <div className="w-8 border-t border-white/10 sidebar-divider" />
           </div>
 
-          <button
-            onClick={() => {
-              setCurrentTab('filters');
-              setSelectedBinId(null);
-            }}
-            className={`w-9 h-9 flex items-center justify-center p-0 rounded-xl transition-colors duration-75 border shrink-0 cursor-pointer ${
-              currentTab === 'filters'
-                ? 'sidebar-item-active bg-[#383838] text-white border-gray-600/70 shadow-sm'
-                : 'sidebar-item-idle border-transparent text-gray-400 hover:bg-[#2a2a2a] hover:text-white'
-            }`}
-            title="Filters & Operations"
-          >
-            <Sliders className="w-5 h-5" />
-          </button>
-
-          <button
-            onClick={() => {
-              setCurrentTab('settings');
-              setSelectedBinId(null);
-            }}
-            className={`w-9 h-9 flex items-center justify-center p-0 rounded-xl transition-colors duration-75 border shrink-0 cursor-pointer ${
-              currentTab === 'settings'
-                ? 'sidebar-item-active bg-[#383838] text-white border-gray-600/70 shadow-sm'
-                : 'sidebar-item-idle border-transparent text-gray-400 hover:bg-[#2a2a2a] hover:text-white'
-            }`}
-            title="Settings"
-          >
-            <Settings className="w-5 h-5" />
-          </button>
+          {collapsedToolItems.map((item) => (
+            <button
+              key={item.tab}
+              onClick={() => navigateTo(item.tab)}
+              className={`w-9 h-9 flex items-center justify-center p-0 rounded-xl transition-colors duration-75 border shrink-0 cursor-pointer ${
+                currentTab === item.tab
+                  ? 'sidebar-item-active bg-[#383838] text-white border-gray-600/70 shadow-sm'
+                  : 'sidebar-item-idle border-transparent text-gray-400 hover:bg-[#2a2a2a] hover:text-white'
+              }`}
+              title={item.title}
+            >
+              {item.icon}
+            </button>
+          ))}
         </div>
       </aside>
     );
@@ -497,7 +410,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {sortedBins.map((b) => {
                 const isDragging = activeDragBinId === b.id;
                 const isManualBin = !b.smart_rule || b.smart_rule.trim() === '';
-                const isClipDragging = draggedClipId !== null && draggedClipId !== undefined;
                 const isDisabledDropTarget =
                   isClipDragging && disabledDropBinId === b.id;
                 const isIneligibleSmartBin = isClipDragging && !isManualBin;
@@ -576,10 +488,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       }
                     }}
                     onClick={() => {
-                      if (dragTimerRef.current) {
-                        clearTimeout(dragTimerRef.current);
-                        dragTimerRef.current = null;
-                      }
                       if (!activeDragBinId) {
                         setCurrentTab('bin');
                         setSelectedBinId(b.id);
