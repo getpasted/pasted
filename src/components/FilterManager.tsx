@@ -6,6 +6,7 @@ import { FilterEditorModal } from './FilterEditorModal';
 import { OperationsManager } from './OperationsManager';
 import { HotkeyRecorder } from './HotkeyRecorder';
 import { soundManager } from '../utils/sound';
+import { startWindowDrag } from '../utils/windowDrag';
 
 interface FilterManagerProps {
   filters: FilterRule[];
@@ -113,11 +114,11 @@ export const FilterManager: React.FC<FilterManagerProps> = ({ filters, onRefresh
     <div className="tools-page filters-page flex-1 h-screen flex flex-col overflow-hidden bg-[#171717] select-none filter-manager-wrapper">
       {/* 60px Native Titlebar Header Section with Full-Height Square Section Tabs */}
       <div
-        data-tauri-drag-region
+        onMouseDown={startWindowDrag}
         className="h-[60px] pl-0 pr-6 border-b border-[#2b2b2b] bg-[#171717]/95 backdrop-blur-md flex items-center justify-between shrink-0 titlebar-drag-handle cursor-default"
       >
         {/* Left: Square Full-Height Tab Bar */}
-        <div data-tauri-drag-region className="flex h-full items-stretch titlebar-drag-handle">
+        <div className="flex h-full items-stretch titlebar-drag-handle">
           <button
             onClick={() => setActiveSubTab('pipelines')}
             className={`tools-section-tab h-full px-5 flex items-center space-x-2 border-r border-[#2b2b2b] text-xs font-bold transition-all relative ${

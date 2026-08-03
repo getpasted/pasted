@@ -3,6 +3,7 @@ import { Operation } from '../types';
 import { Wrench, Sparkles, Trash2, Edit3, Code2, Play } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { OperationEditorModal, CATEGORIES } from './OperationEditorModal';
+import { startWindowDrag } from '../utils/windowDrag';
 
 interface OperationsManagerProps {
   isEmbedded?: boolean;
@@ -84,13 +85,13 @@ export const OperationsManager: React.FC<OperationsManagerProps> = ({
   const content = (
     <div className="space-y-6">
       {!isEmbedded && (
-        <div data-tauri-drag-region className="flex items-center justify-between pb-4 border-b border-[#2b2b2b]">
-          <div data-tauri-drag-region>
-            <h2 data-tauri-drag-region className="text-lg font-bold theme-title flex items-center space-x-2">
+        <div onMouseDown={startWindowDrag} className="flex items-center justify-between pb-4 border-b border-[#2b2b2b]">
+          <div>
+            <h2 className="text-lg font-bold theme-title flex items-center space-x-2">
               <Wrench className="w-5 h-5 opacity-70 text-cyan-400" />
               <span>Operations Library</span>
             </h2>
-            <p data-tauri-drag-region className="text-xs theme-text-muted mt-1">
+            <p className="text-xs theme-text-muted mt-1">
               Build and manage reusable regex replacements, built-in engine keys, and shell script operations.
             </p>
           </div>

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useAltKeyPressed } from '../hooks/useAltKeyPressed';
 import { ClipItem, Board, FilterRule } from '../types';
 import { formatEmojiIcon } from '../utils/emoji';
 import { detectSmartFilterRecommendations } from '../utils/smartFilterDetector';
@@ -57,22 +58,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
   const [activeSubmenu, setActiveSubmenu] = useState<'boards' | 'filters' | null>(null);
-  const [isAltPressed, setIsAltPressed] = useState(false);
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.altKey) setIsAltPressed(true);
-    };
-    const handleKeyUp = (e: KeyboardEvent) => {
-      if (!e.altKey) setIsAltPressed(false);
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
-    };
-  }, []);
+  const isAltPressed = useAltKeyPressed();
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {

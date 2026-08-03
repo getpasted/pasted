@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Operation } from '../types';
 import { Wrench, X, Play } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
+import { startWindowDrag } from '../utils/windowDrag';
 
 interface OperationEditorModalProps {
   operation: Operation | null;
@@ -153,7 +154,7 @@ export const OperationEditorModal: React.FC<OperationEditorModalProps> = ({
     <div className="fixed inset-0 z-[99999] bg-black/65 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in duration-150">
       <div className="filter-editor-card w-full max-w-2xl max-h-[90vh] bg-[#212121] border border-gray-700/80 rounded-2xl shadow-2xl flex flex-col overflow-hidden text-gray-200">
         {/* Header */}
-        <div data-tauri-drag-region className="filter-editor-header px-6 py-4 border-b border-[#2b2b2b] bg-[#171717] flex items-center justify-between">
+        <div onMouseDown={startWindowDrag} className="filter-editor-header px-6 py-4 border-b border-[#2b2b2b] bg-[#171717] flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="p-2 rounded-xl bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
               <Wrench className="w-5 h-5" />

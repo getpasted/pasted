@@ -21,6 +21,7 @@ import { DeleteBoardDialog } from './components/DeleteBoardDialog';
 import { ClipNoteDialog } from './components/ClipNoteDialog';
 import { ClearHistoryDialog, type ClearHistoryMode } from './components/ClearHistoryDialog';
 import { soundManager } from './utils/sound';
+import { startWindowDrag } from './utils/windowDrag';
 import { Clipboard, Trash2, Pause, Disc, Square, Pin, X } from 'lucide-react';
 import './App.css';
 
@@ -1333,12 +1334,12 @@ export default function App() {
           >
             {/* Finder Header Title Bar */}
             <div
-              data-tauri-drag-region
+              onMouseDown={startWindowDrag}
               className="h-[60px] border-b border-[#2b2b2b] bg-[#171717]/80 backdrop-blur-md px-3 flex items-center justify-between col-list-header cursor-default titlebar-drag-handle shrink-0"
             >
-              <div data-tauri-drag-region className="flex items-center space-x-2 titlebar-drag-handle min-w-0 flex-1 mr-2">
+              <div className="flex items-center space-x-2 titlebar-drag-handle min-w-0 flex-1 mr-2">
                 <Clipboard className="w-4 h-4 text-gray-300 titlebar-drag-handle shrink-0" />
-                <h2 data-tauri-drag-region className="text-xs font-bold text-gray-200 uppercase tracking-wider titlebar-drag-handle truncate">
+                <h2 className="text-xs font-bold text-gray-200 uppercase tracking-wider titlebar-drag-handle truncate">
                   {currentTab === 'pinned'
                     ? 'Pinned'
                     : currentTab === 'protected'

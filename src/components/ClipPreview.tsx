@@ -5,6 +5,7 @@ import { ClipItem, Board, FilterRule, ClipNote, parseClipNotes, serializeClipNot
 import { parseColor, ColorFormats } from '../utils/color';
 import { soundManager } from '../utils/sound';
 import { detectSmartFilterRecommendations } from '../utils/smartFilterDetector';
+import { startWindowDrag } from '../utils/windowDrag';
 import {
   Copy,
   Check,
@@ -353,12 +354,12 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
 
   if (!clip) {
     return (
-      <div data-tauri-drag-region className="flex-1 col-preview h-screen flex flex-col items-center justify-center text-gray-500 bg-[#212121] p-8 select-none border-l border-[#2b2b2b]">
-        <div data-tauri-drag-region className="w-16 h-16 rounded-2xl bg-[#181818] border border-gray-700/60 flex items-center justify-center mb-4 shadow-xl">
+      <div className="flex-1 col-preview h-screen flex flex-col items-center justify-center text-gray-500 bg-[#212121] p-8 select-none border-l border-[#2b2b2b]">
+        <div className="w-16 h-16 rounded-2xl bg-[#181818] border border-gray-700/60 flex items-center justify-center mb-4 shadow-xl">
           <FileText className="w-8 h-8 text-gray-400" />
         </div>
-        <p data-tauri-drag-region className="text-sm font-medium text-gray-300">No Clip Selected</p>
-        <p data-tauri-drag-region className="text-xs text-gray-500 mt-1 max-w-xs text-center">
+        <p className="text-sm font-medium text-gray-300">No Clip Selected</p>
+        <p className="text-xs text-gray-500 mt-1 max-w-xs text-center">
           Select an item from history or right-click to copy, filter, add notes, or organize.
         </p>
       </div>
@@ -431,14 +432,14 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
     <div className="flex-1 col-preview h-screen flex flex-col bg-[#212121] border-l border-[#2b2b2b] overflow-hidden">
       {/* Finder Top Header Bar */}
       <div
-        data-tauri-drag-region
+        onMouseDown={startWindowDrag}
         className="h-[60px] border-b border-[#2b2b2b] bg-[#171717]/80 backdrop-blur-md px-4 flex items-center justify-between cursor-default titlebar-drag-handle shrink-0"
       >
-        <div data-tauri-drag-region className="flex items-center space-x-3 titlebar-drag-handle">
-          <span data-tauri-drag-region className="clip-type-badge text-xs font-semibold px-2.5 py-1 rounded-md bg-gray-800 text-gray-200 border border-gray-700 capitalize titlebar-drag-handle">
+        <div className="flex items-center space-x-3 titlebar-drag-handle">
+          <span className="clip-type-badge text-xs font-semibold px-2.5 py-1 rounded-md bg-gray-800 text-gray-200 border border-gray-700 capitalize titlebar-drag-handle">
             {clip.content_type}
           </span>
-          <span data-tauri-drag-region className="text-xs text-gray-300 font-medium truncate max-w-[200px] titlebar-drag-handle">
+          <span className="text-xs text-gray-300 font-medium truncate max-w-[200px] titlebar-drag-handle">
             {clip.source_app}
           </span>
         </div>

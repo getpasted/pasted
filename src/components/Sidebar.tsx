@@ -1,5 +1,6 @@
 import React from 'react';
 import { formatEmojiIcon } from '../utils/emoji';
+import { startWindowDrag } from '../utils/windowDrag';
 import {
   Clipboard,
   Pin,
@@ -151,7 +152,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <aside className="w-[100px] col-sidebar h-screen flex flex-col items-center border-r border-[#2d2d2d] bg-[#212121]/90 backdrop-blur-xl select-none">
         {/* Dedicated 56px Top Header Drag Region for Traffic Lights */}
         <div
-          data-tauri-drag-region
+          onMouseDown={startWindowDrag}
           className="h-[56px] w-full cursor-default titlebar-drag-handle shrink-0"
         />
 
@@ -299,10 +300,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
     >
       {/* Finder-esque Liquid Glass 60px Top Header */}
       <div
-        data-tauri-drag-region
+        onMouseDown={startWindowDrag}
         className="h-[60px] px-4 flex items-center justify-between border-b border-transparent cursor-default titlebar-drag-handle shrink-0"
       >
-        <div data-tauri-drag-region className="flex items-center pl-20 titlebar-drag-handle" />
+        <div className="flex items-center pl-20 titlebar-drag-handle" />
         <button
           onClick={() => setIsCollapsed(true)}
           className="p-1.5 text-gray-400 hover:text-white rounded-lg hover:bg-[#2c2c2c] transition-colors titlebar-no-drag cursor-pointer"

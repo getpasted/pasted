@@ -3,6 +3,7 @@ import { AppSettings, BlacklistApp, FilterRule, Board } from '../types';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { HotkeyRecorder } from './HotkeyRecorder';
 import { SettingsTabs, type SettingsTab } from './SettingsTabs';
+import { useAltKeyPressed } from '../hooks/useAltKeyPressed';
 import {
   Cloud,
   Plus,
@@ -51,22 +52,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
   const [newAppNameInput, setNewAppNameInput] = useState('');
   const [accessibilityStatus, setAccessibilityStatus] = useState<{ is_trusted: boolean; is_dev_mode: boolean } | null>(null);
-  const [isAltPressed, setIsAltPressed] = useState(false);
-
-  React.useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Alt' || e.altKey) setIsAltPressed(true);
-    };
-    const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.key === 'Alt' || !e.altKey) setIsAltPressed(false);
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
-    };
-  }, []);
+  const isAltPressed = useAltKeyPressed();
 
   const handleRestoreHotkeyDefaults = async () => {
     const defaults: Partial<AppSettings> = {
@@ -375,7 +361,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </div>
                   <button
                     type="button"
-                    onClick={(e) => onClearHistory?.(e.altKey || isAltPressed)}
+                    onClick={(e) => onClearHistory?.(e.altKey)}
                     className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 transition-all shrink-0 cursor-pointer"
                   >
                     <Trash2 className="w-3.5 h-3.5" />

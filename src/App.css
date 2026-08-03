@@ -36,7 +36,6 @@ body.hud-mode,
   cursor: grab !important;
   user-select: none !important;
   -webkit-user-select: none !important;
-  -webkit-app-region: no-drag !important;
   -webkit-user-drag: none !important;
 }
 
@@ -44,7 +43,6 @@ body.hud-mode,
 .step-drag-handle:active * {
   cursor: -webkit-grabbing !important;
   cursor: grabbing !important;
-  -webkit-app-region: no-drag !important;
 }
 
 @layer base {
@@ -785,14 +783,12 @@ svg,
 .modal-footer,
 .context-menu,
 .unselectable,
-.titlebar-drag-handle,
-[data-tauri-drag-region] {
+.titlebar-drag-handle {
   -webkit-user-select: none !important;
   user-select: none !important;
 }
 
-.titlebar-drag-handle,
-[data-tauri-drag-region] {
+.titlebar-drag-handle {
   cursor: default;
 }
 
