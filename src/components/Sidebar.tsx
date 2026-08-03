@@ -712,18 +712,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Pinned Bottom Search Bar Footer */}
       <div className="p-2.5 border-t border-white/10 shrink-0 relative">
         {isSearchFocused && !searchQuery.includes(':') && (
-          <div className="absolute bottom-11 left-2.5 right-2.5 bg-[#1c1e26]/95 backdrop-blur-xl border border-cyan-500/40 rounded-xl p-2 shadow-2xl z-50 text-xs space-y-1 animate-in fade-in slide-in-from-bottom-2 duration-150">
-            <div className="px-2 py-1 text-[10px] font-bold text-cyan-400 uppercase tracking-wider border-b border-gray-700/60 flex items-center justify-between">
-              <span>Smart Search Operators</span>
-              <span className="text-[9px] text-gray-500 font-mono">Press Esc to dismiss</span>
-            </div>
+          <div className="absolute bottom-11 left-2.5 right-2.5 bg-[#1c1e26]/95 backdrop-blur-xl border border-cyan-500/40 rounded-xl p-1.5 shadow-2xl z-50 text-xs space-y-0.5 animate-in fade-in slide-in-from-bottom-2 duration-150">
             {[
-              { prefix: 'regex:', desc: 'Regex pattern (e.g. regex:^https?://)' },
-              { prefix: 'app:', desc: 'By app name (e.g. app:Safari)' },
-              { prefix: 'type:', desc: 'By content type (e.g. type:image)' },
-              { prefix: 'has:note', desc: 'Clips with attached notes' },
-              { prefix: 'is:pinned', desc: 'Pinned items' },
-              { prefix: 'is:protected', desc: 'Protected items' },
+              { prefix: 'regex:', desc: 'Regex' },
+              { prefix: 'app:', desc: 'App' },
+              { prefix: 'type:', desc: 'Type' },
+              { prefix: 'has:note', desc: 'Notes' },
+              { prefix: 'is:pinned', desc: 'Pinned' },
+              { prefix: 'is:protected', desc: 'Protected' },
             ].map((s) => (
               <div
                 key={s.prefix}
@@ -731,10 +727,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   e.preventDefault();
                   setSearchQuery(s.prefix);
                 }}
-                className="px-2 py-1.5 rounded-lg hover:bg-cyan-950/80 hover:text-cyan-300 cursor-pointer flex items-center justify-between transition-colors"
+                className="px-2 py-1 rounded-lg hover:bg-cyan-950/80 hover:text-cyan-300 cursor-pointer flex items-center justify-between transition-colors"
               >
                 <span className="font-mono font-bold text-cyan-400 text-[11px]">{s.prefix}</span>
-                <span className="text-[10px] text-gray-400 truncate max-w-[140px] text-right">{s.desc}</span>
+                <span className="text-[10px] text-gray-400 font-medium">{s.desc}</span>
               </div>
             ))}
           </div>
@@ -748,6 +744,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
             value={searchQuery}
             onFocus={() => setIsSearchFocused(true)}
             onBlur={() => setIsSearchFocused(false)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                setIsSearchFocused(false);
+                (e.target as HTMLInputElement).blur();
+              }
+            }}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full h-7 bg-[#2c2c2e]/80 border border-white/10 rounded-md pl-8 pr-2.5 text-[12px] text-gray-200 placeholder-gray-400/60 focus:outline-none focus:border-[#0a84ff]/80 transition-all titlebar-no-drag"
           />
