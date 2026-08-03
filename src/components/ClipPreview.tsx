@@ -458,7 +458,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
 
           <button
             onClick={handleCopy}
-            className="copy-clip-main-btn flex items-center space-x-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold shadow-md hover:-translate-y-0.5 active:scale-95 transition-all"
+            className="copy-clip-main-btn flex items-center space-x-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold shadow-md active:scale-95 transition-all"
           >
             {copied ? (
               <>

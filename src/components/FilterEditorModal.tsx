@@ -707,7 +707,7 @@ export const FilterEditorModal: React.FC<FilterEditorModalProps> = ({
                 <button
                   type="button"
                   onClick={handleAddStep}
-                  className="flex items-center space-x-1.5 px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold shadow-lg hover:-translate-y-0.5 active:scale-95 transition-all"
+                  className="flex items-center space-x-1.5 px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold shadow-lg active:scale-95 transition-all"
                 >
                   <Plus className="w-4 h-4" />
                   <span>Add Step</span>

@@ -152,7 +152,7 @@ export const FilterManager: React.FC<FilterManagerProps> = ({ filters, onRefresh
         {activeSubTab === 'pipelines' ? (
           <button
             onClick={handleOpenCreateModal}
-            className="flex items-center space-x-1.5 px-3.5 py-1.5 bg-white hover:bg-gray-200 text-black text-xs font-bold rounded-xl shadow-md hover:-translate-y-0.5 active:scale-95 transition-all"
+            className="flex items-center space-x-1.5 px-3.5 py-1.5 bg-white hover:bg-gray-200 text-black text-xs font-bold rounded-xl shadow-md active:scale-95 transition-all"
           >
             <Sparkles className="w-3.5 h-3.5 text-cyan-600" />
             <span>+ New Filter Pipeline</span>
@@ -160,7 +160,7 @@ export const FilterManager: React.FC<FilterManagerProps> = ({ filters, onRefresh
         ) : (
           <button
             onClick={() => openCreateOpRef.current?.()}
-            className="flex items-center space-x-1.5 px-3.5 py-1.5 bg-white hover:bg-gray-200 text-black text-xs font-bold rounded-xl shadow-md hover:-translate-y-0.5 active:scale-95 transition-all"
+            className="flex items-center space-x-1.5 px-3.5 py-1.5 bg-white hover:bg-gray-200 text-black text-xs font-bold rounded-xl shadow-md active:scale-95 transition-all"
           >
             <Sparkles className="w-3.5 h-3.5 text-amber-500" />
             <span>+ New Operation</span>

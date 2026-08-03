@@ -97,7 +97,7 @@ export const OperationsManager: React.FC<OperationsManagerProps> = ({
 
           <button
             onClick={onOpenCreateModal || handleOpenCreate}
-            className="flex items-center space-x-2 px-4 py-2 bg-white hover:bg-gray-200 text-black text-xs font-bold rounded-xl shadow-lg hover:-translate-y-0.5 active:scale-95 transition-all"
+            className="flex items-center space-x-2 px-4 py-2 bg-white hover:bg-gray-200 text-black text-xs font-bold rounded-xl shadow-lg active:scale-95 transition-all"
           >
             <Sparkles className="w-4 h-4 text-cyan-600" />
             <span>+ New Operation</span>
