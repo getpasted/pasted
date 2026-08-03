@@ -264,6 +264,7 @@ pub fn run() {
             commands::get_all_app_settings,
             commands::enforce_clip_retention,
             commands::update_clip_note,
+            commands::update_clip_text,
             commands::delete_clip,
             commands::toggle_pin_clip,
             commands::assign_clip_board,

@@ -228,6 +228,8 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   const [notes, setNotes] = useState<ClipNote[]>(() => parseClipNotes(clip?.note));
   const notesRef = useRef(notes);
   const noteBoxRef = useRef<HTMLDivElement>(null);
+  const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const copiedFormatTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     notesRef.current = notes;
@@ -245,25 +247,39 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   const [versions, setVersions] = useState<ClipVersion[]>([]);
 
   useEffect(() => {
+    let cancelled = false;
     if (clip && showHistory) {
+      setVersions([]);
       invoke<ClipVersion[]>('get_clip_versions', { clipId: clip.id })
-        .then((res) => setVersions(res))
+        .then((res) => {
+          if (!cancelled) setVersions(Array.isArray(res) ? res : []);
+        })
         .catch((e) => console.error('Failed to load clip versions:', e));
     }
+    return () => {
+      cancelled = true;
+    };
   }, [clip?.id, showHistory]);
 
   useEffect(() => {
+    let cancelled = false;
     if (clip?.content_type === 'image') {
       if (clip.image_base64) {
         setResolvedImageBase64(clip.image_base64);
       } else {
+        setResolvedImageBase64(null);
         invoke<string | null>('get_clip_image', { id: clip.id })
-          .then((b64) => setResolvedImageBase64(b64))
+          .then((b64) => {
+            if (!cancelled) setResolvedImageBase64(b64);
+          })
           .catch(console.error);
       }
     } else {
       setResolvedImageBase64(null);
     }
+    return () => {
+      cancelled = true;
+    };
   }, [clip?.id, clip?.image_base64, clip?.content_type]);
 
   useEffect(() => {
@@ -276,16 +292,26 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
     setIsAddingNote(false);
     setNewNoteText('');
     setEditingNoteId(null);
+    setEditingNoteText('');
     setViewingNote(null);
     setIsOcrLoading(false);
+    setCopied(false);
     setCopiedFormat(null);
+    setVersions([]);
+    if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+    if (copiedFormatTimerRef.current) clearTimeout(copiedFormatTimerRef.current);
   }, [clip]);
+
+  useEffect(() => () => {
+    if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+    if (copiedFormatTimerRef.current) clearTimeout(copiedFormatTimerRef.current);
+  }, []);
 
   const saveNotes = (updatedNotes: ClipNote[]) => {
     if (!clip) return;
     setNotes(updatedNotes);
+    notesRef.current = updatedNotes;
     const serialized = serializeClipNotes(updatedNotes);
-    clip.note = serialized;
     if (onUpdateClipNote) {
       onUpdateClipNote(clip.id, serialized);
     }
@@ -318,7 +344,6 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
 
   const handleDeleteNoteItem = (id: string) => {
     const updated = notes.filter((n) => n.id !== id);
-    setNotes(updated);
     saveNotes(updated);
   };
 
@@ -376,10 +401,11 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
     try {
       await invoke('copy_clip_to_system', {
         text: displayText,
-        imageBase64: clip.content_type === 'image' ? clip.image_base64 : null,
+        imageBase64: clip.content_type === 'image' ? resolvedImageBase64 : null,
       });
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+      copiedTimerRef.current = setTimeout(() => setCopied(false), 2000);
     } catch (e) {
       console.error(e);
     }
@@ -390,7 +416,8 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
       await invoke('copy_clip_to_system', { text: value, imageBase64: null });
       setCopiedFormat(label);
       soundManager.playCopySound(true);
-      setTimeout(() => setCopiedFormat(null), 2000);
+      if (copiedFormatTimerRef.current) clearTimeout(copiedFormatTimerRef.current);
+      copiedFormatTimerRef.current = setTimeout(() => setCopiedFormat(null), 2000);
     } catch (e) {
       console.error(e);
     }
@@ -421,6 +448,19 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
       await onAssignBoard(clip.id, boardId);
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  const handleRestoreVersion = async (version: ClipVersion) => {
+    try {
+      await invoke('update_clip_text', { clipId: clip.id, text: version.text_content });
+      setTransformedText(null);
+      setActiveFilterName(null);
+      setShowHistory(false);
+      soundManager.playCopySound(true);
+      onUpdateClip();
+    } catch (error) {
+      console.error('Failed to restore clip version:', error);
     }
   };
 
@@ -519,10 +559,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
                     <p className="text-xs text-gray-300 font-mono truncate">{ver.text_content}</p>
                   </div>
                   <button
-                    onClick={() => {
-                      setTransformedText(ver.text_content);
-                      soundManager.playCopySound(true);
-                    }}
+                    onClick={() => void handleRestoreVersion(ver)}
                     className="px-2.5 py-1 bg-purple-600 hover:bg-purple-500 text-white font-semibold rounded-lg text-[11px] shrink-0 cursor-pointer shadow"
                   >
                     Restore

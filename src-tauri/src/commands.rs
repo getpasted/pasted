@@ -124,6 +124,16 @@ pub fn update_clip_note(
 }
 
 #[tauri::command]
+pub fn update_clip_text(
+    clip_id: i64,
+    text: String,
+    db: State<'_, Arc<DbState>>,
+) -> Result<(), String> {
+    db.update_clip_text(clip_id, &text)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub fn delete_clip(id: i64, db: State<'_, Arc<DbState>>) -> Result<(), String> {
     db.delete_clip(id).map_err(|e| e.to_string())
 }

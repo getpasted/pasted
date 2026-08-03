@@ -95,6 +95,16 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       return [] as unknown as T;
     case 'get_activity_logs':
       return [] as unknown as T;
+    case 'get_clip_versions':
+      return [] as unknown as T;
+    case 'get_clip_image':
+      return null as unknown as T;
+    case 'update_clip_text': {
+      const clipId = Number(args?.clipId);
+      const clip = mockClips.find((item) => item.id === clipId);
+      if (clip && typeof args?.text === 'string') clip.text_content = args.text;
+      return null as unknown as T;
+    }
     case 'assign_clip_board': {
       const clipId = Number(args?.clipId);
       const boardId = args?.boardId === null ? null : Number(args?.boardId);
