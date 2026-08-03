@@ -88,7 +88,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
     <div
       ref={menuRef}
       style={{ left: `${adjustedX}px`, top: `${adjustedY}px` }}
-      className="fixed z-50 w-52 glass-hud rounded-xl py-1.5 px-1 shadow-2xl border border-gray-700/80 text-xs font-medium text-gray-200 select-none animate-in fade-in zoom-in-95 duration-100"
+      className="theme-menu context-menu fixed w-52 rounded-xl py-1.5 px-1 border text-xs font-medium select-none animate-in fade-in zoom-in-95 duration-100"
     >
       {/* Copy */}
       <button
@@ -96,7 +96,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
           onCopy();
           onClose();
         }}
-        className="w-full flex items-center justify-between px-3 py-1.5 rounded-md hover:bg-blue-600 hover:text-white transition-all duration-100 group"
+        className="theme-menu-item w-full flex items-center justify-between px-3 py-1.5 rounded-md group"
       >
         <div className="flex items-center space-x-2.5">
           <Copy className="w-3.5 h-3.5 text-blue-400 group-hover:text-white transition-colors" />
@@ -105,7 +105,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
         <kbd className="text-[10px] text-gray-400 group-hover:text-gray-200 font-mono">↵</kbd>
       </button>
 
-      <div className="my-1 border-t border-gray-800" />
+      <div className="theme-menu-divider my-1 border-t" />
 
       {/* Bin */}
       {viewPolicy.canAssignBins && <div
@@ -113,7 +113,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
         onMouseEnter={() => setActiveSubmenu('bins')}
         onMouseLeave={() => setActiveSubmenu(null)}
       >
-        <button className="w-full flex items-center justify-between px-3 py-1.5 rounded-md hover:bg-blue-600/30 hover:text-white transition-colors">
+        <button className="theme-menu-item w-full flex items-center justify-between px-3 py-1.5 rounded-md">
           <div className="flex items-center space-x-2.5">
             <FolderPlus className="w-3.5 h-3.5 text-amber-400" />
             <span>Bin</span>
@@ -122,13 +122,13 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
         </button>
 
         {activeSubmenu === 'bins' && (
-          <div className="absolute left-full top-0 ml-1 w-48 glass-hud rounded-xl py-1 px-1 shadow-2xl border border-gray-700/80">
+          <div className="theme-menu absolute left-full top-0 ml-1 w-48 rounded-xl py-1 px-1 border">
             <button
               onClick={() => {
                 onAssignBin(null);
                 onClose();
               }}
-              className="w-full text-left px-3 py-1.5 rounded-md hover:bg-blue-600/30 hover:text-white"
+              className="theme-menu-item w-full text-left px-3 py-1.5 rounded-md"
             >
               – None –
             </button>
@@ -140,7 +140,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
                   onAssignBin(b.id);
                   onClose();
                 }}
-                className="w-full text-left px-3 py-1.5 rounded-md hover:bg-blue-600/30 hover:text-white truncate flex items-center space-x-2"
+                className="theme-menu-item w-full text-left px-3 py-1.5 rounded-md truncate flex items-center space-x-2"
               >
                 <span>{formatEmojiIcon(b.icon)}</span>
                 <span className="truncate">{b.name}</span>
@@ -156,7 +156,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
         onMouseEnter={() => setActiveSubmenu('filters')}
         onMouseLeave={() => setActiveSubmenu(null)}
       >
-        <button className="w-full flex items-center justify-between px-3 py-1.5 rounded-md hover:bg-blue-600/30 hover:text-white transition-colors">
+        <button className="theme-menu-item w-full flex items-center justify-between px-3 py-1.5 rounded-md">
           <div className="flex items-center space-x-2.5">
             <Sliders className="w-3.5 h-3.5 text-cyan-400" />
             <span>Apply Filter...</span>
@@ -175,7 +175,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
         </button>
 
         {activeSubmenu === 'filters' && (
-          <div className="absolute left-full top-0 ml-1 w-56 glass-hud rounded-xl py-1 px-1 shadow-2xl border border-gray-700/80 max-h-64 overflow-y-auto space-y-1">
+          <div className="theme-menu absolute left-full top-0 ml-1 w-56 rounded-xl py-1 px-1 border max-h-64 overflow-y-auto space-y-1">
             {(() => {
               const { recommendedFilterIds, detectedTypes } = detectSmartFilterRecommendations(clip.text_content || '', filters);
               const recommended = filters.filter((f) => recommendedFilterIds.has(f.id));
@@ -184,7 +184,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
               return (
                 <>
                   {recommended.length > 0 && (
-                    <div className="pb-1 border-b border-gray-800/80">
+                    <div className="theme-menu-divider pb-1 border-b">
                       <div className="px-2 py-1 text-[9px] font-semibold text-cyan-400 uppercase tracking-wider flex items-center space-x-1">
                         <Sparkles className="w-3 h-3 text-cyan-400" />
                         <span>Recommended for {detectedTypes.join(', ')}</span>
@@ -196,7 +196,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
                             onApplyFilter(f);
                             onClose();
                           }}
-                          className="w-full text-left px-2.5 py-1.5 rounded-md hover:bg-cyan-600/30 hover:text-white flex items-center justify-between text-xs font-medium text-cyan-200"
+                          className="theme-menu-item smart-menu-item w-full text-left px-2.5 py-1.5 rounded-md flex items-center justify-between text-xs font-medium"
                         >
                           <span className="truncate">{f.name}</span>
                           <Sparkles className="w-3 h-3 text-cyan-400 shrink-0 ml-1" />
@@ -212,7 +212,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
                         onApplyFilter(f);
                         onClose();
                       }}
-                      className="w-full text-left px-2.5 py-1.5 rounded-md hover:bg-blue-600/30 hover:text-white text-xs truncate text-gray-300"
+                      className="theme-menu-item w-full text-left px-2.5 py-1.5 rounded-md text-xs truncate"
                     >
                       {f.name}
                     </button>
@@ -224,7 +224,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
         )}
       </div>}
 
-      <div className="my-1 border-t border-gray-800" />
+      <div className="theme-menu-divider my-1 border-t" />
 
       {/* Add / Edit Note */}
       {viewPolicy.canEditNotes && <button
@@ -232,7 +232,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
           onAddNote();
           onClose();
         }}
-        className="w-full flex items-center space-x-2.5 px-3 py-1.5 rounded-md hover:bg-blue-600/30 hover:text-white transition-colors"
+        className="theme-menu-item w-full flex items-center space-x-2.5 px-3 py-1.5 rounded-md"
       >
         <StickyNote className="w-3.5 h-3.5 text-amber-400" />
         <span>{clip.note ? 'Edit Note' : 'Add Note'}</span>
@@ -258,7 +258,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
           onAddToStack();
           onClose();
         }}
-        className="w-full flex items-center space-x-2.5 px-3 py-1.5 rounded-md hover:bg-blue-600/30 hover:text-white transition-colors"
+        className="theme-menu-item w-full flex items-center space-x-2.5 px-3 py-1.5 rounded-md"
       >
         <ListPlus className="w-3.5 h-3.5 text-purple-400" />
         <span>Add to Queue</span>
@@ -270,7 +270,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
           onTogglePin();
           onClose();
         }}
-        className="w-full flex items-center space-x-2.5 px-3 py-1.5 rounded-md hover:bg-blue-600/30 hover:text-white transition-colors"
+        className="theme-menu-item w-full flex items-center space-x-2.5 px-3 py-1.5 rounded-md"
       >
         {clip.is_pinned ? (
           <PinOff className="w-3.5 h-3.5 text-gray-400" />
@@ -295,7 +295,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
             onToggleProtected();
             onClose();
           }}
-          className="w-full flex items-center space-x-2.5 px-3 py-1.5 rounded-md hover:bg-blue-600/30 hover:text-white transition-colors"
+          className="theme-menu-item w-full flex items-center space-x-2.5 px-3 py-1.5 rounded-md"
         >
           {clip.is_protected ? (
             <ShieldOff className="w-3.5 h-3.5 text-gray-400" />
@@ -306,7 +306,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
         </button>
       )}
 
-      <div className="my-1 border-t border-gray-800" />
+      <div className="theme-menu-divider my-1 border-t" />
 
       {viewPolicy.state === 'trash' ? (
         <>

@@ -98,7 +98,7 @@ export const OperationsManager: React.FC<OperationsManagerProps> = ({
 
           <button
             onClick={onOpenCreateModal || handleOpenCreate}
-            className="flex items-center space-x-2 px-4 py-2 bg-white hover:bg-gray-200 text-black text-xs font-bold rounded-xl shadow-lg active:scale-95 transition-all"
+            className="flex items-center space-x-2 px-4 py-2 bg-white hover:bg-gray-200 text-black text-xs font-bold rounded-xl shadow-lg active:scale-95 transition-[background-color,transform]"
           >
             <Sparkles className="w-4 h-4 text-cyan-600" />
             <span>+ New Operation</span>
@@ -107,9 +107,9 @@ export const OperationsManager: React.FC<OperationsManagerProps> = ({
       )}
 
       {/* Sticky Sandbox */}
-      <div className="sticky-filter-sandbox filter-sandbox-card sticky top-0 z-20 p-4 rounded-xl border space-y-3 shadow-xl backdrop-blur-xl">
+      <div className="sticky-filter-sandbox filter-sandbox-card sticky top-0 p-4 rounded-xl border space-y-3 shadow-xl backdrop-blur-xl">
         <div className="flex items-center justify-between">
-          <h3 className="text-xs font-semibold theme-text-muted uppercase tracking-wider flex items-center space-x-1.5 text-amber-400">
+          <h3 className="filter-sandbox-heading operations text-xs font-semibold uppercase tracking-wider flex items-center space-x-1.5">
             <Play className="w-3.5 h-3.5" />
             <span>Operation Sandbox</span>
           </h3>
@@ -125,8 +125,8 @@ export const OperationsManager: React.FC<OperationsManagerProps> = ({
             />
           </div>
           <div>
-            <label className="block theme-text-muted mb-1 font-sans font-semibold text-emerald-400">Output Preview:</label>
-            <div className="w-full h-24 theme-input border border-gray-700/80 rounded-lg p-2.5 overflow-y-auto whitespace-pre-wrap text-emerald-300">
+            <label className="filter-sandbox-output-label block mb-1 font-sans font-semibold">Output Preview:</label>
+            <div className="filter-sandbox-output w-full h-24 theme-input border rounded-lg p-2.5 overflow-y-auto whitespace-pre-wrap">
               {testResult || 'Click any operation card below to test...'}
             </div>
           </div>
@@ -137,7 +137,7 @@ export const OperationsManager: React.FC<OperationsManagerProps> = ({
       <div className="flex items-center space-x-2 overflow-x-auto pb-2 scrollbar-none">
         <button
           onClick={() => setActiveCategory('All')}
-          className={`ui-pill px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-all ${
+          className={`ui-pill px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-colors ${
             activeCategory === 'All'
               ? 'bg-amber-600 text-white shadow'
               : 'bg-[#212121] text-gray-400 hover:text-white hover:bg-gray-800'
@@ -151,7 +151,7 @@ export const OperationsManager: React.FC<OperationsManagerProps> = ({
             <button
               key={cat}
               onClick={() => setActiveCategory(cat)}
-              className={`ui-pill px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-all ${
+              className={`ui-pill px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-colors ${
                 activeCategory === cat
                   ? 'bg-amber-600 text-white shadow'
                   : 'bg-[#212121] text-gray-400 hover:text-white hover:bg-gray-800'
@@ -170,7 +170,7 @@ export const OperationsManager: React.FC<OperationsManagerProps> = ({
             <div
               key={op.id}
               onClick={() => handleTestOperation(op.op_type, op.config)}
-              className="group p-3.5 theme-card-idle bg-[#212121] rounded-xl border border-gray-700/80 hover:border-cyan-500 cursor-pointer transition-all flex items-center justify-between shadow-md"
+              className="group p-3.5 theme-card-idle bg-[#212121] rounded-xl border border-gray-700/80 hover:border-cyan-500 cursor-pointer transition-[background-color,border-color,box-shadow,transform] flex items-center justify-between shadow-md"
             >
               <div className="flex items-center space-x-3 truncate pr-2">
                 <div className="p-2 rounded-lg theme-badge border shrink-0">

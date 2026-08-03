@@ -28,7 +28,7 @@ export function ClipNoteViewer({ note, sourceApp, onClose }: ClipNoteViewerProps
   };
 
   return (
-    <div className="clip-note-viewer-overlay fixed inset-0 z-[99999] backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-150" role="dialog" aria-modal="true" aria-labelledby="clip-note-viewer-title" onMouseDown={(event) => {
+    <div className="clip-note-viewer-overlay fixed inset-0 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-150" role="dialog" aria-modal="true" aria-labelledby="clip-note-viewer-title" onMouseDown={(event) => {
       if (event.target === event.currentTarget) onClose();
     }}>
       <div className="clip-note-viewer-card border rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">

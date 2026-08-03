@@ -14,7 +14,7 @@ export function BinContextMenu({ menu, onEdit, onDelete }: BinContextMenuProps) 
         top: Math.min(menu.y, window.innerHeight - 100),
         left: Math.min(menu.x, window.innerWidth - 180),
       }}
-      className="bin-context-menu fixed z-[9999] min-w-[170px] glass-hud rounded-xl p-1.5 shadow-2xl text-xs font-medium space-y-0.5 animate-in fade-in zoom-in-95 duration-100"
+      className="bin-context-menu theme-menu fixed min-w-[170px] rounded-xl border p-1.5 text-xs font-medium space-y-0.5 animate-in fade-in zoom-in-95 duration-100"
       onMouseDown={(event) => event.stopPropagation()}
       onClick={(event) => event.stopPropagation()}
     >

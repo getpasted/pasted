@@ -13,6 +13,7 @@ import {
   Pause,
   Play,
 } from 'lucide-react';
+import { ToolPageHeader } from './ToolPageHeader';
 
 export interface ActivityLog {
   id: number;
@@ -171,16 +172,11 @@ export const ActivityLogView: React.FC = () => {
 
   return (
     <div className="tools-page activity-page flex-1 font-sans h-screen flex flex-col overflow-hidden">
-      {/* Header Bar */}
-      <div className="theme-toolbar h-[60px] border-b backdrop-blur-md px-6 flex items-center justify-between shrink-0 no-drag">
-        <div className="flex items-center space-x-2.5">
-          <Activity className="w-5 h-5 text-cyan-400" />
-          <h2 className="theme-title text-sm font-bold uppercase tracking-wider">
-            Activity Log
-          </h2>
-        </div>
-
-        <div className="flex items-center space-x-2.5">
+      <ToolPageHeader
+        icon={<Activity className="w-4 h-4" />}
+        title="Activity Log"
+        actions={(
+          <div className="flex items-center space-x-2.5">
           {/* Event Type Filter Selector */}
           <select
             value={selectedTypeFilter}
@@ -211,13 +207,14 @@ export const ActivityLogView: React.FC = () => {
           <button
             onClick={handleClearLogs}
             disabled={logs.length === 0}
-            className="theme-secondary-button flex items-center space-x-1.5 px-3 py-1.5 disabled:opacity-40 border rounded-xl text-xs font-semibold transition-all cursor-pointer"
+            className="theme-secondary-button flex items-center space-x-1.5 px-3 py-1.5 disabled:opacity-40 border rounded-xl text-xs font-semibold transition-[background-color,border-color,color,opacity] cursor-pointer"
           >
             <Trash2 className="w-3.5 h-3.5" />
             <span>Clear Log</span>
           </button>
-        </div>
-      </div>
+          </div>
+        )}
+      />
 
       {/* Timeline Content List */}
       <div className="flex-1 overflow-y-auto p-6 space-y-3">

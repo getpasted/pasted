@@ -261,12 +261,12 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
 
   if (!clip) {
     return (
-      <div className="flex-1 col-preview h-screen flex flex-col items-center justify-center text-gray-500 p-8 select-none border-l border-[#2b2b2b]">
-        <div className="w-16 h-16 rounded-2xl bg-[#181818] border border-gray-700/60 flex items-center justify-center mb-4 shadow-xl">
-          <FileText className="w-8 h-8 text-gray-400" />
+      <div className="clip-preview-empty flex-1 col-preview h-screen flex flex-col items-center justify-center p-8 select-none">
+        <div className="clip-preview-empty-icon theme-surface w-16 h-16 rounded-2xl border flex items-center justify-center mb-4 shadow-xl">
+          <FileText className="w-8 h-8" />
         </div>
-        <p className="text-sm font-medium text-gray-300">No Clip Selected</p>
-        <p className="text-xs text-gray-500 mt-1 max-w-xs text-center">
+        <p className="theme-text-main text-sm font-medium">No Clip Selected</p>
+        <p className="theme-text-muted text-xs mt-1 max-w-xs text-center">
           Select an item from history or right-click to copy, filter, add notes, or organize.
         </p>
       </div>
@@ -356,17 +356,17 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   const lineCount = displayText ? displayText.split('\n').length : 0;
 
   return (
-    <div className="flex-1 col-preview h-screen flex flex-col border-l border-[#2b2b2b] overflow-hidden">
+    <div className="flex-1 col-preview h-screen flex flex-col overflow-hidden">
       {/* Finder Top Header Bar */}
       <div
         onMouseDown={startWindowDrag}
-        className="col-preview-header h-[60px] border-b border-[#2b2b2b] px-4 flex items-center justify-between cursor-default titlebar-drag-handle shrink-0"
+        className="col-preview-header h-[60px] px-4 flex items-center justify-between cursor-default titlebar-drag-handle shrink-0"
       >
         <div className="flex items-center space-x-3 titlebar-drag-handle">
-          <span className="clip-type-badge text-xs font-semibold px-2.5 py-1 rounded-md bg-gray-800 text-gray-200 border border-gray-700 capitalize titlebar-drag-handle">
+          <span className="clip-type-badge theme-badge text-xs font-semibold px-2.5 py-1 rounded-md border capitalize titlebar-drag-handle">
             {clip.content_type}
           </span>
-          <span className="text-xs text-gray-300 font-medium truncate max-w-[200px] titlebar-drag-handle">
+          <span className="theme-text-main text-xs font-medium truncate max-w-[200px] titlebar-drag-handle">
             {clip.source_app}
           </span>
         </div>
@@ -374,7 +374,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
         <div className="flex items-center space-x-2 titlebar-no-drag">
           <button
             onClick={handleCopy}
-            className="copy-clip-main-btn flex items-center space-x-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold shadow-md active:scale-95 transition-all"
+            className="copy-clip-main-btn flex items-center space-x-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold shadow-md active:scale-95 transition-[background-color,border-color,color,transform]"
           >
             {copied ? (
               <>
@@ -391,41 +391,13 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
 
           <button
             onClick={() => onDeleteClip(clip.id)}
-            className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-gray-800 hover:scale-110 active:scale-95 rounded-lg transition-all"
+            className="preview-delete-btn p-1.5 hover:scale-110 active:scale-95 rounded-lg transition-[background-color,color,transform]"
             title={viewPolicy.state === 'trash' ? 'Delete Permanently' : 'Delete Clip'}
           >
             <Trash2 className="w-4 h-4" />
           </button>
         </div>
       </div>
-
-      {/* Smart Recommended Actions Bar */}
-      {(() => {
-        const currentText = transformedText !== null ? transformedText : (clip.text_content || '');
-        const { detectedTypes, recommendedFilters } = detectSmartFilterRecommendations(currentText, filters);
-        if (!viewPolicy.canApplyFilters || recommendedFilters.length === 0) return null;
-
-        return (
-          <div className="px-4 py-2 bg-cyan-950/30 border-b border-cyan-800/40 flex items-center justify-between text-xs space-x-2 overflow-x-auto">
-            <div className="flex items-center space-x-1.5 shrink-0 text-cyan-400 font-semibold text-[11px]">
-              <Sparkles className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
-              <span>Smart Actions ({detectedTypes.join(', ')}):</span>
-            </div>
-            <div className="flex items-center space-x-1.5 overflow-x-auto scrollbar-none py-0.5">
-              {recommendedFilters.map((f) => (
-                <button
-                  key={f.id}
-                  onClick={() => handleApplyFilter(f)}
-                  className="px-2 py-0.5 rounded-md bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-200 border border-cyan-500/40 text-[11px] font-medium transition-all flex items-center space-x-1 whitespace-nowrap shadow-sm hover:scale-105"
-                  title={`Apply ${f.name}`}
-                >
-                  <span>{f.name}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        );
-      })()}
 
       {/* Quick Bin Assignment & Note Section */}
       {viewPolicy.canOrganize ? (
@@ -439,7 +411,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
               const val = e.target.value;
               handleAssignBin(val ? Number(val) : null);
             }}
-            className="bg-[#181818] border border-gray-700 text-gray-200 text-xs rounded-md px-2 py-1 focus:outline-none focus:border-gray-500"
+            className="theme-input form-field-valid border text-xs rounded-md px-2 py-1 focus:outline-none"
           >
             <option value="">– None –</option>
             {bins.filter((b) => b.bin_type !== 'tag' && !b.smart_rule).map((b) => (
@@ -459,7 +431,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
               }
               setIsAddingNote(!isAddingNote);
             }}
-            className="add-note-btn flex items-center space-x-1.5 px-3 py-1 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:bg-amber-500/30 text-xs font-semibold transition-all cursor-pointer"
+            className="add-note-btn flex items-center space-x-1.5 px-3 py-1 rounded-md border text-xs font-semibold transition-colors cursor-pointer"
           >
             <StickyNote className="w-3.5 h-3.5" />
             <span>+ Add Note</span>
@@ -468,8 +440,8 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
       </div>
       ) : (
         <div className="preview-bin-bar px-4 py-2 flex items-center justify-between text-xs border-b" role="note">
-          <div className="flex items-center space-x-2 text-gray-400">
-            <Trash2 className="w-3.5 h-3.5 text-red-400" />
+          <div className="preview-readonly-notice flex items-center space-x-2">
+            <Trash2 className="w-3.5 h-3.5" />
             <span>Restore this clip to organize it or edit its notes.</span>
           </div>
         </div>
@@ -477,8 +449,8 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
 
       {/* Multi-Note Container (Inline Input Row, Stable Animated Reordering, Non-Selectable) */}
       {(notes.length > 0 || isAddingNote) && (
-        <div className="px-4 py-2.5 bg-amber-950/20 border-b border-amber-500/20 space-y-2 note-container select-none">
-          <div className="note-header-text flex items-center space-x-1.5 text-[11px] font-semibold text-amber-400 uppercase tracking-wider select-none">
+        <div className="px-4 py-2.5 border-b space-y-2 note-container select-none">
+          <div className="note-header-text flex items-center space-x-1.5 text-[11px] font-semibold uppercase tracking-wider select-none">
             <StickyNote className="w-3.5 h-3.5" />
             <span>Notes ({notes.length})</span>
           </div>
@@ -508,13 +480,13 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
 
             {/* Inline New Note Card */}
             {isAddingNote && (
-              <div className="note-input-row p-3 rounded-lg border border-amber-500/25 bg-[#221f17] flex flex-col space-y-2 animate-in fade-in duration-100">
+              <div className="note-input-row p-3 rounded-lg border flex flex-col space-y-2 animate-in fade-in duration-100">
                 <textarea
                   rows={3}
                   placeholder={placeholderText}
                   value={newNoteText}
                   onChange={(e) => setNewNoteText(e.target.value)}
-                  className="w-full bg-transparent border-none outline-none focus:outline-none focus:ring-0 text-xs text-amber-100 placeholder-amber-400/50 resize-y min-h-[60px] note-input font-sans leading-relaxed"
+                  className="w-full bg-transparent border-none outline-none focus:outline-none focus:ring-0 text-xs resize-y min-h-[60px] note-input font-sans leading-relaxed"
                   autoFocus
                   onKeyDown={(e) => {
                     if (e.key === 'Escape') {
@@ -530,14 +502,14 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
                       setIsAddingNote(false);
                       setNewNoteText('');
                     }}
-                    className="px-3 py-1 bg-[#2c2921] hover:bg-[#3a362c] text-gray-300 rounded-md text-xs font-medium transition-colors cursor-pointer"
+                    className="note-cancel-button px-3 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     type="button"
                     onClick={handleCreateNote}
-                    className="flex items-center space-x-1 px-3 py-1 bg-amber-600 hover:bg-amber-500 text-white rounded-md text-xs font-semibold shadow cursor-pointer"
+                    className="note-save-button flex items-center space-x-1 px-3 py-1 rounded-md text-xs font-semibold shadow cursor-pointer"
                   >
                     <Check className="w-3.5 h-3.5" />
                     <span>Save</span>
@@ -550,16 +522,16 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
       )}
 
       {/* Main Preview Workspace */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 font-mono text-xs">
+      <div className="clip-preview-workspace flex-1 overflow-y-auto p-4 space-y-4 font-mono text-xs">
         {activeFilterName && (
-          <div className="flex items-center justify-between px-3 py-2 bg-indigo-500/20 border border-indigo-500/40 rounded-lg text-indigo-300">
+          <div className="active-filter-banner flex items-center justify-between px-3 py-2 border rounded-lg">
             <div className="flex items-center space-x-2">
-              <Sliders className="w-4 h-4 text-cyan-400" />
+              <Sliders className="w-4 h-4" />
               <span>Filtered via: <strong>{activeFilterName}</strong></span>
             </div>
             <button
               onClick={handleResetTransform}
-              className="text-xs underline hover:text-white"
+              className="active-filter-reset text-xs underline"
             >
               Reset
             </button>
@@ -581,13 +553,41 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
 
       </div>
 
+      {/* Contextual filter suggestions live beside the controls they affect. */}
+      {(() => {
+        const currentText = transformedText !== null ? transformedText : (clip.text_content || '');
+        const { detectedTypes, recommendedFilters } = detectSmartFilterRecommendations(currentText, filters);
+        if (!viewPolicy.canApplyFilters || clip.content_type === 'image' || recommendedFilters.length === 0) return null;
+
+        return (
+          <div className="smart-actions-bar px-4 py-2 flex items-center justify-between text-xs space-x-2 overflow-x-auto">
+            <div className="smart-actions-heading flex items-center space-x-1.5 shrink-0 font-semibold text-[11px]">
+              <Sparkles className="w-3.5 h-3.5 animate-pulse" />
+              <span>Smart Actions ({detectedTypes.join(', ')}):</span>
+            </div>
+            <div className="flex items-center space-x-1.5 overflow-x-auto scrollbar-none py-0.5">
+              {recommendedFilters.map((f) => (
+                <button
+                  key={f.id}
+                  onClick={() => handleApplyFilter(f)}
+                  className="smart-action-button px-2 py-0.5 rounded-md border text-[11px] font-medium flex items-center space-x-1 whitespace-nowrap shadow-sm"
+                  title={`Apply ${f.name}`}
+                >
+                  <span>{f.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Sleek Filter Pipeline Selector Bar */}
       {viewPolicy.canApplyFilters && clip.content_type !== 'image' && filters.length > 0 && (
-        <div className="px-4 py-2.5 bg-[#171717] border-t border-[#2b2b2b] select-none">
+        <div className="preview-filter-bar px-4 py-2.5 border-t select-none">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center space-x-2 shrink-0">
-              <Sliders className="w-4 h-4 text-cyan-400" />
-              <span className="text-xs font-semibold text-gray-300">Apply Filter:</span>
+              <Sliders className="preview-filter-accent w-4 h-4" />
+              <span className="theme-text-main text-xs font-semibold">Apply Filter:</span>
             </div>
 
             {/* Dropdown Selector */}
@@ -603,10 +603,10 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
                     if (found) handleApplyFilter(found);
                   }
                 }}
-                className={`w-full bg-[#181818] border text-xs rounded-xl px-3 py-1.5 focus:outline-none transition-all cursor-pointer font-medium ${
+                className={`theme-input w-full border text-xs rounded-xl px-3 py-1.5 focus:outline-none transition-colors cursor-pointer font-medium ${
                   activeFilterName
-                    ? 'border-cyan-500 text-cyan-300 bg-cyan-950/40 ring-1 ring-cyan-500/40'
-                    : 'border-gray-700/80 text-gray-300 hover:border-gray-600'
+                    ? 'preview-filter-select-active'
+                    : 'form-field-valid'
                 }`}
               >
                 <option value="">⚡ Raw Original Text (No Filter)</option>
@@ -622,7 +622,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
             {activeFilterName && (
               <button
                 onClick={handleResetTransform}
-                className="flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-cyan-950/60 hover:bg-cyan-900/80 border border-cyan-700/60 text-cyan-300 text-xs font-semibold transition-all shrink-0"
+                className="preview-filter-reset flex items-center space-x-1 px-2.5 py-1 rounded-lg border text-xs font-semibold transition-colors shrink-0"
                 title="Reset to raw clip text"
               >
                 <span>Reset</span>
@@ -643,19 +643,19 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
       )}
 
       {/* Stats Footer */}
-      <div className="clip-preview-footer px-4 py-2.5 bg-[#171717] border-t border-[#2b2b2b] flex text-[11px] text-gray-500">
+      <div className="clip-preview-footer px-4 py-2.5 border-t flex text-[11px]">
         <div className="clip-preview-footer-stats">
           <span className="clip-preview-footer-stat">
             <span>Chars:</span>
-            <strong className="text-gray-300">{charCount}</strong>
+            <strong>{charCount}</strong>
           </span>
           <span className="clip-preview-footer-stat">
             <span>Words:</span>
-            <strong className="text-gray-300">{wordCount}</strong>
+            <strong>{wordCount}</strong>
           </span>
           <span className="clip-preview-footer-stat">
             <span>Lines:</span>
-            <strong className="text-gray-300">{lineCount}</strong>
+            <strong>{lineCount}</strong>
           </span>
           <span className="clip-preview-footer-stat">
             <span>Revisions:</span>

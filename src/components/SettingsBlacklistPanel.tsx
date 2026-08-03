@@ -141,7 +141,7 @@ export function SettingsBlacklistPanel({
           <button
             type="submit"
             disabled={!appName.trim()}
-            className="flex items-center space-x-1 px-3.5 py-1.5 bg-white hover:bg-gray-200 text-black font-semibold rounded-lg transition-all text-xs shadow-md active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex items-center space-x-1 px-3.5 py-1.5 bg-white hover:bg-gray-200 text-black font-semibold rounded-lg transition-[background-color,opacity,transform] text-xs shadow-md active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
             title="Add App to Blacklist"
           >
             <Plus className="w-4 h-4" />

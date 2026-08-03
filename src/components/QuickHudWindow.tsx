@@ -122,28 +122,28 @@ export const QuickHudWindow: React.FC = () => {
 
   return (
     <div className="w-screen h-screen p-0 bg-transparent flex flex-col font-sans select-none overflow-hidden no-drag relative">
-      <div className="flex-1 bg-[#171717]/95 backdrop-blur-2xl rounded-xl border border-gray-700/80 flex flex-col overflow-hidden no-drag z-10 shadow-none">
+      <div className="quick-hud-shell flex-1 rounded-xl border flex flex-col overflow-hidden no-drag shadow-none">
         {/* Header Bar */}
-        <div className="p-3 border-b border-gray-800 flex items-center space-x-2.5 bg-[#212121]/60 no-drag">
-          <Clipboard className="w-4 h-4 text-cyan-400 shrink-0" />
+        <div className="quick-hud-header p-3 border-b flex items-center space-x-2.5 no-drag">
+          <Clipboard className="quick-hud-accent w-4 h-4 shrink-0" />
           <div className="relative flex-1">
-            <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-gray-400" />
+            <Search className="theme-text-muted w-3.5 h-3.5 absolute left-2.5 top-2.5" />
             <input
               ref={inputRef}
               type="text"
               placeholder="Search or press 1-9 to paste..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full bg-[#141414] border border-gray-700/60 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500 font-mono no-drag"
+              className="theme-input form-field-valid w-full border rounded-xl pl-8 pr-3 py-1.5 text-xs focus:outline-none font-mono no-drag"
             />
           </div>
-          <span className="text-[10px] font-mono px-2 py-1 rounded bg-cyan-950/80 border border-cyan-800/60 text-cyan-300 font-bold flex items-center space-x-1 shrink-0">
+          <span className="quick-hud-shortcut text-[10px] font-mono px-2 py-1 rounded border font-bold flex items-center space-x-1 shrink-0">
             <Command className="w-2.5 h-2.5" />
             <span>Shift V</span>
           </span>
           <button
             onClick={() => invoke('toggle_hud_window')}
-            className="p-1 rounded-md hover:bg-gray-800 text-gray-400 hover:text-white transition-colors shrink-0 no-drag"
+            className="theme-icon-button p-1 rounded-md border border-transparent transition-colors shrink-0 no-drag"
             title="Close HUD (Esc)"
           >
             <X className="w-4 h-4" />
@@ -153,9 +153,9 @@ export const QuickHudWindow: React.FC = () => {
         {/* Recent Clips 1..9 */}
         <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
           {clips.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-48 text-center text-gray-500 space-y-1.5 p-4">
-              <Sparkles className="w-6 h-6 text-gray-600" />
-              <p className="text-xs font-semibold text-gray-400">No matching clips</p>
+            <div className="theme-text-subtle flex flex-col items-center justify-center h-48 text-center space-y-1.5 p-4">
+              <Sparkles className="w-6 h-6" />
+              <p className="theme-text-muted text-xs font-semibold">No matching clips</p>
             </div>
           ) : (
             clips.map((clip, index) => {
@@ -164,19 +164,11 @@ export const QuickHudWindow: React.FC = () => {
                 <div
                   key={clip.id}
                   onClick={() => invoke('paste_clip_by_id', { clipId: clip.id })}
-                  className={`p-2.5 rounded-xl border transition-colors duration-75 cursor-pointer flex items-center justify-between space-x-3 ${
-                    isSel
-                      ? 'bg-cyan-950/70 border-cyan-500 text-white shadow-md'
-                      : 'bg-[#212121]/80 border-gray-800/80 text-gray-300 hover:bg-[#2a2a2a]'
-                  }`}
+                  className={`quick-hud-row p-2.5 rounded-xl border cursor-pointer flex items-center justify-between space-x-3 ${isSel ? 'is-selected shadow-md' : ''}`}
                 >
                   <div className="flex items-center space-x-2.5 min-w-0 flex-1">
                     <span
-                      className={`w-5 h-5 rounded-md flex items-center justify-center font-mono text-[11px] font-extrabold shrink-0 ${
-                        isSel
-                          ? 'bg-cyan-500 text-black shadow'
-                          : 'bg-gray-800 text-gray-300 border border-gray-700'
-                      }`}
+                      className={`quick-hud-index w-5 h-5 rounded-md flex items-center justify-center font-mono text-[11px] font-extrabold shrink-0 border ${isSel ? 'is-selected shadow' : ''}`}
                     >
                       {index + 1}
                     </span>
@@ -189,7 +181,7 @@ export const QuickHudWindow: React.FC = () => {
                             alt="Clip Preview"
                             className="h-8 w-12 object-cover rounded border border-gray-700"
                           />
-                          <span className="text-xs font-mono text-gray-400 truncate">
+                          <span className="theme-text-muted text-xs font-mono truncate">
                             {clip.text_content ? `[OCR] ${clip.text_content}` : 'Screenshot Image'}
                           </span>
                         </div>
@@ -207,7 +199,7 @@ export const QuickHudWindow: React.FC = () => {
         </div>
 
         {/* Bottom Quick Help Bar */}
-        <div className="px-3 py-2 bg-[#121212] border-t border-gray-800/80 flex items-center justify-between text-[10px] text-gray-500 font-mono">
+        <div className="quick-hud-footer px-3 py-2 border-t flex items-center justify-between text-[10px] font-mono">
           <span>Press 1-9 or Enter to paste</span>
           <span>Esc to exit</span>
         </div>

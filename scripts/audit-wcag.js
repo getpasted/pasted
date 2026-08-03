@@ -1,6 +1,6 @@
 /**
  * WCAG 2.1 Level AA Automated Contrast Audit Tool for Pasted
- * Verifies color contrast ratios for Dark, Cool, and Warm themes.
+ * Verifies color contrast ratios for Dark, Cool, Warm, Vampire, Flux, and 808 themes.
  */
 
 function hexToRgb(hex) {
@@ -49,6 +49,24 @@ const testPairs = [
   { name: 'Warm - Muted Text vs Surface', fg: '#66584b', bg: '#fffdf8', minRatio: 4.5, scheme: 'Warm' },
   { name: 'Warm - Accent Button Text vs BG', fg: '#ffffff', bg: '#9a5b31', minRatio: 4.5, scheme: 'Warm' },
   { name: 'Warm - Selected Text vs BG', fg: '#1f170f', bg: '#e3d5c2', minRatio: 4.5, scheme: 'Warm' },
+
+  // VAMPIRE SCHEME PAIRS
+  { name: 'Vampire - Primary Text vs App BG', fg: '#eee5f2', bg: '#19131f', minRatio: 4.5, scheme: 'Vampire' },
+  { name: 'Vampire - Muted Text vs Surface', fg: '#baabc2', bg: '#211827', minRatio: 4.5, scheme: 'Vampire' },
+  { name: 'Vampire - Accent Button Text vs BG', fg: '#ffffff', bg: '#a94168', minRatio: 4.5, scheme: 'Vampire' },
+  { name: 'Vampire - Selected Text vs BG', fg: '#ffffff', bg: '#403049', minRatio: 4.5, scheme: 'Vampire' },
+
+  // FLUX SCHEME PAIRS
+  { name: 'Flux - Primary Text vs App BG', fg: '#dff4f6', bg: '#07151d', minRatio: 4.5, scheme: 'Flux' },
+  { name: 'Flux - Muted Text vs Surface', fg: '#9abdc2', bg: '#0c222b', minRatio: 4.5, scheme: 'Flux' },
+  { name: 'Flux - Accent Button Text vs BG', fg: '#061419', bg: '#45d7e5', minRatio: 4.5, scheme: 'Flux' },
+  { name: 'Flux - Selected Text vs BG', fg: '#ffffff', bg: '#1a4350', minRatio: 4.5, scheme: 'Flux' },
+
+  // 808 SCHEME PAIRS
+  { name: '808 - Primary Text vs App BG', fg: '#f1eadf', bg: '#151515', minRatio: 4.5, scheme: '808' },
+  { name: '808 - Muted Text vs Surface', fg: '#bdb0a0', bg: '#1d1b19', minRatio: 4.5, scheme: '808' },
+  { name: '808 - Accent Button Text vs BG', fg: '#211207', bg: '#ff8a24', minRatio: 4.5, scheme: '808' },
+  { name: '808 - Selected Text vs BG', fg: '#ffffff', bg: '#423a31', minRatio: 4.5, scheme: '808' },
 
   // DARK SCHEME PAIRS
   { name: 'Dark Mode - Copy Clip Button Text vs BG', fg: '#000000', bg: '#ffffff', minRatio: 4.5, scheme: 'Dark' },

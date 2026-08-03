@@ -14,6 +14,7 @@ import {
   Palette,
   Calendar,
 } from 'lucide-react';
+import { ToolPageHeader } from './ToolPageHeader';
 
 interface AppStat {
   name: string;
@@ -66,19 +67,14 @@ export const AnalyticsView: React.FC = () => {
   };
 
   return (
-    <div className="tools-page analytics-page flex-1 h-screen p-6 overflow-y-auto font-sans select-none">
-      {/* Header */}
-      <div className="theme-divider flex items-center justify-between pb-6 border-b mb-6">
-        <div>
-          <h1 className="theme-title text-xl font-bold flex items-center space-x-2">
-            <BarChart3 className="w-5 h-5 text-cyan-400" />
-            <span>Analytics & Insights</span>
-          </h1>
-          <p className="theme-text-muted text-xs mt-1">
-            Telemetry, app source breakdowns, and clipboard storage efficiency metrics
-          </p>
-        </div>
-      </div>
+    <div className="tools-page analytics-page flex-1 h-screen overflow-hidden font-sans select-none flex flex-col">
+      <ToolPageHeader
+        icon={<BarChart3 className="w-4 h-4" />}
+        title="Analytics & Insights"
+        description="Clipboard trends, sources, and storage efficiency"
+      />
+
+      <div className="flex-1 overflow-y-auto p-6">
 
       {/* Top Stat Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
@@ -141,7 +137,7 @@ export const AnalyticsView: React.FC = () => {
                     </div>
                     <div className="theme-track w-full h-2 rounded-full overflow-hidden">
                       <div
-                        className="h-full bg-cyan-500/80 rounded-full transition-all duration-500"
+                        className="h-full bg-cyan-500/80 rounded-full transition-[width] duration-500"
                         style={{ width: `${pct}%` }}
                       />
                     </div>
@@ -226,6 +222,7 @@ export const AnalyticsView: React.FC = () => {
             })
           )}
         </div>
+      </div>
       </div>
     </div>
   );

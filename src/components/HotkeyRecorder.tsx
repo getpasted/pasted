@@ -115,7 +115,7 @@ export const HotkeyRecorder: React.FC<HotkeyRecorderProps> = ({
   return (
     <div className="flex items-center font-sans select-none">
       <div
-        className={`h-7 rounded-lg text-xs font-mono font-semibold border box-border transition-all flex items-center shrink-0 ${
+        className={`h-7 rounded-lg text-xs font-mono font-semibold border box-border transition-[background-color,border-color,color,box-shadow,width] flex items-center shrink-0 ${
           isRecording
             ? 'px-2.5 bg-cyan-500/20 border-cyan-500 text-cyan-300 animate-pulse'
             : value

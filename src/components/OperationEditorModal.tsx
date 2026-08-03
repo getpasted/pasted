@@ -151,10 +151,10 @@ export const OperationEditorModal: React.FC<OperationEditorModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[99999] bg-black/65 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in duration-150">
-      <div className="filter-editor-card w-full max-w-2xl max-h-[90vh] bg-[#212121] border border-gray-700/80 rounded-2xl shadow-2xl flex flex-col overflow-hidden text-gray-200">
+    <div className="app-dialog-overlay fixed inset-0 flex items-center justify-center p-6 animate-in fade-in duration-150">
+      <div className="filter-editor-card w-full max-w-2xl max-h-[90vh] border rounded-2xl flex flex-col overflow-hidden">
         {/* Header */}
-        <div onMouseDown={startWindowDrag} className="filter-editor-header px-6 py-4 border-b border-[#2b2b2b] bg-[#171717] flex items-center justify-between">
+        <div onMouseDown={startWindowDrag} className="filter-editor-header px-6 py-4 border-b flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="p-2 rounded-xl bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
               <Wrench className="w-5 h-5" />
@@ -177,7 +177,7 @@ export const OperationEditorModal: React.FC<OperationEditorModalProps> = ({
         </div>
 
         {/* Body */}
-        <div className="filter-editor-body flex-1 overflow-y-auto p-6 space-y-5 bg-[#212121]">
+        <div className="filter-editor-body flex-1 overflow-y-auto p-6 space-y-5">
           <div className="grid grid-cols-2 gap-4 text-xs">
             <div>
               <label className="block text-gray-300 font-semibold mb-1 theme-text-muted">Operation Name:</label>
@@ -453,8 +453,8 @@ export const OperationEditorModal: React.FC<OperationEditorModalProps> = ({
                 />
               </div>
               <div>
-                <label className="block text-emerald-400 mb-1 font-sans font-semibold">Output:</label>
-                <div className="w-full h-20 bg-[#242424] border border-gray-700/80 rounded-xl p-2.5 overflow-y-auto whitespace-pre-wrap text-emerald-300 theme-input">
+                <label className="filter-sandbox-output-label block mb-1 font-sans font-semibold">Output:</label>
+                <div className="filter-sandbox-output w-full h-20 border rounded-xl p-2.5 overflow-y-auto whitespace-pre-wrap theme-input">
                   {testOutput || 'Filtered output result will appear here...'}
                 </div>
               </div>
@@ -463,18 +463,18 @@ export const OperationEditorModal: React.FC<OperationEditorModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="filter-editor-footer px-6 py-4 border-t border-[#2b2b2b] bg-[#171717] flex items-center justify-end space-x-3">
+        <div className="filter-editor-footer px-6 py-4 border-t flex items-center justify-end space-x-3">
           <button
             type="button"
             onClick={onClose}
-            className="filter-modal-cancel-btn px-4 py-2 bg-[#2c2c2e] hover:bg-[#3a3a3c] text-gray-200 rounded-xl text-xs font-medium transition-colors"
+            className="filter-modal-cancel-btn px-4 py-2 rounded-xl text-xs font-medium transition-colors"
           >
             Cancel
           </button>
           <button
             type="button"
             onClick={handleSave}
-            className="filter-modal-ok-btn px-5 py-2 bg-white hover:bg-gray-200 text-black rounded-xl text-xs font-bold shadow-lg transition-all active:scale-95"
+            className="filter-modal-ok-btn px-5 py-2 rounded-xl text-xs font-bold shadow-lg transition-[background-color,border-color,color,transform] active:scale-95"
           >
             {operation ? 'Save Operation' : 'Create Operation'}
           </button>

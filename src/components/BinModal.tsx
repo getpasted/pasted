@@ -257,41 +257,29 @@ export const BinModal: React.FC<BinModalProps> = ({
   };
 
   return (
-    <div ref={modalRef} className="fixed inset-0 bg-black/75 backdrop-blur-md z-50 flex items-center justify-center p-4 select-none">
-      <div className="bin-modal-card bg-[#212121] w-full max-w-xl rounded-2xl p-6 space-y-5 border border-gray-700/80 shadow-2xl text-gray-100 font-sans">
+    <div ref={modalRef} className="app-dialog-overlay fixed inset-0 flex items-center justify-center p-4 select-none">
+      <div className="bin-modal-card theme-panel w-full max-w-xl rounded-2xl p-6 space-y-5 border shadow-2xl font-sans">
         {/* Top Segmented Tab Picker */}
         <div className="flex justify-center">
-          <div className="flex theme-surface bg-[#181818] p-1 rounded-xl border border-gray-700/70 space-x-1">
+          <div className="flex theme-surface p-1 rounded-xl border space-x-1">
             <button
               type="button"
               onClick={() => setModalTab('bin')}
-              className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-none border ${
-                modalTab === 'bin'
-                  ? 'settings-tab-active bg-[#383838] text-white border-gray-500/80 shadow-md'
-                  : 'settings-tab-idle border-transparent text-gray-400'
-              }`}
+              className={`settings-tab px-4 py-1.5 rounded-lg text-xs font-semibold transition-none border border-transparent ${modalTab === 'bin' ? 'is-active' : ''}`}
             >
               Manual
             </button>
             <button
               type="button"
               onClick={() => setModalTab('smart')}
-              className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-none border ${
-                modalTab === 'smart'
-                  ? 'settings-tab-active bg-[#383838] text-white border-gray-500/80 shadow-md'
-                  : 'settings-tab-idle border-transparent text-gray-400'
-              }`}
+              className={`settings-tab px-4 py-1.5 rounded-lg text-xs font-semibold transition-none border border-transparent ${modalTab === 'smart' ? 'is-active' : ''}`}
             >
               Smart
             </button>
             <button
               type="button"
               onClick={() => setModalTab('filter')}
-              className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-none border ${
-                modalTab === 'filter'
-                  ? 'settings-tab-active bg-[#383838] text-white border-gray-500/80 shadow-md'
-                  : 'settings-tab-idle border-transparent text-gray-400'
-              }`}
+              className={`settings-tab px-4 py-1.5 rounded-lg text-xs font-semibold transition-none border border-transparent ${modalTab === 'filter' ? 'is-active' : ''}`}
             >
               Filter
             </button>
@@ -301,7 +289,7 @@ export const BinModal: React.FC<BinModalProps> = ({
         <form onSubmit={handleSubmit} className="space-y-4 text-xs">
           {/* Name Field */}
           <div className="flex items-center space-x-3">
-            <label className={`w-14 text-right font-semibold flex-shrink-0 ${errors.name ? 'text-red-500 font-bold dark:text-red-400' : 'theme-text-muted'}`}>Name:</label>
+            <label className={`w-14 text-right font-semibold flex-shrink-0 ${errors.name ? 'theme-danger-text font-bold' : 'theme-text-muted'}`}>Name:</label>
             <input
               type="text"
               placeholder="e.g. Code Snippets, Safari Clips"
@@ -315,19 +303,15 @@ export const BinModal: React.FC<BinModalProps> = ({
                   handleSubmit(e);
                 }
               }}
-              className={`flex-1 theme-input bg-[#181920] rounded-xl px-3 py-2 text-xs focus:outline-none font-medium transition-all ${
-                errors.name
-                  ? 'border border-red-500 ring-2 ring-red-500/30 dark:ring-red-500/50 bg-red-500/10'
-                  : 'border border-blue-500/80 focus:ring-2 focus:ring-blue-500/60'
-              }`}
+              className={`flex-1 theme-input rounded-xl border px-3 py-2 text-xs focus:outline-none font-medium transition-colors ${errors.name ? 'form-field-error' : 'form-field-valid'}`}
               autoFocus
             />
           </div>
 
           {/* Color Palette Picker Row */}
           <div className="flex items-center space-x-3">
-            <label className={`w-14 text-right font-semibold flex-shrink-0 ${errors.color ? 'text-red-500 font-bold dark:text-red-400' : 'theme-text-muted'}`}>Color:</label>
-            <div className={`flex items-center space-x-2 p-1 rounded-xl transition-all ${errors.color ? 'border border-red-500 ring-2 ring-red-500/30 dark:ring-red-500/50 bg-red-500/10' : ''}`}>
+            <label className={`w-14 text-right font-semibold flex-shrink-0 ${errors.color ? 'theme-danger-text font-bold' : 'theme-text-muted'}`}>Color:</label>
+            <div className={`flex items-center space-x-2 p-1 rounded-xl border border-transparent transition-colors ${errors.color ? 'form-field-error' : ''}`}>
               {COLOR_PALETTE.map((c) => (
                 <button
                   key={c.hex}
@@ -339,7 +323,7 @@ export const BinModal: React.FC<BinModalProps> = ({
                   style={{ backgroundColor: c.hex }}
                   className={`w-5 h-5 rounded-full transition-transform ${
                     selectedColor === c.hex
-                      ? 'ring-2 ring-blue-500 ring-offset-2 scale-110'
+                      ? 'bin-color-selected scale-110'
                       : 'opacity-80 hover:opacity-100'
                   }`}
                   title={c.label}
@@ -350,7 +334,7 @@ export const BinModal: React.FC<BinModalProps> = ({
 
           {/* Single Emoji Icon Selector */}
           <div className="flex items-center space-x-3">
-            <label className={`w-14 text-right font-semibold flex-shrink-0 ${errors.icon ? 'text-red-500 font-bold dark:text-red-400' : 'theme-text-muted'}`}>Icon:</label>
+            <label className={`w-14 text-right font-semibold flex-shrink-0 ${errors.icon ? 'theme-danger-text font-bold' : 'theme-text-muted'}`}>Icon:</label>
             <div className="flex-1 flex items-center space-x-2.5">
               <input
                 type="text"
@@ -403,11 +387,7 @@ export const BinModal: React.FC<BinModalProps> = ({
                 }}
                 placeholder="📂"
                 maxLength={64}
-                className={`w-16 theme-input emoji-input-picker bg-[#181920] rounded-xl py-1.5 text-center font-mono text-lg focus:outline-none shadow-inner cursor-pointer select-none transition-all ${
-                  errors.icon
-                    ? 'border border-red-500 ring-2 ring-red-500/30 dark:ring-red-500/50 bg-red-500/10'
-                    : 'border border-gray-700 focus:ring-2 focus:ring-blue-500/60'
-                }`}
+                className={`w-16 theme-input emoji-input-picker rounded-xl border py-1.5 text-center font-mono text-lg focus:outline-none shadow-inner cursor-pointer select-none transition-colors ${errors.icon ? 'form-field-error' : 'form-field-valid'}`}
                 title="Click to open macOS Emoji Picker (Manual typing disabled)"
               />
               <span className="text-[11px] theme-text-muted">
@@ -418,7 +398,7 @@ export const BinModal: React.FC<BinModalProps> = ({
 
           {/* Smart Bin Multi-Condition Builder */}
           {modalTab === 'smart' && (
-            <div className="p-4 theme-surface bg-[#1b1c24] rounded-2xl border border-gray-700/80 space-y-3">
+            <div className="p-4 theme-surface rounded-2xl border space-y-3">
               {conditions.map((c) => (
                 <div key={c.id} className="flex items-center space-x-2">
                   {/* Condition Target Dropdown */}
@@ -434,7 +414,7 @@ export const BinModal: React.FC<BinModalProps> = ({
                           : '';
                       handleUpdateCondition(c.id, { target: newTarget, value: newDefaultVal });
                     }}
-                    className="theme-input bg-[#242630] border border-gray-700 rounded-lg px-3 py-1.5 text-xs font-semibold focus:outline-none"
+                    className="theme-input form-field-valid border rounded-lg px-3 py-1.5 text-xs font-semibold focus:outline-none"
                   >
                     <option value="source_app">Source App</option>
                     <option value="content_type">Content Type</option>
@@ -445,7 +425,7 @@ export const BinModal: React.FC<BinModalProps> = ({
                   <select
                     value={c.operator}
                     onChange={(e) => handleUpdateCondition(c.id, { operator: e.target.value as any })}
-                    className="theme-input bg-[#242630] border border-gray-700 rounded-lg px-3 py-1.5 text-xs font-semibold focus:outline-none"
+                    className="theme-input form-field-valid border rounded-lg px-3 py-1.5 text-xs font-semibold focus:outline-none"
                   >
                     <option value="is">is</option>
                     <option value="contains">contains</option>
@@ -456,7 +436,7 @@ export const BinModal: React.FC<BinModalProps> = ({
                     <select
                       value={c.value}
                       onChange={(e) => handleUpdateCondition(c.id, { value: e.target.value })}
-                      className="flex-1 theme-input bg-[#242630] border border-gray-700 rounded-lg px-3 py-1.5 text-xs font-semibold focus:outline-none truncate"
+                      className="flex-1 theme-input form-field-valid border rounded-lg px-3 py-1.5 text-xs font-semibold focus:outline-none truncate"
                     >
                       {installedApps.map((appName) => (
                         <option key={appName} value={appName}>
@@ -468,7 +448,7 @@ export const BinModal: React.FC<BinModalProps> = ({
                     <select
                       value={c.value}
                       onChange={(e) => handleUpdateCondition(c.id, { value: e.target.value })}
-                      className="flex-1 theme-input bg-[#242630] border border-gray-700 rounded-lg px-3 py-1.5 text-xs font-semibold focus:outline-none"
+                      className="flex-1 theme-input form-field-valid border rounded-lg px-3 py-1.5 text-xs font-semibold focus:outline-none"
                     >
                       <option value="code">Code Snippets</option>
                       <option value="link">Web Links</option>
@@ -481,7 +461,7 @@ export const BinModal: React.FC<BinModalProps> = ({
                       placeholder="e.g. http, function"
                       value={c.value}
                       onChange={(e) => handleUpdateCondition(c.id, { value: e.target.value })}
-                      className="flex-1 theme-input bg-[#242630] border border-gray-700 rounded-lg px-3 py-1.5 text-xs font-semibold focus:outline-none"
+                      className="flex-1 theme-input form-field-valid border rounded-lg px-3 py-1.5 text-xs font-semibold focus:outline-none"
                     />
                   )}
 
@@ -491,10 +471,10 @@ export const BinModal: React.FC<BinModalProps> = ({
                       type="button"
                       onClick={() => handleRemoveCondition(c.id)}
                       disabled={conditions.length <= 1}
-                      className={`p-1.5 rounded theme-input bg-[#242630] border border-gray-700 transition-all ${
+                      className={`theme-icon-button p-1.5 rounded border transition-[background-color,border-color,color,transform] ${
                         conditions.length <= 1
-                          ? 'opacity-40 cursor-not-allowed text-gray-500'
-                          : 'hover:bg-gray-400/20 hover:scale-105 active:scale-95'
+                          ? 'opacity-40 cursor-not-allowed'
+                          : 'hover:scale-105 active:scale-95'
                       }`}
                       title="Remove Condition"
                     >
@@ -503,7 +483,7 @@ export const BinModal: React.FC<BinModalProps> = ({
                     <button
                       type="button"
                       onClick={handleAddCondition}
-                      className="p-1.5 rounded theme-input bg-[#242630] border border-gray-700 hover:bg-blue-600 hover:text-white hover:border-blue-500 transition-all hover:scale-105 active:scale-95"
+                      className="theme-icon-button p-1.5 rounded border transition-[background-color,border-color,color,transform] hover:scale-105 active:scale-95"
                       title="Add Condition"
                     >
                       <Plus className="w-3.5 h-3.5" />
@@ -517,7 +497,7 @@ export const BinModal: React.FC<BinModalProps> = ({
                 <select
                   value={matchCondition}
                   onChange={(e) => setMatchCondition(e.target.value as any)}
-                  className="theme-input bg-[#242630] border border-gray-700 rounded-lg px-3 py-1 text-xs font-semibold focus:outline-none"
+                  className="theme-input form-field-valid border rounded-lg px-3 py-1 text-xs font-semibold focus:outline-none"
                 >
                   <option value="any">any</option>
                   <option value="all">all</option>
@@ -528,17 +508,17 @@ export const BinModal: React.FC<BinModalProps> = ({
           )}
 
           {/* Action Buttons */}
-          <div className="pt-3 flex justify-end space-x-3 border-t border-gray-700/80">
+          <div className="theme-divider pt-3 flex justify-end space-x-3 border-t">
             <button
               type="button"
               onClick={onClose}
-              className="bin-modal-cancel-btn px-5 py-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 font-semibold text-xs transition-all focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 focus:ring-offset-[#212121]"
+              className="bin-modal-cancel-btn theme-secondary-button theme-focusable px-5 py-2 rounded-xl border font-semibold text-xs transition-colors focus:outline-none"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="bin-modal-ok-btn px-5 py-2 rounded-xl bg-white hover:bg-gray-200 text-black font-semibold text-xs shadow-md transition-all active:scale-95 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-[#212121]"
+              className="bin-modal-ok-btn theme-primary-button theme-focusable px-5 py-2 rounded-xl border font-semibold text-xs shadow-md transition-[background-color,border-color,transform] active:scale-95 focus:outline-none"
             >
               Save
             </button>

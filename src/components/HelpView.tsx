@@ -15,6 +15,7 @@ import {
   Command,
   Download,
 } from 'lucide-react';
+import { ToolPageHeader } from './ToolPageHeader';
 
 export const HelpView: React.FC = () => {
   const [activeSubTab, setActiveSubTab] = useState<'cli' | 'hotkeys' | 'autopause' | 'trash' | 'filters'>('cli');
@@ -38,18 +39,15 @@ export const HelpView: React.FC = () => {
 
   return (
     <div className="tools-page help-page flex-1 font-sans h-screen flex flex-col overflow-hidden select-none">
-      {/* Header Bar */}
-      <div className="theme-toolbar h-[60px] border-b backdrop-blur-md px-6 flex items-center justify-between shrink-0 no-drag">
-        <div className="flex items-center space-x-2.5">
-          <BookOpen className="w-5 h-5 text-cyan-400" />
-          <h2 className="text-sm font-bold text-gray-100 uppercase tracking-wider">
-            Documentation
-          </h2>
-        </div>
-        <div className="px-3 py-1 rounded-full bg-cyan-950/80 border border-cyan-800/60 text-cyan-300 text-xs font-mono font-semibold">
-          v1.0.0 Pro Edition
-        </div>
-      </div>
+      <ToolPageHeader
+        icon={<BookOpen className="w-4 h-4" />}
+        title="Documentation"
+        actions={(
+          <div className="theme-badge px-3 py-1 rounded-full border text-xs font-mono font-semibold">
+            v1.0.0 Pro Edition
+          </div>
+        )}
+      />
 
       {/* Subpage Navigation & Content Container */}
       <div className="flex-1 flex overflow-hidden">
@@ -57,11 +55,7 @@ export const HelpView: React.FC = () => {
         <div className="theme-subtle-surface w-56 border-r p-3 space-y-1 shrink-0 overflow-y-auto">
           <button
             onClick={() => setActiveSubTab('cli')}
-            className={`help-topic-button w-full flex items-center justify-between px-3 py-2 text-xs font-semibold transition-all cursor-pointer border ${
-              activeSubTab === 'cli'
-                ? 'is-selected bg-cyan-500/20 text-cyan-300 border-cyan-500/40 shadow-sm'
-                : 'text-gray-400 hover:text-white hover:bg-white/5'
-            }`}
+            className={`help-topic-button w-full flex items-center justify-between px-3 py-2 text-xs font-semibold cursor-pointer border ${activeSubTab === 'cli' ? 'is-selected' : ''}`}
           >
             <div className="flex items-center space-x-2.5">
               <Terminal className="w-4 h-4 text-cyan-400" />
@@ -72,11 +66,7 @@ export const HelpView: React.FC = () => {
 
           <button
             onClick={() => setActiveSubTab('hotkeys')}
-            className={`help-topic-button w-full flex items-center justify-between px-3 py-2 text-xs font-semibold transition-all cursor-pointer border ${
-              activeSubTab === 'hotkeys'
-                ? 'is-selected bg-cyan-500/20 text-cyan-300 border-cyan-500/40 shadow-sm'
-                : 'text-gray-400 hover:text-white hover:bg-white/5'
-            }`}
+            className={`help-topic-button w-full flex items-center justify-between px-3 py-2 text-xs font-semibold cursor-pointer border ${activeSubTab === 'hotkeys' ? 'is-selected' : ''}`}
           >
             <div className="flex items-center space-x-2.5">
               <Keyboard className="w-4 h-4 text-emerald-400" />
@@ -87,11 +77,7 @@ export const HelpView: React.FC = () => {
 
           <button
             onClick={() => setActiveSubTab('autopause')}
-            className={`help-topic-button w-full flex items-center justify-between px-3 py-2 text-xs font-semibold transition-all cursor-pointer border ${
-              activeSubTab === 'autopause'
-                ? 'is-selected bg-cyan-500/20 text-cyan-300 border-cyan-500/40 shadow-sm'
-                : 'text-gray-400 hover:text-white hover:bg-white/5'
-            }`}
+            className={`help-topic-button w-full flex items-center justify-between px-3 py-2 text-xs font-semibold cursor-pointer border ${activeSubTab === 'autopause' ? 'is-selected' : ''}`}
           >
             <div className="flex items-center space-x-2.5">
               <Shield className="w-4 h-4 text-amber-400" />
@@ -102,11 +88,7 @@ export const HelpView: React.FC = () => {
 
           <button
             onClick={() => setActiveSubTab('trash')}
-            className={`help-topic-button w-full flex items-center justify-between px-3 py-2 text-xs font-semibold transition-all cursor-pointer border ${
-              activeSubTab === 'trash'
-                ? 'is-selected bg-cyan-500/20 text-cyan-300 border-cyan-500/40 shadow-sm'
-                : 'text-gray-400 hover:text-white hover:bg-white/5'
-            }`}
+            className={`help-topic-button w-full flex items-center justify-between px-3 py-2 text-xs font-semibold cursor-pointer border ${activeSubTab === 'trash' ? 'is-selected' : ''}`}
           >
             <div className="flex items-center space-x-2.5">
               <Trash2 className="w-4 h-4 text-rose-400" />
@@ -117,11 +99,7 @@ export const HelpView: React.FC = () => {
 
           <button
             onClick={() => setActiveSubTab('filters')}
-            className={`help-topic-button w-full flex items-center justify-between px-3 py-2 text-xs font-semibold transition-all cursor-pointer border ${
-              activeSubTab === 'filters'
-                ? 'is-selected bg-cyan-500/20 text-cyan-300 border-cyan-500/40 shadow-sm'
-                : 'text-gray-400 hover:text-white hover:bg-white/5'
-            }`}
+            className={`help-topic-button w-full flex items-center justify-between px-3 py-2 text-xs font-semibold cursor-pointer border ${activeSubTab === 'filters' ? 'is-selected' : ''}`}
           >
             <div className="flex items-center space-x-2.5">
               <Sliders className="w-4 h-4 text-purple-400" />
@@ -154,7 +132,7 @@ export const HelpView: React.FC = () => {
                   </div>
                   <button
                     onClick={handleInstallCli}
-                    className="flex items-center space-x-1.5 px-3 py-1.5 bg-cyan-500 hover:bg-cyan-400 text-black rounded-lg text-xs font-bold transition-all cursor-pointer shadow-sm"
+                    className="flex items-center space-x-1.5 px-3 py-1.5 bg-cyan-500 hover:bg-cyan-400 text-black rounded-lg text-xs font-bold transition-colors cursor-pointer shadow-sm"
                   >
                     <Download className="w-3.5 h-3.5" />
                     <span>1-Click Symlink to ~/.local/bin</span>
@@ -162,14 +140,14 @@ export const HelpView: React.FC = () => {
                 </div>
 
                 {installStatus && (
-                  <div className="p-2.5 rounded-lg bg-black/60 border border-cyan-500/40 text-xs font-mono text-cyan-300">
+                  <div className="theme-code-surface p-2.5 rounded-lg border text-xs font-mono">
                     {installStatus}
                   </div>
                 )}
 
                 <div className="text-xs text-gray-300 space-y-1">
                   <p className="font-semibold text-gray-200">Manual $PATH Setup Options:</p>
-                  <div className="p-2.5 rounded-lg bg-black/70 border border-gray-800 font-mono text-[11px] text-gray-300 space-y-1">
+                  <div className="theme-code-surface p-2.5 rounded-lg border font-mono text-[11px] space-y-1">
                     <div className="text-emerald-400"># Symlink bundled macOS app executable to /usr/local/bin</div>
                     <div>$ sudo ln -s /Applications/Pasted.app/Contents/MacOS/pasted-cli /usr/local/bin/pasted-cli</div>
                     <div className="text-emerald-400 pt-1"># Or add alias in ~/.zshrc or ~/.bashrc</div>
@@ -190,7 +168,7 @@ export const HelpView: React.FC = () => {
                     {copiedCmd === 'echo "Log data" | pasted-cli copy' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                   </button>
                 </div>
-                <div className="p-3 rounded-lg bg-black/60 border border-gray-800 font-mono text-xs text-gray-300">
+                <div className="theme-code-surface p-3 rounded-lg border font-mono text-xs">
                   <div className="text-emerald-400"># Direct string argument</div>
                   <div>$ pasted-cli copy "Hello from Terminal!"</div>
                   <div className="text-emerald-400 mt-2"># Pipe file or command stdout directly into Pasted</div>
@@ -210,7 +188,7 @@ export const HelpView: React.FC = () => {
                     {copiedCmd === 'pasted-cli list 10' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                   </button>
                 </div>
-                <div className="p-3 rounded-lg bg-black/60 border border-gray-800 font-mono text-xs text-gray-300">
+                <div className="theme-code-surface p-3 rounded-lg border font-mono text-xs">
                   <div className="text-emerald-400"># Output N recent clipboard items</div>
                   <div>$ pasted-cli list 15</div>
                 </div>
@@ -228,7 +206,7 @@ export const HelpView: React.FC = () => {
                     {copiedCmd === 'pasted-cli search "api_key"' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                   </button>
                 </div>
-                <div className="p-3 rounded-lg bg-black/60 border border-gray-800 font-mono text-xs text-gray-300">
+                <div className="theme-code-surface p-3 rounded-lg border font-mono text-xs">
                   <div>$ pasted-cli search "https://"</div>
                 </div>
               </div>
@@ -353,12 +331,12 @@ export const HelpView: React.FC = () => {
               <div className="theme-panel p-4 rounded-xl border space-y-3">
                 <h4 className="text-xs font-bold text-purple-300">Available Transformations</h4>
                 <div className="grid grid-cols-2 gap-2 text-xs font-mono text-gray-300">
-                  <div className="p-2 rounded bg-gray-900 border border-gray-800">• UPPERCASE / lowercase</div>
-                  <div className="p-2 rounded bg-gray-900 border border-gray-800">• Title Case / CamelCase</div>
-                  <div className="p-2 rounded bg-gray-900 border border-gray-800">• Trim Whitespace</div>
-                  <div className="p-2 rounded bg-gray-900 border border-gray-800">• Smart Punctuation</div>
-                  <div className="p-2 rounded bg-gray-900 border border-gray-800">• URL Encode / Decode</div>
-                  <div className="p-2 rounded bg-gray-900 border border-gray-800">• JSON Prettify</div>
+                  <div className="theme-code-surface p-2 rounded border">• UPPERCASE / lowercase</div>
+                  <div className="theme-code-surface p-2 rounded border">• Title Case / CamelCase</div>
+                  <div className="theme-code-surface p-2 rounded border">• Trim Whitespace</div>
+                  <div className="theme-code-surface p-2 rounded border">• Smart Punctuation</div>
+                  <div className="theme-code-surface p-2 rounded border">• URL Encode / Decode</div>
+                  <div className="theme-code-surface p-2 rounded border">• JSON Prettify</div>
                 </div>
               </div>
             </div>

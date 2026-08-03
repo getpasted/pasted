@@ -105,10 +105,10 @@ const StepReorderCard: React.FC<{
         data-stable-reorder-id={step.id}
         style={reorderOffsetY !== 0 || isDragging ? {
           transform: `translateY(${reorderOffsetY}px)`,
-          zIndex: isDragging ? 50 : 10,
+          zIndex: isDragging ? 'var(--layer-drag)' : 1,
         } : undefined}
-        className={`filter-step-card p-3.5 bg-[#1a1a1c] rounded-xl border space-y-3 relative group shadow-md select-none transition-[background-color,border-color,box-shadow,opacity,transform] duration-100 ease-out ${
-          isDragging ? 'z-50 border-cyan-500/70 opacity-75 shadow-md shadow-cyan-500/10' : 'border-gray-800'
+        className={`filter-step-card p-3.5 rounded-xl border space-y-3 relative group select-none transition-[background-color,border-color,box-shadow,opacity,transform] duration-100 ease-out ${
+          isDragging ? 'is-dragging' : ''
         }`}
       >
         {/* Step Header */}
@@ -570,10 +570,10 @@ export const FilterEditorModal: React.FC<FilterEditorModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[99999] bg-black/65 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in duration-150">
-      <div className="filter-editor-card w-full max-w-4xl max-h-[90vh] bg-[#212121] border border-gray-700/80 rounded-2xl shadow-2xl flex flex-col overflow-hidden text-gray-200">
+    <div className="app-dialog-overlay fixed inset-0 flex items-center justify-center p-6 animate-in fade-in duration-150">
+      <div className="filter-editor-card w-full max-w-4xl max-h-[90vh] border rounded-2xl flex flex-col overflow-hidden">
         {/* Modal Top Header Bar */}
-        <div onMouseDown={startWindowDrag} className="filter-editor-header px-6 py-4 border-b border-[#2b2b2b] bg-[#171717] flex items-center justify-between">
+        <div onMouseDown={startWindowDrag} className="filter-editor-header px-6 py-4 border-b flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="p-2 rounded-xl bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
               <Sliders className="w-5 h-5" />
@@ -596,7 +596,7 @@ export const FilterEditorModal: React.FC<FilterEditorModalProps> = ({
         </div>
 
         {/* Modal Body */}
-        <div className="filter-editor-body flex-1 overflow-y-auto p-6 space-y-6 bg-[#212121] relative">
+        <div className="filter-editor-body flex-1 overflow-y-auto p-6 space-y-6 relative">
           {/* Filter Metadata */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
             <div className="md:col-span-2">
@@ -628,7 +628,7 @@ export const FilterEditorModal: React.FC<FilterEditorModalProps> = ({
           </div>
 
           {/* Sticky Interactive Split-Pane Sandbox Tester */}
-          <div className="filter-sandbox-card sticky-filter-sandbox sticky top-0 z-20 p-4 rounded-2xl border space-y-3 shadow-xl backdrop-blur-xl">
+          <div className="filter-sandbox-card sticky-filter-sandbox sticky top-0 p-4 rounded-2xl border space-y-3 shadow-xl backdrop-blur-xl">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-cyan-400 uppercase tracking-wider flex items-center space-x-1.5">
                 <Play className="w-3.5 h-3.5" />
@@ -647,8 +647,8 @@ export const FilterEditorModal: React.FC<FilterEditorModalProps> = ({
                 />
               </div>
               <div>
-                <label className="block text-emerald-400 mb-1 font-sans font-semibold">Live Output Preview:</label>
-                <div className="w-full h-24 bg-[#242424] border border-gray-700/80 rounded-xl p-2.5 overflow-y-auto whitespace-pre-wrap text-emerald-300 theme-input font-mono">
+                <label className="filter-sandbox-output-label block mb-1 font-sans font-semibold">Live Output Preview:</label>
+                <div className="filter-sandbox-output w-full h-24 border rounded-xl p-2.5 overflow-y-auto whitespace-pre-wrap theme-input font-mono">
                   {testOutput || 'Filtered output result will appear here...'}
                 </div>
               </div>
@@ -664,7 +664,7 @@ export const FilterEditorModal: React.FC<FilterEditorModalProps> = ({
             </div>
 
             {/* Dark Wrapper Container */}
-            <div className="bg-[#121214] p-3 rounded-2xl border border-gray-800/80 space-y-2.5 shadow-inner">
+            <div className="filter-step-list p-3 rounded-2xl border space-y-2.5 shadow-inner">
               <div
                 ref={stepListRef}
                 className={`space-y-2.5 ${isStepReorderSettling ? 'is-settling-stable-reorder' : ''}`}
@@ -694,7 +694,7 @@ export const FilterEditorModal: React.FC<FilterEditorModalProps> = ({
                 <button
                   type="button"
                   onClick={handleAddStep}
-                  className="flex items-center space-x-1.5 px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold shadow-lg active:scale-95 transition-all"
+                  className="flex items-center space-x-1.5 px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold shadow-lg active:scale-95 transition-[background-color,transform]"
                 >
                   <Plus className="w-4 h-4" />
                   <span>Add Step</span>
@@ -705,7 +705,7 @@ export const FilterEditorModal: React.FC<FilterEditorModalProps> = ({
         </div>
 
         {/* Modal Bottom Footer Actions */}
-        <div className="filter-editor-footer px-6 py-4 border-t border-[#2b2b2b] bg-[#171717] flex items-center justify-between">
+        <div className="filter-editor-footer px-6 py-4 border-t flex items-center justify-between">
           <button
             type="button"
             onClick={handleReset}
@@ -720,14 +720,14 @@ export const FilterEditorModal: React.FC<FilterEditorModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="filter-modal-cancel-btn px-4 py-2 bg-[#2c2c2e] hover:bg-[#3a3a3c] text-gray-200 rounded-xl text-xs font-medium transition-colors"
+              className="filter-modal-cancel-btn px-4 py-2 rounded-xl text-xs font-medium transition-colors"
             >
               Cancel
             </button>
             <button
               type="button"
               onClick={handleSaveFilter}
-              className="filter-modal-ok-btn px-5 py-2 bg-white hover:bg-gray-200 text-black rounded-xl text-xs font-bold shadow-lg transition-all active:scale-95"
+              className="filter-modal-ok-btn px-5 py-2 rounded-xl text-xs font-bold shadow-lg transition-[background-color,border-color,color,transform] active:scale-95"
             >
               Save Filter Pipeline
             </button>

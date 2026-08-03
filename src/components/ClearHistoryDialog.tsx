@@ -43,28 +43,28 @@ export function ClearHistoryDialog({ mode, onCancel, onConfirm }: ClearHistoryDi
   }, []);
 
   return (
-    <div ref={modalRef} className="fixed inset-0 bg-black/75 backdrop-blur-md z-50 flex items-center justify-center p-4 select-none">
+    <div ref={modalRef} className="app-dialog-overlay fixed inset-0 flex items-center justify-center p-4 select-none">
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="clear-history-title"
-        className="app-dialog-panel bg-[#212121] w-full max-w-md rounded-2xl p-6 space-y-4 border border-red-500/40 shadow-2xl text-gray-100 font-sans"
+        className="app-dialog-panel app-dialog-danger theme-panel w-full max-w-md rounded-2xl p-6 space-y-4 border font-sans"
       >
         <div className="flex items-center space-x-3 text-red-400">
           <div className="p-2.5 rounded-xl bg-red-500/20 border border-red-500/30">
             <AlertTriangle className="w-6 h-6" />
           </div>
           <div>
-            <h3 id="clear-history-title" className="text-base font-bold text-gray-100">
+            <h3 id="clear-history-title" className="theme-title text-base font-bold">
               {mode === 'purge' ? 'Delete Clipboard History?' : 'Trash Clipboard History?'}
             </h3>
-            <p className="text-xs text-gray-400">
+            <p className="theme-text-muted text-xs">
               {mode === 'purge' ? 'This action cannot be undone.' : 'Items can be restored from Trash.'}
             </p>
           </div>
         </div>
 
-        <p className="app-dialog-message text-xs text-gray-300 leading-relaxed bg-[#191b22] p-3 rounded-xl border border-gray-700/70">
+        <p className="app-dialog-message theme-surface text-xs leading-relaxed p-3 rounded-xl border">
           {mode === 'purge'
             ? 'Permanently delete all unpinned and unprotected clipboard history? Pinned clips, protected clips, and Bin definitions will be preserved.'
             : 'Move all unpinned and unprotected clipboard history into Trash? Pinned clips, protected clips, and Bin definitions will be preserved.'}
@@ -75,14 +75,14 @@ export function ClearHistoryDialog({ mode, onCancel, onConfirm }: ClearHistoryDi
             type="button"
             onClick={onCancel}
             autoFocus
-            className="app-dialog-cancel px-4 py-2 rounded-xl bg-[#343744] hover:bg-[#3d4150] text-gray-200 text-xs font-semibold transition-colors"
+            className="app-dialog-cancel theme-secondary-button px-4 py-2 rounded-xl border text-xs font-semibold transition-colors"
           >
             Cancel
           </button>
           <button
             type="button"
             onClick={onConfirm}
-            className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-semibold shadow-lg shadow-red-600/30 transition-all hover:scale-105 active:scale-95"
+            className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-semibold shadow-lg shadow-red-600/30 transition-[background-color,box-shadow,transform] hover:scale-105 active:scale-95"
           >
             {mode === 'purge' ? 'Delete History' : 'Move to Trash'}
           </button>

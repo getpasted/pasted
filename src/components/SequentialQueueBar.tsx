@@ -34,7 +34,7 @@ export const SequentialQueueBar: React.FC<SequentialQueueBarProps> = ({
   const queue = status?.queue ?? [];
 
   return (
-    <div className={`queue-controls-card theme-card-idle p-3 rounded-xl border transition-all ${isActive ? 'is-active' : ''}`}>
+    <div className={`queue-controls-card theme-card-idle p-3 rounded-xl border transition-[background-color,border-color,box-shadow] ${isActive ? 'is-active' : ''}`}>
       {/* Header row */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-2 min-w-0">

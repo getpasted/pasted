@@ -47,7 +47,7 @@ function parseSavedSettings(saved: Record<string, string>) {
   if (saved.alwaysPastePlainText !== undefined) next.alwaysPastePlainText = saved.alwaysPastePlainText === 'true';
   if (['small', 'medium', 'large'].includes(saved.rowHeight)) next.rowHeight = saved.rowHeight as AppSettings['rowHeight'];
   if (saved.iCloudSync !== undefined) next.iCloudSync = saved.iCloudSync === 'true';
-  if (['system', 'cool', 'dark', 'warm'].includes(saved.themeMode)) next.themeMode = saved.themeMode as AppSettings['themeMode'];
+  if (['system', 'cool', 'dark', 'warm', 'vampire', 'flux', '808'].includes(saved.themeMode)) next.themeMode = saved.themeMode as AppSettings['themeMode'];
   if (saved.spotlightSync !== undefined) next.spotlightSync = saved.spotlightSync === 'true';
   if (saved.enableActivityLog !== undefined) next.enableActivityLog = saved.enableActivityLog === 'true';
   if (saved.activityLogCapacity) next.activityLogCapacity = numberValue('activityLogCapacity', next.activityLogCapacity ?? 1000);
@@ -124,6 +124,9 @@ export function useAppSettings() {
       root.classList.toggle('cool', resolvedTheme === 'cool');
       root.classList.toggle('dark', resolvedTheme === 'dark');
       root.classList.toggle('warm', resolvedTheme === 'warm');
+      root.classList.toggle('vampire', resolvedTheme === 'vampire');
+      root.classList.toggle('flux', resolvedTheme === 'flux');
+      root.classList.toggle('theme-808', resolvedTheme === '808');
     };
     applyTheme();
     const mediaQuery = window.matchMedia('(prefers-color-scheme: light)');

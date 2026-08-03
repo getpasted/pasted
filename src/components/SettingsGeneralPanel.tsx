@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Coffee, Download, Laptop, Moon, RotateCcw, Snowflake, Trash2 } from 'lucide-react';
+import { Coffee, Download, Droplet, Drum, Laptop, Moon, RotateCcw, Snowflake, Trash2, Zap } from 'lucide-react';
 import type { AppSettings } from '../types';
 import { useAltKeyPressed } from '../hooks/useAltKeyPressed';
 import { safeInvoke as invoke } from '../utils/tauri';
@@ -10,6 +10,22 @@ interface SettingsGeneralPanelProps {
   onClearHistory?: (permanent: boolean) => void;
   onResetColumnWidths?: () => void;
 }
+
+const appearanceModes = [
+  { value: 'system', label: 'System', Icon: Laptop },
+  { value: 'dark', label: 'Dark', Icon: Moon },
+  { value: 'cool', label: 'Cool', Icon: Snowflake },
+  { value: 'warm', label: 'Warm', Icon: Coffee },
+  { value: 'vampire', label: 'Vampire', Icon: Droplet },
+  { value: 'flux', label: 'Flux', Icon: Zap },
+  { value: '808', label: '808', Icon: Drum },
+] as const;
+
+const appearanceGroups = [
+  { label: 'System', values: ['system'] },
+  { label: 'Dark schemes', values: ['dark', 'vampire', 'flux', '808'] },
+  { label: 'Light schemes', values: ['cool', 'warm'] },
+] as const;
 
 export function SettingsGeneralPanel({
   settings,
@@ -46,40 +62,31 @@ export function SettingsGeneralPanel({
             <div className="space-y-3">
               {/* Appearance Mode Switcher */}
               <div className="flex items-center justify-between pb-1">
-                <span className="font-medium">Appearance:</span>
-                <div className="theme-surface flex items-center p-1 rounded-lg border space-x-1">
-                  <button
-                    type="button"
-                    onClick={() => onUpdateSettings({ themeMode: 'system' })}
-                    className={`appearance-mode-button flex items-center space-x-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${(settings.themeMode || 'system') === 'system' ? 'is-active' : ''}`}
-                  >
-                    <Laptop className="w-3.5 h-3.5" />
-                    <span>System</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onUpdateSettings({ themeMode: 'dark' })}
-                    className={`appearance-mode-button flex items-center space-x-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${settings.themeMode === 'dark' ? 'is-active' : ''}`}
-                  >
-                    <Moon className="w-3.5 h-3.5" />
-                    <span>Dark</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onUpdateSettings({ themeMode: 'cool' })}
-                    className={`appearance-mode-button flex items-center space-x-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${settings.themeMode === 'cool' ? 'is-active' : ''}`}
-                  >
-                    <Snowflake className="w-3.5 h-3.5" />
-                    <span>Cool</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onUpdateSettings({ themeMode: 'warm' })}
-                    className={`appearance-mode-button flex items-center space-x-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${settings.themeMode === 'warm' ? 'is-active' : ''}`}
-                  >
-                    <Coffee className="w-3.5 h-3.5" />
-                    <span>Warm</span>
-                  </button>
+                <span className="font-medium">
+                  Appearance: <strong className="theme-text-muted ml-1">{appearanceModes.find(({ value }) => value === (settings.themeMode || 'system'))?.label}</strong>
+                </span>
+                <div className="theme-surface appearance-picker flex items-center p-1 rounded-xl border gap-1" role="group" aria-label="Appearance scheme">
+                  {appearanceGroups.map((group) => (
+                    <div key={group.label} className="appearance-picker-group flex items-center gap-1" role="group" aria-label={group.label}>
+                      {group.values.map((value) => {
+                        const mode = appearanceModes.find((candidate) => candidate.value === value)!;
+                        const isActive = (settings.themeMode || 'system') === value;
+                        return (
+                          <button
+                            key={value}
+                            type="button"
+                            title={mode.label}
+                            aria-label={`${mode.label} appearance`}
+                            aria-pressed={isActive}
+                            onClick={() => onUpdateSettings({ themeMode: value })}
+                            className={`appearance-mode-button flex h-8 w-8 items-center justify-center rounded-lg transition-[background-color,color,box-shadow] ${isActive ? 'is-active' : ''}`}
+                          >
+                            <mode.Icon className="w-3.5 h-3.5" />
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ))}
                 </div>
               </div>
               <div className="flex items-start justify-between">
@@ -291,7 +298,7 @@ export function SettingsGeneralPanel({
                   <button
                     type="button"
                     onClick={(e) => onClearHistory?.(e.altKey)}
-                    className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 transition-all shrink-0 cursor-pointer"
+                    className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 transition-colors shrink-0 cursor-pointer"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                     <span>{isAltPressed ? 'Delete All Clips' : 'Trash All Clips'}</span>
@@ -311,7 +318,7 @@ export function SettingsGeneralPanel({
                     <button
                       type="button"
                       onClick={() => void exportClips('json')}
-                      className="flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-cyan-300 bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 transition-all cursor-pointer"
+                      className="flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-cyan-300 bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 transition-colors cursor-pointer"
                     >
                       <Download className="w-3.5 h-3.5" />
                       <span>Export JSON</span>
@@ -320,7 +327,7 @@ export function SettingsGeneralPanel({
                     <button
                       type="button"
                       onClick={() => void exportClips('csv')}
-                      className="flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-purple-300 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 transition-all cursor-pointer"
+                      className="flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-purple-300 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 transition-colors cursor-pointer"
                     >
                       <Download className="w-3.5 h-3.5" />
                       <span>Export CSV</span>

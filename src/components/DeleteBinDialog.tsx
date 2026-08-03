@@ -9,20 +9,20 @@ interface DeleteBinDialogProps {
 
 export function DeleteBinDialog({ bin, onCancel, onConfirm }: DeleteBinDialogProps) {
   return (
-    <div className="fixed inset-0 z-[10000] bg-black/60 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-150">
+    <div className="app-dialog-overlay fixed inset-0 flex items-center justify-center p-4 animate-in fade-in duration-150">
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="delete-bin-title"
-        className="app-dialog-panel bg-[#212121] border border-gray-700/80 rounded-2xl p-5 max-w-sm w-full shadow-2xl space-y-4"
+        className="app-dialog-panel app-dialog-danger theme-panel border rounded-2xl p-5 max-w-sm w-full space-y-4"
       >
         <div className="flex items-center space-x-3">
           <div className="p-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 shrink-0">
             <Trash2 className="w-5 h-5" />
           </div>
           <div>
-            <h3 id="delete-bin-title" className="text-sm font-bold text-gray-100">Delete Bin &quot;{bin.name}&quot;?</h3>
-            <p className="text-xs text-gray-400 mt-0.5">Clips in this bin will be unassigned and preserved.</p>
+            <h3 id="delete-bin-title" className="theme-title text-sm font-bold">Delete Bin &quot;{bin.name}&quot;?</h3>
+            <p className="theme-text-muted text-xs mt-0.5">Clips in this bin will be unassigned and preserved.</p>
           </div>
         </div>
 
@@ -31,7 +31,7 @@ export function DeleteBinDialog({ bin, onCancel, onConfirm }: DeleteBinDialogPro
             type="button"
             onClick={onCancel}
             autoFocus
-            className="app-dialog-cancel px-4 py-1.5 rounded-xl bg-[#343744] hover:bg-[#3d4150] text-gray-200 text-xs font-semibold transition-colors cursor-pointer"
+            className="app-dialog-cancel theme-secondary-button px-4 py-1.5 rounded-xl border text-xs font-semibold transition-colors cursor-pointer"
           >
             Cancel
           </button>

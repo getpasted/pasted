@@ -144,19 +144,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   const clipNavItems = [
-    { tab: 'all', label: 'All', title: 'All Clips', icon: <Clipboard className="w-5 h-5 text-[#0a84ff]" /> },
-    { tab: 'sequential', label: 'Queue', title: 'Queue', icon: <ListOrdered className="w-5 h-5 text-purple-400" /> },
-    { tab: 'pinned', label: 'Pinned', title: 'Pinned', icon: <Pin className="w-5 h-5 text-orange-500 fill-orange-500/20 pin-icon" /> },
-    { tab: 'protected', label: 'Protected', title: 'Protected', icon: <Shield className="w-5 h-5 text-cyan-400" /> },
-    { tab: 'notes', label: 'Noted', title: 'Noted', icon: <StickyNote className="w-5 h-5 text-emerald-400" /> },
-    { tab: 'trash', label: 'Trashed', title: 'Trashed', icon: <Trash2 className="w-5 h-5 text-rose-400" /> },
+    { tab: 'all', label: 'All', title: 'All Clips', icon: <Clipboard className="sidebar-icon-primary w-5 h-5" /> },
+    { tab: 'sequential', label: 'Queue', title: 'Queue', icon: <ListOrdered className="sidebar-icon-secondary w-5 h-5" /> },
+    { tab: 'pinned', label: 'Pinned', title: 'Pinned', icon: <Pin className="sidebar-icon-warning w-5 h-5 pin-icon" /> },
+    { tab: 'protected', label: 'Protected', title: 'Protected', icon: <Shield className="sidebar-icon-info w-5 h-5" /> },
+    { tab: 'notes', label: 'Noted', title: 'Noted', icon: <StickyNote className="sidebar-icon-success w-5 h-5" /> },
+    { tab: 'trash', label: 'Trashed', title: 'Trashed', icon: <Trash2 className="sidebar-icon-danger w-5 h-5" /> },
   ];
   const toolNavItems = [
-    { tab: 'analytics', label: 'Analytics & Insights', title: 'Analytics & Insights', icon: <BarChart3 className="w-5 h-5 text-purple-400" /> },
-    { tab: 'filters', label: 'Filters & Operations', title: 'Filters & Operations', icon: <Sliders className="w-5 h-5 text-[#0a84ff]" /> },
-    { tab: 'activity', label: 'Activity Log', title: 'Activity Log', icon: <Activity className="w-5 h-5 text-cyan-400" /> },
-    { tab: 'help', label: 'Help & Documentation', title: 'Help & Documentation', icon: <HelpCircle className="w-5 h-5 text-cyan-400" /> },
-    { tab: 'settings', label: 'Settings', title: 'Settings', icon: <Settings className="w-5 h-5 text-[#0a84ff]" /> },
+    { tab: 'analytics', label: 'Analytics & Insights', title: 'Analytics & Insights', icon: <BarChart3 className="sidebar-icon-secondary w-5 h-5" /> },
+    { tab: 'filters', label: 'Filters & Operations', title: 'Filters & Operations', icon: <Sliders className="sidebar-icon-primary w-5 h-5" /> },
+    { tab: 'activity', label: 'Activity Log', title: 'Activity Log', icon: <Activity className="sidebar-icon-info w-5 h-5" /> },
+    { tab: 'help', label: 'Help & Documentation', title: 'Help & Documentation', icon: <HelpCircle className="sidebar-icon-info w-5 h-5" /> },
+    { tab: 'settings', label: 'Settings', title: 'Settings', icon: <Settings className="sidebar-icon-primary w-5 h-5" /> },
   ];
 
   const clipCountByTab: Record<string, number> = {
@@ -173,7 +173,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         onPointerEnter={handleSidebarPointerEnter}
         onPointerMove={handleSidebarPointerMove}
         onPointerLeave={handleSidebarPointerLeave}
-        className={`w-[100px] col-sidebar h-screen flex flex-col items-center border-r border-[#2d2d2d] bg-[#212121]/90 backdrop-blur-xl select-none ${isSidebarHoverMuted ? 'suppress-sidebar-hover' : ''}`}
+        className={`w-[100px] col-sidebar h-screen flex flex-col items-center border-r backdrop-blur-xl select-none ${isSidebarHoverMuted ? 'suppress-sidebar-hover' : ''}`}
       >
         {/* Dedicated 56px Top Header Drag Region for Traffic Lights */}
         <div
@@ -206,7 +206,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               disabled={isClipDragging}
               className={`w-9 h-9 flex items-center justify-center p-0 rounded-xl transition-colors duration-75 border shrink-0 cursor-pointer ${
                 currentTab === item.tab && (item.tab !== 'all' || selectedBinId === null)
-                  ? 'sidebar-item-active bg-[#383838] text-white border-gray-600/70 shadow-sm'
+                  ? 'sidebar-item-active shadow-sm'
                   : hoveredSidebarControl === `clip:${item.tab}`
                   ? 'sidebar-item-hovered border-transparent'
                   : 'sidebar-item-idle border-transparent text-gray-400'
@@ -234,7 +234,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               disabled={isClipDragging}
               className={`w-9 h-9 flex items-center justify-center p-0 rounded-xl transition-colors duration-75 border shrink-0 cursor-pointer ${
                 currentTab === 'bin' && selectedBinId === b.id
-                  ? 'sidebar-item-active bg-[#383838] text-white border-gray-600/70 shadow-sm'
+                  ? 'sidebar-item-active shadow-sm'
                   : hoveredSidebarControl === `bin:${b.id}`
                   ? 'sidebar-item-hovered border-transparent'
                   : 'sidebar-item-idle border-transparent text-gray-400'
@@ -257,7 +257,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               disabled={isClipDragging}
               className={`w-9 h-9 flex items-center justify-center p-0 rounded-xl transition-colors duration-75 border shrink-0 cursor-pointer ${
                 currentTab === item.tab
-                  ? 'sidebar-item-active bg-[#383838] text-white border-gray-600/70 shadow-sm'
+                  ? 'sidebar-item-active shadow-sm'
                   : hoveredSidebarControl === `tool:${item.tab}`
                   ? 'sidebar-item-hovered border-transparent'
                   : 'sidebar-item-idle border-transparent text-gray-400'
@@ -278,7 +278,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       onPointerEnter={handleSidebarPointerEnter}
       onPointerMove={handleSidebarPointerMove}
       onPointerLeave={handleSidebarPointerLeave}
-      className={`col-sidebar shrink-0 h-screen flex flex-col justify-between bg-[#212121]/90 backdrop-blur-xl select-none ${isSidebarHoverMuted ? 'suppress-sidebar-hover' : ''}`}
+      className={`col-sidebar shrink-0 h-screen flex flex-col justify-between backdrop-blur-xl select-none ${isSidebarHoverMuted ? 'suppress-sidebar-hover' : ''}`}
     >
       {/* Finder-esque Liquid Glass 60px Top Header */}
       <div
@@ -312,7 +312,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </span>
           </div>
           <div
-            className={`transition-all duration-150 ease-in-out ${
+            className={`transition-[background-color,border-color,color,opacity,transform] duration-150 ease-in-out ${
               isClipsOpen ? 'max-h-96 opacity-100 mt-0 overflow-visible' : 'max-h-0 opacity-0 overflow-hidden'
             }`}
           >
@@ -327,10 +327,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     disabled={isClipDragging}
                     className={`sidebar-nav-row justify-between transition-colors duration-100 cursor-pointer ${
                       currentTab === item.tab && (item.tab !== 'all' || selectedBinId === null)
-                        ? 'sidebar-item-active bg-[#3b3b3e] text-white font-medium'
+                        ? 'sidebar-item-active font-medium'
                         : hoveredSidebarControl === `clip:${item.tab}`
                         ? 'sidebar-item-hovered font-normal'
-                        : 'sidebar-item-idle text-[#e3e3e5] font-normal'
+                        : 'sidebar-item-idle font-normal'
                     }`}
                   >
                     <div className="flex items-center gap-3 min-w-0">
@@ -380,7 +380,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </button>
           </div>
           <div
-            className={`transition-all duration-150 ease-in-out ${
+            className={`transition-[background-color,border-color,color,opacity,transform] duration-150 ease-in-out ${
               isBinsOpen ? 'max-h-[500px] opacity-100 mt-0 overflow-visible' : 'max-h-0 opacity-0 overflow-hidden'
             }`}
           >
@@ -485,7 +485,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       e.stopPropagation();
                       if (onBinContextMenu) onBinContextMenu(e.clientX, e.clientY, b);
                     }}
-                    className={`sidebar-nav-row justify-between select-none transition-all duration-100 ${
+                    className={`sidebar-nav-row justify-between select-none transition-[background-color,border-color,color,box-shadow,opacity,transform] duration-100 ${
                       isDisabledDropTarget || isIneligibleSmartBin
                         ? 'cursor-not-allowed'
                         : isClipDragging
@@ -493,22 +493,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         : 'cursor-pointer active:cursor-grabbing'
                     } ${
                       isDropTarget
-                        ? 'sidebar-bin-drop-target ring-2 ring-emerald-400/25 shadow-lg text-emerald-50 z-30 relative'
+                        ? 'sidebar-bin-drop-target ring-2 ring-emerald-400/25 shadow-lg text-emerald-50 relative'
                         : isDisabledDropTarget || isIneligibleSmartBin
                         ? 'sidebar-bin-ineligible text-gray-600 opacity-50 cursor-not-allowed'
                         : isClipDragging && isManualBin
                         ? 'sidebar-bin-drop-eligible text-emerald-100 font-normal'
                         : isDragging
-                        ? 'sidebar-bin-drag-source rounded-md z-20 relative pointer-events-none'
+                        ? 'sidebar-bin-drag-source rounded-md relative pointer-events-none'
                         : currentTab === 'bin' && selectedBinId === b.id
-                        ? 'sidebar-item-active bg-[#3b3b3e] text-white font-medium'
+                        ? 'sidebar-item-active font-medium'
                         : isBinHovered
                         ? 'sidebar-item-hovered font-normal'
-                        : 'sidebar-item-idle text-[#e3e3e5] font-normal'
+                        : 'sidebar-item-idle font-normal'
                     }`}
                   >
                     <div className="flex items-center gap-3 truncate pr-1 min-w-0">
-                      <span className="sidebar-nav-icon sidebar-nav-icon-emoji text-[#0a84ff]">{getBinIcon(b.icon)}</span>
+                      <span className="sidebar-nav-icon sidebar-nav-icon-emoji sidebar-icon-primary">{getBinIcon(b.icon)}</span>
                       <span className="truncate">{b.name}</span>
                     </div>
 
@@ -582,7 +582,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </span>
           </div>
           <div
-            className={`transition-all duration-150 ease-in-out ${
+            className={`transition-[background-color,border-color,color,opacity,transform] duration-150 ease-in-out ${
               isToolsOpen ? 'max-h-96 opacity-100 mt-0 overflow-visible' : 'max-h-0 opacity-0 overflow-hidden'
             }`}
           >
@@ -595,10 +595,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   disabled={isClipDragging}
                   className={`sidebar-nav-row gap-3 transition-colors duration-100 cursor-pointer ${
                     currentTab === item.tab
-                      ? 'sidebar-item-active bg-[#3b3b3e] text-white font-medium'
+                      ? 'sidebar-item-active font-medium'
                       : hoveredSidebarControl === `tool:${item.tab}`
                       ? 'sidebar-item-hovered font-normal'
-                      : 'sidebar-item-idle text-[#e3e3e5] font-normal'
+                      : 'sidebar-item-idle font-normal'
                   }`}
                 >
                   <span className="sidebar-nav-icon">
@@ -615,7 +615,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Pinned Bottom Search Bar Footer */}
       <div className="p-2.5 border-t border-white/10 shrink-0 relative">
         {!isClipDragging && isSearchFocused && !searchQuery.includes(':') && (
-          <div className="sidebar-search-helper absolute bottom-11 left-2.5 right-2.5 backdrop-blur-xl rounded-xl p-1.5 z-50 text-xs space-y-0.5 animate-in fade-in slide-in-from-bottom-2 duration-150">
+          <div className="sidebar-search-helper absolute bottom-11 left-2.5 right-2.5 backdrop-blur-xl rounded-xl p-1.5 text-xs space-y-0.5 animate-in fade-in slide-in-from-bottom-2 duration-150">
             {[
               { prefix: 'regex:', desc: 'Regex' },
               { prefix: 'app:', desc: 'App' },
@@ -660,7 +660,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               }
             }}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full h-7 bg-[#2c2c2e]/80 border border-white/10 rounded-md pl-8 pr-2.5 text-[12px] text-gray-200 placeholder-gray-400/60 focus:outline-none focus:border-[#0a84ff]/80 transition-all titlebar-no-drag"
+            className="sidebar-search-input theme-input w-full h-7 border rounded-md pl-8 pr-2.5 text-[12px] focus:outline-none transition-colors titlebar-no-drag"
           />
         </div>
       </div>

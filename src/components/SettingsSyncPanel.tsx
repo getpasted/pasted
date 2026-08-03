@@ -61,13 +61,13 @@ export function SettingsSyncPanel({
           <button
             type="button"
             onClick={handleExport}
-            className="flex items-center space-x-2 px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white font-semibold rounded-xl text-xs transition-all shadow-md active:scale-95 cursor-pointer"
+            className="flex items-center space-x-2 px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white font-semibold rounded-xl text-xs transition-[background-color,transform] shadow-md active:scale-95 cursor-pointer"
           >
             <Download className="w-4 h-4" />
             <span>Export Backup (.json)</span>
           </button>
 
-          <label className="flex items-center space-x-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-200 font-semibold rounded-xl text-xs transition-all border border-gray-700 shadow-md cursor-pointer">
+          <label className="flex items-center space-x-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-200 font-semibold rounded-xl text-xs transition-[background-color,border-color,color] border border-gray-700 shadow-md cursor-pointer">
             <Upload className="w-4 h-4 text-gray-400" />
             <span>Import Backup (.json)</span>
             <input
