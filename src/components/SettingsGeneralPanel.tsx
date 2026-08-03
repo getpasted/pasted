@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Download, Laptop, Moon, RotateCcw, Sun, Trash2 } from 'lucide-react';
+import { Coffee, Download, Laptop, Moon, RotateCcw, Snowflake, Trash2 } from 'lucide-react';
 import type { AppSettings } from '../types';
 import { useAltKeyPressed } from '../hooks/useAltKeyPressed';
 import { safeInvoke as invoke } from '../utils/tauri';
@@ -41,21 +41,17 @@ export function SettingsGeneralPanel({
   };
 
   return (
-          <div className="bg-[#212121] p-6 rounded-2xl border border-gray-700/80 shadow-2xl space-y-6 text-xs text-gray-200">
+          <div className="theme-panel p-6 rounded-2xl border space-y-6 text-xs">
             {/* General Preferences */}
             <div className="space-y-3">
               {/* Appearance Mode Switcher */}
               <div className="flex items-center justify-between pb-1">
                 <span className="font-medium">Appearance:</span>
-                <div className="flex items-center bg-[#181818] p-1 rounded-lg border border-gray-700 space-x-1">
+                <div className="theme-surface flex items-center p-1 rounded-lg border space-x-1">
                   <button
                     type="button"
                     onClick={() => onUpdateSettings({ themeMode: 'system' })}
-                    className={`flex items-center space-x-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${
-                      (settings.themeMode || 'system') === 'system'
-                        ? 'bg-[#383838] text-white shadow-sm'
-                        : 'text-gray-400 hover:text-black dark:hover:text-white'
-                    }`}
+                    className={`appearance-mode-button flex items-center space-x-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${(settings.themeMode || 'system') === 'system' ? 'is-active' : ''}`}
                   >
                     <Laptop className="w-3.5 h-3.5" />
                     <span>System</span>
@@ -63,26 +59,26 @@ export function SettingsGeneralPanel({
                   <button
                     type="button"
                     onClick={() => onUpdateSettings({ themeMode: 'dark' })}
-                    className={`flex items-center space-x-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${
-                      settings.themeMode === 'dark'
-                        ? 'bg-[#383838] text-white shadow-sm'
-                        : 'text-gray-400 hover:text-black dark:hover:text-white'
-                    }`}
+                    className={`appearance-mode-button flex items-center space-x-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${settings.themeMode === 'dark' ? 'is-active' : ''}`}
                   >
                     <Moon className="w-3.5 h-3.5" />
                     <span>Dark</span>
                   </button>
                   <button
                     type="button"
-                    onClick={() => onUpdateSettings({ themeMode: 'light' })}
-                    className={`flex items-center space-x-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${
-                      settings.themeMode === 'light'
-                        ? 'bg-[#383838] text-white shadow-sm'
-                        : 'text-gray-400 hover:text-black dark:hover:text-white'
-                    }`}
+                    onClick={() => onUpdateSettings({ themeMode: 'cool' })}
+                    className={`appearance-mode-button flex items-center space-x-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${settings.themeMode === 'cool' ? 'is-active' : ''}`}
                   >
-                    <Sun className="w-3.5 h-3.5" />
-                    <span>Light</span>
+                    <Snowflake className="w-3.5 h-3.5" />
+                    <span>Cool</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onUpdateSettings({ themeMode: 'warm' })}
+                    className={`appearance-mode-button flex items-center space-x-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${settings.themeMode === 'warm' ? 'is-active' : ''}`}
+                  >
+                    <Coffee className="w-3.5 h-3.5" />
+                    <span>Warm</span>
                   </button>
                 </div>
               </div>
@@ -97,7 +93,7 @@ export function SettingsGeneralPanel({
                   <select
                     value={settings.textSize}
                     onChange={(e) => onUpdateSettings({ textSize: Number(e.target.value) })}
-                    className="bg-[#181818] border border-gray-700 rounded-md px-3 py-1 text-gray-100 font-mono text-xs focus:outline-none focus:border-gray-500"
+                    className="theme-input border rounded-md px-3 py-1 font-mono text-xs focus:outline-none focus:border-gray-500"
                   >
                     <option value={14}>14 Points (Compact)</option>
                     <option value={16}>16 Points (Standard)</option>
@@ -163,7 +159,7 @@ export function SettingsGeneralPanel({
                   value={settings.dockMenubarIcon}
                   aria-label="Dock and menu bar icon behavior"
                   onChange={(e) => onUpdateSettings({ dockMenubarIcon: e.target.value as AppSettings['dockMenubarIcon'] })}
-                  className="bg-[#181818] border border-gray-700 rounded-md px-3 py-1 text-gray-100 text-xs focus:outline-none focus:border-gray-500"
+                  className="theme-input border rounded-md px-3 py-1 text-xs focus:outline-none focus:border-gray-500"
                 >
                   {typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.userAgent || navigator.platform) ? (
                     <>
@@ -221,7 +217,7 @@ export function SettingsGeneralPanel({
                 <select
                   value={settings.alwaysPastePlainText ? 'plain' : 'rich'}
                   onChange={(e) => onUpdateSettings({ alwaysPastePlainText: e.target.value === 'plain' })}
-                  className="bg-[#181818] border border-gray-700 rounded-md px-3 py-1 text-gray-100 text-xs focus:outline-none focus:border-gray-500 shrink-0"
+                  className="theme-input border rounded-md px-3 py-1 text-xs focus:outline-none focus:border-gray-500 shrink-0"
                 >
                   <option value="rich">Preserve Formatting (Default)</option>
                   <option value="plain">Always Paste Plain Text</option>
@@ -240,7 +236,7 @@ export function SettingsGeneralPanel({
                     type="number"
                     value={settings.maxClipSizeMb}
                     onChange={(e) => onUpdateSettings({ maxClipSizeMb: Number(e.target.value) })}
-                    className="w-16 bg-[#181818] border border-gray-700 rounded-md px-2 py-1 text-center text-gray-100 focus:outline-none focus:border-gray-500"
+                    className="theme-input w-16 border rounded-md px-2 py-1 text-center focus:outline-none focus:border-gray-500"
                   />
                 </div>
               </div>
@@ -262,7 +258,7 @@ export function SettingsGeneralPanel({
                       step={50}
                       value={settings.keepClipCount}
                       onChange={(e) => onUpdateSettings({ keepClipCount: Number(e.target.value) })}
-                      className="w-20 bg-[#181818] border border-gray-700 rounded-md px-2 py-1 text-center text-gray-100 font-bold focus:outline-none focus:border-gray-500"
+                      className="theme-input w-20 border rounded-md px-2 py-1 text-center font-bold focus:outline-none focus:border-gray-500"
                     />
                   </div>
                 </div>
@@ -388,7 +384,7 @@ export function SettingsGeneralPanel({
                       step={50}
                       value={settings.trashCapacityCount ?? 500}
                       onChange={(e) => onUpdateSettings({ trashCapacityCount: Number(e.target.value) })}
-                      className="w-20 bg-[#181818] border border-gray-700 rounded-md px-2 py-1 text-center text-gray-100 font-bold focus:outline-none focus:border-gray-500 text-xs"
+                      className="theme-input w-20 border rounded-md px-2 py-1 text-center font-bold focus:outline-none focus:border-gray-500 text-xs"
                     />
                   </div>
                 </div>
@@ -463,7 +459,7 @@ export function SettingsGeneralPanel({
                       step={100}
                       value={settings.activityLogCapacity ?? 1000}
                       onChange={(e) => onUpdateSettings({ activityLogCapacity: Number(e.target.value) })}
-                      className="w-20 bg-[#181818] border border-gray-700 rounded-md px-2 py-1 text-center text-gray-100 font-bold focus:outline-none focus:border-gray-500 text-xs"
+                      className="theme-input w-20 border rounded-md px-2 py-1 text-center font-bold focus:outline-none focus:border-gray-500 text-xs"
                     />
                   </div>
                 </div>
@@ -489,7 +485,7 @@ export function SettingsGeneralPanel({
                   value={settings.rowHeight}
                   aria-label="Row height"
                   onChange={(e) => onUpdateSettings({ rowHeight: e.target.value as AppSettings['rowHeight'] })}
-                  className="bg-[#181818] border border-gray-700 rounded-md px-3 py-1 text-gray-100 text-xs focus:outline-none focus:border-gray-500 shrink-0"
+                  className="theme-input border rounded-md px-3 py-1 text-xs focus:outline-none focus:border-gray-500 shrink-0"
                 >
                   <option value="small">Small</option>
                   <option value="medium">Medium</option>

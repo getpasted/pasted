@@ -1,6 +1,6 @@
 /**
  * WCAG 2.1 Level AA Automated Contrast Audit Tool for Pasted
- * Verifies color contrast ratios for Dark & Light Mode themes.
+ * Verifies color contrast ratios for Dark, Cool, and Warm themes.
  */
 
 function hexToRgb(hex) {
@@ -32,17 +32,23 @@ function getContrastRatio(hex1, hex2) {
   return (lighter + 0.05) / (darker + 0.05);
 }
 
-// Test Palette Tokens for Dark & Light Schemes
+// Test palette tokens for all application schemes.
 const testPairs = [
-  // LIGHT SCHEME PAIRS
-  { name: 'Light Mode - Copy Clip Button Text vs BG', fg: '#ffffff', bg: '#0066cc', minRatio: 4.5, scheme: 'Light' },
-  { name: 'Light Mode - Bin Bar Text vs BG', fg: '#1c1c1e', bg: '#e8e8ed', minRatio: 4.5, scheme: 'Light' },
-  { name: 'Light Mode - Add Note Button Text vs BG', fg: '#713f12', bg: '#fef08a', minRatio: 4.5, scheme: 'Light' },
-  { name: 'Light Mode - Notes Header Text vs BG', fg: '#b45309', bg: '#fefce8', minRatio: 4.5, scheme: 'Light' },
-  { name: 'Light Mode - Note Item Text vs Row BG', fg: '#451a03', bg: '#ffffff', minRatio: 4.5, scheme: 'Light' },
-  { name: 'Light Mode - Note Item Text vs Row Hover BG', fg: '#451a03', bg: '#fef9c3', minRatio: 4.5, scheme: 'Light' },
-  { name: 'Light Mode - Note Action Icons vs Row BG', fg: '#b45309', bg: '#ffffff', minRatio: 3.0, scheme: 'Light' },
-  { name: 'Light Mode - Pin Icon vs Sidebar BG', fg: '#c2410c', bg: '#f3f3f6', minRatio: 3.0, scheme: 'Light' },
+  // COOL SCHEME PAIRS
+  { name: 'Cool - Copy Clip Button Text vs BG', fg: '#ffffff', bg: '#0066cc', minRatio: 4.5, scheme: 'Cool' },
+  { name: 'Cool - Bin Bar Text vs BG', fg: '#1c1c1e', bg: '#e8e8ed', minRatio: 4.5, scheme: 'Cool' },
+  { name: 'Cool - Add Note Button Text vs BG', fg: '#713f12', bg: '#fef08a', minRatio: 4.5, scheme: 'Cool' },
+  { name: 'Cool - Notes Header Text vs BG', fg: '#b45309', bg: '#fefce8', minRatio: 4.5, scheme: 'Cool' },
+  { name: 'Cool - Note Item Text vs Row BG', fg: '#451a03', bg: '#ffffff', minRatio: 4.5, scheme: 'Cool' },
+  { name: 'Cool - Note Item Text vs Row Hover BG', fg: '#451a03', bg: '#fef9c3', minRatio: 4.5, scheme: 'Cool' },
+  { name: 'Cool - Note Action Icons vs Row BG', fg: '#b45309', bg: '#ffffff', minRatio: 3.0, scheme: 'Cool' },
+  { name: 'Cool - Pin Icon vs Sidebar BG', fg: '#c2410c', bg: '#f3f3f6', minRatio: 3.0, scheme: 'Cool' },
+
+  // WARM SCHEME PAIRS
+  { name: 'Warm - Primary Text vs App BG', fg: '#3b3026', bg: '#f3eee5', minRatio: 4.5, scheme: 'Warm' },
+  { name: 'Warm - Muted Text vs Surface', fg: '#66584b', bg: '#fffdf8', minRatio: 4.5, scheme: 'Warm' },
+  { name: 'Warm - Accent Button Text vs BG', fg: '#ffffff', bg: '#9a5b31', minRatio: 4.5, scheme: 'Warm' },
+  { name: 'Warm - Selected Text vs BG', fg: '#1f170f', bg: '#e3d5c2', minRatio: 4.5, scheme: 'Warm' },
 
   // DARK SCHEME PAIRS
   { name: 'Dark Mode - Copy Clip Button Text vs BG', fg: '#000000', bg: '#ffffff', minRatio: 4.5, scheme: 'Dark' },

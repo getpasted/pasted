@@ -47,7 +47,7 @@ function parseSavedSettings(saved: Record<string, string>) {
   if (saved.alwaysPastePlainText !== undefined) next.alwaysPastePlainText = saved.alwaysPastePlainText === 'true';
   if (['small', 'medium', 'large'].includes(saved.rowHeight)) next.rowHeight = saved.rowHeight as AppSettings['rowHeight'];
   if (saved.iCloudSync !== undefined) next.iCloudSync = saved.iCloudSync === 'true';
-  if (['system', 'light', 'dark'].includes(saved.themeMode)) next.themeMode = saved.themeMode as AppSettings['themeMode'];
+  if (['system', 'cool', 'dark', 'warm'].includes(saved.themeMode)) next.themeMode = saved.themeMode as AppSettings['themeMode'];
   if (saved.spotlightSync !== undefined) next.spotlightSync = saved.spotlightSync === 'true';
   if (saved.enableActivityLog !== undefined) next.enableActivityLog = saved.enableActivityLog === 'true';
   if (saved.activityLogCapacity) next.activityLogCapacity = numberValue('activityLogCapacity', next.activityLogCapacity ?? 1000);
@@ -115,9 +115,15 @@ export function useAppSettings() {
 
   useEffect(() => {
     const applyTheme = () => {
-      const isLight = appSettings.themeMode === 'light'
-        || ((appSettings.themeMode || 'system') === 'system' && window.matchMedia('(prefers-color-scheme: light)').matches);
-      document.documentElement.classList.toggle('light', isLight);
+      const configuredTheme = appSettings.themeMode || 'system';
+      const resolvedTheme = configuredTheme === 'system'
+        ? (window.matchMedia('(prefers-color-scheme: light)').matches ? 'cool' : 'dark')
+        : configuredTheme;
+      const root = document.documentElement;
+      root.dataset.theme = resolvedTheme;
+      root.classList.toggle('cool', resolvedTheme === 'cool');
+      root.classList.toggle('dark', resolvedTheme === 'dark');
+      root.classList.toggle('warm', resolvedTheme === 'warm');
     };
     applyTheme();
     const mediaQuery = window.matchMedia('(prefers-color-scheme: light)');

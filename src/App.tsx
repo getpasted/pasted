@@ -470,7 +470,7 @@ export default function App() {
   }
 
   return (
-    <div className={`flex h-screen w-screen overflow-hidden bg-[#171717] text-gray-100 font-sans ${clipDragPreview ? 'cursor-grabbing' : ''} ${
+    <div className={`app-shell flex h-screen w-screen overflow-hidden text-gray-100 font-sans ${clipDragPreview ? 'cursor-grabbing' : ''} ${
       draggedClipId !== null ? 'is-dragging-clip' : ''
     } ${
       isPinnedReorderSettling ? 'is-settling-pinned-reorder' : ''
@@ -583,7 +583,7 @@ export default function App() {
           {/* Middle Clips List Panel */}
           <div
             style={{ width: `${clipsListWidth}px` }}
-            className="shrink-0 col-list h-screen flex flex-col bg-[#171717] overflow-hidden"
+            className="shrink-0 col-list h-screen flex flex-col overflow-hidden"
           >
             {/* Finder Header Title Bar */}
             <div
@@ -665,7 +665,7 @@ export default function App() {
 
             {/* Sequential Paste Top Header Banner if active */}
             {currentTab === 'sequential' && (
-              <div className="p-3 bg-purple-950/30 border-b border-purple-500/30">
+              <div className={`queue-controls-region p-3 border-b ${seqStatus?.is_active ? 'is-active' : ''}`}>
                 <SequentialQueueBar
                   status={seqStatus}
                   onRefresh={fetchSequentialStatus}

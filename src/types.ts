@@ -143,7 +143,7 @@ export interface AppSettings {
   alwaysPastePlainText: boolean;
   rowHeight: 'small' | 'medium' | 'large';
   iCloudSync: boolean;
-  themeMode: 'system' | 'dark' | 'light';
+  themeMode: 'system' | 'dark' | 'cool' | 'warm';
   spotlightSync: boolean;
   enableActivityLog: boolean;
   activityLogCapacity: number;

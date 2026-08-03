@@ -261,7 +261,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
 
   if (!clip) {
     return (
-      <div className="flex-1 col-preview h-screen flex flex-col items-center justify-center text-gray-500 bg-[#212121] p-8 select-none border-l border-[#2b2b2b]">
+      <div className="flex-1 col-preview h-screen flex flex-col items-center justify-center text-gray-500 p-8 select-none border-l border-[#2b2b2b]">
         <div className="w-16 h-16 rounded-2xl bg-[#181818] border border-gray-700/60 flex items-center justify-center mb-4 shadow-xl">
           <FileText className="w-8 h-8 text-gray-400" />
         </div>
@@ -356,11 +356,11 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   const lineCount = displayText ? displayText.split('\n').length : 0;
 
   return (
-    <div className="flex-1 col-preview h-screen flex flex-col bg-[#212121] border-l border-[#2b2b2b] overflow-hidden">
+    <div className="flex-1 col-preview h-screen flex flex-col border-l border-[#2b2b2b] overflow-hidden">
       {/* Finder Top Header Bar */}
       <div
         onMouseDown={startWindowDrag}
-        className="h-[60px] border-b border-[#2b2b2b] bg-[#171717]/80 backdrop-blur-md px-4 flex items-center justify-between cursor-default titlebar-drag-handle shrink-0"
+        className="col-preview-header h-[60px] border-b border-[#2b2b2b] px-4 flex items-center justify-between cursor-default titlebar-drag-handle shrink-0"
       >
         <div className="flex items-center space-x-3 titlebar-drag-handle">
           <span className="clip-type-badge text-xs font-semibold px-2.5 py-1 rounded-md bg-gray-800 text-gray-200 border border-gray-700 capitalize titlebar-drag-handle">

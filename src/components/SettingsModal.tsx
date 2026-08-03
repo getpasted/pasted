@@ -39,7 +39,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
   return (
-    <div className="tools-page settings-page flex-1 settings-modal-bg h-screen overflow-y-auto bg-[#141414] text-gray-100 font-sans select-none flex flex-col items-center p-6">
+    <div className="tools-page settings-page flex-1 settings-modal-bg h-screen overflow-y-auto font-sans select-none flex flex-col items-center p-6">
       <div className="w-full max-w-xl space-y-6">
         <SettingsTabs activeTab={activeTab} onChange={setActiveTab} />
 

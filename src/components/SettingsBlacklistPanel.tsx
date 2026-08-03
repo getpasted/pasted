@@ -45,7 +45,7 @@ export function SettingsBlacklistPanel({
   };
 
   return (
-    <div className="bg-[#212121] p-6 rounded-2xl border border-gray-700/80 shadow-2xl space-y-4 text-xs text-gray-200">
+    <div className="theme-panel p-6 rounded-2xl border space-y-4 text-xs">
       <h4 className="font-bold text-gray-100 uppercase tracking-wider text-[11px]">
         Ignore from the Following Apps:
       </h4>
@@ -60,7 +60,7 @@ export function SettingsBlacklistPanel({
         {apps.map((app) => (
           <div
             key={app.id}
-            className="flex items-center justify-between gap-4 p-3 bg-[#181818] rounded-xl border border-gray-700/80"
+            className="theme-surface flex items-center justify-between gap-4 p-3 rounded-xl border"
           >
             <div className="flex min-w-0 items-center space-x-3">
               <div className="w-7 h-7 shrink-0 rounded-lg bg-gray-800 border border-gray-700 flex items-center justify-center">
@@ -119,7 +119,7 @@ export function SettingsBlacklistPanel({
           aria-label="Suggested app"
           onChange={(event) => setAppName(event.target.value)}
           value={suggestedApps.some((group) => group.apps.includes(appName)) ? appName : ''}
-          className="w-full bg-[#181818] border border-gray-700 rounded-lg px-3 py-1.5 text-gray-200 text-xs focus:outline-none focus:border-gray-500 truncate"
+          className="theme-input w-full border rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-gray-500 truncate"
         >
           <option value="" disabled>-- Select Installed or Popular App --</option>
           {suggestedApps.map((group) => (
@@ -136,7 +136,7 @@ export function SettingsBlacklistPanel({
             placeholder="Or type custom app name (e.g. Signal, Bitwarden)..."
             value={appName}
             onChange={(event) => setAppName(event.target.value)}
-            className="flex-1 bg-[#181818] border border-gray-700 rounded-lg px-3 py-1.5 text-gray-100 text-xs focus:outline-none focus:border-gray-500"
+            className="theme-input flex-1 border rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-gray-500"
           />
           <button
             type="submit"

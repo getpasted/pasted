@@ -18,7 +18,7 @@ const TABS = [
 export function SettingsTabs({ activeTab, onChange }: SettingsTabsProps) {
   return (
     <div onMouseDown={startWindowDrag} className="flex items-center justify-center">
-      <div className="flex items-center bg-[#212121] p-1 rounded-xl border border-gray-700/80 shadow-lg space-x-1 titlebar-no-drag">
+      <div className="theme-panel flex items-center p-1 rounded-xl border space-x-1 titlebar-no-drag">
         {TABS.map(({ id, label, Icon }) => (
           <button
             key={id}

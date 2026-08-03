@@ -86,10 +86,21 @@ body.hud-mode,
     --shadow-card: 0 2px 6px rgba(0, 0, 0, 0.4);
     --shadow-clip-card-hover: 0 3px 10px rgba(0, 0, 0, 0.5);
     --shadow-card-selected: 0 4px 12px rgba(0, 0, 0, 0.6);
+
+    --accent-primary: #0a84ff;
+    --accent-primary-contrast: #ffffff;
+
+    --material-app: rgba(23, 23, 23, 0.68);
+    --material-sidebar: rgba(33, 33, 33, 0.72);
+    --material-list: rgba(23, 23, 23, 0.62);
+    --material-preview: rgba(33, 33, 33, 0.70);
+    --material-toolbar: rgba(23, 23, 23, 0.64);
+    --material-blur: 22px;
+    --material-saturation: 145%;
   }
 
-  /* ☀️ Light Theme Tokens */
-  html.light, html[data-theme="light"] {
+  /* ❄️ Cool Theme Tokens */
+  html:is(.cool, .warm), html:is([data-theme="cool"], [data-theme="warm"]) {
     --bg-app: #f4f4f7;
     --bg-main: #f4f4f7;
     --bg-primary: #ffffff;
@@ -124,10 +135,75 @@ body.hud-mode,
     --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.05);
     --shadow-clip-card-hover: 0 2px 7px rgba(28, 28, 30, 0.13);
     --shadow-card-selected: 0 2px 6px rgba(0, 0, 0, 0.12);
+
+    --accent-primary: #0066cc;
+    --accent-primary-contrast: #ffffff;
+
+    --material-app: rgba(244, 244, 247, 0.66);
+    --material-sidebar: rgba(245, 245, 248, 0.72);
+    --material-list: rgba(255, 255, 255, 0.62);
+    --material-preview: rgba(244, 244, 247, 0.68);
+    --material-toolbar: rgba(250, 250, 252, 0.66);
+    --material-blur: 24px;
+    --material-saturation: 155%;
+  }
+
+  /* ☕ Warm Theme — a third palette used to keep component styling token-led. */
+  html.warm, html[data-theme="warm"] {
+    --bg-app: #f3eee5;
+    --bg-main: #f3eee5;
+    --bg-primary: #fffaf2;
+    --bg-sidebar: #eee6da;
+    --bg-list: #fffaf2;
+    --bg-preview: #f7f1e8;
+    --bg-card: #fffaf2;
+    --bg-card-hover: #f1e7d9;
+    --bg-clip-card-hover: #eadfce;
+    --bg-card-selected: #e3d5c2;
+    --bg-surface: #fffdf8;
+    --bg-input: #fffdf8;
+    --bg-tab-bar: #eee6da;
+    --bg-tab-active: #fffaf2;
+    --bg-tab-hover: #e7dccd;
+    --bg-badge: #e7dccd;
+
+    --border-subtle: #b9aa98;
+    --border-card: #b9aa98;
+    --border-card-selected: #8f7b65;
+    --border-clip-card-hover: #816f5b;
+    --border-input: #b9aa98;
+
+    --text-title: #2b2118;
+    --text-main: #3b3026;
+    --text-muted: #66584b;
+    --text-subtle: #7b6b5d;
+    --text-selected: #1f170f;
+
+    --scrollbar-thumb: rgba(76, 55, 35, 0.24);
+    --scrollbar-thumb-hover: rgba(76, 55, 35, 0.42);
+    --shadow-card: 0 1px 3px rgba(76, 55, 35, 0.08);
+    --shadow-clip-card-hover: 0 2px 7px rgba(76, 55, 35, 0.16);
+    --shadow-card-selected: 0 2px 6px rgba(76, 55, 35, 0.18);
+
+    --accent-primary: #9a5b31;
+    --accent-primary-contrast: #ffffff;
+
+    --material-app: rgba(243, 238, 229, 0.66);
+    --material-sidebar: rgba(238, 230, 218, 0.72);
+    --material-list: rgba(255, 250, 242, 0.62);
+    --material-preview: rgba(247, 241, 232, 0.68);
+    --material-toolbar: rgba(255, 250, 242, 0.66);
+    --material-blur: 24px;
+    --material-saturation: 140%;
+  }
+
+  html,
+  body,
+  #root {
+    background: transparent;
   }
 
   body {
-    background-color: var(--bg-app);
     color: var(--text-main);
     font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", sans-serif;
     user-select: none;
@@ -173,8 +249,8 @@ body.hud-mode,
     padding-right: 1.75rem !important;
   }
 
-  html.light select,
-  html.light .theme-select {
+  html:is(.cool, .warm) select,
+  html:is(.cool, .warm) .theme-select {
     background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23505055' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
   }
 }
@@ -218,12 +294,12 @@ body.hud-mode,
 .custom-scrollbar::-webkit-scrollbar-thumb:active {
   background: rgba(255, 255, 255, 0.75) !important;
 }
-html.light .custom-scrollbar::-webkit-scrollbar-thumb {
+html:is(.cool, .warm) .custom-scrollbar::-webkit-scrollbar-thumb {
   background: rgba(0, 0, 0, 0.35);
   border: 1px solid rgba(255, 255, 255, 0.2);
 }
-html.light .custom-scrollbar::-webkit-scrollbar-thumb:hover,
-html.light .custom-scrollbar::-webkit-scrollbar-thumb:active {
+html:is(.cool, .warm) .custom-scrollbar::-webkit-scrollbar-thumb:hover,
+html:is(.cool, .warm) .custom-scrollbar::-webkit-scrollbar-thumb:active {
   background: rgba(0, 0, 0, 0.75) !important;
 }
 
@@ -243,13 +319,13 @@ html.light .custom-scrollbar::-webkit-scrollbar-thumb:active {
 
 /* Structural Layout Columns */
 .col-sidebar {
-  background-color: var(--bg-sidebar);
+  background-color: var(--material-sidebar);
   border-color: var(--border-subtle);
   color: var(--text-main);
 }
 
 .col-list {
-  background-color: var(--bg-list);
+  background-color: var(--material-list);
   border-color: var(--border-subtle);
   flex-shrink: 0 !important;
 }
@@ -262,15 +338,172 @@ html.light .custom-scrollbar::-webkit-scrollbar-thumb:active {
 }
 
 .col-list-header {
-  background-color: var(--bg-app);
+  background-color: var(--material-toolbar);
   border-color: var(--border-subtle);
   color: var(--text-title);
 }
 
 .col-preview {
-  background-color: var(--bg-preview);
+  background-color: var(--material-preview);
   border-color: var(--border-subtle);
   color: var(--text-main);
+}
+
+/* Semantic theme primitives. Components should express purpose through these
+   roles instead of embedding a dark palette and repairing it in cool mode. */
+.theme-title {
+  color: var(--text-title) !important;
+}
+
+.theme-text-main {
+  color: var(--text-main) !important;
+}
+
+.theme-text-muted {
+  color: var(--text-muted) !important;
+}
+
+.theme-panel,
+.theme-card-idle {
+  background-color: var(--bg-card) !important;
+  border-color: var(--border-card) !important;
+  color: var(--text-main) !important;
+  box-shadow: var(--shadow-card) !important;
+}
+
+.theme-surface {
+  background-color: var(--bg-surface) !important;
+  border-color: var(--border-subtle) !important;
+  color: var(--text-main) !important;
+}
+
+.theme-toolbar {
+  background-color: var(--material-toolbar) !important;
+  border-color: var(--border-subtle) !important;
+  color: var(--text-main) !important;
+}
+
+/* The native Tauri window supplies the underlying macOS material. These
+   structural surfaces tint it per scheme without stacking blur on every card. */
+.app-shell {
+  background-color: var(--material-app);
+}
+
+.col-sidebar,
+.col-list,
+.col-preview,
+.col-list-header,
+.col-preview-header,
+.theme-toolbar {
+  -webkit-backdrop-filter: blur(var(--material-blur)) saturate(var(--material-saturation));
+  backdrop-filter: blur(var(--material-blur)) saturate(var(--material-saturation));
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .app-shell { background-color: var(--bg-app); }
+  .col-sidebar { background-color: var(--bg-sidebar); }
+  .col-list { background-color: var(--bg-list); }
+  .col-preview { background-color: var(--bg-preview); }
+  .col-list-header,
+  .col-preview-header,
+  .theme-toolbar { background-color: var(--bg-app) !important; }
+
+  .col-sidebar,
+  .col-list,
+  .col-preview,
+  .col-list-header,
+  .col-preview-header,
+  .theme-toolbar {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+.theme-divider {
+  border-color: var(--border-subtle) !important;
+}
+
+.theme-subtle-surface,
+.theme-track {
+  background-color: var(--bg-tab-hover) !important;
+  border-color: var(--border-subtle) !important;
+  color: var(--text-main) !important;
+}
+
+.theme-secondary-button {
+  background-color: var(--bg-tab-hover) !important;
+  border-color: var(--border-subtle) !important;
+  color: var(--text-main) !important;
+}
+
+.theme-secondary-button:hover {
+  background-color: var(--bg-card-selected) !important;
+  color: var(--text-title) !important;
+}
+
+.appearance-mode-button {
+  color: var(--text-muted);
+}
+
+.appearance-mode-button:hover {
+  color: var(--text-title);
+  background-color: var(--bg-tab-hover);
+}
+
+.appearance-mode-button.is-active {
+  color: var(--accent-primary-contrast);
+  background-color: var(--accent-primary);
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--accent-primary) 32%, transparent);
+}
+
+.theme-input {
+  background-color: var(--bg-input) !important;
+  border-color: var(--border-input) !important;
+  color: var(--text-main) !important;
+}
+
+.theme-input::placeholder {
+  color: var(--text-subtle) !important;
+}
+
+.theme-kbd {
+  background-color: var(--bg-badge) !important;
+  border-color: var(--border-subtle) !important;
+  color: var(--text-main) !important;
+  box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--text-main) 14%, transparent);
+}
+
+.queue-controls-region {
+  background-color: var(--bg-list);
+  border-color: var(--border-subtle);
+}
+
+.queue-controls-card.is-active,
+.queue-controls-region.is-active {
+  background-color: rgba(88, 28, 135, 0.18) !important;
+  border-color: rgba(168, 85, 247, 0.48) !important;
+}
+
+.queue-controls-icon {
+  color: var(--text-muted) !important;
+}
+
+.queue-controls-icon.is-active {
+  background-color: rgba(88, 28, 135, 0.34) !important;
+  border-color: rgba(168, 85, 247, 0.48) !important;
+  color: #d8b4fe !important;
+}
+
+html:is(.cool, .warm) .queue-controls-card.is-active,
+html:is(.cool, .warm) .queue-controls-region.is-active {
+  background-color: #f4ecfb !important;
+  border-color: #c4a7df !important;
+}
+
+html:is(.cool, .warm) .queue-controls-icon.is-active {
+  background-color: #eadcf7 !important;
+  border-color: #b891d2 !important;
+  color: #6b21a8 !important;
 }
 
 /* Sidebar Elements */
@@ -321,12 +554,12 @@ html.light .custom-scrollbar::-webkit-scrollbar-thumb:active {
   border-color: rgba(255, 255, 255, 0.05) !important;
 }
 
-html.light .sidebar-bin-drop-eligible,
-html.light .sidebar-bin-drop-target {
+html:is(.cool, .warm) .sidebar-bin-drop-eligible,
+html:is(.cool, .warm) .sidebar-bin-drop-target {
   color: #065f46 !important;
 }
 
-html.light .sidebar-bin-ineligible {
+html:is(.cool, .warm) .sidebar-bin-ineligible {
   background-color: rgba(0, 0, 0, 0.025) !important;
   border-color: rgba(0, 0, 0, 0.08) !important;
 }
@@ -507,10 +740,10 @@ html.is-stable-reordering * {
 }
 
 /* =======================================================
-   LIGHT MODE OVERRIDES (Guarantees Complete Coverage)
+   COOL & WARM MODE OVERRIDES (Guarantees Complete Coverage)
    ======================================================= */
-html.light .col-sidebar {
-  background-color: #f5f5f8 !important;
+html:is(.cool, .warm) .col-sidebar {
+  background-color: var(--material-sidebar) !important;
   border-color: #e2e2e7 !important;
   color: var(--text-main) !important;
 }
@@ -519,11 +752,11 @@ html.light .col-sidebar {
   border-color: rgba(255, 255, 255, 0.12) !important;
 }
 
-html.light .sidebar-divider {
+html:is(.cool, .warm) .sidebar-divider {
   border-color: rgba(0, 0, 0, 0.14) !important;
 }
 
-html.light .sidebar-title {
+html:is(.cool, .warm) .sidebar-title {
   color: var(--text-title) !important;
 }
 
@@ -539,46 +772,46 @@ html.light .sidebar-title {
   color: #ffffff !important;
 }
 
-html.light .sidebar-item-active {
+html:is(.cool, .warm) .sidebar-item-active {
   background-color: #ffffff !important;
   color: #000000 !important;
   border-color: #c7c7cc !important;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1) !important;
 }
 
-html.light .sidebar-item-active span,
-html.light .sidebar-item-active svg {
+html:is(.cool, .warm) .sidebar-item-active span,
+html:is(.cool, .warm) .sidebar-item-active svg {
   color: #000000 !important;
 }
 
-html.light .col-sidebar svg,
-html.light .sidebar-item-idle,
-html.light .sidebar-item-idle svg {
+html:is(.cool, .warm) .col-sidebar svg,
+html:is(.cool, .warm) .sidebar-item-idle,
+html:is(.cool, .warm) .sidebar-item-idle svg {
   color: #3a3a3c !important;
 }
 
-html.light .sidebar-item-hovered,
-html.light .sidebar-item-hovered svg {
+html:is(.cool, .warm) .sidebar-item-hovered,
+html:is(.cool, .warm) .sidebar-item-hovered svg {
   color: #000000 !important;
 }
 
-html.light .sidebar-badge {
+html:is(.cool, .warm) .sidebar-badge {
   background-color: var(--bg-badge) !important;
   color: var(--text-muted) !important;
 }
 
-html.light .sidebar-item-hovered .sidebar-badge {
+html:is(.cool, .warm) .sidebar-item-hovered .sidebar-badge {
   background-color: var(--border-subtle) !important;
   color: var(--text-title) !important;
 }
 
-html.light .col-sidebar input[type="text"] {
+html:is(.cool, .warm) .col-sidebar input[type="text"] {
   background-color: var(--bg-surface) !important;
   border-color: var(--border-subtle) !important;
   color: var(--text-main) !important;
 }
 
-html.light .col-sidebar input[type="text"]::placeholder {
+html:is(.cool, .warm) .col-sidebar input[type="text"]::placeholder {
   color: var(--text-subtle) !important;
 }
 
@@ -608,178 +841,178 @@ html.light .col-sidebar input[type="text"]::placeholder {
   color: #a3a3a3;
 }
 
-html.light .sidebar-search-helper {
+html:is(.cool, .warm) .sidebar-search-helper {
   background-color: rgba(255, 255, 255, 0.98);
   border-color: #9ea0a6;
   box-shadow: 0 12px 30px rgba(28, 28, 30, 0.18);
 }
 
-html.light .sidebar-search-helper-option {
+html:is(.cool, .warm) .sidebar-search-helper-option {
   color: var(--text-main);
 }
 
-html.light .sidebar-search-helper-option:hover,
-html.light .sidebar-search-helper-option:focus-visible {
+html:is(.cool, .warm) .sidebar-search-helper-option:hover,
+html:is(.cool, .warm) .sidebar-search-helper-option:focus-visible {
   background-color: #e6f7fa;
 }
 
-html.light .sidebar-search-helper-prefix {
+html:is(.cool, .warm) .sidebar-search-helper-prefix {
   color: #087b8c;
 }
 
-html.light .sidebar-search-helper-description {
+html:is(.cool, .warm) .sidebar-search-helper-description {
   color: #505055;
 }
 
-html.light .col-list {
-  background-color: var(--bg-list) !important;
+html:is(.cool, .warm) .col-list {
+  background-color: var(--material-list) !important;
   border-color: var(--border-subtle) !important;
 }
 
-html.light .col-list-header {
-  background-color: var(--bg-list-header) !important;
+html:is(.cool, .warm) .col-list-header {
+  background-color: var(--material-toolbar) !important;
   border-color: var(--border-subtle) !important;
 }
 
-html.light .col-list-header h2 {
+html:is(.cool, .warm) .col-list-header h2 {
   color: var(--text-title) !important;
 }
 
-html.light .col-list-header span.font-mono {
+html:is(.cool, .warm) .col-list-header span.font-mono {
   background-color: var(--bg-badge) !important;
   color: var(--text-muted) !important;
 }
 
-html.light .col-preview {
-  background-color: var(--bg-preview) !important;
+html:is(.cool, .warm) .col-preview {
+  background-color: var(--material-preview) !important;
   border-color: var(--border-subtle) !important;
   color: var(--text-main) !important;
 }
 
-html.light .col-preview > div {
+html:is(.cool, .warm) .col-preview > div {
   border-color: var(--border-subtle) !important;
 }
 
-html.light .col-preview > div:first-child,
-html.light .col-preview > div:nth-child(2) {
-  background-color: var(--bg-preview-header) !important;
+html:is(.cool, .warm) .col-preview > div:first-child,
+html:is(.cool, .warm) .col-preview > div:nth-child(2) {
+  background-color: var(--material-toolbar) !important;
   border-color: var(--border-subtle) !important;
   color: var(--text-main) !important;
 }
 
-html.light .col-preview span.bg-gray-800 {
+html:is(.cool, .warm) .col-preview span.bg-gray-800 {
   background-color: var(--bg-badge) !important;
   color: var(--text-main) !important;
   border-color: var(--border-subtle) !important;
 }
 
-html.light .col-preview select {
+html:is(.cool, .warm) .col-preview select {
   background-color: var(--bg-surface) !important;
   border-color: var(--border-subtle) !important;
   color: var(--text-main) !important;
 }
 
-html.light .col-preview button.bg-\[\#242732\],
-html.light .col-preview div.bg-\[\#181a22\] {
+html:is(.cool, .warm) .col-preview button.bg-\[\#242732\],
+html:is(.cool, .warm) .col-preview div.bg-\[\#181a22\] {
   background-color: var(--bg-surface) !important;
   border-color: var(--border-subtle) !important;
   color: var(--text-main) !important;
 }
 
-html.light .col-preview div.rounded-xl {
+html:is(.cool, .warm) .col-preview div.rounded-xl {
   background-color: var(--bg-surface) !important;
   border-color: var(--border-subtle) !important;
   color: var(--text-main) !important;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05) !important;
 }
 
-html.light .col-preview div.p-3 {
+html:is(.cool, .warm) .col-preview div.p-3 {
   background-color: var(--bg-preview-header) !important;
   border-color: var(--border-subtle) !important;
 }
 
-html.light .col-preview div.p-3 button {
+html:is(.cool, .warm) .col-preview div.p-3 button {
   background-color: var(--bg-surface) !important;
   border-color: var(--border-subtle) !important;
   color: var(--text-main) !important;
 }
 
-html.light .col-preview div.p-3 button:hover {
+html:is(.cool, .warm) .col-preview div.p-3 button:hover {
   background-color: var(--bg-card-selected) !important;
   color: #000000 !important;
 }
 
-html.light .col-preview div.px-4.py-2\.5:not(.note-container) {
+html:is(.cool, .warm) .col-preview div.px-4.py-2\.5:not(.note-container) {
   background-color: var(--bg-preview-header) !important;
   border-color: var(--border-subtle) !important;
   color: var(--text-muted) !important;
 }
 
-html.light .col-preview div.px-4.py-2\.5:not(.note-container) strong {
+html:is(.cool, .warm) .col-preview div.px-4.py-2\.5:not(.note-container) strong {
   color: var(--text-main) !important;
 }
 
-html.light .col-preview button.bg-white {
+html:is(.cool, .warm) .col-preview button.bg-white {
   background-color: var(--text-main) !important;
   color: #ffffff !important;
 }
 
-html.light .col-preview button.bg-white:hover {
+html:is(.cool, .warm) .col-preview button.bg-white:hover {
   background-color: #1c1c1e !important;
 }
 
-html.light .col-preview select,
-html.light .col-preview textarea,
-html.light .col-preview .selectable-text {
+html:is(.cool, .warm) .col-preview select,
+html:is(.cool, .warm) .col-preview textarea,
+html:is(.cool, .warm) .col-preview .selectable-text {
   color: var(--text-main) !important;
 }
 
-/* Light Mode Cards */
-html.light .clip-card-idle:not(.clip-card-hovered) {
+/* Cool/Warm Mode Cards */
+html:is(.cool, .warm) .clip-card-idle:not(.clip-card-hovered) {
   background-color: var(--bg-card) !important;
   border-color: var(--border-card) !important;
   color: var(--text-main) !important;
   box-shadow: var(--shadow-card) !important;
 }
 
-html.light .clip-card-selected {
+html:is(.cool, .warm) .clip-card-selected {
   background-color: #f0f0f3 !important;
   border-color: var(--text-subtle) !important;
   color: var(--text-selected) !important;
   box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.16), var(--shadow-card-selected) !important;
 }
 
-html.light .clip-card-selected span,
-html.light .clip-card-selected p,
-html.light .clip-card-selected div {
+html:is(.cool, .warm) .clip-card-selected span,
+html:is(.cool, .warm) .clip-card-selected p,
+html:is(.cool, .warm) .clip-card-selected div {
   color: var(--text-selected) !important;
 }
 
-html.light .clip-ocr-badge,
-html.light .clip-ocr-badge span {
+html:is(.cool, .warm) .clip-ocr-badge,
+html:is(.cool, .warm) .clip-ocr-badge span {
   background-color: #dff6fa !important;
   border-color: #56a9b8 !important;
   color: #0e5e70 !important;
 }
 
-html.light .clip-meta-protected,
-html.light .clip-meta-protected span {
+html:is(.cool, .warm) .clip-meta-protected,
+html:is(.cool, .warm) .clip-meta-protected span {
   background-color: #dff6fa !important;
   border-color: #56a9b8 !important;
   color: #0e5e70 !important;
 }
 
-html.light .clip-card-actions {
+html:is(.cool, .warm) .clip-card-actions {
   background-color: rgba(255, 255, 255, 0.96) !important;
   border-color: #b0b0b6 !important;
   box-shadow: 0 4px 12px rgba(28, 28, 30, 0.16) !important;
 }
 
-html.light .clip-card-actions button.text-gray-400 {
+html:is(.cool, .warm) .clip-card-actions button.text-gray-400 {
   color: #505055 !important;
 }
 
-html.light .clip-card-actions button:hover {
+html:is(.cool, .warm) .clip-card-actions button:hover {
   background-color: #e5e5ea !important;
 }
 
@@ -812,6 +1045,7 @@ html.light .clip-card-actions button:hover {
   min-width: 0;
   font-weight: 700;
   line-height: inherit;
+  color: var(--text-main);
 }
 
 .clip-preview-footer-captured {
@@ -823,7 +1057,7 @@ html.light .clip-card-actions button:hover {
 .clip-preview-footer-captured time {
   display: block;
   overflow: hidden;
-  color: inherit;
+  color: var(--text-main);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -834,7 +1068,7 @@ html.light .clip-card-actions button:hover {
   padding: 0;
   border: 0;
   border-radius: 2px;
-  color: inherit;
+  color: var(--text-main);
   background: transparent;
   font: inherit;
   font-weight: 700;
@@ -891,163 +1125,154 @@ html.light .clip-card-actions button:hover {
   background-color: #9333ea;
 }
 
-html.light .clip-revision-count {
-  color: inherit;
+html:is(.cool, .warm) .clip-revision-count {
+  color: var(--text-main);
   background: transparent;
 }
 
-html.light .clip-revision-count:hover,
-html.light .clip-revision-count.is-active {
+html:is(.cool, .warm) .clip-revision-count:hover,
+html:is(.cool, .warm) .clip-revision-count.is-active {
   color: #6b21a8;
 }
 
-html.light .clip-revision-history {
+html:is(.cool, .warm) .clip-revision-history {
   background-color: #f7f7f9;
   border-color: #c7c7cc;
   color: #1c1c1e;
 }
 
-html.light .clip-revision-history-icon {
+html:is(.cool, .warm) .clip-revision-history-icon {
   color: #7e22ce;
 }
 
-html.light .clip-revision-history-title,
-html.light .clip-revision-history-preview {
+html:is(.cool, .warm) .clip-revision-history-title,
+html:is(.cool, .warm) .clip-revision-history-preview {
   color: #1c1c1e !important;
 }
 
-html.light .clip-revision-history-count,
-html.light .clip-revision-history-meta,
-html.light .clip-revision-history-empty,
-html.light .clip-revision-history-close {
+html:is(.cool, .warm) .clip-revision-history-count,
+html:is(.cool, .warm) .clip-revision-history-meta,
+html:is(.cool, .warm) .clip-revision-history-empty,
+html:is(.cool, .warm) .clip-revision-history-close {
   color: #5c5c62 !important;
 }
 
-html.light .clip-revision-history-close:hover {
+html:is(.cool, .warm) .clip-revision-history-close:hover {
   color: #1c1c1e !important;
   background-color: #e5e5ea;
 }
 
-html.light .clip-revision-history-item {
+html:is(.cool, .warm) .clip-revision-history-item {
   background-color: #ffffff;
   border-color: #c7c7cc;
 }
 
-html.light .clip-revision-history-restore {
+html:is(.cool, .warm) .clip-revision-history-restore {
   color: #ffffff !important;
   background-color: #6b21a8;
   border-color: #581c87;
 }
 
-html.light .clip-revision-history-restore:hover {
+html:is(.cool, .warm) .clip-revision-history-restore:hover {
   background-color: #581c87;
 }
 
-html.light .clip-card-selected .clip-trash-badge,
-html.light .clip-card-selected .clip-trash-badge span,
-html.light .clip-trash-badge {
+html:is(.cool, .warm) .clip-card-selected .clip-trash-badge,
+html:is(.cool, .warm) .clip-card-selected .clip-trash-badge span,
+html:is(.cool, .warm) .clip-trash-badge {
   background-color: #fee2e2 !important;
   border-color: #f87171 !important;
   color: #991b1b !important;
 }
 
-html.light .clip-card-idle .text-gray-100,
-html.light .clip-card-idle .text-gray-200,
-html.light .clip-card-idle .text-gray-300 {
+html:is(.cool, .warm) .clip-card-idle .text-gray-100,
+html:is(.cool, .warm) .clip-card-idle .text-gray-200,
+html:is(.cool, .warm) .clip-card-idle .text-gray-300 {
   color: var(--text-main) !important;
 }
 
-html.light span.text-gray-300,
-html.light span.text-gray-200,
-html.light p.text-gray-300,
-html.light p.text-gray-200 {
+html:is(.cool, .warm) span.text-gray-300,
+html:is(.cool, .warm) span.text-gray-200,
+html:is(.cool, .warm) p.text-gray-300,
+html:is(.cool, .warm) p.text-gray-200 {
   color: var(--text-main) !important;
 }
 
-html.light span.text-gray-400,
-html.light span.text-gray-500,
-html.light div.text-gray-400,
-html.light div.text-gray-500 {
+html:is(.cool, .warm) span.text-gray-400,
+html:is(.cool, .warm) span.text-gray-500,
+html:is(.cool, .warm) div.text-gray-400,
+html:is(.cool, .warm) div.text-gray-500 {
   color: var(--text-muted) !important;
 }
 
-/* Light Mode Semantic Typography Overrides */
-html.light .theme-title,
-html.light h1, html.light h2, html.light h3, html.light h4, html.light h5, html.light h6 {
+/* Legacy headings without a semantic class still inherit the light title role. */
+html:is(.cool, .warm) h1, html:is(.cool, .warm) h2, html:is(.cool, .warm) h3, html:is(.cool, .warm) h4, html:is(.cool, .warm) h5, html:is(.cool, .warm) h6 {
   color: var(--text-title) !important;
 }
 
-html.light .theme-text-main {
-  color: var(--text-main) !important;
-}
-
-html.light .theme-text-muted {
-  color: var(--text-muted) !important;
-}
-
-html.light .filter-manager-wrapper {
+html:is(.cool, .warm) .filter-manager-wrapper {
   background-color: var(--bg-primary) !important;
   color: var(--text-main) !important;
 }
 
-html.light .filter-manager-wrapper div.p-2.rounded-lg {
+html:is(.cool, .warm) .filter-manager-wrapper div.p-2.rounded-lg {
   background-color: var(--bg-badge) !important;
   color: var(--text-main) !important;
   border-color: var(--border-subtle) !important;
 }
 
-html.light .filter-manager-wrapper div.p-2.rounded-lg svg {
+html:is(.cool, .warm) .filter-manager-wrapper div.p-2.rounded-lg svg {
   color: var(--text-main) !important;
 }
 
-html.light .settings-modal-bg,
-html.light div.bg-\[\#141414\],
-html.light div.h-screen.overflow-y-auto {
-  background-color: var(--bg-app) !important;
+html:is(.cool, .warm) .settings-modal-bg,
+html:is(.cool, .warm) div.bg-\[\#141414\],
+html:is(.cool, .warm) div.h-screen.overflow-y-auto {
+  background-color: var(--material-app) !important;
   color: var(--text-main) !important;
 }
 
-html.light div.bg-\[\#212121\] {
+html:is(.cool, .warm) div.bg-\[\#212121\] {
   background-color: var(--bg-card) !important;
   border-color: var(--border-card) !important;
   color: var(--text-main) !important;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08) !important;
 }
 
-html.light div.bg-\[\#181818\] {
+html:is(.cool, .warm) div.bg-\[\#181818\] {
   background-color: var(--bg-primary) !important;
   border-color: var(--border-card) !important;
   color: var(--text-main) !important;
 }
 
-html.light select,
-html.light input[type="text"],
-html.light input[type="number"],
-html.light textarea,
-html.light input[type="password"],
-html.light .theme-input {
+html:is(.cool, .warm) select,
+html:is(.cool, .warm) input[type="text"],
+html:is(.cool, .warm) input[type="number"],
+html:is(.cool, .warm) textarea,
+html:is(.cool, .warm) input[type="password"],
+html:is(.cool, .warm) .theme-input {
   background-color: var(--bg-surface) !important;
   border-color: var(--border-subtle) !important;
   color: var(--text-main) !important;
 }
 
-html.light button.bg-\[\#383838\] {
+html:is(.cool, .warm) button.bg-\[\#383838\] {
   background-color: var(--bg-card) !important;
   color: var(--text-title) !important;
   border-color: var(--border-subtle) !important;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1) !important;
 }
 
-html.light .settings-tab-idle {
+html:is(.cool, .warm) .settings-tab-idle {
   color: #636366 !important;
 }
 
-html.light .settings-tab-idle:hover {
+html:is(.cool, .warm) .settings-tab-idle:hover {
   background-color: #e2e2e8 !important;
   color: #000000 !important;
 }
 
-html.light .settings-tab-active {
+html:is(.cool, .warm) .settings-tab-active {
   background-color: #ffffff !important;
   color: #1c1c1e !important;
   border-color: #c7c7cc !important;
@@ -1060,67 +1285,67 @@ html.light .settings-tab-active {
   border-color: var(--border-subtle);
 }
 
-html.light .theme-badge {
+html:is(.cool, .warm) .theme-badge {
   background-color: #e5e5ea !important;
   color: #505055 !important;
   border-color: #c7c7cc !important;
 }
 
-html.light .bin-modal-card {
+html:is(.cool, .warm) .bin-modal-card {
   background-color: #ffffff !important;
   color: #1c1c1e !important;
   border-color: #b0b0b6 !important;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15) !important;
 }
 
-html.light .bin-modal-card div.bg-\[\#181920\],
-html.light .bin-modal-card div.bg-\[\#1b1c24\] {
+html:is(.cool, .warm) .bin-modal-card div.bg-\[\#181920\],
+html:is(.cool, .warm) .bin-modal-card div.bg-\[\#1b1c24\] {
   background-color: #f4f4f7 !important;
   color: #1c1c1e !important;
   border-color: #b0b0b6 !important;
 }
 
-html.light .bin-modal-card input.bg-\[\#181920\],
-html.light .bin-modal-card select.bg-\[\#242630\],
-html.light .bin-modal-card input.bg-\[\#242630\],
-html.light .bin-modal-card button.bg-\[\#242630\] {
+html:is(.cool, .warm) .bin-modal-card input.bg-\[\#181920\],
+html:is(.cool, .warm) .bin-modal-card select.bg-\[\#242630\],
+html:is(.cool, .warm) .bin-modal-card input.bg-\[\#242630\],
+html:is(.cool, .warm) .bin-modal-card button.bg-\[\#242630\] {
   background-color: #ffffff !important;
   color: #1c1c1e !important;
   border-color: #b0b0b6 !important;
 }
 
-html.light .bin-modal-card button.bg-\[\#242630\]:hover {
+html:is(.cool, .warm) .bin-modal-card button.bg-\[\#242630\]:hover {
   background-color: #e5e5ea !important;
   color: #000000 !important;
 }
 
-html.light .bin-modal-cancel-btn {
+html:is(.cool, .warm) .bin-modal-cancel-btn {
   background-color: #e5e5ea !important;
   color: #1c1c1e !important;
   border-color: #b0b0b6 !important;
 }
 
-html.light .bin-modal-cancel-btn:hover {
+html:is(.cool, .warm) .bin-modal-cancel-btn:hover {
   background-color: #d1d1d6 !important;
   color: #000000 !important;
 }
 
-html.light .bin-modal-ok-btn {
+html:is(.cool, .warm) .bin-modal-ok-btn {
   background-color: #007aff !important;
   color: #ffffff !important;
   box-shadow: 0 2px 6px rgba(0, 122, 255, 0.3) !important;
 }
 
-html.light .bin-modal-ok-btn:hover {
+html:is(.cool, .warm) .bin-modal-ok-btn:hover {
   background-color: #0062cc !important;
   color: #ffffff !important;
 }
 
-html.light .sidebar-add-btn {
+html:is(.cool, .warm) .sidebar-add-btn {
   color: #3a3a3c !important;
 }
 
-html.light .sidebar-add-btn:hover {
+html:is(.cool, .warm) .sidebar-add-btn:hover {
   background-color: #e5e5ea !important;
   color: #000000 !important;
 }
@@ -1141,8 +1366,8 @@ html.light .sidebar-add-btn:hover {
 }
 
 /* Bin Modal Action Button High-Contrast Focus Rings */
-html.light .bin-modal-cancel-btn:focus,
-html.light .bin-modal-card button[type="submit"]:focus {
+html:is(.cool, .warm) .bin-modal-cancel-btn:focus,
+html:is(.cool, .warm) .bin-modal-card button[type="submit"]:focus {
   outline: none !important;
   box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px #007aff !important;
 }
@@ -1292,12 +1517,12 @@ code {
   color: #ececec !important;
 }
 
-html.light .glass-hud,
-html.light .context-menu,
-html.light [role="menu"],
-html[data-theme="light"] .glass-hud,
-html[data-theme="light"] .context-menu,
-html[data-theme="light"] [role="menu"] {
+html:is(.cool, .warm) .glass-hud,
+html:is(.cool, .warm) .context-menu,
+html:is(.cool, .warm) [role="menu"],
+html:is([data-theme="cool"], [data-theme="warm"]) .glass-hud,
+html:is([data-theme="cool"], [data-theme="warm"]) .context-menu,
+html:is([data-theme="cool"], [data-theme="warm"]) [role="menu"] {
   z-index: 9999 !important;
   background-color: rgba(246, 246, 248, 0.96) !important;
   border: 1px solid rgba(0, 0, 0, 0.14) !important;
@@ -1305,22 +1530,22 @@ html[data-theme="light"] [role="menu"] {
   color: #1c1c1e !important;
 }
 
-/* Light mode menu item text and hover states */
-html.light .glass-hud button,
-html[data-theme="light"] .glass-hud button {
+/* Cool/warm menu item text and hover states */
+html:is(.cool, .warm) .glass-hud button,
+html:is([data-theme="cool"], [data-theme="warm"]) .glass-hud button {
   color: #1c1c1e;
 }
 
-html.light .glass-hud button:hover,
-html[data-theme="light"] .glass-hud button:hover {
+html:is(.cool, .warm) .glass-hud button:hover,
+html:is([data-theme="cool"], [data-theme="warm"]) .glass-hud button:hover {
   background-color: #007aff !important;
   color: #ffffff !important;
 }
 
-html.light .glass-hud button:hover svg,
-html.light .glass-hud button:hover span,
-html[data-theme="light"] .glass-hud button:hover svg,
-html[data-theme="light"] .glass-hud button:hover span {
+html:is(.cool, .warm) .glass-hud button:hover svg,
+html:is(.cool, .warm) .glass-hud button:hover span,
+html:is([data-theme="cool"], [data-theme="warm"]) .glass-hud button:hover svg,
+html:is([data-theme="cool"], [data-theme="warm"]) .glass-hud button:hover span {
   color: #ffffff !important;
 }
 
@@ -1332,51 +1557,51 @@ html[data-theme="light"] .glass-hud button:hover span {
   color: #e5e7eb !important;
 }
 
-/* Light mode overrides for Sticky Filter Sandbox */
-html.light .filter-manager-wrapper {
+/* Cool/warm overrides for Sticky Filter Sandbox */
+html:is(.cool, .warm) .filter-manager-wrapper {
   background-color: var(--bg-main) !important;
   color: var(--text-main) !important;
 }
 
-html.light .filter-editor-card {
+html:is(.cool, .warm) .filter-editor-card {
   background-color: #ffffff !important;
   color: #1c1c1e !important;
   border-color: #c7c7cc !important;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15) !important;
 }
 
-html.light .filter-editor-header,
-html.light .filter-editor-footer {
+html:is(.cool, .warm) .filter-editor-header,
+html:is(.cool, .warm) .filter-editor-footer {
   background-color: #f4f4f7 !important;
   border-color: #e5e5ea !important;
   color: #1c1c1e !important;
 }
 
-html.light .filter-step-card,
-html.light .filter-sandbox-card,
-html.light .sticky-filter-sandbox {
+html:is(.cool, .warm) .filter-step-card,
+html:is(.cool, .warm) .filter-sandbox-card,
+html:is(.cool, .warm) .sticky-filter-sandbox {
   background-color: rgba(246, 246, 248, 0.96) !important;
   border-color: #d1d1d6 !important;
   color: #1c1c1e !important;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08) !important;
 }
 
-html.light .filter-sandbox-card label,
-html.light .sticky-filter-sandbox label {
+html:is(.cool, .warm) .filter-sandbox-card label,
+html:is(.cool, .warm) .sticky-filter-sandbox label {
   color: #3a3a3c !important;
 }
 
-html.light .filter-sandbox-card textarea,
-html.light .sticky-filter-sandbox textarea,
-html.light .filter-sandbox-card div.theme-input,
-html.light .sticky-filter-sandbox div.theme-input {
+html:is(.cool, .warm) .filter-sandbox-card textarea,
+html:is(.cool, .warm) .sticky-filter-sandbox textarea,
+html:is(.cool, .warm) .filter-sandbox-card div.theme-input,
+html:is(.cool, .warm) .sticky-filter-sandbox div.theme-input {
   background-color: #ffffff !important;
   border-color: #c7c7cc !important;
   color: #1c1c1e !important;
 }
 
-html.light .filter-sandbox-card div.text-emerald-300,
-html.light .sticky-filter-sandbox div.text-emerald-300 {
+html:is(.cool, .warm) .filter-sandbox-card div.text-emerald-300,
+html:is(.cool, .warm) .sticky-filter-sandbox div.text-emerald-300 {
   color: #059669 !important;
 }
 
@@ -1391,34 +1616,34 @@ option {
   color: #f3f4f6 !important;
 }
 
-html.light optgroup {
+html:is(.cool, .warm) optgroup {
   background-color: #e5e5ea !important;
   color: #007aff !important;
   font-weight: 700 !important;
 }
 
-html.light option {
+html:is(.cool, .warm) option {
   background-color: #ffffff !important;
   color: #1c1c1e !important;
 }
 
-html.light .filter-modal-cancel-btn {
+html:is(.cool, .warm) .filter-modal-cancel-btn {
   background-color: #e5e5ea !important;
   color: #1c1c1e !important;
   border-color: #c7c7cc !important;
 }
 
-html.light .filter-modal-cancel-btn:hover {
+html:is(.cool, .warm) .filter-modal-cancel-btn:hover {
   background-color: #d1d1d6 !important;
   color: #000000 !important;
 }
 
-html.light .filter-modal-ok-btn {
+html:is(.cool, .warm) .filter-modal-ok-btn {
   background-color: #007aff !important;
   color: #ffffff !important;
 }
 
-html.light .filter-modal-ok-btn:hover {
+html:is(.cool, .warm) .filter-modal-ok-btn:hover {
   background-color: #0062cc !important;
   color: #ffffff !important;
 }
@@ -1435,7 +1660,7 @@ body.hud-mode,
 }
 
 /* =======================================================
-   LIGHT MODE COLOR CORRECTIONS FOR CLIP PREVIEW & NOTES
+   COOL & WARM COLOR CORRECTIONS FOR CLIP PREVIEW & NOTES
    ======================================================= */
 
 /* Main Copy Clip Button */
@@ -1444,13 +1669,13 @@ body.hud-mode,
   color: #000000;
 }
 
-html.light .copy-clip-main-btn {
+html:is(.cool, .warm) .copy-clip-main-btn {
   background-color: #0066cc !important;
   color: #ffffff !important;
   box-shadow: 0 2px 6px rgba(0, 102, 204, 0.3) !important;
 }
 
-html.light .copy-clip-main-btn:hover {
+html:is(.cool, .warm) .copy-clip-main-btn:hover {
   background-color: #0052a3 !important;
 }
 
@@ -1461,44 +1686,44 @@ html.light .copy-clip-main-btn:hover {
   color: #d1d5db;
 }
 
-html.light .preview-bin-bar {
+html:is(.cool, .warm) .preview-bin-bar {
   background-color: #e8e8ed !important;
   border-color: #d1d1d6 !important;
   color: #1c1c1e !important;
 }
 
-html.light .preview-bin-bar select {
+html:is(.cool, .warm) .preview-bin-bar select {
   background-color: #ffffff !important;
   border-color: #c7c7cc !important;
   color: #1c1c1e !important;
 }
 
-html.light .add-note-btn {
+html:is(.cool, .warm) .add-note-btn {
   background-color: #ffffff !important;
   color: #9a4d08 !important;
   border-color: #d6a84e !important;
 }
 
-html.light .add-note-btn:hover {
+html:is(.cool, .warm) .add-note-btn:hover {
   background-color: #fff8e8 !important;
 }
 
-/* Multi-Note Theme Support for Dark & Light Modes */
+/* Multi-Note Theme Support for Dark, Cool & Warm Modes */
 .note-container {
   background-color: rgba(245, 158, 11, 0.08);
   border-color: rgba(245, 158, 11, 0.2);
 }
 
-html.light .note-container {
+html:is(.cool, .warm) .note-container {
   background-color: #f7f7f8 !important;
   border-color: #d1d1d6 !important;
 }
 
-html.light .col-preview > .note-container {
+html:is(.cool, .warm) .col-preview > .note-container {
   border-color: #d1d1d6 !important;
 }
 
-html.light .note-header-text {
+html:is(.cool, .warm) .note-header-text {
   color: #b45309 !important;
 }
 
@@ -1513,32 +1738,32 @@ html.light .note-header-text {
   border-color: rgba(245, 158, 11, 0.36);
 }
 
-html.light .note-row {
+html:is(.cool, .warm) .note-row {
   background-color: #ffffff !important;
   border-color: #d7d7dc !important;
   color: #451a03 !important;
   box-shadow: 0 1px 2px rgba(28, 28, 30, 0.06);
 }
 
-html.light .note-row:hover {
+html:is(.cool, .warm) .note-row:hover {
   background-color: #fffaf0 !important;
   border-color: #e7b84b !important;
 }
 
-html.light .note-text {
+html:is(.cool, .warm) .note-text {
   color: #451a03 !important;
   font-weight: 600 !important;
 }
 
-html.light .note-icon-btn {
+html:is(.cool, .warm) .note-icon-btn {
   color: #b45309 !important;
 }
 
-html.light .note-icon-btn:hover {
+html:is(.cool, .warm) .note-icon-btn:hover {
   color: #78350f !important;
 }
 
-html.light .note-input-row {
+html:is(.cool, .warm) .note-input-row {
   background-color: #ffffff !important;
   border-color: #d6a84e !important;
 }
@@ -1546,9 +1771,9 @@ html.light .note-input-row {
 .note-input,
 textarea.note-input,
 input.note-input,
-html.light .note-input,
-html.light textarea.note-input,
-html.light input.note-input {
+html:is(.cool, .warm) .note-input,
+html:is(.cool, .warm) textarea.note-input,
+html:is(.cool, .warm) input.note-input {
   background-color: transparent !important;
   background: transparent !important;
   border: none !important;
@@ -1556,8 +1781,8 @@ html.light input.note-input {
   box-shadow: none !important;
 }
 
-html.light .note-input-row textarea,
-html.light .note-input-row input {
+html:is(.cool, .warm) .note-input-row textarea,
+html:is(.cool, .warm) .note-input-row input {
   background-color: transparent !important;
   background: transparent !important;
   color: #451a03 !important;
@@ -1566,8 +1791,8 @@ html.light .note-input-row input {
   box-shadow: none !important;
 }
 
-html.light .note-input-row textarea::placeholder,
-html.light .note-input-row input::placeholder {
+html:is(.cool, .warm) .note-input-row textarea::placeholder,
+html:is(.cool, .warm) .note-input-row input::placeholder {
   color: #92400e !important;
 }
 
@@ -1643,69 +1868,69 @@ html.light .note-input-row input::placeholder {
   outline-offset: 2px;
 }
 
-html.light .clip-note-viewer-overlay {
+html:is(.cool, .warm) .clip-note-viewer-overlay {
   background-color: rgba(30, 30, 35, 0.34);
 }
 
-html.light .clip-note-viewer-card,
-html.light .clip-note-viewer-body {
+html:is(.cool, .warm) .clip-note-viewer-card,
+html:is(.cool, .warm) .clip-note-viewer-body {
   background-color: #fffdf7;
 }
 
-html.light .clip-note-viewer-card {
+html:is(.cool, .warm) .clip-note-viewer-card {
   border-color: #e7b84b;
   box-shadow: 0 24px 70px rgba(63, 44, 16, 0.22);
 }
 
-html.light .clip-note-viewer-bar {
+html:is(.cool, .warm) .clip-note-viewer-bar {
   background-color: #fffbeb;
   border-color: #f3d27a;
 }
 
-html.light .clip-note-viewer-title {
+html:is(.cool, .warm) .clip-note-viewer-title {
   color: #b45309;
 }
 
-html.light .clip-note-viewer-close {
+html:is(.cool, .warm) .clip-note-viewer-close {
   color: #71717a;
 }
 
-html.light .clip-note-viewer-close:hover {
+html:is(.cool, .warm) .clip-note-viewer-close:hover {
   background-color: #fef3c7;
   color: #451a03;
 }
 
-html.light .clip-note-viewer-content {
+html:is(.cool, .warm) .clip-note-viewer-content {
   background-color: #ffffff;
   border-color: #f3d27a;
   color: #451a03;
   box-shadow: inset 0 1px 2px rgba(120, 53, 15, 0.05);
 }
 
-html.light .clip-note-viewer-meta {
+html:is(.cool, .warm) .clip-note-viewer-meta {
   color: #a16207;
 }
 
-html.light .clip-note-viewer-meta-strong {
+html:is(.cool, .warm) .clip-note-viewer-meta-strong {
   color: #78350f;
 }
 
-html.light .clip-note-viewer-copy {
+html:is(.cool, .warm) .clip-note-viewer-copy {
   background-color: #fef3c7;
   border-color: #d97706;
   color: #92400e;
 }
 
-html.light .clip-note-viewer-copy:hover {
+html:is(.cool, .warm) .clip-note-viewer-copy:hover {
   background-color: #fde68a;
 }
 
-html.light .clip-note-viewer-dismiss {
+html:is(.cool, .warm) .clip-note-viewer-dismiss {
   background-color: #f3f4f6;
   color: #3f3f46;
 }
 
-html.light .clip-note-viewer-dismiss:hover {
+html:is(.cool, .warm) .clip-note-viewer-dismiss:hover {
   background-color: #e5e7eb;
 }
 
@@ -1714,7 +1939,7 @@ html.light .clip-note-viewer-dismiss:hover {
   color: #f97316 !important;
 }
 
-html.light .pin-icon {
+html:is(.cool, .warm) .pin-icon {
   color: #c2410c !important;
 }
 
@@ -1722,164 +1947,166 @@ html.light .pin-icon {
    TOOLS PAGES — SHARED LIGHT/DARK SURFACE CONTRACT
    ======================================================= */
 .tools-page {
-  background-color: var(--bg-app) !important;
+  background-color: var(--material-app) !important;
   color: var(--text-main) !important;
+  -webkit-backdrop-filter: blur(var(--material-blur)) saturate(var(--material-saturation));
+  backdrop-filter: blur(var(--material-blur)) saturate(var(--material-saturation));
 }
 
-html.light .tools-page [class~="bg-[#171717]/80"],
-html.light .tools-page [class~="bg-[#171717]/95"] {
+html:is(.cool, .warm) .tools-page [class~="bg-[#171717]/80"],
+html:is(.cool, .warm) .tools-page [class~="bg-[#171717]/95"] {
   background-color: rgba(250, 250, 252, 0.94) !important;
   border-color: var(--border-subtle) !important;
 }
 
-html.light .tools-page [class~="bg-[#171717]/50"] {
+html:is(.cool, .warm) .tools-page [class~="bg-[#171717]/50"] {
   background-color: #eeeef2 !important;
   border-color: var(--border-subtle) !important;
 }
 
-html.light .tools-page [class~="bg-[#212121]"],
-html.light .tools-page [class~="bg-[#222225]"],
-html.light .tools-page [class~="bg-gray-900/80"],
-html.light .tools-page [class~="bg-gray-900"] {
+html:is(.cool, .warm) .tools-page [class~="bg-[#212121]"],
+html:is(.cool, .warm) .tools-page [class~="bg-[#222225]"],
+html:is(.cool, .warm) .tools-page [class~="bg-gray-900/80"],
+html:is(.cool, .warm) .tools-page [class~="bg-gray-900"] {
   background-color: var(--bg-surface) !important;
   border-color: var(--border-card) !important;
   color: var(--text-main) !important;
 }
 
-html.light .tools-page [class~="bg-gray-800"],
-html.light .tools-page [class~="bg-gray-800/80"],
-html.light .tools-page [class~="bg-gray-800/40"],
-html.light .tools-page [class~="hover:bg-gray-800"]:hover {
+html:is(.cool, .warm) .tools-page [class~="bg-gray-800"],
+html:is(.cool, .warm) .tools-page [class~="bg-gray-800/80"],
+html:is(.cool, .warm) .tools-page [class~="bg-gray-800/40"],
+html:is(.cool, .warm) .tools-page [class~="hover:bg-gray-800"]:hover {
   background-color: var(--bg-tab-hover) !important;
   border-color: var(--border-subtle) !important;
 }
 
-html.light .tools-page [class~="border-gray-800"],
-html.light .tools-page [class~="border-gray-700"],
-html.light .tools-page [class~="border-gray-700/80"],
-html.light .tools-page [class~="border-[#2b2b2b]"] {
+html:is(.cool, .warm) .tools-page [class~="border-gray-800"],
+html:is(.cool, .warm) .tools-page [class~="border-gray-700"],
+html:is(.cool, .warm) .tools-page [class~="border-gray-700/80"],
+html:is(.cool, .warm) .tools-page [class~="border-[#2b2b2b]"] {
   border-color: var(--border-subtle) !important;
 }
 
-html.light .tools-page .text-white,
-html.light .tools-page .text-gray-100 {
+html:is(.cool, .warm) .tools-page .text-white,
+html:is(.cool, .warm) .tools-page .text-gray-100 {
   color: var(--text-title) !important;
 }
 
-html.light .tools-page .text-gray-200,
-html.light .tools-page .text-gray-300 {
+html:is(.cool, .warm) .tools-page .text-gray-200,
+html:is(.cool, .warm) .tools-page .text-gray-300 {
   color: var(--text-main) !important;
 }
 
-html.light .tools-page .text-gray-400,
-html.light .tools-page .text-gray-500 {
+html:is(.cool, .warm) .tools-page .text-gray-400,
+html:is(.cool, .warm) .tools-page .text-gray-500 {
   color: var(--text-muted) !important;
 }
 
-html.light .tools-page .text-cyan-300,
-html.light .tools-page .text-cyan-400 {
+html:is(.cool, .warm) .tools-page .text-cyan-300,
+html:is(.cool, .warm) .tools-page .text-cyan-400 {
   color: #087b8c !important;
 }
 
-html.light .tools-page .text-emerald-300,
-html.light .tools-page .text-emerald-400,
-html.light .tools-page .text-green-400 {
+html:is(.cool, .warm) .tools-page .text-emerald-300,
+html:is(.cool, .warm) .tools-page .text-emerald-400,
+html:is(.cool, .warm) .tools-page .text-green-400 {
   color: #047857 !important;
 }
 
-html.light .tools-page .text-amber-300,
-html.light .tools-page .text-amber-400 {
+html:is(.cool, .warm) .tools-page .text-amber-300,
+html:is(.cool, .warm) .tools-page .text-amber-400 {
   color: #9a5b00 !important;
 }
 
-html.light .tools-page .text-purple-300,
-html.light .tools-page .text-purple-400 {
+html:is(.cool, .warm) .tools-page .text-purple-300,
+html:is(.cool, .warm) .tools-page .text-purple-400 {
   color: #7e22ce !important;
 }
 
-html.light .tools-page .text-rose-400,
-html.light .tools-page .text-red-400,
-html.light .tools-page .text-pink-400 {
+html:is(.cool, .warm) .tools-page .text-rose-400,
+html:is(.cool, .warm) .tools-page .text-red-400,
+html:is(.cool, .warm) .tools-page .text-pink-400 {
   color: #be123c !important;
 }
 
-html.light .tools-page [class~="bg-cyan-950/80"],
-html.light .tools-page [class~="bg-cyan-950/60"],
-html.light .tools-page [class~="bg-cyan-950/40"],
-html.light .tools-page [class~="bg-cyan-950/30"] {
+html:is(.cool, .warm) .tools-page [class~="bg-cyan-950/80"],
+html:is(.cool, .warm) .tools-page [class~="bg-cyan-950/60"],
+html:is(.cool, .warm) .tools-page [class~="bg-cyan-950/40"],
+html:is(.cool, .warm) .tools-page [class~="bg-cyan-950/30"] {
   background-color: #e6f7fa !important;
   border-color: #78cbd6 !important;
 }
 
-html.light .tools-page [class~="bg-amber-950/80"],
-html.light .tools-page [class~="bg-amber-950/40"] {
+html:is(.cool, .warm) .tools-page [class~="bg-amber-950/80"],
+html:is(.cool, .warm) .tools-page [class~="bg-amber-950/40"] {
   background-color: #fff6df !important;
   border-color: #e6bc64 !important;
 }
 
 /* Command examples intentionally remain dark in either application theme. */
-html.light .help-page [class~="bg-black/70"],
-html.light .help-page [class~="bg-black/60"] {
+html:is(.cool, .warm) .help-page [class~="bg-black/70"],
+html:is(.cool, .warm) .help-page [class~="bg-black/60"] {
   background-color: #252629 !important;
   border-color: #4b4d52 !important;
   color: #f4f4f5 !important;
 }
 
-html.light .help-page [class~="bg-black/70"] .text-gray-200,
-html.light .help-page [class~="bg-black/70"] .text-gray-300,
-html.light .help-page [class~="bg-black/60"] .text-gray-200,
-html.light .help-page [class~="bg-black/60"] .text-gray-300 {
+html:is(.cool, .warm) .help-page [class~="bg-black/70"] .text-gray-200,
+html:is(.cool, .warm) .help-page [class~="bg-black/70"] .text-gray-300,
+html:is(.cool, .warm) .help-page [class~="bg-black/60"] .text-gray-200,
+html:is(.cool, .warm) .help-page [class~="bg-black/60"] .text-gray-300 {
   color: #f4f4f5 !important;
 }
 
-html.light .help-page [class~="bg-black/70"] .text-emerald-400,
-html.light .help-page [class~="bg-black/60"] .text-emerald-400 {
+html:is(.cool, .warm) .help-page [class~="bg-black/70"] .text-emerald-400,
+html:is(.cool, .warm) .help-page [class~="bg-black/60"] .text-emerald-400 {
   color: #6ee7b7 !important;
 }
 
-html.light .settings-page button[class~="bg-[#383838]"] {
+html:is(.cool, .warm) .settings-page button[class~="bg-[#383838]"] {
   background-color: #2f6fed !important;
   border-color: #245dcc !important;
   color: #ffffff !important;
 }
 
-html.light .settings-page button[class~="bg-[#383838]"] svg,
-html.light .settings-page button[class~="bg-[#383838]"] span {
+html:is(.cool, .warm) .settings-page button[class~="bg-[#383838]"] svg,
+html:is(.cool, .warm) .settings-page button[class~="bg-[#383838]"] span {
   color: #ffffff !important;
 }
 
 /* Shared application dialogs use the same semantic surfaces in either theme. */
-html.light .app-dialog-panel {
+html:is(.cool, .warm) .app-dialog-panel {
   background: var(--bg-card) !important;
   border-color: var(--border-card) !important;
   color: var(--text-main) !important;
 }
 
-html.light .app-dialog-panel .text-gray-100,
-html.light .app-dialog-panel .text-gray-200,
-html.light .app-dialog-panel .text-gray-300 {
+html:is(.cool, .warm) .app-dialog-panel .text-gray-100,
+html:is(.cool, .warm) .app-dialog-panel .text-gray-200,
+html:is(.cool, .warm) .app-dialog-panel .text-gray-300 {
   color: var(--text-title) !important;
 }
 
-html.light .app-dialog-panel .text-gray-400,
-html.light .app-dialog-panel .text-gray-500 {
+html:is(.cool, .warm) .app-dialog-panel .text-gray-400,
+html:is(.cool, .warm) .app-dialog-panel .text-gray-500 {
   color: var(--text-muted) !important;
 }
 
-html.light .app-dialog-input,
-html.light .app-dialog-message {
+html:is(.cool, .warm) .app-dialog-input,
+html:is(.cool, .warm) .app-dialog-message {
   background: var(--bg-input) !important;
   border-color: var(--border-input) !important;
   color: var(--text-main) !important;
 }
 
-html.light .app-dialog-cancel {
+html:is(.cool, .warm) .app-dialog-cancel {
   background: var(--bg-tab-active) !important;
   border-color: var(--border-card) !important;
   color: var(--text-main) !important;
 }
 
-html.light .app-dialog-cancel:hover {
+html:is(.cool, .warm) .app-dialog-cancel:hover {
   background: var(--bg-card-hover) !important;
   color: var(--text-title) !important;
 }
@@ -1934,16 +2161,16 @@ html.light .app-dialog-cancel:hover {
   border-radius: 0 !important;
 }
 
-html.light button[class~="bg-gray-800"],
-html.light button[class~="bg-gray-800/80"],
-html.light button[class~="bg-[#343744]"] {
+html:is(.cool, .warm) button[class~="bg-gray-800"],
+html:is(.cool, .warm) button[class~="bg-gray-800/80"],
+html:is(.cool, .warm) button[class~="bg-[#343744]"] {
   background-color: var(--bg-tab-hover) !important;
   border-color: var(--border-card) !important;
   color: var(--text-main) !important;
 }
 
-html.light .clip-type-icon,
-html.light .clip-type-badge {
+html:is(.cool, .warm) .clip-type-icon,
+html:is(.cool, .warm) .clip-type-badge {
   background-color: var(--bg-badge) !important;
   border-color: var(--border-card) !important;
   color: var(--text-main) !important;

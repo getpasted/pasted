@@ -34,17 +34,11 @@ export const SequentialQueueBar: React.FC<SequentialQueueBarProps> = ({
   const queue = status?.queue ?? [];
 
   return (
-    <div className={`p-3 rounded-xl border transition-all ${
-      isActive
-        ? 'theme-card-selected bg-[#24202c] border-purple-500/50 shadow-xl'
-        : 'theme-card-idle bg-[#212121] border-gray-700/80 shadow-md'
-    }`}>
+    <div className={`queue-controls-card theme-card-idle p-3 rounded-xl border transition-all ${isActive ? 'is-active' : ''}`}>
       {/* Header row */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-2 min-w-0">
-          <div className={`p-1.5 rounded-lg border shrink-0 ${
-            isActive ? 'bg-purple-900/50 text-purple-300 border-purple-500/40' : 'bg-[#181818] text-gray-400 border-gray-700'
-          }`}>
+          <div className={`queue-controls-icon theme-surface p-1.5 rounded-lg border shrink-0 ${isActive ? 'is-active' : ''}`}>
             <Disc className={`w-3.5 h-3.5 ${isActive ? 'text-purple-400 animate-spin' : 'text-gray-400'}`} />
           </div>
           <h3 className="text-xs font-bold theme-title text-gray-100 truncate">Queue Controls</h3>
@@ -59,7 +53,7 @@ export const SequentialQueueBar: React.FC<SequentialQueueBarProps> = ({
 
       {/* Helper text */}
       <p className="text-[11px] theme-text-muted text-gray-400 leading-normal mt-2">
-        Record with <kbd className="px-1 py-0.5 rounded bg-gray-800 font-mono text-[9px] border border-gray-700">⌥⇧C</kbd> / <kbd className="px-1 py-0.5 rounded bg-gray-800 font-mono text-[9px] border border-gray-700">⌘C</kbd> • Paste next with <kbd className="px-1 py-0.5 rounded bg-gray-800 font-mono text-[9px] border border-gray-700">⌥⇧X</kbd>
+        Record with <kbd className="theme-kbd px-1 py-0.5 rounded font-mono text-[9px] border">⌥⇧C</kbd> / <kbd className="theme-kbd px-1 py-0.5 rounded font-mono text-[9px] border">⌘C</kbd> • Paste next with <kbd className="theme-kbd px-1 py-0.5 rounded font-mono text-[9px] border">⌥⇧X</kbd>
       </p>
 
       {/* Action buttons row */}

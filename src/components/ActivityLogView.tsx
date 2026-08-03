@@ -170,12 +170,12 @@ export const ActivityLogView: React.FC = () => {
   });
 
   return (
-    <div className="tools-page activity-page flex-1 bg-[#141414] text-gray-100 font-sans h-screen flex flex-col overflow-hidden">
+    <div className="tools-page activity-page flex-1 font-sans h-screen flex flex-col overflow-hidden">
       {/* Header Bar */}
-      <div className="h-[60px] border-b border-[#2b2b2b] bg-[#171717]/80 backdrop-blur-md px-6 flex items-center justify-between shrink-0 no-drag">
+      <div className="theme-toolbar h-[60px] border-b backdrop-blur-md px-6 flex items-center justify-between shrink-0 no-drag">
         <div className="flex items-center space-x-2.5">
           <Activity className="w-5 h-5 text-cyan-400" />
-          <h2 className="text-sm font-bold text-gray-100 uppercase tracking-wider">
+          <h2 className="theme-title text-sm font-bold uppercase tracking-wider">
             Activity Log
           </h2>
         </div>
@@ -185,7 +185,7 @@ export const ActivityLogView: React.FC = () => {
           <select
             value={selectedTypeFilter}
             onChange={(e) => setSelectedTypeFilter(e.target.value)}
-            className="bg-[#212121] border border-gray-700 rounded-xl px-3 py-1.5 text-xs text-gray-200 focus:outline-none focus:border-cyan-500 font-medium"
+            className="theme-input border rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-cyan-500 font-medium"
           >
             <option value="all">All Event Types</option>
             <option value="trashed">Trashed</option>
@@ -204,14 +204,14 @@ export const ActivityLogView: React.FC = () => {
               placeholder="Search activity..."
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
-              className="bg-[#212121] border border-gray-700 rounded-xl pl-8 pr-3 py-1.5 text-xs text-gray-200 focus:outline-none focus:border-cyan-500 w-44"
+              className="theme-input border rounded-xl pl-8 pr-3 py-1.5 text-xs focus:outline-none focus:border-cyan-500 w-44"
             />
           </div>
 
           <button
             onClick={handleClearLogs}
             disabled={logs.length === 0}
-            className="flex items-center space-x-1.5 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 disabled:opacity-40 text-gray-200 border border-gray-600 rounded-xl text-xs font-semibold transition-all cursor-pointer"
+            className="theme-secondary-button flex items-center space-x-1.5 px-3 py-1.5 disabled:opacity-40 border rounded-xl text-xs font-semibold transition-all cursor-pointer"
           >
             <Trash2 className="w-3.5 h-3.5" />
             <span>Clear Log</span>
@@ -230,16 +230,16 @@ export const ActivityLogView: React.FC = () => {
           filteredLogs.map((log) => (
             <div
               key={log.id}
-              className="bg-[#212121] border border-gray-800 rounded-xl p-3.5 flex items-center justify-between hover:border-gray-700 transition-colors shadow-sm"
+              className="theme-panel border rounded-xl p-3.5 flex items-center justify-between transition-colors"
             >
               <div className="flex items-center space-x-3.5 min-w-0 flex-1 pr-4">
                 {getEventBadge(log.event_type, log.description)}
-                <span className="text-xs text-gray-200 truncate font-medium">
+                <span className="theme-text-main text-xs truncate font-medium">
                   {log.description}
                 </span>
               </div>
 
-              <span className="text-[11px] font-mono text-gray-400 shrink-0">
+              <span className="theme-text-muted text-[11px] font-mono shrink-0">
                 {new Date(log.created_at).toLocaleTimeString([], {
                   hour: '2-digit',
                   minute: '2-digit',

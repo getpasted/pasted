@@ -60,7 +60,7 @@ const actionHotkeys: Array<{ label: string; key: HotkeySetting; fallback?: strin
 
 function HotkeyRow({ label, value, onChange }: { label: string; value: string | null; onChange: (value: string | null) => void }) {
   return (
-    <div className="flex items-center justify-between p-2.5 bg-[#181818] rounded-xl border border-gray-700/80">
+    <div className="theme-surface flex items-center justify-between p-2.5 rounded-xl border">
       <span className="font-medium text-gray-200">{label}</span>
       <HotkeyRecorder value={value} onChange={onChange} />
     </div>
@@ -136,7 +136,7 @@ export function SettingsHotkeysPanel({
   };
 
   return (
-    <div className="bg-[#212121] p-6 rounded-2xl border border-gray-700/80 shadow-2xl space-y-6 text-xs text-gray-200">
+    <div className="theme-panel p-6 rounded-2xl border space-y-6 text-xs">
       <div className="flex items-center justify-between">
         <h3 className="font-bold text-sm text-gray-100">Global Application Hotkeys</h3>
         <button type="button" onClick={() => void restoreDefaults()} className="flex items-center space-x-1.5 px-3 py-1 bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded-lg text-gray-300 transition-colors">
@@ -147,7 +147,7 @@ export function SettingsHotkeysPanel({
 
       {statusMessage && <p role="status" className="theme-text-muted rounded-lg border border-gray-700/80 px-3 py-2 text-[11px]">{statusMessage}</p>}
 
-      <div className="p-3.5 bg-[#181818] rounded-xl border border-gray-700/80 space-y-2">
+      <div className="theme-surface p-3.5 rounded-xl border space-y-2">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center space-x-2">
             <ShieldCheck className={`w-4 h-4 ${accessibilityStatus?.is_trusted ? 'text-green-400' : 'text-amber-400'}`} />

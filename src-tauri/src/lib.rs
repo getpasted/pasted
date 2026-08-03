@@ -56,8 +56,8 @@ fn setup_window_vibrancy(window: &tauri::WebviewWindow) {
     use window_vibrancy::{apply_vibrancy, NSVisualEffectMaterial, NSVisualEffectState};
     let _ = apply_vibrancy(
         window,
-        NSVisualEffectMaterial::HudWindow,
-        Some(NSVisualEffectState::Active),
+        NSVisualEffectMaterial::UnderWindowBackground,
+        Some(NSVisualEffectState::FollowsWindowActiveState),
         Some(12.0),
     );
 }

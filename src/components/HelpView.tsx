@@ -37,9 +37,9 @@ export const HelpView: React.FC = () => {
   };
 
   return (
-    <div className="tools-page help-page flex-1 bg-[#141414] text-gray-100 font-sans h-screen flex flex-col overflow-hidden select-none">
+    <div className="tools-page help-page flex-1 font-sans h-screen flex flex-col overflow-hidden select-none">
       {/* Header Bar */}
-      <div className="h-[60px] border-b border-[#2b2b2b] bg-[#171717]/80 backdrop-blur-md px-6 flex items-center justify-between shrink-0 no-drag">
+      <div className="theme-toolbar h-[60px] border-b backdrop-blur-md px-6 flex items-center justify-between shrink-0 no-drag">
         <div className="flex items-center space-x-2.5">
           <BookOpen className="w-5 h-5 text-cyan-400" />
           <h2 className="text-sm font-bold text-gray-100 uppercase tracking-wider">
@@ -54,7 +54,7 @@ export const HelpView: React.FC = () => {
       {/* Subpage Navigation & Content Container */}
       <div className="flex-1 flex overflow-hidden">
         {/* Left Sub-Tab Sidebar Navigation */}
-        <div className="w-56 border-r border-[#2b2b2b] bg-[#171717]/50 p-3 space-y-1 shrink-0 overflow-y-auto">
+        <div className="theme-subtle-surface w-56 border-r p-3 space-y-1 shrink-0 overflow-y-auto">
           <button
             onClick={() => setActiveSubTab('cli')}
             className={`help-topic-button w-full flex items-center justify-between px-3 py-2 text-xs font-semibold transition-all cursor-pointer border ${
@@ -179,7 +179,7 @@ export const HelpView: React.FC = () => {
               </div>
 
               {/* CLI Command 1: Copy / Pipe */}
-              <div className="p-4 rounded-xl bg-[#212121] border border-gray-800 space-y-2">
+              <div className="theme-panel p-4 rounded-xl border space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-cyan-300 font-mono">1. Save text or pipe stdin into Pasted history</span>
                   <button
@@ -199,7 +199,7 @@ export const HelpView: React.FC = () => {
               </div>
 
               {/* CLI Command 2: List */}
-              <div className="p-4 rounded-xl bg-[#212121] border border-gray-800 space-y-2">
+              <div className="theme-panel p-4 rounded-xl border space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-cyan-300 font-mono">2. List recent clipboard items</span>
                   <button
@@ -217,7 +217,7 @@ export const HelpView: React.FC = () => {
               </div>
 
               {/* CLI Command 3: Search */}
-              <div className="p-4 rounded-xl bg-[#212121] border border-gray-800 space-y-2">
+              <div className="theme-panel p-4 rounded-xl border space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-cyan-300 font-mono">3. Keyword search clip database</span>
                   <button
@@ -248,43 +248,43 @@ export const HelpView: React.FC = () => {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="p-4 rounded-xl bg-[#212121] border border-gray-800 space-y-2">
+              <div className="theme-panel p-4 rounded-xl border space-y-2">
                   <div className="flex items-center space-x-2 text-xs font-bold text-amber-300">
                     <Trash2 className="w-4 h-4 text-rose-400" />
                     <span>Option / Alt Key Permanent Delete</span>
                   </div>
                   <p className="text-xs text-gray-400">
-                    Holding the <kbd className="px-1.5 py-0.5 rounded bg-gray-800 border border-gray-700 text-gray-200 font-mono text-[10px]">Option ⌥</kbd> key changes the Trash icon to a red <span className="text-red-400 font-bold">X</span> button to permanently purge items bypassing Trash.
+                    Holding the <kbd className="theme-kbd px-1.5 py-0.5 rounded border font-mono text-[10px]">Option ⌥</kbd> key changes the Trash icon to a red <span className="text-red-400 font-bold">X</span> button to permanently purge items bypassing Trash.
                   </p>
                 </div>
 
-                <div className="p-4 rounded-xl bg-[#212121] border border-gray-800 space-y-2">
+              <div className="theme-panel p-4 rounded-xl border space-y-2">
                   <div className="flex items-center space-x-2 text-xs font-bold text-cyan-300">
                     <Command className="w-4 h-4 text-cyan-400" />
                     <span>Floating HUD Toggle</span>
                   </div>
                   <p className="text-xs text-gray-400">
-                    Press <kbd className="px-1.5 py-0.5 rounded bg-gray-800 border border-gray-700 text-gray-200 font-mono text-[10px]">⌥ Shift V</kbd> to pop open the transparent quick HUD next to your cursor.
+                    Press <kbd className="theme-kbd px-1.5 py-0.5 rounded border font-mono text-[10px]">⌥ Shift V</kbd> to pop open the transparent quick HUD next to your cursor.
                   </p>
                 </div>
 
-                <div className="p-4 rounded-xl bg-[#212121] border border-gray-800 space-y-2">
+              <div className="theme-panel p-4 rounded-xl border space-y-2">
                   <div className="flex items-center space-x-2 text-xs font-bold text-purple-300">
                     <Zap className="w-4 h-4 text-purple-400" />
                     <span>HUD Number Keys (1-9)</span>
                   </div>
                   <p className="text-xs text-gray-400">
-                    Press numbers <kbd className="px-1.5 py-0.5 rounded bg-gray-800 border border-gray-700 text-gray-200 font-mono text-[10px]">1</kbd> through <kbd className="px-1.5 py-0.5 rounded bg-gray-800 border border-gray-700 text-gray-200 font-mono text-[10px]">9</kbd> inside the HUD to instantly paste items #1 to #9.
+                    Press numbers <kbd className="theme-kbd px-1.5 py-0.5 rounded border font-mono text-[10px]">1</kbd> through <kbd className="theme-kbd px-1.5 py-0.5 rounded border font-mono text-[10px]">9</kbd> inside the HUD to instantly paste items #1 to #9.
                   </p>
                 </div>
 
-                <div className="p-4 rounded-xl bg-[#212121] border border-gray-800 space-y-2">
+              <div className="theme-panel p-4 rounded-xl border space-y-2">
                   <div className="flex items-center space-x-2 text-xs font-bold text-emerald-300">
                     <Info className="w-4 h-4 text-emerald-400" />
                     <span>Escape Key Dismiss</span>
                   </div>
                   <p className="text-xs text-gray-400">
-                    Press <kbd className="px-1.5 py-0.5 rounded bg-gray-800 border border-gray-700 text-gray-200 font-mono text-[10px]">Esc</kbd> to instantly dismiss the HUD or clear active search queries.
+                    Press <kbd className="theme-kbd px-1.5 py-0.5 rounded border font-mono text-[10px]">Esc</kbd> to instantly dismiss the HUD or clear active search queries.
                   </p>
                 </div>
               </div>
@@ -303,7 +303,7 @@ export const HelpView: React.FC = () => {
                 </p>
               </div>
 
-              <div className="p-4 rounded-xl bg-[#212121] border border-gray-800 space-y-3">
+              <div className="theme-panel p-4 rounded-xl border space-y-3">
                 <h4 className="text-xs font-bold text-amber-300">How Auto-Pause Works</h4>
                 <p className="text-xs text-gray-300 leading-relaxed">
                   When switching active focus into applications like <strong>1Password</strong>, <strong>Keychain Access</strong>, <strong>Passwords</strong>, or <strong>Bitwarden</strong>, Pasted automatically pauses background recording and updates the Pause button state to glowing amber.
@@ -327,7 +327,7 @@ export const HelpView: React.FC = () => {
                 </p>
               </div>
 
-              <div className="p-4 rounded-xl bg-[#212121] border border-gray-800 space-y-3">
+              <div className="theme-panel p-4 rounded-xl border space-y-3">
                 <h4 className="text-xs font-bold text-rose-300">Soft Deletion vs Hard Purging</h4>
                 <ul className="text-xs text-gray-300 space-y-2 list-disc list-inside">
                   <li><strong>Normal Delete Click:</strong> Moves clip to the Trash tab. The sidebar badge updates instantly.</li>
@@ -350,7 +350,7 @@ export const HelpView: React.FC = () => {
                 </p>
               </div>
 
-              <div className="p-4 rounded-xl bg-[#212121] border border-gray-800 space-y-3">
+              <div className="theme-panel p-4 rounded-xl border space-y-3">
                 <h4 className="text-xs font-bold text-purple-300">Available Transformations</h4>
                 <div className="grid grid-cols-2 gap-2 text-xs font-mono text-gray-300">
                   <div className="p-2 rounded bg-gray-900 border border-gray-800">• UPPERCASE / lowercase</div>
