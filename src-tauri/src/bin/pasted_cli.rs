@@ -93,7 +93,7 @@ fn main() -> Result<()> {
                 ))
             })?;
 
-            println!("{:<5} | {:<8} | {:<15} | {:<20} | {}", "ID", "TYPE", "SOURCE", "DATE", "CONTENT");
+            println!("{:<5} | {:<8} | {:<15} | {:<20} | CONTENT", "ID", "TYPE", "SOURCE", "DATE");
             println!("{:-<5}-+-{:-<8}-+-{:-<15}-+-{:-<20}-+-{:-<30}", "", "", "", "", "");
 
             for r in rows {

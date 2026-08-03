@@ -89,7 +89,7 @@ fn setup_hud_window_transparency(window: &tauri::WebviewWindow) {
             let no_num: *mut Object = msg_send![objc::class!(NSNumber), numberWithBool: false];
             let key_str: *mut Object = msg_send![
                 objc::class!(NSString),
-                stringWithUTF8String: b"drawsBackground\0".as_ptr()
+                stringWithUTF8String: c"drawsBackground".as_ptr()
             ];
             let _: () = msg_send![wk_webview, setValue: no_num forKey: key_str];
         }

@@ -814,6 +814,36 @@ fn get_dvorak_code_for_char(ch: char) -> Option<tauri_plugin_global_shortcut::Co
     }
 }
 
+fn normalize_shortcut_aliases(shortcut: &str) -> String {
+    shortcut
+        .replace("CmdOrCtrl", "Super")
+        .replace("Command", "Super")
+        .replace("Cmd", "Super")
+        .replace("Option", "Alt")
+        .replace("Control", "Ctrl")
+        .replace(['ç', 'Ç'], "C")
+        .replace(['√', '◊'], "V")
+        .replace(['µ', 'Â'], "M")
+        .replace('≈', "X")
+        .replace('ß', "S")
+        .replace('∂', "D")
+        .replace('ƒ', "F")
+        .replace('©', "G")
+        .replace('®', "R")
+        .replace('†', "T")
+        .replace('¥', "Y")
+        .replace(['ø', 'Ø'], "O")
+        .replace(['π', '∏'], "P")
+        .replace(['å', 'Å'], "A")
+        .replace('∫', "B")
+        .replace('∆', "J")
+        .replace('˚', "K")
+        .replace('¬', "L")
+        .replace('Ω', "Z")
+        .replace('œ', "Q")
+        .replace('∑', "W")
+}
+
 pub fn parse_shortcut_str(sc_str: &str) -> Option<tauri_plugin_global_shortcut::Shortcut> {
     use std::str::FromStr;
     use tauri_plugin_global_shortcut::Shortcut;
@@ -827,35 +857,7 @@ pub fn parse_shortcut_str(sc_str: &str) -> Option<tauri_plugin_global_shortcut::
         return Some(sc);
     }
 
-    let mut clean = s
-        .replace("CmdOrCtrl", "Super")
-        .replace("Command", "Super")
-        .replace("Cmd", "Super")
-        .replace("Option", "Alt")
-        .replace("Control", "Ctrl");
-
-    clean = clean
-        .replace('ç', "C").replace('Ç', "C")
-        .replace('√', "V").replace('◊', "V")
-        .replace('µ', "M").replace('Â', "M")
-        .replace('≈', "X")
-        .replace('ß', "S")
-        .replace('∂', "D")
-        .replace('ƒ', "F")
-        .replace('©', "G")
-        .replace('®', "R")
-        .replace('†', "T")
-        .replace('¥', "Y")
-        .replace('ø', "O").replace('Ø', "O")
-        .replace('π', "P").replace('∏', "P")
-        .replace('å', "A").replace('Å', "A")
-        .replace('∫', "B")
-        .replace('∆', "J")
-        .replace('˚', "K")
-        .replace('¬', "L")
-        .replace('Ω', "Z")
-        .replace('œ', "Q")
-        .replace('∑', "W");
+    let clean = normalize_shortcut_aliases(s);
 
     if let Ok(sc) = Shortcut::from_str(&clean) {
         return Some(sc);
@@ -891,35 +893,7 @@ pub fn parse_shortcut_str_all_layouts(sc_str: &str) -> Option<Vec<tauri_plugin_g
         return None;
     }
 
-    let mut clean = s
-        .replace("CmdOrCtrl", "Super")
-        .replace("Command", "Super")
-        .replace("Cmd", "Super")
-        .replace("Option", "Alt")
-        .replace("Control", "Ctrl");
-
-    clean = clean
-        .replace('ç', "C").replace('Ç', "C")
-        .replace('√', "V").replace('◊', "V")
-        .replace('µ', "M").replace('Â', "M")
-        .replace('≈', "X")
-        .replace('ß', "S")
-        .replace('∂', "D")
-        .replace('ƒ', "F")
-        .replace('©', "G")
-        .replace('®', "R")
-        .replace('†', "T")
-        .replace('¥', "Y")
-        .replace('ø', "O").replace('Ø', "O")
-        .replace('π', "P").replace('∏', "P")
-        .replace('å', "A").replace('Å', "A")
-        .replace('∫', "B")
-        .replace('∆', "J")
-        .replace('˚', "K")
-        .replace('¬', "L")
-        .replace('Ω', "Z")
-        .replace('œ', "Q")
-        .replace('∑', "W");
+    let clean = normalize_shortcut_aliases(s);
 
     let mut shortcuts = Vec::new();
 
