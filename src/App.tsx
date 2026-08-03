@@ -22,6 +22,7 @@ import { ClipNoteDialog } from './components/ClipNoteDialog';
 import { ClearHistoryDialog, type ClearHistoryMode } from './components/ClearHistoryDialog';
 import { soundManager } from './utils/sound';
 import { startWindowDrag } from './utils/windowDrag';
+import { useColumnResize } from './hooks/useColumnResize';
 import { Clipboard, Trash2, Pause, Disc, Square, Pin, X } from 'lucide-react';
 import './App.css';
 
@@ -264,86 +265,15 @@ export default function App() {
   const [notePromptClip, setNotePromptClip] = useState<ClipItem | null>(null);
   const [notePromptText, setNotePromptText] = useState<string>('');
 
-  // Resizable Column Widths (stored in localStorage with min/max bounds)
-  const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
-    const saved = localStorage.getItem('pasted_sidebar_width');
-    return saved ? parseInt(saved, 10) : 240;
-  });
-  const [clipsListWidth, setClipsListWidth] = useState<number>(() => {
-    const saved = localStorage.getItem('pasted_list_width');
-    return saved ? parseInt(saved, 10) : 340;
-  });
-
-  const [isResizingSidebar, setIsResizingSidebar] = useState(false);
-  const [isResizingList, setIsResizingList] = useState(false);
-
-  const handleSidebarPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (e.button !== 0) return;
-    e.preventDefault();
-    const handle = e.currentTarget;
-    const pointerId = e.pointerId;
-    handle.setPointerCapture(pointerId);
-    const startX = e.clientX;
-    const startWidth = isSidebarCollapsed ? 100 : sidebarWidth;
-
-    const handlePointerMove = (moveEvent: PointerEvent) => {
-      const delta = moveEvent.clientX - startX;
-      const newWidth = Math.min(Math.max(startWidth + delta, 180), 360);
-      setSidebarWidth(newWidth);
-      localStorage.setItem('pasted_sidebar_width', newWidth.toString());
-    };
-
-    const handlePointerEnd = () => {
-      setIsResizingSidebar(false);
-      window.removeEventListener('pointermove', handlePointerMove);
-      window.removeEventListener('pointerup', handlePointerEnd);
-      window.removeEventListener('pointercancel', handlePointerEnd);
-      if (handle.hasPointerCapture(pointerId)) handle.releasePointerCapture(pointerId);
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-    };
-
-    setIsResizingSidebar(true);
-    document.body.style.cursor = 'col-resize';
-    document.body.style.userSelect = 'none';
-    window.addEventListener('pointermove', handlePointerMove);
-    window.addEventListener('pointerup', handlePointerEnd);
-    window.addEventListener('pointercancel', handlePointerEnd);
-  };
-
-  const handleListPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (e.button !== 0) return;
-    e.preventDefault();
-    const handle = e.currentTarget;
-    const pointerId = e.pointerId;
-    handle.setPointerCapture(pointerId);
-    const startX = e.clientX;
-    const startWidth = clipsListWidth;
-
-    const handlePointerMove = (moveEvent: PointerEvent) => {
-      const delta = moveEvent.clientX - startX;
-      const newWidth = Math.min(Math.max(startWidth + delta, 280), 520);
-      setClipsListWidth(newWidth);
-      localStorage.setItem('pasted_list_width', newWidth.toString());
-    };
-
-    const handlePointerEnd = () => {
-      setIsResizingList(false);
-      window.removeEventListener('pointermove', handlePointerMove);
-      window.removeEventListener('pointerup', handlePointerEnd);
-      window.removeEventListener('pointercancel', handlePointerEnd);
-      if (handle.hasPointerCapture(pointerId)) handle.releasePointerCapture(pointerId);
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-    };
-
-    setIsResizingList(true);
-    document.body.style.cursor = 'col-resize';
-    document.body.style.userSelect = 'none';
-    window.addEventListener('pointermove', handlePointerMove);
-    window.addEventListener('pointerup', handlePointerEnd);
-    window.addEventListener('pointercancel', handlePointerEnd);
-  };
+  const {
+    sidebarWidth,
+    clipsListWidth,
+    isResizingSidebar,
+    isResizingList,
+    handleSidebarPointerDown,
+    handleListPointerDown,
+    resetColumnWidths,
+  } = useColumnResize();
 
   useEffect(() => {
     if (!boardContextMenu) return;
@@ -1334,12 +1264,7 @@ export default function App() {
           onRefreshBoards={fetchBoards}
           onRefreshClips={fetchClips}
           onClearHistory={(permanent) => setClearHistoryMode(permanent ? 'purge' : 'trash')}
-          onResetColumnWidths={() => {
-            setSidebarWidth(240);
-            setClipsListWidth(340);
-            localStorage.removeItem('pasted_sidebar_width');
-            localStorage.removeItem('pasted_list_width');
-          }}
+          onResetColumnWidths={resetColumnWidths}
         />
       ) : (
         <div className="flex-1 h-screen flex overflow-hidden">
