@@ -1336,11 +1336,11 @@ export default function App() {
 
             {/* Floating Glass Batch Action Bar */}
             {selectedClipIds.size > 1 && (
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-40 bg-[#1e2029]/95 backdrop-blur-xl border border-cyan-500/40 rounded-2xl px-4 py-2 shadow-2xl flex items-center space-x-3 text-xs whitespace-nowrap animate-in fade-in slide-in-from-bottom-2 duration-150 max-w-max min-w-max select-none">
-                <span className="font-bold text-cyan-400 font-mono text-[11px] bg-cyan-950/80 px-2.5 py-1 rounded-full border border-cyan-800/60 whitespace-nowrap shrink-0">
-                  {selectedClipIds.size} Selected
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-40 bg-[#1c1e26]/95 backdrop-blur-xl border border-cyan-500/40 rounded-2xl px-3 py-1.5 shadow-2xl flex items-center space-x-2 text-[11px] whitespace-nowrap animate-in fade-in slide-in-from-bottom-2 duration-150 max-w-[calc(100%-1.5rem)] select-none">
+                <span className="font-bold text-cyan-400 font-mono text-[11px] bg-cyan-950/90 px-2 py-0.5 rounded-full border border-cyan-800/60 whitespace-nowrap shrink-0">
+                  {selectedClipIds.size}
                 </span>
-                <div className="h-4 w-px bg-gray-700/80 shrink-0" />
+                <div className="h-3.5 w-px bg-gray-700/80 shrink-0" />
                 <button
                   onClick={() => {
                     const ids = Array.from(selectedClipIds);
@@ -1352,10 +1352,11 @@ export default function App() {
                       fetchClips();
                     });
                   }}
-                  className="flex items-center space-x-1.5 hover:text-cyan-300 transition-colors font-medium cursor-pointer whitespace-nowrap shrink-0"
+                  className="flex items-center space-x-1 hover:text-cyan-300 transition-colors font-medium cursor-pointer whitespace-nowrap shrink-0"
+                  title="Pin All Selected"
                 >
                   <Pin className="w-3.5 h-3.5 text-orange-400 shrink-0" />
-                  <span className="whitespace-nowrap">Pin All</span>
+                  <span>Pin</span>
                 </button>
                 <button
                   onClick={() => {
@@ -1368,22 +1369,24 @@ export default function App() {
                       fetchClips();
                     });
                   }}
-                  className="flex items-center space-x-1.5 hover:text-cyan-300 transition-colors font-medium cursor-pointer whitespace-nowrap shrink-0"
+                  className="flex items-center space-x-1 hover:text-cyan-300 transition-colors font-medium cursor-pointer whitespace-nowrap shrink-0"
+                  title="Unpin All Selected"
                 >
                   <Pin className="w-3.5 h-3.5 text-gray-400 opacity-60 shrink-0" />
-                  <span className="whitespace-nowrap">Unpin All</span>
+                  <span>Unpin</span>
                 </button>
-                <div className="h-4 w-px bg-gray-700/80 shrink-0" />
+                <div className="h-3.5 w-px bg-gray-700/80 shrink-0" />
                 <button
                   onClick={handleBatchTrash}
-                  className="flex items-center space-x-1.5 text-red-400 hover:text-red-300 transition-colors font-medium cursor-pointer whitespace-nowrap shrink-0"
+                  className="flex items-center space-x-1 text-red-400 hover:text-red-300 transition-colors font-medium cursor-pointer whitespace-nowrap shrink-0"
+                  title="Trash Selected"
                 >
                   <Trash2 className="w-3.5 h-3.5 shrink-0" />
-                  <span className="whitespace-nowrap">Trash Selected</span>
+                  <span>Trash</span>
                 </button>
                 <button
                   onClick={() => setSelectedClipIds(new Set())}
-                  className="p-1 text-gray-400 hover:text-white rounded-full hover:bg-gray-800 transition-colors cursor-pointer shrink-0"
+                  className="p-0.5 text-gray-400 hover:text-white rounded-full hover:bg-gray-800 transition-colors cursor-pointer shrink-0 ml-0.5"
                   title="Deselect All"
                 >
                   <X className="w-3.5 h-3.5 shrink-0" />
