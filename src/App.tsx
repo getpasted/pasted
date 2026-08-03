@@ -20,6 +20,13 @@ import { soundManager } from './utils/sound';
 import { Clipboard, AlertTriangle, Edit3, Trash2, Pause, Disc, Square, StickyNote, Pin, X } from 'lucide-react';
 import './App.css';
 
+const DEFAULT_BLACKLIST_APPS: BlacklistApp[] = [
+  { id: '1', name: '1Password', icon: 'Lock', ignoreText: true, ignoreImages: true, ignoreShortcuts: false },
+  { id: '2', name: 'Passwords', icon: 'Lock', ignoreText: true, ignoreImages: true, ignoreShortcuts: false },
+  { id: '3', name: 'Keychain Access', icon: 'Key', ignoreText: true, ignoreImages: true, ignoreShortcuts: false },
+  { id: '4', name: 'Bitwarden', icon: 'Shield', ignoreText: true, ignoreImages: true, ignoreShortcuts: false },
+];
+
 export default function App() {
   const [isHudView, setIsHudView] = useState<boolean>(false);
 
@@ -187,6 +194,7 @@ export default function App() {
     seqToggleHotkey: 'Alt+Shift+C',
     seqPopHotkey: 'Alt+Shift+X',
   });
+  const [settingsHydrated, setSettingsHydrated] = useState(false);
 
   // Light / Dark / System Theme Switcher Engine
   useEffect(() => {
@@ -251,24 +259,15 @@ export default function App() {
   const [blacklistApps, setBlacklistApps] = useState<BlacklistApp[]>(() => {
     try {
       const cached = localStorage.getItem('pasted_cache_blacklist_apps');
-      return cached ? JSON.parse(cached) : [
-        { id: '1', name: '1Password', icon: 'Lock', ignoreText: true, ignoreImages: true, ignoreShortcuts: false },
-        { id: '2', name: 'Passwords', icon: 'Lock', ignoreText: true, ignoreImages: true, ignoreShortcuts: false },
-        { id: '3', name: 'Keychain Access', icon: 'Key', ignoreText: true, ignoreImages: true, ignoreShortcuts: false },
-        { id: '4', name: 'Bitwarden', icon: 'Shield', ignoreText: true, ignoreImages: true, ignoreShortcuts: false },
-      ];
+      return cached ? JSON.parse(cached) : DEFAULT_BLACKLIST_APPS;
     } catch {
-      return [
-        { id: '1', name: '1Password', icon: 'Lock', ignoreText: true, ignoreImages: true, ignoreShortcuts: false },
-        { id: '2', name: 'Passwords', icon: 'Lock', ignoreText: true, ignoreImages: true, ignoreShortcuts: false },
-        { id: '3', name: 'Keychain Access', icon: 'Key', ignoreText: true, ignoreImages: true, ignoreShortcuts: false },
-        { id: '4', name: 'Bitwarden', icon: 'Shield', ignoreText: true, ignoreImages: true, ignoreShortcuts: false },
-      ];
+      return DEFAULT_BLACKLIST_APPS;
     }
   });
 
   // Sync blacklistApps to SQLite backend and localStorage
   useEffect(() => {
+    if (!settingsHydrated) return;
     try {
       localStorage.setItem('pasted_cache_blacklist_apps', JSON.stringify(blacklistApps));
     } catch {}
@@ -276,7 +275,7 @@ export default function App() {
       key: 'blacklistApps',
       value: JSON.stringify(blacklistApps),
     }).catch(console.error);
-  }, [blacklistApps]);
+  }, [blacklistApps, settingsHydrated]);
 
   // Context Menu State
   const [contextMenu, setContextMenu] = useState<{
@@ -429,6 +428,12 @@ export default function App() {
             if (saved.alwaysPastePlainText !== undefined) next.alwaysPastePlainText = saved.alwaysPastePlainText === 'true';
             if (saved.rowHeight) next.rowHeight = saved.rowHeight as any;
             if (saved.iCloudSync !== undefined) next.iCloudSync = saved.iCloudSync === 'true';
+            if (saved.themeMode) next.themeMode = saved.themeMode as AppSettings['themeMode'];
+            if (saved.spotlightSync !== undefined) next.spotlightSync = saved.spotlightSync === 'true';
+            if (saved.enableActivityLog !== undefined) next.enableActivityLog = saved.enableActivityLog === 'true';
+            if (saved.activityLogCapacity) next.activityLogCapacity = Number(saved.activityLogCapacity);
+            if (saved.enableTrash !== undefined) next.enableTrash = saved.enableTrash === 'true';
+            if (saved.trashCapacityCount) next.trashCapacityCount = Number(saved.trashCapacityCount);
             if (saved.hudHotkey !== undefined) next.hudHotkey = saved.hudHotkey;
             if (saved.seqToggleHotkey !== undefined) next.seqToggleHotkey = saved.seqToggleHotkey;
             if (saved.seqPopHotkey !== undefined) next.seqPopHotkey = saved.seqPopHotkey;
@@ -441,9 +446,19 @@ export default function App() {
             }
             return next;
           });
+
+          if (saved.blacklistApps) {
+            try {
+              const parsed = JSON.parse(saved.blacklistApps);
+              if (Array.isArray(parsed)) setBlacklistApps(parsed);
+            } catch (error) {
+              console.error('Failed to restore blacklist settings:', error);
+            }
+          }
         }
       })
-      .catch(console.error);
+      .catch(console.error)
+      .finally(() => setSettingsHydrated(true));
   }, []);
 
   // Apply Font Size dynamically
@@ -462,23 +477,26 @@ export default function App() {
 
   // Sync Autostart setting with OS
   useEffect(() => {
+    if (!settingsHydrated) return;
     if (appSettings.openAtLogin) {
       if (typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__) enable().catch(console.error);
     } else {
       if (typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__) disable().catch(console.error);
     }
-  }, [appSettings.openAtLogin]);
+  }, [appSettings.openAtLogin, settingsHydrated]);
 
   // Enforce Clip Retention Count
   useEffect(() => {
+    if (!settingsHydrated) return;
     invoke('enforce_clip_retention', { keepCount: appSettings.keepClipCount }).catch(console.error);
-  }, [appSettings.keepClipCount]);
+  }, [appSettings.keepClipCount, settingsHydrated]);
 
   // Sync Dock & Menubar visibility setting with macOS immediately
   useEffect(() => {
+    if (!settingsHydrated) return;
     const showDock = appSettings.dockMenubarIcon === 'both';
     invoke('set_dock_visibility', { showDock }).catch(console.error);
-  }, [appSettings.dockMenubarIcon]);
+  }, [appSettings.dockMenubarIcon, settingsHydrated]);
 
   // Fetch Total Clip Count
   const fetchTotalClipCount = useCallback(async () => {
@@ -1180,21 +1198,27 @@ export default function App() {
 
   const settingsSaveTimerRef = useRef<{ [key: string]: ReturnType<typeof setTimeout> }>({});
 
-  const handleUpdateSettings = (newSettings: Partial<AppSettings>) => {
-    setAppSettings((prev) => {
-      const updated = { ...prev, ...newSettings };
-      // Debounce disk writes to keep UI slider interactions 100% instant
-      for (const [k, v] of Object.entries(newSettings)) {
-        if (settingsSaveTimerRef.current[k]) {
-          clearTimeout(settingsSaveTimerRef.current[k]);
-        }
-        settingsSaveTimerRef.current[k] = setTimeout(() => {
-          invoke('save_app_setting', { key: k, value: String(v) }).catch(console.error);
-        }, 250);
+  useEffect(() => {
+    return () => {
+      Object.values(settingsSaveTimerRef.current).forEach(clearTimeout);
+    };
+  }, []);
+
+  const handleUpdateSettings = useCallback((newSettings: Partial<AppSettings>) => {
+    setAppSettings((prev) => ({ ...prev, ...newSettings }));
+
+    // Keep persistence outside the React state updater: updaters may run more
+    // than once in Strict Mode and must stay free of side effects.
+    for (const [key, value] of Object.entries(newSettings)) {
+      if (settingsSaveTimerRef.current[key]) {
+        clearTimeout(settingsSaveTimerRef.current[key]);
       }
-      return updated;
-    });
-  };
+      settingsSaveTimerRef.current[key] = setTimeout(() => {
+        invoke('save_app_setting', { key, value: String(value) }).catch(console.error);
+        delete settingsSaveTimerRef.current[key];
+      }, 250);
+    }
+  }, []);
 
   const handleAddBlacklistApp = (appName: string) => {
     setBlacklistApps((prev) => [
