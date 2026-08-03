@@ -45,6 +45,7 @@ interface SidebarProps {
   setIsCollapsed: (collapsed: boolean | ((prev: boolean) => boolean)) => void;
   sidebarWidth?: number;
   onClipDropOnBoard?: (clipId: number, boardId: number) => void;
+  draggedClipId?: number | null;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -58,6 +59,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onDeleteBoard,
   onBoardContextMenu,
   onClipDropOnBoard,
+  draggedClipId,
   searchQuery,
   setSearchQuery,
   seqStatus,
@@ -551,7 +553,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       sortedBoards.length > 1 ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'
                     } ${
                       isDropTarget
-                        ? 'bg-cyan-950/90 border border-cyan-400 ring-2 ring-cyan-500 shadow-xl text-cyan-200 font-bold scale-[1.02] z-30 relative'
+                        ? 'bg-cyan-900 border-2 border-cyan-300 ring-4 ring-cyan-500/60 shadow-2xl text-white font-bold scale-[1.04] z-30 relative'
+                        : draggedClipId !== null && isManualBin
+                        ? 'bg-cyan-950/50 border-2 border-dashed border-cyan-400/80 text-cyan-200 font-semibold shadow-inner'
                         : isDragging
                         ? 'bg-[#0a84ff]/30 shadow-md ring-1 ring-inset ring-[#0a84ff]/70 rounded-md z-20 relative'
                         : currentTab === 'board' && selectedBoardId === b.id
@@ -566,8 +570,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
                     {/* Right side container */}
                     <div className="flex items-center justify-end shrink-0 pl-1">
-                      {/* Default State: Smart Rule Icon + Clip Count Badge */}
-                      <div className={`flex items-center space-x-1.5 ${isDragging ? '' : 'group-hover:hidden'}`}>
+                      {isDropTarget ? (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-400 text-black font-extrabold shadow animate-bounce shrink-0">
+                          📥 Drop Here
+                        </span>
+                      ) : draggedClipId !== null && isManualBin ? (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 font-mono font-bold shrink-0">
+                          + Drop target
+                        </span>
+                      ) : (
+                        <div className={`flex items-center space-x-1.5 ${isDragging ? '' : 'group-hover:hidden'}`}>
                         {b.smart_rule ? (
                           <span
                             title={`Smart Bin Rule Active (${b.clip_count ?? 0} matching clips)`}
@@ -584,6 +596,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           )
                         )}
                       </div>
+                      )}
 
                       {/* Hover State: Edit & Trash action buttons (hidden when dragging) */}
                       <div className={`${isDragging ? 'hidden' : 'hidden group-hover:flex'} items-center space-x-1`}>

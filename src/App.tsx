@@ -800,6 +800,7 @@ export default function App() {
   }, [displayedClips, selectedClip]);
 
   const [deletingClipIds] = useState<Set<number>>(new Set());
+  const [draggedClipId, setDraggedClipId] = useState<number | null>(null);
 
   const handleAssignClipToBoard = useCallback(
     async (clipId: number, boardId: number) => {
@@ -1141,6 +1142,7 @@ export default function App() {
         onDeleteBoard={(board) => setBinToDelete(board)}
         onBoardContextMenu={(x, y, board) => setBoardContextMenu({ x, y, board })}
         onClipDropOnBoard={handleAssignClipToBoard}
+        draggedClipId={draggedClipId}
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
         seqStatus={seqStatus}
@@ -1319,7 +1321,11 @@ export default function App() {
                       isQueueMode={currentTab === 'sequential'}
                       queueIndex={queueIndex}
                       rowHeight={appSettings.rowHeight}
-                      onDragStart={(_e, id) => setDraggedPinId(id)}
+                      setDraggedClipId={setDraggedClipId}
+                      onDragStart={(_e, id) => {
+                        setDraggedPinId(id);
+                        setDraggedClipId(id);
+                      }}
                       onDrop={async (_e, targetId) => {
                         if (draggedPinId === null || draggedPinId === targetId) return;
 

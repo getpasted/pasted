@@ -46,6 +46,7 @@ interface ClipCardProps {
   onDragStart?: (e: React.DragEvent, id: number) => void;
   onDragOver?: (e: React.DragEvent) => void;
   onDrop?: (e: React.DragEvent, targetId: number) => void;
+  setDraggedClipId?: (id: number | null) => void;
 }
 
 const ClipCardComponent: React.FC<ClipCardProps> = ({
@@ -69,6 +70,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
   onDragStart,
   onDragOver,
   onDrop,
+  setDraggedClipId,
 }) => {
   const [copied, setCopied] = React.useState(false);
   const [isAltPressed, setIsAltPressed] = React.useState(false);
@@ -127,10 +129,14 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
       onContextMenu={onContextMenu}
       draggable={true}
       onDragStart={(e) => {
+        if (setDraggedClipId) setDraggedClipId(clip.id);
         e.dataTransfer.effectAllowed = 'copyMove';
         e.dataTransfer.setData('text/plain', String(clip.id));
         e.dataTransfer.setData('clip_id', String(clip.id));
         if (onDragStart) onDragStart(e, clip.id);
+      }}
+      onDragEnd={() => {
+        if (setDraggedClipId) setDraggedClipId(null);
       }}
       onDragOver={(e) => {
         if (clip.is_pinned) {
