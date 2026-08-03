@@ -47,6 +47,7 @@ interface SidebarProps {
   onClipDropOnBoard?: (clipId: number, boardId: number) => void;
   draggedClipId?: number | null;
   pointerDropTargetBoardId?: number | null;
+  disabledDropBoardId?: number | null;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -62,6 +63,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onClipDropOnBoard,
   draggedClipId,
   pointerDropTargetBoardId,
+  disabledDropBoardId,
   searchQuery,
   setSearchQuery,
   seqStatus,
@@ -494,20 +496,33 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {sortedBoards.map((b) => {
                 const isDragging = activeDragBoardId === b.id;
                 const isManualBin = !b.smart_rule || b.smart_rule.trim() === '';
+                const isClipDragging = draggedClipId !== null && draggedClipId !== undefined;
+                const isDisabledDropTarget =
+                  isClipDragging && disabledDropBoardId === b.id;
+                const isIneligibleSmartBin = isClipDragging && !isManualBin;
                 const isDropTarget =
-                  (dropTargetBoardId === b.id || pointerDropTargetBoardId === b.id) && isManualBin;
+                  (dropTargetBoardId === b.id || pointerDropTargetBoardId === b.id) &&
+                  isManualBin &&
+                  !isDisabledDropTarget;
 
                 return (
                   <div
                     key={b.id}
-                    data-bin-drop-board-id={isManualBin ? b.id : undefined}
+                    data-bin-drop-board-id={isManualBin && !isDisabledDropTarget ? b.id : undefined}
                     role="button"
                     tabIndex={0}
+                    title={
+                      isDisabledDropTarget
+                        ? 'Already assigned to this Bin'
+                        : isIneligibleSmartBin
+                        ? 'Smart Bin — populated automatically by rules'
+                        : undefined
+                    }
                     onPointerDown={() => handlePointerDownBoard(b.id)}
                     onPointerEnter={() => handlePointerEnterBoard(b.id)}
                     onPointerUp={handlePointerUpBoard}
                     onDragOver={(e) => {
-                      if (!isManualBin) return;
+                      if (!isManualBin || isDisabledDropTarget) return;
                       e.preventDefault();
                       e.stopPropagation();
                       e.dataTransfer.dropEffect = 'copy';
@@ -516,14 +531,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       }
                     }}
                     onDragEnter={(e) => {
-                      if (!isManualBin) return;
+                      if (!isManualBin || isDisabledDropTarget) return;
                       e.preventDefault();
                       e.stopPropagation();
                       e.dataTransfer.dropEffect = 'copy';
                       setDropTargetBoardId(b.id);
                     }}
                     onDragLeave={(e) => {
-                      if (!isManualBin) return;
+                      if (!isManualBin || isDisabledDropTarget) return;
                       e.preventDefault();
                       if (e.relatedTarget && e.currentTarget.contains(e.relatedTarget as Node)) {
                         return;
@@ -540,7 +555,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       setDropTargetBoardId((prev) => (prev === b.id ? null : prev));
                     }}
                     onDrop={(e) => {
-                      if (!isManualBin) return;
+                      if (!isManualBin || isDisabledDropTarget) return;
                       e.preventDefault();
                       e.stopPropagation();
                       setDropTargetBoardId(null);
@@ -575,12 +590,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       if (onBoardContextMenu) onBoardContextMenu(e.clientX, e.clientY, b);
                     }}
                     className={`group w-full h-8 flex items-center justify-between px-2.5 rounded-md select-none transition-all duration-100 ${
-                      sortedBoards.length > 1 ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'
+                      isDisabledDropTarget || isIneligibleSmartBin
+                        ? 'cursor-not-allowed'
+                        : isClipDragging
+                        ? 'cursor-grabbing'
+                        : sortedBoards.length > 1
+                        ? 'cursor-grab active:cursor-grabbing'
+                        : 'cursor-pointer'
                     } ${
                       isDropTarget
-                        ? 'bg-cyan-900 border-2 border-cyan-300 ring-4 ring-cyan-500/60 shadow-2xl text-white font-bold scale-[1.04] z-30 relative'
-                        : draggedClipId !== null && isManualBin
-                        ? 'bg-cyan-950/20 border border-dashed border-cyan-500/50 text-cyan-200 font-normal'
+                        ? 'bg-emerald-500/15 border border-emerald-400/80 ring-2 ring-emerald-400/25 shadow-lg text-emerald-50 z-30 relative'
+                        : isDisabledDropTarget || isIneligibleSmartBin
+                        ? 'bg-white/[0.025] border border-white/5 text-gray-600 opacity-50 cursor-not-allowed'
+                        : isClipDragging && isManualBin
+                        ? 'bg-emerald-950/15 border border-dashed border-emerald-500/45 text-emerald-100 font-normal'
                         : isDragging
                         ? 'bg-[#0a84ff]/30 shadow-md ring-1 ring-inset ring-[#0a84ff]/70 rounded-md z-20 relative'
                         : currentTab === 'board' && selectedBoardId === b.id
@@ -595,12 +618,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
                     {/* Right side container */}
                     <div className="flex items-center justify-end shrink-0 pl-1">
-                      {isDropTarget ? (
-                        <span className="text-[10px] px-2 py-0.5 rounded bg-cyan-400 text-black font-extrabold shadow shrink-0">
-                          Drop
-                        </span>
-                      ) : (
-                        <div className={`flex items-center space-x-1.5 ${isDragging ? '' : 'group-hover:hidden'}`}>
+                      <div className={`flex items-center space-x-1.5 ${isClipDragging || isDragging ? '' : 'group-hover:hidden'}`}>
                         {b.smart_rule ? (
                           <span
                             title={`Smart Bin Rule Active (${b.clip_count ?? 0} matching clips)`}
@@ -617,10 +635,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           )
                         )}
                       </div>
-                      )}
 
                       {/* Hover State: Edit & Trash action buttons (hidden when dragging) */}
-                      <div className={`${isDragging ? 'hidden' : 'hidden group-hover:flex'} items-center space-x-1`}>
+                      <div className={`${isClipDragging || isDragging ? 'hidden' : 'hidden group-hover:flex'} items-center space-x-1`}>
                         <button
                           type="button"
                           onPointerDown={(e) => e.stopPropagation()}

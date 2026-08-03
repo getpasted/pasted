@@ -805,6 +805,23 @@ export default function App() {
   const [pointerDropTargetBoardId, setPointerDropTargetBoardId] = useState<number | null>(null);
   const [clipDragPreview, setClipDragPreview] = useState<{ clipId: number; x: number; y: number } | null>(null);
 
+  const disabledDropBoardId = useMemo(() => {
+    if (draggedClipId === null) return null;
+    const draggedIds =
+      selectedClipIds.size > 1 && selectedClipIds.has(draggedClipId)
+        ? Array.from(selectedClipIds)
+        : [draggedClipId];
+    const draggedClips = allClips.filter((clip) => draggedIds.includes(clip.id));
+    if (draggedClips.length !== draggedIds.length) return null;
+    const currentBoardId = draggedClips[0]?.board_id ?? null;
+    if (currentBoardId === null || !draggedClips.every((clip) => clip.board_id === currentBoardId)) {
+      return null;
+    }
+    return boards.find((board) => board.id === currentBoardId && board.board_type !== 'tag')
+      ? currentBoardId
+      : null;
+  }, [allClips, boards, draggedClipId, selectedClipIds]);
+
   const getPointerDropTarget = useCallback((x: number, y: number) => {
     const target = document
       .elementFromPoint(x, y)
@@ -1253,6 +1270,7 @@ export default function App() {
         onClipDropOnBoard={handleAssignClipToBoard}
         draggedClipId={draggedClipId}
         pointerDropTargetBoardId={pointerDropTargetBoardId}
+        disabledDropBoardId={disabledDropBoardId}
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
         seqStatus={seqStatus}
