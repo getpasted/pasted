@@ -3,14 +3,13 @@ import { AppSettings, BlacklistApp, FilterRule, Board } from '../types';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { HotkeyRecorder } from './HotkeyRecorder';
 import { SettingsTabs, type SettingsTab } from './SettingsTabs';
+import { SettingsBlacklistPanel } from './SettingsBlacklistPanel';
 import { SettingsSyncPanel } from './SettingsSyncPanel';
 import { useAltKeyPressed } from '../hooks/useAltKeyPressed';
 import {
-  Plus,
   Trash2,
   ShieldCheck,
   RotateCcw,
-  Lock,
   Sun,
   Moon,
   Laptop,
@@ -49,7 +48,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onResetColumnWidths,
 }) => {
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
-  const [newAppNameInput, setNewAppNameInput] = useState('');
   const [accessibilityStatus, setAccessibilityStatus] = useState<{ is_trusted: boolean; is_dev_mode: boolean } | null>(null);
   const isAltPressed = useAltKeyPressed();
 
@@ -863,146 +861,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
         {/* TAB 3: BLACKLIST */}
         {activeTab === 'blacklist' && (
-          <div className="bg-[#212121] p-6 rounded-2xl border border-gray-700/80 shadow-2xl space-y-4 text-xs text-gray-200">
-            <h4 className="font-bold text-gray-100 uppercase tracking-wider text-[11px]">
-              Ignore from the Following Apps:
-            </h4>
-
-            {/* App Blacklist Items */}
-            <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
-              {blacklistApps.map((app) => (
-                <div
-                  key={app.id}
-                  className="flex items-center justify-between p-3 bg-[#181818] rounded-xl border border-gray-700/80"
-                >
-                  <div className="flex items-center space-x-3">
-                    <div className="w-7 h-7 rounded-lg bg-gray-800 border border-gray-700 flex items-center justify-center">
-                      <Lock className="w-4 h-4 text-amber-400" />
-                    </div>
-                    <span className="font-semibold text-gray-200">{app.name}</span>
-                  </div>
-
-                  <div className="flex items-center space-x-4">
-                    <label className="flex items-center space-x-1.5 cursor-pointer text-gray-400">
-                      <input
-                        type="checkbox"
-                        checked={app.ignoreShortcuts}
-                        onChange={() => onToggleBlacklistRule(app.id, 'ignoreShortcuts')}
-                        className="w-3.5 h-3.5 accent-[#007aff] cursor-pointer rounded"
-                      />
-                      <span>Shortcuts</span>
-                    </label>
-
-                    <label className="flex items-center space-x-1.5 cursor-pointer text-gray-200 font-medium">
-                      <input
-                        type="checkbox"
-                        checked={app.ignoreText}
-                        onChange={() => onToggleBlacklistRule(app.id, 'ignoreText')}
-                        className="w-3.5 h-3.5 accent-[#007aff] cursor-pointer rounded"
-                      />
-                      <span>Text</span>
-                    </label>
-
-                    <label className="flex items-center space-x-1.5 cursor-pointer text-gray-200 font-medium">
-                      <input
-                        type="checkbox"
-                        checked={app.ignoreImages}
-                        onChange={() => onToggleBlacklistRule(app.id, 'ignoreImages')}
-                        className="w-3.5 h-3.5 accent-[#007aff] cursor-pointer rounded"
-                      />
-                      <span>Images</span>
-                    </label>
-
-                    <button
-                      onClick={() => onRemoveBlacklistApp(app.id)}
-                      className="p-1 text-gray-500 hover:text-red-400 rounded hover:bg-gray-800 transition-colors"
-                      title="Remove App"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Add App Controls: Quick Select Dropdown + Custom Text Input */}
-            <div className="space-y-2 pt-2 border-t border-gray-700/80">
-              <div className="flex items-center space-x-2">
-                <select
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    if (val) {
-                      setNewAppNameInput(val);
-                    }
-                  }}
-                  defaultValue=""
-                  className="flex-1 bg-[#181818] border border-gray-700 rounded-lg px-3 py-1.5 text-gray-200 text-xs focus:outline-none focus:border-gray-500 truncate"
-                >
-                  <option value="" disabled>
-                    -- Select Installed or Popular App --
-                  </option>
-                  <optgroup label="Security & Password Managers">
-                    <option value="1Password">1Password</option>
-                    <option value="Bitwarden">Bitwarden</option>
-                    <option value="Dashlane">Dashlane</option>
-                    <option value="KeePassXC">KeePassXC</option>
-                    <option value="Enpass">Enpass</option>
-                    <option value="LastPass">LastPass</option>
-                  </optgroup>
-                  <optgroup label="Messaging & Private Chat">
-                    <option value="Signal">Signal</option>
-                    <option value="Telegram">Telegram</option>
-                    <option value="Slack">Slack</option>
-                    <option value="Discord">Discord</option>
-                    <option value="WhatsApp">WhatsApp</option>
-                  </optgroup>
-                  <optgroup label="Web Browsers (Private Windows)">
-                    <option value="Safari">Safari</option>
-                    <option value="Google Chrome">Google Chrome</option>
-                    <option value="Firefox">Firefox</option>
-                    <option value="Brave Browser">Brave Browser</option>
-                    <option value="Arc">Arc</option>
-                    <option value="Orion">Orion</option>
-                  </optgroup>
-                  <optgroup label="System & Developer Tools">
-                    <option value="Terminal">Terminal</option>
-                    <option value="Warp">Warp</option>
-                    <option value="VS Code">VS Code</option>
-                    <option value="Xcode">Xcode</option>
-                    <option value="Notes">Notes</option>
-                    <option value="Mail">Mail</option>
-                  </optgroup>
-                </select>
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <input
-                  type="text"
-                  placeholder="Or type custom app name (e.g. Signal, Bitwarden)..."
-                  value={newAppNameInput}
-                  onChange={(e) => setNewAppNameInput(e.target.value)}
-                  className="flex-1 bg-[#181818] border border-gray-700 rounded-lg px-3 py-1.5 text-gray-100 text-xs focus:outline-none focus:border-gray-500"
-                />
-                <button
-                  onClick={() => {
-                    if (newAppNameInput.trim()) {
-                      onAddBlacklistApp(newAppNameInput.trim());
-                      setNewAppNameInput('');
-                    }
-                  }}
-                  className="flex items-center space-x-1 px-3.5 py-1.5 bg-white hover:bg-gray-200 text-black font-semibold rounded-lg transition-all text-xs shadow-md active:scale-95"
-                  title="Add App to Blacklist"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Add App</span>
-                </button>
-              </div>
-            </div>
-
-            <p className="text-[11px] text-gray-400 leading-relaxed pt-2">
-              Apps that mark sensitive data as transient (like 1Password) are already ignored. Checked items will be ignored by Pasted when copying or activating Pasted global shortcuts in these apps.
-            </p>
-          </div>
+          <SettingsBlacklistPanel
+            apps={blacklistApps}
+            onAddApp={onAddBlacklistApp}
+            onRemoveApp={onRemoveBlacklistApp}
+            onToggleRule={onToggleBlacklistRule}
+          />
         )}
 
         {/* TAB 4: SYNC & BACKUP */}
