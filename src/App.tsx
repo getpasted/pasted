@@ -819,15 +819,25 @@ export default function App() {
         )
       );
 
+      setBoards((prev) =>
+        prev.map((b) =>
+          b.id === boardId
+            ? { ...b, clip_count: (b.clip_count || 0) + 1 }
+            : b
+        )
+      );
+
       soundManager.playCopySound(appSettings.enableSounds);
 
       // Async background SQLite IPC
       try {
-        await invoke('assign_clip_board', { clipId, boardId });
+        await invoke('assign_clip_board', { clip_id: clipId, board_id: boardId });
         fetchBoards();
+        fetchClips();
       } catch (e) {
         console.error('Failed to assign clip to board:', e);
         fetchClips();
+        fetchBoards();
       }
     },
     [appSettings.enableSounds, fetchBoards, fetchClips]
@@ -1005,8 +1015,9 @@ export default function App() {
     }
 
     try {
-      await invoke('assign_clip_board', { clipId, boardId });
+      await invoke('assign_clip_board', { clip_id: clipId, board_id: boardId });
       fetchBoards();
+      fetchClips();
     } catch (e) {
       console.error(e);
       fetchClips();
