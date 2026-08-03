@@ -43,10 +43,11 @@ interface ClipCardProps {
   onRemoveFromQueue?: () => void;
   onPasteQueueItem?: () => void;
   onContextMenu: (e: React.MouseEvent) => void;
-  onDragStart?: (e: React.DragEvent, id: number) => void;
-  onDragOver?: (e: React.DragEvent) => void;
-  onDrop?: (e: React.DragEvent, targetId: number) => void;
   setDraggedClipId?: (id: number | null) => void;
+  onPointerDragStart?: (id: number) => void;
+  onPointerDragMove?: (x: number, y: number) => void;
+  onPointerDragEnd?: (x: number, y: number, id: number) => void;
+  onPointerDragCancel?: () => void;
 }
 
 const ClipCardComponent: React.FC<ClipCardProps> = ({
@@ -67,14 +68,23 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
   onRemoveFromQueue,
   onPasteQueueItem,
   onContextMenu,
-  onDragStart,
-  onDragOver,
-  onDrop,
   setDraggedClipId,
+  onPointerDragStart,
+  onPointerDragMove,
+  onPointerDragEnd,
+  onPointerDragCancel,
 }) => {
   const [copied, setCopied] = React.useState(false);
   const [isAltPressed, setIsAltPressed] = React.useState(false);
   const [showRevealed, setShowRevealed] = useState(false);
+  const pointerDragRef = React.useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    active: boolean;
+  } | null>(null);
+  const removePointerListenersRef = React.useRef<(() => void) | null>(null);
+  const suppressClickRef = React.useRef(false);
   const isSensitive = isSensitiveText(clip.text_content);
 
   React.useEffect(() => {
@@ -91,6 +101,8 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
       window.removeEventListener('keyup', handleKeyUp);
     };
   }, []);
+
+  React.useEffect(() => () => removePointerListenersRef.current?.(), []);
 
   const handleCopy = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -125,36 +137,78 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
 
   return (
     <div
-      onClick={onSelect}
+      data-clip-id={clip.id}
+      onClick={(e) => {
+        if (suppressClickRef.current) {
+          e.preventDefault();
+          e.stopPropagation();
+          suppressClickRef.current = false;
+          return;
+        }
+        onSelect(e);
+      }}
       onContextMenu={onContextMenu}
-      draggable={true}
-      onDragStart={(e) => {
-        e.dataTransfer.effectAllowed = 'copyMove';
-        e.dataTransfer.setData('text/plain', String(clip.id));
-        e.dataTransfer.setData('clip_id', String(clip.id));
-        requestAnimationFrame(() => {
-          if (setDraggedClipId) setDraggedClipId(clip.id);
-          if (onDragStart) onDragStart(e, clip.id);
-        });
-      }}
-      onDragEnd={() => {
-        requestAnimationFrame(() => {
+      draggable={false}
+      onPointerDown={(e) => {
+        if (e.button !== 0 || (e.target as HTMLElement).closest('button, input, select, textarea, a')) return;
+        pointerDragRef.current = {
+          pointerId: e.pointerId,
+          startX: e.clientX,
+          startY: e.clientY,
+          active: false,
+        };
+
+        const removeListeners = () => {
+          window.removeEventListener('pointermove', handlePointerMove);
+          window.removeEventListener('pointerup', handlePointerEnd);
+          window.removeEventListener('pointercancel', handlePointerCancel);
+          removePointerListenersRef.current = null;
+        };
+
+        const handlePointerMove = (event: PointerEvent) => {
+          const drag = pointerDragRef.current;
+          if (!drag || drag.pointerId !== event.pointerId) return;
+          if (!drag.active && Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) >= 6) {
+            drag.active = true;
+            if (setDraggedClipId) setDraggedClipId(clip.id);
+            if (onPointerDragStart) onPointerDragStart(clip.id);
+          }
+          if (drag.active) {
+            event.preventDefault();
+            if (onPointerDragMove) onPointerDragMove(event.clientX, event.clientY);
+          }
+        };
+
+        const handlePointerEnd = (event: PointerEvent) => {
+          const drag = pointerDragRef.current;
+          if (!drag || drag.pointerId !== event.pointerId) return;
+          pointerDragRef.current = null;
+          removeListeners();
+          if (!drag.active) return;
+          suppressClickRef.current = true;
+          if (onPointerDragEnd) onPointerDragEnd(event.clientX, event.clientY, clip.id);
           if (setDraggedClipId) setDraggedClipId(null);
-        });
+          setTimeout(() => {
+            suppressClickRef.current = false;
+          }, 0);
+        };
+
+        const handlePointerCancel = (event: PointerEvent) => {
+          const drag = pointerDragRef.current;
+          if (!drag || drag.pointerId !== event.pointerId) return;
+          pointerDragRef.current = null;
+          removeListeners();
+          if (setDraggedClipId) setDraggedClipId(null);
+          if (onPointerDragCancel) onPointerDragCancel();
+        };
+
+        removePointerListenersRef.current?.();
+        removePointerListenersRef.current = removeListeners;
+        window.addEventListener('pointermove', handlePointerMove, { passive: false });
+        window.addEventListener('pointerup', handlePointerEnd);
+        window.addEventListener('pointercancel', handlePointerCancel);
       }}
-      onDragOver={(e) => {
-        if (clip.is_pinned) {
-          e.preventDefault();
-          if (onDragOver) onDragOver(e);
-        }
-      }}
-      onDrop={(e) => {
-        if (clip.is_pinned) {
-          e.preventDefault();
-          if (onDrop) onDrop(e, clip.id);
-        }
-      }}
-      className={`group relative rounded-xl cursor-pointer select-none border transition-[background-color,border-color,box-shadow] duration-75 ease-out ${paddingClass} ${
+      className={`clip-card group relative rounded-xl cursor-pointer select-none border transition-[background-color,border-color,box-shadow] duration-75 ease-out ${paddingClass} ${
         isDeleting
           ? 'clip-card-deleting'
           : `${isSelected

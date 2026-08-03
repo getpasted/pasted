@@ -57,16 +57,21 @@ export const QuickHudWindow: React.FC = () => {
 
 
 
-    const unlistenFocus = listen('tauri://focus', () => {
-      fetchClips();
-      setTimeout(() => inputRef.current?.focus(), 50);
-    });
+    let unlistenFocus: Promise<() => void> | null = null;
+    let unlistenPos: Promise<() => void> | null = null;
 
-    const unlistenPos = listen<{
-      flipped: boolean;
-      cursorX: number;
-      cursorY: number;
-    }>('hud_position_updated', () => {});
+    if (typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__) {
+      unlistenFocus = listen('tauri://focus', () => {
+        fetchClips();
+        setTimeout(() => inputRef.current?.focus(), 50);
+      });
+
+      unlistenPos = listen<{
+        flipped: boolean;
+        cursorX: number;
+        cursorY: number;
+      }>('hud_position_updated', () => {});
+    }
 
     const handleKeyDown = async (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -102,8 +107,8 @@ export const QuickHudWindow: React.FC = () => {
     window.addEventListener('keydown', handleKeyDown);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
-      unlistenFocus.then((f) => f());
-      unlistenPos.then((f) => f());
+      if (unlistenFocus) unlistenFocus.then((f) => f());
+      if (unlistenPos) unlistenPos.then((f) => f());
     };
   }, [clips, selectedIndex]);
 

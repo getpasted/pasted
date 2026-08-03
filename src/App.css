@@ -12,9 +12,13 @@
   contain: content;
   transform: translateZ(0);
   backface-visibility: hidden;
-  -webkit-user-drag: element !important;
+  -webkit-user-drag: none !important;
   user-select: none !important;
   -webkit-user-select: none !important;
+}
+
+[draggable="true"] {
+  -webkit-user-drag: element !important;
 }
 
 html.hud-mode,
@@ -798,7 +802,12 @@ textarea,
 select,
 option,
 a,
-.no-drag {
+.no-drag,
+.clip-card,
+.col-sidebar,
+.sidebar-scroll-container,
+[role="button"],
+[draggable="true"] {
   -webkit-app-region: no-drag !important;
 }
 

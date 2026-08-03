@@ -1061,23 +1061,31 @@ impl DbState {
     }
 
     pub fn batch_assign_board_clips(&self, ids: Vec<i64>, board_id: Option<i64>) -> Result<()> {
-        let conn = self.conn.lock();
+        let mut conn = self.conn.lock();
+        let tx = conn.transaction()?;
         for clip_id in ids {
+            tx.execute(
+                "DELETE FROM clip_boards
+                 WHERE clip_id = ?1
+                   AND board_id IN (
+                       SELECT id FROM boards WHERE COALESCE(board_type, 'category') != 'tag'
+                   )",
+                params![clip_id],
+            )?;
             if let Some(bid) = board_id {
-                conn.execute(
+                tx.execute(
                     "INSERT OR REPLACE INTO clip_boards (clip_id, board_id) VALUES (?1, ?2)",
                     params![clip_id, bid],
                 )?;
-                conn.execute(
+                tx.execute(
                     "UPDATE clips SET board_id = ?1 WHERE id = ?2",
                     params![bid, clip_id],
                 )?;
             } else {
-                conn.execute("DELETE FROM clip_boards WHERE clip_id = ?1", params![clip_id])?;
-                conn.execute("UPDATE clips SET board_id = NULL WHERE id = ?1", params![clip_id])?;
+                tx.execute("UPDATE clips SET board_id = NULL WHERE id = ?1", params![clip_id])?;
             }
         }
-        Ok(())
+        tx.commit()
     }
 
     pub fn get_analytics_summary(&self) -> Result<AnalyticsSummary> {
@@ -1191,21 +1199,29 @@ impl DbState {
     }
 
     pub fn assign_to_board(&self, clip_id: i64, board_id: Option<i64>) -> Result<()> {
-        let conn = self.conn.lock();
+        let mut conn = self.conn.lock();
+        let tx = conn.transaction()?;
+        tx.execute(
+            "DELETE FROM clip_boards
+             WHERE clip_id = ?1
+               AND board_id IN (
+                   SELECT id FROM boards WHERE COALESCE(board_type, 'category') != 'tag'
+               )",
+            params![clip_id],
+        )?;
         if let Some(bid) = board_id {
-            conn.execute(
+            tx.execute(
                 "INSERT OR REPLACE INTO clip_boards (clip_id, board_id) VALUES (?1, ?2)",
                 params![clip_id, bid],
             )?;
-            conn.execute(
+            tx.execute(
                 "UPDATE clips SET board_id = ?1 WHERE id = ?2",
                 params![bid, clip_id],
             )?;
         } else {
-            conn.execute("DELETE FROM clip_boards WHERE clip_id = ?1", params![clip_id])?;
-            conn.execute("UPDATE clips SET board_id = NULL WHERE id = ?1", params![clip_id])?;
+            tx.execute("UPDATE clips SET board_id = NULL WHERE id = ?1", params![clip_id])?;
         }
-        Ok(())
+        tx.commit()
     }
 
     pub fn add_clip_to_board(&self, clip_id: i64, board_id: i64) -> Result<()> {
@@ -1991,6 +2007,37 @@ mod tests {
         let trashed = db.get_trashed_clips().unwrap();
         assert_eq!(trashed.len(), 1);
         assert_eq!(trashed[0].id, clip1.id);
+    }
+
+    #[test]
+    fn test_bin_assignment_is_exclusive_and_preserves_tags() {
+        let db = setup_test_db();
+        let clip1 = db.save_clip("text", Some("Exclusive 1"), None, None, "HashE1", "App").unwrap();
+        let clip2 = db.save_clip("text", Some("Exclusive 2"), None, None, "HashE2", "App").unwrap();
+        let first_bin = db.create_board("First Bin", "Folder", "#3b82f6", None).unwrap();
+        let second_bin = db.create_board("Second Bin", "Folder", "#10b981", None).unwrap();
+        let tag = db.create_board_with_type("Important", "Tag", "#f59e0b", None, "tag").unwrap();
+
+        db.assign_to_board(clip1.id, Some(first_bin.id)).unwrap();
+        db.add_clip_to_board(clip1.id, tag.id).unwrap();
+        db.assign_to_board(clip1.id, Some(second_bin.id)).unwrap();
+
+        assert!(db.get_clips(None, Some(first_bin.id), false).unwrap().is_empty());
+        let second_bin_clips = db.get_clips(None, Some(second_bin.id), false).unwrap();
+        assert_eq!(second_bin_clips.len(), 1);
+        assert_eq!(second_bin_clips[0].id, clip1.id);
+        assert!(second_bin_clips[0].board_ids.as_ref().unwrap().contains(&tag.id));
+
+        db.assign_to_board(clip1.id, None).unwrap();
+        let unassigned = db.get_clips(None, None, false).unwrap();
+        let clip1_after_unassign = unassigned.iter().find(|clip| clip.id == clip1.id).unwrap();
+        assert_eq!(clip1_after_unassign.board_id, None);
+        assert_eq!(clip1_after_unassign.board_ids.as_ref().unwrap(), &vec![tag.id]);
+
+        db.batch_assign_board_clips(vec![clip1.id, clip2.id], Some(first_bin.id)).unwrap();
+        db.batch_assign_board_clips(vec![clip1.id, clip2.id], Some(second_bin.id)).unwrap();
+        assert!(db.get_clips(None, Some(first_bin.id), false).unwrap().is_empty());
+        assert_eq!(db.get_clips(None, Some(second_bin.id), false).unwrap().len(), 2);
     }
 
     #[test]

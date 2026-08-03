@@ -31,6 +31,7 @@ interface ClipPreviewProps {
   boards: Board[];
   filters: FilterRule[];
   onUpdateClip: () => void;
+  onAssignBoard: (clipId: number, boardId: number | null) => void | Promise<void>;
   onDeleteClip: (id: number) => void;
   onUpdateClipNote?: (clipId: number, noteContent: string | null) => void;
 }
@@ -215,6 +216,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   boards,
   filters,
   onUpdateClip,
+  onAssignBoard,
   onDeleteClip,
   onUpdateClipNote,
 }) => {
@@ -415,8 +417,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
 
   const handleAssignBoard = async (boardId: number | null) => {
     try {
-      await invoke('assign_clip_board', { clipId: clip.id, boardId });
-      onUpdateClip();
+      await onAssignBoard(clip.id, boardId);
     } catch (e) {
       console.error(e);
     }
@@ -574,7 +575,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
             className="bg-[#181818] border border-gray-700 text-gray-200 text-xs rounded-md px-2 py-1 focus:outline-none focus:border-gray-500"
           >
             <option value="">– None –</option>
-            {boards.filter((b) => !b.smart_rule).map((b) => (
+            {boards.filter((b) => b.board_type !== 'tag' && !b.smart_rule).map((b) => (
               <option key={b.id} value={b.id}>
                 {b.name}
               </option>

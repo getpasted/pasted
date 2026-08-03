@@ -46,6 +46,7 @@ interface SidebarProps {
   sidebarWidth?: number;
   onClipDropOnBoard?: (clipId: number, boardId: number) => void;
   draggedClipId?: number | null;
+  pointerDropTargetBoardId?: number | null;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -60,6 +61,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onBoardContextMenu,
   onClipDropOnBoard,
   draggedClipId,
+  pointerDropTargetBoardId,
   searchQuery,
   setSearchQuery,
   seqStatus,
@@ -492,11 +494,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {sortedBoards.map((b) => {
                 const isDragging = activeDragBoardId === b.id;
                 const isManualBin = !b.smart_rule || b.smart_rule.trim() === '';
-                const isDropTarget = dropTargetBoardId === b.id && isManualBin;
+                const isDropTarget =
+                  (dropTargetBoardId === b.id || pointerDropTargetBoardId === b.id) && isManualBin;
 
                 return (
                   <div
                     key={b.id}
+                    data-bin-drop-board-id={isManualBin ? b.id : undefined}
                     role="button"
                     tabIndex={0}
                     onPointerDown={() => handlePointerDownBoard(b.id)}
@@ -521,24 +525,34 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     onDragLeave={(e) => {
                       if (!isManualBin) return;
                       e.preventDefault();
-                      if (e.relatedTarget && !e.currentTarget.contains(e.relatedTarget as Node)) {
-                        setDropTargetBoardId((prev) => (prev === b.id ? null : prev));
+                      if (e.relatedTarget && e.currentTarget.contains(e.relatedTarget as Node)) {
+                        return;
                       }
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      if (
+                        e.clientX >= rect.left &&
+                        e.clientX <= rect.right &&
+                        e.clientY >= rect.top &&
+                        e.clientY <= rect.bottom
+                      ) {
+                        return;
+                      }
+                      setDropTargetBoardId((prev) => (prev === b.id ? null : prev));
                     }}
                     onDrop={(e) => {
                       if (!isManualBin) return;
                       e.preventDefault();
                       e.stopPropagation();
                       setDropTargetBoardId(null);
-                      const rawText = e.dataTransfer.getData('text/plain');
                       const rawClipId = e.dataTransfer.getData('clip_id');
-                      const parsedText = parseInt(rawText, 10);
+                      const rawText = e.dataTransfer.getData('text/plain');
                       const parsedClip = parseInt(rawClipId, 10);
+                      const parsedText = parseInt(rawText, 10);
                       const targetClipId =
-                        !isNaN(parsedText) && parsedText > 0
-                          ? parsedText
-                          : !isNaN(parsedClip) && parsedClip > 0
+                        !isNaN(parsedClip) && parsedClip > 0
                           ? parsedClip
+                          : !isNaN(parsedText) && parsedText > 0
+                          ? parsedText
                           : draggedClipId;
 
                       if (targetClipId && onClipDropOnBoard) {

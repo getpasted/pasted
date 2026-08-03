@@ -42,13 +42,16 @@ export const ActivityLogView: React.FC = () => {
       fetchLogs();
     }, 1500);
 
-    const unlistenLog = listen('activity-log-added', () => {
-      fetchLogs();
-    });
+    let unlistenLog: Promise<() => void> | null = null;
+    if (typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__) {
+      unlistenLog = listen('activity-log-added', () => {
+        fetchLogs();
+      });
+    }
 
     return () => {
       clearInterval(interval);
-      unlistenLog.then((f) => f());
+      if (unlistenLog) unlistenLog.then((f) => f());
     };
   }, []);
 
