@@ -44,6 +44,7 @@ interface SidebarProps {
   isCollapsed: boolean;
   setIsCollapsed: (collapsed: boolean | ((prev: boolean) => boolean)) => void;
   sidebarWidth?: number;
+  onClipDropOnBoard?: (clipId: number, boardId: number) => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -56,6 +57,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onEditBoard,
   onDeleteBoard,
   onBoardContextMenu,
+  onClipDropOnBoard,
   searchQuery,
   setSearchQuery,
   seqStatus,
@@ -76,6 +78,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   // Board Drag & Drop Reorder State with 150ms Debounce
   const [activeDragBoardId, setActiveDragBoardId] = React.useState<number | null>(null);
+  const [dropTargetBoardId, setDropTargetBoardId] = React.useState<number | null>(null);
+  const [isSearchFocused, setIsSearchFocused] = React.useState(false);
   const dragTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [boardOrder, setBoardOrder] = React.useState<number[]>(() => {
@@ -483,6 +487,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
             >
               {sortedBoards.map((b) => {
                 const isDragging = activeDragBoardId === b.id;
+                const isManualBin = !b.smart_rule || b.smart_rule.trim() === '';
+                const isDropTarget = dropTargetBoardId === b.id && isManualBin;
 
                 return (
                   <div
@@ -492,6 +498,31 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     onPointerDown={() => handlePointerDownBoard(b.id)}
                     onPointerEnter={() => handlePointerEnterBoard(b.id)}
                     onPointerUp={handlePointerUpBoard}
+                    onDragOver={(e) => {
+                      if (isManualBin) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setDropTargetBoardId(b.id);
+                      }
+                    }}
+                    onDragLeave={(e) => {
+                      if (isManualBin) {
+                        e.preventDefault();
+                        setDropTargetBoardId(null);
+                      }
+                    }}
+                    onDrop={(e) => {
+                      if (isManualBin) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setDropTargetBoardId(null);
+                        const rawId = e.dataTransfer.getData('text/plain') || e.dataTransfer.getData('clip_id');
+                        const clipId = Number(rawId);
+                        if (clipId && onClipDropOnBoard) {
+                          onClipDropOnBoard(clipId, b.id);
+                        }
+                      }
+                    }}
                     onClick={() => {
                       if (dragTimerRef.current) {
                         clearTimeout(dragTimerRef.current);
@@ -510,7 +541,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     className={`group w-full h-8 flex items-center justify-between px-2.5 rounded-md select-none transition-all duration-100 ${
                       sortedBoards.length > 1 ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'
                     } ${
-                      isDragging
+                      isDropTarget
+                        ? 'bg-cyan-950/90 border border-cyan-400 ring-2 ring-cyan-500 shadow-xl text-cyan-200 font-bold scale-[1.02] z-30 relative'
+                        : isDragging
                         ? 'bg-[#0a84ff]/30 shadow-md ring-1 ring-inset ring-[#0a84ff]/70 rounded-md z-20 relative'
                         : currentTab === 'board' && selectedBoardId === b.id
                         ? 'sidebar-item-active bg-[#3b3b3e] text-white font-medium'
@@ -677,13 +710,44 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* Pinned Bottom Search Bar Footer */}
-      <div className="p-2.5 border-t border-white/10 shrink-0">
+      <div className="p-2.5 border-t border-white/10 shrink-0 relative">
+        {isSearchFocused && !searchQuery.includes(':') && (
+          <div className="absolute bottom-11 left-2.5 right-2.5 bg-[#1c1e26]/95 backdrop-blur-xl border border-cyan-500/40 rounded-xl p-2 shadow-2xl z-50 text-xs space-y-1 animate-in fade-in slide-in-from-bottom-2 duration-150">
+            <div className="px-2 py-1 text-[10px] font-bold text-cyan-400 uppercase tracking-wider border-b border-gray-700/60 flex items-center justify-between">
+              <span>Smart Search Operators</span>
+              <span className="text-[9px] text-gray-500 font-mono">Press Esc to dismiss</span>
+            </div>
+            {[
+              { prefix: 'regex:', desc: 'Regex pattern (e.g. regex:^https?://)' },
+              { prefix: 'app:', desc: 'By app name (e.g. app:Safari)' },
+              { prefix: 'type:', desc: 'By content type (e.g. type:image)' },
+              { prefix: 'has:note', desc: 'Clips with attached notes' },
+              { prefix: 'is:pinned', desc: 'Pinned items' },
+              { prefix: 'is:protected', desc: 'Protected items' },
+            ].map((s) => (
+              <div
+                key={s.prefix}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  setSearchQuery(s.prefix);
+                }}
+                className="px-2 py-1.5 rounded-lg hover:bg-cyan-950/80 hover:text-cyan-300 cursor-pointer flex items-center justify-between transition-colors"
+              >
+                <span className="font-mono font-bold text-cyan-400 text-[11px]">{s.prefix}</span>
+                <span className="text-[10px] text-gray-400 truncate max-w-[140px] text-right">{s.desc}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
         <div className="relative titlebar-no-drag">
           <Search className="w-3.5 h-3.5 absolute left-3 top-2 text-gray-400/80" />
           <input
             type="text"
-            placeholder="Search clipboard..."
+            placeholder="Search (try regex: app: type:)..."
             value={searchQuery}
+            onFocus={() => setIsSearchFocused(true)}
+            onBlur={() => setIsSearchFocused(false)}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full h-7 bg-[#2c2c2e]/80 border border-white/10 rounded-md pl-8 pr-2.5 text-[12px] text-gray-200 placeholder-gray-400/60 focus:outline-none focus:border-[#0a84ff]/80 transition-all titlebar-no-drag"
           />

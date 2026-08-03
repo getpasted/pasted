@@ -1085,7 +1085,7 @@ impl DbState {
         let conn = self.conn.lock();
 
         let (total_clips, total_chars): (i64, i64) = conn.query_row(
-            "SELECT COUNT(*), COALESCE(SUM(LENGTH(text_content)), 0) FROM clips WHERE is_trashed = 0",
+            "SELECT COUNT(*), COALESCE(SUM(LENGTH(text_content)), 0) FROM clips WHERE (is_trashed IS NULL OR is_trashed = 0)",
             [],
             |r| Ok((r.get(0)?, r.get(1)?)),
         ).unwrap_or((0, 0));
@@ -1093,7 +1093,7 @@ impl DbState {
         let kb_saved = ((total_chars as f64 * 1.2) / 1024.0 * 10.0).round() / 10.0;
 
         let mut app_stmt = conn.prepare(
-            "SELECT source_app, COUNT(*) FROM clips WHERE is_trashed = 0 GROUP BY source_app ORDER BY COUNT(*) DESC LIMIT 8"
+            "SELECT source_app, COUNT(*) FROM clips WHERE (is_trashed IS NULL OR is_trashed = 0) GROUP BY source_app ORDER BY COUNT(*) DESC LIMIT 8"
         )?;
         let top_apps = app_stmt.query_map([], |r| {
             Ok(AppStat {
@@ -1103,7 +1103,7 @@ impl DbState {
         })?.filter_map(|r| r.ok()).collect();
 
         let mut type_stmt = conn.prepare(
-            "SELECT content_type, COUNT(*) FROM clips WHERE is_trashed = 0 GROUP BY content_type"
+            "SELECT content_type, COUNT(*) FROM clips WHERE (is_trashed IS NULL OR is_trashed = 0) GROUP BY content_type"
         )?;
         let content_types = type_stmt.query_map([], |r| {
             Ok(TypeStat {
@@ -1113,7 +1113,7 @@ impl DbState {
         })?.filter_map(|r| r.ok()).collect();
 
         let mut daily_stmt = conn.prepare(
-            "SELECT strftime('%Y-%m-%d', created_at) as day, COUNT(*) FROM clips WHERE is_trashed = 0 GROUP BY day ORDER BY day DESC LIMIT 14"
+            "SELECT strftime('%Y-%m-%d', created_at) as day, COUNT(*) FROM clips WHERE (is_trashed IS NULL OR is_trashed = 0) GROUP BY day ORDER BY day DESC LIMIT 14"
         )?;
         let daily_activity = daily_stmt.query_map([], |r| {
             Ok(DailyStat {

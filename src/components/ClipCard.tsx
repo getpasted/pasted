@@ -125,8 +125,12 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
     <div
       onClick={onSelect}
       onContextMenu={onContextMenu}
-      draggable={clip.is_pinned}
-      onDragStart={(e) => onDragStart && onDragStart(e, clip.id)}
+      draggable={true}
+      onDragStart={(e) => {
+        e.dataTransfer.setData('text/plain', String(clip.id));
+        e.dataTransfer.setData('clip_id', String(clip.id));
+        if (onDragStart) onDragStart(e, clip.id);
+      }}
       onDragOver={(e) => {
         if (clip.is_pinned) {
           e.preventDefault();

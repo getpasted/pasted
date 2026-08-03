@@ -531,30 +531,52 @@ export default function App() {
 
     let list = allClips;
 
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase().trim();
-      list = list.filter(
-        (c) =>
-          c.text_content?.toLowerCase().includes(q) ||
-          c.source_app?.toLowerCase().includes(q) ||
-          getClipNoteSummary(c.note).toLowerCase().includes(q) ||
-          c.content_type?.toLowerCase().includes(q)
-      );
-    }
+    const applySearchFilter = (items: ClipItem[], rawQuery: string) => {
+      const trimmed = rawQuery.trim();
+      if (!trimmed) return items;
+      const lower = trimmed.toLowerCase();
 
-    if (currentTab === 'trash') {
-      list = trashedClips;
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim();
-        list = list.filter(
+      if (lower.startsWith('regex:')) {
+        const pattern = trimmed.slice(6);
+        try {
+          const re = new RegExp(pattern, 'i');
+          return items.filter(
+            (c) =>
+              (c.text_content && re.test(c.text_content)) ||
+              (c.source_app && re.test(c.source_app)) ||
+              (c.note && re.test(c.note))
+          );
+        } catch {
+          return items.filter((c) => c.text_content?.toLowerCase().includes(lower));
+        }
+      } else if (lower.startsWith('app:')) {
+        const targetApp = lower.slice(4).trim();
+        return items.filter((c) => c.source_app?.toLowerCase().includes(targetApp));
+      } else if (lower.startsWith('type:')) {
+        const targetType = lower.slice(5).trim();
+        return items.filter((c) => c.content_type?.toLowerCase().includes(targetType));
+      } else if (lower === 'has:note') {
+        return items.filter((c) => c.note && c.note.trim().length > 0);
+      } else if (lower === 'is:pinned') {
+        return items.filter((c) => c.is_pinned);
+      } else if (lower === 'is:protected') {
+        return items.filter((c) => c.is_protected);
+      } else {
+        return items.filter(
           (c) =>
-            c.text_content?.toLowerCase().includes(q) ||
-            c.source_app?.toLowerCase().includes(q) ||
-            getClipNoteSummary(c.note).toLowerCase().includes(q) ||
-            c.content_type?.toLowerCase().includes(q)
+            c.text_content?.toLowerCase().includes(lower) ||
+            c.source_app?.toLowerCase().includes(lower) ||
+            getClipNoteSummary(c.note).toLowerCase().includes(lower) ||
+            c.content_type?.toLowerCase().includes(lower)
         );
       }
+    };
+
+    if (currentTab === 'trash') {
+      list = applySearchFilter(trashedClips, searchQuery);
       return list;
+    } else {
+      list = applySearchFilter(list, searchQuery);
     }
 
     if (currentTab === 'board' && selectedBoardId !== null) {
@@ -778,6 +800,35 @@ export default function App() {
   }, [displayedClips, selectedClip]);
 
   const [deletingClipIds] = useState<Set<number>>(new Set());
+
+  const handleAssignClipToBoard = useCallback(
+    async (clipId: number, boardId: number) => {
+      // 0ms optimistic Frame 1 local state mutation
+      setAllClips((prev) =>
+        prev.map((c) =>
+          c.id === clipId
+            ? {
+                ...c,
+                board_id: boardId,
+                board_ids: Array.from(new Set([...(c.board_ids || []), boardId])),
+              }
+            : c
+        )
+      );
+
+      soundManager.playCopySound(appSettings.enableSounds);
+
+      // Async background SQLite IPC
+      try {
+        await invoke('assign_clip_board', { clipId, boardId });
+        fetchBoards();
+      } catch (e) {
+        console.error('Failed to assign clip to board:', e);
+        fetchClips();
+      }
+    },
+    [appSettings.enableSounds, fetchBoards, fetchClips]
+  );
 
   const handleTogglePin = (id: number) => {
     const isBatch = selectedClipIds.size > 1 && selectedClipIds.has(id);
@@ -1089,6 +1140,7 @@ export default function App() {
         }}
         onDeleteBoard={(board) => setBinToDelete(board)}
         onBoardContextMenu={(x, y, board) => setBoardContextMenu({ x, y, board })}
+        onClipDropOnBoard={handleAssignClipToBoard}
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
         seqStatus={seqStatus}
