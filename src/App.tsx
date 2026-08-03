@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { safeInvoke as invoke } from './utils/tauri';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { ClipItem, Bin, FilterRule } from './types';
+import { ClipItem, Bin } from './types';
 import { Sidebar } from './components/Sidebar';
 import { ClipCard } from './components/ClipCard';
 import { ClipPreview } from './components/ClipPreview';
@@ -18,13 +18,13 @@ import { BinContextMenu } from './components/BinContextMenu';
 import { DeleteBinDialog } from './components/DeleteBinDialog';
 import { ClipNoteDialog } from './components/ClipNoteDialog';
 import { ClearHistoryDialog, type ClearHistoryMode } from './components/ClearHistoryDialog';
-import { soundManager } from './utils/sound';
 import { startWindowDrag } from './utils/windowDrag';
 import { useColumnResize } from './hooks/useColumnResize';
 import { useAppSettings } from './hooks/useAppSettings';
 import { useClipViews } from './hooks/useClipViews';
 import { useClipBinDrag } from './hooks/useClipBinDrag';
 import { useAppData } from './hooks/useAppData';
+import { useClipActions } from './hooks/useClipActions';
 import { Clipboard, Trash2, Pause, Disc, Square, Pin, X } from 'lucide-react';
 import './App.css';
 
@@ -282,6 +282,43 @@ export default function App() {
   );
 
   const {
+    togglePin: handleTogglePin,
+    toggleProtected: handleToggleProtected,
+    deleteSelectedClips: handleBatchTrash,
+    deleteClip: handleDeleteClip,
+    copyClip: handleCopyClip,
+    assignClipToBin,
+    applyFilterToClip: handleApplyFilterToClip,
+    addToSequentialStack: handleAddToSequentialStack,
+    updateClipNoteLocally: handleUpdateClipNoteLocally,
+    deleteNoteFromClip: handleDeleteNoteFromClip,
+  } = useClipActions({
+    allClips,
+    setAllClips,
+    setTrashedClips,
+    bins,
+    setBins,
+    setSelectedClip,
+    selectedClipIds,
+    setSelectedClipIds,
+    setTotalClipCount,
+    settings: appSettings,
+    fetchBins,
+    fetchClips,
+    fetchTrashedClips,
+    fetchSequentialStatus,
+  });
+
+  const handleAssignClipToBin = useCallback(
+    (clipId: number, binId: number) => assignClipToBin(
+      clipId,
+      binId,
+      { includeSelection: true, playSound: true },
+    ),
+    [assignClipToBin],
+  );
+
+  const {
     draggedClipId,
     setDraggedClipId,
     pointerDropTargetBinId,
@@ -290,256 +327,24 @@ export default function App() {
     setClipDragPreview,
     disabledDropBinId,
     getPointerDropTarget,
-    assignClipToBin: handleAssignClipToBin,
     finishClipPointerDrag: handleClipPointerDragEnd,
   } = useClipBinDrag({
     allClips,
     setAllClips,
     bins,
-    setBins,
     selectedClipIds,
-    enableSounds: appSettings.enableSounds,
-    fetchBins,
     fetchClips,
+    assignClipToBin: handleAssignClipToBin,
   });
 
-  const handleTogglePin = (id: number) => {
-    const isBatch = selectedClipIds.size > 1 && selectedClipIds.has(id);
-    const targetIds = isBatch ? Array.from(selectedClipIds) : [id];
-    const targetClip = allClips.find((c) => c.id === id);
-    const nextPinState = targetClip ? !targetClip.is_pinned : true;
-
-    // 0ms optimistic local state mutation
-    setAllClips((prev) =>
-      prev.map((c) => (targetIds.includes(c.id) ? { ...c, is_pinned: nextPinState } : c))
-    );
-    setSelectedClip((prev) => (prev && targetIds.includes(prev.id) ? { ...prev, is_pinned: nextPinState } : prev));
-
-    if (isBatch) {
-      invoke('batch_pin_clips', { ids: targetIds, pinState: nextPinState }).catch((e) => {
-        console.error(e);
-        fetchClips();
-      });
-    } else {
-      invoke('toggle_pin_clip', { id }).catch((e) => {
-        console.error(e);
-        fetchClips();
-      });
-    }
-  };
-
-  const handleToggleProtected = (id: number) => {
-    // 0ms optimistic state mutation
-    setAllClips((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, is_protected: !c.is_protected } : c))
-    );
-    setSelectedClip((prev) => (prev && prev.id === id ? { ...prev, is_protected: !prev.is_protected } : prev));
-
-    invoke('toggle_clip_protected', { clipId: id }).catch((e) => {
-      console.error('Failed to toggle protected state:', e);
-      fetchClips();
-    });
-  };
-
-  const handleBatchTrash = useCallback(() => {
-    const ids = Array.from(selectedClipIds).filter(
-      (id) => !allClips.find((clip) => clip.id === id)?.is_protected
-    );
-    if (ids.length === 0) return;
-
-    const trashedItems = allClips.filter((c) => ids.includes(c.id));
-
-    // 0ms instant Frame 1 optimistic local state mutations
-    setAllClips((prev) => prev.filter((c) => !ids.includes(c.id)));
-    setTrashedClips((prev) => [...trashedItems, ...prev]);
-    setSelectedClipIds((prev) => new Set(Array.from(prev).filter((id) => !ids.includes(id))));
-    if (selectedClip && ids.includes(selectedClip.id)) {
-      setSelectedClip(null);
-    }
-    setTotalClipCount((prev) => Math.max(0, prev - ids.length));
-
-    // Async background IPC - zero UI blocking
-    invoke('batch_trash_clips', { ids }).catch((err) => {
-      console.error('Failed to batch trash clips:', err);
-      fetchClips();
-      fetchTrashedClips();
-    });
-  }, [selectedClipIds, allClips, selectedClip, fetchClips, fetchTrashedClips]);
-
-  const handleDeleteClip = useCallback(
-    (id: number, forcePermanent = false) => {
-      if (allClips.find((clip) => clip.id === id)?.is_protected) return;
-      if (selectedClipIds.size > 1 && selectedClipIds.has(id)) {
-        handleBatchTrash();
-        return;
-      }
-
-      const trashedItem = allClips.find((c) => c.id === id);
-
-      // 0ms optimistic local state mutation - items vanish instantly on Frame 1
-      setAllClips((prev) => prev.filter((c) => c.id !== id));
-      setSelectedClipIds((prev) => {
-        const next = new Set(prev);
-        next.delete(id);
-        return next;
-      });
-
-      if (selectedClip?.id === id) {
-        setSelectedClip(null);
-      }
-
-      if (trashedItem && !forcePermanent && appSettings.enableTrash !== false) {
-        setTrashedClips((prev) => [trashedItem, ...prev]);
-      }
-
-      setTotalClipCount((prev) => Math.max(0, prev - 1));
-
-      if (forcePermanent || appSettings.enableTrash === false) {
-        invoke('purge_clip_permanently', { id }).catch((e) => {
-          console.error(e);
-          fetchClips();
-        });
-      } else {
-        invoke('delete_clip', { id }).catch((e) => {
-          console.error(e);
-          fetchClips();
-          fetchTrashedClips();
-        });
-      }
-    },
-    [selectedClipIds, handleBatchTrash, allClips, selectedClip, appSettings.enableTrash, fetchClips, fetchTrashedClips]
+  const handleAssignBin = useCallback(
+    (clipId: number, binId: number | null) => assignClipToBin(clipId, binId),
+    [assignClipToBin],
   );
-
-  const handleCopyClip = async (clip: ClipItem) => {
-    try {
-      let textToCopy = clip.text_content;
-
-      // If alwaysPastePlainText is true, strip any HTML tags or rich formatting
-      if (appSettings.alwaysPastePlainText && textToCopy) {
-        textToCopy = textToCopy.replace(/<[^>]*>/g, '');
-      }
-
-      await invoke('copy_clip_to_system', {
-        text: textToCopy,
-        imageBase64: appSettings.alwaysPastePlainText ? null : clip.image_base64,
-      });
-
-      soundManager.playCopySound(appSettings.enableSounds);
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const handleAssignBin = async (clipId: number, binId: number | null) => {
-    const targetClip = allClips.find((c) => c.id === clipId);
-    const categoryBinIds = new Set(
-      bins.filter((bin) => bin.bin_type !== 'tag').map((bin) => bin.id)
-    );
-    const oldBinIds = new Set([
-      ...(targetClip?.bin_ids || []).filter((id) => categoryBinIds.has(id)),
-      ...(targetClip?.bin_id && categoryBinIds.has(targetClip.bin_id) ? [targetClip.bin_id] : []),
-    ]);
-
-    // 0ms optimistic state mutation for clip
-    setAllClips((prev) =>
-      prev.map((c) => {
-        if (c.id !== clipId) return c;
-        const tagIds = (c.bin_ids || []).filter((id) => !categoryBinIds.has(id));
-        const nextBids = binId === null ? tagIds : [...tagIds, binId];
-        return {
-          ...c,
-          bin_id: binId,
-          bin_ids: nextBids,
-        };
-      })
-    );
-    setSelectedClip((prev) =>
-      prev && prev.id === clipId
-        ? {
-            ...prev,
-            bin_id: binId,
-            bin_ids: binId === null
-              ? (prev.bin_ids || []).filter((id) => !categoryBinIds.has(id))
-              : [...(prev.bin_ids || []).filter((id) => !categoryBinIds.has(id)), binId],
-          }
-        : prev
-    );
-
-    // 0ms optimistic bin count update for sidebar badge
-    if (!oldBinIds.has(binId ?? -1) || oldBinIds.size > 1 || binId === null) {
-      setBins((prev) =>
-        prev.map((b) => {
-          if (b.bin_type === 'tag') return b;
-          if (oldBinIds.has(b.id) && b.id !== binId) {
-            return { ...b, clip_count: Math.max(0, (b.clip_count || 1) - 1) };
-          }
-          if (b.id === binId && !oldBinIds.has(binId)) {
-            return { ...b, clip_count: (b.clip_count || 0) + 1 };
-          }
-          return b;
-        })
-      );
-    }
-
-    try {
-      await invoke('assign_clip_bin', { clipId, binId });
-      fetchBins();
-      fetchClips();
-    } catch (e) {
-      console.error(e);
-      fetchClips();
-      fetchBins();
-    }
-  };
-
-  const handleApplyFilterToClip = async (clip: ClipItem, filter: FilterRule) => {
-    if (!clip.text_content) return;
-    try {
-      const res = await invoke<string>('transform_text', {
-        input: clip.text_content,
-        filterType: filter.filter_type,
-        config: filter.config,
-      });
-      await invoke('copy_clip_to_system', { text: res, imageBase64: null });
-      soundManager.playPasteSound(appSettings.enableSounds);
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const handleAddToSequentialStack = async (clip: ClipItem) => {
-    const textToPush = clip.text_content || (clip.content_type === 'image' ? '[Image Clip]' : 'Clip item');
-    try {
-      await invoke('push_sequential_item', { item: textToPush });
-      soundManager.playStackSound(appSettings.enableSounds);
-      fetchSequentialStatus();
-    } catch (e) {
-      console.error(e);
-    }
-  };
 
   const handlePromptAddNote = (clip: ClipItem) => {
     setNotePromptClip(clip);
     setNotePromptText(clip.note || '');
-  };
-
-  const handleUpdateClipNoteLocally = useCallback((clipId: number, newNote: string | null) => {
-    setAllClips((prev) =>
-      prev.map((c) => (c.id === clipId ? { ...c, note: newNote } : c))
-    );
-    setSelectedClip((prev) => (prev && prev.id === clipId ? { ...prev, note: newNote } : prev));
-  }, []);
-
-  const handleDeleteNoteFromClip = async (clipId: number) => {
-    handleUpdateClipNoteLocally(clipId, null);
-    try {
-      await invoke('update_clip_note', {
-        clipId,
-        note: null,
-      });
-    } catch (e) {
-      console.error(e);
-    }
   };
 
   const handleClearHistory = async () => {
@@ -905,7 +710,7 @@ export default function App() {
                 </button>
                 <div className="h-3.5 w-px bg-gray-700/80 shrink-0" />
                 <button
-                  onClick={handleBatchTrash}
+                  onClick={() => handleBatchTrash()}
                   className="flex items-center space-x-1 text-red-400 hover:text-red-300 transition-colors font-medium cursor-pointer whitespace-nowrap shrink-0"
                   title="Trash Selected"
                 >
@@ -957,31 +762,11 @@ export default function App() {
           filters={filters}
           onClose={() => setContextMenu(null)}
           onCopy={() => handleCopyClip(contextMenu.clip)}
-          onAssignBin={(binId) => {
-            if (selectedClipIds.size > 1 && selectedClipIds.has(contextMenu.clip.id)) {
-              const ids = Array.from(selectedClipIds);
-              setAllClips((prev) =>
-                prev.map((c) => {
-                  if (!ids.includes(c.id)) return c;
-                  const categoryBinIds = new Set(
-                    bins.filter((bin) => bin.bin_type !== 'tag').map((bin) => bin.id)
-                  );
-                  const tagIds = (c.bin_ids || []).filter((id) => !categoryBinIds.has(id));
-                  const nextBids = binId === null ? tagIds : [...tagIds, binId];
-                  return { ...c, bin_id: binId, bin_ids: nextBids };
-                })
-              );
-              invoke('batch_assign_bin_clips', { ids, binId })
-                .then(() => fetchBins())
-                .catch((e) => {
-                  console.error(e);
-                  fetchClips();
-                  fetchBins();
-                });
-            } else {
-              handleAssignBin(contextMenu.clip.id, binId);
-            }
-          }}
+          onAssignBin={(binId) => assignClipToBin(
+            contextMenu.clip.id,
+            binId,
+            { includeSelection: true },
+          )}
           onApplyFilter={(filter) => handleApplyFilterToClip(contextMenu.clip, filter)}
           onAddNote={() => handlePromptAddNote(contextMenu.clip)}
           onDeleteNote={() => handleDeleteNoteFromClip(contextMenu.clip.id)}

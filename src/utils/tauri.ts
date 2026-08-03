@@ -14,9 +14,10 @@ type MockClip = {
   is_trashed: number;
   bin_id: number | null;
   bin_ids: number[];
+  note?: string | null;
 };
 
-const mockClips: MockClip[] = [
+let mockClips: MockClip[] = [
   {
     id: 101,
     text_content: 'Sample Clip 1 for Drag Testing',
@@ -73,7 +74,8 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       return mockClips
         .filter((clip) => {
           const binId = Number(args?.binId);
-          return !Number.isInteger(binId) || binId <= 0 || clip.bin_ids.includes(binId);
+          return clip.is_trashed === 0
+            && (!Number.isInteger(binId) || binId <= 0 || clip.bin_ids.includes(binId));
         })
         .map((clip) => ({ ...clip, bin_ids: [...clip.bin_ids] })) as unknown as T;
     case 'get_bins':
@@ -86,7 +88,9 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
     case 'get_sequential_status':
       return { active: false, queue: [], current_index: 0 } as unknown as T;
     case 'get_trashed_clips':
-      return [] as unknown as T;
+      return mockClips.filter((clip) => clip.is_trashed !== 0) as unknown as T;
+    case 'get_total_clip_count':
+      return mockClips.filter((clip) => clip.is_trashed === 0).length as unknown as T;
     case 'is_clipboard_paused':
       return false as unknown as T;
     case 'get_app_settings':
@@ -105,6 +109,35 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       if (clip && typeof args?.text === 'string') clip.text_content = args.text;
       return null as unknown as T;
     }
+    case 'update_clip_note': {
+      const clipId = Number(args?.clipId);
+      const clip = mockClips.find((item) => item.id === clipId);
+      if (clip) clip.note = typeof args?.note === 'string' ? args.note : null;
+      return null as unknown as T;
+    }
+    case 'delete_clip': {
+      const clip = mockClips.find((item) => item.id === Number(args?.id));
+      if (clip && !clip.is_protected) clip.is_trashed = 1;
+      return null as unknown as T;
+    }
+    case 'batch_trash_clips': {
+      const ids = Array.isArray(args?.ids) ? args.ids.map(Number) : [];
+      for (const clip of mockClips) {
+        if (ids.includes(clip.id) && !clip.is_protected) clip.is_trashed = 1;
+      }
+      return null as unknown as T;
+    }
+    case 'restore_clip': {
+      const clip = mockClips.find((item) => item.id === Number(args?.id));
+      if (clip) clip.is_trashed = 0;
+      return null as unknown as T;
+    }
+    case 'purge_clip_permanently':
+      mockClips = mockClips.filter((clip) => clip.id !== Number(args?.id) || clip.is_protected);
+      return null as unknown as T;
+    case 'empty_trash':
+      mockClips = mockClips.filter((clip) => clip.is_trashed === 0 || clip.is_protected);
+      return null as unknown as T;
     case 'assign_clip_bin': {
       const clipId = Number(args?.clipId);
       const binId = args?.binId === null ? null : Number(args?.binId);

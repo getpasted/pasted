@@ -509,7 +509,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 return (
                   <div
                     key={b.id}
-                    data-bin-drop-bin-id={isManualBin && !isDisabledDropTarget ? b.id : undefined}
+                    data-bin-drop-id={isManualBin && !isDisabledDropTarget ? b.id : undefined}
                     role="button"
                     tabIndex={0}
                     title={

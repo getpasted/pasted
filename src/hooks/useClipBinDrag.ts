@@ -1,7 +1,6 @@
 import { useCallback, useMemo, useState, type Dispatch, type SetStateAction } from 'react';
 import type { Bin, ClipItem } from '../types';
 import { safeInvoke as invoke } from '../utils/tauri';
-import { soundManager } from '../utils/sound';
 
 interface ClipDragPreview {
   clipId: number;
@@ -13,22 +12,18 @@ interface ClipBinDragInput {
   allClips: ClipItem[];
   setAllClips: Dispatch<SetStateAction<ClipItem[]>>;
   bins: Bin[];
-  setBins: Dispatch<SetStateAction<Bin[]>>;
   selectedClipIds: Set<number>;
-  enableSounds: boolean;
-  fetchBins: () => Promise<void>;
   fetchClips: () => Promise<void>;
+  assignClipToBin: (clipId: number, binId: number) => Promise<void>;
 }
 
 export function useClipBinDrag({
   allClips,
   setAllClips,
   bins,
-  setBins,
   selectedClipIds,
-  enableSounds,
-  fetchBins,
   fetchClips,
+  assignClipToBin,
 }: ClipBinDragInput) {
   const [draggedClipId, setDraggedClipId] = useState<number | null>(null);
   const [pointerDropTargetBinId, setPointerDropTargetBinId] = useState<number | null>(null);
@@ -53,58 +48,11 @@ export function useClipBinDrag({
   const getPointerDropTarget = useCallback((x: number, y: number) => {
     const target = document
       .elementFromPoint(x, y)
-      ?.closest<HTMLElement>('[data-bin-drop-bin-id]');
+      ?.closest<HTMLElement>('[data-bin-drop-id]');
     if (!target) return null;
-    const binId = Number(target.dataset.binDropBinId);
+    const binId = Number(target.dataset.binDropId);
     return Number.isInteger(binId) && binId > 0 ? binId : null;
   }, []);
-
-  const assignClipToBin = useCallback(async (clipId: number, binId: number) => {
-    const isBatch = selectedClipIds.size > 1 && selectedClipIds.has(clipId);
-    const targetIds = isBatch ? Array.from(selectedClipIds) : [clipId];
-    const targetClips = allClips.filter((clip) => targetIds.includes(clip.id));
-    const categoryBinIds = new Set(
-      bins.filter((bin) => bin.bin_type !== 'tag').map((bin) => bin.id)
-    );
-
-    setAllClips((previous) => previous.map((clip) => {
-      if (!targetIds.includes(clip.id)) return clip;
-      const tagIds = (clip.bin_ids || []).filter((id) => !categoryBinIds.has(id));
-      return { ...clip, bin_id: binId, bin_ids: [...tagIds, binId] };
-    }));
-
-    setBins((previous) => previous.map((bin) => {
-      if (bin.bin_type === 'tag') return bin;
-      let delta = 0;
-      for (const clip of targetClips) {
-        const oldBinIds = new Set([
-          ...(clip.bin_ids || []).filter((id) => categoryBinIds.has(id)),
-          ...(clip.bin_id && categoryBinIds.has(clip.bin_id) ? [clip.bin_id] : []),
-        ]);
-        if (oldBinIds.has(bin.id) && bin.id !== binId) delta -= 1;
-        if (bin.id === binId && !oldBinIds.has(binId)) delta += 1;
-      }
-      return delta === 0
-        ? bin
-        : { ...bin, clip_count: Math.max(0, (bin.clip_count || 0) + delta) };
-    }));
-
-    soundManager.playCopySound(enableSounds);
-
-    try {
-      if (isBatch) {
-        await invoke('batch_assign_bin_clips', { ids: targetIds, binId });
-      } else {
-        await invoke('assign_clip_bin', { clipId, binId });
-      }
-      void fetchBins();
-      void fetchClips();
-    } catch (error) {
-      console.error('Failed to assign clip to bin:', error);
-      void fetchClips();
-      void fetchBins();
-    }
-  }, [allClips, bins, enableSounds, fetchBins, fetchClips, selectedClipIds, setAllClips, setBins]);
 
   const finishClipPointerDrag = useCallback(async (x: number, y: number, clipId: number) => {
     const binId = getPointerDropTarget(x, y);
@@ -147,7 +95,6 @@ export function useClipBinDrag({
     setClipDragPreview,
     disabledDropBinId,
     getPointerDropTarget,
-    assignClipToBin,
     finishClipPointerDrag,
   };
 }
