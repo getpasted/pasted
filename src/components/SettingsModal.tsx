@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AppSettings, BlacklistApp, FilterRule, Board } from '../types';
+import { AppSettings, BlacklistApp, FilterRule, Bin } from '../types';
 import { SettingsTabs, type SettingsTab } from './SettingsTabs';
 import { SettingsBlacklistPanel } from './SettingsBlacklistPanel';
 import { SettingsGeneralPanel } from './SettingsGeneralPanel';
@@ -15,8 +15,8 @@ interface SettingsModalProps {
   onToggleBlacklistRule: (appId: string, rule: 'ignoreText' | 'ignoreImages' | 'ignoreShortcuts') => void;
   filters?: FilterRule[];
   onRefreshFilters?: () => void;
-  boards?: Board[];
-  onRefreshBoards?: () => void;
+  bins?: Bin[];
+  onRefreshBins?: () => void;
   onRefreshClips?: () => void;
   onClearHistory?: (permanent: boolean) => void;
   onResetColumnWidths?: () => void;
@@ -31,8 +31,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onToggleBlacklistRule,
   filters = [],
   onRefreshFilters,
-  boards = [],
-  onRefreshBoards,
+  bins = [],
+  onRefreshBins,
   onRefreshClips,
   onClearHistory,
   onResetColumnWidths,
@@ -57,10 +57,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         {activeTab === 'hotkeys' && (
           <SettingsHotkeysPanel
             settings={settings}
-            boards={boards}
+            bins={bins}
             filters={filters}
             onUpdateSettings={onUpdateSettings}
-            onRefreshBoards={onRefreshBoards}
+            onRefreshBins={onRefreshBins}
             onRefreshFilters={onRefreshFilters}
           />
         )}
@@ -78,7 +78,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         {/* TAB 4: SYNC & BACKUP */}
         {activeTab === 'sync' && (
           <SettingsSyncPanel
-            onRefreshBoards={onRefreshBoards}
+            onRefreshBins={onRefreshBins}
             onRefreshFilters={onRefreshFilters}
             onRefreshClips={onRefreshClips}
           />

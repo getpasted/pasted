@@ -450,8 +450,8 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
 };
 
 export const ClipCard = React.memo(ClipCardComponent, (prevProps, nextProps) => {
-  const previousBoardIds = prevProps.clip.board_ids ?? [];
-  const nextBoardIds = nextProps.clip.board_ids ?? [];
+  const previousBinIds = prevProps.clip.bin_ids ?? [];
+  const nextBinIds = nextProps.clip.bin_ids ?? [];
   return (
     prevProps.clip.id === nextProps.clip.id &&
     prevProps.clip.content_type === nextProps.clip.content_type &&
@@ -462,9 +462,9 @@ export const ClipCard = React.memo(ClipCardComponent, (prevProps, nextProps) => 
     prevProps.clip.is_pinned === nextProps.clip.is_pinned &&
     prevProps.clip.is_protected === nextProps.clip.is_protected &&
     prevProps.clip.note === nextProps.clip.note &&
-    prevProps.clip.board_id === nextProps.clip.board_id &&
-    previousBoardIds.length === nextBoardIds.length &&
-    previousBoardIds.every((id, index) => id === nextBoardIds[index]) &&
+    prevProps.clip.bin_id === nextProps.clip.bin_id &&
+    previousBinIds.length === nextBinIds.length &&
+    previousBinIds.every((id, index) => id === nextBinIds[index]) &&
     prevProps.isSelected === nextProps.isSelected &&
     prevProps.isDeleting === nextProps.isDeleting &&
     prevProps.isTrashMode === nextProps.isTrashMode &&

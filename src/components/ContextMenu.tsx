@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useAltKeyPressed } from '../hooks/useAltKeyPressed';
-import { ClipItem, Board, FilterRule } from '../types';
+import { ClipItem, Bin, FilterRule } from '../types';
 import { formatEmojiIcon } from '../utils/emoji';
 import { detectSmartFilterRecommendations } from '../utils/smartFilterDetector';
 import {
@@ -24,11 +24,11 @@ interface ContextMenuProps {
   y: number;
   clip: ClipItem;
   selectedCount?: number;
-  boards: Board[];
+  bins: Bin[];
   filters: FilterRule[];
   onClose: () => void;
   onCopy: () => void;
-  onAssignBoard: (boardId: number | null) => void;
+  onAssignBin: (binId: number | null) => void;
   onApplyFilter: (filter: FilterRule) => void;
   onAddNote: () => void;
   onDeleteNote?: () => void;
@@ -43,11 +43,11 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   y,
   clip,
   selectedCount,
-  boards,
+  bins,
   filters,
   onClose,
   onCopy,
-  onAssignBoard,
+  onAssignBin,
   onApplyFilter,
   onAddNote,
   onDeleteNote,
@@ -57,7 +57,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   onDelete,
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
-  const [activeSubmenu, setActiveSubmenu] = useState<'boards' | 'filters' | null>(null);
+  const [activeSubmenu, setActiveSubmenu] = useState<'bins' | 'filters' | null>(null);
   const isAltPressed = useAltKeyPressed();
 
   useEffect(() => {
@@ -102,7 +102,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
       {/* Bin */}
       <div
         className="relative"
-        onMouseEnter={() => setActiveSubmenu('boards')}
+        onMouseEnter={() => setActiveSubmenu('bins')}
         onMouseLeave={() => setActiveSubmenu(null)}
       >
         <button className="w-full flex items-center justify-between px-3 py-1.5 rounded-md hover:bg-blue-600/30 hover:text-white transition-colors">
@@ -113,11 +113,11 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
           <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
         </button>
 
-        {activeSubmenu === 'boards' && (
+        {activeSubmenu === 'bins' && (
           <div className="absolute left-full top-0 ml-1 w-48 glass-hud rounded-xl py-1 px-1 shadow-2xl border border-gray-700/80">
             <button
               onClick={() => {
-                onAssignBoard(null);
+                onAssignBin(null);
                 onClose();
               }}
               className="w-full text-left px-3 py-1.5 rounded-md hover:bg-blue-600/30 hover:text-white"
@@ -125,11 +125,11 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
               – None –
             </button>
 
-            {boards.filter((b) => !b.smart_rule).map((b) => (
+            {bins.filter((b) => !b.smart_rule).map((b) => (
               <button
                 key={b.id}
                 onClick={() => {
-                  onAssignBoard(b.id);
+                  onAssignBin(b.id);
                   onClose();
                 }}
                 className="w-full text-left px-3 py-1.5 rounded-md hover:bg-blue-600/30 hover:text-white truncate flex items-center space-x-2"

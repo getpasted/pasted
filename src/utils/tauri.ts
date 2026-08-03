@@ -12,8 +12,8 @@ type MockClip = {
   is_pinned: number;
   is_protected: number;
   is_trashed: number;
-  board_id: number | null;
-  board_ids: number[];
+  bin_id: number | null;
+  bin_ids: number[];
 };
 
 const mockClips: MockClip[] = [
@@ -29,8 +29,8 @@ const mockClips: MockClip[] = [
     is_pinned: 0,
     is_protected: 0,
     is_trashed: 0,
-    board_id: null,
-    board_ids: [],
+    bin_id: null,
+    bin_ids: [],
   },
   {
     id: 102,
@@ -44,22 +44,22 @@ const mockClips: MockClip[] = [
     is_pinned: 0,
     is_protected: 0,
     is_trashed: 0,
-    board_id: null,
-    board_ids: [],
+    bin_id: null,
+    bin_ids: [],
   },
 ];
 
-const mockBoards = [
-  { id: 1, name: 'My Manual Bin', icon: '📂', color: '#3b82f6', smart_rule: null, board_type: 'category' },
-  { id: 2, name: 'Work Bin', icon: '💼', color: '#10b981', smart_rule: '', board_type: 'category' },
+const mockBins = [
+  { id: 1, name: 'My Manual Bin', icon: '📂', color: '#3b82f6', smart_rule: null, bin_type: 'category' },
+  { id: 2, name: 'Work Bin', icon: '💼', color: '#10b981', smart_rule: '', bin_type: 'category' },
 ];
 
-function assignMockClips(ids: number[], boardId: number | null) {
+function assignMockClips(ids: number[], binId: number | null) {
   for (const clip of mockClips) {
     if (!ids.includes(clip.id)) continue;
-    clip.board_id = boardId;
-    const tagIds = clip.board_ids.filter((id) => mockBoards.find((board) => board.id === id)?.board_type === 'tag');
-    clip.board_ids = boardId === null ? tagIds : [...tagIds, boardId];
+    clip.bin_id = binId;
+    const tagIds = clip.bin_ids.filter((id) => mockBins.find((bin) => bin.id === id)?.bin_type === 'tag');
+    clip.bin_ids = binId === null ? tagIds : [...tagIds, binId];
   }
 }
 
@@ -72,14 +72,14 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
     case 'get_clips':
       return mockClips
         .filter((clip) => {
-          const boardId = Number(args?.boardId);
-          return !Number.isInteger(boardId) || boardId <= 0 || clip.board_ids.includes(boardId);
+          const binId = Number(args?.binId);
+          return !Number.isInteger(binId) || binId <= 0 || clip.bin_ids.includes(binId);
         })
-        .map((clip) => ({ ...clip, board_ids: [...clip.board_ids] })) as unknown as T;
-    case 'get_boards':
-      return mockBoards.map((board) => ({
-        ...board,
-        clip_count: mockClips.filter((clip) => clip.board_ids.includes(board.id)).length,
+        .map((clip) => ({ ...clip, bin_ids: [...clip.bin_ids] })) as unknown as T;
+    case 'get_bins':
+      return mockBins.map((bin) => ({
+        ...bin,
+        clip_count: mockClips.filter((clip) => clip.bin_ids.includes(bin.id)).length,
       })) as unknown as T;
     case 'get_filters':
       return [] as unknown as T;
@@ -105,18 +105,18 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       if (clip && typeof args?.text === 'string') clip.text_content = args.text;
       return null as unknown as T;
     }
-    case 'assign_clip_board': {
+    case 'assign_clip_bin': {
       const clipId = Number(args?.clipId);
-      const boardId = args?.boardId === null ? null : Number(args?.boardId);
-      if (Number.isInteger(clipId) && (boardId === null || Number.isInteger(boardId))) {
-        assignMockClips([clipId], boardId);
+      const binId = args?.binId === null ? null : Number(args?.binId);
+      if (Number.isInteger(clipId) && (binId === null || Number.isInteger(binId))) {
+        assignMockClips([clipId], binId);
       }
       return true as unknown as T;
     }
-    case 'batch_assign_board_clips': {
+    case 'batch_assign_bin_clips': {
       const ids = Array.isArray(args?.ids) ? args.ids.map(Number).filter(Number.isInteger) : [];
-      const boardId = args?.boardId === null ? null : Number(args?.boardId);
-      if (boardId === null || Number.isInteger(boardId)) assignMockClips(ids, boardId);
+      const binId = args?.binId === null ? null : Number(args?.binId);
+      if (binId === null || Number.isInteger(binId)) assignMockClips(ids, binId);
       return true as unknown as T;
     }
     default:

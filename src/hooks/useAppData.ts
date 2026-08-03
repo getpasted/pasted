@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { listen } from '@tauri-apps/api/event';
-import type { Board, ClipItem, FilterRule, SequentialStatus } from '../types';
+import type { Bin, ClipItem, FilterRule, SequentialStatus } from '../types';
 import { soundManager } from '../utils/sound';
 import { safeInvoke as invoke } from '../utils/tauri';
 
@@ -18,7 +18,7 @@ function readCachedArray<T>(key: string): T[] {
 export function useAppData(enableSounds: boolean) {
   const [allClips, setAllClips] = useState<ClipItem[]>(() => readCachedArray('pasted_cache_clips'));
   const [trashedClips, setTrashedClips] = useState<ClipItem[]>([]);
-  const [boards, setBoards] = useState<Board[]>(() => readCachedArray('pasted_cache_boards'));
+  const [bins, setBins] = useState<Bin[]>(() => readCachedArray('pasted_cache_bins'));
   const [filters, setFilters] = useState<FilterRule[]>([]);
   const [sequentialStatus, setSequentialStatus] = useState<SequentialStatus | null>(null);
   const [totalClipCount, setTotalClipCount] = useState(0);
@@ -37,7 +37,7 @@ export function useAppData(enableSounds: boolean) {
     try {
       const clips = await invoke<ClipItem[]>('get_clips', {
         searchQuery: null,
-        boardId: null,
+        binId: null,
         onlyPinned: false,
       });
       setAllClips(clips);
@@ -60,17 +60,17 @@ export function useAppData(enableSounds: boolean) {
     }
   }, []);
 
-  const fetchBoards = useCallback(async () => {
+  const fetchBins = useCallback(async () => {
     try {
-      const nextBoards = await invoke<Board[]>('get_boards');
-      setBoards(nextBoards);
+      const nextBins = await invoke<Bin[]>('get_bins');
+      setBins(nextBins);
       try {
-        localStorage.setItem('pasted_cache_boards', JSON.stringify(nextBoards));
+        localStorage.setItem('pasted_cache_bins', JSON.stringify(nextBins));
       } catch {
         // The database remains authoritative when browser storage is unavailable or full.
       }
     } catch (error) {
-      console.error('Failed to fetch boards:', error);
+      console.error('Failed to fetch bins:', error);
     }
   }, []);
 
@@ -138,7 +138,7 @@ export function useAppData(enableSounds: boolean) {
   useEffect(() => {
     void Promise.all([
       fetchClips(),
-      fetchBoards(),
+      fetchBins(),
       fetchFilters(),
       fetchSequentialStatus(),
       fetchTrashedClips(),
@@ -146,7 +146,7 @@ export function useAppData(enableSounds: boolean) {
         .then(setIsClipboardPaused)
         .catch((error) => console.error('Failed to read clipboard pause state:', error)),
     ]);
-  }, [fetchBoards, fetchClips, fetchFilters, fetchSequentialStatus, fetchTrashedClips]);
+  }, [fetchBins, fetchClips, fetchFilters, fetchSequentialStatus, fetchTrashedClips]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !(window as any).__TAURI_INTERNALS__) return;
@@ -182,8 +182,8 @@ export function useAppData(enableSounds: boolean) {
     setAllClips,
     trashedClips,
     setTrashedClips,
-    boards,
-    setBoards,
+    bins,
+    setBins,
     filters,
     sequentialStatus,
     totalClipCount,
@@ -192,7 +192,7 @@ export function useAppData(enableSounds: boolean) {
     ignoredAppStatus,
     fetchClips,
     fetchTrashedClips,
-    fetchBoards,
+    fetchBins,
     fetchFilters,
     fetchSequentialStatus,
     toggleClipboardPause,

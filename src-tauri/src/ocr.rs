@@ -16,7 +16,8 @@ pub fn perform_ocr_on_image_bytes(image_bytes: &[u8]) -> Option<String> {
     unsafe {
         // Create NSData from raw image bytes
         let ns_data_class = Class::get("NSData")?;
-        let ns_data: Id = msg_send![ns_data_class, dataWithBytes:image_bytes.as_ptr() length:image_bytes.len()];
+        let ns_data: Id =
+            msg_send![ns_data_class, dataWithBytes:image_bytes.as_ptr() length:image_bytes.len()];
         if ns_data.is_null() {
             return None;
         }
@@ -96,7 +97,8 @@ pub fn perform_ocr_on_image_bytes(image_bytes: &[u8]) -> Option<String> {
                     if !candidate.is_null() {
                         let string_val: Id = msg_send![candidate, string];
                         if !string_val.is_null() {
-                            let utf8: *const std::os::raw::c_char = msg_send![string_val, UTF8String];
+                            let utf8: *const std::os::raw::c_char =
+                                msg_send![string_val, UTF8String];
                             if !utf8.is_null() {
                                 if let Ok(s) = std::ffi::CStr::from_ptr(utf8).to_str() {
                                     let trimmed = s.trim();

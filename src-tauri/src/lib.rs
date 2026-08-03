@@ -1,10 +1,10 @@
-mod commands;
 mod clipboard_monitor;
+mod commands;
 mod db;
 mod filter_engine;
-mod sequential_paste;
-mod ocr;
 mod hotkey_manager;
+mod ocr;
+mod sequential_paste;
 
 use std::sync::Arc;
 use tauri::{
@@ -46,8 +46,7 @@ fn setup_finder_titlebar(window: &tauri::WebviewWindow) {
         let button: *mut objc::runtime::Object = msg_send![ns_window, standardWindowButton: 0];
         if !button.is_null() {
             let superview: *mut objc::runtime::Object = msg_send![button, superview];
-            if !superview.is_null() {
-            }
+            if !superview.is_null() {}
         }
     }
 }
@@ -83,16 +82,14 @@ fn setup_hud_window_transparency(window: &tauri::WebviewWindow) {
             let _: () = msg_send![ns_window, setHasShadow: false];
         }
     }
-    let _ = window.with_webview(|webview| {
-        unsafe {
-            let wk_webview = webview.inner() as *mut Object;
-            let no_num: *mut Object = msg_send![objc::class!(NSNumber), numberWithBool: false];
-            let key_str: *mut Object = msg_send![
-                objc::class!(NSString),
-                stringWithUTF8String: c"drawsBackground".as_ptr()
-            ];
-            let _: () = msg_send![wk_webview, setValue: no_num forKey: key_str];
-        }
+    let _ = window.with_webview(|webview| unsafe {
+        let wk_webview = webview.inner() as *mut Object;
+        let no_num: *mut Object = msg_send![objc::class!(NSNumber), numberWithBool: false];
+        let key_str: *mut Object = msg_send![
+            objc::class!(NSString),
+            stringWithUTF8String: c"drawsBackground".as_ptr()
+        ];
+        let _: () = msg_send![wk_webview, setValue: no_num forKey: key_str];
     });
 }
 
@@ -173,7 +170,7 @@ pub fn run() {
                 }
             }
 
-            // Register all saved HUD, Filter, and Board shortcuts
+            // Register all saved HUD, Filter, and Bin shortcuts
             let _ = commands::register_all_app_shortcuts(app.handle());
 
             // Create Menu Bar / System Tray Icon
@@ -267,20 +264,20 @@ pub fn run() {
             commands::update_clip_text,
             commands::delete_clip,
             commands::toggle_pin_clip,
-            commands::assign_clip_board,
-            commands::add_clip_to_board,
-            commands::remove_clip_from_board,
+            commands::assign_clip_bin,
+            commands::add_clip_to_bin,
+            commands::remove_clip_from_bin,
             commands::reorder_pinned_clips,
             commands::get_clip_versions,
             commands::create_tag,
             commands::batch_pin_clips,
             commands::batch_trash_clips,
-            commands::batch_assign_board_clips,
+            commands::batch_assign_bin_clips,
             commands::copy_clip_to_system,
-            commands::get_boards,
-            commands::create_board,
-            commands::update_board,
-            commands::delete_board,
+            commands::get_bins,
+            commands::create_bin,
+            commands::update_bin,
+            commands::delete_bin,
             commands::get_filters,
             commands::create_filter,
             commands::update_filter_shortcut,
@@ -310,7 +307,7 @@ pub fn run() {
             commands::open_emoji_picker,
             commands::extract_ocr_from_clip,
             commands::register_hud_shortcut,
-            commands::update_board_shortcut,
+            commands::update_bin_shortcut,
             commands::register_app_setting_hotkey,
             commands::clear_all_clips,
             commands::toggle_clipboard_pause,

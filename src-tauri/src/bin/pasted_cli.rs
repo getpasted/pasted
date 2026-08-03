@@ -1,8 +1,8 @@
+use rusqlite::{params, Connection, Result};
 use std::env;
 use std::fs;
 use std::io::{self, Read};
 use std::path::PathBuf;
-use rusqlite::{params, Connection, Result};
 
 fn get_db_path() -> PathBuf {
     if let Some(mut dir) = dirs::data_dir() {
@@ -46,7 +46,7 @@ fn main() -> Result<()> {
             content_hash TEXT,
             source_app TEXT DEFAULT 'System Clipboard',
             is_pinned INTEGER DEFAULT 0,
-            board_id INTEGER,
+            bin_id INTEGER,
             note TEXT,
             is_trashed INTEGER DEFAULT 0,
             trashed_at TEXT,
@@ -93,13 +93,28 @@ fn main() -> Result<()> {
                 ))
             })?;
 
-            println!("{:<5} | {:<8} | {:<15} | {:<20} | CONTENT", "ID", "TYPE", "SOURCE", "DATE");
-            println!("{:-<5}-+-{:-<8}-+-{:-<15}-+-{:-<20}-+-{:-<30}", "", "", "", "", "");
+            println!(
+                "{:<5} | {:<8} | {:<15} | {:<20} | CONTENT",
+                "ID", "TYPE", "SOURCE", "DATE"
+            );
+            println!(
+                "{:-<5}-+-{:-<8}-+-{:-<15}-+-{:-<20}-+-{:-<30}",
+                "", "", "", "", ""
+            );
 
             for r in rows {
                 let (id, c_type, content, source, date) = r?;
-                let snippet: String = content.lines().next().unwrap_or("").chars().take(40).collect();
-                println!("{:<5} | {:<8} | {:<15} | {:<20} | {}", id, c_type, source, date, snippet);
+                let snippet: String = content
+                    .lines()
+                    .next()
+                    .unwrap_or("")
+                    .chars()
+                    .take(40)
+                    .collect();
+                println!(
+                    "{:<5} | {:<8} | {:<15} | {:<20} | {}",
+                    id, c_type, source, date, snippet
+                );
             }
         }
         "search" | "find" => {

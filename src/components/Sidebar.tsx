@@ -20,19 +20,19 @@ import {
   HelpCircle,
   Shield,
 } from 'lucide-react';
-import { Board, SequentialStatus } from '../types';
+import { Bin, SequentialStatus } from '../types';
 
 interface SidebarProps {
   currentTab: string;
   setCurrentTab: (tab: string) => void;
-  selectedBoardId: number | null;
-  setSelectedBoardId: (id: number | null) => void;
-  boards: Board[];
-  onRefreshBoards?: () => void;
-  onOpenNewBoardModal: () => void;
-  onEditBoard?: (board: Board) => void;
-  onDeleteBoard?: (board: Board) => void;
-  onBoardContextMenu?: (x: number, y: number, board: Board) => void;
+  selectedBinId: number | null;
+  setSelectedBinId: (id: number | null) => void;
+  bins: Bin[];
+  onRefreshBins?: () => void;
+  onOpenNewBinModal: () => void;
+  onEditBin?: (bin: Bin) => void;
+  onDeleteBin?: (bin: Bin) => void;
+  onBinContextMenu?: (x: number, y: number, bin: Bin) => void;
   searchQuery: string;
   setSearchQuery: (q: string) => void;
   seqStatus: SequentialStatus | null;
@@ -45,26 +45,26 @@ interface SidebarProps {
   isCollapsed: boolean;
   setIsCollapsed: (collapsed: boolean | ((prev: boolean) => boolean)) => void;
   sidebarWidth?: number;
-  onClipDropOnBoard?: (clipId: number, boardId: number) => void;
+  onClipDropOnBin?: (clipId: number, binId: number) => void;
   draggedClipId?: number | null;
-  pointerDropTargetBoardId?: number | null;
-  disabledDropBoardId?: number | null;
+  pointerDropTargetBinId?: number | null;
+  disabledDropBinId?: number | null;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
   currentTab,
   setCurrentTab,
-  selectedBoardId,
-  setSelectedBoardId,
-  boards,
-  onOpenNewBoardModal,
-  onEditBoard,
-  onDeleteBoard,
-  onBoardContextMenu,
-  onClipDropOnBoard,
+  selectedBinId,
+  setSelectedBinId,
+  bins,
+  onOpenNewBinModal,
+  onEditBin,
+  onDeleteBin,
+  onBinContextMenu,
+  onClipDropOnBin,
   draggedClipId,
-  pointerDropTargetBoardId,
-  disabledDropBoardId,
+  pointerDropTargetBinId,
+  disabledDropBinId,
   searchQuery,
   setSearchQuery,
   seqStatus,
@@ -83,67 +83,67 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [isBinsOpen, setIsBinsOpen] = React.useState(true);
   const [isToolsOpen, setIsToolsOpen] = React.useState(true);
 
-  // Board Drag & Drop Reorder State with 150ms Debounce
-  const [activeDragBoardId, setActiveDragBoardId] = React.useState<number | null>(null);
-  const [dropTargetBoardId, setDropTargetBoardId] = React.useState<number | null>(null);
+  // Bin Drag & Drop Reorder State with 150ms Debounce
+  const [activeDragBinId, setActiveDragBinId] = React.useState<number | null>(null);
+  const [dropTargetBinId, setDropTargetBinId] = React.useState<number | null>(null);
   const [isSearchFocused, setIsSearchFocused] = React.useState(false);
   const dragTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const [boardOrder, setBoardOrder] = React.useState<number[]>(() => {
+  const [binOrder, setBinOrder] = React.useState<number[]>(() => {
     try {
-      const saved = localStorage.getItem('pasted_board_order');
+      const saved = localStorage.getItem('pasted_bin_order');
       return saved ? JSON.parse(saved) : [];
     } catch {
       return [];
     }
   });
 
-  const sortedBoards = React.useMemo(() => {
-    if (!boardOrder || boardOrder.length === 0) return boards;
-    return [...boards].sort((a, b) => {
-      const indexA = boardOrder.indexOf(a.id);
-      const indexB = boardOrder.indexOf(b.id);
+  const sortedBins = React.useMemo(() => {
+    if (!binOrder || binOrder.length === 0) return bins;
+    return [...bins].sort((a, b) => {
+      const indexA = binOrder.indexOf(a.id);
+      const indexB = binOrder.indexOf(b.id);
       if (indexA === -1 && indexB === -1) return 0;
       if (indexA === -1) return 1;
       if (indexB === -1) return -1;
       return indexA - indexB;
     });
-  }, [boards, boardOrder]);
+  }, [bins, binOrder]);
 
-  const handlePointerDownBoard = (boardId: number) => {
+  const handlePointerDownBin = (binId: number) => {
     if (draggedClipId !== null && draggedClipId !== undefined) return;
     if (dragTimerRef.current) clearTimeout(dragTimerRef.current);
     dragTimerRef.current = setTimeout(() => {
-      setActiveDragBoardId(boardId);
+      setActiveDragBinId(binId);
     }, 150);
   };
 
-  const handlePointerUpBoard = () => {
+  const handlePointerUpBin = () => {
     if (dragTimerRef.current) {
       clearTimeout(dragTimerRef.current);
       dragTimerRef.current = null;
     }
-    setActiveDragBoardId(null);
+    setActiveDragBinId(null);
   };
 
-  const handlePointerEnterBoard = (targetBoardId: number) => {
+  const handlePointerEnterBin = (targetBinId: number) => {
     if (draggedClipId !== null && draggedClipId !== undefined) return;
-    if (!activeDragBoardId || activeDragBoardId === targetBoardId) return;
+    if (!activeDragBinId || activeDragBinId === targetBinId) return;
 
-    const currentOrder = sortedBoards.map((b) => b.id);
-    const fromIndex = currentOrder.indexOf(activeDragBoardId);
-    const toIndex = currentOrder.indexOf(targetBoardId);
+    const currentOrder = sortedBins.map((b) => b.id);
+    const fromIndex = currentOrder.indexOf(activeDragBinId);
+    const toIndex = currentOrder.indexOf(targetBinId);
     if (fromIndex === -1 || toIndex === -1) return;
 
     const newOrder = [...currentOrder];
     const [moved] = newOrder.splice(fromIndex, 1);
     newOrder.splice(toIndex, 0, moved);
 
-    setBoardOrder(newOrder);
-    localStorage.setItem('pasted_board_order', JSON.stringify(newOrder));
+    setBinOrder(newOrder);
+    localStorage.setItem('pasted_bin_order', JSON.stringify(newOrder));
   };
 
-  const getBoardIcon = (iconName: string) => {
+  const getBinIcon = (iconName: string) => {
     return <span className="text-sm">{formatEmojiIcon(iconName)}</span>;
   };
 
@@ -174,10 +174,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <button
             onClick={() => {
               setCurrentTab('all');
-              setSelectedBoardId(null);
+              setSelectedBinId(null);
             }}
             className={`w-9 h-9 flex items-center justify-center p-0 rounded-xl transition-colors duration-75 border shrink-0 cursor-pointer ${
-              currentTab === 'all' && selectedBoardId === null
+              currentTab === 'all' && selectedBinId === null
                 ? 'sidebar-item-active bg-[#383838] text-white border-gray-600/70 shadow-sm'
                 : 'sidebar-item-idle border-transparent text-gray-400 hover:bg-[#2a2a2a] hover:text-white'
             }`}
@@ -189,7 +189,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <button
             onClick={() => {
               setCurrentTab('pinned');
-              setSelectedBoardId(null);
+              setSelectedBinId(null);
             }}
             className={`w-9 h-9 flex items-center justify-center p-0 rounded-xl transition-colors duration-75 border shrink-0 cursor-pointer ${
               currentTab === 'pinned'
@@ -204,7 +204,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <button
             onClick={() => {
               setCurrentTab('notes');
-              setSelectedBoardId(null);
+              setSelectedBinId(null);
             }}
             className={`w-9 h-9 flex items-center justify-center p-0 rounded-xl transition-colors duration-75 border shrink-0 cursor-pointer ${
               currentTab === 'notes'
@@ -219,7 +219,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <button
             onClick={() => {
               setCurrentTab('sequential');
-              setSelectedBoardId(null);
+              setSelectedBinId(null);
             }}
             className={`w-9 h-9 flex items-center justify-center p-0 rounded-xl transition-colors duration-75 border shrink-0 cursor-pointer ${
               currentTab === 'sequential'
@@ -231,27 +231,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <ListOrdered className="w-5 h-5" />
           </button>
 
-          {sortedBoards.length > 0 && (
+          {sortedBins.length > 0 && (
             <div className="w-full flex items-center justify-center py-1 shrink-0">
               <div className="w-8 border-t border-white/10 sidebar-divider" />
             </div>
           )}
 
-          {sortedBoards.slice(0, 4).map((b) => (
+          {sortedBins.slice(0, 4).map((b) => (
             <button
               key={b.id}
               onClick={() => {
-                setCurrentTab('board');
-                setSelectedBoardId(b.id);
+                setCurrentTab('bin');
+                setSelectedBinId(b.id);
               }}
               className={`w-9 h-9 flex items-center justify-center p-0 rounded-xl transition-colors duration-75 border shrink-0 cursor-pointer ${
-                currentTab === 'board' && selectedBoardId === b.id
+                currentTab === 'bin' && selectedBinId === b.id
                   ? 'sidebar-item-active bg-[#383838] text-white border-gray-600/70 shadow-sm'
                   : 'sidebar-item-idle border-transparent text-gray-400 hover:bg-[#2a2a2a] hover:text-white'
               }`}
               title={b.name}
             >
-              {getBoardIcon(b.icon)}
+              {getBinIcon(b.icon)}
             </button>
           ))}
 
@@ -262,7 +262,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <button
             onClick={() => {
               setCurrentTab('filters');
-              setSelectedBoardId(null);
+              setSelectedBinId(null);
             }}
             className={`w-9 h-9 flex items-center justify-center p-0 rounded-xl transition-colors duration-75 border shrink-0 cursor-pointer ${
               currentTab === 'filters'
@@ -277,7 +277,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <button
             onClick={() => {
               setCurrentTab('settings');
-              setSelectedBoardId(null);
+              setSelectedBinId(null);
             }}
             className={`w-9 h-9 flex items-center justify-center p-0 rounded-xl transition-colors duration-75 border shrink-0 cursor-pointer ${
               currentTab === 'settings'
@@ -335,10 +335,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <button
                 onClick={() => {
                   setCurrentTab('all');
-                  setSelectedBoardId(null);
+                  setSelectedBinId(null);
                 }}
                 className={`group w-full h-8 flex items-center justify-between px-2.5 rounded-md transition-colors duration-100 cursor-pointer ${
-                  currentTab === 'all' && selectedBoardId === null
+                  currentTab === 'all' && selectedBinId === null
                     ? 'sidebar-item-active bg-[#3b3b3e] text-white font-medium'
                     : 'sidebar-item-idle text-[#e3e3e5] hover:bg-white/5 font-normal'
                 }`}
@@ -355,7 +355,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <button
                 onClick={() => {
                   setCurrentTab('sequential');
-                  setSelectedBoardId(null);
+                  setSelectedBinId(null);
                 }}
                 className={`group w-full h-8 flex items-center justify-between px-2.5 rounded-md transition-colors duration-100 cursor-pointer ${
                   currentTab === 'sequential'
@@ -375,7 +375,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <button
                 onClick={() => {
                   setCurrentTab('pinned');
-                  setSelectedBoardId(null);
+                  setSelectedBinId(null);
                 }}
                 className={`group w-full h-8 flex items-center justify-between px-2.5 rounded-md transition-colors duration-100 cursor-pointer ${
                   currentTab === 'pinned'
@@ -397,7 +397,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <button
                 onClick={() => {
                   setCurrentTab('protected');
-                  setSelectedBoardId(null);
+                  setSelectedBinId(null);
                 }}
                 className={`group w-full h-8 flex items-center justify-between px-2.5 rounded-md transition-colors duration-100 cursor-pointer ${
                   currentTab === 'protected'
@@ -419,7 +419,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <button
                 onClick={() => {
                   setCurrentTab('notes');
-                  setSelectedBoardId(null);
+                  setSelectedBinId(null);
                 }}
                 className={`group w-full h-8 flex items-center justify-between px-2.5 rounded-md transition-colors duration-100 cursor-pointer ${
                   currentTab === 'notes'
@@ -441,7 +441,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <button
                 onClick={() => {
                   setCurrentTab('trash');
-                  setSelectedBoardId(null);
+                  setSelectedBinId(null);
                 }}
                 className={`group w-full h-8 flex items-center justify-between px-2.5 rounded-md transition-colors duration-100 cursor-pointer ${
                   currentTab === 'trash'
@@ -476,7 +476,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                onOpenNewBoardModal();
+                onOpenNewBinModal();
               }}
               className="sidebar-add-btn text-gray-400 hover:text-white p-0.5 rounded transition-colors cursor-pointer"
               title="Create Custom / Smart Bin"
@@ -491,25 +491,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
           >
             <nav
               className="space-y-0.5"
-              onPointerUp={handlePointerUpBoard}
-              onPointerLeave={handlePointerUpBoard}
+              onPointerUp={handlePointerUpBin}
+              onPointerLeave={handlePointerUpBin}
             >
-              {sortedBoards.map((b) => {
-                const isDragging = activeDragBoardId === b.id;
+              {sortedBins.map((b) => {
+                const isDragging = activeDragBinId === b.id;
                 const isManualBin = !b.smart_rule || b.smart_rule.trim() === '';
                 const isClipDragging = draggedClipId !== null && draggedClipId !== undefined;
                 const isDisabledDropTarget =
-                  isClipDragging && disabledDropBoardId === b.id;
+                  isClipDragging && disabledDropBinId === b.id;
                 const isIneligibleSmartBin = isClipDragging && !isManualBin;
                 const isDropTarget =
-                  (dropTargetBoardId === b.id || pointerDropTargetBoardId === b.id) &&
+                  (dropTargetBinId === b.id || pointerDropTargetBinId === b.id) &&
                   isManualBin &&
                   !isDisabledDropTarget;
 
                 return (
                   <div
                     key={b.id}
-                    data-bin-drop-board-id={isManualBin && !isDisabledDropTarget ? b.id : undefined}
+                    data-bin-drop-bin-id={isManualBin && !isDisabledDropTarget ? b.id : undefined}
                     role="button"
                     tabIndex={0}
                     title={
@@ -519,16 +519,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         ? 'Smart Bin — populated automatically by rules'
                         : undefined
                     }
-                    onPointerDown={() => handlePointerDownBoard(b.id)}
-                    onPointerEnter={() => handlePointerEnterBoard(b.id)}
-                    onPointerUp={handlePointerUpBoard}
+                    onPointerDown={() => handlePointerDownBin(b.id)}
+                    onPointerEnter={() => handlePointerEnterBin(b.id)}
+                    onPointerUp={handlePointerUpBin}
                     onDragOver={(e) => {
                       if (!isManualBin || isDisabledDropTarget) return;
                       e.preventDefault();
                       e.stopPropagation();
                       e.dataTransfer.dropEffect = 'copy';
-                      if (dropTargetBoardId !== b.id) {
-                        setDropTargetBoardId(b.id);
+                      if (dropTargetBinId !== b.id) {
+                        setDropTargetBinId(b.id);
                       }
                     }}
                     onDragEnter={(e) => {
@@ -536,7 +536,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       e.preventDefault();
                       e.stopPropagation();
                       e.dataTransfer.dropEffect = 'copy';
-                      setDropTargetBoardId(b.id);
+                      setDropTargetBinId(b.id);
                     }}
                     onDragLeave={(e) => {
                       if (!isManualBin || isDisabledDropTarget) return;
@@ -553,13 +553,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       ) {
                         return;
                       }
-                      setDropTargetBoardId((prev) => (prev === b.id ? null : prev));
+                      setDropTargetBinId((prev) => (prev === b.id ? null : prev));
                     }}
                     onDrop={(e) => {
                       if (!isManualBin || isDisabledDropTarget) return;
                       e.preventDefault();
                       e.stopPropagation();
-                      setDropTargetBoardId(null);
+                      setDropTargetBinId(null);
                       const rawClipId = e.dataTransfer.getData('clip_id');
                       const rawText = e.dataTransfer.getData('text/plain');
                       const parsedClip = parseInt(rawClipId, 10);
@@ -571,8 +571,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           ? parsedText
                           : draggedClipId;
 
-                      if (targetClipId && onClipDropOnBoard) {
-                        onClipDropOnBoard(targetClipId, b.id);
+                      if (targetClipId && onClipDropOnBin) {
+                        onClipDropOnBin(targetClipId, b.id);
                       }
                     }}
                     onClick={() => {
@@ -580,15 +580,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         clearTimeout(dragTimerRef.current);
                         dragTimerRef.current = null;
                       }
-                      if (!activeDragBoardId) {
-                        setCurrentTab('board');
-                        setSelectedBoardId(b.id);
+                      if (!activeDragBinId) {
+                        setCurrentTab('bin');
+                        setSelectedBinId(b.id);
                       }
                     }}
                     onContextMenu={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      if (onBoardContextMenu) onBoardContextMenu(e.clientX, e.clientY, b);
+                      if (onBinContextMenu) onBinContextMenu(e.clientX, e.clientY, b);
                     }}
                     className={`group w-full h-8 flex items-center justify-between px-2.5 rounded-md select-none transition-all duration-100 ${
                       isDisabledDropTarget || isIneligibleSmartBin
@@ -605,13 +605,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         ? 'bg-emerald-950/15 border border-dashed border-emerald-500/45 text-emerald-100 font-normal'
                         : isDragging
                         ? 'bg-[#0a84ff]/30 shadow-md ring-1 ring-inset ring-[#0a84ff]/70 rounded-md z-20 relative'
-                        : currentTab === 'board' && selectedBoardId === b.id
+                        : currentTab === 'bin' && selectedBinId === b.id
                         ? 'sidebar-item-active bg-[#3b3b3e] text-white font-medium'
                         : 'sidebar-item-idle text-[#e3e3e5] hover:bg-white/5 font-normal'
                     }`}
                   >
                     <div className="flex items-center space-x-2.5 truncate pr-1">
-                      <span className="shrink-0 text-[#0a84ff]">{getBoardIcon(b.icon)}</span>
+                      <span className="shrink-0 text-[#0a84ff]">{getBinIcon(b.icon)}</span>
                       <span className="truncate">{b.name}</span>
                     </div>
 
@@ -643,7 +643,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           onMouseDown={(e) => e.stopPropagation()}
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (onEditBoard) onEditBoard(b);
+                            if (onEditBin) onEditBin(b);
                           }}
                           className="p-1 text-gray-400 hover:text-blue-400 hover:bg-white/10 rounded transition-colors cursor-pointer"
                           title="Edit Bin"
@@ -656,7 +656,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           onMouseDown={(e) => e.stopPropagation()}
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (onDeleteBoard) onDeleteBoard(b);
+                            if (onDeleteBin) onDeleteBin(b);
                           }}
                           className="p-1 text-gray-400 hover:text-red-400 hover:bg-white/10 rounded transition-colors cursor-pointer"
                           title="Delete Bin"
@@ -692,7 +692,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <button
                 onClick={() => {
                   setCurrentTab('analytics');
-                  setSelectedBoardId(null);
+                  setSelectedBinId(null);
                 }}
                 className={`group w-full h-8 flex items-center space-x-3 px-2.5 rounded-md transition-colors duration-100 cursor-pointer ${
                   currentTab === 'analytics'
@@ -707,7 +707,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <button
                 onClick={() => {
                   setCurrentTab('filters');
-                  setSelectedBoardId(null);
+                  setSelectedBinId(null);
                 }}
                 className={`group w-full h-8 flex items-center space-x-3 px-2.5 rounded-md transition-colors duration-100 cursor-pointer ${
                   currentTab === 'filters'
@@ -722,7 +722,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <button
                 onClick={() => {
                   setCurrentTab('activity');
-                  setSelectedBoardId(null);
+                  setSelectedBinId(null);
                 }}
                 className={`group w-full h-8 flex items-center space-x-3 px-2.5 rounded-md transition-colors duration-100 cursor-pointer ${
                   currentTab === 'activity'
@@ -737,7 +737,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <button
                 onClick={() => {
                   setCurrentTab('help');
-                  setSelectedBoardId(null);
+                  setSelectedBinId(null);
                 }}
                 className={`group w-full h-8 flex items-center space-x-3 px-2.5 rounded-md transition-colors duration-100 cursor-pointer ${
                   currentTab === 'help'
@@ -752,7 +752,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <button
                 onClick={() => {
                   setCurrentTab('settings');
-                  setSelectedBoardId(null);
+                  setSelectedBinId(null);
                 }}
                 className={`group w-full h-8 flex items-center space-x-3 px-2.5 rounded-md transition-colors duration-100 cursor-pointer ${
                   currentTab === 'settings'

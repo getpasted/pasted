@@ -1,12 +1,12 @@
+use parking_lot::RwLock;
 use std::collections::HashMap;
 use std::sync::Arc;
-use parking_lot::RwLock;
-use tauri::{AppHandle, Manager, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut};
 
+use crate::commands;
 use crate::db::DbState;
 use crate::sequential_paste::SequentialQueueState;
-use crate::commands;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum AppHotkeyAction {
@@ -18,7 +18,7 @@ pub enum AppHotkeyAction {
     PasteClip(usize),
     ApplyFilter(i64),
     PasteLastFilter,
-    OpenBoard(i64),
+    OpenBin(i64),
 }
 
 pub struct HotkeyManager {
@@ -75,7 +75,9 @@ impl HotkeyManager {
                     map.insert(shortcut, action.clone());
                 }
             } else {
-                println!("[Pasted HotkeyManager ERROR] Could not parse shortcut string: '{setting_str}'");
+                println!(
+                    "[Pasted HotkeyManager ERROR] Could not parse shortcut string: '{setting_str}'"
+                );
             }
         };
 
@@ -122,17 +124,20 @@ impl HotkeyManager {
         }
 
         // 9. Bin Hotkeys
-        if let Ok(boards) = db.get_boards() {
-            for b in boards {
+        if let Ok(bins) = db.get_bins() {
+            for b in bins {
                 if let Some(sc) = b.shortcut {
                     if !sc.trim().is_empty() {
-                        add_shortcut(Some(sc), AppHotkeyAction::OpenBoard(b.id));
+                        add_shortcut(Some(sc), AppHotkeyAction::OpenBin(b.id));
                     }
                 }
             }
         }
 
-        println!("[Pasted HotkeyManager] Successfully registered {} shortcuts in memory", map.len());
+        println!(
+            "[Pasted HotkeyManager] Successfully registered {} shortcuts in memory",
+            map.len()
+        );
         Ok(())
     }
 
@@ -169,105 +174,113 @@ impl HotkeyManager {
         };
 
         let Some(action) = action_opt else {
-            println!("[Pasted HotkeyManager] Unmapped shortcut pressed: Key={:?}, Mods={:?}, Full={:?}", shortcut.key, shortcut.mods, shortcut);
+            println!(
+                "[Pasted HotkeyManager] Unmapped shortcut pressed: Key={:?}, Mods={:?}, Full={:?}",
+                shortcut.key, shortcut.mods, shortcut
+            );
             return;
         };
 
-        println!("[Pasted HotkeyManager] Executing action on main thread: {:?}", action);
+        println!(
+            "[Pasted HotkeyManager] Executing action on main thread: {:?}",
+            action
+        );
 
         let app_handle = app.clone();
-        let _ = app.run_on_main_thread(move || {
-            match action {
-                AppHotkeyAction::ToggleHud => {
-                    let _ = commands::toggle_hud_window(app_handle.clone());
-                }
-                AppHotkeyAction::ToggleMainWindow => {
-                    if let Some(w) = app_handle.get_webview_window("main") {
-                        if w.is_visible().unwrap_or(false) {
-                            let _ = w.hide();
-                        } else {
-                            let _ = w.show();
-                            let _ = w.set_focus();
-                        }
-                    }
-                }
-                AppHotkeyAction::OpenFilterWindow => {
-                    if let Some(w) = app_handle.get_webview_window("main") {
+        let _ = app.run_on_main_thread(move || match action {
+            AppHotkeyAction::ToggleHud => {
+                let _ = commands::toggle_hud_window(app_handle.clone());
+            }
+            AppHotkeyAction::ToggleMainWindow => {
+                if let Some(w) = app_handle.get_webview_window("main") {
+                    if w.is_visible().unwrap_or(false) {
+                        let _ = w.hide();
+                    } else {
                         let _ = w.show();
                         let _ = w.set_focus();
-                        let _ = app_handle.emit("navigate-tab", "filters");
                     }
                 }
-                AppHotkeyAction::ToggleCopyQueue => {
-                    let seq = app_handle.state::<Arc<SequentialQueueState>>();
-                    let status = seq.get_status();
-                    if status.is_active {
-                        seq.stop_queue();
-                    } else {
-                        seq.start_queue();
+            }
+            AppHotkeyAction::OpenFilterWindow => {
+                if let Some(w) = app_handle.get_webview_window("main") {
+                    let _ = w.show();
+                    let _ = w.set_focus();
+                    let _ = app_handle.emit("navigate-tab", "filters");
+                }
+            }
+            AppHotkeyAction::ToggleCopyQueue => {
+                let seq = app_handle.state::<Arc<SequentialQueueState>>();
+                let status = seq.get_status();
+                if status.is_active {
+                    seq.stop_queue();
+                } else {
+                    seq.start_queue();
+                }
+                let updated = seq.get_status();
+                let _ = app_handle.emit("sequential-updated", updated);
+            }
+            AppHotkeyAction::PopCopyQueue => {
+                let seq = app_handle.state::<Arc<SequentialQueueState>>();
+                if let Some(item) = seq.pop_next() {
+                    if let Ok(mut cb) = arboard::Clipboard::new() {
+                        let _ = cb.set_text(&item);
                     }
                     let updated = seq.get_status();
                     let _ = app_handle.emit("sequential-updated", updated);
+                    std::thread::spawn(move || {
+                        std::thread::sleep(std::time::Duration::from_millis(50));
+                        commands::simulate_cmd_v_paste();
+                    });
                 }
-                AppHotkeyAction::PopCopyQueue => {
-                    let seq = app_handle.state::<Arc<SequentialQueueState>>();
-                    if let Some(item) = seq.pop_next() {
-                        if let Ok(mut cb) = arboard::Clipboard::new() {
-                            let _ = cb.set_text(&item);
-                        }
-                        let updated = seq.get_status();
-                        let _ = app_handle.emit("sequential-updated", updated);
-                        std::thread::spawn(move || {
-                            std::thread::sleep(std::time::Duration::from_millis(50));
-                            commands::simulate_cmd_v_paste();
-                        });
-                    }
-                }
-                AppHotkeyAction::PasteClip(index) => {
-                    let db_opt = app_handle.try_state::<Arc<DbState>>();
-                    if let Some(db) = db_opt {
-                        if let Ok(clips) = db.get_clips(None, None, false) {
-                            if let Some(clip) = clips.get(index - 1) {
-                                if let Ok(mut cb) = arboard::Clipboard::new() {
-                                    if let Some(ref t) = clip.text_content {
-                                        let _ = cb.set_text(t);
-                                    } else if let Some(ref img_b64) = clip.image_base64 {
-                                        let _ = cb.set_text(img_b64);
-                                    }
-                                    std::thread::spawn(move || {
-                                        std::thread::sleep(std::time::Duration::from_millis(50));
-                                        commands::simulate_cmd_v_paste();
-                                    });
+            }
+            AppHotkeyAction::PasteClip(index) => {
+                let db_opt = app_handle.try_state::<Arc<DbState>>();
+                if let Some(db) = db_opt {
+                    if let Ok(clips) = db.get_clips(None, None, false) {
+                        if let Some(clip) = clips.get(index - 1) {
+                            if let Ok(mut cb) = arboard::Clipboard::new() {
+                                if let Some(ref t) = clip.text_content {
+                                    let _ = cb.set_text(t);
+                                } else if let Some(ref img_b64) = clip.image_base64 {
+                                    let _ = cb.set_text(img_b64);
                                 }
+                                std::thread::spawn(move || {
+                                    std::thread::sleep(std::time::Duration::from_millis(50));
+                                    commands::simulate_cmd_v_paste();
+                                });
                             }
                         }
                     }
                 }
-                AppHotkeyAction::ApplyFilter(filter_id) => {
-                    let db_opt = app_handle.try_state::<Arc<DbState>>();
-                    if let Some(db) = db_opt {
-                        if let Ok(filters) = db.get_filters() {
-                            if let Some(f) = filters.into_iter().find(|flt| flt.id == filter_id) {
-                                if let Ok(mut cb) = arboard::Clipboard::new() {
-                                    if let Ok(text) = cb.get_text() {
-                                        if let Ok(transformed) = crate::filter_engine::apply_filter(&text, &f.filter_type, f.config.as_deref()) {
-                                            let _ = cb.set_text(&transformed);
-                                        }
+            }
+            AppHotkeyAction::ApplyFilter(filter_id) => {
+                let db_opt = app_handle.try_state::<Arc<DbState>>();
+                if let Some(db) = db_opt {
+                    if let Ok(filters) = db.get_filters() {
+                        if let Some(f) = filters.into_iter().find(|flt| flt.id == filter_id) {
+                            if let Ok(mut cb) = arboard::Clipboard::new() {
+                                if let Ok(text) = cb.get_text() {
+                                    if let Ok(transformed) = crate::filter_engine::apply_filter(
+                                        &text,
+                                        &f.filter_type,
+                                        f.config.as_deref(),
+                                    ) {
+                                        let _ = cb.set_text(&transformed);
                                     }
                                 }
                             }
                         }
                     }
                 }
-                AppHotkeyAction::PasteLastFilter => {
-                    let _ = app_handle.emit("paste-last-filter-requested", ());
-                }
-                AppHotkeyAction::OpenBoard(board_id) => {
-                    if let Some(w) = app_handle.get_webview_window("main") {
-                        let _ = w.show();
-                        let _ = w.set_focus();
-                        let _ = app_handle.emit("navigate-board", board_id);
-                    }
+            }
+            AppHotkeyAction::PasteLastFilter => {
+                let _ = app_handle.emit("paste-last-filter-requested", ());
+            }
+            AppHotkeyAction::OpenBin(bin_id) => {
+                if let Some(w) = app_handle.get_webview_window("main") {
+                    let _ = w.show();
+                    let _ = w.set_focus();
+                    let _ = app_handle.emit("navigate-bin", bin_id);
                 }
             }
         });

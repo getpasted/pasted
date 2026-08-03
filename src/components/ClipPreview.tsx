@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Reorder, AnimatePresence } from 'framer-motion';
 import { formatClipDateTime } from '../utils/date';
-import { ClipItem, Board, FilterRule, ClipNote, parseClipNotes, serializeClipNotes, ClipVersion } from '../types';
+import { ClipItem, Bin, FilterRule, ClipNote, parseClipNotes, serializeClipNotes, ClipVersion } from '../types';
 import { parseColor, ColorFormats } from '../utils/color';
 import { soundManager } from '../utils/sound';
 import { detectSmartFilterRecommendations } from '../utils/smartFilterDetector';
@@ -25,10 +25,10 @@ import { safeInvoke as invoke } from '../utils/tauri';
 
 interface ClipPreviewProps {
   clip: ClipItem | null;
-  boards: Board[];
+  bins: Bin[];
   filters: FilterRule[];
   onUpdateClip: () => void;
-  onAssignBoard: (clipId: number, boardId: number | null) => void | Promise<void>;
+  onAssignBin: (clipId: number, binId: number | null) => void | Promise<void>;
   onDeleteClip: (id: number) => void;
   onUpdateClipNote?: (clipId: number, noteContent: string | null) => void;
 }
@@ -43,10 +43,10 @@ const CLEVER_PLACEHOLDERS = [
 
 export const ClipPreview: React.FC<ClipPreviewProps> = ({
   clip,
-  boards,
+  bins,
   filters,
   onUpdateClip,
-  onAssignBoard,
+  onAssignBin,
   onDeleteClip,
   onUpdateClipNote,
 }) => {
@@ -280,9 +280,9 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
     setActiveFilterName(null);
   };
 
-  const handleAssignBoard = async (boardId: number | null) => {
+  const handleAssignBin = async (binId: number | null) => {
     try {
-      await onAssignBoard(clip.id, boardId);
+      await onAssignBin(clip.id, binId);
     } catch (e) {
       console.error(e);
     }
@@ -405,15 +405,15 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
           <Folder className="w-3.5 h-3.5" />
           <span>Bin:</span>
           <select
-            value={clip.board_id ?? ''}
+            value={clip.bin_id ?? ''}
             onChange={(e) => {
               const val = e.target.value;
-              handleAssignBoard(val ? Number(val) : null);
+              handleAssignBin(val ? Number(val) : null);
             }}
             className="bg-[#181818] border border-gray-700 text-gray-200 text-xs rounded-md px-2 py-1 focus:outline-none focus:border-gray-500"
           >
             <option value="">– None –</option>
-            {boards.filter((b) => b.board_type !== 'tag' && !b.smart_rule).map((b) => (
+            {bins.filter((b) => b.bin_type !== 'tag' && !b.smart_rule).map((b) => (
               <option key={b.id} value={b.id}>
                 {b.name}
               </option>

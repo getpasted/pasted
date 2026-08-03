@@ -1,13 +1,13 @@
 import { useMemo } from 'react';
-import type { Board, ClipItem, SequentialStatus } from '../types';
+import type { Bin, ClipItem, SequentialStatus } from '../types';
 import { getClipNoteSummary } from '../types';
 
 interface ClipViewsInput {
   allClips: ClipItem[];
   trashedClips: ClipItem[];
-  boards: Board[];
+  bins: Bin[];
   currentTab: string;
-  selectedBoardId: number | null;
+  selectedBinId: number | null;
   searchQuery: string;
   sequentialStatus: SequentialStatus | null;
 }
@@ -68,13 +68,13 @@ function matchesCondition(clip: ClipItem, condition: SmartCondition) {
   return exactMatch ? normalized === expected : normalized.includes(expected);
 }
 
-function filterByBoard(clips: ClipItem[], boards: Board[], boardId: number) {
-  const assigned = (clip: ClipItem) => clip.board_id === boardId || Boolean(clip.board_ids?.includes(boardId));
-  const board = boards.find((item) => item.id === boardId);
-  if (!board?.smart_rule) return clips.filter(assigned);
+function filterByBin(clips: ClipItem[], bins: Bin[], binId: number) {
+  const assigned = (clip: ClipItem) => clip.bin_id === binId || Boolean(clip.bin_ids?.includes(binId));
+  const bin = bins.find((item) => item.id === binId);
+  if (!bin?.smart_rule) return clips.filter(assigned);
 
   try {
-    const rule = JSON.parse(board.smart_rule) as {
+    const rule = JSON.parse(bin.smart_rule) as {
       match?: 'all' | 'any';
       conditions?: SmartCondition[];
       type?: string;
@@ -98,9 +98,9 @@ function filterByBoard(clips: ClipItem[], boards: Board[], boardId: number) {
 export function useClipViews({
   allClips,
   trashedClips,
-  boards,
+  bins,
   currentTab,
-  selectedBoardId,
+  selectedBinId,
   searchQuery,
   sequentialStatus,
 }: ClipViewsInput) {
@@ -114,7 +114,7 @@ export function useClipViews({
         image_base64: null,
         content_hash: `queue_${index}`,
         source_app: `Queue Position #${index + 1}`,
-        board_id: null,
+        bin_id: null,
         is_pinned: false,
         note: null,
         created_at: new Date().toISOString(),
@@ -123,12 +123,12 @@ export function useClipViews({
 
     let clips = applyClipSearch(currentTab === 'trash' ? trashedClips : allClips, searchQuery);
     if (currentTab === 'trash') return clips;
-    if (currentTab === 'board' && selectedBoardId !== null) clips = filterByBoard(clips, boards, selectedBoardId);
+    if (currentTab === 'bin' && selectedBinId !== null) clips = filterByBin(clips, bins, selectedBinId);
     if (currentTab === 'pinned') clips = clips.filter((clip) => clip.is_pinned);
     if (currentTab === 'protected') clips = clips.filter((clip) => clip.is_protected);
     if (currentTab === 'notes') clips = clips.filter((clip) => Boolean(clip.note?.trim()));
     return clips;
-  }, [allClips, trashedClips, searchQuery, currentTab, selectedBoardId, sequentialStatus, boards]);
+  }, [allClips, trashedClips, searchQuery, currentTab, selectedBinId, sequentialStatus, bins]);
 
   const counts = useMemo(() => allClips.reduce((result, clip) => ({
     pinnedCount: result.pinnedCount + Number(Boolean(clip.is_pinned)),

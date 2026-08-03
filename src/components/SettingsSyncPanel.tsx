@@ -3,13 +3,13 @@ import { Cloud, Download, ShieldCheck, Upload } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
 
 interface SettingsSyncPanelProps {
-  onRefreshBoards?: () => void;
+  onRefreshBins?: () => void;
   onRefreshFilters?: () => void;
   onRefreshClips?: () => void;
 }
 
 export function SettingsSyncPanel({
-  onRefreshBoards,
+  onRefreshBins,
   onRefreshFilters,
   onRefreshClips,
 }: SettingsSyncPanelProps) {
@@ -34,7 +34,7 @@ export function SettingsSyncPanel({
   const handleImport = async (file: File) => {
     try {
       const importedCount = await invoke<number>('import_backup_json', { jsonStr: await file.text() });
-      onRefreshBoards?.();
+      onRefreshBins?.();
       onRefreshFilters?.();
       onRefreshClips?.();
       setStatus({ kind: 'success', message: `Imported ${importedCount} items from backup.` });

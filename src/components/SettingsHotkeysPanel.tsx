@@ -1,15 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import { RotateCcw, ShieldCheck } from 'lucide-react';
-import type { AppSettings, Board, FilterRule } from '../types';
+import type { AppSettings, Bin, FilterRule } from '../types';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { HotkeyRecorder } from './HotkeyRecorder';
 
 interface SettingsHotkeysPanelProps {
   settings: AppSettings;
-  boards: Board[];
+  bins: Bin[];
   filters: FilterRule[];
   onUpdateSettings: (newSettings: Partial<AppSettings>) => void;
-  onRefreshBoards?: () => void;
+  onRefreshBins?: () => void;
   onRefreshFilters?: () => void;
 }
 
@@ -69,10 +69,10 @@ function HotkeyRow({ label, value, onChange }: { label: string; value: string | 
 
 export function SettingsHotkeysPanel({
   settings,
-  boards,
+  bins,
   filters,
   onUpdateSettings,
-  onRefreshBoards,
+  onRefreshBins,
   onRefreshFilters,
 }: SettingsHotkeysPanelProps) {
   const [accessibilityStatus, setAccessibilityStatus] = useState<AccessibilityStatus | null>(null);
@@ -169,13 +169,13 @@ export function SettingsHotkeysPanel({
       </div>
 
       <section className="space-y-2">
-        <h4 className="font-bold text-gray-400 uppercase tracking-wider text-[10px]">Custom Bin Hotkeys ({boards.length})</h4>
-        {boards.length === 0
+        <h4 className="font-bold text-gray-400 uppercase tracking-wider text-[10px]">Custom Bin Hotkeys ({bins.length})</h4>
+        {bins.length === 0
           ? <p className="text-[11px] text-gray-500 italic p-2.5 bg-[#181818] rounded-xl border border-gray-800">No custom bins created yet. Create bins in the sidebar to assign global shortcuts.</p>
-          : boards.map((board) => <HotkeyRow key={board.id} label={board.name} value={board.shortcut ?? null} onChange={async (shortcut) => {
+          : bins.map((bin) => <HotkeyRow key={bin.id} label={bin.name} value={bin.shortcut ?? null} onChange={async (shortcut) => {
               try {
-                await invoke('update_board_shortcut', { id: board.id, shortcut });
-                onRefreshBoards?.();
+                await invoke('update_bin_shortcut', { id: bin.id, shortcut });
+                onRefreshBins?.();
               } catch (error) {
                 console.error('Failed to update bin shortcut:', error);
                 setStatusMessage('That bin shortcut could not be registered.');

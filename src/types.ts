@@ -81,19 +81,19 @@ export interface ClipItem {
   is_pinned: boolean;
   is_protected?: boolean;
   pin_order?: number;
-  board_id: number | null;
-  board_ids?: number[];
+  bin_id: number | null;
+  bin_ids?: number[];
   note?: string | null;
   created_at: string;
 }
 
-export interface Board {
+export interface Bin {
   id: number;
   name: string;
   icon: string;
   color: string;
   smart_rule?: string | null;
-  board_type?: 'category' | 'tag';
+  bin_type?: 'category' | 'tag';
   shortcut?: string | null;
   clip_count?: number | null;
   created_at: string;

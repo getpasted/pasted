@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Minus } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
-import { Board } from '../types';
+import { Bin } from '../types';
 import { formatEmojiIcon } from '../utils/emoji';
 
-interface BoardModalProps {
+interface BinModalProps {
   isOpen: boolean;
-  editingBoard?: Board | null;
+  editingBin?: Bin | null;
   onClose: () => void;
-  onRefreshBoards: () => void;
+  onRefreshBins: () => void;
 }
 
 interface SmartConditionRow {
@@ -31,19 +31,19 @@ const COLOR_PALETTE = [
   { hex: '#d97706', label: 'Amber' },
 ];
 
-export const BoardModal: React.FC<BoardModalProps> = ({
+export const BinModal: React.FC<BinModalProps> = ({
   isOpen,
-  editingBoard,
+  editingBin,
   onClose,
-  onRefreshBoards,
+  onRefreshBins,
 }) => {
   const [modalTab, setModalTab] = useState<'bin' | 'smart' | 'filter'>(() => {
-    if (editingBoard?.smart_rule) return 'smart';
+    if (editingBin?.smart_rule) return 'smart';
     return 'bin';
   });
-  const [name, setName] = useState(() => editingBoard?.name || '');
-  const [selectedColor, setSelectedColor] = useState(() => editingBoard?.color || '#3b82f6');
-  const [icon, setIcon] = useState(() => (editingBoard ? formatEmojiIcon(editingBoard.icon) : '📂'));
+  const [name, setName] = useState(() => editingBin?.name || '');
+  const [selectedColor, setSelectedColor] = useState(() => editingBin?.color || '#3b82f6');
+  const [icon, setIcon] = useState(() => (editingBin ? formatEmojiIcon(editingBin.icon) : '📂'));
 
   // Form Validation State
   const [errors, setErrors] = useState<{ name?: boolean; color?: boolean; icon?: boolean }>({});
@@ -53,9 +53,9 @@ export const BoardModal: React.FC<BoardModalProps> = ({
 
   // Multi-condition Smart Rules state
   const [conditions, setConditions] = useState<SmartConditionRow[]>(() => {
-    if (editingBoard?.smart_rule) {
+    if (editingBin?.smart_rule) {
       try {
-        const parsed = JSON.parse(editingBoard.smart_rule);
+        const parsed = JSON.parse(editingBin.smart_rule);
         if (parsed.conditions && parsed.conditions.length > 0) {
           return parsed.conditions.map((c: any, i: number) => ({
             id: String(i + 1),
@@ -71,9 +71,9 @@ export const BoardModal: React.FC<BoardModalProps> = ({
     return [{ id: '1', target: 'source_app', operator: 'is', value: '1Password' }];
   });
   const [matchCondition, setMatchCondition] = useState<'any' | 'all'>(() => {
-    if (editingBoard?.smart_rule) {
+    if (editingBin?.smart_rule) {
       try {
-        const parsed = JSON.parse(editingBoard.smart_rule);
+        const parsed = JSON.parse(editingBin.smart_rule);
         return parsed.match || 'any';
       } catch (e) {
         console.error(e);
@@ -132,14 +132,14 @@ export const BoardModal: React.FC<BoardModalProps> = ({
     if (isOpen) {
       setErrors({});
 
-      if (editingBoard) {
-        setName(editingBoard.name);
-        setSelectedColor(editingBoard.color || '#3b82f6');
-        setIcon(formatEmojiIcon(editingBoard.icon));
-        if (editingBoard.smart_rule) {
+      if (editingBin) {
+        setName(editingBin.name);
+        setSelectedColor(editingBin.color || '#3b82f6');
+        setIcon(formatEmojiIcon(editingBin.icon));
+        if (editingBin.smart_rule) {
           setModalTab('smart');
           try {
-            const parsed = JSON.parse(editingBoard.smart_rule);
+            const parsed = JSON.parse(editingBin.smart_rule);
             if (parsed.conditions && parsed.conditions.length > 0) {
               setConditions(
                 parsed.conditions.map((c: any, i: number) => ({
@@ -175,7 +175,7 @@ export const BoardModal: React.FC<BoardModalProps> = ({
         })
         .catch(console.error);
     }
-  }, [isOpen, editingBoard]);
+  }, [isOpen, editingBin]);
 
   if (!isOpen) return null;
 
@@ -232,16 +232,16 @@ export const BoardModal: React.FC<BoardModalProps> = ({
     }
 
     try {
-      if (editingBoard) {
-        await invoke('update_board', {
-          id: editingBoard.id,
+      if (editingBin) {
+        await invoke('update_bin', {
+          id: editingBin.id,
           name: name.trim(),
           icon: icon || '📂',
           color: selectedColor,
           smartRule: smartRuleJson,
         });
       } else {
-        await invoke('create_board', {
+        await invoke('create_bin', {
           name: name.trim(),
           icon: icon || '📂',
           color: selectedColor,
@@ -249,7 +249,7 @@ export const BoardModal: React.FC<BoardModalProps> = ({
         });
       }
       setName('');
-      onRefreshBoards();
+      onRefreshBins();
       onClose();
     } catch (err) {
       console.error(err);
@@ -258,7 +258,7 @@ export const BoardModal: React.FC<BoardModalProps> = ({
 
   return (
     <div ref={modalRef} className="fixed inset-0 bg-black/75 backdrop-blur-md z-50 flex items-center justify-center p-4 select-none">
-      <div className="board-modal-card bg-[#212121] w-full max-w-xl rounded-2xl p-6 space-y-5 border border-gray-700/80 shadow-2xl text-gray-100 font-sans">
+      <div className="bin-modal-card bg-[#212121] w-full max-w-xl rounded-2xl p-6 space-y-5 border border-gray-700/80 shadow-2xl text-gray-100 font-sans">
         {/* Top Segmented Tab Picker */}
         <div className="flex justify-center">
           <div className="flex theme-surface bg-[#181818] p-1 rounded-xl border border-gray-700/70 space-x-1">
@@ -532,13 +532,13 @@ export const BoardModal: React.FC<BoardModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="board-modal-cancel-btn px-5 py-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 font-semibold text-xs transition-all focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 focus:ring-offset-[#212121]"
+              className="bin-modal-cancel-btn px-5 py-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 font-semibold text-xs transition-all focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 focus:ring-offset-[#212121]"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="board-modal-ok-btn px-5 py-2 rounded-xl bg-white hover:bg-gray-200 text-black font-semibold text-xs shadow-md transition-all active:scale-95 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-[#212121]"
+              className="bin-modal-ok-btn px-5 py-2 rounded-xl bg-white hover:bg-gray-200 text-black font-semibold text-xs shadow-md transition-all active:scale-95 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-[#212121]"
             >
               Save
             </button>

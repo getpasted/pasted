@@ -17,7 +17,8 @@ pub struct ClipboardMonitorState {
 
 impl ClipboardMonitorState {
     pub fn is_paused(&self) -> bool {
-        self.is_manually_paused.load(Ordering::Relaxed) || self.is_auto_paused.load(Ordering::Relaxed)
+        self.is_manually_paused.load(Ordering::Relaxed)
+            || self.is_auto_paused.load(Ordering::Relaxed)
     }
 }
 
@@ -137,7 +138,10 @@ pub fn start_clipboard_monitor(
                 if is_blacklisted && auto_paused_app.is_none() {
                     is_auto_paused_clone.store(true, Ordering::Relaxed);
                     auto_paused_app = Some(active_app.clone());
-                    println!("[Pasted Monitor] AUTO-PAUSED for blacklisted app: {}", active_app);
+                    println!(
+                        "[Pasted Monitor] AUTO-PAUSED for blacklisted app: {}",
+                        active_app
+                    );
                     let _ = db_state.log_activity(
                         "recording_auto_paused",
                         &format!("Auto-paused recording for blacklisted app: {}", active_app),
@@ -169,7 +173,9 @@ pub fn start_clipboard_monitor(
                 }
             }
 
-            if is_manually_paused_clone.load(Ordering::Relaxed) || is_auto_paused_clone.load(Ordering::Relaxed) {
+            if is_manually_paused_clone.load(Ordering::Relaxed)
+                || is_auto_paused_clone.load(Ordering::Relaxed)
+            {
                 continue;
             }
 
@@ -186,14 +192,22 @@ pub fn start_clipboard_monitor(
 
                         // Check blacklist
                         if let Some(ref active_app) = active_app_opt {
-                            if let Ok(Some(blacklist_json)) = db_state.get_setting("blacklistApps") {
-                                if let Ok(blacklisted_list) = serde_json::from_str::<Vec<String>>(&blacklist_json) {
+                            if let Ok(Some(blacklist_json)) = db_state.get_setting("blacklistApps")
+                            {
+                                if let Ok(blacklisted_list) =
+                                    serde_json::from_str::<Vec<String>>(&blacklist_json)
+                                {
                                     let active_app_lower = active_app.to_lowercase();
                                     if blacklisted_list.iter().any(|b| {
                                         let b_lower = b.to_lowercase();
-                                        !b_lower.is_empty() && (active_app_lower == b_lower || active_app_lower.contains(&b_lower))
+                                        !b_lower.is_empty()
+                                            && (active_app_lower == b_lower
+                                                || active_app_lower.contains(&b_lower))
                                     }) {
-                                        let _ = app.emit("blacklist-clip-ignored", serde_json::json!({ "app_name": active_app }));
+                                        let _ = app.emit(
+                                            "blacklist-clip-ignored",
+                                            serde_json::json!({ "app_name": active_app }),
+                                        );
                                         continue;
                                     }
                                 }
@@ -247,13 +261,20 @@ pub fn start_clipboard_monitor(
                     // Check blacklist
                     if let Some(ref active_app) = active_app_opt {
                         if let Ok(Some(blacklist_json)) = db_state.get_setting("blacklistApps") {
-                            if let Ok(blacklisted_list) = serde_json::from_str::<Vec<String>>(&blacklist_json) {
+                            if let Ok(blacklisted_list) =
+                                serde_json::from_str::<Vec<String>>(&blacklist_json)
+                            {
                                 let active_app_lower = active_app.to_lowercase();
                                 if blacklisted_list.iter().any(|b| {
                                     let b_lower = b.to_lowercase();
-                                    !b_lower.is_empty() && (active_app_lower == b_lower || active_app_lower.contains(&b_lower))
+                                    !b_lower.is_empty()
+                                        && (active_app_lower == b_lower
+                                            || active_app_lower.contains(&b_lower))
                                 }) {
-                                    let _ = app.emit("blacklist-clip-ignored", serde_json::json!({ "app_name": active_app }));
+                                    let _ = app.emit(
+                                        "blacklist-clip-ignored",
+                                        serde_json::json!({ "app_name": active_app }),
+                                    );
                                     continue;
                                 }
                             }
@@ -267,14 +288,8 @@ pub fn start_clipboard_monitor(
                         );
 
                         let source_app = active_app_opt.as_deref().unwrap_or("System Clipboard");
-                        match db_state.save_clip(
-                            "image",
-                            None,
-                            None,
-                            Some(&b64),
-                            &hash,
-                            source_app,
-                        ) {
+                        match db_state.save_clip("image", None, None, Some(&b64), &hash, source_app)
+                        {
                             Ok(clip) => {
                                 let _ = app.emit("clip-added", clip.clone());
                                 let _ = ocr_tx.send(crate::ocr::OcrTask {
@@ -292,12 +307,16 @@ pub fn start_clipboard_monitor(
         }
     });
 
-    MonitorHandle { running, is_manually_paused, is_auto_paused }
+    MonitorHandle {
+        running,
+        is_manually_paused,
+        is_auto_paused,
+    }
 }
 
 fn detect_content_type(text: &str) -> String {
     let trimmed = text.trim();
-    
+
     // Check color hex
     if (trimmed.len() == 4 || trimmed.len() == 7 || trimmed.len() == 9)
         && trimmed.starts_with('#')
@@ -307,12 +326,17 @@ fn detect_content_type(text: &str) -> String {
     }
 
     // Check RGB / HSL
-    if (trimmed.starts_with("rgb(") || trimmed.starts_with("rgba(") || trimmed.starts_with("hsl(")) && trimmed.ends_with(')') {
+    if (trimmed.starts_with("rgb(") || trimmed.starts_with("rgba(") || trimmed.starts_with("hsl("))
+        && trimmed.ends_with(')')
+    {
         return "color".to_string();
     }
 
     // Check URL / link
-    if trimmed.starts_with("http://") || trimmed.starts_with("https://") || trimmed.starts_with("file://") {
+    if trimmed.starts_with("http://")
+        || trimmed.starts_with("https://")
+        || trimmed.starts_with("file://")
+    {
         return "link".to_string();
     }
 
@@ -336,12 +360,18 @@ fn detect_content_type(text: &str) -> String {
 
 fn rgba_to_png(width: u32, height: u32, rgba_data: &[u8]) -> Option<Vec<u8>> {
     use image::{ImageBuffer, Rgba};
-    let imgbuf: ImageBuffer<Rgba<u8>, _> = ImageBuffer::from_raw(width, height, rgba_data.to_vec())?;
+    let imgbuf: ImageBuffer<Rgba<u8>, _> =
+        ImageBuffer::from_raw(width, height, rgba_data.to_vec())?;
     let mut cursor = std::io::Cursor::new(Vec::new());
-    if imgbuf.write_to(&mut cursor, image::ImageFormat::WebP).is_ok() {
+    if imgbuf
+        .write_to(&mut cursor, image::ImageFormat::WebP)
+        .is_ok()
+    {
         return Some(cursor.into_inner());
     }
     let mut fallback_cursor = std::io::Cursor::new(Vec::new());
-    imgbuf.write_to(&mut fallback_cursor, image::ImageFormat::Png).ok()?;
+    imgbuf
+        .write_to(&mut fallback_cursor, image::ImageFormat::Png)
+        .ok()?;
     Some(fallback_cursor.into_inner())
 }

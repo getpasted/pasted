@@ -657,52 +657,52 @@ html.light .theme-badge {
   border-color: #c7c7cc !important;
 }
 
-html.light .board-modal-card {
+html.light .bin-modal-card {
   background-color: #ffffff !important;
   color: #1c1c1e !important;
   border-color: #b0b0b6 !important;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15) !important;
 }
 
-html.light .board-modal-card div.bg-\[\#181920\],
-html.light .board-modal-card div.bg-\[\#1b1c24\] {
+html.light .bin-modal-card div.bg-\[\#181920\],
+html.light .bin-modal-card div.bg-\[\#1b1c24\] {
   background-color: #f4f4f7 !important;
   color: #1c1c1e !important;
   border-color: #b0b0b6 !important;
 }
 
-html.light .board-modal-card input.bg-\[\#181920\],
-html.light .board-modal-card select.bg-\[\#242630\],
-html.light .board-modal-card input.bg-\[\#242630\],
-html.light .board-modal-card button.bg-\[\#242630\] {
+html.light .bin-modal-card input.bg-\[\#181920\],
+html.light .bin-modal-card select.bg-\[\#242630\],
+html.light .bin-modal-card input.bg-\[\#242630\],
+html.light .bin-modal-card button.bg-\[\#242630\] {
   background-color: #ffffff !important;
   color: #1c1c1e !important;
   border-color: #b0b0b6 !important;
 }
 
-html.light .board-modal-card button.bg-\[\#242630\]:hover {
+html.light .bin-modal-card button.bg-\[\#242630\]:hover {
   background-color: #e5e5ea !important;
   color: #000000 !important;
 }
 
-html.light .board-modal-cancel-btn {
+html.light .bin-modal-cancel-btn {
   background-color: #e5e5ea !important;
   color: #1c1c1e !important;
   border-color: #b0b0b6 !important;
 }
 
-html.light .board-modal-cancel-btn:hover {
+html.light .bin-modal-cancel-btn:hover {
   background-color: #d1d1d6 !important;
   color: #000000 !important;
 }
 
-html.light .board-modal-ok-btn {
+html.light .bin-modal-ok-btn {
   background-color: #007aff !important;
   color: #ffffff !important;
   box-shadow: 0 2px 6px rgba(0, 122, 255, 0.3) !important;
 }
 
-html.light .board-modal-ok-btn:hover {
+html.light .bin-modal-ok-btn:hover {
   background-color: #0062cc !important;
   color: #ffffff !important;
 }
@@ -731,19 +731,19 @@ html.light .sidebar-add-btn:hover {
   color: inherit !important;
 }
 
-/* Board Modal Action Button High-Contrast Focus Rings */
-html.light .board-modal-cancel-btn:focus,
-html.light .board-modal-card button[type="submit"]:focus {
+/* Bin Modal Action Button High-Contrast Focus Rings */
+html.light .bin-modal-cancel-btn:focus,
+html.light .bin-modal-card button[type="submit"]:focus {
   outline: none !important;
   box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px #007aff !important;
 }
 
-html:not(.light) .board-modal-cancel-btn:focus {
+html:not(.light) .bin-modal-cancel-btn:focus {
   outline: none !important;
   box-shadow: 0 0 0 2px #212121, 0 0 0 4px #a0a0a5 !important;
 }
 
-html:not(.light) .board-modal-card button[type="submit"]:focus {
+html:not(.light) .bin-modal-card button[type="submit"]:focus {
   outline: none !important;
   box-shadow: 0 0 0 2px #212121, 0 0 0 4px #0a84ff !important;
 }
@@ -1342,7 +1342,7 @@ html.light .app-dialog-cancel:hover {
 }
 
 .app-dialog-panel,
-.board-modal-card,
+.bin-modal-card,
 .settings-page > div > div[class~="rounded-2xl"] {
   border-radius: var(--radius-panel) !important;
 }

@@ -1,21 +1,21 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { safeInvoke as invoke } from './utils/tauri';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { ClipItem, Board, FilterRule } from './types';
+import { ClipItem, Bin, FilterRule } from './types';
 import { Sidebar } from './components/Sidebar';
 import { ClipCard } from './components/ClipCard';
 import { ClipPreview } from './components/ClipPreview';
 import { SequentialQueueBar } from './components/SequentialQueueBar';
 import { FilterManager } from './components/FilterManager';
 import { SettingsModal } from './components/SettingsModal';
-import { BoardModal } from './components/BoardModal';
+import { BinModal } from './components/BinModal';
 import { ContextMenu } from './components/ContextMenu';
 import { QuickHudWindow } from './components/QuickHudWindow';
 import { ActivityLogView } from './components/ActivityLogView';
 import { AnalyticsView } from './components/AnalyticsView';
 import { HelpView } from './components/HelpView';
-import { BoardContextMenu } from './components/BoardContextMenu';
-import { DeleteBoardDialog } from './components/DeleteBoardDialog';
+import { BinContextMenu } from './components/BinContextMenu';
+import { DeleteBinDialog } from './components/DeleteBinDialog';
 import { ClipNoteDialog } from './components/ClipNoteDialog';
 import { ClearHistoryDialog, type ClearHistoryMode } from './components/ClearHistoryDialog';
 import { soundManager } from './utils/sound';
@@ -23,7 +23,7 @@ import { startWindowDrag } from './utils/windowDrag';
 import { useColumnResize } from './hooks/useColumnResize';
 import { useAppSettings } from './hooks/useAppSettings';
 import { useClipViews } from './hooks/useClipViews';
-import { useClipBoardDrag } from './hooks/useClipBoardDrag';
+import { useClipBinDrag } from './hooks/useClipBinDrag';
 import { useAppData } from './hooks/useAppData';
 import { Clipboard, Trash2, Pause, Disc, Square, Pin, X } from 'lucide-react';
 import './App.css';
@@ -66,8 +66,8 @@ export default function App() {
     setAllClips,
     trashedClips,
     setTrashedClips,
-    boards,
-    setBoards,
+    bins,
+    setBins,
     filters,
     sequentialStatus: seqStatus,
     totalClipCount,
@@ -76,7 +76,7 @@ export default function App() {
     ignoredAppStatus,
     fetchClips,
     fetchTrashedClips,
-    fetchBoards,
+    fetchBins,
     fetchFilters,
     fetchSequentialStatus,
     toggleClipboardPause: handleToggleClipboardPause,
@@ -89,10 +89,10 @@ export default function App() {
   const [selectedClipIds, setSelectedClipIds] = useState<Set<number>>(new Set());
   const [, setSelectedIndex] = useState<number>(0);
   const [currentTab, setCurrentTab] = useState<string>('all');
-  const [selectedBoardId, setSelectedBoardId] = useState<number | null>(null);
+  const [selectedBinId, setSelectedBinId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [isBoardModalOpen, setIsBoardModalOpen] = useState<boolean>(false);
-  const [editingBoard, setEditingBoard] = useState<Board | null>(null);
+  const [isBinModalOpen, setIsBinModalOpen] = useState<boolean>(false);
+  const [editingBin, setEditingBin] = useState<Bin | null>(null);
   const [clearHistoryMode, setClearHistoryMode] = useState<ClearHistoryMode | null>(null);
   const isClearConfirmOpen = clearHistoryMode !== null;
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
@@ -104,7 +104,7 @@ export default function App() {
       } else {
         await invoke('start_sequential_paste');
         setCurrentTab('sequential');
-        setSelectedBoardId(null);
+        setSelectedBinId(null);
       }
       fetchSequentialStatus();
     } catch (e) {
@@ -119,15 +119,15 @@ export default function App() {
     clip: ClipItem;
   } | null>(null);
 
-  // Board Context Menu State
-  const [boardContextMenu, setBoardContextMenu] = useState<{
+  // Bin Context Menu State
+  const [binContextMenu, setBinContextMenu] = useState<{
     x: number;
     y: number;
-    board: Board;
+    bin: Bin;
   } | null>(null);
 
   // Custom Bin Deletion Confirmation Modal State
-  const [binToDelete, setBinToDelete] = useState<Board | null>(null);
+  const [binToDelete, setBinToDelete] = useState<Bin | null>(null);
 
   // Custom Note Editing Modal State
   const [notePromptClip, setNotePromptClip] = useState<ClipItem | null>(null);
@@ -144,15 +144,15 @@ export default function App() {
   } = useColumnResize();
 
   useEffect(() => {
-    if (!boardContextMenu) return;
+    if (!binContextMenu) return;
     const handleClickOutside = (e: MouseEvent) => {
       const target = e.target as HTMLElement | null;
-      if (target && target.closest('.board-context-menu')) return;
-      setBoardContextMenu(null);
+      if (target && target.closest('.bin-context-menu')) return;
+      setBinContextMenu(null);
     };
     window.addEventListener('mousedown', handleClickOutside);
     return () => window.removeEventListener('mousedown', handleClickOutside);
-  }, [boardContextMenu]);
+  }, [binContextMenu]);
 
   // Global Escape key listener to cancel any active modal or context menu
   useEffect(() => {
@@ -170,25 +170,25 @@ export default function App() {
           e.preventDefault();
           e.stopPropagation();
           setClearHistoryMode(null);
-        } else if (boardContextMenu) {
+        } else if (binContextMenu) {
           e.preventDefault();
           e.stopPropagation();
-          setBoardContextMenu(null);
+          setBinContextMenu(null);
         } else if (contextMenu) {
           e.preventDefault();
           e.stopPropagation();
           setContextMenu(null);
-        } else if (isBoardModalOpen) {
+        } else if (isBinModalOpen) {
           e.preventDefault();
           e.stopPropagation();
-          setIsBoardModalOpen(false);
-          setEditingBoard(null);
+          setIsBinModalOpen(false);
+          setEditingBin(null);
         }
       }
     };
     window.addEventListener('keydown', handleGlobalKeyDown, true);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown, true);
-  }, [notePromptClip, binToDelete, isClearConfirmOpen, boardContextMenu, contextMenu, isBoardModalOpen]);
+  }, [notePromptClip, binToDelete, isClearConfirmOpen, binContextMenu, contextMenu, isBinModalOpen]);
 
   // Disable WebKit default right-click context menu (Reload/Inspect) app-wide
   useEffect(() => {
@@ -208,9 +208,9 @@ export default function App() {
   } = useClipViews({
     allClips,
     trashedClips,
-    boards,
+    bins,
     currentTab,
-    selectedBoardId,
+    selectedBinId,
     searchQuery,
     sequentialStatus: seqStatus,
   });
@@ -284,22 +284,22 @@ export default function App() {
   const {
     draggedClipId,
     setDraggedClipId,
-    pointerDropTargetBoardId,
-    setPointerDropTargetBoardId,
+    pointerDropTargetBinId,
+    setPointerDropTargetBinId,
     clipDragPreview,
     setClipDragPreview,
-    disabledDropBoardId,
+    disabledDropBinId,
     getPointerDropTarget,
-    assignClipToBoard: handleAssignClipToBoard,
+    assignClipToBin: handleAssignClipToBin,
     finishClipPointerDrag: handleClipPointerDragEnd,
-  } = useClipBoardDrag({
+  } = useClipBinDrag({
     allClips,
     setAllClips,
-    boards,
-    setBoards,
+    bins,
+    setBins,
     selectedClipIds,
     enableSounds: appSettings.enableSounds,
-    fetchBoards,
+    fetchBins,
     fetchClips,
   });
 
@@ -430,26 +430,26 @@ export default function App() {
     }
   };
 
-  const handleAssignBoard = async (clipId: number, boardId: number | null) => {
+  const handleAssignBin = async (clipId: number, binId: number | null) => {
     const targetClip = allClips.find((c) => c.id === clipId);
-    const categoryBoardIds = new Set(
-      boards.filter((board) => board.board_type !== 'tag').map((board) => board.id)
+    const categoryBinIds = new Set(
+      bins.filter((bin) => bin.bin_type !== 'tag').map((bin) => bin.id)
     );
-    const oldBoardIds = new Set([
-      ...(targetClip?.board_ids || []).filter((id) => categoryBoardIds.has(id)),
-      ...(targetClip?.board_id && categoryBoardIds.has(targetClip.board_id) ? [targetClip.board_id] : []),
+    const oldBinIds = new Set([
+      ...(targetClip?.bin_ids || []).filter((id) => categoryBinIds.has(id)),
+      ...(targetClip?.bin_id && categoryBinIds.has(targetClip.bin_id) ? [targetClip.bin_id] : []),
     ]);
 
     // 0ms optimistic state mutation for clip
     setAllClips((prev) =>
       prev.map((c) => {
         if (c.id !== clipId) return c;
-        const tagIds = (c.board_ids || []).filter((id) => !categoryBoardIds.has(id));
-        const nextBids = boardId === null ? tagIds : [...tagIds, boardId];
+        const tagIds = (c.bin_ids || []).filter((id) => !categoryBinIds.has(id));
+        const nextBids = binId === null ? tagIds : [...tagIds, binId];
         return {
           ...c,
-          board_id: boardId,
-          board_ids: nextBids,
+          bin_id: binId,
+          bin_ids: nextBids,
         };
       })
     );
@@ -457,23 +457,23 @@ export default function App() {
       prev && prev.id === clipId
         ? {
             ...prev,
-            board_id: boardId,
-            board_ids: boardId === null
-              ? (prev.board_ids || []).filter((id) => !categoryBoardIds.has(id))
-              : [...(prev.board_ids || []).filter((id) => !categoryBoardIds.has(id)), boardId],
+            bin_id: binId,
+            bin_ids: binId === null
+              ? (prev.bin_ids || []).filter((id) => !categoryBinIds.has(id))
+              : [...(prev.bin_ids || []).filter((id) => !categoryBinIds.has(id)), binId],
           }
         : prev
     );
 
-    // 0ms optimistic board count update for sidebar badge
-    if (!oldBoardIds.has(boardId ?? -1) || oldBoardIds.size > 1 || boardId === null) {
-      setBoards((prev) =>
+    // 0ms optimistic bin count update for sidebar badge
+    if (!oldBinIds.has(binId ?? -1) || oldBinIds.size > 1 || binId === null) {
+      setBins((prev) =>
         prev.map((b) => {
-          if (b.board_type === 'tag') return b;
-          if (oldBoardIds.has(b.id) && b.id !== boardId) {
+          if (b.bin_type === 'tag') return b;
+          if (oldBinIds.has(b.id) && b.id !== binId) {
             return { ...b, clip_count: Math.max(0, (b.clip_count || 1) - 1) };
           }
-          if (b.id === boardId && !oldBoardIds.has(boardId)) {
+          if (b.id === binId && !oldBinIds.has(binId)) {
             return { ...b, clip_count: (b.clip_count || 0) + 1 };
           }
           return b;
@@ -482,13 +482,13 @@ export default function App() {
     }
 
     try {
-      await invoke('assign_clip_board', { clipId, boardId });
-      fetchBoards();
+      await invoke('assign_clip_bin', { clipId, binId });
+      fetchBins();
       fetchClips();
     } catch (e) {
       console.error(e);
       fetchClips();
-      fetchBoards();
+      fetchBins();
     }
   };
 
@@ -547,7 +547,7 @@ export default function App() {
     try {
       await invoke(clearHistoryMode === 'purge' ? 'purge_unpinned_clips' : 'trash_unpinned_clips');
       setClearHistoryMode(null);
-      await Promise.all([fetchClips(), fetchTrashedClips(), fetchBoards()]);
+      await Promise.all([fetchClips(), fetchTrashedClips(), fetchBins()]);
     } catch (e) {
       console.error(e);
     }
@@ -593,24 +593,24 @@ export default function App() {
       <Sidebar
         currentTab={currentTab}
         setCurrentTab={setCurrentTab}
-        selectedBoardId={selectedBoardId}
-        setSelectedBoardId={setSelectedBoardId}
-        boards={boards}
-        onRefreshBoards={fetchBoards}
-        onOpenNewBoardModal={() => {
-          setEditingBoard(null);
-          setIsBoardModalOpen(true);
+        selectedBinId={selectedBinId}
+        setSelectedBinId={setSelectedBinId}
+        bins={bins}
+        onRefreshBins={fetchBins}
+        onOpenNewBinModal={() => {
+          setEditingBin(null);
+          setIsBinModalOpen(true);
         }}
-        onEditBoard={(board) => {
-          setEditingBoard(board);
-          setIsBoardModalOpen(true);
+        onEditBin={(bin) => {
+          setEditingBin(bin);
+          setIsBinModalOpen(true);
         }}
-        onDeleteBoard={(board) => setBinToDelete(board)}
-        onBoardContextMenu={(x, y, board) => setBoardContextMenu({ x, y, board })}
-        onClipDropOnBoard={handleAssignClipToBoard}
+        onDeleteBin={(bin) => setBinToDelete(bin)}
+        onBinContextMenu={(x, y, bin) => setBinContextMenu({ x, y, bin })}
+        onClipDropOnBin={handleAssignClipToBin}
         draggedClipId={draggedClipId}
-        pointerDropTargetBoardId={pointerDropTargetBoardId}
-        disabledDropBoardId={disabledDropBoardId}
+        pointerDropTargetBinId={pointerDropTargetBinId}
+        disabledDropBinId={disabledDropBinId}
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
         seqStatus={seqStatus}
@@ -656,8 +656,8 @@ export default function App() {
           onToggleBlacklistRule={handleToggleBlacklistRule}
           filters={filters}
           onRefreshFilters={fetchFilters}
-          boards={boards}
-          onRefreshBoards={fetchBoards}
+          bins={bins}
+          onRefreshBins={fetchBins}
           onRefreshClips={fetchClips}
           onClearHistory={(permanent) => setClearHistoryMode(permanent ? 'purge' : 'trash')}
           onResetColumnWidths={resetColumnWidths}
@@ -687,8 +687,8 @@ export default function App() {
                     ? 'Queue'
                     : currentTab === 'trash'
                     ? 'Trashed'
-                    : selectedBoardId
-                    ? boards.find((b) => b.id === selectedBoardId)?.name || 'Board'
+                    : selectedBinId
+                    ? bins.find((b) => b.id === selectedBinId)?.name || 'Bin'
                     : 'All'}
                 </h2>
               </div>
@@ -786,12 +786,12 @@ export default function App() {
                         setDraggedClipId(id);
                       }}
                       onPointerDragMove={(x, y) => {
-                        setPointerDropTargetBoardId(getPointerDropTarget(x, y));
+                        setPointerDropTargetBinId(getPointerDropTarget(x, y));
                         setClipDragPreview({ clipId: clip.id, x, y });
                       }}
                       onPointerDragEnd={handleClipPointerDragEnd}
                       onPointerDragCancel={() => {
-                        setPointerDropTargetBoardId(null);
+                        setPointerDropTargetBinId(null);
                         setClipDragPreview(null);
                       }}
                       onSelect={(e) => {
@@ -936,10 +936,10 @@ export default function App() {
           {/* Right Detail Preview Panel */}
           <ClipPreview
             clip={selectedClip}
-            boards={boards}
+            bins={bins}
             filters={filters}
             onUpdateClip={fetchClips}
-            onAssignBoard={handleAssignBoard}
+            onAssignBin={handleAssignBin}
             onDeleteClip={handleDeleteClip}
             onUpdateClipNote={handleUpdateClipNoteLocally}
           />
@@ -953,33 +953,33 @@ export default function App() {
           y={contextMenu.y}
           clip={contextMenu.clip}
           selectedCount={selectedClipIds.has(contextMenu.clip.id) ? selectedClipIds.size : 1}
-          boards={boards}
+          bins={bins}
           filters={filters}
           onClose={() => setContextMenu(null)}
           onCopy={() => handleCopyClip(contextMenu.clip)}
-          onAssignBoard={(boardId) => {
+          onAssignBin={(binId) => {
             if (selectedClipIds.size > 1 && selectedClipIds.has(contextMenu.clip.id)) {
               const ids = Array.from(selectedClipIds);
               setAllClips((prev) =>
                 prev.map((c) => {
                   if (!ids.includes(c.id)) return c;
-                  const categoryBoardIds = new Set(
-                    boards.filter((board) => board.board_type !== 'tag').map((board) => board.id)
+                  const categoryBinIds = new Set(
+                    bins.filter((bin) => bin.bin_type !== 'tag').map((bin) => bin.id)
                   );
-                  const tagIds = (c.board_ids || []).filter((id) => !categoryBoardIds.has(id));
-                  const nextBids = boardId === null ? tagIds : [...tagIds, boardId];
-                  return { ...c, board_id: boardId, board_ids: nextBids };
+                  const tagIds = (c.bin_ids || []).filter((id) => !categoryBinIds.has(id));
+                  const nextBids = binId === null ? tagIds : [...tagIds, binId];
+                  return { ...c, bin_id: binId, bin_ids: nextBids };
                 })
               );
-              invoke('batch_assign_board_clips', { ids, boardId })
-                .then(() => fetchBoards())
+              invoke('batch_assign_bin_clips', { ids, binId })
+                .then(() => fetchBins())
                 .catch((e) => {
                   console.error(e);
                   fetchClips();
-                  fetchBoards();
+                  fetchBins();
                 });
             } else {
-              handleAssignBoard(contextMenu.clip.id, boardId);
+              handleAssignBin(contextMenu.clip.id, binId);
             }
           }}
           onApplyFilter={(filter) => handleApplyFilterToClip(contextMenu.clip, filter)}
@@ -992,47 +992,47 @@ export default function App() {
         />
       )}
 
-      {/* Root-Level macOS Right-Click Context Menu for Custom Boards */}
-      {boardContextMenu && (
-        <BoardContextMenu
-          menu={boardContextMenu}
-          onEdit={(board) => {
-            setBoardContextMenu(null);
-            setEditingBoard(board);
-            setIsBoardModalOpen(true);
+      {/* Root-Level macOS Right-Click Context Menu for Custom Bins */}
+      {binContextMenu && (
+        <BinContextMenu
+          menu={binContextMenu}
+          onEdit={(bin) => {
+            setBinContextMenu(null);
+            setEditingBin(bin);
+            setIsBinModalOpen(true);
           }}
-          onDelete={(board) => {
-            setBoardContextMenu(null);
-            setBinToDelete(board);
+          onDelete={(bin) => {
+            setBinContextMenu(null);
+            setBinToDelete(bin);
           }}
         />
       )}
 
-      {/* Custom Board Creator / Editor Modal */}
-      <BoardModal
-        key={editingBoard ? `edit-${editingBoard.id}` : 'new-bin'}
-        isOpen={isBoardModalOpen}
-        editingBoard={editingBoard}
+      {/* Custom Bin Creator / Editor Modal */}
+      <BinModal
+        key={editingBin ? `edit-${editingBin.id}` : 'new-bin'}
+        isOpen={isBinModalOpen}
+        editingBin={editingBin}
         onClose={() => {
-          setIsBoardModalOpen(false);
-          setEditingBoard(null);
+          setIsBinModalOpen(false);
+          setEditingBin(null);
         }}
-        onRefreshBoards={fetchBoards}
+        onRefreshBins={fetchBins}
       />
 
       {/* Delete Bin Confirmation Modal */}
       {binToDelete && (
-        <DeleteBoardDialog
-          board={binToDelete}
+        <DeleteBinDialog
+          bin={binToDelete}
           onCancel={() => setBinToDelete(null)}
-          onConfirm={async (board) => {
+          onConfirm={async (bin) => {
             try {
-              await invoke('delete_board', { id: board.id });
+              await invoke('delete_bin', { id: bin.id });
               setBinToDelete(null);
-              fetchBoards();
-              if (selectedBoardId === board.id) {
+              fetchBins();
+              if (selectedBinId === bin.id) {
                 setCurrentTab('all');
-                setSelectedBoardId(null);
+                setSelectedBinId(null);
               }
             } catch (err) {
               console.error(err);

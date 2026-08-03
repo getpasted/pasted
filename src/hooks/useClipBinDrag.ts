@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState, type Dispatch, type SetStateAction } from 'react';
-import type { Board, ClipItem } from '../types';
+import type { Bin, ClipItem } from '../types';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { soundManager } from '../utils/sound';
 
@@ -9,110 +9,110 @@ interface ClipDragPreview {
   y: number;
 }
 
-interface ClipBoardDragInput {
+interface ClipBinDragInput {
   allClips: ClipItem[];
   setAllClips: Dispatch<SetStateAction<ClipItem[]>>;
-  boards: Board[];
-  setBoards: Dispatch<SetStateAction<Board[]>>;
+  bins: Bin[];
+  setBins: Dispatch<SetStateAction<Bin[]>>;
   selectedClipIds: Set<number>;
   enableSounds: boolean;
-  fetchBoards: () => Promise<void>;
+  fetchBins: () => Promise<void>;
   fetchClips: () => Promise<void>;
 }
 
-export function useClipBoardDrag({
+export function useClipBinDrag({
   allClips,
   setAllClips,
-  boards,
-  setBoards,
+  bins,
+  setBins,
   selectedClipIds,
   enableSounds,
-  fetchBoards,
+  fetchBins,
   fetchClips,
-}: ClipBoardDragInput) {
+}: ClipBinDragInput) {
   const [draggedClipId, setDraggedClipId] = useState<number | null>(null);
-  const [pointerDropTargetBoardId, setPointerDropTargetBoardId] = useState<number | null>(null);
+  const [pointerDropTargetBinId, setPointerDropTargetBinId] = useState<number | null>(null);
   const [clipDragPreview, setClipDragPreview] = useState<ClipDragPreview | null>(null);
 
-  const disabledDropBoardId = useMemo(() => {
+  const disabledDropBinId = useMemo(() => {
     if (draggedClipId === null) return null;
     const draggedIds = selectedClipIds.size > 1 && selectedClipIds.has(draggedClipId)
       ? Array.from(selectedClipIds)
       : [draggedClipId];
     const draggedClips = allClips.filter((clip) => draggedIds.includes(clip.id));
     if (draggedClips.length !== draggedIds.length) return null;
-    const currentBoardId = draggedClips[0]?.board_id ?? null;
-    if (currentBoardId === null || !draggedClips.every((clip) => clip.board_id === currentBoardId)) {
+    const currentBinId = draggedClips[0]?.bin_id ?? null;
+    if (currentBinId === null || !draggedClips.every((clip) => clip.bin_id === currentBinId)) {
       return null;
     }
-    return boards.find((board) => board.id === currentBoardId && board.board_type !== 'tag')
-      ? currentBoardId
+    return bins.find((bin) => bin.id === currentBinId && bin.bin_type !== 'tag')
+      ? currentBinId
       : null;
-  }, [allClips, boards, draggedClipId, selectedClipIds]);
+  }, [allClips, bins, draggedClipId, selectedClipIds]);
 
   const getPointerDropTarget = useCallback((x: number, y: number) => {
     const target = document
       .elementFromPoint(x, y)
-      ?.closest<HTMLElement>('[data-bin-drop-board-id]');
+      ?.closest<HTMLElement>('[data-bin-drop-bin-id]');
     if (!target) return null;
-    const boardId = Number(target.dataset.binDropBoardId);
-    return Number.isInteger(boardId) && boardId > 0 ? boardId : null;
+    const binId = Number(target.dataset.binDropBinId);
+    return Number.isInteger(binId) && binId > 0 ? binId : null;
   }, []);
 
-  const assignClipToBoard = useCallback(async (clipId: number, boardId: number) => {
+  const assignClipToBin = useCallback(async (clipId: number, binId: number) => {
     const isBatch = selectedClipIds.size > 1 && selectedClipIds.has(clipId);
     const targetIds = isBatch ? Array.from(selectedClipIds) : [clipId];
     const targetClips = allClips.filter((clip) => targetIds.includes(clip.id));
-    const categoryBoardIds = new Set(
-      boards.filter((board) => board.board_type !== 'tag').map((board) => board.id)
+    const categoryBinIds = new Set(
+      bins.filter((bin) => bin.bin_type !== 'tag').map((bin) => bin.id)
     );
 
     setAllClips((previous) => previous.map((clip) => {
       if (!targetIds.includes(clip.id)) return clip;
-      const tagIds = (clip.board_ids || []).filter((id) => !categoryBoardIds.has(id));
-      return { ...clip, board_id: boardId, board_ids: [...tagIds, boardId] };
+      const tagIds = (clip.bin_ids || []).filter((id) => !categoryBinIds.has(id));
+      return { ...clip, bin_id: binId, bin_ids: [...tagIds, binId] };
     }));
 
-    setBoards((previous) => previous.map((board) => {
-      if (board.board_type === 'tag') return board;
+    setBins((previous) => previous.map((bin) => {
+      if (bin.bin_type === 'tag') return bin;
       let delta = 0;
       for (const clip of targetClips) {
         const oldBinIds = new Set([
-          ...(clip.board_ids || []).filter((id) => categoryBoardIds.has(id)),
-          ...(clip.board_id && categoryBoardIds.has(clip.board_id) ? [clip.board_id] : []),
+          ...(clip.bin_ids || []).filter((id) => categoryBinIds.has(id)),
+          ...(clip.bin_id && categoryBinIds.has(clip.bin_id) ? [clip.bin_id] : []),
         ]);
-        if (oldBinIds.has(board.id) && board.id !== boardId) delta -= 1;
-        if (board.id === boardId && !oldBinIds.has(boardId)) delta += 1;
+        if (oldBinIds.has(bin.id) && bin.id !== binId) delta -= 1;
+        if (bin.id === binId && !oldBinIds.has(binId)) delta += 1;
       }
       return delta === 0
-        ? board
-        : { ...board, clip_count: Math.max(0, (board.clip_count || 0) + delta) };
+        ? bin
+        : { ...bin, clip_count: Math.max(0, (bin.clip_count || 0) + delta) };
     }));
 
     soundManager.playCopySound(enableSounds);
 
     try {
       if (isBatch) {
-        await invoke('batch_assign_board_clips', { ids: targetIds, boardId });
+        await invoke('batch_assign_bin_clips', { ids: targetIds, binId });
       } else {
-        await invoke('assign_clip_board', { clipId, boardId });
+        await invoke('assign_clip_bin', { clipId, binId });
       }
-      void fetchBoards();
+      void fetchBins();
       void fetchClips();
     } catch (error) {
-      console.error('Failed to assign clip to board:', error);
+      console.error('Failed to assign clip to bin:', error);
       void fetchClips();
-      void fetchBoards();
+      void fetchBins();
     }
-  }, [allClips, boards, enableSounds, fetchBoards, fetchClips, selectedClipIds, setAllClips, setBoards]);
+  }, [allClips, bins, enableSounds, fetchBins, fetchClips, selectedClipIds, setAllClips, setBins]);
 
   const finishClipPointerDrag = useCallback(async (x: number, y: number, clipId: number) => {
-    const boardId = getPointerDropTarget(x, y);
-    setPointerDropTargetBoardId(null);
+    const binId = getPointerDropTarget(x, y);
+    setPointerDropTargetBinId(null);
     setClipDragPreview(null);
 
-    if (boardId !== null) {
-      await assignClipToBoard(clipId, boardId);
+    if (binId !== null) {
+      await assignClipToBin(clipId, binId);
       return;
     }
 
@@ -136,18 +136,18 @@ export function useClipBoardDrag({
       console.error('Failed to save pin order:', error);
       void fetchClips();
     }
-  }, [allClips, assignClipToBoard, fetchClips, getPointerDropTarget, setAllClips]);
+  }, [allClips, assignClipToBin, fetchClips, getPointerDropTarget, setAllClips]);
 
   return {
     draggedClipId,
     setDraggedClipId,
-    pointerDropTargetBoardId,
-    setPointerDropTargetBoardId,
+    pointerDropTargetBinId,
+    setPointerDropTargetBinId,
     clipDragPreview,
     setClipDragPreview,
-    disabledDropBoardId,
+    disabledDropBinId,
     getPointerDropTarget,
-    assignClipToBoard,
+    assignClipToBin,
     finishClipPointerDrag,
   };
 }

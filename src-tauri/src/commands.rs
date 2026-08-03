@@ -5,18 +5,18 @@ use std::thread;
 use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager, State};
 
-use crate::db::{Board, ClipItem, DbState, FilterRule};
+use crate::db::{Bin, ClipItem, DbState, FilterRule};
 use crate::filter_engine::apply_filter;
 use crate::sequential_paste::{SequentialQueueState, SequentialStatus};
 
 #[tauri::command]
 pub fn get_clips(
     search_query: Option<String>,
-    board_id: Option<i64>,
+    bin_id: Option<i64>,
     only_pinned: bool,
     db: State<'_, Arc<DbState>>,
 ) -> Result<Vec<ClipItem>, String> {
-    db.get_clips(search_query.as_deref(), board_id, only_pinned)
+    db.get_clips(search_query.as_deref(), bin_id, only_pinned)
         .map_err(|e| e.to_string())
 }
 
@@ -56,7 +56,8 @@ pub fn get_activity_logs(
     offset: Option<i64>,
     db: State<'_, Arc<DbState>>,
 ) -> Result<Vec<crate::db::ActivityLog>, String> {
-    db.get_activity_logs(limit, offset).map_err(|e| e.to_string())
+    db.get_activity_logs(limit, offset)
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -91,10 +92,7 @@ pub fn play_system_sound(sound_id: Option<u32>) {
 pub fn play_system_sound(_sound_id: Option<u32>) {}
 
 #[tauri::command]
-pub fn get_app_setting(
-    key: String,
-    db: State<'_, Arc<DbState>>,
-) -> Result<Option<String>, String> {
+pub fn get_app_setting(key: String, db: State<'_, Arc<DbState>>) -> Result<Option<String>, String> {
     db.get_setting(&key).map_err(|e| e.to_string())
 }
 
@@ -106,10 +104,7 @@ pub fn get_all_app_settings(
 }
 
 #[tauri::command]
-pub fn enforce_clip_retention(
-    keep_count: i64,
-    db: State<'_, Arc<DbState>>,
-) -> Result<(), String> {
+pub fn enforce_clip_retention(keep_count: i64, db: State<'_, Arc<DbState>>) -> Result<(), String> {
     db.purge_old_clips(keep_count).map_err(|e| e.to_string())
 }
 
@@ -144,40 +139,36 @@ pub fn toggle_pin_clip(id: i64, db: State<'_, Arc<DbState>>) -> Result<bool, Str
 }
 
 #[tauri::command]
-pub fn assign_clip_board(
+pub fn assign_clip_bin(
     clip_id: i64,
-    board_id: Option<i64>,
+    bin_id: Option<i64>,
     db: State<'_, Arc<DbState>>,
 ) -> Result<(), String> {
-    db.assign_to_board(clip_id, board_id)
+    db.assign_to_bin(clip_id, bin_id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn add_clip_to_bin(
+    clip_id: i64,
+    bin_id: i64,
+    db: State<'_, Arc<DbState>>,
+) -> Result<(), String> {
+    db.add_clip_to_bin(clip_id, bin_id)
         .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub fn add_clip_to_board(
+pub fn remove_clip_from_bin(
     clip_id: i64,
-    board_id: i64,
+    bin_id: i64,
     db: State<'_, Arc<DbState>>,
 ) -> Result<(), String> {
-    db.add_clip_to_board(clip_id, board_id)
+    db.remove_clip_from_bin(clip_id, bin_id)
         .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub fn remove_clip_from_board(
-    clip_id: i64,
-    board_id: i64,
-    db: State<'_, Arc<DbState>>,
-) -> Result<(), String> {
-    db.remove_clip_from_board(clip_id, board_id)
-        .map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-pub fn reorder_pinned_clips(
-    ids: Vec<i64>,
-    db: State<'_, Arc<DbState>>,
-) -> Result<(), String> {
+pub fn reorder_pinned_clips(ids: Vec<i64>, db: State<'_, Arc<DbState>>) -> Result<(), String> {
     db.reorder_pinned_clips(ids).map_err(|e| e.to_string())
 }
 
@@ -194,8 +185,8 @@ pub fn create_tag(
     name: String,
     color: String,
     db: State<'_, Arc<DbState>>,
-) -> Result<crate::db::Board, String> {
-    db.create_board_with_type(&name, "Tag", &color, None, "tag")
+) -> Result<crate::db::Bin, String> {
+    db.create_bin_with_type(&name, "Tag", &color, None, "tag")
         .map_err(|e| e.to_string())
 }
 
@@ -205,46 +196,37 @@ pub fn batch_pin_clips(
     pin_state: bool,
     db: State<'_, Arc<DbState>>,
 ) -> Result<(), String> {
-    db.batch_pin_clips(ids, pin_state).map_err(|e| e.to_string())
+    db.batch_pin_clips(ids, pin_state)
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub fn batch_trash_clips(
-    ids: Vec<i64>,
-    db: State<'_, Arc<DbState>>,
-) -> Result<(), String> {
+pub fn batch_trash_clips(ids: Vec<i64>, db: State<'_, Arc<DbState>>) -> Result<(), String> {
     db.batch_trash_clips(ids).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub fn batch_assign_board_clips(
+pub fn batch_assign_bin_clips(
     ids: Vec<i64>,
-    board_id: Option<i64>,
+    bin_id: Option<i64>,
     db: State<'_, Arc<DbState>>,
 ) -> Result<(), String> {
-    db.batch_assign_board_clips(ids, board_id).map_err(|e| e.to_string())
+    db.batch_assign_bin_clips(ids, bin_id)
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub fn export_backup_json(
-    db: State<'_, Arc<DbState>>,
-) -> Result<String, String> {
+pub fn export_backup_json(db: State<'_, Arc<DbState>>) -> Result<String, String> {
     db.export_backup_json().map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub fn import_backup_json(
-    json_str: String,
-    db: State<'_, Arc<DbState>>,
-) -> Result<usize, String> {
+pub fn import_backup_json(json_str: String, db: State<'_, Arc<DbState>>) -> Result<usize, String> {
     db.import_backup_json(&json_str).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub fn set_vault_passcode(
-    passcode: String,
-    db: State<'_, Arc<DbState>>,
-) -> Result<(), String> {
+pub fn set_vault_passcode(passcode: String, db: State<'_, Arc<DbState>>) -> Result<(), String> {
     db.set_vault_passcode(&passcode).map_err(|e| e.to_string())
 }
 
@@ -253,7 +235,8 @@ pub fn verify_vault_passcode(
     passcode: String,
     db: State<'_, Arc<DbState>>,
 ) -> Result<bool, String> {
-    db.verify_vault_passcode(&passcode).map_err(|e| e.to_string())
+    db.verify_vault_passcode(&passcode)
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -285,29 +268,29 @@ pub fn copy_clip_to_system(
 }
 
 #[tauri::command]
-pub fn get_boards(db: State<'_, Arc<DbState>>) -> Result<Vec<Board>, String> {
-    db.get_boards().map_err(|e| e.to_string())
+pub fn get_bins(db: State<'_, Arc<DbState>>) -> Result<Vec<Bin>, String> {
+    db.get_bins().map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub fn create_board(
+pub fn create_bin(
     name: String,
     icon: String,
     color: String,
     smart_rule: Option<String>,
     db: State<'_, Arc<DbState>>,
-) -> Result<Board, String> {
-    db.create_board(&name, &icon, &color, smart_rule.as_deref())
+) -> Result<Bin, String> {
+    db.create_bin(&name, &icon, &color, smart_rule.as_deref())
         .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub fn delete_board(id: i64, db: State<'_, Arc<DbState>>) -> Result<(), String> {
-    db.delete_board(id).map_err(|e| e.to_string())
+pub fn delete_bin(id: i64, db: State<'_, Arc<DbState>>) -> Result<(), String> {
+    db.delete_bin(id).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub fn update_board(
+pub fn update_bin(
     id: i64,
     name: String,
     icon: String,
@@ -315,7 +298,7 @@ pub fn update_board(
     smart_rule: Option<String>,
     db: State<'_, Arc<DbState>>,
 ) -> Result<(), String> {
-    db.update_board(id, &name, &icon, &color, smart_rule.as_deref())
+    db.update_bin(id, &name, &icon, &color, smart_rule.as_deref())
         .map_err(|e| e.to_string())
 }
 
@@ -350,13 +333,13 @@ pub fn update_filter_shortcut(
 }
 
 #[tauri::command]
-pub fn update_board_shortcut(
+pub fn update_bin_shortcut(
     id: i64,
     shortcut: Option<String>,
     db: State<'_, Arc<DbState>>,
     app: AppHandle,
 ) -> Result<(), String> {
-    db.update_board_shortcut(id, shortcut.as_deref())
+    db.update_bin_shortcut(id, shortcut.as_deref())
         .map_err(|e| e.to_string())?;
     let _ = register_all_app_shortcuts(&app);
     Ok(())
@@ -461,10 +444,7 @@ pub fn simulate_cmd_v_paste() {
 #[cfg(target_os = "linux")]
 pub fn simulate_cmd_v_paste() {
     use std::process::Command;
-    let _ = Command::new("xdotool")
-        .arg("key")
-        .arg("ctrl+v")
-        .spawn();
+    let _ = Command::new("xdotool").arg("key").arg("ctrl+v").spawn();
 }
 
 #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
@@ -579,7 +559,10 @@ pub fn toggle_hud_window(app: AppHandle) -> Result<(), String> {
     println!("[Pasted HUD] toggle_hud_window invoked!");
     if let Some(window) = app.get_webview_window("hud") {
         let is_vis = window.is_visible().unwrap_or(false);
-        println!("[Pasted HUD] Window 'hud' found! Currently visible: {}", is_vis);
+        println!(
+            "[Pasted HUD] Window 'hud' found! Currently visible: {}",
+            is_vis
+        );
         if is_vis {
             let _ = window.hide();
             println!("[Pasted HUD] Hidden HUD window.");
@@ -625,13 +608,15 @@ pub fn toggle_hud_window(app: AppHandle) -> Result<(), String> {
                             let mut primary_height = 1080.0;
 
                             if screen_count > 0 {
-                                let first_screen: *mut Object = msg_send![screens_array, objectAtIndex: 0usize];
+                                let first_screen: *mut Object =
+                                    msg_send![screens_array, objectAtIndex: 0usize];
                                 let first_frame: LocalRect = msg_send![first_screen, frame];
                                 primary_height = first_frame.size.height;
                             }
 
                             for i in 0..screen_count {
-                                let screen: *mut Object = msg_send![screens_array, objectAtIndex: i];
+                                let screen: *mut Object =
+                                    msg_send![screens_array, objectAtIndex: i];
                                 let frame: LocalRect = msg_send![screen, frame];
                                 if loc.x >= frame.origin.x
                                     && loc.x <= frame.origin.x + frame.size.width
@@ -643,15 +628,15 @@ pub fn toggle_hud_window(app: AppHandle) -> Result<(), String> {
                                 }
                             }
 
-                            let active_screen = target_screen.unwrap_or_else(|| {
-                                msg_send![screens_cls, mainScreen]
-                            });
+                            let active_screen =
+                                target_screen.unwrap_or_else(|| msg_send![screens_cls, mainScreen]);
 
                             if !active_screen.is_null() {
                                 let vis_frame: LocalRect = msg_send![active_screen, visibleFrame];
 
                                 let mouse_top_y = primary_height - loc.y;
-                                let vis_top = primary_height - (vis_frame.origin.y + vis_frame.size.height);
+                                let vis_top =
+                                    primary_height - (vis_frame.origin.y + vis_frame.size.height);
                                 let vis_bottom = primary_height - vis_frame.origin.y;
                                 let vis_left = vis_frame.origin.x;
                                 let vis_right = vis_frame.origin.x + vis_frame.size.width;
@@ -661,14 +646,20 @@ pub fn toggle_hud_window(app: AppHandle) -> Result<(), String> {
 
                                 // Horizontal positioning (centered on cursor) & clamping
                                 let mut target_x = loc.x - (hud_width / 2.0);
-                                target_x = target_x.clamp(vis_left + 8.0, (vis_right - hud_width - 8.0).max(vis_left + 8.0));
+                                target_x = target_x.clamp(
+                                    vis_left + 8.0,
+                                    (vis_right - hud_width - 8.0).max(vis_left + 8.0),
+                                );
 
                                 // Vertical positioning & dynamic flip if near bottom edge
                                 let mut target_y = mouse_top_y + 8.0;
                                 if target_y + hud_height > vis_bottom - 8.0 {
                                     target_y = mouse_top_y - hud_height - 8.0;
                                 }
-                                target_y = target_y.clamp(vis_top + 8.0, (vis_bottom - hud_height - 8.0).max(vis_top + 8.0));
+                                target_y = target_y.clamp(
+                                    vis_top + 8.0,
+                                    (vis_bottom - hud_height - 8.0).max(vis_top + 8.0),
+                                );
 
                                 let is_flipped = target_y < mouse_top_y;
                                 let payload = serde_json::json!({
@@ -691,14 +682,19 @@ pub fn toggle_hud_window(app: AppHandle) -> Result<(), String> {
                                     let _: () = msg_send![ns_win, setHasShadow: 0i8];
                                     let _: () = msg_send![ns_win, setAlphaValue: 0.0f64];
                                     let cocoa_y = primary_height - target_y - hud_height;
-                                    let origin = LocalPoint { x: target_x, y: cocoa_y };
+                                    let origin = LocalPoint {
+                                        x: target_x,
+                                        y: cocoa_y,
+                                    };
                                     let _: () = msg_send![ns_win, setFrameOrigin: origin];
                                 }
 
-                                let _ = window.set_position(tauri::Position::Logical(tauri::LogicalPosition {
-                                    x: target_x,
-                                    y: target_y,
-                                }));
+                                let _ = window.set_position(tauri::Position::Logical(
+                                    tauri::LogicalPosition {
+                                        x: target_x,
+                                        y: target_y,
+                                    },
+                                ));
                             }
                         }
                     }
@@ -895,8 +891,10 @@ pub fn parse_shortcut_str(sc_str: &str) -> Option<tauri_plugin_global_shortcut::
     None
 }
 
-pub fn parse_shortcut_str_all_layouts(sc_str: &str) -> Option<Vec<tauri_plugin_global_shortcut::Shortcut>> {
-    use tauri_plugin_global_shortcut::{Shortcut, Modifiers};
+pub fn parse_shortcut_str_all_layouts(
+    sc_str: &str,
+) -> Option<Vec<tauri_plugin_global_shortcut::Shortcut>> {
+    use tauri_plugin_global_shortcut::{Modifiers, Shortcut};
 
     let s = sc_str.trim();
     if s.is_empty() {
@@ -948,11 +946,20 @@ fn try_register_shortcut(app: &AppHandle, sc_str: &str) {
     use tauri_plugin_global_shortcut::GlobalShortcutExt;
     if let Some(shortcut) = parse_shortcut_str(sc_str) {
         match app.global_shortcut().register(shortcut) {
-            Ok(_) => println!("[Pasted Shortcut Register Success] Registered '{}' -> {:?}", sc_str, shortcut),
-            Err(e) => eprintln!("[Pasted Shortcut Register Error] Failed to register '{}' -> {:?}", sc_str, e),
+            Ok(_) => println!(
+                "[Pasted Shortcut Register Success] Registered '{}' -> {:?}",
+                sc_str, shortcut
+            ),
+            Err(e) => eprintln!(
+                "[Pasted Shortcut Register Error] Failed to register '{}' -> {:?}",
+                sc_str, e
+            ),
         }
     } else {
-        eprintln!("[Pasted Shortcut Parse Error] Could not parse shortcut string: '{}'", sc_str);
+        eprintln!(
+            "[Pasted Shortcut Parse Error] Could not parse shortcut string: '{}'",
+            sc_str
+        );
     }
 }
 
@@ -1021,8 +1028,7 @@ pub fn request_accessibility_permission() -> bool {
     #[cfg(target_os = "linux")]
     {
         use std::process::Command;
-        let _ = Command::new("gnome-control-center")
-            .spawn();
+        let _ = Command::new("gnome-control-center").spawn();
         true
     }
     #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
@@ -1030,7 +1036,11 @@ pub fn request_accessibility_permission() -> bool {
 }
 
 #[tauri::command]
-pub fn register_app_setting_hotkey(key: String, value: String, app: AppHandle) -> Result<(), String> {
+pub fn register_app_setting_hotkey(
+    key: String,
+    value: String,
+    app: AppHandle,
+) -> Result<(), String> {
     let db = app.state::<Arc<DbState>>();
     let _ = db.save_setting(&key, &value);
     register_all_app_shortcuts(&app)
@@ -1084,7 +1094,11 @@ pub fn get_installed_applications(db: State<'_, Arc<DbState>>) -> Result<Vec<Str
 
     #[cfg(target_os = "macos")]
     {
-        let dirs = ["/Applications", "/System/Applications", "/System/Applications/Utilities"];
+        let dirs = [
+            "/Applications",
+            "/System/Applications",
+            "/System/Applications/Utilities",
+        ];
         for dir in &dirs {
             if let Ok(entries) = std::fs::read_dir(dir) {
                 for entry in entries.flatten() {
@@ -1118,9 +1132,21 @@ pub fn get_installed_applications(db: State<'_, Arc<DbState>>) -> Result<Vec<Str
     }
 
     let common = [
-        "1Password", "Bitwarden", "Safari", "Google Chrome", "Firefox", "Slack",
-        "Signal", "Telegram", "VS Code", "Terminal", "Warp", "Xcode", "Discord",
-        "Keychain Access", "Passwords"
+        "1Password",
+        "Bitwarden",
+        "Safari",
+        "Google Chrome",
+        "Firefox",
+        "Slack",
+        "Signal",
+        "Telegram",
+        "VS Code",
+        "Terminal",
+        "Warp",
+        "Xcode",
+        "Discord",
+        "Keychain Access",
+        "Passwords",
     ];
     for c in &common {
         apps.insert(c.to_string());
@@ -1130,12 +1156,12 @@ pub fn get_installed_applications(db: State<'_, Arc<DbState>>) -> Result<Vec<Str
 }
 
 #[tauri::command]
-pub fn extract_ocr_from_clip(
-    clip_id: i64,
-    db: State<'_, Arc<DbState>>,
-) -> Result<String, String> {
+pub fn extract_ocr_from_clip(clip_id: i64, db: State<'_, Arc<DbState>>) -> Result<String, String> {
     let clips = db.get_clips(None, None, false).map_err(|e| e.to_string())?;
-    let clip = clips.into_iter().find(|c| c.id == clip_id).ok_or("Clip not found")?;
+    let clip = clips
+        .into_iter()
+        .find(|c| c.id == clip_id)
+        .ok_or("Clip not found")?;
 
     if let Some(b64) = clip.image_base64 {
         let clean_b64 = if let Some(idx) = b64.find(',') {
@@ -1159,14 +1185,24 @@ pub fn toggle_clipboard_pause(
     monitor_state: State<'_, Arc<crate::clipboard_monitor::ClipboardMonitorState>>,
     db: State<'_, Arc<DbState>>,
 ) -> Result<bool, String> {
-    let current = monitor_state.is_manually_paused.load(std::sync::atomic::Ordering::Relaxed);
+    let current = monitor_state
+        .is_manually_paused
+        .load(std::sync::atomic::Ordering::Relaxed);
     let new_val = !current;
-    monitor_state.is_manually_paused.store(new_val, std::sync::atomic::Ordering::Relaxed);
+    monitor_state
+        .is_manually_paused
+        .store(new_val, std::sync::atomic::Ordering::Relaxed);
 
     if new_val {
-        let _ = db.log_activity("recording_manually_paused", "Clipboard recording manually paused");
+        let _ = db.log_activity(
+            "recording_manually_paused",
+            "Clipboard recording manually paused",
+        );
     } else {
-        let _ = db.log_activity("recording_manually_resumed", "Clipboard recording manually resumed");
+        let _ = db.log_activity(
+            "recording_manually_resumed",
+            "Clipboard recording manually resumed",
+        );
     }
 
     Ok(monitor_state.is_paused())
@@ -1205,14 +1241,17 @@ pub fn import_clips_json(json_str: String, db: State<'_, Arc<DbState>>) -> Resul
     let items: Vec<ClipItem> = serde_json::from_str(&json_str).map_err(|e| e.to_string())?;
     let mut count = 0;
     for item in items {
-        if db.save_clip(
-            &item.content_type,
-            item.text_content.as_deref(),
-            item.html_content.as_deref(),
-            item.image_base64.as_deref(),
-            &item.content_hash,
-            &item.source_app,
-        ).is_ok() {
+        if db
+            .save_clip(
+                &item.content_type,
+                item.text_content.as_deref(),
+                item.html_content.as_deref(),
+                item.image_base64.as_deref(),
+                &item.content_hash,
+                &item.source_app,
+            )
+            .is_ok()
+        {
             count += 1;
         }
     }
@@ -1286,7 +1325,10 @@ mod tests {
         // Equivalence checks for key representations
         let sc1 = parse_shortcut_str("Option+Command+C").unwrap();
         let sc2 = parse_shortcut_str("Alt+Super+KeyC").unwrap();
-        assert_eq!(sc1, sc2, "Option+Command+C should resolve to identical Shortcut struct as Alt+Super+KeyC");
+        assert_eq!(
+            sc1, sc2,
+            "Option+Command+C should resolve to identical Shortcut struct as Alt+Super+KeyC"
+        );
 
         // Option unicode character resolution tests
         let sc_unicode_c = parse_shortcut_str("Alt+ç").unwrap();
@@ -1317,7 +1359,10 @@ mod tests {
     #[test]
     fn test_accessibility_status_check() {
         let status = check_accessibility_permission();
-        println!("Accessibility test status: trusted={}, dev_mode={}", status.is_trusted, status.is_dev_mode);
+        println!(
+            "Accessibility test status: trusted={}, dev_mode={}",
+            status.is_trusted, status.is_dev_mode
+        );
         assert_eq!(status.is_dev_mode, cfg!(debug_assertions));
     }
 }

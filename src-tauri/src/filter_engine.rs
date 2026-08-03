@@ -14,7 +14,11 @@ static RE_URL_TRACKING: Lazy<Regex> = Lazy::new(|| {
     Regex::new(r"[?&](?:utm_source|utm_medium|utm_campaign|utm_term|utm_content|fbclid|gclid|msclkid|mc_eid|_hsenc|ref)=[^&\s]+").unwrap()
 });
 
-pub fn apply_filter(input: &str, filter_type: &str, config: Option<&str>) -> Result<String, String> {
+pub fn apply_filter(
+    input: &str,
+    filter_type: &str,
+    config: Option<&str>,
+) -> Result<String, String> {
     match filter_type {
         "pipeline" => {
             if let Some(cfg_str) = config {
@@ -43,24 +47,40 @@ pub fn apply_filter(input: &str, filter_type: &str, config: Option<&str>) -> Res
         "snakecase" => Ok(to_snake_case(input)),
         "kebabcase" => Ok(to_kebab_case(input)),
         "strip_html" => Ok(strip_html_tags(input)),
-        "trim" => Ok(input.lines().map(|l| l.trim()).collect::<Vec<_>>().join("\n").trim().to_string()),
-        "strip_newlines" => Ok(input.replace("\r\n", " ").replace('\n', " ").trim().to_string()),
+        "trim" => Ok(input
+            .lines()
+            .map(|l| l.trim())
+            .collect::<Vec<_>>()
+            .join("\n")
+            .trim()
+            .to_string()),
+        "strip_newlines" => Ok(input
+            .replace("\r\n", " ")
+            .replace('\n', " ")
+            .trim()
+            .to_string()),
         "url_encode" => Ok(urlencoding::encode(input).into_owned()),
         "url_decode" => urlencoding::decode(input)
             .map(|s| s.into_owned())
             .map_err(|e| e.to_string()),
-        "base64_encode" => Ok(base64::Engine::encode(&base64::engine::general_purpose::STANDARD, input.as_bytes())),
+        "base64_encode" => Ok(base64::Engine::encode(
+            &base64::engine::general_purpose::STANDARD,
+            input.as_bytes(),
+        )),
         "base64_decode" => {
-            let bytes = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, input.trim())
-                .map_err(|e| e.to_string())?;
+            let bytes =
+                base64::Engine::decode(&base64::engine::general_purpose::STANDARD, input.trim())
+                    .map_err(|e| e.to_string())?;
             String::from_utf8(bytes).map_err(|e| e.to_string())
         }
         "json_format" => {
-            let parsed: Value = serde_json::from_str(input).map_err(|e| format!("Invalid JSON: {}", e))?;
+            let parsed: Value =
+                serde_json::from_str(input).map_err(|e| format!("Invalid JSON: {}", e))?;
             serde_json::to_string_pretty(&parsed).map_err(|e| e.to_string())
         }
         "json_minify" => {
-            let parsed: Value = serde_json::from_str(input).map_err(|e| format!("Invalid JSON: {}", e))?;
+            let parsed: Value =
+                serde_json::from_str(input).map_err(|e| format!("Invalid JSON: {}", e))?;
             serde_json::to_string(&parsed).map_err(|e| e.to_string())
         }
         "strip_emojis" => Ok(strip_emojis(input)),
@@ -81,8 +101,14 @@ pub fn apply_filter(input: &str, filter_type: &str, config: Option<&str>) -> Res
         "quote_text" => Ok(quote_text(input)),
         "clean_url_tracking" => Ok(clean_url_tracking_params(input)),
         "extract_urls" => Ok(extract_by_regex(input, r"https?://[^\s\)]+")),
-        "extract_emails" => Ok(extract_by_regex(input, r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}")),
-        "extract_phones" => Ok(extract_by_regex(input, r"\b(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b")),
+        "extract_emails" => Ok(extract_by_regex(
+            input,
+            r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}",
+        )),
+        "extract_phones" => Ok(extract_by_regex(
+            input,
+            r"\b(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b",
+        )),
         "extract_ips" => Ok(extract_by_regex(input, r"\b(?:\d{1,3}\.){3}\d{1,3}\b")),
         "extract_numbers" => Ok(extract_by_regex(input, r"\b\d+(?:\.\d+)?\b")),
         "html_encode" => Ok(encode_html(input)),
@@ -100,7 +126,8 @@ pub fn apply_filter(input: &str, filter_type: &str, config: Option<&str>) -> Res
                     let pattern = json["pattern"].as_str().unwrap_or("");
                     let replacement = json["replacement"].as_str().unwrap_or("");
                     if !pattern.is_empty() {
-                        let re = Regex::new(pattern).map_err(|e| format!("Invalid Regex: {}", e))?;
+                        let re =
+                            Regex::new(pattern).map_err(|e| format!("Invalid Regex: {}", e))?;
                         return Ok(re.replace_all(input, replacement).to_string());
                     }
                 }
@@ -113,7 +140,8 @@ pub fn apply_filter(input: &str, filter_type: &str, config: Option<&str>) -> Res
                     if let Some(pattern) = json["pattern"].as_str() {
                         let replacement = json["replacement"].as_str().unwrap_or("");
                         if !pattern.is_empty() {
-                            let re = Regex::new(pattern).map_err(|e| format!("Invalid Regex: {}", e))?;
+                            let re =
+                                Regex::new(pattern).map_err(|e| format!("Invalid Regex: {}", e))?;
                             return Ok(re.replace_all(input, replacement).to_string());
                         }
                     }
@@ -306,7 +334,10 @@ fn decode_html(s: &str) -> String {
 }
 
 fn encode_hex(s: &str) -> String {
-    s.bytes().map(|b| format!("{:02x}", b)).collect::<Vec<_>>().join(" ")
+    s.bytes()
+        .map(|b| format!("{:02x}", b))
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 fn decode_hex(s: &str) -> Result<String, String> {
@@ -368,7 +399,10 @@ fn to_title_case(s: &str) -> String {
 }
 
 fn to_camel_case(s: &str) -> String {
-    let words: Vec<&str> = s.split(|c: char| !c.is_alphanumeric()).filter(|w| !w.is_empty()).collect();
+    let words: Vec<&str> = s
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|w| !w.is_empty())
+        .collect();
     if words.is_empty() {
         return String::new();
     }
@@ -426,7 +460,8 @@ mod urlencoding {
         while i < bytes.len() {
             if bytes[i] == b'%' {
                 if i + 2 < bytes.len() {
-                    let hex = std::str::from_utf8(&bytes[i + 1..i + 3]).map_err(|e| e.to_string())?;
+                    let hex =
+                        std::str::from_utf8(&bytes[i + 1..i + 3]).map_err(|e| e.to_string())?;
                     let byte = u8::from_str_radix(hex, 16).map_err(|e| e.to_string())?;
                     decoded.push(byte);
                     i += 3;
@@ -453,20 +488,47 @@ mod tests {
 
     #[test]
     fn test_case_transformations() {
-        assert_eq!(apply_filter("hello world", "uppercase", None).unwrap(), "HELLO WORLD");
-        assert_eq!(apply_filter("HELLO WORLD", "lowercase", None).unwrap(), "hello world");
-        assert_eq!(apply_filter("hello world", "titlecase", None).unwrap(), "Hello world");
-        assert_eq!(apply_filter("hello world", "camelcase", None).unwrap(), "helloWorld");
-        assert_eq!(apply_filter("hello world", "snakecase", None).unwrap(), "hello_world");
-        assert_eq!(apply_filter("hello world", "kebabcase", None).unwrap(), "hello-world");
-        assert_eq!(apply_filter("hello world", "constant_case", None).unwrap(), "HELLO_WORLD");
+        assert_eq!(
+            apply_filter("hello world", "uppercase", None).unwrap(),
+            "HELLO WORLD"
+        );
+        assert_eq!(
+            apply_filter("HELLO WORLD", "lowercase", None).unwrap(),
+            "hello world"
+        );
+        assert_eq!(
+            apply_filter("hello world", "titlecase", None).unwrap(),
+            "Hello world"
+        );
+        assert_eq!(
+            apply_filter("hello world", "camelcase", None).unwrap(),
+            "helloWorld"
+        );
+        assert_eq!(
+            apply_filter("hello world", "snakecase", None).unwrap(),
+            "hello_world"
+        );
+        assert_eq!(
+            apply_filter("hello world", "kebabcase", None).unwrap(),
+            "hello-world"
+        );
+        assert_eq!(
+            apply_filter("hello world", "constant_case", None).unwrap(),
+            "HELLO_WORLD"
+        );
     }
 
     #[test]
     fn test_cleaners_and_sanitizers() {
         assert_eq!(apply_filter("   hello   ", "trim", None).unwrap(), "hello");
-        assert_eq!(apply_filter("hello\nworld", "strip_newlines", None).unwrap(), "hello world");
-        assert_eq!(apply_filter("<p>Hello <b>World</b></p>", "strip_html", None).unwrap(), "Hello World");
+        assert_eq!(
+            apply_filter("hello\nworld", "strip_newlines", None).unwrap(),
+            "hello world"
+        );
+        assert_eq!(
+            apply_filter("<p>Hello <b>World</b></p>", "strip_html", None).unwrap(),
+            "Hello World"
+        );
     }
 
     #[test]

@@ -1,19 +1,19 @@
 import { Trash2 } from 'lucide-react';
-import type { Board } from '../types';
+import type { Bin } from '../types';
 
-interface DeleteBoardDialogProps {
-  board: Board;
+interface DeleteBinDialogProps {
+  bin: Bin;
   onCancel: () => void;
-  onConfirm: (board: Board) => void | Promise<void>;
+  onConfirm: (bin: Bin) => void | Promise<void>;
 }
 
-export function DeleteBoardDialog({ board, onCancel, onConfirm }: DeleteBoardDialogProps) {
+export function DeleteBinDialog({ bin, onCancel, onConfirm }: DeleteBinDialogProps) {
   return (
     <div className="fixed inset-0 z-[10000] bg-black/60 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-150">
       <div
         role="dialog"
         aria-modal="true"
-        aria-labelledby="delete-board-title"
+        aria-labelledby="delete-bin-title"
         className="app-dialog-panel bg-[#212121] border border-gray-700/80 rounded-2xl p-5 max-w-sm w-full shadow-2xl space-y-4"
       >
         <div className="flex items-center space-x-3">
@@ -21,7 +21,7 @@ export function DeleteBoardDialog({ board, onCancel, onConfirm }: DeleteBoardDia
             <Trash2 className="w-5 h-5" />
           </div>
           <div>
-            <h3 id="delete-board-title" className="text-sm font-bold text-gray-100">Delete Bin &quot;{board.name}&quot;?</h3>
+            <h3 id="delete-bin-title" className="text-sm font-bold text-gray-100">Delete Bin &quot;{bin.name}&quot;?</h3>
             <p className="text-xs text-gray-400 mt-0.5">Clips in this bin will be unassigned and preserved.</p>
           </div>
         </div>
@@ -37,7 +37,7 @@ export function DeleteBoardDialog({ board, onCancel, onConfirm }: DeleteBoardDia
           </button>
           <button
             type="button"
-            onClick={() => onConfirm(board)}
+            onClick={() => onConfirm(bin)}
             className="px-4 py-1.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-semibold transition-colors shadow-md cursor-pointer"
           >
             Delete Bin

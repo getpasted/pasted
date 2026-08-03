@@ -1,9 +1,8 @@
+use parking_lot::Mutex;
 use rusqlite::{params, Connection, Result};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
-use parking_lot::Mutex;
-
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ClipItem {
@@ -18,8 +17,8 @@ pub struct ClipItem {
     pub is_pinned: bool,
     pub is_protected: bool,
     pub pin_order: i32,
-    pub board_id: Option<i64>,
-    pub board_ids: Option<Vec<i64>>,
+    pub bin_id: Option<i64>,
+    pub bin_ids: Option<Vec<i64>>,
     pub note: Option<String>,
     pub is_trashed: bool,
     pub trashed_at: Option<String>,
@@ -35,13 +34,13 @@ pub struct ActivityLog {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Board {
+pub struct Bin {
     pub id: i64,
     pub name: String,
     pub icon: String,
     pub color: String,
     pub smart_rule: Option<String>, // JSON string for auto-smart rules
-    pub board_type: String, // "category" or "tag"
+    pub bin_type: String,           // "category" or "tag"
     pub shortcut: Option<String>,
     pub clip_count: Option<i64>,
     pub created_at: String,
@@ -88,7 +87,7 @@ pub struct BackupPayload {
     pub version: u32,
     pub timestamp: String,
     pub clips: Vec<ClipItem>,
-    pub boards: Vec<Board>,
+    pub bins: Vec<Bin>,
     pub filters: Vec<FilterRule>,
     pub operations: Vec<Operation>,
 }
@@ -117,6 +116,59 @@ pub struct DbState {
     pub conn: Mutex<Connection>,
 }
 
+fn table_exists(conn: &Connection, name: &str) -> Result<bool> {
+    conn.query_row(
+        "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?1)",
+        params![name],
+        |row| row.get(0),
+    )
+}
+
+fn column_exists(conn: &Connection, table: &str, column: &str) -> Result<bool> {
+    let mut statement = conn.prepare(&format!("PRAGMA table_info({table})"))?;
+    let names = statement.query_map([], |row| row.get::<_, String>(1))?;
+    for name in names {
+        if name? == column {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
+fn migrate_legacy_container_schema(conn: &Connection) -> Result<()> {
+    // Pre-release databases used "board" for the same concept now consistently named "bin".
+    if table_exists(conn, "boards")? && !table_exists(conn, "bins")? {
+        conn.execute("ALTER TABLE boards RENAME TO bins", [])?;
+    }
+    if table_exists(conn, "clips")?
+        && column_exists(conn, "clips", "board_id")?
+        && !column_exists(conn, "clips", "bin_id")?
+    {
+        conn.execute("ALTER TABLE clips RENAME COLUMN board_id TO bin_id", [])?;
+    }
+    if table_exists(conn, "bins")?
+        && column_exists(conn, "bins", "board_type")?
+        && !column_exists(conn, "bins", "bin_type")?
+    {
+        conn.execute("ALTER TABLE bins RENAME COLUMN board_type TO bin_type", [])?;
+    }
+    if table_exists(conn, "clip_boards")? && !table_exists(conn, "clip_bins")? {
+        conn.execute("ALTER TABLE clip_boards RENAME TO clip_bins", [])?;
+    }
+    if table_exists(conn, "clip_bins")?
+        && column_exists(conn, "clip_bins", "board_id")?
+        && !column_exists(conn, "clip_bins", "bin_id")?
+    {
+        conn.execute("ALTER TABLE clip_bins RENAME COLUMN board_id TO bin_id", [])?;
+    }
+
+    // SQLite cannot rename indexes; replace any pre-release names after their tables move.
+    conn.execute("DROP INDEX IF EXISTS idx_clips_board_created", [])?;
+    conn.execute("DROP INDEX IF EXISTS idx_clip_boards_board_id", [])?;
+    conn.execute("DROP INDEX IF EXISTS idx_clip_boards_clip_id", [])?;
+    Ok(())
+}
+
 impl DbState {
     pub fn new(db_path: PathBuf) -> Result<Self> {
         if let Some(parent) = db_path.parent() {
@@ -142,6 +194,8 @@ impl DbState {
         let _ = conn.pragma_update(None, "auto_vacuum", "INCREMENTAL");
         let _ = conn.pragma_update(None, "optimize", "");
 
+        migrate_legacy_container_schema(&conn)?;
+
         conn.execute(
             "CREATE TABLE IF NOT EXISTS clips (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -152,7 +206,7 @@ impl DbState {
                 content_hash TEXT UNIQUE NOT NULL,
                 source_app TEXT DEFAULT 'Unknown',
                 is_pinned INTEGER DEFAULT 0,
-                board_id INTEGER,
+                bin_id INTEGER,
                 note TEXT,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )",
@@ -165,7 +219,7 @@ impl DbState {
             [],
         )?;
         conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_clips_board_created ON clips (board_id, created_at DESC)",
+            "CREATE INDEX IF NOT EXISTS idx_clips_bin_created ON clips (bin_id, created_at DESC)",
             [],
         )?;
         conn.execute(
@@ -174,7 +228,7 @@ impl DbState {
         )?;
 
         conn.execute(
-            "CREATE TABLE IF NOT EXISTS boards (
+            "CREATE TABLE IF NOT EXISTS bins (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL,
                 icon TEXT DEFAULT 'Folder',
@@ -187,14 +241,26 @@ impl DbState {
 
         // Migrations if existing tables don't have new columns
         let _ = conn.execute("ALTER TABLE clips ADD COLUMN note TEXT", []);
-        let _ = conn.execute("ALTER TABLE clips ADD COLUMN is_trashed INTEGER DEFAULT 0", []);
+        let _ = conn.execute(
+            "ALTER TABLE clips ADD COLUMN is_trashed INTEGER DEFAULT 0",
+            [],
+        );
         let _ = conn.execute("ALTER TABLE clips ADD COLUMN trashed_at DATETIME", []);
-        let _ = conn.execute("ALTER TABLE clips ADD COLUMN is_protected INTEGER DEFAULT 0", []);
+        let _ = conn.execute(
+            "ALTER TABLE clips ADD COLUMN is_protected INTEGER DEFAULT 0",
+            [],
+        );
         let _ = conn.execute("ALTER TABLE clips ADD COLUMN image_path TEXT", []);
-        let _ = conn.execute("ALTER TABLE clips ADD COLUMN pin_order INTEGER DEFAULT 0", []);
-        let _ = conn.execute("ALTER TABLE boards ADD COLUMN smart_rule TEXT", []);
-        let _ = conn.execute("ALTER TABLE boards ADD COLUMN board_type TEXT DEFAULT 'category'", []);
-        let _ = conn.execute("ALTER TABLE boards ADD COLUMN shortcut TEXT", []);
+        let _ = conn.execute(
+            "ALTER TABLE clips ADD COLUMN pin_order INTEGER DEFAULT 0",
+            [],
+        );
+        let _ = conn.execute("ALTER TABLE bins ADD COLUMN smart_rule TEXT", []);
+        let _ = conn.execute(
+            "ALTER TABLE bins ADD COLUMN bin_type TEXT DEFAULT 'category'",
+            [],
+        );
+        let _ = conn.execute("ALTER TABLE bins ADD COLUMN shortcut TEXT", []);
         let _ = conn.execute("ALTER TABLE filters ADD COLUMN shortcut TEXT", []);
 
         let _ = conn.execute(
@@ -270,19 +336,25 @@ impl DbState {
         }
 
         conn.execute(
-            "CREATE TABLE IF NOT EXISTS clip_boards (
+            "CREATE TABLE IF NOT EXISTS clip_bins (
                 clip_id INTEGER NOT NULL REFERENCES clips(id) ON DELETE CASCADE,
-                board_id INTEGER NOT NULL REFERENCES boards(id) ON DELETE CASCADE,
-                PRIMARY KEY (clip_id, board_id)
+                bin_id INTEGER NOT NULL REFERENCES bins(id) ON DELETE CASCADE,
+                PRIMARY KEY (clip_id, bin_id)
             )",
             [],
         )?;
-        let _ = conn.execute("CREATE INDEX IF NOT EXISTS idx_clip_boards_board_id ON clip_boards (board_id)", []);
-        let _ = conn.execute("CREATE INDEX IF NOT EXISTS idx_clip_boards_clip_id ON clip_boards (clip_id)", []);
+        let _ = conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_clip_bins_bin_id ON clip_bins (bin_id)",
+            [],
+        );
+        let _ = conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_clip_bins_clip_id ON clip_bins (clip_id)",
+            [],
+        );
 
         let _ = conn.execute(
-            "INSERT OR IGNORE INTO clip_boards (clip_id, board_id)
-             SELECT id, board_id FROM clips WHERE board_id IS NOT NULL",
+            "INSERT OR IGNORE INTO clip_bins (clip_id, bin_id)
+             SELECT id, bin_id FROM clips WHERE bin_id IS NOT NULL",
             [],
         );
 
@@ -332,19 +404,21 @@ impl DbState {
             [],
         )?;
 
-        // Insert default boards if empty
-        let count: i64 = conn.query_row("SELECT COUNT(*) FROM boards", [], |r| r.get(0)).unwrap_or(0);
+        // Insert default bins if empty
+        let count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM bins", [], |r| r.get(0))
+            .unwrap_or(0);
         if count == 0 {
             conn.execute(
-                "INSERT INTO boards (name, icon, color, smart_rule) VALUES ('Code Snippets', 'Code', '#10b981', '{\"type\":\"content_type\",\"value\":\"code\"}')",
+                "INSERT INTO bins (name, icon, color, smart_rule) VALUES ('Code Snippets', 'Code', '#10b981', '{\"type\":\"content_type\",\"value\":\"code\"}')",
                 [],
             )?;
             conn.execute(
-                "INSERT INTO boards (name, icon, color, smart_rule) VALUES ('Links & Web', 'Link', '#3b82f6', '{\"type\":\"content_type\",\"value\":\"link\"}')",
+                "INSERT INTO bins (name, icon, color, smart_rule) VALUES ('Links & Web', 'Link', '#3b82f6', '{\"type\":\"content_type\",\"value\":\"link\"}')",
                 [],
             )?;
             conn.execute(
-                "INSERT INTO boards (name, icon, color, smart_rule) VALUES ('Colors & Swatches', 'Palette', '#f59e0b', '{\"type\":\"content_type\",\"value\":\"color\"}')",
+                "INSERT INTO bins (name, icon, color, smart_rule) VALUES ('Colors & Swatches', 'Palette', '#f59e0b', '{\"type\":\"content_type\",\"value\":\"color\"}')",
                 [],
             )?;
         }
@@ -390,10 +464,15 @@ impl DbState {
 
         for (name, ftype) in &default_filters {
             let exists: i64 = conn
-                .query_row("SELECT COUNT(*) FROM filters WHERE name = ?1", params![name], |r| r.get(0))
+                .query_row(
+                    "SELECT COUNT(*) FROM filters WHERE name = ?1",
+                    params![name],
+                    |r| r.get(0),
+                )
                 .unwrap_or(0);
             if exists == 0 {
-                let pipeline_config = format!(r#"[={{"filter_type":"{}"}}=]"#, ftype).replace("=", "");
+                let pipeline_config =
+                    format!(r#"[={{"filter_type":"{}"}}=]"#, ftype).replace("=", "");
                 let _ = conn.execute(
                     "INSERT INTO filters (name, filter_type, config) VALUES (?1, 'pipeline', ?2)",
                     params![name, pipeline_config],
@@ -402,7 +481,9 @@ impl DbState {
         }
 
         // Migrate any legacy pre-existing non-pipeline filters to pipeline filters backed by operations
-        if let Ok(mut stmt) = conn.prepare("SELECT id, filter_type, config FROM filters WHERE filter_type != 'pipeline'") {
+        if let Ok(mut stmt) = conn
+            .prepare("SELECT id, filter_type, config FROM filters WHERE filter_type != 'pipeline'")
+        {
             let legacy_filters: Vec<(i64, String, Option<String>)> = stmt
                 .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))
                 .ok()
@@ -425,53 +506,197 @@ impl DbState {
 
         // Seed all built-in operations into operations table with actual Regex patterns & Shell Pipe commands
         let default_ops = [
-            ("Clean URL Tracking", "regex", Some(r#"{"pattern":"([?&])(utm_[^&=]+|fbclid|gclid|msclkid|ref|source)=[^&]*&?","replacement":"$1"}"#), "Cleaners & Sanitizers"),
-            ("Plain Text / Strip HTML", "strip_html", None, "Cleaners & Sanitizers"),
-            ("Strip Markdown Formatting", "regex", Some(r#"{"pattern":"(\\*{1,2}|_{1,2}|`|#+\\s*|\\[([^\\]]+)\\]\\([^)]+\\))","replacement":"$2"}"#), "Cleaners & Sanitizers"),
-            ("Emoji Remover", "regex", Some(r#"{"pattern":"[\\x{1F600}-\\x{1F64F}\\x{1F300}-\\x{1F5FF}\\x{1F680}-\\x{1F6FF}]","replacement":""}"#), "Cleaners & Sanitizers"),
-            ("Convert Text Smileys to Emoji", "smileys_to_emoji", None, "Cleaners & Sanitizers"),
+            (
+                "Clean URL Tracking",
+                "regex",
+                Some(
+                    r#"{"pattern":"([?&])(utm_[^&=]+|fbclid|gclid|msclkid|ref|source)=[^&]*&?","replacement":"$1"}"#,
+                ),
+                "Cleaners & Sanitizers",
+            ),
+            (
+                "Plain Text / Strip HTML",
+                "strip_html",
+                None,
+                "Cleaners & Sanitizers",
+            ),
+            (
+                "Strip Markdown Formatting",
+                "regex",
+                Some(
+                    r#"{"pattern":"(\\*{1,2}|_{1,2}|`|#+\\s*|\\[([^\\]]+)\\]\\([^)]+\\))","replacement":"$2"}"#,
+                ),
+                "Cleaners & Sanitizers",
+            ),
+            (
+                "Emoji Remover",
+                "regex",
+                Some(
+                    r#"{"pattern":"[\\x{1F600}-\\x{1F64F}\\x{1F300}-\\x{1F5FF}\\x{1F680}-\\x{1F6FF}]","replacement":""}"#,
+                ),
+                "Cleaners & Sanitizers",
+            ),
+            (
+                "Convert Text Smileys to Emoji",
+                "smileys_to_emoji",
+                None,
+                "Cleaners & Sanitizers",
+            ),
             ("Trim Whitespace", "trim", None, "Cleaners & Sanitizers"),
-            ("Strip Newlines", "strip_newlines", None, "Cleaners & Sanitizers"),
-            ("Smart Punctuation (“ ” — …)", "smart_punctuation", None, "Smart Formatting"),
-            ("Straighten Punctuation", "straighten_punctuation", None, "Smart Formatting"),
+            (
+                "Strip Newlines",
+                "strip_newlines",
+                None,
+                "Cleaners & Sanitizers",
+            ),
+            (
+                "Smart Punctuation (“ ” — …)",
+                "smart_punctuation",
+                None,
+                "Smart Formatting",
+            ),
+            (
+                "Straighten Punctuation",
+                "straighten_punctuation",
+                None,
+                "Smart Formatting",
+            ),
             ("UPPERCASE", "uppercase", None, "Case Transformations"),
             ("lowercase", "lowercase", None, "Case Transformations"),
             ("Title Case", "titlecase", None, "Case Transformations"),
-            ("Sentence case", "sentence_case", None, "Case Transformations"),
+            (
+                "Sentence case",
+                "sentence_case",
+                None,
+                "Case Transformations",
+            ),
             ("camelCase", "camelcase", None, "Case Transformations"),
             ("snake_case", "snakecase", None, "Case Transformations"),
             ("kebab-case", "kebabcase", None, "Case Transformations"),
-            ("CONSTANT_CASE", "constant_case", None, "Case Transformations"),
-            ("aLtErNaTiNg cAsE", "alternating_case", None, "Case Transformations"),
-            ("Extract URLs", "regex", Some(r#"{"pattern":"https?://[^\\s\\)]+","replacement":""}"#), "Data Extraction"),
-            ("Extract Emails", "regex", Some(r#"{"pattern":"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}","replacement":""}"#), "Data Extraction"),
-            ("Extract Phone Numbers", "regex", Some(r#"{"pattern":"\\b(?:\\+?\\d{1,3}[-.\\s]?)?\\(?\\d{3}\\)?[-.\\s]?\\d{3}[-.\\s]?\\d{4}\\b","replacement":""}"#), "Data Extraction"),
-            ("Extract IP Addresses", "regex", Some(r#"{"pattern":"\\b(?:\\d{1,3}\\.){3}\\d{1,3}\\b","replacement":""}"#), "Data Extraction"),
-            ("Extract Numbers", "regex", Some(r#"{"pattern":"\\b\\d+(?:\\.\\d+)?\\b","replacement":""}"#), "Data Extraction"),
-            ("Sort Lines (A-Z)", "sort_lines_asc", None, "Line Operations"),
-            ("Sort Lines (Z-A)", "sort_lines_desc", None, "Line Operations"),
-            ("Sort Lines (By Length)", "sort_by_length", None, "Line Operations"),
+            (
+                "CONSTANT_CASE",
+                "constant_case",
+                None,
+                "Case Transformations",
+            ),
+            (
+                "aLtErNaTiNg cAsE",
+                "alternating_case",
+                None,
+                "Case Transformations",
+            ),
+            (
+                "Extract URLs",
+                "regex",
+                Some(r#"{"pattern":"https?://[^\\s\\)]+","replacement":""}"#),
+                "Data Extraction",
+            ),
+            (
+                "Extract Emails",
+                "regex",
+                Some(
+                    r#"{"pattern":"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}","replacement":""}"#,
+                ),
+                "Data Extraction",
+            ),
+            (
+                "Extract Phone Numbers",
+                "regex",
+                Some(
+                    r#"{"pattern":"\\b(?:\\+?\\d{1,3}[-.\\s]?)?\\(?\\d{3}\\)?[-.\\s]?\\d{3}[-.\\s]?\\d{4}\\b","replacement":""}"#,
+                ),
+                "Data Extraction",
+            ),
+            (
+                "Extract IP Addresses",
+                "regex",
+                Some(r#"{"pattern":"\\b(?:\\d{1,3}\\.){3}\\d{1,3}\\b","replacement":""}"#),
+                "Data Extraction",
+            ),
+            (
+                "Extract Numbers",
+                "regex",
+                Some(r#"{"pattern":"\\b\\d+(?:\\.\\d+)?\\b","replacement":""}"#),
+                "Data Extraction",
+            ),
+            (
+                "Sort Lines (A-Z)",
+                "sort_lines_asc",
+                None,
+                "Line Operations",
+            ),
+            (
+                "Sort Lines (Z-A)",
+                "sort_lines_desc",
+                None,
+                "Line Operations",
+            ),
+            (
+                "Sort Lines (By Length)",
+                "sort_by_length",
+                None,
+                "Line Operations",
+            ),
             ("Deduplicate Lines", "dedupe_lines", None, "Line Operations"),
             ("Reverse Lines", "reverse_lines", None, "Line Operations"),
-            ("Strip Empty Lines", "strip_empty_lines", None, "Line Operations"),
-            ("Number Lines (1. 2. 3.)", "number_lines", None, "Line Operations"),
+            (
+                "Strip Empty Lines",
+                "strip_empty_lines",
+                None,
+                "Line Operations",
+            ),
+            (
+                "Number Lines (1. 2. 3.)",
+                "number_lines",
+                None,
+                "Line Operations",
+            ),
             ("Quote Text (> )", "quote_text", None, "Line Operations"),
-            ("Wrap in HTML Code Tag", "wrap_tags", Some("code"), "Structure & Formatting"),
+            (
+                "Wrap in HTML Code Tag",
+                "wrap_tags",
+                Some("code"),
+                "Structure & Formatting",
+            ),
             ("Format JSON", "json_format", None, "Structure & Formatting"),
             ("Minify JSON", "json_minify", None, "Structure & Formatting"),
-            ("HTML Entity Encode", "html_encode", None, "Encodings & Decodings"),
-            ("HTML Entity Decode", "html_decode", None, "Encodings & Decodings"),
+            (
+                "HTML Entity Encode",
+                "html_encode",
+                None,
+                "Encodings & Decodings",
+            ),
+            (
+                "HTML Entity Decode",
+                "html_decode",
+                None,
+                "Encodings & Decodings",
+            ),
             ("Hex Encode", "hex_encode", None, "Encodings & Decodings"),
             ("Hex Decode", "hex_decode", None, "Encodings & Decodings"),
             ("URL Encode", "url_encode", None, "Encodings & Decodings"),
             ("URL Decode", "url_decode", None, "Encodings & Decodings"),
-            ("Shell Script (TR Uppercase Pipe)", "shell_script", Some("tr \"a-z\" \"A-Z\""), "Advanced & Shell Scripts"),
-            ("External Script / OCR Pipe Engine", "shell_script", Some("tesseract stdin stdout 2>/dev/null || cat"), "Advanced & Shell Scripts"),
+            (
+                "Shell Script (TR Uppercase Pipe)",
+                "shell_script",
+                Some("tr \"a-z\" \"A-Z\""),
+                "Advanced & Shell Scripts",
+            ),
+            (
+                "External Script / OCR Pipe Engine",
+                "shell_script",
+                Some("tesseract stdin stdout 2>/dev/null || cat"),
+                "Advanced & Shell Scripts",
+            ),
         ];
 
         for (name, optype, cfg, category) in &default_ops {
             let exists: i64 = conn
-                .query_row("SELECT COUNT(*) FROM operations WHERE op_type = ?1 AND name = ?2", params![optype, name], |r| r.get(0))
+                .query_row(
+                    "SELECT COUNT(*) FROM operations WHERE op_type = ?1 AND name = ?2",
+                    params![optype, name],
+                    |r| r.get(0),
+                )
                 .unwrap_or(0);
             if exists == 0 {
                 let _ = conn.execute(
@@ -544,7 +769,11 @@ impl DbState {
 
     pub fn enforce_history_limit_internal(&self, conn: &Connection) -> Result<()> {
         let keep_count: i64 = conn
-            .query_row("SELECT value FROM settings WHERE key = 'keepClipCount'", [], |r| r.get(0))
+            .query_row(
+                "SELECT value FROM settings WHERE key = 'keepClipCount'",
+                [],
+                |r| r.get(0),
+            )
             .ok()
             .and_then(|v: String| v.parse().ok())
             .unwrap_or(900);
@@ -560,17 +789,23 @@ impl DbState {
         let keep_count = keep_count.max(0);
 
         let enable_trash: String = conn
-            .query_row("SELECT value FROM settings WHERE key = 'enableTrash'", [], |r| r.get(0))
+            .query_row(
+                "SELECT value FROM settings WHERE key = 'enableTrash'",
+                [],
+                |r| r.get(0),
+            )
             .unwrap_or_else(|_| "true".to_string());
 
-        let active_count: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM clips
+        let active_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM clips
              WHERE is_pinned = 0
                AND (is_protected IS NULL OR is_protected = 0)
                AND (is_trashed IS NULL OR is_trashed = 0)",
-            [],
-            |r| r.get(0),
-        ).unwrap_or(0);
+                [],
+                |r| r.get(0),
+            )
+            .unwrap_or(0);
 
         if active_count > keep_count {
             let excess = active_count - keep_count;
@@ -579,7 +814,7 @@ impl DbState {
                  WHERE is_pinned = 0
                    AND (is_protected IS NULL OR is_protected = 0)
                    AND (is_trashed IS NULL OR is_trashed = 0)
-                 ORDER BY created_at ASC, id ASC LIMIT ?1"
+                 ORDER BY created_at ASC, id ASC LIMIT ?1",
             )?;
             let ids: Vec<i64> = stmt
                 .query_map(params![excess], |r| r.get(0))?
@@ -595,14 +830,20 @@ impl DbState {
                     let _ = self.log_activity_internal(
                         conn,
                         "clip_auto_trashed",
-                        &format!("Auto-trashed clip #{} (history retention limit exceeded)", id),
+                        &format!(
+                            "Auto-trashed clip #{} (history retention limit exceeded)",
+                            id
+                        ),
                     );
                 } else {
                     let _ = conn.execute("DELETE FROM clips WHERE id = ?1", params![id]);
                     let _ = self.log_activity_internal(
                         conn,
                         "clip_deleted",
-                        &format!("Auto-purged clip #{} (history retention limit exceeded)", id),
+                        &format!(
+                            "Auto-purged clip #{} (history retention limit exceeded)",
+                            id
+                        ),
                     );
                 }
             }
@@ -612,7 +853,11 @@ impl DbState {
 
     pub fn enforce_trash_limit_internal(&self, conn: &Connection) -> Result<()> {
         let capacity: i64 = conn
-            .query_row("SELECT value FROM settings WHERE key = 'trashCapacityCount'", [], |r| r.get(0))
+            .query_row(
+                "SELECT value FROM settings WHERE key = 'trashCapacityCount'",
+                [],
+                |r| r.get(0),
+            )
             .ok()
             .and_then(|v: String| v.parse().ok())
             .unwrap_or(500);
@@ -642,7 +887,7 @@ impl DbState {
 
     fn get_clip_by_id_internal(&self, conn: &Connection, id: i64) -> Result<ClipItem> {
         conn.query_row(
-            "SELECT id, content_type, text_content, html_content, image_base64, image_path, content_hash, source_app, is_pinned, is_protected, COALESCE(pin_order, 0), board_id, note, is_trashed, trashed_at, created_at 
+            "SELECT id, content_type, text_content, html_content, image_base64, image_path, content_hash, source_app, is_pinned, is_protected, COALESCE(pin_order, 0), bin_id, note, is_trashed, trashed_at, created_at
              FROM clips WHERE id = ?1",
             params![id],
             |row| {
@@ -659,8 +904,8 @@ impl DbState {
                     is_pinned: row.get::<_, i32>(8)? != 0,
                     is_protected: row.get::<_, i32>(9)? != 0,
                     pin_order: row.get(10)?,
-                    board_id: bid,
-                    board_ids: bid.map(|b| vec![b]),
+                    bin_id: bid,
+                    bin_ids: bid.map(|b| vec![b]),
                     note: row.get(12)?,
                     is_trashed: row.get::<_, i32>(13)? != 0,
                     trashed_at: row.get(14)?,
@@ -670,14 +915,19 @@ impl DbState {
         )
     }
 
-    pub fn get_clips(&self, search_query: Option<&str>, board_id: Option<i64>, only_pinned: bool) -> Result<Vec<ClipItem>> {
+    pub fn get_clips(
+        &self,
+        search_query: Option<&str>,
+        bin_id: Option<i64>,
+        only_pinned: bool,
+    ) -> Result<Vec<ClipItem>> {
         let conn = self.conn.lock();
 
-        // Check if target board has smart_rule
+        // Check if target bin has smart_rule
         let mut smart_rule_str: Option<String> = None;
-        if let Some(bid) = board_id {
+        if let Some(bid) = bin_id {
             let res: Result<Option<String>> = conn.query_row(
-                "SELECT smart_rule FROM boards WHERE id = ?1",
+                "SELECT smart_rule FROM bins WHERE id = ?1",
                 params![bid],
                 |r| r.get(0),
             );
@@ -687,8 +937,8 @@ impl DbState {
         }
 
         let mut sql = String::from(
-            "SELECT id, content_type, text_content, NULL as html_content, image_base64, image_path, content_hash, source_app, is_pinned, is_protected, COALESCE(pin_order, 0), board_id, note, is_trashed, trashed_at, created_at,
-             (SELECT GROUP_CONCAT(board_id) FROM clip_boards WHERE clip_id = clips.id) as board_ids_str
+            "SELECT id, content_type, text_content, NULL as html_content, image_base64, image_path, content_hash, source_app, is_pinned, is_protected, COALESCE(pin_order, 0), bin_id, note, is_trashed, trashed_at, created_at,
+             (SELECT GROUP_CONCAT(bin_id) FROM clip_bins WHERE clip_id = clips.id) as bin_ids_str
              FROM clips WHERE (is_trashed IS NULL OR is_trashed = 0)"
         );
 
@@ -742,25 +992,29 @@ impl DbState {
 
                 if !cond_sqls.is_empty() {
                     let combined = cond_sqls.join(join_op);
-                    if let Some(bid) = board_id {
-                        sql.push_str(&format!(" AND (({}) OR board_id = ? OR id IN (SELECT clip_id FROM clip_boards WHERE board_id = ?))", combined));
+                    if let Some(bid) = bin_id {
+                        sql.push_str(&format!(" AND (({}) OR bin_id = ? OR id IN (SELECT clip_id FROM clip_bins WHERE bin_id = ?))", combined));
                         query_params.push(Box::new(bid));
                         query_params.push(Box::new(bid));
                     } else {
                         sql.push_str(&format!(" AND ({})", combined));
                     }
-                } else if let Some(bid) = board_id {
-                    sql.push_str(" AND (board_id = ? OR id IN (SELECT clip_id FROM clip_boards WHERE board_id = ?))");
+                } else if let Some(bid) = bin_id {
+                    sql.push_str(" AND (bin_id = ? OR id IN (SELECT clip_id FROM clip_bins WHERE bin_id = ?))");
                     query_params.push(Box::new(bid));
                     query_params.push(Box::new(bid));
                 }
-            } else if let Some(bid) = board_id {
-                sql.push_str(" AND (board_id = ? OR id IN (SELECT clip_id FROM clip_boards WHERE board_id = ?))");
+            } else if let Some(bid) = bin_id {
+                sql.push_str(
+                    " AND (bin_id = ? OR id IN (SELECT clip_id FROM clip_bins WHERE bin_id = ?))",
+                );
                 query_params.push(Box::new(bid));
                 query_params.push(Box::new(bid));
             }
-        } else if let Some(bid) = board_id {
-            sql.push_str(" AND (board_id = ? OR id IN (SELECT clip_id FROM clip_boards WHERE board_id = ?))");
+        } else if let Some(bid) = bin_id {
+            sql.push_str(
+                " AND (bin_id = ? OR id IN (SELECT clip_id FROM clip_bins WHERE bin_id = ?))",
+            );
             query_params.push(Box::new(bid));
             query_params.push(Box::new(bid));
         }
@@ -786,17 +1040,18 @@ impl DbState {
 
         sql.push_str(" ORDER BY is_pinned DESC, pin_order ASC, created_at DESC");
 
-        let param_refs: Vec<&dyn rusqlite::ToSql> = query_params.iter().map(|p| p.as_ref()).collect();
+        let param_refs: Vec<&dyn rusqlite::ToSql> =
+            query_params.iter().map(|p| p.as_ref()).collect();
 
         let mut stmt = conn.prepare(&sql)?;
         let clip_iter = stmt.query_map(param_refs.as_slice(), |row| {
             let primary_bid: Option<i64> = row.get(11)?;
-            let board_ids_str: Option<String> = row.get(16)?;
+            let bin_ids_str: Option<String> = row.get(16)?;
             let mut b_ids = Vec::new();
             if let Some(b) = primary_bid {
                 b_ids.push(b);
             }
-            if let Some(ref s) = board_ids_str {
+            if let Some(ref s) = bin_ids_str {
                 for part in s.split(',') {
                     if let Ok(parsed_id) = part.parse::<i64>() {
                         if !b_ids.contains(&parsed_id) {
@@ -818,8 +1073,8 @@ impl DbState {
                 is_pinned: row.get::<_, i32>(8)? != 0,
                 is_protected: row.get::<_, i32>(9)? != 0,
                 pin_order: row.get(10)?,
-                board_id: primary_bid,
-                board_ids: Some(b_ids),
+                bin_id: primary_bid,
+                bin_ids: Some(b_ids),
                 note: row.get(12)?,
                 is_trashed: row.get::<_, i32>(13)? != 0,
                 trashed_at: row.get(14)?,
@@ -837,7 +1092,7 @@ impl DbState {
     pub fn get_trashed_clips(&self) -> Result<Vec<ClipItem>> {
         let conn = self.conn.lock();
         let mut stmt = conn.prepare_cached(
-            "SELECT id, content_type, text_content, NULL as html_content, NULL as image_base64, image_path, content_hash, source_app, is_pinned, is_protected, COALESCE(pin_order, 0), board_id, note, is_trashed, trashed_at, created_at 
+            "SELECT id, content_type, text_content, NULL as html_content, NULL as image_base64, image_path, content_hash, source_app, is_pinned, is_protected, COALESCE(pin_order, 0), bin_id, note, is_trashed, trashed_at, created_at
              FROM clips WHERE is_trashed = 1 ORDER BY trashed_at DESC"
         )?;
         let clip_iter = stmt.query_map([], |row| {
@@ -854,8 +1109,8 @@ impl DbState {
                 is_pinned: row.get::<_, i32>(8)? != 0,
                 is_protected: row.get::<_, i32>(9)? != 0,
                 pin_order: row.get(10)?,
-                board_id: bid,
-                board_ids: bid.map(|b| vec![b]),
+                bin_id: bid,
+                bin_ids: bid.map(|b| vec![b]),
                 note: row.get(12)?,
                 is_trashed: row.get::<_, i32>(13)? != 0,
                 trashed_at: row.get(14)?,
@@ -872,7 +1127,7 @@ impl DbState {
     pub fn get_protected_clips(&self) -> Result<Vec<ClipItem>> {
         let conn = self.conn.lock();
         let mut stmt = conn.prepare_cached(
-            "SELECT id, content_type, text_content, NULL as html_content, NULL as image_base64, image_path, content_hash, source_app, is_pinned, is_protected, COALESCE(pin_order, 0), board_id, note, is_trashed, trashed_at, created_at 
+            "SELECT id, content_type, text_content, NULL as html_content, NULL as image_base64, image_path, content_hash, source_app, is_pinned, is_protected, COALESCE(pin_order, 0), bin_id, note, is_trashed, trashed_at, created_at
              FROM clips WHERE is_protected = 1 AND (is_trashed IS NULL OR is_trashed = 0) ORDER BY created_at DESC"
         )?;
         let clip_iter = stmt.query_map([], |row| {
@@ -889,8 +1144,8 @@ impl DbState {
                 is_pinned: row.get::<_, i32>(8)? != 0,
                 is_protected: row.get::<_, i32>(9)? != 0,
                 pin_order: row.get(10)?,
-                board_id: bid,
-                board_ids: bid.map(|b| vec![b]),
+                bin_id: bid,
+                bin_ids: bid.map(|b| vec![b]),
                 note: row.get(12)?,
                 is_trashed: row.get::<_, i32>(13)? != 0,
                 trashed_at: row.get(14)?,
@@ -908,7 +1163,11 @@ impl DbState {
         let conn = self.conn.lock();
         let mut stmt = conn.prepare_cached("UPDATE clips SET note = ?1 WHERE id = ?2")?;
         stmt.execute(params![note, clip_id])?;
-        let _ = self.log_activity_internal(&conn, "note_updated", &format!("Updated note for clip #{}", clip_id));
+        let _ = self.log_activity_internal(
+            &conn,
+            "note_updated",
+            &format!("Updated note for clip #{}", clip_id),
+        );
         Ok(())
     }
 
@@ -951,7 +1210,13 @@ impl DbState {
 
     pub fn delete_clip(&self, id: i64) -> Result<()> {
         let conn = self.conn.lock();
-        let is_protected: i32 = conn.query_row("SELECT is_protected FROM clips WHERE id = ?1", params![id], |r| r.get(0)).unwrap_or(0);
+        let is_protected: i32 = conn
+            .query_row(
+                "SELECT is_protected FROM clips WHERE id = ?1",
+                params![id],
+                |r| r.get(0),
+            )
+            .unwrap_or(0);
         if is_protected != 0 {
             return Ok(());
         }
@@ -959,30 +1224,49 @@ impl DbState {
             "UPDATE clips SET is_trashed = 1, trashed_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?1 AND (is_protected IS NULL OR is_protected = 0)"
         )?;
         stmt.execute(params![id])?;
-        let _ = self.log_activity_internal(&conn, "clip_trashed", &format!("Moved clip #{} to Trash", id));
+        let _ = self.log_activity_internal(
+            &conn,
+            "clip_trashed",
+            &format!("Moved clip #{} to Trash", id),
+        );
         let _ = self.enforce_trash_limit_internal(&conn);
         Ok(())
     }
 
     pub fn restore_clip(&self, id: i64) -> Result<()> {
         let conn = self.conn.lock();
-        let mut stmt = conn.prepare_cached(
-            "UPDATE clips SET is_trashed = 0, trashed_at = NULL WHERE id = ?1"
-        )?;
+        let mut stmt = conn
+            .prepare_cached("UPDATE clips SET is_trashed = 0, trashed_at = NULL WHERE id = ?1")?;
         stmt.execute(params![id])?;
-        let _ = self.log_activity_internal(&conn, "clip_restored", &format!("Restored clip #{} from Trash", id));
+        let _ = self.log_activity_internal(
+            &conn,
+            "clip_restored",
+            &format!("Restored clip #{} from Trash", id),
+        );
         Ok(())
     }
 
     pub fn purge_clip_permanently(&self, id: i64) -> Result<()> {
         let conn = self.conn.lock();
-        let is_protected: i32 = conn.query_row("SELECT is_protected FROM clips WHERE id = ?1", params![id], |r| r.get(0)).unwrap_or(0);
+        let is_protected: i32 = conn
+            .query_row(
+                "SELECT is_protected FROM clips WHERE id = ?1",
+                params![id],
+                |r| r.get(0),
+            )
+            .unwrap_or(0);
         if is_protected != 0 {
             return Ok(());
         }
-        let mut stmt = conn.prepare_cached("DELETE FROM clips WHERE id = ?1 AND (is_protected IS NULL OR is_protected = 0)")?;
+        let mut stmt = conn.prepare_cached(
+            "DELETE FROM clips WHERE id = ?1 AND (is_protected IS NULL OR is_protected = 0)",
+        )?;
         stmt.execute(params![id])?;
-        let _ = self.log_activity_internal(&conn, "clip_deleted", &format!("Permanently deleted clip #{}", id));
+        let _ = self.log_activity_internal(
+            &conn,
+            "clip_deleted",
+            &format!("Permanently deleted clip #{}", id),
+        );
         Ok(())
     }
 
@@ -994,10 +1278,14 @@ impl DbState {
             |r| r.get(0),
         ).unwrap_or(0);
         let mut stmt = conn.prepare_cached(
-            "DELETE FROM clips WHERE is_trashed = 1 AND (is_protected IS NULL OR is_protected = 0)"
+            "DELETE FROM clips WHERE is_trashed = 1 AND (is_protected IS NULL OR is_protected = 0)",
         )?;
         stmt.execute([])?;
-        let _ = self.log_activity_internal(&conn, "trash_emptied", &format!("Emptied Trash (permanently deleted {} items)", count));
+        let _ = self.log_activity_internal(
+            &conn,
+            "trash_emptied",
+            &format!("Emptied Trash (permanently deleted {} items)", count),
+        );
         Ok(())
     }
 
@@ -1006,16 +1294,29 @@ impl DbState {
         self.log_activity_internal(&conn, event_type, description)
     }
 
-    fn log_activity_internal(&self, conn: &Connection, event_type: &str, description: &str) -> Result<()> {
+    fn log_activity_internal(
+        &self,
+        conn: &Connection,
+        event_type: &str,
+        description: &str,
+    ) -> Result<()> {
         let is_enabled: String = conn
-            .query_row("SELECT value FROM settings WHERE key = 'enableActivityLog'", [], |r| r.get(0))
+            .query_row(
+                "SELECT value FROM settings WHERE key = 'enableActivityLog'",
+                [],
+                |r| r.get(0),
+            )
             .unwrap_or_else(|_| "true".to_string());
         if is_enabled == "false" {
             return Ok(());
         }
 
         let capacity: i64 = conn
-            .query_row("SELECT value FROM settings WHERE key = 'activityLogCapacity'", [], |r| r.get(0))
+            .query_row(
+                "SELECT value FROM settings WHERE key = 'activityLogCapacity'",
+                [],
+                |r| r.get(0),
+            )
             .ok()
             .and_then(|v: String| v.parse().ok())
             .unwrap_or(1000);
@@ -1032,7 +1333,11 @@ impl DbState {
         Ok(())
     }
 
-    pub fn get_activity_logs(&self, limit: Option<i64>, offset: Option<i64>) -> Result<Vec<ActivityLog>> {
+    pub fn get_activity_logs(
+        &self,
+        limit: Option<i64>,
+        offset: Option<i64>,
+    ) -> Result<Vec<ActivityLog>> {
         let conn = self.conn.lock();
         let lim = limit.unwrap_or(100);
         let off = offset.unwrap_or(0);
@@ -1060,7 +1365,8 @@ impl DbState {
 
     pub fn backfill_analytics(&self) -> Result<usize> {
         let conn = self.conn.lock();
-        let mut stmt = conn.prepare("SELECT id, content_type, text_content, source_app FROM clips")?;
+        let mut stmt =
+            conn.prepare("SELECT id, content_type, text_content, source_app FROM clips")?;
         let rows = stmt.query_map([], |row| {
             Ok((
                 row.get::<_, i64>(0)?,
@@ -1085,7 +1391,10 @@ impl DbState {
                     || text.contains("class ")
                 {
                     "VS Code"
-                } else if c_type == "link" || text.starts_with("http://") || text.starts_with("https://") {
+                } else if c_type == "link"
+                    || text.starts_with("http://")
+                    || text.starts_with("https://")
+                {
                     "Browser"
                 } else if c_type == "color" || text.starts_with('#') {
                     "Color Picker"
@@ -1109,7 +1418,10 @@ impl DbState {
         let tx = conn.transaction()?;
         let val = if pin_state { 1 } else { 0 };
         for id in ids {
-            tx.execute("UPDATE clips SET is_pinned = ?1 WHERE id = ?2", params![val, id])?;
+            tx.execute(
+                "UPDATE clips SET is_pinned = ?1 WHERE id = ?2",
+                params![val, id],
+            )?;
         }
         tx.commit()
     }
@@ -1127,29 +1439,32 @@ impl DbState {
         tx.commit()
     }
 
-    pub fn batch_assign_board_clips(&self, ids: Vec<i64>, board_id: Option<i64>) -> Result<()> {
+    pub fn batch_assign_bin_clips(&self, ids: Vec<i64>, bin_id: Option<i64>) -> Result<()> {
         let mut conn = self.conn.lock();
         let tx = conn.transaction()?;
         for clip_id in ids {
             tx.execute(
-                "DELETE FROM clip_boards
+                "DELETE FROM clip_bins
                  WHERE clip_id = ?1
-                   AND board_id IN (
-                       SELECT id FROM boards WHERE COALESCE(board_type, 'category') != 'tag'
+                   AND bin_id IN (
+                       SELECT id FROM bins WHERE COALESCE(bin_type, 'category') != 'tag'
                    )",
                 params![clip_id],
             )?;
-            if let Some(bid) = board_id {
+            if let Some(bid) = bin_id {
                 tx.execute(
-                    "INSERT OR REPLACE INTO clip_boards (clip_id, board_id) VALUES (?1, ?2)",
+                    "INSERT OR REPLACE INTO clip_bins (clip_id, bin_id) VALUES (?1, ?2)",
                     params![clip_id, bid],
                 )?;
                 tx.execute(
-                    "UPDATE clips SET board_id = ?1 WHERE id = ?2",
+                    "UPDATE clips SET bin_id = ?1 WHERE id = ?2",
                     params![bid, clip_id],
                 )?;
             } else {
-                tx.execute("UPDATE clips SET board_id = NULL WHERE id = ?1", params![clip_id])?;
+                tx.execute(
+                    "UPDATE clips SET bin_id = NULL WHERE id = ?1",
+                    params![clip_id],
+                )?;
             }
         }
         tx.commit()
@@ -1170,32 +1485,41 @@ impl DbState {
         let mut app_stmt = conn.prepare(
             "SELECT source_app, COUNT(*) FROM clips WHERE (is_trashed IS NULL OR is_trashed = 0) GROUP BY source_app ORDER BY COUNT(*) DESC LIMIT 8"
         )?;
-        let top_apps = app_stmt.query_map([], |r| {
-            Ok(AppStat {
-                name: r.get(0)?,
-                count: r.get(1)?,
-            })
-        })?.filter_map(|r| r.ok()).collect();
+        let top_apps = app_stmt
+            .query_map([], |r| {
+                Ok(AppStat {
+                    name: r.get(0)?,
+                    count: r.get(1)?,
+                })
+            })?
+            .filter_map(|r| r.ok())
+            .collect();
 
         let mut type_stmt = conn.prepare(
             "SELECT content_type, COUNT(*) FROM clips WHERE (is_trashed IS NULL OR is_trashed = 0) GROUP BY content_type"
         )?;
-        let content_types = type_stmt.query_map([], |r| {
-            Ok(TypeStat {
-                content_type: r.get(0)?,
-                count: r.get(1)?,
-            })
-        })?.filter_map(|r| r.ok()).collect();
+        let content_types = type_stmt
+            .query_map([], |r| {
+                Ok(TypeStat {
+                    content_type: r.get(0)?,
+                    count: r.get(1)?,
+                })
+            })?
+            .filter_map(|r| r.ok())
+            .collect();
 
         let mut daily_stmt = conn.prepare(
             "SELECT strftime('%Y-%m-%d', created_at) as day, COUNT(*) FROM clips WHERE (is_trashed IS NULL OR is_trashed = 0) GROUP BY day ORDER BY day DESC LIMIT 14"
         )?;
-        let daily_activity = daily_stmt.query_map([], |r| {
-            Ok(DailyStat {
-                date: r.get(0)?,
-                count: r.get(1)?,
-            })
-        })?.filter_map(|r| r.ok()).collect();
+        let daily_activity = daily_stmt
+            .query_map([], |r| {
+                Ok(DailyStat {
+                    date: r.get(0)?,
+                    count: r.get(1)?,
+                })
+            })?
+            .filter_map(|r| r.ok())
+            .collect();
 
         Ok(AnalyticsSummary {
             total_clips,
@@ -1214,7 +1538,14 @@ impl DbState {
             "UPDATE clips SET is_trashed = 1, trashed_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE is_pinned = 0 AND (is_protected IS NULL OR is_protected = 0) AND (is_trashed IS NULL OR is_trashed = 0)",
             [],
         )?;
-        let _ = self.log_activity_internal(&conn, "clips_trashed_all", &format!("Moved all unpinned & unprotected clips to Trash ({} items)", count));
+        let _ = self.log_activity_internal(
+            &conn,
+            "clips_trashed_all",
+            &format!(
+                "Moved all unpinned & unprotected clips to Trash ({} items)",
+                count
+            ),
+        );
         let _ = self.enforce_trash_limit_internal(&conn);
         Ok(())
     }
@@ -1222,31 +1553,54 @@ impl DbState {
     pub fn purge_unpinned_clips(&self) -> Result<()> {
         let conn = self.conn.lock();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM clips WHERE is_pinned = 0 AND (is_protected IS NULL OR is_protected = 0)", [], |r| r.get(0)).unwrap_or(0);
-        conn.execute("DELETE FROM clips WHERE is_pinned = 0 AND (is_protected IS NULL OR is_protected = 0)", [])?;
-        let _ = self.log_activity_internal(&conn, "clips_purged_all", &format!("Permanently deleted all unpinned & unprotected clips ({} items)", count));
+        conn.execute(
+            "DELETE FROM clips WHERE is_pinned = 0 AND (is_protected IS NULL OR is_protected = 0)",
+            [],
+        )?;
+        let _ = self.log_activity_internal(
+            &conn,
+            "clips_purged_all",
+            &format!(
+                "Permanently deleted all unpinned & unprotected clips ({} items)",
+                count
+            ),
+        );
         Ok(())
     }
 
     pub fn clear_all_clips(&self) -> Result<()> {
         let conn = self.conn.lock();
-        conn.execute("DELETE FROM clips WHERE (is_protected IS NULL OR is_protected = 0)", [])?;
+        conn.execute(
+            "DELETE FROM clips WHERE (is_protected IS NULL OR is_protected = 0)",
+            [],
+        )?;
         Ok(())
     }
 
     pub fn toggle_protected(&self, id: i64) -> Result<bool> {
         let conn = self.conn.lock();
-        let current_protected: i32 = conn.query_row(
-            "SELECT is_protected FROM clips WHERE id = ?1",
-            params![id],
-            |r| r.get(0),
-        ).unwrap_or(0);
+        let current_protected: i32 = conn
+            .query_row(
+                "SELECT is_protected FROM clips WHERE id = ?1",
+                params![id],
+                |r| r.get(0),
+            )
+            .unwrap_or(0);
         let new_protected = if current_protected == 0 { 1 } else { 0 };
         conn.execute(
             "UPDATE clips SET is_protected = ?1 WHERE id = ?2",
             params![new_protected, id],
         )?;
-        let action_str = if new_protected == 1 { "Protected" } else { "Unprotected" };
-        let _ = self.log_activity_internal(&conn, "clip_protected_toggled", &format!("{} clip #{}", action_str, id));
+        let action_str = if new_protected == 1 {
+            "Protected"
+        } else {
+            "Unprotected"
+        };
+        let _ = self.log_activity_internal(
+            &conn,
+            "clip_protected_toggled",
+            &format!("{} clip #{}", action_str, id),
+        );
         Ok(new_protected == 1)
     }
 
@@ -1265,59 +1619,71 @@ impl DbState {
         Ok(new_pinned == 1)
     }
 
-    pub fn assign_to_board(&self, clip_id: i64, board_id: Option<i64>) -> Result<()> {
+    pub fn assign_to_bin(&self, clip_id: i64, bin_id: Option<i64>) -> Result<()> {
         let mut conn = self.conn.lock();
         let tx = conn.transaction()?;
         tx.execute(
-            "DELETE FROM clip_boards
+            "DELETE FROM clip_bins
              WHERE clip_id = ?1
-               AND board_id IN (
-                   SELECT id FROM boards WHERE COALESCE(board_type, 'category') != 'tag'
+               AND bin_id IN (
+                   SELECT id FROM bins WHERE COALESCE(bin_type, 'category') != 'tag'
                )",
             params![clip_id],
         )?;
-        if let Some(bid) = board_id {
+        if let Some(bid) = bin_id {
             tx.execute(
-                "INSERT OR REPLACE INTO clip_boards (clip_id, board_id) VALUES (?1, ?2)",
+                "INSERT OR REPLACE INTO clip_bins (clip_id, bin_id) VALUES (?1, ?2)",
                 params![clip_id, bid],
             )?;
             tx.execute(
-                "UPDATE clips SET board_id = ?1 WHERE id = ?2",
+                "UPDATE clips SET bin_id = ?1 WHERE id = ?2",
                 params![bid, clip_id],
             )?;
         } else {
-            tx.execute("UPDATE clips SET board_id = NULL WHERE id = ?1", params![clip_id])?;
+            tx.execute(
+                "UPDATE clips SET bin_id = NULL WHERE id = ?1",
+                params![clip_id],
+            )?;
         }
         tx.commit()
     }
 
-    pub fn add_clip_to_board(&self, clip_id: i64, board_id: i64) -> Result<()> {
+    pub fn add_clip_to_bin(&self, clip_id: i64, bin_id: i64) -> Result<()> {
         let conn = self.conn.lock();
         conn.execute(
-            "INSERT OR REPLACE INTO clip_boards (clip_id, board_id) VALUES (?1, ?2)",
-            params![clip_id, board_id],
+            "INSERT OR REPLACE INTO clip_bins (clip_id, bin_id) VALUES (?1, ?2)",
+            params![clip_id, bin_id],
         )?;
         conn.execute(
-            "UPDATE clips SET board_id = ?1 WHERE id = ?2",
-            params![board_id, clip_id],
+            "UPDATE clips SET bin_id = ?1 WHERE id = ?2",
+            params![bin_id, clip_id],
         )?;
         Ok(())
     }
 
-    pub fn remove_clip_from_board(&self, clip_id: i64, board_id: i64) -> Result<()> {
+    pub fn remove_clip_from_bin(&self, clip_id: i64, bin_id: i64) -> Result<()> {
         let conn = self.conn.lock();
         conn.execute(
-            "DELETE FROM clip_boards WHERE clip_id = ?1 AND board_id = ?2",
-            params![clip_id, board_id],
+            "DELETE FROM clip_bins WHERE clip_id = ?1 AND bin_id = ?2",
+            params![clip_id, bin_id],
         )?;
         Ok(())
     }
 
     #[allow(clippy::type_complexity)]
-    pub fn get_boards(&self) -> Result<Vec<Board>> {
+    pub fn get_bins(&self) -> Result<Vec<Bin>> {
         let conn = self.conn.lock();
-        let mut stmt = conn.prepare("SELECT id, name, icon, color, smart_rule, COALESCE(board_type, 'category'), shortcut, created_at FROM boards ORDER BY id ASC")?;
-        let board_rows: Vec<(i64, String, String, String, Option<String>, String, Option<String>, String)> = stmt
+        let mut stmt = conn.prepare("SELECT id, name, icon, color, smart_rule, COALESCE(bin_type, 'category'), shortcut, created_at FROM bins ORDER BY id ASC")?;
+        let bin_rows: Vec<(
+            i64,
+            String,
+            String,
+            String,
+            Option<String>,
+            String,
+            Option<String>,
+            String,
+        )> = stmt
             .query_map([], |row| {
                 Ok((
                     row.get(0)?,
@@ -1332,8 +1698,8 @@ impl DbState {
             })?
             .collect::<Result<Vec<_>, _>>()?;
 
-        let mut boards = Vec::new();
-        for (id, name, icon, color, smart_rule, board_type, shortcut, created_at) in board_rows {
+        let mut bins = Vec::new();
+        for (id, name, icon, color, smart_rule, bin_type, shortcut, created_at) in bin_rows {
             let count: i64 = if let Some(ref sr_json) = smart_rule {
                 if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(sr_json) {
                     let match_mode = parsed["match"].as_str().unwrap_or("any");
@@ -1379,60 +1745,72 @@ impl DbState {
 
                     if !cond_sqls.is_empty() {
                         let combined = cond_sqls.join(join_op);
-                        let sql = format!("SELECT COUNT(*) FROM clips WHERE (is_trashed IS NULL OR is_trashed = 0) AND (({}) OR board_id = ? OR id IN (SELECT clip_id FROM clip_boards WHERE board_id = ?))", combined);
+                        let sql = format!("SELECT COUNT(*) FROM clips WHERE (is_trashed IS NULL OR is_trashed = 0) AND (({}) OR bin_id = ? OR id IN (SELECT clip_id FROM clip_bins WHERE bin_id = ?))", combined);
                         query_params.push(Box::new(id));
                         query_params.push(Box::new(id));
-                        let param_refs: Vec<&dyn rusqlite::ToSql> = query_params.iter().map(|p| p.as_ref()).collect();
-                        conn.query_row(&sql, param_refs.as_slice(), |r| r.get(0)).unwrap_or(0)
+                        let param_refs: Vec<&dyn rusqlite::ToSql> =
+                            query_params.iter().map(|p| p.as_ref()).collect();
+                        conn.query_row(&sql, param_refs.as_slice(), |r| r.get(0))
+                            .unwrap_or(0)
                     } else {
-                        conn.query_row("SELECT COUNT(*) FROM clips WHERE (is_trashed IS NULL OR is_trashed = 0) AND (board_id = ?1 OR id IN (SELECT clip_id FROM clip_boards WHERE board_id = ?1))", params![id], |r| r.get(0)).unwrap_or(0)
+                        conn.query_row("SELECT COUNT(*) FROM clips WHERE (is_trashed IS NULL OR is_trashed = 0) AND (bin_id = ?1 OR id IN (SELECT clip_id FROM clip_bins WHERE bin_id = ?1))", params![id], |r| r.get(0)).unwrap_or(0)
                     }
                 } else {
-                    conn.query_row("SELECT COUNT(*) FROM clips WHERE (is_trashed IS NULL OR is_trashed = 0) AND (board_id = ?1 OR id IN (SELECT clip_id FROM clip_boards WHERE board_id = ?1))", params![id], |r| r.get(0)).unwrap_or(0)
+                    conn.query_row("SELECT COUNT(*) FROM clips WHERE (is_trashed IS NULL OR is_trashed = 0) AND (bin_id = ?1 OR id IN (SELECT clip_id FROM clip_bins WHERE bin_id = ?1))", params![id], |r| r.get(0)).unwrap_or(0)
                 }
             } else {
-                conn.query_row("SELECT COUNT(*) FROM clips WHERE (is_trashed IS NULL OR is_trashed = 0) AND (board_id = ?1 OR id IN (SELECT clip_id FROM clip_boards WHERE board_id = ?1))", params![id], |r| r.get(0)).unwrap_or(0)
+                conn.query_row("SELECT COUNT(*) FROM clips WHERE (is_trashed IS NULL OR is_trashed = 0) AND (bin_id = ?1 OR id IN (SELECT clip_id FROM clip_bins WHERE bin_id = ?1))", params![id], |r| r.get(0)).unwrap_or(0)
             };
 
-            boards.push(Board {
+            bins.push(Bin {
                 id,
                 name,
                 icon,
                 color,
                 smart_rule,
-                board_type,
+                bin_type,
                 shortcut,
                 clip_count: Some(count),
                 created_at,
             });
         }
-        Ok(boards)
+        Ok(bins)
     }
 
-    pub fn update_board_shortcut(&self, id: i64, shortcut: Option<&str>) -> Result<()> {
+    pub fn update_bin_shortcut(&self, id: i64, shortcut: Option<&str>) -> Result<()> {
         let conn = self.conn.lock();
-        conn.execute("UPDATE boards SET shortcut = ?1 WHERE id = ?2", params![shortcut, id])?;
+        conn.execute(
+            "UPDATE bins SET shortcut = ?1 WHERE id = ?2",
+            params![shortcut, id],
+        )?;
         Ok(())
     }
 
-    pub fn create_board_with_type(&self, name: &str, icon: &str, color: &str, smart_rule: Option<&str>, board_type: &str) -> Result<Board> {
+    pub fn create_bin_with_type(
+        &self,
+        name: &str,
+        icon: &str,
+        color: &str,
+        smart_rule: Option<&str>,
+        bin_type: &str,
+    ) -> Result<Bin> {
         let conn = self.conn.lock();
         conn.execute(
-            "INSERT INTO boards (name, icon, color, smart_rule, board_type) VALUES (?1, ?2, ?3, ?4, ?5)",
-            params![name, icon, color, smart_rule, board_type],
+            "INSERT INTO bins (name, icon, color, smart_rule, bin_type) VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![name, icon, color, smart_rule, bin_type],
         )?;
         let id = conn.last_insert_rowid();
         conn.query_row(
-            "SELECT id, name, icon, color, smart_rule, COALESCE(board_type, 'category'), shortcut, created_at FROM boards WHERE id = ?1",
+            "SELECT id, name, icon, color, smart_rule, COALESCE(bin_type, 'category'), shortcut, created_at FROM bins WHERE id = ?1",
             params![id],
             |row| {
-                Ok(Board {
+                Ok(Bin {
                     id: row.get(0)?,
                     name: row.get(1)?,
                     icon: row.get(2)?,
                     color: row.get(3)?,
                     smart_rule: row.get(4)?,
-                    board_type: row.get(5)?,
+                    bin_type: row.get(5)?,
                     shortcut: row.get(6)?,
                     clip_count: Some(0),
                     created_at: row.get(7)?,
@@ -1441,8 +1819,14 @@ impl DbState {
         )
     }
 
-    pub fn create_board(&self, name: &str, icon: &str, color: &str, smart_rule: Option<&str>) -> Result<Board> {
-        self.create_board_with_type(name, icon, color, smart_rule, "category")
+    pub fn create_bin(
+        &self,
+        name: &str,
+        icon: &str,
+        color: &str,
+        smart_rule: Option<&str>,
+    ) -> Result<Bin> {
+        self.create_bin_with_type(name, icon, color, smart_rule, "category")
     }
 
     pub fn reorder_pinned_clips(&self, ids: Vec<i64>) -> Result<()> {
@@ -1477,21 +1861,31 @@ impl DbState {
         Ok(list)
     }
 
-    pub fn update_board(&self, id: i64, name: &str, icon: &str, color: &str, smart_rule: Option<&str>) -> Result<()> {
+    pub fn update_bin(
+        &self,
+        id: i64,
+        name: &str,
+        icon: &str,
+        color: &str,
+        smart_rule: Option<&str>,
+    ) -> Result<()> {
         let conn = self.conn.lock();
         conn.execute(
-            "UPDATE boards SET name = ?1, icon = ?2, color = ?3, smart_rule = ?4 WHERE id = ?5",
+            "UPDATE bins SET name = ?1, icon = ?2, color = ?3, smart_rule = ?4 WHERE id = ?5",
             params![name, icon, color, smart_rule, id],
         )?;
         Ok(())
     }
 
-    pub fn delete_board(&self, id: i64) -> Result<()> {
+    pub fn delete_bin(&self, id: i64) -> Result<()> {
         let mut conn = self.conn.lock();
         let tx = conn.transaction()?;
-        tx.execute("DELETE FROM clip_boards WHERE board_id = ?1", params![id])?;
-        tx.execute("UPDATE clips SET board_id = NULL WHERE board_id = ?1", params![id])?;
-        tx.execute("DELETE FROM boards WHERE id = ?1", params![id])?;
+        tx.execute("DELETE FROM clip_bins WHERE bin_id = ?1", params![id])?;
+        tx.execute(
+            "UPDATE clips SET bin_id = NULL WHERE bin_id = ?1",
+            params![id],
+        )?;
+        tx.execute("DELETE FROM bins WHERE id = ?1", params![id])?;
         tx.commit()
     }
 
@@ -1506,20 +1900,21 @@ impl DbState {
 
     pub fn export_backup_json(&self) -> Result<String> {
         let clips = self.get_all_clips_for_backup()?;
-        let boards = self.get_boards()?;
+        let bins = self.get_bins()?;
         let filters = self.get_filters()?;
         let operations = self.get_operations()?;
 
         let payload = BackupPayload {
-            version: 2,
+            version: 3,
             timestamp: chrono::Utc::now().to_rfc3339(),
             clips,
-            boards,
+            bins,
             filters,
             operations,
         };
 
-        serde_json::to_string_pretty(&payload).map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))
+        serde_json::to_string_pretty(&payload)
+            .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))
     }
 
     pub fn import_backup_json(&self, json_str: &str) -> Result<usize> {
@@ -1527,37 +1922,39 @@ impl DbState {
             .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
         let mut conn = self.conn.lock();
         let tx = conn.transaction()?;
-        let mut board_id_map = std::collections::HashMap::new();
+        let mut bin_id_map = std::collections::HashMap::new();
 
-        for board in payload.boards {
+        for bin in payload.bins {
             let existing_id = tx.query_row(
-                "SELECT id FROM boards WHERE name = ?1 AND COALESCE(board_type, 'category') = ?2 LIMIT 1",
-                params![board.name, board.board_type],
+                "SELECT id FROM bins WHERE name = ?1 AND COALESCE(bin_type, 'category') = ?2 LIMIT 1",
+                params![bin.name, bin.bin_type],
                 |row| row.get::<_, i64>(0),
             ).ok();
             let new_id = if let Some(id) = existing_id {
                 tx.execute(
-                    "UPDATE boards SET icon = ?1, color = ?2, smart_rule = ?3, shortcut = ?4 WHERE id = ?5",
-                    params![board.icon, board.color, board.smart_rule, board.shortcut, id],
+                    "UPDATE bins SET icon = ?1, color = ?2, smart_rule = ?3, shortcut = ?4 WHERE id = ?5",
+                    params![bin.icon, bin.color, bin.smart_rule, bin.shortcut, id],
                 )?;
                 id
             } else {
                 tx.execute(
-                    "INSERT INTO boards (name, icon, color, smart_rule, board_type, shortcut, created_at)
+                    "INSERT INTO bins (name, icon, color, smart_rule, bin_type, shortcut, created_at)
                      VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-                    params![board.name, board.icon, board.color, board.smart_rule, board.board_type, board.shortcut, board.created_at],
+                    params![bin.name, bin.icon, bin.color, bin.smart_rule, bin.bin_type, bin.shortcut, bin.created_at],
                 )?;
                 tx.last_insert_rowid()
             };
-            board_id_map.insert(board.id, new_id);
+            bin_id_map.insert(bin.id, new_id);
         }
 
         for filter in payload.filters {
-            let existing_id = tx.query_row(
-                "SELECT id FROM filters WHERE name = ?1 AND filter_type = ?2 LIMIT 1",
-                params![filter.name, filter.filter_type],
-                |row| row.get::<_, i64>(0),
-            ).ok();
+            let existing_id = tx
+                .query_row(
+                    "SELECT id FROM filters WHERE name = ?1 AND filter_type = ?2 LIMIT 1",
+                    params![filter.name, filter.filter_type],
+                    |row| row.get::<_, i64>(0),
+                )
+                .ok();
             if let Some(id) = existing_id {
                 tx.execute(
                     "UPDATE filters SET config = ?1, shortcut = ?2 WHERE id = ?3",
@@ -1572,11 +1969,13 @@ impl DbState {
         }
 
         for operation in payload.operations {
-            let existing_id = tx.query_row(
-                "SELECT id FROM operations WHERE name = ?1 AND op_type = ?2 LIMIT 1",
-                params![operation.name, operation.op_type],
-                |row| row.get::<_, i64>(0),
-            ).ok();
+            let existing_id = tx
+                .query_row(
+                    "SELECT id FROM operations WHERE name = ?1 AND op_type = ?2 LIMIT 1",
+                    params![operation.name, operation.op_type],
+                    |row| row.get::<_, i64>(0),
+                )
+                .ok();
             if let Some(id) = existing_id {
                 tx.execute(
                     "UPDATE operations SET config = ?1, category = ?2 WHERE id = ?3",
@@ -1592,11 +1991,11 @@ impl DbState {
 
         let mut imported = 0;
         for clip in payload.clips {
-            let mapped_primary_board = clip.board_id.and_then(|id| board_id_map.get(&id).copied());
+            let mapped_primary_bin = clip.bin_id.and_then(|id| bin_id_map.get(&id).copied());
             tx.execute(
                 "INSERT INTO clips (
                     content_type, text_content, html_content, image_base64, image_path, content_hash,
-                    source_app, is_pinned, is_protected, pin_order, board_id, note,
+                    source_app, is_pinned, is_protected, pin_order, bin_id, note,
                     is_trashed, trashed_at, created_at
                  ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)
                  ON CONFLICT(content_hash) DO UPDATE SET
@@ -1609,7 +2008,7 @@ impl DbState {
                     is_pinned = excluded.is_pinned,
                     is_protected = excluded.is_protected,
                     pin_order = excluded.pin_order,
-                    board_id = excluded.board_id,
+                    bin_id = excluded.bin_id,
                     note = excluded.note,
                     is_trashed = excluded.is_trashed,
                     trashed_at = excluded.trashed_at,
@@ -1617,7 +2016,7 @@ impl DbState {
                 params![
                     clip.content_type, clip.text_content, clip.html_content, clip.image_base64,
                     clip.image_path, clip.content_hash, clip.source_app, clip.is_pinned,
-                    clip.is_protected, clip.pin_order, mapped_primary_board, clip.note,
+                    clip.is_protected, clip.pin_order, mapped_primary_bin, clip.note,
                     clip.is_trashed, clip.trashed_at, clip.created_at,
                 ],
             )?;
@@ -1626,19 +2025,22 @@ impl DbState {
                 params![clip.content_hash],
                 |row| row.get::<_, i64>(0),
             )?;
-            tx.execute("DELETE FROM clip_boards WHERE clip_id = ?1", params![new_clip_id])?;
-            for old_board_id in clip.board_ids.unwrap_or_default() {
-                if let Some(new_board_id) = board_id_map.get(&old_board_id) {
+            tx.execute(
+                "DELETE FROM clip_bins WHERE clip_id = ?1",
+                params![new_clip_id],
+            )?;
+            for old_bin_id in clip.bin_ids.unwrap_or_default() {
+                if let Some(new_bin_id) = bin_id_map.get(&old_bin_id) {
                     tx.execute(
-                        "INSERT OR IGNORE INTO clip_boards (clip_id, board_id) VALUES (?1, ?2)",
-                        params![new_clip_id, new_board_id],
+                        "INSERT OR IGNORE INTO clip_bins (clip_id, bin_id) VALUES (?1, ?2)",
+                        params![new_clip_id, new_bin_id],
                     )?;
                 }
             }
-            if let Some(new_board_id) = mapped_primary_board {
+            if let Some(new_bin_id) = mapped_primary_bin {
                 tx.execute(
-                    "INSERT OR IGNORE INTO clip_boards (clip_id, board_id) VALUES (?1, ?2)",
-                    params![new_clip_id, new_board_id],
+                    "INSERT OR IGNORE INTO clip_bins (clip_id, bin_id) VALUES (?1, ?2)",
+                    params![new_clip_id, new_bin_id],
                 )?;
             }
             imported += 1;
@@ -1653,18 +2055,18 @@ impl DbState {
         let mut stmt = conn.prepare(
             "SELECT id, content_type, text_content, html_content, image_base64, image_path,
                     content_hash, source_app, is_pinned, is_protected, COALESCE(pin_order, 0),
-                    board_id, note, COALESCE(is_trashed, 0), trashed_at, created_at,
-                    (SELECT GROUP_CONCAT(board_id) FROM clip_boards WHERE clip_id = clips.id)
-             FROM clips ORDER BY created_at DESC, id DESC"
+                    bin_id, note, COALESCE(is_trashed, 0), trashed_at, created_at,
+                    (SELECT GROUP_CONCAT(bin_id) FROM clip_bins WHERE clip_id = clips.id)
+             FROM clips ORDER BY created_at DESC, id DESC",
         )?;
         let rows = stmt.query_map([], |row| {
-            let primary_board_id: Option<i64> = row.get(11)?;
-            let board_ids_csv: Option<String> = row.get(16)?;
-            let mut board_ids = primary_board_id.into_iter().collect::<Vec<_>>();
-            for value in board_ids_csv.unwrap_or_default().split(',') {
+            let primary_bin_id: Option<i64> = row.get(11)?;
+            let bin_ids_csv: Option<String> = row.get(16)?;
+            let mut bin_ids = primary_bin_id.into_iter().collect::<Vec<_>>();
+            for value in bin_ids_csv.unwrap_or_default().split(',') {
                 if let Ok(id) = value.parse::<i64>() {
-                    if !board_ids.contains(&id) {
-                        board_ids.push(id);
+                    if !bin_ids.contains(&id) {
+                        bin_ids.push(id);
                     }
                 }
             }
@@ -1680,8 +2082,8 @@ impl DbState {
                 is_pinned: row.get::<_, i32>(8)? != 0,
                 is_protected: row.get::<_, i32>(9)? != 0,
                 pin_order: row.get(10)?,
-                board_id: primary_board_id,
-                board_ids: Some(board_ids),
+                bin_id: primary_bin_id,
+                bin_ids: Some(bin_ids),
                 note: row.get(12)?,
                 is_trashed: row.get::<_, i32>(13)? != 0,
                 trashed_at: row.get(14)?,
@@ -1692,7 +2094,7 @@ impl DbState {
     }
 
     pub fn set_vault_passcode(&self, passcode: &str) -> Result<()> {
-        use sha2::{Sha256, Digest};
+        use sha2::{Digest, Sha256};
         let mut hasher = Sha256::new();
         hasher.update(passcode.as_bytes());
         let hash_hex = format!("{:x}", hasher.finalize());
@@ -1700,7 +2102,7 @@ impl DbState {
     }
 
     pub fn verify_vault_passcode(&self, passcode: &str) -> Result<bool> {
-        use sha2::{Sha256, Digest};
+        use sha2::{Digest, Sha256};
         let stored = self.get_setting("vaultPasscodeHash")?;
         if let Some(stored_hash) = stored {
             if stored_hash.trim().is_empty() {
@@ -1736,7 +2138,13 @@ impl DbState {
         Ok(filters)
     }
 
-    pub fn create_filter(&self, name: &str, filter_type: &str, config: Option<&str>, shortcut: Option<&str>) -> Result<FilterRule> {
+    pub fn create_filter(
+        &self,
+        name: &str,
+        filter_type: &str,
+        config: Option<&str>,
+        shortcut: Option<&str>,
+    ) -> Result<FilterRule> {
         let conn = self.conn.lock();
         conn.execute(
             "INSERT INTO filters (name, filter_type, config, shortcut) VALUES (?1, ?2, ?3, ?4)",
@@ -1761,7 +2169,10 @@ impl DbState {
 
     pub fn update_filter_shortcut(&self, id: i64, shortcut: Option<&str>) -> Result<()> {
         let conn = self.conn.lock();
-        conn.execute("UPDATE filters SET shortcut = ?1 WHERE id = ?2", params![shortcut, id])?;
+        conn.execute(
+            "UPDATE filters SET shortcut = ?1 WHERE id = ?2",
+            params![shortcut, id],
+        )?;
         Ok(())
     }
 
@@ -1792,7 +2203,13 @@ impl DbState {
         Ok(operations)
     }
 
-    pub fn create_operation(&self, name: &str, op_type: &str, config: Option<&str>, category: Option<&str>) -> Result<Operation> {
+    pub fn create_operation(
+        &self,
+        name: &str,
+        op_type: &str,
+        config: Option<&str>,
+        category: Option<&str>,
+    ) -> Result<Operation> {
         let conn = self.conn.lock();
         let cat = category.unwrap_or("Custom");
         conn.execute(
@@ -1816,7 +2233,14 @@ impl DbState {
         )
     }
 
-    pub fn update_operation(&self, id: i64, name: &str, op_type: &str, config: Option<&str>, category: Option<&str>) -> Result<()> {
+    pub fn update_operation(
+        &self,
+        id: i64,
+        name: &str,
+        op_type: &str,
+        config: Option<&str>,
+        category: Option<&str>,
+    ) -> Result<()> {
         let conn = self.conn.lock();
         let cat = category.unwrap_or("Custom Operations");
         conn.execute(
@@ -1893,8 +2317,15 @@ mod tests {
 
     fn setup_test_db() -> DbState {
         let temp_dir = std::env::temp_dir();
-        let nanos = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
-        let db_file = temp_dir.join(format!("pasted_test_{}_{:?}.db", nanos, std::thread::current().id()));
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let db_file = temp_dir.join(format!(
+            "pasted_test_{}_{:?}.db",
+            nanos,
+            std::thread::current().id()
+        ));
         DbState::new(db_file).expect("Failed to create test DB")
     }
 
@@ -1917,7 +2348,14 @@ mod tests {
     fn test_protected_clips_immunity() {
         let db = setup_test_db();
         let clip = db
-            .save_clip("text", Some("Protected Secret"), None, None, "prot_hash", "Keeper")
+            .save_clip(
+                "text",
+                Some("Protected Secret"),
+                None,
+                None,
+                "prot_hash",
+                "Keeper",
+            )
             .unwrap();
 
         // Toggle protected
@@ -1956,8 +2394,12 @@ mod tests {
     #[test]
     fn test_retention_uses_trash_and_excludes_pinned_and_protected_clips() {
         let db = setup_test_db();
-        let pinned = db.save_clip("text", Some("Pinned"), None, None, "ret-pin", "App").unwrap();
-        let protected = db.save_clip("text", Some("Protected"), None, None, "ret-prot", "App").unwrap();
+        let pinned = db
+            .save_clip("text", Some("Pinned"), None, None, "ret-pin", "App")
+            .unwrap();
+        let protected = db
+            .save_clip("text", Some("Protected"), None, None, "ret-prot", "App")
+            .unwrap();
         db.toggle_pin(pinned.id).unwrap();
         db.toggle_protected(protected.id).unwrap();
 
@@ -1969,13 +2411,20 @@ mod tests {
                 None,
                 &format!("ret-{index}"),
                 "App",
-            ).unwrap();
+            )
+            .unwrap();
         }
 
         db.purge_old_clips(1).unwrap();
 
         let active = db.get_clips(None, None, false).unwrap();
-        assert_eq!(active.iter().filter(|clip| !clip.is_pinned && !clip.is_protected).count(), 1);
+        assert_eq!(
+            active
+                .iter()
+                .filter(|clip| !clip.is_pinned && !clip.is_protected)
+                .count(),
+            1
+        );
         assert!(active.iter().any(|clip| clip.id == pinned.id));
         assert!(active.iter().any(|clip| clip.id == protected.id));
         assert_eq!(db.get_trashed_clips().unwrap().len(), 2);
@@ -1985,7 +2434,9 @@ mod tests {
     fn test_retention_without_trash_keeps_requested_unpinned_capacity() {
         let db = setup_test_db();
         db.save_setting("enableTrash", "false").unwrap();
-        let pinned = db.save_clip("text", Some("Pinned"), None, None, "purge-pin", "App").unwrap();
+        let pinned = db
+            .save_clip("text", Some("Pinned"), None, None, "purge-pin", "App")
+            .unwrap();
         db.toggle_pin(pinned.id).unwrap();
         for index in 0..4 {
             db.save_clip(
@@ -1995,7 +2446,8 @@ mod tests {
                 None,
                 &format!("purge-{index}"),
                 "App",
-            ).unwrap();
+            )
+            .unwrap();
         }
 
         db.purge_old_clips(2).unwrap();
@@ -2010,7 +2462,14 @@ mod tests {
     fn test_clip_pinning_and_notes() {
         let db = setup_test_db();
         let clip = db
-            .save_clip("text", Some("Pasted Pin Test"), None, None, "hash2", "VSCode")
+            .save_clip(
+                "text",
+                Some("Pasted Pin Test"),
+                None,
+                None,
+                "hash2",
+                "VSCode",
+            )
             .unwrap();
 
         // Pin clip
@@ -2018,7 +2477,8 @@ mod tests {
         assert!(is_pinned);
 
         // Add note
-        db.update_clip_note(clip.id, Some("Important note")).unwrap();
+        db.update_clip_note(clip.id, Some("Important note"))
+            .unwrap();
 
         let clips = db.get_clips(None, None, false).unwrap();
         assert!(clips[0].is_pinned);
@@ -2026,19 +2486,83 @@ mod tests {
     }
 
     #[test]
-    fn test_boards_crud() {
+    fn test_bins_crud() {
         let db = setup_test_db();
-        let initial_count = db.get_boards().unwrap().len();
+        let initial_count = db.get_bins().unwrap().len();
 
-        let board = db.create_board("Work", "💼", "#3b82f6", None).unwrap();
-        assert!(board.id > 0);
+        let bin = db.create_bin("Work", "💼", "#3b82f6", None).unwrap();
+        assert!(bin.id > 0);
 
-        let boards = db.get_boards().unwrap();
-        assert_eq!(boards.len(), initial_count + 1);
+        let bins = db.get_bins().unwrap();
+        assert_eq!(bins.len(), initial_count + 1);
 
-        db.delete_board(board.id).unwrap();
-        let boards_after = db.get_boards().unwrap();
-        assert_eq!(boards_after.len(), initial_count);
+        db.delete_bin(bin.id).unwrap();
+        let bins_after = db.get_bins().unwrap();
+        assert_eq!(bins_after.len(), initial_count);
+    }
+
+    #[test]
+    fn test_legacy_container_schema_migrates_to_bins() {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let db_path = std::env::temp_dir().join(format!("pasted_legacy_schema_{nanos}.db"));
+        {
+            let conn = Connection::open(&db_path).unwrap();
+            conn.execute_batch(
+                "CREATE TABLE clips (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    content_type TEXT NOT NULL,
+                    text_content TEXT,
+                    html_content TEXT,
+                    image_base64 TEXT,
+                    content_hash TEXT UNIQUE NOT NULL,
+                    source_app TEXT DEFAULT 'Unknown',
+                    is_pinned INTEGER DEFAULT 0,
+                    board_id INTEGER,
+                    note TEXT,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                );
+                CREATE TABLE boards (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    icon TEXT DEFAULT 'Folder',
+                    color TEXT DEFAULT '#3b82f6',
+                    smart_rule TEXT,
+                    board_type TEXT DEFAULT 'category',
+                    shortcut TEXT,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                );
+                CREATE TABLE clip_boards (
+                    clip_id INTEGER NOT NULL REFERENCES clips(id) ON DELETE CASCADE,
+                    board_id INTEGER NOT NULL REFERENCES boards(id) ON DELETE CASCADE,
+                    PRIMARY KEY (clip_id, board_id)
+                );
+                INSERT INTO boards (id, name) VALUES (41, 'Migrated Bin');
+                INSERT INTO clips (
+                    id, content_type, text_content, content_hash, source_app, board_id
+                ) VALUES (73, 'text', 'Legacy assignment', 'legacy-hash', 'Test', 41);
+                INSERT INTO clip_boards (clip_id, board_id) VALUES (73, 41);",
+            )
+            .unwrap();
+        }
+
+        let db = DbState::new(db_path).unwrap();
+        let bins = db.get_bins().unwrap();
+        let clips = db.get_clips(None, None, false).unwrap();
+        assert_eq!(bins.len(), 1);
+        assert_eq!(bins[0].name, "Migrated Bin");
+        assert_eq!(clips.len(), 1);
+        assert_eq!(clips[0].bin_id, Some(41));
+        assert_eq!(clips[0].bin_ids.as_deref(), Some(&[41][..]));
+
+        let conn = db.conn.lock();
+        assert!(!table_exists(&conn, "boards").unwrap());
+        assert!(!table_exists(&conn, "clip_boards").unwrap());
+        assert!(column_exists(&conn, "clips", "bin_id").unwrap());
+        assert!(column_exists(&conn, "bins", "bin_type").unwrap());
+        assert!(column_exists(&conn, "clip_bins", "bin_id").unwrap());
     }
 
     #[test]
@@ -2053,7 +2577,14 @@ mod tests {
     fn test_clip_search_and_deletion() {
         let db = setup_test_db();
         let clip1 = db
-            .save_clip("text", Some("Unique Search Secret"), None, None, "h1", "Terminal")
+            .save_clip(
+                "text",
+                Some("Unique Search Secret"),
+                None,
+                None,
+                "h1",
+                "Terminal",
+            )
             .unwrap();
         let _clip2 = db
             .save_clip("text", Some("Unrelated text"), None, None, "h2", "Finder")
@@ -2062,7 +2593,10 @@ mod tests {
         // Search by query
         let search_results = db.get_clips(Some("Secret"), None, false).unwrap();
         assert_eq!(search_results.len(), 1);
-        assert_eq!(search_results[0].text_content.as_deref(), Some("Unique Search Secret"));
+        assert_eq!(
+            search_results[0].text_content.as_deref(),
+            Some("Unique Search Secret")
+        );
 
         // Test distinct apps
         let apps = db.get_distinct_source_apps().unwrap();
@@ -2089,7 +2623,9 @@ mod tests {
     #[test]
     fn test_trash_and_activity_logging() {
         let db = setup_test_db();
-        let clip = db.save_clip("text", Some("Trash Me"), None, None, "thash1", "Notes").unwrap();
+        let clip = db
+            .save_clip("text", Some("Trash Me"), None, None, "thash1", "Notes")
+            .unwrap();
 
         // Trash clip
         db.delete_clip(clip.id).unwrap();
@@ -2167,7 +2703,7 @@ mod tests {
             .collect();
 
         assert!(index_names.contains(&"idx_clips_pinned_created".to_string()));
-        assert!(index_names.contains(&"idx_clips_board_created".to_string()));
+        assert!(index_names.contains(&"idx_clips_bin_created".to_string()));
         assert!(index_names.contains(&"idx_clips_hash".to_string()));
         assert!(index_names.contains(&"idx_clips_active_timeline".to_string()));
     }
@@ -2177,36 +2713,60 @@ mod tests {
         let db = setup_test_db();
 
         let clip1 = db
-            .save_clip("text", Some("Supercalifragilisticexpialidocious secret token"), None, None, "HashFTS1", "IntelliJ")
+            .save_clip(
+                "text",
+                Some("Supercalifragilisticexpialidocious secret token"),
+                None,
+                None,
+                "HashFTS1",
+                "IntelliJ",
+            )
             .unwrap();
         let _clip2 = db
-            .save_clip("text", Some("Unrelated standard content text"), None, None, "HashFTS2", "Safari")
+            .save_clip(
+                "text",
+                Some("Unrelated standard content text"),
+                None,
+                None,
+                "HashFTS2",
+                "Safari",
+            )
             .unwrap();
 
-        let search_res = db.get_clips(Some("Supercalifragilisticexpialidocious"), None, false).unwrap();
+        let search_res = db
+            .get_clips(Some("Supercalifragilisticexpialidocious"), None, false)
+            .unwrap();
         assert_eq!(search_res.len(), 1);
         assert_eq!(search_res[0].id, clip1.id);
 
         db.delete_clip(clip1.id).unwrap();
-        let search_after_delete = db.get_clips(Some("Supercalifragilisticexpialidocious"), None, false).unwrap();
+        let search_after_delete = db
+            .get_clips(Some("Supercalifragilisticexpialidocious"), None, false)
+            .unwrap();
         assert_eq!(search_after_delete.len(), 0);
     }
 
     #[test]
     fn test_unified_taxonomy_and_tags() {
         let db = setup_test_db();
-        let tag = db.create_board_with_type("CodeSnippet", "Tag", "#06b6d4", None, "tag").unwrap();
-        assert_eq!(tag.board_type, "tag");
+        let tag = db
+            .create_bin_with_type("CodeSnippet", "Tag", "#06b6d4", None, "tag")
+            .unwrap();
+        assert_eq!(tag.bin_type, "tag");
 
-        let boards = db.get_boards().unwrap();
-        assert!(boards.iter().any(|b| b.id == tag.id && b.board_type == "tag"));
+        let bins = db.get_bins().unwrap();
+        assert!(bins.iter().any(|b| b.id == tag.id && b.bin_type == "tag"));
     }
 
     #[test]
     fn test_pin_reordering() {
         let db = setup_test_db();
-        let clip1 = db.save_clip("text", Some("First Pinned"), None, None, "HashP1", "App").unwrap();
-        let clip2 = db.save_clip("text", Some("Second Pinned"), None, None, "HashP2", "App").unwrap();
+        let clip1 = db
+            .save_clip("text", Some("First Pinned"), None, None, "HashP1", "App")
+            .unwrap();
+        let clip2 = db
+            .save_clip("text", Some("Second Pinned"), None, None, "HashP2", "App")
+            .unwrap();
         db.toggle_pin(clip1.id).unwrap();
         db.toggle_pin(clip2.id).unwrap();
 
@@ -2219,10 +2779,21 @@ mod tests {
     #[test]
     fn test_clip_version_history() {
         let db = setup_test_db();
-        let clip = db.save_clip("text", Some("Original Content"), None, None, "HashV1", "App").unwrap();
+        let clip = db
+            .save_clip(
+                "text",
+                Some("Original Content"),
+                None,
+                None,
+                "HashV1",
+                "App",
+            )
+            .unwrap();
 
-        db.update_clip_text(clip.id, "Transformed Uppercase Content").unwrap();
-        db.update_clip_text(clip.id, "Transformed Uppercase Content").unwrap();
+        db.update_clip_text(clip.id, "Transformed Uppercase Content")
+            .unwrap();
+        db.update_clip_text(clip.id, "Transformed Uppercase Content")
+            .unwrap();
         db.update_clip_text(clip.id, "Final Content").unwrap();
 
         let versions = db.get_clip_versions(clip.id).unwrap();
@@ -2234,7 +2805,8 @@ mod tests {
         assert_eq!(updated[0].text_content.as_deref(), Some("Final Content"));
 
         for index in 0..55 {
-            db.update_clip_text(clip.id, &format!("Revision {index}")).unwrap();
+            db.update_clip_text(clip.id, &format!("Revision {index}"))
+                .unwrap();
         }
         assert_eq!(db.get_clip_versions(clip.id).unwrap().len(), 50);
 
@@ -2245,8 +2817,12 @@ mod tests {
     #[test]
     fn test_batch_operations() {
         let db = setup_test_db();
-        let clip1 = db.save_clip("text", Some("Batch 1"), None, None, "HashB1", "App").unwrap();
-        let clip2 = db.save_clip("text", Some("Batch 2"), None, None, "HashB2", "App").unwrap();
+        let clip1 = db
+            .save_clip("text", Some("Batch 1"), None, None, "HashB1", "App")
+            .unwrap();
+        let clip2 = db
+            .save_clip("text", Some("Batch 2"), None, None, "HashB2", "App")
+            .unwrap();
 
         db.batch_pin_clips(vec![clip1.id, clip2.id], true).unwrap();
         let pinned = db.get_clips(None, None, true).unwrap();
@@ -2261,56 +2837,100 @@ mod tests {
     #[test]
     fn test_bin_assignment_is_exclusive_and_preserves_tags() {
         let db = setup_test_db();
-        let clip1 = db.save_clip("text", Some("Exclusive 1"), None, None, "HashE1", "App").unwrap();
-        let clip2 = db.save_clip("text", Some("Exclusive 2"), None, None, "HashE2", "App").unwrap();
-        let first_bin = db.create_board("First Bin", "Folder", "#3b82f6", None).unwrap();
-        let second_bin = db.create_board("Second Bin", "Folder", "#10b981", None).unwrap();
-        let tag = db.create_board_with_type("Important", "Tag", "#f59e0b", None, "tag").unwrap();
+        let clip1 = db
+            .save_clip("text", Some("Exclusive 1"), None, None, "HashE1", "App")
+            .unwrap();
+        let clip2 = db
+            .save_clip("text", Some("Exclusive 2"), None, None, "HashE2", "App")
+            .unwrap();
+        let first_bin = db
+            .create_bin("First Bin", "Folder", "#3b82f6", None)
+            .unwrap();
+        let second_bin = db
+            .create_bin("Second Bin", "Folder", "#10b981", None)
+            .unwrap();
+        let tag = db
+            .create_bin_with_type("Important", "Tag", "#f59e0b", None, "tag")
+            .unwrap();
 
-        db.assign_to_board(clip1.id, Some(first_bin.id)).unwrap();
-        db.add_clip_to_board(clip1.id, tag.id).unwrap();
-        db.assign_to_board(clip1.id, Some(second_bin.id)).unwrap();
+        db.assign_to_bin(clip1.id, Some(first_bin.id)).unwrap();
+        db.add_clip_to_bin(clip1.id, tag.id).unwrap();
+        db.assign_to_bin(clip1.id, Some(second_bin.id)).unwrap();
 
-        assert!(db.get_clips(None, Some(first_bin.id), false).unwrap().is_empty());
+        assert!(db
+            .get_clips(None, Some(first_bin.id), false)
+            .unwrap()
+            .is_empty());
         let second_bin_clips = db.get_clips(None, Some(second_bin.id), false).unwrap();
         assert_eq!(second_bin_clips.len(), 1);
         assert_eq!(second_bin_clips[0].id, clip1.id);
-        assert!(second_bin_clips[0].board_ids.as_ref().unwrap().contains(&tag.id));
+        assert!(second_bin_clips[0]
+            .bin_ids
+            .as_ref()
+            .unwrap()
+            .contains(&tag.id));
 
-        db.assign_to_board(clip1.id, None).unwrap();
+        db.assign_to_bin(clip1.id, None).unwrap();
         let unassigned = db.get_clips(None, None, false).unwrap();
         let clip1_after_unassign = unassigned.iter().find(|clip| clip.id == clip1.id).unwrap();
-        assert_eq!(clip1_after_unassign.board_id, None);
-        assert_eq!(clip1_after_unassign.board_ids.as_ref().unwrap(), &vec![tag.id]);
+        assert_eq!(clip1_after_unassign.bin_id, None);
+        assert_eq!(
+            clip1_after_unassign.bin_ids.as_ref().unwrap(),
+            &vec![tag.id]
+        );
 
-        db.batch_assign_board_clips(vec![clip1.id, clip2.id], Some(first_bin.id)).unwrap();
-        db.batch_assign_board_clips(vec![clip1.id, clip2.id], Some(second_bin.id)).unwrap();
-        assert!(db.get_clips(None, Some(first_bin.id), false).unwrap().is_empty());
-        assert_eq!(db.get_clips(None, Some(second_bin.id), false).unwrap().len(), 2);
+        db.batch_assign_bin_clips(vec![clip1.id, clip2.id], Some(first_bin.id))
+            .unwrap();
+        db.batch_assign_bin_clips(vec![clip1.id, clip2.id], Some(second_bin.id))
+            .unwrap();
+        assert!(db
+            .get_clips(None, Some(first_bin.id), false)
+            .unwrap()
+            .is_empty());
+        assert_eq!(
+            db.get_clips(None, Some(second_bin.id), false)
+                .unwrap()
+                .len(),
+            2
+        );
     }
 
     #[test]
     fn test_backup_export_import() {
         let db = setup_test_db();
-        let clip = db.save_clip(
-            "text",
-            Some("Backup Test Item"),
-            Some("<strong>Backup Test Item</strong>"),
-            None,
-            "HashBK1",
-            "VSCode",
-        ).unwrap();
-        let trashed = db.save_clip("text", Some("In Trash"), None, None, "HashBK2", "Notes").unwrap();
-        let board = db.create_board("DevBin", "Code", "#3b82f6", None).unwrap();
-        let tag = db.create_board_with_type("BackupTag", "Tag", "#f59e0b", None, "tag").unwrap();
-        db.assign_to_board(clip.id, Some(board.id)).unwrap();
-        db.add_clip_to_board(clip.id, tag.id).unwrap();
-        db.update_clip_note(clip.id, Some("Restore this note")).unwrap();
+        let clip = db
+            .save_clip(
+                "text",
+                Some("Backup Test Item"),
+                Some("<strong>Backup Test Item</strong>"),
+                None,
+                "HashBK1",
+                "VSCode",
+            )
+            .unwrap();
+        let trashed = db
+            .save_clip("text", Some("In Trash"), None, None, "HashBK2", "Notes")
+            .unwrap();
+        let bin = db.create_bin("DevBin", "Code", "#3b82f6", None).unwrap();
+        let tag = db
+            .create_bin_with_type("BackupTag", "Tag", "#f59e0b", None, "tag")
+            .unwrap();
+        db.assign_to_bin(clip.id, Some(bin.id)).unwrap();
+        db.add_clip_to_bin(clip.id, tag.id).unwrap();
+        db.update_clip_note(clip.id, Some("Restore this note"))
+            .unwrap();
         db.toggle_pin(clip.id).unwrap();
         db.toggle_protected(clip.id).unwrap();
         db.delete_clip(trashed.id).unwrap();
-        db.create_filter("Backup Filter", "trim", Some("{}"), Some("Alt+B")).unwrap();
-        db.create_operation("Backup Operation", "uppercase", Some("{}"), Some("Backup Tools")).unwrap();
+        db.create_filter("Backup Filter", "trim", Some("{}"), Some("Alt+B"))
+            .unwrap();
+        db.create_operation(
+            "Backup Operation",
+            "uppercase",
+            Some("{}"),
+            Some("Backup Tools"),
+        )
+        .unwrap();
 
         let json = db.export_backup_json().unwrap();
         assert!(json.contains("Backup Test Item"));
@@ -2321,26 +2941,52 @@ mod tests {
         assert_eq!(imported_count, 2);
 
         let restored = db2.get_all_clips_for_backup().unwrap();
-        let restored_clip = restored.iter().find(|item| item.content_hash == "HashBK1").unwrap();
-        assert_eq!(restored_clip.text_content.as_deref(), Some("Backup Test Item"));
-        assert_eq!(restored_clip.html_content.as_deref(), Some("<strong>Backup Test Item</strong>"));
+        let restored_clip = restored
+            .iter()
+            .find(|item| item.content_hash == "HashBK1")
+            .unwrap();
+        assert_eq!(
+            restored_clip.text_content.as_deref(),
+            Some("Backup Test Item")
+        );
+        assert_eq!(
+            restored_clip.html_content.as_deref(),
+            Some("<strong>Backup Test Item</strong>")
+        );
         assert_eq!(restored_clip.note.as_deref(), Some("Restore this note"));
         assert!(restored_clip.is_pinned);
         assert!(restored_clip.is_protected);
         assert!(!restored_clip.is_trashed);
 
-        let restored_trashed = restored.iter().find(|item| item.content_hash == "HashBK2").unwrap();
+        let restored_trashed = restored
+            .iter()
+            .find(|item| item.content_hash == "HashBK2")
+            .unwrap();
         assert!(restored_trashed.is_trashed);
         assert!(restored_trashed.trashed_at.is_some());
 
-        let restored_boards = db2.get_boards().unwrap();
-        let restored_bin = restored_boards.iter().find(|item| item.name == "DevBin").unwrap();
-        let restored_tag = restored_boards.iter().find(|item| item.name == "BackupTag").unwrap();
-        let restored_board_ids = restored_clip.board_ids.as_ref().unwrap();
-        assert!(restored_board_ids.contains(&restored_bin.id));
-        assert!(restored_board_ids.contains(&restored_tag.id));
-        assert!(db2.get_filters().unwrap().iter().any(|item| item.name == "Backup Filter" && item.shortcut.as_deref() == Some("Alt+B")));
-        assert!(db2.get_operations().unwrap().iter().any(|item| item.name == "Backup Operation" && item.category == "Backup Tools"));
+        let restored_bins = db2.get_bins().unwrap();
+        let restored_bin = restored_bins
+            .iter()
+            .find(|item| item.name == "DevBin")
+            .unwrap();
+        let restored_tag = restored_bins
+            .iter()
+            .find(|item| item.name == "BackupTag")
+            .unwrap();
+        let restored_bin_ids = restored_clip.bin_ids.as_ref().unwrap();
+        assert!(restored_bin_ids.contains(&restored_bin.id));
+        assert!(restored_bin_ids.contains(&restored_tag.id));
+        assert!(db2
+            .get_filters()
+            .unwrap()
+            .iter()
+            .any(|item| item.name == "Backup Filter" && item.shortcut.as_deref() == Some("Alt+B")));
+        assert!(db2
+            .get_operations()
+            .unwrap()
+            .iter()
+            .any(|item| item.name == "Backup Operation" && item.category == "Backup Tools"));
     }
 
     #[test]
@@ -2354,12 +3000,13 @@ mod tests {
                 None,
                 &format!("backup-limit-{index}"),
                 "App",
-            ).unwrap();
+            )
+            .unwrap();
         }
 
         let json = db.export_backup_json().unwrap();
         let payload: BackupPayload = serde_json::from_str(&json).unwrap();
-        assert_eq!(payload.version, 2);
+        assert_eq!(payload.version, 3);
         assert_eq!(payload.clips.len(), 501);
         assert_eq!(db.get_clips(None, None, false).unwrap().len(), 501);
     }
