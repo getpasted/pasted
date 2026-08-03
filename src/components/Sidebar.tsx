@@ -104,21 +104,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
     setSelectedBinId(null);
   };
 
-  const collapsedClipItems = [
-    { tab: 'all', title: 'All Clips', icon: <Clipboard className="w-5 h-5 text-[#0a84ff]" /> },
-    { tab: 'sequential', title: 'Queue', icon: <ListOrdered className="w-5 h-5 text-purple-400" /> },
-    { tab: 'pinned', title: 'Pinned', icon: <Pin className="w-5 h-5 text-orange-500 fill-orange-500/20 pin-icon" /> },
-    { tab: 'protected', title: 'Protected', icon: <Shield className="w-5 h-5 text-cyan-400" /> },
-    { tab: 'notes', title: 'Noted', icon: <StickyNote className="w-5 h-5 text-emerald-400" /> },
-    { tab: 'trash', title: 'Trashed', icon: <Trash2 className="w-5 h-5 text-rose-400" /> },
+  const clipNavItems = [
+    { tab: 'all', label: 'All', title: 'All Clips', icon: <Clipboard className="w-5 h-5 text-[#0a84ff]" /> },
+    { tab: 'sequential', label: 'Queue', title: 'Queue', icon: <ListOrdered className="w-5 h-5 text-purple-400" /> },
+    { tab: 'pinned', label: 'Pinned', title: 'Pinned', icon: <Pin className="w-5 h-5 text-orange-500 fill-orange-500/20 pin-icon" /> },
+    { tab: 'protected', label: 'Protected', title: 'Protected', icon: <Shield className="w-5 h-5 text-cyan-400" /> },
+    { tab: 'notes', label: 'Noted', title: 'Noted', icon: <StickyNote className="w-5 h-5 text-emerald-400" /> },
+    { tab: 'trash', label: 'Trashed', title: 'Trashed', icon: <Trash2 className="w-5 h-5 text-rose-400" /> },
   ];
-  const collapsedToolItems = [
-    { tab: 'analytics', title: 'Analytics & Insights', icon: <BarChart3 className="w-5 h-5 text-purple-400" /> },
-    { tab: 'filters', title: 'Filters & Operations', icon: <Sliders className="w-5 h-5 text-[#0a84ff]" /> },
-    { tab: 'activity', title: 'Activity Log', icon: <Activity className="w-5 h-5 text-cyan-400" /> },
-    { tab: 'help', title: 'Help & Documentation', icon: <HelpCircle className="w-5 h-5 text-cyan-400" /> },
-    { tab: 'settings', title: 'Settings', icon: <Settings className="w-5 h-5 text-[#0a84ff]" /> },
+  const toolNavItems = [
+    { tab: 'analytics', label: 'Analytics & Insights', title: 'Analytics & Insights', icon: <BarChart3 className="w-5 h-5 text-purple-400" /> },
+    { tab: 'filters', label: 'Filters & Operations', title: 'Filters & Operations', icon: <Sliders className="w-5 h-5 text-[#0a84ff]" /> },
+    { tab: 'activity', label: 'Activity Log', title: 'Activity Log', icon: <Activity className="w-5 h-5 text-cyan-400" /> },
+    { tab: 'help', label: 'Help & Documentation', title: 'Help & Documentation', icon: <HelpCircle className="w-5 h-5 text-cyan-400" /> },
+    { tab: 'settings', label: 'Settings', title: 'Settings', icon: <Settings className="w-5 h-5 text-[#0a84ff]" /> },
   ];
+
+  const clipCountByTab: Record<string, number> = {
+    all: totalClipCount,
+    pinned: pinnedCount,
+    protected: protectedCount,
+    notes: notesCount,
+    trash: trashedCount,
+  };
 
   if (isCollapsed) {
     return (
@@ -144,7 +152,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <div className="w-8 border-t border-white/10 sidebar-divider" />
           </div>
 
-          {collapsedClipItems.map((item) => (
+          {clipNavItems.map((item) => (
             <button
               key={item.tab}
               onClick={() => navigateTo(item.tab)}
@@ -187,7 +195,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <div className="w-8 border-t border-white/10 sidebar-divider" />
           </div>
 
-          {collapsedToolItems.map((item) => (
+          {toolNavItems.map((item) => (
             <button
               key={item.tab}
               onClick={() => navigateTo(item.tab)}
@@ -245,133 +253,34 @@ export const Sidebar: React.FC<SidebarProps> = ({
             }`}
           >
             <nav className="space-y-0.5">
-              <button
-                onClick={() => {
-                  setCurrentTab('all');
-                  setSelectedBinId(null);
-                }}
-                className={`group w-full h-8 flex items-center justify-between px-2.5 rounded-md transition-colors duration-100 cursor-pointer ${
-                  currentTab === 'all' && selectedBinId === null
-                    ? 'sidebar-item-active bg-[#3b3b3e] text-white font-medium'
-                    : 'sidebar-item-idle text-[#e3e3e5] hover:bg-white/5 font-normal'
-                }`}
-              >
-                <div className="flex items-center space-x-3">
-                  <Clipboard className="w-4 h-4 text-[#0a84ff] shrink-0" strokeWidth={1.8} />
-                  <span className="truncate">All</span>
-                </div>
-                <span className="sidebar-badge text-[11px] px-1.5 py-0.5 rounded-md bg-white/10 text-gray-300 font-mono">
-                  {totalClipCount}
-                </span>
-              </button>
-
-              <button
-                onClick={() => {
-                  setCurrentTab('sequential');
-                  setSelectedBinId(null);
-                }}
-                className={`group w-full h-8 flex items-center justify-between px-2.5 rounded-md transition-colors duration-100 cursor-pointer ${
-                  currentTab === 'sequential'
-                    ? 'sidebar-item-active bg-[#3b3b3e] text-white font-medium'
-                    : 'sidebar-item-idle text-[#e3e3e5] hover:bg-white/5 font-normal'
-                }`}
-              >
-                <div className="flex items-center space-x-3">
-                  <ListOrdered className="w-4 h-4 text-purple-400 shrink-0" strokeWidth={1.8} />
-                  <span className="truncate">Queue</span>
-                </div>
-                {seqStatus?.is_active && (
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                )}
-              </button>
-
-              <button
-                onClick={() => {
-                  setCurrentTab('pinned');
-                  setSelectedBinId(null);
-                }}
-                className={`group w-full h-8 flex items-center justify-between px-2.5 rounded-md transition-colors duration-100 cursor-pointer ${
-                  currentTab === 'pinned'
-                    ? 'sidebar-item-active bg-[#3b3b3e] text-white font-medium'
-                    : 'sidebar-item-idle text-[#e3e3e5] hover:bg-white/5 font-normal'
-                }`}
-              >
-                <div className="flex items-center space-x-3">
-                  <Pin className="w-4 h-4 text-orange-500 fill-orange-500/20 pin-icon shrink-0" strokeWidth={1.8} />
-                  <span className="truncate">Pinned</span>
-                </div>
-                {!!pinnedCount && pinnedCount > 0 && (
-                  <span className="sidebar-badge text-[11px] px-1.5 py-0.5 rounded-md bg-white/10 text-gray-300 font-mono">
-                    {pinnedCount}
-                  </span>
-                )}
-              </button>
-
-              <button
-                onClick={() => {
-                  setCurrentTab('protected');
-                  setSelectedBinId(null);
-                }}
-                className={`group w-full h-8 flex items-center justify-between px-2.5 rounded-md transition-colors duration-100 cursor-pointer ${
-                  currentTab === 'protected'
-                    ? 'sidebar-item-active bg-[#3b3b3e] text-white font-medium'
-                    : 'sidebar-item-idle text-[#e3e3e5] hover:bg-white/5 font-normal'
-                }`}
-              >
-                <div className="flex items-center space-x-3">
-                  <Shield className="w-4 h-4 text-cyan-400 shrink-0" strokeWidth={1.8} />
-                  <span className="truncate">Protected</span>
-                </div>
-                {!!protectedCount && protectedCount > 0 && (
-                  <span className="sidebar-badge text-[11px] px-1.5 py-0.5 rounded-md bg-white/10 text-gray-300 font-mono">
-                    {protectedCount}
-                  </span>
-                )}
-              </button>
-
-              <button
-                onClick={() => {
-                  setCurrentTab('notes');
-                  setSelectedBinId(null);
-                }}
-                className={`group w-full h-8 flex items-center justify-between px-2.5 rounded-md transition-colors duration-100 cursor-pointer ${
-                  currentTab === 'notes'
-                    ? 'sidebar-item-active bg-[#3b3b3e] text-white font-medium'
-                    : 'sidebar-item-idle text-[#e3e3e5] hover:bg-white/5 font-normal'
-                }`}
-              >
-                <div className="flex items-center space-x-3">
-                  <StickyNote className="w-4 h-4 text-emerald-400 shrink-0" strokeWidth={1.8} />
-                  <span className="truncate">Noted</span>
-                </div>
-                {!!notesCount && notesCount > 0 && (
-                  <span className="sidebar-badge text-[11px] px-1.5 py-0.5 rounded-md bg-white/10 text-gray-300 font-mono">
-                    {notesCount}
-                  </span>
-                )}
-              </button>
-
-              <button
-                onClick={() => {
-                  setCurrentTab('trash');
-                  setSelectedBinId(null);
-                }}
-                className={`group w-full h-8 flex items-center justify-between px-2.5 rounded-md transition-colors duration-100 cursor-pointer ${
-                  currentTab === 'trash'
-                    ? 'sidebar-item-active bg-[#3b3b3e] text-white font-medium'
-                    : 'sidebar-item-idle text-[#e3e3e5] hover:bg-white/5 font-normal'
-                }`}
-              >
-                <div className="flex items-center space-x-3">
-                  <Trash2 className="w-4 h-4 text-rose-400 shrink-0" strokeWidth={1.8} />
-                  <span className="truncate">Trashed</span>
-                </div>
-                {!!trashedCount && trashedCount > 0 && (
-                  <span className="sidebar-badge text-[11px] px-1.5 py-0.5 rounded-md bg-rose-500/20 text-rose-300 font-mono">
-                    {trashedCount}
-                  </span>
-                )}
-              </button>
+              {clipNavItems.map((item) => {
+                const count = clipCountByTab[item.tab];
+                return (
+                  <button
+                    key={item.tab}
+                    onClick={() => navigateTo(item.tab)}
+                    className={`group w-full h-8 flex items-center justify-between px-2.5 rounded-md transition-colors duration-100 cursor-pointer ${
+                      currentTab === item.tab && (item.tab !== 'all' || selectedBinId === null)
+                        ? 'sidebar-item-active bg-[#3b3b3e] text-white font-medium'
+                        : 'sidebar-item-idle text-[#e3e3e5] hover:bg-white/5 font-normal'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-3">
+                      {React.cloneElement(item.icon, { className: item.icon.props.className.replace('w-5 h-5', 'w-4 h-4 shrink-0'), strokeWidth: 1.8 })}
+                      <span className="truncate">{item.label}</span>
+                    </div>
+                    {item.tab === 'sequential' && seqStatus?.is_active ? (
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                    ) : (item.tab === 'all' || count > 0) ? (
+                      <span className={`sidebar-badge text-[11px] px-1.5 py-0.5 rounded-md font-mono ${
+                        item.tab === 'trash' ? 'bg-rose-500/20 text-rose-300' : 'bg-white/10 text-gray-300'
+                      }`}>
+                        {count}
+                      </span>
+                    ) : null}
+                  </button>
+                );
+              })}
             </nav>
           </div>
         </div>
@@ -597,80 +506,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
             }`}
           >
             <nav className="space-y-0.5">
-              <button
-                onClick={() => {
-                  setCurrentTab('analytics');
-                  setSelectedBinId(null);
-                }}
-                className={`group w-full h-8 flex items-center space-x-3 px-2.5 rounded-md transition-colors duration-100 cursor-pointer ${
-                  currentTab === 'analytics'
-                    ? 'sidebar-item-active bg-[#3b3b3e] text-white font-medium'
-                    : 'sidebar-item-idle text-[#e3e3e5] hover:bg-white/5 font-normal'
-                }`}
-              >
-                <BarChart3 className="w-4 h-4 text-purple-400 shrink-0" strokeWidth={1.8} />
-                <span className="truncate">Analytics & Insights</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  setCurrentTab('filters');
-                  setSelectedBinId(null);
-                }}
-                className={`group w-full h-8 flex items-center space-x-3 px-2.5 rounded-md transition-colors duration-100 cursor-pointer ${
-                  currentTab === 'filters'
-                    ? 'sidebar-item-active bg-[#3b3b3e] text-white font-medium'
-                    : 'sidebar-item-idle text-[#e3e3e5] hover:bg-white/5 font-normal'
-                }`}
-              >
-                <Sliders className="w-4 h-4 text-[#0a84ff] shrink-0" strokeWidth={1.8} />
-                <span className="truncate">Filters & Operations</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  setCurrentTab('activity');
-                  setSelectedBinId(null);
-                }}
-                className={`group w-full h-8 flex items-center space-x-3 px-2.5 rounded-md transition-colors duration-100 cursor-pointer ${
-                  currentTab === 'activity'
-                    ? 'sidebar-item-active bg-[#3b3b3e] text-white font-medium'
-                    : 'sidebar-item-idle text-[#e3e3e5] hover:bg-white/5 font-normal'
-                }`}
-              >
-                <Activity className="w-4 h-4 text-cyan-400 shrink-0" strokeWidth={1.8} />
-                <span className="truncate">Activity Log</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  setCurrentTab('help');
-                  setSelectedBinId(null);
-                }}
-                className={`group w-full h-8 flex items-center space-x-3 px-2.5 rounded-md transition-colors duration-100 cursor-pointer ${
-                  currentTab === 'help'
-                    ? 'sidebar-item-active bg-[#3b3b3e] text-white font-medium'
-                    : 'sidebar-item-idle text-[#e3e3e5] hover:bg-white/5 font-normal'
-                }`}
-              >
-                <HelpCircle className="w-4 h-4 text-cyan-400 shrink-0" strokeWidth={1.8} />
-                <span className="truncate">Help & Documentation</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  setCurrentTab('settings');
-                  setSelectedBinId(null);
-                }}
-                className={`group w-full h-8 flex items-center space-x-3 px-2.5 rounded-md transition-colors duration-100 cursor-pointer ${
-                  currentTab === 'settings'
-                    ? 'sidebar-item-active bg-[#3b3b3e] text-white font-medium'
-                    : 'sidebar-item-idle text-[#e3e3e5] hover:bg-white/5 font-normal'
-                }`}
-              >
-                <Settings className="w-4 h-4 text-[#0a84ff] shrink-0" strokeWidth={1.8} />
-                <span className="truncate">Settings</span>
-              </button>
+              {toolNavItems.map((item) => (
+                <button
+                  key={item.tab}
+                  onClick={() => navigateTo(item.tab)}
+                  className={`group w-full h-8 flex items-center space-x-3 px-2.5 rounded-md transition-colors duration-100 cursor-pointer ${
+                    currentTab === item.tab
+                      ? 'sidebar-item-active bg-[#3b3b3e] text-white font-medium'
+                      : 'sidebar-item-idle text-[#e3e3e5] hover:bg-white/5 font-normal'
+                  }`}
+                >
+                  {React.cloneElement(item.icon, { className: item.icon.props.className.replace('w-5 h-5', 'w-4 h-4 shrink-0'), strokeWidth: 1.8 })}
+                  <span className="truncate">{item.label}</span>
+                </button>
+              ))}
             </nav>
           </div>
         </div>
