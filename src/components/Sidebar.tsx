@@ -532,7 +532,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     onDragLeave={(e) => {
                       if (isManualBin) {
                         e.preventDefault();
-                        setDropTargetBoardId(null);
+                        if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                          setDropTargetBoardId(null);
+                        }
                       }
                     }}
                     onDrop={(e) => {
@@ -576,13 +578,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         : 'sidebar-item-idle text-[#e3e3e5] hover:bg-white/5 font-normal'
                     }`}
                   >
-                    <div className="flex items-center space-x-2.5 truncate pr-1">
+                    <div className="flex items-center space-x-2.5 truncate pr-1 pointer-events-none">
                       <span className="shrink-0 text-[#0a84ff]">{getBoardIcon(b.icon)}</span>
                       <span className="truncate">{b.name}</span>
                     </div>
 
                     {/* Right side container */}
-                    <div className="flex items-center justify-end shrink-0 pl-1">
+                    <div className="flex items-center justify-end shrink-0 pl-1 pointer-events-none">
                       {isDropTarget ? (
                         <span className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-400 text-black font-bold shrink-0">
                           Drop
