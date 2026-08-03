@@ -129,14 +129,18 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
       onContextMenu={onContextMenu}
       draggable={true}
       onDragStart={(e) => {
-        if (setDraggedClipId) setDraggedClipId(clip.id);
         e.dataTransfer.effectAllowed = 'copyMove';
         e.dataTransfer.setData('text/plain', String(clip.id));
         e.dataTransfer.setData('clip_id', String(clip.id));
-        if (onDragStart) onDragStart(e, clip.id);
+        requestAnimationFrame(() => {
+          if (setDraggedClipId) setDraggedClipId(clip.id);
+          if (onDragStart) onDragStart(e, clip.id);
+        });
       }}
       onDragEnd={() => {
-        if (setDraggedClipId) setDraggedClipId(null);
+        requestAnimationFrame(() => {
+          if (setDraggedClipId) setDraggedClipId(null);
+        });
       }}
       onDragOver={(e) => {
         if (clip.is_pinned) {
