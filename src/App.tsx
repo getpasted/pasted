@@ -57,6 +57,7 @@ export default function App() {
   const [selectedClipIds, setSelectedClipIds] = useState<Set<number>>(new Set());
   const [, setSelectedIndex] = useState<number>(0);
   const [totalClipCount, setTotalClipCount] = useState<number>(0);
+  const [draggedPinId, setDraggedPinId] = useState<number | null>(null);
 
   const fetchTrashedClips = useCallback(async () => {
     try {
@@ -1266,6 +1267,31 @@ export default function App() {
                       isQueueMode={currentTab === 'sequential'}
                       queueIndex={queueIndex}
                       rowHeight={appSettings.rowHeight}
+                      onDragStart={(_e, id) => setDraggedPinId(id)}
+                      onDrop={async (_e, targetId) => {
+                        if (draggedPinId === null || draggedPinId === targetId) return;
+
+                        const pinnedClips = allClips.filter((c) => c.is_pinned);
+                        const draggedIdx = pinnedClips.findIndex((c) => c.id === draggedPinId);
+                        const targetIdx = pinnedClips.findIndex((c) => c.id === targetId);
+
+                        if (draggedIdx === -1 || targetIdx === -1) return;
+
+                        const reordered = [...pinnedClips];
+                        const [moved] = reordered.splice(draggedIdx, 1);
+                        reordered.splice(targetIdx, 0, moved);
+
+                        const nonPinned = allClips.filter((c) => !c.is_pinned);
+                        setAllClips([...reordered, ...nonPinned]);
+                        setDraggedPinId(null);
+
+                        const ids = reordered.map((c) => c.id);
+                        try {
+                          await invoke('reorder_pinned_clips', { ids });
+                        } catch (e) {
+                          console.error('Failed to save pin order:', e);
+                        }
+                      }}
                       onSelect={(e) => {
                         setSelectedIndex(index);
 

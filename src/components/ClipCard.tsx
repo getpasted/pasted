@@ -22,6 +22,7 @@ import {
   MinusCircle,
   Shield,
   ShieldOff,
+  GripVertical,
 } from 'lucide-react';
 
 interface ClipCardProps {
@@ -42,6 +43,9 @@ interface ClipCardProps {
   onRemoveFromQueue?: () => void;
   onPasteQueueItem?: () => void;
   onContextMenu: (e: React.MouseEvent) => void;
+  onDragStart?: (e: React.DragEvent, id: number) => void;
+  onDragOver?: (e: React.DragEvent) => void;
+  onDrop?: (e: React.DragEvent, targetId: number) => void;
 }
 
 const ClipCardComponent: React.FC<ClipCardProps> = ({
@@ -62,6 +66,9 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
   onRemoveFromQueue,
   onPasteQueueItem,
   onContextMenu,
+  onDragStart,
+  onDragOver,
+  onDrop,
 }) => {
   const [copied, setCopied] = React.useState(false);
   const [isAltPressed, setIsAltPressed] = React.useState(false);
@@ -118,6 +125,20 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
     <div
       onClick={onSelect}
       onContextMenu={onContextMenu}
+      draggable={clip.is_pinned}
+      onDragStart={(e) => onDragStart && onDragStart(e, clip.id)}
+      onDragOver={(e) => {
+        if (clip.is_pinned) {
+          e.preventDefault();
+          if (onDragOver) onDragOver(e);
+        }
+      }}
+      onDrop={(e) => {
+        if (clip.is_pinned) {
+          e.preventDefault();
+          if (onDrop) onDrop(e, clip.id);
+        }
+      }}
       className={`group relative rounded-xl cursor-pointer select-none border transition-[background-color,border-color,box-shadow] duration-75 ease-out ${paddingClass} ${
         isDeleting
           ? 'clip-card-deleting'
@@ -130,6 +151,11 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
       {/* Header Info */}
       <div className={`flex items-center justify-between ${headerTextClass} text-gray-400 mb-1`}>
         <div className="flex items-center space-x-2">
+          {clip.is_pinned && (
+            <div title="Drag to reorder pinned clip" className="p-0.5 text-gray-500 hover:text-orange-400 cursor-grab active:cursor-grabbing">
+              <GripVertical className="w-3.5 h-3.5" />
+            </div>
+          )}
           <div className="p-1 rounded bg-gray-900/90 border border-gray-700/60">
             {getIcon()}
           </div>

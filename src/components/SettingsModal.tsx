@@ -16,6 +16,7 @@ import {
   Moon,
   Laptop,
   Download,
+  Upload,
 } from 'lucide-react';
 
 interface SettingsModalProps {
@@ -49,6 +50,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'general' | 'hotkeys' | 'blacklist' | 'sync'>('general');
   const [newAppNameInput, setNewAppNameInput] = useState('');
+  const [passcodeInput, setPasscodeInput] = useState('');
   const [accessibilityStatus, setAccessibilityStatus] = useState<{ is_trusted: boolean; is_dev_mode: boolean } | null>(null);
   const [isAltPressed, setIsAltPressed] = useState(false);
 
@@ -1054,9 +1056,108 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </div>
         )}
 
-        {/* TAB 4: SYNC */}
+        {/* TAB 4: SYNC & BACKUP */}
         {activeTab === 'sync' && (
-          <div className="bg-[#212121] p-6 rounded-2xl border border-gray-700/80 shadow-2xl space-y-6 text-xs text-gray-200">
+          <div className="bg-[#212121] p-6 rounded-2xl border border-gray-700/80 shadow-2xl space-y-5 text-xs text-gray-200">
+            {/* Backup & Restore (.json) Section */}
+            <div className="p-5 theme-surface bg-[#181818] rounded-xl border border-gray-700/80 space-y-3">
+              <div className="flex items-center space-x-3">
+                <div className="p-2.5 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400">
+                  <Download className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold theme-title">Backup & Restore Vault (.json)</h4>
+                  <p className="text-[11px] theme-text-muted">Export all clips, Bins, Tags, and Filters to a JSON file or restore from a backup.</p>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-3 pt-1">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      const jsonStr = await invoke<string>('export_backup_json');
+                      const blob = new Blob([jsonStr], { type: 'application/json' });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `Pasted_Backup_${new Date().toISOString().slice(0, 10)}.json`;
+                      a.click();
+                      URL.revokeObjectURL(url);
+                    } catch (e) {
+                      console.error('Backup export failed:', e);
+                    }
+                  }}
+                  className="flex items-center space-x-2 px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white font-semibold rounded-xl text-xs transition-all shadow-md active:scale-95 cursor-pointer"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Export Backup (.json)</span>
+                </button>
+
+                <label className="flex items-center space-x-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-200 font-semibold rounded-xl text-xs transition-all border border-gray-700 shadow-md cursor-pointer">
+                  <Upload className="w-4 h-4 text-gray-400" />
+                  <span>Import Backup (.json)</span>
+                  <input
+                    type="file"
+                    accept=".json"
+                    className="hidden"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const text = await file.text();
+                      try {
+                        const importedCount = await invoke<number>('import_backup_json', { jsonStr: text });
+                        alert(`Successfully imported ${importedCount} items from backup!`);
+                        if (onRefreshBoards) onRefreshBoards();
+                        if (onRefreshFilters) onRefreshFilters();
+                      } catch (err) {
+                        alert('Failed to import backup file. Invalid format.');
+                      }
+                    }}
+                  />
+                </label>
+              </div>
+            </div>
+
+            {/* Passcode Vault Protection Section */}
+            <div className="p-5 theme-surface bg-[#181818] rounded-xl border border-gray-700/80 space-y-3">
+              <div className="flex items-center space-x-3">
+                <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400">
+                  <Lock className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold theme-title">Vault Master Passcode</h4>
+                  <p className="text-[11px] theme-text-muted">Set a master passcode to protect sensitive clips and locked notes.</p>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-2 pt-1">
+                <input
+                  type="password"
+                  placeholder="Set or change passcode..."
+                  value={passcodeInput}
+                  onChange={(e) => setPasscodeInput(e.target.value)}
+                  className="w-56 bg-[#262626] border border-gray-700 rounded-xl px-3 py-2 text-gray-100 text-xs focus:outline-none focus:border-amber-500 font-mono"
+                />
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!passcodeInput.trim()) return;
+                    try {
+                      await invoke('set_vault_passcode', { passcode: passcodeInput.trim() });
+                      alert('Vault passcode saved successfully!');
+                      setPasscodeInput('');
+                    } catch (e) {
+                      console.error('Failed to set passcode:', e);
+                    }
+                  }}
+                  className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white font-semibold rounded-xl text-xs transition-all shadow-md cursor-pointer"
+                >
+                  Save Passcode
+                </button>
+              </div>
+            </div>
+
             {/* Main Information Banner */}
             <div className="p-5 theme-surface bg-[#181818] rounded-xl border border-gray-700/80 space-y-4">
               <div className="flex items-center space-x-3">
@@ -1072,7 +1173,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </div>
 
               <p className="text-xs theme-text-muted leading-relaxed">
-                All your clipboard history items, custom notes, smart bins, and filter pipelines are currently saved <strong>100% locally and securely</strong> on this device inside your private SQLite database.
+                All your clipboard history items, custom notes, smart bins, and filter pipelines are saved <strong>100% locally and securely</strong> on this device inside your private SQLite database.
               </p>
 
               <div className="p-3 bg-gray-800/40 rounded-lg border border-gray-700/50 space-y-1.5 text-[11px] theme-text-muted">
@@ -1081,7 +1182,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <span className="font-semibold theme-title">Local Privacy & Safety First</span>
                 </div>
                 <p className="pl-6">
-                  No data ever leaves your computer. CloudKit cross-device synchronization will be enabled in an upcoming release once Apple Developer entitlement provisioning is complete.
+                  No data ever leaves your computer. CloudKit cross-device synchronization will be enabled in an upcoming release.
                 </p>
               </div>
             </div>

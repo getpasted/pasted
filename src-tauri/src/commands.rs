@@ -216,6 +216,37 @@ pub fn batch_assign_board_clips(
 }
 
 #[tauri::command]
+pub fn export_backup_json(
+    db: State<'_, Arc<DbState>>,
+) -> Result<String, String> {
+    db.export_backup_json().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn import_backup_json(
+    json_str: String,
+    db: State<'_, Arc<DbState>>,
+) -> Result<usize, String> {
+    db.import_backup_json(&json_str).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn set_vault_passcode(
+    passcode: String,
+    db: State<'_, Arc<DbState>>,
+) -> Result<(), String> {
+    db.set_vault_passcode(&passcode).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn verify_vault_passcode(
+    passcode: String,
+    db: State<'_, Arc<DbState>>,
+) -> Result<bool, String> {
+    db.verify_vault_passcode(&passcode).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub fn copy_clip_to_system(
     text: Option<String>,
     image_base64: Option<String>,

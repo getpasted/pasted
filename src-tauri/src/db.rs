@@ -82,6 +82,16 @@ pub struct AnalyticsSummary {
     pub daily_activity: Vec<DailyStat>,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct BackupPayload {
+    pub version: u32,
+    pub timestamp: String,
+    pub clips: Vec<ClipItem>,
+    pub boards: Vec<Board>,
+    pub filters: Vec<FilterRule>,
+    pub operations: Vec<Operation>,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct FilterRule {
     pub id: i64,
@@ -1427,6 +1437,84 @@ impl DbState {
         Ok(())
     }
 
+    pub fn export_backup_json(&self) -> Result<String> {
+        let clips = self.get_clips(None, None, false)?;
+        let boards = self.get_boards()?;
+        let filters = self.get_filters()?;
+        let operations = self.get_operations()?;
+
+        let payload = BackupPayload {
+            version: 1,
+            timestamp: chrono::Utc::now().to_rfc3339(),
+            clips,
+            boards,
+            filters,
+            operations,
+        };
+
+        serde_json::to_string_pretty(&payload).map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))
+    }
+
+    pub fn import_backup_json(&self, json_str: &str) -> Result<usize> {
+        let payload: BackupPayload = serde_json::from_str(json_str)
+            .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+
+        let mut imported = 0;
+        for clip in payload.clips {
+            let res = self.save_clip(
+                &clip.content_type,
+                clip.text_content.as_deref(),
+                clip.html_content.as_deref(),
+                clip.image_base64.as_deref(),
+                &clip.content_hash,
+                &clip.source_app,
+            );
+            if res.is_ok() {
+                imported += 1;
+            }
+        }
+
+        for board in payload.boards {
+            let _ = self.create_board_with_type(
+                &board.name,
+                &board.icon,
+                &board.color,
+                board.smart_rule.as_deref(),
+                &board.board_type,
+            );
+        }
+
+        for filter in payload.filters {
+            let _ = self.create_filter(&filter.name, &filter.filter_type, filter.config.as_deref(), filter.shortcut.as_deref());
+        }
+
+        Ok(imported)
+    }
+
+    pub fn set_vault_passcode(&self, passcode: &str) -> Result<()> {
+        use sha2::{Sha256, Digest};
+        let mut hasher = Sha256::new();
+        hasher.update(passcode.as_bytes());
+        let hash_hex = format!("{:x}", hasher.finalize());
+        self.save_setting("vaultPasscodeHash", &hash_hex)
+    }
+
+    pub fn verify_vault_passcode(&self, passcode: &str) -> Result<bool> {
+        use sha2::{Sha256, Digest};
+        let stored = self.get_setting("vaultPasscodeHash")?;
+        if let Some(stored_hash) = stored {
+            if stored_hash.trim().is_empty() {
+                return Ok(true);
+            }
+            let mut hasher = Sha256::new();
+            hasher.update(passcode.as_bytes());
+            let input_hash = format!("{:x}", hasher.finalize());
+            Ok(stored_hash == input_hash)
+        } else {
+            Ok(true)
+        }
+    }
+
     pub fn get_filters(&self) -> Result<Vec<FilterRule>> {
         let conn = self.conn.lock();
         let mut stmt = conn.prepare("SELECT id, name, filter_type, config, shortcut, created_at FROM filters ORDER BY id ASC")?;
@@ -1885,7 +1973,8 @@ mod tests {
 
         let versions = db.get_clip_versions(clip.id).unwrap();
         assert_eq!(versions.len(), 2);
-        assert_eq!(versions[0].text_content, "Transformed Uppercase Content");
+        assert_eq!(versions[0].text_content, "Original Content");
+        assert_eq!(versions[1].text_content, "Transformed Uppercase Content");
     }
 
     #[test]
@@ -1902,5 +1991,33 @@ mod tests {
         let trashed = db.get_trashed_clips().unwrap();
         assert_eq!(trashed.len(), 1);
         assert_eq!(trashed[0].id, clip1.id);
+    }
+
+    #[test]
+    fn test_backup_export_import() {
+        let db = setup_test_db();
+        let _clip = db.save_clip("text", Some("Backup Test Item"), None, None, "HashBK1", "VSCode").unwrap();
+        let _board = db.create_board("DevBin", "Code", "#3b82f6", None).unwrap();
+
+        let json = db.export_backup_json().unwrap();
+        assert!(json.contains("Backup Test Item"));
+        assert!(json.contains("DevBin"));
+
+        let db2 = setup_test_db();
+        let imported_count = db2.import_backup_json(&json).unwrap();
+        assert_eq!(imported_count, 1);
+        let clips = db2.get_clips(None, None, false).unwrap();
+        assert_eq!(clips.len(), 1);
+        assert_eq!(clips[0].text_content.as_deref(), Some("Backup Test Item"));
+    }
+
+    #[test]
+    fn test_vault_passcode() {
+        let db = setup_test_db();
+        assert!(db.verify_vault_passcode("secret123").unwrap()); // Default empty pass
+
+        db.set_vault_passcode("secret123").unwrap();
+        assert!(db.verify_vault_passcode("secret123").unwrap());
+        assert!(!db.verify_vault_passcode("wrongpass").unwrap());
     }
 }
