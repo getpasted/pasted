@@ -1,0 +1,199 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { disable, enable } from '@tauri-apps/plugin-autostart';
+import type { AppSettings, BlacklistApp } from '../types';
+import { safeInvoke as invoke } from '../utils/tauri';
+
+const DEFAULT_SETTINGS: AppSettings = {
+  textSize: 16,
+  enableSounds: true,
+  openAtLogin: true,
+  dockMenubarIcon: 'auto_hide',
+  maxClipSizeMb: 100,
+  keepClipCount: 900,
+  alwaysPastePlainText: false,
+  rowHeight: 'medium',
+  iCloudSync: true,
+  themeMode: 'system',
+  spotlightSync: true,
+  enableActivityLog: true,
+  activityLogCapacity: 1000,
+  enableTrash: true,
+  trashCapacityCount: 500,
+  hudHotkey: 'Alt+Shift+V',
+  seqToggleHotkey: 'Alt+Shift+C',
+  seqPopHotkey: 'Alt+Shift+X',
+};
+
+const DEFAULT_BLACKLIST_APPS: BlacklistApp[] = [
+  { id: '1', name: '1Password', icon: 'Lock', ignoreText: true, ignoreImages: true, ignoreShortcuts: false },
+  { id: '2', name: 'Passwords', icon: 'Lock', ignoreText: true, ignoreImages: true, ignoreShortcuts: false },
+  { id: '3', name: 'Keychain Access', icon: 'Key', ignoreText: true, ignoreImages: true, ignoreShortcuts: false },
+  { id: '4', name: 'Bitwarden', icon: 'Shield', ignoreText: true, ignoreImages: true, ignoreShortcuts: false },
+];
+
+function parseSavedSettings(saved: Record<string, string>) {
+  const next = { ...DEFAULT_SETTINGS };
+  const numberValue = (key: string, fallback: number) => {
+    const value = Number(saved[key]);
+    return Number.isFinite(value) ? value : fallback;
+  };
+
+  if (saved.textSize) next.textSize = numberValue('textSize', next.textSize);
+  if (saved.enableSounds !== undefined) next.enableSounds = saved.enableSounds === 'true';
+  if (saved.openAtLogin !== undefined) next.openAtLogin = saved.openAtLogin === 'true';
+  if (['auto_hide', 'both', 'menubar_only'].includes(saved.dockMenubarIcon)) next.dockMenubarIcon = saved.dockMenubarIcon as AppSettings['dockMenubarIcon'];
+  if (saved.maxClipSizeMb) next.maxClipSizeMb = numberValue('maxClipSizeMb', next.maxClipSizeMb);
+  if (saved.keepClipCount) next.keepClipCount = numberValue('keepClipCount', next.keepClipCount);
+  if (saved.alwaysPastePlainText !== undefined) next.alwaysPastePlainText = saved.alwaysPastePlainText === 'true';
+  if (['small', 'medium', 'large'].includes(saved.rowHeight)) next.rowHeight = saved.rowHeight as AppSettings['rowHeight'];
+  if (saved.iCloudSync !== undefined) next.iCloudSync = saved.iCloudSync === 'true';
+  if (['system', 'light', 'dark'].includes(saved.themeMode)) next.themeMode = saved.themeMode as AppSettings['themeMode'];
+  if (saved.spotlightSync !== undefined) next.spotlightSync = saved.spotlightSync === 'true';
+  if (saved.enableActivityLog !== undefined) next.enableActivityLog = saved.enableActivityLog === 'true';
+  if (saved.activityLogCapacity) next.activityLogCapacity = numberValue('activityLogCapacity', next.activityLogCapacity ?? 1000);
+  if (saved.enableTrash !== undefined) next.enableTrash = saved.enableTrash === 'true';
+  if (saved.trashCapacityCount) next.trashCapacityCount = numberValue('trashCapacityCount', next.trashCapacityCount ?? 500);
+
+  const hotkeyKeys = [
+    'hudHotkey', 'seqToggleHotkey', 'seqPopHotkey', 'pasteLastFilterHotkey',
+    'openFilterWindowHotkey', 'openMainWindowHotkey',
+    ...Array.from({ length: 9 }, (_, index) => `pasteClip${index + 1}Hotkey`),
+  ];
+  for (const key of hotkeyKeys) {
+    if (saved[key] !== undefined) Object.assign(next, { [key]: saved[key] });
+  }
+  return next;
+}
+
+function readCachedBlacklist() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem('pasted_cache_blacklist_apps') ?? 'null');
+    return Array.isArray(parsed) ? parsed as BlacklistApp[] : DEFAULT_BLACKLIST_APPS;
+  } catch {
+    return DEFAULT_BLACKLIST_APPS;
+  }
+}
+
+export function useAppSettings() {
+  const [appSettings, setAppSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
+  const [blacklistApps, setBlacklistApps] = useState<BlacklistApp[]>(readCachedBlacklist);
+  const [settingsHydrated, setSettingsHydrated] = useState(false);
+  const saveTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const pendingSettingsRef = useRef<Record<string, string>>({});
+  const locallyChangedKeysRef = useRef(new Set<string>());
+  const blacklistChangedRef = useRef(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    invoke<Record<string, string>>('get_all_app_settings')
+      .then((saved) => {
+        if (cancelled || !saved) return;
+        setAppSettings((current) => {
+          const hydrated = parseSavedSettings(saved);
+          for (const key of locallyChangedKeysRef.current) {
+            Object.assign(hydrated, { [key]: current[key as keyof AppSettings] });
+          }
+          return hydrated;
+        });
+        if (saved.blacklistApps && !blacklistChangedRef.current) {
+          try {
+            const parsed = JSON.parse(saved.blacklistApps);
+            if (Array.isArray(parsed)) setBlacklistApps(parsed);
+          } catch (error) {
+            console.error('Failed to restore blacklist settings:', error);
+          }
+        }
+      })
+      .catch(console.error)
+      .finally(() => {
+        if (!cancelled) setSettingsHydrated(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    const applyTheme = () => {
+      const isLight = appSettings.themeMode === 'light'
+        || ((appSettings.themeMode || 'system') === 'system' && window.matchMedia('(prefers-color-scheme: light)').matches);
+      document.documentElement.classList.toggle('light', isLight);
+    };
+    applyTheme();
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: light)');
+    mediaQuery.addEventListener('change', applyTheme);
+    return () => mediaQuery.removeEventListener('change', applyTheme);
+  }, [appSettings.themeMode]);
+
+  useEffect(() => {
+    document.documentElement.style.fontSize = `${appSettings.textSize}px`;
+  }, [appSettings.textSize]);
+
+  useEffect(() => {
+    if (!settingsHydrated || !(window as Window & { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__) return;
+    (appSettings.openAtLogin ? enable() : disable()).catch(console.error);
+  }, [appSettings.openAtLogin, settingsHydrated]);
+
+  useEffect(() => {
+    if (settingsHydrated) invoke('enforce_clip_retention', { keepCount: appSettings.keepClipCount }).catch(console.error);
+  }, [appSettings.keepClipCount, settingsHydrated]);
+
+  useEffect(() => {
+    if (settingsHydrated) invoke('set_dock_visibility', { showDock: appSettings.dockMenubarIcon === 'both' }).catch(console.error);
+  }, [appSettings.dockMenubarIcon, settingsHydrated]);
+
+  useEffect(() => {
+    if (!settingsHydrated) return;
+    try {
+      localStorage.setItem('pasted_cache_blacklist_apps', JSON.stringify(blacklistApps));
+    } catch {
+      // SQLite remains the source of truth when the browser cache is unavailable.
+    }
+    invoke('save_app_setting', { key: 'blacklistApps', value: JSON.stringify(blacklistApps) }).catch(console.error);
+  }, [blacklistApps, settingsHydrated]);
+
+  useEffect(() => () => {
+    Object.values(saveTimersRef.current).forEach(clearTimeout);
+    for (const [key, value] of Object.entries(pendingSettingsRef.current)) {
+      invoke('save_app_setting', { key, value }).catch(console.error);
+    }
+  }, []);
+
+  const updateSettings = useCallback((updates: Partial<AppSettings>) => {
+    setAppSettings((current) => ({ ...current, ...updates }));
+    for (const [key, value] of Object.entries(updates)) {
+      locallyChangedKeysRef.current.add(key);
+      pendingSettingsRef.current[key] = String(value);
+      if (saveTimersRef.current[key]) clearTimeout(saveTimersRef.current[key]);
+      saveTimersRef.current[key] = setTimeout(() => {
+        invoke('save_app_setting', { key, value: pendingSettingsRef.current[key] }).catch(console.error);
+        delete saveTimersRef.current[key];
+        delete pendingSettingsRef.current[key];
+      }, 250);
+    }
+  }, []);
+
+  const addBlacklistApp = useCallback((name: string) => {
+    blacklistChangedRef.current = true;
+    setBlacklistApps((current) => [...current, {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      name,
+      icon: 'Lock',
+      ignoreText: true,
+      ignoreImages: true,
+      ignoreShortcuts: false,
+    }]);
+  }, []);
+
+  const removeBlacklistApp = useCallback((id: string) => {
+    blacklistChangedRef.current = true;
+    setBlacklistApps((current) => current.filter((app) => app.id !== id));
+  }, []);
+
+  const toggleBlacklistRule = useCallback((id: string, rule: 'ignoreText' | 'ignoreImages' | 'ignoreShortcuts') => {
+    blacklistChangedRef.current = true;
+    setBlacklistApps((current) => current.map((app) => app.id === id ? { ...app, [rule]: !app[rule] } : app));
+  }, []);
+
+  return { appSettings, blacklistApps, updateSettings, addBlacklistApp, removeBlacklistApp, toggleBlacklistRule };
+}

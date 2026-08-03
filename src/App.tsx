@@ -1,9 +1,8 @@
-import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { safeInvoke as invoke } from './utils/tauri';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { enable, disable } from '@tauri-apps/plugin-autostart';
-import { ClipItem, Board, FilterRule, SequentialStatus, AppSettings, BlacklistApp, getClipNoteSummary } from './types';
+import { ClipItem, Board, FilterRule, SequentialStatus, getClipNoteSummary } from './types';
 import { Sidebar } from './components/Sidebar';
 import { ClipCard } from './components/ClipCard';
 import { ClipPreview } from './components/ClipPreview';
@@ -23,15 +22,9 @@ import { ClearHistoryDialog, type ClearHistoryMode } from './components/ClearHis
 import { soundManager } from './utils/sound';
 import { startWindowDrag } from './utils/windowDrag';
 import { useColumnResize } from './hooks/useColumnResize';
+import { useAppSettings } from './hooks/useAppSettings';
 import { Clipboard, Trash2, Pause, Disc, Square, Pin, X } from 'lucide-react';
 import './App.css';
-
-const DEFAULT_BLACKLIST_APPS: BlacklistApp[] = [
-  { id: '1', name: '1Password', icon: 'Lock', ignoreText: true, ignoreImages: true, ignoreShortcuts: false },
-  { id: '2', name: 'Passwords', icon: 'Lock', ignoreText: true, ignoreImages: true, ignoreShortcuts: false },
-  { id: '3', name: 'Keychain Access', icon: 'Key', ignoreText: true, ignoreImages: true, ignoreShortcuts: false },
-  { id: '4', name: 'Bitwarden', icon: 'Shield', ignoreText: true, ignoreImages: true, ignoreShortcuts: false },
-];
 
 export default function App() {
   const [isHudView, setIsHudView] = useState<boolean>(false);
@@ -140,59 +133,14 @@ export default function App() {
   const isClearConfirmOpen = clearHistoryMode !== null;
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
 
-  // App Settings State
-  const [appSettings, setAppSettings] = useState<AppSettings>({
-    textSize: 16,
-    enableSounds: true,
-    openAtLogin: true,
-    dockMenubarIcon: 'auto_hide',
-    maxClipSizeMb: 100,
-    keepClipCount: 900,
-    alwaysPastePlainText: false,
-    rowHeight: 'medium',
-    iCloudSync: true,
-    themeMode: 'system',
-    spotlightSync: true,
-    enableActivityLog: true,
-    activityLogCapacity: 1000,
-    enableTrash: true,
-    trashCapacityCount: 500,
-    hudHotkey: 'Alt+Shift+V',
-    seqToggleHotkey: 'Alt+Shift+C',
-    seqPopHotkey: 'Alt+Shift+X',
-  });
-  const [settingsHydrated, setSettingsHydrated] = useState(false);
-
-  // Light / Dark / System Theme Switcher Engine
-  useEffect(() => {
-    const applyTheme = () => {
-      const mode = appSettings.themeMode || 'system';
-      let isLight = false;
-      if (mode === 'light') {
-        isLight = true;
-      } else if (mode === 'system') {
-        isLight = window.matchMedia('(prefers-color-scheme: light)').matches;
-      }
-
-      if (isLight) {
-        document.documentElement.classList.add('light');
-      } else {
-        document.documentElement.classList.remove('light');
-      }
-    };
-
-    applyTheme();
-
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    const handleChange = () => {
-      if ((appSettings.themeMode || 'system') === 'system') {
-        applyTheme();
-      }
-    };
-
-    mediaQuery.addEventListener('change', handleChange);
-    return () => mediaQuery.removeEventListener('change', handleChange);
-  }, [appSettings.themeMode]);
+  const {
+    appSettings,
+    blacklistApps,
+    updateSettings: handleUpdateSettings,
+    addBlacklistApp: handleAddBlacklistApp,
+    removeBlacklistApp: handleRemoveBlacklistApp,
+    toggleBlacklistRule: handleToggleBlacklistRule,
+  } = useAppSettings();
 
   // Pause & Blacklist Live Monitoring State
   const [isClipboardPaused, setIsClipboardPaused] = useState<boolean>(false);
@@ -221,28 +169,6 @@ export default function App() {
       console.error('Failed to toggle copy queue:', e);
     }
   };
-
-  // Blacklist Apps State
-  const [blacklistApps, setBlacklistApps] = useState<BlacklistApp[]>(() => {
-    try {
-      const cached = localStorage.getItem('pasted_cache_blacklist_apps');
-      return cached ? JSON.parse(cached) : DEFAULT_BLACKLIST_APPS;
-    } catch {
-      return DEFAULT_BLACKLIST_APPS;
-    }
-  });
-
-  // Sync blacklistApps to SQLite backend and localStorage
-  useEffect(() => {
-    if (!settingsHydrated) return;
-    try {
-      localStorage.setItem('pasted_cache_blacklist_apps', JSON.stringify(blacklistApps));
-    } catch {}
-    invoke('save_app_setting', {
-      key: 'blacklistApps',
-      value: JSON.stringify(blacklistApps),
-    }).catch(console.error);
-  }, [blacklistApps, settingsHydrated]);
 
   // Context Menu State
   const [contextMenu, setContextMenu] = useState<{
@@ -322,60 +248,6 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleGlobalKeyDown, true);
   }, [notePromptClip, binToDelete, isClearConfirmOpen, boardContextMenu, contextMenu, isBoardModalOpen]);
 
-  // Load saved settings from SQLite database on mount
-  useEffect(() => {
-    invoke<Record<string, string>>('get_all_app_settings')
-      .then((saved) => {
-        if (saved && Object.keys(saved).length > 0) {
-          setAppSettings((prev) => {
-            const next = { ...prev };
-            if (saved.textSize) next.textSize = Number(saved.textSize);
-            if (saved.enableSounds !== undefined) next.enableSounds = saved.enableSounds === 'true';
-            if (saved.openAtLogin !== undefined) next.openAtLogin = saved.openAtLogin === 'true';
-            if (saved.dockMenubarIcon) next.dockMenubarIcon = saved.dockMenubarIcon as any;
-            if (saved.maxClipSizeMb) next.maxClipSizeMb = Number(saved.maxClipSizeMb);
-            if (saved.keepClipCount) next.keepClipCount = Number(saved.keepClipCount);
-            if (saved.alwaysPastePlainText !== undefined) next.alwaysPastePlainText = saved.alwaysPastePlainText === 'true';
-            if (saved.rowHeight) next.rowHeight = saved.rowHeight as any;
-            if (saved.iCloudSync !== undefined) next.iCloudSync = saved.iCloudSync === 'true';
-            if (saved.themeMode) next.themeMode = saved.themeMode as AppSettings['themeMode'];
-            if (saved.spotlightSync !== undefined) next.spotlightSync = saved.spotlightSync === 'true';
-            if (saved.enableActivityLog !== undefined) next.enableActivityLog = saved.enableActivityLog === 'true';
-            if (saved.activityLogCapacity) next.activityLogCapacity = Number(saved.activityLogCapacity);
-            if (saved.enableTrash !== undefined) next.enableTrash = saved.enableTrash === 'true';
-            if (saved.trashCapacityCount) next.trashCapacityCount = Number(saved.trashCapacityCount);
-            if (saved.hudHotkey !== undefined) next.hudHotkey = saved.hudHotkey;
-            if (saved.seqToggleHotkey !== undefined) next.seqToggleHotkey = saved.seqToggleHotkey;
-            if (saved.seqPopHotkey !== undefined) next.seqPopHotkey = saved.seqPopHotkey;
-            if (saved.pasteLastFilterHotkey !== undefined) next.pasteLastFilterHotkey = saved.pasteLastFilterHotkey;
-            if (saved.openFilterWindowHotkey !== undefined) next.openFilterWindowHotkey = saved.openFilterWindowHotkey;
-            if (saved.openMainWindowHotkey !== undefined) next.openMainWindowHotkey = saved.openMainWindowHotkey;
-            for (let i = 1; i <= 9; i++) {
-              const k = `pasteClip${i}Hotkey`;
-              if (saved[k] !== undefined) (next as any)[k] = saved[k];
-            }
-            return next;
-          });
-
-          if (saved.blacklistApps) {
-            try {
-              const parsed = JSON.parse(saved.blacklistApps);
-              if (Array.isArray(parsed)) setBlacklistApps(parsed);
-            } catch (error) {
-              console.error('Failed to restore blacklist settings:', error);
-            }
-          }
-        }
-      })
-      .catch(console.error)
-      .finally(() => setSettingsHydrated(true));
-  }, []);
-
-  // Apply Font Size dynamically
-  useEffect(() => {
-    document.documentElement.style.fontSize = `${appSettings.textSize}px`;
-  }, [appSettings.textSize]);
-
   // Disable WebKit default right-click context menu (Reload/Inspect) app-wide
   useEffect(() => {
     const handleGlobalContextMenu = (e: MouseEvent) => {
@@ -384,29 +256,6 @@ export default function App() {
     window.addEventListener('contextmenu', handleGlobalContextMenu);
     return () => window.removeEventListener('contextmenu', handleGlobalContextMenu);
   }, []);
-
-  // Sync Autostart setting with OS
-  useEffect(() => {
-    if (!settingsHydrated) return;
-    if (appSettings.openAtLogin) {
-      if (typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__) enable().catch(console.error);
-    } else {
-      if (typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__) disable().catch(console.error);
-    }
-  }, [appSettings.openAtLogin, settingsHydrated]);
-
-  // Enforce Clip Retention Count
-  useEffect(() => {
-    if (!settingsHydrated) return;
-    invoke('enforce_clip_retention', { keepCount: appSettings.keepClipCount }).catch(console.error);
-  }, [appSettings.keepClipCount, settingsHydrated]);
-
-  // Sync Dock & Menubar visibility setting with macOS immediately
-  useEffect(() => {
-    if (!settingsHydrated) return;
-    const showDock = appSettings.dockMenubarIcon === 'both';
-    invoke('set_dock_visibility', { showDock }).catch(console.error);
-  }, [appSettings.dockMenubarIcon, settingsHydrated]);
 
   // Fetch Total Clip Count
   const fetchTotalClipCount = useCallback(async () => {
@@ -1104,57 +953,6 @@ export default function App() {
     } catch (e) {
       console.error(e);
     }
-  };
-
-  const settingsSaveTimerRef = useRef<{ [key: string]: ReturnType<typeof setTimeout> }>({});
-
-  useEffect(() => {
-    return () => {
-      Object.values(settingsSaveTimerRef.current).forEach(clearTimeout);
-    };
-  }, []);
-
-  const handleUpdateSettings = useCallback((newSettings: Partial<AppSettings>) => {
-    setAppSettings((prev) => ({ ...prev, ...newSettings }));
-
-    // Keep persistence outside the React state updater: updaters may run more
-    // than once in Strict Mode and must stay free of side effects.
-    for (const [key, value] of Object.entries(newSettings)) {
-      if (settingsSaveTimerRef.current[key]) {
-        clearTimeout(settingsSaveTimerRef.current[key]);
-      }
-      settingsSaveTimerRef.current[key] = setTimeout(() => {
-        invoke('save_app_setting', { key, value: String(value) }).catch(console.error);
-        delete settingsSaveTimerRef.current[key];
-      }, 250);
-    }
-  }, []);
-
-  const handleAddBlacklistApp = (appName: string) => {
-    setBlacklistApps((prev) => [
-      ...prev,
-      {
-        id: String(Date.now()),
-        name: appName,
-        icon: 'Lock',
-        ignoreText: true,
-        ignoreImages: true,
-        ignoreShortcuts: false,
-      },
-    ]);
-  };
-
-  const handleRemoveBlacklistApp = (appId: string) => {
-    setBlacklistApps((prev) => prev.filter((a) => a.id !== appId));
-  };
-
-  const handleToggleBlacklistRule = (
-    appId: string,
-    rule: 'ignoreText' | 'ignoreImages' | 'ignoreShortcuts'
-  ) => {
-    setBlacklistApps((prev) =>
-      prev.map((a) => (a.id === appId ? { ...a, [rule]: !a[rule] } : a))
-    );
   };
 
   if (isHudView) {
