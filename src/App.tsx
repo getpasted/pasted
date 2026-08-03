@@ -461,9 +461,9 @@ export default function App() {
   // Sync Autostart setting with OS
   useEffect(() => {
     if (appSettings.openAtLogin) {
-      enable().catch(console.error);
+      if (typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__) enable().catch(console.error);
     } else {
-      disable().catch(console.error);
+      if (typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__) disable().catch(console.error);
     }
   }, [appSettings.openAtLogin]);
 
