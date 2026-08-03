@@ -31,6 +31,7 @@ interface ClipCardProps {
   showActions?: boolean;
   isDragging?: boolean;
   isDragInProgress?: boolean;
+  reorderOffsetY?: number;
   isDeleting?: boolean;
   isTrashMode?: boolean;
   isQueueMode?: boolean;
@@ -61,6 +62,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
   showActions = false,
   isDragging = false,
   isDragInProgress = false,
+  reorderOffsetY = 0,
   isDeleting = false,
   isTrashMode = false,
   isQueueMode = false,
@@ -141,6 +143,10 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
       }}
       onContextMenu={onContextMenu}
       draggable={false}
+      style={reorderOffsetY !== 0 || isDragging ? {
+        transform: `translateY(${reorderOffsetY}px)`,
+        zIndex: isDragging ? 20 : 10,
+      } : undefined}
       onPointerDown={(e) => {
         if (e.button !== 0 || (e.target as HTMLElement).closest('button, input, select, textarea, a')) return;
         pointerDragRef.current = {
@@ -349,7 +355,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
       <div
         onPointerDown={(e) => e.stopPropagation()}
         onMouseDown={(e) => e.stopPropagation()}
-        className={`absolute right-2 bottom-2 transition-opacity flex items-center space-x-1 bg-gray-950/95 p-1 rounded-lg border border-gray-700/80 shadow-xl ${showActions && !isDragInProgress ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+        className={`absolute right-2 bottom-2 transition-opacity flex items-center space-x-1 bg-gray-950/95 p-1 rounded-lg border border-gray-700/80 shadow-xl ${showActions && !isDragInProgress ? 'visible opacity-100' : 'invisible opacity-0 pointer-events-none'}`}
       >
         <button
           onClick={handleCopy}
@@ -495,6 +501,7 @@ export const ClipCard = React.memo(ClipCardComponent, (prevProps, nextProps) => 
     prevProps.clip.source_app === nextProps.clip.source_app &&
     prevProps.clip.created_at === nextProps.clip.created_at &&
     prevProps.clip.is_pinned === nextProps.clip.is_pinned &&
+    prevProps.clip.pin_order === nextProps.clip.pin_order &&
     prevProps.clip.is_protected === nextProps.clip.is_protected &&
     prevProps.clip.note === nextProps.clip.note &&
     prevProps.clip.bin_id === nextProps.clip.bin_id &&
@@ -505,6 +512,7 @@ export const ClipCard = React.memo(ClipCardComponent, (prevProps, nextProps) => 
     prevProps.showActions === nextProps.showActions &&
     prevProps.isDragging === nextProps.isDragging &&
     prevProps.isDragInProgress === nextProps.isDragInProgress &&
+    prevProps.reorderOffsetY === nextProps.reorderOffsetY &&
     prevProps.isDeleting === nextProps.isDeleting &&
     prevProps.isTrashMode === nextProps.isTrashMode &&
     prevProps.isQueueMode === nextProps.isQueueMode &&

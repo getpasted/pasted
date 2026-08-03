@@ -338,9 +338,17 @@ html.light .custom-scrollbar::-webkit-scrollbar-thumb:active {
 
 .clip-card-drag-source {
   opacity: 0.5 !important;
-  transform: scale(0.98) !important;
   border-color: rgba(52, 211, 153, 0.8) !important;
   box-shadow: 0 0 0 2px rgba(52, 211, 153, 0.3) !important;
+  pointer-events: none !important;
+}
+
+.is-settling-pinned-reorder .clip-card {
+  transition-property: background-color, border-color, box-shadow, opacity !important;
+}
+
+.is-settling-bin-reorder [data-bin-order-id] {
+  transition-property: background-color, border-color, box-shadow, opacity, color !important;
 }
 
 /* =======================================================

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, type Dispatch, type SetStateAction } from 'react';
+import { useCallback, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 import type { Bin, ClipItem } from '../types';
 import { safeInvoke as invoke } from '../utils/tauri';
 
@@ -6,6 +6,14 @@ interface ClipDragPreview {
   clipId: number;
   x: number;
   y: number;
+}
+
+interface PinnedLayoutSnapshot {
+  topById: Map<number, number>;
+  heightById: Map<number, number>;
+  centerById: Map<number, number>;
+  firstTop: number;
+  gap: number;
 }
 
 interface ClipBinDragInput {
@@ -28,6 +36,14 @@ export function useClipBinDrag({
   const [draggedClipId, setDraggedClipId] = useState<number | null>(null);
   const [pointerDropTargetBinId, setPointerDropTargetBinId] = useState<number | null>(null);
   const [clipDragPreview, setClipDragPreview] = useState<ClipDragPreview | null>(null);
+  const [pinnedReorderOffsets, setPinnedReorderOffsets] = useState<Record<number, number>>({});
+  const [isPinnedReorderSettling, setIsPinnedReorderSettling] = useState(false);
+  const originalPinnedOrderRef = useRef<ClipItem[] | null>(null);
+  const pinnedOrderPreviewRef = useRef<ClipItem[] | null>(null);
+  const isPinnedPreviewActiveRef = useRef(false);
+  const pinnedLayoutSnapshotRef = useRef<PinnedLayoutSnapshot | null>(null);
+  const pinnedPreviewSignatureRef = useRef('');
+  const pinnedDragGenerationRef = useRef(0);
 
   const disabledDropBinId = useMemo(() => {
     if (draggedClipId === null) return null;
@@ -54,37 +70,148 @@ export function useClipBinDrag({
     return Number.isInteger(binId) && binId > 0 ? binId : null;
   }, []);
 
+  const beginPinnedReorderPreview = useCallback((clipId: number) => {
+    pinnedDragGenerationRef.current += 1;
+    if (!allClips.find((clip) => clip.id === clipId)?.is_pinned) return;
+    const pinnedIds = new Set(allClips.filter((clip) => clip.is_pinned).map((clip) => clip.id));
+    const rendered = Array.from(document.querySelectorAll<HTMLElement>('[data-clip-list] [data-clip-id]'))
+      .filter((element) => pinnedIds.has(Number(element.dataset.clipId)))
+      .map((element) => {
+        const id = Number(element.dataset.clipId);
+        const rect = element.getBoundingClientRect();
+        return { id, top: rect.top, height: rect.height, center: rect.top + rect.height / 2 };
+      })
+      .sort((left, right) => left.top - right.top);
+    if (rendered.length !== pinnedIds.size) return;
+    const measuredGaps = rendered.slice(0, -1).map((item, index) => (
+      rendered[index + 1].top - item.top - item.height
+    ));
+    originalPinnedOrderRef.current = allClips;
+    pinnedOrderPreviewRef.current = null;
+    isPinnedPreviewActiveRef.current = false;
+    pinnedLayoutSnapshotRef.current = {
+      topById: new Map(rendered.map((item) => [item.id, item.top])),
+      heightById: new Map(rendered.map((item) => [item.id, item.height])),
+      centerById: new Map(rendered.map((item) => [item.id, item.center])),
+      firstTop: rendered[0]?.top ?? 0,
+      gap: measuredGaps.length > 0
+        ? measuredGaps.reduce((sum, gap) => sum + gap, 0) / measuredGaps.length
+        : 0,
+    };
+    pinnedPreviewSignatureRef.current = '';
+    setPinnedReorderOffsets({});
+  }, [allClips]);
+
+  const cancelPinnedReorderPreview = useCallback(() => {
+    pinnedDragGenerationRef.current += 1;
+    originalPinnedOrderRef.current = null;
+    pinnedOrderPreviewRef.current = null;
+    isPinnedPreviewActiveRef.current = false;
+    pinnedLayoutSnapshotRef.current = null;
+    pinnedPreviewSignatureRef.current = '';
+    setPinnedReorderOffsets({});
+  }, []);
+
+  const updatePinnedReorderPreview = useCallback((x: number, y: number, clipId: number) => {
+    const originalOrder = originalPinnedOrderRef.current;
+    const layout = pinnedLayoutSnapshotRef.current;
+    if (!originalOrder || !layout) return;
+    if (getPointerDropTarget(x, y) !== null) {
+      pinnedOrderPreviewRef.current = null;
+      isPinnedPreviewActiveRef.current = false;
+      if (pinnedPreviewSignatureRef.current !== '') {
+        pinnedPreviewSignatureRef.current = '';
+        setPinnedReorderOffsets({});
+      }
+      return;
+    }
+    const pointerElement = document.elementFromPoint(x, y);
+    if (!pointerElement?.closest('[data-clip-list]')) {
+      pinnedOrderPreviewRef.current = null;
+      isPinnedPreviewActiveRef.current = false;
+      if (pinnedPreviewSignatureRef.current !== '') {
+        pinnedPreviewSignatureRef.current = '';
+        setPinnedReorderOffsets({});
+      }
+      return;
+    }
+
+    const originalPinned = originalOrder.filter((clip) => clip.is_pinned);
+    const draggedClip = originalPinned.find((clip) => clip.id === clipId);
+    if (!draggedClip) return;
+    const remainingPinned = originalPinned.filter((clip) => clip.id !== clipId);
+    const renderedCenters = remainingPinned
+      .map((clip) => layout.centerById.get(clip.id))
+      .filter((center): center is number => center !== undefined)
+      .sort((left, right) => left - right);
+    if (renderedCenters.length !== remainingPinned.length) return;
+    const insertionIndex = renderedCenters.filter((center) => y >= center).length;
+    const reordered = [...remainingPinned];
+    reordered.splice(insertionIndex, 0, draggedClip);
+    const orderedWithRanks = reordered.map((clip, index) => ({ ...clip, pin_order: index }));
+    const preview = [...orderedWithRanks, ...originalOrder.filter((clip) => !clip.is_pinned)];
+    const differsFromOriginal = originalPinned.some((clip, index) => clip.id !== orderedWithRanks[index]?.id);
+    const signature = differsFromOriginal ? orderedWithRanks.map((clip) => clip.id).join(',') : '';
+    if (signature === pinnedPreviewSignatureRef.current) return;
+    pinnedPreviewSignatureRef.current = signature;
+    pinnedOrderPreviewRef.current = differsFromOriginal ? preview : null;
+    isPinnedPreviewActiveRef.current = true;
+    if (!differsFromOriginal) {
+      setPinnedReorderOffsets({});
+      return;
+    }
+    const offsets: Record<number, number> = {};
+    let desiredTop = layout.firstTop;
+    orderedWithRanks.forEach((clip) => {
+      const originalTop = layout.topById.get(clip.id);
+      if (originalTop !== undefined) {
+        offsets[clip.id] = desiredTop - originalTop;
+      }
+      desiredTop += (layout.heightById.get(clip.id) ?? 0) + layout.gap;
+    });
+    setPinnedReorderOffsets(offsets);
+  }, [getPointerDropTarget]);
+
   const finishClipPointerDrag = useCallback(async (x: number, y: number, clipId: number) => {
+    const dragGeneration = pinnedDragGenerationRef.current;
     const binId = getPointerDropTarget(x, y);
     setPointerDropTargetBinId(null);
     setClipDragPreview(null);
+    const pinnedOrderPreview = pinnedOrderPreviewRef.current;
+    const isPinnedPreviewActive = isPinnedPreviewActiveRef.current;
+    originalPinnedOrderRef.current = null;
+    pinnedOrderPreviewRef.current = null;
+    isPinnedPreviewActiveRef.current = false;
+    pinnedLayoutSnapshotRef.current = null;
+    pinnedPreviewSignatureRef.current = '';
 
     if (binId !== null) {
+      setPinnedReorderOffsets({});
       await assignClipToBin(clipId, binId);
       return;
     }
 
-    const target = document.elementFromPoint(x, y)?.closest<HTMLElement>('[data-clip-id]');
-    const targetId = Number(target?.dataset.clipId);
-    if (!Number.isInteger(targetId) || targetId === clipId) return;
-
-    const pinnedClips = allClips.filter((clip) => clip.is_pinned);
-    const draggedIndex = pinnedClips.findIndex((clip) => clip.id === clipId);
-    const targetIndex = pinnedClips.findIndex((clip) => clip.id === targetId);
-    if (draggedIndex === -1 || targetIndex === -1) return;
-
-    const reordered = [...pinnedClips];
-    const [moved] = reordered.splice(draggedIndex, 1);
-    reordered.splice(targetIndex, 0, moved);
-    setAllClips([...reordered, ...allClips.filter((clip) => !clip.is_pinned)]);
+    if (!isPinnedPreviewActive || !pinnedOrderPreview) {
+      setPinnedReorderOffsets({});
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 90));
+    if (pinnedDragGenerationRef.current !== dragGeneration) return;
+    setIsPinnedReorderSettling(true);
+    setAllClips(pinnedOrderPreview);
+    setPinnedReorderOffsets({});
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => setIsPinnedReorderSettling(false));
+    });
+    const pinnedIds = pinnedOrderPreview.filter((clip) => clip.is_pinned).map((clip) => clip.id);
 
     try {
-      await invoke('reorder_pinned_clips', { ids: reordered.map((clip) => clip.id) });
+      await invoke('reorder_pinned_clips', { ids: pinnedIds });
     } catch (error) {
       console.error('Failed to save pin order:', error);
       void fetchClips();
     }
-  }, [allClips, assignClipToBin, fetchClips, getPointerDropTarget, setAllClips]);
+  }, [assignClipToBin, fetchClips, getPointerDropTarget, setAllClips]);
 
   return {
     draggedClipId,
@@ -94,7 +221,12 @@ export function useClipBinDrag({
     clipDragPreview,
     setClipDragPreview,
     disabledDropBinId,
+    pinnedReorderOffsets,
+    isPinnedReorderSettling,
     getPointerDropTarget,
+    beginPinnedReorderPreview,
+    updatePinnedReorderPreview,
+    cancelPinnedReorderPreview,
     finishClipPointerDrag,
   };
 }

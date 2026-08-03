@@ -1414,11 +1414,20 @@ impl DbState {
     pub fn batch_pin_clips(&self, ids: Vec<i64>, pin_state: bool) -> Result<()> {
         let mut conn = self.conn.lock();
         let tx = conn.transaction()?;
-        let val = if pin_state { 1 } else { 0 };
-        for id in ids {
+        if pin_state {
             tx.execute(
-                "UPDATE clips SET is_pinned = ?1 WHERE id = ?2",
-                params![val, id],
+                "UPDATE clips SET pin_order = COALESCE(pin_order, 0) + ?1 WHERE is_pinned = 1",
+                params![ids.len() as i32],
+            )?;
+        }
+        for (index, id) in ids.into_iter().enumerate() {
+            tx.execute(
+                "UPDATE clips SET is_pinned = ?1, pin_order = ?2 WHERE id = ?3",
+                params![
+                    if pin_state { 1 } else { 0 },
+                    if pin_state { index as i32 } else { 0 },
+                    id
+                ],
             )?;
         }
         tx.commit()
@@ -1603,17 +1612,25 @@ impl DbState {
     }
 
     pub fn toggle_pin(&self, id: i64) -> Result<bool> {
-        let conn = self.conn.lock();
-        let current_pinned: i32 = conn.query_row(
+        let mut conn = self.conn.lock();
+        let tx = conn.transaction()?;
+        let current_pinned: i32 = tx.query_row(
             "SELECT is_pinned FROM clips WHERE id = ?1",
             params![id],
             |r| r.get(0),
         )?;
         let new_pinned = if current_pinned == 0 { 1 } else { 0 };
-        conn.execute(
-            "UPDATE clips SET is_pinned = ?1 WHERE id = ?2",
+        if new_pinned == 1 {
+            tx.execute(
+                "UPDATE clips SET pin_order = COALESCE(pin_order, 0) + 1 WHERE is_pinned = 1",
+                [],
+            )?;
+        }
+        tx.execute(
+            "UPDATE clips SET is_pinned = ?1, pin_order = 0 WHERE id = ?2",
             params![new_pinned, id],
         )?;
+        tx.commit()?;
         Ok(new_pinned == 1)
     }
 
@@ -2801,10 +2818,14 @@ mod tests {
         db.toggle_pin(clip1.id).unwrap();
         db.toggle_pin(clip2.id).unwrap();
 
-        db.reorder_pinned_clips(vec![clip2.id, clip1.id]).unwrap();
+        let newly_pinned_first = db.get_clips(None, None, true).unwrap();
+        assert_eq!(newly_pinned_first[0].id, clip2.id);
+        assert_eq!(newly_pinned_first[1].id, clip1.id);
+
+        db.reorder_pinned_clips(vec![clip1.id, clip2.id]).unwrap();
         let clips = db.get_clips(None, None, true).unwrap();
-        assert_eq!(clips[0].id, clip2.id);
-        assert_eq!(clips[1].id, clip1.id);
+        assert_eq!(clips[0].id, clip1.id);
+        assert_eq!(clips[1].id, clip2.id);
     }
 
     #[test]

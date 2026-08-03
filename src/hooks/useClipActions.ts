@@ -46,11 +46,31 @@ export function useClipActions({
     const targetIds = isBatch ? Array.from(selectedClipIds) : [id];
     const nextPinState = !(allClips.find((clip) => clip.id === id)?.is_pinned ?? false);
 
-    setAllClips((previous) => previous.map((clip) => (
-      targetIds.includes(clip.id) ? { ...clip, is_pinned: nextPinState } : clip
-    )));
+    const targetIdSet = new Set(targetIds);
+    setAllClips((previous) => {
+      const updated = previous.map((clip) => (
+        targetIdSet.has(clip.id) ? { ...clip, is_pinned: nextPinState } : clip
+      ));
+      if (nextPinState) {
+        const newlyPinned = updated
+          .filter((clip) => targetIdSet.has(clip.id))
+          .map((clip, index) => ({ ...clip, pin_order: index }));
+        const existingPinned = updated
+          .filter((clip) => clip.is_pinned && !targetIdSet.has(clip.id))
+          .map((clip) => ({ ...clip, pin_order: (clip.pin_order ?? 0) + newlyPinned.length }));
+        return [
+          ...newlyPinned,
+          ...existingPinned,
+          ...updated.filter((clip) => !clip.is_pinned),
+        ];
+      }
+      return [
+        ...updated.filter((clip) => clip.is_pinned),
+        ...updated.filter((clip) => !clip.is_pinned),
+      ];
+    });
     setSelectedClip((previous) => previous && targetIds.includes(previous.id)
-      ? { ...previous, is_pinned: nextPinState }
+      ? { ...previous, is_pinned: nextPinState, pin_order: nextPinState ? 0 : previous.pin_order }
       : previous);
 
     const request = isBatch

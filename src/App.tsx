@@ -327,7 +327,12 @@ export default function App() {
     clipDragPreview,
     setClipDragPreview,
     disabledDropBinId,
+    pinnedReorderOffsets,
+    isPinnedReorderSettling,
     getPointerDropTarget,
+    beginPinnedReorderPreview,
+    updatePinnedReorderPreview,
+    cancelPinnedReorderPreview,
     finishClipPointerDrag: handleClipPointerDragEnd,
   } = useClipBinDrag({
     allClips,
@@ -394,6 +399,8 @@ export default function App() {
   return (
     <div className={`flex h-screen w-screen overflow-hidden bg-[#171717] text-gray-100 font-sans ${clipDragPreview ? 'cursor-grabbing' : ''} ${
       draggedClipId !== null ? 'is-dragging-clip' : ''
+    } ${
+      isPinnedReorderSettling ? 'is-settling-pinned-reorder' : ''
     } ${
       isResizingSidebar || isResizingList ? 'is-resizing-columns' : ''
     }`}>
@@ -594,7 +601,7 @@ export default function App() {
             )}
 
             {/* Clips List Content */}
-            <div className="flex-1 overflow-y-auto pl-3 pr-3 py-3 space-y-2.5 custom-scrollbar">
+            <div data-clip-list className="flex-1 overflow-y-auto pl-3 pr-3 py-3 space-y-2.5 custom-scrollbar">
               {displayedClips.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-center p-6 text-gray-500 select-none">
                   <Clipboard className="w-10 h-10 mb-3 opacity-30 stroke-1" />
@@ -616,6 +623,7 @@ export default function App() {
                       showActions={selectedClip?.id === clip.id}
                       isDragging={draggedClipId === clip.id}
                       isDragInProgress={draggedClipId !== null}
+                      reorderOffsetY={pinnedReorderOffsets[clip.id] ?? 0}
                       isTrashMode={currentTab === 'trash'}
                       isQueueMode={currentTab === 'sequential'}
                       queueIndex={queueIndex}
@@ -624,15 +632,18 @@ export default function App() {
                       setDraggedClipId={setDraggedClipId}
                       onPointerDragStart={(id) => {
                         setHoveredClipId(null);
+                        beginPinnedReorderPreview(id);
                         setDraggedClipId(id);
                       }}
                       onPointerDragMove={(x, y) => {
                         setPointerDropTargetBinId(getPointerDropTarget(x, y));
+                        updatePinnedReorderPreview(x, y, clip.id);
                         setClipDragPreview({ clipId: clip.id, x, y });
                       }}
                       onPointerDragEnd={handleClipPointerDragEnd}
                       onPointerDragCancel={() => {
                         setPointerDropTargetBinId(null);
+                        cancelPinnedReorderPreview();
                         setClipDragPreview(null);
                       }}
                       onSelect={(e) => {
@@ -716,9 +727,20 @@ export default function App() {
                 <button
                   onClick={() => {
                     const ids = Array.from(selectedClipIds);
-                    setAllClips((prev) =>
-                      prev.map((c) => (ids.includes(c.id) ? { ...c, is_pinned: true } : c))
-                    );
+                    const idSet = new Set(ids);
+                    setAllClips((previous) => {
+                      const newlyPinned = previous
+                        .filter((clip) => idSet.has(clip.id))
+                        .map((clip, index) => ({ ...clip, is_pinned: true, pin_order: index }));
+                      const existingPinned = previous
+                        .filter((clip) => clip.is_pinned && !idSet.has(clip.id))
+                        .map((clip) => ({ ...clip, pin_order: (clip.pin_order ?? 0) + newlyPinned.length }));
+                      return [
+                        ...newlyPinned,
+                        ...existingPinned,
+                        ...previous.filter((clip) => !clip.is_pinned && !idSet.has(clip.id)),
+                      ];
+                    });
                     invoke('batch_pin_clips', { ids, pinState: true }).catch((err) => {
                       console.error(err);
                       fetchClips();
@@ -733,9 +755,16 @@ export default function App() {
                 <button
                   onClick={() => {
                     const ids = Array.from(selectedClipIds);
-                    setAllClips((prev) =>
-                      prev.map((c) => (ids.includes(c.id) ? { ...c, is_pinned: false } : c))
-                    );
+                    const idSet = new Set(ids);
+                    setAllClips((previous) => {
+                      const updated = previous.map((clip) => idSet.has(clip.id)
+                        ? { ...clip, is_pinned: false, pin_order: 0 }
+                        : clip);
+                      return [
+                        ...updated.filter((clip) => clip.is_pinned),
+                        ...updated.filter((clip) => !clip.is_pinned),
+                      ];
+                    });
                     invoke('batch_pin_clips', { ids, pinState: false }).catch((err) => {
                       console.error(err);
                       fetchClips();

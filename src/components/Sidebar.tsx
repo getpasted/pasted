@@ -125,9 +125,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const {
     activeDragBinId,
     sortedBins,
+    binReorderOffsets,
+    isBinReorderSettling,
     startBinDrag: handlePointerDownBin,
-    cancelBinDrag: handlePointerUpBin,
-    moveDraggedBinBefore: handlePointerEnterBin,
+    finishBinDrag: handlePointerUpBin,
+    cancelBinDrag: handlePointerCancelBin,
+    moveDraggedBinToPosition: handlePointerMoveBin,
   } = useSidebarBinOrder(bins, isClipDragging);
 
   const getBinIcon = (iconName: string) => {
@@ -379,9 +382,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
             }`}
           >
             <nav
-              className="space-y-0.5"
+              className={`space-y-0.5 ${isBinReorderSettling ? 'is-settling-bin-reorder' : ''}`}
               onPointerUp={handlePointerUpBin}
-              onPointerLeave={handlePointerUpBin}
+              onPointerLeave={handlePointerCancelBin}
+              onPointerMove={(event) => {
+                if (activeDragBinId === null) return;
+                handlePointerMoveBin(event.clientY);
+              }}
             >
               {sortedBins.map((b) => {
                 const isDragging = activeDragBinId === b.id;
@@ -398,6 +405,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 return (
                   <div
                     key={b.id}
+                    data-bin-order-id={b.id}
+                    style={binReorderOffsets[b.id] !== undefined ? {
+                      transform: `translateY(${binReorderOffsets[b.id]}px)`,
+                      zIndex: activeDragBinId === b.id ? 20 : 10,
+                    } : undefined}
                     data-sidebar-hover-key={`bin:${b.id}`}
                     data-bin-drop-id={isManualBin && !isDisabledDropTarget ? b.id : undefined}
                     role="button"
@@ -410,7 +422,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         : undefined
                     }
                     onPointerDown={() => handlePointerDownBin(b.id)}
-                    onPointerEnter={() => handlePointerEnterBin(b.id)}
                     onPointerUp={handlePointerUpBin}
                     onDragOver={(e) => {
                       if (!isManualBin || isDisabledDropTarget) return;
@@ -490,7 +501,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         : isClipDragging && isManualBin
                         ? 'bg-emerald-950/15 border border-dashed border-emerald-500/45 text-emerald-100 font-normal'
                         : isDragging
-                        ? 'bg-[#0a84ff]/30 shadow-md ring-1 ring-inset ring-[#0a84ff]/70 rounded-md z-20 relative'
+                        ? 'bg-[#0a84ff]/30 shadow-md ring-1 ring-inset ring-[#0a84ff]/70 rounded-md z-20 relative pointer-events-none'
                         : currentTab === 'bin' && selectedBinId === b.id
                         ? 'sidebar-item-active bg-[#3b3b3e] text-white font-medium'
                         : isBinHovered
