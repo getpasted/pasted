@@ -327,12 +327,10 @@ impl DbState {
                 [],
             );
 
-            let _ = conn.execute(
-                "INSERT INTO clips_fts(rowid, text_content, note, source_app)
-                 SELECT id, text_content, note, source_app FROM clips
-                 WHERE id NOT IN (SELECT rowid FROM clips_fts)",
-                [],
-            );
+            // FTS5 is a derived cache. Rebuild it at startup so an interrupted write or an
+            // older trigger implementation cannot leave clip updates failing with a
+            // misleading "database disk image is malformed" error.
+            let _ = conn.execute("INSERT INTO clips_fts(clips_fts) VALUES('rebuild')", []);
         }
 
         conn.execute(
@@ -2744,6 +2742,39 @@ mod tests {
             .get_clips(Some("Supercalifragilisticexpialidocious"), None, false)
             .unwrap();
         assert_eq!(search_after_delete.len(), 0);
+    }
+
+    #[test]
+    fn test_startup_rebuilds_fts_before_clip_updates() {
+        let db = setup_test_db();
+        let clip = db
+            .save_clip(
+                "text",
+                Some("Recoverable noted clip"),
+                None,
+                None,
+                "HashFTSRecovery",
+                "Notes",
+            )
+            .unwrap();
+        db.update_clip_note(clip.id, Some("Keep this note"))
+            .unwrap();
+
+        {
+            let conn = db.conn.lock();
+            conn.execute("INSERT INTO clips_fts(clips_fts) VALUES('delete-all')", [])
+                .unwrap();
+        }
+
+        db.init_tables().unwrap();
+        let search_results = db.get_clips(Some("Recoverable"), None, false).unwrap();
+        assert_eq!(search_results.len(), 1);
+        assert_eq!(search_results[0].id, clip.id);
+
+        assert!(db.toggle_pin(clip.id).unwrap());
+        db.update_clip_note(clip.id, Some("Updated note")).unwrap();
+        db.delete_clip(clip.id).unwrap();
+        assert!(db.get_clips(None, None, false).unwrap().is_empty());
     }
 
     #[test]
