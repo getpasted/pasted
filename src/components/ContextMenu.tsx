@@ -3,6 +3,7 @@ import { useAltKeyPressed } from '../hooks/useAltKeyPressed';
 import { ClipItem, Bin, FilterRule } from '../types';
 import { formatEmojiIcon } from '../utils/emoji';
 import { detectSmartFilterRecommendations } from '../utils/smartFilterDetector';
+import type { ClipViewPolicy } from '../utils/clipViewPolicy';
 import {
   Copy,
   FolderPlus,
@@ -17,12 +18,14 @@ import {
   Sparkles,
   Shield,
   ShieldOff,
+  RotateCcw,
 } from 'lucide-react';
 
 interface ContextMenuProps {
   x: number;
   y: number;
   clip: ClipItem;
+  viewPolicy: ClipViewPolicy;
   selectedCount?: number;
   bins: Bin[];
   filters: FilterRule[];
@@ -36,12 +39,15 @@ interface ContextMenuProps {
   onTogglePin: () => void;
   onToggleProtected?: () => void;
   onDelete: (e?: React.MouseEvent) => void;
+  onRestore?: () => void;
+  onPurge?: () => void;
 }
 
 export const ContextMenu: React.FC<ContextMenuProps> = ({
   x,
   y,
   clip,
+  viewPolicy,
   selectedCount,
   bins,
   filters,
@@ -55,6 +61,8 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   onTogglePin,
   onToggleProtected,
   onDelete,
+  onRestore,
+  onPurge,
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
   const [activeSubmenu, setActiveSubmenu] = useState<'bins' | 'filters' | null>(null);
@@ -100,7 +108,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
       <div className="my-1 border-t border-gray-800" />
 
       {/* Bin */}
-      <div
+      {viewPolicy.canAssignBins && <div
         className="relative"
         onMouseEnter={() => setActiveSubmenu('bins')}
         onMouseLeave={() => setActiveSubmenu(null)}
@@ -140,10 +148,10 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
             ))}
           </div>
         )}
-      </div>
+      </div>}
 
       {/* Filter Submenu */}
-      <div
+      {viewPolicy.canApplyFilters && <div
         className="relative"
         onMouseEnter={() => setActiveSubmenu('filters')}
         onMouseLeave={() => setActiveSubmenu(null)}
@@ -214,12 +222,12 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
             })()}
           </div>
         )}
-      </div>
+      </div>}
 
       <div className="my-1 border-t border-gray-800" />
 
       {/* Add / Edit Note */}
-      <button
+      {viewPolicy.canEditNotes && <button
         onClick={() => {
           onAddNote();
           onClose();
@@ -228,10 +236,10 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
       >
         <StickyNote className="w-3.5 h-3.5 text-amber-400" />
         <span>{clip.note ? 'Edit Note' : 'Add Note'}</span>
-      </button>
+      </button>}
 
       {/* Remove Note */}
-      {clip.note && onDeleteNote && (
+      {viewPolicy.canEditNotes && clip.note && onDeleteNote && (
         <button
           onClick={() => {
             onDeleteNote();
@@ -245,7 +253,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
       )}
 
       {/* Add to Stack */}
-      <button
+      {viewPolicy.canOrganize && <button
         onClick={() => {
           onAddToStack();
           onClose();
@@ -254,10 +262,10 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
       >
         <ListPlus className="w-3.5 h-3.5 text-purple-400" />
         <span>Add to Queue</span>
-      </button>
+      </button>}
 
       {/* Toggle Pin */}
-      <button
+      {viewPolicy.canOrganize && <button
         onClick={() => {
           onTogglePin();
           onClose();
@@ -278,10 +286,10 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
             ? 'Unpin'
             : 'Pin'}
         </span>
-      </button>
+      </button>}
 
       {/* Toggle Protected */}
-      {onToggleProtected && (
+      {viewPolicy.canOrganize && onToggleProtected && (
         <button
           onClick={() => {
             onToggleProtected();
@@ -300,8 +308,30 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
 
       <div className="my-1 border-t border-gray-800" />
 
-      {/* Delete */}
-      <button
+      {viewPolicy.state === 'trash' ? (
+        <>
+          <button
+            onClick={() => {
+              onRestore?.();
+              onClose();
+            }}
+            className="w-full flex items-center space-x-2.5 px-3 py-1.5 rounded-md hover:bg-cyan-500/20 text-cyan-300 transition-colors"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span>Restore from Trash</span>
+          </button>
+          <button
+            onClick={() => {
+              onPurge?.();
+              onClose();
+            }}
+            className="w-full flex items-center space-x-2.5 px-3 py-1.5 rounded-md hover:bg-red-500/20 text-red-400 hover:text-red-300 transition-colors"
+          >
+            <Trash className="w-3.5 h-3.5" />
+            <span>Delete Permanently</span>
+          </button>
+        </>
+      ) : <button
         onClick={(e) => {
           if (!clip.is_protected) {
             onDelete(e);
@@ -325,7 +355,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
             ? 'Delete Permanently (Option held)'
             : 'Move to Trash'}
         </span>
-      </button>
+      </button>}
     </div>
   );
 };

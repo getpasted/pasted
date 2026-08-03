@@ -4,6 +4,7 @@ import type { ClipNote } from '../types';
 
 interface NoteRowItemProps {
   noteItem: ClipNote;
+  readOnly?: boolean;
   totalNotes: number;
   editingNoteId: string | null;
   editingNoteText: string;
@@ -19,6 +20,7 @@ interface NoteRowItemProps {
 
 export const NoteRowItem: React.FC<NoteRowItemProps> = ({
   noteItem,
+  readOnly = false,
   totalNotes,
   editingNoteId,
   editingNoteText,
@@ -39,14 +41,15 @@ export const NoteRowItem: React.FC<NoteRowItemProps> = ({
         zIndex: isDragging ? 30 : 10,
       } : undefined}
       className={`note-row relative group min-h-[42px] px-3 py-2 rounded-lg border flex items-center justify-between gap-3 select-none transition-[background-color,border-color,box-shadow,opacity,transform] duration-100 ease-out ${
-        totalNotes > 1 ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'
+        !readOnly && totalNotes > 1 ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'
       } ${isDragging ? 'opacity-60 shadow-lg ring-1 ring-inset ring-amber-400/60' : ''}`}
       onPointerDown={(event) => {
+        if (readOnly) return;
         if ((event.target as HTMLElement).closest('button, input, textarea, select, a')) return;
         onReorderPointerDown(event);
       }}
     >
-      {editingNoteId === noteItem.id ? (
+      {editingNoteId === noteItem.id && !readOnly ? (
         <div className="flex-1 flex flex-col space-y-2 py-1 min-w-0">
           <textarea
             rows={3}
@@ -96,7 +99,7 @@ export const NoteRowItem: React.FC<NoteRowItemProps> = ({
             >
               <Eye className="w-3.5 h-3.5" />
             </button>
-            <button
+            {!readOnly && <button
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
@@ -107,8 +110,8 @@ export const NoteRowItem: React.FC<NoteRowItemProps> = ({
               title="Edit Note"
             >
               <Edit3 className="w-3.5 h-3.5" />
-            </button>
-            <button
+            </button>}
+            {!readOnly && <button
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
@@ -118,7 +121,7 @@ export const NoteRowItem: React.FC<NoteRowItemProps> = ({
               title="Delete Note"
             >
               <Trash2 className="w-3.5 h-3.5" />
-            </button>
+            </button>}
           </div>
         </>
       )}

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { formatClipTime } from '../utils/date';
 import { ClipItem, getClipNoteSummary, isSensitiveText, maskSensitiveText } from '../types';
+import type { ClipViewPolicy } from '../utils/clipViewPolicy';
 import {
   Code,
   FileText,
@@ -32,7 +33,7 @@ interface ClipCardProps {
   isDragInProgress?: boolean;
   reorderOffsetY?: number;
   isDeleting?: boolean;
-  isTrashMode?: boolean;
+  viewPolicy: ClipViewPolicy;
   isQueueMode?: boolean;
   queueIndex?: number;
   rowHeight?: 'small' | 'medium' | 'large';
@@ -63,7 +64,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
   isDragInProgress = false,
   reorderOffsetY = 0,
   isDeleting = false,
-  isTrashMode = false,
+  viewPolicy,
   isQueueMode = false,
   queueIndex,
   rowHeight = 'medium',
@@ -127,6 +128,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
   const imgMaxHeightClass = isSmall ? 'max-h-16' : isLarge ? 'max-h-44' : 'max-h-24';
   const headerTextClass = isSmall ? 'text-[11px]' : 'text-xs';
   const noteSummary = getClipNoteSummary(clip.note);
+  const isTrashMode = viewPolicy.state === 'trash';
 
   return (
     <div
@@ -147,7 +149,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
         zIndex: isDragging ? 20 : 10,
       } : undefined}
       onPointerDown={(e) => {
-        if (e.button !== 0 || (e.target as HTMLElement).closest('button, input, select, textarea, a')) return;
+        if (!viewPolicy.canDragClips || e.button !== 0 || (e.target as HTMLElement).closest('button, input, select, textarea, a')) return;
         pointerDragRef.current = {
           pointerId: e.pointerId,
           startX: e.clientX,
@@ -251,41 +253,46 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
             {clip.source_app}
           </span>
         </div>
-        <div className="flex items-center space-x-1.5 text-[11px] font-mono text-gray-500">
+        <div className="clip-meta-row flex items-center text-[11px] font-mono text-gray-500">
           {clip.is_protected && (
-            <span title="Clip is Protected against deletion" className="px-1.5 py-0.5 rounded bg-cyan-950/90 border border-cyan-500/40 text-cyan-300 text-[10px] font-sans font-bold flex items-center space-x-1">
-              <Shield className="w-3 h-3 text-cyan-400" />
+            <span title="Clip is Protected against deletion" className="clip-meta-item clip-meta-protected">
+              <Shield className="clip-meta-icon text-cyan-400" />
               <span>Protected</span>
             </span>
           )}
           {queueIndex !== undefined && (
             queueIndex === 1 ? (
-              <span className="px-2 py-0.5 rounded-full bg-purple-600 text-white font-mono text-[10px] font-extrabold shadow animate-pulse">
+              <span className="clip-meta-item rounded-full bg-purple-600 text-white font-mono font-extrabold shadow animate-pulse">
                 Next Up (#1)
               </span>
             ) : (
-              <span className="px-2 py-0.5 rounded-full bg-purple-950/90 text-purple-300 border border-purple-500/40 font-mono text-[10px] font-semibold">
+              <span className="clip-meta-item rounded-full bg-purple-950/90 text-purple-300 border-purple-500/40 font-mono font-semibold">
                 #{queueIndex} in Queue
               </span>
             )
           )}
           {clip.content_type === 'image' && clip.text_content && (
-            <span title="OCR Text Recognized" className="clip-ocr-badge px-1 py-0.5 rounded border text-[9px] font-sans font-bold flex items-center space-x-0.5">
-              <ScanText className="w-2.5 h-2.5" />
+            <span title="OCR Text Recognized" className="clip-meta-item clip-ocr-badge">
+              <ScanText className="clip-meta-icon" />
               <span>OCR</span>
             </span>
           )}
           {noteSummary && (
-            <span title={`Notes: ${noteSummary}`}>
-              <StickyNote className="w-3 h-3 text-amber-400" />
+            <span title={`Notes: ${noteSummary}`} className="clip-meta-item clip-meta-icon-only">
+              <StickyNote className="clip-meta-icon text-amber-400" />
             </span>
           )}
           {clip.is_pinned && (
-            <span title="Pinned Clip">
-              <Pin className="w-3.5 h-3.5 text-orange-500 fill-orange-500 pin-icon shrink-0" />
+            <span title="Pinned Clip" className="clip-meta-item clip-meta-icon-only">
+              <Pin className="clip-meta-icon text-orange-500 fill-orange-500 pin-icon" />
             </span>
           )}
-          <span>{formatClipTime(clip.created_at)}</span>
+          {isTrashMode && (
+            <span role="img" aria-label="Trashed Clip" title="Trashed Clip" className="clip-meta-item clip-meta-icon-only clip-trash-badge">
+              <Trash2 className="clip-meta-icon" />
+            </span>
+          )}
+          <span className="clip-meta-time">{formatClipTime(clip.created_at)}</span>
         </div>
       </div>
 
@@ -501,7 +508,8 @@ export const ClipCard = React.memo(ClipCardComponent, (prevProps, nextProps) => 
     prevProps.isDragInProgress === nextProps.isDragInProgress &&
     prevProps.reorderOffsetY === nextProps.reorderOffsetY &&
     prevProps.isDeleting === nextProps.isDeleting &&
-    prevProps.isTrashMode === nextProps.isTrashMode &&
+    prevProps.viewPolicy.state === nextProps.viewPolicy.state &&
+    prevProps.viewPolicy.canDragClips === nextProps.viewPolicy.canDragClips &&
     prevProps.isQueueMode === nextProps.isQueueMode &&
     prevProps.queueIndex === nextProps.queueIndex &&
     prevProps.rowHeight === nextProps.rowHeight &&

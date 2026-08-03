@@ -269,6 +269,7 @@ pub fn run() {
             commands::remove_clip_from_bin,
             commands::reorder_pinned_clips,
             commands::get_clip_versions,
+            commands::get_clip_version_count,
             commands::create_tag,
             commands::batch_pin_clips,
             commands::batch_trash_clips,

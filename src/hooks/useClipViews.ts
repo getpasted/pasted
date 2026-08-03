@@ -121,7 +121,13 @@ export function useClipViews({
       }));
     }
 
-    let clips = applyClipSearch(currentTab === 'trash' ? trashedClips : allClips, searchQuery);
+    const hasSearch = searchQuery.trim().length > 0;
+    const searchPool = currentTab === 'trash'
+      ? trashedClips
+      : hasSearch
+        ? [...allClips, ...trashedClips]
+        : allClips;
+    let clips = applyClipSearch(searchPool, searchQuery);
     if (currentTab === 'trash') return clips;
     if (currentTab === 'bin' && selectedBinId !== null) clips = filterByBin(clips, bins, selectedBinId);
     if (currentTab === 'pinned') clips = clips.filter((clip) => clip.is_pinned);

@@ -18,13 +18,14 @@ import {
   FileText,
   StickyNote,
   Sparkles,
-  History,
 } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { useStableVerticalReorder } from '../hooks/useStableVerticalReorder';
+import type { ClipViewPolicy } from '../utils/clipViewPolicy';
 
 interface ClipPreviewProps {
   clip: ClipItem | null;
+  viewPolicy: ClipViewPolicy;
   bins: Bin[];
   filters: FilterRule[];
   onUpdateClip: () => void;
@@ -43,6 +44,7 @@ const CLEVER_PLACEHOLDERS = [
 
 export const ClipPreview: React.FC<ClipPreviewProps> = ({
   clip,
+  viewPolicy,
   bins,
   filters,
   onUpdateClip,
@@ -74,7 +76,29 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   const [resolvedImageBase64, setResolvedImageBase64] = useState<string | null>(clip?.image_base64 || null);
   const [showHistory, setShowHistory] = useState<boolean>(false);
   const [versions, setVersions] = useState<ClipVersion[]>([]);
+  const [revisionCount, setRevisionCount] = useState<number | null>(null);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!clip) {
+      setRevisionCount(null);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setRevisionCount(null);
+    invoke<number>('get_clip_version_count', { clipId: clip.id })
+      .then((count) => {
+        if (!cancelled) setRevisionCount(Number.isFinite(count) ? count : 0);
+      })
+      .catch((error) => console.error('Failed to load clip revision count:', error));
+
+    return () => {
+      cancelled = true;
+    };
+  }, [clip?.id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -139,13 +163,27 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
     if (copiedFormatTimerRef.current) clearTimeout(copiedFormatTimerRef.current);
   }, [clip]);
 
+  useEffect(() => {
+    if (viewPolicy.canEditNotes) return;
+    setIsAddingNote(false);
+    setNewNoteText('');
+    setEditingNoteId(null);
+    setEditingNoteText('');
+  }, [viewPolicy.canEditNotes]);
+
+  useEffect(() => {
+    if (viewPolicy.canApplyFilters) return;
+    setTransformedText(null);
+    setActiveFilterName(null);
+  }, [viewPolicy.canApplyFilters]);
+
   useEffect(() => () => {
     if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
     if (copiedFormatTimerRef.current) clearTimeout(copiedFormatTimerRef.current);
   }, []);
 
   const saveNotes = (updatedNotes: ClipNote[]) => {
-    if (!clip) return;
+    if (!clip || !viewPolicy.canEditNotes) return;
     setNotes(updatedNotes);
     notesRef.current = updatedNotes;
     const serialized = serializeClipNotes(updatedNotes);
@@ -166,7 +204,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   } = useStableVerticalReorder({
     itemIds: notes.map((note) => note.id),
     containerRef: noteBoxRef,
-    disabled: notes.length < 2 || editingNoteId !== null,
+    disabled: !viewPolicy.canEditNotes || notes.length < 2 || editingNoteId !== null,
     onCommit: (orderedIds) => {
       const byId = new Map(notesRef.current.map((note) => [note.id, note]));
       const reordered = orderedIds
@@ -177,7 +215,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   });
 
   const handleCreateNote = () => {
-    if (!newNoteText.trim()) return;
+    if (!viewPolicy.canEditNotes || !newNoteText.trim()) return;
     const newNote: ClipNote = {
       id: `note-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       text: newNoteText.trim(),
@@ -190,6 +228,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   };
 
   const handleUpdateNoteItem = (id: string, text: string) => {
+    if (!viewPolicy.canEditNotes) return;
     const updated = notes
       .map((n) => (n.id === id ? { ...n, text: text.trim() } : n))
       .filter((n) => n.text.length > 0);
@@ -198,15 +237,19 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   };
 
   const handleDeleteNoteItem = (id: string) => {
+    if (!viewPolicy.canEditNotes) return;
     const updated = notes.filter((n) => n.id !== id);
     saveNotes(updated);
   };
 
   const handleRunOCR = async () => {
-    if (!clip) return;
+    if (!clip || !viewPolicy.canMutateContent) return;
     setIsOcrLoading(true);
     try {
       await invoke<string>('extract_ocr_from_clip', { clipId: clip.id });
+      invoke<number>('get_clip_version_count', { clipId: clip.id })
+        .then(setRevisionCount)
+        .catch((error) => console.error('Failed to refresh clip revision count:', error));
       soundManager.playCopySound(true);
       onUpdateClip();
     } catch (e) {
@@ -283,6 +326,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   };
 
   const handleAssignBin = async (binId: number | null) => {
+    if (!viewPolicy.canAssignBins) return;
     try {
       await onAssignBin(clip.id, binId);
     } catch (e) {
@@ -291,8 +335,12 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   };
 
   const handleRestoreVersion = async (version: ClipVersion) => {
+    if (!viewPolicy.canMutateContent) return;
     try {
       await invoke('update_clip_text', { clipId: clip.id, text: version.text_content });
+      invoke<number>('get_clip_version_count', { clipId: clip.id })
+        .then(setRevisionCount)
+        .catch((error) => console.error('Failed to refresh clip revision count:', error));
       setTransformedText(null);
       setActiveFilterName(null);
       setShowHistory(false);
@@ -325,19 +373,6 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
 
         <div className="flex items-center space-x-2 titlebar-no-drag">
           <button
-            onClick={() => setShowHistory((prev) => !prev)}
-            className={`flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
-              showHistory
-                ? 'bg-purple-900/80 text-purple-200 border-purple-500/50 shadow-md'
-                : 'bg-gray-800/80 text-gray-300 border-gray-700 hover:text-white hover:bg-gray-700'
-            }`}
-            title="Revision History & Diffs"
-          >
-            <History className="w-3.5 h-3.5 text-purple-400" />
-            <span>History</span>
-          </button>
-
-          <button
             onClick={handleCopy}
             className="copy-clip-main-btn flex items-center space-x-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold shadow-md active:scale-95 transition-all"
           >
@@ -357,27 +392,18 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
           <button
             onClick={() => onDeleteClip(clip.id)}
             className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-gray-800 hover:scale-110 active:scale-95 rounded-lg transition-all"
-            title="Delete Clip"
+            title={viewPolicy.state === 'trash' ? 'Delete Permanently' : 'Delete Clip'}
           >
             <Trash2 className="w-4 h-4" />
           </button>
         </div>
       </div>
 
-      {showHistory && (
-        <ClipRevisionHistory
-          versions={versions}
-          isLoading={isHistoryLoading}
-          onClose={() => setShowHistory(false)}
-          onRestore={(version) => void handleRestoreVersion(version)}
-        />
-      )}
-
       {/* Smart Recommended Actions Bar */}
       {(() => {
         const currentText = transformedText !== null ? transformedText : (clip.text_content || '');
         const { detectedTypes, recommendedFilters } = detectSmartFilterRecommendations(currentText, filters);
-        if (recommendedFilters.length === 0) return null;
+        if (!viewPolicy.canApplyFilters || recommendedFilters.length === 0) return null;
 
         return (
           <div className="px-4 py-2 bg-cyan-950/30 border-b border-cyan-800/40 flex items-center justify-between text-xs space-x-2 overflow-x-auto">
@@ -402,6 +428,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
       })()}
 
       {/* Quick Bin Assignment & Note Section */}
+      {viewPolicy.canOrganize ? (
       <div className="preview-bin-bar px-4 py-2 flex items-center justify-between text-xs border-b">
         <div className="flex items-center space-x-2">
           <Folder className="w-3.5 h-3.5" />
@@ -439,6 +466,14 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
           </button>
         </div>
       </div>
+      ) : (
+        <div className="preview-bin-bar px-4 py-2 flex items-center justify-between text-xs border-b" role="note">
+          <div className="flex items-center space-x-2 text-gray-400">
+            <Trash2 className="w-3.5 h-3.5 text-red-400" />
+            <span>Restore this clip to organize it or edit its notes.</span>
+          </div>
+        </div>
+      )}
 
       {/* Multi-Note Container (Inline Input Row, Stable Animated Reordering, Non-Selectable) */}
       {(notes.length > 0 || isAddingNote) && (
@@ -464,6 +499,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
                     handleUpdateNoteItem={handleUpdateNoteItem}
                     handleDeleteNoteItem={handleDeleteNoteItem}
                     setViewingNote={setViewingNote}
+                    readOnly={!viewPolicy.canEditNotes}
                     isDragging={activeNoteId === noteItem.id}
                     reorderOffsetY={noteReorderOffsets[noteItem.id] ?? 0}
                     onReorderPointerDown={(event) => startNotePointerReorder(noteItem.id, event)}
@@ -537,6 +573,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
           resolvedImageBase64={resolvedImageBase64}
           copiedFormat={copiedFormat}
           isOcrLoading={isOcrLoading}
+          readOnly={!viewPolicy.canMutateContent}
           onColorChange={setTransformedText}
           onCopyFormat={(label, value) => void handleCopySpecificFormat(label, value)}
           onRunOCR={() => void handleRunOCR()}
@@ -545,7 +582,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
       </div>
 
       {/* Sleek Filter Pipeline Selector Bar */}
-      {clip.content_type !== 'image' && filters.length > 0 && (
+      {viewPolicy.canApplyFilters && clip.content_type !== 'image' && filters.length > 0 && (
         <div className="px-4 py-2.5 bg-[#171717] border-t border-[#2b2b2b] select-none">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center space-x-2 shrink-0">
@@ -595,15 +632,51 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
         </div>
       )}
 
+      {showHistory && (
+        <ClipRevisionHistory
+          versions={versions}
+          isLoading={isHistoryLoading}
+          readOnly={!viewPolicy.canMutateContent}
+          onClose={() => setShowHistory(false)}
+          onRestore={(version) => void handleRestoreVersion(version)}
+        />
+      )}
+
       {/* Stats Footer */}
-      <div className="px-4 py-2.5 bg-[#171717] border-t border-[#2b2b2b] flex items-center justify-between text-[11px] text-gray-500">
-        <div className="flex items-center space-x-4">
-          <span>Chars: <strong className="text-gray-300">{charCount}</strong></span>
-          <span>Words: <strong className="text-gray-300">{wordCount}</strong></span>
-          <span>Lines: <strong className="text-gray-300">{lineCount}</strong></span>
+      <div className="clip-preview-footer px-4 py-2.5 bg-[#171717] border-t border-[#2b2b2b] flex text-[11px] text-gray-500">
+        <div className="clip-preview-footer-stats">
+          <span className="clip-preview-footer-stat">
+            <span>Chars:</span>
+            <strong className="text-gray-300">{charCount}</strong>
+          </span>
+          <span className="clip-preview-footer-stat">
+            <span>Words:</span>
+            <strong className="text-gray-300">{wordCount}</strong>
+          </span>
+          <span className="clip-preview-footer-stat">
+            <span>Lines:</span>
+            <strong className="text-gray-300">{lineCount}</strong>
+          </span>
+          <span className="clip-preview-footer-stat">
+            <span>Revisions:</span>
+            <button
+              type="button"
+              onClick={() => setShowHistory((prev) => !prev)}
+              className={`clip-revision-count ${showHistory ? 'is-active' : ''}`}
+              title={revisionCount === null ? 'Loading revision count' : 'View revision history'}
+              aria-label={revisionCount === null ? 'Loading clip revision count' : `View ${revisionCount} clip revisions`}
+              aria-expanded={showHistory}
+              aria-controls="clip-revision-history-panel"
+            >
+              {revisionCount ?? '…'}
+            </button>
+          </span>
         </div>
-        <div>
-          <span>Captured: {formatClipDateTime(clip.created_at)}</span>
+        <div className="clip-preview-footer-captured">
+          <span>Captured:</span>
+          <time dateTime={clip.created_at} title={formatClipDateTime(clip.created_at)}>
+            {formatClipDateTime(clip.created_at)}
+          </time>
         </div>
       </div>
 

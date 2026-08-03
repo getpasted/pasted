@@ -615,7 +615,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Pinned Bottom Search Bar Footer */}
       <div className="p-2.5 border-t border-white/10 shrink-0 relative">
         {!isClipDragging && isSearchFocused && !searchQuery.includes(':') && (
-          <div className="absolute bottom-11 left-2.5 right-2.5 bg-[#1c1e26]/95 backdrop-blur-xl border border-cyan-500/40 rounded-xl p-1.5 shadow-2xl z-50 text-xs space-y-0.5 animate-in fade-in slide-in-from-bottom-2 duration-150">
+          <div className="sidebar-search-helper absolute bottom-11 left-2.5 right-2.5 backdrop-blur-xl rounded-xl p-1.5 z-50 text-xs space-y-0.5 animate-in fade-in slide-in-from-bottom-2 duration-150">
             {[
               { prefix: 'regex:', desc: 'Regex' },
               { prefix: 'app:', desc: 'App' },
@@ -624,17 +624,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
               { prefix: 'is:pinned', desc: 'Pinned' },
               { prefix: 'is:protected', desc: 'Protected' },
             ].map((s) => (
-              <div
+              <button
+                type="button"
                 key={s.prefix}
                 onMouseDown={(e) => {
                   e.preventDefault();
                   setSearchQuery(s.prefix);
                 }}
-                className="px-2 py-1 rounded-lg hover:bg-cyan-950/80 hover:text-cyan-300 cursor-pointer flex items-center justify-between transition-colors"
+                className="sidebar-search-helper-option w-full px-2 py-1 rounded-lg cursor-pointer flex items-center justify-between transition-colors"
               >
-                <span className="font-mono font-bold text-cyan-400 text-[11px]">{s.prefix}</span>
-                <span className="text-[10px] text-gray-400 font-medium">{s.desc}</span>
-              </div>
+                <span className="sidebar-search-helper-prefix font-mono font-bold text-[11px]">{s.prefix}</span>
+                <span className="sidebar-search-helper-description text-[10px] font-medium">{s.desc}</span>
+              </button>
             ))}
           </div>
         )}

@@ -356,6 +356,18 @@ impl DbState {
             [],
         );
 
+        // Trash is deliberately outside the organizational hierarchy. Clean up
+        // legacy rows so restored clips never silently reappear in an old Bin.
+        let _ = conn.execute(
+            "DELETE FROM clip_bins
+             WHERE clip_id IN (SELECT id FROM clips WHERE is_trashed = 1)
+               AND bin_id IN (
+                   SELECT id FROM bins WHERE COALESCE(bin_type, 'category') != 'tag'
+               )",
+            [],
+        );
+        let _ = conn.execute("UPDATE clips SET bin_id = NULL WHERE is_trashed = 1", []);
+
         let _ = conn.execute(
             "CREATE TABLE IF NOT EXISTS activity_logs (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -821,10 +833,13 @@ impl DbState {
 
             for id in ids {
                 if enable_trash == "true" {
-                    let _ = conn.execute(
+                    let changed = conn.execute(
                         "UPDATE clips SET is_trashed = 1, trashed_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?1",
                         params![id],
-                    );
+                    ).unwrap_or(0);
+                    if changed > 0 {
+                        let _ = self.clear_category_bin_assignments_internal(conn, id);
+                    }
                     let _ = self.log_activity_internal(
                         conn,
                         "clip_auto_trashed",
@@ -1159,24 +1174,33 @@ impl DbState {
 
     pub fn update_clip_note(&self, clip_id: i64, note: Option<&str>) -> Result<()> {
         let conn = self.conn.lock();
-        let mut stmt = conn.prepare_cached("UPDATE clips SET note = ?1 WHERE id = ?2")?;
-        stmt.execute(params![note, clip_id])?;
-        let _ = self.log_activity_internal(
-            &conn,
-            "note_updated",
-            &format!("Updated note for clip #{}", clip_id),
-        );
+        let mut stmt = conn.prepare_cached(
+            "UPDATE clips SET note = ?1
+             WHERE id = ?2 AND (is_trashed IS NULL OR is_trashed = 0)",
+        )?;
+        let changed = stmt.execute(params![note, clip_id])?;
+        if changed > 0 {
+            let _ = self.log_activity_internal(
+                &conn,
+                "note_updated",
+                &format!("Updated note for clip #{}", clip_id),
+            );
+        }
         Ok(())
     }
 
     pub fn update_clip_text(&self, clip_id: i64, text: &str) -> Result<()> {
         let mut conn = self.conn.lock();
         let tx = conn.transaction()?;
-        let previous_text: Option<String> = tx.query_row(
-            "SELECT text_content FROM clips WHERE id = ?1",
+        let (previous_text, is_trashed): (Option<String>, i32) = tx.query_row(
+            "SELECT text_content, COALESCE(is_trashed, 0) FROM clips WHERE id = ?1",
             params![clip_id],
-            |row| row.get(0),
+            |row| Ok((row.get(0)?, row.get(1)?)),
         )?;
+
+        if is_trashed != 0 {
+            return tx.commit();
+        }
 
         if previous_text.as_deref() == Some(text) {
             return tx.commit();
@@ -1206,28 +1230,48 @@ impl DbState {
         tx.commit()
     }
 
-    pub fn delete_clip(&self, id: i64) -> Result<()> {
-        let conn = self.conn.lock();
-        let is_protected: i32 = conn
-            .query_row(
-                "SELECT is_protected FROM clips WHERE id = ?1",
-                params![id],
-                |r| r.get(0),
-            )
-            .unwrap_or(0);
-        if is_protected != 0 {
-            return Ok(());
-        }
-        let mut stmt = conn.prepare_cached(
-            "UPDATE clips SET is_trashed = 1, trashed_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?1 AND (is_protected IS NULL OR is_protected = 0)"
+    fn clear_category_bin_assignments_internal(
+        &self,
+        conn: &Connection,
+        clip_id: i64,
+    ) -> Result<()> {
+        conn.execute(
+            "DELETE FROM clip_bins
+             WHERE clip_id = ?1
+               AND bin_id IN (
+                   SELECT id FROM bins WHERE COALESCE(bin_type, 'category') != 'tag'
+               )",
+            params![clip_id],
         )?;
-        stmt.execute(params![id])?;
-        let _ = self.log_activity_internal(
-            &conn,
-            "clip_trashed",
-            &format!("Moved clip #{} to Trash", id),
-        );
-        let _ = self.enforce_trash_limit_internal(&conn);
+        conn.execute(
+            "UPDATE clips SET bin_id = NULL WHERE id = ?1",
+            params![clip_id],
+        )?;
+        Ok(())
+    }
+
+    pub fn delete_clip(&self, id: i64) -> Result<()> {
+        let mut conn = self.conn.lock();
+        let tx = conn.transaction()?;
+        let changed = tx.execute(
+            "UPDATE clips SET is_trashed = 1, trashed_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
+             WHERE id = ?1
+               AND (is_protected IS NULL OR is_protected = 0)
+               AND (is_trashed IS NULL OR is_trashed = 0)",
+            params![id],
+        )?;
+        if changed > 0 {
+            self.clear_category_bin_assignments_internal(&tx, id)?;
+        }
+        tx.commit()?;
+        if changed > 0 {
+            let _ = self.log_activity_internal(
+                &conn,
+                "clip_trashed",
+                &format!("Moved clip #{} to Trash", id),
+            );
+            let _ = self.enforce_trash_limit_internal(&conn);
+        }
         Ok(())
     }
 
@@ -1437,10 +1481,16 @@ impl DbState {
         let mut conn = self.conn.lock();
         let tx = conn.transaction()?;
         for id in ids {
-            tx.execute(
-                "UPDATE clips SET is_trashed = 1, trashed_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?1 AND (is_protected IS NULL OR is_protected = 0)",
+            let changed = tx.execute(
+                "UPDATE clips SET is_trashed = 1, trashed_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
+                 WHERE id = ?1
+                   AND (is_protected IS NULL OR is_protected = 0)
+                   AND (is_trashed IS NULL OR is_trashed = 0)",
                 params![id],
             )?;
+            if changed > 0 {
+                self.clear_category_bin_assignments_internal(&tx, id)?;
+            }
         }
         self.enforce_trash_limit_internal(&tx)?;
         tx.commit()
@@ -1450,6 +1500,18 @@ impl DbState {
         let mut conn = self.conn.lock();
         let tx = conn.transaction()?;
         for clip_id in ids {
+            let is_active = tx
+                .query_row(
+                    "SELECT CASE WHEN is_trashed IS NULL OR is_trashed = 0 THEN 1 ELSE 0 END
+                 FROM clips WHERE id = ?1",
+                    params![clip_id],
+                    |row| row.get::<_, i32>(0),
+                )
+                .unwrap_or(0)
+                != 0;
+            if !is_active {
+                continue;
+            }
             tx.execute(
                 "DELETE FROM clip_bins
                  WHERE clip_id = ?1
@@ -1545,6 +1607,15 @@ impl DbState {
             "UPDATE clips SET is_trashed = 1, trashed_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE is_pinned = 0 AND (is_protected IS NULL OR is_protected = 0) AND (is_trashed IS NULL OR is_trashed = 0)",
             [],
         )?;
+        conn.execute(
+            "DELETE FROM clip_bins
+             WHERE clip_id IN (SELECT id FROM clips WHERE is_trashed = 1)
+               AND bin_id IN (
+                   SELECT id FROM bins WHERE COALESCE(bin_type, 'category') != 'tag'
+               )",
+            [],
+        )?;
+        conn.execute("UPDATE clips SET bin_id = NULL WHERE is_trashed = 1", [])?;
         let _ = self.log_activity_internal(
             &conn,
             "clips_trashed_all",
@@ -1637,6 +1708,18 @@ impl DbState {
     pub fn assign_to_bin(&self, clip_id: i64, bin_id: Option<i64>) -> Result<()> {
         let mut conn = self.conn.lock();
         let tx = conn.transaction()?;
+        let is_active = tx
+            .query_row(
+                "SELECT CASE WHEN is_trashed IS NULL OR is_trashed = 0 THEN 1 ELSE 0 END
+             FROM clips WHERE id = ?1",
+                params![clip_id],
+                |row| row.get::<_, i32>(0),
+            )
+            .unwrap_or(0)
+            != 0;
+        if !is_active {
+            return tx.commit();
+        }
         tx.execute(
             "DELETE FROM clip_bins
              WHERE clip_id = ?1
@@ -1665,6 +1748,18 @@ impl DbState {
 
     pub fn add_clip_to_bin(&self, clip_id: i64, bin_id: i64) -> Result<()> {
         let conn = self.conn.lock();
+        let is_active = conn
+            .query_row(
+                "SELECT CASE WHEN is_trashed IS NULL OR is_trashed = 0 THEN 1 ELSE 0 END
+             FROM clips WHERE id = ?1",
+                params![clip_id],
+                |row| row.get::<_, i32>(0),
+            )
+            .unwrap_or(0)
+            != 0;
+        if !is_active {
+            return Ok(());
+        }
         conn.execute(
             "INSERT OR REPLACE INTO clip_bins (clip_id, bin_id) VALUES (?1, ?2)",
             params![clip_id, bin_id],
@@ -1874,6 +1969,15 @@ impl DbState {
             list.push(r?);
         }
         Ok(list)
+    }
+
+    pub fn get_clip_version_count(&self, clip_id: i64) -> Result<i64> {
+        let conn = self.conn.lock();
+        conn.query_row(
+            "SELECT COUNT(*) FROM clip_versions WHERE clip_id = ?1",
+            params![clip_id],
+            |row| row.get(0),
+        )
     }
 
     pub fn update_bin(
@@ -2662,6 +2766,90 @@ mod tests {
     }
 
     #[test]
+    fn test_trashed_clips_are_read_only_and_leave_category_bins() {
+        let db = setup_test_db();
+        let category = db
+            .create_bin("Projects", "Folder", "#3b82f6", None)
+            .unwrap();
+        let tag = db
+            .create_bin_with_type("Keep", "Tag", "#f59e0b", None, "tag")
+            .unwrap();
+        let clip = db
+            .save_clip(
+                "text",
+                Some("Original searchable text"),
+                None,
+                None,
+                "trash-policy-hash",
+                "Tests",
+            )
+            .unwrap();
+
+        db.update_clip_note(clip.id, Some("Original searchable note"))
+            .unwrap();
+        db.assign_to_bin(clip.id, Some(category.id)).unwrap();
+        db.add_clip_to_bin(clip.id, tag.id).unwrap();
+        db.delete_clip(clip.id).unwrap();
+
+        let trashed = db.get_trashed_clips().unwrap();
+        assert_eq!(trashed.len(), 1);
+        assert_eq!(trashed[0].bin_id, None);
+        assert_eq!(trashed[0].note.as_deref(), Some("Original searchable note"));
+        let category_after_trash = db
+            .get_bins()
+            .unwrap()
+            .into_iter()
+            .find(|bin| bin.id == category.id)
+            .unwrap();
+        assert_eq!(category_after_trash.clip_count, Some(0));
+        {
+            let conn = db.conn.lock();
+            let category_links: i64 = conn
+                .query_row(
+                    "SELECT COUNT(*) FROM clip_bins WHERE clip_id = ?1 AND bin_id = ?2",
+                    params![clip.id, category.id],
+                    |row| row.get(0),
+                )
+                .unwrap();
+            let tag_links: i64 = conn
+                .query_row(
+                    "SELECT COUNT(*) FROM clip_bins WHERE clip_id = ?1 AND bin_id = ?2",
+                    params![clip.id, tag.id],
+                    |row| row.get(0),
+                )
+                .unwrap();
+            assert_eq!(category_links, 0);
+            assert_eq!(tag_links, 1);
+        }
+
+        db.assign_to_bin(clip.id, Some(category.id)).unwrap();
+        db.update_clip_note(clip.id, Some("Should be ignored"))
+            .unwrap();
+        db.update_clip_text(clip.id, "Should also be ignored")
+            .unwrap();
+        let unchanged = db.get_trashed_clips().unwrap();
+        assert_eq!(unchanged[0].bin_id, None);
+        assert_eq!(
+            unchanged[0].note.as_deref(),
+            Some("Original searchable note")
+        );
+        assert_eq!(
+            unchanged[0].text_content.as_deref(),
+            Some("Original searchable text")
+        );
+
+        db.restore_clip(clip.id).unwrap();
+        let restored = db.get_clips(None, None, false).unwrap();
+        assert_eq!(restored[0].bin_id, None);
+        assert!(restored[0].bin_ids.as_ref().unwrap().contains(&tag.id));
+        db.assign_to_bin(clip.id, Some(category.id)).unwrap();
+        db.update_clip_note(clip.id, Some("Editable after restore"))
+            .unwrap();
+        let edited = db.get_clips(None, Some(category.id), false).unwrap();
+        assert_eq!(edited[0].note.as_deref(), Some("Editable after restore"));
+    }
+
+    #[test]
     fn test_filters_and_operations_crud() {
         let db = setup_test_db();
 
@@ -2850,6 +3038,7 @@ mod tests {
 
         let versions = db.get_clip_versions(clip.id).unwrap();
         assert_eq!(versions.len(), 2);
+        assert_eq!(db.get_clip_version_count(clip.id).unwrap(), 2);
         assert_eq!(versions[0].text_content, "Transformed Uppercase Content");
         assert_eq!(versions[1].text_content, "Original Content");
 
@@ -2861,9 +3050,11 @@ mod tests {
                 .unwrap();
         }
         assert_eq!(db.get_clip_versions(clip.id).unwrap().len(), 50);
+        assert_eq!(db.get_clip_version_count(clip.id).unwrap(), 50);
 
         db.purge_clip_permanently(clip.id).unwrap();
         assert!(db.get_clip_versions(clip.id).unwrap().is_empty());
+        assert_eq!(db.get_clip_version_count(clip.id).unwrap(), 0);
     }
 
     #[test]

@@ -84,6 +84,8 @@ export interface ClipItem {
   bin_id: number | null;
   bin_ids?: number[];
   note?: string | null;
+  is_trashed?: boolean | number;
+  trashed_at?: string | null;
   created_at: string;
 }
 

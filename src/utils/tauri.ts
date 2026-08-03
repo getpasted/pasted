@@ -60,7 +60,7 @@ let mockBins = [
 
 function assignMockClips(ids: number[], binId: number | null) {
   for (const clip of mockClips) {
-    if (!ids.includes(clip.id)) continue;
+    if (!ids.includes(clip.id) || clip.is_trashed !== 0) continue;
     clip.bin_id = binId;
     const tagIds = clip.bin_ids.filter((id) => mockBins.find((bin) => bin.id === id)?.bin_type === 'tag');
     clip.bin_ids = binId === null ? tagIds : [...tagIds, binId];
@@ -84,7 +84,7 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
     case 'get_bins':
       return mockBins.map((bin) => ({
         ...bin,
-        clip_count: mockClips.filter((clip) => clip.bin_ids.includes(bin.id)).length,
+      clip_count: mockClips.filter((clip) => clip.is_trashed === 0 && clip.bin_ids.includes(bin.id)).length,
       })) as unknown as T;
     case 'get_filters':
       return [] as unknown as T;
@@ -104,29 +104,39 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       return [] as unknown as T;
     case 'get_clip_versions':
       return [] as unknown as T;
+    case 'get_clip_version_count':
+      return 0 as unknown as T;
     case 'get_clip_image':
       return null as unknown as T;
     case 'update_clip_text': {
       const clipId = Number(args?.clipId);
       const clip = mockClips.find((item) => item.id === clipId);
-      if (clip && typeof args?.text === 'string') clip.text_content = args.text;
+      if (clip && clip.is_trashed === 0 && typeof args?.text === 'string') clip.text_content = args.text;
       return null as unknown as T;
     }
     case 'update_clip_note': {
       const clipId = Number(args?.clipId);
       const clip = mockClips.find((item) => item.id === clipId);
-      if (clip) clip.note = typeof args?.note === 'string' ? args.note : null;
+      if (clip && clip.is_trashed === 0) clip.note = typeof args?.note === 'string' ? args.note : null;
       return null as unknown as T;
     }
     case 'delete_clip': {
       const clip = mockClips.find((item) => item.id === Number(args?.id));
-      if (clip && !clip.is_protected) clip.is_trashed = 1;
+      if (clip && !clip.is_protected) {
+        clip.is_trashed = 1;
+        clip.bin_id = null;
+        clip.bin_ids = clip.bin_ids.filter((id) => mockBins.find((bin) => bin.id === id)?.bin_type === 'tag');
+      }
       return null as unknown as T;
     }
     case 'batch_trash_clips': {
       const ids = Array.isArray(args?.ids) ? args.ids.map(Number) : [];
       for (const clip of mockClips) {
-        if (ids.includes(clip.id) && !clip.is_protected) clip.is_trashed = 1;
+        if (ids.includes(clip.id) && !clip.is_protected) {
+          clip.is_trashed = 1;
+          clip.bin_id = null;
+          clip.bin_ids = clip.bin_ids.filter((id) => mockBins.find((bin) => bin.id === id)?.bin_type === 'tag');
+        }
       }
       return null as unknown as T;
     }

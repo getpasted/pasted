@@ -102,7 +102,13 @@ export function useAppData(enableSounds: boolean) {
     const restored = trashedClips.find((clip) => clip.id === clipId);
     setTrashedClips((previous) => previous.filter((clip) => clip.id !== clipId));
     if (restored) {
-      setAllClips((previous) => [restored, ...previous]);
+      const restoredActiveClip: ClipItem = {
+        ...restored,
+        is_trashed: false,
+        trashed_at: null,
+        bin_id: null,
+      };
+      setAllClips((previous) => [restoredActiveClip, ...previous]);
       setTotalClipCount((previous) => previous + 1);
     }
     try {

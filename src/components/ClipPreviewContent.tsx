@@ -9,6 +9,7 @@ interface ClipPreviewContentProps {
   resolvedImageBase64: string | null;
   copiedFormat: string | null;
   isOcrLoading: boolean;
+  readOnly?: boolean;
   onColorChange: (value: string) => void;
   onCopyFormat: (label: string, value: string) => void;
   onRunOCR: () => void;
@@ -21,6 +22,7 @@ export function ClipPreviewContent({
   resolvedImageBase64,
   copiedFormat,
   isOcrLoading,
+  readOnly = false,
   onColorChange,
   onCopyFormat,
   onRunOCR,
@@ -149,9 +151,9 @@ export function ClipPreviewContent({
                   )}
                   <button
                     onClick={onRunOCR}
-                    disabled={isOcrLoading}
-                    className="p-1.5 rounded-lg bg-white hover:bg-gray-200 text-black transition-all shadow cursor-pointer"
-                    title={isOcrLoading ? 'Extracting...' : clip.text_content ? 'Re-Run OCR' : 'Extract Text (OCR)'}
+                    disabled={isOcrLoading || readOnly}
+                    className="p-1.5 rounded-lg bg-white hover:bg-gray-200 text-black transition-all shadow cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white"
+                    title={readOnly ? 'Restore this clip to run OCR' : isOcrLoading ? 'Extracting...' : clip.text_content ? 'Re-Run OCR' : 'Extract Text (OCR)'}
                   >
                     <Sparkles className={`w-3.5 h-3.5 text-cyan-600 ${isOcrLoading ? 'animate-spin' : ''}`} />
                   </button>
@@ -177,4 +179,3 @@ export function ClipPreviewContent({
     </>
   );
 }
-

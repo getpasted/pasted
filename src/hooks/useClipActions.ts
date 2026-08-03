@@ -100,7 +100,25 @@ export function useClipActions({
     const ids = requestedIds.filter((id) => !allClips.find((clip) => clip.id === id)?.is_protected);
     if (ids.length === 0) return;
 
-    const deletedItems = allClips.filter((clip) => ids.includes(clip.id));
+    const categoryBinIds = new Set(bins.filter((bin) => bin.bin_type !== 'tag').map((bin) => bin.id));
+    const deletedItems = allClips
+      .filter((clip) => ids.includes(clip.id))
+      .map((clip) => ({
+        ...clip,
+        is_trashed: true,
+        bin_id: null,
+        bin_ids: (clip.bin_ids || []).filter((binId) => !categoryBinIds.has(binId)),
+      }));
+    const deletedSourceClips = allClips.filter((clip) => ids.includes(clip.id));
+    setBins((previous) => previous.map((bin) => {
+      if (bin.bin_type === 'tag') return bin;
+      const removedCount = deletedSourceClips.filter((clip) => (
+        clip.bin_id === bin.id || Boolean(clip.bin_ids?.includes(bin.id))
+      )).length;
+      return removedCount === 0
+        ? bin
+        : { ...bin, clip_count: Math.max(0, (bin.clip_count || 0) - removedCount) };
+    }));
     const permanently = forcePermanent || settings.enableTrash === false;
     setAllClips((previous) => previous.filter((clip) => !ids.includes(clip.id)));
     if (!permanently) {
@@ -122,7 +140,7 @@ export function useClipActions({
         void fetchClips();
         void fetchTrashedClips();
       });
-  }, [allClips, fetchClips, fetchTrashedClips, setAllClips, setSelectedClip, setSelectedClipIds, setTotalClipCount, setTrashedClips, settings.enableTrash]);
+  }, [allClips, bins, fetchClips, fetchTrashedClips, setAllClips, setSelectedClip, setSelectedClipIds, setTotalClipCount, setTrashedClips, settings.enableTrash]);
 
   const deleteSelectedClips = useCallback((forcePermanent = false) => {
     deleteClipIds(Array.from(selectedClipIds), forcePermanent);

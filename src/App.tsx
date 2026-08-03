@@ -23,6 +23,7 @@ import { useColumnResize } from './hooks/useColumnResize';
 import { useAppSettings } from './hooks/useAppSettings';
 import { useClipViews } from './hooks/useClipViews';
 import { useClipBinDrag } from './hooks/useClipBinDrag';
+import { getClipViewPolicy } from './utils/clipViewPolicy';
 import { useAppData } from './hooks/useAppData';
 import { useClipActions } from './hooks/useClipActions';
 import { Clipboard, Trash2, Pause, Disc, Square, Pin, X } from 'lucide-react';
@@ -331,19 +332,28 @@ export default function App() {
       } else if (e.key === 'Delete' || e.key === 'Backspace') {
         if (selectedClip) {
           e.preventDefault();
-          handleDeleteClip(selectedClip.id);
+          if (getClipViewPolicy(currentTab, selectedClip).state === 'trash') {
+            handlePurgeClipPermanently(selectedClip.id);
+          } else {
+            handleDeleteClip(selectedClip.id);
+          }
         }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [displayedClips, selectedClip]);
+  }, [currentTab, displayedClips, selectedClip]);
 
   const clipSelectionVersion = useMemo(
     () => `${selectedClip?.id ?? ''}:${Array.from(selectedClipIds).sort((a, b) => a - b).join(',')}`,
     [selectedClip?.id, selectedClipIds]
   );
+  const selectedClipViewPolicy = getClipViewPolicy(currentTab, selectedClip);
+  const hasRestrictedSelection = Array.from(selectedClipIds).some((id) => {
+    const selected = displayedClips.find((clip) => clip.id === id);
+    return selected ? !getClipViewPolicy(currentTab, selected).canOrganize : false;
+  });
 
   const {
     togglePin: handleTogglePin,
@@ -682,6 +692,10 @@ export default function App() {
               ) : (
                 displayedClips.map((clip, index) => {
                   const queueIndex = clip.text_content ? queuedIndexMap.get(clip.text_content) : undefined;
+                  const baseViewPolicy = getClipViewPolicy(currentTab, clip);
+                  const viewPolicy = hasRestrictedSelection && selectedClipIds.has(clip.id)
+                    ? { ...baseViewPolicy, canDragClips: false }
+                    : baseViewPolicy;
 
                   return (
                     <ClipCard
@@ -693,7 +707,7 @@ export default function App() {
                       isDragging={draggedClipId === clip.id}
                       isDragInProgress={draggedClipId !== null}
                       reorderOffsetY={pinnedReorderOffsets[clip.id] ?? 0}
-                      isTrashMode={currentTab === 'trash'}
+                      viewPolicy={viewPolicy}
                       isQueueMode={currentTab === 'sequential'}
                       queueIndex={queueIndex}
                       rowHeight={appSettings.rowHeight}
@@ -792,7 +806,7 @@ export default function App() {
             </div>
 
             {/* Floating Glass Batch Action Bar */}
-            {selectedClipIds.size > 1 && (
+            {selectedClipIds.size > 1 && selectedClipViewPolicy.showOrganizeBatchActions && !hasRestrictedSelection && (
               <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-40 bg-[#1c1e26]/95 backdrop-blur-xl border border-cyan-500/40 rounded-2xl px-3 py-1.5 shadow-2xl flex items-center space-x-2 text-[11px] whitespace-nowrap animate-in fade-in slide-in-from-bottom-2 duration-150 max-w-[calc(100%-1.5rem)] select-none">
                 <span className="font-bold text-cyan-400 font-mono text-[11px] bg-cyan-950/90 px-2 py-0.5 rounded-full border border-cyan-800/60 whitespace-nowrap shrink-0">
                   {selectedClipIds.size}
@@ -883,11 +897,12 @@ export default function App() {
           {/* Right Detail Preview Panel */}
           <ClipPreview
             clip={selectedClip}
+            viewPolicy={selectedClipViewPolicy}
             bins={bins}
             filters={filters}
             onUpdateClip={fetchClips}
             onAssignBin={handleAssignBin}
-            onDeleteClip={handleDeleteClip}
+            onDeleteClip={selectedClipViewPolicy.state === 'trash' ? handlePurgeClipPermanently : handleDeleteClip}
             onUpdateClipNote={handleUpdateClipNoteLocally}
           />
         </div>
@@ -899,6 +914,7 @@ export default function App() {
           x={contextMenu.x}
           y={contextMenu.y}
           clip={contextMenu.clip}
+          viewPolicy={getClipViewPolicy(currentTab, contextMenu.clip)}
           selectedCount={selectedClipIds.has(contextMenu.clip.id) ? selectedClipIds.size : 1}
           bins={bins}
           filters={filters}
@@ -916,6 +932,8 @@ export default function App() {
           onTogglePin={() => handleTogglePin(contextMenu.clip.id)}
           onToggleProtected={() => handleToggleProtected(contextMenu.clip.id)}
           onDelete={(e) => handleDeleteClip(contextMenu.clip.id, e?.altKey)}
+          onRestore={() => handleRestoreClip(contextMenu.clip.id)}
+          onPurge={() => handlePurgeClipPermanently(contextMenu.clip.id)}
         />
       )}
 

@@ -181,6 +181,12 @@ pub fn get_clip_versions(
 }
 
 #[tauri::command]
+pub fn get_clip_version_count(clip_id: i64, db: State<'_, Arc<DbState>>) -> Result<i64, String> {
+    db.get_clip_version_count(clip_id)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub fn create_tag(
     name: String,
     color: String,
