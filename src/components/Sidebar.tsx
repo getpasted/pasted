@@ -46,6 +46,7 @@ interface SidebarProps {
   sidebarWidth?: number;
   onClipDropOnBoard?: (clipId: number, boardId: number) => void;
   draggedClipId?: number | null;
+  setDraggedClipId?: (id: number | null) => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -60,6 +61,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onBoardContextMenu,
   onClipDropOnBoard,
   draggedClipId,
+  setDraggedClipId,
   searchQuery,
   setSearchQuery,
   seqStatus,
@@ -500,6 +502,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     role="button"
                     tabIndex={0}
                     onPointerDown={() => handlePointerDownBoard(b.id)}
+                    onMouseEnter={() => {
+                      if (draggedClipId !== null && draggedClipId !== undefined && isManualBin) {
+                        setDropTargetBoardId(b.id);
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (isManualBin) {
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        if (e.clientX <= rect.left || e.clientX >= rect.right || e.clientY <= rect.top || e.clientY >= rect.bottom) {
+                          setDropTargetBoardId(null);
+                        }
+                      }
+                    }}
+                    onMouseUp={(e) => {
+                      if (draggedClipId !== null && draggedClipId !== undefined && isManualBin) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (onClipDropOnBoard) onClipDropOnBoard(draggedClipId, b.id);
+                        setDropTargetBoardId(null);
+                        if (setDraggedClipId) setDraggedClipId(null);
+                      }
+                    }}
                     onPointerEnter={() => {
                       if (draggedClipId !== null && isManualBin) {
                         setDropTargetBoardId(b.id);
@@ -511,6 +535,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       if (draggedClipId !== null && draggedClipId !== undefined && isManualBin) {
                         if (onClipDropOnBoard) onClipDropOnBoard(draggedClipId, b.id);
                         setDropTargetBoardId(null);
+                        if (setDraggedClipId) setDraggedClipId(null);
                       } else {
                         handlePointerUpBoard();
                       }

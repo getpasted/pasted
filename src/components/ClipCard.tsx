@@ -127,6 +127,11 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
     <div
       onClick={onSelect}
       onContextMenu={onContextMenu}
+      onMouseDown={(e) => {
+        if (e.button === 0 && setDraggedClipId) {
+          setDraggedClipId(clip.id);
+        }
+      }}
       draggable={true}
       onDragStart={(e) => {
         if (setDraggedClipId) setDraggedClipId(clip.id);
