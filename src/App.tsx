@@ -754,68 +754,86 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [clips, selectedClip]);
 
-  const [deletingClipIds, setDeletingClipIds] = useState<Set<number>>(new Set());
+  const [deletingClipIds] = useState<Set<number>>(new Set());
 
-  const handleTogglePin = async (id: number) => {
-    // 0ms optimistic state mutation
+  const handleTogglePin = (id: number) => {
+    const isBatch = selectedClipIds.size > 1 && selectedClipIds.has(id);
+    const targetIds = isBatch ? Array.from(selectedClipIds) : [id];
+    const targetClip = allClips.find((c) => c.id === id);
+    const nextPinState = targetClip ? !targetClip.is_pinned : true;
+
+    // 0ms optimistic local state mutation
     setAllClips((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, is_pinned: !c.is_pinned } : c))
+      prev.map((c) => (targetIds.includes(c.id) ? { ...c, is_pinned: nextPinState } : c))
     );
-    setSelectedClip((prev) => (prev && prev.id === id ? { ...prev, is_pinned: !prev.is_pinned } : prev));
+    setSelectedClip((prev) => (prev && targetIds.includes(prev.id) ? { ...prev, is_pinned: nextPinState } : prev));
 
-    try {
-      await invoke('toggle_pin_clip', { id });
-    } catch (e) {
-      console.error(e);
-      fetchClips();
+    if (isBatch) {
+      invoke('batch_pin_clips', { ids: targetIds, pinState: nextPinState }).catch((e) => {
+        console.error(e);
+        fetchClips();
+      });
+    } else {
+      invoke('toggle_pin_clip', { id }).catch((e) => {
+        console.error(e);
+        fetchClips();
+      });
     }
   };
 
-  const handleToggleProtected = async (id: number) => {
+  const handleToggleProtected = (id: number) => {
     // 0ms optimistic state mutation
     setAllClips((prev) =>
       prev.map((c) => (c.id === id ? { ...c, is_protected: !c.is_protected } : c))
     );
     setSelectedClip((prev) => (prev && prev.id === id ? { ...prev, is_protected: !prev.is_protected } : prev));
 
-    try {
-      await invoke('toggle_clip_protected', { clipId: id });
-    } catch (e) {
+    invoke('toggle_clip_protected', { clipId: id }).catch((e) => {
       console.error('Failed to toggle protected state:', e);
       fetchClips();
-    }
+    });
   };
 
-  const handleDeleteClip = async (id: number, forcePermanent = false) => {
-    setDeletingClipIds((prev) => new Set(prev).add(id));
-    setTimeout(async () => {
-      // Optimistically remove from local state so item never flickers back
-      setClips((prev) => prev.filter((c) => c.id !== id));
-      setAllClips((prev) => prev.filter((c) => c.id !== id));
-      if (selectedClip?.id === id) {
-        setSelectedClip(null);
-      }
-      setDeletingClipIds((prev) => {
-        const next = new Set(prev);
-        next.delete(id);
-        return next;
-      });
+  const handleDeleteClip = (id: number, forcePermanent = false) => {
+    const isBatch = selectedClipIds.size > 1 && selectedClipIds.has(id);
+    const targetIds = isBatch ? Array.from(selectedClipIds) : [id];
+    const trashedItems = allClips.filter((c) => targetIds.includes(c.id));
 
-      try {
-        if (forcePermanent || appSettings.enableTrash === false) {
-          await invoke('purge_clip_permanently', { id });
-        } else {
-          await invoke('delete_clip', { id });
-        }
-        setTotalClipCount((prev) => Math.max(0, prev - 1));
-        fetchClips();
-        fetchTrashedClips();
-      } catch (e) {
+    // 0ms optimistic local state mutation - items vanish instantly on Frame 1
+    setAllClips((prev) => prev.filter((c) => !targetIds.includes(c.id)));
+    if (selectedClip && targetIds.includes(selectedClip.id)) {
+      setSelectedClip(null);
+    }
+    setSelectedClipIds((prev) => {
+      const next = new Set(prev);
+      targetIds.forEach((tid) => next.delete(tid));
+      return next;
+    });
+
+    if (!forcePermanent && appSettings.enableTrash !== false) {
+      setTrashedClips((prev) => [...trashedItems, ...prev]);
+    }
+
+    setTotalClipCount((prev) => Math.max(0, prev - targetIds.length));
+
+    if (isBatch) {
+      invoke('batch_trash_clips', { ids: targetIds }).catch((e) => {
         console.error(e);
         fetchClips();
         fetchTrashedClips();
-      }
-    }, 200);
+      });
+    } else if (forcePermanent || appSettings.enableTrash === false) {
+      invoke('purge_clip_permanently', { id }).catch((e) => {
+        console.error(e);
+        fetchClips();
+      });
+    } else {
+      invoke('delete_clip', { id }).catch((e) => {
+        console.error(e);
+        fetchClips();
+        fetchTrashedClips();
+      });
+    }
   };
 
   const handleCopyClip = async (clip: ClipItem) => {
@@ -1370,11 +1388,31 @@ export default function App() {
           x={contextMenu.x}
           y={contextMenu.y}
           clip={contextMenu.clip}
+          selectedCount={selectedClipIds.has(contextMenu.clip.id) ? selectedClipIds.size : 1}
           boards={boards}
           filters={filters}
           onClose={() => setContextMenu(null)}
           onCopy={() => handleCopyClip(contextMenu.clip)}
-          onAssignBoard={(boardId) => handleAssignBoard(contextMenu.clip.id, boardId)}
+          onAssignBoard={(boardId) => {
+            if (selectedClipIds.size > 1 && selectedClipIds.has(contextMenu.clip.id)) {
+              const ids = Array.from(selectedClipIds);
+              setAllClips((prev) =>
+                prev.map((c) => {
+                  if (!ids.includes(c.id)) return c;
+                  const currentBids = c.board_ids ? [...c.board_ids] : (c.board_id ? [c.board_id] : []);
+                  const nextBids = boardId === null ? [] : Array.from(new Set([...currentBids, boardId]));
+                  return { ...c, board_id: boardId, board_ids: nextBids };
+                })
+              );
+              invoke('batch_assign_board_clips', { ids, boardId }).catch((e) => {
+                console.error(e);
+                fetchClips();
+                fetchBoards();
+              });
+            } else {
+              handleAssignBoard(contextMenu.clip.id, boardId);
+            }
+          }}
           onApplyFilter={(filter) => handleApplyFilterToClip(contextMenu.clip, filter)}
           onAddNote={() => handlePromptAddNote(contextMenu.clip)}
           onDeleteNote={() => handleDeleteNoteFromClip(contextMenu.clip.id)}

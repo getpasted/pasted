@@ -22,6 +22,7 @@ interface ContextMenuProps {
   x: number;
   y: number;
   clip: ClipItem;
+  selectedCount?: number;
   boards: Board[];
   filters: FilterRule[];
   onClose: () => void;
@@ -40,6 +41,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   x,
   y,
   clip,
+  selectedCount,
   boards,
   filters,
   onClose,
@@ -281,7 +283,15 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
         ) : (
           <Pin className="w-3.5 h-3.5 text-orange-500 fill-orange-500/20 pin-icon" />
         )}
-        <span>{clip.is_pinned ? 'Unpin' : 'Pin'}</span>
+        <span>
+          {selectedCount && selectedCount > 1
+            ? clip.is_pinned
+              ? `Unpin ${selectedCount} Items`
+              : `Pin ${selectedCount} Items`
+            : clip.is_pinned
+            ? 'Unpin'
+            : 'Pin'}
+        </span>
       </button>
 
       {/* Toggle Protected */}
@@ -320,7 +330,15 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
         }`}
       >
         {isAltPressed ? <Trash className="w-3.5 h-3.5" /> : <Trash2 className="w-3.5 h-3.5" />}
-        <span>{clip.is_protected ? 'Item is Protected' : isAltPressed ? 'Delete Permanently (Option held)' : 'Move to Trash'}</span>
+        <span>
+          {clip.is_protected
+            ? 'Item is Protected'
+            : selectedCount && selectedCount > 1
+            ? `Move ${selectedCount} Items to Trash`
+            : isAltPressed
+            ? 'Delete Permanently (Option held)'
+            : 'Move to Trash'}
+        </span>
       </button>
     </div>
   );
