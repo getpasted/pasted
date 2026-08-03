@@ -1175,7 +1175,7 @@ export default function App() {
                     ? 'Trashed'
                     : selectedBoardId
                     ? boards.find((b) => b.id === selectedBoardId)?.name || 'Board'
-                    : 'All History'}
+                    : 'All'}
                 </h2>
               </div>
 

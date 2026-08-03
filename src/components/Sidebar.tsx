@@ -168,7 +168,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 ? 'sidebar-item-active bg-[#383838] text-white border-gray-600/70 shadow-sm'
                 : 'sidebar-item-idle border-transparent text-gray-400 hover:bg-[#2a2a2a] hover:text-white'
             }`}
-            title="All History"
+            title="All Clips"
           >
             <Clipboard className="w-5 h-5" />
           </button>
@@ -332,7 +332,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               >
                 <div className="flex items-center space-x-3">
                   <Clipboard className="w-4 h-4 text-[#0a84ff] shrink-0" strokeWidth={1.8} />
-                  <span className="truncate">All History</span>
+                  <span className="truncate">All</span>
                 </div>
                 <span className="sidebar-badge text-[11px] px-1.5 py-0.5 rounded-md bg-white/10 text-gray-300 font-mono">
                   {totalClipCount}
