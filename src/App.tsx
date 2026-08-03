@@ -802,13 +802,7 @@ export default function App() {
   const [deletingClipIds] = useState<Set<number>>(new Set());
   const [draggedClipId, setDraggedClipId] = useState<number | null>(null);
 
-  useEffect(() => {
-    const handleGlobalMouseUp = () => {
-      setDraggedClipId(null);
-    };
-    window.addEventListener('mouseup', handleGlobalMouseUp);
-    return () => window.removeEventListener('mouseup', handleGlobalMouseUp);
-  }, []);
+
 
   const handleAssignClipToBoard = useCallback(
     async (clipId: number, boardId: number) => {
