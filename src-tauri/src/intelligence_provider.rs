@@ -284,6 +284,27 @@ mod tests {
     use super::*;
 
     #[cfg(unix)]
+    fn fake_codex_executable(body: &str) -> (PathBuf, PathBuf) {
+        use std::os::unix::fs::{DirBuilderExt, PermissionsExt};
+
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let directory = std::env::temp_dir().join(format!("pasted-provider-test-{nonce}"));
+        fs::DirBuilder::new()
+            .mode(0o700)
+            .create(&directory)
+            .unwrap();
+        let path = directory.join("codex-provider-test");
+        fs::write(&path, format!("#!/bin/sh\n{body}\n")).unwrap();
+        let mut permissions = fs::metadata(&path).unwrap().permissions();
+        permissions.set_mode(0o700);
+        fs::set_permissions(&path, permissions).unwrap();
+        (path, directory)
+    }
+
+    #[cfg(unix)]
     #[test]
     fn temporary_workspaces_are_private_and_removed_on_drop() {
         use std::os::unix::fs::PermissionsExt;
@@ -385,5 +406,53 @@ mod tests {
         .unwrap_err();
 
         assert_eq!(error.code, "connection_unavailable");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn running_provider_processes_can_be_cancelled() {
+        let (executable, directory) =
+            fake_codex_executable("cat >/dev/null\ntouch \"$0.started\"\nsleep 5");
+        let marker = PathBuf::from(format!("{}.started", executable.display()));
+        let connection = IntelligenceConnection {
+            id: "running".to_string(),
+            name: "Codex CLI".to_string(),
+            provider_kind: "cli".to_string(),
+            endpoint: Some(executable.to_string_lossy().into_owned()),
+            model: None,
+            credential_ref: None,
+            enabled: true,
+            priority: 0,
+            created_at: String::new(),
+            updated_at: String::new(),
+        };
+        let cancellation = std::sync::Arc::new(AtomicBool::new(false));
+        let execution_cancellation = std::sync::Arc::clone(&cancellation);
+        let started = Instant::now();
+        let execution = std::thread::spawn(move || {
+            execute(
+                &connection,
+                ProviderRequest {
+                    prompt: "Begin",
+                    output_schema: None,
+                    cancellation_message: "Cancelled while running",
+                },
+                Some(execution_cancellation.as_ref()),
+            )
+        });
+        let marker_deadline = Instant::now() + Duration::from_secs(2);
+        while !marker.exists() {
+            assert!(
+                Instant::now() < marker_deadline,
+                "provider did not start in time"
+            );
+            std::thread::yield_now();
+        }
+        cancellation.store(true, Ordering::Release);
+        let error = execution.join().unwrap().unwrap_err();
+
+        assert_eq!(error.code, "execution_cancelled");
+        assert!(started.elapsed() < Duration::from_secs(2));
+        let _ = fs::remove_dir_all(directory);
     }
 }
