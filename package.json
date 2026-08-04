@@ -11,6 +11,7 @@
     "test:wcag": "node scripts/audit-wcag.js",
     "test:css": "node scripts/audit-css.js && node scripts/test-interaction-css.js",
     "test:security": "node scripts/audit-security.js",
+    "test:ipc": "node scripts/audit-ipc.js",
     "tauri": "tauri"
   },
   "dependencies": {

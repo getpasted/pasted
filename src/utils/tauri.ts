@@ -329,7 +329,7 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       return mockClips.filter((clip) => clip.is_trashed === 0).length as unknown as T;
     case 'is_clipboard_paused':
       return false as unknown as T;
-    case 'get_app_settings':
+    case 'get_all_app_settings':
       return {} as unknown as T;
     case 'get_operations':
       return [] as unknown as T;
