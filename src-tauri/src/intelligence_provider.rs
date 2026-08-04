@@ -251,20 +251,15 @@ impl TemporaryWorkspace {
             "pasted-intelligence-{}-{nonce}",
             std::process::id()
         ));
-        fs::create_dir(&path).map_err(|error| {
-            IntelligenceExecutionError::new("workspace_error", error.to_string())
-        })?;
+        let mut builder = fs::DirBuilder::new();
         #[cfg(unix)]
         {
-            use std::os::unix::fs::PermissionsExt;
-            if let Err(error) = fs::set_permissions(&path, fs::Permissions::from_mode(0o700)) {
-                let _ = fs::remove_dir(&path);
-                return Err(IntelligenceExecutionError::new(
-                    "workspace_error",
-                    error.to_string(),
-                ));
-            }
+            use std::os::unix::fs::DirBuilderExt;
+            builder.mode(0o700);
         }
+        builder.create(&path).map_err(|error| {
+            IntelligenceExecutionError::new("workspace_error", error.to_string())
+        })?;
         Ok(Self(path))
     }
 }
