@@ -38,6 +38,7 @@ import { useStableVerticalReorder } from '../hooks/useStableVerticalReorder';
 import type { ClipViewPolicy } from '../utils/clipViewPolicy';
 import { clipDeleteLabel, UI_COPY } from '../utils/uiCopy';
 import { formatEmojiIcon } from '../utils/emoji';
+import { binTextColor } from '../utils/binColor';
 
 interface ClipPreviewProps {
   clip: ClipItem | null;
@@ -723,6 +724,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
                 .map((bin) => ({
                   value: String(bin.id),
                   label: bin.name,
+                  color: binTextColor(bin.color),
                   icon: <span aria-hidden="true">{formatEmojiIcon(bin.icon)}</span>,
                 })),
             ]}

@@ -1,5 +1,6 @@
 import React from 'react';
 import { formatEmojiIcon } from '../utils/emoji';
+import { binTextColor } from '../utils/binColor';
 import { startWindowDrag } from '../utils/windowDrag';
 import {
   Clipboard,
@@ -554,7 +555,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   >
                     <div className="flex items-center gap-3 truncate pr-1 min-w-0">
                       <span className="sidebar-nav-icon sidebar-nav-icon-emoji sidebar-icon-primary">{getBinIcon(b.icon)}</span>
-                      <span className="truncate">{b.name}</span>
+                      <span className="truncate" style={{ color: binTextColor(b.color) }}>{b.name}</span>
                     </div>
 
                     {/* Right side container */}

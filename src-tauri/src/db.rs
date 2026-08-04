@@ -366,7 +366,7 @@ impl DbState {
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL,
                 icon TEXT DEFAULT 'Folder',
-                color TEXT DEFAULT '#3b82f6',
+                color TEXT DEFAULT 'default',
                 smart_rule TEXT,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )",

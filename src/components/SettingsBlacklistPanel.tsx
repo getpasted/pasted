@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Lock, Plus, Trash2 } from 'lucide-react';
 import type { BlacklistApp } from '../types';
+import { MenuSelect } from './MenuSelect';
 
 interface SettingsBlacklistPanelProps {
   apps: BlacklistApp[];
@@ -115,19 +116,21 @@ export function SettingsBlacklistPanel({
       </div>
 
       <form onSubmit={handleSubmit} className="theme-divider space-y-2 pt-2 border-t">
-        <select
-          aria-label="Suggested app"
-          onChange={(event) => setAppName(event.target.value)}
+        <MenuSelect
+          label="Suggested app"
+          onChange={setAppName}
           value={suggestedApps.some((group) => group.apps.includes(appName)) ? appName : ''}
-          className="theme-input w-full border rounded-lg px-3 py-1.5 text-xs focus:outline-none truncate"
-        >
-          <option value="" disabled>-- Select Installed or Popular App --</option>
-          {suggestedApps.map((group) => (
-            <optgroup key={group.label} label={group.label}>
-              {group.apps.map((name) => <option key={name} value={name}>{name}</option>)}
-            </optgroup>
-          ))}
-        </select>
+          options={[
+            { value: '', label: 'Select an installed or popular app', disabled: true },
+            ...suggestedApps.flatMap((group) => group.apps.map((name) => ({
+              value: name,
+              label: name,
+              group: group.label,
+            }))),
+          ]}
+          className="w-full"
+          compact
+        />
 
         <div className="flex items-center space-x-2">
           <input

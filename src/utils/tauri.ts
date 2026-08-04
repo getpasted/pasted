@@ -55,7 +55,7 @@ let mockClips: MockClip[] = [
 ];
 
 let mockBins = [
-  { id: 1, name: 'My Manual Bin', icon: '📂', color: '#3b82f6', smart_rule: null, bin_type: 'category' },
+  { id: 1, name: 'My Manual Bin', icon: '📂', color: 'default', smart_rule: null, bin_type: 'category' },
   { id: 2, name: 'Work Bin', icon: '💼', color: '#10b981', smart_rule: '', bin_type: 'category' },
 ];
 
@@ -412,7 +412,7 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
         id,
         name: typeof args?.name === 'string' ? args.name : 'Untitled Bin',
         icon: typeof args?.icon === 'string' ? args.icon : '📂',
-        color: typeof args?.color === 'string' ? args.color : '#3b82f6',
+        color: typeof args?.color === 'string' ? args.color : 'default',
         smart_rule: typeof args?.smartRule === 'string' ? args.smartRule : null,
         bin_type: 'category',
       });

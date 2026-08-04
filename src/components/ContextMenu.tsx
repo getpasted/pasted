@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useAltKeyPressed } from '../hooks/useAltKeyPressed';
 import type { ClipItem, Bin, SavedTransform } from '../types';
 import { formatEmojiIcon } from '../utils/emoji';
+import { binTextColor } from '../utils/binColor';
 import type { ClipViewPolicy } from '../utils/clipViewPolicy';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { selectedClipDeleteLabel, UI_COPY } from '../utils/uiCopy';
@@ -171,7 +172,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
                 className="theme-menu-item w-full text-left px-3 py-1.5 rounded-md truncate flex items-center space-x-2"
               >
                 <span>{formatEmojiIcon(b.icon)}</span>
-                <span className="truncate">{b.name}</span>
+                <span className="truncate" style={{ color: binTextColor(b.color) }}>{b.name}</span>
               </button>
             ))}
           </div>

@@ -22,6 +22,7 @@ interface SmartConditionRow {
 }
 
 const COLOR_PALETTE = [
+  { hex: 'default', label: 'Default' },
   { hex: '#ef4444', label: 'Red' },
   { hex: '#f97316', label: 'Orange' },
   { hex: '#eab308', label: 'Yellow' },
@@ -72,7 +73,7 @@ export const BinModal: React.FC<BinModalProps> = ({
     return 'bin';
   });
   const [name, setName] = useState(() => editingBin?.name || '');
-  const [selectedColor, setSelectedColor] = useState(() => editingBin?.color || '#3b82f6');
+  const [selectedColor, setSelectedColor] = useState(() => editingBin?.color || 'default');
   const [icon, setIcon] = useState(() => (editingBin ? formatEmojiIcon(editingBin.icon) : '📂'));
 
   // Form Validation State
@@ -122,7 +123,7 @@ export const BinModal: React.FC<BinModalProps> = ({
 
       if (editingBin) {
         setName(editingBin.name);
-        setSelectedColor(editingBin.color || '#3b82f6');
+        setSelectedColor(editingBin.color || 'default');
         setIcon(formatEmojiIcon(editingBin.icon));
         if (editingBin.smart_rule) {
           setModalTab('smart');
@@ -151,7 +152,7 @@ export const BinModal: React.FC<BinModalProps> = ({
         }
       } else {
         setName('');
-        setSelectedColor('#3b82f6');
+        setSelectedColor('default');
         setIcon('📂');
         setModalTab('bin');
         setConditions([{ id: '1', target: 'source_app', operator: 'is', value: '1Password' }]);
@@ -159,11 +160,11 @@ export const BinModal: React.FC<BinModalProps> = ({
 
       invoke<string[]>('get_installed_applications')
         .then((apps) => {
-          setInstalledApps(apps);
+          setInstalledApps(Array.isArray(apps) ? apps : []);
         })
         .catch(console.error);
       invoke<SavedTransform[]>('get_saved_transforms')
-        .then(setTransforms)
+        .then((savedTransforms) => setTransforms(Array.isArray(savedTransforms) ? savedTransforms : []))
         .catch(console.error);
       if (editingBin) {
         invoke<string | null>('get_bin_transform_ref', { binId: editingBin.id })
@@ -272,7 +273,7 @@ export const BinModal: React.FC<BinModalProps> = ({
   }) !== JSON.stringify({
     modalTab: initial.modalTab,
     name: editingBin?.name || '',
-    selectedColor: editingBin?.color || '#3b82f6',
+    selectedColor: editingBin?.color || 'default',
     icon: editingBin ? formatEmojiIcon(editingBin.icon) : '📂',
     conditions: initial.conditions,
     matchCondition: initial.matchCondition,
@@ -344,12 +345,13 @@ export const BinModal: React.FC<BinModalProps> = ({
                     setSelectedColor(c.hex);
                     if (errors.color) setErrors((prev) => ({ ...prev, color: false }));
                   }}
-                  style={{ backgroundColor: c.hex }}
-                  className={`w-5 h-5 rounded-full transition-transform ${
+                  style={{ backgroundColor: c.hex === 'default' ? 'var(--text-main)' : c.hex }}
+                  className={`w-5 h-5 rounded-full border border-transparent transition-transform ${
                     selectedColor === c.hex
                       ? 'bin-color-selected scale-110'
                       : 'opacity-80 hover:opacity-100'
                   }`}
+                  aria-label={`${c.label} Bin text`}
                   title={c.label}
                 />
               ))}
@@ -426,10 +428,10 @@ export const BinModal: React.FC<BinModalProps> = ({
               {conditions.map((c) => (
                 <div key={c.id} className="flex items-center space-x-2">
                   {/* Condition Target Dropdown */}
-                  <select
+                  <MenuSelect
                     value={c.target}
-                    onChange={(e) => {
-                      const newTarget = e.target.value as any;
+                    onChange={(value) => {
+                      const newTarget = value as SmartConditionRow['target'];
                       const newDefaultVal =
                         newTarget === 'source_app'
                           ? installedApps[0] || 'Safari'
@@ -438,47 +440,58 @@ export const BinModal: React.FC<BinModalProps> = ({
                           : '';
                       handleUpdateCondition(c.id, { target: newTarget, value: newDefaultVal });
                     }}
-                    className="theme-input form-field-valid border rounded-lg px-3 py-1.5 text-xs font-semibold focus:outline-none"
-                  >
-                    <option value="source_app">Source App</option>
-                    <option value="content_type">Content Type</option>
-                    <option value="contains">Text Content</option>
-                  </select>
+                    options={[
+                      { value: 'source_app', label: 'Source App' },
+                      { value: 'content_type', label: 'Content Type' },
+                      { value: 'contains', label: 'Text Content' },
+                    ]}
+                    label="Condition target"
+                    className="w-36"
+                    compact
+                  />
 
                   {/* Operator Dropdown */}
-                  <select
+                  <MenuSelect
                     value={c.operator}
-                    onChange={(e) => handleUpdateCondition(c.id, { operator: e.target.value as any })}
-                    className="theme-input form-field-valid border rounded-lg px-3 py-1.5 text-xs font-semibold focus:outline-none"
-                  >
-                    <option value="is">is</option>
-                    <option value="contains">contains</option>
-                  </select>
+                    onChange={(value) => handleUpdateCondition(c.id, { operator: value as SmartConditionRow['operator'] })}
+                    options={[
+                      { value: 'is', label: 'is' },
+                      { value: 'contains', label: 'contains' },
+                    ]}
+                    label="Condition operator"
+                    className="w-28"
+                    compact
+                  />
 
                   {/* Dynamic Value Dropdown / Input */}
                   {c.target === 'source_app' ? (
-                    <select
+                    <MenuSelect
                       value={c.value}
-                      onChange={(e) => handleUpdateCondition(c.id, { value: e.target.value })}
-                      className="flex-1 theme-input form-field-valid border rounded-lg px-3 py-1.5 text-xs font-semibold focus:outline-none truncate"
-                    >
-                      {installedApps.map((appName) => (
-                        <option key={appName} value={appName}>
-                          {appName}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(value) => handleUpdateCondition(c.id, { value })}
+                      options={installedApps.length > 0
+                        ? [
+                          ...(!installedApps.includes(c.value) && c.value ? [{ value: c.value, label: c.value }] : []),
+                          ...installedApps.map((appName) => ({ value: appName, label: appName })),
+                        ]
+                        : [{ value: c.value, label: c.value || 'No detected apps', disabled: true }]}
+                      label="Source app"
+                      className="min-w-0 flex-1"
+                      compact
+                    />
                   ) : c.target === 'content_type' ? (
-                    <select
+                    <MenuSelect
                       value={c.value}
-                      onChange={(e) => handleUpdateCondition(c.id, { value: e.target.value })}
-                      className="flex-1 theme-input form-field-valid border rounded-lg px-3 py-1.5 text-xs font-semibold focus:outline-none"
-                    >
-                      <option value="code">Code Snippets</option>
-                      <option value="link">Web Links</option>
-                      <option value="color">Hex Colors</option>
-                      <option value="image">Images</option>
-                    </select>
+                      onChange={(value) => handleUpdateCondition(c.id, { value })}
+                      options={[
+                        { value: 'code', label: 'Code Snippets' },
+                        { value: 'link', label: 'Web Links' },
+                        { value: 'color', label: 'Hex Colors' },
+                        { value: 'image', label: 'Images' },
+                      ]}
+                      label="Content type"
+                      className="min-w-0 flex-1"
+                      compact
+                    />
                   ) : (
                     <input
                       type="text"
@@ -518,14 +531,17 @@ export const BinModal: React.FC<BinModalProps> = ({
 
               <div className="flex items-center space-x-2 pt-1 theme-text-muted">
                 <span>Contain clippings that match</span>
-                <select
+                <MenuSelect
                   value={matchCondition}
-                  onChange={(e) => setMatchCondition(e.target.value as any)}
-                  className="theme-input form-field-valid border rounded-lg px-3 py-1 text-xs font-semibold focus:outline-none"
-                >
-                  <option value="any">any</option>
-                  <option value="all">all</option>
-                </select>
+                  onChange={(value) => setMatchCondition(value as 'any' | 'all')}
+                  options={[
+                    { value: 'any', label: 'any' },
+                    { value: 'all', label: 'all' },
+                  ]}
+                  label="Condition matching"
+                  className="w-24"
+                  compact
+                />
                 <span>conditions</span>
               </div>
             </div>

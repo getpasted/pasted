@@ -960,7 +960,7 @@ select.theme-input {
 }
 
 .theme-menu {
-  z-index: var(--layer-menu);
+  z-index: calc(var(--layer-modal) + 2);
   background-color: var(--menu-surface);
   border-color: var(--border-subtle);
   color: var(--text-main);

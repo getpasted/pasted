@@ -8,6 +8,7 @@ import { OperationEditorModal } from './OperationEditorModal';
 import { startWindowDrag } from '../utils/windowDrag';
 import { AppDialog } from './AppDialog';
 import { AppDialogBody, AppDialogButton, AppDialogFooter, AppDialogHeader, AppDialogHeading } from './AppDialogLayout';
+import { MenuSelect, type MenuSelectOption } from './MenuSelect';
 
 export interface PipelineEditorStep {
   id: string;
@@ -144,6 +145,20 @@ const StepReorderCard: React.FC<{
   const operationType = step.operation_ref.startsWith('builtin:')
     ? step.operation_ref.slice('builtin:'.length)
     : null;
+  const operationOptions: MenuSelectOption[] = OPERATION_CATEGORIES.flatMap((category) => {
+    const executors = EXECUTOR_OPTIONS
+      .filter((option) => option.category === category.key)
+      .map((option) => ({ value: `builtin:${option.value}`, label: option.label, group: category.label }));
+    const builtIns = category.registryCategory
+      ? operationsList
+        .filter((operation) => operation.stable_id.startsWith('builtin:') && operation.category === category.registryCategory)
+        .map((operation) => ({ value: operation.stable_id, label: operation.name, group: category.label }))
+      : [];
+    return [...executors, ...builtIns];
+  });
+  operationOptions.push(...operationsList
+    .filter((operation) => operation.stable_id.startsWith('custom:'))
+    .map((operation) => ({ value: operation.stable_id, label: operation.name, group: 'Custom Operations' })));
   return (
       <div
         data-stable-reorder-id={step.id}
@@ -229,47 +244,14 @@ const StepReorderCard: React.FC<{
               <span>+ New Operation</span>
             </button>
           </div>
-          <select
+          <MenuSelect
             value={step.operation_ref}
-            onChange={(e) => onUpdate({ operation_ref: e.target.value })}
-            className="w-full border rounded-lg p-2 focus:outline-none theme-input font-sans"
-          >
-            {OPERATION_CATEGORIES.map((cat) => {
-              const executors = EXECUTOR_OPTIONS.filter((option) => option.category === cat.key);
-              const builtIns = cat.registryCategory
-                ? operationsList.filter(
-                    (operation) => operation.stable_id.startsWith('builtin:') && operation.category === cat.registryCategory
-                  )
-                : [];
-              if (executors.length === 0 && builtIns.length === 0) return null;
-              return (
-                <optgroup key={cat.key} label={cat.label}>
-                  {executors.map((option) => (
-                    <option key={option.value} value={`builtin:${option.value}`}>
-                      {option.label}
-                    </option>
-                  ))}
-                  {builtIns.map((operation) => (
-                    <option key={operation.stable_id} value={operation.stable_id}>
-                      {operation.name}
-                    </option>
-                  ))}
-                </optgroup>
-              );
-            })}
-
-            {operationsList.some((operation) => operation.stable_id.startsWith('custom:')) && (
-              <optgroup label="Custom Operations">
-                {operationsList
-                  .filter((operation) => operation.stable_id.startsWith('custom:'))
-                  .map((op) => (
-                    <option key={`custom-${op.id}`} value={op.stable_id}>
-                      {op.name}
-                    </option>
-                  ))}
-              </optgroup>
-            )}
-          </select>
+            options={operationOptions}
+            onChange={(value) => onUpdate({ operation_ref: value })}
+            label={`Step ${idx + 1} operation`}
+            className="w-full font-sans"
+            compact
+          />
         </div>
 
         {/* Step Specific Config Inputs */}
@@ -296,18 +278,21 @@ const StepReorderCard: React.FC<{
               </div>
             </div>
             <div className="flex items-center space-x-4 pt-1">
-              <label className="flex items-center space-x-1.5 text-xs theme-text-muted">
+              <div className="flex items-center space-x-1.5 text-xs theme-text-muted">
                 <span>Match:</span>
-                <select
+                <MenuSelect
                   value={step.matchMode || 'regex'}
-                  onChange={(e) => onUpdate({ matchMode: e.target.value as PipelineEditorStep['matchMode'] })}
-                  className="border rounded-lg px-2 py-1 focus:outline-none theme-input"
-                >
-                  <option value="literal">Contains</option>
-                  <option value="wildcard">Wildcard</option>
-                  <option value="regex">Regular Expression</option>
-                </select>
-              </label>
+                  onChange={(value) => onUpdate({ matchMode: value as PipelineEditorStep['matchMode'] })}
+                  options={[
+                    { value: 'literal', label: 'Contains' },
+                    { value: 'wildcard', label: 'Wildcard' },
+                    { value: 'regex', label: 'Regular Expression' },
+                  ]}
+                  label="Match mode"
+                  className="w-40"
+                  compact
+                />
+              </div>
               <label className="flex items-center space-x-1.5 text-xs cursor-pointer theme-text-muted">
                 <input
                   type="checkbox"
