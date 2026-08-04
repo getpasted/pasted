@@ -74,6 +74,7 @@ These are functional issues exposed while auditing the styling, not CSS-only def
 ## Performance follow-ups
 
 - [x] Remove the 1–2 second clip-to-bin drop completion regression: keep the visual state and counts optimistic, persist the assignment without full success-path `get_bins`/`get_clips` reloads, defer sound work until after the next paint, and reserve authoritative reconciliation for persistence failures.
+- [x] Apply the same optimistic completion contract to clip-to-Trash drops: update active/trashed collections, selection, Bin counts, and totals immediately; reconcile only failed moves (while retaining success reconciliation for permanent deletion from the separately loaded Trash collection).
 
 ## Recommended attack order
 

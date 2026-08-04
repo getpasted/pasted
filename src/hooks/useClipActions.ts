@@ -194,7 +194,14 @@ export function useClipActions({
         ? invoke('batch_trash_clips', { ids })
         : invoke('delete_clip', { id: ids[0] });
     void request
-      .then(() => Promise.all([fetchClips(), fetchTrashedClips()]))
+      // Moving a clip to Trash is already fully represented in local clip,
+      // selection, Bin-count, Trash-count, and total-count state. Refetching
+      // both collections on success delayed the visible drop completion.
+      // Permanent deletion still reconciles because it may originate from the
+      // separately loaded Trash collection.
+      .then(() => permanently
+        ? Promise.all([fetchClips(), fetchTrashedClips()])
+        : undefined)
       .catch((error) => {
         console.error(permanently ? 'Failed to permanently delete clips:' : 'Failed to trash clips:', error);
         void fetchClips();
