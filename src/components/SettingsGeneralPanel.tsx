@@ -3,6 +3,7 @@ import { Coffee, Download, Droplet, Drum, Laptop, Moon, RotateCcw, Snowflake, Tr
 import type { AppSettings } from '../types';
 import { useAltKeyPressed } from '../hooks/useAltKeyPressed';
 import { safeInvoke as invoke } from '../utils/tauri';
+import { MenuSelect } from './MenuSelect';
 
 interface SettingsGeneralPanelProps {
   settings: AppSettings;
@@ -27,6 +28,28 @@ const appearanceGroups = [
   { label: 'Light schemes', values: ['cool', 'warm'] },
 ] as const;
 
+const textSizeOptions = [
+  { value: '14', label: '14 Points (Compact)' },
+  { value: '16', label: '16 Points (Standard)' },
+  { value: '18', label: '18 Points (Large)' },
+  { value: '20', label: '20 Points (Extra Large)' },
+];
+
+const pasteBehaviorOptions = [
+  { value: 'rich', label: 'Preserve Formatting (Default)' },
+  { value: 'plain', label: 'Always Paste Plain Text' },
+];
+
+const revisionLimitOptions = [10, 25, 50, 100]
+  .map((value) => ({ value: String(value), label: `${value} revisions` }))
+  .concat({ value: '0', label: 'Unlimited' });
+
+const rowHeightOptions = [
+  { value: 'small', label: 'Small' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'large', label: 'Large' },
+];
+
 export function SettingsGeneralPanel({
   settings,
   onUpdateSettings,
@@ -35,6 +58,18 @@ export function SettingsGeneralPanel({
 }: SettingsGeneralPanelProps) {
   const isAltPressed = useAltKeyPressed();
   const [exportStatus, setExportStatus] = useState<string | null>(null);
+  const isMac = typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.userAgent || navigator.platform);
+  const dockIconOptions = isMac
+    ? [
+        { value: 'auto_hide', label: 'Auto hide Dock Icon' },
+        { value: 'both', label: 'Always show Dock & Menubar' },
+        { value: 'menubar_only', label: 'Menubar Icon only' },
+      ]
+    : [
+        { value: 'auto_hide', label: 'Auto hide Taskbar Icon' },
+        { value: 'both', label: 'Always show Tray & Taskbar' },
+        { value: 'menubar_only', label: 'System Tray Icon only' },
+      ];
 
   const exportClips = async (format: 'json' | 'csv') => {
     try {
@@ -97,16 +132,13 @@ export function SettingsGeneralPanel({
                   </p>
                 </div>
                 <div className="flex items-center space-x-2 shrink-0">
-                  <select
-                    value={settings.textSize}
-                    onChange={(e) => onUpdateSettings({ textSize: Number(e.target.value) })}
-                    className="theme-input border rounded-md px-3 py-1 font-mono text-xs focus:outline-none"
-                  >
-                    <option value={14}>14 Points (Compact)</option>
-                    <option value={16}>16 Points (Standard)</option>
-                    <option value={18}>18 Points (Large)</option>
-                    <option value={20}>20 Points (Extra Large)</option>
-                  </select>
+                  <MenuSelect
+                    value={String(settings.textSize)}
+                    options={textSizeOptions}
+                    onChange={(value) => onUpdateSettings({ textSize: Number(value) })}
+                    label="Text size"
+                    className="settings-menu-select font-mono"
+                  />
                 </div>
               </div>
 
@@ -158,34 +190,21 @@ export function SettingsGeneralPanel({
               {/* Dock / Menubar / System Tray Setting */}
               <div className="flex items-center justify-between pt-1">
                 <span className="font-medium">
-                  {typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.userAgent || navigator.platform)
+                  {isMac
                     ? 'Dock & Menubar Icon:'
                     : 'System Tray & Taskbar:'}
                 </span>
-                <select
+                <MenuSelect
                   value={settings.dockMenubarIcon}
-                  aria-label="Dock and menu bar icon behavior"
-                  onChange={(e) => onUpdateSettings({ dockMenubarIcon: e.target.value as AppSettings['dockMenubarIcon'] })}
-                  className="theme-input border rounded-md px-3 py-1 text-xs focus:outline-none"
-                >
-                  {typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.userAgent || navigator.platform) ? (
-                    <>
-                      <option value="auto_hide">Auto hide Dock Icon</option>
-                      <option value="both">Always show Dock & Menubar</option>
-                      <option value="menubar_only">Menubar Icon only</option>
-                    </>
-                  ) : (
-                    <>
-                      <option value="auto_hide">Auto hide Taskbar Icon</option>
-                      <option value="both">Always show Tray & Taskbar</option>
-                      <option value="menubar_only">System Tray Icon only</option>
-                    </>
-                  )}
-                </select>
+                  options={dockIconOptions}
+                  onChange={(value) => onUpdateSettings({ dockMenubarIcon: value as AppSettings['dockMenubarIcon'] })}
+                  label="Dock and menu bar icon behavior"
+                  className="settings-menu-select"
+                />
               </div>
 
               {/* macOS Only Spotlight Indexing Setting */}
-              {typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.userAgent || navigator.platform) && (
+              {isMac && (
                 <div className="flex items-start justify-between pt-1">
                   <div className="pr-4 flex-1 min-w-0">
                     <span className="font-semibold theme-text-main block">Spotlight Indexing:</span>
@@ -221,14 +240,13 @@ export function SettingsGeneralPanel({
                     Sets the text formatting output type.
                   </p>
                 </div>
-                <select
+                <MenuSelect
                   value={settings.alwaysPastePlainText ? 'plain' : 'rich'}
-                  onChange={(e) => onUpdateSettings({ alwaysPastePlainText: e.target.value === 'plain' })}
-                  className="theme-input border rounded-md px-3 py-1 text-xs focus:outline-none shrink-0"
-                >
-                  <option value="rich">Preserve Formatting (Default)</option>
-                  <option value="plain">Always Paste Plain Text</option>
-                </select>
+                  options={pasteBehaviorOptions}
+                  onChange={(value) => onUpdateSettings({ alwaysPastePlainText: value === 'plain' })}
+                  label="Default paste behavior"
+                  className="settings-menu-select"
+                />
               </div>
 
               <div className="flex items-start justify-between">
@@ -293,18 +311,13 @@ export function SettingsGeneralPanel({
                     {settings.revisionHistoryLimit === 0 && ' Unlimited history can grow quickly when Transforms run automatically.'}
                   </p>
                 </div>
-                <select
-                  value={settings.revisionHistoryLimit}
-                  onChange={(event) => onUpdateSettings({ revisionHistoryLimit: Number(event.target.value) })}
-                  className="theme-input border rounded-md px-3 py-1 text-xs focus:outline-none shrink-0"
-                  aria-label="Revisions retained per clip"
-                >
-                  <option value={10}>10 revisions</option>
-                  <option value={25}>25 revisions</option>
-                  <option value={50}>50 revisions</option>
-                  <option value={100}>100 revisions</option>
-                  <option value={0}>Unlimited</option>
-                </select>
+                <MenuSelect
+                  value={String(settings.revisionHistoryLimit)}
+                  options={revisionLimitOptions}
+                  onChange={(value) => onUpdateSettings({ revisionHistoryLimit: Number(value) })}
+                  label="Revisions retained per clip"
+                  className="settings-menu-select"
+                />
               </div>
 
               <div className="theme-divider pt-3 border-t">
@@ -506,16 +519,13 @@ export function SettingsGeneralPanel({
                     Sets the fixed height of the quick paste menu and main window compact view.
                   </p>
                 </div>
-                <select
+                <MenuSelect
                   value={settings.rowHeight}
-                  aria-label="Row height"
-                  onChange={(e) => onUpdateSettings({ rowHeight: e.target.value as AppSettings['rowHeight'] })}
-                  className="theme-input border rounded-md px-3 py-1 text-xs focus:outline-none shrink-0"
-                >
-                  <option value="small">Small</option>
-                  <option value="medium">Medium</option>
-                  <option value="large">Large</option>
-                </select>
+                  options={rowHeightOptions}
+                  onChange={(value) => onUpdateSettings({ rowHeight: value as AppSettings['rowHeight'] })}
+                  label="Row height"
+                  className="settings-menu-select"
+                />
               </div>
 
               <div className="theme-divider border-t pt-3">

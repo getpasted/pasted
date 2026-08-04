@@ -512,6 +512,11 @@ html:not(.is-stable-reordering) .connection-priority-card:hover {
   max-width: 16rem;
 }
 
+.settings-menu-select {
+  width: clamp(11rem, 24vw, 15rem);
+  flex: 0 0 auto;
+}
+
 .playground-run-status {
   background-color: color-mix(in srgb, var(--bg-badge) 72%, transparent);
   border-color: var(--border-subtle);
