@@ -3,7 +3,7 @@ use sha2::{Digest, Sha256};
 use std::fmt;
 use std::time::Instant;
 
-use crate::db::{DbState, ResolvedCustomOperation};
+use crate::db::{DbState, ResolvedCustomOperation, TransformationExecutionStart};
 use crate::filter_engine::apply_filter;
 use crate::operation_registry::is_builtin_operation;
 
@@ -327,15 +327,15 @@ pub fn execute(
         ExecutionTarget::Operation { .. } => None,
     };
     let execution_id = db
-        .begin_transformation_execution(
+        .begin_transformation_execution(TransformationExecutionStart {
             target_kind,
-            &target_ref,
+            target_ref: &target_ref,
             target_revision,
-            request.source_clip_id,
-            request.trigger.as_str(),
-            request.destination.as_str(),
-            &content_hash(&request.input),
-        )
+            source_clip_id: request.source_clip_id,
+            trigger_kind: request.trigger.as_str(),
+            destination_kind: request.destination.as_str(),
+            input_hash: &content_hash(&request.input),
+        })
         .map_err(database_error)?;
     db.start_transformation_execution(&execution_id)
         .map_err(database_error)?;

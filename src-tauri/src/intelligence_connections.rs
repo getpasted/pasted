@@ -145,7 +145,7 @@ fn locate_executable(
         names
     };
     #[cfg(not(windows))]
-    let names = vec![name.to_string()];
+    let names = [name.to_string()];
 
     directories.iter().find_map(|directory| {
         names

@@ -4,7 +4,7 @@ use std::fs;
 use std::io::{self, Read};
 use std::path::PathBuf;
 
-use pasted_lib::db::DbState;
+use pasted_lib::db::{DbState, TransformClipApplication};
 use pasted_lib::intelligence_executor::execute_saved_transform;
 
 fn get_db_path() -> PathBuf {
@@ -128,14 +128,17 @@ fn main() -> Result<()> {
                     ) {
                         Ok((_name, outcome)) => {
                             if let Some(clip_id) = clip_id.filter(|_| replace) {
-                                if let Err(error) = db.apply_transform_output_to_clip(
-                                    clip_id,
-                                    transform_ref,
-                                    &input,
-                                    &outcome.output,
-                                    outcome.connection_id.as_deref(),
-                                    outcome.duration_ms,
-                                ) {
+                                if let Err(error) =
+                                    db.apply_transform_output_to_clip(TransformClipApplication {
+                                        clip_id,
+                                        transform_ref,
+                                        expected_input: &input,
+                                        output: &outcome.output,
+                                        connection_id: outcome.connection_id.as_deref(),
+                                        duration_ms: outcome.duration_ms,
+                                        bin_move: None,
+                                    })
+                                {
                                     eprintln!(
                                         "Transform ran, but the clip was not replaced: {error}"
                                     );

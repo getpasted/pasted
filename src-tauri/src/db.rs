@@ -175,6 +175,36 @@ pub struct TransformationExecution {
     pub error_summary: Option<String>,
 }
 
+pub struct TransformationExecutionStart<'a> {
+    pub target_kind: &'a str,
+    pub target_ref: &'a str,
+    pub target_revision: Option<i64>,
+    pub source_clip_id: Option<i64>,
+    pub trigger_kind: &'a str,
+    pub destination_kind: &'a str,
+    pub input_hash: &'a str,
+}
+
+pub struct TransformClipApplication<'a> {
+    pub clip_id: i64,
+    pub transform_ref: &'a str,
+    pub expected_input: &'a str,
+    pub output: &'a str,
+    pub connection_id: Option<&'a str>,
+    pub duration_ms: i64,
+    pub bin_move: Option<(Option<i64>, i64)>,
+}
+
+pub struct IntelligenceConnectionUpdate<'a> {
+    pub id: &'a str,
+    pub name: &'a str,
+    pub provider_kind: &'a str,
+    pub endpoint: Option<&'a str>,
+    pub model: Option<&'a str>,
+    pub credential_ref: Option<&'a str>,
+    pub enabled: bool,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct PipelineStepInput {
@@ -2915,13 +2945,7 @@ impl DbState {
 
     pub fn begin_transformation_execution(
         &self,
-        target_kind: &str,
-        target_ref: &str,
-        target_revision: Option<i64>,
-        source_clip_id: Option<i64>,
-        trigger_kind: &str,
-        destination_kind: &str,
-        input_hash: &str,
+        request: TransformationExecutionStart<'_>,
     ) -> Result<String> {
         let conn = self.conn.lock();
         conn.execute(
@@ -2930,13 +2954,13 @@ impl DbState {
                  trigger_kind, destination_kind, input_hash)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
             params![
-                target_kind,
-                target_ref,
-                target_revision,
-                source_clip_id,
-                trigger_kind,
-                destination_kind,
-                input_hash
+                request.target_kind,
+                request.target_ref,
+                request.target_revision,
+                request.source_clip_id,
+                request.trigger_kind,
+                request.destination_kind,
+                request.input_hash
             ],
         )?;
         conn.query_row(
@@ -3163,56 +3187,17 @@ impl DbState {
 
     pub fn apply_transform_output_to_clip(
         &self,
-        clip_id: i64,
-        transform_ref: &str,
-        expected_input: &str,
-        output: &str,
-        connection_id: Option<&str>,
-        duration_ms: i64,
+        request: TransformClipApplication<'_>,
     ) -> Result<ClipTransformationProvenance> {
-        self.apply_transform_output_to_clip_internal(
+        let TransformClipApplication {
             clip_id,
             transform_ref,
             expected_input,
             output,
             connection_id,
             duration_ms,
-            None,
-        )
-    }
-
-    pub fn apply_transform_output_to_clip_after_bin_move(
-        &self,
-        clip_id: i64,
-        transform_ref: &str,
-        expected_input: &str,
-        output: &str,
-        connection_id: Option<&str>,
-        duration_ms: i64,
-        previous_category_bin_id: Option<i64>,
-        destination_bin_id: i64,
-    ) -> Result<ClipTransformationProvenance> {
-        self.apply_transform_output_to_clip_internal(
-            clip_id,
-            transform_ref,
-            expected_input,
-            output,
-            connection_id,
-            duration_ms,
-            Some((previous_category_bin_id, destination_bin_id)),
-        )
-    }
-
-    fn apply_transform_output_to_clip_internal(
-        &self,
-        clip_id: i64,
-        transform_ref: &str,
-        expected_input: &str,
-        output: &str,
-        connection_id: Option<&str>,
-        duration_ms: i64,
-        bin_move: Option<(Option<i64>, i64)>,
-    ) -> Result<ClipTransformationProvenance> {
+            bin_move,
+        } = request;
         let transform_id = transform_ref
             .strip_prefix("transform:")
             .unwrap_or(transform_ref);
@@ -3669,13 +3654,7 @@ impl DbState {
 
     pub fn update_intelligence_connection(
         &self,
-        id: &str,
-        name: &str,
-        provider_kind: &str,
-        endpoint: Option<&str>,
-        model: Option<&str>,
-        credential_ref: Option<&str>,
-        enabled: bool,
+        request: IntelligenceConnectionUpdate<'_>,
     ) -> Result<()> {
         let conn = self.conn.lock();
         let changed = conn.execute(
@@ -3684,13 +3663,13 @@ impl DbState {
                  credential_ref = ?5, enabled = ?6, updated_at = CURRENT_TIMESTAMP
              WHERE id = ?7",
             params![
-                name.trim(),
-                provider_kind,
-                endpoint,
-                model,
-                credential_ref,
-                enabled as i64,
-                id
+                request.name.trim(),
+                request.provider_kind,
+                request.endpoint,
+                request.model,
+                request.credential_ref,
+                request.enabled as i64,
+                request.id
             ],
         )?;
         if changed == 0 {
@@ -4275,15 +4254,15 @@ mod tests {
         );
 
         let execution_id = db
-            .begin_transformation_execution(
-                "transform",
-                "transform:legacy-transform",
-                Some(1),
-                None,
-                "manual",
-                "preview",
-                "input-hash",
-            )
+            .begin_transformation_execution(TransformationExecutionStart {
+                target_kind: "transform",
+                target_ref: "transform:legacy-transform",
+                target_revision: Some(1),
+                source_clip_id: None,
+                trigger_kind: "manual",
+                destination_kind: "preview",
+                input_hash: "input-hash",
+            })
             .unwrap();
         db.finish_transformation_execution(&execution_id, 4, Some("output-hash"), None)
             .unwrap();
@@ -4529,15 +4508,15 @@ mod tests {
         assert_eq!(connection.provider_kind, "ollama");
         assert_eq!(connection.credential_ref, None);
 
-        db.update_intelligence_connection(
-            &connection.id,
-            "Local Planner",
-            "openai_compatible",
-            Some("http://127.0.0.1:1234/v1"),
-            Some("local-model"),
-            Some("env:PASTED_AI_API_KEY"),
-            false,
-        )
+        db.update_intelligence_connection(IntelligenceConnectionUpdate {
+            id: &connection.id,
+            name: "Local Planner",
+            provider_kind: "openai_compatible",
+            endpoint: Some("http://127.0.0.1:1234/v1"),
+            model: Some("local-model"),
+            credential_ref: Some("env:PASTED_AI_API_KEY"),
+            enabled: false,
+        })
         .unwrap();
         let connections = db.get_intelligence_connections().unwrap();
         assert_eq!(connections.len(), 1);
@@ -5252,14 +5231,15 @@ mod tests {
         };
         let transform = db.create_saved_transform("Uppercase", &plan, None).unwrap();
         let provenance = db
-            .apply_transform_output_to_clip(
-                clip.id,
-                &transform.stable_ref,
-                "hello",
-                "HELLO",
-                None,
-                12,
-            )
+            .apply_transform_output_to_clip(TransformClipApplication {
+                clip_id: clip.id,
+                transform_ref: &transform.stable_ref,
+                expected_input: "hello",
+                output: "HELLO",
+                connection_id: None,
+                duration_ms: 12,
+                bin_move: None,
+            })
             .unwrap();
         assert_eq!(provenance.transform_name, "Uppercase");
         assert_eq!(provenance.duration_ms, 12);
@@ -5282,14 +5262,15 @@ mod tests {
             .unwrap();
         assert_eq!(current.text_content.as_deref(), Some("HELLO"));
 
-        let stale = db.apply_transform_output_to_clip(
-            clip.id,
-            &transform.stable_ref,
-            "hello",
-            "ANOTHER RESULT",
-            None,
-            5,
-        );
+        let stale = db.apply_transform_output_to_clip(TransformClipApplication {
+            clip_id: clip.id,
+            transform_ref: &transform.stable_ref,
+            expected_input: "hello",
+            output: "ANOTHER RESULT",
+            connection_id: None,
+            duration_ms: 5,
+            bin_move: None,
+        });
         assert!(stale
             .unwrap_err()
             .to_string()
@@ -5328,16 +5309,15 @@ mod tests {
         let transform = db.create_saved_transform("Uppercase", &plan, None).unwrap();
 
         db.assign_to_bin(clip.id, Some(destination_bin.id)).unwrap();
-        db.apply_transform_output_to_clip_after_bin_move(
-            clip.id,
-            &transform.stable_ref,
-            "hello",
-            "HELLO",
-            None,
-            3,
-            Some(source_bin.id),
-            destination_bin.id,
-        )
+        db.apply_transform_output_to_clip(TransformClipApplication {
+            clip_id: clip.id,
+            transform_ref: &transform.stable_ref,
+            expected_input: "hello",
+            output: "HELLO",
+            connection_id: None,
+            duration_ms: 3,
+            bin_move: Some((Some(source_bin.id), destination_bin.id)),
+        })
         .unwrap();
         let version = db.get_clip_versions(clip.id).unwrap().remove(0);
         assert_eq!(

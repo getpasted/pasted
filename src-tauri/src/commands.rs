@@ -6,8 +6,8 @@ use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::db::{
-    Bin, ClipItem, DbState, IntelligenceConnection, Pipeline, PipelineStepInput, SavedTransform,
-    TransformationExecution,
+    Bin, ClipItem, DbState, IntelligenceConnection, IntelligenceConnectionUpdate, Pipeline,
+    PipelineStepInput, SavedTransform, TransformClipApplication, TransformationExecution,
 };
 use crate::sequential_paste::{SequentialQueueState, SequentialStatus};
 
@@ -200,16 +200,15 @@ pub async fn assign_clip_bin(
                 .map(Some)
                 .map_err(|error| error.to_string());
         }
-        db.apply_transform_output_to_clip_after_bin_move(
+        db.apply_transform_output_to_clip(TransformClipApplication {
             clip_id,
-            &transform_ref,
-            &input,
-            &outcome.output,
-            outcome.connection_id.as_deref(),
-            outcome.duration_ms,
-            previous_category_bin_id,
-            bin_id,
-        )
+            transform_ref: &transform_ref,
+            expected_input: &input,
+            output: &outcome.output,
+            connection_id: outcome.connection_id.as_deref(),
+            duration_ms: outcome.duration_ms,
+            bin_move: Some((previous_category_bin_id, bin_id)),
+        })
         .map_err(|error| error.to_string())?;
         let _ = db.log_activity(
             "bin_transform_executed",
@@ -619,6 +618,7 @@ pub fn create_intelligence_connection(
 }
 
 #[tauri::command]
+#[allow(clippy::too_many_arguments)] // Preserve the established flat Tauri IPC contract.
 pub fn update_intelligence_connection(
     id: String,
     name: String,
@@ -632,15 +632,15 @@ pub fn update_intelligence_connection(
     if name.trim().is_empty() {
         return Err("Connection name cannot be empty".to_string());
     }
-    db.update_intelligence_connection(
-        &id,
-        &name,
-        &provider_kind,
-        endpoint.as_deref(),
-        model.as_deref(),
-        credential_ref.as_deref(),
+    db.update_intelligence_connection(IntelligenceConnectionUpdate {
+        id: &id,
+        name: &name,
+        provider_kind: &provider_kind,
+        endpoint: endpoint.as_deref(),
+        model: model.as_deref(),
+        credential_ref: credential_ref.as_deref(),
         enabled,
-    )
+    })
     .map_err(|error| error.to_string())
 }
 
@@ -876,14 +876,15 @@ pub fn apply_transform_preview_to_clip(
     db: State<'_, Arc<DbState>>,
 ) -> Result<crate::db::ClipTransformationProvenance, String> {
     let provenance = db
-        .apply_transform_output_to_clip(
+        .apply_transform_output_to_clip(TransformClipApplication {
             clip_id,
-            &transform_ref,
-            &expected_input,
-            &output,
-            connection_id.as_deref(),
+            transform_ref: &transform_ref,
+            expected_input: &expected_input,
+            output: &output,
+            connection_id: connection_id.as_deref(),
             duration_ms,
-        )
+            bin_move: None,
+        })
         .map_err(|error| error.to_string())?;
     let _ = db.log_activity(
         "clip_transformed",

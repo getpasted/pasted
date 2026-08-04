@@ -6,7 +6,9 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use crate::db::{DbState, IntelligenceConnection};
+use crate::db::{
+    DbState, IntelligenceConnection, TransformClipApplication, TransformationExecutionStart,
+};
 use crate::operation_registry::BUILTIN_OPERATIONS;
 use crate::transformation_intent::{
     IntentPlanningMode, PlannedExecutor, StepExecutionScope, TransformationPlan,
@@ -78,15 +80,15 @@ pub fn execute_saved_transform(
         })?;
     let transform_name = transform.name.clone();
     let execution_id = db
-        .begin_transformation_execution(
-            "transform",
-            &transform.stable_ref,
-            Some(transform.revision),
+        .begin_transformation_execution(TransformationExecutionStart {
+            target_kind: "transform",
+            target_ref: &transform.stable_ref,
+            target_revision: Some(transform.revision),
             source_clip_id,
             trigger_kind,
             destination_kind,
-            &content_hash(&input),
-        )
+            input_hash: &content_hash(&input),
+        })
         .map_err(|error| IntelligenceExecutionError::new("database_error", error.to_string()))?;
     db.start_transformation_execution(&execution_id)
         .map_err(|error| IntelligenceExecutionError::new("database_error", error.to_string()))?;
@@ -563,14 +565,15 @@ pub fn apply_smart_bin_transforms_for_clip(
         match result {
             Ok((transform_name, outcome)) if outcome.output != current => {
                 if db
-                    .apply_transform_output_to_clip(
+                    .apply_transform_output_to_clip(TransformClipApplication {
                         clip_id,
-                        &transform_ref,
-                        &current,
-                        &outcome.output,
-                        outcome.connection_id.as_deref(),
-                        outcome.duration_ms,
-                    )
+                        transform_ref: &transform_ref,
+                        expected_input: &current,
+                        output: &outcome.output,
+                        connection_id: outcome.connection_id.as_deref(),
+                        duration_ms: outcome.duration_ms,
+                        bin_move: None,
+                    })
                     .is_ok()
                 {
                     current = outcome.output;
@@ -840,15 +843,15 @@ mod tests {
             fallback.id
         );
 
-        db.update_intelligence_connection(
-            &preferred.id,
-            &preferred.name,
-            &preferred.provider_kind,
-            preferred.endpoint.as_deref(),
-            preferred.model.as_deref(),
-            preferred.credential_ref.as_deref(),
-            false,
-        )
+        db.update_intelligence_connection(crate::db::IntelligenceConnectionUpdate {
+            id: &preferred.id,
+            name: &preferred.name,
+            provider_kind: &preferred.provider_kind,
+            endpoint: preferred.endpoint.as_deref(),
+            model: preferred.model.as_deref(),
+            credential_ref: preferred.credential_ref.as_deref(),
+            enabled: false,
+        })
         .unwrap();
         assert_eq!(select_connection(&db, None).unwrap().id, fallback.id);
         assert_eq!(
@@ -864,15 +867,15 @@ mod tests {
             "connection_unavailable"
         );
 
-        db.update_intelligence_connection(
-            &fallback.id,
-            &fallback.name,
-            &fallback.provider_kind,
-            fallback.endpoint.as_deref(),
-            fallback.model.as_deref(),
-            fallback.credential_ref.as_deref(),
-            false,
-        )
+        db.update_intelligence_connection(crate::db::IntelligenceConnectionUpdate {
+            id: &fallback.id,
+            name: &fallback.name,
+            provider_kind: &fallback.provider_kind,
+            endpoint: fallback.endpoint.as_deref(),
+            model: fallback.model.as_deref(),
+            credential_ref: fallback.credential_ref.as_deref(),
+            enabled: false,
+        })
         .unwrap();
         assert_eq!(
             select_connection(&db, None).unwrap_err().code,
