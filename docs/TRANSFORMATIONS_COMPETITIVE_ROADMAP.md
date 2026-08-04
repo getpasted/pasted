@@ -127,7 +127,14 @@ The existing `pasted-cli` should become a stable headless surface over the same
 domain and execution service, not a second implementation that edits SQLite
 directly.
 
-Planned command shape:
+Current intent-first command shape:
+
+```text
+pasted-cli transform list
+pasted-cli transform run <transform-ref> [--text TEXT | --clip ID | --stdin] [--replace]
+```
+
+The Advanced surface may later grow into:
 
 ```text
 pasted operation list [--json]

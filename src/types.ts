@@ -197,7 +197,7 @@ export interface PlanIntentOutcome {
   durationMs: number;
 }
 
-export interface TransformationRecipe {
+export interface SavedTransform {
   id: number;
   stableRef: string;
   name: string;
@@ -216,12 +216,31 @@ export interface ExecutePlanOutcome {
 }
 
 export interface ClipTransformationProvenance {
-  recipeRef: string;
-  recipeName: string;
-  recipeRevision: number;
+  transformRef: string;
+  transformName: string;
+  transformRevision: number;
   connectionId: string | null;
   durationMs: number;
   createdAt: string;
+}
+
+export type TransformExecutionStatus = 'queued' | 'running' | 'succeeded' | 'failed';
+export type TransformExecutionTrigger = 'manual' | 'shortcut' | 'bin' | 'automation' | 'cli';
+export type TransformExecutionDestination = 'preview' | 'replace' | 'copy' | 'paste' | 'route';
+
+export interface TransformationExecution {
+  id: string;
+  targetKind: 'operation' | 'pipeline' | 'transform';
+  targetRef: string;
+  targetRevision: number | null;
+  sourceClipId: number | null;
+  triggerKind: TransformExecutionTrigger;
+  destinationKind: TransformExecutionDestination;
+  startedAt: string;
+  completedAt: string | null;
+  durationMs: number | null;
+  status: TransformExecutionStatus;
+  errorSummary: string | null;
 }
 
 export interface SequentialStatus {

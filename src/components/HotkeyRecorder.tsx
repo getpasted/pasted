@@ -127,7 +127,7 @@ export const HotkeyRecorder: React.FC<HotkeyRecorderProps> = ({
           type="button"
           onClick={() => setIsRecording(true)}
           className="flex items-center space-x-1"
-          title={value ? `Global Hotkey: ${formatHotkeyDisplay(value)}` : 'Set global hotkey shortcut'}
+          title={value ? `Shortcut: ${formatHotkeyDisplay(value)}` : 'Set Shortcut'}
         >
           <Keyboard className="hotkey-recorder-icon w-3.5 h-3.5 opacity-80 shrink-0" />
           {(isRecording || value || placeholder) && (
@@ -149,7 +149,7 @@ export const HotkeyRecorder: React.FC<HotkeyRecorderProps> = ({
               onChange(null);
             }}
             className="hotkey-recorder-clear ml-1.5 p-0.5 rounded transition-colors"
-            title="Clear shortcut"
+            title="Clear Shortcut"
           >
             <X className="w-3 h-3" />
           </button>

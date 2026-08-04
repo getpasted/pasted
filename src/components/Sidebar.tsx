@@ -180,13 +180,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const getDropActionTitle = (action: ClipDropAction) => {
     if (!disabledDropActions.includes(action)) {
-      if (action === 'pin') return 'Drop to pin';
-      if (action === 'protect') return 'Drop to protect';
-      return 'Drop to trash';
+      if (action === 'pin') return 'Pin';
+      if (action === 'protect') return 'Protect';
+      return 'Move to Trash';
     }
-    if (action === 'pin') return 'Already pinned';
-    if (action === 'protect') return 'Already protected';
-    return 'Protected clips cannot be trashed';
+    if (action === 'pin') return 'Already Pinned';
+    if (action === 'protect') return 'Already Protected';
+    return 'Protected';
   };
 
   if (isCollapsed) {
@@ -339,7 +339,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             data-sidebar-hover-key="section:clips"
             onClick={isClipDragging ? undefined : () => setIsClipsOpen(!isClipsOpen)}
             className={`px-2.5 pb-1 flex items-center justify-between select-none ${isClipDragging ? 'cursor-default' : 'cursor-pointer'}`}
-            title="Click to toggle section"
+            title="Toggle Clips"
           >
             <span className={`sidebar-section-label text-[11px] font-semibold transition-colors tracking-tight ${hoveredSidebarControl === 'section:clips' ? 'is-hovered' : ''}`}>
               Clips
@@ -406,7 +406,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             data-sidebar-hover-key="section:bins"
             onClick={isClipDragging ? undefined : () => setIsBinsOpen(!isBinsOpen)}
             className={`px-2.5 pb-1 flex items-center justify-between select-none ${isClipDragging ? 'cursor-default' : 'cursor-pointer'}`}
-            title="Click to toggle section"
+            title="Toggle Bins"
           >
             <span className={`sidebar-section-label text-[11px] font-semibold transition-colors tracking-tight ${hoveredSidebarControl === 'section:bins' ? 'is-hovered' : ''}`}>
               Bins
@@ -419,7 +419,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               }}
               disabled={isClipDragging}
               className={`sidebar-add-btn p-0.5 rounded transition-colors ${isClipDragging ? 'cursor-default' : `cursor-pointer ${hoveredSidebarControl === 'create-bin' ? 'is-hovered' : ''}`}`}
-              title="Create Custom / Smart Bin"
+              title="New Bin"
             >
               <Plus className="w-3.5 h-3.5" strokeWidth={2} />
             </button>
@@ -459,9 +459,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     tabIndex={0}
                     title={
                       isDisabledDropTarget
-                        ? 'Already assigned to this Bin'
+                        ? 'Already in This Bin'
                         : isIneligibleSmartBin
-                        ? 'Smart Bin — populated automatically by rules'
+                        ? 'Smart Bin — Automatic'
                         : undefined
                     }
                     onPointerDown={(event) => handlePointerDownBin(String(b.id), event)}
@@ -562,7 +562,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       <div className={`flex items-center space-x-1.5 ${isBinHovered && !isDragging ? 'hidden' : ''}`}>
                         {b.smart_rule ? (
                           <span
-                            title={`Smart Bin Rule Active (${b.clip_count ?? 0} matching clips)`}
+                            title={`Smart Bin · ${b.clip_count ?? 0} Matches`}
                             className="sidebar-badge text-[11px] px-1.5 py-0.5 rounded-md font-mono flex items-center space-x-1"
                           >
                             <Sparkles className="w-3 h-3 text-amber-400 shrink-0" />
@@ -620,7 +620,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             data-sidebar-hover-key="section:tools"
             onClick={isClipDragging ? undefined : () => setIsToolsOpen(!isToolsOpen)}
             className={`px-2.5 pb-1 flex items-center justify-between select-none ${isClipDragging ? 'cursor-default' : 'cursor-pointer'}`}
-            title="Click to toggle section"
+            title="Toggle Tools"
           >
             <span className={`sidebar-section-label text-[11px] font-semibold transition-colors tracking-tight ${hoveredSidebarControl === 'section:tools' ? 'is-hovered' : ''}`}>
               Tools

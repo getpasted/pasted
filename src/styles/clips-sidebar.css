@@ -267,66 +267,14 @@
   line-height: 1.25rem;
 }
 
-.clip-card-actions {
-  background-color: color-mix(in srgb, var(--bg-card) 96%, transparent);
-  border-color: var(--border-card);
-  color: var(--text-muted);
-  box-shadow: var(--shadow-card-selected);
-}
-
-.clip-card-actions button {
-  box-sizing: border-box;
-  width: 1.5rem;
-  height: 1.5rem;
-  padding: 0 !important;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.clip-card-actions button svg {
-  width: 0.875rem;
-  height: 0.875rem;
-  flex: 0 0 0.875rem;
-  stroke-width: 2;
-}
-
-.clip-card-action,
-.clip-card-actions .is-disabled {
-  color: var(--text-muted);
-  transition: background-color 100ms ease, color 100ms ease;
-}
-
-.clip-card-action:hover {
-  background-color: var(--bg-tab-hover);
-  color: var(--text-title);
-}
-
-.clip-card-action.is-accent {
-  color: var(--accent-primary);
-}
-
 .clip-protected-accent,
 .clip-ocr-accent {
   color: var(--accent-primary);
 }
 
-.clip-card-action.is-warning,
 .clip-note-accent,
 .clip-note-summary {
   color: var(--status-warning);
-}
-
-.clip-card-action.is-danger {
-  color: var(--status-danger);
-}
-
-.clip-card-action.is-danger:hover {
-  background-color: color-mix(in srgb, var(--status-danger) 12%, var(--bg-tab-hover));
-}
-
-.clip-card-actions .is-disabled {
-  color: var(--text-subtle);
 }
 
 .clip-thumbnail-stage {
@@ -368,14 +316,14 @@
   border-radius: inherit;
   box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent-primary) 24%, transparent);
   pointer-events: none;
-  animation: clip-recipe-working 1.15s ease-in-out infinite;
+  animation: clip-transform-working 1.15s ease-in-out infinite;
 }
 
 .clip-transform-working {
   color: var(--accent-primary);
 }
 
-@keyframes clip-recipe-working {
+@keyframes clip-transform-working {
   0%, 100% {
     opacity: 0.42;
     box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent-primary) 20%, transparent);

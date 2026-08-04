@@ -1,6 +1,7 @@
 import type React from 'react';
-import { Check, Edit3, Eye, Trash2 } from 'lucide-react';
+import { Edit3, Eye, Trash2 } from 'lucide-react';
 import type { ClipNote } from '../types';
+import { FloatingActionStrip } from './FloatingActionStrip';
 
 interface NoteRowItemProps {
   noteItem: ClipNote;
@@ -72,10 +73,9 @@ export const NoteRowItem: React.FC<NoteRowItemProps> = ({
             <button
               type="button"
               onClick={() => handleUpdateNoteItem(noteItem.id, editingNoteText)}
-              className="note-save-button flex items-center space-x-1 px-2.5 py-1 rounded text-xs font-semibold shadow cursor-pointer"
+              className="note-save-button px-2.5 py-1 rounded text-xs font-semibold shadow cursor-pointer"
             >
-              <Check className="w-3.5 h-3.5" />
-              <span>Save</span>
+              Save
             </button>
           </div>
         </div>
@@ -87,42 +87,48 @@ export const NoteRowItem: React.FC<NoteRowItemProps> = ({
             </span>
           </div>
 
-          <div className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-100 flex items-center gap-1 shrink-0">
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setViewingNote(noteItem);
-              }}
-              className="note-icon-btn p-1 rounded transition-colors"
-              title="View Note Modal"
-            >
-              <Eye className="w-3.5 h-3.5" />
-            </button>
-            {!readOnly && <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setEditingNoteId(noteItem.id);
-                setEditingNoteText(noteItem.text);
-              }}
-              className="note-icon-btn p-1 rounded transition-colors"
-              title="Edit Note"
-            >
-              <Edit3 className="w-3.5 h-3.5" />
-            </button>}
-            {!readOnly && <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleDeleteNoteItem(noteItem.id);
-              }}
-              className="note-icon-btn is-danger p-1 rounded transition-colors"
-              title="Delete Note"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-            </button>}
-          </div>
+          {!isDragging && (
+            <FloatingActionStrip label="Note actions" revealOnGroupInteraction>
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setViewingNote(noteItem);
+                }}
+                className="floating-action-button"
+                title="View Note"
+              >
+                <Eye />
+              </button>
+              {!readOnly && (
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setEditingNoteId(noteItem.id);
+                    setEditingNoteText(noteItem.text);
+                  }}
+                  className="floating-action-button is-warning"
+                  title="Edit Note"
+                >
+                  <Edit3 />
+                </button>
+              )}
+              {!readOnly && (
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    handleDeleteNoteItem(noteItem.id);
+                  }}
+                  className="floating-action-button is-danger"
+                  title="Delete Note"
+                >
+                  <Trash2 />
+                </button>
+              )}
+            </FloatingActionStrip>
+          )}
         </>
       )}
     </div>

@@ -51,7 +51,7 @@ export function ClipRevisionHistory({
       {isLoading ? (
         <p role="status" className="clip-revision-history-empty text-xs py-2">Loading revision history…</p>
       ) : versions.length === 0 ? (
-        <p className="clip-revision-history-empty text-xs py-2">No past version snapshots recorded for this clip yet.</p>
+        <p className="clip-revision-history-empty text-xs py-2">No revisions yet.</p>
       ) : (
         <div className="max-h-48 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
           {versions.map((version, index) => {
@@ -97,7 +97,7 @@ export function ClipRevisionHistory({
                     onClick={(event) => { event.stopPropagation(); onRestore(version); }}
                   className="clip-revision-history-restore px-2.5 py-1 font-semibold rounded-md text-[11px] cursor-pointer"
                   aria-label={`Restore revision ${versions.length - index}`}
-                  title="Restore this revision"
+                  title="Restore Revision"
                 >
                     {isRestoring
                       ? <LoaderCircle className="h-4 w-4 animate-spin" />

@@ -103,7 +103,7 @@ export function IntelligenceConnectionsPanel() {
                     key={connection.id}
                     data-stable-reorder-id={connection.id}
                     onPointerDown={(event) => startConnectionReorder(connection.id, event)}
-                    title="Drag to change priority"
+                    title="Reorder Connection"
                     style={offset !== 0 || isDragging ? { transform: `translateY(${offset}px)`, zIndex: isDragging ? 'var(--layer-drag)' : 1 } : undefined}
                     className={`connection-priority-card theme-card-idle border rounded-xl p-3 flex items-center justify-between gap-3 relative cursor-grab active:cursor-grabbing touch-none transition-[background-color,border-color,box-shadow,opacity,transform] duration-100 ${isDragging ? 'is-dragging' : ''} ${connection.enabled ? '' : 'opacity-60'}`}
                   >
@@ -120,11 +120,11 @@ export function IntelligenceConnectionsPanel() {
                       </div>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
-                      <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={() => toggleConnection(connection)} className={`connection-power-button theme-icon-button border rounded-lg p-2 ${connection.enabled ? 'is-enabled' : ''}`} title={connection.enabled ? 'Disable connection' : 'Enable connection'}>
+                      <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={() => toggleConnection(connection)} className={`connection-power-button theme-icon-button border rounded-lg p-2 ${connection.enabled ? 'is-enabled' : ''}`} title={connection.enabled ? 'Disable' : 'Enable'}>
                         <Power className="w-4 h-4" />
                       </button>
                       {!detected && (
-                        <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={() => deleteConnection(connection.id)} className="theme-icon-button theme-danger-text border rounded-lg p-2" title="Delete connection">
+                        <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={() => deleteConnection(connection.id)} className="theme-icon-button theme-danger-text border rounded-lg p-2" title="Delete Connection">
                           <Trash2 className="w-4 h-4" />
                         </button>
                       )}

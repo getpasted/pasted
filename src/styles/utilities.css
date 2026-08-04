@@ -14,30 +14,39 @@
   backdrop-filter: blur(var(--material-blur)) saturate(var(--material-saturation));
 }
 
-/* Tool scrollbars float above content instead of changing its layout width. */
-.tools-scroll-region {
+/* Transient scrollbars float above content instead of changing its layout width. */
+.tools-scroll-region,
+.overlay-scroll-region {
   overflow-y: overlay;
   scrollbar-gutter: auto;
   scrollbar-color: transparent transparent;
 }
 
-.tools-scroll-region.is-scrolling {
+.tools-scroll-region.is-scrolling,
+.overlay-scroll-region.is-scrolling {
   scrollbar-color: var(--scrollbar-thumb) transparent;
 }
 
-.tools-scroll-region::-webkit-scrollbar-track {
+.tools-scroll-region::-webkit-scrollbar-track,
+.overlay-scroll-region::-webkit-scrollbar-track {
   background: transparent;
 }
 
 .tools-scroll-region::-webkit-scrollbar-thumb,
 .tools-scroll-region::-webkit-scrollbar-thumb:hover,
-.tools-scroll-region::-webkit-scrollbar-thumb:active {
+.tools-scroll-region::-webkit-scrollbar-thumb:active,
+.overlay-scroll-region::-webkit-scrollbar-thumb,
+.overlay-scroll-region::-webkit-scrollbar-thumb:hover,
+.overlay-scroll-region::-webkit-scrollbar-thumb:active {
   background: transparent;
 }
 
 .tools-scroll-region.is-scrolling::-webkit-scrollbar-thumb,
 .tools-scroll-region.is-scrolling::-webkit-scrollbar-thumb:hover,
-.tools-scroll-region.is-scrolling::-webkit-scrollbar-thumb:active {
+.tools-scroll-region.is-scrolling::-webkit-scrollbar-thumb:active,
+.overlay-scroll-region.is-scrolling::-webkit-scrollbar-thumb,
+.overlay-scroll-region.is-scrolling::-webkit-scrollbar-thumb:hover,
+.overlay-scroll-region.is-scrolling::-webkit-scrollbar-thumb:active {
   background: var(--scrollbar-thumb);
 }
 

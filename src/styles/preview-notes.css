@@ -13,19 +13,37 @@ body.hud-mode,
    COOL & WARM COLOR CORRECTIONS FOR CLIP PREVIEW & NOTES
    ======================================================= */
 
-/* Main Copy Clip Button */
-.copy-clip-main-btn {
-  background-color: var(--accent-primary);
-  color: var(--accent-primary-contrast);
-  box-shadow: 0 2px 6px color-mix(in srgb, var(--accent-primary) 30%, transparent);
+.clip-preview-actions {
+  gap: 0.375rem;
 }
 
-.copy-clip-main-btn:hover {
-  background-color: color-mix(in srgb, var(--accent-primary) 86%, var(--text-title));
+.clip-preview-action {
+  display: inline-flex;
+  width: 2rem;
+  height: 2rem;
+  flex: 0 0 2rem;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: var(--radius-control);
+}
+
+.clip-preview-action svg {
+  width: 1rem;
+  height: 1rem;
+  flex: 0 0 1rem;
+  stroke-width: 2;
+}
+
+.copy-clip-main-btn.is-copied {
+  background-color: color-mix(in srgb, var(--status-success) 12%, var(--bg-input));
+  border-color: color-mix(in srgb, var(--status-success) 42%, var(--border-input));
+  color: var(--status-success);
 }
 
 .preview-delete-btn {
-  color: var(--text-muted);
+  color: var(--status-danger);
 }
 
 .preview-delete-btn:hover {
@@ -100,32 +118,19 @@ body.hud-mode,
   color: var(--text-main);
 }
 
-.note-icon-btn {
-  color: color-mix(in srgb, var(--status-warning) 68%, var(--text-muted));
-}
-
-.note-icon-btn:hover {
-  background-color: color-mix(in srgb, var(--status-warning) 10%, transparent);
-  color: var(--text-title);
-}
-
-.note-icon-btn.is-danger:hover {
-  color: var(--status-danger);
-}
-
 .note-input-row {
   background-color: var(--bg-card);
   border-color: color-mix(in srgb, var(--status-warning) 34%, var(--border-card));
 }
 
-.note-input,
-textarea.note-input,
-input.note-input {
-  background-color: transparent !important;
-  background: transparent !important;
-  border: none !important;
-  outline: none !important;
-  box-shadow: none !important;
+.note-input-row .note-input,
+.note-input-row textarea.note-input,
+.note-input-row input.note-input {
+  background-color: transparent;
+  background: transparent;
+  border: none;
+  outline: none;
+  box-shadow: none;
 }
 
 .note-input::placeholder {
@@ -151,14 +156,7 @@ input.note-input {
   background-color: color-mix(in srgb, var(--status-warning) 86%, var(--text-title));
 }
 
-/* Note viewer modal */
-.clip-note-viewer-overlay {
-  z-index: var(--layer-critical);
-  background-color: var(--overlay-scrim);
-}
-
-.clip-note-viewer-card,
-.clip-note-viewer-body {
+.clip-note-viewer-card {
   background-color: var(--bg-card);
   color: var(--text-main);
 }
@@ -166,24 +164,6 @@ input.note-input {
 .clip-note-viewer-card {
   border-color: color-mix(in srgb, var(--status-warning) 42%, var(--border-card));
   box-shadow: 0 24px 70px color-mix(in srgb, #000 32%, transparent);
-}
-
-.clip-note-viewer-bar {
-  background-color: var(--material-toolbar);
-  border-color: color-mix(in srgb, var(--status-warning) 24%, var(--border-subtle));
-}
-
-.clip-note-viewer-title {
-  color: var(--status-warning);
-}
-
-.clip-note-viewer-close {
-  color: var(--text-muted);
-}
-
-.clip-note-viewer-close:hover {
-  background-color: var(--bg-tab-hover);
-  color: var(--text-title);
 }
 
 .clip-note-viewer-content {
@@ -198,31 +178,4 @@ input.note-input {
 
 .clip-note-viewer-meta-strong {
   color: var(--text-title);
-}
-
-.clip-note-viewer-copy {
-  background-color: color-mix(in srgb, var(--status-warning) 13%, var(--bg-surface));
-  border-color: color-mix(in srgb, var(--status-warning) 54%, var(--border-subtle));
-  color: var(--text-main);
-}
-
-.clip-note-viewer-copy:hover {
-  background-color: color-mix(in srgb, var(--status-warning) 22%, var(--bg-surface));
-}
-
-.clip-note-viewer-dismiss {
-  background-color: var(--bg-tab-hover);
-  color: var(--text-main);
-}
-
-.clip-note-viewer-dismiss:hover {
-  background-color: var(--bg-card-selected);
-  color: var(--text-title);
-}
-
-.clip-note-viewer-close:focus-visible,
-.clip-note-viewer-copy:focus-visible,
-.clip-note-viewer-dismiss:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 2px;
 }

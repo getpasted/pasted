@@ -29,18 +29,6 @@
   box-shadow: 0 20px 48px color-mix(in srgb, #000000 42%, transparent);
 }
 
-.filter-editor-header,
-.filter-editor-footer {
-  background-color: var(--material-toolbar);
-  border-color: var(--border-subtle);
-  color: var(--text-main);
-}
-
-.filter-editor-body {
-  background-color: var(--bg-primary);
-  color: var(--text-main);
-}
-
 .filter-step-list {
   background-color: var(--bg-surface);
   border-color: var(--border-subtle);
@@ -60,33 +48,12 @@
 }
 
 optgroup {
-  background-color: var(--bg-tab-hover) !important;
-  color: var(--accent-primary) !important;
-  font-weight: 700 !important;
+  background-color: var(--bg-tab-hover);
+  color: var(--accent-primary);
+  font-weight: 700;
 }
 
 option {
-  background-color: var(--bg-surface) !important;
-  color: var(--text-main) !important;
-}
-
-.filter-modal-cancel-btn {
-  background-color: var(--bg-tab-hover);
+  background-color: var(--bg-surface);
   color: var(--text-main);
-  border: 1px solid var(--border-card);
-}
-
-.filter-modal-cancel-btn:hover {
-  background-color: var(--bg-card-selected);
-  color: var(--text-title);
-}
-
-.filter-modal-ok-btn {
-  background-color: var(--accent-primary);
-  color: var(--accent-primary-contrast);
-}
-
-.filter-modal-ok-btn:hover {
-  filter: brightness(1.08);
-  color: var(--accent-primary-contrast);
 }

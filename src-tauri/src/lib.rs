@@ -1,10 +1,10 @@
 mod clipboard_monitor;
 mod commands;
-mod db;
+pub mod db;
 mod filter_engine;
 mod hotkey_manager;
 mod intelligence_connections;
-mod intelligence_executor;
+pub mod intelligence_executor;
 mod ocr;
 mod operation_plugins;
 mod operation_registry;
@@ -336,12 +336,14 @@ pub fn run() {
             commands::validate_transformation_plan,
             commands::plan_transformation_intent,
             commands::test_transformation_plan,
-            commands::get_transformation_recipes,
-            commands::save_transformation_recipe,
-            commands::delete_transformation_recipe,
-            commands::execute_transformation_recipe,
-            commands::apply_recipe_preview_to_clip,
+            commands::get_saved_transforms,
+            commands::save_saved_transform,
+            commands::update_saved_transform,
+            commands::delete_saved_transform,
+            commands::execute_saved_transform,
+            commands::apply_transform_preview_to_clip,
             commands::get_clip_transformation_provenance,
+            commands::get_clip_transformation_executions,
             commands::get_operation_plugin_examples,
             commands::create_operation,
             commands::update_operation,
@@ -369,8 +371,8 @@ pub fn run() {
             commands::extract_ocr_from_clip,
             commands::register_hud_shortcut,
             commands::update_bin_shortcut,
-            commands::get_bin_recipe_ref,
-            commands::set_bin_recipe_ref,
+            commands::get_bin_transform_ref,
+            commands::set_bin_transform_ref,
             commands::register_app_setting_hotkey,
             commands::clear_all_clips,
             commands::toggle_clipboard_pause,

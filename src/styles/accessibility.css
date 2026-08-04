@@ -6,7 +6,6 @@
 .app-shell,
 .quick-hud-shell,
 .app-dialog-overlay,
-.clip-note-viewer-overlay,
 .theme-menu,
 .unselectable,
 .titlebar-drag-handle {
@@ -24,39 +23,25 @@
  * flicker between Safari's arrow and the pointer while the mouse moves over it.
  */
 button:not(:disabled),
-button:not(:disabled) *,
 [role="button"]:not([aria-disabled="true"]),
-[role="button"]:not([aria-disabled="true"]) *,
 a,
-a *,
 select:not(:disabled),
-select:not(:disabled) *,
 label[for],
-label[for] *,
-.cursor-pointer,
-.cursor-pointer * {
+.cursor-pointer {
   cursor: pointer !important;
 }
 
 button:disabled,
-button:disabled *,
 [role="button"]:disabled,
-[role="button"]:disabled *,
 select:disabled,
-select:disabled *,
 [aria-disabled="true"],
-[aria-disabled="true"] *,
-.cursor-not-allowed,
-.cursor-not-allowed * {
+.cursor-not-allowed {
   cursor: not-allowed !important;
 }
 
 input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
-input:not([type="checkbox"]):not([type="radio"]):not([type="range"]) *,
 textarea,
-textarea *,
-[contenteditable="true"],
-[contenteditable="true"] * {
+[contenteditable="true"] {
   cursor: text !important;
 }
 

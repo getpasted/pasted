@@ -105,7 +105,7 @@ export function SettingsBlacklistPanel({
                 onClick={() => onRemoveApp(app.id)}
                 className="theme-danger-text theme-icon-button p-1 rounded transition-colors"
                 aria-label={`Remove ${app.name} from blacklist`}
-                title="Remove App"
+                title="Remove from Blacklist"
               >
                 <Trash2 className="w-3.5 h-3.5" />
               </button>
@@ -142,7 +142,7 @@ export function SettingsBlacklistPanel({
             type="submit"
             disabled={!appName.trim()}
             className="theme-primary-button flex items-center space-x-1 px-3.5 py-1.5 border font-semibold rounded-lg transition-[background-color,opacity,transform] text-xs shadow-md active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
-            title="Add App to Blacklist"
+            title="Add to Blacklist"
           >
             <Plus className="w-4 h-4" />
             <span>Add App</span>

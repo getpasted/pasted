@@ -87,7 +87,7 @@ Destinations may be composed only when the UI states each side effect clearly. �
 3. Replacing a stored clip always records a revision.
 4. Automatic capture rules must expose whether they keep the source, result, or both.
 5. Remote, AI, HTTP, and command Operations display their trust boundary before first use.
-6. Every execution records Pipeline, Operation versions, trigger, destination, duration, and outcome.
+6. Every execution records its Transform, Pipeline, or Operation version, trigger, destination, duration, and outcome.
 7. A failed automatic transformation never destroys or hides the captured source.
 
 ## Shortcut and last-used contract
@@ -116,7 +116,7 @@ Pasted should combine these capabilities around clipboard-native language instea
 
 1. Complete manual preview, copy-result, and paste-result actions on the shared execution service.
 2. Add per-Pipeline hotkeys and “last used Pipeline” behavior.
-3. Add CLI stdin/stdout execution using stable Pipeline and Operation identifiers.
+3. Extend the shipped Transform CLI surface to the Advanced Pipeline and Operation identifiers.
 4. Add capture-time Automations with source-preservation guarantees.
 5. Add selected-text input and lightweight fill-ins.
 6. Enable capability-scoped command, HTTP, and AI Operations.

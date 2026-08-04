@@ -67,7 +67,7 @@ export const SequentialQueueBar: React.FC<SequentialQueueBarProps> = ({
               type="button"
               onClick={handlePopNext}
               className="flex items-center space-x-1 px-2 py-1 rounded-lg bg-purple-900 hover:bg-purple-800 border border-purple-500/40 text-purple-200 text-[11px] font-semibold transition-colors cursor-pointer"
-              title="Paste next queued item (⌥⇧X)"
+              title="Paste Next (⌥⇧X)"
             >
               <ArrowRightCircle className="w-3 h-3" />
               <span>Paste Next</span>
@@ -76,7 +76,7 @@ export const SequentialQueueBar: React.FC<SequentialQueueBarProps> = ({
               type="button"
               onClick={handlePasteAll}
               className="flex items-center space-x-1 px-2 py-1 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-[11px] font-semibold shadow transition-colors cursor-pointer"
-              title="Combine all queued items and paste"
+              title="Combine and Paste"
             >
               <Layers className="w-3 h-3" />
               <span>Paste All</span>

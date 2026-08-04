@@ -17,6 +17,29 @@ pub enum ExecutionTrigger {
     Cli,
 }
 
+#[derive(Debug, Clone, Copy, Default, Deserialize, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ExecutionDestination {
+    #[default]
+    Preview,
+    Replace,
+    Copy,
+    Paste,
+    Route,
+}
+
+impl ExecutionDestination {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Preview => "preview",
+            Self::Replace => "replace",
+            Self::Copy => "copy",
+            Self::Paste => "paste",
+            Self::Route => "route",
+        }
+    }
+}
+
 impl ExecutionTrigger {
     fn as_str(self) -> &'static str {
         match self {
@@ -47,6 +70,8 @@ pub struct ExecutionRequest {
     pub target: ExecutionTarget,
     pub source_clip_id: Option<i64>,
     pub trigger: ExecutionTrigger,
+    #[serde(default)]
+    pub destination: ExecutionDestination,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -308,8 +333,11 @@ pub fn execute(
             target_revision,
             request.source_clip_id,
             request.trigger.as_str(),
+            request.destination.as_str(),
             &content_hash(&request.input),
         )
+        .map_err(database_error)?;
+    db.start_transformation_execution(&execution_id)
         .map_err(database_error)?;
 
     let result = match &request.target {
@@ -375,6 +403,7 @@ pub fn execute_last_pipeline(
             },
             source_clip_id,
             trigger,
+            destination: ExecutionDestination::Preview,
         },
     );
     if matches!(&result, Err(error) if error.code == "unknown_pipeline") {
@@ -399,6 +428,7 @@ pub fn execute_shortcut_pipeline(
                 },
                 source_clip_id: None,
                 trigger: ExecutionTrigger::Shortcut,
+                destination: ExecutionDestination::Paste,
             },
         ),
         None => execute_last_pipeline(db, input, None, ExecutionTrigger::Shortcut),
@@ -462,6 +492,7 @@ mod tests {
             target,
             source_clip_id: None,
             trigger: ExecutionTrigger::Manual,
+            destination: ExecutionDestination::Preview,
         }
     }
 

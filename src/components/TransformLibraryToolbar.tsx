@@ -16,7 +16,7 @@ export function TransformLibraryToolbar({
 }: TransformLibraryToolbarProps) {
   return (
     <div className="transform-library-toolbar flex items-center gap-3">
-      <div className="flex min-w-0 flex-1 items-center space-x-2 overflow-x-auto pb-1 scrollbar-none">
+      <div className="flex min-w-0 flex-1 items-center gap-2">
         {children}
       </div>
       <button

@@ -1,6 +1,7 @@
 import { Check, Copy, Palette, ScanText, Sparkles } from 'lucide-react';
 import type { ClipItem } from '../types';
 import type { ColorFormats } from '../utils/color';
+import { UI_COPY } from '../utils/uiCopy';
 
 interface ClipPreviewContentProps {
   clip: ClipItem;
@@ -53,7 +54,7 @@ export function ClipPreviewContent({
                   value={colorData.hex}
                   onChange={(e) => onColorChange(e.target.value)}
                   className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                  title="Click to pick color"
+                  title="Pick Color"
                 />
               </div>
 
@@ -131,12 +132,12 @@ export function ClipPreviewContent({
               )}
             </div>
 
-            {/* Native macOS Vision OCR Card */}
+            {/* OCR result card */}
             <div className="ocr-panel theme-panel p-4 rounded-xl border space-y-3 shadow-lg">
               <div className="flex items-center justify-between">
                 <div className="clip-content-accent flex items-center space-x-2 font-semibold text-xs">
                   <ScanText className="w-4 h-4" />
-                  <span>Extracted Image Text (macOS Vision OCR)</span>
+                  <span>OCR Text</span>
                 </div>
 
                 <div className="flex items-center space-x-1.5">
@@ -144,7 +145,7 @@ export function ClipPreviewContent({
                     <button
                       onClick={() => onCopyFormat('OCR Text', clip.text_content || '')}
                       className="theme-icon-button theme-focusable p-1.5 rounded-lg border transition-colors cursor-pointer"
-                      title={copiedFormat === 'OCR Text' ? 'Copied!' : 'Copy Extracted Text'}
+                      title={copiedFormat === 'OCR Text' ? UI_COPY.copied : 'Copy OCR Text'}
                     >
                       <Copy className="w-3.5 h-3.5" />
                     </button>
@@ -153,7 +154,7 @@ export function ClipPreviewContent({
                     onClick={onRunOCR}
                     disabled={isOcrLoading || readOnly}
                     className="theme-primary-button theme-focusable p-1.5 rounded-lg border transition-colors shadow cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                    title={readOnly ? 'Restore this clip to run OCR' : isOcrLoading ? 'Extracting...' : clip.text_content ? 'Re-Run OCR' : 'Extract Text (OCR)'}
+                    title={readOnly ? 'Restore Before OCR' : isOcrLoading ? 'Running OCR…' : clip.text_content ? 'Run OCR Again' : 'Run OCR'}
                   >
                     <Sparkles className={`w-3.5 h-3.5 ${isOcrLoading ? 'animate-spin' : ''}`} />
                   </button>
@@ -161,12 +162,12 @@ export function ClipPreviewContent({
               </div>
 
               {clip.text_content ? (
-                <div className="theme-code-surface p-3.5 border rounded-xl font-mono text-xs whitespace-pre-wrap leading-relaxed select-text shadow-inner max-h-60 overflow-y-auto">
+                <div className="theme-code-surface overlay-scroll-region p-3.5 border rounded-xl font-mono text-xs whitespace-pre-wrap leading-relaxed select-text shadow-inner max-h-60 overflow-y-auto">
                   {clip.text_content}
                 </div>
               ) : (
                 <p className="theme-text-muted text-xs italic">
-                  Click "Extract Text (OCR)" above or copy screenshot to run native macOS Vision text recognition.
+                  Run OCR to recognize text in this image.
                 </p>
               )}
             </div>

@@ -1,5 +1,5 @@
 import { useCallback, useState, type Dispatch, type SetStateAction } from 'react';
-import type { AppSettings, Bin, ClipItem, Pipeline } from '../types';
+import type { AppSettings, Bin, ClipItem, Pipeline, SavedTransform } from '../types';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { soundManager } from '../utils/sound';
 
@@ -42,6 +42,7 @@ export function useClipActions({
   fetchSequentialStatus,
 }: ClipActionsInput) {
   const [transformingClipIds, setTransformingClipIds] = useState<Set<number>>(() => new Set());
+  const [transformErrorsByClipId, setTransformErrorsByClipId] = useState<Map<number, string>>(() => new Map());
 
   const togglePin = useCallback((id: number) => {
     const isBatch = selectedClipIds.size > 1 && selectedClipIds.has(id);
@@ -278,6 +279,12 @@ export function useClipActions({
 
     if (targetIds.length === 1 && binId !== null) {
       setTransformingClipIds((previous) => new Set(previous).add(clipId));
+      setTransformErrorsByClipId((previous) => {
+        if (!previous.has(clipId)) return previous;
+        const next = new Map(previous);
+        next.delete(clipId);
+        return next;
+      });
     }
 
     try {
@@ -298,6 +305,13 @@ export function useClipActions({
       }
     } catch (error) {
       console.error('Failed to assign clips to bin:', error);
+      if (targetIds.length === 1 && binId !== null) {
+        setTransformErrorsByClipId((previous) => {
+          const next = new Map(previous);
+          next.set(clipId, error instanceof Error ? error.message : String(error));
+          return next;
+        });
+      }
       // The optimistic clip and count updates are authoritative on success.
       // Reconcile the complete data sets only when persistence fails.
       void fetchClips();
@@ -327,6 +341,7 @@ export function useClipActions({
           target: { kind: 'pipeline', pipelineRef: pipeline.stableRef },
           sourceClipId: clip.id,
           trigger: 'manual',
+          destination,
         },
       });
       if (destination === 'paste') {
@@ -337,7 +352,21 @@ export function useClipActions({
         soundManager.playCopySound(settings.enableSounds);
       }
     } catch (error) {
-      console.error(`Failed to ${destination} Pipeline result:`, error);
+      console.error(`Failed to ${destination} Advanced Transform result:`, error);
+    }
+  }, [settings.enableSounds]);
+
+  const runTransformForClip = useCallback(async (clip: ClipItem, transform: SavedTransform) => {
+    if (!clip.text_content) return;
+    try {
+      const transformed = await invoke<{ output: string }>('execute_saved_transform', {
+        transformRef: transform.stableRef,
+        input: clip.text_content,
+      });
+      await invoke('copy_clip_to_system', { text: transformed.output, imageBase64: null });
+      soundManager.playCopySound(settings.enableSounds);
+    } catch (error) {
+      console.error('Failed to copy Transform result:', error);
     }
   }, [settings.enableSounds]);
 
@@ -377,9 +406,11 @@ export function useClipActions({
     copyClip,
     assignClipToBin,
     runPipelineForClip,
+    runTransformForClip,
     addToSequentialStack,
     updateClipNoteLocally,
     deleteNoteFromClip,
     transformingClipIds,
+    transformErrorsByClipId,
   };
 }

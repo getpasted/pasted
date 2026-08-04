@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Pipeline, PipelineStep, Operation } from '../types';
-import { Sliders, Plus, Trash2, X, Play, ArrowDown, ArrowUp, GripVertical, Wrench, RotateCcw } from 'lucide-react';
+import { Sliders, Plus, Trash2, Play, ArrowDown, ArrowUp, GripVertical, Wrench, RotateCcw } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { useStableVerticalReorder } from '../hooks/useStableVerticalReorder';
 import { HotkeyRecorder } from './HotkeyRecorder';
 import { OperationEditorModal } from './OperationEditorModal';
 import { startWindowDrag } from '../utils/windowDrag';
+import { AppDialog } from './AppDialog';
+import { AppDialogBody, AppDialogButton, AppDialogFooter, AppDialogHeader, AppDialogHeading } from './AppDialogLayout';
 
 export interface PipelineEditorStep {
   id: string;
@@ -165,7 +167,7 @@ const StepReorderCard: React.FC<{
               onPointerDown={onReorderPointerDown}
               className="step-drag-handle theme-icon-button titlebar-no-drag p-1.5 rounded touch-none select-none shrink-0 border outline-none"
               style={{ touchAction: 'none' }}
-              title="Drag to reorder step"
+              title="Reorder Step"
             >
               <GripVertical className="w-4 h-4 pointer-events-none" />
             </button>
@@ -174,7 +176,7 @@ const StepReorderCard: React.FC<{
               disabled={idx === 0}
               onClick={onMoveUp}
               className="theme-icon-button p-1 border disabled:opacity-20 rounded transition-colors"
-              title="Move Step Up"
+              title="Move Up"
             >
               <ArrowUp className="w-3.5 h-3.5" />
             </button>
@@ -183,7 +185,7 @@ const StepReorderCard: React.FC<{
               disabled={idx === totalSteps - 1}
               onClick={onMoveDown}
               className="theme-icon-button p-1 border disabled:opacity-20 rounded transition-colors"
-              title="Move Step Down"
+              title="Move Down"
             >
               <ArrowDown className="w-3.5 h-3.5" />
             </button>
@@ -195,7 +197,7 @@ const StepReorderCard: React.FC<{
             type="button"
             onClick={onInsertBelow}
             className="theme-icon-button p-1 border rounded transition-colors"
-            title="Insert Step Below"
+            title="Insert Below"
           >
             <Plus className="w-3.5 h-3.5" />
           </button>
@@ -221,7 +223,7 @@ const StepReorderCard: React.FC<{
               type="button"
               onClick={() => setIsOpModalOpen(true)}
               className="theme-status-info-text text-[10px] flex items-center space-x-0.5 hover:underline"
-              title="Create a new reusable operation"
+              title="New Operation"
             >
               <Wrench className="w-2.5 h-2.5" />
               <span>+ New Operation</span>
@@ -395,6 +397,7 @@ export const PipelineEditorModal: React.FC<PipelineEditorModalProps> = ({
   const [operationsList, setOperationsList] = useState<Operation[]>([]);
   const [isOpModalOpen, setIsOpModalOpen] = useState(false);
   const stepListRef = useRef<HTMLDivElement>(null);
+  const initialSnapshotRef = useRef('');
   const {
     activeId: activeStepId,
     offsets: stepReorderOffsets,
@@ -424,13 +427,21 @@ export const PipelineEditorModal: React.FC<PipelineEditorModalProps> = ({
     refreshOps();
 
     if (pipeline) {
+      const nextSteps = pipeline.steps.map(pipelineStepToEditorStep);
       setPipelineName(pipeline.name);
       setShortcut(pipeline.shortcut || null);
-      setSteps(pipeline.steps.map(pipelineStepToEditorStep));
+      setSteps(nextSteps);
+      initialSnapshotRef.current = JSON.stringify({
+        pipelineName: pipeline.name,
+        shortcut: pipeline.shortcut || null,
+        steps: nextSteps,
+      });
     } else {
+      const nextSteps = [createDefaultStep('builtin:smart_punctuation', null)];
       setPipelineName('');
       setShortcut(null);
-      setSteps([createDefaultStep('builtin:smart_punctuation', null)]);
+      setSteps(nextSteps);
+      initialSnapshotRef.current = JSON.stringify({ pipelineName: '', shortcut: null, steps: nextSteps });
     }
   }, [isOpen, pipeline]);
 
@@ -538,6 +549,7 @@ export const PipelineEditorModal: React.FC<PipelineEditorModalProps> = ({
               target: { kind: 'operation', operationRef: step.operation_ref },
               sourceClipId: null,
               trigger: 'manual',
+              destination: 'preview',
             },
           });
           current = result.output;
@@ -579,35 +591,23 @@ export const PipelineEditorModal: React.FC<PipelineEditorModalProps> = ({
   };
 
   if (!isOpen) return null;
+  const isDirty = JSON.stringify({ pipelineName, shortcut, steps }) !== initialSnapshotRef.current;
 
   return (
-    <div className="app-dialog-overlay fixed inset-0 flex items-center justify-center p-6 animate-in fade-in duration-150">
-      <div className="filter-editor-card w-full max-w-4xl max-h-[90vh] border rounded-2xl flex flex-col overflow-hidden">
-        {/* Modal Top Header Bar */}
-        <div onMouseDown={startWindowDrag} className="filter-editor-header px-6 py-4 border-b flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="theme-status-info p-2 rounded-xl border">
-              <Sliders className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="text-base font-bold theme-title">
-                {pipeline ? 'Edit Pipeline' : 'New Pipeline'}
-              </h3>
-              <p className="text-xs theme-text-muted">
-                Chain reusable Operations into a transformation that runs as one step.
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="theme-icon-button p-2 border rounded-lg transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
+    <AppDialog
+      isOpen={isOpen}
+      onClose={onClose}
+      labelledBy="pipeline-editor-title"
+      isDirty={isDirty}
+      overlayClassName="p-6"
+      panelClassName="filter-editor-card w-full max-w-4xl max-h-[90vh] border rounded-2xl flex flex-col overflow-hidden"
+    >
+      {({ requestClose }) => <>
+        <AppDialogHeader onClose={requestClose} onMouseDown={startWindowDrag}>
+          <AppDialogHeading id="pipeline-editor-title" title={pipeline ? 'Edit Pipeline' : 'New Pipeline'} description="Chain reusable Operations into a transformation that runs as one step." icon={<Sliders />} tone="info" />
+        </AppDialogHeader>
 
-        {/* Modal Body */}
-        <div className="filter-editor-body flex-1 overflow-y-auto p-6 space-y-6 relative">
+        <AppDialogBody className="space-y-6 relative">
           {/* Filter Metadata */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
             <div className="md:col-span-2">
@@ -713,39 +713,22 @@ export const PipelineEditorModal: React.FC<PipelineEditorModalProps> = ({
               </div>
             </div>
           </div>
-        </div>
+        </AppDialogBody>
 
-        {/* Modal Bottom Footer Actions */}
-        <div className="filter-editor-footer px-6 py-4 border-t flex items-center justify-between">
-          <button
-            type="button"
+        <AppDialogFooter align="between">
+          <AppDialogButton
             onClick={handleReset}
-            className="theme-secondary-button flex items-center space-x-1.5 px-3.5 py-2 rounded-xl text-xs font-medium transition-colors border"
-            title="Reset Pipeline to its original state"
+            title="Reset Pipeline"
           >
             <RotateCcw className="w-3.5 h-3.5" />
             <span>Reset</span>
-          </button>
+          </AppDialogButton>
 
           <div className="flex items-center space-x-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="filter-modal-cancel-btn px-4 py-2 rounded-xl text-xs font-medium transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={handleSavePipeline}
-              className="filter-modal-ok-btn px-5 py-2 rounded-xl text-xs font-bold shadow-lg transition-[background-color,border-color,color,transform] active:scale-95"
-            >
-              Save Pipeline
-            </button>
+            <AppDialogButton onClick={requestClose}>Cancel</AppDialogButton>
+            <AppDialogButton variant="primary" onClick={handleSavePipeline}>Save Pipeline</AppDialogButton>
           </div>
-        </div>
-      </div>
-
+        </AppDialogFooter>
       {/* Embedded Operation Editor Modal */}
       <OperationEditorModal
         operation={null}
@@ -753,6 +736,7 @@ export const PipelineEditorModal: React.FC<PipelineEditorModalProps> = ({
         onClose={() => setIsOpModalOpen(false)}
         onSaveSuccess={refreshOps}
       />
-    </div>
+      </>}
+    </AppDialog>
   );
 };

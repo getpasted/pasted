@@ -98,6 +98,58 @@ html:not(.is-stable-reordering) .connection-priority-card:hover {
   color: var(--text-main);
 }
 
+.floating-action-strip {
+  background-color: color-mix(in srgb, var(--bg-card) 96%, transparent);
+  border-color: var(--border-card);
+  color: var(--text-muted);
+  box-shadow: var(--shadow-card-selected);
+}
+
+.floating-action-button {
+  box-sizing: border-box;
+  display: inline-flex;
+  width: 1.5rem;
+  height: 1.5rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0 !important;
+  border-radius: 0.375rem;
+  color: var(--text-muted);
+  transition: background-color 100ms ease, color 100ms ease;
+}
+
+.floating-action-button svg {
+  width: 0.875rem;
+  height: 0.875rem;
+  flex: 0 0 0.875rem;
+  stroke-width: 2;
+}
+
+.floating-action-button:hover {
+  background-color: var(--bg-tab-hover);
+  color: var(--text-title);
+}
+
+.floating-action-button.is-accent {
+  color: var(--accent-primary);
+}
+
+.floating-action-button.is-warning {
+  color: var(--status-warning);
+}
+
+.floating-action-button.is-danger {
+  color: var(--status-danger);
+}
+
+.floating-action-button.is-danger:hover {
+  background-color: color-mix(in srgb, var(--status-danger) 12%, var(--bg-tab-hover));
+}
+
+.floating-action-button.is-disabled {
+  color: var(--text-subtle);
+}
+
 .tool-page-header-icon {
   background-color: color-mix(in srgb, var(--accent-primary) 11%, var(--bg-surface));
   border-color: color-mix(in srgb, var(--accent-primary) 38%, var(--border-subtle));
@@ -334,6 +386,17 @@ html:not(.is-stable-reordering) .connection-priority-card:hover {
   color: var(--text-main);
 }
 
+.clip-workflow-trigger {
+  color: var(--text-muted);
+}
+
+.clip-workflow-trigger:hover,
+.clip-workflow-trigger.is-active {
+  border-color: color-mix(in srgb, var(--accent-primary) 44%, var(--border-subtle));
+  background-color: color-mix(in srgb, var(--accent-primary) 11%, var(--bg-surface));
+  color: var(--accent-primary);
+}
+
 .active-filter-banner {
   background-color: color-mix(in srgb, var(--accent-primary) 12%, var(--bg-surface));
   border-color: color-mix(in srgb, var(--accent-primary) 44%, var(--border-subtle));
@@ -350,7 +413,7 @@ html:not(.is-stable-reordering) .connection-priority-card:hover {
   color: var(--text-title);
 }
 
-.preview-filter-select-active {
+.menu-select-trigger.preview-filter-select-active {
   background-color: color-mix(in srgb, var(--accent-primary) 10%, var(--bg-input));
   border-color: var(--accent-primary);
   color: var(--text-main);
@@ -422,26 +485,77 @@ html:not(.is-stable-reordering) .connection-priority-card:hover {
   background-color: #914509;
 }
 
-.transform-category-pill {
+.transform-category-select {
+  width: min(100%, 19rem);
   background-color: var(--bg-card);
+  border-color: var(--border-card);
+  color: var(--text-main);
+  box-shadow: var(--shadow-card);
+}
+
+.menu-select-trigger {
+  background-color: var(--bg-input);
+  border-color: var(--border-input);
+  color: var(--text-main);
+}
+
+.menu-select-trigger:hover,
+.menu-select-trigger:focus-visible,
+.menu-select-trigger[aria-expanded="true"] {
+  background-color: var(--bg-card-hover);
+  border-color: var(--border-card-selected);
+  outline: none;
+}
+
+.clip-bin-picker {
+  min-width: 10rem;
+  max-width: 16rem;
+}
+
+.playground-run-status {
+  background-color: color-mix(in srgb, var(--bg-badge) 72%, transparent);
+  border-color: var(--border-subtle);
   color: var(--text-muted);
 }
 
-.transform-category-pill:hover {
-  background-color: var(--bg-card-hover);
+.playground-run-status.is-running,
+.playground-run-status.is-success {
+  color: var(--status-success);
+}
+
+.playground-run-status.is-error {
+  color: var(--status-danger);
+}
+
+.playground-run-status-action {
+  color: inherit;
+  transition: background-color 100ms ease, color 100ms ease;
+}
+
+.playground-run-status-action:hover,
+.playground-run-status-action:focus-visible {
+  background-color: var(--menu-hover);
   color: var(--text-title);
+  outline: none;
 }
 
-.transform-category-pill.is-active {
-  color: var(--accent-primary-contrast);
+.transform-category-select:hover,
+.transform-category-select:focus-visible,
+.transform-category-select[aria-expanded="true"] {
+  background-color: var(--bg-card-hover);
+  border-color: color-mix(in srgb, currentColor 38%, var(--border-card));
 }
 
-.transform-category-pill.pipelines.is-active {
-  background-color: #087f8f;
+.transform-category-select[aria-expanded="true"] {
+  box-shadow: 0 0 0 1px color-mix(in srgb, currentColor 16%, transparent), var(--shadow-card);
 }
 
-.transform-category-pill.operations.is-active {
-  background-color: #a9520d;
+.transform-category-select.pipelines > svg {
+  color: #1598a8;
+}
+
+.transform-category-select.operations > svg {
+  color: #c06a20;
 }
 
 .transform-card:hover {
@@ -455,13 +569,6 @@ html:not(.is-stable-reordering) .connection-priority-card:hover {
 
 .transform-card.operations:hover {
   border-color: #c06a20;
-}
-
-.operations-workspace-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(18rem, 0.85fr);
-  gap: 1rem;
-  align-items: start;
 }
 
 .operations-built-in-grid {
@@ -502,17 +609,6 @@ html:not(.is-stable-reordering) .connection-priority-card:hover {
   border-color: color-mix(in srgb, #c06a20 58%, var(--border-card));
 }
 
-.operation-inspector {
-  position: sticky;
-  top: 0;
-  z-index: var(--layer-sticky);
-  background-color: color-mix(in srgb, var(--bg-card) 96%, transparent);
-  border-color: var(--border-card);
-  color: var(--text-main);
-  box-shadow: var(--shadow-card);
-  backdrop-filter: blur(18px);
-}
-
 .operation-playground-output {
   background-color: var(--bg-input);
   border-color: var(--border-input);
@@ -521,16 +617,6 @@ html:not(.is-stable-reordering) .connection-priority-card:hover {
 
 .operation-playground-output.has-error {
   color: var(--status-danger);
-}
-
-@media (max-width: 700px) {
-  .operations-workspace-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .operation-inspector {
-    position: static;
-  }
 }
 
 .transform-accent.pipelines {
@@ -633,6 +719,180 @@ select.theme-input {
   backdrop-filter: blur(12px);
 }
 
+.app-dialog-header,
+.app-dialog-footer {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  background-color: var(--material-toolbar);
+  border-color: var(--border-subtle);
+  color: var(--text-main);
+}
+
+.app-dialog-header {
+  justify-content: space-between;
+  border-bottom-width: 1px;
+}
+
+.app-dialog-footer {
+  justify-content: flex-end;
+  border-top-width: 1px;
+}
+
+.app-dialog-footer.is-between {
+  justify-content: space-between;
+}
+
+.app-dialog-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 1.25rem;
+  background-color: var(--bg-primary);
+  color: var(--text-main);
+}
+
+.app-dialog-heading {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.app-dialog-heading-icon {
+  display: inline-flex;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex: 0 0 2.25rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  background-color: var(--bg-badge);
+  color: var(--text-muted);
+}
+
+.app-dialog-heading-icon svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.app-dialog-heading.is-info .app-dialog-heading-icon,
+.app-dialog-heading.is-info .app-dialog-title {
+  color: var(--status-info);
+}
+
+.app-dialog-heading.is-warning .app-dialog-heading-icon,
+.app-dialog-heading.is-warning .app-dialog-title {
+  color: var(--status-warning);
+}
+
+.app-dialog-heading.is-danger .app-dialog-heading-icon,
+.app-dialog-heading.is-danger .app-dialog-title {
+  color: var(--status-danger);
+}
+
+.app-dialog-title {
+  color: var(--text-title);
+  font-size: 0.875rem;
+  font-weight: 700;
+  line-height: 1.25rem;
+}
+
+.app-dialog-description {
+  margin-top: 0.125rem;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  line-height: 1.125rem;
+}
+
+.app-dialog-close {
+  display: inline-flex;
+  width: 2rem;
+  height: 2rem;
+  flex: 0 0 2rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  background-color: var(--bg-input);
+  color: var(--text-muted);
+  transition: background-color 100ms ease, border-color 100ms ease, color 100ms ease;
+}
+
+.app-dialog-close:hover {
+  background-color: var(--bg-tab-hover);
+  border-color: var(--border-card-selected);
+  color: var(--text-title);
+}
+
+.app-dialog-close svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.app-dialog-button {
+  box-sizing: border-box;
+  display: inline-flex;
+  height: 2rem;
+  min-height: 2rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  padding: 0.375rem 1rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  font-size: 0.75rem;
+  font-weight: 650;
+  line-height: 1;
+  white-space: nowrap;
+  transition: background-color 100ms ease, border-color 100ms ease, color 100ms ease, transform 100ms ease;
+}
+
+.app-dialog-button:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.app-dialog-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.app-dialog-button.is-secondary {
+  background-color: var(--bg-input);
+  border-color: var(--border-input);
+  color: var(--text-main);
+}
+
+.app-dialog-button.is-secondary:hover:not(:disabled) {
+  background-color: var(--bg-tab-hover);
+  border-color: var(--border-card-selected);
+}
+
+.app-dialog-button.is-primary {
+  background-color: var(--accent-primary);
+  border-color: var(--accent-primary);
+  color: var(--accent-primary-contrast);
+}
+
+.app-dialog-button.is-warning {
+  background-color: color-mix(in srgb, var(--status-warning) 16%, var(--bg-input));
+  border-color: color-mix(in srgb, var(--status-warning) 58%, var(--border-input));
+  color: var(--status-warning);
+}
+
+.app-dialog-button.is-danger {
+  background-color: var(--status-danger);
+  border-color: var(--status-danger);
+  color: #fff;
+}
+
+.app-dialog-button.is-primary:hover:not(:disabled),
+.app-dialog-button.is-danger:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
 .theme-menu {
   z-index: var(--layer-menu);
   background-color: var(--menu-surface);
@@ -654,6 +914,12 @@ select.theme-input {
   background-color: var(--menu-hover);
   color: var(--text-title);
   outline: none;
+}
+
+.theme-menu-item.theme-danger-text:hover,
+.theme-menu-item.theme-danger-text:focus-visible {
+  background-color: color-mix(in srgb, var(--status-danger) 14%, transparent);
+  color: var(--status-danger);
 }
 
 .theme-menu-divider {

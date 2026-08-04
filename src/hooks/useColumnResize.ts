@@ -50,8 +50,6 @@ export function useColumnResize() {
 
     handle.setPointerCapture(pointerId);
     setActiveColumn(column);
-    document.body.style.cursor = 'col-resize';
-    document.body.style.userSelect = 'none';
 
     const handlePointerMove = (moveEvent: PointerEvent) => {
       finalWidth = clamp(startWidth + moveEvent.clientX - startX, min, max);
@@ -73,8 +71,6 @@ export function useColumnResize() {
       window.removeEventListener('pointercancel', finish);
       window.removeEventListener('blur', finish);
       if (handle.hasPointerCapture(pointerId)) handle.releasePointerCapture(pointerId);
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
       setActiveColumn(null);
       activeCleanupRef.current = null;
     };

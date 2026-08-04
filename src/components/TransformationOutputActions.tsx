@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Check, ClipboardCopy, ClipboardPaste } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
+import { UI_COPY } from '../utils/uiCopy';
 
 interface TransformationOutputActionsProps {
   output: string;
@@ -35,7 +36,7 @@ export function TransformationOutputActions({ output, accent }: TransformationOu
         className="theme-secondary-button flex h-9 items-center justify-center gap-2 rounded-xl border px-3 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40"
       >
         {lastAction === 'copied' ? <Check className="h-3.5 w-3.5" /> : <ClipboardCopy className="h-3.5 w-3.5" />}
-        <span>{lastAction === 'copied' ? 'Copied' : 'Copy Result'}</span>
+        <span>{lastAction === 'copied' ? UI_COPY.copied : 'Copy Result'}</span>
       </button>
       <button
         type="button"

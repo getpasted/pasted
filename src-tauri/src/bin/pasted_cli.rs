@@ -4,6 +4,9 @@ use std::fs;
 use std::io::{self, Read};
 use std::path::PathBuf;
 
+use pasted_lib::db::DbState;
+use pasted_lib::intelligence_executor::execute_saved_transform;
+
 fn get_db_path() -> PathBuf {
     if let Some(mut dir) = dirs::data_dir() {
         dir.push("com.tauri.dev");
@@ -56,6 +59,103 @@ fn main() -> Result<()> {
     );
 
     match command {
+        "transform" | "transforms" => {
+            let db = DbState::new(db_path.clone())?;
+            let subcommand = args.get(2).map(String::as_str).unwrap_or("list");
+            match subcommand {
+                "list" | "ls" => {
+                    let transforms = db.get_saved_transforms()?;
+                    if transforms.is_empty() {
+                        println!("No saved Transforms.");
+                    } else {
+                        for transform in transforms {
+                            println!(
+                                "{}\t{}\trevision {}\t{} steps",
+                                transform.stable_ref,
+                                transform.name,
+                                transform.revision,
+                                transform.plan.steps.len()
+                            );
+                        }
+                    }
+                }
+                "run" => {
+                    let Some(transform_ref) = args.get(3) else {
+                        eprintln!("Usage: pasted-cli transform run <transform-ref> [--text TEXT | --clip ID | --stdin] [--replace]");
+                        std::process::exit(2);
+                    };
+                    let clip_id = args
+                        .iter()
+                        .position(|arg| arg == "--clip")
+                        .and_then(|index| args.get(index + 1))
+                        .and_then(|value| value.parse::<i64>().ok());
+                    let explicit_text = args
+                        .iter()
+                        .position(|arg| arg == "--text")
+                        .and_then(|index| args.get(index + 1))
+                        .cloned();
+                    let input = if let Some(text) = explicit_text {
+                        text
+                    } else if let Some(clip_id) = clip_id {
+                        match db.get_active_clip_text(clip_id)? {
+                            Some(text) => text,
+                            None => {
+                                eprintln!("Clip #{clip_id} has no transformable text.");
+                                std::process::exit(2);
+                            }
+                        }
+                    } else {
+                        let mut buffer = String::new();
+                        let _ = io::stdin().read_to_string(&mut buffer);
+                        buffer
+                    };
+                    if input.is_empty() {
+                        eprintln!("Provide input with --text, --clip, or stdin.");
+                        std::process::exit(2);
+                    }
+                    let replace = args.iter().any(|arg| arg == "--replace");
+                    if replace && clip_id.is_none() {
+                        eprintln!("--replace requires --clip ID so Pasted can create a revision.");
+                        std::process::exit(2);
+                    }
+                    match execute_saved_transform(
+                        &db,
+                        transform_ref,
+                        input.clone(),
+                        clip_id,
+                        "cli",
+                        if replace { "replace" } else { "preview" },
+                    ) {
+                        Ok((_name, outcome)) => {
+                            if let Some(clip_id) = clip_id.filter(|_| replace) {
+                                if let Err(error) = db.apply_transform_output_to_clip(
+                                    clip_id,
+                                    transform_ref,
+                                    &input,
+                                    &outcome.output,
+                                    outcome.connection_id.as_deref(),
+                                    outcome.duration_ms,
+                                ) {
+                                    eprintln!(
+                                        "Transform ran, but the clip was not replaced: {error}"
+                                    );
+                                    std::process::exit(1);
+                                }
+                            }
+                            print!("{}", outcome.output);
+                        }
+                        Err(error) => {
+                            eprintln!("Transform failed ({}): {}", error.code, error.message);
+                            std::process::exit(1);
+                        }
+                    }
+                }
+                _ => {
+                    eprintln!("Unknown transform command: {subcommand}");
+                    std::process::exit(2);
+                }
+            }
+        }
         "copy" | "add" => {
             let text = if let Some(arg_text) = args.get(2) {
                 arg_text.clone()
@@ -148,6 +248,10 @@ fn main() -> Result<()> {
             println!("  pasted-cli copy <text>       Save text or pipe stdin (cat file.txt | pasted-cli copy)");
             println!("  pasted-cli list [limit]      List N recent clipboard items (default: 10)");
             println!("  pasted-cli search <query>    Search clips for keyword query");
+            println!("  pasted-cli transform list    List saved Transforms");
+            println!(
+                "  pasted-cli transform run <ref> [--text TEXT | --clip ID | --stdin] [--replace]"
+            );
             println!("  pasted-cli clear             Clear unpinned clipboard history");
         }
     }

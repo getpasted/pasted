@@ -95,9 +95,9 @@ let mockIntelligenceConnections: Array<{
   updatedAt: string;
 }> = [];
 
-let mockTransformationRecipes: Array<Record<string, unknown>> = [];
+let mockSavedTransforms: Array<Record<string, unknown>> = [];
 let mockClipTransformations = new Map<number, Record<string, unknown>>();
-let mockBinRecipes = new Map<number, string>();
+let mockBinTransforms = new Map<number, string>();
 
 function assignMockClips(ids: number[], binId: number | null) {
   for (const clip of mockClips) {
@@ -129,12 +129,12 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       })) as unknown as T;
     case 'get_pipelines':
       return mockPipelines as unknown as T;
-    case 'get_bin_recipe_ref':
-      return (mockBinRecipes.get(Number(args?.binId)) || null) as unknown as T;
-    case 'set_bin_recipe_ref': {
+    case 'get_bin_transform_ref':
+      return (mockBinTransforms.get(Number(args?.binId)) || null) as unknown as T;
+    case 'set_bin_transform_ref': {
       const binId = Number(args?.binId);
-      if (args?.recipeRef) mockBinRecipes.set(binId, String(args.recipeRef));
-      else mockBinRecipes.delete(binId);
+      if (args?.transformRef) mockBinTransforms.set(binId, String(args.transformRef));
+      else mockBinTransforms.delete(binId);
       return null as unknown as T;
     }
     case 'get_intelligence_connections':
@@ -250,28 +250,44 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
         durationMs: 260,
       } as unknown as T;
     }
-    case 'get_transformation_recipes':
-      return mockTransformationRecipes.map((recipe) => ({ ...recipe })) as unknown as T;
-    case 'save_transformation_recipe': {
+    case 'get_saved_transforms':
+      return mockSavedTransforms.map((transform) => ({ ...transform })) as unknown as T;
+    case 'save_saved_transform': {
       const now = new Date().toISOString();
       const plan = args?.plan as { summary?: string } | undefined;
-      const recipe = {
+      const transform = {
         id: Date.now(),
-        stableRef: `recipe:mock-${Date.now()}`,
-        name: String(args?.name || plan?.summary || 'Untitled Recipe'),
+        stableRef: `transform:mock-${Date.now()}`,
+        name: String(args?.name || plan?.summary || 'Untitled Transform'),
         plan,
         connectionId: args?.connectionId || null,
         revision: 1,
         createdAt: now,
         updatedAt: now,
       };
-      mockTransformationRecipes.unshift(recipe);
-      return recipe as unknown as T;
+      mockSavedTransforms.unshift(transform);
+      return transform as unknown as T;
     }
-    case 'delete_transformation_recipe':
-      mockTransformationRecipes = mockTransformationRecipes.filter((recipe) => recipe.stableRef !== args?.recipeRef);
+    case 'update_saved_transform': {
+      const index = mockSavedTransforms.findIndex((transform) => transform.stableRef === args?.transformRef);
+      if (index < 0) throw new Error('Transform not found');
+      const current = mockSavedTransforms[index];
+      const updated = {
+        ...current,
+        name: String(args?.name || current.name),
+        plan: args?.plan || current.plan,
+        connectionId: args?.connectionId || null,
+        revision: Number(current.revision || 1) + 1,
+        updatedAt: new Date().toISOString(),
+      };
+      mockSavedTransforms.splice(index, 1);
+      mockSavedTransforms.unshift(updated);
+      return updated as unknown as T;
+    }
+    case 'delete_saved_transform':
+      mockSavedTransforms = mockSavedTransforms.filter((transform) => transform.stableRef !== args?.transformRef);
       return null as unknown as T;
-    case 'execute_transformation_recipe': {
+    case 'execute_saved_transform': {
       const input = String(args?.input || '');
       await new Promise((resolve) => window.setTimeout(resolve, 260));
       return {
@@ -281,16 +297,16 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
         durationMs: 260,
       } as unknown as T;
     }
-    case 'apply_recipe_preview_to_clip': {
+    case 'apply_transform_preview_to_clip': {
       const clipId = Number(args?.clipId);
       const clip = mockClips.find((item) => item.id === clipId);
       if (clip) clip.text_content = String(args?.output || clip.text_content);
       if (clip) clip.is_transformed = 1;
-      const recipe = mockTransformationRecipes.find((item) => item.stableRef === args?.recipeRef);
+      const transform = mockSavedTransforms.find((item) => item.stableRef === args?.transformRef);
       const provenance = {
-        recipeRef: String(args?.recipeRef || ''),
-        recipeName: String(recipe?.name || 'Recipe'),
-        recipeRevision: Number(recipe?.revision || 1),
+        transformRef: String(args?.transformRef || ''),
+        transformName: String(transform?.name || 'Transform'),
+        transformRevision: Number(transform?.revision || 1),
         connectionId: args?.connectionId || null,
         durationMs: Number(args?.durationMs || 0),
         createdAt: new Date().toISOString(),
@@ -300,6 +316,8 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
     }
     case 'get_clip_transformation_provenance':
       return (mockClipTransformations.get(Number(args?.clipId)) || null) as unknown as T;
+    case 'get_clip_transformation_executions':
+      return [] as unknown as T;
     case 'copy_clip_to_system':
     case 'paste_text_to_frontmost':
       return null as unknown as T;
@@ -377,7 +395,7 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       if (Number.isInteger(clipId) && (binId === null || Number.isInteger(binId))) {
         assignMockClips([clipId], binId);
       }
-      const transformed = binId !== null && mockBinRecipes.has(binId)
+      const transformed = binId !== null && mockBinTransforms.has(binId)
         ? mockClips.find((clip) => clip.id === clipId) ?? null
         : null;
       return (transformed ? { ...transformed, is_transformed: true } : null) as unknown as T;

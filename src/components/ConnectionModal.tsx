@@ -1,8 +1,10 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { BrainCircuit, X } from 'lucide-react';
+import { useState, type FormEvent } from 'react';
+import { BrainCircuit } from 'lucide-react';
 import type { IntelligenceProviderKind } from '../types';
 import { INTELLIGENCE_PROVIDERS } from '../utils/intelligenceProviders';
 import { safeInvoke as invoke } from '../utils/tauri';
+import { AppDialog } from './AppDialog';
+import { AppDialogBody, AppDialogButton, AppDialogFooter, AppDialogHeader, AppDialogHeading } from './AppDialogLayout';
 
 interface ConnectionModalProps {
   onClose: () => void;
@@ -22,38 +24,6 @@ export function ConnectionModal({ onClose, onCreated }: ConnectionModalProps) {
   const [credentialEnvironmentVariable, setCredentialEnvironmentVariable] = useState('');
   const [error, setError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
-  const modalRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const previousFocus = document.activeElement as HTMLElement | null;
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        onClose();
-        return;
-      }
-      if (event.key !== 'Tab' || !modalRef.current) return;
-      const focusable = modalRef.current.querySelectorAll<HTMLElement>(
-        'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
-      );
-      if (focusable.length === 0) return;
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      previousFocus?.focus();
-    };
-  }, [onClose]);
-
   const selectProvider = (kind: IntelligenceProviderKind) => {
     const provider = INTELLIGENCE_PROVIDERS.find((candidate) => candidate.value === kind)!;
     setProviderKind(kind);
@@ -87,35 +57,26 @@ export function ConnectionModal({ onClose, onCreated }: ConnectionModalProps) {
     }
   };
 
+  const isDirty = name !== 'Local AI'
+    || providerKind !== 'ollama'
+    || endpoint !== INTELLIGENCE_PROVIDERS[0].endpoint
+    || Boolean(model || credentialEnvironmentVariable);
+
   return (
-    <div
-      className="app-dialog-overlay fixed inset-0 flex items-center justify-center p-4 animate-in fade-in duration-150"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
+    <AppDialog
+      isOpen
+      onClose={onClose}
+      labelledBy="connection-modal-title"
+      isDirty={isDirty}
+      panelClassName="theme-panel border rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden"
     >
-      <div
-        ref={modalRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="connection-modal-title"
-        className="app-dialog-panel theme-panel border rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden"
-      >
-        <div className="theme-divider border-b px-5 py-4 flex items-start justify-between gap-4">
-          <div className="flex items-start gap-3">
-            <span className="theme-badge border rounded-xl p-2.5 shrink-0"><BrainCircuit className="w-5 h-5" /></span>
-            <div>
-              <h2 id="connection-modal-title" className="theme-title text-sm font-bold">Add connection</h2>
-              <p className="theme-text-muted text-xs mt-1">Add a provider, local endpoint, or executable Pasted could not detect.</p>
-            </div>
-          </div>
-          <button type="button" onClick={onClose} className="theme-icon-button border rounded-lg p-2" aria-label="Close add connection dialog">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+      {({ requestClose }) => <>
+        <AppDialogHeader onClose={requestClose} closeLabel="Close add connection dialog">
+          <AppDialogHeading id="connection-modal-title" title="Add connection" description="Add a provider, local endpoint, or executable Pasted could not detect." icon={<BrainCircuit />} />
+        </AppDialogHeader>
 
         <form onSubmit={createConnection}>
-          <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <AppDialogBody className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <label className="text-xs theme-text-muted space-y-1.5">
               <span className="block font-semibold">Engine</span>
               <select value={providerKind} onChange={(event) => selectProvider(event.target.value as IntelligenceProviderKind)} className="theme-input border rounded-xl px-3 py-2.5 w-full">
@@ -142,15 +103,15 @@ export function ConnectionModal({ onClose, onCreated }: ConnectionModalProps) {
               </label>
             )}
             {error && <div className="theme-status-danger border rounded-xl px-3 py-2 text-xs md:col-span-2">{error}</div>}
-          </div>
-          <div className="theme-divider border-t px-5 py-4 flex justify-end gap-2">
-            <button type="button" onClick={onClose} className="theme-secondary-button border rounded-xl px-4 py-2 text-xs font-semibold">Cancel</button>
-            <button type="submit" disabled={!name.trim() || isSaving} className="theme-primary-button border rounded-xl px-4 py-2 text-xs font-semibold disabled:opacity-40">
+          </AppDialogBody>
+          <AppDialogFooter>
+            <AppDialogButton onClick={requestClose}>Cancel</AppDialogButton>
+            <AppDialogButton type="submit" variant="primary" disabled={!name.trim() || isSaving}>
               {isSaving ? 'Saving…' : 'Save connection'}
-            </button>
-          </div>
+            </AppDialogButton>
+          </AppDialogFooter>
         </form>
-      </div>
-    </div>
+      </>}
+    </AppDialog>
   );
 }

@@ -144,7 +144,7 @@ export const QuickHudWindow: React.FC = () => {
           <button
             onClick={() => invoke('toggle_hud_window')}
             className="theme-icon-button p-1 rounded-md border border-transparent transition-colors shrink-0 no-drag"
-            title="Close HUD (Esc)"
+            title="Close (Esc)"
           >
             <X className="w-4 h-4" />
           </button>

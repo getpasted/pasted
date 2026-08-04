@@ -36,7 +36,8 @@ export default function App() {
     const hideTimers = new Map<HTMLElement, number>();
     const handleToolsScroll = (event: Event) => {
       const target = event.target;
-      if (!(target instanceof HTMLElement) || !target.classList.contains('tools-scroll-region')) return;
+      if (!(target instanceof HTMLElement)
+        || (!target.classList.contains('tools-scroll-region') && !target.classList.contains('overlay-scroll-region'))) return;
 
       target.classList.add('is-scrolling');
       const previousTimer = hideTimers.get(target);
@@ -413,11 +414,12 @@ export default function App() {
     deleteClip: handleDeleteClip,
     copyClip: handleCopyClip,
     assignClipToBin,
-    runPipelineForClip: handleRunPipelineForClip,
+    runTransformForClip: handleRunTransformForClip,
     addToSequentialStack: handleAddToSequentialStack,
     updateClipNoteLocally: handleUpdateClipNoteLocally,
     deleteNoteFromClip: handleDeleteNoteFromClip,
     transformingClipIds,
+    transformErrorsByClipId,
   } = useClipActions({
     allClips,
     setAllClips,
@@ -624,7 +626,7 @@ export default function App() {
         <div
           onPointerDown={handleSidebarPointerDown}
           className="column-resizer relative w-[1px] h-screen cursor-col-resize z-30 shrink-0 select-none touch-none"
-          title="Drag to resize sidebar width"
+          title="Resize Sidebar"
         >
           <div className={`column-resizer-line w-[1px] h-full transition-colors ${isResizingSidebar ? 'is-active' : ''}`} />
           <div className="absolute inset-y-0 -left-1 -right-1 z-40 cursor-col-resize" />
@@ -648,7 +650,6 @@ export default function App() {
           onAddBlacklistApp={handleAddBlacklistApp}
           onRemoveBlacklistApp={handleRemoveBlacklistApp}
           onToggleBlacklistRule={handleToggleBlacklistRule}
-          pipelines={pipelines}
           onRefreshPipelines={fetchPipelines}
           bins={bins}
           onRefreshBins={fetchBins}
@@ -714,7 +715,7 @@ export default function App() {
                       ? 'is-warning shadow-sm'
                       : ''
                   }`}
-                  title={isClipboardPaused ? 'Resume History Recording' : 'Pause History Recording (for sensitive items/passwords)'}
+                  title={isClipboardPaused ? 'Resume History' : 'Pause History'}
                 >
                   <Pause
                     className={`w-4 h-4 ${isClipboardPaused ? 'fill-current animate-pulse' : ''}`}
@@ -730,7 +731,7 @@ export default function App() {
                       ? 'is-queue-active shadow-sm'
                       : ''
                   }`}
-                  title={seqStatus?.is_active ? `Stop Queue Recording (${seqStatus.queue.length} items queued)` : 'Start Queue Recording'}
+                  title={seqStatus?.is_active ? `Stop Queue (${seqStatus.queue.length})` : 'Start Queue'}
                 >
                   {seqStatus?.is_active ? (
                     <Square className="w-3.5 h-3.5 fill-current animate-pulse" strokeWidth={2.5} />
@@ -786,6 +787,7 @@ export default function App() {
                       isDragging={draggedClipId === clip.id}
                       isDragInProgress={draggedClipId !== null}
                       isTransforming={transformingClipIds.has(clip.id)}
+                      transformError={transformErrorsByClipId.get(clip.id)}
                       reorderOffsetY={pinnedReorderOffsets[clip.id] ?? 0}
                       viewPolicy={viewPolicy}
                       isQueueMode={currentTab === 'sequential'}
@@ -794,6 +796,7 @@ export default function App() {
                       primaryBinIcon={primaryBin?.icon}
                       rowHeight={appSettings.rowHeight}
                       selectionVersion={clipSelectionVersion}
+                      trashEnabled={appSettings.enableTrash}
                       setDraggedClipId={setDraggedClipId}
                       onPointerDragStart={(id) => {
                         setHoveredClipId(null);
@@ -918,7 +921,7 @@ export default function App() {
                     });
                   }}
                   className="batch-action-button flex items-center space-x-1 transition-colors font-medium cursor-pointer whitespace-nowrap shrink-0"
-                  title="Pin All Selected"
+                  title="Pin Selected"
                 >
                   <Pin className="pin-icon w-3.5 h-3.5 shrink-0" />
                   <span>Pin</span>
@@ -942,7 +945,7 @@ export default function App() {
                     });
                   }}
                   className="batch-action-button flex items-center space-x-1 transition-colors font-medium cursor-pointer whitespace-nowrap shrink-0"
-                  title="Unpin All Selected"
+                  title="Unpin Selected"
                 >
                   <Pin className="theme-text-muted w-3.5 h-3.5 opacity-60 shrink-0" />
                   <span>Unpin</span>
@@ -951,7 +954,7 @@ export default function App() {
                 <button
                   onClick={() => handleBatchTrash()}
                   className="batch-action-button is-danger flex items-center space-x-1 transition-colors font-medium cursor-pointer whitespace-nowrap shrink-0"
-                  title="Trash Selected"
+                  title={appSettings.enableTrash ? 'Move Selected to Trash' : 'Delete Selected Permanently'}
                 >
                   <Trash2 className="w-3.5 h-3.5 shrink-0" />
                   <span>Trash</span>
@@ -959,7 +962,7 @@ export default function App() {
                 <button
                   onClick={clearClipSelection}
                   className="batch-action-button p-0.5 rounded-full transition-colors cursor-pointer shrink-0 ml-0.5"
-                  title="Deselect All"
+                  title="Deselect"
                 >
                   <X className="w-3.5 h-3.5 shrink-0" />
                 </button>
@@ -971,7 +974,7 @@ export default function App() {
           <div
             onPointerDown={handleListPointerDown}
             className="column-resizer relative w-[1px] h-screen cursor-col-resize z-20 shrink-0 select-none touch-none"
-            title="Drag to resize clips list width"
+            title="Resize Clip List"
           >
             <div className={`column-resizer-line w-[1px] h-full transition-colors ${isResizingList ? 'is-active' : ''}`} />
             <div className="absolute inset-y-0 left-0 -right-2 z-20 cursor-col-resize" />
@@ -988,6 +991,9 @@ export default function App() {
             onDeleteClip={selectedClipViewPolicy.state === 'trash' ? handlePurgeClipPermanently : handleDeleteClip}
             onUpdateClipNote={handleUpdateClipNoteLocally}
             isTransforming={selectedClip ? transformingClipIds.has(selectedClip.id) : false}
+            transformError={selectedClip ? transformErrorsByClipId.get(selectedClip.id) : undefined}
+            onOpenTransformations={() => setCurrentTab('transformations')}
+            trashEnabled={appSettings.enableTrash}
           />
         </div>
       )}
@@ -1001,7 +1007,6 @@ export default function App() {
           viewPolicy={getClipViewPolicy(currentTab, contextMenu.clip)}
           selectedCount={selectedClipIds.has(contextMenu.clip.id) ? selectedClipIds.size : 1}
           bins={bins}
-          pipelines={pipelines}
           onClose={() => setContextMenu(null)}
           onCopy={() => handleCopyClip(contextMenu.clip)}
           onAssignBin={(binId) => assignClipToBin(
@@ -1009,7 +1014,8 @@ export default function App() {
             binId,
             { includeSelection: true },
           )}
-          onRunPipeline={(pipeline, destination) => handleRunPipelineForClip(contextMenu.clip, pipeline, destination)}
+          onRunTransform={(transform) => handleRunTransformForClip(contextMenu.clip, transform)}
+          onOpenTransformations={() => setCurrentTab('transformations')}
           onAddNote={() => handlePromptAddNote(contextMenu.clip)}
           onDeleteNote={() => handleDeleteNoteFromClip(contextMenu.clip.id)}
           onAddToStack={() => handleAddToSequentialStack(contextMenu.clip)}
@@ -1018,6 +1024,7 @@ export default function App() {
           onDelete={(e) => handleDeleteClip(contextMenu.clip.id, e?.altKey)}
           onRestore={() => handleRestoreClip(contextMenu.clip.id)}
           onPurge={() => handlePurgeClipPermanently(contextMenu.clip.id)}
+          trashEnabled={appSettings.enableTrash}
         />
       )}
 

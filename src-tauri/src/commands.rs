@@ -6,8 +6,8 @@ use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::db::{
-    Bin, ClipItem, DbState, IntelligenceConnection, Pipeline, PipelineStepInput,
-    TransformationRecipe,
+    Bin, ClipItem, DbState, IntelligenceConnection, Pipeline, PipelineStepInput, SavedTransform,
+    TransformationExecution,
 };
 use crate::sequential_paste::{SequentialQueueState, SequentialStatus};
 
@@ -166,8 +166,8 @@ pub async fn assign_clip_bin(
         let Some(bin_id) = bin_id else {
             return Ok(None);
         };
-        let Some(recipe_ref) = db
-            .get_bin_recipe_ref(bin_id)
+        let Some(transform_ref) = db
+            .get_bin_transform_ref(bin_id)
             .map_err(|error| error.to_string())?
         else {
             return Ok(None);
@@ -178,23 +178,31 @@ pub async fn assign_clip_bin(
         else {
             return Ok(None);
         };
-        let recipe = db
-            .resolve_transformation_recipe(&recipe_ref)
-            .map_err(|error| error.to_string())?
-            .ok_or_else(|| format!("Unknown Recipe: {recipe_ref}"))?;
-        let recipe_name = recipe.name.clone();
-        let outcome = crate::intelligence_executor::execute_plan(
+        let (transform_name, outcome) = crate::intelligence_executor::execute_saved_transform(
             &db,
-            crate::intelligence_executor::ExecutePlanRequest {
-                plan: recipe.plan,
-                input: input.clone(),
-                connection_id: recipe.connection_id,
-            },
+            &transform_ref,
+            input.clone(),
+            Some(clip_id),
+            "bin",
+            "replace",
         )
         .map_err(|error| error.message)?;
-        db.apply_recipe_output_to_clip_after_bin_move(
+        if outcome.output == input {
+            let _ = db.log_activity(
+                "bin_transform_no_change",
+                &format!(
+                    "Transform {} made no changes when clip #{} entered bin #{}",
+                    transform_name, clip_id, bin_id
+                ),
+            );
+            return db
+                .get_clip_by_id(clip_id)
+                .map(Some)
+                .map_err(|error| error.to_string());
+        }
+        db.apply_transform_output_to_clip_after_bin_move(
             clip_id,
-            &recipe_ref,
+            &transform_ref,
             &input,
             &outcome.output,
             outcome.connection_id.as_deref(),
@@ -204,10 +212,10 @@ pub async fn assign_clip_bin(
         )
         .map_err(|error| error.to_string())?;
         let _ = db.log_activity(
-            "bin_recipe_executed",
+            "bin_transform_executed",
             &format!(
-                "Applied Recipe {} when clip #{} entered bin #{}",
-                recipe_name, clip_id, bin_id
+                "Applied Transform {} when clip #{} entered bin #{}",
+                transform_name, clip_id, bin_id
             ),
         );
         db.get_clip_by_id(clip_id)
@@ -531,21 +539,21 @@ pub fn update_bin_shortcut(
 }
 
 #[tauri::command]
-pub fn get_bin_recipe_ref(
+pub fn get_bin_transform_ref(
     bin_id: i64,
     db: State<'_, Arc<DbState>>,
 ) -> Result<Option<String>, String> {
-    db.get_bin_recipe_ref(bin_id)
+    db.get_bin_transform_ref(bin_id)
         .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
-pub fn set_bin_recipe_ref(
+pub fn set_bin_transform_ref(
     bin_id: i64,
-    recipe_ref: Option<String>,
+    transform_ref: Option<String>,
     db: State<'_, Arc<DbState>>,
 ) -> Result<(), String> {
-    db.set_bin_recipe_ref(bin_id, recipe_ref.as_deref())
+    db.set_bin_transform_ref(bin_id, transform_ref.as_deref())
         .map_err(|error| error.to_string())
 }
 
@@ -676,9 +684,9 @@ pub async fn plan_transformation_intent(
         match &result {
             Ok(outcome) => {
                 let _ = db.log_activity(
-                    "recipe_drafted",
+                    "transform_drafted",
                     &format!(
-                        "Drafted a {}-step Recipe with {} in {} ms",
+                        "Drafted a {}-step Transform with {} in {} ms",
                         outcome.plan.steps.len(),
                         outcome.connection_name,
                         outcome.duration_ms
@@ -687,8 +695,8 @@ pub async fn plan_transformation_intent(
             }
             Err(error) => {
                 let _ = db.log_activity(
-                    "recipe_draft_failed",
-                    &format!("Recipe draft failed ({})", error.code),
+                    "transform_draft_failed",
+                    &format!("Transform draft failed ({})", error.code),
                 );
             }
         }
@@ -721,17 +729,17 @@ pub async fn test_transformation_plan(
                     .as_deref()
                     .unwrap_or("local Operations");
                 let _ = db.log_activity(
-                    "recipe_tested",
+                    "transform_tested",
                     &format!(
-                        "Tested a Recipe with {provider} in {} ms",
+                        "Tested a Transform with {provider} in {} ms",
                         outcome.duration_ms
                     ),
                 );
             }
             Err(error) => {
                 let _ = db.log_activity(
-                    "recipe_test_failed",
-                    &format!("Recipe test failed ({})", error.code),
+                    "transform_test_failed",
+                    &format!("Transform test failed ({})", error.code),
                 );
             }
         }
@@ -747,44 +755,72 @@ pub async fn test_transformation_plan(
 }
 
 #[tauri::command]
-pub fn get_transformation_recipes(
-    db: State<'_, Arc<DbState>>,
-) -> Result<Vec<TransformationRecipe>, String> {
-    db.get_transformation_recipes()
-        .map_err(|error| error.to_string())
+pub fn get_saved_transforms(db: State<'_, Arc<DbState>>) -> Result<Vec<SavedTransform>, String> {
+    db.get_saved_transforms().map_err(|error| error.to_string())
 }
 
 #[tauri::command]
-pub fn save_transformation_recipe(
+pub fn save_saved_transform(
     name: String,
     plan: crate::transformation_intent::TransformationPlan,
     connection_id: Option<String>,
     db: State<'_, Arc<DbState>>,
-) -> Result<TransformationRecipe, String> {
-    let recipe_name = if name.trim().is_empty() {
+) -> Result<SavedTransform, String> {
+    let transform_name = if name.trim().is_empty() {
         plan.summary.trim()
     } else {
         name.trim()
     };
-    let recipe = db
-        .create_transformation_recipe(recipe_name, &plan, connection_id.as_deref())
+    let transform = db
+        .create_saved_transform(transform_name, &plan, connection_id.as_deref())
         .map_err(|error| error.to_string())?;
-    let _ = db.log_activity("recipe_saved", &format!("Saved Recipe: {}", recipe.name));
-    Ok(recipe)
+    let _ = db.log_activity(
+        "transform_saved",
+        &format!("Saved Transform: {}", transform.name),
+    );
+    Ok(transform)
 }
 
 #[tauri::command]
-pub fn delete_transformation_recipe(
-    recipe_ref: String,
+pub fn update_saved_transform(
+    transform_ref: String,
+    name: String,
+    plan: crate::transformation_intent::TransformationPlan,
+    connection_id: Option<String>,
+    db: State<'_, Arc<DbState>>,
+) -> Result<SavedTransform, String> {
+    let transform_name = if name.trim().is_empty() {
+        plan.summary.trim()
+    } else {
+        name.trim()
+    };
+    let transform = db
+        .update_saved_transform(
+            &transform_ref,
+            transform_name,
+            &plan,
+            connection_id.as_deref(),
+        )
+        .map_err(|error| error.to_string())?;
+    let _ = db.log_activity(
+        "transform_updated",
+        &format!("Updated Transform: {}", transform.name),
+    );
+    Ok(transform)
+}
+
+#[tauri::command]
+pub fn delete_saved_transform(
+    transform_ref: String,
     db: State<'_, Arc<DbState>>,
 ) -> Result<(), String> {
-    db.delete_transformation_recipe(&recipe_ref)
+    db.delete_saved_transform(&transform_ref)
         .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
-pub async fn execute_transformation_recipe(
-    recipe_ref: String,
+pub async fn execute_saved_transform(
+    transform_ref: String,
     input: String,
     db: State<'_, Arc<DbState>>,
 ) -> Result<
@@ -793,44 +829,32 @@ pub async fn execute_transformation_recipe(
 > {
     let db = Arc::clone(&db);
     tauri::async_runtime::spawn_blocking(move || {
-        let recipe = db
-            .resolve_transformation_recipe(&recipe_ref)
-            .map_err(
-                |error| crate::intelligence_executor::IntelligenceExecutionError {
-                    code: "database_error",
-                    message: error.to_string(),
-                },
-            )?
-            .ok_or_else(
-                || crate::intelligence_executor::IntelligenceExecutionError {
-                    code: "unknown_recipe",
-                    message: format!("Unknown Recipe: {recipe_ref}"),
-                },
-            )?;
-        let recipe_name = recipe.name.clone();
-        let result = crate::intelligence_executor::execute_plan(
+        let result = crate::intelligence_executor::execute_saved_transform(
             &db,
-            crate::intelligence_executor::ExecutePlanRequest {
-                plan: recipe.plan,
-                input,
-                connection_id: recipe.connection_id,
-            },
+            &transform_ref,
+            input,
+            None,
+            "manual",
+            "preview",
         );
         match &result {
-            Ok(outcome) => {
+            Ok((transform_name, outcome)) => {
                 let _ = db.log_activity(
-                    "recipe_executed",
-                    &format!("Ran Recipe: {} in {} ms", recipe_name, outcome.duration_ms),
+                    "transform_executed",
+                    &format!(
+                        "Ran Transform: {} in {} ms",
+                        transform_name, outcome.duration_ms
+                    ),
                 );
             }
             Err(error) => {
                 let _ = db.log_activity(
-                    "recipe_execution_failed",
-                    &format!("Recipe failed: {} ({})", recipe_name, error.code),
+                    "transform_execution_failed",
+                    &format!("Transform failed: {} ({})", transform_ref, error.code),
                 );
             }
         }
-        result
+        result.map(|(_, outcome)| outcome)
     })
     .await
     .map_err(
@@ -842,9 +866,9 @@ pub async fn execute_transformation_recipe(
 }
 
 #[tauri::command]
-pub fn apply_recipe_preview_to_clip(
+pub fn apply_transform_preview_to_clip(
     clip_id: i64,
-    recipe_ref: String,
+    transform_ref: String,
     expected_input: String,
     output: String,
     connection_id: Option<String>,
@@ -852,9 +876,9 @@ pub fn apply_recipe_preview_to_clip(
     db: State<'_, Arc<DbState>>,
 ) -> Result<crate::db::ClipTransformationProvenance, String> {
     let provenance = db
-        .apply_recipe_output_to_clip(
+        .apply_transform_output_to_clip(
             clip_id,
-            &recipe_ref,
+            &transform_ref,
             &expected_input,
             &output,
             connection_id.as_deref(),
@@ -864,8 +888,8 @@ pub fn apply_recipe_preview_to_clip(
     let _ = db.log_activity(
         "clip_transformed",
         &format!(
-            "Applied Recipe {} to clip #{}",
-            provenance.recipe_name, clip_id
+            "Applied Transform {} to clip #{}",
+            provenance.transform_name, clip_id
         ),
     );
     Ok(provenance)
@@ -877,6 +901,15 @@ pub fn get_clip_transformation_provenance(
     db: State<'_, Arc<DbState>>,
 ) -> Result<Option<crate::db::ClipTransformationProvenance>, String> {
     db.get_clip_transformation_provenance(clip_id)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn get_clip_transformation_executions(
+    clip_id: i64,
+    db: State<'_, Arc<DbState>>,
+) -> Result<Vec<TransformationExecution>, String> {
+    db.get_clip_transformation_executions(clip_id)
         .map_err(|error| error.to_string())
 }
 

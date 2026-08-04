@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Minus } from 'lucide-react';
+import { Folder, Plus, Minus } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
-import { Bin, TransformationRecipe } from '../types';
+import { Bin, SavedTransform } from '../types';
 import { formatEmojiIcon } from '../utils/emoji';
+import { AppDialog } from './AppDialog';
+import { AppDialogBody, AppDialogButton, AppDialogFooter, AppDialogHeader, AppDialogHeading } from './AppDialogLayout';
 
 interface BinModalProps {
   isOpen: boolean;
@@ -31,6 +33,33 @@ const COLOR_PALETTE = [
   { hex: '#d97706', label: 'Amber' },
 ];
 
+function initialBinForm(editingBin?: Bin | null) {
+  if (editingBin?.smart_rule) {
+    try {
+      const parsed = JSON.parse(editingBin.smart_rule);
+      return {
+        modalTab: 'smart',
+        conditions: parsed.conditions?.length > 0
+          ? parsed.conditions.map((condition: any, index: number) => ({
+            id: String(index + 1),
+            target: condition.type || 'source_app',
+            operator: condition.operator || 'is',
+            value: condition.value || '',
+          }))
+          : [{ id: '1', target: 'source_app', operator: 'is', value: '' }],
+        matchCondition: parsed.match || 'any',
+      };
+    } catch {
+      // Fall through to the safe manual defaults used by the editor.
+    }
+  }
+  return {
+    modalTab: 'bin',
+    conditions: [{ id: '1', target: 'source_app', operator: 'is', value: editingBin ? '' : '1Password' }],
+    matchCondition: 'any',
+  };
+}
+
 export const BinModal: React.FC<BinModalProps> = ({
   isOpen,
   editingBin,
@@ -50,8 +79,8 @@ export const BinModal: React.FC<BinModalProps> = ({
 
   // Installed OS Apps state
   const [installedApps, setInstalledApps] = useState<string[]>([]);
-  const [recipes, setRecipes] = useState<TransformationRecipe[]>([]);
-  const [recipeRef, setRecipeRef] = useState('');
+  const [transforms, setTransforms] = useState<SavedTransform[]>([]);
+  const [transformRef, setTransformRef] = useState('');
 
   // Multi-condition Smart Rules state
   const [conditions, setConditions] = useState<SmartConditionRow[]>(() => {
@@ -84,51 +113,7 @@ export const BinModal: React.FC<BinModalProps> = ({
     return 'any';
   });
 
-  const modalRef = React.useRef<HTMLDivElement>(null);
-
-  // Focus Trap & Escape Key Listener
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const previousFocus = document.activeElement as HTMLElement | null;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose();
-        return;
-      }
-
-      if (e.key === 'Tab' && modalRef.current) {
-        const focusables = modalRef.current.querySelectorAll<HTMLElement>(
-          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
-        );
-        if (focusables.length === 0) return;
-
-        const firstElement = focusables[0];
-        const lastElement = focusables[focusables.length - 1];
-
-        if (e.shiftKey) {
-          if (document.activeElement === firstElement) {
-            e.preventDefault();
-            lastElement.focus();
-          }
-        } else {
-          if (document.activeElement === lastElement) {
-            e.preventDefault();
-            firstElement.focus();
-          }
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      if (previousFocus && typeof previousFocus.focus === 'function') {
-        previousFocus.focus();
-      }
-    };
-  }, [isOpen, onClose]);
+  const initialTransformRef = React.useRef('');
 
   useEffect(() => {
     if (isOpen) {
@@ -176,15 +161,19 @@ export const BinModal: React.FC<BinModalProps> = ({
           setInstalledApps(apps);
         })
         .catch(console.error);
-      invoke<TransformationRecipe[]>('get_transformation_recipes')
-        .then(setRecipes)
+      invoke<SavedTransform[]>('get_saved_transforms')
+        .then(setTransforms)
         .catch(console.error);
       if (editingBin) {
-        invoke<string | null>('get_bin_recipe_ref', { binId: editingBin.id })
-          .then((value) => setRecipeRef(value || ''))
+        invoke<string | null>('get_bin_transform_ref', { binId: editingBin.id })
+          .then((value) => {
+            initialTransformRef.current = value || '';
+            setTransformRef(value || '');
+          })
           .catch(console.error);
       } else {
-        setRecipeRef('');
+        initialTransformRef.current = '';
+        setTransformRef('');
       }
     }
   }, [isOpen, editingBin]);
@@ -252,7 +241,7 @@ export const BinModal: React.FC<BinModalProps> = ({
           color: selectedColor,
           smartRule: smartRuleJson,
         });
-        await invoke('set_bin_recipe_ref', { binId: editingBin.id, recipeRef: recipeRef || null });
+        await invoke('set_bin_transform_ref', { binId: editingBin.id, transformRef: transformRef || null });
       } else {
         const created = await invoke<Bin>('create_bin', {
           name: name.trim(),
@@ -260,7 +249,7 @@ export const BinModal: React.FC<BinModalProps> = ({
           color: selectedColor,
           smartRule: smartRuleJson,
         });
-        await invoke('set_bin_recipe_ref', { binId: created.id, recipeRef: recipeRef || null });
+        await invoke('set_bin_transform_ref', { binId: created.id, transformRef: transformRef || null });
       }
       setName('');
       onRefreshBins();
@@ -270,37 +259,64 @@ export const BinModal: React.FC<BinModalProps> = ({
     }
   };
 
-  return (
-    <div ref={modalRef} className="app-dialog-overlay fixed inset-0 flex items-center justify-center p-4 select-none">
-      <div className="bin-modal-card theme-panel w-full max-w-xl rounded-2xl p-6 space-y-5 border shadow-2xl font-sans">
-        {/* Top Segmented Tab Picker */}
-        <div className="flex justify-center">
-          <div className="flex theme-surface p-1 rounded-xl border space-x-1">
-            <button
-              type="button"
-              onClick={() => setModalTab('bin')}
-              className={`settings-tab px-4 py-1.5 rounded-lg text-xs font-semibold transition-none border border-transparent ${modalTab === 'bin' ? 'is-active' : ''}`}
-            >
-              Manual
-            </button>
-            <button
-              type="button"
-              onClick={() => setModalTab('smart')}
-              className={`settings-tab px-4 py-1.5 rounded-lg text-xs font-semibold transition-none border border-transparent ${modalTab === 'smart' ? 'is-active' : ''}`}
-            >
-              Smart
-            </button>
-            <button
-              type="button"
-              onClick={() => setModalTab('filter')}
-              className={`settings-tab px-4 py-1.5 rounded-lg text-xs font-semibold transition-none border border-transparent ${modalTab === 'filter' ? 'is-active' : ''}`}
-            >
-              Filter
-            </button>
-          </div>
-        </div>
+  const initial = initialBinForm(editingBin);
+  const isDirty = JSON.stringify({
+    modalTab,
+    name,
+    selectedColor,
+    icon,
+    conditions,
+    matchCondition,
+    transformRef,
+  }) !== JSON.stringify({
+    modalTab: initial.modalTab,
+    name: editingBin?.name || '',
+    selectedColor: editingBin?.color || '#3b82f6',
+    icon: editingBin ? formatEmojiIcon(editingBin.icon) : '📂',
+    conditions: initial.conditions,
+    matchCondition: initial.matchCondition,
+    transformRef: initialTransformRef.current,
+  });
 
-        <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+  return (
+    <AppDialog
+      isOpen={isOpen}
+      onClose={onClose}
+      labelledBy="bin-modal-title"
+      isDirty={isDirty}
+      panelClassName="bin-modal-card theme-panel w-full max-w-xl max-h-[90vh] rounded-2xl border shadow-2xl overflow-hidden flex flex-col font-sans"
+    >
+      {({ requestClose }) => <>
+        <AppDialogHeader onClose={requestClose}>
+          <AppDialogHeading id="bin-modal-title" title={editingBin ? 'Edit Bin' : 'New Bin'} description="Choose how clips enter this Bin and what happens next." icon={<Folder />} />
+        </AppDialogHeader>
+        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+          <AppDialogBody className="space-y-4 text-xs">
+            <div className="flex justify-center">
+              <div className="flex theme-surface p-1 rounded-xl border space-x-1">
+                <button
+                  type="button"
+                  onClick={() => setModalTab('bin')}
+                  className={`settings-tab px-4 py-1.5 rounded-lg text-xs font-semibold transition-none border border-transparent ${modalTab === 'bin' ? 'is-active' : ''}`}
+                >
+                  Manual
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setModalTab('smart')}
+                  className={`settings-tab px-4 py-1.5 rounded-lg text-xs font-semibold transition-none border border-transparent ${modalTab === 'smart' ? 'is-active' : ''}`}
+                >
+                  Smart
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setModalTab('filter')}
+                  className={`settings-tab px-4 py-1.5 rounded-lg text-xs font-semibold transition-none border border-transparent ${modalTab === 'filter' ? 'is-active' : ''}`}
+                >
+                  Filter
+                </button>
+              </div>
+            </div>
           {/* Name Field */}
           <div className="flex items-center space-x-3">
             <label className={`w-14 text-right font-semibold flex-shrink-0 ${errors.name ? 'theme-danger-text font-bold' : 'theme-text-muted'}`}>Name:</label>
@@ -402,7 +418,7 @@ export const BinModal: React.FC<BinModalProps> = ({
                 placeholder="📂"
                 maxLength={64}
                 className={`w-16 theme-input emoji-input-picker rounded-xl border py-1.5 text-center font-mono text-lg focus:outline-none shadow-inner cursor-pointer select-none transition-colors ${errors.icon ? 'form-field-error' : 'form-field-valid'}`}
-                title="Click to open macOS Emoji Picker (Manual typing disabled)"
+                title="Open Emoji Picker"
               />
               <span className="text-[11px] theme-text-muted">
                 Click input to open Emoji picker <kbd className="font-mono text-[10px] px-1.5 py-0.5 rounded theme-badge border">⌘Control+Space</kbd>
@@ -523,40 +539,29 @@ export const BinModal: React.FC<BinModalProps> = ({
 
           <div className="theme-surface space-y-2 rounded-2xl border p-4">
             <div>
-              <label htmlFor="bin-recipe" className="block text-xs font-semibold theme-text-main">When a clip enters this Bin</label>
-              <p className="mt-0.5 text-[10px] theme-text-muted">Run one saved Recipe. Its plan decides whether work stays local or uses connected intelligence.</p>
+              <label htmlFor="bin-transform" className="block text-xs font-semibold theme-text-main">When a clip enters this Bin</label>
+              <p className="mt-0.5 text-[10px] theme-text-muted">Run one saved Transform. Its plan decides whether work stays local or uses connected intelligence.</p>
             </div>
             <select
-              id="bin-recipe"
-              value={recipeRef}
-              onChange={(event) => setRecipeRef(event.target.value)}
+              id="bin-transform"
+              value={transformRef}
+              onChange={(event) => setTransformRef(event.target.value)}
               className="theme-input form-field-valid w-full rounded-xl border px-3 py-2 text-xs font-semibold focus:outline-none"
             >
               <option value="">Do not transform clips</option>
-              {recipes.map((recipe) => (
-                <option key={recipe.stableRef} value={recipe.stableRef}>{recipe.name}</option>
+              {transforms.map((transform) => (
+                <option key={transform.stableRef} value={transform.stableRef}>{transform.name}</option>
               ))}
             </select>
           </div>
 
-          {/* Action Buttons */}
-          <div className="theme-divider pt-3 flex justify-end space-x-3 border-t">
-            <button
-              type="button"
-              onClick={onClose}
-              className="bin-modal-cancel-btn theme-secondary-button theme-focusable px-5 py-2 rounded-xl border font-semibold text-xs transition-colors focus:outline-none"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="bin-modal-ok-btn theme-primary-button theme-focusable px-5 py-2 rounded-xl border font-semibold text-xs shadow-md transition-[background-color,border-color,transform] active:scale-95 focus:outline-none"
-            >
-              Save
-            </button>
-          </div>
+          </AppDialogBody>
+          <AppDialogFooter>
+            <AppDialogButton onClick={requestClose}>Cancel</AppDialogButton>
+            <AppDialogButton type="submit" variant="primary">Save</AppDialogButton>
+          </AppDialogFooter>
         </form>
-      </div>
-    </div>
+      </>}
+    </AppDialog>
   );
 };

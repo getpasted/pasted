@@ -1,13 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useAltKeyPressed } from '../hooks/useAltKeyPressed';
-import { ClipItem, Bin, Pipeline } from '../types';
+import type { ClipItem, Bin, SavedTransform } from '../types';
 import { formatEmojiIcon } from '../utils/emoji';
-import { detectSmartPipelineRecommendations } from '../utils/smartPipelineDetector';
 import type { ClipViewPolicy } from '../utils/clipViewPolicy';
+import { safeInvoke as invoke } from '../utils/tauri';
+import { selectedClipDeleteLabel, UI_COPY } from '../utils/uiCopy';
 import {
   Copy,
   FolderPlus,
-  Sliders,
+  Workflow,
   StickyNote,
   ListPlus,
   Pin,
@@ -19,10 +20,7 @@ import {
   Shield,
   ShieldOff,
   RotateCcw,
-  ClipboardPaste,
 } from 'lucide-react';
-
-export type PipelineDestination = 'copy' | 'paste';
 
 interface ContextMenuProps {
   x: number;
@@ -31,11 +29,11 @@ interface ContextMenuProps {
   viewPolicy: ClipViewPolicy;
   selectedCount?: number;
   bins: Bin[];
-  pipelines: Pipeline[];
   onClose: () => void;
   onCopy: () => void;
   onAssignBin: (binId: number | null) => void;
-  onRunPipeline: (pipeline: Pipeline, destination: PipelineDestination) => void;
+  onRunTransform: (transform: SavedTransform) => void;
+  onOpenTransformations: () => void;
   onAddNote: () => void;
   onDeleteNote?: () => void;
   onAddToStack: () => void;
@@ -44,6 +42,7 @@ interface ContextMenuProps {
   onDelete: (e?: React.MouseEvent) => void;
   onRestore?: () => void;
   onPurge?: () => void;
+  trashEnabled: boolean;
 }
 
 export const ContextMenu: React.FC<ContextMenuProps> = ({
@@ -53,11 +52,11 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   viewPolicy,
   selectedCount,
   bins,
-  pipelines,
   onClose,
   onCopy,
   onAssignBin,
-  onRunPipeline,
+  onRunTransform,
+  onOpenTransformations,
   onAddNote,
   onDeleteNote,
   onAddToStack,
@@ -66,10 +65,12 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   onDelete,
   onRestore,
   onPurge,
+  trashEnabled,
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
-  const [activeSubmenu, setActiveSubmenu] = useState<'bins' | 'pipelines' | null>(null);
-  const [pipelineDestination, setPipelineDestination] = useState<PipelineDestination>('copy');
+  const [activeSubmenu, setActiveSubmenu] = useState<'bins' | 'workflow' | null>(null);
+  const [transforms, setTransforms] = useState<SavedTransform[]>([]);
+  const [isLoadingTransforms, setIsLoadingTransforms] = useState(false);
   const isAltPressed = useAltKeyPressed();
 
   useEffect(() => {
@@ -82,6 +83,23 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
     return () => window.removeEventListener('mousedown', handleClickOutside);
   }, [onClose]);
 
+  useEffect(() => {
+    if (!viewPolicy.canRunPipelines) return;
+    let cancelled = false;
+    setIsLoadingTransforms(true);
+    invoke<SavedTransform[]>('get_saved_transforms')
+      .then((items) => {
+        if (!cancelled) setTransforms(Array.isArray(items) ? items : []);
+      })
+      .catch((error) => console.error('Failed to load Transforms:', error))
+      .finally(() => {
+        if (!cancelled) setIsLoadingTransforms(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [viewPolicy.canRunPipelines]);
+
   // Adjust coordinates if menu goes off screen
   const menuWidth = 220;
   const menuHeight = 320;
@@ -93,6 +111,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
       ref={menuRef}
       style={{ left: `${adjustedX}px`, top: `${adjustedY}px` }}
       className="theme-menu context-menu fixed w-52 rounded-xl py-1.5 px-1 border text-xs font-medium select-none animate-in fade-in zoom-in-95 duration-100"
+      role="menu"
     >
       {/* Copy */}
       <button
@@ -100,13 +119,13 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
           onCopy();
           onClose();
         }}
-        className="theme-menu-item w-full flex items-center justify-between px-3 py-1.5 rounded-md group"
+        className="theme-menu-item flex w-full items-center justify-between rounded-md px-3 py-1.5"
       >
         <div className="flex items-center space-x-2.5">
-          <Copy className="w-3.5 h-3.5 text-blue-400 group-hover:text-white transition-colors" />
-          <span>Copy</span>
+          <Copy className="h-3.5 w-3.5 text-blue-400" />
+          <span>{UI_COPY.copy}</span>
         </div>
-        <kbd className="text-[10px] text-gray-400 group-hover:text-gray-200 font-mono">↵</kbd>
+        <kbd className="theme-text-muted font-mono text-[10px]">↵</kbd>
       </button>
 
       <div className="theme-menu-divider my-1 border-t" />
@@ -117,7 +136,12 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
         onMouseEnter={() => setActiveSubmenu('bins')}
         onMouseLeave={() => setActiveSubmenu(null)}
       >
-        <button className="theme-menu-item w-full flex items-center justify-between px-3 py-1.5 rounded-md">
+        <button
+          type="button"
+          aria-haspopup="menu"
+          aria-expanded={activeSubmenu === 'bins'}
+          className={`theme-menu-item w-full flex items-center justify-between px-3 py-1.5 rounded-md ${activeSubmenu === 'bins' ? 'is-selected' : ''}`}
+        >
           <div className="flex items-center space-x-2.5">
             <FolderPlus className="w-3.5 h-3.5 text-amber-400" />
             <span>Bin</span>
@@ -126,7 +150,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
         </button>
 
         {activeSubmenu === 'bins' && (
-          <div className="theme-menu absolute left-full top-0 ml-1 w-48 rounded-xl py-1 px-1 border">
+          <div className="theme-menu absolute left-[calc(100%-1px)] -top-1 w-48 rounded-xl py-1 px-1 border" role="menu">
             <button
               onClick={() => {
                 onAssignBin(null);
@@ -134,7 +158,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
               }}
               className="theme-menu-item w-full text-left px-3 py-1.5 rounded-md"
             >
-              – None –
+              No Bin
             </button>
 
             {bins.filter((b) => !b.smart_rule).map((b) => (
@@ -154,101 +178,65 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
         )}
       </div>}
 
-      {/* Filter Submenu */}
+      {/* Workflow Submenu */}
       {viewPolicy.canRunPipelines && <div
         className="relative"
-        onMouseEnter={() => setActiveSubmenu('pipelines')}
+        onMouseEnter={() => setActiveSubmenu('workflow')}
         onMouseLeave={() => setActiveSubmenu(null)}
       >
         <button
           type="button"
-          onClick={() => setActiveSubmenu('pipelines')}
-          onFocus={() => setActiveSubmenu('pipelines')}
+          onClick={() => setActiveSubmenu('workflow')}
+          onFocus={() => setActiveSubmenu('workflow')}
           aria-haspopup="menu"
-          aria-expanded={activeSubmenu === 'pipelines'}
-          className="theme-menu-item w-full flex items-center justify-between px-3 py-1.5 rounded-md"
+          aria-expanded={activeSubmenu === 'workflow'}
+          className={`theme-menu-item w-full flex items-center justify-between px-3 py-1.5 rounded-md ${activeSubmenu === 'workflow' ? 'is-selected' : ''}`}
         >
           <div className="flex items-center space-x-2.5">
-            <Sliders className="w-3.5 h-3.5 text-cyan-400" />
-            <span>Apply Pipeline...</span>
+            <Workflow className="w-3.5 h-3.5 text-cyan-400" />
+            <span>Workflow</span>
           </div>
-          {(() => {
-            const { detectedTypes } = detectSmartPipelineRecommendations(clip.text_content || '', pipelines);
-            return detectedTypes.length > 0 ? (
-              <span className="text-[9px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-800/60 px-1 py-0.2 rounded flex items-center space-x-0.5">
-                <Sparkles className="w-2.5 h-2.5" />
-                <span>{detectedTypes[0]}</span>
-              </span>
-            ) : (
-              <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
-            );
-          })()}
+          <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
         </button>
 
-        {activeSubmenu === 'pipelines' && (
-          <div className="theme-menu absolute left-full top-0 ml-1 w-56 rounded-xl py-1 px-1 border max-h-64 overflow-y-auto space-y-1">
-            <div className="theme-subtle-surface m-1 grid grid-cols-2 gap-1 rounded-lg border p-1">
-              <button
-                type="button"
-                onClick={() => setPipelineDestination('copy')}
-                className={`theme-menu-item flex items-center justify-center gap-1.5 rounded-md px-2 py-1 text-[10px] font-semibold ${pipelineDestination === 'copy' ? 'is-selected' : ''}`}
-              >
-                <Copy className="h-3 w-3" />
-                <span>Copy Result</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setPipelineDestination('paste')}
-                className={`theme-menu-item flex items-center justify-center gap-1.5 rounded-md px-2 py-1 text-[10px] font-semibold ${pipelineDestination === 'paste' ? 'is-selected' : ''}`}
-              >
-                <ClipboardPaste className="h-3 w-3" />
-                <span>Paste Result</span>
-              </button>
+        {activeSubmenu === 'workflow' && (
+          <div className="theme-menu absolute left-[calc(100%-1px)] -top-1 w-60 rounded-xl border p-1 max-h-64 overflow-y-auto" role="menu">
+            <div>
+              {isLoadingTransforms ? (
+                <p className="theme-text-muted px-2.5 py-2 text-[10px]">Loading Transforms…</p>
+              ) : transforms.length > 0 ? transforms.map((transform) => {
+                const usesIntelligence = transform.plan.steps.some((step) => step.executor.kind === 'semantic');
+                return (
+                  <button
+                    key={transform.stableRef}
+                    type="button"
+                    onClick={() => {
+                      onRunTransform(transform);
+                      onClose();
+                    }}
+                    className="theme-menu-item flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left"
+                  >
+                    <Workflow className="h-3.5 w-3.5 shrink-0 text-cyan-400" />
+                    <span className="min-w-0 flex-1 truncate">{transform.name}</span>
+                    {usesIntelligence && <Sparkles className="h-3 w-3 shrink-0 text-violet-400" />}
+                  </button>
+                );
+              }) : (
+                <p className="theme-text-muted px-2.5 py-2 text-[10px]">No saved Transforms yet.</p>
+              )}
             </div>
-            {(() => {
-              const { recommendedPipelineIds, detectedTypes } = detectSmartPipelineRecommendations(clip.text_content || '', pipelines);
-              const recommended = pipelines.filter((pipeline) => recommendedPipelineIds.has(pipeline.id));
-              const otherFilters = pipelines.filter((pipeline) => !recommendedPipelineIds.has(pipeline.id));
-
-              return (
-                <>
-                  {recommended.length > 0 && (
-                    <div className="theme-menu-divider pb-1 border-b">
-                      <div className="px-2 py-1 text-[9px] font-semibold text-cyan-400 uppercase tracking-wider flex items-center space-x-1">
-                        <Sparkles className="w-3 h-3 text-cyan-400" />
-                        <span>Recommended for {detectedTypes.join(', ')}</span>
-                      </div>
-                      {recommended.map((f) => (
-                        <button
-                          key={f.id}
-                          onClick={() => {
-                            onRunPipeline(f, pipelineDestination);
-                            onClose();
-                          }}
-                          className="theme-menu-item smart-menu-item w-full text-left px-2.5 py-1.5 rounded-md flex items-center justify-between text-xs font-medium"
-                        >
-                          <span className="truncate">{f.name}</span>
-                          <Sparkles className="w-3 h-3 text-cyan-400 shrink-0 ml-1" />
-                        </button>
-                      ))}
-                    </div>
-                  )}
-
-                  {otherFilters.map((f) => (
-                    <button
-                      key={f.id}
-                      onClick={() => {
-                        onRunPipeline(f, pipelineDestination);
-                        onClose();
-                      }}
-                      className="theme-menu-item w-full text-left px-2.5 py-1.5 rounded-md text-xs truncate"
-                    >
-                      {f.name}
-                    </button>
-                  ))}
-                </>
-              );
-            })()}
+            <div className="theme-menu-divider my-1 border-t" />
+            <button
+              type="button"
+              onClick={() => {
+                onOpenTransformations();
+                onClose();
+              }}
+              className="theme-menu-item flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left"
+            >
+              <Workflow className="h-3.5 w-3.5 shrink-0 text-cyan-400" />
+              <span>Manage Transforms…</span>
+            </button>
           </div>
         )}
       </div>}
@@ -309,8 +297,8 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
         <span>
           {selectedCount && selectedCount > 1
             ? clip.is_pinned
-              ? `Unpin ${selectedCount} Items`
-              : `Pin ${selectedCount} Items`
+              ? `Unpin ${selectedCount}`
+              : `Pin ${selectedCount}`
             : clip.is_pinned
             ? 'Unpin'
             : 'Pin'}
@@ -344,20 +332,20 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
               onRestore?.();
               onClose();
             }}
-            className="w-full flex items-center space-x-2.5 px-3 py-1.5 rounded-md hover:bg-cyan-500/20 text-cyan-300 transition-colors"
+          className="theme-menu-item flex w-full items-center space-x-2.5 rounded-md px-3 py-1.5"
           >
             <RotateCcw className="w-3.5 h-3.5" />
-            <span>Restore from Trash</span>
+            <span>{UI_COPY.restore}</span>
           </button>
           <button
             onClick={() => {
               onPurge?.();
               onClose();
             }}
-            className="w-full flex items-center space-x-2.5 px-3 py-1.5 rounded-md hover:bg-red-500/20 text-red-400 hover:text-red-300 transition-colors"
+          className="theme-menu-item theme-danger-text flex w-full items-center space-x-2.5 rounded-md px-3 py-1.5"
           >
             <Trash className="w-3.5 h-3.5" />
-            <span>Delete Permanently</span>
+            <span>{UI_COPY.deletePermanently}</span>
           </button>
         </>
       ) : <button
@@ -368,21 +356,21 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
           }
         }}
         disabled={clip.is_protected}
-        className={`w-full flex items-center space-x-2.5 px-3 py-1.5 rounded-md transition-colors ${
+        className={`theme-menu-item flex w-full items-center space-x-2.5 rounded-md px-3 py-1.5 ${
           clip.is_protected
-            ? 'opacity-40 cursor-not-allowed text-gray-500'
-            : 'hover:bg-red-500/20 text-red-400 hover:text-red-300'
+            ? 'cursor-not-allowed opacity-40'
+            : 'theme-danger-text'
         }`}
       >
-        {isAltPressed ? <Trash className="w-3.5 h-3.5" /> : <Trash2 className="w-3.5 h-3.5" />}
+        {isAltPressed || !trashEnabled ? <Trash className="w-3.5 h-3.5" /> : <Trash2 className="w-3.5 h-3.5" />}
         <span>
           {clip.is_protected
-            ? 'Item is Protected'
-            : selectedCount && selectedCount > 1
-            ? `Move ${selectedCount} Items to Trash`
-            : isAltPressed
-            ? 'Delete Permanently (Option held)'
-            : 'Move to Trash'}
+            ? 'Protected'
+            : selectedClipDeleteLabel({
+                count: selectedCount ?? 1,
+                trashEnabled,
+                permanent: isAltPressed,
+              })}
         </span>
       </button>}
     </div>

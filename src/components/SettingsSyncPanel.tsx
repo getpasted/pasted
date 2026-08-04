@@ -53,7 +53,7 @@ export function SettingsSyncPanel({
           </div>
           <div>
             <h4 className="text-sm font-bold theme-title">Backup &amp; Restore Vault (.json)</h4>
-            <p className="text-[11px] theme-text-muted">Export all clips, Trash, Bins, Tags, Pipelines, and Operations to a JSON file or restore from a backup.</p>
+            <p className="text-[11px] theme-text-muted">Export clips, Trash, Bins, Tags, Transforms, and Advanced tools to a JSON file or restore from a backup.</p>
           </div>
         </div>
 
@@ -111,7 +111,7 @@ export function SettingsSyncPanel({
         </div>
 
         <p className="text-xs theme-text-muted leading-relaxed">
-          All your clipboard history items, custom notes, smart bins, and transformation Pipelines are saved <strong>100% locally and securely</strong> on this device inside your private SQLite database.
+          Your clipboard history, notes, Bins, and Transforms are saved <strong>100% locally and securely</strong> on this device inside your private SQLite database.
         </p>
 
         <div className="theme-subtle-surface p-3 rounded-lg border space-y-1.5 text-[11px] theme-text-muted">

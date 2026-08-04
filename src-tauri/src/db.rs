@@ -109,6 +109,16 @@ pub struct BackupPayload {
     pub bins: Vec<Bin>,
     pub pipelines: Vec<Pipeline>,
     pub operations: Vec<Operation>,
+    #[serde(default)]
+    pub saved_transforms: Vec<SavedTransform>,
+    #[serde(default)]
+    pub bin_transforms: Vec<BinTransformBinding>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct BinTransformBinding {
+    pub bin_id: i64,
+    pub transform_ref: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -126,7 +136,7 @@ pub struct Pipeline {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct TransformationRecipe {
+pub struct SavedTransform {
     pub id: i64,
     pub stable_ref: String,
     pub name: String,
@@ -140,12 +150,29 @@ pub struct TransformationRecipe {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ClipTransformationProvenance {
-    pub recipe_ref: String,
-    pub recipe_name: String,
-    pub recipe_revision: i64,
+    pub transform_ref: String,
+    pub transform_name: String,
+    pub transform_revision: i64,
     pub connection_id: Option<String>,
     pub duration_ms: i64,
     pub created_at: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct TransformationExecution {
+    pub id: String,
+    pub target_kind: String,
+    pub target_ref: String,
+    pub target_revision: Option<i64>,
+    pub source_clip_id: Option<i64>,
+    pub trigger_kind: String,
+    pub destination_kind: String,
+    pub started_at: String,
+    pub completed_at: Option<String>,
+    pub duration_ms: Option<i64>,
+    pub status: String,
+    pub error_summary: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -526,6 +553,108 @@ impl DbState {
     }
 
     fn init_transformation_tables(&self, conn: &Connection) -> Result<()> {
+        // The app has not shipped, so keep the domain and storage vocabulary
+        // aligned. These renames preserve development data without carrying a
+        // second set of compatibility APIs through the codebase.
+        let has_legacy_transforms = table_exists(conn, "transformation_recipes")?;
+        let has_saved_transforms = table_exists(conn, "saved_transforms")?;
+        if has_legacy_transforms && !has_saved_transforms {
+            conn.execute(
+                "ALTER TABLE transformation_recipes RENAME TO saved_transforms",
+                [],
+            )?;
+        } else if has_legacy_transforms && has_saved_transforms {
+            // A hot-reloaded frontend can call the new API before the Rust
+            // process restarts, leaving both pre-release tables behind. Merge
+            // them instead of treating the new-but-empty table as authoritative.
+            conn.execute(
+                "INSERT OR IGNORE INTO saved_transforms
+                    (row_id, id, name, plan_json, connection_id, revision, created_at, updated_at)
+                 SELECT row_id, id, name, plan_json, connection_id, revision, created_at, updated_at
+                 FROM transformation_recipes",
+                [],
+            )?;
+        }
+        if column_exists(conn, "clip_transformations", "recipe_id")?
+            && !column_exists(conn, "clip_transformations", "transform_id")?
+        {
+            conn.execute(
+                "ALTER TABLE clip_transformations RENAME COLUMN recipe_id TO transform_id",
+                [],
+            )?;
+            conn.execute(
+                "ALTER TABLE clip_transformations RENAME COLUMN recipe_name TO transform_name",
+                [],
+            )?;
+            conn.execute(
+                "ALTER TABLE clip_transformations RENAME COLUMN recipe_revision TO transform_revision",
+                [],
+            )?;
+        }
+        let has_legacy_bin_transform = column_exists(conn, "bins", "default_recipe_id")?;
+        let has_current_bin_transform = column_exists(conn, "bins", "default_transform_id")?;
+        if has_legacy_bin_transform && !has_current_bin_transform {
+            conn.execute(
+                "ALTER TABLE bins RENAME COLUMN default_recipe_id TO default_transform_id",
+                [],
+            )?;
+        } else if has_legacy_bin_transform && has_current_bin_transform {
+            conn.execute(
+                "UPDATE bins SET default_transform_id = default_recipe_id
+                 WHERE default_transform_id IS NULL AND default_recipe_id IS NOT NULL",
+                [],
+            )?;
+            conn.execute("ALTER TABLE bins DROP COLUMN default_recipe_id", [])?;
+        }
+
+        if has_legacy_transforms && has_saved_transforms {
+            let provenance_sql: String = conn.query_row(
+                "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'clip_transformations'",
+                [],
+                |row| row.get(0),
+            )?;
+            if provenance_sql.contains("transformation_recipes") {
+                conn.execute_batch(
+                    "CREATE TABLE clip_transformations_migrated (
+                        id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+                        clip_id INTEGER NOT NULL REFERENCES clips(id) ON DELETE CASCADE,
+                        transform_id TEXT REFERENCES saved_transforms(id) ON DELETE SET NULL,
+                        transform_name TEXT NOT NULL,
+                        transform_revision INTEGER NOT NULL,
+                        connection_id TEXT REFERENCES intelligence_connections(id) ON DELETE SET NULL,
+                        duration_ms INTEGER NOT NULL DEFAULT 0 CHECK (duration_ms >= 0),
+                        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    );
+                    INSERT INTO clip_transformations_migrated
+                        (id, clip_id, transform_id, transform_name, transform_revision,
+                         connection_id, duration_ms, created_at)
+                    SELECT id, clip_id, transform_id, transform_name, transform_revision,
+                           connection_id, duration_ms, created_at
+                    FROM clip_transformations;
+                    DROP TABLE clip_transformations;
+                    ALTER TABLE clip_transformations_migrated RENAME TO clip_transformations;",
+                )?;
+            }
+            conn.execute("DROP TABLE transformation_recipes", [])?;
+        }
+
+        let rebuild_execution_ledger = if table_exists(conn, "transformation_executions")? {
+            let table_sql: String = conn.query_row(
+                "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'transformation_executions'",
+                [],
+                |row| row.get(0),
+            )?;
+            !table_sql.contains("'transform'") || !table_sql.contains("'queued'")
+        } else {
+            false
+        };
+        if rebuild_execution_ledger {
+            conn.execute(
+                "ALTER TABLE transformation_executions RENAME TO transformation_executions_legacy",
+                [],
+            )?;
+        }
+
         conn.execute_batch(
             "CREATE TABLE IF NOT EXISTS custom_operations (
                 row_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -566,7 +695,7 @@ impl DbState {
             CREATE INDEX IF NOT EXISTS idx_pipeline_steps_operation_ref
                 ON pipeline_steps(operation_ref);
 
-            CREATE TABLE IF NOT EXISTS transformation_recipes (
+            CREATE TABLE IF NOT EXISTS saved_transforms (
                 row_id INTEGER PRIMARY KEY AUTOINCREMENT,
                 id TEXT NOT NULL UNIQUE DEFAULT (lower(hex(randomblob(16)))),
                 name TEXT NOT NULL,
@@ -580,9 +709,9 @@ impl DbState {
             CREATE TABLE IF NOT EXISTS clip_transformations (
                 id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
                 clip_id INTEGER NOT NULL REFERENCES clips(id) ON DELETE CASCADE,
-                recipe_id TEXT REFERENCES transformation_recipes(id) ON DELETE SET NULL,
-                recipe_name TEXT NOT NULL,
-                recipe_revision INTEGER NOT NULL,
+                transform_id TEXT REFERENCES saved_transforms(id) ON DELETE SET NULL,
+                transform_name TEXT NOT NULL,
+                transform_revision INTEGER NOT NULL,
                 connection_id TEXT REFERENCES intelligence_connections(id) ON DELETE SET NULL,
                 duration_ms INTEGER NOT NULL DEFAULT 0 CHECK (duration_ms >= 0),
                 created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -615,17 +744,21 @@ impl DbState {
 
             CREATE TABLE IF NOT EXISTS transformation_executions (
                 id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
-                target_kind TEXT NOT NULL CHECK (target_kind IN ('operation', 'pipeline')),
+                target_kind TEXT NOT NULL CHECK (target_kind IN ('operation', 'pipeline', 'transform')),
                 target_ref TEXT NOT NULL,
                 target_revision INTEGER,
                 source_clip_id INTEGER REFERENCES clips(id) ON DELETE SET NULL,
                 trigger_kind TEXT NOT NULL CHECK (
                     trigger_kind IN ('manual', 'shortcut', 'bin', 'automation', 'cli')
                 ),
+                destination_kind TEXT NOT NULL DEFAULT 'preview' CHECK (
+                    destination_kind IN ('preview', 'replace', 'copy', 'paste', 'route')
+                ),
                 started_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                completed_at DATETIME,
                 duration_ms INTEGER CHECK (duration_ms IS NULL OR duration_ms >= 0),
-                status TEXT NOT NULL DEFAULT 'running' CHECK (
-                    status IN ('running', 'succeeded', 'failed')
+                status TEXT NOT NULL DEFAULT 'queued' CHECK (
+                    status IN ('queued', 'running', 'succeeded', 'failed')
                 ),
                 error_summary TEXT,
                 input_hash TEXT NOT NULL,
@@ -665,15 +798,53 @@ impl DbState {
             END;",
         )?;
 
+        if rebuild_execution_ledger {
+            conn.execute(
+                "INSERT INTO transformation_executions
+                    (id, target_kind, target_ref, target_revision, source_clip_id,
+                     trigger_kind, destination_kind, started_at, completed_at,
+                     duration_ms, status, error_summary, input_hash, output_hash)
+                 SELECT id, target_kind, target_ref, target_revision, source_clip_id,
+                        trigger_kind, 'preview', started_at,
+                        CASE WHEN status = 'running' THEN NULL ELSE started_at END,
+                        duration_ms, status, error_summary, input_hash, output_hash
+                 FROM transformation_executions_legacy",
+                [],
+            )?;
+            conn.execute("DROP TABLE transformation_executions_legacy", [])?;
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_transformation_executions_started
+                 ON transformation_executions(started_at DESC)",
+                [],
+            )?;
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_transformation_executions_target
+                 ON transformation_executions(target_kind, target_ref, started_at DESC)",
+                [],
+            )?;
+        }
+
         if !column_exists(conn, "bins", "default_pipeline_id")? {
             conn.execute("ALTER TABLE bins ADD COLUMN default_pipeline_id TEXT", [])?;
         }
-        if !column_exists(conn, "bins", "default_recipe_id")? {
-            conn.execute("ALTER TABLE bins ADD COLUMN default_recipe_id TEXT", [])?;
+        if !column_exists(conn, "bins", "default_transform_id")? {
+            conn.execute("ALTER TABLE bins ADD COLUMN default_transform_id TEXT", [])?;
         }
         if !column_exists(conn, "intelligence_connections", "priority")? {
             conn.execute(
                 "ALTER TABLE intelligence_connections ADD COLUMN priority INTEGER NOT NULL DEFAULT 0",
+                [],
+            )?;
+        }
+        if !column_exists(conn, "transformation_executions", "destination_kind")? {
+            conn.execute(
+                "ALTER TABLE transformation_executions ADD COLUMN destination_kind TEXT NOT NULL DEFAULT 'preview'",
+                [],
+            )?;
+        }
+        if !column_exists(conn, "transformation_executions", "completed_at")? {
+            conn.execute(
+                "ALTER TABLE transformation_executions ADD COLUMN completed_at DATETIME",
                 [],
             )?;
         }
@@ -684,6 +855,24 @@ impl DbState {
             )",
             [],
         )?;
+        let transform_terms_migrated: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM schema_migrations WHERE key = 'transformTerminologyV1'",
+            [],
+            |row| row.get(0),
+        )?;
+        if transform_terms_migrated == 0 {
+            conn.execute(
+                "UPDATE activity_logs
+                 SET event_type = replace(event_type, 'recipe_', 'transform_'),
+                     description = replace(replace(description, 'Recipes', 'Transforms'), 'Recipe', 'Transform')
+                 WHERE event_type LIKE '%recipe%' OR description LIKE '%Recipe%'",
+                [],
+            )?;
+            conn.execute(
+                "INSERT INTO schema_migrations (key) VALUES ('transformTerminologyV1')",
+                [],
+            )?;
+        }
         let provenance_backfilled: i64 = conn.query_row(
             "SELECT COUNT(*) FROM schema_migrations WHERE key = 'currentTransformationBackfillV1'",
             [],
@@ -1937,27 +2126,28 @@ impl DbState {
         Ok(())
     }
 
-    pub fn get_bin_recipe_ref(&self, bin_id: i64) -> Result<Option<String>> {
+    pub fn get_bin_transform_ref(&self, bin_id: i64) -> Result<Option<String>> {
         let conn = self.conn.lock();
-        let recipe_id: Option<String> = conn.query_row(
-            "SELECT default_recipe_id FROM bins WHERE id = ?1",
+        let transform_id: Option<String> = conn.query_row(
+            "SELECT default_transform_id FROM bins WHERE id = ?1",
             params![bin_id],
             |row| row.get(0),
         )?;
-        Ok(recipe_id.map(|id| format!("recipe:{id}")))
+        Ok(transform_id.map(|id| format!("transform:{id}")))
     }
 
-    pub fn set_bin_recipe_ref(&self, bin_id: i64, recipe_ref: Option<&str>) -> Result<()> {
-        let recipe_id = recipe_ref.map(|value| value.strip_prefix("recipe:").unwrap_or(value));
+    pub fn set_bin_transform_ref(&self, bin_id: i64, transform_ref: Option<&str>) -> Result<()> {
+        let transform_id =
+            transform_ref.map(|value| value.strip_prefix("transform:").unwrap_or(value));
         let conn = self.conn.lock();
         conn.execute(
-            "UPDATE bins SET default_recipe_id = ?1 WHERE id = ?2",
-            params![recipe_id, bin_id],
+            "UPDATE bins SET default_transform_id = ?1 WHERE id = ?2",
+            params![transform_id, bin_id],
         )?;
         Ok(())
     }
 
-    pub fn matching_smart_bin_recipes(
+    pub fn matching_smart_bin_transforms(
         &self,
         content_type: &str,
         text: &str,
@@ -1965,8 +2155,8 @@ impl DbState {
     ) -> Result<Vec<(i64, String)>> {
         let conn = self.conn.lock();
         let mut statement = conn.prepare(
-            "SELECT id, smart_rule, default_recipe_id FROM bins
-             WHERE smart_rule IS NOT NULL AND default_recipe_id IS NOT NULL ORDER BY id ASC",
+            "SELECT id, smart_rule, default_transform_id FROM bins
+             WHERE smart_rule IS NOT NULL AND default_transform_id IS NOT NULL ORDER BY id ASC",
         )?;
         let rows = statement.query_map([], |row| {
             Ok((
@@ -1977,7 +2167,7 @@ impl DbState {
         })?;
         let mut matches = Vec::new();
         for row in rows {
-            let (bin_id, rule_json, recipe_id) = row?;
+            let (bin_id, rule_json, transform_id) = row?;
             let Ok(rule) = serde_json::from_str::<serde_json::Value>(&rule_json) else {
                 continue;
             };
@@ -2009,7 +2199,7 @@ impl DbState {
                 )
             };
             if matched {
-                matches.push((bin_id, format!("recipe:{recipe_id}")));
+                matches.push((bin_id, format!("transform:{transform_id}")));
             }
         }
         Ok(matches)
@@ -2276,14 +2466,29 @@ impl DbState {
         let bins = self.get_bins()?;
         let pipelines = self.get_pipelines()?;
         let operations = self.get_operations()?;
+        let saved_transforms = self.get_saved_transforms()?;
+        let bin_transforms = bins
+            .iter()
+            .filter_map(|bin| {
+                self.get_bin_transform_ref(bin.id)
+                    .ok()
+                    .flatten()
+                    .map(|transform_ref| BinTransformBinding {
+                        bin_id: bin.id,
+                        transform_ref,
+                    })
+            })
+            .collect();
 
         let payload = BackupPayload {
-            version: 4,
+            version: 5,
             timestamp: chrono::Utc::now().to_rfc3339(),
             clips,
             bins,
             pipelines,
             operations,
+            saved_transforms,
+            bin_transforms,
         };
 
         serde_json::to_string_pretty(&payload)
@@ -2396,6 +2601,64 @@ impl DbState {
                 params![pipeline_id],
             )?;
             Self::insert_pipeline_steps(&tx, pipeline_id, &steps)?;
+        }
+
+        for transform in payload.saved_transforms {
+            let transform_id =
+                transform
+                    .stable_ref
+                    .strip_prefix("transform:")
+                    .ok_or_else(|| {
+                        rusqlite::Error::InvalidParameterName(
+                            "saved Transform backup is missing a stable reference".to_string(),
+                        )
+                    })?;
+            transform
+                .plan
+                .validate()
+                .map_err(rusqlite::Error::InvalidParameterName)?;
+            let plan_json = serde_json::to_string(&transform.plan)
+                .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?;
+            tx.execute(
+                "INSERT INTO saved_transforms
+                    (id, name, plan_json, connection_id, revision, created_at, updated_at)
+                 VALUES (?1, ?2, ?3, NULL, ?4, ?5, ?6)
+                 ON CONFLICT(id) DO UPDATE SET
+                    name = excluded.name,
+                    plan_json = excluded.plan_json,
+                    connection_id = NULL,
+                    revision = excluded.revision,
+                    updated_at = excluded.updated_at",
+                params![
+                    transform_id,
+                    transform.name,
+                    plan_json,
+                    transform.revision,
+                    transform.created_at,
+                    transform.updated_at
+                ],
+            )?;
+        }
+
+        for binding in payload.bin_transforms {
+            let Some(mapped_bin_id) = bin_id_map.get(&binding.bin_id) else {
+                continue;
+            };
+            let transform_id = binding
+                .transform_ref
+                .strip_prefix("transform:")
+                .unwrap_or(&binding.transform_ref);
+            let exists: bool = tx.query_row(
+                "SELECT EXISTS(SELECT 1 FROM saved_transforms WHERE id = ?1)",
+                params![transform_id],
+                |row| row.get(0),
+            )?;
+            if exists {
+                tx.execute(
+                    "UPDATE bins SET default_transform_id = ?1 WHERE id = ?2",
+                    params![transform_id, mapped_bin_id],
+                )?;
+            }
         }
 
         let mut imported = 0;
@@ -2657,20 +2920,22 @@ impl DbState {
         target_revision: Option<i64>,
         source_clip_id: Option<i64>,
         trigger_kind: &str,
+        destination_kind: &str,
         input_hash: &str,
     ) -> Result<String> {
         let conn = self.conn.lock();
         conn.execute(
             "INSERT INTO transformation_executions
                 (target_kind, target_ref, target_revision, source_clip_id,
-                 trigger_kind, input_hash)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                 trigger_kind, destination_kind, input_hash)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
             params![
                 target_kind,
                 target_ref,
                 target_revision,
                 source_clip_id,
                 trigger_kind,
+                destination_kind,
                 input_hash
             ],
         )?;
@@ -2696,7 +2961,8 @@ impl DbState {
         let conn = self.conn.lock();
         conn.execute(
             "UPDATE transformation_executions
-             SET duration_ms = ?1, status = ?2, output_hash = ?3, error_summary = ?4
+             SET duration_ms = ?1, status = ?2, output_hash = ?3, error_summary = ?4,
+                 completed_at = CURRENT_TIMESTAMP
              WHERE id = ?5",
             params![
                 duration_ms,
@@ -2707,6 +2973,49 @@ impl DbState {
             ],
         )?;
         Ok(())
+    }
+
+    pub fn start_transformation_execution(&self, execution_id: &str) -> Result<()> {
+        let conn = self.conn.lock();
+        conn.execute(
+            "UPDATE transformation_executions SET status = 'running'
+             WHERE id = ?1 AND status = 'queued'",
+            params![execution_id],
+        )?;
+        Ok(())
+    }
+
+    pub fn get_clip_transformation_executions(
+        &self,
+        clip_id: i64,
+    ) -> Result<Vec<TransformationExecution>> {
+        let conn = self.conn.lock();
+        let mut statement = conn.prepare(
+            "SELECT id, target_kind, target_ref, target_revision, source_clip_id,
+                    trigger_kind, destination_kind, started_at, completed_at,
+                    duration_ms, status, error_summary
+             FROM transformation_executions
+             WHERE source_clip_id = ?1
+             ORDER BY started_at DESC, rowid DESC
+             LIMIT 25",
+        )?;
+        let rows = statement.query_map(params![clip_id], |row| {
+            Ok(TransformationExecution {
+                id: row.get(0)?,
+                target_kind: row.get(1)?,
+                target_ref: row.get(2)?,
+                target_revision: row.get(3)?,
+                source_clip_id: row.get(4)?,
+                trigger_kind: row.get(5)?,
+                destination_kind: row.get(6)?,
+                started_at: row.get(7)?,
+                completed_at: row.get(8)?,
+                duration_ms: row.get(9)?,
+                status: row.get(10)?,
+                error_summary: row.get(11)?,
+            })
+        })?;
+        rows.collect()
     }
 
     pub fn get_pipelines(&self) -> Result<Vec<Pipeline>> {
@@ -2723,14 +3032,11 @@ impl DbState {
             .collect()
     }
 
-    fn transformation_recipe_by_id(
-        conn: &Connection,
-        recipe_id: &str,
-    ) -> Result<TransformationRecipe> {
+    fn saved_transform_by_id(conn: &Connection, transform_id: &str) -> Result<SavedTransform> {
         conn.query_row(
             "SELECT row_id, id, name, plan_json, connection_id, revision, created_at, updated_at
-             FROM transformation_recipes WHERE id = ?1",
-            params![recipe_id],
+             FROM saved_transforms WHERE id = ?1",
+            params![transform_id],
             |row| {
                 let stable_id: String = row.get(1)?;
                 let plan_json: String = row.get(3)?;
@@ -2741,9 +3047,9 @@ impl DbState {
                         Box::new(error),
                     )
                 })?;
-                Ok(TransformationRecipe {
+                Ok(SavedTransform {
                     id: row.get(0)?,
-                    stable_ref: format!("recipe:{stable_id}"),
+                    stable_ref: format!("transform:{stable_id}"),
                     name: row.get(2)?,
                     plan,
                     connection_id: row.get(4)?,
@@ -2755,67 +3061,99 @@ impl DbState {
         )
     }
 
-    pub fn get_transformation_recipes(&self) -> Result<Vec<TransformationRecipe>> {
+    pub fn get_saved_transforms(&self) -> Result<Vec<SavedTransform>> {
         let conn = self.conn.lock();
         let ids = {
-            let mut statement = conn.prepare(
-                "SELECT id FROM transformation_recipes ORDER BY updated_at DESC, row_id DESC",
-            )?;
+            let mut statement = conn
+                .prepare("SELECT id FROM saved_transforms ORDER BY updated_at DESC, row_id DESC")?;
             let ids = statement
                 .query_map([], |row| row.get::<_, String>(0))?
                 .collect::<Result<Vec<_>>>()?;
             ids
         };
         ids.into_iter()
-            .map(|id| Self::transformation_recipe_by_id(&conn, &id))
+            .map(|id| Self::saved_transform_by_id(&conn, &id))
             .collect()
     }
 
-    pub fn resolve_transformation_recipe(
-        &self,
-        recipe_ref: &str,
-    ) -> Result<Option<TransformationRecipe>> {
-        let recipe_id = recipe_ref.strip_prefix("recipe:").unwrap_or(recipe_ref);
+    pub fn resolve_saved_transform(&self, transform_ref: &str) -> Result<Option<SavedTransform>> {
+        let transform_id = transform_ref
+            .strip_prefix("transform:")
+            .unwrap_or(transform_ref);
         let conn = self.conn.lock();
-        match Self::transformation_recipe_by_id(&conn, recipe_id) {
-            Ok(recipe) => Ok(Some(recipe)),
+        match Self::saved_transform_by_id(&conn, transform_id) {
+            Ok(transform) => Ok(Some(transform)),
             Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
             Err(error) => Err(error),
         }
     }
 
-    pub fn create_transformation_recipe(
+    pub fn create_saved_transform(
         &self,
         name: &str,
         plan: &crate::transformation_intent::TransformationPlan,
         connection_id: Option<&str>,
-    ) -> Result<TransformationRecipe> {
+    ) -> Result<SavedTransform> {
         plan.validate()
             .map_err(rusqlite::Error::InvalidParameterName)?;
         let plan_json = serde_json::to_string(plan).map_err(|error| {
-            rusqlite::Error::InvalidParameterName(format!("invalid Recipe: {error}"))
+            rusqlite::Error::InvalidParameterName(format!("invalid Transform: {error}"))
         })?;
         let conn = self.conn.lock();
         conn.execute(
-            "INSERT INTO transformation_recipes (name, plan_json, connection_id)
+            "INSERT INTO saved_transforms (name, plan_json, connection_id)
              VALUES (?1, ?2, ?3)",
             params![name.trim(), plan_json, connection_id],
         )?;
         let row_id = conn.last_insert_rowid();
         let stable_id: String = conn.query_row(
-            "SELECT id FROM transformation_recipes WHERE row_id = ?1",
+            "SELECT id FROM saved_transforms WHERE row_id = ?1",
             params![row_id],
             |row| row.get(0),
         )?;
-        Self::transformation_recipe_by_id(&conn, &stable_id)
+        Self::saved_transform_by_id(&conn, &stable_id)
     }
 
-    pub fn delete_transformation_recipe(&self, recipe_ref: &str) -> Result<()> {
-        let recipe_id = recipe_ref.strip_prefix("recipe:").unwrap_or(recipe_ref);
+    pub fn update_saved_transform(
+        &self,
+        transform_ref: &str,
+        name: &str,
+        plan: &crate::transformation_intent::TransformationPlan,
+        connection_id: Option<&str>,
+    ) -> Result<SavedTransform> {
+        plan.validate()
+            .map_err(rusqlite::Error::InvalidParameterName)?;
+        let plan_json = serde_json::to_string(plan).map_err(|error| {
+            rusqlite::Error::InvalidParameterName(format!("invalid Transform: {error}"))
+        })?;
+        let transform_id = transform_ref
+            .strip_prefix("transform:")
+            .unwrap_or(transform_ref);
         let conn = self.conn.lock();
         let changed = conn.execute(
-            "DELETE FROM transformation_recipes WHERE id = ?1",
-            params![recipe_id],
+            "UPDATE saved_transforms
+             SET name = ?1,
+                 plan_json = ?2,
+                 connection_id = ?3,
+                 revision = revision + 1,
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE id = ?4",
+            params![name.trim(), plan_json, connection_id, transform_id],
+        )?;
+        if changed == 0 {
+            return Err(rusqlite::Error::QueryReturnedNoRows);
+        }
+        Self::saved_transform_by_id(&conn, transform_id)
+    }
+
+    pub fn delete_saved_transform(&self, transform_ref: &str) -> Result<()> {
+        let transform_id = transform_ref
+            .strip_prefix("transform:")
+            .unwrap_or(transform_ref);
+        let conn = self.conn.lock();
+        let changed = conn.execute(
+            "DELETE FROM saved_transforms WHERE id = ?1",
+            params![transform_id],
         )?;
         if changed == 0 {
             return Err(rusqlite::Error::QueryReturnedNoRows);
@@ -2823,18 +3161,18 @@ impl DbState {
         Ok(())
     }
 
-    pub fn apply_recipe_output_to_clip(
+    pub fn apply_transform_output_to_clip(
         &self,
         clip_id: i64,
-        recipe_ref: &str,
+        transform_ref: &str,
         expected_input: &str,
         output: &str,
         connection_id: Option<&str>,
         duration_ms: i64,
     ) -> Result<ClipTransformationProvenance> {
-        self.apply_recipe_output_to_clip_internal(
+        self.apply_transform_output_to_clip_internal(
             clip_id,
-            recipe_ref,
+            transform_ref,
             expected_input,
             output,
             connection_id,
@@ -2843,10 +3181,10 @@ impl DbState {
         )
     }
 
-    pub fn apply_recipe_output_to_clip_after_bin_move(
+    pub fn apply_transform_output_to_clip_after_bin_move(
         &self,
         clip_id: i64,
-        recipe_ref: &str,
+        transform_ref: &str,
         expected_input: &str,
         output: &str,
         connection_id: Option<&str>,
@@ -2854,9 +3192,9 @@ impl DbState {
         previous_category_bin_id: Option<i64>,
         destination_bin_id: i64,
     ) -> Result<ClipTransformationProvenance> {
-        self.apply_recipe_output_to_clip_internal(
+        self.apply_transform_output_to_clip_internal(
             clip_id,
-            recipe_ref,
+            transform_ref,
             expected_input,
             output,
             connection_id,
@@ -2865,22 +3203,24 @@ impl DbState {
         )
     }
 
-    fn apply_recipe_output_to_clip_internal(
+    fn apply_transform_output_to_clip_internal(
         &self,
         clip_id: i64,
-        recipe_ref: &str,
+        transform_ref: &str,
         expected_input: &str,
         output: &str,
         connection_id: Option<&str>,
         duration_ms: i64,
         bin_move: Option<(Option<i64>, i64)>,
     ) -> Result<ClipTransformationProvenance> {
-        let recipe_id = recipe_ref.strip_prefix("recipe:").unwrap_or(recipe_ref);
+        let transform_id = transform_ref
+            .strip_prefix("transform:")
+            .unwrap_or(transform_ref);
         let mut conn = self.conn.lock();
         let tx = conn.transaction()?;
-        let (recipe_name, recipe_revision): (String, i64) = tx.query_row(
-            "SELECT name, revision FROM transformation_recipes WHERE id = ?1",
-            params![recipe_id],
+        let (transform_name, transform_revision): (String, i64) = tx.query_row(
+            "SELECT name, revision FROM saved_transforms WHERE id = ?1",
+            params![transform_id],
             |row| Ok((row.get(0)?, row.get(1)?)),
         )?;
         let (current_text, is_trashed, current_transformation_id): (
@@ -2904,7 +3244,7 @@ impl DbState {
         }
         if expected_input == output {
             return Err(rusqlite::Error::InvalidParameterName(
-                "The Recipe did not change the clip".to_string(),
+                "The Transform did not change the clip".to_string(),
             ));
         }
         let (action_label, organization) =
@@ -2917,20 +3257,20 @@ impl DbState {
                     )
                     .unwrap_or_else(|_| format!("Bin #{destination_bin_id}"));
                 (
-                    format!("Moved to {destination_name} · Applied {recipe_name}"),
+                    format!("Moved to {destination_name} · Applied {transform_name}"),
                     Some(ClipRevisionOrganization {
                         category_bin_id: previous_bin_id,
                     }),
                 )
             } else {
-                (format!("Applied {recipe_name}"), None)
+                (format!("Applied {transform_name}"), None)
             };
         let context_json = serde_json::to_string(&ClipRevisionContext {
             schema_version: 1,
             action_kind: if organization.is_some() {
-                "recipe_bin_drop".to_string()
+                "transform_bin_drop".to_string()
             } else {
-                "recipe".to_string()
+                "transform".to_string()
             },
             action_label,
             organization,
@@ -2946,14 +3286,14 @@ impl DbState {
             tx.query_row("SELECT lower(hex(randomblob(16)))", [], |row| row.get(0))?;
         tx.execute(
             "INSERT INTO clip_transformations
-                (id, clip_id, recipe_id, recipe_name, recipe_revision, connection_id, duration_ms)
+                (id, clip_id, transform_id, transform_name, transform_revision, connection_id, duration_ms)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
             params![
                 transformation_id,
                 clip_id,
-                recipe_id,
-                recipe_name,
-                recipe_revision,
+                transform_id,
+                transform_name,
+                transform_revision,
                 connection_id,
                 duration_ms.max(0)
             ],
@@ -2969,9 +3309,9 @@ impl DbState {
         )?;
         tx.commit()?;
         Ok(ClipTransformationProvenance {
-            recipe_ref: format!("recipe:{recipe_id}"),
-            recipe_name,
-            recipe_revision,
+            transform_ref: format!("transform:{transform_id}"),
+            transform_name,
+            transform_revision,
             connection_id: connection_id.map(str::to_string),
             duration_ms: duration_ms.max(0),
             created_at,
@@ -2984,8 +3324,8 @@ impl DbState {
     ) -> Result<Option<ClipTransformationProvenance>> {
         let conn = self.conn.lock();
         let result = conn.query_row(
-            "SELECT transformation.recipe_id, transformation.recipe_name,
-                    transformation.recipe_revision, transformation.connection_id,
+            "SELECT transformation.transform_id, transformation.transform_name,
+                    transformation.transform_revision, transformation.connection_id,
                     transformation.duration_ms, transformation.created_at
              FROM clips
              JOIN clip_transformations transformation
@@ -2993,13 +3333,13 @@ impl DbState {
              WHERE clips.id = ?1",
             params![clip_id],
             |row| {
-                let recipe_id: Option<String> = row.get(0)?;
+                let transform_id: Option<String> = row.get(0)?;
                 Ok(ClipTransformationProvenance {
-                    recipe_ref: recipe_id
-                        .map(|id| format!("recipe:{id}"))
-                        .unwrap_or_else(|| "recipe:deleted".to_string()),
-                    recipe_name: row.get(1)?,
-                    recipe_revision: row.get(2)?,
+                    transform_ref: transform_id
+                        .map(|id| format!("transform:{id}"))
+                        .unwrap_or_else(|| "transform:deleted".to_string()),
+                    transform_name: row.get(1)?,
+                    transform_revision: row.get(2)?,
                     connection_id: row.get(3)?,
                     duration_ms: row.get(4)?,
                     created_at: row.get(5)?,
@@ -3833,6 +4173,128 @@ mod tests {
     }
 
     #[test]
+    fn partial_pre_release_transform_migration_merges_saved_data() {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let db_path = std::env::temp_dir().join(format!("pasted_transform_terms_{nanos}.db"));
+        {
+            let conn = Connection::open(&db_path).unwrap();
+            conn.execute_batch(
+                r#"CREATE TABLE bins (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    icon TEXT DEFAULT 'Folder',
+                    color TEXT DEFAULT '#3b82f6',
+                    smart_rule TEXT,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    default_recipe_id TEXT,
+                    default_transform_id TEXT
+                );
+                CREATE TABLE transformation_recipes (
+                    row_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    id TEXT NOT NULL UNIQUE,
+                    name TEXT NOT NULL,
+                    plan_json TEXT NOT NULL,
+                    connection_id TEXT,
+                    revision INTEGER NOT NULL DEFAULT 1,
+                    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+                );
+                CREATE TABLE intelligence_connections (
+                    row_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    id TEXT NOT NULL UNIQUE,
+                    name TEXT NOT NULL,
+                    provider_kind TEXT NOT NULL,
+                    endpoint TEXT,
+                    model TEXT,
+                    credential_ref TEXT,
+                    enabled INTEGER NOT NULL DEFAULT 1,
+                    priority INTEGER NOT NULL DEFAULT 0,
+                    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+                );
+                CREATE TABLE clip_transformations (
+                    id TEXT PRIMARY KEY,
+                    clip_id INTEGER NOT NULL,
+                    transform_id TEXT REFERENCES transformation_recipes(id) ON DELETE SET NULL,
+                    transform_name TEXT NOT NULL,
+                    transform_revision INTEGER NOT NULL,
+                    connection_id TEXT,
+                    duration_ms INTEGER NOT NULL DEFAULT 0,
+                    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+                );
+                CREATE TABLE saved_transforms (
+                    row_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    id TEXT NOT NULL UNIQUE,
+                    name TEXT NOT NULL,
+                    plan_json TEXT NOT NULL,
+                    connection_id TEXT,
+                    revision INTEGER NOT NULL DEFAULT 1,
+                    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+                );
+                CREATE TABLE transformation_executions (
+                    id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+                    target_kind TEXT NOT NULL CHECK (target_kind IN ('operation', 'pipeline')),
+                    target_ref TEXT NOT NULL,
+                    target_revision INTEGER,
+                    source_clip_id INTEGER,
+                    trigger_kind TEXT NOT NULL,
+                    started_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    duration_ms INTEGER,
+                    status TEXT NOT NULL DEFAULT 'running',
+                    error_summary TEXT,
+                    input_hash TEXT NOT NULL,
+                    output_hash TEXT
+                );
+                INSERT INTO transformation_recipes (id, name, plan_json)
+                VALUES ('legacy-transform', 'Legacy Markdown',
+                    '{"schema_version":1,"intent":"Markdown","summary":"Markdown","planning_mode":"pinned","steps":[]}');
+                INSERT INTO bins (name, default_recipe_id)
+                VALUES ('Legacy Bin', 'legacy-transform');"#,
+            )
+            .unwrap();
+        }
+
+        let db = DbState::new(db_path).unwrap();
+        let transforms = db.get_saved_transforms().unwrap();
+        assert_eq!(transforms.len(), 1);
+        assert_eq!(transforms[0].stable_ref, "transform:legacy-transform");
+        let legacy_bin_id = db
+            .get_bins()
+            .unwrap()
+            .into_iter()
+            .find(|bin| bin.name == "Legacy Bin")
+            .unwrap()
+            .id;
+        assert_eq!(
+            db.get_bin_transform_ref(legacy_bin_id).unwrap().as_deref(),
+            Some("transform:legacy-transform")
+        );
+
+        let execution_id = db
+            .begin_transformation_execution(
+                "transform",
+                "transform:legacy-transform",
+                Some(1),
+                None,
+                "manual",
+                "preview",
+                "input-hash",
+            )
+            .unwrap();
+        db.finish_transformation_execution(&execution_id, 4, Some("output-hash"), None)
+            .unwrap();
+        let conn = db.conn.lock();
+        assert!(!table_exists(&conn, "transformation_recipes").unwrap());
+        assert!(column_exists(&conn, "bins", "default_transform_id").unwrap());
+        assert!(!column_exists(&conn, "bins", "default_recipe_id").unwrap());
+        assert!(column_exists(&conn, "clip_transformations", "transform_id").unwrap());
+    }
+
+    #[test]
     fn test_settings_storage() {
         let db = setup_test_db();
         db.save_setting("hudHotkey", "CmdOrCtrl+Shift+V").unwrap();
@@ -4586,6 +5048,26 @@ mod tests {
             Some("Backup Tools"),
         )
         .unwrap();
+        let transform_plan = crate::transformation_intent::TransformationPlan {
+            schema_version: crate::transformation_intent::TRANSFORMATION_PLAN_SCHEMA_VERSION,
+            intent: "Uppercase".to_string(),
+            summary: "Uppercase".to_string(),
+            planning_mode: crate::transformation_intent::IntentPlanningMode::Pinned,
+            steps: vec![crate::transformation_intent::PlannedTransformationStep {
+                name: "Uppercase".to_string(),
+                rationale: "Replayable".to_string(),
+                scope: crate::transformation_intent::StepExecutionScope::WholeInput,
+                executor: crate::transformation_intent::PlannedExecutor::Deterministic {
+                    operation_ref: "builtin:uppercase".to_string(),
+                    config_json: None,
+                },
+            }],
+        };
+        let saved_transform = db
+            .create_saved_transform("Backup Transform", &transform_plan, None)
+            .unwrap();
+        db.set_bin_transform_ref(bin.id, Some(&saved_transform.stable_ref))
+            .unwrap();
 
         let json = db.export_backup_json().unwrap();
         assert!(json.contains("Backup Test Item"));
@@ -4645,6 +5127,16 @@ mod tests {
             restored_pipeline.steps[1].operation_ref,
             "builtin:uppercase"
         );
+        assert_eq!(
+            db2.get_saved_transforms().unwrap()[0].stable_ref,
+            saved_transform.stable_ref
+        );
+        assert_eq!(
+            db2.get_bin_transform_ref(restored_bin.id)
+                .unwrap()
+                .as_deref(),
+            Some(saved_transform.stable_ref.as_str())
+        );
         assert!(db2
             .get_operations()
             .unwrap()
@@ -4669,13 +5161,13 @@ mod tests {
 
         let json = db.export_backup_json().unwrap();
         let payload: BackupPayload = serde_json::from_str(&json).unwrap();
-        assert_eq!(payload.version, 4);
+        assert_eq!(payload.version, 5);
         assert_eq!(payload.clips.len(), 501);
         assert_eq!(db.get_clips(None, None, false).unwrap().len(), 501);
     }
 
     #[test]
-    fn test_transformation_recipe_roundtrip_and_delete() {
+    fn test_saved_transform_roundtrip_and_delete() {
         let db = setup_test_db();
         let connection = db
             .create_intelligence_connection(
@@ -4702,32 +5194,46 @@ mod tests {
                 },
             }],
         };
-        let recipe = db
-            .create_transformation_recipe("Markdown", &plan, Some(connection.id.as_str()))
+        let transform = db
+            .create_saved_transform("Markdown", &plan, Some(connection.id.as_str()))
             .unwrap();
-        assert!(recipe.stable_ref.starts_with("recipe:"));
+        assert!(transform.stable_ref.starts_with("transform:"));
         assert_eq!(
-            recipe.connection_id.as_deref(),
+            transform.connection_id.as_deref(),
             Some(connection.id.as_str())
         );
-        assert_eq!(recipe.plan, plan);
-        assert_eq!(db.get_transformation_recipes().unwrap().len(), 1);
+        assert_eq!(transform.plan, plan);
+        assert_eq!(db.get_saved_transforms().unwrap().len(), 1);
         assert_eq!(
-            db.resolve_transformation_recipe(&recipe.stable_ref)
+            db.resolve_saved_transform(&transform.stable_ref)
                 .unwrap()
                 .unwrap()
                 .name,
             "Markdown"
         );
-        db.delete_transformation_recipe(&recipe.stable_ref).unwrap();
-        assert!(db.get_transformation_recipes().unwrap().is_empty());
+        let mut updated_plan = plan.clone();
+        updated_plan.summary = "Convert text to concise Markdown".to_string();
+        let updated = db
+            .update_saved_transform(
+                &transform.stable_ref,
+                "Concise Markdown",
+                &updated_plan,
+                Some(connection.id.as_str()),
+            )
+            .unwrap();
+        assert_eq!(updated.stable_ref, transform.stable_ref);
+        assert_eq!(updated.name, "Concise Markdown");
+        assert_eq!(updated.revision, transform.revision + 1);
+        assert_eq!(updated.plan, updated_plan);
+        db.delete_saved_transform(&transform.stable_ref).unwrap();
+        assert!(db.get_saved_transforms().unwrap().is_empty());
     }
 
     #[test]
-    fn test_recipe_preview_applies_atomically_with_revision_and_provenance() {
+    fn test_transform_preview_applies_atomically_with_revision_and_provenance() {
         let db = setup_test_db();
         let clip = db
-            .save_clip("text", Some("hello"), None, None, "recipe-clip", "Test")
+            .save_clip("text", Some("hello"), None, None, "transform-clip", "Test")
             .unwrap();
         let plan = crate::transformation_intent::TransformationPlan {
             schema_version: crate::transformation_intent::TRANSFORMATION_PLAN_SCHEMA_VERSION,
@@ -4744,13 +5250,18 @@ mod tests {
                 },
             }],
         };
-        let recipe = db
-            .create_transformation_recipe("Uppercase", &plan, None)
-            .unwrap();
+        let transform = db.create_saved_transform("Uppercase", &plan, None).unwrap();
         let provenance = db
-            .apply_recipe_output_to_clip(clip.id, &recipe.stable_ref, "hello", "HELLO", None, 12)
+            .apply_transform_output_to_clip(
+                clip.id,
+                &transform.stable_ref,
+                "hello",
+                "HELLO",
+                None,
+                12,
+            )
             .unwrap();
-        assert_eq!(provenance.recipe_name, "Uppercase");
+        assert_eq!(provenance.transform_name, "Uppercase");
         assert_eq!(provenance.duration_ms, 12);
         assert_eq!(
             db.get_clip_versions(clip.id).unwrap()[0].text_content,
@@ -4760,8 +5271,8 @@ mod tests {
             db.get_clip_transformation_provenance(clip.id)
                 .unwrap()
                 .unwrap()
-                .recipe_ref,
-            recipe.stable_ref
+                .transform_ref,
+            transform.stable_ref
         );
         let current = db
             .get_clips(None, None, false)
@@ -4771,9 +5282,9 @@ mod tests {
             .unwrap();
         assert_eq!(current.text_content.as_deref(), Some("HELLO"));
 
-        let stale = db.apply_recipe_output_to_clip(
+        let stale = db.apply_transform_output_to_clip(
             clip.id,
-            &recipe.stable_ref,
+            &transform.stable_ref,
             "hello",
             "ANOTHER RESULT",
             None,
@@ -4787,7 +5298,7 @@ mod tests {
     }
 
     #[test]
-    fn recipe_bin_drop_revision_restores_content_and_previous_bin_only() {
+    fn transform_bin_drop_revision_restores_content_and_previous_bin_only() {
         let db = setup_test_db();
         let source_bin = db.create_bin("Source", "📥", "#111111", None).unwrap();
         let destination_bin = db.create_bin("Markdown", "📝", "#222222", None).unwrap();
@@ -4814,14 +5325,12 @@ mod tests {
                 },
             }],
         };
-        let recipe = db
-            .create_transformation_recipe("Uppercase", &plan, None)
-            .unwrap();
+        let transform = db.create_saved_transform("Uppercase", &plan, None).unwrap();
 
         db.assign_to_bin(clip.id, Some(destination_bin.id)).unwrap();
-        db.apply_recipe_output_to_clip_after_bin_move(
+        db.apply_transform_output_to_clip_after_bin_move(
             clip.id,
-            &recipe.stable_ref,
+            &transform.stable_ref,
             "hello",
             "HELLO",
             None,
@@ -4858,7 +5367,7 @@ mod tests {
             db.get_clip_transformation_provenance(clip.id)
                 .unwrap()
                 .unwrap()
-                .recipe_name,
+                .transform_name,
             "Uppercase"
         );
     }

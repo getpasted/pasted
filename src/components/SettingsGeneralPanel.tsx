@@ -289,8 +289,8 @@ export function SettingsGeneralPanel({
                 <div className="pr-4 flex-1 min-w-0">
                   <span className="font-semibold theme-text-main block">Revisions per Clip:</span>
                   <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
-                    Keeps complete text snapshots for edits, OCR, Recipes, and restores.
-                    {settings.revisionHistoryLimit === 0 && ' Unlimited history can grow quickly when Recipes run automatically.'}
+                    Keeps complete text snapshots for edits, OCR, Transforms, and restores.
+                    {settings.revisionHistoryLimit === 0 && ' Unlimited history can grow quickly when Transforms run automatically.'}
                   </p>
                 </div>
                 <select

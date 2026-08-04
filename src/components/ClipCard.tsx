@@ -3,6 +3,8 @@ import { formatClipTime } from '../utils/date';
 import { formatEmojiIcon } from '../utils/emoji';
 import { ClipItem, getClipNoteSummary, isSensitiveText, maskSensitiveText } from '../types';
 import type { ClipViewPolicy } from '../utils/clipViewPolicy';
+import { clipDeleteLabel, UI_COPY } from '../utils/uiCopy';
+import { FloatingActionStrip } from './FloatingActionStrip';
 import {
   Code,
   FileText,
@@ -24,7 +26,9 @@ import {
   Shield,
   Workflow,
   LoaderCircle,
+  AlertTriangle,
   ShieldOff,
+  X,
 } from 'lucide-react';
 
 interface ClipCardProps {
@@ -35,6 +39,7 @@ interface ClipCardProps {
   isDragging?: boolean;
   isDragInProgress?: boolean;
   isTransforming?: boolean;
+  transformError?: string;
   reorderOffsetY?: number;
   isDeleting?: boolean;
   viewPolicy: ClipViewPolicy;
@@ -44,6 +49,7 @@ interface ClipCardProps {
   primaryBinIcon?: string;
   rowHeight?: 'small' | 'medium' | 'large';
   selectionVersion: string;
+  trashEnabled: boolean;
   onSelect: (e: React.MouseEvent) => void;
   onPin: () => void;
   onToggleProtected?: () => void;
@@ -69,6 +75,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
   isDragging = false,
   isDragInProgress = false,
   isTransforming = false,
+  transformError,
   reorderOffsetY = 0,
   isDeleting = false,
   viewPolicy,
@@ -77,6 +84,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
   primaryBinName,
   primaryBinIcon,
   rowHeight = 'medium',
+  trashEnabled,
   onSelect,
   onPin,
   onToggleProtected,
@@ -266,11 +274,21 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
           {isTransforming && (
             <span
               role="status"
-              aria-label="Applying Recipe"
-              title="Applying Recipe…"
+              aria-label="Applying Transform"
+              title="Applying Transform…"
               className="clip-meta-item clip-meta-icon-only clip-transform-working"
             >
               <LoaderCircle className="clip-meta-icon animate-spin" />
+            </span>
+          )}
+          {!isTransforming && transformError && (
+            <span
+              role="status"
+              aria-label="Transform failed"
+              title={`Transform failed: ${transformError}`}
+              className="clip-meta-item clip-meta-icon-only theme-danger-text"
+            >
+              <AlertTriangle className="clip-meta-icon" />
             </span>
           )}
           {primaryBinName && (
@@ -286,8 +304,8 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
           {clip.is_protected && (
             <span
               role="img"
-              aria-label="Protected Clip"
-              title="Clip is Protected against deletion"
+              aria-label="Protected clip"
+              title="Protected"
               className="clip-meta-item clip-meta-icon-only clip-protected-accent"
             >
               <Shield className="clip-meta-icon" />
@@ -296,8 +314,8 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
           {clip.is_transformed && (
             <span
               role="img"
-              aria-label="Transformed Clip"
-              title="Transformed with a Recipe"
+              aria-label="Transformed clip"
+              title="Transformed"
               className="clip-meta-item clip-meta-icon-only transform-accent pipelines"
             >
               <Workflow className="clip-meta-icon" />
@@ -317,8 +335,8 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
           {clip.content_type === 'image' && clip.text_content && (
             <span
               role="img"
-              aria-label="OCR Text Recognized"
-              title="OCR Text Recognized"
+              aria-label="OCR text available"
+              title="OCR Text"
               className="clip-meta-item clip-meta-icon-only clip-ocr-accent"
             >
               <ScanText className="clip-meta-icon" />
@@ -330,12 +348,12 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
             </span>
           )}
           {clip.is_pinned && (
-            <span title="Pinned Clip" className="clip-meta-item clip-meta-icon-only">
+            <span title="Pinned" className="clip-meta-item clip-meta-icon-only">
               <Pin className="clip-meta-icon pin-icon" />
             </span>
           )}
           {isTrashMode && (
-            <span role="img" aria-label="Trashed Clip" title="Trashed Clip" className="clip-meta-item clip-meta-icon-only clip-trash-badge">
+            <span role="img" aria-label="Clip in Trash" title="In Trash" className="clip-meta-item clip-meta-icon-only clip-trash-badge">
               <Trash2 className="clip-meta-icon" />
             </span>
           )}
@@ -372,7 +390,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
                 setShowRevealed(true);
               }}
               className="clip-sensitive-action ml-2 p-1 rounded transition-colors"
-              title="Click to reveal sensitive key/secret"
+              title="Reveal Sensitive Text"
             >
               <Eye className="w-3.5 h-3.5" />
             </button>
@@ -386,8 +404,8 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
                   e.stopPropagation();
                   setShowRevealed(false);
                 }}
-                className="clip-card-action ml-2 p-1 rounded transition-colors shrink-0"
-                title="Hide sensitive key/secret"
+                className="clip-sensitive-action ml-2 p-1 rounded transition-colors shrink-0"
+                title="Hide Sensitive Text"
               >
                 <EyeOff className="w-3.5 h-3.5" />
               </button>
@@ -405,15 +423,14 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
       )}
 
       {/* Hover Action Buttons */}
-      <div
-        onPointerDown={(e) => e.stopPropagation()}
-        onMouseDown={(e) => e.stopPropagation()}
-        className={`clip-card-actions absolute right-2 bottom-2 transition-opacity flex items-center space-x-1 p-1 rounded-lg border shadow-xl ${showActions && !isDragInProgress ? 'visible opacity-100' : 'invisible opacity-0 pointer-events-none'}`}
+      <FloatingActionStrip
+        label="Clip actions"
+        visible={showActions && !isDragInProgress}
       >
         <button
           onClick={handleCopy}
-          className="clip-card-action p-1 rounded"
-          title="Copy to Clipboard"
+          className="floating-action-button"
+          title={copied ? UI_COPY.copied : UI_COPY.copy}
         >
           {copied ? (
             <Check className="w-3.5 h-3.5 theme-status-success-text" />
@@ -430,8 +447,8 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
                   e.stopPropagation();
                   onPasteQueueItem();
                 }}
-                className="clip-card-action is-accent p-1 rounded"
-                title="Paste this Queued Item"
+                className="floating-action-button is-accent"
+                title="Paste"
               >
                 <ArrowRightCircle className="w-3.5 h-3.5" />
               </button>
@@ -442,7 +459,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
                   e.stopPropagation();
                   onRemoveFromQueue();
                 }}
-                className="clip-card-action is-danger p-1 rounded"
+                className="floating-action-button is-danger"
                 title="Remove from Queue"
               >
                 <MinusCircle className="w-3.5 h-3.5" />
@@ -456,8 +473,8 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
                 e.stopPropagation();
                 onRestore?.();
               }}
-              className="clip-card-action is-accent p-1 rounded"
-              title="Restore Clip from Trash"
+              className="floating-action-button is-accent"
+              title={UI_COPY.restore}
             >
               <RotateCcw className="w-3.5 h-3.5" />
             </button>
@@ -466,8 +483,8 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
                 e.stopPropagation();
                 onPurgePermanently?.();
               }}
-              className="clip-card-action is-danger p-1 rounded"
-              title="Delete Permanently"
+              className="floating-action-button is-danger"
+              title={UI_COPY.deletePermanently}
             >
               <Trash className="w-3.5 h-3.5" />
             </button>
@@ -479,10 +496,10 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
                 e.stopPropagation();
                 onPin();
               }}
-              className={`clip-card-action p-1 rounded ${
+              className={`floating-action-button ${
                 clip.is_pinned ? 'is-warning pin-icon' : ''
               }`}
-              title={clip.is_pinned ? 'Unpin' : 'Pin Clip'}
+              title={clip.is_pinned ? UI_COPY.unpin : UI_COPY.pin}
             >
               <Pin className="w-3.5 h-3.5" />
             </button>
@@ -493,10 +510,10 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
                   e.stopPropagation();
                   onToggleProtected();
                 }}
-                className={`clip-card-action p-1 rounded ${
+                className={`floating-action-button ${
                   clip.is_protected ? 'is-accent' : ''
                 }`}
-                title={clip.is_protected ? 'Unprotect Clip' : 'Protect Clip'}
+                title={clip.is_protected ? UI_COPY.unprotect : UI_COPY.protect}
               >
                 {clip.is_protected ? (
                   <ShieldOff className="w-3.5 h-3.5" />
@@ -514,18 +531,22 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
                 }
               }}
               disabled={clip.is_protected}
-              className={`p-1 rounded transition-colors ${
+              className={`floating-action-button ${
                 clip.is_protected
                   ? 'is-disabled cursor-not-allowed opacity-50'
-                  : 'clip-card-action is-danger'
+                  : 'is-danger'
               }`}
-              title={clip.is_protected ? 'Clip is Protected. Unprotect first to delete.' : 'Move to Trash (Option-click to permanently delete)'}
+              title={clip.is_protected
+                ? 'Clip is Protected. Unprotect first to delete.'
+                : trashEnabled
+                  ? `${UI_COPY.moveToTrash} (Option-click to delete permanently)`
+                  : clipDeleteLabel({ trashEnabled })}
             >
-              <Trash2 className="w-3.5 h-3.5" />
+              {trashEnabled ? <Trash2 className="w-3.5 h-3.5" /> : <X className="w-3.5 h-3.5" />}
             </button>
           </>
         )}
-      </div>
+      </FloatingActionStrip>
 
     </div>
   );
@@ -555,6 +576,7 @@ export const ClipCard = React.memo(ClipCardComponent, (prevProps, nextProps) => 
     prevProps.isDragging === nextProps.isDragging &&
     prevProps.isDragInProgress === nextProps.isDragInProgress &&
     prevProps.isTransforming === nextProps.isTransforming &&
+    prevProps.transformError === nextProps.transformError &&
     prevProps.reorderOffsetY === nextProps.reorderOffsetY &&
     prevProps.isDeleting === nextProps.isDeleting &&
     prevProps.viewPolicy.state === nextProps.viewPolicy.state &&
@@ -564,6 +586,7 @@ export const ClipCard = React.memo(ClipCardComponent, (prevProps, nextProps) => 
     prevProps.primaryBinName === nextProps.primaryBinName &&
     prevProps.primaryBinIcon === nextProps.primaryBinIcon &&
     prevProps.rowHeight === nextProps.rowHeight &&
+    prevProps.trashEnabled === nextProps.trashEnabled &&
     prevProps.selectionVersion === nextProps.selectionVersion
   );
 });

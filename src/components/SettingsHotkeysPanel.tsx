@@ -55,8 +55,8 @@ const defaultHotkeys: Partial<AppSettings> = {
 const actionHotkeys: Array<{ label: string; key: HotkeySetting; fallback?: string }> = [
   { label: 'Enable/Disable Queue', key: 'seqToggleHotkey', fallback: 'Alt+Shift+C' },
   { label: 'Paste Next Item from Queue', key: 'seqPopHotkey', fallback: 'Alt+Shift+X' },
-  { label: 'Copy with Last Pipeline', key: 'copyLastPipelineHotkey' },
-  { label: 'Paste with Last Pipeline', key: 'pasteLastPipelineHotkey' },
+  { label: 'Copy with Last Advanced Transform', key: 'copyLastPipelineHotkey' },
+  { label: 'Paste with Last Advanced Transform', key: 'pasteLastPipelineHotkey' },
   { label: 'Open Transformations', key: 'openTransformationsHotkey' },
   { label: 'Toggle Main Window', key: 'openMainWindowHotkey' },
 ];
@@ -187,7 +187,7 @@ export function SettingsHotkeysPanel({
       </section>
 
       <section className="theme-divider space-y-2 pt-3 border-t">
-        <h4 className="font-bold theme-text-muted uppercase tracking-wider text-[10px]">Pipeline Hotkeys ({pipelines.length})</h4>
+        <h4 className="font-bold theme-text-muted uppercase tracking-wider text-[10px]">Advanced Transform Hotkeys ({pipelines.length})</h4>
         <p className="text-[11px] theme-text-muted">Assign shortcuts to run reusable transformations instantly.</p>
         <div className="space-y-2 pt-1 max-h-60 overflow-y-auto pr-1">
           {pipelines.map((pipeline) => <HotkeyRow key={pipeline.id} label={pipeline.name} value={pipeline.shortcut ?? null} onChange={async (shortcut) => {
@@ -195,8 +195,8 @@ export function SettingsHotkeysPanel({
                 await invoke('update_pipeline_shortcut', { pipelineRef: pipeline.stableRef, shortcut });
                 onRefreshPipelines?.();
               } catch (error) {
-                console.error('Failed to update Pipeline shortcut:', error);
-                setStatusMessage('That Pipeline shortcut could not be registered.');
+                console.error('Failed to update Advanced Transform shortcut:', error);
+                setStatusMessage('That Advanced Transform shortcut could not be registered.');
               }
             }} />)}
         </div>

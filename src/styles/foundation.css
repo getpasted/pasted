@@ -20,8 +20,7 @@ body.hud-mode,
 }
 
 /* Stable Drag Handle Cursor Rules */
-.step-drag-handle,
-.step-drag-handle * {
+.step-drag-handle {
   cursor: -webkit-grab !important;
   cursor: grab !important;
   user-select: none !important;
@@ -29,8 +28,7 @@ body.hud-mode,
   -webkit-user-drag: none !important;
 }
 
-.step-drag-handle:active,
-.step-drag-handle:active * {
+.step-drag-handle:active {
   cursor: -webkit-grabbing !important;
   cursor: grabbing !important;
 }
@@ -51,7 +49,7 @@ body.hud-mode,
     --bg-preview: #212121;
     --bg-card: #212121;
     --bg-card-hover: #2a2a2a;
-    --bg-clip-card-hover: #2d2d2f;
+    --bg-clip-card-hover: #272729;
     --bg-card-selected: #2e2e2e;
     --bg-surface: #181818;
     --bg-input: #181818;
@@ -66,7 +64,7 @@ body.hud-mode,
     --border-subtle: #333333;
     --border-card: #333333;
     --border-card-selected: #555555;
-    --border-clip-card-hover: #68686d;
+    --border-clip-card-hover: #444448;
     --border-input: #3a3a3a;
 
     --text-title: #ffffff;
@@ -108,7 +106,7 @@ body.hud-mode,
     --bg-preview: #f4f4f7;
     --bg-card: #ffffff;
     --bg-card-hover: #f0f0f4;
-    --bg-clip-card-hover: #e9e9ee;
+    --bg-clip-card-hover: #f0f0f4;
     --bg-card-selected: #e2e2e8;
     --bg-surface: #ffffff;
     --bg-input: #ffffff;
@@ -123,7 +121,7 @@ body.hud-mode,
     --border-subtle: #b0b0b6;
     --border-card: #b0b0b6;
     --border-card-selected: #8e8e93;
-    --border-clip-card-hover: #7c7c82;
+    --border-clip-card-hover: #a0a0a6;
     --border-input: #b0b0b6;
 
     --text-title: #1c1c1e;
@@ -165,7 +163,7 @@ body.hud-mode,
     --bg-preview: #f7f1e8;
     --bg-card: #fffaf2;
     --bg-card-hover: #f1e7d9;
-    --bg-clip-card-hover: #eadfce;
+    --bg-clip-card-hover: #f1e7d9;
     --bg-card-selected: #e3d5c2;
     --bg-surface: #fffdf8;
     --bg-input: #fffdf8;
@@ -180,7 +178,7 @@ body.hud-mode,
     --border-subtle: #b9aa98;
     --border-card: #b9aa98;
     --border-card-selected: #8f7b65;
-    --border-clip-card-hover: #816f5b;
+    --border-clip-card-hover: #a79887;
     --border-input: #b9aa98;
 
     --text-title: #2b2118;
@@ -220,7 +218,7 @@ body.hud-mode,
     --bg-preview: #211827;
     --bg-card: #2a1f32;
     --bg-card-hover: #34263e;
-    --bg-clip-card-hover: #3a2944;
+    --bg-clip-card-hover: #34263e;
     --bg-card-selected: #403049;
     --bg-surface: #211827;
     --bg-input: #1b1422;
@@ -235,7 +233,7 @@ body.hud-mode,
     --border-subtle: #4f3d5b;
     --border-card: #584364;
     --border-card-selected: #846b91;
-    --border-clip-card-hover: #91769f;
+    --border-clip-card-hover: #6f5880;
     --border-input: #594565;
 
     --text-title: #fff8ff;
@@ -275,7 +273,7 @@ body.hud-mode,
     --bg-preview: #0b1d25;
     --bg-card: #102832;
     --bg-card-hover: #14343f;
-    --bg-clip-card-hover: #173b47;
+    --bg-clip-card-hover: #14343f;
     --bg-card-selected: #1a4350;
     --bg-surface: #0c222b;
     --bg-input: #081820;
@@ -290,7 +288,7 @@ body.hud-mode,
     --border-subtle: #28515c;
     --border-card: #315e68;
     --border-card-selected: #4f8490;
-    --border-clip-card-hover: #65a0aa;
+    --border-clip-card-hover: #40727d;
     --border-input: #315e68;
 
     --text-title: #f3fdff;
@@ -331,7 +329,7 @@ body.hud-mode,
     --bg-preview: #201e1b;
     --bg-card: #292622;
     --bg-card-hover: #342f29;
-    --bg-clip-card-hover: #3a342d;
+    --bg-clip-card-hover: #342f29;
     --bg-card-selected: #423a31;
     --bg-surface: #1d1b19;
     --bg-input: #171614;
@@ -346,7 +344,7 @@ body.hud-mode,
     --border-subtle: #51483e;
     --border-card: #5e5246;
     --border-card-selected: #8b6c4d;
-    --border-clip-card-hover: #a47a50;
+    --border-clip-card-hover: #735f4b;
     --border-input: #5e5246;
 
     --text-title: #fffaf0;

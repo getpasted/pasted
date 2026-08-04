@@ -12,9 +12,12 @@ import {
   Search,
   Pause,
   Play,
-  Sparkles,
+  Workflow,
+  History,
+  ListFilter,
 } from 'lucide-react';
 import { ToolPageHeader } from './ToolPageHeader';
+import { MenuSelect } from './MenuSelect';
 
 export interface ActivityLog {
   id: number;
@@ -88,10 +91,11 @@ export const ActivityLogView: React.FC = () => {
           </div>
         );
       case 'clip_trashed':
+      case 'clip_auto_trashed':
         return (
           <div className="theme-status-danger flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold">
             <Trash2 className="w-3.5 h-3.5" />
-            <span>Trashed</span>
+            <span>{type === 'clip_auto_trashed' ? 'Auto-Trashed' : 'Trashed'}</span>
           </div>
         );
       case 'clips_trashed_all':
@@ -106,6 +110,13 @@ export const ActivityLogView: React.FC = () => {
           <div className="theme-status-info flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold">
             <RotateCcw className="w-3.5 h-3.5" />
             <span>Restored</span>
+          </div>
+        );
+      case 'clip_revision_restored':
+        return (
+          <div className="theme-status-info flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold">
+            <History className="w-3.5 h-3.5" />
+            <span>Revision Restored</span>
           </div>
         );
       case 'trash_emptied':
@@ -143,24 +154,28 @@ export const ActivityLogView: React.FC = () => {
             <span>Note</span>
           </div>
         );
-      case 'recipe_drafted':
-      case 'recipe_tested':
-      case 'recipe_saved':
-      case 'recipe_executed':
+      case 'transform_drafted':
+      case 'transform_tested':
+      case 'transform_saved':
+      case 'transform_updated':
+      case 'transform_executed':
+      case 'bin_transform_executed':
+      case 'bin_transform_no_change':
       case 'clip_transformed':
         return (
           <div className="theme-status-success flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>{type === 'recipe_drafted' ? 'Drafted' : type === 'recipe_tested' ? 'Tested' : type === 'recipe_saved' ? 'Saved' : 'Transformed'}</span>
+            <Workflow className="w-3.5 h-3.5" />
+            <span>{type === 'transform_drafted' ? 'Drafted' : type === 'transform_tested' ? 'Tested' : type === 'transform_saved' ? 'Saved' : type === 'transform_updated' ? 'Updated' : type === 'bin_transform_no_change' ? 'No Change' : 'Transformed'}</span>
           </div>
         );
-      case 'recipe_draft_failed':
-      case 'recipe_test_failed':
-      case 'recipe_execution_failed':
+      case 'transform_draft_failed':
+      case 'transform_test_failed':
+      case 'transform_execution_failed':
+      case 'bin_transform_failed':
         return (
           <div className="theme-status-danger flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Recipe Failed</span>
+            <Workflow className="w-3.5 h-3.5" />
+            <span>Transform Failed</span>
           </div>
         );
       default:
@@ -181,14 +196,15 @@ export const ActivityLogView: React.FC = () => {
       l.event_type.toLowerCase().includes(filter.toLowerCase());
     if (!matchesSearch) return false;
     if (selectedTypeFilter === 'all') return true;
-    if (selectedTypeFilter === 'trashed') return l.event_type === 'clip_trashed' || l.event_type === 'clips_trashed_all';
+    if (selectedTypeFilter === 'trashed') return l.event_type === 'clip_trashed' || l.event_type === 'clip_auto_trashed' || l.event_type === 'clips_trashed_all';
     if (selectedTypeFilter === 'restored') return l.event_type === 'clip_restored';
+    if (selectedTypeFilter === 'revisions') return l.event_type === 'clip_revision_restored';
     if (selectedTypeFilter === 'purged') return l.event_type === 'clip_deleted' || l.event_type === 'trash_emptied' || l.event_type === 'clips_purged_all';
     if (selectedTypeFilter === 'protection') return l.event_type === 'clip_protected_toggled';
     if (selectedTypeFilter === 'paused') return l.event_type === 'recording_auto_paused' || l.event_type === 'recording_manually_paused';
     if (selectedTypeFilter === 'resumed') return l.event_type === 'recording_auto_resumed' || l.event_type === 'recording_manually_resumed';
     if (selectedTypeFilter === 'notes') return l.event_type === 'note_updated';
-    if (selectedTypeFilter === 'recipes') return l.event_type.startsWith('recipe_') || l.event_type === 'clip_transformed';
+    if (selectedTypeFilter === 'transforms') return l.event_type.startsWith('transform_') || l.event_type.startsWith('bin_transform_') || l.event_type === 'clip_transformed';
     return true;
   });
 
@@ -199,22 +215,25 @@ export const ActivityLogView: React.FC = () => {
         title="Activity Log"
         actions={(
           <div className="flex items-center space-x-2.5">
-          {/* Event Type Filter Selector */}
-          <select
+          <MenuSelect
             value={selectedTypeFilter}
-            onChange={(e) => setSelectedTypeFilter(e.target.value)}
-            className="theme-input border rounded-xl px-3 py-1.5 text-xs focus:outline-none font-medium"
-          >
-            <option value="all">All Event Types</option>
-            <option value="trashed">Trashed</option>
-            <option value="restored">Restored</option>
-            <option value="purged">Purged / Permanently Deleted</option>
-            <option value="protection">Protection Changed</option>
-            <option value="paused">Auto-Paused</option>
-            <option value="resumed">Auto-Resumed</option>
-            <option value="notes">Notes Updated</option>
-            <option value="recipes">Recipes</option>
-          </select>
+            onChange={setSelectedTypeFilter}
+            label="Filter Activity"
+            leadingIcon={<ListFilter className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />}
+            className="min-w-44"
+            options={[
+              { value: 'all', label: 'All Event Types' },
+              { value: 'trashed', label: 'Trashed' },
+              { value: 'restored', label: 'Restored from Trash' },
+              { value: 'revisions', label: 'Revision Restored' },
+              { value: 'purged', label: 'Permanently Deleted' },
+              { value: 'protection', label: 'Protection Changed' },
+              { value: 'paused', label: 'Recording Paused' },
+              { value: 'resumed', label: 'Recording Resumed' },
+              { value: 'notes', label: 'Notes Updated' },
+              { value: 'transforms', label: 'Transforms' },
+            ]}
+          />
 
           <div className="relative">
             <Search className="theme-text-muted w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2" />

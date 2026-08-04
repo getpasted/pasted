@@ -158,7 +158,7 @@ export const HelpView: React.FC = () => {
                           type="button"
                           onClick={() => handleCopyCode(CLI_SYMLINK_COMMAND)}
                           className="theme-icon-button shrink-0 rounded border p-1"
-                          title="Copy symlink command"
+                          title="Copy Command"
                         >
                           {copiedCmd === CLI_SYMLINK_COMMAND ? <Check className="h-3.5 w-3.5 theme-status-success-text" /> : <Copy className="h-3.5 w-3.5" />}
                         </button>
@@ -173,7 +173,7 @@ export const HelpView: React.FC = () => {
                           type="button"
                           onClick={() => handleCopyCode(CLI_ALIAS_COMMAND)}
                           className="theme-icon-button shrink-0 rounded border p-1"
-                          title="Copy shell alias"
+                          title="Copy Alias"
                         >
                           {copiedCmd === CLI_ALIAS_COMMAND ? <Check className="h-3.5 w-3.5 theme-status-success-text" /> : <Copy className="h-3.5 w-3.5" />}
                         </button>
@@ -191,7 +191,7 @@ export const HelpView: React.FC = () => {
                   <button
                     onClick={() => handleCopyCode('echo "Log data" | pasted-cli copy')}
                     className="theme-icon-button p-1 rounded border"
-                    title="Copy command"
+                    title="Copy Command"
                   >
                     {copiedCmd === 'echo "Log data" | pasted-cli copy' ? <Check className="w-3.5 h-3.5 theme-status-success-text" /> : <Copy className="w-3.5 h-3.5" />}
                   </button>
@@ -211,7 +211,7 @@ export const HelpView: React.FC = () => {
                   <button
                     onClick={() => handleCopyCode('pasted-cli list 10')}
                     className="theme-icon-button p-1 rounded border"
-                    title="Copy command"
+                    title="Copy Command"
                   >
                     {copiedCmd === 'pasted-cli list 10' ? <Check className="w-3.5 h-3.5 theme-status-success-text" /> : <Copy className="w-3.5 h-3.5" />}
                   </button>
@@ -229,7 +229,7 @@ export const HelpView: React.FC = () => {
                   <button
                     onClick={() => handleCopyCode('pasted-cli search "api_key"')}
                     className="theme-icon-button p-1 rounded border"
-                    title="Copy command"
+                    title="Copy Command"
                   >
                     {copiedCmd === 'pasted-cli search "api_key"' ? <Check className="w-3.5 h-3.5 theme-status-success-text" /> : <Copy className="w-3.5 h-3.5" />}
                   </button>
@@ -352,7 +352,7 @@ export const HelpView: React.FC = () => {
                   <span>Transformations</span>
                 </h3>
                 <p className="theme-text-muted text-xs mt-1">
-                  Combine reusable Operations into Pipelines, then run them wherever text enters or leaves Pasted.
+                  Describe what you want once, save it as a Transform, then reuse it wherever text enters or leaves Pasted.
                 </p>
               </div>
 

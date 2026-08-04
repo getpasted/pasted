@@ -241,7 +241,7 @@ pub fn start_clipboard_monitor(
                                 let automation_text = text.clone();
                                 let automation_source = source_app.to_string();
                                 thread::spawn(move || {
-                                    crate::intelligence_executor::apply_smart_bin_recipes_for_clip(
+                                    crate::intelligence_executor::apply_smart_bin_transforms_for_clip(
                                         &automation_db,
                                         clip.id,
                                         &automation_type,

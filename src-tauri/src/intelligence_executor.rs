@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -50,6 +51,78 @@ pub struct ExecutePlanOutcome {
     pub connection_id: Option<String>,
     pub connection_name: Option<String>,
     pub duration_ms: i64,
+}
+
+fn content_hash(content: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(content.as_bytes());
+    format!("{:x}", hasher.finalize())
+}
+
+pub fn execute_saved_transform(
+    db: &DbState,
+    transform_ref: &str,
+    input: String,
+    source_clip_id: Option<i64>,
+    trigger_kind: &str,
+    destination_kind: &str,
+) -> Result<(String, ExecutePlanOutcome), IntelligenceExecutionError> {
+    let transform = db
+        .resolve_saved_transform(transform_ref)
+        .map_err(|error| IntelligenceExecutionError::new("database_error", error.to_string()))?
+        .ok_or_else(|| {
+            IntelligenceExecutionError::new(
+                "unknown_transform",
+                format!("Unknown Transform: {transform_ref}"),
+            )
+        })?;
+    let transform_name = transform.name.clone();
+    let execution_id = db
+        .begin_transformation_execution(
+            "transform",
+            &transform.stable_ref,
+            Some(transform.revision),
+            source_clip_id,
+            trigger_kind,
+            destination_kind,
+            &content_hash(&input),
+        )
+        .map_err(|error| IntelligenceExecutionError::new("database_error", error.to_string()))?;
+    db.start_transformation_execution(&execution_id)
+        .map_err(|error| IntelligenceExecutionError::new("database_error", error.to_string()))?;
+    let started = Instant::now();
+    let result = execute_plan(
+        db,
+        ExecutePlanRequest {
+            plan: transform.plan,
+            input,
+            connection_id: transform.connection_id,
+        },
+    );
+    match result {
+        Ok(outcome) => {
+            db.finish_transformation_execution(
+                &execution_id,
+                outcome.duration_ms,
+                Some(&content_hash(&outcome.output)),
+                None,
+            )
+            .map_err(|error| {
+                IntelligenceExecutionError::new("database_error", error.to_string())
+            })?;
+            Ok((transform_name, outcome))
+        }
+        Err(error) => {
+            let duration_ms = started.elapsed().as_millis().min(i64::MAX as u128) as i64;
+            let _ = db.finish_transformation_execution(
+                &execution_id,
+                duration_ms,
+                None,
+                Some(&format!("{}: {}", error.code, error.message)),
+            );
+            Err(error)
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
@@ -129,7 +202,7 @@ fn select_connection(
         .ok_or_else(|| {
             IntelligenceExecutionError::new(
                 "no_enabled_connection",
-                "Power on Codex in Settings → Connections before building a Recipe",
+                "Power on Codex in Settings → Connections before building a Transform",
             )
         })
 }
@@ -449,36 +522,39 @@ pub fn execute_plan(
     })
 }
 
-pub fn apply_smart_bin_recipes_for_clip(
+pub fn apply_smart_bin_transforms_for_clip(
     db: &DbState,
     clip_id: i64,
     content_type: &str,
     initial_text: &str,
     source_app: &str,
 ) {
-    let Ok(matches) = db.matching_smart_bin_recipes(content_type, initial_text, source_app) else {
+    let Ok(matches) = db.matching_smart_bin_transforms(content_type, initial_text, source_app)
+    else {
         return;
     };
     let mut current = initial_text.to_string();
-    for (bin_id, recipe_ref) in matches {
-        let Ok(Some(recipe)) = db.resolve_transformation_recipe(&recipe_ref) else {
-            continue;
-        };
-        let recipe_name = recipe.name.clone();
-        let result = execute_plan(
+    for (bin_id, transform_ref) in matches {
+        let transform_name = db
+            .resolve_saved_transform(&transform_ref)
+            .ok()
+            .flatten()
+            .map(|transform| transform.name)
+            .unwrap_or_else(|| transform_ref.clone());
+        let result = execute_saved_transform(
             db,
-            ExecutePlanRequest {
-                plan: recipe.plan,
-                input: current.clone(),
-                connection_id: recipe.connection_id,
-            },
+            &transform_ref,
+            current.clone(),
+            Some(clip_id),
+            "bin",
+            "replace",
         );
         match result {
-            Ok(outcome) if outcome.output != current => {
+            Ok((transform_name, outcome)) if outcome.output != current => {
                 if db
-                    .apply_recipe_output_to_clip(
+                    .apply_transform_output_to_clip(
                         clip_id,
-                        &recipe_ref,
+                        &transform_ref,
                         &current,
                         &outcome.output,
                         outcome.connection_id.as_deref(),
@@ -487,15 +563,15 @@ pub fn apply_smart_bin_recipes_for_clip(
                     .is_ok()
                 {
                     current = outcome.output;
-                    let _ = db.log_activity("bin_recipe_executed", &format!("Applied Recipe {recipe_name} when clip #{clip_id} matched Smart Bin #{bin_id}"));
+                    let _ = db.log_activity("bin_transform_executed", &format!("Applied Transform {transform_name} when clip #{clip_id} matched Smart Bin #{bin_id}"));
                 }
             }
             Ok(_) => {}
             Err(error) => {
                 let _ = db.log_activity(
-                    "bin_recipe_failed",
+                    "bin_transform_failed",
                     &format!(
-                        "Recipe {recipe_name} failed for Smart Bin #{bin_id} ({})",
+                        "Transform {transform_name} failed for Smart Bin #{bin_id} ({})",
                         error.code
                     ),
                 );
@@ -665,7 +741,7 @@ mod tests {
     }
 
     #[test]
-    fn deterministic_recipe_executes_without_an_intelligence_connection() {
+    fn deterministic_transform_executes_without_an_intelligence_connection() {
         let (db, database_path) = test_db();
         let plan = TransformationPlan {
             schema_version: crate::transformation_intent::TRANSFORMATION_PLAN_SCHEMA_VERSION,
@@ -698,6 +774,49 @@ mod tests {
     }
 
     #[test]
+    fn saved_transform_records_trigger_destination_and_success() {
+        let (db, database_path) = test_db();
+        let clip = db
+            .save_clip("text", Some("hello"), None, None, "ledger-clip", "Test")
+            .unwrap();
+        let plan = TransformationPlan {
+            schema_version: crate::transformation_intent::TRANSFORMATION_PLAN_SCHEMA_VERSION,
+            intent: "Uppercase".to_string(),
+            summary: "Uppercase".to_string(),
+            planning_mode: IntentPlanningMode::Pinned,
+            steps: vec![crate::transformation_intent::PlannedTransformationStep {
+                name: "Uppercase".to_string(),
+                rationale: "Replayable".to_string(),
+                scope: StepExecutionScope::WholeInput,
+                executor: PlannedExecutor::Deterministic {
+                    operation_ref: "builtin:uppercase".to_string(),
+                    config_json: None,
+                },
+            }],
+        };
+        let transform = db.create_saved_transform("Uppercase", &plan, None).unwrap();
+        let (_, outcome) = execute_saved_transform(
+            &db,
+            &transform.stable_ref,
+            "hello".to_string(),
+            Some(clip.id),
+            "bin",
+            "replace",
+        )
+        .unwrap();
+        assert_eq!(outcome.output, "HELLO");
+        let executions = db.get_clip_transformation_executions(clip.id).unwrap();
+        assert_eq!(executions.len(), 1);
+        assert_eq!(executions[0].target_kind, "transform");
+        assert_eq!(executions[0].trigger_kind, "bin");
+        assert_eq!(executions[0].destination_kind, "replace");
+        assert_eq!(executions[0].status, "succeeded");
+        assert!(executions[0].completed_at.is_some());
+        drop(db);
+        let _ = fs::remove_file(database_path);
+    }
+
+    #[test]
     fn semantic_execution_prompt_treats_input_as_inert() {
         let prompt = semantic_prompt(
             "Convert to Markdown",
@@ -711,7 +830,7 @@ mod tests {
 
     #[test]
     #[ignore = "requires an explicitly configured, authenticated Codex CLI"]
-    fn live_codex_connection_returns_a_validated_recipe() {
+    fn live_codex_connection_returns_a_validated_transform() {
         let executable = std::env::var("PASTED_LIVE_CODEX_PATH")
             .expect("set PASTED_LIVE_CODEX_PATH to an authenticated Codex executable");
         let (db, database_path) = test_db();
@@ -735,7 +854,7 @@ mod tests {
 
     #[test]
     #[ignore = "requires an explicitly configured, authenticated Codex CLI"]
-    fn live_codex_connection_executes_a_markdown_recipe() {
+    fn live_codex_connection_executes_a_markdown_transform() {
         let executable = std::env::var("PASTED_LIVE_CODEX_PATH")
             .expect("set PASTED_LIVE_CODEX_PATH to an authenticated Codex executable");
         let (db, database_path) = test_db();
