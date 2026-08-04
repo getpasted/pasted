@@ -4,6 +4,7 @@ mod db;
 mod filter_engine;
 mod hotkey_manager;
 mod ocr;
+mod operation_registry;
 mod sequential_paste;
 
 use std::sync::Arc;
@@ -284,6 +285,7 @@ pub fn run() {
             commands::update_filter_shortcut,
             commands::delete_filter,
             commands::get_operations,
+            commands::get_builtin_operations,
             commands::create_operation,
             commands::update_operation,
             commands::delete_operation,

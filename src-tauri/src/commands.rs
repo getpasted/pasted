@@ -362,6 +362,11 @@ pub fn get_operations(db: State<'_, Arc<DbState>>) -> Result<Vec<crate::db::Oper
 }
 
 #[tauri::command]
+pub fn get_builtin_operations() -> Vec<crate::operation_registry::OperationDefinition> {
+    crate::operation_registry::builtin_operations()
+}
+
+#[tauri::command]
 pub fn create_operation(
     name: String,
     op_type: String,

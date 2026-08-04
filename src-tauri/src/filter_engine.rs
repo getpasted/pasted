@@ -2,6 +2,8 @@ use once_cell::sync::Lazy;
 use regex::Regex;
 use serde_json::Value;
 
+use crate::operation_registry::is_builtin_operation;
+
 static RE_HTML: Lazy<Regex> = Lazy::new(|| Regex::new(r"<[^>]*>").unwrap());
 static RE_EMOJI: Lazy<Regex> = Lazy::new(|| {
     Regex::new(r"[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F700}-\u{1F77F}\u{1F780}-\u{1F7FF}\u{1F800}-\u{1F8FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]").unwrap()
@@ -19,26 +21,34 @@ pub fn apply_filter(
     filter_type: &str,
     config: Option<&str>,
 ) -> Result<String, String> {
+    let is_executor = matches!(filter_type, "pipeline" | "regex" | "shell_script");
+    if !is_executor && !is_builtin_operation(filter_type) {
+        return Err(format!("Unknown operation type: {}", filter_type));
+    }
+
     match filter_type {
         "pipeline" => {
-            if let Some(cfg_str) = config {
-                if let Ok(steps) = serde_json::from_str::<Vec<Value>>(cfg_str) {
-                    let mut current = input.to_string();
-                    for step in steps {
-                        let f_type = step["filter_type"].as_str().unwrap_or("");
-                        let f_cfg = if step["config"].is_string() {
-                            step["config"].as_str().map(|s| s.to_string())
-                        } else if !step["config"].is_null() {
-                            Some(step["config"].to_string())
-                        } else {
-                            None
-                        };
-                        current = apply_filter(&current, f_type, f_cfg.as_deref())?;
-                    }
-                    return Ok(current);
-                }
+            let cfg_str = config.ok_or_else(|| "Pipeline configuration is required".to_string())?;
+            let steps = serde_json::from_str::<Vec<Value>>(cfg_str)
+                .map_err(|error| format!("Invalid pipeline configuration: {}", error))?;
+            let mut current = input.to_string();
+            for (index, step) in steps.into_iter().enumerate() {
+                let f_type = step["filter_type"]
+                    .as_str()
+                    .filter(|value| !value.trim().is_empty())
+                    .ok_or_else(|| format!("Pipeline step {} has no operation type", index + 1))?;
+                let f_cfg = if step["config"].is_string() {
+                    step["config"].as_str().map(|s| s.to_string())
+                } else if !step["config"].is_null() {
+                    Some(step["config"].to_string())
+                } else {
+                    None
+                };
+                current = apply_filter(&current, f_type, f_cfg.as_deref()).map_err(|error| {
+                    format!("Pipeline step {} ({}) failed: {}", index + 1, f_type, error)
+                })?;
             }
-            Ok(input.to_string())
+            Ok(current)
         }
         "lowercase" => Ok(input.to_lowercase()),
         "uppercase" => Ok(input.to_uppercase()),
@@ -134,24 +144,10 @@ pub fn apply_filter(
             }
             Ok(input.to_string())
         }
-        _ => {
-            if let Some(cfg_str) = config {
-                if let Ok(json) = serde_json::from_str::<Value>(cfg_str) {
-                    if let Some(pattern) = json["pattern"].as_str() {
-                        let replacement = json["replacement"].as_str().unwrap_or("");
-                        if !pattern.is_empty() {
-                            let re =
-                                Regex::new(pattern).map_err(|e| format!("Invalid Regex: {}", e))?;
-                            return Ok(re.replace_all(input, replacement).to_string());
-                        }
-                    }
-                }
-                if !cfg_str.trim().is_empty() {
-                    return run_shell_script(input, cfg_str);
-                }
-            }
-            Ok(input.to_string())
-        }
+        _ => Err(format!(
+            "Registered operation has no executor implementation: {}",
+            filter_type
+        )),
     }
 }
 
@@ -554,5 +550,60 @@ mod tests {
 
         let straight = apply_filter("“Hello”", "straighten_punctuation", None).unwrap();
         assert_eq!(straight, "\"Hello\"");
+    }
+
+    #[test]
+    fn direct_operations_do_not_require_a_pipeline() {
+        assert_eq!(
+            apply_filter("  one\n two  ", "trim", None).unwrap(),
+            "one\ntwo"
+        );
+    }
+
+    #[test]
+    fn pipelines_execute_operations_in_order() {
+        let pipeline = serde_json::json!([
+            { "filter_type": "trim" },
+            { "filter_type": "uppercase" },
+            { "filter_type": "wrap_tags", "config": "strong" }
+        ]);
+        assert_eq!(
+            apply_filter("  hello  ", "pipeline", Some(&pipeline.to_string())).unwrap(),
+            "<strong>HELLO</strong>"
+        );
+    }
+
+    #[test]
+    fn malformed_pipelines_report_an_error() {
+        let error = apply_filter("hello", "pipeline", Some("not json")).unwrap_err();
+        assert!(error.contains("Invalid pipeline configuration"));
+
+        let missing_type = serde_json::json!([{ "config": "ignored" }]);
+        let error = apply_filter("hello", "pipeline", Some(&missing_type.to_string())).unwrap_err();
+        assert!(error.contains("step 1 has no operation type"));
+    }
+
+    #[test]
+    fn unknown_operations_never_fall_through_to_shell_execution() {
+        let error = apply_filter(
+            "sensitive input",
+            "unregistered_custom_operation",
+            Some("printf 'this must never execute'"),
+        )
+        .unwrap_err();
+        assert_eq!(
+            error,
+            "Unknown operation type: unregistered_custom_operation"
+        );
+    }
+
+    #[test]
+    fn pipeline_errors_identify_the_failing_step() {
+        let pipeline = serde_json::json!([
+            { "filter_type": "trim" },
+            { "filter_type": "missing_operation" }
+        ]);
+        let error = apply_filter(" hello ", "pipeline", Some(&pipeline.to_string())).unwrap_err();
+        assert!(error.contains("Pipeline step 2 (missing_operation) failed"));
     }
 }
