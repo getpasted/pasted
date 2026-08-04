@@ -125,26 +125,11 @@ pub fn run() {
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
                 .with_handler(move |app, shortcut, event| {
-                    let mods = shortcut.mods;
-                    let is_ctrl_alt = mods.contains(tauri_plugin_global_shortcut::Modifiers::CONTROL)
-                        && mods.contains(tauri_plugin_global_shortcut::Modifiers::ALT);
-                    let is_super = mods.contains(tauri_plugin_global_shortcut::Modifiers::SUPER);
-
-                    if is_ctrl_alt || is_super {
-                        println!(
-                            "[Pasted HOTKEY LISTEN] State: {:?}, Key: {:?}, Mods: {:?}, Full: {:?}",
-                            event.state(),
-                            shortcut.key,
-                            shortcut.mods,
-                            shortcut
-                        );
-                    }
-
                     if event.state() == tauri_plugin_global_shortcut::ShortcutState::Pressed {
                         if let Some(mgr) = app.try_state::<Arc<hotkey_manager::HotkeyManager>>() {
                             mgr.dispatch(app, shortcut);
                         } else {
-                            println!("[Pasted GlobalShortcut Error] HotkeyManager state not found in app");
+                            eprintln!("HotkeyManager state not found while dispatching a shortcut");
                         }
                     }
                 })
@@ -182,7 +167,8 @@ pub fn run() {
                 .unwrap_or_else(|_| std::path::PathBuf::from("./pasted_data"));
             let db_path = app_dir.join("pasted.db");
 
-            let db_state = Arc::new(db::DbState::new(db_path).expect("Failed to initialize SQLite database"));
+            let db_state =
+                Arc::new(db::DbState::new(db_path).expect("Failed to initialize SQLite database"));
             let seq_state = Arc::new(sequential_paste::SequentialQueueState::new());
 
             app.manage(db_state.clone());
@@ -190,7 +176,8 @@ pub fn run() {
 
             // Start background clipboard monitor
             let handle = app.handle().clone();
-            let monitor_handle = clipboard_monitor::start_clipboard_monitor(handle, db_state.clone(), seq_state);
+            let monitor_handle =
+                clipboard_monitor::start_clipboard_monitor(handle, db_state.clone(), seq_state);
             let monitor_state = Arc::new(clipboard_monitor::ClipboardMonitorState {
                 is_manually_paused: monitor_handle.is_manually_paused.clone(),
                 is_auto_paused: monitor_handle.is_auto_paused.clone(),
@@ -209,8 +196,15 @@ pub fn run() {
 
             // Create Menu Bar / System Tray Icon
             let show_i = MenuItem::with_id(app, "show", "Show Pasted", true, None::<&str>)?;
-            let hud_i = MenuItem::with_id(app, "hud_toggle", "Toggle Quick HUD", true, None::<&str>)?;
-            let seq_i = MenuItem::with_id(app, "seq_toggle", "Start Sequential Paste", true, None::<&str>)?;
+            let hud_i =
+                MenuItem::with_id(app, "hud_toggle", "Toggle Quick HUD", true, None::<&str>)?;
+            let seq_i = MenuItem::with_id(
+                app,
+                "seq_toggle",
+                "Start Sequential Paste",
+                true,
+                None::<&str>,
+            )?;
             let quit_i = MenuItem::with_id(app, "quit", "Quit Pasted", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show_i, &hud_i, &seq_i, &quit_i])?;
 

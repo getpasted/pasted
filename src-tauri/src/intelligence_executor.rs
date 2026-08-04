@@ -156,6 +156,17 @@ impl TemporaryWorkspace {
         fs::create_dir(&path).map_err(|error| {
             IntelligenceExecutionError::new("workspace_error", error.to_string())
         })?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            if let Err(error) = fs::set_permissions(&path, fs::Permissions::from_mode(0o700)) {
+                let _ = fs::remove_dir(&path);
+                return Err(IntelligenceExecutionError::new(
+                    "workspace_error",
+                    error.to_string(),
+                ));
+            }
+        }
         Ok(Self(path))
     }
 }
@@ -703,6 +714,19 @@ mod tests {
     use super::*;
     use std::time::{SystemTime, UNIX_EPOCH};
 
+    #[cfg(unix)]
+    #[test]
+    fn temporary_workspaces_are_private_and_removed_on_drop() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let workspace = TemporaryWorkspace::create().unwrap();
+        let path = workspace.0.clone();
+        let mode = fs::metadata(&path).unwrap().permissions().mode() & 0o777;
+        assert_eq!(mode, 0o700);
+
+        drop(workspace);
+        assert!(!path.exists());
+    }
     fn test_db() -> (DbState, PathBuf) {
         let nonce = SystemTime::now()
             .duration_since(UNIX_EPOCH)

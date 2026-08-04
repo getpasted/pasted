@@ -1805,15 +1805,32 @@ pub fn export_clips_json(db: State<'_, Arc<DbState>>) -> Result<String, String> 
     serde_json::to_string_pretty(&clips).map_err(|e| e.to_string())
 }
 
+fn csv_cell(value: &str) -> String {
+    let escaped = value.replace('"', "\"\"");
+    let neutralized = if matches!(
+        value.chars().next(),
+        Some('=' | '+' | '-' | '@' | '\t' | '\r')
+    ) {
+        format!("'{escaped}")
+    } else {
+        escaped
+    };
+    format!("\"{neutralized}\"")
+}
+
 #[tauri::command]
 pub fn export_clips_csv(db: State<'_, Arc<DbState>>) -> Result<String, String> {
     let clips = db.get_clips(None, None, false).map_err(|e| e.to_string())?;
     let mut csv = String::from("id,content_type,source_app,is_pinned,created_at,text_content\n");
     for c in clips {
-        let text = c.text_content.unwrap_or_default().replace('"', "\"\"");
         let line = format!(
-            "{},\"{}\",\"{}\",{},\"{}\",\"{}\"\n",
-            c.id, c.content_type, c.source_app, c.is_pinned, c.created_at, text
+            "{},{},{},{},{},{}\n",
+            c.id,
+            csv_cell(&c.content_type),
+            csv_cell(&c.source_app),
+            c.is_pinned,
+            csv_cell(&c.created_at),
+            csv_cell(c.text_content.as_deref().unwrap_or_default()),
         );
         csv.push_str(&line);
     }
@@ -1948,5 +1965,20 @@ mod tests {
             status.is_trusted, status.is_dev_mode
         );
         assert_eq!(status.is_dev_mode, cfg!(debug_assertions));
+    }
+
+    #[test]
+    fn csv_cells_escape_structure_and_neutralize_formulas() {
+        assert_eq!(csv_cell("plain text"), "\"plain text\"");
+        assert_eq!(
+            csv_cell("commas, quotes \" and\nlines"),
+            "\"commas, quotes \"\" and\nlines\""
+        );
+        assert_eq!(csv_cell("=2+2"), "\"'=2+2\"");
+        assert_eq!(csv_cell("+SUM(A1:A2)"), "\"'+SUM(A1:A2)\"");
+        assert_eq!(csv_cell("-1+2"), "\"'-1+2\"");
+        assert_eq!(csv_cell("@SUM(A1:A2)"), "\"'@SUM(A1:A2)\"");
+        assert_eq!(csv_cell("\t=2+2"), "\"'\t=2+2\"");
+        assert_eq!(csv_cell("\r=2+2"), "\"'\r=2+2\"");
     }
 }

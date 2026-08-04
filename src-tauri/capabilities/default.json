@@ -5,7 +5,6 @@
   "windows": ["main", "hud"],
   "permissions": [
     "core:default",
-    "opener:default",
     "core:window:allow-start-dragging",
     "global-shortcut:allow-register",
     "global-shortcut:allow-unregister",

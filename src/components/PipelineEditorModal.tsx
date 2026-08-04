@@ -34,7 +34,6 @@ interface PipelineEditorModalProps {
 
 const EXECUTOR_OPTIONS = [
   { value: 'regex', label: 'Find & Replace (Regex / Text)', category: 'Search' },
-  { value: 'shell_script', label: 'Shell Script Command (sh -c)', category: 'Advanced' },
 ];
 
 const OPERATION_CATEGORIES = [

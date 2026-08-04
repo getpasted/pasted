@@ -22,7 +22,7 @@ pub fn apply_filter(
     filter_type: &str,
     config: Option<&str>,
 ) -> Result<String, String> {
-    let is_executor = matches!(filter_type, "pipeline" | "regex" | "shell_script");
+    let is_executor = matches!(filter_type, "pipeline" | "regex");
     if !is_executor && !is_builtin_operation(filter_type) {
         return Err(format!("Unknown operation type: {}", filter_type));
     }
@@ -134,7 +134,6 @@ pub fn apply_filter(
         "html_decode" => Ok(decode_html(input)),
         "hex_encode" => Ok(encode_hex(input)),
         "hex_decode" => decode_hex(input),
-        "shell_script" => run_shell_script(input, config.unwrap_or("cat")),
         "wrap_tags" => {
             let tag = config.unwrap_or("div");
             Ok(format!("<{}>{}</{}>", tag, input, tag))
@@ -444,43 +443,6 @@ fn decode_hex(s: &str) -> Result<String, String> {
         bytes.push(byte);
     }
     String::from_utf8(bytes).map_err(|e| e.to_string())
-}
-
-fn run_shell_script(input: &str, script: &str) -> Result<String, String> {
-    #[cfg(unix)]
-    {
-        use std::io::Write;
-        use std::process::{Command, Stdio};
-
-        let mut child = Command::new("sh")
-            .arg("-c")
-            .arg(script)
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .map_err(|e| format!("Failed to spawn shell script: {}", e))?;
-
-        if let Some(mut stdin) = child.stdin.take() {
-            let _ = stdin.write_all(input.as_bytes());
-        }
-
-        let output = child
-            .wait_with_output()
-            .map_err(|e| format!("Script execution failed: {}", e))?;
-
-        if output.status.success() {
-            String::from_utf8(output.stdout).map_err(|e| e.to_string())
-        } else {
-            let err = String::from_utf8_lossy(&output.stderr);
-            Err(format!("Script exited with error: {}", err))
-        }
-    }
-
-    #[cfg(not(unix))]
-    {
-        Ok(input.to_string())
-    }
 }
 
 fn to_title_case(s: &str) -> String {
@@ -806,6 +768,22 @@ mod tests {
             error,
             "Unknown operation type: unregistered_custom_operation"
         );
+    }
+
+    #[test]
+    fn shell_scripts_fail_closed_even_inside_legacy_pipelines() {
+        let direct = apply_filter("sensitive input", "shell_script", Some("cat")).unwrap_err();
+        assert_eq!(direct, "Unknown operation type: shell_script");
+
+        let pipeline = serde_json::json!([
+            { "filter_type": "trim" },
+            { "filter_type": "pipeline", "config": [
+                { "filter_type": "shell_script", "config": "cat" }
+            ] }
+        ]);
+        let error =
+            apply_filter(" sensitive input ", "pipeline", Some(&pipeline.to_string())).unwrap_err();
+        assert!(error.contains("Unknown operation type: shell_script"));
     }
 
     #[test]
