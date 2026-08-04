@@ -1,0 +1,43 @@
+{
+  "manifest_version": 1,
+  "id": "com.pasted.examples.openai",
+  "name": "OpenAI Operations",
+  "version": "0.1.0",
+  "publisher": "Pasted",
+  "description": "Example cloud Operations powered through an OpenAI connection.",
+  "permissions": [
+    { "kind": "network", "hosts": ["api.openai.com"] },
+    { "kind": "secrets", "providers": ["system_keychain", "onepassword"] }
+  ],
+  "contributions": {
+    "operations": [
+      {
+        "id": "summarize",
+        "name": "Summarize with OpenAI",
+        "description": "Create a concise summary while preserving important facts.",
+        "category": "AI & Language",
+        "executor": {
+          "kind": "openai_responses",
+          "connection": "openai.default",
+          "model": "connection_default",
+          "instructions": "Summarize the provided text. Preserve material facts and return only the summary."
+        },
+        "default_config": { "verbosity": "concise" }
+      },
+      {
+        "id": "rewrite",
+        "name": "Rewrite with OpenAI",
+        "description": "Rewrite text using a user-selected tone without changing its meaning.",
+        "category": "AI & Language",
+        "executor": {
+          "kind": "openai_responses",
+          "connection": "openai.default",
+          "model": "connection_default",
+          "instructions": "Rewrite the provided text in the configured tone. Preserve its meaning and return only the rewritten text."
+        },
+        "default_config": { "tone": "clear" }
+      }
+    ],
+    "credential_providers": []
+  }
+}

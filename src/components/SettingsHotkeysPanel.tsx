@@ -1,16 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
 import { RotateCcw, ShieldCheck } from 'lucide-react';
-import type { AppSettings, Bin, FilterRule } from '../types';
+import type { AppSettings, Bin, Pipeline } from '../types';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { HotkeyRecorder } from './HotkeyRecorder';
 
 interface SettingsHotkeysPanelProps {
   settings: AppSettings;
   bins: Bin[];
-  filters: FilterRule[];
+  pipelines: Pipeline[];
   onUpdateSettings: (newSettings: Partial<AppSettings>) => void;
   onRefreshBins?: () => void;
-  onRefreshFilters?: () => void;
+  onRefreshPipelines?: () => void;
 }
 
 type AccessibilityStatus = { is_trusted: boolean; is_dev_mode: boolean };
@@ -18,8 +18,9 @@ type HotkeySetting = keyof Pick<
   AppSettings,
   | 'seqToggleHotkey'
   | 'seqPopHotkey'
-  | 'pasteLastFilterHotkey'
-  | 'openFilterWindowHotkey'
+  | 'copyLastPipelineHotkey'
+  | 'pasteLastPipelineHotkey'
+  | 'openTransformationsHotkey'
   | 'openMainWindowHotkey'
   | 'pasteClip1Hotkey'
   | 'pasteClip2Hotkey'
@@ -36,8 +37,9 @@ const defaultHotkeys: Partial<AppSettings> = {
   hudHotkey: 'Alt+Shift+V',
   seqToggleHotkey: 'Alt+Shift+C',
   seqPopHotkey: 'Alt+Shift+X',
-  pasteLastFilterHotkey: '',
-  openFilterWindowHotkey: '',
+  copyLastPipelineHotkey: '',
+  pasteLastPipelineHotkey: '',
+  openTransformationsHotkey: '',
   openMainWindowHotkey: '',
   pasteClip1Hotkey: '',
   pasteClip2Hotkey: '',
@@ -53,8 +55,9 @@ const defaultHotkeys: Partial<AppSettings> = {
 const actionHotkeys: Array<{ label: string; key: HotkeySetting; fallback?: string }> = [
   { label: 'Enable/Disable Queue', key: 'seqToggleHotkey', fallback: 'Alt+Shift+C' },
   { label: 'Paste Next Item from Queue', key: 'seqPopHotkey', fallback: 'Alt+Shift+X' },
-  { label: 'Paste with Last Filter', key: 'pasteLastFilterHotkey' },
-  { label: 'Open Filter Window', key: 'openFilterWindowHotkey' },
+  { label: 'Copy with Last Pipeline', key: 'copyLastPipelineHotkey' },
+  { label: 'Paste with Last Pipeline', key: 'pasteLastPipelineHotkey' },
+  { label: 'Open Transformations', key: 'openTransformationsHotkey' },
   { label: 'Toggle Main Window', key: 'openMainWindowHotkey' },
 ];
 
@@ -70,10 +73,10 @@ function HotkeyRow({ label, value, onChange }: { label: string; value: string | 
 export function SettingsHotkeysPanel({
   settings,
   bins,
-  filters,
+  pipelines,
   onUpdateSettings,
   onRefreshBins,
-  onRefreshFilters,
+  onRefreshPipelines,
 }: SettingsHotkeysPanelProps) {
   const [accessibilityStatus, setAccessibilityStatus] = useState<AccessibilityStatus | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
@@ -184,16 +187,16 @@ export function SettingsHotkeysPanel({
       </section>
 
       <section className="theme-divider space-y-2 pt-3 border-t">
-        <h4 className="font-bold theme-text-muted uppercase tracking-wider text-[10px]">Filter Pipeline Hotkeys ({filters.length})</h4>
-        <p className="text-[11px] theme-text-muted">Assign custom shortcuts to trigger automated text filters instantly.</p>
+        <h4 className="font-bold theme-text-muted uppercase tracking-wider text-[10px]">Pipeline Hotkeys ({pipelines.length})</h4>
+        <p className="text-[11px] theme-text-muted">Assign shortcuts to run reusable transformations instantly.</p>
         <div className="space-y-2 pt-1 max-h-60 overflow-y-auto pr-1">
-          {filters.map((filter) => <HotkeyRow key={filter.id} label={`${filter.name} · ${filter.filter_type}`} value={filter.shortcut ?? null} onChange={async (shortcut) => {
+          {pipelines.map((pipeline) => <HotkeyRow key={pipeline.id} label={pipeline.name} value={pipeline.shortcut ?? null} onChange={async (shortcut) => {
               try {
-                await invoke('update_filter_shortcut', { id: filter.id, shortcut });
-                onRefreshFilters?.();
+                await invoke('update_pipeline_shortcut', { pipelineRef: pipeline.stableRef, shortcut });
+                onRefreshPipelines?.();
               } catch (error) {
-                console.error('Failed to update filter shortcut:', error);
-                setStatusMessage('That filter shortcut could not be registered.');
+                console.error('Failed to update Pipeline shortcut:', error);
+                setStatusMessage('That Pipeline shortcut could not be registered.');
               }
             }} />)}
         </div>

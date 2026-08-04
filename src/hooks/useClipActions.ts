@@ -1,5 +1,5 @@
-import { useCallback, type Dispatch, type SetStateAction } from 'react';
-import type { AppSettings, Bin, ClipItem, FilterRule } from '../types';
+import { useCallback, useState, type Dispatch, type SetStateAction } from 'react';
+import type { AppSettings, Bin, ClipItem, Pipeline } from '../types';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { soundManager } from '../utils/sound';
 
@@ -41,6 +41,8 @@ export function useClipActions({
   fetchTrashedClips,
   fetchSequentialStatus,
 }: ClipActionsInput) {
+  const [transformingClipIds, setTransformingClipIds] = useState<Set<number>>(() => new Set());
+
   const togglePin = useCallback((id: number) => {
     const isBatch = selectedClipIds.size > 1 && selectedClipIds.has(id);
     const targetIds = isBatch ? Array.from(selectedClipIds) : [id];
@@ -274,11 +276,25 @@ export function useClipActions({
       requestAnimationFrame(() => soundManager.playCopySound(settings.enableSounds));
     }
 
+    if (targetIds.length === 1 && binId !== null) {
+      setTransformingClipIds((previous) => new Set(previous).add(clipId));
+    }
+
     try {
       if (targetIds.length > 1) {
         await invoke('batch_assign_bin_clips', { ids: targetIds, binId });
       } else {
-        await invoke('assign_clip_bin', { clipId, binId });
+        const transformedClip = await invoke<ClipItem | null>('assign_clip_bin', { clipId, binId });
+        if (transformedClip) {
+          // Replace the optimistic snapshot immediately so the selected
+          // inspector and its metadata update in the same frame as the card.
+          setAllClips((previous) => previous.map((clip) => (
+            clip.id === transformedClip.id ? transformedClip : clip
+          )));
+          setSelectedClip((previous) => previous?.id === transformedClip.id
+            ? transformedClip
+            : previous);
+        }
       }
     } catch (error) {
       console.error('Failed to assign clips to bin:', error);
@@ -286,21 +302,42 @@ export function useClipActions({
       // Reconcile the complete data sets only when persistence fails.
       void fetchClips();
       void fetchBins();
+    } finally {
+      if (targetIds.length === 1) {
+        setTransformingClipIds((previous) => {
+          if (!previous.has(clipId)) return previous;
+          const next = new Set(previous);
+          next.delete(clipId);
+          return next;
+        });
+      }
     }
   }, [allClips, bins, fetchBins, fetchClips, selectedClipIds, setAllClips, setBins, setSelectedClip, settings.enableSounds]);
 
-  const applyFilterToClip = useCallback(async (clip: ClipItem, filter: FilterRule) => {
+  const runPipelineForClip = useCallback(async (
+    clip: ClipItem,
+    pipeline: Pipeline,
+    destination: 'copy' | 'paste' = 'copy',
+  ) => {
     if (!clip.text_content) return;
     try {
-      const transformed = await invoke<string>('transform_text', {
-        input: clip.text_content,
-        filterType: filter.filter_type,
-        config: filter.config,
+      const transformed = await invoke<{ output: string }>('execute_transformation', {
+        request: {
+          input: clip.text_content,
+          target: { kind: 'pipeline', pipelineRef: pipeline.stableRef },
+          sourceClipId: clip.id,
+          trigger: 'manual',
+        },
       });
-      await invoke('copy_clip_to_system', { text: transformed, imageBase64: null });
-      soundManager.playPasteSound(settings.enableSounds);
+      if (destination === 'paste') {
+        await invoke('paste_text_to_frontmost', { text: transformed.output });
+        soundManager.playPasteSound(settings.enableSounds);
+      } else {
+        await invoke('copy_clip_to_system', { text: transformed.output, imageBase64: null });
+        soundManager.playCopySound(settings.enableSounds);
+      }
     } catch (error) {
-      console.error('Failed to apply filter:', error);
+      console.error(`Failed to ${destination} Pipeline result:`, error);
     }
   }, [settings.enableSounds]);
 
@@ -339,9 +376,10 @@ export function useClipActions({
     deleteClip,
     copyClip,
     assignClipToBin,
-    applyFilterToClip,
+    runPipelineForClip,
     addToSequentialStack,
     updateClipNoteLocally,
     deleteNoteFromClip,
+    transformingClipIds,
   };
 }

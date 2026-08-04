@@ -22,6 +22,8 @@ import {
   ArrowRightCircle,
   MinusCircle,
   Shield,
+  Workflow,
+  LoaderCircle,
   ShieldOff,
 } from 'lucide-react';
 
@@ -32,6 +34,7 @@ interface ClipCardProps {
   showActions?: boolean;
   isDragging?: boolean;
   isDragInProgress?: boolean;
+  isTransforming?: boolean;
   reorderOffsetY?: number;
   isDeleting?: boolean;
   viewPolicy: ClipViewPolicy;
@@ -65,6 +68,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
   showActions = false,
   isDragging = false,
   isDragInProgress = false,
+  isTransforming = false,
   reorderOffsetY = 0,
   isDeleting = false,
   viewPolicy,
@@ -246,7 +250,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
               ? 'clip-card-selected'
               : `clip-card-idle ${isHovered && !isDragInProgress ? 'clip-card-hovered' : ''}`
             }`
-      } ${isDragging ? 'clip-card-drag-source' : ''}`}
+      } ${isDragging ? 'clip-card-drag-source' : ''} ${isTransforming ? 'clip-card-transforming' : ''}`}
     >
       {/* Header Info */}
       <div className={`clip-card-header flex items-center justify-between ${headerTextClass} mb-1`}>
@@ -259,6 +263,16 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
           </span>
         </div>
         <div className="clip-meta-row theme-text-subtle flex items-center text-[11px] font-mono">
+          {isTransforming && (
+            <span
+              role="status"
+              aria-label="Applying Recipe"
+              title="Applying Recipe…"
+              className="clip-meta-item clip-meta-icon-only clip-transform-working"
+            >
+              <LoaderCircle className="clip-meta-icon animate-spin" />
+            </span>
+          )}
           {primaryBinName && (
             <span
               role="img"
@@ -277,6 +291,16 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
               className="clip-meta-item clip-meta-icon-only clip-protected-accent"
             >
               <Shield className="clip-meta-icon" />
+            </span>
+          )}
+          {clip.is_transformed && (
+            <span
+              role="img"
+              aria-label="Transformed Clip"
+              title="Transformed with a Recipe"
+              className="clip-meta-item clip-meta-icon-only transform-accent pipelines"
+            >
+              <Workflow className="clip-meta-icon" />
             </span>
           )}
           {queueIndex !== undefined && (
@@ -520,6 +544,7 @@ export const ClipCard = React.memo(ClipCardComponent, (prevProps, nextProps) => 
     prevProps.clip.is_pinned === nextProps.clip.is_pinned &&
     prevProps.clip.pin_order === nextProps.clip.pin_order &&
     prevProps.clip.is_protected === nextProps.clip.is_protected &&
+    prevProps.clip.is_transformed === nextProps.clip.is_transformed &&
     prevProps.clip.note === nextProps.clip.note &&
     prevProps.clip.bin_id === nextProps.clip.bin_id &&
     previousBinIds.length === nextBinIds.length &&
@@ -529,6 +554,7 @@ export const ClipCard = React.memo(ClipCardComponent, (prevProps, nextProps) => 
     prevProps.showActions === nextProps.showActions &&
     prevProps.isDragging === nextProps.isDragging &&
     prevProps.isDragInProgress === nextProps.isDragInProgress &&
+    prevProps.isTransforming === nextProps.isTransforming &&
     prevProps.reorderOffsetY === nextProps.reorderOffsetY &&
     prevProps.isDeleting === nextProps.isDeleting &&
     prevProps.viewPolicy.state === nextProps.viewPolicy.state &&

@@ -6,7 +6,7 @@ import { Sidebar } from './components/Sidebar';
 import { ClipCard } from './components/ClipCard';
 import { ClipPreview } from './components/ClipPreview';
 import { SequentialQueueBar } from './components/SequentialQueueBar';
-import { FilterManager } from './components/FilterManager';
+import { TransformationsView } from './components/TransformationsView';
 import { SettingsModal } from './components/SettingsModal';
 import { BinModal } from './components/BinModal';
 import { ContextMenu } from './components/ContextMenu';
@@ -31,6 +31,28 @@ import './App.css';
 
 export default function App() {
   const [isHudView, setIsHudView] = useState<boolean>(false);
+
+  useEffect(() => {
+    const hideTimers = new Map<HTMLElement, number>();
+    const handleToolsScroll = (event: Event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement) || !target.classList.contains('tools-scroll-region')) return;
+
+      target.classList.add('is-scrolling');
+      const previousTimer = hideTimers.get(target);
+      if (previousTimer) window.clearTimeout(previousTimer);
+      hideTimers.set(target, window.setTimeout(() => {
+        target.classList.remove('is-scrolling');
+        hideTimers.delete(target);
+      }, 700));
+    };
+
+    document.addEventListener('scroll', handleToolsScroll, true);
+    return () => {
+      document.removeEventListener('scroll', handleToolsScroll, true);
+      hideTimers.forEach((timer) => window.clearTimeout(timer));
+    };
+  }, []);
 
   useEffect(() => {
     const enableHudMode = () => {
@@ -70,7 +92,7 @@ export default function App() {
     setTrashedClips,
     bins,
     setBins,
-    filters,
+    pipelines,
     sequentialStatus: seqStatus,
     totalClipCount,
     setTotalClipCount,
@@ -80,7 +102,7 @@ export default function App() {
     fetchClips,
     fetchTrashedClips,
     fetchBins,
-    fetchFilters,
+    fetchPipelines,
     fetchSequentialStatus,
     toggleClipboardPause: handleToggleClipboardPause,
     restoreClip: handleRestoreClip,
@@ -391,10 +413,11 @@ export default function App() {
     deleteClip: handleDeleteClip,
     copyClip: handleCopyClip,
     assignClipToBin,
-    applyFilterToClip: handleApplyFilterToClip,
+    runPipelineForClip: handleRunPipelineForClip,
     addToSequentialStack: handleAddToSequentialStack,
     updateClipNoteLocally: handleUpdateClipNoteLocally,
     deleteNoteFromClip: handleDeleteNoteFromClip,
+    transformingClipIds,
   } = useClipActions({
     allClips,
     setAllClips,
@@ -491,6 +514,16 @@ export default function App() {
     (clipId: number, binId: number | null) => assignClipToBin(clipId, binId),
     [assignClipToBin],
   );
+
+  const handlePreviewClipUpdate = useCallback((updatedClip?: ClipItem) => {
+    if (updatedClip) {
+      setAllClips((previous) => previous.map((clip) => (
+        clip.id === updatedClip.id ? updatedClip : clip
+      )));
+      setSelectedClip((previous) => previous?.id === updatedClip.id ? updatedClip : previous);
+    }
+    void Promise.all([fetchClips(), fetchBins()]);
+  }, [fetchBins, fetchClips]);
 
   const handlePromptAddNote = (clip: ClipItem) => {
     setNotePromptClip(clip);
@@ -599,8 +632,8 @@ export default function App() {
       )}
 
       {/* Main Content Area */}
-      {currentTab === 'filters' || currentTab === 'operations' ? (
-        <FilterManager filters={filters} onRefreshFilters={fetchFilters} />
+      {currentTab === 'transformations' ? (
+        <TransformationsView pipelines={pipelines} onRefreshPipelines={fetchPipelines} />
       ) : currentTab === 'activity' ? (
         <ActivityLogView />
       ) : currentTab === 'analytics' ? (
@@ -615,8 +648,8 @@ export default function App() {
           onAddBlacklistApp={handleAddBlacklistApp}
           onRemoveBlacklistApp={handleRemoveBlacklistApp}
           onToggleBlacklistRule={handleToggleBlacklistRule}
-          filters={filters}
-          onRefreshFilters={fetchFilters}
+          pipelines={pipelines}
+          onRefreshPipelines={fetchPipelines}
           bins={bins}
           onRefreshBins={fetchBins}
           onRefreshClips={fetchClips}
@@ -752,6 +785,7 @@ export default function App() {
                       showActions={selectedClip?.id === clip.id}
                       isDragging={draggedClipId === clip.id}
                       isDragInProgress={draggedClipId !== null}
+                      isTransforming={transformingClipIds.has(clip.id)}
                       reorderOffsetY={pinnedReorderOffsets[clip.id] ?? 0}
                       viewPolicy={viewPolicy}
                       isQueueMode={currentTab === 'sequential'}
@@ -948,11 +982,12 @@ export default function App() {
             clip={selectedClip}
             viewPolicy={selectedClipViewPolicy}
             bins={bins}
-            filters={filters}
-            onUpdateClip={fetchClips}
+            pipelines={pipelines}
+            onUpdateClip={handlePreviewClipUpdate}
             onAssignBin={handleAssignBin}
             onDeleteClip={selectedClipViewPolicy.state === 'trash' ? handlePurgeClipPermanently : handleDeleteClip}
             onUpdateClipNote={handleUpdateClipNoteLocally}
+            isTransforming={selectedClip ? transformingClipIds.has(selectedClip.id) : false}
           />
         </div>
       )}
@@ -966,7 +1001,7 @@ export default function App() {
           viewPolicy={getClipViewPolicy(currentTab, contextMenu.clip)}
           selectedCount={selectedClipIds.has(contextMenu.clip.id) ? selectedClipIds.size : 1}
           bins={bins}
-          filters={filters}
+          pipelines={pipelines}
           onClose={() => setContextMenu(null)}
           onCopy={() => handleCopyClip(contextMenu.clip)}
           onAssignBin={(binId) => assignClipToBin(
@@ -974,7 +1009,7 @@ export default function App() {
             binId,
             { includeSelection: true },
           )}
-          onApplyFilter={(filter) => handleApplyFilterToClip(contextMenu.clip, filter)}
+          onRunPipeline={(pipeline, destination) => handleRunPipelineForClip(contextMenu.clip, pipeline, destination)}
           onAddNote={() => handlePromptAddNote(contextMenu.clip)}
           onDeleteNote={() => handleDeleteNoteFromClip(contextMenu.clip.id)}
           onAddToStack={() => handleAddToSequentialStack(contextMenu.clip)}

@@ -55,8 +55,8 @@ function parseSavedSettings(saved: Record<string, string>) {
   if (saved.trashCapacityCount) next.trashCapacityCount = numberValue('trashCapacityCount', next.trashCapacityCount ?? 500);
 
   const hotkeyKeys = [
-    'hudHotkey', 'seqToggleHotkey', 'seqPopHotkey', 'pasteLastFilterHotkey',
-    'openFilterWindowHotkey', 'openMainWindowHotkey',
+    'hudHotkey', 'seqToggleHotkey', 'seqPopHotkey', 'copyLastPipelineHotkey',
+    'pasteLastPipelineHotkey', 'openTransformationsHotkey', 'openMainWindowHotkey',
     ...Array.from({ length: 9 }, (_, index) => `pasteClip${index + 1}Hotkey`),
   ];
   for (const key of hotkeyKeys) {

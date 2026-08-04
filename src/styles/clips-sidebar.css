@@ -360,6 +360,39 @@
   pointer-events: none !important;
 }
 
+.clip-card-transforming::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border: 1px solid color-mix(in srgb, var(--accent-primary) 72%, transparent);
+  border-radius: inherit;
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent-primary) 24%, transparent);
+  pointer-events: none;
+  animation: clip-recipe-working 1.15s ease-in-out infinite;
+}
+
+.clip-transform-working {
+  color: var(--accent-primary);
+}
+
+@keyframes clip-recipe-working {
+  0%, 100% {
+    opacity: 0.42;
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent-primary) 20%, transparent);
+  }
+  50% {
+    opacity: 1;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-primary) 14%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .clip-card-transforming::after {
+    animation: none;
+    opacity: 0.8;
+  }
+}
+
 .is-settling-pinned-reorder .clip-card {
   transition-property: background-color, border-color, box-shadow, opacity !important;
 }
@@ -526,18 +559,85 @@ html.is-stable-reordering * {
 }
 
 .clip-revision-history-item {
+  position: relative;
+  display: block;
   background-color: var(--bg-card);
   border: 1px solid var(--border-card);
+  transition: background-color 100ms ease, border-color 100ms ease, box-shadow 100ms ease;
+}
+
+.clip-revision-history-item.is-restoring {
+  border-color: color-mix(in srgb, var(--accent-primary) 65%, var(--border-card));
+  cursor: wait;
+}
+
+.clip-revision-history-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.15rem 0.35rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.625rem;
+  line-height: 1.35;
+}
+
+.clip-revision-history-meta > * {
+  color: var(--text-muted);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.clip-revision-history-item:hover {
+  background-color: var(--bg-clip-card-hover);
+  border-color: var(--border-clip-card-hover);
+}
+
+.clip-revision-history-item.is-previewing {
+  background-color: var(--bg-card-selected);
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-primary) 22%, transparent);
 }
 
 .clip-revision-history-restore {
-  color: var(--accent-primary-contrast);
-  background-color: var(--accent-primary);
-  border: 1px solid color-mix(in srgb, var(--accent-primary) 72%, var(--border-subtle));
+  position: absolute;
+  right: 0.625rem;
+  bottom: 0.625rem;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent-primary);
+  background-color: color-mix(in srgb, var(--bg-surface) 94%, transparent);
+  border: 1px solid var(--border-card);
+  box-shadow: var(--shadow-card-selected);
+  opacity: 0;
+  transform: translateY(2px) scale(0.96);
+  transition: opacity 100ms ease, transform 100ms ease, background-color 100ms ease, color 100ms ease;
+}
+
+.clip-revision-history-item:hover .clip-revision-history-restore,
+.clip-revision-history-item:focus-within .clip-revision-history-restore,
+.clip-revision-history-item.is-restoring .clip-revision-history-restore {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.clip-revision-history-restore:disabled {
+  cursor: wait;
+  opacity: 0.72;
 }
 
 .clip-revision-history-restore:hover {
-  background-color: color-mix(in srgb, var(--accent-primary) 86%, var(--text-title));
+  color: var(--accent-primary-contrast);
+  background-color: var(--accent-primary);
+}
+
+@media (hover: none) {
+  .clip-revision-history-restore {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 .theme-badge {

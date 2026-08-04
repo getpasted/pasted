@@ -16,6 +16,7 @@ pub struct ClipItem {
     pub source_app: String,
     pub is_pinned: bool,
     pub is_protected: bool,
+    pub is_transformed: bool,
     pub pin_order: i32,
     pub bin_id: Option<i64>,
     pub bin_ids: Option<Vec<i64>>,
@@ -51,7 +52,25 @@ pub struct ClipVersion {
     pub id: i64,
     pub clip_id: i64,
     pub text_content: String,
+    pub action_kind: Option<String>,
+    pub action_label: Option<String>,
+    pub restores_organization: bool,
     pub created_at: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct ClipRevisionContext {
+    schema_version: i64,
+    action_kind: String,
+    action_label: String,
+    organization: Option<ClipRevisionOrganization>,
+    #[serde(default)]
+    current_transformation_id: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct ClipRevisionOrganization {
+    category_bin_id: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -88,28 +107,116 @@ pub struct BackupPayload {
     pub timestamp: String,
     pub clips: Vec<ClipItem>,
     pub bins: Vec<Bin>,
-    pub filters: Vec<FilterRule>,
+    pub pipelines: Vec<Pipeline>,
     pub operations: Vec<Operation>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct FilterRule {
+#[serde(rename_all = "camelCase")]
+pub struct Pipeline {
     pub id: i64,
+    pub stable_ref: String,
     pub name: String,
-    pub filter_type: String,
-    pub config: Option<String>,
     pub shortcut: Option<String>,
+    pub revision: i64,
     pub created_at: String,
+    pub updated_at: String,
+    pub steps: Vec<PipelineStep>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct TransformationRecipe {
+    pub id: i64,
+    pub stable_ref: String,
+    pub name: String,
+    pub plan: crate::transformation_intent::TransformationPlan,
+    pub connection_id: Option<String>,
+    pub revision: i64,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ClipTransformationProvenance {
+    pub recipe_ref: String,
+    pub recipe_name: String,
+    pub recipe_revision: i64,
+    pub connection_id: Option<String>,
+    pub duration_ms: i64,
+    pub created_at: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PipelineStepInput {
+    pub operation_ref: String,
+    pub config_json: Option<String>,
+    #[serde(default = "default_pipeline_failure_policy")]
+    pub failure_policy: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct PipelineStep {
+    pub position: i64,
+    pub operation_ref: String,
+    pub config_json: Option<String>,
+    pub failure_policy: String,
+}
+
+fn default_pipeline_failure_policy() -> String {
+    "stop".to_string()
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Operation {
     pub id: i64,
+    #[serde(default)]
+    pub stable_id: String,
     pub name: String,
     pub op_type: String,
     pub config: Option<String>,
     pub category: String,
     pub created_at: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct ResolvedCustomOperation {
+    pub executor_kind: String,
+    pub config_json: String,
+    pub enabled: bool,
+    pub trusted: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct ResolvedPipelineStep {
+    pub position: i64,
+    pub operation_ref: String,
+    pub config_json: Option<String>,
+    pub failure_policy: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct ResolvedPipeline {
+    pub revision: i64,
+    pub steps: Vec<ResolvedPipelineStep>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct IntelligenceConnection {
+    pub id: String,
+    pub name: String,
+    pub provider_kind: String,
+    pub endpoint: Option<String>,
+    pub model: Option<String>,
+    pub credential_ref: Option<String>,
+    pub enabled: bool,
+    pub priority: i64,
+    pub created_at: String,
+    pub updated_at: String,
 }
 
 pub struct DbState {
@@ -255,13 +362,16 @@ impl DbState {
             "ALTER TABLE clips ADD COLUMN pin_order INTEGER DEFAULT 0",
             [],
         );
+        let _ = conn.execute(
+            "ALTER TABLE clips ADD COLUMN current_transformation_id TEXT",
+            [],
+        );
         let _ = conn.execute("ALTER TABLE bins ADD COLUMN smart_rule TEXT", []);
         let _ = conn.execute(
             "ALTER TABLE bins ADD COLUMN bin_type TEXT DEFAULT 'category'",
             [],
         );
         let _ = conn.execute("ALTER TABLE bins ADD COLUMN shortcut TEXT", []);
-        let _ = conn.execute("ALTER TABLE filters ADD COLUMN shortcut TEXT", []);
 
         let _ = conn.execute(
             "CREATE TABLE IF NOT EXISTS clip_versions (
@@ -276,6 +386,7 @@ impl DbState {
             "CREATE INDEX IF NOT EXISTS idx_clip_versions_clip_id ON clip_versions(clip_id, created_at DESC)",
             [],
         );
+        let _ = conn.execute("ALTER TABLE clip_versions ADD COLUMN context_json TEXT", []);
 
         let _ = conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_clips_trashed ON clips (is_trashed, created_at DESC)",
@@ -382,29 +493,7 @@ impl DbState {
             [],
         );
 
-        conn.execute(
-            "CREATE TABLE IF NOT EXISTS filters (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                filter_type TEXT NOT NULL,
-                config TEXT,
-                shortcut TEXT,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            )",
-            [],
-        )?;
-
-        conn.execute(
-            "CREATE TABLE IF NOT EXISTS operations (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                op_type TEXT NOT NULL,
-                config TEXT,
-                category TEXT DEFAULT 'Custom',
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            )",
-            [],
-        )?;
+        self.init_transformation_tables(&conn)?;
 
         conn.execute(
             "CREATE TABLE IF NOT EXISTS settings (
@@ -433,300 +522,189 @@ impl DbState {
             )?;
         }
 
-        // Seed all 35 default filters as pipeline rules backed by operations
-        let default_filters = [
-            ("Clean URL Tracking", "clean_url_tracking"),
-            ("Plain Text Only", "strip_html"),
-            ("UPPERCASE", "uppercase"),
-            ("lowercase", "lowercase"),
-            ("Title Case", "titlecase"),
-            ("Sentence case", "sentence_case"),
-            ("camelCase", "camelcase"),
-            ("snake_case", "snakecase"),
-            ("kebab-case", "kebabcase"),
-            ("CONSTANT_CASE", "constant_case"),
-            ("aLtErNaTiNg cAsE", "alternating_case"),
-            ("Smart Punctuation", "smart_punctuation"),
-            ("Straighten Punctuation", "straighten_punctuation"),
-            ("Strip Markdown", "strip_markdown"),
-            ("Emoji Remover", "strip_emojis"),
-            ("Convert Smileys to Emoji", "smileys_to_emoji"),
-            ("Extract URLs", "extract_urls"),
-            ("Extract Emails", "extract_emails"),
-            ("Extract Phone Numbers", "extract_phones"),
-            ("Extract IP Addresses", "extract_ips"),
-            ("Sort Lines (A-Z)", "sort_lines_asc"),
-            ("Sort Lines (By Length)", "sort_by_length"),
-            ("Deduplicate Lines", "dedupe_lines"),
-            ("Number Lines", "number_lines"),
-            ("Quote Text", "quote_text"),
-            ("Trim Spaces", "trim"),
-            ("Strip Newlines", "strip_newlines"),
-            ("Format JSON", "json_format"),
-            ("Minify JSON", "json_minify"),
-            ("HTML Entity Encode", "html_encode"),
-            ("HTML Entity Decode", "html_decode"),
-            ("Hex Encode", "hex_encode"),
-            ("Hex Decode", "hex_decode"),
-            ("URL Encode", "url_encode"),
-            ("URL Decode", "url_decode"),
-        ];
+        Ok(())
+    }
 
-        for (name, ftype) in &default_filters {
-            let exists: i64 = conn
-                .query_row(
-                    "SELECT COUNT(*) FROM filters WHERE name = ?1",
-                    params![name],
-                    |r| r.get(0),
-                )
-                .unwrap_or(0);
-            if exists == 0 {
-                let pipeline_config =
-                    format!(r#"[={{"filter_type":"{}"}}=]"#, ftype).replace("=", "");
-                let _ = conn.execute(
-                    "INSERT INTO filters (name, filter_type, config) VALUES (?1, 'pipeline', ?2)",
-                    params![name, pipeline_config],
-                );
-            }
+    fn init_transformation_tables(&self, conn: &Connection) -> Result<()> {
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS custom_operations (
+                row_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id TEXT NOT NULL UNIQUE DEFAULT (lower(hex(randomblob(16)))),
+                name TEXT NOT NULL,
+                executor_kind TEXT NOT NULL CHECK (
+                    executor_kind IN ('builtin', 'regex', 'cli', 'shell', 'http', 'ai')
+                ),
+                config_json TEXT NOT NULL DEFAULT '{}' CHECK (json_valid(config_json)),
+                category TEXT NOT NULL DEFAULT 'Custom Operations',
+                enabled INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
+                trusted INTEGER NOT NULL DEFAULT 0 CHECK (trusted IN (0, 1)),
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS pipelines (
+                row_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id TEXT NOT NULL UNIQUE DEFAULT (lower(hex(randomblob(16)))),
+                name TEXT NOT NULL,
+                shortcut TEXT,
+                revision INTEGER NOT NULL DEFAULT 1 CHECK (revision > 0),
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS pipeline_steps (
+                id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+                pipeline_id TEXT NOT NULL REFERENCES pipelines(id) ON DELETE CASCADE,
+                position INTEGER NOT NULL CHECK (position >= 0),
+                operation_ref TEXT NOT NULL CHECK (
+                    operation_ref GLOB 'builtin:*' OR operation_ref GLOB 'custom:*'
+                ),
+                config_json TEXT CHECK (config_json IS NULL OR json_valid(config_json)),
+                failure_policy TEXT NOT NULL DEFAULT 'stop' CHECK (failure_policy IN ('stop', 'skip')),
+                UNIQUE (pipeline_id, position)
+            );
+            CREATE INDEX IF NOT EXISTS idx_pipeline_steps_operation_ref
+                ON pipeline_steps(operation_ref);
+
+            CREATE TABLE IF NOT EXISTS transformation_recipes (
+                row_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id TEXT NOT NULL UNIQUE DEFAULT (lower(hex(randomblob(16)))),
+                name TEXT NOT NULL,
+                plan_json TEXT NOT NULL CHECK (json_valid(plan_json)),
+                connection_id TEXT REFERENCES intelligence_connections(id) ON DELETE SET NULL,
+                revision INTEGER NOT NULL DEFAULT 1 CHECK (revision > 0),
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS clip_transformations (
+                id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+                clip_id INTEGER NOT NULL REFERENCES clips(id) ON DELETE CASCADE,
+                recipe_id TEXT REFERENCES transformation_recipes(id) ON DELETE SET NULL,
+                recipe_name TEXT NOT NULL,
+                recipe_revision INTEGER NOT NULL,
+                connection_id TEXT REFERENCES intelligence_connections(id) ON DELETE SET NULL,
+                duration_ms INTEGER NOT NULL DEFAULT 0 CHECK (duration_ms >= 0),
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE INDEX IF NOT EXISTS idx_clip_transformations_clip
+                ON clip_transformations(clip_id, created_at DESC);
+
+            CREATE TABLE IF NOT EXISTS automations (
+                row_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id TEXT NOT NULL UNIQUE DEFAULT (lower(hex(randomblob(16)))),
+                name TEXT NOT NULL,
+                trigger_kind TEXT NOT NULL CHECK (trigger_kind IN ('capture', 'copy', 'paste')),
+                pipeline_id TEXT NOT NULL REFERENCES pipelines(id) ON DELETE RESTRICT,
+                enabled INTEGER NOT NULL DEFAULT 0 CHECK (enabled IN (0, 1)),
+                trusted INTEGER NOT NULL DEFAULT 0 CHECK (trusted IN (0, 1)),
+                priority INTEGER NOT NULL DEFAULT 0,
+                action_json TEXT NOT NULL DEFAULT '{}' CHECK (json_valid(action_json)),
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS automation_conditions (
+                id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+                automation_id TEXT NOT NULL REFERENCES automations(id) ON DELETE CASCADE,
+                position INTEGER NOT NULL CHECK (position >= 0),
+                condition_kind TEXT NOT NULL,
+                config_json TEXT NOT NULL CHECK (json_valid(config_json)),
+                UNIQUE (automation_id, position)
+            );
+
+            CREATE TABLE IF NOT EXISTS transformation_executions (
+                id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+                target_kind TEXT NOT NULL CHECK (target_kind IN ('operation', 'pipeline')),
+                target_ref TEXT NOT NULL,
+                target_revision INTEGER,
+                source_clip_id INTEGER REFERENCES clips(id) ON DELETE SET NULL,
+                trigger_kind TEXT NOT NULL CHECK (
+                    trigger_kind IN ('manual', 'shortcut', 'bin', 'automation', 'cli')
+                ),
+                started_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                duration_ms INTEGER CHECK (duration_ms IS NULL OR duration_ms >= 0),
+                status TEXT NOT NULL DEFAULT 'running' CHECK (
+                    status IN ('running', 'succeeded', 'failed')
+                ),
+                error_summary TEXT,
+                input_hash TEXT NOT NULL,
+                output_hash TEXT
+            );
+            CREATE INDEX IF NOT EXISTS idx_transformation_executions_started
+                ON transformation_executions(started_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_transformation_executions_target
+                ON transformation_executions(target_kind, target_ref, started_at DESC);
+
+            CREATE TABLE IF NOT EXISTS intelligence_connections (
+                row_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id TEXT NOT NULL UNIQUE DEFAULT (lower(hex(randomblob(16)))),
+                name TEXT NOT NULL,
+                provider_kind TEXT NOT NULL CHECK (
+                    provider_kind IN ('openai_compatible', 'anthropic', 'gemini', 'ollama', 'lm_studio', 'cli')
+                ),
+                endpoint TEXT,
+                model TEXT,
+                credential_ref TEXT,
+                enabled INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
+                priority INTEGER NOT NULL DEFAULT 0 CHECK (priority >= 0),
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE INDEX IF NOT EXISTS idx_intelligence_connections_enabled
+                ON intelligence_connections(enabled, provider_kind);
+
+            CREATE TRIGGER IF NOT EXISTS custom_operation_delete_guard
+            BEFORE DELETE ON custom_operations
+            WHEN EXISTS (
+                SELECT 1 FROM pipeline_steps
+                WHERE operation_ref = 'custom:' || OLD.id
+            )
+            BEGIN
+                SELECT RAISE(ABORT, 'operation is used by a pipeline');
+            END;",
+        )?;
+
+        if !column_exists(conn, "bins", "default_pipeline_id")? {
+            conn.execute("ALTER TABLE bins ADD COLUMN default_pipeline_id TEXT", [])?;
         }
-
-        // Migrate any legacy pre-existing non-pipeline filters to pipeline filters backed by operations
-        if let Ok(mut stmt) = conn
-            .prepare("SELECT id, filter_type, config FROM filters WHERE filter_type != 'pipeline'")
-        {
-            let legacy_filters: Vec<(i64, String, Option<String>)> = stmt
-                .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))
-                .ok()
-                .map(|iter| iter.filter_map(Result::ok).collect())
-                .unwrap_or_default();
-
-            for (id, ftype, cfg) in legacy_filters {
-                let step_obj = if let Some(ref c) = cfg {
-                    serde_json::json!({ "filter_type": ftype, "config": c })
-                } else {
-                    serde_json::json!({ "filter_type": ftype })
-                };
-                let pipeline_json = serde_json::to_string(&vec![step_obj]).unwrap_or_default();
-                let _ = conn.execute(
-                    "UPDATE filters SET filter_type = 'pipeline', config = ?1 WHERE id = ?2",
-                    params![pipeline_json, id],
-                );
-            }
+        if !column_exists(conn, "bins", "default_recipe_id")? {
+            conn.execute("ALTER TABLE bins ADD COLUMN default_recipe_id TEXT", [])?;
         }
-
-        // Seed all built-in operations into operations table with actual Regex patterns & Shell Pipe commands
-        let default_ops = [
-            (
-                "Clean URL Tracking",
-                "regex",
-                Some(
-                    r#"{"pattern":"([?&])(utm_[^&=]+|fbclid|gclid|msclkid|ref|source)=[^&]*&?","replacement":"$1"}"#,
-                ),
-                "Cleaners & Sanitizers",
-            ),
-            (
-                "Plain Text / Strip HTML",
-                "strip_html",
-                None,
-                "Cleaners & Sanitizers",
-            ),
-            (
-                "Strip Markdown Formatting",
-                "regex",
-                Some(
-                    r#"{"pattern":"(\\*{1,2}|_{1,2}|`|#+\\s*|\\[([^\\]]+)\\]\\([^)]+\\))","replacement":"$2"}"#,
-                ),
-                "Cleaners & Sanitizers",
-            ),
-            (
-                "Emoji Remover",
-                "regex",
-                Some(
-                    r#"{"pattern":"[\\x{1F600}-\\x{1F64F}\\x{1F300}-\\x{1F5FF}\\x{1F680}-\\x{1F6FF}]","replacement":""}"#,
-                ),
-                "Cleaners & Sanitizers",
-            ),
-            (
-                "Convert Text Smileys to Emoji",
-                "smileys_to_emoji",
-                None,
-                "Cleaners & Sanitizers",
-            ),
-            ("Trim Whitespace", "trim", None, "Cleaners & Sanitizers"),
-            (
-                "Strip Newlines",
-                "strip_newlines",
-                None,
-                "Cleaners & Sanitizers",
-            ),
-            (
-                "Smart Punctuation (“ ” — …)",
-                "smart_punctuation",
-                None,
-                "Smart Formatting",
-            ),
-            (
-                "Straighten Punctuation",
-                "straighten_punctuation",
-                None,
-                "Smart Formatting",
-            ),
-            ("UPPERCASE", "uppercase", None, "Case Transformations"),
-            ("lowercase", "lowercase", None, "Case Transformations"),
-            ("Title Case", "titlecase", None, "Case Transformations"),
-            (
-                "Sentence case",
-                "sentence_case",
-                None,
-                "Case Transformations",
-            ),
-            ("camelCase", "camelcase", None, "Case Transformations"),
-            ("snake_case", "snakecase", None, "Case Transformations"),
-            ("kebab-case", "kebabcase", None, "Case Transformations"),
-            (
-                "CONSTANT_CASE",
-                "constant_case",
-                None,
-                "Case Transformations",
-            ),
-            (
-                "aLtErNaTiNg cAsE",
-                "alternating_case",
-                None,
-                "Case Transformations",
-            ),
-            (
-                "Extract URLs",
-                "regex",
-                Some(r#"{"pattern":"https?://[^\\s\\)]+","replacement":""}"#),
-                "Data Extraction",
-            ),
-            (
-                "Extract Emails",
-                "regex",
-                Some(
-                    r#"{"pattern":"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}","replacement":""}"#,
-                ),
-                "Data Extraction",
-            ),
-            (
-                "Extract Phone Numbers",
-                "regex",
-                Some(
-                    r#"{"pattern":"\\b(?:\\+?\\d{1,3}[-.\\s]?)?\\(?\\d{3}\\)?[-.\\s]?\\d{3}[-.\\s]?\\d{4}\\b","replacement":""}"#,
-                ),
-                "Data Extraction",
-            ),
-            (
-                "Extract IP Addresses",
-                "regex",
-                Some(r#"{"pattern":"\\b(?:\\d{1,3}\\.){3}\\d{1,3}\\b","replacement":""}"#),
-                "Data Extraction",
-            ),
-            (
-                "Extract Numbers",
-                "regex",
-                Some(r#"{"pattern":"\\b\\d+(?:\\.\\d+)?\\b","replacement":""}"#),
-                "Data Extraction",
-            ),
-            (
-                "Sort Lines (A-Z)",
-                "sort_lines_asc",
-                None,
-                "Line Operations",
-            ),
-            (
-                "Sort Lines (Z-A)",
-                "sort_lines_desc",
-                None,
-                "Line Operations",
-            ),
-            (
-                "Sort Lines (By Length)",
-                "sort_by_length",
-                None,
-                "Line Operations",
-            ),
-            ("Deduplicate Lines", "dedupe_lines", None, "Line Operations"),
-            ("Reverse Lines", "reverse_lines", None, "Line Operations"),
-            (
-                "Strip Empty Lines",
-                "strip_empty_lines",
-                None,
-                "Line Operations",
-            ),
-            (
-                "Number Lines (1. 2. 3.)",
-                "number_lines",
-                None,
-                "Line Operations",
-            ),
-            ("Quote Text (> )", "quote_text", None, "Line Operations"),
-            (
-                "Wrap in HTML Code Tag",
-                "wrap_tags",
-                Some("code"),
-                "Structure & Formatting",
-            ),
-            ("Format JSON", "json_format", None, "Structure & Formatting"),
-            ("Minify JSON", "json_minify", None, "Structure & Formatting"),
-            (
-                "HTML Entity Encode",
-                "html_encode",
-                None,
-                "Encodings & Decodings",
-            ),
-            (
-                "HTML Entity Decode",
-                "html_decode",
-                None,
-                "Encodings & Decodings",
-            ),
-            ("Hex Encode", "hex_encode", None, "Encodings & Decodings"),
-            ("Hex Decode", "hex_decode", None, "Encodings & Decodings"),
-            ("URL Encode", "url_encode", None, "Encodings & Decodings"),
-            ("URL Decode", "url_decode", None, "Encodings & Decodings"),
-            (
-                "Shell Script (TR Uppercase Pipe)",
-                "shell_script",
-                Some("tr \"a-z\" \"A-Z\""),
-                "Advanced & Shell Scripts",
-            ),
-            (
-                "External Script / OCR Pipe Engine",
-                "shell_script",
-                Some("tesseract stdin stdout 2>/dev/null || cat"),
-                "Advanced & Shell Scripts",
-            ),
-        ];
-
-        for (name, optype, cfg, category) in &default_ops {
-            let exists: i64 = conn
-                .query_row(
-                    "SELECT COUNT(*) FROM operations WHERE op_type = ?1 AND name = ?2",
-                    params![optype, name],
-                    |r| r.get(0),
-                )
-                .unwrap_or(0);
-            if exists == 0 {
-                let _ = conn.execute(
-                    "INSERT INTO operations (name, op_type, config, category) VALUES (?1, ?2, ?3, ?4)",
-                    params![name, optype, cfg, category],
-                );
-            } else {
-                // Always sync and organize category for seeded operations
-                let _ = conn.execute(
-                    "UPDATE operations SET category = ?1 WHERE op_type = ?2 AND name = ?3",
-                    params![category, optype, name],
-                );
-            }
+        if !column_exists(conn, "intelligence_connections", "priority")? {
+            conn.execute(
+                "ALTER TABLE intelligence_connections ADD COLUMN priority INTEGER NOT NULL DEFAULT 0",
+                [],
+            )?;
         }
-
-        // Fill any remaining unassigned operation categories with 'Custom Operations'
-        let _ = conn.execute(
-            "UPDATE operations SET category = 'Custom Operations' WHERE category IS NULL OR category = '' OR category = 'Custom'",
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS schema_migrations (
+                key TEXT PRIMARY KEY,
+                applied_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )",
             [],
-        );
+        )?;
+        let provenance_backfilled: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM schema_migrations WHERE key = 'currentTransformationBackfillV1'",
+            [],
+            |row| row.get(0),
+        )?;
+        if provenance_backfilled == 0 {
+            conn.execute(
+                "UPDATE clips SET current_transformation_id = (
+                    SELECT id FROM clip_transformations
+                    WHERE clip_id = clips.id
+                    ORDER BY created_at DESC, rowid DESC LIMIT 1
+                 )
+                 WHERE current_transformation_id IS NULL
+                   AND EXISTS (SELECT 1 FROM clip_transformations WHERE clip_id = clips.id)",
+                [],
+            )?;
+            conn.execute(
+                "INSERT INTO schema_migrations (key) VALUES ('currentTransformationBackfillV1')",
+                [],
+            )?;
+        }
 
         Ok(())
     }
@@ -898,13 +876,39 @@ impl DbState {
         )
     }
 
+    pub fn get_active_clip_text(&self, id: i64) -> Result<Option<String>> {
+        let conn = self.conn.lock();
+        conn.query_row(
+            "SELECT text_content FROM clips
+             WHERE id = ?1 AND (is_trashed IS NULL OR is_trashed = 0)",
+            params![id],
+            |row| row.get(0),
+        )
+    }
+
+    pub fn get_clip_by_id(&self, id: i64) -> Result<ClipItem> {
+        let conn = self.conn.lock();
+        self.get_clip_by_id_internal(&conn, id)
+    }
+
     fn get_clip_by_id_internal(&self, conn: &Connection, id: i64) -> Result<ClipItem> {
         conn.query_row(
-            "SELECT id, content_type, text_content, html_content, image_base64, image_path, content_hash, source_app, is_pinned, is_protected, COALESCE(pin_order, 0), bin_id, note, is_trashed, trashed_at, created_at
+            "SELECT id, content_type, text_content, html_content, image_base64, image_path, content_hash, source_app, is_pinned, is_protected, COALESCE(pin_order, 0), bin_id, note, is_trashed, trashed_at, created_at,
+                    (SELECT GROUP_CONCAT(bin_id) FROM clip_bins WHERE clip_id = clips.id),
+                    current_transformation_id IS NOT NULL
              FROM clips WHERE id = ?1",
             params![id],
             |row| {
                 let bid: Option<i64> = row.get(11)?;
+                let bin_ids_str: Option<String> = row.get(16)?;
+                let mut bin_ids = bid.into_iter().collect::<Vec<_>>();
+                if let Some(value) = bin_ids_str {
+                    for value in value.split(',').filter_map(|part| part.parse::<i64>().ok()) {
+                        if !bin_ids.contains(&value) {
+                            bin_ids.push(value);
+                        }
+                    }
+                }
                 Ok(ClipItem {
                     id: row.get(0)?,
                     content_type: row.get(1)?,
@@ -916,9 +920,10 @@ impl DbState {
                     source_app: row.get(7)?,
                     is_pinned: row.get::<_, i32>(8)? != 0,
                     is_protected: row.get::<_, i32>(9)? != 0,
+                    is_transformed: row.get::<_, i32>(17)? != 0,
                     pin_order: row.get(10)?,
                     bin_id: bid,
-                    bin_ids: bid.map(|b| vec![b]),
+                    bin_ids: Some(bin_ids),
                     note: row.get(12)?,
                     is_trashed: row.get::<_, i32>(13)? != 0,
                     trashed_at: row.get(14)?,
@@ -951,7 +956,8 @@ impl DbState {
 
         let mut sql = String::from(
             "SELECT id, content_type, text_content, NULL as html_content, image_base64, image_path, content_hash, source_app, is_pinned, is_protected, COALESCE(pin_order, 0), bin_id, note, is_trashed, trashed_at, created_at,
-             (SELECT GROUP_CONCAT(bin_id) FROM clip_bins WHERE clip_id = clips.id) as bin_ids_str
+             (SELECT GROUP_CONCAT(bin_id) FROM clip_bins WHERE clip_id = clips.id) as bin_ids_str,
+             current_transformation_id IS NOT NULL
              FROM clips WHERE (is_trashed IS NULL OR is_trashed = 0)"
         );
 
@@ -1085,6 +1091,7 @@ impl DbState {
                 source_app: row.get(7)?,
                 is_pinned: row.get::<_, i32>(8)? != 0,
                 is_protected: row.get::<_, i32>(9)? != 0,
+                is_transformed: row.get::<_, i32>(17)? != 0,
                 pin_order: row.get(10)?,
                 bin_id: primary_bid,
                 bin_ids: Some(b_ids),
@@ -1105,7 +1112,8 @@ impl DbState {
     pub fn get_trashed_clips(&self) -> Result<Vec<ClipItem>> {
         let conn = self.conn.lock();
         let mut stmt = conn.prepare_cached(
-            "SELECT id, content_type, text_content, NULL as html_content, NULL as image_base64, image_path, content_hash, source_app, is_pinned, is_protected, COALESCE(pin_order, 0), bin_id, note, is_trashed, trashed_at, created_at
+            "SELECT id, content_type, text_content, NULL as html_content, NULL as image_base64, image_path, content_hash, source_app, is_pinned, is_protected, COALESCE(pin_order, 0), bin_id, note, is_trashed, trashed_at, created_at,
+                    current_transformation_id IS NOT NULL
              FROM clips WHERE is_trashed = 1 ORDER BY trashed_at DESC"
         )?;
         let clip_iter = stmt.query_map([], |row| {
@@ -1121,6 +1129,7 @@ impl DbState {
                 source_app: row.get(7)?,
                 is_pinned: row.get::<_, i32>(8)? != 0,
                 is_protected: row.get::<_, i32>(9)? != 0,
+                is_transformed: row.get::<_, i32>(16)? != 0,
                 pin_order: row.get(10)?,
                 bin_id: bid,
                 bin_ids: bid.map(|b| vec![b]),
@@ -1140,7 +1149,8 @@ impl DbState {
     pub fn get_protected_clips(&self) -> Result<Vec<ClipItem>> {
         let conn = self.conn.lock();
         let mut stmt = conn.prepare_cached(
-            "SELECT id, content_type, text_content, NULL as html_content, NULL as image_base64, image_path, content_hash, source_app, is_pinned, is_protected, COALESCE(pin_order, 0), bin_id, note, is_trashed, trashed_at, created_at
+            "SELECT id, content_type, text_content, NULL as html_content, NULL as image_base64, image_path, content_hash, source_app, is_pinned, is_protected, COALESCE(pin_order, 0), bin_id, note, is_trashed, trashed_at, created_at,
+                    current_transformation_id IS NOT NULL
              FROM clips WHERE is_protected = 1 AND (is_trashed IS NULL OR is_trashed = 0) ORDER BY created_at DESC"
         )?;
         let clip_iter = stmt.query_map([], |row| {
@@ -1156,6 +1166,7 @@ impl DbState {
                 source_app: row.get(7)?,
                 is_pinned: row.get::<_, i32>(8)? != 0,
                 is_protected: row.get::<_, i32>(9)? != 0,
+                is_transformed: row.get::<_, i32>(16)? != 0,
                 pin_order: row.get(10)?,
                 bin_id: bid,
                 bin_ids: bid.map(|b| vec![b]),
@@ -1192,10 +1203,14 @@ impl DbState {
     pub fn update_clip_text(&self, clip_id: i64, text: &str) -> Result<()> {
         let mut conn = self.conn.lock();
         let tx = conn.transaction()?;
-        let (previous_text, is_trashed): (Option<String>, i32) = tx.query_row(
-            "SELECT text_content, COALESCE(is_trashed, 0) FROM clips WHERE id = ?1",
+        let (previous_text, is_trashed, current_transformation_id): (
+            Option<String>,
+            i32,
+            Option<String>,
+        ) = tx.query_row(
+            "SELECT text_content, COALESCE(is_trashed, 0), current_transformation_id FROM clips WHERE id = ?1",
             params![clip_id],
-            |row| Ok((row.get(0)?, row.get(1)?)),
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
         )?;
 
         if is_trashed != 0 {
@@ -1207,9 +1222,17 @@ impl DbState {
         }
 
         if let Some(previous_text) = previous_text {
+            let context_json = serde_json::to_string(&ClipRevisionContext {
+                schema_version: 1,
+                action_kind: "edit".to_string(),
+                action_label: "Edited clip content".to_string(),
+                organization: None,
+                current_transformation_id,
+            })
+            .map_err(|error| rusqlite::Error::InvalidParameterName(error.to_string()))?;
             tx.execute(
-                "INSERT INTO clip_versions (clip_id, text_content) VALUES (?1, ?2)",
-                params![clip_id, previous_text],
+                "INSERT INTO clip_versions (clip_id, text_content, context_json) VALUES (?1, ?2, ?3)",
+                params![clip_id, previous_text, context_json],
             )?;
             tx.execute(
                 "DELETE FROM clip_versions
@@ -1224,7 +1247,7 @@ impl DbState {
             )?;
         }
         tx.execute(
-            "UPDATE clips SET text_content = ?1 WHERE id = ?2",
+            "UPDATE clips SET text_content = ?1, current_transformation_id = NULL WHERE id = ?2",
             params![text, clip_id],
         )?;
         tx.commit()
@@ -1896,6 +1919,84 @@ impl DbState {
         Ok(())
     }
 
+    pub fn get_bin_recipe_ref(&self, bin_id: i64) -> Result<Option<String>> {
+        let conn = self.conn.lock();
+        let recipe_id: Option<String> = conn.query_row(
+            "SELECT default_recipe_id FROM bins WHERE id = ?1",
+            params![bin_id],
+            |row| row.get(0),
+        )?;
+        Ok(recipe_id.map(|id| format!("recipe:{id}")))
+    }
+
+    pub fn set_bin_recipe_ref(&self, bin_id: i64, recipe_ref: Option<&str>) -> Result<()> {
+        let recipe_id = recipe_ref.map(|value| value.strip_prefix("recipe:").unwrap_or(value));
+        let conn = self.conn.lock();
+        conn.execute(
+            "UPDATE bins SET default_recipe_id = ?1 WHERE id = ?2",
+            params![recipe_id, bin_id],
+        )?;
+        Ok(())
+    }
+
+    pub fn matching_smart_bin_recipes(
+        &self,
+        content_type: &str,
+        text: &str,
+        source_app: &str,
+    ) -> Result<Vec<(i64, String)>> {
+        let conn = self.conn.lock();
+        let mut statement = conn.prepare(
+            "SELECT id, smart_rule, default_recipe_id FROM bins
+             WHERE smart_rule IS NOT NULL AND default_recipe_id IS NOT NULL ORDER BY id ASC",
+        )?;
+        let rows = statement.query_map([], |row| {
+            Ok((
+                row.get::<_, i64>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+            ))
+        })?;
+        let mut matches = Vec::new();
+        for row in rows {
+            let (bin_id, rule_json, recipe_id) = row?;
+            let Ok(rule) = serde_json::from_str::<serde_json::Value>(&rule_json) else {
+                continue;
+            };
+            let condition_matches = |kind: &str, value: &str| match kind {
+                "content_type" => content_type.eq_ignore_ascii_case(value),
+                "source_app" => source_app.to_lowercase().contains(&value.to_lowercase()),
+                "contains" => text.to_lowercase().contains(&value.to_lowercase()),
+                _ => false,
+            };
+            let matched = if let Some(conditions) = rule["conditions"].as_array() {
+                let values = conditions
+                    .iter()
+                    .map(|condition| {
+                        condition_matches(
+                            condition["type"].as_str().unwrap_or(""),
+                            condition["value"].as_str().unwrap_or(""),
+                        )
+                    })
+                    .collect::<Vec<_>>();
+                if rule["match"].as_str() == Some("all") {
+                    values.iter().all(|v| *v)
+                } else {
+                    values.iter().any(|v| *v)
+                }
+            } else {
+                condition_matches(
+                    rule["type"].as_str().unwrap_or(""),
+                    rule["value"].as_str().unwrap_or(""),
+                )
+            };
+            if matched {
+                matches.push((bin_id, format!("recipe:{recipe_id}")));
+            }
+        }
+        Ok(matches)
+    }
+
     pub fn create_bin_with_type(
         &self,
         name: &str,
@@ -1954,14 +2055,24 @@ impl DbState {
     pub fn get_clip_versions(&self, clip_id: i64) -> Result<Vec<ClipVersion>> {
         let conn = self.conn.lock();
         let mut stmt = conn.prepare(
-            "SELECT id, clip_id, text_content, created_at FROM clip_versions WHERE clip_id = ?1 ORDER BY created_at DESC, id DESC",
+            "SELECT id, clip_id, text_content, context_json, created_at FROM clip_versions WHERE clip_id = ?1 ORDER BY created_at DESC, id DESC",
         )?;
         let rows = stmt.query_map(params![clip_id], |row| {
+            let context_json: Option<String> = row.get(3)?;
+            let context = context_json
+                .as_deref()
+                .and_then(|value| serde_json::from_str::<ClipRevisionContext>(value).ok());
             Ok(ClipVersion {
                 id: row.get(0)?,
                 clip_id: row.get(1)?,
                 text_content: row.get(2)?,
-                created_at: row.get(3)?,
+                action_kind: context.as_ref().map(|value| value.action_kind.clone()),
+                action_label: context.as_ref().map(|value| value.action_label.clone()),
+                restores_organization: context
+                    .as_ref()
+                    .and_then(|value| value.organization.as_ref())
+                    .is_some(),
+                created_at: row.get(4)?,
             })
         })?;
         let mut list = Vec::new();
@@ -1978,6 +2089,125 @@ impl DbState {
             params![clip_id],
             |row| row.get(0),
         )
+    }
+
+    pub fn restore_clip_version(&self, clip_id: i64, version_id: i64) -> Result<ClipItem> {
+        let mut conn = self.conn.lock();
+        let tx = conn.transaction()?;
+        let (target_text, context_json): (String, Option<String>) = tx.query_row(
+            "SELECT text_content, context_json FROM clip_versions WHERE id = ?1 AND clip_id = ?2",
+            params![version_id, clip_id],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )?;
+        let target_context = context_json
+            .as_deref()
+            .and_then(|value| serde_json::from_str::<ClipRevisionContext>(value).ok());
+        let (current_text, current_bin_id, is_trashed, current_transformation_id): (
+            Option<String>,
+            Option<i64>,
+            i32,
+            Option<String>,
+        ) = tx
+            .query_row(
+                "SELECT text_content, bin_id, COALESCE(is_trashed, 0), current_transformation_id FROM clips WHERE id = ?1",
+                params![clip_id],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+            )?;
+        if is_trashed != 0 {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "Restore this clip from Trash before restoring a revision".to_string(),
+            ));
+        }
+
+        let target_bin_id = target_context
+            .as_ref()
+            .and_then(|context| context.organization.as_ref())
+            .map(|organization| organization.category_bin_id);
+        let organization_changes = target_bin_id
+            .map(|target| target != current_bin_id)
+            .unwrap_or(false);
+        let target_transformation_id = target_context
+            .as_ref()
+            .and_then(|context| context.current_transformation_id.clone());
+        if current_text.as_deref() == Some(target_text.as_str())
+            && !organization_changes
+            && current_transformation_id == target_transformation_id
+        {
+            tx.commit()?;
+            return self.get_clip_by_id_internal(&conn, clip_id);
+        }
+
+        if let Some(current_text) = current_text {
+            let inverse_context = target_bin_id.map(|_| ClipRevisionContext {
+                schema_version: 1,
+                action_kind: "restore".to_string(),
+                action_label: "Before restoring an earlier revision".to_string(),
+                organization: Some(ClipRevisionOrganization {
+                    category_bin_id: current_bin_id,
+                }),
+                current_transformation_id: current_transformation_id.clone(),
+            });
+            let inverse_context = inverse_context.or_else(|| {
+                Some(ClipRevisionContext {
+                    schema_version: 1,
+                    action_kind: "restore".to_string(),
+                    action_label: "Before restoring an earlier revision".to_string(),
+                    organization: None,
+                    current_transformation_id: current_transformation_id.clone(),
+                })
+            });
+            let inverse_json = inverse_context
+                .map(|context| serde_json::to_string(&context))
+                .transpose()
+                .map_err(|error| rusqlite::Error::InvalidParameterName(error.to_string()))?;
+            tx.execute(
+                "INSERT INTO clip_versions (clip_id, text_content, context_json) VALUES (?1, ?2, ?3)",
+                params![clip_id, current_text, inverse_json],
+            )?;
+        }
+
+        tx.execute(
+            "UPDATE clips SET text_content = ?1, current_transformation_id = ?2 WHERE id = ?3",
+            params![target_text, target_transformation_id, clip_id],
+        )?;
+        if let Some(target_bin_id) = target_bin_id {
+            tx.execute(
+                "DELETE FROM clip_bins
+                 WHERE clip_id = ?1 AND bin_id IN (
+                    SELECT id FROM bins WHERE COALESCE(bin_type, 'category') != 'tag'
+                 )",
+                params![clip_id],
+            )?;
+            let restored_bin_id = if let Some(bin_id) = target_bin_id {
+                let changed = tx.execute(
+                    "INSERT OR REPLACE INTO clip_bins (clip_id, bin_id)
+                     SELECT ?1, id FROM bins
+                     WHERE id = ?2 AND COALESCE(bin_type, 'category') != 'tag'",
+                    params![clip_id, bin_id],
+                )?;
+                (changed > 0).then_some(bin_id)
+            } else {
+                None
+            };
+            tx.execute(
+                "UPDATE clips SET bin_id = ?1 WHERE id = ?2",
+                params![restored_bin_id, clip_id],
+            )?;
+        }
+        tx.execute(
+            "DELETE FROM clip_versions
+             WHERE clip_id = ?1 AND id NOT IN (
+                SELECT id FROM clip_versions WHERE clip_id = ?1 ORDER BY id DESC LIMIT 50
+             )",
+            params![clip_id],
+        )?;
+        tx.commit()?;
+        let _ = self.log_activity_internal(
+            &conn,
+            "clip_revision_restored",
+            &format!("Restored revision #{version_id} for clip #{clip_id}"),
+        );
+        self.get_clip_by_id_internal(&conn, clip_id)
     }
 
     pub fn update_bin(
@@ -2020,15 +2250,15 @@ impl DbState {
     pub fn export_backup_json(&self) -> Result<String> {
         let clips = self.get_all_clips_for_backup()?;
         let bins = self.get_bins()?;
-        let filters = self.get_filters()?;
+        let pipelines = self.get_pipelines()?;
         let operations = self.get_operations()?;
 
         let payload = BackupPayload {
-            version: 3,
+            version: 4,
             timestamp: chrono::Utc::now().to_rfc3339(),
             clips,
             bins,
-            filters,
+            pipelines,
             operations,
         };
 
@@ -2066,46 +2296,82 @@ impl DbState {
             bin_id_map.insert(bin.id, new_id);
         }
 
-        for filter in payload.filters {
-            let existing_id = tx
-                .query_row(
-                    "SELECT id FROM filters WHERE name = ?1 AND filter_type = ?2 LIMIT 1",
-                    params![filter.name, filter.filter_type],
-                    |row| row.get::<_, i64>(0),
-                )
-                .ok();
-            if let Some(id) = existing_id {
-                tx.execute(
-                    "UPDATE filters SET config = ?1, shortcut = ?2 WHERE id = ?3",
-                    params![filter.config, filter.shortcut, id],
-                )?;
-            } else {
-                tx.execute(
-                    "INSERT INTO filters (name, filter_type, config, shortcut, created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
-                    params![filter.name, filter.filter_type, filter.config, filter.shortcut, filter.created_at],
-                )?;
+        for operation in payload.operations {
+            // Registry built-ins are definitions, not persisted records.
+            if operation.id < 0 {
+                continue;
             }
+            let operation_id = operation.stable_id.strip_prefix("custom:").ok_or_else(|| {
+                rusqlite::Error::InvalidParameterName(
+                    "custom operation backup is missing a stable reference".to_string(),
+                )
+            })?;
+            let (executor_kind, config_json) =
+                Self::operation_storage_fields(&operation.op_type, operation.config.as_deref());
+            tx.execute(
+                "INSERT INTO custom_operations
+                    (id, name, executor_kind, config_json, category, trusted, created_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, 0, ?6)
+                 ON CONFLICT(id) DO UPDATE SET
+                    name = excluded.name,
+                    executor_kind = excluded.executor_kind,
+                    config_json = excluded.config_json,
+                    category = excluded.category,
+                    trusted = 0,
+                    updated_at = CURRENT_TIMESTAMP",
+                params![
+                    operation_id,
+                    operation.name,
+                    executor_kind,
+                    config_json,
+                    operation.category,
+                    operation.created_at
+                ],
+            )?;
         }
 
-        for operation in payload.operations {
-            let existing_id = tx
-                .query_row(
-                    "SELECT id FROM operations WHERE name = ?1 AND op_type = ?2 LIMIT 1",
-                    params![operation.name, operation.op_type],
-                    |row| row.get::<_, i64>(0),
-                )
-                .ok();
-            if let Some(id) = existing_id {
-                tx.execute(
-                    "UPDATE operations SET config = ?1, category = ?2 WHERE id = ?3",
-                    params![operation.config, operation.category, id],
-                )?;
-            } else {
-                tx.execute(
-                    "INSERT INTO operations (name, op_type, config, category, created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
-                    params![operation.name, operation.op_type, operation.config, operation.category, operation.created_at],
-                )?;
-            }
+        for pipeline in payload.pipelines {
+            let pipeline_id = pipeline
+                .stable_ref
+                .strip_prefix("pipeline:")
+                .ok_or_else(|| {
+                    rusqlite::Error::InvalidParameterName(
+                        "pipeline backup is missing a stable reference".to_string(),
+                    )
+                })?;
+            let steps = pipeline
+                .steps
+                .iter()
+                .map(|step| PipelineStepInput {
+                    operation_ref: step.operation_ref.clone(),
+                    config_json: step.config_json.clone(),
+                    failure_policy: step.failure_policy.clone(),
+                })
+                .collect::<Vec<_>>();
+            Self::validate_pipeline_steps(&tx, &steps)?;
+            tx.execute(
+                "INSERT INTO pipelines
+                    (id, name, shortcut, revision, created_at, updated_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+                 ON CONFLICT(id) DO UPDATE SET
+                    name = excluded.name,
+                    shortcut = excluded.shortcut,
+                    revision = excluded.revision,
+                    updated_at = excluded.updated_at",
+                params![
+                    pipeline_id,
+                    pipeline.name,
+                    pipeline.shortcut,
+                    pipeline.revision,
+                    pipeline.created_at,
+                    pipeline.updated_at
+                ],
+            )?;
+            tx.execute(
+                "DELETE FROM pipeline_steps WHERE pipeline_id = ?1",
+                params![pipeline_id],
+            )?;
+            Self::insert_pipeline_steps(&tx, pipeline_id, &steps)?;
         }
 
         let mut imported = 0;
@@ -2175,7 +2441,8 @@ impl DbState {
             "SELECT id, content_type, text_content, html_content, image_base64, image_path,
                     content_hash, source_app, is_pinned, is_protected, COALESCE(pin_order, 0),
                     bin_id, note, COALESCE(is_trashed, 0), trashed_at, created_at,
-                    (SELECT GROUP_CONCAT(bin_id) FROM clip_bins WHERE clip_id = clips.id)
+                    (SELECT GROUP_CONCAT(bin_id) FROM clip_bins WHERE clip_id = clips.id),
+                    current_transformation_id IS NOT NULL
              FROM clips ORDER BY created_at DESC, id DESC",
         )?;
         let rows = stmt.query_map([], |row| {
@@ -2200,6 +2467,7 @@ impl DbState {
                 source_app: row.get(7)?,
                 is_pinned: row.get::<_, i32>(8)? != 0,
                 is_protected: row.get::<_, i32>(9)? != 0,
+                is_transformed: row.get::<_, i32>(17)? != 0,
                 pin_order: row.get(10)?,
                 bin_id: primary_bin_id,
                 bin_ids: Some(bin_ids),
@@ -2236,86 +2504,904 @@ impl DbState {
         }
     }
 
-    pub fn get_filters(&self) -> Result<Vec<FilterRule>> {
-        let conn = self.conn.lock();
-        let mut stmt = conn.prepare("SELECT id, name, filter_type, config, shortcut, created_at FROM filters ORDER BY id ASC")?;
-        let filter_iter = stmt.query_map([], |row| {
-            Ok(FilterRule {
-                id: row.get(0)?,
-                name: row.get(1)?,
-                filter_type: row.get(2)?,
-                config: row.get(3)?,
-                shortcut: row.get(4)?,
-                created_at: row.get(5)?,
-            })
-        })?;
-
-        let mut filters = Vec::new();
-        for f in filter_iter {
-            filters.push(f?);
+    fn normalize_json_config(config: Option<&str>) -> String {
+        match config {
+            Some(value) if serde_json::from_str::<serde_json::Value>(value).is_ok() => {
+                value.to_string()
+            }
+            Some(value) => serde_json::Value::String(value.to_string()).to_string(),
+            None => "{}".to_string(),
         }
-        Ok(filters)
     }
 
-    pub fn create_filter(
+    fn canonical_executor_kind(operation_type: &str) -> &str {
+        match operation_type {
+            "shell_script" => "shell",
+            "regex" | "cli" | "shell" | "http" | "ai" => operation_type,
+            _ => "cli",
+        }
+    }
+
+    fn operation_storage_fields(op_type: &str, config: Option<&str>) -> (String, String) {
+        if crate::operation_registry::is_builtin_operation(op_type) {
+            (
+                "builtin".to_string(),
+                serde_json::json!({
+                    "key": op_type,
+                    "legacy_config": config.map(|value| Self::normalize_json_config(Some(value))),
+                })
+                .to_string(),
+            )
+        } else {
+            (
+                Self::canonical_executor_kind(op_type).to_string(),
+                Self::normalize_json_config(config),
+            )
+        }
+    }
+
+    fn legacy_operation_fields(executor_kind: &str, config_json: &str) -> (String, Option<String>) {
+        if executor_kind == "builtin" {
+            let value = serde_json::from_str::<serde_json::Value>(config_json).unwrap_or_default();
+            let operation_type = value["key"].as_str().unwrap_or("unknown").to_string();
+            let config = value.get("legacy_config").and_then(|config| {
+                if config.is_null() {
+                    None
+                } else if let Some(text) = config.as_str() {
+                    Some(text.to_string())
+                } else {
+                    Some(config.to_string())
+                }
+            });
+            (operation_type, config)
+        } else {
+            let operation_type = if executor_kind == "shell" {
+                "shell_script"
+            } else {
+                executor_kind
+            };
+            let value = serde_json::from_str::<serde_json::Value>(config_json).ok();
+            let config = value.map(|value| {
+                value
+                    .as_str()
+                    .map(str::to_string)
+                    .unwrap_or_else(|| value.to_string())
+            });
+            (operation_type.to_string(), config)
+        }
+    }
+
+    pub fn resolve_custom_operation(
         &self,
-        name: &str,
-        filter_type: &str,
-        config: Option<&str>,
-        shortcut: Option<&str>,
-    ) -> Result<FilterRule> {
+        operation_ref: &str,
+    ) -> Result<Option<ResolvedCustomOperation>> {
+        let Some(operation_id) = operation_ref.strip_prefix("custom:") else {
+            return Ok(None);
+        };
+        let conn = self.conn.lock();
+        let mut stmt = conn.prepare(
+            "SELECT executor_kind, config_json, enabled, trusted
+             FROM custom_operations WHERE id = ?1",
+        )?;
+        let mut rows = stmt.query(params![operation_id])?;
+        let Some(row) = rows.next()? else {
+            return Ok(None);
+        };
+        Ok(Some(ResolvedCustomOperation {
+            executor_kind: row.get(0)?,
+            config_json: row.get(1)?,
+            enabled: row.get::<_, i64>(2)? != 0,
+            trusted: row.get::<_, i64>(3)? != 0,
+        }))
+    }
+
+    pub fn resolve_pipeline(&self, pipeline_ref: &str) -> Result<Option<ResolvedPipeline>> {
+        let pipeline_id = pipeline_ref
+            .strip_prefix("pipeline:")
+            .unwrap_or(pipeline_ref);
+        let conn = self.conn.lock();
+        let revision = match conn.query_row(
+            "SELECT revision FROM pipelines WHERE id = ?1",
+            params![pipeline_id],
+            |row| row.get::<_, i64>(0),
+        ) {
+            Ok(revision) => revision,
+            Err(rusqlite::Error::QueryReturnedNoRows) => return Ok(None),
+            Err(error) => return Err(error),
+        };
+        let mut stmt = conn.prepare(
+            "SELECT position, operation_ref, config_json, failure_policy
+             FROM pipeline_steps WHERE pipeline_id = ?1 ORDER BY position ASC",
+        )?;
+        let steps = stmt
+            .query_map(params![pipeline_id], |row| {
+                Ok(ResolvedPipelineStep {
+                    position: row.get(0)?,
+                    operation_ref: row.get(1)?,
+                    config_json: row.get(2)?,
+                    failure_policy: row.get(3)?,
+                })
+            })?
+            .collect::<Result<Vec<_>>>()?;
+        Ok(Some(ResolvedPipeline { revision, steps }))
+    }
+
+    pub fn begin_transformation_execution(
+        &self,
+        target_kind: &str,
+        target_ref: &str,
+        target_revision: Option<i64>,
+        source_clip_id: Option<i64>,
+        trigger_kind: &str,
+        input_hash: &str,
+    ) -> Result<String> {
         let conn = self.conn.lock();
         conn.execute(
-            "INSERT INTO filters (name, filter_type, config, shortcut) VALUES (?1, ?2, ?3, ?4)",
-            params![name, filter_type, config, shortcut],
+            "INSERT INTO transformation_executions
+                (target_kind, target_ref, target_revision, source_clip_id,
+                 trigger_kind, input_hash)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params![
+                target_kind,
+                target_ref,
+                target_revision,
+                source_clip_id,
+                trigger_kind,
+                input_hash
+            ],
         )?;
-        let id = conn.last_insert_rowid();
         conn.query_row(
-            "SELECT id, name, filter_type, config, shortcut, created_at FROM filters WHERE id = ?1",
-            params![id],
+            "SELECT id FROM transformation_executions WHERE rowid = last_insert_rowid()",
+            [],
+            |row| row.get(0),
+        )
+    }
+
+    pub fn finish_transformation_execution(
+        &self,
+        execution_id: &str,
+        duration_ms: i64,
+        output_hash: Option<&str>,
+        error_summary: Option<&str>,
+    ) -> Result<()> {
+        let status = if error_summary.is_some() {
+            "failed"
+        } else {
+            "succeeded"
+        };
+        let conn = self.conn.lock();
+        conn.execute(
+            "UPDATE transformation_executions
+             SET duration_ms = ?1, status = ?2, output_hash = ?3, error_summary = ?4
+             WHERE id = ?5",
+            params![
+                duration_ms,
+                status,
+                output_hash,
+                error_summary,
+                execution_id
+            ],
+        )?;
+        Ok(())
+    }
+
+    pub fn get_pipelines(&self) -> Result<Vec<Pipeline>> {
+        let conn = self.conn.lock();
+        let refs = {
+            let mut statement = conn.prepare("SELECT id FROM pipelines ORDER BY row_id ASC")?;
+            let refs = statement
+                .query_map([], |row| row.get::<_, String>(0))?
+                .collect::<Result<Vec<_>>>()?;
+            refs
+        };
+        refs.into_iter()
+            .map(|stable_id| Self::pipeline_by_id(&conn, &stable_id))
+            .collect()
+    }
+
+    fn transformation_recipe_by_id(
+        conn: &Connection,
+        recipe_id: &str,
+    ) -> Result<TransformationRecipe> {
+        conn.query_row(
+            "SELECT row_id, id, name, plan_json, connection_id, revision, created_at, updated_at
+             FROM transformation_recipes WHERE id = ?1",
+            params![recipe_id],
             |row| {
-                Ok(FilterRule {
+                let stable_id: String = row.get(1)?;
+                let plan_json: String = row.get(3)?;
+                let plan = serde_json::from_str(&plan_json).map_err(|error| {
+                    rusqlite::Error::FromSqlConversionFailure(
+                        3,
+                        rusqlite::types::Type::Text,
+                        Box::new(error),
+                    )
+                })?;
+                Ok(TransformationRecipe {
                     id: row.get(0)?,
-                    name: row.get(1)?,
-                    filter_type: row.get(2)?,
-                    config: row.get(3)?,
-                    shortcut: row.get(4)?,
-                    created_at: row.get(5)?,
+                    stable_ref: format!("recipe:{stable_id}"),
+                    name: row.get(2)?,
+                    plan,
+                    connection_id: row.get(4)?,
+                    revision: row.get(5)?,
+                    created_at: row.get(6)?,
+                    updated_at: row.get(7)?,
                 })
             },
         )
     }
 
-    pub fn update_filter_shortcut(&self, id: i64, shortcut: Option<&str>) -> Result<()> {
+    pub fn get_transformation_recipes(&self) -> Result<Vec<TransformationRecipe>> {
+        let conn = self.conn.lock();
+        let ids = {
+            let mut statement = conn.prepare(
+                "SELECT id FROM transformation_recipes ORDER BY updated_at DESC, row_id DESC",
+            )?;
+            let ids = statement
+                .query_map([], |row| row.get::<_, String>(0))?
+                .collect::<Result<Vec<_>>>()?;
+            ids
+        };
+        ids.into_iter()
+            .map(|id| Self::transformation_recipe_by_id(&conn, &id))
+            .collect()
+    }
+
+    pub fn resolve_transformation_recipe(
+        &self,
+        recipe_ref: &str,
+    ) -> Result<Option<TransformationRecipe>> {
+        let recipe_id = recipe_ref.strip_prefix("recipe:").unwrap_or(recipe_ref);
+        let conn = self.conn.lock();
+        match Self::transformation_recipe_by_id(&conn, recipe_id) {
+            Ok(recipe) => Ok(Some(recipe)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(error) => Err(error),
+        }
+    }
+
+    pub fn create_transformation_recipe(
+        &self,
+        name: &str,
+        plan: &crate::transformation_intent::TransformationPlan,
+        connection_id: Option<&str>,
+    ) -> Result<TransformationRecipe> {
+        plan.validate()
+            .map_err(rusqlite::Error::InvalidParameterName)?;
+        let plan_json = serde_json::to_string(plan).map_err(|error| {
+            rusqlite::Error::InvalidParameterName(format!("invalid Recipe: {error}"))
+        })?;
         let conn = self.conn.lock();
         conn.execute(
-            "UPDATE filters SET shortcut = ?1 WHERE id = ?2",
-            params![shortcut, id],
+            "INSERT INTO transformation_recipes (name, plan_json, connection_id)
+             VALUES (?1, ?2, ?3)",
+            params![name.trim(), plan_json, connection_id],
+        )?;
+        let row_id = conn.last_insert_rowid();
+        let stable_id: String = conn.query_row(
+            "SELECT id FROM transformation_recipes WHERE row_id = ?1",
+            params![row_id],
+            |row| row.get(0),
+        )?;
+        Self::transformation_recipe_by_id(&conn, &stable_id)
+    }
+
+    pub fn delete_transformation_recipe(&self, recipe_ref: &str) -> Result<()> {
+        let recipe_id = recipe_ref.strip_prefix("recipe:").unwrap_or(recipe_ref);
+        let conn = self.conn.lock();
+        let changed = conn.execute(
+            "DELETE FROM transformation_recipes WHERE id = ?1",
+            params![recipe_id],
+        )?;
+        if changed == 0 {
+            return Err(rusqlite::Error::QueryReturnedNoRows);
+        }
+        Ok(())
+    }
+
+    pub fn apply_recipe_output_to_clip(
+        &self,
+        clip_id: i64,
+        recipe_ref: &str,
+        expected_input: &str,
+        output: &str,
+        connection_id: Option<&str>,
+        duration_ms: i64,
+    ) -> Result<ClipTransformationProvenance> {
+        self.apply_recipe_output_to_clip_internal(
+            clip_id,
+            recipe_ref,
+            expected_input,
+            output,
+            connection_id,
+            duration_ms,
+            None,
+        )
+    }
+
+    pub fn apply_recipe_output_to_clip_after_bin_move(
+        &self,
+        clip_id: i64,
+        recipe_ref: &str,
+        expected_input: &str,
+        output: &str,
+        connection_id: Option<&str>,
+        duration_ms: i64,
+        previous_category_bin_id: Option<i64>,
+        destination_bin_id: i64,
+    ) -> Result<ClipTransformationProvenance> {
+        self.apply_recipe_output_to_clip_internal(
+            clip_id,
+            recipe_ref,
+            expected_input,
+            output,
+            connection_id,
+            duration_ms,
+            Some((previous_category_bin_id, destination_bin_id)),
+        )
+    }
+
+    fn apply_recipe_output_to_clip_internal(
+        &self,
+        clip_id: i64,
+        recipe_ref: &str,
+        expected_input: &str,
+        output: &str,
+        connection_id: Option<&str>,
+        duration_ms: i64,
+        bin_move: Option<(Option<i64>, i64)>,
+    ) -> Result<ClipTransformationProvenance> {
+        let recipe_id = recipe_ref.strip_prefix("recipe:").unwrap_or(recipe_ref);
+        let mut conn = self.conn.lock();
+        let tx = conn.transaction()?;
+        let (recipe_name, recipe_revision): (String, i64) = tx.query_row(
+            "SELECT name, revision FROM transformation_recipes WHERE id = ?1",
+            params![recipe_id],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )?;
+        let (current_text, is_trashed, current_transformation_id): (
+            Option<String>,
+            i32,
+            Option<String>,
+        ) = tx.query_row(
+            "SELECT text_content, COALESCE(is_trashed, 0), current_transformation_id FROM clips WHERE id = ?1",
+            params![clip_id],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )?;
+        if is_trashed != 0 {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "Restore this clip before transforming it".to_string(),
+            ));
+        }
+        if current_text.as_deref() != Some(expected_input) {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "The clip changed after this preview was generated; preview it again".to_string(),
+            ));
+        }
+        if expected_input == output {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "The Recipe did not change the clip".to_string(),
+            ));
+        }
+        let (action_label, organization) =
+            if let Some((previous_bin_id, destination_bin_id)) = bin_move {
+                let destination_name = tx
+                    .query_row(
+                        "SELECT name FROM bins WHERE id = ?1",
+                        params![destination_bin_id],
+                        |row| row.get::<_, String>(0),
+                    )
+                    .unwrap_or_else(|_| format!("Bin #{destination_bin_id}"));
+                (
+                    format!("Moved to {destination_name} · Applied {recipe_name}"),
+                    Some(ClipRevisionOrganization {
+                        category_bin_id: previous_bin_id,
+                    }),
+                )
+            } else {
+                (format!("Applied {recipe_name}"), None)
+            };
+        let context_json = serde_json::to_string(&ClipRevisionContext {
+            schema_version: 1,
+            action_kind: if organization.is_some() {
+                "recipe_bin_drop".to_string()
+            } else {
+                "recipe".to_string()
+            },
+            action_label,
+            organization,
+            current_transformation_id,
+        })
+        .map_err(|error| rusqlite::Error::InvalidParameterName(error.to_string()))?;
+        tx.execute(
+            "INSERT INTO clip_versions (clip_id, text_content, context_json) VALUES (?1, ?2, ?3)",
+            params![clip_id, expected_input, context_json],
+        )?;
+        tx.execute(
+            "DELETE FROM clip_versions
+             WHERE clip_id = ?1 AND id NOT IN (
+                SELECT id FROM clip_versions WHERE clip_id = ?1 ORDER BY id DESC LIMIT 50
+             )",
+            params![clip_id],
+        )?;
+        let transformation_id: String =
+            tx.query_row("SELECT lower(hex(randomblob(16)))", [], |row| row.get(0))?;
+        tx.execute(
+            "INSERT INTO clip_transformations
+                (id, clip_id, recipe_id, recipe_name, recipe_revision, connection_id, duration_ms)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            params![
+                transformation_id,
+                clip_id,
+                recipe_id,
+                recipe_name,
+                recipe_revision,
+                connection_id,
+                duration_ms.max(0)
+            ],
+        )?;
+        tx.execute(
+            "UPDATE clips SET text_content = ?1, current_transformation_id = ?2 WHERE id = ?3",
+            params![output, transformation_id, clip_id],
+        )?;
+        let created_at: String = tx.query_row(
+            "SELECT created_at FROM clip_transformations WHERE rowid = last_insert_rowid()",
+            [],
+            |row| row.get(0),
+        )?;
+        tx.commit()?;
+        Ok(ClipTransformationProvenance {
+            recipe_ref: format!("recipe:{recipe_id}"),
+            recipe_name,
+            recipe_revision,
+            connection_id: connection_id.map(str::to_string),
+            duration_ms: duration_ms.max(0),
+            created_at,
+        })
+    }
+
+    pub fn get_clip_transformation_provenance(
+        &self,
+        clip_id: i64,
+    ) -> Result<Option<ClipTransformationProvenance>> {
+        let conn = self.conn.lock();
+        let result = conn.query_row(
+            "SELECT transformation.recipe_id, transformation.recipe_name,
+                    transformation.recipe_revision, transformation.connection_id,
+                    transformation.duration_ms, transformation.created_at
+             FROM clips
+             JOIN clip_transformations transformation
+               ON transformation.id = clips.current_transformation_id
+             WHERE clips.id = ?1",
+            params![clip_id],
+            |row| {
+                let recipe_id: Option<String> = row.get(0)?;
+                Ok(ClipTransformationProvenance {
+                    recipe_ref: recipe_id
+                        .map(|id| format!("recipe:{id}"))
+                        .unwrap_or_else(|| "recipe:deleted".to_string()),
+                    recipe_name: row.get(1)?,
+                    recipe_revision: row.get(2)?,
+                    connection_id: row.get(3)?,
+                    duration_ms: row.get(4)?,
+                    created_at: row.get(5)?,
+                })
+            },
+        );
+        match result {
+            Ok(value) => Ok(Some(value)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(error) => Err(error),
+        }
+    }
+
+    fn pipeline_steps(conn: &Connection, pipeline_id: &str) -> Result<Vec<PipelineStep>> {
+        let mut statement = conn.prepare(
+            "SELECT position, operation_ref, config_json, failure_policy
+             FROM pipeline_steps WHERE pipeline_id = ?1 ORDER BY position ASC",
+        )?;
+        let steps = statement
+            .query_map(params![pipeline_id], |row| {
+                Ok(PipelineStep {
+                    position: row.get(0)?,
+                    operation_ref: row.get(1)?,
+                    config_json: row.get(2)?,
+                    failure_policy: row.get(3)?,
+                })
+            })?
+            .collect();
+        steps
+    }
+
+    fn pipeline_by_id(conn: &Connection, pipeline_id: &str) -> Result<Pipeline> {
+        let mut pipeline = conn.query_row(
+            "SELECT row_id, id, name, shortcut, revision, created_at, updated_at
+             FROM pipelines WHERE id = ?1",
+            params![pipeline_id],
+            |row| {
+                let stable_id = row.get::<_, String>(1)?;
+                Ok(Pipeline {
+                    id: row.get(0)?,
+                    stable_ref: format!("pipeline:{stable_id}"),
+                    name: row.get(2)?,
+                    shortcut: row.get(3)?,
+                    revision: row.get(4)?,
+                    created_at: row.get(5)?,
+                    updated_at: row.get(6)?,
+                    steps: Vec::new(),
+                })
+            },
+        )?;
+        pipeline.steps = Self::pipeline_steps(conn, pipeline_id)?;
+        Ok(pipeline)
+    }
+
+    fn validate_pipeline_steps(conn: &Connection, steps: &[PipelineStepInput]) -> Result<()> {
+        if steps.is_empty() {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "pipeline requires at least one operation".to_string(),
+            ));
+        }
+        for step in steps {
+            if !matches!(step.failure_policy.as_str(), "stop" | "skip") {
+                return Err(rusqlite::Error::InvalidParameterName(format!(
+                    "invalid failure policy: {}",
+                    step.failure_policy
+                )));
+            }
+            if let Some(config) = &step.config_json {
+                serde_json::from_str::<serde_json::Value>(config).map_err(|error| {
+                    rusqlite::Error::InvalidParameterName(format!(
+                        "invalid step config JSON: {error}"
+                    ))
+                })?;
+            }
+            if let Some(key) = step.operation_ref.strip_prefix("builtin:") {
+                if !crate::operation_registry::is_builtin_operation(key) {
+                    return Err(rusqlite::Error::InvalidParameterName(format!(
+                        "unknown operation reference: {}",
+                        step.operation_ref
+                    )));
+                }
+            } else if let Some(custom_id) = step.operation_ref.strip_prefix("custom:") {
+                let exists: bool = conn.query_row(
+                    "SELECT EXISTS(SELECT 1 FROM custom_operations WHERE id = ?1)",
+                    params![custom_id],
+                    |row| row.get(0),
+                )?;
+                if !exists {
+                    return Err(rusqlite::Error::InvalidParameterName(format!(
+                        "unknown operation reference: {}",
+                        step.operation_ref
+                    )));
+                }
+            } else {
+                return Err(rusqlite::Error::InvalidParameterName(format!(
+                    "invalid operation reference: {}",
+                    step.operation_ref
+                )));
+            }
+        }
+        Ok(())
+    }
+
+    fn insert_pipeline_steps(
+        conn: &Connection,
+        pipeline_id: &str,
+        steps: &[PipelineStepInput],
+    ) -> Result<()> {
+        for (position, step) in steps.iter().enumerate() {
+            conn.execute(
+                "INSERT INTO pipeline_steps
+                    (pipeline_id, position, operation_ref, config_json, failure_policy)
+                 VALUES (?1, ?2, ?3, ?4, ?5)",
+                params![
+                    pipeline_id,
+                    position as i64,
+                    step.operation_ref,
+                    step.config_json,
+                    step.failure_policy
+                ],
+            )?;
+        }
+        Ok(())
+    }
+
+    pub fn create_pipeline(
+        &self,
+        name: &str,
+        steps: &[PipelineStepInput],
+        shortcut: Option<&str>,
+    ) -> Result<Pipeline> {
+        let mut conn = self.conn.lock();
+        let tx = conn.transaction()?;
+        Self::validate_pipeline_steps(&tx, steps)?;
+        tx.execute(
+            "INSERT INTO pipelines (name, shortcut) VALUES (?1, ?2)",
+            params![name, shortcut],
+        )?;
+        let row_id = tx.last_insert_rowid();
+        let (stable_id, created_at, updated_at): (String, String, String) = tx.query_row(
+            "SELECT id, created_at, updated_at FROM pipelines WHERE row_id = ?1",
+            params![row_id],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )?;
+        Self::insert_pipeline_steps(&tx, &stable_id, steps)?;
+        let pipeline = Self::pipeline_by_id(&tx, &stable_id)?;
+        tx.commit()?;
+        debug_assert_eq!(pipeline.id, row_id);
+        debug_assert_eq!(pipeline.created_at, created_at);
+        debug_assert_eq!(pipeline.updated_at, updated_at);
+        Ok(pipeline)
+    }
+
+    pub fn update_pipeline(
+        &self,
+        pipeline_ref: &str,
+        name: &str,
+        steps: &[PipelineStepInput],
+        shortcut: Option<&str>,
+    ) -> Result<Pipeline> {
+        let pipeline_id = pipeline_ref
+            .strip_prefix("pipeline:")
+            .unwrap_or(pipeline_ref);
+        let mut conn = self.conn.lock();
+        let tx = conn.transaction()?;
+        Self::validate_pipeline_steps(&tx, steps)?;
+        let changed = tx.execute(
+            "UPDATE pipelines
+             SET name = ?1, shortcut = ?2, revision = revision + 1,
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE id = ?3",
+            params![name, shortcut, pipeline_id],
+        )?;
+        if changed == 0 {
+            return Err(rusqlite::Error::QueryReturnedNoRows);
+        }
+        tx.execute(
+            "DELETE FROM pipeline_steps WHERE pipeline_id = ?1",
+            params![pipeline_id],
+        )?;
+        Self::insert_pipeline_steps(&tx, pipeline_id, steps)?;
+        let pipeline = Self::pipeline_by_id(&tx, pipeline_id)?;
+        tx.commit()?;
+        Ok(pipeline)
+    }
+
+    pub fn update_pipeline_shortcut(
+        &self,
+        pipeline_ref: &str,
+        shortcut: Option<&str>,
+    ) -> Result<()> {
+        let pipeline_id = pipeline_ref
+            .strip_prefix("pipeline:")
+            .unwrap_or(pipeline_ref);
+        let conn = self.conn.lock();
+        let changed = conn.execute(
+            "UPDATE pipelines
+             SET shortcut = ?1, revision = revision + 1, updated_at = CURRENT_TIMESTAMP
+             WHERE id = ?2",
+            params![shortcut, pipeline_id],
+        )?;
+        if changed == 0 {
+            return Err(rusqlite::Error::QueryReturnedNoRows);
+        }
+        Ok(())
+    }
+
+    pub fn delete_pipeline(&self, pipeline_ref: &str) -> Result<()> {
+        let pipeline_id = pipeline_ref
+            .strip_prefix("pipeline:")
+            .unwrap_or(pipeline_ref);
+        let conn = self.conn.lock();
+        let changed = conn.execute("DELETE FROM pipelines WHERE id = ?1", params![pipeline_id])?;
+        if changed == 0 {
+            return Err(rusqlite::Error::QueryReturnedNoRows);
+        }
+        Ok(())
+    }
+
+    pub fn get_intelligence_connections(&self) -> Result<Vec<IntelligenceConnection>> {
+        let conn = self.conn.lock();
+        let mut statement = conn.prepare(
+            "SELECT id, name, provider_kind, endpoint, model, credential_ref,
+                    enabled, priority, created_at, updated_at
+             FROM intelligence_connections
+             ORDER BY priority ASC, row_id ASC",
+        )?;
+        let rows = statement.query_map([], |row| {
+            Ok(IntelligenceConnection {
+                id: row.get(0)?,
+                name: row.get(1)?,
+                provider_kind: row.get(2)?,
+                endpoint: row.get(3)?,
+                model: row.get(4)?,
+                credential_ref: row.get(5)?,
+                enabled: row.get::<_, i64>(6)? != 0,
+                priority: row.get(7)?,
+                created_at: row.get(8)?,
+                updated_at: row.get(9)?,
+            })
+        })?;
+        rows.collect()
+    }
+
+    pub fn create_intelligence_connection(
+        &self,
+        name: &str,
+        provider_kind: &str,
+        endpoint: Option<&str>,
+        model: Option<&str>,
+        credential_ref: Option<&str>,
+    ) -> Result<IntelligenceConnection> {
+        let conn = self.conn.lock();
+        let priority: i64 = conn.query_row(
+            "SELECT COALESCE(MAX(priority), -1) + 1 FROM intelligence_connections",
+            [],
+            |row| row.get(0),
+        )?;
+        conn.execute(
+            "INSERT INTO intelligence_connections
+                (name, provider_kind, endpoint, model, credential_ref, priority)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params![
+                name.trim(),
+                provider_kind,
+                endpoint,
+                model,
+                credential_ref,
+                priority
+            ],
+        )?;
+        let row_id = conn.last_insert_rowid();
+        conn.query_row(
+            "SELECT id, name, provider_kind, endpoint, model, credential_ref,
+                    enabled, priority, created_at, updated_at
+             FROM intelligence_connections WHERE row_id = ?1",
+            params![row_id],
+            |row| {
+                Ok(IntelligenceConnection {
+                    id: row.get(0)?,
+                    name: row.get(1)?,
+                    provider_kind: row.get(2)?,
+                    endpoint: row.get(3)?,
+                    model: row.get(4)?,
+                    credential_ref: row.get(5)?,
+                    enabled: row.get::<_, i64>(6)? != 0,
+                    priority: row.get(7)?,
+                    created_at: row.get(8)?,
+                    updated_at: row.get(9)?,
+                })
+            },
+        )
+    }
+
+    pub fn ensure_intelligence_connection_candidate(
+        &self,
+        name: &str,
+        provider_kind: &str,
+        endpoint: Option<&str>,
+    ) -> Result<()> {
+        let conn = self.conn.lock();
+        let exists = conn.query_row(
+            "SELECT EXISTS(
+                SELECT 1 FROM intelligence_connections
+                WHERE provider_kind = ?1
+                  AND COALESCE(endpoint, '') = COALESCE(?2, '')
+            )",
+            params![provider_kind, endpoint],
+            |row| row.get::<_, bool>(0),
+        )?;
+        if exists {
+            return Ok(());
+        }
+        let priority: i64 = conn.query_row(
+            "SELECT COALESCE(MAX(priority), -1) + 1 FROM intelligence_connections",
+            [],
+            |row| row.get(0),
+        )?;
+        conn.execute(
+            "INSERT INTO intelligence_connections
+                (name, provider_kind, endpoint, enabled, priority)
+             VALUES (?1, ?2, ?3, 0, ?4)",
+            params![name.trim(), provider_kind, endpoint, priority],
         )?;
         Ok(())
     }
 
-    pub fn delete_filter(&self, id: i64) -> Result<()> {
+    pub fn update_intelligence_connection(
+        &self,
+        id: &str,
+        name: &str,
+        provider_kind: &str,
+        endpoint: Option<&str>,
+        model: Option<&str>,
+        credential_ref: Option<&str>,
+        enabled: bool,
+    ) -> Result<()> {
         let conn = self.conn.lock();
-        conn.execute("DELETE FROM filters WHERE id = ?1", params![id])?;
+        let changed = conn.execute(
+            "UPDATE intelligence_connections
+             SET name = ?1, provider_kind = ?2, endpoint = ?3, model = ?4,
+                 credential_ref = ?5, enabled = ?6, updated_at = CURRENT_TIMESTAMP
+             WHERE id = ?7",
+            params![
+                name.trim(),
+                provider_kind,
+                endpoint,
+                model,
+                credential_ref,
+                enabled as i64,
+                id
+            ],
+        )?;
+        if changed == 0 {
+            return Err(rusqlite::Error::QueryReturnedNoRows);
+        }
         Ok(())
+    }
+
+    pub fn delete_intelligence_connection(&self, id: &str) -> Result<()> {
+        let conn = self.conn.lock();
+        let changed = conn.execute(
+            "DELETE FROM intelligence_connections WHERE id = ?1",
+            params![id],
+        )?;
+        if changed == 0 {
+            return Err(rusqlite::Error::QueryReturnedNoRows);
+        }
+        Ok(())
+    }
+
+    pub fn reorder_intelligence_connections(&self, ids: &[String]) -> Result<()> {
+        let mut conn = self.conn.lock();
+        let transaction = conn.transaction()?;
+        for (priority, id) in ids.iter().enumerate() {
+            let changed = transaction.execute(
+                "UPDATE intelligence_connections SET priority = ?1, updated_at = CURRENT_TIMESTAMP WHERE id = ?2",
+                params![priority as i64, id],
+            )?;
+            if changed == 0 {
+                return Err(rusqlite::Error::QueryReturnedNoRows);
+            }
+        }
+        transaction.commit()
     }
 
     pub fn get_operations(&self) -> Result<Vec<Operation>> {
         let conn = self.conn.lock();
-        let mut stmt = conn.prepare("SELECT id, name, op_type, config, category, created_at FROM operations ORDER BY id ASC")?;
+        let mut operations = crate::operation_registry::BUILTIN_OPERATIONS
+            .iter()
+            .enumerate()
+            .map(|(index, definition)| Operation {
+                id: -((index as i64) + 1),
+                stable_id: format!("builtin:{}", definition.key),
+                name: definition.name.to_string(),
+                op_type: definition.key.to_string(),
+                config: None,
+                category: definition.category_label.to_string(),
+                created_at: String::new(),
+            })
+            .collect::<Vec<_>>();
+        let mut stmt = conn.prepare(
+            "SELECT row_id, id, name, executor_kind, config_json, category, created_at
+             FROM custom_operations ORDER BY row_id ASC",
+        )?;
         let op_iter = stmt.query_map([], |row| {
+            let operation_id = row.get::<_, String>(1)?;
+            let executor_kind = row.get::<_, String>(3)?;
+            let config_json = row.get::<_, String>(4)?;
+            let (op_type, config) = Self::legacy_operation_fields(&executor_kind, &config_json);
             Ok(Operation {
                 id: row.get(0)?,
-                name: row.get(1)?,
-                op_type: row.get(2)?,
-                config: row.get(3)?,
-                category: row.get(4)?,
-                created_at: row.get(5)?,
+                stable_id: format!("custom:{operation_id}"),
+                name: row.get(2)?,
+                op_type,
+                config,
+                category: row.get(5)?,
+                created_at: row.get(6)?,
             })
         })?;
-
-        let mut operations = Vec::new();
         for o in op_iter {
             operations.push(o?);
         }
@@ -2330,26 +3416,33 @@ impl DbState {
         category: Option<&str>,
     ) -> Result<Operation> {
         let conn = self.conn.lock();
-        let cat = category.unwrap_or("Custom");
+        let cat = category.unwrap_or("Custom Operations");
+        let (executor_kind, config_json) = Self::operation_storage_fields(op_type, config);
         conn.execute(
-            "INSERT INTO operations (name, op_type, config, category) VALUES (?1, ?2, ?3, ?4)",
-            params![name, op_type, config, cat],
+            "INSERT INTO custom_operations
+                (name, executor_kind, config_json, category, trusted)
+             VALUES (?1, ?2, ?3, ?4, 1)",
+            params![name, executor_kind, config_json, cat],
         )?;
         let id = conn.last_insert_rowid();
-        conn.query_row(
-            "SELECT id, name, op_type, config, category, created_at FROM operations WHERE id = ?1",
+        let stable_id: String = conn.query_row(
+            "SELECT id FROM custom_operations WHERE row_id = ?1",
             params![id],
-            |row| {
-                Ok(Operation {
-                    id: row.get(0)?,
-                    name: row.get(1)?,
-                    op_type: row.get(2)?,
-                    config: row.get(3)?,
-                    category: row.get(4)?,
-                    created_at: row.get(5)?,
-                })
-            },
-        )
+            |row| row.get(0),
+        )?;
+        Ok(Operation {
+            id,
+            stable_id: format!("custom:{stable_id}"),
+            name: name.to_string(),
+            op_type: op_type.to_string(),
+            config: config.map(str::to_string),
+            category: cat.to_string(),
+            created_at: conn.query_row(
+                "SELECT created_at FROM custom_operations WHERE row_id = ?1",
+                params![id],
+                |row| row.get(0),
+            )?,
+        })
     }
 
     pub fn update_operation(
@@ -2362,16 +3455,23 @@ impl DbState {
     ) -> Result<()> {
         let conn = self.conn.lock();
         let cat = category.unwrap_or("Custom Operations");
+        let (executor_kind, config_json) = Self::operation_storage_fields(op_type, config);
         conn.execute(
-            "UPDATE operations SET name = ?1, op_type = ?2, config = ?3, category = ?4 WHERE id = ?5",
-            params![name, op_type, config, cat, id],
+            "UPDATE custom_operations
+             SET name = ?1, executor_kind = ?2, config_json = ?3, category = ?4,
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE row_id = ?5",
+            params![name, executor_kind, config_json, cat, id],
         )?;
         Ok(())
     }
 
     pub fn delete_operation(&self, id: i64) -> Result<()> {
         let conn = self.conn.lock();
-        conn.execute("DELETE FROM operations WHERE id = ?1", params![id])?;
+        conn.execute(
+            "DELETE FROM custom_operations WHERE row_id = ?1",
+            params![id],
+        )?;
         Ok(())
     }
 
@@ -2386,6 +3486,12 @@ impl DbState {
             "INSERT INTO settings (key, value) VALUES (?1, ?2) ON CONFLICT(key) DO UPDATE SET value = ?2",
             params![key, value],
         )?;
+        Ok(())
+    }
+
+    pub fn delete_setting(&self, key: &str) -> Result<()> {
+        let conn = self.conn.lock();
+        conn.execute("DELETE FROM settings WHERE key = ?1", params![key])?;
         Ok(())
     }
 
@@ -2850,21 +3956,45 @@ mod tests {
     }
 
     #[test]
-    fn test_filters_and_operations_crud() {
+    fn test_pipelines_and_operations_crud() {
         let db = setup_test_db();
 
-        // Filter Pipeline CRUD
-        let filter = db
-            .create_filter("Trim & Uppercase", "trim", None, Some("Alt+T"))
+        // Built-ins are registry-owned and the old seeded snapshot tables are gone.
+        assert!(db.get_pipelines().unwrap().is_empty());
+        {
+            let conn = db.conn.lock();
+            assert!(!table_exists(&conn, "operations").unwrap());
+            assert!(table_exists(&conn, "custom_operations").unwrap());
+            assert!(table_exists(&conn, "pipelines").unwrap());
+            assert!(table_exists(&conn, "pipeline_steps").unwrap());
+            let persisted_builtins: i64 = conn
+                .query_row("SELECT COUNT(*) FROM custom_operations", [], |row| {
+                    row.get(0)
+                })
+                .unwrap();
+            assert_eq!(persisted_builtins, 0);
+        }
+
+        // Pipeline CRUD
+        let pipeline = db
+            .create_pipeline(
+                "Trim",
+                &[PipelineStepInput {
+                    operation_ref: "builtin:trim".to_string(),
+                    config_json: None,
+                    failure_policy: "stop".to_string(),
+                }],
+                Some("Alt+T"),
+            )
             .unwrap();
-        assert!(filter.id > 0);
+        assert!(pipeline.id > 0);
 
-        let filters = db.get_filters().unwrap();
-        assert!(filters.iter().any(|f| f.name == "Trim & Uppercase"));
+        let pipelines = db.get_pipelines().unwrap();
+        assert_eq!(pipelines[0].name, "Trim");
+        assert_eq!(pipelines[0].steps[0].operation_ref, "builtin:trim");
 
-        db.delete_filter(filter.id).unwrap();
-        let after_delete = db.get_filters().unwrap();
-        assert!(!after_delete.iter().any(|f| f.id == filter.id));
+        db.delete_pipeline(&pipeline.stable_ref).unwrap();
+        assert!(db.get_pipelines().unwrap().is_empty());
 
         // Operation CRUD
         let op = db
@@ -2878,6 +4008,185 @@ mod tests {
         db.delete_operation(op.id).unwrap();
         let ops_after = db.get_operations().unwrap();
         assert!(!ops_after.iter().any(|o| o.id == op.id));
+    }
+
+    #[test]
+    fn intelligence_connections_store_references_but_not_credentials() {
+        let db = setup_test_db();
+        let connection = db
+            .create_intelligence_connection(
+                "Local Ollama",
+                "ollama",
+                Some("http://127.0.0.1:11434"),
+                Some("qwen3"),
+                None,
+            )
+            .unwrap();
+        assert_eq!(connection.provider_kind, "ollama");
+        assert_eq!(connection.credential_ref, None);
+
+        db.update_intelligence_connection(
+            &connection.id,
+            "Local Planner",
+            "openai_compatible",
+            Some("http://127.0.0.1:1234/v1"),
+            Some("local-model"),
+            Some("env:PASTED_AI_API_KEY"),
+            false,
+        )
+        .unwrap();
+        let connections = db.get_intelligence_connections().unwrap();
+        assert_eq!(connections.len(), 1);
+        assert_eq!(connections[0].name, "Local Planner");
+        assert!(!connections[0].enabled);
+        assert_eq!(
+            connections[0].credential_ref.as_deref(),
+            Some("env:PASTED_AI_API_KEY")
+        );
+
+        let fallback = db
+            .create_intelligence_connection(
+                "Fallback Ollama",
+                "ollama",
+                Some("http://127.0.0.1:11434"),
+                None,
+                None,
+            )
+            .unwrap();
+        db.reorder_intelligence_connections(&[fallback.id.clone(), connection.id.clone()])
+            .unwrap();
+        let reordered = db.get_intelligence_connections().unwrap();
+        assert_eq!(reordered[0].id, fallback.id);
+        assert_eq!(reordered[0].priority, 0);
+        assert_eq!(reordered[1].id, connection.id);
+        assert_eq!(reordered[1].priority, 1);
+
+        db.delete_intelligence_connection(&connection.id).unwrap();
+        db.delete_intelligence_connection(&fallback.id).unwrap();
+        assert!(db.get_intelligence_connections().unwrap().is_empty());
+    }
+
+    #[test]
+    fn detected_intelligence_candidates_are_disabled_and_idempotent() {
+        let db = setup_test_db();
+        db.ensure_intelligence_connection_candidate(
+            "Codex CLI",
+            "cli",
+            Some("/usr/local/bin/codex"),
+        )
+        .unwrap();
+        db.ensure_intelligence_connection_candidate(
+            "Codex CLI",
+            "cli",
+            Some("/usr/local/bin/codex"),
+        )
+        .unwrap();
+
+        let connections = db.get_intelligence_connections().unwrap();
+        assert_eq!(connections.len(), 1);
+        assert_eq!(connections[0].name, "Codex CLI");
+        assert!(!connections[0].enabled);
+        assert_eq!(connections[0].priority, 0);
+    }
+
+    #[test]
+    fn test_pipeline_roundtrip_update_and_validation_rollback() {
+        let db = setup_test_db();
+        let created = db
+            .create_pipeline(
+                "Normalize",
+                &[
+                    PipelineStepInput {
+                        operation_ref: "builtin:trim".to_string(),
+                        config_json: None,
+                        failure_policy: "stop".to_string(),
+                    },
+                    PipelineStepInput {
+                        operation_ref: "builtin:wrap_tags".to_string(),
+                        config_json: Some(r#""strong""#.to_string()),
+                        failure_policy: "stop".to_string(),
+                    },
+                ],
+                Some("Alt+N"),
+            )
+            .unwrap();
+        assert_eq!(created.revision, 1);
+        assert_eq!(created.steps.len(), 2);
+        assert_eq!(created.steps[0].position, 0);
+        assert_eq!(created.steps[0].operation_ref, "builtin:trim");
+        assert_eq!(created.steps[1].position, 1);
+        assert_eq!(created.steps[1].config_json.as_deref(), Some(r#""strong""#));
+
+        let updated = db
+            .update_pipeline(
+                &created.stable_ref,
+                "Loud Quote",
+                &[
+                    PipelineStepInput {
+                        operation_ref: "builtin:uppercase".to_string(),
+                        config_json: None,
+                        failure_policy: "stop".to_string(),
+                    },
+                    PipelineStepInput {
+                        operation_ref: "builtin:quote_text".to_string(),
+                        config_json: None,
+                        failure_policy: "skip".to_string(),
+                    },
+                ],
+                Some("Alt+L"),
+            )
+            .unwrap();
+        assert_eq!(updated.stable_ref, created.stable_ref);
+        assert_eq!(updated.id, created.id);
+        assert_eq!(updated.revision, 2);
+        assert_eq!(updated.name, "Loud Quote");
+        assert_eq!(updated.shortcut.as_deref(), Some("Alt+L"));
+        assert_eq!(
+            updated
+                .steps
+                .iter()
+                .map(|step| (step.position, step.operation_ref.as_str()))
+                .collect::<Vec<_>>(),
+            vec![(0, "builtin:uppercase"), (1, "builtin:quote_text")]
+        );
+
+        let invalid = db.update_pipeline(
+            &created.stable_ref,
+            "Must Roll Back",
+            &[PipelineStepInput {
+                operation_ref: "builtin:not-real".to_string(),
+                config_json: None,
+                failure_policy: "stop".to_string(),
+            }],
+            None,
+        );
+        assert!(invalid.is_err());
+        let after_failure = db
+            .get_pipelines()
+            .unwrap()
+            .into_iter()
+            .find(|pipeline| pipeline.stable_ref == created.stable_ref)
+            .unwrap();
+        assert_eq!(after_failure.name, "Loud Quote");
+        assert_eq!(after_failure.revision, 2);
+        assert_eq!(after_failure.steps, updated.steps);
+    }
+
+    #[test]
+    fn test_pipeline_update_and_delete_report_not_found() {
+        let db = setup_test_db();
+        let steps = [PipelineStepInput {
+            operation_ref: "builtin:trim".to_string(),
+            config_json: None,
+            failure_policy: "stop".to_string(),
+        }];
+        assert!(db
+            .update_pipeline("pipeline:missing", "Missing", &steps, None)
+            .is_err());
+        assert!(db.delete_pipeline("pipeline:missing").is_err());
+        assert!(db
+            .update_pipeline_shortcut("pipeline:missing", Some("Alt+M"))
+            .is_err());
     }
 
     #[test]
@@ -3173,7 +4482,23 @@ mod tests {
         db.toggle_pin(clip.id).unwrap();
         db.toggle_protected(clip.id).unwrap();
         db.delete_clip(trashed.id).unwrap();
-        db.create_filter("Backup Filter", "trim", Some("{}"), Some("Alt+B"))
+        let backup_pipeline = db
+            .create_pipeline(
+                "Backup Pipeline",
+                &[
+                    PipelineStepInput {
+                        operation_ref: "builtin:trim".to_string(),
+                        config_json: None,
+                        failure_policy: "stop".to_string(),
+                    },
+                    PipelineStepInput {
+                        operation_ref: "builtin:uppercase".to_string(),
+                        config_json: None,
+                        failure_policy: "stop".to_string(),
+                    },
+                ],
+                Some("Alt+B"),
+            )
             .unwrap();
         db.create_operation(
             "Backup Operation",
@@ -3228,11 +4553,19 @@ mod tests {
         let restored_bin_ids = restored_clip.bin_ids.as_ref().unwrap();
         assert!(restored_bin_ids.contains(&restored_bin.id));
         assert!(restored_bin_ids.contains(&restored_tag.id));
-        assert!(db2
-            .get_filters()
+        let restored_pipeline = db2
+            .get_pipelines()
             .unwrap()
-            .iter()
-            .any(|item| item.name == "Backup Filter" && item.shortcut.as_deref() == Some("Alt+B")));
+            .into_iter()
+            .find(|item| item.name == "Backup Pipeline")
+            .unwrap();
+        assert_eq!(restored_pipeline.stable_ref, backup_pipeline.stable_ref);
+        assert_eq!(restored_pipeline.shortcut.as_deref(), Some("Alt+B"));
+        assert_eq!(restored_pipeline.steps.len(), 2);
+        assert_eq!(
+            restored_pipeline.steps[1].operation_ref,
+            "builtin:uppercase"
+        );
         assert!(db2
             .get_operations()
             .unwrap()
@@ -3257,9 +4590,198 @@ mod tests {
 
         let json = db.export_backup_json().unwrap();
         let payload: BackupPayload = serde_json::from_str(&json).unwrap();
-        assert_eq!(payload.version, 3);
+        assert_eq!(payload.version, 4);
         assert_eq!(payload.clips.len(), 501);
         assert_eq!(db.get_clips(None, None, false).unwrap().len(), 501);
+    }
+
+    #[test]
+    fn test_transformation_recipe_roundtrip_and_delete() {
+        let db = setup_test_db();
+        let connection = db
+            .create_intelligence_connection(
+                "Codex CLI",
+                "cli",
+                Some("/usr/local/bin/codex"),
+                None,
+                None,
+            )
+            .unwrap();
+        let plan = crate::transformation_intent::TransformationPlan {
+            schema_version: crate::transformation_intent::TRANSFORMATION_PLAN_SCHEMA_VERSION,
+            intent: "Convert this text to Markdown".to_string(),
+            summary: "Convert text to Markdown".to_string(),
+            planning_mode: crate::transformation_intent::IntentPlanningMode::Pinned,
+            steps: vec![crate::transformation_intent::PlannedTransformationStep {
+                name: "Convert to Markdown".to_string(),
+                rationale: "Structure requires interpretation".to_string(),
+                scope: crate::transformation_intent::StepExecutionScope::WholeInput,
+                executor: crate::transformation_intent::PlannedExecutor::Semantic {
+                    instructions: "Return clean Markdown".to_string(),
+                    output_schema: None,
+                    model_policy: crate::transformation_intent::ModelPolicy::Balanced,
+                },
+            }],
+        };
+        let recipe = db
+            .create_transformation_recipe("Markdown", &plan, Some(connection.id.as_str()))
+            .unwrap();
+        assert!(recipe.stable_ref.starts_with("recipe:"));
+        assert_eq!(
+            recipe.connection_id.as_deref(),
+            Some(connection.id.as_str())
+        );
+        assert_eq!(recipe.plan, plan);
+        assert_eq!(db.get_transformation_recipes().unwrap().len(), 1);
+        assert_eq!(
+            db.resolve_transformation_recipe(&recipe.stable_ref)
+                .unwrap()
+                .unwrap()
+                .name,
+            "Markdown"
+        );
+        db.delete_transformation_recipe(&recipe.stable_ref).unwrap();
+        assert!(db.get_transformation_recipes().unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_recipe_preview_applies_atomically_with_revision_and_provenance() {
+        let db = setup_test_db();
+        let clip = db
+            .save_clip("text", Some("hello"), None, None, "recipe-clip", "Test")
+            .unwrap();
+        let plan = crate::transformation_intent::TransformationPlan {
+            schema_version: crate::transformation_intent::TRANSFORMATION_PLAN_SCHEMA_VERSION,
+            intent: "Uppercase".to_string(),
+            summary: "Uppercase text".to_string(),
+            planning_mode: crate::transformation_intent::IntentPlanningMode::Pinned,
+            steps: vec![crate::transformation_intent::PlannedTransformationStep {
+                name: "Uppercase".to_string(),
+                rationale: "Replayable".to_string(),
+                scope: crate::transformation_intent::StepExecutionScope::WholeInput,
+                executor: crate::transformation_intent::PlannedExecutor::Deterministic {
+                    operation_ref: "builtin:uppercase".to_string(),
+                    config_json: None,
+                },
+            }],
+        };
+        let recipe = db
+            .create_transformation_recipe("Uppercase", &plan, None)
+            .unwrap();
+        let provenance = db
+            .apply_recipe_output_to_clip(clip.id, &recipe.stable_ref, "hello", "HELLO", None, 12)
+            .unwrap();
+        assert_eq!(provenance.recipe_name, "Uppercase");
+        assert_eq!(provenance.duration_ms, 12);
+        assert_eq!(
+            db.get_clip_versions(clip.id).unwrap()[0].text_content,
+            "hello"
+        );
+        assert_eq!(
+            db.get_clip_transformation_provenance(clip.id)
+                .unwrap()
+                .unwrap()
+                .recipe_ref,
+            recipe.stable_ref
+        );
+        let current = db
+            .get_clips(None, None, false)
+            .unwrap()
+            .into_iter()
+            .find(|item| item.id == clip.id)
+            .unwrap();
+        assert_eq!(current.text_content.as_deref(), Some("HELLO"));
+
+        let stale = db.apply_recipe_output_to_clip(
+            clip.id,
+            &recipe.stable_ref,
+            "hello",
+            "ANOTHER RESULT",
+            None,
+            5,
+        );
+        assert!(stale
+            .unwrap_err()
+            .to_string()
+            .contains("changed after this preview"));
+        assert_eq!(db.get_clip_versions(clip.id).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn recipe_bin_drop_revision_restores_content_and_previous_bin_only() {
+        let db = setup_test_db();
+        let source_bin = db.create_bin("Source", "📥", "#111111", None).unwrap();
+        let destination_bin = db.create_bin("Markdown", "📝", "#222222", None).unwrap();
+        let tag = db
+            .create_bin_with_type("Important", "⭐", "#333333", None, "tag")
+            .unwrap();
+        let clip = db
+            .save_clip("text", Some("hello"), None, None, "compound-undo", "Test")
+            .unwrap();
+        db.add_clip_to_bin(clip.id, tag.id).unwrap();
+        db.assign_to_bin(clip.id, Some(source_bin.id)).unwrap();
+        let plan = crate::transformation_intent::TransformationPlan {
+            schema_version: crate::transformation_intent::TRANSFORMATION_PLAN_SCHEMA_VERSION,
+            intent: "Uppercase".to_string(),
+            summary: "Uppercase text".to_string(),
+            planning_mode: crate::transformation_intent::IntentPlanningMode::Pinned,
+            steps: vec![crate::transformation_intent::PlannedTransformationStep {
+                name: "Uppercase".to_string(),
+                rationale: "Replayable".to_string(),
+                scope: crate::transformation_intent::StepExecutionScope::WholeInput,
+                executor: crate::transformation_intent::PlannedExecutor::Deterministic {
+                    operation_ref: "builtin:uppercase".to_string(),
+                    config_json: None,
+                },
+            }],
+        };
+        let recipe = db
+            .create_transformation_recipe("Uppercase", &plan, None)
+            .unwrap();
+
+        db.assign_to_bin(clip.id, Some(destination_bin.id)).unwrap();
+        db.apply_recipe_output_to_clip_after_bin_move(
+            clip.id,
+            &recipe.stable_ref,
+            "hello",
+            "HELLO",
+            None,
+            3,
+            Some(source_bin.id),
+            destination_bin.id,
+        )
+        .unwrap();
+        let version = db.get_clip_versions(clip.id).unwrap().remove(0);
+        assert_eq!(
+            version.action_label.as_deref(),
+            Some("Moved to Markdown · Applied Uppercase")
+        );
+        assert!(version.restores_organization);
+
+        let restored = db.restore_clip_version(clip.id, version.id).unwrap();
+        assert_eq!(restored.text_content.as_deref(), Some("hello"));
+        assert_eq!(restored.bin_id, Some(source_bin.id));
+        assert!(!restored.is_transformed);
+        assert!(db
+            .get_clip_transformation_provenance(clip.id)
+            .unwrap()
+            .is_none());
+        assert!(restored.bin_ids.unwrap_or_default().contains(&tag.id));
+
+        let inverse = db.get_clip_versions(clip.id).unwrap().remove(0);
+        assert_eq!(inverse.text_content, "HELLO");
+        assert!(inverse.restores_organization);
+        let redone = db.restore_clip_version(clip.id, inverse.id).unwrap();
+        assert_eq!(redone.text_content.as_deref(), Some("HELLO"));
+        assert_eq!(redone.bin_id, Some(destination_bin.id));
+        assert!(redone.is_transformed);
+        assert_eq!(
+            db.get_clip_transformation_provenance(clip.id)
+                .unwrap()
+                .unwrap()
+                .recipe_name,
+            "Uppercase"
+        );
     }
 
     #[test]

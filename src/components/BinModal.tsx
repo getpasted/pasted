@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Minus } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
-import { Bin } from '../types';
+import { Bin, TransformationRecipe } from '../types';
 import { formatEmojiIcon } from '../utils/emoji';
 
 interface BinModalProps {
@@ -50,6 +50,8 @@ export const BinModal: React.FC<BinModalProps> = ({
 
   // Installed OS Apps state
   const [installedApps, setInstalledApps] = useState<string[]>([]);
+  const [recipes, setRecipes] = useState<TransformationRecipe[]>([]);
+  const [recipeRef, setRecipeRef] = useState('');
 
   // Multi-condition Smart Rules state
   const [conditions, setConditions] = useState<SmartConditionRow[]>(() => {
@@ -174,6 +176,16 @@ export const BinModal: React.FC<BinModalProps> = ({
           setInstalledApps(apps);
         })
         .catch(console.error);
+      invoke<TransformationRecipe[]>('get_transformation_recipes')
+        .then(setRecipes)
+        .catch(console.error);
+      if (editingBin) {
+        invoke<string | null>('get_bin_recipe_ref', { binId: editingBin.id })
+          .then((value) => setRecipeRef(value || ''))
+          .catch(console.error);
+      } else {
+        setRecipeRef('');
+      }
     }
   }, [isOpen, editingBin]);
 
@@ -240,13 +252,15 @@ export const BinModal: React.FC<BinModalProps> = ({
           color: selectedColor,
           smartRule: smartRuleJson,
         });
+        await invoke('set_bin_recipe_ref', { binId: editingBin.id, recipeRef: recipeRef || null });
       } else {
-        await invoke('create_bin', {
+        const created = await invoke<Bin>('create_bin', {
           name: name.trim(),
           icon: icon || '📂',
           color: selectedColor,
           smartRule: smartRuleJson,
         });
+        await invoke('set_bin_recipe_ref', { binId: created.id, recipeRef: recipeRef || null });
       }
       setName('');
       onRefreshBins();
@@ -506,6 +520,24 @@ export const BinModal: React.FC<BinModalProps> = ({
               </div>
             </div>
           )}
+
+          <div className="theme-surface space-y-2 rounded-2xl border p-4">
+            <div>
+              <label htmlFor="bin-recipe" className="block text-xs font-semibold theme-text-main">When a clip enters this Bin</label>
+              <p className="mt-0.5 text-[10px] theme-text-muted">Run one saved Recipe. Its plan decides whether work stays local or uses connected intelligence.</p>
+            </div>
+            <select
+              id="bin-recipe"
+              value={recipeRef}
+              onChange={(event) => setRecipeRef(event.target.value)}
+              className="theme-input form-field-valid w-full rounded-xl border px-3 py-2 text-xs font-semibold focus:outline-none"
+            >
+              <option value="">Do not transform clips</option>
+              {recipes.map((recipe) => (
+                <option key={recipe.stableRef} value={recipe.stableRef}>{recipe.name}</option>
+              ))}
+            </select>
+          </div>
 
           {/* Action Buttons */}
           <div className="theme-divider pt-3 flex justify-end space-x-3 border-t">

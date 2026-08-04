@@ -28,6 +28,41 @@ text expanders, and general automation tools do not cover together.
 - [CopyQ command line](https://copyq.readthedocs.io/en/latest/command-line.html)
 - [CopyQ scripting API](https://copyq.readthedocs.io/en/stable/scripting-api.html)
 
+## Built-in transformation coverage
+
+Pastebot's step menu exposes Find and Replace, Extract, Change Case, Smart
+Punctuation, Convert to Plain Text, Line Operations, Sort, Quote Text, Wrap
+Line, Base64, Hex, URL, HTML Entity, Shell Script, External Shell Script, and
+Translate. Its bundled Create List recipe also demonstrates the most reusable
+part of its model: Quote Text accepts before/after content and can apply it to
+each line, so common formats can be composed instead of each becoming a new
+executor.
+
+Pasted now covers the local, deterministic portion of that set through stable
+built-ins. Quote Text supports configurable before/after content and per-line
+application; typed extractors cover URLs, email addresses, phone numbers, IP
+addresses, and numbers; and HTML paragraph/list builders provide convenient
+one-step forms of common recipes. The registry also includes Alfred's compact
+utility set (reverse text, strip diacritics, and strip non-alphanumeric) and
+Raycast's JSON-string and percent-encoding modifiers.
+
+Two Pastebot entries intentionally remain privileged adapters rather than
+ordinary built-ins:
+
+- External Shell Script belongs to the trusted CLI/extension executor, with an
+  executable plus argument list preferred over an interpolated shell command.
+- Translate belongs to an HTTP, local model, or provider-backed Operation with
+  an explicit connection and network permission.
+
+Wrap Line remains a local follow-up until its exact contract is chosen (visual
+column width, word-boundary width, or prefix/suffix wrapping). Prefix/suffix
+wrapping itself is already covered by Quote Text.
+
+Pastebot also demonstrates an `Apply to Each Line` switch at the step level.
+Pasted supports that behavior for Quote Text today. Generalizing it to every
+Operation should add an explicit execution-scope field to `pipeline_steps`
+rather than smuggling a wrapper through operation-specific configuration.
+
 ## Pasted's opportunity
 
 Pasted should combine the strongest parts of these products without becoming a
@@ -135,4 +170,3 @@ pasted pipeline run clean-url --stdin --copy < urls.txt
 - Automatic clipboard replacement is never enabled merely by importing a rule.
 - AI is not a parallel product surface; it is one privileged Operation adapter.
 - Bins do not become a second Pipeline or Automation schema.
-

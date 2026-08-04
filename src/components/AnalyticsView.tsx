@@ -74,7 +74,7 @@ export const AnalyticsView: React.FC = () => {
         description="Clipboard trends, sources, and storage efficiency"
       />
 
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="tools-scroll-region flex-1 overflow-y-auto p-6">
 
       {/* Top Stat Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">

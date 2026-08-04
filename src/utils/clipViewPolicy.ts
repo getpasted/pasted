@@ -7,7 +7,7 @@ export interface ClipViewPolicy {
   canAssignBins: boolean;
   canEditNotes: boolean;
   canMutateContent: boolean;
-  canApplyFilters: boolean;
+  canRunPipelines: boolean;
   showOrganizeBatchActions: boolean;
 }
 
@@ -18,7 +18,7 @@ const ACTIVE_CLIP_POLICY: ClipViewPolicy = Object.freeze({
   canAssignBins: true,
   canEditNotes: true,
   canMutateContent: true,
-  canApplyFilters: true,
+  canRunPipelines: true,
   showOrganizeBatchActions: true,
 });
 
@@ -29,7 +29,7 @@ const TRASH_CLIP_POLICY: ClipViewPolicy = Object.freeze({
   canAssignBins: false,
   canEditNotes: false,
   canMutateContent: false,
-  canApplyFilters: false,
+  canRunPipelines: false,
   showOrganizeBatchActions: false,
 });
 

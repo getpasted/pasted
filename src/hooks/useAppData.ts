@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { listen } from '@tauri-apps/api/event';
-import type { Bin, ClipItem, FilterRule, SequentialStatus } from '../types';
+import type { Bin, ClipItem, Pipeline, SequentialStatus } from '../types';
 import { soundManager } from '../utils/sound';
 import { safeInvoke as invoke } from '../utils/tauri';
 
@@ -19,7 +19,7 @@ export function useAppData(enableSounds: boolean) {
   const [allClips, setAllClips] = useState<ClipItem[]>(() => readCachedArray('pasted_cache_clips'));
   const [trashedClips, setTrashedClips] = useState<ClipItem[]>([]);
   const [bins, setBins] = useState<Bin[]>(() => readCachedArray('pasted_cache_bins'));
-  const [filters, setFilters] = useState<FilterRule[]>([]);
+  const [pipelines, setPipelines] = useState<Pipeline[]>([]);
   const [sequentialStatus, setSequentialStatus] = useState<SequentialStatus | null>(null);
   const [totalClipCount, setTotalClipCount] = useState(0);
   const [isClipboardPaused, setIsClipboardPaused] = useState(false);
@@ -75,11 +75,11 @@ export function useAppData(enableSounds: boolean) {
     }
   }, []);
 
-  const fetchFilters = useCallback(async () => {
+  const fetchPipelines = useCallback(async () => {
     try {
-      setFilters(await invoke<FilterRule[]>('get_filters'));
+      setPipelines(await invoke<Pipeline[]>('get_pipelines'));
     } catch (error) {
-      console.error('Failed to fetch filters:', error);
+      console.error('Failed to fetch Pipelines:', error);
     }
   }, []);
 
@@ -147,7 +147,7 @@ export function useAppData(enableSounds: boolean) {
     void Promise.all([
       fetchClips(),
       fetchBins(),
-      fetchFilters(),
+      fetchPipelines(),
       fetchSequentialStatus(),
       fetchTrashedClips(),
       invoke<boolean>('is_clipboard_paused')
@@ -159,7 +159,7 @@ export function useAppData(enableSounds: boolean) {
     return () => {
       cancelled = true;
     };
-  }, [fetchBins, fetchClips, fetchFilters, fetchSequentialStatus, fetchTrashedClips]);
+  }, [fetchBins, fetchClips, fetchPipelines, fetchSequentialStatus, fetchTrashedClips]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !(window as any).__TAURI_INTERNALS__) return;
@@ -197,7 +197,7 @@ export function useAppData(enableSounds: boolean) {
     setTrashedClips,
     bins,
     setBins,
-    filters,
+    pipelines,
     sequentialStatus,
     totalClipCount,
     setTotalClipCount,
@@ -207,7 +207,7 @@ export function useAppData(enableSounds: boolean) {
     fetchClips,
     fetchTrashedClips,
     fetchBins,
-    fetchFilters,
+    fetchPipelines,
     fetchSequentialStatus,
     toggleClipboardPause,
     restoreClip,

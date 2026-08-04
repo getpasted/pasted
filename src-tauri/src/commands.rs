@@ -5,8 +5,10 @@ use std::thread;
 use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager, State};
 
-use crate::db::{Bin, ClipItem, DbState, FilterRule};
-use crate::filter_engine::apply_filter;
+use crate::db::{
+    Bin, ClipItem, DbState, IntelligenceConnection, Pipeline, PipelineStepInput,
+    TransformationRecipe,
+};
 use crate::sequential_paste::{SequentialQueueState, SequentialStatus};
 
 #[tauri::command]
@@ -139,12 +141,72 @@ pub fn toggle_pin_clip(id: i64, db: State<'_, Arc<DbState>>) -> Result<bool, Str
 }
 
 #[tauri::command]
-pub fn assign_clip_bin(
+pub async fn assign_clip_bin(
     clip_id: i64,
     bin_id: Option<i64>,
     db: State<'_, Arc<DbState>>,
-) -> Result<(), String> {
-    db.assign_to_bin(clip_id, bin_id).map_err(|e| e.to_string())
+) -> Result<Option<ClipItem>, String> {
+    let db = Arc::clone(&db);
+    tauri::async_runtime::spawn_blocking(move || {
+        let previous_category_bin_id = db
+            .get_clip_by_id(clip_id)
+            .map_err(|error| error.to_string())?
+            .bin_id;
+        db.assign_to_bin(clip_id, bin_id)
+            .map_err(|error| error.to_string())?;
+        let Some(bin_id) = bin_id else {
+            return Ok(None);
+        };
+        let Some(recipe_ref) = db
+            .get_bin_recipe_ref(bin_id)
+            .map_err(|error| error.to_string())?
+        else {
+            return Ok(None);
+        };
+        let Some(input) = db
+            .get_active_clip_text(clip_id)
+            .map_err(|error| error.to_string())?
+        else {
+            return Ok(None);
+        };
+        let recipe = db
+            .resolve_transformation_recipe(&recipe_ref)
+            .map_err(|error| error.to_string())?
+            .ok_or_else(|| format!("Unknown Recipe: {recipe_ref}"))?;
+        let recipe_name = recipe.name.clone();
+        let outcome = crate::intelligence_executor::execute_plan(
+            &db,
+            crate::intelligence_executor::ExecutePlanRequest {
+                plan: recipe.plan,
+                input: input.clone(),
+                connection_id: recipe.connection_id,
+            },
+        )
+        .map_err(|error| error.message)?;
+        db.apply_recipe_output_to_clip_after_bin_move(
+            clip_id,
+            &recipe_ref,
+            &input,
+            &outcome.output,
+            outcome.connection_id.as_deref(),
+            outcome.duration_ms,
+            previous_category_bin_id,
+            bin_id,
+        )
+        .map_err(|error| error.to_string())?;
+        let _ = db.log_activity(
+            "bin_recipe_executed",
+            &format!(
+                "Applied Recipe {} when clip #{} entered bin #{}",
+                recipe_name, clip_id, bin_id
+            ),
+        );
+        db.get_clip_by_id(clip_id)
+            .map(Some)
+            .map_err(|error| error.to_string())
+    })
+    .await
+    .map_err(|error| error.to_string())?
 }
 
 #[tauri::command]
@@ -184,6 +246,16 @@ pub fn get_clip_versions(
 pub fn get_clip_version_count(clip_id: i64, db: State<'_, Arc<DbState>>) -> Result<i64, String> {
     db.get_clip_version_count(clip_id)
         .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn restore_clip_version(
+    clip_id: i64,
+    version_id: i64,
+    db: State<'_, Arc<DbState>>,
+) -> Result<ClipItem, String> {
+    db.restore_clip_version(clip_id, version_id)
+        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -274,6 +346,76 @@ pub fn copy_clip_to_system(
 }
 
 #[tauri::command]
+pub fn paste_text_to_frontmost(text: String, app: AppHandle) -> Result<(), String> {
+    let mut clipboard = Clipboard::new().map_err(|error| error.to_string())?;
+    clipboard
+        .set_text(text)
+        .map_err(|error| error.to_string())?;
+
+    if let Some(hud) = app.get_webview_window("hud") {
+        let _ = hud.hide();
+    }
+    if let Some(main) = app.get_webview_window("main") {
+        let _ = main.hide();
+    }
+
+    std::thread::spawn(|| {
+        std::thread::sleep(std::time::Duration::from_millis(50));
+        simulate_cmd_v_paste();
+    });
+
+    Ok(())
+}
+
+pub(crate) fn execute_clipboard_pipeline(
+    db: &DbState,
+    pipeline_ref: Option<&str>,
+    paste_result: bool,
+) -> Result<crate::transformation_service::ExecutionOutcome, String> {
+    let mut clipboard = Clipboard::new().map_err(|error| error.to_string())?;
+    let input = clipboard.get_text().map_err(|error| error.to_string())?;
+    let outcome = crate::transformation_service::execute_shortcut_pipeline(db, input, pipeline_ref)
+        .map_err(|error| error.to_string())?;
+    clipboard
+        .set_text(&outcome.output)
+        .map_err(|error| error.to_string())?;
+    if paste_result {
+        thread::spawn(|| {
+            thread::sleep(Duration::from_millis(50));
+            simulate_cmd_v_paste();
+        });
+    }
+    Ok(outcome)
+}
+
+#[tauri::command]
+pub fn copy_with_last_pipeline(
+    db: State<'_, Arc<DbState>>,
+) -> Result<crate::transformation_service::ExecutionOutcome, String> {
+    execute_clipboard_pipeline(&db, None, false)
+}
+
+#[tauri::command]
+pub fn paste_with_last_pipeline(
+    db: State<'_, Arc<DbState>>,
+) -> Result<crate::transformation_service::ExecutionOutcome, String> {
+    execute_clipboard_pipeline(&db, None, true)
+}
+
+#[tauri::command]
+pub fn paste_with_pipeline(
+    pipeline_ref: String,
+    db: State<'_, Arc<DbState>>,
+) -> Result<crate::transformation_service::ExecutionOutcome, String> {
+    execute_clipboard_pipeline(&db, Some(&pipeline_ref), true)
+}
+
+#[tauri::command]
+pub fn get_last_pipeline_ref(db: State<'_, Arc<DbState>>) -> Result<Option<String>, String> {
+    crate::transformation_service::get_last_pipeline_ref(&db).map_err(|error| error.to_string())
+}
+
+#[tauri::command]
 pub fn get_bins(db: State<'_, Arc<DbState>>) -> Result<Vec<Bin>, String> {
     db.get_bins().map_err(|e| e.to_string())
 }
@@ -309,33 +451,54 @@ pub fn update_bin(
 }
 
 #[tauri::command]
-pub fn get_filters(db: State<'_, Arc<DbState>>) -> Result<Vec<FilterRule>, String> {
-    db.get_filters().map_err(|e| e.to_string())
+pub fn get_pipelines(db: State<'_, Arc<DbState>>) -> Result<Vec<Pipeline>, String> {
+    db.get_pipelines().map_err(|error| error.to_string())
 }
 
 #[tauri::command]
-pub fn create_filter(
+pub fn create_pipeline(
     name: String,
-    filter_type: String,
-    config: Option<String>,
+    steps: Vec<PipelineStepInput>,
     shortcut: Option<String>,
     db: State<'_, Arc<DbState>>,
-) -> Result<FilterRule, String> {
-    db.create_filter(&name, &filter_type, config.as_deref(), shortcut.as_deref())
-        .map_err(|e| e.to_string())
+) -> Result<Pipeline, String> {
+    db.create_pipeline(&name, &steps, shortcut.as_deref())
+        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
-pub fn update_filter_shortcut(
-    id: i64,
+pub fn update_pipeline(
+    pipeline_ref: String,
+    name: String,
+    steps: Vec<PipelineStepInput>,
+    shortcut: Option<String>,
+    db: State<'_, Arc<DbState>>,
+    app: AppHandle,
+) -> Result<Pipeline, String> {
+    let pipeline = db
+        .update_pipeline(&pipeline_ref, &name, &steps, shortcut.as_deref())
+        .map_err(|error| error.to_string())?;
+    let _ = register_all_app_shortcuts(&app);
+    Ok(pipeline)
+}
+
+#[tauri::command]
+pub fn update_pipeline_shortcut(
+    pipeline_ref: String,
     shortcut: Option<String>,
     db: State<'_, Arc<DbState>>,
     app: AppHandle,
 ) -> Result<(), String> {
-    db.update_filter_shortcut(id, shortcut.as_deref())
-        .map_err(|e| e.to_string())?;
+    db.update_pipeline_shortcut(&pipeline_ref, shortcut.as_deref())
+        .map_err(|error| error.to_string())?;
     let _ = register_all_app_shortcuts(&app);
     Ok(())
+}
+
+#[tauri::command]
+pub fn delete_pipeline(pipeline_ref: String, db: State<'_, Arc<DbState>>) -> Result<(), String> {
+    db.delete_pipeline(&pipeline_ref)
+        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -352,8 +515,22 @@ pub fn update_bin_shortcut(
 }
 
 #[tauri::command]
-pub fn delete_filter(id: i64, db: State<'_, Arc<DbState>>) -> Result<(), String> {
-    db.delete_filter(id).map_err(|e| e.to_string())
+pub fn get_bin_recipe_ref(
+    bin_id: i64,
+    db: State<'_, Arc<DbState>>,
+) -> Result<Option<String>, String> {
+    db.get_bin_recipe_ref(bin_id)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn set_bin_recipe_ref(
+    bin_id: i64,
+    recipe_ref: Option<String>,
+    db: State<'_, Arc<DbState>>,
+) -> Result<(), String> {
+    db.set_bin_recipe_ref(bin_id, recipe_ref.as_deref())
+        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -364,6 +541,332 @@ pub fn get_operations(db: State<'_, Arc<DbState>>) -> Result<Vec<crate::db::Oper
 #[tauri::command]
 pub fn get_builtin_operations() -> Vec<crate::operation_registry::OperationDefinition> {
     crate::operation_registry::builtin_operations()
+}
+
+#[tauri::command]
+pub fn get_intelligence_connections(
+    db: State<'_, Arc<DbState>>,
+) -> Result<Vec<IntelligenceConnection>, String> {
+    db.get_intelligence_connections()
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn detect_intelligence_connections(
+    db: State<'_, Arc<DbState>>,
+) -> Result<Vec<crate::intelligence_connections::DetectedIntelligenceConnection>, String> {
+    let detected = crate::intelligence_connections::detect_intelligence_connections();
+    for candidate in &detected {
+        let endpoint = if candidate.provider_kind == "cli" {
+            candidate.executable_path.as_deref()
+        } else {
+            candidate.default_endpoint
+        };
+        db.ensure_intelligence_connection_candidate(
+            candidate.name,
+            candidate.provider_kind,
+            endpoint,
+        )
+        .map_err(|error| error.to_string())?;
+    }
+    Ok(detected)
+}
+
+#[tauri::command]
+pub fn create_intelligence_connection(
+    name: String,
+    provider_kind: String,
+    endpoint: Option<String>,
+    model: Option<String>,
+    credential_ref: Option<String>,
+    db: State<'_, Arc<DbState>>,
+) -> Result<IntelligenceConnection, String> {
+    if name.trim().is_empty() {
+        return Err("Connection name cannot be empty".to_string());
+    }
+    db.create_intelligence_connection(
+        &name,
+        &provider_kind,
+        endpoint.as_deref(),
+        model.as_deref(),
+        credential_ref.as_deref(),
+    )
+    .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn update_intelligence_connection(
+    id: String,
+    name: String,
+    provider_kind: String,
+    endpoint: Option<String>,
+    model: Option<String>,
+    credential_ref: Option<String>,
+    enabled: bool,
+    db: State<'_, Arc<DbState>>,
+) -> Result<(), String> {
+    if name.trim().is_empty() {
+        return Err("Connection name cannot be empty".to_string());
+    }
+    db.update_intelligence_connection(
+        &id,
+        &name,
+        &provider_kind,
+        endpoint.as_deref(),
+        model.as_deref(),
+        credential_ref.as_deref(),
+        enabled,
+    )
+    .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn delete_intelligence_connection(
+    id: String,
+    db: State<'_, Arc<DbState>>,
+) -> Result<(), String> {
+    db.delete_intelligence_connection(&id)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn reorder_intelligence_connections(
+    ids: Vec<String>,
+    db: State<'_, Arc<DbState>>,
+) -> Result<(), String> {
+    db.reorder_intelligence_connections(&ids)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn validate_transformation_plan(
+    plan: crate::transformation_intent::TransformationPlan,
+) -> Result<crate::transformation_intent::ExecutionCharacter, String> {
+    plan.validate()?;
+    Ok(plan.execution_character())
+}
+
+#[tauri::command]
+pub async fn plan_transformation_intent(
+    request: crate::intelligence_executor::PlanIntentRequest,
+    db: State<'_, Arc<DbState>>,
+) -> Result<
+    crate::intelligence_executor::PlanIntentOutcome,
+    crate::intelligence_executor::IntelligenceExecutionError,
+> {
+    let db = Arc::clone(&db);
+    tauri::async_runtime::spawn_blocking(move || {
+        let result = crate::intelligence_executor::plan_intent(&db, request);
+        match &result {
+            Ok(outcome) => {
+                let _ = db.log_activity(
+                    "recipe_drafted",
+                    &format!(
+                        "Drafted a {}-step Recipe with {} in {} ms",
+                        outcome.plan.steps.len(),
+                        outcome.connection_name,
+                        outcome.duration_ms
+                    ),
+                );
+            }
+            Err(error) => {
+                let _ = db.log_activity(
+                    "recipe_draft_failed",
+                    &format!("Recipe draft failed ({})", error.code),
+                );
+            }
+        }
+        result
+    })
+    .await
+    .map_err(
+        |error| crate::intelligence_executor::IntelligenceExecutionError {
+            code: "executor_join_failed",
+            message: error.to_string(),
+        },
+    )?
+}
+
+#[tauri::command]
+pub async fn test_transformation_plan(
+    request: crate::intelligence_executor::ExecutePlanRequest,
+    db: State<'_, Arc<DbState>>,
+) -> Result<
+    crate::intelligence_executor::ExecutePlanOutcome,
+    crate::intelligence_executor::IntelligenceExecutionError,
+> {
+    let db = Arc::clone(&db);
+    tauri::async_runtime::spawn_blocking(move || {
+        let result = crate::intelligence_executor::execute_plan(&db, request);
+        match &result {
+            Ok(outcome) => {
+                let provider = outcome
+                    .connection_name
+                    .as_deref()
+                    .unwrap_or("local Operations");
+                let _ = db.log_activity(
+                    "recipe_tested",
+                    &format!(
+                        "Tested a Recipe with {provider} in {} ms",
+                        outcome.duration_ms
+                    ),
+                );
+            }
+            Err(error) => {
+                let _ = db.log_activity(
+                    "recipe_test_failed",
+                    &format!("Recipe test failed ({})", error.code),
+                );
+            }
+        }
+        result
+    })
+    .await
+    .map_err(
+        |error| crate::intelligence_executor::IntelligenceExecutionError {
+            code: "executor_join_failed",
+            message: error.to_string(),
+        },
+    )?
+}
+
+#[tauri::command]
+pub fn get_transformation_recipes(
+    db: State<'_, Arc<DbState>>,
+) -> Result<Vec<TransformationRecipe>, String> {
+    db.get_transformation_recipes()
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn save_transformation_recipe(
+    name: String,
+    plan: crate::transformation_intent::TransformationPlan,
+    connection_id: Option<String>,
+    db: State<'_, Arc<DbState>>,
+) -> Result<TransformationRecipe, String> {
+    let recipe_name = if name.trim().is_empty() {
+        plan.summary.trim()
+    } else {
+        name.trim()
+    };
+    let recipe = db
+        .create_transformation_recipe(recipe_name, &plan, connection_id.as_deref())
+        .map_err(|error| error.to_string())?;
+    let _ = db.log_activity("recipe_saved", &format!("Saved Recipe: {}", recipe.name));
+    Ok(recipe)
+}
+
+#[tauri::command]
+pub fn delete_transformation_recipe(
+    recipe_ref: String,
+    db: State<'_, Arc<DbState>>,
+) -> Result<(), String> {
+    db.delete_transformation_recipe(&recipe_ref)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub async fn execute_transformation_recipe(
+    recipe_ref: String,
+    input: String,
+    db: State<'_, Arc<DbState>>,
+) -> Result<
+    crate::intelligence_executor::ExecutePlanOutcome,
+    crate::intelligence_executor::IntelligenceExecutionError,
+> {
+    let db = Arc::clone(&db);
+    tauri::async_runtime::spawn_blocking(move || {
+        let recipe = db
+            .resolve_transformation_recipe(&recipe_ref)
+            .map_err(
+                |error| crate::intelligence_executor::IntelligenceExecutionError {
+                    code: "database_error",
+                    message: error.to_string(),
+                },
+            )?
+            .ok_or_else(
+                || crate::intelligence_executor::IntelligenceExecutionError {
+                    code: "unknown_recipe",
+                    message: format!("Unknown Recipe: {recipe_ref}"),
+                },
+            )?;
+        let recipe_name = recipe.name.clone();
+        let result = crate::intelligence_executor::execute_plan(
+            &db,
+            crate::intelligence_executor::ExecutePlanRequest {
+                plan: recipe.plan,
+                input,
+                connection_id: recipe.connection_id,
+            },
+        );
+        match &result {
+            Ok(outcome) => {
+                let _ = db.log_activity(
+                    "recipe_executed",
+                    &format!("Ran Recipe: {} in {} ms", recipe_name, outcome.duration_ms),
+                );
+            }
+            Err(error) => {
+                let _ = db.log_activity(
+                    "recipe_execution_failed",
+                    &format!("Recipe failed: {} ({})", recipe_name, error.code),
+                );
+            }
+        }
+        result
+    })
+    .await
+    .map_err(
+        |error| crate::intelligence_executor::IntelligenceExecutionError {
+            code: "executor_join_failed",
+            message: error.to_string(),
+        },
+    )?
+}
+
+#[tauri::command]
+pub fn apply_recipe_preview_to_clip(
+    clip_id: i64,
+    recipe_ref: String,
+    expected_input: String,
+    output: String,
+    connection_id: Option<String>,
+    duration_ms: i64,
+    db: State<'_, Arc<DbState>>,
+) -> Result<crate::db::ClipTransformationProvenance, String> {
+    let provenance = db
+        .apply_recipe_output_to_clip(
+            clip_id,
+            &recipe_ref,
+            &expected_input,
+            &output,
+            connection_id.as_deref(),
+            duration_ms,
+        )
+        .map_err(|error| error.to_string())?;
+    let _ = db.log_activity(
+        "clip_transformed",
+        &format!(
+            "Applied Recipe {} to clip #{}",
+            provenance.recipe_name, clip_id
+        ),
+    );
+    Ok(provenance)
+}
+
+#[tauri::command]
+pub fn get_clip_transformation_provenance(
+    clip_id: i64,
+    db: State<'_, Arc<DbState>>,
+) -> Result<Option<crate::db::ClipTransformationProvenance>, String> {
+    db.get_clip_transformation_provenance(clip_id)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn get_operation_plugin_examples() -> Vec<crate::operation_plugins::OperationPluginManifest> {
+    crate::operation_plugins::bundled_example_plugins()
 }
 
 #[tauri::command]
@@ -402,7 +905,28 @@ pub fn transform_text(
     filter_type: String,
     config: Option<String>,
 ) -> Result<String, String> {
-    apply_filter(&input, &filter_type, config.as_deref())
+    crate::transformation_service::execute_legacy_preview(&input, &filter_type, config.as_deref())
+}
+
+#[tauri::command]
+pub async fn execute_transformation(
+    request: crate::transformation_service::ExecutionRequest,
+    db: State<'_, Arc<DbState>>,
+) -> Result<
+    crate::transformation_service::ExecutionOutcome,
+    crate::transformation_service::ExecutionError,
+> {
+    let db = Arc::clone(&db);
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::transformation_service::execute(&db, request)
+    })
+    .await
+    .map_err(|error| crate::transformation_service::ExecutionError {
+        code: "executor_join_failed",
+        message: error.to_string(),
+        step: None,
+        operation_ref: None,
+    })?
 }
 
 #[tauri::command]

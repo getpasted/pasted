@@ -1,7 +1,7 @@
-import { Sliders, Wrench } from 'lucide-react';
+import { Settings2, Sparkles, Workflow } from 'lucide-react';
 import { ToolPageHeader } from './ToolPageHeader';
 
-export type TransformWorkspace = 'pipelines' | 'operations';
+export type TransformWorkspace = 'recipes' | 'advanced';
 
 interface TransformWorkspaceHeaderProps {
   activeWorkspace: TransformWorkspace;
@@ -16,34 +16,33 @@ export function TransformWorkspaceHeader({
   operationCount,
   onChange,
 }: TransformWorkspaceHeaderProps) {
-  const isPipelines = activeWorkspace === 'pipelines';
-
   return (
     <ToolPageHeader
-      icon={<Sliders className="w-4 h-4" />}
-      title="Filters & Operations"
+      icon={<Workflow className="w-4 h-4" />}
+      title="Transformations"
+      description="Describe what should happen. Pasted handles the recipe."
       actions={(
-        <div className="theme-surface transform-workspace-tabs flex items-center gap-1 rounded-xl border p-1" role="tablist" aria-label="Filters and operations">
+        <div className="theme-surface transform-workspace-tabs flex items-center gap-1 rounded-xl border p-1" role="tablist" aria-label="Transformation workspace">
         <button
           type="button"
           role="tab"
-          aria-selected={isPipelines}
-          onClick={() => onChange('pipelines')}
-          className={`transform-workspace-tab pipelines flex h-8 items-center gap-2 rounded-lg px-3 text-xs font-semibold transition-colors ${isPipelines ? 'is-active' : ''}`}
+          aria-selected={activeWorkspace === 'recipes'}
+          onClick={() => onChange('recipes')}
+          className={`transform-workspace-tab pipelines flex h-8 items-center gap-2 rounded-lg px-3 text-xs font-semibold transition-colors ${activeWorkspace === 'recipes' ? 'is-active' : ''}`}
         >
-          <Sliders className="w-4 h-4" />
-          <span>Pipelines</span>
+          <Sparkles className="w-4 h-4" />
+          <span>Recipes</span>
           <span className="transform-workspace-count font-mono">{filterCount}</span>
         </button>
         <button
           type="button"
           role="tab"
-          aria-selected={!isPipelines}
-          onClick={() => onChange('operations')}
-          className={`transform-workspace-tab operations flex h-8 items-center gap-2 rounded-lg px-3 text-xs font-semibold transition-colors ${!isPipelines ? 'is-active' : ''}`}
+          aria-selected={activeWorkspace === 'advanced'}
+          onClick={() => onChange('advanced')}
+          className={`transform-workspace-tab operations flex h-8 items-center gap-2 rounded-lg px-3 text-xs font-semibold transition-colors ${activeWorkspace === 'advanced' ? 'is-active' : ''}`}
         >
-          <Wrench className="w-4 h-4" />
-          <span>Operations</span>
+          <Settings2 className="w-4 h-4" />
+          <span>Advanced</span>
           <span className="transform-workspace-count font-mono">{operationCount}</span>
         </button>
         </div>

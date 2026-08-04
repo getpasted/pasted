@@ -5,7 +5,7 @@ import {
   Clipboard,
   Pin,
   ListOrdered,
-  Sliders,
+  Workflow,
   Settings,
   Trash2,
   Plus,
@@ -164,7 +164,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   ];
   const toolNavItems = [
     { tab: 'analytics', label: 'Analytics & Insights', title: 'Analytics & Insights', icon: <BarChart3 className="sidebar-icon-secondary w-5 h-5" /> },
-    { tab: 'filters', label: 'Filters & Operations', title: 'Filters & Operations', icon: <Sliders className="sidebar-icon-primary w-5 h-5" /> },
+    { tab: 'transformations', label: 'Transformations', title: 'Transformations', icon: <Workflow className="sidebar-icon-primary w-5 h-5" /> },
     { tab: 'activity', label: 'Activity Log', title: 'Activity Log', icon: <Activity className="sidebar-icon-info w-5 h-5" /> },
     { tab: 'help', label: 'Help & Documentation', title: 'Help & Documentation', icon: <HelpCircle className="sidebar-icon-info w-5 h-5" /> },
     { tab: 'settings', label: 'Settings', title: 'Settings', icon: <Settings className="sidebar-icon-primary w-5 h-5" /> },

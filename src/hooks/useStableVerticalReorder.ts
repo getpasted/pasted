@@ -23,6 +23,18 @@ interface PointerGesture {
   active: boolean;
 }
 
+function nearestScrollContainer(element: HTMLElement | null): HTMLElement | null {
+  let ancestor = element?.parentElement ?? null;
+  while (ancestor) {
+    const overflowY = window.getComputedStyle(ancestor).overflowY;
+    if (/^(auto|scroll|overlay)$/.test(overflowY) && ancestor.scrollHeight > ancestor.clientHeight) {
+      return ancestor;
+    }
+    ancestor = ancestor.parentElement;
+  }
+  return document.scrollingElement instanceof HTMLElement ? document.scrollingElement : null;
+}
+
 export function useStableVerticalReorder({
   itemIds,
   containerRef,
@@ -159,16 +171,23 @@ export function useStableVerticalReorder({
     setIsFinishing(true);
     await new Promise((resolve) => setTimeout(resolve, transitionMs + 15));
     if (generationRef.current !== generation) return;
+    const scrollContainer = nearestScrollContainer(containerRef.current);
+    const settledScrollTop = scrollContainer?.scrollTop;
+    const preserveScrollPosition = () => {
+      if (scrollContainer && settledScrollTop !== undefined) scrollContainer.scrollTop = settledScrollTop;
+    };
     setIsSettling(true);
     onCommitRef.current(nextOrder);
     setOffsets({});
     requestAnimationFrame(() => {
+      preserveScrollPosition();
       requestAnimationFrame(() => {
+        preserveScrollPosition();
         setIsSettling(false);
         setIsFinishing(false);
       });
     });
-  }, [transitionMs]);
+  }, [containerRef, transitionMs]);
 
   const startPointerReorder = useCallback((itemId: string, event: ReactPointerEvent) => {
     if (disabled || event.button !== 0) return;

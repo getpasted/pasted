@@ -12,6 +12,7 @@ import {
   Search,
   Pause,
   Play,
+  Sparkles,
 } from 'lucide-react';
 import { ToolPageHeader } from './ToolPageHeader';
 
@@ -142,6 +143,26 @@ export const ActivityLogView: React.FC = () => {
             <span>Note</span>
           </div>
         );
+      case 'recipe_drafted':
+      case 'recipe_tested':
+      case 'recipe_saved':
+      case 'recipe_executed':
+      case 'clip_transformed':
+        return (
+          <div className="theme-status-success flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold">
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>{type === 'recipe_drafted' ? 'Drafted' : type === 'recipe_tested' ? 'Tested' : type === 'recipe_saved' ? 'Saved' : 'Transformed'}</span>
+          </div>
+        );
+      case 'recipe_draft_failed':
+      case 'recipe_test_failed':
+      case 'recipe_execution_failed':
+        return (
+          <div className="theme-status-danger flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold">
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Recipe Failed</span>
+          </div>
+        );
       default:
         return (
           <div className="theme-badge flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold">
@@ -167,6 +188,7 @@ export const ActivityLogView: React.FC = () => {
     if (selectedTypeFilter === 'paused') return l.event_type === 'recording_auto_paused' || l.event_type === 'recording_manually_paused';
     if (selectedTypeFilter === 'resumed') return l.event_type === 'recording_auto_resumed' || l.event_type === 'recording_manually_resumed';
     if (selectedTypeFilter === 'notes') return l.event_type === 'note_updated';
+    if (selectedTypeFilter === 'recipes') return l.event_type.startsWith('recipe_') || l.event_type === 'clip_transformed';
     return true;
   });
 
@@ -191,6 +213,7 @@ export const ActivityLogView: React.FC = () => {
             <option value="paused">Auto-Paused</option>
             <option value="resumed">Auto-Resumed</option>
             <option value="notes">Notes Updated</option>
+            <option value="recipes">Recipes</option>
           </select>
 
           <div className="relative">
@@ -217,7 +240,7 @@ export const ActivityLogView: React.FC = () => {
       />
 
       {/* Timeline Content List */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-3">
+      <div className="tools-scroll-region flex-1 overflow-y-auto p-6 space-y-3">
         {filteredLogs.length === 0 ? (
           <div className="theme-text-subtle h-full flex flex-col items-center justify-center space-y-2">
             <Activity className="w-10 h-10 opacity-30" />

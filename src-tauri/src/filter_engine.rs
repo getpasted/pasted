@@ -1,6 +1,7 @@
 use once_cell::sync::Lazy;
 use regex::Regex;
 use serde_json::Value;
+use unicode_normalization::{char::is_combining_mark, UnicodeNormalization};
 
 use crate::operation_registry::is_builtin_operation;
 
@@ -69,6 +70,12 @@ pub fn apply_filter(
             .replace('\n', " ")
             .trim()
             .to_string()),
+        "collapse_whitespace" => Ok(input.split_whitespace().collect::<Vec<_>>().join(" ")),
+        "strip_diacritics" => Ok(strip_diacritics(input)),
+        "strip_non_alphanumeric" => Ok(input
+            .chars()
+            .filter(|character| character.is_alphanumeric())
+            .collect()),
         "url_encode" => Ok(urlencoding::encode(input).into_owned()),
         "url_decode" => urlencoding::decode(input)
             .map(|s| s.into_owned())
@@ -93,6 +100,7 @@ pub fn apply_filter(
                 serde_json::from_str(input).map_err(|e| format!("Invalid JSON: {}", e))?;
             serde_json::to_string(&parsed).map_err(|e| e.to_string())
         }
+        "json_stringify" => serde_json::to_string(input).map_err(|e| e.to_string()),
         "strip_emojis" => Ok(strip_emojis(input)),
         "smileys_to_emoji" => Ok(convert_smileys_to_emoji(input)),
         "sentence_case" => Ok(to_sentence_case(input)),
@@ -103,12 +111,13 @@ pub fn apply_filter(
         "strip_markdown" => Ok(strip_markdown_tags(input)),
         "strip_empty_lines" => Ok(strip_empty_lines(input)),
         "reverse_lines" => Ok(reverse_lines(input)),
+        "reverse_text" => Ok(input.chars().rev().collect()),
         "sort_lines_asc" => Ok(sort_lines(input, false)),
         "sort_lines_desc" => Ok(sort_lines(input, true)),
         "sort_by_length" => Ok(sort_by_length(input)),
         "dedupe_lines" => Ok(dedupe_lines(input)),
         "number_lines" => Ok(number_lines(input)),
-        "quote_text" => Ok(quote_text(input)),
+        "quote_text" => Ok(quote_text(input, config)),
         "clean_url_tracking" => Ok(clean_url_tracking_params(input)),
         "extract_urls" => Ok(extract_by_regex(input, r"https?://[^\s\)]+")),
         "extract_emails" => Ok(extract_by_regex(
@@ -130,15 +139,23 @@ pub fn apply_filter(
             let tag = config.unwrap_or("div");
             Ok(format!("<{}>{}</{}>", tag, input, tag))
         }
+        "html_paragraphs" => Ok(html_paragraphs(input)),
+        "html_unordered_list" => Ok(html_unordered_list(input)),
         "regex" => {
             if let Some(cfg_str) = config {
                 if let Ok(json) = serde_json::from_str::<Value>(cfg_str) {
                     let pattern = json["pattern"].as_str().unwrap_or("");
                     let replacement = json["replacement"].as_str().unwrap_or("");
                     if !pattern.is_empty() {
-                        let re =
-                            Regex::new(pattern).map_err(|e| format!("Invalid Regex: {}", e))?;
-                        return Ok(re.replace_all(input, replacement).to_string());
+                        let match_mode = json["matchMode"].as_str().unwrap_or("regex");
+                        let case_sensitive = json["caseSensitive"].as_bool().unwrap_or(false);
+                        return find_and_replace(
+                            input,
+                            pattern,
+                            replacement,
+                            match_mode,
+                            case_sensitive,
+                        );
                     }
                 }
             }
@@ -240,6 +257,35 @@ fn reverse_lines(s: &str) -> String {
     lines.join("\n")
 }
 
+fn strip_diacritics(s: &str) -> String {
+    s.nfd()
+        .filter(|character| !is_combining_mark(*character))
+        .collect()
+}
+
+fn html_paragraphs(s: &str) -> String {
+    s.split("\n\n")
+        .map(str::trim)
+        .filter(|paragraph| !paragraph.is_empty())
+        .map(|paragraph| format!("<p>{}</p>", encode_html(paragraph)))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn html_unordered_list(s: &str) -> String {
+    let items = s
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .map(|line| format!("  <li>{}</li>", encode_html(line)))
+        .collect::<Vec<_>>();
+    if items.is_empty() {
+        String::new()
+    } else {
+        format!("<ul>\n{}\n</ul>", items.join("\n"))
+    }
+}
+
 fn sort_by_length(s: &str) -> String {
     let mut lines: Vec<&str> = s.lines().collect();
     lines.sort_by_key(|l| l.len());
@@ -306,11 +352,62 @@ fn number_lines(s: &str) -> String {
         .join("\n")
 }
 
-fn quote_text(s: &str) -> String {
-    s.lines()
-        .map(|l| format!("> {}", l))
-        .collect::<Vec<_>>()
-        .join("\n")
+fn quote_text(s: &str, config: Option<&str>) -> String {
+    let parsed = config.and_then(|value| serde_json::from_str::<Value>(value).ok());
+    let before = parsed
+        .as_ref()
+        .and_then(|value| value["before"].as_str())
+        .unwrap_or("> ");
+    let after = parsed
+        .as_ref()
+        .and_then(|value| value["after"].as_str())
+        .unwrap_or("");
+    let each_line = parsed
+        .as_ref()
+        .and_then(|value| value["applyToEachLine"].as_bool())
+        .unwrap_or(true);
+
+    if each_line {
+        s.lines()
+            .map(|line| format!("{before}{line}{after}"))
+            .collect::<Vec<_>>()
+            .join("\n")
+    } else {
+        format!("{before}{s}{after}")
+    }
+}
+
+fn find_and_replace(
+    input: &str,
+    pattern: &str,
+    replacement: &str,
+    match_mode: &str,
+    case_sensitive: bool,
+) -> Result<String, String> {
+    let (regex_pattern, literal_replacement) = match match_mode {
+        "literal" => (regex::escape(pattern), true),
+        "wildcard" => {
+            let escaped = regex::escape(pattern)
+                .replace(r"\*", ".*?")
+                .replace(r"\?", ".");
+            (escaped, true)
+        }
+        "regex" => (pattern.to_string(), false),
+        other => return Err(format!("Unknown find mode: {other}")),
+    };
+    let final_pattern = if case_sensitive {
+        regex_pattern
+    } else {
+        format!("(?i:{regex_pattern})")
+    };
+    let regex = Regex::new(&final_pattern).map_err(|error| format!("Invalid Regex: {error}"))?;
+    if literal_replacement {
+        Ok(regex
+            .replace_all(input, regex::NoExpand(replacement))
+            .to_string())
+    } else {
+        Ok(regex.replace_all(input, replacement).to_string())
+    }
 }
 
 fn encode_html(s: &str) -> String {
@@ -387,11 +484,24 @@ fn run_shell_script(input: &str, script: &str) -> Result<String, String> {
 }
 
 fn to_title_case(s: &str) -> String {
-    let mut c = s.chars();
-    match c.next() {
-        None => String::new(),
-        Some(f) => f.to_uppercase().collect::<String>() + &s[f.len_utf8()..].to_lowercase(),
+    let mut result = String::with_capacity(s.len());
+    let mut capitalize_next = true;
+    for character in s.chars() {
+        if character.is_alphabetic() {
+            if capitalize_next {
+                result.extend(character.to_uppercase());
+            } else {
+                result.extend(character.to_lowercase());
+            }
+            capitalize_next = false;
+        } else {
+            result.push(character);
+            if character.is_whitespace() || matches!(character, '-' | '_' | '/') {
+                capitalize_next = true;
+            }
+        }
     }
+    result
 }
 
 fn to_camel_case(s: &str) -> String {
@@ -494,7 +604,7 @@ mod tests {
         );
         assert_eq!(
             apply_filter("hello world", "titlecase", None).unwrap(),
-            "Hello world"
+            "Hello World"
         );
         assert_eq!(
             apply_filter("hello world", "camelcase", None).unwrap(),
@@ -524,6 +634,107 @@ mod tests {
         assert_eq!(
             apply_filter("<p>Hello <b>World</b></p>", "strip_html", None).unwrap(),
             "Hello World"
+        );
+        assert_eq!(
+            apply_filter("  hello\n\twide   world  ", "collapse_whitespace", None).unwrap(),
+            "hello wide world"
+        );
+        assert_eq!(
+            apply_filter("Crème brûlée déjà vu", "strip_diacritics", None).unwrap(),
+            "Creme brulee deja vu"
+        );
+        assert_eq!(
+            apply_filter("hello, world! #42", "strip_non_alphanumeric", None).unwrap(),
+            "helloworld42"
+        );
+    }
+
+    #[test]
+    fn test_competitor_utility_operations() {
+        assert_eq!(
+            apply_filter("Pasted 🚀", "reverse_text", None).unwrap(),
+            "🚀 detsaP"
+        );
+        assert_eq!(
+            apply_filter("hello \"Pasted\"", "json_stringify", None).unwrap(),
+            "\"hello \\\"Pasted\\\"\""
+        );
+        assert_eq!(
+            apply_filter("First & best\n\nSecond", "html_paragraphs", None).unwrap(),
+            "<p>First &amp; best</p>\n<p>Second</p>"
+        );
+        assert_eq!(
+            apply_filter("Alpha\nBeta & Gamma", "html_unordered_list", None).unwrap(),
+            "<ul>\n  <li>Alpha</li>\n  <li>Beta &amp; Gamma</li>\n</ul>"
+        );
+        let list_item_config = serde_json::json!({
+            "before": "<li>",
+            "after": "</li>",
+            "applyToEachLine": true
+        });
+        assert_eq!(
+            apply_filter(
+                "Alpha\nBeta",
+                "quote_text",
+                Some(&list_item_config.to_string())
+            )
+            .unwrap(),
+            "<li>Alpha</li>\n<li>Beta</li>"
+        );
+        let list_config = serde_json::json!({
+            "before": "<ul>\n",
+            "after": "\n</ul>",
+            "applyToEachLine": false
+        });
+        assert_eq!(
+            apply_filter(
+                "<li>Alpha</li>",
+                "quote_text",
+                Some(&list_config.to_string())
+            )
+            .unwrap(),
+            "<ul>\n<li>Alpha</li>\n</ul>"
+        );
+    }
+
+    #[test]
+    fn find_and_replace_honors_editor_modes() {
+        let literal = serde_json::json!({
+            "pattern": "pasted.app",
+            "replacement": "Pasted",
+            "matchMode": "literal",
+            "caseSensitive": false
+        });
+        assert_eq!(
+            apply_filter(
+                "PASTED.APP and pastedXapp",
+                "regex",
+                Some(&literal.to_string())
+            )
+            .unwrap(),
+            "Pasted and pastedXapp"
+        );
+
+        let wildcard = serde_json::json!({
+            "pattern": "hello *!",
+            "replacement": "hello!",
+            "matchMode": "wildcard",
+            "caseSensitive": true
+        });
+        assert_eq!(
+            apply_filter("hello Pasted!", "regex", Some(&wildcard.to_string())).unwrap(),
+            "hello!"
+        );
+
+        let regex = serde_json::json!({
+            "pattern": "(Pasted) (App)",
+            "replacement": "$2: $1",
+            "matchMode": "regex",
+            "caseSensitive": true
+        });
+        assert_eq!(
+            apply_filter("Pasted App", "regex", Some(&regex.to_string())).unwrap(),
+            "App: Pasted"
         );
     }
 

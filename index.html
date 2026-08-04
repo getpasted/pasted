@@ -21,7 +21,6 @@
         --startup-panel: rgba(255, 255, 255, 0.065);
         --startup-border: rgba(255, 255, 255, 0.11);
         --startup-text: rgba(255, 255, 255, 0.94);
-        --startup-muted: rgba(255, 255, 255, 0.48);
         --startup-accent: #4d9dff;
       }
 
@@ -32,7 +31,6 @@
           --startup-panel: rgba(255, 255, 255, 0.74);
           --startup-border: rgba(22, 28, 40, 0.12);
           --startup-text: rgba(18, 22, 30, 0.92);
-          --startup-muted: rgba(30, 38, 52, 0.48);
           --startup-accent: #087ad8;
         }
       }
@@ -46,7 +44,6 @@
         --startup-panel: rgba(255, 255, 255, 0.065);
         --startup-border: rgba(255, 255, 255, 0.11);
         --startup-text: rgba(255, 255, 255, 0.94);
-        --startup-muted: rgba(255, 255, 255, 0.48);
         --startup-accent: #4d9dff;
       }
 
@@ -57,7 +54,6 @@
         --startup-panel: rgba(255, 255, 255, 0.74);
         --startup-border: rgba(22, 28, 40, 0.12);
         --startup-text: rgba(18, 22, 30, 0.92);
-        --startup-muted: rgba(30, 38, 52, 0.48);
         --startup-accent: #087ad8;
       }
 
@@ -93,12 +89,17 @@
         transition: opacity 140ms ease-out;
       }
 
+      #startup-splash,
+      #startup-splash * {
+        box-sizing: border-box;
+      }
+
       #startup-splash.is-ready {
         opacity: 0;
         pointer-events: none;
       }
 
-      .startup-content {
+      #startup-splash .startup-content {
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -106,7 +107,7 @@
         transform: translateY(-0.5rem);
       }
 
-      .startup-mark {
+      #startup-splash .startup-mark {
         width: 3.25rem;
         height: 3.25rem;
         display: grid;
@@ -120,7 +121,8 @@
         -webkit-backdrop-filter: blur(22px);
       }
 
-      .startup-mark svg {
+      #startup-splash .startup-mark svg {
+        display: block;
         width: 1.55rem;
         height: 1.55rem;
         stroke: currentColor;
@@ -130,21 +132,15 @@
         stroke-linejoin: round;
       }
 
-      .startup-name {
+      #startup-splash .startup-name {
         margin-top: 0.1rem;
         font-size: 1.05rem;
         font-weight: 680;
+        line-height: 1.15;
         letter-spacing: -0.025em;
       }
 
-      .startup-status {
-        color: var(--startup-muted);
-        font-size: 0.7rem;
-        font-weight: 550;
-        letter-spacing: 0.01em;
-      }
-
-      .startup-progress {
+      #startup-splash .startup-progress {
         width: 4.5rem;
         height: 2px;
         margin-top: 0.2rem;
@@ -153,7 +149,7 @@
         background: color-mix(in srgb, var(--startup-text) 9%, transparent);
       }
 
-      .startup-progress::after {
+      #startup-splash .startup-progress::after {
         content: "";
         display: block;
         width: 42%;
@@ -174,7 +170,7 @@
 
       @media (prefers-reduced-motion: reduce) {
         #startup-splash { transition: none; }
-        .startup-progress::after { animation: none; width: 100%; opacity: 0.55; }
+        #startup-splash .startup-progress::after { animation: none; width: 100%; opacity: 0.55; }
       }
     </style>
   </head>
@@ -189,7 +185,6 @@
           </svg>
         </div>
         <div class="startup-name" data-tauri-drag-region>Pasted</div>
-        <div class="startup-status" data-tauri-drag-region>Preparing your clipboard</div>
         <div class="startup-progress" data-tauri-drag-region aria-hidden="true"></div>
       </div>
     </div>

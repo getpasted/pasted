@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useAltKeyPressed } from '../hooks/useAltKeyPressed';
-import { ClipItem, Bin, FilterRule } from '../types';
+import { ClipItem, Bin, Pipeline } from '../types';
 import { formatEmojiIcon } from '../utils/emoji';
-import { detectSmartFilterRecommendations } from '../utils/smartFilterDetector';
+import { detectSmartPipelineRecommendations } from '../utils/smartPipelineDetector';
 import type { ClipViewPolicy } from '../utils/clipViewPolicy';
 import {
   Copy,
@@ -19,7 +19,10 @@ import {
   Shield,
   ShieldOff,
   RotateCcw,
+  ClipboardPaste,
 } from 'lucide-react';
+
+export type PipelineDestination = 'copy' | 'paste';
 
 interface ContextMenuProps {
   x: number;
@@ -28,11 +31,11 @@ interface ContextMenuProps {
   viewPolicy: ClipViewPolicy;
   selectedCount?: number;
   bins: Bin[];
-  filters: FilterRule[];
+  pipelines: Pipeline[];
   onClose: () => void;
   onCopy: () => void;
   onAssignBin: (binId: number | null) => void;
-  onApplyFilter: (filter: FilterRule) => void;
+  onRunPipeline: (pipeline: Pipeline, destination: PipelineDestination) => void;
   onAddNote: () => void;
   onDeleteNote?: () => void;
   onAddToStack: () => void;
@@ -50,11 +53,11 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   viewPolicy,
   selectedCount,
   bins,
-  filters,
+  pipelines,
   onClose,
   onCopy,
   onAssignBin,
-  onApplyFilter,
+  onRunPipeline,
   onAddNote,
   onDeleteNote,
   onAddToStack,
@@ -65,7 +68,8 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   onPurge,
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
-  const [activeSubmenu, setActiveSubmenu] = useState<'bins' | 'filters' | null>(null);
+  const [activeSubmenu, setActiveSubmenu] = useState<'bins' | 'pipelines' | null>(null);
+  const [pipelineDestination, setPipelineDestination] = useState<PipelineDestination>('copy');
   const isAltPressed = useAltKeyPressed();
 
   useEffect(() => {
@@ -151,18 +155,25 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
       </div>}
 
       {/* Filter Submenu */}
-      {viewPolicy.canApplyFilters && <div
+      {viewPolicy.canRunPipelines && <div
         className="relative"
-        onMouseEnter={() => setActiveSubmenu('filters')}
+        onMouseEnter={() => setActiveSubmenu('pipelines')}
         onMouseLeave={() => setActiveSubmenu(null)}
       >
-        <button className="theme-menu-item w-full flex items-center justify-between px-3 py-1.5 rounded-md">
+        <button
+          type="button"
+          onClick={() => setActiveSubmenu('pipelines')}
+          onFocus={() => setActiveSubmenu('pipelines')}
+          aria-haspopup="menu"
+          aria-expanded={activeSubmenu === 'pipelines'}
+          className="theme-menu-item w-full flex items-center justify-between px-3 py-1.5 rounded-md"
+        >
           <div className="flex items-center space-x-2.5">
             <Sliders className="w-3.5 h-3.5 text-cyan-400" />
-            <span>Apply Filter...</span>
+            <span>Apply Pipeline...</span>
           </div>
           {(() => {
-            const { detectedTypes } = detectSmartFilterRecommendations(clip.text_content || '', filters);
+            const { detectedTypes } = detectSmartPipelineRecommendations(clip.text_content || '', pipelines);
             return detectedTypes.length > 0 ? (
               <span className="text-[9px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-800/60 px-1 py-0.2 rounded flex items-center space-x-0.5">
                 <Sparkles className="w-2.5 h-2.5" />
@@ -174,12 +185,30 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
           })()}
         </button>
 
-        {activeSubmenu === 'filters' && (
+        {activeSubmenu === 'pipelines' && (
           <div className="theme-menu absolute left-full top-0 ml-1 w-56 rounded-xl py-1 px-1 border max-h-64 overflow-y-auto space-y-1">
+            <div className="theme-subtle-surface m-1 grid grid-cols-2 gap-1 rounded-lg border p-1">
+              <button
+                type="button"
+                onClick={() => setPipelineDestination('copy')}
+                className={`theme-menu-item flex items-center justify-center gap-1.5 rounded-md px-2 py-1 text-[10px] font-semibold ${pipelineDestination === 'copy' ? 'is-selected' : ''}`}
+              >
+                <Copy className="h-3 w-3" />
+                <span>Copy Result</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setPipelineDestination('paste')}
+                className={`theme-menu-item flex items-center justify-center gap-1.5 rounded-md px-2 py-1 text-[10px] font-semibold ${pipelineDestination === 'paste' ? 'is-selected' : ''}`}
+              >
+                <ClipboardPaste className="h-3 w-3" />
+                <span>Paste Result</span>
+              </button>
+            </div>
             {(() => {
-              const { recommendedFilterIds, detectedTypes } = detectSmartFilterRecommendations(clip.text_content || '', filters);
-              const recommended = filters.filter((f) => recommendedFilterIds.has(f.id));
-              const otherFilters = filters.filter((f) => !recommendedFilterIds.has(f.id));
+              const { recommendedPipelineIds, detectedTypes } = detectSmartPipelineRecommendations(clip.text_content || '', pipelines);
+              const recommended = pipelines.filter((pipeline) => recommendedPipelineIds.has(pipeline.id));
+              const otherFilters = pipelines.filter((pipeline) => !recommendedPipelineIds.has(pipeline.id));
 
               return (
                 <>
@@ -193,7 +222,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
                         <button
                           key={f.id}
                           onClick={() => {
-                            onApplyFilter(f);
+                            onRunPipeline(f, pipelineDestination);
                             onClose();
                           }}
                           className="theme-menu-item smart-menu-item w-full text-left px-2.5 py-1.5 rounded-md flex items-center justify-between text-xs font-medium"
@@ -209,7 +238,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
                     <button
                       key={f.id}
                       onClick={() => {
-                        onApplyFilter(f);
+                        onRunPipeline(f, pipelineDestination);
                         onClose();
                       }}
                       className="theme-menu-item w-full text-left px-2.5 py-1.5 rounded-md text-xs truncate"

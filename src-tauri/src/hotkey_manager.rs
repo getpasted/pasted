@@ -12,12 +12,13 @@ use crate::sequential_paste::SequentialQueueState;
 pub enum AppHotkeyAction {
     ToggleHud,
     ToggleMainWindow,
-    OpenFilterWindow,
+    OpenTransformations,
     ToggleCopyQueue,
     PopCopyQueue,
     PasteClip(usize),
-    ApplyFilter(i64),
-    PasteLastFilter,
+    PasteWithPipeline(String),
+    CopyWithLastPipeline,
+    PasteWithLastPipeline,
     OpenBin(i64),
 }
 
@@ -68,62 +69,69 @@ impl HotkeyManager {
             };
             if let Some(shortcuts) = commands::parse_shortcut_str_all_layouts(&setting_str) {
                 for shortcut in shortcuts {
-                    match app.global_shortcut().register(shortcut) {
-                        Ok(_) => println!("[Pasted HotkeyManager] Successfully registered '{setting_str}' -> {:?} for action {:?}", shortcut, action),
-                        Err(err) => println!("[Pasted HotkeyManager WARNING] Global shortcut registration: '{setting_str}' -> {:?}: {:?}", shortcut, err),
+                    if let Err(error) = app.global_shortcut().register(shortcut) {
+                        eprintln!(
+                            "[Pasted Hotkeys] Could not register '{setting_str}' ({shortcut:?}): {error}"
+                        );
                     }
                     map.insert(shortcut, action.clone());
                 }
             } else {
-                println!(
-                    "[Pasted HotkeyManager ERROR] Could not parse shortcut string: '{setting_str}'"
-                );
+                eprintln!("[Pasted Hotkeys] Could not parse shortcut setting: '{setting_str}'");
             }
         };
 
-        // 1. HUD Hotkey (default Option+Shift+V)
+        // HUD shortcut (default Option+Shift+V)
         let hud_sc = get_setting("hudHotkey", "Alt+Shift+V");
         add_shortcut(hud_sc, AppHotkeyAction::ToggleHud);
 
-        // 2. Toggle Main Window Hotkey
+        // Main window shortcut
         let main_sc = get_setting("openMainWindowHotkey", "");
         add_shortcut(main_sc, AppHotkeyAction::ToggleMainWindow);
 
-        // 3. Open Filter Window Hotkey
-        let filter_sc = get_setting("openFilterWindowHotkey", "");
-        add_shortcut(filter_sc, AppHotkeyAction::OpenFilterWindow);
+        // Transformations shortcut
+        let transformations_sc = get_setting("openTransformationsHotkey", "");
+        add_shortcut(transformations_sc, AppHotkeyAction::OpenTransformations);
 
-        // 4. Sequential Stack Toggle Hotkey (default Option+Shift+C)
+        // Sequential Stack toggle (default Option+Shift+C)
         let seq_toggle_sc = get_setting("seqToggleHotkey", "Alt+Shift+C");
         add_shortcut(seq_toggle_sc, AppHotkeyAction::ToggleCopyQueue);
 
-        // 5. Sequential Stack Pop Hotkey (default Option+Shift+X)
+        // Sequential Stack pop (default Option+Shift+X)
         let seq_pop_sc = get_setting("seqPopHotkey", "Alt+Shift+X");
         add_shortcut(seq_pop_sc, AppHotkeyAction::PopCopyQueue);
 
-        // 6. Paste Recent Clippings Hotkeys (1..=9)
+        // Recent clip shortcuts
         for i in 1..=9 {
             let key = format!("pasteClip{}Hotkey", i);
             let sc = get_setting(&key, "");
             add_shortcut(sc, AppHotkeyAction::PasteClip(i));
         }
 
-        // 7. Paste Last Filter Hotkey
-        let last_filter_sc = get_setting("pasteLastFilterHotkey", "");
-        add_shortcut(last_filter_sc, AppHotkeyAction::PasteLastFilter);
+        // Last-Pipeline shortcuts
+        let copy_last_pipeline_sc = get_setting("copyLastPipelineHotkey", "");
+        add_shortcut(copy_last_pipeline_sc, AppHotkeyAction::CopyWithLastPipeline);
+        let paste_last_pipeline_sc = get_setting("pasteLastPipelineHotkey", "");
+        add_shortcut(
+            paste_last_pipeline_sc,
+            AppHotkeyAction::PasteWithLastPipeline,
+        );
 
-        // 8. Filter Pipeline Hotkeys
-        if let Ok(filters) = db.get_filters() {
-            for f in filters {
-                if let Some(sc) = f.shortcut {
+        // Per-Pipeline shortcuts
+        if let Ok(pipelines) = db.get_pipelines() {
+            for pipeline in pipelines {
+                if let Some(sc) = pipeline.shortcut {
                     if !sc.trim().is_empty() {
-                        add_shortcut(Some(sc), AppHotkeyAction::ApplyFilter(f.id));
+                        add_shortcut(
+                            Some(sc),
+                            AppHotkeyAction::PasteWithPipeline(pipeline.stable_ref),
+                        );
                     }
                 }
             }
         }
 
-        // 9. Bin Hotkeys
+        // Bin shortcuts
         if let Ok(bins) = db.get_bins() {
             for b in bins {
                 if let Some(sc) = b.shortcut {
@@ -134,60 +142,25 @@ impl HotkeyManager {
             }
         }
 
-        println!(
-            "[Pasted HotkeyManager] Successfully registered {} shortcuts in memory",
-            map.len()
-        );
         Ok(())
     }
 
     pub fn dispatch(&self, app: &AppHandle, shortcut: &Shortcut) {
-        let mods = shortcut.mods;
-        let is_ctrl_alt = mods.contains(tauri_plugin_global_shortcut::Modifiers::CONTROL)
-            && mods.contains(tauri_plugin_global_shortcut::Modifiers::ALT);
-        let is_super = mods.contains(tauri_plugin_global_shortcut::Modifiers::SUPER);
-
-        if is_ctrl_alt || is_super {
-            let map = self.action_map.read();
-            println!(
-                "[Pasted HOTKEY DISPATCH] Lookup Received: Key={:?}, Mods={:?}, Id={} against {} registered entries",
-                shortcut.key,
-                shortcut.mods,
-                shortcut.id,
-                map.len()
-            );
-            for (registered_sc, action) in map.iter() {
-                println!(
-                    "   - Registered in Memory: Key={:?}, Mods={:?}, Id={} -> Action: {:?} (Match: {})",
-                    registered_sc.key,
-                    registered_sc.mods,
-                    registered_sc.id,
-                    action,
-                    registered_sc == shortcut
-                );
-            }
-        }
-
         let action_opt = {
             let map = self.action_map.read();
             map.get(shortcut).cloned()
         };
 
         let Some(action) = action_opt else {
-            println!(
-                "[Pasted HotkeyManager] Unmapped shortcut pressed: Key={:?}, Mods={:?}, Full={:?}",
-                shortcut.key, shortcut.mods, shortcut
+            eprintln!(
+                "[Pasted Hotkeys] Ignoring unmapped shortcut: key={:?}, modifiers={:?}",
+                shortcut.key, shortcut.mods
             );
             return;
         };
 
-        println!(
-            "[Pasted HotkeyManager] Executing action on main thread: {:?}",
-            action
-        );
-
         let app_handle = app.clone();
-        let _ = app.run_on_main_thread(move || match action {
+        if let Err(error) = app.run_on_main_thread(move || match action {
             AppHotkeyAction::ToggleHud => {
                 let _ = commands::toggle_hud_window(app_handle.clone());
             }
@@ -201,11 +174,11 @@ impl HotkeyManager {
                     }
                 }
             }
-            AppHotkeyAction::OpenFilterWindow => {
+            AppHotkeyAction::OpenTransformations => {
                 if let Some(w) = app_handle.get_webview_window("main") {
                     let _ = w.show();
                     let _ = w.set_focus();
-                    let _ = app_handle.emit("navigate-tab", "filters");
+                    let _ = app_handle.emit("navigate-tab", "transformations");
                 }
             }
             AppHotkeyAction::ToggleCopyQueue => {
@@ -253,28 +226,31 @@ impl HotkeyManager {
                     }
                 }
             }
-            AppHotkeyAction::ApplyFilter(filter_id) => {
+            AppHotkeyAction::PasteWithPipeline(pipeline_ref) => {
                 let db_opt = app_handle.try_state::<Arc<DbState>>();
                 if let Some(db) = db_opt {
-                    if let Ok(filters) = db.get_filters() {
-                        if let Some(f) = filters.into_iter().find(|flt| flt.id == filter_id) {
-                            if let Ok(mut cb) = arboard::Clipboard::new() {
-                                if let Ok(text) = cb.get_text() {
-                                    if let Ok(transformed) = crate::filter_engine::apply_filter(
-                                        &text,
-                                        &f.filter_type,
-                                        f.config.as_deref(),
-                                    ) {
-                                        let _ = cb.set_text(&transformed);
-                                    }
-                                }
-                            }
-                        }
+                    if let Err(error) =
+                        commands::execute_clipboard_pipeline(&db, Some(&pipeline_ref), true)
+                    {
+                        eprintln!("[Pasted Pipeline Shortcut] {error}");
                     }
                 }
             }
-            AppHotkeyAction::PasteLastFilter => {
-                let _ = app_handle.emit("paste-last-filter-requested", ());
+            AppHotkeyAction::CopyWithLastPipeline => {
+                let db_opt = app_handle.try_state::<Arc<DbState>>();
+                if let Some(db) = db_opt {
+                    if let Err(error) = commands::execute_clipboard_pipeline(&db, None, false) {
+                        eprintln!("[Pasted Last Pipeline Copy] {error}");
+                    }
+                }
+            }
+            AppHotkeyAction::PasteWithLastPipeline => {
+                let db_opt = app_handle.try_state::<Arc<DbState>>();
+                if let Some(db) = db_opt {
+                    if let Err(error) = commands::execute_clipboard_pipeline(&db, None, true) {
+                        eprintln!("[Pasted Last Pipeline Paste] {error}");
+                    }
+                }
             }
             AppHotkeyAction::OpenBin(bin_id) => {
                 if let Some(w) = app_handle.get_webview_window("main") {
@@ -283,7 +259,9 @@ impl HotkeyManager {
                     let _ = app_handle.emit("navigate-bin", bin_id);
                 }
             }
-        });
+        }) {
+            eprintln!("[Pasted Hotkeys] Could not dispatch shortcut action: {error}");
+        }
     }
 }
 
@@ -292,7 +270,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_hotkey_manager_map_operations() {
+    fn test_hotkey_manager_maps_actions() {
         let mgr = HotkeyManager::new();
         let sc = commands::parse_shortcut_str("CmdOrCtrl+Shift+V").unwrap();
 

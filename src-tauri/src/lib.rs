@@ -3,9 +3,14 @@ mod commands;
 mod db;
 mod filter_engine;
 mod hotkey_manager;
+mod intelligence_connections;
+mod intelligence_executor;
 mod ocr;
+mod operation_plugins;
 mod operation_registry;
 mod sequential_paste;
+mod transformation_intent;
+mod transformation_service;
 
 use std::sync::Arc;
 use tauri::{
@@ -156,6 +161,12 @@ pub fn run() {
             // persisted because Pasted is commonly hidden from its tray lifecycle.
             if let Some(main_win) = app.get_webview_window("main") {
                 let _ = main_win.restore_state(main_window_state_flags());
+                // Window-state restoration dispatches native geometry updates to
+                // the event loop. Read the resulting frame back before revealing
+                // the window so macOS cannot paint the configured default frame
+                // for a moment and then visibly snap to the restored one.
+                let _ = main_win.outer_position();
+                let _ = main_win.outer_size();
                 #[cfg(target_os = "macos")]
                 {
                     setup_finder_titlebar(&main_win);
@@ -193,7 +204,7 @@ pub fn run() {
                 }
             }
 
-            // Register all saved HUD, Filter, and Bin shortcuts
+            // Register all saved HUD, Pipeline, and Bin shortcuts
             let _ = commands::register_all_app_shortcuts(app.handle());
 
             // Create Menu Bar / System Tray Icon
@@ -293,25 +304,49 @@ pub fn run() {
             commands::reorder_pinned_clips,
             commands::get_clip_versions,
             commands::get_clip_version_count,
+            commands::restore_clip_version,
             commands::create_tag,
             commands::batch_pin_clips,
             commands::batch_trash_clips,
             commands::batch_assign_bin_clips,
             commands::copy_clip_to_system,
+            commands::paste_text_to_frontmost,
+            commands::copy_with_last_pipeline,
+            commands::paste_with_last_pipeline,
+            commands::paste_with_pipeline,
+            commands::get_last_pipeline_ref,
             commands::get_bins,
             commands::create_bin,
             commands::update_bin,
             commands::delete_bin,
-            commands::get_filters,
-            commands::create_filter,
-            commands::update_filter_shortcut,
-            commands::delete_filter,
+            commands::get_pipelines,
+            commands::create_pipeline,
+            commands::update_pipeline,
+            commands::update_pipeline_shortcut,
+            commands::delete_pipeline,
             commands::get_operations,
             commands::get_builtin_operations,
+            commands::get_intelligence_connections,
+            commands::detect_intelligence_connections,
+            commands::create_intelligence_connection,
+            commands::update_intelligence_connection,
+            commands::delete_intelligence_connection,
+            commands::reorder_intelligence_connections,
+            commands::validate_transformation_plan,
+            commands::plan_transformation_intent,
+            commands::test_transformation_plan,
+            commands::get_transformation_recipes,
+            commands::save_transformation_recipe,
+            commands::delete_transformation_recipe,
+            commands::execute_transformation_recipe,
+            commands::apply_recipe_preview_to_clip,
+            commands::get_clip_transformation_provenance,
+            commands::get_operation_plugin_examples,
             commands::create_operation,
             commands::update_operation,
             commands::delete_operation,
             commands::transform_text,
+            commands::execute_transformation,
             commands::clear_history,
             commands::get_protected_clips,
             commands::toggle_clip_protected,
@@ -333,6 +368,8 @@ pub fn run() {
             commands::extract_ocr_from_clip,
             commands::register_hud_shortcut,
             commands::update_bin_shortcut,
+            commands::get_bin_recipe_ref,
+            commands::set_bin_recipe_ref,
             commands::register_app_setting_hotkey,
             commands::clear_all_clips,
             commands::toggle_clipboard_pause,

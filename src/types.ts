@@ -80,6 +80,7 @@ export interface ClipItem {
   source_app: string;
   is_pinned: boolean;
   is_protected?: boolean;
+  is_transformed?: boolean;
   pin_order?: number;
   bin_id: number | null;
   bin_ids?: number[];
@@ -105,25 +106,122 @@ export interface ClipVersion {
   id: number;
   clip_id: number;
   text_content: string;
+  action_kind?: string | null;
+  action_label?: string | null;
+  restores_organization?: boolean;
   created_at: string;
 }
 
-export interface FilterRule {
+export interface Pipeline {
   id: number;
+  stableRef: string;
   name: string;
-  filter_type: string;
-  config: string | null;
+  steps: PipelineStep[];
   shortcut?: string | null;
-  created_at: string;
+  revision: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PipelineStep {
+  position: number;
+  operationRef: string;
+  configJson: string | null;
+  failurePolicy: 'stop' | 'skip';
 }
 
 export interface Operation {
   id: number;
+  stable_id: string;
   name: string;
   op_type: string;
   config: string | null;
   category: string;
   created_at: string;
+}
+
+export type IntelligenceProviderKind =
+  | 'openai_compatible'
+  | 'anthropic'
+  | 'gemini'
+  | 'ollama'
+  | 'lm_studio'
+  | 'cli';
+
+export interface IntelligenceConnection {
+  id: string;
+  name: string;
+  providerKind: IntelligenceProviderKind;
+  endpoint: string | null;
+  model: string | null;
+  credentialRef: string | null;
+  enabled: boolean;
+  priority: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DetectedIntelligenceConnection {
+  adapterId: string;
+  name: string;
+  providerKind: IntelligenceProviderKind;
+  executablePath: string | null;
+  defaultEndpoint: string | null;
+  version: string | null;
+  capabilities: string[];
+}
+
+export type IntentPlanningMode = 'pinned' | 'adaptive';
+
+export interface PlannedTransformationStep {
+  name: string;
+  rationale: string;
+  scope: 'whole_input' | 'each_line';
+  executor:
+    | { kind: 'deterministic'; operation_ref: string; config_json?: string | null }
+    | { kind: 'semantic'; instructions: string; output_schema?: Record<string, unknown> | null; model_policy: 'fast' | 'balanced' | 'deep' };
+}
+
+export interface TransformationPlan {
+  schema_version: number;
+  intent: string;
+  summary: string;
+  planning_mode: IntentPlanningMode;
+  steps: PlannedTransformationStep[];
+}
+
+export interface PlanIntentOutcome {
+  plan: TransformationPlan;
+  connectionId: string;
+  connectionName: string;
+  durationMs: number;
+}
+
+export interface TransformationRecipe {
+  id: number;
+  stableRef: string;
+  name: string;
+  plan: TransformationPlan;
+  connectionId: string | null;
+  revision: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ExecutePlanOutcome {
+  output: string;
+  connectionId: string | null;
+  connectionName: string | null;
+  durationMs: number;
+}
+
+export interface ClipTransformationProvenance {
+  recipeRef: string;
+  recipeName: string;
+  recipeRevision: number;
+  connectionId: string | null;
+  durationMs: number;
+  createdAt: string;
 }
 
 export interface SequentialStatus {
@@ -152,8 +250,9 @@ export interface AppSettings {
   hudHotkey?: string;
   seqToggleHotkey?: string;
   seqPopHotkey?: string;
-  pasteLastFilterHotkey?: string;
-  openFilterWindowHotkey?: string;
+  copyLastPipelineHotkey?: string;
+  pasteLastPipelineHotkey?: string;
+  openTransformationsHotkey?: string;
   openMainWindowHotkey?: string;
   pasteClip1Hotkey?: string;
   pasteClip2Hotkey?: string;

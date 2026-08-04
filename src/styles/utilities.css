@@ -1,6 +1,6 @@
 /* Electric Pushpin Orange Tokens */
 .pin-icon {
-  color: var(--status-warning) !important;
+  color: var(--status-warning);
   fill: currentColor;
 }
 
@@ -8,10 +8,43 @@
    TOOLS PAGES — SHARED LIGHT/DARK SURFACE CONTRACT
    ======================================================= */
 .tools-page {
-  background-color: var(--material-app) !important;
-  color: var(--text-main) !important;
+  background-color: var(--material-app);
+  color: var(--text-main);
   -webkit-backdrop-filter: blur(var(--material-blur)) saturate(var(--material-saturation));
   backdrop-filter: blur(var(--material-blur)) saturate(var(--material-saturation));
+}
+
+/* Tool scrollbars float above content instead of changing its layout width. */
+.tools-scroll-region {
+  overflow-y: overlay;
+  scrollbar-gutter: auto;
+  scrollbar-color: transparent transparent;
+}
+
+.tools-scroll-region.is-scrolling {
+  scrollbar-color: var(--scrollbar-thumb) transparent;
+}
+
+.tools-scroll-region::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.tools-scroll-region::-webkit-scrollbar-thumb,
+.tools-scroll-region::-webkit-scrollbar-thumb:hover,
+.tools-scroll-region::-webkit-scrollbar-thumb:active {
+  background: transparent;
+}
+
+.tools-scroll-region.is-scrolling::-webkit-scrollbar-thumb,
+.tools-scroll-region.is-scrolling::-webkit-scrollbar-thumb:hover,
+.tools-scroll-region.is-scrolling::-webkit-scrollbar-thumb:active {
+  background: var(--scrollbar-thumb);
+}
+
+/* DOM order changes should not make a scroll container chase the moved item. */
+.stable-reorder-list,
+.stable-reorder-list [data-stable-reorder-id] {
+  overflow-anchor: none;
 }
 
 /* =======================================================

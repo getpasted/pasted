@@ -1,21 +1,21 @@
-import { FilterRule } from '../types';
+import { Pipeline } from '../types';
 
-export interface SmartDetectionResult {
+export interface SmartPipelineDetectionResult {
   detectedTypes: string[];
-  recommendedFilterIds: Set<number>;
-  recommendedFilters: FilterRule[];
+  recommendedPipelineIds: Set<number>;
+  recommendedPipelines: Pipeline[];
 }
 
-export function detectSmartFilterRecommendations(
+export function detectSmartPipelineRecommendations(
   text: string,
-  filters: FilterRule[]
-): SmartDetectionResult {
+  pipelines: Pipeline[]
+): SmartPipelineDetectionResult {
   if (!text || typeof text !== 'string') {
-    return { detectedTypes: [], recommendedFilterIds: new Set(), recommendedFilters: [] };
+    return { detectedTypes: [], recommendedPipelineIds: new Set(), recommendedPipelines: [] };
   }
 
   const detectedTypes: string[] = [];
-  const recommendedFilterIds = new Set<number>();
+  const recommendedPipelineIds = new Set<number>();
   const trimmed = text.trim();
 
   // 1. Detect URLs
@@ -65,39 +65,42 @@ export function detectSmartFilterRecommendations(
     detectedTypes.push('Phone Number');
   }
 
-  // Find matching filters based on name or pipeline config step types
-  for (const filter of filters) {
-    const nameLower = filter.name.toLowerCase();
-    const configLower = (filter.config || '').toLowerCase();
+  // Find matching Pipelines based on their names and canonical Operation references.
+  for (const pipeline of pipelines) {
+    const nameLower = pipeline.name.toLowerCase();
+    const configLower = pipeline.steps
+      .map((step) => `${step.operationRef} ${step.configJson || ''}`)
+      .join(' ')
+      .toLowerCase();
 
     if (hasUrl && (nameLower.includes('url') || configLower.includes('clean_url_tracking') || configLower.includes('extract_urls'))) {
-      recommendedFilterIds.add(filter.id);
+      recommendedPipelineIds.add(pipeline.id);
     }
     if (isJson && (nameLower.includes('json') || configLower.includes('json_format') || configLower.includes('json_minify'))) {
-      recommendedFilterIds.add(filter.id);
+      recommendedPipelineIds.add(pipeline.id);
     }
     if (hasHtml && (nameLower.includes('html') || nameLower.includes('tag') || configLower.includes('strip_html') || configLower.includes('wrap_tags'))) {
-      recommendedFilterIds.add(filter.id);
+      recommendedPipelineIds.add(pipeline.id);
     }
     if (hasMarkdown && (nameLower.includes('markdown') || configLower.includes('strip_markdown'))) {
-      recommendedFilterIds.add(filter.id);
+      recommendedPipelineIds.add(pipeline.id);
     }
     if (isMultiLine && (nameLower.includes('sort') || nameLower.includes('dedupe') || nameLower.includes('line') || configLower.includes('sort_lines') || configLower.includes('dedupe_lines'))) {
-      recommendedFilterIds.add(filter.id);
+      recommendedPipelineIds.add(pipeline.id);
     }
     if (hasEmails && (nameLower.includes('email') || configLower.includes('extract_emails'))) {
-      recommendedFilterIds.add(filter.id);
+      recommendedPipelineIds.add(pipeline.id);
     }
     if (hasPhones && (nameLower.includes('phone') || configLower.includes('extract_phones'))) {
-      recommendedFilterIds.add(filter.id);
+      recommendedPipelineIds.add(pipeline.id);
     }
   }
 
-  const recommendedFilters = filters.filter((f) => recommendedFilterIds.has(f.id));
+  const recommendedPipelines = pipelines.filter((pipeline) => recommendedPipelineIds.has(pipeline.id));
 
   return {
     detectedTypes,
-    recommendedFilterIds,
-    recommendedFilters,
+    recommendedPipelineIds,
+    recommendedPipelines,
   };
 }

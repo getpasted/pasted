@@ -91,6 +91,24 @@ pub static BUILTIN_OPERATIONS: &[OperationDefinition] = &[
         "Cleaners & Sanitizers",
     ),
     operation(
+        "collapse_whitespace",
+        "Collapse Whitespace",
+        "cleaning",
+        "Cleaners & Sanitizers",
+    ),
+    operation(
+        "strip_diacritics",
+        "Strip Diacritics",
+        "cleaning",
+        "Cleaners & Sanitizers",
+    ),
+    operation(
+        "strip_non_alphanumeric",
+        "Strip Non-Alphanumeric",
+        "cleaning",
+        "Cleaners & Sanitizers",
+    ),
+    operation(
         "smart_punctuation",
         "Smart Punctuation",
         "typography",
@@ -138,12 +156,30 @@ pub static BUILTIN_OPERATIONS: &[OperationDefinition] = &[
         "structure",
         "Structure & Formatting",
     ),
+    operation(
+        "json_stringify",
+        "Quote as JSON String",
+        "structure",
+        "Structure & Formatting",
+    ),
     configured_operation(
         "wrap_tags",
         "Wrap in HTML Tags",
         "structure",
         "Structure & Formatting",
         OperationConfigKind::HtmlTag,
+    ),
+    operation(
+        "html_paragraphs",
+        "Create HTML Paragraphs",
+        "structure",
+        "Structure & Formatting",
+    ),
+    operation(
+        "html_unordered_list",
+        "Create HTML List",
+        "structure",
+        "Structure & Formatting",
     ),
     operation(
         "extract_urls",
@@ -200,6 +236,7 @@ pub static BUILTIN_OPERATIONS: &[OperationDefinition] = &[
         "Line Operations",
     ),
     operation("reverse_lines", "Reverse Lines", "lines", "Line Operations"),
+    operation("reverse_text", "Reverse Text", "lines", "Line Operations"),
     operation(
         "strip_empty_lines",
         "Strip Empty Lines",

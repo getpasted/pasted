@@ -24,7 +24,7 @@ This checklist records the styling debt found during the multi-scheme and glass-
 ## P1 — hard-coded surface islands
 
 - [x] Unify Filter/Operation sandboxes, headers, and editor surfaces under shared transform-workspace primitives. Deeper product behavior remains a dedicated project.
-- [x] Migrate `FilterEditorModal` and `OperationEditorModal` from parallel hard-coded palettes to one shared editor shell.
+- [x] Migrate `PipelineEditorModal` and `OperationEditorModal` from parallel hard-coded palettes to one shared editor shell.
 - [x] Migrate `BinModal` and its tabs, fields, rule builder, footer, and buttons to dialog/input/tab primitives.
 - [x] Finish `ClipPreviewContent` theme coverage for color, image, and OCR modes.
 - [x] Migrate the Quick HUD from a fixed dark palette to HUD-specific material tokens. Product redesign remains a dedicated project.
@@ -66,7 +66,7 @@ These are functional issues exposed while auditing the styling, not CSS-only def
 - [ ] Replace pipeline category inference. It currently compares category label words with operation type identifiers, so many category pills cannot produce correct results.
 - [ ] Create one canonical operation-category model. `OperationEditorModal` uses “Structure & Tags” while seeded operations use “Structure & Formatting”.
 - [ ] Share sandbox state, result/error presentation, cards, category navigation, and CRUD action patterns between pipelines and operations.
-- [x] Remove the imperative `openCreateRef` bridge between `FilterManager` and `OperationsManager`; creation now lives with each collection toolbar instead of reaching into child state from the page header.
+- [x] Remove the imperative `openCreateRef` bridge between `TransformationsView` and `OperationsManager`; creation now lives with each collection toolbar instead of reaching into child state from the page header.
 - [ ] Keep operation counts synchronized after CRUD instead of refreshing primarily when the active subtab changes.
 - [ ] Define the intended relationship clearly: Operations are reusable atomic steps; Pipelines are ordered compositions of operation IDs/configurations.
 - [ ] Add tests for category membership, pipeline composition, operation deletion dependencies, ordering, duplication, import/export, and live sandbox errors.

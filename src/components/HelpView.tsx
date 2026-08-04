@@ -6,7 +6,7 @@ import {
   Keyboard,
   Shield,
   Trash2,
-  Sliders,
+  Workflow,
   ChevronRight,
   Copy,
   Check,
@@ -17,8 +17,11 @@ import {
 } from 'lucide-react';
 import { ToolPageHeader } from './ToolPageHeader';
 
+const CLI_SYMLINK_COMMAND = 'sudo ln -s /Applications/Pasted.app/Contents/MacOS/pasted-cli /usr/local/bin/pasted-cli';
+const CLI_ALIAS_COMMAND = 'alias pasted-cli="/Applications/Pasted.app/Contents/MacOS/pasted-cli"';
+
 export const HelpView: React.FC = () => {
-  const [activeSubTab, setActiveSubTab] = useState<'cli' | 'hotkeys' | 'autopause' | 'trash' | 'filters'>('cli');
+  const [activeSubTab, setActiveSubTab] = useState<'cli' | 'hotkeys' | 'autopause' | 'trash' | 'pipelines'>('cli');
   const [copiedCmd, setCopiedCmd] = useState<string | null>(null);
   const [installStatus, setInstallStatus] = useState<string | null>(null);
 
@@ -98,19 +101,19 @@ export const HelpView: React.FC = () => {
           </button>
 
           <button
-            onClick={() => setActiveSubTab('filters')}
-            className={`help-topic-button w-full flex items-center justify-between px-3 py-2 text-xs font-semibold cursor-pointer border ${activeSubTab === 'filters' ? 'is-selected' : ''}`}
+            onClick={() => setActiveSubTab('pipelines')}
+            className={`help-topic-button w-full flex items-center justify-between px-3 py-2 text-xs font-semibold cursor-pointer border ${activeSubTab === 'pipelines' ? 'is-selected' : ''}`}
           >
             <div className="flex items-center space-x-2.5">
-              <Sliders className="w-4 h-4 theme-status-info-text" />
-              <span>Smart Filters</span>
+              <Workflow className="w-4 h-4 theme-status-info-text" />
+              <span>Transformations</span>
             </div>
             <ChevronRight className="w-3.5 h-3.5 opacity-60" />
           </button>
         </div>
 
         {/* Right Detail Subpage Content */}
-        <div className="flex-1 p-6 overflow-y-auto space-y-6">
+        <div className="tools-scroll-region flex-1 p-6 overflow-y-auto space-y-6">
           {activeSubTab === 'cli' && (
             <div className="space-y-6 animate-in fade-in">
               <div>
@@ -145,13 +148,38 @@ export const HelpView: React.FC = () => {
                   </div>
                 )}
 
-                <div className="theme-text-main text-xs space-y-1">
-                  <p className="font-semibold theme-title">Manual $PATH Setup Options:</p>
-                  <div className="theme-code-surface p-2.5 rounded-lg border font-mono text-[11px] space-y-1">
-                    <div className="theme-status-success-text"># Symlink bundled macOS app executable to /usr/local/bin</div>
-                    <div>$ sudo ln -s /Applications/Pasted.app/Contents/MacOS/pasted-cli /usr/local/bin/pasted-cli</div>
-                    <div className="theme-status-success-text pt-1"># Or add alias in ~/.zshrc or ~/.bashrc</div>
-                    <div>alias pasted-cli="/Applications/Pasted.app/Contents/MacOS/pasted-cli"</div>
+                <div className="theme-text-main space-y-2 text-xs">
+                  <p className="font-semibold theme-title">Manual $PATH setup:</p>
+                  <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
+                    <div className="theme-code-surface min-w-0 rounded-lg border p-2.5">
+                      <div className="mb-2 flex items-center justify-between gap-2">
+                        <span className="theme-status-success-text text-[10px] font-semibold">Symlink in /usr/local/bin</span>
+                        <button
+                          type="button"
+                          onClick={() => handleCopyCode(CLI_SYMLINK_COMMAND)}
+                          className="theme-icon-button shrink-0 rounded border p-1"
+                          title="Copy symlink command"
+                        >
+                          {copiedCmd === CLI_SYMLINK_COMMAND ? <Check className="h-3.5 w-3.5 theme-status-success-text" /> : <Copy className="h-3.5 w-3.5" />}
+                        </button>
+                      </div>
+                      <code className="selectable-text block select-text whitespace-pre-wrap break-all font-mono text-[11px]">{CLI_SYMLINK_COMMAND}</code>
+                    </div>
+
+                    <div className="theme-code-surface min-w-0 rounded-lg border p-2.5">
+                      <div className="mb-2 flex items-center justify-between gap-2">
+                        <span className="theme-status-success-text text-[10px] font-semibold">Shell alias</span>
+                        <button
+                          type="button"
+                          onClick={() => handleCopyCode(CLI_ALIAS_COMMAND)}
+                          className="theme-icon-button shrink-0 rounded border p-1"
+                          title="Copy shell alias"
+                        >
+                          {copiedCmd === CLI_ALIAS_COMMAND ? <Check className="h-3.5 w-3.5 theme-status-success-text" /> : <Copy className="h-3.5 w-3.5" />}
+                        </button>
+                      </div>
+                      <code className="selectable-text block select-text whitespace-pre-wrap break-all font-mono text-[11px]">{CLI_ALIAS_COMMAND}</code>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -316,15 +344,15 @@ export const HelpView: React.FC = () => {
             </div>
           )}
 
-          {activeSubTab === 'filters' && (
+          {activeSubTab === 'pipelines' && (
             <div className="space-y-6 animate-in fade-in">
               <div>
                 <h3 className="theme-title text-lg font-bold flex items-center space-x-2">
-                  <Sliders className="w-5 h-5 theme-status-info-text" />
-                  <span>Smart Filters & Text Transformations</span>
+                  <Workflow className="w-5 h-5 theme-status-info-text" />
+                  <span>Transformations</span>
                 </h3>
                 <p className="theme-text-muted text-xs mt-1">
-                  Transform copied text instantly with built-in case converters, sanitizers, and smart rules.
+                  Combine reusable Operations into Pipelines, then run them wherever text enters or leaves Pasted.
                 </p>
               </div>
 

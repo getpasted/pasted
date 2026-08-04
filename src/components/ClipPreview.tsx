@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { formatClipDateTime } from '../utils/date';
-import { ClipItem, Bin, FilterRule, ClipNote, parseClipNotes, serializeClipNotes, ClipVersion } from '../types';
+import { ClipItem, Bin, Pipeline, ClipNote, parseClipNotes, serializeClipNotes, ClipVersion } from '../types';
+import type { ClipTransformationProvenance, ExecutePlanOutcome, TransformationRecipe } from '../types';
 import { parseColor, ColorFormats } from '../utils/color';
 import { soundManager } from '../utils/sound';
-import { detectSmartFilterRecommendations } from '../utils/smartFilterDetector';
+import { detectSmartPipelineRecommendations } from '../utils/smartPipelineDetector';
 import { startWindowDrag } from '../utils/windowDrag';
 import { ClipRevisionHistory } from './ClipRevisionHistory';
 import { ClipPreviewContent } from './ClipPreviewContent';
@@ -11,6 +12,7 @@ import { ClipNoteViewer } from './ClipNoteViewer';
 import { NoteRowItem } from './ClipNoteRow';
 import {
   Copy,
+  ClipboardPaste,
   Check,
   Trash2,
   Sliders,
@@ -18,6 +20,9 @@ import {
   FileText,
   StickyNote,
   Sparkles,
+  LoaderCircle,
+  Workflow,
+  Lightbulb,
 } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { useStableVerticalReorder } from '../hooks/useStableVerticalReorder';
@@ -27,11 +32,12 @@ interface ClipPreviewProps {
   clip: ClipItem | null;
   viewPolicy: ClipViewPolicy;
   bins: Bin[];
-  filters: FilterRule[];
-  onUpdateClip: () => void;
+  pipelines: Pipeline[];
+  onUpdateClip: (updatedClip?: ClipItem) => void;
   onAssignBin: (clipId: number, binId: number | null) => void | Promise<void>;
   onDeleteClip: (id: number) => void;
   onUpdateClipNote?: (clipId: number, noteContent: string | null) => void;
+  isTransforming?: boolean;
 }
 
 const CLEVER_PLACEHOLDERS = [
@@ -46,21 +52,32 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   clip,
   viewPolicy,
   bins,
-  filters,
+  pipelines,
   onUpdateClip,
   onAssignBin,
   onDeleteClip,
   onUpdateClipNote,
+  isTransforming = false,
 }) => {
   const [copied, setCopied] = useState(false);
   const [copiedFormat, setCopiedFormat] = useState<string | null>(null);
   const [transformedText, setTransformedText] = useState<string | null>(null);
-  const [activeFilterName, setActiveFilterName] = useState<string | null>(null);
+  const [activePipelineRef, setActivePipelineRef] = useState<string | null>(null);
+  const [activePipelineName, setActivePipelineName] = useState<string | null>(null);
+  const [recipes, setRecipes] = useState<TransformationRecipe[]>([]);
+  const [activeRecipeRef, setActiveRecipeRef] = useState<string | null>(null);
+  const [activeRecipeName, setActiveRecipeName] = useState<string | null>(null);
+  const [recipePreviewOutcome, setRecipePreviewOutcome] = useState<ExecutePlanOutcome | null>(null);
+  const [provenance, setProvenance] = useState<ClipTransformationProvenance | null>(null);
+  const [isPipelineRunning, setIsPipelineRunning] = useState(false);
+  const [pipelineAction, setPipelineAction] = useState<'copied' | 'pasted' | null>(null);
+  const [pipelineError, setPipelineError] = useState<string | null>(null);
   const [notes, setNotes] = useState<ClipNote[]>(() => parseClipNotes(clip?.note));
   const notesRef = useRef(notes);
   const noteBoxRef = useRef<HTMLDivElement>(null);
   const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const copiedFormatTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pipelineRequestIdRef = useRef(0);
 
   useEffect(() => {
     notesRef.current = notes;
@@ -76,8 +93,28 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   const [resolvedImageBase64, setResolvedImageBase64] = useState<string | null>(clip?.image_base64 || null);
   const [showHistory, setShowHistory] = useState<boolean>(false);
   const [versions, setVersions] = useState<ClipVersion[]>([]);
+  const [previewedVersion, setPreviewedVersion] = useState<ClipVersion | null>(null);
+  const [restoringVersionId, setRestoringVersionId] = useState<number | null>(null);
   const [revisionCount, setRevisionCount] = useState<number | null>(null);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+
+  useEffect(() => {
+    invoke<TransformationRecipe[]>('get_transformation_recipes')
+      .then((items) => setRecipes(Array.isArray(items) ? items : []))
+      .catch((error) => console.error('Failed to load Recipes:', error));
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!clip) {
+      setProvenance(null);
+      return () => { cancelled = true; };
+    }
+    invoke<ClipTransformationProvenance | null>('get_clip_transformation_provenance', { clipId: clip.id })
+      .then((value) => { if (!cancelled) setProvenance(value); })
+      .catch((error) => console.error('Failed to load transformation provenance:', error));
+    return () => { cancelled = true; };
+  }, [clip?.id, clip?.is_transformed, clip?.text_content]);
 
   useEffect(() => {
     let cancelled = false;
@@ -98,7 +135,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [clip?.id]);
+  }, [clip?.id, clip?.is_transformed, clip?.text_content]);
 
   useEffect(() => {
     let cancelled = false;
@@ -119,7 +156,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [clip?.id, showHistory]);
+  }, [clip?.id, clip?.is_transformed, clip?.text_content, showHistory]);
 
   useEffect(() => {
     let cancelled = false;
@@ -143,8 +180,16 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   }, [clip?.id, clip?.image_base64, clip?.content_type]);
 
   useEffect(() => {
+    pipelineRequestIdRef.current += 1;
     setTransformedText(null);
-    setActiveFilterName(null);
+    setActivePipelineRef(null);
+    setActivePipelineName(null);
+    setActiveRecipeRef(null);
+    setActiveRecipeName(null);
+    setRecipePreviewOutcome(null);
+    setIsPipelineRunning(false);
+    setPipelineAction(null);
+    setPipelineError(null);
     setShowHistory(false);
     const parsed = parseClipNotes(clip?.note);
     setNotes(parsed);
@@ -158,6 +203,8 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
     setCopied(false);
     setCopiedFormat(null);
     setVersions([]);
+    setPreviewedVersion(null);
+    setRestoringVersionId(null);
     setIsHistoryLoading(false);
     if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
     if (copiedFormatTimerRef.current) clearTimeout(copiedFormatTimerRef.current);
@@ -172,10 +219,13 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   }, [viewPolicy.canEditNotes]);
 
   useEffect(() => {
-    if (viewPolicy.canApplyFilters) return;
+    if (viewPolicy.canRunPipelines) return;
     setTransformedText(null);
-    setActiveFilterName(null);
-  }, [viewPolicy.canApplyFilters]);
+    setActivePipelineRef(null);
+    setActivePipelineName(null);
+    setPipelineAction(null);
+    setPipelineError(null);
+  }, [viewPolicy.canRunPipelines]);
 
   useEffect(() => () => {
     if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
@@ -267,13 +317,13 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
         </div>
         <p className="theme-text-main text-sm font-medium">No Clip Selected</p>
         <p className="theme-text-muted text-xs mt-1 max-w-xs text-center">
-          Select an item from history or right-click to copy, filter, add notes, or organize.
+          Select an item from history or right-click to copy, transform, add notes, or organize.
         </p>
       </div>
     );
   }
 
-  const displayText = transformedText ?? clip.text_content ?? '';
+  const displayText = previewedVersion?.text_content ?? transformedText ?? clip.text_content ?? '';
   const colorData: ColorFormats | null =
     clip.content_type === 'color' || (displayText && displayText.length < 30)
       ? parseColor(displayText)
@@ -305,24 +355,124 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
     }
   };
 
-  const handleApplyFilter = async (filter: FilterRule) => {
+  const handlePreviewPipeline = async (pipeline: Pipeline) => {
     if (!clip.text_content) return;
+    setPreviewedVersion(null);
+    const requestId = ++pipelineRequestIdRef.current;
+    setActivePipelineRef(pipeline.stableRef);
+    setActivePipelineName(pipeline.name);
+    setActiveRecipeRef(null);
+    setActiveRecipeName(null);
+    setRecipePreviewOutcome(null);
+    setTransformedText(null);
+    setIsPipelineRunning(true);
+    setPipelineAction(null);
+    setPipelineError(null);
     try {
-      const res = await invoke<string>('transform_text', {
-        input: clip.text_content,
-        filterType: filter.filter_type,
-        config: filter.config,
+      const res = await invoke<{ output: string }>('execute_transformation', {
+        request: {
+          input: clip.text_content,
+          target: { kind: 'pipeline', pipelineRef: pipeline.stableRef },
+          sourceClipId: clip.id,
+          trigger: 'manual',
+        },
       });
-      setTransformedText(res);
-      setActiveFilterName(filter.name);
+      if (requestId !== pipelineRequestIdRef.current) return;
+      setTransformedText(res.output);
     } catch (e) {
+      if (requestId !== pipelineRequestIdRef.current) return;
       console.error(e);
+      setPipelineError(e instanceof Error ? e.message : 'Pipeline failed to run.');
+    } finally {
+      if (requestId === pipelineRequestIdRef.current) setIsPipelineRunning(false);
+    }
+  };
+
+  const handlePreviewRecipe = async (recipe: TransformationRecipe) => {
+    if (!clip.text_content) return;
+    setPreviewedVersion(null);
+    const requestId = ++pipelineRequestIdRef.current;
+    setActiveRecipeRef(recipe.stableRef);
+    setActiveRecipeName(recipe.name);
+    setActivePipelineRef(null);
+    setActivePipelineName(null);
+    setTransformedText(null);
+    setRecipePreviewOutcome(null);
+    setIsPipelineRunning(true);
+    setPipelineAction(null);
+    setPipelineError(null);
+    setPreviewedVersion(null);
+    try {
+      const result = await invoke<ExecutePlanOutcome>('execute_transformation_recipe', {
+        recipeRef: recipe.stableRef,
+        input: clip.text_content,
+      });
+      if (requestId !== pipelineRequestIdRef.current) return;
+      setRecipePreviewOutcome(result);
+      setTransformedText(result.output);
+    } catch (error) {
+      if (requestId !== pipelineRequestIdRef.current) return;
+      setPipelineError(error instanceof Error ? error.message : 'Recipe failed to run.');
+    } finally {
+      if (requestId === pipelineRequestIdRef.current) setIsPipelineRunning(false);
+    }
+  };
+
+  const handleApplyRecipe = async () => {
+    if (!activeRecipeRef || !recipePreviewOutcome || transformedText === null || !clip.text_content) return;
+    setIsPipelineRunning(true);
+    setPipelineError(null);
+    try {
+      const saved = await invoke<ClipTransformationProvenance>('apply_recipe_preview_to_clip', {
+        clipId: clip.id,
+        recipeRef: activeRecipeRef,
+        expectedInput: clip.text_content,
+        output: transformedText,
+        connectionId: recipePreviewOutcome.connectionId,
+        durationMs: recipePreviewOutcome.durationMs,
+      });
+      setProvenance(saved);
+      setRevisionCount((count) => (count ?? 0) + 1);
+      soundManager.playCopySound(true);
+      handleResetTransform();
+      onUpdateClip();
+    } catch (error) {
+      setPipelineError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setIsPipelineRunning(false);
     }
   };
 
   const handleResetTransform = () => {
+    pipelineRequestIdRef.current += 1;
     setTransformedText(null);
-    setActiveFilterName(null);
+    setActivePipelineRef(null);
+    setActivePipelineName(null);
+    setActiveRecipeRef(null);
+    setActiveRecipeName(null);
+    setRecipePreviewOutcome(null);
+    setPipelineAction(null);
+    setPipelineError(null);
+    setPreviewedVersion(null);
+  };
+
+  const handlePipelineOutput = async (destination: 'copy' | 'paste') => {
+    if (transformedText === null) return;
+    try {
+      if (destination === 'copy') {
+        await invoke('copy_clip_to_system', { text: transformedText, imageBase64: null });
+        setPipelineAction('copied');
+        soundManager.playCopySound(true);
+      } else {
+        await invoke('paste_text_to_frontmost', { text: transformedText });
+        setPipelineAction('pasted');
+        soundManager.playPasteSound(true);
+      }
+      setPipelineError(null);
+    } catch (error) {
+      console.error(`Failed to ${destination} Pipeline output:`, error);
+      setPipelineError(`Could not ${destination} the Pipeline result.`);
+    }
   };
 
   const handleAssignBin = async (binId: number | null) => {
@@ -335,19 +485,29 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   };
 
   const handleRestoreVersion = async (version: ClipVersion) => {
-    if (!viewPolicy.canMutateContent) return;
+    if (!viewPolicy.canMutateContent || restoringVersionId !== null) return;
+    setRestoringVersionId(version.id);
     try {
-      await invoke('update_clip_text', { clipId: clip.id, text: version.text_content });
+      const restoredClip = await invoke<ClipItem>('restore_clip_version', {
+        clipId: clip.id,
+        versionId: version.id,
+      });
       invoke<number>('get_clip_version_count', { clipId: clip.id })
         .then(setRevisionCount)
         .catch((error) => console.error('Failed to refresh clip revision count:', error));
       setTransformedText(null);
-      setActiveFilterName(null);
+      setActivePipelineRef(null);
+      setActivePipelineName(null);
+      setPipelineAction(null);
+      setPipelineError(null);
       setShowHistory(false);
+      setPreviewedVersion(null);
       soundManager.playCopySound(true);
-      onUpdateClip();
+      onUpdateClip(restoredClip);
     } catch (error) {
       console.error('Failed to restore clip version:', error);
+    } finally {
+      setRestoringVersionId(null);
     }
   };
 
@@ -369,6 +529,24 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
           <span className="theme-text-main text-xs font-medium truncate max-w-[200px] titlebar-drag-handle">
             {clip.source_app}
           </span>
+          {isTransforming && (
+            <LoaderCircle
+              className="clip-transform-working h-4 w-4 shrink-0 animate-spin"
+              aria-label="Applying Recipe"
+            />
+          )}
+          {!isTransforming && provenance && (
+            <Workflow
+              className="transform-accent pipelines h-4 w-4 shrink-0"
+              aria-label={`Transformed with ${provenance.recipeName}`}
+            />
+          )}
+          {!isTransforming && provenance?.connectionId && (
+            <Sparkles
+              className="transform-accent pipelines h-3.5 w-3.5 shrink-0"
+              aria-label="Recipe used connected intelligence"
+            />
+          )}
         </div>
 
         <div className="flex items-center space-x-2 titlebar-no-drag">
@@ -523,18 +701,25 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
 
       {/* Main Preview Workspace */}
       <div className="clip-preview-workspace flex-1 overflow-y-auto p-4 space-y-4 font-mono text-xs">
-        {activeFilterName && (
+        {(activePipelineName || activeRecipeName || previewedVersion) && (
           <div className="active-filter-banner flex items-center justify-between px-3 py-2 border rounded-lg">
             <div className="flex items-center space-x-2">
               <Sliders className="w-4 h-4" />
-              <span>Filtered via: <strong>{activeFilterName}</strong></span>
+              <span>
+                {previewedVersion ? 'Previewing revision' : (isPipelineRunning ? 'Running' : 'Previewing')}:
+                {' '}<strong>{previewedVersion
+                  ? formatClipDateTime(previewedVersion.created_at)
+                  : (activeRecipeName || activePipelineName)}</strong>
+              </span>
             </div>
-            <button
-              onClick={handleResetTransform}
-              className="active-filter-reset text-xs underline"
-            >
-              Reset
-            </button>
+            {(activePipelineName || previewedVersion) && (
+              <button
+                onClick={handleResetTransform}
+                className="active-filter-reset text-xs underline"
+              >
+                Reset
+              </button>
+            )}
           </div>
         )}
 
@@ -556,20 +741,20 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
       {/* Contextual filter suggestions live beside the controls they affect. */}
       {(() => {
         const currentText = transformedText !== null ? transformedText : (clip.text_content || '');
-        const { detectedTypes, recommendedFilters } = detectSmartFilterRecommendations(currentText, filters);
-        if (!viewPolicy.canApplyFilters || clip.content_type === 'image' || recommendedFilters.length === 0) return null;
+        const { detectedTypes, recommendedPipelines } = detectSmartPipelineRecommendations(currentText, pipelines);
+        if (!viewPolicy.canRunPipelines || clip.content_type === 'image' || recommendedPipelines.length === 0) return null;
 
         return (
           <div className="smart-actions-bar px-4 py-2 flex items-center justify-between text-xs space-x-2 overflow-x-auto">
             <div className="smart-actions-heading flex items-center space-x-1.5 shrink-0 font-semibold text-[11px]">
-              <Sparkles className="w-3.5 h-3.5 animate-pulse" />
+              <Lightbulb className="w-3.5 h-3.5" />
               <span>Smart Actions ({detectedTypes.join(', ')}):</span>
             </div>
             <div className="flex items-center space-x-1.5 overflow-x-auto scrollbar-none py-0.5">
-              {recommendedFilters.map((f) => (
+              {recommendedPipelines.map((f) => (
                 <button
                   key={f.id}
-                  onClick={() => handleApplyFilter(f)}
+                  onClick={() => handlePreviewPipeline(f)}
                   className="smart-action-button px-2 py-0.5 rounded-md border text-[11px] font-medium flex items-center space-x-1 whitespace-nowrap shadow-sm"
                   title={`Apply ${f.name}`}
                 >
@@ -581,37 +766,93 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
         );
       })()}
 
+      {viewPolicy.canRunPipelines && clip.content_type !== 'image' && recipes.length > 0 && (
+        <div className="preview-filter-bar px-4 py-2.5 border-t select-none">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center space-x-2 shrink-0">
+              <Workflow className="preview-filter-accent w-4 h-4" />
+              <span className="theme-text-main text-xs font-semibold">Apply Recipe:</span>
+            </div>
+            <div className="relative min-w-[14rem] flex-[1_1_18rem]">
+              <select
+                value={activeRecipeRef || ''}
+                onChange={(event) => {
+                  const selectedRef = event.target.value;
+                  if (!selectedRef) {
+                    handleResetTransform();
+                  } else {
+                    const recipe = recipes.find((item) => item.stableRef === selectedRef);
+                    if (recipe) void handlePreviewRecipe(recipe);
+                  }
+                }}
+                className={`theme-input w-full border text-xs rounded-xl px-3 py-1.5 focus:outline-none transition-colors cursor-pointer font-medium ${activeRecipeRef ? 'preview-filter-select-active' : 'form-field-valid'}`}
+              >
+                <option value="">Original clip (No Recipe)</option>
+                {recipes.map((recipe) => (
+                  <option key={recipe.stableRef} value={recipe.stableRef}>{recipe.name}</option>
+                ))}
+              </select>
+            </div>
+            {activeRecipeRef && (
+              <div className="ml-auto flex items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => void handleApplyRecipe()}
+                  disabled={isPipelineRunning || transformedText === null || !recipePreviewOutcome}
+                  className="transform-workspace-action pipelines flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+                  title="Replace the clip with this preview and preserve the original in Revisions"
+                >
+                  {isPipelineRunning ? <Sliders className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                  <span>{isPipelineRunning ? 'Running…' : 'Apply'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleResetTransform}
+                  className="preview-filter-reset flex items-center space-x-1 px-2.5 py-1 rounded-lg border text-xs font-semibold transition-colors"
+                >
+                  <span>Cancel</span>
+                </button>
+              </div>
+            )}
+          </div>
+          {activeRecipeRef && !isPipelineRunning && transformedText !== null && (
+            <p className="theme-text-muted mt-2 text-[10px]">Preview only—Apply replaces the clip and keeps the original in Revision History.</p>
+          )}
+          {activeRecipeRef && pipelineError && <p role="status" className="theme-status-error mt-2 rounded-lg border px-2.5 py-1.5 text-[11px]">{pipelineError}</p>}
+        </div>
+      )}
+
       {/* Sleek Filter Pipeline Selector Bar */}
-      {viewPolicy.canApplyFilters && clip.content_type !== 'image' && filters.length > 0 && (
+      {viewPolicy.canRunPipelines && clip.content_type !== 'image' && pipelines.length > 0 && (
         <div className="preview-filter-bar px-4 py-2.5 border-t select-none">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center space-x-2 shrink-0">
               <Sliders className="preview-filter-accent w-4 h-4" />
-              <span className="theme-text-main text-xs font-semibold">Apply Filter:</span>
+              <span className="theme-text-main text-xs font-semibold">Apply Pipeline:</span>
             </div>
 
             {/* Dropdown Selector */}
             <div className="flex-1 max-w-xs relative">
               <select
-                value={activeFilterName || ''}
+                value={activePipelineRef || ''}
                 onChange={(e) => {
-                  const selectedName = e.target.value;
-                  if (!selectedName) {
+                  const selectedRef = e.target.value;
+                  if (!selectedRef) {
                     handleResetTransform();
                   } else {
-                    const found = filters.find((f) => f.name === selectedName);
-                    if (found) handleApplyFilter(found);
+                    const found = pipelines.find((pipeline) => pipeline.stableRef === selectedRef);
+                    if (found) void handlePreviewPipeline(found);
                   }
                 }}
                 className={`theme-input w-full border text-xs rounded-xl px-3 py-1.5 focus:outline-none transition-colors cursor-pointer font-medium ${
-                  activeFilterName
+                  activePipelineRef
                     ? 'preview-filter-select-active'
                     : 'form-field-valid'
                 }`}
               >
-                <option value="">⚡ Raw Original Text (No Filter)</option>
-                {filters.map((f) => (
-                  <option key={f.id} value={f.name}>
+                <option value="">⚡ Raw Original Text (No Pipeline)</option>
+                {pipelines.map((f) => (
+                  <option key={f.id} value={f.stableRef}>
                     {f.name}
                   </option>
                 ))}
@@ -619,16 +860,39 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
             </div>
 
             {/* Reset Action */}
-            {activeFilterName && (
-              <button
-                onClick={handleResetTransform}
-                className="preview-filter-reset flex items-center space-x-1 px-2.5 py-1 rounded-lg border text-xs font-semibold transition-colors shrink-0"
-                title="Reset to raw clip text"
-              >
-                <span>Reset</span>
-              </button>
+            {activePipelineRef && (
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => void handlePipelineOutput('copy')}
+                  disabled={isPipelineRunning || transformedText === null}
+                  className="theme-secondary-button flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+                  title="Copy the Pipeline result"
+                >
+                  {pipelineAction === 'copied' ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                  <span>{pipelineAction === 'copied' ? 'Copied' : 'Copy'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handlePipelineOutput('paste')}
+                  disabled={isPipelineRunning || transformedText === null}
+                  className="transform-workspace-action pipelines flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+                  title="Paste the Pipeline result into the frontmost app"
+                >
+                  <ClipboardPaste className="h-3.5 w-3.5" />
+                  <span>{pipelineAction === 'pasted' ? 'Pasted' : 'Paste'}</span>
+                </button>
+                <button
+                  onClick={handleResetTransform}
+                  className="preview-filter-reset flex items-center space-x-1 px-2.5 py-1 rounded-lg border text-xs font-semibold transition-colors"
+                  title="Reset to raw clip text"
+                >
+                  <span>Reset</span>
+                </button>
+              </div>
             )}
           </div>
+          {pipelineError && <p role="status" className="theme-status-error mt-2 rounded-lg border px-2.5 py-1.5 text-[11px]">{pipelineError}</p>}
         </div>
       )}
 
@@ -638,6 +902,11 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
           isLoading={isHistoryLoading}
           readOnly={!viewPolicy.canMutateContent}
           onClose={() => setShowHistory(false)}
+          previewedVersionId={previewedVersion?.id ?? null}
+          restoringVersionId={restoringVersionId}
+          onPreview={(version) => setPreviewedVersion((current) => (
+            current?.id === version.id ? null : version
+          ))}
           onRestore={(version) => void handleRestoreVersion(version)}
         />
       )}

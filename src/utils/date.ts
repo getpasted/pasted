@@ -6,7 +6,8 @@ export function parseDbDate(timeStr: string): Date {
     isoStr = isoStr.replace(' ', 'T');
   }
   // Ensure trailing Z for UTC interpretation if timezone offset is omitted
-  if (!isoStr.endsWith('Z') && !isoStr.includes('+') && !isoStr.includes('-')) {
+  const hasExplicitTimezone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(isoStr);
+  if (!hasExplicitTimezone) {
     isoStr += 'Z';
   }
   const d = new Date(isoStr);

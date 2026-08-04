@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { Settings } from 'lucide-react';
-import { AppSettings, BlacklistApp, FilterRule, Bin } from '../types';
+import { AppSettings, BlacklistApp, Pipeline, Bin } from '../types';
 import { SettingsTabs, type SettingsTab } from './SettingsTabs';
 import { SettingsBlacklistPanel } from './SettingsBlacklistPanel';
 import { SettingsGeneralPanel } from './SettingsGeneralPanel';
 import { SettingsHotkeysPanel } from './SettingsHotkeysPanel';
 import { SettingsSyncPanel } from './SettingsSyncPanel';
 import { ToolPageHeader } from './ToolPageHeader';
+import { IntelligenceConnectionsPanel } from './IntelligenceConnectionsPanel';
 
 interface SettingsModalProps {
   settings: AppSettings;
@@ -15,8 +16,8 @@ interface SettingsModalProps {
   onAddBlacklistApp: (appName: string) => void;
   onRemoveBlacklistApp: (appId: string) => void;
   onToggleBlacklistRule: (appId: string, rule: 'ignoreText' | 'ignoreImages' | 'ignoreShortcuts') => void;
-  filters?: FilterRule[];
-  onRefreshFilters?: () => void;
+  pipelines?: Pipeline[];
+  onRefreshPipelines?: () => void;
   bins?: Bin[];
   onRefreshBins?: () => void;
   onRefreshClips?: () => void;
@@ -31,8 +32,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onAddBlacklistApp,
   onRemoveBlacklistApp,
   onToggleBlacklistRule,
-  filters = [],
-  onRefreshFilters,
+  pipelines = [],
+  onRefreshPipelines,
   bins = [],
   onRefreshBins,
   onRefreshClips,
@@ -48,8 +49,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         actions={<SettingsTabs activeTab={activeTab} onChange={setActiveTab} />}
       />
 
-      <div className="flex-1 overflow-y-auto p-6">
-        <div className="w-full max-w-xl mx-auto space-y-6">
+      <div className="tools-scroll-region flex-1 overflow-y-auto p-6">
+        <div className={`w-full mx-auto space-y-6 ${activeTab === 'connections' ? 'max-w-5xl' : 'max-w-xl'}`}>
 
         {/* TAB 1: GENERAL */}
         {activeTab === 'general' && (
@@ -66,14 +67,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           <SettingsHotkeysPanel
             settings={settings}
             bins={bins}
-            filters={filters}
+            pipelines={pipelines}
             onUpdateSettings={onUpdateSettings}
             onRefreshBins={onRefreshBins}
-            onRefreshFilters={onRefreshFilters}
+            onRefreshPipelines={onRefreshPipelines}
           />
         )}
 
-        {/* TAB 3: BLACKLIST */}
+        {/* TAB 3: CONNECTIONS */}
+        {activeTab === 'connections' && <IntelligenceConnectionsPanel />}
+
+        {/* TAB 4: BLACKLIST */}
         {activeTab === 'blacklist' && (
           <SettingsBlacklistPanel
             apps={blacklistApps}
@@ -83,11 +87,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           />
         )}
 
-        {/* TAB 4: SYNC & BACKUP */}
+        {/* TAB 5: SYNC & BACKUP */}
         {activeTab === 'sync' && (
           <SettingsSyncPanel
             onRefreshBins={onRefreshBins}
-            onRefreshFilters={onRefreshFilters}
+            onRefreshPipelines={onRefreshPipelines}
             onRefreshClips={onRefreshClips}
           />
         )}

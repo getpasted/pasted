@@ -12,7 +12,7 @@
   transition: background-color 0.15s ease-in-out, width 0.15s ease-in-out;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--scrollbar-thumb-hover) !important;
+  background: var(--scrollbar-thumb-hover);
 }
 
 /* Custom visible scrollbar utility */
@@ -35,21 +35,21 @@
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover,
 .custom-scrollbar::-webkit-scrollbar-thumb:active {
-  background: var(--scrollbar-thumb-hover) !important;
+  background: var(--scrollbar-thumb-hover);
 }
 
 /* Prevent sidebar width layout shifts on height reduction or scrollbar activation */
 .sidebar-scroll-container {
-  overflow-y: auto !important;
-  scrollbar-width: none !important;
-  -ms-overflow-style: none !important;
+  overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
 .sidebar-scroll-container::-webkit-scrollbar {
-  width: 0px !important;
-  height: 0px !important;
-  display: none !important;
-  background: transparent !important;
+  width: 0;
+  height: 0;
+  display: none;
+  background: transparent;
 }
 
 /* Structural Layout Columns */
@@ -62,7 +62,6 @@
 .col-list {
   background-color: var(--material-list);
   border-color: var(--border-subtle);
-  flex-shrink: 0 !important;
 }
 
 .col-list-header {

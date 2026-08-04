@@ -234,7 +234,28 @@ pub fn start_clipboard_monitor(
                             source_app,
                         ) {
                             Ok(clip) => {
-                                let _ = app.emit("clip-added", clip);
+                                let _ = app.emit("clip-added", clip.clone());
+                                let automation_db = db_state.clone();
+                                let automation_app = app.clone();
+                                let automation_type = content_type.clone();
+                                let automation_text = text.clone();
+                                let automation_source = source_app.to_string();
+                                thread::spawn(move || {
+                                    crate::intelligence_executor::apply_smart_bin_recipes_for_clip(
+                                        &automation_db,
+                                        clip.id,
+                                        &automation_type,
+                                        &automation_text,
+                                        &automation_source,
+                                    );
+                                    if let Ok(Some(updated)) =
+                                        automation_db.get_clips(None, None, false).map(|clips| {
+                                            clips.into_iter().find(|item| item.id == clip.id)
+                                        })
+                                    {
+                                        let _ = automation_app.emit("clip-added", updated);
+                                    }
+                                });
                             }
                             Err(e) => {
                                 eprintln!("[Pasted Monitor] Failed to save clip: {}", e);
