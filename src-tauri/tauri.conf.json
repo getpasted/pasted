@@ -19,6 +19,7 @@
         "height": 640,
         "resizable": true,
         "fullscreen": false,
+        "visible": false,
         "center": true,
         "decorations": true,
         "titleBarStyle": "Overlay",

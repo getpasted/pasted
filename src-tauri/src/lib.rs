@@ -13,6 +13,11 @@ use tauri::{
     tray::{TrayIconBuilder, TrayIconEvent},
     Emitter, Manager,
 };
+use tauri_plugin_window_state::{StateFlags, WindowExt};
+
+fn main_window_state_flags() -> StateFlags {
+    StateFlags::SIZE | StateFlags::POSITION | StateFlags::MAXIMIZED | StateFlags::FULLSCREEN
+}
 
 #[cfg(target_os = "macos")]
 fn setup_finder_titlebar(window: &tauri::WebviewWindow) {
@@ -99,6 +104,13 @@ pub fn run() {
 
     tauri::Builder::default()
         .manage(hotkey_manager.clone())
+        .plugin(
+            tauri_plugin_window_state::Builder::default()
+                .with_filter(|label| label == "main")
+                .skip_initial_state("main")
+                .with_state_flags(main_window_state_flags())
+                .build(),
+        )
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             if let Some(w) = app.get_webview_window("main") {
                 let _ = w.show();
@@ -138,6 +150,20 @@ pub fn run() {
             Some(vec!["--autostart"]),
         ))
         .setup(|app| {
+            // Restore while hidden, then reveal the main window. Automatic restore
+            // is skipped for this window so a later webview-ready event cannot move
+            // an already-visible window. Visibility itself is intentionally not
+            // persisted because Pasted is commonly hidden from its tray lifecycle.
+            if let Some(main_win) = app.get_webview_window("main") {
+                let _ = main_win.restore_state(main_window_state_flags());
+                #[cfg(target_os = "macos")]
+                {
+                    setup_finder_titlebar(&main_win);
+                    setup_window_vibrancy(&main_win);
+                }
+                let _ = main_win.show();
+            }
+
             // Determine app data path for SQLite DB
             let app_dir = app
                 .path()
@@ -162,10 +188,6 @@ pub fn run() {
 
             #[cfg(target_os = "macos")]
             {
-                if let Some(main_win) = app.get_webview_window("main") {
-                    setup_finder_titlebar(&main_win);
-                    setup_window_vibrancy(&main_win);
-                }
                 if let Some(hud_win) = app.get_webview_window("hud") {
                     setup_hud_window_transparency(&hud_win);
                 }
@@ -329,4 +351,21 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running Pasted application");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn main_window_state_excludes_visibility_and_decorations() {
+        let flags = main_window_state_flags();
+
+        assert!(flags.contains(StateFlags::SIZE));
+        assert!(flags.contains(StateFlags::POSITION));
+        assert!(flags.contains(StateFlags::MAXIMIZED));
+        assert!(flags.contains(StateFlags::FULLSCREEN));
+        assert!(!flags.contains(StateFlags::VISIBLE));
+        assert!(!flags.contains(StateFlags::DECORATIONS));
+    }
 }
