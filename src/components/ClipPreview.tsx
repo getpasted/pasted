@@ -41,6 +41,7 @@ import { clipDeleteLabel, UI_COPY } from '../utils/uiCopy';
 import { formatEmojiIcon } from '../utils/emoji';
 import { binTextColor } from '../utils/binColor';
 import { startTransformation, type TransformationExecutionHandle } from '../utils/transformExecution';
+import { useIntelligenceRequestStatus } from '../hooks/useIntelligenceRequestStatus';
 
 interface ClipPreviewProps {
   clip: ClipItem | null;
@@ -105,6 +106,8 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   const copiedFormatTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pipelineRequestIdRef = useRef(0);
   const activeTransformExecutionRef = useRef<TransformationExecutionHandle | null>(null);
+  const [transformClientRequestId, setTransformClientRequestId] = useState<string | null>(null);
+  const transformRequestStatus = useIntelligenceRequestStatus(transformClientRequestId);
 
   useEffect(() => {
     notesRef.current = notes;
@@ -219,6 +222,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   useEffect(() => {
     void activeTransformExecutionRef.current?.cancel();
     activeTransformExecutionRef.current = null;
+    setTransformClientRequestId(null);
     pipelineRequestIdRef.current += 1;
     setTransformedText(null);
     setActivePipelineRef(null);
@@ -417,6 +421,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
         { sourceClipId: clip.id },
       );
       activeTransformExecutionRef.current = execution;
+      setTransformClientRequestId(execution.clientRequestId);
       const res = await execution.promise;
       if (requestId !== pipelineRequestIdRef.current) return;
       setTransformedText(res.output);
@@ -427,6 +432,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
     } finally {
       if (requestId === pipelineRequestIdRef.current) {
         activeTransformExecutionRef.current = null;
+        setTransformClientRequestId(null);
         setIsPipelineRunning(false);
       }
     }
@@ -453,6 +459,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
         { sourceClipId: clip.id },
       );
       activeTransformExecutionRef.current = execution;
+      setTransformClientRequestId(execution.clientRequestId);
       const result = await execution.promise;
       if (requestId !== pipelineRequestIdRef.current) return;
       setTransformPreviewOutcome(result);
@@ -463,6 +470,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
     } finally {
       if (requestId === pipelineRequestIdRef.current) {
         activeTransformExecutionRef.current = null;
+        setTransformClientRequestId(null);
         setIsPipelineRunning(false);
       }
     }
@@ -496,6 +504,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   const handleResetTransform = () => {
     void activeTransformExecutionRef.current?.cancel();
     activeTransformExecutionRef.current = null;
+    setTransformClientRequestId(null);
     pipelineRequestIdRef.current += 1;
     setTransformedText(null);
     setActivePipelineRef(null);
@@ -853,7 +862,15 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
             <div className="flex items-center space-x-2">
               <Sliders className="w-4 h-4" />
               <span>
-                {previewedVersion ? 'Previewing revision' : (isPipelineRunning ? 'Running' : 'Previewing')}:
+                {previewedVersion
+                  ? 'Previewing revision'
+                  : isPipelineRunning
+                    ? transformRequestStatus.phase === 'queued'
+                      ? `Queued${transformRequestStatus.connectionName ? ` for ${transformRequestStatus.connectionName}` : ''}`
+                      : transformRequestStatus.phase === 'starting'
+                        ? 'Starting'
+                        : `Running${transformRequestStatus.connectionName ? ` with ${transformRequestStatus.connectionName}` : ''}${transformRequestStatus.didFallback ? ' · fallback' : ''}`
+                    : 'Previewing'}:
                 {' '}<strong>{previewedVersion
                   ? formatClipDateTime(previewedVersion.created_at)
                   : activePipelineName}</strong>
@@ -922,6 +939,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
           onApply={() => void handleApplyTransform()}
           onRetry={handleRetryTransform}
           onReset={handleResetTransform}
+          requestStatus={transformClientRequestId ? transformRequestStatus : undefined}
         />
       )}
 

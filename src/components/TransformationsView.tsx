@@ -14,6 +14,7 @@ import type { PlaygroundRunState } from './PlaygroundRunStatus';
 import { TransformationPlayground, type PlaygroundTarget } from './TransformationPlayground';
 import { FloatingActionStrip } from './FloatingActionStrip';
 import { startTransformation, type TransformationExecutionHandle } from '../utils/transformExecution';
+import { useIntelligenceRequestStatus } from '../hooks/useIntelligenceRequestStatus';
 
 interface TransformationsViewProps {
   pipelines: Pipeline[];
@@ -48,6 +49,8 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({ pipeli
   const [playgroundDurationMs, setPlaygroundDurationMs] = useState<number>();
   const playgroundRequestId = useRef(0);
   const playgroundExecution = useRef<TransformationExecutionHandle | null>(null);
+  const [playgroundClientRequestId, setPlaygroundClientRequestId] = useState<string | null>(null);
+  const playgroundRequestStatus = useIntelligenceRequestStatus(playgroundClientRequestId);
   const [pipelineContextMenu, setPipelineContextMenu] = useState<{ x: number; y: number; pipeline: Pipeline } | null>(null);
   const [transformContextMenu, setTransformContextMenu] = useState<{ x: number; y: number; transform: SavedTransform } | null>(null);
 
@@ -130,6 +133,7 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({ pipeli
           : { kind: 'pipeline' as const, pipelineRef: playgroundTarget.item.stableRef };
       const execution = startTransformation(testText, target);
       playgroundExecution.current = execution;
+      setPlaygroundClientRequestId(execution.clientRequestId);
       const res = await execution.promise;
       if (requestId !== playgroundRequestId.current) return;
       setTestResult(res.output);
@@ -144,7 +148,10 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({ pipeli
       setTestError(String(e));
       setPlaygroundRunState('error');
     } finally {
-      if (requestId === playgroundRequestId.current) playgroundExecution.current = null;
+      if (requestId === playgroundRequestId.current) {
+        playgroundExecution.current = null;
+        setPlaygroundClientRequestId(null);
+      }
     }
   };
 
@@ -157,6 +164,7 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({ pipeli
   const cancelPlayground = () => {
     void playgroundExecution.current?.cancel();
     playgroundExecution.current = null;
+    setPlaygroundClientRequestId(null);
     playgroundRequestId.current += 1;
     setPlaygroundRunState('cancelled');
   };
@@ -259,6 +267,7 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({ pipeli
           onRun={() => void runPlayground()}
           onRetry={() => void runPlayground()}
           onStop={cancelPlayground}
+          requestStatus={playgroundRequestStatus}
         />
       ) : (
         <>

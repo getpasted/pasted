@@ -301,6 +301,7 @@ pub fn run() {
             commands::execute_transformation,
             commands::cancel_transformation_execution,
             commands::get_intelligence_scheduler_snapshot,
+            commands::run_intelligence_scheduler_demo,
             commands::toggle_clip_protected,
             commands::trash_unpinned_clips,
             commands::purge_unpinned_clips,

@@ -228,6 +228,7 @@ fn execute_custom_operation(
     input: &str,
     operation: &ResolvedCustomOperation,
     override_config: Option<&str>,
+    client_request_id: Option<&str>,
     cancellation: Option<&AtomicBool>,
 ) -> Result<String, ExecutionError> {
     ensure_not_cancelled(cancellation)?;
@@ -289,6 +290,7 @@ fn execute_custom_operation(
                 input,
                 instructions,
                 connection_id,
+                client_request_id,
                 cancellation,
             )
             .map_err(|error| ExecutionError::new(error.code, error.message))
@@ -321,6 +323,7 @@ fn execute_operation_ref(
     input: &str,
     operation_ref: &str,
     override_config: Option<&str>,
+    client_request_id: Option<&str>,
     cancellation: Option<&AtomicBool>,
 ) -> Result<String, ExecutionError> {
     ensure_not_cancelled(cancellation)?;
@@ -344,7 +347,14 @@ fn execute_operation_ref(
                 format!("Unknown operation reference: {operation_ref}"),
             )
         })?;
-    execute_custom_operation(db, input, &operation, override_config, cancellation)
+    execute_custom_operation(
+        db,
+        input,
+        &operation,
+        override_config,
+        client_request_id,
+        cancellation,
+    )
 }
 
 pub(crate) fn execute_operation_inline(
@@ -353,13 +363,14 @@ pub(crate) fn execute_operation_inline(
     operation_ref: &str,
     config_json: Option<&str>,
 ) -> Result<String, ExecutionError> {
-    execute_operation_ref(db, input, operation_ref, config_json, None)
+    execute_operation_ref(db, input, operation_ref, config_json, None, None)
 }
 
 fn execute_pipeline_ref(
     db: &DbState,
     input: &str,
     pipeline_ref: &str,
+    client_request_id: Option<&str>,
     cancellation: Option<&AtomicBool>,
 ) -> Result<(String, i64), ExecutionError> {
     let pipeline = db
@@ -379,6 +390,7 @@ fn execute_pipeline_ref(
             &current,
             &step.operation_ref,
             step.config_json.as_deref(),
+            client_request_id,
             cancellation,
         ) {
             Ok(output) => current = output,
@@ -408,9 +420,12 @@ pub fn execute_with_cancellation(
             db,
             transform_ref,
             request.input,
-            request.source_clip_id,
-            request.trigger.as_str(),
-            request.destination.as_str(),
+            crate::intelligence_executor::SavedTransformExecutionContext {
+                source_clip_id: request.source_clip_id,
+                trigger_kind: request.trigger.as_str(),
+                destination_kind: request.destination.as_str(),
+                client_request_id: request.client_request_id.as_deref(),
+            },
             cancellation,
         );
         return match result {
@@ -480,13 +495,22 @@ pub fn execute_with_cancellation(
 
     let result = match &request.target {
         ExecutionTarget::Transform { .. } => unreachable!("Transforms return above"),
-        ExecutionTarget::Operation { operation_ref } => {
-            execute_operation_ref(db, &request.input, operation_ref, None, cancellation)
-        }
-        ExecutionTarget::Pipeline { pipeline_ref } => {
-            execute_pipeline_ref(db, &request.input, pipeline_ref, cancellation)
-                .map(|(output, _)| output)
-        }
+        ExecutionTarget::Operation { operation_ref } => execute_operation_ref(
+            db,
+            &request.input,
+            operation_ref,
+            None,
+            request.client_request_id.as_deref(),
+            cancellation,
+        ),
+        ExecutionTarget::Pipeline { pipeline_ref } => execute_pipeline_ref(
+            db,
+            &request.input,
+            pipeline_ref,
+            request.client_request_id.as_deref(),
+            cancellation,
+        )
+        .map(|(output, _)| output),
     }
     .and_then(|output| {
         ensure_not_cancelled(cancellation)?;

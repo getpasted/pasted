@@ -122,9 +122,12 @@ fn main() -> Result<()> {
                         &db,
                         transform_ref,
                         input.clone(),
-                        clip_id,
-                        "cli",
-                        if replace { "replace" } else { "preview" },
+                        pasted_lib::intelligence_executor::SavedTransformExecutionContext {
+                            source_clip_id: clip_id,
+                            trigger_kind: "cli",
+                            destination_kind: if replace { "replace" } else { "preview" },
+                            client_request_id: None,
+                        },
                         None,
                     ) {
                         Ok((_name, _execution_id, outcome)) => {

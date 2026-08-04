@@ -62,13 +62,18 @@ fn content_hash(content: &str) -> String {
     format!("{:x}", hasher.finalize())
 }
 
+pub struct SavedTransformExecutionContext<'a> {
+    pub source_clip_id: Option<i64>,
+    pub trigger_kind: &'a str,
+    pub destination_kind: &'a str,
+    pub client_request_id: Option<&'a str>,
+}
+
 pub fn execute_saved_transform(
     db: &DbState,
     transform_ref: &str,
     input: String,
-    source_clip_id: Option<i64>,
-    trigger_kind: &str,
-    destination_kind: &str,
+    context: SavedTransformExecutionContext<'_>,
     cancellation: Option<&AtomicBool>,
 ) -> Result<(String, String, ExecutePlanOutcome), IntelligenceExecutionError> {
     let transform = db
@@ -86,9 +91,9 @@ pub fn execute_saved_transform(
             target_kind: "transform",
             target_ref: &transform.stable_ref,
             target_revision: Some(transform.revision),
-            source_clip_id,
-            trigger_kind,
-            destination_kind,
+            source_clip_id: context.source_clip_id,
+            trigger_kind: context.trigger_kind,
+            destination_kind: context.destination_kind,
             input_hash: &content_hash(&input),
         })
         .map_err(|error| IntelligenceExecutionError::new("database_error", error.to_string()))?;
@@ -102,6 +107,7 @@ pub fn execute_saved_transform(
             input,
             connection_id: transform.connection_id,
         },
+        context.client_request_id,
         cancellation,
     );
     match result {
@@ -507,6 +513,7 @@ pub(crate) fn execute_semantic_operation(
     input: &str,
     instructions: &str,
     connection_id: Option<&str>,
+    client_request_id: Option<&str>,
     cancellation: Option<&AtomicBool>,
 ) -> Result<String, IntelligenceExecutionError> {
     let connections = select_connections(db, connection_id)?;
@@ -516,6 +523,7 @@ pub(crate) fn execute_semantic_operation(
             &connection.id,
             &connection.name,
             "Connected Operation",
+            client_request_id,
             cancellation,
         )
         .map_err(|()| {
@@ -569,7 +577,7 @@ pub fn execute_plan(
     db: &DbState,
     request: ExecutePlanRequest,
 ) -> Result<ExecutePlanOutcome, IntelligenceExecutionError> {
-    execute_plan_with_cancellation(db, request, None)
+    execute_plan_with_cancellation(db, request, None, None)
 }
 
 fn ensure_not_cancelled(
@@ -588,6 +596,7 @@ fn ensure_not_cancelled(
 pub(crate) fn execute_plan_with_cancellation(
     db: &DbState,
     request: ExecutePlanRequest,
+    client_request_id: Option<&str>,
     cancellation: Option<&AtomicBool>,
 ) -> Result<ExecutePlanOutcome, IntelligenceExecutionError> {
     request
@@ -610,6 +619,7 @@ pub(crate) fn execute_plan_with_cancellation(
             &connection.id,
             &connection.name,
             &request.plan.summary,
+            client_request_id,
             cancellation,
         )
         .map_err(|()| {
@@ -709,9 +719,12 @@ pub fn apply_smart_bin_transforms_for_clip(
             db,
             &transform_ref,
             current.clone(),
-            Some(clip_id),
-            "bin",
-            "replace",
+            SavedTransformExecutionContext {
+                source_clip_id: Some(clip_id),
+                trigger_kind: "bin",
+                destination_kind: "replace",
+                client_request_id: None,
+            },
             None,
         );
         match result {
@@ -750,12 +763,13 @@ pub fn plan_intent(
     db: &DbState,
     request: PlanIntentRequest,
 ) -> Result<PlanIntentOutcome, IntelligenceExecutionError> {
-    plan_intent_with_cancellation(db, request, None)
+    plan_intent_with_cancellation(db, request, None, None)
 }
 
 pub(crate) fn plan_intent_with_cancellation(
     db: &DbState,
     request: PlanIntentRequest,
+    client_request_id: Option<&str>,
     cancellation: Option<&AtomicBool>,
 ) -> Result<PlanIntentOutcome, IntelligenceExecutionError> {
     ensure_not_cancelled(cancellation)?;
@@ -772,6 +786,7 @@ pub(crate) fn plan_intent_with_cancellation(
             &connection.id,
             &connection.name,
             "Draft Transform",
+            client_request_id,
             cancellation,
         )
         .map_err(|()| {
@@ -1243,9 +1258,12 @@ mod tests {
             &db,
             &transform.stable_ref,
             "hello".to_string(),
-            Some(clip.id),
-            "bin",
-            "replace",
+            SavedTransformExecutionContext {
+                source_clip_id: Some(clip.id),
+                trigger_kind: "bin",
+                destination_kind: "replace",
+                client_request_id: None,
+            },
             None,
         )
         .unwrap();

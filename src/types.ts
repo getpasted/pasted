@@ -249,6 +249,7 @@ export interface TransformationExecution {
 
 export interface IntelligenceSchedulerJob {
   id: string;
+  clientRequestId: string | null;
   connectionId: string;
   connectionName: string;
   label: string;
@@ -262,6 +263,7 @@ export interface IntelligenceSchedulerJob {
 export interface IntelligenceSchedulerEvent {
   sequence: number;
   jobId: string;
+  clientRequestId: string | null;
   connectionName: string;
   label: string;
   status: 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled';

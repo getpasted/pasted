@@ -234,6 +234,8 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
         jobs: [],
         recentEvents: [],
       } as unknown as T;
+    case 'run_intelligence_scheduler_demo':
+      return undefined as T;
     case 'plan_transformation_intent': {
       const request = args?.request as { intent?: string; sampleInput?: string; planningMode?: string } | undefined;
       await new Promise((resolve) => window.setTimeout(resolve, 220));

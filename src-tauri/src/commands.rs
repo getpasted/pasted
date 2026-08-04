@@ -168,9 +168,12 @@ pub async fn assign_clip_bin(
                 &db,
                 &transform_ref,
                 input.clone(),
-                Some(clip_id),
-                "bin",
-                "replace",
+                crate::intelligence_executor::SavedTransformExecutionContext {
+                    source_clip_id: Some(clip_id),
+                    trigger_kind: "bin",
+                    destination_kind: "replace",
+                    client_request_id: None,
+                },
                 None,
             )
             .map_err(|error| error.message)?;
@@ -596,13 +599,15 @@ pub async fn plan_transformation_intent(
     crate::intelligence_executor::PlanIntentOutcome,
     crate::intelligence_executor::IntelligenceExecutionError,
 > {
-    let cancellation =
-        client_request_id.map(crate::transformation_service::CancellationRegistration::register);
+    let cancellation = client_request_id
+        .clone()
+        .map(crate::transformation_service::CancellationRegistration::register);
     let db = Arc::clone(&db);
     tauri::async_runtime::spawn_blocking(move || {
         let result = crate::intelligence_executor::plan_intent_with_cancellation(
             &db,
             request,
+            client_request_id.as_deref(),
             cancellation
                 .as_ref()
                 .map(|registration| registration.flag()),
@@ -651,13 +656,15 @@ pub async fn test_transformation_plan(
     crate::intelligence_executor::ExecutePlanOutcome,
     crate::intelligence_executor::IntelligenceExecutionError,
 > {
-    let cancellation =
-        client_request_id.map(crate::transformation_service::CancellationRegistration::register);
+    let cancellation = client_request_id
+        .clone()
+        .map(crate::transformation_service::CancellationRegistration::register);
     let db = Arc::clone(&db);
     tauri::async_runtime::spawn_blocking(move || {
         let result = crate::intelligence_executor::execute_plan_with_cancellation(
             &db,
             request,
+            client_request_id.as_deref(),
             cancellation
                 .as_ref()
                 .map(|registration| registration.flag()),
@@ -880,6 +887,23 @@ pub fn cancel_transformation_execution(client_request_id: String) -> bool {
 #[tauri::command]
 pub fn get_intelligence_scheduler_snapshot() -> crate::intelligence_scheduler::SchedulerSnapshot {
     crate::intelligence_scheduler::snapshot()
+}
+
+#[tauri::command]
+pub fn run_intelligence_scheduler_demo(
+    scenario: String,
+    db: State<'_, Arc<DbState>>,
+) -> Result<(), String> {
+    if !cfg!(debug_assertions) {
+        return Err("Scheduler simulations are available only in development builds".to_string());
+    }
+    let db = Arc::clone(&db);
+    crate::intelligence_scheduler::run_demo(scenario, move || {
+        let _ = db.log_activity(
+            "intelligence_connection_fallback",
+            "Scheduler simulation fell back from Demo Primary to Demo Fallback",
+        );
+    })
 }
 
 // Sequential Paste Commands

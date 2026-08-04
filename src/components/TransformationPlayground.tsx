@@ -4,6 +4,7 @@ import type { Operation, Pipeline, SavedTransform } from '../types';
 import { PlaygroundRunStatus, type PlaygroundRunState } from './PlaygroundRunStatus';
 import { TransformCategorySelect } from './TransformCategorySelect';
 import { TransformationOutputActions } from './TransformationOutputActions';
+import type { IntelligenceRequestStatus } from '../hooks/useIntelligenceRequestStatus';
 
 export type PlaygroundTarget =
   | { kind: 'transform'; item: SavedTransform }
@@ -25,6 +26,7 @@ interface TransformationPlaygroundProps {
   onRun: () => void;
   onRetry: () => void;
   onStop: () => void;
+  requestStatus?: IntelligenceRequestStatus;
 }
 
 function targetValue(target: PlaygroundTarget) {
@@ -51,6 +53,7 @@ export function TransformationPlayground({
   onRun,
   onRetry,
   onStop,
+  requestStatus,
 }: TransformationPlaygroundProps) {
   const targets = useMemo<PlaygroundTarget[]>(() => [
     ...transforms.map((item) => ({ kind: 'transform' as const, item })),
@@ -114,6 +117,7 @@ export function TransformationPlayground({
             durationMs={runDurationMs}
             onRetry={onRetry}
             onStop={onStop}
+            requestStatus={requestStatus}
           />
           <button
             type="button"
@@ -122,7 +126,7 @@ export function TransformationPlayground({
             className={`transform-workspace-action ${target?.kind === 'operation' ? 'operations' : 'pipelines'} flex h-9 items-center justify-center gap-2 rounded-xl px-5 text-xs font-bold shadow-sm disabled:cursor-not-allowed disabled:opacity-45`}
           >
             <Play className="h-3.5 w-3.5" />
-            <span>{runState === 'running' ? 'Running…' : 'Run'}</span>
+            <span>{runState === 'running' ? (requestStatus?.phase === 'queued' ? 'Queued…' : 'Running…') : 'Run'}</span>
           </button>
         </div>
         <div className="mt-3">

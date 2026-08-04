@@ -1,7 +1,7 @@
 use serde::Serialize;
 use std::collections::{HashMap, VecDeque};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::{Condvar, Mutex, OnceLock};
+use std::sync::{Arc, Condvar, Mutex, OnceLock};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 const WAIT_POLL_INTERVAL: Duration = Duration::from_millis(25);
@@ -11,6 +11,7 @@ const RECENT_EVENT_LIMIT: usize = 80;
 #[serde(rename_all = "camelCase")]
 pub struct SchedulerJobSnapshot {
     pub id: String,
+    pub client_request_id: Option<String>,
     pub connection_id: String,
     pub connection_name: String,
     pub label: String,
@@ -26,6 +27,7 @@ pub struct SchedulerJobSnapshot {
 pub struct SchedulerEventSnapshot {
     pub sequence: u64,
     pub job_id: String,
+    pub client_request_id: Option<String>,
     pub connection_name: String,
     pub label: String,
     pub status: String,
@@ -46,6 +48,7 @@ pub struct SchedulerSnapshot {
 #[derive(Debug)]
 struct ScheduledJob {
     id: String,
+    client_request_id: Option<String>,
     connection_id: String,
     connection_name: String,
     label: String,
@@ -72,6 +75,7 @@ struct Scheduler {
 }
 
 static SCHEDULER: OnceLock<Scheduler> = OnceLock::new();
+static NEXT_DEMO_ID: AtomicU64 = AtomicU64::new(1);
 
 fn scheduler() -> &'static Scheduler {
     SCHEDULER.get_or_init(|| Scheduler {
@@ -90,12 +94,17 @@ fn unix_time_ms() -> u64 {
         .min(u64::MAX as u128) as u64
 }
 
+struct SchedulerEventSource<'a> {
+    job_id: &'a str,
+    client_request_id: Option<&'a str>,
+    connection_name: &'a str,
+    label: &'a str,
+}
+
 fn push_event(
     scheduler: &Scheduler,
     state: &mut SchedulerState,
-    job_id: &str,
-    connection_name: &str,
-    label: &str,
+    source: SchedulerEventSource<'_>,
     status: &str,
     detail: Option<String>,
 ) {
@@ -104,9 +113,10 @@ fn push_event(
         sequence: scheduler
             .next_event_sequence
             .fetch_add(1, Ordering::Relaxed),
-        job_id: job_id.to_string(),
-        connection_name: connection_name.to_string(),
-        label: label.to_string(),
+        job_id: source.job_id.to_string(),
+        client_request_id: source.client_request_id.map(str::to_string),
+        connection_name: source.connection_name.to_string(),
+        label: source.label.to_string(),
         status: status.to_string(),
         timestamp_ms: unix_time_ms(),
         detail,
@@ -175,9 +185,12 @@ fn finish_job(job_id: &str, completion: SchedulerCompletion, detail: Option<Stri
     push_event(
         scheduler,
         &mut state,
-        &job.id,
-        &job.connection_name,
-        &job.label,
+        SchedulerEventSource {
+            job_id: &job.id,
+            client_request_id: job.client_request_id.as_deref(),
+            connection_name: &job.connection_name,
+            label: &job.label,
+        },
         completion.as_str(),
         detail,
     );
@@ -188,6 +201,7 @@ pub fn acquire(
     connection_id: &str,
     connection_name: &str,
     label: &str,
+    client_request_id: Option<&str>,
     cancellation: Option<&AtomicBool>,
 ) -> Result<SchedulerPermit, ()> {
     let scheduler = scheduler();
@@ -197,6 +211,7 @@ pub fn acquire(
     );
     let job = ScheduledJob {
         id: id.clone(),
+        client_request_id: client_request_id.map(str::to_string),
         connection_id: connection_id.to_string(),
         connection_name: connection_name.to_string(),
         label: label.to_string(),
@@ -214,9 +229,12 @@ pub fn acquire(
     push_event(
         scheduler,
         &mut state,
-        &id,
-        connection_name,
-        label,
+        SchedulerEventSource {
+            job_id: &id,
+            client_request_id,
+            connection_name,
+            label,
+        },
         "queued",
         None,
     );
@@ -229,9 +247,12 @@ pub fn acquire(
                 push_event(
                     scheduler,
                     &mut state,
-                    &job.id,
-                    &job.connection_name,
-                    &job.label,
+                    SchedulerEventSource {
+                        job_id: &job.id,
+                        client_request_id: job.client_request_id.as_deref(),
+                        connection_name: &job.connection_name,
+                        label: &job.label,
+                    },
                     "cancelled",
                     Some("Cancelled while queued".to_string()),
                 );
@@ -247,7 +268,7 @@ pub fn acquire(
             .find(|job| job.connection_id == connection_id && job.status == "queued")
             .is_some_and(|job| job.id == id);
         if is_connection_idle && is_first_for_connection {
-            let (job_id, job_connection_name, job_label) = {
+            let (job_id, job_client_request_id, job_connection_name, job_label) = {
                 let job = state
                     .jobs
                     .iter_mut()
@@ -258,6 +279,7 @@ pub fn acquire(
                 job.started_at_ms = Some(unix_time_ms());
                 (
                     job.id.clone(),
+                    job.client_request_id.clone(),
                     job.connection_name.clone(),
                     job.label.clone(),
                 )
@@ -268,9 +290,12 @@ pub fn acquire(
             push_event(
                 scheduler,
                 &mut state,
-                &job_id,
-                &job_connection_name,
-                &job_label,
+                SchedulerEventSource {
+                    job_id: &job_id,
+                    client_request_id: job_client_request_id.as_deref(),
+                    connection_name: &job_connection_name,
+                    label: &job_label,
+                },
                 "running",
                 None,
             );
@@ -300,6 +325,7 @@ pub fn snapshot() -> SchedulerSnapshot {
         .iter()
         .map(|job| SchedulerJobSnapshot {
             id: job.id.clone(),
+            client_request_id: job.client_request_id.clone(),
             connection_id: job.connection_id.clone(),
             connection_name: job.connection_name.clone(),
             label: job.label.clone(),
@@ -328,6 +354,176 @@ pub fn snapshot() -> SchedulerSnapshot {
     }
 }
 
+pub fn run_demo(
+    scenario: String,
+    on_fallback: impl FnOnce() + Send + 'static,
+) -> Result<(), String> {
+    if !matches!(
+        scenario.as_str(),
+        "fifo" | "parallel" | "cancel" | "fallback"
+    ) {
+        return Err(format!("Unknown scheduler simulation: {scenario}"));
+    }
+    let demo_id = NEXT_DEMO_ID.fetch_add(1, Ordering::Relaxed);
+    let request_prefix = format!("scheduler-demo-{demo_id}");
+    std::thread::spawn(move || match scenario.as_str() {
+        "fifo" => run_fifo_demo(&request_prefix),
+        "parallel" => run_parallel_demo(&request_prefix),
+        "cancel" => run_cancel_demo(&request_prefix),
+        "fallback" => run_fallback_demo(&request_prefix, on_fallback),
+        _ => unreachable!("scenario was validated before spawning"),
+    });
+    Ok(())
+}
+
+fn finish_demo_after(
+    mut permit: SchedulerPermit,
+    duration: Duration,
+    completion: SchedulerCompletion,
+    detail: &'static str,
+) {
+    std::thread::spawn(move || {
+        std::thread::sleep(duration);
+        permit.finish(completion, Some(detail.to_string()));
+    });
+}
+
+fn run_fifo_demo(request_prefix: &str) {
+    let first_id = format!("{request_prefix}-1");
+    let Ok(first) = acquire(
+        "demo-alpha",
+        "Demo Alpha",
+        "FIFO job 1",
+        Some(&first_id),
+        None,
+    ) else {
+        return;
+    };
+    finish_demo_after(
+        first,
+        Duration::from_millis(2_000),
+        SchedulerCompletion::Succeeded,
+        "Simulation completed",
+    );
+    for position in 2..=3 {
+        let request_id = format!("{request_prefix}-{position}");
+        std::thread::spawn(move || {
+            let Ok(permit) = acquire(
+                "demo-alpha",
+                "Demo Alpha",
+                &format!("FIFO job {position}"),
+                Some(&request_id),
+                None,
+            ) else {
+                return;
+            };
+            finish_demo_after(
+                permit,
+                Duration::from_millis(2_000),
+                SchedulerCompletion::Succeeded,
+                "Simulation completed",
+            );
+        });
+        std::thread::sleep(Duration::from_millis(40));
+    }
+}
+
+fn run_parallel_demo(request_prefix: &str) {
+    for (connection_id, connection_name, suffix) in [
+        ("demo-alpha", "Demo Alpha", "alpha"),
+        ("demo-bravo", "Demo Bravo", "bravo"),
+    ] {
+        let request_id = format!("{request_prefix}-{suffix}");
+        std::thread::spawn(move || {
+            let Ok(permit) = acquire(
+                connection_id,
+                connection_name,
+                "Parallel job",
+                Some(&request_id),
+                None,
+            ) else {
+                return;
+            };
+            finish_demo_after(
+                permit,
+                Duration::from_millis(3_000),
+                SchedulerCompletion::Succeeded,
+                "Simulation completed",
+            );
+        });
+    }
+}
+
+fn run_cancel_demo(request_prefix: &str) {
+    let active_id = format!("{request_prefix}-active");
+    let Ok(active) = acquire(
+        "demo-cancel",
+        "Demo Cancel",
+        "Blocking job",
+        Some(&active_id),
+        None,
+    ) else {
+        return;
+    };
+    finish_demo_after(
+        active,
+        Duration::from_millis(3_000),
+        SchedulerCompletion::Succeeded,
+        "Simulation completed",
+    );
+
+    let cancellation = Arc::new(AtomicBool::new(false));
+    let waiter_flag = Arc::clone(&cancellation);
+    let queued_id = format!("{request_prefix}-queued");
+    std::thread::spawn(move || {
+        let _ = acquire(
+            "demo-cancel",
+            "Demo Cancel",
+            "Cancelled queued job",
+            Some(&queued_id),
+            Some(waiter_flag.as_ref()),
+        );
+    });
+    std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_millis(900));
+        cancellation.store(true, Ordering::Release);
+    });
+}
+
+fn run_fallback_demo(request_prefix: &str, on_fallback: impl FnOnce()) {
+    let request_id = format!("{request_prefix}-fallback");
+    let Ok(mut first) = acquire(
+        "demo-primary",
+        "Demo Primary",
+        "Fallback job",
+        Some(&request_id),
+        None,
+    ) else {
+        return;
+    };
+    std::thread::sleep(Duration::from_millis(1_200));
+    first.finish(
+        SchedulerCompletion::Failed,
+        Some("Simulated provider failure".to_string()),
+    );
+    on_fallback();
+    let Ok(fallback) = acquire(
+        "demo-fallback",
+        "Demo Fallback",
+        "Fallback job",
+        Some(&request_id),
+        None,
+    ) else {
+        return;
+    };
+    finish_demo_after(
+        fallback,
+        Duration::from_millis(2_000),
+        SchedulerCompletion::Succeeded,
+        "Simulation completed after fallback",
+    );
+}
+
 #[cfg(test)]
 pub fn reset_for_tests() {
     let scheduler = scheduler();
@@ -353,18 +549,25 @@ mod tests {
     fn same_connection_is_fifo_while_other_connections_run_independently() {
         let _guard = TEST_LOCK.lock().unwrap();
         reset_for_tests();
-        let first = acquire("a", "A", "first", None).unwrap();
-        let other = acquire("b", "B", "other", None).unwrap();
+        let first = acquire("a", "A", "first", None, None).unwrap();
+        let other = acquire("b", "B", "other", None, None).unwrap();
         assert_eq!(snapshot().active_count, 2);
 
         let acquired = Arc::new(AtomicBool::new(false));
         let acquired_in_thread = Arc::clone(&acquired);
         let waiter = thread::spawn(move || {
-            let _second = acquire("a", "A", "second", None).unwrap();
+            let _second = acquire("a", "A", "second", Some("request-2"), None).unwrap();
             acquired_in_thread.store(true, Ordering::Release);
         });
         thread::sleep(Duration::from_millis(40));
         assert!(!acquired.load(Ordering::Acquire));
+        let queued = snapshot()
+            .jobs
+            .into_iter()
+            .find(|job| job.label == "second")
+            .unwrap();
+        assert_eq!(queued.client_request_id.as_deref(), Some("request-2"));
+        assert_eq!(queued.status, "queued");
         drop(first);
         waiter.join().unwrap();
         assert!(acquired.load(Ordering::Acquire));
@@ -375,10 +578,10 @@ mod tests {
     fn queued_job_can_be_cancelled_without_waiting_for_the_active_job() {
         let _guard = TEST_LOCK.lock().unwrap();
         reset_for_tests();
-        let _first = acquire("a", "A", "first", None).unwrap();
+        let _first = acquire("a", "A", "first", None, None).unwrap();
         let cancelled = Arc::new(AtomicBool::new(false));
         let flag = Arc::clone(&cancelled);
-        let waiter = thread::spawn(move || acquire("a", "A", "second", Some(flag.as_ref())));
+        let waiter = thread::spawn(move || acquire("a", "A", "second", None, Some(flag.as_ref())));
         thread::sleep(Duration::from_millis(40));
         cancelled.store(true, Ordering::Release);
         assert!(waiter.join().unwrap().is_err());
