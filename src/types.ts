@@ -169,6 +169,7 @@ export interface DetectedIntelligenceConnection {
   defaultEndpoint: string | null;
   version: string | null;
   capabilities: string[];
+  executionSupported: boolean;
 }
 
 export type IntentPlanningMode = 'pinned' | 'adaptive';

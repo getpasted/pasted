@@ -545,6 +545,24 @@ mod tests {
 
     static TEST_LOCK: Mutex<()> = Mutex::new(());
 
+    fn wait_for_job_status(label: &str, status: &str) -> SchedulerJobSnapshot {
+        let deadline = Instant::now() + Duration::from_secs(2);
+        loop {
+            if let Some(job) = snapshot()
+                .jobs
+                .into_iter()
+                .find(|job| job.label == label && job.status == status)
+            {
+                return job;
+            }
+            assert!(
+                Instant::now() < deadline,
+                "timed out waiting for {label} to become {status}"
+            );
+            thread::yield_now();
+        }
+    }
+
     #[test]
     fn same_connection_is_fifo_while_other_connections_run_independently() {
         let _guard = TEST_LOCK.lock().unwrap();
@@ -559,15 +577,9 @@ mod tests {
             let _second = acquire("a", "A", "second", Some("request-2"), None).unwrap();
             acquired_in_thread.store(true, Ordering::Release);
         });
-        thread::sleep(Duration::from_millis(40));
+        let queued = wait_for_job_status("second", "queued");
         assert!(!acquired.load(Ordering::Acquire));
-        let queued = snapshot()
-            .jobs
-            .into_iter()
-            .find(|job| job.label == "second")
-            .unwrap();
         assert_eq!(queued.client_request_id.as_deref(), Some("request-2"));
-        assert_eq!(queued.status, "queued");
         drop(first);
         waiter.join().unwrap();
         assert!(acquired.load(Ordering::Acquire));
@@ -582,7 +594,7 @@ mod tests {
         let cancelled = Arc::new(AtomicBool::new(false));
         let flag = Arc::clone(&cancelled);
         let waiter = thread::spawn(move || acquire("a", "A", "second", None, Some(flag.as_ref())));
-        thread::sleep(Duration::from_millis(40));
+        wait_for_job_status("second", "queued");
         cancelled.store(true, Ordering::Release);
         assert!(waiter.join().unwrap().is_err());
         let snapshot = snapshot();

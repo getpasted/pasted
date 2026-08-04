@@ -110,6 +110,8 @@ export function IntelligenceConnectionsPanel() {
                 const isDragging = activeConnectionId === connection.id;
                 const offset = connectionOffsets[connection.id] ?? 0;
                 const isInteractiveOnly = detected?.capabilities.includes('interactive_chat') && !detected.capabilities.includes('structured_output');
+                const executionUnavailable = detected?.executionSupported === false;
+                const isOperational = connection.enabled && !executionUnavailable;
                 return (
                   <article
                     key={connection.id}
@@ -117,7 +119,7 @@ export function IntelligenceConnectionsPanel() {
                     onPointerDown={(event) => startConnectionReorder(connection.id, event)}
                     title="Reorder Connection"
                     style={offset !== 0 || isDragging ? { transform: `translateY(${offset}px)`, zIndex: isDragging ? 'var(--layer-drag)' : 1 } : undefined}
-                    className={`connection-priority-card theme-card-idle border rounded-xl p-3 flex items-center justify-between gap-3 relative cursor-grab active:cursor-grabbing touch-none transition-[background-color,border-color,box-shadow,opacity,transform] duration-100 ${isDragging ? 'is-dragging' : ''} ${connection.enabled ? '' : 'opacity-60'}`}
+                    className={`connection-priority-card theme-card-idle border rounded-xl p-3 flex items-center justify-between gap-3 relative cursor-grab active:cursor-grabbing touch-none transition-[background-color,border-color,box-shadow,opacity,transform] duration-100 ${isDragging ? 'is-dragging' : ''} ${isOperational ? '' : 'opacity-60'}`}
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <span className="theme-text-muted font-mono text-[10px] w-4 text-center">{index + 1}</span>
@@ -128,11 +130,12 @@ export function IntelligenceConnectionsPanel() {
                           {detected?.version || intelligenceProviderLabel(connection.providerKind)}{connection.model ? ` · ${connection.model}` : ''}
                         </div>
                         {isInteractiveOnly && <div className="theme-text-muted text-[9px] mt-0.5">Interactive/MCP client · not automatic fallback</div>}
+                        {executionUnavailable && !isInteractiveOnly && <div className="theme-text-muted text-[9px] mt-0.5">Detected · execution adapter coming later</div>}
                         <div className="theme-text-muted text-[10px] font-mono truncate mt-1">{connection.endpoint || 'No endpoint configured'}</div>
                       </div>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
-                      <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={() => toggleConnection(connection)} className={`connection-power-button theme-icon-button border rounded-lg p-2 ${connection.enabled ? 'is-enabled' : ''}`} title={connection.enabled ? 'Disable' : 'Enable'}>
+                      <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={() => toggleConnection(connection)} disabled={executionUnavailable} className={`connection-power-button theme-icon-button border rounded-lg p-2 ${isOperational ? 'is-enabled' : ''}`} title={executionUnavailable ? 'Execution adapter coming later' : connection.enabled ? 'Disable' : 'Enable'}>
                         <Power className="w-4 h-4" />
                       </button>
                       {!detected && (

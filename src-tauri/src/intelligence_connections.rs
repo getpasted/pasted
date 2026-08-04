@@ -14,6 +14,7 @@ pub struct DetectedIntelligenceConnection {
     pub default_endpoint: Option<&'static str>,
     pub version: Option<String>,
     pub capabilities: Vec<&'static str>,
+    pub execution_supported: bool,
 }
 
 struct AdapterDefinition {
@@ -203,6 +204,9 @@ pub fn detect_intelligence_connections() -> Vec<DetectedIntelligenceConnection> 
                 default_endpoint: adapter.default_endpoint,
                 version: detect_version(&path),
                 capabilities: adapter.capabilities.to_vec(),
+                execution_supported: crate::intelligence_provider::supports_adapter_id(
+                    adapter.adapter_id,
+                ),
             })
         })
         .collect()

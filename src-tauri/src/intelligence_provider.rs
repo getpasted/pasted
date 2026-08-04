@@ -204,6 +204,10 @@ impl IntelligenceProviderAdapter for CodexCliAdapter {
 static CODEX_CLI: CodexCliAdapter = CodexCliAdapter;
 static ADAPTERS: [&'static dyn IntelligenceProviderAdapter; 1] = [&CODEX_CLI];
 
+pub fn supports_adapter_id(adapter_id: &str) -> bool {
+    ADAPTERS.iter().any(|adapter| adapter.id() == adapter_id)
+}
+
 fn adapter_for(
     connection: &IntelligenceConnection,
 ) -> Option<&'static dyn IntelligenceProviderAdapter> {
@@ -320,5 +324,12 @@ mod tests {
         );
         assert!(adapter_for(&connection("/usr/local/bin/claude")).is_none());
         assert!(adapter_for(&connection("/usr/local/bin/ollama")).is_none());
+    }
+
+    #[test]
+    fn adapter_registry_reports_discovery_support_by_stable_id() {
+        assert!(supports_adapter_id("codex_cli"));
+        assert!(!supports_adapter_id("claude_cli"));
+        assert!(!supports_adapter_id("ollama"));
     }
 }
