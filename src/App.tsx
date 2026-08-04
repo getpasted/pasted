@@ -56,6 +56,7 @@ export default function App() {
   const {
     appSettings,
     blacklistApps,
+    settingsHydrated,
     updateSettings: handleUpdateSettings,
     addBlacklistApp: handleAddBlacklistApp,
     removeBlacklistApp: handleRemoveBlacklistApp,
@@ -75,6 +76,7 @@ export default function App() {
     setTotalClipCount,
     isClipboardPaused,
     ignoredAppStatus,
+    initialDataLoaded,
     fetchClips,
     fetchTrashedClips,
     fetchBins,
@@ -85,6 +87,30 @@ export default function App() {
     purgeClipPermanently: handlePurgeClipPermanently,
     emptyTrash: handleEmptyTrash,
   } = useAppData(appSettings.enableSounds);
+
+  useEffect(() => {
+    const splash = document.getElementById('startup-splash');
+    if (!splash) return;
+    if (isHudView) {
+      splash.remove();
+      return;
+    }
+    if (!settingsHydrated || !initialDataLoaded) return;
+
+    let removeTimer: ReturnType<typeof setTimeout> | undefined;
+    let secondFrame = 0;
+    const firstFrame = requestAnimationFrame(() => {
+      secondFrame = requestAnimationFrame(() => {
+        splash.classList.add('is-ready');
+        removeTimer = setTimeout(() => splash.remove(), 160);
+      });
+    });
+    return () => {
+      cancelAnimationFrame(firstFrame);
+      if (secondFrame) cancelAnimationFrame(secondFrame);
+      if (removeTimer) clearTimeout(removeTimer);
+    };
+  }, [initialDataLoaded, isHudView, settingsHydrated]);
 
   const [selectedClip, setSelectedClip] = useState<ClipItem | null>(null);
   const [selectedClipIds, setSelectedClipIds] = useState<Set<number>>(new Set());

@@ -74,8 +74,22 @@ function readCachedBlacklist() {
   }
 }
 
+function readCachedTheme(): AppSettings['themeMode'] {
+  try {
+    const cached = localStorage.getItem('pasted_cache_theme');
+    return ['system', 'cool', 'dark', 'warm', 'vampire', 'flux', '808'].includes(cached ?? '')
+      ? cached as AppSettings['themeMode']
+      : DEFAULT_SETTINGS.themeMode;
+  } catch {
+    return DEFAULT_SETTINGS.themeMode;
+  }
+}
+
 export function useAppSettings() {
-  const [appSettings, setAppSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
+  const [appSettings, setAppSettings] = useState<AppSettings>(() => ({
+    ...DEFAULT_SETTINGS,
+    themeMode: readCachedTheme(),
+  }));
   const [blacklistApps, setBlacklistApps] = useState<BlacklistApp[]>(readCachedBlacklist);
   const [settingsHydrated, setSettingsHydrated] = useState(false);
   const saveTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
@@ -135,6 +149,14 @@ export function useAppSettings() {
   }, [appSettings.themeMode]);
 
   useEffect(() => {
+    try {
+      localStorage.setItem('pasted_cache_theme', appSettings.themeMode || 'system');
+    } catch {
+      // SQLite remains authoritative when browser storage is unavailable.
+    }
+  }, [appSettings.themeMode]);
+
+  useEffect(() => {
     document.documentElement.style.fontSize = `${appSettings.textSize}px`;
   }, [appSettings.textSize]);
 
@@ -170,6 +192,13 @@ export function useAppSettings() {
 
   const updateSettings = useCallback((updates: Partial<AppSettings>) => {
     setAppSettings((current) => ({ ...current, ...updates }));
+    if (updates.themeMode) {
+      try {
+        localStorage.setItem('pasted_cache_theme', updates.themeMode);
+      } catch {
+        // SQLite remains authoritative when browser storage is unavailable.
+      }
+    }
     for (const [key, value] of Object.entries(updates)) {
       locallyChangedKeysRef.current.add(key);
       pendingSettingsRef.current[key] = String(value);
@@ -204,5 +233,13 @@ export function useAppSettings() {
     setBlacklistApps((current) => current.map((app) => app.id === id ? { ...app, [rule]: !app[rule] } : app));
   }, []);
 
-  return { appSettings, blacklistApps, updateSettings, addBlacklistApp, removeBlacklistApp, toggleBlacklistRule };
+  return {
+    appSettings,
+    blacklistApps,
+    settingsHydrated,
+    updateSettings,
+    addBlacklistApp,
+    removeBlacklistApp,
+    toggleBlacklistRule,
+  };
 }

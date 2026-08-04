@@ -2,12 +2,197 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Tauri + React + Typescript</title>
+    <title>Pasted</title>
+    <script>
+      (() => {
+        const view = new URLSearchParams(window.location.search).get('view') || 'main';
+        document.documentElement.dataset.pastedView = view;
+        try {
+          const savedTheme = localStorage.getItem('pasted_cache_theme');
+          if (savedTheme) document.documentElement.dataset.startupTheme = savedTheme;
+        } catch {}
+      })();
+    </script>
+    <style>
+      :root {
+        color-scheme: dark;
+        --startup-bg: rgba(20, 20, 21, 0.985);
+        --startup-panel: rgba(255, 255, 255, 0.065);
+        --startup-border: rgba(255, 255, 255, 0.11);
+        --startup-text: rgba(255, 255, 255, 0.94);
+        --startup-muted: rgba(255, 255, 255, 0.48);
+        --startup-accent: #4d9dff;
+      }
+
+      @media (prefers-color-scheme: light) {
+        :root {
+          color-scheme: light;
+          --startup-bg: rgba(244, 245, 248, 0.985);
+          --startup-panel: rgba(255, 255, 255, 0.74);
+          --startup-border: rgba(22, 28, 40, 0.12);
+          --startup-text: rgba(18, 22, 30, 0.92);
+          --startup-muted: rgba(30, 38, 52, 0.48);
+          --startup-accent: #087ad8;
+        }
+      }
+
+      html[data-startup-theme="dark"],
+      html[data-startup-theme="vampire"],
+      html[data-startup-theme="flux"],
+      html[data-startup-theme="808"] {
+        color-scheme: dark;
+        --startup-bg: rgba(20, 20, 21, 0.985);
+        --startup-panel: rgba(255, 255, 255, 0.065);
+        --startup-border: rgba(255, 255, 255, 0.11);
+        --startup-text: rgba(255, 255, 255, 0.94);
+        --startup-muted: rgba(255, 255, 255, 0.48);
+        --startup-accent: #4d9dff;
+      }
+
+      html[data-startup-theme="cool"],
+      html[data-startup-theme="warm"] {
+        color-scheme: light;
+        --startup-bg: rgba(244, 245, 248, 0.985);
+        --startup-panel: rgba(255, 255, 255, 0.74);
+        --startup-border: rgba(22, 28, 40, 0.12);
+        --startup-text: rgba(18, 22, 30, 0.92);
+        --startup-muted: rgba(30, 38, 52, 0.48);
+        --startup-accent: #087ad8;
+      }
+
+      html,
+      body,
+      #root {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+      }
+
+      body {
+        overflow: hidden;
+        background: transparent;
+      }
+
+      #startup-splash {
+        position: fixed;
+        inset: 0;
+        z-index: 2147483647;
+        display: grid;
+        place-items: center;
+        overflow: hidden;
+        background:
+          radial-gradient(circle at 50% 42%, color-mix(in srgb, var(--startup-accent) 10%, transparent), transparent 36%),
+          var(--startup-bg);
+        color: var(--startup-text);
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
+        cursor: default;
+        user-select: none;
+        -webkit-user-select: none;
+        opacity: 1;
+        transition: opacity 140ms ease-out;
+      }
+
+      #startup-splash.is-ready {
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .startup-content {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.7rem;
+        transform: translateY(-0.5rem);
+      }
+
+      .startup-mark {
+        width: 3.25rem;
+        height: 3.25rem;
+        display: grid;
+        place-items: center;
+        border: 1px solid var(--startup-border);
+        border-radius: 1rem;
+        background: var(--startup-panel);
+        color: var(--startup-accent);
+        box-shadow: 0 18px 45px rgba(0, 0, 0, 0.16);
+        backdrop-filter: blur(22px);
+        -webkit-backdrop-filter: blur(22px);
+      }
+
+      .startup-mark svg {
+        width: 1.55rem;
+        height: 1.55rem;
+        stroke: currentColor;
+        stroke-width: 1.8;
+        fill: none;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      .startup-name {
+        margin-top: 0.1rem;
+        font-size: 1.05rem;
+        font-weight: 680;
+        letter-spacing: -0.025em;
+      }
+
+      .startup-status {
+        color: var(--startup-muted);
+        font-size: 0.7rem;
+        font-weight: 550;
+        letter-spacing: 0.01em;
+      }
+
+      .startup-progress {
+        width: 4.5rem;
+        height: 2px;
+        margin-top: 0.2rem;
+        overflow: hidden;
+        border-radius: 999px;
+        background: color-mix(in srgb, var(--startup-text) 9%, transparent);
+      }
+
+      .startup-progress::after {
+        content: "";
+        display: block;
+        width: 42%;
+        height: 100%;
+        border-radius: inherit;
+        background: var(--startup-accent);
+        animation: startup-progress 1.05s ease-in-out infinite;
+      }
+
+      html[data-pasted-view="hud"] #startup-splash {
+        display: none;
+      }
+
+      @keyframes startup-progress {
+        from { transform: translateX(-115%); }
+        to { transform: translateX(340%); }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        #startup-splash { transition: none; }
+        .startup-progress::after { animation: none; width: 100%; opacity: 0.55; }
+      }
+    </style>
   </head>
 
   <body>
+    <div id="startup-splash" data-tauri-drag-region aria-live="polite" aria-label="Pasted is starting">
+      <div class="startup-content" data-tauri-drag-region>
+        <div class="startup-mark" data-tauri-drag-region aria-hidden="true">
+          <svg viewBox="0 0 24 24" data-tauri-drag-region>
+            <rect x="8" y="8" width="11" height="11" rx="2"></rect>
+            <path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"></path>
+          </svg>
+        </div>
+        <div class="startup-name" data-tauri-drag-region>Pasted</div>
+        <div class="startup-status" data-tauri-drag-region>Preparing your clipboard</div>
+        <div class="startup-progress" data-tauri-drag-region aria-hidden="true"></div>
+      </div>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

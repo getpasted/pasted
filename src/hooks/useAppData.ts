@@ -23,6 +23,7 @@ export function useAppData(enableSounds: boolean) {
   const [sequentialStatus, setSequentialStatus] = useState<SequentialStatus | null>(null);
   const [totalClipCount, setTotalClipCount] = useState(0);
   const [isClipboardPaused, setIsClipboardPaused] = useState(false);
+  const [initialDataLoaded, setInitialDataLoaded] = useState(false);
   const [ignoredAppStatus, setIgnoredAppStatus] = useState<{ app_name: string; timestamp: number } | null>(null);
 
   const fetchTotalClipCount = useCallback(async () => {
@@ -142,6 +143,7 @@ export function useAppData(enableSounds: boolean) {
   }, [fetchTrashedClips]);
 
   useEffect(() => {
+    let cancelled = false;
     void Promise.all([
       fetchClips(),
       fetchBins(),
@@ -151,7 +153,12 @@ export function useAppData(enableSounds: boolean) {
       invoke<boolean>('is_clipboard_paused')
         .then(setIsClipboardPaused)
         .catch((error) => console.error('Failed to read clipboard pause state:', error)),
-    ]);
+    ]).finally(() => {
+      if (!cancelled) setInitialDataLoaded(true);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [fetchBins, fetchClips, fetchFilters, fetchSequentialStatus, fetchTrashedClips]);
 
   useEffect(() => {
@@ -196,6 +203,7 @@ export function useAppData(enableSounds: boolean) {
     setTotalClipCount,
     isClipboardPaused,
     ignoredAppStatus,
+    initialDataLoaded,
     fetchClips,
     fetchTrashedClips,
     fetchBins,
