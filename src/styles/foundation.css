@@ -2,21 +2,13 @@
   contain: content;
   transform: translateZ(0);
   backface-visibility: hidden;
-  -webkit-user-drag: none !important;
-  user-select: none !important;
-  -webkit-user-select: none !important;
+  -webkit-user-drag: none;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 [draggable="true"] {
-  -webkit-user-drag: element !important;
-}
-
-html.hud-mode,
-body.hud-mode,
-#root.hud-mode {
-  background: transparent !important;
-  background-color: transparent !important;
-  box-shadow: none !important;
+  -webkit-user-drag: element;
 }
 
 /* Stable Drag Handle Cursor Rules */
@@ -419,7 +411,7 @@ body.hud-mode,
   input[type="search"],
   input[type="password"] {
     height: 2.125rem /* 34px */;
-    box-sizing: border-box !important;
+    box-sizing: border-box;
     font-family: inherit;
     font-size: 0.75rem /* 12px */;
     line-height: 1.25rem /* 20px */;

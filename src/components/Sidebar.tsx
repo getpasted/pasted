@@ -538,11 +538,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         : 'cursor-pointer active:cursor-grabbing'
                     } ${
                       isDropTarget
-                        ? 'sidebar-bin-drop-target ring-2 ring-emerald-400/25 shadow-lg text-emerald-50 relative'
+                        ? 'sidebar-bin-drop-target'
                         : isDisabledDropTarget || isIneligibleSmartBin
-                        ? 'sidebar-bin-ineligible opacity-50 cursor-not-allowed'
+                        ? 'sidebar-bin-ineligible'
                         : isClipDragging && isManualBin
-                        ? 'sidebar-bin-drop-eligible text-emerald-100 font-normal'
+                        ? 'sidebar-bin-drop-eligible font-normal'
                         : isDragging
                         ? 'sidebar-bin-drag-source rounded-md relative pointer-events-none'
                         : currentTab === 'bin' && selectedBinId === b.id

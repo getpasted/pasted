@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, type ReactNode } from 'react';
+import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
 const dialogStack: symbol[] = [];
@@ -29,18 +29,43 @@ export function AppDialog({
   panelClassName = '',
 }: AppDialogProps) {
   const panelRef = useRef<HTMLDivElement>(null);
+  const discardPanelRef = useRef<HTMLDivElement>(null);
   const tokenRef = useRef(Symbol('app-dialog'));
+  const discardTitleId = useId();
+  const [isDiscardConfirmOpen, setIsDiscardConfirmOpen] = useState(false);
   const onCloseRef = useRef(onClose);
   const isDirtyRef = useRef(isDirty);
+  const isDiscardConfirmOpenRef = useRef(isDiscardConfirmOpen);
   const discardMessageRef = useRef(discardMessage);
   onCloseRef.current = onClose;
   isDirtyRef.current = isDirty;
+  isDiscardConfirmOpenRef.current = isDiscardConfirmOpen;
   discardMessageRef.current = discardMessage;
 
   const requestClose = useCallback(() => {
-    if (isDirtyRef.current && !window.confirm(discardMessageRef.current)) return;
+    if (isDirtyRef.current) {
+      setIsDiscardConfirmOpen(true);
+      return;
+    }
     onCloseRef.current();
   }, []);
+
+  const discardAndClose = useCallback(() => {
+    setIsDiscardConfirmOpen(false);
+    onCloseRef.current();
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen) setIsDiscardConfirmOpen(false);
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isDiscardConfirmOpen) return;
+    const focusTimer = window.requestAnimationFrame(() => {
+      discardPanelRef.current?.querySelector<HTMLElement>('[autofocus]')?.focus();
+    });
+    return () => window.cancelAnimationFrame(focusTimer);
+  }, [isDiscardConfirmOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -59,11 +84,16 @@ export function AppDialog({
       if (dialogStack[dialogStack.length - 1] !== token) return;
       if (event.key === 'Escape') {
         event.preventDefault();
-        requestClose();
+        if (isDiscardConfirmOpenRef.current) {
+          setIsDiscardConfirmOpen(false);
+        } else {
+          requestClose();
+        }
         return;
       }
-      if (event.key !== 'Tab' || !panelRef.current) return;
-      const focusable = panelRef.current.querySelectorAll<HTMLElement>(
+      const activePanel = isDiscardConfirmOpenRef.current ? discardPanelRef.current : panelRef.current;
+      if (event.key !== 'Tab' || !activePanel) return;
+      const focusable = activePanel.querySelectorAll<HTMLElement>(
         'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
       );
       if (focusable.length === 0) return;
@@ -106,6 +136,41 @@ export function AppDialog({
       >
         {typeof children === 'function' ? children({ requestClose }) : children}
       </div>
+      {isDiscardConfirmOpen && (
+        <div
+          className="app-dialog-confirm-overlay fixed inset-0 flex items-center justify-center p-4"
+          onMouseDown={(event) => {
+            event.stopPropagation();
+            if (event.target === event.currentTarget) setIsDiscardConfirmOpen(false);
+          }}
+        >
+          <div
+            ref={discardPanelRef}
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby={discardTitleId}
+            className="app-dialog-confirm-panel theme-panel w-full max-w-sm overflow-hidden rounded-2xl border shadow-2xl"
+          >
+            <div className="app-dialog-body">
+              <h2 id={discardTitleId} className="app-dialog-title">Discard changes?</h2>
+              <p className="app-dialog-description mt-2">{discardMessageRef.current}</p>
+            </div>
+            <div className="app-dialog-footer">
+              <button
+                type="button"
+                className="app-dialog-button is-secondary"
+                onClick={() => setIsDiscardConfirmOpen(false)}
+                autoFocus
+              >
+                Keep Editing
+              </button>
+              <button type="button" className="app-dialog-button is-danger" onClick={discardAndClose}>
+                Discard
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>,
     document.body,
   );

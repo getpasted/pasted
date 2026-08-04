@@ -112,7 +112,7 @@ html:not(.is-stable-reordering) .connection-priority-card:hover {
   height: 1.5rem;
   align-items: center;
   justify-content: center;
-  padding: 0 !important;
+  padding: 0;
   border-radius: 0.375rem;
   color: var(--text-muted);
   transition: background-color 100ms ease, color 100ms ease;
@@ -717,6 +717,18 @@ select.theme-input {
   z-index: var(--layer-modal);
   -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
+}
+
+.app-dialog-confirm-overlay {
+  z-index: calc(var(--layer-modal) + 1);
+  background-color: var(--overlay-scrim);
+  backdrop-filter: blur(3px);
+}
+
+.app-dialog-confirm-panel {
+  background-color: var(--bg-surface);
+  border-color: var(--border-subtle);
+  color: var(--text-main);
 }
 
 .app-dialog-header,

@@ -66,7 +66,7 @@ export const BinModal: React.FC<BinModalProps> = ({
   onClose,
   onRefreshBins,
 }) => {
-  const [modalTab, setModalTab] = useState<'bin' | 'smart' | 'filter'>(() => {
+  const [modalTab, setModalTab] = useState<'bin' | 'smart'>(() => {
     if (editingBin?.smart_rule) return 'smart';
     return 'bin';
   });
@@ -307,13 +307,6 @@ export const BinModal: React.FC<BinModalProps> = ({
                   className={`settings-tab px-4 py-1.5 rounded-lg text-xs font-semibold transition-none border border-transparent ${modalTab === 'smart' ? 'is-active' : ''}`}
                 >
                   Smart
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setModalTab('filter')}
-                  className={`settings-tab px-4 py-1.5 rounded-lg text-xs font-semibold transition-none border border-transparent ${modalTab === 'filter' ? 'is-active' : ''}`}
-                >
-                  Filter
                 </button>
               </div>
             </div>
