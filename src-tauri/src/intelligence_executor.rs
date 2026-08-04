@@ -511,14 +511,15 @@ pub fn execute_plan(
                 operation_ref,
                 config_json.as_deref(),
             ),
-            PlannedExecutor::Semantic { instructions, .. } => execute_semantic_step(
-                connection
-                    .as_ref()
-                    .expect("semantic plans select a connection"),
-                instructions,
-                step.scope,
-                &current,
-            ),
+            PlannedExecutor::Semantic { instructions, .. } => {
+                let connection = connection.as_ref().ok_or_else(|| {
+                    IntelligenceExecutionError::new(
+                        "connection_unavailable",
+                        "This Transform requires an enabled intelligence connection",
+                    )
+                })?;
+                execute_semantic_step(connection, instructions, step.scope, &current)
+            }
         };
         current = result.map_err(|error| {
             IntelligenceExecutionError::new(
@@ -616,7 +617,10 @@ pub fn plan_intent(
     let result_path = workspace.0.join("plan.json");
     let stdout_path = workspace.0.join("stdout.log");
     let stderr_path = workspace.0.join("stderr.log");
-    fs::write(&schema_path, serde_json::to_vec(&plan_schema()).unwrap())
+    let schema = serde_json::to_vec(&plan_schema()).map_err(|error| {
+        IntelligenceExecutionError::new("invalid_plan_schema", error.to_string())
+    })?;
+    fs::write(&schema_path, schema)
         .map_err(|error| IntelligenceExecutionError::new("workspace_error", error.to_string()))?;
 
     let mut command = Command::new(executable);

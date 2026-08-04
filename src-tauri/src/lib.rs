@@ -25,44 +25,6 @@ fn main_window_state_flags() -> StateFlags {
 }
 
 #[cfg(target_os = "macos")]
-fn setup_finder_titlebar(window: &tauri::WebviewWindow) {
-    #[repr(C)]
-    #[derive(Copy, Clone, Debug)]
-    #[allow(dead_code)]
-    struct LocalPoint {
-        x: f64,
-        y: f64,
-    }
-
-    #[repr(C)]
-    #[derive(Copy, Clone, Debug)]
-    #[allow(dead_code)]
-    struct LocalSize {
-        width: f64,
-        height: f64,
-    }
-
-    #[repr(C)]
-    #[derive(Copy, Clone, Debug)]
-    #[allow(dead_code)]
-    struct LocalRect {
-        origin: LocalPoint,
-        size: LocalSize,
-    }
-
-    use objc::{msg_send, sel, sel_impl};
-    let ns_window_ptr = window.ns_window().unwrap();
-    unsafe {
-        let ns_window = ns_window_ptr as *mut objc::runtime::Object;
-        let button: *mut objc::runtime::Object = msg_send![ns_window, standardWindowButton: 0];
-        if !button.is_null() {
-            let superview: *mut objc::runtime::Object = msg_send![button, superview];
-            if !superview.is_null() {}
-        }
-    }
-}
-
-#[cfg(target_os = "macos")]
 fn setup_window_vibrancy(window: &tauri::WebviewWindow) {
     use window_vibrancy::{apply_vibrancy, NSVisualEffectMaterial, NSVisualEffectState};
     let _ = apply_vibrancy(
@@ -154,7 +116,6 @@ pub fn run() {
                 let _ = main_win.outer_size();
                 #[cfg(target_os = "macos")]
                 {
-                    setup_finder_titlebar(&main_win);
                     setup_window_vibrancy(&main_win);
                 }
                 let _ = main_win.show();
@@ -208,13 +169,19 @@ pub fn run() {
             let quit_i = MenuItem::with_id(app, "quit", "Quit Pasted", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show_i, &hud_i, &seq_i, &quit_i])?;
 
-            let tray_icon = image::load_from_memory(include_bytes!("../icons/tray-icon@2x.png"))
-                .map(|img| {
-                    let rgba = img.to_rgba8();
-                    let (w, h) = rgba.dimensions();
-                    tauri::image::Image::new_owned(rgba.into_raw(), w, h)
-                })
-                .unwrap_or_else(|_| app.default_window_icon().unwrap().clone());
+            let tray_icon =
+                match image::load_from_memory(include_bytes!("../icons/tray-icon@2x.png")) {
+                    Ok(img) => {
+                        let rgba = img.to_rgba8();
+                        let (w, h) = rgba.dimensions();
+                        tauri::image::Image::new_owned(rgba.into_raw(), w, h)
+                    }
+                    Err(error) => app.default_window_icon().cloned().ok_or_else(|| {
+                        std::io::Error::other(format!(
+                            "Could not load the tray icon or default application icon: {error}"
+                        ))
+                    })?,
+                };
 
             let _tray = TrayIconBuilder::new()
                 .icon(tray_icon)
