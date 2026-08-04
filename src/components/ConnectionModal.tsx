@@ -5,6 +5,7 @@ import { INTELLIGENCE_PROVIDERS } from '../utils/intelligenceProviders';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { AppDialog } from './AppDialog';
 import { AppDialogBody, AppDialogButton, AppDialogFooter, AppDialogHeader, AppDialogHeading } from './AppDialogLayout';
+import { MenuSelect } from './MenuSelect';
 
 interface ConnectionModalProps {
   onClose: () => void;
@@ -77,12 +78,16 @@ export function ConnectionModal({ onClose, onCreated }: ConnectionModalProps) {
 
         <form onSubmit={createConnection}>
           <AppDialogBody className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <label className="text-xs theme-text-muted space-y-1.5">
+            <div className="text-xs theme-text-muted space-y-1.5">
               <span className="block font-semibold">Engine</span>
-              <select value={providerKind} onChange={(event) => selectProvider(event.target.value as IntelligenceProviderKind)} className="theme-input border rounded-xl px-3 py-2.5 w-full">
-                {INTELLIGENCE_PROVIDERS.map((provider) => <option key={provider.value} value={provider.value}>{provider.label}</option>)}
-              </select>
-            </label>
+              <MenuSelect
+                value={providerKind}
+                options={INTELLIGENCE_PROVIDERS.map((provider) => ({ value: provider.value, label: provider.label }))}
+                onChange={(value) => selectProvider(value as IntelligenceProviderKind)}
+                label="Connection engine"
+                className="w-full"
+              />
+            </div>
             <label className="text-xs theme-text-muted space-y-1.5">
               <span className="block font-semibold">Connection name</span>
               <input autoFocus value={name} onChange={(event) => setName(event.target.value)} className="theme-input border rounded-xl px-3 py-2.5 w-full" />

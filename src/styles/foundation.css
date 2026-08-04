@@ -59,6 +59,7 @@
 
     --accent-primary: #0a84ff;
     --accent-primary-contrast: #ffffff;
+    --checkbox-check-color: var(--accent-primary-contrast);
     --queue-accent: #c084fc;
     --overlay-scrim: rgba(0, 0, 0, 0.62);
     --status-success: #6ee7b7;
@@ -283,6 +284,7 @@
 
     --accent-primary: #45d7e5;
     --accent-primary-contrast: #061419;
+    --checkbox-check-color: #ffffff;
     --accent-secondary: #f5a524;
     --overlay-scrim: rgba(0, 5, 8, 0.64);
     --status-success: #72dfb0;
@@ -339,6 +341,7 @@
 
     --accent-primary: #ff8a24;
     --accent-primary-contrast: #211207;
+    --checkbox-check-color: #ffffff;
     --accent-secondary: #ef3e35;
     --overlay-scrim: rgba(0, 0, 0, 0.65);
     --status-success: #63cbc5;

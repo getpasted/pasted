@@ -5,6 +5,7 @@ import { safeInvoke as invoke } from '../utils/tauri';
 import { startWindowDrag } from '../utils/windowDrag';
 import { AppDialog } from './AppDialog';
 import { AppDialogBody, AppDialogButton, AppDialogFooter, AppDialogHeader, AppDialogHeading } from './AppDialogLayout';
+import { MenuSelect, type MenuSelectOption } from './MenuSelect';
 
 interface OperationEditorModalProps {
   operation: Operation | null;
@@ -140,6 +141,15 @@ export const OperationEditorModal: React.FC<OperationEditorModalProps> = ({
 
   if (!isOpen) return null;
   const isEditableKind = opType === 'regex' || opType === 'ai';
+  const operationTypeOptions: MenuSelectOption[] = [
+    { value: 'regex', label: 'Regex replacement · local and safe' },
+    ...(!['regex', 'ai', 'cli', 'http'].includes(opType)
+      ? [{ value: opType, label: `${opType} · legacy custom operation`, disabled: true }]
+      : []),
+    { value: 'cli', label: opType === 'cli' ? 'cli · legacy custom operation' : 'Command or CLI · sandbox coming next', disabled: true },
+    { value: 'http', label: opType === 'http' ? 'http · legacy custom operation' : 'HTTP API · coming later', disabled: true },
+    { value: 'ai', label: 'Connected intelligence · priority and fallback' },
+  ];
   const isDirty = JSON.stringify({ name, opType, category, findPattern, replacePattern, aiInstructions })
     !== JSON.stringify(operationFormValues(operation));
 
@@ -185,17 +195,13 @@ export const OperationEditorModal: React.FC<OperationEditorModalProps> = ({
 
           <div className="text-xs">
             <label className="block font-semibold mb-1 theme-text-muted">Runs with</label>
-            <select
+            <MenuSelect
               value={opType}
-              onChange={(event) => setOpType(event.target.value)}
-              className="w-full border rounded-xl p-2.5 focus:outline-none font-medium theme-input"
-            >
-              <option value="regex">Regex replacement · local and safe</option>
-              {opType !== 'regex' && <option value={opType}>{opType} · legacy custom operation</option>}
-              <option value="cli" disabled>Command or CLI · sandbox coming next</option>
-              <option value="http" disabled>HTTP API · coming later</option>
-              <option value="ai">Connected intelligence · priority and fallback</option>
-            </select>
+              options={operationTypeOptions}
+              onChange={setOpType}
+              label="Operation engine type"
+              className="w-full"
+            />
             <p className="theme-text-subtle text-[10px] mt-1.5">
               This chooses how a custom Operation runs; built-in transformations are maintained by Pasted and are not duplicated here.
             </p>

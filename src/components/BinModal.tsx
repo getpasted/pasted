@@ -5,6 +5,7 @@ import { Bin, SavedTransform } from '../types';
 import { formatEmojiIcon } from '../utils/emoji';
 import { AppDialog } from './AppDialog';
 import { AppDialogBody, AppDialogButton, AppDialogFooter, AppDialogHeader, AppDialogHeading } from './AppDialogLayout';
+import { MenuSelect } from './MenuSelect';
 
 interface BinModalProps {
   isOpen: boolean;
@@ -532,20 +533,19 @@ export const BinModal: React.FC<BinModalProps> = ({
 
           <div className="theme-surface space-y-2 rounded-2xl border p-4">
             <div>
-              <label htmlFor="bin-transform" className="block text-xs font-semibold theme-text-main">When a clip enters this Bin</label>
+              <span className="block text-xs font-semibold theme-text-main">When a clip enters this Bin</span>
               <p className="mt-0.5 text-[10px] theme-text-muted">Run one saved Transform. Its plan decides whether work stays local or uses connected intelligence.</p>
             </div>
-            <select
-              id="bin-transform"
+            <MenuSelect
               value={transformRef}
-              onChange={(event) => setTransformRef(event.target.value)}
-              className="theme-input form-field-valid w-full rounded-xl border px-3 py-2 text-xs font-semibold focus:outline-none"
-            >
-              <option value="">Do not transform clips</option>
-              {transforms.map((transform) => (
-                <option key={transform.stableRef} value={transform.stableRef}>{transform.name}</option>
-              ))}
-            </select>
+              options={[
+                { value: '', label: 'Do not transform clips' },
+                ...transforms.map((transform) => ({ value: transform.stableRef, label: transform.name })),
+              ]}
+              onChange={setTransformRef}
+              label="Transform clips entering this Bin"
+              className="w-full"
+            />
           </div>
 
           </AppDialogBody>
