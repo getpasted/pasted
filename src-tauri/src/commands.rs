@@ -1627,14 +1627,16 @@ pub fn register_app_setting_hotkey(
     app: AppHandle,
 ) -> Result<(), String> {
     let db = app.state::<Arc<DbState>>();
-    let _ = db.save_setting(&key, &value);
+    db.save_setting(&key, &value)
+        .map_err(|error| error.to_string())?;
     register_all_app_shortcuts(&app)
 }
 
 #[tauri::command]
 pub fn register_hud_shortcut(shortcut_str: String, app: AppHandle) -> Result<(), String> {
     let db = app.state::<Arc<DbState>>();
-    let _ = db.save_setting("hudHotkey", &shortcut_str);
+    db.save_setting("hudHotkey", &shortcut_str)
+        .map_err(|error| error.to_string())?;
     register_all_app_shortcuts(&app)
 }
 
@@ -1757,7 +1759,8 @@ pub fn extract_ocr_from_clip(clip_id: i64, db: State<'_, Arc<DbState>>) -> Resul
 
         if let Ok(bytes) = base64::engine::general_purpose::STANDARD.decode(clean_b64) {
             if let Some(ocr_text) = crate::ocr::perform_ocr_on_image_bytes(&bytes) {
-                let _ = db.update_clip_text(clip_id, &ocr_text);
+                db.update_clip_text(clip_id, &ocr_text)
+                    .map_err(|error| error.to_string())?;
                 return Ok(ocr_text);
             }
         }
@@ -1869,8 +1872,6 @@ pub fn get_analytics_summary(
 
 #[tauri::command]
 pub fn install_cli_to_path() -> Result<String, String> {
-    use std::fs;
-
     let exe_path = std::env::current_exe().map_err(|e| e.to_string())?;
     let bin_dir = exe_path.parent().ok_or("Cannot locate binary directory")?;
     let cli_exe = bin_dir.join("pasted-cli");
@@ -1883,32 +1884,125 @@ pub fn install_cli_to_path() -> Result<String, String> {
     }
 
     let target_dir = dirs::home_dir()
-        .map(|h| h.join(".local/bin"))
-        .unwrap_or_else(|| std::path::PathBuf::from("/usr/local/bin"));
-
-    let _ = fs::create_dir_all(&target_dir);
-    let symlink_path = target_dir.join("pasted-cli");
-
-    if symlink_path.exists() {
-        let _ = fs::remove_file(&symlink_path);
-    }
+        .map(|home| home.join(".local/bin"))
+        .ok_or("Cannot locate your home directory")?;
 
     #[cfg(unix)]
     {
-        use std::os::unix::fs::symlink;
-        symlink(&cli_exe, &symlink_path)
-            .map_err(|e| format!("Failed to create symlink at '{:?}': {}", symlink_path, e))?;
+        let symlink_path = install_cli_symlink(&cli_exe, &target_dir)?;
+        Ok(format!(
+            "Successfully linked pasted-cli to '{}'. Make sure that directory is in your PATH.",
+            symlink_path.display()
+        ))
     }
 
-    Ok(format!(
-        "✓ Successfully linked pasted-cli to '{}'! Make sure standard bin dir is in your $PATH.",
-        symlink_path.display()
-    ))
+    #[cfg(not(unix))]
+    {
+        Err("Automatic CLI installation is not supported on this platform yet".to_string())
+    }
+}
+
+#[cfg(unix)]
+fn install_cli_symlink(
+    cli_exe: &std::path::Path,
+    target_dir: &std::path::Path,
+) -> Result<std::path::PathBuf, String> {
+    use std::fs;
+    use std::os::unix::fs::symlink;
+
+    fs::create_dir_all(target_dir).map_err(|error| {
+        format!(
+            "Failed to create CLI directory '{}': {error}",
+            target_dir.display()
+        )
+    })?;
+    let symlink_path = target_dir.join("pasted-cli");
+    match fs::symlink_metadata(&symlink_path) {
+        Ok(metadata) if metadata.file_type().is_symlink() => {
+            let existing_target = fs::read_link(&symlink_path).map_err(|error| {
+                format!(
+                    "Failed to inspect existing CLI link '{}': {error}",
+                    symlink_path.display()
+                )
+            })?;
+            if existing_target == cli_exe {
+                return Ok(symlink_path);
+            }
+            return Err(format!(
+                "Refusing to replace existing CLI link '{}' (currently points to '{}')",
+                symlink_path.display(),
+                existing_target.display()
+            ));
+        }
+        Ok(_) => {
+            return Err(format!(
+                "Refusing to replace existing file '{}'",
+                symlink_path.display()
+            ));
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => {
+            return Err(format!(
+                "Failed to inspect CLI destination '{}': {error}",
+                symlink_path.display()
+            ));
+        }
+    }
+
+    symlink(cli_exe, &symlink_path).map_err(|error| {
+        format!(
+            "Failed to create CLI link '{}': {error}",
+            symlink_path.display()
+        )
+    })?;
+    Ok(symlink_path)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(unix)]
+    fn unique_test_directory(label: &str) -> std::path::PathBuf {
+        let nonce = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        std::env::temp_dir().join(format!("pasted-{label}-{}-{nonce}", std::process::id()))
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn cli_install_never_overwrites_an_existing_file() {
+        let root = unique_test_directory("cli-preserve");
+        let bin_dir = root.join("bin");
+        std::fs::create_dir_all(&bin_dir).unwrap();
+        let destination = bin_dir.join("pasted-cli");
+        std::fs::write(&destination, "user-owned").unwrap();
+
+        let error = install_cli_symlink(&root.join("source"), &bin_dir).unwrap_err();
+        assert!(error.contains("Refusing to replace existing file"));
+        assert_eq!(std::fs::read_to_string(&destination).unwrap(), "user-owned");
+
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn cli_install_is_idempotent_for_its_existing_link() {
+        let root = unique_test_directory("cli-idempotent");
+        let source = root.join("pasted-cli-source");
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::write(&source, "binary").unwrap();
+        let bin_dir = root.join("bin");
+
+        let first = install_cli_symlink(&source, &bin_dir).unwrap();
+        let second = install_cli_symlink(&source, &bin_dir).unwrap();
+        assert_eq!(first, second);
+        assert_eq!(std::fs::read_link(second).unwrap(), source);
+
+        std::fs::remove_dir_all(root).unwrap();
+    }
 
     #[test]
     fn test_parse_shortcut_str_variations() {

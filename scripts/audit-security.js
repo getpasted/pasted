@@ -15,6 +15,8 @@ const tauriConfig = readJson('src-tauri/tauri.conf.json');
 const capability = readJson('src-tauri/capabilities/default.json');
 const packageJson = readJson('package.json');
 const frontendSource = readFilesRecursively('src', ['.ts', '.tsx']).join('\n');
+const rustSource = readFilesRecursively('src-tauri/src', ['.rs']).join('\n');
+const cargoToml = fs.readFileSync('src-tauri/Cargo.toml', 'utf8');
 const security = tauriConfig.app?.security;
 
 assert.ok(security?.csp, 'Production Tauri CSP must remain enabled');
@@ -27,7 +29,18 @@ assert.equal(security.csp['frame-src'], "'none'", 'CSP must block framed content
 
 assert.ok(!capability.permissions.includes('opener:default'), 'Unused opener permission must not return');
 assert.ok(!packageJson.dependencies?.['@tauri-apps/plugin-opener'], 'Unused opener dependency must not return');
+assert.ok(
+  !capability.permissions.some((permission) => permission.startsWith('shell:')),
+  'The webview must not receive Tauri shell permissions',
+);
+assert.ok(!packageJson.dependencies?.['@tauri-apps/plugin-shell'], 'The frontend must not gain shell access');
+assert.doesNotMatch(cargoToml, /tauri-plugin-shell/, 'The backend must not enable the Tauri shell plugin');
 assert.doesNotMatch(frontendSource, /dangerouslySetInnerHTML/, 'Render untrusted clip content as text, never raw HTML');
 assert.doesNotMatch(frontendSource, /\b(?:eval|Function)\s*\(/, 'Frontend dynamic code execution is forbidden');
+assert.doesNotMatch(
+  rustSource,
+  /Command::new\(\s*"(?:\/[^"\s]+\/)?(?:ba|z|fi)?sh"\s*\)/,
+  'Never restore a general-purpose shell interpreter to a transformation path',
+);
 
-console.log('Security configuration and frontend trust-boundary audit passed.');
+console.log('Security configuration, process, and frontend trust-boundary audit passed.');
