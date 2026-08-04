@@ -4,6 +4,8 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 
+const BACKUP_SCHEMA_VERSION: u32 = 5;
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ClipItem {
     pub id: i64,
@@ -2511,7 +2513,7 @@ impl DbState {
             .collect();
 
         let payload = BackupPayload {
-            version: 5,
+            version: BACKUP_SCHEMA_VERSION,
             timestamp: chrono::Utc::now().to_rfc3339(),
             clips,
             bins,
@@ -2528,6 +2530,12 @@ impl DbState {
     pub fn import_backup_json(&self, json_str: &str) -> Result<usize> {
         let payload: BackupPayload = serde_json::from_str(json_str)
             .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+        if !(1..=BACKUP_SCHEMA_VERSION).contains(&payload.version) {
+            return Err(rusqlite::Error::InvalidParameterName(format!(
+                "unsupported backup schema version {} (supported: 1-{BACKUP_SCHEMA_VERSION})",
+                payload.version
+            )));
+        }
         let mut conn = self.conn.lock();
         let tx = conn.transaction()?;
         let mut bin_id_map = std::collections::HashMap::new();
@@ -2699,13 +2707,12 @@ impl DbState {
                     content_type, text_content, html_content, image_base64, image_path, content_hash,
                     source_app, is_pinned, is_protected, pin_order, bin_id, note,
                     is_trashed, trashed_at, created_at
-                 ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)
+                 ) VALUES (?1, ?2, ?3, ?4, NULL, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)
                  ON CONFLICT(content_hash) DO UPDATE SET
                     content_type = excluded.content_type,
                     text_content = excluded.text_content,
                     html_content = excluded.html_content,
                     image_base64 = excluded.image_base64,
-                    image_path = excluded.image_path,
                     source_app = excluded.source_app,
                     is_pinned = excluded.is_pinned,
                     is_protected = excluded.is_protected,
@@ -2717,9 +2724,9 @@ impl DbState {
                     created_at = excluded.created_at",
                 params![
                     clip.content_type, clip.text_content, clip.html_content, clip.image_base64,
-                    clip.image_path, clip.content_hash, clip.source_app, clip.is_pinned,
-                    clip.is_protected, clip.pin_order, mapped_primary_bin, clip.note,
-                    clip.is_trashed, clip.trashed_at, clip.created_at,
+                    clip.content_hash, clip.source_app, clip.is_pinned, clip.is_protected,
+                    clip.pin_order, mapped_primary_bin, clip.note, clip.is_trashed,
+                    clip.trashed_at, clip.created_at,
                 ],
             )?;
             let new_clip_id = tx.query_row(
@@ -5140,9 +5147,36 @@ mod tests {
 
         let json = db.export_backup_json().unwrap();
         let payload: BackupPayload = serde_json::from_str(&json).unwrap();
-        assert_eq!(payload.version, 5);
+        assert_eq!(payload.version, BACKUP_SCHEMA_VERSION);
         assert_eq!(payload.clips.len(), 501);
         assert_eq!(db.get_clips(None, None, false).unwrap().len(), 501);
+    }
+
+    #[test]
+    fn backup_import_rejects_unknown_schema_without_mutating_data() {
+        let source = setup_test_db();
+        source
+            .save_clip(
+                "text",
+                Some("future data"),
+                None,
+                None,
+                "future-backup-item",
+                "Test",
+            )
+            .unwrap();
+        let mut payload: serde_json::Value =
+            serde_json::from_str(&source.export_backup_json().unwrap()).unwrap();
+        payload["version"] = serde_json::json!(BACKUP_SCHEMA_VERSION + 1);
+
+        let destination = setup_test_db();
+        let error = destination
+            .import_backup_json(&serde_json::to_string(&payload).unwrap())
+            .unwrap_err();
+        assert!(error
+            .to_string()
+            .contains("unsupported backup schema version"));
+        assert!(destination.get_clips(None, None, false).unwrap().is_empty());
     }
 
     #[test]
