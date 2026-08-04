@@ -1010,16 +1010,10 @@ pub fn get_sequential_status(
 // Window & Activation Policy Commands
 #[tauri::command]
 pub fn toggle_hud_window(app: AppHandle) -> Result<(), String> {
-    println!("[Pasted HUD] toggle_hud_window invoked!");
     if let Some(window) = app.get_webview_window("hud") {
         let is_vis = window.is_visible().unwrap_or(false);
-        println!(
-            "[Pasted HUD] Window 'hud' found! Currently visible: {}",
-            is_vis
-        );
         if is_vis {
             let _ = window.hide();
-            println!("[Pasted HUD] Hidden HUD window.");
         } else {
             let mut pos_payload = None;
 
@@ -1126,11 +1120,6 @@ pub fn toggle_hud_window(app: AppHandle) -> Result<(), String> {
                                 let _ = window.emit("hud_position_updated", payload.clone());
                                 pos_payload = Some(payload);
 
-                                println!(
-                                    "[Pasted HUD] Smart positioning: target_x={}, target_y={} (Flipped: {})",
-                                    target_x, target_y, is_flipped
-                                );
-
                                 if let Ok(ns_win_ptr) = window.ns_window() {
                                     let ns_win = ns_win_ptr as *mut Object;
                                     let _: () = msg_send![ns_win, setHasShadow: 0i8];
@@ -1168,10 +1157,9 @@ pub fn toggle_hud_window(app: AppHandle) -> Result<(), String> {
             if let Some(payload) = pos_payload {
                 let _ = window.emit("hud_position_updated", payload);
             }
-            println!("[Pasted HUD] Successfully showed and focused HUD window!");
         }
     } else {
-        println!("[Pasted HUD] Could not find window 'hud'");
+        return Err("HUD window is unavailable".to_string());
     }
     Ok(())
 }
@@ -1382,28 +1370,6 @@ pub fn parse_shortcut_str_all_layouts(
         None
     } else {
         Some(shortcuts)
-    }
-}
-
-#[allow(dead_code)]
-fn try_register_shortcut(app: &AppHandle, sc_str: &str) {
-    use tauri_plugin_global_shortcut::GlobalShortcutExt;
-    if let Some(shortcut) = parse_shortcut_str(sc_str) {
-        match app.global_shortcut().register(shortcut) {
-            Ok(_) => println!(
-                "[Pasted Shortcut Register Success] Registered '{}' -> {:?}",
-                sc_str, shortcut
-            ),
-            Err(e) => eprintln!(
-                "[Pasted Shortcut Register Error] Failed to register '{}' -> {:?}",
-                sc_str, e
-            ),
-        }
-    } else {
-        eprintln!(
-            "[Pasted Shortcut Parse Error] Could not parse shortcut string: '{}'",
-            sc_str
-        );
     }
 }
 

@@ -138,10 +138,6 @@ pub fn start_clipboard_monitor(
                 if is_blacklisted && auto_paused_app.is_none() {
                     is_auto_paused_clone.store(true, Ordering::Relaxed);
                     auto_paused_app = Some(active_app.clone());
-                    println!(
-                        "[Pasted Monitor] AUTO-PAUSED for blacklisted app: {}",
-                        active_app
-                    );
                     let _ = db_state.log_activity(
                         "recording_auto_paused",
                         &format!("Auto-paused recording for blacklisted app: {}", active_app),
@@ -156,7 +152,6 @@ pub fn start_clipboard_monitor(
                 } else if !is_blacklisted && auto_paused_app.is_some() {
                     if let Some(prev_app) = auto_paused_app.take() {
                         is_auto_paused_clone.store(false, Ordering::Relaxed);
-                        println!("[Pasted Monitor] AUTO-RESUMED after leaving {}", prev_app);
                         let _ = db_state.log_activity(
                             "recording_auto_resumed",
                             &format!("Auto-resumed recording after leaving {}", prev_app),
