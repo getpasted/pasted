@@ -186,6 +186,13 @@ export const ActivityLogView: React.FC = () => {
             <span>Transform Failed</span>
           </div>
         );
+      case 'transform_execution_cancelled':
+        return (
+          <div className="theme-badge flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold">
+            <Workflow className="w-3.5 h-3.5" />
+            <span>Transform Cancelled</span>
+          </div>
+        );
       default:
         return (
           <div className="theme-badge flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold">

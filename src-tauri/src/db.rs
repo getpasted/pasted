@@ -670,13 +670,20 @@ impl DbState {
             conn.execute("DROP TABLE transformation_recipes", [])?;
         }
 
-        let rebuild_execution_ledger = if table_exists(conn, "transformation_executions")? {
+        let execution_ledger_exists = table_exists(conn, "transformation_executions")?;
+        let legacy_execution_has_destination = execution_ledger_exists
+            && column_exists(conn, "transformation_executions", "destination_kind")?;
+        let legacy_execution_has_completed = execution_ledger_exists
+            && column_exists(conn, "transformation_executions", "completed_at")?;
+        let rebuild_execution_ledger = if execution_ledger_exists {
             let table_sql: String = conn.query_row(
                 "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'transformation_executions'",
                 [],
                 |row| row.get(0),
             )?;
-            !table_sql.contains("'transform'") || !table_sql.contains("'queued'")
+            !table_sql.contains("'transform'")
+                || !table_sql.contains("'queued'")
+                || !table_sql.contains("'cancelled'")
         } else {
             false
         };
@@ -790,7 +797,7 @@ impl DbState {
                 completed_at DATETIME,
                 duration_ms INTEGER CHECK (duration_ms IS NULL OR duration_ms >= 0),
                 status TEXT NOT NULL DEFAULT 'queued' CHECK (
-                    status IN ('queued', 'running', 'succeeded', 'failed')
+                    status IN ('queued', 'running', 'succeeded', 'failed', 'cancelled')
                 ),
                 error_summary TEXT,
                 input_hash TEXT NOT NULL,
@@ -831,16 +838,28 @@ impl DbState {
         )?;
 
         if rebuild_execution_ledger {
+            let destination_expression = if legacy_execution_has_destination {
+                "destination_kind"
+            } else {
+                "'preview'"
+            };
+            let completed_expression = if legacy_execution_has_completed {
+                "completed_at"
+            } else {
+                "CASE WHEN status = 'running' THEN NULL ELSE started_at END"
+            };
             conn.execute(
-                "INSERT INTO transformation_executions
+                &format!(
+                    "INSERT INTO transformation_executions
                     (id, target_kind, target_ref, target_revision, source_clip_id,
                      trigger_kind, destination_kind, started_at, completed_at,
                      duration_ms, status, error_summary, input_hash, output_hash)
                  SELECT id, target_kind, target_ref, target_revision, source_clip_id,
-                        trigger_kind, 'preview', started_at,
-                        CASE WHEN status = 'running' THEN NULL ELSE started_at END,
+                        trigger_kind, {destination_expression}, started_at,
+                        {completed_expression},
                         duration_ms, status, error_summary, input_hash, output_hash
-                 FROM transformation_executions_legacy",
+                 FROM transformation_executions_legacy"
+                ),
                 [],
             )?;
             conn.execute("DROP TABLE transformation_executions_legacy", [])?;
@@ -3085,6 +3104,22 @@ impl DbState {
                 error_summary,
                 execution_id
             ],
+        )?;
+        Ok(())
+    }
+
+    pub fn cancel_transformation_execution(
+        &self,
+        execution_id: &str,
+        duration_ms: i64,
+    ) -> Result<()> {
+        let conn = self.conn.lock();
+        conn.execute(
+            "UPDATE transformation_executions
+             SET duration_ms = ?1, status = 'cancelled', output_hash = NULL,
+                 error_summary = NULL, completed_at = CURRENT_TIMESTAMP
+             WHERE id = ?2",
+            params![duration_ms, execution_id],
         )?;
         Ok(())
     }

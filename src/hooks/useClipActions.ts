@@ -2,6 +2,7 @@ import { useCallback, useState, type Dispatch, type SetStateAction } from 'react
 import type { AppSettings, Bin, ClipItem, Pipeline, SavedTransform } from '../types';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { soundManager } from '../utils/sound';
+import { runTransformation } from '../utils/transformExecution';
 
 interface AssignOptions {
   includeSelection?: boolean;
@@ -43,6 +44,33 @@ export function useClipActions({
 }: ClipActionsInput) {
   const [transformingClipIds, setTransformingClipIds] = useState<Set<number>>(() => new Set());
   const [transformErrorsByClipId, setTransformErrorsByClipId] = useState<Map<number, string>>(() => new Map());
+
+  const runClipTransformationJob = useCallback(async <T,>(clipId: number, job: () => Promise<T>) => {
+    setTransformingClipIds((previous) => new Set(previous).add(clipId));
+    setTransformErrorsByClipId((previous) => {
+      if (!previous.has(clipId)) return previous;
+      const next = new Map(previous);
+      next.delete(clipId);
+      return next;
+    });
+    try {
+      return await job();
+    } catch (error) {
+      setTransformErrorsByClipId((previous) => {
+        const next = new Map(previous);
+        next.set(clipId, error instanceof Error ? error.message : String(error));
+        return next;
+      });
+      throw error;
+    } finally {
+      setTransformingClipIds((previous) => {
+        if (!previous.has(clipId)) return previous;
+        const next = new Set(previous);
+        next.delete(clipId);
+        return next;
+      });
+    }
+  }, []);
 
   const togglePin = useCallback((id: number) => {
     const isBatch = selectedClipIds.size > 1 && selectedClipIds.has(id);
@@ -335,40 +363,41 @@ export function useClipActions({
   ) => {
     if (!clip.text_content) return;
     try {
-      const transformed = await invoke<{ output: string }>('execute_transformation', {
-        request: {
-          input: clip.text_content,
-          target: { kind: 'pipeline', pipelineRef: pipeline.stableRef },
-          sourceClipId: clip.id,
-          trigger: 'manual',
-          destination,
-        },
+      await runClipTransformationJob(clip.id, async () => {
+        const transformed = await runTransformation(
+          clip.text_content!,
+          { kind: 'pipeline', pipelineRef: pipeline.stableRef },
+          { sourceClipId: clip.id, destination },
+        );
+        if (destination === 'paste') {
+          await invoke('paste_text_to_frontmost', { text: transformed.output });
+          soundManager.playPasteSound(settings.enableSounds);
+        } else {
+          await invoke('copy_clip_to_system', { text: transformed.output, imageBase64: null });
+          soundManager.playCopySound(settings.enableSounds);
+        }
       });
-      if (destination === 'paste') {
-        await invoke('paste_text_to_frontmost', { text: transformed.output });
-        soundManager.playPasteSound(settings.enableSounds);
-      } else {
-        await invoke('copy_clip_to_system', { text: transformed.output, imageBase64: null });
-        soundManager.playCopySound(settings.enableSounds);
-      }
     } catch (error) {
       console.error(`Failed to ${destination} Advanced Transform result:`, error);
     }
-  }, [settings.enableSounds]);
+  }, [runClipTransformationJob, settings.enableSounds]);
 
   const runTransformForClip = useCallback(async (clip: ClipItem, transform: SavedTransform) => {
     if (!clip.text_content) return;
     try {
-      const transformed = await invoke<{ output: string }>('execute_saved_transform', {
-        transformRef: transform.stableRef,
-        input: clip.text_content,
+      await runClipTransformationJob(clip.id, async () => {
+        const transformed = await runTransformation(
+          clip.text_content!,
+          { kind: 'transform', transformRef: transform.stableRef },
+          { sourceClipId: clip.id, destination: 'copy' },
+        );
+        await invoke('copy_clip_to_system', { text: transformed.output, imageBase64: null });
+        soundManager.playCopySound(settings.enableSounds);
       });
-      await invoke('copy_clip_to_system', { text: transformed.output, imageBase64: null });
-      soundManager.playCopySound(settings.enableSounds);
     } catch (error) {
       console.error('Failed to copy Transform result:', error);
     }
-  }, [settings.enableSounds]);
+  }, [runClipTransformationJob, settings.enableSounds]);
 
   const addToSequentialStack = useCallback(async (clip: ClipItem) => {
     const item = clip.text_content || (clip.content_type === 'image' ? '[Image Clip]' : 'Clip item');

@@ -1,6 +1,11 @@
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use std::collections::HashMap;
 use std::fmt;
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc, Mutex, OnceLock,
+};
 use std::time::Instant;
 
 use crate::db::{DbState, ResolvedCustomOperation, TransformationExecutionStart};
@@ -59,6 +64,7 @@ impl ExecutionTrigger {
     rename_all_fields = "camelCase"
 )]
 pub enum ExecutionTarget {
+    Transform { transform_ref: String },
     Operation { operation_ref: String },
     Pipeline { pipeline_ref: String },
 }
@@ -72,6 +78,8 @@ pub struct ExecutionRequest {
     pub trigger: ExecutionTrigger,
     #[serde(default)]
     pub destination: ExecutionDestination,
+    #[serde(default)]
+    pub client_request_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -79,6 +87,9 @@ pub struct ExecutionRequest {
 pub struct ExecutionOutcome {
     pub execution_id: String,
     pub output: String,
+    pub connection_id: Option<String>,
+    pub connection_name: Option<String>,
+    pub duration_ms: i64,
 }
 
 const LAST_PIPELINE_SETTING: &str = "lastExecutedPipelineRef";
@@ -120,6 +131,71 @@ impl ExecutionError {
     }
 }
 
+static EXECUTION_CANCELLATIONS: OnceLock<Mutex<HashMap<String, Arc<AtomicBool>>>> = OnceLock::new();
+
+fn cancellation_registry() -> &'static Mutex<HashMap<String, Arc<AtomicBool>>> {
+    EXECUTION_CANCELLATIONS.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+pub struct CancellationRegistration {
+    request_id: String,
+    flag: Arc<AtomicBool>,
+}
+
+impl CancellationRegistration {
+    pub fn register(request_id: String) -> Self {
+        let flag = Arc::new(AtomicBool::new(false));
+        cancellation_registry()
+            .lock()
+            .expect("transformation cancellation registry poisoned")
+            .insert(request_id.clone(), Arc::clone(&flag));
+        Self { request_id, flag }
+    }
+
+    pub fn flag(&self) -> &AtomicBool {
+        self.flag.as_ref()
+    }
+}
+
+impl Drop for CancellationRegistration {
+    fn drop(&mut self) {
+        let mut registry = cancellation_registry()
+            .lock()
+            .expect("transformation cancellation registry poisoned");
+        if registry
+            .get(&self.request_id)
+            .is_some_and(|flag| Arc::ptr_eq(flag, &self.flag))
+        {
+            registry.remove(&self.request_id);
+        }
+    }
+}
+
+pub fn cancel_execution(client_request_id: &str) -> bool {
+    let flag = cancellation_registry()
+        .lock()
+        .expect("transformation cancellation registry poisoned")
+        .get(client_request_id)
+        .cloned();
+    if let Some(flag) = flag {
+        flag.store(true, Ordering::Release);
+        true
+    } else {
+        false
+    }
+}
+
+fn ensure_not_cancelled(cancellation: Option<&AtomicBool>) -> Result<(), ExecutionError> {
+    if cancellation.is_some_and(|flag| flag.load(Ordering::Acquire)) {
+        Err(ExecutionError::new(
+            "execution_cancelled",
+            "Transform was cancelled",
+        ))
+    } else {
+        Ok(())
+    }
+}
+
 impl fmt::Display for ExecutionError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(formatter, "{}", self.safe_summary())
@@ -152,7 +228,9 @@ fn execute_custom_operation(
     input: &str,
     operation: &ResolvedCustomOperation,
     override_config: Option<&str>,
+    cancellation: Option<&AtomicBool>,
 ) -> Result<String, ExecutionError> {
+    ensure_not_cancelled(cancellation)?;
     if !operation.enabled {
         return Err(ExecutionError::new(
             "operation_disabled",
@@ -211,6 +289,7 @@ fn execute_custom_operation(
                 input,
                 instructions,
                 connection_id,
+                cancellation,
             )
             .map_err(|error| ExecutionError::new(error.code, error.message))
         }
@@ -242,7 +321,9 @@ fn execute_operation_ref(
     input: &str,
     operation_ref: &str,
     override_config: Option<&str>,
+    cancellation: Option<&AtomicBool>,
 ) -> Result<String, ExecutionError> {
+    ensure_not_cancelled(cancellation)?;
     if let Some(key) = operation_ref.strip_prefix("builtin:") {
         if !is_builtin_operation(key) {
             return Err(ExecutionError::new(
@@ -263,7 +344,7 @@ fn execute_operation_ref(
                 format!("Unknown operation reference: {operation_ref}"),
             )
         })?;
-    execute_custom_operation(db, input, &operation, override_config)
+    execute_custom_operation(db, input, &operation, override_config, cancellation)
 }
 
 pub(crate) fn execute_operation_inline(
@@ -272,13 +353,14 @@ pub(crate) fn execute_operation_inline(
     operation_ref: &str,
     config_json: Option<&str>,
 ) -> Result<String, ExecutionError> {
-    execute_operation_ref(db, input, operation_ref, config_json)
+    execute_operation_ref(db, input, operation_ref, config_json, None)
 }
 
 fn execute_pipeline_ref(
     db: &DbState,
     input: &str,
     pipeline_ref: &str,
+    cancellation: Option<&AtomicBool>,
 ) -> Result<(String, i64), ExecutionError> {
     let pipeline = db
         .resolve_pipeline(pipeline_ref)
@@ -291,11 +373,13 @@ fn execute_pipeline_ref(
         })?;
     let mut current = input.to_string();
     for step in &pipeline.steps {
+        ensure_not_cancelled(cancellation)?;
         match execute_operation_ref(
             db,
             &current,
             &step.operation_ref,
             step.config_json.as_deref(),
+            cancellation,
         ) {
             Ok(output) => current = output,
             Err(_error) if step.failure_policy == "skip" => continue,
@@ -311,8 +395,61 @@ pub fn execute(
     db: &DbState,
     request: ExecutionRequest,
 ) -> Result<ExecutionOutcome, ExecutionError> {
+    execute_with_cancellation(db, request, None)
+}
+
+pub fn execute_with_cancellation(
+    db: &DbState,
+    request: ExecutionRequest,
+    cancellation: Option<&AtomicBool>,
+) -> Result<ExecutionOutcome, ExecutionError> {
+    if let ExecutionTarget::Transform { transform_ref } = &request.target {
+        let result = crate::intelligence_executor::execute_saved_transform(
+            db,
+            transform_ref,
+            request.input,
+            request.source_clip_id,
+            request.trigger.as_str(),
+            request.destination.as_str(),
+            cancellation,
+        );
+        return match result {
+            Ok((transform_name, execution_id, outcome)) => {
+                let _ = db.log_activity(
+                    "transform_executed",
+                    &format!(
+                        "Ran Transform: {} in {} ms",
+                        transform_name, outcome.duration_ms
+                    ),
+                );
+                Ok(ExecutionOutcome {
+                    execution_id,
+                    output: outcome.output,
+                    connection_id: outcome.connection_id,
+                    connection_name: outcome.connection_name,
+                    duration_ms: outcome.duration_ms,
+                })
+            }
+            Err(error) => {
+                if error.code == "execution_cancelled" {
+                    let _ = db.log_activity(
+                        "transform_execution_cancelled",
+                        &format!("Cancelled Transform: {transform_ref}"),
+                    );
+                } else {
+                    let _ = db.log_activity(
+                        "transform_execution_failed",
+                        &format!("Transform failed: {} ({})", transform_ref, error.code),
+                    );
+                }
+                Err(ExecutionError::new(error.code, error.message))
+            }
+        };
+    }
+
     let started = Instant::now();
     let (target_kind, target_ref) = match &request.target {
+        ExecutionTarget::Transform { .. } => unreachable!("Transforms return above"),
         ExecutionTarget::Operation { operation_ref } => ("operation", operation_ref.clone()),
         ExecutionTarget::Pipeline { pipeline_ref } => ("pipeline", pipeline_ref.clone()),
     };
@@ -320,6 +457,7 @@ pub fn execute(
     // Resolve the revision before opening the execution record, but perform the
     // actual work through the same operation path in both direct and pipeline runs.
     let target_revision = match &request.target {
+        ExecutionTarget::Transform { .. } => unreachable!("Transforms return above"),
         ExecutionTarget::Pipeline { pipeline_ref } => db
             .resolve_pipeline(pipeline_ref)
             .map_err(database_error)?
@@ -341,13 +479,19 @@ pub fn execute(
         .map_err(database_error)?;
 
     let result = match &request.target {
+        ExecutionTarget::Transform { .. } => unreachable!("Transforms return above"),
         ExecutionTarget::Operation { operation_ref } => {
-            execute_operation_ref(db, &request.input, operation_ref, None)
+            execute_operation_ref(db, &request.input, operation_ref, None, cancellation)
         }
         ExecutionTarget::Pipeline { pipeline_ref } => {
-            execute_pipeline_ref(db, &request.input, pipeline_ref).map(|(output, _)| output)
+            execute_pipeline_ref(db, &request.input, pipeline_ref, cancellation)
+                .map(|(output, _)| output)
         }
-    };
+    }
+    .and_then(|output| {
+        ensure_not_cancelled(cancellation)?;
+        Ok(output)
+    });
     let duration_ms = started.elapsed().as_millis().min(i64::MAX as u128) as i64;
 
     match result {
@@ -366,12 +510,25 @@ pub fn execute(
             Ok(ExecutionOutcome {
                 execution_id,
                 output,
+                connection_id: None,
+                connection_name: None,
+                duration_ms,
             })
         }
         Err(error) => {
             let summary = error.safe_summary();
-            db.finish_transformation_execution(&execution_id, duration_ms, None, Some(&summary))
+            if error.code == "execution_cancelled" {
+                db.cancel_transformation_execution(&execution_id, duration_ms)
+                    .map_err(database_error)?;
+            } else {
+                db.finish_transformation_execution(
+                    &execution_id,
+                    duration_ms,
+                    None,
+                    Some(&summary),
+                )
                 .map_err(database_error)?;
+            }
             Err(error)
         }
     }
@@ -404,6 +561,7 @@ pub fn execute_last_pipeline(
             source_clip_id,
             trigger,
             destination: ExecutionDestination::Preview,
+            client_request_id: None,
         },
     );
     if matches!(&result, Err(error) if error.code == "unknown_pipeline") {
@@ -429,6 +587,7 @@ pub fn execute_shortcut_pipeline(
                 source_clip_id: None,
                 trigger: ExecutionTrigger::Shortcut,
                 destination: ExecutionDestination::Paste,
+                client_request_id: None,
             },
         ),
         None => execute_last_pipeline(db, input, None, ExecutionTrigger::Shortcut),
@@ -493,6 +652,7 @@ mod tests {
             source_clip_id: None,
             trigger: ExecutionTrigger::Manual,
             destination: ExecutionDestination::Preview,
+            client_request_id: None,
         }
     }
 
@@ -578,6 +738,61 @@ mod tests {
     }
 
     #[test]
+    fn saved_transforms_use_the_same_execution_contract_and_ledger() {
+        let db = test_db();
+        let clip = db
+            .save_clip(
+                "text",
+                Some("hello"),
+                None,
+                None,
+                "unified-transform",
+                "Test",
+            )
+            .unwrap();
+        let plan = crate::transformation_intent::TransformationPlan {
+            schema_version: crate::transformation_intent::TRANSFORMATION_PLAN_SCHEMA_VERSION,
+            intent: "Uppercase".to_string(),
+            summary: "Uppercase".to_string(),
+            planning_mode: crate::transformation_intent::IntentPlanningMode::Pinned,
+            steps: vec![crate::transformation_intent::PlannedTransformationStep {
+                name: "Uppercase".to_string(),
+                rationale: "Replayable".to_string(),
+                scope: crate::transformation_intent::StepExecutionScope::WholeInput,
+                executor: crate::transformation_intent::PlannedExecutor::Deterministic {
+                    operation_ref: "builtin:uppercase".to_string(),
+                    config_json: None,
+                },
+            }],
+        };
+        let transform = db.create_saved_transform("Uppercase", &plan, None).unwrap();
+
+        let outcome = execute(
+            &db,
+            ExecutionRequest {
+                input: "hello".to_string(),
+                target: ExecutionTarget::Transform {
+                    transform_ref: transform.stable_ref.clone(),
+                },
+                source_clip_id: Some(clip.id),
+                trigger: ExecutionTrigger::Manual,
+                destination: ExecutionDestination::Preview,
+                client_request_id: None,
+            },
+        )
+        .unwrap();
+
+        assert_eq!(outcome.output, "HELLO");
+        assert_eq!(outcome.connection_id, None);
+        assert!(!outcome.execution_id.is_empty());
+        let executions = db.get_clip_transformation_executions(clip.id).unwrap();
+        assert_eq!(executions.len(), 1);
+        assert_eq!(executions[0].id, outcome.execution_id);
+        assert_eq!(executions[0].target_kind, "transform");
+        assert_eq!(executions[0].status, "succeeded");
+    }
+
+    #[test]
     fn pipeline_errors_identify_the_step_and_operation() {
         let db = test_db();
         let pipeline_id = {
@@ -613,6 +828,47 @@ mod tests {
         assert_eq!(error.code, "unknown_operation");
         assert_eq!(error.step, Some(2));
         assert_eq!(error.operation_ref.as_deref(), Some("builtin:missing"));
+    }
+
+    #[test]
+    fn cancelled_execution_is_recorded_and_does_not_produce_output() {
+        let db = test_db();
+        let cancellation = AtomicBool::new(true);
+        let error = execute_with_cancellation(
+            &db,
+            request(
+                ExecutionTarget::Operation {
+                    operation_ref: "builtin:uppercase".to_string(),
+                },
+                "hello",
+            ),
+            Some(&cancellation),
+        )
+        .unwrap_err();
+
+        assert_eq!(error.code, "execution_cancelled");
+        let conn = db.conn.lock();
+        let (status, output_hash): (String, Option<String>) = conn
+            .query_row(
+                "SELECT status, output_hash FROM transformation_executions LIMIT 1",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(status, "cancelled");
+        assert_eq!(output_hash, None);
+    }
+
+    #[test]
+    fn cancellation_registration_targets_only_the_current_request() {
+        let first = CancellationRegistration::register("same-request".to_string());
+        let second = CancellationRegistration::register("same-request".to_string());
+        drop(first);
+
+        assert!(cancel_execution("same-request"));
+        assert!(second.flag().load(Ordering::Acquire));
+        drop(second);
+        assert!(!cancel_execution("same-request"));
     }
 
     #[test]

@@ -1,6 +1,6 @@
 import { AlertCircle, CheckCircle2, LoaderCircle, RotateCcw, X } from 'lucide-react';
 
-export type PlaygroundRunState = 'idle' | 'running' | 'success' | 'error' | 'stopped';
+export type PlaygroundRunState = 'idle' | 'running' | 'success' | 'error' | 'cancelled';
 
 interface PlaygroundRunStatusProps {
   state: PlaygroundRunState;
@@ -20,19 +20,19 @@ export function PlaygroundRunStatus({ state, label, durationMs, onRetry, onStop 
       {state === 'running' && <LoaderCircle className="h-3.5 w-3.5 shrink-0 animate-spin" />}
       {state === 'success' && <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />}
       {state === 'error' && <AlertCircle className="h-3.5 w-3.5 shrink-0" />}
-      {state === 'stopped' && <X className="h-3.5 w-3.5 shrink-0" />}
+      {state === 'cancelled' && <X className="h-3.5 w-3.5 shrink-0" />}
       <span className="min-w-0 flex-1 truncate font-semibold">
         {state === 'running' && `Running${label ? ` ${label}` : ''}…`}
         {state === 'success' && `Ready${duration ? ` · ${duration}` : ''}`}
         {state === 'error' && `Couldn’t run${label ? ` ${label}` : ''}`}
-        {state === 'stopped' && 'Stopped waiting'}
+        {state === 'cancelled' && 'Cancelled'}
       </span>
       {state === 'running' && onStop && (
-        <button type="button" onClick={onStop} className="playground-run-status-action rounded-md px-2 py-1 font-semibold" title="Stop waiting; the provider may finish in the background">
-          Stop
+        <button type="button" onClick={onStop} className="playground-run-status-action rounded-md px-2 py-1 font-semibold" title="Cancel Transform">
+          Cancel
         </button>
       )}
-      {(state === 'error' || state === 'stopped') && onRetry && (
+      {(state === 'error' || state === 'cancelled') && onRetry && (
         <button type="button" onClick={onRetry} className="playground-run-status-action inline-flex items-center gap-1 rounded-md px-2 py-1 font-semibold">
           <RotateCcw className="h-3 w-3" /> Retry
         </button>

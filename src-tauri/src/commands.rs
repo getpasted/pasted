@@ -163,15 +163,17 @@ pub async fn assign_clip_bin(
         else {
             return Ok(None);
         };
-        let (transform_name, outcome) = crate::intelligence_executor::execute_saved_transform(
-            &db,
-            &transform_ref,
-            input.clone(),
-            Some(clip_id),
-            "bin",
-            "replace",
-        )
-        .map_err(|error| error.message)?;
+        let (transform_name, _execution_id, outcome) =
+            crate::intelligence_executor::execute_saved_transform(
+                &db,
+                &transform_ref,
+                input.clone(),
+                Some(clip_id),
+                "bin",
+                "replace",
+                None,
+            )
+            .map_err(|error| error.message)?;
         if outcome.output == input {
             let _ = db.log_activity(
                 "bin_transform_no_change",
@@ -730,53 +732,6 @@ pub fn delete_saved_transform(
 }
 
 #[tauri::command]
-pub async fn execute_saved_transform(
-    transform_ref: String,
-    input: String,
-    db: State<'_, Arc<DbState>>,
-) -> Result<
-    crate::intelligence_executor::ExecutePlanOutcome,
-    crate::intelligence_executor::IntelligenceExecutionError,
-> {
-    let db = Arc::clone(&db);
-    tauri::async_runtime::spawn_blocking(move || {
-        let result = crate::intelligence_executor::execute_saved_transform(
-            &db,
-            &transform_ref,
-            input,
-            None,
-            "manual",
-            "preview",
-        );
-        match &result {
-            Ok((transform_name, outcome)) => {
-                let _ = db.log_activity(
-                    "transform_executed",
-                    &format!(
-                        "Ran Transform: {} in {} ms",
-                        transform_name, outcome.duration_ms
-                    ),
-                );
-            }
-            Err(error) => {
-                let _ = db.log_activity(
-                    "transform_execution_failed",
-                    &format!("Transform failed: {} ({})", transform_ref, error.code),
-                );
-            }
-        }
-        result.map(|(_, outcome)| outcome)
-    })
-    .await
-    .map_err(
-        |error| crate::intelligence_executor::IntelligenceExecutionError {
-            code: "executor_join_failed",
-            message: error.to_string(),
-        },
-    )?
-}
-
-#[tauri::command]
 pub fn apply_transform_preview_to_clip(
     clip_id: i64,
     transform_ref: String,
@@ -863,9 +818,19 @@ pub async fn execute_transformation(
     crate::transformation_service::ExecutionOutcome,
     crate::transformation_service::ExecutionError,
 > {
+    let cancellation = request
+        .client_request_id
+        .clone()
+        .map(crate::transformation_service::CancellationRegistration::register);
     let db = Arc::clone(&db);
     tauri::async_runtime::spawn_blocking(move || {
-        crate::transformation_service::execute(&db, request)
+        crate::transformation_service::execute_with_cancellation(
+            &db,
+            request,
+            cancellation
+                .as_ref()
+                .map(|registration| registration.flag()),
+        )
     })
     .await
     .map_err(|error| crate::transformation_service::ExecutionError {
@@ -874,6 +839,11 @@ pub async fn execute_transformation(
         step: None,
         operation_ref: None,
     })?
+}
+
+#[tauri::command]
+pub fn cancel_transformation_execution(client_request_id: String) -> bool {
+    crate::transformation_service::cancel_execution(&client_request_id)
 }
 
 // Sequential Paste Commands

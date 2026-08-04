@@ -1,4 +1,4 @@
-import { Check, LoaderCircle, Workflow } from 'lucide-react';
+import { Check, LoaderCircle, RotateCcw, Workflow } from 'lucide-react';
 
 interface ClipTransformBarProps {
   activeTransformName: string;
@@ -6,6 +6,7 @@ interface ClipTransformBarProps {
   hasPreview: boolean;
   error: string | null;
   onApply: () => void;
+  onRetry: () => void;
   onReset: () => void;
 }
 
@@ -15,6 +16,7 @@ export function ClipTransformBar({
   hasPreview,
   error,
   onApply,
+  onRetry,
   onReset,
 }: ClipTransformBarProps) {
   return (
@@ -50,7 +52,12 @@ export function ClipTransformBar({
         <p className="theme-text-muted mt-2 text-[10px]">Preview only—Apply replaces the clip and keeps the original in Revision History.</p>
       )}
       {error && (
-        <p role="status" className="theme-status-error mt-2 rounded-lg border px-2.5 py-1.5 text-[11px]">{error}</p>
+        <div role="status" className="theme-status-error mt-2 flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-[11px]">
+          <span className="min-w-0 flex-1">{error}</span>
+          <button type="button" onClick={onRetry} className="playground-run-status-action inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 font-semibold">
+            <RotateCcw className="h-3 w-3" /> Retry
+          </button>
+        </div>
       )}
     </div>
   );

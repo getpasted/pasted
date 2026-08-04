@@ -215,6 +215,10 @@ export interface ExecutePlanOutcome {
   durationMs: number;
 }
 
+export interface TransformationExecutionOutcome extends ExecutePlanOutcome {
+  executionId: string;
+}
+
 export interface ClipTransformationProvenance {
   transformRef: string;
   transformName: string;
@@ -224,7 +228,7 @@ export interface ClipTransformationProvenance {
   createdAt: string;
 }
 
-export type TransformExecutionStatus = 'queued' | 'running' | 'succeeded' | 'failed';
+export type TransformExecutionStatus = 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled';
 export type TransformExecutionTrigger = 'manual' | 'shortcut' | 'bin' | 'automation' | 'cli';
 export type TransformExecutionDestination = 'preview' | 'replace' | 'copy' | 'paste' | 'route';
 

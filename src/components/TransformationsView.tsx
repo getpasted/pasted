@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import type { ExecutePlanOutcome, Operation, Pipeline, SavedTransform } from '../types';
+import type { Operation, Pipeline, SavedTransform } from '../types';
 import { Trash2, Code2, Edit3, Copy, Play, Download, Plus, Sparkles, Workflow } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { PipelineEditorModal } from './PipelineEditorModal';
@@ -13,6 +13,7 @@ import { TransformComposerModal } from './TransformComposerModal';
 import type { PlaygroundRunState } from './PlaygroundRunStatus';
 import { TransformationPlayground, type PlaygroundTarget } from './TransformationPlayground';
 import { FloatingActionStrip } from './FloatingActionStrip';
+import { startTransformation, type TransformationExecutionHandle } from '../utils/transformExecution';
 
 interface TransformationsViewProps {
   pipelines: Pipeline[];
@@ -46,6 +47,7 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({ pipeli
   const [playgroundRunState, setPlaygroundRunState] = useState<PlaygroundRunState>('idle');
   const [playgroundDurationMs, setPlaygroundDurationMs] = useState<number>();
   const playgroundRequestId = useRef(0);
+  const playgroundExecution = useRef<TransformationExecutionHandle | null>(null);
   const [pipelineContextMenu, setPipelineContextMenu] = useState<{ x: number; y: number; pipeline: Pipeline } | null>(null);
   const [transformContextMenu, setTransformContextMenu] = useState<{ x: number; y: number; transform: SavedTransform } | null>(null);
 
@@ -121,34 +123,28 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({ pipeli
     setPlaygroundDurationMs(undefined);
     setTestError('');
     try {
-      const res = playgroundTarget.kind === 'transform'
-        ? await invoke<ExecutePlanOutcome>('execute_saved_transform', {
-          transformRef: playgroundTarget.item.stableRef,
-          input: testText,
-        })
-        : await invoke<{ output: string }>('execute_transformation', {
-          request: {
-            input: testText,
-            target: playgroundTarget.kind === 'operation'
-              ? { kind: 'operation', operationRef: playgroundTarget.item.stable_id }
-              : { kind: 'pipeline', pipelineRef: playgroundTarget.item.stableRef },
-            sourceClipId: null,
-            trigger: 'manual',
-            destination: 'preview',
-          },
-        });
+      const target = playgroundTarget.kind === 'transform'
+        ? { kind: 'transform' as const, transformRef: playgroundTarget.item.stableRef }
+        : playgroundTarget.kind === 'operation'
+          ? { kind: 'operation' as const, operationRef: playgroundTarget.item.stable_id }
+          : { kind: 'pipeline' as const, pipelineRef: playgroundTarget.item.stableRef };
+      const execution = startTransformation(testText, target);
+      playgroundExecution.current = execution;
+      const res = await execution.promise;
       if (requestId !== playgroundRequestId.current) return;
       setTestResult(res.output);
       setPlaygroundRunState('success');
-      setPlaygroundDurationMs(
-        playgroundTarget.kind === 'transform'
-          ? (res as ExecutePlanOutcome).durationMs
-          : performance.now() - startedAt,
-      );
+      setPlaygroundDurationMs(res.durationMs || performance.now() - startedAt);
     } catch (e) {
       if (requestId !== playgroundRequestId.current) return;
+      if (String(e).includes('execution_cancelled')) {
+        setPlaygroundRunState('cancelled');
+        return;
+      }
       setTestError(String(e));
       setPlaygroundRunState('error');
+    } finally {
+      if (requestId === playgroundRequestId.current) playgroundExecution.current = null;
     }
   };
 
@@ -158,9 +154,11 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({ pipeli
       .catch(console.error);
   };
 
-  const stopWaitingForPlayground = () => {
+  const cancelPlayground = () => {
+    void playgroundExecution.current?.cancel();
+    playgroundExecution.current = null;
     playgroundRequestId.current += 1;
-    setPlaygroundRunState('stopped');
+    setPlaygroundRunState('cancelled');
   };
 
   const handleDeleteTransform = async (transformRef: string) => {
@@ -260,7 +258,7 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({ pipeli
           onInputChange={setTestText}
           onRun={() => void runPlayground()}
           onRetry={() => void runPlayground()}
-          onStop={stopWaitingForPlayground}
+          onStop={cancelPlayground}
         />
       ) : (
         <>
@@ -407,7 +405,7 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({ pipeli
                       key={f.id}
                       role="button"
                       tabIndex={0}
-                      aria-label={`Preview ${f.name} Pipeline`}
+                      aria-label={`Preview ${f.name}`}
                       onClick={() => choosePlaygroundTarget({ kind: 'pipeline', item: f })}
                       onKeyDown={(event) => {
                         if (event.key === 'Enter' || event.key === ' ') {

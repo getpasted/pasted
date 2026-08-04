@@ -210,12 +210,22 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       return null as unknown as T;
     }
     case 'execute_transformation': {
-      const request = args?.request as { input?: string; target?: { kind?: string; pipelineRef?: string; operationRef?: string } } | undefined;
+      const request = args?.request as { input?: string; target?: { kind?: string; transformRef?: string; pipelineRef?: string; operationRef?: string } } | undefined;
       const input = request?.input || '';
-      const targetRef = request?.target?.pipelineRef || request?.target?.operationRef || '';
-      const output = targetRef.includes('uppercase') ? input.toUpperCase() : input;
-      return { executionId: 'mock-execution', output } as unknown as T;
+      const targetRef = request?.target?.transformRef || request?.target?.pipelineRef || request?.target?.operationRef || '';
+      const output = request?.target?.kind === 'transform'
+        ? `# ${input}`
+        : targetRef.includes('uppercase') ? input.toUpperCase() : input;
+      return {
+        executionId: 'mock-execution',
+        output,
+        connectionId: request?.target?.kind === 'transform' ? 'mock-detected-codex_cli' : null,
+        connectionName: request?.target?.kind === 'transform' ? 'Codex CLI' : null,
+        durationMs: request?.target?.kind === 'transform' ? 260 : 1,
+      } as unknown as T;
     }
+    case 'cancel_transformation_execution':
+      return true as unknown as T;
     case 'plan_transformation_intent': {
       const request = args?.request as { intent?: string; sampleInput?: string; planningMode?: string } | undefined;
       await new Promise((resolve) => window.setTimeout(resolve, 220));
@@ -288,16 +298,6 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
     case 'delete_saved_transform':
       mockSavedTransforms = mockSavedTransforms.filter((transform) => transform.stableRef !== args?.transformRef);
       return null as unknown as T;
-    case 'execute_saved_transform': {
-      const input = String(args?.input || '');
-      await new Promise((resolve) => window.setTimeout(resolve, 260));
-      return {
-        output: `# ${input}`,
-        connectionId: 'mock-detected-codex_cli',
-        connectionName: 'Codex CLI',
-        durationMs: 260,
-      } as unknown as T;
-    }
     case 'apply_transform_preview_to_clip': {
       const clipId = Number(args?.clipId);
       const clip = mockClips.find((item) => item.id === clipId);

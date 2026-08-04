@@ -125,8 +125,9 @@ fn main() -> Result<()> {
                         clip_id,
                         "cli",
                         if replace { "replace" } else { "preview" },
+                        None,
                     ) {
-                        Ok((_name, outcome)) => {
+                        Ok((_name, _execution_id, outcome)) => {
                             if let Some(clip_id) = clip_id.filter(|_| replace) {
                                 if let Err(error) =
                                     db.apply_transform_output_to_clip(TransformClipApplication {

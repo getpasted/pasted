@@ -4,6 +4,7 @@ use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use crate::db::{
@@ -68,7 +69,8 @@ pub fn execute_saved_transform(
     source_clip_id: Option<i64>,
     trigger_kind: &str,
     destination_kind: &str,
-) -> Result<(String, ExecutePlanOutcome), IntelligenceExecutionError> {
+    cancellation: Option<&AtomicBool>,
+) -> Result<(String, String, ExecutePlanOutcome), IntelligenceExecutionError> {
     let transform = db
         .resolve_saved_transform(transform_ref)
         .map_err(|error| IntelligenceExecutionError::new("database_error", error.to_string()))?
@@ -93,13 +95,14 @@ pub fn execute_saved_transform(
     db.start_transformation_execution(&execution_id)
         .map_err(|error| IntelligenceExecutionError::new("database_error", error.to_string()))?;
     let started = Instant::now();
-    let result = execute_plan(
+    let result = execute_plan_with_cancellation(
         db,
         ExecutePlanRequest {
             plan: transform.plan,
             input,
             connection_id: transform.connection_id,
         },
+        cancellation,
     );
     match result {
         Ok(outcome) => {
@@ -112,16 +115,20 @@ pub fn execute_saved_transform(
             .map_err(|error| {
                 IntelligenceExecutionError::new("database_error", error.to_string())
             })?;
-            Ok((transform_name, outcome))
+            Ok((transform_name, execution_id, outcome))
         }
         Err(error) => {
             let duration_ms = started.elapsed().as_millis().min(i64::MAX as u128) as i64;
-            let _ = db.finish_transformation_execution(
-                &execution_id,
-                duration_ms,
-                None,
-                Some(&format!("{}: {}", error.code, error.message)),
-            );
+            if error.code == "execution_cancelled" {
+                let _ = db.cancel_transformation_execution(&execution_id, duration_ms);
+            } else {
+                let _ = db.finish_transformation_execution(
+                    &execution_id,
+                    duration_ms,
+                    None,
+                    Some(&format!("{}: {}", error.code, error.message)),
+                );
+            }
             Err(error)
         }
     }
@@ -371,7 +378,9 @@ fn execute_semantic_step(
     instructions: &str,
     scope: StepExecutionScope,
     input: &str,
+    cancellation: Option<&AtomicBool>,
 ) -> Result<String, IntelligenceExecutionError> {
+    ensure_not_cancelled(cancellation)?;
     let executable = connection.endpoint.as_deref().ok_or_else(|| {
         IntelligenceExecutionError::new(
             "connection_unavailable",
@@ -429,6 +438,14 @@ fn execute_semantic_step(
         .write_all(semantic_prompt(instructions, scope, input).as_bytes())
         .map_err(|error| IntelligenceExecutionError::new("connection_failed", error.to_string()))?;
     let status = loop {
+        if cancellation.is_some_and(|flag| flag.load(Ordering::Acquire)) {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err(IntelligenceExecutionError::new(
+                "execution_cancelled",
+                "Transform was cancelled",
+            ));
+        }
         if let Some(status) = child.try_wait().map_err(|error| {
             IntelligenceExecutionError::new("connection_failed", error.to_string())
         })? {
@@ -471,6 +488,7 @@ pub(crate) fn execute_semantic_operation(
     input: &str,
     instructions: &str,
     connection_id: Option<&str>,
+    cancellation: Option<&AtomicBool>,
 ) -> Result<String, IntelligenceExecutionError> {
     let connection = select_connection(db, connection_id)?;
     execute_semantic_step(
@@ -478,12 +496,34 @@ pub(crate) fn execute_semantic_operation(
         instructions,
         StepExecutionScope::WholeInput,
         input,
+        cancellation,
     )
 }
 
 pub fn execute_plan(
     db: &DbState,
     request: ExecutePlanRequest,
+) -> Result<ExecutePlanOutcome, IntelligenceExecutionError> {
+    execute_plan_with_cancellation(db, request, None)
+}
+
+fn ensure_not_cancelled(
+    cancellation: Option<&AtomicBool>,
+) -> Result<(), IntelligenceExecutionError> {
+    if cancellation.is_some_and(|flag| flag.load(Ordering::Acquire)) {
+        Err(IntelligenceExecutionError::new(
+            "execution_cancelled",
+            "Transform was cancelled",
+        ))
+    } else {
+        Ok(())
+    }
+}
+
+fn execute_plan_with_cancellation(
+    db: &DbState,
+    request: ExecutePlanRequest,
+    cancellation: Option<&AtomicBool>,
 ) -> Result<ExecutePlanOutcome, IntelligenceExecutionError> {
     request
         .plan
@@ -500,6 +540,7 @@ pub fn execute_plan(
     let started = Instant::now();
     let mut current = request.input;
     for (index, step) in request.plan.steps.iter().enumerate() {
+        ensure_not_cancelled(cancellation)?;
         let result = match &step.executor {
             PlannedExecutor::Deterministic {
                 operation_ref,
@@ -518,7 +559,7 @@ pub fn execute_plan(
                         "This Transform requires an enabled intelligence connection",
                     )
                 })?;
-                execute_semantic_step(connection, instructions, step.scope, &current)
+                execute_semantic_step(connection, instructions, step.scope, &current, cancellation)
             }
         };
         current = result.map_err(|error| {
@@ -527,6 +568,7 @@ pub fn execute_plan(
                 format!("Step {} ({}): {}", index + 1, step.name, error.message),
             )
         })?;
+        ensure_not_cancelled(cancellation)?;
     }
     Ok(ExecutePlanOutcome {
         output: current,
@@ -562,9 +604,10 @@ pub fn apply_smart_bin_transforms_for_clip(
             Some(clip_id),
             "bin",
             "replace",
+            None,
         );
         match result {
-            Ok((transform_name, outcome)) if outcome.output != current => {
+            Ok((transform_name, _execution_id, outcome)) if outcome.output != current => {
                 if db
                     .apply_transform_output_to_clip(TransformClipApplication {
                         clip_id,
@@ -912,15 +955,17 @@ mod tests {
             }],
         };
         let transform = db.create_saved_transform("Uppercase", &plan, None).unwrap();
-        let (_, outcome) = execute_saved_transform(
+        let (_, execution_id, outcome) = execute_saved_transform(
             &db,
             &transform.stable_ref,
             "hello".to_string(),
             Some(clip.id),
             "bin",
             "replace",
+            None,
         )
         .unwrap();
+        assert!(!execution_id.is_empty());
         assert_eq!(outcome.output, "HELLO");
         let executions = db.get_clip_transformation_executions(clip.id).unwrap();
         assert_eq!(executions.len(), 1);

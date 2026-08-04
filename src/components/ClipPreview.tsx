@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { formatClipDateTime } from '../utils/date';
 import { ClipItem, Bin, Pipeline, ClipNote, parseClipNotes, serializeClipNotes, ClipVersion } from '../types';
-import type { ClipTransformationProvenance, ExecutePlanOutcome, SavedTransform } from '../types';
+import type { ClipTransformationProvenance, TransformationExecutionOutcome, SavedTransform } from '../types';
 import { parseColor, ColorFormats } from '../utils/color';
 import { soundManager } from '../utils/sound';
 import { detectSmartPipelineRecommendations } from '../utils/smartPipelineDetector';
@@ -31,6 +31,7 @@ import {
   Workflow,
   Lightbulb,
   AlertTriangle,
+  RotateCcw,
   X,
 } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
@@ -39,6 +40,7 @@ import type { ClipViewPolicy } from '../utils/clipViewPolicy';
 import { clipDeleteLabel, UI_COPY } from '../utils/uiCopy';
 import { formatEmojiIcon } from '../utils/emoji';
 import { binTextColor } from '../utils/binColor';
+import { startTransformation, type TransformationExecutionHandle } from '../utils/transformExecution';
 
 interface ClipPreviewProps {
   clip: ClipItem | null;
@@ -90,7 +92,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   const [activeTransformRef, setActiveTransformRef] = useState<string | null>(null);
   const [activeTransformName, setActiveTransformName] = useState<string | null>(null);
   const [isWorkflowMenuOpen, setIsWorkflowMenuOpen] = useState(false);
-  const [transformPreviewOutcome, setTransformPreviewOutcome] = useState<ExecutePlanOutcome | null>(null);
+  const [transformPreviewOutcome, setTransformPreviewOutcome] = useState<TransformationExecutionOutcome | null>(null);
   const [provenance, setProvenance] = useState<ClipTransformationProvenance | null>(null);
   const [isPipelineRunning, setIsPipelineRunning] = useState(false);
   const [pipelineAction, setPipelineAction] = useState<'copied' | 'pasted' | null>(null);
@@ -102,6 +104,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const copiedFormatTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pipelineRequestIdRef = useRef(0);
+  const activeTransformExecutionRef = useRef<TransformationExecutionHandle | null>(null);
 
   useEffect(() => {
     notesRef.current = notes;
@@ -214,6 +217,8 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   }, [clip?.id, clip?.image_base64, clip?.content_type]);
 
   useEffect(() => {
+    void activeTransformExecutionRef.current?.cancel();
+    activeTransformExecutionRef.current = null;
     pipelineRequestIdRef.current += 1;
     setTransformedText(null);
     setActivePipelineRef(null);
@@ -406,23 +411,24 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
     setPipelineAction(null);
     setPipelineError(null);
     try {
-      const res = await invoke<{ output: string }>('execute_transformation', {
-        request: {
-          input: clip.text_content,
-          target: { kind: 'pipeline', pipelineRef: pipeline.stableRef },
-          sourceClipId: clip.id,
-          trigger: 'manual',
-          destination: 'preview',
-        },
-      });
+      const execution = startTransformation(
+        clip.text_content,
+        { kind: 'pipeline', pipelineRef: pipeline.stableRef },
+        { sourceClipId: clip.id },
+      );
+      activeTransformExecutionRef.current = execution;
+      const res = await execution.promise;
       if (requestId !== pipelineRequestIdRef.current) return;
       setTransformedText(res.output);
     } catch (e) {
       if (requestId !== pipelineRequestIdRef.current) return;
       console.error(e);
-      setPipelineError(e instanceof Error ? e.message : 'Pipeline failed to run.');
+      setPipelineError(e instanceof Error ? e.message : 'Advanced Transform failed to run.');
     } finally {
-      if (requestId === pipelineRequestIdRef.current) setIsPipelineRunning(false);
+      if (requestId === pipelineRequestIdRef.current) {
+        activeTransformExecutionRef.current = null;
+        setIsPipelineRunning(false);
+      }
     }
   };
 
@@ -441,10 +447,13 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
     setPipelineError(null);
     setPreviewedVersion(null);
     try {
-      const result = await invoke<ExecutePlanOutcome>('execute_saved_transform', {
-        transformRef: transform.stableRef,
-        input: clip.text_content,
-      });
+      const execution = startTransformation(
+        clip.text_content,
+        { kind: 'transform', transformRef: transform.stableRef },
+        { sourceClipId: clip.id },
+      );
+      activeTransformExecutionRef.current = execution;
+      const result = await execution.promise;
       if (requestId !== pipelineRequestIdRef.current) return;
       setTransformPreviewOutcome(result);
       setTransformedText(result.output);
@@ -452,7 +461,10 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
       if (requestId !== pipelineRequestIdRef.current) return;
       setPipelineError(error instanceof Error ? error.message : 'Transform failed to run.');
     } finally {
-      if (requestId === pipelineRequestIdRef.current) setIsPipelineRunning(false);
+      if (requestId === pipelineRequestIdRef.current) {
+        activeTransformExecutionRef.current = null;
+        setIsPipelineRunning(false);
+      }
     }
   };
 
@@ -482,6 +494,8 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   };
 
   const handleResetTransform = () => {
+    void activeTransformExecutionRef.current?.cancel();
+    activeTransformExecutionRef.current = null;
     pipelineRequestIdRef.current += 1;
     setTransformedText(null);
     setActivePipelineRef(null);
@@ -492,6 +506,18 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
     setPipelineAction(null);
     setPipelineError(null);
     setPreviewedVersion(null);
+  };
+
+  const handleRetryTransform = () => {
+    if (activeTransformRef) {
+      const transform = transforms.find((candidate) => candidate.stableRef === activeTransformRef);
+      if (transform) void handlePreviewTransform(transform);
+      return;
+    }
+    if (activePipelineRef) {
+      const pipeline = pipelines.find((candidate) => candidate.stableRef === activePipelineRef);
+      if (pipeline) void handlePreviewPipeline(pipeline);
+    }
   };
 
   const handlePipelineOutput = async (destination: 'copy' | 'paste') => {
@@ -508,7 +534,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
       }
       setPipelineError(null);
     } catch (error) {
-      console.error(`Failed to ${destination} Pipeline output:`, error);
+      console.error(`Failed to ${destination} Advanced Transform output:`, error);
       setPipelineError(`Could not ${destination} the Advanced Transform result.`);
     }
   };
@@ -894,11 +920,12 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
           hasPreview={transformedText !== null && transformedText !== (clip.text_content || '') && Boolean(transformPreviewOutcome)}
           error={pipelineError}
           onApply={() => void handleApplyTransform()}
+          onRetry={handleRetryTransform}
           onReset={handleResetTransform}
         />
       )}
 
-      {/* Sleek Filter Pipeline Selector Bar */}
+      {/* Advanced Transform selector */}
       {viewPolicy.canRunPipelines && clip.content_type !== 'image' && pipelines.length > 0 && (
         <div className="preview-filter-bar px-4 py-2.5 border-t select-none">
           <div className="flex items-center justify-between gap-3">
@@ -960,7 +987,14 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
               </div>
             )}
           </div>
-          {pipelineError && <p role="status" className="theme-status-error mt-2 rounded-lg border px-2.5 py-1.5 text-[11px]">{pipelineError}</p>}
+          {pipelineError && (
+            <div role="status" className="theme-status-error mt-2 flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-[11px]">
+              <span className="min-w-0 flex-1">{pipelineError}</span>
+              <button type="button" onClick={handleRetryTransform} className="playground-run-status-action inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 font-semibold">
+                <RotateCcw className="h-3 w-3" /> Retry
+              </button>
+            </div>
+          )}
         </div>
       )}
 
