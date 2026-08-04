@@ -349,6 +349,7 @@ export default function App() {
     () => `${selectedClip?.id ?? ''}:${Array.from(selectedClipIds).sort((a, b) => a - b).join(',')}`,
     [selectedClip?.id, selectedClipIds]
   );
+  const binsById = useMemo(() => new Map(bins.map((bin) => [bin.id, bin])), [bins]);
   const selectedClipViewPolicy = getClipViewPolicy(currentTab, selectedClip);
   const hasRestrictedSelection = Array.from(selectedClipIds).some((id) => {
     const selected = displayedClips.find((clip) => clip.id === id);
@@ -710,6 +711,7 @@ export default function App() {
               ) : (
                 displayedClips.map((clip, index) => {
                   const queueIndex = clip.text_content ? queuedIndexMap.get(clip.text_content) : undefined;
+                  const primaryBin = clip.bin_id === null ? undefined : binsById.get(clip.bin_id);
                   const baseViewPolicy = getClipViewPolicy(currentTab, clip);
                   const viewPolicy = hasRestrictedSelection && selectedClipIds.has(clip.id)
                     ? { ...baseViewPolicy, canDragClips: false }
@@ -728,6 +730,8 @@ export default function App() {
                       viewPolicy={viewPolicy}
                       isQueueMode={currentTab === 'sequential'}
                       queueIndex={queueIndex}
+                      primaryBinName={primaryBin?.name}
+                      primaryBinIcon={primaryBin?.icon}
                       rowHeight={appSettings.rowHeight}
                       selectionVersion={clipSelectionVersion}
                       setDraggedClipId={setDraggedClipId}

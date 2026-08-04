@@ -244,6 +244,11 @@
   stroke-width: 2;
 }
 
+.clip-bin-emoji {
+  font-size: 0.75rem;
+  line-height: 1;
+}
+
 .clip-queue-next {
   background-color: var(--accent-primary);
   border-color: var(--accent-primary);

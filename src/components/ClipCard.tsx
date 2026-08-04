@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { formatClipTime } from '../utils/date';
+import { formatEmojiIcon } from '../utils/emoji';
 import { ClipItem, getClipNoteSummary, isSensitiveText, maskSensitiveText } from '../types';
 import type { ClipViewPolicy } from '../utils/clipViewPolicy';
 import {
@@ -36,6 +37,8 @@ interface ClipCardProps {
   viewPolicy: ClipViewPolicy;
   isQueueMode?: boolean;
   queueIndex?: number;
+  primaryBinName?: string;
+  primaryBinIcon?: string;
   rowHeight?: 'small' | 'medium' | 'large';
   selectionVersion: string;
   onSelect: (e: React.MouseEvent) => void;
@@ -67,6 +70,8 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
   viewPolicy,
   isQueueMode = false,
   queueIndex,
+  primaryBinName,
+  primaryBinIcon,
   rowHeight = 'medium',
   onSelect,
   onPin,
@@ -254,6 +259,16 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
           </span>
         </div>
         <div className="clip-meta-row theme-text-subtle flex items-center text-[11px] font-mono">
+          {primaryBinName && (
+            <span
+              role="img"
+              aria-label={`Bin: ${primaryBinName}`}
+              title={`Bin: ${primaryBinName}`}
+              className="clip-meta-item clip-meta-icon-only"
+            >
+              <span className="clip-bin-emoji">{formatEmojiIcon(primaryBinIcon)}</span>
+            </span>
+          )}
           {clip.is_protected && (
             <span
               role="img"
@@ -520,6 +535,8 @@ export const ClipCard = React.memo(ClipCardComponent, (prevProps, nextProps) => 
     prevProps.viewPolicy.canDragClips === nextProps.viewPolicy.canDragClips &&
     prevProps.isQueueMode === nextProps.isQueueMode &&
     prevProps.queueIndex === nextProps.queueIndex &&
+    prevProps.primaryBinName === nextProps.primaryBinName &&
+    prevProps.primaryBinIcon === nextProps.primaryBinIcon &&
     prevProps.rowHeight === nextProps.rowHeight &&
     prevProps.selectionVersion === nextProps.selectionVersion
   );
