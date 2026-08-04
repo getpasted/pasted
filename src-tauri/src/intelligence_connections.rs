@@ -17,6 +17,7 @@ pub struct DetectedIntelligenceConnection {
     pub execution_supported: bool,
 }
 
+#[derive(Clone, Copy)]
 struct AdapterDefinition {
     adapter_id: &'static str,
     name: &'static str,
@@ -192,24 +193,36 @@ fn detect_version(path: &Path) -> Option<String> {
 
 pub fn detect_intelligence_connections() -> Vec<DetectedIntelligenceConnection> {
     let directories = candidate_directories();
-    ADAPTERS
+    let candidates = ADAPTERS
         .iter()
         .filter_map(|adapter| {
             let path = locate_executable(adapter.executable, adapter.explicit_paths, &directories)?;
-            Some(DetectedIntelligenceConnection {
-                adapter_id: adapter.adapter_id,
-                name: adapter.name,
-                provider_kind: adapter.provider_kind,
-                executable_path: Some(path.to_string_lossy().into_owned()),
-                default_endpoint: adapter.default_endpoint,
-                version: detect_version(&path),
-                capabilities: adapter.capabilities.to_vec(),
-                execution_supported: crate::intelligence_provider::supports_adapter_id(
-                    adapter.adapter_id,
-                ),
-            })
+            Some((*adapter, path))
         })
-        .collect()
+        .collect::<Vec<_>>();
+
+    std::thread::scope(|scope| {
+        candidates
+            .into_iter()
+            .map(|(adapter, path)| {
+                scope.spawn(move || DetectedIntelligenceConnection {
+                    adapter_id: adapter.adapter_id,
+                    name: adapter.name,
+                    provider_kind: adapter.provider_kind,
+                    executable_path: Some(path.to_string_lossy().into_owned()),
+                    default_endpoint: adapter.default_endpoint,
+                    version: detect_version(&path),
+                    capabilities: adapter.capabilities.to_vec(),
+                    execution_supported: crate::intelligence_provider::supports_adapter_id(
+                        adapter.adapter_id,
+                    ),
+                })
+            })
+            .collect::<Vec<_>>()
+            .into_iter()
+            .filter_map(|probe| probe.join().ok())
+            .collect()
+    })
 }
 
 #[cfg(test)]

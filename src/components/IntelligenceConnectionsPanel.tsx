@@ -8,6 +8,8 @@ import { ConnectionModal } from './ConnectionModal';
 
 let cachedConnections: IntelligenceConnection[] | null = null;
 let cachedDetectedConnections: DetectedIntelligenceConnection[] | null = null;
+let cachedDetectionAt = 0;
+const DETECTION_CACHE_MS = 30_000;
 
 export function IntelligenceConnectionsPanel() {
   const [connections, setConnections] = useState<IntelligenceConnection[]>(() => cachedConnections ?? []);
@@ -52,10 +54,16 @@ export function IntelligenceConnectionsPanel() {
       // Discovery/version checks refresh quietly afterward.
       await refresh();
       if (cancelled) return;
+      if (cachedDetectedConnections && Date.now() - cachedDetectionAt < DETECTION_CACHE_MS) {
+        setDetectedConnections(cachedDetectedConnections);
+        setIsLoading(false);
+        return;
+      }
       try {
         const detected = await invoke<DetectedIntelligenceConnection[]>('detect_intelligence_connections');
         if (cancelled) return;
         cachedDetectedConnections = detected;
+        cachedDetectionAt = Date.now();
         setDetectedConnections(detected);
         await refresh();
       } catch (reason) {
