@@ -28,6 +28,18 @@ const invokedCommands = matches(
 const registeredCommands = matches(handlerBlock, /commands::([a-zA-Z0-9_]+)/g);
 const mockedCommands = matches(tauriBridge, /case ['"]([a-zA-Z0-9_]+)['"]:/g);
 const dynamicInvocations = [...frontendSource.matchAll(/\binvoke(?:<[^;\n]*>)?\((?!\s*['"])/g)];
+const transformationExecutionInvocations = [
+  ...frontendSource.matchAll(/\binvoke(?:<[^;\n]*>)?\(\s*['"]execute_transformation['"]/g),
+];
+const transformationCancellationInvocations = [
+  ...frontendSource.matchAll(/\binvoke(?:<[^;\n]*>)?\(\s*['"]cancel_transformation_execution['"]/g),
+];
+const transformationDraftInvocations = [
+  ...frontendSource.matchAll(/\binvoke(?:<[^;\n]*>)?\(\s*['"]plan_transformation_intent['"]/g),
+];
+const transformationTestInvocations = [
+  ...frontendSource.matchAll(/\binvoke(?:<[^;\n]*>)?\(\s*['"]test_transformation_plan['"]/g),
+];
 
 const unregisteredInvocations = [...invokedCommands]
   .filter((command) => !registeredCommands.has(command))
@@ -58,6 +70,26 @@ assert.equal(
   dynamicInvocations.length,
   0,
   'Tauri command names must be string literals so the IPC contract remains auditable',
+);
+assert.equal(
+  transformationExecutionInvocations.length,
+  1,
+  'All frontend Transform runs must use the shared transformExecution helper',
+);
+assert.equal(
+  transformationCancellationInvocations.length,
+  1,
+  'All frontend Transform cancellation must use the shared transformExecution helper',
+);
+assert.equal(
+  transformationDraftInvocations.length,
+  1,
+  'All frontend Transform drafting must use the shared cancellable helper',
+);
+assert.equal(
+  transformationTestInvocations.length,
+  1,
+  'All frontend Transform tests must use the shared cancellable helper',
 );
 
 console.log(

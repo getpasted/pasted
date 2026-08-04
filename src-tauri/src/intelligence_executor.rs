@@ -520,7 +520,7 @@ fn ensure_not_cancelled(
     }
 }
 
-fn execute_plan_with_cancellation(
+pub(crate) fn execute_plan_with_cancellation(
     db: &DbState,
     request: ExecutePlanRequest,
     cancellation: Option<&AtomicBool>,
@@ -642,6 +642,15 @@ pub fn plan_intent(
     db: &DbState,
     request: PlanIntentRequest,
 ) -> Result<PlanIntentOutcome, IntelligenceExecutionError> {
+    plan_intent_with_cancellation(db, request, None)
+}
+
+pub(crate) fn plan_intent_with_cancellation(
+    db: &DbState,
+    request: PlanIntentRequest,
+    cancellation: Option<&AtomicBool>,
+) -> Result<PlanIntentOutcome, IntelligenceExecutionError> {
+    ensure_not_cancelled(cancellation)?;
     if request.intent.trim().is_empty() {
         return Err(IntelligenceExecutionError::new(
             "invalid_intent",
@@ -715,6 +724,14 @@ pub fn plan_intent(
         .write_all(planning_prompt(&request).as_bytes())
         .map_err(|error| IntelligenceExecutionError::new("connection_failed", error.to_string()))?;
     let status = loop {
+        if cancellation.is_some_and(|flag| flag.load(Ordering::Acquire)) {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err(IntelligenceExecutionError::new(
+                "execution_cancelled",
+                "Transform draft was cancelled",
+            ));
+        }
         if let Some(status) = child.try_wait().map_err(|error| {
             IntelligenceExecutionError::new("connection_failed", error.to_string())
         })? {
@@ -750,6 +767,7 @@ pub fn plan_intent(
     let raw = fs::read_to_string(&result_path).map_err(|error| {
         IntelligenceExecutionError::new("invalid_provider_output", error.to_string())
     })?;
+    ensure_not_cancelled(cancellation)?;
     let plan = parse_plan(&raw, &request)?;
     Ok(PlanIntentOutcome {
         plan,

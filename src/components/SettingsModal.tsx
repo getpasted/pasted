@@ -50,7 +50,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       />
 
       <div className="tools-scroll-region flex-1 overflow-y-auto p-6">
-        <div className={`w-full mx-auto space-y-6 ${activeTab === 'connections' ? 'max-w-5xl' : 'max-w-xl'}`}>
+        <div className="w-full max-w-xl mx-auto space-y-6">
 
         {/* TAB 1: GENERAL */}
         {activeTab === 'general' && (

@@ -226,6 +226,16 @@ html:not(.is-stable-reordering) .connection-priority-card:hover {
   outline-offset: 2px;
 }
 
+@media (max-width: 1100px) {
+  .settings-tab {
+    padding-inline: 0.65rem;
+  }
+
+  .settings-tab-label {
+    display: none;
+  }
+}
+
 .settings-accent-tile {
   background-color: color-mix(in srgb, var(--accent-primary) 10%, var(--bg-surface));
   border-color: color-mix(in srgb, var(--accent-primary) 28%, var(--border-subtle));

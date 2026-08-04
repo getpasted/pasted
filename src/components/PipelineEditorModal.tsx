@@ -9,6 +9,8 @@ import { startWindowDrag } from '../utils/windowDrag';
 import { AppDialog } from './AppDialog';
 import { AppDialogBody, AppDialogButton, AppDialogFooter, AppDialogHeader, AppDialogHeading } from './AppDialogLayout';
 import { MenuSelect, type MenuSelectOption } from './MenuSelect';
+import { startTransformation, type TransformationExecutionHandle } from '../utils/transformExecution';
+import { PlaygroundRunStatus, type PlaygroundRunState } from './PlaygroundRunStatus';
 
 export interface PipelineEditorStep {
   id: string;
@@ -378,6 +380,10 @@ export const PipelineEditorModal: React.FC<PipelineEditorModalProps> = ({
   const [steps, setSteps] = useState<PipelineEditorStep[]>([]);
   const [testInput, setTestInput] = useState('Hello Pasted User! :) https://example.com?utm_source=test');
   const [testOutput, setTestOutput] = useState('');
+  const [testRunState, setTestRunState] = useState<PlaygroundRunState>('idle');
+  const [testDurationMs, setTestDurationMs] = useState<number>();
+  const testRequestIdRef = useRef(0);
+  const activeTestExecutionRef = useRef<TransformationExecutionHandle | null>(null);
   const [operationsList, setOperationsList] = useState<Operation[]>([]);
   const [isOpModalOpen, setIsOpModalOpen] = useState(false);
   const stepListRef = useRef<HTMLDivElement>(null);
@@ -442,10 +448,17 @@ export const PipelineEditorModal: React.FC<PipelineEditorModalProps> = ({
     }
   };
 
-  // Run live test execution when steps or testInput change
+  // Debounce automatic previews so connected operations do not start a provider
+  // process for every keystroke. Superseded previews are cancelled below.
   useEffect(() => {
     if (!isOpen) return;
-    runLiveTest();
+    const timer = window.setTimeout(() => void runLiveTest(), 350);
+    return () => {
+      window.clearTimeout(timer);
+      void activeTestExecutionRef.current?.cancel();
+      activeTestExecutionRef.current = null;
+      testRequestIdRef.current += 1;
+    };
   }, [steps, testInput, isOpen]);
 
   const createDefaultStep = (operationRef: string, config: string | null): PipelineEditorStep => {
@@ -515,6 +528,10 @@ export const PipelineEditorModal: React.FC<PipelineEditorModalProps> = ({
       setTestOutput('');
       return;
     }
+    const requestId = ++testRequestIdRef.current;
+    const startedAt = performance.now();
+    setTestRunState('running');
+    setTestDurationMs(undefined);
     try {
       let current = testInput;
       for (const step of steps) {
@@ -527,22 +544,34 @@ export const PipelineEditorModal: React.FC<PipelineEditorModalProps> = ({
             config: compiled.configJson,
           });
         } else {
-          const result = await invoke<{ output: string }>('execute_transformation', {
-            request: {
-              input: current,
-              target: { kind: 'operation', operationRef: step.operation_ref },
-              sourceClipId: null,
-              trigger: 'manual',
-              destination: 'preview',
-            },
+          const execution = startTransformation(current, {
+            kind: 'operation',
+            operationRef: step.operation_ref,
           });
+          activeTestExecutionRef.current = execution;
+          const result = await execution.promise;
+          if (requestId !== testRequestIdRef.current) return;
           current = result.output;
         }
       }
+      if (requestId !== testRequestIdRef.current) return;
       setTestOutput(current);
+      setTestRunState('success');
+      setTestDurationMs(performance.now() - startedAt);
     } catch (e) {
+      if (requestId !== testRequestIdRef.current) return;
       setTestOutput(`Error: ${e}`);
+      setTestRunState(String(e).includes('execution_cancelled') ? 'cancelled' : 'error');
+    } finally {
+      if (requestId === testRequestIdRef.current) activeTestExecutionRef.current = null;
     }
+  };
+
+  const cancelLiveTest = () => {
+    void activeTestExecutionRef.current?.cancel();
+    activeTestExecutionRef.current = null;
+    testRequestIdRef.current += 1;
+    setTestRunState('cancelled');
   };
 
   const handleSavePipeline = async (e: React.FormEvent) => {
@@ -631,6 +660,14 @@ export const PipelineEditorModal: React.FC<PipelineEditorModalProps> = ({
               </span>
               <span className="text-[10px] theme-text-muted">Live preview updates automatically on step edit</span>
             </div>
+
+            <PlaygroundRunStatus
+              state={testRunState}
+              label="preview"
+              durationMs={testDurationMs}
+              onRetry={() => void runLiveTest()}
+              onStop={cancelLiveTest}
+            />
 
             <div className="grid grid-cols-2 gap-4 text-xs font-mono">
               <div>

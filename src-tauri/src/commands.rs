@@ -496,10 +496,14 @@ pub fn get_intelligence_connections(
 }
 
 #[tauri::command]
-pub fn detect_intelligence_connections(
+pub async fn detect_intelligence_connections(
     db: State<'_, Arc<DbState>>,
 ) -> Result<Vec<crate::intelligence_connections::DetectedIntelligenceConnection>, String> {
-    let detected = crate::intelligence_connections::detect_intelligence_connections();
+    let detected = tauri::async_runtime::spawn_blocking(
+        crate::intelligence_connections::detect_intelligence_connections,
+    )
+    .await
+    .map_err(|error| error.to_string())?;
     for candidate in &detected {
         let endpoint = if candidate.provider_kind == "cli" {
             candidate.executable_path.as_deref()
@@ -586,14 +590,23 @@ pub fn reorder_intelligence_connections(
 #[tauri::command]
 pub async fn plan_transformation_intent(
     request: crate::intelligence_executor::PlanIntentRequest,
+    client_request_id: Option<String>,
     db: State<'_, Arc<DbState>>,
 ) -> Result<
     crate::intelligence_executor::PlanIntentOutcome,
     crate::intelligence_executor::IntelligenceExecutionError,
 > {
+    let cancellation =
+        client_request_id.map(crate::transformation_service::CancellationRegistration::register);
     let db = Arc::clone(&db);
     tauri::async_runtime::spawn_blocking(move || {
-        let result = crate::intelligence_executor::plan_intent(&db, request);
+        let result = crate::intelligence_executor::plan_intent_with_cancellation(
+            &db,
+            request,
+            cancellation
+                .as_ref()
+                .map(|registration| registration.flag()),
+        );
         match &result {
             Ok(outcome) => {
                 let _ = db.log_activity(
@@ -607,10 +620,15 @@ pub async fn plan_transformation_intent(
                 );
             }
             Err(error) => {
-                let _ = db.log_activity(
-                    "transform_draft_failed",
-                    &format!("Transform draft failed ({})", error.code),
-                );
+                if error.code == "execution_cancelled" {
+                    let _ =
+                        db.log_activity("transform_draft_cancelled", "Cancelled Transform draft");
+                } else {
+                    let _ = db.log_activity(
+                        "transform_draft_failed",
+                        &format!("Transform draft failed ({})", error.code),
+                    );
+                }
             }
         }
         result
@@ -627,14 +645,23 @@ pub async fn plan_transformation_intent(
 #[tauri::command]
 pub async fn test_transformation_plan(
     request: crate::intelligence_executor::ExecutePlanRequest,
+    client_request_id: Option<String>,
     db: State<'_, Arc<DbState>>,
 ) -> Result<
     crate::intelligence_executor::ExecutePlanOutcome,
     crate::intelligence_executor::IntelligenceExecutionError,
 > {
+    let cancellation =
+        client_request_id.map(crate::transformation_service::CancellationRegistration::register);
     let db = Arc::clone(&db);
     tauri::async_runtime::spawn_blocking(move || {
-        let result = crate::intelligence_executor::execute_plan(&db, request);
+        let result = crate::intelligence_executor::execute_plan_with_cancellation(
+            &db,
+            request,
+            cancellation
+                .as_ref()
+                .map(|registration| registration.flag()),
+        );
         match &result {
             Ok(outcome) => {
                 let provider = outcome
@@ -650,10 +677,14 @@ pub async fn test_transformation_plan(
                 );
             }
             Err(error) => {
-                let _ = db.log_activity(
-                    "transform_test_failed",
-                    &format!("Transform test failed ({})", error.code),
-                );
+                if error.code == "execution_cancelled" {
+                    let _ = db.log_activity("transform_test_cancelled", "Cancelled Transform test");
+                } else {
+                    let _ = db.log_activity(
+                        "transform_test_failed",
+                        &format!("Transform test failed ({})", error.code),
+                    );
+                }
             }
         }
         result

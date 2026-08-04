@@ -1,4 +1,8 @@
 import type {
+  ExecutePlanOutcome,
+  IntentPlanningMode,
+  PlanIntentOutcome,
+  TransformationPlan,
   TransformExecutionDestination,
   TransformExecutionTrigger,
   TransformationExecutionOutcome,
@@ -22,9 +26,19 @@ export interface TransformationExecutionHandle {
   cancel: () => Promise<boolean>;
 }
 
+export interface CancellableTransformRequest<T> {
+  clientRequestId: string;
+  promise: Promise<T>;
+  cancel: () => Promise<boolean>;
+}
+
 function createRequestId() {
   return globalThis.crypto?.randomUUID?.()
     ?? `transform-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function cancelTransformRequest(clientRequestId: string) {
+  return invoke<boolean>('cancel_transformation_execution', { clientRequestId });
 }
 
 export function startTransformation(
@@ -33,20 +47,19 @@ export function startTransformation(
   options: RunTransformationOptions = {},
 ): TransformationExecutionHandle {
   const clientRequestId = createRequestId();
-  const promise = invoke<TransformationExecutionOutcome>('execute_transformation', {
-    request: {
-      input,
-      target,
-      sourceClipId: options.sourceClipId ?? null,
-      trigger: options.trigger ?? 'manual',
-      destination: options.destination ?? 'preview',
-      clientRequestId,
-    },
-  });
   return {
     clientRequestId,
-    promise,
-    cancel: () => invoke<boolean>('cancel_transformation_execution', { clientRequestId }),
+    promise: invoke<TransformationExecutionOutcome>('execute_transformation', {
+      request: {
+        input,
+        target,
+        sourceClipId: options.sourceClipId ?? null,
+        trigger: options.trigger ?? 'manual',
+        destination: options.destination ?? 'preview',
+        clientRequestId,
+      },
+    }),
+    cancel: () => cancelTransformRequest(clientRequestId),
   };
 }
 
@@ -56,4 +69,31 @@ export function runTransformation(
   options: RunTransformationOptions = {},
 ) {
   return startTransformation(input, target, options).promise;
+}
+
+export function startTransformDraft(request: {
+  intent: string;
+  sampleInput?: string | null;
+  planningMode: IntentPlanningMode;
+  connectionId?: string | null;
+}) {
+  const clientRequestId = createRequestId();
+  return {
+    clientRequestId,
+    promise: invoke<PlanIntentOutcome>('plan_transformation_intent', { request, clientRequestId }),
+    cancel: () => cancelTransformRequest(clientRequestId),
+  };
+}
+
+export function startTransformTest(request: {
+  plan: TransformationPlan;
+  input: string;
+  connectionId?: string | null;
+}) {
+  const clientRequestId = createRequestId();
+  return {
+    clientRequestId,
+    promise: invoke<ExecutePlanOutcome>('test_transformation_plan', { request, clientRequestId }),
+    cancel: () => cancelTransformRequest(clientRequestId),
+  };
 }

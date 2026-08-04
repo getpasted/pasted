@@ -24,12 +24,13 @@ export function SettingsTabs({ activeTab, onChange }: SettingsTabsProps) {
           type="button"
           onClick={() => onChange(id)}
           aria-pressed={activeTab === id}
+          title={label}
           className={`settings-tab flex h-8 items-center justify-center gap-2 rounded-lg border border-transparent px-3 text-xs font-semibold transition-colors ${
             activeTab === id ? 'is-active' : ''
           }`}
         >
           <Icon className="w-3.5 h-3.5" />
-          <span>{label}</span>
+          <span className="settings-tab-label">{label}</span>
         </button>
       ))}
     </nav>

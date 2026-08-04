@@ -1,7 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { CheckCircle2, LoaderCircle, Play, Sparkles } from 'lucide-react';
 import type { ExecutePlanOutcome, PlanIntentOutcome, SavedTransform } from '../types';
 import { safeInvoke as invoke } from '../utils/tauri';
+import {
+  startTransformDraft,
+  startTransformTest,
+  type CancellableTransformRequest,
+} from '../utils/transformExecution';
 
 interface IntentTransformComposerProps {
   sampleInput: string;
@@ -32,6 +37,15 @@ export function IntentTransformComposer({ sampleInput, onTestResult, onTransform
   const [isTesting, setIsTesting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [savedTransformRef, setSavedTransformRef] = useState('');
+  const planningRequestRef = useRef<CancellableTransformRequest<PlanIntentOutcome> | null>(null);
+  const testingRequestRef = useRef<CancellableTransformRequest<ExecutePlanOutcome> | null>(null);
+  const planningRequestIdRef = useRef(0);
+  const testingRequestIdRef = useRef(0);
+
+  useEffect(() => () => {
+    void planningRequestRef.current?.cancel();
+    void testingRequestRef.current?.cancel();
+  }, []);
 
   useEffect(() => {
     const isDirty = initialTransform
@@ -47,42 +61,68 @@ export function IntentTransformComposer({ sampleInput, onTestResult, onTransform
     setIsPlanning(true);
     setError('');
     setSavedTransformRef('');
+    const requestId = ++planningRequestIdRef.current;
     try {
-      const result = await invoke<PlanIntentOutcome>('plan_transformation_intent', {
-        request: {
-          intent: intent.trim(),
-          sampleInput: sampleInput || null,
-          planningMode: 'pinned',
-          connectionId: null,
-        },
+      const request = startTransformDraft({
+        intent: intent.trim(),
+        sampleInput: sampleInput || null,
+        planningMode: 'pinned',
+        connectionId: null,
       });
+      planningRequestRef.current = request;
+      const result = await request.promise;
+      if (requestId !== planningRequestIdRef.current) return;
       setOutcome(result);
       setTransformName((current) => current.trim() ? current : result.plan.summary);
     } catch (reason) {
+      if (requestId !== planningRequestIdRef.current) return;
       setError(errorMessage(reason));
     } finally {
-      setIsPlanning(false);
+      if (requestId === planningRequestIdRef.current) {
+        planningRequestRef.current = null;
+        setIsPlanning(false);
+      }
     }
+  };
+
+  const cancelPlanning = () => {
+    void planningRequestRef.current?.cancel();
+    planningRequestRef.current = null;
+    planningRequestIdRef.current += 1;
+    setIsPlanning(false);
   };
 
   const testDraft = async () => {
     if (!outcome || isTesting || !sampleInput) return;
     setIsTesting(true);
     setError('');
+    const requestId = ++testingRequestIdRef.current;
     try {
-      const result = await invoke<ExecutePlanOutcome>('test_transformation_plan', {
-        request: {
-          plan: outcome.plan,
-          input: sampleInput,
-          connectionId: outcome.connectionId,
-        },
+      const request = startTransformTest({
+        plan: outcome.plan,
+        input: sampleInput,
+        connectionId: outcome.connectionId,
       });
+      testingRequestRef.current = request;
+      const result = await request.promise;
+      if (requestId !== testingRequestIdRef.current) return;
       onTestResult(result);
     } catch (reason) {
+      if (requestId !== testingRequestIdRef.current) return;
       setError(errorMessage(reason));
     } finally {
-      setIsTesting(false);
+      if (requestId === testingRequestIdRef.current) {
+        testingRequestRef.current = null;
+        setIsTesting(false);
+      }
     }
+  };
+
+  const cancelTesting = () => {
+    void testingRequestRef.current?.cancel();
+    testingRequestRef.current = null;
+    testingRequestIdRef.current += 1;
+    setIsTesting(false);
   };
 
   const saveTransform = async () => {
@@ -135,12 +175,12 @@ export function IntentTransformComposer({ sampleInput, onTestResult, onTransform
         />
         <button
           type="button"
-          disabled={!intent.trim() || isPlanning}
-          onClick={buildTransform}
+          disabled={!intent.trim() && !isPlanning}
+          onClick={isPlanning ? cancelPlanning : buildTransform}
           className="theme-primary-button border rounded-xl px-4 min-w-32 text-xs font-semibold flex flex-col items-center justify-center gap-1.5 disabled:opacity-40"
         >
           {isPlanning ? <LoaderCircle className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-          <span>{isPlanning ? 'Planning…' : 'Build draft'}</span>
+          <span>{isPlanning ? 'Cancel draft' : 'Build draft'}</span>
         </button>
       </div>
 
@@ -187,13 +227,13 @@ export function IntentTransformComposer({ sampleInput, onTestResult, onTransform
           <div className="flex justify-end gap-2 pt-1">
             <button
               type="button"
-              onClick={() => void testDraft()}
-              disabled={isTesting || !sampleInput}
+              onClick={isTesting ? cancelTesting : () => void testDraft()}
+              disabled={!sampleInput && !isTesting}
               className="theme-secondary-button border rounded-lg px-3 h-8 text-[10px] font-semibold flex items-center gap-1.5 disabled:opacity-40"
               title={!sampleInput ? 'Add Playground Input First' : 'Test Draft'}
             >
               {isTesting ? <LoaderCircle className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
-              <span>{isTesting ? 'Testing…' : 'Test draft'}</span>
+              <span>{isTesting ? 'Cancel test' : 'Test draft'}</span>
             </button>
             <button
               type="button"

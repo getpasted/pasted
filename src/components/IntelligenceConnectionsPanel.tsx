@@ -6,12 +6,15 @@ import { useStableVerticalReorder } from '../hooks/useStableVerticalReorder';
 import { intelligenceProviderLabel } from '../utils/intelligenceProviders';
 import { ConnectionModal } from './ConnectionModal';
 
+let cachedConnections: IntelligenceConnection[] | null = null;
+let cachedDetectedConnections: DetectedIntelligenceConnection[] | null = null;
+
 export function IntelligenceConnectionsPanel() {
-  const [connections, setConnections] = useState<IntelligenceConnection[]>([]);
-  const [detectedConnections, setDetectedConnections] = useState<DetectedIntelligenceConnection[]>([]);
+  const [connections, setConnections] = useState<IntelligenceConnection[]>(() => cachedConnections ?? []);
+  const [detectedConnections, setDetectedConnections] = useState<DetectedIntelligenceConnection[]>(() => cachedDetectedConnections ?? []);
   const [isAddConnectionOpen, setIsAddConnectionOpen] = useState(false);
   const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(cachedConnections === null);
   const connectionListRef = useRef<HTMLDivElement>(null);
 
   const {
@@ -34,16 +37,25 @@ export function IntelligenceConnectionsPanel() {
 
   const refresh = () => (
     invoke<IntelligenceConnection[]>('get_intelligence_connections')
-      .then(setConnections)
+      .then((nextConnections) => {
+        cachedConnections = nextConnections;
+        setConnections(nextConnections);
+        setIsLoading(false);
+      })
       .catch((reason) => setError(String(reason)))
   );
 
   useEffect(() => {
     let cancelled = false;
     const loadConnections = async () => {
+      // Stored connections are local SQLite data and can paint immediately.
+      // Discovery/version checks refresh quietly afterward.
+      await refresh();
+      if (cancelled) return;
       try {
         const detected = await invoke<DetectedIntelligenceConnection[]>('detect_intelligence_connections');
         if (cancelled) return;
+        cachedDetectedConnections = detected;
         setDetectedConnections(detected);
         await refresh();
       } catch (reason) {
@@ -86,8 +98,8 @@ export function IntelligenceConnectionsPanel() {
   };
 
   return (
-    <div className="@container space-y-5">
-      <div className="grid grid-cols-1 @min-[37rem]:grid-cols-[minmax(0,1fr)_17rem] gap-5 items-start">
+    <div className="space-y-5">
+      <div className="space-y-5">
         <section className="space-y-2.5 min-w-0">
           {connections.length > 0 ? (
             <div ref={connectionListRef} className={`stable-reorder-list space-y-2 ${isConnectionSettling ? 'is-settling-stable-reorder' : ''}`}>
@@ -140,7 +152,7 @@ export function IntelligenceConnectionsPanel() {
           )}
         </section>
 
-        <aside className="theme-surface border rounded-2xl p-5 space-y-4 @min-[37rem]:sticky @min-[37rem]:top-0">
+        <aside className="theme-surface border rounded-2xl p-5 space-y-4">
           <div className="flex items-start gap-3">
             <span className="theme-badge border rounded-xl p-2.5 shrink-0"><BrainCircuit className="w-5 h-5" /></span>
             <div className="min-w-0">

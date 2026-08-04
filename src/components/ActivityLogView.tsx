@@ -187,10 +187,12 @@ export const ActivityLogView: React.FC = () => {
           </div>
         );
       case 'transform_execution_cancelled':
+      case 'transform_draft_cancelled':
+      case 'transform_test_cancelled':
         return (
           <div className="theme-badge flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold">
             <Workflow className="w-3.5 h-3.5" />
-            <span>Transform Cancelled</span>
+            <span>{type === 'transform_draft_cancelled' ? 'Draft Cancelled' : type === 'transform_test_cancelled' ? 'Test Cancelled' : 'Transform Cancelled'}</span>
           </div>
         );
       default:
