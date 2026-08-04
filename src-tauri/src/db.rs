@@ -1176,7 +1176,7 @@ impl DbState {
         }
 
         let mut sql = String::from(
-            "SELECT id, content_type, text_content, NULL as html_content, image_base64, image_path, content_hash, source_app, is_pinned, is_protected, COALESCE(pin_order, 0), bin_id, note, is_trashed, trashed_at, created_at,
+            "SELECT id, content_type, text_content, NULL as html_content, NULL as image_base64, image_path, content_hash, source_app, is_pinned, is_protected, COALESCE(pin_order, 0), bin_id, note, is_trashed, trashed_at, created_at,
              (SELECT GROUP_CONCAT(bin_id) FROM clip_bins WHERE clip_id = clips.id) as bin_ids_str,
              current_transformation_id IS NOT NULL
              FROM clips WHERE (is_trashed IS NULL OR is_trashed = 0)"
@@ -3911,6 +3911,31 @@ mod tests {
         assert_eq!(clips[0].text_content.as_deref(), Some("Hello Rust"));
         assert_eq!(clips[0].source_app, "Safari");
         assert!(!clips[0].is_pinned);
+    }
+
+    #[test]
+    fn clip_lists_defer_image_payloads_to_the_image_endpoint() {
+        let db = setup_test_db();
+        let image_payload = "data:image/png;base64,cGFzdGVk";
+        let clip = db
+            .save_clip(
+                "image",
+                None,
+                None,
+                Some(image_payload),
+                "image_hash",
+                "Screenshot",
+            )
+            .unwrap();
+
+        let clips = db.get_clips(None, None, false).unwrap();
+        assert_eq!(clips.len(), 1);
+        assert_eq!(clips[0].id, clip.id);
+        assert!(clips[0].image_base64.is_none());
+        assert_eq!(
+            db.get_clip_image(clip.id).unwrap().as_deref(),
+            Some(image_payload)
+        );
     }
 
     #[test]

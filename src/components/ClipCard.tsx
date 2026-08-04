@@ -4,6 +4,7 @@ import { formatEmojiIcon } from '../utils/emoji';
 import { ClipItem, getClipNoteSummary, isSensitiveText, maskSensitiveText } from '../types';
 import type { ClipViewPolicy } from '../utils/clipViewPolicy';
 import { clipDeleteLabel, UI_COPY } from '../utils/uiCopy';
+import { safeInvoke as invoke } from '../utils/tauri';
 import { FloatingActionStrip } from './FloatingActionStrip';
 import {
   Code,
@@ -30,6 +31,78 @@ import {
   ShieldOff,
   X,
 } from 'lucide-react';
+
+const clipImageCache = new Map<string, string | null>();
+
+function ClipImageThumbnail({
+  clipId,
+  contentHash,
+  maxHeightClass,
+  placeholderHeightClass,
+}: {
+  clipId: number;
+  contentHash: string;
+  maxHeightClass: string;
+  placeholderHeightClass: string;
+}) {
+  const stageRef = React.useRef<HTMLDivElement | null>(null);
+  const cacheKey = `${clipId}:${contentHash}`;
+  const [source, setSource] = React.useState<string | null | undefined>(() => (
+    clipImageCache.has(cacheKey) ? clipImageCache.get(cacheKey) : undefined
+  ));
+
+  React.useEffect(() => {
+    let cancelled = false;
+    const stage = stageRef.current;
+    if (!stage || source !== undefined) return undefined;
+
+    const load = () => {
+      invoke<string | null>('get_clip_image', { id: clipId })
+        .then((image) => {
+          clipImageCache.set(cacheKey, image);
+          if (!cancelled) setSource(image);
+        })
+        .catch(() => {
+          if (!cancelled) setSource(null);
+        });
+    };
+
+    if (typeof IntersectionObserver === 'undefined') {
+      load();
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    const observer = new IntersectionObserver((entries) => {
+      if (!entries.some((entry) => entry.isIntersecting)) return;
+      observer.disconnect();
+      load();
+    }, { rootMargin: '240px 0px' });
+    observer.observe(stage);
+    return () => {
+      cancelled = true;
+      observer.disconnect();
+    };
+  }, [cacheKey, clipId, source]);
+
+  return (
+    <div
+      ref={stageRef}
+      className={`clip-thumbnail-stage clip-thumbnail-lazy relative rounded border overflow-hidden p-1 flex justify-center ${source ? 'is-loaded' : placeholderHeightClass}`}
+    >
+      {source && (
+        <img
+          src={source}
+          alt="Clipboard Clip"
+          loading="lazy"
+          decoding="async"
+          className={`${maxHeightClass} object-contain rounded`}
+        />
+      )}
+    </div>
+  );
+}
 
 interface ClipCardProps {
   clip: ClipItem;
@@ -143,6 +216,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
   const paddingClass = isSmall ? 'p-2.5' : isLarge ? 'p-4' : 'p-3';
   const lineClampClass = isSmall ? 'line-clamp-1 text-[11px]' : isLarge ? 'line-clamp-5 text-xs' : 'line-clamp-2 text-xs';
   const imgMaxHeightClass = isSmall ? 'max-h-16' : isLarge ? 'max-h-44' : 'max-h-24';
+  const imgPlaceholderHeightClass = isSmall ? 'min-h-16' : isLarge ? 'min-h-44' : 'min-h-24';
   const headerTextClass = isSmall ? 'text-[11px]' : 'text-xs';
   const noteSummary = getClipNoteSummary(clip.note);
   const isTrashMode = viewPolicy.state === 'trash';
@@ -363,14 +437,14 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
 
       {/* Body Content */}
       <div className={`theme-text-main ${lineClampClass} font-mono leading-relaxed break-all`}>
-        {clip.content_type === 'image' && clip.image_base64 ? (
-          <div className="clip-thumbnail-stage relative rounded border overflow-hidden p-1 flex justify-center">
-            <img
-              src={clip.image_base64}
-              alt="Clipboard Clip"
-              className={`${imgMaxHeightClass} object-contain rounded`}
-            />
-          </div>
+        {clip.content_type === 'image' ? (
+          <ClipImageThumbnail
+            key={`${clip.id}:${clip.content_hash}`}
+            clipId={clip.id}
+            contentHash={clip.content_hash}
+            maxHeightClass={imgMaxHeightClass}
+            placeholderHeightClass={imgPlaceholderHeightClass}
+          />
         ) : clip.content_type === 'color' ? (
           <div className="clip-thumbnail-stage flex items-center space-x-3 p-2 rounded border">
             <div
