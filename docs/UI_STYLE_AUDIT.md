@@ -71,6 +71,10 @@ These are functional issues exposed while auditing the styling, not CSS-only def
 - [ ] Define the intended relationship clearly: Operations are reusable atomic steps; Pipelines are ordered compositions of operation IDs/configurations.
 - [ ] Add tests for category membership, pipeline composition, operation deletion dependencies, ordering, duplication, import/export, and live sandbox errors.
 
+## Performance follow-ups
+
+- [ ] Profile the 1–2 second clip-to-bin drop completion regression. The drop path already updates clips and bin counts optimistically, then starts full `get_bins` and `get_clips` reconciliations after `assign_clip_bin`; verify the cost of reloading complete clip payloads and SQLite connection contention, remove redundant success-path work, and retain authoritative rollback/recovery on failure.
+
 ## Recommended attack order
 
 1. Token audit and missing semantic roles.
