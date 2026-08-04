@@ -91,19 +91,19 @@ export const AnalyticsView: React.FC = () => {
         </div>
 
         <div className="theme-panel p-4 rounded-xl border flex items-center space-x-4">
-          <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+          <div className="theme-status-success p-3 rounded-lg border">
             <HardDrive className="w-6 h-6" />
           </div>
           <div>
             <div className="theme-title text-2xl font-extrabold font-mono">
-              {kbSaved} <span className="text-xs text-emerald-400">KB</span>
+              {kbSaved} <span className="text-xs">KB</span>
             </div>
             <div className="theme-text-muted text-xs font-medium">Storage Compressed</div>
           </div>
         </div>
 
         <div className="theme-panel p-4 rounded-xl border flex items-center space-x-4">
-          <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400">
+          <div className="theme-status-warning p-3 rounded-lg border">
             <TrendingUp className="w-6 h-6" />
           </div>
           <div>
@@ -120,12 +120,12 @@ export const AnalyticsView: React.FC = () => {
         {/* Top Applications */}
         <div className="theme-panel p-5 rounded-xl border flex flex-col">
           <h2 className="theme-title text-sm font-bold mb-4 flex items-center space-x-2">
-            <Cpu className="w-4 h-4 text-cyan-400" />
+            <Cpu className="w-4 h-4 theme-status-info-text" />
             <span>Top Source Applications</span>
           </h2>
           <div className="space-y-3 flex-1">
             {topApps.length === 0 ? (
-              <div className="text-xs text-gray-500 py-6 text-center">No app data recorded yet</div>
+              <div className="theme-text-subtle text-xs py-6 text-center">No app data recorded yet</div>
             ) : (
               topApps.map((app) => {
                 const pct = Math.round((app.count / Math.max(1, totalClips)) * 100);
@@ -137,7 +137,7 @@ export const AnalyticsView: React.FC = () => {
                     </div>
                     <div className="theme-track w-full h-2 rounded-full overflow-hidden">
                       <div
-                        className="h-full bg-cyan-500/80 rounded-full transition-[width] duration-500"
+                        className="analytics-progress h-full rounded-full transition-[width] duration-500"
                         style={{ width: `${pct}%` }}
                       />
                     </div>
@@ -151,19 +151,19 @@ export const AnalyticsView: React.FC = () => {
         {/* Content Type Breakdown */}
         <div className="theme-panel p-5 rounded-xl border flex flex-col">
           <h2 className="theme-title text-sm font-bold mb-4 flex items-center space-x-2">
-            <PieChart className="w-4 h-4 text-purple-400" />
+            <PieChart className="w-4 h-4 theme-status-info-text" />
             <span>Content Type Breakdown</span>
           </h2>
           <div className="grid grid-cols-2 gap-3 flex-1">
             <div className="theme-surface p-3 rounded-lg border flex items-center space-x-3">
-              <FileText className="w-4 h-4 text-gray-400 shrink-0" />
+              <FileText className="w-4 h-4 theme-text-muted shrink-0" />
               <div>
                 <div className="theme-title text-sm font-bold font-mono">{getTypeCount('text')}</div>
                 <div className="theme-text-muted text-[11px]">Plain Text</div>
               </div>
             </div>
             <div className="theme-surface p-3 rounded-lg border flex items-center space-x-3">
-              <Code className="w-4 h-4 text-emerald-400 shrink-0" />
+              <Code className="w-4 h-4 theme-status-success-text shrink-0" />
               <div>
                 <div className="theme-title text-sm font-bold font-mono">{getTypeCount('code')}</div>
                 <div className="theme-text-muted text-[11px]">Code Snippets</div>
@@ -177,14 +177,14 @@ export const AnalyticsView: React.FC = () => {
               </div>
             </div>
             <div className="theme-surface p-3 rounded-lg border flex items-center space-x-3">
-              <ImageIcon className="w-4 h-4 text-pink-400 shrink-0" />
+              <ImageIcon className="w-4 h-4 theme-status-danger-text shrink-0" />
               <div>
                 <div className="theme-title text-sm font-bold font-mono">{getTypeCount('image')}</div>
                 <div className="theme-text-muted text-[11px]">Images</div>
               </div>
             </div>
             <div className="theme-surface p-3 rounded-lg border flex items-center space-x-3 col-span-2">
-              <Palette className="w-4 h-4 text-amber-400 shrink-0" />
+              <Palette className="w-4 h-4 theme-status-warning-text shrink-0" />
               <div>
                 <div className="theme-title text-sm font-bold font-mono">{getTypeCount('color')}</div>
                 <div className="theme-text-muted text-[11px]">Color Swatches</div>
@@ -197,12 +197,12 @@ export const AnalyticsView: React.FC = () => {
       {/* Daily Activity Timeline */}
       <div className="theme-panel p-5 rounded-xl border">
         <h2 className="theme-title text-sm font-bold mb-4 flex items-center space-x-2">
-          <Calendar className="w-4 h-4 text-emerald-400" />
+          <Calendar className="w-4 h-4 theme-status-success-text" />
           <span>Daily Clipboard Activity (Recent Days)</span>
         </h2>
         <div className="space-y-2">
           {dailyActivity.length === 0 ? (
-            <div className="text-xs text-gray-500 py-4 text-center">No daily activity recorded</div>
+            <div className="theme-text-subtle text-xs py-4 text-center">No daily activity recorded</div>
           ) : (
             dailyActivity.map((day) => {
               const maxDay = Math.max(1, ...dailyActivity.map((d) => d.count));
@@ -212,7 +212,7 @@ export const AnalyticsView: React.FC = () => {
                   <span className="theme-text-muted w-24 shrink-0">{day.date}</span>
                   <div className="theme-track flex-1 h-2 rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-emerald-500/80 rounded-full"
+                      className="analytics-progress is-success h-full rounded-full"
                       style={{ width: `${pct}%` }}
                     />
                   </div>

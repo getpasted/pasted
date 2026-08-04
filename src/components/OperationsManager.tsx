@@ -4,17 +4,16 @@ import { Wrench, Sparkles, Trash2, Edit3, Code2, Play } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { OperationEditorModal, CATEGORIES } from './OperationEditorModal';
 import { startWindowDrag } from '../utils/windowDrag';
+import { TransformLibraryToolbar } from './TransformLibraryToolbar';
 
 interface OperationsManagerProps {
   isEmbedded?: boolean;
   onOpenCreateModal?: () => void;
-  openCreateRef?: React.MutableRefObject<(() => void) | null>;
 }
 
 export const OperationsManager: React.FC<OperationsManagerProps> = ({
   isEmbedded = false,
   onOpenCreateModal,
-  openCreateRef,
 }) => {
   const [operations, setOperations] = useState<Operation[]>([]);
   const [activeCategory, setActiveCategory] = useState<string>('All');
@@ -40,12 +39,6 @@ export const OperationsManager: React.FC<OperationsManagerProps> = ({
     setSelectedOperationForEdit(null);
     setIsModalOpen(true);
   };
-
-  useEffect(() => {
-    if (openCreateRef) {
-      openCreateRef.current = handleOpenCreate;
-    }
-  }, [openCreateRef]);
 
   const handleOpenEdit = (op: Operation) => {
     setSelectedOperationForEdit(op);
@@ -85,10 +78,10 @@ export const OperationsManager: React.FC<OperationsManagerProps> = ({
   const content = (
     <div className="space-y-6">
       {!isEmbedded && (
-        <div onMouseDown={startWindowDrag} className="flex items-center justify-between pb-4 border-b border-[#2b2b2b]">
+        <div onMouseDown={startWindowDrag} className="theme-divider flex items-center justify-between pb-4 border-b">
           <div>
             <h2 className="text-lg font-bold theme-title flex items-center space-x-2">
-              <Wrench className="w-5 h-5 opacity-70 text-cyan-400" />
+              <Wrench className="transform-accent operations w-5 h-5 opacity-70" />
               <span>Operations Library</span>
             </h2>
             <p className="text-xs theme-text-muted mt-1">
@@ -98,9 +91,9 @@ export const OperationsManager: React.FC<OperationsManagerProps> = ({
 
           <button
             onClick={onOpenCreateModal || handleOpenCreate}
-            className="flex items-center space-x-2 px-4 py-2 bg-white hover:bg-gray-200 text-black text-xs font-bold rounded-xl shadow-lg active:scale-95 transition-[background-color,transform]"
+            className="theme-primary-button flex items-center space-x-2 px-4 py-2 border text-xs font-bold rounded-xl shadow-lg active:scale-95 transition-[background-color,transform]"
           >
-            <Sparkles className="w-4 h-4 text-cyan-600" />
+            <Sparkles className="w-4 h-4" />
             <span>+ New Operation</span>
           </button>
         </div>
@@ -121,7 +114,7 @@ export const OperationsManager: React.FC<OperationsManagerProps> = ({
             <textarea
               value={testText}
               onChange={(e) => setTestText(e.target.value)}
-              className="w-full h-24 theme-input border border-gray-700/80 rounded-lg p-2.5 focus:outline-none focus:border-gray-500 text-xs text-gray-200"
+              className="w-full h-24 theme-input border rounded-lg p-2.5 focus:outline-none text-xs"
             />
           </div>
           <div>
@@ -134,14 +127,14 @@ export const OperationsManager: React.FC<OperationsManagerProps> = ({
       </div>
 
       {/* Category Pills Filter */}
-      <div className="flex items-center space-x-2 overflow-x-auto pb-2 scrollbar-none">
+      <TransformLibraryToolbar
+        accent="operations"
+        createLabel="New Operation"
+        onCreate={onOpenCreateModal || handleOpenCreate}
+      >
         <button
           onClick={() => setActiveCategory('All')}
-          className={`ui-pill px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-colors ${
-            activeCategory === 'All'
-              ? 'bg-amber-600 text-white shadow'
-              : 'bg-[#212121] text-gray-400 hover:text-white hover:bg-gray-800'
-          }`}
+          className={`transform-category-pill operations ui-pill px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-colors ${activeCategory === 'All' ? 'is-active shadow' : ''}`}
         >
           All Operations ({operations.length})
         </button>
@@ -151,17 +144,13 @@ export const OperationsManager: React.FC<OperationsManagerProps> = ({
             <button
               key={cat}
               onClick={() => setActiveCategory(cat)}
-              className={`ui-pill px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-colors ${
-                activeCategory === cat
-                  ? 'bg-amber-600 text-white shadow'
-                  : 'bg-[#212121] text-gray-400 hover:text-white hover:bg-gray-800'
-              }`}
+              className={`transform-category-pill operations ui-pill px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-colors ${activeCategory === cat ? 'is-active shadow' : ''}`}
             >
               {cat} ({count})
             </button>
           );
         })}
-      </div>
+      </TransformLibraryToolbar>
 
       {/* Operations Grid */}
       <div className="space-y-3">
@@ -170,19 +159,19 @@ export const OperationsManager: React.FC<OperationsManagerProps> = ({
             <div
               key={op.id}
               onClick={() => handleTestOperation(op.op_type, op.config)}
-              className="group p-3.5 theme-card-idle bg-[#212121] rounded-xl border border-gray-700/80 hover:border-cyan-500 cursor-pointer transition-[background-color,border-color,box-shadow,transform] flex items-center justify-between shadow-md"
+              className="transform-card operations group p-3.5 theme-card-idle rounded-xl border cursor-pointer transition-[background-color,border-color,box-shadow,transform] flex items-center justify-between shadow-md"
             >
               <div className="flex items-center space-x-3 truncate pr-2">
                 <div className="p-2 rounded-lg theme-badge border shrink-0">
-                  <Code2 className="w-4 h-4 text-amber-400" />
+                  <Code2 className="transform-accent operations w-4 h-4" />
                 </div>
                 <div className="truncate">
                   <h4 className="text-xs font-bold theme-text-main truncate">{op.name}</h4>
                   <div className="flex items-center space-x-2 mt-0.5">
-                    <span className="text-[10px] font-mono text-amber-400/80 bg-amber-950/40 px-1.5 py-0.5 rounded border border-amber-800/40">
+                    <span className="transform-tag operations text-[10px] font-mono px-1.5 py-0.5 rounded border">
                       {op.op_type}
                     </span>
-                    <span className="text-[10px] text-gray-300 bg-gray-800/80 px-1.5 py-0.5 rounded border border-gray-700/80 theme-badge">
+                    <span className="theme-badge text-[10px] px-1.5 py-0.5 rounded border">
                       {op.category}
                     </span>
                   </div>
@@ -195,7 +184,7 @@ export const OperationsManager: React.FC<OperationsManagerProps> = ({
                     e.stopPropagation();
                     handleOpenEdit(op);
                   }}
-                  className="p-1.5 text-gray-400 hover:text-white rounded-md hover:bg-gray-800 transition-colors"
+                  className="theme-icon-button p-1.5 border rounded-md transition-colors"
                   title="Edit Operation"
                 >
                   <Edit3 className="w-4 h-4" />
@@ -205,7 +194,7 @@ export const OperationsManager: React.FC<OperationsManagerProps> = ({
                     e.stopPropagation();
                     handleDelete(op.id);
                   }}
-                  className="p-1.5 text-gray-400 hover:text-red-400 rounded-md hover:bg-gray-800 transition-colors"
+                  className="theme-icon-button theme-danger-text p-1.5 border rounded-md transition-colors"
                   title="Delete Operation"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -229,7 +218,7 @@ export const OperationsManager: React.FC<OperationsManagerProps> = ({
   return isEmbedded ? (
     content
   ) : (
-    <div className="tools-page operations-page flex-1 h-screen overflow-y-auto p-6 space-y-6 select-none bg-[#171717] filter-manager-wrapper">
+    <div className="tools-page operations-page flex-1 h-screen overflow-y-auto p-6 space-y-6 select-none filter-manager-wrapper">
       {content}
     </div>
   );

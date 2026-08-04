@@ -108,15 +108,15 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
   const getIcon = () => {
     switch (clip.content_type) {
       case 'code':
-        return <Code className="w-3.5 h-3.5 text-emerald-400" />;
+        return <Code className="w-3.5 h-3.5 theme-status-success-text" />;
       case 'image':
         return <ImageIcon className="w-3.5 h-3.5 text-pink-400" />;
       case 'color':
-        return <Palette className="w-3.5 h-3.5 text-amber-400" />;
+        return <Palette className="w-3.5 h-3.5 theme-status-warning-text" />;
       case 'link':
         return <LinkIcon className="w-3.5 h-3.5 text-blue-400" />;
       default:
-        return <FileText className="w-3.5 h-3.5 text-gray-400" />;
+        return <FileText className="w-3.5 h-3.5 theme-text-muted" />;
     }
   };
 
@@ -239,34 +239,34 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
           ? 'clip-card-deleting'
           : `${isSelected
               ? 'clip-card-selected'
-              : `clip-card-idle bg-[#212121] border-[#2f2f2f] ${isHovered && !isDragInProgress ? 'clip-card-hovered' : ''}`
+              : `clip-card-idle ${isHovered && !isDragInProgress ? 'clip-card-hovered' : ''}`
             }`
       } ${isDragging ? 'clip-card-drag-source' : ''}`}
     >
       {/* Header Info */}
-      <div className={`flex items-center justify-between ${headerTextClass} text-gray-400 mb-1`}>
+      <div className={`clip-card-header flex items-center justify-between ${headerTextClass} mb-1`}>
         <div className="flex items-center space-x-2">
-          <div className="clip-type-icon p-1 rounded bg-gray-900/90 border border-gray-700/60">
+          <div className="clip-type-icon theme-badge p-1 rounded border">
             {getIcon()}
           </div>
-          <span className="font-medium text-gray-300 truncate max-w-[120px]">
+          <span className="font-medium theme-text-main truncate max-w-[120px]">
             {clip.source_app}
           </span>
         </div>
-        <div className="clip-meta-row flex items-center text-[11px] font-mono text-gray-500">
+        <div className="clip-meta-row theme-text-subtle flex items-center text-[11px] font-mono">
           {clip.is_protected && (
             <span title="Clip is Protected against deletion" className="clip-meta-item clip-meta-protected">
-              <Shield className="clip-meta-icon text-cyan-400" />
+              <Shield className="clip-meta-icon" />
               <span>Protected</span>
             </span>
           )}
           {queueIndex !== undefined && (
             queueIndex === 1 ? (
-              <span className="clip-meta-item rounded-full bg-purple-600 text-white font-mono font-extrabold shadow animate-pulse">
+              <span className="clip-meta-item clip-queue-next rounded-full font-mono font-extrabold shadow animate-pulse">
                 Next Up (#1)
               </span>
             ) : (
-              <span className="clip-meta-item rounded-full bg-purple-950/90 text-purple-300 border-purple-500/40 font-mono font-semibold">
+              <span className="clip-meta-item clip-queue-position rounded-full font-mono font-semibold">
                 #{queueIndex} in Queue
               </span>
             )
@@ -279,12 +279,12 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
           )}
           {noteSummary && (
             <span title={`Notes: ${noteSummary}`} className="clip-meta-item clip-meta-icon-only">
-              <StickyNote className="clip-meta-icon text-amber-400" />
+              <StickyNote className="clip-meta-icon clip-note-accent" />
             </span>
           )}
           {clip.is_pinned && (
             <span title="Pinned Clip" className="clip-meta-item clip-meta-icon-only">
-              <Pin className="clip-meta-icon text-orange-500 fill-orange-500 pin-icon" />
+              <Pin className="clip-meta-icon pin-icon" />
             </span>
           )}
           {isTrashMode && (
@@ -297,9 +297,9 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
       </div>
 
       {/* Body Content */}
-      <div className={`text-gray-200 ${lineClampClass} font-mono leading-relaxed break-all`}>
+      <div className={`theme-text-main ${lineClampClass} font-mono leading-relaxed break-all`}>
         {clip.content_type === 'image' && clip.image_base64 ? (
-          <div className="relative rounded border border-gray-800 overflow-hidden bg-black/60 p-1 flex justify-center">
+          <div className="clip-thumbnail-stage relative rounded border overflow-hidden p-1 flex justify-center">
             <img
               src={clip.image_base64}
               alt="Clipboard Clip"
@@ -307,24 +307,24 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
             />
           </div>
         ) : clip.content_type === 'color' ? (
-          <div className="flex items-center space-x-3 p-2 bg-gray-950/80 rounded border border-gray-800">
+          <div className="clip-thumbnail-stage flex items-center space-x-3 p-2 rounded border">
             <div
-              className="w-8 h-8 rounded border border-gray-700 shadow"
+              className="theme-divider w-8 h-8 rounded border shadow"
               style={{ backgroundColor: clip.text_content || '#ffffff' }}
             />
-            <span className="font-mono text-xs text-amber-300">
+            <span className="clip-note-accent font-mono text-xs">
               {clip.text_content}
             </span>
           </div>
         ) : isSensitive && !showRevealed ? (
-          <div className="flex items-center justify-between p-1.5 bg-amber-950/40 border border-amber-500/40 rounded-lg text-amber-200 text-xs font-mono select-none">
-            <span className="tracking-widest font-bold text-amber-300">{maskSensitiveText(clip.text_content)}</span>
+          <div className="theme-status-warning flex items-center justify-between p-1.5 border rounded-lg text-xs font-mono select-none">
+            <span className="tracking-widest font-bold">{maskSensitiveText(clip.text_content)}</span>
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 setShowRevealed(true);
               }}
-              className="ml-2 p-1 hover:bg-amber-900/60 rounded text-amber-400 hover:text-amber-200 transition-colors"
+              className="clip-sensitive-action ml-2 p-1 rounded transition-colors"
               title="Click to reveal sensitive key/secret"
             >
               <Eye className="w-3.5 h-3.5" />
@@ -339,7 +339,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
                   e.stopPropagation();
                   setShowRevealed(false);
                 }}
-                className="ml-2 p-1 hover:bg-gray-800 rounded text-gray-400 hover:text-white transition-colors shrink-0"
+                className="clip-card-action ml-2 p-1 rounded transition-colors shrink-0"
                 title="Hide sensitive key/secret"
               >
                 <EyeOff className="w-3.5 h-3.5" />
@@ -351,8 +351,8 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
 
       {/* Note preview if attached */}
       {noteSummary && (
-        <div className="mt-2 pt-1.5 border-t border-amber-500/20 flex items-center space-x-1.5 text-[11px] text-amber-300 font-sans italic">
-          <StickyNote className="w-3 h-3 text-amber-400 shrink-0" />
+        <div className="clip-note-summary mt-2 pt-1.5 border-t flex items-center space-x-1.5 text-[11px] font-sans italic">
+          <StickyNote className="w-3 h-3 shrink-0" />
           <span className="truncate">{noteSummary}</span>
         </div>
       )}
@@ -365,11 +365,11 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
       >
         <button
           onClick={handleCopy}
-          className="p-1 text-gray-400 hover:text-white rounded hover:bg-gray-800"
+          className="clip-card-action p-1 rounded"
           title="Copy to Clipboard"
         >
           {copied ? (
-            <Check className="w-3.5 h-3.5 text-emerald-400" />
+            <Check className="w-3.5 h-3.5 theme-status-success-text" />
           ) : (
             <Copy className="w-3.5 h-3.5" />
           )}
@@ -383,7 +383,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
                   e.stopPropagation();
                   onPasteQueueItem();
                 }}
-                className="p-1 text-purple-400 hover:text-purple-300 rounded hover:bg-gray-800"
+                className="clip-card-action is-accent p-1 rounded"
                 title="Paste this Queued Item"
               >
                 <ArrowRightCircle className="w-3.5 h-3.5" />
@@ -395,7 +395,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
                   e.stopPropagation();
                   onRemoveFromQueue();
                 }}
-                className="p-1 text-rose-400 hover:text-rose-300 rounded hover:bg-gray-800"
+                className="clip-card-action is-danger p-1 rounded"
                 title="Remove from Queue"
               >
                 <MinusCircle className="w-3.5 h-3.5" />
@@ -409,7 +409,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
                 e.stopPropagation();
                 onRestore?.();
               }}
-              className="p-1 text-cyan-400 hover:text-cyan-300 rounded hover:bg-gray-800"
+              className="clip-card-action is-accent p-1 rounded"
               title="Restore Clip from Trash"
             >
               <RotateCcw className="w-3.5 h-3.5" />
@@ -419,7 +419,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
                 e.stopPropagation();
                 onPurgePermanently?.();
               }}
-              className="p-1 text-red-400 hover:text-red-300 rounded hover:bg-gray-800"
+              className="clip-card-action is-danger p-1 rounded"
               title="Delete Permanently"
             >
               <Trash className="w-3.5 h-3.5" />
@@ -432,8 +432,8 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
                 e.stopPropagation();
                 onPin();
               }}
-              className={`p-1 rounded hover:bg-gray-800 ${
-                clip.is_pinned ? 'text-orange-500 fill-orange-500/20 pin-icon' : 'text-gray-400 hover:text-white'
+              className={`clip-card-action p-1 rounded ${
+                clip.is_pinned ? 'is-warning pin-icon' : ''
               }`}
               title={clip.is_pinned ? 'Unpin' : 'Pin Clip'}
             >
@@ -446,13 +446,13 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
                   e.stopPropagation();
                   onToggleProtected();
                 }}
-                className={`p-1 rounded hover:bg-gray-800 ${
-                  clip.is_protected ? 'text-cyan-400' : 'text-gray-400 hover:text-cyan-300'
+                className={`clip-card-action p-1 rounded ${
+                  clip.is_protected ? 'is-accent' : ''
                 }`}
                 title={clip.is_protected ? 'Unprotect Clip' : 'Protect Clip'}
               >
                 {clip.is_protected ? (
-                  <ShieldOff className="w-3.5 h-3.5 text-cyan-400" />
+                  <ShieldOff className="w-3.5 h-3.5" />
                 ) : (
                   <Shield className="w-3.5 h-3.5" />
                 )}
@@ -469,8 +469,8 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
               disabled={clip.is_protected}
               className={`p-1 rounded transition-colors ${
                 clip.is_protected
-                  ? 'text-gray-600 cursor-not-allowed opacity-50'
-                  : 'text-gray-400 hover:text-red-400 hover:bg-gray-800'
+                  ? 'is-disabled cursor-not-allowed opacity-50'
+                  : 'clip-card-action is-danger'
               }`}
               title={clip.is_protected ? 'Clip is Protected. Unprotect first to delete.' : 'Move to Trash (Option-click to permanently delete)'}
             >

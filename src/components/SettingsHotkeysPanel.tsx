@@ -61,7 +61,7 @@ const actionHotkeys: Array<{ label: string; key: HotkeySetting; fallback?: strin
 function HotkeyRow({ label, value, onChange }: { label: string; value: string | null; onChange: (value: string | null) => void }) {
   return (
     <div className="theme-surface flex items-center justify-between p-2.5 rounded-xl border">
-      <span className="font-medium text-gray-200">{label}</span>
+      <span className="font-medium theme-text-main">{label}</span>
       <HotkeyRecorder value={value} onChange={onChange} />
     </div>
   );
@@ -138,30 +138,30 @@ export function SettingsHotkeysPanel({
   return (
     <div className="settings-panel theme-panel p-6 rounded-2xl border space-y-6 text-xs">
       <div className="flex items-center justify-between">
-        <h3 className="font-bold text-sm text-gray-100">Global Application Hotkeys</h3>
-        <button type="button" onClick={() => void restoreDefaults()} className="flex items-center space-x-1.5 px-3 py-1 bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded-lg text-gray-300 transition-colors">
+        <h3 className="font-bold text-sm theme-title">Global Application Hotkeys</h3>
+        <button type="button" onClick={() => void restoreDefaults()} className="theme-secondary-button flex items-center space-x-1.5 px-3 py-1 border rounded-lg transition-colors">
           <RotateCcw className="w-3.5 h-3.5" />
           <span>Restore Defaults</span>
         </button>
       </div>
 
-      {statusMessage && <p role="status" className="theme-text-muted rounded-lg border border-gray-700/80 px-3 py-2 text-[11px]">{statusMessage}</p>}
+      {statusMessage && <p role="status" className="theme-status-info rounded-lg border px-3 py-2 text-[11px]">{statusMessage}</p>}
 
       <div className="theme-surface p-3.5 rounded-xl border space-y-2">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center space-x-2">
-            <ShieldCheck className={`w-4 h-4 ${accessibilityStatus?.is_trusted ? 'text-green-400' : 'text-amber-400'}`} />
-            <span className="font-bold text-xs text-gray-200">macOS System Accessibility Permission</span>
+            <ShieldCheck className={`w-4 h-4 ${accessibilityStatus?.is_trusted ? 'theme-status-success-text' : 'theme-status-warning-text'}`} />
+            <span className="font-bold text-xs theme-text-main">macOS System Accessibility Permission</span>
           </div>
           <div className="flex items-center space-x-2">
-            {accessibilityStatus?.is_dev_mode && <span className="text-[9px] font-mono px-2 py-0.5 rounded bg-cyan-950/80 border border-cyan-800/60 text-cyan-300 font-bold shrink-0 whitespace-nowrap">DEV MODE</span>}
-            <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border ${accessibilityStatus?.is_trusted ? 'bg-green-500/20 text-green-300 border-green-500/30' : 'bg-amber-500/20 text-amber-300 border-amber-500/30'}`}>
+            {accessibilityStatus?.is_dev_mode && <span className="theme-status-info text-[9px] font-mono px-2 py-0.5 rounded border font-bold shrink-0 whitespace-nowrap">DEV MODE</span>}
+            <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border ${accessibilityStatus?.is_trusted ? 'theme-status-success' : 'theme-status-warning'}`}>
               {accessibilityStatus?.is_trusted ? 'GRANTED' : 'REQUIRED'}
             </span>
-            <button type="button" onClick={() => void requestAccessibilityPermission()} className="px-2.5 py-1 bg-gray-800 hover:bg-gray-700 text-gray-200 hover:text-white border border-gray-600 rounded-lg text-[10px] font-semibold transition-colors cursor-pointer">Open System Settings</button>
+            <button type="button" onClick={() => void requestAccessibilityPermission()} className="theme-secondary-button px-2.5 py-1 border rounded-lg text-[10px] font-semibold transition-colors cursor-pointer">Open System Settings</button>
           </div>
         </div>
-        <p className="text-[11px] text-gray-400 leading-normal">
+        <p className="text-[11px] theme-text-muted leading-normal">
           macOS requires Accessibility access for global hotkeys. {accessibilityStatus?.is_dev_mode
             ? <span>Running in <strong>development mode</strong>: grant permission to your active IDE / terminal host application under System Settings &gt; Privacy &amp; Security &gt; Accessibility.</span>
             : <span>Grant permission to <strong>Pasted.app</strong> under System Settings &gt; Privacy &amp; Security &gt; Accessibility.</span>}
@@ -169,9 +169,9 @@ export function SettingsHotkeysPanel({
       </div>
 
       <section className="space-y-2">
-        <h4 className="font-bold text-gray-400 uppercase tracking-wider text-[10px]">Custom Bin Hotkeys ({bins.length})</h4>
+        <h4 className="font-bold theme-text-muted uppercase tracking-wider text-[10px]">Custom Bin Hotkeys ({bins.length})</h4>
         {bins.length === 0
-          ? <p className="text-[11px] text-gray-500 italic p-2.5 bg-[#181818] rounded-xl border border-gray-800">No custom bins created yet. Create bins in the sidebar to assign global shortcuts.</p>
+          ? <p className="theme-subtle-surface text-[11px] theme-text-subtle italic p-2.5 rounded-xl border">No custom bins created yet. Create bins in the sidebar to assign global shortcuts.</p>
           : bins.map((bin) => <HotkeyRow key={bin.id} label={bin.name} value={bin.shortcut ?? null} onChange={async (shortcut) => {
               try {
                 await invoke('update_bin_shortcut', { id: bin.id, shortcut });
@@ -183,7 +183,7 @@ export function SettingsHotkeysPanel({
             }} />)}
       </section>
 
-      <section className="space-y-2 pt-3 border-t border-gray-700/80">
+      <section className="theme-divider space-y-2 pt-3 border-t">
         <h4 className="font-bold theme-text-muted uppercase tracking-wider text-[10px]">Filter Pipeline Hotkeys ({filters.length})</h4>
         <p className="text-[11px] theme-text-muted">Assign custom shortcuts to trigger automated text filters instantly.</p>
         <div className="space-y-2 pt-1 max-h-60 overflow-y-auto pr-1">
@@ -199,8 +199,8 @@ export function SettingsHotkeysPanel({
         </div>
       </section>
 
-      <section className="space-y-2 pt-2 border-t border-gray-700/80">
-        <h4 className="font-bold text-gray-400 uppercase tracking-wider text-[10px]">Actions</h4>
+      <section className="theme-divider space-y-2 pt-2 border-t">
+        <h4 className="font-bold theme-text-muted uppercase tracking-wider text-[10px]">Actions</h4>
         <HotkeyRow label="HUD" value={settings.hudHotkey === '' ? null : (settings.hudHotkey || 'Alt+Shift+V')} onChange={async (newKey) => {
           const value = newKey ?? '';
           onUpdateSettings({ hudHotkey: value });
@@ -218,7 +218,7 @@ export function SettingsHotkeysPanel({
       </section>
 
       <section className="space-y-2 pt-2">
-        <h4 className="font-bold text-gray-400 uppercase tracking-wider text-[10px]">Paste Recent Clippings</h4>
+        <h4 className="font-bold theme-text-muted uppercase tracking-wider text-[10px]">Paste Recent Clippings</h4>
         {Array.from({ length: 9 }, (_, index) => index + 1).map((number) => {
           const key = `pasteClip${number}Hotkey` as HotkeySetting;
           return <HotkeyRow key={key} label={`Paste Clipping ${number}`} value={(settings[key] as string) || null} onChange={(value) => void updateSettingHotkey(key, value)} />;

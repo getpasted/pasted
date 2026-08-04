@@ -179,7 +179,7 @@ export const QuickHudWindow: React.FC = () => {
                           <img
                             src={clip.image_base64}
                             alt="Clip Preview"
-                            className="h-8 w-12 object-cover rounded border border-gray-700"
+                            className="theme-divider h-8 w-12 object-cover rounded border"
                           />
                           <span className="theme-text-muted text-xs font-mono truncate">
                             {clip.text_content ? `[OCR] ${clip.text_content}` : 'Screenshot Image'}

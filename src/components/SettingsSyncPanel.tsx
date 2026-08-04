@@ -46,9 +46,9 @@ export function SettingsSyncPanel({
 
   return (
     <div className="settings-panel theme-panel p-6 rounded-2xl border space-y-5 text-xs">
-      <div className="p-5 theme-surface bg-[#181818] rounded-xl border border-gray-700/80 space-y-3">
+      <div className="p-5 theme-surface rounded-xl border space-y-3">
         <div className="flex items-center space-x-3">
-          <div className="p-2.5 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400">
+          <div className="settings-accent-tile p-2.5 rounded-xl border">
             <Download className="w-5 h-5" />
           </div>
           <div>
@@ -61,14 +61,14 @@ export function SettingsSyncPanel({
           <button
             type="button"
             onClick={handleExport}
-            className="flex items-center space-x-2 px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white font-semibold rounded-xl text-xs transition-[background-color,transform] shadow-md active:scale-95 cursor-pointer"
+            className="theme-primary-button flex items-center space-x-2 px-4 py-2 border font-semibold rounded-xl text-xs transition-[background-color,transform] shadow-md active:scale-95 cursor-pointer"
           >
             <Download className="w-4 h-4" />
             <span>Export Backup (.json)</span>
           </button>
 
-          <label className="flex items-center space-x-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-200 font-semibold rounded-xl text-xs transition-[background-color,border-color,color] border border-gray-700 shadow-md cursor-pointer">
-            <Upload className="w-4 h-4 text-gray-400" />
+          <label className="theme-secondary-button flex items-center space-x-2 px-4 py-2 font-semibold rounded-xl text-xs transition-[background-color,border-color,color] border shadow-md cursor-pointer">
+            <Upload className="w-4 h-4 theme-text-muted" />
             <span>Import Backup (.json)</span>
             <input
               type="file"
@@ -88,8 +88,8 @@ export function SettingsSyncPanel({
             role={status.kind === 'error' ? 'alert' : 'status'}
             className={`rounded-lg border px-3 py-2 text-[11px] ${
               status.kind === 'error'
-                ? 'border-red-500/30 bg-red-500/10 text-red-400'
-                : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
+                ? 'theme-status-danger'
+                : 'theme-status-success'
             }`}
           >
             {status.message}
@@ -97,14 +97,14 @@ export function SettingsSyncPanel({
         )}
       </div>
 
-      <div className="p-5 theme-surface bg-[#181818] rounded-xl border border-gray-700/80 space-y-4">
+      <div className="p-5 theme-surface rounded-xl border space-y-4">
         <div className="flex items-center space-x-3">
-          <div className="p-2.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-400">
+          <div className="settings-accent-tile p-2.5 rounded-xl border">
             <Cloud className="w-6 h-6" />
           </div>
           <div>
             <h4 className="text-sm font-bold theme-title">iCloud Sync Coming Soon</h4>
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 font-mono border border-emerald-500/20">
+            <span className="theme-status-success text-[10px] px-2 py-0.5 rounded-full font-mono border">
               Offline Local Storage Active
             </span>
           </div>
@@ -114,9 +114,9 @@ export function SettingsSyncPanel({
           All your clipboard history items, custom notes, smart bins, and filter pipelines are saved <strong>100% locally and securely</strong> on this device inside your private SQLite database.
         </p>
 
-        <div className="p-3 bg-gray-800/40 rounded-lg border border-gray-700/50 space-y-1.5 text-[11px] theme-text-muted">
-          <div className="flex items-center space-x-2 text-gray-300">
-            <ShieldCheck className="w-4 h-4 text-emerald-400" />
+        <div className="theme-subtle-surface p-3 rounded-lg border space-y-1.5 text-[11px] theme-text-muted">
+          <div className="flex items-center space-x-2 theme-text-main">
+            <ShieldCheck className="w-4 h-4 theme-status-success-text" />
             <span className="font-semibold theme-title">Local Privacy &amp; Safety First</span>
           </div>
           <p className="pl-6">No data ever leaves your computer. CloudKit cross-device synchronization will be enabled in an upcoming release.</p>

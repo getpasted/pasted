@@ -91,8 +91,8 @@ export function SettingsGeneralPanel({
               </div>
               <div className="flex items-start justify-between">
                 <div className="pr-4 flex-1 min-w-0">
-                  <span className="font-semibold text-gray-200 block">Text Size:</span>
-                  <p className="text-[11px] text-gray-400/90 leading-normal mt-0.5">
+                  <span className="font-semibold theme-text-main block">Text Size:</span>
+                  <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
                     Adjust font size for application text and clip content views.
                   </p>
                 </div>
@@ -100,7 +100,7 @@ export function SettingsGeneralPanel({
                   <select
                     value={settings.textSize}
                     onChange={(e) => onUpdateSettings({ textSize: Number(e.target.value) })}
-                    className="theme-input border rounded-md px-3 py-1 font-mono text-xs focus:outline-none focus:border-gray-500"
+                    className="theme-input border rounded-md px-3 py-1 font-mono text-xs focus:outline-none"
                   >
                     <option value={14}>14 Points (Compact)</option>
                     <option value={16}>16 Points (Standard)</option>
@@ -112,8 +112,8 @@ export function SettingsGeneralPanel({
 
               <div className="flex items-start justify-between pt-1">
                 <div className="pr-4 flex-1 min-w-0">
-                  <span className="font-semibold text-gray-200 block">Interaction Sounds:</span>
-                  <p className="text-[11px] text-gray-400/90 leading-normal mt-0.5">
+                  <span className="font-semibold theme-text-main block">Interaction Sounds:</span>
+                  <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
                     Play subtle audio cues for copy, paste, and navigation actions.
                   </p>
                 </div>
@@ -122,16 +122,16 @@ export function SettingsGeneralPanel({
                     type="checkbox"
                     checked={settings.enableSounds}
                     onChange={(e) => onUpdateSettings({ enableSounds: e.target.checked })}
-                    className="w-4 h-4 accent-[#007aff] cursor-pointer rounded"
+                    className="theme-checkbox w-4 h-4 cursor-pointer rounded"
                   />
-                  <span className="text-gray-200">Enable Sounds</span>
+                  <span className="theme-text-main">Enable Sounds</span>
                 </label>
               </div>
 
               <div className="flex items-start justify-between">
                 <div className="pr-4 flex-1 min-w-0">
-                  <span className="font-semibold text-gray-200 block">Startup Behavior:</span>
-                  <p className="text-[11px] text-gray-400/90 leading-normal mt-0.5">
+                  <span className="font-semibold theme-text-main block">Startup Behavior:</span>
+                  <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
                     Automatically launch Pasted when logging into macOS.
                   </p>
                 </div>
@@ -140,14 +140,14 @@ export function SettingsGeneralPanel({
                     type="checkbox"
                     checked={settings.openAtLogin}
                     onChange={(e) => onUpdateSettings({ openAtLogin: e.target.checked })}
-                    className="w-4 h-4 accent-[#007aff] cursor-pointer rounded"
+                    className="theme-checkbox w-4 h-4 cursor-pointer rounded"
                   />
-                  <span className="text-gray-200">Open at login</span>
+                  <span className="theme-text-main">Open at login</span>
                 </label>
               </div>
             </div>
 
-            <div className="border-t border-gray-700/80" />
+            <div className="theme-divider border-t" />
 
             {/* System & OS Integration Subsection */}
             <div className="space-y-4">
@@ -166,7 +166,7 @@ export function SettingsGeneralPanel({
                   value={settings.dockMenubarIcon}
                   aria-label="Dock and menu bar icon behavior"
                   onChange={(e) => onUpdateSettings({ dockMenubarIcon: e.target.value as AppSettings['dockMenubarIcon'] })}
-                  className="theme-input border rounded-md px-3 py-1 text-xs focus:outline-none focus:border-gray-500"
+                  className="theme-input border rounded-md px-3 py-1 text-xs focus:outline-none"
                 >
                   {typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.userAgent || navigator.platform) ? (
                     <>
@@ -188,8 +188,8 @@ export function SettingsGeneralPanel({
               {typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.userAgent || navigator.platform) && (
                 <div className="flex items-start justify-between pt-1">
                   <div className="pr-4 flex-1 min-w-0">
-                    <span className="font-semibold text-gray-200 block">Spotlight Indexing:</span>
-                    <p className="text-[11px] text-gray-400/90 leading-normal mt-0.5">
+                    <span className="font-semibold theme-text-main block">Spotlight Indexing:</span>
+                    <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
                       Allow ⌘Space Spotlight to search Pasted history
                     </p>
                   </div>
@@ -198,33 +198,33 @@ export function SettingsGeneralPanel({
                       type="checkbox"
                       checked={settings.spotlightSync ?? true}
                       onChange={(e) => onUpdateSettings({ spotlightSync: e.target.checked })}
-                      className="w-4 h-4 accent-[#007aff] cursor-pointer rounded"
+                      className="theme-checkbox w-4 h-4 cursor-pointer rounded"
                     />
-                    <span className="text-gray-200">Index in Spotlight</span>
+                    <span className="theme-text-main">Index in Spotlight</span>
                   </label>
                 </div>
               )}
             </div>
 
-            <div className="border-t border-gray-700/80" />
+            <div className="theme-divider border-t" />
 
             {/* Clipboard Preferences */}
             <div className="space-y-4">
-              <h4 className="font-bold text-gray-100 text-center uppercase tracking-wider text-[11px]">
+              <h4 className="font-bold theme-title text-center uppercase tracking-wider text-[11px]">
                 Clipboard
               </h4>
 
               <div className="flex items-start justify-between pt-1">
                 <div className="pr-4 flex-1 min-w-0">
-                  <span className="font-semibold text-gray-200 block">Default Paste Behavior:</span>
-                  <p className="text-[11px] text-gray-400/90 leading-normal mt-0.5">
+                  <span className="font-semibold theme-text-main block">Default Paste Behavior:</span>
+                  <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
                     Sets the text formatting output type.
                   </p>
                 </div>
                 <select
                   value={settings.alwaysPastePlainText ? 'plain' : 'rich'}
                   onChange={(e) => onUpdateSettings({ alwaysPastePlainText: e.target.value === 'plain' })}
-                  className="theme-input border rounded-md px-3 py-1 text-xs focus:outline-none focus:border-gray-500 shrink-0"
+                  className="theme-input border rounded-md px-3 py-1 text-xs focus:outline-none shrink-0"
                 >
                   <option value="rich">Preserve Formatting (Default)</option>
                   <option value="plain">Always Paste Plain Text</option>
@@ -233,8 +233,8 @@ export function SettingsGeneralPanel({
 
               <div className="flex items-start justify-between">
                 <div className="pr-4 flex-1 min-w-0">
-                  <span className="font-semibold text-gray-200 block">Maximum Clip Size (MB):</span>
-                  <p className="text-[11px] text-gray-400/90 leading-normal mt-0.5">
+                  <span className="font-semibold theme-text-main block">Maximum Clip Size (MB):</span>
+                  <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
                     Ignore copied clippings larger than the specified limit.
                   </p>
                 </div>
@@ -243,7 +243,7 @@ export function SettingsGeneralPanel({
                     type="number"
                     value={settings.maxClipSizeMb}
                     onChange={(e) => onUpdateSettings({ maxClipSizeMb: Number(e.target.value) })}
-                    className="theme-input w-16 border rounded-md px-2 py-1 text-center focus:outline-none focus:border-gray-500"
+                    className="theme-input w-16 border rounded-md px-2 py-1 text-center focus:outline-none"
                   />
                 </div>
               </div>
@@ -252,8 +252,8 @@ export function SettingsGeneralPanel({
               <div className="space-y-2">
                 <div className="flex items-start justify-between">
                   <div className="pr-4 flex-1 min-w-0">
-                    <span className="font-semibold text-gray-200 block">History Capacity (clips):</span>
-                    <p className="text-[11px] text-gray-400/90 leading-normal mt-0.5">
+                    <span className="font-semibold theme-text-main block">History Capacity (clips):</span>
+                    <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
                       Maximum number of clippings saved in your local database history.
                     </p>
                   </div>
@@ -265,13 +265,13 @@ export function SettingsGeneralPanel({
                       step={50}
                       value={settings.keepClipCount}
                       onChange={(e) => onUpdateSettings({ keepClipCount: Number(e.target.value) })}
-                      className="theme-input w-20 border rounded-md px-2 py-1 text-center font-bold focus:outline-none focus:border-gray-500"
+                      className="theme-input w-20 border rounded-md px-2 py-1 text-center font-bold focus:outline-none"
                     />
                   </div>
                 </div>
 
                 <div className="flex items-center space-x-3 pt-1">
-                  <span className="text-[10px] text-gray-500 font-mono">50</span>
+                  <span className="text-[10px] theme-text-subtle font-mono">50</span>
                   <input
                     type="range"
                     min={50}
@@ -279,26 +279,26 @@ export function SettingsGeneralPanel({
                     step={50}
                     value={settings.keepClipCount}
                     onChange={(e) => onUpdateSettings({ keepClipCount: Number(e.target.value) })}
-                    className="flex-1 accent-gray-200 bg-gray-700 h-1.5 rounded-lg cursor-pointer"
+                    className="theme-range flex-1 h-1.5 rounded-lg cursor-pointer"
                   />
-                  <span className="text-[10px] text-gray-500 font-mono">3000</span>
+                  <span className="text-[10px] theme-text-subtle font-mono">3000</span>
                 </div>
               </div>
 
-              <div className="pt-3 border-t border-gray-700/80">
+              <div className="theme-divider pt-3 border-t">
                 <div className="flex items-start justify-between">
                   <div className="pr-4 flex-1 min-w-0">
-                    <span className="font-semibold text-red-400 block">
+                    <span className="font-semibold theme-danger-text block">
                       {isAltPressed ? 'Delete All Clips:' : 'Trash All Clips:'}
                     </span>
-                    <p className="text-[11px] text-gray-400/90 leading-normal mt-0.5">
+                    <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
                       Moves all unpinned and unprotected clips (including clips assigned to Bins) into Trash. Hold Option ⌥ to permanently delete.
                     </p>
                   </div>
                   <button
                     type="button"
                     onClick={(e) => onClearHistory?.(e.altKey)}
-                    className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 transition-colors shrink-0 cursor-pointer"
+                    className="theme-status-danger flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors shrink-0 cursor-pointer"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                     <span>{isAltPressed ? 'Delete All Clips' : 'Trash All Clips'}</span>
@@ -306,11 +306,11 @@ export function SettingsGeneralPanel({
                 </div>
               </div>
 
-              <div className="pt-3 border-t border-gray-700/80">
+              <div className="theme-divider pt-3 border-t">
                 <div className="flex items-start justify-between">
                   <div className="pr-4 flex-1 min-w-0">
-                    <span className="font-semibold text-gray-200 block">Backup & Export:</span>
-                    <p className="text-[11px] text-gray-400/90 leading-normal mt-0.5">
+                    <span className="font-semibold theme-text-main block">Backup & Export:</span>
+                    <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
                       Export clipboard history to JSON or CSV format.
                     </p>
                   </div>
@@ -318,7 +318,7 @@ export function SettingsGeneralPanel({
                     <button
                       type="button"
                       onClick={() => void exportClips('json')}
-                      className="flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-cyan-300 bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 transition-colors cursor-pointer"
+                      className="theme-status-info flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-colors cursor-pointer"
                     >
                       <Download className="w-3.5 h-3.5" />
                       <span>Export JSON</span>
@@ -327,7 +327,7 @@ export function SettingsGeneralPanel({
                     <button
                       type="button"
                       onClick={() => void exportClips('csv')}
-                      className="flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-purple-300 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 transition-colors cursor-pointer"
+                      className="theme-status-info flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-colors cursor-pointer"
                     >
                       <Download className="w-3.5 h-3.5" />
                       <span>Export CSV</span>
@@ -342,18 +342,18 @@ export function SettingsGeneralPanel({
               </div>
             </div>
 
-            <div className="border-t border-gray-700/80" />
+            <div className="theme-divider border-t" />
 
             {/* Trash Preferences */}
             <div className="space-y-4">
-              <h4 className="font-bold text-gray-100 text-center uppercase tracking-wider text-[11px]">
+              <h4 className="font-bold theme-title text-center uppercase tracking-wider text-[11px]">
                 Trash & Protection
               </h4>
 
               <div className="flex items-start justify-between">
                 <div className="pr-4 flex-1 min-w-0">
-                  <span className="font-semibold text-gray-200 block">Enable Soft Trash Protection:</span>
-                  <p className="text-[11px] text-gray-400/90 leading-normal mt-0.5">
+                  <span className="font-semibold theme-text-main block">Enable Soft Trash Protection:</span>
+                  <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
                     When enabled, deleted clips are moved into Trash for recovery. When disabled, clips are permanently purged immediately.
                   </p>
                 </div>
@@ -363,23 +363,21 @@ export function SettingsGeneralPanel({
                   aria-checked={settings.enableTrash}
                   aria-label="Enable soft trash protection"
                   onClick={() => onUpdateSettings({ enableTrash: !settings.enableTrash })}
-                  className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                    settings.enableTrash ? 'bg-rose-500' : 'bg-gray-700'
-                  }`}
+                  className={`settings-switch is-danger relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${settings.enableTrash ? 'is-on' : ''}`}
                 >
                   <span
-                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                    className={`settings-switch-thumb pointer-events-none inline-block h-4 w-4 transform rounded-full shadow ring-0 transition duration-200 ease-in-out ${
                       settings.enableTrash ? 'translate-x-4' : 'translate-x-0'
                     }`}
                   />
                 </button>
               </div>
 
-              <div className="border-t border-gray-800/80 pt-3">
+              <div className="theme-divider border-t pt-3">
                 <div className="flex items-start justify-between">
                   <div className="pr-4 flex-1 min-w-0">
-                    <span className="font-semibold text-gray-200 block">Trash Capacity Limit:</span>
-                    <p className="text-[11px] text-gray-400/90 leading-normal mt-0.5">
+                    <span className="font-semibold theme-text-main block">Trash Capacity Limit:</span>
+                    <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
                       Maximum number of items retained in Trash before oldest trashed clips are permanently purged (default: 500).
                     </p>
                   </div>
@@ -391,13 +389,13 @@ export function SettingsGeneralPanel({
                       step={50}
                       value={settings.trashCapacityCount ?? 500}
                       onChange={(e) => onUpdateSettings({ trashCapacityCount: Number(e.target.value) })}
-                      className="theme-input w-20 border rounded-md px-2 py-1 text-center font-bold focus:outline-none focus:border-gray-500 text-xs"
+                      className="theme-input w-20 border rounded-md px-2 py-1 text-center font-bold focus:outline-none text-xs"
                     />
                   </div>
                 </div>
 
                 <div className="flex items-center space-x-3 pt-2">
-                  <span className="text-[10px] text-gray-500 font-mono">50</span>
+                  <span className="text-[10px] theme-text-subtle font-mono">50</span>
                   <input
                     type="range"
                     min={50}
@@ -405,30 +403,30 @@ export function SettingsGeneralPanel({
                     step={50}
                     value={settings.trashCapacityCount ?? 500}
                     onChange={(e) => onUpdateSettings({ trashCapacityCount: Number(e.target.value) })}
-                    className="flex-1 accent-rose-400 bg-gray-700 h-1.5 rounded-lg cursor-pointer"
+                    className="theme-range settings-danger-range flex-1 h-1.5 rounded-lg cursor-pointer"
                   />
-                  <span className="text-[10px] text-gray-500 font-mono">2000</span>
+                  <span className="text-[10px] theme-text-subtle font-mono">2000</span>
                 </div>
               </div>
 
-              <div className="p-3 rounded-xl bg-rose-950/20 border border-rose-500/20 text-xs text-gray-300">
-                <span className="font-bold text-rose-300">Auto-Trash Safety Net: </span>
+              <div className="theme-status-danger p-3 rounded-xl border text-xs">
+                <span className="font-bold">Auto-Trash Safety Net: </span>
                 When your active history reaches your clip limit ({settings.keepClipCount} clips), older unpinned items automatically move into Trash instead of dropping off forever.
               </div>
             </div>
 
-            <div className="border-t border-gray-700/80" />
+            <div className="theme-divider border-t" />
 
             {/* Activity Log Preferences */}
             <div className="space-y-4">
-              <h4 className="font-bold text-gray-100 text-center uppercase tracking-wider text-[11px]">
+              <h4 className="font-bold theme-title text-center uppercase tracking-wider text-[11px]">
                 Activity Log
               </h4>
 
               <div className="flex items-start justify-between">
                 <div className="pr-4 flex-1 min-w-0">
-                  <span className="font-semibold text-gray-200 block">Record Activity Logs:</span>
-                  <p className="text-[11px] text-gray-400/90 leading-normal mt-0.5">
+                  <span className="font-semibold theme-text-main block">Record Activity Logs:</span>
+                  <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
                     Automatically record system events such as trashed clips, restored clips, notes, and auto-pause events.
                   </p>
                 </div>
@@ -438,23 +436,21 @@ export function SettingsGeneralPanel({
                   aria-checked={settings.enableActivityLog}
                   aria-label="Record activity logs"
                   onClick={() => onUpdateSettings({ enableActivityLog: !settings.enableActivityLog })}
-                  className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                    settings.enableActivityLog ? 'bg-cyan-500' : 'bg-gray-700'
-                  }`}
+                  className={`settings-switch relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${settings.enableActivityLog ? 'is-on' : ''}`}
                 >
                   <span
-                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                    className={`settings-switch-thumb pointer-events-none inline-block h-4 w-4 transform rounded-full shadow ring-0 transition duration-200 ease-in-out ${
                       settings.enableActivityLog ? 'translate-x-4' : 'translate-x-0'
                     }`}
                   />
                 </button>
               </div>
 
-              <div className="border-t border-gray-800/80 pt-3">
+              <div className="theme-divider border-t pt-3">
                 <div className="flex items-start justify-between">
                   <div className="pr-4 flex-1 min-w-0">
-                    <span className="font-semibold text-gray-200 block">Log Capacity Limit:</span>
-                    <p className="text-[11px] text-gray-400/90 leading-normal mt-0.5">
+                    <span className="font-semibold theme-text-main block">Log Capacity Limit:</span>
+                    <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
                       Maximum number of activity log entries to retain before auto-purging old logs (default: 1000).
                     </p>
                   </div>
@@ -466,25 +462,25 @@ export function SettingsGeneralPanel({
                       step={100}
                       value={settings.activityLogCapacity ?? 1000}
                       onChange={(e) => onUpdateSettings({ activityLogCapacity: Number(e.target.value) })}
-                      className="theme-input w-20 border rounded-md px-2 py-1 text-center font-bold focus:outline-none focus:border-gray-500 text-xs"
+                      className="theme-input w-20 border rounded-md px-2 py-1 text-center font-bold focus:outline-none text-xs"
                     />
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="border-t border-gray-700/80" />
+            <div className="theme-divider border-t" />
 
             {/* Layout Preferences */}
             <div className="space-y-4">
-              <h4 className="font-bold text-gray-100 text-center uppercase tracking-wider text-[11px]">
+              <h4 className="font-bold theme-title text-center uppercase tracking-wider text-[11px]">
                 Layout
               </h4>
 
               <div className="flex items-start justify-between">
                 <div className="pr-4 flex-1 min-w-0">
-                  <span className="font-semibold text-gray-200 block">Row Height:</span>
-                  <p className="text-[11px] text-gray-400/90 leading-normal mt-0.5">
+                  <span className="font-semibold theme-text-main block">Row Height:</span>
+                  <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
                     Sets the fixed height of the quick paste menu and main window compact view.
                   </p>
                 </div>
@@ -492,7 +488,7 @@ export function SettingsGeneralPanel({
                   value={settings.rowHeight}
                   aria-label="Row height"
                   onChange={(e) => onUpdateSettings({ rowHeight: e.target.value as AppSettings['rowHeight'] })}
-                  className="theme-input border rounded-md px-3 py-1 text-xs focus:outline-none focus:border-gray-500 shrink-0"
+                  className="theme-input border rounded-md px-3 py-1 text-xs focus:outline-none shrink-0"
                 >
                   <option value="small">Small</option>
                   <option value="medium">Medium</option>
@@ -500,11 +496,11 @@ export function SettingsGeneralPanel({
                 </select>
               </div>
 
-              <div className="border-t border-gray-800/80 pt-3">
+              <div className="theme-divider border-t pt-3">
                 <div className="flex items-start justify-between">
                   <div className="pr-4 flex-1 min-w-0">
-                    <span className="font-semibold text-gray-200 block">Column Widths:</span>
-                    <p className="text-[11px] text-gray-400/90 leading-normal mt-0.5">
+                    <span className="font-semibold theme-text-main block">Column Widths:</span>
+                    <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
                       Resets the left sidebar and middle history list panel widths back to their default macOS sizes.
                     </p>
                   </div>
@@ -519,7 +515,7 @@ export function SettingsGeneralPanel({
                         window.location.reload();
                       }
                     }}
-                    className="flex items-center space-x-1.5 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-200 hover:text-white border border-gray-600 rounded-lg text-xs font-semibold transition-colors shrink-0 cursor-pointer"
+                    className="theme-secondary-button flex items-center space-x-1.5 px-3 py-1.5 border rounded-lg text-xs font-semibold transition-colors shrink-0 cursor-pointer"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
                     <span>Reset Column Widths</span>

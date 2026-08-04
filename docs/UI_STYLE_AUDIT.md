@@ -4,11 +4,11 @@ This checklist records the styling debt found during the multi-scheme and glass-
 
 ## Audit snapshot
 
-- One stylesheet: `src/App.css` (2,478 lines after introducing semantic roles; splitting remains a final structural task).
+- One stylesheet: `src/App.css` (2,298 lines after the semantic migration; splitting remains the final structural task).
 - Literal colors in `src/App.css` dropped from 532 to 349.
-- `!important` baseline: 441; current enforced budget: 206.
-- Cool/Warm compatibility-selector baseline: 269; current enforced budget: 117.
-- Utility-coupled selectors are budgeted at 28; hard-coded JSX surfaces are budgeted at 133.
+- `!important` baseline: 441; current enforced budget: 95.
+- Cool/Warm compatibility-selector baseline: 269; current enforced budget: 1 (the shared light token declaration).
+- Utility-coupled selectors and hard-coded JSX surfaces are both budgeted at 0.
 - Only 18 of 30 React component files use a semantic theme primitive.
 - The original undefined `--bg-preview-header` reference is fixed; the token audit now guards against regressions.
 - The automated contrast audit checks selected color pairs, but does not render components or detect missing tokens and cascade failures.
@@ -17,9 +17,9 @@ This checklist records the styling debt found during the multi-scheme and glass-
 
 - [x] Replace the undefined `--bg-preview-header` references with an intentional semantic material role.
 - [x] Remove Clip Preview selectors based on child position or incidental utility classes, including `.col-preview > div:first-child`, `div.rounded-xl`, and `div.p-3`.
-- [ ] Make semantic component classes authoritative so Vampire and Flux do not fall through to dark hard-coded surfaces.
-- [ ] Reduce the Cool/Warm repair layer. New schemes should be implemented by tokens, not hundreds of scheme-specific overrides.
-- [ ] Replace generic element repair selectors (`div.h-screen.overflow-y-auto`, global headings, generic inputs, and color utility selectors) with component roles.
+- [x] Make semantic component classes authoritative so Vampire and Flux do not fall through to dark hard-coded surfaces.
+- [x] Remove the Cool/Warm repair layer. New schemes are implemented through tokens rather than scheme-specific component overrides.
+- [x] Replace generic element repair selectors (`div.h-screen.overflow-y-auto`, global headings, generic inputs, and color utility selectors) with component roles.
 
 ## P1 — hard-coded surface islands
 
@@ -42,7 +42,7 @@ This checklist records the styling debt found during the multi-scheme and glass-
 - [x] Replace broad `transition-all` usage with property-specific transitions; add `prefers-reduced-motion` behavior.
 - [x] Add `color-scheme` metadata per scheme so native controls and browser/Tauri chrome agree with the active palette.
 - [x] Replace non-standard `overflow-y: overlay`, remove permanent `will-change`, and keep backdrop blur on structural glass layers instead of stacking it again on nested headers/toolbars.
-- [ ] Scope the global cursor and selection rules to application chrome instead of every nested element.
+- [x] Scope selection rules to application shells and explicit overlays while preserving the nested cursor inheritance required to prevent WebKit pointer jitter.
 
 ## P2 — cleanup and maintainability
 
@@ -66,7 +66,7 @@ These are functional issues exposed while auditing the styling, not CSS-only def
 - [ ] Replace pipeline category inference. It currently compares category label words with operation type identifiers, so many category pills cannot produce correct results.
 - [ ] Create one canonical operation-category model. `OperationEditorModal` uses “Structure & Tags” while seeded operations use “Structure & Formatting”.
 - [ ] Share sandbox state, result/error presentation, cards, category navigation, and CRUD action patterns between pipelines and operations.
-- [ ] Remove the imperative `openCreateRef` bridge between `FilterManager` and `OperationsManager`; lift workspace actions and data ownership to a shared controller.
+- [x] Remove the imperative `openCreateRef` bridge between `FilterManager` and `OperationsManager`; creation now lives with each collection toolbar instead of reaching into child state from the page header.
 - [ ] Keep operation counts synchronized after CRUD instead of refreshing primarily when the active subtab changes.
 - [ ] Define the intended relationship clearly: Operations are reusable atomic steps; Pipelines are ordered compositions of operation IDs/configurations.
 - [ ] Add tests for category membership, pipeline composition, operation deletion dependencies, ordering, duplication, import/export, and live sandbox errors.

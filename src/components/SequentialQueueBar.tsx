@@ -52,7 +52,7 @@ export const SequentialQueueBar: React.FC<SequentialQueueBarProps> = ({
       </div>
 
       {/* Helper text */}
-      <p className="text-[11px] theme-text-muted text-gray-400 leading-normal mt-2">
+      <p className="text-[11px] theme-text-muted leading-normal mt-2">
         Record with <kbd className="theme-kbd px-1 py-0.5 rounded font-mono text-[9px] border">⌥⇧C</kbd> / <kbd className="theme-kbd px-1 py-0.5 rounded font-mono text-[9px] border">⌘C</kbd> • Paste next with <kbd className="theme-kbd px-1 py-0.5 rounded font-mono text-[9px] border">⌥⇧X</kbd>
       </p>
 

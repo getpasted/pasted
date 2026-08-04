@@ -58,7 +58,7 @@ export const HelpView: React.FC = () => {
             className={`help-topic-button w-full flex items-center justify-between px-3 py-2 text-xs font-semibold cursor-pointer border ${activeSubTab === 'cli' ? 'is-selected' : ''}`}
           >
             <div className="flex items-center space-x-2.5">
-              <Terminal className="w-4 h-4 text-cyan-400" />
+              <Terminal className="w-4 h-4 theme-status-info-text" />
               <span>CLI Commands</span>
             </div>
             <ChevronRight className="w-3.5 h-3.5 opacity-60" />
@@ -69,7 +69,7 @@ export const HelpView: React.FC = () => {
             className={`help-topic-button w-full flex items-center justify-between px-3 py-2 text-xs font-semibold cursor-pointer border ${activeSubTab === 'hotkeys' ? 'is-selected' : ''}`}
           >
             <div className="flex items-center space-x-2.5">
-              <Keyboard className="w-4 h-4 text-emerald-400" />
+              <Keyboard className="w-4 h-4 theme-status-success-text" />
               <span>Hotkeys & Modifiers</span>
             </div>
             <ChevronRight className="w-3.5 h-3.5 opacity-60" />
@@ -80,7 +80,7 @@ export const HelpView: React.FC = () => {
             className={`help-topic-button w-full flex items-center justify-between px-3 py-2 text-xs font-semibold cursor-pointer border ${activeSubTab === 'autopause' ? 'is-selected' : ''}`}
           >
             <div className="flex items-center space-x-2.5">
-              <Shield className="w-4 h-4 text-amber-400" />
+              <Shield className="w-4 h-4 theme-status-warning-text" />
               <span>Auto-Pause & Privacy</span>
             </div>
             <ChevronRight className="w-3.5 h-3.5 opacity-60" />
@@ -91,7 +91,7 @@ export const HelpView: React.FC = () => {
             className={`help-topic-button w-full flex items-center justify-between px-3 py-2 text-xs font-semibold cursor-pointer border ${activeSubTab === 'trash' ? 'is-selected' : ''}`}
           >
             <div className="flex items-center space-x-2.5">
-              <Trash2 className="w-4 h-4 text-rose-400" />
+              <Trash2 className="w-4 h-4 theme-status-danger-text" />
               <span>Soft Trash Protection</span>
             </div>
             <ChevronRight className="w-3.5 h-3.5 opacity-60" />
@@ -102,7 +102,7 @@ export const HelpView: React.FC = () => {
             className={`help-topic-button w-full flex items-center justify-between px-3 py-2 text-xs font-semibold cursor-pointer border ${activeSubTab === 'filters' ? 'is-selected' : ''}`}
           >
             <div className="flex items-center space-x-2.5">
-              <Sliders className="w-4 h-4 text-purple-400" />
+              <Sliders className="w-4 h-4 theme-status-info-text" />
               <span>Smart Filters</span>
             </div>
             <ChevronRight className="w-3.5 h-3.5 opacity-60" />
@@ -114,25 +114,25 @@ export const HelpView: React.FC = () => {
           {activeSubTab === 'cli' && (
             <div className="space-y-6 animate-in fade-in">
               <div>
-                <h3 className="text-lg font-bold text-gray-100 flex items-center space-x-2">
-                  <Terminal className="w-5 h-5 text-cyan-400" />
+                <h3 className="theme-title text-lg font-bold flex items-center space-x-2">
+                  <Terminal className="w-5 h-5 theme-status-info-text" />
                   <span>Pasted Terminal CLI Tool (`pasted-cli`)</span>
                 </h3>
-                <p className="text-xs text-gray-400 mt-1">
+                <p className="theme-text-muted text-xs mt-1">
                   Pasted includes a standalone native command-line tool allowing terminal power users to pipe data into Pasted history, list clips, search from shell, or clear history.
                 </p>
               </div>
 
               {/* PATH Installation Box */}
-              <div className="p-4 rounded-xl bg-cyan-950/30 border border-cyan-500/30 space-y-3">
+              <div className="theme-status-info p-4 rounded-xl border space-y-3">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2 text-xs font-bold text-cyan-300">
-                    <Download className="w-4 h-4 text-cyan-400" />
+                  <div className="flex items-center space-x-2 text-xs font-bold">
+                    <Download className="w-4 h-4" />
                     <span>Install CLI to $PATH</span>
                   </div>
                   <button
                     onClick={handleInstallCli}
-                    className="flex items-center space-x-1.5 px-3 py-1.5 bg-cyan-500 hover:bg-cyan-400 text-black rounded-lg text-xs font-bold transition-colors cursor-pointer shadow-sm"
+                    className="theme-primary-button flex items-center space-x-1.5 px-3 py-1.5 border rounded-lg text-xs font-bold transition-colors cursor-pointer shadow-sm"
                   >
                     <Download className="w-3.5 h-3.5" />
                     <span>1-Click Symlink to ~/.local/bin</span>
@@ -145,12 +145,12 @@ export const HelpView: React.FC = () => {
                   </div>
                 )}
 
-                <div className="text-xs text-gray-300 space-y-1">
-                  <p className="font-semibold text-gray-200">Manual $PATH Setup Options:</p>
+                <div className="theme-text-main text-xs space-y-1">
+                  <p className="font-semibold theme-title">Manual $PATH Setup Options:</p>
                   <div className="theme-code-surface p-2.5 rounded-lg border font-mono text-[11px] space-y-1">
-                    <div className="text-emerald-400"># Symlink bundled macOS app executable to /usr/local/bin</div>
+                    <div className="theme-status-success-text"># Symlink bundled macOS app executable to /usr/local/bin</div>
                     <div>$ sudo ln -s /Applications/Pasted.app/Contents/MacOS/pasted-cli /usr/local/bin/pasted-cli</div>
-                    <div className="text-emerald-400 pt-1"># Or add alias in ~/.zshrc or ~/.bashrc</div>
+                    <div className="theme-status-success-text pt-1"># Or add alias in ~/.zshrc or ~/.bashrc</div>
                     <div>alias pasted-cli="/Applications/Pasted.app/Contents/MacOS/pasted-cli"</div>
                   </div>
                 </div>
@@ -159,19 +159,19 @@ export const HelpView: React.FC = () => {
               {/* CLI Command 1: Copy / Pipe */}
               <div className="theme-panel p-4 rounded-xl border space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-cyan-300 font-mono">1. Save text or pipe stdin into Pasted history</span>
+                  <span className="theme-status-info-text text-xs font-bold font-mono">1. Save text or pipe stdin into Pasted history</span>
                   <button
                     onClick={() => handleCopyCode('echo "Log data" | pasted-cli copy')}
-                    className="p-1 text-gray-400 hover:text-white rounded hover:bg-gray-800"
+                    className="theme-icon-button p-1 rounded border"
                     title="Copy command"
                   >
-                    {copiedCmd === 'echo "Log data" | pasted-cli copy' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                    {copiedCmd === 'echo "Log data" | pasted-cli copy' ? <Check className="w-3.5 h-3.5 theme-status-success-text" /> : <Copy className="w-3.5 h-3.5" />}
                   </button>
                 </div>
                 <div className="theme-code-surface p-3 rounded-lg border font-mono text-xs">
-                  <div className="text-emerald-400"># Direct string argument</div>
+                  <div className="theme-status-success-text"># Direct string argument</div>
                   <div>$ pasted-cli copy "Hello from Terminal!"</div>
-                  <div className="text-emerald-400 mt-2"># Pipe file or command stdout directly into Pasted</div>
+                  <div className="theme-status-success-text mt-2"># Pipe file or command stdout directly into Pasted</div>
                   <div>$ cat server.log | pasted-cli copy</div>
                 </div>
               </div>
@@ -179,17 +179,17 @@ export const HelpView: React.FC = () => {
               {/* CLI Command 2: List */}
               <div className="theme-panel p-4 rounded-xl border space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-cyan-300 font-mono">2. List recent clipboard items</span>
+                  <span className="theme-status-info-text text-xs font-bold font-mono">2. List recent clipboard items</span>
                   <button
                     onClick={() => handleCopyCode('pasted-cli list 10')}
-                    className="p-1 text-gray-400 hover:text-white rounded hover:bg-gray-800"
+                    className="theme-icon-button p-1 rounded border"
                     title="Copy command"
                   >
-                    {copiedCmd === 'pasted-cli list 10' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                    {copiedCmd === 'pasted-cli list 10' ? <Check className="w-3.5 h-3.5 theme-status-success-text" /> : <Copy className="w-3.5 h-3.5" />}
                   </button>
                 </div>
                 <div className="theme-code-surface p-3 rounded-lg border font-mono text-xs">
-                  <div className="text-emerald-400"># Output N recent clipboard items</div>
+                  <div className="theme-status-success-text"># Output N recent clipboard items</div>
                   <div>$ pasted-cli list 15</div>
                 </div>
               </div>
@@ -197,13 +197,13 @@ export const HelpView: React.FC = () => {
               {/* CLI Command 3: Search */}
               <div className="theme-panel p-4 rounded-xl border space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-cyan-300 font-mono">3. Keyword search clip database</span>
+                  <span className="theme-status-info-text text-xs font-bold font-mono">3. Keyword search clip database</span>
                   <button
                     onClick={() => handleCopyCode('pasted-cli search "api_key"')}
-                    className="p-1 text-gray-400 hover:text-white rounded hover:bg-gray-800"
+                    className="theme-icon-button p-1 rounded border"
                     title="Copy command"
                   >
-                    {copiedCmd === 'pasted-cli search "api_key"' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                    {copiedCmd === 'pasted-cli search "api_key"' ? <Check className="w-3.5 h-3.5 theme-status-success-text" /> : <Copy className="w-3.5 h-3.5" />}
                   </button>
                 </div>
                 <div className="theme-code-surface p-3 rounded-lg border font-mono text-xs">
@@ -216,52 +216,52 @@ export const HelpView: React.FC = () => {
           {activeSubTab === 'hotkeys' && (
             <div className="space-y-6 animate-in fade-in">
               <div>
-                <h3 className="text-lg font-bold text-gray-100 flex items-center space-x-2">
-                  <Keyboard className="w-5 h-5 text-emerald-400" />
+                <h3 className="theme-title text-lg font-bold flex items-center space-x-2">
+                  <Keyboard className="w-5 h-5 theme-status-success-text" />
                   <span>Pro Keyboard Shortcuts & Modifiers</span>
                 </h3>
-                <p className="text-xs text-gray-400 mt-1">
+                <p className="theme-text-muted text-xs mt-1">
                   Hidden power shortcuts built for maximum speed and efficiency.
                 </p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="theme-panel p-4 rounded-xl border space-y-2">
-                  <div className="flex items-center space-x-2 text-xs font-bold text-amber-300">
-                    <Trash2 className="w-4 h-4 text-rose-400" />
+                  <div className="theme-status-warning-text flex items-center space-x-2 text-xs font-bold">
+                    <Trash2 className="w-4 h-4 theme-status-danger-text" />
                     <span>Option / Alt Key Permanent Delete</span>
                   </div>
-                  <p className="text-xs text-gray-400">
-                    Holding the <kbd className="theme-kbd px-1.5 py-0.5 rounded border font-mono text-[10px]">Option ⌥</kbd> key changes the Trash icon to a red <span className="text-red-400 font-bold">X</span> button to permanently purge items bypassing Trash.
+                  <p className="theme-text-muted text-xs">
+                    Holding the <kbd className="theme-kbd px-1.5 py-0.5 rounded border font-mono text-[10px]">Option ⌥</kbd> key changes the Trash icon to a red <span className="theme-status-danger-text font-bold">X</span> button to permanently purge items bypassing Trash.
                   </p>
                 </div>
 
               <div className="theme-panel p-4 rounded-xl border space-y-2">
-                  <div className="flex items-center space-x-2 text-xs font-bold text-cyan-300">
-                    <Command className="w-4 h-4 text-cyan-400" />
+                  <div className="theme-status-info-text flex items-center space-x-2 text-xs font-bold">
+                    <Command className="w-4 h-4" />
                     <span>Floating HUD Toggle</span>
                   </div>
-                  <p className="text-xs text-gray-400">
+                  <p className="theme-text-muted text-xs">
                     Press <kbd className="theme-kbd px-1.5 py-0.5 rounded border font-mono text-[10px]">⌥ Shift V</kbd> to pop open the transparent quick HUD next to your cursor.
                   </p>
                 </div>
 
               <div className="theme-panel p-4 rounded-xl border space-y-2">
-                  <div className="flex items-center space-x-2 text-xs font-bold text-purple-300">
-                    <Zap className="w-4 h-4 text-purple-400" />
+                  <div className="theme-status-info-text flex items-center space-x-2 text-xs font-bold">
+                    <Zap className="w-4 h-4" />
                     <span>HUD Number Keys (1-9)</span>
                   </div>
-                  <p className="text-xs text-gray-400">
+                  <p className="theme-text-muted text-xs">
                     Press numbers <kbd className="theme-kbd px-1.5 py-0.5 rounded border font-mono text-[10px]">1</kbd> through <kbd className="theme-kbd px-1.5 py-0.5 rounded border font-mono text-[10px]">9</kbd> inside the HUD to instantly paste items #1 to #9.
                   </p>
                 </div>
 
               <div className="theme-panel p-4 rounded-xl border space-y-2">
-                  <div className="flex items-center space-x-2 text-xs font-bold text-emerald-300">
-                    <Info className="w-4 h-4 text-emerald-400" />
+                  <div className="theme-status-success-text flex items-center space-x-2 text-xs font-bold">
+                    <Info className="w-4 h-4" />
                     <span>Escape Key Dismiss</span>
                   </div>
-                  <p className="text-xs text-gray-400">
+                  <p className="theme-text-muted text-xs">
                     Press <kbd className="theme-kbd px-1.5 py-0.5 rounded border font-mono text-[10px]">Esc</kbd> to instantly dismiss the HUD or clear active search queries.
                   </p>
                 </div>
@@ -272,21 +272,21 @@ export const HelpView: React.FC = () => {
           {activeSubTab === 'autopause' && (
             <div className="space-y-6 animate-in fade-in">
               <div>
-                <h3 className="text-lg font-bold text-gray-100 flex items-center space-x-2">
-                  <Shield className="w-5 h-5 text-amber-400" />
+                <h3 className="theme-title text-lg font-bold flex items-center space-x-2">
+                  <Shield className="w-5 h-5 theme-status-warning-text" />
                   <span>Auto-Pause & Application Blacklisting</span>
                 </h3>
-                <p className="text-xs text-gray-400 mt-1">
+                <p className="theme-text-muted text-xs mt-1">
                   Pasted protects your sensitive credentials by automatically pausing recording when focused on password managers.
                 </p>
               </div>
 
               <div className="theme-panel p-4 rounded-xl border space-y-3">
-                <h4 className="text-xs font-bold text-amber-300">How Auto-Pause Works</h4>
-                <p className="text-xs text-gray-300 leading-relaxed">
+                <h4 className="theme-status-warning-text text-xs font-bold">How Auto-Pause Works</h4>
+                <p className="theme-text-main text-xs leading-relaxed">
                   When switching active focus into applications like <strong>1Password</strong>, <strong>Keychain Access</strong>, <strong>Passwords</strong>, or <strong>Bitwarden</strong>, Pasted automatically pauses background recording and updates the Pause button state to glowing amber.
                 </p>
-                <p className="text-xs text-gray-400 leading-relaxed">
+                <p className="theme-text-muted text-xs leading-relaxed">
                   As soon as you switch back to allowed applications (e.g. VS Code, Chrome, Terminal), recording automatically resumes without losing any work!
                 </p>
               </div>
@@ -296,18 +296,18 @@ export const HelpView: React.FC = () => {
           {activeSubTab === 'trash' && (
             <div className="space-y-6 animate-in fade-in">
               <div>
-                <h3 className="text-lg font-bold text-gray-100 flex items-center space-x-2">
-                  <Trash2 className="w-5 h-5 text-rose-400" />
+                <h3 className="theme-title text-lg font-bold flex items-center space-x-2">
+                  <Trash2 className="w-5 h-5 theme-status-danger-text" />
                   <span>Soft Trash Protection Layer</span>
                 </h3>
-                <p className="text-xs text-gray-400 mt-1">
+                <p className="theme-text-muted text-xs mt-1">
                   Accidentally deleted a clip? Pasted provides a soft Trash protection layer so clips can be restored cleanly.
                 </p>
               </div>
 
               <div className="theme-panel p-4 rounded-xl border space-y-3">
-                <h4 className="text-xs font-bold text-rose-300">Soft Deletion vs Hard Purging</h4>
-                <ul className="text-xs text-gray-300 space-y-2 list-disc list-inside">
+                <h4 className="theme-status-danger-text text-xs font-bold">Soft Deletion vs Hard Purging</h4>
+                <ul className="theme-text-main text-xs space-y-2 list-disc list-inside">
                   <li><strong>Normal Delete Click:</strong> Moves clip to the Trash tab. The sidebar badge updates instantly.</li>
                   <li><strong>Trash Tab Recovery:</strong> Click the <RotateCcwIcon /> Restore button to return items back to your history.</li>
                   <li><strong>Option / Alt Key Purge:</strong> Hold Option/Alt while clicking delete to permanently remove items immediately.</li>
@@ -319,18 +319,18 @@ export const HelpView: React.FC = () => {
           {activeSubTab === 'filters' && (
             <div className="space-y-6 animate-in fade-in">
               <div>
-                <h3 className="text-lg font-bold text-gray-100 flex items-center space-x-2">
-                  <Sliders className="w-5 h-5 text-purple-400" />
+                <h3 className="theme-title text-lg font-bold flex items-center space-x-2">
+                  <Sliders className="w-5 h-5 theme-status-info-text" />
                   <span>Smart Filters & Text Transformations</span>
                 </h3>
-                <p className="text-xs text-gray-400 mt-1">
+                <p className="theme-text-muted text-xs mt-1">
                   Transform copied text instantly with built-in case converters, sanitizers, and smart rules.
                 </p>
               </div>
 
               <div className="theme-panel p-4 rounded-xl border space-y-3">
-                <h4 className="text-xs font-bold text-purple-300">Available Transformations</h4>
-                <div className="grid grid-cols-2 gap-2 text-xs font-mono text-gray-300">
+                <h4 className="theme-status-info-text text-xs font-bold">Available Transformations</h4>
+                <div className="theme-text-main grid grid-cols-2 gap-2 text-xs font-mono">
                   <div className="theme-code-surface p-2 rounded border">• UPPERCASE / lowercase</div>
                   <div className="theme-code-surface p-2 rounded border">• Title Case / CamelCase</div>
                   <div className="theme-code-surface p-2 rounded border">• Trim Whitespace</div>
@@ -348,7 +348,7 @@ export const HelpView: React.FC = () => {
 };
 
 const RotateCcwIcon = () => (
-  <span className="inline-block px-1 py-0.5 rounded bg-gray-800 border border-gray-700 text-gray-300 font-mono text-[10px]">
+  <span className="theme-kbd inline-block px-1 py-0.5 rounded border font-mono text-[10px]">
     Restore
   </span>
 );

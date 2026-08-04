@@ -112,16 +112,16 @@ const StepReorderCard: React.FC<{
         }`}
       >
         {/* Step Header */}
-        <div className="flex items-center justify-between border-b border-gray-800/80 pb-2">
+        <div className="theme-divider flex items-center justify-between border-b pb-2">
           {/* Left: Step Number Badge, Drag Handle, Arrow Buttons */}
           <div className="flex items-center space-x-1.5">
-            <span className="w-5 h-5 rounded-full bg-cyan-950 text-cyan-300 text-[11px] font-bold flex items-center justify-center font-mono border border-cyan-700/60 mr-0.5">
+            <span className="theme-status-info w-5 h-5 rounded-full text-[11px] font-bold flex items-center justify-center font-mono border mr-0.5">
               {idx + 1}
             </span>
             <button
               type="button"
               onPointerDown={onReorderPointerDown}
-              className="step-drag-handle titlebar-no-drag p-1.5 text-gray-400 hover:text-white rounded hover:bg-gray-800/80 touch-none select-none shrink-0 border-0 outline-none"
+              className="step-drag-handle theme-icon-button titlebar-no-drag p-1.5 rounded touch-none select-none shrink-0 border outline-none"
               style={{ touchAction: 'none' }}
               title="Drag to reorder step"
             >
@@ -131,7 +131,7 @@ const StepReorderCard: React.FC<{
               type="button"
               disabled={idx === 0}
               onClick={onMoveUp}
-              className="p-1 text-gray-400 hover:text-cyan-300 disabled:opacity-20 disabled:hover:text-gray-400 rounded hover:bg-gray-800 transition-colors"
+              className="theme-icon-button p-1 border disabled:opacity-20 rounded transition-colors"
               title="Move Step Up"
             >
               <ArrowUp className="w-3.5 h-3.5" />
@@ -140,7 +140,7 @@ const StepReorderCard: React.FC<{
               type="button"
               disabled={idx === totalSteps - 1}
               onClick={onMoveDown}
-              className="p-1 text-gray-400 hover:text-cyan-300 disabled:opacity-20 disabled:hover:text-gray-400 rounded hover:bg-gray-800 transition-colors"
+              className="theme-icon-button p-1 border disabled:opacity-20 rounded transition-colors"
               title="Move Step Down"
             >
               <ArrowDown className="w-3.5 h-3.5" />
@@ -152,7 +152,7 @@ const StepReorderCard: React.FC<{
           <button
             type="button"
             onClick={onInsertBelow}
-            className="p-1 text-gray-400 hover:text-cyan-300 rounded hover:bg-gray-800 transition-colors"
+            className="theme-icon-button p-1 border rounded transition-colors"
             title="Insert Step Below"
           >
             <Plus className="w-3.5 h-3.5" />
@@ -162,7 +162,7 @@ const StepReorderCard: React.FC<{
             <button
               type="button"
               onClick={onRemove}
-              className="p-1 text-gray-500 hover:text-red-400 rounded hover:bg-gray-800 transition-colors"
+              className="theme-icon-button theme-danger-text p-1 border rounded transition-colors"
               title="Remove Step"
             >
               <Trash2 className="w-3.5 h-3.5" />
@@ -174,11 +174,11 @@ const StepReorderCard: React.FC<{
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
         <div>
           <div className="flex items-center justify-between mb-1">
-            <label className="block text-gray-400 theme-text-muted">Step Operation:</label>
+            <label className="block theme-text-muted">Step Operation:</label>
             <button
               type="button"
               onClick={() => setIsOpModalOpen(true)}
-              className="text-[10px] text-cyan-400 hover:text-cyan-300 flex items-center space-x-0.5 hover:underline"
+              className="theme-status-info-text text-[10px] flex items-center space-x-0.5 hover:underline"
               title="Create a new reusable operation"
             >
               <Wrench className="w-2.5 h-2.5" />
@@ -188,7 +188,7 @@ const StepReorderCard: React.FC<{
           <select
             value={step.filter_type}
             onChange={(e) => onUpdate({ filter_type: e.target.value })}
-            className="w-full bg-[#242424] border border-gray-700/80 rounded-lg p-2 text-gray-200 focus:outline-none focus:border-cyan-500 theme-input font-sans"
+            className="w-full border rounded-lg p-2 focus:outline-none theme-input font-sans"
           >
             {[
               { key: 'Search', label: 'Search & Replace' },
@@ -232,31 +232,31 @@ const StepReorderCard: React.FC<{
           <div className="space-y-2 col-span-2">
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-gray-400 mb-1 theme-text-muted">Find:</label>
+                <label className="block mb-1 theme-text-muted">Find:</label>
                 <textarea
                   placeholder="Text pattern or Regex pattern"
                   value={step.findPattern || ''}
                   onChange={(e) => onUpdate({ findPattern: e.target.value })}
-                  className="w-full h-16 bg-[#242424] border border-gray-700/80 rounded-lg p-2 font-mono text-xs text-gray-200 focus:outline-none focus:border-cyan-500 theme-input"
+                  className="w-full h-16 border rounded-lg p-2 font-mono text-xs focus:outline-none theme-input"
                 />
               </div>
               <div>
-                <label className="block text-gray-400 mb-1 theme-text-muted">Replace with:</label>
+                <label className="block mb-1 theme-text-muted">Replace with:</label>
                 <textarea
                   placeholder="Replacement string"
                   value={step.replacePattern || ''}
                   onChange={(e) => onUpdate({ replacePattern: e.target.value })}
-                  className="w-full h-16 bg-[#242424] border border-gray-700/80 rounded-lg p-2 font-mono text-xs text-gray-200 focus:outline-none focus:border-cyan-500 theme-input"
+                  className="w-full h-16 border rounded-lg p-2 font-mono text-xs focus:outline-none theme-input"
                 />
               </div>
             </div>
             <div className="flex items-center space-x-4 pt-1">
-              <label className="flex items-center space-x-1.5 text-xs text-gray-400 cursor-pointer theme-text-muted">
+              <label className="flex items-center space-x-1.5 text-xs cursor-pointer theme-text-muted">
                 <input
                   type="checkbox"
                   checked={step.caseSensitive || false}
                   onChange={(e) => onUpdate({ caseSensitive: e.target.checked })}
-                  className="rounded bg-[#242424] border-gray-700 text-cyan-600 focus:ring-0"
+                  className="theme-checkbox rounded focus:ring-0"
                 />
                 <span>Case Sensitive</span>
               </label>
@@ -266,26 +266,26 @@ const StepReorderCard: React.FC<{
 
         {step.filter_type === 'shell_script' && (
           <div className="col-span-2">
-            <label className="block text-gray-400 mb-1 theme-text-muted">Shell Script Command (stdin -&gt; stdout):</label>
+            <label className="block mb-1 theme-text-muted">Shell Script Command (stdin -&gt; stdout):</label>
             <input
               type="text"
               placeholder='e.g. tr "a-z" "A-Z"'
               value={step.shellCommand || ''}
               onChange={(e) => onUpdate({ shellCommand: e.target.value })}
-              className="w-full bg-[#242424] border border-gray-700/80 rounded-lg p-2 font-mono text-xs text-gray-200 focus:outline-none focus:border-cyan-500 theme-input"
+              className="w-full border rounded-lg p-2 font-mono text-xs focus:outline-none theme-input"
             />
           </div>
         )}
 
         {step.filter_type === 'wrap_tags' && (
           <div>
-            <label className="block text-gray-400 mb-1 theme-text-muted">HTML Tag Name:</label>
+            <label className="block mb-1 theme-text-muted">HTML Tag Name:</label>
             <input
               type="text"
               placeholder="code, b, blockquote"
               value={step.tagName || ''}
               onChange={(e) => onUpdate({ tagName: e.target.value })}
-              className="w-full bg-[#242424] border border-gray-700/80 rounded-lg p-2 font-mono text-xs text-gray-200 focus:outline-none focus:border-cyan-500 theme-input"
+              className="w-full border rounded-lg p-2 font-mono text-xs focus:outline-none theme-input"
             />
           </div>
         )}
@@ -575,21 +575,21 @@ export const FilterEditorModal: React.FC<FilterEditorModalProps> = ({
         {/* Modal Top Header Bar */}
         <div onMouseDown={startWindowDrag} className="filter-editor-header px-6 py-4 border-b flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <div className="p-2 rounded-xl bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
+            <div className="theme-status-info p-2 rounded-xl border">
               <Sliders className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-gray-100 theme-title">
+              <h3 className="text-base font-bold theme-title">
                 {filter ? 'Edit Filter' : 'New Filter'}
               </h3>
-              <p className="text-xs text-gray-400 theme-text-muted">
+              <p className="text-xs theme-text-muted">
                 Chain multiple text operations into a single automated filter pipeline.
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
+            className="theme-icon-button p-2 border rounded-lg transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -600,7 +600,7 @@ export const FilterEditorModal: React.FC<FilterEditorModalProps> = ({
           {/* Filter Metadata */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
             <div className="md:col-span-2">
-              <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-2 theme-text-muted">
+              <label className="block text-xs font-semibold uppercase tracking-wider mb-2 theme-text-muted">
                 Filter Name:
               </label>
               <input
@@ -608,16 +608,16 @@ export const FilterEditorModal: React.FC<FilterEditorModalProps> = ({
                 placeholder="e.g. Sanitize HTML & Convert Smileys"
                 value={filterName}
                 onChange={(e) => setFilterName(e.target.value)}
-                className="w-full bg-[#181818] border border-gray-700/80 rounded-xl px-4 py-2.5 text-sm text-gray-100 focus:outline-none focus:border-cyan-500 font-medium theme-input"
+                className="w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none font-medium theme-input"
                 autoFocus
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-2 theme-text-muted">
+              <label className="block text-xs font-semibold uppercase tracking-wider mb-2 theme-text-muted">
                 Global Hotkey Shortcut:
               </label>
-              <div className="bg-[#181818] border border-gray-700/80 rounded-xl p-2 flex items-center justify-between theme-input">
-                <span className="text-xs text-gray-400 theme-text-muted">Shortcut:</span>
+              <div className="border rounded-xl p-2 flex items-center justify-between theme-input">
+                <span className="text-xs theme-text-muted">Shortcut:</span>
                 <HotkeyRecorder
                   value={shortcut}
                   placeholder="+ Set Hotkey"
@@ -630,20 +630,20 @@ export const FilterEditorModal: React.FC<FilterEditorModalProps> = ({
           {/* Sticky Interactive Split-Pane Sandbox Tester */}
           <div className="filter-sandbox-card sticky-filter-sandbox sticky top-0 p-4 rounded-2xl border space-y-3 shadow-xl backdrop-blur-xl">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-cyan-400 uppercase tracking-wider flex items-center space-x-1.5">
+              <span className="theme-status-info-text text-xs font-semibold uppercase tracking-wider flex items-center space-x-1.5">
                 <Play className="w-3.5 h-3.5" />
                 <span>Sticky Live Sandbox Tester</span>
               </span>
-              <span className="text-[10px] text-gray-400 theme-text-muted">Live preview updates automatically on step edit</span>
+              <span className="text-[10px] theme-text-muted">Live preview updates automatically on step edit</span>
             </div>
 
             <div className="grid grid-cols-2 gap-4 text-xs font-mono">
               <div>
-                <label className="block text-gray-400 mb-1 font-sans theme-text-muted">Input Text:</label>
+                <label className="block mb-1 font-sans theme-text-muted">Input Text:</label>
                 <textarea
                   value={testInput}
                   onChange={(e) => setTestInput(e.target.value)}
-                  className="w-full h-24 bg-[#242424] border border-gray-700/80 rounded-xl p-2.5 focus:outline-none focus:border-cyan-500 text-gray-200 theme-input"
+                  className="w-full h-24 border rounded-xl p-2.5 focus:outline-none theme-input"
                 />
               </div>
               <div>
@@ -658,7 +658,7 @@ export const FilterEditorModal: React.FC<FilterEditorModalProps> = ({
           {/* Sequential Step Builder */}
           <div className="space-y-3 pt-2">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-semibold text-gray-300 uppercase tracking-wider theme-text-muted">
+              <label className="text-xs font-semibold uppercase tracking-wider theme-text-muted">
                 Pipeline Execution Steps ({steps.length})
               </label>
             </div>
@@ -694,7 +694,7 @@ export const FilterEditorModal: React.FC<FilterEditorModalProps> = ({
                 <button
                   type="button"
                   onClick={handleAddStep}
-                  className="flex items-center space-x-1.5 px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold shadow-lg active:scale-95 transition-[background-color,transform]"
+                  className="theme-primary-button flex items-center space-x-1.5 px-4 py-2 rounded-xl border text-xs font-semibold shadow-lg active:scale-95 transition-[background-color,transform]"
                 >
                   <Plus className="w-4 h-4" />
                   <span>Add Step</span>
@@ -709,7 +709,7 @@ export const FilterEditorModal: React.FC<FilterEditorModalProps> = ({
           <button
             type="button"
             onClick={handleReset}
-            className="flex items-center space-x-1.5 px-3.5 py-2 bg-gray-800/80 hover:bg-gray-700 text-gray-300 hover:text-white rounded-xl text-xs font-medium transition-colors border border-gray-700/60"
+            className="theme-secondary-button flex items-center space-x-1.5 px-3.5 py-2 rounded-xl text-xs font-medium transition-colors border"
             title="Reset form to original filter state"
           >
             <RotateCcw className="w-3.5 h-3.5" />

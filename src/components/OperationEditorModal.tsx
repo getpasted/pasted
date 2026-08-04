@@ -156,21 +156,21 @@ export const OperationEditorModal: React.FC<OperationEditorModalProps> = ({
         {/* Header */}
         <div onMouseDown={startWindowDrag} className="filter-editor-header px-6 py-4 border-b flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <div className="p-2 rounded-xl bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
+            <div className="theme-status-info p-2 rounded-xl border">
               <Wrench className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-gray-100 theme-title">
+              <h3 className="text-base font-bold theme-title">
                 {operation ? 'Edit Operation' : 'New Operation'}
               </h3>
-              <p className="text-xs text-gray-400 theme-text-muted">
+              <p className="text-xs theme-text-muted">
                 Build reusable operations for your operation library and filter pipelines.
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
+            className="theme-icon-button p-2 border rounded-lg transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -180,25 +180,25 @@ export const OperationEditorModal: React.FC<OperationEditorModalProps> = ({
         <div className="filter-editor-body flex-1 overflow-y-auto p-6 space-y-5">
           <div className="grid grid-cols-2 gap-4 text-xs">
             <div>
-              <label className="block text-gray-300 font-semibold mb-1 theme-text-muted">Operation Name:</label>
+              <label className="block font-semibold mb-1 theme-text-muted">Operation Name:</label>
               <input
                 type="text"
                 placeholder="e.g. Redact Sensitive Phone Numbers"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full bg-[#181818] border border-gray-700/80 rounded-xl p-2.5 text-gray-100 focus:outline-none focus:border-cyan-500 font-medium theme-input"
+                className="w-full border rounded-xl p-2.5 focus:outline-none font-medium theme-input"
                 autoFocus
               />
             </div>
             <div>
-              <label className="block text-gray-300 font-semibold mb-1 theme-text-muted">Category:</label>
+              <label className="block font-semibold mb-1 theme-text-muted">Category:</label>
               <input
                 type="text"
                 list="category-options"
                 placeholder="Choose or type custom category..."
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
-                className="w-full bg-[#181818] border border-gray-700/80 rounded-xl p-2.5 text-gray-100 focus:outline-none focus:border-cyan-500 font-medium theme-input"
+                className="w-full border rounded-xl p-2.5 focus:outline-none font-medium theme-input"
               />
               <datalist id="category-options">
                 {CATEGORIES.map((cat) => (
@@ -209,7 +209,7 @@ export const OperationEditorModal: React.FC<OperationEditorModalProps> = ({
           </div>
 
           <div>
-            <label className="block text-xs text-gray-300 font-semibold mb-1 theme-text-muted">
+            <label className="block text-xs font-semibold mb-1 theme-text-muted">
               Operation Engine Type:
             </label>
             <select
@@ -271,7 +271,7 @@ export const OperationEditorModal: React.FC<OperationEditorModalProps> = ({
                   setOpType(val);
                 }
               }}
-              className="w-full bg-[#181818] border border-gray-700/80 rounded-xl p-2.5 text-xs text-gray-100 focus:outline-none focus:border-cyan-500 font-medium theme-input"
+              className="w-full border rounded-xl p-2.5 text-xs focus:outline-none font-medium theme-input"
             >
               <optgroup label="Core Engines">
                 <option value="regex">Find & Replace (Regex Pattern)</option>
@@ -386,13 +386,13 @@ export const OperationEditorModal: React.FC<OperationEditorModalProps> = ({
             'base64_decode',
           ].includes(opType) && (
             <div className="text-xs">
-              <label className="block text-gray-400 mb-1 theme-text-muted">Custom Type Identifier Key:</label>
+              <label className="block mb-1 theme-text-muted">Custom Type Identifier Key:</label>
               <input
                 type="text"
                 placeholder="e.g. my_custom_engine_key"
                 value={opType}
                 onChange={(e) => setOpType(e.target.value)}
-                className="w-full bg-[#181818] border border-cyan-500/50 rounded-xl p-2.5 font-mono text-cyan-300 focus:outline-none focus:border-cyan-400 theme-input"
+                className="w-full border rounded-xl p-2.5 font-mono focus:outline-none theme-input"
               />
             </div>
           )}
@@ -400,21 +400,21 @@ export const OperationEditorModal: React.FC<OperationEditorModalProps> = ({
           {(opType === 'regex' || findPattern) && (
             <div className="grid grid-cols-2 gap-3 text-xs">
               <div>
-                <label className="block text-gray-400 mb-1 theme-text-muted">Find Pattern (Regex):</label>
+                <label className="block mb-1 theme-text-muted">Find Pattern (Regex):</label>
                 <textarea
                   placeholder="Regex pattern e.g. \b\d{3}-\d{3}-\d{4}\b"
                   value={findPattern}
                   onChange={(e) => setFindPattern(e.target.value)}
-                  className="w-full h-20 bg-[#181818] border border-gray-700/80 rounded-xl p-2.5 font-mono text-gray-200 focus:outline-none focus:border-cyan-500 theme-input"
+                  className="w-full h-20 border rounded-xl p-2.5 font-mono focus:outline-none theme-input"
                 />
               </div>
               <div>
-                <label className="block text-gray-400 mb-1 theme-text-muted">Replace With:</label>
+                <label className="block mb-1 theme-text-muted">Replace With:</label>
                 <textarea
                   placeholder="Replacement string e.g. [REDACTED] or $1"
                   value={replacePattern}
                   onChange={(e) => setReplacePattern(e.target.value)}
-                  className="w-full h-20 bg-[#181818] border border-gray-700/80 rounded-xl p-2.5 font-mono text-gray-200 focus:outline-none focus:border-cyan-500 theme-input"
+                  className="w-full h-20 border rounded-xl p-2.5 font-mono focus:outline-none theme-input"
                 />
               </div>
             </div>
@@ -422,34 +422,34 @@ export const OperationEditorModal: React.FC<OperationEditorModalProps> = ({
 
           {(opType === 'shell_script' || opType === 'custom' || shellCommand) && opType !== 'regex' && !findPattern && (
             <div className="text-xs">
-              <label className="block text-gray-400 mb-1 theme-text-muted">External Shell Command / Pipe Script (stdin -&gt; stdout):</label>
+              <label className="block mb-1 theme-text-muted">External Shell Command / Pipe Script (stdin -&gt; stdout):</label>
               <textarea
                 placeholder='e.g. tr "a-z" "A-Z" or tesseract stdin stdout or python3 -c "import sys; print(sys.stdin.read())"'
                 value={shellCommand}
                 onChange={(e) => setShellCommand(e.target.value)}
-                className="w-full h-20 bg-[#181818] border border-gray-700/80 rounded-xl p-2.5 font-mono text-gray-200 focus:outline-none focus:border-cyan-500 theme-input"
+                className="w-full h-20 border rounded-xl p-2.5 font-mono focus:outline-none theme-input"
               />
-              <p className="text-[10px] text-gray-500 mt-1">
+              <p className="theme-text-subtle text-[10px] mt-1">
                 Pipes clipboard text through any Bash, Python, JQ, Tesseract OCR, or CLI binary.
               </p>
             </div>
           )}
 
           {/* Sticky Interactive Sandbox */}
-          <div className="p-4 bg-[#181818] rounded-2xl border border-gray-700/80 space-y-3 shadow-inner filter-sandbox-card">
+          <div className="filter-sandbox-card p-4 rounded-2xl border space-y-3 shadow-inner">
             <div className="flex items-center justify-between text-xs">
-              <span className="font-semibold text-cyan-400 uppercase tracking-wider flex items-center space-x-1.5">
+              <span className="theme-status-info-text font-semibold uppercase tracking-wider flex items-center space-x-1.5">
                 <Play className="w-3.5 h-3.5" />
                 <span>Live Tester Sandbox</span>
               </span>
             </div>
             <div className="grid grid-cols-2 gap-3 text-xs font-mono">
               <div>
-                <label className="block text-gray-400 mb-1 font-sans theme-text-muted">Input:</label>
+                <label className="block mb-1 font-sans theme-text-muted">Input:</label>
                 <textarea
                   value={testInput}
                   onChange={(e) => setTestInput(e.target.value)}
-                  className="w-full h-20 bg-[#242424] border border-gray-700/80 rounded-xl p-2.5 text-gray-200 focus:outline-none focus:border-cyan-500 theme-input"
+                  className="w-full h-20 border rounded-xl p-2.5 focus:outline-none theme-input"
                 />
               </div>
               <div>

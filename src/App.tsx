@@ -470,7 +470,7 @@ export default function App() {
   }
 
   return (
-    <div className={`app-shell flex h-screen w-screen overflow-hidden text-gray-100 font-sans ${clipDragPreview ? 'cursor-grabbing' : ''} ${
+    <div className={`app-shell flex h-screen w-screen overflow-hidden font-sans ${clipDragPreview ? 'cursor-grabbing' : ''} ${
       draggedClipId !== null ? 'is-dragging-clip' : ''
     } ${
       isPinnedReorderSettling ? 'is-settling-pinned-reorder' : ''
@@ -484,22 +484,22 @@ export default function App() {
         return (
           <div
             data-testid="clip-drag-preview"
-            className="fixed z-[100000] w-64 pointer-events-none rounded-xl border border-cyan-400/70 bg-[#252525]/95 px-3 py-2.5 shadow-2xl shadow-black/60 ring-1 ring-white/10"
+            className="clip-drag-preview fixed w-64 pointer-events-none rounded-xl border px-3 py-2.5 shadow-2xl"
             style={{
               left: clipDragPreview.x + 14,
               top: clipDragPreview.y + 14,
               transform: 'rotate(1.5deg)',
             }}
           >
-            <div className="flex items-center justify-between gap-3 text-[10px] text-gray-400">
-              <span className="truncate font-semibold text-gray-300">{previewClip.source_app}</span>
+            <div className="theme-text-muted flex items-center justify-between gap-3 text-[10px]">
+              <span className="theme-text-main truncate font-semibold">{previewClip.source_app}</span>
               {batchCount > 1 && (
-                <span className="shrink-0 rounded-full bg-cyan-500 px-2 py-0.5 font-bold text-black">
+                <span className="clip-drag-preview-count shrink-0 rounded-full px-2 py-0.5 font-bold">
                   {batchCount} clips
                 </span>
               )}
             </div>
-            <div className="mt-1.5 truncate font-mono text-xs text-gray-100">
+            <div className="theme-title mt-1.5 truncate font-mono text-xs">
               {previewClip.content_type === 'image' ? 'Image clip' : previewClip.text_content || 'Empty clip'}
             </div>
           </div>
@@ -588,11 +588,11 @@ export default function App() {
             {/* Finder Header Title Bar */}
             <div
               onMouseDown={startWindowDrag}
-              className="h-[60px] border-b border-[#2b2b2b] bg-[#171717]/80 backdrop-blur-md px-3 flex items-center justify-between col-list-header cursor-default titlebar-drag-handle shrink-0"
+              className="h-[60px] border-b px-3 flex items-center justify-between col-list-header cursor-default titlebar-drag-handle shrink-0"
             >
               <div className="flex items-center space-x-2 titlebar-drag-handle min-w-0 flex-1 mr-2">
-                <Clipboard className="w-4 h-4 text-gray-300 titlebar-drag-handle shrink-0" />
-                <h2 className="text-xs font-bold text-gray-200 uppercase tracking-wider titlebar-drag-handle truncate">
+                <Clipboard className="theme-text-main w-4 h-4 titlebar-drag-handle shrink-0" />
+                <h2 className="theme-title text-xs font-bold uppercase tracking-wider titlebar-drag-handle truncate">
                   {currentTab === 'pinned'
                     ? 'Pinned'
                     : currentTab === 'protected'
@@ -612,7 +612,7 @@ export default function App() {
               {/* Global Controls & Status Badges */}
               <div className="flex items-center space-x-1.5 shrink-0">
                 {ignoredAppStatus && (
-                  <span className="text-[10px] px-2 py-0.5 rounded bg-red-950/80 border border-red-800/60 text-red-300 font-mono flex items-center animate-in fade-in">
+                  <span className="theme-status-danger text-[10px] px-2 py-0.5 rounded border font-mono flex items-center animate-in fade-in">
                     Ignored: {ignoredAppStatus.app_name}
                   </span>
                 )}
@@ -621,7 +621,7 @@ export default function App() {
                   <button
                     onClick={handleEmptyTrash}
                     disabled={trashedClips.length === 0}
-                    className="px-2 py-1 rounded-lg bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 text-xs font-semibold disabled:opacity-40 transition-all cursor-pointer flex items-center space-x-1"
+                    className="theme-status-danger px-2 py-1 rounded-lg border text-xs font-semibold disabled:opacity-40 transition-colors cursor-pointer flex items-center space-x-1"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                     <span>Empty Trash</span>
@@ -631,15 +631,15 @@ export default function App() {
                 {/* Pause History Toggle Button */}
                 <button
                   onClick={handleToggleClipboardPause}
-                  className={`w-7 h-7 flex items-center justify-center rounded-lg transition-all cursor-pointer ${
+                  className={`list-toolbar-button w-7 h-7 flex items-center justify-center rounded-lg border transition-[background-color,border-color,color] cursor-pointer ${
                     isClipboardPaused
-                      ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40 shadow-sm'
-                      : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800 border border-transparent'
+                      ? 'is-warning shadow-sm'
+                      : ''
                   }`}
                   title={isClipboardPaused ? 'Resume History Recording' : 'Pause History Recording (for sensitive items/passwords)'}
                 >
                   <Pause
-                    className={`w-4 h-4 ${isClipboardPaused ? 'fill-amber-400 text-amber-400 animate-pulse' : 'text-gray-400'}`}
+                    className={`w-4 h-4 ${isClipboardPaused ? 'fill-current animate-pulse' : ''}`}
                     strokeWidth={2.5}
                   />
                 </button>
@@ -647,17 +647,17 @@ export default function App() {
                 {/* Copy Queue Record/Stop Toggle Button */}
                 <button
                   onClick={handleToggleCopyQueue}
-                  className={`w-7 h-7 flex items-center justify-center rounded-lg transition-all cursor-pointer ${
+                  className={`list-toolbar-button w-7 h-7 flex items-center justify-center rounded-lg border transition-[background-color,border-color,color] cursor-pointer ${
                     seqStatus?.is_active
-                      ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40 shadow-sm'
-                      : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800 border border-transparent'
+                      ? 'is-queue-active shadow-sm'
+                      : ''
                   }`}
                   title={seqStatus?.is_active ? `Stop Queue Recording (${seqStatus.queue.length} items queued)` : 'Start Queue Recording'}
                 >
                   {seqStatus?.is_active ? (
-                    <Square className="w-3.5 h-3.5 fill-purple-400 text-purple-400 animate-pulse" strokeWidth={2.5} />
+                    <Square className="w-3.5 h-3.5 fill-current animate-pulse" strokeWidth={2.5} />
                   ) : (
-                    <Disc className="w-4 h-4 text-gray-400 hover:text-purple-400 transition-colors" strokeWidth={2.5} />
+                    <Disc className="w-4 h-4 transition-colors" strokeWidth={2.5} />
                   )}
                 </button>
               </div>
@@ -682,10 +682,10 @@ export default function App() {
               }}
             >
               {displayedClips.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-center p-6 text-gray-500 select-none">
+                <div className="theme-text-subtle h-full flex flex-col items-center justify-center text-center p-6 select-none">
                   <Clipboard className="w-10 h-10 mb-3 opacity-30 stroke-1" />
-                  <p className="text-xs font-medium text-gray-400">No clips found</p>
-                  <p className="text-[11px] text-gray-600 mt-1">
+                  <p className="theme-text-muted text-xs font-medium">No clips found</p>
+                  <p className="text-[11px] mt-1">
                     {searchQuery ? 'Try matching another search term' : 'Copied items will automatically show up here'}
                   </p>
                 </div>
@@ -807,11 +807,11 @@ export default function App() {
 
             {/* Floating Glass Batch Action Bar */}
             {selectedClipIds.size > 1 && selectedClipViewPolicy.showOrganizeBatchActions && !hasRestrictedSelection && (
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-40 bg-[#1c1e26]/95 backdrop-blur-xl border border-cyan-500/40 rounded-2xl px-3 py-1.5 shadow-2xl flex items-center space-x-2 text-[11px] whitespace-nowrap animate-in fade-in slide-in-from-bottom-2 duration-150 max-w-[calc(100%-1.5rem)] select-none">
-                <span className="font-bold text-cyan-400 font-mono text-[11px] bg-cyan-950/90 px-2 py-0.5 rounded-full border border-cyan-800/60 whitespace-nowrap shrink-0">
+              <div className="batch-action-bar absolute bottom-4 left-1/2 -translate-x-1/2 border rounded-2xl px-3 py-1.5 shadow-2xl flex items-center space-x-2 text-[11px] whitespace-nowrap animate-in fade-in slide-in-from-bottom-2 duration-150 max-w-[calc(100%-1.5rem)] select-none">
+                <span className="batch-action-count font-bold font-mono text-[11px] px-2 py-0.5 rounded-full border whitespace-nowrap shrink-0">
                   {selectedClipIds.size}
                 </span>
-                <div className="h-3.5 w-px bg-gray-700/80 shrink-0" />
+                <div className="batch-action-divider h-3.5 w-px shrink-0" />
                 <button
                   onClick={() => {
                     const ids = Array.from(selectedClipIds);
@@ -834,10 +834,10 @@ export default function App() {
                       fetchClips();
                     });
                   }}
-                  className="flex items-center space-x-1 hover:text-cyan-300 transition-colors font-medium cursor-pointer whitespace-nowrap shrink-0"
+                  className="batch-action-button flex items-center space-x-1 transition-colors font-medium cursor-pointer whitespace-nowrap shrink-0"
                   title="Pin All Selected"
                 >
-                  <Pin className="w-3.5 h-3.5 text-orange-400 shrink-0" />
+                  <Pin className="pin-icon w-3.5 h-3.5 shrink-0" />
                   <span>Pin</span>
                 </button>
                 <button
@@ -858,16 +858,16 @@ export default function App() {
                       fetchClips();
                     });
                   }}
-                  className="flex items-center space-x-1 hover:text-cyan-300 transition-colors font-medium cursor-pointer whitespace-nowrap shrink-0"
+                  className="batch-action-button flex items-center space-x-1 transition-colors font-medium cursor-pointer whitespace-nowrap shrink-0"
                   title="Unpin All Selected"
                 >
-                  <Pin className="w-3.5 h-3.5 text-gray-400 opacity-60 shrink-0" />
+                  <Pin className="theme-text-muted w-3.5 h-3.5 opacity-60 shrink-0" />
                   <span>Unpin</span>
                 </button>
-                <div className="h-3.5 w-px bg-gray-700/80 shrink-0" />
+                <div className="batch-action-divider h-3.5 w-px shrink-0" />
                 <button
                   onClick={() => handleBatchTrash()}
-                  className="flex items-center space-x-1 text-red-400 hover:text-red-300 transition-colors font-medium cursor-pointer whitespace-nowrap shrink-0"
+                  className="batch-action-button is-danger flex items-center space-x-1 transition-colors font-medium cursor-pointer whitespace-nowrap shrink-0"
                   title="Trash Selected"
                 >
                   <Trash2 className="w-3.5 h-3.5 shrink-0" />
@@ -875,7 +875,7 @@ export default function App() {
                 </button>
                 <button
                   onClick={clearClipSelection}
-                  className="p-0.5 text-gray-400 hover:text-white rounded-full hover:bg-gray-800 transition-colors cursor-pointer shrink-0 ml-0.5"
+                  className="batch-action-button p-0.5 rounded-full transition-colors cursor-pointer shrink-0 ml-0.5"
                   title="Deselect All"
                 >
                   <X className="w-3.5 h-3.5 shrink-0" />

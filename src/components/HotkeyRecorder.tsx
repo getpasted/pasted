@@ -115,12 +115,12 @@ export const HotkeyRecorder: React.FC<HotkeyRecorderProps> = ({
   return (
     <div className="flex items-center font-sans select-none">
       <div
-        className={`h-7 rounded-lg text-xs font-mono font-semibold border box-border transition-[background-color,border-color,color,box-shadow,width] flex items-center shrink-0 ${
+        className={`hotkey-recorder h-7 rounded-lg text-xs font-mono font-semibold border box-border transition-[background-color,border-color,color,box-shadow,width] flex items-center shrink-0 ${
           isRecording
-            ? 'px-2.5 bg-cyan-500/20 border-cyan-500 text-cyan-300 animate-pulse'
+            ? 'is-recording px-2.5 animate-pulse'
             : value
-            ? 'pl-2.5 pr-1.5 bg-cyan-950/40 border-cyan-800/60 text-cyan-300 shadow-sm hover:border-cyan-500'
-            : 'px-2 theme-input border-gray-700/80 text-gray-400 hover:text-white hover:border-gray-500'
+            ? 'has-value pl-2.5 pr-1.5 shadow-sm'
+            : 'is-empty px-2'
         }`}
       >
         <button
@@ -129,7 +129,7 @@ export const HotkeyRecorder: React.FC<HotkeyRecorderProps> = ({
           className="flex items-center space-x-1"
           title={value ? `Global Hotkey: ${formatHotkeyDisplay(value)}` : 'Set global hotkey shortcut'}
         >
-          <Keyboard className="w-3.5 h-3.5 opacity-80 shrink-0 text-cyan-400" />
+          <Keyboard className="hotkey-recorder-icon w-3.5 h-3.5 opacity-80 shrink-0" />
           {(isRecording || value || placeholder) && (
             <span>
               {isRecording
@@ -148,7 +148,7 @@ export const HotkeyRecorder: React.FC<HotkeyRecorderProps> = ({
               e.stopPropagation();
               onChange(null);
             }}
-            className="ml-1.5 p-0.5 text-cyan-400/60 hover:text-red-400 hover:bg-red-500/20 rounded transition-colors"
+            className="hotkey-recorder-clear ml-1.5 p-0.5 rounded transition-colors"
             title="Clear shortcut"
           >
             <X className="w-3 h-3" />

@@ -7,6 +7,7 @@ import { OperationsManager } from './OperationsManager';
 import { HotkeyRecorder } from './HotkeyRecorder';
 import { soundManager } from '../utils/sound';
 import { TransformWorkspaceHeader, type TransformWorkspace } from './TransformWorkspaceHeader';
+import { TransformLibraryToolbar } from './TransformLibraryToolbar';
 
 interface FilterManagerProps {
   filters: FilterRule[];
@@ -108,22 +109,19 @@ export const FilterManager: React.FC<FilterManagerProps> = ({ filters, onRefresh
     fetchOpCount();
   }, [activeSubTab]);
 
-  const openCreateOpRef = React.useRef<(() => void) | null>(null);
-
   return (
-    <div className="tools-page filters-page flex-1 h-screen flex flex-col overflow-hidden bg-[#171717] select-none filter-manager-wrapper">
+    <div className="tools-page filters-page flex-1 h-screen flex flex-col overflow-hidden select-none filter-manager-wrapper">
       <TransformWorkspaceHeader
         activeWorkspace={activeSubTab}
         filterCount={filters.length}
         operationCount={operationsCount}
         onChange={setActiveSubTab}
-        onCreate={activeSubTab === 'pipelines' ? handleOpenCreateModal : () => openCreateOpRef.current?.()}
       />
 
       {/* Main Scrollable Content */}
       <div className="flex-1 overflow-y-auto p-6 space-y-6">
       {activeSubTab === 'operations' ? (
-        <OperationsManager isEmbedded={true} openCreateRef={openCreateOpRef} />
+        <OperationsManager isEmbedded={true} />
       ) : (
         <>
           {/* Sticky Filter Sandbox */}
@@ -141,7 +139,7 @@ export const FilterManager: React.FC<FilterManagerProps> = ({ filters, onRefresh
                 <textarea
                   value={testText}
                   onChange={(e) => setTestText(e.target.value)}
-                  className="w-full h-24 theme-input border border-gray-700/80 rounded-lg p-2.5 focus:outline-none focus:border-gray-500 text-xs text-gray-200"
+                  className="w-full h-24 theme-input border rounded-lg p-2.5 focus:outline-none text-xs"
                 />
               </div>
               <div>
@@ -154,21 +152,21 @@ export const FilterManager: React.FC<FilterManagerProps> = ({ filters, onRefresh
           </div>
 
           {/* Filter Category Filter Pills */}
-          <div className="flex items-center space-x-2 overflow-x-auto pb-1 scrollbar-none">
+          <TransformLibraryToolbar
+            accent="pipelines"
+            createLabel="New Pipeline"
+            onCreate={handleOpenCreateModal}
+          >
             {FILTER_CATEGORIES.map((cat) => (
               <button
                 key={cat}
                 onClick={() => setActiveCategory(cat)}
-                className={`ui-pill px-3 py-1 text-xs font-semibold whitespace-nowrap transition-colors ${
-                  activeCategory === cat
-                    ? 'bg-cyan-600 text-white shadow'
-                    : 'bg-[#212121] text-gray-400 hover:text-white hover:bg-gray-800'
-                }`}
+                className={`transform-category-pill pipelines ui-pill px-3 py-1 text-xs font-semibold whitespace-nowrap transition-colors ${activeCategory === cat ? 'is-active shadow' : ''}`}
               >
                 {cat}
               </button>
             ))}
-          </div>
+          </TransformLibraryToolbar>
 
           {/* Active Filters Grid */}
           <div className="space-y-3">
@@ -208,17 +206,17 @@ export const FilterManager: React.FC<FilterManagerProps> = ({ filters, onRefresh
                         e.stopPropagation();
                         setFilterContextMenu({ x: e.clientX, y: e.clientY, filter: f });
                       }}
-                      className="group p-3.5 theme-card-idle bg-[#212121] rounded-xl border border-gray-700/80 hover:border-cyan-500 cursor-pointer transition-[background-color,border-color,box-shadow,transform] flex items-center justify-between shadow-md"
+                      className="transform-card pipelines group p-3.5 theme-card-idle rounded-xl border cursor-pointer transition-[background-color,border-color,box-shadow,transform] flex items-center justify-between shadow-md"
                     >
                       <div className="flex items-center space-x-3 truncate pr-2">
                         <div className="p-2 rounded-lg theme-badge border shrink-0">
-                          <Code2 className="w-4 h-4 text-cyan-400" />
+                          <Code2 className="transform-accent pipelines w-4 h-4" />
                         </div>
                         <div className="truncate">
                           <div className="flex items-center space-x-2">
                             <h4 className="text-xs font-bold theme-text-main truncate">{f.name}</h4>
                             {stepTypes.length > 1 && (
-                              <span className="text-[9px] font-bold text-cyan-400 bg-cyan-950/60 border border-cyan-800/60 px-1.5 py-0.2 rounded-full">
+                              <span className="transform-tag pipelines text-[9px] font-bold border px-1.5 py-0.2 rounded-full">
                                 ⚡ {stepTypes.length} Steps
                               </span>
                             )}
@@ -226,8 +224,8 @@ export const FilterManager: React.FC<FilterManagerProps> = ({ filters, onRefresh
                           <div className="flex items-center space-x-1.5 mt-1 overflow-x-auto scrollbar-none">
                             {stepTypes.map((st, i) => (
                               <React.Fragment key={i}>
-                                {i > 0 && <span className="text-[10px] text-cyan-500/60 font-bold">➔</span>}
-                                <span className="text-[10px] font-mono text-cyan-400/90 bg-cyan-950/40 px-1.5 py-0.5 rounded border border-cyan-800/40 whitespace-nowrap">
+                                {i > 0 && <span className="transform-accent pipelines text-[10px] opacity-60 font-bold">➔</span>}
+                                <span className="transform-tag pipelines text-[10px] font-mono px-1.5 py-0.5 rounded border whitespace-nowrap">
                                   {st}
                                 </span>
                               </React.Fragment>
@@ -256,7 +254,7 @@ export const FilterManager: React.FC<FilterManagerProps> = ({ filters, onRefresh
                         e.stopPropagation();
                         handleOpenEditModal(f);
                       }}
-                      className="p-1.5 text-gray-400 hover:text-white rounded-md hover:bg-gray-800 transition-colors"
+                      className="theme-icon-button p-1.5 border rounded-md transition-colors"
                       title="Edit Filter"
                     >
                       <Edit3 className="w-4 h-4" />
@@ -266,7 +264,7 @@ export const FilterManager: React.FC<FilterManagerProps> = ({ filters, onRefresh
                         e.stopPropagation();
                         handleDeleteFilter(f.id);
                       }}
-                      className="p-1.5 text-gray-400 hover:text-red-400 rounded-md hover:bg-gray-800 transition-colors"
+                      className="theme-icon-button theme-danger-text p-1.5 border rounded-md transition-colors"
                       title="Delete Filter"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -285,7 +283,7 @@ export const FilterManager: React.FC<FilterManagerProps> = ({ filters, onRefresh
               style={{ top: filterContextMenu.y, left: filterContextMenu.x }}
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="px-3 py-1 text-[10px] uppercase font-bold text-gray-400 border-b border-gray-800 truncate">
+              <div className="theme-text-muted theme-divider px-3 py-1 text-[10px] uppercase font-bold border-b truncate">
                 {filterContextMenu.filter.name}
               </div>
 
@@ -294,7 +292,7 @@ export const FilterManager: React.FC<FilterManagerProps> = ({ filters, onRefresh
                   handleOpenEditModal(filterContextMenu.filter);
                   setFilterContextMenu(null);
                 }}
-                className="w-full px-3 py-1.5 text-left flex items-center space-x-2 hover:bg-cyan-600 hover:text-white transition-colors"
+                className="theme-menu-item w-full px-3 py-1.5 text-left flex items-center space-x-2 transition-colors"
               >
                 <Edit3 className="w-3.5 h-3.5" />
                 <span>Edit Filter</span>
@@ -305,7 +303,7 @@ export const FilterManager: React.FC<FilterManagerProps> = ({ filters, onRefresh
                   handleDuplicateFilter(filterContextMenu.filter);
                   setFilterContextMenu(null);
                 }}
-                className="w-full px-3 py-1.5 text-left flex items-center space-x-2 hover:bg-cyan-600 hover:text-white transition-colors"
+                className="theme-menu-item w-full px-3 py-1.5 text-left flex items-center space-x-2 transition-colors"
               >
                 <Copy className="w-3.5 h-3.5" />
                 <span>Duplicate Filter</span>
@@ -316,7 +314,7 @@ export const FilterManager: React.FC<FilterManagerProps> = ({ filters, onRefresh
                   handleTestTransformation(filterContextMenu.filter.filter_type, filterContextMenu.filter.config);
                   setFilterContextMenu(null);
                 }}
-                className="w-full px-3 py-1.5 text-left flex items-center space-x-2 hover:bg-cyan-600 hover:text-white transition-colors"
+                className="theme-menu-item w-full px-3 py-1.5 text-left flex items-center space-x-2 transition-colors"
               >
                 <Play className="w-3.5 h-3.5" />
                 <span>Test in Sandbox</span>
@@ -327,20 +325,20 @@ export const FilterManager: React.FC<FilterManagerProps> = ({ filters, onRefresh
                   handleExportFilter(filterContextMenu.filter);
                   setFilterContextMenu(null);
                 }}
-                className="w-full px-3 py-1.5 text-left flex items-center space-x-2 hover:bg-cyan-600 hover:text-white transition-colors"
+                className="theme-menu-item w-full px-3 py-1.5 text-left flex items-center space-x-2 transition-colors"
               >
                 <Download className="w-3.5 h-3.5" />
                 <span>Export / Copy JSON</span>
               </button>
 
-              <div className="my-1 border-t border-gray-800" />
+              <div className="theme-menu-divider my-1 border-t" />
 
               <button
                 onClick={() => {
                   handleDeleteFilter(filterContextMenu.filter.id);
                   setFilterContextMenu(null);
                 }}
-                className="w-full px-3 py-1.5 text-left flex items-center space-x-2 text-red-400 hover:bg-red-600 hover:text-white transition-colors"
+                className="theme-menu-item theme-danger-text w-full px-3 py-1.5 text-left flex items-center space-x-2 transition-colors"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 <span>Delete Filter</span>

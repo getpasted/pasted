@@ -60,49 +60,49 @@ export const ActivityLogView: React.FC = () => {
     switch (type) {
       case 'recording_manually_paused':
         return (
-          <div className="flex items-center space-x-1.5 px-2 py-0.5 rounded bg-orange-500/20 text-orange-400 border border-orange-500/30 text-[11px] font-semibold">
+          <div className="theme-status-warning flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold">
             <Pause className="w-3.5 h-3.5" />
             <span>Manually Paused</span>
           </div>
         );
       case 'recording_manually_resumed':
         return (
-          <div className="flex items-center space-x-1.5 px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[11px] font-semibold">
+          <div className="theme-status-success flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold">
             <Play className="w-3.5 h-3.5" />
             <span>Manually Resumed</span>
           </div>
         );
       case 'recording_auto_paused':
         return (
-          <div className="flex items-center space-x-1.5 px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[11px] font-semibold">
+          <div className="theme-status-warning flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold">
             <ShieldAlert className="w-3.5 h-3.5" />
             <span>Auto-Paused</span>
           </div>
         );
       case 'recording_auto_resumed':
         return (
-          <div className="flex items-center space-x-1.5 px-2 py-0.5 rounded bg-green-500/20 text-green-400 border border-green-500/30 text-[11px] font-semibold">
+          <div className="theme-status-success flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold">
             <ShieldCheck className="w-3.5 h-3.5" />
             <span>Auto-Resumed</span>
           </div>
         );
       case 'clip_trashed':
         return (
-          <div className="flex items-center space-x-1.5 px-2 py-0.5 rounded bg-rose-500/20 text-rose-400 border border-rose-500/30 text-[11px] font-semibold">
+          <div className="theme-status-danger flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold">
             <Trash2 className="w-3.5 h-3.5" />
             <span>Trashed</span>
           </div>
         );
       case 'clips_trashed_all':
         return (
-          <div className="flex items-center space-x-1.5 px-2 py-0.5 rounded bg-rose-500/20 text-rose-400 border border-rose-500/30 text-[11px] font-semibold">
+          <div className="theme-status-danger flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold">
             <Trash2 className="w-3.5 h-3.5" />
             <span>Trashed All</span>
           </div>
         );
       case 'clip_restored':
         return (
-          <div className="flex items-center space-x-1.5 px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 text-[11px] font-semibold">
+          <div className="theme-status-info flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold">
             <RotateCcw className="w-3.5 h-3.5" />
             <span>Restored</span>
           </div>
@@ -110,14 +110,14 @@ export const ActivityLogView: React.FC = () => {
       case 'trash_emptied':
       case 'clip_deleted':
         return (
-          <div className="flex items-center space-x-1.5 px-2 py-0.5 rounded bg-red-600/20 text-red-400 border border-red-500/30 text-[11px] font-semibold">
+          <div className="theme-status-danger flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold">
             <Trash className="w-3.5 h-3.5" />
             <span>Purged</span>
           </div>
         );
       case 'clips_purged_all':
         return (
-          <div className="flex items-center space-x-1.5 px-2 py-0.5 rounded bg-red-600/20 text-red-400 border border-red-500/30 text-[11px] font-semibold">
+          <div className="theme-status-danger flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold">
             <Trash className="w-3.5 h-3.5" />
             <span>Purged All</span>
           </div>
@@ -127,8 +127,8 @@ export const ActivityLogView: React.FC = () => {
         return (
           <div className={`flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold ${
             isProtected
-              ? 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30'
-              : 'bg-gray-700/50 text-gray-300 border-gray-600'
+              ? 'theme-status-info'
+              : 'theme-badge'
           }`}>
             {isProtected ? <ShieldCheck className="w-3.5 h-3.5" /> : <ShieldOff className="w-3.5 h-3.5" />}
             <span>{isProtected ? 'Protected' : 'Unprotected'}</span>
@@ -137,14 +137,14 @@ export const ActivityLogView: React.FC = () => {
       }
       case 'note_updated':
         return (
-          <div className="flex items-center space-x-1.5 px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[11px] font-semibold">
+          <div className="theme-status-info flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold">
             <Edit3 className="w-3.5 h-3.5" />
             <span>Note</span>
           </div>
         );
       default:
         return (
-          <div className="flex items-center space-x-1.5 px-2 py-0.5 rounded bg-gray-700/50 text-gray-300 border border-gray-600 text-[11px] font-semibold">
+          <div className="theme-badge flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold">
             <Activity className="w-3.5 h-3.5" />
             <span>{type}</span>
           </div>
@@ -181,7 +181,7 @@ export const ActivityLogView: React.FC = () => {
           <select
             value={selectedTypeFilter}
             onChange={(e) => setSelectedTypeFilter(e.target.value)}
-            className="theme-input border rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-cyan-500 font-medium"
+            className="theme-input border rounded-xl px-3 py-1.5 text-xs focus:outline-none font-medium"
           >
             <option value="all">All Event Types</option>
             <option value="trashed">Trashed</option>
@@ -194,13 +194,13 @@ export const ActivityLogView: React.FC = () => {
           </select>
 
           <div className="relative">
-            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <Search className="theme-text-muted w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               placeholder="Search activity..."
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
-              className="theme-input border rounded-xl pl-8 pr-3 py-1.5 text-xs focus:outline-none focus:border-cyan-500 w-44"
+              className="theme-input border rounded-xl pl-8 pr-3 py-1.5 text-xs focus:outline-none w-44"
             />
           </div>
 
@@ -219,7 +219,7 @@ export const ActivityLogView: React.FC = () => {
       {/* Timeline Content List */}
       <div className="flex-1 overflow-y-auto p-6 space-y-3">
         {filteredLogs.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-gray-500 space-y-2">
+          <div className="theme-text-subtle h-full flex flex-col items-center justify-center space-y-2">
             <Activity className="w-10 h-10 opacity-30" />
             <p className="text-xs font-medium">No activity recorded yet.</p>
           </div>
