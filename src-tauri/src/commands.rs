@@ -523,6 +523,40 @@ pub async fn detect_intelligence_connections(
     Ok(detected)
 }
 
+fn validate_credential_reference(reference: Option<&str>) -> Result<(), String> {
+    let Some(reference) = reference else {
+        return Ok(());
+    };
+    if reference != reference.trim() || reference.is_empty() {
+        return Err("Credential reference cannot be empty or contain outer whitespace".to_string());
+    }
+    if let Some(variable) = reference.strip_prefix("env:") {
+        let mut characters = variable.chars();
+        let valid_first = characters
+            .next()
+            .is_some_and(|character| character == '_' || character.is_ascii_alphabetic());
+        if valid_first
+            && characters.all(|character| character == '_' || character.is_ascii_alphanumeric())
+        {
+            return Ok(());
+        }
+        return Err("Environment credential references must name a valid variable".to_string());
+    }
+    for scheme in ["op://", "keychain:"] {
+        if let Some(identifier) = reference.strip_prefix(scheme) {
+            if !identifier.is_empty()
+                && identifier
+                    .chars()
+                    .all(|character| !character.is_control() && !character.is_whitespace())
+            {
+                return Ok(());
+            }
+            return Err("Credential reference identifier is invalid".to_string());
+        }
+    }
+    Err("Credentials must be stored as an env:, op://, or keychain: reference".to_string())
+}
+
 #[tauri::command]
 pub fn create_intelligence_connection(
     name: String,
@@ -535,6 +569,7 @@ pub fn create_intelligence_connection(
     if name.trim().is_empty() {
         return Err("Connection name cannot be empty".to_string());
     }
+    validate_credential_reference(credential_ref.as_deref())?;
     db.create_intelligence_connection(
         &name,
         &provider_kind,
@@ -560,6 +595,7 @@ pub fn update_intelligence_connection(
     if name.trim().is_empty() {
         return Err("Connection name cannot be empty".to_string());
     }
+    validate_credential_reference(credential_ref.as_deref())?;
     db.update_intelligence_connection(IntelligenceConnectionUpdate {
         id: &id,
         name: &name,
@@ -1873,6 +1909,29 @@ mod tests {
         let sc_unicode_c = parse_shortcut_str("Alt+ç").unwrap();
         let sc_ascii_c = parse_shortcut_str("Alt+KeyC").unwrap();
         assert_eq!(sc_unicode_c, sc_ascii_c, "Alt+ç should map to Alt+KeyC");
+    }
+
+    #[test]
+    fn intelligence_credentials_must_remain_references() {
+        for reference in [
+            "env:OPENAI_API_KEY",
+            "env:_LOCAL_MODEL_TOKEN",
+            "op://Private/OpenAI/credential",
+            "keychain:pasted.openai",
+        ] {
+            assert!(validate_credential_reference(Some(reference)).is_ok());
+        }
+        for value in [
+            "sk-proj-literal-secret",
+            "env:NOT VALID",
+            "env:123_INVALID",
+            "op://",
+            " keychain:pasted.openai",
+            "",
+        ] {
+            assert!(validate_credential_reference(Some(value)).is_err());
+        }
+        assert!(validate_credential_reference(None).is_ok());
     }
 
     #[test]

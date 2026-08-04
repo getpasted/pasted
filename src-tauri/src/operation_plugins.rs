@@ -74,15 +74,52 @@ pub struct CredentialProviderContribution {
 fn value_contains_secret(value: &Value) -> bool {
     match value {
         Value::Object(values) => values.iter().any(|(key, value)| {
-            let key = key.to_ascii_lowercase();
+            let key = key.to_ascii_lowercase().replace(['-', ' '], "_");
             key.contains("api_key")
+                || key.contains("apikey")
                 || key.contains("secret")
                 || key.contains("token")
+                || key.contains("password")
+                || key.contains("passwd")
+                || key.contains("authorization")
+                || key.contains("credential")
+                || key.contains("private_key")
+                || key.contains("access_key")
                 || value_contains_secret(value)
         }),
         Value::Array(values) => values.iter().any(value_contains_secret),
+        Value::String(value) => {
+            let trimmed = value.trim();
+            let lowercase = trimmed.to_ascii_lowercase();
+            lowercase.starts_with("bearer ")
+                || lowercase.starts_with("sk_live_")
+                || lowercase.starts_with("sk_test_")
+                || lowercase.starts_with("sk-proj-")
+                || lowercase.starts_with("sk-ant-")
+                || lowercase.starts_with("ghp_")
+                || lowercase.starts_with("gho_")
+                || lowercase.starts_with("xoxb-")
+                || lowercase.starts_with("xoxp-")
+                || trimmed.starts_with("AKIA")
+                || trimmed.contains("-----BEGIN PRIVATE KEY-----")
+                || trimmed.contains("-----BEGIN RSA PRIVATE KEY-----")
+        }
         _ => false,
     }
+}
+
+fn permitted_http_host(url: &str) -> Result<String, String> {
+    let parsed = url::Url::parse(url).map_err(|_| "HTTP Operation URL is invalid".to_string())?;
+    if !matches!(parsed.scheme(), "http" | "https") {
+        return Err("HTTP Operations require an http or https URL".to_string());
+    }
+    if !parsed.username().is_empty() || parsed.password().is_some() {
+        return Err("HTTP Operation URLs cannot contain credentials".to_string());
+    }
+    parsed
+        .host_str()
+        .map(str::to_string)
+        .ok_or_else(|| "HTTP Operation URL must include a host".to_string())
 }
 
 impl OperationPluginManifest {
@@ -120,13 +157,9 @@ impl OperationPluginManifest {
                     }
                 }
                 PluginExecutor::Http { url, .. } => {
-                    let host = url
-                        .split("//")
-                        .nth(1)
-                        .and_then(|value| value.split('/').next())
-                        .unwrap_or_default();
+                    let host = permitted_http_host(url)?;
                     let allowed = self.permissions.iter().any(|permission| {
-                        matches!(permission, PluginPermission::Network { hosts } if hosts.iter().any(|allowed| allowed == host))
+                        matches!(permission, PluginPermission::Network { hosts } if hosts.iter().any(|allowed| allowed == &host))
                     });
                     if !allowed {
                         return Err(format!("HTTP Operation host is not permitted: {host}"));
@@ -199,5 +232,38 @@ mod tests {
         plugin.contributions.operations[0].default_config =
             serde_json::json!({ "api_key": "do-not-store-this" });
         assert!(plugin.validate().unwrap_err().contains("inline secret"));
+    }
+
+    #[test]
+    fn manifests_reject_secrets_hidden_in_generic_fields() {
+        let mut plugin = bundled_example_plugins().remove(0);
+        plugin.contributions.operations[0].default_config =
+            serde_json::json!({ "header": "Bearer do-not-store-this" });
+        assert!(plugin.validate().unwrap_err().contains("inline secret"));
+
+        plugin.contributions.operations[0].default_config =
+            serde_json::json!({ "value": "sk-proj-do-not-store-this" });
+        assert!(plugin.validate().unwrap_err().contains("inline secret"));
+    }
+
+    #[test]
+    fn http_operations_require_safe_permitted_urls() {
+        let mut plugin = bundled_example_plugins().remove(0);
+        plugin.contributions.operations[0].executor = PluginExecutor::Http {
+            connection: "openai.default".to_string(),
+            method: "POST".to_string(),
+            url: "file://api.openai.com/private".to_string(),
+        };
+        assert!(plugin.validate().unwrap_err().contains("http or https"));
+
+        if let PluginExecutor::Http { url, .. } = &mut plugin.contributions.operations[0].executor {
+            *url = "https://user:password@api.openai.com/v1".to_string();
+        }
+        assert!(plugin.validate().unwrap_err().contains("credentials"));
+
+        if let PluginExecutor::Http { url, .. } = &mut plugin.contributions.operations[0].executor {
+            *url = "https://api.openai.com.evil.example/v1".to_string();
+        }
+        assert!(plugin.validate().unwrap_err().contains("not permitted"));
     }
 }

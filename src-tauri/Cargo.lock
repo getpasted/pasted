@@ -2573,6 +2573,7 @@ dependencies = [
  "tauri-plugin-single-instance",
  "tauri-plugin-window-state",
  "unicode-normalization",
+ "url",
  "window-vibrancy",
 ]
 
