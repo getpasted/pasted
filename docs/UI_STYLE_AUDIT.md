@@ -73,7 +73,7 @@ These are functional issues exposed while auditing the styling, not CSS-only def
 
 ## Performance follow-ups
 
-- [ ] Profile the 1–2 second clip-to-bin drop completion regression. The drop path already updates clips and bin counts optimistically, then starts full `get_bins` and `get_clips` reconciliations after `assign_clip_bin`; verify the cost of reloading complete clip payloads and SQLite connection contention, remove redundant success-path work, and retain authoritative rollback/recovery on failure.
+- [x] Remove the 1–2 second clip-to-bin drop completion regression: keep the visual state and counts optimistic, persist the assignment without full success-path `get_bins`/`get_clips` reloads, defer sound work until after the next paint, and reserve authoritative reconciliation for persistence failures.
 
 ## Recommended attack order
 

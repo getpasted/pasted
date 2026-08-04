@@ -203,7 +203,9 @@ export function useClipActions({
       return delta === 0 ? bin : { ...bin, clip_count: Math.max(0, (bin.clip_count || 0) + delta) };
     }));
 
-    if (options.playSound) soundManager.playCopySound(settings.enableSounds);
+    if (options.playSound) {
+      requestAnimationFrame(() => soundManager.playCopySound(settings.enableSounds));
+    }
 
     try {
       if (targetIds.length > 1) {
@@ -211,10 +213,10 @@ export function useClipActions({
       } else {
         await invoke('assign_clip_bin', { clipId, binId });
       }
-      void fetchBins();
-      void fetchClips();
     } catch (error) {
       console.error('Failed to assign clips to bin:', error);
+      // The optimistic clip and count updates are authoritative on success.
+      // Reconcile the complete data sets only when persistence fails.
       void fetchClips();
       void fetchBins();
     }
