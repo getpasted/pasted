@@ -15,6 +15,39 @@ function readCachedArray<T>(key: string): T[] {
   }
 }
 
+function cacheClipSummaries(clips: ClipItem[]) {
+  try {
+    localStorage.setItem('pasted_cache_clips', JSON.stringify(clips.slice(0, 50)));
+  } catch {
+    // The database remains authoritative when browser storage is unavailable or full.
+  }
+}
+
+function isCompleteClipEvent(payload: ClipItem | { id: number }): payload is ClipItem {
+  return typeof (payload as Partial<ClipItem>).content_type === 'string'
+    && typeof (payload as Partial<ClipItem>).content_hash === 'string'
+    && typeof (payload as Partial<ClipItem>).source_app === 'string'
+    && typeof (payload as Partial<ClipItem>).created_at === 'string';
+}
+
+function compareClipOrder(left: ClipItem, right: ClipItem) {
+  if (left.is_pinned !== right.is_pinned) return left.is_pinned ? -1 : 1;
+  if (left.is_pinned) {
+    const pinDifference = (left.pin_order ?? 0) - (right.pin_order ?? 0);
+    if (pinDifference !== 0) return pinDifference;
+  }
+  return right.created_at.localeCompare(left.created_at) || right.id - left.id;
+}
+
+function mergeClipSummary(clips: ClipItem[], incoming: ClipItem) {
+  const summary = { ...incoming, html_content: null, image_base64: null };
+  const existingIndex = clips.findIndex((clip) => clip.id === summary.id);
+  const next = existingIndex === -1
+    ? [...clips, summary]
+    : clips.map((clip, index) => index === existingIndex ? summary : clip);
+  return next.sort(compareClipOrder);
+}
+
 export function useAppData(enableSounds: boolean) {
   const [allClips, setAllClips] = useState<ClipItem[]>(() => readCachedArray('pasted_cache_clips'));
   const [trashedClips, setTrashedClips] = useState<ClipItem[]>([]);
@@ -43,11 +76,7 @@ export function useAppData(enableSounds: boolean) {
       });
       setAllClips(clips);
       void fetchTotalClipCount();
-      try {
-        localStorage.setItem('pasted_cache_clips', JSON.stringify(clips.slice(0, 50)));
-      } catch {
-        // The database remains authoritative when browser storage is unavailable or full.
-      }
+      cacheClipSummaries(clips);
     } catch (error) {
       console.error('Failed to fetch clips:', error);
     }
@@ -165,8 +194,19 @@ export function useAppData(enableSounds: boolean) {
     if (typeof window === 'undefined' || !(window as any).__TAURI_INTERNALS__) return;
 
     let ignoredStatusTimer: ReturnType<typeof setTimeout> | undefined;
-    const unlistenClip = listen<ClipItem>('clip-added', () => {
-      void fetchClips();
+    const unlistenClip = listen<ClipItem | { id: number }>('clip-added', (event) => {
+      const payload = event.payload;
+      if (isCompleteClipEvent(payload)) {
+        setAllClips((previous) => {
+          const next = mergeClipSummary(previous, payload);
+          cacheClipSummaries(next);
+          return next;
+        });
+        void fetchTotalClipCount();
+      } else {
+        // OCR currently emits only an ID after updating the stored clip.
+        void fetchClips();
+      }
       soundManager.playCopySound(enableSounds);
     });
     const unlistenSequential = listen<SequentialStatus>('sequential-updated', (event) => {
