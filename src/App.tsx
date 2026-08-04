@@ -535,7 +535,8 @@ export default function App() {
   const handleClearHistory = async () => {
     if (!clearHistoryMode) return;
     try {
-      await invoke(clearHistoryMode === 'purge' ? 'purge_unpinned_clips' : 'trash_unpinned_clips');
+      if (clearHistoryMode === 'purge') await invoke('purge_unpinned_clips');
+      else await invoke('trash_unpinned_clips');
       setClearHistoryMode(null);
       await Promise.all([fetchClips(), fetchTrashedClips(), fetchBins()]);
     } catch (e) {

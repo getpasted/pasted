@@ -90,12 +90,15 @@ export function IntentTransformComposer({ sampleInput, onTestResult, onTransform
     setIsSaving(true);
     setError('');
     try {
-      const transform = await invoke<SavedTransform>(isEditing ? 'update_saved_transform' : 'save_saved_transform', {
+      const args = {
         ...(initialTransform ? { transformRef: initialTransform.stableRef } : {}),
         name: transformName.trim() || outcome.plan.summary,
         plan: outcome.plan,
         connectionId: outcome.connectionId || null,
-      });
+      };
+      const transform = isEditing
+        ? await invoke<SavedTransform>('update_saved_transform', args)
+        : await invoke<SavedTransform>('save_saved_transform', args);
       setSavedTransformRef(transform.stableRef);
       onTransformSaved(transform);
     } catch (reason) {

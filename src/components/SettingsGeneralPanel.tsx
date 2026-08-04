@@ -73,7 +73,9 @@ export function SettingsGeneralPanel({
 
   const exportClips = async (format: 'json' | 'csv') => {
     try {
-      const contents = await invoke<string>(format === 'json' ? 'export_clips_json' : 'export_clips_csv');
+      const contents = format === 'json'
+        ? await invoke<string>('export_clips_json')
+        : await invoke<string>('export_clips_csv');
       const url = URL.createObjectURL(new Blob([contents], {
         type: format === 'json' ? 'application/json' : 'text/csv',
       }));

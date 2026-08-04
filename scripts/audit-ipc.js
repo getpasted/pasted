@@ -25,6 +25,7 @@ const invokedCommands = matches(
 );
 const registeredCommands = matches(rustRegistration, /commands::([a-zA-Z0-9_]+)/g);
 const mockedCommands = matches(tauriBridge, /case ['"]([a-zA-Z0-9_]+)['"]:/g);
+const dynamicInvocations = [...frontendSource.matchAll(/\binvoke(?:<[^;\n]*>)?\((?!\s*['"])/g)];
 
 const unregisteredInvocations = [...invokedCommands]
   .filter((command) => !registeredCommands.has(command))
@@ -42,6 +43,11 @@ assert.deepEqual(
   staleMocks,
   [],
   `Browser mocks contain stale or misspelled Tauri commands: ${staleMocks.join(', ')}`,
+);
+assert.equal(
+  dynamicInvocations.length,
+  0,
+  'Tauri command names must be string literals so the IPC contract remains auditable',
 );
 
 console.log(
