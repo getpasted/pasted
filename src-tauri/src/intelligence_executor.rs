@@ -774,6 +774,92 @@ mod tests {
     }
 
     #[test]
+    fn connection_selection_honors_priority_enabled_state_and_explicit_choice() {
+        let (db, database_path) = test_db();
+        let unrelated_cli = db
+            .create_intelligence_connection(
+                "Unrelated CLI",
+                "cli",
+                Some("/usr/local/bin/helper"),
+                None,
+                None,
+            )
+            .unwrap();
+        let fallback = db
+            .create_intelligence_connection(
+                "Codex Fallback",
+                "cli",
+                Some("/opt/homebrew/bin/codex-fallback"),
+                None,
+                None,
+            )
+            .unwrap();
+        let preferred = db
+            .create_intelligence_connection(
+                "Codex Preferred",
+                "cli",
+                Some("/usr/local/bin/codex"),
+                None,
+                None,
+            )
+            .unwrap();
+
+        db.reorder_intelligence_connections(&[
+            preferred.id.clone(),
+            unrelated_cli.id.clone(),
+            fallback.id.clone(),
+        ])
+        .unwrap();
+        assert_eq!(select_connection(&db, None).unwrap().id, preferred.id);
+        assert_eq!(
+            select_connection(&db, Some(&fallback.id)).unwrap().id,
+            fallback.id
+        );
+
+        db.update_intelligence_connection(
+            &preferred.id,
+            &preferred.name,
+            &preferred.provider_kind,
+            preferred.endpoint.as_deref(),
+            preferred.model.as_deref(),
+            preferred.credential_ref.as_deref(),
+            false,
+        )
+        .unwrap();
+        assert_eq!(select_connection(&db, None).unwrap().id, fallback.id);
+        assert_eq!(
+            select_connection(&db, Some(&preferred.id))
+                .unwrap_err()
+                .code,
+            "connection_unavailable"
+        );
+        assert_eq!(
+            select_connection(&db, Some(&unrelated_cli.id))
+                .unwrap_err()
+                .code,
+            "connection_unavailable"
+        );
+
+        db.update_intelligence_connection(
+            &fallback.id,
+            &fallback.name,
+            &fallback.provider_kind,
+            fallback.endpoint.as_deref(),
+            fallback.model.as_deref(),
+            fallback.credential_ref.as_deref(),
+            false,
+        )
+        .unwrap();
+        assert_eq!(
+            select_connection(&db, None).unwrap_err().code,
+            "no_enabled_connection"
+        );
+
+        drop(db);
+        let _ = fs::remove_file(database_path);
+    }
+
+    #[test]
     fn saved_transform_records_trigger_destination_and_success() {
         let (db, database_path) = test_db();
         let clip = db
