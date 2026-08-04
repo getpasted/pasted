@@ -18,12 +18,14 @@ function matches(source, pattern) {
 const frontendSource = readFilesRecursively('src', ['.ts', '.tsx']).join('\n');
 const tauriBridge = fs.readFileSync('src/utils/tauri.ts', 'utf8');
 const rustRegistration = fs.readFileSync('src-tauri/src/lib.rs', 'utf8');
+const handlerBlock = rustRegistration.match(/generate_handler!\[([\s\S]*?)\]\)/)?.[1];
+assert.ok(handlerBlock, 'Could not locate the Tauri generate_handler registration');
 
 const invokedCommands = matches(
   frontendSource,
   /invoke(?:<[^;\n]*?>)?\(\s*['"]([a-zA-Z0-9_]+)['"]/g,
 );
-const registeredCommands = matches(rustRegistration, /commands::([a-zA-Z0-9_]+)/g);
+const registeredCommands = matches(handlerBlock, /commands::([a-zA-Z0-9_]+)/g);
 const mockedCommands = matches(tauriBridge, /case ['"]([a-zA-Z0-9_]+)['"]:/g);
 const dynamicInvocations = [...frontendSource.matchAll(/\binvoke(?:<[^;\n]*>)?\((?!\s*['"])/g)];
 
@@ -32,6 +34,9 @@ const unregisteredInvocations = [...invokedCommands]
   .sort();
 const staleMocks = [...mockedCommands]
   .filter((command) => !registeredCommands.has(command))
+  .sort();
+const unusedRegistrations = [...registeredCommands]
+  .filter((command) => !invokedCommands.has(command))
   .sort();
 
 assert.deepEqual(
@@ -43,6 +48,11 @@ assert.deepEqual(
   staleMocks,
   [],
   `Browser mocks contain stale or misspelled Tauri commands: ${staleMocks.join(', ')}`,
+);
+assert.deepEqual(
+  unusedRegistrations,
+  [],
+  `Tauri exposes commands with no frontend consumer: ${unusedRegistrations.join(', ')}`,
 );
 assert.equal(
   dynamicInvocations.length,

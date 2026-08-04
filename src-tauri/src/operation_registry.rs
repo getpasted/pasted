@@ -295,10 +295,6 @@ pub static BUILTIN_OPERATIONS: &[OperationDefinition] = &[
     ),
 ];
 
-pub fn builtin_operations() -> Vec<OperationDefinition> {
-    BUILTIN_OPERATIONS.to_vec()
-}
-
 pub fn is_builtin_operation(key: &str) -> bool {
     BUILTIN_OPERATIONS
         .iter()

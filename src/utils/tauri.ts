@@ -316,8 +316,6 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
     }
     case 'get_clip_transformation_provenance':
       return (mockClipTransformations.get(Number(args?.clipId)) || null) as unknown as T;
-    case 'get_clip_transformation_executions':
-      return [] as unknown as T;
     case 'copy_clip_to_system':
     case 'paste_text_to_frontmost':
       return null as unknown as T;
@@ -341,12 +339,6 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       return 0 as unknown as T;
     case 'get_clip_image':
       return null as unknown as T;
-    case 'update_clip_text': {
-      const clipId = Number(args?.clipId);
-      const clip = mockClips.find((item) => item.id === clipId);
-      if (clip && clip.is_trashed === 0 && typeof args?.text === 'string') clip.text_content = args.text;
-      return null as unknown as T;
-    }
     case 'restore_clip_version': {
       const clipId = Number(args?.clipId);
       const clip = mockClips.find((item) => item.id === clipId);

@@ -7,7 +7,7 @@ use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::db::{
     Bin, ClipItem, DbState, IntelligenceConnection, IntelligenceConnectionUpdate, Pipeline,
-    PipelineStepInput, SavedTransform, TransformClipApplication, TransformationExecution,
+    PipelineStepInput, SavedTransform, TransformClipApplication,
 };
 use crate::sequential_paste::{SequentialQueueState, SequentialStatus};
 
@@ -94,11 +94,6 @@ pub fn play_system_sound(sound_id: Option<u32>) {
 pub fn play_system_sound(_sound_id: Option<u32>) {}
 
 #[tauri::command]
-pub fn get_app_setting(key: String, db: State<'_, Arc<DbState>>) -> Result<Option<String>, String> {
-    db.get_setting(&key).map_err(|e| e.to_string())
-}
-
-#[tauri::command]
 pub fn get_all_app_settings(
     db: State<'_, Arc<DbState>>,
 ) -> Result<std::collections::HashMap<String, String>, String> {
@@ -126,16 +121,6 @@ pub fn update_clip_note(
     db: State<'_, Arc<DbState>>,
 ) -> Result<(), String> {
     db.update_clip_note(clip_id, note.as_deref())
-        .map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-pub fn update_clip_text(
-    clip_id: i64,
-    text: String,
-    db: State<'_, Arc<DbState>>,
-) -> Result<(), String> {
-    db.update_clip_text(clip_id, &text)
         .map_err(|e| e.to_string())
 }
 
@@ -226,26 +211,6 @@ pub async fn assign_clip_bin(
 }
 
 #[tauri::command]
-pub fn add_clip_to_bin(
-    clip_id: i64,
-    bin_id: i64,
-    db: State<'_, Arc<DbState>>,
-) -> Result<(), String> {
-    db.add_clip_to_bin(clip_id, bin_id)
-        .map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-pub fn remove_clip_from_bin(
-    clip_id: i64,
-    bin_id: i64,
-    db: State<'_, Arc<DbState>>,
-) -> Result<(), String> {
-    db.remove_clip_from_bin(clip_id, bin_id)
-        .map_err(|e| e.to_string())
-}
-
-#[tauri::command]
 pub fn reorder_pinned_clips(ids: Vec<i64>, db: State<'_, Arc<DbState>>) -> Result<(), String> {
     db.reorder_pinned_clips(ids).map_err(|e| e.to_string())
 }
@@ -279,16 +244,6 @@ pub fn restore_clip_version(
 ) -> Result<ClipItem, String> {
     db.restore_clip_version(clip_id, version_id)
         .map_err(|error| error.to_string())
-}
-
-#[tauri::command]
-pub fn create_tag(
-    name: String,
-    color: String,
-    db: State<'_, Arc<DbState>>,
-) -> Result<crate::db::Bin, String> {
-    db.create_bin_with_type(&name, "Tag", &color, None, "tag")
-        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -395,33 +350,6 @@ pub(crate) fn execute_clipboard_pipeline(
         });
     }
     Ok(outcome)
-}
-
-#[tauri::command]
-pub fn copy_with_last_pipeline(
-    db: State<'_, Arc<DbState>>,
-) -> Result<crate::transformation_service::ExecutionOutcome, String> {
-    execute_clipboard_pipeline(&db, None, false)
-}
-
-#[tauri::command]
-pub fn paste_with_last_pipeline(
-    db: State<'_, Arc<DbState>>,
-) -> Result<crate::transformation_service::ExecutionOutcome, String> {
-    execute_clipboard_pipeline(&db, None, true)
-}
-
-#[tauri::command]
-pub fn paste_with_pipeline(
-    pipeline_ref: String,
-    db: State<'_, Arc<DbState>>,
-) -> Result<crate::transformation_service::ExecutionOutcome, String> {
-    execute_clipboard_pipeline(&db, Some(&pipeline_ref), true)
-}
-
-#[tauri::command]
-pub fn get_last_pipeline_ref(db: State<'_, Arc<DbState>>) -> Result<Option<String>, String> {
-    crate::transformation_service::get_last_pipeline_ref(&db).map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -548,11 +476,6 @@ pub fn get_operations(db: State<'_, Arc<DbState>>) -> Result<Vec<crate::db::Oper
 }
 
 #[tauri::command]
-pub fn get_builtin_operations() -> Vec<crate::operation_registry::OperationDefinition> {
-    crate::operation_registry::builtin_operations()
-}
-
-#[tauri::command]
 pub fn get_intelligence_connections(
     db: State<'_, Arc<DbState>>,
 ) -> Result<Vec<IntelligenceConnection>, String> {
@@ -646,14 +569,6 @@ pub fn reorder_intelligence_connections(
 ) -> Result<(), String> {
     db.reorder_intelligence_connections(&ids)
         .map_err(|error| error.to_string())
-}
-
-#[tauri::command]
-pub fn validate_transformation_plan(
-    plan: crate::transformation_intent::TransformationPlan,
-) -> Result<crate::transformation_intent::ExecutionCharacter, String> {
-    plan.validate()?;
-    Ok(plan.execution_character())
 }
 
 #[tauri::command]
@@ -892,20 +807,6 @@ pub fn get_clip_transformation_provenance(
 }
 
 #[tauri::command]
-pub fn get_clip_transformation_executions(
-    clip_id: i64,
-    db: State<'_, Arc<DbState>>,
-) -> Result<Vec<TransformationExecution>, String> {
-    db.get_clip_transformation_executions(clip_id)
-        .map_err(|error| error.to_string())
-}
-
-#[tauri::command]
-pub fn get_operation_plugin_examples() -> Vec<crate::operation_plugins::OperationPluginManifest> {
-    crate::operation_plugins::bundled_example_plugins()
-}
-
-#[tauri::command]
 pub fn create_operation(
     name: String,
     op_type: String,
@@ -963,11 +864,6 @@ pub async fn execute_transformation(
         step: None,
         operation_ref: None,
     })?
-}
-
-#[tauri::command]
-pub fn clear_history(db: State<'_, Arc<DbState>>) -> Result<(), String> {
-    db.clear_history().map_err(|e| e.to_string())
 }
 
 // Sequential Paste Commands
@@ -1112,19 +1008,6 @@ pub fn get_sequential_status(
 }
 
 // Window & Activation Policy Commands
-#[tauri::command]
-pub fn toggle_quick_window(app: AppHandle) -> Result<(), String> {
-    if let Some(window) = app.get_webview_window("main") {
-        if window.is_visible().unwrap_or(false) {
-            let _ = window.hide();
-        } else {
-            let _ = window.show();
-            let _ = window.set_focus();
-        }
-    }
-    Ok(())
-}
-
 #[tauri::command]
 pub fn toggle_hud_window(app: AppHandle) -> Result<(), String> {
     println!("[Pasted HUD] toggle_hud_window invoked!");
@@ -1322,11 +1205,6 @@ pub fn paste_clip_by_id(
 }
 
 #[tauri::command]
-pub fn get_protected_clips(db: State<'_, Arc<DbState>>) -> Result<Vec<ClipItem>, String> {
-    db.get_protected_clips().map_err(|e| e.to_string())
-}
-
-#[tauri::command]
 pub fn toggle_clip_protected(clip_id: i64, db: State<'_, Arc<DbState>>) -> Result<bool, String> {
     db.toggle_protected(clip_id).map_err(|e| e.to_string())
 }
@@ -1339,11 +1217,6 @@ pub fn trash_unpinned_clips(db: State<'_, Arc<DbState>>) -> Result<(), String> {
 #[tauri::command]
 pub fn purge_unpinned_clips(db: State<'_, Arc<DbState>>) -> Result<(), String> {
     db.purge_unpinned_clips().map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-pub fn clear_all_clips(db: State<'_, Arc<DbState>>) -> Result<(), String> {
-    db.clear_all_clips().map_err(|e| e.to_string())
 }
 
 fn get_dvorak_code_for_char(ch: char) -> Option<tauri_plugin_global_shortcut::Code> {
@@ -1825,28 +1698,6 @@ pub fn export_clips_csv(db: State<'_, Arc<DbState>>) -> Result<String, String> {
         csv.push_str(&line);
     }
     Ok(csv)
-}
-
-#[tauri::command]
-pub fn import_clips_json(json_str: String, db: State<'_, Arc<DbState>>) -> Result<usize, String> {
-    let items: Vec<ClipItem> = serde_json::from_str(&json_str).map_err(|e| e.to_string())?;
-    let mut count = 0;
-    for item in items {
-        if db
-            .save_clip(
-                &item.content_type,
-                item.text_content.as_deref(),
-                item.html_content.as_deref(),
-                item.image_base64.as_deref(),
-                &item.content_hash,
-                &item.source_app,
-            )
-            .is_ok()
-        {
-            count += 1;
-        }
-    }
-    Ok(count)
 }
 
 #[tauri::command]
