@@ -1,0 +1,82 @@
+/* Electric Pushpin Orange Tokens */
+.pin-icon {
+  color: var(--status-warning) !important;
+  fill: currentColor;
+}
+
+/* =======================================================
+   TOOLS PAGES — SHARED LIGHT/DARK SURFACE CONTRACT
+   ======================================================= */
+.tools-page {
+  background-color: var(--material-app) !important;
+  color: var(--text-main) !important;
+  -webkit-backdrop-filter: blur(var(--material-blur)) saturate(var(--material-saturation));
+  backdrop-filter: blur(var(--material-blur)) saturate(var(--material-saturation));
+}
+
+/* =======================================================
+   SEMANTIC CORNER RADII & CONTROL SURFACES
+   ======================================================= */
+:root {
+  --radius-control: 10px;
+  --radius-field: 10px;
+  --radius-card: 14px;
+  --radius-panel: 18px;
+  --radius-pill: 999px;
+}
+
+.clip-card,
+.theme-card-idle,
+.filter-sandbox-card {
+  border-radius: var(--radius-card);
+}
+
+.app-dialog-panel,
+.bin-modal-card,
+.settings-panel {
+  border-radius: var(--radius-panel);
+}
+
+.ui-pill {
+  border-radius: var(--radius-pill);
+}
+
+.column-resizer-line {
+  background-color: var(--border-subtle);
+  width: 1px;
+}
+
+.column-resizer {
+  flex: 0 0 1px;
+  width: 1px;
+}
+
+.column-resizer:hover > .column-resizer-line,
+.column-resizer-line.is-active {
+  background-color: var(--text-subtle);
+}
+
+
+.help-topic-button {
+  border-radius: var(--radius-control);
+  border-color: var(--border-subtle);
+  color: var(--text-muted);
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+
+.help-topic-button:hover {
+  background-color: var(--bg-tab-hover);
+  color: var(--text-title);
+}
+
+.help-topic-button.is-selected {
+  background-color: color-mix(in srgb, var(--accent-primary) 14%, var(--bg-surface));
+  border-color: color-mix(in srgb, var(--accent-primary) 48%, var(--border-subtle));
+  color: var(--text-title);
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--accent-primary) 18%, transparent);
+}
+
+.clip-type-icon,
+.clip-type-badge {
+  border-radius: 7px;
+}

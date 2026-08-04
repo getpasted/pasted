@@ -1,0 +1,548 @@
+/* Sidebar Elements */
+.sidebar-title {
+  color: var(--text-title);
+}
+
+.sidebar-divider {
+  border-color: var(--border-subtle);
+}
+
+.sidebar-control-muted,
+.sidebar-section-label,
+.sidebar-row-action,
+.sidebar-search-icon {
+  color: var(--text-muted);
+}
+
+.sidebar-section-label.is-hovered,
+.sidebar-add-btn.is-hovered {
+  color: var(--text-title);
+}
+
+.sidebar-row-action:hover {
+  background-color: var(--bg-tab-hover);
+}
+
+.sidebar-row-action.is-edit:hover {
+  color: var(--accent-primary);
+}
+
+.sidebar-row-action.is-danger:hover {
+  color: var(--status-danger);
+}
+
+.sidebar-nav-row {
+  box-sizing: border-box;
+  width: 100%;
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  padding-inline: 0.625rem;
+  border: 1px solid transparent;
+  border-radius: 0.375rem;
+}
+
+.sidebar-nav-icon {
+  width: 1rem;
+  height: 1rem;
+  flex: 0 0 1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.sidebar-nav-icon-emoji {
+  font-size: 0.875rem;
+  overflow: visible;
+}
+
+.sidebar-bin-drop-eligible {
+  background-color: color-mix(in srgb, var(--status-success) 10%, transparent) !important;
+  border-color: color-mix(in srgb, var(--status-success) 48%, var(--border-subtle)) !important;
+  border-style: dashed !important;
+}
+
+.sidebar-bin-drop-target {
+  z-index: var(--layer-drag);
+  background-color: color-mix(in srgb, var(--status-success) 15%, transparent) !important;
+  border-color: color-mix(in srgb, var(--status-success) 80%, var(--border-subtle)) !important;
+  color: var(--status-success) !important;
+  border-style: solid !important;
+}
+
+.sidebar-bin-ineligible {
+  background-color: color-mix(in srgb, var(--text-main) 2.5%, transparent) !important;
+  border-color: color-mix(in srgb, var(--text-main) 7%, transparent) !important;
+  color: var(--text-subtle) !important;
+}
+
+.sidebar-item-active {
+  background-color: var(--bg-card);
+  color: var(--text-title);
+  border-color: var(--border-subtle);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+  transition: background-color 75ms linear, color 75ms linear, border-color 75ms linear;
+}
+
+.sidebar-item-idle {
+  color: var(--text-main);
+  border-color: transparent;
+  transition: background-color 75ms linear, color 75ms linear, border-color 75ms linear;
+}
+
+.sidebar-item-hovered {
+  background-color: var(--bg-card-selected);
+  color: var(--text-title);
+}
+
+.sidebar-bin-drag-source {
+  z-index: var(--layer-sticky);
+  opacity: 0.6;
+  background-color: var(--bg-card-hover) !important;
+  box-shadow: inset 0 0 0 1px var(--border-subtle), var(--shadow-card);
+}
+
+/* Column resizing is an exclusive interaction mode. Pointer capture keeps the
+   active divider live while every unrelated control is temporarily inert. */
+.is-resizing-columns {
+  cursor: col-resize !important;
+}
+
+.is-resizing-columns * {
+  pointer-events: none !important;
+}
+
+.is-resizing-columns .column-resizer,
+.is-resizing-columns .column-resizer * {
+  pointer-events: auto !important;
+  cursor: col-resize !important;
+}
+
+.is-dragging-clip .column-resizer-line,
+.is-dragging-clip .column-resizer:hover > .column-resizer-line {
+  background-color: var(--border-subtle);
+}
+
+.sidebar-badge {
+  background-color: var(--bg-badge);
+  color: var(--text-muted);
+}
+
+.sidebar-badge.is-danger {
+  background-color: color-mix(in srgb, var(--status-danger) 12%, var(--bg-surface));
+  color: var(--status-danger);
+}
+
+.sidebar-add-btn {
+  color: var(--text-muted);
+}
+
+.sidebar-add-btn:hover {
+  background-color: var(--bg-tab-hover);
+  color: var(--text-title);
+}
+
+/* Clip Cards */
+.clip-card-idle {
+  background-color: var(--bg-card);
+  border-color: var(--border-card);
+  color: var(--text-main);
+  box-shadow: var(--shadow-card);
+}
+
+.clip-card-hovered {
+  background-color: var(--bg-clip-card-hover) !important;
+  border-color: var(--border-clip-card-hover) !important;
+  box-shadow: var(--shadow-clip-card-hover) !important;
+}
+
+.clip-card-selected {
+  background-color: var(--bg-card-selected);
+  border-color: var(--border-card-selected) !important;
+  color: var(--text-selected);
+  box-shadow: var(--shadow-card-selected) !important;
+}
+
+.clip-card-header {
+  color: var(--text-muted);
+}
+
+.clip-ocr-badge,
+.clip-meta-protected {
+  background-color: color-mix(in srgb, var(--accent-primary) 11%, var(--bg-surface));
+  border-color: color-mix(in srgb, var(--accent-primary) 42%, var(--border-subtle));
+  color: var(--accent-primary);
+}
+
+.clip-meta-row {
+  gap: 0.25rem;
+  white-space: nowrap;
+}
+
+.clip-meta-item {
+  box-sizing: border-box;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  padding-inline: 0.3125rem;
+  border: 1px solid transparent;
+  border-radius: 0.375rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.1875rem;
+  flex: 0 0 auto;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+  font-size: 0.625rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.clip-meta-icon-only {
+  width: 1.25rem;
+  padding-inline: 0;
+}
+
+.clip-meta-icon,
+.clip-meta-item .clip-meta-icon {
+  width: 0.75rem;
+  height: 0.75rem;
+  flex: 0 0 0.75rem;
+  stroke-width: 2;
+}
+
+.clip-queue-next {
+  background-color: var(--accent-primary);
+  border-color: var(--accent-primary);
+  color: var(--accent-primary-contrast);
+}
+
+.clip-queue-position {
+  background-color: color-mix(in srgb, var(--accent-primary) 12%, var(--bg-surface));
+  border-color: color-mix(in srgb, var(--accent-primary) 40%, var(--border-subtle));
+  color: var(--accent-primary);
+}
+
+.clip-meta-time {
+  font-size: 0.6875rem;
+  line-height: 1.25rem;
+}
+
+.clip-card-actions {
+  background-color: color-mix(in srgb, var(--bg-card) 96%, transparent);
+  border-color: var(--border-card);
+  color: var(--text-muted);
+  box-shadow: var(--shadow-card-selected);
+}
+
+.clip-card-actions button {
+  box-sizing: border-box;
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0 !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.clip-card-actions button svg {
+  width: 0.875rem;
+  height: 0.875rem;
+  flex: 0 0 0.875rem;
+  stroke-width: 2;
+}
+
+.clip-card-action,
+.clip-card-actions .is-disabled {
+  color: var(--text-muted);
+  transition: background-color 100ms ease, color 100ms ease;
+}
+
+.clip-card-action:hover {
+  background-color: var(--bg-tab-hover);
+  color: var(--text-title);
+}
+
+.clip-card-action.is-accent {
+  color: var(--accent-primary);
+}
+
+.clip-card-action.is-warning,
+.clip-note-accent,
+.clip-note-summary {
+  color: var(--status-warning);
+}
+
+.clip-card-action.is-danger {
+  color: var(--status-danger);
+}
+
+.clip-card-action.is-danger:hover {
+  background-color: color-mix(in srgb, var(--status-danger) 12%, var(--bg-tab-hover));
+}
+
+.clip-card-actions .is-disabled {
+  color: var(--text-subtle);
+}
+
+.clip-thumbnail-stage {
+  background-color: var(--code-surface);
+  border-color: var(--code-border);
+}
+
+.clip-sensitive-action {
+  color: var(--status-warning);
+}
+
+.clip-sensitive-action:hover {
+  background-color: color-mix(in srgb, var(--status-warning) 14%, transparent);
+  color: var(--text-title);
+}
+
+.clip-note-summary {
+  border-color: color-mix(in srgb, var(--status-warning) 26%, transparent);
+}
+
+.clip-trash-badge {
+  background-color: color-mix(in srgb, var(--status-danger) 12%, var(--bg-surface));
+  border-color: color-mix(in srgb, var(--status-danger) 42%, var(--border-subtle));
+  color: var(--status-danger);
+}
+
+.clip-card-drag-source {
+  opacity: 0.5 !important;
+  border-color: color-mix(in srgb, var(--status-success) 80%, var(--border-card)) !important;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--status-success) 30%, transparent) !important;
+  pointer-events: none !important;
+}
+
+.is-settling-pinned-reorder .clip-card {
+  transition-property: background-color, border-color, box-shadow, opacity !important;
+}
+
+.is-settling-stable-reorder [data-stable-reorder-id] {
+  transition-property: background-color, border-color, box-shadow, opacity, color !important;
+}
+
+html.is-stable-reordering,
+html.is-stable-reordering * {
+  cursor: grabbing !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}
+
+.sidebar-search-helper {
+  z-index: var(--layer-popover);
+  background-color: var(--menu-surface);
+  border: 1px solid color-mix(in srgb, var(--accent-primary) 42%, var(--border-subtle));
+  box-shadow: 0 14px 36px color-mix(in srgb, #000 34%, transparent);
+}
+
+.sidebar-search-helper-option {
+  color: var(--text-main);
+  background-color: transparent;
+  text-align: left;
+}
+
+.sidebar-search-helper-option:hover,
+.sidebar-search-helper-option:focus-visible {
+  background-color: var(--menu-hover);
+  outline: none;
+}
+
+.sidebar-search-helper-prefix {
+  color: var(--accent-primary);
+}
+
+.sidebar-search-helper-description {
+  color: var(--text-muted);
+}
+
+.sidebar-search-input:focus {
+  border-color: var(--focus-ring);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--focus-ring) 22%, transparent);
+}
+
+.sidebar-icon-primary,
+.sidebar-icon-info {
+  color: var(--accent-primary);
+}
+
+.sidebar-icon-secondary {
+  color: color-mix(in srgb, var(--accent-primary) 58%, #a855f7);
+}
+
+.sidebar-icon-warning {
+  color: var(--status-warning);
+}
+
+.sidebar-icon-success {
+  color: var(--status-success);
+}
+
+.sidebar-icon-danger {
+  color: var(--status-danger);
+}
+
+/* Revision history is secondary clip metadata, opened upward from the footer. */
+.clip-preview-footer {
+  min-height: 38px;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  line-height: 1.25;
+  background-color: var(--material-toolbar);
+  border-color: var(--border-subtle);
+  color: var(--text-muted);
+}
+
+.clip-preview-footer-stats {
+  display: flex;
+  flex-shrink: 0;
+  align-items: flex-start;
+  gap: clamp(10px, 2vw, 16px);
+}
+
+.clip-preview-footer-stat,
+.clip-preview-footer-captured {
+  display: grid;
+  grid-template-rows: auto auto;
+  row-gap: 2px;
+}
+
+.clip-preview-footer-stat strong,
+.clip-revision-count,
+.clip-preview-footer-captured time {
+  min-width: 0;
+  font-weight: 700;
+  line-height: inherit;
+  color: var(--text-main);
+}
+
+.clip-preview-footer-captured {
+  flex: 1 1 auto;
+  min-width: 0;
+  text-align: right;
+}
+
+.clip-preview-footer-captured time {
+  display: block;
+  overflow: hidden;
+  color: var(--text-main);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.clip-revision-count {
+  justify-self: start;
+  width: fit-content;
+  padding: 0;
+  border: 0;
+  border-radius: 2px;
+  color: var(--text-main);
+  background: transparent;
+  font: inherit;
+  font-weight: 700;
+  transition: color 120ms ease;
+}
+
+.clip-revision-count:hover,
+.clip-revision-count.is-active {
+  color: var(--accent-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.clip-revision-history {
+  flex-shrink: 0;
+  background-color: var(--bg-surface);
+  border-top: 1px solid var(--border-subtle);
+  color: var(--text-main);
+}
+
+.clip-revision-history-icon {
+  color: var(--accent-primary);
+}
+
+.clip-revision-history-title,
+.clip-revision-history-preview {
+  color: var(--text-main);
+}
+
+.clip-revision-history-count,
+.clip-revision-history-meta,
+.clip-revision-history-empty,
+.clip-revision-history-close {
+  color: var(--text-muted);
+}
+
+.clip-revision-history-close:hover {
+  color: var(--text-title);
+  background-color: var(--bg-tab-hover);
+}
+
+.clip-revision-history-item {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-card);
+}
+
+.clip-revision-history-restore {
+  color: var(--accent-primary-contrast);
+  background-color: var(--accent-primary);
+  border: 1px solid color-mix(in srgb, var(--accent-primary) 72%, var(--border-subtle));
+}
+
+.clip-revision-history-restore:hover {
+  background-color: color-mix(in srgb, var(--accent-primary) 86%, var(--text-title));
+}
+
+.theme-badge {
+  background-color: var(--bg-badge);
+  color: var(--text-muted);
+  border-color: var(--border-subtle);
+}
+
+/* Transparent Text Selection & Hidden Caret Cursor for Emoji Input Picker */
+.emoji-input-picker {
+  caret-color: transparent !important;
+}
+
+.emoji-input-picker::selection {
+  background-color: transparent !important;
+  color: inherit !important;
+}
+
+.emoji-input-picker::-moz-selection {
+  background-color: transparent !important;
+  color: inherit !important;
+}
+
+/* Ultra Smooth macOS Clip Card Deletion Exit Animation */
+.clip-card-deleting {
+  animation: clipDeleteExit 0.22s cubic-bezier(0.4, 0, 0.2, 1) forwards !important;
+  pointer-events: none !important;
+  overflow: hidden !important;
+}
+
+@keyframes clipDeleteExit {
+  0% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+    max-height: 160px;
+  }
+  45% {
+    opacity: 0;
+    transform: translateX(36px) scale(0.95);
+    max-height: 160px;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(50px) scale(0.9);
+    max-height: 0;
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    border-color: transparent !important;
+  }
+}

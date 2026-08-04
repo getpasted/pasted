@@ -1,0 +1,228 @@
+/* =======================================================
+   TRANSPARENT HUD WINDOW & SPEECH BUBBLE TAIL
+   ======================================================= */
+html.hud-mode,
+html.hud-mode body,
+body.hud-mode,
+#root.hud-mode {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+/* =======================================================
+   COOL & WARM COLOR CORRECTIONS FOR CLIP PREVIEW & NOTES
+   ======================================================= */
+
+/* Main Copy Clip Button */
+.copy-clip-main-btn {
+  background-color: var(--accent-primary);
+  color: var(--accent-primary-contrast);
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--accent-primary) 30%, transparent);
+}
+
+.copy-clip-main-btn:hover {
+  background-color: color-mix(in srgb, var(--accent-primary) 86%, var(--text-title));
+}
+
+.preview-delete-btn {
+  color: var(--text-muted);
+}
+
+.preview-delete-btn:hover {
+  background-color: color-mix(in srgb, var(--status-danger) 10%, var(--bg-tab-hover));
+  color: var(--status-danger);
+}
+
+.clip-preview-empty {
+  color: var(--text-muted);
+  border-color: var(--border-subtle);
+}
+
+.clip-preview-empty-icon {
+  color: var(--text-muted);
+}
+
+/* Bin / Add Note Action Bar */
+.preview-bin-bar {
+  background-color: color-mix(in srgb, var(--text-main) 5%, var(--material-toolbar));
+  border-color: var(--border-subtle);
+  color: var(--text-main);
+}
+
+.add-note-btn {
+  background-color: color-mix(in srgb, var(--status-warning) 11%, var(--bg-surface));
+  border-color: color-mix(in srgb, var(--status-warning) 42%, var(--border-subtle));
+  color: var(--text-main);
+}
+
+.add-note-btn:hover {
+  background-color: color-mix(in srgb, var(--status-warning) 19%, var(--bg-surface));
+  border-color: color-mix(in srgb, var(--status-warning) 62%, var(--border-subtle));
+}
+
+.preview-readonly-notice {
+  color: var(--text-muted);
+}
+
+.preview-readonly-notice svg {
+  color: var(--status-danger);
+}
+
+/* Multi-Note Theme Support for Dark, Cool & Warm Modes */
+.note-container {
+  background-color: color-mix(in srgb, var(--status-warning) 6%, var(--material-toolbar));
+  border-color: color-mix(in srgb, var(--status-warning) 22%, var(--border-subtle));
+}
+
+.note-header-text {
+  color: var(--status-warning);
+}
+
+.note-row {
+  background-color: var(--bg-card);
+  border-color: color-mix(in srgb, var(--status-warning) 22%, var(--border-card));
+  color: var(--text-main);
+  box-shadow: var(--shadow-card);
+}
+
+.note-row:hover {
+  background-color: color-mix(in srgb, var(--status-warning) 8%, var(--bg-card));
+  border-color: color-mix(in srgb, var(--status-warning) 38%, var(--border-card));
+}
+
+.note-row.is-dragging {
+  border-color: var(--status-warning);
+  --tw-ring-color: color-mix(in srgb, var(--status-warning) 60%, transparent);
+}
+
+.note-text,
+.note-input {
+  color: var(--text-main);
+}
+
+.note-icon-btn {
+  color: color-mix(in srgb, var(--status-warning) 68%, var(--text-muted));
+}
+
+.note-icon-btn:hover {
+  background-color: color-mix(in srgb, var(--status-warning) 10%, transparent);
+  color: var(--text-title);
+}
+
+.note-icon-btn.is-danger:hover {
+  color: var(--status-danger);
+}
+
+.note-input-row {
+  background-color: var(--bg-card);
+  border-color: color-mix(in srgb, var(--status-warning) 34%, var(--border-card));
+}
+
+.note-input,
+textarea.note-input,
+input.note-input {
+  background-color: transparent !important;
+  background: transparent !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.note-input::placeholder {
+  color: color-mix(in srgb, var(--status-warning) 70%, var(--text-subtle));
+}
+
+.note-cancel-button {
+  background-color: var(--bg-tab-hover);
+  color: var(--text-main);
+}
+
+.note-cancel-button:hover {
+  background-color: var(--bg-card-selected);
+  color: var(--text-title);
+}
+
+.note-save-button {
+  background-color: var(--status-warning);
+  color: #ffffff;
+}
+
+.note-save-button:hover {
+  background-color: color-mix(in srgb, var(--status-warning) 86%, var(--text-title));
+}
+
+/* Note viewer modal */
+.clip-note-viewer-overlay {
+  z-index: var(--layer-critical);
+  background-color: var(--overlay-scrim);
+}
+
+.clip-note-viewer-card,
+.clip-note-viewer-body {
+  background-color: var(--bg-card);
+  color: var(--text-main);
+}
+
+.clip-note-viewer-card {
+  border-color: color-mix(in srgb, var(--status-warning) 42%, var(--border-card));
+  box-shadow: 0 24px 70px color-mix(in srgb, #000 32%, transparent);
+}
+
+.clip-note-viewer-bar {
+  background-color: var(--material-toolbar);
+  border-color: color-mix(in srgb, var(--status-warning) 24%, var(--border-subtle));
+}
+
+.clip-note-viewer-title {
+  color: var(--status-warning);
+}
+
+.clip-note-viewer-close {
+  color: var(--text-muted);
+}
+
+.clip-note-viewer-close:hover {
+  background-color: var(--bg-tab-hover);
+  color: var(--text-title);
+}
+
+.clip-note-viewer-content {
+  background-color: var(--bg-input);
+  border-color: color-mix(in srgb, var(--status-warning) 34%, var(--border-input));
+  color: var(--text-main);
+}
+
+.clip-note-viewer-meta {
+  color: var(--text-muted);
+}
+
+.clip-note-viewer-meta-strong {
+  color: var(--text-title);
+}
+
+.clip-note-viewer-copy {
+  background-color: color-mix(in srgb, var(--status-warning) 13%, var(--bg-surface));
+  border-color: color-mix(in srgb, var(--status-warning) 54%, var(--border-subtle));
+  color: var(--text-main);
+}
+
+.clip-note-viewer-copy:hover {
+  background-color: color-mix(in srgb, var(--status-warning) 22%, var(--bg-surface));
+}
+
+.clip-note-viewer-dismiss {
+  background-color: var(--bg-tab-hover);
+  color: var(--text-main);
+}
+
+.clip-note-viewer-dismiss:hover {
+  background-color: var(--bg-card-selected);
+  color: var(--text-title);
+}
+
+.clip-note-viewer-close:focus-visible,
+.clip-note-viewer-copy:focus-visible,
+.clip-note-viewer-dismiss:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}

@@ -4,7 +4,7 @@ This checklist records the styling debt found during the multi-scheme and glass-
 
 ## Audit snapshot
 
-- One stylesheet: `src/App.css` (2,298 lines after the semantic migration; splitting remains the final structural task).
+- `src/App.css` is now a nine-line ordered manifest over eight responsibility-based modules in `src/styles/`; the split preserves the original cascade exactly.
 - Literal colors in `src/App.css` dropped from 532 to 349.
 - `!important` baseline: 441; current enforced budget: 95.
 - Cool/Warm compatibility-selector baseline: 269; current enforced budget: 1 (the shared light token declaration).
@@ -46,7 +46,7 @@ This checklist records the styling debt found during the multi-scheme and glass-
 
 ## P2 — cleanup and maintainability
 
-- [ ] Split `App.css` by responsibility: tokens/materials, layout/chrome, reusable controls, clip UI, tools, dialogs, and accessibility.
+- [x] Split `App.css` by responsibility: foundation, layout/chrome, reusable theme primitives, clip/sidebar UI, accessibility, tools/editors, preview/notes, and finishing utilities.
 - [x] Remove or verify unused rules such as `tools-section-tab`, `col-list-scroll-area`, `clip-content-body`, `clip-text-render`, and legacy menu/navigation helpers.
 - [x] Review suspected duplicate structural blocks; remaining repeated selectors intentionally separate surface tint, blur ownership, and accessibility fallbacks.
 - [x] Replace broad radius selectors such as `.settings-page > div > div[class~="rounded-2xl"]` with explicit panel roles.
@@ -54,7 +54,7 @@ This checklist records the styling debt found during the multi-scheme and glass-
 
 ## Testing gaps
 
-- [x] Add a token audit that fails on undefined custom properties and prevents the `!important` budget from increasing.
+- [x] Add a token audit that scans every CSS module, fails on undefined custom properties or broken module imports, and prevents the `!important` budget from increasing.
 - [ ] Add rendered smoke tests for every scheme across the main window, Tools pages, dialogs, menus, HUD, and editor modals.
 - [x] Add a hard-coded-surface budget so new arbitrary dark backgrounds cannot silently enter theme-aware components.
 - [ ] Add interaction screenshots for hover, selected, drag, disabled, focus, modal, and context-menu states.

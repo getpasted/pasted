@@ -1,0 +1,423 @@
+.clip-card {
+  contain: content;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-user-drag: none !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}
+
+[draggable="true"] {
+  -webkit-user-drag: element !important;
+}
+
+html.hud-mode,
+body.hud-mode,
+#root.hud-mode {
+  background: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+}
+
+/* Stable Drag Handle Cursor Rules */
+.step-drag-handle,
+.step-drag-handle * {
+  cursor: -webkit-grab !important;
+  cursor: grab !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -webkit-user-drag: none !important;
+}
+
+.step-drag-handle:active,
+.step-drag-handle:active * {
+  cursor: -webkit-grabbing !important;
+  cursor: grabbing !important;
+}
+
+@layer base {
+  /* =======================================================
+     WCAG 2.1 LEVEL AA/AAA CERTIFIED DESIGN TOKENS
+     ======================================================= */
+
+  /* 🌙 Dark Theme Tokens (Default) */
+  :root, html.dark, html[data-theme="dark"] {
+    color-scheme: dark;
+    --bg-app: #171717;
+    --bg-main: #171717;
+    --bg-primary: #181818;
+    --bg-sidebar: #212121;
+    --bg-list: #171717;
+    --bg-preview: #212121;
+    --bg-card: #212121;
+    --bg-card-hover: #2a2a2a;
+    --bg-clip-card-hover: #2d2d2f;
+    --bg-card-selected: #2e2e2e;
+    --bg-surface: #181818;
+    --bg-input: #181818;
+    --bg-tab-bar: #212121;
+    --bg-tab-active: #2e2e2e;
+    --bg-tab-hover: #2a2a2a;
+    --bg-badge: rgba(255, 255, 255, 0.12);
+
+    --border-subtle: #333333;
+    --border-card: #333333;
+    --border-card-selected: #555555;
+    --border-clip-card-hover: #68686d;
+    --border-input: #3a3a3a;
+
+    --text-title: #ffffff;
+    --text-main: #ececec;
+    --text-muted: #a3a3a3;
+    --text-subtle: #737373;
+    --text-selected: #ffffff;
+
+    --scrollbar-thumb: rgba(255, 255, 255, 0.2);
+    --scrollbar-thumb-hover: rgba(255, 255, 255, 0.4);
+    --shadow-card: 0 2px 6px rgba(0, 0, 0, 0.4);
+    --shadow-clip-card-hover: 0 3px 10px rgba(0, 0, 0, 0.5);
+    --shadow-card-selected: 0 4px 12px rgba(0, 0, 0, 0.6);
+
+    --accent-primary: #0a84ff;
+    --accent-primary-contrast: #ffffff;
+    --queue-accent: #c084fc;
+    --overlay-scrim: rgba(0, 0, 0, 0.62);
+    --status-success: #6ee7b7;
+    --select-chevron: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a3a3a3' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+
+    --material-app: rgba(23, 23, 23, 0.68);
+    --material-sidebar: rgba(33, 33, 33, 0.72);
+    --material-list: rgba(23, 23, 23, 0.62);
+    --material-preview: rgba(33, 33, 33, 0.70);
+    --material-toolbar: rgba(23, 23, 23, 0.64);
+    --material-blur: 22px;
+    --material-saturation: 145%;
+  }
+
+  /* ❄️ Cool Theme Tokens */
+  html:is(.cool, .warm), html:is([data-theme="cool"], [data-theme="warm"]) {
+    color-scheme: light;
+    --bg-app: #f4f4f7;
+    --bg-main: #f4f4f7;
+    --bg-primary: #ffffff;
+    --bg-sidebar: #f5f5f8;
+    --bg-list: #ffffff;
+    --bg-preview: #f4f4f7;
+    --bg-card: #ffffff;
+    --bg-card-hover: #f0f0f4;
+    --bg-clip-card-hover: #e9e9ee;
+    --bg-card-selected: #e2e2e8;
+    --bg-surface: #ffffff;
+    --bg-input: #ffffff;
+    --bg-tab-bar: #f5f5f8;
+    --bg-tab-active: #ffffff;
+    --bg-tab-hover: #e2e2e8;
+    --bg-badge: #e5e5ea;
+
+    --border-subtle: #b0b0b6;
+    --border-card: #b0b0b6;
+    --border-card-selected: #8e8e93;
+    --border-clip-card-hover: #7c7c82;
+    --border-input: #b0b0b6;
+
+    --text-title: #1c1c1e;
+    --text-main: #2c2c2e;
+    --text-muted: #505055;
+    --text-subtle: #707075;
+    --text-selected: #000000;
+
+    --scrollbar-thumb: rgba(0, 0, 0, 0.2);
+    --scrollbar-thumb-hover: rgba(0, 0, 0, 0.35);
+    --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.05);
+    --shadow-clip-card-hover: 0 2px 7px rgba(28, 28, 30, 0.13);
+    --shadow-card-selected: 0 2px 6px rgba(0, 0, 0, 0.12);
+
+    --accent-primary: #0066cc;
+    --accent-primary-contrast: #ffffff;
+    --queue-accent: #7e22ce;
+    --overlay-scrim: rgba(28, 28, 30, 0.28);
+    --status-success: #047857;
+    --select-chevron: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23505055' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+
+    --material-app: rgba(244, 244, 247, 0.66);
+    --material-sidebar: rgba(245, 245, 248, 0.72);
+    --material-list: rgba(255, 255, 255, 0.62);
+    --material-preview: rgba(244, 244, 247, 0.68);
+    --material-toolbar: rgba(250, 250, 252, 0.66);
+    --material-blur: 24px;
+    --material-saturation: 155%;
+  }
+
+  /* ☕ Warm Theme — a third palette used to keep component styling token-led. */
+  html.warm, html[data-theme="warm"] {
+    color-scheme: light;
+    --bg-app: #f3eee5;
+    --bg-main: #f3eee5;
+    --bg-primary: #fffaf2;
+    --bg-sidebar: #eee6da;
+    --bg-list: #fffaf2;
+    --bg-preview: #f7f1e8;
+    --bg-card: #fffaf2;
+    --bg-card-hover: #f1e7d9;
+    --bg-clip-card-hover: #eadfce;
+    --bg-card-selected: #e3d5c2;
+    --bg-surface: #fffdf8;
+    --bg-input: #fffdf8;
+    --bg-tab-bar: #eee6da;
+    --bg-tab-active: #fffaf2;
+    --bg-tab-hover: #e7dccd;
+    --bg-badge: #e7dccd;
+
+    --border-subtle: #b9aa98;
+    --border-card: #b9aa98;
+    --border-card-selected: #8f7b65;
+    --border-clip-card-hover: #816f5b;
+    --border-input: #b9aa98;
+
+    --text-title: #2b2118;
+    --text-main: #3b3026;
+    --text-muted: #66584b;
+    --text-subtle: #7b6b5d;
+    --text-selected: #1f170f;
+
+    --scrollbar-thumb: rgba(76, 55, 35, 0.24);
+    --scrollbar-thumb-hover: rgba(76, 55, 35, 0.42);
+    --shadow-card: 0 1px 3px rgba(76, 55, 35, 0.08);
+    --shadow-clip-card-hover: 0 2px 7px rgba(76, 55, 35, 0.16);
+    --shadow-card-selected: 0 2px 6px rgba(76, 55, 35, 0.18);
+
+    --accent-primary: #9a5b31;
+    --accent-primary-contrast: #ffffff;
+    --overlay-scrim: rgba(43, 33, 24, 0.28);
+    --status-success: #33735a;
+
+    --material-app: rgba(243, 238, 229, 0.66);
+    --material-sidebar: rgba(238, 230, 218, 0.72);
+    --material-list: rgba(255, 250, 242, 0.62);
+    --material-preview: rgba(247, 241, 232, 0.68);
+    --material-toolbar: rgba(255, 250, 242, 0.66);
+    --material-blur: 24px;
+    --material-saturation: 140%;
+  }
+
+  /* 🩸 Vampire Theme — deep aubergine glass with restrained crimson accents. */
+  html.vampire, html[data-theme="vampire"] {
+    color-scheme: dark;
+    --bg-app: #19131f;
+    --bg-main: #19131f;
+    --bg-primary: #211827;
+    --bg-sidebar: #241a2c;
+    --bg-list: #1b1422;
+    --bg-preview: #211827;
+    --bg-card: #2a1f32;
+    --bg-card-hover: #34263e;
+    --bg-clip-card-hover: #3a2944;
+    --bg-card-selected: #403049;
+    --bg-surface: #211827;
+    --bg-input: #1b1422;
+    --bg-tab-bar: #241a2c;
+    --bg-tab-active: #403049;
+    --bg-tab-hover: #34263e;
+    --bg-badge: rgba(229, 205, 239, 0.14);
+
+    --border-subtle: #4f3d5b;
+    --border-card: #584364;
+    --border-card-selected: #846b91;
+    --border-clip-card-hover: #91769f;
+    --border-input: #594565;
+
+    --text-title: #fff8ff;
+    --text-main: #eee5f2;
+    --text-muted: #baabc2;
+    --text-subtle: #92829c;
+    --text-selected: #ffffff;
+
+    --scrollbar-thumb: rgba(229, 205, 239, 0.24);
+    --scrollbar-thumb-hover: rgba(229, 205, 239, 0.42);
+    --shadow-card: 0 2px 6px rgba(8, 3, 12, 0.42);
+    --shadow-clip-card-hover: 0 3px 12px rgba(8, 3, 12, 0.56);
+    --shadow-card-selected: 0 4px 14px rgba(8, 3, 12, 0.65);
+
+    --accent-primary: #a94168;
+    --accent-primary-contrast: #ffffff;
+    --overlay-scrim: rgba(8, 3, 12, 0.66);
+    --status-success: #73d7a7;
+
+    --material-app: rgba(25, 19, 31, 0.68);
+    --material-sidebar: rgba(36, 26, 44, 0.72);
+    --material-list: rgba(27, 20, 34, 0.62);
+    --material-preview: rgba(33, 24, 39, 0.70);
+    --material-toolbar: rgba(25, 19, 31, 0.64);
+    --material-blur: 24px;
+    --material-saturation: 150%;
+  }
+
+  /* ⚡ Flux Theme — midnight instrumentation with temporal cyan and amber. */
+  html.flux, html[data-theme="flux"] {
+    color-scheme: dark;
+    --bg-app: #07151d;
+    --bg-main: #07151d;
+    --bg-primary: #091b23;
+    --bg-sidebar: #0b2028;
+    --bg-list: #081820;
+    --bg-preview: #0b1d25;
+    --bg-card: #102832;
+    --bg-card-hover: #14343f;
+    --bg-clip-card-hover: #173b47;
+    --bg-card-selected: #1a4350;
+    --bg-surface: #0c222b;
+    --bg-input: #081820;
+    --bg-tab-bar: #0b2028;
+    --bg-tab-active: #19404b;
+    --bg-tab-hover: #14343f;
+    --bg-badge: rgba(133, 229, 239, 0.14);
+
+    --border-subtle: #28515c;
+    --border-card: #315e68;
+    --border-card-selected: #4f8490;
+    --border-clip-card-hover: #65a0aa;
+    --border-input: #315e68;
+
+    --text-title: #f3fdff;
+    --text-main: #dff4f6;
+    --text-muted: #9abdc2;
+    --text-subtle: #72979e;
+    --text-selected: #ffffff;
+
+    --scrollbar-thumb: rgba(133, 229, 239, 0.24);
+    --scrollbar-thumb-hover: rgba(133, 229, 239, 0.44);
+    --shadow-card: 0 2px 6px rgba(0, 5, 8, 0.45);
+    --shadow-clip-card-hover: 0 3px 12px rgba(0, 5, 8, 0.58);
+    --shadow-card-selected: 0 4px 14px rgba(0, 5, 8, 0.66);
+
+    --accent-primary: #45d7e5;
+    --accent-primary-contrast: #061419;
+    --accent-secondary: #f5a524;
+    --overlay-scrim: rgba(0, 5, 8, 0.64);
+    --status-success: #72dfb0;
+
+    --material-app: rgba(7, 21, 29, 0.68);
+    --material-sidebar: rgba(11, 32, 40, 0.72);
+    --material-list: rgba(8, 24, 32, 0.62);
+    --material-preview: rgba(11, 29, 37, 0.70);
+    --material-toolbar: rgba(7, 21, 29, 0.64);
+    --material-blur: 24px;
+    --material-saturation: 155%;
+  }
+
+  /* 🥁 808 Theme — smoked hardware, warm step lights, and instrument accents. */
+  html.theme-808, html[data-theme="808"] {
+    color-scheme: dark;
+    --bg-app: #151515;
+    --bg-main: #151515;
+    --bg-primary: #1b1a18;
+    --bg-sidebar: #201e1b;
+    --bg-list: #181715;
+    --bg-preview: #201e1b;
+    --bg-card: #292622;
+    --bg-card-hover: #342f29;
+    --bg-clip-card-hover: #3a342d;
+    --bg-card-selected: #423a31;
+    --bg-surface: #1d1b19;
+    --bg-input: #171614;
+    --bg-tab-bar: #201e1b;
+    --bg-tab-active: #40372e;
+    --bg-tab-hover: #342f29;
+    --bg-badge: rgba(255, 190, 112, 0.14);
+
+    --border-subtle: #51483e;
+    --border-card: #5e5246;
+    --border-card-selected: #8b6c4d;
+    --border-clip-card-hover: #a47a50;
+    --border-input: #5e5246;
+
+    --text-title: #fffaf0;
+    --text-main: #f1eadf;
+    --text-muted: #bdb0a0;
+    --text-subtle: #948677;
+    --text-selected: #ffffff;
+
+    --scrollbar-thumb: rgba(255, 190, 112, 0.24);
+    --scrollbar-thumb-hover: rgba(255, 190, 112, 0.44);
+    --shadow-card: 0 2px 6px rgba(0, 0, 0, 0.46);
+    --shadow-clip-card-hover: 0 3px 12px rgba(0, 0, 0, 0.58);
+    --shadow-card-selected: 0 4px 14px rgba(0, 0, 0, 0.68);
+
+    --accent-primary: #ff8a24;
+    --accent-primary-contrast: #211207;
+    --accent-secondary: #ef3e35;
+    --overlay-scrim: rgba(0, 0, 0, 0.65);
+    --status-success: #63cbc5;
+
+    --material-app: rgba(21, 21, 21, 0.68);
+    --material-sidebar: rgba(32, 30, 27, 0.72);
+    --material-list: rgba(24, 23, 21, 0.62);
+    --material-preview: rgba(32, 30, 27, 0.70);
+    --material-toolbar: rgba(21, 21, 21, 0.64);
+    --material-blur: 23px;
+    --material-saturation: 138%;
+  }
+
+  :root {
+    --status-danger: #ef4444;
+    --status-warning: #d97706;
+    --status-info: var(--accent-primary);
+    --focus-ring: var(--accent-primary);
+    --menu-surface: color-mix(in srgb, var(--bg-card) 94%, transparent);
+    --menu-hover: color-mix(in srgb, var(--accent-primary) 18%, var(--bg-card));
+    --code-surface: #202124;
+    --code-border: #4b4d52;
+    --code-text: #f4f4f5;
+    --layer-sticky: 20;
+    --layer-drag: 30;
+    --layer-popover: 100;
+    --layer-menu: 200;
+    --layer-modal: 300;
+    --layer-critical: 400;
+  }
+
+  html,
+  body,
+  #root {
+    background: transparent;
+  }
+
+  body {
+    color: var(--text-main);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", sans-serif;
+    overflow: hidden;
+    margin: 0;
+    padding: 0;
+  }
+
+  input[type="text"], input[type="number"], textarea, .selectable-text {
+    user-select: text;
+    -webkit-user-select: text;
+  }
+
+  /* Shared Height Parity Rules for Inputs & Select Dropdowns */
+  select,
+  .theme-select,
+  input[type="text"],
+  input[type="number"],
+  input[type="search"],
+  input[type="password"] {
+    height: 2.125rem /* 34px */;
+    box-sizing: border-box !important;
+    font-family: inherit;
+    font-size: 0.75rem /* 12px */;
+    line-height: 1.25rem /* 20px */;
+    vertical-align: middle;
+  }
+
+  select,
+  .theme-select {
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: var(--select-chevron);
+    background-repeat: no-repeat;
+    background-position: right 0.6rem center;
+    background-size: 0.85rem 0.85rem;
+    padding-right: 1.75rem !important;
+  }
+}

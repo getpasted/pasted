@@ -1,0 +1,75 @@
+/* =======================================================
+   NON-SELECTABLE FRONT-END UI CHROME & NAVIGATION
+   ======================================================= */
+/* Selection is an application-shell behavior, not a document-wide browser
+   override. Explicit content/editing roles below opt back into text selection. */
+.app-shell,
+.quick-hud-shell,
+.app-dialog-overlay,
+.clip-note-viewer-overlay,
+.theme-menu,
+.unselectable,
+.titlebar-drag-handle {
+  -webkit-user-select: none !important;
+  user-select: none !important;
+}
+
+.titlebar-drag-handle {
+  cursor: default;
+}
+
+/*
+ * Keep cursors stable across nested icons/text inside controls. WebKit otherwise
+ * resolves the cursor again for every child node, which makes a single button
+ * flicker between Safari's arrow and the pointer while the mouse moves over it.
+ */
+button:not(:disabled),
+button:not(:disabled) *,
+[role="button"]:not([aria-disabled="true"]),
+[role="button"]:not([aria-disabled="true"]) *,
+a,
+a *,
+select:not(:disabled),
+select:not(:disabled) *,
+label[for],
+label[for] *,
+.cursor-pointer,
+.cursor-pointer * {
+  cursor: pointer !important;
+}
+
+button:disabled,
+button:disabled *,
+[role="button"]:disabled,
+[role="button"]:disabled *,
+select:disabled,
+select:disabled *,
+[aria-disabled="true"],
+[aria-disabled="true"] *,
+.cursor-not-allowed,
+.cursor-not-allowed * {
+  cursor: not-allowed !important;
+}
+
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]) *,
+textarea,
+textarea *,
+[contenteditable="true"],
+[contenteditable="true"] * {
+  cursor: text !important;
+}
+
+/* User Land Content ONLY: Allow text selection for actual clipboard text content and editable text inputs */
+input,
+textarea,
+[contenteditable="true"],
+.selectable-text,
+.clip-text-content,
+.clip-note-viewer-content,
+.clip-revision-history-preview,
+pre,
+code {
+  -webkit-user-select: text !important;
+  user-select: text !important;
+}

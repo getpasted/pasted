@@ -1,0 +1,163 @@
+/* Custom macOS visible scrollbars */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 9999px;
+  transition: background-color 0.15s ease-in-out, width 0.15s ease-in-out;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover) !important;
+}
+
+/* Custom visible scrollbar utility */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
+}
+.custom-scrollbar::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 9999px;
+  border: 1px solid color-mix(in srgb, var(--text-title) 12%, transparent);
+  transition: background-color 0.15s ease-in-out, width 0.15s ease-in-out;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover,
+.custom-scrollbar::-webkit-scrollbar-thumb:active {
+  background: var(--scrollbar-thumb-hover) !important;
+}
+
+/* Prevent sidebar width layout shifts on height reduction or scrollbar activation */
+.sidebar-scroll-container {
+  overflow-y: auto !important;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.sidebar-scroll-container::-webkit-scrollbar {
+  width: 0px !important;
+  height: 0px !important;
+  display: none !important;
+  background: transparent !important;
+}
+
+/* Structural Layout Columns */
+.col-sidebar {
+  background-color: var(--material-sidebar);
+  border-color: var(--border-subtle);
+  color: var(--text-main);
+}
+
+.col-list {
+  background-color: var(--material-list);
+  border-color: var(--border-subtle);
+  flex-shrink: 0 !important;
+}
+
+.col-list-header {
+  background-color: var(--material-toolbar);
+  border-color: var(--border-subtle);
+  color: var(--text-title);
+}
+
+.col-preview-header {
+  position: relative;
+  background-color: var(--material-toolbar);
+  color: var(--text-title);
+}
+
+.col-preview-header::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 1px;
+  background-color: var(--border-subtle);
+  pointer-events: none;
+}
+
+.col-preview {
+  background-color: var(--material-preview);
+  border-color: var(--border-subtle);
+  color: var(--text-main);
+}
+
+.clip-drag-preview {
+  z-index: var(--layer-critical);
+  background-color: color-mix(in srgb, var(--bg-card) 95%, transparent);
+  border-color: color-mix(in srgb, var(--accent-primary) 62%, var(--border-card));
+  color: var(--text-main);
+  box-shadow: 0 18px 42px color-mix(in srgb, #000 52%, transparent);
+}
+
+.clip-drag-preview-count {
+  background-color: var(--accent-primary);
+  color: var(--accent-primary-contrast);
+}
+
+.list-toolbar-button {
+  background-color: transparent;
+  border-color: transparent;
+  color: var(--text-muted);
+}
+
+.list-toolbar-button:hover {
+  background-color: var(--bg-tab-hover);
+  color: var(--text-title);
+}
+
+.list-toolbar-button.is-warning {
+  background-color: color-mix(in srgb, var(--status-warning) 12%, var(--bg-surface));
+  border-color: color-mix(in srgb, var(--status-warning) 42%, var(--border-subtle));
+  color: var(--status-warning);
+}
+
+.list-toolbar-button.is-queue-active {
+  background-color: color-mix(in srgb, var(--queue-accent) 14%, var(--bg-surface));
+  border-color: color-mix(in srgb, var(--queue-accent) 44%, var(--border-subtle));
+  color: var(--queue-accent);
+}
+
+.batch-action-bar {
+  z-index: var(--layer-popover);
+  background-color: color-mix(in srgb, var(--bg-card) 95%, transparent);
+  border-color: color-mix(in srgb, var(--accent-primary) 42%, var(--border-card));
+  color: var(--text-main);
+  -webkit-backdrop-filter: blur(20px) saturate(var(--material-saturation));
+  backdrop-filter: blur(20px) saturate(var(--material-saturation));
+}
+
+.batch-action-count {
+  background-color: color-mix(in srgb, var(--accent-primary) 14%, var(--bg-surface));
+  border-color: color-mix(in srgb, var(--accent-primary) 44%, var(--border-subtle));
+  color: var(--accent-primary);
+}
+
+.batch-action-divider {
+  background-color: var(--border-subtle);
+}
+
+.batch-action-button {
+  color: var(--text-muted);
+}
+
+.batch-action-button:hover {
+  color: var(--accent-primary);
+}
+
+.batch-action-button.is-danger,
+.batch-action-button.is-danger:hover {
+  color: var(--status-danger);
+}

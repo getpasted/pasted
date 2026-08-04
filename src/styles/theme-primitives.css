@@ -1,0 +1,678 @@
+/* Semantic theme primitives. Components should express purpose through these
+   roles instead of embedding a dark palette and repairing it in cool mode. */
+.theme-title {
+  color: var(--text-title);
+}
+
+.theme-text-main {
+  color: var(--text-main);
+}
+
+.theme-text-muted {
+  color: var(--text-muted);
+}
+
+.theme-text-subtle {
+  color: var(--text-subtle);
+}
+
+.theme-status-info,
+.theme-status-success,
+.theme-status-warning,
+.theme-status-danger {
+  background-color: color-mix(in srgb, currentColor 10%, var(--bg-surface));
+  border-color: color-mix(in srgb, currentColor 34%, var(--border-subtle));
+}
+
+.theme-status-info {
+  color: var(--status-info);
+}
+
+.theme-status-success,
+.theme-status-success-text {
+  color: var(--status-success);
+}
+
+.theme-status-warning,
+.theme-status-warning-text {
+  color: var(--status-warning);
+}
+
+.theme-status-danger,
+.theme-status-danger-text {
+  color: var(--status-danger);
+}
+
+.theme-checkbox,
+.theme-range {
+  accent-color: var(--accent-primary);
+}
+
+.theme-range {
+  background-color: var(--bg-tab-hover);
+}
+
+.theme-panel,
+.theme-card-idle {
+  background-color: var(--bg-card);
+  border-color: var(--border-card);
+  color: var(--text-main);
+  box-shadow: var(--shadow-card);
+}
+
+.theme-surface {
+  background-color: var(--bg-surface);
+  border-color: var(--border-subtle);
+  color: var(--text-main);
+}
+
+.theme-toolbar {
+  background-color: var(--material-toolbar);
+  border-color: var(--border-subtle);
+  color: var(--text-main);
+}
+
+.tool-page-header-icon {
+  background-color: color-mix(in srgb, var(--accent-primary) 11%, var(--bg-surface));
+  border-color: color-mix(in srgb, var(--accent-primary) 38%, var(--border-subtle));
+  color: var(--accent-primary);
+}
+
+.settings-tab {
+  color: var(--text-muted);
+}
+
+.settings-tab:hover {
+  background-color: var(--bg-tab-hover);
+  color: var(--text-title);
+}
+
+.settings-tab.is-active {
+  background-color: var(--accent-primary);
+  border-color: color-mix(in srgb, var(--accent-primary) 72%, var(--border-subtle));
+  color: var(--accent-primary-contrast);
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--accent-primary) 28%, transparent);
+}
+
+.settings-tab:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+.settings-accent-tile {
+  background-color: color-mix(in srgb, var(--accent-primary) 10%, var(--bg-surface));
+  border-color: color-mix(in srgb, var(--accent-primary) 28%, var(--border-subtle));
+  color: var(--accent-primary);
+}
+
+.settings-switch {
+  background-color: var(--bg-tab-hover);
+}
+
+.settings-switch.is-on {
+  background-color: var(--accent-primary);
+}
+
+.settings-switch.is-danger.is-on {
+  background-color: var(--status-danger);
+}
+
+.settings-switch-thumb {
+  background-color: var(--accent-primary-contrast);
+}
+
+.settings-danger-range {
+  accent-color: var(--status-danger);
+}
+
+.theme-status-info-text,
+.analytics-progress {
+  color: var(--status-info);
+}
+
+.analytics-progress {
+  background-color: var(--status-info);
+}
+
+.analytics-progress.is-success {
+  background-color: var(--status-success);
+}
+
+.hotkey-recorder {
+  background-color: var(--bg-input);
+  border-color: var(--border-input);
+  color: var(--text-muted);
+}
+
+.hotkey-recorder.has-value,
+.hotkey-recorder.is-recording {
+  background-color: color-mix(in srgb, var(--accent-primary) 12%, var(--bg-input));
+  border-color: color-mix(in srgb, var(--accent-primary) 58%, var(--border-input));
+  color: var(--accent-primary);
+}
+
+.hotkey-recorder:hover {
+  border-color: var(--border-card-selected);
+  color: var(--text-title);
+}
+
+.hotkey-recorder-icon {
+  color: var(--accent-primary);
+}
+
+.hotkey-recorder-clear {
+  color: color-mix(in srgb, var(--accent-primary) 62%, transparent);
+}
+
+.hotkey-recorder-clear:hover {
+  background-color: color-mix(in srgb, var(--status-danger) 14%, transparent);
+  color: var(--status-danger);
+}
+
+.theme-icon-button.theme-danger-text:hover:not(:disabled) {
+  background-color: color-mix(in srgb, var(--status-danger) 12%, var(--bg-surface));
+  border-color: color-mix(in srgb, var(--status-danger) 36%, var(--border-subtle));
+  color: var(--status-danger);
+}
+
+/* Contextual recommendations follow the active scheme's accent without
+   becoming a second, independently hard-coded color system. */
+.smart-actions-bar {
+  background-color: color-mix(in srgb, var(--accent-primary) 11%, var(--material-toolbar));
+  color: var(--text-main);
+}
+
+.smart-actions-heading {
+  color: var(--accent-primary);
+}
+
+.smart-action-button {
+  background-color: color-mix(in srgb, var(--accent-primary) 12%, var(--bg-surface));
+  border-color: color-mix(in srgb, var(--accent-primary) 46%, var(--border-subtle));
+  color: var(--text-main);
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease, transform 140ms ease;
+}
+
+.smart-action-button:hover {
+  background-color: color-mix(in srgb, var(--accent-primary) 20%, var(--bg-surface));
+  border-color: color-mix(in srgb, var(--accent-primary) 68%, var(--border-subtle));
+  color: var(--text-title);
+  transform: translateY(-1px);
+}
+
+.smart-action-button:active {
+  transform: translateY(0);
+}
+
+.smart-action-button:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+/* The native Tauri window supplies the underlying macOS material. These
+   structural surfaces tint it per scheme without stacking blur on every card. */
+.app-shell {
+  background-color: var(--material-app);
+}
+
+.col-sidebar,
+.col-list,
+.col-preview {
+  -webkit-backdrop-filter: blur(var(--material-blur)) saturate(var(--material-saturation));
+  backdrop-filter: blur(var(--material-blur)) saturate(var(--material-saturation));
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .app-shell { background-color: var(--bg-app); }
+  .col-sidebar { background-color: var(--bg-sidebar); }
+  .col-list { background-color: var(--bg-list); }
+  .col-preview { background-color: var(--bg-preview); }
+  .col-list-header,
+  .col-preview-header,
+  .theme-toolbar { background-color: var(--bg-app); }
+
+  .col-sidebar,
+  .col-list,
+  .col-preview {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+.theme-divider {
+  border-color: var(--border-subtle);
+}
+
+.theme-subtle-surface,
+.theme-track {
+  background-color: var(--bg-tab-hover);
+  border-color: var(--border-subtle);
+  color: var(--text-main);
+}
+
+.theme-secondary-button {
+  background-color: var(--bg-tab-hover);
+  border-color: var(--border-subtle);
+  color: var(--text-main);
+}
+
+.theme-secondary-button:hover {
+  background-color: var(--bg-card-selected);
+  color: var(--text-title);
+}
+
+.appearance-mode-button {
+  color: var(--text-muted);
+}
+
+.appearance-mode-button:hover {
+  color: var(--text-title);
+  background-color: var(--bg-tab-hover);
+}
+
+.appearance-mode-button.is-active {
+  color: var(--accent-primary-contrast);
+  background-color: var(--accent-primary);
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--accent-primary) 32%, transparent);
+}
+
+.appearance-mode-button:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+.appearance-picker-group + .appearance-picker-group {
+  margin-left: 0.125rem;
+  padding-left: 0.375rem;
+  border-left: 1px solid var(--border-subtle);
+}
+
+.preview-filter-bar {
+  background-color: var(--material-toolbar);
+  border-color: var(--border-subtle);
+  color: var(--text-main);
+}
+
+.clip-preview-workspace {
+  color: var(--text-main);
+}
+
+.active-filter-banner {
+  background-color: color-mix(in srgb, var(--accent-primary) 12%, var(--bg-surface));
+  border-color: color-mix(in srgb, var(--accent-primary) 44%, var(--border-subtle));
+  color: var(--text-main);
+}
+
+.active-filter-banner svg,
+.preview-filter-accent,
+.active-filter-reset {
+  color: var(--accent-primary);
+}
+
+.active-filter-reset:hover {
+  color: var(--text-title);
+}
+
+.preview-filter-select-active {
+  background-color: color-mix(in srgb, var(--accent-primary) 10%, var(--bg-input));
+  border-color: var(--accent-primary);
+  color: var(--text-main);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-primary) 38%, transparent);
+}
+
+.preview-filter-reset {
+  background-color: color-mix(in srgb, var(--accent-primary) 11%, var(--bg-surface));
+  border-color: color-mix(in srgb, var(--accent-primary) 44%, var(--border-subtle));
+  color: var(--text-main);
+}
+
+.preview-filter-reset:hover {
+  background-color: color-mix(in srgb, var(--accent-primary) 19%, var(--bg-surface));
+  color: var(--text-title);
+}
+
+.transform-workspace-tab {
+  color: var(--text-muted);
+}
+
+.transform-workspace-tab:hover {
+  background-color: var(--bg-tab-hover);
+  color: var(--text-title);
+}
+
+.transform-workspace-tab.is-active {
+  background-color: var(--bg-card-selected);
+  color: var(--text-title);
+  box-shadow: var(--shadow-card);
+}
+
+.transform-workspace-tab.pipelines.is-active svg {
+  color: #22c7d8;
+}
+
+.transform-workspace-tab.operations.is-active svg {
+  color: #e99a28;
+}
+
+.transform-workspace-count {
+  min-width: 1.4rem;
+  padding: 0.125rem 0.35rem;
+  border-radius: 999px;
+  background-color: var(--bg-badge);
+  color: var(--text-muted);
+  font-size: 0.625rem;
+  line-height: 1;
+  text-align: center;
+}
+
+.transform-workspace-action {
+  color: #ffffff;
+}
+
+.transform-workspace-action.pipelines {
+  background-color: #087f8f;
+}
+
+.transform-workspace-action.pipelines:hover {
+  background-color: #0a7180;
+}
+
+.transform-workspace-action.operations {
+  background-color: #a9520d;
+}
+
+.transform-workspace-action.operations:hover {
+  background-color: #914509;
+}
+
+.transform-category-pill {
+  background-color: var(--bg-card);
+  color: var(--text-muted);
+}
+
+.transform-category-pill:hover {
+  background-color: var(--bg-card-hover);
+  color: var(--text-title);
+}
+
+.transform-category-pill.is-active {
+  color: var(--accent-primary-contrast);
+}
+
+.transform-category-pill.pipelines.is-active {
+  background-color: #087f8f;
+}
+
+.transform-category-pill.operations.is-active {
+  background-color: #a9520d;
+}
+
+.transform-card:hover {
+  background-color: var(--bg-card-hover);
+  transform: translateY(-1px);
+}
+
+.transform-card.pipelines:hover {
+  border-color: #1598a8;
+}
+
+.transform-card.operations:hover {
+  border-color: #c06a20;
+}
+
+.transform-accent.pipelines {
+  color: #22c7d8;
+}
+
+.transform-accent.operations {
+  color: #e99a28;
+}
+
+.transform-tag {
+  background-color: color-mix(in srgb, currentColor 10%, var(--bg-surface));
+  border-color: color-mix(in srgb, currentColor 36%, var(--border-subtle));
+}
+
+.transform-tag.pipelines {
+  color: #1598a8;
+}
+
+.transform-tag.operations {
+  color: #c06a20;
+}
+
+.theme-input {
+  background-color: var(--bg-input);
+  border-color: var(--border-input);
+  color: var(--text-main);
+}
+
+.theme-input::placeholder {
+  color: var(--text-subtle);
+}
+
+.theme-focusable:focus-visible,
+.theme-input:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.theme-primary-button {
+  background-color: var(--accent-primary);
+  border-color: color-mix(in srgb, var(--accent-primary) 72%, var(--border-subtle));
+  color: var(--accent-primary-contrast);
+}
+
+.theme-primary-button:hover {
+  background-color: color-mix(in srgb, var(--accent-primary) 86%, var(--text-title));
+}
+
+.theme-icon-button {
+  background-color: var(--bg-input);
+  border-color: var(--border-input);
+  color: var(--text-muted);
+}
+
+.theme-icon-button:hover:not(:disabled) {
+  background-color: var(--bg-tab-hover);
+  border-color: var(--border-card-selected);
+  color: var(--text-title);
+}
+
+.theme-danger-text {
+  color: var(--status-danger);
+}
+
+.form-field-error {
+  background-color: color-mix(in srgb, var(--status-danger) 9%, var(--bg-input));
+  border-color: var(--status-danger);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--status-danger) 24%, transparent);
+}
+
+.form-field-valid {
+  border-color: var(--border-input);
+}
+
+.form-field-valid:focus {
+  border-color: var(--focus-ring);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--focus-ring) 28%, transparent);
+}
+
+.bin-color-selected {
+  box-shadow: 0 0 0 2px var(--bg-card), 0 0 0 4px var(--focus-ring);
+}
+
+.theme-kbd {
+  background-color: var(--bg-badge);
+  border-color: var(--border-subtle);
+  color: var(--text-main);
+  box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--text-main) 14%, transparent);
+}
+
+.app-dialog-overlay {
+  background-color: var(--overlay-scrim);
+  z-index: var(--layer-modal);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+
+.theme-menu {
+  z-index: var(--layer-menu);
+  background-color: var(--menu-surface);
+  border-color: var(--border-subtle);
+  color: var(--text-main);
+  box-shadow: 0 10px 30px color-mix(in srgb, #000 42%, transparent);
+  -webkit-backdrop-filter: blur(24px) saturate(var(--material-saturation));
+  backdrop-filter: blur(24px) saturate(var(--material-saturation));
+}
+
+.theme-menu-item {
+  color: var(--text-main);
+  transition: background-color 100ms ease, color 100ms ease;
+}
+
+.theme-menu-item:hover,
+.theme-menu-item:focus-visible {
+  background-color: var(--menu-hover);
+  color: var(--text-title);
+  outline: none;
+}
+
+.theme-menu-divider {
+  border-color: var(--border-subtle);
+}
+
+.smart-menu-item {
+  color: var(--accent-primary);
+}
+
+.theme-code-surface {
+  background-color: var(--code-surface);
+  border-color: var(--code-border);
+  color: var(--code-text);
+}
+
+.quick-hud-shell {
+  z-index: var(--layer-popover);
+  background-color: color-mix(in srgb, var(--bg-app) 92%, transparent);
+  border-color: var(--border-card);
+  color: var(--text-main);
+  -webkit-backdrop-filter: blur(24px) saturate(var(--material-saturation));
+  backdrop-filter: blur(24px) saturate(var(--material-saturation));
+}
+
+.quick-hud-header {
+  background-color: color-mix(in srgb, var(--material-toolbar) 88%, transparent);
+  border-color: var(--border-subtle);
+}
+
+.quick-hud-footer {
+  background-color: color-mix(in srgb, var(--bg-surface) 88%, transparent);
+  border-color: var(--border-subtle);
+  color: var(--text-subtle);
+}
+
+.quick-hud-accent,
+.quick-hud-shortcut {
+  color: var(--accent-primary);
+}
+
+.quick-hud-shortcut {
+  background-color: color-mix(in srgb, var(--accent-primary) 12%, var(--bg-surface));
+  border-color: color-mix(in srgb, var(--accent-primary) 42%, var(--border-subtle));
+}
+
+.quick-hud-row {
+  background-color: color-mix(in srgb, var(--bg-card) 82%, transparent);
+  border-color: var(--border-card);
+  color: var(--text-main);
+  transition: background-color 75ms ease, border-color 75ms ease, color 75ms ease;
+}
+
+.quick-hud-row:hover {
+  background-color: var(--bg-card-hover);
+}
+
+.quick-hud-row.is-selected {
+  background-color: color-mix(in srgb, var(--accent-primary) 18%, var(--bg-card));
+  border-color: var(--accent-primary);
+  color: var(--text-title);
+}
+
+.quick-hud-index {
+  background-color: var(--bg-tab-hover);
+  border-color: var(--border-subtle);
+  color: var(--text-main);
+}
+
+.quick-hud-index.is-selected {
+  background-color: var(--accent-primary);
+  border-color: var(--accent-primary);
+  color: var(--accent-primary-contrast);
+}
+
+.clip-content-accent {
+  color: var(--accent-primary);
+}
+
+.clip-format-button {
+  transition: background-color 140ms ease, border-color 140ms ease, transform 140ms ease;
+}
+
+.clip-format-button:hover {
+  background-color: var(--bg-card-hover);
+  border-color: var(--border-card-selected);
+  transform: translateY(-1px);
+}
+
+.image-preview-stage {
+  background-image:
+    linear-gradient(45deg, color-mix(in srgb, var(--text-muted) 8%, transparent) 25%, transparent 25%),
+    linear-gradient(-45deg, color-mix(in srgb, var(--text-muted) 8%, transparent) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, color-mix(in srgb, var(--text-muted) 8%, transparent) 75%),
+    linear-gradient(-45deg, transparent 75%, color-mix(in srgb, var(--text-muted) 8%, transparent) 75%);
+  background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+  background-size: 16px 16px;
+}
+
+.clip-text-content::selection,
+.clip-text-content *::selection {
+  background-color: color-mix(in srgb, var(--accent-primary) 42%, transparent);
+  color: var(--text-title);
+}
+
+.app-dialog-danger {
+  border-color: rgba(239, 68, 68, 0.42);
+}
+
+.queue-controls-region {
+  background-color: var(--bg-list);
+  border-color: var(--border-subtle);
+}
+
+.queue-controls-card.is-active,
+.queue-controls-region.is-active {
+  background-color: color-mix(in srgb, var(--queue-accent) 13%, var(--bg-list));
+  border-color: color-mix(in srgb, var(--queue-accent) 46%, var(--border-subtle));
+}
+
+.queue-controls-icon {
+  color: var(--text-muted);
+}
+
+.queue-controls-icon.is-active {
+  background-color: color-mix(in srgb, var(--queue-accent) 20%, var(--bg-surface));
+  border-color: color-mix(in srgb, var(--queue-accent) 48%, var(--border-subtle));
+  color: var(--queue-accent);
+}

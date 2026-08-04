@@ -6,7 +6,6 @@
  */
 import fs from 'node:fs';
 
-const css = fs.readFileSync('src/App.css', 'utf8');
 const IMPORTANT_BUDGET = 95;
 const COMPATIBILITY_SELECTOR_BUDGET = 1;
 const UTILITY_COUPLED_SELECTOR_BUDGET = 0;
@@ -19,7 +18,17 @@ const readFilesRecursively = (directory, extension) => fs.readdirSync(directory,
     return entry.name.endsWith(extension) ? [fs.readFileSync(path, 'utf8')] : [];
   });
 
+const css = readFilesRecursively('src', '.css').join('\n');
 const componentSource = readFilesRecursively('src/components', '.tsx').join('\n');
+const appCss = fs.readFileSync('src/App.css', 'utf8');
+const styleModuleFiles = fs.readdirSync('src/styles')
+  .filter((file) => file.endsWith('.css'))
+  .sort();
+const importedStyleModules = [...appCss.matchAll(/@import\s+"\.\/styles\/([^";]+\.css)";/g)]
+  .map((match) => match[1]);
+const missingStyleImports = styleModuleFiles.filter((file) => !importedStyleModules.includes(file));
+const staleStyleImports = importedStyleModules.filter((file) => !styleModuleFiles.includes(file));
+const duplicateStyleImports = importedStyleModules.filter((file, index) => importedStyleModules.indexOf(file) !== index);
 
 const definitions = new Set(
   [...css.matchAll(/^\s*(--[a-zA-Z0-9-]+)\s*:/gm)].map((match) => match[1]),
@@ -39,12 +48,20 @@ console.log(`!important declarations: ${importantCount}/${IMPORTANT_BUDGET}`);
 console.log(`Cool/Warm compatibility selectors: ${compatibilitySelectorCount}/${COMPATIBILITY_SELECTOR_BUDGET}`);
 console.log(`Utility-coupled selectors: ${utilityCoupledSelectorCount}/${UTILITY_COUPLED_SELECTOR_BUDGET}`);
 console.log(`Hard-coded JSX surfaces: ${hardCodedSurfaceCount}/${HARD_CODED_SURFACE_BUDGET}`);
+console.log(`CSS modules imported: ${importedStyleModules.length}/${styleModuleFiles.length}`);
 
 let failed = false;
 
 if (undefinedTokens.length > 0) {
   failed = true;
   console.error(`Undefined custom properties: ${undefinedTokens.join(', ')}`);
+}
+
+if (missingStyleImports.length > 0 || staleStyleImports.length > 0 || duplicateStyleImports.length > 0) {
+  failed = true;
+  if (missingStyleImports.length > 0) console.error(`Unimported CSS modules: ${missingStyleImports.join(', ')}`);
+  if (staleStyleImports.length > 0) console.error(`Stale CSS imports: ${staleStyleImports.join(', ')}`);
+  if (duplicateStyleImports.length > 0) console.error(`Duplicate CSS imports: ${duplicateStyleImports.join(', ')}`);
 }
 
 if (importantCount > IMPORTANT_BUDGET) {
