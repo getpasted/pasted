@@ -42,5 +42,10 @@ assert.doesNotMatch(
   /Command::new\(\s*"(?:\/[^"\s]+\/)?(?:ba|z|fi)?sh"\s*\)/,
   'Never restore a general-purpose shell interpreter to a transformation path',
 );
+assert.doesNotMatch(
+  rustSource,
+  /vaultPasscodeHash|set_vault_passcode|verify_vault_passcode/,
+  'Do not expose the removed fast-hash passcode API without a reviewed credential design',
+);
 
 console.log('Security configuration, process, and frontend trust-boundary audit passed.');

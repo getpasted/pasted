@@ -2804,30 +2804,6 @@ impl DbState {
         rows.collect()
     }
 
-    pub fn set_vault_passcode(&self, passcode: &str) -> Result<()> {
-        use sha2::{Digest, Sha256};
-        let mut hasher = Sha256::new();
-        hasher.update(passcode.as_bytes());
-        let hash_hex = format!("{:x}", hasher.finalize());
-        self.save_setting("vaultPasscodeHash", &hash_hex)
-    }
-
-    pub fn verify_vault_passcode(&self, passcode: &str) -> Result<bool> {
-        use sha2::{Digest, Sha256};
-        let stored = self.get_setting("vaultPasscodeHash")?;
-        if let Some(stored_hash) = stored {
-            if stored_hash.trim().is_empty() {
-                return Ok(true);
-            }
-            let mut hasher = Sha256::new();
-            hasher.update(passcode.as_bytes());
-            let input_hash = format!("{:x}", hasher.finalize());
-            Ok(stored_hash == input_hash)
-        } else {
-            Ok(true)
-        }
-    }
-
     fn normalize_json_config(config: Option<&str>) -> String {
         match config {
             Some(value) if serde_json::from_str::<serde_json::Value>(value).is_ok() => {
@@ -5384,15 +5360,5 @@ mod tests {
                 .transform_name,
             "Uppercase"
         );
-    }
-
-    #[test]
-    fn test_vault_passcode() {
-        let db = setup_test_db();
-        assert!(db.verify_vault_passcode("secret123").unwrap()); // Default empty pass
-
-        db.set_vault_passcode("secret123").unwrap();
-        assert!(db.verify_vault_passcode("secret123").unwrap());
-        assert!(!db.verify_vault_passcode("wrongpass").unwrap());
     }
 }

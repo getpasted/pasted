@@ -343,8 +343,6 @@ pub fn run() {
             commands::import_clips_json,
             commands::export_backup_json,
             commands::import_backup_json,
-            commands::set_vault_passcode,
-            commands::verify_vault_passcode,
             commands::get_analytics_summary,
             commands::install_cli_to_path,
             commands::check_accessibility_permission,
