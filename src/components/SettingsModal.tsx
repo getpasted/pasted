@@ -8,6 +8,7 @@ import { SettingsHotkeysPanel } from './SettingsHotkeysPanel';
 import { SettingsSyncPanel } from './SettingsSyncPanel';
 import { ToolPageHeader } from './ToolPageHeader';
 import { IntelligenceConnectionsPanel } from './IntelligenceConnectionsPanel';
+import { SettingsDebugPanel } from './SettingsDebugPanel';
 
 interface SettingsModalProps {
   settings: AppSettings;
@@ -95,6 +96,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             onRefreshClips={onRefreshClips}
           />
         )}
+
+        {/* TAB 6: DEBUG */}
+        {activeTab === 'debug' && <SettingsDebugPanel />}
         </div>
       </div>
     </div>

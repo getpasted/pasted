@@ -167,6 +167,7 @@ export const ActivityLogView: React.FC = () => {
       case 'transform_saved':
       case 'transform_updated':
       case 'transform_executed':
+      case 'transformation_execution_succeeded':
       case 'bin_transform_executed':
       case 'bin_transform_no_change':
       case 'clip_transformed':
@@ -179,6 +180,7 @@ export const ActivityLogView: React.FC = () => {
       case 'transform_draft_failed':
       case 'transform_test_failed':
       case 'transform_execution_failed':
+      case 'transformation_execution_failed':
       case 'bin_transform_failed':
         return (
           <div className="theme-status-danger flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold">
@@ -187,12 +189,20 @@ export const ActivityLogView: React.FC = () => {
           </div>
         );
       case 'transform_execution_cancelled':
+      case 'transformation_execution_cancelled':
       case 'transform_draft_cancelled':
       case 'transform_test_cancelled':
         return (
           <div className="theme-badge flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold">
             <Workflow className="w-3.5 h-3.5" />
             <span>{type === 'transform_draft_cancelled' ? 'Draft Cancelled' : type === 'transform_test_cancelled' ? 'Test Cancelled' : 'Transform Cancelled'}</span>
+          </div>
+        );
+      case 'intelligence_connection_fallback':
+        return (
+          <div className="theme-status-warning flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold">
+            <Workflow className="w-3.5 h-3.5" />
+            <span>Connection Fallback</span>
           </div>
         );
       default:
@@ -221,7 +231,7 @@ export const ActivityLogView: React.FC = () => {
     if (selectedTypeFilter === 'paused') return l.event_type === 'recording_auto_paused' || l.event_type === 'recording_manually_paused';
     if (selectedTypeFilter === 'resumed') return l.event_type === 'recording_auto_resumed' || l.event_type === 'recording_manually_resumed';
     if (selectedTypeFilter === 'notes') return l.event_type === 'note_updated';
-    if (selectedTypeFilter === 'transforms') return l.event_type.startsWith('transform_') || l.event_type.startsWith('bin_transform_') || l.event_type === 'clip_transformed';
+    if (selectedTypeFilter === 'transforms') return l.event_type.startsWith('transform_') || l.event_type.startsWith('transformation_') || l.event_type.startsWith('bin_transform_') || l.event_type === 'clip_transformed' || l.event_type === 'intelligence_connection_fallback';
     return true;
   });
 

@@ -226,6 +226,14 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
     }
     case 'cancel_transformation_execution':
       return true as unknown as T;
+    case 'get_intelligence_scheduler_snapshot':
+      return {
+        revision: 0,
+        activeCount: 0,
+        queuedCount: 0,
+        jobs: [],
+        recentEvents: [],
+      } as unknown as T;
     case 'plan_transformation_intent': {
       const request = args?.request as { intent?: string; sampleInput?: string; planningMode?: string } | undefined;
       await new Promise((resolve) => window.setTimeout(resolve, 220));

@@ -507,6 +507,10 @@ pub fn execute_with_cancellation(
                 db.save_setting(LAST_PIPELINE_SETTING, &target_ref)
                     .map_err(database_error)?;
             }
+            let _ = db.log_activity(
+                "transformation_execution_succeeded",
+                &format!("Ran {target_kind} {target_ref} in {duration_ms} ms"),
+            );
             Ok(ExecutionOutcome {
                 execution_id,
                 output,
@@ -520,6 +524,10 @@ pub fn execute_with_cancellation(
             if error.code == "execution_cancelled" {
                 db.cancel_transformation_execution(&execution_id, duration_ms)
                     .map_err(database_error)?;
+                let _ = db.log_activity(
+                    "transformation_execution_cancelled",
+                    &format!("Cancelled {target_kind} {target_ref}"),
+                );
             } else {
                 db.finish_transformation_execution(
                     &execution_id,
@@ -528,6 +536,10 @@ pub fn execute_with_cancellation(
                     Some(&summary),
                 )
                 .map_err(database_error)?;
+                let _ = db.log_activity(
+                    "transformation_execution_failed",
+                    &format!("Failed {target_kind} {target_ref} ({})", error.code),
+                );
             }
             Err(error)
         }

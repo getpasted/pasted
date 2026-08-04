@@ -877,6 +877,11 @@ pub fn cancel_transformation_execution(client_request_id: String) -> bool {
     crate::transformation_service::cancel_execution(&client_request_id)
 }
 
+#[tauri::command]
+pub fn get_intelligence_scheduler_snapshot() -> crate::intelligence_scheduler::SchedulerSnapshot {
+    crate::intelligence_scheduler::snapshot()
+}
+
 // Sequential Paste Commands
 #[tauri::command]
 pub fn start_sequential_paste(

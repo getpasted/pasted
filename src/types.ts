@@ -247,6 +247,36 @@ export interface TransformationExecution {
   errorSummary: string | null;
 }
 
+export interface IntelligenceSchedulerJob {
+  id: string;
+  connectionId: string;
+  connectionName: string;
+  label: string;
+  status: 'queued' | 'running';
+  queuedAtMs: number;
+  startedAtMs: number | null;
+  waitMs: number;
+  runMs: number;
+}
+
+export interface IntelligenceSchedulerEvent {
+  sequence: number;
+  jobId: string;
+  connectionName: string;
+  label: string;
+  status: 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled';
+  timestampMs: number;
+  detail: string | null;
+}
+
+export interface IntelligenceSchedulerSnapshot {
+  revision: number;
+  activeCount: number;
+  queuedCount: number;
+  jobs: IntelligenceSchedulerJob[];
+  recentEvents: IntelligenceSchedulerEvent[];
+}
+
 export interface SequentialStatus {
   is_active: boolean;
   queue: string[];

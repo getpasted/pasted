@@ -5,6 +5,7 @@ mod filter_engine;
 mod hotkey_manager;
 mod intelligence_connections;
 pub mod intelligence_executor;
+mod intelligence_scheduler;
 mod ocr;
 #[cfg(test)]
 mod operation_plugins;
@@ -299,6 +300,7 @@ pub fn run() {
             commands::transform_text,
             commands::execute_transformation,
             commands::cancel_transformation_execution,
+            commands::get_intelligence_scheduler_snapshot,
             commands::toggle_clip_protected,
             commands::trash_unpinned_clips,
             commands::purge_unpinned_clips,
