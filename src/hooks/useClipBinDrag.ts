@@ -8,6 +8,12 @@ interface ClipDragPreview {
   y: number;
 }
 
+export type ClipDropAction = 'pin' | 'protect' | 'trash';
+
+type ClipDropDestination =
+  | { kind: 'bin'; binId: number }
+  | { kind: 'action'; action: ClipDropAction };
+
 interface PinnedLayoutSnapshot {
   topById: Map<number, number>;
   heightById: Map<number, number>;
@@ -22,6 +28,7 @@ interface ClipBinDragInput {
   selectedClipIds: Set<number>;
   fetchClips: () => Promise<void>;
   assignClipToBin: (clipId: number, binId: number) => Promise<void>;
+  applyClipDropAction: (clipId: number, action: ClipDropAction) => void | Promise<void>;
 }
 
 export function useClipBinDrag({
@@ -31,9 +38,11 @@ export function useClipBinDrag({
   selectedClipIds,
   fetchClips,
   assignClipToBin,
+  applyClipDropAction,
 }: ClipBinDragInput) {
   const [draggedClipId, setDraggedClipId] = useState<number | null>(null);
   const [pointerDropTargetBinId, setPointerDropTargetBinId] = useState<number | null>(null);
+  const [pointerDropTargetAction, setPointerDropTargetAction] = useState<ClipDropAction | null>(null);
   const [clipDragPreview, setClipDragPreview] = useState<ClipDragPreview | null>(null);
   const [pinnedReorderOffsets, setPinnedReorderOffsets] = useState<Record<number, number>>({});
   const [isPinnedReorderSettling, setIsPinnedReorderSettling] = useState(false);
@@ -44,13 +53,17 @@ export function useClipBinDrag({
   const pinnedPreviewSignatureRef = useRef('');
   const pinnedDragGenerationRef = useRef(0);
 
-  const disabledDropBinId = useMemo(() => {
+  const draggedClips = useMemo(() => {
     if (draggedClipId === null) return null;
     const draggedIds = selectedClipIds.size > 1 && selectedClipIds.has(draggedClipId)
       ? Array.from(selectedClipIds)
       : [draggedClipId];
-    const draggedClips = allClips.filter((clip) => draggedIds.includes(clip.id));
-    if (draggedClips.length !== draggedIds.length) return null;
+    const clips = allClips.filter((clip) => draggedIds.includes(clip.id));
+    return clips.length === draggedIds.length ? clips : null;
+  }, [allClips, draggedClipId, selectedClipIds]);
+
+  const disabledDropBinId = useMemo(() => {
+    if (!draggedClips?.length) return null;
     const currentBinId = draggedClips[0]?.bin_id ?? null;
     if (currentBinId === null || !draggedClips.every((clip) => clip.bin_id === currentBinId)) {
       return null;
@@ -58,16 +71,35 @@ export function useClipBinDrag({
     return bins.find((bin) => bin.id === currentBinId && bin.bin_type !== 'tag')
       ? currentBinId
       : null;
-  }, [allClips, bins, draggedClipId, selectedClipIds]);
+  }, [bins, draggedClips]);
 
-  const getPointerDropTarget = useCallback((x: number, y: number) => {
+  const disabledDropActions = useMemo<ClipDropAction[]>(() => {
+    if (!draggedClips?.length) return [];
+    const disabled: ClipDropAction[] = [];
+    if (draggedClips.every((clip) => Boolean(clip.is_pinned))) disabled.push('pin');
+    if (draggedClips.every((clip) => Boolean(clip.is_protected))) disabled.push('protect');
+    if (draggedClips.some((clip) => Boolean(clip.is_protected))) disabled.push('trash');
+    return disabled;
+  }, [draggedClips]);
+
+  const getPointerDropDestination = useCallback((x: number, y: number): ClipDropDestination | null => {
     const target = document
       .elementFromPoint(x, y)
-      ?.closest<HTMLElement>('[data-bin-drop-id]');
+      ?.closest<HTMLElement>('[data-bin-drop-id], [data-clip-drop-action]');
     if (!target) return null;
+    const action = target.dataset.clipDropAction;
+    if (action === 'pin' || action === 'protect' || action === 'trash') {
+      return { kind: 'action', action };
+    }
     const binId = Number(target.dataset.binDropId);
-    return Number.isInteger(binId) && binId > 0 ? binId : null;
+    return Number.isInteger(binId) && binId > 0 ? { kind: 'bin', binId } : null;
   }, []);
+
+  const updatePointerDropTarget = useCallback((x: number, y: number) => {
+    const destination = getPointerDropDestination(x, y);
+    setPointerDropTargetBinId(destination?.kind === 'bin' ? destination.binId : null);
+    setPointerDropTargetAction(destination?.kind === 'action' ? destination.action : null);
+  }, [getPointerDropDestination]);
 
   const beginPinnedReorderPreview = useCallback((clipId: number) => {
     pinnedDragGenerationRef.current += 1;
@@ -114,7 +146,7 @@ export function useClipBinDrag({
     const originalOrder = originalPinnedOrderRef.current;
     const layout = pinnedLayoutSnapshotRef.current;
     if (!originalOrder || !layout) return;
-    if (getPointerDropTarget(x, y) !== null) {
+    if (getPointerDropDestination(x, y) !== null) {
       pinnedOrderPreviewRef.current = null;
       isPinnedPreviewActiveRef.current = false;
       if (pinnedPreviewSignatureRef.current !== '') {
@@ -175,12 +207,13 @@ export function useClipBinDrag({
       desiredTop += (layout.heightById.get(clip.id) ?? 0) + layout.gap;
     });
     setPinnedReorderOffsets(offsets);
-  }, [getPointerDropTarget]);
+  }, [getPointerDropDestination]);
 
   const finishClipPointerDrag = useCallback(async (x: number, y: number, clipId: number) => {
     const dragGeneration = pinnedDragGenerationRef.current;
-    const binId = getPointerDropTarget(x, y);
+    const destination = getPointerDropDestination(x, y);
     setPointerDropTargetBinId(null);
+    setPointerDropTargetAction(null);
     setClipDragPreview(null);
     const pinnedOrderPreview = pinnedOrderPreviewRef.current;
     const isPinnedPreviewActive = isPinnedPreviewActiveRef.current;
@@ -190,9 +223,15 @@ export function useClipBinDrag({
     pinnedLayoutSnapshotRef.current = null;
     pinnedPreviewSignatureRef.current = '';
 
-    if (binId !== null) {
+    if (destination?.kind === 'bin') {
       setPinnedReorderOffsets({});
-      await assignClipToBin(clipId, binId);
+      await assignClipToBin(clipId, destination.binId);
+      return;
+    }
+
+    if (destination?.kind === 'action') {
+      setPinnedReorderOffsets({});
+      await applyClipDropAction(clipId, destination.action);
       return;
     }
 
@@ -216,19 +255,22 @@ export function useClipBinDrag({
       console.error('Failed to save pin order:', error);
       void fetchClips();
     }
-  }, [assignClipToBin, fetchClips, getPointerDropTarget, setAllClips]);
+  }, [applyClipDropAction, assignClipToBin, fetchClips, getPointerDropDestination, setAllClips]);
 
   return {
     draggedClipId,
     setDraggedClipId,
     pointerDropTargetBinId,
     setPointerDropTargetBinId,
+    pointerDropTargetAction,
+    setPointerDropTargetAction,
     clipDragPreview,
     setClipDragPreview,
     disabledDropBinId,
+    disabledDropActions,
     pinnedReorderOffsets,
     isPinnedReorderSettling,
-    getPointerDropTarget,
+    updatePointerDropTarget,
     beginPinnedReorderPreview,
     updatePinnedReorderPreview,
     cancelPinnedReorderPreview,

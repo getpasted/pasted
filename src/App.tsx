@@ -22,7 +22,7 @@ import { startWindowDrag } from './utils/windowDrag';
 import { useColumnResize } from './hooks/useColumnResize';
 import { useAppSettings } from './hooks/useAppSettings';
 import { useClipViews } from './hooks/useClipViews';
-import { useClipBinDrag } from './hooks/useClipBinDrag';
+import { useClipBinDrag, type ClipDropAction } from './hooks/useClipBinDrag';
 import { getClipViewPolicy } from './utils/clipViewPolicy';
 import { useAppData } from './hooks/useAppData';
 import { useClipActions } from './hooks/useClipActions';
@@ -358,6 +358,8 @@ export default function App() {
   const {
     togglePin: handleTogglePin,
     toggleProtected: handleToggleProtected,
+    setPinned: handleSetPinned,
+    setProtected: handleSetProtected,
     deleteSelectedClips: handleBatchTrash,
     deleteClip: handleDeleteClip,
     copyClip: handleCopyClip,
@@ -392,17 +394,30 @@ export default function App() {
     [assignClipToBin],
   );
 
+  const handleClipDropAction = useCallback((clipId: number, action: ClipDropAction) => {
+    if (action === 'pin') {
+      handleSetPinned(clipId, true);
+    } else if (action === 'protect') {
+      handleSetProtected(clipId, true);
+    } else {
+      handleDeleteClip(clipId);
+    }
+  }, [handleDeleteClip, handleSetPinned, handleSetProtected]);
+
   const {
     draggedClipId,
     setDraggedClipId,
     pointerDropTargetBinId,
     setPointerDropTargetBinId,
+    pointerDropTargetAction,
+    setPointerDropTargetAction,
     clipDragPreview,
     setClipDragPreview,
     disabledDropBinId,
+    disabledDropActions,
     pinnedReorderOffsets,
     isPinnedReorderSettling,
-    getPointerDropTarget,
+    updatePointerDropTarget,
     beginPinnedReorderPreview,
     updatePinnedReorderPreview,
     cancelPinnedReorderPreview,
@@ -414,6 +429,7 @@ export default function App() {
     selectedClipIds,
     fetchClips,
     assignClipToBin: handleAssignClipToBin,
+    applyClipDropAction: handleClipDropAction,
   });
 
   useEffect(() => {
@@ -526,7 +542,9 @@ export default function App() {
         onClipDropOnBin={handleAssignClipToBin}
         draggedClipId={draggedClipId}
         pointerDropTargetBinId={pointerDropTargetBinId}
+        pointerDropTargetAction={pointerDropTargetAction}
         disabledDropBinId={disabledDropBinId}
+        disabledDropActions={disabledDropActions}
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
         seqStatus={seqStatus}
@@ -719,13 +737,14 @@ export default function App() {
                         setDraggedClipId(id);
                       }}
                       onPointerDragMove={(x, y) => {
-                        setPointerDropTargetBinId(getPointerDropTarget(x, y));
+                        updatePointerDropTarget(x, y);
                         updatePinnedReorderPreview(x, y, clip.id);
                         setClipDragPreview({ clipId: clip.id, x, y });
                       }}
                       onPointerDragEnd={handleClipPointerDragEnd}
                       onPointerDragCancel={() => {
                         setPointerDropTargetBinId(null);
+                        setPointerDropTargetAction(null);
                         cancelPinnedReorderPreview();
                         setClipDragPreview(null);
                       }}

@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { Bin, SequentialStatus } from '../types';
 import { useSidebarBinOrder } from '../hooks/useSidebarBinOrder';
+import type { ClipDropAction } from '../hooks/useClipBinDrag';
 
 interface SidebarProps {
   currentTab: string;
@@ -49,7 +50,9 @@ interface SidebarProps {
   onClipDropOnBin?: (clipId: number, binId: number) => void;
   draggedClipId?: number | null;
   pointerDropTargetBinId?: number | null;
+  pointerDropTargetAction?: ClipDropAction | null;
   disabledDropBinId?: number | null;
+  disabledDropActions?: ClipDropAction[];
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -65,7 +68,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onClipDropOnBin,
   draggedClipId,
   pointerDropTargetBinId,
+  pointerDropTargetAction,
   disabledDropBinId,
+  disabledDropActions = [],
   searchQuery,
   setSearchQuery,
   seqStatus,
@@ -143,13 +148,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
     setSelectedBinId(null);
   };
 
-  const clipNavItems = [
+  const clipNavItems: Array<{
+    tab: string;
+    label: string;
+    title: string;
+    icon: React.ReactElement<{ className: string; strokeWidth?: number }>;
+    dropAction?: ClipDropAction;
+  }> = [
     { tab: 'all', label: 'All', title: 'All Clips', icon: <Clipboard className="sidebar-icon-primary w-5 h-5" /> },
     { tab: 'sequential', label: 'Queue', title: 'Queue', icon: <ListOrdered className="sidebar-icon-secondary w-5 h-5" /> },
-    { tab: 'pinned', label: 'Pinned', title: 'Pinned', icon: <Pin className="sidebar-icon-warning w-5 h-5 pin-icon" /> },
-    { tab: 'protected', label: 'Protected', title: 'Protected', icon: <Shield className="sidebar-icon-info w-5 h-5" /> },
+    { tab: 'pinned', label: 'Pinned', title: 'Pinned', icon: <Pin className="sidebar-icon-warning w-5 h-5 pin-icon" />, dropAction: 'pin' },
+    { tab: 'protected', label: 'Protected', title: 'Protected', icon: <Shield className="sidebar-icon-info w-5 h-5" />, dropAction: 'protect' },
     { tab: 'notes', label: 'Noted', title: 'Noted', icon: <StickyNote className="sidebar-icon-success w-5 h-5" /> },
-    { tab: 'trash', label: 'Trashed', title: 'Trashed', icon: <Trash2 className="sidebar-icon-danger w-5 h-5" /> },
+    { tab: 'trash', label: 'Trashed', title: 'Trashed', icon: <Trash2 className="sidebar-icon-danger w-5 h-5" />, dropAction: 'trash' },
   ];
   const toolNavItems = [
     { tab: 'analytics', label: 'Analytics & Insights', title: 'Analytics & Insights', icon: <BarChart3 className="sidebar-icon-secondary w-5 h-5" /> },
@@ -165,6 +176,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
     protected: protectedCount,
     notes: notesCount,
     trash: trashedCount,
+  };
+
+  const getDropActionTitle = (action: ClipDropAction) => {
+    if (!disabledDropActions.includes(action)) {
+      if (action === 'pin') return 'Drop to pin';
+      if (action === 'protect') return 'Drop to protect';
+      return 'Drop to trash';
+    }
+    if (action === 'pin') return 'Already pinned';
+    if (action === 'protect') return 'Already protected';
+    return 'Protected clips cannot be trashed';
   };
 
   if (isCollapsed) {
@@ -198,24 +220,36 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <div className="w-8 border-t sidebar-divider" />
           </div>
 
-          {clipNavItems.map((item) => (
-            <button
-              key={item.tab}
-              data-sidebar-hover-key={`clip:${item.tab}`}
-              onClick={() => navigateTo(item.tab)}
-              disabled={isClipDragging}
-              className={`w-9 h-9 flex items-center justify-center p-0 rounded-xl transition-colors duration-75 border shrink-0 cursor-pointer ${
-                currentTab === item.tab && (item.tab !== 'all' || selectedBinId === null)
-                  ? 'sidebar-item-active shadow-sm'
-                  : hoveredSidebarControl === `clip:${item.tab}`
-                  ? 'sidebar-item-hovered border-transparent'
-                  : 'sidebar-item-idle border-transparent'
-              }`}
-              title={item.title}
-            >
-              {item.icon}
-            </button>
-          ))}
+          {clipNavItems.map((item) => {
+            const isActionDisabled = item.dropAction !== undefined && disabledDropActions.includes(item.dropAction);
+            const isEligibleAction = isClipDragging && item.dropAction !== undefined && !isActionDisabled;
+            const isActionTarget = isEligibleAction && pointerDropTargetAction === item.dropAction;
+            return (
+              <button
+                key={item.tab}
+                data-sidebar-hover-key={`clip:${item.tab}`}
+                data-clip-drop-action={isEligibleAction ? item.dropAction : undefined}
+                onClick={isClipDragging ? undefined : () => navigateTo(item.tab)}
+                disabled={isClipDragging && !isEligibleAction}
+                className={`w-9 h-9 flex items-center justify-center p-0 rounded-xl transition-colors duration-75 border shrink-0 ${
+                  isActionTarget
+                    ? `sidebar-action-drop sidebar-action-drop-${item.dropAction} sidebar-action-drop-target cursor-grabbing`
+                    : isEligibleAction
+                    ? `sidebar-action-drop sidebar-action-drop-${item.dropAction} sidebar-action-drop-eligible cursor-grabbing`
+                    : isClipDragging
+                    ? 'sidebar-action-drop-ineligible cursor-default'
+                    : currentTab === item.tab && (item.tab !== 'all' || selectedBinId === null)
+                    ? 'sidebar-item-active shadow-sm cursor-pointer'
+                    : hoveredSidebarControl === `clip:${item.tab}`
+                    ? 'sidebar-item-hovered border-transparent cursor-pointer'
+                    : 'sidebar-item-idle border-transparent cursor-pointer'
+                }`}
+                title={isClipDragging && item.dropAction ? getDropActionTitle(item.dropAction) : item.title}
+              >
+                {item.icon}
+              </button>
+            );
+          })}
 
           {sortedBins.length > 0 && (
             <div className="w-full flex items-center justify-center py-1 shrink-0">
@@ -319,18 +353,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <nav className="space-y-0.5">
               {clipNavItems.map((item) => {
                 const count = clipCountByTab[item.tab];
+                const isActionDisabled = item.dropAction !== undefined && disabledDropActions.includes(item.dropAction);
+                const isEligibleAction = isClipDragging && item.dropAction !== undefined && !isActionDisabled;
+                const isActionTarget = isEligibleAction && pointerDropTargetAction === item.dropAction;
                 return (
                   <button
                     key={item.tab}
                     data-sidebar-hover-key={`clip:${item.tab}`}
-                    onClick={() => navigateTo(item.tab)}
-                    disabled={isClipDragging}
-                    className={`sidebar-nav-row justify-between transition-colors duration-100 cursor-pointer ${
-                      currentTab === item.tab && (item.tab !== 'all' || selectedBinId === null)
+                    data-clip-drop-action={isEligibleAction ? item.dropAction : undefined}
+                    onClick={isClipDragging ? undefined : () => navigateTo(item.tab)}
+                    disabled={isClipDragging && !isEligibleAction}
+                    title={isClipDragging && item.dropAction ? getDropActionTitle(item.dropAction) : item.title}
+                    className={`sidebar-nav-row justify-between transition-colors duration-100 ${
+                      isActionTarget
+                        ? `sidebar-action-drop sidebar-action-drop-${item.dropAction} sidebar-action-drop-target cursor-grabbing`
+                        : isEligibleAction
+                        ? `sidebar-action-drop sidebar-action-drop-${item.dropAction} sidebar-action-drop-eligible cursor-grabbing`
+                        : isClipDragging
+                        ? 'sidebar-action-drop-ineligible cursor-default'
+                        : currentTab === item.tab && (item.tab !== 'all' || selectedBinId === null)
                         ? 'sidebar-item-active font-medium'
                         : hoveredSidebarControl === `clip:${item.tab}`
                         ? 'sidebar-item-hovered font-normal'
-                        : 'sidebar-item-idle font-normal'
+                        : 'sidebar-item-idle font-normal cursor-pointer'
                     }`}
                   >
                     <div className="flex items-center gap-3 min-w-0">

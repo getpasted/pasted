@@ -77,6 +77,45 @@
   color: var(--text-subtle) !important;
 }
 
+.sidebar-action-drop {
+  --sidebar-action-drop-color: var(--accent-primary);
+}
+
+.sidebar-action-drop-pin {
+  --sidebar-action-drop-color: var(--status-warning);
+}
+
+.sidebar-action-drop-protect {
+  --sidebar-action-drop-color: var(--accent-primary);
+}
+
+.sidebar-action-drop-trash {
+  --sidebar-action-drop-color: var(--status-danger);
+}
+
+.sidebar-action-drop-eligible {
+  background-color: color-mix(in srgb, var(--sidebar-action-drop-color) 9%, transparent);
+  border-color: color-mix(in srgb, var(--sidebar-action-drop-color) 45%, var(--border-subtle));
+  border-style: dashed;
+  color: var(--sidebar-action-drop-color);
+}
+
+.sidebar-action-drop-target {
+  z-index: var(--layer-drag);
+  background-color: color-mix(in srgb, var(--sidebar-action-drop-color) 17%, transparent);
+  border-color: color-mix(in srgb, var(--sidebar-action-drop-color) 82%, var(--border-subtle));
+  border-style: solid;
+  color: var(--sidebar-action-drop-color);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--sidebar-action-drop-color) 18%, transparent);
+}
+
+.sidebar-action-drop-ineligible {
+  background-color: color-mix(in srgb, var(--text-main) 2.5%, transparent);
+  border-color: color-mix(in srgb, var(--text-main) 7%, transparent);
+  color: var(--text-subtle);
+  opacity: 0.5;
+}
+
 .sidebar-item-active {
   background-color: var(--bg-nav-selected);
   color: var(--text-title);

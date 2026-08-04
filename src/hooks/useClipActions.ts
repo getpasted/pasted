@@ -96,6 +96,66 @@ export function useClipActions({
     });
   }, [fetchClips, setAllClips, setSelectedClip]);
 
+  const setPinned = useCallback((id: number, pinState: boolean) => {
+    const targetIds = selectedClipIds.size > 1 && selectedClipIds.has(id)
+      ? Array.from(selectedClipIds)
+      : [id];
+    const targetIdSet = new Set(targetIds);
+    const idsToChange = allClips
+      .filter((clip) => targetIdSet.has(clip.id) && Boolean(clip.is_pinned) !== pinState)
+      .map((clip) => clip.id);
+    if (idsToChange.length === 0) return;
+    const changedIdSet = new Set(idsToChange);
+
+    setAllClips((previous) => {
+      const updated = previous.map((clip) => (
+        changedIdSet.has(clip.id) ? { ...clip, is_pinned: pinState } : clip
+      ));
+      if (pinState) {
+        const newlyPinned = updated
+          .filter((clip) => changedIdSet.has(clip.id))
+          .map((clip, index) => ({ ...clip, pin_order: index }));
+        const existingPinned = updated
+          .filter((clip) => clip.is_pinned && !changedIdSet.has(clip.id))
+          .map((clip) => ({ ...clip, pin_order: (clip.pin_order ?? 0) + newlyPinned.length }));
+        return [...newlyPinned, ...existingPinned, ...updated.filter((clip) => !clip.is_pinned)];
+      }
+      return [...updated.filter((clip) => clip.is_pinned), ...updated.filter((clip) => !clip.is_pinned)];
+    });
+    setSelectedClip((previous) => previous && changedIdSet.has(previous.id)
+      ? { ...previous, is_pinned: pinState, pin_order: pinState ? 0 : previous.pin_order }
+      : previous);
+
+    void invoke('batch_pin_clips', { ids: idsToChange, pinState }).catch((error) => {
+      console.error('Failed to set pinned state:', error);
+      void fetchClips();
+    });
+  }, [allClips, fetchClips, selectedClipIds, setAllClips, setSelectedClip]);
+
+  const setProtected = useCallback((id: number, protectedState: boolean) => {
+    const targetIds = selectedClipIds.size > 1 && selectedClipIds.has(id)
+      ? Array.from(selectedClipIds)
+      : [id];
+    const idsToChange = allClips
+      .filter((clip) => targetIds.includes(clip.id) && Boolean(clip.is_protected) !== protectedState)
+      .map((clip) => clip.id);
+    if (idsToChange.length === 0) return;
+    const changedIdSet = new Set(idsToChange);
+
+    setAllClips((previous) => previous.map((clip) => (
+      changedIdSet.has(clip.id) ? { ...clip, is_protected: protectedState } : clip
+    )));
+    setSelectedClip((previous) => previous && changedIdSet.has(previous.id)
+      ? { ...previous, is_protected: protectedState }
+      : previous);
+
+    void Promise.all(idsToChange.map((clipId) => invoke('toggle_clip_protected', { clipId })))
+      .catch((error) => {
+        console.error('Failed to set protected state:', error);
+        void fetchClips();
+      });
+  }, [allClips, fetchClips, selectedClipIds, setAllClips, setSelectedClip]);
+
   const deleteClipIds = useCallback((requestedIds: number[], forcePermanent = false) => {
     const ids = requestedIds.filter((id) => !allClips.find((clip) => clip.id === id)?.is_protected);
     if (ids.length === 0) return;
@@ -266,6 +326,8 @@ export function useClipActions({
   return {
     togglePin,
     toggleProtected,
+    setPinned,
+    setProtected,
     deleteSelectedClips,
     deleteClip,
     copyClip,
