@@ -11,20 +11,6 @@
   -webkit-user-drag: element;
 }
 
-/* Stable Drag Handle Cursor Rules */
-.step-drag-handle {
-  cursor: -webkit-grab !important;
-  cursor: grab !important;
-  user-select: none !important;
-  -webkit-user-select: none !important;
-  -webkit-user-drag: none !important;
-}
-
-.step-drag-handle:active {
-  cursor: -webkit-grabbing !important;
-  cursor: grabbing !important;
-}
-
 @layer base {
   /* =======================================================
      WCAG 2.1 LEVEL AA/AAA CERTIFIED DESIGN TOKENS
@@ -426,6 +412,6 @@
     background-repeat: no-repeat;
     background-position: right 0.6rem center;
     background-size: 0.85rem 0.85rem;
-    padding-right: 1.75rem !important;
+    padding-right: 1.75rem;
   }
 }

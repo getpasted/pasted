@@ -22,39 +22,48 @@
  * resolves the cursor again for every child node, which makes a single button
  * flicker between Safari's arrow and the pointer while the mouse moves over it.
  */
-button:not(:disabled),
-[role="button"]:not([aria-disabled="true"]),
-a,
-select:not(:disabled),
-label[for],
-.cursor-pointer {
+html:not(.is-stable-reordering) button:not(:disabled):not(.step-drag-handle),
+html:not(.is-stable-reordering) [role="button"]:not([aria-disabled="true"]),
+html:not(.is-stable-reordering) a,
+html:not(.is-stable-reordering) select:not(:disabled),
+html:not(.is-stable-reordering) label[for],
+html:not(.is-stable-reordering) .cursor-pointer {
   cursor: pointer !important;
 }
 
-button:disabled,
-[role="button"]:disabled,
-select:disabled,
-[aria-disabled="true"],
-.cursor-not-allowed {
+html:not(.is-stable-reordering) button:disabled,
+html:not(.is-stable-reordering) [role="button"]:disabled,
+html:not(.is-stable-reordering) select:disabled,
+html:not(.is-stable-reordering) [aria-disabled="true"],
+html:not(.is-stable-reordering) .cursor-not-allowed {
   cursor: not-allowed !important;
 }
 
-input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
-textarea,
-[contenteditable="true"] {
+html:not(.is-stable-reordering) input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+html:not(.is-stable-reordering) textarea,
+html:not(.is-stable-reordering) [contenteditable="true"] {
   cursor: text !important;
 }
 
 /* User Land Content ONLY: Allow text selection for actual clipboard text content and editable text inputs */
-input,
-textarea,
-[contenteditable="true"],
-.selectable-text,
-.clip-text-content,
-.clip-note-viewer-content,
-.clip-revision-history-preview,
-pre,
-code {
+html:not(.is-stable-reordering) input,
+html:not(.is-stable-reordering) textarea,
+html:not(.is-stable-reordering) [contenteditable="true"],
+html:not(.is-stable-reordering) .selectable-text,
+html:not(.is-stable-reordering) .clip-text-content,
+html:not(.is-stable-reordering) .clip-note-viewer-content,
+html:not(.is-stable-reordering) .clip-revision-history-preview,
+html:not(.is-stable-reordering) pre,
+html:not(.is-stable-reordering) code {
   -webkit-user-select: text !important;
   user-select: text !important;
+}
+
+/* Drag handles intentionally opt out of the global button cursor. */
+button.step-drag-handle {
+  cursor: grab;
+}
+
+button.step-drag-handle:active {
+  cursor: grabbing;
 }

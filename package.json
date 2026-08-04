@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "test": "cargo test --manifest-path src-tauri/Cargo.toml",
     "test:wcag": "node scripts/audit-wcag.js",
-    "test:css": "node scripts/audit-css.js",
+    "test:css": "node scripts/audit-css.js && node scripts/test-interaction-css.js",
     "tauri": "tauri"
   },
   "dependencies": {

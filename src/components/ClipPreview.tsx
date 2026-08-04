@@ -23,6 +23,9 @@ import {
   FolderX,
   FileText,
   StickyNote,
+  Pin,
+  Shield,
+  ShieldOff,
   Sparkles,
   LoaderCircle,
   Workflow,
@@ -43,6 +46,8 @@ interface ClipPreviewProps {
   pipelines: Pipeline[];
   onUpdateClip: (updatedClip?: ClipItem) => void;
   onAssignBin: (clipId: number, binId: number | null) => void | Promise<void>;
+  onTogglePin: (clipId: number) => void;
+  onToggleProtected: (clipId: number) => void;
   onDeleteClip: (id: number) => void;
   onUpdateClipNote?: (clipId: number, noteContent: string | null) => void;
   isTransforming?: boolean;
@@ -66,6 +71,8 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   pipelines,
   onUpdateClip,
   onAssignBin,
+  onTogglePin,
+  onToggleProtected,
   onDeleteClip,
   onUpdateClipNote,
   isTransforming = false,
@@ -564,6 +571,14 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   const wordCount = displayText.trim() ? displayText.trim().split(/\s+/).length : 0;
   const lineCount = displayText ? displayText.split('\n').length : 0;
 
+  const handleToggleAddNote = () => {
+    if (!isAddingNote) {
+      const nextIdx = Math.floor(Math.random() * CLEVER_PLACEHOLDERS.length);
+      setPlaceholderText(CLEVER_PLACEHOLDERS[nextIdx]);
+    }
+    setIsAddingNote((current) => !current);
+  };
+
   return (
     <div className="flex-1 col-preview h-screen flex flex-col overflow-hidden">
       {/* Finder Top Header Bar */}
@@ -571,11 +586,11 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
         onMouseDown={startWindowDrag}
         className="col-preview-header h-[60px] px-4 flex items-center justify-between cursor-default titlebar-drag-handle shrink-0"
       >
-        <div className="flex items-center space-x-3 titlebar-drag-handle">
+        <div className="flex min-w-0 items-center space-x-3 titlebar-drag-handle">
           <span className="clip-type-badge theme-badge text-xs font-semibold px-2.5 py-1 rounded-md border capitalize titlebar-drag-handle">
             {clip.content_type}
           </span>
-          <span className="theme-text-main text-xs font-medium truncate max-w-[200px] titlebar-drag-handle">
+          <span className="theme-text-main min-w-0 max-w-[200px] truncate text-xs font-medium titlebar-drag-handle">
             {clip.source_app}
           </span>
           {isTransforming && (
@@ -598,14 +613,14 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
           )}
         </div>
 
-        <div className="clip-preview-actions relative flex items-center titlebar-no-drag">
+        <div className="clip-preview-actions relative flex shrink-0 items-center titlebar-no-drag">
           {viewPolicy.canRunPipelines && clip.content_type !== 'image' && (
             <div className="clip-workflow-shell relative">
               <button
                 ref={workflowTriggerRef}
                 type="button"
                 onClick={() => setIsWorkflowMenuOpen((current) => !current)}
-                className={`clip-preview-action clip-workflow-trigger theme-icon-button theme-focusable border transition-colors ${isWorkflowMenuOpen || activeTransformRef ? 'is-active' : ''}`}
+                className={`clip-preview-action clip-workflow-trigger theme-focusable transition-colors ${isWorkflowMenuOpen || activeTransformRef ? 'is-active' : ''}`}
                 title="Workflow"
                 aria-label="Open clip workflow"
                 aria-haspopup="menu"
@@ -629,18 +644,61 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
             </div>
           )}
           <button
+            type="button"
             onClick={handleCopy}
-            className={`clip-preview-action copy-clip-main-btn theme-icon-button border active:scale-95 transition-[background-color,border-color,color,transform] ${copied ? 'is-copied' : ''}`}
+            className={`clip-preview-action copy-clip-main-btn theme-focusable active:scale-95 transition-[background-color,color,transform] ${copied ? 'is-copied' : ''}`}
             title={copied ? UI_COPY.copied : UI_COPY.copy}
             aria-label={copied ? 'Clip copied' : 'Copy clip'}
           >
             {copied ? <Check /> : <Copy />}
           </button>
 
+          {viewPolicy.canOrganize && (
+            <>
+              <button
+                type="button"
+                onClick={() => onTogglePin(clip.id)}
+                className={`clip-preview-action preview-pin-btn theme-focusable transition-colors ${clip.is_pinned ? 'is-active' : ''}`}
+                title={clip.is_pinned ? UI_COPY.unpin : UI_COPY.pin}
+                aria-label={clip.is_pinned ? UI_COPY.unpin : UI_COPY.pin}
+                aria-pressed={Boolean(clip.is_pinned)}
+              >
+                <Pin className={clip.is_pinned ? 'pin-icon' : ''} />
+              </button>
+              <button
+                type="button"
+                onClick={() => onToggleProtected(clip.id)}
+                className={`clip-preview-action preview-protect-btn theme-focusable transition-colors ${clip.is_protected ? 'is-active' : ''}`}
+                title={clip.is_protected ? UI_COPY.unprotect : UI_COPY.protect}
+                aria-label={clip.is_protected ? UI_COPY.unprotect : UI_COPY.protect}
+                aria-pressed={Boolean(clip.is_protected)}
+              >
+                {clip.is_protected ? <ShieldOff /> : <Shield />}
+              </button>
+            </>
+          )}
+
+          {viewPolicy.canEditNotes && (
+            <button
+              type="button"
+              onClick={handleToggleAddNote}
+              className={`clip-preview-action preview-note-btn theme-focusable transition-colors ${isAddingNote ? 'is-active' : ''}`}
+              title={isAddingNote ? 'Cancel Note' : 'Add Note'}
+              aria-label={isAddingNote ? 'Cancel Note' : 'Add Note'}
+              aria-pressed={isAddingNote}
+            >
+              <StickyNote />
+            </button>
+          )}
+
           <button
+            type="button"
             onClick={() => onDeleteClip(clip.id)}
-            className="clip-preview-action preview-delete-btn theme-icon-button theme-danger-text theme-focusable border active:scale-95 transition-[background-color,border-color,color,transform]"
-            title={clipDeleteLabel({ trashEnabled, permanent: viewPolicy.state === 'trash' })}
+            disabled={Boolean(clip.is_protected) && viewPolicy.state !== 'trash'}
+            className={`clip-preview-action preview-delete-btn theme-danger-text theme-focusable active:scale-95 transition-[background-color,color,opacity,transform] ${clip.is_protected && viewPolicy.state !== 'trash' ? 'cursor-not-allowed opacity-45' : ''}`}
+            title={clip.is_protected && viewPolicy.state !== 'trash'
+              ? 'Clip is Protected. Unprotect first to delete.'
+              : clipDeleteLabel({ trashEnabled, permanent: viewPolicy.state === 'trash' })}
             aria-label={viewPolicy.state === 'trash' || !trashEnabled ? 'Delete Clip Permanently' : 'Move Clip to Trash'}
           >
             {viewPolicy.state === 'trash' || !trashEnabled ? <X /> : <Trash2 />}
@@ -650,7 +708,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
 
       {/* Quick Bin Assignment & Note Section */}
       {viewPolicy.canOrganize ? (
-      <div className="preview-bin-bar px-4 py-2 flex items-center justify-between text-xs border-b">
+      <div className="preview-bin-bar px-4 py-2 flex items-center text-xs border-b">
         <div className="flex min-w-0 items-center">
           <MenuSelect
             value={clip.bin_id == null ? '' : String(clip.bin_id)}
@@ -671,21 +729,6 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
           />
         </div>
 
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={() => {
-              if (!isAddingNote) {
-                const nextIdx = Math.floor(Math.random() * CLEVER_PLACEHOLDERS.length);
-                setPlaceholderText(CLEVER_PLACEHOLDERS[nextIdx]);
-              }
-              setIsAddingNote(!isAddingNote);
-            }}
-            className="add-note-btn flex items-center space-x-1.5 px-3 py-1 rounded-md border text-xs font-semibold transition-colors cursor-pointer"
-          >
-            <StickyNote className="w-3.5 h-3.5" />
-            <span>+ Add Note</span>
-          </button>
-        </div>
       </div>
       ) : (
         <div className="preview-bin-bar px-4 py-2 flex items-center justify-between text-xs border-b" role="note">

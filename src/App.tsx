@@ -988,6 +988,8 @@ export default function App() {
             pipelines={pipelines}
             onUpdateClip={handlePreviewClipUpdate}
             onAssignBin={handleAssignBin}
+            onTogglePin={handleTogglePin}
+            onToggleProtected={handleToggleProtected}
             onDeleteClip={selectedClipViewPolicy.state === 'trash' ? handlePurgeClipPermanently : handleDeleteClip}
             onUpdateClipNote={handleUpdateClipNoteLocally}
             isTransforming={selectedClip ? transformingClipIds.has(selectedClip.id) : false}
