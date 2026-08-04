@@ -5,6 +5,7 @@ mod filter_engine;
 mod hotkey_manager;
 mod intelligence_connections;
 pub mod intelligence_executor;
+mod intelligence_provider;
 mod intelligence_scheduler;
 mod ocr;
 #[cfg(test)]

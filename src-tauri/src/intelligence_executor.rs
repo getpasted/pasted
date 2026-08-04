@@ -1,11 +1,7 @@
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::fs;
-use std::io::Write;
-use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::Instant;
 
 use crate::db::{
     DbState, IntelligenceConnection, TransformClipApplication, TransformationExecutionStart,
@@ -15,8 +11,7 @@ use crate::transformation_intent::{
     IntentPlanningMode, PlannedExecutor, StepExecutionScope, TransformationPlan,
 };
 
-const EXECUTION_TIMEOUT: Duration = Duration::from_secs(90);
-const MAX_RESULT_BYTES: u64 = 1_048_576;
+pub use crate::intelligence_provider::IntelligenceExecutionError;
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -140,66 +135,8 @@ pub fn execute_saved_transform(
     }
 }
 
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub struct IntelligenceExecutionError {
-    pub code: &'static str,
-    pub message: String,
-}
-
-impl IntelligenceExecutionError {
-    fn new(code: &'static str, message: impl Into<String>) -> Self {
-        Self {
-            code,
-            message: message.into(),
-        }
-    }
-}
-
-struct TemporaryWorkspace(PathBuf);
-
-impl TemporaryWorkspace {
-    fn create() -> Result<Self, IntelligenceExecutionError> {
-        let nonce = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_nanos();
-        let path = std::env::temp_dir().join(format!(
-            "pasted-intelligence-{}-{nonce}",
-            std::process::id()
-        ));
-        fs::create_dir(&path).map_err(|error| {
-            IntelligenceExecutionError::new("workspace_error", error.to_string())
-        })?;
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            if let Err(error) = fs::set_permissions(&path, fs::Permissions::from_mode(0o700)) {
-                let _ = fs::remove_dir(&path);
-                return Err(IntelligenceExecutionError::new(
-                    "workspace_error",
-                    error.to_string(),
-                ));
-            }
-        }
-        Ok(Self(path))
-    }
-}
-
-impl Drop for TemporaryWorkspace {
-    fn drop(&mut self) {
-        let _ = fs::remove_dir_all(&self.0);
-    }
-}
-
-fn is_codex_connection(connection: &IntelligenceConnection) -> bool {
-    connection.provider_kind == "cli"
-        && connection.endpoint.as_deref().is_some_and(|endpoint| {
-            Path::new(endpoint)
-                .file_stem()
-                .and_then(|name| name.to_str())
-                .is_some_and(|name| name.to_ascii_lowercase().starts_with("codex"))
-        })
+fn is_supported_connection(connection: &IntelligenceConnection) -> bool {
+    crate::intelligence_provider::supports_connection(connection)
 }
 
 #[cfg(test)]
@@ -221,24 +158,24 @@ fn select_connections(
         return connections
             .into_iter()
             .find(|connection| {
-                connection.id == id && connection.enabled && is_codex_connection(connection)
+                connection.id == id && connection.enabled && is_supported_connection(connection)
             })
             .map(|connection| vec![connection])
             .ok_or_else(|| {
                 IntelligenceExecutionError::new(
                     "connection_unavailable",
-                    "The selected Codex connection is not enabled or available",
+                    "The selected intelligence connection is not enabled or supported",
                 )
             });
     }
     let candidates = connections
         .into_iter()
-        .filter(|connection| connection.enabled && is_codex_connection(connection))
+        .filter(|connection| connection.enabled && is_supported_connection(connection))
         .collect::<Vec<_>>();
     if candidates.is_empty() {
         Err(IntelligenceExecutionError::new(
             "no_enabled_connection",
-            "Power on Codex in Settings → Connections before building a Transform",
+            "Power on a supported provider in Settings → Connections before building a Transform",
         ))
     } else {
         Ok(candidates)
@@ -333,14 +270,6 @@ fn parse_plan(
     Ok(plan)
 }
 
-fn diagnostic_tail(value: &str, max_chars: usize) -> String {
-    let length = value.chars().count();
-    value
-        .chars()
-        .skip(length.saturating_sub(max_chars))
-        .collect()
-}
-
 fn execute_deterministic_step(
     db: &DbState,
     input: &str,
@@ -406,106 +335,17 @@ fn execute_semantic_step(
     cancellation: Option<&AtomicBool>,
 ) -> Result<String, IntelligenceExecutionError> {
     ensure_not_cancelled(cancellation)?;
-    let executable = connection.endpoint.as_deref().ok_or_else(|| {
-        IntelligenceExecutionError::new(
-            "connection_unavailable",
-            "Codex executable path is missing",
-        )
-    })?;
-    let workspace = TemporaryWorkspace::create()?;
-    let result_path = workspace.0.join("result.txt");
-    let stdout_path = workspace.0.join("stdout.log");
-    let stderr_path = workspace.0.join("stderr.log");
-    let mut command = Command::new(executable);
-    command
-        .args([
-            "exec",
-            "--ephemeral",
-            "--ignore-user-config",
-            "--ignore-rules",
-            "--skip-git-repo-check",
-            "--sandbox",
-            "read-only",
-            "--color",
-            "never",
-            "-C",
-        ])
-        .arg(&workspace.0)
-        .arg("--output-last-message")
-        .arg(&result_path);
-    if let Some(model) = connection
-        .model
-        .as_deref()
-        .filter(|model| !model.trim().is_empty())
-    {
-        command.arg("--model").arg(model);
-    }
-    command
-        .arg("-")
-        .stdin(Stdio::piped())
-        .stdout(fs::File::create(&stdout_path).map_err(|error| {
-            IntelligenceExecutionError::new("workspace_error", error.to_string())
-        })?)
-        .stderr(fs::File::create(&stderr_path).map_err(|error| {
-            IntelligenceExecutionError::new("workspace_error", error.to_string())
-        })?);
-
-    let started = Instant::now();
-    let mut child = command
-        .spawn()
-        .map_err(|error| IntelligenceExecutionError::new("connection_failed", error.to_string()))?;
-    child
-        .stdin
-        .take()
-        .ok_or_else(|| {
-            IntelligenceExecutionError::new("connection_failed", "Codex stdin was unavailable")
-        })?
-        .write_all(semantic_prompt(instructions, scope, input).as_bytes())
-        .map_err(|error| IntelligenceExecutionError::new("connection_failed", error.to_string()))?;
-    let status = loop {
-        if cancellation.is_some_and(|flag| flag.load(Ordering::Acquire)) {
-            let _ = child.kill();
-            let _ = child.wait();
-            return Err(IntelligenceExecutionError::new(
-                "execution_cancelled",
-                "Transform was cancelled",
-            ));
-        }
-        if let Some(status) = child.try_wait().map_err(|error| {
-            IntelligenceExecutionError::new("connection_failed", error.to_string())
-        })? {
-            break status;
-        }
-        if started.elapsed() >= EXECUTION_TIMEOUT {
-            let _ = child.kill();
-            let _ = child.wait();
-            return Err(IntelligenceExecutionError::new(
-                "connection_timeout",
-                "Codex did not finish within 90 seconds",
-            ));
-        }
-        std::thread::sleep(Duration::from_millis(25));
-    };
-    if !status.success() {
-        let error = fs::read_to_string(&stderr_path).unwrap_or_default();
-        return Err(IntelligenceExecutionError::new(
-            "provider_failed",
-            diagnostic_tail(&error, 1_600),
-        ));
-    }
-    if fs::metadata(&result_path)
-        .map(|metadata| metadata.len())
-        .unwrap_or(0)
-        > MAX_RESULT_BYTES
-    {
-        return Err(IntelligenceExecutionError::new(
-            "provider_output_too_large",
-            "Codex returned more than 1 MB",
-        ));
-    }
-    fs::read_to_string(&result_path).map_err(|error| {
-        IntelligenceExecutionError::new("invalid_provider_output", error.to_string())
-    })
+    let prompt = semantic_prompt(instructions, scope, input);
+    crate::intelligence_provider::execute(
+        connection,
+        crate::intelligence_provider::ProviderRequest {
+            prompt: &prompt,
+            output_schema: None,
+            cancellation_message: "Transform was cancelled",
+        },
+        cancellation,
+    )
+    .map(|response| response.output)
 }
 
 pub(crate) fn execute_semantic_operation(
@@ -796,128 +636,24 @@ pub(crate) fn plan_intent_with_cancellation(
             )
         })?;
         let result = (|| {
-            let executable = connection.endpoint.as_deref().ok_or_else(|| {
-                IntelligenceExecutionError::new(
-                    "connection_unavailable",
-                    "Codex executable path is missing",
-                )
-            })?;
-            let workspace = TemporaryWorkspace::create()?;
-            let schema_path = workspace.0.join("plan.schema.json");
-            let result_path = workspace.0.join("plan.json");
-            let stdout_path = workspace.0.join("stdout.log");
-            let stderr_path = workspace.0.join("stderr.log");
-            let schema = serde_json::to_vec(&plan_schema()).map_err(|error| {
-                IntelligenceExecutionError::new("invalid_plan_schema", error.to_string())
-            })?;
-            fs::write(&schema_path, schema).map_err(|error| {
-                IntelligenceExecutionError::new("workspace_error", error.to_string())
-            })?;
-
-            let mut command = Command::new(executable);
-            command
-                .args([
-                    "exec",
-                    "--ephemeral",
-                    "--ignore-user-config",
-                    "--ignore-rules",
-                    "--skip-git-repo-check",
-                    "--sandbox",
-                    "read-only",
-                    "--color",
-                    "never",
-                    "-C",
-                ])
-                .arg(&workspace.0)
-                .arg("--output-schema")
-                .arg(&schema_path)
-                .arg("--output-last-message")
-                .arg(&result_path);
-            if let Some(model) = connection
-                .model
-                .as_deref()
-                .filter(|model| !model.trim().is_empty())
-            {
-                command.arg("--model").arg(model);
-            }
-            command
-                .arg("-")
-                .stdin(Stdio::piped())
-                .stdout(fs::File::create(&stdout_path).map_err(|error| {
-                    IntelligenceExecutionError::new("workspace_error", error.to_string())
-                })?)
-                .stderr(fs::File::create(&stderr_path).map_err(|error| {
-                    IntelligenceExecutionError::new("workspace_error", error.to_string())
-                })?);
-
-            let started = Instant::now();
-            let mut child = command.spawn().map_err(|error| {
-                IntelligenceExecutionError::new("connection_failed", error.to_string())
-            })?;
-            child
-                .stdin
-                .take()
-                .ok_or_else(|| {
-                    IntelligenceExecutionError::new(
-                        "connection_failed",
-                        "Codex stdin was unavailable",
-                    )
-                })?
-                .write_all(planning_prompt(&request).as_bytes())
-                .map_err(|error| {
-                    IntelligenceExecutionError::new("connection_failed", error.to_string())
-                })?;
-            let status = loop {
-                if cancellation.is_some_and(|flag| flag.load(Ordering::Acquire)) {
-                    let _ = child.kill();
-                    let _ = child.wait();
-                    return Err(IntelligenceExecutionError::new(
-                        "execution_cancelled",
-                        "Transform draft was cancelled",
-                    ));
-                }
-                if let Some(status) = child.try_wait().map_err(|error| {
-                    IntelligenceExecutionError::new("connection_failed", error.to_string())
-                })? {
-                    break status;
-                }
-                if started.elapsed() >= EXECUTION_TIMEOUT {
-                    let _ = child.kill();
-                    let _ = child.wait();
-                    return Err(IntelligenceExecutionError::new(
-                        "connection_timeout",
-                        "Codex did not finish within 90 seconds",
-                    ));
-                }
-                std::thread::sleep(Duration::from_millis(25));
-            };
-            if !status.success() {
-                let error = fs::read_to_string(&stderr_path).unwrap_or_default();
-                return Err(IntelligenceExecutionError::new(
-                    "provider_failed",
-                    diagnostic_tail(&error, 1_600),
-                ));
-            }
-            if fs::metadata(&result_path)
-                .map(|metadata| metadata.len())
-                .unwrap_or(0)
-                > MAX_RESULT_BYTES
-            {
-                return Err(IntelligenceExecutionError::new(
-                    "provider_output_too_large",
-                    "Codex returned more than 1 MB",
-                ));
-            }
-            let raw = fs::read_to_string(&result_path).map_err(|error| {
-                IntelligenceExecutionError::new("invalid_provider_output", error.to_string())
-            })?;
+            let prompt = planning_prompt(&request);
+            let schema = plan_schema();
+            let response = crate::intelligence_provider::execute(
+                connection,
+                crate::intelligence_provider::ProviderRequest {
+                    prompt: &prompt,
+                    output_schema: Some(&schema),
+                    cancellation_message: "Transform draft was cancelled",
+                },
+                cancellation,
+            )?;
             ensure_not_cancelled(cancellation)?;
-            let plan = parse_plan(&raw, &request)?;
+            let plan = parse_plan(&response.output, &request)?;
             Ok(PlanIntentOutcome {
                 plan,
                 connection_id: connection.id.clone(),
                 connection_name: connection.name.clone(),
-                duration_ms: started.elapsed().as_millis().min(i64::MAX as u128) as i64,
+                duration_ms: response.duration_ms,
             })
         })();
         finish_scheduler_permit(&mut permit, &result);
@@ -943,6 +679,8 @@ pub(crate) fn plan_intent_with_cancellation(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
+    use std::path::PathBuf;
     use std::time::{SystemTime, UNIX_EPOCH};
 
     #[cfg(unix)]
@@ -982,19 +720,6 @@ mod tests {
         }
     }
 
-    #[cfg(unix)]
-    #[test]
-    fn temporary_workspaces_are_private_and_removed_on_drop() {
-        use std::os::unix::fs::PermissionsExt;
-
-        let workspace = TemporaryWorkspace::create().unwrap();
-        let path = workspace.0.clone();
-        let mode = fs::metadata(&path).unwrap().permissions().mode() & 0o777;
-        assert_eq!(mode, 0o700);
-
-        drop(workspace);
-        assert!(!path.exists());
-    }
     fn test_db() -> (DbState, PathBuf) {
         let nonce = SystemTime::now()
             .duration_since(UNIX_EPOCH)
