@@ -367,7 +367,9 @@
     --status-info: var(--accent-primary);
     --focus-ring: var(--accent-primary);
     --menu-surface: color-mix(in srgb, var(--bg-card) 94%, transparent);
-    --menu-hover: color-mix(in srgb, var(--accent-primary) 18%, var(--bg-card));
+    --menu-hover: color-mix(in srgb, var(--text-main) 7%, var(--bg-card));
+    --menu-selected: color-mix(in srgb, var(--accent-primary) 12%, var(--bg-card));
+    --menu-selected-hover: color-mix(in srgb, var(--accent-primary) 17%, var(--bg-card));
     --code-surface: #202124;
     --code-border: #4b4d52;
     --code-text: #f4f4f5;

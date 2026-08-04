@@ -14,6 +14,7 @@ type MockClip = {
   is_transformed?: number;
   pin_order: number;
   is_trashed: number;
+  trashed_at?: string | null;
   bin_id: number | null;
   bin_ids: number[];
   note?: string | null;
@@ -422,10 +423,28 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
     }
     case 'delete_bin': {
       const id = Number(args?.id);
+      const disposition = typeof args?.disposition === 'string' ? args.disposition : 'keep';
+      const destinationBinId = Number(args?.destinationBinId);
       mockBins = mockBins.filter((bin) => bin.id !== id);
       for (const clip of mockClips) {
+        const belongsToBin = clip.bin_id === id || clip.bin_ids.includes(id);
+        if (!belongsToBin) continue;
         clip.bin_ids = clip.bin_ids.filter((binId) => binId !== id);
-        if (clip.bin_id === id) clip.bin_id = null;
+        if (disposition === 'move' && Number.isFinite(destinationBinId)) {
+          clip.bin_ids = clip.bin_ids.filter((binId) => {
+            const candidate = mockBins.find((bin) => bin.id === binId);
+            return candidate?.bin_type === 'tag';
+          });
+          clip.bin_ids.push(destinationBinId);
+          clip.bin_id = destinationBinId;
+        } else if (disposition === 'trash' && !clip.is_protected) {
+          clip.bin_ids = [];
+          clip.bin_id = null;
+          clip.is_trashed = 1;
+          clip.trashed_at = new Date().toISOString();
+        } else if (clip.bin_id === id) {
+          clip.bin_id = null;
+        }
       }
       return null as unknown as T;
     }

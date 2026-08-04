@@ -2472,15 +2472,122 @@ impl DbState {
         Ok(())
     }
 
-    pub fn delete_bin(&self, id: i64) -> Result<()> {
+    pub fn delete_bin(
+        &self,
+        id: i64,
+        disposition: &str,
+        destination_bin_id: Option<i64>,
+    ) -> Result<()> {
         let mut conn = self.conn.lock();
         let tx = conn.transaction()?;
+
+        let bin_name: String =
+            tx.query_row("SELECT name FROM bins WHERE id = ?1", params![id], |row| {
+                row.get(0)
+            })?;
+        let clip_ids = {
+            let mut stmt = tx.prepare(
+                "SELECT id FROM clips
+                 WHERE (is_trashed IS NULL OR is_trashed = 0)
+                   AND (bin_id = ?1 OR id IN (SELECT clip_id FROM clip_bins WHERE bin_id = ?1))",
+            )?;
+            let ids = stmt
+                .query_map(params![id], |row| row.get::<_, i64>(0))?
+                .collect::<Result<Vec<_>>>()?;
+            ids
+        };
+
+        match disposition {
+            "keep" => {
+                for clip_id in &clip_ids {
+                    tx.execute(
+                        "UPDATE clips SET bin_id = NULL WHERE id = ?1 AND bin_id = ?2",
+                        params![clip_id, id],
+                    )?;
+                }
+            }
+            "trash" => {
+                for clip_id in &clip_ids {
+                    let changed = tx.execute(
+                        "UPDATE clips
+                         SET is_trashed = 1,
+                             trashed_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
+                         WHERE id = ?1 AND (is_protected IS NULL OR is_protected = 0)",
+                        params![clip_id],
+                    )?;
+                    if changed > 0 {
+                        self.clear_category_bin_assignments_internal(&tx, *clip_id)?;
+                    } else {
+                        tx.execute(
+                            "UPDATE clips SET bin_id = NULL WHERE id = ?1 AND bin_id = ?2",
+                            params![clip_id, id],
+                        )?;
+                    }
+                }
+                self.enforce_trash_limit_internal(&tx)?;
+            }
+            "move" => {
+                let destination_id = destination_bin_id.ok_or_else(|| {
+                    rusqlite::Error::InvalidParameterName(
+                        "A destination Bin is required when moving clips".to_string(),
+                    )
+                })?;
+                if destination_id == id {
+                    return Err(rusqlite::Error::InvalidParameterName(
+                        "The destination Bin must be different from the deleted Bin".to_string(),
+                    ));
+                }
+                let destination_exists = tx.query_row(
+                    "SELECT EXISTS(
+                         SELECT 1 FROM bins
+                         WHERE id = ?1
+                           AND (smart_rule IS NULL OR TRIM(smart_rule) = '')
+                           AND COALESCE(bin_type, 'category') != 'tag'
+                     )",
+                    params![destination_id],
+                    |row| row.get::<_, bool>(0),
+                )?;
+                if !destination_exists {
+                    return Err(rusqlite::Error::InvalidParameterName(
+                        "The destination must be another manual Bin".to_string(),
+                    ));
+                }
+                for clip_id in &clip_ids {
+                    self.clear_category_bin_assignments_internal(&tx, *clip_id)?;
+                    tx.execute(
+                        "INSERT OR REPLACE INTO clip_bins (clip_id, bin_id) VALUES (?1, ?2)",
+                        params![clip_id, destination_id],
+                    )?;
+                    tx.execute(
+                        "UPDATE clips SET bin_id = ?1 WHERE id = ?2",
+                        params![destination_id, clip_id],
+                    )?;
+                }
+            }
+            _ => {
+                return Err(rusqlite::Error::InvalidParameterName(
+                    "Unknown Bin deletion outcome".to_string(),
+                ));
+            }
+        }
+
         tx.execute("DELETE FROM clip_bins WHERE bin_id = ?1", params![id])?;
-        tx.execute(
-            "UPDATE clips SET bin_id = NULL WHERE bin_id = ?1",
-            params![id],
-        )?;
         tx.execute("DELETE FROM bins WHERE id = ?1", params![id])?;
+        let outcome = match disposition {
+            "trash" => "moved its clips to Trash",
+            "move" => "moved its clips to another Bin",
+            _ => "kept its clips in No Bin",
+        };
+        self.log_activity_internal(
+            &tx,
+            "bin_deleted",
+            &format!(
+                "Deleted Bin \"{}\" and {} ({} clips)",
+                bin_name,
+                outcome,
+                clip_ids.len()
+            ),
+        )?;
         tx.commit()
     }
 
@@ -4090,9 +4197,85 @@ mod tests {
         let bins = db.get_bins().unwrap();
         assert_eq!(bins.len(), initial_count + 1);
 
-        db.delete_bin(bin.id).unwrap();
+        db.delete_bin(bin.id, "keep", None).unwrap();
         let bins_after = db.get_bins().unwrap();
         assert_eq!(bins_after.len(), initial_count);
+    }
+
+    #[test]
+    fn deleting_a_bin_can_keep_move_or_trash_its_clips() {
+        let db = setup_test_db();
+
+        let keep_bin = db.create_bin("Keep", "📁", "default", None).unwrap();
+        let kept = db
+            .save_clip("text", Some("kept"), None, None, "keep_hash", "App")
+            .unwrap();
+        db.assign_to_bin(kept.id, Some(keep_bin.id)).unwrap();
+        db.delete_bin(keep_bin.id, "keep", None).unwrap();
+        assert_eq!(db.get_clip_by_id(kept.id).unwrap().bin_id, None);
+
+        let source_bin = db.create_bin("Source", "📁", "default", None).unwrap();
+        let destination_bin = db.create_bin("Destination", "📁", "default", None).unwrap();
+        let moved = db
+            .save_clip("text", Some("moved"), None, None, "move_hash", "App")
+            .unwrap();
+        db.assign_to_bin(moved.id, Some(source_bin.id)).unwrap();
+        db.delete_bin(source_bin.id, "move", Some(destination_bin.id))
+            .unwrap();
+        assert_eq!(
+            db.get_clip_by_id(moved.id).unwrap().bin_id,
+            Some(destination_bin.id)
+        );
+
+        let trash_bin = db.create_bin("Trash", "📁", "default", None).unwrap();
+        let trashed = db
+            .save_clip("text", Some("trashed"), None, None, "trash_hash", "App")
+            .unwrap();
+        let protected = db
+            .save_clip(
+                "text",
+                Some("protected"),
+                None,
+                None,
+                "protected_hash",
+                "App",
+            )
+            .unwrap();
+        db.assign_to_bin(trashed.id, Some(trash_bin.id)).unwrap();
+        db.assign_to_bin(protected.id, Some(trash_bin.id)).unwrap();
+        db.toggle_protected(protected.id).unwrap();
+        db.delete_bin(trash_bin.id, "trash", None).unwrap();
+
+        assert!(db
+            .get_trashed_clips()
+            .unwrap()
+            .iter()
+            .any(|clip| clip.id == trashed.id));
+        let protected_after = db.get_clip_by_id(protected.id).unwrap();
+        assert!(protected_after.is_protected);
+        assert!(!protected_after.is_trashed);
+        assert_eq!(protected_after.bin_id, None);
+    }
+
+    #[test]
+    fn deleting_a_bin_rejects_invalid_move_destinations_atomically() {
+        let db = setup_test_db();
+        let source_bin = db.create_bin("Source", "📁", "default", None).unwrap();
+        let clip = db
+            .save_clip("text", Some("clip"), None, None, "clip_hash", "App")
+            .unwrap();
+        db.assign_to_bin(clip.id, Some(source_bin.id)).unwrap();
+
+        assert!(db.delete_bin(source_bin.id, "move", None).is_err());
+        assert!(db
+            .get_bins()
+            .unwrap()
+            .iter()
+            .any(|bin| bin.id == source_bin.id));
+        assert_eq!(
+            db.get_clip_by_id(clip.id).unwrap().bin_id,
+            Some(source_bin.id)
+        );
     }
 
     #[test]

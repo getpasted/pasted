@@ -370,8 +370,18 @@ pub fn create_bin(
 }
 
 #[tauri::command]
-pub fn delete_bin(id: i64, db: State<'_, Arc<DbState>>) -> Result<(), String> {
-    db.delete_bin(id).map_err(|e| e.to_string())
+pub fn delete_bin(
+    id: i64,
+    disposition: Option<String>,
+    destination_bin_id: Option<i64>,
+    db: State<'_, Arc<DbState>>,
+) -> Result<(), String> {
+    db.delete_bin(
+        id,
+        disposition.as_deref().unwrap_or("keep"),
+        destination_bin_id,
+    )
+    .map_err(|e| e.to_string())
 }
 
 #[tauri::command]

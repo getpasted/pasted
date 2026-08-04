@@ -15,6 +15,7 @@ import {
   Workflow,
   History,
   ListFilter,
+  FolderMinus,
 } from 'lucide-react';
 import { ToolPageHeader } from './ToolPageHeader';
 import { MenuSelect } from './MenuSelect';
@@ -117,6 +118,13 @@ export const ActivityLogView: React.FC = () => {
           <div className="theme-status-info flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold">
             <History className="w-3.5 h-3.5" />
             <span>Revision Restored</span>
+          </div>
+        );
+      case 'bin_deleted':
+        return (
+          <div className="theme-status-danger flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold">
+            <FolderMinus className="w-3.5 h-3.5" />
+            <span>Bin Deleted</span>
           </div>
         );
       case 'trash_emptied':

@@ -1063,12 +1063,17 @@ export default function App() {
       {binToDelete && (
         <DeleteBinDialog
           bin={binToDelete}
+          bins={bins}
           onCancel={() => setBinToDelete(null)}
-          onConfirm={async (bin) => {
+          onConfirm={async (bin, disposition, destinationBinId) => {
             try {
-              await invoke('delete_bin', { id: bin.id });
+              await invoke('delete_bin', {
+                id: bin.id,
+                disposition,
+                destinationBinId,
+              });
               setBinToDelete(null);
-              fetchBins();
+              await Promise.all([fetchBins(), fetchClips(), fetchTrashedClips()]);
               if (selectedBinId === bin.id) {
                 setCurrentTab('all');
                 setSelectedBinId(null);

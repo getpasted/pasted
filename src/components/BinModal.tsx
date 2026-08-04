@@ -417,7 +417,7 @@ export const BinModal: React.FC<BinModalProps> = ({
                 title="Open Emoji Picker"
               />
               <span className="text-[11px] theme-text-muted">
-                Click input to open Emoji picker <kbd className="font-mono text-[10px] px-1.5 py-0.5 rounded theme-badge border">⌘Control+Space</kbd>
+                Click input to open Emoji picker <kbd className="font-mono text-[10px] px-1.5 py-0.5 rounded theme-badge border">Command + Space</kbd>
               </span>
             </div>
           </div>
