@@ -9,7 +9,10 @@ interface ClipRevisionHistoryProps {
   onClose: () => void;
   previewedVersionId?: number | null;
   restoringVersionId?: number | null;
+  hasMore?: boolean;
+  isLoadingMore?: boolean;
   onPreview: (version: ClipVersion) => void;
+  onLoadMore?: () => void;
   onRestore: (version: ClipVersion) => void;
 }
 
@@ -20,7 +23,10 @@ export function ClipRevisionHistory({
   onClose,
   previewedVersionId = null,
   restoringVersionId = null,
+  hasMore = false,
+  isLoadingMore = false,
   onPreview,
+  onLoadMore,
   onRestore,
 }: ClipRevisionHistoryProps) {
   return (
@@ -101,6 +107,18 @@ export function ClipRevisionHistory({
               </div>
             );
           })}
+          {hasMore && (
+            <button
+              type="button"
+              disabled={isLoadingMore || restoringVersionId !== null}
+              onClick={onLoadMore}
+              className="clip-revision-history-load-more w-full rounded-lg border px-3 py-2 text-[11px] font-semibold"
+            >
+              {isLoadingMore
+                ? <><LoaderCircle className="h-3.5 w-3.5 animate-spin" /> Loading older…</>
+                : 'Load older revisions'}
+            </button>
+          )}
         </div>
       )}
     </section>

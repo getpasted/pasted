@@ -633,6 +633,28 @@ html.is-stable-reordering * {
   background-color: var(--accent-primary);
 }
 
+.clip-revision-history-load-more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  color: var(--text-muted);
+  background-color: var(--bg-surface);
+  border-color: var(--border-card);
+  transition: background-color 100ms ease, border-color 100ms ease, color 100ms ease;
+}
+
+.clip-revision-history-load-more:hover:not(:disabled) {
+  color: var(--text-title);
+  background-color: var(--bg-tab-hover);
+  border-color: var(--border-clip-card-hover);
+}
+
+.clip-revision-history-load-more:disabled {
+  cursor: wait;
+  opacity: 0.68;
+}
+
 @media (hover: none) {
   .clip-revision-history-restore {
     opacity: 1;

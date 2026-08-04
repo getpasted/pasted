@@ -238,6 +238,7 @@ export interface AppSettings {
   dockMenubarIcon: 'auto_hide' | 'both' | 'menubar_only';
   maxClipSizeMb: number;
   keepClipCount: number;
+  revisionHistoryLimit: number;
   alwaysPastePlainText: boolean;
   rowHeight: 'small' | 'medium' | 'large';
   iCloudSync: boolean;

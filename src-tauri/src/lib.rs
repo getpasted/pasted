@@ -294,6 +294,7 @@ pub fn run() {
             commands::get_app_setting,
             commands::get_all_app_settings,
             commands::enforce_clip_retention,
+            commands::enforce_revision_retention,
             commands::update_clip_note,
             commands::update_clip_text,
             commands::delete_clip,

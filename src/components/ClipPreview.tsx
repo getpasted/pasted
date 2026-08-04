@@ -97,6 +97,8 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   const [restoringVersionId, setRestoringVersionId] = useState<number | null>(null);
   const [revisionCount, setRevisionCount] = useState<number | null>(null);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+  const [isLoadingOlderVersions, setIsLoadingOlderVersions] = useState(false);
+  const [hasMoreVersions, setHasMoreVersions] = useState(false);
 
   useEffect(() => {
     invoke<TransformationRecipe[]>('get_transformation_recipes')
@@ -142,9 +144,16 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
     if (clip && showHistory) {
       setVersions([]);
       setIsHistoryLoading(true);
-      invoke<ClipVersion[]>('get_clip_versions', { clipId: clip.id })
-        .then((res) => {
-          if (!cancelled) setVersions(Array.isArray(res) ? res : []);
+      Promise.all([
+        invoke<ClipVersion[]>('get_clip_versions', { clipId: clip.id, limit: 50, offset: 0 }),
+        invoke<number>('get_clip_version_count', { clipId: clip.id }),
+      ])
+        .then(([res, count]) => {
+          if (cancelled) return;
+          const items = Array.isArray(res) ? res : [];
+          setVersions(items);
+          setRevisionCount(count);
+          setHasMoreVersions(items.length < count);
         })
         .catch((e) => console.error('Failed to load clip versions:', e))
         .finally(() => {
@@ -152,6 +161,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
         });
     } else {
       setIsHistoryLoading(false);
+      setHasMoreVersions(false);
     }
     return () => {
       cancelled = true;
@@ -206,6 +216,8 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
     setPreviewedVersion(null);
     setRestoringVersionId(null);
     setIsHistoryLoading(false);
+    setIsLoadingOlderVersions(false);
+    setHasMoreVersions(false);
     if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
     if (copiedFormatTimerRef.current) clearTimeout(copiedFormatTimerRef.current);
   }, [clip]);
@@ -508,6 +520,25 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
       console.error('Failed to restore clip version:', error);
     } finally {
       setRestoringVersionId(null);
+    }
+  };
+
+  const handleLoadOlderVersions = async () => {
+    if (!clip || isLoadingOlderVersions || !hasMoreVersions) return;
+    setIsLoadingOlderVersions(true);
+    try {
+      const older = await invoke<ClipVersion[]>('get_clip_versions', {
+        clipId: clip.id,
+        limit: 50,
+        offset: versions.length,
+      });
+      const items = Array.isArray(older) ? older : [];
+      setVersions((current) => [...current, ...items]);
+      setHasMoreVersions(versions.length + items.length < (revisionCount ?? 0));
+    } catch (error) {
+      console.error('Failed to load older clip revisions:', error);
+    } finally {
+      setIsLoadingOlderVersions(false);
     }
   };
 
@@ -904,6 +935,9 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
           onClose={() => setShowHistory(false)}
           previewedVersionId={previewedVersion?.id ?? null}
           restoringVersionId={restoringVersionId}
+          hasMore={hasMoreVersions}
+          isLoadingMore={isLoadingOlderVersions}
+          onLoadMore={() => void handleLoadOlderVersions()}
           onPreview={(version) => setPreviewedVersion((current) => (
             current?.id === version.id ? null : version
           ))}

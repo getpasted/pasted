@@ -10,6 +10,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   dockMenubarIcon: 'auto_hide',
   maxClipSizeMb: 100,
   keepClipCount: 900,
+  revisionHistoryLimit: 50,
   alwaysPastePlainText: false,
   rowHeight: 'medium',
   iCloudSync: true,
@@ -44,6 +45,7 @@ function parseSavedSettings(saved: Record<string, string>) {
   if (['auto_hide', 'both', 'menubar_only'].includes(saved.dockMenubarIcon)) next.dockMenubarIcon = saved.dockMenubarIcon as AppSettings['dockMenubarIcon'];
   if (saved.maxClipSizeMb) next.maxClipSizeMb = numberValue('maxClipSizeMb', next.maxClipSizeMb);
   if (saved.keepClipCount) next.keepClipCount = numberValue('keepClipCount', next.keepClipCount);
+  if (saved.revisionHistoryLimit !== undefined) next.revisionHistoryLimit = numberValue('revisionHistoryLimit', next.revisionHistoryLimit);
   if (saved.alwaysPastePlainText !== undefined) next.alwaysPastePlainText = saved.alwaysPastePlainText === 'true';
   if (['small', 'medium', 'large'].includes(saved.rowHeight)) next.rowHeight = saved.rowHeight as AppSettings['rowHeight'];
   if (saved.iCloudSync !== undefined) next.iCloudSync = saved.iCloudSync === 'true';
@@ -168,6 +170,10 @@ export function useAppSettings() {
   useEffect(() => {
     if (settingsHydrated) invoke('enforce_clip_retention', { keepCount: appSettings.keepClipCount }).catch(console.error);
   }, [appSettings.keepClipCount, settingsHydrated]);
+
+  useEffect(() => {
+    if (settingsHydrated) invoke('enforce_revision_retention', { keepCount: appSettings.revisionHistoryLimit }).catch(console.error);
+  }, [appSettings.revisionHistoryLimit, settingsHydrated]);
 
   useEffect(() => {
     if (settingsHydrated) invoke('set_dock_visibility', { showDock: appSettings.dockMenubarIcon === 'both' }).catch(console.error);

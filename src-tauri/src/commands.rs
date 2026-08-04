@@ -111,6 +111,15 @@ pub fn enforce_clip_retention(keep_count: i64, db: State<'_, Arc<DbState>>) -> R
 }
 
 #[tauri::command]
+pub fn enforce_revision_retention(
+    keep_count: i64,
+    db: State<'_, Arc<DbState>>,
+) -> Result<(), String> {
+    db.enforce_revision_retention(keep_count)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
 pub fn update_clip_note(
     clip_id: i64,
     note: Option<String>,
@@ -237,9 +246,16 @@ pub fn reorder_pinned_clips(ids: Vec<i64>, db: State<'_, Arc<DbState>>) -> Resul
 #[tauri::command]
 pub fn get_clip_versions(
     clip_id: i64,
+    limit: Option<i64>,
+    offset: Option<i64>,
     db: State<'_, Arc<DbState>>,
 ) -> Result<Vec<crate::db::ClipVersion>, String> {
-    db.get_clip_versions(clip_id).map_err(|e| e.to_string())
+    db.get_clip_versions_page(
+        clip_id,
+        limit.unwrap_or(50).clamp(1, 100),
+        offset.unwrap_or(0).max(0),
+    )
+    .map_err(|e| e.to_string())
 }
 
 #[tauri::command]

@@ -1200,6 +1200,34 @@ impl DbState {
         Ok(())
     }
 
+    fn revision_history_limit_internal(conn: &Connection) -> i64 {
+        conn.query_row(
+            "SELECT value FROM settings WHERE key = 'revisionHistoryLimit'",
+            [],
+            |row| row.get::<_, String>(0),
+        )
+        .ok()
+        .and_then(|value| value.parse::<i64>().ok())
+        .unwrap_or(50)
+        .max(0)
+    }
+
+    fn prune_clip_versions_internal(conn: &Connection, clip_id: i64) -> Result<()> {
+        let limit = Self::revision_history_limit_internal(conn);
+        if limit == 0 {
+            return Ok(());
+        }
+        conn.execute(
+            "DELETE FROM clip_versions
+             WHERE clip_id = ?1 AND id NOT IN (
+                SELECT id FROM clip_versions
+                WHERE clip_id = ?1 ORDER BY id DESC LIMIT ?2
+             )",
+            params![clip_id, limit],
+        )?;
+        Ok(())
+    }
+
     pub fn update_clip_text(&self, clip_id: i64, text: &str) -> Result<()> {
         let mut conn = self.conn.lock();
         let tx = conn.transaction()?;
@@ -1234,17 +1262,7 @@ impl DbState {
                 "INSERT INTO clip_versions (clip_id, text_content, context_json) VALUES (?1, ?2, ?3)",
                 params![clip_id, previous_text, context_json],
             )?;
-            tx.execute(
-                "DELETE FROM clip_versions
-                 WHERE clip_id = ?1
-                   AND id NOT IN (
-                       SELECT id FROM clip_versions
-                       WHERE clip_id = ?1
-                       ORDER BY id DESC
-                       LIMIT 50
-                   )",
-                params![clip_id],
-            )?;
+            Self::prune_clip_versions_internal(&tx, clip_id)?;
         }
         tx.execute(
             "UPDATE clips SET text_content = ?1, current_transformation_id = NULL WHERE id = ?2",
@@ -2052,12 +2070,24 @@ impl DbState {
         tx.commit()
     }
 
+    #[cfg(test)]
     pub fn get_clip_versions(&self, clip_id: i64) -> Result<Vec<ClipVersion>> {
+        self.get_clip_versions_page(clip_id, -1, 0)
+    }
+
+    pub fn get_clip_versions_page(
+        &self,
+        clip_id: i64,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<ClipVersion>> {
         let conn = self.conn.lock();
         let mut stmt = conn.prepare(
-            "SELECT id, clip_id, text_content, context_json, created_at FROM clip_versions WHERE clip_id = ?1 ORDER BY created_at DESC, id DESC",
+            "SELECT id, clip_id, text_content, context_json, created_at
+             FROM clip_versions WHERE clip_id = ?1
+             ORDER BY created_at DESC, id DESC LIMIT ?2 OFFSET ?3",
         )?;
-        let rows = stmt.query_map(params![clip_id], |row| {
+        let rows = stmt.query_map(params![clip_id, limit, offset.max(0)], |row| {
             let context_json: Option<String> = row.get(3)?;
             let context = context_json
                 .as_deref()
@@ -2194,13 +2224,7 @@ impl DbState {
                 params![restored_bin_id, clip_id],
             )?;
         }
-        tx.execute(
-            "DELETE FROM clip_versions
-             WHERE clip_id = ?1 AND id NOT IN (
-                SELECT id FROM clip_versions WHERE clip_id = ?1 ORDER BY id DESC LIMIT 50
-             )",
-            params![clip_id],
-        )?;
+        Self::prune_clip_versions_internal(&tx, clip_id)?;
         tx.commit()?;
         let _ = self.log_activity_internal(
             &conn,
@@ -2917,13 +2941,7 @@ impl DbState {
             "INSERT INTO clip_versions (clip_id, text_content, context_json) VALUES (?1, ?2, ?3)",
             params![clip_id, expected_input, context_json],
         )?;
-        tx.execute(
-            "DELETE FROM clip_versions
-             WHERE clip_id = ?1 AND id NOT IN (
-                SELECT id FROM clip_versions WHERE clip_id = ?1 ORDER BY id DESC LIMIT 50
-             )",
-            params![clip_id],
-        )?;
+        Self::prune_clip_versions_internal(&tx, clip_id)?;
         let transformation_id: String =
             tx.query_row("SELECT lower(hex(randomblob(16)))", [], |row| row.get(0))?;
         tx.execute(
@@ -3478,6 +3496,30 @@ impl DbState {
     pub fn purge_old_clips(&self, keep_count: i64) -> Result<()> {
         let conn = self.conn.lock();
         self.enforce_history_limit_with_count_internal(&conn, keep_count)
+    }
+
+    pub fn enforce_revision_retention(&self, keep_count: i64) -> Result<()> {
+        let keep_count = keep_count.max(0);
+        let mut conn = self.conn.lock();
+        let tx = conn.transaction()?;
+        tx.execute(
+            "INSERT INTO settings (key, value) VALUES ('revisionHistoryLimit', ?1)
+             ON CONFLICT(key) DO UPDATE SET value = ?1",
+            params![keep_count.to_string()],
+        )?;
+        if keep_count > 0 {
+            tx.execute(
+                "DELETE FROM clip_versions WHERE id IN (
+                    SELECT id FROM (
+                        SELECT id,
+                               ROW_NUMBER() OVER (PARTITION BY clip_id ORDER BY id DESC) AS revision_rank
+                        FROM clip_versions
+                    ) WHERE revision_rank > ?1
+                 )",
+                params![keep_count],
+            )?;
+        }
+        tx.commit()
     }
 
     pub fn save_setting(&self, key: &str, value: &str) -> Result<()> {
@@ -4364,6 +4406,43 @@ mod tests {
         db.purge_clip_permanently(clip.id).unwrap();
         assert!(db.get_clip_versions(clip.id).unwrap().is_empty());
         assert_eq!(db.get_clip_version_count(clip.id).unwrap(), 0);
+    }
+
+    #[test]
+    fn revision_retention_is_configurable_and_can_be_unlimited() {
+        let db = setup_test_db();
+        let clip = db
+            .save_clip(
+                "text",
+                Some("Original"),
+                None,
+                None,
+                "revision-policy",
+                "App",
+            )
+            .unwrap();
+
+        db.enforce_revision_retention(10).unwrap();
+        for index in 0..18 {
+            db.update_clip_text(clip.id, &format!("Limited {index}"))
+                .unwrap();
+        }
+        assert_eq!(db.get_clip_version_count(clip.id).unwrap(), 10);
+
+        db.enforce_revision_retention(0).unwrap();
+        for index in 0..60 {
+            db.update_clip_text(clip.id, &format!("Unlimited {index}"))
+                .unwrap();
+        }
+        assert_eq!(db.get_clip_version_count(clip.id).unwrap(), 70);
+
+        db.enforce_revision_retention(25).unwrap();
+        assert_eq!(db.get_clip_version_count(clip.id).unwrap(), 25);
+        let newest = db.get_clip_versions_page(clip.id, 10, 0).unwrap();
+        let middle = db.get_clip_versions_page(clip.id, 10, 10).unwrap();
+        let oldest = db.get_clip_versions_page(clip.id, 10, 20).unwrap();
+        assert_eq!((newest.len(), middle.len(), oldest.len()), (10, 10, 5));
+        assert_ne!(newest[0].id, middle[0].id);
     }
 
     #[test]
