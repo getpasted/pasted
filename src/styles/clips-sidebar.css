@@ -207,13 +207,6 @@
   color: var(--text-muted);
 }
 
-.clip-ocr-badge,
-.clip-meta-protected {
-  background-color: color-mix(in srgb, var(--accent-primary) 11%, var(--bg-surface));
-  border-color: color-mix(in srgb, var(--accent-primary) 42%, var(--border-subtle));
-  color: var(--accent-primary);
-}
-
 .clip-meta-row {
   gap: 0.25rem;
   white-space: nowrap;
@@ -303,6 +296,11 @@
 }
 
 .clip-card-action.is-accent {
+  color: var(--accent-primary);
+}
+
+.clip-protected-accent,
+.clip-ocr-accent {
   color: var(--accent-primary);
 }
 

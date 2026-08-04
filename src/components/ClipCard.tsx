@@ -255,9 +255,13 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
         </div>
         <div className="clip-meta-row theme-text-subtle flex items-center text-[11px] font-mono">
           {clip.is_protected && (
-            <span title="Clip is Protected against deletion" className="clip-meta-item clip-meta-protected">
+            <span
+              role="img"
+              aria-label="Protected Clip"
+              title="Clip is Protected against deletion"
+              className="clip-meta-item clip-meta-icon-only clip-protected-accent"
+            >
               <Shield className="clip-meta-icon" />
-              <span>Protected</span>
             </span>
           )}
           {queueIndex !== undefined && (
@@ -272,9 +276,13 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
             )
           )}
           {clip.content_type === 'image' && clip.text_content && (
-            <span title="OCR Text Recognized" className="clip-meta-item clip-ocr-badge">
+            <span
+              role="img"
+              aria-label="OCR Text Recognized"
+              title="OCR Text Recognized"
+              className="clip-meta-item clip-meta-icon-only clip-ocr-accent"
+            >
               <ScanText className="clip-meta-icon" />
-              <span>OCR</span>
             </span>
           )}
           {noteSummary && (
