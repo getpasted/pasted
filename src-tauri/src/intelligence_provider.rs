@@ -33,6 +33,7 @@ pub struct ProviderRequest<'a> {
     pub cancellation_message: &'a str,
 }
 
+#[derive(Debug)]
 pub struct ProviderResponse {
     pub output: String,
     pub duration_ms: i64,
@@ -326,5 +327,63 @@ mod tests {
         assert!(supports_adapter_id("codex_cli"));
         assert!(!supports_adapter_id("claude_cli"));
         assert!(!supports_adapter_id("ollama"));
+    }
+
+    #[test]
+    fn cancelled_requests_never_launch_the_provider() {
+        let connection = IntelligenceConnection {
+            id: "cancelled".to_string(),
+            name: "Codex CLI".to_string(),
+            provider_kind: "cli".to_string(),
+            endpoint: Some("/definitely/missing/codex".to_string()),
+            model: None,
+            credential_ref: None,
+            enabled: true,
+            priority: 0,
+            created_at: String::new(),
+            updated_at: String::new(),
+        };
+        let cancellation = AtomicBool::new(true);
+        let error = execute(
+            &connection,
+            ProviderRequest {
+                prompt: "Never run this",
+                output_schema: None,
+                cancellation_message: "Cancelled before launch",
+            },
+            Some(&cancellation),
+        )
+        .unwrap_err();
+
+        assert_eq!(error.code, "execution_cancelled");
+        assert_eq!(error.message, "Cancelled before launch");
+    }
+
+    #[test]
+    fn unsupported_connections_fail_before_execution() {
+        let connection = IntelligenceConnection {
+            id: "unsupported".to_string(),
+            name: "Claude CLI".to_string(),
+            provider_kind: "cli".to_string(),
+            endpoint: Some("/usr/local/bin/claude".to_string()),
+            model: None,
+            credential_ref: None,
+            enabled: true,
+            priority: 0,
+            created_at: String::new(),
+            updated_at: String::new(),
+        };
+        let error = execute(
+            &connection,
+            ProviderRequest {
+                prompt: "Do not run this",
+                output_schema: None,
+                cancellation_message: "Cancelled",
+            },
+            None,
+        )
+        .unwrap_err();
+
+        assert_eq!(error.code, "connection_unavailable");
     }
 }
