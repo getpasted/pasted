@@ -187,6 +187,10 @@ html:not(.is-stable-reordering) .connection-priority-card:hover {
   color: var(--status-warning);
 }
 
+.floating-action-button.is-success {
+  color: var(--status-success);
+}
+
 .floating-action-button.is-danger {
   color: var(--status-danger);
 }

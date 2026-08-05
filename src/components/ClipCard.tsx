@@ -5,6 +5,7 @@ import { ClipItem, getClipFilePaths, getClipFileSummary, getClipNoteSummary, isS
 import type { ClipViewPolicy } from '../utils/clipViewPolicy';
 import { clipDeleteLabel, UI_COPY } from '../utils/uiCopy';
 import { safeInvoke as invoke } from '../utils/tauri';
+import { getClipSearchHighlightTerms, type ClipSearchHighlightField } from '../utils/clipSearch';
 import { FloatingActionStrip } from './FloatingActionStrip';
 import {
   Code,
@@ -41,6 +42,31 @@ interface FileCardPreview {
 }
 
 const clipFilePreviewCache = new Map<string, FileCardPreview | null>();
+
+function HighlightedClipText({
+  text,
+  query,
+  field,
+}: {
+  text: string;
+  query?: string;
+  field: ClipSearchHighlightField;
+}) {
+  if (!query) return <>{text}</>;
+  const terms = getClipSearchHighlightTerms(query, field);
+  if (terms.length === 0) return <>{text}</>;
+  const escaped = terms.map((term) => term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  const expression = new RegExp(`(${escaped.join('|')})`, 'gi');
+  return (
+    <>
+      {text.split(expression).map((part, index) => (
+        terms.some((term) => term.toLowerCase() === part.toLowerCase())
+          ? <mark className="clip-search-match" key={`${part}:${index}`}>{part}</mark>
+          : <React.Fragment key={`${part}:${index}`}>{part}</React.Fragment>
+      ))}
+    </>
+  );
+}
 
 function ClipImageThumbnail({
   clipId,
@@ -236,6 +262,7 @@ interface ClipCardProps {
   filePreviewMaxMb: number;
   selectionVersion: string;
   trashEnabled: boolean;
+  searchQuery?: string;
   onSelect: (e: React.MouseEvent) => void;
   onPin: () => void;
   onToggleProtected?: () => void;
@@ -273,6 +300,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
   filePreviewMode,
   filePreviewMaxMb,
   trashEnabled,
+  searchQuery,
   onSelect,
   onPin,
   onToggleProtected,
@@ -337,6 +365,15 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
   const headerTextClass = isSmall ? 'text-[11px]' : 'text-xs';
   const noteSummary = getClipNoteSummary(clip.note);
   const isTrashMode = viewPolicy.state === 'trash';
+  const attributeTintClass = isTrashMode
+    ? 'clip-card-trashed'
+    : clip.is_protected
+      ? 'clip-card-attribute clip-card-protected'
+      : clip.is_pinned
+        ? 'clip-card-attribute clip-card-pinned'
+        : noteSummary
+          ? 'clip-card-attribute clip-card-noted'
+          : '';
 
   return (
     <div
@@ -449,7 +486,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
               ? 'clip-card-selected'
               : `clip-card-idle ${isHovered && !isDragInProgress ? 'clip-card-hovered' : ''}`
             }`
-      } ${isDragging ? 'clip-card-drag-source' : ''} ${isTransforming ? 'clip-card-transforming' : ''}`}
+      } ${attributeTintClass} ${isDragging ? 'clip-card-drag-source' : ''} ${isTransforming ? 'clip-card-transforming' : ''}`}
     >
       {/* Header Info */}
       <div className={`clip-card-header flex items-center justify-between ${headerTextClass} mb-1`}>
@@ -458,7 +495,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
             {getIcon()}
           </div>
           <span className="font-medium theme-text-main truncate max-w-[120px]">
-            {clip.source_app}
+            <HighlightedClipText text={clip.source_app} query={searchQuery} field="app" />
           </span>
         </div>
         <div className="clip-meta-row theme-text-subtle flex items-center text-[11px] font-mono">
@@ -603,7 +640,9 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
           </div>
         ) : (
           <div className="relative group/sensitive flex items-center justify-between">
-            <span>{clip.text_content || 'Empty item'}</span>
+            <span>
+              <HighlightedClipText text={clip.text_content || 'Empty item'} query={searchQuery} field="content" />
+            </span>
             {isSensitive && showRevealed && (
               <button
                 onClick={(e) => {
@@ -624,7 +663,9 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
       {noteSummary && (
         <div className="clip-note-summary mt-2 pt-1.5 border-t flex items-center space-x-1.5 text-[11px] font-sans italic">
           <StickyNote className="w-3 h-3 shrink-0" />
-          <span className="truncate">{noteSummary}</span>
+          <span className="truncate">
+            <HighlightedClipText text={noteSummary} query={searchQuery} field="note" />
+          </span>
         </div>
       )}
 
@@ -703,7 +744,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
                 onPin();
               }}
               className={`floating-action-button ${
-                clip.is_pinned ? 'is-warning pin-icon' : ''
+                clip.is_pinned ? 'is-success pin-icon' : ''
               }`}
               title={clip.is_pinned ? UI_COPY.unpin : UI_COPY.pin}
             >
@@ -795,6 +836,7 @@ export const ClipCard = React.memo(ClipCardComponent, (prevProps, nextProps) => 
     prevProps.rowHeight === nextProps.rowHeight &&
     prevProps.filePreviewMode === nextProps.filePreviewMode &&
     prevProps.filePreviewMaxMb === nextProps.filePreviewMaxMb &&
+    prevProps.searchQuery === nextProps.searchQuery &&
     prevProps.trashEnabled === nextProps.trashEnabled &&
     prevProps.selectionVersion === nextProps.selectionVersion
   );

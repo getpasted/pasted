@@ -9,8 +9,7 @@
 
 .sidebar-control-muted,
 .sidebar-section-label,
-.sidebar-row-action,
-.sidebar-search-icon {
+.sidebar-row-action {
   color: var(--text-muted);
 }
 
@@ -209,6 +208,48 @@
   box-shadow: var(--shadow-card-selected);
 }
 
+.clip-card-trashed.clip-card-idle {
+  background-color: color-mix(in srgb, var(--status-danger) 4%, var(--bg-card));
+  border-color: color-mix(in srgb, var(--status-danger) 28%, var(--border-card));
+}
+
+.clip-card-trashed.clip-card-hovered {
+  background-color: color-mix(in srgb, var(--status-danger) 7%, var(--bg-clip-card-hover));
+  border-color: color-mix(in srgb, var(--status-danger) 40%, var(--border-clip-card-hover));
+}
+
+.clip-card-trashed.clip-card-selected {
+  background-color: color-mix(in srgb, var(--status-danger) 6%, var(--bg-card-selected));
+  border-color: color-mix(in srgb, var(--status-danger) 30%, var(--border-card-selected));
+}
+
+.clip-card-pinned {
+  --clip-attribute-accent: var(--status-success);
+}
+
+.clip-card-protected {
+  --clip-attribute-accent: var(--accent-primary);
+}
+
+.clip-card-noted {
+  --clip-attribute-accent: var(--note-accent);
+}
+
+.clip-card-attribute.clip-card-idle {
+  background-color: color-mix(in srgb, var(--clip-attribute-accent) 3%, var(--bg-card));
+  border-color: color-mix(in srgb, var(--clip-attribute-accent) 22%, var(--border-card));
+}
+
+.clip-card-attribute.clip-card-hovered {
+  background-color: color-mix(in srgb, var(--clip-attribute-accent) 5%, var(--bg-clip-card-hover));
+  border-color: color-mix(in srgb, var(--clip-attribute-accent) 34%, var(--border-clip-card-hover));
+}
+
+.clip-card-attribute.clip-card-selected {
+  background-color: color-mix(in srgb, var(--clip-attribute-accent) 3%, var(--bg-card-selected));
+  border-color: color-mix(in srgb, var(--clip-attribute-accent) 20%, var(--border-card-selected));
+}
+
 .clip-card-header {
   color: var(--text-muted);
 }
@@ -280,7 +321,7 @@
 
 .clip-note-accent,
 .clip-note-summary {
-  color: var(--status-warning);
+  color: var(--note-accent);
 }
 
 .clip-thumbnail-stage {
@@ -298,7 +339,7 @@
 }
 
 .clip-note-summary {
-  border-color: color-mix(in srgb, var(--status-warning) 26%, transparent);
+  border-color: color-mix(in srgb, var(--note-accent) 26%, transparent);
 }
 
 .clip-card-drag-source {
@@ -363,6 +404,13 @@ html.is-stable-reordering * {
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--focus-ring) 16%, transparent);
 }
 
+.clip-search-match {
+  color: inherit;
+  background-color: color-mix(in srgb, var(--accent-primary) 24%, transparent);
+  border-radius: 0.2rem;
+  box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--accent-primary) 52%, transparent);
+}
+
 .sidebar-icon-primary,
 .sidebar-icon-info {
   color: var(--accent-primary);
@@ -374,6 +422,10 @@ html.is-stable-reordering * {
 
 .sidebar-icon-warning {
   color: var(--status-warning);
+}
+
+.sidebar-icon-note {
+  color: var(--note-accent);
 }
 
 .sidebar-icon-success {

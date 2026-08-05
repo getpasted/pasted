@@ -1,6 +1,6 @@
-/* Electric Pushpin Orange Tokens */
+/* Pinned / kept accent */
 .pin-icon {
-  color: var(--status-warning);
+  color: var(--status-success);
   fill: currentColor;
 }
 

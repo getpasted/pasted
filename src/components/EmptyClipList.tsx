@@ -27,14 +27,14 @@ export function EmptyClipList({ currentTab, searchQuery, selectedBin }: EmptyCli
     icon = <Search className="sidebar-icon-primary w-10 h-10 stroke-1" />;
     title = trimmedSearch ? 'No matching clips' : 'Search your clips';
     description = trimmedSearch
-      ? 'Try another word, phrase, or search filter.'
-      : 'Start typing to search active and trashed clips.';
+      ? 'Try another search or filter.'
+      : 'Search active and trashed clips.';
   } else if (currentTab === 'sequential') {
     icon = <ListOrdered className="sidebar-icon-secondary w-10 h-10 stroke-1" />;
     title = 'Queue is empty';
     description = 'Add clips to Queue to paste them back in sequence.';
   } else if (currentTab === 'pinned') {
-    icon = <Pin className="sidebar-icon-warning pin-icon w-10 h-10 stroke-1" />;
+    icon = <Pin className="sidebar-icon-success pin-icon w-10 h-10 stroke-1" />;
     title = 'No pinned clips';
     description = 'Pin a clip to keep it at the top and find it here.';
   } else if (currentTab === 'protected') {
@@ -42,7 +42,7 @@ export function EmptyClipList({ currentTab, searchQuery, selectedBin }: EmptyCli
     title = 'No protected clips';
     description = 'Protect a clip to keep it safe from automatic cleanup.';
   } else if (currentTab === 'notes') {
-    icon = <StickyNote className="sidebar-icon-success w-10 h-10 stroke-1" />;
+    icon = <StickyNote className="sidebar-icon-note w-10 h-10 stroke-1" />;
     title = 'No noted clips';
     description = 'Add a note to a clip and it will appear here.';
   } else if (currentTab === 'trash') {

@@ -1,7 +1,8 @@
 import { useMemo } from 'react';
 import type { Bin, ClipItem, SequentialStatus } from '../types';
-import { getClipFilePaths, getClipNoteSummary, getClipOriginKind } from '../types';
+import { getClipFilePaths, getClipOriginKind } from '../types';
 import { sortClipsChronologically } from '../utils/clipOrder';
+import { clipMatchesSearch, parseClipSearch } from '../utils/clipSearch';
 
 interface ClipViewsInput {
   allClips: ClipItem[];
@@ -22,35 +23,8 @@ interface SmartCondition {
 export function applyClipSearch(items: ClipItem[], rawQuery: string) {
   const trimmed = rawQuery.trim();
   if (!trimmed) return items;
-  const lower = trimmed.toLowerCase();
-
-  if (lower.startsWith('regex:')) {
-    const pattern = trimmed.slice(6);
-    try {
-      const expression = new RegExp(pattern, 'i');
-      return items.filter((clip) => [clip.text_content, clip.source_app, clip.note].some((value) => value && expression.test(value)));
-    } catch {
-      const literal = pattern.toLowerCase();
-      return items.filter((clip) => clip.text_content?.toLowerCase().includes(literal));
-    }
-  }
-  if (lower.startsWith('app:')) {
-    const value = lower.slice(4).trim();
-    return items.filter((clip) => clip.source_app?.toLowerCase().includes(value));
-  }
-  if (lower.startsWith('type:')) {
-    const value = lower.slice(5).trim();
-    return items.filter((clip) => clip.content_type?.toLowerCase().includes(value));
-  }
-  if (lower === 'has:note') return items.filter((clip) => Boolean(clip.note?.trim()));
-  if (lower === 'is:pinned') return items.filter((clip) => clip.is_pinned);
-  if (lower === 'is:protected') return items.filter((clip) => clip.is_protected);
-
-  return items.filter((clip) =>
-    clip.text_content?.toLowerCase().includes(lower)
-    || clip.source_app?.toLowerCase().includes(lower)
-    || getClipNoteSummary(clip.note).toLowerCase().includes(lower)
-    || clip.content_type?.toLowerCase().includes(lower));
+  const plan = parseClipSearch(trimmed);
+  return items.filter((clip) => clipMatchesSearch(clip, plan));
 }
 
 function matchesCondition(clip: ClipItem, condition: SmartCondition) {

@@ -293,7 +293,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
         {clip.is_pinned ? (
           <PinOff className="w-3.5 h-3.5 text-gray-400" />
         ) : (
-          <Pin className="w-3.5 h-3.5 text-orange-500 fill-orange-500/20 pin-icon" />
+          <Pin className="w-3.5 h-3.5 pin-icon" />
         )}
         <span>
           {selectedCount && selectedCount > 1

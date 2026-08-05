@@ -28,7 +28,7 @@ import { getClipViewPolicy } from './utils/clipViewPolicy';
 import { sortClipsForTimeline } from './utils/clipOrder';
 import { useAppData } from './hooks/useAppData';
 import { useClipActions } from './hooks/useClipActions';
-import { Clipboard, Trash2, Pause, Disc, Square, Pin, X } from 'lucide-react';
+import { Clipboard, Trash2, Pause, Disc, Square, Pin, Search, X } from 'lucide-react';
 import './App.css';
 
 export default function App() {
@@ -143,6 +143,7 @@ export default function App() {
   const [, setSelectedIndex] = useState<number>(-1);
   const [currentTab, setCurrentTab] = useState<string>('all');
   const [selectedBinId, setSelectedBinId] = useState<number | null>(null);
+  const lastClipViewRef = useRef<{ tab: string; binId: number | null }>({ tab: 'all', binId: null });
   const selectionViewKey = currentTab === 'bin' ? `bin:${selectedBinId ?? 'none'}` : `section:${currentTab}`;
   const selectedClipByViewRef = useRef<Map<string, number | null>>(new Map());
   const activeSelectionViewRef = useRef<string | null>(null);
@@ -166,6 +167,23 @@ export default function App() {
   const enterSearchView = useCallback(() => {
     if (currentTab !== 'search') setCurrentTab('search');
   }, [currentTab]);
+
+  useEffect(() => {
+    if (['all', 'sequential', 'pinned', 'protected', 'notes', 'trash', 'bin'].includes(currentTab)) {
+      lastClipViewRef.current = { tab: currentTab, binId: currentTab === 'bin' ? selectedBinId : null };
+    }
+  }, [currentTab, selectedBinId]);
+
+  const exitEmptySearch = useCallback(() => {
+    const previous = lastClipViewRef.current;
+    if (previous.tab === 'bin' && previous.binId !== null && bins.some((bin) => bin.id === previous.binId)) {
+      setSelectedBinId(previous.binId);
+      setCurrentTab('bin');
+      return;
+    }
+    setSelectedBinId(null);
+    setCurrentTab(previous.tab === 'bin' ? 'all' : previous.tab);
+  }, [bins]);
 
   const handleToggleCopyQueue = async () => {
     try {
@@ -626,6 +644,7 @@ export default function App() {
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
         onSearchFocus={enterSearchView}
+        onEmptySearchEscape={exitEmptySearch}
         seqStatus={seqStatus}
         onClearHistory={() => setClearHistoryMode('purge')}
         pinnedCount={pinnedCount}
@@ -687,7 +706,11 @@ export default function App() {
               className="h-[60px] border-b px-3 flex items-center justify-between col-list-header cursor-default titlebar-drag-handle shrink-0"
             >
               <div className="flex items-center space-x-2 titlebar-drag-handle min-w-0 flex-1 mr-2">
-                <Clipboard className="theme-text-main w-4 h-4 titlebar-drag-handle shrink-0" />
+                {currentTab === 'search' ? (
+                  <Search className="theme-text-main w-4 h-4 titlebar-drag-handle shrink-0" />
+                ) : (
+                  <Clipboard className="theme-text-main w-4 h-4 titlebar-drag-handle shrink-0" />
+                )}
                 <h2 className="theme-title text-xs font-bold uppercase tracking-wider titlebar-drag-handle truncate">
                   {currentTab === 'search'
                     ? 'Search'
@@ -705,6 +728,15 @@ export default function App() {
                     ? bins.find((b) => b.id === selectedBinId)?.name || 'Bin'
                     : 'All'}
                 </h2>
+                {currentTab === 'search' && (
+                  <span
+                    className="theme-badge min-w-5 rounded-md border px-1.5 py-0.5 text-center font-mono text-[10px] font-semibold"
+                    aria-label={`${displayedClips.length} search ${displayedClips.length === 1 ? 'result' : 'results'}`}
+                    title={`${displayedClips.length} ${displayedClips.length === 1 ? 'Result' : 'Results'}`}
+                  >
+                    {displayedClips.length}
+                  </span>
+                )}
               </div>
 
               {/* Global Controls & Status Badges */}
@@ -816,6 +848,7 @@ export default function App() {
                       filePreviewMaxMb={appSettings.filePreviewMaxMb}
                       selectionVersion={clipSelectionVersion}
                       trashEnabled={appSettings.enableTrash}
+                      searchQuery={currentTab === 'search' ? searchQuery : undefined}
                       setDraggedClipId={setDraggedClipId}
                       onPointerDragStart={(id) => {
                         setHoveredClipId(null);

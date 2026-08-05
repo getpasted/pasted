@@ -69,6 +69,8 @@
     --queue-accent: #c084fc;
     --overlay-scrim: rgba(0, 0, 0, 0.62);
     --status-success: #6ee7b7;
+    --note-accent: #facc15;
+    --note-accent-contrast: #1c1917;
     --select-chevron: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a3a3a3' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
 
     --material-app: rgba(23, 23, 23, 0.68);
@@ -126,6 +128,8 @@
     --queue-accent: #7e22ce;
     --overlay-scrim: rgba(28, 28, 30, 0.28);
     --status-success: #047857;
+    --note-accent: #a16207;
+    --note-accent-contrast: #ffffff;
     --select-chevron: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23505055' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
 
     --material-app: rgba(244, 244, 247, 0.66);
@@ -182,6 +186,8 @@
     --accent-primary-contrast: #ffffff;
     --overlay-scrim: rgba(43, 33, 24, 0.28);
     --status-success: #33735a;
+    --note-accent: #946000;
+    --note-accent-contrast: #ffffff;
 
     --material-app: rgba(243, 238, 229, 0.66);
     --material-sidebar: rgba(238, 230, 218, 0.72);
@@ -237,6 +243,8 @@
     --accent-primary-contrast: #ffffff;
     --overlay-scrim: rgba(8, 3, 12, 0.66);
     --status-success: #73d7a7;
+    --note-accent: #f4d35e;
+    --note-accent-contrast: #1a1020;
 
     --material-app: rgba(25, 19, 31, 0.68);
     --material-sidebar: rgba(36, 26, 44, 0.72);
@@ -294,6 +302,8 @@
     --accent-secondary: #f5a524;
     --overlay-scrim: rgba(0, 5, 8, 0.64);
     --status-success: #72dfb0;
+    --note-accent: #ffd166;
+    --note-accent-contrast: #07151d;
 
     --material-app: rgba(7, 21, 29, 0.68);
     --material-sidebar: rgba(11, 32, 40, 0.72);
@@ -351,6 +361,8 @@
     --accent-secondary: #ef3e35;
     --overlay-scrim: rgba(0, 0, 0, 0.65);
     --status-success: #63cbc5;
+    --note-accent: #ffd447;
+    --note-accent-contrast: #211207;
 
     --material-app: rgba(21, 21, 21, 0.68);
     --material-sidebar: rgba(32, 30, 27, 0.72);

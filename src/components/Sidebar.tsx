@@ -10,7 +10,6 @@ import {
   Settings,
   Trash2,
   Plus,
-  Search,
   ChevronUp,
   PanelLeftClose,
   PanelLeftOpen,
@@ -21,6 +20,7 @@ import {
   BarChart3,
   HelpCircle,
   Shield,
+  X,
 } from 'lucide-react';
 import { Bin, SequentialStatus } from '../types';
 import { useSidebarBinOrder } from '../hooks/useSidebarBinOrder';
@@ -33,6 +33,7 @@ const SEARCH_HELPERS = [
   { prefix: 'has:note', desc: 'Notes' },
   { prefix: 'is:pinned', desc: 'Pinned' },
   { prefix: 'is:protected', desc: 'Protected' },
+  { prefix: 'is:trashed', desc: 'Trashed' },
 ] as const;
 
 interface SidebarProps {
@@ -49,6 +50,7 @@ interface SidebarProps {
   searchQuery: string;
   setSearchQuery: (q: string) => void;
   onSearchFocus: () => void;
+  onEmptySearchEscape: () => void;
   seqStatus: SequentialStatus | null;
   onClearHistory?: () => void;
   totalClipCount: number;
@@ -86,6 +88,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   searchQuery,
   setSearchQuery,
   onSearchFocus,
+  onEmptySearchEscape,
   seqStatus,
   totalClipCount,
   pinnedCount = 0,
@@ -140,6 +143,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
       document.removeEventListener('focusin', closeOnOutsideFocus);
     };
   }, [isSearchMenuOpen]);
+
+  React.useEffect(() => {
+    const focusSearch = (event: KeyboardEvent) => {
+      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 'f') return;
+      event.preventDefault();
+      setIsSearchMenuOpen(false);
+      setActiveSearchMenuIndex(-1);
+      onSearchFocus();
+      requestAnimationFrame(() => {
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+      });
+    };
+    window.addEventListener('keydown', focusSearch);
+    return () => window.removeEventListener('keydown', focusSearch);
+  }, [onSearchFocus]);
 
   const [isPostDragHoverSuppressed, setIsPostDragHoverSuppressed] = React.useState(false);
   const [hoveredSidebarControl, setHoveredSidebarControl] = React.useState<string | null>(null);
@@ -229,9 +248,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   }> = [
     { tab: 'all', label: 'All', title: 'All Clips', icon: <Clipboard className="sidebar-icon-primary w-5 h-5" /> },
     { tab: 'sequential', label: 'Queue', title: 'Queue', icon: <ListOrdered className="sidebar-icon-secondary w-5 h-5" /> },
-    { tab: 'pinned', label: 'Pinned', title: 'Pinned', icon: <Pin className="sidebar-icon-warning w-5 h-5 pin-icon" />, dropAction: 'pin' },
+    { tab: 'pinned', label: 'Pinned', title: 'Pinned', icon: <Pin className="sidebar-icon-success w-5 h-5 pin-icon" />, dropAction: 'pin' },
     { tab: 'protected', label: 'Protected', title: 'Protected', icon: <Shield className="sidebar-icon-info w-5 h-5" />, dropAction: 'protect' },
-    { tab: 'notes', label: 'Noted', title: 'Noted', icon: <StickyNote className="sidebar-icon-success w-5 h-5" /> },
+    { tab: 'notes', label: 'Noted', title: 'Noted', icon: <StickyNote className="sidebar-icon-note w-5 h-5" /> },
     { tab: 'trash', label: 'Trashed', title: 'Trashed', icon: <Trash2 className="sidebar-icon-danger w-5 h-5" />, dropAction: 'trash' },
   ];
   const toolNavItems = [
@@ -787,7 +806,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
         )}
 
         <div className="relative titlebar-no-drag">
-          <Search className="sidebar-search-icon w-3.5 h-3.5 absolute left-3 top-2" />
           <input
             ref={searchInputRef}
             type="text"
@@ -796,7 +814,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             autoCorrect="off"
             autoCapitalize="off"
             spellCheck={false}
-            placeholder="Search (try regex: app: type:)..."
+            placeholder="Search all clips"
             value={searchQuery}
             onFocus={() => {
               onSearchFocus();
@@ -809,12 +827,33 @@ export const Sidebar: React.FC<SidebarProps> = ({
               } else if (e.key === 'Escape') {
                 e.preventDefault();
                 if (isSearchMenuOpen) closeSearchMenu();
-                else (e.target as HTMLInputElement).blur();
+                else {
+                  (e.target as HTMLInputElement).blur();
+                  if (!searchQuery.trim()) onEmptySearchEscape();
+                }
               }
             }}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="sidebar-search-input theme-input w-full h-7 border rounded-md pl-8 pr-8 text-[12px] focus:outline-none transition-colors titlebar-no-drag"
+            className={`sidebar-search-input theme-input w-full h-7 border rounded-md pl-2.5 ${searchQuery ? 'pr-14' : 'pr-8'} text-[12px] focus:outline-none transition-colors titlebar-no-drag`}
           />
+          {searchQuery && (
+            <button
+              type="button"
+              disabled={isClipDragging}
+              aria-label="Clear search"
+              title="Clear Search"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => {
+                setSearchQuery('');
+                closeSearchMenu();
+                onSearchFocus();
+                requestAnimationFrame(() => searchInputRef.current?.focus());
+              }}
+              className="sidebar-search-clear theme-menu-item absolute right-6 top-1 grid h-5 w-5 place-items-center rounded"
+            >
+              <X className="h-3 w-3" aria-hidden="true" />
+            </button>
+          )}
           <button
             type="button"
             disabled={isClipDragging}

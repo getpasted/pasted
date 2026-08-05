@@ -54,8 +54,8 @@ body.hud-mode,
 }
 
 .preview-pin-btn.is-active {
-  background-color: color-mix(in srgb, var(--status-warning) 12%, var(--bg-input));
-  color: var(--status-warning);
+  background-color: color-mix(in srgb, var(--status-success) 12%, var(--bg-input));
+  color: var(--status-success);
 }
 
 .preview-protect-btn.is-active {
@@ -64,8 +64,8 @@ body.hud-mode,
 }
 
 .preview-note-btn.is-active {
-  background-color: color-mix(in srgb, var(--status-warning) 12%, var(--bg-input));
-  color: var(--status-warning);
+  background-color: color-mix(in srgb, var(--note-accent) 12%, var(--bg-input));
+  color: var(--note-accent);
 }
 
 .preview-delete-btn {
@@ -103,29 +103,29 @@ body.hud-mode,
 
 /* Multi-Note Theme Support for Dark, Cool & Warm Modes */
 .note-container {
-  background-color: color-mix(in srgb, var(--status-warning) 6%, var(--material-toolbar));
-  border-color: color-mix(in srgb, var(--status-warning) 22%, var(--border-subtle));
+  background-color: color-mix(in srgb, var(--note-accent) 6%, var(--material-toolbar));
+  border-color: color-mix(in srgb, var(--note-accent) 22%, var(--border-subtle));
 }
 
 .note-header-text {
-  color: var(--status-warning);
+  color: var(--note-accent);
 }
 
 .note-row {
   background-color: var(--bg-card);
-  border-color: color-mix(in srgb, var(--status-warning) 22%, var(--border-card));
+  border-color: color-mix(in srgb, var(--note-accent) 22%, var(--border-card));
   color: var(--text-main);
   box-shadow: var(--shadow-card);
 }
 
 .note-row:hover {
-  background-color: color-mix(in srgb, var(--status-warning) 8%, var(--bg-card));
-  border-color: color-mix(in srgb, var(--status-warning) 38%, var(--border-card));
+  background-color: color-mix(in srgb, var(--note-accent) 8%, var(--bg-card));
+  border-color: color-mix(in srgb, var(--note-accent) 38%, var(--border-card));
 }
 
 .note-row.is-dragging {
-  border-color: var(--status-warning);
-  --tw-ring-color: color-mix(in srgb, var(--status-warning) 60%, transparent);
+  border-color: var(--note-accent);
+  --tw-ring-color: color-mix(in srgb, var(--note-accent) 60%, transparent);
 }
 
 .note-text,
@@ -135,7 +135,7 @@ body.hud-mode,
 
 .note-input-row {
   background-color: var(--bg-card);
-  border-color: color-mix(in srgb, var(--status-warning) 34%, var(--border-card));
+  border-color: color-mix(in srgb, var(--note-accent) 34%, var(--border-card));
 }
 
 .note-input-row .note-input,
@@ -149,7 +149,7 @@ body.hud-mode,
 }
 
 .note-input::placeholder {
-  color: color-mix(in srgb, var(--status-warning) 70%, var(--text-subtle));
+  color: color-mix(in srgb, var(--note-accent) 70%, var(--text-subtle));
 }
 
 .note-cancel-button {
@@ -163,12 +163,12 @@ body.hud-mode,
 }
 
 .note-save-button {
-  background-color: var(--status-warning);
-  color: #ffffff;
+  background-color: var(--note-accent);
+  color: var(--note-accent-contrast);
 }
 
 .note-save-button:hover {
-  background-color: color-mix(in srgb, var(--status-warning) 86%, var(--text-title));
+  background-color: color-mix(in srgb, var(--note-accent) 86%, var(--text-title));
 }
 
 .clip-note-viewer-card {
@@ -177,13 +177,13 @@ body.hud-mode,
 }
 
 .clip-note-viewer-card {
-  border-color: color-mix(in srgb, var(--status-warning) 42%, var(--border-card));
+  border-color: color-mix(in srgb, var(--note-accent) 42%, var(--border-card));
   box-shadow: 0 24px 70px color-mix(in srgb, #000 32%, transparent);
 }
 
 .clip-note-viewer-content {
   background-color: var(--bg-input);
-  border-color: color-mix(in srgb, var(--status-warning) 34%, var(--border-input));
+  border-color: color-mix(in srgb, var(--note-accent) 34%, var(--border-input));
   color: var(--text-main);
 }
 
