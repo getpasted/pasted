@@ -35,6 +35,11 @@ assert.ok(
 );
 assert.ok(!packageJson.dependencies?.['@tauri-apps/plugin-shell'], 'The frontend must not gain shell access');
 assert.doesNotMatch(cargoToml, /tauri-plugin-shell/, 'The backend must not enable the Tauri shell plugin');
+assert.match(
+  rustSource,
+  /SQLITE_DBCONFIG_DEFENSIVE/,
+  'SQLite connections must retain defensive mode as a second layer behind bound parameters',
+);
 assert.doesNotMatch(frontendSource, /dangerouslySetInnerHTML/, 'Render untrusted clip content as text, never raw HTML');
 assert.doesNotMatch(frontendSource, /\b(?:eval|Function)\s*\(/, 'Frontend dynamic code execution is forbidden');
 assert.doesNotMatch(

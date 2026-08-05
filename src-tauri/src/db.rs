@@ -341,6 +341,7 @@ impl DbState {
             let _ = fs::create_dir_all(parent);
         }
         let conn = Connection::open(db_path)?;
+        conn.set_db_config(rusqlite::config::DbConfig::SQLITE_DBCONFIG_DEFENSIVE, true)?;
         let state = DbState {
             conn: Mutex::new(conn),
         };
@@ -4552,6 +4553,57 @@ mod tests {
         db.restore_clip(clip1.id).unwrap();
         let after_restore = db.get_clips(None, None, false).unwrap();
         assert_eq!(after_restore.len(), 2);
+    }
+
+    #[test]
+    fn untrusted_clip_and_metadata_text_cannot_become_sql() {
+        let db = setup_test_db();
+        let hostile = "'); DROP TABLE clips; DELETE FROM bins; -- \" * OR 1=1";
+        let hostile_transform = "AI output: '; UPDATE clips SET is_protected = 0; --";
+        let hostile_rule = serde_json::json!({
+            "type": "contains",
+            "value": hostile,
+        })
+        .to_string();
+
+        let clip = db
+            .save_clip("text", Some(hostile), None, None, "hostile-hash", hostile)
+            .unwrap();
+        db.update_clip_text(clip.id, hostile_transform).unwrap();
+        db.update_clip_note(clip.id, Some(hostile)).unwrap();
+        let bin = db
+            .create_bin(hostile, hostile, hostile, Some(&hostile_rule))
+            .unwrap();
+
+        // Search input is also untrusted. It may use FTS syntax internally, but it must
+        // remain a bound value and must never alter the surrounding SQL statement.
+        let _ = db.get_clips(Some(hostile), None, false).unwrap();
+
+        let conn = db.conn.lock();
+        let clip_count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM clips", [], |row| row.get(0))
+            .unwrap();
+        let stored: (String, String, String) = conn
+            .query_row(
+                "SELECT text_content, source_app, note FROM clips WHERE id = ?1",
+                params![clip.id],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .unwrap();
+        let stored_bin_name: String = conn
+            .query_row(
+                "SELECT name FROM bins WHERE id = ?1",
+                params![bin.id],
+                |row| row.get(0),
+            )
+            .unwrap();
+
+        assert_eq!(clip_count, 1);
+        assert_eq!(
+            stored,
+            (hostile_transform.into(), hostile.into(), hostile.into())
+        );
+        assert_eq!(stored_bin_name, hostile);
     }
 
     #[test]
