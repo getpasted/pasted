@@ -26,6 +26,15 @@ import { Bin, SequentialStatus } from '../types';
 import { useSidebarBinOrder } from '../hooks/useSidebarBinOrder';
 import type { ClipDropAction } from '../hooks/useClipBinDrag';
 
+const SEARCH_HELPERS = [
+  { prefix: 'regex:', desc: 'Regex' },
+  { prefix: 'app:', desc: 'App' },
+  { prefix: 'type:', desc: 'Type' },
+  { prefix: 'has:note', desc: 'Notes' },
+  { prefix: 'is:pinned', desc: 'Pinned' },
+  { prefix: 'is:protected', desc: 'Protected' },
+] as const;
+
 interface SidebarProps {
   currentTab: string;
   setCurrentTab: (tab: string) => void;
@@ -95,27 +104,40 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const [dropTargetBinId, setDropTargetBinId] = React.useState<number | null>(null);
   const [isSearchMenuOpen, setIsSearchMenuOpen] = React.useState(false);
+  const [activeSearchMenuIndex, setActiveSearchMenuIndex] = React.useState(-1);
   const searchMenuRootRef = React.useRef<HTMLDivElement | null>(null);
   const searchInputRef = React.useRef<HTMLInputElement | null>(null);
+  const searchMenuItemRefs = React.useRef<Array<HTMLButtonElement | null>>([]);
+
+  const closeSearchMenu = (returnFocus = false) => {
+    setIsSearchMenuOpen(false);
+    setActiveSearchMenuIndex(-1);
+    if (returnFocus) requestAnimationFrame(() => searchInputRef.current?.focus());
+  };
+
+  const focusSearchMenuItem = (index: number) => {
+    const normalizedIndex = (index + SEARCH_HELPERS.length) % SEARCH_HELPERS.length;
+    setActiveSearchMenuIndex(normalizedIndex);
+    requestAnimationFrame(() => searchMenuItemRefs.current[normalizedIndex]?.focus());
+  };
 
   React.useEffect(() => {
     if (!isSearchMenuOpen) return undefined;
     const closeOnOutsidePointer = (event: PointerEvent) => {
       if (!searchMenuRootRef.current?.contains(event.target as Node)) {
-        setIsSearchMenuOpen(false);
+        closeSearchMenu();
       }
     };
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return;
-      event.preventDefault();
-      setIsSearchMenuOpen(false);
-      searchInputRef.current?.focus();
+    const closeOnOutsideFocus = (event: FocusEvent) => {
+      if (!searchMenuRootRef.current?.contains(event.target as Node)) {
+        closeSearchMenu();
+      }
     };
     document.addEventListener('pointerdown', closeOnOutsidePointer);
-    document.addEventListener('keydown', closeOnEscape);
+    document.addEventListener('focusin', closeOnOutsideFocus);
     return () => {
       document.removeEventListener('pointerdown', closeOnOutsidePointer);
-      document.removeEventListener('keydown', closeOnEscape);
+      document.removeEventListener('focusin', closeOnOutsideFocus);
     };
   }, [isSearchMenuOpen]);
 
@@ -127,7 +149,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const lastSidebarPointerRef = React.useRef<{ x: number; y: number } | null>(null);
   const isClipDragging = draggedClipId !== null && draggedClipId !== undefined;
   React.useEffect(() => {
-    if (isClipDragging) setIsSearchMenuOpen(false);
+    if (isClipDragging) closeSearchMenu();
   }, [isClipDragging]);
   const {
     activeDragBinId,
@@ -711,19 +733,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div ref={searchMenuRootRef} className="sidebar-divider p-2.5 border-t shrink-0 relative">
         {!isClipDragging && isSearchMenuOpen && (
           <div
+            id="sidebar-search-filters"
             role="menu"
             aria-label="Search filters"
             className="theme-menu absolute bottom-11 left-2.5 right-2.5 rounded-xl border p-1.5 text-xs font-medium select-none"
           >
-            {[
-              { prefix: 'regex:', desc: 'Regex' },
-              { prefix: 'app:', desc: 'App' },
-              { prefix: 'type:', desc: 'Type' },
-              { prefix: 'has:note', desc: 'Notes' },
-              { prefix: 'is:pinned', desc: 'Pinned' },
-              { prefix: 'is:protected', desc: 'Protected' },
-            ].map((s) => (
+            {SEARCH_HELPERS.map((s, index) => (
               <button
+                ref={(element) => {
+                  searchMenuItemRefs.current[index] = element;
+                }}
                 type="button"
                 role="menuitem"
                 key={s.prefix}
@@ -732,10 +751,33 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 }}
                 onClick={() => {
                   setSearchQuery(s.prefix);
-                  setIsSearchMenuOpen(false);
-                  searchInputRef.current?.focus();
+                  closeSearchMenu(true);
                 }}
-                className="theme-menu-item w-full px-2.5 py-1.5 rounded-lg cursor-pointer flex items-center justify-between gap-3 text-left"
+                onFocus={() => setActiveSearchMenuIndex(index)}
+                onKeyDown={(event) => {
+                  if (event.key === 'ArrowDown') {
+                    event.preventDefault();
+                    focusSearchMenuItem(index + 1);
+                  } else if (event.key === 'ArrowUp') {
+                    event.preventDefault();
+                    focusSearchMenuItem(index - 1);
+                  } else if (event.key === 'Home') {
+                    event.preventDefault();
+                    focusSearchMenuItem(0);
+                  } else if (event.key === 'End') {
+                    event.preventDefault();
+                    focusSearchMenuItem(SEARCH_HELPERS.length - 1);
+                  } else if (event.key === 'Escape') {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    closeSearchMenu(true);
+                  } else if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    setSearchQuery(s.prefix);
+                    closeSearchMenu(true);
+                  }
+                }}
+                className={`theme-menu-item w-full px-2.5 py-1.5 rounded-lg cursor-pointer flex items-center justify-between gap-3 text-left ${activeSearchMenuIndex === index ? 'is-selected' : ''}`}
               >
                 <span className="font-mono text-[11px] font-semibold">{s.prefix}</span>
                 <span className="theme-text-subtle text-[10px]">{s.desc}</span>
@@ -760,9 +802,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
               onSearchFocus();
             }}
             onKeyDown={(e) => {
-              if (e.key === 'Escape') {
+              if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
                 e.preventDefault();
-                if (isSearchMenuOpen) setIsSearchMenuOpen(false);
+                if (!isSearchMenuOpen) setIsSearchMenuOpen(true);
+                focusSearchMenuItem(e.key === 'ArrowDown' ? 0 : SEARCH_HELPERS.length - 1);
+              } else if (e.key === 'Escape') {
+                e.preventDefault();
+                if (isSearchMenuOpen) closeSearchMenu();
                 else (e.target as HTMLInputElement).blur();
               }
             }}
@@ -775,11 +821,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
             aria-label="Search filters"
             aria-haspopup="menu"
             aria-expanded={isSearchMenuOpen}
+            aria-controls="sidebar-search-filters"
             title="Search Filters"
             onClick={() => {
               onSearchFocus();
-              setIsSearchMenuOpen((open) => !open);
+              setIsSearchMenuOpen((open) => {
+                if (open) setActiveSearchMenuIndex(-1);
+                return !open;
+              });
               requestAnimationFrame(() => searchInputRef.current?.focus());
+            }}
+            onKeyDown={(event) => {
+              if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                event.preventDefault();
+                setIsSearchMenuOpen(true);
+                focusSearchMenuItem(event.key === 'ArrowDown' ? 0 : SEARCH_HELPERS.length - 1);
+              } else if (event.key === 'Escape' && isSearchMenuOpen) {
+                event.preventDefault();
+                closeSearchMenu();
+              }
             }}
             className={`theme-menu-item absolute right-1 top-1 grid h-5 w-5 place-items-center rounded ${isSearchMenuOpen ? 'is-selected' : ''}`}
           >
