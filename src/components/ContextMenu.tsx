@@ -85,7 +85,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   }, [onClose]);
 
   useEffect(() => {
-    if (!viewPolicy.canRunPipelines) return;
+    if (!viewPolicy.canRunPipelines || clip.content_type === 'file') return;
     let cancelled = false;
     setIsLoadingTransforms(true);
     invoke<SavedTransform[]>('get_saved_transforms')
@@ -99,7 +99,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [viewPolicy.canRunPipelines]);
+  }, [clip.content_type, viewPolicy.canRunPipelines]);
 
   // Adjust coordinates if menu goes off screen
   const menuWidth = 220;
@@ -180,7 +180,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
       </div>}
 
       {/* Workflow Submenu */}
-      {viewPolicy.canRunPipelines && <div
+      {viewPolicy.canRunPipelines && clip.content_type !== 'file' && <div
         className="relative"
         onMouseEnter={() => setActiveSubmenu('workflow')}
         onMouseLeave={() => setActiveSubmenu(null)}

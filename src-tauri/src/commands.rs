@@ -146,6 +146,11 @@ pub async fn assign_clip_bin(
             .get_clip_by_id(clip_id)
             .map_err(|error| error.to_string())?
             .bin_id;
+        let is_file_clip = db
+            .get_clip_by_id(clip_id)
+            .map_err(|error| error.to_string())?
+            .content_type
+            == "file";
         db.assign_to_bin(clip_id, bin_id)
             .map_err(|error| error.to_string())?;
         let Some(bin_id) = bin_id else {
@@ -157,6 +162,12 @@ pub async fn assign_clip_bin(
         else {
             return Ok(None);
         };
+        if is_file_clip {
+            return db
+                .get_clip_by_id(clip_id)
+                .map(Some)
+                .map_err(|error| error.to_string());
+        }
         let Some(input) = db
             .get_active_clip_text(clip_id)
             .map_err(|error| error.to_string())?
@@ -327,6 +338,50 @@ pub fn copy_clip_to_system(
     }
 
     Ok(())
+}
+
+pub(crate) fn write_clip_to_clipboard(
+    clipboard: &mut Clipboard,
+    clip: &ClipItem,
+) -> Result<(), String> {
+    if clip.content_type == "file" {
+        let paths = clip
+            .text_content
+            .as_deref()
+            .ok_or_else(|| "File clip has no path metadata".to_string())
+            .and_then(|value| {
+                serde_json::from_str::<Vec<String>>(value)
+                    .map_err(|_| "File clip has invalid path metadata".to_string())
+            })?;
+        if paths.is_empty() || !crate::resource_limits::file_list_within_limit(&paths) {
+            return Err("File list exceeds Pasted's safety limit".to_string());
+        }
+        return clipboard
+            .set()
+            .file_list(&paths)
+            .map_err(|error| error.to_string());
+    }
+    if let Some(text) = clip.text_content.as_deref() {
+        return clipboard.set_text(text).map_err(|error| error.to_string());
+    }
+    if let Some(image_base64) = clip.image_base64.as_deref() {
+        let clean = image_base64.split(',').next_back().unwrap_or(image_base64);
+        if clean.len() > crate::resource_limits::MAX_STORED_IMAGE_BASE64_BYTES {
+            return Err("Clip image exceeds Pasted's safety limit".to_string());
+        }
+        let bytes = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, clean)
+            .map_err(|error| error.to_string())?;
+        let image = image::load_from_memory(&bytes).map_err(|error| error.to_string())?;
+        let rgba = image.to_rgba8();
+        return clipboard
+            .set_image(arboard::ImageData {
+                width: rgba.width() as usize,
+                height: rgba.height() as usize,
+                bytes: std::borrow::Cow::Owned(rgba.into_raw()),
+            })
+            .map_err(|error| error.to_string());
+    }
+    Err("Clip has no copyable content".to_string())
 }
 
 #[tauri::command]
@@ -1264,14 +1319,9 @@ pub fn paste_clip_by_id(
     db: State<'_, Arc<DbState>>,
     app: AppHandle,
 ) -> Result<(), String> {
-    let clips = db.get_clips(None, None, false).map_err(|e| e.to_string())?;
-    if let Some(clip) = clips.into_iter().find(|c| c.id == clip_id) {
+    if let Ok(clip) = db.get_clip_by_id(clip_id) {
         let mut cb = Clipboard::new().map_err(|e| e.to_string())?;
-        if let Some(txt) = &clip.text_content {
-            let _ = cb.set_text(txt);
-        } else if let Some(b64) = &clip.image_base64 {
-            let _ = cb.set_text(b64);
-        }
+        write_clip_to_clipboard(&mut cb, &clip)?;
 
         if let Some(hud) = app.get_webview_window("hud") {
             let _ = hud.hide();

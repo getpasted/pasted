@@ -8,6 +8,7 @@ import {
   Layers,
   TrendingUp,
   FileText,
+  Files,
   Code,
   Image as ImageIcon,
   Link as LinkIcon,
@@ -183,7 +184,14 @@ export const AnalyticsView: React.FC = () => {
                 <div className="theme-text-muted text-[11px]">Images</div>
               </div>
             </div>
-            <div className="theme-surface p-3 rounded-lg border flex items-center space-x-3 col-span-2">
+            <div className="theme-surface p-3 rounded-lg border flex items-center space-x-3">
+              <Files className="w-4 h-4 text-blue-400 shrink-0" />
+              <div>
+                <div className="theme-title text-sm font-bold font-mono">{getTypeCount('file')}</div>
+                <div className="theme-text-muted text-[11px]">Files</div>
+              </div>
+            </div>
+            <div className="theme-surface p-3 rounded-lg border flex items-center space-x-3">
               <Palette className="w-4 h-4 theme-status-warning-text shrink-0" />
               <div>
                 <div className="theme-title text-sm font-bold font-mono">{getTypeCount('color')}</div>

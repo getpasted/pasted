@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { safeInvoke as invoke } from './utils/tauri';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { ClipItem, Bin } from './types';
+import { ClipItem, Bin, getClipFileSummary } from './types';
 import { Sidebar } from './components/Sidebar';
 import { ClipCard } from './components/ClipCard';
 import { ClipPreview } from './components/ClipPreview';
@@ -579,7 +579,11 @@ export default function App() {
               )}
             </div>
             <div className="theme-title mt-1.5 truncate font-mono text-xs">
-              {previewClip.content_type === 'image' ? 'Image clip' : previewClip.text_content || 'Empty clip'}
+              {previewClip.content_type === 'image'
+                ? 'Image clip'
+                : previewClip.content_type === 'file'
+                ? getClipFileSummary(previewClip)
+                : previewClip.text_content || 'Empty clip'}
             </div>
           </div>
         );

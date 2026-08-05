@@ -439,7 +439,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
       </div>
 
       {/* Body Content */}
-      <div className={`theme-text-main ${lineClampClass} font-mono leading-relaxed break-all`}>
+      <div className={`theme-text-main ${clip.content_type === 'file' ? (isSmall ? 'text-[11px]' : 'text-xs') : lineClampClass} font-mono leading-relaxed break-all`}>
         {clip.content_type === 'image' ? (
           <ClipImageThumbnail
             key={`${clip.id}:${clip.content_hash}`}

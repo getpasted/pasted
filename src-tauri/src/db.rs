@@ -1,5 +1,5 @@
 use parking_lot::Mutex;
-use rusqlite::{params, Connection, Result};
+use rusqlite::{params, Connection, Result, ToSql};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
@@ -19,6 +19,57 @@ fn ensure_resource_size(value: &str, maximum: usize, label: &str) -> Result<()> 
             ),
         ),
     )))
+}
+
+fn escape_like_literal(value: &str) -> String {
+    value
+        .replace('\\', "\\\\")
+        .replace('%', "\\%")
+        .replace('_', "\\_")
+}
+
+fn push_smart_condition(
+    kind: &str,
+    value: &str,
+    conditions: &mut Vec<String>,
+    parameters: &mut Vec<Box<dyn ToSql>>,
+) {
+    let value = value.trim();
+    if value.is_empty() {
+        return;
+    }
+    let condition = match kind {
+        "content_type" => {
+            parameters.push(Box::new(value.to_string()));
+            "content_type = ?".to_string()
+        }
+        "source_app" => {
+            parameters.push(Box::new(format!("%{}%", value)));
+            "source_app LIKE ?".to_string()
+        }
+        "contains" => {
+            parameters.push(Box::new(format!("%{}%", value)));
+            "text_content LIKE ?".to_string()
+        }
+        "file_extension" => {
+            let extension =
+                escape_like_literal(value.trim_start_matches('.').to_lowercase().as_str());
+            if extension.is_empty() {
+                return;
+            }
+            parameters.push(Box::new(format!("%.{extension}")));
+            "content_type = 'file' AND EXISTS (SELECT 1 FROM json_each(CASE WHEN json_valid(text_content) THEN text_content ELSE '[]' END) AS pasted_file WHERE LOWER(CAST(pasted_file.value AS TEXT)) LIKE ? ESCAPE '\\')".to_string()
+        }
+        "file_path" => {
+            parameters.push(Box::new(format!(
+                "%{}%",
+                escape_like_literal(&value.to_lowercase())
+            )));
+            "content_type = 'file' AND EXISTS (SELECT 1 FROM json_each(CASE WHEN json_valid(text_content) THEN text_content ELSE '[]' END) AS pasted_file WHERE LOWER(CAST(pasted_file.value AS TEXT)) LIKE ? ESCAPE '\\')".to_string()
+        }
+        _ => return,
+    };
+    conditions.push(condition);
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -1256,34 +1307,12 @@ impl DbState {
                     for cond in conds {
                         let c_type = cond["type"].as_str().unwrap_or("");
                         let c_val = cond["value"].as_str().unwrap_or("");
-                        if !c_val.trim().is_empty() {
-                            if c_type == "content_type" {
-                                cond_sqls.push("content_type = ?".to_string());
-                                query_params.push(Box::new(c_val.to_string()));
-                            } else if c_type == "source_app" {
-                                cond_sqls.push("source_app LIKE ?".to_string());
-                                query_params.push(Box::new(format!("%{}%", c_val)));
-                            } else if c_type == "contains" {
-                                cond_sqls.push("text_content LIKE ?".to_string());
-                                query_params.push(Box::new(format!("%{}%", c_val)));
-                            }
-                        }
+                        push_smart_condition(c_type, c_val, &mut cond_sqls, &mut query_params);
                     }
                 } else {
                     let rule_type = parsed["type"].as_str().unwrap_or("");
                     let rule_val = parsed["value"].as_str().unwrap_or("");
-                    if !rule_val.trim().is_empty() {
-                        if rule_type == "content_type" {
-                            cond_sqls.push("content_type = ?".to_string());
-                            query_params.push(Box::new(rule_val.to_string()));
-                        } else if rule_type == "source_app" {
-                            cond_sqls.push("source_app LIKE ?".to_string());
-                            query_params.push(Box::new(format!("%{}%", rule_val)));
-                        } else if rule_type == "contains" {
-                            cond_sqls.push("text_content LIKE ?".to_string());
-                            query_params.push(Box::new(format!("%{}%", rule_val)));
-                        }
-                    }
+                    push_smart_condition(rule_type, rule_val, &mut cond_sqls, &mut query_params);
                 }
 
                 if !cond_sqls.is_empty() {
@@ -2153,34 +2182,17 @@ impl DbState {
                         for cond in conds {
                             let c_type = cond["type"].as_str().unwrap_or("");
                             let c_val = cond["value"].as_str().unwrap_or("");
-                            if !c_val.trim().is_empty() {
-                                if c_type == "content_type" {
-                                    cond_sqls.push("content_type = ?".to_string());
-                                    query_params.push(Box::new(c_val.to_string()));
-                                } else if c_type == "source_app" {
-                                    cond_sqls.push("source_app LIKE ?".to_string());
-                                    query_params.push(Box::new(format!("%{}%", c_val)));
-                                } else if c_type == "contains" {
-                                    cond_sqls.push("text_content LIKE ?".to_string());
-                                    query_params.push(Box::new(format!("%{}%", c_val)));
-                                }
-                            }
+                            push_smart_condition(c_type, c_val, &mut cond_sqls, &mut query_params);
                         }
                     } else {
                         let rule_type = parsed["type"].as_str().unwrap_or("");
                         let rule_val = parsed["value"].as_str().unwrap_or("");
-                        if !rule_val.trim().is_empty() {
-                            if rule_type == "content_type" {
-                                cond_sqls.push("content_type = ?".to_string());
-                                query_params.push(Box::new(rule_val.to_string()));
-                            } else if rule_type == "source_app" {
-                                cond_sqls.push("source_app LIKE ?".to_string());
-                                query_params.push(Box::new(format!("%{}%", rule_val)));
-                            } else if rule_type == "contains" {
-                                cond_sqls.push("text_content LIKE ?".to_string());
-                                query_params.push(Box::new(format!("%{}%", rule_val)));
-                            }
-                        }
+                        push_smart_condition(
+                            rule_type,
+                            rule_val,
+                            &mut cond_sqls,
+                            &mut query_params,
+                        );
                     }
 
                     if !cond_sqls.is_empty() {
@@ -2253,6 +2265,11 @@ impl DbState {
         text: &str,
         source_app: &str,
     ) -> Result<Vec<(i64, String)>> {
+        let file_paths = if content_type.eq_ignore_ascii_case("file") {
+            serde_json::from_str::<Vec<String>>(text).unwrap_or_default()
+        } else {
+            Vec::new()
+        };
         let conn = self.conn.lock();
         let mut statement = conn.prepare(
             "SELECT id, smart_rule, default_transform_id FROM bins
@@ -2275,6 +2292,20 @@ impl DbState {
                 "content_type" => content_type.eq_ignore_ascii_case(value),
                 "source_app" => source_app.to_lowercase().contains(&value.to_lowercase()),
                 "contains" => text.to_lowercase().contains(&value.to_lowercase()),
+                "file_extension" => {
+                    let extension = value.trim().trim_start_matches('.').to_lowercase();
+                    !extension.is_empty()
+                        && file_paths
+                            .iter()
+                            .any(|path| path.to_lowercase().ends_with(&format!(".{extension}")))
+                }
+                "file_path" => {
+                    let value = value.trim().to_lowercase();
+                    !value.is_empty()
+                        && file_paths
+                            .iter()
+                            .any(|path| path.to_lowercase().contains(&value))
+                }
                 _ => false,
             };
             let matched = if let Some(conditions) = rule["conditions"].as_array() {
@@ -4145,6 +4176,56 @@ mod tests {
         assert_eq!(clips[0].text_content.as_deref(), Some("Hello Rust"));
         assert_eq!(clips[0].source_app, "Safari");
         assert!(!clips[0].is_pinned);
+    }
+
+    #[test]
+    fn file_smart_bins_match_any_selected_path_without_reordering_the_clip() {
+        let db = setup_test_db();
+        let paths = serde_json::json!([
+            "/Users/pasted/Zebra Report.pdf",
+            "/Users/pasted/Projects/Alpha Notes.txt"
+        ])
+        .to_string();
+        let clip = db
+            .save_clip("file", Some(&paths), None, None, "file_hash", "Finder")
+            .unwrap();
+        let pdf_rule = serde_json::json!({
+            "conditions": [{"type": "file_extension", "operator": "is", "value": "pdf"}],
+            "match": "any"
+        })
+        .to_string();
+        let project_rule = serde_json::json!({
+            "conditions": [{"type": "file_path", "operator": "contains", "value": "/projects/"}],
+            "match": "any"
+        })
+        .to_string();
+        let pdf_bin = db
+            .create_bin("PDF Files", "📄", "default", Some(&pdf_rule))
+            .unwrap();
+        let project_bin = db
+            .create_bin("Project Files", "📂", "default", Some(&project_rule))
+            .unwrap();
+
+        assert_eq!(
+            db.get_clips(None, Some(pdf_bin.id), false).unwrap()[0].id,
+            clip.id
+        );
+        assert_eq!(
+            db.get_clips(None, Some(project_bin.id), false).unwrap()[0].id,
+            clip.id
+        );
+        assert_eq!(
+            db.get_clip_by_id(clip.id).unwrap().text_content.as_deref(),
+            Some(paths.as_str())
+        );
+        let bins = db.get_bins().unwrap();
+        assert_eq!(
+            bins.iter()
+                .find(|bin| bin.id == pdf_bin.id)
+                .unwrap()
+                .clip_count,
+            Some(1)
+        );
     }
 
     #[test]

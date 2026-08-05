@@ -374,6 +374,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
     clip.content_type === 'color' || (displayText && displayText.length < 30)
       ? parseColor(displayText)
       : null;
+  const canTransformContent = clip.content_type !== 'image' && clip.content_type !== 'file';
 
   const handleCopy = async () => {
     try {
@@ -625,7 +626,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
       >
         <div className="flex min-w-0 items-center space-x-3 titlebar-drag-handle">
           <span className="clip-type-badge theme-badge text-xs font-semibold px-2.5 py-1 rounded-md border capitalize titlebar-drag-handle">
-            {clip.content_type}
+            {clip.content_type === 'file' && getClipFilePaths(clip).length > 1 ? 'Files' : clip.content_type}
           </span>
           <span className="theme-text-main min-w-0 max-w-[200px] truncate text-xs font-medium titlebar-drag-handle">
             {clip.source_app}
@@ -651,7 +652,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
         </div>
 
         <div className="clip-preview-actions relative flex shrink-0 items-center titlebar-no-drag">
-          {viewPolicy.canRunPipelines && clip.content_type !== 'image' && (
+          {viewPolicy.canRunPipelines && canTransformContent && (
             <div className="clip-workflow-shell relative">
               <button
                 ref={workflowTriggerRef}
@@ -907,7 +908,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
       {(() => {
         const currentText = transformedText !== null ? transformedText : (clip.text_content || '');
         const { detectedTypes, recommendedPipelines } = detectSmartPipelineRecommendations(currentText, pipelines);
-        if (!viewPolicy.canRunPipelines || clip.content_type === 'image' || recommendedPipelines.length === 0) return null;
+        if (!viewPolicy.canRunPipelines || !canTransformContent || recommendedPipelines.length === 0) return null;
 
         return (
           <div className="smart-actions-bar px-4 py-2 flex items-center justify-between text-xs space-x-2 overflow-x-auto">
@@ -931,7 +932,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
         );
       })()}
 
-      {viewPolicy.canRunPipelines && clip.content_type !== 'image' && activeTransformRef && activeTransformName && (
+      {viewPolicy.canRunPipelines && canTransformContent && activeTransformRef && activeTransformName && (
         <ClipTransformBar
           activeTransformName={activeTransformName}
           isRunning={isPipelineRunning}
@@ -945,7 +946,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
       )}
 
       {/* Advanced Transform selector */}
-      {viewPolicy.canRunPipelines && clip.content_type !== 'image' && pipelines.length > 0 && (
+      {viewPolicy.canRunPipelines && canTransformContent && pipelines.length > 0 && (
         <div className="preview-filter-bar px-4 py-2.5 border-t select-none">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center space-x-2 shrink-0">

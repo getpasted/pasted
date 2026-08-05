@@ -140,6 +140,23 @@ pub fn apply_filter(
         }
         "html_paragraphs" => Ok(html_paragraphs(input)),
         "html_unordered_list" => Ok(html_unordered_list(input)),
+        "file_paths_text" => Ok(parse_file_paths(input)?.join("\n")),
+        "file_names_text" => Ok(parse_file_paths(input)?
+            .iter()
+            .map(|path| file_name(path))
+            .collect::<Vec<_>>()
+            .join("\n")),
+        "file_markdown_links" => Ok(parse_file_paths(input)?
+            .iter()
+            .map(|path| {
+                let label = file_name(path).replace('[', "\\[").replace(']', "\\]");
+                let destination = url::Url::from_file_path(path)
+                    .map(|url| url.to_string())
+                    .unwrap_or_else(|_| path.to_string());
+                format!("[{label}]({destination})")
+            })
+            .collect::<Vec<_>>()
+            .join("\n")),
         "regex" => {
             if let Some(cfg_str) = config {
                 if let Ok(json) = serde_json::from_str::<Value>(cfg_str) {
@@ -165,6 +182,22 @@ pub fn apply_filter(
             filter_type
         )),
     }
+}
+
+fn parse_file_paths(input: &str) -> Result<Vec<String>, String> {
+    let paths = serde_json::from_str::<Vec<String>>(input)
+        .map_err(|_| "File Operation requires a Pasted file-list clip".to_string())?;
+    if paths.is_empty() || !crate::resource_limits::file_list_within_limit(&paths) {
+        return Err("File list is empty or exceeds Pasted's safety limit".to_string());
+    }
+    Ok(paths)
+}
+
+fn file_name(path: &str) -> String {
+    path.rsplit(['/', '\\'])
+        .find(|component| !component.is_empty())
+        .unwrap_or(path)
+        .to_string()
 }
 
 fn to_sentence_case(s: &str) -> String {
@@ -713,6 +746,27 @@ mod tests {
         let hex_encoded = apply_filter("Pasted", "hex_encode", None).unwrap();
         let hex_decoded = apply_filter(&hex_encoded, "hex_decode", None).unwrap();
         assert_eq!(hex_decoded, "Pasted");
+    }
+
+    #[test]
+    fn file_operations_preserve_selection_order_and_never_read_contents() {
+        let input = serde_json::json!([
+            "/Users/pasted/Zebra Report.pdf",
+            "/Users/pasted/Alpha Notes.txt"
+        ])
+        .to_string();
+        assert_eq!(
+            apply_filter(&input, "file_paths_text", None).unwrap(),
+            "/Users/pasted/Zebra Report.pdf\n/Users/pasted/Alpha Notes.txt"
+        );
+        assert_eq!(
+            apply_filter(&input, "file_names_text", None).unwrap(),
+            "Zebra Report.pdf\nAlpha Notes.txt"
+        );
+        let links = apply_filter(&input, "file_markdown_links", None).unwrap();
+        assert!(links.starts_with("[Zebra Report.pdf](file:///Users/pasted/Zebra%20Report.pdf)"));
+        assert!(links.contains("[Alpha Notes.txt](file:///Users/pasted/Alpha%20Notes.txt)"));
+        assert!(apply_filter("ordinary text", "file_names_text", None).is_err());
     }
 
     #[test]

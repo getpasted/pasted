@@ -419,6 +419,15 @@ pub fn execute_with_cancellation(
     cancellation: Option<&AtomicBool>,
 ) -> Result<ExecutionOutcome, ExecutionError> {
     ensure_transform_text_size(&request.input)?;
+    if let Some(clip_id) = request.source_clip_id {
+        let clip = db.get_clip_by_id(clip_id).map_err(database_error)?;
+        if clip.content_type == "file" {
+            return Err(ExecutionError::new(
+                "unsupported_clip_type",
+                "File clips must be converted with an explicit File Operation before using text Transforms",
+            ));
+        }
+    }
     if let ExecutionTarget::Transform { transform_ref } = &request.target {
         let result = crate::intelligence_executor::execute_saved_transform(
             db,
@@ -787,6 +796,28 @@ mod tests {
             )
             .unwrap();
         assert_eq!(succeeded, 2);
+    }
+
+    #[test]
+    fn file_clips_cannot_be_mistaken_for_serialized_text_transforms() {
+        let db = test_db();
+        let paths = serde_json::json!(["/tmp/first.txt", "/tmp/second.txt"]).to_string();
+        let clip = db
+            .save_clip("file", Some(&paths), None, None, "file_clip", "Finder")
+            .unwrap();
+        let mut execution = request(
+            ExecutionTarget::Operation {
+                operation_ref: "builtin:uppercase".to_string(),
+            },
+            &paths,
+        );
+        execution.source_clip_id = Some(clip.id);
+        let error = execute(&db, execution).unwrap_err();
+        assert_eq!(error.code, "unsupported_clip_type");
+        assert_eq!(
+            db.get_clip_by_id(clip.id).unwrap().text_content,
+            Some(paths)
+        );
     }
 
     #[test]

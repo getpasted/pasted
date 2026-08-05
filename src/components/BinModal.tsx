@@ -16,7 +16,7 @@ interface BinModalProps {
 
 interface SmartConditionRow {
   id: string;
-  target: 'source_app' | 'content_type' | 'contains';
+  target: 'source_app' | 'content_type' | 'contains' | 'file_extension' | 'file_path';
   operator: 'is' | 'contains';
   value: string;
 }
@@ -444,6 +444,8 @@ export const BinModal: React.FC<BinModalProps> = ({
                       { value: 'source_app', label: 'Source App' },
                       { value: 'content_type', label: 'Content Type' },
                       { value: 'contains', label: 'Text Content' },
+                      { value: 'file_extension', label: 'File Extension' },
+                      { value: 'file_path', label: 'File Path' },
                     ]}
                     label="Condition target"
                     className="w-36"
@@ -487,10 +489,27 @@ export const BinModal: React.FC<BinModalProps> = ({
                         { value: 'link', label: 'Web Links' },
                         { value: 'color', label: 'Hex Colors' },
                         { value: 'image', label: 'Images' },
+                        { value: 'file', label: 'Files' },
                       ]}
                       label="Content type"
                       className="min-w-0 flex-1"
                       compact
+                    />
+                  ) : c.target === 'file_extension' ? (
+                    <input
+                      type="text"
+                      placeholder="e.g. pdf, zip, png"
+                      value={c.value}
+                      onChange={(e) => handleUpdateCondition(c.id, { value: e.target.value.replace(/^\./, '') })}
+                      className="flex-1 theme-input form-field-valid border rounded-lg px-3 py-1.5 text-xs font-semibold focus:outline-none"
+                    />
+                  ) : c.target === 'file_path' ? (
+                    <input
+                      type="text"
+                      placeholder="e.g. /Projects/ or Downloads"
+                      value={c.value}
+                      onChange={(e) => handleUpdateCondition(c.id, { value: e.target.value })}
+                      className="flex-1 theme-input form-field-valid border rounded-lg px-3 py-1.5 text-xs font-semibold focus:outline-none"
                     />
                   ) : (
                     <input

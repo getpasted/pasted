@@ -293,6 +293,24 @@ pub static BUILTIN_OPERATIONS: &[OperationDefinition] = &[
         "encoding",
         "Encodings & Decodings",
     ),
+    operation(
+        "file_paths_text",
+        "File Paths as Text",
+        "files",
+        "File Utilities",
+    ),
+    operation(
+        "file_names_text",
+        "File Names as Text",
+        "files",
+        "File Utilities",
+    ),
+    operation(
+        "file_markdown_links",
+        "File Markdown Links",
+        "files",
+        "File Utilities",
+    ),
 ];
 
 pub fn is_builtin_operation(key: &str) -> bool {

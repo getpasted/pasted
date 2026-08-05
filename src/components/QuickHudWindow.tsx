@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Search, Sparkles, Clipboard, Command, X } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { listen } from '@tauri-apps/api/event';
-import { ClipItem } from '../types';
+import { ClipItem, getClipFileSummary } from '../types';
 
 export const QuickHudWindow: React.FC = () => {
   const [clips, setClips] = useState<ClipItem[]>(() => {
@@ -185,6 +185,10 @@ export const QuickHudWindow: React.FC = () => {
                             {clip.text_content ? `[OCR] ${clip.text_content}` : 'Screenshot Image'}
                           </span>
                         </div>
+                      ) : clip.content_type === 'file' ? (
+                        <p className="text-xs font-mono truncate leading-snug">
+                          {getClipFileSummary(clip)}
+                        </p>
                       ) : (
                         <p className="text-xs font-mono truncate leading-snug">
                           {clip.text_content}

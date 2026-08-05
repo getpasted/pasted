@@ -212,15 +212,14 @@ impl HotkeyManager {
                     if let Ok(clips) = db.get_clips(None, None, false) {
                         if let Some(clip) = clips.get(index - 1) {
                             if let Ok(mut cb) = arboard::Clipboard::new() {
-                                if let Some(ref t) = clip.text_content {
-                                    let _ = cb.set_text(t);
-                                } else if let Some(ref img_b64) = clip.image_base64 {
-                                    let _ = cb.set_text(img_b64);
+                                let full_clip =
+                                    db.get_clip_by_id(clip.id).unwrap_or_else(|_| clip.clone());
+                                if commands::write_clip_to_clipboard(&mut cb, &full_clip).is_ok() {
+                                    std::thread::spawn(move || {
+                                        std::thread::sleep(std::time::Duration::from_millis(50));
+                                        commands::simulate_cmd_v_paste();
+                                    });
                                 }
-                                std::thread::spawn(move || {
-                                    std::thread::sleep(std::time::Duration::from_millis(50));
-                                    commands::simulate_cmd_v_paste();
-                                });
                             }
                         }
                     }
