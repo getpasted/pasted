@@ -9,8 +9,8 @@
 .theme-menu,
 .unselectable,
 .titlebar-drag-handle {
-  -webkit-user-select: none !important;
-  user-select: none !important;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .titlebar-drag-handle {
@@ -28,7 +28,7 @@ html:not(.is-stable-reordering) a,
 html:not(.is-stable-reordering) select:not(:disabled),
 html:not(.is-stable-reordering) label[for],
 html:not(.is-stable-reordering) .cursor-pointer {
-  cursor: pointer !important;
+  cursor: pointer;
 }
 
 html:not(.is-stable-reordering) button:disabled,
@@ -36,13 +36,13 @@ html:not(.is-stable-reordering) [role="button"]:disabled,
 html:not(.is-stable-reordering) select:disabled,
 html:not(.is-stable-reordering) [aria-disabled="true"],
 html:not(.is-stable-reordering) .cursor-not-allowed {
-  cursor: not-allowed !important;
+  cursor: not-allowed;
 }
 
 html:not(.is-stable-reordering) input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
 html:not(.is-stable-reordering) textarea,
 html:not(.is-stable-reordering) [contenteditable="true"] {
-  cursor: text !important;
+  cursor: text;
 }
 
 /* User Land Content ONLY: Allow text selection for actual clipboard text content and editable text inputs */
@@ -55,8 +55,8 @@ html:not(.is-stable-reordering) .clip-note-viewer-content,
 html:not(.is-stable-reordering) .clip-revision-history-preview,
 html:not(.is-stable-reordering) pre,
 html:not(.is-stable-reordering) code {
-  -webkit-user-select: text !important;
-  user-select: text !important;
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 /* Drag handles intentionally opt out of the global button cursor. */

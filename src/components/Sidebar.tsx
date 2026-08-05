@@ -95,7 +95,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [isPostDragHoverSuppressed, setIsPostDragHoverSuppressed] = React.useState(false);
   const [hoveredSidebarControl, setHoveredSidebarControl] = React.useState<string | null>(null);
   const wasClipDraggingRef = React.useRef(false);
+  const wasBinReorderingRef = React.useRef(false);
   const isPointerOverSidebarRef = React.useRef(false);
+  const lastSidebarPointerRef = React.useRef<{ x: number; y: number } | null>(null);
   const isClipDragging = draggedClipId !== null && draggedClipId !== undefined;
   const {
     activeDragBinId,
@@ -112,17 +114,33 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   React.useLayoutEffect(() => {
     if (isAnySidebarDrag) setHoveredSidebarControl(null);
-    if (wasClipDraggingRef.current && !isAnySidebarDrag) {
+    if (wasClipDraggingRef.current && !isClipDragging) {
       setIsPostDragHoverSuppressed(isPointerOverSidebarRef.current);
+    } else if (wasBinReorderingRef.current && !isBinReorderActive) {
+      setIsPostDragHoverSuppressed(false);
+      const pointer = lastSidebarPointerRef.current;
+      if (isPointerOverSidebarRef.current && pointer) {
+        const frame = requestAnimationFrame(() => {
+          const control = document
+            .elementFromPoint(pointer.x, pointer.y)
+            ?.closest<HTMLElement>('[data-sidebar-hover-key]');
+          setHoveredSidebarControl(control?.dataset.sidebarHoverKey ?? null);
+        });
+        wasClipDraggingRef.current = isClipDragging;
+        wasBinReorderingRef.current = isBinReorderActive;
+        return () => cancelAnimationFrame(frame);
+      }
     }
-    wasClipDraggingRef.current = isAnySidebarDrag;
-  }, [isAnySidebarDrag]);
+    wasClipDraggingRef.current = isClipDragging;
+    wasBinReorderingRef.current = isBinReorderActive;
+  }, [isAnySidebarDrag, isBinReorderActive, isClipDragging]);
 
   const handleSidebarPointerEnter = () => {
     isPointerOverSidebarRef.current = true;
   };
 
   const handleSidebarPointerMove = (event: React.PointerEvent<HTMLElement>) => {
+    lastSidebarPointerRef.current = { x: event.clientX, y: event.clientY };
     if (isSidebarHoverMuted) {
       if (hoveredSidebarControl !== null) setHoveredSidebarControl(null);
       return;
@@ -136,6 +154,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const handleSidebarPointerLeave = () => {
     isPointerOverSidebarRef.current = false;
+    lastSidebarPointerRef.current = null;
     setHoveredSidebarControl(null);
     if (!isAnySidebarDrag) setIsPostDragHoverSuppressed(false);
   };

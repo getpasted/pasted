@@ -11,6 +11,7 @@ const sidebar = read('src/styles/clips-sidebar.css');
 const theme = read('src/styles/theme-primitives.css');
 const pipelineEditor = read('src/components/PipelineEditorModal.tsx');
 const reorderHook = read('src/hooks/useStableVerticalReorder.ts');
+const sidebarComponent = read('src/components/Sidebar.tsx');
 const app = read('src/App.tsx');
 
 const ruleBody = (css, selector) => {
@@ -23,10 +24,12 @@ const ruleBody = (css, selector) => {
   return css.slice(open + 1, close);
 };
 
-// Normal interactive cursors remain forceful, but opt out during reordering.
+// Unlayered interaction rules own the normal cursor without !important, while
+// their selectors explicitly opt out during reordering.
 assert.match(accessibility, /html:not\(\.is-stable-reordering\) button:not\(:disabled\):not\(\.step-drag-handle\)/);
 assert.match(accessibility, /html:not\(\.is-stable-reordering\) input:not\(\[type="checkbox"\]\)/);
 assert.match(accessibility, /html:not\(\.is-stable-reordering\) \.clip-text-content/);
+assert.doesNotMatch(accessibility, /!important/);
 
 // The step handle no longer fights the global button selector.
 assert.match(ruleBody(accessibility, 'button.step-drag-handle {'), /cursor:\s*grab;/);
@@ -48,6 +51,12 @@ assert.match(reorderBody, /user-select:\s*none;/);
 assert.match(reorderHook, /classList\.add\('is-stable-reordering'\)/);
 assert.match(reorderHook, /classList\.remove\('is-stable-reordering'\)/);
 
+// Bin reordering restores the JS-managed hover immediately after settling;
+// clip dragging keeps its separate post-drag suppression behavior.
+assert.match(sidebarComponent, /wasBinReorderingRef\.current && !isBinReorderActive/);
+assert.match(sidebarComponent, /elementFromPoint\(pointer\.x, pointer\.y\)/);
+assert.match(sidebarComponent, /wasClipDraggingRef\.current && !isClipDragging/);
+
 // Reduced-motion rules must continue to defeat component-level animation.
 const reducedMotionStart = theme.indexOf('@media (prefers-reduced-motion: reduce)');
 assert.notEqual(reducedMotionStart, -1, 'Missing reduced-motion media query');
@@ -68,13 +77,6 @@ const importantLines = [
   .map((line) => `${name}:${line.trim()}`));
 
 assert.deepEqual(importantLines, [
-  'accessibility:-webkit-user-select: none !important;',
-  'accessibility:user-select: none !important;',
-  'accessibility:cursor: pointer !important;',
-  'accessibility:cursor: not-allowed !important;',
-  'accessibility:cursor: text !important;',
-  'accessibility:-webkit-user-select: text !important;',
-  'accessibility:user-select: text !important;',
   'theme:scroll-behavior: auto !important;',
   'theme:animation-duration: 0.01ms !important;',
   'theme:animation-iteration-count: 1 !important;',

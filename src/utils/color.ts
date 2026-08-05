@@ -12,14 +12,17 @@ export interface ColorFormats {
   contrastWithBlack: number;
 }
 
-export function parseColor(inputStr: string): ColorFormats | null {
+export function parseColor(inputStr: string, allowBareHex = false): ColorFormats | null {
   if (!inputStr) return null;
   const str = inputStr.trim();
 
   let r = 0, g = 0, b = 0;
 
-  // Hex regex (#fff or #ffffff)
-  const hexMatch = str.match(/^#?([a-f\d]{3}|[a-f\d]{6})$/i);
+  // Bare hex is accepted only for clips that were already classified as colors.
+  // This prevents six-digit codes and other short numeric text from becoming swatches.
+  const hexMatch = str.match(allowBareHex
+    ? /^#?([a-f\d]{3}|[a-f\d]{6})$/i
+    : /^#([a-f\d]{3}|[a-f\d]{6})$/i);
   if (hexMatch) {
     let hex = hexMatch[1];
     if (hex.length === 3) {

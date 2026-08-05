@@ -24,6 +24,40 @@ fn configured_capture_bytes(db: &DbState) -> usize {
     crate::resource_limits::configured_clip_capture_bytes(configured.as_deref())
 }
 
+#[derive(Clone, Copy)]
+struct ContentDetectionSettings {
+    colors: bool,
+    links: bool,
+    code: bool,
+}
+
+impl Default for ContentDetectionSettings {
+    fn default() -> Self {
+        Self {
+            colors: true,
+            links: true,
+            code: true,
+        }
+    }
+}
+
+impl ContentDetectionSettings {
+    fn from_db(db: &DbState) -> Self {
+        let enabled = |key: &str| {
+            db.get_setting(key)
+                .ok()
+                .flatten()
+                .map(|value| value != "false")
+                .unwrap_or(true)
+        };
+        Self {
+            colors: enabled("detectColors"),
+            links: enabled("detectLinks"),
+            code: enabled("detectCode"),
+        }
+    }
+}
+
 fn is_image_file_path(path: &Path) -> bool {
     path.extension()
         .and_then(|extension| extension.to_str())
@@ -355,7 +389,8 @@ pub fn start_clipboard_monitor(
                         }
 
                         // Detect type
-                        let content_type = detect_content_type(&text);
+                        let detection_settings = ContentDetectionSettings::from_db(&db_state);
+                        let content_type = detect_content_type(&text, detection_settings);
 
                         // If sequential mode active, push to queue as well
                         if *seq_state.is_active.lock() {
@@ -509,11 +544,12 @@ pub fn start_clipboard_monitor(
     }
 }
 
-fn detect_content_type(text: &str) -> String {
+fn detect_content_type(text: &str, settings: ContentDetectionSettings) -> String {
     let trimmed = text.trim();
 
     // Check color hex
-    if (trimmed.len() == 4 || trimmed.len() == 7 || trimmed.len() == 9)
+    if settings.colors
+        && (trimmed.len() == 4 || trimmed.len() == 7 || trimmed.len() == 9)
         && trimmed.starts_with('#')
         && trimmed[1..].chars().all(|c| c.is_ascii_hexdigit())
     {
@@ -521,31 +557,36 @@ fn detect_content_type(text: &str) -> String {
     }
 
     // Check RGB / HSL
-    if (trimmed.starts_with("rgb(") || trimmed.starts_with("rgba(") || trimmed.starts_with("hsl("))
+    if settings.colors
+        && (trimmed.starts_with("rgb(")
+            || trimmed.starts_with("rgba(")
+            || trimmed.starts_with("hsl("))
         && trimmed.ends_with(')')
     {
         return "color".to_string();
     }
 
     // Check URL / link
-    if trimmed.starts_with("http://")
-        || trimmed.starts_with("https://")
-        || trimmed.starts_with("file://")
+    if settings.links
+        && (trimmed.starts_with("http://")
+            || trimmed.starts_with("https://")
+            || trimmed.starts_with("file://"))
     {
         return "link".to_string();
     }
 
     // Check Code snippet heuristics
-    if trimmed.contains("function ")
-        || trimmed.contains("const ")
-        || trimmed.contains("let ")
-        || trimmed.contains("var ")
-        || trimmed.contains("import ")
-        || trimmed.contains("pub fn ")
-        || trimmed.contains("class ")
-        || trimmed.contains("def ")
-        || trimmed.contains("SELECT ")
-        || (trimmed.contains('{') && trimmed.contains('}') && trimmed.contains(';'))
+    if settings.code
+        && (trimmed.contains("function ")
+            || trimmed.contains("const ")
+            || trimmed.contains("let ")
+            || trimmed.contains("var ")
+            || trimmed.contains("import ")
+            || trimmed.contains("pub fn ")
+            || trimmed.contains("class ")
+            || trimmed.contains("def ")
+            || trimmed.contains("SELECT ")
+            || (trimmed.contains('{') && trimmed.contains('}') && trimmed.contains(';')))
     {
         return "code".to_string();
     }
@@ -573,7 +614,7 @@ fn rgba_to_png(width: u32, height: u32, rgba_data: &[u8]) -> Option<Vec<u8>> {
 
 #[cfg(test)]
 mod tests {
-    use super::is_image_file_path;
+    use super::{detect_content_type, is_image_file_path, ContentDetectionSettings};
     use std::path::Path;
 
     #[test]
@@ -583,5 +624,35 @@ mod tests {
         assert!(is_image_file_path(Path::new("/tmp/photo.webp")));
         assert!(!is_image_file_path(Path::new("/tmp/photo.png.txt")));
         assert!(!is_image_file_path(Path::new("/tmp/document.pdf")));
+    }
+
+    #[test]
+    fn six_digit_codes_are_text_not_colors() {
+        let settings = ContentDetectionSettings::default();
+        assert_eq!(detect_content_type("313041", settings), "text");
+        assert_eq!(detect_content_type("#313041", settings), "color");
+        assert_eq!(detect_content_type("rgb(31, 30, 41)", settings), "color");
+    }
+
+    #[test]
+    fn content_detection_categories_can_be_disabled_independently() {
+        let none = ContentDetectionSettings {
+            colors: false,
+            links: false,
+            code: false,
+        };
+        assert_eq!(detect_content_type("#313041", none), "text");
+        assert_eq!(detect_content_type("https://pasted.app", none), "text");
+        assert_eq!(detect_content_type("const pasted = true;", none), "text");
+
+        let links_only = ContentDetectionSettings {
+            links: true,
+            ..none
+        };
+        assert_eq!(
+            detect_content_type("https://pasted.app", links_only),
+            "link"
+        );
+        assert_eq!(detect_content_type("#313041", links_only), "text");
     }
 }

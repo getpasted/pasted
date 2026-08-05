@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Coffee, Download, Droplet, Drum, Laptop, Moon, RotateCcw, Sliders, Snowflake, Trash2, Zap } from 'lucide-react';
+import { Code2, Coffee, Download, Droplet, Drum, Laptop, Link, Moon, Palette, RotateCcw, Sliders, Snowflake, Trash2, Zap } from 'lucide-react';
 import type { AppSettings } from '../types';
 import { useAltKeyPressed } from '../hooks/useAltKeyPressed';
 import { safeInvoke as invoke } from '../utils/tauri';
@@ -61,6 +61,17 @@ const rowHeightOptions = [
   { value: 'small', label: 'Small' },
   { value: 'medium', label: 'Medium' },
   { value: 'large', label: 'Large' },
+];
+
+const contentDetectors: Array<{
+  key: 'detectColors' | 'detectLinks' | 'detectCode';
+  label: string;
+  description: string;
+  Icon: typeof Palette;
+}> = [
+  { key: 'detectColors', label: 'Colors', description: '#RGB, #RRGGBB, RGB, and HSL values.', Icon: Palette },
+  { key: 'detectLinks', label: 'Links', description: 'Web and file URLs.', Icon: Link },
+  { key: 'detectCode', label: 'Code', description: 'Common source-code patterns and syntax.', Icon: Code2 },
 ];
 
 export function SettingsGeneralPanel({
@@ -243,6 +254,42 @@ export function SettingsGeneralPanel({
                   </label>
                 </div>
               )}
+            </div>
+
+            <div className="theme-divider border-t" />
+
+            <div className="space-y-4">
+              <div className="text-center">
+                <h4 className="font-bold theme-title uppercase tracking-wider text-[11px]">
+                  Content Detection
+                </h4>
+                <p className="theme-text-muted mt-1 text-[11px]">
+                  Classify new text clips for Smart Bins and search.
+                </p>
+              </div>
+
+              <div className="theme-surface overflow-hidden rounded-xl border">
+                {contentDetectors.map(({ key, label, description, Icon }, index) => (
+                  <label
+                    key={key}
+                    className={`flex cursor-pointer items-center gap-3 px-3 py-2.5 ${index > 0 ? 'theme-divider border-t' : ''}`}
+                  >
+                    <span className="settings-accent-tile flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border">
+                      <Icon className="h-4 w-4" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <strong className="theme-text-main block text-xs">{label}</strong>
+                      <span className="theme-text-muted block text-[10px]">{description}</span>
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={settings[key]}
+                      onChange={(event) => onUpdateSettings({ [key]: event.target.checked })}
+                      className="theme-checkbox h-4 w-4 shrink-0 cursor-pointer rounded"
+                    />
+                  </label>
+                ))}
+              </div>
             </div>
 
             <div className="theme-divider border-t" />

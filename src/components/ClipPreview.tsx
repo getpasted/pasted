@@ -452,7 +452,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   const displayText = previewedVersion?.text_content ?? transformedText ?? clip.text_content ?? '';
   const colorData: ColorFormats | null =
     clip.content_type === 'color' || (displayText && displayText.length < 30)
-      ? parseColor(displayText)
+      ? parseColor(displayText, clip.content_type === 'color')
       : null;
   const canTransformContent = clip.content_type !== 'image' && clip.content_type !== 'file';
 

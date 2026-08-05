@@ -312,6 +312,9 @@ export interface AppSettings {
   maxClipSizeMb: number;
   filePreviewMode: 'off' | 'safe' | 'all';
   filePreviewMaxMb: number;
+  detectColors: boolean;
+  detectLinks: boolean;
+  detectCode: boolean;
   keepClipCount: number;
   revisionHistoryLimit: number;
   alwaysPastePlainText: boolean;
