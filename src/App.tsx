@@ -5,6 +5,7 @@ import { ClipItem, Bin, getClipFileSummary } from './types';
 import { Sidebar } from './components/Sidebar';
 import { ClipCard } from './components/ClipCard';
 import { EmptyClipList } from './components/EmptyClipList';
+import { PinnedClipShelf } from './components/PinnedClipShelf';
 import { ClipPreview } from './components/ClipPreview';
 import { SequentialQueueBar } from './components/SequentialQueueBar';
 import { TransformationsView } from './components/TransformationsView';
@@ -302,6 +303,70 @@ export default function App() {
     searchQuery,
     sequentialStatus: seqStatus,
   });
+  const clipListRef = useRef<HTMLDivElement | null>(null);
+  const [stackedPinnedClipIds, setStackedPinnedClipIds] = useState<number[]>([]);
+  const pinnedShelfClips = useMemo(
+    () => (currentTab === 'all' || currentTab === 'pinned')
+      ? displayedClips.filter((clip) => clip.is_pinned)
+      : [],
+    [currentTab, displayedClips],
+  );
+  const pinnedShelfSignature = pinnedShelfClips
+    .map((clip) => `${clip.id}:${clip.pin_order ?? 0}`)
+    .join('|');
+
+  useEffect(() => {
+    setStackedPinnedClipIds([]);
+  }, [selectionViewKey]);
+
+  const handleClipListScroll = useCallback((element: HTMLDivElement) => {
+    if (pinnedShelfClips.length === 0 || (currentTab !== 'all' && currentTab !== 'pinned')) {
+      setStackedPinnedClipIds([]);
+      return;
+    }
+    const pinnedCards = element.querySelectorAll<HTMLElement>('[data-pinned-clip="true"]');
+    if (pinnedCards.length === 0) {
+      setStackedPinnedClipIds([]);
+      return;
+    }
+    const listTop = element.getBoundingClientRect().top;
+    setStackedPinnedClipIds((previous) => {
+      const previousIds = new Set(previous);
+      const next = Array.from(pinnedCards).flatMap((card) => {
+        const id = Number(card.dataset.clipId);
+        if (!Number.isFinite(id)) return [];
+        const rect = card.getBoundingClientRect();
+        const shouldStack = previousIds.has(id)
+          ? rect.bottom <= listTop + 12
+          : rect.bottom <= listTop;
+        return shouldStack ? [id] : [];
+      });
+      return next.length === previous.length && next.every((id, index) => id === previous[index])
+        ? previous
+        : next;
+    });
+  }, [currentTab, pinnedShelfClips.length]);
+
+  useLayoutEffect(() => {
+    const element = clipListRef.current;
+    if (!element) return undefined;
+    let secondFrame = 0;
+    const firstFrame = requestAnimationFrame(() => {
+      secondFrame = requestAnimationFrame(() => handleClipListScroll(element));
+    });
+    return () => {
+      cancelAnimationFrame(firstFrame);
+      if (secondFrame) cancelAnimationFrame(secondFrame);
+    };
+  }, [handleClipListScroll, pinnedShelfSignature]);
+
+  const selectPinnedShelfClip = useCallback((clip: ClipItem) => {
+    const index = displayedClips.findIndex((item) => item.id === clip.id);
+    setSelectedIndex(index);
+    setSelectedClip(clip);
+    setSelectedClipIds(new Set([clip.id]));
+    selectedClipByViewRef.current.set(selectionViewKey, clip.id);
+  }, [displayedClips, selectionViewKey]);
 
   // Each section and Bin remembers its own inspector selection. Moving into a
   // view restores that clip (or its first eligible clip), while an explicit
@@ -804,21 +869,34 @@ export default function App() {
             )}
 
             {/* Clips List Content */}
-            <div
-              data-clip-list
-              className="flex-1 overflow-y-auto pl-3 pr-3 py-3 space-y-2.5 custom-scrollbar"
-              onClick={(event) => {
-                if (event.target === event.currentTarget) clearClipSelection();
-              }}
-            >
-              {displayedClips.length === 0 ? (
-                <EmptyClipList
-                  currentTab={currentTab}
-                  searchQuery={searchQuery}
-                  selectedBin={selectedBinId === null ? undefined : binsById.get(selectedBinId)}
-                />
-              ) : (
-                displayedClips.map((clip, index) => {
+            <div className="relative flex-1 min-h-0">
+              <PinnedClipShelf
+                clips={pinnedShelfClips}
+                stackedClipIds={stackedPinnedClipIds}
+                selectedClipId={selectedClip?.id}
+                onSelect={selectPinnedShelfClip}
+                onRevealAll={() => clipListRef.current?.scrollTo({ top: 0, behavior: 'smooth' })}
+                onWheel={(event) => {
+                  if (clipListRef.current) clipListRef.current.scrollTop += event.deltaY;
+                }}
+              />
+              <div
+                ref={clipListRef}
+                data-clip-list
+                className="h-full overflow-y-auto pl-3 pr-3 py-3 space-y-2.5 custom-scrollbar"
+                onScroll={(event) => handleClipListScroll(event.currentTarget)}
+                onClick={(event) => {
+                  if (event.target === event.currentTarget) clearClipSelection();
+                }}
+              >
+                {displayedClips.length === 0 ? (
+                  <EmptyClipList
+                    currentTab={currentTab}
+                    searchQuery={searchQuery}
+                    selectedBin={selectedBinId === null ? undefined : binsById.get(selectedBinId)}
+                  />
+                ) : (
+                  displayedClips.map((clip, index) => {
                   const queueIndex = clip.text_content ? queuedIndexMap.get(clip.text_content) : undefined;
                   const primaryBin = clip.bin_id === null ? undefined : binsById.get(clip.bin_id);
                   const baseViewPolicy = getClipViewPolicy(currentTab, clip);
@@ -939,8 +1017,9 @@ export default function App() {
                       }}
                     />
                   );
-                })
-              )}
+                  })
+                )}
+              </div>
             </div>
 
             {/* Floating Glass Batch Action Bar */}

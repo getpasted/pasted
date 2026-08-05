@@ -535,15 +535,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   isManualBin &&
                   !isDisabledDropTarget;
                 const isBinHovered = !isSidebarHoverMuted && hoveredSidebarControl === `bin:${b.id}`;
+                const dropAccent = binTextColor(b.color) ?? 'var(--accent-primary)';
 
                 return (
                   <div
                     key={b.id}
                     data-stable-reorder-id={String(b.id)}
-                    style={binReorderOffsets[b.id] !== undefined ? {
-                      transform: `translateY(${binReorderOffsets[b.id]}px)`,
-                      zIndex: activeDragBinId === b.id ? 20 : 10,
-                    } : undefined}
+                    style={{
+                      '--sidebar-bin-drop-color': dropAccent,
+                      ...(binReorderOffsets[b.id] !== undefined ? {
+                        transform: `translateY(${binReorderOffsets[b.id]}px)`,
+                        zIndex: activeDragBinId === b.id ? 20 : 10,
+                      } : {}),
+                    } as React.CSSProperties}
                     data-sidebar-hover-key={`bin:${b.id}`}
                     data-bin-drop-id={isManualBin && !isDisabledDropTarget ? b.id : undefined}
                     role="button"

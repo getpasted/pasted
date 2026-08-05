@@ -377,6 +377,9 @@
     --status-danger: #ef4444;
     --status-warning: #d97706;
     --status-info: var(--accent-primary);
+    --sidebar-bin-drop-color: var(--accent-primary);
+    --pinned-shelf-index: 0;
+    --pinned-shelf-depth: 1;
     --focus-ring: var(--accent-primary);
     --menu-surface: color-mix(in srgb, var(--bg-card) 94%, transparent);
     --menu-hover: color-mix(in srgb, var(--text-main) 7%, var(--bg-card));

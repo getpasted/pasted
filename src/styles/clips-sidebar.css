@@ -61,7 +61,7 @@
 }
 
 .sidebar-action-drop-pin {
-  --sidebar-action-drop-color: var(--status-warning);
+  --sidebar-action-drop-color: var(--status-success);
 }
 
 .sidebar-action-drop-protect {
@@ -115,21 +115,21 @@
 }
 
 .sidebar-bin-drop-eligible {
-  background-color: color-mix(in srgb, var(--status-success) 10%, transparent);
-  border-color: color-mix(in srgb, var(--status-success) 48%, var(--border-subtle));
+  background-color: color-mix(in srgb, var(--sidebar-bin-drop-color, var(--accent-primary)) 10%, transparent);
+  border-color: color-mix(in srgb, var(--sidebar-bin-drop-color, var(--accent-primary)) 48%, var(--border-subtle));
   border-style: dashed;
-  color: color-mix(in srgb, var(--status-success) 76%, var(--text-main));
+  color: color-mix(in srgb, var(--sidebar-bin-drop-color, var(--accent-primary)) 76%, var(--text-main));
 }
 
 .sidebar-bin-drop-target {
   position: relative;
   z-index: var(--layer-drag);
-  background-color: color-mix(in srgb, var(--status-success) 15%, transparent);
-  border-color: color-mix(in srgb, var(--status-success) 80%, var(--border-subtle));
+  background-color: color-mix(in srgb, var(--sidebar-bin-drop-color, var(--accent-primary)) 15%, transparent);
+  border-color: color-mix(in srgb, var(--sidebar-bin-drop-color, var(--accent-primary)) 80%, var(--border-subtle));
   border-style: solid;
-  color: var(--status-success);
+  color: var(--sidebar-bin-drop-color, var(--accent-primary));
   box-shadow:
-    0 0 0 2px color-mix(in srgb, var(--status-success) 25%, transparent),
+    0 0 0 2px color-mix(in srgb, var(--sidebar-bin-drop-color, var(--accent-primary)) 25%, transparent),
     var(--shadow-card);
 }
 
@@ -248,6 +248,170 @@
 .clip-card-attribute.clip-card-selected {
   background-color: color-mix(in srgb, var(--clip-attribute-accent) 3%, var(--bg-card-selected));
   border-color: color-mix(in srgb, var(--clip-attribute-accent) 20%, var(--border-card-selected));
+}
+
+/* Compact overlay that preserves pinned context after the full cards scroll away. */
+.pinned-clip-shelf {
+  position: absolute;
+  z-index: var(--layer-sticky);
+  top: 0.5rem;
+  left: 0.75rem;
+  right: 0.75rem;
+  height: 2.75rem;
+  opacity: 0;
+  transform: translateY(-0.75rem) scale(0.975);
+  transform-origin: top center;
+  pointer-events: none;
+  transition: opacity 150ms ease, transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.pinned-clip-shelf.is-visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.pinned-clip-shelf-stack {
+  position: relative;
+  height: 2.5rem;
+  pointer-events: auto;
+}
+
+.pinned-clip-shelf-card {
+  position: absolute;
+  z-index: var(--pinned-shelf-depth);
+  top: calc(var(--pinned-shelf-index) * 0.375rem);
+  left: calc(var(--pinned-shelf-index) * 0.2rem);
+  width: calc(100% - var(--pinned-shelf-index) * 0.4rem);
+  height: 2.25rem;
+  display: grid;
+  grid-template-columns: 1.25rem minmax(3.5rem, auto) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.55rem;
+  overflow: hidden;
+  color: var(--text-main);
+  background-color: color-mix(in srgb, var(--status-success) 11%, var(--material-toolbar));
+  border: 1px solid color-mix(in srgb, var(--status-success) 34%, var(--border-card));
+  border-radius: calc(var(--radius-card) - 2px);
+  box-shadow: 0 3px 9px color-mix(in srgb, #000 25%, transparent);
+  backdrop-filter: blur(var(--material-blur)) saturate(var(--material-saturation));
+  -webkit-backdrop-filter: blur(var(--material-blur)) saturate(var(--material-saturation));
+  transform: scale(calc(1 - var(--pinned-shelf-index) * 0.012));
+  transform-origin: top center;
+  animation: pinnedShelfCardJoin 320ms cubic-bezier(0.2, 0.9, 0.25, 1.18) both;
+  transition: top 170ms cubic-bezier(0.22, 1, 0.36, 1), left 170ms ease, width 170ms ease,
+    transform 170ms ease, background-color 100ms ease, border-color 100ms ease, box-shadow 100ms ease;
+}
+
+@keyframes pinnedShelfCardJoin {
+  0% {
+    opacity: 0;
+    transform: translateY(1.4rem) scale(0.9) rotate(-0.75deg);
+    box-shadow: 0 1px 3px color-mix(in srgb, #000 18%, transparent);
+  }
+  62% {
+    opacity: 1;
+    transform: translateY(-0.18rem) scale(1.015) rotate(0.18deg);
+    box-shadow:
+      0 0 0 2px color-mix(in srgb, var(--status-success) 28%, transparent),
+      0 8px 18px color-mix(in srgb, #000 32%, transparent);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(calc(1 - var(--pinned-shelf-index) * 0.012));
+    box-shadow: 0 3px 9px color-mix(in srgb, #000 25%, transparent);
+  }
+}
+
+.pinned-clip-shelf-stack:hover .pinned-clip-shelf-card,
+.pinned-clip-shelf-stack:focus-within .pinned-clip-shelf-card {
+  top: calc(var(--pinned-shelf-index) * 2.05rem);
+  left: 0;
+  width: 100%;
+  transform: scale(1);
+}
+
+.pinned-clip-shelf-card:hover,
+.pinned-clip-shelf-card:focus-visible,
+.pinned-clip-shelf-card.is-selected {
+  background-color: color-mix(in srgb, var(--status-success) 16%, var(--bg-card-selected));
+  border-color: color-mix(in srgb, var(--status-success) 52%, var(--border-card-selected));
+  box-shadow: var(--shadow-card-selected);
+  outline: none;
+}
+
+.pinned-clip-shelf-stack:hover .pinned-clip-shelf-card.is-stack-tail,
+.pinned-clip-shelf-stack:focus-within .pinned-clip-shelf-card.is-stack-tail {
+  box-shadow:
+    0 0.25rem 0.35rem color-mix(in srgb, #000 16%, transparent),
+    0 1rem 1.35rem color-mix(in srgb, #000 34%, transparent);
+}
+
+.pinned-clip-shelf-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  display: grid;
+  place-items: center;
+  color: var(--status-success);
+}
+
+.pinned-clip-shelf-icon svg {
+  width: 0.9rem;
+  height: 0.9rem;
+}
+
+.pinned-clip-shelf-source,
+.pinned-clip-shelf-summary,
+.pinned-clip-shelf-count {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pinned-clip-shelf-overflow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  color: var(--text-title);
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+
+.pinned-clip-shelf-overflow svg {
+  width: 0.8rem;
+  height: 0.8rem;
+}
+
+.pinned-clip-shelf-source {
+  color: var(--text-title);
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+
+.pinned-clip-shelf-summary {
+  color: var(--text-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.625rem;
+}
+
+.pinned-clip-shelf-count {
+  min-width: 1.35rem;
+  padding: 0.1rem 0.3rem;
+  color: var(--status-success);
+  background-color: color-mix(in srgb, var(--status-success) 10%, var(--bg-surface));
+  border: 1px solid color-mix(in srgb, var(--status-success) 30%, var(--border-subtle));
+  border-radius: var(--radius-pill);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.5625rem;
+  text-align: center;
+  transition: opacity 90ms ease;
+}
+
+.pinned-clip-shelf-stack:hover .pinned-clip-shelf-count,
+.pinned-clip-shelf-stack:focus-within .pinned-clip-shelf-count {
+  opacity: 0;
 }
 
 .clip-card-header {

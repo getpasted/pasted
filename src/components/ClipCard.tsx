@@ -378,6 +378,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
   return (
     <div
       data-clip-id={clip.id}
+      data-pinned-clip={clip.is_pinned ? 'true' : undefined}
       onClick={(e) => {
         if (suppressClickRef.current) {
           e.preventDefault();
