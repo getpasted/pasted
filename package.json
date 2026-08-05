@@ -12,6 +12,7 @@
     "test:css": "node scripts/audit-css.js && node scripts/test-interaction-css.js",
     "test:security": "node scripts/audit-security.js",
     "test:ipc": "node scripts/audit-ipc.js",
+    "icons:generate": "bash scripts/generate-icons.sh",
     "test:all": "cargo fmt --manifest-path src-tauri/Cargo.toml -- --check && cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings && npm run build && npm test && npm run test:css && npm run test:wcag && npm run test:ipc && npm run test:security",
     "tauri": "tauri"
   },

@@ -1,0 +1,63 @@
+{
+  "fill": {
+    "automatic-gradient": "display-p3:0.04000,0.07100,0.10500,1.00000"
+  },
+  "groups": [
+    {
+      "layers": [
+        {
+          "image-name": "01-history-sheet.svg",
+          "name": "History Sheet"
+        }
+      ],
+      "shadow": {
+        "kind": "layer-color",
+        "opacity": 0.36
+      },
+      "specular": true,
+      "translucency": {
+        "enabled": true,
+        "value": 0.18
+      }
+    },
+    {
+      "layers": [
+        {
+          "image-name": "02-clipboard-sheet.svg",
+          "name": "Clipboard Sheet"
+        }
+      ],
+      "shadow": {
+        "kind": "neutral",
+        "opacity": 0.32
+      },
+      "specular": true,
+      "translucency": {
+        "enabled": true,
+        "value": 0.08
+      }
+    },
+    {
+      "layers": [
+        {
+          "glass": false,
+          "image-name": "03-content-marks.svg",
+          "name": "Content Marks"
+        }
+      ],
+      "shadow": {
+        "kind": "neutral",
+        "opacity": 0.12
+      },
+      "translucency": {
+        "enabled": false,
+        "value": 0
+      }
+    }
+  ],
+  "supported-platforms": {
+    "squares": [
+      "macOS"
+    ]
+  }
+}

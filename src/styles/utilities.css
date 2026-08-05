@@ -1,7 +1,7 @@
 /* Pinned / kept accent */
 .pin-icon {
   color: var(--status-success);
-  fill: currentColor;
+  fill: none;
 }
 
 /* =======================================================

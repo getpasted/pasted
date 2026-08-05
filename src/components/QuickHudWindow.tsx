@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Sparkles, Clipboard, Command, X } from 'lucide-react';
+import { Search, Sparkles, Command, X } from 'lucide-react';
+import { PastedMark } from './PastedMark';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { listen } from '@tauri-apps/api/event';
 import { ClipItem, getClipFileSummary } from '../types';
@@ -125,7 +126,7 @@ export const QuickHudWindow: React.FC = () => {
       <div className="quick-hud-shell flex-1 rounded-xl border flex flex-col overflow-hidden no-drag shadow-none">
         {/* Header Bar */}
         <div className="quick-hud-header p-3 border-b flex items-center space-x-2.5 no-drag">
-          <Clipboard className="quick-hud-accent w-4 h-4 shrink-0" />
+          <PastedMark className="quick-hud-accent w-4 h-4 shrink-0" />
           <div className="relative flex-1">
             <Search className="theme-text-muted w-3.5 h-3.5 absolute left-2.5 top-2.5" />
             <input
