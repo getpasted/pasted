@@ -59,6 +59,7 @@
 .file-attribute-scroll {
   scrollbar-width: none;
   overscroll-behavior-x: contain;
+  transition: background-color 100ms ease, box-shadow 100ms ease;
 }
 
 .file-attribute-scroll::-webkit-scrollbar {
@@ -66,6 +67,7 @@
 }
 
 .file-attribute-scroll:focus {
+  background-color: color-mix(in srgb, var(--accent-primary) 9%, transparent);
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-primary) 42%, transparent);
 }
 

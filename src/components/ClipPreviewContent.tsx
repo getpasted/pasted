@@ -102,14 +102,14 @@ function FileCopyField({
 
   return (
     <div
-      className={`file-copy-field flex min-h-12 min-w-0 items-center gap-2 px-2.5 py-2 ${emphasized ? 'theme-code-surface' : ''}`}
+      className={`file-copy-field flex min-h-10 min-w-0 items-center gap-1 px-1.5 py-0.5 ${emphasized ? 'theme-code-surface' : ''}`}
       onPointerDown={handleFieldPointerDown}
     >
-      <span className="theme-text-subtle w-9 shrink-0 text-[9px] font-semibold uppercase tracking-wide">{label}</span>
+      <span className="theme-text-subtle w-9 shrink-0 pl-1 text-[9px] font-semibold uppercase tracking-wide">{label}</span>
       <div
         ref={viewportRef}
         tabIndex={0}
-        className={`file-attribute-scroll theme-text-main min-w-0 flex-1 overflow-x-auto whitespace-nowrap rounded-sm font-mono outline-none select-text ${emphasized ? 'text-xs' : 'text-[11px]'}`}
+        className={`file-attribute-scroll theme-text-main min-w-0 flex-1 cursor-text overflow-x-auto whitespace-nowrap rounded-md px-2 py-1.5 font-mono outline-none select-text ${emphasized ? 'text-xs' : 'text-[11px]'}`}
         title={value}
         onFocus={() => selectAll()}
       >
