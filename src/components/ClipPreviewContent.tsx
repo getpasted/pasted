@@ -8,6 +8,8 @@ interface ClipPreviewContentProps {
   displayText: string;
   colorData: ColorFormats | null;
   resolvedImageBase64: string | null;
+  filePreviews: Array<{ index: number; dataUrl: string; width: number; height: number }>;
+  isFilePreviewLoading: boolean;
   copiedFormat: string | null;
   isOcrLoading: boolean;
   readOnly?: boolean;
@@ -21,6 +23,8 @@ export function ClipPreviewContent({
   displayText,
   colorData,
   resolvedImageBase64,
+  filePreviews,
+  isFilePreviewLoading,
   copiedFormat,
   isOcrLoading,
   readOnly = false,
@@ -36,9 +40,36 @@ export function ClipPreviewContent({
               <Files className="h-4 w-4 text-blue-400" />
               <span>{getClipFilePaths(clip).length === 1 ? 'Copied File' : `${getClipFilePaths(clip).length} Copied Files`}</span>
             </div>
-            <div className="theme-surface divide-y theme-divider overflow-hidden rounded-xl border">
-              {getClipFilePaths(clip).map((path) => (
-                <div key={path} className="flex items-center gap-2 px-3 py-2.5">
+            {isFilePreviewLoading && (
+              <div className="theme-text-muted mb-3 flex items-center justify-center gap-2 rounded-xl py-8 text-xs">
+                <Sparkles className="h-4 w-4 animate-spin" />
+                <span>Preparing file preview…</span>
+              </div>
+            )}
+            {filePreviews.length > 0 && (
+              <div className={`mb-3 grid gap-2 ${filePreviews.length > 1 ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                {filePreviews.map((preview) => {
+                  const path = getClipFilePaths(clip)[preview.index] ?? '';
+                  return (
+                    <figure key={`${preview.index}-${path}`} className="theme-code-surface overflow-hidden rounded-xl border">
+                      <div className="flex min-h-36 items-center justify-center p-2">
+                        <img
+                          src={preview.dataUrl}
+                          alt={`Preview of ${path.split(/[\\/]/).pop() || 'copied image'}`}
+                          className="max-h-72 w-full rounded-lg object-contain"
+                        />
+                      </div>
+                      <figcaption className="theme-divider theme-text-muted truncate border-t px-2.5 py-1.5 font-mono text-[10px]" title={path}>
+                        {path.split(/[\\/]/).pop() || path}
+                      </figcaption>
+                    </figure>
+                  );
+                })}
+              </div>
+            )}
+            <div className="theme-surface overflow-hidden rounded-xl border">
+              {getClipFilePaths(clip).map((path, index) => (
+                <div key={path} className={`flex items-center gap-2 px-3 py-2.5 ${index > 0 ? 'theme-divider border-t' : ''}`}>
                   <File className="theme-text-muted h-4 w-4 shrink-0" />
                   <span className="theme-text-main min-w-0 truncate font-mono text-xs" title={path}>{path}</span>
                 </div>

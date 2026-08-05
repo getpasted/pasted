@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Cloud, Download, ShieldCheck, Upload } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
+import { SettingsPanelHeader } from './SettingsPanelHeader';
 
 const MAX_BACKUP_IMPORT_BYTES = 256 * 1024 * 1024;
 
@@ -52,56 +53,48 @@ export function SettingsSyncPanel({
 
   return (
     <div className="space-y-5 text-xs">
-      <div className="p-5 theme-surface rounded-xl border space-y-3">
-        <div className="flex items-center space-x-3">
-          <div className="settings-accent-tile p-2.5 rounded-xl border">
-            <Download className="w-5 h-5" />
-          </div>
-          <div>
-            <h4 className="text-sm font-bold theme-title">Backup &amp; Restore Vault (.json)</h4>
-            <p className="text-[11px] theme-text-muted">Export clips, Trash, Bins, Tags, Transforms, and Advanced tools to a JSON file or restore from a backup.</p>
-          </div>
-        </div>
-
-        <div className="flex items-center space-x-3 pt-1">
-          <button
-            type="button"
-            onClick={handleExport}
-            className="theme-primary-button flex items-center space-x-2 px-4 py-2 border font-semibold rounded-xl text-xs transition-[background-color,transform] shadow-md active:scale-95 cursor-pointer"
-          >
-            <Download className="w-4 h-4" />
-            <span>Export Backup (.json)</span>
-          </button>
-
-          <label className="theme-secondary-button flex items-center space-x-2 px-4 py-2 font-semibold rounded-xl text-xs transition-[background-color,border-color,color] border shadow-md cursor-pointer">
-            <Upload className="w-4 h-4 theme-text-muted" />
-            <span>Import Backup (.json)</span>
-            <input
-              type="file"
-              accept=".json,application/json"
-              className="hidden"
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                event.target.value = '';
-                if (file) void handleImport(file);
-              }}
-            />
-          </label>
-        </div>
-
-        {status && (
-          <p
-            role={status.kind === 'error' ? 'alert' : 'status'}
-            className={`rounded-lg border px-3 py-2 text-[11px] ${
-              status.kind === 'error'
-                ? 'theme-status-danger'
-                : 'theme-status-success'
-            }`}
-          >
-            {status.message}
-          </p>
+      <SettingsPanelHeader
+        icon={Download}
+        title="Backup & Restore"
+        description="Export or restore your Pasted library."
+        actions={(
+          <>
+            <button
+              type="button"
+              onClick={handleExport}
+              className="theme-primary-button flex items-center space-x-1.5 px-3 py-2 border font-semibold rounded-xl text-xs cursor-pointer"
+            >
+              <Download className="w-4 h-4" />
+              <span>Export</span>
+            </button>
+            <label className="theme-secondary-button flex items-center space-x-1.5 px-3 py-2 font-semibold rounded-xl text-xs border cursor-pointer">
+              <Upload className="w-4 h-4" />
+              <span>Import</span>
+              <input
+                type="file"
+                accept=".json,application/json"
+                className="hidden"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  event.target.value = '';
+                  if (file) void handleImport(file);
+                }}
+              />
+            </label>
+          </>
         )}
-      </div>
+      />
+
+      {status && (
+        <p
+          role={status.kind === 'error' ? 'alert' : 'status'}
+          className={`rounded-lg border px-3 py-2 text-[11px] ${
+            status.kind === 'error' ? 'theme-status-danger' : 'theme-status-success'
+          }`}
+        >
+          {status.message}
+        </p>
+      )}
 
       <div className="p-5 theme-surface rounded-xl border space-y-4">
         <div className="flex items-center space-x-3">

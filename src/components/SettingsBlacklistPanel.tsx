@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Lock, Plus, Trash2 } from 'lucide-react';
 import type { BlacklistApp } from '../types';
 import { AddBlacklistAppModal } from './AddBlacklistAppModal';
+import { SettingsPanelHeader } from './SettingsPanelHeader';
 
 interface SettingsBlacklistPanelProps {
   apps: BlacklistApp[];
@@ -39,22 +40,21 @@ export function SettingsBlacklistPanel({
 
   return (
     <div className="space-y-5 text-xs">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h2 className="theme-title text-sm font-bold">App exclusions</h2>
-          <p className="theme-text-muted mt-1 text-xs leading-relaxed">
-            Choose what Pasted ignores while sensitive or private apps are active.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => setIsAddAppOpen(true)}
-          className="theme-primary-button border rounded-xl px-3 py-2 text-xs font-semibold flex items-center gap-1.5 shrink-0"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Add app</span>
-        </button>
-      </div>
+      <SettingsPanelHeader
+        icon={Lock}
+        title="App exclusions"
+        description="Choose which apps Pasted ignores."
+        actions={(
+          <button
+            type="button"
+            onClick={() => setIsAddAppOpen(true)}
+            className="theme-primary-button border rounded-xl px-3 py-2 text-xs font-semibold flex items-center gap-1.5 shrink-0"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add app</span>
+          </button>
+        )}
+      />
 
       <div className="space-y-2">
         {apps.length === 0 && (

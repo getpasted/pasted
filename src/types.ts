@@ -310,6 +310,8 @@ export interface AppSettings {
   openAtLogin: boolean;
   dockMenubarIcon: 'auto_hide' | 'both' | 'menubar_only';
   maxClipSizeMb: number;
+  filePreviewMode: 'off' | 'safe' | 'all';
+  filePreviewMaxMb: number;
   keepClipCount: number;
   revisionHistoryLimit: number;
   alwaysPastePlainText: boolean;

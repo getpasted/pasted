@@ -9,6 +9,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   openAtLogin: true,
   dockMenubarIcon: 'auto_hide',
   maxClipSizeMb: 100,
+  filePreviewMode: 'safe',
+  filePreviewMaxMb: 25,
   keepClipCount: 900,
   revisionHistoryLimit: 50,
   alwaysPastePlainText: false,
@@ -44,6 +46,8 @@ function parseSavedSettings(saved: Record<string, string>) {
   if (saved.openAtLogin !== undefined) next.openAtLogin = saved.openAtLogin === 'true';
   if (['auto_hide', 'both', 'menubar_only'].includes(saved.dockMenubarIcon)) next.dockMenubarIcon = saved.dockMenubarIcon as AppSettings['dockMenubarIcon'];
   if (saved.maxClipSizeMb) next.maxClipSizeMb = numberValue('maxClipSizeMb', next.maxClipSizeMb);
+  if (['off', 'safe', 'all'].includes(saved.filePreviewMode)) next.filePreviewMode = saved.filePreviewMode as AppSettings['filePreviewMode'];
+  if (saved.filePreviewMaxMb) next.filePreviewMaxMb = Math.max(1, Math.min(64, numberValue('filePreviewMaxMb', next.filePreviewMaxMb)));
   if (saved.keepClipCount) next.keepClipCount = numberValue('keepClipCount', next.keepClipCount);
   if (saved.revisionHistoryLimit !== undefined) next.revisionHistoryLimit = numberValue('revisionHistoryLimit', next.revisionHistoryLimit);
   if (saved.alwaysPastePlainText !== undefined) next.alwaysPastePlainText = saved.alwaysPastePlainText === 'true';

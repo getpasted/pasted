@@ -350,6 +350,17 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       return 0 as unknown as T;
     case 'get_clip_image':
       return null as unknown as T;
+    case 'get_file_clip_metadata':
+      return {
+        itemCount: 0,
+        availableCount: 0,
+        fileCount: 0,
+        directoryCount: 0,
+        totalSizeBytes: 0,
+        extensions: [],
+      } as unknown as T;
+    case 'get_file_clip_previews':
+      return [] as unknown as T;
     case 'restore_clip_version': {
       const clipId = Number(args?.clipId);
       const clip = mockClips.find((item) => item.id === clipId);

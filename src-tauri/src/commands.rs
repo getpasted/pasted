@@ -1,5 +1,6 @@
 use arboard::Clipboard;
 use base64::Engine;
+use std::io::{Cursor, Read};
 use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
@@ -10,6 +11,224 @@ use crate::db::{
     PipelineStepInput, SavedTransform, TransformClipApplication,
 };
 use crate::sequential_paste::{SequentialQueueState, SequentialStatus};
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FileClipMetadata {
+    item_count: usize,
+    available_count: usize,
+    file_count: usize,
+    directory_count: usize,
+    total_size_bytes: u64,
+    extensions: Vec<String>,
+}
+
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FileClipPreview {
+    index: usize,
+    data_url: String,
+    width: u32,
+    height: u32,
+}
+
+fn is_safe_preview_extension(path: &std::path::Path) -> bool {
+    path.extension()
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| {
+            matches!(
+                extension.to_ascii_lowercase().as_str(),
+                "jpeg" | "jpg" | "png" | "webp"
+            )
+        })
+}
+
+fn read_bounded_file(path: &std::path::Path, max_bytes: u64) -> Option<Vec<u8>> {
+    let metadata = std::fs::symlink_metadata(path).ok()?;
+    if !metadata.is_file() || metadata.file_type().is_symlink() || metadata.len() > max_bytes {
+        return None;
+    }
+    let file = std::fs::File::open(path).ok()?;
+    let mut bytes = Vec::with_capacity(metadata.len().min(max_bytes) as usize);
+    file.take(max_bytes.saturating_add(1))
+        .read_to_end(&mut bytes)
+        .ok()?;
+    (bytes.len() as u64 <= max_bytes).then_some(bytes)
+}
+
+fn collect_file_clip_previews(
+    paths: &[String],
+    mode: &str,
+    configured_max_bytes: u64,
+) -> Vec<FileClipPreview> {
+    if mode == "off" {
+        return Vec::new();
+    }
+    let max_bytes = configured_max_bytes.clamp(
+        1024 * 1024,
+        crate::resource_limits::MAX_FILE_PREVIEW_INPUT_BYTES,
+    );
+    let mut previews = Vec::new();
+    let mut encoded_total = 0usize;
+
+    for (index, path) in paths.iter().enumerate() {
+        if previews.len() >= crate::resource_limits::MAX_FILE_PREVIEW_COUNT {
+            break;
+        }
+        let path = std::path::Path::new(path);
+        if mode == "safe" && !is_safe_preview_extension(path) {
+            continue;
+        }
+        let Some(bytes) = read_bounded_file(path, max_bytes) else {
+            continue;
+        };
+        let Ok(reader) = image::ImageReader::new(Cursor::new(&bytes)).with_guessed_format() else {
+            continue;
+        };
+        let Ok((width, height)) = reader.into_dimensions() else {
+            continue;
+        };
+        if !crate::resource_limits::image_dimensions_within_limit(width, height) {
+            continue;
+        }
+        let Ok(decoded) = image::load_from_memory(&bytes) else {
+            continue;
+        };
+        let thumbnail = decoded.thumbnail(1_600, 1_200);
+        let width = thumbnail.width();
+        let height = thumbnail.height();
+        let mut encoded = Cursor::new(Vec::new());
+        if thumbnail
+            .write_to(&mut encoded, image::ImageFormat::WebP)
+            .is_err()
+        {
+            continue;
+        }
+        let encoded = encoded.into_inner();
+        let Some(next_total) = encoded_total.checked_add(encoded.len()) else {
+            break;
+        };
+        if next_total > crate::resource_limits::MAX_FILE_PREVIEW_OUTPUT_BYTES {
+            break;
+        }
+        encoded_total = next_total;
+        previews.push(FileClipPreview {
+            index,
+            data_url: format!(
+                "data:image/webp;base64,{}",
+                base64::engine::general_purpose::STANDARD.encode(encoded)
+            ),
+            width,
+            height,
+        });
+    }
+    previews
+}
+
+fn collect_file_clip_metadata(paths: &[String]) -> FileClipMetadata {
+    let mut available_count = 0usize;
+    let mut file_count = 0usize;
+    let mut directory_count = 0usize;
+    let mut total_size_bytes = 0u64;
+    let mut extensions = Vec::new();
+    for path in paths {
+        let path = std::path::Path::new(path);
+        if let Some(extension) = path.extension().and_then(|value| value.to_str()) {
+            let extension = extension.to_uppercase();
+            if !extension.is_empty() && !extensions.contains(&extension) {
+                extensions.push(extension);
+            }
+        }
+        if let Ok(metadata) = std::fs::symlink_metadata(path) {
+            available_count += 1;
+            if metadata.is_dir() {
+                directory_count += 1;
+            } else {
+                file_count += 1;
+                total_size_bytes = total_size_bytes.saturating_add(metadata.len());
+            }
+        }
+    }
+    FileClipMetadata {
+        item_count: paths.len(),
+        available_count,
+        file_count,
+        directory_count,
+        total_size_bytes,
+        extensions,
+    }
+}
+
+#[tauri::command]
+pub async fn get_file_clip_metadata(
+    clip_id: i64,
+    db: State<'_, Arc<DbState>>,
+) -> Result<FileClipMetadata, String> {
+    let db = Arc::clone(&db);
+    tauri::async_runtime::spawn_blocking(move || {
+        let clip = db
+            .get_clip_by_id(clip_id)
+            .map_err(|error| error.to_string())?;
+        if clip.content_type != "file" {
+            return Err("Clip is not a file list".to_string());
+        }
+        let paths = clip
+            .text_content
+            .as_deref()
+            .ok_or_else(|| "File clip has no path metadata".to_string())
+            .and_then(|value| {
+                serde_json::from_str::<Vec<String>>(value)
+                    .map_err(|_| "File clip has invalid path metadata".to_string())
+            })?;
+        if !crate::resource_limits::file_list_within_limit(&paths) {
+            return Err("File list exceeds Pasted's safety limit".to_string());
+        }
+
+        Ok(collect_file_clip_metadata(&paths))
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
+#[tauri::command]
+pub async fn get_file_clip_previews(
+    clip_id: i64,
+    mode: String,
+    max_size_mb: u64,
+    db: State<'_, Arc<DbState>>,
+) -> Result<Vec<FileClipPreview>, String> {
+    if !matches!(mode.as_str(), "off" | "safe" | "all") {
+        return Err("Unknown file preview mode".to_string());
+    }
+    let db = Arc::clone(&db);
+    tauri::async_runtime::spawn_blocking(move || {
+        let clip = db
+            .get_clip_by_id(clip_id)
+            .map_err(|error| error.to_string())?;
+        if clip.content_type != "file" {
+            return Err("Clip is not a file list".to_string());
+        }
+        let paths = clip
+            .text_content
+            .as_deref()
+            .ok_or_else(|| "File clip has no path metadata".to_string())
+            .and_then(|value| {
+                serde_json::from_str::<Vec<String>>(value)
+                    .map_err(|_| "File clip has invalid path metadata".to_string())
+            })?;
+        if !crate::resource_limits::file_list_within_limit(&paths) {
+            return Err("File list exceeds Pasted's safety limit".to_string());
+        }
+        let configured_max_bytes = max_size_mb.saturating_mul(1024 * 1024);
+        Ok(collect_file_clip_previews(
+            &paths,
+            &mode,
+            configured_max_bytes,
+        ))
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
 
 #[tauri::command]
 pub fn get_clips(
@@ -2049,5 +2268,65 @@ mod tests {
         assert_eq!(csv_cell("@SUM(A1:A2)"), "\"'@SUM(A1:A2)\"");
         assert_eq!(csv_cell("\t=2+2"), "\"'\t=2+2\"");
         assert_eq!(csv_cell("\r=2+2"), "\"'\r=2+2\"");
+    }
+
+    #[test]
+    fn file_clip_metadata_reports_availability_without_crawling_directories() {
+        let root = std::env::temp_dir().join(format!(
+            "pasted_file_metadata_{}_{}",
+            std::process::id(),
+            chrono::Utc::now().timestamp_nanos_opt().unwrap_or_default()
+        ));
+        let directory = root.join("Folder");
+        std::fs::create_dir_all(&directory).unwrap();
+        let file = root.join("first.txt");
+        std::fs::write(&file, b"pasted").unwrap();
+        let missing = root.join("missing.mp4");
+        let paths = vec![
+            file.to_string_lossy().into_owned(),
+            directory.to_string_lossy().into_owned(),
+            missing.to_string_lossy().into_owned(),
+        ];
+
+        let metadata = collect_file_clip_metadata(&paths);
+        assert_eq!(metadata.item_count, 3);
+        assert_eq!(metadata.available_count, 2);
+        assert_eq!(metadata.file_count, 1);
+        assert_eq!(metadata.directory_count, 1);
+        assert_eq!(metadata.total_size_bytes, 6);
+        assert_eq!(metadata.extensions, vec!["TXT", "MP4"]);
+
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn file_previews_are_bounded_and_safe_mode_is_extension_allowlisted() {
+        let root = unique_test_directory("file-previews");
+        std::fs::create_dir_all(&root).unwrap();
+        let png = root.join("preview.PNG");
+        image::RgbaImage::from_pixel(2, 2, image::Rgba([20, 40, 60, 255]))
+            .save(&png)
+            .unwrap();
+        let disguised = root.join("preview.data");
+        std::fs::copy(&png, &disguised).unwrap();
+        let paths = vec![
+            png.to_string_lossy().into_owned(),
+            disguised.to_string_lossy().into_owned(),
+        ];
+
+        let safe = collect_file_clip_previews(&paths, "safe", 1024 * 1024);
+        assert_eq!(safe.len(), 1);
+        assert_eq!(safe[0].index, 0);
+        assert!(safe[0].data_url.starts_with("data:image/webp;base64,"));
+
+        let all = collect_file_clip_previews(&paths, "all", 1024 * 1024);
+        assert_eq!(all.len(), 2);
+        assert_eq!(all[1].index, 1);
+
+        let oversized = root.join("oversized.png");
+        std::fs::write(&oversized, vec![0u8; 1024 * 1024 + 1]).unwrap();
+        assert!(read_bounded_file(&oversized, 1024 * 1024).is_none());
+
+        std::fs::remove_dir_all(root).unwrap();
     }
 }

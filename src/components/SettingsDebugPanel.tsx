@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Activity, Ban, CheckCircle2, CirclePlay, Clock3, GitFork, Layers3, LoaderCircle, Shuffle, XCircle } from 'lucide-react';
 import type { IntelligenceSchedulerEvent, IntelligenceSchedulerSnapshot } from '../types';
 import { safeInvoke as invoke } from '../utils/tauri';
+import { SettingsPanelHeader } from './SettingsPanelHeader';
 
 const EMPTY_SNAPSHOT: IntelligenceSchedulerSnapshot = {
   revision: 0,
@@ -61,16 +62,12 @@ export function SettingsDebugPanel() {
 
   return (
     <div className="space-y-5">
-      <section className="theme-surface rounded-2xl border p-5 space-y-4">
-        <div className="flex items-start gap-3">
-          <span className="theme-badge rounded-xl border p-2.5"><Activity className="h-5 w-5" /></span>
-          <div className="min-w-0 flex-1">
-            <h2 className="theme-title text-sm font-bold">Intelligence scheduler</h2>
-            <p className="theme-text-muted mt-1 text-xs leading-relaxed">
-              Live, in-memory diagnostics. Completed outcomes remain in Activity Log; transient queue events disappear when Pasted quits.
-            </p>
-          </div>
-        </div>
+      <SettingsPanelHeader
+        icon={Activity}
+        title="Intelligence scheduler"
+        description="Watch intelligence work in real time."
+      />
+      <section className="theme-surface rounded-2xl border p-5">
         <div className="grid grid-cols-2 gap-3">
           <div className="theme-card-idle rounded-xl border p-3">
             <div className="theme-text-muted text-[10px] font-semibold uppercase tracking-wider">Running</div>

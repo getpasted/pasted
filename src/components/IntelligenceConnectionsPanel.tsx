@@ -5,6 +5,7 @@ import { safeInvoke as invoke } from '../utils/tauri';
 import { useStableVerticalReorder } from '../hooks/useStableVerticalReorder';
 import { intelligenceProviderLabel } from '../utils/intelligenceProviders';
 import { ConnectionModal } from './ConnectionModal';
+import { SettingsPanelHeader } from './SettingsPanelHeader';
 
 let cachedConnections: IntelligenceConnection[] | null = null;
 let cachedDetectedConnections: DetectedIntelligenceConnection[] | null = null;
@@ -17,6 +18,7 @@ export function IntelligenceConnectionsPanel() {
   const [isAddConnectionOpen, setIsAddConnectionOpen] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(cachedConnections === null);
+  const [hasDetectionResult, setHasDetectionResult] = useState(cachedDetectedConnections !== null);
   const connectionListRef = useRef<HTMLDivElement>(null);
 
   const {
@@ -56,6 +58,7 @@ export function IntelligenceConnectionsPanel() {
       if (cancelled) return;
       if (cachedDetectedConnections && Date.now() - cachedDetectionAt < DETECTION_CACHE_MS) {
         setDetectedConnections(cachedDetectedConnections);
+        setHasDetectionResult(true);
         setIsLoading(false);
         return;
       }
@@ -65,6 +68,7 @@ export function IntelligenceConnectionsPanel() {
         cachedDetectedConnections = detected;
         cachedDetectionAt = Date.now();
         setDetectedConnections(detected);
+        setHasDetectionResult(true);
         await refresh();
       } catch (reason) {
         if (!cancelled) setError(String(reason));
@@ -107,6 +111,17 @@ export function IntelligenceConnectionsPanel() {
 
   return (
     <div className="space-y-5">
+      <SettingsPanelHeader
+        icon={BrainCircuit}
+        title="Intelligence connections"
+        description="Manage local and remote intelligence providers."
+        actions={(
+          <button type="button" onClick={() => setIsAddConnectionOpen(true)} className="theme-primary-button border rounded-xl px-3 py-2 text-xs font-semibold flex items-center justify-center gap-1.5">
+            <Plus className="w-4 h-4" />
+            <span>Add connection</span>
+          </button>
+        )}
+      />
       <div className="space-y-5">
         <section className="space-y-2.5 min-w-0">
           {connections.length > 0 ? (
@@ -120,6 +135,7 @@ export function IntelligenceConnectionsPanel() {
                 const isInteractiveOnly = detected?.capabilities.includes('interactive_chat') && !detected.capabilities.includes('structured_output');
                 const executionUnavailable = detected?.executionSupported === false;
                 const isOperational = connection.enabled && !executionUnavailable;
+                const canDelete = hasDetectionResult && !detected;
                 return (
                   <article
                     key={connection.id}
@@ -146,11 +162,18 @@ export function IntelligenceConnectionsPanel() {
                       <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={() => toggleConnection(connection)} disabled={executionUnavailable} className={`connection-power-button theme-icon-button border rounded-lg p-2 ${isOperational ? 'is-enabled' : ''}`} title={executionUnavailable ? 'Execution adapter coming later' : connection.enabled ? 'Disable' : 'Enable'}>
                         <Power className="w-4 h-4" />
                       </button>
-                      {!detected && (
-                        <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={() => deleteConnection(connection.id)} className="theme-icon-button theme-danger-text border rounded-lg p-2" title="Delete Connection">
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        onPointerDown={(event) => event.stopPropagation()}
+                        onClick={() => canDelete && deleteConnection(connection.id)}
+                        disabled={!canDelete}
+                        tabIndex={canDelete ? 0 : -1}
+                        aria-hidden={!canDelete}
+                        className={`theme-icon-button theme-danger-text border rounded-lg p-2 ${canDelete ? '' : 'invisible pointer-events-none'}`}
+                        title={canDelete ? 'Delete Connection' : undefined}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
                   </article>
                 );
@@ -163,24 +186,6 @@ export function IntelligenceConnectionsPanel() {
           )}
         </section>
 
-        <aside className="theme-surface border rounded-2xl p-5 space-y-4">
-          <div className="flex items-start gap-3">
-            <span className="theme-badge border rounded-xl p-2.5 shrink-0"><BrainCircuit className="w-5 h-5" /></span>
-            <div className="min-w-0">
-              <h2 className="theme-title text-sm font-bold">Bring your own intelligence</h2>
-              <p className="theme-text-muted text-xs mt-1 leading-relaxed">
-                Add a remote provider, local endpoint, or executable Pasted could not detect.
-              </p>
-            </div>
-          </div>
-          <p className="theme-text-muted text-[10px] leading-relaxed">
-            Pasted saves connection details and credential references, never API keys. Secrets stay with the provider or operating system.
-          </p>
-          <button type="button" onClick={() => setIsAddConnectionOpen(true)} className="theme-primary-button border rounded-xl px-3 py-2.5 text-xs font-semibold flex items-center justify-center gap-1.5 w-full">
-            <Plus className="w-4 h-4" />
-            <span>Add connection</span>
-          </button>
-        </aside>
       </div>
 
       {error && <div className="theme-status-danger border rounded-xl px-3 py-2 text-xs">{error}</div>}

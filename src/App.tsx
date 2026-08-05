@@ -1001,6 +1001,8 @@ export default function App() {
             transformError={selectedClip ? transformErrorsByClipId.get(selectedClip.id) : undefined}
             onOpenTransformations={() => setCurrentTab('transformations')}
             trashEnabled={appSettings.enableTrash}
+            filePreviewMode={appSettings.filePreviewMode}
+            filePreviewMaxMb={appSettings.filePreviewMaxMb}
           />
         </div>
       )}

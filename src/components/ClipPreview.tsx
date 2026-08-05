@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { formatClipDateTime } from '../utils/date';
 import { ClipItem, Bin, Pipeline, ClipNote, parseClipNotes, serializeClipNotes, ClipVersion, getClipFilePaths } from '../types';
+import type { AppSettings } from '../types';
 import type { ClipTransformationProvenance, TransformationExecutionOutcome, SavedTransform } from '../types';
 import { parseColor, ColorFormats } from '../utils/color';
 import { soundManager } from '../utils/sound';
@@ -58,6 +59,36 @@ interface ClipPreviewProps {
   transformError?: string;
   onOpenTransformations?: () => void;
   trashEnabled: boolean;
+  filePreviewMode: AppSettings['filePreviewMode'];
+  filePreviewMaxMb: number;
+}
+
+interface FileClipMetadata {
+  itemCount: number;
+  availableCount: number;
+  fileCount: number;
+  directoryCount: number;
+  totalSizeBytes: number;
+  extensions: string[];
+}
+
+interface FileClipPreview {
+  index: number;
+  dataUrl: string;
+  width: number;
+  height: number;
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  const units = ['KB', 'MB', 'GB', 'TB'];
+  let value = bytes / 1024;
+  let unit = units[0];
+  for (let index = 1; index < units.length && value >= 1024; index += 1) {
+    value /= 1024;
+    unit = units[index];
+  }
+  return `${value >= 10 ? value.toFixed(0) : value.toFixed(1)} ${unit}`;
 }
 
 const CLEVER_PLACEHOLDERS = [
@@ -83,6 +114,8 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   transformError,
   onOpenTransformations,
   trashEnabled,
+  filePreviewMode,
+  filePreviewMaxMb,
 }) => {
   const [copied, setCopied] = useState(false);
   const [copiedFormat, setCopiedFormat] = useState<string | null>(null);
@@ -126,9 +159,55 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   const [previewedVersion, setPreviewedVersion] = useState<ClipVersion | null>(null);
   const [restoringVersionId, setRestoringVersionId] = useState<number | null>(null);
   const [revisionCount, setRevisionCount] = useState<number | null>(null);
+  const [fileMetadata, setFileMetadata] = useState<FileClipMetadata | null>(null);
+  const [filePreviews, setFilePreviews] = useState<FileClipPreview[]>([]);
+  const [isFilePreviewLoading, setIsFilePreviewLoading] = useState(false);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
   const [isLoadingOlderVersions, setIsLoadingOlderVersions] = useState(false);
   const [hasMoreVersions, setHasMoreVersions] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!clip || clip.content_type !== 'file') {
+      setFileMetadata(null);
+      return () => { cancelled = true; };
+    }
+    setFileMetadata(null);
+    invoke<FileClipMetadata>('get_file_clip_metadata', { clipId: clip.id })
+      .then((metadata) => {
+        if (!cancelled) setFileMetadata(metadata);
+      })
+      .catch((error) => {
+        if (!cancelled) console.error('Failed to load file metadata:', error);
+      });
+    return () => { cancelled = true; };
+  }, [clip?.content_type, clip?.id]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!clip || clip.content_type !== 'file' || filePreviewMode === 'off') {
+      setFilePreviews([]);
+      setIsFilePreviewLoading(false);
+      return () => { cancelled = true; };
+    }
+    setFilePreviews([]);
+    setIsFilePreviewLoading(true);
+    invoke<FileClipPreview[]>('get_file_clip_previews', {
+      clipId: clip.id,
+      mode: filePreviewMode,
+      maxSizeMb: filePreviewMaxMb,
+    })
+      .then((items) => {
+        if (!cancelled) setFilePreviews(Array.isArray(items) ? items : []);
+      })
+      .catch((error) => {
+        if (!cancelled) console.error('Failed to load file previews:', error);
+      })
+      .finally(() => {
+        if (!cancelled) setIsFilePreviewLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [clip?.content_type, clip?.id, filePreviewMode, filePreviewMaxMb]);
 
   useEffect(() => {
     invoke<SavedTransform[]>('get_saved_transforms')
@@ -150,8 +229,9 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
 
   useEffect(() => {
     let cancelled = false;
-    if (!clip) {
+    if (!clip || clip.content_type === 'file') {
       setRevisionCount(null);
+      setShowHistory(false);
       return () => {
         cancelled = true;
       };
@@ -171,7 +251,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
 
   useEffect(() => {
     let cancelled = false;
-    if (clip && showHistory) {
+    if (clip && clip.content_type !== 'file' && showHistory) {
       setVersions([]);
       setIsHistoryLoading(true);
       Promise.all([
@@ -894,6 +974,8 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
           displayText={displayText}
           colorData={colorData}
           resolvedImageBase64={resolvedImageBase64}
+          filePreviews={filePreviews}
+          isFilePreviewLoading={isFilePreviewLoading}
           copiedFormat={copiedFormat}
           isOcrLoading={isOcrLoading}
           readOnly={!viewPolicy.canMutateContent}
@@ -1018,7 +1100,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
         </div>
       )}
 
-      {showHistory && (
+      {showHistory && clip.content_type !== 'file' && (
         <ClipRevisionHistory
           versions={versions}
           isLoading={isHistoryLoading}
@@ -1039,6 +1121,27 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
       {/* Stats Footer */}
       <div className="clip-preview-footer px-4 py-2.5 border-t flex text-[11px]">
         <div className="clip-preview-footer-stats">
+          {clip.content_type === 'file' ? (
+            <>
+              <span className="clip-preview-footer-stat">
+                <span>Items:</span>
+                <strong>{fileMetadata?.itemCount ?? getClipFilePaths(clip).length}</strong>
+              </span>
+              <span className="clip-preview-footer-stat" title={fileMetadata?.extensions.join(', ') || 'No file extensions'}>
+                <span>Types:</span>
+                <strong>{fileMetadata ? (fileMetadata.extensions.length > 2 ? `${fileMetadata.extensions.slice(0, 2).join(', ')} +${fileMetadata.extensions.length - 2}` : fileMetadata.extensions.join(', ') || '—') : '…'}</strong>
+              </span>
+              <span className="clip-preview-footer-stat">
+                <span>Size:</span>
+                <strong>{fileMetadata ? (fileMetadata.fileCount > 0 ? formatFileSize(fileMetadata.totalSizeBytes) : '—') : '…'}</strong>
+              </span>
+              <span className="clip-preview-footer-stat">
+                <span>Available:</span>
+                <strong>{fileMetadata ? `${fileMetadata.availableCount}/${fileMetadata.itemCount}` : '…'}</strong>
+              </span>
+            </>
+          ) : (
+            <>
           <span className="clip-preview-footer-stat">
             <span>Chars:</span>
             <strong>{charCount}</strong>
@@ -1065,6 +1168,8 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
               {revisionCount ?? '…'}
             </button>
           </span>
+            </>
+          )}
         </div>
         <div className="clip-preview-footer-captured">
           <span>Captured:</span>

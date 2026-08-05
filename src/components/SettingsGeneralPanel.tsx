@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Coffee, Download, Droplet, Drum, Laptop, Moon, RotateCcw, Snowflake, Trash2, Zap } from 'lucide-react';
+import { Coffee, Download, Droplet, Drum, Laptop, Moon, RotateCcw, Sliders, Snowflake, Trash2, Zap } from 'lucide-react';
 import type { AppSettings } from '../types';
 import { useAltKeyPressed } from '../hooks/useAltKeyPressed';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { MenuSelect } from './MenuSelect';
+import { SettingsPanelHeader } from './SettingsPanelHeader';
 
 interface SettingsGeneralPanelProps {
   settings: AppSettings;
@@ -39,6 +40,18 @@ const pasteBehaviorOptions = [
   { value: 'rich', label: 'Preserve Formatting (Default)' },
   { value: 'plain', label: 'Always Paste Plain Text' },
 ];
+
+const filePreviewOptions = [
+  { value: 'off', label: 'Off' },
+  { value: 'safe', label: 'Safe Types' },
+  { value: 'all', label: 'All Supported' },
+];
+
+const filePreviewDescriptions: Record<AppSettings['filePreviewMode'], string> = {
+  off: 'Show file names and locations without previewing their contents.',
+  safe: 'Show previews for PNG, JPEG, and WebP images. Other files stay as file references.',
+  all: 'Preview any image format Pasted can recognize. Unsupported files stay as file references.',
+};
 
 const revisionLimitOptions = [10, 25, 50, 100]
   .map((value) => ({ value: String(value), label: `${value} revisions` }))
@@ -94,9 +107,14 @@ export function SettingsGeneralPanel({
   };
 
   return (
-          <div className="settings-panel theme-panel p-6 rounded-2xl border space-y-6 text-xs">
+          <div className="space-y-6 text-xs">
+            <SettingsPanelHeader
+              icon={Sliders}
+              title="General"
+              description="Appearance, clipboard behavior, and history."
+            />
             {/* General Preferences */}
-            <div className="space-y-3">
+            <div className="space-y-4">
               {/* Appearance Mode Switcher */}
               <div className="flex items-center justify-between pb-1">
                 <span className="font-medium">
@@ -269,6 +287,43 @@ export function SettingsGeneralPanel({
                   />
                 </div>
               </div>
+
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <span className="font-semibold theme-text-main block">File Previews:</span>
+                  <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
+                    {filePreviewDescriptions[settings.filePreviewMode]}
+                  </p>
+                </div>
+                <MenuSelect
+                  value={settings.filePreviewMode}
+                  options={filePreviewOptions}
+                  onChange={(value) => onUpdateSettings({ filePreviewMode: value as AppSettings['filePreviewMode'] })}
+                  label="File preview behavior"
+                  className="settings-menu-select"
+                />
+              </div>
+
+              {settings.filePreviewMode !== 'off' && (
+                <div className="flex items-start justify-between">
+                  <div className="pr-4 flex-1 min-w-0">
+                    <span className="font-semibold theme-text-main block">Maximum Preview File Size (MB):</span>
+                    <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
+                      Files above this size stay as references.
+                    </p>
+                  </div>
+                  <input
+                    type="number"
+                    min={1}
+                    max={64}
+                    value={settings.filePreviewMaxMb}
+                    onChange={(event) => onUpdateSettings({
+                      filePreviewMaxMb: Math.max(1, Math.min(64, Number(event.target.value) || 1)),
+                    })}
+                    className="theme-input w-16 shrink-0 border rounded-md px-2 py-1 text-center font-mono focus:outline-none"
+                  />
+                </div>
+              )}
 
               {/* Compact Keep Clippings Input + Slider */}
               <div className="space-y-2">

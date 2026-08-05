@@ -247,6 +247,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::get_clips,
             commands::get_clip_image,
+            commands::get_file_clip_metadata,
+            commands::get_file_clip_previews,
             commands::get_trashed_clips,
             commands::restore_clip,
             commands::purge_clip_permanently,

@@ -1,6 +1,7 @@
 use arboard::Clipboard;
 use base64::Engine;
 use sha2::{Digest, Sha256};
+use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::thread;
@@ -21,6 +22,28 @@ fn report_ignored_capture(app: &AppHandle, db: &DbState, reason: &str) {
 fn configured_capture_bytes(db: &DbState) -> usize {
     let configured = db.get_setting("maxClipSizeMb").ok().flatten();
     crate::resource_limits::configured_clip_capture_bytes(configured.as_deref())
+}
+
+fn is_image_file_path(path: &Path) -> bool {
+    path.extension()
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| {
+            matches!(
+                extension.to_ascii_lowercase().as_str(),
+                "avif"
+                    | "bmp"
+                    | "gif"
+                    | "heic"
+                    | "heif"
+                    | "ico"
+                    | "jpeg"
+                    | "jpg"
+                    | "png"
+                    | "tif"
+                    | "tiff"
+                    | "webp"
+            )
+        })
 }
 
 pub struct ClipboardMonitorState {
@@ -187,24 +210,36 @@ pub fn start_clipboard_monitor(
                 continue;
             }
 
+            let clipboard_files = clipboard.get().file_list().unwrap_or_default();
+
+            // Finder and other file managers can publish both a native file reference and the
+            // bitmap itself for a copied image. Prefer that bitmap for one recognized image so
+            // image copy/paste and OCR keep working; preserve multi-file selections as file clips.
+            let preferred_file_image =
+                if clipboard_files.len() == 1 && is_image_file_path(&clipboard_files[0]) {
+                    clipboard.get_image().ok()
+                } else {
+                    None
+                };
+
             // File lists are an explicit clipboard flavor on every supported desktop OS.
             // Store only bounded path metadata; never read file contents into the database.
-            if let Ok(files) = clipboard.get().file_list() {
-                if !files.is_empty() {
-                    let paths: Vec<String> = files
-                        .iter()
-                        .map(|path| path.to_string_lossy().into_owned())
-                        .collect();
-                    let mut hasher = Sha256::new();
-                    for path in &paths {
-                        hasher.update(path.as_bytes());
-                        hasher.update([0]);
-                    }
-                    let hash = format!("files:{:x}", hasher.finalize());
-                    if hash != last_hash {
-                        last_hash = hash.clone();
-                        if !crate::resource_limits::file_list_within_limit(&paths) {
-                            report_ignored_capture(
+            if preferred_file_image.is_none() && !clipboard_files.is_empty() {
+                let files = &clipboard_files;
+                let paths: Vec<String> = files
+                    .iter()
+                    .map(|path| path.to_string_lossy().into_owned())
+                    .collect();
+                let mut hasher = Sha256::new();
+                for path in &paths {
+                    hasher.update(path.as_bytes());
+                    hasher.update([0]);
+                }
+                let hash = format!("files:{:x}", hasher.finalize());
+                if hash != last_hash {
+                    last_hash = hash.clone();
+                    if !crate::resource_limits::file_list_within_limit(&paths) {
+                        report_ignored_capture(
                                 &app,
                                 &db_state,
                                 &format!(
@@ -213,66 +248,68 @@ pub fn start_clipboard_monitor(
                                     crate::resource_limits::MAX_FILE_LIST_METADATA_BYTES / 1024 / 1024
                                 ),
                             );
-                            continue;
-                        }
+                        continue;
+                    }
 
-                        let is_blacklisted = active_app_opt.as_ref().is_some_and(|active_app| {
-                            db_state
-                                .get_setting("blacklistApps")
-                                .ok()
-                                .flatten()
-                                .and_then(|json| serde_json::from_str::<Vec<String>>(&json).ok())
-                                .is_some_and(|entries| {
-                                    let active_app = active_app.to_lowercase();
-                                    entries.iter().any(|entry| {
-                                        let entry = entry.to_lowercase();
-                                        !entry.is_empty()
-                                            && (active_app == entry || active_app.contains(&entry))
-                                    })
+                    let is_blacklisted = active_app_opt.as_ref().is_some_and(|active_app| {
+                        db_state
+                            .get_setting("blacklistApps")
+                            .ok()
+                            .flatten()
+                            .and_then(|json| serde_json::from_str::<Vec<String>>(&json).ok())
+                            .is_some_and(|entries| {
+                                let active_app = active_app.to_lowercase();
+                                entries.iter().any(|entry| {
+                                    let entry = entry.to_lowercase();
+                                    !entry.is_empty()
+                                        && (active_app == entry || active_app.contains(&entry))
                                 })
-                        });
-                        if is_blacklisted {
-                            if let Some(active_app) = active_app_opt.as_ref() {
-                                let _ = app.emit(
-                                    "blacklist-clip-ignored",
-                                    serde_json::json!({ "app_name": active_app }),
-                                );
-                            }
+                            })
+                    });
+                    if is_blacklisted {
+                        if let Some(active_app) = active_app_opt.as_ref() {
+                            let _ = app.emit(
+                                "blacklist-clip-ignored",
+                                serde_json::json!({ "app_name": active_app }),
+                            );
+                        }
+                        continue;
+                    }
+
+                    let serialized = match serde_json::to_string(&paths) {
+                        Ok(serialized) => serialized,
+                        Err(error) => {
+                            eprintln!("[Pasted Monitor] Failed to serialize file list: {error}");
                             continue;
                         }
-
-                        let serialized = match serde_json::to_string(&paths) {
-                            Ok(serialized) => serialized,
-                            Err(error) => {
-                                eprintln!(
-                                    "[Pasted Monitor] Failed to serialize file list: {error}"
-                                );
-                                continue;
-                            }
-                        };
-                        let source_app = active_app_opt.as_deref().unwrap_or("System Clipboard");
-                        match db_state.save_clip(
-                            "file",
-                            Some(&serialized),
-                            None,
-                            None,
-                            &hash,
-                            source_app,
-                        ) {
-                            Ok(clip) => {
-                                let _ = app.emit("clip-added", clip);
-                            }
-                            Err(error) => {
-                                eprintln!("[Pasted Monitor] Failed to save file clip: {error}");
-                            }
+                    };
+                    let source_app = active_app_opt.as_deref().unwrap_or("System Clipboard");
+                    match db_state.save_clip(
+                        "file",
+                        Some(&serialized),
+                        None,
+                        None,
+                        &hash,
+                        source_app,
+                    ) {
+                        Ok(clip) => {
+                            let _ = app.emit("clip-added", clip);
+                        }
+                        Err(error) => {
+                            eprintln!("[Pasted Monitor] Failed to save file clip: {error}");
                         }
                     }
-                    continue;
                 }
+                continue;
             }
 
             // Attempt to read text
-            if let Ok(text) = clipboard.get_text() {
+            let clipboard_text = if preferred_file_image.is_none() {
+                clipboard.get_text().ok()
+            } else {
+                None
+            };
+            if let Some(text) = clipboard_text {
                 if !text.is_empty() {
                     let mut hasher = Sha256::new();
                     hasher.update(text.as_bytes());
@@ -370,7 +407,7 @@ pub fn start_clipboard_monitor(
             }
 
             // Attempt to read image
-            if let Ok(img) = clipboard.get_image() {
+            if let Some(img) = preferred_file_image.or_else(|| clipboard.get_image().ok()) {
                 let (Ok(width), Ok(height)) = (u32::try_from(img.width), u32::try_from(img.height))
                 else {
                     report_ignored_capture(
@@ -532,4 +569,19 @@ fn rgba_to_png(width: u32, height: u32, rgba_data: &[u8]) -> Option<Vec<u8>> {
         .write_to(&mut fallback_cursor, image::ImageFormat::Png)
         .ok()?;
     Some(fallback_cursor.into_inner())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_image_file_path;
+    use std::path::Path;
+
+    #[test]
+    fn image_file_detection_is_case_insensitive_and_extension_bounded() {
+        assert!(is_image_file_path(Path::new("/tmp/photo.PNG")));
+        assert!(is_image_file_path(Path::new("/tmp/photo.heic")));
+        assert!(is_image_file_path(Path::new("/tmp/photo.webp")));
+        assert!(!is_image_file_path(Path::new("/tmp/photo.png.txt")));
+        assert!(!is_image_file_path(Path::new("/tmp/document.pdf")));
+    }
 }

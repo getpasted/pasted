@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { RotateCcw, ShieldCheck } from 'lucide-react';
+import { Keyboard, RotateCcw, ShieldCheck } from 'lucide-react';
 import type { AppSettings, Bin, Pipeline } from '../types';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { HotkeyRecorder } from './HotkeyRecorder';
+import { SettingsPanelHeader } from './SettingsPanelHeader';
 
 interface SettingsHotkeysPanelProps {
   settings: AppSettings;
@@ -14,6 +15,7 @@ interface SettingsHotkeysPanelProps {
 }
 
 type AccessibilityStatus = { is_trusted: boolean; is_dev_mode: boolean };
+let cachedAccessibilityStatus: AccessibilityStatus | null = null;
 type HotkeySetting = keyof Pick<
   AppSettings,
   | 'seqToggleHotkey'
@@ -78,15 +80,19 @@ export function SettingsHotkeysPanel({
   onRefreshBins,
   onRefreshPipelines,
 }: SettingsHotkeysPanelProps) {
-  const [accessibilityStatus, setAccessibilityStatus] = useState<AccessibilityStatus | null>(null);
+  const [accessibilityStatus, setAccessibilityStatus] = useState<AccessibilityStatus | null>(cachedAccessibilityStatus);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const permissionRefreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const refreshAccessibilityStatus = async () => {
     try {
-      setAccessibilityStatus(await invoke<AccessibilityStatus>('check_accessibility_permission'));
+      const nextStatus = await invoke<AccessibilityStatus>('check_accessibility_permission');
+      cachedAccessibilityStatus = nextStatus;
+      setAccessibilityStatus(nextStatus);
     } catch {
-      setAccessibilityStatus({ is_trusted: true, is_dev_mode: false });
+      const fallback = { is_trusted: true, is_dev_mode: false };
+      cachedAccessibilityStatus = fallback;
+      setAccessibilityStatus(fallback);
     }
   };
 
@@ -139,32 +145,41 @@ export function SettingsHotkeysPanel({
   };
 
   return (
-    <div className="settings-panel theme-panel p-6 rounded-2xl border space-y-6 text-xs">
-      <div className="flex items-center justify-between">
-        <h3 className="font-bold text-sm theme-title">Global Application Hotkeys</h3>
-        <button type="button" onClick={() => void restoreDefaults()} className="theme-secondary-button flex items-center space-x-1.5 px-3 py-1 border rounded-lg transition-colors">
-          <RotateCcw className="w-3.5 h-3.5" />
-          <span>Restore Defaults</span>
-        </button>
-      </div>
+    <div className="space-y-6 text-xs">
+      <SettingsPanelHeader
+        icon={Keyboard}
+        title="Hotkeys"
+        description="Shortcuts for Pasted, Bins, and Transforms."
+        actions={(
+          <button type="button" onClick={() => void restoreDefaults()} className="theme-secondary-button flex items-center space-x-1.5 px-3 py-2 border rounded-lg transition-colors">
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span>Restore Defaults</span>
+          </button>
+        )}
+      />
 
       {statusMessage && <p role="status" className="theme-status-info rounded-lg border px-3 py-2 text-[11px]">{statusMessage}</p>}
 
-      <div className="theme-surface p-3.5 rounded-xl border space-y-2">
+      <div className="theme-surface min-h-[5.5rem] p-3.5 rounded-xl border space-y-2">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center space-x-2">
             <ShieldCheck className={`w-4 h-4 ${accessibilityStatus?.is_trusted ? 'theme-status-success-text' : 'theme-status-warning-text'}`} />
             <span className="font-bold text-xs theme-text-main">macOS System Accessibility Permission</span>
           </div>
           <div className="flex items-center space-x-2">
-            {accessibilityStatus?.is_dev_mode && <span className="theme-status-info text-[9px] font-mono px-2 py-0.5 rounded border font-bold shrink-0 whitespace-nowrap">DEV MODE</span>}
-            <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border ${accessibilityStatus?.is_trusted ? 'theme-status-success' : 'theme-status-warning'}`}>
-              {accessibilityStatus?.is_trusted ? 'GRANTED' : 'REQUIRED'}
+            <span
+              aria-hidden={!accessibilityStatus?.is_dev_mode}
+              className={`theme-status-info text-[9px] font-mono px-2 py-0.5 rounded border font-bold shrink-0 whitespace-nowrap ${accessibilityStatus?.is_dev_mode ? '' : 'invisible'}`}
+            >
+              DEV MODE
+            </span>
+            <span className={`min-w-[4.75rem] text-center text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border ${accessibilityStatus?.is_trusted ? 'theme-status-success' : 'theme-status-warning'}`}>
+              {accessibilityStatus ? (accessibilityStatus.is_trusted ? 'GRANTED' : 'REQUIRED') : 'CHECKING'}
             </span>
             <button type="button" onClick={() => void requestAccessibilityPermission()} className="theme-secondary-button px-2.5 py-1 border rounded-lg text-[10px] font-semibold transition-colors cursor-pointer">Open System Settings</button>
           </div>
         </div>
-        <p className="text-[11px] theme-text-muted leading-normal">
+        <p className="min-h-8 text-[11px] theme-text-muted leading-normal">
           macOS requires Accessibility access for global hotkeys. {accessibilityStatus?.is_dev_mode
             ? <span>Running in <strong>development mode</strong>: grant permission to your active IDE / terminal host application under System Settings &gt; Privacy &amp; Security &gt; Accessibility.</span>
             : <span>Grant permission to <strong>Pasted.app</strong> under System Settings &gt; Privacy &amp; Security &gt; Accessibility.</span>}

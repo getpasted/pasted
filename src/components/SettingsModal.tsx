@@ -51,7 +51,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       />
 
       <div className="tools-scroll-region flex-1 overflow-y-auto p-6">
-        <div className="w-full max-w-xl mx-auto space-y-6">
+        <div className="settings-primary-well theme-panel w-full max-w-xl mx-auto rounded-2xl border p-6">
 
         {/* TAB 1: GENERAL */}
         {activeTab === 'general' && (
