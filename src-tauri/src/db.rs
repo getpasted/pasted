@@ -6,6 +6,21 @@ use std::path::PathBuf;
 
 const BACKUP_SCHEMA_VERSION: u32 = 5;
 
+fn ensure_resource_size(value: &str, maximum: usize, label: &str) -> Result<()> {
+    if value.len() <= maximum {
+        return Ok(());
+    }
+    Err(rusqlite::Error::ToSqlConversionFailure(Box::new(
+        std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            format!(
+                "{label} exceeds Pasted's {} MB safety limit",
+                maximum / 1024 / 1024
+            ),
+        ),
+    )))
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ClipItem {
     pub id: i64,
@@ -968,6 +983,27 @@ impl DbState {
         content_hash: &str,
         source_app: &str,
     ) -> Result<ClipItem> {
+        if let Some(text) = text_content {
+            ensure_resource_size(
+                text,
+                crate::resource_limits::MAX_CLIP_TEXT_BYTES,
+                "Clip text",
+            )?;
+        }
+        if let Some(html) = html_content {
+            ensure_resource_size(
+                html,
+                crate::resource_limits::MAX_CLIP_TEXT_BYTES,
+                "Clip HTML",
+            )?;
+        }
+        if let Some(image) = image_base64 {
+            ensure_resource_size(
+                image,
+                crate::resource_limits::MAX_STORED_IMAGE_BASE64_BYTES,
+                "Clip image",
+            )?;
+        }
         let conn = self.conn.lock();
 
         let existing: Result<i64> = conn.query_row(
@@ -1425,6 +1461,13 @@ impl DbState {
     }
 
     pub fn update_clip_note(&self, clip_id: i64, note: Option<&str>) -> Result<()> {
+        if let Some(note) = note {
+            ensure_resource_size(
+                note,
+                crate::resource_limits::MAX_CLIP_NOTE_BYTES,
+                "Clip note",
+            )?;
+        }
         let conn = self.conn.lock();
         let mut stmt = conn.prepare_cached(
             "UPDATE clips SET note = ?1
@@ -1470,6 +1513,11 @@ impl DbState {
     }
 
     pub fn update_clip_text(&self, clip_id: i64, text: &str) -> Result<()> {
+        ensure_resource_size(
+            text,
+            crate::resource_limits::MAX_CLIP_TEXT_BYTES,
+            "Clip text",
+        )?;
         let mut conn = self.conn.lock();
         let tx = conn.transaction()?;
         let (previous_text, is_trashed, current_transformation_id): (
@@ -2655,6 +2703,11 @@ impl DbState {
     }
 
     pub fn import_backup_json(&self, json_str: &str) -> Result<usize> {
+        ensure_resource_size(
+            json_str,
+            crate::resource_limits::MAX_BACKUP_IMPORT_BYTES,
+            "Backup",
+        )?;
         let payload: BackupPayload = serde_json::from_str(json_str)
             .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
         if !(1..=BACKUP_SCHEMA_VERSION).contains(&payload.version) {
@@ -2828,6 +2881,34 @@ impl DbState {
 
         let mut imported = 0;
         for clip in payload.clips {
+            if let Some(text) = clip.text_content.as_deref() {
+                ensure_resource_size(
+                    text,
+                    crate::resource_limits::MAX_CLIP_TEXT_BYTES,
+                    "Imported clip text",
+                )?;
+            }
+            if let Some(html) = clip.html_content.as_deref() {
+                ensure_resource_size(
+                    html,
+                    crate::resource_limits::MAX_CLIP_TEXT_BYTES,
+                    "Imported clip HTML",
+                )?;
+            }
+            if let Some(image) = clip.image_base64.as_deref() {
+                ensure_resource_size(
+                    image,
+                    crate::resource_limits::MAX_STORED_IMAGE_BASE64_BYTES,
+                    "Imported clip image",
+                )?;
+            }
+            if let Some(note) = clip.note.as_deref() {
+                ensure_resource_size(
+                    note,
+                    crate::resource_limits::MAX_CLIP_NOTE_BYTES,
+                    "Imported clip note",
+                )?;
+            }
             let mapped_primary_bin = clip.bin_id.and_then(|id| bin_id_map.get(&id).copied());
             tx.execute(
                 "INSERT INTO clips (
@@ -3324,6 +3405,16 @@ impl DbState {
             duration_ms,
             bin_move,
         } = request;
+        ensure_resource_size(
+            expected_input,
+            crate::resource_limits::MAX_TRANSFORM_TEXT_BYTES,
+            "Transform input",
+        )?;
+        ensure_resource_size(
+            output,
+            crate::resource_limits::MAX_TRANSFORM_TEXT_BYTES,
+            "Transform output",
+        )?;
         let transform_id = transform_ref
             .strip_prefix("transform:")
             .unwrap_or(transform_ref);
@@ -4604,6 +4695,25 @@ mod tests {
             (hostile_transform.into(), hostile.into(), hostile.into())
         );
         assert_eq!(stored_bin_name, hostile);
+    }
+
+    #[test]
+    fn oversized_note_updates_are_rejected_without_mutating_the_clip() {
+        let db = setup_test_db();
+        let clip = db
+            .save_clip("text", Some("original"), None, None, "bounded", "Tests")
+            .unwrap();
+        db.update_clip_note(clip.id, Some("original note")).unwrap();
+        let oversized = "x".repeat(crate::resource_limits::MAX_CLIP_NOTE_BYTES + 1);
+
+        assert!(db.update_clip_note(clip.id, Some(&oversized)).is_err());
+        let stored = db
+            .get_clips(None, None, false)
+            .unwrap()
+            .into_iter()
+            .find(|item| item.id == clip.id)
+            .unwrap();
+        assert_eq!(stored.note.as_deref(), Some("original note"));
     }
 
     #[test]

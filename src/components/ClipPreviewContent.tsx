@@ -1,5 +1,5 @@
-import { Check, Copy, Palette, ScanText, Sparkles } from 'lucide-react';
-import type { ClipItem } from '../types';
+import { Check, Copy, File, Files, Palette, ScanText, Sparkles } from 'lucide-react';
+import { getClipFilePaths, type ClipItem } from '../types';
 import type { ColorFormats } from '../utils/color';
 import { UI_COPY } from '../utils/uiCopy';
 
@@ -30,8 +30,22 @@ export function ClipPreviewContent({
 }: ClipPreviewContentProps) {
   return (
     <>
-        {/* Color Palette Card Mode */}
-        {colorData ? (
+        {clip.content_type === 'file' ? (
+          <div className="theme-panel rounded-2xl border p-4 shadow-lg">
+            <div className="theme-title mb-3 flex items-center gap-2 text-xs font-semibold">
+              <Files className="h-4 w-4 text-blue-400" />
+              <span>{getClipFilePaths(clip).length === 1 ? 'Copied File' : `${getClipFilePaths(clip).length} Copied Files`}</span>
+            </div>
+            <div className="theme-surface divide-y theme-divider overflow-hidden rounded-xl border">
+              {getClipFilePaths(clip).map((path) => (
+                <div key={path} className="flex items-center gap-2 px-3 py-2.5">
+                  <File className="theme-text-muted h-4 w-4 shrink-0" />
+                  <span className="theme-text-main min-w-0 truncate font-mono text-xs" title={path}>{path}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : colorData ? (
           <div className="clip-color-inspector theme-panel p-6 rounded-2xl border shadow-2xl space-y-6">
             <div className="flex items-center justify-between">
               <div className="clip-content-accent flex items-center space-x-2 font-sans font-semibold text-xs">

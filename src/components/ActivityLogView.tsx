@@ -16,6 +16,7 @@ import {
   History,
   ListFilter,
   FolderMinus,
+  FileWarning,
 } from 'lucide-react';
 import { ToolPageHeader } from './ToolPageHeader';
 import { MenuSelect } from './MenuSelect';
@@ -127,6 +128,13 @@ export const ActivityLogView: React.FC = () => {
             <span>Bin Deleted</span>
           </div>
         );
+      case 'clipboard_capture_ignored':
+        return (
+          <div className="theme-status-warning flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold">
+            <FileWarning className="w-3.5 h-3.5" />
+            <span>Capture Skipped</span>
+          </div>
+        );
       case 'trash_emptied':
       case 'clip_deleted':
         return (
@@ -231,6 +239,7 @@ export const ActivityLogView: React.FC = () => {
     if (selectedTypeFilter === 'paused') return l.event_type === 'recording_auto_paused' || l.event_type === 'recording_manually_paused';
     if (selectedTypeFilter === 'resumed') return l.event_type === 'recording_auto_resumed' || l.event_type === 'recording_manually_resumed';
     if (selectedTypeFilter === 'notes') return l.event_type === 'note_updated';
+    if (selectedTypeFilter === 'skipped') return l.event_type === 'clipboard_capture_ignored';
     if (selectedTypeFilter === 'transforms') return l.event_type.startsWith('transform_') || l.event_type.startsWith('transformation_') || l.event_type.startsWith('bin_transform_') || l.event_type === 'clip_transformed' || l.event_type === 'intelligence_connection_fallback';
     return true;
   });
@@ -258,6 +267,7 @@ export const ActivityLogView: React.FC = () => {
               { value: 'paused', label: 'Recording Paused' },
               { value: 'resumed', label: 'Recording Resumed' },
               { value: 'notes', label: 'Notes Updated' },
+              { value: 'skipped', label: 'Skipped Captures' },
               { value: 'transforms', label: 'Transforms' },
             ]}
           />

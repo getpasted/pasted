@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Cloud, Download, ShieldCheck, Upload } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
 
+const MAX_BACKUP_IMPORT_BYTES = 256 * 1024 * 1024;
+
 interface SettingsSyncPanelProps {
   onRefreshBins?: () => void;
   onRefreshPipelines?: () => void;
@@ -32,6 +34,10 @@ export function SettingsSyncPanel({
   };
 
   const handleImport = async (file: File) => {
+    if (file.size > MAX_BACKUP_IMPORT_BYTES) {
+      setStatus({ kind: 'error', message: 'Backup exceeds Pasted’s 256 MB safety limit.' });
+      return;
+    }
     try {
       const importedCount = await invoke<number>('import_backup_json', { jsonStr: await file.text() });
       onRefreshBins?.();
@@ -45,7 +51,7 @@ export function SettingsSyncPanel({
   };
 
   return (
-    <div className="settings-panel theme-panel p-6 rounded-2xl border space-y-5 text-xs">
+    <div className="space-y-5 text-xs">
       <div className="p-5 theme-surface rounded-xl border space-y-3">
         <div className="flex items-center space-x-3">
           <div className="settings-accent-tile p-2.5 rounded-xl border">

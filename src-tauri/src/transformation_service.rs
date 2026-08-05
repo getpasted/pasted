@@ -393,7 +393,10 @@ fn execute_pipeline_ref(
             client_request_id,
             cancellation,
         ) {
-            Ok(output) => current = output,
+            Ok(output) => {
+                ensure_transform_text_size(&output)?;
+                current = output;
+            }
             Err(_error) if step.failure_policy == "skip" => continue,
             Err(error) => {
                 return Err(error.at_step((step.position + 1) as usize, &step.operation_ref))
@@ -415,6 +418,7 @@ pub fn execute_with_cancellation(
     request: ExecutionRequest,
     cancellation: Option<&AtomicBool>,
 ) -> Result<ExecutionOutcome, ExecutionError> {
+    ensure_transform_text_size(&request.input)?;
     if let ExecutionTarget::Transform { transform_ref } = &request.target {
         let result = crate::intelligence_executor::execute_saved_transform(
             db,
@@ -514,6 +518,7 @@ pub fn execute_with_cancellation(
     }
     .and_then(|output| {
         ensure_not_cancelled(cancellation)?;
+        ensure_transform_text_size(&output)?;
         Ok(output)
     });
     let duration_ms = started.elapsed().as_millis().min(i64::MAX as u128) as i64;
@@ -567,6 +572,17 @@ pub fn execute_with_cancellation(
             }
             Err(error)
         }
+    }
+}
+
+fn ensure_transform_text_size(value: &str) -> Result<(), ExecutionError> {
+    if value.len() <= crate::resource_limits::MAX_TRANSFORM_TEXT_BYTES {
+        Ok(())
+    } else {
+        Err(ExecutionError::new(
+            "transform_text_too_large",
+            "Transform input or output exceeds Pasted's 8 MB safety limit",
+        ))
     }
 }
 

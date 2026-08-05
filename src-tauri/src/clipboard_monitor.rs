@@ -10,6 +10,19 @@ use tauri::{AppHandle, Emitter};
 use crate::db::DbState;
 use crate::sequential_paste::SequentialQueueState;
 
+fn report_ignored_capture(app: &AppHandle, db: &DbState, reason: &str) {
+    let _ = db.log_activity("clipboard_capture_ignored", reason);
+    let _ = app.emit(
+        "clipboard-clip-ignored",
+        serde_json::json!({ "reason": reason }),
+    );
+}
+
+fn configured_capture_bytes(db: &DbState) -> usize {
+    let configured = db.get_setting("maxClipSizeMb").ok().flatten();
+    crate::resource_limits::configured_clip_capture_bytes(configured.as_deref())
+}
+
 pub struct ClipboardMonitorState {
     pub is_manually_paused: Arc<AtomicBool>,
     pub is_auto_paused: Arc<AtomicBool>,
@@ -174,16 +187,111 @@ pub fn start_clipboard_monitor(
                 continue;
             }
 
+            // File lists are an explicit clipboard flavor on every supported desktop OS.
+            // Store only bounded path metadata; never read file contents into the database.
+            if let Ok(files) = clipboard.get().file_list() {
+                if !files.is_empty() {
+                    let paths: Vec<String> = files
+                        .iter()
+                        .map(|path| path.to_string_lossy().into_owned())
+                        .collect();
+                    let mut hasher = Sha256::new();
+                    for path in &paths {
+                        hasher.update(path.as_bytes());
+                        hasher.update([0]);
+                    }
+                    let hash = format!("files:{:x}", hasher.finalize());
+                    if hash != last_hash {
+                        last_hash = hash.clone();
+                        if !crate::resource_limits::file_list_within_limit(&paths) {
+                            report_ignored_capture(
+                                &app,
+                                &db_state,
+                                &format!(
+                                    "Ignored file list exceeding Pasted's limit of {} paths or {} MB of metadata",
+                                    crate::resource_limits::MAX_FILE_LIST_ITEMS,
+                                    crate::resource_limits::MAX_FILE_LIST_METADATA_BYTES / 1024 / 1024
+                                ),
+                            );
+                            continue;
+                        }
+
+                        let is_blacklisted = active_app_opt.as_ref().is_some_and(|active_app| {
+                            db_state
+                                .get_setting("blacklistApps")
+                                .ok()
+                                .flatten()
+                                .and_then(|json| serde_json::from_str::<Vec<String>>(&json).ok())
+                                .is_some_and(|entries| {
+                                    let active_app = active_app.to_lowercase();
+                                    entries.iter().any(|entry| {
+                                        let entry = entry.to_lowercase();
+                                        !entry.is_empty()
+                                            && (active_app == entry || active_app.contains(&entry))
+                                    })
+                                })
+                        });
+                        if is_blacklisted {
+                            if let Some(active_app) = active_app_opt.as_ref() {
+                                let _ = app.emit(
+                                    "blacklist-clip-ignored",
+                                    serde_json::json!({ "app_name": active_app }),
+                                );
+                            }
+                            continue;
+                        }
+
+                        let serialized = match serde_json::to_string(&paths) {
+                            Ok(serialized) => serialized,
+                            Err(error) => {
+                                eprintln!(
+                                    "[Pasted Monitor] Failed to serialize file list: {error}"
+                                );
+                                continue;
+                            }
+                        };
+                        let source_app = active_app_opt.as_deref().unwrap_or("System Clipboard");
+                        match db_state.save_clip(
+                            "file",
+                            Some(&serialized),
+                            None,
+                            None,
+                            &hash,
+                            source_app,
+                        ) {
+                            Ok(clip) => {
+                                let _ = app.emit("clip-added", clip);
+                            }
+                            Err(error) => {
+                                eprintln!("[Pasted Monitor] Failed to save file clip: {error}");
+                            }
+                        }
+                    }
+                    continue;
+                }
+            }
+
             // Attempt to read text
             if let Ok(text) = clipboard.get_text() {
                 if !text.is_empty() {
-                    let normalized = text.replace("\r\n", "\n").trim_end().to_string();
                     let mut hasher = Sha256::new();
-                    hasher.update(normalized.as_bytes());
+                    hasher.update(text.as_bytes());
                     let hash = format!("{:x}", hasher.finalize());
 
                     if hash != last_hash {
                         last_hash = hash.clone();
+                        let capture_limit = configured_capture_bytes(&db_state);
+                        if text.len() > capture_limit {
+                            report_ignored_capture(
+                                &app,
+                                &db_state,
+                                &format!(
+                                    "Ignored clipboard text larger than the configured {} MB limit",
+                                    capture_limit / 1024 / 1024
+                                ),
+                            );
+                            continue;
+                        }
 
                         // Check blacklist
                         if let Some(ref active_app) = active_app_opt {
@@ -263,8 +371,29 @@ pub fn start_clipboard_monitor(
 
             // Attempt to read image
             if let Ok(img) = clipboard.get_image() {
-                let width = img.width as u32;
-                let height = img.height as u32;
+                let (Ok(width), Ok(height)) = (u32::try_from(img.width), u32::try_from(img.height))
+                else {
+                    report_ignored_capture(
+                        &app,
+                        &db_state,
+                        "Ignored clipboard image with invalid dimensions",
+                    );
+                    continue;
+                };
+                if !crate::resource_limits::image_dimensions_within_limit(width, height) {
+                    let mut hasher = Sha256::new();
+                    hasher.update(img.bytes.as_ref());
+                    let hash = format!("{:x}", hasher.finalize());
+                    if hash != last_hash {
+                        last_hash = hash;
+                        report_ignored_capture(
+                            &app,
+                            &db_state,
+                            "Ignored clipboard image larger than 24 megapixels",
+                        );
+                    }
+                    continue;
+                }
                 let raw_bytes = img.bytes.to_vec();
 
                 let mut hasher = Sha256::new();
@@ -298,6 +427,19 @@ pub fn start_clipboard_monitor(
                     }
 
                     if let Some(img_bytes) = rgba_to_png(width, height, &raw_bytes) {
+                        let capture_limit = configured_capture_bytes(&db_state)
+                            .min(crate::resource_limits::MAX_ENCODED_IMAGE_BYTES);
+                        if img_bytes.len() > capture_limit {
+                            report_ignored_capture(
+                                &app,
+                                &db_state,
+                                &format!(
+                                    "Ignored clipboard image larger than the configured {} MB limit",
+                                    capture_limit / 1024 / 1024
+                                ),
+                            );
+                            continue;
+                        }
                         let b64 = format!(
                             "data:image/webp;base64,{}",
                             base64::engine::general_purpose::STANDARD.encode(&img_bytes)

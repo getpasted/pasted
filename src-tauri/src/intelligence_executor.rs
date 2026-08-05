@@ -433,12 +433,32 @@ fn ensure_not_cancelled(
     }
 }
 
+fn ensure_transform_text_size(
+    value: &str,
+    code: &'static str,
+    label: &str,
+) -> Result<(), IntelligenceExecutionError> {
+    if value.len() <= crate::resource_limits::MAX_TRANSFORM_TEXT_BYTES {
+        Ok(())
+    } else {
+        Err(IntelligenceExecutionError::new(
+            code,
+            format!("{label} exceeds Pasted's 8 MB safety limit"),
+        ))
+    }
+}
+
 pub(crate) fn execute_plan_with_cancellation(
     db: &DbState,
     request: ExecutePlanRequest,
     client_request_id: Option<&str>,
     cancellation: Option<&AtomicBool>,
 ) -> Result<ExecutePlanOutcome, IntelligenceExecutionError> {
+    ensure_transform_text_size(
+        &request.input,
+        "transform_input_too_large",
+        "Transform input",
+    )?;
     request
         .plan
         .validate()
@@ -526,6 +546,7 @@ fn execute_plan_steps(
                 format!("Step {} ({}): {}", index + 1, step.name, error.message),
             )
         })?;
+        ensure_transform_text_size(&current, "transform_output_too_large", "Transform output")?;
         ensure_not_cancelled(cancellation)?;
     }
     Ok(ExecutePlanOutcome {
@@ -617,6 +638,16 @@ pub(crate) fn plan_intent_with_cancellation(
         return Err(IntelligenceExecutionError::new(
             "invalid_intent",
             "Describe what the transformation should do",
+        ));
+    }
+    if request
+        .sample_input
+        .as_deref()
+        .is_some_and(|sample| sample.len() > crate::resource_limits::MAX_TRANSFORM_TEXT_BYTES)
+    {
+        return Err(IntelligenceExecutionError::new(
+            "transform_input_too_large",
+            "Transform sample exceeds Pasted's 8 MB safety limit",
         ));
     }
     let connections = select_connections(db, request.connection_id.as_deref())?;

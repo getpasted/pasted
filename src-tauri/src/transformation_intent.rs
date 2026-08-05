@@ -6,6 +6,7 @@ pub const TRANSFORMATION_PLAN_SCHEMA_VERSION: u32 = 1;
 const MAX_PLAN_STEPS: usize = 32;
 const MAX_INTENT_LENGTH: usize = 8_000;
 const MAX_STEP_INSTRUCTION_LENGTH: usize = 12_000;
+const MAX_SERIALIZED_PLAN_BYTES: usize = 256 * 1024;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -85,6 +86,12 @@ impl TransformationPlan {
     }
 
     pub fn validate(&self) -> Result<(), String> {
+        if serde_json::to_vec(self)
+            .map(|plan| plan.len() > MAX_SERIALIZED_PLAN_BYTES)
+            .unwrap_or(true)
+        {
+            return Err("Transformation plan exceeds Pasted's 256 KB safety limit".to_string());
+        }
         if self.schema_version != TRANSFORMATION_PLAN_SCHEMA_VERSION {
             return Err(format!(
                 "Unsupported transformation plan schema version: {}",
@@ -228,6 +235,20 @@ mod tests {
             config_json: Some("not json".to_string()),
         };
         assert!(plan.validate().unwrap_err().contains("invalid JSON config"));
+    }
+
+    #[test]
+    fn rejects_oversized_serialized_plans() {
+        let mut plan = deterministic_plan();
+        plan.steps[0].executor = PlannedExecutor::Deterministic {
+            operation_ref: "builtin:uppercase".to_string(),
+            config_json: Some(format!(
+                "{{\"padding\":\"{}\"}}",
+                "x".repeat(MAX_SERIALIZED_PLAN_BYTES)
+            )),
+        };
+
+        assert!(plan.validate().unwrap_err().contains("256 KB safety limit"));
     }
 
     #[test]

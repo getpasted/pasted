@@ -1,5 +1,5 @@
 import { useCallback, useState, type Dispatch, type SetStateAction } from 'react';
-import type { AppSettings, Bin, ClipItem, Pipeline, SavedTransform } from '../types';
+import { getClipFilePaths, type AppSettings, type Bin, type ClipItem, type Pipeline, type SavedTransform } from '../types';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { soundManager } from '../utils/sound';
 import { runTransformation } from '../utils/transformExecution';
@@ -257,8 +257,9 @@ export function useClipActions({
         ? clip.text_content.replace(/<[^>]*>/g, '')
         : clip.text_content;
       await invoke('copy_clip_to_system', {
-        text,
+        text: clip.content_type === 'file' ? null : text,
         imageBase64: settings.alwaysPastePlainText ? null : clip.image_base64,
+        filePaths: clip.content_type === 'file' ? getClipFilePaths(clip) : null,
       });
       soundManager.playCopySound(settings.enableSounds);
     } catch (error) {

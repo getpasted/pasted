@@ -71,7 +71,7 @@ export function maskSensitiveText(text: string | null): string {
 
 export interface ClipItem {
   id: number;
-  content_type: 'text' | 'image' | 'color' | 'link' | 'code';
+  content_type: 'text' | 'image' | 'color' | 'link' | 'code' | 'file';
   text_content: string | null;
   html_content: string | null;
   image_base64: string | null;
@@ -88,6 +88,23 @@ export interface ClipItem {
   is_trashed?: boolean | number;
   trashed_at?: string | null;
   created_at: string;
+}
+
+export function getClipFilePaths(clip: Pick<ClipItem, 'content_type' | 'text_content'>): string[] {
+  if (clip.content_type !== 'file' || !clip.text_content) return [];
+  try {
+    const paths = JSON.parse(clip.text_content);
+    return Array.isArray(paths) && paths.every((path) => typeof path === 'string') ? paths : [];
+  } catch {
+    return [];
+  }
+}
+
+export function getClipFileSummary(clip: Pick<ClipItem, 'content_type' | 'text_content'>): string {
+  const paths = getClipFilePaths(clip);
+  if (paths.length === 0) return 'File';
+  const name = paths[0].split(/[\\/]/).filter(Boolean).pop() || paths[0];
+  return paths.length === 1 ? name : `${name} +${paths.length - 1} more`;
 }
 
 export interface Bin {

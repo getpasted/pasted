@@ -290,14 +290,29 @@ pub fn import_backup_json(json_str: String, db: State<'_, Arc<DbState>>) -> Resu
 pub fn copy_clip_to_system(
     text: Option<String>,
     image_base64: Option<String>,
+    file_paths: Option<Vec<String>>,
 ) -> Result<(), String> {
     let mut clipboard = Clipboard::new().map_err(|e| e.to_string())?;
 
-    if let Some(t) = text {
+    if let Some(paths) = file_paths {
+        if paths.is_empty() || !crate::resource_limits::file_list_within_limit(&paths) {
+            return Err("File list exceeds Pasted's safety limit".to_string());
+        }
+        clipboard
+            .set()
+            .file_list(&paths)
+            .map_err(|error| error.to_string())?;
+    } else if let Some(t) = text {
+        if t.len() > crate::resource_limits::MAX_CLIP_TEXT_BYTES {
+            return Err("Clip text exceeds Pasted's safety limit".to_string());
+        }
         clipboard.set_text(t).map_err(|e| e.to_string())?;
     } else if let Some(img_b64) = image_base64 {
         // Strip data:image/png;base64,
         let clean = img_b64.split(',').next_back().unwrap_or(&img_b64);
+        if clean.len() > crate::resource_limits::MAX_STORED_IMAGE_BASE64_BYTES {
+            return Err("Clip image exceeds Pasted's safety limit".to_string());
+        }
         let bytes = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, clean)
             .map_err(|e| e.to_string())?;
 
@@ -316,6 +331,9 @@ pub fn copy_clip_to_system(
 
 #[tauri::command]
 pub fn paste_text_to_frontmost(text: String, app: AppHandle) -> Result<(), String> {
+    if text.len() > crate::resource_limits::MAX_CLIP_TEXT_BYTES {
+        return Err("Clip text exceeds Pasted's 8 MB safety limit".to_string());
+    }
     let mut clipboard = Clipboard::new().map_err(|error| error.to_string())?;
     clipboard
         .set_text(text)
@@ -1657,6 +1675,10 @@ pub fn extract_ocr_from_clip(clip_id: i64, db: State<'_, Arc<DbState>>) -> Resul
         } else {
             &b64
         };
+
+        if clean_b64.len() > crate::resource_limits::MAX_STORED_IMAGE_BASE64_BYTES {
+            return Err("Image exceeds Pasted's OCR safety limit".to_string());
+        }
 
         if let Ok(bytes) = base64::engine::general_purpose::STANDARD.decode(clean_b64) {
             if let Some(ocr_text) = crate::ocr::perform_ocr_on_image_bytes(&bytes) {

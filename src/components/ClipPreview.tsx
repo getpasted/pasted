@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { formatClipDateTime } from '../utils/date';
-import { ClipItem, Bin, Pipeline, ClipNote, parseClipNotes, serializeClipNotes, ClipVersion } from '../types';
+import { ClipItem, Bin, Pipeline, ClipNote, parseClipNotes, serializeClipNotes, ClipVersion, getClipFilePaths } from '../types';
 import type { ClipTransformationProvenance, TransformationExecutionOutcome, SavedTransform } from '../types';
 import { parseColor, ColorFormats } from '../utils/color';
 import { soundManager } from '../utils/sound';
@@ -378,8 +378,9 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   const handleCopy = async () => {
     try {
       await invoke('copy_clip_to_system', {
-        text: displayText,
+        text: clip.content_type === 'file' ? null : displayText,
         imageBase64: clip.content_type === 'image' ? resolvedImageBase64 : null,
+        filePaths: clip.content_type === 'file' ? getClipFilePaths(clip) : null,
       });
       setCopied(true);
       if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);

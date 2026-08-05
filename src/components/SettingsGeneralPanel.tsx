@@ -261,6 +261,8 @@ export function SettingsGeneralPanel({
                 <div className="flex items-center space-x-1.5 font-mono shrink-0">
                   <input
                     type="number"
+                    min={1}
+                    max={256}
                     value={settings.maxClipSizeMb}
                     onChange={(e) => onUpdateSettings({ maxClipSizeMb: Number(e.target.value) })}
                     className="theme-input w-16 border rounded-md px-2 py-1 text-center focus:outline-none"

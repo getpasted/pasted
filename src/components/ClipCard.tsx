@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { formatClipTime } from '../utils/date';
 import { formatEmojiIcon } from '../utils/emoji';
-import { ClipItem, getClipNoteSummary, isSensitiveText, maskSensitiveText } from '../types';
+import { ClipItem, getClipFilePaths, getClipFileSummary, getClipNoteSummary, isSensitiveText, maskSensitiveText } from '../types';
 import type { ClipViewPolicy } from '../utils/clipViewPolicy';
 import { clipDeleteLabel, UI_COPY } from '../utils/uiCopy';
 import { safeInvoke as invoke } from '../utils/tauri';
@@ -9,6 +9,7 @@ import { FloatingActionStrip } from './FloatingActionStrip';
 import {
   Code,
   FileText,
+  Files,
   Image as ImageIcon,
   Link as LinkIcon,
   Palette,
@@ -205,6 +206,8 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
         return <Palette className="w-3.5 h-3.5 theme-status-warning-text" />;
       case 'link':
         return <LinkIcon className="w-3.5 h-3.5 text-blue-400" />;
+      case 'file':
+        return <Files className="w-3.5 h-3.5 text-blue-400" />;
       default:
         return <FileText className="w-3.5 h-3.5 theme-text-muted" />;
     }
@@ -445,6 +448,16 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
             maxHeightClass={imgMaxHeightClass}
             placeholderHeightClass={imgPlaceholderHeightClass}
           />
+        ) : clip.content_type === 'file' ? (
+          <div className="clip-thumbnail-stage flex items-center gap-2 p-2 rounded border">
+            <Files className="h-4 w-4 shrink-0 text-blue-400" />
+            <span className="truncate">{getClipFileSummary(clip)}</span>
+            {getClipFilePaths(clip).length > 1 && (
+              <span className="theme-text-muted ml-auto shrink-0 text-[10px]">
+                {getClipFilePaths(clip).length} files
+              </span>
+            )}
+          </div>
         ) : clip.content_type === 'color' ? (
           <div className="clip-thumbnail-stage flex items-center space-x-3 p-2 rounded border">
             <div

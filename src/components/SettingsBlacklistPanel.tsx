@@ -1,7 +1,7 @@
-import { useState, type FormEvent } from 'react';
+import { useState } from 'react';
 import { Lock, Plus, Trash2 } from 'lucide-react';
 import type { BlacklistApp } from '../types';
-import { MenuSelect } from './MenuSelect';
+import { AddBlacklistAppModal } from './AddBlacklistAppModal';
 
 interface SettingsBlacklistPanelProps {
   apps: BlacklistApp[];
@@ -35,23 +35,28 @@ export function SettingsBlacklistPanel({
   onRemoveApp,
   onToggleRule,
 }: SettingsBlacklistPanelProps) {
-  const [appName, setAppName] = useState('');
-
-  const handleSubmit = (event: FormEvent) => {
-    event.preventDefault();
-    const name = appName.trim();
-    if (!name) return;
-    onAddApp(name);
-    setAppName('');
-  };
+  const [isAddAppOpen, setIsAddAppOpen] = useState(false);
 
   return (
-    <div className="settings-panel theme-panel p-6 rounded-2xl border space-y-4 text-xs">
-      <h4 className="font-bold theme-title uppercase tracking-wider text-[11px]">
-        Ignore from the Following Apps:
-      </h4>
+    <div className="space-y-5 text-xs">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="theme-title text-sm font-bold">App exclusions</h2>
+          <p className="theme-text-muted mt-1 text-xs leading-relaxed">
+            Choose what Pasted ignores while sensitive or private apps are active.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setIsAddAppOpen(true)}
+          className="theme-primary-button border rounded-xl px-3 py-2 text-xs font-semibold flex items-center gap-1.5 shrink-0"
+        >
+          <Plus className="w-4 h-4" />
+          <span>Add app</span>
+        </button>
+      </div>
 
-      <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+      <div className="space-y-2">
         {apps.length === 0 && (
           <p className="theme-text-muted theme-divider rounded-xl border border-dashed px-4 py-5 text-center text-[11px]">
             No custom app exclusions yet.
@@ -115,47 +120,17 @@ export function SettingsBlacklistPanel({
         ))}
       </div>
 
-      <form onSubmit={handleSubmit} className="theme-divider space-y-2 pt-2 border-t">
-        <MenuSelect
-          label="Suggested app"
-          onChange={setAppName}
-          value={suggestedApps.some((group) => group.apps.includes(appName)) ? appName : ''}
-          options={[
-            { value: '', label: 'Select an installed or popular app', disabled: true },
-            ...suggestedApps.flatMap((group) => group.apps.map((name) => ({
-              value: name,
-              label: name,
-              group: group.label,
-            }))),
-          ]}
-          className="w-full"
-          compact
-        />
-
-        <div className="flex items-center space-x-2">
-          <input
-            type="text"
-            aria-label="Custom app name"
-            placeholder="Or type custom app name (e.g. Signal, Bitwarden)..."
-            value={appName}
-            onChange={(event) => setAppName(event.target.value)}
-            className="theme-input flex-1 border rounded-lg px-3 py-1.5 text-xs focus:outline-none"
-          />
-          <button
-            type="submit"
-            disabled={!appName.trim()}
-            className="theme-primary-button flex items-center space-x-1 px-3.5 py-1.5 border font-semibold rounded-lg transition-[background-color,opacity,transform] text-xs shadow-md active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
-            title="Add to Blacklist"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Add App</span>
-          </button>
-        </div>
-      </form>
-
-      <p className="text-[11px] theme-text-muted leading-relaxed pt-2">
+      <p className="theme-surface rounded-xl border p-4 text-[11px] theme-text-muted leading-relaxed">
         Apps that mark sensitive data as transient (like 1Password) are already ignored. Checked items will be ignored by Pasted when copying or activating Pasted global shortcuts in these apps.
       </p>
+
+      {isAddAppOpen && (
+        <AddBlacklistAppModal
+          suggestions={suggestedApps}
+          onAdd={onAddApp}
+          onClose={() => setIsAddAppOpen(false)}
+        />
+      )}
     </div>
   );
 }

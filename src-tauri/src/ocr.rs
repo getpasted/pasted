@@ -9,7 +9,8 @@ pub fn perform_ocr_on_image_bytes(image_bytes: &[u8]) -> Option<String> {
 
     type Id = *mut Object;
 
-    if image_bytes.is_empty() {
+    if image_bytes.is_empty() || image_bytes.len() > crate::resource_limits::MAX_ENCODED_IMAGE_BYTES
+    {
         return None;
     }
 
@@ -83,6 +84,7 @@ pub fn perform_ocr_on_image_bytes(image_bytes: &[u8]) -> Option<String> {
         }
 
         let mut lines = Vec::new();
+        let mut recognized_bytes = 0usize;
         for i in 0..count {
             let observation: Id = msg_send![results, objectAtIndex: i];
             if observation.is_null() {
@@ -103,6 +105,14 @@ pub fn perform_ocr_on_image_bytes(image_bytes: &[u8]) -> Option<String> {
                                 if let Ok(s) = std::ffi::CStr::from_ptr(utf8).to_str() {
                                     let trimmed = s.trim();
                                     if !trimmed.is_empty() {
+                                        recognized_bytes = recognized_bytes
+                                            .saturating_add(trimmed.len())
+                                            .saturating_add(1);
+                                        if recognized_bytes
+                                            > crate::resource_limits::MAX_OCR_TEXT_BYTES
+                                        {
+                                            return None;
+                                        }
                                         lines.push(trimmed.to_string());
                                     }
                                 }

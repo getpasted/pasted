@@ -8,9 +8,6 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use crate::db::IntelligenceConnection;
 
-const EXECUTION_TIMEOUT: Duration = Duration::from_secs(90);
-const MAX_RESULT_BYTES: u64 = 1_048_576;
-
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct IntelligenceExecutionError {
@@ -75,6 +72,12 @@ impl IntelligenceProviderAdapter for CodexCliAdapter {
         request: ProviderRequest<'_>,
         cancellation: Option<&AtomicBool>,
     ) -> Result<ProviderResponse, IntelligenceExecutionError> {
+        if request.prompt.len() > crate::resource_limits::MAX_PROVIDER_PROMPT_BYTES {
+            return Err(IntelligenceExecutionError::new(
+                "provider_input_too_large",
+                "Provider input exceeds Pasted's 10 MB safety limit",
+            ));
+        }
         if cancellation.is_some_and(|flag| flag.load(Ordering::Acquire)) {
             return Err(IntelligenceExecutionError::new(
                 "execution_cancelled",
@@ -160,12 +163,34 @@ impl IntelligenceProviderAdapter for CodexCliAdapter {
                     request.cancellation_message,
                 ));
             }
+            let result_bytes = file_size(&result_path);
+            let workspace_bytes = result_bytes
+                .saturating_add(file_size(&stdout_path))
+                .saturating_add(file_size(&stderr_path));
+            if result_bytes > crate::resource_limits::MAX_PROVIDER_RESULT_BYTES {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(IntelligenceExecutionError::new(
+                    "provider_output_too_large",
+                    "Provider returned more than 1 MB",
+                ));
+            }
+            if workspace_bytes > crate::resource_limits::MAX_PROVIDER_WORKSPACE_BYTES {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(IntelligenceExecutionError::new(
+                    "provider_output_too_large",
+                    "Provider generated more than 8 MB of output",
+                ));
+            }
             if let Some(status) = child.try_wait().map_err(|error| {
                 IntelligenceExecutionError::new("connection_failed", error.to_string())
             })? {
                 break status;
             }
-            if started.elapsed() >= EXECUTION_TIMEOUT {
+            if started.elapsed()
+                >= Duration::from_secs(crate::resource_limits::PROVIDER_EXECUTION_TIMEOUT_SECS)
+            {
                 let _ = child.kill();
                 let _ = child.wait();
                 return Err(IntelligenceExecutionError::new(
@@ -175,21 +200,27 @@ impl IntelligenceProviderAdapter for CodexCliAdapter {
             }
             std::thread::sleep(Duration::from_millis(25));
         };
+        let result_bytes = file_size(&result_path);
+        let workspace_bytes = result_bytes
+            .saturating_add(file_size(&stdout_path))
+            .saturating_add(file_size(&stderr_path));
+        if workspace_bytes > crate::resource_limits::MAX_PROVIDER_WORKSPACE_BYTES {
+            return Err(IntelligenceExecutionError::new(
+                "provider_output_too_large",
+                "Provider generated more than 8 MB of output",
+            ));
+        }
+        if result_bytes > crate::resource_limits::MAX_PROVIDER_RESULT_BYTES {
+            return Err(IntelligenceExecutionError::new(
+                "provider_output_too_large",
+                "Provider returned more than 1 MB",
+            ));
+        }
         if !status.success() {
             let error = fs::read_to_string(&stderr_path).unwrap_or_default();
             return Err(IntelligenceExecutionError::new(
                 "provider_failed",
                 diagnostic_tail(&error, 1_600),
-            ));
-        }
-        if fs::metadata(&result_path)
-            .map(|metadata| metadata.len())
-            .unwrap_or(0)
-            > MAX_RESULT_BYTES
-        {
-            return Err(IntelligenceExecutionError::new(
-                "provider_output_too_large",
-                "Provider returned more than 1 MB",
             ));
         }
         let output = fs::read_to_string(&result_path).map_err(|error| {
@@ -200,6 +231,12 @@ impl IntelligenceProviderAdapter for CodexCliAdapter {
             duration_ms: started.elapsed().as_millis().min(i64::MAX as u128) as i64,
         })
     }
+}
+
+fn file_size(path: &Path) -> u64 {
+    fs::metadata(path)
+        .map(|metadata| metadata.len())
+        .unwrap_or(0)
 }
 
 static CODEX_CLI: CodexCliAdapter = CodexCliAdapter;
@@ -344,6 +381,35 @@ mod tests {
     }
 
     #[test]
+    fn oversized_provider_prompts_fail_before_launching_a_process() {
+        let connection = IntelligenceConnection {
+            id: "oversized".to_string(),
+            name: "Oversized".to_string(),
+            provider_kind: "cli".to_string(),
+            endpoint: Some("/definitely/not/a/real/codex".to_string()),
+            model: None,
+            credential_ref: None,
+            enabled: true,
+            priority: 0,
+            created_at: String::new(),
+            updated_at: String::new(),
+        };
+        let prompt = "x".repeat(crate::resource_limits::MAX_PROVIDER_PROMPT_BYTES + 1);
+        let error = execute(
+            &connection,
+            ProviderRequest {
+                prompt: &prompt,
+                output_schema: None,
+                cancellation_message: "cancelled",
+            },
+            None,
+        )
+        .unwrap_err();
+
+        assert_eq!(error.code, "provider_input_too_large");
+    }
+
+    #[test]
     fn adapter_registry_reports_discovery_support_by_stable_id() {
         assert!(supports_adapter_id("codex_cli"));
         assert!(!supports_adapter_id("claude_cli"));
@@ -453,6 +519,38 @@ mod tests {
 
         assert_eq!(error.code, "execution_cancelled");
         assert!(started.elapsed() < Duration::from_secs(2));
+        let _ = fs::remove_dir_all(directory);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn provider_log_floods_are_rejected_even_when_the_process_exits_quickly() {
+        let (executable, directory) =
+            fake_codex_executable("cat >/dev/null\nhead -c 9000000 /dev/zero >&2\nexit 1");
+        let connection = IntelligenceConnection {
+            id: "log-flood".to_string(),
+            name: "Codex CLI".to_string(),
+            provider_kind: "cli".to_string(),
+            endpoint: Some(executable.to_string_lossy().into_owned()),
+            model: None,
+            credential_ref: None,
+            enabled: true,
+            priority: 0,
+            created_at: String::new(),
+            updated_at: String::new(),
+        };
+        let error = execute(
+            &connection,
+            ProviderRequest {
+                prompt: "Begin",
+                output_schema: None,
+                cancellation_message: "Cancelled",
+            },
+            None,
+        )
+        .unwrap_err();
+
+        assert_eq!(error.code, "provider_output_too_large");
         let _ = fs::remove_dir_all(directory);
     }
 }

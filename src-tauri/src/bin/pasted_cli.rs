@@ -105,9 +105,7 @@ fn main() -> Result<()> {
                             }
                         }
                     } else {
-                        let mut buffer = String::new();
-                        let _ = io::stdin().read_to_string(&mut buffer);
-                        buffer
+                        read_stdin_bounded(pasted_lib::resource_limits::MAX_TRANSFORM_TEXT_BYTES)?
                     };
                     if input.is_empty() {
                         eprintln!("Provide input with --text, --clip, or stdin.");
@@ -164,17 +162,23 @@ fn main() -> Result<()> {
             }
         }
         "copy" | "add" => {
+            let capture_limit = configured_capture_bytes(&conn);
             let text = if let Some(arg_text) = args.get(2) {
                 arg_text.clone()
             } else {
-                let mut buffer = String::new();
-                let _ = io::stdin().read_to_string(&mut buffer);
-                buffer
+                read_stdin_bounded(capture_limit)?
             };
 
             let trimmed = text.trim().to_string();
             if trimmed.is_empty() {
                 eprintln!("Error: Cannot copy empty content.");
+                std::process::exit(1);
+            }
+            if trimmed.len() > capture_limit {
+                eprintln!(
+                    "Error: Content exceeds the configured {} MB clip limit.",
+                    capture_limit / 1024 / 1024
+                );
                 std::process::exit(1);
             }
 
@@ -264,4 +268,34 @@ fn main() -> Result<()> {
     }
 
     Ok(())
+}
+fn configured_capture_bytes(conn: &Connection) -> usize {
+    let configured = conn
+        .query_row(
+            "SELECT value FROM settings WHERE key = 'maxClipSizeMb'",
+            [],
+            |row| row.get::<_, String>(0),
+        )
+        .ok();
+    pasted_lib::resource_limits::configured_clip_capture_bytes(configured.as_deref())
+}
+
+fn read_stdin_bounded(maximum: usize) -> Result<String> {
+    let mut buffer = String::new();
+    io::stdin()
+        .take((maximum + 1) as u64)
+        .read_to_string(&mut buffer)
+        .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?;
+    if buffer.len() > maximum {
+        return Err(rusqlite::Error::ToSqlConversionFailure(Box::new(
+            io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!(
+                    "stdin exceeds Pasted's {} MB safety limit",
+                    maximum / 1024 / 1024
+                ),
+            ),
+        )));
+    }
+    Ok(buffer)
 }

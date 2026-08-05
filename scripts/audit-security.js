@@ -40,6 +40,9 @@ assert.match(
   /SQLITE_DBCONFIG_DEFENSIVE/,
   'SQLite connections must retain defensive mode as a second layer behind bound parameters',
 );
+assert.match(rustSource, /MAX_CLIP_TEXT_BYTES/, 'Untrusted clipboard text must remain bounded');
+assert.match(rustSource, /MAX_PROVIDER_WORKSPACE_BYTES/, 'Provider disk output must remain bounded');
+assert.match(rustSource, /PROVIDER_EXECUTION_TIMEOUT_SECS/, 'Provider execution must retain a timeout');
 assert.doesNotMatch(frontendSource, /dangerouslySetInnerHTML/, 'Render untrusted clip content as text, never raw HTML');
 assert.doesNotMatch(frontendSource, /\b(?:eval|Function)\s*\(/, 'Frontend dynamic code execution is forbidden');
 assert.doesNotMatch(

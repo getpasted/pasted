@@ -11,6 +11,7 @@ mod ocr;
 #[cfg(test)]
 mod operation_plugins;
 mod operation_registry;
+pub mod resource_limits;
 mod sequential_paste;
 mod transformation_intent;
 mod transformation_service;
