@@ -11,6 +11,7 @@ import {
   Trash2,
   Plus,
   Search,
+  ChevronUp,
   PanelLeftClose,
   PanelLeftOpen,
   Sparkles,
@@ -38,6 +39,7 @@ interface SidebarProps {
   onBinContextMenu?: (x: number, y: number, bin: Bin) => void;
   searchQuery: string;
   setSearchQuery: (q: string) => void;
+  onSearchFocus: () => void;
   seqStatus: SequentialStatus | null;
   onClearHistory?: () => void;
   totalClipCount: number;
@@ -74,6 +76,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   disabledDropActions = [],
   searchQuery,
   setSearchQuery,
+  onSearchFocus,
   seqStatus,
   totalClipCount,
   pinnedCount = 0,
@@ -91,7 +94,31 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [isToolsOpen, setIsToolsOpen] = React.useState(true);
 
   const [dropTargetBinId, setDropTargetBinId] = React.useState<number | null>(null);
-  const [isSearchFocused, setIsSearchFocused] = React.useState(false);
+  const [isSearchMenuOpen, setIsSearchMenuOpen] = React.useState(false);
+  const searchMenuRootRef = React.useRef<HTMLDivElement | null>(null);
+  const searchInputRef = React.useRef<HTMLInputElement | null>(null);
+
+  React.useEffect(() => {
+    if (!isSearchMenuOpen) return undefined;
+    const closeOnOutsidePointer = (event: PointerEvent) => {
+      if (!searchMenuRootRef.current?.contains(event.target as Node)) {
+        setIsSearchMenuOpen(false);
+      }
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      setIsSearchMenuOpen(false);
+      searchInputRef.current?.focus();
+    };
+    document.addEventListener('pointerdown', closeOnOutsidePointer);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutsidePointer);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [isSearchMenuOpen]);
+
   const [isPostDragHoverSuppressed, setIsPostDragHoverSuppressed] = React.useState(false);
   const [hoveredSidebarControl, setHoveredSidebarControl] = React.useState<string | null>(null);
   const wasClipDraggingRef = React.useRef(false);
@@ -99,6 +126,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const isPointerOverSidebarRef = React.useRef(false);
   const lastSidebarPointerRef = React.useRef<{ x: number; y: number } | null>(null);
   const isClipDragging = draggedClipId !== null && draggedClipId !== undefined;
+  React.useEffect(() => {
+    if (isClipDragging) setIsSearchMenuOpen(false);
+  }, [isClipDragging]);
   const {
     activeDragBinId,
     sortedBins,
@@ -678,9 +708,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* Pinned Bottom Search Bar Footer */}
-      <div className="sidebar-divider p-2.5 border-t shrink-0 relative">
-        {!isClipDragging && isSearchFocused && !searchQuery.includes(':') && (
-          <div className="sidebar-search-helper absolute bottom-11 left-2.5 right-2.5 backdrop-blur-xl rounded-xl p-1.5 text-xs space-y-0.5 animate-in fade-in slide-in-from-bottom-2 duration-150">
+      <div ref={searchMenuRootRef} className="sidebar-divider p-2.5 border-t shrink-0 relative">
+        {!isClipDragging && isSearchMenuOpen && (
+          <div
+            role="menu"
+            aria-label="Search filters"
+            className="theme-menu absolute bottom-11 left-2.5 right-2.5 rounded-xl border p-1.5 text-xs font-medium select-none"
+          >
             {[
               { prefix: 'regex:', desc: 'Regex' },
               { prefix: 'app:', desc: 'App' },
@@ -691,15 +725,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
             ].map((s) => (
               <button
                 type="button"
+                role="menuitem"
                 key={s.prefix}
                 onMouseDown={(e) => {
                   e.preventDefault();
-                  setSearchQuery(s.prefix);
                 }}
-                className="sidebar-search-helper-option w-full px-2 py-1 rounded-lg cursor-pointer flex items-center justify-between transition-colors"
+                onClick={() => {
+                  setSearchQuery(s.prefix);
+                  setIsSearchMenuOpen(false);
+                  searchInputRef.current?.focus();
+                }}
+                className="theme-menu-item w-full px-2.5 py-1.5 rounded-lg cursor-pointer flex items-center justify-between gap-3 text-left"
               >
-                <span className="sidebar-search-helper-prefix font-mono font-bold text-[11px]">{s.prefix}</span>
-                <span className="sidebar-search-helper-description text-[10px] font-medium">{s.desc}</span>
+                <span className="font-mono text-[11px] font-semibold">{s.prefix}</span>
+                <span className="theme-text-subtle text-[10px]">{s.desc}</span>
               </button>
             ))}
           </div>
@@ -708,6 +747,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="relative titlebar-no-drag">
           <Search className="sidebar-search-icon w-3.5 h-3.5 absolute left-3 top-2" />
           <input
+            ref={searchInputRef}
             type="text"
             disabled={isClipDragging}
             autoComplete="off"
@@ -716,17 +756,35 @@ export const Sidebar: React.FC<SidebarProps> = ({
             spellCheck={false}
             placeholder="Search (try regex: app: type:)..."
             value={searchQuery}
-            onFocus={() => setIsSearchFocused(true)}
-            onBlur={() => setIsSearchFocused(false)}
+            onFocus={() => {
+              onSearchFocus();
+            }}
             onKeyDown={(e) => {
               if (e.key === 'Escape') {
-                setIsSearchFocused(false);
-                (e.target as HTMLInputElement).blur();
+                e.preventDefault();
+                if (isSearchMenuOpen) setIsSearchMenuOpen(false);
+                else (e.target as HTMLInputElement).blur();
               }
             }}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="sidebar-search-input theme-input w-full h-7 border rounded-md pl-8 pr-2.5 text-[12px] focus:outline-none transition-colors titlebar-no-drag"
+            className="sidebar-search-input theme-input w-full h-7 border rounded-md pl-8 pr-8 text-[12px] focus:outline-none transition-colors titlebar-no-drag"
           />
+          <button
+            type="button"
+            disabled={isClipDragging}
+            aria-label="Search filters"
+            aria-haspopup="menu"
+            aria-expanded={isSearchMenuOpen}
+            title="Search Filters"
+            onClick={() => {
+              onSearchFocus();
+              setIsSearchMenuOpen((open) => !open);
+              requestAnimationFrame(() => searchInputRef.current?.focus());
+            }}
+            className={`theme-menu-item absolute right-1 top-1 grid h-5 w-5 place-items-center rounded ${isSearchMenuOpen ? 'is-selected' : ''}`}
+          >
+            <ChevronUp className={`h-3.5 w-3.5 transition-transform ${isSearchMenuOpen ? 'rotate-180' : ''}`} aria-hidden="true" />
+          </button>
         </div>
       </div>
     </aside>

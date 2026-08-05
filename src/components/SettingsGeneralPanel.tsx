@@ -49,8 +49,8 @@ const filePreviewOptions = [
 
 const filePreviewDescriptions: Record<AppSettings['filePreviewMode'], string> = {
   off: 'Show file names and locations without previewing their contents.',
-  safe: 'Show previews for PNG, JPEG, and WebP images. Other files stay as file references.',
-  all: 'Preview any image format Pasted can recognize. Unsupported files stay as file references.',
+  safe: 'Show previews for TXT, PNG, JPEG, WebP, and the first page of PDF files.',
+  all: 'Preview supported text, images, and the first page of PDF files.',
 };
 
 const revisionLimitOptions = [10, 25, 50, 100]

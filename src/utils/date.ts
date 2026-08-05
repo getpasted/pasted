@@ -36,3 +36,24 @@ export function formatClipDateTime(timeStr: string): string {
     return timeStr;
   }
 }
+
+export function formatClipFullDateTime(timeStr: string): string {
+  try {
+    const d = parseDbDate(timeStr);
+    return d.toLocaleString([], {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return timeStr;
+  }
+}
+
+export function clipDateTimeAttribute(timeStr: string): string {
+  const date = parseDbDate(timeStr);
+  return Number.isNaN(date.getTime()) ? timeStr : date.toISOString();
+}

@@ -301,12 +301,6 @@
   border-color: color-mix(in srgb, var(--status-warning) 26%, transparent);
 }
 
-.clip-trash-badge {
-  background-color: color-mix(in srgb, var(--status-danger) 12%, var(--bg-surface));
-  border-color: color-mix(in srgb, var(--status-danger) 42%, var(--border-subtle));
-  color: var(--status-danger);
-}
-
 .clip-card-drag-source {
   opacity: 0.5;
   border-color: color-mix(in srgb, var(--status-success) 80%, var(--border-card));
@@ -362,36 +356,11 @@ html.is-stable-reordering * {
   -webkit-user-select: none;
 }
 
-.sidebar-search-helper {
-  z-index: var(--layer-popover);
-  background-color: var(--menu-surface);
-  border: 1px solid color-mix(in srgb, var(--accent-primary) 42%, var(--border-subtle));
-  box-shadow: 0 14px 36px color-mix(in srgb, #000 34%, transparent);
-}
-
-.sidebar-search-helper-option {
-  color: var(--text-main);
-  background-color: transparent;
-  text-align: left;
-}
-
-.sidebar-search-helper-option:hover,
-.sidebar-search-helper-option:focus-visible {
-  background-color: var(--menu-hover);
+.sidebar-search-input:focus,
+.sidebar-search-input:focus-visible {
   outline: none;
-}
-
-.sidebar-search-helper-prefix {
-  color: var(--accent-primary);
-}
-
-.sidebar-search-helper-description {
-  color: var(--text-muted);
-}
-
-.sidebar-search-input:focus {
-  border-color: var(--focus-ring);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--focus-ring) 22%, transparent);
+  border-color: color-mix(in srgb, var(--focus-ring) 52%, var(--border-input));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--focus-ring) 16%, transparent);
 }
 
 .sidebar-icon-primary,

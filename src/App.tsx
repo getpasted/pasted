@@ -4,6 +4,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { ClipItem, Bin, getClipFileSummary } from './types';
 import { Sidebar } from './components/Sidebar';
 import { ClipCard } from './components/ClipCard';
+import { EmptyClipList } from './components/EmptyClipList';
 import { ClipPreview } from './components/ClipPreview';
 import { SequentialQueueBar } from './components/SequentialQueueBar';
 import { TransformationsView } from './components/TransformationsView';
@@ -24,6 +25,7 @@ import { useAppSettings } from './hooks/useAppSettings';
 import { useClipViews } from './hooks/useClipViews';
 import { useClipBinDrag, type ClipDropAction } from './hooks/useClipBinDrag';
 import { getClipViewPolicy } from './utils/clipViewPolicy';
+import { sortClipsForTimeline } from './utils/clipOrder';
 import { useAppData } from './hooks/useAppData';
 import { useClipActions } from './hooks/useClipActions';
 import { Clipboard, Trash2, Pause, Disc, Square, Pin, X } from 'lucide-react';
@@ -157,13 +159,21 @@ export default function App() {
     setSelectedIndex(-1);
   }, []);
 
+  const navigateToTab = useCallback((tab: string) => {
+    setCurrentTab(tab);
+  }, []);
+
+  const enterSearchView = useCallback(() => {
+    if (currentTab !== 'search') setCurrentTab('search');
+  }, [currentTab]);
+
   const handleToggleCopyQueue = async () => {
     try {
       if (seqStatus?.is_active) {
         await invoke('stop_sequential_paste');
       } else {
         await invoke('start_sequential_paste');
-        setCurrentTab('sequential');
+        navigateToTab('sequential');
         setSelectedBinId(null);
       }
       fetchSequentialStatus();
@@ -435,6 +445,7 @@ export default function App() {
     fetchClips,
     fetchTrashedClips,
     fetchSequentialStatus,
+    keepTrashedClipsVisible: currentTab === 'search',
   });
 
   const handleAssignClipToBin = useCallback(
@@ -591,7 +602,7 @@ export default function App() {
       {/* Left macOS Sidebar */}
       <Sidebar
         currentTab={currentTab}
-        setCurrentTab={setCurrentTab}
+        setCurrentTab={navigateToTab}
         selectedBinId={selectedBinId}
         setSelectedBinId={setSelectedBinId}
         bins={bins}
@@ -614,6 +625,7 @@ export default function App() {
         disabledDropActions={disabledDropActions}
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
+        onSearchFocus={enterSearchView}
         seqStatus={seqStatus}
         onClearHistory={() => setClearHistoryMode('purge')}
         pinnedCount={pinnedCount}
@@ -677,7 +689,9 @@ export default function App() {
               <div className="flex items-center space-x-2 titlebar-drag-handle min-w-0 flex-1 mr-2">
                 <Clipboard className="theme-text-main w-4 h-4 titlebar-drag-handle shrink-0" />
                 <h2 className="theme-title text-xs font-bold uppercase tracking-wider titlebar-drag-handle truncate">
-                  {currentTab === 'pinned'
+                  {currentTab === 'search'
+                    ? 'Search'
+                    : currentTab === 'pinned'
                     ? 'Pinned'
                     : currentTab === 'protected'
                     ? 'Protected'
@@ -766,13 +780,11 @@ export default function App() {
               }}
             >
               {displayedClips.length === 0 ? (
-                <div className="theme-text-subtle h-full flex flex-col items-center justify-center text-center p-6 select-none">
-                  <Clipboard className="w-10 h-10 mb-3 opacity-30 stroke-1" />
-                  <p className="theme-text-muted text-xs font-medium">No clips found</p>
-                  <p className="text-[11px] mt-1">
-                    {searchQuery ? 'Try matching another search term' : 'Copied items will automatically show up here'}
-                  </p>
-                </div>
+                <EmptyClipList
+                  currentTab={currentTab}
+                  searchQuery={searchQuery}
+                  selectedBin={selectedBinId === null ? undefined : binsById.get(selectedBinId)}
+                />
               ) : (
                 displayedClips.map((clip, index) => {
                   const queueIndex = clip.text_content ? queuedIndexMap.get(clip.text_content) : undefined;
@@ -800,6 +812,8 @@ export default function App() {
                       primaryBinName={primaryBin?.name}
                       primaryBinIcon={primaryBin?.icon}
                       rowHeight={appSettings.rowHeight}
+                      filePreviewMode={appSettings.filePreviewMode}
+                      filePreviewMaxMb={appSettings.filePreviewMaxMb}
                       selectionVersion={clipSelectionVersion}
                       trashEnabled={appSettings.enableTrash}
                       setDraggedClipId={setDraggedClipId}
@@ -914,11 +928,11 @@ export default function App() {
                       const existingPinned = previous
                         .filter((clip) => clip.is_pinned && !idSet.has(clip.id))
                         .map((clip) => ({ ...clip, pin_order: (clip.pin_order ?? 0) + newlyPinned.length }));
-                      return [
+                      return sortClipsForTimeline([
                         ...newlyPinned,
                         ...existingPinned,
                         ...previous.filter((clip) => !clip.is_pinned && !idSet.has(clip.id)),
-                      ];
+                      ]);
                     });
                     invoke('batch_pin_clips', { ids, pinState: true }).catch((err) => {
                       console.error(err);
@@ -939,10 +953,7 @@ export default function App() {
                       const updated = previous.map((clip) => idSet.has(clip.id)
                         ? { ...clip, is_pinned: false, pin_order: 0 }
                         : clip);
-                      return [
-                        ...updated.filter((clip) => clip.is_pinned),
-                        ...updated.filter((clip) => !clip.is_pinned),
-                      ];
+                      return sortClipsForTimeline(updated);
                     });
                     invoke('batch_pin_clips', { ids, pinState: false }).catch((err) => {
                       console.error(err);
@@ -999,7 +1010,7 @@ export default function App() {
             onUpdateClipNote={handleUpdateClipNoteLocally}
             isTransforming={selectedClip ? transformingClipIds.has(selectedClip.id) : false}
             transformError={selectedClip ? transformErrorsByClipId.get(selectedClip.id) : undefined}
-            onOpenTransformations={() => setCurrentTab('transformations')}
+            onOpenTransformations={() => navigateToTab('transformations')}
             trashEnabled={appSettings.enableTrash}
             filePreviewMode={appSettings.filePreviewMode}
             filePreviewMaxMb={appSettings.filePreviewMaxMb}
@@ -1024,7 +1035,7 @@ export default function App() {
             { includeSelection: true },
           )}
           onRunTransform={(transform) => handleRunTransformForClip(contextMenu.clip, transform)}
-          onOpenTransformations={() => setCurrentTab('transformations')}
+          onOpenTransformations={() => navigateToTab('transformations')}
           onAddNote={() => handlePromptAddNote(contextMenu.clip)}
           onDeleteNote={() => handleDeleteNoteFromClip(contextMenu.clip.id)}
           onAddToStack={() => handleAddToSequentialStack(contextMenu.clip)}
@@ -1081,7 +1092,7 @@ export default function App() {
               setBinToDelete(null);
               await Promise.all([fetchBins(), fetchClips(), fetchTrashedClips()]);
               if (selectedBinId === bin.id) {
-                setCurrentTab('all');
+                navigateToTab('all');
                 setSelectedBinId(null);
               }
             } catch (err) {

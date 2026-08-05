@@ -90,14 +90,33 @@ export interface ClipItem {
   created_at: string;
 }
 
+export type ClipOriginKind = 'clipboard_content' | 'file_reference' | 'screenshot' | 'command_line';
+
+export function getClipOriginKind(
+  clip: Pick<ClipItem, 'content_type' | 'source_app'>
+): ClipOriginKind {
+  if (clip.content_type === 'file') return 'file_reference';
+  const sourceApp = clip.source_app.trim().toLowerCase();
+  if (sourceApp === 'cli terminal' || sourceApp === 'pasted cli') return 'command_line';
+  if (
+    clip.content_type === 'image'
+    && (sourceApp.includes('screenshot') || sourceApp.includes('screencapture'))
+  ) {
+    return 'screenshot';
+  }
+  return 'clipboard_content';
+}
+
 export function getClipFilePaths(clip: Pick<ClipItem, 'content_type' | 'text_content'>): string[] {
   if (clip.content_type !== 'file' || !clip.text_content) return [];
   try {
     const paths = JSON.parse(clip.text_content);
-    return Array.isArray(paths) && paths.every((path) => typeof path === 'string') ? paths : [];
+    if (Array.isArray(paths) && paths.every((path) => typeof path === 'string')) return paths;
+    if (typeof paths === 'string' && paths.trim()) return [paths.trim()];
   } catch {
-    return [];
+    // Early file clips stored either one path or a newline-delimited selection.
   }
+  return clip.text_content.split(/\r?\n/).map((path) => path.trim()).filter(Boolean);
 }
 
 export function getClipFileSummary(clip: Pick<ClipItem, 'content_type' | 'text_content'>): string {

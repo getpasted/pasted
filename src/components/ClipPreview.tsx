@@ -74,9 +74,32 @@ interface FileClipMetadata {
 
 interface FileClipPreview {
   index: number;
-  dataUrl: string;
-  width: number;
-  height: number;
+  dataUrl: string | null;
+  textContent: string | null;
+  width: number | null;
+  height: number | null;
+}
+
+const filePreviewResultCache = new Map<string, FileClipPreview[]>();
+const filePreviewRequestCache = new Map<string, Promise<FileClipPreview[]>>();
+
+function loadFilePreviews(
+  cacheKey: string,
+  request: { clipId: number; mode: AppSettings['filePreviewMode']; maxSizeMb: number },
+): Promise<FileClipPreview[]> {
+  const cached = filePreviewResultCache.get(cacheKey);
+  if (cached) return Promise.resolve(cached);
+  const pending = filePreviewRequestCache.get(cacheKey);
+  if (pending) return pending;
+  const next = invoke<FileClipPreview[]>('get_file_clip_previews', request)
+    .then((items) => {
+      const previews = Array.isArray(items) ? items : [];
+      filePreviewResultCache.set(cacheKey, previews);
+      return previews;
+    })
+    .finally(() => filePreviewRequestCache.delete(cacheKey));
+  filePreviewRequestCache.set(cacheKey, next);
+  return next;
 }
 
 function formatFileSize(bytes: number): string {
@@ -190,15 +213,18 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
       setIsFilePreviewLoading(false);
       return () => { cancelled = true; };
     }
+    const cacheKey = `${clip.id}:${clip.content_hash}:${filePreviewMode}:${filePreviewMaxMb}`;
+    const cached = filePreviewResultCache.get(cacheKey);
+    if (cached) {
+      setFilePreviews(cached);
+      setIsFilePreviewLoading(false);
+      return () => { cancelled = true; };
+    }
     setFilePreviews([]);
     setIsFilePreviewLoading(true);
-    invoke<FileClipPreview[]>('get_file_clip_previews', {
-      clipId: clip.id,
-      mode: filePreviewMode,
-      maxSizeMb: filePreviewMaxMb,
-    })
+    loadFilePreviews(cacheKey, { clipId: clip.id, mode: filePreviewMode, maxSizeMb: filePreviewMaxMb })
       .then((items) => {
-        if (!cancelled) setFilePreviews(Array.isArray(items) ? items : []);
+        if (!cancelled) setFilePreviews(items);
       })
       .catch((error) => {
         if (!cancelled) console.error('Failed to load file previews:', error);

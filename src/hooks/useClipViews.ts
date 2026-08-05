@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import type { Bin, ClipItem, SequentialStatus } from '../types';
-import { getClipNoteSummary } from '../types';
+import { getClipFilePaths, getClipNoteSummary, getClipOriginKind } from '../types';
+import { sortClipsChronologically } from '../utils/clipOrder';
 
 interface ClipViewsInput {
   allClips: ClipItem[];
@@ -55,16 +56,25 @@ export function applyClipSearch(items: ClipItem[], rawQuery: string) {
 function matchesCondition(clip: ClipItem, condition: SmartCondition) {
   const expected = condition.value.toLowerCase().trim();
   if (!expected) return false;
+  if (condition.type === 'file_extension') {
+    const extension = expected.replace(/^\./, '');
+    return Boolean(extension) && getClipFilePaths(clip).some((path) => path.toLowerCase().endsWith(`.${extension}`));
+  }
+  if (condition.type === 'file_path') {
+    return getClipFilePaths(clip).some((path) => path.toLowerCase().includes(expected));
+  }
   const actual = condition.type === 'source_app'
     ? clip.source_app
     : condition.type === 'content_type'
       ? clip.content_type
+      : condition.type === 'origin_kind'
+        ? getClipOriginKind(clip)
       : condition.type === 'contains'
         ? clip.text_content
         : null;
   const normalized = actual?.toLowerCase() ?? '';
   const exactMatch = condition.operator === 'is'
-    || (condition.operator === undefined && condition.type === 'content_type');
+    || (condition.operator === undefined && (condition.type === 'content_type' || condition.type === 'origin_kind'));
   return exactMatch ? normalized === expected : normalized.includes(expected);
 }
 
@@ -121,13 +131,13 @@ export function useClipViews({
       }));
     }
 
-    const hasSearch = searchQuery.trim().length > 0;
-    const searchPool = currentTab === 'trash'
-      ? trashedClips
-      : hasSearch
-        ? [...allClips, ...trashedClips]
-        : allClips;
-    let clips = applyClipSearch(searchPool, searchQuery);
+    if (currentTab === 'search') {
+      return searchQuery.trim()
+        ? applyClipSearch(sortClipsChronologically([...allClips, ...trashedClips]), searchQuery)
+        : [];
+    }
+
+    let clips = currentTab === 'trash' ? trashedClips : allClips;
     if (currentTab === 'trash') return clips;
     if (currentTab === 'bin' && selectedBinId !== null) clips = filterByBin(clips, bins, selectedBinId);
     if (currentTab === 'pinned') clips = clips.filter((clip) => clip.is_pinned);

@@ -16,7 +16,7 @@ interface BinModalProps {
 
 interface SmartConditionRow {
   id: string;
-  target: 'source_app' | 'content_type' | 'contains' | 'file_extension' | 'file_path';
+  target: 'source_app' | 'content_type' | 'origin_kind' | 'contains' | 'file_extension' | 'file_path';
   operator: 'is' | 'contains';
   value: string;
 }
@@ -437,12 +437,15 @@ export const BinModal: React.FC<BinModalProps> = ({
                           ? installedApps[0] || 'Safari'
                           : newTarget === 'content_type'
                           ? 'code'
+                          : newTarget === 'origin_kind'
+                          ? 'clipboard_content'
                           : '';
                       handleUpdateCondition(c.id, { target: newTarget, value: newDefaultVal });
                     }}
                     options={[
                       { value: 'source_app', label: 'Source App' },
                       { value: 'content_type', label: 'Content Type' },
+                      { value: 'origin_kind', label: 'Origin' },
                       { value: 'contains', label: 'Text Content' },
                       { value: 'file_extension', label: 'File Extension' },
                       { value: 'file_path', label: 'File Path' },
@@ -485,6 +488,7 @@ export const BinModal: React.FC<BinModalProps> = ({
                       value={c.value}
                       onChange={(value) => handleUpdateCondition(c.id, { value })}
                       options={[
+                        { value: 'text', label: 'Plain Text' },
                         { value: 'code', label: 'Code Snippets' },
                         { value: 'link', label: 'Web Links' },
                         { value: 'color', label: 'Hex Colors' },
@@ -492,6 +496,20 @@ export const BinModal: React.FC<BinModalProps> = ({
                         { value: 'file', label: 'Files' },
                       ]}
                       label="Content type"
+                      className="min-w-0 flex-1"
+                      compact
+                    />
+                  ) : c.target === 'origin_kind' ? (
+                    <MenuSelect
+                      value={c.value}
+                      onChange={(value) => handleUpdateCondition(c.id, { value })}
+                      options={[
+                        { value: 'clipboard_content', label: 'Clipboard Content' },
+                        { value: 'file_reference', label: 'File Reference' },
+                        { value: 'screenshot', label: 'Screenshot' },
+                        { value: 'command_line', label: 'Command Line' },
+                      ]}
+                      label="Origin"
                       className="min-w-0 flex-1"
                       compact
                     />

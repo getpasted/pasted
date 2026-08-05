@@ -1,7 +1,6 @@
 use arboard::Clipboard;
 use base64::Engine;
 use sha2::{Digest, Sha256};
-use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::thread;
@@ -56,28 +55,6 @@ impl ContentDetectionSettings {
             code: enabled("detectCode"),
         }
     }
-}
-
-fn is_image_file_path(path: &Path) -> bool {
-    path.extension()
-        .and_then(|extension| extension.to_str())
-        .is_some_and(|extension| {
-            matches!(
-                extension.to_ascii_lowercase().as_str(),
-                "avif"
-                    | "bmp"
-                    | "gif"
-                    | "heic"
-                    | "heif"
-                    | "ico"
-                    | "jpeg"
-                    | "jpg"
-                    | "png"
-                    | "tif"
-                    | "tiff"
-                    | "webp"
-            )
-        })
 }
 
 pub struct ClipboardMonitorState {
@@ -246,19 +223,10 @@ pub fn start_clipboard_monitor(
 
             let clipboard_files = clipboard.get().file_list().unwrap_or_default();
 
-            // Finder and other file managers can publish both a native file reference and the
-            // bitmap itself for a copied image. Prefer that bitmap for one recognized image so
-            // image copy/paste and OCR keep working; preserve multi-file selections as file clips.
-            let preferred_file_image =
-                if clipboard_files.len() == 1 && is_image_file_path(&clipboard_files[0]) {
-                    clipboard.get_image().ok()
-                } else {
-                    None
-                };
-
             // File lists are an explicit clipboard flavor on every supported desktop OS.
-            // Store only bounded path metadata; never read file contents into the database.
-            if preferred_file_image.is_none() && !clipboard_files.is_empty() {
+            // Preserve that identity even when an image file also publishes bitmap data; raw
+            // image clipboard contents continue through the separate image capture path below.
+            if !clipboard_files.is_empty() {
                 let files = &clipboard_files;
                 let paths: Vec<String> = files
                     .iter()
@@ -327,6 +295,33 @@ pub fn start_clipboard_monitor(
                         source_app,
                     ) {
                         Ok(clip) => {
+                            let preview_mode = db_state
+                                .get_setting("filePreviewMode")
+                                .ok()
+                                .flatten()
+                                .filter(|mode| matches!(mode.as_str(), "off" | "safe" | "all"))
+                                .unwrap_or_else(|| "safe".to_string());
+                            let preview_max_mb = db_state
+                                .get_setting("filePreviewMaxMb")
+                                .ok()
+                                .flatten()
+                                .and_then(|value| value.parse::<u64>().ok())
+                                .unwrap_or(25)
+                                .clamp(1, 64);
+                            if preview_mode != "off" {
+                                let preview_app = app.clone();
+                                let preview_paths = paths.clone();
+                                let preview_hash = hash.clone();
+                                thread::spawn(move || {
+                                    crate::commands::prefetch_file_clip_previews(
+                                        &preview_app,
+                                        &preview_paths,
+                                        &preview_hash,
+                                        &preview_mode,
+                                        preview_max_mb,
+                                    );
+                                });
+                            }
                             let _ = app.emit("clip-added", clip);
                         }
                         Err(error) => {
@@ -338,11 +333,7 @@ pub fn start_clipboard_monitor(
             }
 
             // Attempt to read text
-            let clipboard_text = if preferred_file_image.is_none() {
-                clipboard.get_text().ok()
-            } else {
-                None
-            };
+            let clipboard_text = clipboard.get_text().ok();
             if let Some(text) = clipboard_text {
                 if !text.is_empty() {
                     let mut hasher = Sha256::new();
@@ -442,7 +433,7 @@ pub fn start_clipboard_monitor(
             }
 
             // Attempt to read image
-            if let Some(img) = preferred_file_image.or_else(|| clipboard.get_image().ok()) {
+            if let Ok(img) = clipboard.get_image() {
                 let (Ok(width), Ok(height)) = (u32::try_from(img.width), u32::try_from(img.height))
                 else {
                     report_ignored_capture(
@@ -614,17 +605,7 @@ fn rgba_to_png(width: u32, height: u32, rgba_data: &[u8]) -> Option<Vec<u8>> {
 
 #[cfg(test)]
 mod tests {
-    use super::{detect_content_type, is_image_file_path, ContentDetectionSettings};
-    use std::path::Path;
-
-    #[test]
-    fn image_file_detection_is_case_insensitive_and_extension_bounded() {
-        assert!(is_image_file_path(Path::new("/tmp/photo.PNG")));
-        assert!(is_image_file_path(Path::new("/tmp/photo.heic")));
-        assert!(is_image_file_path(Path::new("/tmp/photo.webp")));
-        assert!(!is_image_file_path(Path::new("/tmp/photo.png.txt")));
-        assert!(!is_image_file_path(Path::new("/tmp/document.pdf")));
-    }
+    use super::{detect_content_type, ContentDetectionSettings};
 
     #[test]
     fn six_digit_codes_are_text_not_colors() {

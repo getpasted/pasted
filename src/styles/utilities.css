@@ -56,6 +56,19 @@
   overflow-anchor: none;
 }
 
+.file-attribute-scroll {
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+}
+
+.file-attribute-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.file-attribute-scroll:focus {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-primary) 42%, transparent);
+}
+
 /* =======================================================
    SEMANTIC CORNER RADII & CONTROL SURFACES
    ======================================================= */

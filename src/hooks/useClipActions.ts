@@ -1,6 +1,7 @@
 import { useCallback, useState, type Dispatch, type SetStateAction } from 'react';
 import { getClipFilePaths, type AppSettings, type Bin, type ClipItem, type Pipeline, type SavedTransform } from '../types';
 import { safeInvoke as invoke } from '../utils/tauri';
+import { sortClipsForTimeline } from '../utils/clipOrder';
 import { soundManager } from '../utils/sound';
 import { runTransformation } from '../utils/transformExecution';
 
@@ -24,6 +25,7 @@ interface ClipActionsInput {
   fetchClips: () => Promise<void>;
   fetchTrashedClips: () => Promise<void>;
   fetchSequentialStatus: () => Promise<void>;
+  keepTrashedClipsVisible: boolean;
 }
 
 export function useClipActions({
@@ -41,6 +43,7 @@ export function useClipActions({
   fetchClips,
   fetchTrashedClips,
   fetchSequentialStatus,
+  keepTrashedClipsVisible,
 }: ClipActionsInput) {
   const [transformingClipIds, setTransformingClipIds] = useState<Set<number>>(() => new Set());
   const [transformErrorsByClipId, setTransformErrorsByClipId] = useState<Map<number, string>>(() => new Map());
@@ -89,16 +92,13 @@ export function useClipActions({
         const existingPinned = updated
           .filter((clip) => clip.is_pinned && !targetIdSet.has(clip.id))
           .map((clip) => ({ ...clip, pin_order: (clip.pin_order ?? 0) + newlyPinned.length }));
-        return [
+        return sortClipsForTimeline([
           ...newlyPinned,
           ...existingPinned,
           ...updated.filter((clip) => !clip.is_pinned),
-        ];
+        ]);
       }
-      return [
-        ...updated.filter((clip) => clip.is_pinned),
-        ...updated.filter((clip) => !clip.is_pinned),
-      ];
+      return sortClipsForTimeline(updated);
     });
     setSelectedClip((previous) => previous && targetIds.includes(previous.id)
       ? { ...previous, is_pinned: nextPinState, pin_order: nextPinState ? 0 : previous.pin_order }
@@ -149,9 +149,13 @@ export function useClipActions({
         const existingPinned = updated
           .filter((clip) => clip.is_pinned && !changedIdSet.has(clip.id))
           .map((clip) => ({ ...clip, pin_order: (clip.pin_order ?? 0) + newlyPinned.length }));
-        return [...newlyPinned, ...existingPinned, ...updated.filter((clip) => !clip.is_pinned)];
+        return sortClipsForTimeline([
+          ...newlyPinned,
+          ...existingPinned,
+          ...updated.filter((clip) => !clip.is_pinned),
+        ]);
       }
-      return [...updated.filter((clip) => clip.is_pinned), ...updated.filter((clip) => !clip.is_pinned)];
+      return sortClipsForTimeline(updated);
     });
     setSelectedClip((previous) => previous && changedIdSet.has(previous.id)
       ? { ...previous, is_pinned: pinState, pin_order: pinState ? 0 : previous.pin_order }
@@ -215,8 +219,16 @@ export function useClipActions({
     if (!permanently) {
       setTrashedClips((previous) => [...deletedItems, ...previous]);
     }
-    setSelectedClipIds((previous) => new Set(Array.from(previous).filter((id) => !ids.includes(id))));
-    setSelectedClip((previous) => previous && ids.includes(previous.id) ? null : previous);
+    const keepMovedSelection = !permanently && keepTrashedClipsVisible;
+    if (!keepMovedSelection) {
+      setSelectedClipIds((previous) => new Set(Array.from(previous).filter((id) => !ids.includes(id))));
+    }
+    setSelectedClip((previous) => {
+      if (!previous || !ids.includes(previous.id)) return previous;
+      return keepMovedSelection
+        ? deletedItems.find((clip) => clip.id === previous.id) ?? previous
+        : null;
+    });
     setTotalClipCount((previous) => Math.max(0, previous - ids.length));
 
     const request = permanently
@@ -238,7 +250,7 @@ export function useClipActions({
         void fetchClips();
         void fetchTrashedClips();
       });
-  }, [allClips, bins, fetchClips, fetchTrashedClips, setAllClips, setSelectedClip, setSelectedClipIds, setTotalClipCount, setTrashedClips, settings.enableTrash]);
+  }, [allClips, bins, fetchClips, fetchTrashedClips, keepTrashedClipsVisible, setAllClips, setSelectedClip, setSelectedClipIds, setTotalClipCount, setTrashedClips, settings.enableTrash]);
 
   const deleteSelectedClips = useCallback((forcePermanent = false) => {
     deleteClipIds(Array.from(selectedClipIds), forcePermanent);

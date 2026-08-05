@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { formatClipTime } from '../utils/date';
+import { clipDateTimeAttribute, formatClipFullDateTime, formatClipTime } from '../utils/date';
 import { formatEmojiIcon } from '../utils/emoji';
 import { ClipItem, getClipFilePaths, getClipFileSummary, getClipNoteSummary, isSensitiveText, maskSensitiveText } from '../types';
 import type { ClipViewPolicy } from '../utils/clipViewPolicy';
@@ -34,6 +34,13 @@ import {
 } from 'lucide-react';
 
 const clipImageCache = new Map<string, string | null>();
+interface FileCardPreview {
+  index: number;
+  dataUrl: string | null;
+  textContent: string | null;
+}
+
+const clipFilePreviewCache = new Map<string, FileCardPreview | null>();
 
 function ClipImageThumbnail({
   clipId,
@@ -105,6 +112,109 @@ function ClipImageThumbnail({
   );
 }
 
+function ClipFileThumbnail({
+  clip,
+  mode,
+  maxSizeMb,
+  maxHeightClass,
+  placeholderHeightClass,
+}: {
+  clip: ClipItem;
+  mode: 'off' | 'safe' | 'all';
+  maxSizeMb: number;
+  maxHeightClass: string;
+  placeholderHeightClass: string;
+}) {
+  const stageRef = React.useRef<HTMLDivElement | null>(null);
+  const paths = React.useMemo(() => getClipFilePaths(clip), [clip.text_content]);
+  const previewIndexes = React.useMemo(() => paths
+    .map((path, index) => (/\.(?:jpe?g|pdf|png|txt|webp)$/i.test(path) ? index : -1))
+    .filter((index) => index >= 0), [paths]);
+  const cacheKey = `${clip.id}:${clip.content_hash}:${mode}:${maxSizeMb}`;
+  const [preview, setPreview] = React.useState<FileCardPreview | null | undefined>(() => (
+    clipFilePreviewCache.has(cacheKey) ? clipFilePreviewCache.get(cacheKey) : undefined
+  ));
+
+  React.useEffect(() => {
+    let cancelled = false;
+    const stage = stageRef.current;
+    if (!stage || preview !== undefined || mode === 'off' || previewIndexes.length === 0) return undefined;
+
+    const load = () => {
+      invoke<FileCardPreview[]>('get_file_clip_previews', {
+        clipId: clip.id,
+        mode,
+        maxSizeMb,
+        onlyIndex: previewIndexes[0],
+      })
+        .then((previews) => {
+          const nextPreview = previews.find((item) => previewIndexes.includes(item.index)) ?? null;
+          clipFilePreviewCache.set(cacheKey, nextPreview);
+          if (!cancelled) setPreview(nextPreview);
+        })
+        .catch(() => {
+          if (!cancelled) setPreview(null);
+        });
+    };
+
+    if (typeof IntersectionObserver === 'undefined') {
+      load();
+      return () => { cancelled = true; };
+    }
+    const observer = new IntersectionObserver((entries) => {
+      if (!entries.some((entry) => entry.isIntersecting)) return;
+      observer.disconnect();
+      load();
+    }, { rootMargin: '240px 0px' });
+    observer.observe(stage);
+    return () => {
+      cancelled = true;
+      observer.disconnect();
+    };
+  }, [cacheKey, clip.id, maxSizeMb, mode, preview, previewIndexes]);
+
+  if (mode === 'off' || previewIndexes.length === 0 || preview === null) {
+    return (
+      <div className="clip-thumbnail-stage flex items-center gap-2 p-2 rounded border">
+        <Files className="h-4 w-4 shrink-0 text-blue-400" />
+        <span className="truncate">{getClipFileSummary(clip)}</span>
+        {paths.length > 1 && (
+          <span className="theme-text-muted ml-auto shrink-0 text-[10px]">{paths.length} files</span>
+        )}
+      </div>
+    );
+  }
+
+  const previewPath = paths[preview?.index ?? previewIndexes[0]] ?? '';
+  return (
+    <div
+      ref={stageRef}
+      className={`clip-thumbnail-stage clip-thumbnail-lazy relative rounded border overflow-hidden p-1 ${preview?.dataUrl ? 'flex justify-center' : ''} ${preview ? 'is-loaded' : placeholderHeightClass}`}
+    >
+      {preview && (
+        <>
+          {preview.dataUrl ? (
+            <img
+              src={preview.dataUrl}
+              alt={`Preview of ${previewPath.split(/[\\/]/).pop() || 'file'}`}
+              loading="lazy"
+              decoding="async"
+              className={`${maxHeightClass} object-contain rounded`}
+            />
+          ) : (
+            <pre className={`${maxHeightClass} min-h-full overflow-hidden whitespace-pre-wrap break-words p-2 pb-6 font-mono text-[10px] leading-relaxed`}>
+              {preview.textContent}
+            </pre>
+          )}
+          <span className="theme-surface theme-text-muted absolute bottom-1 left-1 max-w-[calc(100%-0.5rem)] truncate rounded-md px-1.5 py-0.5 text-[9px] shadow-sm">
+            {getClipFileSummary(clip)}
+          </span>
+        </>
+      )}
+    </div>
+  );
+}
+
 interface ClipCardProps {
   clip: ClipItem;
   isSelected: boolean;
@@ -122,6 +232,8 @@ interface ClipCardProps {
   primaryBinName?: string;
   primaryBinIcon?: string;
   rowHeight?: 'small' | 'medium' | 'large';
+  filePreviewMode: 'off' | 'safe' | 'all';
+  filePreviewMaxMb: number;
   selectionVersion: string;
   trashEnabled: boolean;
   onSelect: (e: React.MouseEvent) => void;
@@ -158,6 +270,8 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
   primaryBinName,
   primaryBinIcon,
   rowHeight = 'medium',
+  filePreviewMode,
+  filePreviewMaxMb,
   trashEnabled,
   onSelect,
   onPin,
@@ -430,11 +544,17 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
             </span>
           )}
           {isTrashMode && (
-            <span role="img" aria-label="Clip in Trash" title="In Trash" className="clip-meta-item clip-meta-icon-only clip-trash-badge">
+            <span role="img" aria-label="Clip in Trash" title="In Trash" className="clip-meta-item clip-meta-icon-only theme-status-danger-text">
               <Trash2 className="clip-meta-icon" />
             </span>
           )}
-          <span className="clip-meta-time">{formatClipTime(clip.created_at)}</span>
+          <time
+            className="clip-meta-time"
+            dateTime={clipDateTimeAttribute(clip.created_at)}
+            title={formatClipFullDateTime(clip.created_at)}
+          >
+            {formatClipTime(clip.created_at)}
+          </time>
         </div>
       </div>
 
@@ -449,15 +569,14 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
             placeholderHeightClass={imgPlaceholderHeightClass}
           />
         ) : clip.content_type === 'file' ? (
-          <div className="clip-thumbnail-stage flex items-center gap-2 p-2 rounded border">
-            <Files className="h-4 w-4 shrink-0 text-blue-400" />
-            <span className="truncate">{getClipFileSummary(clip)}</span>
-            {getClipFilePaths(clip).length > 1 && (
-              <span className="theme-text-muted ml-auto shrink-0 text-[10px]">
-                {getClipFilePaths(clip).length} files
-              </span>
-            )}
-          </div>
+          <ClipFileThumbnail
+            key={`${clip.id}:${clip.content_hash}`}
+            clip={clip}
+            mode={filePreviewMode}
+            maxSizeMb={filePreviewMaxMb}
+            maxHeightClass={imgMaxHeightClass}
+            placeholderHeightClass={imgPlaceholderHeightClass}
+          />
         ) : clip.content_type === 'color' ? (
           <div className="clip-thumbnail-stage flex items-center space-x-3 p-2 rounded border">
             <div
@@ -644,6 +763,7 @@ export const ClipCard = React.memo(ClipCardComponent, (prevProps, nextProps) => 
   const nextBinIds = nextProps.clip.bin_ids ?? [];
   return (
     prevProps.clip.id === nextProps.clip.id &&
+    prevProps.clip.content_hash === nextProps.clip.content_hash &&
     prevProps.clip.content_type === nextProps.clip.content_type &&
     prevProps.clip.text_content === nextProps.clip.text_content &&
     prevProps.clip.image_base64 === nextProps.clip.image_base64 &&
@@ -673,6 +793,8 @@ export const ClipCard = React.memo(ClipCardComponent, (prevProps, nextProps) => 
     prevProps.primaryBinName === nextProps.primaryBinName &&
     prevProps.primaryBinIcon === nextProps.primaryBinIcon &&
     prevProps.rowHeight === nextProps.rowHeight &&
+    prevProps.filePreviewMode === nextProps.filePreviewMode &&
+    prevProps.filePreviewMaxMb === nextProps.filePreviewMaxMb &&
     prevProps.trashEnabled === nextProps.trashEnabled &&
     prevProps.selectionVersion === nextProps.selectionVersion
   );

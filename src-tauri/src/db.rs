@@ -28,6 +28,24 @@ fn escape_like_literal(value: &str) -> String {
         .replace('_', "\\_")
 }
 
+fn derived_origin_kind(content_type: &str, source_app: &str) -> &'static str {
+    if content_type.eq_ignore_ascii_case("file") {
+        return "file_reference";
+    }
+    if source_app.eq_ignore_ascii_case("CLI Terminal")
+        || source_app.eq_ignore_ascii_case("Pasted CLI")
+    {
+        return "command_line";
+    }
+    if content_type.eq_ignore_ascii_case("image") {
+        let source_app = source_app.to_lowercase();
+        if source_app.contains("screenshot") || source_app.contains("screencapture") {
+            return "screenshot";
+        }
+    }
+    "clipboard_content"
+}
+
 fn push_smart_condition(
     kind: &str,
     value: &str,
@@ -42,6 +60,10 @@ fn push_smart_condition(
         "content_type" => {
             parameters.push(Box::new(value.to_string()));
             "content_type = ?".to_string()
+        }
+        "origin_kind" => {
+            parameters.push(Box::new(value.to_lowercase()));
+            "CASE WHEN content_type = 'file' THEN 'file_reference' WHEN LOWER(source_app) IN ('cli terminal', 'pasted cli') THEN 'command_line' WHEN content_type = 'image' AND (LOWER(source_app) LIKE '%screenshot%' OR LOWER(source_app) LIKE '%screencapture%') THEN 'screenshot' ELSE 'clipboard_content' END = ?".to_string()
         }
         "source_app" => {
             parameters.push(Box::new(format!("%{}%", value)));
@@ -2292,6 +2314,9 @@ impl DbState {
                 "content_type" => content_type.eq_ignore_ascii_case(value),
                 "source_app" => source_app.to_lowercase().contains(&value.to_lowercase()),
                 "contains" => text.to_lowercase().contains(&value.to_lowercase()),
+                "origin_kind" => {
+                    derived_origin_kind(content_type, source_app).eq_ignore_ascii_case(value.trim())
+                }
                 "file_extension" => {
                     let extension = value.trim().trim_start_matches('.').to_lowercase();
                     !extension.is_empty()
@@ -4176,6 +4201,109 @@ mod tests {
         assert_eq!(clips[0].text_content.as_deref(), Some("Hello Rust"));
         assert_eq!(clips[0].source_app, "Safari");
         assert!(!clips[0].is_pinned);
+    }
+
+    #[test]
+    fn origin_kind_is_conservative_and_distinguishes_files_and_screenshots() {
+        assert_eq!(derived_origin_kind("file", "Finder"), "file_reference");
+        assert_eq!(derived_origin_kind("image", "Screenshot"), "screenshot");
+        assert_eq!(derived_origin_kind("image", "screencapture"), "screenshot");
+        assert_eq!(derived_origin_kind("image", "Preview"), "clipboard_content");
+        assert_eq!(derived_origin_kind("text", "Safari"), "clipboard_content");
+        assert_eq!(derived_origin_kind("text", "CLI Terminal"), "command_line");
+    }
+
+    #[test]
+    fn origin_smart_bins_match_lists_counts_and_transform_automation() {
+        let db = setup_test_db();
+        let screenshot = db
+            .save_clip(
+                "image",
+                None,
+                None,
+                Some("data:image/png;base64,cGFzdGVk"),
+                "origin_screenshot_hash",
+                "Screenshot",
+            )
+            .unwrap();
+        let paths = serde_json::json!(["/Users/pasted/Downloads/report.pdf"]).to_string();
+        let file = db
+            .save_clip(
+                "file",
+                Some(&paths),
+                None,
+                None,
+                "origin_file_hash",
+                "Finder",
+            )
+            .unwrap();
+        let clipboard = db
+            .save_clip(
+                "text",
+                Some("ordinary clipboard text"),
+                None,
+                None,
+                "origin_clipboard_hash",
+                "Safari",
+            )
+            .unwrap();
+
+        let screenshot_rule = serde_json::json!({
+            "conditions": [{"type": "origin_kind", "operator": "is", "value": "screenshot"}],
+            "match": "all"
+        })
+        .to_string();
+        let file_rule = serde_json::json!({
+            "conditions": [{"type": "origin_kind", "operator": "is", "value": "file_reference"}],
+            "match": "all"
+        })
+        .to_string();
+        let clipboard_rule = serde_json::json!({
+            "conditions": [{"type": "origin_kind", "operator": "is", "value": "clipboard_content"}],
+            "match": "all"
+        })
+        .to_string();
+        let screenshot_bin = db
+            .create_bin("Screenshots", "📸", "default", Some(&screenshot_rule))
+            .unwrap();
+        let file_bin = db
+            .create_bin("File References", "📎", "default", Some(&file_rule))
+            .unwrap();
+        let clipboard_bin = db
+            .create_bin("Clipboard Content", "📋", "default", Some(&clipboard_rule))
+            .unwrap();
+
+        assert_eq!(
+            db.get_clips(None, Some(screenshot_bin.id), false).unwrap()[0].id,
+            screenshot.id
+        );
+        assert_eq!(
+            db.get_clips(None, Some(file_bin.id), false).unwrap()[0].id,
+            file.id
+        );
+        assert_eq!(
+            db.get_clips(None, Some(clipboard_bin.id), false).unwrap()[0].id,
+            clipboard.id
+        );
+        let bins = db.get_bins().unwrap();
+        for bin_id in [screenshot_bin.id, file_bin.id, clipboard_bin.id] {
+            assert_eq!(
+                bins.iter().find(|bin| bin.id == bin_id).unwrap().clip_count,
+                Some(1)
+            );
+        }
+
+        db.set_bin_transform_ref(screenshot_bin.id, Some("transform:test-origin"))
+            .unwrap();
+        assert_eq!(
+            db.matching_smart_bin_transforms("image", "", "Screenshot")
+                .unwrap(),
+            vec![(screenshot_bin.id, "transform:test-origin".to_string())]
+        );
+        assert!(db
+            .matching_smart_bin_transforms("image", "", "Preview")
+            .unwrap()
+            .is_empty());
     }
 
     #[test]

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import type { Bin, ClipItem, Pipeline, SequentialStatus } from '../types';
+import { sortClipsForTimeline } from '../utils/clipOrder';
 import { soundManager } from '../utils/sound';
 import { safeInvoke as invoke } from '../utils/tauri';
 
@@ -30,22 +31,13 @@ function isCompleteClipEvent(payload: ClipItem | { id: number }): payload is Cli
     && typeof (payload as Partial<ClipItem>).created_at === 'string';
 }
 
-function compareClipOrder(left: ClipItem, right: ClipItem) {
-  if (left.is_pinned !== right.is_pinned) return left.is_pinned ? -1 : 1;
-  if (left.is_pinned) {
-    const pinDifference = (left.pin_order ?? 0) - (right.pin_order ?? 0);
-    if (pinDifference !== 0) return pinDifference;
-  }
-  return right.created_at.localeCompare(left.created_at) || right.id - left.id;
-}
-
 function mergeClipSummary(clips: ClipItem[], incoming: ClipItem) {
   const summary = { ...incoming, html_content: null, image_base64: null };
   const existingIndex = clips.findIndex((clip) => clip.id === summary.id);
   const next = existingIndex === -1
     ? [...clips, summary]
     : clips.map((clip, index) => index === existingIndex ? summary : clip);
-  return next.sort(compareClipOrder);
+  return sortClipsForTimeline(next);
 }
 
 export function useAppData(enableSounds: boolean) {
