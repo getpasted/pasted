@@ -130,6 +130,17 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       })) as unknown as T;
     case 'get_pipelines':
       return mockPipelines as unknown as T;
+    case 'get_hotkey_capability_status':
+      return {
+        platform: 'unsupported',
+        backend: 'unsupported',
+        state: 'unavailable',
+        is_trusted: true,
+        is_dev_mode: false,
+        configured_count: 0,
+        registered_count: 0,
+        issues: [],
+      } as unknown as T;
     case 'get_bin_transform_ref':
       return (mockBinTransforms.get(Number(args?.binId)) || null) as unknown as T;
     case 'set_bin_transform_ref': {

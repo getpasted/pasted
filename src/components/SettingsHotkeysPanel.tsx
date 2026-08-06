@@ -159,6 +159,8 @@ export function SettingsHotkeysPanel({
   };
 
   const isMac = hotkeyStatus?.platform === 'macos';
+  const isBrowserPreview = typeof window !== 'undefined'
+    && !(window as Window & { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__;
   const hasHotkeyIssues = Boolean(hotkeyStatus && hotkeyStatus.issues.length > 0);
   const capabilityTitle = isMac
     ? 'Accessibility Access'
@@ -181,7 +183,9 @@ export function SettingsHotkeysPanel({
         ? <>Pasted registers shortcuts directly with X11. Shortcuts already owned by the desktop or another app are reported below.</>
         : hotkeyStatus?.platform === 'windows'
           ? <>Pasted registers shortcuts directly with Windows. Reserved shortcuts and conflicts with other apps are reported below.</>
-          : <>This platform does not currently provide a supported global-hotkey backend.</>;
+          : isBrowserPreview
+            ? <>This window could not register system-wide shortcuts, so hotkeys may not work correctly.</>
+            : <>This platform does not currently provide a supported global-hotkey backend.</>;
   const capabilityBadge = !hotkeyStatus || hotkeyStatus.state === 'checking'
     ? 'CHECKING'
     : isMac && !hotkeyStatus.is_trusted

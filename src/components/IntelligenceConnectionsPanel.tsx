@@ -44,7 +44,6 @@ export function IntelligenceConnectionsPanel() {
       .then((nextConnections) => {
         cachedConnections = nextConnections;
         setConnections(nextConnections);
-        setIsLoading(false);
       })
       .catch((reason) => setError(String(reason)))
   );
@@ -179,9 +178,26 @@ export function IntelligenceConnectionsPanel() {
                 );
               })}
             </div>
+          ) : isLoading ? (
+            <div className="connection-loading-list space-y-2" role="status" aria-label="Detecting available intelligence connections" aria-busy="true">
+              {[0, 1, 2].map((index) => (
+                <div key={index} className="connection-loading-card theme-card-idle border rounded-xl p-3 flex items-center justify-between gap-3" aria-hidden="true">
+                  <div className="flex min-w-0 flex-1 items-center gap-3">
+                    <span className="connection-loading-rank" />
+                    <span className="connection-loading-icon rounded-xl" />
+                    <span className="min-w-0 flex-1 space-y-2">
+                      <span className="connection-loading-line is-name" />
+                      <span className="connection-loading-line is-detail" />
+                    </span>
+                  </div>
+                  <span className="connection-loading-action rounded-lg" />
+                </div>
+              ))}
+              <span className="sr-only">Detecting available intelligence…</span>
+            </div>
           ) : (
             <div className="theme-text-muted border border-dashed rounded-2xl p-6 text-center text-xs">
-              {isLoading ? 'Detecting available intelligence…' : 'No compatible local tools or added connections yet.'}
+              No compatible local tools or added connections yet.
             </div>
           )}
         </section>
