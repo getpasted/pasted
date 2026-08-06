@@ -269,7 +269,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   ];
   const clipNavItems = allClipNavItems.filter(({ feature }) => !feature || features[feature]);
   const allToolNavItems: Array<{ tab: string; label: string; title: string; icon: React.ReactElement<{ className: string; strokeWidth?: number }>; feature?: FeatureId }> = [
-    { tab: 'analytics', label: 'Analytics & Insights', title: 'Analytics & Insights', icon: <BarChart3 className="sidebar-icon-secondary w-5 h-5" />, feature: 'analytics' },
+    { tab: 'analytics', label: 'Analytics & Insights', title: 'Analytics & Insights', icon: <BarChart3 className="sidebar-icon-primary w-5 h-5" />, feature: 'analytics' },
     { tab: 'transformations', label: 'Transformations', title: 'Transformations', icon: <Workflow className="sidebar-icon-primary w-5 h-5" />, feature: 'transformations' },
     { tab: 'activity', label: 'Activity Log', title: 'Activity Log', icon: <Activity className="sidebar-icon-info w-5 h-5" />, feature: 'activityLog' },
     { tab: 'help', label: 'Help & Documentation', title: 'Help & Documentation', icon: <HelpCircle className="sidebar-icon-info w-5 h-5" />, feature: 'help' },
@@ -493,7 +493,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     </div>
                     {item.tab === 'sequential' && seqStatus?.is_active ? (
                       <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                    ) : (item.tab === 'all' || count > 0) ? (
+                    ) : count > 0 ? (
                       <span className={`sidebar-badge text-[11px] px-1.5 py-0.5 rounded-md font-mono ${
                         item.tab === 'trash' ? 'is-danger' : ''
                       }`}>
@@ -671,13 +671,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     {/* Right side container */}
                     <div className="flex items-center justify-end shrink-0 pl-1">
                       <div className={`flex items-center space-x-1.5 ${isBinHovered && !isDragging ? 'hidden' : ''}`}>
-                        {b.smart_rule ? (
+                        {b.smart_rule && (b.clip_count ?? 0) > 0 ? (
                           <span
-                            title={`Smart Bin · ${b.clip_count ?? 0} Matches`}
+                            title={`Smart Bin · ${b.clip_count} Matches`}
                             className="sidebar-badge text-[11px] px-1.5 py-0.5 rounded-md font-mono flex items-center space-x-1"
                           >
                             <Sparkles className="w-3 h-3 text-amber-400 shrink-0" />
-                            <span>{b.clip_count ?? 0}</span>
+                            <span>{b.clip_count}</span>
                           </span>
                         ) : (
                           !!b.clip_count && b.clip_count > 0 && (

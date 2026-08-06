@@ -72,11 +72,6 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
       <ToolPageHeader
         icon={<BookOpen className="w-4 h-4" />}
         title="Documentation"
-        actions={(
-          <div className="theme-badge px-3 py-1 rounded-full border text-xs font-mono font-semibold">
-            v1.0.0 Pro Edition
-          </div>
-        )}
       />
 
       {/* Subpage Navigation & Content Container */}

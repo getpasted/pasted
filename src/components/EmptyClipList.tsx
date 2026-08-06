@@ -44,7 +44,7 @@ export function EmptyClipList({ currentTab, searchQuery, selectedBin }: EmptyCli
   } else if (currentTab === 'notes') {
     icon = <StickyNote className="sidebar-icon-note w-10 h-10 stroke-1" />;
     title = 'No noted clips';
-    description = 'Add a note to a clip and it will appear here.';
+    description = 'Add a note to any clip to annotate it and find it here later.';
   } else if (currentTab === 'trash') {
     icon = <Trash2 className="sidebar-icon-danger w-10 h-10 stroke-1" />;
     title = 'Trash is empty';

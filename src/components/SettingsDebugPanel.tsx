@@ -3,6 +3,7 @@ import { Activity, Ban, CheckCircle2, CirclePlay, Clock3, GitFork, Layers3, Load
 import type { IntelligenceSchedulerEvent, IntelligenceSchedulerSnapshot, OcrBackfillStatus } from '../types';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { SettingsPanelHeader } from './SettingsPanelHeader';
+import packageMetadata from '../../package.json';
 
 const EMPTY_SNAPSHOT: IntelligenceSchedulerSnapshot = {
   revision: 0,
@@ -84,6 +85,11 @@ export function SettingsDebugPanel({ ocrEnabled }: { ocrEnabled: boolean }) {
         icon={Activity}
         title="Diagnostics"
         description="Watch background work and inspect Pasted's health."
+        actions={(
+          <span className="theme-badge rounded-full border px-2.5 py-1 font-mono text-[10px] font-semibold">
+            v{packageMetadata.version}{import.meta.env.DEV ? ' · Development' : ''}
+          </span>
+        )}
       />
 
       <section className="theme-surface rounded-2xl border p-5 space-y-4">
