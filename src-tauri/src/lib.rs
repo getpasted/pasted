@@ -386,7 +386,7 @@ pub fn run() {
             commands::import_backup_json,
             commands::get_analytics_summary,
             commands::install_cli_to_path,
-            commands::check_accessibility_permission,
+            commands::get_hotkey_capability_status,
             commands::request_accessibility_permission
         ])
         .run(tauri::generate_context!())

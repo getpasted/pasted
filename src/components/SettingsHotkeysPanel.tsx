@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Keyboard, RotateCcw, ShieldCheck } from 'lucide-react';
+import { Keyboard, MonitorCog, RotateCcw, ShieldCheck, TriangleAlert } from 'lucide-react';
 import type { AppSettings, Bin, Pipeline } from '../types';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { HotkeyRecorder } from './HotkeyRecorder';
@@ -14,8 +14,17 @@ interface SettingsHotkeysPanelProps {
   onRefreshPipelines?: () => void;
 }
 
-type AccessibilityStatus = { is_trusted: boolean; is_dev_mode: boolean };
-let cachedAccessibilityStatus: AccessibilityStatus | null = null;
+type HotkeyCapabilityStatus = {
+  platform: 'macos' | 'windows' | 'linux' | 'unsupported';
+  backend: 'macos' | 'windows' | 'x11' | 'wayland-portal' | 'unsupported';
+  state: 'checking' | 'ready' | 'conflict' | 'unavailable';
+  is_trusted: boolean;
+  is_dev_mode: boolean;
+  configured_count: number;
+  registered_count: number;
+  issues: Array<{ shortcut: string; description: string; message: string }>;
+};
+let cachedHotkeyStatus: HotkeyCapabilityStatus | null = null;
 type HotkeySetting = keyof Pick<
   AppSettings,
   | 'seqToggleHotkey'
@@ -80,29 +89,33 @@ export function SettingsHotkeysPanel({
   onRefreshBins,
   onRefreshPipelines,
 }: SettingsHotkeysPanelProps) {
-  const [accessibilityStatus, setAccessibilityStatus] = useState<AccessibilityStatus | null>(cachedAccessibilityStatus);
+  const [hotkeyStatus, setHotkeyStatus] = useState<HotkeyCapabilityStatus | null>(cachedHotkeyStatus);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const permissionRefreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const refreshAccessibilityStatus = async () => {
+  const refreshHotkeyStatus = async () => {
     try {
-      const nextStatus = await invoke<AccessibilityStatus>('check_accessibility_permission');
-      cachedAccessibilityStatus = nextStatus;
-      setAccessibilityStatus(nextStatus);
+      const nextStatus = await invoke<HotkeyCapabilityStatus>('get_hotkey_capability_status');
+      cachedHotkeyStatus = nextStatus;
+      setHotkeyStatus(nextStatus);
     } catch {
-      const fallback = { is_trusted: true, is_dev_mode: false };
-      cachedAccessibilityStatus = fallback;
-      setAccessibilityStatus(fallback);
+      const fallback: HotkeyCapabilityStatus = {
+        platform: 'unsupported', backend: 'unsupported', state: 'unavailable',
+        is_trusted: true, is_dev_mode: false, configured_count: 0, registered_count: 0,
+        issues: [],
+      };
+      cachedHotkeyStatus = fallback;
+      setHotkeyStatus(fallback);
     }
   };
 
   useEffect(() => {
-    void refreshAccessibilityStatus();
-    const interval = window.setInterval(() => void refreshAccessibilityStatus(), 10000);
-    window.addEventListener('focus', refreshAccessibilityStatus);
+    void refreshHotkeyStatus();
+    const interval = window.setInterval(() => void refreshHotkeyStatus(), 10000);
+    window.addEventListener('focus', refreshHotkeyStatus);
     return () => {
       window.clearInterval(interval);
-      window.removeEventListener('focus', refreshAccessibilityStatus);
+      window.removeEventListener('focus', refreshHotkeyStatus);
       if (permissionRefreshTimer.current) clearTimeout(permissionRefreshTimer.current);
     };
   }, []);
@@ -113,6 +126,7 @@ export function SettingsHotkeysPanel({
     try {
       await invoke('register_app_setting_hotkey', { key, value });
       setStatusMessage(null);
+      await refreshHotkeyStatus();
     } catch (error) {
       console.error(`Failed to register ${key}:`, error);
       setStatusMessage('That shortcut could not be registered. Try a different key combination.');
@@ -137,12 +151,53 @@ export function SettingsHotkeysPanel({
     try {
       await invoke('request_accessibility_permission');
       if (permissionRefreshTimer.current) clearTimeout(permissionRefreshTimer.current);
-      permissionRefreshTimer.current = setTimeout(() => void refreshAccessibilityStatus(), 1500);
+      permissionRefreshTimer.current = setTimeout(() => void refreshHotkeyStatus(), 1500);
     } catch (error) {
       console.error('Failed to open Accessibility settings:', error);
       setStatusMessage('Could not open macOS Accessibility settings.');
     }
   };
+
+  const isMac = hotkeyStatus?.platform === 'macos';
+  const hasHotkeyIssues = Boolean(hotkeyStatus && hotkeyStatus.issues.length > 0);
+  const capabilityTitle = isMac
+    ? 'Accessibility Access'
+    : hotkeyStatus?.backend === 'wayland-portal'
+      ? 'Wayland System Hotkeys'
+      : hotkeyStatus?.backend === 'x11'
+        ? 'X11 Global Hotkeys'
+        : hotkeyStatus?.platform === 'windows'
+          ? 'Windows Global Hotkeys'
+          : 'Global Hotkeys';
+  const capabilityDescription = isMac
+    ? (hotkeyStatus?.is_dev_mode
+        ? <>In development, allow your active IDE or terminal under <strong>System Settings › Privacy &amp; Security › Accessibility</strong>.</>
+        : <>Allow <strong>Pasted</strong> under <strong>System Settings › Privacy &amp; Security › Accessibility</strong>.</>)
+    : hotkeyStatus?.backend === 'wayland-portal'
+      ? (hotkeyStatus.state === 'unavailable'
+          ? <>This desktop does not provide the XDG Global Shortcuts portal. Pasted cannot register system-wide shortcuts in this Wayland session.</>
+          : <>Your desktop securely owns these shortcuts. It may ask you to approve or change them when Pasted registers them.</>)
+      : hotkeyStatus?.backend === 'x11'
+        ? <>Pasted registers shortcuts directly with X11. Shortcuts already owned by the desktop or another app are reported below.</>
+        : hotkeyStatus?.platform === 'windows'
+          ? <>Pasted registers shortcuts directly with Windows. Reserved shortcuts and conflicts with other apps are reported below.</>
+          : <>This platform does not currently provide a supported global-hotkey backend.</>;
+  const capabilityBadge = !hotkeyStatus || hotkeyStatus.state === 'checking'
+    ? 'CHECKING'
+    : isMac && !hotkeyStatus.is_trusted
+      ? 'REQUIRED'
+      : hotkeyStatus.state === 'unavailable'
+        ? 'UNAVAILABLE'
+        : hasHotkeyIssues
+          ? `${hotkeyStatus.issues.length} CONFLICT${hotkeyStatus.issues.length === 1 ? '' : 'S'}`
+          : isMac
+            ? 'GRANTED'
+            : hotkeyStatus.backend === 'wayland-portal'
+              ? 'SYSTEM MANAGED'
+              : 'READY';
+  const capabilityIsHealthy = Boolean(hotkeyStatus
+    && hotkeyStatus.state === 'ready'
+    && (!isMac || hotkeyStatus.is_trusted));
 
   return (
     <div className="space-y-6 text-xs">
@@ -160,30 +215,41 @@ export function SettingsHotkeysPanel({
 
       {statusMessage && <p role="status" className="theme-status-info rounded-lg border px-3 py-2 text-[11px]">{statusMessage}</p>}
 
-      <div className="theme-surface min-h-[5.5rem] p-3.5 rounded-xl border space-y-2">
+      <div className="theme-surface p-3.5 rounded-xl border space-y-2.5">
         <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center space-x-2">
-            <ShieldCheck className={`w-4 h-4 ${accessibilityStatus?.is_trusted ? 'theme-status-success-text' : 'theme-status-warning-text'}`} />
-            <span className="font-bold text-xs theme-text-main">macOS System Accessibility Permission</span>
+          <div className="min-w-0 flex items-center gap-2">
+            {hasHotkeyIssues || hotkeyStatus?.state === 'unavailable'
+              ? <TriangleAlert className="w-4 h-4 shrink-0 theme-status-warning-text" />
+              : isMac
+                ? <ShieldCheck className={`w-4 h-4 shrink-0 ${capabilityIsHealthy ? 'theme-status-success-text' : 'theme-status-warning-text'}`} />
+                : <MonitorCog className={`w-4 h-4 shrink-0 ${capabilityIsHealthy ? 'theme-status-success-text' : 'theme-text-muted'}`} />}
+            <span className="min-w-0 truncate whitespace-nowrap font-bold text-xs theme-text-main">{capabilityTitle}</span>
           </div>
-          <div className="flex items-center space-x-2">
-            <span
-              aria-hidden={!accessibilityStatus?.is_dev_mode}
-              className={`theme-status-info text-[9px] font-mono px-2 py-0.5 rounded border font-bold shrink-0 whitespace-nowrap ${accessibilityStatus?.is_dev_mode ? '' : 'invisible'}`}
-            >
-              DEV MODE
+          <div className="shrink-0 flex items-center gap-2">
+            {isMac && hotkeyStatus?.is_dev_mode && (
+              <span className="theme-status-info whitespace-nowrap text-[9px] font-mono px-2 py-0.5 rounded border font-bold">DEV MODE</span>
+            )}
+            <span className={`whitespace-nowrap text-center text-[9px] font-mono font-bold px-2 py-0.5 rounded-full border ${capabilityIsHealthy ? 'theme-status-success' : 'theme-status-warning'}`}>
+              {capabilityBadge}
             </span>
-            <span className={`min-w-[4.75rem] text-center text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border ${accessibilityStatus?.is_trusted ? 'theme-status-success' : 'theme-status-warning'}`}>
-              {accessibilityStatus ? (accessibilityStatus.is_trusted ? 'GRANTED' : 'REQUIRED') : 'CHECKING'}
-            </span>
-            <button type="button" onClick={() => void requestAccessibilityPermission()} className="theme-secondary-button px-2.5 py-1 border rounded-lg text-[10px] font-semibold transition-colors cursor-pointer">Open System Settings</button>
+            {isMac && (
+              <button type="button" onClick={() => void requestAccessibilityPermission()} className="theme-secondary-button whitespace-nowrap px-2.5 py-1 border rounded-lg text-[10px] font-semibold transition-colors cursor-pointer">
+                Open Settings
+              </button>
+            )}
           </div>
         </div>
-        <p className="min-h-8 text-[11px] theme-text-muted leading-normal">
-          macOS requires Accessibility access for global hotkeys. {accessibilityStatus?.is_dev_mode
-            ? <span>Running in <strong>development mode</strong>: grant permission to your active IDE / terminal host application under System Settings &gt; Privacy &amp; Security &gt; Accessibility.</span>
-            : <span>Grant permission to <strong>Pasted.app</strong> under System Settings &gt; Privacy &amp; Security &gt; Accessibility.</span>}
-        </p>
+        <p className="text-[11px] theme-text-muted leading-normal">{capabilityDescription}</p>
+        {hasHotkeyIssues && (
+          <ul className="theme-subtle-surface rounded-lg border divide-y theme-divider overflow-hidden" aria-label="Unavailable hotkeys">
+            {hotkeyStatus!.issues.slice(0, 4).map((issue, index) => (
+              <li key={`${issue.description}-${issue.shortcut}-${index}`} className="flex items-start justify-between gap-3 px-2.5 py-2 text-[10px]">
+                <span className="min-w-0 truncate theme-text-main">{issue.description}</span>
+                {issue.shortcut && <kbd className="shrink-0 font-mono theme-text-muted">{issue.shortcut}</kbd>}
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
       {settings.enableBins && <section className="space-y-2">

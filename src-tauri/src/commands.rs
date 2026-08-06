@@ -2240,13 +2240,12 @@ pub fn register_all_app_shortcuts(app: &AppHandle) -> Result<(), String> {
     }
 }
 
-#[derive(serde::Serialize)]
+#[derive(serde::Serialize, Clone)]
 pub struct AccessibilityStatus {
     pub is_trusted: bool,
     pub is_dev_mode: bool,
 }
 
-#[tauri::command]
 pub fn check_accessibility_permission() -> AccessibilityStatus {
     let is_trusted = {
         #[cfg(target_os = "macos")]
@@ -2267,6 +2266,47 @@ pub fn check_accessibility_permission() -> AccessibilityStatus {
     AccessibilityStatus {
         is_trusted,
         is_dev_mode,
+    }
+}
+
+#[derive(serde::Serialize)]
+pub struct HotkeyCapabilityStatus {
+    pub platform: String,
+    pub backend: String,
+    pub state: String,
+    pub is_trusted: bool,
+    pub is_dev_mode: bool,
+    pub configured_count: usize,
+    pub registered_count: usize,
+    pub issues: Vec<crate::hotkey_manager::HotkeyRegistrationIssue>,
+}
+
+#[tauri::command]
+pub fn get_hotkey_capability_status(app: AppHandle) -> HotkeyCapabilityStatus {
+    let accessibility = check_accessibility_permission();
+    let registration = app
+        .try_state::<Arc<crate::hotkey_manager::HotkeyManager>>()
+        .map(|manager| manager.registration_status())
+        .unwrap_or_default();
+    let platform = if cfg!(target_os = "macos") {
+        "macos"
+    } else if cfg!(target_os = "windows") {
+        "windows"
+    } else if cfg!(target_os = "linux") {
+        "linux"
+    } else {
+        "unsupported"
+    };
+
+    HotkeyCapabilityStatus {
+        platform: platform.into(),
+        backend: registration.backend,
+        state: registration.state,
+        is_trusted: accessibility.is_trusted,
+        is_dev_mode: accessibility.is_dev_mode,
+        configured_count: registration.configured_count,
+        registered_count: registration.registered_count,
+        issues: registration.issues,
     }
 }
 
