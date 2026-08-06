@@ -110,7 +110,7 @@
 }
 
 .sidebar-item-hovered {
-  background-color: var(--bg-card-selected);
+  background-color: var(--bg-nav-hover);
   color: var(--text-title);
 }
 

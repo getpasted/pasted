@@ -470,7 +470,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     data-clip-drop-action={isEligibleAction ? item.dropAction : undefined}
                     onClick={isClipDragging ? undefined : () => navigateTo(item.tab)}
                     disabled={isClipDragging && !isEligibleAction}
-                    title={isClipDragging && item.dropAction ? getDropActionTitle(item.dropAction) : item.title}
+                    title={isClipDragging && item.dropAction ? getDropActionTitle(item.dropAction) : undefined}
                     className={`sidebar-nav-row justify-between transition-colors duration-100 ${
                       isActionTarget
                         ? `sidebar-action-drop sidebar-action-drop-${item.dropAction} sidebar-action-drop-target cursor-grabbing`

@@ -101,6 +101,7 @@
     --bg-tab-active: #ffffff;
     --bg-tab-hover: #e2e2e8;
     --bg-badge: #e5e5ea;
+    --bg-nav-hover: color-mix(in srgb, var(--accent-primary) 13%, var(--bg-sidebar));
     --bg-nav-selected: #ffffff;
     --border-nav-selected: #b0b0b6;
     --shadow-nav-selected: 0 1px 4px rgba(0, 0, 0, 0.1);
@@ -160,6 +161,7 @@
     --bg-tab-active: #fffaf2;
     --bg-tab-hover: #e7dccd;
     --bg-badge: #e7dccd;
+    --bg-nav-hover: color-mix(in srgb, var(--accent-primary) 13%, var(--bg-sidebar));
     --bg-nav-selected: #fffaf2;
     --border-nav-selected: #b9aa98;
     --shadow-nav-selected: 0 1px 4px rgba(76, 55, 35, 0.12);
@@ -333,6 +335,7 @@
     --bg-tab-active: #40372e;
     --bg-tab-hover: #342f29;
     --bg-badge: rgba(255, 190, 112, 0.14);
+    --bg-nav-hover: color-mix(in srgb, var(--accent-primary) 10%, var(--bg-sidebar));
     --bg-nav-selected: #493f35;
     --border-nav-selected: #9a7550;
     --shadow-nav-selected: 0 2px 8px rgba(0, 0, 0, 0.44);
@@ -385,6 +388,7 @@
     --menu-hover: color-mix(in srgb, var(--text-main) 7%, var(--bg-card));
     --menu-selected: color-mix(in srgb, var(--accent-primary) 12%, var(--bg-card));
     --menu-selected-hover: color-mix(in srgb, var(--accent-primary) 17%, var(--bg-card));
+    --bg-nav-hover: var(--bg-card-selected);
     --code-surface: #202124;
     --code-border: #4b4d52;
     --code-text: #f4f4f5;
