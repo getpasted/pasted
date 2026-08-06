@@ -25,6 +25,7 @@ import {
   type FeatureId,
 } from '../utils/features';
 import { SettingsPanelHeader } from './SettingsPanelHeader';
+import { InfoPopover } from './InfoPopover';
 
 const FEATURE_ICONS = {
   analytics: BarChart3,
@@ -94,7 +95,16 @@ export function SettingsFeaturesPanel({ settings, onUpdateSettings }: SettingsFe
                     <Icon className="h-4 w-4" />
                   </span>
                   <div className="min-w-0">
-                    <h3 className="theme-title font-semibold">{feature.label}</h3>
+                    <div className="relative w-fit max-w-[calc(100%-1.5rem)]">
+                      <h3 className="theme-title font-semibold">{feature.label}</h3>
+                      {feature.caution && !enabled && (
+                        <span className="settings-feature-caution">
+                          <InfoPopover label={`${feature.label} disabled warning`} tone="danger">
+                            {feature.caution}
+                          </InfoPopover>
+                        </span>
+                      )}
+                    </div>
                     <p className="theme-text-muted mt-1 text-[11px] leading-relaxed">{feature.description}</p>
                   </div>
                 </div>
@@ -109,11 +119,6 @@ export function SettingsFeaturesPanel({ settings, onUpdateSettings }: SettingsFe
                   <span className={`settings-switch-thumb pointer-events-none inline-block h-4 w-4 rounded-full shadow transition-transform ${enabled ? 'translate-x-4' : 'translate-x-0'}`} />
                 </button>
               </div>
-              {feature.caution && !enabled && (
-                <p className="theme-status-danger mt-3 rounded-lg border px-2.5 py-2 text-[10px] leading-relaxed">
-                  {feature.caution}
-                </p>
-              )}
             </section>
           );
         })}

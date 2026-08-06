@@ -256,6 +256,117 @@ html:not(.is-stable-reordering) .connection-priority-card:hover {
   border-color: color-mix(in srgb, var(--accent-primary) 32%, var(--border-subtle));
 }
 
+.info-popover {
+  --info-popover-accent: var(--accent-primary);
+  position: relative;
+  display: inline-flex;
+  z-index: 1;
+}
+
+.settings-feature-caution {
+  position: absolute;
+  top: 50%;
+  left: 100%;
+  display: inline-flex;
+  margin-left: 0.3rem;
+  transform: translateY(-50%);
+}
+
+.info-popover-trigger {
+  display: inline-flex;
+  height: 1.25rem;
+  width: 1.25rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  color: var(--text-muted);
+  transition: background-color 120ms ease, color 120ms ease, box-shadow 120ms ease;
+}
+
+.info-popover.is-warning {
+  --info-popover-accent: var(--status-warning);
+}
+
+.info-popover.is-warning .info-popover-trigger {
+  color: var(--status-warning);
+}
+
+.info-popover.is-danger {
+  --info-popover-accent: var(--status-danger);
+}
+
+.info-popover.is-danger .info-popover-trigger {
+  color: var(--status-danger);
+}
+
+.info-popover-trigger:hover,
+.info-popover-trigger:focus-visible {
+  background-color: color-mix(in srgb, currentColor 12%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, currentColor 35%, transparent);
+  outline: none;
+}
+
+.info-popover-content {
+  --info-popover-accent: var(--accent-primary);
+  display: block;
+  box-sizing: border-box;
+  position: fixed;
+  isolation: isolate;
+  z-index: var(--layer-popover);
+  width: 12.5rem;
+  max-width: calc(100vw - 3rem);
+  overflow: hidden;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--info-popover-accent) 28%, var(--border-card));
+  border-radius: 0.75rem;
+  background-color: transparent;
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, white 7%, transparent),
+    0 3px 9px color-mix(in srgb, #000 25%, transparent);
+  color: var(--text-main);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  line-height: 1.4;
+  white-space: normal;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-0.2rem);
+  visibility: hidden;
+  transition: opacity 110ms ease, transform 110ms ease, visibility 110ms ease;
+}
+
+.info-popover-content::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  border-radius: inherit;
+  background:
+    linear-gradient(
+      color-mix(in srgb, var(--info-popover-accent) 7%, transparent),
+      color-mix(in srgb, var(--info-popover-accent) 7%, transparent)
+    ),
+    color-mix(in srgb, var(--material-toolbar) 52%, transparent);
+  -webkit-backdrop-filter: blur(32px) saturate(165%);
+  backdrop-filter: blur(32px) saturate(165%);
+  transform: translateZ(0);
+}
+
+.info-popover-content.is-warning {
+  --info-popover-accent: var(--status-warning);
+}
+
+.info-popover-content.is-danger {
+  --info-popover-accent: var(--status-danger);
+}
+
+.info-popover-content.is-open {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+  visibility: visible;
+}
+
 .settings-feature-icon {
   background-color: color-mix(in srgb, var(--accent-primary) 8%, var(--bg-surface));
   border-color: var(--border-subtle);
@@ -413,6 +524,12 @@ html:not(.is-stable-reordering) .connection-priority-card:hover {
   .col-sidebar,
   .col-list,
   .col-preview {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  .info-popover-content::before {
+    background-color: var(--bg-surface);
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }
