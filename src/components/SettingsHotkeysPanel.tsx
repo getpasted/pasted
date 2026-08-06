@@ -267,9 +267,8 @@ export function SettingsHotkeysPanel({
             }} />)}
       </section>}
 
-      {settings.enableTransformations && <section className="theme-divider space-y-2 pt-3 border-t">
-        <h4 className="font-bold theme-text-muted uppercase tracking-wider text-[10px]">Advanced Transform Hotkeys ({pipelines.length})</h4>
-        <p className="text-[11px] theme-text-muted">Assign shortcuts to run reusable transformations instantly.</p>
+      {settings.enableTransformations && pipelines.length > 0 && <section className="space-y-2">
+        <h4 className="font-bold theme-text-muted uppercase tracking-wider text-[10px]">Saved Transform Hotkeys ({pipelines.length})</h4>
         <div className="space-y-2 pt-1 max-h-60 overflow-y-auto pr-1">
           {pipelines.map((pipeline) => <HotkeyRow key={pipeline.id} label={pipeline.name} value={pipeline.shortcut ?? null} onChange={async (shortcut) => {
               try {
@@ -283,7 +282,7 @@ export function SettingsHotkeysPanel({
         </div>
       </section>}
 
-      <section className="theme-divider space-y-2 pt-2 border-t">
+      <section className="space-y-2">
         <h4 className="font-bold theme-text-muted uppercase tracking-wider text-[10px]">Actions</h4>
         {settings.enableHud && <HotkeyRow label="HUD" value={settings.hudHotkey === '' ? null : (settings.hudHotkey || 'Alt+Shift+V')} onChange={async (newKey) => {
           const value = newKey ?? '';
@@ -301,7 +300,7 @@ export function SettingsHotkeysPanel({
         ))}
       </section>
 
-      <section className="space-y-2 pt-2">
+      <section className="space-y-2">
         <h4 className="font-bold theme-text-muted uppercase tracking-wider text-[10px]">Paste Recent Clippings</h4>
         {Array.from({ length: 9 }, (_, index) => index + 1).map((number) => {
           const key = `pasteClip${number}Hotkey` as HotkeySetting;
