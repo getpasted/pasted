@@ -8,6 +8,7 @@ const tauriConfig = readJson('src-tauri/tauri.conf.json');
 const cargoToml = fs.readFileSync('src-tauri/Cargo.toml', 'utf8');
 const cargoVersion = cargoToml.match(/^version\s*=\s*"([^"]+)"/m)?.[1];
 const rootLockPackage = packageLock.packages?.[''];
+const packageScripts = packageJson.scripts ?? {};
 
 assert.equal(packageJson.name, 'pasted', 'Frontend package must use the Pasted product name');
 assert.equal(packageLock.name, packageJson.name, 'Package lock name must match package.json');
@@ -24,5 +25,17 @@ assert.match(
 );
 assert.equal(tauriConfig.bundle?.active, true, 'Release bundling must remain enabled');
 assert.ok(tauriConfig.bundle?.icon?.length > 0, 'Release bundles must include app icons');
+
+for (const scriptName of ['release:macos:local', 'release:macos', 'release:macos:verify']) {
+  assert.equal(typeof packageScripts[scriptName], 'string', `Missing ${scriptName} release script`);
+}
+
+for (const path of [
+  'scripts/release-macos.sh',
+  'scripts/verify-macos-release.sh',
+  'docs/MACOS_RELEASE.md',
+]) {
+  assert.equal(fs.existsSync(path), true, `Missing macOS release asset: ${path}`);
+}
 
 console.log(`Release metadata audit passed for Pasted ${packageJson.version}.`);
