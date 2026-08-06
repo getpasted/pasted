@@ -14,6 +14,7 @@ import {
   Info,
   Command,
   Download,
+  type LucideIcon,
 } from 'lucide-react';
 import { ToolPageHeader } from './ToolPageHeader';
 
@@ -21,6 +22,21 @@ const CLI_SYMLINK_COMMAND = 'sudo ln -s /Applications/Pasted.app/Contents/MacOS/
 const CLI_ALIAS_COMMAND = 'alias pasted-cli="/Applications/Pasted.app/Contents/MacOS/pasted-cli"';
 
 export type HelpTopic = 'cli' | 'hotkeys' | 'autopause' | 'trash' | 'pipelines';
+
+interface HelpTopicDefinition {
+  id: HelpTopic;
+  label: string;
+  icon: LucideIcon;
+  iconClassName: string;
+}
+
+const HELP_TOPICS: HelpTopicDefinition[] = [
+  { id: 'cli', label: 'CLI Commands', icon: Terminal, iconClassName: 'theme-status-info-text' },
+  { id: 'hotkeys', label: 'Hotkeys & Modifiers', icon: Keyboard, iconClassName: 'theme-status-success-text' },
+  { id: 'autopause', label: 'Auto-Pause & Privacy', icon: Shield, iconClassName: 'theme-status-warning-text' },
+  { id: 'trash', label: 'Soft Trash Protection', icon: Trash2, iconClassName: 'theme-status-danger-text' },
+  { id: 'pipelines', label: 'Transformations', icon: Workflow, iconClassName: 'theme-status-info-text' },
+];
 
 interface HelpViewProps {
   requestedTopic?: HelpTopic;
@@ -66,61 +82,26 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
       {/* Subpage Navigation & Content Container */}
       <div className="flex-1 flex overflow-hidden">
         {/* Left Sub-Tab Sidebar Navigation */}
-        <div className="theme-subtle-surface w-56 border-r p-3 space-y-1 shrink-0 overflow-y-auto">
-          <button
-            onClick={() => setActiveSubTab('cli')}
-            className={`help-topic-button w-full flex items-center justify-between px-3 py-2 text-xs font-semibold cursor-pointer border ${activeSubTab === 'cli' ? 'is-selected' : ''}`}
-          >
-            <div className="flex items-center space-x-2.5">
-              <Terminal className="w-4 h-4 theme-status-info-text" />
-              <span>CLI Commands</span>
-            </div>
-            <ChevronRight className="w-3.5 h-3.5 opacity-60" />
-          </button>
+        <div className="help-topic-nav theme-subtle-surface">
+          {HELP_TOPICS.map(({ id, label, icon: Icon, iconClassName }) => {
+            const isSelected = activeSubTab === id;
 
-          <button
-            onClick={() => setActiveSubTab('hotkeys')}
-            className={`help-topic-button w-full flex items-center justify-between px-3 py-2 text-xs font-semibold cursor-pointer border ${activeSubTab === 'hotkeys' ? 'is-selected' : ''}`}
-          >
-            <div className="flex items-center space-x-2.5">
-              <Keyboard className="w-4 h-4 theme-status-success-text" />
-              <span>Hotkeys & Modifiers</span>
-            </div>
-            <ChevronRight className="w-3.5 h-3.5 opacity-60" />
-          </button>
-
-          <button
-            onClick={() => setActiveSubTab('autopause')}
-            className={`help-topic-button w-full flex items-center justify-between px-3 py-2 text-xs font-semibold cursor-pointer border ${activeSubTab === 'autopause' ? 'is-selected' : ''}`}
-          >
-            <div className="flex items-center space-x-2.5">
-              <Shield className="w-4 h-4 theme-status-warning-text" />
-              <span>Auto-Pause & Privacy</span>
-            </div>
-            <ChevronRight className="w-3.5 h-3.5 opacity-60" />
-          </button>
-
-          <button
-            onClick={() => setActiveSubTab('trash')}
-            className={`help-topic-button w-full flex items-center justify-between px-3 py-2 text-xs font-semibold cursor-pointer border ${activeSubTab === 'trash' ? 'is-selected' : ''}`}
-          >
-            <div className="flex items-center space-x-2.5">
-              <Trash2 className="w-4 h-4 theme-status-danger-text" />
-              <span>Soft Trash Protection</span>
-            </div>
-            <ChevronRight className="w-3.5 h-3.5 opacity-60" />
-          </button>
-
-          <button
-            onClick={() => setActiveSubTab('pipelines')}
-            className={`help-topic-button w-full flex items-center justify-between px-3 py-2 text-xs font-semibold cursor-pointer border ${activeSubTab === 'pipelines' ? 'is-selected' : ''}`}
-          >
-            <div className="flex items-center space-x-2.5">
-              <Workflow className="w-4 h-4 theme-status-info-text" />
-              <span>Transformations</span>
-            </div>
-            <ChevronRight className="w-3.5 h-3.5 opacity-60" />
-          </button>
+            return (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setActiveSubTab(id)}
+                className={`help-topic-button ${isSelected ? 'is-selected' : ''}`}
+                aria-current={isSelected ? 'page' : undefined}
+              >
+                <span className="help-topic-button__label">
+                  <Icon className={iconClassName} />
+                  <span>{label}</span>
+                </span>
+                <ChevronRight className="help-topic-button__chevron" aria-hidden="true" />
+              </button>
+            );
+          })}
         </div>
 
         {/* Right Detail Subpage Content */}
@@ -130,7 +111,7 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
               <div>
                 <h3 className="theme-title text-lg font-bold flex items-center space-x-2">
                   <Terminal className="w-5 h-5 theme-status-info-text" />
-                  <span>Pasted Terminal CLI Tool (`pasted-cli`)</span>
+                  <span>Pasted Terminal CLI Tool (<code>pasted-cli</code>)</span>
                 </h3>
                 <p className="theme-text-muted text-xs mt-1">
                   Pasted includes a standalone native command-line tool allowing terminal power users to pipe data into Pasted history, list clips, search from shell, or clear history.
@@ -301,7 +282,7 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
                     <span>Escape Key Dismiss</span>
                   </div>
                   <p className="theme-text-muted text-xs">
-                    Press <kbd className="theme-kbd px-1.5 py-0.5 rounded border font-mono text-[10px]">Esc</kbd> to instantly dismiss the HUD or clear active search queries.
+                    Press <kbd className="theme-kbd px-1.5 py-0.5 rounded border font-mono text-[10px]">Esc</kbd> to instantly dismiss the HUD or close an open menu.
                   </p>
                 </div>
               </div>

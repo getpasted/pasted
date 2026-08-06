@@ -114,11 +114,51 @@
 }
 
 
+.help-topic-nav {
+  width: 14rem;
+  flex: 0 0 14rem;
+  padding: 0.75rem;
+  overflow-y: auto;
+  border-right: 1px solid var(--border-subtle);
+}
+
 .help-topic-button {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-control);
-  border-color: var(--border-subtle);
   color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
   transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+
+.help-topic-button + .help-topic-button {
+  margin-top: 0.25rem;
+}
+
+.help-topic-button__label {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+.help-topic-button__label > svg {
+  width: 1rem;
+  height: 1rem;
+  flex: none;
+}
+
+.help-topic-button__chevron {
+  width: 0.875rem;
+  height: 0.875rem;
+  flex: none;
+  opacity: 0.6;
 }
 
 .help-topic-button:hover {
