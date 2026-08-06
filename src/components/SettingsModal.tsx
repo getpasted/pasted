@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Settings } from 'lucide-react';
 import { AppSettings, BlacklistApp, Pipeline, Bin } from '../types';
 import { SettingsTabs, type SettingsTab } from './SettingsTabs';
@@ -24,6 +24,8 @@ interface SettingsModalProps {
   onRefreshClips?: () => void;
   onClearHistory?: (permanent: boolean) => void;
   onResetColumnWidths?: () => void;
+  requestedTab?: SettingsTab;
+  navigationKey?: number;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -40,8 +42,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onRefreshClips,
   onClearHistory,
   onResetColumnWidths,
+  requestedTab,
+  navigationKey,
 }) => {
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
+
+  useEffect(() => {
+    if (requestedTab) setActiveTab(requestedTab);
+  }, [navigationKey, requestedTab]);
+
   return (
     <div className="tools-page settings-page flex-1 settings-modal-bg h-screen overflow-hidden font-sans select-none flex flex-col">
       <ToolPageHeader

@@ -13,6 +13,12 @@ use crate::db::{
 };
 use crate::sequential_paste::{SequentialQueueState, SequentialStatus};
 
+fn refresh_native_app_menu(app: &AppHandle, db: &Arc<DbState>) {
+    if let Err(error) = crate::app_menu::install(app, db) {
+        eprintln!("Could not refresh the native app menu: {error}");
+    }
+}
+
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FileClipMetadata {
@@ -867,8 +873,16 @@ pub fn export_backup_json(db: State<'_, Arc<DbState>>) -> Result<String, String>
 }
 
 #[tauri::command]
-pub fn import_backup_json(json_str: String, db: State<'_, Arc<DbState>>) -> Result<usize, String> {
-    db.import_backup_json(&json_str).map_err(|e| e.to_string())
+pub fn import_backup_json(
+    json_str: String,
+    app: AppHandle,
+    db: State<'_, Arc<DbState>>,
+) -> Result<usize, String> {
+    let imported = db
+        .import_backup_json(&json_str)
+        .map_err(|e| e.to_string())?;
+    refresh_native_app_menu(&app, &db);
+    Ok(imported)
 }
 
 #[tauri::command]
@@ -1015,10 +1029,14 @@ pub fn create_bin(
     icon: String,
     color: String,
     smart_rule: Option<String>,
+    app: AppHandle,
     db: State<'_, Arc<DbState>>,
 ) -> Result<Bin, String> {
-    db.create_bin(&name, &icon, &color, smart_rule.as_deref())
-        .map_err(|e| e.to_string())
+    let bin = db
+        .create_bin(&name, &icon, &color, smart_rule.as_deref())
+        .map_err(|e| e.to_string())?;
+    refresh_native_app_menu(&app, &db);
+    Ok(bin)
 }
 
 #[tauri::command]
@@ -1026,6 +1044,7 @@ pub fn delete_bin(
     id: i64,
     disposition: Option<String>,
     destination_bin_id: Option<i64>,
+    app: AppHandle,
     db: State<'_, Arc<DbState>>,
 ) -> Result<(), String> {
     db.delete_bin(
@@ -1033,7 +1052,9 @@ pub fn delete_bin(
         disposition.as_deref().unwrap_or("keep"),
         destination_bin_id,
     )
-    .map_err(|e| e.to_string())
+    .map_err(|e| e.to_string())?;
+    refresh_native_app_menu(&app, &db);
+    Ok(())
 }
 
 #[tauri::command]
@@ -1043,10 +1064,13 @@ pub fn update_bin(
     icon: String,
     color: String,
     smart_rule: Option<String>,
+    app: AppHandle,
     db: State<'_, Arc<DbState>>,
 ) -> Result<(), String> {
     db.update_bin(id, &name, &icon, &color, smart_rule.as_deref())
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+    refresh_native_app_menu(&app, &db);
+    Ok(())
 }
 
 #[tauri::command]

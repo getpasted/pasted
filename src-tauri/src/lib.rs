@@ -1,3 +1,4 @@
+mod app_menu;
 mod clipboard_monitor;
 mod commands;
 pub mod db;
@@ -75,6 +76,7 @@ pub fn run() {
 
     tauri::Builder::default()
         .manage(hotkey_manager.clone())
+        .on_menu_event(app_menu::handle_menu_event)
         .plugin(
             tauri_plugin_window_state::Builder::default()
                 .with_filter(|label| label == "main")
@@ -138,6 +140,8 @@ pub fn run() {
 
             app.manage(db_state.clone());
             app.manage(seq_state.clone());
+
+            app_menu::install(app.handle(), &db_state)?;
 
             // Start background clipboard monitor
             let handle = app.handle().clone();

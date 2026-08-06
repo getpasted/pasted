@@ -812,6 +812,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="relative titlebar-no-drag">
           <input
             ref={searchInputRef}
+            data-sidebar-search-input
             type="text"
             disabled={isClipDragging}
             autoComplete="off"

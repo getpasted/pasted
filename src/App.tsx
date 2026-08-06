@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { safeInvoke as invoke } from './utils/tauri';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { listen } from '@tauri-apps/api/event';
 import { ClipItem, Bin, getClipFileSummary } from './types';
 import { Sidebar } from './components/Sidebar';
 import { ClipCard } from './components/ClipCard';
@@ -9,13 +10,15 @@ import { PinnedClipShelf } from './components/PinnedClipShelf';
 import { ClipPreview } from './components/ClipPreview';
 import { SequentialQueueBar } from './components/SequentialQueueBar';
 import { TransformationsView } from './components/TransformationsView';
+import type { TransformWorkspace } from './components/TransformWorkspaceHeader';
 import { SettingsModal } from './components/SettingsModal';
+import type { SettingsTab } from './components/SettingsTabs';
 import { BinModal } from './components/BinModal';
 import { ContextMenu } from './components/ContextMenu';
 import { QuickHudWindow } from './components/QuickHudWindow';
 import { ActivityLogView } from './components/ActivityLogView';
 import { AnalyticsView } from './components/AnalyticsView';
-import { HelpView } from './components/HelpView';
+import { HelpView, type HelpTopic } from './components/HelpView';
 import { BinContextMenu } from './components/BinContextMenu';
 import { DeleteBinDialog } from './components/DeleteBinDialog';
 import { ClipNoteDialog } from './components/ClipNoteDialog';
@@ -143,6 +146,10 @@ export default function App() {
   const [hoveredClipId, setHoveredClipId] = useState<number | null>(null);
   const [, setSelectedIndex] = useState<number>(-1);
   const [currentTab, setCurrentTab] = useState<string>('all');
+  const navigationSerialRef = useRef(0);
+  const [settingsNavigation, setSettingsNavigation] = useState<{ tab: SettingsTab; key: number }>();
+  const [helpNavigation, setHelpNavigation] = useState<{ topic: HelpTopic; key: number }>();
+  const [transformNavigation, setTransformNavigation] = useState<{ workspace: TransformWorkspace; key: number }>();
   const [selectedBinId, setSelectedBinId] = useState<number | null>(null);
   const lastClipViewRef = useRef<{ tab: string; binId: number | null }>({ tab: 'all', binId: null });
   const selectionViewKey = currentTab === 'bin' ? `bin:${selectedBinId ?? 'none'}` : `section:${currentTab}`;
@@ -161,9 +168,47 @@ export default function App() {
     setSelectedIndex(-1);
   }, []);
 
-  const navigateToTab = useCallback((tab: string) => {
+  const navigateToTab = useCallback((route: string) => {
+    if (document.querySelector('[role="dialog"][aria-modal="true"]')) return;
+    const [tab, detail] = route.split(':', 2);
+    const key = ++navigationSerialRef.current;
+    if (tab === 'settings' && ['general', 'hotkeys', 'connections', 'blacklist', 'sync', 'debug'].includes(detail)) {
+      setSettingsNavigation({ tab: detail as SettingsTab, key });
+    } else if (tab === 'help' && ['cli', 'hotkeys', 'autopause', 'trash', 'pipelines'].includes(detail)) {
+      setHelpNavigation({ topic: detail as HelpTopic, key });
+    } else if (tab === 'transformations' && ['transforms', 'advanced', 'playground'].includes(detail)) {
+      setTransformNavigation({ workspace: detail as TransformWorkspace, key });
+    }
     setCurrentTab(tab);
+    if (tab !== 'bin') setSelectedBinId(null);
+    if (tab === 'search') {
+      requestAnimationFrame(() => {
+        document.querySelector<HTMLInputElement>('[data-sidebar-search-input]')?.focus();
+      });
+    }
   }, []);
+
+  useEffect(() => {
+    if (isHudView) return undefined;
+    const unlisteners: Array<() => void> = [];
+    let disposed = false;
+    void listen<string>('navigate-tab', (event) => navigateToTab(event.payload)).then((unlisten) => {
+      if (disposed) unlisten();
+      else unlisteners.push(unlisten);
+    });
+    void listen<number>('navigate-bin', (event) => {
+      if (document.querySelector('[role="dialog"][aria-modal="true"]')) return;
+      setSelectedBinId(event.payload);
+      setCurrentTab('bin');
+    }).then((unlisten) => {
+      if (disposed) unlisten();
+      else unlisteners.push(unlisten);
+    });
+    return () => {
+      disposed = true;
+      unlisteners.forEach((unlisten) => unlisten());
+    };
+  }, [isHudView, navigateToTab]);
 
   const enterSearchView = useCallback(() => {
     if (currentTab !== 'search') setCurrentTab('search');
@@ -638,6 +683,91 @@ export default function App() {
     }
   };
 
+  useEffect(() => {
+    if (isHudView) return undefined;
+    let disposed = false;
+    let unlistenMenuAction: (() => void) | undefined;
+
+    void listen<string>('app-menu-action', (event) => {
+      if (document.querySelector('[role="dialog"][aria-modal="true"]')) return;
+      switch (event.payload) {
+        case 'new-bin':
+          setEditingBin(null);
+          setIsBinModalOpen(true);
+          break;
+        case 'toggle-history':
+          void handleToggleClipboardPause();
+          break;
+        case 'toggle-queue':
+          void handleToggleCopyQueue();
+          break;
+        case 'copy-selected-clip':
+          if (selectedClip) void handleCopyClip(selectedClip);
+          break;
+        case 'add-note':
+          if (selectedClip && selectedClipViewPolicy.canEditNotes) handlePromptAddNote(selectedClip);
+          break;
+        case 'toggle-pin':
+          if (selectedClip && selectedClipViewPolicy.canOrganize) handleTogglePin(selectedClip.id);
+          break;
+        case 'toggle-protection':
+          if (selectedClip && selectedClipViewPolicy.canOrganize) handleToggleProtected(selectedClip.id);
+          break;
+        case 'trash-selected':
+          if (selectedClipIds.size > 1) {
+            void handleBatchTrash();
+          } else if (selectedClip) {
+            if (selectedClipViewPolicy.state === 'trash') void handlePurgeClipPermanently(selectedClip.id);
+            else void handleDeleteClip(selectedClip.id);
+          }
+          break;
+        case 'toggle-sidebar':
+          setIsSidebarCollapsed((collapsed) => !collapsed);
+          break;
+        case 'reset-columns':
+          resetColumnWidths();
+          break;
+        case 'refresh-data':
+          void Promise.all([
+            fetchClips(),
+            fetchTrashedClips(),
+            fetchBins(),
+            fetchPipelines(),
+            fetchSequentialStatus(),
+          ]);
+          break;
+        default:
+          break;
+      }
+    }).then((unlisten) => {
+      if (disposed) unlisten();
+      else unlistenMenuAction = unlisten;
+    });
+
+    return () => {
+      disposed = true;
+      unlistenMenuAction?.();
+    };
+  }, [
+    fetchBins,
+    fetchClips,
+    fetchPipelines,
+    fetchSequentialStatus,
+    fetchTrashedClips,
+    handleBatchTrash,
+    handleCopyClip,
+    handleDeleteClip,
+    handlePurgeClipPermanently,
+    handleToggleClipboardPause,
+    handleTogglePin,
+    handleToggleProtected,
+    isHudView,
+    resetColumnWidths,
+    selectedClip,
+    selectedClipIds,
+    selectedClipViewPolicy,
+  ]);
+
   if (isHudView) {
     return <QuickHudWindow />;
   }
@@ -736,13 +866,21 @@ export default function App() {
 
       {/* Main Content Area */}
       {currentTab === 'transformations' ? (
-        <TransformationsView pipelines={pipelines} onRefreshPipelines={fetchPipelines} />
+        <TransformationsView
+          pipelines={pipelines}
+          onRefreshPipelines={fetchPipelines}
+          requestedWorkspace={transformNavigation?.workspace}
+          navigationKey={transformNavigation?.key}
+        />
       ) : currentTab === 'activity' ? (
         <ActivityLogView />
       ) : currentTab === 'analytics' ? (
         <AnalyticsView />
       ) : currentTab === 'help' ? (
-        <HelpView />
+        <HelpView
+          requestedTopic={helpNavigation?.topic}
+          navigationKey={helpNavigation?.key}
+        />
       ) : currentTab === 'settings' ? (
         <SettingsModal
           settings={appSettings}
@@ -757,6 +895,8 @@ export default function App() {
           onRefreshClips={fetchClips}
           onClearHistory={(permanent) => setClearHistoryMode(permanent ? 'purge' : 'trash')}
           onResetColumnWidths={resetColumnWidths}
+          requestedTab={settingsNavigation?.tab}
+          navigationKey={settingsNavigation?.key}
         />
       ) : (
         <div className="flex-1 h-screen flex overflow-hidden">

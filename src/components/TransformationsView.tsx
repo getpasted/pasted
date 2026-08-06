@@ -19,9 +19,16 @@ import { useIntelligenceRequestStatus } from '../hooks/useIntelligenceRequestSta
 interface TransformationsViewProps {
   pipelines: Pipeline[];
   onRefreshPipelines: () => void;
+  requestedWorkspace?: TransformWorkspace;
+  navigationKey?: number;
 }
 
-export const TransformationsView: React.FC<TransformationsViewProps> = ({ pipelines, onRefreshPipelines }) => {
+export const TransformationsView: React.FC<TransformationsViewProps> = ({
+  pipelines,
+  onRefreshPipelines,
+  requestedWorkspace,
+  navigationKey,
+}) => {
   const [activeSubTab, setActiveSubTab] = useState<TransformWorkspace>('transforms');
   const [activeLibraryFilter, setActiveLibraryFilter] = useState('all');
 
@@ -53,6 +60,10 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({ pipeli
   const playgroundRequestStatus = useIntelligenceRequestStatus(playgroundClientRequestId);
   const [pipelineContextMenu, setPipelineContextMenu] = useState<{ x: number; y: number; pipeline: Pipeline } | null>(null);
   const [transformContextMenu, setTransformContextMenu] = useState<{ x: number; y: number; transform: SavedTransform } | null>(null);
+
+  useEffect(() => {
+    if (requestedWorkspace) setActiveSubTab(requestedWorkspace);
+  }, [navigationKey, requestedWorkspace]);
 
   useEffect(() => {
     const handleClick = () => {

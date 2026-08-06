@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { safeInvoke as invoke } from '../utils/tauri';
 import {
   BookOpen,
@@ -20,10 +20,21 @@ import { ToolPageHeader } from './ToolPageHeader';
 const CLI_SYMLINK_COMMAND = 'sudo ln -s /Applications/Pasted.app/Contents/MacOS/pasted-cli /usr/local/bin/pasted-cli';
 const CLI_ALIAS_COMMAND = 'alias pasted-cli="/Applications/Pasted.app/Contents/MacOS/pasted-cli"';
 
-export const HelpView: React.FC = () => {
-  const [activeSubTab, setActiveSubTab] = useState<'cli' | 'hotkeys' | 'autopause' | 'trash' | 'pipelines'>('cli');
+export type HelpTopic = 'cli' | 'hotkeys' | 'autopause' | 'trash' | 'pipelines';
+
+interface HelpViewProps {
+  requestedTopic?: HelpTopic;
+  navigationKey?: number;
+}
+
+export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKey }) => {
+  const [activeSubTab, setActiveSubTab] = useState<HelpTopic>('cli');
   const [copiedCmd, setCopiedCmd] = useState<string | null>(null);
   const [installStatus, setInstallStatus] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (requestedTopic) setActiveSubTab(requestedTopic);
+  }, [navigationKey, requestedTopic]);
 
   const handleCopyCode = (code: string) => {
     navigator.clipboard.writeText(code);
