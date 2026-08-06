@@ -400,6 +400,32 @@ pub struct DbState {
     pub conn: Mutex<Connection>,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct FactoryResetReport {
+    pub clips_deleted: usize,
+    pub bins_deleted: usize,
+    pub transforms_deleted: usize,
+    pub connections_deleted: usize,
+    pub activity_entries_deleted: usize,
+}
+
+fn insert_default_bins(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "INSERT INTO bins (name, icon, color, smart_rule) VALUES ('Code Snippets', 'Code', '#10b981', '{\"type\":\"content_type\",\"value\":\"code\"}')",
+        [],
+    )?;
+    conn.execute(
+        "INSERT INTO bins (name, icon, color, smart_rule) VALUES ('Links & Web', 'Link', '#3b82f6', '{\"type\":\"content_type\",\"value\":\"link\"}')",
+        [],
+    )?;
+    conn.execute(
+        "INSERT INTO bins (name, icon, color, smart_rule) VALUES ('Colors & Swatches', 'Palette', '#f59e0b', '{\"type\":\"content_type\",\"value\":\"color\"}')",
+        [],
+    )?;
+    Ok(())
+}
+
 fn table_exists(conn: &Connection, name: &str) -> Result<bool> {
     conn.query_row(
         "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?1)",
@@ -719,21 +745,68 @@ impl DbState {
             .query_row("SELECT COUNT(*) FROM bins", [], |r| r.get(0))
             .unwrap_or(0);
         if count == 0 {
-            conn.execute(
-                "INSERT INTO bins (name, icon, color, smart_rule) VALUES ('Code Snippets', 'Code', '#10b981', '{\"type\":\"content_type\",\"value\":\"code\"}')",
-                [],
-            )?;
-            conn.execute(
-                "INSERT INTO bins (name, icon, color, smart_rule) VALUES ('Links & Web', 'Link', '#3b82f6', '{\"type\":\"content_type\",\"value\":\"link\"}')",
-                [],
-            )?;
-            conn.execute(
-                "INSERT INTO bins (name, icon, color, smart_rule) VALUES ('Colors & Swatches', 'Palette', '#f59e0b', '{\"type\":\"content_type\",\"value\":\"color\"}')",
-                [],
-            )?;
+            insert_default_bins(&conn)?;
         }
 
         Ok(())
+    }
+
+    /// Removes all user-owned application state while preserving the initialized schema.
+    /// The transaction recreates the starter Smart Bins so every caller observes a valid,
+    /// first-launch database immediately after it commits.
+    pub fn factory_reset(&self) -> Result<FactoryResetReport> {
+        let mut conn = self.conn.lock();
+        let transaction = conn.transaction()?;
+
+        let report = FactoryResetReport {
+            clips_deleted: transaction.query_row("SELECT COUNT(*) FROM clips", [], |row| row.get(0))?,
+            bins_deleted: transaction.query_row("SELECT COUNT(*) FROM bins", [], |row| row.get(0))?,
+            transforms_deleted: transaction.query_row(
+                "SELECT (SELECT COUNT(*) FROM saved_transforms) + (SELECT COUNT(*) FROM pipelines) + (SELECT COUNT(*) FROM custom_operations)",
+                [],
+                |row| row.get(0),
+            )?,
+            connections_deleted: transaction.query_row(
+                "SELECT COUNT(*) FROM intelligence_connections",
+                [],
+                |row| row.get(0),
+            )?,
+            activity_entries_deleted: transaction.query_row(
+                "SELECT COUNT(*) FROM activity_logs",
+                [],
+                |row| row.get(0),
+            )?,
+        };
+
+        transaction.execute_batch(
+            "DELETE FROM automation_conditions;
+             DELETE FROM automations;
+             DELETE FROM pipeline_steps;
+             DELETE FROM clip_transformations;
+             DELETE FROM transformation_executions;
+             DELETE FROM saved_transforms;
+             DELETE FROM pipelines;
+             DELETE FROM custom_operations;
+             DELETE FROM intelligence_connections;
+             DELETE FROM clip_versions;
+             DELETE FROM clip_bins;
+             DELETE FROM clips;
+             DELETE FROM bins;
+             DELETE FROM activity_logs;
+             DELETE FROM settings;",
+        )?;
+        transaction.execute(
+            "DELETE FROM sqlite_sequence WHERE name IN (
+                'clips', 'bins', 'clip_versions', 'activity_logs', 'custom_operations',
+                'pipelines', 'saved_transforms', 'automations', 'intelligence_connections'
+            )",
+            [],
+        )?;
+        insert_default_bins(&transaction)?;
+        let _ = transaction.execute("INSERT INTO clips_fts(clips_fts) VALUES('rebuild')", []);
+        transaction.commit()?;
+        let _ = conn.pragma_update(None, "optimize", "");
+        Ok(report)
     }
 
     fn init_transformation_tables(&self, conn: &Connection) -> Result<()> {
@@ -4557,6 +4630,103 @@ mod tests {
             std::thread::current().id()
         ));
         DbState::new(db_file).expect("Failed to create test DB")
+    }
+
+    #[test]
+    fn factory_reset_removes_user_state_and_restores_first_launch_defaults() {
+        let db = setup_test_db();
+        let clip = db
+            .save_clip(
+                "text",
+                Some("Reset me completely"),
+                None,
+                None,
+                "factory-reset-clip",
+                "Test",
+            )
+            .unwrap();
+        db.update_clip_note(clip.id, Some("A note to remove"))
+            .unwrap();
+        db.create_bin_with_type("Personal", "Folder", "default", None, "category")
+            .unwrap();
+        db.save_setting("themeMode", "vampire").unwrap();
+        {
+            let conn = db.conn.lock();
+            conn.execute(
+                "INSERT INTO activity_logs (event_type, description) VALUES ('test', 'remove me')",
+                [],
+            )
+            .unwrap();
+            conn.execute(
+                "INSERT INTO intelligence_connections (id, name, provider_kind) VALUES ('reset-connection', 'Reset', 'cli')",
+                [],
+            )
+            .unwrap();
+            conn.execute(
+                "INSERT INTO custom_operations (id, name, executor_kind) VALUES ('reset-operation', 'Reset', 'regex')",
+                [],
+            )
+            .unwrap();
+            conn.execute(
+                "INSERT INTO pipelines (id, name) VALUES ('reset-pipeline', 'Reset')",
+                [],
+            )
+            .unwrap();
+            conn.execute(
+                "INSERT INTO saved_transforms (id, name, plan_json, connection_id) VALUES ('reset-transform', 'Reset', '{\"steps\":[]}', 'reset-connection')",
+                [],
+            )
+            .unwrap();
+        }
+
+        let report = db.factory_reset().unwrap();
+        assert_eq!(report.clips_deleted, 1);
+        assert_eq!(report.bins_deleted, 4);
+        assert_eq!(report.transforms_deleted, 3);
+        assert_eq!(report.connections_deleted, 1);
+        assert_eq!(report.activity_entries_deleted, 2);
+
+        assert!(db.get_clips(None, None, false).unwrap().is_empty());
+        assert!(db
+            .get_clips(Some("Reset me"), None, false)
+            .unwrap()
+            .is_empty());
+        let default_bins = db.get_bins().unwrap();
+        assert_eq!(default_bins.len(), 3);
+        assert_eq!(
+            default_bins.iter().map(|bin| bin.id).collect::<Vec<_>>(),
+            vec![1, 2, 3]
+        );
+        assert_eq!(db.get_setting("themeMode").unwrap(), None);
+        let conn = db.conn.lock();
+        for table in [
+            "clip_versions",
+            "activity_logs",
+            "custom_operations",
+            "pipelines",
+            "saved_transforms",
+            "intelligence_connections",
+        ] {
+            let count: i64 = conn
+                .query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |row| {
+                    row.get(0)
+                })
+                .unwrap();
+            assert_eq!(count, 0, "{table} should be empty after reset");
+        }
+        drop(conn);
+
+        let fresh = db
+            .save_clip(
+                "text",
+                Some("Fresh start"),
+                None,
+                None,
+                "factory-reset-fresh",
+                "Test",
+            )
+            .unwrap();
+        assert!(fresh.id > 0);
     }
 
     #[test]

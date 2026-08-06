@@ -382,6 +382,28 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       return false as unknown as T;
     case 'get_all_app_settings':
       return {} as unknown as T;
+    case 'export_backup_file':
+      return `/mock/Pasted_Backup_${new Date().toISOString().slice(0, 10)}.json` as unknown as T;
+    case 'factory_reset_app': {
+      const report = {
+        clipsDeleted: mockClips.length,
+        binsDeleted: mockBins.length,
+        transformsDeleted: mockSavedTransforms.length,
+        connectionsDeleted: mockIntelligenceConnections.length,
+        activityEntriesDeleted: 0,
+      };
+      mockClips = [];
+      mockBins = [
+        { id: 1, name: 'Code Snippets', icon: 'Code', color: '#10b981', smart_rule: '{"type":"content_type","value":"code"}', bin_type: 'category' },
+        { id: 2, name: 'Links & Web', icon: 'Link', color: '#3b82f6', smart_rule: '{"type":"content_type","value":"link"}', bin_type: 'category' },
+        { id: 3, name: 'Colors & Swatches', icon: 'Palette', color: '#f59e0b', smart_rule: '{"type":"content_type","value":"color"}', bin_type: 'category' },
+      ];
+      mockSavedTransforms = [];
+      mockIntelligenceConnections = [];
+      mockClipTransformations = new Map();
+      mockBinTransforms = new Map();
+      return report as unknown as T;
+    }
     case 'get_operations':
       return [] as unknown as T;
     case 'get_activity_logs':

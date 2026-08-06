@@ -1340,6 +1340,158 @@ select.theme-input {
   border-color: rgba(239, 68, 68, 0.42);
 }
 
+.library-transition-overlay {
+  --library-transition-accent: var(--status-danger);
+}
+
+.library-transition-overlay.is-import {
+  --library-transition-accent: var(--accent-primary);
+}
+
+.library-transition-overlay.is-active {
+  background:
+    radial-gradient(circle at 50% 48%, color-mix(in srgb, var(--library-transition-accent) 15%, transparent), transparent 38%),
+    var(--overlay-scrim);
+  -webkit-backdrop-filter: blur(18px) saturate(0.7);
+  backdrop-filter: blur(18px) saturate(0.7);
+  animation: libraryTransitionBackdrop 650ms ease-out both;
+}
+
+.library-transition-panel {
+  transition: max-width 220ms ease, transform 220ms ease, border-color 220ms ease;
+}
+
+.library-transition-panel.is-active {
+  border-color: color-mix(in srgb, var(--library-transition-accent) 62%, var(--border-subtle));
+  transform-origin: center;
+  animation: libraryTransitionPanel 650ms cubic-bezier(0.2, 0.9, 0.25, 1) both;
+}
+
+.library-transition-stage {
+  display: flex;
+  min-height: 17rem;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  padding: 2.25rem;
+  text-align: center;
+  background:
+    radial-gradient(circle at 50% 30%, color-mix(in srgb, var(--library-transition-accent) 12%, transparent), transparent 46%),
+    var(--bg-primary);
+}
+
+.library-transition-mark {
+  position: relative;
+  display: grid;
+  width: 4.5rem;
+  height: 4.5rem;
+  place-items: center;
+  margin-bottom: 0.35rem;
+  border: 1px solid color-mix(in srgb, var(--library-transition-accent) 48%, var(--border-subtle));
+  border-radius: 1.35rem;
+  background-color: color-mix(in srgb, var(--library-transition-accent) 12%, var(--bg-surface));
+  color: var(--library-transition-accent);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--library-transition-accent) 24%, transparent);
+  animation: libraryTransitionMark 650ms cubic-bezier(0.2, 0.9, 0.25, 1) both;
+}
+
+.library-transition-mark > svg {
+  position: relative;
+  z-index: 1;
+  width: 2rem;
+  height: 2rem;
+}
+
+.library-transition-card {
+  position: absolute;
+  inset: 0.75rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--library-transition-accent) 50%, var(--border-subtle));
+  border-radius: 0.55rem;
+  background-color: color-mix(in srgb, var(--library-transition-accent) 10%, var(--bg-card));
+  opacity: 0;
+}
+
+.library-transition-card.is-left {
+  animation: libraryTransitionCardLeft 650ms ease-in both;
+}
+
+.library-transition-card.is-right {
+  animation: libraryTransitionCardRight 650ms ease-in both;
+}
+
+.library-transition-stage.is-import .library-transition-card.is-left {
+  animation-name: libraryTransitionCardImportLeft;
+  animation-timing-function: ease-out;
+}
+
+.library-transition-stage.is-import .library-transition-card.is-right {
+  animation-name: libraryTransitionCardImportRight;
+  animation-timing-function: ease-out;
+}
+
+.library-transition-progress {
+  width: min(13rem, 80%);
+  height: 3px;
+  margin-top: 0.65rem;
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background-color: color-mix(in srgb, var(--library-transition-accent) 13%, var(--bg-tab-hover));
+}
+
+.library-transition-progress > span {
+  display: block;
+  width: 42%;
+  height: 100%;
+  border-radius: inherit;
+  background-color: var(--library-transition-accent);
+  animation: libraryTransitionProgress 700ms ease-in-out infinite alternate;
+}
+
+@keyframes libraryTransitionBackdrop {
+  from { opacity: 0.75; }
+  to { opacity: 1; }
+}
+
+@keyframes libraryTransitionPanel {
+  0% { transform: scale(1.035); }
+  45% { transform: scale(0.975); }
+  100% { transform: scale(1); }
+}
+
+@keyframes libraryTransitionMark {
+  0% { transform: scale(0.84) rotate(-5deg); box-shadow: 0 0 0 0 color-mix(in srgb, var(--library-transition-accent) 24%, transparent); }
+  55% { transform: scale(1.08) rotate(2deg); box-shadow: 0 0 0 1rem transparent; }
+  100% { transform: scale(1) rotate(0); box-shadow: 0 0 0 0 transparent; }
+}
+
+@keyframes libraryTransitionCardLeft {
+  0% { opacity: 0.85; transform: translate(0, 0) rotate(-5deg) scale(1); }
+  100% { opacity: 0; transform: translate(-3.25rem, -1.5rem) rotate(-22deg) scale(0.72); }
+}
+
+@keyframes libraryTransitionCardRight {
+  0% { opacity: 0.85; transform: translate(0, 0) rotate(5deg) scale(1); }
+  100% { opacity: 0; transform: translate(3.25rem, -1.5rem) rotate(22deg) scale(0.72); }
+}
+
+@keyframes libraryTransitionCardImportLeft {
+  0% { opacity: 0; transform: translate(-3.25rem, -1.5rem) rotate(-22deg) scale(0.72); }
+  68% { opacity: 0.85; transform: translate(0, 0) rotate(-5deg) scale(1); }
+  100% { opacity: 0; transform: translate(0, 0) rotate(0) scale(0.78); }
+}
+
+@keyframes libraryTransitionCardImportRight {
+  0% { opacity: 0; transform: translate(3.25rem, -1.5rem) rotate(22deg) scale(0.72); }
+  68% { opacity: 0.85; transform: translate(0, 0) rotate(5deg) scale(1); }
+  100% { opacity: 0; transform: translate(0, 0) rotate(0) scale(0.78); }
+}
+
+@keyframes libraryTransitionProgress {
+  from { transform: translateX(-15%); }
+  to { transform: translateX(155%); }
+}
+
 .queue-controls-region {
   background-color: var(--bg-list);
   border-color: var(--border-subtle);

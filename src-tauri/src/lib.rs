@@ -124,6 +124,7 @@ pub fn run() {
                 .with_state_flags(main_window_state_flags())
                 .build(),
         )
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             if let Some(w) = app.get_webview_window("main") {
                 let _ = w.show();
@@ -384,8 +385,9 @@ pub fn run() {
             commands::is_clipboard_paused,
             commands::export_clips_json,
             commands::export_clips_csv,
-            commands::export_backup_json,
+            commands::export_backup_file,
             commands::import_backup_json,
+            commands::factory_reset_app,
             commands::get_analytics_summary,
             commands::install_cli_to_path,
             commands::get_hotkey_capability_status,

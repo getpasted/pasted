@@ -7,10 +7,12 @@ use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager, State};
+use tauri_plugin_dialog::DialogExt;
 
 use crate::db::{
-    Bin, ClipItem, DbState, IntelligenceConnection, IntelligenceConnectionUpdate, Pipeline,
-    PipelineStepInput, SavedTransform, TransformClipApplication,
+    Bin, ClipItem, DbState, FactoryResetReport, IntelligenceConnection,
+    IntelligenceConnectionUpdate, Pipeline, PipelineStepInput, SavedTransform,
+    TransformClipApplication,
 };
 use crate::features::{self, Feature};
 use crate::installation_diagnostics::InstallationDiagnostics;
@@ -951,8 +953,32 @@ pub fn batch_assign_bin_clips(
 }
 
 #[tauri::command]
-pub fn export_backup_json(db: State<'_, Arc<DbState>>) -> Result<String, String> {
-    db.export_backup_json().map_err(|e| e.to_string())
+pub async fn export_backup_file(
+    app: AppHandle,
+    db: State<'_, Arc<DbState>>,
+) -> Result<Option<String>, String> {
+    let suggested_name = format!(
+        "Pasted_Backup_{}.json",
+        chrono::Local::now().format("%Y-%m-%d")
+    );
+    let Some(selected_file) = app
+        .dialog()
+        .file()
+        .set_title("Export Pasted Backup")
+        .set_file_name(suggested_name)
+        .add_filter("Pasted Backup", &["json"])
+        .blocking_save_file()
+    else {
+        return Ok(None);
+    };
+
+    let path = selected_file.into_path().map_err(|error| {
+        format!("The selected backup location is not a writable file path: {error}")
+    })?;
+    let json = db.export_backup_json().map_err(|error| error.to_string())?;
+    std::fs::write(&path, json)
+        .map_err(|error| format!("Could not save the Pasted backup: {error}"))?;
+    Ok(Some(path.to_string_lossy().into_owned()))
 }
 
 #[tauri::command]
@@ -966,6 +992,32 @@ pub fn import_backup_json(
         .map_err(|e| e.to_string())?;
     refresh_native_app_menu(&app, &db);
     Ok(imported)
+}
+
+#[tauri::command]
+pub fn factory_reset_app(
+    app: AppHandle,
+    db: State<'_, Arc<DbState>>,
+) -> Result<FactoryResetReport, String> {
+    let report = db.factory_reset().map_err(|error| error.to_string())?;
+
+    // Cached previews are derived from library state and must not survive a reset.
+    if let Ok(cache_directory) = app.path().app_cache_dir() {
+        let _ = std::fs::remove_dir_all(cache_directory);
+    }
+
+    // A packaged app can restart its own executable. During `tauri dev`, that same
+    // exit tears down the supervising CLI and Vite server, so the frontend reloads
+    // its webview in place instead after it has cleared browser-side caches.
+    if !tauri::is_dev() {
+        let restart_handle = app.clone();
+        thread::spawn(move || {
+            thread::sleep(Duration::from_millis(250));
+            restart_handle.restart();
+        });
+    }
+
+    Ok(report)
 }
 
 #[tauri::command]

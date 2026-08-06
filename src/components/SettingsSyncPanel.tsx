@@ -1,7 +1,11 @@
 import { useState } from 'react';
-import { Cloud, Download, ShieldCheck, Upload } from 'lucide-react';
+import { Download, Upload } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { SettingsPanelHeader } from './SettingsPanelHeader';
+import {
+  LibraryTransitionDialog,
+  waitForMinimumLibraryTransition,
+} from './LibraryTransitionDialog';
 
 const MAX_BACKUP_IMPORT_BYTES = 256 * 1024 * 1024;
 
@@ -9,25 +13,22 @@ interface SettingsSyncPanelProps {
   onRefreshBins?: () => void;
   onRefreshPipelines?: () => void;
   onRefreshClips?: () => void;
+  onRefreshTrashedClips?: () => void;
 }
 
 export function SettingsSyncPanel({
   onRefreshBins,
   onRefreshPipelines,
   onRefreshClips,
+  onRefreshTrashedClips,
 }: SettingsSyncPanelProps) {
   const [status, setStatus] = useState<{ kind: 'success' | 'error'; message: string } | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
 
   const handleExport = async () => {
     try {
-      const json = await invoke<string>('export_backup_json');
-      const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `Pasted_Backup_${new Date().toISOString().slice(0, 10)}.json`;
-      link.click();
-      URL.revokeObjectURL(url);
-      setStatus({ kind: 'success', message: 'Backup exported successfully.' });
+      const savedPath = await invoke<string | null>('export_backup_file');
+      if (savedPath) setStatus({ kind: 'success', message: 'Backup saved successfully.' });
     } catch (error) {
       console.error('Backup export failed:', error);
       setStatus({ kind: 'error', message: 'Backup export failed.' });
@@ -39,15 +40,25 @@ export function SettingsSyncPanel({
       setStatus({ kind: 'error', message: 'Backup exceeds Pasted’s 256 MB safety limit.' });
       return;
     }
+    const transitionStartedAt = performance.now();
+    setIsImporting(true);
+    setStatus(null);
     try {
       const importedCount = await invoke<number>('import_backup_json', { jsonStr: await file.text() });
-      onRefreshBins?.();
-      onRefreshPipelines?.();
-      onRefreshClips?.();
-      setStatus({ kind: 'success', message: `Imported ${importedCount} items from backup.` });
+      await Promise.all([
+        Promise.resolve(onRefreshBins?.()),
+        Promise.resolve(onRefreshPipelines?.()),
+        Promise.resolve(onRefreshClips?.()),
+        Promise.resolve(onRefreshTrashedClips?.()),
+      ]);
+      await waitForMinimumLibraryTransition(transitionStartedAt);
+      setStatus({ kind: 'success', message: `Backup imported. Processed ${importedCount} clips.` });
     } catch (error) {
       console.error('Backup import failed:', error);
+      await waitForMinimumLibraryTransition(transitionStartedAt);
       setStatus({ kind: 'error', message: 'Backup import failed. Check that the file is a valid Pasted backup.' });
+    } finally {
+      setIsImporting(false);
     }
   };
 
@@ -55,8 +66,8 @@ export function SettingsSyncPanel({
     <div className="space-y-5 text-xs">
       <SettingsPanelHeader
         icon={Download}
-        title="Backup & Restore"
-        description="Export or restore your Pasted library."
+        title="Backup & Import"
+        description="Export or merge a backup."
         actions={(
           <>
             <button
@@ -96,31 +107,38 @@ export function SettingsSyncPanel({
         </p>
       )}
 
-      <div className="p-5 theme-surface rounded-xl border space-y-4">
-        <div className="flex items-center space-x-3">
-          <div className="settings-accent-tile p-2.5 rounded-xl border">
-            <Cloud className="w-6 h-6" />
+      <div className="grid gap-4 theme-surface rounded-xl border p-4 sm:grid-cols-2">
+        <div className="flex items-start gap-3">
+          <div className="settings-accent-tile shrink-0 rounded-lg border p-2">
+            <Download className="h-4 w-4" />
           </div>
-          <div>
-            <h4 className="text-sm font-bold theme-title">iCloud Sync Coming Soon</h4>
-            <span className="theme-status-success text-[10px] px-2 py-0.5 rounded-full font-mono border">
-              Offline Local Storage Active
-            </span>
-          </div>
-        </div>
+          <div className="min-w-0 pt-0.5">
+            <h4 className="text-sm font-bold theme-title">Export</h4>
+            <p className="mt-1 text-[11px] theme-text-muted leading-relaxed">
+              Creates one portable JSON backup file.
+            </p>
+      </div>
 
-        <p className="text-xs theme-text-muted leading-relaxed">
-          Your clipboard history, notes, Bins, and Transforms are saved <strong>100% locally and securely</strong> on this device inside your private SQLite database.
-        </p>
-
-        <div className="theme-subtle-surface p-3 rounded-lg border space-y-1.5 text-[11px] theme-text-muted">
-          <div className="flex items-center space-x-2 theme-text-main">
-            <ShieldCheck className="w-4 h-4 theme-status-success-text" />
-            <span className="font-semibold theme-title">Local Privacy &amp; Safety First</span>
+      <LibraryTransitionDialog
+        isOpen={isImporting}
+        variant="import"
+        title="Importing Backup"
+        description="Gathering clips, Bins, and Transforms into this library…"
+      />
+    </div>
+        <div className="flex items-start gap-3">
+          <div className="settings-accent-tile shrink-0 rounded-lg border p-2">
+            <Upload className="h-4 w-4" />
           </div>
-          <p className="pl-6">No data ever leaves your computer. CloudKit cross-device synchronization will be enabled in an upcoming release.</p>
+          <div className="min-w-0 pt-0.5">
+            <h4 className="text-sm font-bold theme-title">Import</h4>
+            <p className="mt-1 text-[11px] theme-text-muted leading-relaxed">
+              Merges into this library. Matching items update, new items are added, and unrelated items remain.
+            </p>
+          </div>
         </div>
       </div>
+
     </div>
   );
 }

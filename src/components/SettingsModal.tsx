@@ -11,6 +11,7 @@ import { IntelligenceConnectionsPanel } from './IntelligenceConnectionsPanel';
 import { SettingsDebugPanel } from './SettingsDebugPanel';
 import { SettingsFeaturesPanel } from './SettingsFeaturesPanel';
 import { SettingsAboutPanel } from './SettingsAboutPanel';
+import { SettingsResetPanel } from './SettingsResetPanel';
 
 interface SettingsModalProps {
   settings: AppSettings;
@@ -24,6 +25,7 @@ interface SettingsModalProps {
   bins?: Bin[];
   onRefreshBins?: () => void;
   onRefreshClips?: () => void;
+  onRefreshTrashedClips?: () => void;
   onClearHistory?: (permanent: boolean) => void;
   onResetColumnWidths?: () => void;
   requestedTab?: SettingsTab;
@@ -42,6 +44,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   bins = [],
   onRefreshBins,
   onRefreshClips,
+  onRefreshTrashedClips,
   onClearHistory,
   onResetColumnWidths,
   requestedTab,
@@ -74,7 +77,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       />
 
       <div className="tools-scroll-region flex-1 overflow-y-auto p-6">
-        <div className="settings-primary-well theme-panel w-full max-w-xl mx-auto rounded-2xl border p-6">
+        <div className={`w-full max-w-xl mx-auto ${activeTab === 'backup' ? 'space-y-4' : 'settings-primary-well theme-panel rounded-2xl border p-6'}`}>
 
         {/* TAB 1: GENERAL */}
         {activeTab === 'general' && (
@@ -116,12 +119,23 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         )}
 
         {/* TAB 5: SYNC & BACKUP */}
-        {activeTab === 'sync' && (
-          <SettingsSyncPanel
-            onRefreshBins={onRefreshBins}
-            onRefreshPipelines={onRefreshPipelines}
-            onRefreshClips={onRefreshClips}
-          />
+        {activeTab === 'backup' && (
+          <>
+            <div className="settings-primary-well theme-panel rounded-2xl border p-6">
+              <SettingsSyncPanel
+                onRefreshBins={onRefreshBins}
+                onRefreshPipelines={onRefreshPipelines}
+                onRefreshClips={onRefreshClips}
+                onRefreshTrashedClips={onRefreshTrashedClips}
+              />
+            </div>
+            <SettingsResetPanel
+              onRefreshBins={onRefreshBins}
+              onRefreshPipelines={onRefreshPipelines}
+              onRefreshClips={onRefreshClips}
+              onRefreshTrashedClips={onRefreshTrashedClips}
+            />
+          </>
         )}
 
         {/* TAB 6: DIAGNOSTICS */}
