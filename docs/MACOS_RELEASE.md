@@ -13,11 +13,25 @@ Pasted ships outside the Mac App Store as a signed, notarized, and stapled DMG. 
    security find-identity -v -p codesigning
    ```
 
-5. In App Store Connect **Users and Access > Integrations**, create a Developer API key. Save the downloaded `.p8` file outside this repository; Apple only allows it to be downloaded once.
+5. Store notarization credentials in the login keychain. Apple ID authentication securely prompts for an app-specific password when `--password` is omitted:
 
-## Release environment
+   ```sh
+   xcrun notarytool store-credentials "Pasted" \
+     --apple-id "your-apple-id@example.com" \
+     --team-id "YOURTEAMID"
+   ```
 
-The App Store Connect API-key route is preferred for repeatable local and CI builds:
+   Alternatively, create an App Store Connect API key under **Users and Access > Integrations** and save the downloaded `.p8` file outside this repository. Apple only allows it to be downloaded once.
+
+## Release credentials
+
+The default local workflow uses the `Pasted` Keychain profile created above. Set `APPLE_KEYCHAIN_PROFILE` only when using a different profile name:
+
+```sh
+export APPLE_KEYCHAIN_PROFILE='Pasted'
+```
+
+Environment credentials remain supported for CI. The App Store Connect API-key route is preferred there:
 
 ```sh
 export APPLE_SIGNING_IDENTITY='Developer ID Application: Your Name (TEAMID)'
@@ -26,7 +40,7 @@ export APPLE_API_KEY='KEYID'
 export APPLE_API_KEY_PATH='/absolute/private/path/AuthKey_KEYID.p8'
 ```
 
-Tauri also supports Apple ID notarization with `APPLE_ID`, an app-specific `APPLE_PASSWORD`, and `APPLE_TEAM_ID`. Never put either credential set in files intended for sharing.
+Tauri also supports Apple ID notarization with `APPLE_ID`, an app-specific `APPLE_PASSWORD`, and `APPLE_TEAM_ID`. Never put either credential set in files intended for sharing. Local builds should prefer the Keychain profile so secrets never enter shell history or project files.
 
 ## Build paths
 
@@ -42,7 +56,7 @@ Build the distributable artifact only after the Developer ID certificate and not
 npm run release:macos
 ```
 
-The release command runs the complete test suite, requires a Developer ID Application identity, requires one complete notarization credential set, lets Tauri sign/notarize/staple the bundle, and verifies the resulting DMG. Artifacts are written beneath `src-tauri/target/release/bundle/dmg/`.
+The release command runs the complete test suite, requires a Developer ID Application identity, and requires either the local Keychain profile or one complete environment credential set. With the Keychain profile, it signs the bundle, submits the DMG with `notarytool`, waits for Apple, staples the ticket, and verifies the result. Artifacts are written beneath `src-tauri/target/release/bundle/dmg/`.
 
 Re-run verification independently with:
 

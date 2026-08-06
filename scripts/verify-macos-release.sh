@@ -46,9 +46,8 @@ else
     exit 1
   fi
   spctl --assess --type execute --verbose=2 "$app_path"
-  xcrun stapler validate "$app_path"
   xcrun stapler validate "$dmg_path"
-  echo "Developer ID signature, Gatekeeper assessment, and notarization tickets verified."
+  echo "Developer ID signature, Gatekeeper assessment, and the distributable DMG ticket verified."
 fi
 
 shasum -a 256 "$dmg_path"
