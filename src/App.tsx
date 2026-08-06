@@ -33,6 +33,9 @@ import { sortClipsForTimeline } from './utils/clipOrder';
 import { useAppData } from './hooks/useAppData';
 import { useClipActions } from './hooks/useClipActions';
 import { Clipboard, Trash2, Pause, Disc, Square, Pin, Search, X } from 'lucide-react';
+import { enabledFeatureRecord, featureForRoute } from './utils/features';
+import { FeatureProvider } from './hooks/useFeatures';
+import { ACTUAL_SIZE, stepAppZoom } from './utils/appZoom';
 import './App.css';
 
 export default function App() {
@@ -91,6 +94,7 @@ export default function App() {
     removeBlacklistApp: handleRemoveBlacklistApp,
     toggleBlacklistRule: handleToggleBlacklistRule,
   } = useAppSettings();
+  const enabledFeatures = useMemo(() => enabledFeatureRecord(appSettings), [appSettings]);
 
   const {
     allClips,
@@ -170,9 +174,11 @@ export default function App() {
 
   const navigateToTab = useCallback((route: string) => {
     if (document.querySelector('[role="dialog"][aria-modal="true"]')) return;
+    const requiredFeature = featureForRoute(route);
+    if (requiredFeature && !enabledFeatures[requiredFeature]) route = 'all';
     const [tab, detail] = route.split(':', 2);
     const key = ++navigationSerialRef.current;
-    if (tab === 'settings' && ['general', 'hotkeys', 'connections', 'blacklist', 'sync', 'debug'].includes(detail)) {
+    if (tab === 'settings' && ['general', 'features', 'hotkeys', 'connections', 'blacklist', 'sync', 'diagnostics'].includes(detail)) {
       setSettingsNavigation({ tab: detail as SettingsTab, key });
     } else if (tab === 'help' && ['cli', 'hotkeys', 'autopause', 'trash', 'pipelines'].includes(detail)) {
       setHelpNavigation({ topic: detail as HelpTopic, key });
@@ -186,7 +192,15 @@ export default function App() {
         document.querySelector<HTMLInputElement>('[data-sidebar-search-input]')?.focus();
       });
     }
-  }, []);
+  }, [enabledFeatures]);
+
+  useEffect(() => {
+    const requiredFeature = featureForRoute(currentTab);
+    if (requiredFeature && !enabledFeatures[requiredFeature]) {
+      setCurrentTab('all');
+      setSelectedBinId(null);
+    }
+  }, [currentTab, enabledFeatures]);
 
   useEffect(() => {
     if (isHudView) return undefined;
@@ -232,6 +246,7 @@ export default function App() {
   }, [bins]);
 
   const handleToggleCopyQueue = async () => {
+    if (!enabledFeatures.queue) return;
     try {
       if (seqStatus?.is_active) {
         await invoke('stop_sequential_paste');
@@ -245,6 +260,19 @@ export default function App() {
       console.error('Failed to toggle copy queue:', e);
     }
   };
+
+  useEffect(() => {
+    if (!enabledFeatures.bins) {
+      setIsBinModalOpen(false);
+      setEditingBin(null);
+      setBinToDelete(null);
+      setBinContextMenu(null);
+    }
+    if (!enabledFeatures.notes) setNotePromptClip(null);
+    if (!enabledFeatures.queue && seqStatus?.is_active) {
+      void invoke('stop_sequential_paste').then(fetchSequentialStatus).catch(console.error);
+    }
+  }, [enabledFeatures.bins, enabledFeatures.notes, enabledFeatures.queue, fetchSequentialStatus, seqStatus?.is_active]);
 
   // Context Menu State
   const [contextMenu, setContextMenu] = useState<{
@@ -347,14 +375,15 @@ export default function App() {
     selectedBinId,
     searchQuery,
     sequentialStatus: seqStatus,
+    features: enabledFeatures,
   });
   const clipListRef = useRef<HTMLDivElement | null>(null);
   const [stackedPinnedClipIds, setStackedPinnedClipIds] = useState<number[]>([]);
   const pinnedShelfClips = useMemo(
-    () => (currentTab === 'all' || currentTab === 'pinned')
+    () => enabledFeatures.pinning && (currentTab === 'all' || currentTab === 'pinned')
       ? displayedClips.filter((clip) => clip.is_pinned)
       : [],
-    [currentTab, displayedClips],
+    [currentTab, displayedClips, enabledFeatures.pinning],
   );
   const pinnedShelfSignature = pinnedShelfClips
     .map((clip) => `${clip.id}:${clip.pin_order ?? 0}`)
@@ -577,23 +606,24 @@ export default function App() {
   });
 
   const handleAssignClipToBin = useCallback(
-    (clipId: number, binId: number) => assignClipToBin(
-      clipId,
-      binId,
-      { includeSelection: true, playSound: true },
-    ),
-    [assignClipToBin],
+    async (clipId: number, binId: number) => {
+      if (!enabledFeatures.bins) return;
+      await assignClipToBin(clipId, binId, { includeSelection: true, playSound: true });
+    },
+    [assignClipToBin, enabledFeatures.bins],
   );
 
   const handleClipDropAction = useCallback((clipId: number, action: ClipDropAction) => {
     if (action === 'pin') {
+      if (!enabledFeatures.pinning) return;
       handleSetPinned(clipId, true);
     } else if (action === 'protect') {
+      if (!enabledFeatures.protection) return;
       handleSetProtected(clipId, true);
     } else {
       handleDeleteClip(clipId);
     }
-  }, [handleDeleteClip, handleSetPinned, handleSetProtected]);
+  }, [enabledFeatures.pinning, enabledFeatures.protection, handleDeleteClip, handleSetPinned, handleSetProtected]);
 
   const {
     draggedClipId,
@@ -652,8 +682,11 @@ export default function App() {
   }, [draggedClipId]);
 
   const handleAssignBin = useCallback(
-    (clipId: number, binId: number | null) => assignClipToBin(clipId, binId),
-    [assignClipToBin],
+    (clipId: number, binId: number | null) => {
+      if (!enabledFeatures.bins) return;
+      assignClipToBin(clipId, binId);
+    },
+    [assignClipToBin, enabledFeatures.bins],
   );
 
   const handlePreviewClipUpdate = useCallback((updatedClip?: ClipItem) => {
@@ -667,6 +700,7 @@ export default function App() {
   }, [fetchBins, fetchClips]);
 
   const handlePromptAddNote = (clip: ClipItem) => {
+    if (!enabledFeatures.notes) return;
     setNotePromptClip(clip);
     setNotePromptText(clip.note || '');
   };
@@ -692,6 +726,7 @@ export default function App() {
       if (document.querySelector('[role="dialog"][aria-modal="true"]')) return;
       switch (event.payload) {
         case 'new-bin':
+          if (!enabledFeatures.bins) break;
           setEditingBin(null);
           setIsBinModalOpen(true);
           break;
@@ -699,19 +734,20 @@ export default function App() {
           void handleToggleClipboardPause();
           break;
         case 'toggle-queue':
+          if (!enabledFeatures.queue) break;
           void handleToggleCopyQueue();
           break;
         case 'copy-selected-clip':
           if (selectedClip) void handleCopyClip(selectedClip);
           break;
         case 'add-note':
-          if (selectedClip && selectedClipViewPolicy.canEditNotes) handlePromptAddNote(selectedClip);
+          if (enabledFeatures.notes && selectedClip && selectedClipViewPolicy.canEditNotes) handlePromptAddNote(selectedClip);
           break;
         case 'toggle-pin':
-          if (selectedClip && selectedClipViewPolicy.canOrganize) handleTogglePin(selectedClip.id);
+          if (enabledFeatures.pinning && selectedClip && selectedClipViewPolicy.canOrganize) handleTogglePin(selectedClip.id);
           break;
         case 'toggle-protection':
-          if (selectedClip && selectedClipViewPolicy.canOrganize) handleToggleProtected(selectedClip.id);
+          if (enabledFeatures.protection && selectedClip && selectedClipViewPolicy.canOrganize) handleToggleProtected(selectedClip.id);
           break;
         case 'trash-selected':
           if (selectedClipIds.size > 1) {
@@ -723,6 +759,15 @@ export default function App() {
           break;
         case 'toggle-sidebar':
           setIsSidebarCollapsed((collapsed) => !collapsed);
+          break;
+        case 'zoom-out':
+          handleUpdateSettings({ textSize: stepAppZoom(appSettings.textSize, -1) });
+          break;
+        case 'actual-size':
+          handleUpdateSettings({ textSize: ACTUAL_SIZE });
+          break;
+        case 'zoom-in':
+          handleUpdateSettings({ textSize: stepAppZoom(appSettings.textSize, 1) });
           break;
         case 'reset-columns':
           resetColumnWidths();
@@ -754,6 +799,8 @@ export default function App() {
     fetchPipelines,
     fetchSequentialStatus,
     fetchTrashedClips,
+    appSettings.textSize,
+    enabledFeatures,
     handleBatchTrash,
     handleCopyClip,
     handleDeleteClip,
@@ -761,6 +808,7 @@ export default function App() {
     handleToggleClipboardPause,
     handleTogglePin,
     handleToggleProtected,
+    handleUpdateSettings,
     isHudView,
     resetColumnWidths,
     selectedClip,
@@ -769,10 +817,11 @@ export default function App() {
   ]);
 
   if (isHudView) {
-    return <QuickHudWindow />;
+    return <FeatureProvider features={enabledFeatures}><QuickHudWindow /></FeatureProvider>;
   }
 
   return (
+    <FeatureProvider features={enabledFeatures}>
     <div className={`app-shell flex h-screen w-screen overflow-hidden font-sans ${clipDragPreview ? 'cursor-grabbing' : ''} ${
       draggedClipId !== null ? 'is-dragging-clip' : ''
     } ${
@@ -819,6 +868,7 @@ export default function App() {
         selectedBinId={selectedBinId}
         setSelectedBinId={setSelectedBinId}
         bins={bins}
+        features={enabledFeatures}
         onRefreshBins={fetchBins}
         onOpenNewBinModal={() => {
           setEditingBin(null);
@@ -980,7 +1030,7 @@ export default function App() {
                 </button>
 
                 {/* Copy Queue Record/Stop Toggle Button */}
-                <button
+                {enabledFeatures.queue && <button
                   onClick={handleToggleCopyQueue}
                   className={`list-toolbar-button w-7 h-7 flex items-center justify-center rounded-lg border transition-[background-color,border-color,color] cursor-pointer ${
                     seqStatus?.is_active
@@ -994,7 +1044,7 @@ export default function App() {
                   ) : (
                     <Disc className="w-4 h-4 transition-colors" strokeWidth={2.5} />
                   )}
-                </button>
+                </button>}
               </div>
             </div>
 
@@ -1010,7 +1060,7 @@ export default function App() {
 
             {/* Clips List Content */}
             <div className="relative flex-1 min-h-0">
-              <PinnedClipShelf
+              {enabledFeatures.pinning && <PinnedClipShelf
                 clips={pinnedShelfClips}
                 stackedClipIds={stackedPinnedClipIds}
                 selectedClipId={selectedClip?.id}
@@ -1019,7 +1069,7 @@ export default function App() {
                 onWheel={(event) => {
                   if (clipListRef.current) clipListRef.current.scrollTop += event.deltaY;
                 }}
-              />
+              />}
               <div
                 ref={clipListRef}
                 data-clip-list
@@ -1169,6 +1219,7 @@ export default function App() {
                   {selectedClipIds.size}
                 </span>
                 <div className="batch-action-divider h-3.5 w-px shrink-0" />
+                {enabledFeatures.pinning && <>
                 <button
                   onClick={() => {
                     const ids = Array.from(selectedClipIds);
@@ -1219,6 +1270,7 @@ export default function App() {
                   <span>Unpin</span>
                 </button>
                 <div className="batch-action-divider h-3.5 w-px shrink-0" />
+                </>}
                 <button
                   onClick={() => handleBatchTrash()}
                   className="batch-action-button is-danger flex items-center space-x-1 transition-colors font-medium cursor-pointer whitespace-nowrap shrink-0"
@@ -1301,7 +1353,7 @@ export default function App() {
       )}
 
       {/* Root-Level macOS Right-Click Context Menu for Custom Bins */}
-      {binContextMenu && (
+      {enabledFeatures.bins && binContextMenu && (
         <BinContextMenu
           menu={binContextMenu}
           onEdit={(bin) => {
@@ -1317,7 +1369,7 @@ export default function App() {
       )}
 
       {/* Custom Bin Creator / Editor Modal */}
-      <BinModal
+      {enabledFeatures.bins && <BinModal
         key={editingBin ? `edit-${editingBin.id}` : 'new-bin'}
         isOpen={isBinModalOpen}
         editingBin={editingBin}
@@ -1326,10 +1378,10 @@ export default function App() {
           setEditingBin(null);
         }}
         onRefreshBins={fetchBins}
-      />
+      />}
 
       {/* Delete Bin Confirmation Modal */}
-      {binToDelete && (
+      {enabledFeatures.bins && binToDelete && (
         <DeleteBinDialog
           bin={binToDelete}
           bins={bins}
@@ -1355,7 +1407,7 @@ export default function App() {
       )}
 
       {/* Add / Edit Note Modal */}
-      {notePromptClip && (
+      {enabledFeatures.notes && notePromptClip && (
         <ClipNoteDialog
           clip={notePromptClip}
           text={notePromptText}
@@ -1383,5 +1435,6 @@ export default function App() {
         />
       )}
     </div>
+    </FeatureProvider>
   );
 }

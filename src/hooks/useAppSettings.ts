@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { disable, enable } from '@tauri-apps/plugin-autostart';
 import type { AppSettings, BlacklistApp } from '../types';
 import { safeInvoke as invoke } from '../utils/tauri';
+import { FEATURE_SETTING_KEYS } from '../utils/features';
+import { clampAppZoom } from '../utils/appZoom';
 
 const DEFAULT_SETTINGS: AppSettings = {
   textSize: 16,
@@ -25,6 +27,20 @@ const DEFAULT_SETTINGS: AppSettings = {
   activityLogCapacity: 1000,
   enableTrash: true,
   trashCapacityCount: 500,
+  enableAnalytics: true,
+  enableBins: true,
+  enableContentDetection: true,
+  enableDiagnostics: true,
+  enableNotes: true,
+  enableOcr: true,
+  enablePinning: true,
+  enableProtection: true,
+  enableQueue: true,
+  enableRevisions: true,
+  enableHud: true,
+  enableTransformations: true,
+  enableCli: true,
+  enableHelp: true,
   hudHotkey: 'Alt+Shift+V',
   seqToggleHotkey: 'Alt+Shift+C',
   seqPopHotkey: 'Alt+Shift+X',
@@ -44,7 +60,7 @@ function parseSavedSettings(saved: Record<string, string>) {
     return Number.isFinite(value) ? value : fallback;
   };
 
-  if (saved.textSize) next.textSize = numberValue('textSize', next.textSize);
+  if (saved.textSize) next.textSize = clampAppZoom(numberValue('textSize', next.textSize));
   if (saved.enableSounds !== undefined) next.enableSounds = saved.enableSounds === 'true';
   if (saved.openAtLogin !== undefined) next.openAtLogin = saved.openAtLogin === 'true';
   if (['auto_hide', 'both', 'menubar_only'].includes(saved.dockMenubarIcon)) next.dockMenubarIcon = saved.dockMenubarIcon as AppSettings['dockMenubarIcon'];
@@ -65,6 +81,24 @@ function parseSavedSettings(saved: Record<string, string>) {
   if (saved.activityLogCapacity) next.activityLogCapacity = numberValue('activityLogCapacity', next.activityLogCapacity ?? 1000);
   if (saved.enableTrash !== undefined) next.enableTrash = saved.enableTrash === 'true';
   if (saved.trashCapacityCount) next.trashCapacityCount = numberValue('trashCapacityCount', next.trashCapacityCount ?? 500);
+  for (const key of [
+    'enableAnalytics',
+    'enableBins',
+    'enableContentDetection',
+    'enableDiagnostics',
+    'enableNotes',
+    'enableOcr',
+    'enablePinning',
+    'enableProtection',
+    'enableQueue',
+    'enableRevisions',
+    'enableHud',
+    'enableTransformations',
+    'enableCli',
+    'enableHelp',
+  ] as const) {
+    if (saved[key] !== undefined) next[key] = saved[key] === 'true';
+  }
 
   const hotkeyKeys = [
     'hudHotkey', 'seqToggleHotkey', 'seqPopHotkey', 'copyLastPipelineHotkey',
@@ -182,8 +216,8 @@ export function useAppSettings() {
   }, [appSettings.keepClipCount, settingsHydrated]);
 
   useEffect(() => {
-    if (settingsHydrated) invoke('enforce_revision_retention', { keepCount: appSettings.revisionHistoryLimit }).catch(console.error);
-  }, [appSettings.revisionHistoryLimit, settingsHydrated]);
+    if (settingsHydrated && appSettings.enableRevisions) invoke('enforce_revision_retention', { keepCount: appSettings.revisionHistoryLimit }).catch(console.error);
+  }, [appSettings.enableRevisions, appSettings.revisionHistoryLimit, settingsHydrated]);
 
   useEffect(() => {
     if (settingsHydrated) invoke('set_dock_visibility', { showDock: appSettings.dockMenubarIcon === 'both' }).catch(console.error);
@@ -215,7 +249,19 @@ export function useAppSettings() {
         // SQLite remains authoritative when browser storage is unavailable.
       }
     }
-    for (const [key, value] of Object.entries(updates)) {
+    const entries = Object.entries(updates);
+    if (entries.length > 1 && entries.every(([key]) => FEATURE_SETTING_KEYS.includes(key as typeof FEATURE_SETTING_KEYS[number]))) {
+      const values = Object.fromEntries(entries.map(([key, value]) => [key, String(value)]));
+      for (const [key] of entries) {
+        locallyChangedKeysRef.current.add(key);
+        if (saveTimersRef.current[key]) clearTimeout(saveTimersRef.current[key]);
+        delete saveTimersRef.current[key];
+        delete pendingSettingsRef.current[key];
+      }
+      invoke('save_app_settings', { values }).catch(console.error);
+      return;
+    }
+    for (const [key, value] of entries) {
       locallyChangedKeysRef.current.add(key);
       pendingSettingsRef.current[key] = String(value);
       if (saveTimersRef.current[key]) clearTimeout(saveTimersRef.current[key]);

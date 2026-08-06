@@ -236,6 +236,21 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       } as unknown as T;
     case 'run_intelligence_scheduler_demo':
       return undefined as T;
+    case 'get_ocr_backfill_status':
+      return {
+        totalImages: 0,
+        eligibleCount: 0,
+        queuedCount: 0,
+        runningCount: 0,
+        completedCount: 0,
+        noTextCount: 0,
+        failedCount: 0,
+      } as unknown as T;
+    case 'start_ocr_backfill':
+    case 'cancel_ocr_backfill':
+      return undefined as T;
+    case 'retry_failed_ocr':
+      return 0 as unknown as T;
     case 'plan_transformation_intent': {
       const request = args?.request as { intent?: string; sampleInput?: string; planningMode?: string } | undefined;
       await new Promise((resolve) => window.setTimeout(resolve, 220));

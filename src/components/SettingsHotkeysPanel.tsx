@@ -54,12 +54,12 @@ const defaultHotkeys: Partial<AppSettings> = {
   pasteClip9Hotkey: '',
 };
 
-const actionHotkeys: Array<{ label: string; key: HotkeySetting; fallback?: string }> = [
-  { label: 'Enable/Disable Queue', key: 'seqToggleHotkey', fallback: 'Alt+Shift+C' },
-  { label: 'Paste Next Item from Queue', key: 'seqPopHotkey', fallback: 'Alt+Shift+X' },
-  { label: 'Copy with Last Advanced Transform', key: 'copyLastPipelineHotkey' },
-  { label: 'Paste with Last Advanced Transform', key: 'pasteLastPipelineHotkey' },
-  { label: 'Open Transformations', key: 'openTransformationsHotkey' },
+const actionHotkeys: Array<{ label: string; key: HotkeySetting; fallback?: string; feature?: 'queue' | 'transformations' }> = [
+  { label: 'Enable/Disable Queue', key: 'seqToggleHotkey', fallback: 'Alt+Shift+C', feature: 'queue' },
+  { label: 'Paste Next Item from Queue', key: 'seqPopHotkey', fallback: 'Alt+Shift+X', feature: 'queue' },
+  { label: 'Copy with Last Advanced Transform', key: 'copyLastPipelineHotkey', feature: 'transformations' },
+  { label: 'Paste with Last Advanced Transform', key: 'pasteLastPipelineHotkey', feature: 'transformations' },
+  { label: 'Open Transformations', key: 'openTransformationsHotkey', feature: 'transformations' },
   { label: 'Toggle Main Window', key: 'openMainWindowHotkey' },
 ];
 
@@ -186,7 +186,7 @@ export function SettingsHotkeysPanel({
         </p>
       </div>
 
-      <section className="space-y-2">
+      {settings.enableBins && <section className="space-y-2">
         <h4 className="font-bold theme-text-muted uppercase tracking-wider text-[10px]">Custom Bin Hotkeys ({bins.length})</h4>
         {bins.length === 0
           ? <p className="theme-subtle-surface text-[11px] theme-text-subtle italic p-2.5 rounded-xl border">No custom bins created yet. Create bins in the sidebar to assign global shortcuts.</p>
@@ -199,9 +199,9 @@ export function SettingsHotkeysPanel({
                 setStatusMessage('That bin shortcut could not be registered.');
               }
             }} />)}
-      </section>
+      </section>}
 
-      <section className="theme-divider space-y-2 pt-3 border-t">
+      {settings.enableTransformations && <section className="theme-divider space-y-2 pt-3 border-t">
         <h4 className="font-bold theme-text-muted uppercase tracking-wider text-[10px]">Advanced Transform Hotkeys ({pipelines.length})</h4>
         <p className="text-[11px] theme-text-muted">Assign shortcuts to run reusable transformations instantly.</p>
         <div className="space-y-2 pt-1 max-h-60 overflow-y-auto pr-1">
@@ -215,11 +215,11 @@ export function SettingsHotkeysPanel({
               }
             }} />)}
         </div>
-      </section>
+      </section>}
 
       <section className="theme-divider space-y-2 pt-2 border-t">
         <h4 className="font-bold theme-text-muted uppercase tracking-wider text-[10px]">Actions</h4>
-        <HotkeyRow label="HUD" value={settings.hudHotkey === '' ? null : (settings.hudHotkey || 'Alt+Shift+V')} onChange={async (newKey) => {
+        {settings.enableHud && <HotkeyRow label="HUD" value={settings.hudHotkey === '' ? null : (settings.hudHotkey || 'Alt+Shift+V')} onChange={async (newKey) => {
           const value = newKey ?? '';
           onUpdateSettings({ hudHotkey: value });
           try {
@@ -229,8 +229,8 @@ export function SettingsHotkeysPanel({
             console.error('Failed to register HUD shortcut:', error);
             setStatusMessage('That shortcut could not be registered. Try a different key combination.');
           }
-        }} />
-        {actionHotkeys.map(({ label, key, fallback }) => (
+        }} />}
+        {actionHotkeys.filter(({ feature }) => !feature || settings[feature === 'queue' ? 'enableQueue' : 'enableTransformations']).map(({ label, key, fallback }) => (
           <HotkeyRow key={key} label={label} value={(settings[key] as string) === '' ? null : ((settings[key] as string) || fallback || null)} onChange={(value) => void updateSettingHotkey(key, value)} />
         ))}
       </section>

@@ -42,6 +42,13 @@ impl Default for ContentDetectionSettings {
 
 impl ContentDetectionSettings {
     fn from_db(db: &DbState) -> Self {
+        if !crate::features::is_enabled(db, crate::features::Feature::ContentDetection) {
+            return Self {
+                colors: false,
+                links: false,
+                code: false,
+            };
+        }
         let enabled = |key: &str| {
             db.get_setting(key)
                 .ok()
@@ -113,6 +120,7 @@ pub fn start_clipboard_monitor(
     app: AppHandle,
     db_state: Arc<DbState>,
     seq_state: Arc<SequentialQueueState>,
+    ocr_service: Arc<crate::ocr::OcrService>,
 ) -> MonitorHandle {
     let running = Arc::new(AtomicBool::new(true));
     let running_clone = running.clone();
@@ -122,8 +130,6 @@ pub fn start_clipboard_monitor(
 
     let is_manually_paused_clone = is_manually_paused.clone();
     let is_auto_paused_clone = is_auto_paused.clone();
-
-    let ocr_tx = crate::ocr::spawn_ocr_worker(app.clone(), db_state.clone());
 
     thread::spawn(move || {
         let mut clipboard = match Clipboard::new() {
@@ -384,7 +390,9 @@ pub fn start_clipboard_monitor(
                         let content_type = detect_content_type(&text, detection_settings);
 
                         // If sequential mode active, push to queue as well
-                        if *seq_state.is_active.lock() {
+                        if crate::features::is_enabled(&db_state, crate::features::Feature::Queue)
+                            && *seq_state.is_active.lock()
+                        {
                             seq_state.push_item(text.clone());
                             let _ = app.emit("sequential-updated", seq_state.get_status());
                         }
@@ -407,13 +415,21 @@ pub fn start_clipboard_monitor(
                                 let automation_text = text.clone();
                                 let automation_source = source_app.to_string();
                                 thread::spawn(move || {
-                                    crate::intelligence_executor::apply_smart_bin_transforms_for_clip(
+                                    if crate::features::is_enabled(
                                         &automation_db,
-                                        clip.id,
-                                        &automation_type,
-                                        &automation_text,
-                                        &automation_source,
-                                    );
+                                        crate::features::Feature::Bins,
+                                    ) && crate::features::is_enabled(
+                                        &automation_db,
+                                        crate::features::Feature::Transformations,
+                                    ) {
+                                        crate::intelligence_executor::apply_smart_bin_transforms_for_clip(
+                                            &automation_db,
+                                            clip.id,
+                                            &automation_type,
+                                            &automation_text,
+                                            &automation_source,
+                                        );
+                                    }
                                     if let Ok(Some(updated)) =
                                         automation_db.get_clips(None, None, false).map(|clips| {
                                             clips.into_iter().find(|item| item.id == clip.id)
@@ -513,10 +529,16 @@ pub fn start_clipboard_monitor(
                         {
                             Ok(clip) => {
                                 let _ = app.emit("clip-added", clip.clone());
-                                let _ = ocr_tx.send(crate::ocr::OcrTask {
-                                    clip_id: clip.id,
-                                    image_bytes: img_bytes,
-                                });
+                                if crate::features::is_enabled(
+                                    &db_state,
+                                    crate::features::Feature::Ocr,
+                                ) {
+                                    let _ = ocr_service.enqueue(crate::ocr::OcrTask {
+                                        clip_id: clip.id,
+                                        content_hash: clip.content_hash,
+                                        image_bytes: img_bytes,
+                                    });
+                                }
                             }
                             Err(e) => {
                                 eprintln!("[Pasted Monitor] Failed to save image clip: {}", e);

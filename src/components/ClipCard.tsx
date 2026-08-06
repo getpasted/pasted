@@ -7,6 +7,7 @@ import { clipDeleteLabel, UI_COPY } from '../utils/uiCopy';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { getClipSearchHighlightTerms, type ClipSearchHighlightField } from '../utils/clipSearch';
 import { FloatingActionStrip } from './FloatingActionStrip';
+import { useFeatures } from '../hooks/useFeatures';
 import {
   Code,
   FileText,
@@ -317,6 +318,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
   onPointerDragEnd,
   onPointerDragCancel,
 }) => {
+  const features = useFeatures();
   const [copied, setCopied] = React.useState(false);
   const [showRevealed, setShowRevealed] = useState(false);
   const pointerDragRef = React.useRef<{
@@ -363,13 +365,13 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
   const imgMaxHeightClass = isSmall ? 'max-h-16' : isLarge ? 'max-h-44' : 'max-h-24';
   const imgPlaceholderHeightClass = isSmall ? 'min-h-16' : isLarge ? 'min-h-44' : 'min-h-24';
   const headerTextClass = isSmall ? 'text-[11px]' : 'text-xs';
-  const noteSummary = getClipNoteSummary(clip.note);
+  const noteSummary = features.notes ? getClipNoteSummary(clip.note) : '';
   const isTrashMode = viewPolicy.state === 'trash';
   const attributeTintClass = isTrashMode
     ? 'clip-card-trashed'
-    : clip.is_protected
+    : features.protection && clip.is_protected
       ? 'clip-card-attribute clip-card-protected'
-      : clip.is_pinned
+      : features.pinning && clip.is_pinned
         ? 'clip-card-attribute clip-card-pinned'
         : noteSummary
           ? 'clip-card-attribute clip-card-noted'
@@ -378,7 +380,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
   return (
     <div
       data-clip-id={clip.id}
-      data-pinned-clip={clip.is_pinned ? 'true' : undefined}
+      data-pinned-clip={features.pinning && clip.is_pinned ? 'true' : undefined}
       onClick={(e) => {
         if (suppressClickRef.current) {
           e.preventDefault();
@@ -500,7 +502,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
           </span>
         </div>
         <div className="clip-meta-row theme-text-subtle flex items-center text-[11px] font-mono">
-          {isTransforming && (
+          {features.transformations && isTransforming && (
             <span
               role="status"
               aria-label="Applying Transform"
@@ -510,7 +512,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
               <LoaderCircle className="clip-meta-icon animate-spin" />
             </span>
           )}
-          {!isTransforming && transformError && (
+          {features.transformations && !isTransforming && transformError && (
             <span
               role="status"
               aria-label="Transform failed"
@@ -520,7 +522,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
               <AlertTriangle className="clip-meta-icon" />
             </span>
           )}
-          {primaryBinName && (
+          {features.bins && primaryBinName && (
             <span
               role="img"
               aria-label={`Bin: ${primaryBinName}`}
@@ -530,7 +532,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
               <span className="clip-bin-emoji">{formatEmojiIcon(primaryBinIcon)}</span>
             </span>
           )}
-          {clip.is_protected && (
+          {features.protection && clip.is_protected && (
             <span
               role="img"
               aria-label="Protected clip"
@@ -540,7 +542,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
               <Shield className="clip-meta-icon" />
             </span>
           )}
-          {clip.is_transformed && (
+          {features.transformations && clip.is_transformed && (
             <span
               role="img"
               aria-label="Transformed clip"
@@ -550,7 +552,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
               <Workflow className="clip-meta-icon" />
             </span>
           )}
-          {queueIndex !== undefined && (
+          {features.queue && queueIndex !== undefined && (
             queueIndex === 1 ? (
               <span className="clip-meta-item clip-queue-next rounded-full font-mono font-extrabold shadow animate-pulse">
                 Next Up (#1)
@@ -576,7 +578,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
               <StickyNote className="clip-meta-icon clip-note-accent" />
             </span>
           )}
-          {clip.is_pinned && (
+          {features.pinning && clip.is_pinned && (
             <span title="Pinned" className="clip-meta-item clip-meta-icon-only">
               <Pin className="clip-meta-icon pin-icon" />
             </span>
@@ -661,7 +663,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
       </div>
 
       {/* Note preview if attached */}
-      {noteSummary && (
+      {features.notes && noteSummary && (
         <div className="clip-note-summary mt-2 pt-1.5 border-t flex items-center space-x-1.5 text-[11px] font-sans italic">
           <StickyNote className="w-3 h-3 shrink-0" />
           <span className="truncate">
@@ -739,7 +741,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
           </>
         ) : (
           <>
-            <button
+            {features.pinning && <button
               onClick={(e) => {
                 e.stopPropagation();
                 onPin();
@@ -750,9 +752,9 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
               title={clip.is_pinned ? UI_COPY.unpin : UI_COPY.pin}
             >
               <Pin className="w-3.5 h-3.5" />
-            </button>
+            </button>}
 
-            {onToggleProtected && (
+            {features.protection && onToggleProtected && (
               <button
                 onClick={(e) => {
                   e.stopPropagation();

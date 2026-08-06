@@ -25,6 +25,7 @@ import {
 import { Bin, SequentialStatus } from '../types';
 import { useSidebarBinOrder } from '../hooks/useSidebarBinOrder';
 import type { ClipDropAction } from '../hooks/useClipBinDrag';
+import type { FeatureId } from '../utils/features';
 
 const SEARCH_HELPERS = [
   { prefix: 'regex:', desc: 'Regex' },
@@ -67,6 +68,7 @@ interface SidebarProps {
   pointerDropTargetAction?: ClipDropAction | null;
   disabledDropBinId?: number | null;
   disabledDropActions?: ClipDropAction[];
+  features: Record<FeatureId, boolean>;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -85,6 +87,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   pointerDropTargetAction,
   disabledDropBinId,
   disabledDropActions = [],
+  features,
   searchQuery,
   setSearchQuery,
   onSearchFocus,
@@ -111,6 +114,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const searchMenuRootRef = React.useRef<HTMLDivElement | null>(null);
   const searchInputRef = React.useRef<HTMLInputElement | null>(null);
   const searchMenuItemRefs = React.useRef<Array<HTMLButtonElement | null>>([]);
+  const searchHelpers = React.useMemo(
+    () => SEARCH_HELPERS.filter(({ prefix }) => {
+      if (prefix === 'has:note') return features.notes;
+      if (prefix === 'is:pinned') return features.pinning;
+      if (prefix === 'is:protected') return features.protection;
+      if (prefix === 'is:trashed') return features.trash;
+      return true;
+    }),
+    [features.notes, features.pinning, features.protection, features.trash],
+  );
 
   const closeSearchMenu = (returnFocus = false) => {
     setIsSearchMenuOpen(false);
@@ -119,7 +132,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   const focusSearchMenuItem = (index: number) => {
-    const normalizedIndex = (index + SEARCH_HELPERS.length) % SEARCH_HELPERS.length;
+    const normalizedIndex = (index + searchHelpers.length) % searchHelpers.length;
     setActiveSearchMenuIndex(normalizedIndex);
     requestAnimationFrame(() => searchMenuItemRefs.current[normalizedIndex]?.focus());
   };
@@ -239,27 +252,30 @@ export const Sidebar: React.FC<SidebarProps> = ({
     setSelectedBinId(null);
   };
 
-  const clipNavItems: Array<{
+  const allClipNavItems: Array<{
     tab: string;
     label: string;
     title: string;
     icon: React.ReactElement<{ className: string; strokeWidth?: number }>;
     dropAction?: ClipDropAction;
+    feature?: FeatureId;
   }> = [
     { tab: 'all', label: 'All', title: 'All Clips', icon: <Clipboard className="sidebar-icon-primary w-5 h-5" /> },
-    { tab: 'sequential', label: 'Queue', title: 'Queue', icon: <ListOrdered className="sidebar-icon-secondary w-5 h-5" /> },
-    { tab: 'pinned', label: 'Pinned', title: 'Pinned', icon: <Pin className="sidebar-icon-success w-5 h-5 pin-icon" />, dropAction: 'pin' },
-    { tab: 'protected', label: 'Protected', title: 'Protected', icon: <Shield className="sidebar-icon-info w-5 h-5" />, dropAction: 'protect' },
-    { tab: 'notes', label: 'Noted', title: 'Noted', icon: <StickyNote className="sidebar-icon-note w-5 h-5" /> },
-    { tab: 'trash', label: 'Trashed', title: 'Trashed', icon: <Trash2 className="sidebar-icon-danger w-5 h-5" />, dropAction: 'trash' },
+    { tab: 'sequential', label: 'Queue', title: 'Queue', icon: <ListOrdered className="sidebar-icon-secondary w-5 h-5" />, feature: 'queue' },
+    { tab: 'pinned', label: 'Pinned', title: 'Pinned', icon: <Pin className="sidebar-icon-success w-5 h-5 pin-icon" />, dropAction: 'pin', feature: 'pinning' },
+    { tab: 'protected', label: 'Protected', title: 'Protected', icon: <Shield className="sidebar-icon-info w-5 h-5" />, dropAction: 'protect', feature: 'protection' },
+    { tab: 'notes', label: 'Noted', title: 'Noted', icon: <StickyNote className="sidebar-icon-note w-5 h-5" />, feature: 'notes' },
+    { tab: 'trash', label: 'Trashed', title: 'Trashed', icon: <Trash2 className="sidebar-icon-danger w-5 h-5" />, dropAction: 'trash', feature: 'trash' },
   ];
-  const toolNavItems = [
-    { tab: 'analytics', label: 'Analytics & Insights', title: 'Analytics & Insights', icon: <BarChart3 className="sidebar-icon-secondary w-5 h-5" /> },
-    { tab: 'transformations', label: 'Transformations', title: 'Transformations', icon: <Workflow className="sidebar-icon-primary w-5 h-5" /> },
-    { tab: 'activity', label: 'Activity Log', title: 'Activity Log', icon: <Activity className="sidebar-icon-info w-5 h-5" /> },
-    { tab: 'help', label: 'Help & Documentation', title: 'Help & Documentation', icon: <HelpCircle className="sidebar-icon-info w-5 h-5" /> },
+  const clipNavItems = allClipNavItems.filter(({ feature }) => !feature || features[feature]);
+  const allToolNavItems: Array<{ tab: string; label: string; title: string; icon: React.ReactElement<{ className: string; strokeWidth?: number }>; feature?: FeatureId }> = [
+    { tab: 'analytics', label: 'Analytics & Insights', title: 'Analytics & Insights', icon: <BarChart3 className="sidebar-icon-secondary w-5 h-5" />, feature: 'analytics' },
+    { tab: 'transformations', label: 'Transformations', title: 'Transformations', icon: <Workflow className="sidebar-icon-primary w-5 h-5" />, feature: 'transformations' },
+    { tab: 'activity', label: 'Activity Log', title: 'Activity Log', icon: <Activity className="sidebar-icon-info w-5 h-5" />, feature: 'activityLog' },
+    { tab: 'help', label: 'Help & Documentation', title: 'Help & Documentation', icon: <HelpCircle className="sidebar-icon-info w-5 h-5" />, feature: 'help' },
     { tab: 'settings', label: 'Settings', title: 'Settings', icon: <Settings className="sidebar-icon-primary w-5 h-5" /> },
   ];
+  const toolNavItems = allToolNavItems.filter(({ feature }) => !feature || features[feature]);
 
   const clipCountByTab: Record<string, number> = {
     all: totalClipCount,
@@ -342,13 +358,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
             );
           })}
 
-          {sortedBins.length > 0 && (
+          {features.bins && sortedBins.length > 0 && (
             <div className="w-full flex items-center justify-center py-1 shrink-0">
               <div className="w-8 border-t sidebar-divider" />
             </div>
           )}
 
-          {sortedBins.map((b) => (
+          {features.bins && sortedBins.map((b) => (
             <button
               key={b.id}
               data-sidebar-hover-key={`bin:${b.id}`}
@@ -423,7 +439,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* Sidebar Navigation Content (Scrollable) */}
-      <div className="flex-1 overflow-y-auto sidebar-scroll-container px-2.5 py-2 space-y-3 text-[13px]">
+      <div className="flex-1 overflow-y-auto sidebar-scroll-container px-2.5 py-2 space-y-3 text-[0.8125rem]">
         {/* Section 1: Clips */}
         <div>
           <div
@@ -492,7 +508,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* Section 2: Bins */}
-        <div>
+        {features.bins && <div>
           <div
             data-sidebar-hover-key="section:bins"
             onClick={isClipDragging ? undefined : () => setIsBinsOpen(!isBinsOpen)}
@@ -707,7 +723,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               })}
             </nav>
           </div>
-        </div>
+        </div>}
 
         {/* Section 3: Tools */}
         <div>
@@ -761,7 +777,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             aria-label="Search filters"
             className="theme-menu absolute bottom-11 left-2.5 right-2.5 rounded-xl border p-1.5 text-xs font-medium select-none"
           >
-            {SEARCH_HELPERS.map((s, index) => (
+              {searchHelpers.map((s, index) => (
               <button
                 ref={(element) => {
                   searchMenuItemRefs.current[index] = element;
@@ -789,7 +805,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     focusSearchMenuItem(0);
                   } else if (event.key === 'End') {
                     event.preventDefault();
-                    focusSearchMenuItem(SEARCH_HELPERS.length - 1);
+                    focusSearchMenuItem(searchHelpers.length - 1);
                   } else if (event.key === 'Escape') {
                     event.preventDefault();
                     event.stopPropagation();
@@ -828,7 +844,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
                 e.preventDefault();
                 if (!isSearchMenuOpen) setIsSearchMenuOpen(true);
-                focusSearchMenuItem(e.key === 'ArrowDown' ? 0 : SEARCH_HELPERS.length - 1);
+                focusSearchMenuItem(e.key === 'ArrowDown' ? 0 : searchHelpers.length - 1);
               } else if (e.key === 'Escape') {
                 e.preventDefault();
                 if (isSearchMenuOpen) closeSearchMenu();
@@ -879,7 +895,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
                 event.preventDefault();
                 setIsSearchMenuOpen(true);
-                focusSearchMenuItem(event.key === 'ArrowDown' ? 0 : SEARCH_HELPERS.length - 1);
+                focusSearchMenuItem(event.key === 'ArrowDown' ? 0 : searchHelpers.length - 1);
               } else if (event.key === 'Escape' && isSearchMenuOpen) {
                 event.preventDefault();
                 closeSearchMenu();

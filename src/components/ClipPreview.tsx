@@ -43,6 +43,7 @@ import { formatEmojiIcon } from '../utils/emoji';
 import { binTextColor } from '../utils/binColor';
 import { startTransformation, type TransformationExecutionHandle } from '../utils/transformExecution';
 import { useIntelligenceRequestStatus } from '../hooks/useIntelligenceRequestStatus';
+import { useFeatures } from '../hooks/useFeatures';
 
 interface ClipPreviewProps {
   clip: ClipItem | null;
@@ -140,6 +141,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   filePreviewMode,
   filePreviewMaxMb,
 }) => {
+  const features = useFeatures();
   const [copied, setCopied] = useState(false);
   const [copiedFormat, setCopiedFormat] = useState<string | null>(null);
   const [transformedText, setTransformedText] = useState<string | null>(null);
@@ -255,7 +257,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
 
   useEffect(() => {
     let cancelled = false;
-    if (!clip || clip.content_type === 'file') {
+    if (!features.revisions || !clip || clip.content_type === 'file') {
       setRevisionCount(null);
       setShowHistory(false);
       return () => {
@@ -273,11 +275,11 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [clip?.id, clip?.is_transformed, clip?.text_content]);
+  }, [clip?.id, clip?.is_transformed, clip?.text_content, features.revisions]);
 
   useEffect(() => {
     let cancelled = false;
-    if (clip && clip.content_type !== 'file' && showHistory) {
+    if (features.revisions && clip && clip.content_type !== 'file' && showHistory) {
       setVersions([]);
       setIsHistoryLoading(true);
       Promise.all([
@@ -302,7 +304,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [clip?.id, clip?.is_transformed, clip?.text_content, showHistory]);
+  }, [clip?.id, clip?.is_transformed, clip?.text_content, features.revisions, showHistory]);
 
   useEffect(() => {
     let cancelled = false;
@@ -449,9 +451,11 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
     setIsOcrLoading(true);
     try {
       await invoke<string>('extract_ocr_from_clip', { clipId: clip.id });
-      invoke<number>('get_clip_version_count', { clipId: clip.id })
-        .then(setRevisionCount)
-        .catch((error) => console.error('Failed to refresh clip revision count:', error));
+      if (features.revisions) {
+        invoke<number>('get_clip_version_count', { clipId: clip.id })
+          .then(setRevisionCount)
+          .catch((error) => console.error('Failed to refresh clip revision count:', error));
+      }
       soundManager.playCopySound(true);
       onUpdateClip();
     } catch (e) {
@@ -743,13 +747,13 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
               aria-label="Applying Transform"
             />
           )}
-          {!isTransforming && provenance && (
+          {features.transformations && !isTransforming && provenance && (
             <Workflow
               className="transform-accent pipelines h-4 w-4 shrink-0"
               aria-label={`Transformed with ${provenance.transformName}`}
             />
           )}
-          {!isTransforming && provenance?.connectionId && (
+          {features.transformations && !isTransforming && provenance?.connectionId && (
             <Sparkles
               className="transform-accent pipelines h-3.5 w-3.5 shrink-0"
               aria-label="Transform used connected intelligence"
@@ -758,7 +762,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
         </div>
 
         <div className="clip-preview-actions relative flex shrink-0 items-center titlebar-no-drag">
-          {viewPolicy.canRunPipelines && canTransformContent && (
+          {features.transformations && viewPolicy.canRunPipelines && canTransformContent && (
             <div className="clip-workflow-shell relative">
               <button
                 ref={workflowTriggerRef}
@@ -797,9 +801,9 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
             {copied ? <Check /> : <Copy />}
           </button>
 
-          {viewPolicy.canOrganize && (
+          {viewPolicy.canOrganize && (features.pinning || features.protection) && (
             <>
-              <button
+              {features.pinning && <button
                 type="button"
                 onClick={() => onTogglePin(clip.id)}
                 className={`clip-preview-action preview-pin-btn theme-focusable transition-colors ${clip.is_pinned ? 'is-active' : ''}`}
@@ -808,8 +812,8 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
                 aria-pressed={Boolean(clip.is_pinned)}
               >
                 <Pin className={clip.is_pinned ? 'pin-icon' : ''} />
-              </button>
-              <button
+              </button>}
+              {features.protection && <button
                 type="button"
                 onClick={() => onToggleProtected(clip.id)}
                 className={`clip-preview-action preview-protect-btn theme-focusable transition-colors ${clip.is_protected ? 'is-active' : ''}`}
@@ -818,11 +822,11 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
                 aria-pressed={Boolean(clip.is_protected)}
               >
                 {clip.is_protected ? <ShieldOff /> : <Shield />}
-              </button>
+              </button>}
             </>
           )}
 
-          {viewPolicy.canEditNotes && (
+          {features.notes && viewPolicy.canEditNotes && (
             <button
               type="button"
               onClick={handleToggleAddNote}
@@ -851,7 +855,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
       </div>
 
       {/* Quick Bin Assignment & Note Section */}
-      {viewPolicy.canOrganize ? (
+      {features.bins && (viewPolicy.canOrganize ? (
       <div className="preview-bin-bar px-4 py-2 flex items-center text-xs border-b">
         <div className="flex min-w-0 items-center">
           <MenuSelect
@@ -882,10 +886,10 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
             <span>Restore to organize or edit notes.</span>
           </div>
         </div>
-      )}
+      ))}
 
       {/* Multi-Note Container (Inline Input Row, Stable Animated Reordering, Non-Selectable) */}
-      {(notes.length > 0 || isAddingNote) && (
+      {features.notes && (notes.length > 0 || isAddingNote) && (
         <div className="px-4 py-2.5 border-b space-y-2 note-container select-none">
           <div className="note-header-text flex items-center space-x-1.5 text-[11px] font-semibold uppercase tracking-wider select-none">
             <StickyNote className="w-3.5 h-3.5" />
@@ -1004,6 +1008,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
           isFilePreviewLoading={isFilePreviewLoading}
           copiedFormat={copiedFormat}
           isOcrLoading={isOcrLoading}
+          ocrEnabled={features.ocr}
           readOnly={!viewPolicy.canMutateContent}
           onColorChange={setTransformedText}
           onCopyFormat={(label, value) => void handleCopySpecificFormat(label, value)}
@@ -1126,7 +1131,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
         </div>
       )}
 
-      {showHistory && clip.content_type !== 'file' && (
+      {features.revisions && showHistory && clip.content_type !== 'file' && (
         <ClipRevisionHistory
           versions={versions}
           isLoading={isHistoryLoading}
@@ -1180,7 +1185,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
             <span>Lines:</span>
             <strong>{lineCount}</strong>
           </span>
-          <span className="clip-preview-footer-stat">
+          {features.revisions && <span className="clip-preview-footer-stat">
             <span>Revisions:</span>
             <button
               type="button"
@@ -1193,7 +1198,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
             >
               {revisionCount ?? '…'}
             </button>
-          </span>
+          </span>}
             </>
           )}
         </div>

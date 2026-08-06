@@ -11,12 +11,43 @@ use crate::db::{
     Bin, ClipItem, DbState, IntelligenceConnection, IntelligenceConnectionUpdate, Pipeline,
     PipelineStepInput, SavedTransform, TransformClipApplication,
 };
+use crate::features::{self, Feature};
 use crate::sequential_paste::{SequentialQueueState, SequentialStatus};
 
 fn refresh_native_app_menu(app: &AppHandle, db: &Arc<DbState>) {
     if let Err(error) = crate::app_menu::install(app, db) {
         eprintln!("Could not refresh the native app menu: {error}");
     }
+}
+
+fn apply_feature_policy_changes(app: &AppHandle, db: &Arc<DbState>, changed: &[Feature]) {
+    for feature in changed {
+        if features::is_enabled(db, *feature) {
+            continue;
+        }
+        match feature {
+            Feature::Hud => {
+                if let Some(window) = app.get_webview_window("hud") {
+                    let _ = window.hide();
+                }
+            }
+            Feature::Queue => {
+                if let Some(queue) = app.try_state::<Arc<SequentialQueueState>>() {
+                    queue.stop_queue();
+                    let _ = app.emit("sequential-updated", queue.get_status());
+                }
+            }
+            Feature::Ocr => {
+                if let Some(ocr) = app.try_state::<Arc<crate::ocr::OcrService>>() {
+                    ocr.cancel();
+                }
+            }
+            _ => {}
+        }
+    }
+    refresh_native_app_menu(app, db);
+    crate::refresh_tray_menu(app, db);
+    let _ = register_all_app_shortcuts(app);
 }
 
 #[derive(serde::Serialize)]
@@ -651,9 +682,32 @@ pub fn clear_activity_logs(db: State<'_, Arc<DbState>>) -> Result<(), String> {
 pub fn save_app_setting(
     key: String,
     value: String,
+    app: AppHandle,
     db: State<'_, Arc<DbState>>,
 ) -> Result<(), String> {
-    db.save_setting(&key, &value).map_err(|e| e.to_string())
+    db.save_setting(&key, &value).map_err(|e| e.to_string())?;
+    if let Some(feature) = Feature::from_setting_key(&key) {
+        apply_feature_policy_changes(&app, &db, &[feature]);
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn save_app_settings(
+    values: std::collections::HashMap<String, String>,
+    app: AppHandle,
+    db: State<'_, Arc<DbState>>,
+) -> Result<(), String> {
+    db.save_settings(&values)
+        .map_err(|error| error.to_string())?;
+    let changed = values
+        .keys()
+        .filter_map(|key| Feature::from_setting_key(key))
+        .collect::<Vec<_>>();
+    if !changed.is_empty() {
+        apply_feature_policy_changes(&app, &db, &changed);
+    }
+    Ok(())
 }
 
 #[cfg(target_os = "macos")]
@@ -700,6 +754,7 @@ pub fn update_clip_note(
     note: Option<String>,
     db: State<'_, Arc<DbState>>,
 ) -> Result<(), String> {
+    features::require(&db, Feature::Notes)?;
     db.update_clip_note(clip_id, note.as_deref())
         .map_err(|e| e.to_string())
 }
@@ -711,6 +766,7 @@ pub fn delete_clip(id: i64, db: State<'_, Arc<DbState>>) -> Result<(), String> {
 
 #[tauri::command]
 pub fn toggle_pin_clip(id: i64, db: State<'_, Arc<DbState>>) -> Result<bool, String> {
+    features::require(&db, Feature::Pinning)?;
     db.toggle_pin(id).map_err(|e| e.to_string())
 }
 
@@ -720,6 +776,7 @@ pub async fn assign_clip_bin(
     bin_id: Option<i64>,
     db: State<'_, Arc<DbState>>,
 ) -> Result<Option<ClipItem>, String> {
+    features::require(&db, Feature::Bins)?;
     let db = Arc::clone(&db);
     tauri::async_runtime::spawn_blocking(move || {
         let previous_category_bin_id = db
@@ -736,6 +793,9 @@ pub async fn assign_clip_bin(
         let Some(bin_id) = bin_id else {
             return Ok(None);
         };
+        if !features::is_enabled(&db, Feature::Transformations) {
+            return Ok(None);
+        }
         let Some(transform_ref) = db
             .get_bin_transform_ref(bin_id)
             .map_err(|error| error.to_string())?
@@ -808,6 +868,7 @@ pub async fn assign_clip_bin(
 
 #[tauri::command]
 pub fn reorder_pinned_clips(ids: Vec<i64>, db: State<'_, Arc<DbState>>) -> Result<(), String> {
+    features::require(&db, Feature::Pinning)?;
     db.reorder_pinned_clips(ids).map_err(|e| e.to_string())
 }
 
@@ -818,6 +879,7 @@ pub fn get_clip_versions(
     offset: Option<i64>,
     db: State<'_, Arc<DbState>>,
 ) -> Result<Vec<crate::db::ClipVersion>, String> {
+    features::require(&db, Feature::Revisions)?;
     db.get_clip_versions_page(
         clip_id,
         limit.unwrap_or(50).clamp(1, 100),
@@ -828,6 +890,7 @@ pub fn get_clip_versions(
 
 #[tauri::command]
 pub fn get_clip_version_count(clip_id: i64, db: State<'_, Arc<DbState>>) -> Result<i64, String> {
+    features::require(&db, Feature::Revisions)?;
     db.get_clip_version_count(clip_id)
         .map_err(|e| e.to_string())
 }
@@ -838,6 +901,7 @@ pub fn restore_clip_version(
     version_id: i64,
     db: State<'_, Arc<DbState>>,
 ) -> Result<ClipItem, String> {
+    features::require(&db, Feature::Revisions)?;
     db.restore_clip_version(clip_id, version_id)
         .map_err(|error| error.to_string())
 }
@@ -848,6 +912,7 @@ pub fn batch_pin_clips(
     pin_state: bool,
     db: State<'_, Arc<DbState>>,
 ) -> Result<(), String> {
+    features::require(&db, Feature::Pinning)?;
     db.batch_pin_clips(ids, pin_state)
         .map_err(|e| e.to_string())
 }
@@ -863,6 +928,7 @@ pub fn batch_assign_bin_clips(
     bin_id: Option<i64>,
     db: State<'_, Arc<DbState>>,
 ) -> Result<(), String> {
+    features::require(&db, Feature::Bins)?;
     db.batch_assign_bin_clips(ids, bin_id)
         .map_err(|e| e.to_string())
 }
@@ -1002,6 +1068,7 @@ pub(crate) fn execute_clipboard_pipeline(
     pipeline_ref: Option<&str>,
     paste_result: bool,
 ) -> Result<crate::transformation_service::ExecutionOutcome, String> {
+    features::require(db, Feature::Transformations)?;
     let mut clipboard = Clipboard::new().map_err(|error| error.to_string())?;
     let input = clipboard.get_text().map_err(|error| error.to_string())?;
     let outcome = crate::transformation_service::execute_shortcut_pipeline(db, input, pipeline_ref)
@@ -1032,6 +1099,7 @@ pub fn create_bin(
     app: AppHandle,
     db: State<'_, Arc<DbState>>,
 ) -> Result<Bin, String> {
+    features::require(&db, Feature::Bins)?;
     let bin = db
         .create_bin(&name, &icon, &color, smart_rule.as_deref())
         .map_err(|e| e.to_string())?;
@@ -1047,6 +1115,7 @@ pub fn delete_bin(
     app: AppHandle,
     db: State<'_, Arc<DbState>>,
 ) -> Result<(), String> {
+    features::require(&db, Feature::Bins)?;
     db.delete_bin(
         id,
         disposition.as_deref().unwrap_or("keep"),
@@ -1067,6 +1136,7 @@ pub fn update_bin(
     app: AppHandle,
     db: State<'_, Arc<DbState>>,
 ) -> Result<(), String> {
+    features::require(&db, Feature::Bins)?;
     db.update_bin(id, &name, &icon, &color, smart_rule.as_deref())
         .map_err(|e| e.to_string())?;
     refresh_native_app_menu(&app, &db);
@@ -1085,6 +1155,7 @@ pub fn create_pipeline(
     shortcut: Option<String>,
     db: State<'_, Arc<DbState>>,
 ) -> Result<Pipeline, String> {
+    features::require(&db, Feature::Transformations)?;
     db.create_pipeline(&name, &steps, shortcut.as_deref())
         .map_err(|error| error.to_string())
 }
@@ -1098,6 +1169,7 @@ pub fn update_pipeline(
     db: State<'_, Arc<DbState>>,
     app: AppHandle,
 ) -> Result<Pipeline, String> {
+    features::require(&db, Feature::Transformations)?;
     let pipeline = db
         .update_pipeline(&pipeline_ref, &name, &steps, shortcut.as_deref())
         .map_err(|error| error.to_string())?;
@@ -1112,6 +1184,7 @@ pub fn update_pipeline_shortcut(
     db: State<'_, Arc<DbState>>,
     app: AppHandle,
 ) -> Result<(), String> {
+    features::require(&db, Feature::Transformations)?;
     db.update_pipeline_shortcut(&pipeline_ref, shortcut.as_deref())
         .map_err(|error| error.to_string())?;
     let _ = register_all_app_shortcuts(&app);
@@ -1120,6 +1193,7 @@ pub fn update_pipeline_shortcut(
 
 #[tauri::command]
 pub fn delete_pipeline(pipeline_ref: String, db: State<'_, Arc<DbState>>) -> Result<(), String> {
+    features::require(&db, Feature::Transformations)?;
     db.delete_pipeline(&pipeline_ref)
         .map_err(|error| error.to_string())
 }
@@ -1131,6 +1205,7 @@ pub fn update_bin_shortcut(
     db: State<'_, Arc<DbState>>,
     app: AppHandle,
 ) -> Result<(), String> {
+    features::require(&db, Feature::Bins)?;
     db.update_bin_shortcut(id, shortcut.as_deref())
         .map_err(|e| e.to_string())?;
     let _ = register_all_app_shortcuts(&app);
@@ -1152,6 +1227,8 @@ pub fn set_bin_transform_ref(
     transform_ref: Option<String>,
     db: State<'_, Arc<DbState>>,
 ) -> Result<(), String> {
+    features::require(&db, Feature::Bins)?;
+    features::require(&db, Feature::Transformations)?;
     db.set_bin_transform_ref(bin_id, transform_ref.as_deref())
         .map_err(|error| error.to_string())
 }
@@ -1173,6 +1250,7 @@ pub fn get_intelligence_connections(
 pub async fn detect_intelligence_connections(
     db: State<'_, Arc<DbState>>,
 ) -> Result<Vec<crate::intelligence_connections::DetectedIntelligenceConnection>, String> {
+    features::require(&db, Feature::Transformations)?;
     let detected = tauri::async_runtime::spawn_blocking(
         crate::intelligence_connections::detect_intelligence_connections,
     )
@@ -1237,6 +1315,7 @@ pub fn create_intelligence_connection(
     credential_ref: Option<String>,
     db: State<'_, Arc<DbState>>,
 ) -> Result<IntelligenceConnection, String> {
+    features::require(&db, Feature::Transformations)?;
     if name.trim().is_empty() {
         return Err("Connection name cannot be empty".to_string());
     }
@@ -1263,6 +1342,7 @@ pub fn update_intelligence_connection(
     enabled: bool,
     db: State<'_, Arc<DbState>>,
 ) -> Result<(), String> {
+    features::require(&db, Feature::Transformations)?;
     if name.trim().is_empty() {
         return Err("Connection name cannot be empty".to_string());
     }
@@ -1284,6 +1364,7 @@ pub fn delete_intelligence_connection(
     id: String,
     db: State<'_, Arc<DbState>>,
 ) -> Result<(), String> {
+    features::require(&db, Feature::Transformations)?;
     db.delete_intelligence_connection(&id)
         .map_err(|error| error.to_string())
 }
@@ -1293,6 +1374,7 @@ pub fn reorder_intelligence_connections(
     ids: Vec<String>,
     db: State<'_, Arc<DbState>>,
 ) -> Result<(), String> {
+    features::require(&db, Feature::Transformations)?;
     db.reorder_intelligence_connections(&ids)
         .map_err(|error| error.to_string())
 }
@@ -1306,6 +1388,12 @@ pub async fn plan_transformation_intent(
     crate::intelligence_executor::PlanIntentOutcome,
     crate::intelligence_executor::IntelligenceExecutionError,
 > {
+    if let Err(message) = features::require(&db, Feature::Transformations) {
+        return Err(crate::intelligence_executor::IntelligenceExecutionError {
+            code: "feature_disabled",
+            message,
+        });
+    }
     let cancellation = client_request_id
         .clone()
         .map(crate::transformation_service::CancellationRegistration::register);
@@ -1363,6 +1451,12 @@ pub async fn test_transformation_plan(
     crate::intelligence_executor::ExecutePlanOutcome,
     crate::intelligence_executor::IntelligenceExecutionError,
 > {
+    if let Err(message) = features::require(&db, Feature::Transformations) {
+        return Err(crate::intelligence_executor::IntelligenceExecutionError {
+            code: "feature_disabled",
+            message,
+        });
+    }
     let cancellation = client_request_id
         .clone()
         .map(crate::transformation_service::CancellationRegistration::register);
@@ -1424,6 +1518,7 @@ pub fn save_saved_transform(
     connection_id: Option<String>,
     db: State<'_, Arc<DbState>>,
 ) -> Result<SavedTransform, String> {
+    features::require(&db, Feature::Transformations)?;
     let transform_name = if name.trim().is_empty() {
         plan.summary.trim()
     } else {
@@ -1447,6 +1542,7 @@ pub fn update_saved_transform(
     connection_id: Option<String>,
     db: State<'_, Arc<DbState>>,
 ) -> Result<SavedTransform, String> {
+    features::require(&db, Feature::Transformations)?;
     let transform_name = if name.trim().is_empty() {
         plan.summary.trim()
     } else {
@@ -1472,6 +1568,7 @@ pub fn delete_saved_transform(
     transform_ref: String,
     db: State<'_, Arc<DbState>>,
 ) -> Result<(), String> {
+    features::require(&db, Feature::Transformations)?;
     db.delete_saved_transform(&transform_ref)
         .map_err(|error| error.to_string())
 }
@@ -1486,6 +1583,7 @@ pub fn apply_transform_preview_to_clip(
     duration_ms: i64,
     db: State<'_, Arc<DbState>>,
 ) -> Result<crate::db::ClipTransformationProvenance, String> {
+    features::require(&db, Feature::Transformations)?;
     let provenance = db
         .apply_transform_output_to_clip(TransformClipApplication {
             clip_id,
@@ -1524,6 +1622,7 @@ pub fn create_operation(
     category: Option<String>,
     db: State<'_, Arc<DbState>>,
 ) -> Result<crate::db::Operation, String> {
+    features::require(&db, Feature::Transformations)?;
     db.create_operation(&name, &op_type, config.as_deref(), category.as_deref())
         .map_err(|e| e.to_string())
 }
@@ -1537,12 +1636,14 @@ pub fn update_operation(
     category: Option<String>,
     db: State<'_, Arc<DbState>>,
 ) -> Result<(), String> {
+    features::require(&db, Feature::Transformations)?;
     db.update_operation(id, &name, &op_type, config.as_deref(), category.as_deref())
         .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub fn delete_operation(id: i64, db: State<'_, Arc<DbState>>) -> Result<(), String> {
+    features::require(&db, Feature::Transformations)?;
     db.delete_operation(id).map_err(|e| e.to_string())
 }
 
@@ -1563,6 +1664,14 @@ pub async fn execute_transformation(
     crate::transformation_service::ExecutionOutcome,
     crate::transformation_service::ExecutionError,
 > {
+    if let Err(message) = features::require(&db, Feature::Transformations) {
+        return Err(crate::transformation_service::ExecutionError {
+            code: "feature_disabled",
+            message,
+            step: None,
+            operation_ref: None,
+        });
+    }
     let cancellation = request
         .client_request_id
         .clone()
@@ -1601,6 +1710,7 @@ pub fn run_intelligence_scheduler_demo(
     scenario: String,
     db: State<'_, Arc<DbState>>,
 ) -> Result<(), String> {
+    features::require(&db, Feature::Diagnostics)?;
     if !cfg!(debug_assertions) {
         return Err("Scheduler simulations are available only in development builds".to_string());
     }
@@ -1619,6 +1729,8 @@ pub fn start_sequential_paste(
     seq: State<'_, Arc<SequentialQueueState>>,
     app: AppHandle,
 ) -> Result<SequentialStatus, String> {
+    let db = app.state::<Arc<DbState>>();
+    features::require(&db, Feature::Queue)?;
     seq.start_queue();
     let status = seq.get_status();
     let _ = app.emit("sequential-updated", status.clone());
@@ -1631,6 +1743,8 @@ pub fn push_sequential_item(
     seq: State<'_, Arc<SequentialQueueState>>,
     app: AppHandle,
 ) -> Result<SequentialStatus, String> {
+    let db = app.state::<Arc<DbState>>();
+    features::require(&db, Feature::Queue)?;
     seq.push_item(item);
     let status = seq.get_status();
     let _ = app.emit("sequential-updated", status.clone());
@@ -1757,6 +1871,8 @@ pub fn get_sequential_status(
 // Window & Activation Policy Commands
 #[tauri::command]
 pub fn toggle_hud_window(app: AppHandle) -> Result<(), String> {
+    let db = app.state::<Arc<DbState>>();
+    features::require(&db, Feature::Hud)?;
     if let Some(window) = app.get_webview_window("hud") {
         let is_vis = window.is_visible().unwrap_or(false);
         if is_vis {
@@ -1936,6 +2052,7 @@ pub fn paste_clip_by_id(
 
 #[tauri::command]
 pub fn toggle_clip_protected(clip_id: i64, db: State<'_, Arc<DbState>>) -> Result<bool, String> {
+    features::require(&db, Feature::Protection)?;
     db.toggle_protected(clip_id).map_err(|e| e.to_string())
 }
 
@@ -2311,32 +2428,73 @@ pub fn get_installed_applications(db: State<'_, Arc<DbState>>) -> Result<Vec<Str
 
 #[tauri::command]
 pub fn extract_ocr_from_clip(clip_id: i64, db: State<'_, Arc<DbState>>) -> Result<String, String> {
-    let clips = db.get_clips(None, None, false).map_err(|e| e.to_string())?;
-    let clip = clips
-        .into_iter()
-        .find(|c| c.id == clip_id)
-        .ok_or("Clip not found")?;
+    features::require(&db, Feature::Ocr)?;
+    let clip = db.get_clip_by_id(clip_id).map_err(|e| e.to_string())?;
 
     if let Some(b64) = clip.image_base64 {
-        let clean_b64 = if let Some(idx) = b64.find(',') {
-            &b64[idx + 1..]
-        } else {
-            &b64
-        };
-
-        if clean_b64.len() > crate::resource_limits::MAX_STORED_IMAGE_BASE64_BYTES {
-            return Err("Image exceeds Pasted's OCR safety limit".to_string());
-        }
-
-        if let Ok(bytes) = base64::engine::general_purpose::STANDARD.decode(clean_b64) {
+        if let Some(bytes) = crate::ocr::decode_stored_image(&b64) {
+            if !db
+                .force_ocr_running(clip_id, &clip.content_hash)
+                .map_err(|error| error.to_string())?
+            {
+                return Err("Clip is no longer available for OCR".to_string());
+            }
             if let Some(ocr_text) = crate::ocr::perform_ocr_on_image_bytes(&bytes) {
-                db.update_clip_text(clip_id, &ocr_text)
-                    .map_err(|error| error.to_string())?;
+                db.complete_ocr_attempt(
+                    clip_id,
+                    &clip.content_hash,
+                    Some(&ocr_text),
+                    "macos-vision-v1",
+                    None,
+                )
+                .map_err(|error| error.to_string())?;
                 return Ok(ocr_text);
             }
+            db.complete_ocr_attempt(clip_id, &clip.content_hash, None, "macos-vision-v1", None)
+                .map_err(|error| error.to_string())?;
         }
     }
     Err("No text recognized in image".to_string())
+}
+
+#[tauri::command]
+pub fn get_ocr_backfill_status(
+    db: State<'_, Arc<DbState>>,
+) -> Result<crate::db::OcrBackfillStatus, String> {
+    db.get_ocr_backfill_status()
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn start_ocr_backfill(
+    db: State<'_, Arc<DbState>>,
+    ocr: State<'_, Arc<crate::ocr::OcrService>>,
+) -> Result<(), String> {
+    features::require(&db, Feature::Ocr)?;
+    ocr.start_backfill()
+}
+
+#[tauri::command]
+pub fn cancel_ocr_backfill(
+    db: State<'_, Arc<DbState>>,
+    ocr: State<'_, Arc<crate::ocr::OcrService>>,
+) -> Result<(), String> {
+    features::require(&db, Feature::Ocr)?;
+    ocr.cancel();
+    Ok(())
+}
+
+#[tauri::command]
+pub fn retry_failed_ocr(
+    db: State<'_, Arc<DbState>>,
+    ocr: State<'_, Arc<crate::ocr::OcrService>>,
+) -> Result<usize, String> {
+    features::require(&db, Feature::Ocr)?;
+    let count = db.reset_failed_ocr().map_err(|error| error.to_string())?;
+    if count > 0 {
+        ocr.start_backfill()?;
+    }
+    Ok(count)
 }
 
 #[tauri::command]

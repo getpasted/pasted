@@ -19,6 +19,7 @@ interface ClipPreviewContentProps {
   isFilePreviewLoading: boolean;
   copiedFormat: string | null;
   isOcrLoading: boolean;
+  ocrEnabled: boolean;
   readOnly?: boolean;
   onColorChange: (value: string) => void;
   onCopyFormat: (label: string, value: string) => void;
@@ -136,6 +137,7 @@ export function ClipPreviewContent({
   isFilePreviewLoading,
   copiedFormat,
   isOcrLoading,
+  ocrEnabled,
   readOnly = false,
   onColorChange,
   onCopyFormat,
@@ -324,14 +326,14 @@ export function ClipPreviewContent({
                       <Copy className="w-3.5 h-3.5" />
                     </button>
                   )}
-                  <button
+                  {ocrEnabled && <button
                     onClick={onRunOCR}
                     disabled={isOcrLoading || readOnly}
                     className="theme-primary-button theme-focusable p-1.5 rounded-lg border transition-colors shadow cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                     title={readOnly ? 'Restore Before OCR' : isOcrLoading ? 'Running OCR…' : clip.text_content ? 'Run OCR Again' : 'Run OCR'}
                   >
                     <Sparkles className={`w-3.5 h-3.5 ${isOcrLoading ? 'animate-spin' : ''}`} />
-                  </button>
+                  </button>}
                 </div>
               </div>
 
@@ -341,7 +343,7 @@ export function ClipPreviewContent({
                 </div>
               ) : (
                 <p className="theme-text-muted text-xs italic">
-                  Run OCR to recognize text in this image.
+                  {ocrEnabled ? 'Run OCR to recognize text in this image.' : 'OCR is disabled in Settings → Features.'}
                 </p>
               )}
             </div>

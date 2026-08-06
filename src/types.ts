@@ -345,6 +345,20 @@ export interface AppSettings {
   activityLogCapacity: number;
   enableTrash: boolean;
   trashCapacityCount: number;
+  enableAnalytics: boolean;
+  enableBins: boolean;
+  enableContentDetection: boolean;
+  enableDiagnostics: boolean;
+  enableNotes: boolean;
+  enableOcr: boolean;
+  enablePinning: boolean;
+  enableProtection: boolean;
+  enableQueue: boolean;
+  enableRevisions: boolean;
+  enableHud: boolean;
+  enableTransformations: boolean;
+  enableCli: boolean;
+  enableHelp: boolean;
   hudHotkey?: string;
   seqToggleHotkey?: string;
   seqPopHotkey?: string;
@@ -361,6 +375,16 @@ export interface AppSettings {
   pasteClip7Hotkey?: string;
   pasteClip8Hotkey?: string;
   pasteClip9Hotkey?: string;
+}
+
+export interface OcrBackfillStatus {
+  totalImages: number;
+  eligibleCount: number;
+  queuedCount: number;
+  runningCount: number;
+  completedCount: number;
+  noTextCount: number;
+  failedCount: number;
 }
 
 export interface BlacklistApp {

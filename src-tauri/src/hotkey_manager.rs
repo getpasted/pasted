@@ -6,6 +6,7 @@ use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut};
 
 use crate::commands;
 use crate::db::DbState;
+use crate::features::{self, Feature};
 use crate::sequential_paste::SequentialQueueState;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -81,25 +82,30 @@ impl HotkeyManager {
             }
         };
 
-        // HUD shortcut (default Option+Shift+V)
-        let hud_sc = get_setting("hudHotkey", "Alt+Shift+V");
-        add_shortcut(hud_sc, AppHotkeyAction::ToggleHud);
+        if features::is_enabled(&db, Feature::Hud) {
+            // HUD shortcut (default Option+Shift+V)
+            let hud_sc = get_setting("hudHotkey", "Alt+Shift+V");
+            add_shortcut(hud_sc, AppHotkeyAction::ToggleHud);
+        }
 
         // Main window shortcut
         let main_sc = get_setting("openMainWindowHotkey", "");
         add_shortcut(main_sc, AppHotkeyAction::ToggleMainWindow);
 
-        // Transformations shortcut
-        let transformations_sc = get_setting("openTransformationsHotkey", "");
-        add_shortcut(transformations_sc, AppHotkeyAction::OpenTransformations);
+        if features::is_enabled(&db, Feature::Transformations) {
+            let transformations_sc = get_setting("openTransformationsHotkey", "");
+            add_shortcut(transformations_sc, AppHotkeyAction::OpenTransformations);
+        }
 
-        // Sequential Stack toggle (default Option+Shift+C)
-        let seq_toggle_sc = get_setting("seqToggleHotkey", "Alt+Shift+C");
-        add_shortcut(seq_toggle_sc, AppHotkeyAction::ToggleCopyQueue);
+        if features::is_enabled(&db, Feature::Queue) {
+            // Sequential Stack toggle (default Option+Shift+C)
+            let seq_toggle_sc = get_setting("seqToggleHotkey", "Alt+Shift+C");
+            add_shortcut(seq_toggle_sc, AppHotkeyAction::ToggleCopyQueue);
 
-        // Sequential Stack pop (default Option+Shift+X)
-        let seq_pop_sc = get_setting("seqPopHotkey", "Alt+Shift+X");
-        add_shortcut(seq_pop_sc, AppHotkeyAction::PopCopyQueue);
+            // Sequential Stack pop (default Option+Shift+X)
+            let seq_pop_sc = get_setting("seqPopHotkey", "Alt+Shift+X");
+            add_shortcut(seq_pop_sc, AppHotkeyAction::PopCopyQueue);
+        }
 
         // Recent clip shortcuts
         for i in 1..=9 {
@@ -108,35 +114,39 @@ impl HotkeyManager {
             add_shortcut(sc, AppHotkeyAction::PasteClip(i));
         }
 
-        // Last-Pipeline shortcuts
-        let copy_last_pipeline_sc = get_setting("copyLastPipelineHotkey", "");
-        add_shortcut(copy_last_pipeline_sc, AppHotkeyAction::CopyWithLastPipeline);
-        let paste_last_pipeline_sc = get_setting("pasteLastPipelineHotkey", "");
-        add_shortcut(
-            paste_last_pipeline_sc,
-            AppHotkeyAction::PasteWithLastPipeline,
-        );
+        if features::is_enabled(&db, Feature::Transformations) {
+            // Last-Pipeline shortcuts
+            let copy_last_pipeline_sc = get_setting("copyLastPipelineHotkey", "");
+            add_shortcut(copy_last_pipeline_sc, AppHotkeyAction::CopyWithLastPipeline);
+            let paste_last_pipeline_sc = get_setting("pasteLastPipelineHotkey", "");
+            add_shortcut(
+                paste_last_pipeline_sc,
+                AppHotkeyAction::PasteWithLastPipeline,
+            );
 
-        // Per-Pipeline shortcuts
-        if let Ok(pipelines) = db.get_pipelines() {
-            for pipeline in pipelines {
-                if let Some(sc) = pipeline.shortcut {
-                    if !sc.trim().is_empty() {
-                        add_shortcut(
-                            Some(sc),
-                            AppHotkeyAction::PasteWithPipeline(pipeline.stable_ref),
-                        );
+            // Per-Pipeline shortcuts
+            if let Ok(pipelines) = db.get_pipelines() {
+                for pipeline in pipelines {
+                    if let Some(sc) = pipeline.shortcut {
+                        if !sc.trim().is_empty() {
+                            add_shortcut(
+                                Some(sc),
+                                AppHotkeyAction::PasteWithPipeline(pipeline.stable_ref),
+                            );
+                        }
                     }
                 }
             }
         }
 
-        // Bin shortcuts
-        if let Ok(bins) = db.get_bins() {
-            for b in bins {
-                if let Some(sc) = b.shortcut {
-                    if !sc.trim().is_empty() {
-                        add_shortcut(Some(sc), AppHotkeyAction::OpenBin(b.id));
+        if features::is_enabled(&db, Feature::Bins) {
+            // Bin shortcuts
+            if let Ok(bins) = db.get_bins() {
+                for b in bins {
+                    if let Some(sc) = b.shortcut {
+                        if !sc.trim().is_empty() {
+                            add_shortcut(Some(sc), AppHotkeyAction::OpenBin(b.id));
+                        }
                     }
                 }
             }

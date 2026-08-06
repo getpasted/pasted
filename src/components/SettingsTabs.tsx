@@ -1,25 +1,30 @@
-import { Sliders, Command, Shield, Cloud, Cable, Bug } from 'lucide-react';
+import { Sliders, Command, Shield, Cloud, Cable, Bug, Blocks } from 'lucide-react';
 
-export type SettingsTab = 'general' | 'hotkeys' | 'connections' | 'blacklist' | 'sync' | 'debug';
+export type SettingsTab = 'general' | 'features' | 'hotkeys' | 'connections' | 'blacklist' | 'sync' | 'diagnostics';
 
 interface SettingsTabsProps {
   activeTab: SettingsTab;
   onChange: (tab: SettingsTab) => void;
+  showConnections?: boolean;
+  showDiagnostics?: boolean;
 }
 
 const TABS = [
   { id: 'general', label: 'General', Icon: Sliders },
+  { id: 'features', label: 'Features', Icon: Blocks },
   { id: 'hotkeys', label: 'Hotkeys', Icon: Command },
   { id: 'connections', label: 'Connections', Icon: Cable },
   { id: 'blacklist', label: 'Blacklist', Icon: Shield },
   { id: 'sync', label: 'Sync', Icon: Cloud },
-  { id: 'debug', label: 'Debug', Icon: Bug },
+  { id: 'diagnostics', label: 'Diagnostics', Icon: Bug },
 ] as const;
 
-export function SettingsTabs({ activeTab, onChange }: SettingsTabsProps) {
+export function SettingsTabs({ activeTab, onChange, showConnections = true, showDiagnostics = true }: SettingsTabsProps) {
   return (
     <nav className="theme-surface settings-tabs flex items-center gap-1 rounded-xl border p-1" aria-label="Settings sections">
-      {TABS.map(({ id, label, Icon }) => (
+      {TABS.filter(({ id }) => (
+        (id !== 'connections' || showConnections) && (id !== 'diagnostics' || showDiagnostics)
+      )).map(({ id, label, Icon }) => (
         <button
           key={id}
           type="button"

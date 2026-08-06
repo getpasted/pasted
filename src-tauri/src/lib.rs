@@ -2,13 +2,14 @@ mod app_menu;
 mod clipboard_monitor;
 mod commands;
 pub mod db;
+pub mod features;
 mod filter_engine;
 mod hotkey_manager;
 mod intelligence_connections;
 pub mod intelligence_executor;
 mod intelligence_provider;
 mod intelligence_scheduler;
-mod ocr;
+pub mod ocr;
 #[cfg(test)]
 mod operation_plugins;
 mod operation_registry;
@@ -19,11 +20,49 @@ mod transformation_service;
 
 use std::sync::Arc;
 use tauri::{
-    menu::{Menu, MenuItem},
+    menu::{Menu, MenuBuilder, MenuItem},
     tray::{TrayIconBuilder, TrayIconEvent},
     Emitter, Manager,
 };
 use tauri_plugin_window_state::{StateFlags, WindowExt};
+
+fn build_tray_menu(
+    app: &tauri::AppHandle,
+    db: &Arc<db::DbState>,
+) -> tauri::Result<Menu<tauri::Wry>> {
+    let show = MenuItem::with_id(app, "show", "Show Pasted", true, None::<&str>)?;
+    let hud = MenuItem::with_id(app, "hud_toggle", "Toggle Quick HUD", true, None::<&str>)?;
+    let queue = MenuItem::with_id(
+        app,
+        "seq_toggle",
+        "Start Sequential Paste",
+        true,
+        None::<&str>,
+    )?;
+    let quit = MenuItem::with_id(app, "quit", "Quit Pasted", true, None::<&str>)?;
+    let mut builder = MenuBuilder::new(app).item(&show);
+    if features::is_enabled(db, features::Feature::Hud) {
+        builder = builder.item(&hud);
+    }
+    if features::is_enabled(db, features::Feature::Queue) {
+        builder = builder.item(&queue);
+    }
+    builder.item(&quit).build()
+}
+
+pub(crate) fn refresh_tray_menu(app: &tauri::AppHandle, db: &Arc<db::DbState>) {
+    let Some(tray) = app.tray_by_id("main") else {
+        return;
+    };
+    match build_tray_menu(app, db) {
+        Ok(menu) => {
+            if let Err(error) = tray.set_menu(Some(menu)) {
+                eprintln!("Could not refresh the tray menu: {error}");
+            }
+        }
+        Err(error) => eprintln!("Could not rebuild the tray menu: {error}"),
+    }
+}
 
 fn main_window_state_flags() -> StateFlags {
     StateFlags::SIZE | StateFlags::POSITION | StateFlags::MAXIMIZED | StateFlags::FULLSCREEN
@@ -141,12 +180,22 @@ pub fn run() {
             app.manage(db_state.clone());
             app.manage(seq_state.clone());
 
+            let ocr_service = Arc::new(ocr::spawn_ocr_worker(
+                app.handle().clone(),
+                db_state.clone(),
+            ));
+            app.manage(ocr_service.clone());
+
             app_menu::install(app.handle(), &db_state)?;
 
             // Start background clipboard monitor
             let handle = app.handle().clone();
-            let monitor_handle =
-                clipboard_monitor::start_clipboard_monitor(handle, db_state.clone(), seq_state);
+            let monitor_handle = clipboard_monitor::start_clipboard_monitor(
+                handle,
+                db_state.clone(),
+                seq_state,
+                ocr_service,
+            );
             let monitor_state = Arc::new(clipboard_monitor::ClipboardMonitorState {
                 is_manually_paused: monitor_handle.is_manually_paused.clone(),
                 is_auto_paused: monitor_handle.is_auto_paused.clone(),
@@ -164,18 +213,7 @@ pub fn run() {
             let _ = commands::register_all_app_shortcuts(app.handle());
 
             // Create Menu Bar / System Tray Icon
-            let show_i = MenuItem::with_id(app, "show", "Show Pasted", true, None::<&str>)?;
-            let hud_i =
-                MenuItem::with_id(app, "hud_toggle", "Toggle Quick HUD", true, None::<&str>)?;
-            let seq_i = MenuItem::with_id(
-                app,
-                "seq_toggle",
-                "Start Sequential Paste",
-                true,
-                None::<&str>,
-            )?;
-            let quit_i = MenuItem::with_id(app, "quit", "Quit Pasted", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&show_i, &hud_i, &seq_i, &quit_i])?;
+            let menu = build_tray_menu(app.handle(), &db_state)?;
 
             let tray_icon =
                 match image::load_from_memory(include_bytes!("../icons/tray-icon@2x.png")) {
@@ -191,7 +229,7 @@ pub fn run() {
                     })?,
                 };
 
-            let _tray = TrayIconBuilder::new()
+            let _tray = TrayIconBuilder::with_id("main")
                 .icon(tray_icon)
                 .icon_as_template(true)
                 .menu(&menu)
@@ -206,6 +244,10 @@ pub fn run() {
                         let _ = commands::toggle_hud_window(app.clone());
                     }
                     "seq_toggle" => {
+                        let db = app.state::<Arc<db::DbState>>();
+                        if !features::is_enabled(&db, features::Feature::Queue) {
+                            return;
+                        }
                         let seq = app.state::<Arc<sequential_paste::SequentialQueueState>>();
                         let is_active = *seq.is_active.lock();
                         if is_active {
@@ -262,6 +304,7 @@ pub fn run() {
             commands::play_system_sound,
             commands::get_total_clip_count,
             commands::save_app_setting,
+            commands::save_app_settings,
             commands::get_all_app_settings,
             commands::enforce_clip_retention,
             commands::enforce_revision_retention,
@@ -273,6 +316,10 @@ pub fn run() {
             commands::get_clip_versions,
             commands::get_clip_version_count,
             commands::restore_clip_version,
+            commands::get_ocr_backfill_status,
+            commands::start_ocr_backfill,
+            commands::cancel_ocr_backfill,
+            commands::retry_failed_ocr,
             commands::batch_pin_clips,
             commands::batch_trash_clips,
             commands::batch_assign_bin_clips,

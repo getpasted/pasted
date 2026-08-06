@@ -230,6 +230,44 @@ html:not(.is-stable-reordering) .connection-priority-card:hover {
   outline-offset: 2px;
 }
 
+.settings-feature-preset {
+  color: var(--text-muted);
+}
+
+.settings-feature-preset:hover {
+  background-color: var(--bg-tab-hover);
+  color: var(--text-title);
+}
+
+.settings-feature-preset.is-active {
+  background-color: var(--accent-primary);
+  color: var(--accent-primary-contrast);
+}
+
+.settings-feature-card {
+  transition: background-color 140ms ease, border-color 140ms ease, opacity 140ms ease;
+}
+
+.settings-feature-card:not(.is-enabled) {
+  opacity: 0.72;
+}
+
+.settings-feature-card.is-enabled {
+  border-color: color-mix(in srgb, var(--accent-primary) 32%, var(--border-subtle));
+}
+
+.settings-feature-icon {
+  background-color: color-mix(in srgb, var(--accent-primary) 8%, var(--bg-surface));
+  border-color: var(--border-subtle);
+  color: var(--text-muted);
+}
+
+.settings-feature-card.is-enabled .settings-feature-icon {
+  background-color: color-mix(in srgb, var(--accent-primary) 13%, var(--bg-surface));
+  border-color: color-mix(in srgb, var(--accent-primary) 36%, var(--border-subtle));
+  color: var(--accent-primary);
+}
+
 @media (max-width: 1100px) {
   .settings-tab {
     padding-inline: 0.65rem;

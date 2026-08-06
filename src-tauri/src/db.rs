@@ -1,10 +1,10 @@
 use parking_lot::Mutex;
-use rusqlite::{params, Connection, Result, ToSql};
+use rusqlite::{params, Connection, OptionalExtension, Result, ToSql};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 
-const BACKUP_SCHEMA_VERSION: u32 = 5;
+const BACKUP_SCHEMA_VERSION: u32 = 6;
 
 fn ensure_resource_size(value: &str, maximum: usize, label: &str) -> Result<()> {
     if value.len() <= maximum {
@@ -124,6 +124,25 @@ pub struct ActivityLog {
     pub created_at: String,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct OcrBackfillStatus {
+    pub total_images: i64,
+    pub eligible_count: i64,
+    pub queued_count: i64,
+    pub running_count: i64,
+    pub completed_count: i64,
+    pub no_text_count: i64,
+    pub failed_count: i64,
+}
+
+#[derive(Debug, Clone)]
+pub struct OcrCandidate {
+    pub clip_id: i64,
+    pub content_hash: String,
+    pub image_base64: String,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Bin {
     pub id: i64,
@@ -203,6 +222,17 @@ pub struct BackupPayload {
     pub saved_transforms: Vec<SavedTransform>,
     #[serde(default)]
     pub bin_transforms: Vec<BinTransformBinding>,
+    #[serde(default)]
+    pub ocr_metadata: Vec<OcrBackupMetadata>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct OcrBackupMetadata {
+    pub content_hash: String,
+    pub status: String,
+    pub input_hash: Option<String>,
+    pub engine_version: Option<String>,
+    pub attempted_at: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -514,6 +544,39 @@ impl DbState {
             "ALTER TABLE clips ADD COLUMN current_transformation_id TEXT",
             [],
         );
+        let _ = conn.execute(
+            "ALTER TABLE clips ADD COLUMN ocr_status TEXT NOT NULL DEFAULT 'not_applicable'",
+            [],
+        );
+        let _ = conn.execute("ALTER TABLE clips ADD COLUMN ocr_input_hash TEXT", []);
+        let _ = conn.execute("ALTER TABLE clips ADD COLUMN ocr_engine_version TEXT", []);
+        let _ = conn.execute("ALTER TABLE clips ADD COLUMN ocr_attempted_at DATETIME", []);
+        let _ = conn.execute("ALTER TABLE clips ADD COLUMN ocr_error TEXT", []);
+        conn.execute(
+            "UPDATE clips
+             SET ocr_status = CASE
+                    WHEN content_type = 'image' AND COALESCE(text_content, '') != '' THEN 'complete'
+                    WHEN content_type = 'image' THEN 'never'
+                    ELSE 'not_applicable'
+                 END,
+                 ocr_input_hash = CASE WHEN content_type = 'image' THEN content_hash ELSE NULL END,
+                 ocr_engine_version = CASE
+                    WHEN content_type = 'image' AND COALESCE(text_content, '') != '' THEN COALESCE(ocr_engine_version, 'legacy')
+                    ELSE ocr_engine_version
+                 END
+             WHERE content_type = 'image' AND ocr_input_hash IS NULL",
+            [],
+        )?;
+        conn.execute(
+            "UPDATE clips SET ocr_status = 'never', ocr_error = NULL
+             WHERE content_type = 'image' AND ocr_status IN ('queued', 'running')",
+            [],
+        )?;
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_clips_ocr_backfill
+             ON clips (content_type, ocr_status, is_trashed, id)",
+            [],
+        )?;
         let _ = conn.execute("ALTER TABLE bins ADD COLUMN smart_rule TEXT", []);
         let _ = conn.execute(
             "ALTER TABLE bins ADD COLUMN bin_type TEXT DEFAULT 'category'",
@@ -1047,6 +1110,216 @@ impl DbState {
         )
     }
 
+    pub fn get_ocr_backfill_status(&self) -> Result<OcrBackfillStatus> {
+        let conn = self.conn.lock();
+        conn.query_row(
+            "SELECT
+                COUNT(*),
+                SUM(CASE WHEN ocr_status = 'never' THEN 1 ELSE 0 END),
+                SUM(CASE WHEN ocr_status = 'queued' THEN 1 ELSE 0 END),
+                SUM(CASE WHEN ocr_status = 'running' THEN 1 ELSE 0 END),
+                SUM(CASE WHEN ocr_status = 'complete' THEN 1 ELSE 0 END),
+                SUM(CASE WHEN ocr_status = 'no_text' THEN 1 ELSE 0 END),
+                SUM(CASE WHEN ocr_status = 'failed' THEN 1 ELSE 0 END)
+             FROM clips
+             WHERE content_type = 'image' AND COALESCE(is_trashed, 0) = 0",
+            [],
+            |row| {
+                Ok(OcrBackfillStatus {
+                    total_images: row.get(0)?,
+                    eligible_count: row.get::<_, Option<i64>>(1)?.unwrap_or(0),
+                    queued_count: row.get::<_, Option<i64>>(2)?.unwrap_or(0),
+                    running_count: row.get::<_, Option<i64>>(3)?.unwrap_or(0),
+                    completed_count: row.get::<_, Option<i64>>(4)?.unwrap_or(0),
+                    no_text_count: row.get::<_, Option<i64>>(5)?.unwrap_or(0),
+                    failed_count: row.get::<_, Option<i64>>(6)?.unwrap_or(0),
+                })
+            },
+        )
+    }
+
+    pub fn claim_next_ocr_candidate(&self) -> Result<Option<OcrCandidate>> {
+        let mut conn = self.conn.lock();
+        let tx = conn.transaction()?;
+        let candidate = tx
+            .query_row(
+                "SELECT id, content_hash, image_base64
+                 FROM clips
+                 WHERE content_type = 'image'
+                   AND ocr_status = 'never'
+                   AND COALESCE(is_trashed, 0) = 0
+                   AND image_base64 IS NOT NULL
+                 ORDER BY id ASC LIMIT 1",
+                [],
+                |row| {
+                    Ok(OcrCandidate {
+                        clip_id: row.get(0)?,
+                        content_hash: row.get(1)?,
+                        image_base64: row.get(2)?,
+                    })
+                },
+            )
+            .optional()?;
+        if let Some(candidate) = candidate.as_ref() {
+            let changed = tx.execute(
+                "UPDATE clips SET ocr_status = 'running', ocr_error = NULL
+                 WHERE id = ?1 AND content_hash = ?2 AND ocr_status = 'never'
+                   AND COALESCE(is_trashed, 0) = 0",
+                params![candidate.clip_id, candidate.content_hash],
+            )?;
+            if changed == 0 {
+                tx.commit()?;
+                return Ok(None);
+            }
+        }
+        tx.commit()?;
+        Ok(candidate)
+    }
+
+    pub fn mark_ocr_running(&self, clip_id: i64, content_hash: &str) -> Result<bool> {
+        let conn = self.conn.lock();
+        let changed = conn.execute(
+            "UPDATE clips SET ocr_status = 'running', ocr_error = NULL
+             WHERE id = ?1 AND content_hash = ?2 AND content_type = 'image'
+               AND ocr_status IN ('never', 'queued', 'running', 'failed')
+               AND COALESCE(is_trashed, 0) = 0",
+            params![clip_id, content_hash],
+        )?;
+        Ok(changed > 0)
+    }
+
+    pub fn force_ocr_running(&self, clip_id: i64, content_hash: &str) -> Result<bool> {
+        let conn = self.conn.lock();
+        let changed = conn.execute(
+            "UPDATE clips SET ocr_status = 'running', ocr_error = NULL
+             WHERE id = ?1 AND content_hash = ?2 AND content_type = 'image'
+               AND COALESCE(is_trashed, 0) = 0",
+            params![clip_id, content_hash],
+        )?;
+        Ok(changed > 0)
+    }
+
+    pub fn reset_ocr_work(&self, clip_id: Option<i64>, content_hash: Option<&str>) -> Result<()> {
+        let conn = self.conn.lock();
+        match (clip_id, content_hash) {
+            (Some(id), Some(hash)) => {
+                conn.execute(
+                    "UPDATE clips SET ocr_status = 'never', ocr_error = NULL
+                     WHERE id = ?1 AND content_hash = ?2 AND content_type = 'image'
+                       AND ocr_status IN ('queued', 'running')",
+                    params![id, hash],
+                )?;
+            }
+            _ => {
+                conn.execute(
+                    "UPDATE clips SET ocr_status = 'never', ocr_error = NULL
+                     WHERE content_type = 'image' AND ocr_status IN ('queued', 'running')",
+                    [],
+                )?;
+            }
+        }
+        Ok(())
+    }
+
+    pub fn reset_failed_ocr(&self) -> Result<usize> {
+        let conn = self.conn.lock();
+        conn.execute(
+            "UPDATE clips SET ocr_status = 'never', ocr_error = NULL
+             WHERE content_type = 'image' AND ocr_status = 'failed'
+               AND COALESCE(is_trashed, 0) = 0",
+            [],
+        )
+    }
+
+    pub fn complete_ocr_attempt(
+        &self,
+        clip_id: i64,
+        content_hash: &str,
+        recognized_text: Option<&str>,
+        engine_version: &str,
+        error: Option<&str>,
+    ) -> Result<bool> {
+        if let Some(text) = recognized_text {
+            ensure_resource_size(text, crate::resource_limits::MAX_OCR_TEXT_BYTES, "OCR text")?;
+        }
+        let mut conn = self.conn.lock();
+        let tx = conn.transaction()?;
+        let current = tx
+            .query_row(
+                "SELECT text_content FROM clips
+                 WHERE id = ?1 AND content_hash = ?2 AND content_type = 'image'
+                   AND COALESCE(is_trashed, 0) = 0",
+                params![clip_id, content_hash],
+                |row| row.get::<_, Option<String>>(0),
+            )
+            .optional()?;
+        let Some(previous_text) = current else {
+            tx.execute(
+                "UPDATE clips SET ocr_status = 'never', ocr_error = NULL
+                 WHERE id = ?1 AND content_hash = ?2 AND content_type = 'image'
+                   AND ocr_status IN ('queued', 'running')",
+                params![clip_id, content_hash],
+            )?;
+            tx.commit()?;
+            return Ok(false);
+        };
+
+        let status = if error.is_some() {
+            "failed"
+        } else if recognized_text.is_some_and(|text| !text.trim().is_empty()) {
+            "complete"
+        } else {
+            "no_text"
+        };
+        if status == "complete" {
+            let recognized_text = recognized_text.unwrap_or_default();
+            if previous_text.as_deref() != Some(recognized_text)
+                && Self::revision_history_enabled_internal(&tx)
+            {
+                if let Some(previous_text) = previous_text.as_ref() {
+                    let context_json = serde_json::to_string(&ClipRevisionContext {
+                        schema_version: 1,
+                        action_kind: "ocr".to_string(),
+                        action_label: "Updated OCR text".to_string(),
+                        organization: None,
+                        current_transformation_id: None,
+                    })
+                    .map_err(|reason| rusqlite::Error::InvalidParameterName(reason.to_string()))?;
+                    tx.execute(
+                        "INSERT INTO clip_versions (clip_id, text_content, context_json)
+                         VALUES (?1, ?2, ?3)",
+                        params![clip_id, previous_text, context_json],
+                    )?;
+                    Self::prune_clip_versions_internal(&tx, clip_id)?;
+                }
+            }
+            tx.execute(
+                "UPDATE clips
+                 SET text_content = ?1, current_transformation_id = NULL,
+                     ocr_status = 'complete', ocr_input_hash = ?2,
+                     ocr_engine_version = ?3,
+                     ocr_attempted_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now'),
+                     ocr_error = NULL
+                 WHERE id = ?4 AND content_hash = ?2 AND content_type = 'image'
+                   AND COALESCE(is_trashed, 0) = 0",
+                params![recognized_text, content_hash, engine_version, clip_id],
+            )?;
+        } else {
+            tx.execute(
+                "UPDATE clips
+                 SET ocr_status = ?1, ocr_input_hash = ?2,
+                     ocr_engine_version = ?3,
+                     ocr_attempted_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now'),
+                     ocr_error = ?4
+                 WHERE id = ?5 AND content_hash = ?2 AND content_type = 'image'
+                   AND COALESCE(is_trashed, 0) = 0",
+                params![status, content_hash, engine_version, error, clip_id],
+            )?;
+        }
+        tx.commit()?;
+        Ok(true)
+    }
+
     pub fn save_clip(
         &self,
         content_type: &str,
@@ -1093,10 +1366,27 @@ impl DbState {
             return self.get_clip_by_id_internal(&conn, id);
         }
 
+        let ocr_status = if content_type == "image" {
+            "never"
+        } else {
+            "not_applicable"
+        };
+        let ocr_input_hash = (content_type == "image").then_some(content_hash);
         conn.execute(
-            "INSERT INTO clips (content_type, text_content, html_content, image_base64, content_hash, source_app, created_at) 
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))",
-            params![content_type, text_content, html_content, image_base64, content_hash, source_app],
+            "INSERT INTO clips
+                (content_type, text_content, html_content, image_base64, content_hash, source_app,
+                 ocr_status, ocr_input_hash, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))",
+            params![
+                content_type,
+                text_content,
+                html_content,
+                image_base64,
+                content_hash,
+                source_app,
+                ocr_status,
+                ocr_input_hash
+            ],
         )?;
 
         let id = conn.last_insert_rowid();
@@ -1547,6 +1837,17 @@ impl DbState {
         .max(0)
     }
 
+    fn revision_history_enabled_internal(conn: &Connection) -> bool {
+        let value = conn
+            .query_row(
+                "SELECT value FROM settings WHERE key = 'enableRevisions'",
+                [],
+                |row| row.get::<_, String>(0),
+            )
+            .ok();
+        crate::features::setting_value_is_enabled(value.as_deref())
+    }
+
     fn prune_clip_versions_internal(conn: &Connection, clip_id: i64) -> Result<()> {
         let limit = Self::revision_history_limit_internal(conn);
         if limit == 0 {
@@ -1589,20 +1890,22 @@ impl DbState {
             return tx.commit();
         }
 
-        if let Some(previous_text) = previous_text {
-            let context_json = serde_json::to_string(&ClipRevisionContext {
-                schema_version: 1,
-                action_kind: "edit".to_string(),
-                action_label: "Edited clip content".to_string(),
-                organization: None,
-                current_transformation_id,
-            })
-            .map_err(|error| rusqlite::Error::InvalidParameterName(error.to_string()))?;
-            tx.execute(
+        if Self::revision_history_enabled_internal(&tx) {
+            if let Some(previous_text) = previous_text {
+                let context_json = serde_json::to_string(&ClipRevisionContext {
+                    schema_version: 1,
+                    action_kind: "edit".to_string(),
+                    action_label: "Edited clip content".to_string(),
+                    organization: None,
+                    current_transformation_id,
+                })
+                .map_err(|error| rusqlite::Error::InvalidParameterName(error.to_string()))?;
+                tx.execute(
                 "INSERT INTO clip_versions (clip_id, text_content, context_json) VALUES (?1, ?2, ?3)",
                 params![clip_id, previous_text, context_json],
             )?;
-            Self::prune_clip_versions_internal(&tx, clip_id)?;
+                Self::prune_clip_versions_internal(&tx, clip_id)?;
+            }
         }
         tx.execute(
             "UPDATE clips SET text_content = ?1, current_transformation_id = NULL WHERE id = ?2",
@@ -2742,6 +3045,7 @@ impl DbState {
                     })
             })
             .collect();
+        let ocr_metadata = self.get_ocr_backup_metadata()?;
 
         let payload = BackupPayload {
             version: BACKUP_SCHEMA_VERSION,
@@ -2752,6 +3056,7 @@ impl DbState {
             operations,
             saved_transforms,
             bin_transforms,
+            ocr_metadata,
         };
 
         serde_json::to_string_pretty(&payload)
@@ -2775,6 +3080,11 @@ impl DbState {
         let mut conn = self.conn.lock();
         let tx = conn.transaction()?;
         let mut bin_id_map = std::collections::HashMap::new();
+        let ocr_metadata = payload
+            .ocr_metadata
+            .iter()
+            .map(|entry| (entry.content_hash.clone(), entry.clone()))
+            .collect::<std::collections::HashMap<_, _>>();
 
         for bin in payload.bins {
             let existing_id = tx.query_row(
@@ -2998,6 +3308,28 @@ impl DbState {
                 params![clip.content_hash],
                 |row| row.get::<_, i64>(0),
             )?;
+            if clip.content_type == "image" {
+                if let Some(metadata) = ocr_metadata.get(&clip.content_hash) {
+                    let status = match metadata.status.as_str() {
+                        "complete" | "no_text" | "failed" | "never" => metadata.status.as_str(),
+                        _ => "never",
+                    };
+                    tx.execute(
+                        "UPDATE clips
+                         SET ocr_status = ?1, ocr_input_hash = ?2,
+                             ocr_engine_version = ?3, ocr_attempted_at = ?4,
+                             ocr_error = NULL
+                         WHERE id = ?5",
+                        params![
+                            status,
+                            metadata.input_hash.as_deref().unwrap_or(&clip.content_hash),
+                            metadata.engine_version.as_deref(),
+                            metadata.attempted_at.as_deref(),
+                            new_clip_id
+                        ],
+                    )?;
+                }
+            }
             tx.execute(
                 "DELETE FROM clip_bins WHERE clip_id = ?1",
                 params![new_clip_id],
@@ -3021,6 +3353,28 @@ impl DbState {
 
         tx.commit()?;
         Ok(imported)
+    }
+
+    fn get_ocr_backup_metadata(&self) -> Result<Vec<OcrBackupMetadata>> {
+        let conn = self.conn.lock();
+        let mut statement = conn.prepare(
+            "SELECT content_hash,
+                    CASE WHEN ocr_status IN ('queued', 'running') THEN 'never' ELSE ocr_status END,
+                    ocr_input_hash, ocr_engine_version, ocr_attempted_at
+             FROM clips WHERE content_type = 'image'",
+        )?;
+        let metadata = statement
+            .query_map([], |row| {
+                Ok(OcrBackupMetadata {
+                    content_hash: row.get(0)?,
+                    status: row.get(1)?,
+                    input_hash: row.get(2)?,
+                    engine_version: row.get(3)?,
+                    attempted_at: row.get(4)?,
+                })
+            })?
+            .collect();
+        metadata
     }
 
     fn get_all_clips_for_backup(&self) -> Result<Vec<ClipItem>> {
@@ -3523,23 +3877,25 @@ impl DbState {
             } else {
                 (format!("Applied {transform_name}"), None)
             };
-        let context_json = serde_json::to_string(&ClipRevisionContext {
-            schema_version: 1,
-            action_kind: if organization.is_some() {
-                "transform_bin_drop".to_string()
-            } else {
-                "transform".to_string()
-            },
-            action_label,
-            organization,
-            current_transformation_id,
-        })
-        .map_err(|error| rusqlite::Error::InvalidParameterName(error.to_string()))?;
-        tx.execute(
-            "INSERT INTO clip_versions (clip_id, text_content, context_json) VALUES (?1, ?2, ?3)",
-            params![clip_id, expected_input, context_json],
-        )?;
-        Self::prune_clip_versions_internal(&tx, clip_id)?;
+        if Self::revision_history_enabled_internal(&tx) {
+            let context_json = serde_json::to_string(&ClipRevisionContext {
+                schema_version: 1,
+                action_kind: if organization.is_some() {
+                    "transform_bin_drop".to_string()
+                } else {
+                    "transform".to_string()
+                },
+                action_label,
+                organization,
+                current_transformation_id,
+            })
+            .map_err(|error| rusqlite::Error::InvalidParameterName(error.to_string()))?;
+            tx.execute(
+                "INSERT INTO clip_versions (clip_id, text_content, context_json) VALUES (?1, ?2, ?3)",
+                params![clip_id, expected_input, context_json],
+            )?;
+            Self::prune_clip_versions_internal(&tx, clip_id)?;
+        }
         let transformation_id: String =
             tx.query_row("SELECT lower(hex(randomblob(16)))", [], |row| row.get(0))?;
         tx.execute(
@@ -4121,6 +4477,21 @@ impl DbState {
             params![key, value],
         )?;
         Ok(())
+    }
+
+    pub fn save_settings(&self, values: &std::collections::HashMap<String, String>) -> Result<()> {
+        let mut conn = self.conn.lock();
+        let tx = conn.transaction()?;
+        {
+            let mut statement = tx.prepare_cached(
+                "INSERT INTO settings (key, value) VALUES (?1, ?2)
+                 ON CONFLICT(key) DO UPDATE SET value = ?2",
+            )?;
+            for (key, value) in values {
+                statement.execute(params![key, value])?;
+            }
+        }
+        tx.commit()
     }
 
     pub fn delete_setting(&self, key: &str) -> Result<()> {
@@ -5447,6 +5818,135 @@ mod tests {
     }
 
     #[test]
+    fn disabled_revision_history_preserves_existing_versions_and_skips_new_snapshots() {
+        let db = setup_test_db();
+        let clip = db
+            .save_clip(
+                "text",
+                Some("Original Content"),
+                None,
+                None,
+                "revision-feature-gate",
+                "App",
+            )
+            .unwrap();
+
+        db.update_clip_text(clip.id, "First Edit").unwrap();
+        assert_eq!(db.get_clip_version_count(clip.id).unwrap(), 1);
+
+        db.save_setting("enableRevisions", "false").unwrap();
+        db.update_clip_text(clip.id, "Irreversible Edit").unwrap();
+        assert_eq!(db.get_clip_version_count(clip.id).unwrap(), 1);
+        assert_eq!(
+            db.get_clip_by_id(clip.id).unwrap().text_content.as_deref(),
+            Some("Irreversible Edit")
+        );
+
+        db.save_setting("enableRevisions", "true").unwrap();
+        db.update_clip_text(clip.id, "History Resumed").unwrap();
+        let versions = db.get_clip_versions(clip.id).unwrap();
+        assert_eq!(versions.len(), 2);
+        assert_eq!(versions[0].text_content, "Irreversible Edit");
+        assert_eq!(versions[1].text_content, "Original Content");
+    }
+
+    #[test]
+    fn ocr_state_is_hash_safe_and_follows_the_clip_lifecycle() {
+        let db = setup_test_db();
+        let clip = db
+            .save_clip(
+                "image",
+                None,
+                None,
+                Some("data:image/png;base64,AA=="),
+                "ocr-lifecycle-hash",
+                "Screenshot",
+            )
+            .unwrap();
+
+        let status = db.get_ocr_backfill_status().unwrap();
+        assert_eq!(status.total_images, 1);
+        assert_eq!(status.eligible_count, 1);
+
+        let candidate = db.claim_next_ocr_candidate().unwrap().unwrap();
+        assert_eq!(candidate.clip_id, clip.id);
+        assert!(db
+            .complete_ocr_attempt(
+                clip.id,
+                "wrong-hash",
+                Some("stale result"),
+                "test-engine",
+                None,
+            )
+            .is_ok());
+        assert_eq!(
+            db.get_clip_by_id(clip.id).unwrap().text_content.as_deref(),
+            None
+        );
+
+        db.delete_clip(clip.id).unwrap();
+        assert!(!db
+            .complete_ocr_attempt(
+                clip.id,
+                &clip.content_hash,
+                Some("late result"),
+                "test-engine",
+                None,
+            )
+            .unwrap());
+        assert_eq!(db.get_ocr_backfill_status().unwrap().total_images, 0);
+
+        db.restore_clip(clip.id).unwrap();
+        assert_eq!(db.get_ocr_backfill_status().unwrap().eligible_count, 1);
+        db.save_setting("enableOcr", "false").unwrap();
+        db.purge_clip_permanently(clip.id).unwrap();
+        assert!(db.get_clip_by_id(clip.id).is_err());
+        assert_eq!(db.get_ocr_backfill_status().unwrap().total_images, 0);
+    }
+
+    #[test]
+    fn successful_ocr_records_state_and_revisions_only_when_text_changes() {
+        let db = setup_test_db();
+        let clip = db
+            .save_clip(
+                "image",
+                None,
+                None,
+                Some("data:image/png;base64,AA=="),
+                "ocr-success-hash",
+                "Screenshot",
+            )
+            .unwrap();
+
+        assert!(db
+            .complete_ocr_attempt(
+                clip.id,
+                &clip.content_hash,
+                Some("First OCR"),
+                "test-engine-v1",
+                None,
+            )
+            .unwrap());
+        assert_eq!(db.get_ocr_backfill_status().unwrap().completed_count, 1);
+        assert_eq!(db.get_clip_version_count(clip.id).unwrap(), 0);
+
+        db.force_ocr_running(clip.id, &clip.content_hash).unwrap();
+        db.complete_ocr_attempt(
+            clip.id,
+            &clip.content_hash,
+            Some("Improved OCR"),
+            "test-engine-v2",
+            None,
+        )
+        .unwrap();
+        assert_eq!(db.get_clip_version_count(clip.id).unwrap(), 1);
+        assert_eq!(
+            db.get_clip_versions(clip.id).unwrap()[0].text_content,
+            "First OCR"
+        );
+    }
+
+    #[test]
     fn revision_retention_is_configurable_and_can_be_unlimited() {
         let db = setup_test_db();
         let clip = db
@@ -5740,6 +6240,48 @@ mod tests {
         assert_eq!(payload.version, BACKUP_SCHEMA_VERSION);
         assert_eq!(payload.clips.len(), 501);
         assert_eq!(db.get_clips(None, None, false).unwrap().len(), 501);
+    }
+
+    #[test]
+    fn backup_roundtrip_preserves_completed_ocr_lifecycle_state() {
+        let source = setup_test_db();
+        let clip = source
+            .save_clip(
+                "image",
+                None,
+                Some("aW1hZ2U="),
+                None,
+                "ocr-backup-hash",
+                "Screenshot",
+            )
+            .unwrap();
+        assert!(source
+            .complete_ocr_attempt(
+                clip.id,
+                "ocr-backup-hash",
+                Some("Recovered words"),
+                "vision-test-v1",
+                None,
+            )
+            .unwrap());
+
+        let backup = source.export_backup_json().unwrap();
+        let destination = setup_test_db();
+        assert_eq!(destination.import_backup_json(&backup).unwrap(), 1);
+
+        let status = destination.get_ocr_backfill_status().unwrap();
+        assert_eq!(status.total_images, 1);
+        assert_eq!(status.completed_count, 1);
+        assert_eq!(status.eligible_count, 0);
+
+        let restored_payload: BackupPayload =
+            serde_json::from_str(&destination.export_backup_json().unwrap()).unwrap();
+        assert_eq!(restored_payload.ocr_metadata.len(), 1);
+        assert_eq!(restored_payload.ocr_metadata[0].status, "complete");
+        assert_eq!(
+            restored_payload.ocr_metadata[0].engine_version.as_deref(),
+            Some("vision-test-v1")
+        );
     }
 
     #[test]

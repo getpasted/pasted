@@ -138,31 +138,178 @@ pub fn perform_ocr_on_image_bytes(_image_bytes: &[u8]) -> Option<String> {
 
 pub struct OcrTask {
     pub clip_id: i64,
+    pub content_hash: String,
     pub image_bytes: Vec<u8>,
+}
+
+enum OcrRequest {
+    Clip(OcrTask),
+    Backfill,
+}
+
+pub struct OcrService {
+    sender: std::sync::mpsc::Sender<OcrRequest>,
+    backfill_cancelled: std::sync::Arc<std::sync::atomic::AtomicBool>,
+}
+
+impl OcrService {
+    pub fn enqueue(&self, task: OcrTask) -> Result<(), String> {
+        self.sender
+            .send(OcrRequest::Clip(task))
+            .map_err(|_| "OCR worker is not available".to_string())
+    }
+
+    pub fn start_backfill(&self) -> Result<(), String> {
+        self.backfill_cancelled
+            .store(false, std::sync::atomic::Ordering::Release);
+        self.sender
+            .send(OcrRequest::Backfill)
+            .map_err(|_| "OCR worker is not available".to_string())
+    }
+
+    pub fn cancel(&self) {
+        self.backfill_cancelled
+            .store(true, std::sync::atomic::Ordering::Release);
+    }
+}
+
+pub fn decode_stored_image(value: &str) -> Option<Vec<u8>> {
+    use base64::Engine;
+    let payload = value.split_once(',').map_or(value, |(_, payload)| payload);
+    if payload.len() > crate::resource_limits::MAX_STORED_IMAGE_BASE64_BYTES {
+        return None;
+    }
+    base64::engine::general_purpose::STANDARD
+        .decode(payload)
+        .ok()
+}
+
+fn execute_task<Recognize, Notify>(
+    db_state: &crate::db::DbState,
+    task: OcrTask,
+    recognize: Recognize,
+    notify: Notify,
+) where
+    Recognize: FnOnce(&[u8]) -> Option<String>,
+    Notify: FnOnce(i64),
+{
+    if !crate::features::is_enabled(db_state, crate::features::Feature::Ocr) {
+        let _ = db_state.reset_ocr_work(Some(task.clip_id), Some(&task.content_hash));
+        return;
+    }
+    let Ok(true) = db_state.mark_ocr_running(task.clip_id, &task.content_hash) else {
+        return;
+    };
+    let result = recognize(&task.image_bytes);
+    if !crate::features::is_enabled(db_state, crate::features::Feature::Ocr) {
+        let _ = db_state.reset_ocr_work(Some(task.clip_id), Some(&task.content_hash));
+        return;
+    }
+    let text = result.as_deref().filter(|text| !text.trim().is_empty());
+    if db_state
+        .complete_ocr_attempt(
+            task.clip_id,
+            &task.content_hash,
+            text,
+            "macos-vision-v1",
+            None,
+        )
+        .unwrap_or(false)
+    {
+        notify(task.clip_id);
+    }
+}
+
+fn perform_task(app: &tauri::AppHandle, db_state: &crate::db::DbState, task: OcrTask) {
+    use tauri::Emitter;
+    execute_task(db_state, task, perform_ocr_on_image_bytes, |clip_id| {
+        let _ = app.emit("clip-added", serde_json::json!({ "id": clip_id }));
+        let _ = app.emit(
+            "ocr-status-changed",
+            serde_json::json!({ "clipId": clip_id }),
+        );
+    });
+}
+
+fn run_backfill_candidates<Process>(
+    db_state: &crate::db::DbState,
+    cancelled: &std::sync::atomic::AtomicBool,
+    mut process: Process,
+) where
+    Process: FnMut(crate::db::OcrCandidate),
+{
+    loop {
+        if cancelled.load(std::sync::atomic::Ordering::Acquire) {
+            break;
+        }
+        if !crate::features::is_enabled(db_state, crate::features::Feature::Ocr) {
+            let _ = db_state.reset_ocr_work(None, None);
+            break;
+        }
+        let Ok(Some(candidate)) = db_state.claim_next_ocr_candidate() else {
+            break;
+        };
+        process(candidate);
+    }
 }
 
 pub fn spawn_ocr_worker(
     app: tauri::AppHandle,
     db_state: std::sync::Arc<crate::db::DbState>,
-) -> std::sync::mpsc::Sender<OcrTask> {
-    use tauri::Emitter;
-    let (tx, rx) = std::sync::mpsc::channel::<OcrTask>();
+) -> OcrService {
+    let (tx, rx) = std::sync::mpsc::channel::<OcrRequest>();
+    let backfill_cancelled = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let worker_cancelled = backfill_cancelled.clone();
     std::thread::spawn(move || {
-        while let Ok(task) = rx.recv() {
-            if let Some(ocr_text) = perform_ocr_on_image_bytes(&task.image_bytes) {
-                if !ocr_text.trim().is_empty() {
-                    let _ = db_state.update_clip_text(task.clip_id, &ocr_text);
-                    let _ = app.emit("clip-added", serde_json::json!({ "id": task.clip_id }));
+        while let Ok(request) = rx.recv() {
+            match request {
+                OcrRequest::Clip(task) => perform_task(&app, &db_state, task),
+                OcrRequest::Backfill => {
+                    run_backfill_candidates(&db_state, &worker_cancelled, |candidate| {
+                        let Some(image_bytes) = decode_stored_image(&candidate.image_base64) else {
+                            let _ = db_state.complete_ocr_attempt(
+                                candidate.clip_id,
+                                &candidate.content_hash,
+                                None,
+                                "macos-vision-v1",
+                                Some("invalid_image_data"),
+                            );
+                            return;
+                        };
+                        perform_task(
+                            &app,
+                            &db_state,
+                            OcrTask {
+                                clip_id: candidate.clip_id,
+                                content_hash: candidate.content_hash,
+                                image_bytes,
+                            },
+                        );
+                    })
                 }
             }
         }
     });
-    tx
+    OcrService {
+        sender: tx,
+        backfill_cancelled,
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn setup_test_db() -> crate::db::DbState {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        crate::db::DbState::new(std::env::temp_dir().join(format!("pasted_ocr_worker_{nonce}.db")))
+            .unwrap()
+    }
 
     #[test]
     fn test_ocr_empty_or_invalid_bytes() {
@@ -174,9 +321,105 @@ mod tests {
     fn test_ocr_task_struct() {
         let task = OcrTask {
             clip_id: 42,
+            content_hash: "image-hash".to_string(),
             image_bytes: vec![1, 2, 3],
         };
         assert_eq!(task.clip_id, 42);
+        assert_eq!(task.content_hash, "image-hash");
         assert_eq!(task.image_bytes.len(), 3);
+    }
+
+    #[test]
+    fn backfill_stops_between_items_and_resumes_without_reprocessing() {
+        let db = setup_test_db();
+        for index in 1..=3 {
+            db.save_clip(
+                "image",
+                None,
+                None,
+                Some("aW1hZ2U="),
+                &format!("backfill-image-{index}"),
+                "Screenshot",
+            )
+            .unwrap();
+        }
+
+        let cancelled = AtomicBool::new(false);
+        let mut first_pass = Vec::new();
+        run_backfill_candidates(&db, &cancelled, |candidate| {
+            first_pass.push(candidate.clip_id);
+            db.complete_ocr_attempt(
+                candidate.clip_id,
+                &candidate.content_hash,
+                Some("recognized"),
+                "fake-engine-v1",
+                None,
+            )
+            .unwrap();
+            cancelled.store(true, Ordering::Release);
+        });
+
+        assert_eq!(first_pass.len(), 1);
+        let paused = db.get_ocr_backfill_status().unwrap();
+        assert_eq!(paused.completed_count, 1);
+        assert_eq!(paused.eligible_count, 2);
+
+        cancelled.store(false, Ordering::Release);
+        let mut second_pass = Vec::new();
+        run_backfill_candidates(&db, &cancelled, |candidate| {
+            second_pass.push(candidate.clip_id);
+            db.complete_ocr_attempt(
+                candidate.clip_id,
+                &candidate.content_hash,
+                Some("recognized"),
+                "fake-engine-v1",
+                None,
+            )
+            .unwrap();
+        });
+
+        assert_eq!(second_pass.len(), 2);
+        assert!(!second_pass.contains(&first_pass[0]));
+        let completed = db.get_ocr_backfill_status().unwrap();
+        assert_eq!(completed.completed_count, 3);
+        assert_eq!(completed.eligible_count, 0);
+        assert_eq!(completed.running_count, 0);
+    }
+
+    #[test]
+    fn disabling_ocr_during_recognition_discards_the_late_result() {
+        let db = setup_test_db();
+        let clip = db
+            .save_clip(
+                "image",
+                None,
+                None,
+                Some("aW1hZ2U="),
+                "disable-during-ocr",
+                "Screenshot",
+            )
+            .unwrap();
+        let notified = AtomicBool::new(false);
+
+        execute_task(
+            &db,
+            OcrTask {
+                clip_id: clip.id,
+                content_hash: clip.content_hash.clone(),
+                image_bytes: b"image".to_vec(),
+            },
+            |_| {
+                db.save_setting("enableOcr", "false").unwrap();
+                Some("must not be saved".to_string())
+            },
+            |_| notified.store(true, Ordering::Release),
+        );
+
+        assert!(!notified.load(Ordering::Acquire));
+        let stored = db.get_clip_by_id(clip.id).unwrap();
+        assert_eq!(stored.text_content, None);
+        let status = db.get_ocr_backfill_status().unwrap();
+        assert_eq!(status.eligible_count, 1);
+        assert_eq!(status.running_count, 0);
     }
 }

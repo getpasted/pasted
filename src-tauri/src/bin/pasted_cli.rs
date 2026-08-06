@@ -1,10 +1,11 @@
-use rusqlite::{params, Connection, Result};
+use rusqlite::{params, Connection, OptionalExtension, Result};
 use std::env;
 use std::fs;
 use std::io::{self, Read};
 use std::path::PathBuf;
 
 use pasted_lib::db::{DbState, TransformClipApplication};
+use pasted_lib::features::{setting_value_is_enabled, Feature};
 use pasted_lib::intelligence_executor::execute_saved_transform;
 
 fn get_db_path() -> PathBuf {
@@ -58,7 +59,87 @@ fn main() -> Result<()> {
         [],
     );
 
+    let cli_setting = conn
+        .query_row(
+            "SELECT value FROM settings WHERE key = ?1",
+            [Feature::Cli.setting_key()],
+            |row| row.get::<_, String>(0),
+        )
+        .optional()
+        .ok()
+        .flatten();
+    if !setting_value_is_enabled(cli_setting.as_deref()) {
+        eprintln!("Pasted CLI is disabled in Settings → Features.");
+        std::process::exit(1);
+    }
+
     match command {
+        "ocr" => {
+            let db = DbState::new(db_path.clone())?;
+            let ocr_setting = db.get_setting(Feature::Ocr.setting_key())?;
+            if !setting_value_is_enabled(ocr_setting.as_deref()) {
+                eprintln!("OCR is disabled in Settings → Features.");
+                std::process::exit(1);
+            }
+            let subcommand = args.get(2).map(String::as_str).unwrap_or("status");
+            match subcommand {
+                "status" => {
+                    let status = db.get_ocr_backfill_status()?;
+                    if args.iter().any(|argument| argument == "--json") {
+                        println!(
+                            "{}",
+                            serde_json::to_string(&status).map_err(|error| {
+                                rusqlite::Error::ToSqlConversionFailure(Box::new(error))
+                            })?
+                        );
+                    } else {
+                        println!(
+                            "{} images · {} waiting · {} running · {} complete · {} no text · {} failed",
+                            status.total_images,
+                            status.eligible_count,
+                            status.running_count,
+                            status.completed_count,
+                            status.no_text_count,
+                            status.failed_count
+                        );
+                    }
+                }
+                "scan" => {
+                    let mut scanned = 0usize;
+                    while let Some(candidate) = db.claim_next_ocr_candidate()? {
+                        let Some(bytes) =
+                            pasted_lib::ocr::decode_stored_image(&candidate.image_base64)
+                        else {
+                            db.complete_ocr_attempt(
+                                candidate.clip_id,
+                                &candidate.content_hash,
+                                None,
+                                "macos-vision-v1",
+                                Some("invalid_image_data"),
+                            )?;
+                            continue;
+                        };
+                        let text = pasted_lib::ocr::perform_ocr_on_image_bytes(&bytes);
+                        db.complete_ocr_attempt(
+                            candidate.clip_id,
+                            &candidate.content_hash,
+                            text.as_deref(),
+                            "macos-vision-v1",
+                            None,
+                        )?;
+                        scanned += 1;
+                    }
+                    println!(
+                        "Scanned {scanned} existing image{}.",
+                        if scanned == 1 { "" } else { "s" }
+                    );
+                }
+                _ => {
+                    eprintln!("Usage: pasted-cli ocr [status [--json] | scan]");
+                    std::process::exit(2);
+                }
+            }
+        }
         "transform" | "transforms" => {
             let db = DbState::new(db_path.clone())?;
             let subcommand = args.get(2).map(String::as_str).unwrap_or("list");
@@ -259,6 +340,8 @@ fn main() -> Result<()> {
             println!("  pasted-cli copy <text>       Save text or pipe stdin (cat file.txt | pasted-cli copy)");
             println!("  pasted-cli list [limit]      List N recent clipboard items (default: 10)");
             println!("  pasted-cli search <query>    Search clips for keyword query");
+            println!("  pasted-cli ocr status --json Show OCR background-work status");
+            println!("  pasted-cli ocr scan          Scan existing unprocessed images");
             println!("  pasted-cli transform list    List saved Transforms");
             println!(
                 "  pasted-cli transform run <ref> [--text TEXT | --clip ID | --stdin] [--replace]"

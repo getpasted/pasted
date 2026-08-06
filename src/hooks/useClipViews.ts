@@ -3,6 +3,7 @@ import type { Bin, ClipItem, SequentialStatus } from '../types';
 import { getClipFilePaths, getClipOriginKind } from '../types';
 import { sortClipsChronologically } from '../utils/clipOrder';
 import { clipMatchesSearch, parseClipSearch } from '../utils/clipSearch';
+import type { FeatureId } from '../utils/features';
 
 interface ClipViewsInput {
   allClips: ClipItem[];
@@ -12,6 +13,7 @@ interface ClipViewsInput {
   selectedBinId: number | null;
   searchQuery: string;
   sequentialStatus: SequentialStatus | null;
+  features: Record<FeatureId, boolean>;
 }
 
 interface SmartCondition {
@@ -20,11 +22,20 @@ interface SmartCondition {
   value: string;
 }
 
-export function applyClipSearch(items: ClipItem[], rawQuery: string) {
+export function applyClipSearch(
+  items: ClipItem[],
+  rawQuery: string,
+  features?: Pick<Record<FeatureId, boolean>, 'notes' | 'pinning' | 'protection'>,
+) {
   const trimmed = rawQuery.trim();
   if (!trimmed) return items;
   const plan = parseClipSearch(trimmed);
-  return items.filter((clip) => clipMatchesSearch(clip, plan));
+  return items.filter((clip) => clipMatchesSearch(features ? {
+    ...clip,
+    note: features.notes ? clip.note : null,
+    is_pinned: features.pinning && clip.is_pinned,
+    is_protected: features.protection && clip.is_protected,
+  } : clip, plan));
 }
 
 function matchesCondition(clip: ClipItem, condition: SmartCondition) {
@@ -87,6 +98,7 @@ export function useClipViews({
   selectedBinId,
   searchQuery,
   sequentialStatus,
+  features,
 }: ClipViewsInput) {
   const displayedClips = useMemo(() => {
     if (currentTab === 'sequential') {
@@ -107,7 +119,7 @@ export function useClipViews({
 
     if (currentTab === 'search') {
       return searchQuery.trim()
-        ? applyClipSearch(sortClipsChronologically([...allClips, ...trashedClips]), searchQuery)
+        ? applyClipSearch(sortClipsChronologically([...allClips, ...trashedClips]), searchQuery, features)
         : [];
     }
 
@@ -117,14 +129,15 @@ export function useClipViews({
     if (currentTab === 'pinned') clips = clips.filter((clip) => clip.is_pinned);
     if (currentTab === 'protected') clips = clips.filter((clip) => clip.is_protected);
     if (currentTab === 'notes') clips = clips.filter((clip) => Boolean(clip.note?.trim()));
+    if (!features.pinning) clips = sortClipsChronologically(clips);
     return clips;
-  }, [allClips, trashedClips, searchQuery, currentTab, selectedBinId, sequentialStatus, bins]);
+  }, [allClips, trashedClips, searchQuery, currentTab, selectedBinId, sequentialStatus, bins, features]);
 
   const counts = useMemo(() => allClips.reduce((result, clip) => ({
-    pinnedCount: result.pinnedCount + Number(Boolean(clip.is_pinned)),
-    protectedCount: result.protectedCount + Number(Boolean(clip.is_protected)),
-    notesCount: result.notesCount + Number(Boolean(clip.note?.trim())),
-  }), { pinnedCount: 0, protectedCount: 0, notesCount: 0 }), [allClips]);
+    pinnedCount: result.pinnedCount + Number(features.pinning && Boolean(clip.is_pinned)),
+    protectedCount: result.protectedCount + Number(features.protection && Boolean(clip.is_protected)),
+    notesCount: result.notesCount + Number(features.notes && Boolean(clip.note?.trim())),
+  }), { pinnedCount: 0, protectedCount: 0, notesCount: 0 }), [allClips, features.notes, features.pinning, features.protection]);
 
   const queuedIndexMap = useMemo(() => {
     const indexes = new Map<string, number>();

@@ -57,6 +57,11 @@ assert.match(sidebarComponent, /wasBinReorderingRef\.current && !isBinReorderAct
 assert.match(sidebarComponent, /elementFromPoint\(pointer\.x, pointer\.y\)/);
 assert.match(sidebarComponent, /wasClipDraggingRef\.current && !isClipDragging/);
 
+// Main navigation typography must remain root-relative so the General text-size
+// preference scales labels along with the rest of the application.
+assert.match(sidebarComponent, /sidebar-scroll-container[^\"]*text-\[0\.8125rem\]/);
+assert.doesNotMatch(sidebarComponent, /sidebar-scroll-container[^\"]*text-\[13px\]/);
+
 // Reduced-motion rules must continue to defeat component-level animation.
 const reducedMotionStart = theme.indexOf('@media (prefers-reduced-motion: reduce)');
 assert.notEqual(reducedMotionStart, -1, 'Missing reduced-motion media query');

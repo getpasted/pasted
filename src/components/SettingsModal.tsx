@@ -9,6 +9,7 @@ import { SettingsSyncPanel } from './SettingsSyncPanel';
 import { ToolPageHeader } from './ToolPageHeader';
 import { IntelligenceConnectionsPanel } from './IntelligenceConnectionsPanel';
 import { SettingsDebugPanel } from './SettingsDebugPanel';
+import { SettingsFeaturesPanel } from './SettingsFeaturesPanel';
 
 interface SettingsModalProps {
   settings: AppSettings;
@@ -51,12 +52,24 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     if (requestedTab) setActiveTab(requestedTab);
   }, [navigationKey, requestedTab]);
 
+  useEffect(() => {
+    if (!settings.enableTransformations && activeTab === 'connections') {
+      setActiveTab('features');
+    }
+  }, [activeTab, settings.enableTransformations]);
+
+  useEffect(() => {
+    if (!settings.enableDiagnostics && activeTab === 'diagnostics') {
+      setActiveTab('features');
+    }
+  }, [activeTab, settings.enableDiagnostics]);
+
   return (
     <div className="tools-page settings-page flex-1 settings-modal-bg h-screen overflow-hidden font-sans select-none flex flex-col">
       <ToolPageHeader
         icon={<Settings className="w-4 h-4" />}
         title="Settings"
-        actions={<SettingsTabs activeTab={activeTab} onChange={setActiveTab} />}
+        actions={<SettingsTabs activeTab={activeTab} onChange={setActiveTab} showConnections={settings.enableTransformations} showDiagnostics={settings.enableDiagnostics} />}
       />
 
       <div className="tools-scroll-region flex-1 overflow-y-auto p-6">
@@ -72,6 +85,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           />
         )}
 
+        {activeTab === 'features' && (
+          <SettingsFeaturesPanel settings={settings} onUpdateSettings={onUpdateSettings} />
+        )}
+
         {/* TAB 2: HOTKEYS */}
         {activeTab === 'hotkeys' && (
           <SettingsHotkeysPanel
@@ -85,7 +102,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         )}
 
         {/* TAB 3: CONNECTIONS */}
-        {activeTab === 'connections' && <IntelligenceConnectionsPanel />}
+        {settings.enableTransformations && activeTab === 'connections' && <IntelligenceConnectionsPanel />}
 
         {/* TAB 4: BLACKLIST */}
         {activeTab === 'blacklist' && (
@@ -106,8 +123,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           />
         )}
 
-        {/* TAB 6: DEBUG */}
-        {activeTab === 'debug' && <SettingsDebugPanel />}
+        {/* TAB 6: DIAGNOSTICS */}
+        {settings.enableDiagnostics && activeTab === 'diagnostics' && <SettingsDebugPanel ocrEnabled={settings.enableOcr} />}
         </div>
       </div>
     </div>

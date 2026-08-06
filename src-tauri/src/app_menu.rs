@@ -5,7 +5,11 @@ use tauri::{
     AppHandle, Emitter, Manager, Runtime,
 };
 
-use crate::{commands, db::DbState};
+use crate::{
+    commands,
+    db::DbState,
+    features::{self, Feature},
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum MenuDispatch {
@@ -45,6 +49,9 @@ fn dispatch_for_id(id: &str) -> Option<MenuDispatch> {
         "view.playground" => MenuDispatch::Navigate("transformations:playground"),
         "view.activity" => MenuDispatch::Navigate("activity"),
         "view.toggle_sidebar" => MenuDispatch::FrontendAction("toggle-sidebar"),
+        "view.zoom_out" => MenuDispatch::FrontendAction("zoom-out"),
+        "view.actual_size" => MenuDispatch::FrontendAction("actual-size"),
+        "view.zoom_in" => MenuDispatch::FrontendAction("zoom-in"),
         "view.reset_columns" => MenuDispatch::FrontendAction("reset-columns"),
         "view.refresh" => MenuDispatch::FrontendAction("refresh-data"),
         "window.show_main" => MenuDispatch::ShowMain,
@@ -135,7 +142,12 @@ fn safe_menu_label(value: &str) -> String {
 }
 
 pub fn install(app: &AppHandle, db: &Arc<DbState>) -> tauri::Result<()> {
-    let bins = db.get_bins().unwrap_or_default();
+    let feature_enabled = |feature| features::is_enabled(db, feature);
+    let bins = if feature_enabled(Feature::Bins) {
+        db.get_bins().unwrap_or_default()
+    } else {
+        Vec::new()
+    };
 
     let new_bin = MenuItem::with_id(
         app,
@@ -160,6 +172,15 @@ pub fn install(app: &AppHandle, db: &Arc<DbState>) -> tauri::Result<()> {
         Some("CmdOrCtrl+\\"),
     )?;
     let refresh = MenuItem::with_id(app, "view.refresh", "Refresh", true, Some("CmdOrCtrl+R"))?;
+    let zoom_out = MenuItem::with_id(app, "view.zoom_out", "Zoom Out", true, Some("CmdOrCtrl+-"))?;
+    let actual_size = MenuItem::with_id(
+        app,
+        "view.actual_size",
+        "Actual Size",
+        true,
+        Some("CmdOrCtrl+0"),
+    )?;
+    let zoom_in = MenuItem::with_id(app, "view.zoom_in", "Zoom In", true, Some("CmdOrCtrl+="))?;
 
     #[cfg(target_os = "macos")]
     let app_menu = SubmenuBuilder::new(app, "Pasted")
@@ -182,39 +203,51 @@ pub fn install(app: &AppHandle, db: &Arc<DbState>) -> tauri::Result<()> {
         .quit()
         .build()?;
 
-    #[cfg(target_os = "macos")]
-    let file_builder = SubmenuBuilder::new(app, "File").item(&new_bin).separator();
+    let mut file_builder = SubmenuBuilder::new(app, "File");
+    if feature_enabled(Feature::Bins) {
+        file_builder = file_builder.item(&new_bin).separator();
+    }
     #[cfg(not(target_os = "macos"))]
-    let file_builder = SubmenuBuilder::new(app, "File")
-        .item(&new_bin)
-        .separator()
-        .item(&settings)
-        .separator();
+    {
+        file_builder = file_builder.item(&settings).separator();
+    }
+    file_builder = file_builder.text("file.toggle_history", "Pause or Resume History");
+    if feature_enabled(Feature::Queue) {
+        file_builder = file_builder.text("file.toggle_queue", "Start or Stop Copy Queue");
+    }
     #[cfg(target_os = "macos")]
-    let file_menu = file_builder
-        .text("file.toggle_history", "Pause or Resume History")
-        .text("file.toggle_queue", "Start or Stop Copy Queue")
-        .separator()
-        .close_window()
-        .build()?;
+    let file_menu = file_builder.separator().close_window().build()?;
     #[cfg(not(target_os = "macos"))]
     let file_menu = file_builder
-        .text("file.toggle_history", "Pause or Resume History")
-        .text("file.toggle_queue", "Start or Stop Copy Queue")
         .separator()
         .text("window.close", "Close Window")
         .text("file.quit", "Quit Pasted")
         .build()?;
 
-    let clip_actions = SubmenuBuilder::new(app, "Selected Clip")
-        .text("edit.clip.copy", "Copy Clip")
-        .text("edit.clip.note", "Add or Edit Note…")
-        .separator()
-        .text("edit.clip.pin", "Pin or Unpin")
-        .text("edit.clip.protect", "Protect or Unprotect")
-        .separator()
-        .text("edit.clip.trash", "Move to Trash")
-        .build()?;
+    let mut clip_actions_builder =
+        SubmenuBuilder::new(app, "Selected Clip").text("edit.clip.copy", "Copy Clip");
+    if feature_enabled(Feature::Notes) {
+        clip_actions_builder = clip_actions_builder.text("edit.clip.note", "Add or Edit Note…");
+    }
+    if feature_enabled(Feature::Pinning) || feature_enabled(Feature::Protection) {
+        clip_actions_builder = clip_actions_builder.separator();
+        if feature_enabled(Feature::Pinning) {
+            clip_actions_builder = clip_actions_builder.text("edit.clip.pin", "Pin or Unpin");
+        }
+        if feature_enabled(Feature::Protection) {
+            clip_actions_builder =
+                clip_actions_builder.text("edit.clip.protect", "Protect or Unprotect");
+        }
+    }
+    clip_actions_builder = clip_actions_builder.separator().text(
+        "edit.clip.trash",
+        if feature_enabled(Feature::Trash) {
+            "Move to Trash"
+        } else {
+            "Delete Permanently"
+        },
+    );
+    let clip_actions = clip_actions_builder.build()?;
     #[cfg(target_os = "macos")]
     let edit_builder = SubmenuBuilder::new(app, "Edit").undo().redo().separator();
     #[cfg(not(target_os = "macos"))]
@@ -247,42 +280,71 @@ pub fn install(app: &AppHandle, db: &Arc<DbState>) -> tauri::Result<()> {
         builder.build()?
     };
 
-    let clips_menu = SubmenuBuilder::new(app, "Clips")
+    let mut clips_builder = SubmenuBuilder::new(app, "Clips")
         .text("view.all", "All Clips")
         .item(&search)
-        .separator()
-        .text("view.queue", "Queue")
-        .text("view.pinned", "Pinned")
-        .text("view.protected", "Protected")
-        .text("view.noted", "Noted")
-        .text("view.trashed", "Trashed")
-        .separator()
-        .item(&bins_menu)
-        .build()?;
+        .separator();
+    if feature_enabled(Feature::Queue) {
+        clips_builder = clips_builder.text("view.queue", "Queue");
+    }
+    if feature_enabled(Feature::Pinning) {
+        clips_builder = clips_builder.text("view.pinned", "Pinned");
+    }
+    if feature_enabled(Feature::Protection) {
+        clips_builder = clips_builder.text("view.protected", "Protected");
+    }
+    if feature_enabled(Feature::Notes) {
+        clips_builder = clips_builder.text("view.noted", "Noted");
+    }
+    if feature_enabled(Feature::Trash) {
+        clips_builder = clips_builder.text("view.trashed", "Trashed");
+    }
+    if feature_enabled(Feature::Bins) {
+        clips_builder = clips_builder.separator().item(&bins_menu);
+    }
+    let clips_menu = clips_builder.build()?;
     let transforms_menu = SubmenuBuilder::new(app, "Transformations")
         .text("view.transforms", "Saved Transforms")
         .text("view.advanced", "Advanced Operations")
         .text("view.playground", "Playground")
         .build()?;
-    let tools_menu = SubmenuBuilder::new(app, "Tools")
-        .text("view.analytics", "Analytics & Insights")
-        .item(&transforms_menu)
-        .text("view.activity", "Activity Log")
-        .build()?;
-    let view_menu = SubmenuBuilder::new(app, "View")
-        .item(&clips_menu)
-        .item(&tools_menu)
+    let mut tools_builder = SubmenuBuilder::new(app, "Tools");
+    if feature_enabled(Feature::Analytics) {
+        tools_builder = tools_builder.text("view.analytics", "Analytics & Insights");
+    }
+    if feature_enabled(Feature::Transformations) {
+        tools_builder = tools_builder.item(&transforms_menu);
+    }
+    if feature_enabled(Feature::ActivityLog) {
+        tools_builder = tools_builder.text("view.activity", "Activity Log");
+    }
+    let tools_menu = tools_builder.build()?;
+    let mut view_builder = SubmenuBuilder::new(app, "View").item(&clips_menu);
+    if feature_enabled(Feature::Analytics)
+        || feature_enabled(Feature::Transformations)
+        || feature_enabled(Feature::ActivityLog)
+    {
+        view_builder = view_builder.item(&tools_menu);
+    }
+    let view_menu = view_builder
+        .separator()
+        .item(&zoom_out)
+        .item(&actual_size)
+        .item(&zoom_in)
         .separator()
         .item(&toggle_sidebar)
         .text("view.reset_columns", "Reset Column Widths")
         .item(&refresh)
         .build()?;
 
+    let mut window_builder =
+        SubmenuBuilder::new(app, "Window").text("window.show_main", "Show Pasted");
+    if feature_enabled(Feature::Hud) {
+        window_builder = window_builder.text("window.quick_hud", "Quick HUD");
+    }
+    window_builder = window_builder.separator();
     #[cfg(target_os = "macos")]
-    let window_menu = SubmenuBuilder::new(app, "Window")
-        .text("window.show_main", "Show Pasted")
-        .text("window.quick_hud", "Quick HUD")
-        .separator()
+    let window_menu = window_builder
         .minimize()
         .maximize_with_text("Zoom")
         .fullscreen()
@@ -290,10 +352,7 @@ pub fn install(app: &AppHandle, db: &Arc<DbState>) -> tauri::Result<()> {
         .bring_all_to_front()
         .build()?;
     #[cfg(not(target_os = "macos"))]
-    let window_menu = SubmenuBuilder::new(app, "Window")
-        .text("window.show_main", "Show Pasted")
-        .text("window.quick_hud", "Quick HUD")
-        .separator()
+    let window_menu = window_builder
         .text("window.minimize", "Minimize")
         .text("window.maximize", "Maximize")
         .text("window.fullscreen", "Toggle Full Screen")
@@ -306,10 +365,11 @@ pub fn install(app: &AppHandle, db: &Arc<DbState>) -> tauri::Result<()> {
         .text("help.trash", "Soft Trash Protection")
         .text("help.transforms", "Transformations")
         .build()?;
-    let help_builder = SubmenuBuilder::new(app, "Help")
-        .item(&documentation_menu)
-        .separator()
-        .text("help.shortcut_settings", "Keyboard Shortcut Settings…");
+    let mut help_builder = SubmenuBuilder::new(app, "Help");
+    if feature_enabled(Feature::Help) {
+        help_builder = help_builder.item(&documentation_menu).separator();
+    }
+    help_builder = help_builder.text("help.shortcut_settings", "Keyboard Shortcut Settings…");
     #[cfg(not(target_os = "macos"))]
     let help_builder = help_builder.separator().about(Some(
         AboutMetadataBuilder::new()
@@ -349,6 +409,14 @@ mod tests {
         assert_eq!(
             dispatch_for_id("edit.clip.pin"),
             Some(MenuDispatch::FrontendAction("toggle-pin"))
+        );
+        assert_eq!(
+            dispatch_for_id("view.zoom_in"),
+            Some(MenuDispatch::FrontendAction("zoom-in"))
+        );
+        assert_eq!(
+            dispatch_for_id("view.actual_size"),
+            Some(MenuDispatch::FrontendAction("actual-size"))
         );
         assert_eq!(
             dispatch_for_id("view.bin.42"),

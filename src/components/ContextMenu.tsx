@@ -6,6 +6,7 @@ import { binTextColor } from '../utils/binColor';
 import type { ClipViewPolicy } from '../utils/clipViewPolicy';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { selectedClipDeleteLabel, UI_COPY } from '../utils/uiCopy';
+import { useFeatures } from '../hooks/useFeatures';
 import {
   Copy,
   FolderPlus,
@@ -68,6 +69,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   onPurge,
   trashEnabled,
 }) => {
+  const features = useFeatures();
   const menuRef = useRef<HTMLDivElement>(null);
   const [activeSubmenu, setActiveSubmenu] = useState<'bins' | 'workflow' | null>(null);
   const [transforms, setTransforms] = useState<SavedTransform[]>([]);
@@ -85,7 +87,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   }, [onClose]);
 
   useEffect(() => {
-    if (!viewPolicy.canRunPipelines || clip.content_type === 'file') return;
+    if (!features.transformations || !viewPolicy.canRunPipelines || clip.content_type === 'file') return;
     let cancelled = false;
     setIsLoadingTransforms(true);
     invoke<SavedTransform[]>('get_saved_transforms')
@@ -99,7 +101,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [clip.content_type, viewPolicy.canRunPipelines]);
+  }, [clip.content_type, features.transformations, viewPolicy.canRunPipelines]);
 
   // Adjust coordinates if menu goes off screen
   const menuWidth = 220;
@@ -132,7 +134,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
       <div className="theme-menu-divider my-1 border-t" />
 
       {/* Bin */}
-      {viewPolicy.canAssignBins && <div
+      {features.bins && viewPolicy.canAssignBins && <div
         className="relative"
         onMouseEnter={() => setActiveSubmenu('bins')}
         onMouseLeave={() => setActiveSubmenu(null)}
@@ -180,7 +182,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
       </div>}
 
       {/* Workflow Submenu */}
-      {viewPolicy.canRunPipelines && clip.content_type !== 'file' && <div
+      {features.transformations && viewPolicy.canRunPipelines && clip.content_type !== 'file' && <div
         className="relative"
         onMouseEnter={() => setActiveSubmenu('workflow')}
         onMouseLeave={() => setActiveSubmenu(null)}
@@ -245,7 +247,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
       <div className="theme-menu-divider my-1 border-t" />
 
       {/* Add / Edit Note */}
-      {viewPolicy.canEditNotes && <button
+      {features.notes && viewPolicy.canEditNotes && <button
         onClick={() => {
           onAddNote();
           onClose();
@@ -257,7 +259,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
       </button>}
 
       {/* Remove Note */}
-      {viewPolicy.canEditNotes && clip.note && onDeleteNote && (
+      {features.notes && viewPolicy.canEditNotes && clip.note && onDeleteNote && (
         <button
           onClick={() => {
             onDeleteNote();
@@ -271,7 +273,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
       )}
 
       {/* Add to Stack */}
-      {viewPolicy.canOrganize && <button
+      {features.queue && viewPolicy.canOrganize && <button
         onClick={() => {
           onAddToStack();
           onClose();
@@ -283,7 +285,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
       </button>}
 
       {/* Toggle Pin */}
-      {viewPolicy.canOrganize && <button
+      {features.pinning && viewPolicy.canOrganize && <button
         onClick={() => {
           onTogglePin();
           onClose();
@@ -307,7 +309,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
       </button>}
 
       {/* Toggle Protected */}
-      {viewPolicy.canOrganize && onToggleProtected && (
+      {features.protection && viewPolicy.canOrganize && onToggleProtected && (
         <button
           onClick={() => {
             onToggleProtected();

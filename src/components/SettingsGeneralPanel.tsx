@@ -1,10 +1,12 @@
 import { useState } from 'react';
-import { Code2, Coffee, Download, Droplet, Drum, Laptop, Link, Moon, Palette, RotateCcw, Sliders, Snowflake, Trash2, Zap } from 'lucide-react';
+import { Code2, Coffee, Download, Droplet, Drum, Laptop, Link, Minus, Moon, Palette, Plus, RotateCcw, Sliders, Snowflake, Trash2, Zap } from 'lucide-react';
 import type { AppSettings } from '../types';
 import { useAltKeyPressed } from '../hooks/useAltKeyPressed';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { MenuSelect } from './MenuSelect';
 import { SettingsPanelHeader } from './SettingsPanelHeader';
+import { SettingsSectionHeading } from './SettingsSectionHeading';
+import { ACTUAL_SIZE, APP_ZOOM_STEPS, appZoomPercent, stepAppZoom } from '../utils/appZoom';
 
 interface SettingsGeneralPanelProps {
   settings: AppSettings;
@@ -28,13 +30,6 @@ const appearanceGroups = [
   { label: 'Dark schemes', values: ['dark', 'vampire', 'flux', '808'] },
   { label: 'Light schemes', values: ['cool', 'warm'] },
 ] as const;
-
-const textSizeOptions = [
-  { value: '14', label: '14 Points (Compact)' },
-  { value: '16', label: '16 Points (Standard)' },
-  { value: '18', label: '18 Points (Large)' },
-  { value: '20', label: '20 Points (Extra Large)' },
-];
 
 const pasteBehaviorOptions = [
   { value: 'rich', label: 'Preserve Formatting (Default)' },
@@ -155,23 +150,138 @@ export function SettingsGeneralPanel({
                   ))}
                 </div>
               </div>
-              <div className="flex items-start justify-between">
-                <div className="pr-4 flex-1 min-w-0">
-                  <span className="font-semibold theme-text-main block">Text Size:</span>
+            </div>
+
+            <div className="theme-divider border-t" />
+
+            <div className="space-y-4">
+              <SettingsSectionHeading title="Layout" align="center" />
+
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0 flex-1">
+                  <span className="font-semibold theme-text-main block">Zoom:</span>
                   <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
-                    Adjust font size for application text and clip content views.
+                    Scales navigation, controls, and clip content throughout Pasted.
                   </p>
                 </div>
-                <div className="flex items-center space-x-2 shrink-0">
-                  <MenuSelect
-                    value={String(settings.textSize)}
-                    options={textSizeOptions}
-                    onChange={(value) => onUpdateSettings({ textSize: Number(value) })}
-                    label="Text size"
-                    className="settings-menu-select font-mono"
-                  />
+                <div className="theme-surface flex shrink-0 items-center overflow-hidden rounded-lg border" role="group" aria-label="Application zoom">
+                  <button
+                    type="button"
+                    aria-label="Zoom Out"
+                    title="Zoom Out (⌘−)"
+                    disabled={settings.textSize <= APP_ZOOM_STEPS[0]}
+                    onClick={() => onUpdateSettings({ textSize: stepAppZoom(settings.textSize, -1) })}
+                    className="theme-secondary-button flex h-8 w-8 items-center justify-center border-0 border-r disabled:cursor-not-allowed disabled:opacity-35"
+                  >
+                    <Minus className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Actual Size"
+                    title="Actual Size (⌘0)"
+                    onClick={() => onUpdateSettings({ textSize: ACTUAL_SIZE })}
+                    className="theme-secondary-button h-8 min-w-14 border-0 px-2 font-mono text-[10px] font-semibold"
+                  >
+                    {appZoomPercent(settings.textSize)}%
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Zoom In"
+                    title="Zoom In (⌘+)"
+                    disabled={settings.textSize >= APP_ZOOM_STEPS[APP_ZOOM_STEPS.length - 1]}
+                    onClick={() => onUpdateSettings({ textSize: stepAppZoom(settings.textSize, 1) })}
+                    className="theme-secondary-button flex h-8 w-8 items-center justify-center border-0 border-l disabled:cursor-not-allowed disabled:opacity-35"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                  </button>
                 </div>
               </div>
+
+              <div className="flex items-start justify-between">
+                <div className="pr-4 flex-1 min-w-0">
+                  <span className="font-semibold theme-text-main block">Row Height:</span>
+                  <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
+                    Sets the fixed height of the quick paste menu and main window compact view.
+                  </p>
+                </div>
+                <MenuSelect
+                  value={settings.rowHeight}
+                  options={rowHeightOptions}
+                  onChange={(value) => onUpdateSettings({ rowHeight: value as AppSettings['rowHeight'] })}
+                  label="Row height"
+                  className="settings-menu-select"
+                />
+              </div>
+
+              <div className="theme-divider border-t pt-3">
+                <div className="flex items-start justify-between">
+                  <div className="pr-4 flex-1 min-w-0">
+                    <span className="font-semibold theme-text-main block">Column Widths:</span>
+                    <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
+                      Resets the left sidebar and middle history list panel widths to their defaults.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (onResetColumnWidths) onResetColumnWidths();
+                      else {
+                        localStorage.removeItem('pasted_sidebar_width');
+                        localStorage.removeItem('pasted_list_width');
+                        window.location.reload();
+                      }
+                    }}
+                    className="theme-secondary-button flex items-center space-x-1.5 px-3 py-1.5 border rounded-lg text-xs font-semibold transition-colors shrink-0 cursor-pointer"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>Reset Column Widths</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="theme-divider border-t" />
+
+            {/* System & OS Integration Subsection */}
+            <div className="space-y-4">
+              <SettingsSectionHeading title="System & OS Integration" align="center" />
+
+              {/* Dock / Menubar / System Tray Setting */}
+              <div className="flex items-center justify-between pt-1">
+                <span className="font-medium">
+                  {isMac
+                    ? 'Dock & Menubar Icon:'
+                    : 'System Tray & Taskbar:'}
+                </span>
+                <MenuSelect
+                  value={settings.dockMenubarIcon}
+                  options={dockIconOptions}
+                  onChange={(value) => onUpdateSettings({ dockMenubarIcon: value as AppSettings['dockMenubarIcon'] })}
+                  label="Dock and menu bar icon behavior"
+                  className="settings-menu-select"
+                />
+              </div>
+
+              {/* macOS Only Spotlight Indexing Setting */}
+              {isMac && (
+                <div className="flex items-start justify-between pt-1">
+                  <div className="pr-4 flex-1 min-w-0">
+                    <span className="font-semibold theme-text-main block">Spotlight Indexing:</span>
+                    <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
+                      Allow ⌘Space Spotlight to search Pasted history
+                    </p>
+                  </div>
+                  <label className="flex items-center space-x-2 cursor-pointer shrink-0 pt-0.5">
+                    <input
+                      type="checkbox"
+                      checked={settings.spotlightSync ?? true}
+                      onChange={(e) => onUpdateSettings({ spotlightSync: e.target.checked })}
+                      className="theme-checkbox w-4 h-4 cursor-pointer rounded"
+                    />
+                    <span className="theme-text-main">Index in Spotlight</span>
+                  </label>
+                </div>
+              )}
 
               <div className="flex items-start justify-between pt-1">
                 <div className="pr-4 flex-1 min-w-0">
@@ -210,63 +320,11 @@ export function SettingsGeneralPanel({
               </div>
             </div>
 
-            <div className="theme-divider border-t" />
-
-            {/* System & OS Integration Subsection */}
-            <div className="space-y-4">
-              <h4 className="font-bold theme-text-muted text-center uppercase tracking-wider text-[11px]">
-                System & OS Integration
-              </h4>
-
-              {/* Dock / Menubar / System Tray Setting */}
-              <div className="flex items-center justify-between pt-1">
-                <span className="font-medium">
-                  {isMac
-                    ? 'Dock & Menubar Icon:'
-                    : 'System Tray & Taskbar:'}
-                </span>
-                <MenuSelect
-                  value={settings.dockMenubarIcon}
-                  options={dockIconOptions}
-                  onChange={(value) => onUpdateSettings({ dockMenubarIcon: value as AppSettings['dockMenubarIcon'] })}
-                  label="Dock and menu bar icon behavior"
-                  className="settings-menu-select"
-                />
-              </div>
-
-              {/* macOS Only Spotlight Indexing Setting */}
-              {isMac && (
-                <div className="flex items-start justify-between pt-1">
-                  <div className="pr-4 flex-1 min-w-0">
-                    <span className="font-semibold theme-text-main block">Spotlight Indexing:</span>
-                    <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
-                      Allow ⌘Space Spotlight to search Pasted history
-                    </p>
-                  </div>
-                  <label className="flex items-center space-x-2 cursor-pointer shrink-0 pt-0.5">
-                    <input
-                      type="checkbox"
-                      checked={settings.spotlightSync ?? true}
-                      onChange={(e) => onUpdateSettings({ spotlightSync: e.target.checked })}
-                      className="theme-checkbox w-4 h-4 cursor-pointer rounded"
-                    />
-                    <span className="theme-text-main">Index in Spotlight</span>
-                  </label>
-                </div>
-              )}
-            </div>
-
+            {settings.enableContentDetection && <>
             <div className="theme-divider border-t" />
 
             <div className="space-y-4">
-              <div className="text-center">
-                <h4 className="font-bold theme-title uppercase tracking-wider text-[11px]">
-                  Content Detection
-                </h4>
-                <p className="theme-text-muted mt-1 text-[11px]">
-                  Classify new text clips for Smart Bins and search.
-                </p>
-              </div>
+              <SettingsSectionHeading title="Content Detection" align="center" />
 
               <div className="theme-surface overflow-hidden rounded-xl border">
                 {contentDetectors.map(({ key, label, description, Icon }, index) => (
@@ -291,14 +349,13 @@ export function SettingsGeneralPanel({
                 ))}
               </div>
             </div>
+            </>}
 
             <div className="theme-divider border-t" />
 
             {/* Clipboard Preferences */}
             <div className="space-y-4">
-              <h4 className="font-bold theme-title text-center uppercase tracking-wider text-[11px]">
-                Clipboard
-              </h4>
+              <SettingsSectionHeading title="Clipboard" align="center" />
 
               <div className="flex items-start justify-between pt-1">
                 <div className="pr-4 flex-1 min-w-0">
@@ -409,7 +466,7 @@ export function SettingsGeneralPanel({
                 </div>
               </div>
 
-              <div className="flex items-start justify-between">
+              {settings.enableRevisions && <div className="flex items-start justify-between">
                 <div className="pr-4 flex-1 min-w-0">
                   <span className="font-semibold theme-text-main block">Revisions per Clip:</span>
                   <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
@@ -424,28 +481,7 @@ export function SettingsGeneralPanel({
                   label="Revisions retained per clip"
                   className="settings-menu-select"
                 />
-              </div>
-
-              <div className="theme-divider pt-3 border-t">
-                <div className="flex items-start justify-between">
-                  <div className="pr-4 flex-1 min-w-0">
-                    <span className="font-semibold theme-danger-text block">
-                      {isAltPressed ? 'Delete All Clips:' : 'Trash All Clips:'}
-                    </span>
-                    <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
-                      Moves all unpinned and unprotected clips (including clips assigned to Bins) into Trash. Hold Option ⌥ to permanently delete.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={(e) => onClearHistory?.(e.altKey)}
-                    className="theme-status-danger flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors shrink-0 cursor-pointer"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>{isAltPressed ? 'Delete All Clips' : 'Trash All Clips'}</span>
-                  </button>
-                </div>
-              </div>
+              </div>}
 
               <div className="theme-divider pt-3 border-t">
                 <div className="flex items-start justify-between">
@@ -483,38 +519,14 @@ export function SettingsGeneralPanel({
               </div>
             </div>
 
-            <div className="theme-divider border-t" />
+            {settings.enableTrash && <>
+              <div className="theme-divider border-t" />
 
-            {/* Trash Preferences */}
-            <div className="space-y-4">
-              <h4 className="font-bold theme-title text-center uppercase tracking-wider text-[11px]">
-                Trash & Protection
-              </h4>
+              {/* Trash Preferences */}
+              <div className="space-y-4">
+              <SettingsSectionHeading title="Trash" align="center" />
 
-              <div className="flex items-start justify-between">
-                <div className="pr-4 flex-1 min-w-0">
-                  <span className="font-semibold theme-text-main block">Enable Soft Trash Protection:</span>
-                  <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
-                    When enabled, deleted clips are moved into Trash for recovery. When disabled, clips are permanently purged immediately.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={settings.enableTrash}
-                  aria-label="Enable soft trash protection"
-                  onClick={() => onUpdateSettings({ enableTrash: !settings.enableTrash })}
-                  className={`settings-switch is-danger relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${settings.enableTrash ? 'is-on' : ''}`}
-                >
-                  <span
-                    className={`settings-switch-thumb pointer-events-none inline-block h-4 w-4 transform rounded-full shadow ring-0 transition duration-200 ease-in-out ${
-                      settings.enableTrash ? 'translate-x-4' : 'translate-x-0'
-                    }`}
-                  />
-                </button>
-              </div>
-
-              <div className="theme-divider border-t pt-3">
+              <div>
                 <div className="flex items-start justify-between">
                   <div className="pr-4 flex-1 min-w-0">
                     <span className="font-semibold theme-text-main block">Trash Capacity Limit:</span>
@@ -554,40 +566,38 @@ export function SettingsGeneralPanel({
                 <span className="font-bold">Auto-Trash Safety Net: </span>
                 When your active history reaches your clip limit ({settings.keepClipCount} clips), older unpinned items automatically move into Trash instead of dropping off forever.
               </div>
-            </div>
 
-            <div className="theme-divider border-t" />
-
-            {/* Activity Log Preferences */}
-            <div className="space-y-4">
-              <h4 className="font-bold theme-title text-center uppercase tracking-wider text-[11px]">
-                Activity Log
-              </h4>
-
-              <div className="flex items-start justify-between">
-                <div className="pr-4 flex-1 min-w-0">
-                  <span className="font-semibold theme-text-main block">Record Activity Logs:</span>
-                  <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
-                    Automatically record system events such as trashed clips, restored clips, notes, and auto-pause events.
-                  </p>
+              <div className="theme-divider pt-3 border-t">
+                <div className="flex items-start justify-between">
+                  <div className="pr-4 flex-1 min-w-0">
+                    <span className="font-semibold theme-danger-text block">
+                      {isAltPressed ? 'Delete All Clips:' : 'Trash All Clips:'}
+                    </span>
+                    <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
+                      Moves all unpinned and unprotected clips (including clips assigned to Bins) into Trash. Hold Option ⌥ to permanently delete.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={(e) => onClearHistory?.(e.altKey)}
+                    className="theme-status-danger flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors shrink-0 cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>{isAltPressed ? 'Delete All Clips' : 'Trash All Clips'}</span>
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={settings.enableActivityLog}
-                  aria-label="Record activity logs"
-                  onClick={() => onUpdateSettings({ enableActivityLog: !settings.enableActivityLog })}
-                  className={`settings-switch relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${settings.enableActivityLog ? 'is-on' : ''}`}
-                >
-                  <span
-                    className={`settings-switch-thumb pointer-events-none inline-block h-4 w-4 transform rounded-full shadow ring-0 transition duration-200 ease-in-out ${
-                      settings.enableActivityLog ? 'translate-x-4' : 'translate-x-0'
-                    }`}
-                  />
-                </button>
               </div>
+              </div>
+            </>}
 
-              <div className="theme-divider border-t pt-3">
+            {settings.enableActivityLog && <>
+              <div className="theme-divider border-t" />
+
+              {/* Activity Log Preferences */}
+              <div className="space-y-4">
+              <SettingsSectionHeading title="Activity History" align="center" />
+
+              <div>
                 <div className="flex items-start justify-between">
                   <div className="pr-4 flex-1 min-w-0">
                     <span className="font-semibold theme-text-main block">Log Capacity Limit:</span>
@@ -608,59 +618,9 @@ export function SettingsGeneralPanel({
                   </div>
                 </div>
               </div>
-            </div>
-
-            <div className="theme-divider border-t" />
-
-            {/* Layout Preferences */}
-            <div className="space-y-4">
-              <h4 className="font-bold theme-title text-center uppercase tracking-wider text-[11px]">
-                Layout
-              </h4>
-
-              <div className="flex items-start justify-between">
-                <div className="pr-4 flex-1 min-w-0">
-                  <span className="font-semibold theme-text-main block">Row Height:</span>
-                  <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
-                    Sets the fixed height of the quick paste menu and main window compact view.
-                  </p>
-                </div>
-                <MenuSelect
-                  value={settings.rowHeight}
-                  options={rowHeightOptions}
-                  onChange={(value) => onUpdateSettings({ rowHeight: value as AppSettings['rowHeight'] })}
-                  label="Row height"
-                  className="settings-menu-select"
-                />
               </div>
+            </>}
 
-              <div className="theme-divider border-t pt-3">
-                <div className="flex items-start justify-between">
-                  <div className="pr-4 flex-1 min-w-0">
-                    <span className="font-semibold theme-text-main block">Column Widths:</span>
-                    <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
-                      Resets the left sidebar and middle history list panel widths back to their default macOS sizes.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (onResetColumnWidths) {
-                        onResetColumnWidths();
-                      } else {
-                        localStorage.removeItem('pasted_sidebar_width');
-                        localStorage.removeItem('pasted_list_width');
-                        window.location.reload();
-                      }
-                    }}
-                    className="theme-secondary-button flex items-center space-x-1.5 px-3 py-1.5 border rounded-lg text-xs font-semibold transition-colors shrink-0 cursor-pointer"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5" />
-                    <span>Reset Column Widths</span>
-                  </button>
-                </div>
-              </div>
-            </div>
           </div>
   );
 }
