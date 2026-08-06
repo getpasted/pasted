@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use tauri::{
-    menu::{AboutMetadataBuilder, Menu, MenuBuilder, MenuEvent, MenuItem, SubmenuBuilder},
+    menu::{Menu, MenuBuilder, MenuEvent, MenuItem, SubmenuBuilder},
     AppHandle, Emitter, Manager, Runtime,
 };
 
@@ -28,6 +28,7 @@ enum MenuDispatch {
 fn dispatch_for_id(id: &str) -> Option<MenuDispatch> {
     let target = match id {
         "app.settings" => MenuDispatch::Navigate("settings"),
+        "app.about" => MenuDispatch::Navigate("settings:about"),
         "file.new_bin" => MenuDispatch::FrontendAction("new-bin"),
         "file.toggle_history" => MenuDispatch::FrontendAction("toggle-history"),
         "file.toggle_queue" => MenuDispatch::FrontendAction("toggle-queue"),
@@ -184,13 +185,7 @@ pub fn install(app: &AppHandle, db: &Arc<DbState>) -> tauri::Result<()> {
 
     #[cfg(target_os = "macos")]
     let app_menu = SubmenuBuilder::new(app, "Pasted")
-        .about(Some(
-            AboutMetadataBuilder::new()
-                .name(Some("Pasted"))
-                .version(Some(env!("CARGO_PKG_VERSION")))
-                .icon(app.default_window_icon().cloned())
-                .build(),
-        ))
+        .text("app.about", "About Pasted")
         .separator()
         .item(&settings)
         .separator()
@@ -371,13 +366,7 @@ pub fn install(app: &AppHandle, db: &Arc<DbState>) -> tauri::Result<()> {
     }
     help_builder = help_builder.text("help.shortcut_settings", "Keyboard Shortcut Settings…");
     #[cfg(not(target_os = "macos"))]
-    let help_builder = help_builder.separator().about(Some(
-        AboutMetadataBuilder::new()
-            .name(Some("Pasted"))
-            .version(Some(env!("CARGO_PKG_VERSION")))
-            .icon(app.default_window_icon().cloned())
-            .build(),
-    ));
+    let help_builder = help_builder.separator().text("app.about", "About Pasted");
     let help_menu = help_builder.build()?;
 
     let mut builder = MenuBuilder::new(app);
@@ -423,6 +412,10 @@ mod tests {
             Some(MenuDispatch::NavigateBin(42))
         );
         assert_eq!(dispatch_for_id("view.bin.-1"), None);
+        assert_eq!(
+            dispatch_for_id("app.about"),
+            Some(MenuDispatch::Navigate("settings:about"))
+        );
         assert_eq!(dispatch_for_id("unknown"), None);
     }
 

@@ -5,6 +5,7 @@ pub mod db;
 pub mod features;
 mod filter_engine;
 mod hotkey_manager;
+pub mod installation_diagnostics;
 mod intelligence_connections;
 pub mod intelligence_executor;
 mod intelligence_provider;
@@ -356,6 +357,7 @@ pub fn run() {
             commands::execute_transformation,
             commands::cancel_transformation_execution,
             commands::get_intelligence_scheduler_snapshot,
+            commands::get_installation_diagnostics,
             commands::run_intelligence_scheduler_demo,
             commands::toggle_clip_protected,
             commands::trash_unpinned_clips,

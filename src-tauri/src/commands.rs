@@ -2,6 +2,7 @@ use arboard::Clipboard;
 use base64::Engine;
 use sha2::{Digest, Sha256};
 use std::io::{Cursor, Read};
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
@@ -12,12 +13,28 @@ use crate::db::{
     PipelineStepInput, SavedTransform, TransformClipApplication,
 };
 use crate::features::{self, Feature};
+use crate::installation_diagnostics::InstallationDiagnostics;
 use crate::sequential_paste::{SequentialQueueState, SequentialStatus};
 
 fn refresh_native_app_menu(app: &AppHandle, db: &Arc<DbState>) {
     if let Err(error) = crate::app_menu::install(app, db) {
         eprintln!("Could not refresh the native app menu: {error}");
     }
+}
+
+#[tauri::command]
+pub fn get_installation_diagnostics(app: AppHandle) -> Result<InstallationDiagnostics, String> {
+    let executable = std::env::current_exe().map_err(|error| error.to_string())?;
+    let app_path = executable
+        .ancestors()
+        .find(|path| path.extension().is_some_and(|extension| extension == "app"))
+        .map(PathBuf::from)
+        .unwrap_or(executable);
+    let data_path = app
+        .path()
+        .app_data_dir()
+        .map_err(|error| error.to_string())?;
+    Ok(InstallationDiagnostics::collect(app_path, data_path))
 }
 
 fn apply_feature_policy_changes(app: &AppHandle, db: &Arc<DbState>, changed: &[Feature]) {

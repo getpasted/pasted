@@ -208,6 +208,22 @@ export interface DetectedIntelligenceConnection {
   executionSupported: boolean;
 }
 
+export interface InstallationDiagnostics {
+  appVersion: string;
+  buildKind: string;
+  platform: string;
+  architecture: string;
+  bundleIdentifier: string;
+  appPath: string;
+  dataPath: string;
+  databaseSizeBytes: number;
+  signingStatus: string;
+  signingIdentity: string | null;
+  signingTeamId: string | null;
+  notarizationStatus: string;
+  cliPath: string | null;
+}
+
 export type IntentPlanningMode = 'pinned' | 'adaptive';
 
 export interface PlannedTransformationStep {

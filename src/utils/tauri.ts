@@ -234,6 +234,22 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
         jobs: [],
         recentEvents: [],
       } as unknown as T;
+    case 'get_installation_diagnostics':
+      return {
+        appVersion: '1.0.0',
+        buildKind: 'Development',
+        platform: 'macos',
+        architecture: 'aarch64',
+        bundleIdentifier: 'software.jjj.pasted',
+        appPath: '/Applications/Pasted.app',
+        dataPath: '/Users/example/Library/Application Support/software.jjj.pasted',
+        databaseSizeBytes: 2_457_600,
+        signingStatus: 'Ad hoc',
+        signingIdentity: null,
+        signingTeamId: null,
+        notarizationStatus: 'Not expected for development builds',
+        cliPath: '/Applications/Pasted.app/Contents/MacOS/pasted-cli',
+      } as unknown as T;
     case 'run_intelligence_scheduler_demo':
       return undefined as T;
     case 'get_ocr_backfill_status':

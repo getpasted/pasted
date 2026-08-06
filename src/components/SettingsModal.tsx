@@ -10,6 +10,7 @@ import { ToolPageHeader } from './ToolPageHeader';
 import { IntelligenceConnectionsPanel } from './IntelligenceConnectionsPanel';
 import { SettingsDebugPanel } from './SettingsDebugPanel';
 import { SettingsFeaturesPanel } from './SettingsFeaturesPanel';
+import { SettingsAboutPanel } from './SettingsAboutPanel';
 
 interface SettingsModalProps {
   settings: AppSettings;
@@ -125,6 +126,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
         {/* TAB 6: DIAGNOSTICS */}
         {settings.enableDiagnostics && activeTab === 'diagnostics' && <SettingsDebugPanel ocrEnabled={settings.enableOcr} />}
+
+        {activeTab === 'about' && <SettingsAboutPanel />}
         </div>
       </div>
     </div>

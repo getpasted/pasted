@@ -1,6 +1,6 @@
-import { Sliders, Command, Shield, Cloud, Cable, Bug, Blocks } from 'lucide-react';
+import { Sliders, Command, Shield, Cloud, Cable, Bug, Blocks, Info } from 'lucide-react';
 
-export type SettingsTab = 'general' | 'features' | 'hotkeys' | 'connections' | 'blacklist' | 'sync' | 'diagnostics';
+export type SettingsTab = 'general' | 'features' | 'hotkeys' | 'connections' | 'blacklist' | 'sync' | 'diagnostics' | 'about';
 
 interface SettingsTabsProps {
   activeTab: SettingsTab;
@@ -17,6 +17,7 @@ const TABS = [
   { id: 'blacklist', label: 'Blacklist', Icon: Shield },
   { id: 'sync', label: 'Sync', Icon: Cloud },
   { id: 'diagnostics', label: 'Diagnostics', Icon: Bug },
+  { id: 'about', label: 'About', Icon: Info },
 ] as const;
 
 export function SettingsTabs({ activeTab, onChange, showConnections = true, showDiagnostics = true }: SettingsTabsProps) {

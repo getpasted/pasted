@@ -6,9 +6,16 @@ use std::path::PathBuf;
 
 use pasted_lib::db::{DbState, TransformClipApplication};
 use pasted_lib::features::{setting_value_is_enabled, Feature};
+use pasted_lib::installation_diagnostics::{InstallationDiagnostics, APP_IDENTIFIER};
 use pasted_lib::intelligence_executor::execute_saved_transform;
 
 fn get_db_path() -> PathBuf {
+    if let Some(mut dir) = dirs::data_dir() {
+        dir.push(APP_IDENTIFIER);
+        if dir.exists() {
+            return dir.join("pasted.db");
+        }
+    }
     if let Some(mut dir) = dirs::data_dir() {
         dir.push("com.tauri.dev");
         if dir.exists() {
@@ -74,6 +81,29 @@ fn main() -> Result<()> {
     }
 
     match command {
+        "diagnostics" | "diagnose" => {
+            let executable = env::current_exe().unwrap_or_else(|_| PathBuf::from("pasted-cli"));
+            let app_path = executable
+                .ancestors()
+                .find(|path| path.extension().is_some_and(|extension| extension == "app"))
+                .map(PathBuf::from)
+                .unwrap_or(executable);
+            let data_path = db_path
+                .parent()
+                .map(PathBuf::from)
+                .unwrap_or_else(|| PathBuf::from("./pasted_data"));
+            let details = InstallationDiagnostics::collect(app_path, data_path);
+            if args.iter().any(|argument| argument == "--json") {
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&details).map_err(|error| {
+                        rusqlite::Error::ToSqlConversionFailure(Box::new(error))
+                    })?
+                );
+            } else {
+                println!("{}", details.plain_text());
+            }
+        }
         "ocr" => {
             let db = DbState::new(db_path.clone())?;
             let ocr_setting = db.get_setting(Feature::Ocr.setting_key())?;
@@ -335,11 +365,12 @@ fn main() -> Result<()> {
             println!("✓ Cleared unpinned clipboard history via CLI.");
         }
         _ => {
-            println!("Pasted CLI Tool (v1.0.0)");
+            println!("Pasted CLI Tool (v{})", env!("CARGO_PKG_VERSION"));
             println!("Usage:");
             println!("  pasted-cli copy <text>       Save text or pipe stdin (cat file.txt | pasted-cli copy)");
             println!("  pasted-cli list [limit]      List N recent clipboard items (default: 10)");
             println!("  pasted-cli search <query>    Search clips for keyword query");
+            println!("  pasted-cli diagnostics --json Show installation diagnostics");
             println!("  pasted-cli ocr status --json Show OCR background-work status");
             println!("  pasted-cli ocr scan          Scan existing unprocessed images");
             println!("  pasted-cli transform list    List saved Transforms");

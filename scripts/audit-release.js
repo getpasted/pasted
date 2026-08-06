@@ -6,7 +6,10 @@ const packageJson = readJson('package.json');
 const packageLock = readJson('package-lock.json');
 const tauriConfig = readJson('src-tauri/tauri.conf.json');
 const cargoToml = fs.readFileSync('src-tauri/Cargo.toml', 'utf8');
+const installationDiagnostics = fs.readFileSync('src-tauri/src/installation_diagnostics.rs', 'utf8');
+const appSettingsHook = fs.readFileSync('src/hooks/useAppSettings.ts', 'utf8');
 const cargoVersion = cargoToml.match(/^version\s*=\s*"([^"]+)"/m)?.[1];
+const diagnosticsIdentifier = installationDiagnostics.match(/APP_IDENTIFIER:\s*&str\s*=\s*"([^"]+)"/)?.[1];
 const rootLockPackage = packageLock.packages?.[''];
 const packageScripts = packageJson.scripts ?? {};
 
@@ -23,6 +26,11 @@ assert.equal(
   'software.jjj.pasted',
   'The public bundle identifier must remain under the developer-owned jjj.software namespace',
 );
+assert.equal(
+  diagnosticsIdentifier,
+  tauriConfig.identifier,
+  'Installation diagnostics and CLI data discovery must use the public bundle identifier',
+);
 assert.match(
   tauriConfig.identifier,
   /^[a-zA-Z][a-zA-Z0-9-]*(?:\.[a-zA-Z0-9-]+){2,}$/,
@@ -30,6 +38,11 @@ assert.match(
 );
 assert.equal(tauriConfig.bundle?.active, true, 'Release bundling must remain enabled');
 assert.ok(tauriConfig.bundle?.icon?.length > 0, 'Release bundles must include app icons');
+assert.match(
+  appSettingsHook,
+  /dockMenubarIcon:\s*'both'/,
+  'Fresh installations must expose the native app menu and Dock/taskbar presence by default',
+);
 
 for (const scriptName of ['release:macos:local', 'release:macos', 'release:macos:verify']) {
   assert.equal(typeof packageScripts[scriptName], 'string', `Missing ${scriptName} release script`);

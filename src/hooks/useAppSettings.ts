@@ -9,7 +9,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   textSize: 16,
   enableSounds: true,
   openAtLogin: true,
-  dockMenubarIcon: 'auto_hide',
+  dockMenubarIcon: 'both',
   maxClipSizeMb: 100,
   filePreviewMode: 'safe',
   filePreviewMaxMb: 25,
