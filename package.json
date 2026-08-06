@@ -1,7 +1,7 @@
 {
-  "name": "tauri-app",
+  "name": "pasted",
   "private": true,
-  "version": "0.1.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -11,9 +11,10 @@
     "test:wcag": "node scripts/audit-wcag.js",
     "test:css": "node scripts/audit-css.js && node scripts/test-interaction-css.js",
     "test:security": "node scripts/audit-security.js",
+    "test:release": "node scripts/audit-release.js",
     "test:ipc": "node scripts/audit-ipc.js",
     "icons:generate": "bash scripts/generate-icons.sh",
-    "test:all": "cargo fmt --manifest-path src-tauri/Cargo.toml -- --check && cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings && npm run build && npm test && npm run test:css && npm run test:wcag && npm run test:ipc && npm run test:security",
+    "test:all": "cargo fmt --manifest-path src-tauri/Cargo.toml -- --check && cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings && npm run build && npm test && npm run test:css && npm run test:wcag && npm run test:ipc && npm run test:security && npm run test:release",
     "tauri": "tauri"
   },
   "dependencies": {
