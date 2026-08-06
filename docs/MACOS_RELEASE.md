@@ -4,7 +4,7 @@ Pasted ships outside the Mac App Store as a signed, notarized, and stapled DMG. 
 
 ## One-time Apple setup
 
-1. Confirm the Apple Developer Program membership is active and settle the final bundle identifier. The current identifier is `com.antigravity.pasted`; changing it after release creates a different app identity.
+1. Confirm the Apple Developer Program membership is active. Pasted's permanent bundle identifier is `software.jjj.pasted`, under the developer-owned `jjj.software` namespace.
 2. In Keychain Access, choose **Certificate Assistant > Request a Certificate From a Certificate Authority** and save the certificate request to disk.
 3. In Apple Developer **Certificates, Identifiers & Profiles**, create a **Developer ID Application** certificate from that request. This certificate type is for direct distribution; an Apple Distribution certificate is for the App Store.
 4. Download and open the `.cer` file. Verify that its certificate and private key appear together in the login keychain:

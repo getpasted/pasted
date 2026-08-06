@@ -18,6 +18,11 @@ assert.equal(rootLockPackage?.version, packageJson.version, 'Locked root package
 assert.equal(tauriConfig.productName, 'Pasted', 'Native product name must remain Pasted');
 assert.equal(tauriConfig.version, packageJson.version, 'Tauri and frontend versions must match');
 assert.equal(cargoVersion, packageJson.version, 'Rust crate and frontend versions must match');
+assert.equal(
+  tauriConfig.identifier,
+  'software.jjj.pasted',
+  'The public bundle identifier must remain under the developer-owned jjj.software namespace',
+);
 assert.match(
   tauriConfig.identifier,
   /^[a-zA-Z][a-zA-Z0-9-]*(?:\.[a-zA-Z0-9-]+){2,}$/,
