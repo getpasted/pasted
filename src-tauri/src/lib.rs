@@ -1,4 +1,5 @@
 mod app_menu;
+pub mod bin_assignment;
 mod clipboard_monitor;
 mod commands;
 pub mod db;
@@ -177,7 +178,9 @@ pub fn run() {
 
             let db_state =
                 Arc::new(db::DbState::new(db_path).expect("Failed to initialize SQLite database"));
-            let seq_state = Arc::new(sequential_paste::SequentialQueueState::new());
+            let seq_state = Arc::new(sequential_paste::SequentialQueueState::persistent(
+                db_state.clone(),
+            ));
 
             app.manage(db_state.clone());
             app.manage(seq_state.clone());
@@ -324,6 +327,7 @@ pub fn run() {
             commands::cancel_ocr_backfill,
             commands::retry_failed_ocr,
             commands::batch_pin_clips,
+            commands::batch_protect_clips,
             commands::batch_trash_clips,
             commands::batch_assign_bin_clips,
             commands::copy_clip_to_system,

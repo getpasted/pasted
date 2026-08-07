@@ -21,6 +21,48 @@ import { ToolPageHeader } from './ToolPageHeader';
 const CLI_SYMLINK_COMMAND = 'sudo ln -s /Applications/Pasted.app/Contents/MacOS/pasted-cli /usr/local/bin/pasted-cli';
 const CLI_ALIAS_COMMAND = 'alias pasted-cli="/Applications/Pasted.app/Contents/MacOS/pasted-cli"';
 
+const CLI_COMMAND_GROUPS = [
+  {
+    title: 'History',
+    commands: [
+      { usage: 'pasted-cli copy "Hello"', description: 'Save a text clip. Omit the argument to read stdin.' },
+      { usage: 'cat server.log | pasted-cli copy', description: 'Pipe bounded text into Pasted history.' },
+      { usage: 'pasted-cli list [limit]', description: 'List recent active clips; defaults to 10.' },
+      { usage: 'pasted-cli search <query>', description: 'Search active clip text.' },
+      { usage: 'pasted-cli clear', description: 'Permanently remove unpinned, unprotected clips.' },
+    ],
+  },
+  {
+    title: 'Clip actions',
+    commands: [
+      { usage: 'pasted-cli clip get <id> [--json]', description: 'Inspect one clip and its metadata.' },
+      { usage: 'pasted-cli clip pin|unpin <id>... [--json]', description: 'Set pin state explicitly for one or more clips.' },
+      { usage: 'pasted-cli clip protect|unprotect <id>... [--json]', description: 'Set protection explicitly for one or more clips.' },
+      { usage: 'pasted-cli clip trash|restore <id>... [--json]', description: 'Move clips into or out of Trash.' },
+      { usage: 'pasted-cli clip assign <bin-id|none> <id>... [--json]', description: 'Assign clips to one manual Bin, or remove their manual Bin.' },
+    ],
+  },
+  {
+    title: 'Bins & Transforms',
+    commands: [
+      { usage: 'pasted-cli bin list [--json]', description: 'List Bins, counts, and saved ordering.' },
+      { usage: 'pasted-cli bin clips <bin-id> [--json]', description: 'List a Bin’s clips in persistent order.' },
+      { usage: 'pasted-cli bin order <bin-id> <clip-id>... [--json]', description: 'Replace a Bin’s complete saved clip order.' },
+      { usage: 'pasted-cli transform list', description: 'List reusable saved Transforms.' },
+      { usage: 'pasted-cli transform run <ref> [--text TEXT | --clip ID | --stdin] [--replace]', description: 'Preview a Transform, or replace a clip while preserving a revision.' },
+    ],
+  },
+  {
+    title: 'Maintenance',
+    commands: [
+      { usage: 'pasted-cli diagnostics [--json]', description: 'Show installation, signing, paths, and runtime details.' },
+      { usage: 'pasted-cli ocr status [--json]', description: 'Inspect OCR backfill progress.' },
+      { usage: 'pasted-cli ocr scan', description: 'Process eligible images that have not been OCR’d.' },
+      { usage: 'pasted-cli reset --yes [--json]', description: 'Reset all Pasted data and preferences. This is destructive.' },
+    ],
+  },
+] as const;
+
 export type HelpTopic = 'cli' | 'hotkeys' | 'autopause' | 'trash' | 'pipelines';
 
 interface HelpTopicDefinition {
@@ -171,58 +213,41 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
                 </div>
               </div>
 
-              {/* CLI Command 1: Copy / Pipe */}
-              <div className="theme-panel p-4 rounded-xl border space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="theme-status-info-text text-xs font-bold font-mono">1. Save text or pipe stdin into Pasted history</span>
-                  <button
-                    onClick={() => handleCopyCode('echo "Log data" | pasted-cli copy')}
-                    className="theme-icon-button p-1 rounded border"
-                    title="Copy Command"
-                  >
-                    {copiedCmd === 'echo "Log data" | pasted-cli copy' ? <Check className="w-3.5 h-3.5 theme-status-success-text" /> : <Copy className="w-3.5 h-3.5" />}
-                  </button>
+              <div className="space-y-3">
+                <div>
+                  <h4 className="theme-title text-sm font-bold">Command reference</h4>
+                  <p className="theme-text-muted mt-1 text-xs">
+                    Commands that return records or mutation details support <code>--json</code> where shown. Disabled Features reject their related commands instead of silently changing data.
+                  </p>
                 </div>
-                <div className="theme-code-surface p-3 rounded-lg border font-mono text-xs">
-                  <div className="theme-status-success-text"># Direct string argument</div>
-                  <div>$ pasted-cli copy "Hello from Terminal!"</div>
-                  <div className="theme-status-success-text mt-2"># Pipe file or command stdout directly into Pasted</div>
-                  <div>$ cat server.log | pasted-cli copy</div>
-                </div>
-              </div>
-
-              {/* CLI Command 2: List */}
-              <div className="theme-panel p-4 rounded-xl border space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="theme-status-info-text text-xs font-bold font-mono">2. List recent clipboard items</span>
-                  <button
-                    onClick={() => handleCopyCode('pasted-cli list 10')}
-                    className="theme-icon-button p-1 rounded border"
-                    title="Copy Command"
-                  >
-                    {copiedCmd === 'pasted-cli list 10' ? <Check className="w-3.5 h-3.5 theme-status-success-text" /> : <Copy className="w-3.5 h-3.5" />}
-                  </button>
-                </div>
-                <div className="theme-code-surface p-3 rounded-lg border font-mono text-xs">
-                  <div className="theme-status-success-text"># Output N recent clipboard items</div>
-                  <div>$ pasted-cli list 15</div>
-                </div>
-              </div>
-
-              {/* CLI Command 3: Search */}
-              <div className="theme-panel p-4 rounded-xl border space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="theme-status-info-text text-xs font-bold font-mono">3. Keyword search clip database</span>
-                  <button
-                    onClick={() => handleCopyCode('pasted-cli search "api_key"')}
-                    className="theme-icon-button p-1 rounded border"
-                    title="Copy Command"
-                  >
-                    {copiedCmd === 'pasted-cli search "api_key"' ? <Check className="w-3.5 h-3.5 theme-status-success-text" /> : <Copy className="w-3.5 h-3.5" />}
-                  </button>
-                </div>
-                <div className="theme-code-surface p-3 rounded-lg border font-mono text-xs">
-                  <div>$ pasted-cli search "https://"</div>
+                <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                  {CLI_COMMAND_GROUPS.map((group) => (
+                    <section key={group.title} className="theme-panel overflow-hidden rounded-xl border">
+                      <h5 className="theme-section-label theme-divider border-b px-4 py-3 text-[11px] font-bold uppercase tracking-[0.12em]">
+                        {group.title}
+                      </h5>
+                      <div className="theme-divide divide-y">
+                        {group.commands.map((command) => (
+                          <div key={command.usage} className="flex items-start gap-3 px-4 py-3">
+                            <div className="min-w-0 flex-1">
+                              <code className="selectable-text theme-status-info-text block select-text break-all font-mono text-[11px] font-semibold">
+                                {command.usage}
+                              </code>
+                              <p className="theme-text-muted mt-1 text-xs leading-relaxed">{command.description}</p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleCopyCode(command.usage)}
+                              className="theme-icon-button shrink-0 rounded border p-1.5"
+                              title="Copy Command"
+                            >
+                              {copiedCmd === command.usage ? <Check className="h-3.5 w-3.5 theme-status-success-text" /> : <Copy className="h-3.5 w-3.5" />}
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+                  ))}
                 </div>
               </div>
             </div>

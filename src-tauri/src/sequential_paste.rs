@@ -2,7 +2,10 @@ use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
+
+use crate::db::DbState;
 
 const MAX_QUEUE_ITEMS: usize = 1_000;
 const MAX_QUEUE_BYTES: usize = 256 * 1024 * 1024;
@@ -16,7 +19,10 @@ pub struct SequentialStatus {
     pub total_count: usize,
 }
 
-#[derive(Debug, Clone)]
+const QUEUE_ITEMS_SETTING: &str = "sequentialQueueItems";
+const QUEUE_ACTIVE_SETTING: &str = "sequentialQueueActive";
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct SequentialQueueItem {
     id: u64,
     text: String,
@@ -27,21 +33,72 @@ pub struct SequentialQueueState {
     queue: Mutex<Vec<SequentialQueueItem>>,
     next_item_id: AtomicU64,
     internal_clipboard_write: Mutex<Option<(String, Instant)>>,
+    db: Option<Arc<DbState>>,
 }
 
 impl SequentialQueueState {
+    #[cfg(test)]
     pub fn new() -> Self {
+        Self::from_parts(Vec::new(), false, None)
+    }
+
+    pub fn persistent(db: Arc<DbState>) -> Self {
+        let items = db
+            .get_setting(QUEUE_ITEMS_SETTING)
+            .ok()
+            .flatten()
+            .and_then(|value| serde_json::from_str::<Vec<SequentialQueueItem>>(&value).ok())
+            .filter(|items| {
+                items.len() <= MAX_QUEUE_ITEMS
+                    && items
+                        .iter()
+                        .try_fold(0usize, |total, item| total.checked_add(item.text.len()))
+                        .is_some_and(|total| total <= MAX_QUEUE_BYTES)
+            })
+            .unwrap_or_default();
+        let active = db
+            .get_setting(QUEUE_ACTIVE_SETTING)
+            .ok()
+            .flatten()
+            .is_some_and(|value| value == "true");
+        Self::from_parts(items, active, Some(db))
+    }
+
+    fn from_parts(items: Vec<SequentialQueueItem>, active: bool, db: Option<Arc<DbState>>) -> Self {
+        let next_item_id = items
+            .iter()
+            .map(|item| item.id)
+            .max()
+            .unwrap_or(0)
+            .saturating_add(1);
         Self {
-            is_active: Mutex::new(false),
-            queue: Mutex::new(Vec::new()),
-            next_item_id: AtomicU64::new(1),
+            is_active: Mutex::new(active),
+            queue: Mutex::new(items),
+            next_item_id: AtomicU64::new(next_item_id),
             internal_clipboard_write: Mutex::new(None),
+            db,
+        }
+    }
+
+    fn persist_items(&self, items: &[SequentialQueueItem]) -> Result<(), String> {
+        let Some(db) = self.db.as_ref() else {
+            return Ok(());
+        };
+        let value = serde_json::to_string(items).map_err(|error| error.to_string())?;
+        db.save_setting(QUEUE_ITEMS_SETTING, &value)
+            .map_err(|error| error.to_string())
+    }
+
+    fn persist_active(&self, active: bool) {
+        if let Some(db) = self.db.as_ref() {
+            let _ = db.save_setting(QUEUE_ACTIVE_SETTING, if active { "true" } else { "false" });
         }
     }
 
     pub fn start_queue(&self) {
         let mut active = self.is_active.lock();
         *active = true;
+        self.persist_active(true);
     }
 
     /// Add an item explicitly from the UI. Explicit additions are useful even
@@ -64,6 +121,10 @@ impl SequentialQueueState {
             id: self.next_item_id.fetch_add(1, Ordering::Relaxed),
             text: item,
         });
+        if let Err(error) = self.persist_items(&queue) {
+            queue.pop();
+            return Err(format!("Could not persist the Copy Queue: {error}"));
+        }
         Ok(())
     }
 
@@ -108,7 +169,12 @@ impl SequentialQueueState {
         let Some(index) = queue.iter().position(|item| item.id == expected_id) else {
             return Err("The Copy Queue changed before the paste completed".to_string());
         };
-        Ok(queue.remove(index).text)
+        let item = queue.remove(index);
+        if let Err(error) = self.persist_items(&queue) {
+            queue.insert(index, item);
+            return Err(format!("Could not persist the Copy Queue: {error}"));
+        }
+        Ok(item.text)
     }
 
     pub fn consume_prefix(&self, expected_ids: &[u64]) -> Result<(), String> {
@@ -121,14 +187,23 @@ impl SequentialQueueState {
         {
             return Err("The Copy Queue changed before the paste completed".to_string());
         }
-        queue.drain(..expected_ids.len());
+        let removed = queue.drain(..expected_ids.len()).collect::<Vec<_>>();
+        if let Err(error) = self.persist_items(&queue) {
+            queue.splice(0..0, removed);
+            return Err(format!("Could not persist the Copy Queue: {error}"));
+        }
         Ok(())
     }
 
     pub fn remove_item_by_index(&self, index: usize) -> Option<String> {
         let mut q = self.queue.lock();
         if index < q.len() {
-            Some(q.remove(index).text)
+            let removed = q.remove(index);
+            if self.persist_items(&q).is_err() {
+                q.insert(index, removed);
+                return None;
+            }
+            Some(removed.text)
         } else {
             None
         }
@@ -151,6 +226,8 @@ impl SequentialQueueState {
         if !items_by_id.is_empty() {
             return Err("Queue order does not include every item".to_string());
         }
+        self.persist_items(&reordered)
+            .map_err(|error| format!("Could not persist the Copy Queue: {error}"))?;
         *queue = reordered;
         Ok(())
     }
@@ -158,6 +235,7 @@ impl SequentialQueueState {
     pub fn stop_queue(&self) {
         let mut active = self.is_active.lock();
         *active = false;
+        self.persist_active(false);
     }
 
     #[allow(dead_code)]
@@ -166,6 +244,8 @@ impl SequentialQueueState {
         let mut q = self.queue.lock();
         *active = false;
         q.clear();
+        self.persist_active(false);
+        let _ = self.persist_items(&q);
     }
 
     pub fn get_status(&self) -> SequentialStatus {
@@ -184,6 +264,7 @@ impl SequentialQueueState {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
 
     #[test]
     fn test_sequential_queue_flow() {
@@ -306,5 +387,47 @@ mod tests {
 
         seq.clear_queue();
         assert_eq!(seq.get_status().total_count, 0);
+    }
+
+    #[test]
+    fn persistent_queue_survives_reload_with_identity_order_and_recording_state() {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!("pasted_queue_{nonce}.db"));
+        let db = Arc::new(DbState::new(path.clone()).unwrap());
+
+        let first_ids = {
+            let queue = SequentialQueueState::persistent(db.clone());
+            queue.start_queue();
+            queue.push_item("First".to_string()).unwrap();
+            queue.push_item("Second".to_string()).unwrap();
+            let original = queue.get_status();
+            queue
+                .reorder_items(&[original.item_ids[1], original.item_ids[0]])
+                .unwrap();
+            queue.get_status().item_ids
+        };
+
+        {
+            let reloaded = SequentialQueueState::persistent(db.clone());
+            let status = reloaded.get_status();
+            assert!(status.is_active);
+            assert_eq!(status.queue, vec!["Second", "First"]);
+            assert_eq!(status.item_ids, first_ids);
+            reloaded.consume_item(first_ids[0]).unwrap();
+            reloaded.stop_queue();
+        }
+
+        let final_reload = SequentialQueueState::persistent(db.clone());
+        let status = final_reload.get_status();
+        assert!(!status.is_active);
+        assert_eq!(status.queue, vec!["First"]);
+        assert_eq!(status.item_ids, vec![first_ids[1]]);
+
+        drop(final_reload);
+        drop(db);
+        let _ = std::fs::remove_file(path);
     }
 }

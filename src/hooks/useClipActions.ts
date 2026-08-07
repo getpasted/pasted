@@ -10,6 +10,10 @@ interface AssignOptions {
   playSound?: boolean;
 }
 
+interface BinAssignmentOutcome {
+  updatedClips: ClipItem[];
+}
+
 interface ClipActionsInput {
   allClips: ClipItem[];
   setAllClips: Dispatch<SetStateAction<ClipItem[]>>;
@@ -184,7 +188,7 @@ export function useClipActions({
       ? { ...previous, is_protected: protectedState }
       : previous);
 
-    void Promise.all(idsToChange.map((clipId) => invoke('toggle_clip_protected', { clipId })))
+    void invoke('batch_protect_clips', { ids: idsToChange, protectedState })
       .catch((error) => {
         console.error('Failed to set protected state:', error);
         void fetchClips();
@@ -318,19 +322,33 @@ export function useClipActions({
       requestAnimationFrame(() => soundManager.playCopySound(settings.enableSounds));
     }
 
-    if (targetIds.length === 1 && binId !== null) {
-      setTransformingClipIds((previous) => new Set(previous).add(clipId));
+    if (binId !== null) {
+      setTransformingClipIds((previous) => {
+        const next = new Set(previous);
+        targetIds.forEach((id) => next.add(id));
+        return next;
+      });
       setTransformErrorsByClipId((previous) => {
-        if (!previous.has(clipId)) return previous;
+        if (!targetIds.some((id) => previous.has(id))) return previous;
         const next = new Map(previous);
-        next.delete(clipId);
+        targetIds.forEach((id) => next.delete(id));
         return next;
       });
     }
 
     try {
       if (targetIds.length > 1) {
-        await invoke('batch_assign_bin_clips', { ids: targetIds, binId });
+        const outcome = await invoke<BinAssignmentOutcome>('batch_assign_bin_clips', {
+          ids: targetIds,
+          binId,
+        });
+        if (outcome.updatedClips.length > 0) {
+          const updatedById = new Map(outcome.updatedClips.map((clip) => [clip.id, clip]));
+          setAllClips((previous) => previous.map((clip) => updatedById.get(clip.id) ?? clip));
+          setSelectedClip((previous) => previous
+            ? updatedById.get(previous.id) ?? previous
+            : previous);
+        }
       } else {
         const transformedClip = await invoke<ClipItem | null>('assign_clip_bin', { clipId, binId });
         if (transformedClip) {
@@ -346,10 +364,11 @@ export function useClipActions({
       }
     } catch (error) {
       console.error('Failed to assign clips to bin:', error);
-      if (targetIds.length === 1 && binId !== null) {
+      if (binId !== null) {
         setTransformErrorsByClipId((previous) => {
           const next = new Map(previous);
-          next.set(clipId, error instanceof Error ? error.message : String(error));
+          const message = error instanceof Error ? error.message : String(error);
+          targetIds.forEach((id) => next.set(id, message));
           return next;
         });
       }
@@ -358,11 +377,11 @@ export function useClipActions({
       void fetchClips();
       void fetchBins();
     } finally {
-      if (targetIds.length === 1) {
+      if (binId !== null) {
         setTransformingClipIds((previous) => {
-          if (!previous.has(clipId)) return previous;
+          if (!targetIds.some((id) => previous.has(id))) return previous;
           const next = new Set(previous);
-          next.delete(clipId);
+          targetIds.forEach((id) => next.delete(id));
           return next;
         });
       }

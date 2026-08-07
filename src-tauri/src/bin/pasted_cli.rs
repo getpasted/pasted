@@ -4,7 +4,8 @@ use std::fs;
 use std::io::{self, Read};
 use std::path::PathBuf;
 
-use pasted_lib::db::{DbState, TransformClipApplication};
+use pasted_lib::bin_assignment::assign_clips_to_bin;
+use pasted_lib::db::{ClipMutationSummary, DbState, TransformClipApplication};
 use pasted_lib::features::{setting_value_is_enabled, Feature};
 use pasted_lib::installation_diagnostics::{InstallationDiagnostics, APP_IDENTIFIER};
 use pasted_lib::intelligence_executor::execute_saved_transform;
@@ -358,6 +359,97 @@ fn main() -> Result<()> {
                 }
             }
         }
+        "clip" | "clips" => {
+            let db = DbState::new(db_path.clone())?;
+            let subcommand = args.get(2).map(String::as_str).unwrap_or("help");
+            let json = args.iter().any(|argument| argument == "--json");
+            match subcommand {
+                "get" | "show" => {
+                    let Some(clip_id) = args.get(3).and_then(|value| value.parse::<i64>().ok())
+                    else {
+                        eprintln!("Usage: pasted-cli clip get <clip-id> [--json]");
+                        std::process::exit(2);
+                    };
+                    let clip = db.get_clip_by_id(clip_id)?;
+                    if json {
+                        println!(
+                            "{}",
+                            serde_json::to_string_pretty(&clip).map_err(json_error)?
+                        );
+                    } else {
+                        println!(
+                            "#{}\t{}\t{}\t{}",
+                            clip.id,
+                            clip.content_type,
+                            clip.source_app,
+                            clip.text_content.as_deref().unwrap_or("")
+                        );
+                    }
+                }
+                "pin" | "unpin" => {
+                    require_feature(&db, Feature::Pinning);
+                    let ids = parse_clip_ids(&args, 3);
+                    let summary = db.batch_pin_clips(ids, subcommand == "pin")?;
+                    print_mutation_summary(&summary, json)?;
+                }
+                "protect" | "unprotect" => {
+                    require_feature(&db, Feature::Protection);
+                    let ids = parse_clip_ids(&args, 3);
+                    let summary = db.batch_protect_clips(ids, subcommand == "protect")?;
+                    print_mutation_summary(&summary, json)?;
+                }
+                "trash" => {
+                    require_feature(&db, Feature::Trash);
+                    let summary = db.batch_trash_clips(parse_clip_ids(&args, 3))?;
+                    print_mutation_summary(&summary, json)?;
+                }
+                "restore" => {
+                    require_feature(&db, Feature::Trash);
+                    let ids = parse_clip_ids(&args, 3);
+                    let requested_count = ids.len();
+                    let mut changed_ids = Vec::new();
+                    for id in ids {
+                        changed_ids.extend(db.restore_clip(id)?.clip_ids);
+                    }
+                    let summary = ClipMutationSummary {
+                        action: "restore".to_string(),
+                        requested_count,
+                        changed_count: changed_ids.len(),
+                        skipped_count: requested_count.saturating_sub(changed_ids.len()),
+                        clip_ids: changed_ids,
+                    };
+                    print_mutation_summary(&summary, json)?;
+                }
+                "assign" => {
+                    require_feature(&db, Feature::Bins);
+                    let Some(destination) = args.get(3) else {
+                        eprintln!(
+                            "Usage: pasted-cli clip assign <bin-id|none> <clip-id>... [--json]"
+                        );
+                        std::process::exit(2);
+                    };
+                    let bin_id = if matches!(destination.as_str(), "none" | "null" | "-") {
+                        None
+                    } else {
+                        destination.parse::<i64>().ok().or_else(|| {
+                            eprintln!("Bin ID must be an integer or 'none'.");
+                            std::process::exit(2);
+                        })
+                    };
+                    let outcome = assign_clips_to_bin(&db, parse_clip_ids(&args, 4), bin_id)
+                        .map_err(|error| {
+                            rusqlite::Error::ToSqlConversionFailure(Box::new(io::Error::other(
+                                error,
+                            )))
+                        })?;
+                    print_mutation_summary(&outcome.mutation, json)?;
+                }
+                _ => {
+                    eprintln!("Usage: pasted-cli clip [get <id> | pin|unpin|protect|unprotect|trash|restore <id>... | assign <bin-id|none> <id>...] [--json]");
+                    std::process::exit(2);
+                }
+            }
+        }
         "copy" | "add" => {
             let capture_limit = configured_capture_bytes(&conn);
             let text = if let Some(arg_text) = args.get(2) {
@@ -447,7 +539,9 @@ fn main() -> Result<()> {
             }
         }
         "clear" => {
-            conn.execute("DELETE FROM clips WHERE is_pinned = 0", [])?;
+            drop(conn);
+            let db = DbState::new(db_path.clone())?;
+            db.purge_unpinned_clips()?;
             println!("✓ Cleared unpinned clipboard history via CLI.");
         }
         "reset" => {
@@ -500,11 +594,61 @@ fn main() -> Result<()> {
             println!("  pasted-cli bin list --json   List Bins and their saved clip order");
             println!("  pasted-cli bin clips <id> --json List clips in persistent Bin order");
             println!("  pasted-cli bin order <id> <clip-id>... Persist a complete Bin order");
+            println!("  pasted-cli clip get <id> --json Inspect one clip");
+            println!("  pasted-cli clip pin|unpin <id>... [--json]");
+            println!("  pasted-cli clip protect|unprotect <id>... [--json]");
+            println!("  pasted-cli clip trash|restore <id>... [--json]");
+            println!("  pasted-cli clip assign <bin-id|none> <id>... [--json]");
             println!("  pasted-cli clear             Clear unpinned clipboard history");
             println!("  pasted-cli reset --yes [--json] Reset all Pasted data and preferences");
         }
     }
 
+    Ok(())
+}
+
+fn json_error(error: serde_json::Error) -> rusqlite::Error {
+    rusqlite::Error::ToSqlConversionFailure(Box::new(error))
+}
+
+fn require_feature(db: &DbState, feature: Feature) {
+    let enabled = db.get_setting(feature.setting_key()).ok().flatten();
+    if !setting_value_is_enabled(enabled.as_deref()) {
+        eprintln!("{} is disabled in Settings → Features.", feature.label());
+        std::process::exit(1);
+    }
+}
+
+fn parse_clip_ids(args: &[String], start: usize) -> Vec<i64> {
+    let ids = args
+        .iter()
+        .skip(start)
+        .filter(|argument| argument.as_str() != "--json")
+        .map(|value| value.parse::<i64>())
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap_or_else(|_| {
+            eprintln!("Every clip ID must be an integer.");
+            std::process::exit(2);
+        });
+    if ids.is_empty() {
+        eprintln!("Provide at least one clip ID.");
+        std::process::exit(2);
+    }
+    ids
+}
+
+fn print_mutation_summary(summary: &ClipMutationSummary, json: bool) -> Result<()> {
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(summary).map_err(json_error)?
+        );
+    } else {
+        println!(
+            "{}: {} changed, {} skipped.",
+            summary.action, summary.changed_count, summary.skipped_count
+        );
+    }
     Ok(())
 }
 fn configured_capture_bytes(conn: &Connection) -> usize {

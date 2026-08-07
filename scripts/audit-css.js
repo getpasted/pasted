@@ -10,6 +10,7 @@ const IMPORTANT_BUDGET = 4;
 const COMPATIBILITY_SELECTOR_BUDGET = 1;
 const UTILITY_COUPLED_SELECTOR_BUDGET = 0;
 const HARD_CODED_SURFACE_BUDGET = 0;
+const DEFAULT_PALETTE_UTILITY_BUDGET = 53;
 
 const readFilesRecursively = (directory, extension) => fs.readdirSync(directory, { withFileTypes: true })
   .flatMap((entry) => {
@@ -41,6 +42,10 @@ const importantCount = (css.match(/!important/g) || []).length;
 const compatibilitySelectorCount = (css.match(/html:is\(\.cool, \.warm\)/g) || []).length;
 const utilityCoupledSelectorCount = (css.match(/\[class~="|\.(?:bg|text|border)-\\\[/g) || []).length;
 const hardCodedSurfaceCount = (componentSource.match(/(?:bg|border)-(?:gray|slate|zinc|neutral)-(?:700|800|900)(?:\/[0-9]+)?|(?:bg|border)-\[#[0-9a-fA-F]{3,8}(?:\]\/[0-9]+|\])/g) || []).length;
+const defaultPaletteUtilityCount = (componentSource.match(/\b(?:bg|text|border|ring|divide)-(?:slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose|white|black)(?:-[0-9]+)?(?:\/[0-9]+)?\b/g) || []).length;
+const unthemedDividerCount = [...componentSource.matchAll(/className="([^"]*\bdivide-[xy]\b[^"]*)"/g)]
+  .filter((match) => !match[1].includes('theme-divide'))
+  .length;
 
 console.log('\nCSS architecture audit');
 console.log('----------------------');
@@ -48,6 +53,8 @@ console.log(`!important declarations: ${importantCount}/${IMPORTANT_BUDGET}`);
 console.log(`Cool/Warm compatibility selectors: ${compatibilitySelectorCount}/${COMPATIBILITY_SELECTOR_BUDGET}`);
 console.log(`Utility-coupled selectors: ${utilityCoupledSelectorCount}/${UTILITY_COUPLED_SELECTOR_BUDGET}`);
 console.log(`Hard-coded JSX surfaces: ${hardCodedSurfaceCount}/${HARD_CODED_SURFACE_BUDGET}`);
+console.log(`Default-palette utility debt: ${defaultPaletteUtilityCount}/${DEFAULT_PALETTE_UTILITY_BUDGET}`);
+console.log(`Unthemed dividers: ${unthemedDividerCount}/0`);
 console.log(`CSS modules imported: ${importedStyleModules.length}/${styleModuleFiles.length}`);
 
 let failed = false;
@@ -82,6 +89,16 @@ if (utilityCoupledSelectorCount > UTILITY_COUPLED_SELECTOR_BUDGET) {
 if (hardCodedSurfaceCount > HARD_CODED_SURFACE_BUDGET) {
   failed = true;
   console.error(`Hard-coded JSX surface budget exceeded by ${hardCodedSurfaceCount - HARD_CODED_SURFACE_BUDGET}.`);
+}
+
+if (defaultPaletteUtilityCount > DEFAULT_PALETTE_UTILITY_BUDGET) {
+  failed = true;
+  console.error(`Default-palette utility budget exceeded by ${defaultPaletteUtilityCount - DEFAULT_PALETTE_UTILITY_BUDGET}. Use semantic theme classes for visual styling.`);
+}
+
+if (unthemedDividerCount > 0) {
+  failed = true;
+  console.error('Every divide-x/divide-y utility must be paired with theme-divide.');
 }
 
 if (failed) process.exit(1);

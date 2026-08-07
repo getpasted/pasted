@@ -1,6 +1,7 @@
 use parking_lot::Mutex;
 use rusqlite::{params, Connection, OptionalExtension, Result, ToSql};
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 use std::fs;
 use std::path::PathBuf;
 
@@ -114,6 +115,46 @@ pub struct ClipItem {
     pub is_trashed: bool,
     pub trashed_at: Option<String>,
     pub created_at: String,
+}
+
+/// Stable result contract shared by GUI commands and the CLI for clip mutations.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ClipMutationSummary {
+    pub action: String,
+    pub requested_count: usize,
+    pub changed_count: usize,
+    pub skipped_count: usize,
+    pub clip_ids: Vec<i64>,
+}
+
+impl ClipMutationSummary {
+    fn new(action: &str, requested_count: usize, clip_ids: Vec<i64>) -> Self {
+        let changed_count = clip_ids.len();
+        Self {
+            action: action.to_string(),
+            requested_count,
+            changed_count,
+            skipped_count: requested_count.saturating_sub(changed_count),
+            clip_ids,
+        }
+    }
+}
+
+fn describe_clip_ids(ids: &[i64]) -> String {
+    if ids.len() == 1 {
+        return format!("clip #{}", ids[0]);
+    }
+    let mut shown = ids
+        .iter()
+        .take(5)
+        .map(|id| format!("#{id}"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    if ids.len() > 5 {
+        shown.push_str(&format!(", +{} more", ids.len() - 5));
+    }
+    format!("{} clips ({shown})", ids.len())
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -2040,42 +2081,69 @@ impl DbState {
         Ok(())
     }
 
-    pub fn delete_clip(&self, id: i64) -> Result<()> {
+    pub fn delete_clip(&self, id: i64) -> Result<ClipMutationSummary> {
+        self.batch_trash_clips(vec![id])
+    }
+
+    pub fn batch_trash_clips(&self, ids: Vec<i64>) -> Result<ClipMutationSummary> {
+        let requested_count = ids.len();
         let mut conn = self.conn.lock();
         let tx = conn.transaction()?;
-        let changed = tx.execute(
-            "UPDATE clips SET is_trashed = 1, trashed_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
-             WHERE id = ?1
-               AND (is_protected IS NULL OR is_protected = 0)
-               AND (is_trashed IS NULL OR is_trashed = 0)",
-            params![id],
-        )?;
-        if changed > 0 {
-            self.clear_category_bin_assignments_internal(&tx, id)?;
+        let mut changed_ids = Vec::new();
+        for id in ids {
+            let changed = tx.execute(
+                "UPDATE clips SET is_trashed = 1, trashed_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
+                 WHERE id = ?1
+                   AND (is_protected IS NULL OR is_protected = 0)
+                   AND (is_trashed IS NULL OR is_trashed = 0)",
+                params![id],
+            )?;
+            if changed > 0 {
+                self.clear_category_bin_assignments_internal(&tx, id)?;
+                changed_ids.push(id);
+            }
+        }
+        if !changed_ids.is_empty() {
+            self.enforce_trash_limit_internal(&tx)?;
         }
         tx.commit()?;
+        if !changed_ids.is_empty() {
+            let event_type = if changed_ids.len() == 1 {
+                "clip_trashed"
+            } else {
+                "clips_trashed"
+            };
+            let _ = self.log_activity_internal(
+                &conn,
+                event_type,
+                &format!("Moved {} to Trash", describe_clip_ids(&changed_ids)),
+            );
+        }
+        Ok(ClipMutationSummary::new(
+            "trash",
+            requested_count,
+            changed_ids,
+        ))
+    }
+
+    pub fn restore_clip(&self, id: i64) -> Result<ClipMutationSummary> {
+        let conn = self.conn.lock();
+        let mut stmt = conn.prepare_cached(
+            "UPDATE clips SET is_trashed = 0, trashed_at = NULL WHERE id = ?1 AND is_trashed = 1",
+        )?;
+        let changed = stmt.execute(params![id])?;
         if changed > 0 {
             let _ = self.log_activity_internal(
                 &conn,
-                "clip_trashed",
-                &format!("Moved clip #{} to Trash", id),
+                "clip_restored",
+                &format!("Restored clip #{} from Trash", id),
             );
-            let _ = self.enforce_trash_limit_internal(&conn);
         }
-        Ok(())
-    }
-
-    pub fn restore_clip(&self, id: i64) -> Result<()> {
-        let conn = self.conn.lock();
-        let mut stmt = conn
-            .prepare_cached("UPDATE clips SET is_trashed = 0, trashed_at = NULL WHERE id = ?1")?;
-        stmt.execute(params![id])?;
-        let _ = self.log_activity_internal(
-            &conn,
-            "clip_restored",
-            &format!("Restored clip #{} from Trash", id),
-        );
-        Ok(())
+        Ok(ClipMutationSummary::new(
+            "restore",
+            1,
+            if changed > 0 { vec![id] } else { Vec::new() },
+        ))
     }
 
     pub fn purge_clip_permanently(&self, id: i64) -> Result<()> {
@@ -2245,16 +2313,34 @@ impl DbState {
         }
         Ok(updated_count)
     }
-    pub fn batch_pin_clips(&self, ids: Vec<i64>, pin_state: bool) -> Result<()> {
+    pub fn batch_pin_clips(&self, ids: Vec<i64>, pin_state: bool) -> Result<ClipMutationSummary> {
+        let requested_count = ids.len();
         let mut conn = self.conn.lock();
         let tx = conn.transaction()?;
-        if pin_state {
+        let mut changed_ids = Vec::new();
+        let mut seen_ids = HashSet::new();
+        for id in ids {
+            if !seen_ids.insert(id) {
+                continue;
+            }
+            let current = tx
+                .query_row(
+                    "SELECT is_pinned FROM clips WHERE id = ?1",
+                    params![id],
+                    |row| row.get::<_, i32>(0),
+                )
+                .optional()?;
+            if current.is_some_and(|value| (value != 0) != pin_state) {
+                changed_ids.push(id);
+            }
+        }
+        if pin_state && !changed_ids.is_empty() {
             tx.execute(
                 "UPDATE clips SET pin_order = COALESCE(pin_order, 0) + ?1 WHERE is_pinned = 1",
-                params![ids.len() as i32],
+                params![changed_ids.len() as i32],
             )?;
         }
-        for (index, id) in ids.into_iter().enumerate() {
+        for (index, id) in changed_ids.iter().enumerate() {
             tx.execute(
                 "UPDATE clips SET is_pinned = ?1, pin_order = ?2 WHERE id = ?3",
                 params![
@@ -2264,42 +2350,46 @@ impl DbState {
                 ],
             )?;
         }
-        tx.commit()
-    }
-
-    pub fn batch_trash_clips(&self, ids: Vec<i64>) -> Result<()> {
-        let mut conn = self.conn.lock();
-        let tx = conn.transaction()?;
-        for id in ids {
-            let changed = tx.execute(
-                "UPDATE clips SET is_trashed = 1, trashed_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
-                 WHERE id = ?1
-                   AND (is_protected IS NULL OR is_protected = 0)
-                   AND (is_trashed IS NULL OR is_trashed = 0)",
-                params![id],
-            )?;
-            if changed > 0 {
-                self.clear_category_bin_assignments_internal(&tx, id)?;
-            }
+        tx.commit()?;
+        if !changed_ids.is_empty() {
+            let event_type = match (pin_state, changed_ids.len()) {
+                (true, 1) => "clip_pinned",
+                (true, _) => "clips_pinned",
+                (false, 1) => "clip_unpinned",
+                (false, _) => "clips_unpinned",
+            };
+            let verb = if pin_state { "Pinned" } else { "Unpinned" };
+            let _ = self.log_activity_internal(
+                &conn,
+                event_type,
+                &format!("{} {}", verb, describe_clip_ids(&changed_ids)),
+            );
         }
-        self.enforce_trash_limit_internal(&tx)?;
-        tx.commit()
+        Ok(ClipMutationSummary::new(
+            if pin_state { "pin" } else { "unpin" },
+            requested_count,
+            changed_ids,
+        ))
     }
 
-    pub fn batch_assign_bin_clips(&self, ids: Vec<i64>, bin_id: Option<i64>) -> Result<()> {
+    pub fn batch_assign_bin_clips(
+        &self,
+        ids: Vec<i64>,
+        bin_id: Option<i64>,
+    ) -> Result<ClipMutationSummary> {
+        let requested_count = ids.len();
         let mut conn = self.conn.lock();
         let tx = conn.transaction()?;
+        let mut changed_ids = Vec::new();
         for clip_id in ids {
-            let is_active = tx
+            let current_bin = tx
                 .query_row(
-                    "SELECT CASE WHEN is_trashed IS NULL OR is_trashed = 0 THEN 1 ELSE 0 END
-                 FROM clips WHERE id = ?1",
+                    "SELECT bin_id FROM clips WHERE id = ?1 AND (is_trashed IS NULL OR is_trashed = 0)",
                     params![clip_id],
-                    |row| row.get::<_, i32>(0),
+                    |row| row.get::<_, Option<i64>>(0),
                 )
-                .unwrap_or(0)
-                != 0;
-            if !is_active {
+                .optional()?;
+            if current_bin.is_none() || current_bin.flatten() == bin_id {
                 continue;
             }
             tx.execute(
@@ -2325,8 +2415,39 @@ impl DbState {
                     params![clip_id],
                 )?;
             }
+            changed_ids.push(clip_id);
         }
-        tx.commit()
+        tx.commit()?;
+        if !changed_ids.is_empty() {
+            let assigned = bin_id.is_some();
+            let event_type = match (assigned, changed_ids.len()) {
+                (true, 1) => "clip_bin_assigned",
+                (true, _) => "clips_bin_assigned",
+                (false, 1) => "clip_bin_unassigned",
+                (false, _) => "clips_bin_unassigned",
+            };
+            let destination = bin_id
+                .map(|id| format!("Bin #{id}"))
+                .unwrap_or_else(|| "No Bin".to_string());
+            let _ = self.log_activity_internal(
+                &conn,
+                event_type,
+                &format!(
+                    "Moved {} to {}",
+                    describe_clip_ids(&changed_ids),
+                    destination
+                ),
+            );
+        }
+        Ok(ClipMutationSummary::new(
+            if bin_id.is_some() {
+                "assign_bin"
+            } else {
+                "unassign_bin"
+            },
+            requested_count,
+            changed_ids,
+        ))
     }
 
     pub fn get_analytics_summary(&self) -> Result<AnalyticsSummary> {
@@ -2454,86 +2575,75 @@ impl DbState {
                 |r| r.get(0),
             )
             .unwrap_or(0);
-        let new_protected = if current_protected == 0 { 1 } else { 0 };
-        conn.execute(
-            "UPDATE clips SET is_protected = ?1 WHERE id = ?2",
-            params![new_protected, id],
-        )?;
-        let action_str = if new_protected == 1 {
-            "Protected"
-        } else {
-            "Unprotected"
-        };
-        let _ = self.log_activity_internal(
-            &conn,
-            "clip_protected_toggled",
-            &format!("{} clip #{}", action_str, id),
-        );
-        Ok(new_protected == 1)
+        drop(conn);
+        let new_protected = current_protected == 0;
+        self.batch_protect_clips(vec![id], new_protected)?;
+        Ok(new_protected)
+    }
+
+    pub fn batch_protect_clips(
+        &self,
+        ids: Vec<i64>,
+        protected_state: bool,
+    ) -> Result<ClipMutationSummary> {
+        let requested_count = ids.len();
+        let mut conn = self.conn.lock();
+        let tx = conn.transaction()?;
+        let mut changed_ids = Vec::new();
+        for id in ids {
+            let changed = tx.execute(
+                "UPDATE clips SET is_protected = ?1
+                 WHERE id = ?2 AND COALESCE(is_protected, 0) != ?1",
+                params![if protected_state { 1 } else { 0 }, id],
+            )?;
+            if changed > 0 {
+                changed_ids.push(id);
+            }
+        }
+        tx.commit()?;
+        if !changed_ids.is_empty() {
+            let event_type = if changed_ids.len() == 1 {
+                "clip_protected_toggled"
+            } else {
+                "clips_protected_toggled"
+            };
+            let verb = if protected_state {
+                "Protected"
+            } else {
+                "Unprotected"
+            };
+            let _ = self.log_activity_internal(
+                &conn,
+                event_type,
+                &format!("{} {}", verb, describe_clip_ids(&changed_ids)),
+            );
+        }
+        Ok(ClipMutationSummary::new(
+            if protected_state {
+                "protect"
+            } else {
+                "unprotect"
+            },
+            requested_count,
+            changed_ids,
+        ))
     }
 
     pub fn toggle_pin(&self, id: i64) -> Result<bool> {
-        let mut conn = self.conn.lock();
-        let tx = conn.transaction()?;
-        let current_pinned: i32 = tx.query_row(
+        let conn = self.conn.lock();
+        let current_pinned: i32 = conn.query_row(
             "SELECT is_pinned FROM clips WHERE id = ?1",
             params![id],
             |r| r.get(0),
         )?;
-        let new_pinned = if current_pinned == 0 { 1 } else { 0 };
-        if new_pinned == 1 {
-            tx.execute(
-                "UPDATE clips SET pin_order = COALESCE(pin_order, 0) + 1 WHERE is_pinned = 1",
-                [],
-            )?;
-        }
-        tx.execute(
-            "UPDATE clips SET is_pinned = ?1, pin_order = 0 WHERE id = ?2",
-            params![new_pinned, id],
-        )?;
-        tx.commit()?;
-        Ok(new_pinned == 1)
+        drop(conn);
+        let new_pinned = current_pinned == 0;
+        self.batch_pin_clips(vec![id], new_pinned)?;
+        Ok(new_pinned)
     }
 
-    pub fn assign_to_bin(&self, clip_id: i64, bin_id: Option<i64>) -> Result<()> {
-        let mut conn = self.conn.lock();
-        let tx = conn.transaction()?;
-        let is_active = tx
-            .query_row(
-                "SELECT CASE WHEN is_trashed IS NULL OR is_trashed = 0 THEN 1 ELSE 0 END
-             FROM clips WHERE id = ?1",
-                params![clip_id],
-                |row| row.get::<_, i32>(0),
-            )
-            .unwrap_or(0)
-            != 0;
-        if !is_active {
-            return tx.commit();
-        }
-        tx.execute(
-            "DELETE FROM clip_bins
-             WHERE clip_id = ?1
-               AND bin_id IN (
-                   SELECT id FROM bins WHERE COALESCE(bin_type, 'category') != 'tag'
-               )",
-            params![clip_id],
-        )?;
-        if let Some(bid) = bin_id {
-            tx.execute(
-                "INSERT OR REPLACE INTO clip_bins (clip_id, bin_id) VALUES (?1, ?2)",
-                params![clip_id, bid],
-            )?;
-            tx.execute(
-                "UPDATE clips SET bin_id = ?1 WHERE id = ?2",
-                params![bid, clip_id],
-            )?;
-        } else {
-            tx.execute(
-                "UPDATE clips SET bin_id = NULL WHERE id = ?1",
-                params![clip_id],
-            )?;
-        }
-        tx.commit()
+    pub fn assign_to_bin(&self, clip_id: i64, bin_id: Option<i64>) -> Result<ClipMutationSummary> {
+        self.batch_assign_bin_clips(vec![clip_id], bin_id)
     }
 
     pub fn add_clip_to_bin(&self, clip_id: i64, bin_id: i64) -> Result<()> {
@@ -6368,6 +6478,61 @@ mod tests {
         let trashed = db.get_trashed_clips().unwrap();
         assert_eq!(trashed.len(), 1);
         assert_eq!(trashed[0].id, clip1.id);
+    }
+
+    #[test]
+    fn clip_mutations_report_changes_skip_noops_and_log_user_actions() {
+        let db = setup_test_db();
+        let first = db
+            .save_clip("text", Some("First"), None, None, "mutation-1", "App")
+            .unwrap();
+        let second = db
+            .save_clip("text", Some("Second"), None, None, "mutation-2", "App")
+            .unwrap();
+        let bin = db
+            .create_bin("Destination", "Folder", "#3b82f6", None)
+            .unwrap();
+
+        let pinned = db
+            .batch_pin_clips(vec![first.id, second.id, first.id], true)
+            .unwrap();
+        assert_eq!(pinned.action, "pin");
+        assert_eq!(pinned.requested_count, 3);
+        assert_eq!(pinned.changed_count, 2);
+        assert_eq!(pinned.skipped_count, 1);
+
+        let pin_noop = db.batch_pin_clips(vec![first.id], true).unwrap();
+        assert_eq!(pin_noop.changed_count, 0);
+
+        let protected = db.batch_protect_clips(vec![first.id], true).unwrap();
+        assert_eq!(protected.changed_count, 1);
+
+        let assigned = db
+            .batch_assign_bin_clips(vec![first.id, second.id], Some(bin.id))
+            .unwrap();
+        assert_eq!(assigned.changed_count, 2);
+
+        let trashed = db.batch_trash_clips(vec![first.id, second.id]).unwrap();
+        assert_eq!(trashed.changed_count, 1);
+        assert_eq!(trashed.skipped_count, 1);
+        assert_eq!(trashed.clip_ids, vec![second.id]);
+
+        let logs = db.get_activity_logs(Some(20), None).unwrap();
+        let event_types = logs
+            .iter()
+            .map(|log| log.event_type.as_str())
+            .collect::<Vec<_>>();
+        assert!(event_types.contains(&"clips_pinned"));
+        assert!(event_types.contains(&"clip_protected_toggled"));
+        assert!(event_types.contains(&"clips_bin_assigned"));
+        assert!(event_types.contains(&"clip_trashed"));
+        assert_eq!(
+            event_types
+                .iter()
+                .filter(|event| **event == "clips_pinned")
+                .count(),
+            1
+        );
     }
 
     #[test]

@@ -603,6 +603,10 @@ html:not(.is-stable-reordering) .connection-priority-card:hover {
   border-color: var(--border-subtle);
 }
 
+.theme-divide > :not(:last-child) {
+  border-color: var(--border-subtle);
+}
+
 .theme-subtle-surface,
 .theme-track {
   background-color: var(--bg-tab-hover);

@@ -16,8 +16,10 @@ import {
   History,
   ListFilter,
   FolderMinus,
+  FolderInput,
   FileWarning,
   ListOrdered,
+  Pin,
 } from 'lucide-react';
 import { ToolPageHeader } from './ToolPageHeader';
 import { MenuSelect } from './MenuSelect';
@@ -94,11 +96,12 @@ export const ActivityLogView: React.FC = () => {
           </div>
         );
       case 'clip_trashed':
+      case 'clips_trashed':
       case 'clip_auto_trashed':
         return (
           <div className="theme-status-danger flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold">
             <Trash2 className="w-3.5 h-3.5" />
-            <span>{type === 'clip_auto_trashed' ? 'Auto-Trashed' : 'Trashed'}</span>
+            <span>{type === 'clip_auto_trashed' ? 'Auto-Trashed' : type === 'clips_trashed' ? 'Batch Trashed' : 'Trashed'}</span>
           </div>
         );
       case 'clips_trashed_all':
@@ -134,6 +137,16 @@ export const ActivityLogView: React.FC = () => {
           <div className="theme-status-info flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold">
             <ListOrdered className="w-3.5 h-3.5" />
             <span>Bin Reordered</span>
+          </div>
+        );
+      case 'clip_bin_assigned':
+      case 'clips_bin_assigned':
+      case 'clip_bin_unassigned':
+      case 'clips_bin_unassigned':
+        return (
+          <div className="theme-status-info flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold">
+            <FolderInput className="w-3.5 h-3.5" />
+            <span>{type.includes('unassigned') ? 'Bin Removed' : 'Bin Assigned'}</span>
           </div>
         );
       case 'clipboard_capture_ignored':
@@ -185,7 +198,8 @@ export const ActivityLogView: React.FC = () => {
             <span>Purged All</span>
           </div>
         );
-      case 'clip_protected_toggled': {
+      case 'clip_protected_toggled':
+      case 'clips_protected_toggled': {
         const isProtected = description.startsWith('Protected ');
         return (
           <div className={`flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold ${
@@ -195,6 +209,18 @@ export const ActivityLogView: React.FC = () => {
           }`}>
             {isProtected ? <ShieldCheck className="w-3.5 h-3.5" /> : <ShieldOff className="w-3.5 h-3.5" />}
             <span>{isProtected ? 'Protected' : 'Unprotected'}</span>
+          </div>
+        );
+      }
+      case 'clip_pinned':
+      case 'clips_pinned':
+      case 'clip_unpinned':
+      case 'clips_unpinned': {
+        const isPinned = !type.includes('unpinned');
+        return (
+          <div className={`${isPinned ? 'theme-status-warning' : 'theme-badge'} flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold`}>
+            <Pin className="w-3.5 h-3.5" />
+            <span>{isPinned ? 'Pinned' : 'Unpinned'}</span>
           </div>
         );
       }
@@ -266,18 +292,19 @@ export const ActivityLogView: React.FC = () => {
       l.event_type.toLowerCase().includes(filter.toLowerCase());
     if (!matchesSearch) return false;
     if (selectedTypeFilter === 'all') return true;
-    if (selectedTypeFilter === 'trashed') return l.event_type === 'clip_trashed' || l.event_type === 'clip_auto_trashed' || l.event_type === 'clips_trashed_all';
+    if (selectedTypeFilter === 'trashed') return l.event_type === 'clip_trashed' || l.event_type === 'clips_trashed' || l.event_type === 'clip_auto_trashed' || l.event_type === 'clips_trashed_all';
     if (selectedTypeFilter === 'restored') return l.event_type === 'clip_restored';
     if (selectedTypeFilter === 'revisions') return l.event_type === 'clip_revision_restored';
     if (selectedTypeFilter === 'purged') return l.event_type === 'clip_deleted' || l.event_type === 'trash_emptied' || l.event_type === 'clips_purged_all';
-    if (selectedTypeFilter === 'protection') return l.event_type === 'clip_protected_toggled';
+    if (selectedTypeFilter === 'protection') return l.event_type === 'clip_protected_toggled' || l.event_type === 'clips_protected_toggled';
+    if (selectedTypeFilter === 'pinning') return l.event_type.includes('pinned');
     if (selectedTypeFilter === 'paused') return l.event_type === 'recording_auto_paused' || l.event_type === 'recording_manually_paused';
     if (selectedTypeFilter === 'resumed') return l.event_type === 'recording_auto_resumed' || l.event_type === 'recording_manually_resumed';
     if (selectedTypeFilter === 'notes') return l.event_type === 'note_updated';
     if (selectedTypeFilter === 'skipped') return l.event_type === 'clipboard_capture_ignored';
     if (selectedTypeFilter === 'transforms') return l.event_type.startsWith('transform_') || l.event_type.startsWith('transformation_') || l.event_type.startsWith('bin_transform_') || l.event_type === 'clip_transformed' || l.event_type === 'intelligence_connection_fallback';
     if (selectedTypeFilter === 'queue') return l.event_type.startsWith('queue_');
-    if (selectedTypeFilter === 'bins') return l.event_type.startsWith('bin_');
+    if (selectedTypeFilter === 'bins') return l.event_type.startsWith('bin_') || l.event_type.includes('_bin_');
     return true;
   });
 
@@ -301,6 +328,7 @@ export const ActivityLogView: React.FC = () => {
               { value: 'revisions', label: 'Revision Restored' },
               { value: 'purged', label: 'Permanently Deleted' },
               { value: 'protection', label: 'Protection Changed' },
+              { value: 'pinning', label: 'Pinning Changed' },
               { value: 'paused', label: 'Recording Paused' },
               { value: 'resumed', label: 'Recording Resumed' },
               { value: 'notes', label: 'Notes Updated' },

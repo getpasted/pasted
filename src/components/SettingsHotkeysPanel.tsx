@@ -245,7 +245,7 @@ export function SettingsHotkeysPanel({
         </div>
         <p className="text-[11px] theme-text-muted leading-normal">{capabilityDescription}</p>
         {hasHotkeyIssues && (
-          <ul className="theme-subtle-surface rounded-lg border divide-y theme-divider overflow-hidden" aria-label="Unavailable hotkeys">
+          <ul className="theme-subtle-surface theme-divide divide-y overflow-hidden rounded-lg border" aria-label="Unavailable hotkeys">
             {hotkeyStatus!.issues.slice(0, 4).map((issue, index) => (
               <li key={`${issue.description}-${issue.shortcut}-${index}`} className="flex items-start justify-between gap-3 px-2.5 py-2 text-[10px]">
                 <span className="min-w-0 truncate theme-text-main">{issue.description}</span>

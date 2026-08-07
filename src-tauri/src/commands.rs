@@ -9,8 +9,9 @@ use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_dialog::DialogExt;
 
+use crate::bin_assignment::BinAssignmentOutcome;
 use crate::db::{
-    Bin, ClipItem, DbState, FactoryResetReport, IntelligenceConnection,
+    Bin, ClipItem, ClipMutationSummary, DbState, FactoryResetReport, IntelligenceConnection,
     IntelligenceConnectionUpdate, Pipeline, PipelineStepInput, SavedTransform,
     TransformClipApplication,
 };
@@ -669,7 +670,7 @@ pub fn get_trashed_clips(db: State<'_, Arc<DbState>>) -> Result<Vec<ClipItem>, S
 
 #[tauri::command]
 pub fn restore_clip(id: i64, db: State<'_, Arc<DbState>>) -> Result<(), String> {
-    db.restore_clip(id).map_err(|e| e.to_string())
+    db.restore_clip(id).map(|_| ()).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -780,7 +781,7 @@ pub fn update_clip_note(
 
 #[tauri::command]
 pub fn delete_clip(id: i64, db: State<'_, Arc<DbState>>) -> Result<(), String> {
-    db.delete_clip(id).map_err(|e| e.to_string())
+    db.delete_clip(id).map(|_| ()).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -798,88 +799,8 @@ pub async fn assign_clip_bin(
     features::require(&db, Feature::Bins)?;
     let db = Arc::clone(&db);
     tauri::async_runtime::spawn_blocking(move || {
-        let previous_category_bin_id = db
-            .get_clip_by_id(clip_id)
-            .map_err(|error| error.to_string())?
-            .bin_id;
-        let is_file_clip = db
-            .get_clip_by_id(clip_id)
-            .map_err(|error| error.to_string())?
-            .content_type
-            == "file";
-        db.assign_to_bin(clip_id, bin_id)
-            .map_err(|error| error.to_string())?;
-        let Some(bin_id) = bin_id else {
-            return Ok(None);
-        };
-        if !features::is_enabled(&db, Feature::Transformations) {
-            return Ok(None);
-        }
-        let Some(transform_ref) = db
-            .get_bin_transform_ref(bin_id)
-            .map_err(|error| error.to_string())?
-        else {
-            return Ok(None);
-        };
-        if is_file_clip {
-            return db
-                .get_clip_by_id(clip_id)
-                .map(Some)
-                .map_err(|error| error.to_string());
-        }
-        let Some(input) = db
-            .get_active_clip_text(clip_id)
-            .map_err(|error| error.to_string())?
-        else {
-            return Ok(None);
-        };
-        let (transform_name, _execution_id, outcome) =
-            crate::intelligence_executor::execute_saved_transform(
-                &db,
-                &transform_ref,
-                input.clone(),
-                crate::intelligence_executor::SavedTransformExecutionContext {
-                    source_clip_id: Some(clip_id),
-                    trigger_kind: "bin",
-                    destination_kind: "replace",
-                    client_request_id: None,
-                },
-                None,
-            )
-            .map_err(|error| error.message)?;
-        if outcome.output == input {
-            let _ = db.log_activity(
-                "bin_transform_no_change",
-                &format!(
-                    "Transform {} made no changes when clip #{} entered bin #{}",
-                    transform_name, clip_id, bin_id
-                ),
-            );
-            return db
-                .get_clip_by_id(clip_id)
-                .map(Some)
-                .map_err(|error| error.to_string());
-        }
-        db.apply_transform_output_to_clip(TransformClipApplication {
-            clip_id,
-            transform_ref: &transform_ref,
-            expected_input: &input,
-            output: &outcome.output,
-            connection_id: outcome.connection_id.as_deref(),
-            duration_ms: outcome.duration_ms,
-            bin_move: Some((previous_category_bin_id, bin_id)),
-        })
-        .map_err(|error| error.to_string())?;
-        let _ = db.log_activity(
-            "bin_transform_executed",
-            &format!(
-                "Applied Transform {} when clip #{} entered bin #{}",
-                transform_name, clip_id, bin_id
-            ),
-        );
-        db.get_clip_by_id(clip_id)
-            .map(Some)
-            .map_err(|error| error.to_string())
+        crate::bin_assignment::assign_clips_to_bin(&db, vec![clip_id], bin_id)
+            .map(|outcome| outcome.updated_clips.into_iter().next())
     })
     .await
     .map_err(|error| error.to_string())?
@@ -941,26 +862,33 @@ pub fn batch_pin_clips(
     ids: Vec<i64>,
     pin_state: bool,
     db: State<'_, Arc<DbState>>,
-) -> Result<(), String> {
+) -> Result<ClipMutationSummary, String> {
     features::require(&db, Feature::Pinning)?;
     db.batch_pin_clips(ids, pin_state)
         .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub fn batch_trash_clips(ids: Vec<i64>, db: State<'_, Arc<DbState>>) -> Result<(), String> {
+pub fn batch_trash_clips(
+    ids: Vec<i64>,
+    db: State<'_, Arc<DbState>>,
+) -> Result<ClipMutationSummary, String> {
     db.batch_trash_clips(ids).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub fn batch_assign_bin_clips(
+pub async fn batch_assign_bin_clips(
     ids: Vec<i64>,
     bin_id: Option<i64>,
     db: State<'_, Arc<DbState>>,
-) -> Result<(), String> {
+) -> Result<BinAssignmentOutcome, String> {
     features::require(&db, Feature::Bins)?;
-    db.batch_assign_bin_clips(ids, bin_id)
-        .map_err(|e| e.to_string())
+    let db = Arc::clone(&db);
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::bin_assignment::assign_clips_to_bin(&db, ids, bin_id)
+    })
+    .await
+    .map_err(|error| error.to_string())?
 }
 
 #[tauri::command]
@@ -2298,6 +2226,17 @@ pub fn paste_clip_by_id(
 pub fn toggle_clip_protected(clip_id: i64, db: State<'_, Arc<DbState>>) -> Result<bool, String> {
     features::require(&db, Feature::Protection)?;
     db.toggle_protected(clip_id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn batch_protect_clips(
+    ids: Vec<i64>,
+    protected_state: bool,
+    db: State<'_, Arc<DbState>>,
+) -> Result<ClipMutationSummary, String> {
+    features::require(&db, Feature::Protection)?;
+    db.batch_protect_clips(ids, protected_state)
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
