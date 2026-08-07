@@ -2781,14 +2781,18 @@ pub fn set_dock_visibility(show_dock: bool, app: AppHandle) -> Result<(), String
 }
 
 #[tauri::command]
-pub fn open_emoji_picker() {
+pub fn open_emoji_picker() -> bool {
     #[cfg(target_os = "macos")]
     {
-        let _ = std::process::Command::new("osascript")
+        return std::process::Command::new("osascript")
             .arg("-e")
             .arg("tell application \"System Events\" to keystroke \" \" using {control down, command down}")
-            .spawn();
+            .spawn()
+            .is_ok();
     }
+
+    #[cfg(not(target_os = "macos"))]
+    false
 }
 
 #[tauri::command]
