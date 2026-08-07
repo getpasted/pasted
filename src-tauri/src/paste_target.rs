@@ -218,6 +218,12 @@ pub(crate) fn active_application_name() -> Option<String> {
 
     #[cfg(target_os = "linux")]
     {
+        // Native Wayland intentionally does not expose the globally focused
+        // application. Avoid spawning xdotool in the clipboard monitor's hot
+        // polling path; it can only describe XWayland windows in this session.
+        if is_native_wayland_session() {
+            return None;
+        }
         active_x11_window_id()
             .and_then(x11_application_for_window)
             .map(|target| target.name)
@@ -245,6 +251,14 @@ fn platform_unavailable_reason() -> Option<String> {
         std::env::var_os("DISPLAY").is_some(),
         command_is_available("xdotool"),
     )
+}
+
+#[cfg(target_os = "linux")]
+fn is_native_wayland_session() -> bool {
+    std::env::var("XDG_SESSION_TYPE").is_ok_and(|value| value.eq_ignore_ascii_case("wayland"))
+        || (std::env::var_os("WAYLAND_DISPLAY").is_some()
+            && !std::env::var("XDG_SESSION_TYPE")
+                .is_ok_and(|value| value.eq_ignore_ascii_case("x11")))
 }
 
 #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]

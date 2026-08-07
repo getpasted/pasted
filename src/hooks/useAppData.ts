@@ -212,6 +212,12 @@ export function useAppData() {
     const unlistenPause = listen<{ is_paused: boolean }>('clipboard-pause-changed', (event) => {
       setIsClipboardPaused(event.payload.is_paused);
     });
+    // Native backends should deliver every clip-added event while Pasted is in
+    // the background. Reconcile on focus as a safety net for compositors or
+    // webviews that coalesce background delivery.
+    const unlistenFocus = listen('tauri://focus', () => {
+      void fetchClips();
+    });
 
     return () => {
       if (ignoredStatusTimer) clearTimeout(ignoredStatusTimer);
@@ -219,6 +225,7 @@ export function useAppData() {
       void unlistenSequential.then((unlisten) => unlisten());
       void unlistenBlacklist.then((unlisten) => unlisten());
       void unlistenPause.then((unlisten) => unlisten());
+      void unlistenFocus.then((unlisten) => unlisten());
     };
   }, [fetchClips]);
 

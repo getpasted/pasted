@@ -72,5 +72,10 @@ assert.match(settingsSource, /getCurrentWindow\(\)\.setTheme\(nativeTheme\)/);
 assert.match(settingsSource, /set_linux_native_menu_theme/);
 assert.match(linuxThemeSource, /gtk::StyleContext::add_provider_for_screen/);
 assert.match(linuxThemeSource, /menubar > menuitem:hover/);
+assert.match(
+  cargoManifest,
+  /arboard = \{ version = "3\.4", features = \["wayland-data-control"\] \}/,
+  'Linux clipboard history needs Wayland data-control instead of an XWayland fallback',
+);
 
 console.log('Platform window-chrome audit passed.');
