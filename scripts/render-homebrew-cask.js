@@ -27,11 +27,11 @@ const cask = `cask "pasted" do
   version "${version}"
   sha256 "${sha256.toLowerCase()}"
 
-  url "https://github.com/JJJ/Pasted/releases/download/v#{version}/Pasted_#{version}_universal.dmg",
-      verified: "github.com/JJJ/Pasted/"
+  url "https://github.com/pasted-app/pasted/releases/download/v#{version}/Pasted_#{version}_universal.dmg",
+      verified: "github.com/pasted-app/pasted/"
   name "Pasted"
   desc "Clipboard history, organization, and transformations"
-  homepage "https://github.com/JJJ/Pasted"
+  homepage "https://github.com/pasted-app/pasted"
 
   app "Pasted.app"
   binary "#{appdir}/Pasted.app/Contents/MacOS/pasted"
