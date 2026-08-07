@@ -47,9 +47,9 @@ jobs:
       APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
       APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
       KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
-      APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
-      APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
-      APPLE_API_PRIVATE_KEY: ${{ secrets.APPLE_API_PRIVATE_KEY }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v6
@@ -65,7 +65,7 @@ jobs:
       - run: npm ci
       - name: Require Apple release credentials
         run: |
-          for name in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD KEYCHAIN_PASSWORD APPLE_API_ISSUER APPLE_API_KEY APPLE_API_PRIVATE_KEY; do
+          for name in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD KEYCHAIN_PASSWORD APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID; do
             if [[ -z "${!name:-}" ]]; then
               echo "Missing release-macos secret: ${name}" >&2
               exit 1
@@ -88,12 +88,6 @@ jobs:
             exit 1
           fi
           echo "APPLE_SIGNING_IDENTITY=$identity" >> "$GITHUB_ENV"
-      - name: Install App Store Connect API key
-        run: |
-          key_path="$RUNNER_TEMP/AuthKey_${APPLE_API_KEY}.p8"
-          printf '%s' "$APPLE_API_PRIVATE_KEY" | openssl base64 -d -A -out "$key_path"
-          chmod 600 "$key_path"
-          echo "APPLE_API_KEY_PATH=$key_path" >> "$GITHUB_ENV"
       - name: Build, sign, and notarize universal DMG
         run: npm run tauri -- build --target universal-apple-darwin --bundles dmg
       - name: Verify and stage macOS release

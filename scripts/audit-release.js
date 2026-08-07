@@ -96,5 +96,24 @@ assert.match(
   /render-homebrew-cask\.js/,
   'The release workflow must publish its matching Homebrew Cask',
 );
+for (const appleSecret of [
+  'APPLE_CERTIFICATE',
+  'APPLE_CERTIFICATE_PASSWORD',
+  'KEYCHAIN_PASSWORD',
+  'APPLE_ID',
+  'APPLE_PASSWORD',
+  'APPLE_TEAM_ID',
+]) {
+  assert.match(
+    releaseWorkflow,
+    new RegExp(`secrets\\.${appleSecret}`),
+    `The hosted macOS release must receive ${appleSecret} through an environment secret`,
+  );
+}
+assert.doesNotMatch(
+  releaseWorkflow,
+  /APPLE_API_PRIVATE_KEY/,
+  'The 1.0 release must not depend on App Store Connect business/API setup',
+);
 
 console.log(`Release metadata audit passed for Pasted ${packageJson.version}.`);

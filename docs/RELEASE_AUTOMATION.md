@@ -18,11 +18,11 @@ Export the **Developer ID Application** certificate and private key from Keychai
 | `APPLE_CERTIFICATE` | Single-line base64 of the `.p12`: `openssl base64 -A -in DeveloperID.p12` |
 | `APPLE_CERTIFICATE_PASSWORD` | Password chosen while exporting the `.p12` |
 | `KEYCHAIN_PASSWORD` | A new random password used only for the ephemeral CI keychain |
-| `APPLE_API_ISSUER` | App Store Connect API issuer UUID |
-| `APPLE_API_KEY` | App Store Connect API key ID |
-| `APPLE_API_PRIVATE_KEY` | Single-line base64 of `AuthKey_KEYID.p8`: `openssl base64 -A -in AuthKey_KEYID.p8` |
+| `APPLE_ID` | Apple Account email associated with the Developer Program membership |
+| `APPLE_PASSWORD` | App-specific password created for Pasted CI; never the Apple Account password |
+| `APPLE_TEAM_ID` | Developer Team ID (`46SE2P5ZAH`) |
 
-The runner imports these only into an ephemeral keychain, builds a universal Apple Silicon/Intel DMG, lets Tauri submit it for notarization, and verifies the Developer ID signature, Gatekeeper assessment, and stapled ticket before upload.
+The runner imports the certificate only into an ephemeral keychain, builds a universal Apple Silicon/Intel DMG, lets Tauri submit it to Apple's notary service with the app-specific password, and verifies the Developer ID signature, Gatekeeper assessment, and stapled ticket before upload. App Store Connect API credentials can replace the Apple Account credentials later, but they are intentionally not a 1.0 prerequisite.
 
 ## Deferred Windows signing
 
