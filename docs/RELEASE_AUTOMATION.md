@@ -22,7 +22,7 @@ Export the **Developer ID Application** certificate and private key from Keychai
 | `APPLE_PASSWORD` | App-specific password created for Pasted CI; never the Apple Account password |
 | `APPLE_TEAM_ID` | Developer Team ID (`46SE2P5ZAH`) |
 
-The runner imports the certificate only into an ephemeral keychain, builds a universal Apple Silicon/Intel DMG, lets Tauri submit it to Apple's notary service with the app-specific password, and verifies the Developer ID signature, Gatekeeper assessment, and stapled ticket before upload. App Store Connect API credentials can replace the Apple Account credentials later, but they are intentionally not a 1.0 prerequisite.
+The runner imports the certificate only into an ephemeral keychain, builds a universal Apple Silicon/Intel app and DMG, lets Tauri notarize and staple the app, then separately notarizes and staples the outer disk image. The release gate verifies the Developer ID signature, Gatekeeper assessment, universal architectures, and both stapled tickets before upload. App Store Connect API credentials can replace the Apple Account credentials later, but they are intentionally not a 1.0 prerequisite.
 
 Pasted ships both the private `pasted-app` GUI executable and the public `pasted` CLI. Before Tauri bundles the universal app, `scripts/build-macos-universal-cli.sh` builds both CLI architectures and merges them with `lipo`; the release workflow then signs that nested CLI before Tauri signs the enclosing app. This keeps the bundled CLI and standalone release artifact universal, notarizable, and covered by the Developer ID signature.
 

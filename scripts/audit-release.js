@@ -104,6 +104,11 @@ assert.match(
   'The hosted macOS release must sign the bundled CLI before Tauri signs the enclosing app',
 );
 assert.match(
+  releaseWorkflow,
+  /notarytool submit "\$dmg_path"[\s\S]*stapler staple "\$dmg_path"[\s\S]*stapler validate "\$dmg_path"/,
+  'The hosted macOS release must notarize and staple the outer DMG after Tauri notarizes the app',
+);
+assert.match(
   universalMacCliBuild,
   /lipo "\$output_path" -verify_arch arm64 x86_64/,
   'The universal CLI audit must use Apple architecture names',
