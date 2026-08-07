@@ -91,6 +91,17 @@ jobs:
       - name: Build, sign, and notarize universal DMG
         run: |
           bash scripts/build-macos-universal-cli.sh
+          codesign \
+            --force \
+            --timestamp \
+            --options runtime \
+            --sign "$APPLE_SIGNING_IDENTITY" \
+            src-tauri/target/universal-apple-darwin/release/pasted
+          codesign \
+            --verify \
+            --strict \
+            --verbose=2 \
+            src-tauri/target/universal-apple-darwin/release/pasted
           npm run tauri -- build --target universal-apple-darwin --bundles dmg
       - name: Verify and stage macOS release
         env:

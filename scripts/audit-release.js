@@ -99,6 +99,11 @@ assert.match(
   'The hosted macOS release must stage a universal CLI before Tauri bundles the universal app',
 );
 assert.match(
+  releaseWorkflow,
+  /codesign[\s\S]*--sign "\$APPLE_SIGNING_IDENTITY"[\s\S]*universal-apple-darwin\/release\/pasted[\s\S]*tauri -- build --target universal-apple-darwin/,
+  'The hosted macOS release must sign the bundled CLI before Tauri signs the enclosing app',
+);
+assert.match(
   universalMacCliBuild,
   /lipo "\$output_path" -verify_arch arm64 x86_64/,
   'The universal CLI audit must use Apple architecture names',
