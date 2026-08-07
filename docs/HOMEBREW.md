@@ -45,15 +45,25 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - name: Fetch latest Cask
+      - name: Fetch latest published Cask
+        id: fetch
         run: |
-          mkdir -p Casks
-          curl --fail --silent --show-error --location \
+          cask_path="$RUNNER_TEMP/pasted.rb"
+          if ! curl --fail --silent --show-error --location \
             https://github.com/pasted-app/pasted/releases/latest/download/pasted.rb \
-            --output Casks/pasted.rb
+            --output "$cask_path"; then
+            echo '::notice::Pasted has no public release Cask yet; nothing to update.'
+            echo 'available=false' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          ruby -c "$cask_path"
+          mkdir -p Casks
+          cp "$cask_path" Casks/pasted.rb
+          echo 'available=true' >> "$GITHUB_OUTPUT"
       - name: Commit an updated Cask
+        if: steps.fetch.outputs.available == 'true'
         run: |
-          if git diff --quiet -- Casks/pasted.rb; then
+          if [[ -z "$(git status --porcelain -- Casks/pasted.rb)" ]]; then
             exit 0
           fi
           git config user.name github-actions[bot]
