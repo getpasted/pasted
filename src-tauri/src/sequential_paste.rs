@@ -131,22 +131,31 @@ impl SequentialQueueState {
     /// Record an external clipboard change while recording mode is active.
     /// Returns true only when the item was actually appended.
     pub fn capture_item(&self, item: String) -> bool {
-        let mut internal_write = self.internal_clipboard_write.lock();
-        if let Some((expected, written_at)) = internal_write.as_ref() {
-            if written_at.elapsed() <= Duration::from_secs(2) && expected == &item {
-                *internal_write = None;
-                return false;
-            }
-            if written_at.elapsed() > Duration::from_secs(2) {
-                *internal_write = None;
-            }
+        if self.consume_internal_clipboard_write(&item) {
+            return false;
         }
-        drop(internal_write);
 
         if !*self.is_active.lock() {
             return false;
         }
         self.push_item(item).is_ok()
+    }
+
+    /// Consume the short-lived marker for clipboard content written by Pasted
+    /// itself. The clipboard monitor calls this before history persistence so
+    /// Queue pastes cannot become duplicate clips or trigger automation.
+    pub fn consume_internal_clipboard_write(&self, item: &str) -> bool {
+        let mut internal_write = self.internal_clipboard_write.lock();
+        if let Some((expected, written_at)) = internal_write.as_ref() {
+            if written_at.elapsed() <= Duration::from_secs(2) && expected == item {
+                *internal_write = None;
+                return true;
+            }
+            if written_at.elapsed() > Duration::from_secs(2) {
+                *internal_write = None;
+            }
+        }
+        false
     }
 
     pub fn mark_internal_clipboard_write(&self, item: &str) {
@@ -307,6 +316,15 @@ mod tests {
         assert!(!seq.capture_item("First".to_string()));
         assert!(seq.capture_item("Second".to_string()));
         assert_eq!(seq.get_status().queue, vec!["Second"]);
+    }
+
+    #[test]
+    fn internal_paste_marker_is_consumed_once_for_history_suppression() {
+        let seq = SequentialQueueState::new();
+        seq.mark_internal_clipboard_write("Combined Queue");
+
+        assert!(seq.consume_internal_clipboard_write("Combined Queue"));
+        assert!(!seq.consume_internal_clipboard_write("Combined Queue"));
     }
 
     #[test]

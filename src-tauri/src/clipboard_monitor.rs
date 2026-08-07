@@ -361,6 +361,15 @@ pub fn start_clipboard_monitor(
                             continue;
                         }
 
+                        // Queue paste commands write to the system clipboard so
+                        // the destination app can receive a normal paste. That
+                        // internal write is not a new user copy and must not be
+                        // saved to history, re-queued, or sent through Smart Bin
+                        // automation.
+                        if seq_state.consume_internal_clipboard_write(&text) {
+                            continue;
+                        }
+
                         // Check blacklist
                         if let Some(ref active_app) = active_app_opt {
                             if let Ok(Some(blacklist_json)) = db_state.get_setting("blacklistApps")
