@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { AlertCircle, Search, Sparkles, X } from 'lucide-react';
+import { AlertCircle, LoaderCircle, Search, Sparkles, X } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { listen } from '@tauri-apps/api/event';
 import { ClipItem, getClipFileSummary } from '../types';
@@ -16,7 +16,10 @@ export const QuickHudWindow: React.FC = () => {
   const [search, setSearch] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [pasteError, setPasteError] = useState('');
+  const [isPasting, setIsPasting] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const isPastingRef = useRef(false);
   const clipsRef = useRef(clips);
   const selectedIndexRef = useRef(selectedIndex);
   clipsRef.current = clips;
@@ -43,11 +46,17 @@ export const QuickHudWindow: React.FC = () => {
   fetchClipsRef.current = fetchClips;
 
   const activateClip = async (clip: ClipItem) => {
+    if (isPastingRef.current) return;
+    isPastingRef.current = true;
+    setIsPasting(true);
     setPasteError('');
     try {
       await invoke('paste_clip_by_id', { clipId: clip.id });
     } catch (error) {
       setPasteError(error instanceof Error ? error.message : String(error));
+    } finally {
+      isPastingRef.current = false;
+      setIsPasting(false);
     }
   };
 
@@ -87,6 +96,13 @@ export const QuickHudWindow: React.FC = () => {
   useEffect(() => {
     fetchClips();
   }, [search]);
+
+  useEffect(() => {
+    const selectedRow = listRef.current?.querySelector<HTMLElement>(
+      `[data-hud-index="${selectedIndex}"]`,
+    );
+    selectedRow?.scrollIntoView({ block: 'nearest' });
+  }, [selectedIndex]);
 
   useEffect(() => {
     document.documentElement.classList.add('hud-mode');
@@ -143,7 +159,10 @@ export const QuickHudWindow: React.FC = () => {
               type="text"
               placeholder="Search clips…"
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => {
+                setPasteError('');
+                setSearch(e.target.value);
+              }}
               className="theme-input quick-hud-search w-full border rounded-xl pl-8 pr-3 py-1.5 text-xs font-mono no-drag"
             />
           </div>
@@ -157,7 +176,13 @@ export const QuickHudWindow: React.FC = () => {
         </div>
 
         {/* Recent Clips 1..9 */}
-        <div className="custom-scrollbar flex-1 overflow-y-auto p-2 space-y-1.5">
+        <div
+          ref={listRef}
+          role="listbox"
+          aria-label="Recent clips"
+          aria-busy={isPasting}
+          className="custom-scrollbar flex-1 overflow-y-auto p-2 space-y-1.5"
+        >
           {clips.length === 0 ? (
             <div className="theme-text-subtle flex flex-col items-center justify-center h-48 text-center space-y-1.5 p-4">
               <Sparkles className="w-6 h-6" />
@@ -169,6 +194,9 @@ export const QuickHudWindow: React.FC = () => {
               return (
                 <div
                   key={clip.id}
+                  data-hud-index={index}
+                  role="option"
+                  aria-selected={isSel}
                   onPointerDown={() => setSelectedIndex(index)}
                   onClick={() => activateClip(clip)}
                   className={`quick-hud-row p-2.5 rounded-xl border cursor-pointer flex items-center justify-between space-x-3 ${isSel ? 'is-selected shadow-md' : ''}`}
@@ -211,7 +239,12 @@ export const QuickHudWindow: React.FC = () => {
 
         {/* Bottom Quick Help Bar */}
         <div className="quick-hud-footer min-h-8 px-3 py-2 border-t flex items-center justify-between gap-3 text-[0.625rem] font-mono">
-          {pasteError ? (
+          {isPasting ? (
+            <span className="min-w-0 flex flex-1 items-center gap-1.5">
+              <LoaderCircle className="h-3 w-3 shrink-0 animate-spin" />
+              <span>Pasting…</span>
+            </span>
+          ) : pasteError ? (
             <span className="theme-danger-text min-w-0 flex flex-1 items-center gap-1.5" title={pasteError}>
               <AlertCircle className="h-3 w-3 shrink-0" />
               <span className="truncate">{pasteError}</span>
