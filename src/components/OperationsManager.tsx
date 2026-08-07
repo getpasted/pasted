@@ -34,6 +34,7 @@ export const OperationsManager: React.FC<OperationsManagerProps> = ({
   const [selectedOperationId, setSelectedOperationId] = useState<string | null>(null);
   const [selectedOperationForEdit, setSelectedOperationForEdit] = useState<Operation | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [libraryError, setLibraryError] = useState('');
 
   const fetchOperations = async () => {
     try {
@@ -70,11 +71,13 @@ export const OperationsManager: React.FC<OperationsManagerProps> = ({
   };
 
   const handleDelete = async (operation: Operation) => {
+    setLibraryError('');
     try {
       await invoke('delete_operation', { id: operation.id });
       await fetchOperations();
     } catch (error) {
       console.error(error);
+      setLibraryError(error instanceof Error ? error.message : String(error));
     }
   };
 
@@ -189,6 +192,12 @@ export const OperationsManager: React.FC<OperationsManagerProps> = ({
           label="Filter Operations"
         />
       </TransformLibraryToolbar>
+
+      {libraryError && (
+        <div role="alert" className="theme-status-danger rounded-xl border px-3 py-2 text-xs">
+          {libraryError}
+        </div>
+      )}
 
       <div className="min-w-0 space-y-5">
           <section className="space-y-2" aria-labelledby="your-operations-heading">

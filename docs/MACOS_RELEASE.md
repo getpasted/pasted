@@ -75,4 +75,8 @@ Do this with the exact DMG intended for release, preferably on a second Mac or a
 5. Quit and relaunch; verify saved window position, settings, and clipboard history.
 6. Check the artifact one final time with `npm run release:macos:verify -- /path/to/the.dmg` and retain its printed SHA-256 digest with the release notes.
 
+Complete the expanded [`RELEASE_CHECKLIST_1.0.0.md`](RELEASE_CHECKLIST_1.0.0.md) before publishing the 1.0 artifact.
+
+Pasted 1.0 uses manual DMG updates. A future automatic updater must have a permanent HTTPS feed, a separately protected updater signing key, rollback-safe metadata, and an exercised failure path before it replaces this policy.
+
 The current local build host is Apple Silicon, so its default artifact is arm64. Supporting Intel Macs requires a separately installed Rust x86_64 target and a universal build; make that support decision explicitly before advertising system requirements.

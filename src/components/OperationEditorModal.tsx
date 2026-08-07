@@ -146,8 +146,12 @@ export const OperationEditorModal: React.FC<OperationEditorModalProps> = ({
     ...(!['regex', 'ai', 'cli', 'http'].includes(opType)
       ? [{ value: opType, label: `${opType} · legacy custom operation`, disabled: true }]
       : []),
-    { value: 'cli', label: opType === 'cli' ? 'cli · legacy custom operation' : 'Command or CLI · sandbox coming next', disabled: true },
-    { value: 'http', label: opType === 'http' ? 'http · legacy custom operation' : 'HTTP API · coming later', disabled: true },
+    ...(opType === 'cli'
+      ? [{ value: 'cli', label: 'Command or CLI · legacy and unavailable', disabled: true }]
+      : []),
+    ...(opType === 'http'
+      ? [{ value: 'http', label: 'HTTP API · legacy and unavailable', disabled: true }]
+      : []),
     { value: 'ai', label: 'Connected intelligence · priority and fallback' },
   ];
   const isDirty = JSON.stringify({ name, opType, category, findPattern, replacePattern, aiInstructions })

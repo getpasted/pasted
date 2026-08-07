@@ -153,12 +153,12 @@ export function IntelligenceConnectionsPanel() {
                           {detected?.version || intelligenceProviderLabel(connection.providerKind)}{connection.model ? ` · ${connection.model}` : ''}
                         </div>
                         {isInteractiveOnly && <div className="theme-text-muted text-[9px] mt-0.5">Interactive/MCP client · not automatic fallback</div>}
-                        {executionUnavailable && !isInteractiveOnly && <div className="theme-text-muted text-[9px] mt-0.5">Detected · execution adapter coming later</div>}
+                        {executionUnavailable && !isInteractiveOnly && <div className="theme-text-muted text-[9px] mt-0.5">Detected · automatic execution unavailable</div>}
                         <div className="theme-text-muted text-[10px] font-mono truncate mt-1">{connection.endpoint || 'No endpoint configured'}</div>
                       </div>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
-                      <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={() => toggleConnection(connection)} disabled={executionUnavailable} className={`connection-power-button theme-icon-button border rounded-lg p-2 ${isOperational ? 'is-enabled' : ''}`} title={executionUnavailable ? 'Execution adapter coming later' : connection.enabled ? 'Disable' : 'Enable'}>
+                      <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={() => toggleConnection(connection)} disabled={executionUnavailable} className={`connection-power-button theme-icon-button border rounded-lg p-2 ${isOperational ? 'is-enabled' : ''}`} title={executionUnavailable ? 'Automatic execution unavailable' : connection.enabled ? 'Disable' : 'Enable'}>
                         <Power className="w-4 h-4" />
                       </button>
                       <button

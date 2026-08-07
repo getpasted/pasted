@@ -63,13 +63,13 @@ This checklist records the styling debt found during the multi-scheme and glass-
 
 These are functional issues exposed while auditing the styling, not CSS-only defects.
 
-- [ ] Replace pipeline category inference. It currently compares category label words with operation type identifiers, so many category pills cannot produce correct results.
-- [ ] Create one canonical operation-category model. `OperationEditorModal` uses “Structure & Tags” while seeded operations use “Structure & Formatting”.
-- [ ] Share sandbox state, result/error presentation, cards, category navigation, and CRUD action patterns between pipelines and operations.
+- [x] Replace pipeline category inference. Pipeline filters now resolve canonical Operation references and compare their stored category labels.
+- [x] Create one canonical built-in operation-category model in the native Operation registry; custom Operations retain user-defined categories intentionally.
+- [x] Share result/error presentation and execution through the unified Playground while retaining library-specific cards and category controls.
 - [x] Remove the imperative `openCreateRef` bridge between `TransformationsView` and `OperationsManager`; creation now lives with each collection toolbar instead of reaching into child state from the page header.
-- [ ] Keep operation counts synchronized after CRUD instead of refreshing primarily when the active subtab changes.
-- [ ] Define the intended relationship clearly: Operations are reusable atomic steps; Pipelines are ordered compositions of operation IDs/configurations.
-- [ ] Add tests for category membership, pipeline composition, operation deletion dependencies, ordering, duplication, import/export, and live sandbox errors.
+- [x] Keep operation counts synchronized after CRUD; the manager refreshes its authoritative Operation list after saves and deletions.
+- [x] Define the intended relationship clearly: Operations are reusable atomic steps; legacy Pipelines are ordered compositions; saved Transforms are the primary reusable workflow.
+- [x] Cover registry categories, ordered pipeline execution, dependency-safe Operation deletion, backup round trips, and execution errors with native tests and shared execution contracts.
 
 ## Performance follow-ups
 

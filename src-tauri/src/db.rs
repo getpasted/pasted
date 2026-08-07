@@ -4744,6 +4744,36 @@ impl DbState {
 
     pub fn delete_operation(&self, id: i64) -> Result<()> {
         let conn = self.conn.lock();
+        let stable_id = conn
+            .query_row(
+                "SELECT id FROM custom_operations WHERE row_id = ?1",
+                params![id],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()?;
+        let Some(stable_id) = stable_id else {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "Operation not found".to_string(),
+            ));
+        };
+        let operation_ref = format!("custom:{stable_id}");
+        let pipeline_name = conn
+            .query_row(
+                "SELECT pipelines.name
+                 FROM pipeline_steps
+                 JOIN pipelines ON pipelines.id = pipeline_steps.pipeline_id
+                 WHERE pipeline_steps.operation_ref = ?1
+                 ORDER BY pipelines.name ASC
+                 LIMIT 1",
+                params![operation_ref],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()?;
+        if let Some(pipeline_name) = pipeline_name {
+            return Err(rusqlite::Error::InvalidParameterName(format!(
+                "Operation is used by “{pipeline_name}”. Remove it from that Pipeline before deleting it."
+            )));
+        }
         conn.execute(
             "DELETE FROM custom_operations WHERE row_id = ?1",
             params![id],
@@ -5866,6 +5896,46 @@ mod tests {
         db.delete_operation(op.id).unwrap();
         let ops_after = db.get_operations().unwrap();
         assert!(!ops_after.iter().any(|o| o.id == op.id));
+    }
+
+    #[test]
+    fn deleting_an_operation_preserves_pipelines_that_depend_on_it() {
+        let db = setup_test_db();
+        let operation = db
+            .create_operation(
+                "Reusable cleanup",
+                "regex",
+                Some(r#"{"pattern":"x","replacement":"y"}"#),
+                Some("Custom Operations"),
+            )
+            .unwrap();
+        let pipeline = db
+            .create_pipeline(
+                "Important Pipeline",
+                &[PipelineStepInput {
+                    operation_ref: operation.stable_id.clone(),
+                    config_json: None,
+                    failure_policy: "stop".to_string(),
+                }],
+                None,
+            )
+            .unwrap();
+
+        let error = db.delete_operation(operation.id).unwrap_err().to_string();
+        assert!(error.contains("Important Pipeline"));
+        assert!(db
+            .get_operations()
+            .unwrap()
+            .iter()
+            .any(|candidate| candidate.id == operation.id));
+
+        db.delete_pipeline(&pipeline.stable_ref).unwrap();
+        db.delete_operation(operation.id).unwrap();
+        assert!(!db
+            .get_operations()
+            .unwrap()
+            .iter()
+            .any(|candidate| candidate.id == operation.id));
     }
 
     #[test]
