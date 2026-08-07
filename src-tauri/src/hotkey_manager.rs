@@ -516,23 +516,21 @@ impl HotkeyManager {
                 });
             }
             AppHotkeyAction::PasteClip(index) => {
-                let db_opt = app_handle.try_state::<Arc<DbState>>();
-                if let Some(db) = db_opt {
-                    if let Ok(clips) = db.get_clips(None, None, false) {
-                        if let Some(clip) = clips.get(index - 1) {
-                            if let Ok(mut cb) = arboard::Clipboard::new() {
-                                let full_clip =
-                                    db.get_clip_by_id(clip.id).unwrap_or_else(|_| clip.clone());
-                                if commands::write_clip_to_clipboard(&mut cb, &full_clip).is_ok() {
-                                    std::thread::spawn(move || {
-                                        std::thread::sleep(std::time::Duration::from_millis(50));
-                                        let _ = commands::simulate_cmd_v_paste();
-                                    });
-                                }
-                            }
-                        }
+                let paste_app = app_handle.clone();
+                std::thread::spawn(move || {
+                    let Some(db) = paste_app.try_state::<Arc<DbState>>() else {
+                        return;
+                    };
+                    let Ok(clips) = db.get_clips(None, None, false) else {
+                        return;
+                    };
+                    let Some(clip) = clips.get(index - 1) else {
+                        return;
+                    };
+                    if let Err(error) = commands::paste_clip_from_hud(&db, &paste_app, clip.id) {
+                        eprintln!("[Pasted Quick HUD] {error}");
                     }
-                }
+                });
             }
             AppHotkeyAction::PasteWithPipeline(pipeline_ref) => {
                 let db_opt = app_handle.try_state::<Arc<DbState>>();

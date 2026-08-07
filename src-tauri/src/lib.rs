@@ -1,5 +1,6 @@
 mod app_menu;
 pub mod bin_assignment;
+mod clipboard_fingerprint;
 mod clipboard_monitor;
 mod commands;
 pub mod db;

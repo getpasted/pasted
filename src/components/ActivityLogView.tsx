@@ -19,6 +19,7 @@ import {
   FolderInput,
   FileWarning,
   ListOrdered,
+  ClipboardPaste,
   Pin,
 } from 'lucide-react';
 import { ToolPageHeader } from './ToolPageHeader';
@@ -181,6 +182,20 @@ export const ActivityLogView: React.FC = () => {
           <div className="theme-status-danger flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold">
             <ListOrdered className="w-3.5 h-3.5" />
             <span>Queue Failed</span>
+          </div>
+        );
+      case 'hud_clip_pasted':
+        return (
+          <div className="theme-status-success flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold">
+            <ClipboardPaste className="w-3.5 h-3.5" />
+            <span>HUD Pasted</span>
+          </div>
+        );
+      case 'hud_paste_failed':
+        return (
+          <div className="theme-status-danger flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold">
+            <ClipboardPaste className="w-3.5 h-3.5" />
+            <span>HUD Failed</span>
           </div>
         );
       case 'trash_emptied':

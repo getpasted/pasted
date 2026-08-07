@@ -276,7 +276,7 @@ pub fn install(app: &AppHandle, db: &Arc<DbState>) -> tauri::Result<()> {
     };
 
     let mut clips_builder = SubmenuBuilder::new(app, "Clips")
-        .text("view.all", "All Clips")
+        .text("view.all", "History")
         .item(&search)
         .separator();
     if feature_enabled(Feature::Queue) {

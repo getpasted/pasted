@@ -1271,14 +1271,10 @@ select.theme-input {
   color: var(--text-subtle);
 }
 
-.quick-hud-accent,
-.quick-hud-shortcut {
-  color: var(--accent-primary);
-}
-
-.quick-hud-shortcut {
-  background-color: color-mix(in srgb, var(--accent-primary) 12%, var(--bg-surface));
-  border-color: color-mix(in srgb, var(--accent-primary) 42%, var(--border-subtle));
+.theme-input.quick-hud-search:focus-visible {
+  border-color: var(--focus-ring);
+  outline: 1px solid var(--focus-ring);
+  outline-offset: 0;
 }
 
 .quick-hud-row {

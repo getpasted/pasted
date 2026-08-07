@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Sparkles, Command, X } from 'lucide-react';
-import { PastedMark } from './PastedMark';
+import { AlertCircle, Search, Sparkles, X } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { listen } from '@tauri-apps/api/event';
 import { ClipItem, getClipFileSummary } from '../types';
@@ -16,6 +15,7 @@ export const QuickHudWindow: React.FC = () => {
   });
   const [search, setSearch] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [pasteError, setPasteError] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   const clipsRef = useRef(clips);
   const selectedIndexRef = useRef(selectedIndex);
@@ -41,6 +41,48 @@ export const QuickHudWindow: React.FC = () => {
   };
   const fetchClipsRef = useRef(fetchClips);
   fetchClipsRef.current = fetchClips;
+
+  const activateClip = async (clip: ClipItem) => {
+    setPasteError('');
+    try {
+      await invoke('paste_clip_by_id', { clipId: clip.id });
+    } catch (error) {
+      setPasteError(error instanceof Error ? error.message : String(error));
+    }
+  };
+
+  const handleHudKeyDown = async (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      await invoke('toggle_hud_window');
+      return;
+    }
+    if (/^[1-9]$/.test(e.key) && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      const idx = parseInt(e.key, 10) - 1;
+      const clip = clipsRef.current[idx];
+      if (clip) {
+        e.preventDefault();
+        setSelectedIndex(idx);
+        await activateClip(clip);
+      }
+      return;
+    }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setSelectedIndex((prev) => (prev + 1) % Math.max(1, clipsRef.current.length));
+      return;
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setSelectedIndex((prev) => (prev - 1 + clipsRef.current.length) % Math.max(1, clipsRef.current.length));
+      return;
+    }
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const selectedClip = clipsRef.current[selectedIndexRef.current];
+      if (selectedClip) await activateClip(selectedClip);
+    }
+  };
 
   useEffect(() => {
     fetchClips();
@@ -80,79 +122,42 @@ export const QuickHudWindow: React.FC = () => {
       }>('hud_position_updated', () => {});
     }
 
-    const handleKeyDown = async (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        await invoke('toggle_hud_window');
-        return;
-      }
-
-      // Check number keys 1-9
-      if (/^[1-9]$/.test(e.key) && !e.metaKey && !e.ctrlKey && !e.altKey) {
-        const idx = parseInt(e.key, 10) - 1;
-        const currentClips = clipsRef.current;
-        if (currentClips[idx]) {
-          e.preventDefault();
-          await invoke('paste_clip_by_id', { clipId: currentClips[idx].id });
-        }
-        return;
-      }
-
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        setSelectedIndex((prev) => (prev + 1) % Math.max(1, clipsRef.current.length));
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        setSelectedIndex((prev) => (prev - 1 + clipsRef.current.length) % Math.max(1, clipsRef.current.length));
-      } else if (e.key === 'Enter') {
-        e.preventDefault();
-        const selectedClip = clipsRef.current[selectedIndexRef.current];
-        if (selectedClip) {
-          await invoke('paste_clip_by_id', { clipId: selectedClip.id });
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
     return () => {
-      window.removeEventListener('keydown', handleKeyDown);
       if (unlistenFocus) unlistenFocus.then((f) => f());
       if (unlistenPos) unlistenPos.then((f) => f());
     };
   }, []);
 
   return (
-    <div className="w-screen h-screen p-0 bg-transparent flex flex-col font-sans select-none overflow-hidden no-drag relative">
+    <div
+      className="w-screen h-screen p-0 bg-transparent flex flex-col font-sans select-none overflow-hidden no-drag relative"
+      onKeyDownCapture={handleHudKeyDown}
+    >
       <div className="quick-hud-shell flex-1 rounded-xl border flex flex-col overflow-hidden no-drag shadow-none">
         {/* Header Bar */}
-        <div className="quick-hud-header p-3 border-b flex items-center space-x-2.5 no-drag">
-          <PastedMark className="quick-hud-accent w-4 h-4 shrink-0" />
+        <div className="quick-hud-header p-2.5 border-b flex items-center space-x-2 no-drag">
           <div className="relative flex-1">
             <Search className="theme-text-muted w-3.5 h-3.5 absolute left-2.5 top-2.5" />
             <input
               ref={inputRef}
               type="text"
-              placeholder="Search or press 1-9 to paste..."
+              placeholder="Search clips…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="theme-input form-field-valid w-full border rounded-xl pl-8 pr-3 py-1.5 text-xs focus:outline-none font-mono no-drag"
+              className="theme-input quick-hud-search w-full border rounded-xl pl-8 pr-3 py-1.5 text-xs font-mono no-drag"
             />
           </div>
-          <span className="quick-hud-shortcut text-[10px] font-mono px-2 py-1 rounded border font-bold flex items-center space-x-1 shrink-0">
-            <Command className="w-2.5 h-2.5" />
-            <span>Shift V</span>
-          </span>
           <button
             onClick={() => invoke('toggle_hud_window')}
             className="theme-icon-button p-1 rounded-md border border-transparent transition-colors shrink-0 no-drag"
-            title="Close (Esc)"
+            title="Hide (Esc)"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Recent Clips 1..9 */}
-        <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
+        <div className="custom-scrollbar flex-1 overflow-y-auto p-2 space-y-1.5">
           {clips.length === 0 ? (
             <div className="theme-text-subtle flex flex-col items-center justify-center h-48 text-center space-y-1.5 p-4">
               <Sparkles className="w-6 h-6" />
@@ -164,12 +169,13 @@ export const QuickHudWindow: React.FC = () => {
               return (
                 <div
                   key={clip.id}
-                  onClick={() => invoke('paste_clip_by_id', { clipId: clip.id })}
+                  onPointerDown={() => setSelectedIndex(index)}
+                  onClick={() => activateClip(clip)}
                   className={`quick-hud-row p-2.5 rounded-xl border cursor-pointer flex items-center justify-between space-x-3 ${isSel ? 'is-selected shadow-md' : ''}`}
                 >
                   <div className="flex items-center space-x-2.5 min-w-0 flex-1">
                     <span
-                      className={`quick-hud-index w-5 h-5 rounded-md flex items-center justify-center font-mono text-[11px] font-extrabold shrink-0 border ${isSel ? 'is-selected shadow' : ''}`}
+                      className={`quick-hud-index w-5 h-5 rounded-md flex items-center justify-center font-mono text-[0.6875rem] font-extrabold shrink-0 border ${isSel ? 'is-selected shadow' : ''}`}
                     >
                       {index + 1}
                     </span>
@@ -204,9 +210,18 @@ export const QuickHudWindow: React.FC = () => {
         </div>
 
         {/* Bottom Quick Help Bar */}
-        <div className="quick-hud-footer px-3 py-2 border-t flex items-center justify-between text-[10px] font-mono">
-          <span>Press 1-9 or Enter to paste</span>
-          <span>Esc to exit</span>
+        <div className="quick-hud-footer min-h-8 px-3 py-2 border-t flex items-center justify-between gap-3 text-[0.625rem] font-mono">
+          {pasteError ? (
+            <span className="theme-danger-text min-w-0 flex flex-1 items-center gap-1.5" title={pasteError}>
+              <AlertCircle className="h-3 w-3 shrink-0" />
+              <span className="truncate">{pasteError}</span>
+            </span>
+          ) : (
+            <>
+              <span>1–9 or Enter to paste</span>
+              <span>Esc to hide</span>
+            </>
+          )}
         </div>
       </div>
     </div>

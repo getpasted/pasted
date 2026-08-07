@@ -53,6 +53,30 @@ pub struct PasteTargetState {
     unavailable_reason: Option<String>,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum PasteAction {
+    Queue,
+    Hud,
+}
+
+impl PasteAction {
+    fn target_failure(self, name: &str) -> String {
+        match self {
+            Self::Queue => format!("Could not target {name}. Clip not removed from Queue."),
+            Self::Hud => format!("Could not target {name}. Quick HUD paste was cancelled."),
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    fn accessibility_failure(self) -> String {
+        let action = match self {
+            Self::Queue => "Paste Next",
+            Self::Hud => "Quick HUD paste",
+        };
+        format!("macOS blocked {action}. Allow Accessibility access for Pasted (or the terminal/IDE running this development build), then try again.")
+    }
+}
+
 impl Default for PasteTargetState {
     fn default() -> Self {
         Self {
@@ -135,13 +159,31 @@ impl PasteTargetState {
     }
 
     pub fn prepare_last_external(&self) -> Result<PasteTarget, String> {
+        self.prepare(PasteAction::Queue)
+    }
+
+    pub fn prepare_last_external_for_hud(&self) -> Result<PasteTarget, String> {
+        self.prepare(PasteAction::Hud)
+    }
+
+    fn prepare(&self, action: PasteAction) -> Result<PasteTarget, String> {
         let snapshot = self.snapshot();
-        if !snapshot.automatic_paste_available {
-            return Err(snapshot.unavailable_reason.unwrap_or_else(|| {
-                "Automatic Queue paste is unavailable. Clip not removed from Queue.".to_string()
-            }));
+        if snapshot.automatic_paste_available {
+            return Ok(snapshot);
         }
-        Ok(snapshot)
+        let reason = snapshot
+            .unavailable_reason
+            .unwrap_or_else(|| "Automatic paste is unavailable.".to_string());
+        match action {
+            PasteAction::Queue => Err(reason),
+            PasteAction::Hud => Err(reason
+                .replace("Queue paste", "Quick HUD paste")
+                .replace("pasting from Queue", "using Quick HUD")
+                .replace(
+                    "Clip not removed from Queue.",
+                    "Quick HUD paste was cancelled.",
+                )),
+        }
     }
 
     pub fn paste_to(&self, target: &PasteTarget) -> Result<(), String> {
@@ -150,7 +192,17 @@ impl PasteTargetState {
                 "Automatic Queue paste is unavailable. Clip not removed from Queue.".to_string()
             }));
         }
-        paste_to_target(target)
+        paste_to_target(target, PasteAction::Queue)
+    }
+
+    pub fn paste_clip_to(&self, target: &PasteTarget) -> Result<(), String> {
+        if !target.automatic_paste_available {
+            return Err(target
+                .unavailable_reason
+                .clone()
+                .unwrap_or_else(|| "Automatic Quick HUD paste is unavailable.".to_string()));
+        }
+        paste_to_target(target, PasteAction::Hud)
     }
 }
 
@@ -259,7 +311,7 @@ unsafe fn ns_string(
 }
 
 #[cfg(target_os = "macos")]
-fn paste_to_target(target: &PasteTarget) -> Result<(), String> {
+fn paste_to_target(target: &PasteTarget, action: PasteAction) -> Result<(), String> {
     use std::process::Command;
     const SCRIPT: &str = r#"
 on run argv
@@ -285,9 +337,9 @@ end run
     } else {
         let detail = String::from_utf8_lossy(&output.stderr).trim().to_string();
         if detail.contains("not authorized") || detail.contains("-1743") {
-            Err("macOS blocked Paste Next. Allow Accessibility access for Pasted (or the terminal/IDE running this development build), then try again.".to_string())
+            Err(action.accessibility_failure())
         } else {
-            Err(target_failure(&target.name))
+            Err(action.target_failure(&target.name))
         }
     }
 }
@@ -325,17 +377,17 @@ fn frontmost_application() -> Option<PasteTarget> {
 }
 
 #[cfg(target_os = "windows")]
-fn paste_to_target(target: &PasteTarget) -> Result<(), String> {
+fn paste_to_target(target: &PasteTarget, action: PasteAction) -> Result<(), String> {
     let handle = target.native_handle as isize;
     if handle == 0
         || unsafe { IsWindow(handle) } == 0
         || unsafe { SetForegroundWindow(handle) } == 0
     {
-        return Err(target_failure(&target.name));
+        return Err(action.target_failure(&target.name));
     }
     std::thread::sleep(Duration::from_millis(120));
     if unsafe { GetForegroundWindow() } != handle {
-        return Err(target_failure(&target.name));
+        return Err(action.target_failure(&target.name));
     }
     unsafe {
         keybd_event(VK_CONTROL, 0, 0, 0);
@@ -409,7 +461,7 @@ fn x11_application_for_window(window_id: u64) -> Option<PasteTarget> {
 }
 
 #[cfg(target_os = "linux")]
-fn paste_to_target(target: &PasteTarget) -> Result<(), String> {
+fn paste_to_target(target: &PasteTarget, action: PasteAction) -> Result<(), String> {
     use std::process::Command;
     let window_id = target.native_handle.to_string();
     let status = Command::new("xdotool")
@@ -422,20 +474,16 @@ fn paste_to_target(target: &PasteTarget) -> Result<(), String> {
             "ctrl+v",
         ])
         .status()
-        .map_err(|_| target_failure(&target.name))?;
+        .map_err(|_| action.target_failure(&target.name))?;
     status
         .success()
         .then_some(())
-        .ok_or_else(|| target_failure(&target.name))
+        .ok_or_else(|| action.target_failure(&target.name))
 }
 
 #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
-fn paste_to_target(target: &PasteTarget) -> Result<(), String> {
-    Err(target_failure(&target.name))
-}
-
-fn target_failure(name: &str) -> String {
-    format!("Could not target {name}. Clip not removed from Queue.")
+fn paste_to_target(target: &PasteTarget, action: PasteAction) -> Result<(), String> {
+    Err(action.target_failure(&target.name))
 }
 
 #[cfg(test)]
@@ -463,8 +511,12 @@ mod tests {
     #[test]
     fn target_failure_names_the_app_and_preserves_queue_semantics() {
         assert_eq!(
-            target_failure("ChatGPT"),
+            PasteAction::Queue.target_failure("ChatGPT"),
             "Could not target ChatGPT. Clip not removed from Queue."
+        );
+        assert_eq!(
+            PasteAction::Hud.target_failure("ChatGPT"),
+            "Could not target ChatGPT. Quick HUD paste was cancelled."
         );
     }
 

@@ -1051,6 +1051,33 @@ pub(crate) fn write_clip_to_clipboard(
     Err("Clip has no copyable content".to_string())
 }
 
+fn clip_internal_clipboard_fingerprint(clip: &ClipItem) -> Result<String, String> {
+    if clip.content_type == "file" {
+        let paths = clip
+            .text_content
+            .as_deref()
+            .ok_or_else(|| "File clip has no path metadata".to_string())
+            .and_then(|value| {
+                serde_json::from_str::<Vec<String>>(value)
+                    .map_err(|_| "File clip has invalid path metadata".to_string())
+            })?;
+        return Ok(crate::clipboard_fingerprint::file_list(&paths));
+    }
+    if let Some(text) = clip.text_content.as_deref() {
+        return Ok(text.to_string());
+    }
+    if let Some(image_base64) = clip.image_base64.as_deref() {
+        let clean = image_base64.split(',').next_back().unwrap_or(image_base64);
+        let bytes = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, clean)
+            .map_err(|error| error.to_string())?;
+        let image = image::load_from_memory(&bytes).map_err(|error| error.to_string())?;
+        return Ok(crate::clipboard_fingerprint::image_rgba(
+            image.to_rgba8().as_raw(),
+        ));
+    }
+    Err("Clip has no copyable content".to_string())
+}
+
 #[tauri::command]
 pub fn paste_text_to_frontmost(text: String, app: AppHandle) -> Result<(), String> {
     if text.len() > crate::resource_limits::MAX_CLIP_TEXT_BYTES {
@@ -2242,20 +2269,63 @@ pub fn paste_clip_by_id(
     db: State<'_, Arc<DbState>>,
     app: AppHandle,
 ) -> Result<(), String> {
-    if let Ok(clip) = db.get_clip_by_id(clip_id) {
-        let mut cb = Clipboard::new().map_err(|e| e.to_string())?;
-        write_clip_to_clipboard(&mut cb, &clip)?;
+    paste_clip_from_hud(&db, &app, clip_id)
+}
 
-        if let Some(hud) = app.get_webview_window("hud") {
-            let _ = hud.hide();
-        }
-        if let Some(main) = app.get_webview_window("main") {
-            let _ = main.hide();
-        }
-
-        thread::sleep(Duration::from_millis(50));
-        simulate_cmd_v_paste()?;
+pub(crate) fn paste_clip_from_hud(
+    db: &DbState,
+    app: &AppHandle,
+    clip_id: i64,
+) -> Result<(), String> {
+    features::require(db, Feature::Hud)?;
+    let clip = db
+        .get_clip_by_id(clip_id)
+        .map_err(|error| error.to_string())?;
+    #[cfg(target_os = "macos")]
+    if !check_accessibility_permission().is_trusted {
+        return Err("Quick HUD paste needs Accessibility access. Allow Pasted (or the terminal/IDE running this development build) in System Settings, then try again.".to_string());
     }
+
+    let paste_target = app.state::<Arc<crate::paste_target::PasteTargetState>>();
+    let target = paste_target.prepare_last_external_for_hud()?;
+    let internal_fingerprint = clip_internal_clipboard_fingerprint(&clip)?;
+    let mut clipboard = Clipboard::new()
+        .map_err(|_| "The system clipboard is unavailable right now.".to_string())?;
+    let sequential = app.state::<Arc<SequentialQueueState>>();
+    sequential.mark_internal_clipboard_write(&internal_fingerprint);
+    if let Err(error) = write_clip_to_clipboard(&mut clipboard, &clip) {
+        sequential.clear_internal_clipboard_write();
+        let explanation = match clip.content_type.as_str() {
+            "file" => "This clip contains unavailable files.",
+            "image" => "This clip's image cannot be prepared for pasting.",
+            _ => "This clip's text cannot be prepared for pasting.",
+        };
+        let _ = db.log_activity(
+            "hud_paste_failed",
+            &format!("{explanation} System detail: {error}"),
+        );
+        return Err(explanation.to_string());
+    }
+
+    if let Some(hud) = app.get_webview_window("hud") {
+        let _ = hud.hide();
+    }
+    if let Err(error) = paste_target.paste_clip_to(&target) {
+        if let Some(hud) = app.get_webview_window("hud") {
+            let _ = hud.show();
+            let _ = hud.set_focus();
+        }
+        let _ = db.log_activity("hud_paste_failed", &error);
+        return Err(error);
+    }
+
+    let _ = db.log_activity(
+        "hud_clip_pasted",
+        &format!(
+            "Pasted clip {} into {} from Quick HUD",
+            clip.id, target.name
+        ),
+    );
     Ok(())
 }
 

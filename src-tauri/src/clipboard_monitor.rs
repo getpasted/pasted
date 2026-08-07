@@ -238,14 +238,12 @@ pub fn start_clipboard_monitor(
                     .iter()
                     .map(|path| path.to_string_lossy().into_owned())
                     .collect();
-                let mut hasher = Sha256::new();
-                for path in &paths {
-                    hasher.update(path.as_bytes());
-                    hasher.update([0]);
-                }
-                let hash = format!("files:{:x}", hasher.finalize());
+                let hash = crate::clipboard_fingerprint::file_list(&paths);
                 if hash != last_hash {
                     last_hash = hash.clone();
+                    if seq_state.consume_internal_clipboard_write(&hash) {
+                        continue;
+                    }
                     if !crate::resource_limits::file_list_within_limit(&paths) {
                         report_ignored_capture(
                                 &app,
@@ -487,12 +485,13 @@ pub fn start_clipboard_monitor(
                 }
                 let raw_bytes = img.bytes.to_vec();
 
-                let mut hasher = Sha256::new();
-                hasher.update(&raw_bytes);
-                let hash = format!("{:x}", hasher.finalize());
+                let hash = crate::clipboard_fingerprint::image_rgba(&raw_bytes);
 
                 if hash != last_hash {
                     last_hash = hash.clone();
+                    if seq_state.consume_internal_clipboard_write(&hash) {
+                        continue;
+                    }
 
                     // Check blacklist
                     if let Some(ref active_app) = active_app_opt {

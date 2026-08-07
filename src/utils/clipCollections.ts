@@ -51,8 +51,8 @@ const calculated = (overrides: Partial<ClipCollectionCapabilities> = {}): ClipCo
 
 export const SYSTEM_CLIP_COLLECTIONS: readonly ClipCollectionDefinition[] = [
   {
-    key: 'system:all', tab: 'all', label: 'All', title: 'All', tooltip: 'All Clips', icon: 'all', membership: 'all', ordering: 'chronological',
-    capabilities: calculated(), emptyTitle: 'No clips yet', emptyDescription: 'Your copied items will appear here automatically.',
+    key: 'system:all', tab: 'all', label: 'History', title: 'History', tooltip: 'Active clipboard history', icon: 'all', membership: 'all', ordering: 'chronological',
+    capabilities: calculated(), emptyTitle: 'No clips yet', emptyDescription: 'Your clipboard history will appear here automatically.',
   },
   {
     key: 'system:queue', tab: 'sequential', label: 'Queue', title: 'Queue', icon: 'queue', feature: 'queue', membership: 'queue', ordering: 'queue',

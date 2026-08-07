@@ -1043,7 +1043,7 @@ export default function App() {
                   <Clipboard className="theme-text-main w-4 h-4 titlebar-drag-handle shrink-0" />
                 )}
                 <h2 className="theme-title text-xs font-bold uppercase tracking-wider titlebar-drag-handle truncate">
-                  {currentCollection?.title ?? 'All'}
+                  {currentCollection?.title ?? 'History'}
                 </h2>
                 {currentTab === 'search' && (
                   <span
