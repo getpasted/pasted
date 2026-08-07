@@ -8,6 +8,8 @@ const mainSource = fs.readFileSync('src/main.tsx', 'utf8');
 const sidebarSource = fs.readFileSync('src/components/Sidebar.tsx', 'utf8');
 const chromeCss = fs.readFileSync('src/styles/layout-chrome.css', 'utf8');
 const cargoManifest = fs.readFileSync('src-tauri/Cargo.toml', 'utf8');
+const rustMainSource = fs.readFileSync('src-tauri/src/main.rs', 'utf8');
+const settingsSource = fs.readFileSync('src/hooks/useAppSettings.ts', 'utf8');
 
 const windowByLabel = (config, label) => config.app.windows.find((window) => window.label === label);
 const baseMain = windowByLabel(baseConfig, 'main');
@@ -50,6 +52,21 @@ assert.ok(
 assert.match(chromeCss, /html\[data-platform="macos"\] \.platform-macos-only/);
 assert.match(chromeCss, /html:not\(\[data-platform="macos"\]\) \.platform-framed-only/);
 assert.match(sidebarSource, /sidebar-titlebar-leading/);
+assert.match(
+  sidebarSource,
+  /platform-macos-only h-\[60px\]/,
+  'The expanded sidebar titlebar allowance must remain macOS-only',
+);
+assert.match(
+  sidebarSource,
+  /platform-framed-only sidebar-control-muted h-7 w-7/,
+  'Native framed platforms need an inline sidebar collapse control',
+);
 assert.doesNotMatch(sidebarSource, /\bpl-20\b/, 'Do not restore a universal macOS traffic-light inset');
+assert.match(rustMainSource, /configure_appimage_wayland_compatibility/);
+assert.match(rustMainSource, /\/usr\/lib\/libwayland-client\.so\.0/);
+assert.match(rustMainSource, /std::env::var_os\("APPIMAGE"\)/);
+assert.match(settingsSource, /root\.dataset\.platform === 'linux'/);
+assert.match(settingsSource, /getCurrentWindow\(\)\.setTheme\(nativeTheme\)/);
 
 console.log('Platform window-chrome audit passed.');

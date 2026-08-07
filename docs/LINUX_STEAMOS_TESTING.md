@@ -38,6 +38,12 @@ If SteamOS does not mount the AppImage through FUSE, launch it with:
 ~/Pasted_1.0.0_amd64.AppImage --appimage-extract-and-run
 ```
 
+On Wayland AppImage sessions, Pasted automatically preloads the host's Wayland
+client library before WebKitGTK starts its renderer processes. This keeps the
+bundled browser runtime on the same Mesa/EGL boundary as SteamOS and prevents a
+blank window with `EGL_BAD_PARAMETER`. Native packages and X11 sessions are not
+changed.
+
 For a quick dependency-compatibility probe from an Apple Silicon build:
 
 ```bash

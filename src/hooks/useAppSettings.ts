@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { disable, enable } from '@tauri-apps/plugin-autostart';
 import { listen } from '@tauri-apps/api/event';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import type { AppSettings, BlacklistApp } from '../types';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { FEATURE_SETTING_KEYS } from '../utils/features';
@@ -213,6 +214,13 @@ export function useAppSettings() {
       root.classList.toggle('vampire', resolvedTheme === 'vampire');
       root.classList.toggle('flux', resolvedTheme === 'flux');
       root.classList.toggle('theme-808', resolvedTheme === '808');
+      if (
+        root.dataset.platform === 'linux'
+        && (window as Window & { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__
+      ) {
+        const nativeTheme = ['cool', 'warm'].includes(resolvedTheme) ? 'light' : 'dark';
+        void getCurrentWindow().setTheme(nativeTheme).catch(console.error);
+      }
     };
     applyTheme();
     const mediaQuery = window.matchMedia('(prefers-color-scheme: light)');

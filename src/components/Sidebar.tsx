@@ -433,11 +433,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
       onPointerLeave={handleSidebarPointerLeave}
       className={`col-sidebar shrink-0 h-screen flex flex-col justify-between backdrop-blur-xl select-none ${isSidebarHoverMuted ? 'suppress-sidebar-hover' : ''}`}
     >
-      {/* macOS shares this row with overlaid traffic lights. Windows and Linux
-          render their native titlebars above it, leaving the full row available. */}
+      {/* Only macOS needs an in-content titlebar row for overlaid traffic
+          lights. Framed platforms place the collapse control beside Clips. */}
       <div
         onMouseDown={isClipDragging ? undefined : startWindowDrag}
-        className="h-[60px] px-4 flex items-center justify-between border-b border-transparent cursor-default titlebar-drag-handle shrink-0"
+        className="platform-macos-only h-[60px] px-4 items-center justify-between border-b border-transparent cursor-default titlebar-drag-handle shrink-0"
       >
         <div className="sidebar-titlebar-leading flex items-center titlebar-drag-handle" />
         <button
@@ -464,6 +464,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <span className={`sidebar-section-label text-[11px] font-semibold transition-colors tracking-tight ${hoveredSidebarControl === 'section:clips' ? 'is-hovered' : ''}`}>
               Clips
             </span>
+            <button
+              data-sidebar-hover-key="collapse-framed"
+              onClick={(event) => {
+                event.stopPropagation();
+                setIsCollapsed(true);
+              }}
+              disabled={isClipDragging}
+              className={`platform-framed-only sidebar-control-muted h-7 w-7 items-center justify-center rounded-lg transition-colors titlebar-no-drag ${isClipDragging ? 'cursor-default' : `cursor-pointer ${hoveredSidebarControl === 'collapse-framed' ? 'sidebar-item-hovered' : ''}`}`}
+              title="Collapse Sidebar"
+            >
+              <PanelLeftClose className="h-4 w-4" />
+            </button>
           </div>
           <div
             className={`transition-[background-color,border-color,color,opacity,transform] duration-150 ease-in-out ${
