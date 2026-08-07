@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { SequentialStatus } from '../types';
-import { Disc, ArrowRightCircle, Layers, AlertTriangle } from 'lucide-react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { QueuePasteTarget, SequentialStatus } from '../types';
+import { Disc, ArrowRightCircle, Layers, AlertTriangle, CornerDownLeft } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
 
 interface SequentialQueueBarProps {
@@ -14,6 +14,19 @@ export const SequentialQueueBar: React.FC<SequentialQueueBarProps> = ({
 }) => {
   const [error, setError] = useState('');
   const [isPasting, setIsPasting] = useState(false);
+  const [pasteTarget, setPasteTarget] = useState<QueuePasteTarget | null>(null);
+  const refreshPasteTarget = useCallback(() => {
+    void invoke<QueuePasteTarget | null>('get_queue_paste_target')
+      .then(setPasteTarget)
+      .catch(() => setPasteTarget(null));
+  }, []);
+
+  useEffect(() => {
+    refreshPasteTarget();
+    window.addEventListener('focus', refreshPasteTarget);
+    return () => window.removeEventListener('focus', refreshPasteTarget);
+  }, [refreshPasteTarget]);
+
   const handlePopNext = async () => {
     setError('');
     setIsPasting(true);
@@ -67,6 +80,13 @@ export const SequentialQueueBar: React.FC<SequentialQueueBarProps> = ({
       <p className="text-[11px] theme-text-muted leading-normal mt-2">
         Toggle recording with <kbd className="theme-kbd px-1 py-0.5 rounded font-mono text-[9px] border">⌥⇧C</kbd>, then copy normally. Paste next with <kbd className="theme-kbd px-1 py-0.5 rounded font-mono text-[9px] border">⌥⇧X</kbd>.
       </p>
+
+      {queue.length > 0 && (
+        <div className="theme-text-muted mt-2 flex items-center gap-1.5 text-[10px]">
+          <CornerDownLeft className="h-3 w-3 shrink-0" />
+          <span>Next paste targets <strong className="theme-title font-semibold">{pasteTarget?.name ?? 'the previous app'}</strong></span>
+        </div>
+      )}
 
       {/* Action buttons row */}
       {queue.length > 0 && (

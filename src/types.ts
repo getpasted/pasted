@@ -341,6 +341,10 @@ export interface SequentialStatus {
   total_count: number;
 }
 
+export interface QueuePasteTarget {
+  name: string;
+}
+
 export interface AppSettings {
   textSize: number;
   enableSounds: boolean;

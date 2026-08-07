@@ -1797,6 +1797,47 @@ pub fn simulate_cmd_v_paste() -> Result<(), String> {
     }
 }
 
+#[cfg(target_os = "macos")]
+fn simulate_cmd_v_paste_to_target(target_name: &str) -> Result<(), String> {
+    use std::process::Command;
+    const SCRIPT: &str = r#"
+on run argv
+    set targetName to item 1 of argv
+    tell application "System Events"
+        if not (exists first application process whose name is targetName) then error "target unavailable"
+        set targetProcess to first application process whose name is targetName
+        set frontmost of targetProcess to true
+        delay 0.15
+        keystroke "v" using command down
+    end tell
+end run
+"#;
+    let output = Command::new("osascript")
+        .arg("-e")
+        .arg(SCRIPT)
+        .arg("--")
+        .arg(target_name)
+        .output()
+        .map_err(|error| format!("Could not start macOS paste automation: {error}"))?;
+    if output.status.success() {
+        Ok(())
+    } else {
+        let detail = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        if detail.contains("not authorized") || detail.contains("-1743") {
+            Err("macOS blocked Paste Next. Allow Accessibility access for Pasted (or the terminal/IDE running this development build), then try again.".to_string())
+        } else {
+            Err(format!(
+                "Could not target {target_name}. Clip not removed from Queue."
+            ))
+        }
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+fn simulate_cmd_v_paste_to_target(_target_name: &str) -> Result<(), String> {
+    simulate_cmd_v_paste()
+}
+
 #[cfg(target_os = "windows")]
 pub fn simulate_cmd_v_paste() -> Result<(), String> {
     use std::process::Command;
@@ -1845,11 +1886,19 @@ fn restore_main_window_after_queue_failure(app: &AppHandle) {
     }
 }
 
+fn restore_main_window_after_ui_paste(app: &AppHandle) {
+    // Give the destination control time to process Command/Ctrl+V before
+    // Pasted takes focus back for continued Queue management.
+    thread::sleep(Duration::from_millis(220));
+    restore_main_window_after_queue_failure(app);
+}
+
 pub(crate) fn paste_queue_item(
     seq: &SequentialQueueState,
     db: &DbState,
     app: &AppHandle,
     index: usize,
+    restore_after_success: bool,
 ) -> Result<Option<String>, String> {
     let Some((item_id, text)) = seq.peek_item(index) else {
         return Ok(None);
@@ -1880,15 +1929,31 @@ pub(crate) fn paste_queue_item(
             let _ = main.hide();
         }
     }
-    thread::sleep(Duration::from_millis(180));
-    if let Err(error) = simulate_cmd_v_paste() {
+    let paste_target = app.state::<Arc<crate::paste_target::PasteTargetState>>();
+    let target = match paste_target.activate_last_external() {
+        Ok(target) => target,
+        Err(error) => {
+            seq.clear_internal_clipboard_write();
+            restore_main_window_after_queue_failure(app);
+            let _ = db.log_activity("queue_paste_failed", &error);
+            return Err(error);
+        }
+    };
+    if let Err(error) = simulate_cmd_v_paste_to_target(&target.name) {
         seq.clear_internal_clipboard_write();
         restore_main_window_after_queue_failure(app);
         let _ = db.log_activity("queue_paste_failed", &error);
         return Err(error);
     }
 
-    seq.consume_item(item_id)?;
+    if let Err(error) = seq.consume_item(item_id) {
+        seq.clear_internal_clipboard_write();
+        restore_main_window_after_queue_failure(app);
+        let message =
+            format!("The Queue item was copied but could not be committed as pasted: {error}");
+        let _ = db.log_activity("queue_paste_failed", &message);
+        return Err(message);
+    }
     let status = seq.get_status();
     let _ = app.emit("sequential-updated", status.clone());
     let _ = db.log_activity(
@@ -1898,6 +1963,9 @@ pub(crate) fn paste_queue_item(
             status.total_count
         ),
     );
+    if restore_after_success {
+        restore_main_window_after_ui_paste(app);
+    }
     Ok(Some(text))
 }
 
@@ -1906,7 +1974,7 @@ pub(crate) fn paste_next_queue_item(
     db: &DbState,
     app: &AppHandle,
 ) -> Result<Option<String>, String> {
-    paste_queue_item(seq, db, app, 0)
+    paste_queue_item(seq, db, app, 0, false)
 }
 
 #[tauri::command]
@@ -1916,7 +1984,7 @@ pub fn pop_sequential_paste(
 ) -> Result<Option<String>, String> {
     let db = app.state::<Arc<DbState>>();
     features::require(&db, Feature::Queue)?;
-    paste_next_queue_item(&seq, &db, &app)
+    paste_queue_item(&seq, &db, &app, 0, true)
 }
 
 #[tauri::command]
@@ -1927,7 +1995,7 @@ pub fn paste_sequential_item_by_index(
 ) -> Result<Option<String>, String> {
     let db = app.state::<Arc<DbState>>();
     features::require(&db, Feature::Queue)?;
-    paste_queue_item(&seq, &db, &app, index)
+    paste_queue_item(&seq, &db, &app, index, true)
 }
 
 #[tauri::command]
@@ -2015,20 +2083,36 @@ pub fn paste_all_sequential(
             let _ = main.hide();
         }
     }
-    thread::sleep(Duration::from_millis(180));
-    if let Err(error) = simulate_cmd_v_paste() {
+    let paste_target = app.state::<Arc<crate::paste_target::PasteTargetState>>();
+    let target = match paste_target.activate_last_external() {
+        Ok(target) => target,
+        Err(error) => {
+            seq.clear_internal_clipboard_write();
+            restore_main_window_after_queue_failure(&app);
+            let _ = db.log_activity("queue_paste_failed", &error);
+            return Err(error);
+        }
+    };
+    if let Err(error) = simulate_cmd_v_paste_to_target(&target.name) {
         seq.clear_internal_clipboard_write();
         restore_main_window_after_queue_failure(&app);
         let _ = db.log_activity("queue_paste_failed", &error);
         return Err(error);
     }
-    seq.consume_prefix(&status.item_ids)?;
+    if let Err(error) = seq.consume_prefix(&status.item_ids) {
+        seq.clear_internal_clipboard_write();
+        restore_main_window_after_queue_failure(&app);
+        let message = format!("The Queue pasted but could not be cleared: {error}");
+        let _ = db.log_activity("queue_paste_failed", &message);
+        return Err(message);
+    }
     let updated = seq.get_status();
     let _ = app.emit("sequential-updated", updated);
     let _ = db.log_activity(
         "queue_all_pasted",
         &format!("Pasted {} Queue items together", status.total_count),
     );
+    restore_main_window_after_ui_paste(&app);
 
     Ok(Some(combined))
 }
@@ -2038,6 +2122,12 @@ pub fn get_sequential_status(
     seq: State<'_, Arc<SequentialQueueState>>,
 ) -> Result<SequentialStatus, String> {
     Ok(seq.get_status())
+}
+
+#[tauri::command]
+pub fn get_queue_paste_target(app: AppHandle) -> Option<crate::paste_target::PasteTarget> {
+    app.state::<Arc<crate::paste_target::PasteTargetState>>()
+        .current()
 }
 
 // Window & Activation Policy Commands

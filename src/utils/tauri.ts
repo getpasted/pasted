@@ -404,6 +404,8 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       return null as unknown as T;
     case 'get_sequential_status':
       return updateMockSequentialStatus() as unknown as T;
+    case 'get_queue_paste_target':
+      return { name: 'Browser' } as unknown as T;
     case 'start_sequential_paste':
       mockSequentialStatus.is_active = true;
       return updateMockSequentialStatus() as unknown as T;

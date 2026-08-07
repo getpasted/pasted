@@ -15,6 +15,7 @@ pub mod ocr;
 #[cfg(test)]
 mod operation_plugins;
 mod operation_registry;
+mod paste_target;
 pub mod resource_limits;
 mod sequential_paste;
 mod transformation_intent;
@@ -181,9 +182,12 @@ pub fn run() {
             let seq_state = Arc::new(sequential_paste::SequentialQueueState::persistent(
                 db_state.clone(),
             ));
+            let paste_target_state = Arc::new(paste_target::PasteTargetState::new());
+            paste_target_state.start_tracking();
 
             app.manage(db_state.clone());
             app.manage(seq_state.clone());
+            app.manage(paste_target_state);
 
             let ocr_service = Arc::new(ocr::spawn_ocr_worker(
                 app.handle().clone(),
@@ -377,6 +381,7 @@ pub fn run() {
             commands::stop_sequential_paste,
             commands::paste_all_sequential,
             commands::get_sequential_status,
+            commands::get_queue_paste_target,
             commands::toggle_hud_window,
             commands::paste_clip_by_id,
             commands::set_dock_visibility,
