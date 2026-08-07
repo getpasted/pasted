@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAltKeyPressed } from '../hooks/useAltKeyPressed';
 import type { ClipItem, Bin, SavedTransform } from '../types';
 import { formatEmojiIcon } from '../utils/emoji';
@@ -7,6 +7,7 @@ import type { ClipViewPolicy } from '../utils/clipViewPolicy';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { selectedClipDeleteLabel, UI_COPY } from '../utils/uiCopy';
 import { useFeatures } from '../hooks/useFeatures';
+import { AnchoredMenu, MenuDivider, MenuItem, MenuSubmenu } from './AnchoredMenu';
 import {
   Copy,
   FolderPlus,
@@ -17,7 +18,6 @@ import {
   PinOff,
   Trash2,
   Trash,
-  ChevronRight,
   Sparkles,
   Shield,
   ShieldOff,
@@ -70,21 +70,10 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   trashEnabled,
 }) => {
   const features = useFeatures();
-  const menuRef = useRef<HTMLDivElement>(null);
   const [activeSubmenu, setActiveSubmenu] = useState<'bins' | 'workflow' | null>(null);
   const [transforms, setTransforms] = useState<SavedTransform[]>([]);
   const [isLoadingTransforms, setIsLoadingTransforms] = useState(false);
   const isAltPressed = useAltKeyPressed();
-
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        onClose();
-      }
-    };
-    window.addEventListener('mousedown', handleClickOutside);
-    return () => window.removeEventListener('mousedown', handleClickOutside);
-  }, [onClose]);
 
   useEffect(() => {
     if (!features.transformations || !viewPolicy.canRunPipelines || clip.content_type === 'file') return;
@@ -103,18 +92,16 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
     };
   }, [clip.content_type, features.transformations, viewPolicy.canRunPipelines]);
 
-  // Adjust coordinates if menu goes off screen
-  const menuWidth = 220;
-  const menuHeight = 320;
-  const adjustedX = Math.min(x, window.innerWidth - menuWidth - 10);
-  const adjustedY = Math.min(y, window.innerHeight - menuHeight - 10);
+  const setSubmenuOpen = (submenu: 'bins' | 'workflow', open: boolean) => {
+    setActiveSubmenu((current) => open ? submenu : current === submenu ? null : current);
+  };
 
   return (
-    <div
-      ref={menuRef}
-      style={{ left: `${adjustedX}px`, top: `${adjustedY}px` }}
-      className="theme-menu context-menu fixed w-52 rounded-xl py-1.5 px-1 border text-xs font-medium select-none animate-in fade-in zoom-in-95 duration-100"
-      role="menu"
+    <AnchoredMenu
+      anchor={{ kind: 'point', x, y }}
+      ariaLabel="Clip actions"
+      className="context-menu w-52"
+      onClose={onClose}
     >
       {/* Copy */}
       <button
@@ -131,120 +118,89 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
         <kbd className="theme-text-muted font-mono text-[10px]">↵</kbd>
       </button>
 
-      <div className="theme-menu-divider my-1 border-t" />
+      <MenuDivider />
 
       {/* Bin */}
-      {features.bins && viewPolicy.canAssignBins && <div
-        className="relative"
-        onMouseEnter={() => setActiveSubmenu('bins')}
-        onMouseLeave={() => setActiveSubmenu(null)}
-      >
-        <button
-          type="button"
-          aria-haspopup="menu"
-          aria-expanded={activeSubmenu === 'bins'}
-          className={`theme-menu-item w-full flex items-center justify-between px-3 py-1.5 rounded-md ${activeSubmenu === 'bins' ? 'is-selected' : ''}`}
+      {features.bins && viewPolicy.canAssignBins && (
+        <MenuSubmenu
+          label="Bin"
+          icon={<FolderPlus className="h-3.5 w-3.5 text-amber-400" />}
+          open={activeSubmenu === 'bins'}
+          onOpenChange={(open) => setSubmenuOpen('bins', open)}
         >
-          <div className="flex items-center space-x-2.5">
-            <FolderPlus className="w-3.5 h-3.5 text-amber-400" />
-            <span>Bin</span>
-          </div>
-          <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
-        </button>
-
-        {activeSubmenu === 'bins' && (
-          <div className="theme-menu absolute left-[calc(100%-1px)] -top-1 w-48 rounded-xl py-1 px-1 border" role="menu">
-            <button
+            <MenuItem
               onClick={() => {
                 onAssignBin(null);
                 onClose();
               }}
-              className="theme-menu-item w-full text-left px-3 py-1.5 rounded-md"
+              className="px-3 py-1.5"
             >
               No Bin
-            </button>
+            </MenuItem>
 
             {bins.filter((b) => !b.smart_rule).map((b) => (
-              <button
+              <MenuItem
                 key={b.id}
                 onClick={() => {
                   onAssignBin(b.id);
                   onClose();
                 }}
-                className="theme-menu-item w-full text-left px-3 py-1.5 rounded-md truncate flex items-center space-x-2"
+                className="gap-2 px-3 py-1.5"
               >
                 <span>{formatEmojiIcon(b.icon)}</span>
                 <span className="truncate" style={{ color: binTextColor(b.color) }}>{b.name}</span>
-              </button>
+              </MenuItem>
             ))}
-          </div>
-        )}
-      </div>}
+        </MenuSubmenu>
+      )}
 
       {/* Workflow Submenu */}
-      {features.transformations && viewPolicy.canRunPipelines && clip.content_type !== 'file' && <div
-        className="relative"
-        onMouseEnter={() => setActiveSubmenu('workflow')}
-        onMouseLeave={() => setActiveSubmenu(null)}
-      >
-        <button
-          type="button"
-          onClick={() => setActiveSubmenu('workflow')}
-          onFocus={() => setActiveSubmenu('workflow')}
-          aria-haspopup="menu"
-          aria-expanded={activeSubmenu === 'workflow'}
-          className={`theme-menu-item w-full flex items-center justify-between px-3 py-1.5 rounded-md ${activeSubmenu === 'workflow' ? 'is-selected' : ''}`}
+      {features.transformations && viewPolicy.canRunPipelines && clip.content_type !== 'file' && (
+        <MenuSubmenu
+          label="Workflow"
+          icon={<Workflow className="h-3.5 w-3.5 text-cyan-400" />}
+          open={activeSubmenu === 'workflow'}
+          onOpenChange={(open) => setSubmenuOpen('workflow', open)}
+          panelClassName="w-60 max-h-64 overflow-y-auto"
         >
-          <div className="flex items-center space-x-2.5">
-            <Workflow className="w-3.5 h-3.5 text-cyan-400" />
-            <span>Workflow</span>
-          </div>
-          <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
-        </button>
-
-        {activeSubmenu === 'workflow' && (
-          <div className="theme-menu absolute left-[calc(100%-1px)] -top-1 w-60 rounded-xl border p-1 max-h-64 overflow-y-auto" role="menu">
             <div>
               {isLoadingTransforms ? (
                 <p className="theme-text-muted px-2.5 py-2 text-[10px]">Loading Transforms…</p>
               ) : transforms.length > 0 ? transforms.map((transform) => {
                 const usesIntelligence = transform.plan.steps.some((step) => step.executor.kind === 'semantic');
                 return (
-                  <button
+                  <MenuItem
                     key={transform.stableRef}
-                    type="button"
                     onClick={() => {
                       onRunTransform(transform);
                       onClose();
                     }}
-                    className="theme-menu-item flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left"
+                    className="gap-2 px-2.5 py-1.5"
                   >
                     <Workflow className="h-3.5 w-3.5 shrink-0 text-cyan-400" />
                     <span className="min-w-0 flex-1 truncate">{transform.name}</span>
                     {usesIntelligence && <Sparkles className="h-3 w-3 shrink-0 text-violet-400" />}
-                  </button>
+                  </MenuItem>
                 );
               }) : (
                 <p className="theme-text-muted px-2.5 py-2 text-[10px]">No saved Transforms yet.</p>
               )}
             </div>
-            <div className="theme-menu-divider my-1 border-t" />
-            <button
-              type="button"
+            <MenuDivider />
+            <MenuItem
               onClick={() => {
                 onOpenTransformations();
                 onClose();
               }}
-              className="theme-menu-item flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left"
+              className="gap-2 px-2.5 py-1.5"
             >
               <Workflow className="h-3.5 w-3.5 shrink-0 text-cyan-400" />
               <span>Manage Transforms…</span>
-            </button>
-          </div>
-        )}
-      </div>}
+            </MenuItem>
+        </MenuSubmenu>
+      )}
 
-      <div className="theme-menu-divider my-1 border-t" />
+      <MenuDivider />
 
       {/* Add / Edit Note */}
       {features.notes && viewPolicy.canEditNotes && <button
@@ -273,7 +229,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
       )}
 
       {/* Add to Stack */}
-      {features.queue && viewPolicy.canOrganize && <button
+      {features.queue && viewPolicy.canOrganize && clip.content_type !== 'file' && Boolean(clip.text_content) && <button
         onClick={() => {
           onAddToStack();
           onClose();
@@ -326,7 +282,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
         </button>
       )}
 
-      <div className="theme-menu-divider my-1 border-t" />
+      <MenuDivider />
 
       {viewPolicy.state === 'trash' ? (
         <>
@@ -360,12 +316,12 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
         }}
         disabled={clip.is_protected}
         className={`theme-menu-item flex w-full items-center space-x-2.5 rounded-md px-3 py-1.5 ${
-          clip.is_protected
-            ? 'cursor-not-allowed opacity-40'
-            : 'theme-danger-text'
+          clip.is_protected ? 'cursor-not-allowed opacity-40' : ''
         }`}
       >
-        {isAltPressed || !trashEnabled ? <Trash className="w-3.5 h-3.5" /> : <Trash2 className="w-3.5 h-3.5" />}
+        {isAltPressed || !trashEnabled
+          ? <Trash className="theme-danger-text w-3.5 h-3.5" />
+          : <Trash2 className="theme-danger-text w-3.5 h-3.5" />}
         <span>
           {clip.is_protected
             ? 'Protected'
@@ -376,6 +332,6 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
               })}
         </span>
       </button>}
-    </div>
+    </AnchoredMenu>
   );
 };

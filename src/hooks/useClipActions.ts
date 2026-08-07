@@ -413,7 +413,11 @@ export function useClipActions({
   }, [runClipTransformationJob, settings.enableSounds]);
 
   const addToSequentialStack = useCallback(async (clip: ClipItem) => {
-    const item = clip.text_content || (clip.content_type === 'image' ? '[Image Clip]' : 'Clip item');
+    const item = clip.content_type === 'file' ? null : clip.text_content;
+    if (!item) {
+      console.warn('Only clips containing text can be added to the Copy Queue');
+      return;
+    }
     try {
       await invoke('push_sequential_item', { item });
       soundManager.playStackSound(settings.enableSounds);

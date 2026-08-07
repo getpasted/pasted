@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 
-const BACKUP_SCHEMA_VERSION: u32 = 6;
+const BACKUP_SCHEMA_VERSION: u32 = 7;
 
 fn ensure_resource_size(value: &str, maximum: usize, label: &str) -> Result<()> {
     if value.len() <= maximum {
@@ -153,6 +153,8 @@ pub struct Bin {
     pub bin_type: String,           // "category" or "tag"
     pub shortcut: Option<String>,
     pub clip_count: Option<i64>,
+    #[serde(default)]
+    pub clip_order: Vec<i64>,
     pub created_at: String,
 }
 
@@ -697,6 +699,22 @@ impl DbState {
             "CREATE INDEX IF NOT EXISTS idx_clip_bins_clip_id ON clip_bins (clip_id)",
             [],
         );
+
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS bin_clip_order (
+                bin_id INTEGER NOT NULL REFERENCES bins(id) ON DELETE CASCADE,
+                clip_id INTEGER NOT NULL REFERENCES clips(id) ON DELETE CASCADE,
+                position INTEGER NOT NULL CHECK(position >= 0),
+                PRIMARY KEY (bin_id, clip_id),
+                UNIQUE (bin_id, position)
+            )",
+            [],
+        )?;
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_bin_clip_order_position
+             ON bin_clip_order (bin_id, position)",
+            [],
+        )?;
 
         let _ = conn.execute(
             "INSERT OR IGNORE INTO clip_bins (clip_id, bin_id)
@@ -1748,7 +1766,22 @@ impl DbState {
             }
         }
 
-        sql.push_str(" ORDER BY is_pinned DESC, pin_order ASC, created_at DESC");
+        if let Some(bid) = bin_id {
+            sql.push_str(
+                " ORDER BY
+                    CASE WHEN EXISTS(
+                        SELECT 1 FROM bin_clip_order ordered
+                        WHERE ordered.bin_id = ? AND ordered.clip_id = clips.id
+                    ) THEN 0 ELSE 1 END,
+                    (SELECT position FROM bin_clip_order ordered
+                     WHERE ordered.bin_id = ? AND ordered.clip_id = clips.id),
+                    created_at DESC",
+            );
+            query_params.push(Box::new(bid));
+            query_params.push(Box::new(bid));
+        } else {
+            sql.push_str(" ORDER BY is_pinned DESC, pin_order ASC, created_at DESC");
+        }
 
         let param_refs: Vec<&dyn rusqlite::ToSql> =
             query_params.iter().map(|p| p.as_ref()).collect();
@@ -2612,6 +2645,16 @@ impl DbState {
                 conn.query_row("SELECT COUNT(*) FROM clips WHERE (is_trashed IS NULL OR is_trashed = 0) AND (bin_id = ?1 OR id IN (SELECT clip_id FROM clip_bins WHERE bin_id = ?1))", params![id], |r| r.get(0)).unwrap_or(0)
             };
 
+            let clip_order = {
+                let mut order_statement = conn.prepare(
+                    "SELECT clip_id FROM bin_clip_order WHERE bin_id = ?1 ORDER BY position ASC",
+                )?;
+                let ordered_ids = order_statement
+                    .query_map(params![id], |row| row.get::<_, i64>(0))?
+                    .collect::<Result<Vec<_>, _>>()?;
+                ordered_ids
+            };
+
             bins.push(Bin {
                 id,
                 name,
@@ -2621,6 +2664,7 @@ impl DbState {
                 bin_type,
                 shortcut,
                 clip_count: Some(count),
+                clip_order,
                 created_at,
             });
         }
@@ -2764,6 +2808,7 @@ impl DbState {
                     bin_type: row.get(5)?,
                     shortcut: row.get(6)?,
                     clip_count: Some(0),
+                    clip_order: Vec::new(),
                     created_at: row.get(7)?,
                 })
             },
@@ -2789,6 +2834,60 @@ impl DbState {
                 params![idx as i32, id],
             )?;
         }
+        tx.commit()
+    }
+
+    pub fn reorder_bin_clips(&self, bin_id: i64, ids: Vec<i64>) -> Result<()> {
+        if ids.len() > 100_000 {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "Bin order exceeds Pasted's safety limit".to_string(),
+            ));
+        }
+        let unique = ids
+            .iter()
+            .copied()
+            .collect::<std::collections::HashSet<_>>();
+        if unique.len() != ids.len() {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "Bin order contains duplicate clips".to_string(),
+            ));
+        }
+        let current_ids = self
+            .get_clips(None, Some(bin_id), false)?
+            .into_iter()
+            .map(|clip| clip.id)
+            .collect::<std::collections::HashSet<_>>();
+        if current_ids != unique {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "Bin order must contain every current clip exactly once".to_string(),
+            ));
+        }
+
+        let mut conn = self.conn.lock();
+        let tx = conn.transaction()?;
+        let exists: bool = tx.query_row(
+            "SELECT EXISTS(SELECT 1 FROM bins WHERE id = ?1)",
+            params![bin_id],
+            |row| row.get(0),
+        )?;
+        if !exists {
+            return Err(rusqlite::Error::QueryReturnedNoRows);
+        }
+        tx.execute(
+            "DELETE FROM bin_clip_order WHERE bin_id = ?1",
+            params![bin_id],
+        )?;
+        for (position, clip_id) in ids.iter().enumerate() {
+            tx.execute(
+                "INSERT INTO bin_clip_order (bin_id, clip_id, position) VALUES (?1, ?2, ?3)",
+                params![bin_id, clip_id, position as i64],
+            )?;
+        }
+        self.log_activity_internal(
+            &tx,
+            "bin_clips_reordered",
+            &format!("Reordered {} clips in Bin #{bin_id}", ids.len()),
+        )?;
         tx.commit()
     }
 
@@ -3153,6 +3252,11 @@ impl DbState {
         let mut conn = self.conn.lock();
         let tx = conn.transaction()?;
         let mut bin_id_map = std::collections::HashMap::new();
+        let bin_clip_orders = payload
+            .bins
+            .iter()
+            .map(|bin| (bin.id, bin.clip_order.clone()))
+            .collect::<std::collections::HashMap<_, _>>();
         let ocr_metadata = payload
             .ocr_metadata
             .iter()
@@ -3319,7 +3423,9 @@ impl DbState {
         }
 
         let mut imported = 0;
+        let mut clip_id_map = std::collections::HashMap::new();
         for clip in payload.clips {
+            let old_clip_id = clip.id;
             if let Some(text) = clip.text_content.as_deref() {
                 ensure_resource_size(
                     text,
@@ -3381,6 +3487,7 @@ impl DbState {
                 params![clip.content_hash],
                 |row| row.get::<_, i64>(0),
             )?;
+            clip_id_map.insert(old_clip_id, new_clip_id);
             if clip.content_type == "image" {
                 if let Some(metadata) = ocr_metadata.get(&clip.content_hash) {
                     let status = match metadata.status.as_str() {
@@ -3422,6 +3529,26 @@ impl DbState {
                 )?;
             }
             imported += 1;
+        }
+
+        for (old_bin_id, ordered_clip_ids) in bin_clip_orders {
+            let Some(new_bin_id) = bin_id_map.get(&old_bin_id) else {
+                continue;
+            };
+            tx.execute(
+                "DELETE FROM bin_clip_order WHERE bin_id = ?1",
+                params![new_bin_id],
+            )?;
+            for (position, old_clip_id) in ordered_clip_ids.into_iter().enumerate() {
+                let Some(new_clip_id) = clip_id_map.get(&old_clip_id) else {
+                    continue;
+                };
+                tx.execute(
+                    "INSERT OR REPLACE INTO bin_clip_order (bin_id, clip_id, position)
+                     VALUES (?1, ?2, ?3)",
+                    params![new_bin_id, new_clip_id, position as i64],
+                )?;
+            }
         }
 
         tx.commit()?;
@@ -5947,6 +6074,76 @@ mod tests {
     }
 
     #[test]
+    fn bin_clip_order_is_persistent_validated_and_independent_per_bin() {
+        let db = setup_test_db();
+        let first = db
+            .save_clip("text", Some("First"), None, None, "bin-order-1", "App")
+            .unwrap();
+        let second = db
+            .save_clip("text", Some("Second"), None, None, "bin-order-2", "App")
+            .unwrap();
+        let manual = db
+            .create_bin("Manual Order", "Folder", "default", None)
+            .unwrap();
+        let smart = db
+            .create_bin(
+                "Smart Order",
+                "Sparkles",
+                "default",
+                Some(r#"{"type":"content_type","value":"text"}"#),
+            )
+            .unwrap();
+
+        db.assign_to_bin(first.id, Some(manual.id)).unwrap();
+        db.assign_to_bin(second.id, Some(manual.id)).unwrap();
+        db.reorder_bin_clips(manual.id, vec![first.id, second.id])
+            .unwrap();
+        db.reorder_bin_clips(smart.id, vec![second.id, first.id])
+            .unwrap();
+
+        let manual_clips = db.get_clips(None, Some(manual.id), false).unwrap();
+        let smart_clips = db.get_clips(None, Some(smart.id), false).unwrap();
+        assert_eq!(
+            manual_clips.iter().map(|clip| clip.id).collect::<Vec<_>>(),
+            vec![first.id, second.id]
+        );
+        assert_eq!(
+            smart_clips.iter().map(|clip| clip.id).collect::<Vec<_>>(),
+            vec![second.id, first.id]
+        );
+
+        let bins = db.get_bins().unwrap();
+        assert_eq!(
+            bins.iter()
+                .find(|bin| bin.id == manual.id)
+                .unwrap()
+                .clip_order,
+            vec![first.id, second.id]
+        );
+        assert_eq!(
+            bins.iter()
+                .find(|bin| bin.id == smart.id)
+                .unwrap()
+                .clip_order,
+            vec![second.id, first.id]
+        );
+
+        assert!(db.reorder_bin_clips(manual.id, vec![first.id]).is_err());
+        assert!(db
+            .reorder_bin_clips(manual.id, vec![first.id, first.id])
+            .is_err());
+        assert_eq!(
+            db.get_bins()
+                .unwrap()
+                .iter()
+                .find(|bin| bin.id == manual.id)
+                .unwrap()
+                .clip_order,
+            vec![first.id, second.id]
+        );
+    }
+
+    #[test]
     fn test_clip_version_history() {
         let db = setup_test_db();
         let clip = db
@@ -6388,6 +6585,46 @@ mod tests {
             .unwrap()
             .iter()
             .any(|item| item.name == "Backup Operation" && item.category == "Backup Tools"));
+    }
+
+    #[test]
+    fn backup_roundtrip_preserves_bin_clip_order() {
+        let source = setup_test_db();
+        let first = source
+            .save_clip("text", Some("First"), None, None, "backup-order-1", "App")
+            .unwrap();
+        let second = source
+            .save_clip("text", Some("Second"), None, None, "backup-order-2", "App")
+            .unwrap();
+        let bin = source
+            .create_bin("Ordered", "Folder", "default", None)
+            .unwrap();
+        source.assign_to_bin(first.id, Some(bin.id)).unwrap();
+        source.assign_to_bin(second.id, Some(bin.id)).unwrap();
+        source
+            .reorder_bin_clips(bin.id, vec![first.id, second.id])
+            .unwrap();
+
+        let destination = setup_test_db();
+        destination
+            .import_backup_json(&source.export_backup_json().unwrap())
+            .unwrap();
+        let restored_bin = destination
+            .get_bins()
+            .unwrap()
+            .into_iter()
+            .find(|candidate| candidate.name == "Ordered")
+            .unwrap();
+        let restored = destination
+            .get_clips(None, Some(restored_bin.id), false)
+            .unwrap();
+        assert_eq!(
+            restored
+                .iter()
+                .map(|clip| clip.text_content.as_deref().unwrap_or_default())
+                .collect::<Vec<_>>(),
+            vec!["First", "Second"]
+        );
     }
 
     #[test]

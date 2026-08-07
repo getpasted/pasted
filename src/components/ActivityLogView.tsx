@@ -17,6 +17,7 @@ import {
   ListFilter,
   FolderMinus,
   FileWarning,
+  ListOrdered,
 } from 'lucide-react';
 import { ToolPageHeader } from './ToolPageHeader';
 import { MenuSelect } from './MenuSelect';
@@ -128,11 +129,45 @@ export const ActivityLogView: React.FC = () => {
             <span>Bin Deleted</span>
           </div>
         );
+      case 'bin_clips_reordered':
+        return (
+          <div className="theme-status-info flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold">
+            <ListOrdered className="w-3.5 h-3.5" />
+            <span>Bin Reordered</span>
+          </div>
+        );
       case 'clipboard_capture_ignored':
         return (
           <div className="theme-status-warning flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold">
             <FileWarning className="w-3.5 h-3.5" />
             <span>Capture Skipped</span>
+          </div>
+        );
+      case 'queue_item_added':
+      case 'queue_item_recorded':
+      case 'queue_reordered':
+      case 'queue_recording_started':
+      case 'queue_recording_stopped':
+      case 'queue_item_removed':
+        return (
+          <div className="theme-status-info flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold">
+            <ListOrdered className="w-3.5 h-3.5" />
+            <span>{type === 'queue_reordered' ? 'Queue Reordered' : type === 'queue_item_removed' ? 'Queue Removed' : type === 'queue_recording_started' ? 'Queue Recording' : type === 'queue_recording_stopped' ? 'Queue Stopped' : 'Queued'}</span>
+          </div>
+        );
+      case 'queue_item_pasted':
+      case 'queue_all_pasted':
+        return (
+          <div className="theme-status-success flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold">
+            <ListOrdered className="w-3.5 h-3.5" />
+            <span>Queue Pasted</span>
+          </div>
+        );
+      case 'queue_paste_failed':
+        return (
+          <div className="theme-status-danger flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold">
+            <ListOrdered className="w-3.5 h-3.5" />
+            <span>Queue Failed</span>
           </div>
         );
       case 'trash_emptied':
@@ -241,6 +276,8 @@ export const ActivityLogView: React.FC = () => {
     if (selectedTypeFilter === 'notes') return l.event_type === 'note_updated';
     if (selectedTypeFilter === 'skipped') return l.event_type === 'clipboard_capture_ignored';
     if (selectedTypeFilter === 'transforms') return l.event_type.startsWith('transform_') || l.event_type.startsWith('transformation_') || l.event_type.startsWith('bin_transform_') || l.event_type === 'clip_transformed' || l.event_type === 'intelligence_connection_fallback';
+    if (selectedTypeFilter === 'queue') return l.event_type.startsWith('queue_');
+    if (selectedTypeFilter === 'bins') return l.event_type.startsWith('bin_');
     return true;
   });
 
@@ -269,6 +306,8 @@ export const ActivityLogView: React.FC = () => {
               { value: 'notes', label: 'Notes Updated' },
               { value: 'skipped', label: 'Skipped Captures' },
               { value: 'transforms', label: 'Transforms' },
+              { value: 'queue', label: 'Copy Queue' },
+              { value: 'bins', label: 'Bins' },
             ]}
           />
 

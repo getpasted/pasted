@@ -20,9 +20,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   revisionHistoryLimit: 50,
   alwaysPastePlainText: false,
   rowHeight: 'medium',
-  iCloudSync: true,
   themeMode: 'system',
-  spotlightSync: true,
   enableActivityLog: true,
   activityLogCapacity: 1000,
   enableTrash: true,
@@ -74,9 +72,7 @@ function parseSavedSettings(saved: Record<string, string>) {
   if (saved.revisionHistoryLimit !== undefined) next.revisionHistoryLimit = numberValue('revisionHistoryLimit', next.revisionHistoryLimit);
   if (saved.alwaysPastePlainText !== undefined) next.alwaysPastePlainText = saved.alwaysPastePlainText === 'true';
   if (['small', 'medium', 'large'].includes(saved.rowHeight)) next.rowHeight = saved.rowHeight as AppSettings['rowHeight'];
-  if (saved.iCloudSync !== undefined) next.iCloudSync = saved.iCloudSync === 'true';
   if (['system', 'cool', 'dark', 'warm', 'vampire', 'flux', '808'].includes(saved.themeMode)) next.themeMode = saved.themeMode as AppSettings['themeMode'];
-  if (saved.spotlightSync !== undefined) next.spotlightSync = saved.spotlightSync === 'true';
   if (saved.enableActivityLog !== undefined) next.enableActivityLog = saved.enableActivityLog === 'true';
   if (saved.activityLogCapacity) next.activityLogCapacity = numberValue('activityLogCapacity', next.activityLogCapacity ?? 1000);
   if (saved.enableTrash !== undefined) next.enableTrash = saved.enableTrash === 'true';

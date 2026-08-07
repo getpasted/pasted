@@ -14,40 +14,118 @@
   backdrop-filter: blur(var(--material-blur)) saturate(var(--material-saturation));
 }
 
-/* Transient scrollbars float above content instead of changing its layout width. */
+/* Transient scroll regions use overlay scrolling where WebKit supports it. */
 .tools-scroll-region,
 .overlay-scroll-region {
   overflow-y: overlay;
-  scrollbar-gutter: auto;
+}
+
+/* Menus, panels, and wells keep their geometry stable while revealing an
+   overlay-style thumb only during active scrolling. */
+:where(
+  .surface-scroll-region,
+  .theme-menu,
+  .theme-panel,
+  .theme-surface,
+  .theme-card-idle,
+  .theme-code-surface,
+  .app-dialog-panel,
+  .settings-panel,
+  .tools-scroll-region,
+  .overlay-scroll-region,
+  .custom-scrollbar
+) {
+  scrollbar-width: thin;
   scrollbar-color: transparent transparent;
+  scrollbar-gutter: auto;
 }
 
-.tools-scroll-region.is-scrolling,
-.overlay-scroll-region.is-scrolling {
-  scrollbar-color: var(--scrollbar-thumb) transparent;
+:where(
+  .surface-scroll-region,
+  .theme-menu,
+  .theme-panel,
+  .theme-surface,
+  .theme-card-idle,
+  .theme-code-surface,
+  .app-dialog-panel,
+  .settings-panel,
+  .tools-scroll-region,
+  .overlay-scroll-region,
+  .custom-scrollbar
+).is-scrolling {
+  scrollbar-color: var(--scrollbar-thumb-hover) transparent;
 }
 
-.tools-scroll-region::-webkit-scrollbar-track,
-.overlay-scroll-region::-webkit-scrollbar-track {
+:where(
+  .surface-scroll-region,
+  .theme-menu,
+  .theme-panel,
+  .theme-surface,
+  .theme-card-idle,
+  .theme-code-surface,
+  .app-dialog-panel,
+  .settings-panel,
+  .tools-scroll-region,
+  .overlay-scroll-region,
+  .custom-scrollbar
+)::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+:where(
+  .surface-scroll-region,
+  .theme-menu,
+  .theme-panel,
+  .theme-surface,
+  .theme-card-idle,
+  .theme-code-surface,
+  .app-dialog-panel,
+  .settings-panel,
+  .tools-scroll-region,
+  .overlay-scroll-region,
+  .custom-scrollbar
+)::-webkit-scrollbar-track {
   background: transparent;
 }
 
-.tools-scroll-region::-webkit-scrollbar-thumb,
-.tools-scroll-region::-webkit-scrollbar-thumb:hover,
-.tools-scroll-region::-webkit-scrollbar-thumb:active,
-.overlay-scroll-region::-webkit-scrollbar-thumb,
-.overlay-scroll-region::-webkit-scrollbar-thumb:hover,
-.overlay-scroll-region::-webkit-scrollbar-thumb:active {
+:where(
+  .surface-scroll-region,
+  .theme-menu,
+  .theme-panel,
+  .theme-surface,
+  .theme-card-idle,
+  .theme-code-surface,
+  .app-dialog-panel,
+  .settings-panel,
+  .tools-scroll-region,
+  .overlay-scroll-region,
+  .custom-scrollbar
+)::-webkit-scrollbar-thumb {
   background: transparent;
+  border-radius: var(--radius-pill);
 }
 
-.tools-scroll-region.is-scrolling::-webkit-scrollbar-thumb,
-.tools-scroll-region.is-scrolling::-webkit-scrollbar-thumb:hover,
-.tools-scroll-region.is-scrolling::-webkit-scrollbar-thumb:active,
-.overlay-scroll-region.is-scrolling::-webkit-scrollbar-thumb,
-.overlay-scroll-region.is-scrolling::-webkit-scrollbar-thumb:hover,
-.overlay-scroll-region.is-scrolling::-webkit-scrollbar-thumb:active {
-  background: var(--scrollbar-thumb);
+:where(
+  .surface-scroll-region,
+  .theme-menu,
+  .theme-panel,
+  .theme-surface,
+  .theme-card-idle,
+  .theme-code-surface,
+  .app-dialog-panel,
+  .settings-panel,
+  .tools-scroll-region,
+  .overlay-scroll-region,
+  .custom-scrollbar
+).is-scrolling::-webkit-scrollbar-thumb {
+  background-color: var(--scrollbar-thumb-hover);
+}
+
+/* WebKit can retain the standard transparent scrollbar paint even after the
+   state class changes. Keep a higher-specificity menu rule for Tauri's webview. */
+.surface-scroll-region.is-scrolling::-webkit-scrollbar-thumb {
+  background-color: var(--scrollbar-thumb-hover);
 }
 
 /* DOM order changes should not make a scroll container chase the moved item. */

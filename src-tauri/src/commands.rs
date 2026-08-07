@@ -892,6 +892,17 @@ pub fn reorder_pinned_clips(ids: Vec<i64>, db: State<'_, Arc<DbState>>) -> Resul
 }
 
 #[tauri::command]
+pub fn reorder_bin_clips(
+    bin_id: i64,
+    clip_ids: Vec<i64>,
+    db: State<'_, Arc<DbState>>,
+) -> Result<(), String> {
+    features::require(&db, Feature::Bins)?;
+    db.reorder_bin_clips(bin_id, clip_ids)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
 pub fn get_clip_versions(
     clip_id: i64,
     limit: Option<i64>,
@@ -1000,6 +1011,11 @@ pub fn factory_reset_app(
     db: State<'_, Arc<DbState>>,
 ) -> Result<FactoryResetReport, String> {
     let report = db.factory_reset().map_err(|error| error.to_string())?;
+
+    if let Some(queue) = app.try_state::<Arc<SequentialQueueState>>() {
+        queue.clear_queue();
+        let _ = app.emit("sequential-updated", queue.get_status());
+    }
 
     // Cached previews are derived from library state and must not survive a reset.
     if let Ok(cache_directory) = app.path().app_cache_dir() {
@@ -1126,7 +1142,7 @@ pub fn paste_text_to_frontmost(text: String, app: AppHandle) -> Result<(), Strin
 
     std::thread::spawn(|| {
         std::thread::sleep(std::time::Duration::from_millis(50));
-        simulate_cmd_v_paste();
+        let _ = simulate_cmd_v_paste();
     });
 
     Ok(())
@@ -1148,7 +1164,7 @@ pub(crate) fn execute_clipboard_pipeline(
     if paste_result {
         thread::spawn(|| {
             thread::sleep(Duration::from_millis(50));
-            simulate_cmd_v_paste();
+            let _ = simulate_cmd_v_paste();
         });
     }
     Ok(outcome)
@@ -1801,6 +1817,10 @@ pub fn start_sequential_paste(
     let db = app.state::<Arc<DbState>>();
     features::require(&db, Feature::Queue)?;
     seq.start_queue();
+    let _ = db.log_activity(
+        "queue_recording_started",
+        "Started recording copies into the Queue",
+    );
     let status = seq.get_status();
     let _ = app.emit("sequential-updated", status.clone());
     Ok(status)
@@ -1814,65 +1834,172 @@ pub fn push_sequential_item(
 ) -> Result<SequentialStatus, String> {
     let db = app.state::<Arc<DbState>>();
     features::require(&db, Feature::Queue)?;
-    seq.push_item(item);
+    if item.is_empty() {
+        return Err("Only clips containing text can be added to the Copy Queue".to_string());
+    }
+    seq.push_item(item)?;
+    let _ = db.log_activity("queue_item_added", "Added a text clip to the Queue");
     let status = seq.get_status();
     let _ = app.emit("sequential-updated", status.clone());
     Ok(status)
 }
 
 #[cfg(target_os = "macos")]
-pub fn simulate_cmd_v_paste() {
+pub fn simulate_cmd_v_paste() -> Result<(), String> {
     use std::process::Command;
-    let _ = Command::new("osascript")
+    let output = Command::new("osascript")
         .arg("-e")
         .arg("tell application \"System Events\" to keystroke \"v\" using command down")
-        .spawn();
+        .output()
+        .map_err(|error| format!("Could not start macOS paste automation: {error}"))?;
+    if output.status.success() {
+        Ok(())
+    } else {
+        let detail = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        Err(
+            if detail.contains("not authorized") || detail.contains("-1743") {
+                "macOS blocked Paste Next. Allow Accessibility access for Pasted (or the terminal/IDE running this development build), then try again.".to_string()
+            } else if detail.is_empty() {
+                "macOS rejected the simulated paste. Check Pasted's Accessibility permission."
+                    .to_string()
+            } else {
+                format!("macOS rejected the simulated paste: {detail}")
+            },
+        )
+    }
 }
 
 #[cfg(target_os = "windows")]
-pub fn simulate_cmd_v_paste() {
+pub fn simulate_cmd_v_paste() -> Result<(), String> {
     use std::process::Command;
-    let _ = Command::new("powershell")
+    let status = Command::new("powershell")
         .arg("-Command")
         .arg("$wshell = New-Object -ComObject wscript.shell; $wshell.SendKeys('^v')")
-        .spawn();
+        .status()
+        .map_err(|error| format!("Could not start Windows paste automation: {error}"))?;
+    status
+        .success()
+        .then_some(())
+        .ok_or_else(|| "Windows rejected the simulated paste".to_string())
 }
 
 #[cfg(target_os = "linux")]
-pub fn simulate_cmd_v_paste() {
+pub fn simulate_cmd_v_paste() -> Result<(), String> {
     use std::process::Command;
-    let _ = Command::new("xdotool").arg("key").arg("ctrl+v").spawn();
+    let status = Command::new("xdotool")
+        .arg("key")
+        .arg("ctrl+v")
+        .status()
+        .map_err(|error| format!("Could not start Linux paste automation: {error}"))?;
+    status
+        .success()
+        .then_some(())
+        .ok_or_else(|| "Linux rejected the simulated paste".to_string())
 }
 
 #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
-pub fn simulate_cmd_v_paste() {}
+pub fn simulate_cmd_v_paste() -> Result<(), String> {
+    Err("Paste automation is unavailable on this platform".to_string())
+}
+
+fn ensure_paste_automation_available() -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    if !check_accessibility_permission().is_trusted {
+        return Err("Paste Next needs Accessibility access. Allow Pasted (or the terminal/IDE running this development build) in System Settings, then try again.".to_string());
+    }
+    Ok(())
+}
+
+fn restore_main_window_after_queue_failure(app: &AppHandle) {
+    if let Some(main) = app.get_webview_window("main") {
+        let _ = main.show();
+        let _ = main.set_focus();
+    }
+}
+
+pub(crate) fn paste_queue_item(
+    seq: &SequentialQueueState,
+    db: &DbState,
+    app: &AppHandle,
+    index: usize,
+) -> Result<Option<String>, String> {
+    let Some((item_id, text)) = seq.peek_item(index) else {
+        return Ok(None);
+    };
+    if let Err(error) = ensure_paste_automation_available() {
+        let _ = db.log_activity("queue_paste_failed", &error);
+        return Err(error);
+    }
+    seq.mark_internal_clipboard_write(&text);
+    let mut clipboard = match Clipboard::new() {
+        Ok(clipboard) => clipboard,
+        Err(error) => {
+            seq.clear_internal_clipboard_write();
+            let message = format!("Could not access the clipboard for Queue paste: {error}");
+            let _ = db.log_activity("queue_paste_failed", &message);
+            return Err(message);
+        }
+    };
+    if let Err(error) = clipboard.set_text(&text) {
+        seq.clear_internal_clipboard_write();
+        let message = format!("Could not place the next Queue item on the clipboard: {error}");
+        let _ = db.log_activity("queue_paste_failed", &message);
+        return Err(message);
+    }
+
+    if let Some(main) = app.get_webview_window("main") {
+        if main.is_visible().unwrap_or(false) {
+            let _ = main.hide();
+        }
+    }
+    thread::sleep(Duration::from_millis(180));
+    if let Err(error) = simulate_cmd_v_paste() {
+        seq.clear_internal_clipboard_write();
+        restore_main_window_after_queue_failure(app);
+        let _ = db.log_activity("queue_paste_failed", &error);
+        return Err(error);
+    }
+
+    seq.consume_item(item_id)?;
+    let status = seq.get_status();
+    let _ = app.emit("sequential-updated", status.clone());
+    let _ = db.log_activity(
+        "queue_item_pasted",
+        &format!(
+            "Pasted the next Queue item ({} remaining)",
+            status.total_count
+        ),
+    );
+    Ok(Some(text))
+}
+
+pub(crate) fn paste_next_queue_item(
+    seq: &SequentialQueueState,
+    db: &DbState,
+    app: &AppHandle,
+) -> Result<Option<String>, String> {
+    paste_queue_item(seq, db, app, 0)
+}
 
 #[tauri::command]
 pub fn pop_sequential_paste(
     seq: State<'_, Arc<SequentialQueueState>>,
     app: AppHandle,
 ) -> Result<Option<String>, String> {
-    let item = seq.pop_next();
-    if let Some(ref text) = item {
-        if let Ok(mut cb) = Clipboard::new() {
-            let _ = cb.set_text(text);
-        }
+    let db = app.state::<Arc<DbState>>();
+    features::require(&db, Feature::Queue)?;
+    paste_next_queue_item(&seq, &db, &app)
+}
 
-        // Hide main window if visible so focus returns to target app
-        if let Some(main_win) = app.get_webview_window("main") {
-            if main_win.is_visible().unwrap_or(false) {
-                let _ = main_win.hide();
-            }
-        }
-
-        std::thread::spawn(move || {
-            std::thread::sleep(std::time::Duration::from_millis(100));
-            simulate_cmd_v_paste();
-        });
-    }
-    let status = seq.get_status();
-    let _ = app.emit("sequential-updated", status);
-    Ok(item)
+#[tauri::command]
+pub fn paste_sequential_item_by_index(
+    index: usize,
+    seq: State<'_, Arc<SequentialQueueState>>,
+    app: AppHandle,
+) -> Result<Option<String>, String> {
+    let db = app.state::<Arc<DbState>>();
+    features::require(&db, Feature::Queue)?;
+    paste_queue_item(&seq, &db, &app, index)
 }
 
 #[tauri::command]
@@ -1881,7 +2008,26 @@ pub fn remove_sequential_item_by_index(
     app: AppHandle,
     index: usize,
 ) -> Result<SequentialStatus, String> {
-    let _ = seq.remove_item_by_index(index);
+    let db = app.state::<Arc<DbState>>();
+    features::require(&db, Feature::Queue)?;
+    if seq.remove_item_by_index(index).is_some() {
+        let _ = db.log_activity("queue_item_removed", "Removed an item from the Queue");
+    }
+    let status = seq.get_status();
+    let _ = app.emit("sequential-updated", status.clone());
+    Ok(status)
+}
+
+#[tauri::command]
+pub fn reorder_sequential_items(
+    item_ids: Vec<u64>,
+    seq: State<'_, Arc<SequentialQueueState>>,
+    app: AppHandle,
+) -> Result<SequentialStatus, String> {
+    let db = app.state::<Arc<DbState>>();
+    features::require(&db, Feature::Queue)?;
+    seq.reorder_items(&item_ids)?;
+    let _ = db.log_activity("queue_reordered", "Reordered the Queue");
     let status = seq.get_status();
     let _ = app.emit("sequential-updated", status.clone());
     Ok(status)
@@ -1892,7 +2038,13 @@ pub fn stop_sequential_paste(
     seq: State<'_, Arc<SequentialQueueState>>,
     app: AppHandle,
 ) -> Result<SequentialStatus, String> {
+    let db = app.state::<Arc<DbState>>();
+    features::require(&db, Feature::Queue)?;
     seq.stop_queue();
+    let _ = db.log_activity(
+        "queue_recording_stopped",
+        "Stopped recording copies into the Queue",
+    );
     let status = seq.get_status();
     let _ = app.emit("sequential-updated", status.clone());
     Ok(status)
@@ -1903,29 +2055,52 @@ pub fn paste_all_sequential(
     seq: State<'_, Arc<SequentialQueueState>>,
     app: AppHandle,
 ) -> Result<Option<String>, String> {
+    let db = app.state::<Arc<DbState>>();
+    features::require(&db, Feature::Queue)?;
     let status = seq.get_status();
     if status.queue.is_empty() {
         return Ok(None);
     }
-    let combined = status.queue.join("\n\n");
-    if let Ok(mut cb) = Clipboard::new() {
-        let _ = cb.set_text(&combined);
+    if let Err(error) = ensure_paste_automation_available() {
+        let _ = db.log_activity("queue_paste_failed", &error);
+        return Err(error);
     }
-    seq.clear_queue();
-    let updated = seq.get_status();
-    let _ = app.emit("sequential-updated", updated);
-
-    // Hide main window if visible so focus returns to target app
-    if let Some(main_win) = app.get_webview_window("main") {
-        if main_win.is_visible().unwrap_or(false) {
-            let _ = main_win.hide();
+    let combined = status.queue.join("\n\n");
+    seq.mark_internal_clipboard_write(&combined);
+    let mut cb = match Clipboard::new() {
+        Ok(clipboard) => clipboard,
+        Err(error) => {
+            seq.clear_internal_clipboard_write();
+            let message = format!("Could not access the clipboard for Queue paste: {error}");
+            let _ = db.log_activity("queue_paste_failed", &message);
+            return Err(message);
+        }
+    };
+    if let Err(error) = cb.set_text(&combined) {
+        seq.clear_internal_clipboard_write();
+        let message = format!("Could not place the Queue on the clipboard: {error}");
+        let _ = db.log_activity("queue_paste_failed", &message);
+        return Err(message);
+    }
+    if let Some(main) = app.get_webview_window("main") {
+        if main.is_visible().unwrap_or(false) {
+            let _ = main.hide();
         }
     }
-
-    std::thread::spawn(move || {
-        std::thread::sleep(std::time::Duration::from_millis(100));
-        simulate_cmd_v_paste();
-    });
+    thread::sleep(Duration::from_millis(180));
+    if let Err(error) = simulate_cmd_v_paste() {
+        seq.clear_internal_clipboard_write();
+        restore_main_window_after_queue_failure(&app);
+        let _ = db.log_activity("queue_paste_failed", &error);
+        return Err(error);
+    }
+    seq.consume_prefix(&status.item_ids)?;
+    let updated = seq.get_status();
+    let _ = app.emit("sequential-updated", updated);
+    let _ = db.log_activity(
+        "queue_all_pasted",
+        &format!("Pasted {} Queue items together", status.total_count),
+    );
 
     Ok(Some(combined))
 }
@@ -2114,7 +2289,7 @@ pub fn paste_clip_by_id(
         }
 
         thread::sleep(Duration::from_millis(50));
-        simulate_cmd_v_paste();
+        simulate_cmd_v_paste()?;
     }
     Ok(())
 }

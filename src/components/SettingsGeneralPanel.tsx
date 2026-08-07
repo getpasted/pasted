@@ -53,9 +53,9 @@ const revisionLimitOptions = [10, 25, 50, 100]
   .concat({ value: '0', label: 'Unlimited' });
 
 const rowHeightOptions = [
-  { value: 'small', label: 'Small' },
-  { value: 'medium', label: 'Medium' },
-  { value: 'large', label: 'Large' },
+  { value: 'small', label: 'Compact' },
+  { value: 'medium', label: 'Standard' },
+  { value: 'large', label: 'Spacious' },
 ];
 
 const contentDetectors: Array<{
@@ -199,16 +199,16 @@ export function SettingsGeneralPanel({
 
               <div className="flex items-start justify-between">
                 <div className="pr-4 flex-1 min-w-0">
-                  <span className="font-semibold theme-text-main block">Row Height:</span>
+                  <span className="font-semibold theme-text-main block">Clip Density:</span>
                   <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
-                    Sets the fixed height of the quick paste menu and main window compact view.
+                    Adjusts clip spacing, text depth, and preview size throughout the history list.
                   </p>
                 </div>
                 <MenuSelect
                   value={settings.rowHeight}
                   options={rowHeightOptions}
                   onChange={(value) => onUpdateSettings({ rowHeight: value as AppSettings['rowHeight'] })}
-                  label="Row height"
+                  label="Clip density"
                   className="settings-menu-select"
                 />
               </div>
@@ -261,27 +261,6 @@ export function SettingsGeneralPanel({
                   className="settings-menu-select"
                 />
               </div>
-
-              {/* macOS Only Spotlight Indexing Setting */}
-              {isMac && (
-                <div className="flex items-start justify-between pt-1">
-                  <div className="pr-4 flex-1 min-w-0">
-                    <span className="font-semibold theme-text-main block">Spotlight Indexing:</span>
-                    <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
-                      Allow ⌘Space Spotlight to search Pasted history
-                    </p>
-                  </div>
-                  <label className="flex items-center space-x-2 cursor-pointer shrink-0 pt-0.5">
-                    <input
-                      type="checkbox"
-                      checked={settings.spotlightSync ?? true}
-                      onChange={(e) => onUpdateSettings({ spotlightSync: e.target.checked })}
-                      className="theme-checkbox w-4 h-4 cursor-pointer rounded"
-                    />
-                    <span className="theme-text-main">Index in Spotlight</span>
-                  </label>
-                </div>
-              )}
 
               <div className="flex items-start justify-between pt-1">
                 <div className="pr-4 flex-1 min-w-0">

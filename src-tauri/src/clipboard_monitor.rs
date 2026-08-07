@@ -391,9 +391,12 @@ pub fn start_clipboard_monitor(
 
                         // If sequential mode active, push to queue as well
                         if crate::features::is_enabled(&db_state, crate::features::Feature::Queue)
-                            && *seq_state.is_active.lock()
+                            && seq_state.capture_item(text.clone())
                         {
-                            seq_state.push_item(text.clone());
+                            let _ = db_state.log_activity(
+                                "queue_item_recorded",
+                                "Recorded copied text into the Queue",
+                            );
                             let _ = app.emit("sequential-updated", seq_state.get_status());
                         }
 

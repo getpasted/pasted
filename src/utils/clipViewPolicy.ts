@@ -1,3 +1,5 @@
+import { getClipCollection } from './clipCollections';
+
 export type ClipViewState = 'active' | 'trash';
 
 export interface ClipViewPolicy {
@@ -33,11 +35,23 @@ const TRASH_CLIP_POLICY: ClipViewPolicy = Object.freeze({
   showOrganizeBatchActions: false,
 });
 
+const QUEUE_CLIP_POLICY: ClipViewPolicy = Object.freeze({
+  state: 'active',
+  canDragClips: true,
+  canOrganize: false,
+  canAssignBins: false,
+  canEditNotes: false,
+  canMutateContent: false,
+  canRunPipelines: false,
+  showOrganizeBatchActions: false,
+});
+
 export function getClipViewPolicy(
   view: string,
   clip?: { is_trashed?: boolean | number } | null,
 ): ClipViewPolicy {
-  return view === 'trash' || Boolean(clip?.is_trashed)
-    ? TRASH_CLIP_POLICY
-    : ACTIVE_CLIP_POLICY;
+  const collection = getClipCollection(view);
+  if (collection?.membership === 'trash' || Boolean(clip?.is_trashed)) return TRASH_CLIP_POLICY;
+  if (collection?.membership === 'queue') return QUEUE_CLIP_POLICY;
+  return ACTIVE_CLIP_POLICY;
 }

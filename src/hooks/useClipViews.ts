@@ -3,6 +3,7 @@ import type { Bin, ClipItem, SequentialStatus } from '../types';
 import { getClipFilePaths, getClipOriginKind } from '../types';
 import { sortClipsChronologically } from '../utils/clipOrder';
 import { clipMatchesSearch, parseClipSearch } from '../utils/clipSearch';
+import { getClipCollection } from '../utils/clipCollections';
 import type { FeatureId } from '../utils/features';
 
 interface ClipViewsInput {
@@ -66,28 +67,45 @@ function matchesCondition(clip: ClipItem, condition: SmartCondition) {
 function filterByBin(clips: ClipItem[], bins: Bin[], binId: number) {
   const assigned = (clip: ClipItem) => clip.bin_id === binId || Boolean(clip.bin_ids?.includes(binId));
   const bin = bins.find((item) => item.id === binId);
-  if (!bin?.smart_rule) return clips.filter(assigned);
-
-  try {
-    const rule = JSON.parse(bin.smart_rule) as {
-      match?: 'all' | 'any';
-      conditions?: SmartCondition[];
-      type?: string;
-      operator?: 'is' | 'contains';
-      value?: string;
-    };
-    const conditions = rule.conditions?.length
-      ? rule.conditions
-      : rule.type && rule.value !== undefined
-        ? [{ type: rule.type, operator: rule.operator, value: rule.value }]
-        : [];
-    if (conditions.length === 0) return clips.filter(assigned);
-    return clips.filter((clip) => assigned(clip) || (rule.match === 'all'
-      ? conditions.every((condition) => matchesCondition(clip, condition))
-      : conditions.some((condition) => matchesCondition(clip, condition))));
-  } catch {
-    return clips.filter(assigned);
+  let matchingClips: ClipItem[];
+  if (!bin?.smart_rule) matchingClips = clips.filter(assigned);
+  else {
+    try {
+      const rule = JSON.parse(bin.smart_rule) as {
+        match?: 'all' | 'any';
+        conditions?: SmartCondition[];
+        type?: string;
+        operator?: 'is' | 'contains';
+        value?: string;
+      };
+      const conditions = rule.conditions?.length
+        ? rule.conditions
+        : rule.type && rule.value !== undefined
+          ? [{ type: rule.type, operator: rule.operator, value: rule.value }]
+          : [];
+      matchingClips = conditions.length === 0
+        ? clips.filter(assigned)
+        : clips.filter((clip) => assigned(clip) || (rule.match === 'all'
+          ? conditions.every((condition) => matchesCondition(clip, condition))
+          : conditions.some((condition) => matchesCondition(clip, condition))));
+    } catch {
+      matchingClips = clips.filter(assigned);
+    }
   }
+
+  if (!bin?.clip_order?.length) return matchingClips;
+  const positionById = new Map(bin.clip_order.map((clipId, position) => [clipId, position]));
+  return matchingClips
+    .map((clip, fallbackPosition) => ({ clip, fallbackPosition }))
+    .sort((left, right) => {
+      const leftPosition = positionById.get(left.clip.id);
+      const rightPosition = positionById.get(right.clip.id);
+      if (leftPosition !== undefined && rightPosition !== undefined) return leftPosition - rightPosition;
+      if (leftPosition !== undefined) return -1;
+      if (rightPosition !== undefined) return 1;
+      return left.fallbackPosition - right.fallbackPosition;
+    })
+    .map(({ clip }) => clip);
 }
 
 export function useClipViews({
@@ -101,14 +119,17 @@ export function useClipViews({
   features,
 }: ClipViewsInput) {
   const displayedClips = useMemo(() => {
-    if (currentTab === 'sequential') {
+    const selectedBin = selectedBinId === null ? undefined : bins.find((bin) => bin.id === selectedBinId);
+    const collection = getClipCollection(currentTab, selectedBin);
+
+    if (collection?.membership === 'queue') {
       return (sequentialStatus?.queue ?? []).map((text, index): ClipItem => ({
-        id: 999000 + index,
+        id: -(sequentialStatus?.item_ids[index] ?? index + 1),
         content_type: 'text',
         text_content: text,
         html_content: null,
         image_base64: null,
-        content_hash: `queue_${index}`,
+        content_hash: `queue_${sequentialStatus?.item_ids[index] ?? index}`,
         source_app: `Queue Position #${index + 1}`,
         bin_id: null,
         is_pinned: false,
@@ -117,18 +138,18 @@ export function useClipViews({
       }));
     }
 
-    if (currentTab === 'search') {
+    if (collection?.membership === 'search') {
       return searchQuery.trim()
         ? applyClipSearch(sortClipsChronologically([...allClips, ...trashedClips]), searchQuery, features)
         : [];
     }
 
-    let clips = currentTab === 'trash' ? trashedClips : allClips;
-    if (currentTab === 'trash') return clips;
-    if (currentTab === 'bin' && selectedBinId !== null) clips = filterByBin(clips, bins, selectedBinId);
-    if (currentTab === 'pinned') clips = clips.filter((clip) => clip.is_pinned);
-    if (currentTab === 'protected') clips = clips.filter((clip) => clip.is_protected);
-    if (currentTab === 'notes') clips = clips.filter((clip) => Boolean(clip.note?.trim()));
+    let clips = collection?.membership === 'trash' ? trashedClips : allClips;
+    if (collection?.membership === 'trash') return clips;
+    if (collection?.membership === 'bin' && selectedBinId !== null) clips = filterByBin(clips, bins, selectedBinId);
+    if (collection?.membership === 'pinned') clips = clips.filter((clip) => clip.is_pinned);
+    if (collection?.membership === 'protected') clips = clips.filter((clip) => clip.is_protected);
+    if (collection?.membership === 'noted') clips = clips.filter((clip) => Boolean(clip.note?.trim()));
     if (!features.pinning) clips = sortClipsChronologically(clips);
     return clips;
   }, [allClips, trashedClips, searchQuery, currentTab, selectedBinId, sequentialStatus, bins, features]);

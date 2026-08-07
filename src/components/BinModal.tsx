@@ -314,7 +314,7 @@ export const BinModal: React.FC<BinModalProps> = ({
             </div>
           {/* Name Field */}
           <div className="flex items-center space-x-3">
-            <label className={`w-14 text-right font-semibold flex-shrink-0 ${errors.name ? 'theme-danger-text font-bold' : 'theme-text-muted'}`}>Name:</label>
+            <label className={`w-20 text-right font-semibold flex-shrink-0 ${errors.name ? 'theme-danger-text font-bold' : 'theme-text-muted'}`}>Name:</label>
             <input
               type="text"
               placeholder="e.g. Code Snippets, Safari Clips"
@@ -335,7 +335,7 @@ export const BinModal: React.FC<BinModalProps> = ({
 
           {/* Color Palette Picker Row */}
           <div className="flex items-center space-x-3">
-            <label className={`w-14 text-right font-semibold flex-shrink-0 ${errors.color ? 'theme-danger-text font-bold' : 'theme-text-muted'}`}>Color:</label>
+            <label className={`w-20 text-right font-semibold flex-shrink-0 ${errors.color ? 'theme-danger-text font-bold' : 'theme-text-muted'}`}>Color:</label>
             <div className={`flex items-center space-x-2 p-1 rounded-xl border border-transparent transition-colors ${errors.color ? 'form-field-error' : ''}`}>
               {COLOR_PALETTE.map((c) => (
                 <button
@@ -360,7 +360,7 @@ export const BinModal: React.FC<BinModalProps> = ({
 
           {/* Single Emoji Icon Selector */}
           <div className="flex items-center space-x-3">
-            <label className={`w-14 text-right font-semibold flex-shrink-0 ${errors.icon ? 'theme-danger-text font-bold' : 'theme-text-muted'}`}>Icon:</label>
+            <label className={`w-20 text-right font-semibold flex-shrink-0 ${errors.icon ? 'theme-danger-text font-bold' : 'theme-text-muted'}`}>Icon:</label>
             <div className="flex-1 flex items-center space-x-2.5">
               <input
                 type="text"
@@ -422,9 +422,26 @@ export const BinModal: React.FC<BinModalProps> = ({
             </div>
           </div>
 
+          <div className="flex items-center gap-3">
+            <span className="w-20 shrink-0 text-right text-xs font-semibold theme-text-muted">Transform:</span>
+            <MenuSelect
+              value={transformRef}
+              options={[
+                { value: '', label: 'Do Nothing' },
+                ...transforms.map((transform) => ({ value: transform.stableRef, label: transform.name })),
+              ]}
+              onChange={setTransformRef}
+              label="Transform"
+              className="min-w-0 flex-1"
+            />
+          </div>
+
           {/* Smart Bin Multi-Condition Builder */}
           {modalTab === 'smart' && (
-            <div className="p-4 theme-surface rounded-2xl border space-y-3">
+            <div className="flex items-start gap-3">
+              <span className="w-20 shrink-0 pt-0.5 text-right text-xs font-semibold theme-text-muted">Filter:</span>
+              <div className="min-w-0 flex-1 space-y-2">
+                <div className="p-4 theme-surface rounded-2xl border space-y-3">
               {conditions.map((c) => (
                 <div key={c.id} className="flex items-center space-x-2">
                   {/* Condition Target Dropdown */}
@@ -451,7 +468,7 @@ export const BinModal: React.FC<BinModalProps> = ({
                       { value: 'file_path', label: 'File Path' },
                     ]}
                     label="Condition target"
-                    className="w-36"
+                    className="w-28"
                     compact
                   />
 
@@ -464,7 +481,7 @@ export const BinModal: React.FC<BinModalProps> = ({
                       { value: 'contains', label: 'contains' },
                     ]}
                     label="Condition operator"
-                    className="w-28"
+                    className="w-24"
                     compact
                   />
 
@@ -579,27 +596,13 @@ export const BinModal: React.FC<BinModalProps> = ({
                   className="w-24"
                   compact
                 />
-                <span>conditions</span>
+                  <span>conditions</span>
+                </div>
+                </div>
+                <p className="text-[10px] theme-text-muted">Choose which clips automatically enter this Smart Bin.</p>
               </div>
             </div>
           )}
-
-          <div className="theme-surface space-y-2 rounded-2xl border p-4">
-            <div>
-              <span className="block text-xs font-semibold theme-text-main">When a clip enters this Bin</span>
-              <p className="mt-0.5 text-[10px] theme-text-muted">Run one saved Transform. Its plan decides whether work stays local or uses connected intelligence.</p>
-            </div>
-            <MenuSelect
-              value={transformRef}
-              options={[
-                { value: '', label: 'Do not transform clips' },
-                ...transforms.map((transform) => ({ value: transform.stableRef, label: transform.name })),
-              ]}
-              onChange={setTransformRef}
-              label="Transform clips entering this Bin"
-              className="w-full"
-            />
-          </div>
 
           </AppDialogBody>
           <AppDialogFooter>

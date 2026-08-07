@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import { Bin, SequentialStatus } from '../types';
 import { useSidebarBinOrder } from '../hooks/useSidebarBinOrder';
-import type { ClipDropAction } from '../hooks/useClipBinDrag';
+import { getClipCollection, getSystemClipCollections, type ClipCollectionIcon, type ClipDropAction } from '../utils/clipCollections';
 import type { FeatureId } from '../utils/features';
 
 const SEARCH_HELPERS = [
@@ -252,22 +252,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
     setSelectedBinId(null);
   };
 
-  const allClipNavItems: Array<{
-    tab: string;
-    label: string;
-    title: string;
-    icon: React.ReactElement<{ className: string; strokeWidth?: number }>;
-    dropAction?: ClipDropAction;
-    feature?: FeatureId;
-  }> = [
-    { tab: 'all', label: 'All', title: 'All Clips', icon: <Clipboard className="sidebar-icon-primary w-5 h-5" /> },
-    { tab: 'sequential', label: 'Queue', title: 'Queue', icon: <ListOrdered className="sidebar-icon-secondary w-5 h-5" />, feature: 'queue' },
-    { tab: 'pinned', label: 'Pinned', title: 'Pinned', icon: <Pin className="sidebar-icon-success w-5 h-5 pin-icon" />, dropAction: 'pin', feature: 'pinning' },
-    { tab: 'protected', label: 'Protected', title: 'Protected', icon: <Shield className="sidebar-icon-info w-5 h-5" />, dropAction: 'protect', feature: 'protection' },
-    { tab: 'notes', label: 'Noted', title: 'Noted', icon: <StickyNote className="sidebar-icon-note w-5 h-5" />, feature: 'notes' },
-    { tab: 'trash', label: 'Trashed', title: 'Trashed', icon: <Trash2 className="sidebar-icon-danger w-5 h-5" />, dropAction: 'trash', feature: 'trash' },
-  ];
-  const clipNavItems = allClipNavItems.filter(({ feature }) => !feature || features[feature]);
+  const collectionIcon = (icon: ClipCollectionIcon) => {
+    if (icon === 'queue') return <ListOrdered className="sidebar-icon-secondary w-5 h-5" />;
+    if (icon === 'pin') return <Pin className="sidebar-icon-success w-5 h-5 pin-icon" />;
+    if (icon === 'protect') return <Shield className="sidebar-icon-info w-5 h-5" />;
+    if (icon === 'note') return <StickyNote className="sidebar-icon-note w-5 h-5" />;
+    if (icon === 'trash') return <Trash2 className="sidebar-icon-danger w-5 h-5" />;
+    return <Clipboard className="sidebar-icon-primary w-5 h-5" />;
+  };
+  const clipNavItems = getSystemClipCollections(features).map((collection) => ({
+    ...collection,
+    icon: collectionIcon(collection.icon),
+    dropAction: collection.capabilities.dropAction,
+  }));
   const allToolNavItems: Array<{ tab: string; label: string; title: string; icon: React.ReactElement<{ className: string; strokeWidth?: number }>; feature?: FeatureId }> = [
     { tab: 'analytics', label: 'Analytics & Insights', title: 'Analytics & Insights', icon: <BarChart3 className="sidebar-icon-primary w-5 h-5" />, feature: 'analytics' },
     { tab: 'transformations', label: 'Transformations', title: 'Transformations', icon: <Workflow className="sidebar-icon-primary w-5 h-5" />, feature: 'transformations' },
@@ -279,6 +276,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const clipCountByTab: Record<string, number> = {
     all: totalClipCount,
+    sequential: seqStatus?.total_count ?? 0,
     pinned: pinnedCount,
     protected: protectedCount,
     notes: notesCount,
@@ -287,10 +285,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const getDropActionTitle = (action: ClipDropAction) => {
     if (!disabledDropActions.includes(action)) {
+      if (action === 'queue') return 'Add to Queue';
       if (action === 'pin') return 'Pin';
       if (action === 'protect') return 'Protect';
       return 'Move to Trash';
     }
+    if (action === 'queue') return 'Text Clips Only';
     if (action === 'pin') return 'Already Pinned';
     if (action === 'protect') return 'Already Protected';
     return 'Protected';
@@ -351,7 +351,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     ? 'sidebar-item-hovered border-transparent cursor-pointer'
                     : 'sidebar-item-idle border-transparent cursor-pointer'
                 }`}
-                title={isClipDragging && item.dropAction ? getDropActionTitle(item.dropAction) : item.title}
+                title={isClipDragging && item.dropAction ? getDropActionTitle(item.dropAction) : item.tooltip ?? item.title}
               >
                 {item.icon}
               </button>
@@ -542,7 +542,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
             >
               {sortedBins.map((b) => {
                 const isDragging = activeDragBinId === b.id;
-                const isManualBin = !b.smart_rule || b.smart_rule.trim() === '';
+                const binCollection = getClipCollection('bin', b);
+                const isManualBin = Boolean(binCollection?.capabilities.acceptsClipDrop);
                 const isDisabledDropTarget =
                   isClipDragging && disabledDropBinId === b.id;
                 const isIneligibleSmartBin = isClipDragging && !isManualBin;

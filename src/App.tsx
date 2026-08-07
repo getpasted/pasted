@@ -27,8 +27,10 @@ import { startWindowDrag } from './utils/windowDrag';
 import { useColumnResize } from './hooks/useColumnResize';
 import { useAppSettings } from './hooks/useAppSettings';
 import { useClipViews } from './hooks/useClipViews';
-import { useClipBinDrag, type ClipDropAction } from './hooks/useClipBinDrag';
+import { useClipBinDrag } from './hooks/useClipBinDrag';
+import { useStableVerticalReorder } from './hooks/useStableVerticalReorder';
 import { getClipViewPolicy } from './utils/clipViewPolicy';
+import { getClipCollection, type ClipDropAction } from './utils/clipCollections';
 import { sortClipsForTimeline } from './utils/clipOrder';
 import { useAppData } from './hooks/useAppData';
 import { useClipActions } from './hooks/useClipActions';
@@ -38,16 +40,26 @@ import { FeatureProvider } from './hooks/useFeatures';
 import { ACTUAL_SIZE, stepAppZoom } from './utils/appZoom';
 import './App.css';
 
+const TRANSIENT_SCROLL_SURFACE_SELECTOR = [
+  '.surface-scroll-region',
+  '.theme-menu',
+  '.theme-panel',
+  '.theme-surface',
+  '.theme-card-idle',
+  '.theme-code-surface',
+  '.app-dialog-panel',
+  '.settings-panel',
+  '.tools-scroll-region',
+  '.overlay-scroll-region',
+  '.custom-scrollbar',
+].join(', ');
+
 export default function App() {
   const [isHudView, setIsHudView] = useState<boolean>(false);
 
   useEffect(() => {
     const hideTimers = new Map<HTMLElement, number>();
-    const handleToolsScroll = (event: Event) => {
-      const target = event.target;
-      if (!(target instanceof HTMLElement)
-        || (!target.classList.contains('tools-scroll-region') && !target.classList.contains('overlay-scroll-region'))) return;
-
+    const markSurfaceScrolling = (target: HTMLElement) => {
       target.classList.add('is-scrolling');
       const previousTimer = hideTimers.get(target);
       if (previousTimer) window.clearTimeout(previousTimer);
@@ -56,10 +68,24 @@ export default function App() {
         hideTimers.delete(target);
       }, 700));
     };
+    const findScrollSurface = (event: Event) => event.composedPath().find(
+      (candidate): candidate is HTMLElement => candidate instanceof HTMLElement
+        && candidate.matches(TRANSIENT_SCROLL_SURFACE_SELECTOR),
+    );
+    const handleSurfaceScroll = (event: Event) => {
+      const target = findScrollSurface(event);
+      if (target) markSurfaceScrolling(target);
+    };
+    const handleSurfaceWheel = (event: WheelEvent) => {
+      const target = findScrollSurface(event);
+      if (target && target.scrollHeight > target.clientHeight) markSurfaceScrolling(target);
+    };
 
-    document.addEventListener('scroll', handleToolsScroll, true);
+    document.addEventListener('scroll', handleSurfaceScroll, true);
+    document.addEventListener('wheel', handleSurfaceWheel, { capture: true, passive: true });
     return () => {
-      document.removeEventListener('scroll', handleToolsScroll, true);
+      document.removeEventListener('scroll', handleSurfaceScroll, true);
+      document.removeEventListener('wheel', handleSurfaceWheel, true);
       hideTimers.forEach((timer) => window.clearTimeout(timer));
     };
   }, []);
@@ -288,6 +314,16 @@ export default function App() {
     bin: Bin;
   } | null>(null);
 
+  const handleSidebarNavigate = useCallback((route: string) => {
+    setBinContextMenu(null);
+    navigateToTab(route);
+  }, [navigateToTab]);
+
+  const handleSidebarBinSelect = useCallback((binId: number | null) => {
+    setBinContextMenu(null);
+    setSelectedBinId(binId);
+  }, []);
+
   // Custom Bin Deletion Confirmation Modal State
   const [binToDelete, setBinToDelete] = useState<Bin | null>(null);
 
@@ -304,17 +340,6 @@ export default function App() {
     handleListPointerDown,
     resetColumnWidths,
   } = useColumnResize();
-
-  useEffect(() => {
-    if (!binContextMenu) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      const target = e.target as HTMLElement | null;
-      if (target && target.closest('.bin-context-menu')) return;
-      setBinContextMenu(null);
-    };
-    window.addEventListener('mousedown', handleClickOutside);
-    return () => window.removeEventListener('mousedown', handleClickOutside);
-  }, [binContextMenu]);
 
   // Global Escape key listener to cancel any active modal or context menu
   useEffect(() => {
@@ -377,13 +402,57 @@ export default function App() {
     sequentialStatus: seqStatus,
     features: enabledFeatures,
   });
+  const currentCollection = useMemo(
+    () => getClipCollection(currentTab, selectedBinId === null ? undefined : bins.find((bin) => bin.id === selectedBinId)),
+    [bins, currentTab, selectedBinId],
+  );
+  const isQueueCollection = currentCollection?.membership === 'queue';
+  const isPinnedCollection = currentCollection?.membership === 'pinned';
+  const isBinCollection = currentCollection?.membership === 'bin' && selectedBinId !== null;
   const clipListRef = useRef<HTMLDivElement | null>(null);
+  const queueReorderIds = useMemo(
+    () => isQueueCollection ? (seqStatus?.item_ids ?? []).map(String) : [],
+    [isQueueCollection, seqStatus?.item_ids],
+  );
+  const commitQueueOrder = useCallback((orderedIds: string[]) => {
+    void invoke('reorder_sequential_items', { itemIds: orderedIds.map(Number) })
+      .then(fetchSequentialStatus)
+      .catch((error) => console.error('Failed to reorder Copy Queue:', error));
+  }, [fetchSequentialStatus]);
+  const queueReorder = useStableVerticalReorder({
+    itemIds: queueReorderIds,
+    containerRef: clipListRef,
+    onCommit: commitQueueOrder,
+    disabled: !currentCollection?.capabilities.canReorder || !isQueueCollection || queueReorderIds.length < 2,
+  });
+  const binReorderIds = useMemo(
+    () => isBinCollection ? displayedClips.map((clip) => String(clip.id)) : [],
+    [displayedClips, isBinCollection],
+  );
+  const commitBinOrder = useCallback((orderedIds: string[]) => {
+    if (selectedBinId === null) return;
+    void invoke('reorder_bin_clips', {
+      binId: selectedBinId,
+      clipIds: orderedIds.map(Number),
+    })
+      .then(fetchBins)
+      .catch((error) => {
+        console.error('Failed to save Bin clip order:', error);
+        void fetchBins();
+      });
+  }, [fetchBins, selectedBinId]);
+  const binClipReorder = useStableVerticalReorder({
+    itemIds: binReorderIds,
+    containerRef: clipListRef,
+    onCommit: commitBinOrder,
+    disabled: !currentCollection?.capabilities.canReorder || !isBinCollection || binReorderIds.length < 2,
+  });
   const [stackedPinnedClipIds, setStackedPinnedClipIds] = useState<number[]>([]);
   const pinnedShelfClips = useMemo(
-    () => enabledFeatures.pinning && (currentTab === 'all' || currentTab === 'pinned')
+    () => enabledFeatures.pinning && (currentCollection?.membership === 'all' || isPinnedCollection)
       ? displayedClips.filter((clip) => clip.is_pinned)
       : [],
-    [currentTab, displayedClips, enabledFeatures.pinning],
+    [currentCollection?.membership, displayedClips, enabledFeatures.pinning, isPinnedCollection],
   );
   const pinnedShelfSignature = pinnedShelfClips
     .map((clip) => `${clip.id}:${clip.pin_order ?? 0}`)
@@ -394,7 +463,7 @@ export default function App() {
   }, [selectionViewKey]);
 
   const handleClipListScroll = useCallback((element: HTMLDivElement) => {
-    if (pinnedShelfClips.length === 0 || (currentTab !== 'all' && currentTab !== 'pinned')) {
+    if (pinnedShelfClips.length === 0 || (currentCollection?.membership !== 'all' && !isPinnedCollection)) {
       setStackedPinnedClipIds([]);
       return;
     }
@@ -419,7 +488,7 @@ export default function App() {
         ? previous
         : next;
     });
-  }, [currentTab, pinnedShelfClips.length]);
+  }, [currentCollection?.membership, isPinnedCollection, pinnedShelfClips.length]);
 
   useLayoutEffect(() => {
     const element = clipListRef.current;
@@ -614,7 +683,11 @@ export default function App() {
   );
 
   const handleClipDropAction = useCallback((clipId: number, action: ClipDropAction) => {
-    if (action === 'pin') {
+    if (action === 'queue') {
+      if (!enabledFeatures.queue) return;
+      const clip = allClips.find((item) => item.id === clipId);
+      if (clip) void handleAddToSequentialStack(clip);
+    } else if (action === 'pin') {
       if (!enabledFeatures.pinning) return;
       handleSetPinned(clipId, true);
     } else if (action === 'protect') {
@@ -623,7 +696,7 @@ export default function App() {
     } else {
       handleDeleteClip(clipId);
     }
-  }, [enabledFeatures.pinning, enabledFeatures.protection, handleDeleteClip, handleSetPinned, handleSetProtected]);
+  }, [allClips, enabledFeatures.pinning, enabledFeatures.protection, enabledFeatures.queue, handleAddToSequentialStack, handleDeleteClip, handleSetPinned, handleSetProtected]);
 
   const {
     draggedClipId,
@@ -644,6 +717,7 @@ export default function App() {
     cancelPinnedReorderPreview,
     finishClipPointerDrag: handleClipPointerDragEnd,
   } = useClipBinDrag({
+    isQueueMode: isQueueCollection,
     allClips,
     setAllClips,
     bins,
@@ -825,12 +899,13 @@ export default function App() {
     <div className={`app-shell flex h-screen w-screen overflow-hidden font-sans ${clipDragPreview ? 'cursor-grabbing' : ''} ${
       draggedClipId !== null ? 'is-dragging-clip' : ''
     } ${
-      isPinnedReorderSettling ? 'is-settling-pinned-reorder' : ''
+      isPinnedReorderSettling || queueReorder.isSettling || binClipReorder.isSettling ? 'is-settling-pinned-reorder' : ''
     } ${
       isResizingSidebar || isResizingList ? 'is-resizing-columns' : ''
     }`}>
       {clipDragPreview && (() => {
-        const previewClip = allClips.find((clip) => clip.id === clipDragPreview.clipId);
+        const previewClip = displayedClips.find((clip) => clip.id === clipDragPreview.clipId)
+          ?? allClips.find((clip) => clip.id === clipDragPreview.clipId);
         if (!previewClip) return null;
         const batchCount = selectedClipIds.has(previewClip.id) ? selectedClipIds.size : 1;
         return (
@@ -864,9 +939,9 @@ export default function App() {
       {/* Left macOS Sidebar */}
       <Sidebar
         currentTab={currentTab}
-        setCurrentTab={navigateToTab}
+        setCurrentTab={handleSidebarNavigate}
         selectedBinId={selectedBinId}
-        setSelectedBinId={setSelectedBinId}
+        setSelectedBinId={handleSidebarBinSelect}
         bins={bins}
         features={enabledFeatures}
         onRefreshBins={fetchBins}
@@ -962,27 +1037,13 @@ export default function App() {
               className="h-[60px] border-b px-3 flex items-center justify-between col-list-header cursor-default titlebar-drag-handle shrink-0"
             >
               <div className="flex items-center space-x-2 titlebar-drag-handle min-w-0 flex-1 mr-2">
-                {currentTab === 'search' ? (
+                {currentCollection?.icon === 'search' ? (
                   <Search className="theme-text-main w-4 h-4 titlebar-drag-handle shrink-0" />
                 ) : (
                   <Clipboard className="theme-text-main w-4 h-4 titlebar-drag-handle shrink-0" />
                 )}
                 <h2 className="theme-title text-xs font-bold uppercase tracking-wider titlebar-drag-handle truncate">
-                  {currentTab === 'search'
-                    ? 'Search'
-                    : currentTab === 'pinned'
-                    ? 'Pinned'
-                    : currentTab === 'protected'
-                    ? 'Protected'
-                    : currentTab === 'notes'
-                    ? 'Noted'
-                    : currentTab === 'sequential'
-                    ? 'Queue'
-                    : currentTab === 'trash'
-                    ? 'Trashed'
-                    : selectedBinId
-                    ? bins.find((b) => b.id === selectedBinId)?.name || 'Bin'
-                    : 'All'}
+                  {currentCollection?.title ?? 'All'}
                 </h2>
                 {currentTab === 'search' && (
                   <span
@@ -1003,7 +1064,7 @@ export default function App() {
                   </span>
                 )}
 
-                {currentTab === 'trash' && (
+                {currentCollection?.membership === 'trash' && (
                   <button
                     onClick={handleEmptyTrash}
                     disabled={trashedClips.length === 0}
@@ -1050,7 +1111,7 @@ export default function App() {
             </div>
 
             {/* Sequential Paste Top Header Banner if active */}
-            {currentTab === 'sequential' && (
+            {isQueueCollection && (
               <div className={`queue-controls-region p-3 border-b ${seqStatus?.is_active ? 'is-active' : ''}`}>
                 <SequentialQueueBar
                   status={seqStatus}
@@ -1088,10 +1149,21 @@ export default function App() {
                   />
                 ) : (
                   displayedClips.map((clip, index) => {
-                  const queueIndex = clip.text_content ? queuedIndexMap.get(clip.text_content) : undefined;
+                  const queueIndex = isQueueCollection
+                    ? index + 1
+                    : clip.text_content
+                      ? queuedIndexMap.get(clip.text_content)
+                      : undefined;
                   const primaryBin = clip.bin_id === null ? undefined : binsById.get(clip.bin_id);
                   const baseViewPolicy = getClipViewPolicy(currentTab, clip);
-                  const viewPolicy = hasRestrictedSelection && selectedClipIds.has(clip.id)
+                  const queueReorderId = isQueueCollection
+                    ? seqStatus?.item_ids[index]?.toString()
+                    : undefined;
+                  const binReorderId = isBinCollection ? String(clip.id) : undefined;
+                  const stableReorderId = queueReorderId ?? binReorderId;
+                  const viewPolicy = isQueueCollection
+                    ? { ...baseViewPolicy, canDragClips: displayedClips.length > 1, canOrganize: false, canAssignBins: false }
+                    : hasRestrictedSelection && selectedClipIds.has(clip.id)
                     ? { ...baseViewPolicy, canDragClips: false }
                     : baseViewPolicy;
 
@@ -1106,9 +1178,12 @@ export default function App() {
                       isDragInProgress={draggedClipId !== null}
                       isTransforming={transformingClipIds.has(clip.id)}
                       transformError={transformErrorsByClipId.get(clip.id)}
-                      reorderOffsetY={pinnedReorderOffsets[clip.id] ?? 0}
+                      reorderOffsetY={stableReorderId
+                        ? (queueReorderId ? queueReorder.offsets[stableReorderId] : binClipReorder.offsets[stableReorderId]) ?? 0
+                        : pinnedReorderOffsets[clip.id] ?? 0}
+                      stableReorderId={stableReorderId}
                       viewPolicy={viewPolicy}
-                      isQueueMode={currentTab === 'sequential'}
+                      isQueueMode={isQueueCollection}
                       queueIndex={queueIndex}
                       primaryBinName={primaryBin?.name}
                       primaryBinIcon={primaryBin?.icon}
@@ -1121,19 +1196,47 @@ export default function App() {
                       setDraggedClipId={setDraggedClipId}
                       onPointerDragStart={(id) => {
                         setHoveredClipId(null);
-                        beginPinnedReorderPreview(id);
+                        if (queueReorderId) queueReorder.beginReorder(queueReorderId);
+                        else if (binReorderId) binClipReorder.beginReorder(binReorderId);
+                        else beginPinnedReorderPreview(id);
                         setDraggedClipId(id);
                       }}
                       onPointerDragMove={(x, y) => {
-                        updatePointerDropTarget(x, y);
-                        updatePinnedReorderPreview(x, y, clip.id);
+                        if (queueReorderId) {
+                          queueReorder.updateReorder(y);
+                        } else if (binReorderId) {
+                          binClipReorder.updateReorder(y);
+                          updatePointerDropTarget(x, y);
+                        } else {
+                          updatePointerDropTarget(x, y);
+                          updatePinnedReorderPreview(x, y, clip.id);
+                        }
                         setClipDragPreview({ clipId: clip.id, x, y });
                       }}
-                      onPointerDragEnd={handleClipPointerDragEnd}
+                      onPointerDragEnd={queueReorderId
+                        ? () => { void queueReorder.finishReorder(); setClipDragPreview(null); }
+                        : binReorderId
+                        ? (x, y, id) => {
+                            const externalTarget = document
+                              .elementFromPoint(x, y)
+                              ?.closest('[data-bin-drop-id], [data-clip-drop-action]');
+                            if (externalTarget) {
+                              binClipReorder.cancel();
+                              void handleClipPointerDragEnd(x, y, id);
+                            } else {
+                              void binClipReorder.finishReorder();
+                              setPointerDropTargetBinId(null);
+                              setPointerDropTargetAction(null);
+                              setClipDragPreview(null);
+                            }
+                          }
+                        : handleClipPointerDragEnd}
                       onPointerDragCancel={() => {
                         setPointerDropTargetBinId(null);
                         setPointerDropTargetAction(null);
-                        cancelPinnedReorderPreview();
+                        if (queueReorderId) queueReorder.cancel();
+                        else if (binReorderId) binClipReorder.cancel();
+                        else cancelPinnedReorderPreview();
                         setClipDragPreview(null);
                       }}
                       onSelect={(e) => {
@@ -1188,11 +1291,7 @@ export default function App() {
                       }}
                       onPasteQueueItem={() => {
                         const idx = queueIndex !== undefined ? queueIndex - 1 : -1;
-                        if (idx === 0) {
-                          invoke('pop_sequential_paste').then(fetchSequentialStatus);
-                        } else if (idx !== -1) {
-                          invoke('remove_sequential_item_by_index', { index: idx }).then(fetchSequentialStatus);
-                        }
+                        if (idx !== -1) invoke('paste_sequential_item_by_index', { index: idx }).then(fetchSequentialStatus);
                       }}
                       onCopy={() => handleCopyClip(clip)}
                       onContextMenu={(e) => {
@@ -1357,6 +1456,7 @@ export default function App() {
       {enabledFeatures.bins && binContextMenu && (
         <BinContextMenu
           menu={binContextMenu}
+          onClose={() => setBinContextMenu(null)}
           onEdit={(bin) => {
             setBinContextMenu(null);
             setEditingBin(bin);

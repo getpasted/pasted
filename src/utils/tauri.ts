@@ -20,6 +20,16 @@ type MockClip = {
   note?: string | null;
 };
 
+type MockBin = {
+  id: number;
+  name: string;
+  icon: string;
+  color: string;
+  smart_rule: string | null;
+  bin_type: string;
+  clip_order?: number[];
+};
+
 let mockClips: MockClip[] = [
   {
     id: 101,
@@ -55,7 +65,7 @@ let mockClips: MockClip[] = [
   },
 ];
 
-let mockBins = [
+let mockBins: MockBin[] = [
   { id: 1, name: 'My Manual Bin', icon: '📂', color: 'default', smart_rule: null, bin_type: 'category' },
   { id: 2, name: 'Work Bin', icon: '💼', color: '#10b981', smart_rule: '', bin_type: 'category' },
 ];
@@ -99,6 +109,26 @@ let mockIntelligenceConnections: Array<{
 let mockSavedTransforms: Array<Record<string, unknown>> = [];
 let mockClipTransformations = new Map<number, Record<string, unknown>>();
 let mockBinTransforms = new Map<number, string>();
+let mockSequentialStatus = {
+  is_active: false,
+  queue: [] as string[],
+  item_ids: [] as number[],
+  current_index: 0,
+  total_count: 0,
+};
+let mockSequentialNextItemId = 1;
+
+function updateMockSequentialStatus() {
+  mockSequentialStatus = {
+    ...mockSequentialStatus,
+    total_count: mockSequentialStatus.queue.length,
+  };
+  return {
+    ...mockSequentialStatus,
+    queue: [...mockSequentialStatus.queue],
+    item_ids: [...mockSequentialStatus.item_ids],
+  };
+}
 
 function assignMockClips(ids: number[], binId: number | null) {
   for (const clip of mockClips) {
@@ -373,7 +403,51 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
     case 'paste_text_to_frontmost':
       return null as unknown as T;
     case 'get_sequential_status':
-      return { active: false, queue: [], current_index: 0 } as unknown as T;
+      return updateMockSequentialStatus() as unknown as T;
+    case 'start_sequential_paste':
+      mockSequentialStatus.is_active = true;
+      return updateMockSequentialStatus() as unknown as T;
+    case 'stop_sequential_paste':
+      mockSequentialStatus.is_active = false;
+      return updateMockSequentialStatus() as unknown as T;
+    case 'push_sequential_item':
+      mockSequentialStatus.queue.push(String(args?.item ?? ''));
+      mockSequentialStatus.item_ids.push(mockSequentialNextItemId++);
+      return updateMockSequentialStatus() as unknown as T;
+    case 'pop_sequential_paste': {
+      const item = mockSequentialStatus.queue.shift() ?? null;
+      mockSequentialStatus.item_ids.shift();
+      updateMockSequentialStatus();
+      return item as unknown as T;
+    }
+    case 'paste_sequential_item_by_index': {
+      const index = Number(args?.index ?? -1);
+      const [item] = mockSequentialStatus.queue.splice(index, 1);
+      mockSequentialStatus.item_ids.splice(index, 1);
+      updateMockSequentialStatus();
+      return (item ?? null) as unknown as T;
+    }
+    case 'remove_sequential_item_by_index':
+      mockSequentialStatus.queue.splice(Number(args?.index ?? -1), 1);
+      mockSequentialStatus.item_ids.splice(Number(args?.index ?? -1), 1);
+      return updateMockSequentialStatus() as unknown as T;
+    case 'reorder_sequential_items': {
+      const orderedIds = Array.isArray(args?.itemIds) ? args.itemIds.map(Number) : [];
+      const textById = new Map(mockSequentialStatus.item_ids.map((id, index) => [id, mockSequentialStatus.queue[index]]));
+      mockSequentialStatus.item_ids = orderedIds;
+      mockSequentialStatus.queue = orderedIds.map((id) => textById.get(id) ?? '');
+      return updateMockSequentialStatus() as unknown as T;
+    }
+    case 'paste_all_sequential': {
+      const combined = mockSequentialStatus.queue.length > 0
+        ? mockSequentialStatus.queue.join('\n\n')
+        : null;
+      mockSequentialStatus.queue = [];
+      mockSequentialStatus.item_ids = [];
+      mockSequentialStatus.is_active = false;
+      updateMockSequentialStatus();
+      return combined as unknown as T;
+    }
     case 'get_trashed_clips':
       return mockClips.filter((clip) => clip.is_trashed !== 0) as unknown as T;
     case 'get_total_clip_count':
@@ -570,6 +644,13 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
         const clip = mockClips.find((item) => item.id === id);
         if (clip?.is_pinned) clip.pin_order = index;
       });
+      return null as unknown as T;
+    }
+    case 'reorder_bin_clips': {
+      const binId = Number(args?.binId);
+      const clipIds = Array.isArray(args?.clipIds) ? args.clipIds.map(Number) : [];
+      const bin = mockBins.find((item) => item.id === binId);
+      if (bin) bin.clip_order = clipIds;
       return null as unknown as T;
     }
     case 'toggle_clip_protected': {

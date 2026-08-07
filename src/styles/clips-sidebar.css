@@ -64,6 +64,10 @@
   --sidebar-action-drop-color: var(--status-success);
 }
 
+.sidebar-action-drop-queue {
+  --sidebar-action-drop-color: color-mix(in srgb, var(--accent-primary) 58%, #a855f7);
+}
+
 .sidebar-action-drop-protect {
   --sidebar-action-drop-color: var(--accent-primary);
 }
@@ -273,6 +277,10 @@
 .pinned-clip-shelf-stack {
   position: relative;
   height: 2.5rem;
+  pointer-events: none;
+}
+
+.pinned-clip-shelf.is-visible .pinned-clip-shelf-stack {
   pointer-events: auto;
 }
 

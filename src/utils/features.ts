@@ -60,7 +60,7 @@ export const FEATURE_DEFINITIONS: readonly FeatureDefinition[] = [
     simple: false,
     caution: 'Previously protected clips remain protected. Re-enable this feature to change them.',
   },
-  { id: 'queue', settingKey: 'enableQueue', label: 'Copy Queue', description: 'Collect and paste several clips in sequence.', simple: false },
+  { id: 'queue', settingKey: 'enableQueue', label: 'Copy Queue', description: 'Collect copied text and paste it back in sequence.', simple: false },
   {
     id: 'revisions',
     settingKey: 'enableRevisions',

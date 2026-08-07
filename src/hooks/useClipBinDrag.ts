@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 import type { Bin, ClipItem } from '../types';
+import type { ClipDropAction } from '../utils/clipCollections';
 import { safeInvoke as invoke } from '../utils/tauri';
 
 interface ClipDragPreview {
@@ -7,8 +8,6 @@ interface ClipDragPreview {
   x: number;
   y: number;
 }
-
-export type ClipDropAction = 'pin' | 'protect' | 'trash';
 
 type ClipDropDestination =
   | { kind: 'bin'; binId: number }
@@ -22,6 +21,7 @@ interface PinnedLayoutSnapshot {
 }
 
 interface ClipBinDragInput {
+  isQueueMode: boolean;
   allClips: ClipItem[];
   setAllClips: Dispatch<SetStateAction<ClipItem[]>>;
   bins: Bin[];
@@ -32,6 +32,7 @@ interface ClipBinDragInput {
 }
 
 export function useClipBinDrag({
+  isQueueMode,
   allClips,
   setAllClips,
   bins,
@@ -74,13 +75,15 @@ export function useClipBinDrag({
   }, [bins, draggedClips]);
 
   const disabledDropActions = useMemo<ClipDropAction[]>(() => {
+    if (isQueueMode && draggedClipId !== null) return ['queue', 'pin', 'protect', 'trash'];
     if (!draggedClips?.length) return [];
     const disabled: ClipDropAction[] = [];
+    if (draggedClips.some((clip) => clip.content_type === 'file' || !clip.text_content)) disabled.push('queue');
     if (draggedClips.every((clip) => Boolean(clip.is_pinned))) disabled.push('pin');
     if (draggedClips.every((clip) => Boolean(clip.is_protected))) disabled.push('protect');
     if (draggedClips.some((clip) => Boolean(clip.is_protected))) disabled.push('trash');
     return disabled;
-  }, [draggedClips]);
+  }, [draggedClipId, draggedClips, isQueueMode]);
 
   const getPointerDropDestination = useCallback((x: number, y: number): ClipDropDestination | null => {
     const target = document
@@ -88,7 +91,7 @@ export function useClipBinDrag({
       ?.closest<HTMLElement>('[data-bin-drop-id], [data-clip-drop-action]');
     if (!target) return null;
     const action = target.dataset.clipDropAction;
-    if (action === 'pin' || action === 'protect' || action === 'trash') {
+    if (action === 'queue' || action === 'pin' || action === 'protect' || action === 'trash') {
       return { kind: 'action', action };
     }
     const binId = Number(target.dataset.binDropId);

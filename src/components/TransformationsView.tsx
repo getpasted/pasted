@@ -15,6 +15,7 @@ import { TransformationPlayground, type PlaygroundTarget } from './Transformatio
 import { FloatingActionStrip } from './FloatingActionStrip';
 import { startTransformation, type TransformationExecutionHandle } from '../utils/transformExecution';
 import { useIntelligenceRequestStatus } from '../hooks/useIntelligenceRequestStatus';
+import { AnchoredMenu, MenuDivider, MenuItem } from './AnchoredMenu';
 
 interface TransformationsViewProps {
   pipelines: Pipeline[];
@@ -64,15 +65,6 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
   useEffect(() => {
     if (requestedWorkspace) setActiveSubTab(requestedWorkspace);
   }, [navigationKey, requestedWorkspace]);
-
-  useEffect(() => {
-    const handleClick = () => {
-      setPipelineContextMenu(null);
-      setTransformContextMenu(null);
-    };
-    window.addEventListener('click', handleClick);
-    return () => window.removeEventListener('click', handleClick);
-  }, []);
 
   const handleOpenCreateModal = () => {
     setSelectedPipelineForEdit(null);
@@ -324,6 +316,7 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
                       onContextMenu={(event) => {
                         event.preventDefault();
                         event.stopPropagation();
+                        setPipelineContextMenu(null);
                         setTransformContextMenu({ x: event.clientX, y: event.clientY, transform });
                       }}
                       onKeyDown={(event) => {
@@ -436,6 +429,7 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
                       onContextMenu={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
+                        setTransformContextMenu(null);
                         setPipelineContextMenu({ x: e.clientX, y: e.clientY, pipeline: f });
                       }}
                       className="transform-card pipelines group p-3.5 theme-card-idle rounded-xl border cursor-pointer transition-[background-color,border-color,box-shadow,transform] flex items-center justify-between shadow-md"
@@ -510,135 +504,130 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
           </div>
 
           {transformContextMenu && (
-            <div
-              className="theme-menu fixed w-48 rounded-xl border p-1.5 text-xs font-medium select-none animate-in fade-in duration-100"
-              style={{
-                top: Math.min(transformContextMenu.y, window.innerHeight - 160),
-                left: Math.min(transformContextMenu.x, window.innerWidth - 205),
-              }}
-              onClick={(event) => event.stopPropagation()}
-              role="menu"
+            <AnchoredMenu
+              anchor={{ kind: 'point', x: transformContextMenu.x, y: transformContextMenu.y }}
+              ariaLabel={`${transformContextMenu.transform.name} actions`}
+              className="w-48"
+              onClose={() => setTransformContextMenu(null)}
             >
               <div className="theme-text-muted px-3 py-1 text-[10px] font-bold uppercase truncate">
                 {transformContextMenu.transform.name}
               </div>
-              <button
-                type="button"
+              <MenuItem
                 onClick={() => {
                   handleOpenTransformComposer(transformContextMenu.transform);
                   setTransformContextMenu(null);
                 }}
-                className="theme-menu-item flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-left"
+                className="gap-2 px-3 py-1.5"
               >
                 <Edit3 className="h-3.5 w-3.5" />
                 <span>Edit Transform</span>
-              </button>
-              <button
-                type="button"
+              </MenuItem>
+              <MenuItem
                 onClick={() => {
                   void handleDuplicateTransform(transformContextMenu.transform);
                   setTransformContextMenu(null);
                 }}
-                className="theme-menu-item flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-left"
+                className="gap-2 px-3 py-1.5"
               >
                 <Copy className="h-3.5 w-3.5" />
                 <span>Duplicate Transform</span>
-              </button>
-              <button
-                type="button"
+              </MenuItem>
+              <MenuItem
                 onClick={() => {
                   choosePlaygroundTarget({ kind: 'transform', item: transformContextMenu.transform });
                   setTransformContextMenu(null);
                 }}
-                className="theme-menu-item flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-left"
+                className="gap-2 px-3 py-1.5"
               >
                 <Play className="h-3.5 w-3.5" />
                 <span>Test in Playground</span>
-              </button>
-              <div className="theme-menu-divider my-1 border-t" />
-              <button
-                type="button"
+              </MenuItem>
+              <MenuDivider />
+              <MenuItem
+                danger
                 onClick={() => {
                   void handleDeleteTransform(transformContextMenu.transform.stableRef);
                   setTransformContextMenu(null);
                 }}
-                className="theme-menu-item theme-danger-text flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-left"
+                className="gap-2 px-3 py-1.5"
               >
                 <Trash2 className="h-3.5 w-3.5" />
                 <span>Delete Transform</span>
-              </button>
-            </div>
+              </MenuItem>
+            </AnchoredMenu>
           )}
 
           {/* Pipeline context menu */}
           {pipelineContextMenu && (
-            <div
-              className="theme-menu fixed w-48 rounded-xl border p-1.5 text-xs font-medium select-none animate-in fade-in duration-100"
-              style={{ top: pipelineContextMenu.y, left: pipelineContextMenu.x }}
-              onClick={(e) => e.stopPropagation()}
-              role="menu"
+            <AnchoredMenu
+              anchor={{ kind: 'point', x: pipelineContextMenu.x, y: pipelineContextMenu.y }}
+              ariaLabel={`${pipelineContextMenu.pipeline.name} actions`}
+              className="w-48"
+              onClose={() => setPipelineContextMenu(null)}
             >
               <div className="theme-text-muted theme-divider px-3 py-1 text-[10px] uppercase font-bold border-b truncate">
                 {pipelineContextMenu.pipeline.name}
               </div>
 
-              <button
+              <MenuItem
                 onClick={() => {
                   handleOpenEditModal(pipelineContextMenu.pipeline);
                   setPipelineContextMenu(null);
                 }}
-                className="theme-menu-item flex w-full items-center space-x-2 rounded-md px-3 py-1.5 text-left"
+                className="gap-2 px-3 py-1.5"
               >
                 <Edit3 className="w-3.5 h-3.5" />
                 <span>Edit Pipeline</span>
-              </button>
+              </MenuItem>
 
-              <button
+              <MenuItem
                 onClick={() => {
                   handleDuplicatePipeline(pipelineContextMenu.pipeline);
                   setPipelineContextMenu(null);
                 }}
-                className="theme-menu-item flex w-full items-center space-x-2 rounded-md px-3 py-1.5 text-left"
+                className="gap-2 px-3 py-1.5"
               >
                 <Copy className="w-3.5 h-3.5" />
                 <span>Duplicate Pipeline</span>
-              </button>
+              </MenuItem>
 
-              <button
+              <MenuItem
                 onClick={() => {
                   choosePlaygroundTarget({ kind: 'pipeline', item: pipelineContextMenu.pipeline });
                   setPipelineContextMenu(null);
                 }}
-                className="theme-menu-item flex w-full items-center space-x-2 rounded-md px-3 py-1.5 text-left"
+                className="gap-2 px-3 py-1.5"
               >
                 <Play className="w-3.5 h-3.5" />
                 <span>Test in Playground</span>
-              </button>
+              </MenuItem>
 
-              <button
+              <MenuItem
                 onClick={() => {
                   handleExportPipeline(pipelineContextMenu.pipeline);
                   setPipelineContextMenu(null);
                 }}
-                className="theme-menu-item flex w-full items-center space-x-2 rounded-md px-3 py-1.5 text-left"
+                className="gap-2 px-3 py-1.5"
               >
                 <Download className="w-3.5 h-3.5" />
                 <span>Export / Copy JSON</span>
-              </button>
+              </MenuItem>
 
-              <div className="theme-menu-divider my-1 border-t" />
+              <MenuDivider />
 
-              <button
+              <MenuItem
+                danger
                 onClick={() => {
                   handleDeletePipeline(pipelineContextMenu.pipeline.stableRef);
                   setPipelineContextMenu(null);
                 }}
-                className="theme-menu-item theme-danger-text flex w-full items-center space-x-2 rounded-md px-3 py-1.5 text-left"
+                className="gap-2 px-3 py-1.5"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 <span>Delete Pipeline</span>
-              </button>
-            </div>
+              </MenuItem>
+            </AnchoredMenu>
           )}
         </>
       )}

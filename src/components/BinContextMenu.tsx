@@ -1,43 +1,38 @@
 import { Edit3, Trash2 } from 'lucide-react';
 import type { Bin } from '../types';
+import { AnchoredMenu, MenuDivider, MenuItem } from './AnchoredMenu';
 
 interface BinContextMenuProps {
   menu: { x: number; y: number; bin: Bin };
+  onClose: () => void;
   onEdit: (bin: Bin) => void;
   onDelete: (bin: Bin) => void;
 }
 
-export function BinContextMenu({ menu, onEdit, onDelete }: BinContextMenuProps) {
+export function BinContextMenu({ menu, onClose, onEdit, onDelete }: BinContextMenuProps) {
   return (
-    <div
-      style={{
-        top: Math.min(menu.y, window.innerHeight - 100),
-        left: Math.min(menu.x, window.innerWidth - 180),
-      }}
-      className="bin-context-menu theme-menu fixed min-w-[170px] rounded-xl border p-1.5 text-xs font-medium select-none animate-in fade-in zoom-in-95 duration-100"
-      onMouseDown={(event) => event.stopPropagation()}
-      onClick={(event) => event.stopPropagation()}
-      role="menu"
+    <AnchoredMenu
+      anchor={{ kind: 'point', x: menu.x, y: menu.y }}
+      ariaLabel={`${menu.bin.name} actions`}
+      className="bin-context-menu min-w-[170px]"
+      onClose={onClose}
     >
-      <button
-        type="button"
+      <MenuItem
         onClick={() => onEdit(menu.bin)}
-        className="theme-menu-item flex w-full items-center space-x-2 rounded-md px-2.5 py-1.5"
-        role="menuitem"
+        className="gap-2 px-2.5 py-1.5"
       >
         <Edit3 className="w-3.5 h-3.5" />
         <span>Edit Bin...</span>
-      </button>
-      <div className="theme-menu-divider my-1 border-t" />
-      <button
-        type="button"
+      </MenuItem>
+      <MenuDivider />
+      <MenuItem
+        danger
         onClick={() => onDelete(menu.bin)}
-        className="theme-menu-item theme-danger-text flex w-full items-center space-x-2 rounded-md px-2.5 py-1.5"
-        role="menuitem"
+        className="gap-2 px-2.5 py-1.5"
       >
         <Trash2 className="w-3.5 h-3.5" />
         <span>Delete Bin</span>
-      </button>
-    </div>
+      </MenuItem>
+    </AnchoredMenu>
   );
 }

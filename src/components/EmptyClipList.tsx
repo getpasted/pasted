@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import type { Bin } from '../types';
 import { formatEmojiIcon } from '../utils/emoji';
+import { getClipCollection } from '../utils/clipCollections';
 
 interface EmptyClipListProps {
   currentTab: string;
@@ -19,47 +20,31 @@ interface EmptyClipListProps {
 
 export function EmptyClipList({ currentTab, searchQuery, selectedBin }: EmptyClipListProps) {
   const trimmedSearch = searchQuery.trim();
+  const collection = getClipCollection(currentTab, selectedBin);
   let icon = <Clipboard className="sidebar-icon-primary w-10 h-10 stroke-1" />;
-  let title = 'No clips yet';
-  let description = 'Your copied items will appear here automatically.';
+  let title = collection?.emptyTitle ?? 'No clips yet';
+  let description = collection?.emptyDescription ?? 'Your copied items will appear here automatically.';
 
   if (currentTab === 'search') {
     icon = <Search className="sidebar-icon-primary w-10 h-10 stroke-1" />;
     title = trimmedSearch ? 'No matching clips' : 'Search your clips';
     description = trimmedSearch
       ? 'Try another search or filter.'
-      : 'Search active and trashed clips.';
+      : description;
   } else if (currentTab === 'sequential') {
     icon = <ListOrdered className="sidebar-icon-secondary w-10 h-10 stroke-1" />;
-    title = 'Queue is empty';
-    description = 'Add clips to Queue to paste them back in sequence.';
   } else if (currentTab === 'pinned') {
     icon = <Pin className="sidebar-icon-success pin-icon w-10 h-10 stroke-1" />;
-    title = 'No pinned clips';
-    description = 'Pin a clip to keep it at the top and find it here.';
   } else if (currentTab === 'protected') {
     icon = <Shield className="sidebar-icon-info w-10 h-10 stroke-1" />;
-    title = 'No protected clips';
-    description = 'Protect a clip to keep it safe from automatic cleanup.';
   } else if (currentTab === 'notes') {
     icon = <StickyNote className="sidebar-icon-note w-10 h-10 stroke-1" />;
-    title = 'No noted clips';
-    description = 'Add a note to any clip to annotate it and find it here later.';
   } else if (currentTab === 'trash') {
     icon = <Trash2 className="sidebar-icon-danger w-10 h-10 stroke-1" />;
-    title = 'Trash is empty';
-    description = 'Clips moved to Trash will stay here until it is emptied.';
   } else if (currentTab === 'bin') {
     icon = selectedBin
       ? <span className="text-3xl leading-none">{formatEmojiIcon(selectedBin.icon)}</span>
       : <FolderOpen className="sidebar-icon-primary w-10 h-10 stroke-1" />;
-    if (selectedBin?.smart_rule) {
-      title = 'No matching clips';
-      description = `Clips matching ${selectedBin.name}’s rules will appear here automatically.`;
-    } else {
-      title = selectedBin ? `No clips in ${selectedBin.name}` : 'This Bin is empty';
-      description = 'Drag clips here or choose this Bin from a clip.';
-    }
   }
 
   return (

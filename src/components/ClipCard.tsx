@@ -252,6 +252,7 @@ interface ClipCardProps {
   isTransforming?: boolean;
   transformError?: string;
   reorderOffsetY?: number;
+  stableReorderId?: string;
   isDeleting?: boolean;
   viewPolicy: ClipViewPolicy;
   isQueueMode?: boolean;
@@ -291,6 +292,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
   isTransforming = false,
   transformError,
   reorderOffsetY = 0,
+  stableReorderId,
   isDeleting = false,
   viewPolicy,
   isQueueMode = false,
@@ -360,11 +362,12 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
   const isSmall = rowHeight === 'small';
   const isLarge = rowHeight === 'large';
 
-  const paddingClass = isSmall ? 'p-2.5' : isLarge ? 'p-4' : 'p-3';
-  const lineClampClass = isSmall ? 'line-clamp-1 text-[11px]' : isLarge ? 'line-clamp-5 text-xs' : 'line-clamp-2 text-xs';
+  const paddingClass = isSmall ? 'p-2' : isLarge ? 'p-5' : 'p-3.5';
+  const lineClampClass = isSmall ? 'line-clamp-1 text-[11px]' : isLarge ? 'line-clamp-5 text-[13px]' : 'line-clamp-2 text-xs';
   const imgMaxHeightClass = isSmall ? 'max-h-16' : isLarge ? 'max-h-44' : 'max-h-24';
   const imgPlaceholderHeightClass = isSmall ? 'min-h-16' : isLarge ? 'min-h-44' : 'min-h-24';
-  const headerTextClass = isSmall ? 'text-[11px]' : 'text-xs';
+  const headerTextClass = isSmall ? 'text-[10px]' : isLarge ? 'text-[13px]' : 'text-xs';
+  const headerSpacingClass = isSmall ? 'mb-0.5' : isLarge ? 'mb-2' : 'mb-1';
   const noteSummary = features.notes ? getClipNoteSummary(clip.note) : '';
   const isTrashMode = viewPolicy.state === 'trash';
   const attributeTintClass = isTrashMode
@@ -380,6 +383,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
   return (
     <div
       data-clip-id={clip.id}
+      data-stable-reorder-id={stableReorderId}
       data-pinned-clip={features.pinning && clip.is_pinned ? 'true' : undefined}
       onClick={(e) => {
         if (suppressClickRef.current) {
@@ -492,7 +496,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
       } ${attributeTintClass} ${isDragging ? 'clip-card-drag-source' : ''} ${isTransforming ? 'clip-card-transforming' : ''}`}
     >
       {/* Header Info */}
-      <div className={`clip-card-header flex items-center justify-between ${headerTextClass} mb-1`}>
+      <div className={`clip-card-header flex items-center justify-between ${headerTextClass} ${headerSpacingClass}`}>
         <div className="flex items-center space-x-2">
           <div className="clip-type-icon theme-badge p-1 rounded border">
             {getIcon()}

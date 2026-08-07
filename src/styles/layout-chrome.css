@@ -15,29 +15,6 @@
   background: var(--scrollbar-thumb-hover);
 }
 
-/* Custom visible scrollbar utility */
-.custom-scrollbar {
-  scrollbar-width: thin;
-  scrollbar-color: var(--scrollbar-thumb) transparent;
-}
-.custom-scrollbar::-webkit-scrollbar {
-  width: 7px;
-  height: 7px;
-}
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: var(--scrollbar-thumb);
-  border-radius: 9999px;
-  border: 1px solid color-mix(in srgb, var(--text-title) 12%, transparent);
-  transition: background-color 0.15s ease-in-out, width 0.15s ease-in-out;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb:hover,
-.custom-scrollbar::-webkit-scrollbar-thumb:active {
-  background: var(--scrollbar-thumb-hover);
-}
-
 /* Prevent sidebar width layout shifts on height reduction or scrollbar activation */
 .sidebar-scroll-container {
   overflow-y: auto;

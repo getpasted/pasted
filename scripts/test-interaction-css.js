@@ -9,6 +9,7 @@ const read = (path) => fs.readFileSync(path, 'utf8');
 const accessibility = read('src/styles/accessibility.css');
 const sidebar = read('src/styles/clips-sidebar.css');
 const theme = read('src/styles/theme-primitives.css');
+const utilities = read('src/styles/utilities.css');
 const pipelineEditor = read('src/components/PipelineEditorModal.tsx');
 const reorderHook = read('src/hooks/useStableVerticalReorder.ts');
 const sidebarComponent = read('src/components/Sidebar.tsx');
@@ -57,10 +58,25 @@ assert.match(sidebarComponent, /wasBinReorderingRef\.current && !isBinReorderAct
 assert.match(sidebarComponent, /elementFromPoint\(pointer\.x, pointer\.y\)/);
 assert.match(sidebarComponent, /wasClipDraggingRef\.current && !isClipDragging/);
 
+// The pinned shelf exists while its leave animation settles, but its invisible
+// stack must never block the first clip row.
+assert.match(ruleBody(sidebar, '.pinned-clip-shelf-stack {'), /pointer-events:\s*none;/);
+assert.match(ruleBody(sidebar, '.pinned-clip-shelf.is-visible .pinned-clip-shelf-stack {'), /pointer-events:\s*auto;/);
+
 // Main navigation typography must remain root-relative so the General text-size
 // preference scales labels along with the rest of the application.
 assert.match(sidebarComponent, /sidebar-scroll-container[^\"]*text-\[0\.8125rem\]/);
 assert.doesNotMatch(sidebarComponent, /sidebar-scroll-container[^\"]*text-\[13px\]/);
+
+// Scrollable menus, panels, and wells reveal a non-layout-shifting thumb only
+// while the shared document listener marks them as actively scrolling.
+assert.match(app, /TRANSIENT_SCROLL_SURFACE_SELECTOR/);
+assert.match(app, /event\.composedPath\(\)\.find/);
+assert.match(app, /addEventListener\('wheel', handleSurfaceWheel/);
+assert.match(utilities, /\.surface-scroll-region/);
+assert.match(utilities, /\.theme-panel/);
+assert.match(utilities, /\.theme-surface/);
+assert.match(utilities, /\.is-scrolling::\-webkit-scrollbar-thumb/);
 
 // Reduced-motion rules must continue to defeat component-level animation.
 const reducedMotionStart = theme.indexOf('@media (prefers-reduced-motion: reduce)');

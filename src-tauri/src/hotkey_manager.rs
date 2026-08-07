@@ -489,28 +489,31 @@ impl HotkeyManager {
             }
             AppHotkeyAction::ToggleCopyQueue => {
                 let seq = app_handle.state::<Arc<SequentialQueueState>>();
+                let db = app_handle.state::<Arc<DbState>>();
                 let status = seq.get_status();
                 if status.is_active {
                     seq.stop_queue();
+                    let _ = db.log_activity(
+                        "queue_recording_stopped",
+                        "Stopped recording copies into the Queue",
+                    );
                 } else {
                     seq.start_queue();
+                    let _ = db.log_activity(
+                        "queue_recording_started",
+                        "Started recording copies into the Queue",
+                    );
                 }
                 let updated = seq.get_status();
                 let _ = app_handle.emit("sequential-updated", updated);
             }
             AppHotkeyAction::PopCopyQueue => {
-                let seq = app_handle.state::<Arc<SequentialQueueState>>();
-                if let Some(item) = seq.pop_next() {
-                    if let Ok(mut cb) = arboard::Clipboard::new() {
-                        let _ = cb.set_text(&item);
-                    }
-                    let updated = seq.get_status();
-                    let _ = app_handle.emit("sequential-updated", updated);
-                    std::thread::spawn(move || {
-                        std::thread::sleep(std::time::Duration::from_millis(50));
-                        commands::simulate_cmd_v_paste();
-                    });
-                }
+                let queue_app = app_handle.clone();
+                std::thread::spawn(move || {
+                    let seq = queue_app.state::<Arc<SequentialQueueState>>();
+                    let db = queue_app.state::<Arc<DbState>>();
+                    let _ = commands::paste_next_queue_item(&seq, &db, &queue_app);
+                });
             }
             AppHotkeyAction::PasteClip(index) => {
                 let db_opt = app_handle.try_state::<Arc<DbState>>();
@@ -523,7 +526,7 @@ impl HotkeyManager {
                                 if commands::write_clip_to_clipboard(&mut cb, &full_clip).is_ok() {
                                     std::thread::spawn(move || {
                                         std::thread::sleep(std::time::Duration::from_millis(50));
-                                        commands::simulate_cmd_v_paste();
+                                        let _ = commands::simulate_cmd_v_paste();
                                     });
                                 }
                             }

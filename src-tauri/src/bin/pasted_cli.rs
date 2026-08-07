@@ -272,6 +272,92 @@ fn main() -> Result<()> {
                 }
             }
         }
+        "bin" | "bins" => {
+            let db = DbState::new(db_path.clone())?;
+            let bins_setting = db.get_setting(Feature::Bins.setting_key())?;
+            if !setting_value_is_enabled(bins_setting.as_deref()) {
+                eprintln!("Bins are disabled in Settings → Features.");
+                std::process::exit(1);
+            }
+            let subcommand = args.get(2).map(String::as_str).unwrap_or("list");
+            match subcommand {
+                "list" | "ls" => {
+                    let bins = db.get_bins()?;
+                    if args.iter().any(|argument| argument == "--json") {
+                        println!(
+                            "{}",
+                            serde_json::to_string_pretty(&bins).map_err(|error| {
+                                rusqlite::Error::ToSqlConversionFailure(Box::new(error))
+                            })?
+                        );
+                    } else {
+                        for bin in bins {
+                            println!(
+                                "{}\t{}\t{} clips",
+                                bin.id,
+                                bin.name,
+                                bin.clip_count.unwrap_or(0)
+                            );
+                        }
+                    }
+                }
+                "clips" => {
+                    let Some(bin_id) = args.get(3).and_then(|value| value.parse::<i64>().ok())
+                    else {
+                        eprintln!("Usage: pasted-cli bin clips <bin-id> [--json]");
+                        std::process::exit(2);
+                    };
+                    let clips = db.get_clips(None, Some(bin_id), false)?;
+                    if args.iter().any(|argument| argument == "--json") {
+                        println!(
+                            "{}",
+                            serde_json::to_string_pretty(&clips).map_err(|error| {
+                                rusqlite::Error::ToSqlConversionFailure(Box::new(error))
+                            })?
+                        );
+                    } else {
+                        for (position, clip) in clips.iter().enumerate() {
+                            println!(
+                                "{}\t{}\t{}",
+                                position + 1,
+                                clip.id,
+                                clip.text_content.as_deref().unwrap_or("")
+                            );
+                        }
+                    }
+                }
+                "order" => {
+                    let Some(bin_id) = args.get(3).and_then(|value| value.parse::<i64>().ok())
+                    else {
+                        eprintln!("Usage: pasted-cli bin order <bin-id> <clip-id>... [--json]");
+                        std::process::exit(2);
+                    };
+                    let clip_ids = args
+                        .iter()
+                        .skip(4)
+                        .filter(|argument| argument.as_str() != "--json")
+                        .map(|value| value.parse::<i64>())
+                        .collect::<Result<Vec<_>, _>>()
+                        .unwrap_or_else(|_| {
+                            eprintln!("Every clip ID must be an integer.");
+                            std::process::exit(2);
+                        });
+                    db.reorder_bin_clips(bin_id, clip_ids.clone())?;
+                    if args.iter().any(|argument| argument == "--json") {
+                        println!(
+                            "{}",
+                            serde_json::json!({ "binId": bin_id, "clipIds": clip_ids })
+                        );
+                    } else {
+                        println!("Reordered {} clips in Bin #{bin_id}.", clip_ids.len());
+                    }
+                }
+                _ => {
+                    eprintln!("Usage: pasted-cli bin [list | clips <bin-id> | order <bin-id> <clip-id>...] [--json]");
+                    std::process::exit(2);
+                }
+            }
+        }
         "copy" | "add" => {
             let capture_limit = configured_capture_bytes(&conn);
             let text = if let Some(arg_text) = args.get(2) {
@@ -411,6 +497,9 @@ fn main() -> Result<()> {
             println!(
                 "  pasted-cli transform run <ref> [--text TEXT | --clip ID | --stdin] [--replace]"
             );
+            println!("  pasted-cli bin list --json   List Bins and their saved clip order");
+            println!("  pasted-cli bin clips <id> --json List clips in persistent Bin order");
+            println!("  pasted-cli bin order <id> <clip-id>... Persist a complete Bin order");
             println!("  pasted-cli clear             Clear unpinned clipboard history");
             println!("  pasted-cli reset --yes [--json] Reset all Pasted data and preferences");
         }

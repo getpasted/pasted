@@ -135,6 +135,7 @@ export interface Bin {
   bin_type?: 'category' | 'tag';
   shortcut?: string | null;
   clip_count?: number | null;
+  clip_order?: number[];
   created_at: string;
 }
 
@@ -335,6 +336,7 @@ export interface IntelligenceSchedulerSnapshot {
 export interface SequentialStatus {
   is_active: boolean;
   queue: string[];
+  item_ids: number[];
   current_index: number;
   total_count: number;
 }
@@ -354,9 +356,7 @@ export interface AppSettings {
   revisionHistoryLimit: number;
   alwaysPastePlainText: boolean;
   rowHeight: 'small' | 'medium' | 'large';
-  iCloudSync: boolean;
   themeMode: 'system' | 'dark' | 'cool' | 'warm' | 'vampire' | 'flux' | '808';
-  spotlightSync: boolean;
   enableActivityLog: boolean;
   activityLogCapacity: number;
   enableTrash: boolean;
