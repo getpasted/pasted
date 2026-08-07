@@ -24,6 +24,8 @@ Export the **Developer ID Application** certificate and private key from Keychai
 
 The runner imports the certificate only into an ephemeral keychain, builds a universal Apple Silicon/Intel DMG, lets Tauri submit it to Apple's notary service with the app-specific password, and verifies the Developer ID signature, Gatekeeper assessment, and stapled ticket before upload. App Store Connect API credentials can replace the Apple Account credentials later, but they are intentionally not a 1.0 prerequisite.
 
+Pasted ships both the private `pasted-app` GUI executable and the public `pasted` CLI. Before Tauri bundles the universal app, `scripts/build-macos-universal-cli.sh` builds both CLI architectures and merges them with `lipo`; this keeps the bundled CLI and standalone release artifact universal too.
+
 ## Deferred Windows signing
 
 Unsigned Windows packages remain available from **Desktop builds** for compatibility testing. Windows is intentionally excluded from public tagged releases until Pasted has a trusted code-signing certificate or Trusted Signing account. Adding Windows later must not weaken the signed macOS release gate.

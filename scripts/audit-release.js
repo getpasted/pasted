@@ -60,6 +60,7 @@ for (const scriptName of ['release:macos:local', 'release:macos', 'release:macos
 
 for (const path of [
   'scripts/release-macos.sh',
+  'scripts/build-macos-universal-cli.sh',
   'scripts/verify-macos-release.sh',
   'docs/MACOS_RELEASE.md',
   'docs/RELEASE_AUTOMATION.md',
@@ -90,6 +91,11 @@ assert.match(
   releaseWorkflow,
   /Pasted_\$\{RELEASE_VERSION\}_universal\.dmg/,
   'The release workflow must publish a deterministic universal DMG for Homebrew',
+);
+assert.match(
+  releaseWorkflow,
+  /bash scripts\/build-macos-universal-cli\.sh[\s\S]*tauri -- build --target universal-apple-darwin/,
+  'The hosted macOS release must stage a universal CLI before Tauri bundles the universal app',
 );
 assert.match(
   releaseWorkflow,

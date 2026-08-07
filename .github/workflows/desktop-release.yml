@@ -89,7 +89,9 @@ jobs:
           fi
           echo "APPLE_SIGNING_IDENTITY=$identity" >> "$GITHUB_ENV"
       - name: Build, sign, and notarize universal DMG
-        run: npm run tauri -- build --target universal-apple-darwin --bundles dmg
+        run: |
+          bash scripts/build-macos-universal-cli.sh
+          npm run tauri -- build --target universal-apple-darwin --bundles dmg
       - name: Verify and stage macOS release
         env:
           RELEASE_VERSION: ${{ needs.metadata.outputs.version }}
