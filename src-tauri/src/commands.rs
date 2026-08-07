@@ -166,6 +166,7 @@ fn text_file_preview(bytes: &[u8]) -> Option<String> {
     Some(bounded.trim_start_matches('\u{feff}').to_string())
 }
 
+#[cfg_attr(not(any(target_os = "macos", test)), allow(dead_code))]
 fn looks_like_pdf(bytes: &[u8]) -> bool {
     bytes
         .windows(5)
@@ -2201,7 +2202,8 @@ pub fn toggle_hud_window(app: AppHandle) -> Result<(), String> {
         if is_vis {
             let _ = window.hide();
         } else {
-            let mut pos_payload = None;
+            #[cfg(target_os = "macos")]
+            let mut pos_payload: Option<serde_json::Value> = None;
 
             #[cfg(target_os = "macos")]
             {
@@ -2332,16 +2334,19 @@ pub fn toggle_hud_window(app: AppHandle) -> Result<(), String> {
 
             let _ = window.show();
             let _ = window.set_focus();
-            if let Ok(ns_win_ptr) = window.ns_window() {
-                use objc::runtime::Object;
-                use objc::{msg_send, sel, sel_impl};
-                unsafe {
-                    let ns_win = ns_win_ptr as *mut Object;
-                    let _: () = msg_send![ns_win, setAlphaValue: 1.0f64];
+            #[cfg(target_os = "macos")]
+            {
+                if let Ok(ns_win_ptr) = window.ns_window() {
+                    use objc::runtime::Object;
+                    use objc::{msg_send, sel, sel_impl};
+                    unsafe {
+                        let ns_win = ns_win_ptr as *mut Object;
+                        let _: () = msg_send![ns_win, setAlphaValue: 1.0f64];
+                    }
                 }
-            }
-            if let Some(payload) = pos_payload {
-                let _ = window.emit("hud_position_updated", payload);
+                if let Some(payload) = pos_payload {
+                    let _ = window.emit("hud_position_updated", payload);
+                }
             }
         }
     } else {

@@ -370,7 +370,7 @@ impl HotkeyManager {
     ) -> Result<(), String> {
         use ashpd::desktop::{
             global_shortcuts::{BindShortcutsOptions, GlobalShortcuts, NewShortcut},
-            session::CreateSessionOptions,
+            CreateSessionOptions,
         };
 
         let portal = GlobalShortcuts::new().await.map_err(|error| {

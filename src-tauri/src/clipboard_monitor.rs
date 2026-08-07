@@ -90,32 +90,6 @@ impl MonitorHandle {
     }
 }
 
-#[cfg(target_os = "macos")]
-fn get_frontmost_app_name() -> Option<String> {
-    use objc::runtime::Object;
-    use objc::{msg_send, sel, sel_impl};
-    unsafe {
-        let workspace: *mut Object = msg_send![objc::class!(NSWorkspace), sharedWorkspace];
-        if workspace.is_null() {
-            return None;
-        }
-        let app: *mut Object = msg_send![workspace, frontmostApplication];
-        if app.is_null() {
-            return None;
-        }
-        let name: *mut Object = msg_send![app, localizedName];
-        if name.is_null() {
-            return None;
-        }
-        let utf8: *const std::os::raw::c_char = msg_send![name, UTF8String];
-        if utf8.is_null() {
-            return None;
-        }
-        let c_str = std::ffi::CStr::from_ptr(utf8);
-        Some(c_str.to_string_lossy().into_owned())
-    }
-}
-
 pub fn start_clipboard_monitor(
     app: AppHandle,
     db_state: Arc<DbState>,
@@ -146,7 +120,7 @@ pub fn start_clipboard_monitor(
         while running_clone.load(Ordering::Relaxed) {
             thread::sleep(Duration::from_millis(300));
 
-            let active_app_opt = get_frontmost_app_name();
+            let active_app_opt = crate::paste_target::active_application_name();
 
             // Auto-Pause & Auto-Resume on Blacklisted Application Focus Change
             if let Some(ref active_app) = active_app_opt {

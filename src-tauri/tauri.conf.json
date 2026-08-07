@@ -22,13 +22,7 @@
         "visible": false,
         "center": true,
         "decorations": true,
-        "titleBarStyle": "Overlay",
-        "hiddenTitle": true,
-        "transparent": true,
-        "trafficLightPosition": {
-          "x": 20,
-          "y": 30
-        }
+        "transparent": false
       },
       {
         "label": "hud",

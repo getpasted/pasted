@@ -206,6 +206,27 @@ impl PasteTargetState {
     }
 }
 
+/// Best-effort name of the application that currently owns keyboard focus.
+///
+/// Clipboard capture uses this shared platform adapter for blacklist behavior,
+/// while Queue and HUD paste retain the richer target record above.
+pub(crate) fn active_application_name() -> Option<String> {
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    {
+        frontmost_application().map(|target| target.name)
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        active_x11_window_id()
+            .and_then(x11_application_for_window)
+            .map(|target| target.name)
+    }
+
+    #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
+    None
+}
+
 #[cfg(target_os = "macos")]
 fn platform_unavailable_reason() -> Option<String> {
     None

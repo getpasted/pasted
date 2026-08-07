@@ -1,0 +1,55 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+
+const readJson = (path) => JSON.parse(fs.readFileSync(path, 'utf8'));
+const baseConfig = readJson('src-tauri/tauri.conf.json');
+const macConfig = readJson('src-tauri/tauri.macos.conf.json');
+const mainSource = fs.readFileSync('src/main.tsx', 'utf8');
+const sidebarSource = fs.readFileSync('src/components/Sidebar.tsx', 'utf8');
+const chromeCss = fs.readFileSync('src/styles/layout-chrome.css', 'utf8');
+const cargoManifest = fs.readFileSync('src-tauri/Cargo.toml', 'utf8');
+
+const windowByLabel = (config, label) => config.app.windows.find((window) => window.label === label);
+const baseMain = windowByLabel(baseConfig, 'main');
+const macMain = windowByLabel(macConfig, 'main');
+
+assert.ok(baseMain, 'Base configuration must define the main window');
+assert.equal(
+  baseConfig.app.macOSPrivateApi,
+  true,
+  'The base config must retain the Cargo feature during cross-platform Tauri builds',
+);
+assert.match(
+  cargoManifest,
+  /tauri\s*=\s*\{[^\n]*features\s*=\s*\[[^\]]*"macos-private-api"/,
+  'Cargo must retain macos-private-api even after a Linux release build',
+);
+assert.equal(baseMain.decorations, true, 'Windows and Linux must retain native window decorations');
+assert.equal(baseMain.transparent, false, 'Native framed windows need an opaque native window background');
+assert.equal('titleBarStyle' in baseMain, false, 'macOS title-bar style must not leak into the base configuration');
+assert.equal('trafficLightPosition' in baseMain, false, 'macOS traffic-light placement must not leak into the base configuration');
+assert.equal('hiddenTitle' in baseMain, false, 'Native framed platforms must retain their window title');
+
+assert.ok(macMain, 'macOS configuration must define the main window override');
+assert.equal(macConfig.app.macOSPrivateApi, true, 'The macOS overlay requires the private API opt-in');
+assert.equal(macMain.decorations, true, 'macOS must retain native traffic-light behavior');
+assert.equal(macMain.titleBarStyle, 'Overlay', 'macOS must retain the full-size overlay titlebar');
+assert.equal(macMain.hiddenTitle, true, 'Pasted draws its own macOS title presentation');
+assert.equal(macMain.transparent, true, 'macOS must retain its vibrancy-compatible transparent window');
+assert.deepEqual(macMain.trafficLightPosition, { x: 20, y: 30 }, 'macOS traffic-light placement changed unexpectedly');
+
+assert.deepEqual(
+  baseConfig.app.windows.map(({ label }) => label),
+  macConfig.app.windows.map(({ label }) => label),
+  'Platform configuration must preserve the complete Tauri window set',
+);
+assert.ok(
+  mainSource.indexOf('applyDesktopPlatform();') < mainSource.indexOf('ReactDOM.createRoot'),
+  'Platform safe areas must be applied before the first React render',
+);
+assert.match(chromeCss, /html\[data-platform="macos"\] \.platform-macos-only/);
+assert.match(chromeCss, /html:not\(\[data-platform="macos"\]\) \.platform-framed-only/);
+assert.match(sidebarSource, /sidebar-titlebar-leading/);
+assert.doesNotMatch(sidebarSource, /\bpl-20\b/, 'Do not restore a universal macOS traffic-light inset');
+
+console.log('Platform window-chrome audit passed.');

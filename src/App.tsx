@@ -941,7 +941,7 @@ export default function App() {
           </div>
         );
       })()}
-      {/* Left macOS Sidebar */}
+      {/* Left application sidebar; platform CSS reserves macOS traffic lights only. */}
       <Sidebar
         currentTab={currentTab}
         setCurrentTab={handleSidebarNavigate}

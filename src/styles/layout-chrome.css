@@ -30,6 +30,29 @@
 }
 
 /* Structural Layout Columns */
+.platform-macos-only,
+.platform-framed-only {
+  display: none;
+}
+
+html[data-platform="macos"] .platform-macos-only {
+  display: flex;
+}
+
+html:not([data-platform="macos"]) .platform-framed-only {
+  display: flex;
+}
+
+html[data-platform="macos"] .sidebar-titlebar-leading {
+  padding-left: 5rem;
+}
+
+html:not([data-platform="macos"]) .platform-sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .col-sidebar {
   background-color: var(--material-sidebar);
   border-color: var(--border-subtle);

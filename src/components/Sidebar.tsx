@@ -305,21 +305,32 @@ export const Sidebar: React.FC<SidebarProps> = ({
         onPointerLeave={handleSidebarPointerLeave}
         className={`w-[100px] col-sidebar h-screen flex flex-col items-center border-r backdrop-blur-xl select-none ${isSidebarHoverMuted ? 'suppress-sidebar-hover' : ''}`}
       >
-        {/* Dedicated 56px Top Header Drag Region for Traffic Lights */}
+        {/* macOS reserves this header for overlaid traffic lights. Native framed
+            platforms can use it for the sidebar control immediately. */}
         <div
           onMouseDown={startWindowDrag}
-          className="h-[56px] w-full cursor-default titlebar-drag-handle shrink-0"
-        />
+          className="platform-sidebar-header h-[56px] w-full cursor-default titlebar-drag-handle shrink-0"
+        >
+          <button
+            data-sidebar-hover-key="expand-header"
+            onClick={() => setIsCollapsed(false)}
+            disabled={isClipDragging}
+            className={`platform-framed-only sidebar-control-muted ui-control-radius w-9 h-9 items-center justify-center p-0 transition-colors duration-75 border titlebar-no-drag ${isClipDragging ? 'border-transparent cursor-default' : `cursor-pointer ${hoveredSidebarControl === 'expand-header' ? 'sidebar-item-hovered' : 'border-transparent'}`}`}
+            title="Expand Sidebar"
+          >
+            <PanelLeftOpen className="w-5 h-5" />
+          </button>
+        </div>
 
         {/* Scrollable Nav Items Container for small window heights */}
         <div className="w-full flex-1 overflow-y-auto overflow-x-hidden sidebar-scroll-container flex flex-col items-center gap-1.5 py-2 px-1 custom-scrollbar">
-          {/* Expand Sidebar Toggle Button (Safely placed below traffic light zone) */}
+          {/* macOS keeps this below the overlaid traffic-light safe area. */}
           <button
             data-sidebar-hover-key="expand"
             onClick={() => setIsCollapsed(false)}
             disabled={isClipDragging}
-            className={`sidebar-control-muted ui-control-radius w-9 h-9 flex items-center justify-center p-0 transition-colors duration-75 border shrink-0 ${isClipDragging ? 'border-transparent cursor-default' : `cursor-pointer ${hoveredSidebarControl === 'expand' ? 'sidebar-item-hovered' : 'border-transparent'}`}`}
-            title="Expand Sidebar (⌘\)"
+            className={`platform-macos-only sidebar-control-muted ui-control-radius w-9 h-9 items-center justify-center p-0 transition-colors duration-75 border shrink-0 ${isClipDragging ? 'border-transparent cursor-default' : `cursor-pointer ${hoveredSidebarControl === 'expand' ? 'sidebar-item-hovered' : 'border-transparent'}`}`}
+            title="Expand Sidebar"
           >
             <PanelLeftOpen className="w-5 h-5" />
           </button>
@@ -422,18 +433,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
       onPointerLeave={handleSidebarPointerLeave}
       className={`col-sidebar shrink-0 h-screen flex flex-col justify-between backdrop-blur-xl select-none ${isSidebarHoverMuted ? 'suppress-sidebar-hover' : ''}`}
     >
-      {/* Finder-esque Liquid Glass 60px Top Header */}
+      {/* macOS shares this row with overlaid traffic lights. Windows and Linux
+          render their native titlebars above it, leaving the full row available. */}
       <div
         onMouseDown={isClipDragging ? undefined : startWindowDrag}
         className="h-[60px] px-4 flex items-center justify-between border-b border-transparent cursor-default titlebar-drag-handle shrink-0"
       >
-        <div className="flex items-center pl-20 titlebar-drag-handle" />
+        <div className="sidebar-titlebar-leading flex items-center titlebar-drag-handle" />
         <button
           data-sidebar-hover-key="collapse"
           onClick={() => setIsCollapsed(true)}
           disabled={isClipDragging}
           className={`sidebar-control-muted p-1.5 rounded-lg transition-colors titlebar-no-drag ${isClipDragging ? 'cursor-default' : `cursor-pointer ${hoveredSidebarControl === 'collapse' ? 'sidebar-item-hovered' : ''}`}`}
-          title="Collapse Sidebar (⌘\)"
+          title="Collapse Sidebar"
         >
           <PanelLeftClose className="w-4 h-4" />
         </button>

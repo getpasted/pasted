@@ -373,6 +373,7 @@ pub fn install(app: &AppHandle, db: &Arc<DbState>) -> tauri::Result<()> {
     let help_builder = help_builder.separator().text("app.about", "About Pasted");
     let help_menu = help_builder.build()?;
 
+    #[allow(unused_mut)]
     let mut builder = MenuBuilder::new(app);
     #[cfg(target_os = "macos")]
     {
