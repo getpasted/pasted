@@ -100,7 +100,7 @@ assert.match(
 );
 assert.match(
   universalMacCliBuild,
-  /lipo -verify_arch arm64 x86_64/,
+  /lipo "\$output_path" -verify_arch arm64 x86_64/,
   'The universal CLI audit must use Apple architecture names',
 );
 assert.match(

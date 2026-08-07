@@ -28,5 +28,5 @@ lipo -create \
   src-tauri/target/x86_64-apple-darwin/release/pasted \
   -output "$output_path"
 
-lipo -verify_arch arm64 x86_64 "$output_path"
+lipo "$output_path" -verify_arch arm64 x86_64
 echo "Built universal Pasted CLI at $output_path"
