@@ -30,6 +30,14 @@ fn escape_like_literal(value: &str) -> String {
 }
 
 fn derived_origin_kind(content_type: &str, source_app: &str) -> &'static str {
+    let source_app = source_app.to_lowercase();
+    if matches!(content_type.to_lowercase().as_str(), "image" | "file")
+        && (source_app.contains("screenshot")
+            || source_app.contains("screencapture")
+            || source_app.contains("cleanshot"))
+    {
+        return "screenshot";
+    }
     if content_type.eq_ignore_ascii_case("file") {
         return "file_reference";
     }
@@ -37,12 +45,6 @@ fn derived_origin_kind(content_type: &str, source_app: &str) -> &'static str {
         || source_app.eq_ignore_ascii_case("Pasted CLI")
     {
         return "command_line";
-    }
-    if content_type.eq_ignore_ascii_case("image") {
-        let source_app = source_app.to_lowercase();
-        if source_app.contains("screenshot") || source_app.contains("screencapture") {
-            return "screenshot";
-        }
     }
     "clipboard_content"
 }
@@ -64,7 +66,7 @@ fn push_smart_condition(
         }
         "origin_kind" => {
             parameters.push(Box::new(value.to_lowercase()));
-            "CASE WHEN content_type = 'file' THEN 'file_reference' WHEN LOWER(source_app) IN ('cli terminal', 'pasted cli') THEN 'command_line' WHEN content_type = 'image' AND (LOWER(source_app) LIKE '%screenshot%' OR LOWER(source_app) LIKE '%screencapture%') THEN 'screenshot' ELSE 'clipboard_content' END = ?".to_string()
+            "CASE WHEN content_type IN ('image', 'file') AND (LOWER(source_app) LIKE '%screenshot%' OR LOWER(source_app) LIKE '%screencapture%' OR LOWER(source_app) LIKE '%cleanshot%') THEN 'screenshot' WHEN content_type = 'file' THEN 'file_reference' WHEN LOWER(source_app) IN ('cli terminal', 'pasted cli') THEN 'command_line' ELSE 'clipboard_content' END = ?".to_string()
         }
         "source_app" => {
             parameters.push(Box::new(format!("%{}%", value)));
@@ -454,7 +456,7 @@ pub struct FactoryResetReport {
 
 fn insert_default_bins(conn: &Connection) -> Result<()> {
     conn.execute(
-        "INSERT INTO bins (name, icon, color, smart_rule) VALUES ('Code Snippets', 'Code', '#10b981', '{\"type\":\"content_type\",\"value\":\"code\"}')",
+        "INSERT INTO bins (name, icon, color, smart_rule) VALUES ('Screenshots', '📸', '#ec4899', '{\"type\":\"origin_kind\",\"value\":\"screenshot\"}')",
         [],
     )?;
     conn.execute(
@@ -462,7 +464,7 @@ fn insert_default_bins(conn: &Connection) -> Result<()> {
         [],
     )?;
     conn.execute(
-        "INSERT INTO bins (name, icon, color, smart_rule) VALUES ('Colors & Swatches', 'Palette', '#f59e0b', '{\"type\":\"content_type\",\"value\":\"color\"}')",
+        "INSERT INTO bins (name, icon, color, smart_rule) VALUES ('Code Snippets', 'Code', '#10b981', '{\"type\":\"content_type\",\"value\":\"code\"}')",
         [],
     )?;
     Ok(())
@@ -4957,6 +4959,17 @@ mod tests {
         let default_bins = db.get_bins().unwrap();
         assert_eq!(default_bins.len(), 3);
         assert_eq!(
+            default_bins
+                .iter()
+                .map(|bin| bin.name.as_str())
+                .collect::<Vec<_>>(),
+            vec!["Screenshots", "Links & Web", "Code Snippets"]
+        );
+        assert_eq!(
+            default_bins[0].smart_rule.as_deref(),
+            Some("{\"type\":\"origin_kind\",\"value\":\"screenshot\"}")
+        );
+        assert_eq!(
             default_bins.iter().map(|bin| bin.id).collect::<Vec<_>>(),
             vec![1, 2, 3]
         );
@@ -5012,6 +5025,8 @@ mod tests {
         assert_eq!(derived_origin_kind("file", "Finder"), "file_reference");
         assert_eq!(derived_origin_kind("image", "Screenshot"), "screenshot");
         assert_eq!(derived_origin_kind("image", "screencapture"), "screenshot");
+        assert_eq!(derived_origin_kind("image", "CleanShot X"), "screenshot");
+        assert_eq!(derived_origin_kind("file", "CleanShot X"), "screenshot");
         assert_eq!(derived_origin_kind("image", "Preview"), "clipboard_content");
         assert_eq!(derived_origin_kind("text", "Safari"), "clipboard_content");
         assert_eq!(derived_origin_kind("text", "CLI Terminal"), "command_line");
@@ -5039,6 +5054,18 @@ mod tests {
                 None,
                 "origin_file_hash",
                 "Finder",
+            )
+            .unwrap();
+        let cleanshot_paths =
+            serde_json::json!(["/Users/pasted/Desktop/CleanShot 2026-08-07.png"]).to_string();
+        let cleanshot_file = db
+            .save_clip(
+                "file",
+                Some(&cleanshot_paths),
+                None,
+                None,
+                "origin_cleanshot_file_hash",
+                "CleanShot X",
             )
             .unwrap();
         let clipboard = db
@@ -5077,10 +5104,12 @@ mod tests {
             .create_bin("Clipboard Content", "📋", "default", Some(&clipboard_rule))
             .unwrap();
 
-        assert_eq!(
-            db.get_clips(None, Some(screenshot_bin.id), false).unwrap()[0].id,
-            screenshot.id
-        );
+        let screenshot_clips = db.get_clips(None, Some(screenshot_bin.id), false).unwrap();
+        assert_eq!(screenshot_clips.len(), 2);
+        assert!(screenshot_clips.iter().any(|clip| clip.id == screenshot.id));
+        assert!(screenshot_clips
+            .iter()
+            .any(|clip| clip.id == cleanshot_file.id));
         assert_eq!(
             db.get_clips(None, Some(file_bin.id), false).unwrap()[0].id,
             file.id
@@ -5090,7 +5119,14 @@ mod tests {
             clipboard.id
         );
         let bins = db.get_bins().unwrap();
-        for bin_id in [screenshot_bin.id, file_bin.id, clipboard_bin.id] {
+        assert_eq!(
+            bins.iter()
+                .find(|bin| bin.id == screenshot_bin.id)
+                .unwrap()
+                .clip_count,
+            Some(2)
+        );
+        for bin_id in [file_bin.id, clipboard_bin.id] {
             assert_eq!(
                 bins.iter().find(|bin| bin.id == bin_id).unwrap().clip_count,
                 Some(1)
@@ -5101,6 +5137,11 @@ mod tests {
             .unwrap();
         assert_eq!(
             db.matching_smart_bin_transforms("image", "", "Screenshot")
+                .unwrap(),
+            vec![(screenshot_bin.id, "transform:test-origin".to_string())]
+        );
+        assert_eq!(
+            db.matching_smart_bin_transforms("file", &cleanshot_paths, "CleanShot X")
                 .unwrap(),
             vec![(screenshot_bin.id, "transform:test-origin".to_string())]
         );

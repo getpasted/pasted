@@ -95,15 +95,17 @@ export type ClipOriginKind = 'clipboard_content' | 'file_reference' | 'screensho
 export function getClipOriginKind(
   clip: Pick<ClipItem, 'content_type' | 'source_app'>
 ): ClipOriginKind {
-  if (clip.content_type === 'file') return 'file_reference';
   const sourceApp = clip.source_app.trim().toLowerCase();
-  if (sourceApp === 'cli terminal' || sourceApp === 'pasted cli') return 'command_line';
   if (
-    clip.content_type === 'image'
-    && (sourceApp.includes('screenshot') || sourceApp.includes('screencapture'))
+    (clip.content_type === 'image' || clip.content_type === 'file')
+    && (sourceApp.includes('screenshot')
+      || sourceApp.includes('screencapture')
+      || sourceApp.includes('cleanshot'))
   ) {
     return 'screenshot';
   }
+  if (clip.content_type === 'file') return 'file_reference';
+  if (sourceApp === 'cli terminal' || sourceApp === 'pasted cli') return 'command_line';
   return 'clipboard_content';
 }
 
