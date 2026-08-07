@@ -219,7 +219,10 @@ export function useAppSettings() {
         && (window as Window & { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__
       ) {
         const nativeTheme = ['cool', 'warm'].includes(resolvedTheme) ? 'light' : 'dark';
-        void getCurrentWindow().setTheme(nativeTheme).catch(console.error);
+        void Promise.all([
+          getCurrentWindow().setTheme(nativeTheme),
+          invoke('set_linux_native_menu_theme', { dark: nativeTheme === 'dark' }),
+        ]).catch(console.error);
       }
     };
     applyTheme();

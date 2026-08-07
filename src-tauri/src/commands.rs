@@ -35,6 +35,24 @@ fn emit_window_appearance_change(app: &AppHandle, key: &str, value: &str) {
 }
 
 #[tauri::command]
+pub fn set_linux_native_menu_theme(app: AppHandle, dark: bool) -> Result<(), String> {
+    #[cfg(target_os = "linux")]
+    {
+        app.run_on_main_thread(move || {
+            if let Err(error) = crate::linux_native_theme::apply_menu_theme(dark) {
+                eprintln!("Could not apply the native Linux menu theme: {error}");
+            }
+        })
+        .map_err(|error| error.to_string())?;
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    let _ = (app, dark);
+
+    Ok(())
+}
+
+#[tauri::command]
 pub fn get_installation_diagnostics(app: AppHandle) -> Result<InstallationDiagnostics, String> {
     let executable = std::env::current_exe().map_err(|error| error.to_string())?;
     let app_path = executable

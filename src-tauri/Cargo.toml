@@ -50,6 +50,7 @@ objc = "0.2"
 [target.'cfg(target_os = "linux")'.dependencies]
 ashpd = { version = "0.13", default-features = false, features = ["tokio", "global_shortcuts"] }
 futures-util = "0.3"
+gtk = "0.18"
 
 [lints.rust]
 unexpected_cfgs = "allow"

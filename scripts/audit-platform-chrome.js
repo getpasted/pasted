@@ -10,6 +10,7 @@ const chromeCss = fs.readFileSync('src/styles/layout-chrome.css', 'utf8');
 const cargoManifest = fs.readFileSync('src-tauri/Cargo.toml', 'utf8');
 const rustMainSource = fs.readFileSync('src-tauri/src/main.rs', 'utf8');
 const settingsSource = fs.readFileSync('src/hooks/useAppSettings.ts', 'utf8');
+const linuxThemeSource = fs.readFileSync('src-tauri/src/linux_native_theme.rs', 'utf8');
 
 const windowByLabel = (config, label) => config.app.windows.find((window) => window.label === label);
 const baseMain = windowByLabel(baseConfig, 'main');
@@ -68,5 +69,8 @@ assert.match(rustMainSource, /\/usr\/lib\/libwayland-client\.so\.0/);
 assert.match(rustMainSource, /std::env::var_os\("APPIMAGE"\)/);
 assert.match(settingsSource, /root\.dataset\.platform === 'linux'/);
 assert.match(settingsSource, /getCurrentWindow\(\)\.setTheme\(nativeTheme\)/);
+assert.match(settingsSource, /set_linux_native_menu_theme/);
+assert.match(linuxThemeSource, /gtk::StyleContext::add_provider_for_screen/);
+assert.match(linuxThemeSource, /menubar > menuitem:hover/);
 
 console.log('Platform window-chrome audit passed.');

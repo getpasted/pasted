@@ -12,6 +12,8 @@ mod intelligence_connections;
 pub mod intelligence_executor;
 mod intelligence_provider;
 mod intelligence_scheduler;
+#[cfg(target_os = "linux")]
+mod linux_native_theme;
 pub mod ocr;
 #[cfg(test)]
 mod operation_plugins;
@@ -153,6 +155,11 @@ pub fn run() {
             Some(vec!["--autostart"]),
         ))
         .setup(|app| {
+            #[cfg(target_os = "linux")]
+            if let Err(error) = linux_native_theme::apply_menu_theme(true) {
+                eprintln!("Could not apply the initial native Linux menu theme: {error}");
+            }
+
             // Restore while hidden, then reveal the main window. Automatic restore
             // is skipped for this window so a later webview-ready event cannot move
             // an already-visible window. Visibility itself is intentionally not
@@ -326,6 +333,7 @@ pub fn run() {
             commands::save_app_setting,
             commands::save_app_settings,
             commands::get_all_app_settings,
+            commands::set_linux_native_menu_theme,
             commands::enforce_clip_retention,
             commands::enforce_revision_retention,
             commands::update_clip_note,
