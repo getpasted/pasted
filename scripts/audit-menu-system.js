@@ -2,6 +2,7 @@ import fs from 'node:fs';
 
 const sharedMenu = fs.readFileSync('src/components/AnchoredMenu.tsx', 'utf8');
 const floatingMenus = [
+  'src/components/BinModal.tsx',
   'src/components/BinContextMenu.tsx',
   'src/components/ClipWorkflowMenu.tsx',
   'src/components/ContextMenu.tsx',

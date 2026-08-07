@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Folder, Plus, Minus } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { Bin, SavedTransform } from '../types';
 import { formatEmojiIcon } from '../utils/emoji';
+import { detectDesktopPlatform } from '../utils/platform';
 import { AppDialog } from './AppDialog';
 import { AppDialogBody, AppDialogButton, AppDialogFooter, AppDialogHeader, AppDialogHeading } from './AppDialogLayout';
+import { AnchoredMenu } from './AnchoredMenu';
 import { MenuSelect } from './MenuSelect';
 
 interface BinModalProps {
@@ -34,6 +36,23 @@ const COLOR_PALETTE = [
   { hex: '#6b7280', label: 'Gray' },
   { hex: '#d97706', label: 'Amber' },
 ];
+
+const BIN_EMOJI_OPTIONS = [
+  ['📂', 'Folder'], ['📁', 'Open folder'], ['🗂️', 'Dividers'], ['🗃️', 'Archive'],
+  ['📋', 'Clipboard'], ['📌', 'Pin'], ['🔖', 'Bookmark'], ['🏷️', 'Label'],
+  ['⭐', 'Star'], ['✨', 'Sparkles'], ['❤️', 'Favorite'], ['🔥', 'Hot'],
+  ['💡', 'Idea'], ['🧠', 'Knowledge'], ['📝', 'Notes'], ['📚', 'Reference'],
+  ['📄', 'Document'], ['📊', 'Data'], ['📸', 'Screenshot'], ['🖼️', 'Image'],
+  ['🎨', 'Design'], ['🎵', 'Audio'], ['🎬', 'Video'], ['🎮', 'Games'],
+  ['🔗', 'Links'], ['🌐', 'Web'], ['💬', 'Messages'], ['📧', 'Email'],
+  ['💻', 'Computer'], ['⌨️', 'Code'], ['🧰', 'Tools'], ['⚙️', 'Settings'],
+  ['🔐', 'Secure'], ['🛡️', 'Protected'], ['🔑', 'Keys'], ['🧪', 'Testing'],
+  ['✅', 'Complete'], ['🚧', 'In progress'], ['⚠️', 'Important'], ['🗑️', 'Trash'],
+  ['🏠', 'Home'], ['💼', 'Work'], ['👤', 'Personal'], ['👥', 'People'],
+  ['🛒', 'Shopping'], ['💰', 'Finance'], ['✈️', 'Travel'], ['📍', 'Places'],
+  ['🍔', 'Food'], ['☕', 'Coffee'], ['🏋️', 'Fitness'], ['💊', 'Health'],
+  ['🌱', 'Growth'], ['🌙', 'Later'], ['🚀', 'Launch'], ['🎯', 'Goals'],
+] as const;
 
 function initialBinForm(editingBin?: Bin | null) {
   if (editingBin?.smart_rule) {
@@ -75,6 +94,9 @@ export const BinModal: React.FC<BinModalProps> = ({
   const [name, setName] = useState(() => editingBin?.name || '');
   const [selectedColor, setSelectedColor] = useState(() => editingBin?.color || 'default');
   const [icon, setIcon] = useState(() => (editingBin ? formatEmojiIcon(editingBin.icon) : '📂'));
+  const [isEmojiMenuOpen, setIsEmojiMenuOpen] = useState(false);
+  const emojiTriggerRef = useRef<HTMLButtonElement>(null);
+  const desktopPlatform = detectDesktopPlatform();
 
   // Form Validation State
   const [errors, setErrors] = useState<{ name?: boolean; color?: boolean; icon?: boolean }>({});
@@ -120,6 +142,7 @@ export const BinModal: React.FC<BinModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       setErrors({});
+      setIsEmojiMenuOpen(false);
 
       if (editingBin) {
         setName(editingBin.name);
@@ -362,63 +385,103 @@ export const BinModal: React.FC<BinModalProps> = ({
           <div className="flex items-center space-x-3">
             <label className={`w-20 text-right font-semibold flex-shrink-0 ${errors.icon ? 'theme-danger-text font-bold' : 'theme-text-muted'}`}>Icon:</label>
             <div className="flex-1 flex items-center space-x-2.5">
-              <input
-                type="text"
-                value={formatEmojiIcon(icon)}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  if (!val) return;
-                  try {
-                    const IntlAny = Intl as any;
-                    if (typeof IntlAny.Segmenter === 'function') {
-                      const segmenter = new IntlAny.Segmenter(undefined, { granularity: 'grapheme' });
-                      const segments = Array.from(segmenter.segment(val)) as Array<{ segment: string }>;
-                      if (segments.length > 0) {
-                        const lastGrapheme = segments[segments.length - 1].segment;
-                        if (lastGrapheme && lastGrapheme.trim()) {
+              {desktopPlatform === 'macos' ? (
+                <input
+                  type="text"
+                  value={formatEmojiIcon(icon)}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    if (!value) return;
+                    try {
+                      const IntlWithSegmenter = Intl as typeof Intl & {
+                        Segmenter?: new (locale?: string, options?: { granularity: string }) => {
+                          segment: (input: string) => Iterable<{ segment: string }>;
+                        };
+                      };
+                      if (typeof IntlWithSegmenter.Segmenter === 'function') {
+                        const segmenter = new IntlWithSegmenter.Segmenter(undefined, { granularity: 'grapheme' });
+                        const segments = Array.from(segmenter.segment(value));
+                        const lastGrapheme = segments[segments.length - 1]?.segment;
+                        if (lastGrapheme?.trim()) {
                           setIcon(lastGrapheme);
-                          if (errors.icon) setErrors((prev) => ({ ...prev, icon: false }));
+                          setErrors((previous) => ({ ...previous, icon: false }));
                           return;
                         }
                       }
+                    } catch (error) {
+                      console.error(error);
                     }
-                  } catch (err) {
-                    console.error(err);
-                  }
-                  const chars = Array.from(val);
-                  const newEmoji = chars[chars.length - 1];
-                  if (newEmoji) {
-                    setIcon(newEmoji);
-                    if (errors.icon) setErrors((prev) => ({ ...prev, icon: false }));
-                  }
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    return; // Allow form submit
-                  }
-                  if (e.key !== 'Tab' && !e.metaKey && !e.ctrlKey) {
-                    e.preventDefault();
-                  }
-                }}
-                onClick={(e) => {
-                  (e.target as HTMLInputElement).select();
-                  invoke('open_emoji_picker').catch(() => {});
-                }}
-                onFocus={(e) => {
-                  (e.target as HTMLInputElement).select();
-                  invoke('open_emoji_picker').catch(() => {});
-                }}
-                onBlur={() => {
-                  if (!icon) setIcon('📂');
-                }}
-                placeholder="📂"
-                maxLength={64}
-                className={`w-16 theme-input ui-field-radius emoji-input-picker border py-1.5 text-center font-mono text-lg focus:outline-none shadow-inner cursor-pointer select-none transition-colors ${errors.icon ? 'form-field-error' : 'form-field-valid'}`}
-                title="Open Emoji Picker"
-              />
+                    const characters = Array.from(value);
+                    const lastCharacter = characters[characters.length - 1];
+                    if (lastCharacter) {
+                      setIcon(lastCharacter);
+                      setErrors((previous) => ({ ...previous, icon: false }));
+                    }
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === 'Tab' || event.metaKey || event.ctrlKey) return;
+                    event.preventDefault();
+                  }}
+                  onClick={(event) => {
+                    event.currentTarget.select();
+                    invoke('open_emoji_picker').catch(() => {});
+                  }}
+                  onFocus={(event) => event.currentTarget.select()}
+                  placeholder="📂"
+                  maxLength={64}
+                  className={`w-16 theme-input ui-field-radius emoji-input-picker border py-1.5 text-center font-mono text-lg focus:outline-none shadow-inner cursor-pointer select-none transition-colors ${errors.icon ? 'form-field-error' : 'form-field-valid'}`}
+                  aria-label="Choose Bin icon"
+                  title="Open Emoji picker"
+                />
+              ) : (
+                <button
+                  ref={emojiTriggerRef}
+                  type="button"
+                  onClick={() => setIsEmojiMenuOpen((open) => !open)}
+                  className={`w-16 theme-input ui-field-radius emoji-input-picker border py-1.5 text-center font-mono text-lg focus:outline-none shadow-inner cursor-pointer select-none transition-colors ${errors.icon ? 'form-field-error' : 'form-field-valid'}`}
+                  aria-label="Choose Bin icon"
+                  aria-haspopup="menu"
+                  aria-expanded={isEmojiMenuOpen}
+                  title="Choose Bin icon"
+                >
+                  {formatEmojiIcon(icon)}
+                </button>
+              )}
               <span className="text-[11px] theme-text-muted">
-                Click input to open Emoji picker <kbd className="font-mono text-[10px] px-1.5 py-0.5 rounded theme-badge border">Command + Space</kbd>
+                {desktopPlatform === 'macos' ? (
+                  <>Click to open the Emoji picker <kbd className="font-mono text-[10px] px-1.5 py-0.5 rounded theme-badge border">Command + Space</kbd></>
+                ) : 'Choose an icon for this Bin.'}
               </span>
+              {desktopPlatform !== 'macos' && isEmojiMenuOpen && (
+                <AnchoredMenu
+                  anchor={{ kind: 'element', ref: emojiTriggerRef, align: 'start' }}
+                  ariaLabel="Choose Bin icon"
+                  onClose={() => setIsEmojiMenuOpen(false)}
+                  className="w-72"
+                >
+                  <div className="grid grid-cols-8 gap-1" role="group" aria-label="Bin icons">
+                    {BIN_EMOJI_OPTIONS.map(([emoji, label]) => (
+                      <button
+                        key={emoji}
+                        type="button"
+                        role="menuitemradio"
+                        aria-checked={formatEmojiIcon(icon) === emoji}
+                        aria-label={label}
+                        title={label}
+                        className={`theme-menu-item grid h-7 w-7 place-items-center rounded-lg text-base ${formatEmojiIcon(icon) === emoji ? 'is-selected' : ''}`}
+                        onClick={() => {
+                          setIcon(emoji);
+                          setErrors((previous) => ({ ...previous, icon: false }));
+                          setIsEmojiMenuOpen(false);
+                          emojiTriggerRef.current?.focus();
+                        }}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                </AnchoredMenu>
+              )}
             </div>
           </div>
 
