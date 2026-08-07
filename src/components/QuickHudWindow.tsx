@@ -5,6 +5,7 @@ import { listen } from '@tauri-apps/api/event';
 import { ClipItem, getClipFileSummary } from '../types';
 
 export const QuickHudWindow: React.FC = () => {
+  const [hudAnchor, setHudAnchor] = useState({ flipped: false, x: 180 });
   const [clips, setClips] = useState<ClipItem[]>(() => {
     try {
       const cached = localStorage.getItem('pasted_cache_hud_clips');
@@ -135,7 +136,14 @@ export const QuickHudWindow: React.FC = () => {
         flipped: boolean;
         cursorX: number;
         cursorY: number;
-      }>('hud_position_updated', () => {});
+        targetX: number;
+        targetY: number;
+      }>('hud_position_updated', ({ payload }) => {
+        setHudAnchor({
+          flipped: payload.flipped,
+          x: Math.min(342, Math.max(18, payload.cursorX - payload.targetX)),
+        });
+      });
     }
 
     return () => {
@@ -149,7 +157,12 @@ export const QuickHudWindow: React.FC = () => {
       className="w-screen h-screen p-0 bg-transparent flex flex-col font-sans select-none overflow-hidden no-drag relative"
       onKeyDownCapture={handleHudKeyDown}
     >
-      <div className="quick-hud-shell flex-1 rounded-xl border flex flex-col overflow-hidden no-drag shadow-none">
+      <div
+        aria-hidden="true"
+        className={`quick-hud-caret ${hudAnchor.flipped ? 'is-bottom' : 'is-top'}`}
+        style={{ left: `${hudAnchor.x}px` }}
+      />
+      <div className={`quick-hud-shell flex-1 rounded-xl border flex flex-col overflow-hidden no-drag shadow-none ${hudAnchor.flipped ? 'mb-2' : 'mt-2'}`}>
         {/* Header Bar */}
         <div className="quick-hud-header p-2.5 border-b flex items-center space-x-2 no-drag">
           <div className="relative flex-1">

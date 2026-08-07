@@ -1252,12 +1252,55 @@ select.theme-input {
 }
 
 .quick-hud-shell {
+  position: relative;
   z-index: var(--layer-popover);
   background-color: color-mix(in srgb, var(--bg-app) 92%, transparent);
   border-color: var(--border-card);
   color: var(--text-main);
   -webkit-backdrop-filter: blur(24px) saturate(var(--material-saturation));
   backdrop-filter: blur(24px) saturate(var(--material-saturation));
+}
+
+.quick-hud-caret {
+  position: absolute;
+  z-index: calc(var(--layer-popover) + 1);
+  pointer-events: none;
+  -webkit-user-select: none;
+  user-select: none;
+  width: 20px;
+  height: 10px;
+  transform: translateX(-50%);
+  background-color: var(--border-card);
+}
+
+.quick-hud-caret::after {
+  position: absolute;
+  content: '';
+  width: 16px;
+  height: 8px;
+  left: 2px;
+}
+
+.quick-hud-caret.is-top {
+  top: -1px;
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+}
+
+.quick-hud-caret.is-top::after {
+  top: 2px;
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+  background-color: var(--bg-app);
+}
+
+.quick-hud-caret.is-bottom {
+  bottom: -1px;
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+}
+
+.quick-hud-caret.is-bottom::after {
+  bottom: 2px;
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+  background-color: var(--bg-surface);
 }
 
 .quick-hud-header {
