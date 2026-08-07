@@ -40,7 +40,7 @@ function mergeClipSummary(clips: ClipItem[], incoming: ClipItem) {
   return sortClipsForTimeline(next);
 }
 
-export function useAppData(enableSounds: boolean) {
+export function useAppData() {
   const [allClips, setAllClips] = useState<ClipItem[]>(() => readCachedArray('pasted_cache_clips'));
   const [trashedClips, setTrashedClips] = useState<ClipItem[]>([]);
   const [bins, setBins] = useState<Bin[]>(() => readCachedArray('pasted_cache_bins'));
@@ -199,7 +199,7 @@ export function useAppData(enableSounds: boolean) {
         // OCR currently emits only an ID after updating the stored clip.
         void fetchClips();
       }
-      soundManager.playCopySound(enableSounds);
+      soundManager.playCopySound();
     });
     const unlistenSequential = listen<SequentialStatus>('sequential-updated', (event) => {
       setSequentialStatus(event.payload);
@@ -220,7 +220,7 @@ export function useAppData(enableSounds: boolean) {
       void unlistenBlacklist.then((unlisten) => unlisten());
       void unlistenPause.then((unlisten) => unlisten());
     };
-  }, [enableSounds, fetchClips]);
+  }, [fetchClips]);
 
   return {
     allClips,

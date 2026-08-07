@@ -16,6 +16,7 @@ import { FloatingActionStrip } from './FloatingActionStrip';
 import { startTransformation, type TransformationExecutionHandle } from '../utils/transformExecution';
 import { useIntelligenceRequestStatus } from '../hooks/useIntelligenceRequestStatus';
 import { AnchoredMenu, MenuDivider, MenuItem } from './AnchoredMenu';
+import { DeleteTransformationAssetDialog } from './DeleteTransformationAssetDialog';
 
 interface TransformationsViewProps {
   pipelines: Pipeline[];
@@ -61,6 +62,13 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
   const playgroundRequestStatus = useIntelligenceRequestStatus(playgroundClientRequestId);
   const [pipelineContextMenu, setPipelineContextMenu] = useState<{ x: number; y: number; pipeline: Pipeline } | null>(null);
   const [transformContextMenu, setTransformContextMenu] = useState<{ x: number; y: number; transform: SavedTransform } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<
+    | { kind: 'Transform'; name: string; ref: string }
+    | { kind: 'Pipeline'; name: string; ref: string }
+    | null
+  >(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [actionError, setActionError] = useState('');
 
   useEffect(() => {
     if (requestedWorkspace) setActiveSubTab(requestedWorkspace);
@@ -82,35 +90,42 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
   };
 
   const handleDuplicatePipeline = async (pipeline: Pipeline) => {
+    setActionError('');
     try {
       await invoke('create_pipeline', {
         name: `${pipeline.name} (Copy)`,
         steps: pipeline.steps,
         shortcut: null,
       });
-      soundManager.playCopySound(true);
+      soundManager.playCopySound();
       onRefreshPipelines();
     } catch (e) {
-      console.error(e);
+      setActionError(e instanceof Error ? e.message : String(e));
     }
   };
 
   const handleExportPipeline = async (pipeline: Pipeline) => {
+    setActionError('');
     try {
       const exportJson = JSON.stringify(pipeline, null, 2);
       await invoke('copy_clip_to_system', { text: exportJson, imageBase64: null });
-      soundManager.playCopySound(true);
+      soundManager.playCopySound();
     } catch (e) {
-      console.error(e);
+      setActionError(e instanceof Error ? e.message : String(e));
     }
   };
 
   const handleDeletePipeline = async (pipelineRef: string) => {
+    setActionError('');
+    setIsDeleting(true);
     try {
       await invoke('delete_pipeline', { pipelineRef });
       onRefreshPipelines();
+      setDeleteTarget(null);
     } catch (e) {
-      console.error(e);
+      setActionError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -161,7 +176,7 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
   const fetchTransforms = () => {
     invoke<SavedTransform[]>('get_saved_transforms')
       .then(setTransforms)
-      .catch(console.error);
+      .catch((error) => setActionError(error instanceof Error ? error.message : String(error)));
   };
 
   const cancelPlayground = () => {
@@ -173,11 +188,16 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
   };
 
   const handleDeleteTransform = async (transformRef: string) => {
+    setActionError('');
+    setIsDeleting(true);
     try {
       await invoke('delete_saved_transform', { transformRef });
       setTransforms((current) => current.filter((transform) => transform.stableRef !== transformRef));
+      setDeleteTarget(null);
     } catch (error) {
-      setTestError(String(error));
+      setActionError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -219,7 +239,7 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
   const fetchOpCount = () => {
     invoke<Operation[]>('get_operations')
       .then(setOperations)
-      .catch(console.error);
+      .catch((error) => setActionError(error instanceof Error ? error.message : String(error)));
   };
 
   useEffect(() => {
@@ -245,6 +265,12 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
 
       {/* Main Scrollable Content */}
       <div className="tools-scroll-region flex-1 overflow-y-auto p-6 space-y-6">
+      {actionError && (
+        <div role="alert" className="theme-status-danger flex items-start justify-between gap-3 rounded-xl border px-3 py-2 text-xs">
+          <span>{actionError}</span>
+          <button type="button" onClick={() => setActionError('')} className="shrink-0 font-semibold underline">Dismiss</button>
+        </div>
+      )}
       {activeSubTab === 'advanced' ? (
         <OperationsManager
           isEmbedded={true}
@@ -371,7 +397,7 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
                           type="button"
                           onClick={(event) => {
                             event.stopPropagation();
-                            void handleDeleteTransform(transform.stableRef);
+                            setDeleteTarget({ kind: 'Transform', name: transform.name, ref: transform.stableRef });
                           }}
                           className="floating-action-button is-danger"
                           title="Delete Transform"
@@ -390,6 +416,7 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
             <div className="flex items-center justify-between gap-3 px-1">
               <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
                 <h3 id="legacy-pipelines-heading" className="text-xs font-semibold theme-text-main">Legacy Pipelines</h3>
+                <span className="theme-status-warning rounded px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide">Experimental</span>
                 <span className="text-[10px] theme-text-subtle">Deterministic building blocks remain available</span>
               </div>
               <button
@@ -469,7 +496,7 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
                             await invoke('update_pipeline_shortcut', { pipelineRef: f.stableRef, shortcut: newShortcut });
                             onRefreshPipelines();
                           } catch (err) {
-                            console.error(err);
+                            setActionError(err instanceof Error ? err.message : String(err));
                           }
                         }}
                       />
@@ -488,7 +515,7 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleDeletePipeline(f.stableRef);
+                        setDeleteTarget({ kind: 'Pipeline', name: f.name, ref: f.stableRef });
                       }}
                       className="theme-icon-button theme-danger-text p-1.5 border rounded-md transition-colors"
                       title="Delete Pipeline"
@@ -547,7 +574,7 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
               <MenuItem
                 danger
                 onClick={() => {
-                  void handleDeleteTransform(transformContextMenu.transform.stableRef);
+                  setDeleteTarget({ kind: 'Transform', name: transformContextMenu.transform.name, ref: transformContextMenu.transform.stableRef });
                   setTransformContextMenu(null);
                 }}
                 className="gap-2 px-3 py-1.5"
@@ -619,7 +646,7 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
               <MenuItem
                 danger
                 onClick={() => {
-                  handleDeletePipeline(pipelineContextMenu.pipeline.stableRef);
+                  setDeleteTarget({ kind: 'Pipeline', name: pipelineContextMenu.pipeline.name, ref: pipelineContextMenu.pipeline.stableRef });
                   setPipelineContextMenu(null);
                 }}
                 className="gap-2 px-3 py-1.5"
@@ -657,6 +684,16 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
           setTransforms((current) => [transform, ...current.filter((item) => item.stableRef !== transform.stableRef)]);
           setSelectedTransformForEdit(transform);
         }}
+      />
+      <DeleteTransformationAssetDialog
+        asset={deleteTarget}
+        isDeleting={isDeleting}
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={() => deleteTarget?.kind === 'Pipeline'
+          ? handleDeletePipeline(deleteTarget.ref)
+          : deleteTarget
+            ? handleDeleteTransform(deleteTarget.ref)
+            : undefined}
       />
     </div>
   );

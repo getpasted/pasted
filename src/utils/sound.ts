@@ -3,6 +3,11 @@ import { safeInvoke as invoke } from './tauri';
 // macOS-style Web Audio API sound synthesizer for Pasted interaction sounds
 class SoundManager {
   private ctx: AudioContext | null = null;
+  private enabled = true;
+
+  setEnabled(enabled: boolean) {
+    this.enabled = enabled;
+  }
 
   private init() {
     if (!this.ctx) {
@@ -17,8 +22,8 @@ class SoundManager {
   }
 
   // Crisp native macOS system sound feedback
-  playCopySound(enabled: boolean) {
-    if (!enabled) return;
+  playCopySound() {
+    if (!this.enabled) return;
     try {
       invoke('play_system_sound', { soundId: 1057 }).catch(() => {
         this.fallbackCopySound();
@@ -54,8 +59,8 @@ class SoundManager {
   }
 
   // Soft macOS paste pop
-  playPasteSound(enabled: boolean) {
-    if (!enabled) return;
+  playPasteSound() {
+    if (!this.enabled) return;
     try {
       this.init();
       if (!this.ctx) return;
@@ -81,8 +86,8 @@ class SoundManager {
   }
 
   // Upward chime for sequential queue stack
-  playStackSound(enabled: boolean) {
-    if (!enabled) return;
+  playStackSound() {
+    if (!this.enabled) return;
     try {
       this.init();
       if (!this.ctx) return;

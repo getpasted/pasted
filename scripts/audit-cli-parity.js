@@ -23,6 +23,10 @@ const documentedCommands = [
   'pasted-cli bin order',
   'pasted-cli transform list',
   'pasted-cli transform run',
+  'pasted-cli operation list',
+  'pasted-cli operation run',
+  'pasted-cli pipeline list',
+  'pasted-cli pipeline run',
   'pasted-cli diagnostics',
   'pasted-cli ocr status',
   'pasted-cli ocr scan',
@@ -33,7 +37,7 @@ for (const command of documentedCommands) {
   assert.ok(help.includes(command), `Help & Docs must document ${command}`);
 }
 
-for (const route of ['copy', 'list', 'search', 'clear', 'clip', 'bin', 'transform', 'diagnostics', 'ocr', 'reset']) {
+for (const route of ['copy', 'list', 'search', 'clear', 'clip', 'bin', 'transform', 'operation', 'pipeline', 'diagnostics', 'ocr', 'reset']) {
   assert.match(cli, new RegExp(`"${route}"`), `The CLI must retain its ${route} route`);
 }
 

@@ -9,7 +9,7 @@ import { startWindowDrag } from '../utils/windowDrag';
 import { AppDialog } from './AppDialog';
 import { AppDialogBody, AppDialogButton, AppDialogFooter, AppDialogHeader, AppDialogHeading } from './AppDialogLayout';
 import { MenuSelect, type MenuSelectOption } from './MenuSelect';
-import { startTransformation, type TransformationExecutionHandle } from '../utils/transformExecution';
+import { startPipelinePreview, type CancellableTransformRequest } from '../utils/transformExecution';
 import { PlaygroundRunStatus, type PlaygroundRunState } from './PlaygroundRunStatus';
 
 export interface PipelineEditorStep {
@@ -110,7 +110,7 @@ function compilePipelineStep(step: PipelineEditorStep) {
   return {
     operationRef: step.operation_ref,
     configJson,
-    failurePolicy: 'stop',
+    failurePolicy: 'stop' as const,
   };
 }
 
@@ -382,8 +382,10 @@ export const PipelineEditorModal: React.FC<PipelineEditorModalProps> = ({
   const [testOutput, setTestOutput] = useState('');
   const [testRunState, setTestRunState] = useState<PlaygroundRunState>('idle');
   const [testDurationMs, setTestDurationMs] = useState<number>();
+  const [saveError, setSaveError] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
   const testRequestIdRef = useRef(0);
-  const activeTestExecutionRef = useRef<TransformationExecutionHandle | null>(null);
+  const activeTestExecutionRef = useRef<CancellableTransformRequest<string> | null>(null);
   const [operationsList, setOperationsList] = useState<Operation[]>([]);
   const [isOpModalOpen, setIsOpModalOpen] = useState(false);
   const stepListRef = useRef<HTMLDivElement>(null);
@@ -407,7 +409,7 @@ export const PipelineEditorModal: React.FC<PipelineEditorModalProps> = ({
   const refreshOps = () => {
     invoke<Operation[]>('get_operations')
       .then((ops) => setOperationsList(ops))
-      .catch(console.error);
+      .catch((error) => setSaveError(error instanceof Error ? error.message : String(error)));
   };
 
   useEffect(() => {
@@ -433,6 +435,7 @@ export const PipelineEditorModal: React.FC<PipelineEditorModalProps> = ({
       setSteps(nextSteps);
       initialSnapshotRef.current = JSON.stringify({ pipelineName: '', shortcut: null, steps: nextSteps });
     }
+    setSaveError('');
   }, [isOpen, pipeline]);
 
   const handleReset = () => {
@@ -533,27 +536,9 @@ export const PipelineEditorModal: React.FC<PipelineEditorModalProps> = ({
     setTestRunState('running');
     setTestDurationMs(undefined);
     try {
-      let current = testInput;
-      for (const step of steps) {
-        const compiled = compilePipelineStep(step);
-        const operationType = operationTypeForRef(step.operation_ref);
-        if (operationType) {
-          current = await invoke<string>('transform_text', {
-            input: current,
-            filterType: operationType,
-            config: compiled.configJson,
-          });
-        } else {
-          const execution = startTransformation(current, {
-            kind: 'operation',
-            operationRef: step.operation_ref,
-          });
-          activeTestExecutionRef.current = execution;
-          const result = await execution.promise;
-          if (requestId !== testRequestIdRef.current) return;
-          current = result.output;
-        }
-      }
+      const execution = startPipelinePreview(testInput, steps.map(compilePipelineStep));
+      activeTestExecutionRef.current = execution;
+      const current = await execution.promise;
       if (requestId !== testRequestIdRef.current) return;
       setTestOutput(current);
       setTestRunState('success');
@@ -578,6 +563,8 @@ export const PipelineEditorModal: React.FC<PipelineEditorModalProps> = ({
     e.preventDefault();
     if (!pipelineName.trim()) return;
 
+    setSaveError('');
+    setIsSaving(true);
     try {
       const compiledSteps = steps.map(compilePipelineStep);
 
@@ -599,7 +586,9 @@ export const PipelineEditorModal: React.FC<PipelineEditorModalProps> = ({
       onSaveSuccess();
       onClose();
     } catch (e) {
-      console.error(e);
+      setSaveError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -734,6 +723,7 @@ export const PipelineEditorModal: React.FC<PipelineEditorModalProps> = ({
               </div>
             </div>
           </div>
+          {saveError && <div role="alert" className="theme-status-danger rounded-xl border px-3 py-2 text-xs">{saveError}</div>}
         </AppDialogBody>
 
         <AppDialogFooter align="between">
@@ -747,7 +737,7 @@ export const PipelineEditorModal: React.FC<PipelineEditorModalProps> = ({
 
           <div className="flex items-center space-x-3">
             <AppDialogButton onClick={requestClose}>Cancel</AppDialogButton>
-            <AppDialogButton variant="primary" onClick={handleSavePipeline}>Save Pipeline</AppDialogButton>
+            <AppDialogButton variant="primary" onClick={handleSavePipeline} disabled={isSaving}>{isSaving ? 'Saving…' : 'Save Pipeline'}</AppDialogButton>
           </div>
         </AppDialogFooter>
       {/* Embedded Operation Editor Modal */}

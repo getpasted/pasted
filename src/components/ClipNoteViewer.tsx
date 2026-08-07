@@ -21,7 +21,7 @@ export function ClipNoteViewer({ note, sourceApp, onClose }: ClipNoteViewerProps
   const copyNote = async () => {
     try {
       await navigator.clipboard.writeText(note.text);
-      soundManager.playCopySound(true);
+      soundManager.playCopySound();
     } catch (error) {
       console.error('Failed to copy note:', error);
     }

@@ -16,12 +16,13 @@
     "test:collections": "node scripts/audit-clip-collections.js",
     "test:menus": "node scripts/audit-menu-system.js",
     "test:cli": "node scripts/audit-cli-parity.js",
+    "test:transformations": "node scripts/audit-transformations.js",
     "test:ipc": "node scripts/audit-ipc.js",
     "release:macos:local": "bash scripts/release-macos.sh --local",
     "release:macos": "bash scripts/release-macos.sh",
     "release:macos:verify": "bash scripts/verify-macos-release.sh",
     "icons:generate": "bash scripts/generate-icons.sh",
-    "test:all": "cargo fmt --manifest-path src-tauri/Cargo.toml -- --check && cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings && npm run build && npm test && npm run test:css && npm run test:wcag && npm run test:ipc && npm run test:security && npm run test:release && npm run test:features && npm run test:collections && npm run test:menus && npm run test:cli",
+    "test:all": "cargo fmt --manifest-path src-tauri/Cargo.toml -- --check && cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings && npm run build && npm test && npm run test:css && npm run test:wcag && npm run test:ipc && npm run test:security && npm run test:release && npm run test:features && npm run test:collections && npm run test:menus && npm run test:cli && npm run test:transformations",
     "tauri": "tauri"
   },
   "dependencies": {

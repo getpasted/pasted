@@ -38,6 +38,7 @@ import { Clipboard, Trash2, Pause, Disc, Square, Pin, Search, X } from 'lucide-r
 import { enabledFeatureRecord, featureForRoute } from './utils/features';
 import { FeatureProvider } from './hooks/useFeatures';
 import { ACTUAL_SIZE, stepAppZoom } from './utils/appZoom';
+import { soundManager } from './utils/sound';
 import './App.css';
 
 const TRANSIENT_SCROLL_SURFACE_SELECTOR = [
@@ -122,6 +123,10 @@ export default function App() {
   } = useAppSettings();
   const enabledFeatures = useMemo(() => enabledFeatureRecord(appSettings), [appSettings]);
 
+  useEffect(() => {
+    soundManager.setEnabled(appSettings.enableSounds);
+  }, [appSettings.enableSounds]);
+
   const {
     allClips,
     setAllClips,
@@ -145,7 +150,7 @@ export default function App() {
     restoreClip: handleRestoreClip,
     purgeClipPermanently: handlePurgeClipPermanently,
     emptyTrash: handleEmptyTrash,
-  } = useAppData(appSettings.enableSounds);
+  } = useAppData();
 
   useEffect(() => {
     const splash = document.getElementById('startup-splash');

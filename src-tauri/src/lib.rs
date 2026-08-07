@@ -20,7 +20,7 @@ mod paste_target;
 pub mod resource_limits;
 mod sequential_paste;
 mod transformation_intent;
-mod transformation_service;
+pub mod transformation_service;
 
 use std::sync::Arc;
 use tauri::{
@@ -346,6 +346,7 @@ pub fn run() {
             commands::update_pipeline,
             commands::update_pipeline_shortcut,
             commands::delete_pipeline,
+            commands::preview_pipeline_steps,
             commands::get_operations,
             commands::get_intelligence_connections,
             commands::detect_intelligence_connections,

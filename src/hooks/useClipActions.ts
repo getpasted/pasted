@@ -24,7 +24,7 @@ interface ClipActionsInput {
   selectedClipIds: Set<number>;
   setSelectedClipIds: Dispatch<SetStateAction<Set<number>>>;
   setTotalClipCount: Dispatch<SetStateAction<number>>;
-  settings: Pick<AppSettings, 'alwaysPastePlainText' | 'enableSounds' | 'enableTrash'>;
+  settings: Pick<AppSettings, 'alwaysPastePlainText' | 'enableTrash'>;
   fetchBins: () => Promise<void>;
   fetchClips: () => Promise<void>;
   fetchTrashedClips: () => Promise<void>;
@@ -277,11 +277,11 @@ export function useClipActions({
         imageBase64: settings.alwaysPastePlainText ? null : clip.image_base64,
         filePaths: clip.content_type === 'file' ? getClipFilePaths(clip) : null,
       });
-      soundManager.playCopySound(settings.enableSounds);
+      soundManager.playCopySound();
     } catch (error) {
       console.error('Failed to copy clip:', error);
     }
-  }, [settings.alwaysPastePlainText, settings.enableSounds]);
+  }, [settings.alwaysPastePlainText]);
 
   const assignClipToBin = useCallback(async (
     clipId: number,
@@ -319,7 +319,7 @@ export function useClipActions({
     }));
 
     if (options.playSound) {
-      requestAnimationFrame(() => soundManager.playCopySound(settings.enableSounds));
+      requestAnimationFrame(() => soundManager.playCopySound());
     }
 
     if (binId !== null) {
@@ -386,7 +386,7 @@ export function useClipActions({
         });
       }
     }
-  }, [allClips, bins, fetchBins, fetchClips, selectedClipIds, setAllClips, setBins, setSelectedClip, settings.enableSounds]);
+  }, [allClips, bins, fetchBins, fetchClips, selectedClipIds, setAllClips, setBins, setSelectedClip]);
 
   const runPipelineForClip = useCallback(async (
     clip: ClipItem,
@@ -403,16 +403,16 @@ export function useClipActions({
         );
         if (destination === 'paste') {
           await invoke('paste_text_to_frontmost', { text: transformed.output });
-          soundManager.playPasteSound(settings.enableSounds);
+          soundManager.playPasteSound();
         } else {
           await invoke('copy_clip_to_system', { text: transformed.output, imageBase64: null });
-          soundManager.playCopySound(settings.enableSounds);
+          soundManager.playCopySound();
         }
       });
     } catch (error) {
       console.error(`Failed to ${destination} Advanced Transform result:`, error);
     }
-  }, [runClipTransformationJob, settings.enableSounds]);
+  }, [runClipTransformationJob]);
 
   const runTransformForClip = useCallback(async (clip: ClipItem, transform: SavedTransform) => {
     if (!clip.text_content) return;
@@ -424,12 +424,12 @@ export function useClipActions({
           { sourceClipId: clip.id, destination: 'copy' },
         );
         await invoke('copy_clip_to_system', { text: transformed.output, imageBase64: null });
-        soundManager.playCopySound(settings.enableSounds);
+        soundManager.playCopySound();
       });
     } catch (error) {
       console.error('Failed to copy Transform result:', error);
     }
-  }, [runClipTransformationJob, settings.enableSounds]);
+  }, [runClipTransformationJob]);
 
   const addToSequentialStack = useCallback(async (clip: ClipItem) => {
     const item = clip.content_type === 'file' ? null : clip.text_content;
@@ -439,12 +439,12 @@ export function useClipActions({
     }
     try {
       await invoke('push_sequential_item', { item });
-      soundManager.playStackSound(settings.enableSounds);
+      soundManager.playStackSound();
       void fetchSequentialStatus();
     } catch (error) {
       console.error('Failed to add clip to queue:', error);
     }
-  }, [fetchSequentialStatus, settings.enableSounds]);
+  }, [fetchSequentialStatus]);
 
   const updateClipNoteLocally = useCallback((clipId: number, note: string | null) => {
     setAllClips((previous) => previous.map((clip) => clip.id === clipId ? { ...clip, note } : clip));

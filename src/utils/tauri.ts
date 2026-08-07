@@ -265,6 +265,14 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
         durationMs: request?.target?.kind === 'transform' ? 260 : 1,
       } as unknown as T;
     }
+    case 'preview_pipeline_steps': {
+      const input = typeof args?.input === 'string' ? args.input : '';
+      const steps = Array.isArray(args?.steps) ? args.steps : [];
+      const output = steps.reduce((current: string, step: { operationRef?: string }) => (
+        step.operationRef?.includes('uppercase') ? current.toUpperCase() : current
+      ), input);
+      return output as unknown as T;
+    }
     case 'cancel_transformation_execution':
       return true as unknown as T;
     case 'get_intelligence_scheduler_snapshot':

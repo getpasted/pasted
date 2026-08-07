@@ -50,6 +50,10 @@ const CLI_COMMAND_GROUPS = [
       { usage: 'pasted-cli bin order <bin-id> <clip-id>... [--json]', description: 'Replace a Bin’s complete saved clip order.' },
       { usage: 'pasted-cli transform list', description: 'List reusable saved Transforms.' },
       { usage: 'pasted-cli transform run <ref> [--text TEXT | --clip ID | --stdin] [--replace]', description: 'Preview a Transform, or replace a clip while preserving a revision.' },
+      { usage: 'pasted-cli operation list [--json]', description: 'Inspect experimental built-in and custom Operations.' },
+      { usage: 'pasted-cli operation run <ref> [--text TEXT | --clip ID | --stdin] [--json]', description: 'Run one experimental Operation through the shared executor.' },
+      { usage: 'pasted-cli pipeline list [--json]', description: 'Inspect experimental deterministic Pipelines.' },
+      { usage: 'pasted-cli pipeline run <ref> [--text TEXT | --clip ID | --stdin] [--json]', description: 'Run one experimental Pipeline through the shared executor.' },
     ],
   },
   {
@@ -378,6 +382,13 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
                   <div className="theme-code-surface p-2 rounded border">• URL Encode / Decode</div>
                   <div className="theme-code-surface p-2 rounded border">• JSON Prettify</div>
                 </div>
+              </div>
+
+              <div className="theme-status-warning rounded-xl border p-4">
+                <h4 className="text-xs font-bold">Experimental Advanced Tools</h4>
+                <p className="theme-text-muted mt-1 text-xs">
+                  Operations and legacy Pipelines provide deterministic building blocks for advanced workflows. Their saved identifiers are stable, while their editor and command surface may evolve after 1.0.
+                </p>
               </div>
             </div>
           )}

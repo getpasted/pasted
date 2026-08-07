@@ -134,21 +134,26 @@ pasted-cli transform list
 pasted-cli transform run <transform-ref> [--text TEXT | --clip ID | --stdin] [--replace]
 ```
 
-The Advanced surface may later grow into:
+The experimental Advanced surface now ships the scriptable list/run subset:
 
 ```text
-pasted operation list [--json]
-pasted operation show <operation-ref> [--json]
-pasted operation run <operation-ref> [--text TEXT | --clip ID | --stdin]
+pasted-cli operation list [--json]
+pasted-cli operation run <operation-ref> [--text TEXT | --clip ID | --stdin] [--json]
 
-pasted pipeline list [--json]
-pasted pipeline show <pipeline-ref> [--json]
-pasted pipeline validate <pipeline-ref>
-pasted pipeline run <pipeline-ref> [--text TEXT | --clip ID | --stdin]
+pasted-cli pipeline list [--json]
+pasted-cli pipeline run <pipeline-ref> [--text TEXT | --clip ID | --stdin] [--json]
+```
 
-pasted automation list [--json]
-pasted automation test <automation-ref> [--text TEXT | --clip ID | --stdin]
-pasted automation enable|disable <automation-ref>
+Possible later inspection and Automation commands remain intentionally deferred:
+
+```text
+pasted-cli operation show <operation-ref> [--json]
+pasted-cli pipeline show <pipeline-ref> [--json]
+pasted-cli pipeline validate <pipeline-ref>
+
+pasted-cli automation list [--json]
+pasted-cli automation test <automation-ref> [--text TEXT | --clip ID | --stdin]
+pasted-cli automation enable|disable <automation-ref>
 ```
 
 CLI rules:
@@ -165,9 +170,9 @@ CLI rules:
 Example:
 
 ```sh
-git diff | pasted pipeline run review-summary --stdin
-pasted operation run format-json --clip 142
-pasted pipeline run clean-url --stdin --copy < urls.txt
+git diff | pasted-cli pipeline run review-summary --stdin
+pasted-cli operation run format-json --clip 142
+pasted-cli pipeline run clean-url --stdin < urls.txt
 ```
 
 ## Deliberate non-goals

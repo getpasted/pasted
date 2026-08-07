@@ -60,6 +60,8 @@ export const OperationEditorModal: React.FC<OperationEditorModalProps> = ({
   const [aiInstructions, setAiInstructions] = useState('');
   const [testInput, setTestInput] = useState('Hello Pasted Operation User! :)');
   const [testOutput, setTestOutput] = useState('');
+  const [saveError, setSaveError] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -70,6 +72,7 @@ export const OperationEditorModal: React.FC<OperationEditorModalProps> = ({
     setFindPattern(initial.findPattern);
     setReplacePattern(initial.replacePattern);
     setAiInstructions(initial.aiInstructions);
+    setSaveError('');
 
     if (operation?.op_type === 'regex' && operation.config) {
       try {
@@ -119,24 +122,32 @@ export const OperationEditorModal: React.FC<OperationEditorModalProps> = ({
       ? JSON.stringify({ pattern: findPattern, replacement: replacePattern })
       : JSON.stringify({ instructions: aiInstructions.trim(), connectionId: null });
 
-    if (operation) {
-      await invoke('update_operation', {
-        id: operation.id,
-        name: name.trim(),
-        opType,
-        config,
-        category,
-      });
-    } else {
-      await invoke('create_operation', {
-        name: name.trim(),
-        opType,
-        config,
-        category,
-      });
+    setSaveError('');
+    setIsSaving(true);
+    try {
+      if (operation) {
+        await invoke('update_operation', {
+          id: operation.id,
+          name: name.trim(),
+          opType,
+          config,
+          category,
+        });
+      } else {
+        await invoke('create_operation', {
+          name: name.trim(),
+          opType,
+          config,
+          category,
+        });
+      }
+      onSaveSuccess();
+      onClose();
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setIsSaving(false);
     }
-    onSaveSuccess();
-    onClose();
   };
 
   if (!isOpen) return null;
@@ -277,6 +288,7 @@ export const OperationEditorModal: React.FC<OperationEditorModalProps> = ({
               </p>
             </div>
           )}
+          {saveError && <div role="alert" className="theme-status-danger rounded-xl border px-3 py-2 text-xs">{saveError}</div>}
         </AppDialogBody>
 
         <AppDialogFooter>
@@ -284,9 +296,9 @@ export const OperationEditorModal: React.FC<OperationEditorModalProps> = ({
           <AppDialogButton
             variant="primary"
             onClick={handleSave}
-            disabled={!name.trim() || !isEditableKind || (opType === 'ai' && !aiInstructions.trim())}
+            disabled={isSaving || !name.trim() || !isEditableKind || (opType === 'ai' && !aiInstructions.trim())}
           >
-            {operation ? 'Save Custom Operation' : 'Create Custom Operation'}
+            {isSaving ? 'Saving…' : operation ? 'Save Custom Operation' : 'Create Custom Operation'}
           </AppDialogButton>
         </AppDialogFooter>
       </>}

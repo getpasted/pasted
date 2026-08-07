@@ -2,25 +2,27 @@
 
 Transformations is Pasted's unified system for changing text as it moves into, through, or out of the app.
 
-The product model is intentionally small:
+The primary product model is intentionally small:
 
 ```text
-Input -> Pipeline -> Destination
-             ^
-          Trigger
+Input -> Saved Transform -> Destination
+                  ^
+               Trigger
 ```
 
 ## Vocabulary
 
-- **Operation**: one reusable transformation, such as Uppercase, Regex Replace, an AI prompt, an HTTP request, or a local command.
-- **Pipeline**: an ordered composition of one or more Operations.
-- **Trigger**: the moment a Pipeline runs.
-- **Input**: the content supplied to the Pipeline.
+- **Saved Transform**: the user-facing reusable instruction and validated execution plan.
+- **Operation**: an experimental deterministic building block, such as Uppercase or Regex Replace.
+- **Pipeline**: an experimental ordered composition of Operations retained for deterministic and compatibility workflows.
+- **Trigger**: the moment a Transform or experimental Pipeline runs.
+- **Input**: the content supplied to the execution.
 - **Destination**: what receives the output.
 
-The canonical Rust and SQLite APIs use Pipeline terminology. Any remaining
-“Filter” names are temporary frontend adapter names only; they are not product
-or backend domain terminology.
+Saved Transforms are the supported default workflow. Operations and Pipelines
+are explicitly experimental in 1.0: their persisted identifiers remain stable,
+but their editor and command surface may evolve. Any remaining “Filter” names
+are compatibility adapters rather than product terminology.
 
 ## Inputs
 
@@ -116,7 +118,7 @@ Pasted should combine these capabilities around clipboard-native language instea
 
 1. Complete manual preview, copy-result, and paste-result actions on the shared execution service.
 2. Add per-Pipeline hotkeys and “last used Pipeline” behavior.
-3. Extend the shipped Transform CLI surface to the Advanced Pipeline and Operation identifiers.
+3. Harden the experimental Pipeline and Operation CLI surface beyond its shipped list/run commands.
 4. Add capture-time Automations with source-preservation guarantees.
 5. Add selected-text input and lightweight fill-ins.
 6. Enable capability-scoped command, HTTP, and AI Operations.

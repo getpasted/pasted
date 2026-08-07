@@ -1,17 +1,19 @@
-import { Pipeline } from '../types';
+import { Pipeline, SavedTransform } from '../types';
 
 export interface SmartPipelineDetectionResult {
   detectedTypes: string[];
   recommendedPipelineIds: Set<number>;
   recommendedPipelines: Pipeline[];
+  recommendedTransforms: SavedTransform[];
 }
 
 export function detectSmartPipelineRecommendations(
   text: string,
-  pipelines: Pipeline[]
+  pipelines: Pipeline[],
+  transforms: SavedTransform[] = [],
 ): SmartPipelineDetectionResult {
   if (!text || typeof text !== 'string') {
-    return { detectedTypes: [], recommendedPipelineIds: new Set(), recommendedPipelines: [] };
+    return { detectedTypes: [], recommendedPipelineIds: new Set(), recommendedPipelines: [], recommendedTransforms: [] };
   }
 
   const detectedTypes: string[] = [];
@@ -97,10 +99,30 @@ export function detectSmartPipelineRecommendations(
   }
 
   const recommendedPipelines = pipelines.filter((pipeline) => recommendedPipelineIds.has(pipeline.id));
+  const recommendedTransforms = transforms.filter((transform) => {
+    const searchable = [
+      transform.name,
+      transform.plan.intent,
+      transform.plan.summary,
+      ...transform.plan.steps.flatMap((step) => [
+        step.name,
+        step.rationale,
+        step.executor.kind === 'deterministic' ? step.executor.operation_ref : step.executor.instructions,
+      ]),
+    ].join(' ').toLowerCase();
+    return (hasUrl && /url|link|tracking/.test(searchable))
+      || (isJson && /json/.test(searchable))
+      || (hasHtml && /html|markup|tag/.test(searchable))
+      || (hasMarkdown && /markdown/.test(searchable))
+      || (isMultiLine && /line|sort|dedupe|list/.test(searchable))
+      || (hasEmails && /email/.test(searchable))
+      || (hasPhones && /phone/.test(searchable));
+  });
 
   return {
     detectedTypes,
     recommendedPipelineIds,
     recommendedPipelines,
+    recommendedTransforms,
   };
 }

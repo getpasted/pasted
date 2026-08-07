@@ -13,6 +13,7 @@ import { OperationEditorModal, CATEGORIES } from './OperationEditorModal';
 import { startWindowDrag } from '../utils/windowDrag';
 import { TransformLibraryToolbar } from './TransformLibraryToolbar';
 import { TransformCategorySelect } from './TransformCategorySelect';
+import { DeleteTransformationAssetDialog } from './DeleteTransformationAssetDialog';
 
 interface OperationsManagerProps {
   isEmbedded?: boolean;
@@ -35,6 +36,8 @@ export const OperationsManager: React.FC<OperationsManagerProps> = ({
   const [selectedOperationForEdit, setSelectedOperationForEdit] = useState<Operation | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [libraryError, setLibraryError] = useState('');
+  const [operationToDelete, setOperationToDelete] = useState<Operation | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const fetchOperations = async () => {
     try {
@@ -52,7 +55,7 @@ export const OperationsManager: React.FC<OperationsManagerProps> = ({
         );
       });
     } catch (error) {
-      console.error(error);
+      setLibraryError(error instanceof Error ? error.message : String(error));
     }
   };
 
@@ -72,12 +75,15 @@ export const OperationsManager: React.FC<OperationsManagerProps> = ({
 
   const handleDelete = async (operation: Operation) => {
     setLibraryError('');
+    setIsDeleting(true);
     try {
       await invoke('delete_operation', { id: operation.id });
       await fetchOperations();
+      setOperationToDelete(null);
     } catch (error) {
-      console.error(error);
       setLibraryError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -152,7 +158,7 @@ export const OperationsManager: React.FC<OperationsManagerProps> = ({
               type="button"
               onClick={(event) => {
                 event.stopPropagation();
-                void handleDelete(operation);
+                setOperationToDelete(operation);
               }}
               className="theme-icon-button theme-danger-text rounded-md border p-1.5 transition-colors"
               title="Delete Operation"
@@ -174,7 +180,7 @@ export const OperationsManager: React.FC<OperationsManagerProps> = ({
               <Wrench className="transform-accent operations h-5 w-5 opacity-70" />
               <span>Operations</span>
             </h2>
-            <p className="mt-1 text-xs theme-text-muted">Reusable building blocks for Advanced Transforms and Automations.</p>
+            <p className="mt-1 text-xs theme-text-muted">Experimental reusable building blocks for deterministic Advanced Transforms.</p>
           </div>
         </div>
       )}
@@ -244,6 +250,12 @@ export const OperationsManager: React.FC<OperationsManagerProps> = ({
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onSaveSuccess={fetchOperations}
+      />
+      <DeleteTransformationAssetDialog
+        asset={operationToDelete ? { kind: 'Operation', name: operationToDelete.name } : null}
+        isDeleting={isDeleting}
+        onCancel={() => setOperationToDelete(null)}
+        onConfirm={() => operationToDelete ? handleDelete(operationToDelete) : undefined}
       />
     </div>
   );

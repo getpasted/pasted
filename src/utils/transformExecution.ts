@@ -71,6 +71,22 @@ export function runTransformation(
   return startTransformation(input, target, options).promise;
 }
 
+export function startPipelinePreview(
+  input: string,
+  steps: Array<{
+    operationRef: string;
+    configJson: string | null;
+    failurePolicy: 'stop' | 'skip';
+  }>,
+): CancellableTransformRequest<string> {
+  const clientRequestId = createRequestId();
+  return {
+    clientRequestId,
+    promise: invoke<string>('preview_pipeline_steps', { input, steps, clientRequestId }),
+    cancel: () => cancelTransformRequest(clientRequestId),
+  };
+}
+
 export function startTransformDraft(request: {
   intent: string;
   sampleInput?: string | null;

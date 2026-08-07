@@ -35,7 +35,6 @@ interface DailyStat {
 interface AnalyticsSummary {
   total_clips: number;
   total_chars: number;
-  kb_saved: number;
   top_apps: AppStat[];
   content_types: TypeStat[];
   daily_activity: DailyStat[];
@@ -58,7 +57,7 @@ export const AnalyticsView: React.FC = () => {
   }, []);
 
   const totalClips = summary?.total_clips || 0;
-  const kbSaved = (summary?.kb_saved || 0).toFixed(1);
+  const totalChars = summary?.total_chars || 0;
   const topApps = summary?.top_apps || [];
   const contentTypes = summary?.content_types || [];
   const dailyActivity = summary?.daily_activity || [];
@@ -80,7 +79,7 @@ export const AnalyticsView: React.FC = () => {
       {/* Top Stat Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <div className="theme-panel p-4 rounded-xl border flex items-center space-x-4">
-          <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400">
+          <div className="theme-status-info p-3 rounded-lg border">
             <Layers className="w-6 h-6" />
           </div>
           <div>
@@ -97,9 +96,9 @@ export const AnalyticsView: React.FC = () => {
           </div>
           <div>
             <div className="theme-title text-2xl font-extrabold font-mono">
-              {kbSaved} <span className="text-xs">KB</span>
+              {totalChars.toLocaleString()}
             </div>
-            <div className="theme-text-muted text-xs font-medium">Storage Compressed</div>
+            <div className="theme-text-muted text-xs font-medium">Text Characters Saved</div>
           </div>
         </div>
 
@@ -109,7 +108,7 @@ export const AnalyticsView: React.FC = () => {
           </div>
           <div>
             <div className="theme-title text-2xl font-extrabold font-mono truncate max-w-[140px]">
-              {topApps[0]?.name || 'VS Code'}
+              {topApps[0]?.name || '—'}
             </div>
             <div className="theme-text-muted text-xs font-medium">Top Copied App</div>
           </div>
@@ -171,7 +170,7 @@ export const AnalyticsView: React.FC = () => {
               </div>
             </div>
             <div className="theme-surface p-3 rounded-lg border flex items-center space-x-3">
-              <LinkIcon className="w-4 h-4 text-blue-400 shrink-0" />
+              <LinkIcon className="w-4 h-4 theme-status-info-text shrink-0" />
               <div>
                 <div className="theme-title text-sm font-bold font-mono">{getTypeCount('link')}</div>
                 <div className="theme-text-muted text-[11px]">Links / URLs</div>
@@ -185,7 +184,7 @@ export const AnalyticsView: React.FC = () => {
               </div>
             </div>
             <div className="theme-surface p-3 rounded-lg border flex items-center space-x-3">
-              <Files className="w-4 h-4 text-blue-400 shrink-0" />
+              <Files className="w-4 h-4 theme-status-info-text shrink-0" />
               <div>
                 <div className="theme-title text-sm font-bold font-mono">{getTypeCount('file')}</div>
                 <div className="theme-text-muted text-[11px]">Files</div>

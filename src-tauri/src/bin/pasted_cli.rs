@@ -9,6 +9,9 @@ use pasted_lib::db::{ClipMutationSummary, DbState, TransformClipApplication};
 use pasted_lib::features::{setting_value_is_enabled, Feature};
 use pasted_lib::installation_diagnostics::{InstallationDiagnostics, APP_IDENTIFIER};
 use pasted_lib::intelligence_executor::execute_saved_transform;
+use pasted_lib::transformation_service::{
+    execute, ExecutionDestination, ExecutionRequest, ExecutionTarget, ExecutionTrigger,
+};
 
 fn get_db_path() -> PathBuf {
     if let Some(mut dir) = dirs::data_dir() {
@@ -269,6 +272,68 @@ fn main() -> Result<()> {
                 }
                 _ => {
                     eprintln!("Unknown transform command: {subcommand}");
+                    std::process::exit(2);
+                }
+            }
+        }
+        "operation" | "operations" => {
+            let db = DbState::new(db_path.clone())?;
+            require_feature(&db, Feature::Transformations);
+            let subcommand = args.get(2).map(String::as_str).unwrap_or("list");
+            match subcommand {
+                "list" | "ls" => {
+                    let operations = db.get_operations()?;
+                    if args.iter().any(|argument| argument == "--json") {
+                        println!(
+                            "{}",
+                            serde_json::to_string_pretty(&operations).map_err(json_error)?
+                        );
+                    } else {
+                        for operation in operations {
+                            println!(
+                                "{}\t{}\t{}\t{}",
+                                operation.stable_id,
+                                operation.name,
+                                operation.op_type,
+                                operation.category
+                            );
+                        }
+                    }
+                }
+                "run" => run_advanced_transformation(&args, &db, "operation"),
+                _ => {
+                    eprintln!("Usage: pasted-cli operation [list [--json] | run <operation-ref> [--text TEXT | --clip ID | --stdin] [--json]]");
+                    std::process::exit(2);
+                }
+            }
+        }
+        "pipeline" | "pipelines" => {
+            let db = DbState::new(db_path.clone())?;
+            require_feature(&db, Feature::Transformations);
+            let subcommand = args.get(2).map(String::as_str).unwrap_or("list");
+            match subcommand {
+                "list" | "ls" => {
+                    let pipelines = db.get_pipelines()?;
+                    if args.iter().any(|argument| argument == "--json") {
+                        println!(
+                            "{}",
+                            serde_json::to_string_pretty(&pipelines).map_err(json_error)?
+                        );
+                    } else {
+                        for pipeline in pipelines {
+                            println!(
+                                "{}\t{}\trevision {}\t{} steps",
+                                pipeline.stable_ref,
+                                pipeline.name,
+                                pipeline.revision,
+                                pipeline.steps.len()
+                            );
+                        }
+                    }
+                }
+                "run" => run_advanced_transformation(&args, &db, "pipeline"),
+                _ => {
+                    eprintln!("Usage: pasted-cli pipeline [list [--json] | run <pipeline-ref> [--text TEXT | --clip ID | --stdin] [--json]]");
                     std::process::exit(2);
                 }
             }
@@ -591,6 +656,12 @@ fn main() -> Result<()> {
             println!(
                 "  pasted-cli transform run <ref> [--text TEXT | --clip ID | --stdin] [--replace]"
             );
+            println!(
+                "  pasted-cli operation list|run Experimental Operation inspection and execution"
+            );
+            println!(
+                "  pasted-cli pipeline list|run Experimental Pipeline inspection and execution"
+            );
             println!("  pasted-cli bin list --json   List Bins and their saved clip order");
             println!("  pasted-cli bin clips <id> --json List clips in persistent Bin order");
             println!("  pasted-cli bin order <id> <clip-id>... Persist a complete Bin order");
@@ -616,6 +687,89 @@ fn require_feature(db: &DbState, feature: Feature) {
     if !setting_value_is_enabled(enabled.as_deref()) {
         eprintln!("{} is disabled in Settings → Features.", feature.label());
         std::process::exit(1);
+    }
+}
+
+fn run_advanced_transformation(args: &[String], db: &DbState, target_kind: &str) {
+    let Some(target_ref) = args.get(3) else {
+        eprintln!("Usage: pasted-cli {target_kind} run <ref> [--text TEXT | --clip ID | --stdin] [--json]");
+        std::process::exit(2);
+    };
+    let clip_id = args
+        .iter()
+        .position(|argument| argument == "--clip")
+        .and_then(|index| args.get(index + 1))
+        .and_then(|value| value.parse::<i64>().ok());
+    let explicit_text = args
+        .iter()
+        .position(|argument| argument == "--text")
+        .and_then(|index| args.get(index + 1))
+        .cloned();
+    let input = if let Some(text) = explicit_text {
+        text
+    } else if let Some(clip_id) = clip_id {
+        db.get_active_clip_text(clip_id)
+            .unwrap_or_else(|error| {
+                eprintln!("Could not read clip #{clip_id}: {error}");
+                std::process::exit(1);
+            })
+            .unwrap_or_else(|| {
+                eprintln!("Clip #{clip_id} has no transformable text.");
+                std::process::exit(2);
+            })
+    } else {
+        read_stdin_bounded(pasted_lib::resource_limits::MAX_TRANSFORM_TEXT_BYTES).unwrap_or_else(
+            |error| {
+                eprintln!("Could not read input: {error}");
+                std::process::exit(1);
+            },
+        )
+    };
+    if input.is_empty() {
+        eprintln!("Provide input with --text, --clip, or stdin.");
+        std::process::exit(2);
+    }
+    let target = if target_kind == "operation" {
+        ExecutionTarget::Operation {
+            operation_ref: target_ref.clone(),
+        }
+    } else {
+        ExecutionTarget::Pipeline {
+            pipeline_ref: target_ref.clone(),
+        }
+    };
+    match execute(
+        db,
+        ExecutionRequest {
+            input,
+            target,
+            source_clip_id: clip_id,
+            trigger: ExecutionTrigger::Cli,
+            destination: ExecutionDestination::Preview,
+            client_request_id: None,
+        },
+    ) {
+        Ok(outcome) => {
+            if args.iter().any(|argument| argument == "--json") {
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&serde_json::json!({
+                        "targetKind": target_kind,
+                        "targetRef": target_ref,
+                        "executionId": outcome.execution_id,
+                        "output": outcome.output,
+                        "durationMs": outcome.duration_ms,
+                    }))
+                    .expect("advanced transformation output is serializable")
+                );
+            } else {
+                print!("{}", outcome.output);
+            }
+        }
+        Err(error) => {
+            eprintln!("{} failed ({}): {}", target_kind, error.code, error.message);
+            std::process::exit(1);
+        }
     }
 }
 

@@ -1194,10 +1194,14 @@ pub fn create_pipeline(
     steps: Vec<PipelineStepInput>,
     shortcut: Option<String>,
     db: State<'_, Arc<DbState>>,
+    app: AppHandle,
 ) -> Result<Pipeline, String> {
     features::require(&db, Feature::Transformations)?;
-    db.create_pipeline(&name, &steps, shortcut.as_deref())
-        .map_err(|error| error.to_string())
+    let pipeline = db
+        .create_pipeline(&name, &steps, shortcut.as_deref())
+        .map_err(|error| error.to_string())?;
+    let _ = register_all_app_shortcuts(&app);
+    Ok(pipeline)
 }
 
 #[tauri::command]
@@ -1232,10 +1236,55 @@ pub fn update_pipeline_shortcut(
 }
 
 #[tauri::command]
-pub fn delete_pipeline(pipeline_ref: String, db: State<'_, Arc<DbState>>) -> Result<(), String> {
+pub fn delete_pipeline(
+    pipeline_ref: String,
+    db: State<'_, Arc<DbState>>,
+    app: AppHandle,
+) -> Result<(), String> {
     features::require(&db, Feature::Transformations)?;
     db.delete_pipeline(&pipeline_ref)
-        .map_err(|error| error.to_string())
+        .map_err(|error| error.to_string())?;
+    let _ = register_all_app_shortcuts(&app);
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn preview_pipeline_steps(
+    input: String,
+    steps: Vec<PipelineStepInput>,
+    client_request_id: Option<String>,
+    db: State<'_, Arc<DbState>>,
+) -> Result<String, crate::transformation_service::ExecutionError> {
+    if let Err(message) = features::require(&db, Feature::Transformations) {
+        return Err(crate::transformation_service::ExecutionError {
+            code: "feature_disabled",
+            message,
+            step: None,
+            operation_ref: None,
+        });
+    }
+    let cancellation = client_request_id
+        .clone()
+        .map(crate::transformation_service::CancellationRegistration::register);
+    let db = Arc::clone(&db);
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::transformation_service::preview_pipeline_steps(
+            &db,
+            &input,
+            &steps,
+            client_request_id.as_deref(),
+            cancellation
+                .as_ref()
+                .map(|registration| registration.flag()),
+        )
+    })
+    .await
+    .map_err(|error| crate::transformation_service::ExecutionError {
+        code: "executor_join_failed",
+        message: error.to_string(),
+        step: None,
+        operation_ref: None,
+    })?
 }
 
 #[tauri::command]

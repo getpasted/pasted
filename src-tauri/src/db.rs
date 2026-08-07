@@ -247,7 +247,6 @@ pub struct DailyStat {
 pub struct AnalyticsSummary {
     pub total_clips: i64,
     pub total_chars: i64,
-    pub kb_saved: f64,
     pub top_apps: Vec<AppStat>,
     pub content_types: Vec<TypeStat>,
     pub daily_activity: Vec<DailyStat>,
@@ -2460,8 +2459,6 @@ impl DbState {
             |r| Ok((r.get(0)?, r.get(1)?)),
         ).unwrap_or((0, 0));
 
-        let kb_saved = ((total_chars as f64 * 1.2) / 1024.0 * 10.0).round() / 10.0;
-
         let mut app_stmt = conn.prepare(
             "SELECT source_app, COUNT(*) FROM clips WHERE (is_trashed IS NULL OR is_trashed = 0) GROUP BY source_app ORDER BY COUNT(*) DESC LIMIT 8"
         )?;
@@ -2504,7 +2501,6 @@ impl DbState {
         Ok(AnalyticsSummary {
             total_clips,
             total_chars,
-            kb_saved,
             top_apps,
             content_types,
             daily_activity,

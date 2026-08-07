@@ -8,7 +8,9 @@ use std::sync::{
 };
 use std::time::Instant;
 
-use crate::db::{DbState, ResolvedCustomOperation, TransformationExecutionStart};
+use crate::db::{
+    DbState, PipelineStepInput, ResolvedCustomOperation, TransformationExecutionStart,
+};
 use crate::filter_engine::apply_filter;
 use crate::operation_registry::is_builtin_operation;
 
@@ -406,6 +408,53 @@ fn execute_pipeline_ref(
     Ok((current, pipeline.revision))
 }
 
+/// Preview an unsaved Pipeline through the same operation executor used by
+/// persisted Pipelines. This keeps the editor honest without creating a
+/// temporary database record or updating last-used Pipeline state.
+pub fn preview_pipeline_steps(
+    db: &DbState,
+    input: &str,
+    steps: &[PipelineStepInput],
+    client_request_id: Option<&str>,
+    cancellation: Option<&AtomicBool>,
+) -> Result<String, ExecutionError> {
+    ensure_transform_text_size(input)?;
+    if steps.is_empty() {
+        return Err(ExecutionError::new(
+            "empty_pipeline",
+            "A Pipeline requires at least one Operation",
+        ));
+    }
+
+    let mut current = input.to_string();
+    for (position, step) in steps.iter().enumerate() {
+        ensure_not_cancelled(cancellation)?;
+        if !matches!(step.failure_policy.as_str(), "stop" | "skip") {
+            return Err(ExecutionError::new(
+                "invalid_failure_policy",
+                format!("Unknown failure policy: {}", step.failure_policy),
+            )
+            .at_step(position + 1, &step.operation_ref));
+        }
+        match execute_operation_ref(
+            db,
+            &current,
+            &step.operation_ref,
+            step.config_json.as_deref(),
+            client_request_id,
+            cancellation,
+        ) {
+            Ok(output) => {
+                ensure_transform_text_size(&output)?;
+                current = output;
+            }
+            Err(_error) if step.failure_policy == "skip" => continue,
+            Err(error) => return Err(error.at_step(position + 1, &step.operation_ref)),
+        }
+    }
+    Ok(current)
+}
+
 pub fn execute(
     db: &DbState,
     request: ExecutionRequest,
@@ -796,6 +845,42 @@ mod tests {
             )
             .unwrap();
         assert_eq!(succeeded, 2);
+    }
+
+    #[test]
+    fn unsaved_pipeline_preview_uses_the_canonical_operation_executor() {
+        let db = test_db();
+        let steps = vec![
+            PipelineStepInput {
+                operation_ref: "builtin:uppercase".to_string(),
+                config_json: None,
+                failure_policy: "stop".to_string(),
+            },
+            PipelineStepInput {
+                operation_ref: "builtin:quote_text".to_string(),
+                config_json: None,
+                failure_policy: "stop".to_string(),
+            },
+        ];
+
+        let output = preview_pipeline_steps(&db, "hello\nworld", &steps, None, None).unwrap();
+        assert_eq!(output, "> HELLO\n> WORLD");
+
+        let error = preview_pipeline_steps(
+            &db,
+            "hello",
+            &[PipelineStepInput {
+                operation_ref: "builtin:not_real".to_string(),
+                config_json: None,
+                failure_policy: "stop".to_string(),
+            }],
+            None,
+            None,
+        )
+        .unwrap_err();
+        assert_eq!(error.code, "unknown_operation");
+        assert_eq!(error.step, Some(1));
+        assert_eq!(error.operation_ref.as_deref(), Some("builtin:not_real"));
     }
 
     #[test]

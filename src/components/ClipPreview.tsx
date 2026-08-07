@@ -456,7 +456,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
           .then(setRevisionCount)
           .catch((error) => console.error('Failed to refresh clip revision count:', error));
       }
-      soundManager.playCopySound(true);
+      soundManager.playCopySound();
       onUpdateClip();
     } catch (e) {
       console.error('OCR Extraction Failed:', e);
@@ -505,7 +505,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
     try {
       await invoke('copy_clip_to_system', { text: value, imageBase64: null });
       setCopiedFormat(label);
-      soundManager.playCopySound(true);
+      soundManager.playCopySound();
       if (copiedFormatTimerRef.current) clearTimeout(copiedFormatTimerRef.current);
       copiedFormatTimerRef.current = setTimeout(() => setCopiedFormat(null), 2000);
     } catch (e) {
@@ -603,7 +603,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
       });
       setProvenance(saved);
       setRevisionCount((count) => (count ?? 0) + 1);
-      soundManager.playCopySound(true);
+      soundManager.playCopySound();
       handleResetTransform();
       onUpdateClip();
     } catch (error) {
@@ -647,11 +647,11 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
       if (destination === 'copy') {
         await invoke('copy_clip_to_system', { text: transformedText, imageBase64: null });
         setPipelineAction('copied');
-        soundManager.playCopySound(true);
+        soundManager.playCopySound();
       } else {
         await invoke('paste_text_to_frontmost', { text: transformedText });
         setPipelineAction('pasted');
-        soundManager.playPasteSound(true);
+        soundManager.playPasteSound();
       }
       setPipelineError(null);
     } catch (error) {
@@ -687,7 +687,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
       setPipelineError(null);
       setShowHistory(false);
       setPreviewedVersion(null);
-      soundManager.playCopySound(true);
+      soundManager.playCopySound();
       onUpdateClip(restoredClip);
     } catch (error) {
       console.error('Failed to restore clip version:', error);
@@ -1020,8 +1020,8 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
       {/* Contextual filter suggestions live beside the controls they affect. */}
       {(() => {
         const currentText = transformedText !== null ? transformedText : (clip.text_content || '');
-        const { detectedTypes, recommendedPipelines } = detectSmartPipelineRecommendations(currentText, pipelines);
-        if (!viewPolicy.canRunPipelines || !canTransformContent || recommendedPipelines.length === 0) return null;
+        const { detectedTypes, recommendedPipelines, recommendedTransforms } = detectSmartPipelineRecommendations(currentText, pipelines, transforms);
+        if (!viewPolicy.canRunPipelines || !canTransformContent || (recommendedPipelines.length === 0 && recommendedTransforms.length === 0)) return null;
 
         return (
           <div className="smart-actions-bar px-4 py-2 flex items-center justify-between text-xs space-x-2 overflow-x-auto">
@@ -1030,6 +1030,16 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
               <span>Smart Actions ({detectedTypes.join(', ')}):</span>
             </div>
             <div className="flex items-center space-x-1.5 overflow-x-auto scrollbar-none py-0.5">
+              {recommendedTransforms.map((transform) => (
+                <button
+                  key={transform.stableRef}
+                  onClick={() => handlePreviewTransform(transform)}
+                  className="smart-action-button px-2 py-0.5 rounded-md border text-[11px] font-medium flex items-center space-x-1 whitespace-nowrap shadow-sm"
+                  title={`Preview ${transform.name}`}
+                >
+                  <span>{transform.name}</span>
+                </button>
+              ))}
               {recommendedPipelines.map((f) => (
                 <button
                   key={f.id}
