@@ -1797,47 +1797,6 @@ pub fn simulate_cmd_v_paste() -> Result<(), String> {
     }
 }
 
-#[cfg(target_os = "macos")]
-fn simulate_cmd_v_paste_to_target(target_name: &str) -> Result<(), String> {
-    use std::process::Command;
-    const SCRIPT: &str = r#"
-on run argv
-    set targetName to item 1 of argv
-    tell application "System Events"
-        if not (exists first application process whose name is targetName) then error "target unavailable"
-        set targetProcess to first application process whose name is targetName
-        set frontmost of targetProcess to true
-        delay 0.15
-        keystroke "v" using command down
-    end tell
-end run
-"#;
-    let output = Command::new("osascript")
-        .arg("-e")
-        .arg(SCRIPT)
-        .arg("--")
-        .arg(target_name)
-        .output()
-        .map_err(|error| format!("Could not start macOS paste automation: {error}"))?;
-    if output.status.success() {
-        Ok(())
-    } else {
-        let detail = String::from_utf8_lossy(&output.stderr).trim().to_string();
-        if detail.contains("not authorized") || detail.contains("-1743") {
-            Err("macOS blocked Paste Next. Allow Accessibility access for Pasted (or the terminal/IDE running this development build), then try again.".to_string())
-        } else {
-            Err(format!(
-                "Could not target {target_name}. Clip not removed from Queue."
-            ))
-        }
-    }
-}
-
-#[cfg(not(target_os = "macos"))]
-fn simulate_cmd_v_paste_to_target(_target_name: &str) -> Result<(), String> {
-    simulate_cmd_v_paste()
-}
-
 #[cfg(target_os = "windows")]
 pub fn simulate_cmd_v_paste() -> Result<(), String> {
     use std::process::Command;
@@ -1890,7 +1849,9 @@ fn restore_main_window_after_ui_paste(app: &AppHandle) {
     // Give the destination control time to process Command/Ctrl+V before
     // Pasted takes focus back for continued Queue management.
     thread::sleep(Duration::from_millis(220));
-    restore_main_window_after_queue_failure(app);
+    if let Some(main) = app.get_webview_window("main") {
+        let _ = main.set_focus();
+    }
 }
 
 pub(crate) fn paste_queue_item(
@@ -1907,6 +1868,14 @@ pub(crate) fn paste_queue_item(
         let _ = db.log_activity("queue_paste_failed", &error);
         return Err(error);
     }
+    let paste_target = app.state::<Arc<crate::paste_target::PasteTargetState>>();
+    let target = match paste_target.prepare_last_external() {
+        Ok(target) => target,
+        Err(error) => {
+            let _ = db.log_activity("queue_paste_failed", &error);
+            return Err(error);
+        }
+    };
     seq.mark_internal_clipboard_write(&text);
     let mut clipboard = match Clipboard::new() {
         Ok(clipboard) => clipboard,
@@ -1924,22 +1893,7 @@ pub(crate) fn paste_queue_item(
         return Err(message);
     }
 
-    if let Some(main) = app.get_webview_window("main") {
-        if main.is_visible().unwrap_or(false) {
-            let _ = main.hide();
-        }
-    }
-    let paste_target = app.state::<Arc<crate::paste_target::PasteTargetState>>();
-    let target = match paste_target.activate_last_external() {
-        Ok(target) => target,
-        Err(error) => {
-            seq.clear_internal_clipboard_write();
-            restore_main_window_after_queue_failure(app);
-            let _ = db.log_activity("queue_paste_failed", &error);
-            return Err(error);
-        }
-    };
-    if let Err(error) = simulate_cmd_v_paste_to_target(&target.name) {
+    if let Err(error) = paste_target.paste_to(&target) {
         seq.clear_internal_clipboard_write();
         restore_main_window_after_queue_failure(app);
         let _ = db.log_activity("queue_paste_failed", &error);
@@ -2061,6 +2015,14 @@ pub fn paste_all_sequential(
         let _ = db.log_activity("queue_paste_failed", &error);
         return Err(error);
     }
+    let paste_target = app.state::<Arc<crate::paste_target::PasteTargetState>>();
+    let target = match paste_target.prepare_last_external() {
+        Ok(target) => target,
+        Err(error) => {
+            let _ = db.log_activity("queue_paste_failed", &error);
+            return Err(error);
+        }
+    };
     let combined = status.queue.join("\n\n");
     seq.mark_internal_clipboard_write(&combined);
     let mut cb = match Clipboard::new() {
@@ -2078,22 +2040,7 @@ pub fn paste_all_sequential(
         let _ = db.log_activity("queue_paste_failed", &message);
         return Err(message);
     }
-    if let Some(main) = app.get_webview_window("main") {
-        if main.is_visible().unwrap_or(false) {
-            let _ = main.hide();
-        }
-    }
-    let paste_target = app.state::<Arc<crate::paste_target::PasteTargetState>>();
-    let target = match paste_target.activate_last_external() {
-        Ok(target) => target,
-        Err(error) => {
-            seq.clear_internal_clipboard_write();
-            restore_main_window_after_queue_failure(&app);
-            let _ = db.log_activity("queue_paste_failed", &error);
-            return Err(error);
-        }
-    };
-    if let Err(error) = simulate_cmd_v_paste_to_target(&target.name) {
+    if let Err(error) = paste_target.paste_to(&target) {
         seq.clear_internal_clipboard_write();
         restore_main_window_after_queue_failure(&app);
         let _ = db.log_activity("queue_paste_failed", &error);
@@ -2125,9 +2072,9 @@ pub fn get_sequential_status(
 }
 
 #[tauri::command]
-pub fn get_queue_paste_target(app: AppHandle) -> Option<crate::paste_target::PasteTarget> {
+pub fn get_queue_paste_target(app: AppHandle) -> crate::paste_target::PasteTarget {
     app.state::<Arc<crate::paste_target::PasteTargetState>>()
-        .current()
+        .snapshot()
 }
 
 // Window & Activation Policy Commands

@@ -21,7 +21,7 @@ export function BinContextMenu({ menu, onClose, onEdit, onDelete }: BinContextMe
         onClick={() => onEdit(menu.bin)}
         className="gap-2 px-2.5 py-1.5"
       >
-        <Edit3 className="w-3.5 h-3.5" />
+        <Edit3 className="theme-status-info-text w-3.5 h-3.5" />
         <span>Edit Bin...</span>
       </MenuItem>
       <MenuDivider />
@@ -30,7 +30,7 @@ export function BinContextMenu({ menu, onClose, onEdit, onDelete }: BinContextMe
         onClick={() => onDelete(menu.bin)}
         className="gap-2 px-2.5 py-1.5"
       >
-        <Trash2 className="w-3.5 h-3.5" />
+        <Trash2 className="theme-danger-text w-3.5 h-3.5" />
         <span>Delete Bin</span>
       </MenuItem>
     </AnchoredMenu>

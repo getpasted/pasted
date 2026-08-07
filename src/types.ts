@@ -343,6 +343,8 @@ export interface SequentialStatus {
 
 export interface QueuePasteTarget {
   name: string;
+  automaticPasteAvailable: boolean;
+  unavailableReason: string | null;
 }
 
 export interface AppSettings {

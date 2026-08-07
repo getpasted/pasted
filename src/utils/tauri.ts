@@ -405,7 +405,11 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
     case 'get_sequential_status':
       return updateMockSequentialStatus() as unknown as T;
     case 'get_queue_paste_target':
-      return { name: 'Browser' } as unknown as T;
+      return {
+        name: 'Browser',
+        automaticPasteAvailable: false,
+        unavailableReason: 'This window cannot send system-wide paste commands.',
+      } as unknown as T;
     case 'start_sequential_paste':
       mockSequentialStatus.is_active = true;
       return updateMockSequentialStatus() as unknown as T;

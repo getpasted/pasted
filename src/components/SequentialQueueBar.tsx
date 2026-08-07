@@ -16,7 +16,7 @@ export const SequentialQueueBar: React.FC<SequentialQueueBarProps> = ({
   const [isPasting, setIsPasting] = useState(false);
   const [pasteTarget, setPasteTarget] = useState<QueuePasteTarget | null>(null);
   const refreshPasteTarget = useCallback(() => {
-    void invoke<QueuePasteTarget | null>('get_queue_paste_target')
+    void invoke<QueuePasteTarget>('get_queue_paste_target')
       .then(setPasteTarget)
       .catch(() => setPasteTarget(null));
   }, []);
@@ -38,6 +38,7 @@ export const SequentialQueueBar: React.FC<SequentialQueueBarProps> = ({
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setIsPasting(false);
+      refreshPasteTarget();
     }
   };
 
@@ -52,11 +53,13 @@ export const SequentialQueueBar: React.FC<SequentialQueueBarProps> = ({
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setIsPasting(false);
+      refreshPasteTarget();
     }
   };
 
   const isActive = status?.is_active ?? false;
   const queue = status?.queue ?? [];
+  const canPasteAutomatically = pasteTarget?.automaticPasteAvailable === true;
 
   return (
     <div className={`queue-controls-card theme-card-idle p-3 rounded-xl border transition-[background-color,border-color,box-shadow] ${isActive ? 'is-active' : ''}`}>
@@ -81,10 +84,20 @@ export const SequentialQueueBar: React.FC<SequentialQueueBarProps> = ({
         Toggle recording with <kbd className="theme-kbd px-1 py-0.5 rounded font-mono text-[9px] border">⌥⇧C</kbd>, then copy normally. Paste next with <kbd className="theme-kbd px-1 py-0.5 rounded font-mono text-[9px] border">⌥⇧X</kbd>.
       </p>
 
-      {queue.length > 0 && (
-        <div className="theme-text-muted mt-2 flex items-center gap-1.5 text-[10px]">
+      {queue.length > 0 && canPasteAutomatically && (
+        <div className="theme-text-muted mt-2 flex min-w-0 items-center gap-1.5 text-[10px]">
           <CornerDownLeft className="h-3 w-3 shrink-0" />
-          <span>Next paste targets <strong className="theme-title font-semibold">{pasteTarget?.name ?? 'the previous app'}</strong></span>
+          <span className="flex min-w-0 items-baseline gap-1">
+            <span className="shrink-0">Next paste targets</span>
+            <strong className="theme-title truncate font-semibold" title={pasteTarget.name}>{pasteTarget.name}</strong>
+          </span>
+        </div>
+      )}
+
+      {queue.length > 0 && pasteTarget && !canPasteAutomatically && (
+        <div className="theme-status-warning mt-2 flex items-start gap-1.5 rounded-lg border px-2 py-1.5 text-[10px] leading-relaxed">
+          <AlertTriangle className="mt-px h-3 w-3 shrink-0" />
+          <span>{pasteTarget.unavailableReason}</span>
         </div>
       )}
 
@@ -98,7 +111,7 @@ export const SequentialQueueBar: React.FC<SequentialQueueBarProps> = ({
             <button
               type="button"
               onClick={handlePopNext}
-              disabled={isPasting}
+              disabled={isPasting || !canPasteAutomatically}
               className="flex items-center space-x-1 px-2 py-1 rounded-lg bg-purple-900 hover:bg-purple-800 border border-purple-500/40 text-purple-200 text-[11px] font-semibold transition-colors cursor-pointer"
               title="Paste Next (⌥⇧X)"
             >
@@ -108,7 +121,7 @@ export const SequentialQueueBar: React.FC<SequentialQueueBarProps> = ({
             <button
               type="button"
               onClick={handlePasteAll}
-              disabled={isPasting}
+              disabled={isPasting || !canPasteAutomatically}
               className="flex items-center space-x-1 px-2 py-1 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-[11px] font-semibold shadow transition-colors cursor-pointer"
               title="Combine and Paste"
             >
