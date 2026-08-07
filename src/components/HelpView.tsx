@@ -18,51 +18,51 @@ import {
 } from 'lucide-react';
 import { ToolPageHeader } from './ToolPageHeader';
 
-const CLI_SYMLINK_COMMAND = 'sudo ln -s /Applications/Pasted.app/Contents/MacOS/pasted-cli /usr/local/bin/pasted-cli';
-const CLI_ALIAS_COMMAND = 'alias pasted-cli="/Applications/Pasted.app/Contents/MacOS/pasted-cli"';
+const CLI_SYMLINK_COMMAND = 'sudo ln -s /Applications/Pasted.app/Contents/MacOS/pasted /usr/local/bin/pasted';
+const CLI_ALIAS_COMMAND = 'alias pasted="/Applications/Pasted.app/Contents/MacOS/pasted"';
 
 const CLI_COMMAND_GROUPS = [
   {
     title: 'History',
     commands: [
-      { usage: 'pasted-cli copy "Hello"', description: 'Save a text clip. Omit the argument to read stdin.' },
-      { usage: 'cat server.log | pasted-cli copy', description: 'Pipe bounded text into Pasted history.' },
-      { usage: 'pasted-cli list [limit]', description: 'List recent active clips; defaults to 10.' },
-      { usage: 'pasted-cli search <query>', description: 'Search active clip text.' },
-      { usage: 'pasted-cli clear', description: 'Permanently remove unpinned, unprotected clips.' },
+      { usage: 'pasted copy "Hello"', description: 'Save a text clip. Omit the argument to read stdin.' },
+      { usage: 'cat server.log | pasted copy', description: 'Pipe bounded text into Pasted history.' },
+      { usage: 'pasted list [limit]', description: 'List recent active clips; defaults to 10.' },
+      { usage: 'pasted search <query>', description: 'Search active clip text.' },
+      { usage: 'pasted clear', description: 'Permanently remove unpinned, unprotected clips.' },
     ],
   },
   {
     title: 'Clip actions',
     commands: [
-      { usage: 'pasted-cli clip get <id> [--json]', description: 'Inspect one clip and its metadata.' },
-      { usage: 'pasted-cli clip pin|unpin <id>... [--json]', description: 'Set pin state explicitly for one or more clips.' },
-      { usage: 'pasted-cli clip protect|unprotect <id>... [--json]', description: 'Set protection explicitly for one or more clips.' },
-      { usage: 'pasted-cli clip trash|restore <id>... [--json]', description: 'Move clips into or out of Trash.' },
-      { usage: 'pasted-cli clip assign <bin-id|none> <id>... [--json]', description: 'Assign clips to one manual Bin, or remove their manual Bin.' },
+      { usage: 'pasted clip get <id> [--json]', description: 'Inspect one clip and its metadata.' },
+      { usage: 'pasted clip pin|unpin <id>... [--json]', description: 'Set pin state explicitly for one or more clips.' },
+      { usage: 'pasted clip protect|unprotect <id>... [--json]', description: 'Set protection explicitly for one or more clips.' },
+      { usage: 'pasted clip trash|restore <id>... [--json]', description: 'Move clips into or out of Trash.' },
+      { usage: 'pasted clip assign <bin-id|none> <id>... [--json]', description: 'Assign clips to one manual Bin, or remove their manual Bin.' },
     ],
   },
   {
     title: 'Bins & Transforms',
     commands: [
-      { usage: 'pasted-cli bin list [--json]', description: 'List Bins, counts, and saved ordering.' },
-      { usage: 'pasted-cli bin clips <bin-id> [--json]', description: 'List a Bin’s clips in persistent order.' },
-      { usage: 'pasted-cli bin order <bin-id> <clip-id>... [--json]', description: 'Replace a Bin’s complete saved clip order.' },
-      { usage: 'pasted-cli transform list', description: 'List reusable saved Transforms.' },
-      { usage: 'pasted-cli transform run <ref> [--text TEXT | --clip ID | --stdin] [--replace]', description: 'Preview a Transform, or replace a clip while preserving a revision.' },
-      { usage: 'pasted-cli operation list [--json]', description: 'Inspect experimental built-in and custom Operations.' },
-      { usage: 'pasted-cli operation run <ref> [--text TEXT | --clip ID | --stdin] [--json]', description: 'Run one experimental Operation through the shared executor.' },
-      { usage: 'pasted-cli pipeline list [--json]', description: 'Inspect experimental deterministic Pipelines.' },
-      { usage: 'pasted-cli pipeline run <ref> [--text TEXT | --clip ID | --stdin] [--json]', description: 'Run one experimental Pipeline through the shared executor.' },
+      { usage: 'pasted bin list [--json]', description: 'List Bins, counts, and saved ordering.' },
+      { usage: 'pasted bin clips <bin-id> [--json]', description: 'List a Bin’s clips in persistent order.' },
+      { usage: 'pasted bin order <bin-id> <clip-id>... [--json]', description: 'Replace a Bin’s complete saved clip order.' },
+      { usage: 'pasted transform list', description: 'List reusable saved Transforms.' },
+      { usage: 'pasted transform run <ref> [--text TEXT | --clip ID | --stdin] [--replace]', description: 'Preview a Transform, or replace a clip while preserving a revision.' },
+      { usage: 'pasted operation list [--json]', description: 'Inspect experimental built-in and custom Operations.' },
+      { usage: 'pasted operation run <ref> [--text TEXT | --clip ID | --stdin] [--json]', description: 'Run one experimental Operation through the shared executor.' },
+      { usage: 'pasted pipeline list [--json]', description: 'Inspect experimental deterministic Pipelines.' },
+      { usage: 'pasted pipeline run <ref> [--text TEXT | --clip ID | --stdin] [--json]', description: 'Run one experimental Pipeline through the shared executor.' },
     ],
   },
   {
     title: 'Maintenance',
     commands: [
-      { usage: 'pasted-cli diagnostics [--json]', description: 'Show installation, signing, paths, and runtime details.' },
-      { usage: 'pasted-cli ocr status [--json]', description: 'Inspect OCR backfill progress.' },
-      { usage: 'pasted-cli ocr scan', description: 'Process eligible images that have not been OCR’d.' },
-      { usage: 'pasted-cli reset --yes [--json]', description: 'Reset all Pasted data and preferences. This is destructive.' },
+      { usage: 'pasted diagnostics [--json]', description: 'Show installation, signing, paths, and runtime details.' },
+      { usage: 'pasted ocr status [--json]', description: 'Inspect OCR backfill progress.' },
+      { usage: 'pasted ocr scan', description: 'Process eligible images that have not been OCR’d.' },
+      { usage: 'pasted reset --yes [--json]', description: 'Reset all Pasted data and preferences. This is destructive.' },
     ],
   },
 ] as const;
@@ -152,7 +152,7 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
               <div>
                 <h3 className="theme-title text-lg font-bold flex items-center space-x-2">
                   <Terminal className="w-5 h-5 theme-status-info-text" />
-                  <span>Pasted Terminal CLI Tool (<code>pasted-cli</code>)</span>
+                  <span>Pasted Terminal CLI Tool (<code>pasted</code>)</span>
                 </h3>
                 <p className="theme-text-muted text-xs mt-1">
                   Pasted includes a standalone native command-line tool allowing terminal power users to pipe data into Pasted history, list clips, search from shell, or clear history.

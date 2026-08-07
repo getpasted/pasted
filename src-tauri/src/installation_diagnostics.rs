@@ -89,12 +89,12 @@ fn database_disk_usage(path: &Path) -> u64 {
 
 fn sibling_cli_path(app_path: &Path) -> Option<PathBuf> {
     let executable = if app_path.extension().is_some_and(|value| value == "app") {
-        app_path.join("Contents/MacOS/pasted-cli")
+        app_path.join("Contents/MacOS/pasted")
     } else {
         app_path.parent()?.join(if cfg!(windows) {
-            "pasted-cli.exe"
+            "pasted.exe"
         } else {
-            "pasted-cli"
+            "pasted"
         })
     };
     executable.is_file().then_some(executable)
@@ -215,7 +215,7 @@ mod tests {
     #[cfg(target_os = "macos")]
     #[test]
     fn parses_developer_id_codesign_output() {
-        let output = "Executable=/Applications/Pasted.app/Contents/MacOS/pasted\nAuthority=Developer ID Application: John Jacoby (ABCDE12345)\nTeamIdentifier=ABCDE12345\n";
+        let output = "Executable=/Applications/Pasted.app/Contents/MacOS/pasted-app\nAuthority=Developer ID Application: John Jacoby (ABCDE12345)\nTeamIdentifier=ABCDE12345\n";
         let (status, identity, team) = parse_codesign_details(output);
         assert_eq!(status, "Developer ID");
         assert_eq!(

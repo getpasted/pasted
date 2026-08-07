@@ -81,7 +81,7 @@ export const FEATURE_DEFINITIONS: readonly FeatureDefinition[] = [
   { id: 'transformations', settingKey: 'enableTransformations', label: 'Transformations', description: 'Run saved, advanced, and AI-assisted text workflows.', simple: false },
   { id: 'analytics', settingKey: 'enableAnalytics', label: 'Analytics & Insights', description: 'Explore clipboard usage and content trends.', simple: false },
   { id: 'activityLog', settingKey: 'enableActivityLog', label: 'Activity Log', description: 'Record and inspect important Pasted events.', simple: false },
-  { id: 'cli', settingKey: 'enableCli', label: 'Command-Line Interface', description: 'Use pasted-cli to automate clipboard workflows.', simple: false },
+  { id: 'cli', settingKey: 'enableCli', label: 'Command-Line Interface', description: 'Use pasted to automate clipboard workflows.', simple: false },
   { id: 'help', settingKey: 'enableHelp', label: 'Help & Documentation', description: 'Show in-app documentation and its navigation entry.', simple: true },
 ] as const;
 

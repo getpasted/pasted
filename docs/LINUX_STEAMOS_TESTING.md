@@ -66,6 +66,6 @@ Record `uname -m`, `/etc/os-release`, `$XDG_SESSION_TYPE`, and
 - Hotkeys and automatic paste either work or explain the Wayland capability
   limitation without consuming Queue items.
 - Quick HUD opens, accepts keyboard navigation, and returns focus correctly.
-- `pasted-cli` reports the same collection and clip state as the GUI.
+- `pasted` reports the same collection and clip state as the GUI.
 
 The AppImage is a test artifact until these checks pass on actual SteamOS.

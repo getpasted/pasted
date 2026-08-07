@@ -1,0 +1,274 @@
+name: Desktop release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+
+concurrency:
+  group: desktop-release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  metadata:
+    name: Verify release metadata
+    runs-on: ubuntu-22.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run test:release
+      - id: version
+        name: Read and verify version
+        shell: bash
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          if [[ "${GITHUB_REF_TYPE}" == "tag" && "${GITHUB_REF_NAME}" != "v${version}" ]]; then
+            echo "Tag ${GITHUB_REF_NAME} does not match package version v${version}." >&2
+            exit 1
+          fi
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+
+  macos:
+    name: Signed macOS universal DMG
+    needs: metadata
+    runs-on: macos-latest
+    environment: release-macos
+    env:
+      APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+      KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+      APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+      APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+      APPLE_API_PRIVATE_KEY: ${{ secrets.APPLE_API_PRIVATE_KEY }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: npm ci
+      - name: Require Apple release credentials
+        run: |
+          for name in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD KEYCHAIN_PASSWORD APPLE_API_ISSUER APPLE_API_KEY APPLE_API_PRIVATE_KEY; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "Missing release-macos secret: ${name}" >&2
+              exit 1
+            fi
+          done
+      - name: Import Developer ID certificate
+        run: |
+          certificate_path="$RUNNER_TEMP/developer-id.p12"
+          keychain_path="$RUNNER_TEMP/pasted-build.keychain-db"
+          printf '%s' "$APPLE_CERTIFICATE" | openssl base64 -d -A -out "$certificate_path"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$keychain_path"
+          security set-keychain-settings -lut 21600 "$keychain_path"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$keychain_path"
+          security import "$certificate_path" -P "$APPLE_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$keychain_path"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$keychain_path"
+          security list-keychain -d user -s "$keychain_path" login.keychain-db
+          identity="$(security find-identity -v -p codesigning "$keychain_path" | sed -n 's/.*"\(Developer ID Application:.*\)"/\1/p' | head -n 1)"
+          if [[ -z "$identity" ]]; then
+            echo 'Imported certificate did not provide a Developer ID Application identity.' >&2
+            exit 1
+          fi
+          echo "APPLE_SIGNING_IDENTITY=$identity" >> "$GITHUB_ENV"
+      - name: Install App Store Connect API key
+        run: |
+          key_path="$RUNNER_TEMP/AuthKey_${APPLE_API_KEY}.p8"
+          printf '%s' "$APPLE_API_PRIVATE_KEY" | openssl base64 -d -A -out "$key_path"
+          chmod 600 "$key_path"
+          echo "APPLE_API_KEY_PATH=$key_path" >> "$GITHUB_ENV"
+      - name: Build, sign, and notarize universal DMG
+        run: npm run tauri -- build --target universal-apple-darwin --bundles dmg
+      - name: Verify and stage macOS release
+        env:
+          RELEASE_VERSION: ${{ needs.metadata.outputs.version }}
+        run: |
+          dmg_path="$(find src-tauri/target/universal-apple-darwin/release/bundle/dmg -name 'Pasted_*.dmg' -type f -print -quit)"
+          bash scripts/verify-macos-release.sh "$dmg_path"
+          mkdir -p release-assets
+          cp "$dmg_path" "release-assets/Pasted_${RELEASE_VERSION}_universal.dmg"
+          cp src-tauri/target/universal-apple-darwin/release/pasted release-assets/pasted-macos-universal
+          cd release-assets
+          shasum -a 256 ./* > SHA256SUMS-macos.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Pasted-release-macOS
+          path: release-assets/*
+          if-no-files-found: error
+
+  linux:
+    name: Linux x86_64 AppImage
+    needs: metadata
+    runs-on: ubuntu-22.04
+    environment: release-linux
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf
+      - run: npm ci
+      - run: npm run tauri -- build --bundles appimage
+      - name: Stage Linux release
+        run: |
+          mkdir -p release-assets
+          cp src-tauri/target/release/bundle/appimage/*.AppImage release-assets/
+          cp src-tauri/target/release/pasted release-assets/pasted-linux-x86_64
+          cd release-assets
+          sha256sum ./* > SHA256SUMS-linux.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Pasted-release-Linux
+          path: release-assets/*
+          if-no-files-found: error
+
+  windows:
+    name: Signed Windows x86_64 installers
+    needs: metadata
+    runs-on: windows-latest
+    environment: release-windows
+    env:
+      WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+      WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: npm ci
+      - name: Import Windows signing certificate
+        shell: pwsh
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:WINDOWS_CERTIFICATE) -or [string]::IsNullOrWhiteSpace($env:WINDOWS_CERTIFICATE_PASSWORD)) {
+            throw 'Missing release-windows secrets: WINDOWS_CERTIFICATE and WINDOWS_CERTIFICATE_PASSWORD'
+          }
+          $pfxPath = Join-Path $env:RUNNER_TEMP 'pasted-signing.pfx'
+          [IO.File]::WriteAllBytes($pfxPath, [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE))
+          $password = ConvertTo-SecureString $env:WINDOWS_CERTIFICATE_PASSWORD -AsPlainText -Force
+          $certificate = Import-PfxCertificate -FilePath $pfxPath -CertStoreLocation Cert:\CurrentUser\My -Password $password
+          if (-not $certificate.Thumbprint) { throw 'The PFX did not contain a usable code-signing certificate.' }
+          "WINDOWS_CERTIFICATE_THUMBPRINT=$($certificate.Thumbprint)" | Out-File -FilePath $env:GITHUB_ENV -Append
+          $signingConfig = @{
+            bundle = @{
+              windows = @{
+                certificateThumbprint = $certificate.Thumbprint
+                digestAlgorithm = 'sha256'
+                timestampUrl = 'http://timestamp.digicert.com'
+              }
+            }
+          } | ConvertTo-Json -Depth 5
+          $signingConfig | Set-Content src-tauri/tauri.windows.signing.conf.json
+      - name: Build signed Windows installers
+        run: npm run tauri -- build --bundles nsis,msi --config src-tauri/tauri.windows.signing.conf.json
+      - name: Sign standalone Windows CLI
+        shell: pwsh
+        run: |
+          $signTool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" |
+            Sort-Object FullName -Descending |
+            Select-Object -First 1
+          if (-not $signTool) { throw 'Could not locate signtool.exe on the Windows runner.' }
+          & $signTool.FullName sign /sha1 $env:WINDOWS_CERTIFICATE_THUMBPRINT /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 src-tauri/target/release/pasted.exe
+          if ($LASTEXITCODE -ne 0) { throw 'Signing pasted.exe failed.' }
+      - name: Verify and stage Windows release
+        shell: pwsh
+        run: |
+          $signedFiles = Get-ChildItem -Path @(
+              'src-tauri/target/release/pasted-app.exe',
+              'src-tauri/target/release/pasted.exe',
+              'src-tauri/target/release/bundle/nsis/*-setup.exe',
+              'src-tauri/target/release/bundle/msi/*.msi'
+            )
+          foreach ($file in $signedFiles) {
+            $signature = Get-AuthenticodeSignature $file.FullName
+            if ($signature.Status -ne 'Valid') { throw "Invalid signature on $($file.FullName): $($signature.Status)" }
+          }
+          New-Item -ItemType Directory -Force release-assets | Out-Null
+          Copy-Item src-tauri/target/release/bundle/nsis/*-setup.exe release-assets/
+          Copy-Item src-tauri/target/release/bundle/msi/*.msi release-assets/
+          Copy-Item src-tauri/target/release/pasted.exe release-assets/pasted-windows-x86_64.exe
+          Get-ChildItem release-assets -File | ForEach-Object {
+            "{0}  {1}" -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower(), $_.Name
+          } | Set-Content release-assets/SHA256SUMS-windows.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Pasted-release-Windows
+          path: release-assets/*
+          if-no-files-found: error
+
+  github-release:
+    name: Assemble draft GitHub Release
+    if: github.ref_type == 'tag'
+    needs: [metadata, macos, linux, windows]
+    runs-on: ubuntu-22.04
+    environment: release-publish
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: Pasted-release-*
+          path: release-assets
+          merge-multiple: false
+      - name: Generate Homebrew Cask
+        env:
+          RELEASE_VERSION: ${{ needs.metadata.outputs.version }}
+        run: |
+          dmg_path="$(find release-assets -type f -name "Pasted_${RELEASE_VERSION}_universal.dmg" -print -quit)"
+          if [[ -z "$dmg_path" ]]; then
+            echo "The universal macOS DMG was not downloaded." >&2
+            exit 1
+          fi
+          sha256="$(sha256sum "$dmg_path" | cut -d ' ' -f 1)"
+          node scripts/render-homebrew-cask.js \
+            --version "$RELEASE_VERSION" \
+            --sha256 "$sha256" \
+            --output release-assets/pasted.rb
+      - name: Create draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mapfile -d '' assets < <(find release-assets -type f -print0 | sort -z)
+          gh release create "$GITHUB_REF_NAME" "${assets[@]}" \
+            --repo "$GITHUB_REPOSITORY" \
+            --verify-tag \
+            --draft \
+            --title "Pasted ${{ needs.metadata.outputs.version }}" \
+            --generate-notes

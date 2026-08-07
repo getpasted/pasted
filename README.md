@@ -2,7 +2,7 @@
 
 Pasted is a privacy-first clipboard manager and transformation workspace built with Tauri, React, TypeScript, Rust, and SQLite.
 
-Pasted 1.0 is distributed first for Apple Silicon Macs as a signed and notarized DMG. Windows and Linux support remains under active validation and is not part of the initial support promise.
+Pasted 1.0 is distributed for Apple Silicon and Intel Macs as one signed and notarized universal DMG. Windows and Linux packages remain under active validation and are not part of the initial support promise.
 
 ## What Pasted does
 
@@ -14,7 +14,7 @@ Pasted 1.0 is distributed first for Apple Silicon Macs as a signed and notarized
 - Builds reusable Transforms from deterministic Operations or an explicitly connected intelligence provider.
 - Preserves restorable revisions for content-changing actions and records important events in the Activity Log.
 - Includes seven appearance choices: System, Cool, Dark, Warm, Vampire, Flux, and 808.
-- Exposes meaningful clipboard-management workflows through the bundled `pasted-cli` command.
+- Exposes meaningful clipboard-management workflows through the bundled `pasted` command.
 - Lets each major feature be disabled for a simpler clipboard manager.
 
 ## Privacy and safety
@@ -28,7 +28,7 @@ Pasted sends clip content outside the app only when you explicitly run an intell
 ## macOS requirements
 
 - macOS 12 or newer
-- Apple Silicon for the initial 1.0 DMG
+- Apple Silicon or Intel processor
 - Accessibility permission for global hotkeys and automatic Queue/HUD pasting
 
 OCR uses Apple Vision and is available on macOS. Pasted explains missing permissions without removing queued content or silently treating an automation failure as success.
@@ -47,10 +47,10 @@ Shortcuts can be changed or disabled in Settings.
 
 ## CLI
 
-The app bundle includes `pasted-cli`. Install it from **Settings → About**, or add the bundled executable to your `PATH` manually:
+The app bundle includes `pasted`. Install it from **Settings → About**, or add the bundled executable to your `PATH` manually:
 
 ```sh
-sudo ln -s /Applications/Pasted.app/Contents/MacOS/pasted-cli /usr/local/bin/pasted-cli
+sudo ln -s /Applications/Pasted.app/Contents/MacOS/pasted /usr/local/bin/pasted
 ```
 
 The complete command reference is available inside **Help & Documentation → CLI Commands**. Commands that return structured records support stable JSON output where applicable.

@@ -27,6 +27,14 @@ release-artifacts
 .DS_Store
 Thumbs.db
 
+# Signing credentials and generated signing configuration
+*.p12
+*.pfx
+*.mobileprovision
+*.key
+AuthKey_*.p8
+src-tauri/tauri.windows.signing.conf.json
+
 # IDEs
 .vscode/*
 !.vscode/extensions.json

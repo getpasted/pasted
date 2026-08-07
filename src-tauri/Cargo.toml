@@ -4,18 +4,18 @@ version = "1.0.0"
 description = "Pasted - Native, Subscription-Free Clipboard Manager"
 authors = ["Antigravity"]
 edition = "2021"
-default-run = "pasted"
+default-run = "pasted-app"
 
 [lib]
 name = "pasted_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [[bin]]
-name = "pasted"
+name = "pasted-app"
 path = "src/main.rs"
 
 [[bin]]
-name = "pasted-cli"
+name = "pasted"
 path = "src/bin/pasted_cli.rs"
 
 [build-dependencies]

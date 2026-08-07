@@ -1,0 +1,119 @@
+name: Desktop builds
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: desktop-builds-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - name: Install Linux test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev
+      - run: npm ci
+      - run: npm run test:all
+
+  package:
+    name: Package ${{ matrix.name }}
+    needs: validate
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS universal
+            os: macos-latest
+            artifact: Pasted-macOS-universal
+          - name: Linux x86_64
+            os: ubuntu-22.04
+            artifact: Pasted-Linux-x86_64
+          - name: Windows x86_64
+            os: windows-latest
+            artifact: Pasted-Windows-x86_64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ runner.os == 'macOS' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - name: Install Linux build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf
+      - run: npm ci
+      - name: Build macOS test DMG
+        if: runner.os == 'macOS'
+        env:
+          APPLE_SIGNING_IDENTITY: '-'
+        run: npm run tauri -- build --target universal-apple-darwin --bundles dmg
+      - name: Build Linux AppImage
+        if: runner.os == 'Linux'
+        run: npm run tauri -- build --bundles appimage
+      - name: Build Windows installer
+        if: runner.os == 'Windows'
+        run: npm run tauri -- build --bundles nsis
+      - name: Stage macOS artifacts
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p ci-artifacts
+          cp src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg ci-artifacts/
+          cp src-tauri/target/universal-apple-darwin/release/pasted ci-artifacts/pasted-macos-universal
+          cd ci-artifacts
+          shasum -a 256 ./* > SHA256SUMS-macos.txt
+      - name: Stage Linux artifacts
+        if: runner.os == 'Linux'
+        run: |
+          mkdir -p ci-artifacts
+          cp src-tauri/target/release/bundle/appimage/*.AppImage ci-artifacts/
+          cp src-tauri/target/release/pasted ci-artifacts/pasted-linux-x86_64
+          cd ci-artifacts
+          sha256sum ./* > SHA256SUMS-linux-x86_64.txt
+      - name: Stage Windows artifacts
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force ci-artifacts | Out-Null
+          Copy-Item src-tauri/target/release/bundle/nsis/*-setup.exe ci-artifacts/
+          Copy-Item src-tauri/target/release/pasted.exe ci-artifacts/pasted-windows-x86_64.exe
+          Get-ChildItem ci-artifacts -File | ForEach-Object {
+            "{0}  {1}" -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower(), $_.Name
+          } | Set-Content ci-artifacts/SHA256SUMS-windows-x86_64.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ci-artifacts/*
+          if-no-files-found: error
