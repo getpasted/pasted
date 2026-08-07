@@ -14,6 +14,7 @@ const rootLockPackage = packageLock.packages?.[''];
 const packageScripts = packageJson.scripts ?? {};
 const gitignore = fs.readFileSync('.gitignore', 'utf8');
 const releaseWorkflow = fs.readFileSync('.github/workflows/desktop-release.yml', 'utf8');
+const universalMacCliBuild = fs.readFileSync('scripts/build-macos-universal-cli.sh', 'utf8');
 
 assert.equal(packageJson.name, 'pasted', 'Frontend package must use the Pasted product name');
 assert.equal(packageLock.name, packageJson.name, 'Package lock name must match package.json');
@@ -96,6 +97,11 @@ assert.match(
   releaseWorkflow,
   /bash scripts\/build-macos-universal-cli\.sh[\s\S]*tauri -- build --target universal-apple-darwin/,
   'The hosted macOS release must stage a universal CLI before Tauri bundles the universal app',
+);
+assert.match(
+  universalMacCliBuild,
+  /lipo -verify_arch arm64 x86_64/,
+  'The universal CLI audit must use Apple architecture names',
 );
 assert.match(
   releaseWorkflow,
