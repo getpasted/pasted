@@ -1,16 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Pipeline, PipelineStep, Operation } from '../types';
-import { Sliders, Plus, Trash2, Play, ArrowDown, ArrowUp, GripVertical, Wrench, RotateCcw } from 'lucide-react';
+import { Sliders, Plus, Trash2, Play, RotateCcw } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { useStableVerticalReorder } from '../hooks/useStableVerticalReorder';
 import { HotkeyRecorder } from './HotkeyRecorder';
-import { OperationEditorModal } from './OperationEditorModal';
 import { startWindowDrag } from '../utils/windowDrag';
 import { AppDialog } from './AppDialog';
 import { AppDialogBody, AppDialogButton, AppDialogFooter, AppDialogHeader, AppDialogHeading } from './AppDialogLayout';
 import { MenuSelect, type MenuSelectOption } from './MenuSelect';
 import { startPipelinePreview, type CancellableTransformRequest } from '../utils/transformExecution';
 import { PlaygroundRunStatus, type PlaygroundRunState } from './PlaygroundRunStatus';
+import { FloatingActionStrip } from './FloatingActionStrip';
 
 export interface PipelineEditorStep {
   id: string;
@@ -118,13 +118,10 @@ const StepReorderCard: React.FC<{
   step: PipelineEditorStep;
   idx: number;
   totalSteps: number;
-  onMoveUp: () => void;
-  onMoveDown: () => void;
   onInsertBelow: () => void;
   onRemove: () => void;
   onUpdate: (updates: Partial<PipelineEditorStep>) => void;
   operationsList: Operation[];
-  setIsOpModalOpen: (open: boolean) => void;
   isDragging: boolean;
   reorderOffsetY: number;
   onReorderPointerDown: (event: React.PointerEvent) => void;
@@ -132,13 +129,10 @@ const StepReorderCard: React.FC<{
   step,
   idx,
   totalSteps,
-  onMoveUp,
-  onMoveDown,
   onInsertBelow,
   onRemove,
   onUpdate,
   operationsList,
-  setIsOpModalOpen,
   isDragging,
   reorderOffsetY,
   onReorderPointerDown,
@@ -163,56 +157,24 @@ const StepReorderCard: React.FC<{
   return (
       <div
         data-stable-reorder-id={step.id}
+        onPointerDown={(event) => {
+          const target = event.target as HTMLElement;
+          if (target.closest('button, input, textarea, label, [role="button"], [role="menu"]')) return;
+          onReorderPointerDown(event);
+        }}
         style={reorderOffsetY !== 0 || isDragging ? {
           transform: `translateY(${reorderOffsetY}px)`,
           zIndex: isDragging ? 'var(--layer-drag)' : 1,
         } : undefined}
-        className={`filter-step-card p-3.5 rounded-xl border space-y-3 relative group select-none transition-[background-color,border-color,box-shadow,opacity,transform] duration-100 ease-out ${
+        className={`filter-step-card cursor-grab active:cursor-grabbing touch-none p-3.5 rounded-xl border space-y-3 relative group select-none transition-[background-color,border-color,box-shadow,opacity,transform] duration-100 ease-out ${
           isDragging ? 'is-dragging' : ''
         }`}
       >
-        {/* Step Header */}
-        <div className="theme-divider flex items-center justify-between border-b pb-2">
-          {/* Left: Step Number Badge, Drag Handle, Arrow Buttons */}
-          <div className="flex items-center space-x-1.5">
-            <span className="theme-status-info w-5 h-5 rounded-full text-[11px] font-bold flex items-center justify-center font-mono border mr-0.5">
-              {idx + 1}
-            </span>
-            <button
-              type="button"
-              onPointerDown={onReorderPointerDown}
-              className="step-drag-handle theme-icon-button titlebar-no-drag p-1.5 rounded touch-none select-none shrink-0 border outline-none"
-              style={{ touchAction: 'none' }}
-              title="Reorder Step"
-            >
-              <GripVertical className="w-4 h-4 pointer-events-none" />
-            </button>
-            <button
-              type="button"
-              disabled={idx === 0}
-              onClick={onMoveUp}
-              className="theme-icon-button p-1 border disabled:opacity-20 rounded transition-colors"
-              title="Move Up"
-            >
-              <ArrowUp className="w-3.5 h-3.5" />
-            </button>
-            <button
-              type="button"
-              disabled={idx === totalSteps - 1}
-              onClick={onMoveDown}
-              className="theme-icon-button p-1 border disabled:opacity-20 rounded transition-colors"
-              title="Move Down"
-            >
-              <ArrowDown className="w-3.5 h-3.5" />
-            </button>
-          </div>
-
-        {/* Right: Insert Below & Remove Step Actions */}
-        <div className="flex items-center space-x-1.5">
+        <FloatingActionStrip label="Pipeline step actions" revealOnGroupInteraction>
           <button
             type="button"
             onClick={onInsertBelow}
-            className="theme-icon-button p-1 border rounded transition-colors"
+            className="floating-action-button"
             title="Insert Below"
           >
             <Plus className="w-3.5 h-3.5" />
@@ -222,35 +184,23 @@ const StepReorderCard: React.FC<{
             <button
               type="button"
               onClick={onRemove}
-              className="theme-icon-button theme-danger-text p-1 border rounded transition-colors"
+              className="floating-action-button is-danger"
               title="Remove Step"
             >
               <Trash2 className="w-3.5 h-3.5" />
             </button>
           )}
-        </div>
-      </div>
+        </FloatingActionStrip>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-        <div>
-          <div className="flex items-center justify-between mb-1">
-            <label className="block theme-text-muted">Step Operation:</label>
-            <button
-              type="button"
-              onClick={() => setIsOpModalOpen(true)}
-              className="theme-status-info-text text-[10px] flex items-center space-x-0.5 hover:underline"
-              title="New Operation"
-            >
-              <Wrench className="w-2.5 h-2.5" />
-              <span>+ New Operation</span>
-            </button>
-          </div>
+        <div className="col-span-2 flex items-center gap-3 pr-16">
+          <label className="shrink-0 theme-text-muted">Step Operation:</label>
           <MenuSelect
             value={step.operation_ref}
             options={operationOptions}
             onChange={(value) => onUpdate({ operation_ref: value })}
             label={`Step ${idx + 1} operation`}
-            className="w-full font-sans"
+            className="min-w-0 flex-1 font-sans"
             compact
           />
         </div>
@@ -387,7 +337,6 @@ export const PipelineEditorModal: React.FC<PipelineEditorModalProps> = ({
   const testRequestIdRef = useRef(0);
   const activeTestExecutionRef = useRef<CancellableTransformRequest<string> | null>(null);
   const [operationsList, setOperationsList] = useState<Operation[]>([]);
-  const [isOpModalOpen, setIsOpModalOpen] = useState(false);
   const stepListRef = useRef<HTMLDivElement>(null);
   const initialSnapshotRef = useRef('');
   const {
@@ -483,28 +432,6 @@ export const PipelineEditorModal: React.FC<PipelineEditorModalProps> = ({
 
   const handleAddStep = () => {
     setSteps((prev) => [...prev, createDefaultStep('builtin:smart_punctuation', null)]);
-  };
-
-  const handleMoveStepUp = (index: number) => {
-    if (index <= 0) return;
-    setSteps((prev) => {
-      const copy = [...prev];
-      const temp = copy[index - 1];
-      copy[index - 1] = copy[index];
-      copy[index] = temp;
-      return copy;
-    });
-  };
-
-  const handleMoveStepDown = (index: number) => {
-    if (index >= steps.length - 1) return;
-    setSteps((prev) => {
-      const copy = [...prev];
-      const temp = copy[index + 1];
-      copy[index + 1] = copy[index];
-      copy[index] = temp;
-      return copy;
-    });
   };
 
   const handleInsertStepAt = (index: number) => {
@@ -629,14 +556,11 @@ export const PipelineEditorModal: React.FC<PipelineEditorModalProps> = ({
               <label className="block text-xs font-semibold uppercase tracking-wider mb-2 theme-text-muted">
                 Global Hotkey Shortcut:
               </label>
-              <div className="border rounded-xl p-2 flex items-center justify-between theme-input">
-                <span className="text-xs theme-text-muted">Shortcut:</span>
-                <HotkeyRecorder
-                  value={shortcut}
-                  placeholder="+ Set Hotkey"
-                  onChange={(newShortcut) => setShortcut(newShortcut)}
-                />
-              </div>
+              <HotkeyRecorder
+                value={shortcut}
+                placeholder="+ Set Hotkey"
+                onChange={(newShortcut) => setShortcut(newShortcut)}
+              />
             </div>
           </div>
 
@@ -696,13 +620,10 @@ export const PipelineEditorModal: React.FC<PipelineEditorModalProps> = ({
                     step={step}
                     idx={idx}
                     totalSteps={steps.length}
-                    onMoveUp={() => handleMoveStepUp(idx)}
-                    onMoveDown={() => handleMoveStepDown(idx)}
                     onInsertBelow={() => handleInsertStepAt(idx + 1)}
                     onRemove={() => handleRemoveStep(step.id)}
                     onUpdate={(updates) => handleUpdateStep(step.id, updates)}
                     operationsList={operationsList}
-                    setIsOpModalOpen={setIsOpModalOpen}
                     isDragging={activeStepId === step.id}
                     reorderOffsetY={stepReorderOffsets[step.id] ?? 0}
                     onReorderPointerDown={(event) => startStepPointerReorder(step.id, event)}
@@ -740,13 +661,6 @@ export const PipelineEditorModal: React.FC<PipelineEditorModalProps> = ({
             <AppDialogButton variant="primary" onClick={handleSavePipeline} disabled={isSaving}>{isSaving ? 'Saving…' : 'Save Pipeline'}</AppDialogButton>
           </div>
         </AppDialogFooter>
-      {/* Embedded Operation Editor Modal */}
-      <OperationEditorModal
-        operation={null}
-        isOpen={isOpModalOpen}
-        onClose={() => setIsOpModalOpen(false)}
-        onSaveSuccess={refreshOps}
-      />
       </>}
     </AppDialog>
   );

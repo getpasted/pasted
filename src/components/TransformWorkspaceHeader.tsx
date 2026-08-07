@@ -43,7 +43,6 @@ export function TransformWorkspaceHeader({
         >
           <Settings2 className="w-4 h-4" />
           <span>Advanced</span>
-          <span className="theme-status-warning rounded px-1 py-0.5 text-[8px] font-bold uppercase tracking-wide">Experimental</span>
           <span className="transform-workspace-count font-mono">{operationCount}</span>
         </button>
         <button
