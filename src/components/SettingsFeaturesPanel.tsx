@@ -88,7 +88,7 @@ export function SettingsFeaturesPanel({ settings, onUpdateSettings }: SettingsFe
           const Icon = FEATURE_ICONS[feature.id];
           const enabled = settings[feature.settingKey];
           return (
-            <section key={feature.id} className={`settings-feature-card theme-card-idle rounded-xl border p-4 ${enabled ? 'is-enabled' : ''}`}>
+            <section key={feature.id} className={`settings-feature-card theme-card-idle border p-4 ${enabled ? 'is-enabled' : ''}`}>
               <div className="flex items-start justify-between gap-3">
                 <div className="flex min-w-0 items-start gap-3">
                   <span className="settings-feature-icon flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border">

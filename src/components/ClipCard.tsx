@@ -7,6 +7,7 @@ import { clipDeleteLabel, UI_COPY } from '../utils/uiCopy';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { getClipSearchHighlightTerms, type ClipSearchHighlightField } from '../utils/clipSearch';
 import { FloatingActionStrip } from './FloatingActionStrip';
+import { OverflowText } from './OverflowText';
 import { useFeatures } from '../hooks/useFeatures';
 import {
   Code,
@@ -203,8 +204,8 @@ function ClipFileThumbnail({
   if (mode === 'off' || previewIndexes.length === 0 || preview === null) {
     return (
       <div className="clip-thumbnail-stage flex items-center gap-2 p-2 rounded border">
-        <Files className="h-4 w-4 shrink-0 text-blue-400" />
-        <span className="truncate">{getClipFileSummary(clip)}</span>
+        <Files className="theme-status-info-text h-4 w-4 shrink-0" />
+        <OverflowText text={getClipFileSummary(clip)} className="truncate" />
         {paths.length > 1 && (
           <span className="theme-text-muted ml-auto shrink-0 text-[10px]">{paths.length} files</span>
         )}
@@ -233,9 +234,7 @@ function ClipFileThumbnail({
               {preview.textContent}
             </pre>
           )}
-          <span className="theme-surface theme-text-muted absolute bottom-1 left-1 max-w-[calc(100%-0.5rem)] truncate rounded-md px-1.5 py-0.5 text-[9px] shadow-sm">
-            {getClipFileSummary(clip)}
-          </span>
+          <OverflowText text={getClipFileSummary(clip)} className="theme-surface theme-text-muted absolute bottom-1 left-1 max-w-[calc(100%-0.5rem)] truncate rounded-md px-1.5 py-0.5 text-[9px] shadow-sm" />
         </>
       )}
     </div>
@@ -347,13 +346,13 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
       case 'code':
         return <Code className="w-3.5 h-3.5 theme-status-success-text" />;
       case 'image':
-        return <ImageIcon className="w-3.5 h-3.5 text-pink-400" />;
+        return <ImageIcon className="theme-image-text w-3.5 h-3.5" />;
       case 'color':
         return <Palette className="w-3.5 h-3.5 theme-status-warning-text" />;
       case 'link':
-        return <LinkIcon className="w-3.5 h-3.5 text-blue-400" />;
+        return <LinkIcon className="theme-status-info-text w-3.5 h-3.5" />;
       case 'file':
-        return <Files className="w-3.5 h-3.5 text-blue-400" />;
+        return <Files className="theme-status-info-text w-3.5 h-3.5" />;
       default:
         return <FileText className="w-3.5 h-3.5 theme-text-muted" />;
     }
@@ -486,7 +485,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
         window.addEventListener('pointercancel', handlePointerCancel);
         window.addEventListener('keydown', handleKeyDown);
       }}
-      className={`clip-card relative rounded-xl cursor-pointer select-none border transition-[background-color,border-color,box-shadow,opacity,transform] duration-75 ease-out ${paddingClass} ${
+      className={`clip-card relative cursor-pointer select-none border transition-[background-color,border-color,box-shadow,opacity,transform] duration-75 ease-out ${paddingClass} ${
         isDeleting
           ? 'clip-card-deleting'
           : `${isSelected
@@ -501,7 +500,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
           <div className="clip-type-icon theme-badge p-1 rounded border">
             {getIcon()}
           </div>
-          <span className="font-medium theme-text-main truncate max-w-[120px]">
+          <span className="font-medium theme-text-main truncate max-w-[120px]" title={clip.source_app}>
             <HighlightedClipText text={clip.source_app} query={searchQuery} field="app" />
           </span>
         </div>
@@ -670,7 +669,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
       {features.notes && noteSummary && (
         <div className="clip-note-summary mt-2 pt-1.5 border-t flex items-center space-x-1.5 text-[11px] font-sans italic">
           <StickyNote className="w-3 h-3 shrink-0" />
-          <span className="truncate">
+          <span className="truncate" title={noteSummary}>
             <HighlightedClipText text={noteSummary} query={searchQuery} field="note" />
           </span>
         </div>

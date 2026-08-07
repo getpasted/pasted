@@ -73,12 +73,12 @@ export function SettingsSyncPanel({
             <button
               type="button"
               onClick={handleExport}
-              className="theme-primary-button flex items-center space-x-1.5 px-3 py-2 border font-semibold rounded-xl text-xs cursor-pointer"
+              className="theme-primary-button ui-control-radius flex items-center space-x-1.5 px-3 py-2 border font-semibold text-xs cursor-pointer"
             >
               <Download className="w-4 h-4" />
               <span>Export</span>
             </button>
-            <label className="theme-secondary-button flex items-center space-x-1.5 px-3 py-2 font-semibold rounded-xl text-xs border cursor-pointer">
+            <label className="theme-secondary-button ui-control-radius flex items-center space-x-1.5 px-3 py-2 font-semibold text-xs border cursor-pointer">
               <Upload className="w-4 h-4" />
               <span>Import</span>
               <input

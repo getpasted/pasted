@@ -1,6 +1,7 @@
 import { FolderInput, History, LoaderCircle, RotateCcw, Workflow, X } from 'lucide-react';
 import type { ClipVersion } from '../types';
 import { formatClipDateTime } from '../utils/date';
+import { OverflowText } from './OverflowText';
 
 interface ClipRevisionHistoryProps {
   versions: ClipVersion[];
@@ -88,7 +89,7 @@ export function ClipRevisionHistory({
                     <span>{version.text_content.length} chars,</span>
                     <span>{version.restores_organization ? 'Content + Bin' : 'Content'}</span>
                   </div>
-                  <p className="clip-revision-history-preview text-xs font-mono truncate">{version.text_content}</p>
+                  <OverflowText as="p" text={version.text_content} className="clip-revision-history-preview text-xs font-mono truncate" />
                 </div>
                 {!readOnly && (
                   <button

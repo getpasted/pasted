@@ -20,10 +20,15 @@ import {
   FileWarning,
   ListOrdered,
   ClipboardPaste,
+  LogIn,
+  LogOut,
   Pin,
+  Rocket,
+  Settings2,
 } from 'lucide-react';
 import { ToolPageHeader } from './ToolPageHeader';
 import { MenuSelect } from './MenuSelect';
+import { OverflowText } from './OverflowText';
 
 export interface ActivityLog {
   id: number;
@@ -73,6 +78,36 @@ export const ActivityLogView: React.FC = () => {
           <div className="theme-status-warning flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold">
             <Pause className="w-3.5 h-3.5" />
             <span>Manually Paused</span>
+          </div>
+        );
+      case 'app_started':
+        return (
+          <div className="theme-status-success flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold">
+            <LogIn className="w-3.5 h-3.5" />
+            <span>App Opened</span>
+          </div>
+        );
+      case 'app_exit_requested':
+        return (
+          <div className="theme-badge flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold">
+            <LogOut className="w-3.5 h-3.5" />
+            <span>App Quit</span>
+          </div>
+        );
+      case 'setting_changed':
+      case 'settings_changed':
+        return (
+          <div className="theme-status-info flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold">
+            <Settings2 className="w-3.5 h-3.5" />
+            <span>Settings</span>
+          </div>
+        );
+      case 'autostart_enabled':
+      case 'autostart_disabled':
+        return (
+          <div className={`${type === 'autostart_enabled' ? 'theme-status-success' : 'theme-badge'} flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold`}>
+            <Rocket className="w-3.5 h-3.5" />
+            <span>{type === 'autostart_enabled' ? 'Login Start On' : 'Login Start Off'}</span>
           </div>
         );
       case 'recording_manually_resumed':
@@ -319,7 +354,10 @@ export const ActivityLogView: React.FC = () => {
     if (selectedTypeFilter === 'skipped') return l.event_type === 'clipboard_capture_ignored';
     if (selectedTypeFilter === 'transforms') return l.event_type.startsWith('transform_') || l.event_type.startsWith('transformation_') || l.event_type.startsWith('bin_transform_') || l.event_type === 'clip_transformed' || l.event_type === 'intelligence_connection_fallback';
     if (selectedTypeFilter === 'queue') return l.event_type.startsWith('queue_');
+    if (selectedTypeFilter === 'hud') return l.event_type.startsWith('hud_');
     if (selectedTypeFilter === 'bins') return l.event_type.startsWith('bin_') || l.event_type.includes('_bin_');
+    if (selectedTypeFilter === 'app') return l.event_type.startsWith('app_');
+    if (selectedTypeFilter === 'settings') return l.event_type.startsWith('setting_') || l.event_type.startsWith('settings_') || l.event_type.startsWith('autostart_');
     return true;
   });
 
@@ -338,19 +376,22 @@ export const ActivityLogView: React.FC = () => {
             className="min-w-44"
             options={[
               { value: 'all', label: 'All Event Types' },
-              { value: 'trashed', label: 'Trashed' },
-              { value: 'restored', label: 'Restored from Trash' },
-              { value: 'revisions', label: 'Revision Restored' },
-              { value: 'purged', label: 'Permanently Deleted' },
-              { value: 'protection', label: 'Protection Changed' },
-              { value: 'pinning', label: 'Pinning Changed' },
-              { value: 'paused', label: 'Recording Paused' },
-              { value: 'resumed', label: 'Recording Resumed' },
-              { value: 'notes', label: 'Notes Updated' },
-              { value: 'skipped', label: 'Skipped Captures' },
-              { value: 'transforms', label: 'Transforms' },
-              { value: 'queue', label: 'Copy Queue' },
-              { value: 'bins', label: 'Bins' },
+              { value: 'app', label: 'App Opened or Quit', group: 'Application' },
+              { value: 'settings', label: 'Settings Changed', group: 'Application' },
+              { value: 'paused', label: 'Recording Paused', group: 'Capture' },
+              { value: 'resumed', label: 'Recording Resumed', group: 'Capture' },
+              { value: 'skipped', label: 'Skipped Captures', group: 'Capture' },
+              { value: 'trashed', label: 'Trashed', group: 'History' },
+              { value: 'restored', label: 'Restored from Trash', group: 'History' },
+              { value: 'revisions', label: 'Revision Restored', group: 'History' },
+              { value: 'purged', label: 'Permanently Deleted', group: 'History' },
+              { value: 'protection', label: 'Protection Changed', group: 'Organization' },
+              { value: 'pinning', label: 'Pinning Changed', group: 'Organization' },
+              { value: 'notes', label: 'Notes Updated', group: 'Organization' },
+              { value: 'bins', label: 'Bins', group: 'Organization' },
+              { value: 'transforms', label: 'Transforms', group: 'Automation' },
+              { value: 'queue', label: 'Copy Queue', group: 'Automation' },
+              { value: 'hud', label: 'Quick HUD', group: 'Automation' },
             ]}
           />
 
@@ -361,14 +402,14 @@ export const ActivityLogView: React.FC = () => {
               placeholder="Search activity..."
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
-              className="theme-input border rounded-xl pl-8 pr-3 py-1.5 text-xs focus:outline-none w-44"
+              className="theme-input ui-field-radius border pl-8 pr-3 py-1.5 text-xs focus:outline-none w-44"
             />
           </div>
 
           <button
             onClick={handleClearLogs}
             disabled={logs.length === 0}
-            className="theme-secondary-button flex items-center space-x-1.5 px-3 py-1.5 disabled:opacity-40 border rounded-xl text-xs font-semibold transition-[background-color,border-color,color,opacity] cursor-pointer"
+            className="theme-secondary-button ui-control-radius flex h-[34px] items-center space-x-1.5 px-3 disabled:opacity-40 border text-xs font-semibold transition-[background-color,border-color,color,opacity] cursor-pointer"
           >
             <Trash2 className="w-3.5 h-3.5" />
             <span>Clear Log</span>
@@ -392,9 +433,7 @@ export const ActivityLogView: React.FC = () => {
             >
               <div className="flex items-center space-x-3.5 min-w-0 flex-1 pr-4">
                 {getEventBadge(log.event_type, log.description)}
-                <span className="theme-text-main text-xs truncate font-medium">
-                  {log.description}
-                </span>
+                <OverflowText text={log.description} className="theme-text-main text-xs truncate font-medium" />
               </div>
 
               <span className="theme-text-muted text-[11px] font-mono shrink-0">

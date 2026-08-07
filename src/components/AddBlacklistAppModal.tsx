@@ -72,7 +72,7 @@ export function AddBlacklistAppModal({ suggestions, onAdd, onClose }: AddBlackli
                   placeholder="Signal, Bitwarden, Terminal…"
                   value={appName}
                   onChange={(event) => setAppName(event.target.value)}
-                  className="theme-input w-full border rounded-xl px-3 py-2.5 focus:outline-none"
+                  className="theme-input ui-field-radius w-full border px-3 py-2.5 focus:outline-none"
                 />
               </label>
             </AppDialogBody>

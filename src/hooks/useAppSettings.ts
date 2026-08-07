@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { disable, enable } from '@tauri-apps/plugin-autostart';
+import { listen } from '@tauri-apps/api/event';
 import type { AppSettings, BlacklistApp } from '../types';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { FEATURE_SETTING_KEYS } from '../utils/features';
@@ -127,6 +128,11 @@ function readCachedTheme(): AppSettings['themeMode'] {
   }
 }
 
+interface WindowAppearanceChanged {
+  key: string;
+  value: string;
+}
+
 export function useAppSettings() {
   const [appSettings, setAppSettings] = useState<AppSettings>(() => ({
     ...DEFAULT_SETTINGS,
@@ -166,6 +172,30 @@ export function useAppSettings() {
       });
     return () => {
       cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!(window as Window & { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__) return undefined;
+    let disposed = false;
+    let unlistenAppearance: (() => void) | undefined;
+
+    void listen<WindowAppearanceChanged>('window-appearance-changed', ({ payload }) => {
+      if (!payload || disposed) return;
+      if (payload.key !== 'themeMode' && payload.key !== 'textSize') return;
+      const parsed = parseSavedSettings({ [payload.key]: payload.value });
+      const key = payload.key as keyof AppSettings;
+      setAppSettings((current) => Object.is(current[key], parsed[key])
+        ? current
+        : { ...current, [key]: parsed[key] });
+    }).then((unlisten) => {
+      if (disposed) unlisten();
+      else unlistenAppearance = unlisten;
+    }).catch(console.error);
+
+    return () => {
+      disposed = true;
+      unlistenAppearance?.();
     };
   }, []);
 

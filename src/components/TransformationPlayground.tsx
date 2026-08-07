@@ -67,7 +67,7 @@ export function TransformationPlayground({
 
   return (
     <div className="mx-auto w-full max-w-5xl space-y-4">
-      <section className="filter-sandbox-card rounded-2xl border p-5 shadow-xl">
+      <section className="filter-sandbox-card border p-5 shadow-xl">
         <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className="filter-sandbox-heading pipelines flex items-center gap-2 text-xs font-semibold uppercase tracking-wider">
@@ -96,7 +96,7 @@ export function TransformationPlayground({
               id="shared-playground-input"
               value={input}
               onChange={(event) => onInputChange(event.target.value)}
-              className="theme-input h-48 w-full resize-y rounded-xl border p-3 font-mono text-xs focus:outline-none"
+              className="theme-input ui-field-radius h-48 w-full resize-y border p-3 font-mono text-xs focus:outline-none"
             />
           </div>
           <div>
@@ -104,7 +104,7 @@ export function TransformationPlayground({
               <span className="text-[10px] font-semibold theme-text-muted">Output</span>
               {output && !error && <span className="text-[10px] theme-text-subtle">{output.length} characters</span>}
             </div>
-            <div className={`operation-playground-output h-48 overflow-y-auto whitespace-pre-wrap break-words rounded-xl border p-3 font-mono text-xs ${error ? 'has-error' : ''}`}>
+            <div className={`operation-playground-output ui-field-radius h-48 overflow-y-auto whitespace-pre-wrap break-words border p-3 font-mono text-xs ${error ? 'has-error' : ''}`}>
               {error || output || 'Run the selected item to preview its output.'}
             </div>
           </div>
@@ -123,7 +123,7 @@ export function TransformationPlayground({
             type="button"
             onClick={onRun}
             disabled={!target || runState === 'running'}
-            className={`transform-workspace-action ${target?.kind === 'operation' ? 'operations' : 'pipelines'} flex h-9 items-center justify-center gap-2 rounded-xl px-5 text-xs font-bold shadow-sm disabled:cursor-not-allowed disabled:opacity-45`}
+            className={`transform-workspace-action ui-control-radius ${target?.kind === 'operation' ? 'operations' : 'pipelines'} flex h-9 items-center justify-center gap-2 px-5 text-xs font-bold shadow-sm disabled:cursor-not-allowed disabled:opacity-45`}
           >
             <Play className="h-3.5 w-3.5" />
             <span>{runState === 'running' ? (requestStatus?.phase === 'queued' ? 'Queued…' : 'Running…') : 'Run'}</span>

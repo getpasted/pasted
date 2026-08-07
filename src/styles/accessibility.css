@@ -22,7 +22,7 @@
  * resolves the cursor again for every child node, which makes a single button
  * flicker between Safari's arrow and the pointer while the mouse moves over it.
  */
-html:not(.is-stable-reordering) button:not(:disabled):not(.step-drag-handle),
+html:not(.is-stable-reordering) button:not(:disabled),
 html:not(.is-stable-reordering) [role="button"]:not([aria-disabled="true"]),
 html:not(.is-stable-reordering) a,
 html:not(.is-stable-reordering) select:not(:disabled),
@@ -60,10 +60,3 @@ html:not(.is-stable-reordering) code {
 }
 
 /* Drag handles intentionally opt out of the global button cursor. */
-button.step-drag-handle {
-  cursor: grab;
-}
-
-button.step-drag-handle:active {
-  cursor: grabbing;
-}

@@ -90,20 +90,20 @@ export function ConnectionModal({ onClose, onCreated }: ConnectionModalProps) {
             </div>
             <label className="text-xs theme-text-muted space-y-1.5">
               <span className="block font-semibold">Connection name</span>
-              <input autoFocus value={name} onChange={(event) => setName(event.target.value)} className="theme-input border rounded-xl px-3 py-2.5 w-full" />
+              <input autoFocus value={name} onChange={(event) => setName(event.target.value)} className="theme-input ui-field-radius border px-3 py-2.5 w-full" />
             </label>
             <label className="text-xs theme-text-muted space-y-1.5">
               <span className="block font-semibold">Endpoint or executable</span>
-              <input value={endpoint} onChange={(event) => setEndpoint(event.target.value)} placeholder={providerKind === 'cli' ? '/usr/local/bin/my-planner' : 'http://127.0.0.1:11434'} className="theme-input border rounded-xl px-3 py-2.5 w-full font-mono" />
+              <input value={endpoint} onChange={(event) => setEndpoint(event.target.value)} placeholder={providerKind === 'cli' ? '/usr/local/bin/my-planner' : 'http://127.0.0.1:11434'} className="theme-input ui-field-radius border px-3 py-2.5 w-full font-mono" />
             </label>
             <label className="text-xs theme-text-muted space-y-1.5">
               <span className="block font-semibold">Preferred model</span>
-              <input value={model} onChange={(event) => setModel(event.target.value)} placeholder="Optional until model discovery" className="theme-input border rounded-xl px-3 py-2.5 w-full font-mono" />
+              <input value={model} onChange={(event) => setModel(event.target.value)} placeholder="Optional until model discovery" className="theme-input ui-field-radius border px-3 py-2.5 w-full font-mono" />
             </label>
             {!['ollama', 'lm_studio', 'cli'].includes(providerKind) && (
               <label className="text-xs theme-text-muted space-y-1.5 md:col-span-2">
                 <span className="block font-semibold">Credential environment variable</span>
-                <input value={credentialEnvironmentVariable} onChange={(event) => setCredentialEnvironmentVariable(event.target.value)} placeholder="OPENAI_API_KEY" className="theme-input border rounded-xl px-3 py-2.5 w-full font-mono" />
+                <input value={credentialEnvironmentVariable} onChange={(event) => setCredentialEnvironmentVariable(event.target.value)} placeholder="OPENAI_API_KEY" className="theme-input ui-field-radius border px-3 py-2.5 w-full font-mono" />
                 <span className="block text-[10px]">Only the variable name is saved. The secret remains with the provider or operating system.</span>
               </label>
             )}

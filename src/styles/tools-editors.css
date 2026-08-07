@@ -9,11 +9,11 @@
 }
 
 .filter-sandbox-heading.pipelines {
-  color: #22b8c8;
+  color: var(--pipeline-accent-bright);
 }
 
 .filter-sandbox-heading.operations {
-  color: #e99a28;
+  color: var(--operation-accent-bright);
 }
 
 .filter-sandbox-card .filter-sandbox-output-label,
@@ -26,7 +26,7 @@
   background-color: var(--bg-card);
   color: var(--text-main);
   border-color: var(--border-card);
-  box-shadow: 0 20px 48px color-mix(in srgb, #000000 42%, transparent);
+  box-shadow: 0 20px 48px color-mix(in srgb, var(--shadow-color) 42%, transparent);
 }
 
 .filter-step-list {
@@ -42,9 +42,9 @@
 }
 
 .filter-step-card.is-dragging {
-  border-color: rgba(34, 211, 238, 0.7);
+  border-color: color-mix(in srgb, var(--pipeline-accent-bright) 70%, transparent);
   opacity: 0.75;
-  box-shadow: 0 4px 16px rgba(34, 211, 238, 0.1);
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--pipeline-accent-bright) 10%, transparent);
 }
 
 optgroup {

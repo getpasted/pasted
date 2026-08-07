@@ -27,15 +27,16 @@ const ruleBody = (css, selector) => {
 
 // Unlayered interaction rules own the normal cursor without !important, while
 // their selectors explicitly opt out during reordering.
-assert.match(accessibility, /html:not\(\.is-stable-reordering\) button:not\(:disabled\):not\(\.step-drag-handle\)/);
+assert.match(accessibility, /html:not\(\.is-stable-reordering\) button:not\(:disabled\)/);
 assert.match(accessibility, /html:not\(\.is-stable-reordering\) input:not\(\[type="checkbox"\]\)/);
 assert.match(accessibility, /html:not\(\.is-stable-reordering\) \.clip-text-content/);
 assert.doesNotMatch(accessibility, /!important/);
 
-// The step handle no longer fights the global button selector.
-assert.match(ruleBody(accessibility, 'button.step-drag-handle {'), /cursor:\s*grab;/);
-assert.match(ruleBody(accessibility, 'button.step-drag-handle:active {'), /cursor:\s*grabbing;/);
-assert.match(pipelineEditor, /className="[^"]*step-drag-handle[^"]*"/);
+// Pipeline steps use the same whole-row drag contract as other reorderable collections.
+assert.match(pipelineEditor, /data-stable-reorder-id=\{step\.id\}/);
+assert.match(pipelineEditor, /onReorderPointerDown\(event\)/);
+assert.match(pipelineEditor, /cursor-grab active:cursor-grabbing touch-none/);
+assert.doesNotMatch(pipelineEditor, /step-drag-handle|GripVertical|ArrowUp|ArrowDown/);
 
 // Resize mode disables the whole app except the captured divider.
 assert.match(ruleBody(sidebar, '.is-resizing-columns {'), /cursor:\s*col-resize;/);
@@ -77,6 +78,10 @@ assert.match(utilities, /\.surface-scroll-region/);
 assert.match(utilities, /\.theme-panel/);
 assert.match(utilities, /\.theme-surface/);
 assert.match(utilities, /\.is-scrolling::\-webkit-scrollbar-thumb/);
+
+// Semantic action families own one consistent keyboard focus treatment.
+assert.match(theme, /\.theme-primary-button,[\s\S]*\.clip-preview-action[\s\S]*:focus-visible/);
+assert.match(theme, /outline:\s*2px solid var\(--focus-ring\)/);
 
 // Reduced-motion rules must continue to defeat component-level animation.
 const reducedMotionStart = theme.indexOf('@media (prefers-reduced-motion: reduce)');

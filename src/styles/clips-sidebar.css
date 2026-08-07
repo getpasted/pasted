@@ -65,7 +65,7 @@
 }
 
 .sidebar-action-drop-queue {
-  --sidebar-action-drop-color: color-mix(in srgb, var(--accent-primary) 58%, #a855f7);
+  --sidebar-action-drop-color: var(--queue-accent);
 }
 
 .sidebar-action-drop-protect {
@@ -301,7 +301,7 @@
   background-color: color-mix(in srgb, var(--status-success) 11%, var(--material-toolbar));
   border: 1px solid color-mix(in srgb, var(--status-success) 34%, var(--border-card));
   border-radius: calc(var(--radius-card) - 2px);
-  box-shadow: 0 3px 9px color-mix(in srgb, #000 25%, transparent);
+  box-shadow: 0 3px 9px color-mix(in srgb, var(--shadow-color) 25%, transparent);
   backdrop-filter: blur(var(--material-blur)) saturate(var(--material-saturation));
   -webkit-backdrop-filter: blur(var(--material-blur)) saturate(var(--material-saturation));
   transform: scale(calc(1 - var(--pinned-shelf-index) * 0.006));
@@ -315,19 +315,19 @@
   0% {
     opacity: 0;
     transform: translateY(1.4rem) scale(0.9) rotate(-0.75deg);
-    box-shadow: 0 1px 3px color-mix(in srgb, #000 18%, transparent);
+    box-shadow: 0 1px 3px color-mix(in srgb, var(--shadow-color) 18%, transparent);
   }
   62% {
     opacity: 1;
     transform: translateY(-0.18rem) scale(1.015) rotate(0.18deg);
     box-shadow:
       0 0 0 2px color-mix(in srgb, var(--status-success) 28%, transparent),
-      0 8px 18px color-mix(in srgb, #000 32%, transparent);
+      0 8px 18px color-mix(in srgb, var(--shadow-color) 32%, transparent);
   }
   100% {
     opacity: 1;
     transform: scale(calc(1 - var(--pinned-shelf-index) * 0.006));
-    box-shadow: 0 3px 9px color-mix(in srgb, #000 25%, transparent);
+    box-shadow: 0 3px 9px color-mix(in srgb, var(--shadow-color) 25%, transparent);
   }
 }
 
@@ -340,19 +340,19 @@
   0% {
     opacity: 1;
     transform: scale(calc(1 - var(--pinned-shelf-index) * 0.006));
-    box-shadow: 0 3px 9px color-mix(in srgb, #000 25%, transparent);
+    box-shadow: 0 3px 9px color-mix(in srgb, var(--shadow-color) 25%, transparent);
   }
   38% {
     opacity: 1;
     transform: translateY(0.22rem) scale(1.025) rotate(0.18deg);
     box-shadow:
       0 0 0 2px color-mix(in srgb, var(--status-success) 24%, transparent),
-      0 9px 20px color-mix(in srgb, #000 34%, transparent);
+      0 9px 20px color-mix(in srgb, var(--shadow-color) 34%, transparent);
   }
   100% {
     opacity: 0;
     transform: translateY(-1.75rem) scale(0.92) rotate(-0.7deg);
-    box-shadow: 0 2px 5px color-mix(in srgb, #000 14%, transparent);
+    box-shadow: 0 2px 5px color-mix(in srgb, var(--shadow-color) 14%, transparent);
   }
 }
 
@@ -376,8 +376,8 @@
 .pinned-clip-shelf-stack:hover .pinned-clip-shelf-card.is-stack-tail,
 .pinned-clip-shelf-stack:focus-within .pinned-clip-shelf-card.is-stack-tail {
   box-shadow:
-    0 0.25rem 0.35rem color-mix(in srgb, #000 16%, transparent),
-    0 1rem 1.35rem color-mix(in srgb, #000 34%, transparent);
+    0 0.25rem 0.35rem color-mix(in srgb, var(--shadow-color) 16%, transparent),
+    0 1rem 1.35rem color-mix(in srgb, var(--shadow-color) 34%, transparent);
 }
 
 .pinned-clip-shelf-icon {
@@ -614,7 +614,7 @@ html.is-stable-reordering * {
 }
 
 .sidebar-icon-secondary {
-  color: color-mix(in srgb, var(--accent-primary) 58%, #a855f7);
+  color: var(--queue-accent);
 }
 
 .sidebar-icon-warning {

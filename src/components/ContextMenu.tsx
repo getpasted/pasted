@@ -8,6 +8,7 @@ import { safeInvoke as invoke } from '../utils/tauri';
 import { selectedClipDeleteLabel, UI_COPY } from '../utils/uiCopy';
 import { useFeatures } from '../hooks/useFeatures';
 import { AnchoredMenu, MenuDivider, MenuItem, MenuSubmenu } from './AnchoredMenu';
+import { OverflowText } from './OverflowText';
 import {
   Copy,
   FolderPlus,
@@ -112,7 +113,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
         className="theme-menu-item flex w-full items-center justify-between rounded-md px-3 py-1.5"
       >
         <div className="flex items-center space-x-2.5">
-          <Copy className="h-3.5 w-3.5 text-blue-400" />
+          <Copy className="theme-status-info-text h-3.5 w-3.5" />
           <span>{UI_COPY.copy}</span>
         </div>
         <kbd className="theme-text-muted font-mono text-[10px]">↵</kbd>
@@ -124,7 +125,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
       {features.bins && viewPolicy.canAssignBins && (
         <MenuSubmenu
           label="Bin"
-          icon={<FolderPlus className="h-3.5 w-3.5 text-amber-400" />}
+          icon={<FolderPlus className="theme-status-warning-text h-3.5 w-3.5" />}
           open={activeSubmenu === 'bins'}
           onOpenChange={(open) => setSubmenuOpen('bins', open)}
         >
@@ -148,7 +149,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
                 className="gap-2 px-3 py-1.5"
               >
                 <span>{formatEmojiIcon(b.icon)}</span>
-                <span className="truncate" style={{ color: binTextColor(b.color) }}>{b.name}</span>
+                <OverflowText text={b.name} className="truncate" style={{ color: binTextColor(b.color) }} />
               </MenuItem>
             ))}
         </MenuSubmenu>
@@ -158,7 +159,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
       {features.transformations && viewPolicy.canRunPipelines && clip.content_type !== 'file' && (
         <MenuSubmenu
           label="Workflow"
-          icon={<Workflow className="h-3.5 w-3.5 text-cyan-400" />}
+          icon={<Workflow className="theme-workflow-text h-3.5 w-3.5" />}
           open={activeSubmenu === 'workflow'}
           onOpenChange={(open) => setSubmenuOpen('workflow', open)}
           panelClassName="w-60 max-h-64 overflow-y-auto"
@@ -177,9 +178,9 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
                     }}
                     className="gap-2 px-2.5 py-1.5"
                   >
-                    <Workflow className="h-3.5 w-3.5 shrink-0 text-cyan-400" />
-                    <span className="min-w-0 flex-1 truncate">{transform.name}</span>
-                    {usesIntelligence && <Sparkles className="h-3 w-3 shrink-0 text-violet-400" />}
+                    <Workflow className="theme-workflow-text h-3.5 w-3.5 shrink-0" />
+                    <OverflowText text={transform.name} className="min-w-0 flex-1 truncate" />
+                    {usesIntelligence && <Sparkles className="theme-intelligence-text h-3 w-3 shrink-0" />}
                   </MenuItem>
                 );
               }) : (
@@ -194,7 +195,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
               }}
               className="gap-2 px-2.5 py-1.5"
             >
-              <Workflow className="h-3.5 w-3.5 shrink-0 text-cyan-400" />
+              <Workflow className="theme-workflow-text h-3.5 w-3.5 shrink-0" />
               <span>Manage Transforms…</span>
             </MenuItem>
         </MenuSubmenu>
@@ -210,7 +211,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
         }}
         className="theme-menu-item w-full flex items-center space-x-2.5 px-3 py-1.5 rounded-md"
       >
-        <StickyNote className="w-3.5 h-3.5 text-amber-400" />
+        <StickyNote className="theme-note-text w-3.5 h-3.5" />
         <span>{clip.note ? 'Edit Note' : 'Add Note'}</span>
       </button>}
 
@@ -221,9 +222,9 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
             onDeleteNote();
             onClose();
           }}
-          className="w-full flex items-center space-x-2.5 px-3 py-1.5 rounded-md hover:bg-red-500/20 text-red-300 transition-colors"
+          className="theme-menu-item theme-danger-text w-full flex items-center space-x-2.5 px-3 py-1.5 rounded-md transition-colors"
         >
-          <Trash2 className="w-3.5 h-3.5 text-red-400" />
+          <Trash2 className="w-3.5 h-3.5" />
           <span>Remove Note</span>
         </button>
       )}
@@ -236,7 +237,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
         }}
         className="theme-menu-item w-full flex items-center space-x-2.5 px-3 py-1.5 rounded-md"
       >
-        <ListPlus className="w-3.5 h-3.5 text-purple-400" />
+        <ListPlus className="theme-queue-text w-3.5 h-3.5" />
         <span>Add to Queue</span>
       </button>}
 
@@ -249,7 +250,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
         className="theme-menu-item w-full flex items-center space-x-2.5 px-3 py-1.5 rounded-md"
       >
         {clip.is_pinned ? (
-          <PinOff className="w-3.5 h-3.5 text-gray-400" />
+          <PinOff className="theme-text-muted w-3.5 h-3.5" />
         ) : (
           <Pin className="w-3.5 h-3.5 pin-icon" />
         )}
@@ -274,9 +275,9 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
           className="theme-menu-item w-full flex items-center space-x-2.5 px-3 py-1.5 rounded-md"
         >
           {clip.is_protected ? (
-            <ShieldOff className="w-3.5 h-3.5 text-gray-400" />
+            <ShieldOff className="theme-text-muted w-3.5 h-3.5" />
           ) : (
-            <Shield className="w-3.5 h-3.5 text-cyan-400" />
+            <Shield className="theme-status-info-text w-3.5 h-3.5" />
           )}
           <span>{clip.is_protected ? 'Unprotect' : 'Protect'}</span>
         </button>

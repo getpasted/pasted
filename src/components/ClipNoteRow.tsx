@@ -2,6 +2,7 @@ import type React from 'react';
 import { Edit3, Eye, Trash2 } from 'lucide-react';
 import type { ClipNote } from '../types';
 import { FloatingActionStrip } from './FloatingActionStrip';
+import { OverflowText } from './OverflowText';
 
 interface NoteRowItemProps {
   noteItem: ClipNote;
@@ -81,11 +82,11 @@ export const NoteRowItem: React.FC<NoteRowItemProps> = ({
         </div>
       ) : (
         <>
-          <div className="flex items-start truncate flex-1 select-none py-1 min-w-0">
-            <span className="note-text text-xs font-normal whitespace-pre-wrap break-words leading-relaxed select-none">
-              {noteItem.text}
-            </span>
-          </div>
+          <OverflowText
+            as="div"
+            text={noteItem.text}
+            className="note-text flex items-start truncate flex-1 select-none py-1 min-w-0 text-xs font-normal whitespace-pre-wrap break-words leading-relaxed"
+          />
 
           {!isDragging && (
             <FloatingActionStrip label="Note actions" revealOnGroupInteraction>

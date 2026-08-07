@@ -19,6 +19,7 @@ mod operation_registry;
 mod paste_target;
 pub mod resource_limits;
 mod sequential_paste;
+mod settings_activity;
 mod transformation_intent;
 pub mod transformation_service;
 
@@ -190,6 +191,13 @@ pub fn run() {
             app.manage(seq_state.clone());
             app.manage(paste_target_state);
 
+            let launch_description = if std::env::args().any(|argument| argument == "--autostart") {
+                "Opened Pasted at login"
+            } else {
+                "Opened Pasted"
+            };
+            let _ = db_state.log_activity("app_started", launch_description);
+
             let ocr_service = Arc::new(ocr::spawn_ocr_worker(
                 app.handle().clone(),
                 db_state.clone(),
@@ -269,6 +277,8 @@ pub fn run() {
                         let _ = app.emit("sequential-updated", status);
                     }
                     "quit" => {
+                        let db = app.state::<Arc<db::DbState>>();
+                        let _ = db.log_activity("app_exit_requested", "Quit Pasted");
                         app.exit(0);
                     }
                     _ => {}

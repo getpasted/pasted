@@ -176,6 +176,14 @@
   border-radius: var(--radius-pill);
 }
 
+.ui-control-radius {
+  border-radius: var(--radius-control);
+}
+
+.ui-field-radius {
+  border-radius: var(--radius-field);
+}
+
 .column-resizer-line {
   background-color: var(--border-subtle);
   width: 1px;

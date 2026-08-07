@@ -134,7 +134,11 @@ pub fn handle_menu_event(app: &AppHandle, event: MenuEvent) {
                 let _ = window.set_fullscreen(!is_fullscreen);
             }
         }
-        MenuDispatch::Quit => app.exit(0),
+        MenuDispatch::Quit => {
+            let db = app.state::<Arc<DbState>>();
+            let _ = db.log_activity("app_exit_requested", "Quit Pasted");
+            app.exit(0);
+        }
     }
 }
 

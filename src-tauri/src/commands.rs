@@ -25,6 +25,15 @@ fn refresh_native_app_menu(app: &AppHandle, db: &Arc<DbState>) {
     }
 }
 
+fn emit_window_appearance_change(app: &AppHandle, key: &str, value: &str) {
+    if matches!(key, "themeMode" | "textSize") {
+        let _ = app.emit(
+            "window-appearance-changed",
+            serde_json::json!({ "key": key, "value": value }),
+        );
+    }
+}
+
 #[tauri::command]
 pub fn get_installation_diagnostics(app: AppHandle) -> Result<InstallationDiagnostics, String> {
     let executable = std::env::current_exe().map_err(|error| error.to_string())?;
@@ -705,10 +714,17 @@ pub fn save_app_setting(
     app: AppHandle,
     db: State<'_, Arc<DbState>>,
 ) -> Result<(), String> {
+    let previous = db.get_setting(&key).map_err(|e| e.to_string())?;
     db.save_setting(&key, &value).map_err(|e| e.to_string())?;
+    if let Some(activity) =
+        crate::settings_activity::describe_setting_change(&key, previous.as_deref(), &value)
+    {
+        let _ = db.log_activity(activity.event_type, &activity.description);
+    }
     if let Some(feature) = Feature::from_setting_key(&key) {
         apply_feature_policy_changes(&app, &db, &[feature]);
     }
+    emit_window_appearance_change(&app, &key, &value);
     Ok(())
 }
 
@@ -718,14 +734,36 @@ pub fn save_app_settings(
     app: AppHandle,
     db: State<'_, Arc<DbState>>,
 ) -> Result<(), String> {
+    let mut activities = values
+        .iter()
+        .filter_map(|(key, value)| {
+            let previous = db.get_setting(key).ok().flatten();
+            crate::settings_activity::describe_setting_change(key, previous.as_deref(), value)
+        })
+        .collect::<Vec<_>>();
+    activities.sort_by(|left, right| left.description.cmp(&right.description));
     db.save_settings(&values)
         .map_err(|error| error.to_string())?;
+    if activities.len() == 1 {
+        let activity = &activities[0];
+        let _ = db.log_activity(activity.event_type, &activity.description);
+    } else if !activities.is_empty() {
+        let description = activities
+            .iter()
+            .map(|activity| activity.description.as_str())
+            .collect::<Vec<_>>()
+            .join("; ");
+        let _ = db.log_activity("settings_changed", &description);
+    }
     let changed = values
         .keys()
         .filter_map(|key| Feature::from_setting_key(key))
         .collect::<Vec<_>>();
     if !changed.is_empty() {
         apply_feature_policy_changes(&app, &db, &changed);
+    }
+    for (key, value) in values {
+        emit_window_appearance_change(&app, &key, &value);
     }
     Ok(())
 }

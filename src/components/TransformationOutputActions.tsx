@@ -33,7 +33,7 @@ export function TransformationOutputActions({ output, accent }: TransformationOu
         type="button"
         onClick={copyResult}
         disabled={!output}
-        className="theme-secondary-button flex h-9 items-center justify-center gap-2 rounded-xl border px-3 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+        className="theme-secondary-button ui-control-radius flex h-9 items-center justify-center gap-2 border px-3 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40"
       >
         {lastAction === 'copied' ? <Check className="h-3.5 w-3.5" /> : <ClipboardCopy className="h-3.5 w-3.5" />}
         <span>{lastAction === 'copied' ? UI_COPY.copied : 'Copy Result'}</span>
@@ -42,7 +42,7 @@ export function TransformationOutputActions({ output, accent }: TransformationOu
         type="button"
         onClick={pasteResult}
         disabled={!output}
-        className={`transform-workspace-action ${accent} flex h-9 items-center justify-center gap-2 rounded-xl px-3 text-xs font-bold shadow-sm transition-[background-color,color,transform] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40`}
+        className={`transform-workspace-action ui-control-radius ${accent} flex h-9 items-center justify-center gap-2 px-3 text-xs font-bold shadow-sm transition-[background-color,color,transform] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40`}
       >
         {lastAction === 'pasted' ? <Check className="h-3.5 w-3.5" /> : <ClipboardPaste className="h-3.5 w-3.5" />}
         <span>{lastAction === 'pasted' ? 'Pasted' : 'Paste Result'}</span>

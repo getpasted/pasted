@@ -62,18 +62,18 @@ export const SequentialQueueBar: React.FC<SequentialQueueBarProps> = ({
   const canPasteAutomatically = pasteTarget?.automaticPasteAvailable === true;
 
   return (
-    <div className={`queue-controls-card theme-card-idle p-3 rounded-xl border transition-[background-color,border-color,box-shadow] ${isActive ? 'is-active' : ''}`}>
+    <div className={`queue-controls-card theme-card-idle p-3 border transition-[background-color,border-color,box-shadow] ${isActive ? 'is-active' : ''}`}>
       {/* Header row */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-2 min-w-0">
           <div className={`queue-controls-icon theme-surface p-1.5 rounded-lg border shrink-0 ${isActive ? 'is-active' : ''}`}>
-            <Disc className={`w-3.5 h-3.5 ${isActive ? 'text-purple-400 animate-spin' : 'text-gray-400'}`} />
+            <Disc className={`w-3.5 h-3.5 ${isActive ? 'theme-status-info-text animate-spin' : 'theme-text-muted'}`} />
           </div>
-          <h3 className="text-xs font-bold theme-title text-gray-100 truncate">Copy Queue</h3>
+          <h3 className="text-xs font-bold theme-title truncate">Copy Queue</h3>
         </div>
 
         {isActive && (
-          <span className="text-[9px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-mono animate-pulse border border-purple-500/30 font-semibold shrink-0">
+          <span className="queue-recording-badge ui-pill text-[9px] px-2 py-0.5 font-mono animate-pulse border font-semibold shrink-0">
             RECORDING COPIES
           </span>
         )}
@@ -103,8 +103,8 @@ export const SequentialQueueBar: React.FC<SequentialQueueBarProps> = ({
 
       {/* Action buttons row */}
       {queue.length > 0 && (
-        <div className="mt-2.5 pt-2 border-t border-purple-500/20 flex items-center justify-between flex-wrap gap-2">
-          <span className="text-xs font-mono font-bold text-purple-300 bg-purple-950/80 px-2 py-0.5 rounded border border-purple-500/30">
+        <div className="queue-controls-footer mt-2.5 pt-2 border-t flex items-center justify-between flex-wrap gap-2">
+          <span className="queue-count-badge text-xs font-mono font-bold px-2 py-0.5 rounded border">
             {queue.length} in buffer
           </span>
           <div className="flex items-center space-x-1.5">
@@ -112,7 +112,7 @@ export const SequentialQueueBar: React.FC<SequentialQueueBarProps> = ({
               type="button"
               onClick={handlePopNext}
               disabled={isPasting || !canPasteAutomatically}
-              className="flex items-center space-x-1 px-2 py-1 rounded-lg bg-purple-900 hover:bg-purple-800 border border-purple-500/40 text-purple-200 text-[11px] font-semibold transition-colors cursor-pointer"
+              className="queue-action-secondary ui-control-radius flex items-center space-x-1 px-2 py-1 border text-[11px] font-semibold transition-colors cursor-pointer"
               title="Paste Next (⌥⇧X)"
             >
               <ArrowRightCircle className="w-3 h-3" />
@@ -122,7 +122,7 @@ export const SequentialQueueBar: React.FC<SequentialQueueBarProps> = ({
               type="button"
               onClick={handlePasteAll}
               disabled={isPasting || !canPasteAutomatically}
-              className="flex items-center space-x-1 px-2 py-1 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-[11px] font-semibold shadow transition-colors cursor-pointer"
+              className="queue-action-primary ui-control-radius flex items-center space-x-1 px-2 py-1 border text-[11px] font-semibold shadow transition-colors cursor-pointer"
               title="Combine and Paste"
             >
               <Layers className="w-3 h-3" />

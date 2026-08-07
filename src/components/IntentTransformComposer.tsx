@@ -171,13 +171,13 @@ export function IntentTransformComposer({ sampleInput, onTestResult, onTransform
             if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') void buildTransform();
           }}
           placeholder="For example: Make this concise and friendly, preserving every URL."
-          className="theme-input border rounded-xl px-3 py-2.5 min-h-20 flex-1 resize-y text-xs"
+          className="theme-input ui-field-radius border px-3 py-2.5 min-h-20 flex-1 resize-y text-xs"
         />
         <button
           type="button"
           disabled={!intent.trim() && !isPlanning}
           onClick={isPlanning ? cancelPlanning : buildTransform}
-          className="theme-primary-button border rounded-xl px-4 min-w-32 text-xs font-semibold flex flex-col items-center justify-center gap-1.5 disabled:opacity-40"
+          className="theme-primary-button ui-control-radius border px-4 min-w-32 text-xs font-semibold flex flex-col items-center justify-center gap-1.5 disabled:opacity-40"
         >
           {isPlanning ? <LoaderCircle className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
           <span>{isPlanning ? 'Cancel draft' : 'Build draft'}</span>
@@ -187,7 +187,7 @@ export function IntentTransformComposer({ sampleInput, onTestResult, onTransform
       {error && <div className="theme-status-danger border rounded-xl px-3 py-2 text-xs">{error}</div>}
 
       {outcome && (
-        <div className="theme-card-idle border rounded-xl p-4 space-y-3">
+        <div className="theme-card-idle border p-4 space-y-3">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
               <label htmlFor="transform-name" className="theme-text-muted text-[10px] font-semibold">Name</label>

@@ -16,6 +16,31 @@
   color: var(--text-subtle);
 }
 
+.theme-accent-text,
+.theme-workflow-text {
+  color: var(--status-info);
+}
+
+.theme-note-text {
+  color: var(--note-accent);
+}
+
+.theme-queue-text {
+  color: var(--queue-accent);
+}
+
+.theme-intelligence-text {
+  color: color-mix(in srgb, var(--queue-accent) 72%, var(--text-title));
+}
+
+.theme-image-text {
+  color: color-mix(in srgb, var(--note-accent) 56%, var(--status-danger));
+}
+
+.color-contrast-sample {
+  border-color: color-mix(in srgb, currentColor 18%, transparent);
+}
+
 .theme-status-info,
 .theme-status-success,
 .theme-status-warning,
@@ -31,6 +56,10 @@
 .theme-status-success,
 .theme-status-success-text {
   color: var(--status-success);
+}
+
+.theme-status-success-dot {
+  background-color: var(--status-success);
 }
 
 .connection-power-button.is-enabled {
@@ -85,7 +114,7 @@ html:not(.is-stable-reordering) .connection-priority-card:hover {
   border-radius: 0.25rem;
   background-color: var(--bg-input);
   color: var(--checkbox-check-color);
-  box-shadow: inset 0 1px 1px color-mix(in srgb, #000 10%, transparent);
+  box-shadow: inset 0 1px 1px color-mix(in srgb, var(--shadow-color) 10%, transparent);
   transition: background-color 100ms ease, border-color 100ms ease, box-shadow 100ms ease;
 }
 
@@ -101,7 +130,7 @@ html:not(.is-stable-reordering) .connection-priority-card:hover {
 }
 
 .theme-checkbox:checked {
-  border-color: color-mix(in srgb, var(--accent-primary) 80%, white);
+  border-color: color-mix(in srgb, var(--accent-primary) 80%, var(--accent-primary-contrast));
   background-color: var(--accent-primary);
   box-shadow: none;
 }
@@ -273,7 +302,7 @@ html:not(.is-stable-reordering) .connection-priority-card:hover {
 .connection-loading-rank {
   width: 1rem;
   height: 0.5rem;
-  border-radius: 9999px;
+  border-radius: var(--radius-pill);
 }
 
 .connection-loading-icon,
@@ -285,7 +314,7 @@ html:not(.is-stable-reordering) .connection-priority-card:hover {
 
 .connection-loading-line {
   height: 0.5rem;
-  border-radius: 9999px;
+  border-radius: var(--radius-pill);
 }
 
 .connection-loading-line.is-name {
@@ -324,7 +353,7 @@ html:not(.is-stable-reordering) .connection-priority-card:hover {
   width: 1.25rem;
   align-items: center;
   justify-content: center;
-  border-radius: 9999px;
+  border-radius: var(--radius-pill);
   color: var(--text-muted);
   transition: background-color 120ms ease, color 120ms ease, box-shadow 120ms ease;
 }
@@ -368,7 +397,7 @@ html:not(.is-stable-reordering) .connection-priority-card:hover {
   background-color: transparent;
   box-shadow:
     inset 0 1px 0 color-mix(in srgb, white 7%, transparent),
-    0 3px 9px color-mix(in srgb, #000 25%, transparent);
+    0 3px 9px color-mix(in srgb, var(--shadow-color) 25%, transparent);
   color: var(--text-main);
   font-size: 0.6875rem;
   font-weight: 500;
@@ -722,17 +751,17 @@ html:not(.is-stable-reordering) .connection-priority-card:hover {
 }
 
 .transform-workspace-tab.pipelines.is-active svg {
-  color: #22c7d8;
+  color: var(--pipeline-accent-bright);
 }
 
 .transform-workspace-tab.operations.is-active svg {
-  color: #e99a28;
+  color: var(--operation-accent-bright);
 }
 
 .transform-workspace-count {
   min-width: 1.4rem;
   padding: 0.125rem 0.35rem;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background-color: var(--bg-badge);
   color: var(--text-muted);
   font-size: 0.625rem;
@@ -741,23 +770,23 @@ html:not(.is-stable-reordering) .connection-priority-card:hover {
 }
 
 .transform-workspace-action {
-  color: #ffffff;
+  color: var(--status-danger-contrast);
 }
 
 .transform-workspace-action.pipelines {
-  background-color: #087f8f;
+  background-color: var(--pipeline-action);
 }
 
 .transform-workspace-action.pipelines:hover {
-  background-color: #0a7180;
+  background-color: var(--pipeline-action-hover);
 }
 
 .transform-workspace-action.operations {
-  background-color: #a9520d;
+  background-color: var(--operation-action);
 }
 
 .transform-workspace-action.operations:hover {
-  background-color: #914509;
+  background-color: var(--operation-action-hover);
 }
 
 .transform-category-select {
@@ -831,11 +860,11 @@ html:not(.is-stable-reordering) .connection-priority-card:hover {
 }
 
 .transform-category-select.pipelines > svg {
-  color: #1598a8;
+  color: var(--pipeline-accent);
 }
 
 .transform-category-select.operations > svg {
-  color: #c06a20;
+  color: var(--operation-accent);
 }
 
 .transform-card:hover {
@@ -844,11 +873,11 @@ html:not(.is-stable-reordering) .connection-priority-card:hover {
 }
 
 .transform-card.pipelines:hover {
-  border-color: #1598a8;
+  border-color: var(--pipeline-accent);
 }
 
 .transform-card.operations:hover {
-  border-color: #c06a20;
+  border-color: var(--operation-accent);
 }
 
 .operations-built-in-grid {
@@ -865,13 +894,13 @@ html:not(.is-stable-reordering) .connection-priority-card:hover {
 
 .operation-library-row:hover {
   background-color: var(--bg-card-hover);
-  border-color: color-mix(in srgb, #c06a20 58%, var(--border-card));
+  border-color: color-mix(in srgb, var(--operation-accent) 58%, var(--border-card));
 }
 
 .operation-library-row.is-selected {
-  background-color: color-mix(in srgb, #c06a20 10%, var(--bg-card));
-  border-color: color-mix(in srgb, #c06a20 70%, var(--border-card));
-  box-shadow: 0 0 0 1px color-mix(in srgb, #c06a20 14%, transparent);
+  background-color: color-mix(in srgb, var(--operation-accent) 10%, var(--bg-card));
+  border-color: color-mix(in srgb, var(--operation-accent) 70%, var(--border-card));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--operation-accent) 14%, transparent);
 }
 
 .operation-library-select {
@@ -886,7 +915,7 @@ html:not(.is-stable-reordering) .connection-priority-card:hover {
 
 .operation-library-empty:hover {
   background-color: var(--bg-card-hover);
-  border-color: color-mix(in srgb, #c06a20 58%, var(--border-card));
+  border-color: color-mix(in srgb, var(--operation-accent) 58%, var(--border-card));
 }
 
 .operation-playground-output {
@@ -900,11 +929,11 @@ html:not(.is-stable-reordering) .connection-priority-card:hover {
 }
 
 .transform-accent.pipelines {
-  color: #22c7d8;
+  color: var(--pipeline-accent-bright);
 }
 
 .transform-accent.operations {
-  color: #e99a28;
+  color: var(--operation-accent-bright);
 }
 
 .transform-tag {
@@ -913,11 +942,11 @@ html:not(.is-stable-reordering) .connection-priority-card:hover {
 }
 
 .transform-tag.pipelines {
-  color: #1598a8;
+  color: var(--pipeline-accent);
 }
 
 .transform-tag.operations {
-  color: #c06a20;
+  color: var(--operation-accent);
 }
 
 .theme-input {
@@ -940,6 +969,19 @@ select.theme-input {
   outline-offset: 2px;
 }
 
+:where(
+  .theme-primary-button,
+  .theme-secondary-button,
+  .theme-icon-button,
+  .app-dialog-button,
+  .transform-workspace-action,
+  .floating-action-button,
+  .clip-preview-action
+):focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
 .theme-primary-button {
   background-color: var(--accent-primary);
   border-color: color-mix(in srgb, var(--accent-primary) 72%, var(--border-subtle));
@@ -947,7 +989,7 @@ select.theme-input {
 }
 
 .theme-primary-button:hover {
-  background-color: color-mix(in srgb, var(--accent-primary) 86%, var(--text-title));
+  background-color: color-mix(in srgb, var(--accent-primary) 94%, var(--text-title));
 }
 
 .theme-icon-button {
@@ -1177,7 +1219,7 @@ select.theme-input {
 .app-dialog-button.is-danger {
   background-color: var(--status-danger);
   border-color: var(--status-danger);
-  color: #fff;
+  color: var(--status-danger-contrast);
 }
 
 .app-dialog-button.is-primary:hover:not(:disabled),
@@ -1199,7 +1241,7 @@ select.theme-input {
   background-color: var(--menu-surface);
   border-color: var(--border-subtle);
   color: var(--text-main);
-  box-shadow: 0 10px 30px color-mix(in srgb, #000 42%, transparent);
+  box-shadow: 0 10px 30px color-mix(in srgb, var(--shadow-color) 42%, transparent);
   -webkit-backdrop-filter: blur(24px) saturate(var(--material-saturation));
   backdrop-filter: blur(24px) saturate(var(--material-saturation));
 }
@@ -1380,7 +1422,7 @@ select.theme-input {
 }
 
 .app-dialog-danger {
-  border-color: rgba(239, 68, 68, 0.42);
+  border-color: color-mix(in srgb, var(--status-danger) 42%, transparent);
 }
 
 .library-transition-overlay {
@@ -1554,4 +1596,35 @@ select.theme-input {
   background-color: color-mix(in srgb, var(--queue-accent) 20%, var(--bg-surface));
   border-color: color-mix(in srgb, var(--queue-accent) 48%, var(--border-subtle));
   color: var(--queue-accent);
+}
+
+.queue-recording-badge,
+.queue-count-badge {
+  background-color: color-mix(in srgb, var(--queue-accent) 14%, var(--bg-surface));
+  border-color: color-mix(in srgb, var(--queue-accent) 42%, var(--border-subtle));
+  color: color-mix(in srgb, var(--queue-accent) 78%, var(--text-title));
+}
+
+.queue-controls-footer {
+  border-color: color-mix(in srgb, var(--queue-accent) 28%, var(--border-subtle));
+}
+
+.queue-action-secondary {
+  background-color: color-mix(in srgb, var(--queue-accent) 18%, var(--bg-surface));
+  border-color: color-mix(in srgb, var(--queue-accent) 46%, var(--border-subtle));
+  color: color-mix(in srgb, var(--queue-accent) 76%, var(--text-title));
+}
+
+.queue-action-secondary:hover {
+  background-color: color-mix(in srgb, var(--queue-accent) 25%, var(--bg-surface));
+}
+
+.queue-action-primary {
+  background-color: var(--queue-accent);
+  border-color: color-mix(in srgb, var(--queue-accent) 76%, var(--border-subtle));
+  color: var(--accent-primary-contrast);
+}
+
+.queue-action-primary:hover {
+  background-color: color-mix(in srgb, var(--queue-accent) 86%, var(--text-title));
 }

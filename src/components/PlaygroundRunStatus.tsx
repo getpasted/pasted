@@ -1,5 +1,6 @@
 import { AlertCircle, CheckCircle2, Clock3, LoaderCircle, RotateCcw, X } from 'lucide-react';
 import type { IntelligenceRequestStatus } from '../hooks/useIntelligenceRequestStatus';
+import { OverflowText } from './OverflowText';
 
 export type PlaygroundRunState = 'idle' | 'running' | 'success' | 'error' | 'cancelled';
 
@@ -16,6 +17,19 @@ export function PlaygroundRunStatus({ state, label, durationMs, onRetry, onStop,
   if (state === 'idle') return null;
 
   const duration = typeof durationMs === 'number' ? `${(durationMs / 1000).toFixed(1)}s` : '';
+  const statusText = state === 'running' && requestStatus?.phase === 'starting'
+    ? `Starting${label ? ` ${label}` : ''}…`
+    : state === 'running' && requestStatus?.phase === 'queued'
+      ? `Queued${requestStatus.connectionName ? ` for ${requestStatus.connectionName}` : ''}…`
+      : state === 'running' && requestStatus?.phase === 'running'
+        ? `Running${label ? ` ${label}` : ''}${requestStatus.connectionName ? ` with ${requestStatus.connectionName}` : ''}${requestStatus.didFallback ? ' · fallback' : ''}…`
+        : state === 'running'
+          ? `Running${label ? ` ${label}` : ''}…`
+          : state === 'success'
+            ? `Ready${duration ? ` · ${duration}` : ''}`
+            : state === 'error'
+              ? `Couldn’t run${label ? ` ${label}` : ''}`
+              : 'Cancelled';
 
   return (
     <div className={`playground-run-status is-${state} flex min-h-8 items-center gap-2 rounded-lg border px-2.5 py-1.5 text-[10px]`} aria-live="polite">
@@ -25,15 +39,7 @@ export function PlaygroundRunStatus({ state, label, durationMs, onRetry, onStop,
       {state === 'success' && <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />}
       {state === 'error' && <AlertCircle className="h-3.5 w-3.5 shrink-0" />}
       {state === 'cancelled' && <X className="h-3.5 w-3.5 shrink-0" />}
-      <span className="min-w-0 flex-1 truncate font-semibold">
-        {state === 'running' && requestStatus?.phase === 'starting' && `Starting${label ? ` ${label}` : ''}…`}
-        {state === 'running' && requestStatus?.phase === 'queued' && `Queued${requestStatus.connectionName ? ` for ${requestStatus.connectionName}` : ''}…`}
-        {state === 'running' && requestStatus?.phase === 'running' && `Running${label ? ` ${label}` : ''}${requestStatus.connectionName ? ` with ${requestStatus.connectionName}` : ''}${requestStatus.didFallback ? ' · fallback' : ''}…`}
-        {state === 'running' && !requestStatus && `Running${label ? ` ${label}` : ''}…`}
-        {state === 'success' && `Ready${duration ? ` · ${duration}` : ''}`}
-        {state === 'error' && `Couldn’t run${label ? ` ${label}` : ''}`}
-        {state === 'cancelled' && 'Cancelled'}
-      </span>
+      <OverflowText text={statusText} className="min-w-0 flex-1 truncate font-semibold" />
       {state === 'running' && onStop && (
         <button type="button" onClick={onStop} className="playground-run-status-action rounded-md px-2 py-1 font-semibold" title="Cancel Transform">
           Cancel

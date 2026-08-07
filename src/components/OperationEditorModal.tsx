@@ -190,7 +190,7 @@ export const OperationEditorModal: React.FC<OperationEditorModalProps> = ({
                 value={name}
                 onChange={(event) => setName(event.target.value)}
                 placeholder="e.g. Redact phone numbers"
-                className="w-full border rounded-xl p-2.5 focus:outline-none font-medium theme-input"
+                className="theme-input ui-field-radius w-full border p-2.5 focus:outline-none font-medium"
                 autoFocus
               />
             </div>
@@ -200,7 +200,7 @@ export const OperationEditorModal: React.FC<OperationEditorModalProps> = ({
                 value={category}
                 onChange={(event) => setCategory(event.target.value)}
                 list="custom-operation-categories"
-                className="w-full border rounded-xl p-2.5 focus:outline-none font-medium theme-input"
+                className="theme-input ui-field-radius w-full border p-2.5 focus:outline-none font-medium"
               />
               <datalist id="custom-operation-categories">
                 {CATEGORIES.map((value) => <option key={value} value={value} />)}
@@ -231,7 +231,7 @@ export const OperationEditorModal: React.FC<OperationEditorModalProps> = ({
                     value={findPattern}
                     onChange={(event) => setFindPattern(event.target.value)}
                     placeholder="e.g. \\b\\d{3}-\\d{3}-\\d{4}\\b"
-                    className="w-full h-20 border rounded-xl p-2.5 font-mono focus:outline-none theme-input"
+                    className="theme-input ui-field-radius w-full h-20 border p-2.5 font-mono focus:outline-none"
                   />
                 </div>
                 <div>
@@ -240,12 +240,12 @@ export const OperationEditorModal: React.FC<OperationEditorModalProps> = ({
                     value={replacePattern}
                     onChange={(event) => setReplacePattern(event.target.value)}
                     placeholder="e.g. [REDACTED] or $1"
-                    className="w-full h-20 border rounded-xl p-2.5 font-mono focus:outline-none theme-input"
+                    className="theme-input ui-field-radius w-full h-20 border p-2.5 font-mono focus:outline-none"
                   />
                 </div>
               </div>
 
-              <div className="filter-sandbox-card p-4 rounded-2xl border space-y-3 shadow-inner">
+              <div className="filter-sandbox-card p-4 border space-y-3 shadow-inner">
                 <div className="theme-status-info-text text-xs font-semibold uppercase tracking-wider flex items-center space-x-1.5">
                   <Play className="w-3.5 h-3.5" />
                   <span>Safe local preview</span>
@@ -254,9 +254,9 @@ export const OperationEditorModal: React.FC<OperationEditorModalProps> = ({
                   <textarea
                     value={testInput}
                     onChange={(event) => setTestInput(event.target.value)}
-                    className="w-full h-20 border rounded-xl p-2.5 focus:outline-none theme-input"
+                    className="theme-input ui-field-radius w-full h-20 border p-2.5 focus:outline-none"
                   />
-                  <div className="filter-sandbox-output w-full h-20 border rounded-xl p-2.5 overflow-y-auto whitespace-pre-wrap theme-input">
+                  <div className="filter-sandbox-output theme-input ui-field-radius overlay-scroll-region w-full h-20 border p-2.5 overflow-y-auto whitespace-pre-wrap">
                     {testOutput || 'Output will appear here…'}
                   </div>
                 </div>
@@ -270,10 +270,10 @@ export const OperationEditorModal: React.FC<OperationEditorModalProps> = ({
                   value={aiInstructions}
                   onChange={(event) => setAiInstructions(event.target.value)}
                   placeholder="For example: Rewrite this as concise, well-structured Markdown while preserving every fact and URL."
-                  className="theme-input min-h-32 w-full resize-y rounded-xl border p-3 focus:outline-none"
+                  className="theme-input ui-field-radius min-h-32 w-full resize-y border p-3 focus:outline-none"
                 />
               </div>
-              <div className="theme-card-idle flex items-start gap-3 rounded-xl border p-4">
+              <div className="theme-card-idle flex items-start gap-3 border p-4">
                 <Braces className="mt-0.5 h-4 w-4 theme-text-muted" />
                 <p className="theme-text-muted">
                   Runs through the first enabled compatible Connection. The Operation stores instructions and routing—not credentials.
@@ -281,7 +281,7 @@ export const OperationEditorModal: React.FC<OperationEditorModalProps> = ({
               </div>
             </div>
           ) : (
-            <div className="theme-card-idle border rounded-xl p-4 flex items-start gap-3 text-xs">
+            <div className="theme-card-idle border p-4 flex items-start gap-3 text-xs">
               <Braces className="w-4 h-4 mt-0.5 theme-text-muted" />
               <p className="theme-text-muted">
                 This legacy executor is preserved, but editing and execution stay disabled until its sandbox, permissions, timeouts, and output limits are available.

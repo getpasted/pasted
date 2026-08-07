@@ -45,6 +45,7 @@ const testPairs = [
   { name: 'Cool - Pin Icon vs Sidebar BG', fg: '#c2410c', bg: '#f3f3f6', minRatio: 3.0, scheme: 'Cool' },
   { name: 'Cool - Selected Nav Text vs BG', fg: '#1c1c1e', bg: '#ffffff', minRatio: 4.5, scheme: 'Cool' },
   { name: 'Cool - Hovered Nav Text vs BG', fg: '#1c1c1e', bg: '#d5e2f2', minRatio: 4.5, scheme: 'Cool' },
+  { name: 'Cool - Code Text vs Surface', fg: '#25252a', bg: '#eef0f4', minRatio: 4.5, scheme: 'Cool' },
 
   // WARM SCHEME PAIRS
   { name: 'Warm - Primary Text vs App BG', fg: '#3b3026', bg: '#f3eee5', minRatio: 4.5, scheme: 'Warm' },
@@ -53,6 +54,7 @@ const testPairs = [
   { name: 'Warm - Selected Text vs BG', fg: '#1f170f', bg: '#e3d5c2', minRatio: 4.5, scheme: 'Warm' },
   { name: 'Warm - Selected Nav Text vs BG', fg: '#2b2118', bg: '#fffaf2', minRatio: 4.5, scheme: 'Warm' },
   { name: 'Warm - Hovered Nav Text vs BG', fg: '#2b2118', bg: '#e3d4c4', minRatio: 4.5, scheme: 'Warm' },
+  { name: 'Warm - Code Text vs Surface', fg: '#3b3026', bg: '#eee5d8', minRatio: 4.5, scheme: 'Warm' },
 
   // VAMPIRE SCHEME PAIRS
   { name: 'Vampire - Primary Text vs App BG', fg: '#eee5f2', bg: '#19131f', minRatio: 4.5, scheme: 'Vampire' },
@@ -77,7 +79,7 @@ const testPairs = [
   { name: '808 - Hovered Nav Text vs BG', fg: '#fffaf0', bg: '#36291c', minRatio: 4.5, scheme: '808' },
 
   // DARK SCHEME PAIRS
-  { name: 'Dark Mode - Copy Clip Button Text vs BG', fg: '#000000', bg: '#ffffff', minRatio: 4.5, scheme: 'Dark' },
+  { name: 'Dark Mode - Primary Button Text vs BG', fg: '#ffffff', bg: '#0066cc', minRatio: 4.5, scheme: 'Dark' },
   { name: 'Dark Mode - Bin Bar Text vs BG', fg: '#d1d5db', bg: '#171717', minRatio: 4.5, scheme: 'Dark' },
   { name: 'Dark Mode - Add Note Button Text vs BG', fg: '#fcd34d', bg: '#451a03', minRatio: 4.5, scheme: 'Dark' },
   { name: 'Dark Mode - Notes Header Text vs BG', fg: '#fbbf24', bg: '#171510', minRatio: 4.5, scheme: 'Dark' },

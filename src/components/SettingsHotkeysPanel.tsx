@@ -4,6 +4,7 @@ import type { AppSettings, Bin, Pipeline } from '../types';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { HotkeyRecorder } from './HotkeyRecorder';
 import { SettingsPanelHeader } from './SettingsPanelHeader';
+import { OverflowText } from './OverflowText';
 
 interface SettingsHotkeysPanelProps {
   settings: AppSettings;
@@ -210,7 +211,7 @@ export function SettingsHotkeysPanel({
         title="Hotkeys"
         description="Shortcuts for Pasted, Bins, and Transforms."
         actions={(
-          <button type="button" onClick={() => void restoreDefaults()} className="theme-secondary-button flex items-center space-x-1.5 px-3 py-2 border rounded-lg transition-colors">
+          <button type="button" onClick={() => void restoreDefaults()} className="theme-secondary-button ui-control-radius flex items-center space-x-1.5 px-3 py-2 border transition-colors">
             <RotateCcw className="w-3.5 h-3.5" />
             <span>Restore Defaults</span>
           </button>
@@ -227,7 +228,7 @@ export function SettingsHotkeysPanel({
               : isMac
                 ? <ShieldCheck className={`w-4 h-4 shrink-0 ${capabilityIsHealthy ? 'theme-status-success-text' : 'theme-status-warning-text'}`} />
                 : <MonitorCog className={`w-4 h-4 shrink-0 ${capabilityIsHealthy ? 'theme-status-success-text' : 'theme-text-muted'}`} />}
-            <span className="min-w-0 truncate whitespace-nowrap font-bold text-xs theme-text-main">{capabilityTitle}</span>
+            <OverflowText text={capabilityTitle} className="min-w-0 truncate whitespace-nowrap font-bold text-xs theme-text-main" />
           </div>
           <div className="shrink-0 flex items-center gap-2">
             {isMac && hotkeyStatus?.is_dev_mode && (
@@ -248,7 +249,7 @@ export function SettingsHotkeysPanel({
           <ul className="theme-subtle-surface theme-divide divide-y overflow-hidden rounded-lg border" aria-label="Unavailable hotkeys">
             {hotkeyStatus!.issues.slice(0, 4).map((issue, index) => (
               <li key={`${issue.description}-${issue.shortcut}-${index}`} className="flex items-start justify-between gap-3 px-2.5 py-2 text-[10px]">
-                <span className="min-w-0 truncate theme-text-main">{issue.description}</span>
+                <OverflowText text={issue.description} className="min-w-0 truncate theme-text-main" />
                 {issue.shortcut && <kbd className="shrink-0 font-mono theme-text-muted">{issue.shortcut}</kbd>}
               </li>
             ))}
@@ -273,7 +274,7 @@ export function SettingsHotkeysPanel({
 
       {settings.enableTransformations && pipelines.length > 0 && <section className="space-y-2">
         <h4 className="font-bold theme-text-muted uppercase tracking-wider text-[10px]">Saved Transform Hotkeys ({pipelines.length})</h4>
-        <div className="space-y-2 pt-1 max-h-60 overflow-y-auto pr-1">
+        <div className="overlay-scroll-region space-y-2 pt-1 max-h-60 overflow-y-auto pr-1">
           {pipelines.map((pipeline) => <HotkeyRow key={pipeline.id} label={pipeline.name} value={pipeline.shortcut ?? null} onChange={async (shortcut) => {
               try {
                 await invoke('update_pipeline_shortcut', { pipelineRef: pipeline.stableRef, shortcut });

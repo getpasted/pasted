@@ -7,6 +7,7 @@ const settingsType = read('src/types.ts');
 const settingsHook = read('src/hooks/useAppSettings.ts');
 const nativePolicy = read('src-tauri/src/features.rs');
 const nativeRoot = read('src-tauri/src/lib.rs');
+const nativeCommands = read('src-tauri/src/commands.rs');
 
 const frontendKeys = [...frontendRegistry.matchAll(/settingKey:\s*'(enable[A-Za-z]+)'/g)]
   .map((match) => match[1]);
@@ -31,6 +32,22 @@ assert.doesNotMatch(
   read('src/components/SettingsGeneralPanel.tsx'),
   /onUpdateSettings\(\{\s*enable(?:Trash|ActivityLog):/,
   'Feature switches belong only on Settings → Features',
+);
+
+assert.match(
+  nativeCommands,
+  /"window-appearance-changed"/,
+  'Native appearance writes must notify every open window',
+);
+assert.match(
+  settingsHook,
+  /listen<WindowAppearanceChanged>\('window-appearance-changed'/,
+  'Each window must synchronize appearance changed elsewhere',
+);
+assert.match(
+  settingsHook,
+  /root\.dataset\.theme = resolvedTheme/,
+  'Synchronized appearance settings must update semantic theme tokens',
 );
 
 console.log(`Feature capability audit passed for ${frontendKeys.length} shared gates.`);

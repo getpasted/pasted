@@ -26,6 +26,7 @@ import { Bin, SequentialStatus } from '../types';
 import { useSidebarBinOrder } from '../hooks/useSidebarBinOrder';
 import { getClipCollection, getSystemClipCollections, type ClipCollectionIcon, type ClipDropAction } from '../utils/clipCollections';
 import type { FeatureId } from '../utils/features';
+import { OverflowText } from './OverflowText';
 
 const SEARCH_HELPERS = [
   { prefix: 'regex:', desc: 'Regex' },
@@ -317,7 +318,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             data-sidebar-hover-key="expand"
             onClick={() => setIsCollapsed(false)}
             disabled={isClipDragging}
-            className={`sidebar-control-muted w-9 h-9 flex items-center justify-center p-0 rounded-xl transition-colors duration-75 border shrink-0 ${isClipDragging ? 'border-transparent cursor-default' : `cursor-pointer ${hoveredSidebarControl === 'expand' ? 'sidebar-item-hovered' : 'border-transparent'}`}`}
+            className={`sidebar-control-muted ui-control-radius w-9 h-9 flex items-center justify-center p-0 transition-colors duration-75 border shrink-0 ${isClipDragging ? 'border-transparent cursor-default' : `cursor-pointer ${hoveredSidebarControl === 'expand' ? 'sidebar-item-hovered' : 'border-transparent'}`}`}
             title="Expand Sidebar (⌘\)"
           >
             <PanelLeftOpen className="w-5 h-5" />
@@ -338,7 +339,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 data-clip-drop-action={isEligibleAction ? item.dropAction : undefined}
                 onClick={isClipDragging ? undefined : () => navigateTo(item.tab)}
                 disabled={isClipDragging && !isEligibleAction}
-                className={`w-9 h-9 flex items-center justify-center p-0 rounded-xl transition-colors duration-75 border shrink-0 ${
+                className={`ui-control-radius w-9 h-9 flex items-center justify-center p-0 transition-colors duration-75 border shrink-0 ${
                   isActionTarget
                     ? `sidebar-action-drop sidebar-action-drop-${item.dropAction} sidebar-action-drop-target cursor-grabbing`
                     : isEligibleAction
@@ -373,7 +374,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 setSelectedBinId(b.id);
               }}
               disabled={isClipDragging}
-              className={`w-9 h-9 flex items-center justify-center p-0 rounded-xl transition-colors duration-75 border shrink-0 cursor-pointer ${
+              className={`ui-control-radius w-9 h-9 flex items-center justify-center p-0 transition-colors duration-75 border shrink-0 cursor-pointer ${
                 currentTab === 'bin' && selectedBinId === b.id
                   ? 'sidebar-item-active shadow-sm'
                   : hoveredSidebarControl === `bin:${b.id}`
@@ -396,7 +397,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               data-sidebar-hover-key={`tool:${item.tab}`}
               onClick={() => navigateTo(item.tab)}
               disabled={isClipDragging}
-              className={`w-9 h-9 flex items-center justify-center p-0 rounded-xl transition-colors duration-75 border shrink-0 cursor-pointer ${
+              className={`ui-control-radius w-9 h-9 flex items-center justify-center p-0 transition-colors duration-75 border shrink-0 cursor-pointer ${
                 currentTab === item.tab
                   ? 'sidebar-item-active shadow-sm'
                   : hoveredSidebarControl === `tool:${item.tab}`
@@ -489,10 +490,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       <span className="sidebar-nav-icon">
                         {React.cloneElement(item.icon, { className: item.icon.props.className.replace('w-5 h-5', 'w-4 h-4 shrink-0'), strokeWidth: 1.8 })}
                       </span>
-                      <span className="truncate">{item.label}</span>
+                      <OverflowText text={item.label} className="truncate" />
                     </div>
                     {item.tab === 'sequential' && seqStatus?.is_active ? (
-                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                      <span className="theme-status-success-dot w-2 h-2 rounded-full animate-pulse" />
                     ) : count > 0 ? (
                       <span className={`sidebar-badge text-[11px] px-1.5 py-0.5 rounded-md font-mono ${
                         item.tab === 'trash' ? 'is-danger' : ''
@@ -666,7 +667,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   >
                     <div className="flex items-center gap-3 truncate pr-1 min-w-0">
                       <span className="sidebar-nav-icon sidebar-nav-icon-emoji sidebar-icon-primary">{getBinIcon(b.icon)}</span>
-                      <span className="truncate" style={{ color: binTextColor(b.color) }}>{b.name}</span>
+                      <OverflowText text={b.name} className="truncate" style={{ color: binTextColor(b.color) }} />
                     </div>
 
                     {/* Right side container */}
@@ -677,7 +678,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             title={`Smart Bin · ${b.clip_count} Matches`}
                             className="sidebar-badge text-[11px] px-1.5 py-0.5 rounded-md font-mono flex items-center space-x-1"
                           >
-                            <Sparkles className="w-3 h-3 text-amber-400 shrink-0" />
+                            <Sparkles className="theme-note-text w-3 h-3 shrink-0" />
                             <span>{b.clip_count}</span>
                           </span>
                         ) : (
@@ -761,7 +762,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   <span className="sidebar-nav-icon">
                     {React.cloneElement(item.icon, { className: item.icon.props.className.replace('w-5 h-5', 'w-4 h-4 shrink-0'), strokeWidth: 1.8 })}
                   </span>
-                  <span className="truncate">{item.label}</span>
+                  <OverflowText text={item.label} className="truncate" />
                 </button>
               ))}
             </nav>

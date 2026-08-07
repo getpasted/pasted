@@ -11,6 +11,7 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronRight } from 'lucide-react';
+import { OverflowText } from './OverflowText';
 
 const VIEWPORT_PADDING = 8;
 
@@ -311,9 +312,9 @@ export function MenuSubmenu({
       >
         <span className="flex min-w-0 items-center gap-2.5">
           {icon}
-          <span className="truncate">{label}</span>
+          <OverflowText text={label} className="truncate" />
         </span>
-        <ChevronRight className="h-3.5 w-3.5 shrink-0 text-gray-400" aria-hidden="true" />
+        <ChevronRight className="theme-text-muted h-3.5 w-3.5 shrink-0" aria-hidden="true" />
       </MenuItem>
       {open && (
         <div

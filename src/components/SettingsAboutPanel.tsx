@@ -90,7 +90,7 @@ export function SettingsAboutPanel() {
               { icon: Database, label: 'Database', value: fileSize(installation.databaseSizeBytes) },
               { icon: TerminalSquare, label: 'Command Line', value: installation.cliPath ? 'Installed' : 'Not installed beside Pasted' },
             ].map(({ icon: Icon, label, value }) => (
-              <div key={label} className="theme-card-idle flex min-w-0 items-center gap-2.5 rounded-xl border px-3 py-2.5">
+              <div key={label} className="theme-card-idle flex min-w-0 items-center gap-2.5 border px-3 py-2.5">
                 <Icon className="theme-text-muted h-4 w-4 shrink-0" />
                 <div className="min-w-0">
                   <div className="theme-text-muted text-[9px] font-semibold uppercase tracking-wider">{label}</div>
@@ -102,7 +102,7 @@ export function SettingsAboutPanel() {
               ['Application', installation.appPath],
               ['Data', installation.dataPath],
             ].map(([label, value]) => (
-              <div key={label} className="theme-card-idle min-w-0 rounded-xl border px-3 py-2.5 sm:col-span-2">
+              <div key={label} className="theme-card-idle min-w-0 border px-3 py-2.5 sm:col-span-2">
                 <div className="theme-text-muted text-[9px] font-semibold uppercase tracking-wider">{label}</div>
                 <div className="theme-text-main mt-1 select-text break-all font-mono text-[10px] leading-relaxed">{value}</div>
               </div>

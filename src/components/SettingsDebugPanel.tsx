@@ -3,6 +3,7 @@ import { Activity, Ban, CheckCircle2, CirclePlay, Clock3, GitFork, Layers3, Load
 import type { IntelligenceSchedulerEvent, IntelligenceSchedulerSnapshot, OcrBackfillStatus } from '../types';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { SettingsPanelHeader } from './SettingsPanelHeader';
+import { OverflowText } from './OverflowText';
 
 const EMPTY_SNAPSHOT: IntelligenceSchedulerSnapshot = {
   revision: 0,
@@ -118,7 +119,7 @@ export function SettingsDebugPanel({ ocrEnabled }: { ocrEnabled: boolean }) {
             ['No text', ocrStatus.noTextCount],
             ['Failed', ocrStatus.failedCount],
           ].map(([label, value]) => (
-            <div key={label} className="theme-card-idle rounded-lg border px-2 py-2 text-center">
+            <div key={label} className="theme-card-idle border px-2 py-2 text-center">
               <strong className="theme-title block text-sm tabular-nums">{value}</strong>
               <span className="theme-text-muted text-[9px]">{label}</span>
             </div>
@@ -135,11 +136,11 @@ export function SettingsDebugPanel({ ocrEnabled }: { ocrEnabled: boolean }) {
       <h2 className="theme-text-muted text-[10px] font-semibold uppercase tracking-wider">Intelligence scheduler</h2>
       <section className="theme-surface rounded-2xl border p-5">
         <div className="grid grid-cols-2 gap-3">
-          <div className="theme-card-idle rounded-xl border p-3">
+          <div className="theme-card-idle border p-3">
             <div className="theme-text-muted text-[10px] font-semibold uppercase tracking-wider">Running</div>
             <div className="theme-title mt-1 text-xl font-bold tabular-nums">{snapshot.activeCount}</div>
           </div>
-          <div className="theme-card-idle rounded-xl border p-3">
+          <div className="theme-card-idle border p-3">
             <div className="theme-text-muted text-[10px] font-semibold uppercase tracking-wider">Queued</div>
             <div className="theme-title mt-1 text-xl font-bold tabular-nums">{snapshot.queuedCount}</div>
           </div>
@@ -180,12 +181,12 @@ export function SettingsDebugPanel({ ocrEnabled }: { ocrEnabled: boolean }) {
         <section className="space-y-2">
           <h3 className="theme-text-muted text-[10px] font-semibold uppercase tracking-wider">Current work</h3>
           {snapshot.jobs.map((job) => (
-            <article key={job.id} className="theme-card-idle rounded-xl border px-3 py-2.5">
+            <article key={job.id} className="theme-card-idle border px-3 py-2.5">
               <div className="flex items-center gap-2">
                 {job.status === 'running'
                   ? <LoaderCircle className="theme-status-info-text h-3.5 w-3.5 animate-spin" />
                   : <Clock3 className="theme-text-muted h-3.5 w-3.5" />}
-                <span className="theme-text-main min-w-0 flex-1 truncate text-xs font-semibold">{job.label}</span>
+                <OverflowText text={job.label} className="theme-text-main min-w-0 flex-1 truncate text-xs font-semibold" />
                 <span className="theme-badge rounded-full border px-2 py-0.5 text-[9px] font-semibold">{job.status}</span>
               </div>
               <div className="theme-text-muted mt-1 flex flex-wrap gap-x-3 gap-y-1 pl-5.5 text-[10px]">
@@ -207,7 +208,7 @@ export function SettingsDebugPanel({ ocrEnabled }: { ocrEnabled: boolean }) {
                 <span className={event.status === 'failed' ? 'theme-danger-text' : event.status === 'succeeded' ? 'theme-status-success-text' : 'theme-text-muted'}>
                   {eventIcon(event)}
                 </span>
-                <span className="theme-text-main min-w-0 flex-1 truncate text-xs font-semibold">{event.label}</span>
+                <OverflowText text={event.label} className="theme-text-main min-w-0 flex-1 truncate text-xs font-semibold" />
                 <span className="theme-text-muted text-[9px] tabular-nums">{new Date(event.timestampMs).toLocaleTimeString()}</span>
               </div>
               <div className="theme-text-muted mt-1 pl-5.5 text-[10px]">

@@ -98,7 +98,7 @@ export function FactoryResetDialog({
               spellCheck={false}
               value={confirmation}
               onChange={(event) => setConfirmation(event.target.value)}
-              className="theme-input mt-2 w-full rounded-xl border px-3 py-2.5 font-mono text-xs focus:outline-none"
+              className="theme-input ui-field-radius mt-2 w-full border px-3 py-2.5 font-mono text-xs focus:outline-none"
               disabled={isResetting}
             />
           </div>

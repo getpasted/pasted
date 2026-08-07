@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { startWindowDrag } from '../utils/windowDrag';
+import { OverflowText } from './OverflowText';
 
 interface ToolPageHeaderProps {
   icon: ReactNode;
@@ -21,7 +22,7 @@ export function ToolPageHeader({ icon, title, description, actions }: ToolPageHe
         <div className="flex min-w-0 items-baseline gap-3">
           <h1 className="theme-title shrink-0 text-sm font-bold">{title}</h1>
           {description && (
-            <p className="theme-text-muted min-w-0 truncate text-xs">{description}</p>
+            <OverflowText as="p" text={description} className="theme-text-muted min-w-0 truncate text-xs" />
           )}
         </div>
       </div>

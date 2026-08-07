@@ -6,6 +6,7 @@ import { useStableVerticalReorder } from '../hooks/useStableVerticalReorder';
 import { intelligenceProviderLabel } from '../utils/intelligenceProviders';
 import { ConnectionModal } from './ConnectionModal';
 import { SettingsPanelHeader } from './SettingsPanelHeader';
+import { OverflowText } from './OverflowText';
 
 let cachedConnections: IntelligenceConnection[] | null = null;
 let cachedDetectedConnections: DetectedIntelligenceConnection[] | null = null;
@@ -115,7 +116,7 @@ export function IntelligenceConnectionsPanel() {
         title="Intelligence connections"
         description="Manage local and remote intelligence providers."
         actions={(
-          <button type="button" onClick={() => setIsAddConnectionOpen(true)} className="theme-primary-button border rounded-xl px-3 py-2 text-xs font-semibold flex items-center justify-center gap-1.5">
+          <button type="button" onClick={() => setIsAddConnectionOpen(true)} className="theme-primary-button ui-control-radius border px-3 py-2 text-xs font-semibold flex items-center justify-center gap-1.5">
             <Plus className="w-4 h-4" />
             <span>Add connection</span>
           </button>
@@ -142,19 +143,21 @@ export function IntelligenceConnectionsPanel() {
                     onPointerDown={(event) => startConnectionReorder(connection.id, event)}
                     title="Reorder Connection"
                     style={offset !== 0 || isDragging ? { transform: `translateY(${offset}px)`, zIndex: isDragging ? 'var(--layer-drag)' : 1 } : undefined}
-                    className={`connection-priority-card theme-card-idle border rounded-xl p-3 flex items-center justify-between gap-3 relative cursor-grab active:cursor-grabbing touch-none transition-[background-color,border-color,box-shadow,opacity,transform] duration-100 ${isDragging ? 'is-dragging' : ''} ${isOperational ? '' : 'opacity-60'}`}
+                    className={`connection-priority-card theme-card-idle border p-3 flex items-center justify-between gap-3 relative cursor-grab active:cursor-grabbing touch-none transition-[background-color,border-color,box-shadow,opacity,transform] duration-100 ${isDragging ? 'is-dragging' : ''} ${isOperational ? '' : 'opacity-60'}`}
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <span className="theme-text-muted font-mono text-[10px] w-4 text-center">{index + 1}</span>
                       <span className="theme-badge border rounded-xl p-2"><Icon className="w-4 h-4" /></span>
                       <div className="min-w-0">
-                        <div className="theme-text-main text-xs font-bold truncate">{connection.name}</div>
-                        <div className="theme-text-muted text-[10px] truncate mt-0.5">
-                          {detected?.version || intelligenceProviderLabel(connection.providerKind)}{connection.model ? ` · ${connection.model}` : ''}
-                        </div>
+                        <OverflowText as="div" text={connection.name} className="theme-text-main text-xs font-bold truncate" />
+                        <OverflowText
+                          as="div"
+                          text={`${detected?.version || intelligenceProviderLabel(connection.providerKind)}${connection.model ? ` · ${connection.model}` : ''}`}
+                          className="theme-text-muted text-[10px] truncate mt-0.5"
+                        />
                         {isInteractiveOnly && <div className="theme-text-muted text-[9px] mt-0.5">Interactive/MCP client · not automatic fallback</div>}
                         {executionUnavailable && !isInteractiveOnly && <div className="theme-text-muted text-[9px] mt-0.5">Detected · automatic execution unavailable</div>}
-                        <div className="theme-text-muted text-[10px] font-mono truncate mt-1">{connection.endpoint || 'No endpoint configured'}</div>
+                        <OverflowText as="div" text={connection.endpoint || 'No endpoint configured'} className="theme-text-muted text-[10px] font-mono truncate mt-1" />
                       </div>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
@@ -181,7 +184,7 @@ export function IntelligenceConnectionsPanel() {
           ) : isLoading ? (
             <div className="connection-loading-list space-y-2" role="status" aria-label="Detecting available intelligence connections" aria-busy="true">
               {[0, 1, 2].map((index) => (
-                <div key={index} className="connection-loading-card theme-card-idle border rounded-xl p-3 flex items-center justify-between gap-3" aria-hidden="true">
+                <div key={index} className="connection-loading-card theme-card-idle border p-3 flex items-center justify-between gap-3" aria-hidden="true">
                   <div className="flex min-w-0 flex-1 items-center gap-3">
                     <span className="connection-loading-rank" />
                     <span className="connection-loading-icon rounded-xl" />

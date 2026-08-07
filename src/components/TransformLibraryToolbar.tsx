@@ -22,7 +22,7 @@ export function TransformLibraryToolbar({
       <button
         type="button"
         onClick={onCreate}
-        className={`transform-workspace-action ${accent} flex h-8 shrink-0 items-center gap-2 rounded-xl px-3 text-xs font-bold shadow-sm active:scale-[0.98] transition-[background-color,border-color,color,transform]`}
+        className={`transform-workspace-action ui-control-radius ${accent} flex h-8 shrink-0 items-center gap-2 px-3 text-xs font-bold shadow-sm active:scale-[0.98] transition-[background-color,border-color,color,transform]`}
       >
         <Sparkles className="w-3.5 h-3.5" />
         <span>{createLabel}</span>

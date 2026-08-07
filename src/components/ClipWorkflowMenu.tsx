@@ -2,6 +2,7 @@ import type { RefObject } from 'react';
 import { LoaderCircle, Sparkles, Workflow } from 'lucide-react';
 import type { SavedTransform } from '../types';
 import { AnchoredMenu, MenuDivider, MenuItem } from './AnchoredMenu';
+import { OverflowText } from './OverflowText';
 
 interface ClipWorkflowMenuProps {
   transforms: SavedTransform[];
@@ -46,11 +47,11 @@ export function ClipWorkflowMenu({
               className="gap-2.5 px-2.5 py-2"
             >
               {isRunning && isActive
-                ? <LoaderCircle className="h-4 w-4 shrink-0 animate-spin text-cyan-500" />
-                : <Workflow className="h-4 w-4 shrink-0 text-cyan-500" />}
-              <span className="min-w-0 flex-1 truncate">{transform.name}</span>
+                ? <LoaderCircle className="theme-workflow-text h-4 w-4 shrink-0 animate-spin" />
+                : <Workflow className="theme-workflow-text h-4 w-4 shrink-0" />}
+              <OverflowText text={transform.name} className="min-w-0 flex-1 truncate" />
               {usesIntelligence && (
-                <Sparkles className="h-3.5 w-3.5 shrink-0 text-violet-400" aria-label="Uses connected intelligence" />
+                <Sparkles className="theme-intelligence-text h-3.5 w-3.5 shrink-0" aria-label="Uses connected intelligence" />
               )}
             </MenuItem>
           );
@@ -71,7 +72,7 @@ export function ClipWorkflowMenu({
         }}
         className="gap-2.5 px-2.5 py-2"
       >
-        <Workflow className="h-4 w-4 shrink-0 text-cyan-500" />
+        <Workflow className="theme-workflow-text h-4 w-4 shrink-0" />
         <span className="flex-1">Manage Transforms…</span>
       </MenuItem>
     </AnchoredMenu>

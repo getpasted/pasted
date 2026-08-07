@@ -286,7 +286,7 @@ export const BinModal: React.FC<BinModalProps> = ({
       onClose={onClose}
       labelledBy="bin-modal-title"
       isDirty={isDirty}
-      panelClassName="bin-modal-card theme-panel w-full max-w-xl max-h-[90vh] rounded-2xl border shadow-2xl overflow-hidden flex flex-col font-sans"
+      panelClassName="bin-modal-card theme-panel w-full max-w-xl max-h-[90vh] border shadow-2xl overflow-hidden flex flex-col font-sans"
     >
       {({ requestClose }) => <>
         <AppDialogHeader onClose={requestClose}>
@@ -328,7 +328,7 @@ export const BinModal: React.FC<BinModalProps> = ({
                   handleSubmit(e);
                 }
               }}
-              className={`flex-1 theme-input rounded-xl border px-3 py-2 text-xs focus:outline-none font-medium transition-colors ${errors.name ? 'form-field-error' : 'form-field-valid'}`}
+              className={`flex-1 theme-input ui-field-radius border px-3 py-2 text-xs focus:outline-none font-medium transition-colors ${errors.name ? 'form-field-error' : 'form-field-valid'}`}
               autoFocus
             />
           </div>
@@ -413,7 +413,7 @@ export const BinModal: React.FC<BinModalProps> = ({
                 }}
                 placeholder="📂"
                 maxLength={64}
-                className={`w-16 theme-input emoji-input-picker rounded-xl border py-1.5 text-center font-mono text-lg focus:outline-none shadow-inner cursor-pointer select-none transition-colors ${errors.icon ? 'form-field-error' : 'form-field-valid'}`}
+                className={`w-16 theme-input ui-field-radius emoji-input-picker border py-1.5 text-center font-mono text-lg focus:outline-none shadow-inner cursor-pointer select-none transition-colors ${errors.icon ? 'form-field-error' : 'form-field-valid'}`}
                 title="Open Emoji Picker"
               />
               <span className="text-[11px] theme-text-muted">

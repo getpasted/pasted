@@ -3,6 +3,7 @@ import { AlertCircle, LoaderCircle, Search, Sparkles, X } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { listen } from '@tauri-apps/api/event';
 import { ClipItem, getClipFileSummary } from '../types';
+import { OverflowText } from './OverflowText';
 
 export const QuickHudWindow: React.FC = () => {
   const [hudAnchor, setHudAnchor] = useState({ flipped: false, x: 180 });
@@ -176,7 +177,7 @@ export const QuickHudWindow: React.FC = () => {
                 setPasteError('');
                 setSearch(e.target.value);
               }}
-              className="theme-input quick-hud-search w-full border rounded-xl pl-8 pr-3 py-1.5 text-xs font-mono no-drag"
+              className="theme-input ui-field-radius quick-hud-search w-full border pl-8 pr-3 py-1.5 text-xs font-mono no-drag"
             />
           </div>
           <button
@@ -204,6 +205,11 @@ export const QuickHudWindow: React.FC = () => {
           ) : (
             clips.map((clip, index) => {
               const isSel = index === selectedIndex;
+              const previewText = clip.content_type === 'image' && clip.image_base64
+                ? clip.text_content ? `[OCR] ${clip.text_content}` : 'Screenshot Image'
+                : clip.content_type === 'file'
+                  ? getClipFileSummary(clip)
+                  : clip.text_content || '';
               return (
                 <div
                   key={clip.id}
@@ -229,18 +235,12 @@ export const QuickHudWindow: React.FC = () => {
                             alt="Clip Preview"
                             className="theme-divider h-8 w-12 object-cover rounded border"
                           />
-                          <span className="theme-text-muted text-xs font-mono truncate">
-                            {clip.text_content ? `[OCR] ${clip.text_content}` : 'Screenshot Image'}
-                          </span>
+                          <OverflowText text={previewText} className="theme-text-muted text-xs font-mono truncate" />
                         </div>
                       ) : clip.content_type === 'file' ? (
-                        <p className="text-xs font-mono truncate leading-snug">
-                          {getClipFileSummary(clip)}
-                        </p>
+                        <OverflowText as="p" text={previewText} className="text-xs font-mono truncate leading-snug" />
                       ) : (
-                        <p className="text-xs font-mono truncate leading-snug">
-                          {clip.text_content}
-                        </p>
+                        <OverflowText as="p" text={previewText} className="text-xs font-mono truncate leading-snug" />
                       )}
                     </div>
                   </div>

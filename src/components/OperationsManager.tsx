@@ -14,6 +14,7 @@ import { startWindowDrag } from '../utils/windowDrag';
 import { TransformLibraryToolbar } from './TransformLibraryToolbar';
 import { TransformCategorySelect } from './TransformCategorySelect';
 import { DeleteTransformationAssetDialog } from './DeleteTransformationAssetDialog';
+import { OverflowText } from './OverflowText';
 
 interface OperationsManagerProps {
   isEmbedded?: boolean;
@@ -130,11 +131,9 @@ export const OperationsManager: React.FC<OperationsManagerProps> = ({
             <Code2 className="transform-accent operations h-4 w-4" />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-xs font-semibold theme-text-main">{operation.name}</span>
+            <OverflowText text={operation.name} className="block truncate text-xs font-semibold theme-text-main" />
             <span className="mt-0.5 flex min-w-0 items-center gap-1.5">
-              <span className="transform-tag operations max-w-full truncate rounded border px-1.5 py-0.5 font-mono text-[10px]">
-                {operation.category}
-              </span>
+              <OverflowText text={operation.category} className="transform-tag operations max-w-full truncate rounded border px-1.5 py-0.5 font-mono text-[10px]" />
             </span>
           </span>
         </button>

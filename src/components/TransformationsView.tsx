@@ -17,6 +17,7 @@ import { startTransformation, type TransformationExecutionHandle } from '../util
 import { useIntelligenceRequestStatus } from '../hooks/useIntelligenceRequestStatus';
 import { AnchoredMenu, MenuDivider, MenuItem } from './AnchoredMenu';
 import { DeleteTransformationAssetDialog } from './DeleteTransformationAssetDialog';
+import { OverflowText } from './OverflowText';
 
 interface TransformationsViewProps {
   pipelines: Pipeline[];
@@ -321,7 +322,7 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
                 <span className="text-[10px] theme-text-subtle">Ready to reuse with the same plan</span>
             </div>
             {transforms.length === 0 ? (
-              <div className="theme-card-idle rounded-xl border border-dashed px-4 py-5 text-center">
+              <div className="theme-card-idle border border-dashed px-4 py-5 text-center">
                 <Workflow className="transform-accent pipelines mx-auto mb-2 h-5 w-5" />
                 <p className="text-xs font-semibold theme-text-main">No saved Transforms yet</p>
                 <p className="mt-1 text-[10px] theme-text-muted">Create and test a draft, then save it here.</p>
@@ -351,22 +352,24 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
                           choosePlaygroundTarget({ kind: 'transform', item: transform });
                         }
                       }}
-                      className="transform-card pipelines group relative flex cursor-pointer items-center justify-between rounded-xl border p-3.5 shadow-md transition-[background-color,border-color,box-shadow,transform] theme-card-idle"
+                      className="transform-card pipelines group relative flex cursor-pointer items-center justify-between border p-3.5 shadow-md transition-[background-color,border-color,box-shadow,transform] theme-card-idle"
                     >
                       <div className="flex min-w-0 items-center gap-3 pr-2">
                         <span className="theme-badge grid h-9 w-9 shrink-0 place-items-center rounded-lg border">
                           <Workflow className="transform-accent pipelines h-4 w-4" />
                         </span>
                         <span className="min-w-0">
-                          <span className="block truncate text-xs font-bold theme-text-main">{transform.name}</span>
-                          <span className="mt-1 flex min-w-0 items-center gap-1.5 text-[10px] theme-text-muted">
-                            <span>{transform.plan.steps.length} {transform.plan.steps.length === 1 ? 'step' : 'steps'}</span>
-                            <span>·</span>
-                            <span className="inline-flex min-w-0 items-center gap-1 truncate">
-                              {semanticSteps > 0 && <Sparkles className="h-3 w-3" />}
-                              <span className="truncate">{provenance}</span>
+                          <OverflowText text={transform.name} className="block truncate text-xs font-bold theme-text-main" />
+                          <span className="mt-1 block min-w-0 text-[10px] theme-text-muted">
+                            <span className="block whitespace-nowrap">
+                              {transform.plan.steps.length} {transform.plan.steps.length === 1 ? 'step' : 'steps'}. Version {transform.revision}.
                             </span>
-                            {transform.revision > 1 && <><span>·</span><span>v{transform.revision}</span></>}
+                            <span className="mt-0.5 flex min-w-0 items-center gap-1.5">
+                              <span className="inline-flex min-w-0 items-center gap-1 truncate">
+                                {semanticSteps > 0 && <Sparkles className="h-3 w-3" />}
+                                <OverflowText text={provenance} className="truncate" />
+                              </span>
+                            </span>
                           </span>
                         </span>
                       </div>
@@ -422,7 +425,7 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
               <button
                 type="button"
                 onClick={handleOpenCreateModal}
-                className="theme-secondary-button flex h-8 shrink-0 items-center gap-1.5 rounded-xl border px-3 text-xs font-semibold transition-colors"
+                className="theme-secondary-button ui-control-radius flex h-8 shrink-0 items-center gap-1.5 border px-3 text-xs font-semibold transition-colors"
               >
                 <Plus className="h-3.5 w-3.5" />
                 <span>New Pipeline</span>
@@ -459,7 +462,7 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
                         setTransformContextMenu(null);
                         setPipelineContextMenu({ x: e.clientX, y: e.clientY, pipeline: f });
                       }}
-                      className="transform-card pipelines group p-3.5 theme-card-idle rounded-xl border cursor-pointer transition-[background-color,border-color,box-shadow,transform] flex items-center justify-between shadow-md"
+                      className="transform-card pipelines group p-3.5 theme-card-idle border cursor-pointer transition-[background-color,border-color,box-shadow,transform] flex items-center justify-between shadow-md"
                     >
                       <div className="flex items-center space-x-3 truncate pr-2">
                         <div className="p-2 rounded-lg theme-badge border shrink-0">
@@ -467,7 +470,7 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
                         </div>
                         <div className="truncate">
                           <div className="flex items-center space-x-2">
-                            <h4 className="text-xs font-bold theme-text-main truncate">{f.name}</h4>
+                            <OverflowText as="h4" text={f.name} className="text-xs font-bold theme-text-main truncate" />
                             {stepTypes.length > 1 && (
                               <span className="transform-tag pipelines text-[9px] font-bold border px-1.5 py-0.2 rounded-full">
                                 ⚡ {stepTypes.length} Steps
@@ -537,9 +540,7 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
               className="w-48"
               onClose={() => setTransformContextMenu(null)}
             >
-              <div className="theme-text-muted px-3 py-1 text-[10px] font-bold uppercase truncate">
-                {transformContextMenu.transform.name}
-              </div>
+              <OverflowText as="div" text={transformContextMenu.transform.name} className="theme-text-muted px-3 py-1 text-[10px] font-bold uppercase truncate" />
               <MenuItem
                 onClick={() => {
                   handleOpenTransformComposer(transformContextMenu.transform);
@@ -593,9 +594,7 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
               className="w-48"
               onClose={() => setPipelineContextMenu(null)}
             >
-              <div className="theme-text-muted theme-divider px-3 py-1 text-[10px] uppercase font-bold border-b truncate">
-                {pipelineContextMenu.pipeline.name}
-              </div>
+              <OverflowText as="div" text={pipelineContextMenu.pipeline.name} className="theme-text-muted theme-divider px-3 py-1 text-[10px] uppercase font-bold border-b truncate" />
 
               <MenuItem
                 onClick={() => {

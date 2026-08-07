@@ -3,6 +3,7 @@ import { Check, Copy, Files, Palette, ScanText, Sparkles } from 'lucide-react';
 import { getClipFilePaths, type ClipItem } from '../types';
 import type { ColorFormats } from '../utils/color';
 import { UI_COPY } from '../utils/uiCopy';
+import { OverflowText } from './OverflowText';
 
 interface ClipPreviewContentProps {
   clip: ClipItem;
@@ -103,7 +104,7 @@ function FileCopyField({
 
   return (
     <div
-      className={`file-copy-field flex min-h-10 min-w-0 items-center gap-1 px-1.5 py-0.5 ${emphasized ? 'theme-code-surface' : ''}`}
+      className={`file-copy-field flex min-h-10 min-w-0 items-center gap-1 px-1.5 py-0.5 ${emphasized ? 'theme-subtle-surface' : ''}`}
       onPointerDown={handleFieldPointerDown}
     >
       <span className="theme-text-subtle w-9 shrink-0 pl-1 text-[9px] font-semibold uppercase tracking-wide">{label}</span>
@@ -149,7 +150,7 @@ export function ClipPreviewContent({
         {clip.content_type === 'file' ? (
           <div className="theme-panel rounded-2xl border p-4 shadow-lg">
             <div className="theme-title mb-3 flex items-center gap-2 text-xs font-semibold">
-              <Files className="h-4 w-4 text-blue-400" />
+              <Files className="theme-status-info-text h-4 w-4" />
               <span>{filePaths.length === 1 ? 'Copied File' : `${filePaths.length} Copied Files`}</span>
             </div>
             {isFilePreviewLoading && (
@@ -174,7 +175,7 @@ export function ClipPreviewContent({
                               className="max-h-72 w-full rounded-lg object-contain"
                             />
                           ) : (
-                            <pre className="theme-text-main max-h-72 w-full overflow-auto whitespace-pre-wrap break-words p-2 font-mono text-xs">
+                            <pre className="theme-text-main overlay-scroll-region max-h-72 w-full overflow-auto whitespace-pre-wrap break-words p-2 font-mono text-xs">
                               {preview.textContent}
                             </pre>
                           )}
@@ -219,7 +220,7 @@ export function ClipPreviewContent({
 
             <div className="flex items-center space-x-6">
               <div
-                className="w-24 h-24 rounded-2xl border-2 border-white/20 shadow-2xl transition-[box-shadow,transform] duration-300 relative group shrink-0"
+                className="theme-divider w-24 h-24 rounded-2xl border-2 shadow-2xl transition-[box-shadow,transform] duration-300 relative group shrink-0"
                 style={{
                   backgroundColor: colorData.hex,
                   boxShadow: `0 12px 32px ${colorData.hex}44`,
@@ -262,10 +263,10 @@ export function ClipPreviewContent({
                 >
                   <div className="flex flex-col text-left truncate pr-2">
                     <span className="theme-text-muted text-[10px] uppercase font-semibold">{fmt.label}</span>
-                    <span className="theme-text-main font-mono truncate text-[11px]">{fmt.val}</span>
+                    <OverflowText text={fmt.val} className="theme-text-main font-mono truncate text-[11px]" />
                   </div>
                   {copiedFormat === fmt.label ? (
-                    <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <Check className="theme-status-success-text w-3.5 h-3.5 shrink-0" />
                   ) : (
                     <Copy className="theme-text-muted w-3.5 h-3.5 group-hover:text-current shrink-0 transition-colors" />
                   )}
@@ -276,14 +277,14 @@ export function ClipPreviewContent({
             {/* Contrast Ratio Preview */}
             <div className="theme-divider pt-2 border-t flex items-center justify-between text-xs font-sans">
               <div
-                className="px-3 py-1.5 rounded-lg font-semibold flex items-center space-x-1.5 border border-white/10"
+                className="color-contrast-sample px-3 py-1.5 rounded-lg font-semibold flex items-center space-x-1.5 border"
                 style={{ backgroundColor: colorData.hex, color: '#ffffff' }}
               >
                 <span>White Text</span>
                 <span className="text-[10px] opacity-80">({colorData.contrastWithWhite}:1)</span>
               </div>
               <div
-                className="px-3 py-1.5 rounded-lg font-semibold flex items-center space-x-1.5 border border-black/10"
+                className="color-contrast-sample px-3 py-1.5 rounded-lg font-semibold flex items-center space-x-1.5 border"
                 style={{ backgroundColor: colorData.hex, color: '#000000' }}
               >
                 <span>Black Text</span>

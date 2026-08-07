@@ -548,7 +548,7 @@ export const PipelineEditorModal: React.FC<PipelineEditorModalProps> = ({
                 placeholder="e.g. Sanitize HTML & Convert Smileys"
                 value={pipelineName}
                 onChange={(e) => setPipelineName(e.target.value)}
-                className="w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none font-medium theme-input"
+                className="theme-input ui-field-radius w-full border px-4 py-2.5 text-sm focus:outline-none font-medium"
                 autoFocus
               />
             </div>
@@ -565,7 +565,7 @@ export const PipelineEditorModal: React.FC<PipelineEditorModalProps> = ({
           </div>
 
           {/* Sticky Interactive Split-Pane Sandbox Tester */}
-          <div className="filter-sandbox-card sticky-filter-sandbox sticky top-0 p-4 rounded-2xl border space-y-3 shadow-xl backdrop-blur-xl">
+          <div className="filter-sandbox-card sticky-filter-sandbox sticky top-0 p-4 border space-y-3 shadow-xl backdrop-blur-xl">
             <div className="flex items-center justify-between">
               <span className="theme-status-info-text text-xs font-semibold uppercase tracking-wider flex items-center space-x-1.5">
                 <Play className="w-3.5 h-3.5" />
@@ -588,12 +588,12 @@ export const PipelineEditorModal: React.FC<PipelineEditorModalProps> = ({
                 <textarea
                   value={testInput}
                   onChange={(e) => setTestInput(e.target.value)}
-                  className="w-full h-24 border rounded-xl p-2.5 focus:outline-none theme-input"
+                  className="theme-input ui-field-radius w-full h-24 border p-2.5 focus:outline-none"
                 />
               </div>
               <div>
                 <label className="filter-sandbox-output-label block mb-1 font-sans font-semibold">Live Output Preview:</label>
-                <div className="filter-sandbox-output w-full h-24 border rounded-xl p-2.5 overflow-y-auto whitespace-pre-wrap theme-input font-mono">
+                <div className="filter-sandbox-output theme-input ui-field-radius overlay-scroll-region w-full h-24 border p-2.5 overflow-y-auto whitespace-pre-wrap font-mono">
                   {testOutput || 'Transformed output will appear here...'}
                 </div>
               </div>
@@ -636,7 +636,7 @@ export const PipelineEditorModal: React.FC<PipelineEditorModalProps> = ({
                 <button
                   type="button"
                   onClick={handleAddStep}
-                  className="theme-primary-button flex items-center space-x-1.5 px-4 py-2 rounded-xl border text-xs font-semibold shadow-lg active:scale-95 transition-[background-color,transform]"
+                  className="theme-primary-button ui-control-radius flex items-center space-x-1.5 px-4 py-2 border text-xs font-semibold shadow-lg active:scale-95 transition-[background-color,transform]"
                 >
                   <Plus className="w-4 h-4" />
                   <span>Add Step</span>

@@ -178,7 +178,7 @@ body.hud-mode,
 
 .clip-note-viewer-card {
   border-color: color-mix(in srgb, var(--note-accent) 42%, var(--border-card));
-  box-shadow: 0 24px 70px color-mix(in srgb, #000 32%, transparent);
+  box-shadow: 0 24px 70px color-mix(in srgb, var(--shadow-color) 32%, transparent);
 }
 
 .clip-note-viewer-content {

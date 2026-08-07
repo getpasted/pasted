@@ -16,6 +16,7 @@ import {
   Calendar,
 } from 'lucide-react';
 import { ToolPageHeader } from './ToolPageHeader';
+import { OverflowText } from './OverflowText';
 
 interface AppStat {
   name: string;
@@ -107,9 +108,7 @@ export const AnalyticsView: React.FC = () => {
             <TrendingUp className="w-6 h-6" />
           </div>
           <div>
-            <div className="theme-title text-2xl font-extrabold font-mono truncate max-w-[140px]">
-              {topApps[0]?.name || '—'}
-            </div>
+            <OverflowText as="div" text={topApps[0]?.name || '—'} className="theme-title text-2xl font-extrabold font-mono truncate max-w-[140px]" />
             <div className="theme-text-muted text-xs font-medium">Top Copied App</div>
           </div>
         </div>

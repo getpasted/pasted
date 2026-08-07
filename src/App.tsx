@@ -23,6 +23,7 @@ import { BinContextMenu } from './components/BinContextMenu';
 import { DeleteBinDialog } from './components/DeleteBinDialog';
 import { ClipNoteDialog } from './components/ClipNoteDialog';
 import { ClearHistoryDialog, type ClearHistoryMode } from './components/ClearHistoryDialog';
+import { OverflowText } from './components/OverflowText';
 import { startWindowDrag } from './utils/windowDrag';
 import { useColumnResize } from './hooks/useColumnResize';
 import { useAppSettings } from './hooks/useAppSettings';
@@ -913,6 +914,11 @@ export default function App() {
           ?? allClips.find((clip) => clip.id === clipDragPreview.clipId);
         if (!previewClip) return null;
         const batchCount = selectedClipIds.has(previewClip.id) ? selectedClipIds.size : 1;
+        const previewText = previewClip.content_type === 'image'
+          ? 'Image clip'
+          : previewClip.content_type === 'file'
+            ? getClipFileSummary(previewClip)
+            : previewClip.text_content || 'Empty clip';
         return (
           <div
             data-testid="clip-drag-preview"
@@ -924,20 +930,14 @@ export default function App() {
             }}
           >
             <div className="theme-text-muted flex items-center justify-between gap-3 text-[10px]">
-              <span className="theme-text-main truncate font-semibold">{previewClip.source_app}</span>
+              <OverflowText text={previewClip.source_app} className="theme-text-main truncate font-semibold" />
               {batchCount > 1 && (
                 <span className="clip-drag-preview-count shrink-0 rounded-full px-2 py-0.5 font-bold">
                   {batchCount} clips
                 </span>
               )}
             </div>
-            <div className="theme-title mt-1.5 truncate font-mono text-xs">
-              {previewClip.content_type === 'image'
-                ? 'Image clip'
-                : previewClip.content_type === 'file'
-                ? getClipFileSummary(previewClip)
-                : previewClip.text_content || 'Empty clip'}
-            </div>
+            <OverflowText as="div" text={previewText} className="theme-title mt-1.5 truncate font-mono text-xs" />
           </div>
         );
       })()}
@@ -1047,9 +1047,7 @@ export default function App() {
                 ) : (
                   <Clipboard className="theme-text-main w-4 h-4 titlebar-drag-handle shrink-0" />
                 )}
-                <h2 className="theme-title text-xs font-bold uppercase tracking-wider titlebar-drag-handle truncate">
-                  {currentCollection?.title ?? 'History'}
-                </h2>
+                <OverflowText as="h2" text={currentCollection?.title ?? 'History'} className="theme-title text-xs font-bold uppercase tracking-wider titlebar-drag-handle truncate" />
                 {currentTab === 'search' && (
                   <span
                     className="theme-badge min-w-5 rounded-md border px-1.5 py-0.5 text-center font-mono text-[10px] font-semibold"

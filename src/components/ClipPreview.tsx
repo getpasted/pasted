@@ -14,6 +14,7 @@ import { ClipWorkflowMenu } from './ClipWorkflowMenu';
 import { MenuSelect } from './MenuSelect';
 import { ClipNoteViewer } from './ClipNoteViewer';
 import { NoteRowItem } from './ClipNoteRow';
+import { OverflowText } from './OverflowText';
 import {
   Copy,
   ClipboardPaste,
@@ -738,9 +739,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
           <span className="clip-type-badge theme-badge text-xs font-semibold px-2.5 py-1 rounded-md border capitalize titlebar-drag-handle">
             {clip.content_type === 'file' && getClipFilePaths(clip).length > 1 ? 'Files' : clip.content_type}
           </span>
-          <span className="theme-text-main min-w-0 max-w-[200px] truncate text-xs font-medium titlebar-drag-handle">
-            {clip.source_app}
-          </span>
+          <OverflowText text={clip.source_app} className="theme-text-main min-w-0 max-w-[200px] truncate text-xs font-medium titlebar-drag-handle" />
           {isTransforming && (
             <LoaderCircle
               className="clip-transform-working h-4 w-4 shrink-0 animate-spin"

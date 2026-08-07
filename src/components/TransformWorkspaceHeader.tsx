@@ -20,7 +20,6 @@ export function TransformWorkspaceHeader({
     <ToolPageHeader
       icon={<Workflow className="w-4 h-4" />}
       title="Transformations"
-      description="Describe the result. Pasted builds the reusable steps."
       actions={(
         <div className="theme-surface transform-workspace-tabs flex items-center gap-1 rounded-xl border p-1" role="tablist" aria-label="Transformation workspace">
         <button

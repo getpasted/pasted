@@ -1,5 +1,6 @@
 import { Check, Clock3, LoaderCircle, RotateCcw, Workflow } from 'lucide-react';
 import type { IntelligenceRequestStatus } from '../hooks/useIntelligenceRequestStatus';
+import { OverflowText } from './OverflowText';
 
 interface ClipTransformBarProps {
   activeTransformName: string;
@@ -27,15 +28,14 @@ export function ClipTransformBar({
     : requestStatus?.phase === 'starting'
       ? 'Starting'
       : `Running${requestStatus?.connectionName ? ` with ${requestStatus.connectionName}` : ''}${requestStatus?.didFallback ? ' · fallback' : ''}`;
+  const statusText = `${isRunning ? runningLabel : 'Previewing'}: ${activeTransformName}`;
 
   return (
     <div className="preview-filter-bar px-4 py-2.5 border-t select-none">
       <div className="flex items-center gap-3">
         <div className="flex min-w-0 flex-1 items-center space-x-2">
           <Workflow className="preview-filter-accent w-4 h-4" />
-          <span className="theme-text-main truncate text-xs font-semibold">
-            {isRunning ? runningLabel : 'Previewing'}: {activeTransformName}
-          </span>
+          <OverflowText text={statusText} className="theme-text-main truncate text-xs font-semibold" />
         </div>
         <div className="ml-auto flex items-center gap-1.5 shrink-0">
           <button

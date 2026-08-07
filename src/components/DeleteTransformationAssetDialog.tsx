@@ -27,7 +27,7 @@ export function DeleteTransformationAssetDialog({
       isOpen
       onClose={onCancel}
       labelledBy="delete-transformation-asset-title"
-      panelClassName="app-dialog-panel w-full max-w-md overflow-hidden rounded-2xl border shadow-2xl"
+      panelClassName="app-dialog-panel w-full max-w-md overflow-hidden border shadow-2xl"
     >
       {({ requestClose }) => <>
         <AppDialogHeader onClose={requestClose} closeLabel={`Close delete ${asset.kind} dialog`}>

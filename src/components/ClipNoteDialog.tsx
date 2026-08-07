@@ -37,7 +37,7 @@ export function ClipNoteDialog({ clip, text, onTextChange, onCancel, onSave }: C
             placeholder="Type your note here..."
             rows={4}
             autoFocus
-            className="app-dialog-input theme-input w-full border rounded-xl p-3 text-xs focus:outline-none focus:border-amber-500 transition-colors resize-none font-sans"
+            className="app-dialog-input theme-input ui-field-radius w-full border p-3 text-xs focus:outline-none transition-colors resize-none font-sans"
           />
         </AppDialogBody>
         <AppDialogFooter>

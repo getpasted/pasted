@@ -3,6 +3,7 @@ import { Lock, Plus, Trash2 } from 'lucide-react';
 import type { BlacklistApp } from '../types';
 import { AddBlacklistAppModal } from './AddBlacklistAppModal';
 import { SettingsPanelHeader } from './SettingsPanelHeader';
+import { OverflowText } from './OverflowText';
 
 interface SettingsBlacklistPanelProps {
   apps: BlacklistApp[];
@@ -48,7 +49,7 @@ export function SettingsBlacklistPanel({
           <button
             type="button"
             onClick={() => setIsAddAppOpen(true)}
-            className="theme-primary-button border rounded-xl px-3 py-2 text-xs font-semibold flex items-center gap-1.5 shrink-0"
+            className="theme-primary-button ui-control-radius border px-3 py-2 text-xs font-semibold flex items-center gap-1.5 shrink-0"
           >
             <Plus className="w-4 h-4" />
             <span>Add app</span>
@@ -72,7 +73,7 @@ export function SettingsBlacklistPanel({
               <div className="settings-accent-tile w-7 h-7 shrink-0 rounded-lg border flex items-center justify-center">
                 <Lock className="w-4 h-4" />
               </div>
-              <span className="truncate font-semibold theme-text-main">{app.name}</span>
+              <OverflowText text={app.name} className="truncate font-semibold theme-text-main" />
             </div>
 
             <div className="flex shrink-0 items-center space-x-4">

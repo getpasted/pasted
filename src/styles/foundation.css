@@ -63,7 +63,7 @@
     --shadow-clip-card-hover: 0 3px 10px rgba(0, 0, 0, 0.5);
     --shadow-card-selected: 0 4px 12px rgba(0, 0, 0, 0.6);
 
-    --accent-primary: #0a84ff;
+    --accent-primary: #0066cc;
     --accent-primary-contrast: #ffffff;
     --checkbox-check-color: var(--accent-primary-contrast);
     --queue-accent: #c084fc;
@@ -131,6 +131,9 @@
     --status-success: #047857;
     --note-accent: #a16207;
     --note-accent-contrast: #ffffff;
+    --code-surface: #eef0f4;
+    --code-border: #b0b0b6;
+    --code-text: #25252a;
     --select-chevron: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23505055' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
 
     --material-app: rgba(244, 244, 247, 0.66);
@@ -190,6 +193,9 @@
     --status-success: #33735a;
     --note-accent: #946000;
     --note-accent-contrast: #ffffff;
+    --code-surface: #eee5d8;
+    --code-border: #b9aa98;
+    --code-text: #3b3026;
 
     --material-app: rgba(243, 238, 229, 0.66);
     --material-sidebar: rgba(238, 230, 218, 0.72);
@@ -380,6 +386,16 @@
     --status-danger: #ef4444;
     --status-warning: #d97706;
     --status-info: var(--accent-primary);
+    --status-danger-contrast: #ffffff;
+    --pipeline-accent: #1598a8;
+    --pipeline-accent-bright: #22c7d8;
+    --pipeline-action: #087f8f;
+    --pipeline-action-hover: #0a7180;
+    --operation-accent: #c06a20;
+    --operation-accent-bright: #e99a28;
+    --operation-action: #a9520d;
+    --operation-action-hover: #914509;
+    --shadow-color: #000000;
     --sidebar-bin-drop-color: var(--accent-primary);
     --pinned-shelf-index: 0;
     --pinned-shelf-depth: 1;
