@@ -151,88 +151,10 @@ jobs:
           path: release-assets/*
           if-no-files-found: error
 
-  windows:
-    name: Signed Windows x86_64 installers
-    needs: metadata
-    runs-on: windows-latest
-    environment: release-windows
-    env:
-      WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
-      WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 22
-          cache: npm
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: src-tauri
-      - run: npm ci
-      - name: Import Windows signing certificate
-        shell: pwsh
-        run: |
-          if ([string]::IsNullOrWhiteSpace($env:WINDOWS_CERTIFICATE) -or [string]::IsNullOrWhiteSpace($env:WINDOWS_CERTIFICATE_PASSWORD)) {
-            throw 'Missing release-windows secrets: WINDOWS_CERTIFICATE and WINDOWS_CERTIFICATE_PASSWORD'
-          }
-          $pfxPath = Join-Path $env:RUNNER_TEMP 'pasted-signing.pfx'
-          [IO.File]::WriteAllBytes($pfxPath, [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE))
-          $password = ConvertTo-SecureString $env:WINDOWS_CERTIFICATE_PASSWORD -AsPlainText -Force
-          $certificate = Import-PfxCertificate -FilePath $pfxPath -CertStoreLocation Cert:\CurrentUser\My -Password $password
-          if (-not $certificate.Thumbprint) { throw 'The PFX did not contain a usable code-signing certificate.' }
-          "WINDOWS_CERTIFICATE_THUMBPRINT=$($certificate.Thumbprint)" | Out-File -FilePath $env:GITHUB_ENV -Append
-          $signingConfig = @{
-            bundle = @{
-              windows = @{
-                certificateThumbprint = $certificate.Thumbprint
-                digestAlgorithm = 'sha256'
-                timestampUrl = 'http://timestamp.digicert.com'
-              }
-            }
-          } | ConvertTo-Json -Depth 5
-          $signingConfig | Set-Content src-tauri/tauri.windows.signing.conf.json
-      - name: Build signed Windows installers
-        run: npm run tauri -- build --bundles nsis,msi --config src-tauri/tauri.windows.signing.conf.json
-      - name: Sign standalone Windows CLI
-        shell: pwsh
-        run: |
-          $signTool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" |
-            Sort-Object FullName -Descending |
-            Select-Object -First 1
-          if (-not $signTool) { throw 'Could not locate signtool.exe on the Windows runner.' }
-          & $signTool.FullName sign /sha1 $env:WINDOWS_CERTIFICATE_THUMBPRINT /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 src-tauri/target/release/pasted.exe
-          if ($LASTEXITCODE -ne 0) { throw 'Signing pasted.exe failed.' }
-      - name: Verify and stage Windows release
-        shell: pwsh
-        run: |
-          $signedFiles = Get-ChildItem -Path @(
-              'src-tauri/target/release/pasted-app.exe',
-              'src-tauri/target/release/pasted.exe',
-              'src-tauri/target/release/bundle/nsis/*-setup.exe',
-              'src-tauri/target/release/bundle/msi/*.msi'
-            )
-          foreach ($file in $signedFiles) {
-            $signature = Get-AuthenticodeSignature $file.FullName
-            if ($signature.Status -ne 'Valid') { throw "Invalid signature on $($file.FullName): $($signature.Status)" }
-          }
-          New-Item -ItemType Directory -Force release-assets | Out-Null
-          Copy-Item src-tauri/target/release/bundle/nsis/*-setup.exe release-assets/
-          Copy-Item src-tauri/target/release/bundle/msi/*.msi release-assets/
-          Copy-Item src-tauri/target/release/pasted.exe release-assets/pasted-windows-x86_64.exe
-          Get-ChildItem release-assets -File | ForEach-Object {
-            "{0}  {1}" -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower(), $_.Name
-          } | Set-Content release-assets/SHA256SUMS-windows.txt
-      - uses: actions/upload-artifact@v4
-        with:
-          name: Pasted-release-Windows
-          path: release-assets/*
-          if-no-files-found: error
-
   github-release:
     name: Assemble draft GitHub Release
     if: github.ref_type == 'tag'
-    needs: [metadata, macos, linux, windows]
+    needs: [metadata, macos, linux]
     runs-on: ubuntu-22.04
     environment: release-publish
     permissions:

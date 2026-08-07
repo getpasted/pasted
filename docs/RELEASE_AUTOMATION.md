@@ -5,9 +5,9 @@ Pasted keeps its build workflows in this repository so the packaging definition 
 ## Workflows
 
 - **Desktop builds** runs on pull requests, pushes to `main`, and manual dispatches. It executes the complete test suite once, then produces credential-free macOS, Linux, and Windows test packages as workflow artifacts. The macOS artifact is ad-hoc signed and is only for testing.
-- **Desktop release** runs manually as a packaging rehearsal or from a `vX.Y.Z` tag. Tag runs require signed native packages, preserve per-platform checksums, and assemble one draft GitHub Release for final human review.
+- **Desktop release** runs manually as a packaging rehearsal or from a `vX.Y.Z` tag. Tag runs require a signed macOS package, preserve per-platform checksums, and assemble one draft GitHub Release for final human review.
 
-Use GitHub Environments named `release-macos`, `release-linux`, `release-windows`, and `release-publish`. Add required reviewers to the platform and publishing environments if the repository plan supports them. The Linux environment currently needs no secrets; it exists so Linux publishing can acquire an approval gate or GPG key later without changing the workflow shape.
+Use GitHub Environments named `release-macos`, `release-linux`, and `release-publish`. Add required reviewers to the platform and publishing environments if the repository plan supports them. The Linux environment currently needs no secrets; it exists so Linux publishing can acquire an approval gate or GPG key later without changing the workflow shape.
 
 ## macOS secrets
 
@@ -24,16 +24,9 @@ Export the **Developer ID Application** certificate and private key from Keychai
 
 The runner imports these only into an ephemeral keychain, builds a universal Apple Silicon/Intel DMG, lets Tauri submit it for notarization, and verifies the Developer ID signature, Gatekeeper assessment, and stapled ticket before upload.
 
-## Windows secrets
+## Deferred Windows signing
 
-Unsigned Windows packages remain available from **Desktop builds**. A public release requires a trusted code-signing certificate:
-
-| Secret | Value |
-| --- | --- |
-| `WINDOWS_CERTIFICATE` | Single-line base64 of the code-signing `.pfx` |
-| `WINDOWS_CERTIFICATE_PASSWORD` | Password protecting the `.pfx` |
-
-The release runner imports the certificate into its temporary user certificate store, gives the thumbprint to Tauri, timestamps the signatures, and rejects any EXE or MSI whose Authenticode signature is not valid. Azure Trusted Signing can replace the PFX route later if desired.
+Unsigned Windows packages remain available from **Desktop builds** for compatibility testing. Windows is intentionally excluded from public tagged releases until Pasted has a trusted code-signing certificate or Trusted Signing account. Adding Windows later must not weaken the signed macOS release gate.
 
 ## Cutting a release
 
@@ -52,6 +45,6 @@ Manual dispatch of **Desktop release** exercises native signing and packaging bu
 
 - **macOS:** one universal DMG with native Apple Silicon and Intel binaries.
 - **Linux:** one x86_64 AppImage. X11 and Wayland are detected at runtime rather than shipped as separate applications.
-- **Windows:** x86_64 NSIS and MSI installers. Windows on ARM can use its x64 compatibility layer until a native ARM64 package has real hardware coverage.
+- **Windows:** unsigned x86_64 NSIS and MSI CI artifacts for testing; public installers are deferred until code signing is configured. Windows on ARM can use its x64 compatibility layer until a native ARM64 package has real hardware coverage.
 
 Additional Linux package formats and native Linux/Windows ARM64 builds can be added based on demand. They should not multiply the initial release surface before Pasted has machines or repeatable environments that exercise them.
