@@ -75,6 +75,9 @@ jobs:
             librsvg2-dev \
             patchelf
       - run: npm ci
+      - name: Build macOS universal CLI
+        if: runner.os == 'macOS'
+        run: bash scripts/build-macos-universal-cli.sh
       - name: Build macOS test DMG
         if: runner.os == 'macOS'
         env:
