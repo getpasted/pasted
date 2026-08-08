@@ -4,7 +4,7 @@ Pasted keeps its build workflows in this repository so the packaging definition 
 
 ## Workflows
 
-- **Desktop builds** runs on pull requests, pushes to `main`, and manual dispatches. It executes the complete test suite once, then produces credential-free macOS, Linux, and Windows test packages as workflow artifacts. Its macOS artifact and DMG filename are explicitly marked `UNNOTARIZED-TEST-ONLY`; Gatekeeper is expected to reject that build.
+- **Desktop builds** runs on pull requests, pushes to `main`, and manual dispatches. It executes the complete test suite once, validates macOS universal packaging locally, and uploads credential-free Linux and Windows test packages. The ad-hoc macOS package is deliberately discarded because Gatekeeper would reject it.
 - **Desktop release** is the only source of an installable macOS DMG. Its `Pasted-release-macOS` artifact is Developer ID signed, submitted to Apple, stapled, and verified before upload. It runs manually as a packaging rehearsal or from a `vX.Y.Z` tag; tag runs preserve per-platform checksums and assemble one draft GitHub Release for final human review.
 
 Use GitHub Environments named `release-macos`, `release-linux`, and `release-publish`. Add required reviewers to the platform and publishing environments if the repository plan supports them. The Linux environment currently needs no secrets; it exists so Linux publishing can acquire an approval gate or GPG key later without changing the workflow shape.
