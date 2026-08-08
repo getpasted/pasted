@@ -25,13 +25,31 @@ mod settings_activity;
 mod transformation_intent;
 pub mod transformation_service;
 
-use std::sync::Arc;
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
 use tauri::{
     menu::{Menu, MenuBuilder, MenuItem},
     tray::{TrayIconBuilder, TrayIconEvent},
     Emitter, Manager,
 };
 use tauri_plugin_window_state::{StateFlags, WindowExt};
+
+static EXIT_REQUESTED: AtomicBool = AtomicBool::new(false);
+
+pub(crate) fn request_app_exit(app: &tauri::AppHandle) {
+    if EXIT_REQUESTED.swap(true, Ordering::SeqCst) {
+        return;
+    }
+
+    for window in app.webview_windows().values() {
+        let _ = window.hide();
+    }
+    let db = app.state::<Arc<db::DbState>>();
+    let _ = db.log_activity("app_exit_requested", "Quit Pasted");
+    app.exit(0);
+}
 
 fn build_tray_menu(
     app: &tauri::AppHandle,
@@ -132,6 +150,9 @@ pub fn run() {
         )
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            if EXIT_REQUESTED.load(Ordering::SeqCst) {
+                return;
+            }
             if let Some(w) = app.get_webview_window("main") {
                 let _ = w.show();
                 let _ = w.set_focus();
@@ -284,9 +305,7 @@ pub fn run() {
                         let _ = app.emit("sequential-updated", status);
                     }
                     "quit" => {
-                        let db = app.state::<Arc<db::DbState>>();
-                        let _ = db.log_activity("app_exit_requested", "Quit Pasted");
-                        app.exit(0);
+                        request_app_exit(app);
                     }
                     _ => {}
                 })

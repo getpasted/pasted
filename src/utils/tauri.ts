@@ -297,7 +297,7 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
         signingIdentity: null,
         signingTeamId: null,
         notarizationStatus: 'Not expected for development builds',
-        cliPath: '/Applications/Pasted.app/Contents/MacOS/pasted-cli',
+        cliPath: '/Applications/Pasted.app/Contents/MacOS/pasted',
       } as unknown as T;
     case 'run_intelligence_scheduler_demo':
       return undefined as T;

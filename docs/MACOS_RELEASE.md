@@ -80,3 +80,5 @@ Complete the expanded [`RELEASE_CHECKLIST_1.0.0.md`](RELEASE_CHECKLIST_1.0.0.md)
 Pasted 1.0 uses manual DMG updates. A future automatic updater must have a permanent HTTPS feed, a separately protected updater signing key, rollback-safe metadata, and an exercised failure path before it replaces this policy.
 
 The current local build host is Apple Silicon, so its default artifact is arm64. Supporting Intel Macs requires a separately installed Rust x86_64 target and a universal build; make that support decision explicitly before advertising system requirements.
+
+GitHub can also produce the universal signed and notarized DMG. See [`RELEASE_AUTOMATION.md`](RELEASE_AUTOMATION.md) for the protected environments, encrypted secrets, and version-tag workflow.

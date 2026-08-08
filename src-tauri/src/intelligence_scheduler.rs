@@ -525,22 +525,9 @@ fn run_fallback_demo(request_prefix: &str, on_fallback: impl FnOnce()) {
 }
 
 #[cfg(test)]
-pub fn reset_for_tests() {
-    let scheduler = scheduler();
-    let mut state = scheduler
-        .state
-        .lock()
-        .expect("intelligence scheduler poisoned");
-    *state = SchedulerState::default();
-    scheduler.next_job_id.store(1, Ordering::Relaxed);
-    scheduler.next_event_sequence.store(1, Ordering::Relaxed);
-    scheduler.changed.notify_all();
-}
-
-#[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Arc;
+    use std::sync::{Arc, PoisonError};
     use std::thread;
 
     static TEST_LOCK: Mutex<()> = Mutex::new(());
@@ -565,21 +552,36 @@ mod tests {
 
     #[test]
     fn same_connection_is_fifo_while_other_connections_run_independently() {
-        let _guard = TEST_LOCK.lock().unwrap();
-        reset_for_tests();
-        let first = acquire("a", "A", "first", None, None).unwrap();
-        let other = acquire("b", "B", "other", None, None).unwrap();
-        assert_eq!(snapshot().active_count, 2);
+        let _guard = TEST_LOCK.lock().unwrap_or_else(PoisonError::into_inner);
+        let first = acquire("test-fifo-a", "Test FIFO A", "test-fifo-first", None, None).unwrap();
+        let other = acquire("test-fifo-b", "Test FIFO B", "test-fifo-other", None, None).unwrap();
+        let running_test_jobs = snapshot()
+            .jobs
+            .into_iter()
+            .filter(|job| job.connection_id.starts_with("test-fifo-"))
+            .filter(|job| job.status == "running")
+            .count();
+        assert_eq!(running_test_jobs, 2);
 
         let acquired = Arc::new(AtomicBool::new(false));
         let acquired_in_thread = Arc::clone(&acquired);
         let waiter = thread::spawn(move || {
-            let _second = acquire("a", "A", "second", Some("request-2"), None).unwrap();
+            let _second = acquire(
+                "test-fifo-a",
+                "Test FIFO A",
+                "test-fifo-second",
+                Some("test-fifo-request-2"),
+                None,
+            )
+            .unwrap();
             acquired_in_thread.store(true, Ordering::Release);
         });
-        let queued = wait_for_job_status("second", "queued");
+        let queued = wait_for_job_status("test-fifo-second", "queued");
         assert!(!acquired.load(Ordering::Acquire));
-        assert_eq!(queued.client_request_id.as_deref(), Some("request-2"));
+        assert_eq!(
+            queued.client_request_id.as_deref(),
+            Some("test-fifo-request-2")
+        );
         drop(first);
         waiter.join().unwrap();
         assert!(acquired.load(Ordering::Acquire));
@@ -588,17 +590,37 @@ mod tests {
 
     #[test]
     fn queued_job_can_be_cancelled_without_waiting_for_the_active_job() {
-        let _guard = TEST_LOCK.lock().unwrap();
-        reset_for_tests();
-        let _first = acquire("a", "A", "first", None, None).unwrap();
+        let _guard = TEST_LOCK.lock().unwrap_or_else(PoisonError::into_inner);
+        let _first = acquire(
+            "test-cancel-a",
+            "Test Cancel A",
+            "test-cancel-first",
+            None,
+            None,
+        )
+        .unwrap();
         let cancelled = Arc::new(AtomicBool::new(false));
         let flag = Arc::clone(&cancelled);
-        let waiter = thread::spawn(move || acquire("a", "A", "second", None, Some(flag.as_ref())));
-        wait_for_job_status("second", "queued");
+        let waiter = thread::spawn(move || {
+            acquire(
+                "test-cancel-a",
+                "Test Cancel A",
+                "test-cancel-second",
+                None,
+                Some(flag.as_ref()),
+            )
+        });
+        wait_for_job_status("test-cancel-second", "queued");
         cancelled.store(true, Ordering::Release);
         assert!(waiter.join().unwrap().is_err());
         let snapshot = snapshot();
-        assert_eq!(snapshot.queued_count, 0);
-        assert_eq!(snapshot.recent_events[0].status, "cancelled");
+        assert!(!snapshot
+            .jobs
+            .iter()
+            .any(|job| job.label == "test-cancel-second"));
+        assert!(snapshot
+            .recent_events
+            .iter()
+            .any(|event| { event.label == "test-cancel-second" && event.status == "cancelled" }));
     }
 }

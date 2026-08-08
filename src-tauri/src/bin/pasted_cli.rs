@@ -86,7 +86,7 @@ fn main() -> Result<()> {
 
     match command {
         "diagnostics" | "diagnose" => {
-            let executable = env::current_exe().unwrap_or_else(|_| PathBuf::from("pasted-cli"));
+            let executable = env::current_exe().unwrap_or_else(|_| PathBuf::from("pasted"));
             let app_path = executable
                 .ancestors()
                 .find(|path| path.extension().is_some_and(|extension| extension == "app"))
@@ -169,7 +169,7 @@ fn main() -> Result<()> {
                     );
                 }
                 _ => {
-                    eprintln!("Usage: pasted-cli ocr [status [--json] | scan]");
+                    eprintln!("Usage: pasted ocr [status [--json] | scan]");
                     std::process::exit(2);
                 }
             }
@@ -196,7 +196,7 @@ fn main() -> Result<()> {
                 }
                 "run" => {
                     let Some(transform_ref) = args.get(3) else {
-                        eprintln!("Usage: pasted-cli transform run <transform-ref> [--text TEXT | --clip ID | --stdin] [--replace]");
+                        eprintln!("Usage: pasted transform run <transform-ref> [--text TEXT | --clip ID | --stdin] [--replace]");
                         std::process::exit(2);
                     };
                     let clip_id = args
@@ -302,7 +302,7 @@ fn main() -> Result<()> {
                 }
                 "run" => run_advanced_transformation(&args, &db, "operation"),
                 _ => {
-                    eprintln!("Usage: pasted-cli operation [list [--json] | run <operation-ref> [--text TEXT | --clip ID | --stdin] [--json]]");
+                    eprintln!("Usage: pasted operation [list [--json] | run <operation-ref> [--text TEXT | --clip ID | --stdin] [--json]]");
                     std::process::exit(2);
                 }
             }
@@ -333,7 +333,7 @@ fn main() -> Result<()> {
                 }
                 "run" => run_advanced_transformation(&args, &db, "pipeline"),
                 _ => {
-                    eprintln!("Usage: pasted-cli pipeline [list [--json] | run <pipeline-ref> [--text TEXT | --clip ID | --stdin] [--json]]");
+                    eprintln!("Usage: pasted pipeline [list [--json] | run <pipeline-ref> [--text TEXT | --clip ID | --stdin] [--json]]");
                     std::process::exit(2);
                 }
             }
@@ -370,7 +370,7 @@ fn main() -> Result<()> {
                 "clips" => {
                     let Some(bin_id) = args.get(3).and_then(|value| value.parse::<i64>().ok())
                     else {
-                        eprintln!("Usage: pasted-cli bin clips <bin-id> [--json]");
+                        eprintln!("Usage: pasted bin clips <bin-id> [--json]");
                         std::process::exit(2);
                     };
                     let clips = db.get_clips(None, Some(bin_id), false)?;
@@ -395,7 +395,7 @@ fn main() -> Result<()> {
                 "order" => {
                     let Some(bin_id) = args.get(3).and_then(|value| value.parse::<i64>().ok())
                     else {
-                        eprintln!("Usage: pasted-cli bin order <bin-id> <clip-id>... [--json]");
+                        eprintln!("Usage: pasted bin order <bin-id> <clip-id>... [--json]");
                         std::process::exit(2);
                     };
                     let clip_ids = args
@@ -419,7 +419,7 @@ fn main() -> Result<()> {
                     }
                 }
                 _ => {
-                    eprintln!("Usage: pasted-cli bin [list | clips <bin-id> | order <bin-id> <clip-id>...] [--json]");
+                    eprintln!("Usage: pasted bin [list | clips <bin-id> | order <bin-id> <clip-id>...] [--json]");
                     std::process::exit(2);
                 }
             }
@@ -432,7 +432,7 @@ fn main() -> Result<()> {
                 "get" | "show" => {
                     let Some(clip_id) = args.get(3).and_then(|value| value.parse::<i64>().ok())
                     else {
-                        eprintln!("Usage: pasted-cli clip get <clip-id> [--json]");
+                        eprintln!("Usage: pasted clip get <clip-id> [--json]");
                         std::process::exit(2);
                     };
                     let clip = db.get_clip_by_id(clip_id)?;
@@ -488,9 +488,7 @@ fn main() -> Result<()> {
                 "assign" => {
                     require_feature(&db, Feature::Bins);
                     let Some(destination) = args.get(3) else {
-                        eprintln!(
-                            "Usage: pasted-cli clip assign <bin-id|none> <clip-id>... [--json]"
-                        );
+                        eprintln!("Usage: pasted clip assign <bin-id|none> <clip-id>... [--json]");
                         std::process::exit(2);
                     };
                     let bin_id = if matches!(destination.as_str(), "none" | "null" | "-") {
@@ -510,7 +508,7 @@ fn main() -> Result<()> {
                     print_mutation_summary(&outcome.mutation, json)?;
                 }
                 _ => {
-                    eprintln!("Usage: pasted-cli clip [get <id> | pin|unpin|protect|unprotect|trash|restore <id>... | assign <bin-id|none> <id>...] [--json]");
+                    eprintln!("Usage: pasted clip [get <id> | pin|unpin|protect|unprotect|trash|restore <id>... | assign <bin-id|none> <id>...] [--json]");
                     std::process::exit(2);
                 }
             }
@@ -646,32 +644,30 @@ fn main() -> Result<()> {
         _ => {
             println!("Pasted CLI Tool (v{})", env!("CARGO_PKG_VERSION"));
             println!("Usage:");
-            println!("  pasted-cli copy <text>       Save text or pipe stdin (cat file.txt | pasted-cli copy)");
-            println!("  pasted-cli list [limit]      List N recent clipboard items (default: 10)");
-            println!("  pasted-cli search <query>    Search clips for keyword query");
-            println!("  pasted-cli diagnostics --json Show installation diagnostics");
-            println!("  pasted-cli ocr status --json Show OCR background-work status");
-            println!("  pasted-cli ocr scan          Scan existing unprocessed images");
-            println!("  pasted-cli transform list    List saved Transforms");
             println!(
-                "  pasted-cli transform run <ref> [--text TEXT | --clip ID | --stdin] [--replace]"
+                "  pasted copy <text>       Save text or pipe stdin (cat file.txt | pasted copy)"
             );
+            println!("  pasted list [limit]      List N recent clipboard items (default: 10)");
+            println!("  pasted search <query>    Search clips for keyword query");
+            println!("  pasted diagnostics --json Show installation diagnostics");
+            println!("  pasted ocr status --json Show OCR background-work status");
+            println!("  pasted ocr scan          Scan existing unprocessed images");
+            println!("  pasted transform list    List saved Transforms");
             println!(
-                "  pasted-cli operation list|run Experimental Operation inspection and execution"
+                "  pasted transform run <ref> [--text TEXT | --clip ID | --stdin] [--replace]"
             );
-            println!(
-                "  pasted-cli pipeline list|run Experimental Pipeline inspection and execution"
-            );
-            println!("  pasted-cli bin list --json   List Bins and their saved clip order");
-            println!("  pasted-cli bin clips <id> --json List clips in persistent Bin order");
-            println!("  pasted-cli bin order <id> <clip-id>... Persist a complete Bin order");
-            println!("  pasted-cli clip get <id> --json Inspect one clip");
-            println!("  pasted-cli clip pin|unpin <id>... [--json]");
-            println!("  pasted-cli clip protect|unprotect <id>... [--json]");
-            println!("  pasted-cli clip trash|restore <id>... [--json]");
-            println!("  pasted-cli clip assign <bin-id|none> <id>... [--json]");
-            println!("  pasted-cli clear             Clear unpinned clipboard history");
-            println!("  pasted-cli reset --yes [--json] Reset all Pasted data and preferences");
+            println!("  pasted operation list|run Experimental Operation inspection and execution");
+            println!("  pasted pipeline list|run Experimental Pipeline inspection and execution");
+            println!("  pasted bin list --json   List Bins and their saved clip order");
+            println!("  pasted bin clips <id> --json List clips in persistent Bin order");
+            println!("  pasted bin order <id> <clip-id>... Persist a complete Bin order");
+            println!("  pasted clip get <id> --json Inspect one clip");
+            println!("  pasted clip pin|unpin <id>... [--json]");
+            println!("  pasted clip protect|unprotect <id>... [--json]");
+            println!("  pasted clip trash|restore <id>... [--json]");
+            println!("  pasted clip assign <bin-id|none> <id>... [--json]");
+            println!("  pasted clear             Clear unpinned clipboard history");
+            println!("  pasted reset --yes [--json] Reset all Pasted data and preferences");
         }
     }
 
@@ -692,7 +688,9 @@ fn require_feature(db: &DbState, feature: Feature) {
 
 fn run_advanced_transformation(args: &[String], db: &DbState, target_kind: &str) {
     let Some(target_ref) = args.get(3) else {
-        eprintln!("Usage: pasted-cli {target_kind} run <ref> [--text TEXT | --clip ID | --stdin] [--json]");
+        eprintln!(
+            "Usage: pasted {target_kind} run <ref> [--text TEXT | --clip ID | --stdin] [--json]"
+        );
         std::process::exit(2);
     };
     let clip_id = args

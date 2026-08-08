@@ -9,33 +9,34 @@ const commands = read('src-tauri/src/commands.rs');
 const actions = read('src/hooks/useClipActions.ts');
 
 const documentedCommands = [
-  'pasted-cli copy',
-  'pasted-cli list',
-  'pasted-cli search',
-  'pasted-cli clear',
-  'pasted-cli clip get',
-  'pasted-cli clip pin|unpin',
-  'pasted-cli clip protect|unprotect',
-  'pasted-cli clip trash|restore',
-  'pasted-cli clip assign',
-  'pasted-cli bin list',
-  'pasted-cli bin clips',
-  'pasted-cli bin order',
-  'pasted-cli transform list',
-  'pasted-cli transform run',
-  'pasted-cli operation list',
-  'pasted-cli operation run',
-  'pasted-cli pipeline list',
-  'pasted-cli pipeline run',
-  'pasted-cli diagnostics',
-  'pasted-cli ocr status',
-  'pasted-cli ocr scan',
-  'pasted-cli reset',
+  'pasted copy',
+  'pasted list',
+  'pasted search',
+  'pasted clear',
+  'pasted clip get',
+  'pasted clip pin|unpin',
+  'pasted clip protect|unprotect',
+  'pasted clip trash|restore',
+  'pasted clip assign',
+  'pasted bin list',
+  'pasted bin clips',
+  'pasted bin order',
+  'pasted transform list',
+  'pasted transform run',
+  'pasted operation list',
+  'pasted operation run',
+  'pasted pipeline list',
+  'pasted pipeline run',
+  'pasted diagnostics',
+  'pasted ocr status',
+  'pasted ocr scan',
+  'pasted reset',
 ];
 
 for (const command of documentedCommands) {
   assert.ok(help.includes(command), `Help & Docs must document ${command}`);
 }
+assert.doesNotMatch(help, /pasted-cli/, 'Help & Docs must expose the stable pasted command, not an implementation alias');
 
 for (const route of ['copy', 'list', 'search', 'clear', 'clip', 'bin', 'transform', 'operation', 'pipeline', 'diagnostics', 'ocr', 'reset']) {
   assert.match(cli, new RegExp(`"${route}"`), `The CLI must retain its ${route} route`);

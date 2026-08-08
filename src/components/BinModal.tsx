@@ -422,9 +422,10 @@ export const BinModal: React.FC<BinModalProps> = ({
                     if (event.key === 'Enter' || event.key === 'Tab' || event.metaKey || event.ctrlKey) return;
                     event.preventDefault();
                   }}
-                  onClick={(event) => {
+                  onClick={async (event) => {
                     event.currentTarget.select();
-                    invoke('open_emoji_picker').catch(() => {});
+                    const openedNativePicker = await invoke<boolean>('open_emoji_picker').catch(() => false);
+                    if (!openedNativePicker) setIsEmojiMenuOpen((open) => !open);
                   }}
                   onFocus={(event) => event.currentTarget.select()}
                   placeholder="📂"
@@ -452,7 +453,7 @@ export const BinModal: React.FC<BinModalProps> = ({
                   <>Click to open the Emoji picker <kbd className="font-mono text-[10px] px-1.5 py-0.5 rounded theme-badge border">Command + Space</kbd></>
                 ) : 'Choose an icon for this Bin.'}
               </span>
-              {desktopPlatform !== 'macos' && isEmojiMenuOpen && (
+              {isEmojiMenuOpen && (
                 <AnchoredMenu
                   anchor={{ kind: 'element', ref: emojiTriggerRef, align: 'start' }}
                   ariaLabel="Choose Bin icon"

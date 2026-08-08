@@ -1,7 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Pasted",
-  "version": "1.0.0",
+  "mainBinaryName": "pasted-app",
+  "version": "1.0.0-rc.1",
   "identifier": "software.jjj.pasted",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -63,6 +64,23 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "macOS": {
+      "dmg": {
+        "background": "dmg/background.png",
+        "windowSize": {
+          "width": 660,
+          "height": 400
+        },
+        "appPosition": {
+          "x": 180,
+          "y": 170
+        },
+        "applicationFolderPosition": {
+          "x": 480,
+          "y": 170
+        }
+      }
+    }
   }
 }

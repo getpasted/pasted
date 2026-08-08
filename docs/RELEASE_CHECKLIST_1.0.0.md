@@ -45,10 +45,10 @@ Use the exact notarized DMG intended for publication. Do not substitute a develo
 - [ ] Granting Accessibility makes global hotkeys, Quick HUD paste, Paste Next, and Paste All work.
 - [ ] Queue paste targets the previously focused app, keeps Pasted visible, consumes only successful items, and creates no duplicate history clip.
 - [ ] Launch at Login and Dock/menu-bar visibility settings survive relaunch.
-- [ ] CLI installation produces a working `pasted-cli`, and representative list/search/Bin/Transform commands match the GUI.
+- [ ] CLI installation produces a working `pasted`, and representative list/search/Bin/Transform commands match the GUI.
 
 ## Publication
 
 - [ ] Publish the DMG, SHA-256 checksum, system requirements, privacy summary, and `RELEASE_NOTES_1.0.0.md` together.
-- [ ] State that 1.0 supports Apple Silicon macOS and uses manual DMG updates.
+- [ ] State that 1.0 supports Apple Silicon and Intel macOS with manual DMG updates.
 - [ ] Preserve the notarization submission identifier and final release commit in the release record.

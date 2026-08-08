@@ -11,7 +11,7 @@ Pasted 1.0 is the first direct-download release of the local, privacy-first clip
 - Persistent Copy Queue with target-aware Paste Next and Paste All
 - Reusable deterministic and intelligence-assisted Transforms
 - Configurable feature gates, hotkeys, retention, previews, content detection, and appearance
-- Bundled `pasted-cli` with shared native data and mutation contracts
+- Bundled `pasted` with shared native data and mutation contracts
 - Signed, notarized, stapled, and Gatekeeper-verified DMG
 
 ## Privacy

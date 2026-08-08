@@ -135,9 +135,7 @@ pub fn handle_menu_event(app: &AppHandle, event: MenuEvent) {
             }
         }
         MenuDispatch::Quit => {
-            let db = app.state::<Arc<DbState>>();
-            let _ = db.log_activity("app_exit_requested", "Quit Pasted");
-            app.exit(0);
+            crate::request_app_exit(app);
         }
     }
 }

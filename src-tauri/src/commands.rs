@@ -2781,14 +2781,18 @@ pub fn set_dock_visibility(show_dock: bool, app: AppHandle) -> Result<(), String
 }
 
 #[tauri::command]
-pub fn open_emoji_picker() {
+pub fn open_emoji_picker() -> bool {
     #[cfg(target_os = "macos")]
     {
-        let _ = std::process::Command::new("osascript")
+        std::process::Command::new("osascript")
             .arg("-e")
             .arg("tell application \"System Events\" to keystroke \" \" using {control down, command down}")
-            .spawn();
+            .spawn()
+            .is_ok()
     }
+
+    #[cfg(not(target_os = "macos"))]
+    false
 }
 
 #[tauri::command]
@@ -2831,7 +2835,7 @@ pub fn get_installed_applications(db: State<'_, Arc<DbState>>) -> Result<Vec<Str
             if let Ok(entries) = std::fs::read_dir(dir) {
                 for entry in entries.flatten() {
                     let path = entry.path();
-                    if path.extension().map_or(false, |ext| ext == "desktop") {
+                    if path.extension().is_some_and(|ext| ext == "desktop") {
                         if let Some(name) = path.file_stem().and_then(|s| s.to_str()) {
                             let clean_name = name.trim_end_matches(".desktop");
                             apps.insert(clean_name.to_string());
@@ -3021,11 +3025,11 @@ pub fn get_analytics_summary(
 pub fn install_cli_to_path() -> Result<String, String> {
     let exe_path = std::env::current_exe().map_err(|e| e.to_string())?;
     let bin_dir = exe_path.parent().ok_or("Cannot locate binary directory")?;
-    let cli_exe = bin_dir.join("pasted-cli");
+    let cli_exe = bin_dir.join("pasted");
 
     if !cli_exe.exists() {
         return Err(format!(
-            "pasted-cli binary not found at '{:?}'. Run 'cargo build --bin pasted-cli' first.",
+            "pasted binary not found at '{:?}'. Run 'cargo build --bin pasted' first.",
             cli_exe
         ));
     }
@@ -3038,7 +3042,7 @@ pub fn install_cli_to_path() -> Result<String, String> {
     {
         let symlink_path = install_cli_symlink(&cli_exe, &target_dir)?;
         Ok(format!(
-            "Successfully linked pasted-cli to '{}'. Make sure that directory is in your PATH.",
+            "Successfully installed the pasted command at '{}'. Make sure that directory is in your PATH.",
             symlink_path.display()
         ))
     }
@@ -3063,7 +3067,7 @@ fn install_cli_symlink(
             target_dir.display()
         )
     })?;
-    let symlink_path = target_dir.join("pasted-cli");
+    let symlink_path = target_dir.join("pasted");
     match fs::symlink_metadata(&symlink_path) {
         Ok(metadata) if metadata.file_type().is_symlink() => {
             let existing_target = fs::read_link(&symlink_path).map_err(|error| {
@@ -3150,7 +3154,7 @@ mod tests {
         let root = unique_test_directory("cli-preserve");
         let bin_dir = root.join("bin");
         std::fs::create_dir_all(&bin_dir).unwrap();
-        let destination = bin_dir.join("pasted-cli");
+        let destination = bin_dir.join("pasted");
         std::fs::write(&destination, "user-owned").unwrap();
 
         let error = install_cli_symlink(&root.join("source"), &bin_dir).unwrap_err();
@@ -3164,7 +3168,7 @@ mod tests {
     #[cfg(unix)]
     fn cli_install_is_idempotent_for_its_existing_link() {
         let root = unique_test_directory("cli-idempotent");
-        let source = root.join("pasted-cli-source");
+        let source = root.join("pasted-source");
         std::fs::create_dir_all(&root).unwrap();
         std::fs::write(&source, "binary").unwrap();
         let bin_dir = root.join("bin");

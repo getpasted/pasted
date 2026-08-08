@@ -12,7 +12,7 @@ Pasted is an elegant privacy-focused clipboard manager and transformation app fo
 - Builds reusable Transforms from deterministic Operations or an explicitly connected intelligence provider.
 - Preserves revisions for content-changing actions and records important events in the Activity Log.
 - Includes seven appearance choices: System, Cool, Dark, Warm, Vampire, Flux, and 808.
-- Exposes powerful clipboard-management workflows through the bundled `pasted-cli` command.
+- Exposes powerful clipboard-management workflows through the bundled `pasted` command.
 - Lets each major feature be disabled for a simpler clipboard manager.
 
 ## Privacy and safety
@@ -26,7 +26,6 @@ Pasted sends your private clip content outside the app only when you _explicitly
 ## macOS requirements
 
 - macOS 12 or newer
-- Mac with Apple Silicon
 - Accessibility permission for global hotkeys and automatic Queue/HUD pasting
 
 ## Default shortcuts
@@ -43,10 +42,10 @@ Shortcuts can be changed or disabled in Settings.
 
 ## CLI
 
-The app bundle includes `pasted-cli`. Install it from **Settings → About**, or add the bundled executable to your `PATH` manually:
+The app bundle includes `pasted`. Install it from **Settings → About**, or add the bundled executable to your `PATH` manually:
 
 ```sh
-sudo ln -s /Applications/Pasted.app/Contents/MacOS/pasted-cli /usr/local/bin/pasted-cli
+sudo ln -s /Applications/Pasted.app/Contents/MacOS/pasted /usr/local/bin/pasted
 ```
 
 The complete command reference is available inside **Help & Documentation → CLI Commands**. Commands that return structured records support stable JSON output where applicable.

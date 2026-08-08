@@ -56,9 +56,9 @@ docker run --rm \
       # launches nested amd64 AppImage helpers that its emulation cannot run.
       # Preserve the valid compatibility binaries; native CI builds AppImage.
       npm run tauri build -- --no-bundle
-      cp /cargo-target/release/pasted /workspace/release-artifacts/linux/pasted-linux-x86_64
+      cp /cargo-target/release/pasted-app /workspace/release-artifacts/linux/pasted-app-linux-x86_64
     fi
-    cp /cargo-target/release/pasted-cli /workspace/release-artifacts/linux/pasted-cli-linux-x86_64
+    cp /cargo-target/release/pasted /workspace/release-artifacts/linux/pasted-linux-x86_64
     cd /workspace/release-artifacts/linux
     find . -maxdepth 1 -type f ! -name SHA256SUMS -print0 \
       | sort -z \
