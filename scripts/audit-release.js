@@ -134,6 +134,21 @@ assert.match(
   /render-homebrew-cask\.js/,
   'The release workflow must publish its matching Homebrew Cask',
 );
+assert.match(
+  releaseWorkflow,
+  /windows:[\s\S]*runs-on: windows-latest[\s\S]*tauri -- build --bundles nsis/,
+  'The tagged release must build its experimental Windows NSIS installer on Windows',
+);
+assert.match(
+  releaseWorkflow,
+  /pasted-windows-x86_64\.exe[\s\S]*SHA256SUMS-windows-x86_64\.txt/,
+  'The tagged release must include a portable Windows executable and checksum manifest',
+);
+assert.match(
+  releaseWorkflow,
+  /needs: \[metadata, macos, linux, windows\]/,
+  'GitHub Release assembly must wait for every published desktop platform',
+);
 for (const appleSecret of [
   'APPLE_CERTIFICATE',
   'APPLE_CERTIFICATE_PASSWORD',

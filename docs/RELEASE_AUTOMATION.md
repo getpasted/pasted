@@ -5,7 +5,7 @@ Pasted keeps its build workflows in this repository so the packaging definition 
 ## Workflows
 
 - **Desktop builds** runs on pull requests, pushes to `main`, and manual dispatches. It executes the complete test suite once, validates macOS universal packaging locally, and uploads credential-free Linux and Windows test packages. The ad-hoc macOS package is deliberately discarded because Gatekeeper would reject it.
-- **Desktop release** is the only source of an installable macOS DMG. Its `Pasted-release-macOS` artifact is Developer ID signed, submitted to Apple, stapled, and verified before upload. It runs manually as a packaging rehearsal or from a `vX.Y.Z` tag; tag runs preserve per-platform checksums and assemble one draft GitHub Release for final human review.
+- **Desktop release** is the only source of an installable macOS DMG. Its `Pasted-release-macOS` artifact is Developer ID signed, submitted to Apple, stapled, and verified before upload. It runs manually as a packaging rehearsal or from a `vX.Y.Z` tag; tag runs preserve per-platform checksums, include explicitly experimental unsigned Windows packages, and assemble one draft GitHub Release for final human review.
 
 Use GitHub Environments named `release-macos`, `release-linux`, and `release-publish`. Add required reviewers to the platform and publishing environments if the repository plan supports them. The Linux environment currently needs no secrets; it exists so Linux publishing can acquire an approval gate or GPG key later without changing the workflow shape.
 
@@ -26,9 +26,9 @@ The runner imports the certificate only into an ephemeral keychain, builds a uni
 
 Pasted ships both the private `pasted-app` GUI executable and the public `pasted` CLI. Before Tauri bundles the universal app, `scripts/build-macos-universal-cli.sh` builds both CLI architectures and merges them with `lipo`; the release workflow then signs that nested CLI before Tauri signs the enclosing app. This keeps the bundled CLI and standalone release artifact universal, notarizable, and covered by the Developer ID signature.
 
-## Deferred Windows signing
+## Experimental Windows distribution
 
-Unsigned Windows packages remain available from **Desktop builds** for compatibility testing. Windows is intentionally excluded from public tagged releases until Pasted has a trusted code-signing certificate or Trusted Signing account. Adding Windows later must not weaken the signed macOS release gate.
+Unsigned Windows packages are available from **Desktop builds** for compatibility testing and from tagged releases as explicitly experimental downloads. The release includes an x86_64 NSIS installer, a portable executable, and a SHA-256 manifest. Windows may identify their publisher as unknown; Smart App Control or organization-managed policies can block unsigned applications entirely. Windows must not be presented as a frictionless stable download until Pasted has a trusted code-signing certificate or Trusted Signing account. Its unsigned release job remains independent of—and must never weaken—the signed macOS release gate.
 
 ## Cutting a release
 
@@ -47,6 +47,6 @@ Manual dispatch of **Desktop release** exercises native signing and packaging bu
 
 - **macOS:** one universal DMG with native Apple Silicon and Intel binaries.
 - **Linux:** one x86_64 AppImage. X11 and Wayland are detected at runtime rather than shipped as separate applications.
-- **Windows:** unsigned x86_64 NSIS and MSI CI artifacts for testing; public installers are deferred until code signing is configured. Windows on ARM can use its x64 compatibility layer until a native ARM64 package has real hardware coverage.
+- **Windows:** unsigned x86_64 NSIS installer and portable executable, published as experimental downloads with checksums. Windows on ARM can use its x64 compatibility layer until a native ARM64 package has real hardware coverage. Stable, warning-free distribution remains deferred until code signing is configured.
 
 Additional Linux package formats and native Linux/Windows ARM64 builds can be added based on demand. They should not multiply the initial release surface before Pasted has machines or repeatable environments that exercise them.

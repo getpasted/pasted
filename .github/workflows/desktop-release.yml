@@ -170,10 +170,44 @@ jobs:
           path: release-assets/*
           if-no-files-found: error
 
+  windows:
+    name: Windows x86_64 experimental installer
+    needs: metadata
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: npm ci
+      - name: Build unsigned Windows installer
+        run: npm run tauri -- build --bundles nsis
+      - name: Stage unsigned Windows release
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force release-assets | Out-Null
+          Copy-Item src-tauri/target/release/bundle/nsis/*-setup.exe release-assets/
+          Copy-Item src-tauri/target/release/pasted.exe release-assets/pasted-windows-x86_64.exe
+          $checksumLines = Get-ChildItem release-assets -File | ForEach-Object {
+            "{0}  {1}" -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower(), $_.Name
+          }
+          $checksumPath = Join-Path (Resolve-Path release-assets) 'SHA256SUMS-windows-x86_64.txt'
+          [IO.File]::WriteAllText($checksumPath, (($checksumLines -join "`n") + "`n"), [Text.UTF8Encoding]::new($false))
+      - uses: actions/upload-artifact@v7
+        with:
+          name: Pasted-release-Windows-experimental
+          path: release-assets/*
+          if-no-files-found: error
+
   github-release:
     name: Assemble draft GitHub Release
     if: github.ref_type == 'tag'
-    needs: [metadata, macos, linux]
+    needs: [metadata, macos, linux, windows]
     runs-on: ubuntu-22.04
     environment: release-publish
     permissions:
