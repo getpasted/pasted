@@ -45,7 +45,7 @@ jobs:
         include:
           - name: macOS universal
             os: macos-latest
-            artifact: Pasted-macOS-universal
+            artifact: Pasted-macOS-UNNOTARIZED-TEST-ONLY
           - name: Linux x86_64
             os: ubuntu-22.04
             artifact: Pasted-Linux-x86_64
@@ -88,7 +88,7 @@ jobs:
             --strict \
             --verbose=2 \
             src-tauri/target/universal-apple-darwin/release/pasted
-      - name: Build macOS test DMG
+      - name: Build unnotarized macOS test DMG
         if: runner.os == 'macOS'
         env:
           APPLE_SIGNING_IDENTITY: '-'
@@ -103,8 +103,18 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           mkdir -p ci-artifacts
-          cp src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg ci-artifacts/
+          dmg_path="$(find src-tauri/target/universal-apple-darwin/release/bundle/dmg -name 'Pasted_*.dmg' -type f -print -quit)"
+          cp "$dmg_path" ci-artifacts/Pasted_UNNOTARIZED_TEST_ONLY.dmg
           cp src-tauri/target/universal-apple-darwin/release/pasted ci-artifacts/pasted-macos-universal
+          cat > ci-artifacts/DO_NOT_DISTRIBUTE.txt <<'EOF'
+          THIS IS AN UNNOTARIZED CI TEST BUILD.
+
+          macOS Gatekeeper will not open it normally. It exists only to prove that
+          the app packages successfully without access to release credentials.
+
+          Download the Pasted-release-macOS artifact from the Desktop release
+          workflow for a Developer ID-signed, Apple-notarized build.
+          EOF
           cd ci-artifacts
           shasum -a 256 ./* > SHA256SUMS-macos.txt
       - name: Stage Linux artifacts
