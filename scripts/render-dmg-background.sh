@@ -47,12 +47,12 @@ magick \
   -pointsize 32 \
   -kerning -1.8 \
   -fill '#f5f5f2' \
-  -annotate +306+11 'Pasted' \
+  -annotate +306+21 'Pasted' \
   -font "$medium_font" \
   -pointsize 13 \
   -kerning 0 \
   -fill '#a8adaf' \
-  -annotate +307+49 'Copy responsibly.' \
+  -annotate +307+59 'Copy responsibly.' \
   "$output_png"
 
 echo "Rendered $output_png"
