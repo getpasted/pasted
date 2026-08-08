@@ -1,6 +1,6 @@
 [package]
 name = "pasted"
-version = "1.0.0"
+version = "1.0.0-rc.1"
 description = "Pasted - Native, Subscription-Free Clipboard Manager"
 authors = ["Antigravity"]
 edition = "2021"
