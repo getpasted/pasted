@@ -5,8 +5,8 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "$0")/.." && pwd)"
 source_svg="$repo_root/src-tauri/dmg/background.svg"
 output_png="$repo_root/src-tauri/dmg/background.png"
-bold_font="/Library/Fonts/SF-Pro-Display-Bold.otf"
-regular_font="/Library/Fonts/SF-Pro-Display-Regular.otf"
+black_font="/Library/Fonts/SF-Pro-Display-Black.otf"
+medium_font="/Library/Fonts/SF-Pro-Display-Medium.otf"
 temporary_dir="$(mktemp -d)"
 
 cleanup() {
@@ -19,7 +19,7 @@ if ! command -v magick >/dev/null 2>&1; then
   exit 1
 fi
 
-if [[ ! -f "$bold_font" || ! -f "$regular_font" ]]; then
+if [[ ! -f "$black_font" || ! -f "$medium_font" ]]; then
   echo "SF Pro Display must be installed to reproduce the website wordmark." >&2
   exit 1
 fi
@@ -40,19 +40,19 @@ magick \
 magick \
   "$temporary_dir/base.png" \
   "$temporary_dir/mark.png" \
-  -geometry +238+18 \
+  -geometry +258+18 \
   -composite \
   -gravity northwest \
-  -font "$bold_font" \
-  -pointsize 27 \
-  -kerning -1.2 \
+  -font "$black_font" \
+  -pointsize 32 \
+  -kerning -1.8 \
   -fill '#f5f5f2' \
-  -annotate +286+17 'Pasted' \
-  -font "$regular_font" \
-  -pointsize 10 \
+  -annotate +306+11 'Pasted' \
+  -font "$medium_font" \
+  -pointsize 13 \
   -kerning 0 \
-  -fill '#81888a' \
-  -annotate +287+49 'Copy responsibly.' \
+  -fill '#a8adaf' \
+  -annotate +307+49 'Copy responsibly.' \
   "$output_png"
 
 echo "Rendered $output_png"
