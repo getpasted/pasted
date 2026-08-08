@@ -126,7 +126,7 @@ jobs:
           cp src-tauri/target/universal-apple-darwin/release/pasted release-assets/pasted-macos-universal
           cd release-assets
           shasum -a 256 ./* > SHA256SUMS-macos.txt
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: Pasted-release-macOS
           path: release-assets/*
@@ -164,7 +164,7 @@ jobs:
           cp src-tauri/target/release/pasted release-assets/pasted-linux-x86_64
           cd release-assets
           sha256sum ./* > SHA256SUMS-linux.txt
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: Pasted-release-Linux
           path: release-assets/*
@@ -183,7 +183,7 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 22
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: Pasted-release-*
           path: release-assets
