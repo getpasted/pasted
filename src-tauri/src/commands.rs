@@ -2835,7 +2835,7 @@ pub fn get_installed_applications(db: State<'_, Arc<DbState>>) -> Result<Vec<Str
             if let Ok(entries) = std::fs::read_dir(dir) {
                 for entry in entries.flatten() {
                     let path = entry.path();
-                    if path.extension().map_or(false, |ext| ext == "desktop") {
+                    if path.extension().is_some_and(|ext| ext == "desktop") {
                         if let Some(name) = path.file_stem().and_then(|s| s.to_str()) {
                             let clean_name = name.trim_end_matches(".desktop");
                             apps.insert(clean_name.to_string());

@@ -4,18 +4,18 @@ Pasted's tagged desktop release publishes a `pasted.rb` Cask alongside its signe
 
 ## Initial tap
 
-Use a separate public repository named `pasted-app/homebrew-tap`. It contains distribution metadata only; application source and release credentials remain in this repository and GitHub Environment secrets.
+Use the separate public repository `getpasted/homebrew-tap`. It contains distribution metadata only; application source and release credentials remain in this repository and GitHub Environment secrets.
 
 Users can then install Pasted with either:
 
 ```sh
-brew install --cask pasted-app/tap/pasted
+brew install --cask getpasted/tap/pasted
 ```
 
 or:
 
 ```sh
-brew tap pasted-app/tap
+brew tap getpasted/tap
 brew install --cask pasted
 ```
 
@@ -50,7 +50,7 @@ jobs:
         run: |
           cask_path="$RUNNER_TEMP/pasted.rb"
           if ! curl --fail --silent --show-error --location \
-            https://github.com/pasted-app/pasted/releases/latest/download/pasted.rb \
+            https://github.com/getpasted/pasted/releases/latest/download/pasted.rb \
             --output "$cask_path"; then
             echo '::notice::Pasted has no public release Cask yet; nothing to update.'
             echo 'available=false' >> "$GITHUB_OUTPUT"
@@ -83,4 +83,4 @@ After Pasted has a stable public release history and visible usage, submit the s
 brew install --cask pasted
 ```
 
-Keep `pasted-app/homebrew-tap` available until the official Cask is established, then point existing users toward the official package.
+Keep `getpasted/homebrew-tap` available until the official Cask is established, then point existing users toward the official package.
