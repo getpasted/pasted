@@ -46,6 +46,21 @@ assert.match(
 );
 assert.equal(tauriConfig.bundle?.active, true, 'Release bundling must remain enabled');
 assert.ok(tauriConfig.bundle?.icon?.length > 0, 'Release bundles must include app icons');
+assert.equal(
+  tauriConfig.bundle?.macOS?.dmg?.background,
+  'dmg/background.png',
+  'The macOS installer must retain its branded DMG background',
+);
+assert.equal(
+  fs.existsSync('src-tauri/dmg/background.png'),
+  true,
+  'The branded DMG background must exist',
+);
+assert.deepEqual(
+  tauriConfig.bundle?.macOS?.dmg?.windowSize,
+  { width: 660, height: 400 },
+  'The DMG canvas must remain aligned with its branded artwork',
+);
 assert.match(
   appSettingsHook,
   /dockMenubarIcon:\s*'both'/,
@@ -62,6 +77,7 @@ for (const scriptName of ['release:macos:local', 'release:macos', 'release:macos
 for (const path of [
   'scripts/release-macos.sh',
   'scripts/build-macos-universal-cli.sh',
+  'scripts/render-dmg-background.sh',
   'scripts/verify-macos-release.sh',
   'docs/MACOS_RELEASE.md',
   'docs/RELEASE_AUTOMATION.md',
