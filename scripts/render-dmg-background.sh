@@ -52,7 +52,7 @@ magick \
   -pointsize 13 \
   -kerning 0 \
   -fill '#a8adaf' \
-  -annotate +307+59 'Copy responsibly.' \
+  -annotate +307+59 'Copy irresponsibly.' \
   "$output_png"
 
 echo "Rendered $output_png"
