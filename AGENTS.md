@@ -19,3 +19,17 @@ Pasted aims to make its meaningful clipboard-management capabilities available t
 - Do not introduce Tailwind's default palette utilities directly into user-facing UI. If a reusable semantic class does not exist, add one to the theme primitives instead of special-casing a component.
 - Mechanical utilities such as `divide-y` must be paired with the corresponding semantic class, such as `theme-divide`.
 - Keep the CSS architecture audit budgets ratcheting downward; never increase a debt budget to accommodate new styling.
+
+## Code Review Rules
+
+### User data and reversibility
+
+- Flag changes that can silently discard, orphan, or reinterpret clips, files, revisions, Bins, settings, or backup data. Require an explicit migration, bounded fallback, or user-confirmed destructive path.
+
+### Clipboard privacy and safety
+
+- Flag logging, notification, analytics, or error paths that expose clipboard contents, file paths, credentials, or transformation input. Clipboard reads and IPC payloads must remain bounded by the shared safety limits.
+
+### Cross-platform behavior
+
+- Platform-specific behavior must be gated and leave macOS, Windows, Linux X11, and constrained Wayland environments with a compiling, explicit success or graceful-failure path.
