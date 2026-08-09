@@ -25,7 +25,7 @@ The complete gate runs formatting, Clippy, frontend build, Rust unit tests, IPC 
 - Never expose clipboard contents, file paths, credentials, or prompts in logs/analytics.
 - Gate platform-specific behavior and provide an explicit graceful-failure path.
 
-See the [contribution guide](https://github.com/getpasted/pasted/blob/main/CONTRIBUTING.md), [`AGENTS.md`](https://github.com/getpasted/pasted/blob/main/AGENTS.md), and the [issue tracker](https://github.com/getpasted/pasted/issues).
+See the [contribution guide](https://github.com/getpasted/pasted/blob/main/CONTRIBUTING.md), [project governance](https://github.com/getpasted/pasted/blob/main/GOVERNANCE.md), [`AGENTS.md`](https://github.com/getpasted/pasted/blob/main/AGENTS.md), and the [issue tracker](https://github.com/getpasted/pasted/issues).
 
 ## Releases
 

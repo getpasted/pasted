@@ -90,6 +90,7 @@ Maintainers should follow [the macOS release guide](docs/MACOS_RELEASE.md) and t
 - Use [SUPPORT.md](SUPPORT.md) to choose the right public help channel.
 - Report vulnerabilities privately according to [SECURITY.md](SECURITY.md).
 - Participation is governed by the [Code of Conduct](CODE_OF_CONDUCT.md).
+- Project authority and automated-contribution boundaries are described in [GOVERNANCE.md](GOVERNANCE.md).
 - User-visible release history is maintained in the [Changelog](CHANGELOG.md).
 
 ## License
