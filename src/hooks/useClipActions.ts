@@ -4,6 +4,7 @@ import { safeInvoke as invoke } from '../utils/tauri';
 import { sortClipsForTimeline } from '../utils/clipOrder';
 import { soundManager } from '../utils/sound';
 import { runTransformation } from '../utils/transformExecution';
+import { htmlToPlainText } from '../utils/plainText';
 
 interface AssignOptions {
   includeSelection?: boolean;
@@ -270,7 +271,7 @@ export function useClipActions({
   const copyClip = useCallback(async (clip: ClipItem) => {
     try {
       const text = settings.alwaysPastePlainText && clip.text_content
-        ? clip.text_content.replace(/<[^>]*>/g, '')
+        ? htmlToPlainText(clip.text_content)
         : clip.text_content;
       await invoke('copy_clip_to_system', {
         text: clip.content_type === 'file' ? null : text,
