@@ -1,0 +1,82 @@
+name: Bug report
+description: Report reproducible behavior that is not working as intended.
+title: "[Bug]: "
+labels:
+  - "needs: triage"
+assignees:
+  - JJJ
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping Pasted remember better. Do not include clipboard contents, credentials, private paths, or security vulnerabilities here.
+  - type: input
+    id: version
+    attributes:
+      label: Pasted version
+      description: Find this in Settings → About.
+      placeholder: 1.0.0-rc.1
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options:
+        - macOS — Apple Silicon
+        - macOS — Intel
+        - Windows
+        - Linux — X11
+        - Linux — Wayland
+        - SteamOS
+        - Browser-only development preview
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: os_version
+    attributes:
+      label: Operating-system version
+      placeholder: macOS 26.0, Windows 11 24H2, SteamOS 3.x…
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: What happened?
+      description: Describe the observable behavior without pasting sensitive clipboard data.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open…
+        2. Copy synthetic test text…
+        3. Click…
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Add sanitized logs, screenshots, permissions, display server, provider state, or workarounds.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Safety check
+      options:
+        - label: I searched existing issues.
+          required: true
+        - label: I removed clipboard contents, credentials, and private paths from this report.
+          required: true
+        - label: This is not a security vulnerability; security reports belong in GitHub private vulnerability reporting.
+          required: true
+

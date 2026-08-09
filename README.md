@@ -84,6 +84,14 @@ Pasted 1.0 uses verified manual DMG updates. Download a newer signed DMG, replac
 
 Maintainers should follow [the macOS release guide](docs/MACOS_RELEASE.md) and the [1.0 release-candidate checklist](docs/RELEASE_CHECKLIST_1.0.0.md).
 
+## Community
+
+- Read [CONTRIBUTING.md](CONTRIBUTING.md) before proposing or implementing a change.
+- Use [SUPPORT.md](SUPPORT.md) to choose the right public help channel.
+- Report vulnerabilities privately according to [SECURITY.md](SECURITY.md).
+- Participation is governed by the [Code of Conduct](CODE_OF_CONDUCT.md).
+- User-visible release history is maintained in the [Changelog](CHANGELOG.md).
+
 ## License
 
 Pasted is distributed under the [MIT License](LICENSE).

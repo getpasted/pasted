@@ -24,3 +24,6 @@ Clip content leaves Pasted only when you explicitly run an intelligence-assisted
 
 The complete automated coverage matrix is maintained in [`docs/SAFETY_TEST_MATRIX.md`](https://github.com/getpasted/pasted/blob/main/docs/SAFETY_TEST_MATRIX.md).
 
+## Reporting a vulnerability
+
+Do not disclose suspected vulnerabilities or sensitive clipboard data in a public issue. Read the repository's [Security Policy](https://github.com/getpasted/pasted/security/policy), then use [GitHub private vulnerability reporting](https://github.com/getpasted/pasted/security/advisories/new).
