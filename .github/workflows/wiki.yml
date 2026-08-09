@@ -1,0 +1,46 @@
+name: Publish Wiki
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "docs/wiki/**"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-wiki
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    name: Sync docs/wiki to GitHub Wiki
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out Pasted
+        uses: actions/checkout@v7
+
+      - name: Check out Wiki
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git clone "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.wiki.git" wiki
+
+      - name: Synchronize Wiki pages
+        run: rsync --archive --delete --exclude=.git/ docs/wiki/ wiki/
+
+      - name: Publish changed pages
+        working-directory: wiki
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add --all
+          if git diff --cached --quiet; then
+            echo "Wiki is already current."
+            exit 0
+          fi
+          git commit -m "Sync Wiki from getpasted/pasted"
+          git push origin HEAD:master
