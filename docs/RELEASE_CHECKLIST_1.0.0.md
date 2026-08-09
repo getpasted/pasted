@@ -50,5 +50,6 @@ Use the exact notarized DMG intended for publication. Do not substitute a develo
 ## Publication
 
 - [ ] Publish the DMG, SHA-256 checksum, system requirements, privacy summary, and `RELEASE_NOTES_1.0.0.md` together.
-- [ ] State that 1.0 supports Apple Silicon and Intel macOS with manual DMG updates.
+- [ ] State that 1.0 supports macOS 13+ on Apple Silicon and Intel with manual DMG updates.
+- [ ] Label the Linux AppImage as a preview and Windows packages as unsigned experimental downloads.
 - [ ] Preserve the notarization submission identifier and final release commit in the release record.

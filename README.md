@@ -4,6 +4,8 @@ Pasted is a privacy-first clipboard manager and transformation workspace built w
 
 Pasted 1.0 is distributed for Apple Silicon and Intel Macs as one signed and notarized universal DMG. Windows and Linux packages remain under active validation and are not part of the initial support promise.
 
+The [Pasted Wiki](https://github.com/getpasted/pasted/wiki) covers installation, everyday workflows, recovery, CLI automation, platform support, privacy, and troubleshooting.
+
 ## What Pasted does
 
 - Captures text, images, screenshots, PDFs, and copied file references in a searchable local history.
@@ -27,7 +29,7 @@ Pasted sends clip content outside the app only when you explicitly run an intell
 
 ## macOS requirements
 
-- macOS 12 or newer
+- macOS 13 or newer
 - Apple Silicon or Intel processor
 - Accessibility permission for global hotkeys and automatic Queue/HUD pasting
 
@@ -59,7 +61,7 @@ The complete command reference is available inside **Help & Documentation → CL
 
 Prerequisites:
 
-- Node.js 18 or newer
+- Node.js 22 or newer
 - Rust 1.75 or newer
 - macOS for native OCR and signed macOS packaging
 

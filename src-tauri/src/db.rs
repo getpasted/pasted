@@ -5006,6 +5006,59 @@ mod tests {
     }
 
     #[test]
+    fn factory_reset_rolls_back_everything_when_a_delete_fails() {
+        let db = setup_test_db();
+        let clip = db
+            .save_clip(
+                "text",
+                Some("Do not partially reset me"),
+                None,
+                None,
+                "factory-reset-rollback-clip",
+                "Test",
+            )
+            .unwrap();
+        let bin = db
+            .create_bin("Keep This Bin", "Folder", "default", None)
+            .unwrap();
+        db.assign_to_bin(clip.id, Some(bin.id)).unwrap();
+        db.save_setting("themeMode", "flux").unwrap();
+        {
+            let conn = db.conn.lock();
+            conn.execute(
+                "INSERT INTO activity_logs (event_type, description)
+                 VALUES ('test', 'survive a failed reset')",
+                [],
+            )
+            .unwrap();
+            conn.execute_batch(
+                "CREATE TRIGGER reject_factory_reset_clip_delete
+                 BEFORE DELETE ON clips
+                 BEGIN
+                    SELECT RAISE(ABORT, 'simulated reset failure');
+                 END;",
+            )
+            .unwrap();
+        }
+
+        let error = db.factory_reset().unwrap_err();
+        assert!(error.to_string().contains("simulated reset failure"));
+
+        let preserved = db.get_clip_by_id(clip.id).unwrap();
+        assert_eq!(preserved.bin_id, Some(bin.id));
+        assert_eq!(
+            db.get_setting("themeMode").unwrap().as_deref(),
+            Some("flux")
+        );
+        assert!(db.get_bins().unwrap().iter().any(|item| item.id == bin.id));
+        let conn = db.conn.lock();
+        let activity_count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM activity_logs", [], |row| row.get(0))
+            .unwrap();
+        assert!(activity_count > 0);
+    }
+
+    #[test]
     fn test_clip_saving_and_retrieval() {
         let db = setup_test_db();
         let clip = db
@@ -6402,6 +6455,59 @@ mod tests {
     }
 
     #[test]
+    fn revision_restore_rejects_versions_from_another_clip_without_mutation() {
+        let db = setup_test_db();
+        let first = db
+            .save_clip(
+                "text",
+                Some("First original"),
+                None,
+                None,
+                "revision-boundary-first",
+                "Test",
+            )
+            .unwrap();
+        let second = db
+            .save_clip(
+                "text",
+                Some("Second original"),
+                None,
+                None,
+                "revision-boundary-second",
+                "Test",
+            )
+            .unwrap();
+        db.update_clip_text(first.id, "First current").unwrap();
+        db.update_clip_text(second.id, "Second current").unwrap();
+        let foreign_version = db.get_clip_versions(second.id).unwrap().remove(0);
+        let first_version_count = db.get_clip_version_count(first.id).unwrap();
+        let second_version_count = db.get_clip_version_count(second.id).unwrap();
+
+        assert!(db
+            .restore_clip_version(first.id, foreign_version.id)
+            .is_err());
+        assert_eq!(
+            db.get_clip_by_id(first.id).unwrap().text_content.as_deref(),
+            Some("First current")
+        );
+        assert_eq!(
+            db.get_clip_by_id(second.id)
+                .unwrap()
+                .text_content
+                .as_deref(),
+            Some("Second current")
+        );
+        assert_eq!(
+            db.get_clip_version_count(first.id).unwrap(),
+            first_version_count
+        );
+        assert_eq!(
+            db.get_clip_version_count(second.id).unwrap(),
+            second_version_count
+        );
+    }
+
+    #[test]
     fn disabled_revision_history_preserves_existing_versions_and_skips_new_snapshots() {
         let db = setup_test_db();
         let clip = db
@@ -6988,6 +7094,87 @@ mod tests {
             .to_string()
             .contains("unsupported backup schema version"));
         assert!(destination.get_clips(None, None, false).unwrap().is_empty());
+    }
+
+    #[test]
+    fn backup_import_rolls_back_earlier_writes_when_valid_payload_fails_midway() {
+        let source = setup_test_db();
+        source
+            .create_bin("Imported Bin", "Folder", "default", None)
+            .unwrap();
+        source
+            .create_operation(
+                "Imported Operation",
+                "uppercase",
+                Some("{}"),
+                Some("Import Test"),
+            )
+            .unwrap();
+        let mut payload: serde_json::Value =
+            serde_json::from_str(&source.export_backup_json().unwrap()).unwrap();
+        let custom_operation = payload["operations"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|operation| {
+                operation["stable_id"]
+                    .as_str()
+                    .is_some_and(|stable_id| stable_id.starts_with("custom:"))
+            })
+            .unwrap();
+        custom_operation["stable_id"] = serde_json::json!("invalid-operation-reference");
+
+        let destination = setup_test_db();
+        let existing = destination
+            .save_clip(
+                "text",
+                Some("Destination must survive"),
+                None,
+                None,
+                "backup-rollback-existing",
+                "Test",
+            )
+            .unwrap();
+        destination.save_setting("themeMode", "warm").unwrap();
+        let bins_before = destination
+            .get_bins()
+            .unwrap()
+            .into_iter()
+            .map(|bin| (bin.id, bin.name))
+            .collect::<Vec<_>>();
+
+        let error = destination
+            .import_backup_json(&serde_json::to_string(&payload).unwrap())
+            .unwrap_err();
+        assert!(error
+            .to_string()
+            .contains("custom operation backup is missing a stable reference"));
+        assert_eq!(
+            destination
+                .get_clip_by_id(existing.id)
+                .unwrap()
+                .text_content
+                .as_deref(),
+            Some("Destination must survive")
+        );
+        assert_eq!(
+            destination.get_setting("themeMode").unwrap().as_deref(),
+            Some("warm")
+        );
+        assert_eq!(
+            destination
+                .get_bins()
+                .unwrap()
+                .into_iter()
+                .map(|bin| (bin.id, bin.name))
+                .collect::<Vec<_>>(),
+            bins_before
+        );
+        assert!(!destination
+            .get_operations()
+            .unwrap()
+            .iter()
+            .any(|operation| operation.name == "Imported Operation"));
     }
 
     #[test]
