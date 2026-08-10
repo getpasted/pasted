@@ -30,6 +30,23 @@ trap cleanup EXIT
 diskutil image attach --readOnly --mountOptions nobrowse --mountPoint "$mount_dir" "$dmg_path" >/dev/null
 app_path="$mount_dir/Pasted.app"
 
+for presentation_asset in \
+  "$mount_dir/.DS_Store" \
+  "$mount_dir/.background/background.png" \
+  "$mount_dir/.VolumeIcon.icns"; do
+  if [[ ! -f "$presentation_asset" ]]; then
+    echo "The DMG is missing Finder presentation metadata: $presentation_asset" >&2
+    exit 1
+  fi
+done
+
+if [[ ! -L "$mount_dir/Applications" || "$(readlink "$mount_dir/Applications")" != "/Applications" ]]; then
+  echo "The DMG is missing its Applications folder link." >&2
+  exit 1
+fi
+
+echo "Branded DMG background, Finder layout, volume icon, and Applications link verified."
+
 codesign --verify --deep --strict --verbose=2 "$app_path"
 
 if [[ "$mode" == "--local" ]]; then

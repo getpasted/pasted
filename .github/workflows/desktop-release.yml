@@ -44,6 +44,8 @@ jobs:
     runs-on: macos-latest
     environment: release-macos
     env:
+      # Tauri otherwise skips Finder background and icon layout metadata on CI.
+      TAURI_BUNDLER_DMG_IGNORE_CI: true
       APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
       APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
       KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}

@@ -4,6 +4,11 @@ Notable user-facing changes to Pasted are recorded here. The project follows sem
 
 ## Unreleased
 
+## 1.0.0-rc.3 — 2026-08-10
+
+- restored the branded macOS DMG background and icon layout in CI-built releases; and
+- added release verification that rejects DMGs missing their Finder presentation metadata.
+
 ## 1.0.0-rc.2 — 2026-08-09
 
 This release candidate hardens the intended 1.0 build after RC1 testing:
