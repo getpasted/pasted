@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { FactoryResetDialog } from './FactoryResetDialog';
+import { useToast } from './ToastProvider';
 
 interface SettingsResetPanelProps {
   onRefreshBins?: () => void;
@@ -16,8 +17,8 @@ export function SettingsResetPanel({
   onRefreshClips,
   onRefreshTrashedClips,
 }: SettingsResetPanelProps) {
+  const { showToast } = useToast();
   const [isResetOpen, setIsResetOpen] = useState(false);
-  const [status, setStatus] = useState<string | null>(null);
 
   const handleExport = async () => {
     await invoke<string | null>('export_backup_file');
@@ -40,7 +41,7 @@ export function SettingsResetPanel({
     } else if (!isNative) {
       // Keep browser previews usable; packaged Pasted restarts natively.
       setIsResetOpen(false);
-      setStatus('Pasted was reset to its first-launch state.');
+      showToast({ tone: 'success', message: 'Pasted was reset to its first-launch state.' });
     }
   };
 
@@ -66,8 +67,6 @@ export function SettingsResetPanel({
           Reset Pasted…
         </button>
       </div>
-
-      {status && <p role="status" className="theme-status-success mt-3 rounded-lg border px-3 py-2 text-[11px]">{status}</p>}
 
       <FactoryResetDialog
         isOpen={isResetOpen}

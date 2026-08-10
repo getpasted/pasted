@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Code2, Coffee, Download, Droplet, Drum, Laptop, Link, Minus, Moon, Palette, Plus, RotateCcw, Sliders, Snowflake, Trash2, Zap } from 'lucide-react';
 import type { AppSettings } from '../types';
 import { useAltKeyPressed } from '../hooks/useAltKeyPressed';
@@ -7,6 +6,7 @@ import { MenuSelect } from './MenuSelect';
 import { SettingsPanelHeader } from './SettingsPanelHeader';
 import { SettingsSectionHeading } from './SettingsSectionHeading';
 import { ACTUAL_SIZE, APP_ZOOM_STEPS, appZoomPercent, stepAppZoom } from '../utils/appZoom';
+import { useToast } from './ToastProvider';
 
 interface SettingsGeneralPanelProps {
   settings: AppSettings;
@@ -75,8 +75,8 @@ export function SettingsGeneralPanel({
   onClearHistory,
   onResetColumnWidths,
 }: SettingsGeneralPanelProps) {
+  const { showToast } = useToast();
   const isAltPressed = useAltKeyPressed();
-  const [exportStatus, setExportStatus] = useState<string | null>(null);
   const isMac = typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.userAgent || navigator.platform);
   const dockIconOptions = isMac
     ? [
@@ -105,10 +105,10 @@ export function SettingsGeneralPanel({
         : `pasted_export_${Date.now()}.csv`;
       link.click();
       URL.revokeObjectURL(url);
-      setExportStatus(`${format.toUpperCase()} export downloaded.`);
+      showToast({ tone: 'success', message: `${format.toUpperCase()} export downloaded.` });
     } catch (error) {
       console.error(`Failed to export clips as ${format}:`, error);
-      setExportStatus(`${format.toUpperCase()} export failed.`);
+      showToast({ tone: 'error', message: `${format.toUpperCase()} export failed.` });
     }
   };
 
@@ -490,11 +490,6 @@ export function SettingsGeneralPanel({
                     </button>
                   </div>
                 </div>
-                {exportStatus && (
-                  <p role="status" className="theme-text-muted pt-2 text-right text-[11px]">
-                    {exportStatus}
-                  </p>
-                )}
               </div>
             </div>
 

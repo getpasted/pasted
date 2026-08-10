@@ -5,6 +5,7 @@ import { safeInvoke as invoke } from '../utils/tauri';
 import { HotkeyRecorder } from './HotkeyRecorder';
 import { SettingsPanelHeader } from './SettingsPanelHeader';
 import { OverflowText } from './OverflowText';
+import { useToast } from './ToastProvider';
 
 interface SettingsHotkeysPanelProps {
   settings: AppSettings;
@@ -90,8 +91,8 @@ export function SettingsHotkeysPanel({
   onRefreshBins,
   onRefreshPipelines,
 }: SettingsHotkeysPanelProps) {
+  const { showToast } = useToast();
   const [hotkeyStatus, setHotkeyStatus] = useState<HotkeyCapabilityStatus | null>(cachedHotkeyStatus);
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const permissionRefreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const refreshHotkeyStatus = async () => {
@@ -126,11 +127,10 @@ export function SettingsHotkeysPanel({
     onUpdateSettings({ [key]: value });
     try {
       await invoke('register_app_setting_hotkey', { key, value });
-      setStatusMessage(null);
       await refreshHotkeyStatus();
     } catch (error) {
       console.error(`Failed to register ${key}:`, error);
-      setStatusMessage('That shortcut could not be registered. Try a different key combination.');
+      showToast({ tone: 'error', message: 'That shortcut could not be registered. Try a different key combination.' });
     }
   };
 
@@ -141,10 +141,10 @@ export function SettingsHotkeysPanel({
       for (const [key, value] of Object.entries(defaultHotkeys)) {
         if (key !== 'hudHotkey') await invoke('register_app_setting_hotkey', { key, value });
       }
-      setStatusMessage('Default shortcuts restored.');
+      showToast({ tone: 'success', message: 'Default shortcuts restored.' });
     } catch (error) {
       console.error('Failed to restore default hotkeys:', error);
-      setStatusMessage('Some default shortcuts could not be registered.');
+      showToast({ tone: 'error', message: 'Some default shortcuts could not be registered.' });
     }
   };
 
@@ -155,7 +155,7 @@ export function SettingsHotkeysPanel({
       permissionRefreshTimer.current = setTimeout(() => void refreshHotkeyStatus(), 1500);
     } catch (error) {
       console.error('Failed to open Accessibility settings:', error);
-      setStatusMessage('Could not open macOS Accessibility settings.');
+      showToast({ tone: 'error', message: 'Could not open macOS Accessibility settings.' });
     }
   };
 
@@ -218,8 +218,6 @@ export function SettingsHotkeysPanel({
         )}
       />
 
-      {statusMessage && <p role="status" className="theme-status-info rounded-lg border px-3 py-2 text-[11px]">{statusMessage}</p>}
-
       <div className="theme-surface p-3.5 rounded-xl border space-y-2.5">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0 flex items-center gap-2">
@@ -267,7 +265,7 @@ export function SettingsHotkeysPanel({
                 onRefreshBins?.();
               } catch (error) {
                 console.error('Failed to update bin shortcut:', error);
-                setStatusMessage('That bin shortcut could not be registered.');
+                showToast({ tone: 'error', message: 'That bin shortcut could not be registered.' });
               }
             }} />)}
       </section>}
@@ -281,7 +279,7 @@ export function SettingsHotkeysPanel({
                 onRefreshPipelines?.();
               } catch (error) {
                 console.error('Failed to update Advanced Transform shortcut:', error);
-                setStatusMessage('That Advanced Transform shortcut could not be registered.');
+                showToast({ tone: 'error', message: 'That Advanced Transform shortcut could not be registered.' });
               }
             }} />)}
         </div>
@@ -294,10 +292,9 @@ export function SettingsHotkeysPanel({
           onUpdateSettings({ hudHotkey: value });
           try {
             await invoke('register_hud_shortcut', { shortcutStr: value });
-            setStatusMessage(null);
           } catch (error) {
             console.error('Failed to register HUD shortcut:', error);
-            setStatusMessage('That shortcut could not be registered. Try a different key combination.');
+            showToast({ tone: 'error', message: 'That shortcut could not be registered. Try a different key combination.' });
           }
         }} />}
         {actionHotkeys.filter(({ feature }) => !feature || settings[feature === 'queue' ? 'enableQueue' : 'enableTransformations']).map(({ label, key, fallback }) => (

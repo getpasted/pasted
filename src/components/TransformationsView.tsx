@@ -18,6 +18,7 @@ import { useIntelligenceRequestStatus } from '../hooks/useIntelligenceRequestSta
 import { AnchoredMenu, MenuDivider, MenuItem } from './AnchoredMenu';
 import { DeleteTransformationAssetDialog } from './DeleteTransformationAssetDialog';
 import { OverflowText } from './OverflowText';
+import { useToast } from './ToastProvider';
 
 interface TransformationsViewProps {
   pipelines: Pipeline[];
@@ -32,6 +33,7 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
   requestedWorkspace,
   navigationKey,
 }) => {
+  const { showToast } = useToast();
   const [activeSubTab, setActiveSubTab] = useState<TransformWorkspace>('transforms');
   const [activeLibraryFilter, setActiveLibraryFilter] = useState('all');
 
@@ -69,7 +71,11 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
     | null
   >(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [actionError, setActionError] = useState('');
+  const showActionError = (error: unknown) => showToast({
+    tone: 'error',
+    message: error instanceof Error ? error.message : String(error),
+    durationMs: 8000,
+  });
 
   useEffect(() => {
     if (requestedWorkspace) setActiveSubTab(requestedWorkspace);
@@ -91,7 +97,6 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
   };
 
   const handleDuplicatePipeline = async (pipeline: Pipeline) => {
-    setActionError('');
     try {
       await invoke('create_pipeline', {
         name: `${pipeline.name} (Copy)`,
@@ -101,30 +106,28 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
       soundManager.playCopySound();
       onRefreshPipelines();
     } catch (e) {
-      setActionError(e instanceof Error ? e.message : String(e));
+      showActionError(e);
     }
   };
 
   const handleExportPipeline = async (pipeline: Pipeline) => {
-    setActionError('');
     try {
       const exportJson = JSON.stringify(pipeline, null, 2);
       await invoke('copy_clip_to_system', { text: exportJson, imageBase64: null });
       soundManager.playCopySound();
     } catch (e) {
-      setActionError(e instanceof Error ? e.message : String(e));
+      showActionError(e);
     }
   };
 
   const handleDeletePipeline = async (pipelineRef: string) => {
-    setActionError('');
     setIsDeleting(true);
     try {
       await invoke('delete_pipeline', { pipelineRef });
       onRefreshPipelines();
       setDeleteTarget(null);
     } catch (e) {
-      setActionError(e instanceof Error ? e.message : String(e));
+      showActionError(e);
     } finally {
       setIsDeleting(false);
     }
@@ -177,7 +180,7 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
   const fetchTransforms = () => {
     invoke<SavedTransform[]>('get_saved_transforms')
       .then(setTransforms)
-      .catch((error) => setActionError(error instanceof Error ? error.message : String(error)));
+      .catch(showActionError);
   };
 
   const cancelPlayground = () => {
@@ -189,14 +192,13 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
   };
 
   const handleDeleteTransform = async (transformRef: string) => {
-    setActionError('');
     setIsDeleting(true);
     try {
       await invoke('delete_saved_transform', { transformRef });
       setTransforms((current) => current.filter((transform) => transform.stableRef !== transformRef));
       setDeleteTarget(null);
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : String(error));
+      showActionError(error);
     } finally {
       setIsDeleting(false);
     }
@@ -240,7 +242,7 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
   const fetchOpCount = () => {
     invoke<Operation[]>('get_operations')
       .then(setOperations)
-      .catch((error) => setActionError(error instanceof Error ? error.message : String(error)));
+      .catch(showActionError);
   };
 
   useEffect(() => {
@@ -266,12 +268,6 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
 
       {/* Main Scrollable Content */}
       <div className="tools-scroll-region flex-1 overflow-y-auto p-6 space-y-6">
-      {actionError && (
-        <div role="alert" className="theme-status-danger flex items-start justify-between gap-3 rounded-xl border px-3 py-2 text-xs">
-          <span>{actionError}</span>
-          <button type="button" onClick={() => setActionError('')} className="shrink-0 font-semibold underline">Dismiss</button>
-        </div>
-      )}
       {activeSubTab === 'advanced' ? (
         <OperationsManager
           isEmbedded={true}
@@ -499,7 +495,7 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
                             await invoke('update_pipeline_shortcut', { pipelineRef: f.stableRef, shortcut: newShortcut });
                             onRefreshPipelines();
                           } catch (err) {
-                            setActionError(err instanceof Error ? err.message : String(err));
+                            showActionError(err);
                           }
                         }}
                       />
