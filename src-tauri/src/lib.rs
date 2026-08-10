@@ -12,6 +12,7 @@ mod intelligence_connections;
 pub mod intelligence_executor;
 mod intelligence_provider;
 mod intelligence_scheduler;
+pub mod library_storage;
 #[cfg(target_os = "linux")]
 mod linux_native_theme;
 pub mod ocr;
@@ -205,7 +206,7 @@ pub fn run() {
                 .path()
                 .app_data_dir()
                 .unwrap_or_else(|_| std::path::PathBuf::from("./pasted_data"));
-            let db_path = app_dir.join("pasted.db");
+            let db_path = library_storage::resolve_database_path(&app_dir);
 
             let db_state =
                 Arc::new(db::DbState::new(db_path).expect("Failed to initialize SQLite database"));
@@ -407,6 +408,9 @@ pub fn run() {
             commands::cancel_transformation_execution,
             commands::get_intelligence_scheduler_snapshot,
             commands::get_installation_diagnostics,
+            commands::get_library_location,
+            commands::move_library,
+            commands::restore_default_library_location,
             commands::run_intelligence_scheduler_demo,
             commands::toggle_clip_protected,
             commands::trash_unpinned_clips,

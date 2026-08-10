@@ -1,9 +1,9 @@
-import { Clipboard, Upload } from 'lucide-react';
+import { Clipboard, FolderInput, Upload } from 'lucide-react';
 import { AppDialog } from './AppDialog';
 
 interface LibraryTransitionDialogProps {
   isOpen: boolean;
-  variant: 'reset' | 'import';
+  variant: 'reset' | 'import' | 'move';
   title: string;
   description: string;
 }
@@ -25,7 +25,7 @@ export function LibraryTransitionDialog({
   title,
   description,
 }: LibraryTransitionDialogProps) {
-  const Icon = variant === 'import' ? Upload : Clipboard;
+  const Icon = variant === 'import' ? Upload : variant === 'move' ? FolderInput : Clipboard;
   const titleId = `library-${variant}-transition-title`;
 
   return (

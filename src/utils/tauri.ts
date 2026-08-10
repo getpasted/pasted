@@ -70,6 +70,12 @@ let mockBins: MockBin[] = [
   { id: 2, name: 'Work Bin', icon: '💼', color: '#10b981', smart_rule: '', bin_type: 'category' },
 ];
 
+let mockLibraryLocation = {
+  path: '/mock/Pasted/pasted.db',
+  directory: '/mock/Pasted',
+  isDefault: true,
+};
+
 const mockPipelines = [
   {
     id: 1,
@@ -472,6 +478,22 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       return {} as unknown as T;
     case 'export_backup_file':
       return `/mock/Pasted_Backup_${new Date().toISOString().slice(0, 10)}.json` as unknown as T;
+    case 'get_library_location':
+      return mockLibraryLocation as unknown as T;
+    case 'move_library':
+      mockLibraryLocation = {
+        path: '/mock/Custom Pasted Library/pasted.db',
+        directory: '/mock/Custom Pasted Library',
+        isDefault: false,
+      };
+      return { location: mockLibraryLocation, recoveryPath: '/mock/Pasted/pasted.db' } as unknown as T;
+    case 'restore_default_library_location':
+      mockLibraryLocation = {
+        path: '/mock/Pasted/pasted.db',
+        directory: '/mock/Pasted',
+        isDefault: true,
+      };
+      return { location: mockLibraryLocation, recoveryPath: '/mock/Custom Pasted Library/pasted.db' } as unknown as T;
     case 'factory_reset_app': {
       const report = {
         clipsDeleted: mockClips.length,

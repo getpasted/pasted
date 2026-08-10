@@ -43,6 +43,7 @@ const filterFamilies = [
   ['hud', (event) => event.startsWith('hud_'), "event_type.startsWith('hud_')"],
   ['app', (event) => event.startsWith('app_'), "event_type.startsWith('app_')"],
   ['settings', (event) => event.startsWith('setting_') || event.startsWith('settings_') || event.startsWith('autostart_'), "event_type.startsWith('setting_')"],
+  ['storage', (event) => event.startsWith('library_'), "event_type.startsWith('library_')"],
 ];
 
 const missingFilters = [...emittedEvents].filter((event) => !filterFamilies.some(([, matches]) => matches(event)));

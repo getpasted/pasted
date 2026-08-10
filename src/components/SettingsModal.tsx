@@ -30,6 +30,7 @@ interface SettingsModalProps {
   onResetColumnWidths?: () => void;
   requestedTab?: SettingsTab;
   navigationKey?: number;
+  onOpenAnalytics?: () => void;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -49,6 +50,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onResetColumnWidths,
   requestedTab,
   navigationKey,
+  onOpenAnalytics,
 }) => {
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
 
@@ -77,7 +79,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       />
 
       <div className="tools-scroll-region flex-1 overflow-y-auto p-6">
-        <div className={`w-full max-w-xl mx-auto ${activeTab === 'backup' ? 'space-y-4' : 'settings-primary-well theme-panel rounded-2xl border p-6'}`}>
+        <div className={`w-full max-w-xl mx-auto ${activeTab === 'storage' ? 'space-y-4' : 'settings-primary-well theme-panel rounded-2xl border p-6'}`}>
 
         {/* TAB 1: GENERAL */}
         {activeTab === 'general' && (
@@ -119,7 +121,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         )}
 
         {/* TAB 5: SYNC & BACKUP */}
-        {activeTab === 'backup' && (
+        {activeTab === 'storage' && (
           <>
             <div className="settings-primary-well theme-panel rounded-2xl border p-6">
               <SettingsSyncPanel
@@ -127,6 +129,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 onRefreshPipelines={onRefreshPipelines}
                 onRefreshClips={onRefreshClips}
                 onRefreshTrashedClips={onRefreshTrashedClips}
+                analyticsEnabled={settings.enableAnalytics}
+                onOpenAnalytics={onOpenAnalytics}
               />
             </div>
             <SettingsResetPanel

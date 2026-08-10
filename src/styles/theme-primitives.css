@@ -62,6 +62,54 @@
   background-color: var(--status-success);
 }
 
+.app-toast-region {
+  position: fixed;
+  top: max(16px, env(safe-area-inset-top));
+  right: 16px;
+  z-index: var(--layer-critical);
+  display: flex;
+  width: min(360px, calc(100vw - 32px));
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.app-toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 11px 12px;
+  border: 1px solid;
+  border-radius: var(--radius-control);
+  background-color: color-mix(in srgb, var(--bg-surface) 88%, transparent);
+  box-shadow: var(--shadow-card-selected);
+  backdrop-filter: blur(22px) saturate(135%);
+  -webkit-backdrop-filter: blur(22px) saturate(135%);
+  pointer-events: auto;
+  animation: app-toast-enter 180ms ease-out both;
+}
+
+.app-toast-close {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  margin: -4px -5px -4px 0;
+  place-items: center;
+  border-radius: 7px;
+  color: currentColor;
+  opacity: 0.72;
+}
+
+.app-toast-close:hover {
+  background: color-mix(in srgb, currentColor 9%, transparent);
+  opacity: 1;
+}
+
+@keyframes app-toast-enter {
+  from { opacity: 0; transform: translate3d(12px, -4px, 0) scale(0.98); }
+  to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+
 .connection-power-button.is-enabled {
   color: var(--status-success);
   background-color: color-mix(in srgb, var(--status-success) 12%, var(--bg-surface));

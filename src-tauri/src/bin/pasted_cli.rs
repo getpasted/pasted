@@ -9,32 +9,38 @@ use pasted_lib::db::{ClipMutationSummary, DbState, TransformClipApplication};
 use pasted_lib::features::{setting_value_is_enabled, Feature};
 use pasted_lib::installation_diagnostics::{InstallationDiagnostics, APP_IDENTIFIER};
 use pasted_lib::intelligence_executor::execute_saved_transform;
+use pasted_lib::library_storage;
 use pasted_lib::transformation_service::{
     execute, ExecutionDestination, ExecutionRequest, ExecutionTarget, ExecutionTrigger,
 };
 
-fn get_db_path() -> PathBuf {
+fn get_app_data_dir() -> PathBuf {
     if let Some(mut dir) = dirs::data_dir() {
         dir.push(APP_IDENTIFIER);
         if dir.exists() {
-            return dir.join("pasted.db");
+            return dir;
         }
     }
     if let Some(mut dir) = dirs::data_dir() {
         dir.push("com.tauri.dev");
         if dir.exists() {
-            return dir.join("pasted.db");
+            return dir;
         }
     }
     if let Some(mut dir) = dirs::data_dir() {
         dir.push("tauri-app");
         if dir.exists() {
-            return dir.join("pasted.db");
+            return dir;
         }
     }
     let local_dir = PathBuf::from("./pasted_data");
     let _ = fs::create_dir_all(&local_dir);
-    local_dir.join("pasted.db")
+    local_dir
+}
+
+fn get_db_path() -> PathBuf {
+    let app_data = get_app_data_dir();
+    library_storage::resolve_database_path(&app_data)
 }
 
 fn main() -> Result<()> {
@@ -85,6 +91,121 @@ fn main() -> Result<()> {
     }
 
     match command {
+        "library" => {
+            let app_data = get_app_data_dir();
+            let subcommand = args.get(2).map(String::as_str).unwrap_or("location");
+            match subcommand {
+                "location" => {
+                    let location = library_storage::location_info(&app_data, &db_path);
+                    if args.iter().any(|argument| argument == "--json") {
+                        println!(
+                            "{}",
+                            serde_json::to_string_pretty(&location).map_err(|error| {
+                                rusqlite::Error::ToSqlConversionFailure(Box::new(error))
+                            })?
+                        );
+                    } else {
+                        println!("{}", location.path);
+                    }
+                }
+                "move" => {
+                    let Some(directory) = args.get(3) else {
+                        eprintln!("Usage: pasted library move <folder> [--json]");
+                        std::process::exit(2);
+                    };
+                    let directory = fs::canonicalize(directory).unwrap_or_else(|error| {
+                        eprintln!("Could not resolve the library folder: {error}");
+                        std::process::exit(2);
+                    });
+                    let target =
+                        library_storage::validate_destination_directory(&directory, &db_path)
+                            .unwrap_or_else(|error| {
+                                eprintln!("{error}");
+                                std::process::exit(2);
+                            });
+                    if target == db_path {
+                        println!("The Pasted library is already in that folder.");
+                        return Ok(());
+                    }
+                    drop(conn);
+                    let db = DbState::new(db_path.clone())?;
+                    let previous = db.relocate_database(target.clone())?;
+                    if let Err(error) = library_storage::persist_location(&app_data, &target) {
+                        let _ = db.switch_to_database(previous.clone());
+                        eprintln!("{error}");
+                        std::process::exit(1);
+                    }
+                    let location = library_storage::location_info(&app_data, &target);
+                    if args.iter().any(|argument| argument == "--json") {
+                        println!(
+                            "{}",
+                            serde_json::to_string_pretty(&serde_json::json!({
+                                "location": location,
+                                "recoveryPath": previous,
+                            }))
+                            .map_err(|error| {
+                                rusqlite::Error::ToSqlConversionFailure(Box::new(error))
+                            })?
+                        );
+                    } else {
+                        println!("Moved the Pasted library to {}.", location.path);
+                        println!("Previous library retained at {}.", previous.display());
+                    }
+                }
+                "default" => {
+                    let target = library_storage::default_database_path(&app_data);
+                    if target == db_path {
+                        println!("The Pasted library is already in its default location.");
+                        return Ok(());
+                    }
+                    let archived_default = library_storage::archive_existing_database(&target)
+                        .unwrap_or_else(|error| {
+                            eprintln!("{error}");
+                            std::process::exit(1);
+                        });
+                    drop(conn);
+                    let db = DbState::new(db_path.clone())?;
+                    let previous = match db.relocate_database(target.clone()) {
+                        Ok(previous) => previous,
+                        Err(error) => {
+                            if let Some(archived) = archived_default.as_deref() {
+                                library_storage::restore_archived_database(archived, &target);
+                            }
+                            return Err(error);
+                        }
+                    };
+                    if let Err(error) = library_storage::persist_location(&app_data, &target) {
+                        let _ = db.switch_to_database(previous.clone());
+                        let _ = fs::remove_file(&target);
+                        if let Some(archived) = archived_default.as_deref() {
+                            library_storage::restore_archived_database(archived, &target);
+                        }
+                        eprintln!("{error}");
+                        std::process::exit(1);
+                    }
+                    let location = library_storage::location_info(&app_data, &target);
+                    if args.iter().any(|argument| argument == "--json") {
+                        println!(
+                            "{}",
+                            serde_json::to_string_pretty(&serde_json::json!({
+                                "location": location,
+                                "recoveryPath": previous,
+                            }))
+                            .map_err(|error| {
+                                rusqlite::Error::ToSqlConversionFailure(Box::new(error))
+                            })?
+                        );
+                    } else {
+                        println!("Restored the default Pasted library location.");
+                        println!("Custom library retained at {}.", previous.display());
+                    }
+                }
+                _ => {
+                    eprintln!("Usage: pasted library location|move <folder>|default [--json]");
+                    std::process::exit(2);
+                }
+            }
+        }
         "diagnostics" | "diagnose" => {
             let executable = env::current_exe().unwrap_or_else(|_| PathBuf::from("pasted"));
             let app_path = executable
@@ -96,7 +217,11 @@ fn main() -> Result<()> {
                 .parent()
                 .map(PathBuf::from)
                 .unwrap_or_else(|| PathBuf::from("./pasted_data"));
-            let details = InstallationDiagnostics::collect(app_path, data_path);
+            let details = InstallationDiagnostics::collect_with_database(
+                app_path,
+                data_path,
+                db_path.clone(),
+            );
             if args.iter().any(|argument| argument == "--json") {
                 println!(
                     "{}",
@@ -650,6 +775,9 @@ fn main() -> Result<()> {
             println!("  pasted list [limit]      List N recent clipboard items (default: 10)");
             println!("  pasted search <query>    Search clips for keyword query");
             println!("  pasted diagnostics --json Show installation diagnostics");
+            println!("  pasted library location --json Show the active SQLite library");
+            println!("  pasted library move <folder> --json Move the library (quit Pasted first)");
+            println!("  pasted library default --json Restore the native default location");
             println!("  pasted ocr status --json Show OCR background-work status");
             println!("  pasted ocr scan          Scan existing unprocessed images");
             println!("  pasted transform list    List saved Transforms");

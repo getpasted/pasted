@@ -60,6 +60,9 @@ const CLI_COMMAND_GROUPS = [
     title: 'Maintenance',
     commands: [
       { usage: 'pasted diagnostics [--json]', description: 'Show installation, signing, paths, and runtime details.' },
+      { usage: 'pasted library location [--json]', description: 'Show the active SQLite library location.' },
+      { usage: 'pasted library move <folder> [--json]', description: 'Move the library safely after quitting the Pasted app.' },
+      { usage: 'pasted library default [--json]', description: 'Return the SQLite library to Pasted’s native default location.' },
       { usage: 'pasted ocr status [--json]', description: 'Inspect OCR backfill progress.' },
       { usage: 'pasted ocr scan', description: 'Process eligible images that have not been OCR’d.' },
       { usage: 'pasted reset --yes [--json]', description: 'Reset all Pasted data and preferences. This is destructive.' },

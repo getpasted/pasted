@@ -1,6 +1,6 @@
 [package]
 name = "pasted"
-version = "1.0.0-rc.3"
+version = "1.0.0-rc.4"
 description = "Pasted - Native, Subscription-Free Clipboard Manager"
 authors = ["Antigravity"]
 edition = "2021"
@@ -26,7 +26,7 @@ tauri = { version = "2", features = ["tray-icon", "macos-private-api"] }
 tauri-plugin-global-shortcut = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-rusqlite = { version = "0.32", features = ["bundled"] }
+rusqlite = { version = "0.32", features = ["bundled", "backup"] }
 arboard = { version = "3.4", features = ["wayland-data-control"] }
 sha2 = "0.10"
 chrono = { version = "0.4", features = ["serde"] }

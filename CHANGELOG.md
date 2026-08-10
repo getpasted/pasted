@@ -4,6 +4,13 @@ Notable user-facing changes to Pasted are recorded here. The project follows sem
 
 ## Unreleased
 
+## 1.0.0-rc.4 — 2026-08-10
+
+- renamed Backup settings to Storage and added a safe, reversible SQLite library-location workflow;
+- added GUI and CLI controls to inspect, move, or restore the default library location;
+- preserved source libraries as recovery copies and added bounded validation, rollback, and relocation tests; and
+- introduced reusable, dismissible toast notifications for storage and backup feedback.
+
 ## 1.0.0-rc.3 — 2026-08-10
 
 - restored the branded macOS DMG background and icon layout in CI-built releases; and

@@ -442,6 +442,7 @@ pub struct IntelligenceConnection {
 
 pub struct DbState {
     pub conn: Mutex<Connection>,
+    path: Mutex<PathBuf>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
@@ -523,18 +524,88 @@ fn migrate_legacy_container_schema(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
+fn configure_connection(conn: &Connection) -> Result<()> {
+    conn.set_db_config(rusqlite::config::DbConfig::SQLITE_DBCONFIG_DEFENSIVE, true)?;
+    conn.pragma_update(None, "foreign_keys", "ON")?;
+    let _ = conn.pragma_update(None, "journal_mode", "WAL");
+    let _ = conn.pragma_update(None, "synchronous", "NORMAL");
+    let _ = conn.pragma_update(None, "temp_store", "MEMORY");
+    let _ = conn.pragma_update(None, "wal_autocheckpoint", "500");
+    Ok(())
+}
+
 impl DbState {
     pub fn new(db_path: PathBuf) -> Result<Self> {
         if let Some(parent) = db_path.parent() {
             let _ = fs::create_dir_all(parent);
         }
-        let conn = Connection::open(db_path)?;
-        conn.set_db_config(rusqlite::config::DbConfig::SQLITE_DBCONFIG_DEFENSIVE, true)?;
+        let conn = Connection::open(&db_path)?;
+        configure_connection(&conn)?;
         let state = DbState {
             conn: Mutex::new(conn),
+            path: Mutex::new(db_path),
         };
         state.init_tables()?;
         Ok(state)
+    }
+
+    pub fn database_path(&self) -> PathBuf {
+        self.path.lock().clone()
+    }
+
+    pub fn relocate_database(&self, target_path: PathBuf) -> Result<PathBuf> {
+        let previous_path = self.database_path();
+        if previous_path == target_path {
+            return Ok(previous_path);
+        }
+        if target_path.exists() {
+            return Err(rusqlite::Error::InvalidPath(target_path));
+        }
+        let parent = target_path
+            .parent()
+            .ok_or_else(|| rusqlite::Error::InvalidPath(target_path.clone()))?;
+        fs::create_dir_all(parent).map_err(|_| rusqlite::Error::InvalidPath(parent.into()))?;
+        let temporary = parent.join(format!(".pasted-library-{}.tmp", std::process::id()));
+        if temporary.exists() {
+            fs::remove_file(&temporary)
+                .map_err(|_| rusqlite::Error::InvalidPath(temporary.clone()))?;
+        }
+
+        let mut source = self.conn.lock();
+        let _ = source.pragma_update(None, "wal_checkpoint", "TRUNCATE");
+        let mut destination = Connection::open(&temporary)?;
+        configure_connection(&destination)?;
+        {
+            let backup = rusqlite::backup::Backup::new(&source, &mut destination)?;
+            backup.run_to_completion(128, std::time::Duration::from_millis(5), None)?;
+        }
+        let integrity: String =
+            destination.query_row("PRAGMA integrity_check", [], |row| row.get(0))?;
+        if integrity != "ok" {
+            let _ = fs::remove_file(&temporary);
+            return Err(rusqlite::Error::InvalidQuery);
+        }
+        drop(destination);
+        fs::rename(&temporary, &target_path)
+            .map_err(|_| rusqlite::Error::InvalidPath(target_path.clone()))?;
+        let replacement = Connection::open(&target_path)?;
+        configure_connection(&replacement)?;
+        *source = replacement;
+        *self.path.lock() = target_path;
+        Ok(previous_path)
+    }
+
+    pub fn switch_to_database(&self, database_path: PathBuf) -> Result<()> {
+        let replacement = Connection::open(&database_path)?;
+        configure_connection(&replacement)?;
+        let integrity: String =
+            replacement.query_row("PRAGMA integrity_check", [], |row| row.get(0))?;
+        if integrity != "ok" {
+            return Err(rusqlite::Error::InvalidQuery);
+        }
+        *self.conn.lock() = replacement;
+        *self.path.lock() = database_path;
+        Ok(())
     }
 
     fn init_tables(&self) -> Result<()> {
@@ -4895,6 +4966,67 @@ mod tests {
             std::thread::current().id()
         ));
         DbState::new(db_file).expect("Failed to create test DB")
+    }
+
+    #[test]
+    fn relocating_database_preserves_data_and_retains_the_source() {
+        let db = setup_test_db();
+        let source = db.database_path();
+        let destination_directory = std::env::temp_dir().join(format!(
+            "pasted_relocation_{}",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::create_dir_all(&destination_directory).unwrap();
+        let destination = destination_directory.join("pasted.db");
+        db.save_clip(
+            "text",
+            Some("Move me without losing me"),
+            None,
+            None,
+            "relocation-test-hash",
+            "Test",
+        )
+        .unwrap();
+
+        let retained = db.relocate_database(destination.clone()).unwrap();
+
+        assert_eq!(retained, source);
+        assert_eq!(db.database_path(), destination);
+        assert!(retained.is_file());
+        assert_eq!(
+            db.get_clips(None, None, false).unwrap()[0]
+                .text_content
+                .as_deref(),
+            Some("Move me without losing me")
+        );
+        let reopened = DbState::new(db.database_path()).unwrap();
+        assert_eq!(reopened.get_clips(None, None, false).unwrap().len(), 1);
+        let _ = fs::remove_file(retained);
+        let _ = fs::remove_dir_all(destination_directory);
+    }
+
+    #[test]
+    fn relocating_database_never_overwrites_an_existing_target() {
+        let db = setup_test_db();
+        let destination_directory = std::env::temp_dir().join(format!(
+            "pasted_relocation_existing_{}",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::create_dir_all(&destination_directory).unwrap();
+        let destination = destination_directory.join("pasted.db");
+        fs::write(&destination, b"keep this file").unwrap();
+
+        assert!(db.relocate_database(destination.clone()).is_err());
+        assert_eq!(fs::read(&destination).unwrap(), b"keep this file");
+        assert_ne!(db.database_path(), destination);
+        let _ = fs::remove_file(db.database_path());
+        let _ = fs::remove_dir_all(destination_directory);
     }
 
     #[test]
