@@ -60,6 +60,16 @@ assert.match(overlaySource, /captureFeedbackDismissSeconds/);
 assert.match(overlaySource, /SWIPE_DISMISS_THRESHOLD/);
 assert.match(
   overlaySource,
+  /if \(item\.clip\.isPinned\) return;/,
+  'Pinned capture previews must opt out of automatic dismissal',
+);
+assert.match(
+  overlaySource,
+  /if \(isPinned\) pauseAutoDismiss\(item\.id\);[\s\S]*else scheduleAutoDismiss\(item\.id\);/,
+  'Pinning must pause dismissal and unpinning must restart it',
+);
+assert.match(
+  overlaySource,
   /setSize\(new LogicalSize\(WINDOW_WIDTH, MAX_WINDOW_HEIGHT\)\)/,
   'Capture feedback must keep stable native bounds while its visible stack changes',
 );

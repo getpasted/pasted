@@ -209,6 +209,7 @@ export function CaptureFeedbackWindow({ settings, settingsHydrated }: CaptureFee
     commitItems((current) => current.map((candidate) => candidate.id === id && candidate.fading
       ? { ...candidate, fading: false }
       : candidate));
+    if (item.clip.isPinned) return;
     const delaySeconds = settingsRef.current.captureFeedbackDismissSeconds;
     if (delaySeconds <= 0) return;
     timers.current.set(id, window.setTimeout(() => {
@@ -487,6 +488,8 @@ export function CaptureFeedbackWindow({ settings, settingsHydrated }: CaptureFee
       updateItem(item.id, (current) => current.clip
         ? { ...current, clip: { ...current.clip, isPinned } }
         : current);
+      if (isPinned) pauseAutoDismiss(item.id);
+      else scheduleAutoDismiss(item.id);
       notifyLibraryChanged();
     } catch (error) {
       console.error('Could not update pin from capture feedback:', error);
