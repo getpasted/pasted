@@ -120,6 +120,14 @@ export function CaptureFeedbackWindow({ settings, settingsHydrated }: CaptureFee
   useEffect(() => {
     settingsRef.current = settings;
     hydratedRef.current = settingsHydrated;
+    if (!settings.enableNotifications) {
+      timers.current.forEach((timer) => window.clearTimeout(timer));
+      timers.current.clear();
+      itemsRef.current = [];
+      setItems([]);
+      void syncWindowRef.current([]);
+      return;
+    }
     if (itemsRef.current.length > 0) void syncWindowRef.current(itemsRef.current);
   }, [settings, settingsHydrated]);
 
@@ -397,7 +405,7 @@ export function CaptureFeedbackWindow({ settings, settingsHydrated }: CaptureFee
     const positionAndShow = async (event: CaptureFeedbackEvent) => {
       const itemId = ++eventSequence.current;
       const currentSettings = settingsRef.current;
-      if (!hydratedRef.current || !currentSettings.captureFeedback) return;
+      if (!hydratedRef.current || !currentSettings.enableNotifications || !currentSettings.captureFeedback) return;
       if (event.kind === 'ignored' && !currentSettings.captureFeedbackIgnored) return;
 
       let clip: CaptureFeedbackClip | null = null;

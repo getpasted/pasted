@@ -26,7 +26,15 @@ fn capture_feedback_payload(kind: CaptureFeedbackKind, clip_id: Option<i64>) -> 
     }
 }
 
-fn emit_capture_feedback(app: &AppHandle, kind: CaptureFeedbackKind, clip_id: Option<i64>) {
+fn emit_capture_feedback(
+    app: &AppHandle,
+    db: &DbState,
+    kind: CaptureFeedbackKind,
+    clip_id: Option<i64>,
+) {
+    if !crate::features::is_enabled(db, crate::features::Feature::Notifications) {
+        return;
+    }
     let _ = app.emit_to(
         "capture-feedback",
         "clipboard-capture-feedback",
@@ -40,11 +48,11 @@ fn report_ignored_capture(app: &AppHandle, db: &DbState, reason: &str) {
         "clipboard-clip-ignored",
         serde_json::json!({ "reason": reason }),
     );
-    emit_capture_feedback(app, CaptureFeedbackKind::Ignored, None);
+    emit_capture_feedback(app, db, CaptureFeedbackKind::Ignored, None);
 }
 
-fn report_failed_capture(app: &AppHandle) {
-    emit_capture_feedback(app, CaptureFeedbackKind::Failure, None);
+fn report_failed_capture(app: &AppHandle, db: &DbState) {
+    emit_capture_feedback(app, db, CaptureFeedbackKind::Failure, None);
 }
 
 fn configured_capture_bytes(db: &DbState) -> usize {
@@ -501,7 +509,7 @@ pub fn start_clipboard_monitor(
                                 serde_json::json!({ "app_name": active_app }),
                             );
                         }
-                        emit_capture_feedback(&app, CaptureFeedbackKind::Ignored, None);
+                        emit_capture_feedback(&app, &db_state, CaptureFeedbackKind::Ignored, None);
                         continue;
                     }
 
@@ -509,7 +517,7 @@ pub fn start_clipboard_monitor(
                         Ok(serialized) => serialized,
                         Err(error) => {
                             eprintln!("[Pasted Monitor] Failed to serialize file list: {error}");
-                            report_failed_capture(&app);
+                            report_failed_capture(&app, &db_state);
                             continue;
                         }
                     };
@@ -554,13 +562,14 @@ pub fn start_clipboard_monitor(
                             let _ = app.emit("clip-added", clip);
                             emit_capture_feedback(
                                 &app,
+                                &db_state,
                                 CaptureFeedbackKind::Success,
                                 Some(clip_id),
                             );
                         }
                         Err(error) => {
                             eprintln!("[Pasted Monitor] Failed to save file clip: {error}");
-                            report_failed_capture(&app);
+                            report_failed_capture(&app, &db_state);
                         }
                     }
                 }
@@ -623,6 +632,7 @@ pub fn start_clipboard_monitor(
                                         );
                                         emit_capture_feedback(
                                             &app,
+                                            &db_state,
                                             CaptureFeedbackKind::Ignored,
                                             None,
                                         );
@@ -661,6 +671,7 @@ pub fn start_clipboard_monitor(
                                 let _ = app.emit("clip-added", clip.clone());
                                 emit_capture_feedback(
                                     &app,
+                                    &db_state,
                                     CaptureFeedbackKind::Success,
                                     Some(clip.id),
                                 );
@@ -696,7 +707,7 @@ pub fn start_clipboard_monitor(
                             }
                             Err(e) => {
                                 eprintln!("[Pasted Monitor] Failed to save clip: {}", e);
-                                report_failed_capture(&app);
+                                report_failed_capture(&app, &db_state);
                             }
                         }
                     }
@@ -770,7 +781,12 @@ pub fn start_clipboard_monitor(
                                         "blacklist-clip-ignored",
                                         serde_json::json!({ "app_name": active_app }),
                                     );
-                                    emit_capture_feedback(&app, CaptureFeedbackKind::Ignored, None);
+                                    emit_capture_feedback(
+                                        &app,
+                                        &db_state,
+                                        CaptureFeedbackKind::Ignored,
+                                        None,
+                                    );
                                     continue;
                                 }
                             }
@@ -808,6 +824,7 @@ pub fn start_clipboard_monitor(
                                 let _ = app.emit("clip-added", clip.clone());
                                 emit_capture_feedback(
                                     &app,
+                                    &db_state,
                                     CaptureFeedbackKind::Success,
                                     Some(clip.id),
                                 );
@@ -824,11 +841,11 @@ pub fn start_clipboard_monitor(
                             }
                             Err(e) => {
                                 eprintln!("[Pasted Monitor] Failed to save image clip: {}", e);
-                                report_failed_capture(&app);
+                                report_failed_capture(&app, &db_state);
                             }
                         }
                     } else {
-                        report_failed_capture(&app);
+                        report_failed_capture(&app, &db_state);
                     }
                 }
             }

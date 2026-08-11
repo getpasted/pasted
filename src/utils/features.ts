@@ -6,6 +6,7 @@ export type FeatureId =
   | 'contentDetection'
   | 'diagnostics'
   | 'notes'
+  | 'notifications'
   | 'ocr'
   | 'pinning'
   | 'protection'
@@ -24,6 +25,7 @@ export type FeatureSettingKey =
   | 'enableContentDetection'
   | 'enableDiagnostics'
   | 'enableNotes'
+  | 'enableNotifications'
   | 'enableOcr'
   | 'enablePinning'
   | 'enableProtection'
@@ -50,6 +52,7 @@ export const FEATURE_DEFINITIONS: readonly FeatureDefinition[] = [
   { id: 'contentDetection', settingKey: 'enableContentDetection', label: 'Content Detection', description: 'Classify new text clips for Smart Bins and search.', simple: true },
   { id: 'diagnostics', settingKey: 'enableDiagnostics', label: 'Diagnostics', description: 'Inspect background work, health, and developer tools.', simple: false },
   { id: 'notes', settingKey: 'enableNotes', label: 'Notes', description: 'Annotate clips and browse the Noted collection.', simple: false },
+  { id: 'notifications', settingKey: 'enableNotifications', label: 'Notifications', description: 'Show interactive capture feedback without interrupting your work.', simple: false },
   { id: 'ocr', settingKey: 'enableOcr', label: 'OCR', description: 'Extract searchable text from copied images.', simple: false },
   { id: 'pinning', settingKey: 'enablePinning', label: 'Pinning', description: 'Keep important clips at the top of history.', simple: false },
   {

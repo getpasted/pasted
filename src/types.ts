@@ -379,6 +379,7 @@ export interface AppSettings {
   enableContentDetection: boolean;
   enableDiagnostics: boolean;
   enableNotes: boolean;
+  enableNotifications: boolean;
   enableOcr: boolean;
   enablePinning: boolean;
   enableProtection: boolean;

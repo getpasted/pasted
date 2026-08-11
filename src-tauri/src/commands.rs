@@ -269,6 +269,11 @@ fn apply_feature_policy_changes(app: &AppHandle, db: &Arc<DbState>, changed: &[F
                     ocr.cancel();
                 }
             }
+            Feature::Notifications => {
+                if let Some(window) = app.get_webview_window("capture-feedback") {
+                    let _ = window.hide();
+                }
+            }
             _ => {}
         }
     }
@@ -882,6 +887,7 @@ pub fn get_capture_feedback_clip(
     id: i64,
     db: State<'_, Arc<DbState>>,
 ) -> Result<CaptureFeedbackClip, String> {
+    features::require(&db, Feature::Notifications)?;
     let clip = db.get_clip_by_id(id).map_err(|error| error.to_string())?;
     let preview_text = if clip.content_type == "file" {
         clip.text_content
