@@ -9,6 +9,7 @@ const nativePolicy = read('src-tauri/src/features.rs');
 const nativeRoot = read('src-tauri/src/lib.rs');
 const nativeCommands = read('src-tauri/src/commands.rs');
 const settingsModal = read('src/components/SettingsModal.tsx');
+const settingsFeaturesPanel = read('src/components/SettingsFeaturesPanel.tsx');
 const captureFeedbackWindow = read('src/components/CaptureFeedbackWindow.tsx');
 const clipboardMonitor = read('src-tauri/src/clipboard_monitor.rs');
 
@@ -18,6 +19,19 @@ const nativeKeys = [...nativePolicy.matchAll(/=>\s*"(enable[A-Za-z]+)"/g)]
   .map((match) => match[1]);
 
 assert.equal(frontendKeys.length, 17, 'The frontend feature registry must include every supported capability');
+const frontendGroups = [...frontendRegistry.matchAll(/group:\s*'([A-Za-z]+)'/g)]
+  .map((match) => match[1]);
+assert.equal(frontendGroups.length, frontendKeys.length, 'Every feature must belong to a Functionality group');
+assert.deepEqual(
+  [...new Set(frontendGroups)].sort(),
+  ['app', 'discovery', 'library', 'workflow'],
+  'Functionality must keep the expected feature groups',
+);
+assert.match(
+  settingsFeaturesPanel,
+  /FEATURE_GROUPS\.map\(\(group\)/,
+  'Settings → Functionality must render features in their logical groups',
+);
 assert.deepEqual(
   [...new Set(nativeKeys)].sort(),
   [...new Set(frontendKeys)].sort(),

@@ -21,11 +21,13 @@ import {
 import type { AppSettings } from '../types';
 import {
   FEATURE_DEFINITIONS,
+  FEATURE_GROUPS,
   activeFeaturePreset,
   featureUpdatesForPreset,
   type FeatureId,
 } from '../utils/features';
 import { SettingsPanelHeader } from './SettingsPanelHeader';
+import { SettingsSectionHeading } from './SettingsSectionHeading';
 import { InfoPopover } from './InfoPopover';
 
 const FEATURE_ICONS = {
@@ -85,45 +87,59 @@ export function SettingsFeaturesPanel({ settings, onUpdateSettings }: SettingsFe
         </p>
       )}
 
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-        {FEATURE_DEFINITIONS.map((feature) => {
-          const Icon = FEATURE_ICONS[feature.id];
-          const enabled = settings[feature.settingKey];
-          return (
-            <section key={feature.id} className={`settings-feature-card theme-card-idle border p-4 ${enabled ? 'is-enabled' : ''}`}>
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex min-w-0 items-start gap-3">
-                  <span className="settings-feature-icon flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border">
-                    <Icon className="h-4 w-4" />
-                  </span>
-                  <div className="min-w-0">
-                    <div className="relative w-fit max-w-[calc(100%-1.5rem)]">
-                      <h3 className="theme-title font-semibold">{feature.label}</h3>
-                      {feature.caution && !enabled && (
-                        <span className="settings-feature-caution">
-                          <InfoPopover label={`${feature.label} disabled warning`} tone="danger">
-                            {feature.caution}
-                          </InfoPopover>
+      <div className="space-y-6">
+        {FEATURE_GROUPS.map((group) => (
+          <section key={group.id} className="space-y-3">
+            <SettingsSectionHeading title={group.label} description={group.description} />
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              {FEATURE_DEFINITIONS.filter((feature) => feature.group === group.id).map((feature) => {
+                const Icon = FEATURE_ICONS[feature.id];
+                const enabled = settings[feature.settingKey];
+                return (
+                  <div
+                    key={feature.id}
+                    className={`settings-feature-card theme-card-idle border p-4 ${enabled ? 'is-enabled' : ''}`}
+                    onClick={(event) => {
+                      if ((event.target as HTMLElement).closest('button, a, input, select, textarea')) return;
+                      onUpdateSettings({ [feature.settingKey]: !enabled });
+                    }}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex min-w-0 items-start gap-3">
+                        <span className="settings-feature-icon flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border">
+                          <Icon className="h-4 w-4" />
                         </span>
-                      )}
+                        <div className="min-w-0">
+                          <div className="relative w-fit max-w-[calc(100%-1.5rem)]">
+                            <h3 className="theme-title font-semibold">{feature.label}</h3>
+                            {feature.caution && !enabled && (
+                              <span className="settings-feature-caution">
+                                <InfoPopover label={`${feature.label} disabled warning`} tone="danger">
+                                  {feature.caution}
+                                </InfoPopover>
+                              </span>
+                            )}
+                          </div>
+                          <p className="theme-text-muted mt-1 text-[11px] leading-relaxed">{feature.description}</p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={enabled}
+                        aria-label={`${enabled ? 'Disable' : 'Enable'} ${feature.label}`}
+                        onClick={() => onUpdateSettings({ [feature.settingKey]: !enabled })}
+                        className={`settings-switch relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent ${enabled ? 'is-on' : ''}`}
+                      >
+                        <span className={`settings-switch-thumb pointer-events-none inline-block h-4 w-4 rounded-full shadow transition-transform ${enabled ? 'translate-x-4' : 'translate-x-0'}`} />
+                      </button>
                     </div>
-                    <p className="theme-text-muted mt-1 text-[11px] leading-relaxed">{feature.description}</p>
                   </div>
-                </div>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={enabled}
-                  aria-label={`${enabled ? 'Disable' : 'Enable'} ${feature.label}`}
-                  onClick={() => onUpdateSettings({ [feature.settingKey]: !enabled })}
-                  className={`settings-switch relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent ${enabled ? 'is-on' : ''}`}
-                >
-                  <span className={`settings-switch-thumb pointer-events-none inline-block h-4 w-4 rounded-full shadow transition-transform ${enabled ? 'translate-x-4' : 'translate-x-0'}`} />
-                </button>
-              </div>
-            </section>
-          );
-        })}
+                );
+              })}
+            </div>
+          </section>
+        ))}
       </div>
     </div>
   );

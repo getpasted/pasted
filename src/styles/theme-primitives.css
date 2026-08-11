@@ -322,11 +322,23 @@ html:not(.is-stable-reordering) .connection-priority-card:hover {
 }
 
 .settings-feature-card {
+  cursor: pointer;
   transition: background-color 140ms ease, border-color 140ms ease, opacity 140ms ease;
+}
+
+.settings-feature-card:hover,
+.settings-feature-card:focus-within {
+  background-color: var(--bg-tab-hover);
+  border-color: color-mix(in srgb, var(--accent-primary) 48%, var(--border-subtle));
 }
 
 .settings-feature-card:not(.is-enabled) {
   opacity: 0.72;
+}
+
+.settings-feature-card:not(.is-enabled):hover,
+.settings-feature-card:not(.is-enabled):focus-within {
+  opacity: 0.88;
 }
 
 .settings-feature-card.is-enabled {
