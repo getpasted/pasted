@@ -175,7 +175,7 @@ fn select_connections(
     if candidates.is_empty() {
         Err(IntelligenceExecutionError::new(
             "no_enabled_connection",
-            "Power on a supported provider in Settings → Connections before building a Transform",
+            "Power on a provider and try again.",
         ))
     } else {
         Ok(candidates)
@@ -906,10 +906,9 @@ mod tests {
             enabled: false,
         })
         .unwrap();
-        assert_eq!(
-            select_connection(&db, None).unwrap_err().code,
-            "no_enabled_connection"
-        );
+        let error = select_connection(&db, None).unwrap_err();
+        assert_eq!(error.code, "no_enabled_connection");
+        assert_eq!(error.message, "Power on a provider and try again.");
 
         drop(db);
         let _ = fs::remove_file(database_path);
