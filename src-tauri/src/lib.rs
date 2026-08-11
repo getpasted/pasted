@@ -179,6 +179,8 @@ pub fn run() {
             Some(vec!["--autostart"]),
         ))
         .setup(|app| {
+            let is_autostart = std::env::args().any(|argument| argument == "--autostart");
+
             #[cfg(target_os = "linux")]
             if let Err(error) = linux_native_theme::apply_menu_theme(true) {
                 eprintln!("Could not apply the initial native Linux menu theme: {error}");
@@ -200,7 +202,13 @@ pub fn run() {
                 {
                     setup_window_vibrancy(&main_win);
                 }
-                let _ = main_win.show();
+                if let Err(error) = main_win.show() {
+                    eprintln!("Could not show the main window during startup: {error}");
+                } else if !is_autostart {
+                    if let Err(error) = main_win.set_focus() {
+                        eprintln!("Could not focus the main window during startup: {error}");
+                    }
+                }
             }
 
             // Determine app data path for SQLite DB
@@ -222,7 +230,7 @@ pub fn run() {
             app.manage(seq_state.clone());
             app.manage(paste_target_state);
 
-            let launch_description = if std::env::args().any(|argument| argument == "--autostart") {
+            let launch_description = if is_autostart {
                 "Opened Pasted at login"
             } else {
                 "Opened Pasted"
