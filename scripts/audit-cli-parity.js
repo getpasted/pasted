@@ -28,6 +28,8 @@ const documentedCommands = [
   'pasted pipeline list',
   'pasted pipeline run',
   'pasted diagnostics',
+  'pasted detector list',
+  'pasted detector rescan',
   'pasted ocr status',
   'pasted ocr scan',
   'pasted reset',
@@ -38,7 +40,7 @@ for (const command of documentedCommands) {
 }
 assert.doesNotMatch(help, /pasted-cli/, 'Help & Docs must expose the stable pasted command, not an implementation alias');
 
-for (const route of ['copy', 'list', 'search', 'clear', 'clip', 'bin', 'transform', 'operation', 'pipeline', 'diagnostics', 'ocr', 'reset']) {
+for (const route of ['copy', 'list', 'search', 'clear', 'clip', 'bin', 'transform', 'operation', 'pipeline', 'detector', 'diagnostics', 'ocr', 'reset']) {
   assert.match(cli, new RegExp(`"${route}"`), `The CLI must retain its ${route} route`);
 }
 
@@ -54,5 +56,7 @@ assert.match(cli, /assign_clips_to_bin/, 'CLI Bin assignment must use the shared
 assert.match(actions, /invoke\('batch_protect_clips'/, 'GUI batch protection must be one explicit mutation, not a loop of toggles');
 assert.doesNotMatch(actions, /Promise\.all\(idsToChange\.map\(\(clipId\) => invoke\('toggle_clip_protected'/, 'GUI batch protection must not race toggle calls');
 assert.match(database, /pub struct ClipMutationSummary/, 'GUI and CLI mutations must share a stable result contract');
+assert.match(commands, /db\.rescan_content_detection\(\)/, 'GUI history rescans must use the shared detector domain service');
+assert.match(cli, /db\.rescan_content_detection\(\)/, 'CLI history rescans must use the shared detector domain service');
 
 console.log('GUI and CLI parity audit passed.');

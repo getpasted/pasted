@@ -70,6 +70,12 @@ let mockBins: MockBin[] = [
   { id: 2, name: 'Work Bin', icon: '💼', color: '#10b981', smart_rule: '', bin_type: 'category' },
 ];
 
+let mockDetectors = [
+  { id: 1, stable_ref: 'email', name: 'Email Addresses', content_type: 'email', description: 'Individual email addresses', patterns: [String.raw`(?i)^[^\s@]+@[^\s@]+\.[^\s@]+$`], validator: null, enabled: true, priority: 30, is_builtin: true },
+  { id: 2, stable_ref: 'credential', name: 'Credentials', content_type: 'credential', description: 'Known API-key formats and secret assignments', patterns: [String.raw`^(?:sk_|ghp_).+$`], validator: null, enabled: true, priority: 60, is_builtin: true },
+  { id: 3, stable_ref: 'phone', name: 'Phone Numbers', content_type: 'phone', description: 'Formatted international and local phone numbers', patterns: [String.raw`^\+?[0-9 ()-]{7,}$`], validator: 'phone', enabled: true, priority: 160, is_builtin: true },
+];
+
 let mockLibraryLocation = {
   path: '/mock/Pasted/pasted.db',
   directory: '/mock/Pasted',
@@ -166,6 +172,33 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       })) as unknown as T;
     case 'get_pipelines':
       return mockPipelines as unknown as T;
+    case 'get_content_detectors':
+      return mockDetectors.map((detector) => ({ ...detector, patterns: [...detector.patterns] })) as unknown as T;
+    case 'create_content_detector': {
+      const input = args?.input as Record<string, unknown>;
+      const detector = { ...input, id: Math.max(0, ...mockDetectors.map(({ id }) => id)) + 1, stable_ref: `custom-${Date.now()}`, is_builtin: false } as typeof mockDetectors[number];
+      mockDetectors.push(detector);
+      return detector as unknown as T;
+    }
+    case 'update_content_detector': {
+      const index = mockDetectors.findIndex(({ id }) => id === Number(args?.id));
+      if (index >= 0) mockDetectors[index] = { ...mockDetectors[index], ...(args?.input as Record<string, unknown>) } as typeof mockDetectors[number];
+      return mockDetectors[index] as unknown as T;
+    }
+    case 'delete_content_detector':
+      mockDetectors = mockDetectors.filter(({ id }) => id !== Number(args?.id));
+      return null as unknown as T;
+    case 'restore_default_content_detectors':
+      return mockDetectors as unknown as T;
+    case 'rescan_content_detection_history':
+      return { scannedCount: mockClips.length, changedCount: 0, unchangedCount: mockClips.length } as unknown as T;
+    case 'test_content_detector': {
+      const input = args?.input as { patterns?: string[] };
+      const sample = String(args?.sample ?? '');
+      return Boolean(input.patterns?.some((pattern) => {
+        try { return new RegExp(pattern.replace(/^\(\?i\)/, ''), pattern.startsWith('(?i)') ? 'i' : '').test(sample); } catch { return false; }
+      })) as unknown as T;
+    }
     case 'get_hotkey_capability_status':
       return {
         platform: 'unsupported',
@@ -476,6 +509,8 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
     case 'is_clipboard_paused':
       return false as unknown as T;
     case 'get_all_app_settings':
+      return {} as unknown as T;
+    case 'get_source_app_icons':
       return {} as unknown as T;
     case 'export_backup_file':
       return `/mock/Pasted_Backup_${new Date().toISOString().slice(0, 10)}.json` as unknown as T;

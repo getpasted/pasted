@@ -7,16 +7,13 @@ import {
   Cpu,
   Layers,
   TrendingUp,
-  FileText,
-  Files,
-  Code,
-  Image as ImageIcon,
-  Link as LinkIcon,
-  Palette,
   Calendar,
 } from 'lucide-react';
 import { ToolPageHeader } from './ToolPageHeader';
 import { OverflowText } from './OverflowText';
+import { ContentTypeIcon } from './ContentTypeIcon';
+import { CONTENT_TYPES, contentTypeLabel } from '../utils/contentTypes';
+import type { ClipContentType } from '../types';
 
 interface AppStat {
   name: string;
@@ -66,6 +63,12 @@ export const AnalyticsView: React.FC = () => {
   const getTypeCount = (type: string) => {
     return contentTypes.find((t) => t.content_type === type)?.count || 0;
   };
+  const visibleContentTypes = [
+    ...CONTENT_TYPES.filter(({ value }) => getTypeCount(value) > 0),
+    ...contentTypes
+      .filter(({ content_type }) => !CONTENT_TYPES.some(({ value }) => value === content_type))
+      .map(({ content_type }) => ({ value: content_type as ClipContentType, label: contentTypeLabel(content_type), group: 'Custom' as const })),
+  ];
 
   return (
     <div className="tools-page analytics-page flex-1 h-screen overflow-hidden font-sans select-none flex flex-col">
@@ -154,48 +157,17 @@ export const AnalyticsView: React.FC = () => {
             <span>Content Type Breakdown</span>
           </h2>
           <div className="grid grid-cols-2 gap-3 flex-1">
-            <div className="theme-surface p-3 rounded-lg border flex items-center space-x-3">
-              <FileText className="w-4 h-4 theme-text-muted shrink-0" />
-              <div>
-                <div className="theme-title text-sm font-bold font-mono">{getTypeCount('text')}</div>
-                <div className="theme-text-muted text-[11px]">Plain Text</div>
+            {visibleContentTypes.length === 0 ? (
+              <div className="theme-text-subtle col-span-2 py-6 text-center text-xs">No content types recorded yet</div>
+            ) : visibleContentTypes.map(({ value, label }) => (
+              <div key={value} className="theme-surface p-3 rounded-lg border flex items-center space-x-3">
+                <ContentTypeIcon type={value} className="w-4 h-4 theme-text-muted shrink-0" />
+                <div className="min-w-0">
+                  <div className="theme-title text-sm font-bold font-mono">{getTypeCount(value)}</div>
+                  <div className="theme-text-muted truncate text-[11px]">{label}</div>
+                </div>
               </div>
-            </div>
-            <div className="theme-surface p-3 rounded-lg border flex items-center space-x-3">
-              <Code className="w-4 h-4 theme-status-success-text shrink-0" />
-              <div>
-                <div className="theme-title text-sm font-bold font-mono">{getTypeCount('code')}</div>
-                <div className="theme-text-muted text-[11px]">Code Snippets</div>
-              </div>
-            </div>
-            <div className="theme-surface p-3 rounded-lg border flex items-center space-x-3">
-              <LinkIcon className="w-4 h-4 theme-status-info-text shrink-0" />
-              <div>
-                <div className="theme-title text-sm font-bold font-mono">{getTypeCount('link')}</div>
-                <div className="theme-text-muted text-[11px]">Links / URLs</div>
-              </div>
-            </div>
-            <div className="theme-surface p-3 rounded-lg border flex items-center space-x-3">
-              <ImageIcon className="w-4 h-4 theme-status-danger-text shrink-0" />
-              <div>
-                <div className="theme-title text-sm font-bold font-mono">{getTypeCount('image')}</div>
-                <div className="theme-text-muted text-[11px]">Images</div>
-              </div>
-            </div>
-            <div className="theme-surface p-3 rounded-lg border flex items-center space-x-3">
-              <Files className="w-4 h-4 theme-status-info-text shrink-0" />
-              <div>
-                <div className="theme-title text-sm font-bold font-mono">{getTypeCount('file')}</div>
-                <div className="theme-text-muted text-[11px]">Files</div>
-              </div>
-            </div>
-            <div className="theme-surface p-3 rounded-lg border flex items-center space-x-3">
-              <Palette className="w-4 h-4 theme-status-warning-text shrink-0" />
-              <div>
-                <div className="theme-title text-sm font-bold font-mono">{getTypeCount('color')}</div>
-                <div className="theme-text-muted text-[11px]">Color Swatches</div>
-              </div>
-            </div>
+            ))}
           </div>
         </div>
       </div>

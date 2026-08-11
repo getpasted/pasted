@@ -1,5 +1,6 @@
 import type { Bin } from '../types';
 import type { FeatureId } from './features';
+import { contentTypeLabel } from './contentTypes';
 
 export type ClipCollectionTab =
   | 'all'
@@ -13,7 +14,7 @@ export type ClipCollectionTab =
 
 export type ClipDropAction = 'queue' | 'pin' | 'protect' | 'trash';
 export type ClipCollectionIcon = 'all' | 'search' | 'queue' | 'pin' | 'protect' | 'note' | 'trash' | 'bin';
-export type ClipCollectionMembership = 'all' | 'search' | 'queue' | 'pinned' | 'protected' | 'noted' | 'trash' | 'bin';
+export type ClipCollectionMembership = 'all' | 'search' | 'queue' | 'pinned' | 'protected' | 'noted' | 'trash' | 'bin' | 'facet';
 export type ClipCollectionOrdering = 'chronological' | 'queue' | 'pinned' | 'collection';
 
 export interface ClipCollectionCapabilities {
@@ -85,12 +86,53 @@ const SEARCH_COLLECTION: ClipCollectionDefinition = {
   capabilities: calculated(), emptyTitle: 'Search your clips', emptyDescription: 'Search active and trashed clips.',
 };
 
+export type ClipFacetKind = 'type' | 'source';
+
+export function clipFacetRoute(kind: ClipFacetKind, value: string): string {
+  return `${kind}-${encodeURIComponent(value)}`;
+}
+
+export function parseClipFacetRoute(route: string): { kind: ClipFacetKind; value: string } | null {
+  const separator = route.indexOf('-');
+  if (separator < 1) return null;
+  const kind = route.slice(0, separator);
+  if (kind !== 'type' && kind !== 'source') return null;
+  try {
+    return { kind, value: decodeURIComponent(route.slice(separator + 1)) };
+  } catch {
+    return null;
+  }
+}
+
+function facetLabel(kind: ClipFacetKind, value: string) {
+  if (kind === 'source') return value || 'Unknown Source';
+  return contentTypeLabel(value);
+}
+
 export function getSystemClipCollections(features: Record<FeatureId, boolean>): ClipCollectionDefinition[] {
   return SYSTEM_CLIP_COLLECTIONS.filter(({ feature }) => !feature || features[feature]);
 }
 
 export function getClipCollection(tab: string, bin?: Bin | null): ClipCollectionDefinition | undefined {
   if (tab === 'search') return SEARCH_COLLECTION;
+  const facet = parseClipFacetRoute(tab);
+  if (facet) {
+    const label = facetLabel(facet.kind, facet.value);
+    return {
+      key: `${facet.kind}:${facet.value}`,
+      tab: 'all',
+      label,
+      title: label,
+      icon: 'all',
+      membership: 'facet',
+      ordering: 'chronological',
+      capabilities: calculated(),
+      emptyTitle: `No ${facet.kind === 'type' ? label.toLowerCase() : label} clips`,
+      emptyDescription: facet.kind === 'type'
+        ? `Clips with the ${label.toLowerCase()} type will appear here automatically.`
+        : `Clips copied from ${label} will appear here automatically.`,
+    };
+  }
   if (tab === 'bin') {
     const isSmart = Boolean(bin?.smart_rule);
     return {

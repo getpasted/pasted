@@ -71,10 +71,7 @@ fn friendly_value(key: &str, value: &str) -> Option<String> {
         | "captureFeedback"
         | "captureFeedbackIgnored"
         | "captureFeedbackPreview"
-        | "alwaysPastePlainText"
-        | "detectColors"
-        | "detectLinks"
-        | "detectCode" => on_off(value)?.into(),
+        | "alwaysPastePlainText" => on_off(value)?.into(),
         _ if key.ends_with("Hotkey") => {
             if value.is_empty() {
                 "Not set".into()
@@ -110,9 +107,6 @@ fn setting_label(key: &str) -> Option<&'static str> {
         "captureFeedbackPosition" => Some("Capture feedback position"),
         "captureFeedbackDismissSeconds" => Some("Capture preview dismissal"),
         "alwaysPastePlainText" => Some("Plain-text paste"),
-        "detectColors" => Some("Color detection"),
-        "detectLinks" => Some("Link detection"),
-        "detectCode" => Some("Code detection"),
         "hudHotkey" => Some("HUD shortcut"),
         "seqToggleHotkey" => Some("Copy Queue shortcut"),
         "seqPopHotkey" => Some("Paste Next shortcut"),

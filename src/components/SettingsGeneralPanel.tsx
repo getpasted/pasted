@@ -1,4 +1,4 @@
-import { Building2, Code2, Coffee, Download, Droplet, Drum, Laptop, Link, Minus, Moon, Palette, Pizza, Plus, RotateCcw, Sliders, Snowflake, Trash2, Zap } from 'lucide-react';
+import { Building2, Coffee, Download, Droplet, Drum, Laptop, Minus, Moon, Pizza, Plus, RotateCcw, Sliders, Snowflake, Trash2, Zap } from 'lucide-react';
 import type { AppSettings } from '../types';
 import { useAltKeyPressed } from '../hooks/useAltKeyPressed';
 import { safeInvoke as invoke } from '../utils/tauri';
@@ -58,17 +58,6 @@ const rowHeightOptions = [
   { value: 'small', label: 'Compact' },
   { value: 'medium', label: 'Standard' },
   { value: 'large', label: 'Spacious' },
-];
-
-const contentDetectors: Array<{
-  key: 'detectColors' | 'detectLinks' | 'detectCode';
-  label: string;
-  description: string;
-  Icon: typeof Palette;
-}> = [
-  { key: 'detectColors', label: 'Colors', description: '#RGB, #RRGGBB, RGB, and HSL values.', Icon: Palette },
-  { key: 'detectLinks', label: 'Links', description: 'Web and file URLs.', Icon: Link },
-  { key: 'detectCode', label: 'Code', description: 'Common source-code patterns and syntax.', Icon: Code2 },
 ];
 
 export function SettingsGeneralPanel({
@@ -300,39 +289,6 @@ export function SettingsGeneralPanel({
                 </label>
               </div>
             </div>
-
-            {settings.enableContentDetection && <>
-            <div className="theme-divider border-t" />
-
-            <div className="space-y-4">
-              <SettingsSectionHeading title="Content Detection" align="center" />
-
-              <div className="theme-surface overflow-hidden rounded-xl border">
-                {contentDetectors.map(({ key, label, description, Icon }, index) => (
-                  <label
-                    key={key}
-                    className={`flex cursor-pointer items-center gap-3 px-3 py-2.5 ${index > 0 ? 'theme-divider border-t' : ''}`}
-                  >
-                    <span className="settings-accent-tile flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border">
-                      <Icon className="h-4 w-4" />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <strong className="theme-text-main block text-xs">{label}</strong>
-                      <span className="theme-text-muted block text-[10px]">{description}</span>
-                    </span>
-                    <input
-                      type="checkbox"
-                      checked={settings[key]}
-                      onChange={(event) => onUpdateSettings({ [key]: event.target.checked })}
-                      className="theme-checkbox h-4 w-4 shrink-0 cursor-pointer rounded"
-                    />
-                  </label>
-                ))}
-              </div>
-            </div>
-            </>}
-
-            <div className="theme-divider border-t" />
 
             {/* Clipboard Preferences */}
             <div className="space-y-4">

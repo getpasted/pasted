@@ -8,6 +8,7 @@ import { AppDialog } from './AppDialog';
 import { AppDialogBody, AppDialogButton, AppDialogFooter, AppDialogHeader, AppDialogHeading } from './AppDialogLayout';
 import { AnchoredMenu } from './AnchoredMenu';
 import { MenuSelect } from './MenuSelect';
+import { CONTENT_TYPES, contentTypeLabel } from '../utils/contentTypes';
 
 interface BinModalProps {
   isOpen: boolean;
@@ -104,6 +105,7 @@ export const BinModal: React.FC<BinModalProps> = ({
   // Installed OS Apps state
   const [installedApps, setInstalledApps] = useState<string[]>([]);
   const [transforms, setTransforms] = useState<SavedTransform[]>([]);
+  const [detectorTypes, setDetectorTypes] = useState<string[]>([]);
   const [transformRef, setTransformRef] = useState('');
 
   // Multi-condition Smart Rules state
@@ -188,6 +190,9 @@ export const BinModal: React.FC<BinModalProps> = ({
         .catch(console.error);
       invoke<SavedTransform[]>('get_saved_transforms')
         .then((savedTransforms) => setTransforms(Array.isArray(savedTransforms) ? savedTransforms : []))
+        .catch(console.error);
+      invoke<Array<{ content_type: string }>>('get_content_detectors')
+        .then((detectors) => setDetectorTypes([...new Set(detectors.map((detector) => detector.content_type))]))
         .catch(console.error);
       if (editingBin) {
         invoke<string | null>('get_bin_transform_ref', { binId: editingBin.id })
@@ -569,12 +574,10 @@ export const BinModal: React.FC<BinModalProps> = ({
                       value={c.value}
                       onChange={(value) => handleUpdateCondition(c.id, { value })}
                       options={[
-                        { value: 'text', label: 'Plain Text' },
-                        { value: 'code', label: 'Code Snippets' },
-                        { value: 'link', label: 'Web Links' },
-                        { value: 'color', label: 'Hex Colors' },
-                        { value: 'image', label: 'Images' },
-                        { value: 'file', label: 'Files' },
+                        ...CONTENT_TYPES.map(({ value, label, group }) => ({ value, label, group })),
+                        ...detectorTypes
+                          .filter((value) => !CONTENT_TYPES.some((type) => type.value === value))
+                          .map((value) => ({ value, label: contentTypeLabel(value), group: 'Custom' })),
                       ]}
                       label="Content type"
                       className="min-w-0 flex-1"

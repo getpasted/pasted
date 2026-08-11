@@ -14,11 +14,11 @@ sudo ln -s /Applications/Pasted.app/Contents/MacOS/pasted /usr/local/bin/pasted
 pasted copy "Hello"
 cat server.log | pasted copy
 pasted list [limit]
-pasted search <query>
+pasted search [query] [--type <type>] [--source <app>] [--json]
 pasted clear
 ```
 
-`copy` accepts bounded stdin when text is omitted. `clear` permanently removes unpinned, unprotected active history.
+`copy` accepts bounded stdin when text is omitted. `search` can reproduce the GUI's calculated Type and Source views with exact `--type` and `--source` filters, and its structured output is stable for scripts. `clear` permanently removes unpinned, unprotected active history.
 
 ## Clip actions
 
@@ -55,6 +55,19 @@ pasted pipeline run <ref> [--text TEXT | --clip ID | --stdin] [--json]
 
 `--replace` requires `--clip ID` so Pasted can validate the expected input and create a revision. Operations and Pipelines are experimental in 1.0.
 
+## Detection
+
+```text
+pasted detector list [--json]
+pasted detector create --name <name> --type <type> --regex <pattern> [--json]
+pasted detector update <id> [--name <name>] [--type <type>] [--regex <pattern>] [--validator <name|none>] [--priority <number>] [--enabled|--disabled] [--json]
+pasted detector delete <id>
+pasted detector restore-defaults
+pasted detector rescan --yes [--json]
+```
+
+Detectors run in ascending priority order. Repeat `--regex` to provide alternatives. Shipped detectors are editable and deletable; `restore-defaults` recovers their original definitions without removing custom detectors. `rescan` explicitly reclassifies existing text clips with the current enabled detector order while preserving image and file types.
+
 ## Maintenance
 
 ```text
@@ -65,4 +78,3 @@ pasted reset --yes [--json]
 ```
 
 `reset` is intentionally gated by `--yes`. The CLI respects feature settings and exits with an explicit explanation when a capability is disabled or unavailable.
-

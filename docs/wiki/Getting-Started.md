@@ -23,7 +23,7 @@ Drag the column dividers to resize them. Pasted remembers the window position an
 - Right-click for Copy, Bin, Transform, Note, Queue, Pin, Protect, and Trash actions.
 - Drag a clip onto a manual Bin, Queue, Pinned, Protected, or Trash.
 - Search across active and trashed history from the lower-left Search control.
-- Open **Settings → Features** for a simpler or more capable Pasted.
+- Open **Settings → Functionality** for a simpler or more capable Pasted.
 
 ## Default shortcuts
 

@@ -5,7 +5,7 @@ use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::PathBuf;
 
-const BACKUP_SCHEMA_VERSION: u32 = 7;
+const BACKUP_SCHEMA_VERSION: u32 = 8;
 
 fn ensure_resource_size(value: &str, maximum: usize, label: &str) -> Result<()> {
     if value.len() <= maximum {
@@ -216,6 +216,14 @@ pub struct ClipMutationSummary {
     pub clip_ids: Vec<i64>,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ContentDetectionRescanReport {
+    pub scanned_count: usize,
+    pub changed_count: usize,
+    pub unchanged_count: usize,
+}
+
 impl ClipMutationSummary {
     fn new(action: &str, requested_count: usize, clip_ids: Vec<i64>) -> Self {
         let changed_count = clip_ids.len();
@@ -354,6 +362,8 @@ pub struct BackupPayload {
     pub bin_transforms: Vec<BinTransformBinding>,
     #[serde(default)]
     pub ocr_metadata: Vec<OcrBackupMetadata>,
+    #[serde(default)]
+    pub content_detectors: Vec<crate::content_detection::Detector>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -957,6 +967,64 @@ impl DbState {
             [],
         )?;
 
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS content_detectors (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                stable_ref TEXT NOT NULL UNIQUE,
+                name TEXT NOT NULL,
+                content_type TEXT NOT NULL,
+                description TEXT NOT NULL DEFAULT '',
+                patterns_json TEXT NOT NULL,
+                validator TEXT,
+                enabled INTEGER NOT NULL DEFAULT 1,
+                priority INTEGER NOT NULL DEFAULT 100,
+                is_builtin INTEGER NOT NULL DEFAULT 0,
+                is_deleted INTEGER NOT NULL DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE INDEX IF NOT EXISTS idx_content_detectors_order
+                ON content_detectors (is_deleted, enabled, priority, id);",
+        )?;
+        for preset in crate::content_detection::DETECTOR_PRESETS {
+            let patterns_json = serde_json::to_string(&preset.patterns)
+                .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?;
+            conn.execute(
+                "INSERT OR IGNORE INTO content_detectors
+                    (stable_ref, name, content_type, description, patterns_json, validator, enabled, priority, is_builtin)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, 1, ?7, 1)",
+                params![preset.stable_ref, preset.name, preset.content_type, preset.description, patterns_json, preset.validator, preset.priority],
+            )?;
+        }
+        let detector_migration_applied: bool = conn.query_row(
+            "SELECT EXISTS(SELECT 1 FROM schema_migrations WHERE key = 'contentDetectorRegistryV1')",
+            [],
+            |row| row.get(0),
+        )?;
+        if !detector_migration_applied {
+            for (setting_key, stable_ref) in [
+                ("detectColors", "color"),
+                ("detectLinks", "url"),
+                ("detectCode", "code"),
+            ] {
+                let disabled: bool = conn.query_row(
+                    "SELECT EXISTS(SELECT 1 FROM settings WHERE key = ?1 AND value = 'false')",
+                    params![setting_key],
+                    |row| row.get(0),
+                )?;
+                if disabled {
+                    conn.execute(
+                        "UPDATE content_detectors SET enabled = 0 WHERE stable_ref = ?1",
+                        params![stable_ref],
+                    )?;
+                }
+            }
+            conn.execute(
+                "INSERT INTO schema_migrations (key) VALUES ('contentDetectorRegistryV1')",
+                [],
+            )?;
+        }
+
         // Insert default bins if empty
         let count: i64 = conn
             .query_row("SELECT COUNT(*) FROM bins", [], |r| r.get(0))
@@ -1010,6 +1078,7 @@ impl DbState {
              DELETE FROM clips;
              DELETE FROM bins;
              DELETE FROM activity_logs;
+             DELETE FROM content_detectors;
              DELETE FROM settings;",
         )?;
         transaction.execute(
@@ -1020,6 +1089,16 @@ impl DbState {
             [],
         )?;
         insert_default_bins(&transaction)?;
+        for preset in crate::content_detection::DETECTOR_PRESETS {
+            let patterns_json = serde_json::to_string(&preset.patterns)
+                .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?;
+            transaction.execute(
+                "INSERT INTO content_detectors
+                    (stable_ref, name, content_type, description, patterns_json, validator, enabled, priority, is_builtin)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, 1, ?7, 1)",
+                params![preset.stable_ref, preset.name, preset.content_type, preset.description, patterns_json, preset.validator, preset.priority],
+            )?;
+        }
         let _ = transaction.execute("INSERT INTO clips_fts(clips_fts) VALUES('rebuild')", []);
         transaction.commit()?;
         let _ = conn.pragma_update(None, "optimize", "");
@@ -3613,6 +3692,7 @@ impl DbState {
             })
             .collect();
         let ocr_metadata = self.get_ocr_backup_metadata()?;
+        let content_detectors = self.get_all_content_detectors_for_backup()?;
 
         let payload = BackupPayload {
             version: BACKUP_SCHEMA_VERSION,
@@ -3624,6 +3704,7 @@ impl DbState {
             saved_transforms,
             bin_transforms,
             ocr_metadata,
+            content_detectors,
         };
 
         serde_json::to_string_pretty(&payload)
@@ -3647,6 +3728,51 @@ impl DbState {
         let mut conn = self.conn.lock();
         let tx = conn.transaction()?;
         let mut bin_id_map = std::collections::HashMap::new();
+        if payload.content_detectors.len() > 128 {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "Backup contains more than 128 content detectors".to_string(),
+            ));
+        }
+        for detector in &payload.content_detectors {
+            crate::content_detection::validate_detector_input(
+                &crate::content_detection::DetectorInput {
+                    name: detector.name.clone(),
+                    content_type: detector.content_type.clone(),
+                    description: detector.description.clone(),
+                    patterns: detector.patterns.clone(),
+                    validator: detector.validator.clone(),
+                    enabled: detector.enabled,
+                    priority: detector.priority,
+                },
+            )
+            .map_err(rusqlite::Error::InvalidParameterName)?;
+            let patterns_json = serde_json::to_string(&detector.patterns)
+                .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?;
+            tx.execute(
+                "INSERT INTO content_detectors
+                    (stable_ref, name, content_type, description, patterns_json, validator,
+                     enabled, priority, is_builtin, is_deleted)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
+                 ON CONFLICT(stable_ref) DO UPDATE SET
+                    name = excluded.name, content_type = excluded.content_type,
+                    description = excluded.description, patterns_json = excluded.patterns_json,
+                    validator = excluded.validator, enabled = excluded.enabled,
+                    priority = excluded.priority, is_builtin = excluded.is_builtin,
+                    is_deleted = excluded.is_deleted, updated_at = CURRENT_TIMESTAMP",
+                params![
+                    detector.stable_ref,
+                    detector.name,
+                    detector.content_type,
+                    detector.description,
+                    patterns_json,
+                    detector.validator,
+                    detector.enabled,
+                    detector.priority,
+                    detector.is_builtin,
+                    detector.is_deleted
+                ],
+            )?;
+        }
         let bin_clip_orders = payload
             .bins
             .iter()
@@ -5151,6 +5277,289 @@ impl DbState {
         Ok(map)
     }
 
+    pub fn get_content_detectors(&self) -> Result<Vec<crate::content_detection::Detector>> {
+        let conn = self.conn.lock();
+        let mut statement = conn.prepare(
+            "SELECT id, stable_ref, name, content_type, description, patterns_json,
+                    validator, enabled, priority, is_builtin, is_deleted
+             FROM content_detectors WHERE is_deleted = 0 ORDER BY priority, id",
+        )?;
+        let rows = statement.query_map([], |row| {
+            let patterns_json: String = row.get(5)?;
+            let patterns = serde_json::from_str(&patterns_json).map_err(|error| {
+                rusqlite::Error::FromSqlConversionFailure(
+                    5,
+                    rusqlite::types::Type::Text,
+                    Box::new(error),
+                )
+            })?;
+            Ok(crate::content_detection::Detector {
+                id: row.get(0)?,
+                stable_ref: row.get(1)?,
+                name: row.get(2)?,
+                content_type: row.get(3)?,
+                description: row.get(4)?,
+                patterns,
+                validator: row.get(6)?,
+                enabled: row.get(7)?,
+                priority: row.get(8)?,
+                is_builtin: row.get(9)?,
+                is_deleted: row.get(10)?,
+            })
+        })?;
+        rows.collect()
+    }
+
+    fn get_all_content_detectors_for_backup(
+        &self,
+    ) -> Result<Vec<crate::content_detection::Detector>> {
+        let conn = self.conn.lock();
+        let mut statement = conn.prepare(
+            "SELECT id, stable_ref, name, content_type, description, patterns_json,
+                    validator, enabled, priority, is_builtin, is_deleted
+             FROM content_detectors ORDER BY priority, id",
+        )?;
+        let rows = statement.query_map([], |row| {
+            let patterns_json: String = row.get(5)?;
+            let patterns = serde_json::from_str(&patterns_json).map_err(|error| {
+                rusqlite::Error::FromSqlConversionFailure(
+                    5,
+                    rusqlite::types::Type::Text,
+                    Box::new(error),
+                )
+            })?;
+            Ok(crate::content_detection::Detector {
+                id: row.get(0)?,
+                stable_ref: row.get(1)?,
+                name: row.get(2)?,
+                content_type: row.get(3)?,
+                description: row.get(4)?,
+                patterns,
+                validator: row.get(6)?,
+                enabled: row.get(7)?,
+                priority: row.get(8)?,
+                is_builtin: row.get(9)?,
+                is_deleted: row.get(10)?,
+            })
+        })?;
+        rows.collect()
+    }
+
+    pub fn create_content_detector(
+        &self,
+        input: &crate::content_detection::DetectorInput,
+    ) -> Result<crate::content_detection::Detector> {
+        crate::content_detection::validate_detector_input(input).map_err(|error| {
+            rusqlite::Error::ToSqlConversionFailure(Box::new(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                error,
+            )))
+        })?;
+        let patterns_json = serde_json::to_string(&input.patterns)
+            .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?;
+        let conn = self.conn.lock();
+        let detector_count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM content_detectors WHERE is_deleted = 0",
+            [],
+            |row| row.get(0),
+        )?;
+        if detector_count >= 128 {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "Content detectors are limited to 128 entries".to_string(),
+            ));
+        }
+        conn.execute(
+            "INSERT INTO content_detectors
+                (stable_ref, name, content_type, description, patterns_json, validator, enabled, priority, is_builtin)
+             VALUES ('pending', ?1, ?2, ?3, ?4, ?5, ?6, ?7, 0)",
+            params![input.name.trim(), input.content_type.trim(), input.description.trim(), patterns_json, input.validator, input.enabled, input.priority],
+        )?;
+        let id = conn.last_insert_rowid();
+        conn.execute(
+            "UPDATE content_detectors SET stable_ref = ?1 WHERE id = ?2",
+            params![format!("custom-{id}"), id],
+        )?;
+        drop(conn);
+        let detector = self
+            .get_content_detectors()?
+            .into_iter()
+            .find(|item| item.id == id)
+            .ok_or(rusqlite::Error::QueryReturnedNoRows)?;
+        let _ = self.log_activity(
+            "content_detector_created",
+            &format!("Created detector \"{}\"", detector.name),
+        );
+        Ok(detector)
+    }
+
+    pub fn update_content_detector(
+        &self,
+        id: i64,
+        input: &crate::content_detection::DetectorInput,
+    ) -> Result<crate::content_detection::Detector> {
+        crate::content_detection::validate_detector_input(input).map_err(|error| {
+            rusqlite::Error::ToSqlConversionFailure(Box::new(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                error,
+            )))
+        })?;
+        let patterns_json = serde_json::to_string(&input.patterns)
+            .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?;
+        let conn = self.conn.lock();
+        let changed = conn.execute(
+            "UPDATE content_detectors SET name = ?1, content_type = ?2, description = ?3,
+                    patterns_json = ?4, validator = ?5, enabled = ?6, priority = ?7,
+                    updated_at = CURRENT_TIMESTAMP
+             WHERE id = ?8 AND is_deleted = 0",
+            params![
+                input.name.trim(),
+                input.content_type.trim(),
+                input.description.trim(),
+                patterns_json,
+                input.validator,
+                input.enabled,
+                input.priority,
+                id
+            ],
+        )?;
+        drop(conn);
+        if changed == 0 {
+            return Err(rusqlite::Error::QueryReturnedNoRows);
+        }
+        let detector = self
+            .get_content_detectors()?
+            .into_iter()
+            .find(|item| item.id == id)
+            .ok_or(rusqlite::Error::QueryReturnedNoRows)?;
+        let _ = self.log_activity(
+            "content_detector_updated",
+            &format!("Updated detector \"{}\"", detector.name),
+        );
+        Ok(detector)
+    }
+
+    pub fn delete_content_detector(&self, id: i64) -> Result<()> {
+        let conn = self.conn.lock();
+        let name = conn
+            .query_row(
+                "SELECT name FROM content_detectors WHERE id = ?1 AND is_deleted = 0",
+                params![id],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()?;
+        if name.is_none() {
+            return Err(rusqlite::Error::QueryReturnedNoRows);
+        }
+        conn.execute(
+            "UPDATE content_detectors SET is_deleted = 1, enabled = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?1",
+            params![id],
+        )?;
+        drop(conn);
+        let name = name.expect("checked above");
+        let _ = self.log_activity(
+            "content_detector_deleted",
+            &format!("Deleted detector \"{name}\""),
+        );
+        Ok(())
+    }
+
+    pub fn restore_default_content_detectors(&self) -> Result<()> {
+        let conn = self.conn.lock();
+        for preset in crate::content_detection::DETECTOR_PRESETS {
+            let patterns_json = serde_json::to_string(&preset.patterns)
+                .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?;
+            conn.execute(
+                "UPDATE content_detectors SET name = ?1, content_type = ?2, description = ?3,
+                        patterns_json = ?4, validator = ?5, enabled = 1, priority = ?6,
+                        is_deleted = 0, updated_at = CURRENT_TIMESTAMP WHERE stable_ref = ?7",
+                params![
+                    preset.name,
+                    preset.content_type,
+                    preset.description,
+                    patterns_json,
+                    preset.validator,
+                    preset.priority,
+                    preset.stable_ref
+                ],
+            )?;
+        }
+        drop(conn);
+        let _ = self.log_activity(
+            "content_detectors_restored",
+            "Restored shipped detector defaults",
+        );
+        Ok(())
+    }
+
+    /// Reclassify existing text-backed clips with the current enabled detector order.
+    /// Image and file records are intentionally excluded because their types describe
+    /// their storage representation rather than detected text semantics.
+    pub fn rescan_content_detection(&self) -> Result<ContentDetectionRescanReport> {
+        const BATCH_SIZE: i64 = 128;
+
+        let detectors = self.get_content_detectors()?;
+        let mut conn = self.conn.lock();
+        let transaction = conn.transaction()?;
+        let mut last_id = 0i64;
+        let mut scanned_count = 0usize;
+        let mut changed_count = 0usize;
+
+        loop {
+            let clips = {
+                let mut statement = transaction.prepare(
+                    "SELECT id, content_type, text_content
+                     FROM clips
+                     WHERE id > ?1 AND text_content IS NOT NULL
+                       AND content_type NOT IN ('image', 'file')
+                     ORDER BY id ASC
+                     LIMIT ?2",
+                )?;
+                let rows = statement
+                    .query_map(params![last_id, BATCH_SIZE], |row| {
+                        Ok((
+                            row.get::<_, i64>(0)?,
+                            row.get::<_, String>(1)?,
+                            row.get::<_, String>(2)?,
+                        ))
+                    })?
+                    .collect::<Result<Vec<_>>>()?;
+                rows
+            };
+            if clips.is_empty() {
+                break;
+            }
+            for (id, current_type, text) in clips {
+                last_id = id;
+                scanned_count += 1;
+                let detected_type =
+                    crate::content_detection::detect_with_detectors(&text, &detectors);
+                if detected_type != current_type {
+                    transaction.execute(
+                        "UPDATE clips SET content_type = ?1 WHERE id = ?2",
+                        params![detected_type, id],
+                    )?;
+                    changed_count += 1;
+                }
+            }
+        }
+        transaction.commit()?;
+        drop(conn);
+
+        let report = ContentDetectionRescanReport {
+            scanned_count,
+            changed_count,
+            unchanged_count: scanned_count.saturating_sub(changed_count),
+        };
+        let _ = self.log_activity(
+            "content_detection_history_rescanned",
+            &format!(
+                "Rescanned {} text clips; reclassified {}",
+                report.scanned_count, report.changed_count
+            ),
+        );
+        Ok(report)
+    }
+
     pub fn get_distinct_source_apps(&self) -> Result<Vec<String>> {
         let conn = self.conn.lock();
         let mut stmt = conn.prepare(
@@ -5182,6 +5591,173 @@ mod tests {
             std::thread::current().id()
         ));
         DbState::new(db_file).expect("Failed to create test DB")
+    }
+
+    #[test]
+    fn content_detectors_are_editable_deletable_restorable_and_backed_up() {
+        let source = setup_test_db();
+        let shipped = source.get_content_detectors().unwrap();
+        assert_eq!(
+            shipped.len(),
+            crate::content_detection::DETECTOR_PRESETS.len()
+        );
+
+        let email = shipped
+            .iter()
+            .find(|detector| detector.stable_ref == "email")
+            .unwrap();
+        let custom_pattern = r"(?i)^[a-z0-9._%+-]+@example\.test$".to_string();
+        source
+            .update_content_detector(
+                email.id,
+                &crate::content_detection::DetectorInput {
+                    name: "Example Mail".into(),
+                    content_type: "email".into(),
+                    description: "Project-specific addresses".into(),
+                    patterns: vec![custom_pattern.clone()],
+                    validator: None,
+                    enabled: true,
+                    priority: 7,
+                },
+            )
+            .unwrap();
+        let custom = source
+            .create_content_detector(&crate::content_detection::DetectorInput {
+                name: "Ticket IDs".into(),
+                content_type: "ticket_id".into(),
+                description: "Internal issue identifiers".into(),
+                patterns: vec![r"^PASTE-[0-9]+$".into()],
+                validator: None,
+                enabled: true,
+                priority: 8,
+            })
+            .unwrap();
+        source.delete_content_detector(custom.id).unwrap();
+
+        let backup = source.export_backup_json().unwrap();
+        let destination = setup_test_db();
+        destination.import_backup_json(&backup).unwrap();
+        let restored = destination.get_content_detectors().unwrap();
+        let restored_email = restored
+            .iter()
+            .find(|detector| detector.stable_ref == "email")
+            .unwrap();
+        assert_eq!(restored_email.name, "Example Mail");
+        assert_eq!(restored_email.patterns, vec![custom_pattern]);
+        assert!(!restored
+            .iter()
+            .any(|detector| detector.stable_ref == custom.stable_ref));
+
+        destination.restore_default_content_detectors().unwrap();
+        let defaults = destination.get_content_detectors().unwrap();
+        assert_eq!(
+            defaults
+                .iter()
+                .find(|detector| detector.stable_ref == "email")
+                .unwrap()
+                .name,
+            "Email Addresses"
+        );
+        assert!(!defaults
+            .iter()
+            .any(|detector| detector.stable_ref == custom.stable_ref));
+    }
+
+    #[test]
+    fn content_detection_rescan_reclassifies_text_but_preserves_structural_types() {
+        let db = setup_test_db();
+        let card = db
+            .save_clip(
+                "text",
+                Some("4242-4242-4242-4242"),
+                None,
+                None,
+                "card-hash",
+                "Test",
+            )
+            .unwrap();
+        let image = db
+            .save_clip(
+                "image",
+                Some("4242-4242-4242-4242"),
+                None,
+                Some("aW1hZ2U="),
+                "image-hash",
+                "Test",
+            )
+            .unwrap();
+
+        let report = db.rescan_content_detection().unwrap();
+        assert_eq!(report.scanned_count, 1);
+        assert_eq!(report.changed_count, 1);
+        assert_eq!(report.unchanged_count, 0);
+        assert_eq!(
+            db.get_clip_by_id(card.id).unwrap().content_type,
+            "payment_card"
+        );
+        assert_eq!(db.get_clip_by_id(image.id).unwrap().content_type, "image");
+    }
+
+    #[test]
+    fn legacy_detection_preferences_migrate_once_into_detector_records() {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!("pasted_detector_migration_{nanos}.db"));
+        let connection = Connection::open(&path).unwrap();
+        connection
+            .execute_batch(
+                "CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+             INSERT INTO settings (key, value) VALUES ('detectColors', 'false');",
+            )
+            .unwrap();
+        drop(connection);
+
+        let db = DbState::new(path).unwrap();
+        let detectors = db.get_content_detectors().unwrap();
+        assert!(
+            !detectors
+                .iter()
+                .find(|detector| detector.stable_ref == "color")
+                .unwrap()
+                .enabled
+        );
+        assert!(
+            detectors
+                .iter()
+                .find(|detector| detector.stable_ref == "url")
+                .unwrap()
+                .enabled
+        );
+
+        let color = detectors
+            .iter()
+            .find(|detector| detector.stable_ref == "color")
+            .unwrap();
+        db.update_content_detector(
+            color.id,
+            &crate::content_detection::DetectorInput {
+                name: color.name.clone(),
+                content_type: color.content_type.clone(),
+                description: color.description.clone(),
+                patterns: color.patterns.clone(),
+                validator: color.validator.clone(),
+                enabled: true,
+                priority: color.priority,
+            },
+        )
+        .unwrap();
+        let reopened = DbState::new(db.database_path()).unwrap();
+        assert!(
+            reopened
+                .get_content_detectors()
+                .unwrap()
+                .iter()
+                .find(|detector| detector.stable_ref == "color")
+                .unwrap()
+                .enabled
+        );
     }
 
     #[test]

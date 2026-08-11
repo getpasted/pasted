@@ -8,6 +8,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter};
 
+use crate::content_detection::detect_with_detectors;
 use crate::db::DbState;
 use crate::sequential_paste::SequentialQueueState;
 
@@ -58,47 +59,6 @@ fn report_failed_capture(app: &AppHandle, db: &DbState) {
 fn configured_capture_bytes(db: &DbState) -> usize {
     let configured = db.get_setting("maxClipSizeMb").ok().flatten();
     crate::resource_limits::configured_clip_capture_bytes(configured.as_deref())
-}
-
-#[derive(Clone, Copy)]
-struct ContentDetectionSettings {
-    colors: bool,
-    links: bool,
-    code: bool,
-}
-
-impl Default for ContentDetectionSettings {
-    fn default() -> Self {
-        Self {
-            colors: true,
-            links: true,
-            code: true,
-        }
-    }
-}
-
-impl ContentDetectionSettings {
-    fn from_db(db: &DbState) -> Self {
-        if !crate::features::is_enabled(db, crate::features::Feature::ContentDetection) {
-            return Self {
-                colors: false,
-                links: false,
-                code: false,
-            };
-        }
-        let enabled = |key: &str| {
-            db.get_setting(key)
-                .ok()
-                .flatten()
-                .map(|value| value != "false")
-                .unwrap_or(true)
-        };
-        Self {
-            colors: enabled("detectColors"),
-            links: enabled("detectLinks"),
-            code: enabled("detectCode"),
-        }
-    }
 }
 
 fn is_image_file_path(path: &Path) -> bool {
@@ -643,8 +603,17 @@ pub fn start_clipboard_monitor(
                         }
 
                         // Detect type
-                        let detection_settings = ContentDetectionSettings::from_db(&db_state);
-                        let content_type = detect_content_type(&text, detection_settings);
+                        let content_type = if crate::features::is_enabled(
+                            &db_state,
+                            crate::features::Feature::ContentDetection,
+                        ) {
+                            db_state
+                                .get_content_detectors()
+                                .map(|detectors| detect_with_detectors(&text, &detectors))
+                                .unwrap_or_else(|_| "text".to_string())
+                        } else {
+                            "text".to_string()
+                        };
 
                         // If sequential mode active, push to queue as well
                         if crate::features::is_enabled(&db_state, crate::features::Feature::Queue)
@@ -677,7 +646,7 @@ pub fn start_clipboard_monitor(
                                 );
                                 let automation_db = db_state.clone();
                                 let automation_app = app.clone();
-                                let automation_type = content_type.clone();
+                                let automation_type = content_type;
                                 let automation_text = text.clone();
                                 let automation_source = source_app.to_string();
                                 thread::spawn(move || {
@@ -859,56 +828,6 @@ pub fn start_clipboard_monitor(
     }
 }
 
-fn detect_content_type(text: &str, settings: ContentDetectionSettings) -> String {
-    let trimmed = text.trim();
-
-    // Check color hex
-    if settings.colors
-        && (trimmed.len() == 4 || trimmed.len() == 7 || trimmed.len() == 9)
-        && trimmed.starts_with('#')
-        && trimmed[1..].chars().all(|c| c.is_ascii_hexdigit())
-    {
-        return "color".to_string();
-    }
-
-    // Check RGB / HSL
-    if settings.colors
-        && (trimmed.starts_with("rgb(")
-            || trimmed.starts_with("rgba(")
-            || trimmed.starts_with("hsl("))
-        && trimmed.ends_with(')')
-    {
-        return "color".to_string();
-    }
-
-    // Check URL / link
-    if settings.links
-        && (trimmed.starts_with("http://")
-            || trimmed.starts_with("https://")
-            || trimmed.starts_with("file://"))
-    {
-        return "link".to_string();
-    }
-
-    // Check Code snippet heuristics
-    if settings.code
-        && (trimmed.contains("function ")
-            || trimmed.contains("const ")
-            || trimmed.contains("let ")
-            || trimmed.contains("var ")
-            || trimmed.contains("import ")
-            || trimmed.contains("pub fn ")
-            || trimmed.contains("class ")
-            || trimmed.contains("def ")
-            || trimmed.contains("SELECT ")
-            || (trimmed.contains('{') && trimmed.contains('}') && trimmed.contains(';')))
-    {
-        return "code".to_string();
-    }
-
-    "text".to_string()
-}
-
 fn rgba_to_png(width: u32, height: u32, rgba_data: &[u8]) -> Option<Vec<u8>> {
     use image::{ImageBuffer, Rgba};
     let imgbuf: ImageBuffer<Rgba<u8>, _> =
@@ -930,10 +849,9 @@ fn rgba_to_png(width: u32, height: u32, rgba_data: &[u8]) -> Option<Vec<u8>> {
 #[cfg(test)]
 mod tests {
     use super::{
-        capture_feedback_payload, composite_image_source, detect_content_type,
-        image_file_rgba_fingerprint, inferred_screenshot_source, is_pasted_source,
-        prefer_bitmap_for_image_file, resolved_capture_source, CaptureFeedbackKind,
-        ContentDetectionSettings,
+        capture_feedback_payload, composite_image_source, image_file_rgba_fingerprint,
+        inferred_screenshot_source, is_pasted_source, prefer_bitmap_for_image_file,
+        resolved_capture_source, CaptureFeedbackKind,
     };
     use std::path::Path;
 
@@ -952,36 +870,6 @@ mod tests {
             capture_feedback_payload(CaptureFeedbackKind::Success, Some(42)),
             serde_json::json!({ "kind": "success", "clip_id": 42 })
         );
-    }
-
-    #[test]
-    fn six_digit_codes_are_text_not_colors() {
-        let settings = ContentDetectionSettings::default();
-        assert_eq!(detect_content_type("313041", settings), "text");
-        assert_eq!(detect_content_type("#313041", settings), "color");
-        assert_eq!(detect_content_type("rgb(31, 30, 41)", settings), "color");
-    }
-
-    #[test]
-    fn content_detection_categories_can_be_disabled_independently() {
-        let none = ContentDetectionSettings {
-            colors: false,
-            links: false,
-            code: false,
-        };
-        assert_eq!(detect_content_type("#313041", none), "text");
-        assert_eq!(detect_content_type("https://pasted.app", none), "text");
-        assert_eq!(detect_content_type("const pasted = true;", none), "text");
-
-        let links_only = ContentDetectionSettings {
-            links: true,
-            ..none
-        };
-        assert_eq!(
-            detect_content_type("https://pasted.app", links_only),
-            "link"
-        );
-        assert_eq!(detect_content_type("#313041", links_only), "text");
     }
 
     #[test]

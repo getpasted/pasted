@@ -29,7 +29,7 @@ const CLI_COMMAND_GROUPS = [
       { usage: 'pasted copy "Hello"', description: 'Save a text clip. Omit the argument to read stdin.' },
       { usage: 'cat server.log | pasted copy', description: 'Pipe bounded text into Pasted history.' },
       { usage: 'pasted list [limit]', description: 'List recent active clips; defaults to 10.' },
-      { usage: 'pasted search <query>', description: 'Search active clip text.' },
+      { usage: 'pasted search [query] [--type TYPE] [--source APP] [--json]', description: 'Search active clips or reproduce Type and Source views.' },
       { usage: 'pasted clear', description: 'Permanently remove unpinned, unprotected clips.' },
     ],
   },
@@ -55,6 +55,17 @@ const CLI_COMMAND_GROUPS = [
       { usage: 'pasted operation run <ref> [--text TEXT | --clip ID | --stdin] [--json]', description: 'Run one experimental Operation through the shared executor.' },
       { usage: 'pasted pipeline list [--json]', description: 'Inspect experimental deterministic Pipelines.' },
       { usage: 'pasted pipeline run <ref> [--text TEXT | --clip ID | --stdin] [--json]', description: 'Run one experimental Pipeline through the shared executor.' },
+    ],
+  },
+  {
+    title: 'Detection',
+    commands: [
+      { usage: 'pasted detector list [--json]', description: 'List editable detectors in effective priority order.' },
+      { usage: 'pasted detector create --name NAME --type TYPE --regex REGEX [--json]', description: 'Create a custom detector.' },
+      { usage: 'pasted detector update <id> [options] [--json]', description: 'Edit an existing shipped or custom detector.' },
+      { usage: 'pasted detector delete <id>', description: 'Delete a detector; shipped defaults remain recoverable.' },
+      { usage: 'pasted detector restore-defaults', description: 'Restore shipped detectors without removing custom entries.' },
+      { usage: 'pasted detector rescan --yes [--json]', description: 'Explicitly reclassify existing text clips with the current enabled detector order.' },
     ],
   },
   {

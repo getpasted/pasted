@@ -20,9 +20,6 @@ const DEFAULT_SETTINGS: AppSettings = {
   maxClipSizeMb: 100,
   filePreviewMode: 'safe',
   filePreviewMaxMb: 25,
-  detectColors: true,
-  detectLinks: true,
-  detectCode: true,
   keepClipCount: 900,
   revisionHistoryLimit: 50,
   alwaysPastePlainText: false,
@@ -45,6 +42,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   enableRevisions: true,
   enableHud: true,
   enableTransformations: true,
+  enableTypes: true,
+  enableSources: true,
   enableCli: true,
   enableHelp: true,
   hudHotkey: 'Alt+Shift+V',
@@ -83,9 +82,6 @@ function parseSavedSettings(saved: Record<string, string>) {
   if (saved.maxClipSizeMb) next.maxClipSizeMb = numberValue('maxClipSizeMb', next.maxClipSizeMb);
   if (['off', 'safe', 'all'].includes(saved.filePreviewMode)) next.filePreviewMode = saved.filePreviewMode as AppSettings['filePreviewMode'];
   if (saved.filePreviewMaxMb) next.filePreviewMaxMb = Math.max(1, Math.min(64, numberValue('filePreviewMaxMb', next.filePreviewMaxMb)));
-  if (saved.detectColors !== undefined) next.detectColors = saved.detectColors === 'true';
-  if (saved.detectLinks !== undefined) next.detectLinks = saved.detectLinks === 'true';
-  if (saved.detectCode !== undefined) next.detectCode = saved.detectCode === 'true';
   if (saved.keepClipCount) next.keepClipCount = numberValue('keepClipCount', next.keepClipCount);
   if (saved.revisionHistoryLimit !== undefined) next.revisionHistoryLimit = numberValue('revisionHistoryLimit', next.revisionHistoryLimit);
   if (saved.alwaysPastePlainText !== undefined) next.alwaysPastePlainText = saved.alwaysPastePlainText === 'true';
@@ -109,6 +105,8 @@ function parseSavedSettings(saved: Record<string, string>) {
     'enableRevisions',
     'enableHud',
     'enableTransformations',
+    'enableTypes',
+    'enableSources',
     'enableCli',
     'enableHelp',
   ] as const) {

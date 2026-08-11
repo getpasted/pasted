@@ -42,6 +42,7 @@ import { clipDeleteLabel, UI_COPY } from '../utils/uiCopy';
 import { startTransformation, type TransformationExecutionHandle } from '../utils/transformExecution';
 import { useIntelligenceRequestStatus } from '../hooks/useIntelligenceRequestStatus';
 import { useFeatures } from '../hooks/useFeatures';
+import { contentTypeLabel } from '../utils/contentTypes';
 
 interface ClipPreviewProps {
   clip: ClipItem | null;
@@ -744,7 +745,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
       >
         <div className="flex min-w-0 items-center space-x-3 titlebar-drag-handle">
           <span className="clip-type-badge theme-badge text-xs font-semibold px-2.5 py-1 rounded-md border capitalize titlebar-drag-handle">
-            {clip.content_type === 'file' && getClipFilePaths(clip).length > 1 ? 'Files' : clip.content_type}
+            {clip.content_type === 'file' && getClipFilePaths(clip).length > 1 ? 'Files' : contentTypeLabel(clip.content_type)}
           </span>
           <OverflowText text={clip.source_app} className="theme-text-main min-w-0 max-w-[200px] truncate text-xs font-medium titlebar-drag-handle" />
           {isTransforming && (

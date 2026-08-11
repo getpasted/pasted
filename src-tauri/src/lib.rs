@@ -3,6 +3,7 @@ pub mod bin_assignment;
 mod clipboard_fingerprint;
 mod clipboard_monitor;
 mod commands;
+pub mod content_detection;
 pub mod db;
 pub mod features;
 mod filter_engine;
@@ -353,6 +354,13 @@ pub fn run() {
             commands::empty_trash,
             commands::get_activity_logs,
             commands::clear_activity_logs,
+            commands::get_content_detectors,
+            commands::create_content_detector,
+            commands::update_content_detector,
+            commands::delete_content_detector,
+            commands::restore_default_content_detectors,
+            commands::rescan_content_detection_history,
+            commands::test_content_detector,
             commands::play_system_sound,
             commands::get_total_clip_count,
             commands::save_app_setting,
@@ -436,6 +444,7 @@ pub fn run() {
             commands::toggle_hud_window,
             commands::paste_clip_by_id,
             commands::set_dock_visibility,
+            commands::get_source_app_icons,
             commands::get_installed_applications,
             commands::open_emoji_picker,
             commands::extract_ocr_from_clip,

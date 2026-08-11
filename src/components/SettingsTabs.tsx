@@ -1,6 +1,6 @@
-import { Sliders, Command, Shield, Database, Cable, Bug, Blocks, Info, Bell } from 'lucide-react';
+import { Sliders, Command, Shield, Database, Cable, Bug, Blocks, Info, Bell, Radar } from 'lucide-react';
 
-export type SettingsTab = 'general' | 'features' | 'notifications' | 'hotkeys' | 'connections' | 'blacklist' | 'storage' | 'diagnostics' | 'about';
+export type SettingsTab = 'general' | 'features' | 'detection' | 'notifications' | 'hotkeys' | 'connections' | 'blacklist' | 'storage' | 'diagnostics' | 'about';
 
 interface SettingsTabsProps {
   activeTab: SettingsTab;
@@ -8,11 +8,13 @@ interface SettingsTabsProps {
   showConnections?: boolean;
   showDiagnostics?: boolean;
   showNotifications?: boolean;
+  showDetection?: boolean;
 }
 
 const TABS = [
   { id: 'general', label: 'General', Icon: Sliders },
-  { id: 'features', label: 'Features', Icon: Blocks },
+  { id: 'features', label: 'Functionality', Icon: Blocks },
+  { id: 'detection', label: 'Detection', Icon: Radar },
   { id: 'notifications', label: 'Notifications', Icon: Bell },
   { id: 'hotkeys', label: 'Hotkeys', Icon: Command },
   { id: 'connections', label: 'Connections', Icon: Cable },
@@ -22,11 +24,12 @@ const TABS = [
   { id: 'about', label: 'About', Icon: Info },
 ] as const;
 
-export function SettingsTabs({ activeTab, onChange, showConnections = true, showDiagnostics = true, showNotifications = true }: SettingsTabsProps) {
+export function SettingsTabs({ activeTab, onChange, showConnections = true, showDiagnostics = true, showNotifications = true, showDetection = true }: SettingsTabsProps) {
   return (
     <nav className="theme-surface settings-tabs flex items-center gap-1 rounded-xl border p-1" aria-label="Settings sections">
       {TABS.filter(({ id }) => (
         (id !== 'connections' || showConnections)
+        && (id !== 'detection' || showDetection)
         && (id !== 'diagnostics' || showDiagnostics)
         && (id !== 'notifications' || showNotifications)
       )).map(({ id, label, Icon }) => (

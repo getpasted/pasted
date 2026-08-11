@@ -261,7 +261,11 @@ export default function App() {
   }, [currentTab]);
 
   useEffect(() => {
-    if (['all', 'sequential', 'pinned', 'protected', 'notes', 'trash', 'bin'].includes(currentTab)) {
+    if (
+      ['all', 'sequential', 'pinned', 'protected', 'notes', 'trash', 'bin'].includes(currentTab)
+      || currentTab.startsWith('type-')
+      || currentTab.startsWith('source-')
+    ) {
       lastClipViewRef.current = { tab: currentTab, binId: currentTab === 'bin' ? selectedBinId : null };
     }
   }, [currentTab, selectedBinId]);
@@ -1014,6 +1018,7 @@ export default function App() {
         selectedBinId={selectedBinId}
         setSelectedBinId={handleSidebarBinSelect}
         bins={bins}
+        clips={allClips}
         features={enabledFeatures}
         onRefreshBins={fetchBins}
         onOpenNewBinModal={() => {

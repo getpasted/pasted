@@ -5,6 +5,8 @@ use std::io::{self, Read};
 use std::path::PathBuf;
 
 use pasted_lib::bin_assignment::assign_clips_to_bin;
+use pasted_lib::content_detection::detect_with_detectors;
+use pasted_lib::content_detection::DetectorInput;
 use pasted_lib::db::{ClipMutationSummary, DbState, TransformClipApplication};
 use pasted_lib::features::{setting_value_is_enabled, Feature};
 use pasted_lib::installation_diagnostics::{InstallationDiagnostics, APP_IDENTIFIER};
@@ -86,11 +88,99 @@ fn main() -> Result<()> {
         .ok()
         .flatten();
     if !setting_value_is_enabled(cli_setting.as_deref()) {
-        eprintln!("Pasted CLI is disabled in Settings → Features.");
+        eprintln!("Pasted CLI is disabled in Settings → Functionality.");
         std::process::exit(1);
     }
 
     match command {
+        "detector" | "detectors" => {
+            drop(conn);
+            let db = DbState::new(db_path.clone())?;
+            let subcommand = args.get(2).map(String::as_str).unwrap_or("list");
+            match subcommand {
+                "list" | "ls" => {
+                    let detectors = db.get_content_detectors()?;
+                    if args.iter().any(|argument| argument == "--json") {
+                        println!(
+                            "{}",
+                            serde_json::to_string_pretty(&detectors).map_err(json_error)?
+                        );
+                    } else {
+                        for detector in detectors {
+                            println!(
+                                "{}\t{}\t{}\t{}\t{}",
+                                detector.id,
+                                detector.priority,
+                                if detector.enabled { "on" } else { "off" },
+                                detector.content_type,
+                                detector.name
+                            );
+                        }
+                    }
+                }
+                "create" => {
+                    let input = detector_input_from_args(&args, None);
+                    let detector = db.create_content_detector(&input)?;
+                    print_detector(&detector, args.iter().any(|argument| argument == "--json"))?;
+                }
+                "update" => {
+                    let id = args.get(3).and_then(|value| value.parse::<i64>().ok()).unwrap_or_else(|| {
+                        eprintln!("Usage: pasted detector update <id> [--name NAME] [--type TYPE] [--regex REGEX] [--priority N] [--disabled] [--json]");
+                        std::process::exit(2);
+                    });
+                    let current = db
+                        .get_content_detectors()?
+                        .into_iter()
+                        .find(|item| item.id == id)
+                        .unwrap_or_else(|| {
+                            eprintln!("Detector {id} was not found.");
+                            std::process::exit(1);
+                        });
+                    let input = detector_input_from_args(&args, Some(&current));
+                    let detector = db.update_content_detector(id, &input)?;
+                    print_detector(&detector, args.iter().any(|argument| argument == "--json"))?;
+                }
+                "delete" => {
+                    let id = args
+                        .get(3)
+                        .and_then(|value| value.parse::<i64>().ok())
+                        .unwrap_or_else(|| {
+                            eprintln!("Usage: pasted detector delete <id>");
+                            std::process::exit(2);
+                        });
+                    db.delete_content_detector(id)?;
+                    println!("Deleted detector {id}.");
+                }
+                "restore-defaults" => {
+                    db.restore_default_content_detectors()?;
+                    println!(
+                        "Restored shipped detector defaults; custom detectors were preserved."
+                    );
+                }
+                "rescan" => {
+                    if !args.iter().any(|argument| argument == "--yes") {
+                        eprintln!("History rescans can change Types, Smart Bin membership, and sensitive-content masking. Re-run with --yes to continue.");
+                        std::process::exit(2);
+                    }
+                    let report = db.rescan_content_detection()?;
+                    if args.iter().any(|argument| argument == "--json") {
+                        println!(
+                            "{}",
+                            serde_json::to_string_pretty(&report).map_err(json_error)?
+                        );
+                    } else {
+                        println!(
+                            "Rescanned {} text clips; {} changed and {} were unchanged.",
+                            report.scanned_count, report.changed_count, report.unchanged_count
+                        );
+                    }
+                }
+                _ => {
+                    eprintln!("Usage: pasted detector list|create|update|delete|restore-defaults|rescan [--yes] [--json]");
+                    std::process::exit(2);
+                }
+            }
+        }
         "library" => {
             let app_data = get_app_data_dir();
             let subcommand = args.get(2).map(String::as_str).unwrap_or("location");
@@ -237,7 +327,7 @@ fn main() -> Result<()> {
             let db = DbState::new(db_path.clone())?;
             let ocr_setting = db.get_setting(Feature::Ocr.setting_key())?;
             if !setting_value_is_enabled(ocr_setting.as_deref()) {
-                eprintln!("OCR is disabled in Settings → Features.");
+                eprintln!("OCR is disabled in Settings → Functionality.");
                 std::process::exit(1);
             }
             let subcommand = args.get(2).map(String::as_str).unwrap_or("status");
@@ -467,7 +557,7 @@ fn main() -> Result<()> {
             let db = DbState::new(db_path.clone())?;
             let bins_setting = db.get_setting(Feature::Bins.setting_key())?;
             if !setting_value_is_enabled(bins_setting.as_deref()) {
-                eprintln!("Bins are disabled in Settings → Features.");
+                eprintln!("Bins are disabled in Settings → Functionality.");
                 std::process::exit(1);
             }
             let subcommand = args.get(2).map(String::as_str).unwrap_or("list");
@@ -676,12 +766,31 @@ fn main() -> Result<()> {
                 std::process::exit(1);
             }
 
+            let detection_db = DbState::new(db_path.clone())?;
+            let content_type = if setting_value_is_enabled(
+                detection_db
+                    .get_setting(Feature::ContentDetection.setting_key())?
+                    .as_deref(),
+            ) {
+                detect_with_detectors(&trimmed, &detection_db.get_content_detectors()?)
+            } else {
+                "text".to_string()
+            };
+            drop(detection_db);
             conn.execute(
-                "INSERT INTO clips (content_type, text_content, source_app, created_at) VALUES ('text', ?1, 'CLI Terminal', strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))",
-                params![trimmed],
+                "INSERT INTO clips (content_type, text_content, source_app, created_at) VALUES (?1, ?2, 'CLI Terminal', strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))",
+                params![content_type, trimmed],
             )?;
+            let id = conn.last_insert_rowid();
 
-            println!("✓ Successfully copied clip to Pasted history!");
+            if args.iter().any(|argument| argument == "--json") {
+                println!(
+                    "{}",
+                    serde_json::json!({ "id": id, "content_type": content_type })
+                );
+            } else {
+                println!("✓ Saved {content_type} clip #{id} to Pasted history.");
+            }
         }
         "list" | "ls" => {
             let limit: i64 = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(10);
@@ -723,24 +832,66 @@ fn main() -> Result<()> {
             }
         }
         "search" | "find" => {
-            let query = args.get(2).cloned().unwrap_or_default();
+            let option_value = |name: &str| {
+                args.iter()
+                    .position(|argument| argument == name)
+                    .and_then(|index| args.get(index + 1))
+                    .cloned()
+            };
+            let content_type = option_value("--type");
+            let source = option_value("--source");
+            let json = args.iter().any(|argument| argument == "--json");
+            let query = args
+                .iter()
+                .skip(2)
+                .take_while(|argument| !argument.starts_with("--"))
+                .cloned()
+                .collect::<Vec<_>>()
+                .join(" ");
             let pattern = format!("%{}%", query);
             let mut stmt = conn.prepare(
-                "SELECT id, content_type, text_content, source_app, created_at FROM clips WHERE is_trashed = 0 AND text_content LIKE ?1 ORDER BY created_at DESC LIMIT 20"
+                "SELECT id, content_type, text_content, source_app, created_at
+                 FROM clips
+                 WHERE is_trashed = 0
+                   AND (?1 = '' OR text_content LIKE ?2)
+                   AND (?3 IS NULL OR content_type = ?3)
+                   AND (?4 IS NULL OR source_app = ?4)
+                 ORDER BY created_at DESC
+                 LIMIT 20",
             )?;
-            let rows = stmt.query_map(params![pattern], |row| {
-                Ok((
-                    row.get::<_, i64>(0)?,
-                    row.get::<_, String>(1)?,
-                    row.get::<_, Option<String>>(2)?.unwrap_or_default(),
-                    row.get::<_, String>(3)?,
-                    row.get::<_, String>(4)?,
-                ))
-            })?;
+            let rows = stmt
+                .query_map(params![query, pattern, content_type, source], |row| {
+                    Ok((
+                        row.get::<_, i64>(0)?,
+                        row.get::<_, String>(1)?,
+                        row.get::<_, Option<String>>(2)?.unwrap_or_default(),
+                        row.get::<_, String>(3)?,
+                        row.get::<_, String>(4)?,
+                    ))
+                })?
+                .collect::<Result<Vec<_>, _>>()?;
 
-            for r in rows {
-                let (id, c_type, content, source, date) = r?;
-                println!("[#{id}] ({c_type} from {source} @ {date}):\n{content}\n---");
+            if json {
+                let payload = rows
+                    .into_iter()
+                    .map(|(id, content_type, content, source_app, created_at)| {
+                        serde_json::json!({
+                            "id": id,
+                            "content_type": content_type,
+                            "text_content": content,
+                            "source_app": source_app,
+                            "created_at": created_at,
+                        })
+                    })
+                    .collect::<Vec<_>>();
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&payload).map_err(json_error)?
+                );
+            } else {
+                for (id, c_type, content, source, date) in rows {
+                    println!("[#{id}] ({c_type} from {source} @ {date}):\n{content}\n---");
+                }
             }
         }
         "clear" => {
@@ -786,12 +937,13 @@ fn main() -> Result<()> {
         _ => {
             println!("Pasted CLI Tool (v{})", env!("CARGO_PKG_VERSION"));
             println!("Usage:");
-            println!(
-                "  pasted copy <text>       Save text or pipe stdin (cat file.txt | pasted copy)"
-            );
+            println!("  pasted copy <text> [--json] Detect and save content, or pipe stdin");
             println!("  pasted list [limit]      List N recent clipboard items (default: 10)");
-            println!("  pasted search <query>    Search clips for keyword query");
+            println!("  pasted search [query] [--type <type>] [--source <app>] [--json]");
             println!("  pasted diagnostics --json Show installation diagnostics");
+            println!("  pasted detector list --json List editable content detectors");
+            println!("  pasted detector create|update|delete Manage content detectors");
+            println!("  pasted detector rescan --yes --json Reclassify existing text clips");
             println!("  pasted library location --json Show the active SQLite library");
             println!("  pasted library move <folder> --json Move the library (quit Pasted first)");
             println!("  pasted library default --json Restore the native default location");
@@ -827,7 +979,10 @@ fn json_error(error: serde_json::Error) -> rusqlite::Error {
 fn require_feature(db: &DbState, feature: Feature) {
     let enabled = db.get_setting(feature.setting_key()).ok().flatten();
     if !setting_value_is_enabled(enabled.as_deref()) {
-        eprintln!("{} is disabled in Settings → Features.", feature.label());
+        eprintln!(
+            "{} is disabled in Settings → Functionality.",
+            feature.label()
+        );
         std::process::exit(1);
     }
 }
@@ -958,6 +1113,83 @@ fn configured_capture_bytes(conn: &Connection) -> usize {
         )
         .ok();
     pasted_lib::resource_limits::configured_clip_capture_bytes(configured.as_deref())
+}
+
+fn argument_value(args: &[String], flag: &str) -> Option<String> {
+    args.iter()
+        .position(|argument| argument == flag)
+        .and_then(|index| args.get(index + 1))
+        .cloned()
+}
+
+fn argument_values(args: &[String], flag: &str) -> Vec<String> {
+    args.iter()
+        .enumerate()
+        .filter_map(|(index, argument)| {
+            (argument == flag)
+                .then(|| args.get(index + 1).cloned())
+                .flatten()
+        })
+        .collect()
+}
+
+fn detector_input_from_args(
+    args: &[String],
+    current: Option<&pasted_lib::content_detection::Detector>,
+) -> DetectorInput {
+    let patterns = argument_values(args, "--regex");
+    DetectorInput {
+        name: argument_value(args, "--name").unwrap_or_else(|| {
+            current
+                .map(|item| item.name.clone())
+                .unwrap_or_else(|| "Custom Detector".into())
+        }),
+        content_type: argument_value(args, "--type").unwrap_or_else(|| {
+            current
+                .map(|item| item.content_type.clone())
+                .unwrap_or_else(|| "text".into())
+        }),
+        description: argument_value(args, "--description").unwrap_or_else(|| {
+            current
+                .map(|item| item.description.clone())
+                .unwrap_or_default()
+        }),
+        patterns: if patterns.is_empty() {
+            current
+                .map(|item| item.patterns.clone())
+                .unwrap_or_else(|| vec!["^.+$".into()])
+        } else {
+            patterns
+        },
+        validator: argument_value(args, "--validator")
+            .map(|value| (value != "none").then_some(value))
+            .unwrap_or_else(|| current.and_then(|item| item.validator.clone())),
+        enabled: if args.iter().any(|argument| argument == "--disabled") {
+            false
+        } else if args.iter().any(|argument| argument == "--enabled") {
+            true
+        } else {
+            current.map(|item| item.enabled).unwrap_or(true)
+        },
+        priority: argument_value(args, "--priority")
+            .and_then(|value| value.parse().ok())
+            .unwrap_or_else(|| current.map(|item| item.priority).unwrap_or(200)),
+    }
+}
+
+fn print_detector(detector: &pasted_lib::content_detection::Detector, json: bool) -> Result<()> {
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(detector).map_err(json_error)?
+        );
+    } else {
+        println!(
+            "Saved detector #{}: {} ({})",
+            detector.id, detector.name, detector.content_type
+        );
+    }
+    Ok(())
 }
 
 fn read_stdin_bounded(maximum: usize) -> Result<String> {

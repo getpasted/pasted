@@ -2632,6 +2632,7 @@ dependencies = [
  "objc",
  "once_cell",
  "parking_lot",
+ "plist",
  "regex",
  "rusqlite",
  "serde",

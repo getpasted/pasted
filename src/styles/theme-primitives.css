@@ -514,7 +514,7 @@ html:not(.is-stable-reordering) .connection-priority-card:hover {
   color: var(--accent-primary);
 }
 
-@media (max-width: 1100px) {
+@media (max-width: 1400px) {
   .settings-tab {
     padding-inline: 0.65rem;
   }

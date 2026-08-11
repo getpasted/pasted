@@ -344,7 +344,7 @@ export function ClipPreviewContent({
                 </div>
               ) : (
                 <p className="theme-text-muted text-xs italic">
-                  {ocrEnabled ? 'Run OCR to recognize text in this image.' : 'OCR is disabled in Settings → Features.'}
+                  {ocrEnabled ? 'Run OCR to recognize text in this image.' : 'OCR is disabled in Settings → Functionality.'}
                 </p>
               )}
             </div>

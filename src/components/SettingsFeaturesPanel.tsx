@@ -17,6 +17,8 @@ import {
   Sparkles,
   StickyNote,
   Trash2,
+  Shapes,
+  AppWindow,
 } from 'lucide-react';
 import type { AppSettings } from '../types';
 import {
@@ -46,6 +48,8 @@ const FEATURE_ICONS = {
   trash: Trash2,
   transformations: Sparkles,
   activityLog: Activity,
+  types: Shapes,
+  sources: AppWindow,
   cli: Command,
   help: HelpCircle,
 } satisfies Record<FeatureId, typeof Activity>;
@@ -62,7 +66,7 @@ export function SettingsFeaturesPanel({ settings, onUpdateSettings }: SettingsFe
     <div className="space-y-5 text-xs">
       <SettingsPanelHeader
         icon={Cable}
-        title="Features"
+        title="Functionality"
         description="Make Pasted as focused or as powerful as you want. Hidden features keep their existing data."
         actions={(
           <div className="theme-surface flex rounded-xl border p-1" aria-label="Feature presets">

@@ -13,6 +13,7 @@ import { SettingsFeaturesPanel } from './SettingsFeaturesPanel';
 import { SettingsAboutPanel } from './SettingsAboutPanel';
 import { SettingsResetPanel } from './SettingsResetPanel';
 import { SettingsNotificationsPanel } from './SettingsNotificationsPanel';
+import { SettingsDetectionPanel } from './SettingsDetectionPanel';
 
 interface SettingsModalProps {
   settings: AppSettings;
@@ -77,16 +78,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   }, [activeTab, settings.enableNotifications]);
 
+  useEffect(() => {
+    if (!settings.enableContentDetection && activeTab === 'detection') setActiveTab('features');
+  }, [activeTab, settings.enableContentDetection]);
+
   return (
     <div className="tools-page settings-page flex-1 settings-modal-bg h-screen overflow-hidden font-sans select-none flex flex-col">
       <ToolPageHeader
         icon={<Settings className="w-4 h-4" />}
         title="Settings"
-        actions={<SettingsTabs activeTab={activeTab} onChange={setActiveTab} showConnections={settings.enableTransformations} showDiagnostics={settings.enableDiagnostics} showNotifications={settings.enableNotifications} />}
+        actions={<SettingsTabs activeTab={activeTab} onChange={setActiveTab} showConnections={settings.enableTransformations} showDiagnostics={settings.enableDiagnostics} showNotifications={settings.enableNotifications} showDetection={settings.enableContentDetection} />}
       />
 
       <div className="tools-scroll-region flex-1 overflow-y-auto p-6">
-        <div className={`w-full max-w-xl mx-auto ${activeTab === 'storage' ? 'space-y-4' : 'settings-primary-well theme-panel rounded-2xl border p-6'}`}>
+        <div className={`w-full mx-auto ${activeTab === 'detection' ? 'max-w-5xl' : 'max-w-xl'} ${activeTab === 'storage' ? 'space-y-4' : 'settings-primary-well theme-panel rounded-2xl border p-6'}`}>
 
         {/* TAB 1: GENERAL */}
         {activeTab === 'general' && (
@@ -101,6 +106,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         {activeTab === 'features' && (
           <SettingsFeaturesPanel settings={settings} onUpdateSettings={onUpdateSettings} />
         )}
+
+        {settings.enableContentDetection && activeTab === 'detection' && <SettingsDetectionPanel />}
 
         {settings.enableNotifications && activeTab === 'notifications' && (
           <SettingsNotificationsPanel settings={settings} onUpdateSettings={onUpdateSettings} />

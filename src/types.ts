@@ -71,7 +71,7 @@ export function maskSensitiveText(text: string | null): string {
 
 export interface ClipItem {
   id: number;
-  content_type: 'text' | 'image' | 'color' | 'link' | 'code' | 'file';
+  content_type: ClipContentType;
   text_content: string | null;
   html_content: string | null;
   image_base64: string | null;
@@ -89,6 +89,14 @@ export interface ClipItem {
   trashed_at?: string | null;
   created_at: string;
 }
+
+export type ClipContentType =
+  | 'text' | 'prose' | 'image' | 'file' | 'file_path'
+  | 'color' | 'link' | 'code' | 'shell_command'
+  | 'email' | 'phone' | 'ip_address' | 'mac_address'
+  | 'credential' | 'payment_card' | 'env_variable' | 'env_block'
+  | 'hash' | 'iban' | 'jwt' | 'uuid'
+  | (string & {});
 
 export type ClipOriginKind = 'clipboard_content' | 'file_reference' | 'screenshot' | 'command_line';
 
@@ -362,9 +370,6 @@ export interface AppSettings {
   maxClipSizeMb: number;
   filePreviewMode: 'off' | 'safe' | 'all';
   filePreviewMaxMb: number;
-  detectColors: boolean;
-  detectLinks: boolean;
-  detectCode: boolean;
   keepClipCount: number;
   revisionHistoryLimit: number;
   alwaysPastePlainText: boolean;
@@ -387,6 +392,8 @@ export interface AppSettings {
   enableRevisions: boolean;
   enableHud: boolean;
   enableTransformations: boolean;
+  enableTypes: boolean;
+  enableSources: boolean;
   enableCli: boolean;
   enableHelp: boolean;
   hudHotkey?: string;

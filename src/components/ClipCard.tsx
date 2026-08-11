@@ -8,13 +8,10 @@ import { getClipSearchHighlightTerms, type ClipSearchHighlightField } from '../u
 import { FloatingActionStrip } from './FloatingActionStrip';
 import { OverflowText } from './OverflowText';
 import { useFeatures } from '../hooks/useFeatures';
+import { ContentTypeIcon } from './ContentTypeIcon';
+import { isSensitiveContentType } from '../utils/contentTypes';
 import {
-  Code,
-  FileText,
   Files,
-  Image as ImageIcon,
-  Link as LinkIcon,
-  Palette,
   Pin,
   Trash2,
   Copy,
@@ -328,7 +325,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
   } | null>(null);
   const removePointerListenersRef = React.useRef<(() => void) | null>(null);
   const suppressClickRef = React.useRef(false);
-  const isSensitive = isSensitiveText(clip.text_content);
+  const isSensitive = isSensitiveContentType(clip.content_type) || isSensitiveText(clip.text_content);
 
   React.useEffect(() => () => removePointerListenersRef.current?.(), []);
 
@@ -340,20 +337,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
   };
 
   const getIcon = () => {
-    switch (clip.content_type) {
-      case 'code':
-        return <Code className="w-3.5 h-3.5 theme-status-success-text" />;
-      case 'image':
-        return <ImageIcon className="theme-image-text w-3.5 h-3.5" />;
-      case 'color':
-        return <Palette className="w-3.5 h-3.5 theme-status-warning-text" />;
-      case 'link':
-        return <LinkIcon className="theme-status-info-text w-3.5 h-3.5" />;
-      case 'file':
-        return <Files className="theme-status-info-text w-3.5 h-3.5" />;
-      default:
-        return <FileText className="w-3.5 h-3.5 theme-text-muted" />;
-    }
+    return <ContentTypeIcon type={clip.content_type} className="w-3.5 h-3.5 theme-text-muted" />;
   };
 
   const isSmall = rowHeight === 'small';

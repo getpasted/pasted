@@ -17,12 +17,14 @@ pub enum Feature {
     Trash,
     Transformations,
     ActivityLog,
+    Types,
+    Sources,
     Cli,
     Help,
 }
 
 impl Feature {
-    pub const ALL: [Feature; 17] = [
+    pub const ALL: [Feature; 19] = [
         Feature::Analytics,
         Feature::Bins,
         Feature::ContentDetection,
@@ -38,6 +40,8 @@ impl Feature {
         Feature::Trash,
         Feature::Transformations,
         Feature::ActivityLog,
+        Feature::Types,
+        Feature::Sources,
         Feature::Cli,
         Feature::Help,
     ];
@@ -59,6 +63,8 @@ impl Feature {
             Feature::Trash => "enableTrash",
             Feature::Transformations => "enableTransformations",
             Feature::ActivityLog => "enableActivityLog",
+            Feature::Types => "enableTypes",
+            Feature::Sources => "enableSources",
             Feature::Cli => "enableCli",
             Feature::Help => "enableHelp",
         }
@@ -87,6 +93,8 @@ impl Feature {
             Feature::Trash => "Trash",
             Feature::Transformations => "Transformations",
             Feature::ActivityLog => "Activity Log",
+            Feature::Types => "Types",
+            Feature::Sources => "Sources",
             Feature::Cli => "CLI",
             Feature::Help => "Help & Documentation",
         }
@@ -107,7 +115,7 @@ pub fn require(db: &DbState, feature: Feature) -> Result<(), String> {
         Ok(())
     } else {
         Err(format!(
-            "{} is disabled in Settings → Features",
+            "{} is disabled in Settings → Functionality",
             feature.label()
         ))
     }
@@ -135,7 +143,7 @@ mod tests {
 
     #[test]
     fn frontend_and_native_setting_keys_are_stable() {
-        assert_eq!(Feature::ALL.len(), 17);
+        assert_eq!(Feature::ALL.len(), 19);
         for feature in Feature::ALL {
             assert_eq!(
                 Feature::from_setting_key(feature.setting_key()),

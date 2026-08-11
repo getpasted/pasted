@@ -23,7 +23,7 @@ Pasted can cache bounded thumbnails for familiar image formats and the first pag
 
 On macOS, Apple Vision can extract searchable text from clipboard images and screenshots.
 
-- OCR is optional under **Settings → Features**.
+- OCR is optional under **Settings → Functionality**.
 - Re-enabling OCR resumes a hash-safe backfill of eligible images.
 - Disabling OCR cancels background work; late results are discarded.
 - Deleting or purging a clip also removes or excludes its OCR lifecycle state.

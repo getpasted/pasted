@@ -3,7 +3,7 @@ import type { Bin, ClipItem, SequentialStatus } from '../types';
 import { getClipFilePaths, getClipOriginKind } from '../types';
 import { sortClipsChronologically } from '../utils/clipOrder';
 import { clipMatchesSearch, parseClipSearch } from '../utils/clipSearch';
-import { getClipCollection } from '../utils/clipCollections';
+import { getClipCollection, parseClipFacetRoute } from '../utils/clipCollections';
 import type { FeatureId } from '../utils/features';
 
 interface ClipViewsInput {
@@ -146,6 +146,9 @@ export function useClipViews({
 
     let clips = collection?.membership === 'trash' ? trashedClips : allClips;
     if (collection?.membership === 'trash') return clips;
+    const facet = parseClipFacetRoute(currentTab);
+    if (facet?.kind === 'type') clips = clips.filter((clip) => clip.content_type === facet.value);
+    if (facet?.kind === 'source') clips = clips.filter((clip) => clip.source_app === facet.value);
     if (collection?.membership === 'bin' && selectedBinId !== null) clips = filterByBin(clips, bins, selectedBinId);
     if (collection?.membership === 'pinned') clips = clips.filter((clip) => clip.is_pinned);
     if (collection?.membership === 'protected') clips = clips.filter((clip) => clip.is_protected);

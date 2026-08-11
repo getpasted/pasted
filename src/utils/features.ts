@@ -16,6 +16,8 @@ export type FeatureId =
   | 'trash'
   | 'transformations'
   | 'activityLog'
+  | 'types'
+  | 'sources'
   | 'cli'
   | 'help';
 
@@ -35,6 +37,8 @@ export type FeatureSettingKey =
   | 'enableTrash'
   | 'enableTransformations'
   | 'enableActivityLog'
+  | 'enableTypes'
+  | 'enableSources'
   | 'enableCli'
   | 'enableHelp';
 
@@ -103,6 +107,8 @@ export const FEATURE_DEFINITIONS: readonly FeatureDefinition[] = [
   { id: 'transformations', group: 'workflow', settingKey: 'enableTransformations', label: 'Transformations', description: 'Run saved, advanced, and AI-assisted text workflows.', simple: false },
   { id: 'analytics', group: 'discovery', settingKey: 'enableAnalytics', label: 'Analytics & Insights', description: 'Explore clipboard usage and content trends.', simple: false },
   { id: 'activityLog', group: 'app', settingKey: 'enableActivityLog', label: 'Activity Log', description: 'Record and inspect important Pasted events.', simple: false },
+  { id: 'types', group: 'discovery', settingKey: 'enableTypes', label: 'Types', description: 'Browse calculated collections for each kind of clipboard content.', simple: false },
+  { id: 'sources', group: 'discovery', settingKey: 'enableSources', label: 'Sources', description: 'Browse calculated collections for the apps your clips came from.', simple: false },
   { id: 'cli', group: 'app', settingKey: 'enableCli', label: 'Command-Line Interface', description: 'Use pasted to automate clipboard workflows.', simple: false },
   { id: 'help', group: 'app', settingKey: 'enableHelp', label: 'Help & Documentation', description: 'Show in-app documentation and its navigation entry.', simple: true },
 ] as const;
@@ -136,6 +142,8 @@ export function enabledFeatureRecord(settings: AppSettings): Record<FeatureId, b
 }
 
 export function featureForRoute(route: string): FeatureId | null {
+  if (route.startsWith('type-')) return 'types';
+  if (route.startsWith('source-')) return 'sources';
   const tab = route.split(':', 1)[0];
   const routes: Record<string, FeatureId> = {
     sequential: 'queue',
