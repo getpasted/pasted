@@ -262,8 +262,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     return <span className="text-sm">{formatEmojiIcon(iconName)}</span>;
   };
 
-  const sourceFallbackIcon = (source: string) => {
-    const normalized = source.trim().toLowerCase();
+  const sourceFallbackIcon = (source: string | null | undefined) => {
+    const normalized = source?.trim().toLowerCase() ?? '';
     const className = 'sidebar-icon-primary h-4 w-4 shrink-0';
     if (normalized.includes('screenshot') || normalized.includes('screencapture')) {
       return <Camera className={className} strokeWidth={1.8} />;
@@ -329,7 +329,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   }, [clips]);
   const sourceItems = React.useMemo(() => {
     const counts = new Map<string, number>();
-    clips.forEach((clip) => counts.set(clip.source, (counts.get(clip.source) ?? 0) + 1));
+    clips.forEach((clip) => {
+      const source = typeof clip.source === 'string' && clip.source.trim() ? clip.source : 'Unknown';
+      counts.set(source, (counts.get(source) ?? 0) + 1);
+    });
     return [...counts].map(([value, count]) => ({
       value,
       count,

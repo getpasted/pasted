@@ -15,6 +15,7 @@ const historySearchDocs = read('docs/wiki/History-and-Search.md');
 const database = read('src-tauri/src/db.rs');
 const cli = read('src-tauri/src/bin/pasted_cli.rs');
 const clipTypes = read('src/types.ts');
+const appData = read('src/hooks/useAppData.ts');
 
 for (const tab of ['all', 'sequential', 'pinned', 'protected', 'notes', 'trash']) {
   assert.match(registry, new RegExp(`tab:\\s*'${tab}'`), `${tab} must be registered as a system clip collection`);
@@ -56,6 +57,8 @@ assert.match(clipTypes, /source:\s*string;/, 'Frontend clip contracts must expos
 assert.doesNotMatch(clipTypes, /source_app/, 'Frontend clip contracts must not retain the pre-1.0 source_app field');
 assert.match(cli, /"source": source/, 'CLI structured search output must expose the canonical source field');
 assert.match(nativeCommands, /id,content_type,source,is_pinned/, 'CSV exports must expose the canonical source header');
+assert.match(appData, /record\.source_app[\s\S]*source_app:\s*_legacySource/, 'Pre-1.0 cached and IPC clip summaries must migrate source_app without retaining it');
+assert.match(sidebar, /source\?\.trim\(\)\.toLowerCase\(\)\s*\?\?\s*''/, 'Source icon rendering must tolerate stale or incomplete cached metadata');
 assert.match(clipViews, /getClipCollection\(currentTab, selectedBin\)/, 'Clip filtering must resolve the active collection');
 assert.match(emptyState, /collection\?\.emptyTitle/, 'Empty states must come from the collection descriptor');
 assert.match(viewPolicy, /collection\?\.membership/, 'Interaction policy must use collection membership');

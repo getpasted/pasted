@@ -16,6 +16,23 @@ function readCachedArray<T>(key: string): T[] {
   }
 }
 
+function normalizeClipItem(value: unknown): ClipItem | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const record = value as Record<string, unknown>;
+  const source = typeof record.source === 'string'
+    ? record.source
+    : typeof record.source_app === 'string'
+      ? record.source_app
+      : 'Unknown';
+  const { source_app: _legacySource, ...canonical } = record;
+  return { ...canonical, source } as unknown as ClipItem;
+}
+
+function normalizeClipItems(value: unknown): ClipItem[] {
+  if (!Array.isArray(value)) return [];
+  return value.map(normalizeClipItem).filter((clip): clip is ClipItem => clip !== null);
+}
+
 function cacheClipSummaries(clips: ClipItem[]) {
   try {
     localStorage.setItem('pasted_cache_clips', JSON.stringify(clips.slice(0, 50)));
@@ -41,7 +58,7 @@ function mergeClipSummary(clips: ClipItem[], incoming: ClipItem) {
 }
 
 export function useAppData() {
-  const [allClips, setAllClips] = useState<ClipItem[]>(() => readCachedArray('pasted_cache_clips'));
+  const [allClips, setAllClips] = useState<ClipItem[]>(() => normalizeClipItems(readCachedArray('pasted_cache_clips')));
   const [trashedClips, setTrashedClips] = useState<ClipItem[]>([]);
   const [bins, setBins] = useState<Bin[]>(() => readCachedArray('pasted_cache_bins'));
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
@@ -61,11 +78,11 @@ export function useAppData() {
 
   const fetchClips = useCallback(async () => {
     try {
-      const clips = await invoke<ClipItem[]>('get_clips', {
+      const clips = normalizeClipItems(await invoke<unknown[]>('get_clips', {
         searchQuery: null,
         binId: null,
         onlyPinned: false,
-      });
+      }));
       setAllClips(clips);
       void fetchTotalClipCount();
       cacheClipSummaries(clips);
@@ -76,7 +93,7 @@ export function useAppData() {
 
   const fetchTrashedClips = useCallback(async () => {
     try {
-      setTrashedClips(await invoke<ClipItem[]>('get_trashed_clips'));
+      setTrashedClips(normalizeClipItems(await invoke<unknown[]>('get_trashed_clips')));
     } catch (error) {
       console.error('Failed to fetch trashed clips:', error);
     }
@@ -187,8 +204,8 @@ export function useAppData() {
 
     let ignoredStatusTimer: ReturnType<typeof setTimeout> | undefined;
     const unlistenClip = listen<ClipItem | { id: number }>('clip-added', (event) => {
-      const payload = event.payload;
-      if (isCompleteClipEvent(payload)) {
+      const payload = normalizeClipItem(event.payload);
+      if (payload && isCompleteClipEvent(payload)) {
         setAllClips((previous) => {
           const next = mergeClipSummary(previous, payload);
           cacheClipSummaries(next);
