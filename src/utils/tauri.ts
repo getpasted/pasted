@@ -414,6 +414,7 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
     case 'get_clip_transformation_provenance':
       return (mockClipTransformations.get(Number(args?.clipId)) || null) as unknown as T;
     case 'copy_clip_to_system':
+    case 'copy_clip_by_id':
     case 'paste_text_to_frontmost':
       return null as unknown as T;
     case 'get_sequential_status':

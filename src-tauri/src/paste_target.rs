@@ -211,7 +211,12 @@ impl PasteTargetState {
 /// Clipboard capture uses this shared platform adapter for blacklist behavior,
 /// while Queue and HUD paste retain the richer target record above.
 pub(crate) fn active_application_name() -> Option<String> {
-    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    #[cfg(target_os = "macos")]
+    {
+        frontmost_application_name()
+    }
+
+    #[cfg(target_os = "windows")]
     {
         frontmost_application().map(|target| target.name)
     }
@@ -231,6 +236,27 @@ pub(crate) fn active_application_name() -> Option<String> {
 
     #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
     None
+}
+
+#[cfg(target_os = "macos")]
+fn frontmost_application_name() -> Option<String> {
+    use objc::runtime::Object;
+    use objc::{msg_send, sel, sel_impl};
+
+    unsafe {
+        let workspace: *mut Object = msg_send![objc::class!(NSWorkspace), sharedWorkspace];
+        if workspace.is_null() {
+            return None;
+        }
+        let application: *mut Object = msg_send![workspace, frontmostApplication];
+        if application.is_null() {
+            return None;
+        }
+        // Clipboard attribution needs only the display name. Do not make it
+        // depend on the bundle identifier required by automatic paste targets:
+        // transient screenshot helpers may legitimately omit that identifier.
+        ns_string(application, sel!(localizedName))
+    }
 }
 
 #[cfg(target_os = "macos")]

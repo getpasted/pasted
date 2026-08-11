@@ -1685,6 +1685,25 @@ impl DbState {
         self.get_clip_by_id_internal(&conn, id)
     }
 
+    pub fn reattribute_image_capture(
+        &self,
+        clip_id: i64,
+        content_hash: &str,
+        source_app: &str,
+    ) -> Result<Option<ClipItem>> {
+        let conn = self.conn.lock();
+        let changed = conn.execute(
+            "UPDATE clips SET source_app = ?1
+             WHERE id = ?2 AND content_hash = ?3 AND content_type = 'image'
+               AND COALESCE(is_trashed, 0) = 0",
+            params![source_app, clip_id, content_hash],
+        )?;
+        if changed == 0 {
+            return Ok(None);
+        }
+        self.get_clip_by_id_internal(&conn, clip_id).map(Some)
+    }
+
     pub fn enforce_history_limit_internal(&self, conn: &Connection) -> Result<()> {
         let keep_count: i64 = conn
             .query_row(
@@ -5412,6 +5431,49 @@ mod tests {
         assert_eq!(derived_origin_kind("image", "Preview"), "clipboard_content");
         assert_eq!(derived_origin_kind("text", "Safari"), "clipboard_content");
         assert_eq!(derived_origin_kind("text", "CLI Terminal"), "command_line");
+    }
+
+    #[test]
+    fn image_capture_reattribution_is_hash_safe_and_image_only() {
+        let db = setup_test_db();
+        let image = db
+            .save_clip(
+                "image",
+                None,
+                None,
+                Some("data:image/png;base64,cGFzdGVk"),
+                "reattribute-image-hash",
+                "Safari",
+            )
+            .unwrap();
+        let file = db
+            .save_clip(
+                "file",
+                Some("[\"/tmp/capture.png\"]"),
+                None,
+                None,
+                "reattribute-file-hash",
+                "pasted-app",
+            )
+            .unwrap();
+
+        assert!(db
+            .reattribute_image_capture(image.id, "wrong-hash", "Screenshot")
+            .unwrap()
+            .is_none());
+        assert_eq!(db.get_clip_by_id(image.id).unwrap().source_app, "Safari");
+
+        let updated = db
+            .reattribute_image_capture(image.id, &image.content_hash, "Screenshot")
+            .unwrap()
+            .unwrap();
+        assert_eq!(updated.source_app, "Screenshot");
+
+        assert!(db
+            .reattribute_image_capture(file.id, &file.content_hash, "Screenshot")
+            .unwrap()
+            .is_none());
+        assert_eq!(db.get_clip_by_id(file.id).unwrap().source_app, "pasted-app");
     }
 
     #[test]

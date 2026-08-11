@@ -492,11 +492,15 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
 
   const handleCopy = async () => {
     try {
-      await invoke('copy_clip_to_system', {
-        text: clip.content_type === 'file' ? null : displayText,
-        imageBase64: clip.content_type === 'image' ? resolvedImageBase64 : null,
-        filePaths: clip.content_type === 'file' ? getClipFilePaths(clip) : null,
-      });
+      if (clip.content_type === 'image' || clip.content_type === 'file') {
+        await invoke('copy_clip_by_id', { clipId: clip.id });
+      } else {
+        await invoke('copy_clip_to_system', {
+          text: displayText,
+          imageBase64: null,
+          filePaths: null,
+        });
+      }
       setCopied(true);
       if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
       copiedTimerRef.current = setTimeout(() => setCopied(false), 2000);

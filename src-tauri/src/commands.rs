@@ -1286,11 +1286,6 @@ pub fn copy_clip_to_system(
             .set()
             .file_list(&paths)
             .map_err(|error| error.to_string())?;
-    } else if let Some(t) = text {
-        if t.len() > crate::resource_limits::MAX_CLIP_TEXT_BYTES {
-            return Err("Clip text exceeds Pasted's safety limit".to_string());
-        }
-        clipboard.set_text(t).map_err(|e| e.to_string())?;
     } else if let Some(img_b64) = image_base64 {
         // Strip data:image/png;base64,
         let clean = img_b64.split(',').next_back().unwrap_or(&img_b64);
@@ -1308,6 +1303,11 @@ pub fn copy_clip_to_system(
             bytes: std::borrow::Cow::Owned(rgba.into_raw()),
         };
         clipboard.set_image(img_data).map_err(|e| e.to_string())?;
+    } else if let Some(t) = text {
+        if t.len() > crate::resource_limits::MAX_CLIP_TEXT_BYTES {
+            return Err("Clip text exceeds Pasted's safety limit".to_string());
+        }
+        clipboard.set_text(t).map_err(|e| e.to_string())?;
     }
 
     Ok(())
@@ -1334,10 +1334,11 @@ pub(crate) fn write_clip_to_clipboard(
             .file_list(&paths)
             .map_err(|error| error.to_string());
     }
-    if let Some(text) = clip.text_content.as_deref() {
-        return clipboard.set_text(text).map_err(|error| error.to_string());
-    }
-    if let Some(image_base64) = clip.image_base64.as_deref() {
+    if clip.content_type == "image" {
+        let image_base64 = clip
+            .image_base64
+            .as_deref()
+            .ok_or_else(|| "Image clip has no stored image data".to_string())?;
         let clean = image_base64.split(',').next_back().unwrap_or(image_base64);
         if clean.len() > crate::resource_limits::MAX_STORED_IMAGE_BASE64_BYTES {
             return Err("Clip image exceeds Pasted's safety limit".to_string());
@@ -1354,6 +1355,9 @@ pub(crate) fn write_clip_to_clipboard(
             })
             .map_err(|error| error.to_string());
     }
+    if let Some(text) = clip.text_content.as_deref() {
+        return clipboard.set_text(text).map_err(|error| error.to_string());
+    }
     Err("Clip has no copyable content".to_string())
 }
 
@@ -1369,10 +1373,11 @@ fn clip_internal_clipboard_fingerprint(clip: &ClipItem) -> Result<String, String
             })?;
         return Ok(crate::clipboard_fingerprint::file_list(&paths));
     }
-    if let Some(text) = clip.text_content.as_deref() {
-        return Ok(text.to_string());
-    }
-    if let Some(image_base64) = clip.image_base64.as_deref() {
+    if clip.content_type == "image" {
+        let image_base64 = clip
+            .image_base64
+            .as_deref()
+            .ok_or_else(|| "Image clip has no stored image data".to_string())?;
         let clean = image_base64.split(',').next_back().unwrap_or(image_base64);
         let bytes = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, clean)
             .map_err(|error| error.to_string())?;
@@ -1381,7 +1386,29 @@ fn clip_internal_clipboard_fingerprint(clip: &ClipItem) -> Result<String, String
             image.to_rgba8().as_raw(),
         ));
     }
+    if let Some(text) = clip.text_content.as_deref() {
+        return Ok(text.to_string());
+    }
     Err("Clip has no copyable content".to_string())
+}
+
+#[tauri::command]
+pub fn copy_clip_by_id(
+    clip_id: i64,
+    db: State<'_, Arc<DbState>>,
+    sequential: State<'_, Arc<SequentialQueueState>>,
+) -> Result<(), String> {
+    let clip = db
+        .get_clip_by_id(clip_id)
+        .map_err(|error| error.to_string())?;
+    let fingerprint = clip_internal_clipboard_fingerprint(&clip)?;
+    let mut clipboard = Clipboard::new().map_err(|error| error.to_string())?;
+    sequential.mark_internal_clipboard_write(&fingerprint);
+    if let Err(error) = write_clip_to_clipboard(&mut clipboard, &clip) {
+        sequential.clear_internal_clipboard_write();
+        return Err(error);
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -3361,6 +3388,45 @@ fn install_cli_symlink(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn ocr_text_never_replaces_an_image_clips_copy_fingerprint() {
+        let rgba = vec![12, 34, 56, 255];
+        let image = image::RgbaImage::from_raw(1, 1, rgba.clone()).unwrap();
+        let mut encoded = Cursor::new(Vec::new());
+        image::DynamicImage::ImageRgba8(image)
+            .write_to(&mut encoded, image::ImageFormat::Png)
+            .unwrap();
+        let image_base64 = format!(
+            "data:image/png;base64,{}",
+            base64::engine::general_purpose::STANDARD.encode(encoded.into_inner())
+        );
+        let clip = ClipItem {
+            id: 1,
+            content_type: "image".to_string(),
+            text_content: Some("recognized OCR text".to_string()),
+            html_content: None,
+            image_base64: Some(image_base64),
+            image_path: None,
+            content_hash: "stored-image-hash".to_string(),
+            source_app: "Screenshot".to_string(),
+            is_pinned: false,
+            is_protected: false,
+            is_transformed: false,
+            pin_order: 0,
+            bin_id: None,
+            bin_ids: None,
+            note: None,
+            is_trashed: false,
+            trashed_at: None,
+            created_at: "2026-08-11T00:00:00Z".to_string(),
+        };
+
+        assert_eq!(
+            clip_internal_clipboard_fingerprint(&clip).unwrap(),
+            crate::clipboard_fingerprint::image_rgba(&rgba)
+        );
+    }
 
     #[cfg(target_os = "macos")]
     fn minimal_pdf() -> Vec<u8> {

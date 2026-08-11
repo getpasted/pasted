@@ -2,6 +2,12 @@
 
 Copied files remain file references. Pasted can display bounded previews without replacing the original clipboard representation.
 
+Some screenshot tools publish a composite clipboard item containing both an image file reference and bitmap bytes. Pasted preserves explicit copies from Finder and other file managers as file references, but treats screenshot and otherwise ambiguous single-image composites as images so image paste and OCR remain available.
+
+macOS does not expose a reliable clipboard-owner application for these payloads. Pasted labels a recognized composite capture as **Screenshot** instead of attributing it to whichever app happens to have focus. A screenshot-tool name is used only when the clipboard metadata provides a confident signal, such as a standard CleanShot filename.
+
+When the file and bitmap representations arrive as separate clipboard updates, Pasted compares their bounded decoded RGBA content. An exact match is kept as one screenshot image rather than duplicated as an image and a file.
+
 ## File clips
 
 - Multiple files preserve selection order.
@@ -24,4 +30,3 @@ On macOS, Apple Vision can extract searchable text from clipboard images and scr
 - Backup/import preserves completed OCR state.
 
 Use **Settings → Debug** or `pasted ocr status --json` to inspect background progress.
-

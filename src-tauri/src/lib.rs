@@ -381,6 +381,7 @@ pub fn run() {
             commands::batch_trash_clips,
             commands::batch_assign_bin_clips,
             commands::copy_clip_to_system,
+            commands::copy_clip_by_id,
             commands::paste_text_to_frontmost,
             commands::get_bins,
             commands::create_bin,

@@ -1,5 +1,5 @@
 import { useCallback, useState, type Dispatch, type SetStateAction } from 'react';
-import { getClipFilePaths, type AppSettings, type Bin, type ClipItem, type Pipeline, type SavedTransform } from '../types';
+import { type AppSettings, type Bin, type ClipItem, type Pipeline, type SavedTransform } from '../types';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { sortClipsForTimeline } from '../utils/clipOrder';
 import { soundManager } from '../utils/sound';
@@ -268,13 +268,18 @@ export function useClipActions({
 
   const copyClip = useCallback(async (clip: ClipItem) => {
     try {
+      if (clip.content_type === 'image' || clip.content_type === 'file') {
+        await invoke('copy_clip_by_id', { clipId: clip.id });
+        soundManager.playCopySound();
+        return;
+      }
       const text = settings.alwaysPastePlainText && clip.text_content
         ? htmlToPlainText(clip.text_content)
         : clip.text_content;
       await invoke('copy_clip_to_system', {
-        text: clip.content_type === 'file' ? null : text,
-        imageBase64: settings.alwaysPastePlainText ? null : clip.image_base64,
-        filePaths: clip.content_type === 'file' ? getClipFilePaths(clip) : null,
+        text,
+        imageBase64: null,
+        filePaths: null,
       });
       soundManager.playCopySound();
     } catch (error) {
