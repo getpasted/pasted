@@ -90,8 +90,10 @@ assert.match(titlebarSource, /TitlebarDoubleClickAction::Minimize/);
 assert.match(titlebarSource, /TitlebarDoubleClickAction::None/);
 assert.match(titlebarSource, /TitlebarDoubleClickAction::Fill/);
 assert.match(titlebarSource, /run_on_main_thread/);
-assert.match(titlebarSource, /performZoom/);
-assert.match(titlebarSource, /window\.maximize\(\)/);
+assert.match(titlebarSource, /STANDARD_ZOOM_WIDTH: f64 = 1040\.0/);
+assert.match(titlebarSource, /STANDARD_ZOOM_HEIGHT: f64 = 640\.0/);
+assert.match(titlebarSource, /setFrame: next display: 1i8 animate: 0i8/);
+assert.match(titlebarSource, /TitlebarDoubleClickAction::Fill => visible/);
 assert.match(rustLibSource, /commands::perform_titlebar_double_click/);
 
 console.log('Platform window-chrome audit passed.');
