@@ -10,6 +10,11 @@ import { clampAppZoom } from '../utils/appZoom';
 const DEFAULT_SETTINGS: AppSettings = {
   textSize: 16,
   enableSounds: true,
+  captureFeedback: true,
+  captureFeedbackIgnored: false,
+  captureFeedbackPreview: false,
+  captureFeedbackPosition: 'top-right',
+  captureFeedbackDismissSeconds: 7,
   openAtLogin: true,
   dockMenubarIcon: 'both',
   maxClipSizeMb: 100,
@@ -62,6 +67,16 @@ function parseSavedSettings(saved: Record<string, string>) {
 
   if (saved.textSize) next.textSize = clampAppZoom(numberValue('textSize', next.textSize));
   if (saved.enableSounds !== undefined) next.enableSounds = saved.enableSounds === 'true';
+  if (saved.captureFeedback !== undefined) next.captureFeedback = saved.captureFeedback === 'true';
+  if (saved.captureFeedbackIgnored !== undefined) next.captureFeedbackIgnored = saved.captureFeedbackIgnored === 'true';
+  if (saved.captureFeedbackPreview !== undefined) next.captureFeedbackPreview = saved.captureFeedbackPreview === 'true';
+  if (['top-left', 'top-right', 'bottom-left', 'bottom-right'].includes(saved.captureFeedbackPosition)) {
+    next.captureFeedbackPosition = saved.captureFeedbackPosition as AppSettings['captureFeedbackPosition'];
+  }
+  if (saved.captureFeedbackDismissSeconds !== undefined) {
+    const seconds = numberValue('captureFeedbackDismissSeconds', next.captureFeedbackDismissSeconds);
+    next.captureFeedbackDismissSeconds = [0, 3, 5, 7, 10, 15, 30].includes(seconds) ? seconds : 7;
+  }
   if (saved.openAtLogin !== undefined) next.openAtLogin = saved.openAtLogin === 'true';
   if (['auto_hide', 'both', 'menubar_only'].includes(saved.dockMenubarIcon)) next.dockMenubarIcon = saved.dockMenubarIcon as AppSettings['dockMenubarIcon'];
   if (saved.maxClipSizeMb) next.maxClipSizeMb = numberValue('maxClipSizeMb', next.maxClipSizeMb);
@@ -129,7 +144,7 @@ function readCachedTheme(): AppSettings['themeMode'] {
   }
 }
 
-interface WindowAppearanceChanged {
+interface AppSettingChanged {
   key: string;
   value: string;
 }
@@ -179,11 +194,11 @@ export function useAppSettings() {
   useEffect(() => {
     if (!(window as Window & { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__) return undefined;
     let disposed = false;
-    let unlistenAppearance: (() => void) | undefined;
+    let unlistenSetting: (() => void) | undefined;
 
-    void listen<WindowAppearanceChanged>('window-appearance-changed', ({ payload }) => {
+    void listen<AppSettingChanged>('app-setting-changed', ({ payload }) => {
       if (!payload || disposed) return;
-      if (payload.key !== 'themeMode' && payload.key !== 'textSize') return;
+      if (!(payload.key in DEFAULT_SETTINGS)) return;
       const parsed = parseSavedSettings({ [payload.key]: payload.value });
       const key = payload.key as keyof AppSettings;
       setAppSettings((current) => Object.is(current[key], parsed[key])
@@ -191,12 +206,12 @@ export function useAppSettings() {
         : { ...current, [key]: parsed[key] });
     }).then((unlisten) => {
       if (disposed) unlisten();
-      else unlistenAppearance = unlisten;
+      else unlistenSetting = unlisten;
     }).catch(console.error);
 
     return () => {
       disposed = true;
-      unlistenAppearance?.();
+      unlistenSetting?.();
     };
   }, []);
 

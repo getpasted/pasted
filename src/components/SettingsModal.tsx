@@ -12,6 +12,7 @@ import { SettingsDebugPanel } from './SettingsDebugPanel';
 import { SettingsFeaturesPanel } from './SettingsFeaturesPanel';
 import { SettingsAboutPanel } from './SettingsAboutPanel';
 import { SettingsResetPanel } from './SettingsResetPanel';
+import { SettingsNotificationsPanel } from './SettingsNotificationsPanel';
 
 interface SettingsModalProps {
   settings: AppSettings;
@@ -93,6 +94,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
         {activeTab === 'features' && (
           <SettingsFeaturesPanel settings={settings} onUpdateSettings={onUpdateSettings} />
+        )}
+
+        {activeTab === 'notifications' && (
+          <SettingsNotificationsPanel settings={settings} onUpdateSettings={onUpdateSettings} />
         )}
 
         {/* TAB 2: HOTKEYS */}

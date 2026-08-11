@@ -212,6 +212,9 @@ export function useAppData() {
     const unlistenPause = listen<{ is_paused: boolean }>('clipboard-pause-changed', (event) => {
       setIsClipboardPaused(event.payload.is_paused);
     });
+    const unlistenLibraryChanged = listen('clip-library-changed', () => {
+      void Promise.all([fetchClips(), fetchTrashedClips(), fetchTotalClipCount()]);
+    });
     // Native backends should deliver every clip-added event while Pasted is in
     // the background. Reconcile on focus as a safety net for compositors or
     // webviews that coalesce background delivery.
@@ -225,9 +228,10 @@ export function useAppData() {
       void unlistenSequential.then((unlisten) => unlisten());
       void unlistenBlacklist.then((unlisten) => unlisten());
       void unlistenPause.then((unlisten) => unlisten());
+      void unlistenLibraryChanged.then((unlisten) => unlisten());
       void unlistenFocus.then((unlisten) => unlisten());
     };
-  }, [fetchClips]);
+  }, [fetchClips, fetchTotalClipCount, fetchTrashedClips]);
 
   return {
     allClips,

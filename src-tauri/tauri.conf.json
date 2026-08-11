@@ -38,6 +38,23 @@
         "alwaysOnTop": true,
         "visible": false,
         "skipTaskbar": true
+      },
+      {
+        "label": "capture-feedback",
+        "title": "Pasted Capture Feedback",
+        "url": "index.html?view=capture-feedback",
+        "width": 300,
+        "height": 72,
+        "resizable": false,
+        "decorations": false,
+        "transparent": true,
+        "shadow": false,
+        "alwaysOnTop": true,
+        "visible": false,
+        "focus": false,
+        "focusable": false,
+        "backgroundThrottling": "disabled",
+        "skipTaskbar": true
       }
     ],
     "security": {

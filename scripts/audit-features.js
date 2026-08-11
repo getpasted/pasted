@@ -36,13 +36,13 @@ assert.doesNotMatch(
 
 assert.match(
   nativeCommands,
-  /"window-appearance-changed"/,
-  'Native appearance writes must notify every open window',
+  /"app-setting-changed"/,
+  'Native settings writes must notify every open window',
 );
 assert.match(
   settingsHook,
-  /listen<WindowAppearanceChanged>\('window-appearance-changed'/,
-  'Each window must synchronize appearance changed elsewhere',
+  /listen<AppSettingChanged>\('app-setting-changed'/,
+  'Each window must synchronize settings changed elsewhere',
 );
 assert.match(
   settingsHook,

@@ -1,0 +1,127 @@
+import { Bell } from 'lucide-react';
+import type { AppSettings } from '../types';
+import { MenuSelect } from './MenuSelect';
+import { SettingsPanelHeader } from './SettingsPanelHeader';
+
+interface SettingsNotificationsPanelProps {
+  settings: AppSettings;
+  onUpdateSettings: (updates: Partial<AppSettings>) => void;
+}
+
+interface ToggleRowProps {
+  checked: boolean;
+  disabled?: boolean;
+  label: string;
+  description: string;
+  onChange: () => void;
+}
+
+function ToggleRow({ checked, disabled = false, label, description, onChange }: ToggleRowProps) {
+  return (
+    <div className={`flex items-start justify-between gap-4 ${disabled ? 'opacity-45' : ''}`}>
+      <div className="min-w-0">
+        <span className="theme-text-main block font-semibold">{label}</span>
+        <p className="theme-text-muted mt-0.5 text-[11px] leading-normal">{description}</p>
+      </div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        aria-label={`${checked ? 'Disable' : 'Enable'} ${label}`}
+        disabled={disabled}
+        onClick={onChange}
+        className={`settings-switch relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent disabled:cursor-not-allowed ${checked ? 'is-on' : ''}`}
+      >
+        <span className={`settings-switch-thumb pointer-events-none inline-block h-4 w-4 rounded-full shadow transition-transform ${checked ? 'translate-x-4' : 'translate-x-0'}`} />
+      </button>
+    </div>
+  );
+}
+
+const POSITION_OPTIONS = [
+  { value: 'top-left', label: 'Top Left' },
+  { value: 'top-right', label: 'Top Right' },
+  { value: 'bottom-left', label: 'Bottom Left' },
+  { value: 'bottom-right', label: 'Bottom Right' },
+];
+
+const DISMISS_OPTIONS = [
+  { value: '3', label: '3 Seconds' },
+  { value: '5', label: '5 Seconds' },
+  { value: '7', label: '7 Seconds' },
+  { value: '10', label: '10 Seconds' },
+  { value: '15', label: '15 Seconds' },
+  { value: '30', label: '30 Seconds' },
+  { value: '0', label: 'Never' },
+];
+
+export function SettingsNotificationsPanel({ settings, onUpdateSettings }: SettingsNotificationsPanelProps) {
+  return (
+    <div className="space-y-6 text-xs">
+      <SettingsPanelHeader
+        icon={Bell}
+        title="Notifications"
+        description="Quiet confirmation when Pasted captures—or cannot capture—something."
+      />
+
+      <div className="space-y-4">
+        <ToggleRow
+          checked={settings.captureFeedback}
+          label="Capture Feedback"
+          description="Briefly confirms successful captures without taking focus from your work."
+          onChange={() => onUpdateSettings({ captureFeedback: !settings.captureFeedback })}
+        />
+        <ToggleRow
+          checked={settings.captureFeedbackIgnored}
+          disabled={!settings.captureFeedback}
+          label="Show Skipped Captures"
+          description="Also acknowledge clipboard items Pasted intentionally leaves alone."
+          onChange={() => onUpdateSettings({ captureFeedbackIgnored: !settings.captureFeedbackIgnored })}
+        />
+        <ToggleRow
+          checked={settings.captureFeedbackPreview}
+          disabled={!settings.captureFeedback}
+          label="Show Clip Preview"
+          description="Show the captured item with quick actions."
+          onChange={() => onUpdateSettings({ captureFeedbackPreview: !settings.captureFeedbackPreview })}
+        />
+        <div className={`flex items-start justify-between gap-4 ${!settings.captureFeedback || !settings.captureFeedbackPreview ? 'opacity-45' : ''}`}>
+          <div className="min-w-0 flex-1">
+            <span className="theme-text-main block font-semibold">Dismiss Preview After</span>
+            <p className="theme-text-muted mt-0.5 text-[11px] leading-normal">
+              The countdown pauses while your pointer is over a preview.
+            </p>
+          </div>
+          <MenuSelect
+            value={String(settings.captureFeedbackDismissSeconds)}
+            options={DISMISS_OPTIONS}
+            disabled={!settings.captureFeedback || !settings.captureFeedbackPreview}
+            onChange={(value) => onUpdateSettings({ captureFeedbackDismissSeconds: Number(value) })}
+            label="Preview dismissal delay"
+            className="settings-menu-select"
+          />
+        </div>
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0 flex-1">
+            <span className="theme-text-main block font-semibold">Screen Position</span>
+            <p className="theme-text-muted mt-0.5 text-[11px] leading-normal">
+              Uses this corner on whichever display currently contains your pointer.
+            </p>
+          </div>
+          <MenuSelect
+            value={settings.captureFeedbackPosition}
+            options={POSITION_OPTIONS}
+            onChange={(value) => onUpdateSettings({
+              captureFeedbackPosition: value as AppSettings['captureFeedbackPosition'],
+            })}
+            label="Capture feedback position"
+            className="settings-menu-select"
+          />
+        </div>
+      </div>
+      <p className="theme-text-muted text-[11px] leading-normal">
+        Capture feedback stays on your device and never exposes copied text, images, file names, or paths to system notifications.
+      </p>
+    </div>
+  );
+}

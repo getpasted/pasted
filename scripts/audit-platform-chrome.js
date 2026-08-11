@@ -18,8 +18,11 @@ const rustLibSource = fs.readFileSync('src-tauri/src/lib.rs', 'utf8');
 const windowByLabel = (config, label) => config.app.windows.find((window) => window.label === label);
 const baseMain = windowByLabel(baseConfig, 'main');
 const macMain = windowByLabel(macConfig, 'main');
+const captureFeedback = windowByLabel(baseConfig, 'capture-feedback');
 
 assert.ok(baseMain, 'Base configuration must define the main window');
+assert.ok(captureFeedback, 'Base configuration must define the capture feedback window');
+assert.equal(captureFeedback.focus, false, 'Capture feedback must never steal focus');
 assert.equal(
   baseConfig.app.macOSPrivateApi,
   true,

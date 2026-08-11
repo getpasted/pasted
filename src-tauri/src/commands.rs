@@ -27,6 +27,12 @@ fn refresh_native_app_menu(app: &AppHandle, db: &Arc<DbState>) {
 }
 
 fn emit_window_appearance_change(app: &AppHandle, key: &str, value: &str) {
+    let _ = app.emit(
+        "app-setting-changed",
+        serde_json::json!({ "key": key, "value": value }),
+    );
+
+    // Retain the narrower event while older windows and integrations migrate.
     if matches!(key, "themeMode" | "textSize") {
         let _ = app.emit(
             "window-appearance-changed",
@@ -49,6 +55,30 @@ pub fn set_linux_native_menu_theme(app: AppHandle, dark: bool) -> Result<(), Str
 
     #[cfg(not(target_os = "linux"))]
     let _ = (app, dark);
+
+    Ok(())
+}
+
+#[tauri::command]
+pub fn set_overlay_cursor(app: AppHandle, pointing: bool) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        app.run_on_main_thread(move || unsafe {
+            use objc::runtime::Object;
+            use objc::{msg_send, sel, sel_impl};
+
+            let cursor: *mut Object = if pointing {
+                msg_send![objc::class!(NSCursor), pointingHandCursor]
+            } else {
+                msg_send![objc::class!(NSCursor), arrowCursor]
+            };
+            let _: () = msg_send![cursor, set];
+        })
+        .map_err(|error| error.to_string())?;
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    let _ = (app, pointing);
 
     Ok(())
 }
@@ -829,6 +859,60 @@ pub fn get_clips(
 ) -> Result<Vec<ClipItem>, String> {
     db.get_clips(search_query.as_deref(), bin_id, only_pinned)
         .map_err(|e| e.to_string())
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CaptureFeedbackClip {
+    id: i64,
+    content_type: String,
+    preview_text: Option<String>,
+    source_app: String,
+    is_pinned: bool,
+    is_protected: bool,
+    is_trashed: bool,
+}
+
+fn bounded_preview_text(value: &str) -> String {
+    value.chars().take(280).collect()
+}
+
+#[tauri::command]
+pub fn get_capture_feedback_clip(
+    id: i64,
+    db: State<'_, Arc<DbState>>,
+) -> Result<CaptureFeedbackClip, String> {
+    let clip = db.get_clip_by_id(id).map_err(|error| error.to_string())?;
+    let preview_text = if clip.content_type == "file" {
+        clip.text_content
+            .as_deref()
+            .map(parse_file_clip_paths)
+            .map(|paths| {
+                bounded_preview_text(
+                    &paths
+                        .iter()
+                        .filter_map(|path| std::path::Path::new(path).file_name())
+                        .filter_map(|name| name.to_str())
+                        .collect::<Vec<_>>()
+                        .join(" · "),
+                )
+            })
+    } else {
+        clip.text_content
+            .as_deref()
+            .map(bounded_preview_text)
+            .filter(|text| !text.is_empty())
+    };
+
+    Ok(CaptureFeedbackClip {
+        id: clip.id,
+        content_type: clip.content_type,
+        preview_text,
+        source_app: clip.source_app,
+        is_pinned: clip.is_pinned,
+        is_protected: clip.is_protected,
+        is_trashed: clip.is_trashed,
+    })
 }
 
 #[tauri::command]

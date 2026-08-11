@@ -114,7 +114,7 @@ fn trim_webview_memory(app: &tauri::AppHandle) {
 }
 
 #[cfg(target_os = "macos")]
-fn setup_hud_window_transparency(window: &tauri::WebviewWindow) {
+fn setup_overlay_window_transparency(window: &tauri::WebviewWindow) {
     use objc::runtime::Object;
     use objc::{msg_send, sel, sel_impl};
     if let Ok(ns_window_ptr) = window.ns_window() {
@@ -253,7 +253,10 @@ pub fn run() {
             #[cfg(target_os = "macos")]
             {
                 if let Some(hud_win) = app.get_webview_window("hud") {
-                    setup_hud_window_transparency(&hud_win);
+                    setup_overlay_window_transparency(&hud_win);
+                }
+                if let Some(feedback_win) = app.get_webview_window("capture-feedback") {
+                    setup_overlay_window_transparency(&feedback_win);
                 }
             }
 
@@ -340,6 +343,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::get_clips,
+            commands::get_capture_feedback_clip,
             commands::get_clip_image,
             commands::get_file_clip_metadata,
             commands::get_file_clip_previews,
@@ -355,6 +359,7 @@ pub fn run() {
             commands::save_app_settings,
             commands::get_all_app_settings,
             commands::set_linux_native_menu_theme,
+            commands::set_overlay_cursor,
             commands::enforce_clip_retention,
             commands::enforce_revision_retention,
             commands::update_clip_note,

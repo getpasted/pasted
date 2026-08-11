@@ -352,6 +352,11 @@ export interface QueuePasteTarget {
 export interface AppSettings {
   textSize: number;
   enableSounds: boolean;
+  captureFeedback: boolean;
+  captureFeedbackIgnored: boolean;
+  captureFeedbackPreview: boolean;
+  captureFeedbackPosition: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+  captureFeedbackDismissSeconds: number;
   openAtLogin: boolean;
   dockMenubarIcon: 'auto_hide' | 'both' | 'menubar_only';
   maxClipSizeMb: number;

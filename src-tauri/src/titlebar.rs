@@ -3,6 +3,7 @@ use once_cell::sync::Lazy;
 #[cfg(target_os = "macos")]
 use parking_lot::Mutex;
 
+#[cfg(any(target_os = "macos", test))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum TitlebarDoubleClickAction {
     Zoom,
@@ -45,6 +46,7 @@ static ZOOM_RESTORE_FRAME: Lazy<Mutex<Option<WindowFrame>>> = Lazy::new(|| Mutex
 #[cfg(target_os = "macos")]
 static FILL_RESTORE_FRAME: Lazy<Mutex<Option<WindowFrame>>> = Lazy::new(|| Mutex::new(None));
 
+#[cfg(any(target_os = "macos", test))]
 fn parse_titlebar_double_click_action(value: Option<&str>) -> TitlebarDoubleClickAction {
     let normalized = value.unwrap_or_default().trim().to_ascii_lowercase();
     if normalized.contains("mini") {

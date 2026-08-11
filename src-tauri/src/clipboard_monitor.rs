@@ -10,12 +10,40 @@ use tauri::{AppHandle, Emitter};
 use crate::db::DbState;
 use crate::sequential_paste::SequentialQueueState;
 
+#[derive(Clone, Copy, serde::Serialize)]
+#[serde(rename_all = "lowercase")]
+enum CaptureFeedbackKind {
+    Success,
+    Ignored,
+    Failure,
+}
+
+fn capture_feedback_payload(kind: CaptureFeedbackKind, clip_id: Option<i64>) -> serde_json::Value {
+    match clip_id {
+        Some(clip_id) => serde_json::json!({ "kind": kind, "clip_id": clip_id }),
+        None => serde_json::json!({ "kind": kind }),
+    }
+}
+
+fn emit_capture_feedback(app: &AppHandle, kind: CaptureFeedbackKind, clip_id: Option<i64>) {
+    let _ = app.emit_to(
+        "capture-feedback",
+        "clipboard-capture-feedback",
+        capture_feedback_payload(kind, clip_id),
+    );
+}
+
 fn report_ignored_capture(app: &AppHandle, db: &DbState, reason: &str) {
     let _ = db.log_activity("clipboard_capture_ignored", reason);
     let _ = app.emit(
         "clipboard-clip-ignored",
         serde_json::json!({ "reason": reason }),
     );
+    emit_capture_feedback(app, CaptureFeedbackKind::Ignored, None);
+}
+
+fn report_failed_capture(app: &AppHandle) {
+    emit_capture_feedback(app, CaptureFeedbackKind::Failure, None);
 }
 
 fn configured_capture_bytes(db: &DbState) -> usize {
@@ -253,6 +281,7 @@ pub fn start_clipboard_monitor(
                                 serde_json::json!({ "app_name": active_app }),
                             );
                         }
+                        emit_capture_feedback(&app, CaptureFeedbackKind::Ignored, None);
                         continue;
                     }
 
@@ -260,6 +289,7 @@ pub fn start_clipboard_monitor(
                         Ok(serialized) => serialized,
                         Err(error) => {
                             eprintln!("[Pasted Monitor] Failed to serialize file list: {error}");
+                            report_failed_capture(&app);
                             continue;
                         }
                     };
@@ -300,10 +330,17 @@ pub fn start_clipboard_monitor(
                                     );
                                 });
                             }
+                            let clip_id = clip.id;
                             let _ = app.emit("clip-added", clip);
+                            emit_capture_feedback(
+                                &app,
+                                CaptureFeedbackKind::Success,
+                                Some(clip_id),
+                            );
                         }
                         Err(error) => {
                             eprintln!("[Pasted Monitor] Failed to save file clip: {error}");
+                            report_failed_capture(&app);
                         }
                     }
                 }
@@ -360,6 +397,11 @@ pub fn start_clipboard_monitor(
                                             "blacklist-clip-ignored",
                                             serde_json::json!({ "app_name": active_app }),
                                         );
+                                        emit_capture_feedback(
+                                            &app,
+                                            CaptureFeedbackKind::Ignored,
+                                            None,
+                                        );
                                         continue;
                                     }
                                 }
@@ -393,6 +435,11 @@ pub fn start_clipboard_monitor(
                         ) {
                             Ok(clip) => {
                                 let _ = app.emit("clip-added", clip.clone());
+                                emit_capture_feedback(
+                                    &app,
+                                    CaptureFeedbackKind::Success,
+                                    Some(clip.id),
+                                );
                                 let automation_db = db_state.clone();
                                 let automation_app = app.clone();
                                 let automation_type = content_type.clone();
@@ -425,6 +472,7 @@ pub fn start_clipboard_monitor(
                             }
                             Err(e) => {
                                 eprintln!("[Pasted Monitor] Failed to save clip: {}", e);
+                                report_failed_capture(&app);
                             }
                         }
                     }
@@ -484,6 +532,7 @@ pub fn start_clipboard_monitor(
                                         "blacklist-clip-ignored",
                                         serde_json::json!({ "app_name": active_app }),
                                     );
+                                    emit_capture_feedback(&app, CaptureFeedbackKind::Ignored, None);
                                     continue;
                                 }
                             }
@@ -514,6 +563,11 @@ pub fn start_clipboard_monitor(
                         {
                             Ok(clip) => {
                                 let _ = app.emit("clip-added", clip.clone());
+                                emit_capture_feedback(
+                                    &app,
+                                    CaptureFeedbackKind::Success,
+                                    Some(clip.id),
+                                );
                                 if crate::features::is_enabled(
                                     &db_state,
                                     crate::features::Feature::Ocr,
@@ -527,8 +581,11 @@ pub fn start_clipboard_monitor(
                             }
                             Err(e) => {
                                 eprintln!("[Pasted Monitor] Failed to save image clip: {}", e);
+                                report_failed_capture(&app);
                             }
                         }
+                    } else {
+                        report_failed_capture(&app);
                     }
                 }
             }
@@ -612,7 +669,27 @@ fn rgba_to_png(width: u32, height: u32, rgba_data: &[u8]) -> Option<Vec<u8>> {
 
 #[cfg(test)]
 mod tests {
-    use super::{detect_content_type, ContentDetectionSettings};
+    use super::{
+        capture_feedback_payload, detect_content_type, CaptureFeedbackKind,
+        ContentDetectionSettings,
+    };
+
+    #[test]
+    fn capture_feedback_never_contains_clipboard_data() {
+        for (kind, expected) in [
+            (CaptureFeedbackKind::Success, "success"),
+            (CaptureFeedbackKind::Ignored, "ignored"),
+            (CaptureFeedbackKind::Failure, "failure"),
+        ] {
+            let payload = capture_feedback_payload(kind, None);
+            assert_eq!(payload, serde_json::json!({ "kind": expected }));
+            assert_eq!(payload.as_object().map(|object| object.len()), Some(1));
+        }
+        assert_eq!(
+            capture_feedback_payload(CaptureFeedbackKind::Success, Some(42)),
+            serde_json::json!({ "kind": "success", "clip_id": 42 })
+        );
+    }
 
     #[test]
     fn six_digit_codes_are_text_not_colors() {
