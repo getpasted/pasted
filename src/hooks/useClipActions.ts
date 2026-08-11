@@ -31,6 +31,7 @@ interface ClipActionsInput {
   fetchTrashedClips: () => Promise<void>;
   fetchSequentialStatus: () => Promise<void>;
   keepTrashedClipsVisible: boolean;
+  onClipsRepositioned?: (ids: number[]) => void;
 }
 
 export function useClipActions({
@@ -49,6 +50,7 @@ export function useClipActions({
   fetchTrashedClips,
   fetchSequentialStatus,
   keepTrashedClipsVisible,
+  onClipsRepositioned,
 }: ClipActionsInput) {
   const [transformingClipIds, setTransformingClipIds] = useState<Set<number>>(() => new Set());
   const [transformErrorsByClipId, setTransformErrorsByClipId] = useState<Map<number, string>>(() => new Map());
@@ -86,6 +88,9 @@ export function useClipActions({
     const nextPinState = !(allClips.find((clip) => clip.id === id)?.is_pinned ?? false);
 
     const targetIdSet = new Set(targetIds);
+    onClipsRepositioned?.(allClips
+      .filter((clip) => targetIdSet.has(clip.id) && Boolean(clip.is_pinned) !== nextPinState)
+      .map((clip) => clip.id));
     setAllClips((previous) => {
       const updated = previous.map((clip) => (
         targetIdSet.has(clip.id) ? { ...clip, is_pinned: nextPinState } : clip
@@ -116,7 +121,7 @@ export function useClipActions({
       console.error('Failed to update pinned state:', error);
       void fetchClips();
     });
-  }, [allClips, fetchClips, selectedClipIds, setAllClips, setSelectedClip]);
+  }, [allClips, fetchClips, onClipsRepositioned, selectedClipIds, setAllClips, setSelectedClip]);
 
   const toggleProtected = useCallback((id: number) => {
     setAllClips((previous) => previous.map((clip) => (
@@ -143,6 +148,7 @@ export function useClipActions({
     if (idsToChange.length === 0) return;
     const changedIdSet = new Set(idsToChange);
 
+    onClipsRepositioned?.(idsToChange);
     setAllClips((previous) => {
       const updated = previous.map((clip) => (
         changedIdSet.has(clip.id) ? { ...clip, is_pinned: pinState } : clip
@@ -170,7 +176,7 @@ export function useClipActions({
       console.error('Failed to set pinned state:', error);
       void fetchClips();
     });
-  }, [allClips, fetchClips, selectedClipIds, setAllClips, setSelectedClip]);
+  }, [allClips, fetchClips, onClipsRepositioned, selectedClipIds, setAllClips, setSelectedClip]);
 
   const setProtected = useCallback((id: number, protectedState: boolean) => {
     const targetIds = selectedClipIds.size > 1 && selectedClipIds.has(id)

@@ -416,6 +416,14 @@ export default function App() {
   const isPinnedCollection = currentCollection?.membership === 'pinned';
   const isBinCollection = currentCollection?.membership === 'bin' && selectedBinId !== null;
   const clipListRef = useRef<HTMLDivElement | null>(null);
+  const pendingRepositionedClipRevealIdRef = useRef<number | null>(null);
+  const repositionedClipAnimationFrameRef = useRef<number | null>(null);
+  const requestRepositionedClipReveal = useCallback((ids: number[]) => {
+    if (currentCollection?.membership !== 'all' && currentCollection?.membership !== 'bin') return;
+    pendingRepositionedClipRevealIdRef.current = selectedClip && ids.includes(selectedClip.id)
+      ? selectedClip.id
+      : ids[0] ?? null;
+  }, [currentCollection?.membership, selectedClip]);
   const queueReorderIds = useMemo(
     () => isQueueCollection ? (seqStatus?.item_ids ?? []).map(String) : [],
     [isQueueCollection, seqStatus?.item_ids],
@@ -508,6 +516,62 @@ export default function App() {
       if (secondFrame) cancelAnimationFrame(secondFrame);
     };
   }, [handleClipListScroll, pinnedShelfSignature]);
+
+  useLayoutEffect(() => {
+    const clipId = pendingRepositionedClipRevealIdRef.current;
+    const element = clipListRef.current;
+    if (clipId === null || !element) return;
+    const card = element.querySelector<HTMLElement>(`[data-clip-id="${clipId}"]`);
+    pendingRepositionedClipRevealIdRef.current = null;
+    if (!card) return;
+
+    const getTargetScrollTop = () => Math.max(
+      0,
+      Math.min(
+        element.scrollTop + card.getBoundingClientRect().top - element.getBoundingClientRect().top,
+        element.scrollHeight - element.clientHeight,
+      ),
+    );
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      element.scrollTop = getTargetScrollTop();
+      return;
+    }
+
+    if (repositionedClipAnimationFrameRef.current !== null) {
+      cancelAnimationFrame(repositionedClipAnimationFrameRef.current);
+    }
+    const durationMs = 260;
+    // Let browser scroll anchoring settle after the card moves in the DOM,
+    // then measure from the actual painted position before animating.
+    repositionedClipAnimationFrameRef.current = requestAnimationFrame((startedAt) => {
+      const startScrollTop = element.scrollTop;
+      const targetScrollTop = getTargetScrollTop();
+      const distance = targetScrollTop - startScrollTop;
+      if (distance === 0) {
+        repositionedClipAnimationFrameRef.current = null;
+        return;
+      }
+
+      const animate = (now: number) => {
+        const progress = Math.min((now - startedAt) / durationMs, 1);
+        const easedProgress = 1 - Math.pow(1 - progress, 3);
+        element.scrollTop = startScrollTop + distance * easedProgress;
+        if (progress < 1) {
+          repositionedClipAnimationFrameRef.current = requestAnimationFrame(animate);
+        } else {
+          element.scrollTop = getTargetScrollTop();
+          repositionedClipAnimationFrameRef.current = null;
+        }
+      };
+      animate(startedAt);
+    });
+  }, [displayedClips]);
+
+  useEffect(() => () => {
+    if (repositionedClipAnimationFrameRef.current !== null) {
+      cancelAnimationFrame(repositionedClipAnimationFrameRef.current);
+    }
+  }, []);
 
   const selectPinnedShelfClip = useCallback((clip: ClipItem) => {
     const index = displayedClips.findIndex((item) => item.id === clip.id);
@@ -679,6 +743,7 @@ export default function App() {
     fetchTrashedClips,
     fetchSequentialStatus,
     keepTrashedClipsVisible: currentTab === 'search',
+    onClipsRepositioned: requestRepositionedClipReveal,
   });
 
   const handleAssignClipToBin = useCallback(
@@ -1328,6 +1393,9 @@ export default function App() {
                   onClick={() => {
                     const ids = Array.from(selectedClipIds);
                     const idSet = new Set(ids);
+                    requestRepositionedClipReveal(allClips
+                      .filter((clip) => idSet.has(clip.id) && !clip.is_pinned)
+                      .map((clip) => clip.id));
                     setAllClips((previous) => {
                       const newlyPinned = previous
                         .filter((clip) => idSet.has(clip.id))
@@ -1356,6 +1424,9 @@ export default function App() {
                   onClick={() => {
                     const ids = Array.from(selectedClipIds);
                     const idSet = new Set(ids);
+                    requestRepositionedClipReveal(allClips
+                      .filter((clip) => idSet.has(clip.id) && clip.is_pinned)
+                      .map((clip) => clip.id));
                     setAllClips((previous) => {
                       const updated = previous.map((clip) => idSet.has(clip.id)
                         ? { ...clip, is_pinned: false, pin_order: 0 }
