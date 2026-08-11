@@ -54,6 +54,11 @@ pub fn set_linux_native_menu_theme(app: AppHandle, dark: bool) -> Result<(), Str
 }
 
 #[tauri::command]
+pub fn perform_titlebar_double_click(window: tauri::WebviewWindow) -> Result<(), String> {
+    crate::titlebar::perform_titlebar_double_click(window)
+}
+
+#[tauri::command]
 pub fn get_installation_diagnostics(
     app: AppHandle,
     db: State<'_, Arc<DbState>>,

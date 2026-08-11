@@ -11,6 +11,9 @@ const cargoManifest = fs.readFileSync('src-tauri/Cargo.toml', 'utf8');
 const rustMainSource = fs.readFileSync('src-tauri/src/main.rs', 'utf8');
 const settingsSource = fs.readFileSync('src/hooks/useAppSettings.ts', 'utf8');
 const linuxThemeSource = fs.readFileSync('src-tauri/src/linux_native_theme.rs', 'utf8');
+const windowDragSource = fs.readFileSync('src/utils/windowDrag.ts', 'utf8');
+const titlebarSource = fs.readFileSync('src-tauri/src/titlebar.rs', 'utf8');
+const rustLibSource = fs.readFileSync('src-tauri/src/lib.rs', 'utf8');
 
 const windowByLabel = (config, label) => config.app.windows.find((window) => window.label === label);
 const baseMain = windowByLabel(baseConfig, 'main');
@@ -77,5 +80,18 @@ assert.match(
   /arboard = \{ version = "3\.4", features = \["wayland-data-control"\] \}/,
   'Linux clipboard history needs Wayland data-control instead of an XWayland fallback',
 );
+assert.match(windowDragSource, /isInteractiveTitlebarTarget\(event\.target\)/);
+assert.match(windowDragSource, /document\.documentElement\.dataset\.platform === 'macos'/);
+assert.match(windowDragSource, /event\.detail === 2/);
+assert.match(windowDragSource, /perform_titlebar_double_click/);
+assert.match(windowDragSource, /\.titlebar-no-drag/);
+assert.match(titlebarSource, /AppleActionOnDoubleClick/);
+assert.match(titlebarSource, /TitlebarDoubleClickAction::Minimize/);
+assert.match(titlebarSource, /TitlebarDoubleClickAction::None/);
+assert.match(titlebarSource, /TitlebarDoubleClickAction::Fill/);
+assert.match(titlebarSource, /run_on_main_thread/);
+assert.match(titlebarSource, /performZoom/);
+assert.match(titlebarSource, /window\.maximize\(\)/);
+assert.match(rustLibSource, /commands::perform_titlebar_double_click/);
 
 console.log('Platform window-chrome audit passed.');

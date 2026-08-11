@@ -23,6 +23,7 @@ mod paste_target;
 pub mod resource_limits;
 mod sequential_paste;
 mod settings_activity;
+mod titlebar;
 mod transformation_intent;
 pub mod transformation_service;
 
@@ -446,7 +447,8 @@ pub fn run() {
             commands::get_analytics_summary,
             commands::install_cli_to_path,
             commands::get_hotkey_capability_status,
-            commands::request_accessibility_permission
+            commands::request_accessibility_permission,
+            commands::perform_titlebar_double_click
         ])
         .run(tauri::generate_context!())
         .expect("error while running Pasted application");
