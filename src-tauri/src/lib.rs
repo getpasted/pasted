@@ -444,7 +444,7 @@ pub fn run() {
             commands::toggle_hud_window,
             commands::paste_clip_by_id,
             commands::set_dock_visibility,
-            commands::get_source_app_icons,
+            commands::get_source_icons,
             commands::get_installed_applications,
             commands::open_emoji_picker,
             commands::extract_ocr_from_clip,

@@ -50,6 +50,14 @@ fn main() -> Result<()> {
     let command = args.get(1).map(|s| s.as_str()).unwrap_or("help");
 
     let db_path = get_db_path();
+    let migration_db = match DbState::new(db_path.clone()) {
+        Ok(db) => db,
+        Err(error) => {
+            eprintln!("Error migrating Pasted database at '{db_path:?}': {error}");
+            std::process::exit(1);
+        }
+    };
+    drop(migration_db);
     let conn = match Connection::open(&db_path) {
         Ok(c) => c,
         Err(e) => {
@@ -57,26 +65,6 @@ fn main() -> Result<()> {
             std::process::exit(1);
         }
     };
-
-    // Ensure database table schema exists
-    let _ = conn.execute(
-        "CREATE TABLE IF NOT EXISTS clips (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            content_type TEXT NOT NULL,
-            text_content TEXT,
-            html_content TEXT,
-            image_base64 TEXT,
-            content_hash TEXT,
-            source_app TEXT DEFAULT 'System Clipboard',
-            is_pinned INTEGER DEFAULT 0,
-            bin_id INTEGER,
-            note TEXT,
-            is_trashed INTEGER DEFAULT 0,
-            trashed_at TEXT,
-            created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
-        )",
-        [],
-    );
 
     let cli_setting = conn
         .query_row(
@@ -661,7 +649,7 @@ fn main() -> Result<()> {
                             "#{}\t{}\t{}\t{}",
                             clip.id,
                             clip.content_type,
-                            clip.source_app,
+                            clip.source,
                             clip.text_content.as_deref().unwrap_or("")
                         );
                     }
@@ -778,7 +766,7 @@ fn main() -> Result<()> {
             };
             drop(detection_db);
             conn.execute(
-                "INSERT INTO clips (content_type, text_content, source_app, created_at) VALUES (?1, ?2, 'CLI Terminal', strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))",
+                "INSERT INTO clips (content_type, text_content, source, created_at) VALUES (?1, ?2, 'CLI Terminal', strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))",
                 params![content_type, trimmed],
             )?;
             let id = conn.last_insert_rowid();
@@ -795,7 +783,7 @@ fn main() -> Result<()> {
         "list" | "ls" => {
             let limit: i64 = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(10);
             let mut stmt = conn.prepare(
-                "SELECT id, content_type, text_content, source_app, created_at FROM clips WHERE is_trashed = 0 ORDER BY created_at DESC LIMIT ?1"
+                "SELECT id, content_type, text_content, source, created_at FROM clips WHERE is_trashed = 0 ORDER BY created_at DESC LIMIT ?1"
             )?;
             let rows = stmt.query_map(params![limit], |row| {
                 Ok((
@@ -850,12 +838,12 @@ fn main() -> Result<()> {
                 .join(" ");
             let pattern = format!("%{}%", query);
             let mut stmt = conn.prepare(
-                "SELECT id, content_type, text_content, source_app, created_at
+                "SELECT id, content_type, text_content, source, created_at
                  FROM clips
                  WHERE is_trashed = 0
                    AND (?1 = '' OR text_content LIKE ?2)
                    AND (?3 IS NULL OR content_type = ?3)
-                   AND (?4 IS NULL OR source_app = ?4)
+                   AND (?4 IS NULL OR source = ?4)
                  ORDER BY created_at DESC
                  LIMIT 20",
             )?;
@@ -874,12 +862,12 @@ fn main() -> Result<()> {
             if json {
                 let payload = rows
                     .into_iter()
-                    .map(|(id, content_type, content, source_app, created_at)| {
+                    .map(|(id, content_type, content, source, created_at)| {
                         serde_json::json!({
                             "id": id,
                             "content_type": content_type,
                             "text_content": content,
-                            "source_app": source_app,
+                            "source": source,
                             "created_at": created_at,
                         })
                     })

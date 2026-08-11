@@ -49,8 +49,8 @@ function matchesCondition(clip: ClipItem, condition: SmartCondition) {
   if (condition.type === 'file_path') {
     return getClipFilePaths(clip).some((path) => path.toLowerCase().includes(expected));
   }
-  const actual = condition.type === 'source_app'
-    ? clip.source_app
+  const actual = condition.type === 'source'
+    ? clip.source
     : condition.type === 'content_type'
       ? clip.content_type
       : condition.type === 'origin_kind'
@@ -130,7 +130,7 @@ export function useClipViews({
         html_content: null,
         image_base64: null,
         content_hash: `queue_${sequentialStatus?.item_ids[index] ?? index}`,
-        source_app: `Queue Position #${index + 1}`,
+        source: `Queue Position #${index + 1}`,
         bin_id: null,
         is_pinned: false,
         note: null,
@@ -148,7 +148,7 @@ export function useClipViews({
     if (collection?.membership === 'trash') return clips;
     const facet = parseClipFacetRoute(currentTab);
     if (facet?.kind === 'type') clips = clips.filter((clip) => clip.content_type === facet.value);
-    if (facet?.kind === 'source') clips = clips.filter((clip) => clip.source_app === facet.value);
+    if (facet?.kind === 'source') clips = clips.filter((clip) => clip.source === facet.value);
     if (collection?.membership === 'bin' && selectedBinId !== null) clips = filterByBin(clips, bins, selectedBinId);
     if (collection?.membership === 'pinned') clips = clips.filter((clip) => clip.is_pinned);
     if (collection?.membership === 'protected') clips = clips.filter((clip) => clip.is_protected);

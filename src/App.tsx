@@ -1000,7 +1000,7 @@ export default function App() {
             }}
           >
             <div className="theme-text-muted flex items-center justify-between gap-3 text-[10px]">
-              <OverflowText text={previewClip.source_app} className="theme-text-main truncate font-semibold" />
+              <OverflowText text={previewClip.source} className="theme-text-main truncate font-semibold" />
               {batchCount > 1 && (
                 <span className="clip-drag-preview-count shrink-0 rounded-full px-2 py-0.5 font-bold">
                   {batchCount} clips

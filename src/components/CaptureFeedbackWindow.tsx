@@ -44,7 +44,7 @@ interface CaptureFeedbackClip {
   id: number;
   contentType: string;
   previewText: string | null;
-  sourceApp: string;
+  source: string;
   isPinned: boolean;
   isProtected: boolean;
   isTrashed: boolean;
@@ -547,7 +547,7 @@ export function CaptureFeedbackWindow({ settings, settingsHydrated }: CaptureFee
                     <ContentIcon className="h-3.5 w-3.5" aria-hidden="true" />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-xs font-semibold theme-text-main">{item.clip.sourceApp || 'Captured clip'}</div>
+                    <div className="truncate text-xs font-semibold theme-text-main">{item.clip.source || 'Captured clip'}</div>
                     <div className="capture-feedback-preview mt-1.5 min-h-0 overflow-hidden rounded-md">
                       {item.image ? (
                         <img src={item.image} alt="Captured clip preview" className="h-11 w-full object-cover" />

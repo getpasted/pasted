@@ -562,10 +562,9 @@ pub fn apply_smart_bin_transforms_for_clip(
     clip_id: i64,
     content_type: &str,
     initial_text: &str,
-    source_app: &str,
+    source: &str,
 ) {
-    let Ok(matches) = db.matching_smart_bin_transforms(content_type, initial_text, source_app)
-    else {
+    let Ok(matches) = db.matching_smart_bin_transforms(content_type, initial_text, source) else {
         return;
     };
     let mut current = initial_text.to_string();

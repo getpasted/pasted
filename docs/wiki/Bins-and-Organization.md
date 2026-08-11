@@ -16,7 +16,7 @@ If the operation cannot finish, the Bin and clip relationships remain unchanged.
 
 ## Smart Bins
 
-Smart Bins match conditions such as content, source application, type, or origin. They are computed views, so clips are not manually dropped into them.
+Smart Bins match conditions such as content, source, type, or origin. They are computed views, so clips are not manually dropped into them.
 
 Default first-launch Smart Bins are:
 

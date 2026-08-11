@@ -77,7 +77,7 @@ export interface ClipItem {
   image_base64: string | null;
   image_path?: string | null;
   content_hash: string;
-  source_app: string;
+  source: string;
   is_pinned: boolean;
   is_protected?: boolean;
   is_transformed?: boolean;
@@ -101,19 +101,19 @@ export type ClipContentType =
 export type ClipOriginKind = 'clipboard_content' | 'file_reference' | 'screenshot' | 'command_line';
 
 export function getClipOriginKind(
-  clip: Pick<ClipItem, 'content_type' | 'source_app'>
+  clip: Pick<ClipItem, 'content_type' | 'source'>
 ): ClipOriginKind {
-  const sourceApp = clip.source_app.trim().toLowerCase();
+  const source = clip.source.trim().toLowerCase();
   if (
     (clip.content_type === 'image' || clip.content_type === 'file')
-    && (sourceApp.includes('screenshot')
-      || sourceApp.includes('screencapture')
-      || sourceApp.includes('cleanshot'))
+    && (source.includes('screenshot')
+      || source.includes('screencapture')
+      || source.includes('cleanshot'))
   ) {
     return 'screenshot';
   }
   if (clip.content_type === 'file') return 'file_reference';
-  if (sourceApp === 'cli terminal' || sourceApp === 'pasted cli') return 'command_line';
+  if (source === 'cli terminal' || source === 'pasted cli') return 'command_line';
   return 'clipboard_content';
 }
 

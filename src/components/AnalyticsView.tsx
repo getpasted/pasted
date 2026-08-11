@@ -15,7 +15,7 @@ import { ContentTypeIcon } from './ContentTypeIcon';
 import { CONTENT_TYPES, contentTypeLabel } from '../utils/contentTypes';
 import type { ClipContentType } from '../types';
 
-interface AppStat {
+interface SourceStat {
   name: string;
   count: number;
 }
@@ -33,7 +33,7 @@ interface DailyStat {
 interface AnalyticsSummary {
   total_clips: number;
   total_chars: number;
-  top_apps: AppStat[];
+  top_sources: SourceStat[];
   content_types: TypeStat[];
   daily_activity: DailyStat[];
 }
@@ -56,7 +56,7 @@ export const AnalyticsView: React.FC = () => {
 
   const totalClips = summary?.total_clips || 0;
   const totalChars = summary?.total_chars || 0;
-  const topApps = summary?.top_apps || [];
+  const topSources = summary?.top_sources || [];
   const contentTypes = summary?.content_types || [];
   const dailyActivity = summary?.daily_activity || [];
 
@@ -111,31 +111,31 @@ export const AnalyticsView: React.FC = () => {
             <TrendingUp className="w-6 h-6" />
           </div>
           <div>
-            <OverflowText as="div" text={topApps[0]?.name || '—'} className="theme-title text-2xl font-extrabold font-mono truncate max-w-[140px]" />
-            <div className="theme-text-muted text-xs font-medium">Top Copied App</div>
+            <OverflowText as="div" text={topSources[0]?.name || '—'} className="theme-title text-2xl font-extrabold font-mono truncate max-w-[140px]" />
+            <div className="theme-text-muted text-xs font-medium">Top Source</div>
           </div>
         </div>
       </div>
 
       {/* Detailed Insights Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        {/* Top Applications */}
+        {/* Top Sources */}
         <div className="theme-panel p-5 rounded-xl border flex flex-col">
           <h2 className="theme-title text-sm font-bold mb-4 flex items-center space-x-2">
             <Cpu className="w-4 h-4 theme-status-info-text" />
-            <span>Top Source Applications</span>
+            <span>Top Sources</span>
           </h2>
           <div className="space-y-3 flex-1">
-            {topApps.length === 0 ? (
-              <div className="theme-text-subtle text-xs py-6 text-center">No app data recorded yet</div>
+            {topSources.length === 0 ? (
+              <div className="theme-text-subtle text-xs py-6 text-center">No source data recorded yet</div>
             ) : (
-              topApps.map((app) => {
-                const pct = Math.round((app.count / Math.max(1, totalClips)) * 100);
+              topSources.map((source) => {
+                const pct = Math.round((source.count / Math.max(1, totalClips)) * 100);
                 return (
-                  <div key={app.name} className="space-y-1">
+                  <div key={source.name} className="space-y-1">
                     <div className="flex justify-between text-xs font-mono">
-                      <span className="theme-text-main font-medium">{app.name}</span>
-                      <span className="theme-text-muted">{app.count} clips ({pct}%)</span>
+                      <span className="theme-text-main font-medium">{source.name}</span>
+                      <span className="theme-text-muted">{source.count} clips ({pct}%)</span>
                     </div>
                     <div className="theme-track w-full h-2 rounded-full overflow-hidden">
                       <div

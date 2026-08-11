@@ -4,7 +4,7 @@ type MockClip = {
   id: number;
   text_content: string;
   content_type: string;
-  source_app: string;
+  source: string;
   created_at: string;
   char_count: number;
   word_count: number;
@@ -35,7 +35,7 @@ let mockClips: MockClip[] = [
     id: 101,
     text_content: 'Sample Clip 1 for Drag Testing',
     content_type: 'text',
-    source_app: 'Safari',
+    source: 'Safari',
     created_at: new Date().toISOString(),
     char_count: 30,
     word_count: 6,
@@ -51,7 +51,7 @@ let mockClips: MockClip[] = [
     id: 102,
     text_content: 'Sample Clip 2 for Drag Testing',
     content_type: 'text',
-    source_app: 'VS Code',
+    source: 'VS Code',
     created_at: new Date().toISOString(),
     char_count: 30,
     word_count: 6,
@@ -510,7 +510,7 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       return false as unknown as T;
     case 'get_all_app_settings':
       return {} as unknown as T;
-    case 'get_source_app_icons':
+    case 'get_source_icons':
       return {} as unknown as T;
     case 'export_backup_file':
       return `/mock/Pasted_Backup_${new Date().toISOString().slice(0, 10)}.json` as unknown as T;

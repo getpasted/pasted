@@ -14,11 +14,11 @@ sudo ln -s /Applications/Pasted.app/Contents/MacOS/pasted /usr/local/bin/pasted
 pasted copy "Hello"
 cat server.log | pasted copy
 pasted list [limit]
-pasted search [query] [--type <type>] [--source <app>] [--json]
+pasted search [query] [--type <type>] [--source <source>] [--json]
 pasted clear
 ```
 
-`copy` accepts bounded stdin when text is omitted. `search` can reproduce the GUI's calculated Type and Source views with exact `--type` and `--source` filters, and its structured output is stable for scripts. `clear` permanently removes unpinned, unprotected active history.
+`copy` accepts bounded stdin when text is omitted. `search` can reproduce the GUI's calculated Type and Source views with exact `--type` and `--source` filters; its structured records use the canonical `source` field and remain stable for scripts. `clear` permanently removes unpinned, unprotected active history.
 
 ## Clip actions
 

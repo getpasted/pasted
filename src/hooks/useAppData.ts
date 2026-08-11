@@ -27,7 +27,7 @@ function cacheClipSummaries(clips: ClipItem[]) {
 function isCompleteClipEvent(payload: ClipItem | { id: number }): payload is ClipItem {
   return typeof (payload as Partial<ClipItem>).content_type === 'string'
     && typeof (payload as Partial<ClipItem>).content_hash === 'string'
-    && typeof (payload as Partial<ClipItem>).source_app === 'string'
+    && typeof (payload as Partial<ClipItem>).source === 'string'
     && typeof (payload as Partial<ClipItem>).created_at === 'string';
 }
 

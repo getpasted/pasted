@@ -19,7 +19,7 @@ interface BinModalProps {
 
 interface SmartConditionRow {
   id: string;
-  target: 'source_app' | 'content_type' | 'origin_kind' | 'contains' | 'file_extension' | 'file_path';
+  target: 'source' | 'content_type' | 'origin_kind' | 'contains' | 'file_extension' | 'file_path';
   operator: 'is' | 'contains';
   value: string;
 }
@@ -64,11 +64,11 @@ function initialBinForm(editingBin?: Bin | null) {
         conditions: parsed.conditions?.length > 0
           ? parsed.conditions.map((condition: any, index: number) => ({
             id: String(index + 1),
-            target: condition.type || 'source_app',
+            target: condition.type || 'source',
             operator: condition.operator || 'is',
             value: condition.value || '',
           }))
-          : [{ id: '1', target: 'source_app', operator: 'is', value: '' }],
+          : [{ id: '1', target: 'source', operator: 'is', value: '' }],
         matchCondition: parsed.match || 'any',
       };
     } catch {
@@ -77,7 +77,7 @@ function initialBinForm(editingBin?: Bin | null) {
   }
   return {
     modalTab: 'bin',
-    conditions: [{ id: '1', target: 'source_app', operator: 'is', value: editingBin ? '' : '1Password' }],
+    conditions: [{ id: '1', target: 'source', operator: 'is', value: editingBin ? '' : '1Password' }],
     matchCondition: 'any',
   };
 }
@@ -116,7 +116,7 @@ export const BinModal: React.FC<BinModalProps> = ({
         if (parsed.conditions && parsed.conditions.length > 0) {
           return parsed.conditions.map((c: any, i: number) => ({
             id: String(i + 1),
-            target: c.type || 'source_app',
+            target: c.type || 'source',
             operator: c.operator || 'is',
             value: c.value || '',
           }));
@@ -125,7 +125,7 @@ export const BinModal: React.FC<BinModalProps> = ({
         console.error(e);
       }
     }
-    return [{ id: '1', target: 'source_app', operator: 'is', value: '1Password' }];
+    return [{ id: '1', target: 'source', operator: 'is', value: '1Password' }];
   });
   const [matchCondition, setMatchCondition] = useState<'any' | 'all'>(() => {
     if (editingBin?.smart_rule) {
@@ -158,29 +158,29 @@ export const BinModal: React.FC<BinModalProps> = ({
               setConditions(
                 parsed.conditions.map((c: any, i: number) => ({
                   id: String(i + 1),
-                  target: c.type || 'source_app',
+                  target: c.type || 'source',
                   operator: c.operator || 'is',
                   value: c.value || '',
                 }))
               );
             } else {
-              setConditions([{ id: '1', target: 'source_app', operator: 'is', value: '' }]);
+              setConditions([{ id: '1', target: 'source', operator: 'is', value: '' }]);
             }
             setMatchCondition(parsed.match || 'any');
           } catch (e) {
             console.error(e);
-            setConditions([{ id: '1', target: 'source_app', operator: 'is', value: '' }]);
+            setConditions([{ id: '1', target: 'source', operator: 'is', value: '' }]);
           }
         } else {
           setModalTab('bin');
-          setConditions([{ id: '1', target: 'source_app', operator: 'is', value: '' }]);
+          setConditions([{ id: '1', target: 'source', operator: 'is', value: '' }]);
         }
       } else {
         setName('');
         setSelectedColor('default');
         setIcon('📂');
         setModalTab('bin');
-        setConditions([{ id: '1', target: 'source_app', operator: 'is', value: '1Password' }]);
+        setConditions([{ id: '1', target: 'source', operator: 'is', value: '1Password' }]);
       }
 
       invoke<string[]>('get_installed_applications')
@@ -216,7 +216,7 @@ export const BinModal: React.FC<BinModalProps> = ({
       ...prev,
       {
         id: String(Date.now() + Math.random()),
-        target: 'source_app',
+        target: 'source',
         operator: 'is',
         value: defaultVal,
       },
@@ -519,7 +519,7 @@ export const BinModal: React.FC<BinModalProps> = ({
                     onChange={(value) => {
                       const newTarget = value as SmartConditionRow['target'];
                       const newDefaultVal =
-                        newTarget === 'source_app'
+                        newTarget === 'source'
                           ? installedApps[0] || 'Safari'
                           : newTarget === 'content_type'
                           ? 'code'
@@ -529,7 +529,7 @@ export const BinModal: React.FC<BinModalProps> = ({
                       handleUpdateCondition(c.id, { target: newTarget, value: newDefaultVal });
                     }}
                     options={[
-                      { value: 'source_app', label: 'Source App' },
+                      { value: 'source', label: 'Source' },
                       { value: 'content_type', label: 'Content Type' },
                       { value: 'origin_kind', label: 'Origin' },
                       { value: 'contains', label: 'Text Content' },
@@ -555,7 +555,7 @@ export const BinModal: React.FC<BinModalProps> = ({
                   />
 
                   {/* Dynamic Value Dropdown / Input */}
-                  {c.target === 'source_app' ? (
+                  {c.target === 'source' ? (
                     <MenuSelect
                       value={c.value}
                       onChange={(value) => handleUpdateCondition(c.id, { value })}

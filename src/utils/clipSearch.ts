@@ -1,10 +1,10 @@
 import type { ClipItem } from '../types';
 import { getClipFilePaths, getClipNoteSummary } from '../types';
 
-export type ClipSearchHighlightField = 'app' | 'content' | 'note';
+export type ClipSearchHighlightField = 'source' | 'content' | 'note';
 
 export interface ClipSearchPlan {
-  apps: string[];
+  sources: string[];
   types: string[];
   terms: string[];
   requiresNote: boolean;
@@ -43,7 +43,7 @@ function tokenizeSearch(query: string) {
 export function parseClipSearch(rawQuery: string): ClipSearchPlan {
   const trimmed = rawQuery.trim();
   const plan: ClipSearchPlan = {
-    apps: [],
+    sources: [],
     types: [],
     terms: [],
     requiresNote: false,
@@ -73,9 +73,9 @@ export function parseClipSearch(rawQuery: string): ClipSearchPlan {
 
   tokenizeSearch(trimmed).forEach((token) => {
     const lower = token.toLowerCase();
-    if (lower.startsWith('app:')) {
-      const value = lower.slice(4).trim();
-      if (value) plan.apps.push(value);
+    if (lower.startsWith('source:')) {
+      const value = lower.slice(7).trim();
+      if (value) plan.sources.push(value);
       else plan.hasIncompleteFilter = true;
     } else if (lower.startsWith('type:')) {
       const value = lower.slice(5).trim();
@@ -100,7 +100,7 @@ export function parseClipSearch(rawQuery: string): ClipSearchPlan {
 function searchableValues(clip: ClipItem) {
   return [
     clip.text_content,
-    clip.source_app,
+    clip.source,
     getClipNoteSummary(clip.note),
     clip.content_type,
     ...getClipFilePaths(clip),
@@ -115,9 +115,9 @@ export function clipMatchesSearch(clip: ClipItem, plan: ClipSearchPlan) {
     return values.some((value) => value.toLowerCase().includes(plan.regexFallback ?? ''));
   }
 
-  const source = clip.source_app.toLowerCase();
+  const source = clip.source.toLowerCase();
   const type = clip.content_type.toLowerCase();
-  if (!plan.apps.every((value) => source.includes(value))) return false;
+  if (!plan.sources.every((value) => source.includes(value))) return false;
   if (!plan.types.every((value) => type.includes(value))) return false;
   if (plan.requiresNote && !clip.note?.trim()) return false;
   if (plan.requiresPinned && !clip.is_pinned) return false;
@@ -134,6 +134,6 @@ export function getClipSearchHighlightTerms(
 ) {
   const plan = parseClipSearch(rawQuery);
   if (plan.regex || plan.regexFallback !== null) return [];
-  const terms = field === 'app' ? [...plan.terms, ...plan.apps] : [...plan.terms];
+  const terms = field === 'source' ? [...plan.terms, ...plan.sources] : [...plan.terms];
   return [...new Set(terms.filter(Boolean))].sort((left, right) => right.length - left.length);
 }

@@ -40,7 +40,7 @@ import { safeInvoke as invoke } from '../utils/tauri';
 
 const SEARCH_HELPERS = [
   { prefix: 'regex:', desc: 'Regex' },
-  { prefix: 'app:', desc: 'App' },
+  { prefix: 'source:', desc: 'Source' },
   { prefix: 'type:', desc: 'Type' },
   { prefix: 'has:note', desc: 'Notes' },
   { prefix: 'is:pinned', desc: 'Pinned' },
@@ -329,7 +329,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   }, [clips]);
   const sourceItems = React.useMemo(() => {
     const counts = new Map<string, number>();
-    clips.forEach((clip) => counts.set(clip.source_app, (counts.get(clip.source_app) ?? 0) + 1));
+    clips.forEach((clip) => counts.set(clip.source, (counts.get(clip.source) ?? 0) + 1));
     return [...counts].map(([value, count]) => ({
       value,
       count,
@@ -337,8 +337,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
       label: value || 'Unknown Source',
     })).sort((left, right) => right.count - left.count || left.label.localeCompare(right.label));
   }, [clips]);
-  const [sourceAppIcons, setSourceAppIcons] = React.useState<Record<string, string>>({});
-  const sourceAppIconsRef = React.useRef<Record<string, string>>({});
+  const [sourceIcons, setSourceIcons] = React.useState<Record<string, string>>({});
+  const sourceIconsRef = React.useRef<Record<string, string>>({});
   const requestedSourceIconsRef = React.useRef(new Set<string>());
   const sourceIconNames = React.useMemo(
     () => [...new Set(sourceItems.map(({ value }) => value))].sort((left, right) => left.localeCompare(right)).slice(0, 128),
@@ -348,18 +348,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
   React.useEffect(() => {
     if (!features.sources || sourceIconNames.length === 0) return undefined;
     const missingSources = sourceIconNames.filter(
-      (name) => !sourceAppIconsRef.current[name] && !requestedSourceIconsRef.current.has(name),
+      (name) => !sourceIconsRef.current[name] && !requestedSourceIconsRef.current.has(name),
     );
     if (missingSources.length === 0) return undefined;
     missingSources.forEach((name) => requestedSourceIconsRef.current.add(name));
-    void invoke<Record<string, string>>('get_source_app_icons', {
-      sourceApps: missingSources,
+    void invoke<Record<string, string>>('get_source_icons', {
+      sources: missingSources,
     }).then((icons) => {
-      const merged = { ...sourceAppIconsRef.current, ...(icons ?? {}) };
-      sourceAppIconsRef.current = merged;
-      setSourceAppIcons(merged);
+      const merged = { ...sourceIconsRef.current, ...(icons ?? {}) };
+      sourceIconsRef.current = merged;
+      setSourceIcons(merged);
     }).catch((error) => {
-      console.warn('Source app icons are unavailable; restart Pasted after native updates.', error);
+      console.warn('Source icons are unavailable; restart Pasted after native updates.', error);
       missingSources.forEach((name) => requestedSourceIconsRef.current.delete(name));
     });
     return undefined;
@@ -870,8 +870,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       <span className="sidebar-nav-icon">
                         {section.id === 'types'
                           ? <ContentTypeIcon type={item.value as ClipItem['content_type']} className="sidebar-icon-primary h-4 w-4 shrink-0" />
-                          : sourceAppIcons[item.value]
-                          ? <img src={sourceAppIcons[item.value]} alt="" className="h-4 w-4 shrink-0 object-contain" />
+                          : sourceIcons[item.value]
+                          ? <img src={sourceIcons[item.value]} alt="" className="h-4 w-4 shrink-0 object-contain" />
                           : sourceFallbackIcon(item.value)}
                       </span>
                       <OverflowText text={item.label} className="truncate" />

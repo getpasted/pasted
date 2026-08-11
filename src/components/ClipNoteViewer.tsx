@@ -13,11 +13,11 @@ import {
 
 interface ClipNoteViewerProps {
   note: ClipNote;
-  sourceApp: string;
+  source: string;
   onClose: () => void;
 }
 
-export function ClipNoteViewer({ note, sourceApp, onClose }: ClipNoteViewerProps) {
+export function ClipNoteViewer({ note, source, onClose }: ClipNoteViewerProps) {
   const copyNote = async () => {
     try {
       await navigator.clipboard.writeText(note.text);
@@ -50,7 +50,7 @@ export function ClipNoteViewer({ note, sourceApp, onClose }: ClipNoteViewerProps
               {note.text}
             </div>
             <div className="clip-note-viewer-meta flex items-center justify-between text-[11px] font-sans px-1">
-              <span>App Source: <strong className="clip-note-viewer-meta-strong">{sourceApp}</strong></span>
+              <span>Source: <strong className="clip-note-viewer-meta-strong">{source}</strong></span>
               <span>{note.text.length} Characters</span>
             </div>
           </AppDialogBody>

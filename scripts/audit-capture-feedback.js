@@ -88,7 +88,7 @@ assert.doesNotMatch(overlaySource, /clip-added/);
 assert.match(monitorSource, /serde_json::json!\(\{ "kind": kind, "clip_id": clip_id \}\)/);
 assert.doesNotMatch(
   monitorSource.match(/fn capture_feedback_payload[\s\S]*?\n\}/)?.[0] ?? '',
-  /content|path|text|image|source_app/,
+  /content|path|text|image|source/,
   'Capture feedback payloads must never expose clipboard data or source metadata',
 );
 

@@ -15,18 +15,17 @@ Search is its own persistent collection. Leaving Search does not erase the query
 
 Supported helpers include:
 
-- `app:` — source application;
+- `source:` — capture source;
 - `type:` — clip type;
 - `has:note` — clips with notes;
 - `is:pinned` — pinned clips;
 - `is:protected` — protected clips;
 - `regex:` — regular expression search.
 
-An incomplete helper such as `app:` is treated as incomplete rather than “match everything.” Arrow keys navigate results. `Esc` closes the helper menu; on an empty search it returns to the previous collection.
+An incomplete helper such as `source:` is treated as incomplete rather than “match everything.” Arrow keys navigate results. `Esc` closes the helper menu; on an empty search it returns to the previous collection.
 
 Trashed search results are marked and remain chronologically commingled with active results so a Trash action does not reorder the whole result set.
 
 ## Retention
 
 History and Trash have configurable retention. Protected clips are excluded from destructive retention. Hard resource ceilings remain in force even when a user-facing limit is permissive.
-

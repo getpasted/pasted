@@ -112,7 +112,7 @@ export function PinnedClipShelf({
             <span className="pinned-clip-shelf-icon" aria-hidden="true">
               {clip.content_type === 'image' ? <ImageIcon /> : clip.content_type === 'file' ? <FileText /> : <Pin />}
             </span>
-            <span className="pinned-clip-shelf-source">{clip.source_app}</span>
+            <span className="pinned-clip-shelf-source">{clip.source}</span>
             <span className="pinned-clip-shelf-summary">{clipSummary(clip)}</span>
             {index === 0 && (
               <span className="pinned-clip-shelf-count">{stackedClips.length}</span>

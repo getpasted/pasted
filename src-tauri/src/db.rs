@@ -5,7 +5,7 @@ use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::PathBuf;
 
-const BACKUP_SCHEMA_VERSION: u32 = 8;
+const BACKUP_SCHEMA_VERSION: u32 = 9;
 
 fn ensure_resource_size(value: &str, maximum: usize, label: &str) -> Result<()> {
     if value.len() <= maximum {
@@ -29,21 +29,19 @@ fn escape_like_literal(value: &str) -> String {
         .replace('_', "\\_")
 }
 
-fn derived_origin_kind(content_type: &str, source_app: &str) -> &'static str {
-    let source_app = source_app.to_lowercase();
+fn derived_origin_kind(content_type: &str, source: &str) -> &'static str {
+    let source = source.to_lowercase();
     if matches!(content_type.to_lowercase().as_str(), "image" | "file")
-        && (source_app.contains("screenshot")
-            || source_app.contains("screencapture")
-            || source_app.contains("cleanshot"))
+        && (source.contains("screenshot")
+            || source.contains("screencapture")
+            || source.contains("cleanshot"))
     {
         return "screenshot";
     }
     if content_type.eq_ignore_ascii_case("file") {
         return "file_reference";
     }
-    if source_app.eq_ignore_ascii_case("CLI Terminal")
-        || source_app.eq_ignore_ascii_case("Pasted CLI")
-    {
+    if source.eq_ignore_ascii_case("CLI Terminal") || source.eq_ignore_ascii_case("Pasted CLI") {
         return "command_line";
     }
     "clipboard_content"
@@ -66,11 +64,11 @@ fn push_smart_condition(
         }
         "origin_kind" => {
             parameters.push(Box::new(value.to_lowercase()));
-            "CASE WHEN content_type IN ('image', 'file') AND (LOWER(source_app) LIKE '%screenshot%' OR LOWER(source_app) LIKE '%screencapture%' OR LOWER(source_app) LIKE '%cleanshot%') THEN 'screenshot' WHEN content_type = 'file' THEN 'file_reference' WHEN LOWER(source_app) IN ('cli terminal', 'pasted cli') THEN 'command_line' ELSE 'clipboard_content' END = ?".to_string()
+            "CASE WHEN content_type IN ('image', 'file') AND (LOWER(source) LIKE '%screenshot%' OR LOWER(source) LIKE '%screencapture%' OR LOWER(source) LIKE '%cleanshot%') THEN 'screenshot' WHEN content_type = 'file' THEN 'file_reference' WHEN LOWER(source) IN ('cli terminal', 'pasted cli') THEN 'command_line' ELSE 'clipboard_content' END = ?".to_string()
         }
-        "source_app" => {
+        "source" => {
             parameters.push(Box::new(format!("%{}%", value)));
-            "source_app LIKE ?".to_string()
+            "source LIKE ?".to_string()
         }
         "contains" => {
             parameters.push(Box::new(format!("%{}%", value)));
@@ -192,7 +190,8 @@ pub struct ClipItem {
     pub image_base64: Option<String>,
     pub image_path: Option<String>,
     pub content_hash: String,
-    pub source_app: String,
+    #[serde(alias = "source_app")]
+    pub source: String,
     pub is_pinned: bool,
     pub is_protected: bool,
     pub is_transformed: bool,
@@ -322,7 +321,7 @@ struct ClipRevisionOrganization {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AppStat {
+pub struct SourceStat {
     pub name: String,
     pub count: i64,
 }
@@ -343,7 +342,7 @@ pub struct DailyStat {
 pub struct AnalyticsSummary {
     pub total_clips: i64,
     pub total_chars: i64,
-    pub top_apps: Vec<AppStat>,
+    pub top_sources: Vec<SourceStat>,
     pub content_types: Vec<TypeStat>,
     pub daily_activity: Vec<DailyStat>,
 }
@@ -620,6 +619,42 @@ fn migrate_legacy_container_schema(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
+fn migrate_clip_source_schema(conn: &Connection) -> Result<()> {
+    if !table_exists(conn, "clips")? {
+        return Ok(());
+    }
+    let has_legacy_column = column_exists(conn, "clips", "source_app")?;
+    let has_source_column = column_exists(conn, "clips", "source")?;
+    if has_legacy_column && has_source_column {
+        return Err(rusqlite::Error::InvalidQuery);
+    }
+    if !has_legacy_column {
+        return Ok(());
+    }
+
+    // The FTS table is a derived cache whose schema cannot be altered in place.
+    // Remove it and its writers inside the same transaction as the canonical
+    // column rename; the normal startup path recreates and rebuilds it below.
+    let transaction = conn.unchecked_transaction()?;
+    transaction.execute_batch(
+        "DROP TRIGGER IF EXISTS clips_ai;
+         DROP TRIGGER IF EXISTS clips_ad;
+         DROP TRIGGER IF EXISTS clips_au;
+         DROP TABLE IF EXISTS clips_fts;
+         ALTER TABLE clips RENAME COLUMN source_app TO source;",
+    )?;
+    if table_exists(&transaction, "bins")? && column_exists(&transaction, "bins", "smart_rule")? {
+        transaction.execute(
+            "UPDATE bins
+             SET smart_rule = replace(smart_rule, '\"source_app\"', '\"source\"')
+             WHERE smart_rule LIKE '%\"source_app\"%'",
+            [],
+        )?;
+    }
+    transaction.commit()?;
+    Ok(())
+}
+
 fn configure_connection(conn: &Connection) -> Result<()> {
     conn.set_db_config(rusqlite::config::DbConfig::SQLITE_DBCONFIG_DEFENSIVE, true)?;
     conn.pragma_update(None, "foreign_keys", "ON")?;
@@ -726,7 +761,7 @@ impl DbState {
                 html_content TEXT,
                 image_base64 TEXT,
                 content_hash TEXT UNIQUE NOT NULL,
-                source_app TEXT DEFAULT 'Unknown',
+                source TEXT DEFAULT 'Unknown',
                 is_pinned INTEGER DEFAULT 0,
                 bin_id INTEGER,
                 note TEXT,
@@ -821,6 +856,8 @@ impl DbState {
         );
         let _ = conn.execute("ALTER TABLE bins ADD COLUMN shortcut TEXT", []);
 
+        migrate_clip_source_schema(&conn)?;
+
         let _ = conn.execute(
             "CREATE TABLE IF NOT EXISTS clip_versions (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -854,7 +891,7 @@ impl DbState {
             "CREATE VIRTUAL TABLE IF NOT EXISTS clips_fts USING fts5(
                 text_content,
                 note,
-                source_app,
+                source,
                 content='clips',
                 content_rowid='id'
             )",
@@ -864,24 +901,24 @@ impl DbState {
         if fts_res.is_ok() {
             let _ = conn.execute(
                 "CREATE TRIGGER IF NOT EXISTS clips_ai AFTER INSERT ON clips BEGIN
-                    INSERT INTO clips_fts(rowid, text_content, note, source_app)
-                    VALUES (new.id, new.text_content, new.note, new.source_app);
+                    INSERT INTO clips_fts(rowid, text_content, note, source)
+                    VALUES (new.id, new.text_content, new.note, new.source);
                 END;",
                 [],
             );
             let _ = conn.execute(
                 "CREATE TRIGGER IF NOT EXISTS clips_ad AFTER DELETE ON clips BEGIN
-                    INSERT INTO clips_fts(clips_fts, rowid, text_content, note, source_app)
-                    VALUES ('delete', old.id, old.text_content, old.note, old.source_app);
+                    INSERT INTO clips_fts(clips_fts, rowid, text_content, note, source)
+                    VALUES ('delete', old.id, old.text_content, old.note, old.source);
                 END;",
                 [],
             );
             let _ = conn.execute(
                 "CREATE TRIGGER IF NOT EXISTS clips_au AFTER UPDATE ON clips BEGIN
-                    INSERT INTO clips_fts(clips_fts, rowid, text_content, note, source_app)
-                    VALUES ('delete', old.id, old.text_content, old.note, old.source_app);
-                    INSERT INTO clips_fts(rowid, text_content, note, source_app)
-                    VALUES (new.id, new.text_content, new.note, new.source_app);
+                    INSERT INTO clips_fts(clips_fts, rowid, text_content, note, source)
+                    VALUES ('delete', old.id, old.text_content, old.note, old.source);
+                    INSERT INTO clips_fts(rowid, text_content, note, source)
+                    VALUES (new.id, new.text_content, new.note, new.source);
                 END;",
                 [],
             );
@@ -1696,7 +1733,7 @@ impl DbState {
         html_content: Option<&str>,
         image_base64: Option<&str>,
         content_hash: &str,
-        source_app: &str,
+        source: &str,
     ) -> Result<ClipItem> {
         if let Some(text) = text_content {
             ensure_resource_size(
@@ -1743,7 +1780,7 @@ impl DbState {
         let ocr_input_hash = (content_type == "image").then_some(content_hash);
         conn.execute(
             "INSERT INTO clips
-                (content_type, text_content, html_content, image_base64, content_hash, source_app,
+                (content_type, text_content, html_content, image_base64, content_hash, source,
                  ocr_status, ocr_input_hash, created_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))",
             params![
@@ -1752,7 +1789,7 @@ impl DbState {
                 html_content,
                 image_base64,
                 content_hash,
-                source_app,
+                source,
                 ocr_status,
                 ocr_input_hash
             ],
@@ -1768,14 +1805,14 @@ impl DbState {
         &self,
         clip_id: i64,
         content_hash: &str,
-        source_app: &str,
+        source: &str,
     ) -> Result<Option<ClipItem>> {
         let conn = self.conn.lock();
         let changed = conn.execute(
-            "UPDATE clips SET source_app = ?1
+            "UPDATE clips SET source = ?1
              WHERE id = ?2 AND content_hash = ?3 AND content_type = 'image'
                AND COALESCE(is_trashed, 0) = 0",
-            params![source_app, clip_id, content_hash],
+            params![source, clip_id, content_hash],
         )?;
         if changed == 0 {
             return Ok(None);
@@ -1921,7 +1958,7 @@ impl DbState {
 
     fn get_clip_by_id_internal(&self, conn: &Connection, id: i64) -> Result<ClipItem> {
         let mut clip = conn.query_row(
-            "SELECT id, content_type, text_content, html_content, image_base64, image_path, content_hash, source_app, is_pinned, is_protected, COALESCE(pin_order, 0), bin_id, note, is_trashed, trashed_at, created_at,
+            "SELECT id, content_type, text_content, html_content, image_base64, image_path, content_hash, source, is_pinned, is_protected, COALESCE(pin_order, 0), bin_id, note, is_trashed, trashed_at, created_at,
                     (SELECT GROUP_CONCAT(bin_id) FROM clip_bins WHERE clip_id = clips.id),
                     current_transformation_id IS NOT NULL
              FROM clips WHERE id = ?1",
@@ -1945,7 +1982,7 @@ impl DbState {
                     image_base64: row.get(4)?,
                     image_path: row.get(5)?,
                     content_hash: row.get(6)?,
-                    source_app: row.get(7)?,
+                    source: row.get(7)?,
                     is_pinned: row.get::<_, i32>(8)? != 0,
                     is_protected: row.get::<_, i32>(9)? != 0,
                     is_transformed: row.get::<_, i32>(17)? != 0,
@@ -1985,7 +2022,7 @@ impl DbState {
         }
 
         let mut sql = String::from(
-            "SELECT id, content_type, text_content, NULL as html_content, NULL as image_base64, image_path, content_hash, source_app, is_pinned, is_protected, COALESCE(pin_order, 0), bin_id, note, is_trashed, trashed_at, created_at,
+            "SELECT id, content_type, text_content, NULL as html_content, NULL as image_base64, image_path, content_hash, source, is_pinned, is_protected, COALESCE(pin_order, 0), bin_id, note, is_trashed, trashed_at, created_at,
              (SELECT GROUP_CONCAT(bin_id) FROM clip_bins WHERE clip_id = clips.id) as bin_ids_str,
              current_transformation_id IS NOT NULL
              FROM clips WHERE (is_trashed IS NULL OR is_trashed = 0)"
@@ -2055,7 +2092,7 @@ impl DbState {
                     query_params.push(Box::new(format!("\"{}\"*", fts_query)));
                     query_params.push(Box::new(format!("%{}%", cleaned)));
                 } else {
-                    sql.push_str(" AND (text_content LIKE ? OR source_app LIKE ? OR content_type LIKE ? OR note LIKE ?)");
+                    sql.push_str(" AND (text_content LIKE ? OR source LIKE ? OR content_type LIKE ? OR note LIKE ?)");
                     let pattern = format!("%{}%", cleaned);
                     query_params.push(Box::new(pattern.clone()));
                     query_params.push(Box::new(pattern.clone()));
@@ -2111,7 +2148,7 @@ impl DbState {
                 image_base64: row.get(4)?,
                 image_path: row.get(5)?,
                 content_hash: row.get(6)?,
-                source_app: row.get(7)?,
+                source: row.get(7)?,
                 is_pinned: row.get::<_, i32>(8)? != 0,
                 is_protected: row.get::<_, i32>(9)? != 0,
                 is_transformed: row.get::<_, i32>(17)? != 0,
@@ -2136,7 +2173,7 @@ impl DbState {
     pub fn get_trashed_clips(&self) -> Result<Vec<ClipItem>> {
         let conn = self.conn.lock();
         let mut stmt = conn.prepare_cached(
-            "SELECT id, content_type, text_content, NULL as html_content, NULL as image_base64, image_path, content_hash, source_app, is_pinned, is_protected, COALESCE(pin_order, 0), bin_id, note, is_trashed, trashed_at, created_at,
+            "SELECT id, content_type, text_content, NULL as html_content, NULL as image_base64, image_path, content_hash, source, is_pinned, is_protected, COALESCE(pin_order, 0), bin_id, note, is_trashed, trashed_at, created_at,
                     current_transformation_id IS NOT NULL
              FROM clips WHERE is_trashed = 1 ORDER BY trashed_at DESC"
         )?;
@@ -2150,7 +2187,7 @@ impl DbState {
                 image_base64: row.get(4)?,
                 image_path: row.get(5)?,
                 content_hash: row.get(6)?,
-                source_app: row.get(7)?,
+                source: row.get(7)?,
                 is_pinned: row.get::<_, i32>(8)? != 0,
                 is_protected: row.get::<_, i32>(9)? != 0,
                 is_transformed: row.get::<_, i32>(16)? != 0,
@@ -2174,7 +2211,7 @@ impl DbState {
     pub fn get_protected_clips(&self) -> Result<Vec<ClipItem>> {
         let conn = self.conn.lock();
         let mut stmt = conn.prepare_cached(
-            "SELECT id, content_type, text_content, NULL as html_content, NULL as image_base64, image_path, content_hash, source_app, is_pinned, is_protected, COALESCE(pin_order, 0), bin_id, note, is_trashed, trashed_at, created_at,
+            "SELECT id, content_type, text_content, NULL as html_content, NULL as image_base64, image_path, content_hash, source, is_pinned, is_protected, COALESCE(pin_order, 0), bin_id, note, is_trashed, trashed_at, created_at,
                     current_transformation_id IS NOT NULL
              FROM clips WHERE is_protected = 1 AND (is_trashed IS NULL OR is_trashed = 0) ORDER BY created_at DESC"
         )?;
@@ -2188,7 +2225,7 @@ impl DbState {
                 image_base64: row.get(4)?,
                 image_path: row.get(5)?,
                 content_hash: row.get(6)?,
-                source_app: row.get(7)?,
+                source: row.get(7)?,
                 is_pinned: row.get::<_, i32>(8)? != 0,
                 is_protected: row.get::<_, i32>(9)? != 0,
                 is_transformed: row.get::<_, i32>(16)? != 0,
@@ -2525,8 +2562,7 @@ impl DbState {
 
     pub fn backfill_analytics(&self) -> Result<usize> {
         let conn = self.conn.lock();
-        let mut stmt =
-            conn.prepare("SELECT id, content_type, text_content, source_app FROM clips")?;
+        let mut stmt = conn.prepare("SELECT id, content_type, text_content, source FROM clips")?;
         let rows = stmt.query_map([], |row| {
             Ok((
                 row.get::<_, i64>(0)?,
@@ -2565,7 +2601,7 @@ impl DbState {
                 };
 
                 conn.execute(
-                    "UPDATE clips SET source_app = ?1 WHERE id = ?2",
+                    "UPDATE clips SET source = ?1 WHERE id = ?2",
                     params![inferred_app, id],
                 )?;
                 updated_count += 1;
@@ -2827,12 +2863,12 @@ impl DbState {
             |r| Ok((r.get(0)?, r.get(1)?)),
         ).unwrap_or((0, 0));
 
-        let mut app_stmt = conn.prepare(
-            "SELECT source_app, COUNT(*) FROM clips WHERE (is_trashed IS NULL OR is_trashed = 0) GROUP BY source_app ORDER BY COUNT(*) DESC LIMIT 8"
+        let mut source_stmt = conn.prepare(
+            "SELECT source, COUNT(*) FROM clips WHERE (is_trashed IS NULL OR is_trashed = 0) GROUP BY source ORDER BY COUNT(*) DESC LIMIT 8"
         )?;
-        let top_apps = app_stmt
+        let top_sources = source_stmt
             .query_map([], |r| {
-                Ok(AppStat {
+                Ok(SourceStat {
                     name: r.get(0)?,
                     count: r.get(1)?,
                 })
@@ -2869,7 +2905,7 @@ impl DbState {
         Ok(AnalyticsSummary {
             total_clips,
             total_chars,
-            top_apps,
+            top_sources,
             content_types,
             daily_activity,
         })
@@ -3179,7 +3215,7 @@ impl DbState {
         &self,
         content_type: &str,
         text: &str,
-        source_app: &str,
+        source: &str,
     ) -> Result<Vec<(i64, String)>> {
         let file_paths = if content_type.eq_ignore_ascii_case("file") {
             serde_json::from_str::<Vec<String>>(text).unwrap_or_default()
@@ -3206,10 +3242,10 @@ impl DbState {
             };
             let condition_matches = |kind: &str, value: &str| match kind {
                 "content_type" => content_type.eq_ignore_ascii_case(value),
-                "source_app" => source_app.to_lowercase().contains(&value.to_lowercase()),
+                "source" => source.to_lowercase().contains(&value.to_lowercase()),
                 "contains" => text.to_lowercase().contains(&value.to_lowercase()),
                 "origin_kind" => {
-                    derived_origin_kind(content_type, source_app).eq_ignore_ascii_case(value.trim())
+                    derived_origin_kind(content_type, source).eq_ignore_ascii_case(value.trim())
                 }
                 "file_extension" => {
                     let extension = value.trim().trim_start_matches('.').to_lowercase();
@@ -3784,7 +3820,10 @@ impl DbState {
             .map(|entry| (entry.content_hash.clone(), entry.clone()))
             .collect::<std::collections::HashMap<_, _>>();
 
-        for bin in payload.bins {
+        for mut bin in payload.bins {
+            if let Some(rule) = bin.smart_rule.as_mut() {
+                *rule = rule.replace("\"source_app\"", "\"source\"");
+            }
             let existing_id = tx.query_row(
                 "SELECT id FROM bins WHERE name = ?1 AND COALESCE(bin_type, 'category') = ?2 LIMIT 1",
                 params![bin.name, bin.bin_type],
@@ -3979,7 +4018,7 @@ impl DbState {
             tx.execute(
                 "INSERT INTO clips (
                     content_type, text_content, html_content, image_base64, image_path, content_hash,
-                    source_app, is_pinned, is_protected, pin_order, bin_id, note,
+                    source, is_pinned, is_protected, pin_order, bin_id, note,
                     is_trashed, trashed_at, created_at
                  ) VALUES (?1, ?2, ?3, ?4, NULL, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)
                  ON CONFLICT(content_hash) DO UPDATE SET
@@ -3987,7 +4026,7 @@ impl DbState {
                     text_content = excluded.text_content,
                     html_content = excluded.html_content,
                     image_base64 = excluded.image_base64,
-                    source_app = excluded.source_app,
+                    source = excluded.source,
                     is_pinned = excluded.is_pinned,
                     is_protected = excluded.is_protected,
                     pin_order = excluded.pin_order,
@@ -3998,7 +4037,7 @@ impl DbState {
                     created_at = excluded.created_at",
                 params![
                     clip.content_type, clip.text_content, clip.html_content, clip.image_base64,
-                    clip.content_hash, clip.source_app, clip.is_pinned, clip.is_protected,
+                    clip.content_hash, clip.source, clip.is_pinned, clip.is_protected,
                     clip.pin_order, mapped_primary_bin, clip.note, clip.is_trashed,
                     clip.trashed_at, clip.created_at,
                 ],
@@ -4102,7 +4141,7 @@ impl DbState {
         let conn = self.conn.lock();
         let mut stmt = conn.prepare(
             "SELECT id, content_type, text_content, html_content, image_base64, image_path,
-                    content_hash, source_app, is_pinned, is_protected, COALESCE(pin_order, 0),
+                    content_hash, source, is_pinned, is_protected, COALESCE(pin_order, 0),
                     bin_id, note, COALESCE(is_trashed, 0), trashed_at, created_at,
                     (SELECT GROUP_CONCAT(bin_id) FROM clip_bins WHERE clip_id = clips.id),
                     current_transformation_id IS NOT NULL
@@ -4127,7 +4166,7 @@ impl DbState {
                 image_base64: row.get(4)?,
                 image_path: row.get(5)?,
                 content_hash: row.get(6)?,
-                source_app: row.get(7)?,
+                source: row.get(7)?,
                 is_pinned: row.get::<_, i32>(8)? != 0,
                 is_protected: row.get::<_, i32>(9)? != 0,
                 is_transformed: row.get::<_, i32>(17)? != 0,
@@ -5560,17 +5599,17 @@ impl DbState {
         Ok(report)
     }
 
-    pub fn get_distinct_source_apps(&self) -> Result<Vec<String>> {
+    pub fn get_distinct_sources(&self) -> Result<Vec<String>> {
         let conn = self.conn.lock();
         let mut stmt = conn.prepare(
-            "SELECT DISTINCT source_app FROM clips WHERE source_app IS NOT NULL AND source_app != '' ORDER BY source_app ASC"
+            "SELECT DISTINCT source FROM clips WHERE source IS NOT NULL AND source != '' ORDER BY source ASC"
         )?;
         let rows = stmt.query_map([], |row| row.get(0))?;
-        let mut apps = Vec::new();
+        let mut sources = Vec::new();
         for r in rows {
-            apps.push(r?);
+            sources.push(r?);
         }
-        Ok(apps)
+        Ok(sources)
     }
 }
 
@@ -5696,6 +5735,88 @@ mod tests {
             "payment_card"
         );
         assert_eq!(db.get_clip_by_id(image.id).unwrap().content_type, "image");
+    }
+
+    #[test]
+    fn legacy_source_app_column_migrates_without_losing_filters_or_search() {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!("pasted_source_migration_{nanos}.db"));
+        let connection = Connection::open(&path).unwrap();
+        connection
+            .execute_batch(
+                "CREATE TABLE clips (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    content_type TEXT NOT NULL,
+                    text_content TEXT,
+                    html_content TEXT,
+                    image_base64 TEXT,
+                    content_hash TEXT UNIQUE NOT NULL,
+                    source_app TEXT DEFAULT 'Unknown',
+                    is_pinned INTEGER DEFAULT 0,
+                    bin_id INTEGER,
+                    note TEXT,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                 );
+                 CREATE TABLE bins (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    icon TEXT DEFAULT 'Folder',
+                    color TEXT DEFAULT 'default',
+                    smart_rule TEXT,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                 );
+                 INSERT INTO clips
+                    (content_type, text_content, content_hash, source_app)
+                 VALUES ('text', 'migration-search-token', 'legacy-source-hash', 'Safari');
+                 INSERT INTO bins (name, smart_rule)
+                 VALUES ('Safari', '{\"type\":\"source_app\",\"value\":\"Safari\"}');",
+            )
+            .unwrap();
+        drop(connection);
+
+        let db = DbState::new(path).unwrap();
+        let conn = db.conn.lock();
+        assert!(column_exists(&conn, "clips", "source").unwrap());
+        assert!(!column_exists(&conn, "clips", "source_app").unwrap());
+        let migrated_rule: String = conn
+            .query_row(
+                "SELECT smart_rule FROM bins WHERE name = 'Safari'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(migrated_rule, r#"{"type":"source","value":"Safari"}"#);
+        drop(conn);
+
+        let clips = db
+            .get_clips(Some("migration-search-token"), None, false)
+            .unwrap();
+        assert_eq!(clips.len(), 1);
+        assert_eq!(clips[0].source, "Safari");
+        assert_eq!(db.get_clips(None, Some(1), false).unwrap().len(), 1);
+
+        let backup = db.export_backup_json().unwrap();
+        assert!(backup.contains("\"source\": \"Safari\""));
+        assert!(!backup.contains("\"source_app\""));
+
+        let mut legacy_backup: serde_json::Value = serde_json::from_str(&backup).unwrap();
+        for clip in legacy_backup["clips"].as_array_mut().unwrap() {
+            let object = clip.as_object_mut().unwrap();
+            let source = object.remove("source").unwrap();
+            object.insert("source_app".to_string(), source);
+        }
+        let destination = setup_test_db();
+        destination
+            .import_backup_json(&serde_json::to_string(&legacy_backup).unwrap())
+            .unwrap();
+        assert!(destination
+            .get_clips(None, None, false)
+            .unwrap()
+            .iter()
+            .any(|clip| clip.source == "Safari"));
     }
 
     #[test]
@@ -5993,7 +6114,7 @@ mod tests {
         let clips = db.get_clips(None, None, false).unwrap();
         assert_eq!(clips.len(), 1);
         assert_eq!(clips[0].text_content.as_deref(), Some("Hello Rust"));
-        assert_eq!(clips[0].source_app, "Safari");
+        assert_eq!(clips[0].source, "Safari");
         assert!(!clips[0].is_pinned);
     }
 
@@ -6037,19 +6158,19 @@ mod tests {
             .reattribute_image_capture(image.id, "wrong-hash", "Screenshot")
             .unwrap()
             .is_none());
-        assert_eq!(db.get_clip_by_id(image.id).unwrap().source_app, "Safari");
+        assert_eq!(db.get_clip_by_id(image.id).unwrap().source, "Safari");
 
         let updated = db
             .reattribute_image_capture(image.id, &image.content_hash, "Screenshot")
             .unwrap()
             .unwrap();
-        assert_eq!(updated.source_app, "Screenshot");
+        assert_eq!(updated.source, "Screenshot");
 
         assert!(db
             .reattribute_image_capture(file.id, &file.content_hash, "Screenshot")
             .unwrap()
             .is_none());
-        assert_eq!(db.get_clip_by_id(file.id).unwrap().source_app, "pasted-app");
+        assert_eq!(db.get_clip_by_id(file.id).unwrap().source, "pasted-app");
     }
 
     #[test]
@@ -6505,7 +6626,7 @@ mod tests {
                     html_content TEXT,
                     image_base64 TEXT,
                     content_hash TEXT UNIQUE NOT NULL,
-                    source_app TEXT DEFAULT 'Unknown',
+                    source TEXT DEFAULT 'Unknown',
                     is_pinned INTEGER DEFAULT 0,
                     board_id INTEGER,
                     note TEXT,
@@ -6528,7 +6649,7 @@ mod tests {
                 );
                 INSERT INTO boards (id, name) VALUES (41, 'Migrated Bin');
                 INSERT INTO clips (
-                    id, content_type, text_content, content_hash, source_app, board_id
+                    id, content_type, text_content, content_hash, source, board_id
                 ) VALUES (73, 'text', 'Legacy assignment', 'legacy-hash', 'Test', 41);
                 INSERT INTO clip_boards (clip_id, board_id) VALUES (73, 41);",
             )
@@ -6708,7 +6829,7 @@ mod tests {
         );
 
         // Test distinct apps
-        let apps = db.get_distinct_source_apps().unwrap();
+        let apps = db.get_distinct_sources().unwrap();
         assert!(apps.contains(&"Terminal".to_string()));
         assert!(apps.contains(&"Finder".to_string()));
 
@@ -6759,7 +6880,7 @@ mod tests {
             .unwrap();
         let stored: (String, String, String) = conn
             .query_row(
-                "SELECT text_content, source_app, note FROM clips WHERE id = ?1",
+                "SELECT text_content, source, note FROM clips WHERE id = ?1",
                 params![clip.id],
                 |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
             )

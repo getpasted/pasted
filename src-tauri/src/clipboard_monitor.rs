@@ -83,10 +83,10 @@ fn is_image_file_path(path: &Path) -> bool {
         })
 }
 
-fn is_file_manager_source(source_app: Option<&str>) -> bool {
-    source_app.is_some_and(|source_app| {
+fn is_file_manager_source(source: Option<&str>) -> bool {
+    source.is_some_and(|source| {
         matches!(
-            source_app.trim().to_ascii_lowercase().as_str(),
+            source.trim().to_ascii_lowercase().as_str(),
             "finder"
                 | "file explorer"
                 | "windows explorer"
@@ -129,14 +129,14 @@ fn composite_image_source(inferred_source: Option<&str>) -> &str {
 /// accompanied by bitmap bytes. Explicit file-manager copies retain their file
 /// identity; screenshot and otherwise ambiguous producers prefer the bitmap so
 /// previews, image paste, and OCR continue to work.
-fn prefer_bitmap_for_image_file(bitmap_available: bool, source_app: Option<&str>) -> bool {
-    bitmap_available && !is_file_manager_source(source_app)
+fn prefer_bitmap_for_image_file(bitmap_available: bool, source: Option<&str>) -> bool {
+    bitmap_available && !is_file_manager_source(source)
 }
 
-fn is_pasted_source(source_app: Option<&str>) -> bool {
-    source_app.is_some_and(|source_app| {
+fn is_pasted_source(source: Option<&str>) -> bool {
+    source.is_some_and(|source| {
         matches!(
-            source_app.trim().to_ascii_lowercase().as_str(),
+            source.trim().to_ascii_lowercase().as_str(),
             "pasted" | "pasted-app"
         )
     })
@@ -334,7 +334,7 @@ pub fn start_clipboard_monitor(
 
             let clipboard_files = clipboard.get().file_list().unwrap_or_default();
 
-            let inferred_source_app = clipboard_files
+            let inferred_source = clipboard_files
                 .first()
                 .filter(|_| clipboard_files.len() == 1)
                 .and_then(|path| inferred_screenshot_source(path));
@@ -385,10 +385,10 @@ pub fn start_clipboard_monitor(
                             active_app_opt.as_deref(),
                         ))
             });
-            let capture_source_app = if prefer_composite_image {
-                Some(composite_image_source(inferred_source_app))
+            let capture_source = if prefer_composite_image {
+                Some(composite_image_source(inferred_source))
             } else {
-                resolved_capture_source(active_app_opt.as_deref(), inferred_source_app)
+                resolved_capture_source(active_app_opt.as_deref(), inferred_source)
             };
             let matches_recent_image = clipboard_files.first().is_some_and(|path| {
                 clipboard_files.len() == 1
@@ -403,7 +403,7 @@ pub fn start_clipboard_monitor(
                 && is_image_file_path(&clipboard_files[0])
                 && (matches_recent_image
                     || is_pasted_source(active_app_opt.as_deref())
-                    || inferred_source_app.is_some())
+                    || inferred_source.is_some())
                 && recent_image_capture.as_ref().is_some_and(is_recent_capture);
 
             // File lists are an explicit clipboard flavor on every supported desktop OS.
@@ -423,11 +423,11 @@ pub fn start_clipboard_monitor(
                     }
                     if coalesce_with_recent_image {
                         if let Some(recent) = recent_image_capture.as_ref() {
-                            let source_app = composite_image_source(inferred_source_app);
+                            let source = composite_image_source(inferred_source);
                             if let Ok(Some(updated)) = db_state.reattribute_image_capture(
                                 recent.clip_id,
                                 &recent.content_hash,
-                                source_app,
+                                source,
                             ) {
                                 let _ = app.emit("clip-added", updated);
                             }
@@ -481,15 +481,8 @@ pub fn start_clipboard_monitor(
                             continue;
                         }
                     };
-                    let source_app = capture_source_app.unwrap_or("System Clipboard");
-                    match db_state.save_clip(
-                        "file",
-                        Some(&serialized),
-                        None,
-                        None,
-                        &hash,
-                        source_app,
-                    ) {
+                    let source = capture_source.unwrap_or("System Clipboard");
+                    match db_state.save_clip("file", Some(&serialized), None, None, &hash, source) {
                         Ok(clip) => {
                             let preview_mode = db_state
                                 .get_setting("filePreviewMode")
@@ -627,14 +620,14 @@ pub fn start_clipboard_monitor(
                         }
 
                         // Save with the best available capture-source attribution.
-                        let source_app = capture_source_app.unwrap_or("System Clipboard");
+                        let source = capture_source.unwrap_or("System Clipboard");
                         match db_state.save_clip(
                             &content_type,
                             Some(&text),
                             None,
                             None,
                             &hash,
-                            source_app,
+                            source,
                         ) {
                             Ok(clip) => {
                                 let _ = app.emit("clip-added", clip.clone());
@@ -648,7 +641,7 @@ pub fn start_clipboard_monitor(
                                 let automation_app = app.clone();
                                 let automation_type = content_type;
                                 let automation_text = text.clone();
-                                let automation_source = source_app.to_string();
+                                let automation_source = source.to_string();
                                 thread::spawn(move || {
                                     if crate::features::is_enabled(
                                         &automation_db,
@@ -725,7 +718,7 @@ pub fn start_clipboard_monitor(
                             if let Ok(Some(updated)) = db_state.reattribute_image_capture(
                                 recent.clip_id,
                                 &recent.content_hash,
-                                composite_image_source(inferred_source_app),
+                                composite_image_source(inferred_source),
                             ) {
                                 let _ = app.emit("clip-added", updated);
                             }
@@ -781,9 +774,8 @@ pub fn start_clipboard_monitor(
                             base64::engine::general_purpose::STANDARD.encode(&img_bytes)
                         );
 
-                        let source_app = capture_source_app.unwrap_or("System Clipboard");
-                        match db_state.save_clip("image", None, None, Some(&b64), &hash, source_app)
-                        {
+                        let source = capture_source.unwrap_or("System Clipboard");
+                        match db_state.save_clip("image", None, None, Some(&b64), &hash, source) {
                             Ok(clip) => {
                                 recent_image_capture = Some(RecentImageCapture {
                                     clip_id: clip.id,

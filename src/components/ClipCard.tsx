@@ -482,8 +482,8 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
           <div className="clip-type-icon theme-badge p-1 rounded border">
             {getIcon()}
           </div>
-          <span className="font-medium theme-text-main truncate max-w-[120px]" title={clip.source_app}>
-            <HighlightedClipText text={clip.source_app} query={searchQuery} field="app" />
+          <span className="font-medium theme-text-main truncate max-w-[120px]" title={clip.source}>
+            <HighlightedClipText text={clip.source} query={searchQuery} field="source" />
           </span>
         </div>
         <div className="clip-meta-row theme-text-subtle flex items-center text-[11px] font-mono">
@@ -787,7 +787,7 @@ export const ClipCard = React.memo(ClipCardComponent, (prevProps, nextProps) => 
     prevProps.clip.content_type === nextProps.clip.content_type &&
     prevProps.clip.text_content === nextProps.clip.text_content &&
     prevProps.clip.image_base64 === nextProps.clip.image_base64 &&
-    prevProps.clip.source_app === nextProps.clip.source_app &&
+    prevProps.clip.source === nextProps.clip.source &&
     prevProps.clip.created_at === nextProps.clip.created_at &&
     prevProps.clip.is_pinned === nextProps.clip.is_pinned &&
     prevProps.clip.pin_order === nextProps.clip.pin_order &&

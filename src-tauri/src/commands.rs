@@ -872,7 +872,7 @@ pub struct CaptureFeedbackClip {
     id: i64,
     content_type: String,
     preview_text: Option<String>,
-    source_app: String,
+    source: String,
     is_pinned: bool,
     is_protected: bool,
     is_trashed: bool,
@@ -914,7 +914,7 @@ pub fn get_capture_feedback_clip(
         id: clip.id,
         content_type: clip.content_type,
         preview_text,
-        source_app: clip.source_app,
+        source: clip.source,
         is_pinned: clip.is_pinned,
         is_protected: clip.is_protected,
         is_trashed: clip.is_trashed,
@@ -3390,7 +3390,7 @@ fn linux_application_icon_data_url(application_name: &str) -> Option<String> {
 
 #[cfg(target_os = "windows")]
 fn windows_application_icons(
-    source_apps: &[String],
+    sources: &[String],
 ) -> Result<std::collections::HashMap<String, String>, String> {
     use std::io::Write;
     use std::os::windows::process::CommandExt;
@@ -3434,7 +3434,7 @@ $result | ConvertTo-Json -Compress
         .stderr(Stdio::null())
         .spawn()
         .map_err(|error| format!("Could not start the Windows icon resolver: {error}"))?;
-    let input = serde_json::to_vec(source_apps).map_err(|error| error.to_string())?;
+    let input = serde_json::to_vec(sources).map_err(|error| error.to_string())?;
     child
         .stdin
         .take()
@@ -3450,7 +3450,7 @@ $result | ConvertTo-Json -Compress
     serde_json::from_slice(&output.stdout).or_else(|_| Ok(std::collections::HashMap::new()))
 }
 
-static SOURCE_APP_ICON_CACHE: once_cell::sync::Lazy<
+static SOURCE_ICON_CACHE: once_cell::sync::Lazy<
     parking_lot::Mutex<std::collections::HashMap<String, String>>,
 > = once_cell::sync::Lazy::new(|| parking_lot::Mutex::new(std::collections::HashMap::new()));
 
@@ -3458,7 +3458,7 @@ fn cache_resolved_source_icons(
     mut existing: std::collections::HashMap<String, String>,
     resolved: std::collections::HashMap<String, String>,
 ) -> std::collections::HashMap<String, String> {
-    let mut cache = SOURCE_APP_ICON_CACHE.lock();
+    let mut cache = SOURCE_ICON_CACHE.lock();
     for (name, icon) in resolved {
         cache.insert(name.clone(), icon.clone());
         existing.insert(name, icon);
@@ -3467,20 +3467,20 @@ fn cache_resolved_source_icons(
 }
 
 #[tauri::command]
-pub async fn get_source_app_icons(
-    source_apps: Vec<String>,
+pub async fn get_source_icons(
+    sources: Vec<String>,
     app: AppHandle,
 ) -> Result<std::collections::HashMap<String, String>, String> {
-    if source_apps.len() > 128 || source_apps.iter().any(|name| name.len() > 256) {
+    if sources.len() > 128 || sources.iter().any(|name| name.len() > 256) {
         return Err("Source icon request exceeds the supported limit.".to_string());
     }
     let (cached_icons, uncached_sources) = {
-        let cache = SOURCE_APP_ICON_CACHE.lock();
-        let cached = source_apps
+        let cache = SOURCE_ICON_CACHE.lock();
+        let cached = sources
             .iter()
             .filter_map(|name| cache.get(name).cloned().map(|icon| (name.clone(), icon)))
             .collect::<std::collections::HashMap<_, _>>();
-        let uncached = source_apps
+        let uncached = sources
             .into_iter()
             .filter(|name| !cache.contains_key(name))
             .collect::<Vec<_>>();
@@ -3540,7 +3540,7 @@ pub async fn get_source_app_icons(
 pub fn get_installed_applications(db: State<'_, Arc<DbState>>) -> Result<Vec<String>, String> {
     let mut apps = std::collections::BTreeSet::new();
 
-    if let Ok(history_apps) = db.get_distinct_source_apps() {
+    if let Ok(history_apps) = db.get_distinct_sources() {
         for app in history_apps {
             if !app.trim().is_empty() {
                 apps.insert(app);
@@ -3739,13 +3739,13 @@ fn csv_cell(value: &str) -> String {
 #[tauri::command]
 pub fn export_clips_csv(db: State<'_, Arc<DbState>>) -> Result<String, String> {
     let clips = db.get_clips(None, None, false).map_err(|e| e.to_string())?;
-    let mut csv = String::from("id,content_type,source_app,is_pinned,created_at,text_content\n");
+    let mut csv = String::from("id,content_type,source,is_pinned,created_at,text_content\n");
     for c in clips {
         let line = format!(
             "{},{},{},{},{},{}\n",
             c.id,
             csv_cell(&c.content_type),
-            csv_cell(&c.source_app),
+            csv_cell(&c.source),
             c.is_pinned,
             csv_cell(&c.created_at),
             csv_cell(c.text_content.as_deref().unwrap_or_default()),
@@ -3874,7 +3874,7 @@ mod tests {
             image_base64: Some(image_base64),
             image_path: None,
             content_hash: "stored-image-hash".to_string(),
-            source_app: "Screenshot".to_string(),
+            source: "Screenshot".to_string(),
             is_pinned: false,
             is_protected: false,
             is_transformed: false,
