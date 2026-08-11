@@ -243,9 +243,15 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           mapfile -d '' assets < <(find release-assets -type f -print0 | sort -z)
+          version="${{ needs.metadata.outputs.version }}"
+          if [[ "$version" =~ ^(.+)-rc\.([0-9]+)$ ]]; then
+            release_title="Pasted ${BASH_REMATCH[1]} RC${BASH_REMATCH[2]}"
+          else
+            release_title="Pasted $version"
+          fi
           gh release create "$GITHUB_REF_NAME" "${assets[@]}" \
             --repo "$GITHUB_REPOSITORY" \
             --verify-tag \
             --draft \
-            --title "Pasted ${{ needs.metadata.outputs.version }}" \
+            --title "$release_title" \
             --generate-notes

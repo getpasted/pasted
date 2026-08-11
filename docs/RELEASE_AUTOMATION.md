@@ -37,7 +37,11 @@ Unsigned Windows packages are available from **Desktop builds** for compatibilit
 3. Create and push an annotated version tag, for example `git tag -a v1.0.0-rc.1 -m "Pasted 1.0.0 RC 1"` followed by `git push origin v1.0.0-rc.1`.
 4. Approve protected GitHub Environments if prompted.
 5. Download and clean-install test the exact draft-release artifacts.
-6. Edit release notes as needed, then publish the draft as a pre-release for an RC tag or a full release for a final tag.
+6. Replace the generated changelog-only body with complete release notes, then publish the draft as a pre-release for an RC tag or a full release for a final tag.
+
+Every published release must be useful without following another link. Include a short introduction, user-facing highlights, the supported download matrix, verification or signing expectations, the issue-reporting link, and the full changelog link. The changelog link supplements these details; it never replaces them.
+
+Use human-friendly release titles such as `Pasted 1.0.0 RC4`. Keep SemVer identifiers such as `v1.0.0-rc.4`, package versions, and generated artifact filenames in their machine-friendly lowercase form.
 
 Publishing also exposes the generated `pasted.rb` release asset. The separate Homebrew tap pulls that public asset on its next scheduled run; see [Homebrew distribution](HOMEBREW.md). No release credential is shared with the tap.
 
