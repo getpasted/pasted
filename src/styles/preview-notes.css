@@ -23,6 +23,7 @@ body.capture-feedback-mode,
 
 .capture-feedback-card {
   --capture-feedback-motion-y: -8px;
+  --capture-feedback-exit-x: 24px;
   /* A live backdrop-filter on a transparent, non-focusable macOS window is
      recomposited when activation changes and visibly jumps between clear and
      opaque. Keep the material translucent, but paint it deterministically. */
@@ -48,7 +49,7 @@ body.capture-feedback-mode,
   will-change: height;
 }
 
-.capture-feedback-slot.is-exiting {
+.capture-feedback-slot.is-collapsing {
   height: 0;
 }
 
@@ -56,11 +57,38 @@ body.capture-feedback-mode,
   --capture-feedback-motion-y: 8px;
 }
 
-.capture-feedback-card.is-entering,
-.capture-feedback-card.is-exiting {
+.capture-feedback-card.is-entering {
   pointer-events: none;
-  opacity: 0;
-  transform: translateY(var(--capture-feedback-motion-y)) scale(0.98);
+  animation: capture-feedback-enter 220ms cubic-bezier(0.16, 1, 0.3, 1) 64ms both;
+}
+
+.capture-feedback-card.is-exiting:not(.is-auto-fading) {
+  pointer-events: none;
+  animation: capture-feedback-exit 190ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+
+@keyframes capture-feedback-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(0, var(--capture-feedback-motion-y), 0) scale(0.975);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes capture-feedback-exit {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+
+  to {
+    opacity: 0;
+    transform: translate3d(var(--capture-feedback-exit-x), 0, 0) scale(0.97);
+  }
 }
 
 .capture-feedback-card.is-auto-fading {
@@ -143,6 +171,7 @@ body.capture-feedback-mode,
   .capture-feedback-card,
   .capture-feedback-slot {
     transition: none;
+    animation: none;
   }
 }
 

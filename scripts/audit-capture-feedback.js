@@ -58,6 +58,21 @@ assert.match(overlaySource, /is-global-pointer-hover/);
 assert.match(overlaySource, /set_overlay_cursor/);
 assert.match(overlaySource, /captureFeedbackDismissSeconds/);
 assert.match(overlaySource, /SWIPE_DISMISS_THRESHOLD/);
+assert.match(
+  overlaySource,
+  /setSize\(new LogicalSize\(WINDOW_WIDTH, MAX_WINDOW_HEIGHT\)\)/,
+  'Capture feedback must keep stable native bounds while its visible stack changes',
+);
+assert.match(
+  overlaySource,
+  /flushSync\(\(\) => setItems\(next\)\)/,
+  'Capture feedback must commit stack removal before resizing its native window',
+);
+assert.doesNotMatch(
+  overlaySource,
+  /await[^;]*requestAnimationFrame/,
+  'Capture feedback must never wait for an animation frame before showing its hidden WebView',
+);
 assert.doesNotMatch(overlaySource, /clip-added/);
 
 assert.match(monitorSource, /serde_json::json!\(\{ "kind": kind, "clip_id": clip_id \}\)/);

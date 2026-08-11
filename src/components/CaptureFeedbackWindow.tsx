@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import {
   AlertTriangle,
   CheckCircle2,
@@ -57,6 +58,8 @@ interface FeedbackItem {
   entering?: boolean;
   exiting?: boolean;
   fading?: boolean;
+  collapsing?: boolean;
+  exitDirection?: -1 | 1;
 }
 
 const FEEDBACK = {
@@ -87,24 +90,21 @@ const STACK_GAP = 6;
 const WINDOW_PADDING = 6;
 const MAX_STACK_ITEMS = 4;
 const EXIT_DURATION_MS = 190;
-const ENTER_PAINT_DELAY_MS = 34;
+const ENTER_DURATION_MS = 220;
+const ENTER_PAINT_DELAY_MS = 64;
 const DISPLAY_POLL_INTERVAL_MS = 180;
 const HOVER_POLL_INTERVAL_MS = 60;
 const PREVIEW_FADE_MS = 1_000;
 const SWIPE_DISMISS_THRESHOLD = 54;
+const STACK_COLLAPSE_MS = 160;
+const MAX_WINDOW_HEIGHT = PREVIEW_HEIGHT * MAX_STACK_ITEMS
+  + STACK_GAP * (MAX_STACK_ITEMS - 1)
+  + WINDOW_PADDING * 2;
 
 function contentIcon(contentType: string) {
   if (contentType === 'image') return ImageIcon;
   if (contentType === 'file') return File;
   return Type;
-}
-
-function stackHeight(items: FeedbackItem[]) {
-  const cards = items.reduce(
-    (height, item) => height + (item.clip ? PREVIEW_HEIGHT : NOTICE_HEIGHT),
-    0,
-  );
-  return cards + Math.max(0, items.length - 1) * STACK_GAP + WINDOW_PADDING * 2;
 }
 
 export function CaptureFeedbackWindow({ settings, settingsHydrated }: CaptureFeedbackWindowProps) {
@@ -123,31 +123,50 @@ export function CaptureFeedbackWindow({ settings, settingsHydrated }: CaptureFee
     if (itemsRef.current.length > 0) void syncWindowRef.current(itemsRef.current);
   }, [settings, settingsHydrated]);
 
-  const commitItems = (update: (current: FeedbackItem[]) => FeedbackItem[]) => {
-    setItems((current) => {
-      const next = update(current);
-      itemsRef.current = next;
-      void syncWindowRef.current(next);
-      return next;
-    });
+  const commitItems = (
+    update: (current: FeedbackItem[]) => FeedbackItem[],
+    syncWindow = false,
+  ) => {
+    const next = update(itemsRef.current);
+    itemsRef.current = next;
+    if (syncWindow) {
+      // Keep the rendered stack and its native WebView dimensions atomic.
+      // Resizing before React commits briefly squeezes the old stack.
+      flushSync(() => setItems(next));
+    } else {
+      setItems(next);
+    }
+    if (syncWindow) void syncWindowRef.current(next);
+    return next;
   };
 
   const finishDismiss = (id: number) => {
     const timer = timers.current.get(id);
     if (timer) window.clearTimeout(timer);
     timers.current.delete(id);
-    commitItems((current) => current.filter((item) => item.id !== id));
+    commitItems((current) => current.filter((item) => item.id !== id), true);
   };
 
-  const dismiss = (id: number) => {
+  const beginCollapse = (id: number) => {
+    const timer = timers.current.get(id);
+    if (timer) window.clearTimeout(timer);
+    commitItems((current) => current.map((candidate) => candidate.id === id
+      ? { ...candidate, collapsing: true }
+      : candidate));
+    timers.current.set(id, window.setTimeout(() => finishDismiss(id), STACK_COLLAPSE_MS));
+  };
+
+  const dismiss = (id: number, exitDirection?: -1 | 1) => {
     const item = itemsRef.current.find((candidate) => candidate.id === id);
     if (!item || item.exiting) return;
     const timer = timers.current.get(id);
     if (timer) window.clearTimeout(timer);
+    const direction = exitDirection
+      ?? (settingsRef.current.captureFeedbackPosition.endsWith('right') ? 1 : -1);
     commitItems((current) => current.map((candidate) => candidate.id === id
-      ? { ...candidate, fading: false, exiting: true }
+      ? { ...candidate, fading: false, exiting: true, exitDirection: direction }
       : candidate));
-    timers.current.set(id, window.setTimeout(() => finishDismiss(id), EXIT_DURATION_MS));
+    timers.current.set(id, window.setTimeout(() => beginCollapse(id), EXIT_DURATION_MS));
   };
 
   const collapseAfterFade = (id: number) => {
@@ -156,9 +175,9 @@ export function CaptureFeedbackWindow({ settings, settingsHydrated }: CaptureFee
     const timer = timers.current.get(id);
     if (timer) window.clearTimeout(timer);
     commitItems((current) => current.map((candidate) => candidate.id === id
-      ? { ...candidate, fading: true, exiting: true }
+      ? { ...candidate, fading: true, exiting: true, collapsing: true }
       : candidate));
-    timers.current.set(id, window.setTimeout(() => finishDismiss(id), EXIT_DURATION_MS));
+    timers.current.set(id, window.setTimeout(() => finishDismiss(id), STACK_COLLAPSE_MS));
   };
 
   const pauseAutoDismiss = (id: number) => {
@@ -202,7 +221,7 @@ export function CaptureFeedbackWindow({ settings, settingsHydrated }: CaptureFee
     swipeState.current.set(id, { distance, time: now });
     if (distance < SWIPE_DISMISS_THRESHOLD) return;
     swipeState.current.delete(id);
-    dismiss(id);
+    dismiss(id, event.deltaX >= 0 ? 1 : -1);
   };
 
   useEffect(() => {
@@ -213,7 +232,18 @@ export function CaptureFeedbackWindow({ settings, settingsHydrated }: CaptureFee
     let lastDisplayKey = '';
     let lastCursorIcon: 'arrow' | 'hand' = 'arrow';
     let lastHoveredItemId: number | null = null;
+    let lastIgnoreCursorEvents: boolean | null = null;
+    let nativeWindowVisible = false;
     const unlisteners: Array<() => void> = [];
+
+    const setWindowCursorPassthrough = (ignore: boolean) => {
+      if (lastIgnoreCursorEvents === ignore) return;
+      lastIgnoreCursorEvents = ignore;
+      void windowHandle.setIgnoreCursorEvents(ignore).catch((error) => {
+        lastIgnoreCursorEvents = null;
+        console.warn('Could not update capture feedback interaction mode:', error);
+      });
+    };
 
     const setSyntheticCursor = (icon: 'arrow' | 'hand') => {
       document.documentElement.style.cursor = icon === 'hand' ? 'pointer' : '';
@@ -240,6 +270,7 @@ export function CaptureFeedbackWindow({ settings, settingsHydrated }: CaptureFee
     const syncSyntheticHover = async () => {
       if (!itemsRef.current.some((item) => item.clip)) {
         clearSyntheticHover();
+        setWindowCursorPassthrough(true);
         return;
       }
       try {
@@ -266,9 +297,11 @@ export function CaptureFeedbackWindow({ settings, settingsHydrated }: CaptureFee
         document.querySelectorAll('.capture-feedback-card .floating-action-button').forEach((element) => {
           element.classList.toggle('is-global-pointer-hover', element === hoveredAction);
         });
+        setWindowCursorPassthrough(!hoveredCard);
         setSyntheticCursor(hoveredAction ? 'hand' : 'arrow');
       } catch {
         clearSyntheticHover();
+        setWindowCursorPassthrough(true);
       }
     };
 
@@ -331,25 +364,27 @@ export function CaptureFeedbackWindow({ settings, settingsHydrated }: CaptureFee
       if (nextItems.length === 0) {
         lastDisplayKey = '';
         clearSyntheticHover();
+        setWindowCursorPassthrough(true);
         await windowHandle.hide();
+        nativeWindowVisible = false;
         return;
       }
 
-      const height = stackHeight(nextItems);
       try {
         await windowHandle.setFocusable(false);
-        await windowHandle.setSize(new LogicalSize(WINDOW_WIDTH, height));
+        if (!nativeWindowVisible) {
+          await windowHandle.setSize(new LogicalSize(WINDOW_WIDTH, MAX_WINDOW_HEIGHT));
+        }
         await placeOnPointerDisplay(true);
       } catch (error) {
         console.warn('Could not position capture feedback:', error);
       }
 
-      try {
-        await windowHandle.setIgnoreCursorEvents(!nextItems.some((item) => item.clip));
-      } catch (error) {
-        console.warn('Could not update capture feedback interaction mode:', error);
+      setWindowCursorPassthrough(true);
+      if (!nativeWindowVisible) {
+        await windowHandle.show();
+        nativeWindowVisible = true;
       }
-      await windowHandle.show();
     };
     syncWindowRef.current = syncWindow;
     const displayPoll = window.setInterval(() => {
@@ -390,20 +425,19 @@ export function CaptureFeedbackWindow({ settings, settingsHydrated }: CaptureFee
         image,
         entering: true,
       };
-      commitItems((current) => [item, ...current]
+      const nextItems = commitItems((current) => [item, ...current]
         .sort((left, right) => right.id - left.id)
         .slice(0, MAX_STACK_ITEMS));
 
-      await syncWindowRef.current(itemsRef.current);
-      // The hidden WebView can consume animation frames before macOS composites
-      // the newly shown utility window. Hold the initial state for one visible
-      // paint so the entrance transition cannot be skipped.
+      await syncWindowRef.current(nextItems);
+      // Clear the entrance phase only after its CSS animation has completed.
+      // This timer never gates window visibility; at worst animation is skipped.
       window.setTimeout(() => {
         if (disposed) return;
         commitItems((current) => current.map((candidate) => candidate.id === item.id
           ? { ...candidate, entering: false }
           : candidate));
-      }, ENTER_PAINT_DELAY_MS);
+      }, ENTER_PAINT_DELAY_MS + ENTER_DURATION_MS);
 
       if (!clip) {
         const timer = window.setTimeout(() => dismiss(item.id), 1_800);
@@ -485,12 +519,13 @@ export function CaptureFeedbackWindow({ settings, settingsHydrated }: CaptureFee
         return (
           <div
             key={item.id}
-            className={`capture-feedback-slot w-full shrink-0 ${item.exiting ? 'is-exiting' : ''}`}
+            className={`capture-feedback-slot w-full shrink-0 ${item.collapsing ? 'is-collapsing' : ''}`}
             style={{ '--capture-feedback-card-height': `${item.clip ? PREVIEW_HEIGHT : NOTICE_HEIGHT}px` } as React.CSSProperties}
           >
           <div
             className={`capture-feedback-card flex h-full w-full flex-col rounded-xl border shadow-xl ${item.entering ? 'is-entering' : ''} ${item.exiting ? 'is-exiting' : ''} ${item.fading ? 'is-auto-fading' : ''} ${item.clip ? 'clip-card-idle is-preview relative' : `theme-status-${feedback.tone}`}`}
             data-feedback-id={item.id}
+            style={{ '--capture-feedback-exit-x': `${(item.exitDirection ?? 1) * 24}px` } as React.CSSProperties}
             onMouseDown={(event) => event.preventDefault()}
             onWheel={item.clip ? (event) => handleSwipe(item.id, event) : undefined}
           >
