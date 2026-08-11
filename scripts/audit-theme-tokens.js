@@ -24,11 +24,13 @@ const tokensIn = (block) => Object.fromEntries(
 const commonRootIndex = source.lastIndexOf('  :root {');
 const common = tokensIn(extractBlock('  :root {', commonRootIndex));
 const dark = tokensIn(extractBlock(':root, html.dark'));
-const cool = tokensIn(extractBlock('html:is(.cool, .warm)'));
+const cool = tokensIn(extractBlock('html:is(.cool, .warm, .theme-2894, .theme-sauced)'));
 const themeOverrides = {
   Dark: dark,
   Cool: cool,
   Warm: tokensIn(extractBlock('html.warm')),
+  '2894': tokensIn(extractBlock('html.theme-2894')),
+  Sauced: tokensIn(extractBlock('html.theme-sauced')),
   Vampire: tokensIn(extractBlock('html.vampire')),
   Flux: tokensIn(extractBlock('html.flux')),
   '808': tokensIn(extractBlock('html.theme-808')),
@@ -97,7 +99,7 @@ let failures = 0;
 console.log('\nLive theme-token contrast audit');
 console.log('-------------------------------');
 for (const [name, overrides] of Object.entries(themeOverrides)) {
-  const tokens = { ...common, ...(name === 'Warm' ? cool : {}), ...overrides };
+  const tokens = { ...common, ...(['Warm', '2894', 'Sauced'].includes(name) ? cool : {}), ...overrides };
   for (const [label, foregroundToken, backgroundToken, minimum] of checks) {
     const tokenColor = (tokenOrColor) => tokenOrColor.startsWith('--')
       ? tokens[tokenOrColor]

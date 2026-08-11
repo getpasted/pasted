@@ -74,7 +74,7 @@ function parseSavedSettings(saved: Record<string, string>) {
   if (saved.revisionHistoryLimit !== undefined) next.revisionHistoryLimit = numberValue('revisionHistoryLimit', next.revisionHistoryLimit);
   if (saved.alwaysPastePlainText !== undefined) next.alwaysPastePlainText = saved.alwaysPastePlainText === 'true';
   if (['small', 'medium', 'large'].includes(saved.rowHeight)) next.rowHeight = saved.rowHeight as AppSettings['rowHeight'];
-  if (['system', 'cool', 'dark', 'warm', 'vampire', 'flux', '808'].includes(saved.themeMode)) next.themeMode = saved.themeMode as AppSettings['themeMode'];
+  if (['system', 'cool', 'dark', 'warm', '2894', 'sauced', 'vampire', 'flux', '808'].includes(saved.themeMode)) next.themeMode = saved.themeMode as AppSettings['themeMode'];
   if (saved.enableActivityLog !== undefined) next.enableActivityLog = saved.enableActivityLog === 'true';
   if (saved.activityLogCapacity) next.activityLogCapacity = numberValue('activityLogCapacity', next.activityLogCapacity ?? 1000);
   if (saved.enableTrash !== undefined) next.enableTrash = saved.enableTrash === 'true';
@@ -121,7 +121,7 @@ function readCachedBlacklist() {
 function readCachedTheme(): AppSettings['themeMode'] {
   try {
     const cached = localStorage.getItem('pasted_cache_theme');
-    return ['system', 'cool', 'dark', 'warm', 'vampire', 'flux', '808'].includes(cached ?? '')
+    return ['system', 'cool', 'dark', 'warm', '2894', 'sauced', 'vampire', 'flux', '808'].includes(cached ?? '')
       ? cached as AppSettings['themeMode']
       : DEFAULT_SETTINGS.themeMode;
   } catch {
@@ -211,6 +211,8 @@ export function useAppSettings() {
       root.classList.toggle('cool', resolvedTheme === 'cool');
       root.classList.toggle('dark', resolvedTheme === 'dark');
       root.classList.toggle('warm', resolvedTheme === 'warm');
+      root.classList.toggle('theme-2894', resolvedTheme === '2894');
+      root.classList.toggle('theme-sauced', resolvedTheme === 'sauced');
       root.classList.toggle('vampire', resolvedTheme === 'vampire');
       root.classList.toggle('flux', resolvedTheme === 'flux');
       root.classList.toggle('theme-808', resolvedTheme === '808');
@@ -218,7 +220,7 @@ export function useAppSettings() {
         root.dataset.platform === 'linux'
         && (window as Window & { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__
       ) {
-        const nativeTheme = ['cool', 'warm'].includes(resolvedTheme) ? 'light' : 'dark';
+        const nativeTheme = ['cool', 'warm', '2894', 'sauced'].includes(resolvedTheme) ? 'light' : 'dark';
         void Promise.all([
           getCurrentWindow().setTheme(nativeTheme),
           invoke('set_linux_native_menu_theme', { dark: nativeTheme === 'dark' }),

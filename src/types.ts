@@ -364,7 +364,7 @@ export interface AppSettings {
   revisionHistoryLimit: number;
   alwaysPastePlainText: boolean;
   rowHeight: 'small' | 'medium' | 'large';
-  themeMode: 'system' | 'dark' | 'cool' | 'warm' | 'vampire' | 'flux' | '808';
+  themeMode: 'system' | 'dark' | 'cool' | 'warm' | '2894' | 'sauced' | 'vampire' | 'flux' | '808';
   enableActivityLog: boolean;
   activityLogCapacity: number;
   enableTrash: boolean;

@@ -47,7 +47,7 @@ const usages = new Set(
 );
 const undefinedTokens = [...usages].filter((token) => !definitions.has(token)).sort();
 const importantCount = (css.match(/!important/g) || []).length;
-const compatibilitySelectorCount = (css.match(/html:is\(\.cool, \.warm\)/g) || []).length;
+const compatibilitySelectorCount = (css.match(/html:is\(\.cool, \.warm, \.theme-2894, \.theme-sauced\)/g) || []).length;
 const utilityCoupledSelectorCount = (css.match(/\[class~="|\.(?:bg|text|border)-\\\[/g) || []).length;
 const hardCodedSurfaceCount = (componentSource.match(/(?:bg|border)-(?:gray|slate|zinc|neutral)-(?:700|800|900)(?:\/[0-9]+)?|(?:bg|border)-\[#[0-9a-fA-F]{3,8}(?:\]\/[0-9]+|\])/g) || []).length;
 const defaultPaletteUtilityCount = (componentSource.match(/\b(?:bg|text|border|ring|divide)-(?:slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose|white|black)(?:-[0-9]+)?(?:\/[0-9]+)?\b/g) || []).length;
@@ -69,7 +69,7 @@ const unthemedDividerCount = [...componentSource.matchAll(/className="([^"]*\bdi
 console.log('\nCSS architecture audit');
 console.log('----------------------');
 console.log(`!important declarations: ${importantCount}/${IMPORTANT_BUDGET}`);
-console.log(`Cool/Warm compatibility selectors: ${compatibilitySelectorCount}/${COMPATIBILITY_SELECTOR_BUDGET}`);
+console.log(`Shared light-theme selectors: ${compatibilitySelectorCount}/${COMPATIBILITY_SELECTOR_BUDGET}`);
 console.log(`Utility-coupled selectors: ${utilityCoupledSelectorCount}/${UTILITY_COUPLED_SELECTOR_BUDGET}`);
 console.log(`Hard-coded JSX surfaces: ${hardCodedSurfaceCount}/${HARD_CODED_SURFACE_BUDGET}`);
 console.log(`Default-palette utility debt: ${defaultPaletteUtilityCount}/${DEFAULT_PALETTE_UTILITY_BUDGET}`);

@@ -25,6 +25,8 @@ fn friendly_value(key: &str, value: &str) -> Option<String> {
             "cool" => "Cool".into(),
             "dark" => "Dark".into(),
             "warm" => "Warm".into(),
+            "2894" => "2894".into(),
+            "sauced" => "Sauced".into(),
             "vampire" => "Vampire".into(),
             "flux" => "Flux".into(),
             "808" => "808".into(),
@@ -157,6 +159,18 @@ mod tests {
                 event_type: "setting_changed",
                 description: "Changed Appearance: Dark → Warm".into(),
             })
+        );
+        assert_eq!(
+            describe_setting_change("themeMode", Some("warm"), "2894")
+                .unwrap()
+                .description,
+            "Changed Appearance: Warm → 2894"
+        );
+        assert_eq!(
+            describe_setting_change("themeMode", Some("2894"), "sauced")
+                .unwrap()
+                .description,
+            "Changed Appearance: 2894 → Sauced"
         );
         assert_eq!(
             describe_setting_change("enableBins", Some("true"), "false")

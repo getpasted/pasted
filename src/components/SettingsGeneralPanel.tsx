@@ -1,4 +1,4 @@
-import { Code2, Coffee, Download, Droplet, Drum, Laptop, Link, Minus, Moon, Palette, Plus, RotateCcw, Sliders, Snowflake, Trash2, Zap } from 'lucide-react';
+import { Building2, Code2, Coffee, Download, Droplet, Drum, Laptop, Link, Minus, Moon, Palette, Pizza, Plus, RotateCcw, Sliders, Snowflake, Trash2, Zap } from 'lucide-react';
 import type { AppSettings } from '../types';
 import { useAltKeyPressed } from '../hooks/useAltKeyPressed';
 import { safeInvoke as invoke } from '../utils/tauri';
@@ -20,6 +20,8 @@ const appearanceModes = [
   { value: 'dark', label: 'Dark', Icon: Moon },
   { value: 'cool', label: 'Cool', Icon: Snowflake },
   { value: 'warm', label: 'Warm', Icon: Coffee },
+  { value: '2894', label: '2894', Icon: Building2 },
+  { value: 'sauced', label: 'Sauced', Icon: Pizza },
   { value: 'vampire', label: 'Vampire', Icon: Droplet },
   { value: 'flux', label: 'Flux', Icon: Zap },
   { value: '808', label: '808', Icon: Drum },
@@ -28,7 +30,7 @@ const appearanceModes = [
 const appearanceGroups = [
   { label: 'System', values: ['system'] },
   { label: 'Dark schemes', values: ['dark', 'vampire', 'flux', '808'] },
-  { label: 'Light schemes', values: ['cool', 'warm'] },
+  { label: 'Light schemes', values: ['cool', 'warm', '2894', 'sauced'] },
 ] as const;
 
 const pasteBehaviorOptions = [

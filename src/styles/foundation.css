@@ -83,7 +83,7 @@
   }
 
   /* ❄️ Cool Theme Tokens */
-  html:is(.cool, .warm), html:is([data-theme="cool"], [data-theme="warm"]) {
+  html:is(.cool, .warm, .theme-2894, .theme-sauced), html:is([data-theme="cool"], [data-theme="warm"], [data-theme="2894"], [data-theme="sauced"]) {
     color-scheme: light;
     --bg-app: #f4f4f7;
     --bg-main: #f4f4f7;
@@ -204,6 +204,132 @@
     --material-toolbar: rgba(255, 250, 242, 0.66);
     --material-blur: 24px;
     --material-saturation: 140%;
+  }
+
+  /* 🏢 2894 Theme — white brick, slate-blue trim, and green awnings. */
+  html.theme-2894, html[data-theme="2894"] {
+    color-scheme: light;
+    --bg-app: #edf2f3;
+    --bg-main: #edf2f3;
+    --bg-primary: #ffffff;
+    --bg-sidebar: #e6edef;
+    --bg-list: #ffffff;
+    --bg-preview: #f1f5f4;
+    --bg-card: #ffffff;
+    --bg-card-hover: #edf3ef;
+    --bg-clip-card-hover: #edf3ef;
+    --bg-card-selected: #dce8e1;
+    --bg-surface: #ffffff;
+    --bg-input: #ffffff;
+    --bg-tab-bar: #e6edef;
+    --bg-tab-active: #ffffff;
+    --bg-tab-hover: #dce8e1;
+    --bg-badge: #d8e4e7;
+    --bg-nav-hover: color-mix(in srgb, #a0c563 24%, var(--bg-sidebar));
+    --bg-nav-selected: #ffffff;
+    --border-nav-selected: #8099aa;
+    --shadow-nav-selected: 0 1px 4px rgba(63, 92, 118, 0.16);
+
+    --border-subtle: #a9bac4;
+    --border-card: #a9bac4;
+    --border-card-selected: #6f8a9c;
+    --border-clip-card-hover: #8fa7b5;
+    --border-input: #9eb1bc;
+
+    --text-title: #1b272d;
+    --text-main: #293b44;
+    --text-muted: #52656f;
+    --text-subtle: #687b85;
+    --text-selected: #142127;
+
+    --scrollbar-thumb: rgba(63, 92, 118, 0.24);
+    --scrollbar-thumb-hover: rgba(63, 92, 118, 0.42);
+    --shadow-card: 0 1px 3px rgba(63, 92, 118, 0.08);
+    --shadow-clip-card-hover: 0 2px 8px rgba(63, 92, 118, 0.17);
+    --shadow-card-selected: 0 2px 7px rgba(63, 92, 118, 0.19);
+
+    --accent-primary: #a0c563;
+    --accent-primary-contrast: #1b272d;
+    --accent-secondary: #3f5c76;
+    --queue-accent: #597991;
+    --overlay-scrim: rgba(27, 39, 45, 0.28);
+    --status-success: #52772a;
+    --note-accent: #607927;
+    --note-accent-contrast: #ffffff;
+    --code-surface: #eaf0f2;
+    --code-border: #9eb1bc;
+    --code-text: #293b44;
+
+    --material-app: rgba(237, 242, 243, 0.68);
+    --material-sidebar: rgba(230, 237, 239, 0.74);
+    --material-list: rgba(255, 255, 255, 0.64);
+    --material-preview: rgba(241, 245, 244, 0.70);
+    --material-toolbar: rgba(255, 255, 255, 0.68);
+    --material-blur: 24px;
+    --material-saturation: 148%;
+  }
+
+  /* 🍕 Sauced Theme — bright white counters, black type, and bubblegum-pink neon. */
+  html.theme-sauced, html[data-theme="sauced"] {
+    color-scheme: light;
+    --bg-app: #fff4fa;
+    --bg-main: #fff4fa;
+    --bg-primary: #ffffff;
+    --bg-sidebar: #fff0f8;
+    --bg-list: #ffffff;
+    --bg-preview: #fff7fb;
+    --bg-card: #ffffff;
+    --bg-card-hover: #ffebf7;
+    --bg-clip-card-hover: #ffebf7;
+    --bg-card-selected: #ffd8ef;
+    --bg-surface: #ffffff;
+    --bg-input: #ffffff;
+    --bg-tab-bar: #fff0f8;
+    --bg-tab-active: #ffffff;
+    --bg-tab-hover: #ffe3f3;
+    --bg-badge: #f7dcea;
+    --bg-nav-hover: color-mix(in srgb, #ff80cc 24%, var(--bg-sidebar));
+    --bg-nav-selected: #ffffff;
+    --border-nav-selected: #d982b6;
+    --shadow-nav-selected: 0 1px 4px rgba(173, 52, 125, 0.14);
+
+    --border-subtle: #d9a9c6;
+    --border-card: #d9a9c6;
+    --border-card-selected: #bd6299;
+    --border-clip-card-hover: #cc82ae;
+    --border-input: #d29ab9;
+
+    --text-title: #171214;
+    --text-main: #30272c;
+    --text-muted: #62535b;
+    --text-subtle: #796971;
+    --text-selected: #171214;
+
+    --scrollbar-thumb: rgba(173, 52, 125, 0.24);
+    --scrollbar-thumb-hover: rgba(173, 52, 125, 0.42);
+    --shadow-card: 0 1px 3px rgba(173, 52, 125, 0.07);
+    --shadow-clip-card-hover: 0 2px 8px rgba(173, 52, 125, 0.16);
+    --shadow-card-selected: 0 2px 7px rgba(173, 52, 125, 0.19);
+
+    --accent-primary: #ff80cc;
+    --accent-primary-contrast: #171214;
+    --accent-secondary: #ad347d;
+    --queue-accent: #8b4aaa;
+    --overlay-scrim: rgba(23, 18, 20, 0.28);
+    --status-success: #31735a;
+    --note-accent: #a13d7b;
+    --note-accent-contrast: #ffffff;
+    --code-surface: #fff0f8;
+    --code-border: #d29ab9;
+    --code-text: #30272c;
+
+    --material-app: rgba(255, 244, 250, 0.68);
+    --material-sidebar: rgba(255, 240, 248, 0.74);
+    --material-list: rgba(255, 255, 255, 0.64);
+    --material-preview: rgba(255, 247, 251, 0.70);
+    --material-toolbar: rgba(255, 255, 255, 0.68);
+    --material-blur: 24px;
+    --material-saturation: 150%;
   }
 
   /* 🩸 Vampire Theme — deep aubergine glass with restrained crimson accents. */
