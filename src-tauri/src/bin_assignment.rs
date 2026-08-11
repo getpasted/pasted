@@ -32,14 +32,22 @@ pub fn assign_clips_to_bin(
         .map_err(|error| error.to_string())?;
     let Some(bin_id) = bin_id else {
         return Ok(BinAssignmentOutcome {
+            updated_clips: mutation
+                .clip_ids
+                .iter()
+                .filter_map(|clip_id| db.get_clip_by_id(*clip_id).ok())
+                .collect(),
             mutation,
-            updated_clips: Vec::new(),
         });
     };
     if !features::is_enabled(db, Feature::Transformations) {
         return Ok(BinAssignmentOutcome {
+            updated_clips: mutation
+                .clip_ids
+                .iter()
+                .filter_map(|clip_id| db.get_clip_by_id(*clip_id).ok())
+                .collect(),
             mutation,
-            updated_clips: Vec::new(),
         });
     }
     let Some(transform_ref) = db
@@ -47,8 +55,12 @@ pub fn assign_clips_to_bin(
         .map_err(|error| error.to_string())?
     else {
         return Ok(BinAssignmentOutcome {
+            updated_clips: mutation
+                .clip_ids
+                .iter()
+                .filter_map(|clip_id| db.get_clip_by_id(*clip_id).ok())
+                .collect(),
             mutation,
-            updated_clips: Vec::new(),
         });
     };
 
@@ -124,6 +136,25 @@ pub fn assign_clips_to_bin(
     })
 }
 
+pub fn remove_clips_from_bin(
+    db: &DbState,
+    clip_ids: Vec<i64>,
+    bin_id: i64,
+) -> Result<BinAssignmentOutcome, String> {
+    let mutation = db
+        .batch_remove_bin_clips(clip_ids, bin_id)
+        .map_err(|error| error.to_string())?;
+    let updated_clips = mutation
+        .clip_ids
+        .iter()
+        .filter_map(|clip_id| db.get_clip_by_id(*clip_id).ok())
+        .collect();
+    Ok(BinAssignmentOutcome {
+        mutation,
+        updated_clips,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -146,7 +177,12 @@ mod tests {
         let outcome = assign_clips_to_bin(&db, vec![clip.id], Some(bin.id)).unwrap();
         assert_eq!(outcome.mutation.action, "assign_bin");
         assert_eq!(outcome.mutation.changed_count, 1);
-        assert!(outcome.updated_clips.is_empty());
+        assert_eq!(outcome.updated_clips.len(), 1);
+        assert!(outcome.updated_clips[0]
+            .bin_ids
+            .as_ref()
+            .unwrap()
+            .contains(&bin.id));
         assert_eq!(db.get_clip_by_id(clip.id).unwrap().bin_id, Some(bin.id));
 
         drop(db);

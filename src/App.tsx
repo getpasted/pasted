@@ -656,6 +656,7 @@ export default function App() {
     deleteClip: handleDeleteClip,
     copyClip: handleCopyClip,
     assignClipToBin,
+    removeClipFromBin,
     runTransformForClip: handleRunTransformForClip,
     addToSequentialStack: handleAddToSequentialStack,
     updateClipNoteLocally: handleUpdateClipNoteLocally,
@@ -1158,7 +1159,7 @@ export default function App() {
                     : clip.text_content
                       ? queuedIndexMap.get(clip.text_content)
                       : undefined;
-                  const primaryBin = clip.bin_id === null ? undefined : binsById.get(clip.bin_id);
+                  const clipBins = bins.filter((bin) => clip.bin_ids?.includes(bin.id));
                   const baseViewPolicy = getClipViewPolicy(currentTab, clip);
                   const queueReorderId = isQueueCollection
                     ? seqStatus?.item_ids[index]?.toString()
@@ -1189,8 +1190,7 @@ export default function App() {
                       viewPolicy={viewPolicy}
                       isQueueMode={isQueueCollection}
                       queueIndex={queueIndex}
-                      primaryBinName={primaryBin?.name}
-                      primaryBinIcon={primaryBin?.icon}
+                      bins={clipBins}
                       rowHeight={appSettings.rowHeight}
                       filePreviewMode={appSettings.filePreviewMode}
                       filePreviewMaxMb={appSettings.filePreviewMaxMb}
@@ -1409,9 +1409,11 @@ export default function App() {
             clip={selectedClip}
             viewPolicy={selectedClipViewPolicy}
             bins={bins}
+            viewedBinId={isBinCollection ? selectedBinId : null}
             pipelines={pipelines}
             onUpdateClip={handlePreviewClipUpdate}
             onAssignBin={handleAssignBin}
+            onRemoveBin={removeClipFromBin}
             onTogglePin={handleTogglePin}
             onToggleProtected={handleToggleProtected}
             onDeleteClip={selectedClipViewPolicy.state === 'trash' ? handlePurgeClipPermanently : handleDeleteClip}
@@ -1419,6 +1421,7 @@ export default function App() {
             isTransforming={selectedClip ? transformingClipIds.has(selectedClip.id) : false}
             transformError={selectedClip ? transformErrorsByClipId.get(selectedClip.id) : undefined}
             onOpenTransformations={() => navigateToTab('transformations')}
+            onOpenConnections={() => navigateToTab('settings:connections')}
             trashEnabled={appSettings.enableTrash}
             filePreviewMode={appSettings.filePreviewMode}
             filePreviewMaxMb={appSettings.filePreviewMaxMb}
@@ -1442,6 +1445,7 @@ export default function App() {
             binId,
             { includeSelection: true },
           )}
+          onRemoveBin={(binId) => removeClipFromBin(contextMenu.clip.id, binId)}
           onRunTransform={(transform) => handleRunTransformForClip(contextMenu.clip, transform)}
           onOpenTransformations={() => navigateToTab('transformations')}
           onAddNote={() => handlePromptAddNote(contextMenu.clip)}

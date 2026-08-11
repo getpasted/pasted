@@ -366,6 +366,7 @@ pub fn run() {
             commands::delete_clip,
             commands::toggle_pin_clip,
             commands::assign_clip_bin,
+            commands::remove_clip_bin,
             commands::reorder_pinned_clips,
             commands::reorder_bin_clips,
             commands::get_clip_versions,

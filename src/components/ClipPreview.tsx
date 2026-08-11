@@ -12,6 +12,7 @@ import { ClipPreviewContent } from './ClipPreviewContent';
 import { ClipTransformBar } from './ClipTransformBar';
 import { ClipWorkflowMenu } from './ClipWorkflowMenu';
 import { MenuSelect } from './MenuSelect';
+import { ClipBinPicker } from './ClipBinPicker';
 import { ClipNoteViewer } from './ClipNoteViewer';
 import { NoteRowItem } from './ClipNoteRow';
 import { OverflowText } from './OverflowText';
@@ -21,8 +22,6 @@ import {
   Check,
   Trash2,
   Sliders,
-  Folder,
-  FolderX,
   FileText,
   StickyNote,
   Pin,
@@ -40,8 +39,6 @@ import { safeInvoke as invoke } from '../utils/tauri';
 import { useStableVerticalReorder } from '../hooks/useStableVerticalReorder';
 import type { ClipViewPolicy } from '../utils/clipViewPolicy';
 import { clipDeleteLabel, UI_COPY } from '../utils/uiCopy';
-import { formatEmojiIcon } from '../utils/emoji';
-import { binTextColor } from '../utils/binColor';
 import { startTransformation, type TransformationExecutionHandle } from '../utils/transformExecution';
 import { useIntelligenceRequestStatus } from '../hooks/useIntelligenceRequestStatus';
 import { useFeatures } from '../hooks/useFeatures';
@@ -50,9 +47,11 @@ interface ClipPreviewProps {
   clip: ClipItem | null;
   viewPolicy: ClipViewPolicy;
   bins: Bin[];
+  viewedBinId?: number | null;
   pipelines: Pipeline[];
   onUpdateClip: (updatedClip?: ClipItem) => void;
   onAssignBin: (clipId: number, binId: number | null) => void | Promise<void>;
+  onRemoveBin: (clipId: number, binId: number) => void | Promise<void>;
   onTogglePin: (clipId: number) => void;
   onToggleProtected: (clipId: number) => void;
   onDeleteClip: (id: number) => void;
@@ -60,6 +59,7 @@ interface ClipPreviewProps {
   isTransforming?: boolean;
   transformError?: string;
   onOpenTransformations?: () => void;
+  onOpenConnections?: () => void;
   trashEnabled: boolean;
   filePreviewMode: AppSettings['filePreviewMode'];
   filePreviewMaxMb: number;
@@ -128,9 +128,11 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   clip,
   viewPolicy,
   bins,
+  viewedBinId,
   pipelines,
   onUpdateClip,
   onAssignBin,
+  onRemoveBin,
   onTogglePin,
   onToggleProtected,
   onDeleteClip,
@@ -138,6 +140,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   isTransforming = false,
   transformError,
   onOpenTransformations,
+  onOpenConnections,
   trashEnabled,
   filePreviewMode,
   filePreviewMaxMb,
@@ -857,23 +860,15 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
       {features.bins && (viewPolicy.canOrganize ? (
       <div className="preview-bin-bar px-4 py-2 flex items-center text-xs border-b">
         <div className="flex min-w-0 items-center">
-          <MenuSelect
-            value={clip.bin_id == null ? '' : String(clip.bin_id)}
-            onChange={(value) => handleAssignBin(value ? Number(value) : null)}
-            label="Choose Bin"
-            leadingIcon={<Folder className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />}
-            className="clip-bin-picker"
-            options={[
-              { value: '', label: 'No Bin', icon: <FolderX className="h-3.5 w-3.5" aria-hidden="true" /> },
-              ...bins
-                .filter((bin) => bin.bin_type !== 'tag' && !bin.smart_rule)
-                .map((bin) => ({
-                  value: String(bin.id),
-                  label: bin.name,
-                  color: binTextColor(bin.color),
-                  icon: <span aria-hidden="true">{formatEmojiIcon(bin.icon)}</span>,
-                })),
-            ]}
+          <ClipBinPicker
+            bins={bins}
+            selectedBinIds={clip.bin_ids || []}
+            viewedBinId={viewedBinId}
+            onClear={() => handleAssignBin(null)}
+            onToggle={(binId, selected) => {
+              if (selected) void onAssignBin(clip.id, binId);
+              else void onRemoveBin(clip.id, binId);
+            }}
           />
         </div>
 
@@ -963,9 +958,23 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
       {/* Main Preview Workspace */}
       <div className="clip-preview-workspace overlay-scroll-region flex-1 overflow-y-auto p-4 space-y-4 font-mono text-xs">
         {transformError && !isTransforming && (
-          <div className="theme-status-error flex items-start gap-2 rounded-lg border px-3 py-2" role="status">
+          <div className="theme-status-warning flex items-start gap-2 rounded-lg border px-3 py-2" role="status">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-            <span><strong>Transform failed.</strong> The clip stayed in its Bin and its content was not replaced. {transformError}</span>
+            <div className="min-w-0">
+              <strong className="block">Transform failed.</strong>
+              <span>The clip stayed in its Bin and its content was not replaced. </span>
+              {transformError === 'Power on a provider and try again.' && onOpenConnections ? (
+                <button
+                  type="button"
+                  className="cursor-pointer font-semibold underline underline-offset-2"
+                  onClick={onOpenConnections}
+                >
+                  {transformError}
+                </button>
+              ) : (
+                <span>{transformError}</span>
+              )}
+            </div>
           </div>
         )}
         {(activePipelineName || previewedVersion) && (

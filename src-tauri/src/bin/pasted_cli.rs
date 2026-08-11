@@ -632,8 +632,25 @@ fn main() -> Result<()> {
                         })?;
                     print_mutation_summary(&outcome.mutation, json)?;
                 }
+                "remove-bin" => {
+                    require_feature(&db, Feature::Bins);
+                    let Some(bin_id) = args.get(3).and_then(|value| value.parse::<i64>().ok())
+                    else {
+                        eprintln!("Usage: pasted clip remove-bin <bin-id> <clip-id>... [--json]");
+                        std::process::exit(2);
+                    };
+                    let outcome = pasted_lib::bin_assignment::remove_clips_from_bin(
+                        &db,
+                        parse_clip_ids(&args, 4),
+                        bin_id,
+                    )
+                    .map_err(|error| {
+                        rusqlite::Error::ToSqlConversionFailure(Box::new(io::Error::other(error)))
+                    })?;
+                    print_mutation_summary(&outcome.mutation, json)?;
+                }
                 _ => {
-                    eprintln!("Usage: pasted clip [get <id> | pin|unpin|protect|unprotect|trash|restore <id>... | assign <bin-id|none> <id>...] [--json]");
+                    eprintln!("Usage: pasted clip [get <id> | pin|unpin|protect|unprotect|trash|restore <id>... | assign <bin-id|none> <id>... | remove-bin <bin-id> <id>...] [--json]");
                     std::process::exit(2);
                 }
             }
@@ -793,7 +810,8 @@ fn main() -> Result<()> {
             println!("  pasted clip pin|unpin <id>... [--json]");
             println!("  pasted clip protect|unprotect <id>... [--json]");
             println!("  pasted clip trash|restore <id>... [--json]");
-            println!("  pasted clip assign <bin-id|none> <id>... [--json]");
+            println!("  pasted clip assign <bin-id|none> <id>... [--json] Add to a Bin, or clear all manual Bins");
+            println!("  pasted clip remove-bin <bin-id> <id>... [--json]");
             println!("  pasted clear             Clear unpinned clipboard history");
             println!("  pasted reset --yes [--json] Reset all Pasted data and preferences");
         }

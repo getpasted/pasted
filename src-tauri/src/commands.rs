@@ -1098,6 +1098,21 @@ pub async fn assign_clip_bin(
 }
 
 #[tauri::command]
+pub async fn remove_clip_bin(
+    clip_id: i64,
+    bin_id: i64,
+    db: State<'_, Arc<DbState>>,
+) -> Result<BinAssignmentOutcome, String> {
+    features::require(&db, Feature::Bins)?;
+    let db = Arc::clone(&db);
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::bin_assignment::remove_clips_from_bin(&db, vec![clip_id], bin_id)
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
+#[tauri::command]
 pub fn reorder_pinned_clips(ids: Vec<i64>, db: State<'_, Arc<DbState>>) -> Result<(), String> {
     features::require(&db, Feature::Pinning)?;
     db.reorder_pinned_clips(ids).map_err(|e| e.to_string())
