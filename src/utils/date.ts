@@ -23,6 +23,27 @@ export function formatClipTime(timeStr: string): string {
   }
 }
 
+export function formatClipRelativeTime(timeStr: string, nowMs = Date.now()): string {
+  const date = parseDbDate(timeStr);
+  const timestampMs = date.getTime();
+  if (Number.isNaN(timestampMs)) return timeStr;
+
+  const elapsedSeconds = Math.max(0, Math.floor((nowMs - timestampMs) / 1000));
+  if (elapsedSeconds < 60) return 'now';
+
+  const elapsedMinutes = Math.floor(elapsedSeconds / 60);
+  if (elapsedMinutes < 60) return `${elapsedMinutes}m ago`;
+
+  const elapsedHours = Math.floor(elapsedMinutes / 60);
+  if (elapsedHours < 24) return `${elapsedHours}h ago`;
+
+  const elapsedDays = Math.floor(elapsedHours / 24);
+  if (elapsedDays < 7) return `${elapsedDays}d ago`;
+  if (elapsedDays < 30) return `${Math.floor(elapsedDays / 7)}w ago`;
+  if (elapsedDays < 365) return `${Math.floor(elapsedDays / 30)}mo ago`;
+  return `${Math.floor(elapsedDays / 365)}y ago`;
+}
+
 export function formatClipDateTime(timeStr: string): string {
   try {
     const d = parseDbDate(timeStr);

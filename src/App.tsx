@@ -530,13 +530,21 @@ export default function App() {
     pendingRepositionedClipRevealIdRef.current = null;
     if (!card) return;
 
-    const getTargetScrollTop = () => Math.max(
-      0,
-      Math.min(
-        element.scrollTop + card.getBoundingClientRect().top - element.getBoundingClientRect().top,
-        element.scrollHeight - element.clientHeight,
-      ),
-    );
+    const getTargetScrollTop = () => {
+      const listPaddingTop = Number.parseFloat(window.getComputedStyle(element).paddingTop) || 0;
+      const cardMarginTop = Number.parseFloat(window.getComputedStyle(card).marginTop) || 0;
+      const revealSpacing = listPaddingTop + cardMarginTop;
+      return Math.max(
+        0,
+        Math.min(
+          element.scrollTop
+            + card.getBoundingClientRect().top
+            - element.getBoundingClientRect().top
+            - revealSpacing,
+          element.scrollHeight - element.clientHeight,
+        ),
+      );
+    };
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
       element.scrollTop = getTargetScrollTop();
       return;
@@ -705,10 +713,58 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [currentTab, displayedClips, selectedClip]);
 
-  const clipSelectionVersion = useMemo(
-    () => `${selectedClip?.id ?? ''}:${Array.from(selectedClipIds).sort((a, b) => a - b).join(',')}`,
-    [selectedClip?.id, selectedClipIds]
-  );
+  const selectedClipRef = useRef(selectedClip);
+  const selectedClipIdsRef = useRef(selectedClipIds);
+  const displayedClipsRef = useRef(displayedClips);
+  selectedClipRef.current = selectedClip;
+  selectedClipIdsRef.current = selectedClipIds;
+  displayedClipsRef.current = displayedClips;
+
+  const handleClipSelect = useCallback((clip: ClipItem, event: React.MouseEvent) => {
+    const currentSelectedClip = selectedClipRef.current;
+    const currentSelectedClipIds = selectedClipIdsRef.current;
+    const currentDisplayedClips = displayedClipsRef.current;
+    setSelectedIndex(currentDisplayedClips.findIndex((candidate) => candidate.id === clip.id));
+
+    if (event.metaKey || event.ctrlKey) {
+      setSelectedClipIds((previous) => {
+        const next = new Set(previous);
+        if (next.has(clip.id)) {
+          next.delete(clip.id);
+          if (currentSelectedClip?.id === clip.id) {
+            const remaining = Array.from(next);
+            const lastId = remaining[remaining.length - 1];
+            setSelectedClip(currentDisplayedClips.find((candidate) => candidate.id === lastId) ?? null);
+          }
+        } else {
+          next.add(clip.id);
+          setSelectedClip(clip);
+        }
+        return next;
+      });
+      return;
+    }
+
+    if (event.shiftKey && currentSelectedClip) {
+      const currentIndex = currentDisplayedClips.findIndex((candidate) => candidate.id === clip.id);
+      const anchorIndex = currentDisplayedClips.findIndex((candidate) => candidate.id === currentSelectedClip.id);
+      if (currentIndex !== -1 && anchorIndex !== -1) {
+        const start = Math.min(currentIndex, anchorIndex);
+        const end = Math.max(currentIndex, anchorIndex);
+        setSelectedClipIds(new Set(currentDisplayedClips.slice(start, end + 1).map((candidate) => candidate.id)));
+      }
+      return;
+    }
+
+    const isOnlySelectedClip = currentSelectedClip?.id === clip.id && currentSelectedClipIds.size <= 1;
+    if (isOnlySelectedClip) {
+      clearClipSelection();
+    } else {
+      setSelectedClip(clip);
+      setSelectedClipIds(new Set([clip.id]));
+    }
+  }, [clearClipSelection]);
+
   const binsById = useMemo(() => new Map(bins.map((bin) => [bin.id, bin])), [bins]);
   const selectedClipViewPolicy = getClipViewPolicy(currentTab, selectedClip);
   const hasRestrictedSelection = Array.from(selectedClipIds).some((id) => {
@@ -758,6 +814,25 @@ export default function App() {
     },
     [assignClipToBin, enabledFeatures.bins],
   );
+  const handleAssignClipToBinRef = useRef(handleAssignClipToBin);
+  handleAssignClipToBinRef.current = handleAssignClipToBin;
+  const handleSidebarClipDropOnBin = useCallback((clipId: number, binId: number) => (
+    handleAssignClipToBinRef.current(clipId, binId)
+  ), []);
+
+  const handleOpenNewBinModal = useCallback(() => {
+    setEditingBin(null);
+    setIsBinModalOpen(true);
+  }, []);
+  const handleEditBin = useCallback((bin: Bin) => {
+    setEditingBin(bin);
+    setIsBinModalOpen(true);
+  }, []);
+  const handleRequestDeleteBin = useCallback((bin: Bin) => setBinToDelete(bin), []);
+  const handleBinContextMenu = useCallback((x: number, y: number, bin: Bin) => {
+    setBinContextMenu({ x, y, bin });
+  }, []);
+  const handleRequestClearHistory = useCallback(() => setClearHistoryMode('purge'), []);
 
   const handleClipDropAction = useCallback((clipId: number, action: ClipDropAction) => {
     if (action === 'queue') {
@@ -1022,17 +1097,11 @@ export default function App() {
         clips={allClips}
         features={enabledFeatures}
         onRefreshBins={fetchBins}
-        onOpenNewBinModal={() => {
-          setEditingBin(null);
-          setIsBinModalOpen(true);
-        }}
-        onEditBin={(bin) => {
-          setEditingBin(bin);
-          setIsBinModalOpen(true);
-        }}
-        onDeleteBin={(bin) => setBinToDelete(bin)}
-        onBinContextMenu={(x, y, bin) => setBinContextMenu({ x, y, bin })}
-        onClipDropOnBin={handleAssignClipToBin}
+        onOpenNewBinModal={handleOpenNewBinModal}
+        onEditBin={handleEditBin}
+        onDeleteBin={handleRequestDeleteBin}
+        onBinContextMenu={handleBinContextMenu}
+        onClipDropOnBin={handleSidebarClipDropOnBin}
         draggedClipId={draggedClipId}
         pointerDropTargetBinId={pointerDropTargetBinId}
         pointerDropTargetAction={pointerDropTargetAction}
@@ -1043,7 +1112,7 @@ export default function App() {
         onSearchFocus={enterSearchView}
         onEmptySearchEscape={exitEmptySearch}
         seqStatus={seqStatus}
-        onClearHistory={() => setClearHistoryMode('purge')}
+        onClearHistory={handleRequestClearHistory}
         pinnedCount={pinnedCount}
         protectedCount={protectedCount}
         notesCount={notesCount}
@@ -1231,7 +1300,10 @@ export default function App() {
                     : clip.text_content
                       ? queuedIndexMap.get(clip.text_content)
                       : undefined;
-                  const clipBins = bins.filter((bin) => clip.bin_ids?.includes(bin.id));
+                  const clipBins = (clip.bin_ids ?? []).flatMap((binId) => {
+                    const bin = binsById.get(binId);
+                    return bin ? [bin] : [];
+                  });
                   const baseViewPolicy = getClipViewPolicy(currentTab, clip);
                   const queueReorderId = isQueueCollection
                     ? seqStatus?.item_ids[index]?.toString()
@@ -1266,7 +1338,6 @@ export default function App() {
                       rowHeight={appSettings.rowHeight}
                       filePreviewMode={appSettings.filePreviewMode}
                       filePreviewMaxMb={appSettings.filePreviewMaxMb}
-                      selectionVersion={clipSelectionVersion}
                       trashEnabled={appSettings.enableTrash}
                       searchQuery={currentTab === 'search' ? searchQuery : undefined}
                       setDraggedClipId={setDraggedClipId}
@@ -1315,45 +1386,7 @@ export default function App() {
                         else cancelPinnedReorderPreview();
                         setClipDragPreview(null);
                       }}
-                      onSelect={(e) => {
-                        setSelectedIndex(index);
-
-                        if (e.metaKey || e.ctrlKey) {
-                          setSelectedClipIds((prev) => {
-                            const next = new Set(prev);
-                            if (next.has(clip.id)) {
-                              next.delete(clip.id);
-                              if (selectedClip?.id === clip.id) {
-                                const remaining = Array.from(next);
-                                const lastId = remaining[remaining.length - 1];
-                                const nextSelected = displayedClips.find((c) => c.id === lastId);
-                                setSelectedClip(nextSelected || null);
-                              }
-                            } else {
-                              next.add(clip.id);
-                              setSelectedClip(clip);
-                            }
-                            return next;
-                          });
-                        } else if (e.shiftKey && selectedClip) {
-                          const currIdx = displayedClips.findIndex((c) => c.id === clip.id);
-                          const lastIdx = displayedClips.findIndex((c) => c.id === selectedClip.id);
-                          if (currIdx !== -1 && lastIdx !== -1) {
-                            const start = Math.min(currIdx, lastIdx);
-                            const end = Math.max(currIdx, lastIdx);
-                            const rangeIds = displayedClips.slice(start, end + 1).map((c) => c.id);
-                            setSelectedClipIds(new Set(rangeIds));
-                          }
-                        } else {
-                          const isOnlySelectedClip = selectedClip?.id === clip.id && selectedClipIds.size <= 1;
-                          if (isOnlySelectedClip) {
-                            clearClipSelection();
-                          } else {
-                            setSelectedClip(clip);
-                            setSelectedClipIds(new Set([clip.id]));
-                          }
-                        }
-                      }}
+                      onSelect={handleClipSelect}
                       onPin={() => handleTogglePin(clip.id)}
                       onToggleProtected={() => handleToggleProtected(clip.id)}
                       onDelete={(e) => handleDeleteClip(clip.id, e?.altKey)}

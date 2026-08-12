@@ -83,7 +83,7 @@ interface SidebarProps {
   features: Record<FeatureId, boolean>;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({
+const SidebarComponent: React.FC<SidebarProps> = ({
   currentTab,
   setCurrentTab,
   selectedBinId,
@@ -1072,3 +1072,5 @@ export const Sidebar: React.FC<SidebarProps> = ({
     </aside>
   );
 };
+
+export const Sidebar = React.memo(SidebarComponent);

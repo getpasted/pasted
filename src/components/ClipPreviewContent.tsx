@@ -145,6 +145,16 @@ export function ClipPreviewContent({
   onRunOCR,
 }: ClipPreviewContentProps) {
   const filePaths = getClipFilePaths(clip);
+  const [imageLoadingIndicatorClipId, setImageLoadingIndicatorClipId] = React.useState<number | null>(null);
+  React.useEffect(() => {
+    if (clip.content_type !== 'image' || resolvedImageBase64) return undefined;
+    const timer = window.setTimeout(() => setImageLoadingIndicatorClipId(clip.id), 120);
+    return () => window.clearTimeout(timer);
+  }, [clip.content_type, clip.id, resolvedImageBase64]);
+  const showImageLoadingIndicator = clip.content_type === 'image'
+    && !resolvedImageBase64
+    && imageLoadingIndicatorClipId === clip.id;
+
   return (
     <>
         {clip.content_type === 'file' ? (
@@ -299,12 +309,17 @@ export function ClipPreviewContent({
                 <img
                   src={resolvedImageBase64}
                   alt="Full Preview"
+                  decoding="async"
                   className="max-h-96 object-contain rounded-lg shadow-2xl"
                 />
               ) : (
                 <div className="theme-text-muted flex items-center space-x-2 py-12">
-                  <Sparkles className="clip-content-accent w-5 h-5 animate-spin" />
-                  <span>Loading image preview...</span>
+                  {showImageLoadingIndicator && (
+                    <>
+                      <Sparkles className="clip-content-accent w-5 h-5 animate-spin" />
+                      <span>Loading image preview...</span>
+                    </>
+                  )}
                 </div>
               )}
             </div>

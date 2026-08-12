@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { clipDateTimeAttribute, formatClipFullDateTime, formatClipTime } from '../utils/date';
+import { clipDateTimeAttribute, formatClipFullDateTime, formatClipRelativeTime } from '../utils/date';
 import { ClipItem, getClipFilePaths, getClipFileSummary, getClipNoteSummary, isSensitiveText, maskSensitiveText, type Bin } from '../types';
 import type { ClipViewPolicy } from '../utils/clipViewPolicy';
 import { clipDeleteLabel, UI_COPY } from '../utils/uiCopy';
@@ -8,6 +8,7 @@ import { getClipSearchHighlightTerms, type ClipSearchHighlightField } from '../u
 import { FloatingActionStrip } from './FloatingActionStrip';
 import { OverflowText } from './OverflowText';
 import { useFeatures } from '../hooks/useFeatures';
+import { useMinuteTick } from '../hooks/useMinuteTick';
 import { ContentTypeIcon } from './ContentTypeIcon';
 import { isSensitiveContentType } from '../utils/contentTypes';
 import {
@@ -257,10 +258,9 @@ interface ClipCardProps {
   rowHeight?: 'small' | 'medium' | 'large';
   filePreviewMode: 'off' | 'safe' | 'all';
   filePreviewMaxMb: number;
-  selectionVersion: string;
   trashEnabled: boolean;
   searchQuery?: string;
-  onSelect: (e: React.MouseEvent) => void;
+  onSelect: (clip: ClipItem, e: React.MouseEvent) => void;
   onPin: () => void;
   onToggleProtected?: () => void;
   onDelete: (e?: React.MouseEvent) => void;
@@ -314,6 +314,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
   onPointerDragEnd,
   onPointerDragCancel,
 }) => {
+  const relativeTimeNow = useMinuteTick();
   const features = useFeatures();
   const [copied, setCopied] = React.useState(false);
   const [showRevealed, setShowRevealed] = useState(false);
@@ -373,7 +374,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
           suppressClickRef.current = false;
           return;
         }
-        onSelect(e);
+        onSelect(clip, e);
       }}
       onContextMenu={onContextMenu}
       draggable={false}
@@ -569,7 +570,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
             dateTime={clipDateTimeAttribute(clip.created_at)}
             title={formatClipFullDateTime(clip.created_at)}
           >
-            {formatClipTime(clip.created_at)}
+            {formatClipRelativeTime(clip.created_at, relativeTimeNow)}
           </time>
         </div>
       </div>
@@ -823,7 +824,6 @@ export const ClipCard = React.memo(ClipCardComponent, (prevProps, nextProps) => 
     prevProps.filePreviewMode === nextProps.filePreviewMode &&
     prevProps.filePreviewMaxMb === nextProps.filePreviewMaxMb &&
     prevProps.searchQuery === nextProps.searchQuery &&
-    prevProps.trashEnabled === nextProps.trashEnabled &&
-    prevProps.selectionVersion === nextProps.selectionVersion
+    prevProps.trashEnabled === nextProps.trashEnabled
   );
 });

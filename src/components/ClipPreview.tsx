@@ -183,7 +183,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   const [editingNoteText, setEditingNoteText] = useState<string>('');
   const [viewingNote, setViewingNote] = useState<ClipNote | null>(null);
   const [isOcrLoading, setIsOcrLoading] = useState<boolean>(false);
-  const [resolvedImageBase64, setResolvedImageBase64] = useState<string | null>(clip?.image_base64 || null);
+  const [resolvedImage, setResolvedImage] = useState<{ clipId: number; base64: string } | null>(null);
   const [showHistory, setShowHistory] = useState<boolean>(false);
   const [versions, setVersions] = useState<ClipVersion[]>([]);
   const [previewedVersion, setPreviewedVersion] = useState<ClipVersion | null>(null);
@@ -313,22 +313,27 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
 
   useEffect(() => {
     let cancelled = false;
+    let frame = 0;
+    setResolvedImage(null);
     if (clip?.content_type === 'image') {
-      if (clip.image_base64) {
-        setResolvedImageBase64(clip.image_base64);
-      } else {
-        setResolvedImageBase64(null);
-        invoke<string | null>('get_clip_image', { id: clip.id })
-          .then((b64) => {
-            if (!cancelled) setResolvedImageBase64(b64);
+      const clipId = clip.id;
+      const embeddedImage = clip.image_base64;
+      frame = requestAnimationFrame(() => {
+        if (cancelled) return;
+        if (embeddedImage) {
+          setResolvedImage({ clipId, base64: embeddedImage });
+          return;
+        }
+        invoke<string | null>('get_clip_image', { id: clipId })
+          .then((base64) => {
+            if (!cancelled && base64) setResolvedImage({ clipId, base64 });
           })
           .catch(console.error);
-      }
-    } else {
-      setResolvedImageBase64(null);
+      });
     }
     return () => {
       cancelled = true;
+      if (frame) cancelAnimationFrame(frame);
     };
   }, [clip?.id, clip?.image_base64, clip?.content_type]);
 
@@ -1017,7 +1022,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
           clip={clip}
           displayText={displayText}
           colorData={colorData}
-          resolvedImageBase64={resolvedImageBase64}
+          resolvedImageBase64={resolvedImage?.clipId === clip.id ? resolvedImage.base64 : null}
           filePreviews={filePreviews}
           isFilePreviewLoading={isFilePreviewLoading}
           copiedFormat={copiedFormat}
