@@ -179,10 +179,7 @@ impl PasteTargetState {
             PasteAction::Hud => Err(reason
                 .replace("Queue paste", "HUD paste")
                 .replace("pasting from Queue", "using HUD")
-                .replace(
-                    "Clip not removed from Queue.",
-                    "HUD paste was cancelled.",
-                )),
+                .replace("Clip not removed from Queue.", "HUD paste was cancelled.")),
         }
     }
 

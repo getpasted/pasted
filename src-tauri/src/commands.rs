@@ -3026,10 +3026,7 @@ pub(crate) fn paste_clip_from_hud(
 
     let _ = db.log_activity(
         "hud_clip_pasted",
-        &format!(
-            "Pasted clip {} into {} from HUD",
-            clip.id, target.name
-        ),
+        &format!("Pasted clip {} into {} from HUD", clip.id, target.name),
     );
     Ok(())
 }
