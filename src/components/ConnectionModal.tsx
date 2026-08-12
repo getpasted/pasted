@@ -4,7 +4,7 @@ import type { IntelligenceProviderKind } from '../types';
 import { INTELLIGENCE_PROVIDERS } from '../utils/intelligenceProviders';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { AppDialog } from './AppDialog';
-import { AppDialogBody, AppDialogButton, AppDialogFooter, AppDialogHeader, AppDialogHeading } from './AppDialogLayout';
+import { AppDialogBody, AppDialogButton, AppDialogFooter, AppDialogHeader, AppDialogHeading, SaveButtonContent } from './AppDialogLayout';
 import { MenuSelect } from './MenuSelect';
 
 interface ConnectionModalProps {
@@ -112,7 +112,7 @@ export function ConnectionModal({ onClose, onCreated }: ConnectionModalProps) {
           <AppDialogFooter>
             <AppDialogButton onClick={requestClose}>Cancel</AppDialogButton>
             <AppDialogButton type="submit" variant="primary" disabled={!name.trim() || isSaving}>
-              {isSaving ? 'Saving…' : 'Save connection'}
+              <SaveButtonContent isSaving={isSaving} />
             </AppDialogButton>
           </AppDialogFooter>
         </form>

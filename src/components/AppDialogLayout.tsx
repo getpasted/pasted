@@ -4,7 +4,7 @@ import type {
   MouseEventHandler,
   ReactNode,
 } from 'react';
-import { X } from 'lucide-react';
+import { Check, LoaderCircle, Save, X } from 'lucide-react';
 
 function joinClasses(...classes: Array<string | undefined | false>) {
   return classes.filter(Boolean).join(' ');
@@ -105,4 +105,16 @@ export function ActionButton({
 
 export function AppDialogButton(props: Parameters<typeof ActionButton>[0]) {
   return <ActionButton {...props} />;
+}
+
+export function SaveButtonContent({
+  isSaving = false,
+  isSaved = false,
+}: {
+  isSaving?: boolean;
+  isSaved?: boolean;
+}) {
+  if (isSaving) return <><LoaderCircle className="h-3.5 w-3.5 animate-spin" /><span>Saving…</span></>;
+  if (isSaved) return <><Check className="h-3.5 w-3.5" /><span>Saved</span></>;
+  return <><Save className="h-3.5 w-3.5" /><span>Save</span></>;
 }

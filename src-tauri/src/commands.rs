@@ -13,7 +13,7 @@ use crate::bin_assignment::BinAssignmentOutcome;
 use crate::db::{
     Bin, ClipItem, ClipMutationSummary, ContentDetectionRescanReport, DbState, FactoryResetReport,
     IntelligenceConnection, IntelligenceConnectionUpdate, Pipeline, PipelineStepInput,
-    SavedTransform, TransformClipApplication,
+    SavedTransform, TransformClipApplication, TransformDefinition,
 };
 use crate::features::{self, Feature};
 use crate::installation_diagnostics::InstallationDiagnostics;
@@ -2240,8 +2240,16 @@ pub async fn test_transformation_plan(
 }
 
 #[tauri::command]
-pub fn get_saved_transforms(db: State<'_, Arc<DbState>>) -> Result<Vec<SavedTransform>, String> {
-    db.get_saved_transforms().map_err(|error| error.to_string())
+pub fn get_intent_transforms(db: State<'_, Arc<DbState>>) -> Result<Vec<SavedTransform>, String> {
+    db.get_intent_transforms()
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn get_transforms(db: State<'_, Arc<DbState>>) -> Result<Vec<TransformDefinition>, String> {
+    features::require(&db, Feature::Transformations)?;
+    db.get_transform_definitions()
+        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]

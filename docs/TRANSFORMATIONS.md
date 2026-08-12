@@ -5,35 +5,58 @@ Transformations is Pasted's unified system for changing text as it moves into, t
 The primary product model is intentionally small:
 
 ```text
-Input -> Saved Transform -> Destination
+Input -> Transform -> Destination
                   ^
                Trigger
 ```
 
 ## Vocabulary
 
-- **Saved Transform**: the user-facing reusable instruction and validated execution plan.
+- **Transform**: a reusable workflow. It may contain locally replayable Operations, AI-assisted steps, or both.
 - **Operation**: an experimental deterministic building block, such as Uppercase or Regex Replace.
-- **Pipeline**: an experimental ordered composition of Operations retained for deterministic and compatibility workflows.
-- **Trigger**: the moment a Transform or experimental Pipeline runs.
+- **Manual Transform**: a Transform assembled directly from deterministic Operations.
+- **Trigger**: the moment a Transform runs.
 - **Input**: the content supplied to the execution.
 - **Destination**: what receives the output.
 
-Saved Transforms are the supported default workflow. Operations and Pipelines
-are explicitly experimental in 1.0: their persisted identifiers remain stable,
-but their editor and command surface may evolve. Any remaining “Filter” names
-are compatibility adapters rather than product terminology.
+Transforms are the supported workflow. Operations remain the lower-level,
+experimental building blocks. Planned and manually built Transforms share one
+table, `transform:*` identity, execution service, backup contract, and lifecycle.
+Any remaining “Pipeline” or “Filter” names are pre-release input or editor
+adapters rather than product or persistence terminology.
+
+The pre-1.0 storage decision and migration boundary are documented in
+[Transform storage decision for 1.0](./TRANSFORM_STORAGE_DECISION.md).
+
+## CLI lifecycle contract
+
+`pasted transform` is the scriptable surface for both authoring forms:
+
+- `list` and `get` inspect canonical Transform definitions.
+- `create` accepts exactly one of `--plan-json` or `--steps-json`.
+- `update` preserves the existing authoring form and stable reference.
+- `duplicate` preserves the authoring form but creates a new stable reference.
+- `delete` accepts a `transform:*` stable reference.
+- `run --replace --clip ID` records a clip revision and durable provenance for
+  saved and manually built Transforms.
+
+Structured lifecycle output is available with `--json`.
+
+The standalone CLI persists shortcut changes through the shared database. If
+the GUI is already running, its native global-shortcut registration is refreshed
+on the next app launch; other lifecycle changes are visible after the normal
+library refresh.
 
 ## Inputs
 
-The same Pipeline must be able to accept:
+The same Transform must be able to accept:
 
 - A selected Pasted clip.
 - The current system clipboard.
 - Selected text from the frontmost application, when macOS permissions allow it.
 - Newly captured clipboard content.
 - Explicit text passed by the CLI, URL scheme, plugin, or API.
-- A previous Pipeline step's output.
+- A previous Transform step's output.
 
 Input is immutable for an execution. Pasted should retain enough provenance to explain where it came from without silently replacing the original clip.
 
@@ -53,7 +76,7 @@ Input is immutable for an execution. Pasted should retain enough provenance to e
 ### Paste
 
 - Transform and paste into the frontmost application without first mutating stored history.
-- Support “Paste with last Pipeline” and a direct shortcut for any favorite Pipeline.
+- Support “Paste with last Transform” and a direct shortcut for any favorite manually built Transform.
 
 ### Capture
 
@@ -89,16 +112,16 @@ Destinations may be composed only when the UI states each side effect clearly. �
 3. Replacing a stored clip always records a revision.
 4. Automatic capture rules must expose whether they keep the source, result, or both.
 5. Remote, AI, HTTP, and command Operations display their trust boundary before first use.
-6. Every execution records its Transform, Pipeline, or Operation version, trigger, destination, duration, and outcome.
+6. Every execution records its Transform or Operation version, trigger, destination, duration, and outcome.
 7. A failed automatic transformation never destroys or hides the captured source.
 
 ## Shortcut and last-used contract
 
-- A Pipeline becomes the last-used Pipeline only after a successful execution.
-- Failed Operation or Pipeline execution never replaces that reference.
-- Deleting the referenced Pipeline makes the next last-Pipeline action fail
+- A manually built Transform becomes the last-used Transform only after a successful execution.
+- Failed Operation or Transform execution never replaces that reference.
+- Deleting the referenced Transform makes the next last-Transform action fail
   explicitly and clears the stale reference.
-- Per-Pipeline shortcuts transform the current clipboard and paste the result.
+- Per-Transform shortcuts transform the current clipboard and paste the result.
 - `copyLastPipelineHotkey` transforms the current clipboard and leaves the
   result on the clipboard.
 - `pasteLastPipelineHotkey` transforms the current clipboard, updates it, and
@@ -117,8 +140,8 @@ Pasted should combine these capabilities around clipboard-native language instea
 ## Delivery sequence
 
 1. Complete manual preview, copy-result, and paste-result actions on the shared execution service.
-2. Add per-Pipeline hotkeys and “last used Pipeline” behavior.
-3. Harden the experimental Pipeline and Operation CLI surface beyond its shipped list/run commands.
+2. Add per-Transform hotkeys and “last used Transform” behavior.
+3. Remove remaining pre-release Pipeline terminology from internal editor and command adapters.
 4. Add capture-time Automations with source-preservation guarantees.
 5. Add selected-text input and lightweight fill-ins.
 6. Enable capability-scoped command, HTTP, and AI Operations.

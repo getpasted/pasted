@@ -243,7 +243,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   }, [clip?.content_type, clip?.id, filePreviewMode, filePreviewMaxMb]);
 
   useEffect(() => {
-    invoke<SavedTransform[]>('get_saved_transforms')
+    invoke<SavedTransform[]>('get_intent_transforms')
       .then((items) => setTransforms(Array.isArray(items) ? items : []))
       .catch((error) => console.error('Failed to load Transforms:', error));
   }, []);
@@ -1104,6 +1104,8 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
                 }}
                 label="Choose Advanced Transform"
                 className={`w-full ${activePipelineRef ? 'preview-filter-select-active' : 'form-field-valid'}`}
+                searchable
+                searchPlaceholder="Search manual Transforms…"
                 options={[
                   { value: '', label: 'Original clip' },
                   ...pipelines.map((pipeline) => ({ value: pipeline.stableRef, label: pipeline.name })),

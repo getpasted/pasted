@@ -13,6 +13,10 @@ const analytics = read('src/components/AnalyticsView.tsx');
 const database = read('src-tauri/src/db.rs');
 const operationEditor = read('src/components/OperationEditorModal.tsx');
 const operationManager = read('src/components/OperationsManager.tsx');
+const transformationLibrary = read('src/components/TransformationLibrary.tsx');
+const transformationPlayground = read('src/components/TransformationPlayground.tsx');
+const cli = read('src-tauri/src/bin/pasted_cli.rs');
+const transformStorageDecision = read('docs/TRANSFORM_STORAGE_DECISION.md');
 const compactEditorTypography = [
   'src/components/PipelineEditorModal.tsx',
   'src/components/OperationEditorModal.tsx',
@@ -38,6 +42,34 @@ assert.match(operationEditor, /searchPlaceholder="Search categories…"/,
   'The Operation category menu must remain searchable');
 assert.match(operationManager, /theme-subtle-surface divide-y theme-divide/,
   'Operation contracts must use the compact shared definition well');
+assert.match(transformationLibrary, /label: 'Build Manually'/,
+  'The Transform library must present deterministic composition as a creation method, not a separate asset kind');
+assert.doesNotMatch(transformationLibrary, />Pipelines</,
+  'The Transform library must not split compatibility-backed items into a separate Pipeline section');
+assert.match(transformationPlayground, /Run a Transform or Operation without changing a clip/,
+  'The playground must use the consolidated Transform vocabulary');
+assert.match(cli, /db\.get_transform_definitions\(\)\?/,
+  'The primary Transform CLI listing must use the canonical definition facade');
+assert.match(service, /ExecutionTarget::Pipeline \{ pipeline_ref \} => ExecutionTarget::Transform/,
+  'The canonical Transform executor must normalize legacy Pipeline targets immediately');
+assert.match(cli, /let target = ExecutionTarget::Transform/,
+  'The primary Transform CLI runner must remain storage-agnostic');
+for (const lifecycleCommand of ['"get"', '"create" | "new"', '"update" | "edit"', '"duplicate" | "copy"', '"delete" | "remove"']) {
+  assert.ok(cli.includes(lifecycleCommand),
+    `The primary Transform CLI must expose ${lifecycleCommand} lifecycle parity`);
+}
+assert.match(database, /pub struct TransformDefinition/,
+  'Rust must expose one canonical definition contract over both Transform authoring forms');
+assert.match(database, /ALTER TABLE clip_transformations ADD COLUMN transform_ref TEXT/,
+  'Pre-1.0 migration must add durable stable-reference provenance');
+assert.match(database, /manually_built_transform_applies_with_revision_and_stable_provenance/,
+  'Manual Transform replacement must retain focused revision and provenance coverage');
+assert.match(database, /fn migrate_pipelines_to_saved_transforms/,
+  'Pre-1.0 startup must include the transactional Pipeline-to-Transform migration');
+assert.match(database, /legacy_pipelines_migrate_atomically_to_canonical_transforms/,
+  'The physical consolidation must retain focused reference-rewrite coverage');
+assert.match(transformStorageDecision, /stores every reusable Transform in `saved_transforms`/,
+  'The 1.0 storage decision must document the canonical single-table model');
 
 for (const command of ['create_pipeline', 'delete_pipeline']) {
   const start = commands.indexOf(`pub fn ${command}`);

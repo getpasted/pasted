@@ -29,7 +29,7 @@ mod sequential_paste;
 mod settings_activity;
 pub mod third_party_licenses;
 mod titlebar;
-mod transformation_intent;
+pub mod transformation_intent;
 pub mod transformation_service;
 
 use std::sync::{
@@ -458,7 +458,8 @@ pub fn run() {
             commands::reorder_intelligence_connections,
             commands::plan_transformation_intent,
             commands::test_transformation_plan,
-            commands::get_saved_transforms,
+            commands::get_intent_transforms,
+            commands::get_transforms,
             commands::save_saved_transform,
             commands::update_saved_transform,
             commands::delete_saved_transform,

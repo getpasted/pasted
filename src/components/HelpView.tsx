@@ -51,18 +51,21 @@ const CLI_COMMAND_GROUPS = [
       { usage: 'pasted bin list [--json]', description: 'List Bins, counts, and saved ordering.' },
       { usage: 'pasted bin clips <bin-id> [--json]', description: 'List a Bin’s clips in persistent order.' },
       { usage: 'pasted bin order <bin-id> <clip-id>... [--json]', description: 'Replace a Bin’s complete saved clip order.' },
-      { usage: 'pasted transform list', description: 'List reusable saved Transforms.' },
+      { usage: 'pasted transform list [--json]', description: 'List saved and manually built Transforms.' },
+      { usage: 'pasted transform get <ref> [--json]', description: 'Inspect one canonical Transform definition.' },
+      { usage: 'pasted transform create --name NAME (--plan-json JSON | --steps-json JSON) [--json]', description: 'Create a planned or manually built Transform.' },
+      { usage: 'pasted transform update <ref> [options] [--json]', description: 'Update a Transform without changing its stable reference or authoring form.' },
+      { usage: 'pasted transform duplicate <ref> [--name NAME] [--json]', description: 'Duplicate a Transform with a new stable reference.' },
+      { usage: 'pasted transform delete <ref> [--json]', description: 'Delete a Transform; existing clip revisions remain unchanged.' },
       { usage: 'pasted transform run <ref> [--text TEXT | --clip ID | --stdin] [--replace]', description: 'Preview a Transform, or replace a clip while preserving a revision.' },
       { usage: 'pasted operation list [--json]', description: 'Inspect built-in and custom Operations.' },
       { usage: 'pasted operation run <ref> [--text TEXT | --clip ID | --stdin] [--json]', description: 'Run one Operation through the shared executor.' },
-      { usage: 'pasted pipeline list [--json]', description: 'Inspect deterministic Pipelines.' },
-      { usage: 'pasted pipeline run <ref> [--text TEXT | --clip ID | --stdin] [--json]', description: 'Run one Pipeline through the shared executor.' },
     ],
   },
   {
     title: 'Detection',
     commands: [
-      { usage: 'pasted registry list [--kind detector|operation|pipeline] [--all] [--json]', description: 'Inspect shared lifecycle and input/output contracts for processing assets.' },
+      { usage: 'pasted registry list [--kind detector|operation|transform] [--all] [--json]', description: 'Inspect shared lifecycle and input/output contracts for processing assets.' },
       { usage: 'pasted registry enable|disable --kind detector|operation --ref REF [--json]', description: 'Change the shared enabled state using a stable processing-asset reference.' },
       { usage: 'pasted type list [--all] [--json]', description: 'List registered content Types and their display metadata.' },
       { usage: 'pasted type create --id ID --name NAME [--icon ICON] [--group GROUP] [--json]', description: 'Create a custom Type with a stable ID.' },
@@ -411,7 +414,7 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
               <div className="theme-subtle-surface rounded-xl border p-4">
                 <h4 className="text-xs font-bold">Advanced Transformation Tools</h4>
                 <p className="theme-text-muted mt-1 text-xs">
-                  Operations and Pipelines provide deterministic building blocks for reusable workflows. Their stable identifiers let saved Transforms and command-line workflows refer to the same building blocks.
+                  Operations are deterministic building blocks for reusable Transforms. Manually built Transforms retain their existing pipeline identifiers for shortcuts, automations, backups, and command-line compatibility.
                 </p>
               </div>
             </div>

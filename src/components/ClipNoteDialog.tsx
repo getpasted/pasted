@@ -1,7 +1,7 @@
 import { StickyNote } from 'lucide-react';
 import type { ClipItem } from '../types';
 import { AppDialog } from './AppDialog';
-import { AppDialogBody, AppDialogButton, AppDialogFooter, AppDialogHeader, AppDialogHeading } from './AppDialogLayout';
+import { AppDialogBody, AppDialogButton, AppDialogFooter, AppDialogHeader, AppDialogHeading, SaveButtonContent } from './AppDialogLayout';
 
 interface ClipNoteDialogProps {
   clip: ClipItem;
@@ -42,7 +42,7 @@ export function ClipNoteDialog({ clip, text, onTextChange, onCancel, onSave }: C
         </AppDialogBody>
         <AppDialogFooter>
           <AppDialogButton onClick={requestClose}>Cancel</AppDialogButton>
-          <AppDialogButton variant="warning" onClick={() => onSave(clip, text.trim() || null)}>Save Note</AppDialogButton>
+          <AppDialogButton variant="warning" onClick={() => onSave(clip, text.trim() || null)}><SaveButtonContent /></AppDialogButton>
         </AppDialogFooter>
       </>}
     </AppDialog>

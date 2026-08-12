@@ -83,7 +83,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
     if (!features.transformations || !viewPolicy.canRunPipelines || clip.content_type === 'file') return;
     let cancelled = false;
     setIsLoadingTransforms(true);
-    invoke<SavedTransform[]>('get_saved_transforms')
+    invoke<SavedTransform[]>('get_intent_transforms')
       .then((items) => {
         if (!cancelled) setTransforms(Array.isArray(items) ? items : []);
       })

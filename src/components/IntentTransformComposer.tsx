@@ -7,12 +7,13 @@ import {
   startTransformTest,
   type CancellableTransformRequest,
 } from '../utils/transformExecution';
-import { ActionButton } from './AppDialogLayout';
+import { ActionButton, SaveButtonContent } from './AppDialogLayout';
 
 interface IntentTransformComposerProps {
   sampleInput: string;
   onTestResult: (result: ExecutePlanOutcome) => void;
   onTransformSaved: (transform: SavedTransform) => void;
+  onCancel: () => void;
   initialTransform?: SavedTransform | null;
   onDirtyChange?: (isDirty: boolean) => void;
   embedded?: boolean;
@@ -23,7 +24,7 @@ function errorMessage(reason: unknown) {
   return String(reason);
 }
 
-export function IntentTransformComposer({ sampleInput, onTestResult, onTransformSaved, initialTransform, onDirtyChange, embedded = false }: IntentTransformComposerProps) {
+export function IntentTransformComposer({ sampleInput, onTestResult, onTransformSaved, onCancel, initialTransform, onDirtyChange, embedded = false }: IntentTransformComposerProps) {
   const isEditing = Boolean(initialTransform);
   const [intent, setIntent] = useState(initialTransform?.plan.intent ?? '');
   const [transformName, setTransformName] = useState(initialTransform?.name ?? '');
@@ -222,7 +223,7 @@ export function IntentTransformComposer({ sampleInput, onTestResult, onTransform
               </li>
             ))}
           </ol>
-          <div className="theme-divider flex flex-wrap justify-end gap-2 border-t p-3">
+          <div className="theme-divider flex flex-wrap items-center justify-between gap-2 border-t p-3">
             <ActionButton
               onClick={isTesting ? cancelTesting : () => void testDraft()}
               disabled={!sampleInput && !isTesting}
@@ -231,13 +232,16 @@ export function IntentTransformComposer({ sampleInput, onTestResult, onTransform
               {isTesting ? <LoaderCircle className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
               <span>{isTesting ? 'Cancel test' : 'Test draft'}</span>
             </ActionButton>
-            <ActionButton
-              variant="primary"
-              onClick={() => void saveTransform()}
-              disabled={isSaving || Boolean(savedTransformRef)}
-            >
-              {isSaving ? 'Saving…' : savedTransformRef ? 'Saved' : isEditing ? 'Update Transform' : 'Save Transform'}
-            </ActionButton>
+            <div className="flex items-center gap-2">
+              <ActionButton onClick={onCancel}>Cancel</ActionButton>
+              <ActionButton
+                variant="primary"
+                onClick={() => void saveTransform()}
+                disabled={isSaving || Boolean(savedTransformRef)}
+              >
+                <SaveButtonContent isSaving={isSaving} isSaved={Boolean(savedTransformRef)} />
+              </ActionButton>
+            </div>
           </div>
         </section>
       )}

@@ -30,6 +30,14 @@ pub enum StepExecutionScope {
     EachLine,
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StepFailurePolicy {
+    #[default]
+    Stop,
+    Skip,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ModelPolicy {
@@ -59,6 +67,8 @@ pub struct PlannedTransformationStep {
     pub name: String,
     pub rationale: String,
     pub scope: StepExecutionScope,
+    #[serde(default)]
+    pub failure_policy: StepFailurePolicy,
     pub executor: PlannedExecutor,
 }
 
@@ -197,6 +207,7 @@ mod tests {
                     name: "Clean URL".to_string(),
                     rationale: "Tracking parameters are mechanical and replayable".to_string(),
                     scope: StepExecutionScope::WholeInput,
+                    failure_policy: Default::default(),
                     executor: PlannedExecutor::Deterministic {
                         operation_ref: "builtin:clean_url_tracking".to_string(),
                         config_json: None,
@@ -206,6 +217,7 @@ mod tests {
                     name: "Uppercase".to_string(),
                     rationale: "Casing is deterministic".to_string(),
                     scope: StepExecutionScope::WholeInput,
+                    failure_policy: Default::default(),
                     executor: PlannedExecutor::Deterministic {
                         operation_ref: "builtin:uppercase".to_string(),
                         config_json: None,
@@ -259,6 +271,7 @@ mod tests {
             name: "Rewrite".to_string(),
             rationale: "Tone requires semantic judgment".to_string(),
             scope: StepExecutionScope::WholeInput,
+            failure_policy: Default::default(),
             executor: PlannedExecutor::Semantic {
                 instructions: "Rewrite this warmly and concisely".to_string(),
                 output_schema: None,

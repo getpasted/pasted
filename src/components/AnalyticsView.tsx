@@ -178,7 +178,7 @@ export const AnalyticsView: React.FC = () => {
       {/* Daily Activity Timeline */}
       <div className="theme-panel p-5 rounded-xl border">
         <h2 className="theme-title text-sm font-bold mb-4 flex items-center space-x-2">
-          <Calendar className="w-4 h-4 theme-status-success-text" />
+          <Calendar className="w-4 h-4 theme-status-info-text" />
           <span>Daily Clipboard Activity (Recent Days)</span>
         </h2>
         <div className="space-y-2">
@@ -193,7 +193,7 @@ export const AnalyticsView: React.FC = () => {
                   <span className="theme-text-muted w-24 shrink-0">{day.date}</span>
                   <div className="theme-track flex-1 h-2 rounded-full overflow-hidden">
                     <div
-                      className="analytics-progress is-success h-full rounded-full"
+                      className="analytics-progress h-full rounded-full"
                       style={{ width: `${pct}%` }}
                     />
                   </div>

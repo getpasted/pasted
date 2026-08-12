@@ -129,9 +129,6 @@ export const ActivityLogView: React.FC = () => {
       case 'operation_created':
       case 'operation_updated':
       case 'operation_deleted':
-      case 'pipeline_created':
-      case 'pipeline_updated':
-      case 'pipeline_deleted':
       case 'library_item_enabled_changed':
         return (
           <div className="theme-status-info flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold">
@@ -330,6 +327,7 @@ export const ActivityLogView: React.FC = () => {
       case 'transform_tested':
       case 'transform_saved':
       case 'transform_updated':
+      case 'transform_deleted':
       case 'transform_executed':
       case 'transformation_execution_succeeded':
       case 'bin_transform_executed':
@@ -338,7 +336,7 @@ export const ActivityLogView: React.FC = () => {
         return (
           <div className="theme-status-success flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold">
             <Workflow className="w-3.5 h-3.5" />
-            <span>{type === 'transform_drafted' ? 'Drafted' : type === 'transform_tested' ? 'Tested' : type === 'transform_saved' ? 'Saved' : type === 'transform_updated' ? 'Updated' : type === 'bin_transform_no_change' ? 'No Change' : 'Transformed'}</span>
+            <span>{type === 'transform_drafted' ? 'Drafted' : type === 'transform_tested' ? 'Tested' : type === 'transform_saved' ? 'Saved' : type === 'transform_updated' ? 'Updated' : type === 'transform_deleted' ? 'Deleted' : type === 'bin_transform_no_change' ? 'No Change' : 'Transformed'}</span>
           </div>
         );
       case 'transform_draft_failed':

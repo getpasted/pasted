@@ -540,12 +540,20 @@ fn execute_plan_steps(
                 execute_semantic_step(connection, instructions, step.scope, &current, cancellation)
             }
         };
-        current = step_result.map_err(|error| {
-            IntelligenceExecutionError::new(
-                error.code,
-                format!("Step {} ({}): {}", index + 1, step.name, error.message),
-            )
-        })?;
+        current = match step_result {
+            Ok(output) => output,
+            Err(_)
+                if step.failure_policy == crate::transformation_intent::StepFailurePolicy::Skip =>
+            {
+                continue
+            }
+            Err(error) => {
+                return Err(IntelligenceExecutionError::new(
+                    error.code,
+                    format!("Step {} ({}): {}", index + 1, step.name, error.message),
+                ))
+            }
+        };
         ensure_transform_text_size(&current, "transform_output_too_large", "Transform output")?;
         ensure_not_cancelled(cancellation)?;
     }
@@ -741,6 +749,7 @@ mod tests {
                 name: "Rewrite".to_string(),
                 rationale: "Meaning requires interpretation".to_string(),
                 scope: StepExecutionScope::WholeInput,
+                failure_policy: Default::default(),
                 executor: PlannedExecutor::Semantic {
                     instructions: "Return a concise version".to_string(),
                     output_schema: None,
@@ -799,6 +808,7 @@ mod tests {
                 name: "Uppercase".to_string(),
                 rationale: "Casing is replayable".to_string(),
                 scope: StepExecutionScope::EachLine,
+                failure_policy: Default::default(),
                 executor: PlannedExecutor::Deterministic {
                     operation_ref: "builtin:uppercase".to_string(),
                     config_json: None,
@@ -1001,6 +1011,7 @@ mod tests {
                 name: "Uppercase".to_string(),
                 rationale: "Replayable".to_string(),
                 scope: StepExecutionScope::WholeInput,
+                failure_policy: Default::default(),
                 executor: PlannedExecutor::Deterministic {
                     operation_ref: "builtin:uppercase".to_string(),
                     config_json: None,
@@ -1092,6 +1103,7 @@ mod tests {
                         name: "Format as Markdown".to_string(),
                         rationale: "The input structure requires interpretation".to_string(),
                         scope: StepExecutionScope::WholeInput,
+                        failure_policy: Default::default(),
                         executor: PlannedExecutor::Semantic {
                             instructions: "Convert the notes to clean Markdown with a heading and bullet list. Preserve every fact.".to_string(),
                             output_schema: None,

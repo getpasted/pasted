@@ -53,16 +53,14 @@ pasted transform list
 pasted transform run <ref> [--text TEXT | --clip ID | --stdin] [--replace]
 pasted operation list [--json]
 pasted operation run <ref> [--text TEXT | --clip ID | --stdin] [--json]
-pasted pipeline list [--json]
-pasted pipeline run <ref> [--text TEXT | --clip ID | --stdin] [--json]
 ```
 
-`--replace` requires `--clip ID` so Pasted can validate the expected input and create a revision. Operations and Pipelines are experimental in 1.0.
+`--replace` requires `--clip ID` so Pasted can validate the expected input and create a revision. Operations are experimental in 1.0.
 
 ## Detection
 
 ```text
-pasted registry list [--kind detector|operation|pipeline] [--all] [--json]
+pasted registry list [--kind detector|operation|transform] [--all] [--json]
 pasted registry enable|disable --kind detector|operation --ref <stable-ref> [--json]
 pasted type list [--all] [--json]
 pasted type create --id <id> --name <name> [--icon <icon>] [--group <group>] [--json]

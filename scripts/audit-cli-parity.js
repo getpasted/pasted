@@ -27,8 +27,6 @@ const documentedCommands = [
   'pasted transform run',
   'pasted operation list',
   'pasted operation run',
-  'pasted pipeline list',
-  'pasted pipeline run',
   'pasted diagnostics',
   'pasted licenses',
   'pasted type list',
@@ -51,7 +49,7 @@ for (const command of documentedCommands) {
 }
 assert.doesNotMatch(help, /pasted-cli/, 'Help & Docs must expose the stable pasted command, not an implementation alias');
 
-for (const route of ['copy', 'list', 'search', 'import', 'retention', 'clear', 'clip', 'bin', 'transform', 'operation', 'pipeline', 'library', 'registry', 'type', 'detector', 'diagnostics', 'licenses', 'ocr', 'reset']) {
+for (const route of ['copy', 'list', 'search', 'import', 'retention', 'clear', 'clip', 'bin', 'transform', 'operation', 'library', 'registry', 'type', 'detector', 'diagnostics', 'licenses', 'ocr', 'reset']) {
   assert.match(cli, new RegExp(`"${route}"`), `The CLI must retain its ${route} route`);
 }
 

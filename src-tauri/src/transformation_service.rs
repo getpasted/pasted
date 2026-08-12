@@ -94,7 +94,7 @@ pub struct ExecutionOutcome {
     pub duration_ms: i64,
 }
 
-const LAST_PIPELINE_SETTING: &str = "lastExecutedPipelineRef";
+const LAST_TRANSFORM_SETTING: &str = "lastExecutedTransformRef";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -368,49 +368,9 @@ pub(crate) fn execute_operation_inline(
     execute_operation_ref(db, input, operation_ref, config_json, None, None)
 }
 
-fn execute_pipeline_ref(
-    db: &DbState,
-    input: &str,
-    pipeline_ref: &str,
-    client_request_id: Option<&str>,
-    cancellation: Option<&AtomicBool>,
-) -> Result<(String, i64), ExecutionError> {
-    let pipeline = db
-        .resolve_pipeline(pipeline_ref)
-        .map_err(database_error)?
-        .ok_or_else(|| {
-            ExecutionError::new(
-                "unknown_pipeline",
-                format!("Unknown pipeline reference: {pipeline_ref}"),
-            )
-        })?;
-    let mut current = input.to_string();
-    for step in &pipeline.steps {
-        ensure_not_cancelled(cancellation)?;
-        match execute_operation_ref(
-            db,
-            &current,
-            &step.operation_ref,
-            step.config_json.as_deref(),
-            client_request_id,
-            cancellation,
-        ) {
-            Ok(output) => {
-                ensure_transform_text_size(&output)?;
-                current = output;
-            }
-            Err(_error) if step.failure_policy == "skip" => continue,
-            Err(error) => {
-                return Err(error.at_step((step.position + 1) as usize, &step.operation_ref))
-            }
-        }
-    }
-    Ok((current, pipeline.revision))
-}
-
-/// Preview an unsaved Pipeline through the same operation executor used by
-/// persisted Pipelines. This keeps the editor honest without creating a
-/// temporary database record or updating last-used Pipeline state.
+/// Preview unsaved manual Transform steps through the same Operation executor
+/// used by persisted Transforms. This keeps the editor honest without creating
+/// a temporary database record or updating last-used Transform state.
 pub fn preview_pipeline_steps(
     db: &DbState,
     input: &str,
@@ -422,7 +382,7 @@ pub fn preview_pipeline_steps(
     if steps.is_empty() {
         return Err(ExecutionError::new(
             "empty_pipeline",
-            "A Pipeline requires at least one Operation",
+            "A manually built Transform requires at least one Operation",
         ));
     }
 
@@ -467,6 +427,27 @@ pub fn execute_with_cancellation(
     request: ExecutionRequest,
     cancellation: Option<&AtomicBool>,
 ) -> Result<ExecutionOutcome, ExecutionError> {
+    let mut request = request;
+    request.target = match request.target {
+        ExecutionTarget::Pipeline { pipeline_ref } => ExecutionTarget::Transform {
+            transform_ref: format!(
+                "transform:{}",
+                pipeline_ref
+                    .strip_prefix("pipeline:")
+                    .or_else(|| pipeline_ref.strip_prefix("transform:"))
+                    .unwrap_or(&pipeline_ref)
+            ),
+        },
+        ExecutionTarget::Transform { transform_ref } if transform_ref.starts_with("pipeline:") => {
+            ExecutionTarget::Transform {
+                transform_ref: format!(
+                    "transform:{}",
+                    transform_ref.trim_start_matches("pipeline:")
+                ),
+            }
+        }
+        target => target,
+    };
     ensure_transform_text_size(&request.input)?;
     if let Some(clip_id) = request.source_clip_id {
         let clip = db.get_clip_by_id(clip_id).map_err(database_error)?;
@@ -478,6 +459,11 @@ pub fn execute_with_cancellation(
         }
     }
     if let ExecutionTarget::Transform { transform_ref } = &request.target {
+        let transform = db
+            .resolve_saved_transform(transform_ref)
+            .map_err(database_error)?
+            .ok_or_else(|| ExecutionError::new("unknown_transform", "Transform was not found"))?;
+        let remember_as_last = transform.authoring_kind == "manual";
         let result = crate::intelligence_executor::execute_saved_transform(
             db,
             transform_ref,
@@ -492,6 +478,10 @@ pub fn execute_with_cancellation(
         );
         return match result {
             Ok((transform_name, execution_id, outcome)) => {
+                if remember_as_last {
+                    db.save_setting(LAST_TRANSFORM_SETTING, transform_ref)
+                        .map_err(database_error)?;
+                }
                 let _ = db.log_activity(
                     "transform_executed",
                     &format!(
@@ -528,17 +518,18 @@ pub fn execute_with_cancellation(
     let (target_kind, target_ref) = match &request.target {
         ExecutionTarget::Transform { .. } => unreachable!("Transforms return above"),
         ExecutionTarget::Operation { operation_ref } => ("operation", operation_ref.clone()),
-        ExecutionTarget::Pipeline { pipeline_ref } => ("pipeline", pipeline_ref.clone()),
+        ExecutionTarget::Pipeline { .. } => {
+            unreachable!("Pipeline targets normalize to Transforms before execution")
+        }
     };
 
     // Resolve the revision before opening the execution record, but perform the
     // actual work through the same operation path in both direct and pipeline runs.
     let target_revision = match &request.target {
         ExecutionTarget::Transform { .. } => unreachable!("Transforms return above"),
-        ExecutionTarget::Pipeline { pipeline_ref } => db
-            .resolve_pipeline(pipeline_ref)
-            .map_err(database_error)?
-            .map(|pipeline| pipeline.revision),
+        ExecutionTarget::Pipeline { .. } => {
+            unreachable!("Pipeline targets normalize to Transforms before execution")
+        }
         ExecutionTarget::Operation { .. } => None,
     };
     let execution_id = db
@@ -565,14 +556,9 @@ pub fn execute_with_cancellation(
             request.client_request_id.as_deref(),
             cancellation,
         ),
-        ExecutionTarget::Pipeline { pipeline_ref } => execute_pipeline_ref(
-            db,
-            &request.input,
-            pipeline_ref,
-            request.client_request_id.as_deref(),
-            cancellation,
-        )
-        .map(|(output, _)| output),
+        ExecutionTarget::Pipeline { .. } => {
+            unreachable!("Pipeline targets normalize to Transforms before execution")
+        }
     }
     .and_then(|output| {
         ensure_not_cancelled(cancellation)?;
@@ -590,10 +576,6 @@ pub fn execute_with_cancellation(
                 None,
             )
             .map_err(database_error)?;
-            if target_kind == "pipeline" {
-                db.save_setting(LAST_PIPELINE_SETTING, &target_ref)
-                    .map_err(database_error)?;
-            }
             let _ = db.log_activity(
                 "transformation_execution_succeeded",
                 &format!("Ran {target_kind} {target_ref} in {duration_ms} ms"),
@@ -645,7 +627,7 @@ fn ensure_transform_text_size(value: &str) -> Result<(), ExecutionError> {
 }
 
 pub fn get_last_pipeline_ref(db: &DbState) -> Result<Option<String>, ExecutionError> {
-    db.get_setting(LAST_PIPELINE_SETTING)
+    db.get_setting(LAST_TRANSFORM_SETTING)
         .map_err(database_error)
 }
 
@@ -658,15 +640,15 @@ pub fn execute_last_pipeline(
     let pipeline_ref = get_last_pipeline_ref(db)?.ok_or_else(|| {
         ExecutionError::new(
             "no_last_pipeline",
-            "No Pipeline has completed successfully yet",
+            "No manually built Transform has completed successfully yet",
         )
     })?;
     let result = execute(
         db,
         ExecutionRequest {
             input,
-            target: ExecutionTarget::Pipeline {
-                pipeline_ref: pipeline_ref.clone(),
+            target: ExecutionTarget::Transform {
+                transform_ref: pipeline_ref.clone(),
             },
             source_clip_id,
             trigger,
@@ -674,8 +656,8 @@ pub fn execute_last_pipeline(
             client_request_id: None,
         },
     );
-    if matches!(&result, Err(error) if error.code == "unknown_pipeline") {
-        db.delete_setting(LAST_PIPELINE_SETTING)
+    if matches!(&result, Err(error) if error.code == "unknown_transform") {
+        db.delete_setting(LAST_TRANSFORM_SETTING)
             .map_err(database_error)?;
     }
     result
@@ -691,8 +673,8 @@ pub fn execute_shortcut_pipeline(
             db,
             ExecutionRequest {
                 input,
-                target: ExecutionTarget::Pipeline {
-                    pipeline_ref: pipeline_ref.to_string(),
+                target: ExecutionTarget::Transform {
+                    transform_ref: pipeline_ref.to_string(),
                 },
                 source_clip_id: None,
                 trigger: ExecutionTrigger::Shortcut,
@@ -767,25 +749,20 @@ mod tests {
     }
 
     fn pipeline(db: &DbState, name: &str, operation_refs: &[&str]) -> String {
-        let conn = db.conn.lock();
-        conn.execute("INSERT INTO pipelines (name) VALUES (?1)", params![name])
-            .unwrap();
-        let pipeline_id: String = conn
-            .query_row(
-                "SELECT id FROM pipelines WHERE row_id = last_insert_rowid()",
-                [],
-                |row| row.get(0),
-            )
-            .unwrap();
-        for (position, operation_ref) in operation_refs.iter().enumerate() {
-            conn.execute(
-                "INSERT INTO pipeline_steps (pipeline_id, position, operation_ref)
-                 VALUES (?1, ?2, ?3)",
-                params![pipeline_id, position as i64, operation_ref],
-            )
-            .unwrap();
-        }
-        format!("pipeline:{pipeline_id}")
+        db.create_pipeline(
+            name,
+            &operation_refs
+                .iter()
+                .map(|operation_ref| PipelineStepInput {
+                    operation_ref: (*operation_ref).to_string(),
+                    config_json: None,
+                    failure_policy: "stop".to_string(),
+                })
+                .collect::<Vec<_>>(),
+            None,
+        )
+        .unwrap()
+        .stable_ref
     }
 
     #[test]
@@ -803,33 +780,14 @@ mod tests {
         .unwrap();
         assert_eq!(direct.output, "HELLO");
 
-        let pipeline_id = {
-            let conn = db.conn.lock();
-            conn.execute("INSERT INTO pipelines (name) VALUES ('Loud Quote')", [])
-                .unwrap();
-            let pipeline_id: String = conn
-                .query_row(
-                    "SELECT id FROM pipelines WHERE row_id = last_insert_rowid()",
-                    [],
-                    |row| row.get(0),
-                )
-                .unwrap();
-            conn.execute(
-                "INSERT INTO pipeline_steps (pipeline_id, position, operation_ref)
-                 VALUES (?1, 0, 'builtin:uppercase'), (?1, 1, 'builtin:quote_text')",
-                params![pipeline_id],
-            )
-            .unwrap();
-            pipeline_id
-        };
+        let pipeline_ref = pipeline(
+            &db,
+            "Loud Quote",
+            &["builtin:uppercase", "builtin:quote_text"],
+        );
         let pipeline = execute(
             &db,
-            request(
-                ExecutionTarget::Pipeline {
-                    pipeline_ref: format!("pipeline:{pipeline_id}"),
-                },
-                "hello\nworld",
-            ),
+            request(ExecutionTarget::Pipeline { pipeline_ref }, "hello\nworld"),
         )
         .unwrap();
         assert_eq!(pipeline.output, "> HELLO\n> WORLD");
@@ -927,6 +885,7 @@ mod tests {
                 name: "Uppercase".to_string(),
                 rationale: "Replayable".to_string(),
                 scope: crate::transformation_intent::StepExecutionScope::WholeInput,
+                failure_policy: Default::default(),
                 executor: crate::transformation_intent::PlannedExecutor::Deterministic {
                     operation_ref: "builtin:uppercase".to_string(),
                     config_json: None,
@@ -961,41 +920,66 @@ mod tests {
     }
 
     #[test]
-    fn pipeline_errors_identify_the_step_and_operation() {
+    fn transform_target_accepts_pipeline_compatibility_references() {
         let db = test_db();
-        let pipeline_id = {
-            let conn = db.conn.lock();
-            conn.execute("INSERT INTO pipelines (name) VALUES ('Broken')", [])
-                .unwrap();
-            let pipeline_id: String = conn
-                .query_row(
-                    "SELECT id FROM pipelines WHERE row_id = last_insert_rowid()",
-                    [],
-                    |row| row.get(0),
-                )
-                .unwrap();
-            conn.execute(
-                "INSERT INTO pipeline_steps (pipeline_id, position, operation_ref)
-                 VALUES (?1, 0, 'builtin:uppercase'), (?1, 1, 'builtin:missing')",
-                params![pipeline_id],
+        let pipeline = db
+            .create_pipeline(
+                "Uppercase Locally",
+                &[PipelineStepInput {
+                    operation_ref: "builtin:uppercase".to_string(),
+                    config_json: None,
+                    failure_policy: "stop".to_string(),
+                }],
+                None,
             )
             .unwrap();
-            pipeline_id
-        };
 
-        let error = execute(
+        let outcome = execute(
             &db,
             request(
-                ExecutionTarget::Pipeline {
-                    pipeline_ref: format!("pipeline:{pipeline_id}"),
+                ExecutionTarget::Transform {
+                    transform_ref: pipeline.stable_ref.clone(),
                 },
                 "hello",
             ),
         )
+        .unwrap();
+        assert_eq!(outcome.output, "HELLO");
+
+        let conn = db.conn.lock();
+        let stored: (String, String) = conn
+            .query_row(
+                "SELECT target_kind, target_ref FROM transformation_executions WHERE id = ?1",
+                params![outcome.execution_id],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(stored, ("transform".to_string(), pipeline.stable_ref));
+    }
+
+    #[test]
+    fn pipeline_errors_identify_the_step_and_operation() {
+        let db = test_db();
+        let pipeline_ref = pipeline(&db, "Broken", &["builtin:uppercase", "builtin:trim"]);
+        {
+            let conn = db.conn.lock();
+            conn.execute(
+                "UPDATE saved_transforms
+                 SET plan_json = replace(plan_json, 'builtin:trim', 'builtin:missing')
+                 WHERE id = ?1",
+                params![pipeline_ref.trim_start_matches("transform:")],
+            )
+            .unwrap();
+        }
+
+        let error = execute(
+            &db,
+            request(ExecutionTarget::Pipeline { pipeline_ref }, "hello"),
+        )
         .unwrap_err();
-        assert_eq!(error.code, "unknown_operation");
-        assert_eq!(error.step, Some(2));
-        assert_eq!(error.operation_ref.as_deref(), Some("builtin:missing"));
+        assert_eq!(error.code, "invalid_plan");
+        assert!(error.message.contains("step 2"));
+        assert!(error.message.contains("builtin:missing") || error.message.contains("missing"));
     }
 
     #[test]
@@ -1094,10 +1078,20 @@ mod tests {
             Some(successful.as_str())
         );
 
-        let failing = pipeline(&db, "Failing", &["builtin:missing"]);
+        let failing = pipeline(&db, "Failing", &["builtin:trim"]);
+        {
+            let conn = db.conn.lock();
+            conn.execute(
+                "UPDATE saved_transforms
+                 SET plan_json = replace(plan_json, 'builtin:trim', 'builtin:missing')
+                 WHERE id = ?1",
+                params![failing.trim_start_matches("transform:")],
+            )
+            .unwrap();
+        }
         let error =
             execute_shortcut_pipeline(&db, "hello".to_string(), Some(&failing)).unwrap_err();
-        assert_eq!(error.code, "unknown_operation");
+        assert_eq!(error.code, "invalid_plan");
         assert_eq!(
             get_last_pipeline_ref(&db).unwrap().as_deref(),
             Some(successful.as_str())
@@ -1115,7 +1109,7 @@ mod tests {
         db.delete_pipeline(&pipeline_ref).unwrap();
 
         let deleted = execute_shortcut_pipeline(&db, "hello".to_string(), None).unwrap_err();
-        assert_eq!(deleted.code, "unknown_pipeline");
+        assert_eq!(deleted.code, "unknown_transform");
         assert_eq!(get_last_pipeline_ref(&db).unwrap(), None);
         let cleared = execute_shortcut_pipeline(&db, "hello".to_string(), None).unwrap_err();
         assert_eq!(cleared.code, "no_last_pipeline");

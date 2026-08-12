@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Folder, Plus, Minus } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
-import { Bin, SavedTransform } from '../types';
+import { Bin, TransformDefinition } from '../types';
 import { formatEmojiIcon } from '../utils/emoji';
 import { detectDesktopPlatform } from '../utils/platform';
 import { AppDialog } from './AppDialog';
-import { AppDialogBody, AppDialogButton, AppDialogFooter, AppDialogHeader, AppDialogHeading } from './AppDialogLayout';
+import { AppDialogBody, AppDialogButton, AppDialogFooter, AppDialogHeader, AppDialogHeading, SaveButtonContent } from './AppDialogLayout';
 import { AnchoredMenu } from './AnchoredMenu';
 import { MenuSelect } from './MenuSelect';
 import { useContentTypes } from './ContentTypeProvider';
@@ -105,7 +105,7 @@ export const BinModal: React.FC<BinModalProps> = ({
 
   // Installed OS Apps state
   const [installedApps, setInstalledApps] = useState<string[]>([]);
-  const [transforms, setTransforms] = useState<SavedTransform[]>([]);
+  const [transforms, setTransforms] = useState<TransformDefinition[]>([]);
   const [transformRef, setTransformRef] = useState('');
 
   // Multi-condition Smart Rules state
@@ -188,7 +188,7 @@ export const BinModal: React.FC<BinModalProps> = ({
           setInstalledApps(Array.isArray(apps) ? apps : []);
         })
         .catch(console.error);
-      invoke<SavedTransform[]>('get_saved_transforms')
+      invoke<TransformDefinition[]>('get_transforms')
         .then((savedTransforms) => setTransforms(Array.isArray(savedTransforms) ? savedTransforms : []))
         .catch(console.error);
       if (editingBin) {
@@ -494,11 +494,34 @@ export const BinModal: React.FC<BinModalProps> = ({
               value={transformRef}
               options={[
                 { value: '', label: 'Do Nothing' },
-                ...transforms.map((transform) => ({ value: transform.stableRef, label: transform.name })),
+                ...transforms
+                  .map((transform, sourceIndex) => {
+                    const group = transform.authoringKind === 'manual'
+                      ? 'Manually Built Transforms'
+                      : transform.executionCharacter === 'replayable'
+                        ? 'Planned Local Transforms'
+                        : 'AI-Assisted Transforms';
+                    const groupOrder = group === 'AI-Assisted Transforms'
+                      ? 0
+                      : group === 'Planned Local Transforms'
+                        ? 1
+                        : 2;
+                    return {
+                      value: transform.stableRef,
+                      label: transform.name,
+                      group,
+                      groupOrder,
+                      sourceIndex,
+                    };
+                  })
+                  .sort((left, right) => left.groupOrder - right.groupOrder || left.sourceIndex - right.sourceIndex)
+                  .map(({ groupOrder: _groupOrder, sourceIndex: _sourceIndex, ...option }) => option),
               ]}
               onChange={setTransformRef}
               label="Transform"
               className="min-w-0 flex-1"
+              searchable
+              searchPlaceholder="Search Transforms…"
             />
           </div>
 
@@ -670,7 +693,7 @@ export const BinModal: React.FC<BinModalProps> = ({
           </AppDialogBody>
           <AppDialogFooter>
             <AppDialogButton onClick={requestClose}>Cancel</AppDialogButton>
-            <AppDialogButton type="submit" variant="primary">Save</AppDialogButton>
+            <AppDialogButton type="submit" variant="primary"><SaveButtonContent /></AppDialogButton>
           </AppDialogFooter>
         </form>
       </>}

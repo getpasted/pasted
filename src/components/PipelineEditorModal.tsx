@@ -5,7 +5,7 @@ import { safeInvoke as invoke } from '../utils/tauri';
 import { HotkeyRecorder } from './HotkeyRecorder';
 import { handleWindowDragDoubleClick, startWindowDrag } from '../utils/windowDrag';
 import { AppDialog } from './AppDialog';
-import { AppDialogBody, AppDialogButton, AppDialogFooter, AppDialogHeader, AppDialogHeading } from './AppDialogLayout';
+import { AppDialogBody, AppDialogButton, AppDialogFooter, AppDialogHeader, AppDialogHeading, SaveButtonContent } from './AppDialogLayout';
 import { MenuSelect, type MenuSelectOption } from './MenuSelect';
 import { startPipelinePreview, type CancellableTransformRequest } from '../utils/transformExecution';
 import { PlaygroundRunStatus, type PlaygroundRunState } from './PlaygroundRunStatus';
@@ -155,7 +155,7 @@ const PipelineStepEditor: React.FC<{
     .filter((operation) => operation.stable_id.startsWith('custom:'))
     .map((operation) => ({ value: operation.stable_id, label: operation.name, group: 'Custom Operations' })));
   return (
-    <section className="theme-card-idle border p-2" aria-label={`Pipeline step ${idx + 1}`}>
+    <section className="theme-card-idle border p-2" aria-label={`Transform step ${idx + 1}`}>
       <div className="flex flex-wrap items-center gap-2">
         <span className="theme-text-subtle grid h-5 w-5 shrink-0 place-items-center rounded-full border text-[9px] font-bold">{idx + 1}</span>
         <MenuSelect
@@ -500,7 +500,7 @@ export const PipelineEditorModal: React.FC<PipelineEditorModalProps> = ({
     >
       {({ requestClose }) => <>
         <AppDialogHeader onClose={requestClose} onMouseDown={startWindowDrag} onDoubleClick={handleWindowDragDoubleClick}>
-          <AppDialogHeading id="pipeline-editor-title" title={pipeline ? 'Edit Pipeline' : 'New Pipeline'} description="Chain reusable Operations into a transformation that runs as one step." icon={<Sliders />} tone="info" />
+          <AppDialogHeading id="pipeline-editor-title" title={pipeline ? 'Edit Transform' : 'Build Transform Manually'} description="Chain reusable Operations into a local, replayable Transform." icon={<Sliders />} tone="info" />
         </AppDialogHeader>
 
         <AppDialogBody className="space-y-6 relative">
@@ -585,7 +585,7 @@ export const PipelineEditorModal: React.FC<PipelineEditorModalProps> = ({
         <AppDialogFooter align="between">
           <AppDialogButton
             onClick={handleReset}
-            title="Reset Pipeline"
+            title="Reset Transform"
           >
             <RotateCcw className="w-3.5 h-3.5" />
             <span>Reset</span>
@@ -593,7 +593,9 @@ export const PipelineEditorModal: React.FC<PipelineEditorModalProps> = ({
 
           <div className="flex items-center space-x-3">
             <AppDialogButton onClick={requestClose}>Cancel</AppDialogButton>
-            <AppDialogButton variant="primary" onClick={handleSavePipeline} disabled={isSaving}>{isSaving ? 'Saving…' : 'Save Pipeline'}</AppDialogButton>
+            <AppDialogButton variant="primary" onClick={handleSavePipeline} disabled={isSaving}>
+              <SaveButtonContent isSaving={isSaving} />
+            </AppDialogButton>
           </div>
         </AppDialogFooter>
       </>}

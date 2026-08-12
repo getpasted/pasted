@@ -7,7 +7,7 @@ use std::path::PathBuf;
 
 use crate::external_import::ExternalTextClip;
 
-const BACKUP_SCHEMA_VERSION: u32 = 9;
+const BACKUP_SCHEMA_VERSION: u32 = 10;
 
 fn ensure_resource_size(value: &str, maximum: usize, label: &str) -> Result<()> {
     if value.len() <= maximum {
@@ -355,6 +355,7 @@ pub struct BackupPayload {
     pub timestamp: String,
     pub clips: Vec<ClipItem>,
     pub bins: Vec<Bin>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub pipelines: Vec<Pipeline>,
     pub operations: Vec<Operation>,
     #[serde(default)]
@@ -407,9 +408,116 @@ pub struct SavedTransform {
     pub name: String,
     pub plan: crate::transformation_intent::TransformationPlan,
     pub connection_id: Option<String>,
+    #[serde(default)]
+    pub shortcut: Option<String>,
+    #[serde(default = "default_transform_authoring_kind")]
+    pub authoring_kind: String,
     pub revision: i64,
     pub created_at: String,
     pub updated_at: String,
+}
+
+fn default_transform_authoring_kind() -> String {
+    "intent".to_string()
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum TransformAuthoringKind {
+    Intent,
+    Manual,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct TransformDefinition {
+    pub id: i64,
+    pub stable_ref: String,
+    pub name: String,
+    pub authoring_kind: TransformAuthoringKind,
+    pub execution_character: String,
+    pub connection_id: Option<String>,
+    pub shortcut: Option<String>,
+    pub revision: i64,
+    pub created_at: String,
+    pub updated_at: String,
+    pub plan: Option<crate::transformation_intent::TransformationPlan>,
+    pub steps: Vec<PipelineStep>,
+}
+
+impl From<SavedTransform> for TransformDefinition {
+    fn from(transform: SavedTransform) -> Self {
+        let execution_character = match transform.plan.execution_character() {
+            crate::transformation_intent::ExecutionCharacter::Replayable => "replayable",
+            crate::transformation_intent::ExecutionCharacter::Interpretive => "interpretive",
+            crate::transformation_intent::ExecutionCharacter::Mixed => "mixed",
+        }
+        .to_string();
+        let is_manual = transform.authoring_kind == "manual";
+        let manual_steps = if is_manual {
+            transform
+                .plan
+                .steps
+                .iter()
+                .enumerate()
+                .filter_map(|(position, step)| match &step.executor {
+                    crate::transformation_intent::PlannedExecutor::Deterministic {
+                        operation_ref,
+                        config_json,
+                    } => Some(PipelineStep {
+                        position: position as i64,
+                        operation_ref: operation_ref.clone(),
+                        config_json: config_json.clone(),
+                        failure_policy: match step.failure_policy {
+                            crate::transformation_intent::StepFailurePolicy::Stop => "stop",
+                            crate::transformation_intent::StepFailurePolicy::Skip => "skip",
+                        }
+                        .to_string(),
+                    }),
+                    crate::transformation_intent::PlannedExecutor::Semantic { .. } => None,
+                })
+                .collect()
+        } else {
+            Vec::new()
+        };
+        Self {
+            id: transform.id,
+            stable_ref: transform.stable_ref,
+            name: transform.name,
+            authoring_kind: if is_manual {
+                TransformAuthoringKind::Manual
+            } else {
+                TransformAuthoringKind::Intent
+            },
+            execution_character,
+            connection_id: transform.connection_id,
+            shortcut: transform.shortcut,
+            revision: transform.revision,
+            created_at: transform.created_at,
+            updated_at: transform.updated_at,
+            plan: (!is_manual).then_some(transform.plan),
+            steps: manual_steps,
+        }
+    }
+}
+
+impl From<Pipeline> for TransformDefinition {
+    fn from(pipeline: Pipeline) -> Self {
+        Self {
+            id: pipeline.id,
+            stable_ref: pipeline.stable_ref,
+            name: pipeline.name,
+            authoring_kind: TransformAuthoringKind::Manual,
+            execution_character: "replayable".to_string(),
+            connection_id: None,
+            shortcut: pipeline.shortcut,
+            revision: pipeline.revision,
+            created_at: pipeline.created_at,
+            updated_at: pipeline.updated_at,
+            plan: None,
+            steps: pipeline.steps,
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -510,20 +618,6 @@ pub struct ResolvedCustomOperation {
     pub config_json: String,
     pub enabled: bool,
     pub trusted: bool,
-}
-
-#[derive(Debug, Clone)]
-pub struct ResolvedPipelineStep {
-    pub position: i64,
-    pub operation_ref: String,
-    pub config_json: Option<String>,
-    pub failure_policy: String,
-}
-
-#[derive(Debug, Clone)]
-pub struct ResolvedPipeline {
-    pub revision: i64,
-    pub steps: Vec<ResolvedPipelineStep>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
@@ -657,6 +751,377 @@ fn migrate_clip_source_schema(conn: &Connection) -> Result<()> {
             [],
         )?;
     }
+    transaction.commit()?;
+    Ok(())
+}
+
+fn migrate_pipelines_to_saved_transforms(conn: &Connection) -> Result<()> {
+    if !table_exists(conn, "pipelines")? {
+        return Ok(());
+    }
+    let transaction = conn.unchecked_transaction()?;
+    transaction.execute_batch(
+        "CREATE TEMP TABLE pipeline_transform_map (
+            pipeline_id TEXT PRIMARY KEY,
+            transform_id TEXT NOT NULL UNIQUE
+        );",
+    )?;
+    if !column_exists(&transaction, "pipelines", "shortcut")? {
+        transaction.execute("ALTER TABLE pipelines ADD COLUMN shortcut TEXT", [])?;
+    }
+    if !column_exists(&transaction, "pipelines", "revision")? {
+        transaction.execute(
+            "ALTER TABLE pipelines ADD COLUMN revision INTEGER NOT NULL DEFAULT 1",
+            [],
+        )?;
+    }
+    if !column_exists(&transaction, "pipelines", "created_at")? {
+        transaction.execute("ALTER TABLE pipelines ADD COLUMN created_at DATETIME", [])?;
+        transaction.execute(
+            "UPDATE pipelines SET created_at = CURRENT_TIMESTAMP WHERE created_at IS NULL",
+            [],
+        )?;
+    }
+    if !column_exists(&transaction, "pipelines", "updated_at")? {
+        transaction.execute("ALTER TABLE pipelines ADD COLUMN updated_at DATETIME", [])?;
+        transaction.execute(
+            "UPDATE pipelines SET updated_at = COALESCE(created_at, CURRENT_TIMESTAMP)
+             WHERE updated_at IS NULL",
+            [],
+        )?;
+    }
+    if !column_exists(&transaction, "pipeline_steps", "config_json")? {
+        transaction.execute("ALTER TABLE pipeline_steps ADD COLUMN config_json TEXT", [])?;
+    }
+    if !column_exists(&transaction, "pipeline_steps", "failure_policy")? {
+        transaction.execute(
+            "ALTER TABLE pipeline_steps ADD COLUMN failure_policy TEXT NOT NULL DEFAULT 'stop'",
+            [],
+        )?;
+    }
+    let orphaned_step: Option<String> = transaction
+        .query_row(
+            "SELECT pipeline_id FROM pipeline_steps WHERE NOT EXISTS (
+                SELECT 1 FROM pipelines WHERE pipelines.id = pipeline_steps.pipeline_id
+             ) LIMIT 1",
+            [],
+            |row| row.get(0),
+        )
+        .optional()?;
+    if let Some(reference) = orphaned_step {
+        return Err(rusqlite::Error::InvalidParameterName(format!(
+            "Cannot migrate Pipeline steps: {reference} does not identify a legacy Pipeline"
+        )));
+    }
+    let pipeline_rows = {
+        let mut statement = transaction.prepare(
+            "SELECT id, name, shortcut, COALESCE(revision, 1),
+                    COALESCE(created_at, CURRENT_TIMESTAMP),
+                    COALESCE(updated_at, created_at, CURRENT_TIMESTAMP)
+             FROM pipelines ORDER BY row_id ASC",
+        )?;
+        let rows = statement
+            .query_map([], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, Option<String>>(2)?,
+                    row.get::<_, i64>(3)?,
+                    row.get::<_, String>(4)?,
+                    row.get::<_, String>(5)?,
+                ))
+            })?
+            .collect::<Result<Vec<_>>>()?;
+        rows
+    };
+    for (pipeline_id, name, shortcut, revision, created_at, updated_at) in pipeline_rows {
+        let steps = {
+            let mut statement = transaction.prepare(
+                "SELECT operation_ref, config_json, failure_policy
+                 FROM pipeline_steps WHERE pipeline_id = ?1 ORDER BY position ASC",
+            )?;
+            let rows = statement
+                .query_map(params![pipeline_id], |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, Option<String>>(1)?,
+                        row.get::<_, String>(2)?,
+                    ))
+                })?
+                .collect::<Result<Vec<_>>>()?;
+            rows
+        };
+        let plan = crate::transformation_intent::TransformationPlan {
+            schema_version: crate::transformation_intent::TRANSFORMATION_PLAN_SCHEMA_VERSION,
+            intent: format!("Run {name}"),
+            summary: name.clone(),
+            planning_mode: crate::transformation_intent::IntentPlanningMode::Pinned,
+            steps: steps
+                .into_iter()
+                .map(|(operation_ref, config_json, failure_policy)| {
+                    let failure_policy = match failure_policy.as_str() {
+                        "stop" => crate::transformation_intent::StepFailurePolicy::Stop,
+                        "skip" => crate::transformation_intent::StepFailurePolicy::Skip,
+                        value => {
+                            return Err(rusqlite::Error::InvalidParameterName(format!(
+                                "invalid legacy Pipeline failure policy: {value}"
+                            )))
+                        }
+                    };
+                    Ok(crate::transformation_intent::PlannedTransformationStep {
+                        name: operation_ref
+                            .strip_prefix("builtin:")
+                            .or_else(|| operation_ref.strip_prefix("custom:"))
+                            .unwrap_or(&operation_ref)
+                            .replace('_', " "),
+                        rationale: "Manually configured Operation".to_string(),
+                        scope: crate::transformation_intent::StepExecutionScope::WholeInput,
+                        failure_policy,
+                        executor: crate::transformation_intent::PlannedExecutor::Deterministic {
+                            operation_ref,
+                            config_json,
+                        },
+                    })
+                })
+                .collect::<Result<Vec<_>>>()?,
+        };
+        plan.validate()
+            .map_err(rusqlite::Error::InvalidParameterName)?;
+        let plan_json = serde_json::to_string(&plan)
+            .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?;
+        let collision: bool = transaction.query_row(
+            "SELECT EXISTS(SELECT 1 FROM saved_transforms WHERE id = ?1)",
+            params![pipeline_id],
+            |row| row.get(0),
+        )?;
+        let transform_id = if collision {
+            transaction.query_row("SELECT lower(hex(randomblob(16)))", [], |row| row.get(0))?
+        } else {
+            pipeline_id.clone()
+        };
+        transaction.execute(
+            "INSERT INTO saved_transforms
+                (id, name, plan_json, connection_id, shortcut, authoring_kind, revision, created_at, updated_at)
+             VALUES (?1, ?2, ?3, NULL, ?4, 'manual', ?5, ?6, ?7)",
+            params![
+                transform_id,
+                name,
+                plan_json,
+                shortcut,
+                revision,
+                created_at,
+                updated_at
+            ],
+        )?;
+        transaction.execute(
+            "INSERT INTO pipeline_transform_map (pipeline_id, transform_id) VALUES (?1, ?2)",
+            params![pipeline_id, transform_id],
+        )?;
+    }
+
+    let unmapped_reference = |table: &str, reference: &str| {
+        rusqlite::Error::InvalidParameterName(format!(
+            "Cannot migrate {table}: {reference} does not identify a legacy Pipeline"
+        ))
+    };
+
+    if column_exists(&transaction, "bins", "default_pipeline_id")? {
+        let invalid: Option<String> = transaction
+            .query_row(
+                "SELECT default_pipeline_id FROM bins
+                 WHERE default_pipeline_id IS NOT NULL AND NOT EXISTS (
+                    SELECT 1 FROM pipeline_transform_map
+                    WHERE pipeline_id = replace(bins.default_pipeline_id, 'pipeline:', '')
+                 ) LIMIT 1",
+                [],
+                |row| row.get(0),
+            )
+            .optional()?;
+        if let Some(reference) = invalid {
+            return Err(unmapped_reference("Bins", &reference));
+        }
+        transaction.execute(
+            "UPDATE bins SET default_transform_id = (
+                SELECT transform_id FROM pipeline_transform_map
+                WHERE pipeline_id = replace(bins.default_pipeline_id, 'pipeline:', '')
+             ) WHERE default_pipeline_id IS NOT NULL
+               AND EXISTS (
+                SELECT 1 FROM pipeline_transform_map
+                WHERE pipeline_id = replace(bins.default_pipeline_id, 'pipeline:', '')
+             )",
+            [],
+        )?;
+    }
+    let invalid_provenance: Option<String> = transaction
+        .query_row(
+            "SELECT transform_ref FROM clip_transformations
+             WHERE transform_ref LIKE 'pipeline:%' AND NOT EXISTS (
+                SELECT 1 FROM pipeline_transform_map
+                WHERE pipeline_id = replace(clip_transformations.transform_ref, 'pipeline:', '')
+             ) LIMIT 1",
+            [],
+            |row| row.get(0),
+        )
+        .optional()?;
+    if let Some(reference) = invalid_provenance {
+        return Err(unmapped_reference("clip provenance", &reference));
+    }
+    transaction.execute(
+        "UPDATE clip_transformations SET
+            transform_id = (
+                SELECT transform_id FROM pipeline_transform_map
+                WHERE pipeline_id = replace(clip_transformations.transform_ref, 'pipeline:', '')
+            ),
+            transform_ref = 'transform:' || (
+                SELECT transform_id FROM pipeline_transform_map
+                WHERE pipeline_id = replace(clip_transformations.transform_ref, 'pipeline:', '')
+            )
+         WHERE transform_ref LIKE 'pipeline:%'",
+        [],
+    )?;
+    let invalid_execution: Option<String> = transaction
+        .query_row(
+            "SELECT target_ref FROM transformation_executions
+             WHERE target_kind = 'pipeline' AND NOT EXISTS (
+                SELECT 1 FROM pipeline_transform_map
+                WHERE pipeline_id = replace(transformation_executions.target_ref, 'pipeline:', '')
+             ) LIMIT 1",
+            [],
+            |row| row.get(0),
+        )
+        .optional()?;
+    if let Some(reference) = invalid_execution {
+        return Err(unmapped_reference("execution history", &reference));
+    }
+    transaction.execute(
+        "UPDATE transformation_executions
+         SET target_kind = 'transform', target_ref = 'transform:' || (
+            SELECT transform_id FROM pipeline_transform_map
+            WHERE pipeline_id = replace(transformation_executions.target_ref, 'pipeline:', '')
+         ) WHERE target_kind = 'pipeline' AND EXISTS (
+            SELECT 1 FROM pipeline_transform_map
+            WHERE pipeline_id = replace(transformation_executions.target_ref, 'pipeline:', '')
+         )",
+        [],
+    )?;
+    let invalid_last_used: Option<String> = transaction
+        .query_row(
+            "SELECT value FROM settings
+             WHERE key = 'lastExecutedPipelineRef' AND NOT EXISTS (
+                SELECT 1 FROM pipeline_transform_map
+                WHERE pipeline_id = replace(settings.value, 'pipeline:', '')
+             ) LIMIT 1",
+            [],
+            |row| row.get(0),
+        )
+        .optional()?;
+    if let Some(reference) = invalid_last_used {
+        return Err(unmapped_reference("last-used setting", &reference));
+    }
+    transaction.execute(
+        "UPDATE settings SET value = 'transform:' || (
+            SELECT transform_id FROM pipeline_transform_map
+            WHERE pipeline_id = replace(settings.value, 'pipeline:', '')
+         ) WHERE key = 'lastExecutedPipelineRef' AND EXISTS (
+            SELECT 1 FROM pipeline_transform_map
+            WHERE pipeline_id = replace(settings.value, 'pipeline:', '')
+         )",
+        [],
+    )?;
+    transaction.execute(
+        "INSERT INTO settings (key, value)
+         SELECT 'lastExecutedTransformRef', value FROM settings
+         WHERE key = 'lastExecutedPipelineRef'
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        [],
+    )?;
+    transaction.execute(
+        "DELETE FROM settings WHERE key = 'lastExecutedPipelineRef'",
+        [],
+    )?;
+
+    if table_exists(&transaction, "automations")?
+        && column_exists(&transaction, "automations", "pipeline_id")?
+    {
+        let invalid_automation: Option<String> = transaction
+            .query_row(
+                "SELECT pipeline_id FROM automations WHERE NOT EXISTS (
+                    SELECT 1 FROM pipeline_transform_map
+                    WHERE pipeline_id = automations.pipeline_id
+                 ) LIMIT 1",
+                [],
+                |row| row.get(0),
+            )
+            .optional()?;
+        if let Some(reference) = invalid_automation {
+            return Err(unmapped_reference("Automations", &reference));
+        }
+        let orphaned_condition: Option<String> = transaction
+            .query_row(
+                "SELECT automation_id FROM automation_conditions WHERE NOT EXISTS (
+                    SELECT 1 FROM automations
+                    WHERE automations.id = automation_conditions.automation_id
+                 ) LIMIT 1",
+                [],
+                |row| row.get(0),
+            )
+            .optional()?;
+        if let Some(reference) = orphaned_condition {
+            return Err(rusqlite::Error::InvalidParameterName(format!(
+                "Cannot migrate Automation conditions: {reference} does not identify an Automation"
+            )));
+        }
+        transaction.execute_batch(
+            "ALTER TABLE automation_conditions RENAME TO automation_conditions_pipeline_legacy;
+             ALTER TABLE automations RENAME TO automations_pipeline_legacy;
+             CREATE TABLE automations (
+                row_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id TEXT NOT NULL UNIQUE DEFAULT (lower(hex(randomblob(16)))),
+                name TEXT NOT NULL,
+                trigger_kind TEXT NOT NULL CHECK (trigger_kind IN ('capture', 'copy', 'paste')),
+                transform_id TEXT NOT NULL REFERENCES saved_transforms(id) ON DELETE RESTRICT,
+                enabled INTEGER NOT NULL DEFAULT 0 CHECK (enabled IN (0, 1)),
+                trusted INTEGER NOT NULL DEFAULT 0 CHECK (trusted IN (0, 1)),
+                priority INTEGER NOT NULL DEFAULT 0,
+                action_json TEXT NOT NULL DEFAULT '{}' CHECK (json_valid(action_json)),
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+             );
+             INSERT INTO automations
+                (row_id, id, name, trigger_kind, transform_id, enabled, trusted,
+                 priority, action_json, created_at, updated_at)
+             SELECT legacy.row_id, legacy.id, legacy.name, legacy.trigger_kind,
+                    mapping.transform_id, legacy.enabled, legacy.trusted,
+                    legacy.priority, legacy.action_json, legacy.created_at, legacy.updated_at
+             FROM automations_pipeline_legacy AS legacy
+             JOIN pipeline_transform_map AS mapping ON mapping.pipeline_id = legacy.pipeline_id;
+             CREATE TABLE automation_conditions (
+                id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+                automation_id TEXT NOT NULL REFERENCES automations(id) ON DELETE CASCADE,
+                position INTEGER NOT NULL CHECK (position >= 0),
+                condition_kind TEXT NOT NULL,
+                config_json TEXT NOT NULL CHECK (json_valid(config_json)),
+                UNIQUE (automation_id, position)
+             );
+             INSERT INTO automation_conditions
+                (id, automation_id, position, condition_kind, config_json)
+             SELECT conditions.id, conditions.automation_id, conditions.position,
+                    conditions.condition_kind, conditions.config_json
+             FROM automation_conditions_pipeline_legacy AS conditions
+             JOIN automations ON automations.id = conditions.automation_id;
+             DROP TABLE automation_conditions_pipeline_legacy;
+             DROP TABLE automations_pipeline_legacy;",
+        )?;
+    }
+    transaction.execute_batch(
+        "DROP TRIGGER IF EXISTS library_items_pipeline_insert;
+         DROP TRIGGER IF EXISTS library_items_pipeline_update;
+         DROP TRIGGER IF EXISTS library_items_pipeline_delete;
+         DROP TRIGGER IF EXISTS custom_operation_delete_guard;
+         DROP TABLE pipeline_steps;
+         DROP TABLE pipelines;
+         DROP TABLE pipeline_transform_map;",
+    )?;
     transaction.commit()?;
     Ok(())
 }
@@ -1009,6 +1474,7 @@ impl DbState {
             )",
             [],
         )?;
+        migrate_pipelines_to_saved_transforms(&conn)?;
 
         conn.execute_batch(
             "CREATE TABLE IF NOT EXISTS content_type_groups (
@@ -1138,9 +1604,24 @@ impl DbState {
 
     fn init_library_items(conn: &Connection) -> Result<()> {
         conn.execute_batch(
-            "CREATE TABLE IF NOT EXISTS library_items (
+            "DROP TRIGGER IF EXISTS library_items_detector_insert;
+            DROP TRIGGER IF EXISTS library_items_detector_update;
+            DROP TRIGGER IF EXISTS library_items_detector_delete;
+            DROP TRIGGER IF EXISTS library_items_content_type_update;
+            DROP TRIGGER IF EXISTS library_items_content_group_update;
+            DROP TRIGGER IF EXISTS library_items_operation_insert;
+            DROP TRIGGER IF EXISTS library_items_operation_update;
+            DROP TRIGGER IF EXISTS library_items_operation_delete;
+            DROP TRIGGER IF EXISTS library_items_pipeline_insert;
+            DROP TRIGGER IF EXISTS library_items_pipeline_update;
+            DROP TRIGGER IF EXISTS library_items_pipeline_delete;
+            DROP TRIGGER IF EXISTS library_items_transform_insert;
+            DROP TRIGGER IF EXISTS library_items_transform_update;
+            DROP TRIGGER IF EXISTS library_items_transform_delete;
+            DROP TABLE IF EXISTS library_items;
+            CREATE TABLE library_items (
                 stable_ref TEXT PRIMARY KEY,
-                kind TEXT NOT NULL CHECK (kind IN ('detector', 'operation', 'pipeline')),
+                kind TEXT NOT NULL CHECK (kind IN ('detector', 'operation', 'transform')),
                 name TEXT NOT NULL,
                 description TEXT NOT NULL DEFAULT '',
                 group_label TEXT,
@@ -1194,9 +1675,11 @@ impl DbState {
                 (stable_ref, kind, name, group_label, icon, enabled, is_builtin,
                  is_archived, sort_order, revision, input_contract, output_contract,
                  created_at, updated_at)
-            SELECT 'pipeline:' || id, 'pipeline', name, 'Pipelines', 'Workflow', NULL, 0,
+            SELECT 'transform:' || id, 'transform', name,
+                   CASE authoring_kind WHEN 'manual' THEN 'Local Transforms' ELSE 'Transforms' END,
+                   'Workflow', NULL, 0,
                    0, row_id, revision, 'text', 'preserve_type', created_at, updated_at
-            FROM pipelines
+            FROM saved_transforms
             WHERE 1 = 1
             ON CONFLICT(stable_ref) DO UPDATE SET
                 name=excluded.name, sort_order=excluded.sort_order,
@@ -1267,15 +1750,15 @@ impl DbState {
             CREATE TRIGGER library_items_operation_delete AFTER DELETE ON custom_operations BEGIN
               DELETE FROM library_items WHERE stable_ref='custom:'||OLD.id;
             END;
-            CREATE TRIGGER library_items_pipeline_insert AFTER INSERT ON pipelines BEGIN
+            CREATE TRIGGER library_items_transform_insert AFTER INSERT ON saved_transforms BEGIN
               INSERT OR REPLACE INTO library_items (stable_ref,kind,name,group_label,icon,enabled,is_builtin,is_archived,sort_order,revision,input_contract,output_contract,created_at,updated_at)
-              VALUES ('pipeline:'||NEW.id,'pipeline',NEW.name,'Pipelines','Workflow',NULL,0,0,NEW.row_id,NEW.revision,'text','preserve_type',NEW.created_at,NEW.updated_at);
+              VALUES ('transform:'||NEW.id,'transform',NEW.name,CASE NEW.authoring_kind WHEN 'manual' THEN 'Local Transforms' ELSE 'Transforms' END,'Workflow',NULL,0,0,NEW.row_id,NEW.revision,'text','preserve_type',NEW.created_at,NEW.updated_at);
             END;
-            CREATE TRIGGER library_items_pipeline_update AFTER UPDATE ON pipelines BEGIN
-              UPDATE library_items SET name=NEW.name,revision=NEW.revision,updated_at=NEW.updated_at WHERE stable_ref='pipeline:'||NEW.id;
+            CREATE TRIGGER library_items_transform_update AFTER UPDATE ON saved_transforms BEGIN
+              UPDATE library_items SET name=NEW.name,group_label=CASE NEW.authoring_kind WHEN 'manual' THEN 'Local Transforms' ELSE 'Transforms' END,revision=NEW.revision,updated_at=NEW.updated_at WHERE stable_ref='transform:'||NEW.id;
             END;
-            CREATE TRIGGER library_items_pipeline_delete AFTER DELETE ON pipelines BEGIN
-              DELETE FROM library_items WHERE stable_ref='pipeline:'||OLD.id;
+            CREATE TRIGGER library_items_transform_delete AFTER DELETE ON saved_transforms BEGIN
+              DELETE FROM library_items WHERE stable_ref='transform:'||OLD.id;
             END;",
         )?;
         for (index, definition) in crate::operation_registry::BUILTIN_OPERATIONS
@@ -1311,7 +1794,7 @@ impl DbState {
             clips_deleted: transaction.query_row("SELECT COUNT(*) FROM clips", [], |row| row.get(0))?,
             bins_deleted: transaction.query_row("SELECT COUNT(*) FROM bins", [], |row| row.get(0))?,
             transforms_deleted: transaction.query_row(
-                "SELECT (SELECT COUNT(*) FROM saved_transforms) + (SELECT COUNT(*) FROM pipelines) + (SELECT COUNT(*) FROM custom_operations)",
+                "SELECT (SELECT COUNT(*) FROM saved_transforms) + (SELECT COUNT(*) FROM custom_operations)",
                 [],
                 |row| row.get(0),
             )?,
@@ -1330,11 +1813,9 @@ impl DbState {
         transaction.execute_batch(
             "DELETE FROM automation_conditions;
              DELETE FROM automations;
-             DELETE FROM pipeline_steps;
              DELETE FROM clip_transformations;
              DELETE FROM transformation_executions;
              DELETE FROM saved_transforms;
-             DELETE FROM pipelines;
              DELETE FROM custom_operations;
              DELETE FROM intelligence_connections;
              DELETE FROM clip_versions;
@@ -1350,7 +1831,7 @@ impl DbState {
         transaction.execute(
             "DELETE FROM sqlite_sequence WHERE name IN (
                 'clips', 'bins', 'clip_versions', 'activity_logs', 'custom_operations',
-                'pipelines', 'saved_transforms', 'automations', 'intelligence_connections'
+                'saved_transforms', 'automations', 'intelligence_connections'
             )",
             [],
         )?;
@@ -1454,6 +1935,7 @@ impl DbState {
                         id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
                         clip_id INTEGER NOT NULL REFERENCES clips(id) ON DELETE CASCADE,
                         transform_id TEXT REFERENCES saved_transforms(id) ON DELETE SET NULL,
+                        transform_ref TEXT,
                         transform_name TEXT NOT NULL,
                         transform_revision INTEGER NOT NULL,
                         connection_id TEXT REFERENCES intelligence_connections(id) ON DELETE SET NULL,
@@ -1461,9 +1943,11 @@ impl DbState {
                         created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
                     );
                     INSERT INTO clip_transformations_migrated
-                        (id, clip_id, transform_id, transform_name, transform_revision,
+                        (id, clip_id, transform_id, transform_ref, transform_name, transform_revision,
                          connection_id, duration_ms, created_at)
-                    SELECT id, clip_id, transform_id, transform_name, transform_revision,
+                    SELECT id, clip_id, transform_id,
+                           CASE WHEN transform_id IS NOT NULL THEN 'transform:' || transform_id END,
+                           transform_name, transform_revision,
                            connection_id, duration_ms, created_at
                     FROM clip_transformations;
                     DROP TABLE clip_transformations;
@@ -1513,36 +1997,14 @@ impl DbState {
                 updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
             );
 
-            CREATE TABLE IF NOT EXISTS pipelines (
-                row_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                id TEXT NOT NULL UNIQUE DEFAULT (lower(hex(randomblob(16)))),
-                name TEXT NOT NULL,
-                shortcut TEXT,
-                revision INTEGER NOT NULL DEFAULT 1 CHECK (revision > 0),
-                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-            );
-
-            CREATE TABLE IF NOT EXISTS pipeline_steps (
-                id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
-                pipeline_id TEXT NOT NULL REFERENCES pipelines(id) ON DELETE CASCADE,
-                position INTEGER NOT NULL CHECK (position >= 0),
-                operation_ref TEXT NOT NULL CHECK (
-                    operation_ref GLOB 'builtin:*' OR operation_ref GLOB 'custom:*'
-                ),
-                config_json TEXT CHECK (config_json IS NULL OR json_valid(config_json)),
-                failure_policy TEXT NOT NULL DEFAULT 'stop' CHECK (failure_policy IN ('stop', 'skip')),
-                UNIQUE (pipeline_id, position)
-            );
-            CREATE INDEX IF NOT EXISTS idx_pipeline_steps_operation_ref
-                ON pipeline_steps(operation_ref);
-
             CREATE TABLE IF NOT EXISTS saved_transforms (
                 row_id INTEGER PRIMARY KEY AUTOINCREMENT,
                 id TEXT NOT NULL UNIQUE DEFAULT (lower(hex(randomblob(16)))),
                 name TEXT NOT NULL,
                 plan_json TEXT NOT NULL CHECK (json_valid(plan_json)),
                 connection_id TEXT REFERENCES intelligence_connections(id) ON DELETE SET NULL,
+                shortcut TEXT,
+                authoring_kind TEXT NOT NULL DEFAULT 'intent' CHECK (authoring_kind IN ('intent', 'manual')),
                 revision INTEGER NOT NULL DEFAULT 1 CHECK (revision > 0),
                 created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -1552,6 +2014,7 @@ impl DbState {
                 id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
                 clip_id INTEGER NOT NULL REFERENCES clips(id) ON DELETE CASCADE,
                 transform_id TEXT REFERENCES saved_transforms(id) ON DELETE SET NULL,
+                transform_ref TEXT,
                 transform_name TEXT NOT NULL,
                 transform_revision INTEGER NOT NULL,
                 connection_id TEXT REFERENCES intelligence_connections(id) ON DELETE SET NULL,
@@ -1566,7 +2029,7 @@ impl DbState {
                 id TEXT NOT NULL UNIQUE DEFAULT (lower(hex(randomblob(16)))),
                 name TEXT NOT NULL,
                 trigger_kind TEXT NOT NULL CHECK (trigger_kind IN ('capture', 'copy', 'paste')),
-                pipeline_id TEXT NOT NULL REFERENCES pipelines(id) ON DELETE RESTRICT,
+                transform_id TEXT NOT NULL REFERENCES saved_transforms(id) ON DELETE RESTRICT,
                 enabled INTEGER NOT NULL DEFAULT 0 CHECK (enabled IN (0, 1)),
                 trusted INTEGER NOT NULL DEFAULT 0 CHECK (trusted IN (0, 1)),
                 priority INTEGER NOT NULL DEFAULT 0,
@@ -1629,15 +2092,35 @@ impl DbState {
             CREATE INDEX IF NOT EXISTS idx_intelligence_connections_enabled
                 ON intelligence_connections(enabled, provider_kind);
 
-            CREATE TRIGGER IF NOT EXISTS custom_operation_delete_guard
-            BEFORE DELETE ON custom_operations
-            WHEN EXISTS (
-                SELECT 1 FROM pipeline_steps
-                WHERE operation_ref = 'custom:' || OLD.id
-            )
-            BEGIN
-                SELECT RAISE(ABORT, 'operation is used by a pipeline');
-            END;",
+            ",
+        )?;
+
+        if !column_exists(conn, "saved_transforms", "shortcut")? {
+            conn.execute("ALTER TABLE saved_transforms ADD COLUMN shortcut TEXT", [])?;
+        }
+        if !column_exists(conn, "saved_transforms", "authoring_kind")? {
+            conn.execute(
+                "ALTER TABLE saved_transforms ADD COLUMN authoring_kind TEXT NOT NULL DEFAULT 'intent'",
+                [],
+            )?;
+        }
+
+        if !column_exists(conn, "clip_transformations", "transform_ref")? {
+            conn.execute(
+                "ALTER TABLE clip_transformations ADD COLUMN transform_ref TEXT",
+                [],
+            )?;
+        }
+        conn.execute(
+            "UPDATE clip_transformations
+             SET transform_ref = 'transform:' || transform_id
+             WHERE transform_ref IS NULL AND transform_id IS NOT NULL",
+            [],
+        )?;
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_clip_transformations_ref
+             ON clip_transformations(transform_ref, created_at DESC)",
+            [],
         )?;
 
         if rebuild_execution_ledger {
@@ -1678,9 +2161,6 @@ impl DbState {
             )?;
         }
 
-        if !column_exists(conn, "bins", "default_pipeline_id")? {
-            conn.execute("ALTER TABLE bins ADD COLUMN default_pipeline_id TEXT", [])?;
-        }
         if !column_exists(conn, "bins", "default_transform_id")? {
             conn.execute("ALTER TABLE bins ADD COLUMN default_transform_id TEXT", [])?;
         }
@@ -4119,7 +4599,7 @@ impl DbState {
     pub fn export_backup_json(&self) -> Result<String> {
         let clips = self.get_all_clips_for_backup()?;
         let bins = self.get_bins()?;
-        let pipelines = self.get_pipelines()?;
+        let pipelines = Vec::new();
         let operations = self.get_operations()?;
         let saved_transforms = self.get_saved_transforms()?;
         let bin_transforms = bins
@@ -4386,29 +4866,41 @@ impl DbState {
                 })
                 .collect::<Vec<_>>();
             Self::validate_pipeline_steps(&tx, &steps)?;
+            let plan_json =
+                serde_json::to_string(&Self::manual_transform_plan(&pipeline.name, &steps)?)
+                    .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?;
+            let collision: bool = tx.query_row(
+                "SELECT EXISTS(SELECT 1 FROM saved_transforms WHERE id = ?1)",
+                params![pipeline_id],
+                |row| row.get(0),
+            )?;
+            let transform_id = if collision {
+                tx.query_row("SELECT lower(hex(randomblob(16)))", [], |row| row.get(0))?
+            } else {
+                pipeline_id.to_string()
+            };
             tx.execute(
-                "INSERT INTO pipelines
-                    (id, name, shortcut, revision, created_at, updated_at)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+                "INSERT INTO saved_transforms
+                    (id, name, plan_json, connection_id, shortcut, authoring_kind,
+                     revision, created_at, updated_at)
+                 VALUES (?1, ?2, ?3, NULL, ?4, 'manual', ?5, ?6, ?7)
                  ON CONFLICT(id) DO UPDATE SET
                     name = excluded.name,
+                    plan_json = excluded.plan_json,
                     shortcut = excluded.shortcut,
+                    authoring_kind = 'manual',
                     revision = excluded.revision,
                     updated_at = excluded.updated_at",
                 params![
-                    pipeline_id,
+                    transform_id,
                     pipeline.name,
+                    plan_json,
                     pipeline.shortcut,
                     pipeline.revision,
                     pipeline.created_at,
                     pipeline.updated_at
                 ],
             )?;
-            tx.execute(
-                "DELETE FROM pipeline_steps WHERE pipeline_id = ?1",
-                params![pipeline_id],
-            )?;
-            Self::insert_pipeline_steps(&tx, pipeline_id, &steps)?;
         }
 
         for transform in payload.saved_transforms {
@@ -4429,18 +4921,23 @@ impl DbState {
                 .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?;
             tx.execute(
                 "INSERT INTO saved_transforms
-                    (id, name, plan_json, connection_id, revision, created_at, updated_at)
-                 VALUES (?1, ?2, ?3, NULL, ?4, ?5, ?6)
+                    (id, name, plan_json, connection_id, shortcut, authoring_kind,
+                     revision, created_at, updated_at)
+                 VALUES (?1, ?2, ?3, NULL, ?4, ?5, ?6, ?7, ?8)
                  ON CONFLICT(id) DO UPDATE SET
                     name = excluded.name,
                     plan_json = excluded.plan_json,
                     connection_id = NULL,
+                    shortcut = excluded.shortcut,
+                    authoring_kind = excluded.authoring_kind,
                     revision = excluded.revision,
                     updated_at = excluded.updated_at",
                 params![
                     transform_id,
                     transform.name,
                     plan_json,
+                    transform.shortcut,
+                    transform.authoring_kind,
                     transform.revision,
                     transform.created_at,
                     transform.updated_at
@@ -4760,37 +5257,6 @@ impl DbState {
         }))
     }
 
-    pub fn resolve_pipeline(&self, pipeline_ref: &str) -> Result<Option<ResolvedPipeline>> {
-        let pipeline_id = pipeline_ref
-            .strip_prefix("pipeline:")
-            .unwrap_or(pipeline_ref);
-        let conn = self.conn.lock();
-        let revision = match conn.query_row(
-            "SELECT revision FROM pipelines WHERE id = ?1",
-            params![pipeline_id],
-            |row| row.get::<_, i64>(0),
-        ) {
-            Ok(revision) => revision,
-            Err(rusqlite::Error::QueryReturnedNoRows) => return Ok(None),
-            Err(error) => return Err(error),
-        };
-        let mut stmt = conn.prepare(
-            "SELECT position, operation_ref, config_json, failure_policy
-             FROM pipeline_steps WHERE pipeline_id = ?1 ORDER BY position ASC",
-        )?;
-        let steps = stmt
-            .query_map(params![pipeline_id], |row| {
-                Ok(ResolvedPipelineStep {
-                    position: row.get(0)?,
-                    operation_ref: row.get(1)?,
-                    config_json: row.get(2)?,
-                    failure_policy: row.get(3)?,
-                })
-            })?
-            .collect::<Result<Vec<_>>>()?;
-        Ok(Some(ResolvedPipeline { revision, steps }))
-    }
-
     pub fn begin_transformation_execution(
         &self,
         request: TransformationExecutionStart<'_>,
@@ -4909,20 +5375,68 @@ impl DbState {
     pub fn get_pipelines(&self) -> Result<Vec<Pipeline>> {
         let conn = self.conn.lock();
         let refs = {
-            let mut statement = conn.prepare("SELECT id FROM pipelines ORDER BY row_id ASC")?;
+            let mut statement = conn.prepare(
+                "SELECT id FROM saved_transforms
+                 WHERE authoring_kind = 'manual' ORDER BY row_id ASC",
+            )?;
             let refs = statement
                 .query_map([], |row| row.get::<_, String>(0))?
                 .collect::<Result<Vec<_>>>()?;
             refs
         };
         refs.into_iter()
-            .map(|stable_id| Self::pipeline_by_id(&conn, &stable_id))
+            .map(|stable_id| {
+                Self::saved_transform_by_id(&conn, &stable_id)
+                    .and_then(Self::manual_transform_as_pipeline)
+            })
             .collect()
+    }
+
+    fn manual_transform_as_pipeline(transform: SavedTransform) -> Result<Pipeline> {
+        if transform.authoring_kind != "manual" {
+            return Err(rusqlite::Error::QueryReturnedNoRows);
+        }
+        let steps = transform
+            .plan
+            .steps
+            .iter()
+            .enumerate()
+            .map(|(position, step)| match &step.executor {
+                crate::transformation_intent::PlannedExecutor::Deterministic {
+                    operation_ref,
+                    config_json,
+                } => Ok(PipelineStep {
+                    position: position as i64,
+                    operation_ref: operation_ref.clone(),
+                    config_json: config_json.clone(),
+                    failure_policy: match step.failure_policy {
+                        crate::transformation_intent::StepFailurePolicy::Stop => "stop",
+                        crate::transformation_intent::StepFailurePolicy::Skip => "skip",
+                    }
+                    .to_string(),
+                }),
+                crate::transformation_intent::PlannedExecutor::Semantic { .. } => {
+                    Err(rusqlite::Error::InvalidParameterName(
+                        "Manual Transform contains a semantic step".to_string(),
+                    ))
+                }
+            })
+            .collect::<Result<Vec<_>>>()?;
+        Ok(Pipeline {
+            id: transform.id,
+            stable_ref: transform.stable_ref,
+            name: transform.name,
+            shortcut: transform.shortcut,
+            revision: transform.revision,
+            created_at: transform.created_at,
+            updated_at: transform.updated_at,
+            steps,
+        })
     }
 
     fn saved_transform_by_id(conn: &Connection, transform_id: &str) -> Result<SavedTransform> {
         conn.query_row(
-            "SELECT row_id, id, name, plan_json, connection_id, revision, created_at, updated_at
+            "SELECT row_id, id, name, plan_json, connection_id, shortcut, authoring_kind, revision, created_at, updated_at
              FROM saved_transforms WHERE id = ?1",
             params![transform_id],
             |row| {
@@ -4941,9 +5455,11 @@ impl DbState {
                     name: row.get(2)?,
                     plan,
                     connection_id: row.get(4)?,
-                    revision: row.get(5)?,
-                    created_at: row.get(6)?,
-                    updated_at: row.get(7)?,
+                    shortcut: row.get(5)?,
+                    authoring_kind: row.get(6)?,
+                    revision: row.get(7)?,
+                    created_at: row.get(8)?,
+                    updated_at: row.get(9)?,
                 })
             },
         )
@@ -4962,6 +5478,93 @@ impl DbState {
         ids.into_iter()
             .map(|id| Self::saved_transform_by_id(&conn, &id))
             .collect()
+    }
+
+    pub fn get_intent_transforms(&self) -> Result<Vec<SavedTransform>> {
+        Ok(self
+            .get_saved_transforms()?
+            .into_iter()
+            .filter(|transform| transform.authoring_kind == "intent")
+            .collect())
+    }
+
+    pub fn get_transform_definitions(&self) -> Result<Vec<TransformDefinition>> {
+        let mut definitions = self
+            .get_saved_transforms()?
+            .into_iter()
+            .map(TransformDefinition::from)
+            .collect::<Vec<_>>();
+        definitions.sort_by(|left, right| {
+            right
+                .updated_at
+                .cmp(&left.updated_at)
+                .then_with(|| left.name.cmp(&right.name))
+        });
+        Ok(definitions)
+    }
+
+    pub fn resolve_transform_definition(
+        &self,
+        transform_ref: &str,
+    ) -> Result<Option<TransformDefinition>> {
+        if transform_ref.starts_with("pipeline:") {
+            return self
+                .resolve_saved_transform(transform_ref.trim_start_matches("pipeline:"))
+                .map(|transform| transform.map(TransformDefinition::from));
+        }
+        self.resolve_saved_transform(transform_ref)
+            .map(|transform| transform.map(TransformDefinition::from))
+    }
+
+    pub fn duplicate_transform_definition(
+        &self,
+        transform_ref: &str,
+        name: Option<&str>,
+    ) -> Result<TransformDefinition> {
+        let definition = self
+            .resolve_transform_definition(transform_ref)?
+            .ok_or(rusqlite::Error::QueryReturnedNoRows)?;
+        let duplicate_name = name
+            .map(str::trim)
+            .filter(|name| !name.is_empty())
+            .map(str::to_string)
+            .unwrap_or_else(|| format!("{} Copy", definition.name));
+        match definition.authoring_kind {
+            TransformAuthoringKind::Intent => {
+                let plan = definition.plan.ok_or_else(|| {
+                    rusqlite::Error::InvalidParameterName(
+                        "Saved Transform has no execution plan".to_string(),
+                    )
+                })?;
+                self.create_saved_transform(
+                    &duplicate_name,
+                    &plan,
+                    definition.connection_id.as_deref(),
+                )
+                .map(TransformDefinition::from)
+            }
+            TransformAuthoringKind::Manual => {
+                let steps = definition
+                    .steps
+                    .into_iter()
+                    .map(|step| PipelineStepInput {
+                        operation_ref: step.operation_ref,
+                        config_json: step.config_json,
+                        failure_policy: step.failure_policy,
+                    })
+                    .collect::<Vec<_>>();
+                self.create_pipeline(&duplicate_name, &steps, None)
+                    .map(TransformDefinition::from)
+            }
+        }
+    }
+
+    pub fn delete_transform_definition(&self, transform_ref: &str) -> Result<()> {
+        if transform_ref.starts_with("pipeline:") {
+            self.delete_pipeline(transform_ref)
+        } else {
+            self.delete_saved_transform(transform_ref)
+        }
     }
 
     pub fn resolve_saved_transform(&self, transform_ref: &str) -> Result<Option<SavedTransform>> {
@@ -4989,8 +5592,8 @@ impl DbState {
         })?;
         let conn = self.conn.lock();
         conn.execute(
-            "INSERT INTO saved_transforms (name, plan_json, connection_id)
-             VALUES (?1, ?2, ?3)",
+            "INSERT INTO saved_transforms (name, plan_json, connection_id, authoring_kind)
+             VALUES (?1, ?2, ?3, 'intent')",
             params![name.trim(), plan_json, connection_id],
         )?;
         let row_id = conn.last_insert_rowid();
@@ -5072,16 +5675,20 @@ impl DbState {
             crate::resource_limits::MAX_TRANSFORM_TEXT_BYTES,
             "Transform output",
         )?;
-        let transform_id = transform_ref
-            .strip_prefix("transform:")
-            .unwrap_or(transform_ref);
         let mut conn = self.conn.lock();
         let tx = conn.transaction()?;
+        let transform_id = transform_ref
+            .strip_prefix("transform:")
+            .or_else(|| transform_ref.strip_prefix("pipeline:"))
+            .unwrap_or(transform_ref)
+            .to_string();
         let (transform_name, transform_revision): (String, i64) = tx.query_row(
             "SELECT name, revision FROM saved_transforms WHERE id = ?1",
             params![transform_id],
             |row| Ok((row.get(0)?, row.get(1)?)),
         )?;
+        let canonical_transform_ref = format!("transform:{transform_id}");
+        let transform_id = Some(transform_id);
         let (current_text, is_trashed, current_transformation_id): (
             Option<String>,
             i32,
@@ -5147,12 +5754,13 @@ impl DbState {
             tx.query_row("SELECT lower(hex(randomblob(16)))", [], |row| row.get(0))?;
         tx.execute(
             "INSERT INTO clip_transformations
-                (id, clip_id, transform_id, transform_name, transform_revision, connection_id, duration_ms)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                (id, clip_id, transform_id, transform_ref, transform_name, transform_revision, connection_id, duration_ms)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
             params![
                 transformation_id,
                 clip_id,
                 transform_id,
+                canonical_transform_ref,
                 transform_name,
                 transform_revision,
                 connection_id,
@@ -5170,7 +5778,7 @@ impl DbState {
         )?;
         tx.commit()?;
         Ok(ClipTransformationProvenance {
-            transform_ref: format!("transform:{transform_id}"),
+            transform_ref: canonical_transform_ref,
             transform_name,
             transform_revision,
             connection_id: connection_id.map(str::to_string),
@@ -5185,7 +5793,8 @@ impl DbState {
     ) -> Result<Option<ClipTransformationProvenance>> {
         let conn = self.conn.lock();
         let result = conn.query_row(
-            "SELECT transformation.transform_id, transformation.transform_name,
+            "SELECT transformation.transform_ref, transformation.transform_id,
+                    transformation.transform_name,
                     transformation.transform_revision, transformation.connection_id,
                     transformation.duration_ms, transformation.created_at
              FROM clips
@@ -5194,16 +5803,17 @@ impl DbState {
              WHERE clips.id = ?1",
             params![clip_id],
             |row| {
-                let transform_id: Option<String> = row.get(0)?;
+                let transform_ref: Option<String> = row.get(0)?;
+                let transform_id: Option<String> = row.get(1)?;
                 Ok(ClipTransformationProvenance {
-                    transform_ref: transform_id
-                        .map(|id| format!("transform:{id}"))
+                    transform_ref: transform_ref
+                        .or_else(|| transform_id.map(|id| format!("transform:{id}")))
                         .unwrap_or_else(|| "transform:deleted".to_string()),
-                    transform_name: row.get(1)?,
-                    transform_revision: row.get(2)?,
-                    connection_id: row.get(3)?,
-                    duration_ms: row.get(4)?,
-                    created_at: row.get(5)?,
+                    transform_name: row.get(2)?,
+                    transform_revision: row.get(3)?,
+                    connection_id: row.get(4)?,
+                    duration_ms: row.get(5)?,
+                    created_at: row.get(6)?,
                 })
             },
         );
@@ -5212,47 +5822,6 @@ impl DbState {
             Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
             Err(error) => Err(error),
         }
-    }
-
-    fn pipeline_steps(conn: &Connection, pipeline_id: &str) -> Result<Vec<PipelineStep>> {
-        let mut statement = conn.prepare(
-            "SELECT position, operation_ref, config_json, failure_policy
-             FROM pipeline_steps WHERE pipeline_id = ?1 ORDER BY position ASC",
-        )?;
-        let steps = statement
-            .query_map(params![pipeline_id], |row| {
-                Ok(PipelineStep {
-                    position: row.get(0)?,
-                    operation_ref: row.get(1)?,
-                    config_json: row.get(2)?,
-                    failure_policy: row.get(3)?,
-                })
-            })?
-            .collect();
-        steps
-    }
-
-    fn pipeline_by_id(conn: &Connection, pipeline_id: &str) -> Result<Pipeline> {
-        let mut pipeline = conn.query_row(
-            "SELECT row_id, id, name, shortcut, revision, created_at, updated_at
-             FROM pipelines WHERE id = ?1",
-            params![pipeline_id],
-            |row| {
-                let stable_id = row.get::<_, String>(1)?;
-                Ok(Pipeline {
-                    id: row.get(0)?,
-                    stable_ref: format!("pipeline:{stable_id}"),
-                    name: row.get(2)?,
-                    shortcut: row.get(3)?,
-                    revision: row.get(4)?,
-                    created_at: row.get(5)?,
-                    updated_at: row.get(6)?,
-                    steps: Vec::new(),
-                })
-            },
-        )?;
-        pipeline.steps = Self::pipeline_steps(conn, pipeline_id)?;
-        Ok(pipeline)
     }
 
     fn validate_pipeline_steps(conn: &Connection, steps: &[PipelineStepInput]) -> Result<()> {
@@ -5304,26 +5873,43 @@ impl DbState {
         Ok(())
     }
 
-    fn insert_pipeline_steps(
-        conn: &Connection,
-        pipeline_id: &str,
+    fn manual_transform_plan(
+        name: &str,
         steps: &[PipelineStepInput],
-    ) -> Result<()> {
-        for (position, step) in steps.iter().enumerate() {
-            conn.execute(
-                "INSERT INTO pipeline_steps
-                    (pipeline_id, position, operation_ref, config_json, failure_policy)
-                 VALUES (?1, ?2, ?3, ?4, ?5)",
-                params![
-                    pipeline_id,
-                    position as i64,
-                    step.operation_ref,
-                    step.config_json,
-                    step.failure_policy
-                ],
-            )?;
-        }
-        Ok(())
+    ) -> Result<crate::transformation_intent::TransformationPlan> {
+        let plan = crate::transformation_intent::TransformationPlan {
+            schema_version: crate::transformation_intent::TRANSFORMATION_PLAN_SCHEMA_VERSION,
+            intent: format!("Run {}", name.trim()),
+            summary: name.trim().to_string(),
+            planning_mode: crate::transformation_intent::IntentPlanningMode::Pinned,
+            steps: steps
+                .iter()
+                .map(
+                    |step| crate::transformation_intent::PlannedTransformationStep {
+                        name: step
+                            .operation_ref
+                            .strip_prefix("builtin:")
+                            .or_else(|| step.operation_ref.strip_prefix("custom:"))
+                            .unwrap_or(&step.operation_ref)
+                            .replace('_', " "),
+                        rationale: "Manually configured Operation".to_string(),
+                        scope: crate::transformation_intent::StepExecutionScope::WholeInput,
+                        failure_policy: if step.failure_policy == "skip" {
+                            crate::transformation_intent::StepFailurePolicy::Skip
+                        } else {
+                            crate::transformation_intent::StepFailurePolicy::Stop
+                        },
+                        executor: crate::transformation_intent::PlannedExecutor::Deterministic {
+                            operation_ref: step.operation_ref.clone(),
+                            config_json: step.config_json.clone(),
+                        },
+                    },
+                )
+                .collect(),
+        };
+        plan.validate()
+            .map_err(rusqlite::Error::InvalidParameterName)?;
+        Ok(plan)
     }
 
     pub fn create_pipeline(
@@ -5332,29 +5918,29 @@ impl DbState {
         steps: &[PipelineStepInput],
         shortcut: Option<&str>,
     ) -> Result<Pipeline> {
-        let mut conn = self.conn.lock();
-        let tx = conn.transaction()?;
-        Self::validate_pipeline_steps(&tx, steps)?;
-        tx.execute(
-            "INSERT INTO pipelines (name, shortcut) VALUES (?1, ?2)",
-            params![name, shortcut],
+        let conn = self.conn.lock();
+        Self::validate_pipeline_steps(&conn, steps)?;
+        let plan = Self::manual_transform_plan(name, steps)?;
+        let plan_json = serde_json::to_string(&plan).map_err(|error| {
+            rusqlite::Error::InvalidParameterName(format!("invalid Transform: {error}"))
+        })?;
+        conn.execute(
+            "INSERT INTO saved_transforms
+                (name, plan_json, connection_id, shortcut, authoring_kind)
+             VALUES (?1, ?2, NULL, ?3, 'manual')",
+            params![name.trim(), plan_json, shortcut],
         )?;
-        let row_id = tx.last_insert_rowid();
-        let (stable_id, created_at, updated_at): (String, String, String) = tx.query_row(
-            "SELECT id, created_at, updated_at FROM pipelines WHERE row_id = ?1",
-            params![row_id],
-            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        let stable_id: String = conn.query_row(
+            "SELECT id FROM saved_transforms WHERE row_id = last_insert_rowid()",
+            [],
+            |row| row.get(0),
         )?;
-        Self::insert_pipeline_steps(&tx, &stable_id, steps)?;
-        let pipeline = Self::pipeline_by_id(&tx, &stable_id)?;
-        tx.commit()?;
-        debug_assert_eq!(pipeline.id, row_id);
-        debug_assert_eq!(pipeline.created_at, created_at);
-        debug_assert_eq!(pipeline.updated_at, updated_at);
+        let pipeline =
+            Self::manual_transform_as_pipeline(Self::saved_transform_by_id(&conn, &stable_id)?)?;
         drop(conn);
         let _ = self.log_activity(
-            "pipeline_created",
-            &format!("Created Pipeline \"{}\"", pipeline.name),
+            "transform_saved",
+            &format!("Created Transform \"{}\"", pipeline.name),
         );
         Ok(pipeline)
     }
@@ -5366,33 +5952,32 @@ impl DbState {
         steps: &[PipelineStepInput],
         shortcut: Option<&str>,
     ) -> Result<Pipeline> {
-        let pipeline_id = pipeline_ref
-            .strip_prefix("pipeline:")
+        let transform_id = pipeline_ref
+            .strip_prefix("transform:")
+            .or_else(|| pipeline_ref.strip_prefix("pipeline:"))
             .unwrap_or(pipeline_ref);
-        let mut conn = self.conn.lock();
-        let tx = conn.transaction()?;
-        Self::validate_pipeline_steps(&tx, steps)?;
-        let changed = tx.execute(
-            "UPDATE pipelines
-             SET name = ?1, shortcut = ?2, revision = revision + 1,
+        let conn = self.conn.lock();
+        Self::validate_pipeline_steps(&conn, steps)?;
+        let plan_json =
+            serde_json::to_string(&Self::manual_transform_plan(name, steps)?).map_err(|error| {
+                rusqlite::Error::InvalidParameterName(format!("invalid Transform: {error}"))
+            })?;
+        let changed = conn.execute(
+            "UPDATE saved_transforms
+             SET name = ?1, plan_json = ?2, shortcut = ?3, revision = revision + 1,
                  updated_at = CURRENT_TIMESTAMP
-             WHERE id = ?3",
-            params![name, shortcut, pipeline_id],
+             WHERE id = ?4 AND authoring_kind = 'manual'",
+            params![name.trim(), plan_json, shortcut, transform_id],
         )?;
         if changed == 0 {
             return Err(rusqlite::Error::QueryReturnedNoRows);
         }
-        tx.execute(
-            "DELETE FROM pipeline_steps WHERE pipeline_id = ?1",
-            params![pipeline_id],
-        )?;
-        Self::insert_pipeline_steps(&tx, pipeline_id, steps)?;
-        let pipeline = Self::pipeline_by_id(&tx, pipeline_id)?;
-        tx.commit()?;
+        let pipeline =
+            Self::manual_transform_as_pipeline(Self::saved_transform_by_id(&conn, transform_id)?)?;
         drop(conn);
         let _ = self.log_activity(
-            "pipeline_updated",
-            &format!("Updated Pipeline \"{}\"", pipeline.name),
+            "transform_updated",
+            &format!("Updated Transform \"{}\"", pipeline.name),
         );
         Ok(pipeline)
     }
@@ -5403,13 +5988,14 @@ impl DbState {
         shortcut: Option<&str>,
     ) -> Result<()> {
         let pipeline_id = pipeline_ref
-            .strip_prefix("pipeline:")
+            .strip_prefix("transform:")
+            .or_else(|| pipeline_ref.strip_prefix("pipeline:"))
             .unwrap_or(pipeline_ref);
         let conn = self.conn.lock();
         let changed = conn.execute(
-            "UPDATE pipelines
+            "UPDATE saved_transforms
              SET shortcut = ?1, revision = revision + 1, updated_at = CURRENT_TIMESTAMP
-             WHERE id = ?2",
+             WHERE id = ?2 AND authoring_kind = 'manual'",
             params![shortcut, pipeline_id],
         )?;
         if changed == 0 {
@@ -5417,33 +6003,37 @@ impl DbState {
         }
         drop(conn);
         let _ = self.log_activity(
-            "pipeline_updated",
-            &format!("Updated Pipeline {pipeline_id}"),
+            "transform_updated",
+            &format!("Updated Transform transform:{pipeline_id}"),
         );
         Ok(())
     }
 
     pub fn delete_pipeline(&self, pipeline_ref: &str) -> Result<()> {
         let pipeline_id = pipeline_ref
-            .strip_prefix("pipeline:")
+            .strip_prefix("transform:")
+            .or_else(|| pipeline_ref.strip_prefix("pipeline:"))
             .unwrap_or(pipeline_ref);
         let conn = self.conn.lock();
         let name = conn
             .query_row(
-                "SELECT name FROM pipelines WHERE id = ?1",
+                "SELECT name FROM saved_transforms WHERE id = ?1 AND authoring_kind = 'manual'",
                 params![pipeline_id],
                 |row| row.get::<_, String>(0),
             )
             .optional()?;
-        let changed = conn.execute("DELETE FROM pipelines WHERE id = ?1", params![pipeline_id])?;
+        let changed = conn.execute(
+            "DELETE FROM saved_transforms WHERE id = ?1 AND authoring_kind = 'manual'",
+            params![pipeline_id],
+        )?;
         if changed == 0 {
             return Err(rusqlite::Error::QueryReturnedNoRows);
         }
         drop(conn);
         let _ = self.log_activity(
-            "pipeline_deleted",
+            "transform_deleted",
             &format!(
-                "Deleted Pipeline \"{}\"",
+                "Deleted Transform \"{}\"",
                 name.unwrap_or_else(|| pipeline_id.to_string())
             ),
         );
@@ -5657,7 +6247,7 @@ impl DbState {
         include_archived: bool,
     ) -> Result<Vec<crate::library_items::LibraryItemView>> {
         if let Some(kind) = kind {
-            if !matches!(kind, "detector" | "operation" | "pipeline") {
+            if !matches!(kind, "detector" | "operation" | "transform") {
                 return Err(rusqlite::Error::InvalidParameterName(
                     "Unknown library item kind".into(),
                 ));
@@ -5723,9 +6313,9 @@ impl DbState {
                     params![enabled, operation_id],
                 )?
             }
-            "pipeline" => {
+            "transform" => {
                 return Err(rusqlite::Error::InvalidParameterName(
-                    "Pipelines do not currently have an enabled state".to_string(),
+                    "Transforms do not currently have an enabled state".to_string(),
                 ));
             }
             _ => {
@@ -5837,21 +6427,21 @@ impl DbState {
             ));
         };
         let operation_ref = format!("custom:{stable_id}");
-        let pipeline_name = conn
+        let transform_name = conn
             .query_row(
-                "SELECT pipelines.name
-                 FROM pipeline_steps
-                 JOIN pipelines ON pipelines.id = pipeline_steps.pipeline_id
-                 WHERE pipeline_steps.operation_ref = ?1
-                 ORDER BY pipelines.name ASC
+                "SELECT saved_transforms.name
+                 FROM saved_transforms, json_each(saved_transforms.plan_json, '$.steps') AS step
+                 WHERE json_extract(step.value, '$.executor.kind') = 'deterministic'
+                   AND json_extract(step.value, '$.executor.operation_ref') = ?1
+                 ORDER BY saved_transforms.name ASC
                  LIMIT 1",
                 params![operation_ref],
                 |row| row.get::<_, String>(0),
             )
             .optional()?;
-        if let Some(pipeline_name) = pipeline_name {
+        if let Some(transform_name) = transform_name {
             return Err(rusqlite::Error::InvalidParameterName(format!(
-                "Operation is used by “{pipeline_name}”. Remove it from that Pipeline before deleting it."
+                "Operation is used by “{transform_name}”. Remove it from that Transform before deleting it."
             )));
         }
         conn.execute(
@@ -7253,12 +7843,11 @@ mod tests {
             )
             .unwrap();
             conn.execute(
-                "INSERT INTO pipelines (id, name) VALUES ('reset-pipeline', 'Reset')",
-                [],
-            )
-            .unwrap();
-            conn.execute(
-                "INSERT INTO saved_transforms (id, name, plan_json, connection_id) VALUES ('reset-transform', 'Reset', '{\"steps\":[]}', 'reset-connection')",
+                "INSERT INTO saved_transforms
+                    (id, name, plan_json, connection_id, authoring_kind)
+                 VALUES
+                    ('reset-transform', 'Reset', '{\"steps\":[]}', 'reset-connection', 'intent'),
+                    ('reset-manual-transform', 'Reset Manual', '{\"steps\":[]}', NULL, 'manual')",
                 [],
             )
             .unwrap();
@@ -7305,7 +7894,6 @@ mod tests {
             "clip_versions",
             "activity_logs",
             "custom_operations",
-            "pipelines",
             "saved_transforms",
             "intelligence_connections",
         ] {
@@ -7320,7 +7908,7 @@ mod tests {
         let reset_registry = db.get_library_items(None, true).unwrap();
         assert!(!reset_registry.iter().any(|item| {
             item.item.stable_ref == "custom:reset-operation"
-                || item.item.stable_ref == "pipeline:reset-pipeline"
+                || item.item.stable_ref == "transform:reset-manual-transform"
         }));
         assert_eq!(
             reset_registry
@@ -7914,12 +8502,14 @@ mod tests {
     #[test]
     fn activity_age_retention_removes_old_entries_with_unlimited_count() {
         let db = setup_test_db();
-        db.log_activity("old_test", "Old activity").unwrap();
-        db.log_activity("recent_test", "Recent activity").unwrap();
+        db.log_activity("app_started", "Old activity").unwrap();
+        db.log_activity("app_exit_requested", "Recent activity")
+            .unwrap();
         {
             let conn = db.conn.lock();
             conn.execute(
-                "UPDATE activity_logs SET created_at = datetime('now', '-31 days') WHERE event_type = 'old_test'",
+                "UPDATE activity_logs SET created_at = datetime('now', '-31 days')
+                 WHERE description = 'Old activity'",
                 [],
             )
             .unwrap();
@@ -7928,8 +8518,8 @@ mod tests {
         db.configure_activity_retention(0, 30).unwrap();
 
         let logs = db.get_activity_logs(None, None).unwrap();
-        assert!(!logs.iter().any(|log| log.event_type == "old_test"));
-        assert!(logs.iter().any(|log| log.event_type == "recent_test"));
+        assert!(!logs.iter().any(|log| log.description == "Old activity"));
+        assert!(logs.iter().any(|log| log.description == "Recent activity"));
     }
 
     #[test]
@@ -8238,6 +8828,299 @@ mod tests {
     }
 
     #[test]
+    fn legacy_pipelines_migrate_atomically_to_canonical_transforms() {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let db_path = std::env::temp_dir().join(format!("pasted_pipeline_merge_{nanos}.db"));
+        let (bin_id, clip_id) = {
+            let db = DbState::new(db_path.clone()).unwrap();
+            let bin_id = db.get_bins().unwrap()[0].id;
+            let clip_id = db
+                .save_clip(
+                    "text",
+                    Some("migrate me"),
+                    None,
+                    None,
+                    "pipeline-migration-clip",
+                    "Test",
+                )
+                .unwrap()
+                .id;
+            (bin_id, clip_id)
+        };
+        {
+            let conn = Connection::open(&db_path).unwrap();
+            conn.pragma_update(None, "foreign_keys", "OFF").unwrap();
+            conn.execute_batch(
+                r#"ALTER TABLE bins ADD COLUMN default_pipeline_id TEXT;
+                DROP TABLE transformation_executions;
+                CREATE TABLE transformation_executions (
+                    id TEXT PRIMARY KEY,
+                    target_kind TEXT NOT NULL CHECK (target_kind IN ('operation', 'pipeline')),
+                    target_ref TEXT NOT NULL,
+                    target_revision INTEGER,
+                    source_clip_id INTEGER,
+                    trigger_kind TEXT NOT NULL,
+                    started_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    duration_ms INTEGER,
+                    status TEXT NOT NULL DEFAULT 'running',
+                    error_summary TEXT,
+                    input_hash TEXT NOT NULL,
+                    output_hash TEXT
+                );
+                CREATE TABLE pipelines (
+                    row_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    id TEXT NOT NULL UNIQUE,
+                    name TEXT NOT NULL,
+                    shortcut TEXT,
+                    revision INTEGER NOT NULL DEFAULT 1,
+                    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+                );
+                CREATE TABLE pipeline_steps (
+                    row_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    pipeline_id TEXT NOT NULL REFERENCES pipelines(id) ON DELETE CASCADE,
+                    position INTEGER NOT NULL,
+                    operation_ref TEXT NOT NULL,
+                    config_json TEXT,
+                    failure_policy TEXT NOT NULL DEFAULT 'stop'
+                );
+                INSERT INTO saved_transforms
+                    (id, name, plan_json, authoring_kind)
+                VALUES ('shared-id', 'Existing Intent',
+                    '{"schema_version":1,"intent":"Keep","summary":"Keep","planning_mode":"pinned","steps":[{"name":"Trim","rationale":"Keep","scope":"whole_input","failure_policy":"stop","executor":{"kind":"deterministic","operation_ref":"builtin:trim","config_json":null}}]}',
+                    'intent');
+                INSERT INTO pipelines
+                    (id, name, shortcut, revision, created_at, updated_at)
+                VALUES ('shared-id', 'Legacy Manual', 'Alt+M', 4,
+                    '2026-01-01 00:00:00', '2026-01-02 00:00:00');
+                INSERT INTO pipeline_steps
+                    (pipeline_id, position, operation_ref, failure_policy)
+                VALUES ('shared-id', 0, 'builtin:uppercase', 'skip');
+                UPDATE bins SET default_pipeline_id = 'pipeline:shared-id' WHERE id = 1;
+                INSERT INTO clip_transformations
+                    (id, clip_id, transform_ref, transform_name, transform_revision, duration_ms)
+                VALUES ('legacy-provenance', 1, 'pipeline:shared-id', 'Legacy Manual', 4, 3);
+                INSERT INTO transformation_executions
+                    (id, target_kind, target_ref, target_revision, trigger_kind, input_hash)
+                VALUES ('legacy-execution', 'pipeline', 'pipeline:shared-id', 4, 'manual', 'hash');
+                INSERT INTO settings (key, value)
+                VALUES ('lastExecutedPipelineRef', 'pipeline:shared-id');
+                DROP TABLE automation_conditions;
+                DROP TABLE automations;
+                CREATE TABLE automations (
+                    row_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    id TEXT NOT NULL UNIQUE,
+                    name TEXT NOT NULL,
+                    trigger_kind TEXT NOT NULL,
+                    pipeline_id TEXT NOT NULL REFERENCES pipelines(id) ON DELETE RESTRICT,
+                    enabled INTEGER NOT NULL DEFAULT 0,
+                    trusted INTEGER NOT NULL DEFAULT 0,
+                    priority INTEGER NOT NULL DEFAULT 0,
+                    action_json TEXT NOT NULL DEFAULT '{}',
+                    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+                );
+                CREATE TABLE automation_conditions (
+                    id TEXT PRIMARY KEY,
+                    automation_id TEXT NOT NULL REFERENCES automations(id) ON DELETE CASCADE,
+                    position INTEGER NOT NULL,
+                    condition_kind TEXT NOT NULL,
+                    config_json TEXT NOT NULL
+                );
+                INSERT INTO automations
+                    (id, name, trigger_kind, pipeline_id, enabled, trusted)
+                VALUES ('legacy-automation', 'Legacy Automation', 'capture', 'shared-id', 1, 1);
+                INSERT INTO automation_conditions
+                    (id, automation_id, position, condition_kind, config_json)
+                VALUES ('legacy-condition', 'legacy-automation', 0, 'content_type', '{}');"#,
+            )
+            .unwrap();
+            conn.execute(
+                "UPDATE bins SET default_pipeline_id = 'pipeline:shared-id' WHERE id = ?1",
+                params![bin_id],
+            )
+            .unwrap();
+            conn.execute(
+                "UPDATE clip_transformations SET clip_id = ?1 WHERE id = 'legacy-provenance'",
+                params![clip_id],
+            )
+            .unwrap();
+            conn.execute(
+                "UPDATE clips SET current_transformation_id = 'legacy-provenance' WHERE id = ?1",
+                params![clip_id],
+            )
+            .unwrap();
+        }
+
+        let db = DbState::new(db_path).unwrap();
+        let transforms = db.get_saved_transforms().unwrap();
+        let migrated = transforms
+            .iter()
+            .find(|transform| transform.name == "Legacy Manual")
+            .unwrap();
+        assert_ne!(migrated.stable_ref, "transform:shared-id");
+        assert_eq!(migrated.authoring_kind, "manual");
+        assert_eq!(migrated.shortcut.as_deref(), Some("Alt+M"));
+        assert_eq!(migrated.revision, 4);
+        assert_eq!(
+            migrated.plan.steps[0].failure_policy,
+            crate::transformation_intent::StepFailurePolicy::Skip
+        );
+        assert_eq!(
+            db.get_bin_transform_ref(bin_id).unwrap().as_deref(),
+            Some(migrated.stable_ref.as_str())
+        );
+        assert_eq!(
+            db.get_clip_transformation_provenance(clip_id)
+                .unwrap()
+                .unwrap()
+                .transform_ref,
+            migrated.stable_ref
+        );
+        assert_eq!(
+            db.get_setting("lastExecutedTransformRef")
+                .unwrap()
+                .as_deref(),
+            Some(migrated.stable_ref.as_str())
+        );
+        assert_eq!(db.get_setting("lastExecutedPipelineRef").unwrap(), None);
+        let conn = db.conn.lock();
+        let execution: (String, String) = conn
+            .query_row(
+                "SELECT target_kind, target_ref FROM transformation_executions
+                 WHERE id = 'legacy-execution'",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(
+            execution,
+            ("transform".to_string(), migrated.stable_ref.clone())
+        );
+        assert_eq!(
+            conn.query_row(
+                "SELECT transform_id FROM clip_transformations
+                 WHERE id = 'legacy-provenance'",
+                [],
+                |row| row.get::<_, String>(0),
+            )
+            .unwrap(),
+            migrated.stable_ref.trim_start_matches("transform:")
+        );
+        let automation_transform: String = conn
+            .query_row(
+                "SELECT transform_id FROM automations WHERE id = 'legacy-automation'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(
+            automation_transform,
+            migrated.stable_ref.trim_start_matches("transform:")
+        );
+        assert_eq!(
+            conn.query_row(
+                "SELECT COUNT(*) FROM automation_conditions
+                 WHERE automation_id = 'legacy-automation'",
+                [],
+                |row| row.get::<_, i64>(0),
+            )
+            .unwrap(),
+            1
+        );
+        assert!(!table_exists(&conn, "pipelines").unwrap());
+        assert!(!table_exists(&conn, "pipeline_steps").unwrap());
+        assert_eq!(
+            conn.query_row("SELECT COUNT(*) FROM pragma_foreign_key_check", [], |row| {
+                row.get::<_, i64>(0)
+            })
+            .unwrap(),
+            0,
+            "the migrated database must retain foreign-key integrity"
+        );
+    }
+
+    #[test]
+    fn legacy_pipeline_migration_rolls_back_on_an_orphaned_reference() {
+        let db = setup_test_db();
+        let conn = db.conn.lock();
+        conn.execute_batch(
+            "CREATE TABLE pipelines (
+                row_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id TEXT NOT NULL UNIQUE,
+                name TEXT NOT NULL
+             );
+             CREATE TABLE pipeline_steps (
+                row_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                pipeline_id TEXT NOT NULL,
+                position INTEGER NOT NULL,
+                operation_ref TEXT NOT NULL
+             );
+             INSERT INTO pipelines (id, name) VALUES ('valid-pipeline', 'Keep Me');
+             INSERT INTO pipeline_steps (pipeline_id, position, operation_ref)
+             VALUES ('valid-pipeline', 0, 'builtin:trim');
+             INSERT INTO settings (key, value)
+             VALUES ('lastExecutedPipelineRef', 'pipeline:missing-pipeline');",
+        )
+        .unwrap();
+
+        let error = migrate_pipelines_to_saved_transforms(&conn)
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("last-used setting"));
+        assert!(table_exists(&conn, "pipelines").unwrap());
+        assert!(table_exists(&conn, "pipeline_steps").unwrap());
+        assert_eq!(
+            conn.query_row("SELECT COUNT(*) FROM pipelines", [], |row| {
+                row.get::<_, i64>(0)
+            })
+            .unwrap(),
+            1
+        );
+        assert_eq!(
+            conn.query_row(
+                "SELECT COUNT(*) FROM saved_transforms WHERE authoring_kind = 'manual'",
+                [],
+                |row| row.get::<_, i64>(0),
+            )
+            .unwrap(),
+            0
+        );
+        assert_eq!(
+            conn.query_row(
+                "SELECT value FROM settings WHERE key = 'lastExecutedPipelineRef'",
+                [],
+                |row| row.get::<_, String>(0),
+            )
+            .unwrap(),
+            "pipeline:missing-pipeline"
+        );
+        assert!(!column_exists(&conn, "pipelines", "shortcut").unwrap());
+        assert!(!column_exists(&conn, "pipeline_steps", "failure_policy").unwrap());
+
+        conn.execute(
+            "DELETE FROM settings WHERE key = 'lastExecutedPipelineRef'",
+            [],
+        )
+        .unwrap();
+        migrate_pipelines_to_saved_transforms(&conn).unwrap();
+        assert!(!table_exists(&conn, "pipelines").unwrap());
+        assert!(!table_exists(&conn, "pipeline_steps").unwrap());
+        let migrated: (String, String) = conn
+            .query_row(
+                "SELECT name, authoring_kind FROM saved_transforms
+                 WHERE id = 'valid-pipeline'",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(migrated, ("Keep Me".to_string(), "manual".to_string()));
+    }
+
+    #[test]
     fn test_settings_storage() {
         let db = setup_test_db();
         db.save_setting("hudHotkey", "CmdOrCtrl+Shift+V").unwrap();
@@ -8490,8 +9373,8 @@ mod tests {
             let conn = db.conn.lock();
             assert!(!table_exists(&conn, "operations").unwrap());
             assert!(table_exists(&conn, "custom_operations").unwrap());
-            assert!(table_exists(&conn, "pipelines").unwrap());
-            assert!(table_exists(&conn, "pipeline_steps").unwrap());
+            assert!(!table_exists(&conn, "pipelines").unwrap());
+            assert!(!table_exists(&conn, "pipeline_steps").unwrap());
             let persisted_builtins: i64 = conn
                 .query_row("SELECT COUNT(*) FROM custom_operations", [], |row| {
                     row.get(0)
@@ -8514,7 +9397,7 @@ mod tests {
             .unwrap();
         assert!(pipeline.id > 0);
         let pipeline_item = db
-            .get_library_items(Some("pipeline"), false)
+            .get_library_items(Some("transform"), false)
             .unwrap()
             .into_iter()
             .find(|item| item.item.stable_ref == pipeline.stable_ref)
@@ -8529,7 +9412,7 @@ mod tests {
         db.delete_pipeline(&pipeline.stable_ref).unwrap();
         assert!(db.get_pipelines().unwrap().is_empty());
         assert!(db
-            .get_library_items(Some("pipeline"), false)
+            .get_library_items(Some("transform"), false)
             .unwrap()
             .is_empty());
 
@@ -8775,6 +9658,24 @@ mod tests {
         assert_eq!(after_failure.name, "Loud Quote");
         assert_eq!(after_failure.revision, 2);
         assert_eq!(after_failure.steps, updated.steps);
+
+        let too_many_steps = (0..33)
+            .map(|_| PipelineStepInput {
+                operation_ref: "builtin:trim".to_string(),
+                config_json: None,
+                failure_policy: "stop".to_string(),
+            })
+            .collect::<Vec<_>>();
+        assert!(db
+            .create_pipeline("Too Many Steps", &too_many_steps, None)
+            .unwrap_err()
+            .to_string()
+            .contains("at most 32 steps"));
+        assert!(db
+            .get_pipelines()
+            .unwrap()
+            .iter()
+            .all(|pipeline| pipeline.name != "Too Many Steps"));
     }
 
     #[test]
@@ -9478,6 +10379,7 @@ mod tests {
                 name: "Uppercase".to_string(),
                 rationale: "Replayable".to_string(),
                 scope: crate::transformation_intent::StepExecutionScope::WholeInput,
+                failure_policy: Default::default(),
                 executor: crate::transformation_intent::PlannedExecutor::Deterministic {
                     operation_ref: "builtin:uppercase".to_string(),
                     config_json: None,
@@ -9493,6 +10395,8 @@ mod tests {
         let json = db.export_backup_json().unwrap();
         assert!(json.contains("Backup Test Item"));
         assert!(json.contains("DevBin"));
+        assert!(!json.contains("\"pipelines\""));
+        assert!(json.contains("\"authoringKind\": \"manual\""));
 
         let db2 = setup_test_db();
         let imported_count = db2.import_backup_json(&json).unwrap();
@@ -9549,7 +10453,12 @@ mod tests {
             "builtin:uppercase"
         );
         assert_eq!(
-            db2.get_saved_transforms().unwrap()[0].stable_ref,
+            db2.get_saved_transforms()
+                .unwrap()
+                .into_iter()
+                .find(|item| item.name == "Backup Transform")
+                .unwrap()
+                .stable_ref,
             saved_transform.stable_ref
         );
         assert_eq!(
@@ -9572,6 +10481,48 @@ mod tests {
                 && item.item.name == "Backup Operation"
                 && item.item.group_label.as_deref() == Some("Backup Tools")
         }));
+    }
+
+    #[test]
+    fn legacy_pipeline_backups_import_as_manual_transforms() {
+        let source = setup_test_db();
+        let mut payload =
+            serde_json::from_str::<serde_json::Value>(&source.export_backup_json().unwrap())
+                .unwrap();
+        payload["pipelines"] = serde_json::json!([{
+            "id": 1,
+            "stableRef": "pipeline:legacy-backup",
+            "name": "Legacy Backup",
+            "shortcut": "Alt+L",
+            "revision": 3,
+            "createdAt": "2026-01-01 00:00:00",
+            "updatedAt": "2026-01-02 00:00:00",
+            "steps": [{
+                "position": 0,
+                "operationRef": "builtin:uppercase",
+                "configJson": null,
+                "failurePolicy": "skip"
+            }]
+        }]);
+
+        let destination = setup_test_db();
+        destination
+            .import_backup_json(&serde_json::to_string(&payload).unwrap())
+            .unwrap();
+        let imported = destination
+            .get_pipelines()
+            .unwrap()
+            .into_iter()
+            .find(|transform| transform.name == "Legacy Backup")
+            .unwrap();
+        assert_eq!(imported.stable_ref, "transform:legacy-backup");
+        assert_eq!(imported.shortcut.as_deref(), Some("Alt+L"));
+        assert_eq!(imported.revision, 3);
+        assert_eq!(imported.steps[0].failure_policy, "skip");
+        assert!(!destination
+            .export_backup_json()
+            .unwrap()
+            .contains("\"pipelines\""));
     }
 
     #[test]
@@ -9807,6 +10758,7 @@ mod tests {
                 name: "Convert to Markdown".to_string(),
                 rationale: "Structure requires interpretation".to_string(),
                 scope: crate::transformation_intent::StepExecutionScope::WholeInput,
+                failure_policy: Default::default(),
                 executor: crate::transformation_intent::PlannedExecutor::Semantic {
                     instructions: "Return clean Markdown".to_string(),
                     output_schema: None,
@@ -9864,6 +10816,7 @@ mod tests {
                 name: "Uppercase".to_string(),
                 rationale: "Replayable".to_string(),
                 scope: crate::transformation_intent::StepExecutionScope::WholeInput,
+                failure_policy: Default::default(),
                 executor: crate::transformation_intent::PlannedExecutor::Deterministic {
                     operation_ref: "builtin:uppercase".to_string(),
                     config_json: None,
@@ -9920,6 +10873,167 @@ mod tests {
     }
 
     #[test]
+    fn manually_built_transform_applies_with_revision_and_stable_provenance() {
+        let db = setup_test_db();
+        let clip = db
+            .save_clip(
+                "text",
+                Some("hello"),
+                None,
+                None,
+                "manual-transform-clip",
+                "Test",
+            )
+            .unwrap();
+        let pipeline = db
+            .create_pipeline(
+                "Uppercase Locally",
+                &[PipelineStepInput {
+                    operation_ref: "builtin:uppercase".to_string(),
+                    config_json: None,
+                    failure_policy: "stop".to_string(),
+                }],
+                None,
+            )
+            .unwrap();
+        assert!(db.get_intent_transforms().unwrap().is_empty());
+
+        let definitions = db.get_transform_definitions().unwrap();
+        assert_eq!(
+            definitions
+                .iter()
+                .filter(|item| item.stable_ref == pipeline.stable_ref)
+                .count(),
+            1,
+            "canonical definitions must not duplicate manual Transforms"
+        );
+        let definition = definitions
+            .iter()
+            .find(|item| item.stable_ref == pipeline.stable_ref)
+            .unwrap();
+        assert_eq!(definition.authoring_kind, TransformAuthoringKind::Manual);
+        assert_eq!(definition.execution_character, "replayable");
+
+        let provenance = db
+            .apply_transform_output_to_clip(TransformClipApplication {
+                clip_id: clip.id,
+                transform_ref: &pipeline.stable_ref,
+                expected_input: "hello",
+                output: "HELLO",
+                connection_id: None,
+                duration_ms: 4,
+                bin_move: None,
+            })
+            .unwrap();
+        assert_eq!(provenance.transform_ref, pipeline.stable_ref);
+        assert_eq!(
+            db.get_clip_versions(clip.id).unwrap()[0].text_content,
+            "hello"
+        );
+        assert_eq!(
+            db.get_clip_transformation_provenance(clip.id)
+                .unwrap()
+                .unwrap()
+                .transform_ref,
+            pipeline.stable_ref
+        );
+        let stored: (Option<String>, Option<String>) = db
+            .conn
+            .lock()
+            .query_row(
+                "SELECT transform_id, transform_ref FROM clip_transformations WHERE clip_id = ?1",
+                params![clip.id],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(
+            stored,
+            (
+                Some(
+                    pipeline
+                        .stable_ref
+                        .trim_start_matches("transform:")
+                        .to_string()
+                ),
+                Some(pipeline.stable_ref.clone())
+            )
+        );
+
+        db.delete_pipeline(&pipeline.stable_ref).unwrap();
+        assert_eq!(
+            db.get_clip_transformation_provenance(clip.id)
+                .unwrap()
+                .unwrap()
+                .transform_ref,
+            pipeline.stable_ref
+        );
+    }
+
+    #[test]
+    fn transformation_provenance_migration_backfills_stable_refs() {
+        let db = setup_test_db();
+        let clip = db
+            .save_clip(
+                "text",
+                Some("hello"),
+                None,
+                None,
+                "provenance-migration-clip",
+                "Test",
+            )
+            .unwrap();
+        let plan = crate::transformation_intent::TransformationPlan {
+            schema_version: crate::transformation_intent::TRANSFORMATION_PLAN_SCHEMA_VERSION,
+            intent: "Uppercase".to_string(),
+            summary: "Uppercase text".to_string(),
+            planning_mode: crate::transformation_intent::IntentPlanningMode::Pinned,
+            steps: vec![crate::transformation_intent::PlannedTransformationStep {
+                name: "Uppercase".to_string(),
+                rationale: "Replayable".to_string(),
+                scope: crate::transformation_intent::StepExecutionScope::WholeInput,
+                failure_policy: Default::default(),
+                executor: crate::transformation_intent::PlannedExecutor::Deterministic {
+                    operation_ref: "builtin:uppercase".to_string(),
+                    config_json: None,
+                },
+            }],
+        };
+        let transform = db.create_saved_transform("Uppercase", &plan, None).unwrap();
+        db.apply_transform_output_to_clip(TransformClipApplication {
+            clip_id: clip.id,
+            transform_ref: &transform.stable_ref,
+            expected_input: "hello",
+            output: "HELLO",
+            connection_id: None,
+            duration_ms: 1,
+            bin_move: None,
+        })
+        .unwrap();
+        let path = db.path.lock().clone();
+        {
+            let conn = db.conn.lock();
+            conn.execute("DROP INDEX idx_clip_transformations_ref", [])
+                .unwrap();
+            conn.execute(
+                "ALTER TABLE clip_transformations DROP COLUMN transform_ref",
+                [],
+            )
+            .unwrap();
+        }
+        drop(db);
+
+        let migrated = DbState::new(path).unwrap();
+        assert_eq!(
+            migrated
+                .get_clip_transformation_provenance(clip.id)
+                .unwrap()
+                .unwrap()
+                .transform_ref,
+            transform.stable_ref
+        );
+    }
+
+    #[test]
     fn transform_bin_drop_revision_restores_content_and_previous_bin_only() {
         let db = setup_test_db();
         let source_bin = db.create_bin("Source", "📥", "#111111", None).unwrap();
@@ -9941,6 +11055,7 @@ mod tests {
                 name: "Uppercase".to_string(),
                 rationale: "Replayable".to_string(),
                 scope: crate::transformation_intent::StepExecutionScope::WholeInput,
+                failure_policy: Default::default(),
                 executor: crate::transformation_intent::PlannedExecutor::Deterministic {
                     operation_ref: "builtin:uppercase".to_string(),
                     config_json: None,

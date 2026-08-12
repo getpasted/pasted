@@ -1,8 +1,8 @@
 import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
-import { Archive, Layers3, Plus, RotateCcw, Save, Trash2 } from 'lucide-react';
+import { Archive, Layers3, Plus, RotateCcw, Trash2 } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { AppDialog } from './AppDialog';
-import { AppDialogBody, AppDialogButton, AppDialogFooter, AppDialogHeader, AppDialogHeading } from './AppDialogLayout';
+import { AppDialogBody, AppDialogButton, AppDialogFooter, AppDialogHeader, AppDialogHeading, SaveButtonContent } from './AppDialogLayout';
 import { useContentTypes, type RegisteredContentTypeGroup } from './ContentTypeProvider';
 import { ModifiedFieldLabel } from './ModifiedFieldLabel';
 import { useToast } from './ToastProvider';
@@ -124,7 +124,7 @@ export function ContentTypeGroupManagerDialog({ isOpen, onClose }: { isOpen: boo
       </AppDialogBody>
       <AppDialogFooter align="between" className="shrink-0">
         <div className="flex items-center gap-2">{selected && !selected.isBuiltin && <><AppDialogButton onClick={() => void toggleArchived()} variant={selected.isArchived ? 'secondary' : 'warning'} disabled={!selected.isArchived && usageCount > 0}><Archive className="h-3.5 w-3.5" /> {selected.isArchived ? 'Restore Group' : 'Archive Group'}</AppDialogButton><AppDialogButton onClick={() => void remove()} variant="danger" disabled={usageCount > 0}><Trash2 className="h-3.5 w-3.5" /> Delete</AppDialogButton></>}</div>
-        <div className="flex items-center gap-2">{selectedId === 'new' ? <AppDialogButton onClick={cancelNew}>Cancel</AppDialogButton> : <AppDialogButton onClick={requestClose}>Close</AppDialogButton>}{selected?.isBuiltin && <AppDialogButton onClick={resetSelectedDraft} disabled={!hasModifiedFields || saving}><RotateCcw className="h-3.5 w-3.5" /> Reset to Default</AppDialogButton>}<AppDialogButton variant="primary" onClick={() => void save()} disabled={saving}><Save className="h-3.5 w-3.5" /> Save</AppDialogButton></div>
+        <div className="flex items-center gap-2">{selectedId === 'new' ? <AppDialogButton onClick={cancelNew}>Cancel</AppDialogButton> : <AppDialogButton onClick={requestClose}>Close</AppDialogButton>}{selected?.isBuiltin && <AppDialogButton onClick={resetSelectedDraft} disabled={!hasModifiedFields || saving}><RotateCcw className="h-3.5 w-3.5" /> Reset to Default</AppDialogButton>}<AppDialogButton variant="primary" onClick={() => void save()} disabled={saving}><SaveButtonContent isSaving={saving} /></AppDialogButton></div>
       </AppDialogFooter>
     </>}
   </AppDialog>;

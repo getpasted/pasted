@@ -8,13 +8,16 @@ use pasted_lib::bin_assignment::assign_clips_to_bin;
 use pasted_lib::content_detection::detect_with_detectors;
 use pasted_lib::content_detection::DetectorInput;
 use pasted_lib::content_types::{ContentTypeGroupInput, ContentTypeInput};
-use pasted_lib::db::{ClipMutationSummary, DbState, TransformClipApplication};
+use pasted_lib::db::{
+    ClipMutationSummary, DbState, PipelineStepInput, TransformAuthoringKind,
+    TransformClipApplication, TransformDefinition,
+};
 use pasted_lib::external_import::{self, ExternalImportSource};
 use pasted_lib::features::{setting_value_is_enabled, Feature};
 use pasted_lib::installation_diagnostics::{InstallationDiagnostics, APP_IDENTIFIER};
-use pasted_lib::intelligence_executor::execute_saved_transform;
 use pasted_lib::library_storage;
 use pasted_lib::third_party_licenses;
+use pasted_lib::transformation_intent::TransformationPlan;
 use pasted_lib::transformation_service::{
     execute, ExecutionDestination, ExecutionRequest, ExecutionTarget, ExecutionTrigger,
 };
@@ -211,7 +214,7 @@ fn main() -> Result<()> {
                 }
                 return Ok(());
             }
-            if subcommand != "list" && subcommand.starts_with('-') == false {
+            if subcommand != "list" && !subcommand.starts_with('-') {
                 return Err(rusqlite::Error::InvalidParameterName(format!(
                     "Unknown registry command: {subcommand}"
                 )));
@@ -776,22 +779,206 @@ fn main() -> Result<()> {
         }
         "transform" | "transforms" => {
             let db = DbState::new(db_path.clone())?;
+            require_feature(&db, Feature::Transformations);
             let subcommand = args.get(2).map(String::as_str).unwrap_or("list");
             match subcommand {
                 "list" | "ls" => {
-                    let transforms = db.get_saved_transforms()?;
-                    if transforms.is_empty() {
+                    let transforms = db.get_transform_definitions()?;
+                    if args.iter().any(|argument| argument == "--json") {
+                        println!(
+                            "{}",
+                            serde_json::to_string_pretty(&transforms).map_err(json_error)?
+                        );
+                    } else if transforms.is_empty() {
                         println!("No saved Transforms.");
                     } else {
                         for transform in transforms {
+                            let execution_label = match transform.execution_character.as_str() {
+                                "replayable" => "local",
+                                "interpretive" => "AI-assisted",
+                                _ => "mixed",
+                            };
+                            let step_count = transform
+                                .plan
+                                .as_ref()
+                                .map(|plan| plan.steps.len())
+                                .unwrap_or_else(|| transform.steps.len());
                             println!(
-                                "{}\t{}\trevision {}\t{} steps",
+                                "{}\t{}\trevision {}\t{} steps\t{}",
                                 transform.stable_ref,
                                 transform.name,
                                 transform.revision,
-                                transform.plan.steps.len()
+                                step_count,
+                                execution_label
                             );
                         }
+                    }
+                }
+                "get" => {
+                    let transform_ref = args.get(3).unwrap_or_else(|| {
+                        eprintln!("Usage: pasted transform get <transform-ref> [--json]");
+                        std::process::exit(2);
+                    });
+                    let definition = db
+                        .resolve_transform_definition(transform_ref)?
+                        .unwrap_or_else(|| {
+                            eprintln!("Transform {transform_ref} was not found.");
+                            std::process::exit(1);
+                        });
+                    print_transform_definition(
+                        &definition,
+                        args.iter().any(|arg| arg == "--json"),
+                    )?;
+                }
+                "create" | "new" => {
+                    let name = argument_value(&args, "--name").unwrap_or_else(|| {
+                        eprintln!("Usage: pasted transform create --name NAME (--plan-json JSON | --steps-json JSON) [--connection ID | --shortcut HOTKEY] [--json]");
+                        std::process::exit(2);
+                    });
+                    if name.trim().is_empty() {
+                        eprintln!("Transform name cannot be empty.");
+                        std::process::exit(2);
+                    }
+                    let plan_json = argument_value(&args, "--plan-json");
+                    let steps_json = argument_value(&args, "--steps-json");
+                    let definition = match (plan_json, steps_json) {
+                        (Some(plan_json), None) => {
+                            let plan: TransformationPlan =
+                                serde_json::from_str(&plan_json).map_err(json_error)?;
+                            TransformDefinition::from(db.create_saved_transform(
+                                &name,
+                                &plan,
+                                argument_value(&args, "--connection").as_deref(),
+                            )?)
+                        }
+                        (None, Some(steps_json)) => {
+                            let steps: Vec<PipelineStepInput> =
+                                serde_json::from_str(&steps_json).map_err(json_error)?;
+                            TransformDefinition::from(db.create_pipeline(
+                                &name,
+                                &steps,
+                                argument_value(&args, "--shortcut").as_deref(),
+                            )?)
+                        }
+                        _ => {
+                            eprintln!("Provide exactly one of --plan-json or --steps-json.");
+                            std::process::exit(2);
+                        }
+                    };
+                    print_transform_definition(
+                        &definition,
+                        args.iter().any(|arg| arg == "--json"),
+                    )?;
+                }
+                "update" | "edit" => {
+                    let transform_ref = args.get(3).unwrap_or_else(|| {
+                        eprintln!("Usage: pasted transform update <transform-ref> [--name NAME] [--plan-json JSON | --steps-json JSON] [--connection ID | --clear-connection] [--shortcut HOTKEY | --clear-shortcut] [--json]");
+                        std::process::exit(2);
+                    });
+                    let current = db
+                        .resolve_transform_definition(transform_ref)?
+                        .unwrap_or_else(|| {
+                            eprintln!("Transform {transform_ref} was not found.");
+                            std::process::exit(1);
+                        });
+                    let name =
+                        argument_value(&args, "--name").unwrap_or_else(|| current.name.clone());
+                    if name.trim().is_empty() {
+                        eprintln!("Transform name cannot be empty.");
+                        std::process::exit(2);
+                    }
+                    let updated = match current.authoring_kind {
+                        TransformAuthoringKind::Intent => {
+                            if argument_value(&args, "--steps-json").is_some()
+                                || argument_value(&args, "--shortcut").is_some()
+                                || args.iter().any(|arg| arg == "--clear-shortcut")
+                            {
+                                eprintln!("Intent-authored Transforms accept --plan-json and connection options; use duplicate/create to change authoring form.");
+                                std::process::exit(2);
+                            }
+                            let plan = match argument_value(&args, "--plan-json") {
+                                Some(plan_json) => {
+                                    serde_json::from_str::<TransformationPlan>(&plan_json)
+                                        .map_err(json_error)?
+                                }
+                                None => current.plan.clone().expect("saved Transform has a plan"),
+                            };
+                            let connection_id =
+                                if args.iter().any(|arg| arg == "--clear-connection") {
+                                    None
+                                } else {
+                                    argument_value(&args, "--connection")
+                                        .or(current.connection_id.clone())
+                                };
+                            TransformDefinition::from(db.update_saved_transform(
+                                transform_ref,
+                                &name,
+                                &plan,
+                                connection_id.as_deref(),
+                            )?)
+                        }
+                        TransformAuthoringKind::Manual => {
+                            if argument_value(&args, "--plan-json").is_some()
+                                || argument_value(&args, "--connection").is_some()
+                                || args.iter().any(|arg| arg == "--clear-connection")
+                            {
+                                eprintln!("Manually built Transforms accept --steps-json and shortcut options; use duplicate/create to change authoring form.");
+                                std::process::exit(2);
+                            }
+                            let steps = match argument_value(&args, "--steps-json") {
+                                Some(steps_json) => {
+                                    serde_json::from_str::<Vec<PipelineStepInput>>(&steps_json)
+                                        .map_err(json_error)?
+                                }
+                                None => current
+                                    .steps
+                                    .iter()
+                                    .map(|step| PipelineStepInput {
+                                        operation_ref: step.operation_ref.clone(),
+                                        config_json: step.config_json.clone(),
+                                        failure_policy: step.failure_policy.clone(),
+                                    })
+                                    .collect(),
+                            };
+                            let shortcut = if args.iter().any(|arg| arg == "--clear-shortcut") {
+                                None
+                            } else {
+                                argument_value(&args, "--shortcut").or(current.shortcut.clone())
+                            };
+                            TransformDefinition::from(db.update_pipeline(
+                                transform_ref,
+                                &name,
+                                &steps,
+                                shortcut.as_deref(),
+                            )?)
+                        }
+                    };
+                    print_transform_definition(&updated, args.iter().any(|arg| arg == "--json"))?;
+                }
+                "duplicate" | "copy" => {
+                    let transform_ref = args.get(3).unwrap_or_else(|| {
+                        eprintln!("Usage: pasted transform duplicate <transform-ref> [--name NAME] [--json]");
+                        std::process::exit(2);
+                    });
+                    let duplicate = db.duplicate_transform_definition(
+                        transform_ref,
+                        argument_value(&args, "--name").as_deref(),
+                    )?;
+                    print_transform_definition(&duplicate, args.iter().any(|arg| arg == "--json"))?;
+                }
+                "delete" | "remove" => {
+                    let transform_ref = args.get(3).unwrap_or_else(|| {
+                        eprintln!("Usage: pasted transform delete <transform-ref> [--json]");
+                        std::process::exit(2);
+                    });
+                    db.delete_transform_definition(transform_ref)?;
+                    if args.iter().any(|arg| arg == "--json") {
+                        println!(
+                            "{}",
+                            serde_json::json!({ "deleted": true, "stableRef": transform_ref })
+                        );
+                    } else {
+                        println!("Deleted Transform {transform_ref}.");
                     }
                 }
                 "run" => {
@@ -831,19 +1018,25 @@ fn main() -> Result<()> {
                         eprintln!("--replace requires --clip ID so Pasted can create a revision.");
                         std::process::exit(2);
                     }
-                    match execute_saved_transform(
+                    let target = ExecutionTarget::Transform {
+                        transform_ref: transform_ref.clone(),
+                    };
+                    match execute(
                         &db,
-                        transform_ref,
-                        input.clone(),
-                        pasted_lib::intelligence_executor::SavedTransformExecutionContext {
+                        ExecutionRequest {
+                            input: input.clone(),
+                            target,
                             source_clip_id: clip_id,
-                            trigger_kind: "cli",
-                            destination_kind: if replace { "replace" } else { "preview" },
+                            trigger: ExecutionTrigger::Cli,
+                            destination: if replace {
+                                ExecutionDestination::Replace
+                            } else {
+                                ExecutionDestination::Preview
+                            },
                             client_request_id: None,
                         },
-                        None,
                     ) {
-                        Ok((_name, _execution_id, outcome)) => {
+                        Ok(outcome) => {
                             if let Some(clip_id) = clip_id.filter(|_| replace) {
                                 if let Err(error) =
                                     db.apply_transform_output_to_clip(TransformClipApplication {
@@ -862,7 +1055,22 @@ fn main() -> Result<()> {
                                     std::process::exit(1);
                                 }
                             }
-                            print!("{}", outcome.output);
+                            if args.iter().any(|argument| argument == "--json") {
+                                println!(
+                                    "{}",
+                                    serde_json::to_string_pretty(&serde_json::json!({
+                                        "targetKind": "transform",
+                                        "targetRef": transform_ref,
+                                        "executionId": outcome.execution_id,
+                                        "output": outcome.output,
+                                        "durationMs": outcome.duration_ms,
+                                        "replacedClipId": clip_id.filter(|_| replace),
+                                    }))
+                                    .expect("transform output is serializable")
+                                );
+                            } else {
+                                print!("{}", outcome.output);
+                            }
                         }
                         Err(error) => {
                             eprintln!("Transform failed ({}): {}", error.code, error.message);
@@ -871,7 +1079,7 @@ fn main() -> Result<()> {
                     }
                 }
                 _ => {
-                    eprintln!("Unknown transform command: {subcommand}");
+                    eprintln!("Usage: pasted transform list|get|create|update|duplicate|delete|run [options] [--json]");
                     std::process::exit(2);
                 }
             }
@@ -900,40 +1108,9 @@ fn main() -> Result<()> {
                         }
                     }
                 }
-                "run" => run_advanced_transformation(&args, &db, "operation"),
+                "run" => run_operation(&args, &db),
                 _ => {
                     eprintln!("Usage: pasted operation [list [--json] | run <operation-ref> [--text TEXT | --clip ID | --stdin] [--json]]");
-                    std::process::exit(2);
-                }
-            }
-        }
-        "pipeline" | "pipelines" => {
-            let db = DbState::new(db_path.clone())?;
-            require_feature(&db, Feature::Transformations);
-            let subcommand = args.get(2).map(String::as_str).unwrap_or("list");
-            match subcommand {
-                "list" | "ls" => {
-                    let pipelines = db.get_pipelines()?;
-                    if args.iter().any(|argument| argument == "--json") {
-                        println!(
-                            "{}",
-                            serde_json::to_string_pretty(&pipelines).map_err(json_error)?
-                        );
-                    } else {
-                        for pipeline in pipelines {
-                            println!(
-                                "{}\t{}\trevision {}\t{} steps",
-                                pipeline.stable_ref,
-                                pipeline.name,
-                                pipeline.revision,
-                                pipeline.steps.len()
-                            );
-                        }
-                    }
-                }
-                "run" => run_advanced_transformation(&args, &db, "pipeline"),
-                _ => {
-                    eprintln!("Usage: pasted pipeline [list [--json] | run <pipeline-ref> [--text TEXT | --clip ID | --stdin] [--json]]");
                     std::process::exit(2);
                 }
             }
@@ -1344,12 +1521,12 @@ fn main() -> Result<()> {
             println!("  pasted library default --json Restore the native default location");
             println!("  pasted ocr status --json Show OCR background-work status");
             println!("  pasted ocr scan          Scan existing unprocessed images");
-            println!("  pasted transform list    List saved Transforms");
+            println!("  pasted transform list [--json] List saved and manually built Transforms");
+            println!("  pasted transform get|create|update|duplicate|delete Manage either Transform authoring form");
             println!(
                 "  pasted transform run <ref> [--text TEXT | --clip ID | --stdin] [--replace]"
             );
             println!("  pasted operation list|run Experimental Operation inspection and execution");
-            println!("  pasted pipeline list|run Experimental Pipeline inspection and execution");
             println!("  pasted bin list --json   List Bins and their saved clip order");
             println!("  pasted bin clips <id> --json List clips in persistent Bin order");
             println!("  pasted bin order <id> <clip-id>... Persist a complete Bin order");
@@ -1382,11 +1559,9 @@ fn require_feature(db: &DbState, feature: Feature) {
     }
 }
 
-fn run_advanced_transformation(args: &[String], db: &DbState, target_kind: &str) {
+fn run_operation(args: &[String], db: &DbState) {
     let Some(target_ref) = args.get(3) else {
-        eprintln!(
-            "Usage: pasted {target_kind} run <ref> [--text TEXT | --clip ID | --stdin] [--json]"
-        );
+        eprintln!("Usage: pasted operation run <ref> [--text TEXT | --clip ID | --stdin] [--json]");
         std::process::exit(2);
     };
     let clip_id = args
@@ -1423,14 +1598,8 @@ fn run_advanced_transformation(args: &[String], db: &DbState, target_kind: &str)
         eprintln!("Provide input with --text, --clip, or stdin.");
         std::process::exit(2);
     }
-    let target = if target_kind == "operation" {
-        ExecutionTarget::Operation {
-            operation_ref: target_ref.clone(),
-        }
-    } else {
-        ExecutionTarget::Pipeline {
-            pipeline_ref: target_ref.clone(),
-        }
+    let target = ExecutionTarget::Operation {
+        operation_ref: target_ref.clone(),
     };
     match execute(
         db,
@@ -1448,7 +1617,7 @@ fn run_advanced_transformation(args: &[String], db: &DbState, target_kind: &str)
                 println!(
                     "{}",
                     serde_json::to_string_pretty(&serde_json::json!({
-                        "targetKind": target_kind,
+                        "targetKind": "operation",
                         "targetRef": target_ref,
                         "executionId": outcome.execution_id,
                         "output": outcome.output,
@@ -1461,7 +1630,7 @@ fn run_advanced_transformation(args: &[String], db: &DbState, target_kind: &str)
             }
         }
         Err(error) => {
-            eprintln!("{} failed ({}): {}", target_kind, error.code, error.message);
+            eprintln!("Operation failed ({}): {}", error.code, error.message);
             std::process::exit(1);
         }
     }
@@ -1568,6 +1737,30 @@ fn argument_values(args: &[String], flag: &str) -> Vec<String> {
                 .flatten()
         })
         .collect()
+}
+
+fn print_transform_definition(definition: &TransformDefinition, json: bool) -> Result<()> {
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(definition).map_err(json_error)?
+        );
+    } else {
+        let step_count = definition
+            .plan
+            .as_ref()
+            .map(|plan| plan.steps.len())
+            .unwrap_or_else(|| definition.steps.len());
+        println!(
+            "{}\t{}\trevision {}\t{} steps\t{}",
+            definition.stable_ref,
+            definition.name,
+            definition.revision,
+            step_count,
+            definition.execution_character
+        );
+    }
+    Ok(())
 }
 
 fn detector_input_from_args(

@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
-import { Copy, Plus, Radar, RotateCcw, Save, ScanSearch, Shapes, Trash2, X } from 'lucide-react';
+import { Copy, Plus, Radar, RotateCcw, ScanSearch, Shapes, Trash2, X } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { ContentTypeIcon } from './ContentTypeIcon';
 import { ContentTypeManagerDialog } from './ContentTypeManagerDialog';
@@ -12,7 +12,7 @@ import { RegistryListItem } from './RegistryListItem';
 import { RegistryPanelHeader } from './RegistryPanelHeader';
 import { SettingsPanelHeader } from './SettingsPanelHeader';
 import { SettingsSwitch } from './SettingsSwitch';
-import { ActionButton } from './AppDialogLayout';
+import { ActionButton, SaveButtonContent } from './AppDialogLayout';
 import { useToast } from './ToastProvider';
 import type { ClipContentType } from '../types';
 import { useNewItemSelection } from '../hooks/useNewItemSelection';
@@ -376,7 +376,7 @@ export function SettingsDetectionPanel() {
             trailing={<>
               {selectedId === 'new' && <ActionButton onClick={cancelNewDetector}><X className="h-3.5 w-3.5" /> Cancel</ActionButton>}
               {selected?.is_builtin && <ActionButton onClick={resetSelectedDraft} disabled={!hasModifiedFields || saving}><RotateCcw className="h-3.5 w-3.5" /> Reset to Default</ActionButton>}
-              <ActionButton variant="primary" onClick={save} disabled={saving}><Save className="h-3.5 w-3.5" /> Save</ActionButton>
+              <ActionButton variant="primary" onClick={save} disabled={saving}><SaveButtonContent isSaving={saving} /></ActionButton>
             </>}
           />
         </section>

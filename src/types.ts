@@ -189,7 +189,7 @@ export interface Operation {
 
 export interface LibraryItemView {
   stableRef: string;
-  kind: 'detector' | 'operation' | 'pipeline';
+  kind: 'detector' | 'operation' | 'transform';
   name: string;
   description: string;
   groupLabel: string | null;
@@ -282,6 +282,7 @@ export interface PlannedTransformationStep {
   name: string;
   rationale: string;
   scope: 'whole_input' | 'each_line';
+  failure_policy?: 'stop' | 'skip';
   executor:
     | { kind: 'deterministic'; operation_ref: string; config_json?: string | null }
     | { kind: 'semantic'; instructions: string; output_schema?: Record<string, unknown> | null; model_policy: 'fast' | 'balanced' | 'deep' };
@@ -308,9 +309,25 @@ export interface SavedTransform {
   name: string;
   plan: TransformationPlan;
   connectionId: string | null;
+  shortcut?: string | null;
   revision: number;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface TransformDefinition {
+  id: number;
+  stableRef: string;
+  name: string;
+  authoringKind: 'intent' | 'manual';
+  executionCharacter: 'replayable' | 'interpretive' | 'mixed';
+  connectionId: string | null;
+  shortcut: string | null;
+  revision: number;
+  createdAt: string;
+  updatedAt: string;
+  plan: TransformationPlan | null;
+  steps: PipelineStep[];
 }
 
 export interface ExecutePlanOutcome {

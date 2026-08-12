@@ -1,8 +1,8 @@
 import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
-import { Archive, Layers3, Plus, RotateCcw, Save, Shapes } from 'lucide-react';
+import { Archive, Layers3, Plus, RotateCcw, Shapes } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { AppDialog } from './AppDialog';
-import { AppDialogBody, AppDialogButton, AppDialogFooter, AppDialogHeader, AppDialogHeading } from './AppDialogLayout';
+import { AppDialogBody, AppDialogButton, AppDialogFooter, AppDialogHeader, AppDialogHeading, SaveButtonContent } from './AppDialogLayout';
 import { ContentTypeGlyph } from './ContentTypeIcon';
 import { ContentTypeGroupManagerDialog } from './ContentTypeGroupManagerDialog';
 import { MenuSelect } from './MenuSelect';
@@ -147,7 +147,7 @@ export function ContentTypeManagerDialog({ isOpen, onClose }: { isOpen: boolean;
               ? <AppDialogButton onClick={cancelNewType}>Cancel</AppDialogButton>
               : <AppDialogButton onClick={requestClose}>Close</AppDialogButton>}
             {selected?.isBuiltin && <AppDialogButton onClick={resetSelectedDraft} disabled={!hasModifiedFields || saving}><RotateCcw className="h-3.5 w-3.5" /> Reset to Default</AppDialogButton>}
-            <AppDialogButton variant="primary" onClick={() => void save()} disabled={saving}><Save className="h-3.5 w-3.5" /> Save</AppDialogButton>
+            <AppDialogButton variant="primary" onClick={() => void save()} disabled={saving}><SaveButtonContent isSaving={saving} /></AppDialogButton>
           </div>
         </AppDialogFooter>
       </>}

@@ -51,6 +51,7 @@ export function TransformComposerModal({
             sampleInput={sampleInput}
             initialTransform={transform}
             onDirtyChange={setIsDirty}
+            onCancel={requestClose}
             onTestResult={onTestResult}
             onTransformSaved={onTransformSaved}
             embedded

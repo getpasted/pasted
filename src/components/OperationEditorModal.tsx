@@ -4,7 +4,7 @@ import { Braces, Wrench } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { handleWindowDragDoubleClick, startWindowDrag } from '../utils/windowDrag';
 import { AppDialog } from './AppDialog';
-import { AppDialogBody, AppDialogButton, AppDialogFooter, AppDialogHeader, AppDialogHeading } from './AppDialogLayout';
+import { AppDialogBody, AppDialogButton, AppDialogFooter, AppDialogHeader, AppDialogHeading, SaveButtonContent } from './AppDialogLayout';
 import { MenuSelect, type MenuSelectOption } from './MenuSelect';
 import { TransformationPreviewPanel } from './TransformationPreviewPanel';
 
@@ -184,7 +184,7 @@ export const OperationEditorModal: React.FC<OperationEditorModalProps> = ({
     >
       {({ requestClose }) => <>
         <AppDialogHeader onClose={requestClose} onMouseDown={startWindowDrag} onDoubleClick={handleWindowDragDoubleClick}>
-          <AppDialogHeading id="operation-editor-title" title={operation ? 'Edit Operation' : 'New Operation'} description="Configure a reusable building block for Transforms and Pipelines." icon={<Wrench />} tone="info" />
+          <AppDialogHeading id="operation-editor-title" title={operation ? 'Edit Operation' : 'New Operation'} description="Configure a reusable building block for Transforms." icon={<Wrench />} tone="info" />
         </AppDialogHeader>
 
         <AppDialogBody className="space-y-5">
@@ -299,7 +299,7 @@ export const OperationEditorModal: React.FC<OperationEditorModalProps> = ({
             onClick={handleSave}
             disabled={isSaving || !name.trim() || !isEditableKind || (opType === 'ai' && !aiInstructions.trim())}
           >
-            {isSaving ? 'Saving…' : operation ? 'Save Operation' : 'Create Operation'}
+            <SaveButtonContent isSaving={isSaving} />
           </AppDialogButton>
         </AppDialogFooter>
       </>}

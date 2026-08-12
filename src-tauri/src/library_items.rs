@@ -53,7 +53,7 @@ impl LibraryItem {
                 can_disable: !self.is_builtin,
                 can_restore: false,
             },
-            "pipeline" => LibraryItemCapabilities {
+            "transform" => LibraryItemCapabilities {
                 can_edit: true,
                 can_duplicate: true,
                 can_delete: true,

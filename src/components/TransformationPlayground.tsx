@@ -62,16 +62,40 @@ export function TransformationPlayground({
     ...operations.map((item) => ({ kind: 'operation' as const, item })),
     ...pipelines.map((item) => ({ kind: 'pipeline' as const, item })),
   ], [operations, pipelines, transforms]);
-  const options = targets.map((candidate) => ({
-    value: targetValue(candidate),
-    label: `${candidate.kind === 'transform' ? 'Transform' : candidate.kind === 'operation' ? 'Operation' : 'Pipeline'} · ${candidate.item.name}`,
-  }));
+  const options = targets
+    .map((candidate, sourceIndex) => {
+      const group = candidate.kind === 'operation'
+        ? `Operations · ${candidate.item.category}`
+        : candidate.kind === 'pipeline'
+          ? 'Manually Built Transforms'
+          : candidate.item.plan.steps.some((step) => step.executor.kind === 'semantic')
+            ? 'AI-Assisted Transforms'
+            : 'Planned Local Transforms';
+      const groupOrder = group === 'AI-Assisted Transforms'
+        ? 0
+        : group === 'Planned Local Transforms'
+          ? 1
+          : group === 'Manually Built Transforms'
+            ? 2
+            : 3;
+      return {
+        value: targetValue(candidate),
+        label: candidate.item.name,
+        group,
+        groupOrder,
+        sourceIndex,
+      };
+    })
+    .sort((left, right) => left.groupOrder - right.groupOrder
+      || left.group.localeCompare(right.group)
+      || left.sourceIndex - right.sourceIndex)
+    .map(({ groupOrder: _groupOrder, sourceIndex: _sourceIndex, ...option }) => option);
 
   return (
     <div className="mx-auto w-full max-w-5xl space-y-4">
       <section className="theme-surface @container rounded-xl border p-4">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <p className="theme-text-muted text-[10px]">Run a saved Transform, Operation, or Pipeline without changing a clip.</p>
+          <p className="theme-text-muted text-[10px]">Run a Transform or Operation without changing a clip.</p>
           <TransformCategorySelect
             accent={target?.kind === 'operation' ? 'operations' : 'pipelines'}
             value={target ? targetValue(target) : options[0]?.value ?? ''}
@@ -81,6 +105,8 @@ export function TransformationPlayground({
               if (nextTarget) onTargetChange(nextTarget);
             }}
             label="Choose what to run"
+            searchable
+            searchPlaceholder="Search Transforms and Operations…"
             leadingIcon={target?.kind === 'operation' ? <Wrench className="h-3.5 w-3.5 shrink-0" /> : <Workflow className="h-3.5 w-3.5 shrink-0" />}
           />
         </div>

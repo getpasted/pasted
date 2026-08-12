@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import type { Operation, Pipeline, SavedTransform } from '../types';
+import type { Operation, Pipeline, SavedTransform, TransformDefinition } from '../types';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { PipelineEditorModal } from './PipelineEditorModal';
 import { OperationsManager } from './OperationsManager';
@@ -22,7 +22,7 @@ interface TransformationsViewProps {
 }
 
 export const TransformationsView: React.FC<TransformationsViewProps> = ({
-  pipelines,
+  pipelines: externalPipelines,
   onRefreshPipelines,
   requestedWorkspace,
   navigationKey,
@@ -31,17 +31,6 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
   const [activeSubTab, setActiveSubTab] = useState<TransformWorkspace>('transforms');
   const [activeLibraryFilter, setActiveLibraryFilter] = useState('all');
 
-  const FILTER_CATEGORIES = [
-    'All',
-    'Cleaners & Sanitizers',
-    'Case Transformations',
-    'Smart Formatting',
-    'Data Extraction',
-    'Line Operations',
-    'Structure & Formatting',
-    'Encodings & Decodings',
-    'Advanced & Shell Scripts',
-  ];
   const [selectedPipelineForEdit, setSelectedPipelineForEdit] = useState<Pipeline | null>(null);
   const [selectedTransformForEdit, setSelectedTransformForEdit] = useState<SavedTransform | null>(null);
   const [isEditorModalOpen, setIsEditorModalOpen] = useState(false);
@@ -50,6 +39,7 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
   const [testResult, setTestResult] = useState('');
   const [testError, setTestError] = useState('');
   const [transforms, setTransforms] = useState<SavedTransform[]>([]);
+  const [pipelines, setPipelines] = useState<Pipeline[]>(externalPipelines);
   const [playgroundTarget, setPlaygroundTarget] = useState<PlaygroundTarget | null>(null);
   const [playgroundRunState, setPlaygroundRunState] = useState<PlaygroundRunState>('idle');
   const [playgroundDurationMs, setPlaygroundDurationMs] = useState<number>();
@@ -58,8 +48,7 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
   const [playgroundClientRequestId, setPlaygroundClientRequestId] = useState<string | null>(null);
   const playgroundRequestStatus = useIntelligenceRequestStatus(playgroundClientRequestId);
   const [deleteTarget, setDeleteTarget] = useState<
-    | { kind: 'Transform'; name: string; ref: string }
-    | { kind: 'Pipeline'; name: string; ref: string }
+    | { kind: 'Transform'; storage: 'saved' | 'manual'; name: string; ref: string }
     | null
   >(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -97,6 +86,7 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
       });
       soundManager.playCopySound();
       onRefreshPipelines();
+      fetchTransforms();
     } catch (e) {
       showActionError(e);
     }
@@ -107,6 +97,7 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
     try {
       await invoke('delete_pipeline', { pipelineRef });
       onRefreshPipelines();
+      fetchTransforms();
       setDeleteTarget(null);
     } catch (e) {
       showActionError(e);
@@ -134,7 +125,7 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
         ? { kind: 'transform' as const, transformRef: playgroundTarget.item.stableRef }
         : playgroundTarget.kind === 'operation'
           ? { kind: 'operation' as const, operationRef: playgroundTarget.item.stable_id }
-          : { kind: 'pipeline' as const, pipelineRef: playgroundTarget.item.stableRef };
+          : { kind: 'transform' as const, transformRef: playgroundTarget.item.stableRef };
       const execution = startTransformation(testText, target);
       playgroundExecution.current = execution;
       setPlaygroundClientRequestId(execution.clientRequestId);
@@ -160,8 +151,33 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
   };
 
   const fetchTransforms = () => {
-    invoke<SavedTransform[]>('get_saved_transforms')
-      .then(setTransforms)
+    invoke<TransformDefinition[]>('get_transforms')
+      .then((definitions) => {
+        setTransforms(definitions.flatMap((definition) => definition.authoringKind === 'intent' && definition.plan
+          ? [{
+              id: definition.id,
+              stableRef: definition.stableRef,
+              name: definition.name,
+              plan: definition.plan,
+              connectionId: definition.connectionId,
+              revision: definition.revision,
+              createdAt: definition.createdAt,
+              updatedAt: definition.updatedAt,
+            }]
+          : []));
+        setPipelines(definitions.flatMap((definition) => definition.authoringKind === 'manual'
+          ? [{
+              id: definition.id,
+              stableRef: definition.stableRef,
+              name: definition.name,
+              steps: definition.steps,
+              shortcut: definition.shortcut,
+              revision: definition.revision,
+              createdAt: definition.createdAt,
+              updatedAt: definition.updatedAt,
+            }]
+          : []));
+      })
       .catch(showActionError);
   };
 
@@ -202,17 +218,18 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
   const [operations, setOperations] = useState<Operation[]>([]);
 
   const libraryFilterOptions = [
-    { value: 'all', label: 'All Library Items', count: transforms.length + pipelines.length },
-    { value: 'saved', label: 'Saved Transforms', count: transforms.length },
-    { value: 'pipelines', label: 'Pipelines', count: pipelines.length },
-    ...FILTER_CATEGORIES.filter((category) => category !== 'All').map((category) => ({
-      value: `pipeline:${category}`,
-      label: `Pipelines · ${category}`,
-      count: pipelines.filter((pipeline) => pipeline.steps.some((step) => (
-        operations.find((operation) => operation.stable_id === step.operationRef)?.category === category
-      ))).length,
-    })),
-  ].filter((option) => !option.value.startsWith('pipeline:') || option.count > 0);
+    { value: 'all', label: 'All Transforms', count: transforms.length + pipelines.length },
+    {
+      value: 'local',
+      label: 'Local · Replayable',
+      count: pipelines.length + transforms.filter((transform) => transform.plan.steps.every((step) => step.executor.kind === 'deterministic')).length,
+    },
+    {
+      value: 'assisted',
+      label: 'AI-assisted',
+      count: transforms.filter((transform) => transform.plan.steps.some((step) => step.executor.kind === 'semantic')).length,
+    },
+  ].filter((option) => option.value === 'all' || option.count > 0);
   const fetchOpCount = () => {
     invoke<Operation[]>('get_operations')
       .then(setOperations)
@@ -223,6 +240,10 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
     fetchOpCount();
     fetchTransforms();
   }, []);
+
+  useEffect(() => {
+    fetchTransforms();
+  }, [externalPipelines]);
 
   useEffect(() => {
     if (playgroundTarget) return;
@@ -285,11 +306,12 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
           onEditPipeline={handleOpenEditModal}
           onDuplicateTransform={(transform) => void handleDuplicateTransform(transform)}
           onDuplicatePipeline={(pipeline) => void handleDuplicatePipeline(pipeline)}
-          onDeleteTransform={(transform) => setDeleteTarget({ kind: 'Transform', name: transform.name, ref: transform.stableRef })}
-          onDeletePipeline={(pipeline) => setDeleteTarget({ kind: 'Pipeline', name: pipeline.name, ref: pipeline.stableRef })}
+          onDeleteTransform={(transform) => setDeleteTarget({ kind: 'Transform', storage: 'saved', name: transform.name, ref: transform.stableRef })}
+          onDeletePipeline={(pipeline) => setDeleteTarget({ kind: 'Transform', storage: 'manual', name: pipeline.name, ref: pipeline.stableRef })}
           onPipelineShortcutChange={(pipeline, shortcut) => {
             void invoke('update_pipeline_shortcut', { pipelineRef: pipeline.stableRef, shortcut })
               .then(onRefreshPipelines)
+              .then(fetchTransforms)
               .catch(showActionError);
           }}
         />
@@ -302,7 +324,10 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
         pipeline={selectedPipelineForEdit}
         isOpen={isEditorModalOpen}
         onClose={() => setIsEditorModalOpen(false)}
-        onSaveSuccess={onRefreshPipelines}
+        onSaveSuccess={() => {
+          onRefreshPipelines();
+          fetchTransforms();
+        }}
       />
       <TransformComposerModal
         isOpen={isComposerModalOpen}
@@ -325,7 +350,7 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
         asset={deleteTarget}
         isDeleting={isDeleting}
         onCancel={() => setDeleteTarget(null)}
-        onConfirm={() => deleteTarget?.kind === 'Pipeline'
+        onConfirm={() => deleteTarget?.storage === 'manual'
           ? handleDeletePipeline(deleteTarget.ref)
           : deleteTarget
             ? handleDeleteTransform(deleteTarget.ref)

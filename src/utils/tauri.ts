@@ -107,7 +107,7 @@ let mockLibraryLocation = {
 const mockPipelines = [
   {
     id: 1,
-    stableRef: 'pipeline:mock-uppercase',
+    stableRef: 'transform:mock-uppercase',
     name: 'Uppercase',
     shortcut: null,
     revision: 1,
@@ -117,7 +117,7 @@ const mockPipelines = [
   },
   {
     id: 2,
-    stableRef: 'pipeline:mock-clean-url',
+    stableRef: 'transform:mock-clean-url',
     name: 'Clean URL',
     shortcut: null,
     revision: 1,
@@ -200,7 +200,7 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       const kind = String(args?.kind ?? '');
       const items = [
         ...mockDetectors.map((detector) => ({ stableRef: detector.stable_ref, kind: 'detector', name: detector.name, description: detector.description, groupLabel: null, icon: 'FileText', enabled: detector.enabled, isBuiltin: detector.is_builtin, isArchived: false, sortOrder: detector.priority, revision: 1, inputContract: 'text', outputContract: `set_type:${detector.content_type}`, createdAt: '', updatedAt: '', capabilities: { canEdit: true, canDuplicate: true, canDelete: true, canDisable: true, canRestore: detector.is_builtin } })),
-        ...mockPipelines.map((pipeline) => ({ stableRef: pipeline.stableRef, kind: 'pipeline', name: pipeline.name, description: '', groupLabel: 'Pipelines', icon: 'Workflow', enabled: null, isBuiltin: false, isArchived: false, sortOrder: pipeline.id, revision: pipeline.revision, inputContract: 'text', outputContract: 'preserve_type', createdAt: pipeline.createdAt, updatedAt: pipeline.updatedAt, capabilities: { canEdit: true, canDuplicate: true, canDelete: true, canDisable: false, canRestore: false } })),
+        ...mockPipelines.map((pipeline) => ({ stableRef: pipeline.stableRef, kind: 'transform', name: pipeline.name, description: '', groupLabel: 'Manual Transforms', icon: 'Workflow', enabled: null, isBuiltin: false, isArchived: false, sortOrder: pipeline.id, revision: pipeline.revision, inputContract: 'text', outputContract: 'preserve_type', createdAt: pipeline.createdAt, updatedAt: pipeline.updatedAt, capabilities: { canEdit: true, canDuplicate: true, canDelete: true, canDisable: false, canRestore: false } })),
       ];
       return items.filter((item) => !kind || item.kind === kind) as unknown as T;
     }
@@ -484,7 +484,7 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
         durationMs: 260,
       } as unknown as T;
     }
-    case 'get_saved_transforms':
+    case 'get_intent_transforms':
       return mockSavedTransforms.map((transform) => ({ ...transform })) as unknown as T;
     case 'save_saved_transform': {
       const now = new Date().toISOString();

@@ -10,7 +10,10 @@ import { TransformCategorySelect, type TransformCategoryOption } from './Transfo
 import { TransformLibraryToolbar } from './TransformLibraryToolbar';
 import { ActionButton } from './AppDialogLayout';
 
-type LibrarySelection = { kind: 'transform' | 'pipeline'; stableRef: string };
+type LibrarySelection = { stableRef: string };
+type TransformLibraryItem =
+  | { storage: 'saved'; stableRef: string; updatedAt: string; item: SavedTransform }
+  | { storage: 'manual'; stableRef: string; updatedAt: string; item: Pipeline };
 
 interface TransformationLibraryProps {
   transforms: SavedTransform[];
@@ -52,34 +55,28 @@ export function TransformationLibrary({
   onPipelineShortcutChange,
 }: TransformationLibraryProps) {
   const [selection, setSelection] = useState<LibrarySelection | null>(null);
-  const showTransforms = filter === 'all' || filter === 'saved';
-  const showPipelines = filter === 'all' || filter === 'pipelines' || filter.startsWith('pipeline:');
-  const pipelineCategory = filter.startsWith('pipeline:') ? filter.slice('pipeline:'.length) : null;
-  const visibleTransforms = showTransforms ? transforms : [];
-  const visiblePipelines = useMemo(() => showPipelines
-    ? pipelines.filter((pipeline) => !pipelineCategory || pipeline.steps.some((step) => (
-      operations.find((operation) => operation.stable_id === step.operationRef)?.category === pipelineCategory
-    )))
-    : [], [operations, pipelineCategory, pipelines, showPipelines]);
-
-  const selectedTransform = selection?.kind === 'transform'
-    ? visibleTransforms.find(({ stableRef }) => stableRef === selection.stableRef) ?? null
-    : null;
-  const selectedPipeline = selection?.kind === 'pipeline'
-    ? visiblePipelines.find(({ stableRef }) => stableRef === selection.stableRef) ?? null
-    : null;
-  const effectiveTransform = selectedTransform ?? (!selectedPipeline ? visibleTransforms[0] ?? null : null);
-  const effectivePipeline = selectedPipeline ?? (!effectiveTransform ? visiblePipelines[0] ?? null : null);
-
-  const selectTransform = (transform: SavedTransform) => setSelection({ kind: 'transform', stableRef: transform.stableRef });
-  const selectPipeline = (pipeline: Pipeline) => setSelection({ kind: 'pipeline', stableRef: pipeline.stableRef });
+  const visibleItems = useMemo<TransformLibraryItem[]>(() => {
+    const items: TransformLibraryItem[] = [
+      ...transforms.map((item) => ({ storage: 'saved' as const, stableRef: item.stableRef, updatedAt: item.updatedAt, item })),
+      ...pipelines.map((item) => ({ storage: 'manual' as const, stableRef: item.stableRef, updatedAt: item.updatedAt, item })),
+    ];
+    return items
+      .filter((candidate) => {
+        if (filter === 'all') return true;
+        if (candidate.storage === 'manual') return filter === 'local';
+        const isAssisted = candidate.item.plan.steps.some((step) => step.executor.kind === 'semantic');
+        return filter === (isAssisted ? 'assisted' : 'local');
+      })
+      .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+  }, [filter, pipelines, transforms]);
+  const effectiveItem = visibleItems.find(({ stableRef }) => stableRef === selection?.stableRef) ?? visibleItems[0] ?? null;
 
   return (
     <div className="space-y-4">
       <TransformLibraryToolbar
         createLabel="New Transform"
         onCreate={onCreateTransform}
-        secondaryAction={{ label: 'New Pipeline', onClick: onCreatePipeline }}
+        secondaryAction={{ label: 'Build Manually', onClick: onCreatePipeline }}
       >
         <TransformCategorySelect
           accent="pipelines"
@@ -93,49 +90,35 @@ export function TransformationLibrary({
       <RegistryEditorShell>
         <section className="theme-surface overflow-hidden rounded-xl border" aria-label="Transformation library">
           <div className="max-h-96 overflow-y-auto p-1.5 @4xl:max-h-[560px]">
-            {visibleTransforms.length > 0 && (
+            {visibleItems.length > 0 && (
               <div className="space-y-1">
                 <p className="theme-text-subtle px-2 pb-0.5 pt-1 text-[9px] font-bold uppercase tracking-wider">Transforms</p>
-                {visibleTransforms.map((transform) => {
-                  const semanticSteps = transform.plan.steps.filter((step) => step.executor.kind === 'semantic').length;
+                {visibleItems.map((candidate) => {
+                  const semanticSteps = candidate.storage === 'saved'
+                    ? candidate.item.plan.steps.filter((step) => step.executor.kind === 'semantic').length
+                    : 0;
+                  const stepCount = candidate.storage === 'saved' ? candidate.item.plan.steps.length : candidate.item.steps.length;
                   return <RegistryListItem
-                    key={transform.stableRef}
-                    selected={effectiveTransform?.stableRef === transform.stableRef}
-                    onSelect={() => selectTransform(transform)}
+                    key={candidate.stableRef}
+                    selected={effectiveItem?.stableRef === candidate.stableRef}
+                    onSelect={() => setSelection({ stableRef: candidate.stableRef })}
                     icon={<span className="theme-badge grid h-8 w-8 place-items-center rounded-lg border">
                       {semanticSteps > 0 ? <Sparkles className="transform-accent pipelines h-4 w-4" /> : <Workflow className="transform-accent pipelines h-4 w-4" />}
                     </span>}
-                    title={transform.name}
-                    subtitle={`Revision ${transform.revision}`}
-                    trailing={<span className="theme-text-subtle tabular-nums text-[9px]">{transform.plan.steps.length}</span>}
+                    title={candidate.item.name}
+                    subtitle={semanticSteps > 0 ? 'AI-assisted' : 'Local · replayable'}
+                    trailing={<span className="theme-text-subtle tabular-nums text-[9px]">{stepCount}</span>}
                   />;
                 })}
               </div>
             )}
 
-            {visiblePipelines.length > 0 && (
-              <div className={`space-y-1 ${visibleTransforms.length > 0 ? 'mt-3' : ''}`}>
-                <p className="theme-text-subtle px-2 pb-0.5 pt-1 text-[9px] font-bold uppercase tracking-wider">Pipelines</p>
-                {visiblePipelines.map((pipeline) => <RegistryListItem
-                  key={pipeline.stableRef}
-                  selected={effectivePipeline?.stableRef === pipeline.stableRef}
-                  onSelect={() => selectPipeline(pipeline)}
-                  icon={<span className="theme-badge grid h-8 w-8 place-items-center rounded-lg border">
-                    <Workflow className="transform-accent pipelines h-4 w-4" />
-                  </span>}
-                  title={pipeline.name}
-                  subtitle={`Revision ${pipeline.revision}`}
-                  trailing={<span className="theme-text-subtle tabular-nums text-[9px]">{pipeline.steps.length}</span>}
-                />)}
-              </div>
-            )}
-
-            {visibleTransforms.length === 0 && visiblePipelines.length === 0 && (
+            {visibleItems.length === 0 && (
               <div className="grid min-h-56 place-items-center px-4 text-center">
                 <div>
                   <Workflow className="transform-accent pipelines mx-auto mb-2 h-5 w-5" />
                   <p className="theme-text-main text-xs font-semibold">Nothing in this view yet</p>
-                  <p className="theme-text-muted mt-1 text-[10px]">Create a Transform or Pipeline to add it to the Library.</p>
+                  <p className="theme-text-muted mt-1 text-[10px]">Create or manually build a Transform to add it to the Library.</p>
                 </div>
               </div>
             )}
@@ -143,24 +126,24 @@ export function TransformationLibrary({
         </section>
 
         <section className="theme-surface min-w-0 rounded-xl border p-3 @md:p-4" aria-label="Transformation details">
-          {effectiveTransform ? (
+          {effectiveItem?.storage === 'saved' ? (
             <TransformDetails
-              transform={effectiveTransform}
+              transform={effectiveItem.item}
               operations={operations}
-              onTest={() => onTestTransform(effectiveTransform)}
-              onEdit={() => onEditTransform(effectiveTransform)}
-              onDuplicate={() => onDuplicateTransform(effectiveTransform)}
-              onDelete={() => onDeleteTransform(effectiveTransform)}
+              onTest={() => onTestTransform(effectiveItem.item)}
+              onEdit={() => onEditTransform(effectiveItem.item)}
+              onDuplicate={() => onDuplicateTransform(effectiveItem.item)}
+              onDelete={() => onDeleteTransform(effectiveItem.item)}
             />
-          ) : effectivePipeline ? (
+          ) : effectiveItem?.storage === 'manual' ? (
             <PipelineDetails
-              pipeline={effectivePipeline}
+              pipeline={effectiveItem.item}
               operations={operations}
-              onTest={() => onTestPipeline(effectivePipeline)}
-              onEdit={() => onEditPipeline(effectivePipeline)}
-              onDuplicate={() => onDuplicatePipeline(effectivePipeline)}
-              onDelete={() => onDeletePipeline(effectivePipeline)}
-              onShortcutChange={(shortcut) => onPipelineShortcutChange(effectivePipeline, shortcut)}
+              onTest={() => onTestPipeline(effectiveItem.item)}
+              onEdit={() => onEditPipeline(effectiveItem.item)}
+              onDuplicate={() => onDuplicatePipeline(effectiveItem.item)}
+              onDelete={() => onDeletePipeline(effectiveItem.item)}
+              onShortcutChange={(shortcut) => onPipelineShortcutChange(effectiveItem.item, shortcut)}
             />
           ) : (
             <div className="grid min-h-72 place-items-center text-center"><p className="theme-text-muted text-xs">Select or create a Library item.</p></div>
@@ -240,7 +223,7 @@ function PipelineDetails({
       <RegistryDetailHeader
         icon={<Workflow className="h-5 w-5" />}
         title={pipeline.name}
-        meta={`Pipeline · Revision ${pipeline.revision}`}
+        meta={`Transform · Local builder · Revision ${pipeline.revision}`}
         trailing={<HotkeyRecorder value={pipeline.shortcut} onChange={onShortcutChange} />}
         iconClassName="transform-accent pipelines"
       />

@@ -11,6 +11,8 @@ interface TransformCategorySelectProps {
   onChange: (value: string) => void;
   label?: string;
   leadingIcon?: ReactNode;
+  searchable?: boolean;
+  searchPlaceholder?: string;
 }
 
 export function TransformCategorySelect({
@@ -20,6 +22,8 @@ export function TransformCategorySelect({
   onChange,
   label = 'Filter',
   leadingIcon,
+  searchable = false,
+  searchPlaceholder,
 }: TransformCategorySelectProps) {
   return (
     <MenuSelect
@@ -29,6 +33,8 @@ export function TransformCategorySelect({
       label={label}
       leadingIcon={leadingIcon ?? <Filter className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />}
       className={`transform-category-select ${accent}`}
+      searchable={searchable}
+      searchPlaceholder={searchPlaceholder}
     />
   );
 }
