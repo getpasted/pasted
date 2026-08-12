@@ -1,8 +1,6 @@
 # Pasted
 
-Pasted is a privacy-first clipboard manager and transformation workspace built with Tauri, React, TypeScript, Rust, and SQLite.
-
-Pasted 1.0 is distributed for Apple Silicon and Intel Macs as one signed and notarized universal DMG. Windows and Linux packages remain under active validation and are not part of the initial support promise.
+Pasted is an elegant privacy-focused clipboard manager and transformation app for macOS.
 
 The [Pasted Wiki](https://github.com/getpasted/pasted/wiki) covers installation, everyday workflows, recovery, CLI automation, platform support, privacy, and troubleshooting.
 
@@ -14,27 +12,25 @@ The [Pasted Wiki](https://github.com/getpasted/pasted/wiki) covers installation,
 - Previews common image files and the first page of copied PDFs without changing the copied file reference.
 - Records copies into a persistent Queue, then pastes the next item or the whole Queue into the previously focused app.
 - Builds reusable Transforms from deterministic Operations or an explicitly connected intelligence provider.
-- Preserves restorable revisions for content-changing actions and records important events in the Activity Log.
+- Preserves revisions for content-changing actions and records important events in the Activity Log.
 - Includes seven appearance choices: System, Cool, Dark, Warm, Vampire, Flux, and 808.
-- Exposes meaningful clipboard-management workflows through the bundled `pasted` command.
+- Exposes powerful clipboard-management workflows through the bundled `pasted` command.
 - Imports supported text history from Alfred, Pastebot, Pasta, Paste, CopyClip 2, Maccy, and Flycut without changing the source library.
 - Lets each major feature be disabled for a simpler clipboard manager.
 
 ## Privacy and safety
 
-Clipboard history, settings, revisions, previews, and activity data are stored locally in SQLite. Pasted has no analytics or telemetry.
+Clipboard history, settings, revisions, previews, and activity data are stored locally in SQLite. **Pasted has no analytics or telemetry**.
 
-Password managers and other sensitive apps are ignored by the default blacklist. Capture size, preview size, history retention, Trash retention, revisions, OCR, and content detection are bounded or configurable. Protected clips are excluded from destructive retention behavior.
+Password managers and other sensitive apps are ignored by the default blacklist. Capture size, preview size, history retention, Trash retention, revisions, OCR, and content detection are bounded or configurable. Protected clips will remain, regardless of retention settings.
 
-Pasted sends clip content outside the app only when you explicitly run an intelligence-assisted Transform through a connection you enabled. Connection credentials remain with the provider, operating system, or authenticated command-line tool; Pasted stores references rather than API keys.
+Pasted sends your private clip content outside the app only when you _explicitly_ run an intelligence-assisted transform through a connection you manually enabled. Connection credentials remain with the provider, operating system, or authenticated command-line tool; Pasted stores references rather than API keys.
 
 ## macOS requirements
 
 - macOS 13 or newer
 - Apple Silicon or Intel processor
 - Accessibility permission for global hotkeys and automatic Queue/HUD pasting
-
-OCR uses Apple Vision and is available on macOS. Pasted explains missing permissions without removing queued content or silently treating an automation failure as success.
 
 ## Default shortcuts
 
@@ -77,17 +73,15 @@ npm install
 npm run tauri dev
 ```
 
-Run the complete release gate:
+Run the complete test suite:
 
 ```sh
 npm run test:all
 ```
 
-That gate covers Rust tests, formatting, Clippy, the frontend build, IPC parity, security boundaries, feature gates, collection contracts, menu behavior, CLI parity, CSS architecture, WCAG contrast, and release metadata.
-
 ## Releases and updates
 
-Pasted 1.0 uses verified manual DMG updates. Download a newer signed DMG, replace the application in `/Applications`, and keep the existing local library. Automatic updates require a permanent signed update feed and are intentionally deferred until that distribution infrastructure exists.
+Pasted 1.0 uses verified manual DMG updates for now. Download a newer signed DMG, and replace the application in `/Applications`.
 
 Maintainers should follow [the macOS release guide](docs/MACOS_RELEASE.md) and the [1.0 release-candidate checklist](docs/RELEASE_CHECKLIST_1.0.0.md).
 
