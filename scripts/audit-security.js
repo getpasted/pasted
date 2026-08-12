@@ -17,6 +17,8 @@ const packageJson = readJson('package.json');
 const frontendSource = readFilesRecursively('src', ['.ts', '.tsx']).join('\n');
 const rustSource = readFilesRecursively('src-tauri/src', ['.rs']).join('\n');
 const cargoToml = fs.readFileSync('src-tauri/Cargo.toml', 'utf8');
+const clipActions = fs.readFileSync('src/hooks/useClipActions.ts', 'utf8');
+const plainText = fs.readFileSync('src/utils/plainText.ts', 'utf8');
 const security = tauriConfig.app?.security;
 
 assert.ok(security?.csp, 'Production Tauri CSP must remain enabled');
@@ -45,6 +47,10 @@ assert.match(rustSource, /MAX_PROVIDER_WORKSPACE_BYTES/, 'Provider disk output m
 assert.match(rustSource, /PROVIDER_EXECUTION_TIMEOUT_SECS/, 'Provider execution must retain a timeout');
 assert.doesNotMatch(frontendSource, /dangerouslySetInnerHTML/, 'Render untrusted clip content as text, never raw HTML');
 assert.doesNotMatch(frontendSource, /\b(?:eval|Function)\s*\(/, 'Frontend dynamic code execution is forbidden');
+assert.match(clipActions, /htmlToPlainText\(clip\.text_content\)/, 'Plain-text copying must use the shared HTML parser');
+assert.match(plainText, /new DOMParser\(\)\.parseFromString\(value, 'text\/html'\)/, 'HTML-to-text conversion must use DOM parsing');
+assert.match(plainText, /script, style, template, noscript/, 'HTML-to-text conversion must discard non-visible executable content');
+assert.doesNotMatch(clipActions, /replace\(\/<\[\^>\]\*>\/g/, 'Do not restore one-pass regex HTML stripping');
 assert.doesNotMatch(
   rustSource,
   /Command::new\(\s*"(?:\/[^"\s]+\/)?(?:ba|z|fi)?sh"\s*\)/,

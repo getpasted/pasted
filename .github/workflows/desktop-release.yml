@@ -21,7 +21,7 @@ jobs:
       version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -44,6 +44,8 @@ jobs:
     runs-on: macos-latest
     environment: release-macos
     env:
+      # Tauri otherwise skips Finder background and icon layout metadata on CI.
+      TAURI_BUNDLER_DMG_IGNORE_CI: true
       APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
       APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
       KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
@@ -52,7 +54,7 @@ jobs:
       APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -139,7 +141,7 @@ jobs:
     environment: release-linux
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -176,7 +178,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -214,7 +216,7 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
       - uses: actions/download-artifact@v8
@@ -241,9 +243,15 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           mapfile -d '' assets < <(find release-assets -type f -print0 | sort -z)
+          version="${{ needs.metadata.outputs.version }}"
+          if [[ "$version" =~ ^(.+)-rc\.([0-9]+)$ ]]; then
+            release_title="Pasted ${BASH_REMATCH[1]} RC${BASH_REMATCH[2]}"
+          else
+            release_title="Pasted $version"
+          fi
           gh release create "$GITHUB_REF_NAME" "${assets[@]}" \
             --repo "$GITHUB_REPOSITORY" \
             --verify-tag \
             --draft \
-            --title "Pasted ${{ needs.metadata.outputs.version }}" \
+            --title "$release_title" \
             --generate-notes

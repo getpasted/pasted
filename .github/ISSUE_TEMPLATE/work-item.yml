@@ -1,0 +1,41 @@
+name: Pasted work item
+description: Propose a focused bug fix, product improvement, or research task.
+title: ""
+labels:
+  - "needs: triage"
+assignees:
+  - JJJ
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What is happening?
+      description: Describe the user problem or opportunity, not only the proposed implementation.
+      placeholder: A person using Pasted expects…
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+      description: What should be observably better when this is complete?
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: List the behaviors that make this safe to hand to a human or Codex.
+      placeholder: |
+        - [ ] The behavior works when…
+        - [ ] Existing behavior remains…
+        - [ ] Relevant tests cover…
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Screenshots, logs, platform details, alternatives, and constraints.
+    validations:
+      required: false

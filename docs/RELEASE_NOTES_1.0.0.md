@@ -1,6 +1,6 @@
 # Pasted 1.0.0
 
-Pasted 1.0 is the first direct-download release of the local, privacy-first clipboard manager for Apple Silicon Macs.
+Pasted 1.0 is the first direct-download release of the local, privacy-first clipboard manager for Apple Silicon and Intel Macs.
 
 ## Highlights
 
@@ -21,3 +21,9 @@ Pasted stores its library locally and includes no analytics or telemetry. Intell
 ## Updates
 
 Version 1.0 uses manual DMG updates. Installing a newer Pasted application keeps the existing local library.
+
+## Platform support
+
+- **macOS 13 or newer:** supported through one signed, notarized universal DMG.
+- **Linux x86_64:** AppImage preview validated on SteamOS; desktop integration varies by distribution and Wayland compositor.
+- **Windows x86_64:** unsigned experimental installer and portable executable. Windows security policy may block them until signed distribution is available.

@@ -1,30 +1,34 @@
-import { Sliders, Command, Shield, Database, Cable, Bug, Blocks, Info } from 'lucide-react';
+import { Sliders, Command, Shield, Database, Cable, Bug, Blocks, Info, Bell } from 'lucide-react';
 
-export type SettingsTab = 'general' | 'features' | 'hotkeys' | 'connections' | 'blacklist' | 'backup' | 'diagnostics' | 'about';
+export type SettingsTab = 'general' | 'features' | 'notifications' | 'hotkeys' | 'connections' | 'blacklist' | 'storage' | 'diagnostics' | 'about';
 
 interface SettingsTabsProps {
   activeTab: SettingsTab;
   onChange: (tab: SettingsTab) => void;
   showConnections?: boolean;
   showDiagnostics?: boolean;
+  showNotifications?: boolean;
 }
 
 const TABS = [
   { id: 'general', label: 'General', Icon: Sliders },
   { id: 'features', label: 'Features', Icon: Blocks },
+  { id: 'notifications', label: 'Notifications', Icon: Bell },
   { id: 'hotkeys', label: 'Hotkeys', Icon: Command },
   { id: 'connections', label: 'Connections', Icon: Cable },
   { id: 'blacklist', label: 'Blacklist', Icon: Shield },
-  { id: 'backup', label: 'Backup', Icon: Database },
+  { id: 'storage', label: 'Storage', Icon: Database },
   { id: 'diagnostics', label: 'Diagnostics', Icon: Bug },
   { id: 'about', label: 'About', Icon: Info },
 ] as const;
 
-export function SettingsTabs({ activeTab, onChange, showConnections = true, showDiagnostics = true }: SettingsTabsProps) {
+export function SettingsTabs({ activeTab, onChange, showConnections = true, showDiagnostics = true, showNotifications = true }: SettingsTabsProps) {
   return (
     <nav className="theme-surface settings-tabs flex items-center gap-1 rounded-xl border p-1" aria-label="Settings sections">
       {TABS.filter(({ id }) => (
-        (id !== 'connections' || showConnections) && (id !== 'diagnostics' || showDiagnostics)
+        (id !== 'connections' || showConnections)
+        && (id !== 'diagnostics' || showDiagnostics)
+        && (id !== 'notifications' || showNotifications)
       )).map(({ id, label, Icon }) => (
         <button
           key={id}

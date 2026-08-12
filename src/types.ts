@@ -352,6 +352,11 @@ export interface QueuePasteTarget {
 export interface AppSettings {
   textSize: number;
   enableSounds: boolean;
+  captureFeedback: boolean;
+  captureFeedbackIgnored: boolean;
+  captureFeedbackPreview: boolean;
+  captureFeedbackPosition: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+  captureFeedbackDismissSeconds: number;
   openAtLogin: boolean;
   dockMenubarIcon: 'auto_hide' | 'both' | 'menubar_only';
   maxClipSizeMb: number;
@@ -364,7 +369,7 @@ export interface AppSettings {
   revisionHistoryLimit: number;
   alwaysPastePlainText: boolean;
   rowHeight: 'small' | 'medium' | 'large';
-  themeMode: 'system' | 'dark' | 'cool' | 'warm' | 'vampire' | 'flux' | '808';
+  themeMode: 'system' | 'dark' | 'cool' | 'warm' | '2894' | 'sauced' | 'vampire' | 'flux' | '808';
   enableActivityLog: boolean;
   activityLogCapacity: number;
   enableTrash: boolean;
@@ -374,6 +379,7 @@ export interface AppSettings {
   enableContentDetection: boolean;
   enableDiagnostics: boolean;
   enableNotes: boolean;
+  enableNotifications: boolean;
   enableOcr: boolean;
   enablePinning: boolean;
   enableProtection: boolean;

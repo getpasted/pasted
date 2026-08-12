@@ -14,6 +14,7 @@ const rootLockPackage = packageLock.packages?.[''];
 const packageScripts = packageJson.scripts ?? {};
 const gitignore = fs.readFileSync('.gitignore', 'utf8');
 const releaseWorkflow = fs.readFileSync('.github/workflows/desktop-release.yml', 'utf8');
+const desktopBuildWorkflow = fs.readFileSync('.github/workflows/desktop-builds.yml', 'utf8');
 const universalMacCliBuild = fs.readFileSync('scripts/build-macos-universal-cli.sh', 'utf8');
 
 assert.equal(packageJson.name, 'pasted', 'Frontend package must use the Pasted product name');
@@ -61,6 +62,16 @@ assert.deepEqual(
   { width: 660, height: 400 },
   'The DMG canvas must remain aligned with its branded artwork',
 );
+for (const [workflowName, workflow] of [
+  ['desktop release', releaseWorkflow],
+  ['desktop build', desktopBuildWorkflow],
+]) {
+  assert.match(
+    workflow,
+    /TAURI_BUNDLER_DMG_IGNORE_CI:\s*true/,
+    `The ${workflowName} workflow must preserve branded Finder metadata in CI-built DMGs`,
+  );
+}
 assert.match(
   appSettingsHook,
   /dockMenubarIcon:\s*'both'/,

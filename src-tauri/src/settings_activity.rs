@@ -25,6 +25,8 @@ fn friendly_value(key: &str, value: &str) -> Option<String> {
             "cool" => "Cool".into(),
             "dark" => "Dark".into(),
             "warm" => "Warm".into(),
+            "2894" => "2894".into(),
+            "sauced" => "Sauced".into(),
             "vampire" => "Vampire".into(),
             "flux" => "Flux".into(),
             "808" => "808".into(),
@@ -48,14 +50,31 @@ fn friendly_value(key: &str, value: &str) -> Option<String> {
             "all" => "All supported files".into(),
             _ => return None,
         },
+        "captureFeedbackPosition" => match value {
+            "top-left" => "Top left".into(),
+            "top-right" => "Top right".into(),
+            "bottom-left" => "Bottom left".into(),
+            "bottom-right" => "Bottom right".into(),
+            _ => return None,
+        },
         "textSize" => format!("{value}px"),
         "maxClipSizeMb" | "filePreviewMaxMb" => format!("{value} MB"),
         "keepClipCount" | "revisionHistoryLimit" | "activityLogCapacity" | "trashCapacityCount" => {
             value.to_string()
         }
-        "enableSounds" | "alwaysPastePlainText" | "detectColors" | "detectLinks" | "detectCode" => {
-            on_off(value)?.into()
-        }
+        "captureFeedbackDismissSeconds" => match value {
+            "0" => "Never".into(),
+            "3" | "5" | "7" | "10" | "15" | "30" => format!("{value} seconds"),
+            _ => return None,
+        },
+        "enableSounds"
+        | "captureFeedback"
+        | "captureFeedbackIgnored"
+        | "captureFeedbackPreview"
+        | "alwaysPastePlainText"
+        | "detectColors"
+        | "detectLinks"
+        | "detectCode" => on_off(value)?.into(),
         _ if key.ends_with("Hotkey") => {
             if value.is_empty() {
                 "Not set".into()
@@ -85,6 +104,11 @@ fn setting_label(key: &str) -> Option<&'static str> {
         "activityLogCapacity" => Some("Activity Log limit"),
         "trashCapacityCount" => Some("Trash limit"),
         "enableSounds" => Some("Interaction sounds"),
+        "captureFeedback" => Some("Capture feedback"),
+        "captureFeedbackIgnored" => Some("Skipped capture feedback"),
+        "captureFeedbackPreview" => Some("Clip previews in capture feedback"),
+        "captureFeedbackPosition" => Some("Capture feedback position"),
+        "captureFeedbackDismissSeconds" => Some("Capture preview dismissal"),
         "alwaysPastePlainText" => Some("Plain-text paste"),
         "detectColors" => Some("Color detection"),
         "detectLinks" => Some("Link detection"),
@@ -157,6 +181,18 @@ mod tests {
                 event_type: "setting_changed",
                 description: "Changed Appearance: Dark → Warm".into(),
             })
+        );
+        assert_eq!(
+            describe_setting_change("themeMode", Some("warm"), "2894")
+                .unwrap()
+                .description,
+            "Changed Appearance: Warm → 2894"
+        );
+        assert_eq!(
+            describe_setting_change("themeMode", Some("2894"), "sauced")
+                .unwrap()
+                .description,
+            "Changed Appearance: 2894 → Sauced"
         );
         assert_eq!(
             describe_setting_change("enableBins", Some("true"), "false")

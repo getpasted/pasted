@@ -4,6 +4,7 @@ import type { IntelligenceSchedulerEvent, IntelligenceSchedulerSnapshot, OcrBack
 import { safeInvoke as invoke } from '../utils/tauri';
 import { SettingsPanelHeader } from './SettingsPanelHeader';
 import { OverflowText } from './OverflowText';
+import { useToast } from './ToastProvider';
 
 const EMPTY_SNAPSHOT: IntelligenceSchedulerSnapshot = {
   revision: 0,
@@ -36,15 +37,15 @@ function eventIcon(event: IntelligenceSchedulerEvent) {
 }
 
 export function SettingsDebugPanel({ ocrEnabled }: { ocrEnabled: boolean }) {
+  const { showToast } = useToast();
   const [snapshot, setSnapshot] = useState<IntelligenceSchedulerSnapshot>(EMPTY_SNAPSHOT);
   const [ocrStatus, setOcrStatus] = useState<OcrBackfillStatus>(EMPTY_OCR_STATUS);
   const [error, setError] = useState('');
-  const [startedScenario, setStartedScenario] = useState('');
 
   const runDemo = (scenario: 'fifo' | 'parallel' | 'cancel' | 'fallback', label: string) => {
     invoke('run_intelligence_scheduler_demo', { scenario })
       .then(() => {
-        setStartedScenario(label);
+        showToast({ tone: 'success', message: `Started: ${label}` });
         setError('');
       })
       .catch((reason) => setError(String(reason)));
@@ -173,7 +174,6 @@ export function SettingsDebugPanel({ ocrEnabled }: { ocrEnabled: boolean }) {
               <span><strong className="block">Provider fallback</strong><span className="theme-text-muted text-[10px] font-normal">Fail primary, finish on fallback</span></span>
             </button>
           </div>
-          {startedScenario && <p className="theme-status-success rounded-lg border px-3 py-2 text-[10px]" role="status">Started: {startedScenario}</p>}
         </section>
       )}
 

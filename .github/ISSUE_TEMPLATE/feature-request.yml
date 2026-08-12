@@ -1,0 +1,56 @@
+name: Product improvement
+description: Propose a focused improvement to Pasted.
+title: "[Idea]: "
+labels:
+  - "needs: triage"
+assignees:
+  - JJJ
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+      description: Describe the user or automation and what is currently in their way.
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: What should become possible?
+      description: Focus on the observable outcome rather than only one proposed interface.
+    validations:
+      required: true
+  - type: textarea
+    id: workflow
+    attributes:
+      label: Example workflow
+      description: Walk through a realistic use from capture to retrieval, organization, transformation, or paste.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Existing Pasted behavior, competitor patterns, scripts, or simpler approaches.
+  - type: checkboxes
+    id: surfaces
+    attributes:
+      label: Relevant surfaces
+      options:
+        - label: Main app
+        - label: Quick HUD
+        - label: CLI or automation
+        - label: macOS
+        - label: Windows
+        - label: Linux or SteamOS
+        - label: Documentation or onboarding
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues and the Wiki.
+          required: true
+        - label: This request does not contain private clipboard data or credentials.
+          required: true
+

@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { clipDateTimeAttribute, formatClipFullDateTime, formatClipTime } from '../utils/date';
-import { formatEmojiIcon } from '../utils/emoji';
-import { ClipItem, getClipFilePaths, getClipFileSummary, getClipNoteSummary, isSensitiveText, maskSensitiveText } from '../types';
+import { ClipItem, getClipFilePaths, getClipFileSummary, getClipNoteSummary, isSensitiveText, maskSensitiveText, type Bin } from '../types';
 import type { ClipViewPolicy } from '../utils/clipViewPolicy';
 import { clipDeleteLabel, UI_COPY } from '../utils/uiCopy';
 import { safeInvoke as invoke } from '../utils/tauri';
@@ -35,6 +34,7 @@ import {
   ShieldOff,
   X,
 } from 'lucide-react';
+import { ClipBinSummary } from './ClipBinSummary';
 
 const clipImageCache = new Map<string, string | null>();
 interface FileCardPreview {
@@ -256,8 +256,7 @@ interface ClipCardProps {
   viewPolicy: ClipViewPolicy;
   isQueueMode?: boolean;
   queueIndex?: number;
-  primaryBinName?: string;
-  primaryBinIcon?: string;
+  bins: Bin[];
   rowHeight?: 'small' | 'medium' | 'large';
   filePreviewMode: 'off' | 'safe' | 'all';
   filePreviewMaxMb: number;
@@ -296,8 +295,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
   viewPolicy,
   isQueueMode = false,
   queueIndex,
-  primaryBinName,
-  primaryBinIcon,
+  bins,
   rowHeight = 'medium',
   filePreviewMode,
   filePreviewMaxMb,
@@ -525,16 +523,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
               <AlertTriangle className="clip-meta-icon" />
             </span>
           )}
-          {features.bins && primaryBinName && (
-            <span
-              role="img"
-              aria-label={`Bin: ${primaryBinName}`}
-              title={`Bin: ${primaryBinName}`}
-              className="clip-meta-item clip-meta-icon-only"
-            >
-              <span className="clip-bin-emoji">{formatEmojiIcon(primaryBinIcon)}</span>
-            </span>
-          )}
+          {features.bins && <ClipBinSummary bins={bins} primaryBinId={clip.bin_id} />}
           {features.protection && clip.is_protected && (
             <span
               role="img"
@@ -837,8 +826,15 @@ export const ClipCard = React.memo(ClipCardComponent, (prevProps, nextProps) => 
     prevProps.viewPolicy.canDragClips === nextProps.viewPolicy.canDragClips &&
     prevProps.isQueueMode === nextProps.isQueueMode &&
     prevProps.queueIndex === nextProps.queueIndex &&
-    prevProps.primaryBinName === nextProps.primaryBinName &&
-    prevProps.primaryBinIcon === nextProps.primaryBinIcon &&
+    prevProps.bins.length === nextProps.bins.length &&
+    prevProps.bins.every((bin, index) => {
+      const nextBin = nextProps.bins[index];
+      return bin.id === nextBin?.id
+        && bin.name === nextBin.name
+        && bin.icon === nextBin.icon
+        && bin.color === nextBin.color
+        && bin.smart_rule === nextBin.smart_rule;
+    }) &&
     prevProps.rowHeight === nextProps.rowHeight &&
     prevProps.filePreviewMode === nextProps.filePreviewMode &&
     prevProps.filePreviewMaxMb === nextProps.filePreviewMaxMb &&

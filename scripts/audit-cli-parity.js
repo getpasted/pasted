@@ -45,7 +45,7 @@ for (const route of ['copy', 'list', 'search', 'clear', 'clip', 'bin', 'transfor
 for (const mutation of ['batch_pin_clips', 'batch_protect_clips', 'batch_trash_clips']) {
   assert.match(database, new RegExp(`pub fn ${mutation}`), `${mutation} must live in the shared database domain layer`);
   assert.match(commands, new RegExp(`pub fn ${mutation}`), `${mutation} must be exposed to the GUI`);
-  assert.match(cli, new RegExp(`db\.${mutation}`), `${mutation} must be reused by the CLI`);
+  assert.match(cli, new RegExp(`db\\.${mutation}`), `${mutation} must be reused by the CLI`);
 }
 
 assert.match(commands, /bin_assignment::assign_clips_to_bin/, 'GUI Bin assignment must use the shared workflow');

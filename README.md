@@ -2,6 +2,8 @@
 
 Pasted is an elegant privacy-focused clipboard manager and transformation app for macOS.
 
+The [Pasted Wiki](https://github.com/getpasted/pasted/wiki) covers installation, everyday workflows, recovery, CLI automation, platform support, privacy, and troubleshooting.
+
 ## What Pasted does
 
 - Captures text, images, screenshots, PDFs, and copied file references in a searchable local history.
@@ -25,7 +27,8 @@ Pasted sends your private clip content outside the app only when you _explicitly
 
 ## macOS requirements
 
-- macOS 12 or newer
+- macOS 13 or newer
+- Apple Silicon or Intel processor
 - Accessibility permission for global hotkeys and automatic Queue/HUD pasting
 
 ## Default shortcuts
@@ -54,7 +57,7 @@ The complete command reference is available inside **Help & Documentation → CL
 
 Prerequisites:
 
-- Node.js 18 or newer
+- Node.js 22 or newer
 - Rust 1.75 or newer
 - macOS for native OCR and signed macOS packaging
 
@@ -74,6 +77,15 @@ npm run test:all
 Pasted 1.0 uses verified manual DMG updates for now. Download a newer signed DMG, and replace the application in `/Applications`.
 
 Maintainers should follow [the macOS release guide](docs/MACOS_RELEASE.md) and the [1.0 release-candidate checklist](docs/RELEASE_CHECKLIST_1.0.0.md).
+
+## Community
+
+- Read [CONTRIBUTING.md](CONTRIBUTING.md) before proposing or implementing a change.
+- Use [SUPPORT.md](SUPPORT.md) to choose the right public help channel.
+- Report vulnerabilities privately according to [SECURITY.md](SECURITY.md).
+- Participation is governed by the [Code of Conduct](CODE_OF_CONDUCT.md).
+- Project authority and automated-contribution boundaries are described in [GOVERNANCE.md](GOVERNANCE.md).
+- User-visible release history is maintained in the [Changelog](CHANGELOG.md).
 
 ## License
 

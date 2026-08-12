@@ -10,6 +10,11 @@ import { clampAppZoom } from '../utils/appZoom';
 const DEFAULT_SETTINGS: AppSettings = {
   textSize: 16,
   enableSounds: true,
+  captureFeedback: true,
+  captureFeedbackIgnored: false,
+  captureFeedbackPreview: false,
+  captureFeedbackPosition: 'top-right',
+  captureFeedbackDismissSeconds: 7,
   openAtLogin: true,
   dockMenubarIcon: 'both',
   maxClipSizeMb: 100,
@@ -32,6 +37,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   enableContentDetection: true,
   enableDiagnostics: true,
   enableNotes: true,
+  enableNotifications: true,
   enableOcr: true,
   enablePinning: true,
   enableProtection: true,
@@ -62,6 +68,16 @@ function parseSavedSettings(saved: Record<string, string>) {
 
   if (saved.textSize) next.textSize = clampAppZoom(numberValue('textSize', next.textSize));
   if (saved.enableSounds !== undefined) next.enableSounds = saved.enableSounds === 'true';
+  if (saved.captureFeedback !== undefined) next.captureFeedback = saved.captureFeedback === 'true';
+  if (saved.captureFeedbackIgnored !== undefined) next.captureFeedbackIgnored = saved.captureFeedbackIgnored === 'true';
+  if (saved.captureFeedbackPreview !== undefined) next.captureFeedbackPreview = saved.captureFeedbackPreview === 'true';
+  if (['top-left', 'top-right', 'bottom-left', 'bottom-right'].includes(saved.captureFeedbackPosition)) {
+    next.captureFeedbackPosition = saved.captureFeedbackPosition as AppSettings['captureFeedbackPosition'];
+  }
+  if (saved.captureFeedbackDismissSeconds !== undefined) {
+    const seconds = numberValue('captureFeedbackDismissSeconds', next.captureFeedbackDismissSeconds);
+    next.captureFeedbackDismissSeconds = [0, 3, 5, 7, 10, 15, 30].includes(seconds) ? seconds : 7;
+  }
   if (saved.openAtLogin !== undefined) next.openAtLogin = saved.openAtLogin === 'true';
   if (['auto_hide', 'both', 'menubar_only'].includes(saved.dockMenubarIcon)) next.dockMenubarIcon = saved.dockMenubarIcon as AppSettings['dockMenubarIcon'];
   if (saved.maxClipSizeMb) next.maxClipSizeMb = numberValue('maxClipSizeMb', next.maxClipSizeMb);
@@ -74,7 +90,7 @@ function parseSavedSettings(saved: Record<string, string>) {
   if (saved.revisionHistoryLimit !== undefined) next.revisionHistoryLimit = numberValue('revisionHistoryLimit', next.revisionHistoryLimit);
   if (saved.alwaysPastePlainText !== undefined) next.alwaysPastePlainText = saved.alwaysPastePlainText === 'true';
   if (['small', 'medium', 'large'].includes(saved.rowHeight)) next.rowHeight = saved.rowHeight as AppSettings['rowHeight'];
-  if (['system', 'cool', 'dark', 'warm', 'vampire', 'flux', '808'].includes(saved.themeMode)) next.themeMode = saved.themeMode as AppSettings['themeMode'];
+  if (['system', 'cool', 'dark', 'warm', '2894', 'sauced', 'vampire', 'flux', '808'].includes(saved.themeMode)) next.themeMode = saved.themeMode as AppSettings['themeMode'];
   if (saved.enableActivityLog !== undefined) next.enableActivityLog = saved.enableActivityLog === 'true';
   if (saved.activityLogCapacity) next.activityLogCapacity = numberValue('activityLogCapacity', next.activityLogCapacity ?? 1000);
   if (saved.enableTrash !== undefined) next.enableTrash = saved.enableTrash === 'true';
@@ -85,6 +101,7 @@ function parseSavedSettings(saved: Record<string, string>) {
     'enableContentDetection',
     'enableDiagnostics',
     'enableNotes',
+    'enableNotifications',
     'enableOcr',
     'enablePinning',
     'enableProtection',
@@ -121,7 +138,7 @@ function readCachedBlacklist() {
 function readCachedTheme(): AppSettings['themeMode'] {
   try {
     const cached = localStorage.getItem('pasted_cache_theme');
-    return ['system', 'cool', 'dark', 'warm', 'vampire', 'flux', '808'].includes(cached ?? '')
+    return ['system', 'cool', 'dark', 'warm', '2894', 'sauced', 'vampire', 'flux', '808'].includes(cached ?? '')
       ? cached as AppSettings['themeMode']
       : DEFAULT_SETTINGS.themeMode;
   } catch {
@@ -129,7 +146,7 @@ function readCachedTheme(): AppSettings['themeMode'] {
   }
 }
 
-interface WindowAppearanceChanged {
+interface AppSettingChanged {
   key: string;
   value: string;
 }
@@ -179,11 +196,11 @@ export function useAppSettings() {
   useEffect(() => {
     if (!(window as Window & { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__) return undefined;
     let disposed = false;
-    let unlistenAppearance: (() => void) | undefined;
+    let unlistenSetting: (() => void) | undefined;
 
-    void listen<WindowAppearanceChanged>('window-appearance-changed', ({ payload }) => {
+    void listen<AppSettingChanged>('app-setting-changed', ({ payload }) => {
       if (!payload || disposed) return;
-      if (payload.key !== 'themeMode' && payload.key !== 'textSize') return;
+      if (!(payload.key in DEFAULT_SETTINGS)) return;
       const parsed = parseSavedSettings({ [payload.key]: payload.value });
       const key = payload.key as keyof AppSettings;
       setAppSettings((current) => Object.is(current[key], parsed[key])
@@ -191,12 +208,12 @@ export function useAppSettings() {
         : { ...current, [key]: parsed[key] });
     }).then((unlisten) => {
       if (disposed) unlisten();
-      else unlistenAppearance = unlisten;
+      else unlistenSetting = unlisten;
     }).catch(console.error);
 
     return () => {
       disposed = true;
-      unlistenAppearance?.();
+      unlistenSetting?.();
     };
   }, []);
 
@@ -211,6 +228,8 @@ export function useAppSettings() {
       root.classList.toggle('cool', resolvedTheme === 'cool');
       root.classList.toggle('dark', resolvedTheme === 'dark');
       root.classList.toggle('warm', resolvedTheme === 'warm');
+      root.classList.toggle('theme-2894', resolvedTheme === '2894');
+      root.classList.toggle('theme-sauced', resolvedTheme === 'sauced');
       root.classList.toggle('vampire', resolvedTheme === 'vampire');
       root.classList.toggle('flux', resolvedTheme === 'flux');
       root.classList.toggle('theme-808', resolvedTheme === '808');
@@ -218,7 +237,7 @@ export function useAppSettings() {
         root.dataset.platform === 'linux'
         && (window as Window & { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__
       ) {
-        const nativeTheme = ['cool', 'warm'].includes(resolvedTheme) ? 'light' : 'dark';
+        const nativeTheme = ['cool', 'warm', '2894', 'sauced'].includes(resolvedTheme) ? 'light' : 'dark';
         void Promise.all([
           getCurrentWindow().setTheme(nativeTheme),
           invoke('set_linux_native_menu_theme', { dark: nativeTheme === 'dark' }),

@@ -23,6 +23,7 @@ import {
   Shield,
   ShieldOff,
   RotateCcw,
+  Check,
 } from 'lucide-react';
 
 interface ContextMenuProps {
@@ -35,6 +36,7 @@ interface ContextMenuProps {
   onClose: () => void;
   onCopy: () => void;
   onAssignBin: (binId: number | null) => void;
+  onRemoveBin: (binId: number) => void;
   onRunTransform: (transform: SavedTransform) => void;
   onOpenTransformations: () => void;
   onAddNote: () => void;
@@ -58,6 +60,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   onClose,
   onCopy,
   onAssignBin,
+  onRemoveBin,
   onRunTransform,
   onOpenTransformations,
   onAddNote,
@@ -139,17 +142,47 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
               No Bin
             </MenuItem>
 
-            {bins.filter((b) => !b.smart_rule).map((b) => (
+            {bins.filter((b) => !b.smart_rule).map((b) => {
+              const active = Boolean(clip.bin_ids?.includes(b.id));
+              return (
+                <MenuItem
+                  key={b.id}
+                  onClick={() => {
+                    if (active) onRemoveBin(b.id);
+                    else onAssignBin(b.id);
+                  }}
+                  className="gap-2 px-3 py-1.5"
+                  role="menuitemcheckbox"
+                  aria-checked={active}
+                  active={active}
+                >
+                  <span>{formatEmojiIcon(b.icon)}</span>
+                  <OverflowText text={b.name} className="truncate" style={{ color: binTextColor(b.color) }} />
+                  {active && <Check className="ml-auto h-3.5 w-3.5" aria-hidden="true" />}
+                </MenuItem>
+              );
+            })}
+            {bins.some((b) => b.smart_rule) && (
+              <>
+                <MenuDivider />
+                <div className="theme-text-subtle px-3 pb-1 pt-1 text-[10px] font-bold uppercase tracking-wider">
+                  Smart Bins · Automatic
+                </div>
+              </>
+            )}
+            {bins.filter((b) => b.smart_rule).map((b) => (
               <MenuItem
                 key={b.id}
-                onClick={() => {
-                  onAssignBin(b.id);
-                  onClose();
-                }}
+                disabled
+                role="menuitemcheckbox"
+                aria-checked={Boolean(clip.bin_ids?.includes(b.id))}
+                active={Boolean(clip.bin_ids?.includes(b.id))}
+                title="Smart Bin membership is managed automatically"
                 className="gap-2 px-3 py-1.5"
               >
                 <span>{formatEmojiIcon(b.icon)}</span>
                 <OverflowText text={b.name} className="truncate" style={{ color: binTextColor(b.color) }} />
+                {clip.bin_ids?.includes(b.id) && <Check className="ml-auto h-3.5 w-3.5" aria-hidden="true" />}
               </MenuItem>
             ))}
         </MenuSubmenu>

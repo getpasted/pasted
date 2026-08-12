@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import { Code2, Coffee, Download, Droplet, Drum, Laptop, Link, Minus, Moon, Palette, Plus, RotateCcw, Sliders, Snowflake, Trash2, Zap } from 'lucide-react';
+import { Building2, Code2, Coffee, Download, Droplet, Drum, Laptop, Link, Minus, Moon, Palette, Pizza, Plus, RotateCcw, Sliders, Snowflake, Trash2, Zap } from 'lucide-react';
 import type { AppSettings } from '../types';
 import { useAltKeyPressed } from '../hooks/useAltKeyPressed';
 import { safeInvoke as invoke } from '../utils/tauri';
@@ -7,6 +6,7 @@ import { MenuSelect } from './MenuSelect';
 import { SettingsPanelHeader } from './SettingsPanelHeader';
 import { SettingsSectionHeading } from './SettingsSectionHeading';
 import { ACTUAL_SIZE, APP_ZOOM_STEPS, appZoomPercent, stepAppZoom } from '../utils/appZoom';
+import { useToast } from './ToastProvider';
 
 interface SettingsGeneralPanelProps {
   settings: AppSettings;
@@ -20,6 +20,8 @@ const appearanceModes = [
   { value: 'dark', label: 'Dark', Icon: Moon },
   { value: 'cool', label: 'Cool', Icon: Snowflake },
   { value: 'warm', label: 'Warm', Icon: Coffee },
+  { value: '2894', label: '2894', Icon: Building2 },
+  { value: 'sauced', label: 'Sauced', Icon: Pizza },
   { value: 'vampire', label: 'Vampire', Icon: Droplet },
   { value: 'flux', label: 'Flux', Icon: Zap },
   { value: '808', label: '808', Icon: Drum },
@@ -28,7 +30,7 @@ const appearanceModes = [
 const appearanceGroups = [
   { label: 'System', values: ['system'] },
   { label: 'Dark schemes', values: ['dark', 'vampire', 'flux', '808'] },
-  { label: 'Light schemes', values: ['cool', 'warm'] },
+  { label: 'Light schemes', values: ['cool', 'warm', '2894', 'sauced'] },
 ] as const;
 
 const pasteBehaviorOptions = [
@@ -75,8 +77,8 @@ export function SettingsGeneralPanel({
   onClearHistory,
   onResetColumnWidths,
 }: SettingsGeneralPanelProps) {
+  const { showToast } = useToast();
   const isAltPressed = useAltKeyPressed();
-  const [exportStatus, setExportStatus] = useState<string | null>(null);
   const isMac = typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.userAgent || navigator.platform);
   const dockIconOptions = isMac
     ? [
@@ -105,10 +107,10 @@ export function SettingsGeneralPanel({
         : `pasted_export_${Date.now()}.csv`;
       link.click();
       URL.revokeObjectURL(url);
-      setExportStatus(`${format.toUpperCase()} export downloaded.`);
+      showToast({ tone: 'success', message: `${format.toUpperCase()} export downloaded.` });
     } catch (error) {
       console.error(`Failed to export clips as ${format}:`, error);
-      setExportStatus(`${format.toUpperCase()} export failed.`);
+      showToast({ tone: 'error', message: `${format.toUpperCase()} export failed.` });
     }
   };
 
@@ -490,11 +492,6 @@ export function SettingsGeneralPanel({
                     </button>
                   </div>
                 </div>
-                {exportStatus && (
-                  <p role="status" className="theme-text-muted pt-2 text-right text-[11px]">
-                    {exportStatus}
-                  </p>
-                )}
               </div>
             </div>
 

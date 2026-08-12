@@ -1,6 +1,6 @@
 /**
  * WCAG 2.1 Level AA Automated Contrast Audit Tool for Pasted
- * Verifies color contrast ratios for Dark, Cool, Warm, Vampire, Flux, and 808 themes.
+ * Verifies color contrast ratios for Dark, Cool, Warm, 2894, Sauced, Vampire, Flux, and 808 themes.
  */
 
 function hexToRgb(hex) {
@@ -55,6 +55,22 @@ const testPairs = [
   { name: 'Warm - Selected Nav Text vs BG', fg: '#2b2118', bg: '#fffaf2', minRatio: 4.5, scheme: 'Warm' },
   { name: 'Warm - Hovered Nav Text vs BG', fg: '#2b2118', bg: '#e3d4c4', minRatio: 4.5, scheme: 'Warm' },
   { name: 'Warm - Code Text vs Surface', fg: '#3b3026', bg: '#eee5d8', minRatio: 4.5, scheme: 'Warm' },
+
+  // 2894 SCHEME PAIRS
+  { name: '2894 - Primary Text vs App BG', fg: '#293b44', bg: '#edf2f3', minRatio: 4.5, scheme: '2894' },
+  { name: '2894 - Muted Text vs Surface', fg: '#52656f', bg: '#ffffff', minRatio: 4.5, scheme: '2894' },
+  { name: '2894 - Accent Button Text vs BG', fg: '#1b272d', bg: '#a0c563', minRatio: 4.5, scheme: '2894' },
+  { name: '2894 - Selected Text vs BG', fg: '#142127', bg: '#dce8e1', minRatio: 4.5, scheme: '2894' },
+  { name: '2894 - Selected Nav Text vs BG', fg: '#1b272d', bg: '#ffffff', minRatio: 4.5, scheme: '2894' },
+  { name: '2894 - Code Text vs Surface', fg: '#293b44', bg: '#eaf0f2', minRatio: 4.5, scheme: '2894' },
+
+  // SAUCED SCHEME PAIRS
+  { name: 'Sauced - Primary Text vs App BG', fg: '#30272c', bg: '#fff4fa', minRatio: 4.5, scheme: 'Sauced' },
+  { name: 'Sauced - Muted Text vs Surface', fg: '#62535b', bg: '#ffffff', minRatio: 4.5, scheme: 'Sauced' },
+  { name: 'Sauced - Accent Button Text vs BG', fg: '#171214', bg: '#ff80cc', minRatio: 4.5, scheme: 'Sauced' },
+  { name: 'Sauced - Selected Text vs BG', fg: '#171214', bg: '#ffd8ef', minRatio: 4.5, scheme: 'Sauced' },
+  { name: 'Sauced - Selected Nav Text vs BG', fg: '#171214', bg: '#ffffff', minRatio: 4.5, scheme: 'Sauced' },
+  { name: 'Sauced - Code Text vs Surface', fg: '#30272c', bg: '#fff0f8', minRatio: 4.5, scheme: 'Sauced' },
 
   // VAMPIRE SCHEME PAIRS
   { name: 'Vampire - Primary Text vs App BG', fg: '#eee5f2', bg: '#19131f', minRatio: 4.5, scheme: 'Vampire' },

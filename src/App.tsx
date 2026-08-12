@@ -210,7 +210,7 @@ export default function App() {
     if (requiredFeature && !enabledFeatures[requiredFeature]) route = 'all';
     const [tab, detail] = route.split(':', 2);
     const key = ++navigationSerialRef.current;
-    if (tab === 'settings' && ['general', 'features', 'hotkeys', 'connections', 'blacklist', 'backup', 'diagnostics', 'about'].includes(detail)) {
+    if (tab === 'settings' && ['general', 'features', 'notifications', 'hotkeys', 'connections', 'blacklist', 'storage', 'diagnostics', 'about'].includes(detail)) {
       setSettingsNavigation({ tab: detail as SettingsTab, key });
     } else if (tab === 'help' && ['cli', 'hotkeys', 'autopause', 'trash', 'pipelines'].includes(detail)) {
       setHelpNavigation({ topic: detail as HelpTopic, key });
@@ -416,6 +416,14 @@ export default function App() {
   const isPinnedCollection = currentCollection?.membership === 'pinned';
   const isBinCollection = currentCollection?.membership === 'bin' && selectedBinId !== null;
   const clipListRef = useRef<HTMLDivElement | null>(null);
+  const pendingRepositionedClipRevealIdRef = useRef<number | null>(null);
+  const repositionedClipAnimationFrameRef = useRef<number | null>(null);
+  const requestRepositionedClipReveal = useCallback((ids: number[]) => {
+    if (currentCollection?.membership !== 'all' && currentCollection?.membership !== 'bin') return;
+    pendingRepositionedClipRevealIdRef.current = selectedClip && ids.includes(selectedClip.id)
+      ? selectedClip.id
+      : ids[0] ?? null;
+  }, [currentCollection?.membership, selectedClip]);
   const queueReorderIds = useMemo(
     () => isQueueCollection ? (seqStatus?.item_ids ?? []).map(String) : [],
     [isQueueCollection, seqStatus?.item_ids],
@@ -508,6 +516,62 @@ export default function App() {
       if (secondFrame) cancelAnimationFrame(secondFrame);
     };
   }, [handleClipListScroll, pinnedShelfSignature]);
+
+  useLayoutEffect(() => {
+    const clipId = pendingRepositionedClipRevealIdRef.current;
+    const element = clipListRef.current;
+    if (clipId === null || !element) return;
+    const card = element.querySelector<HTMLElement>(`[data-clip-id="${clipId}"]`);
+    pendingRepositionedClipRevealIdRef.current = null;
+    if (!card) return;
+
+    const getTargetScrollTop = () => Math.max(
+      0,
+      Math.min(
+        element.scrollTop + card.getBoundingClientRect().top - element.getBoundingClientRect().top,
+        element.scrollHeight - element.clientHeight,
+      ),
+    );
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      element.scrollTop = getTargetScrollTop();
+      return;
+    }
+
+    if (repositionedClipAnimationFrameRef.current !== null) {
+      cancelAnimationFrame(repositionedClipAnimationFrameRef.current);
+    }
+    const durationMs = 260;
+    // Let browser scroll anchoring settle after the card moves in the DOM,
+    // then measure from the actual painted position before animating.
+    repositionedClipAnimationFrameRef.current = requestAnimationFrame((startedAt) => {
+      const startScrollTop = element.scrollTop;
+      const targetScrollTop = getTargetScrollTop();
+      const distance = targetScrollTop - startScrollTop;
+      if (distance === 0) {
+        repositionedClipAnimationFrameRef.current = null;
+        return;
+      }
+
+      const animate = (now: number) => {
+        const progress = Math.min((now - startedAt) / durationMs, 1);
+        const easedProgress = 1 - Math.pow(1 - progress, 3);
+        element.scrollTop = startScrollTop + distance * easedProgress;
+        if (progress < 1) {
+          repositionedClipAnimationFrameRef.current = requestAnimationFrame(animate);
+        } else {
+          element.scrollTop = getTargetScrollTop();
+          repositionedClipAnimationFrameRef.current = null;
+        }
+      };
+      animate(startedAt);
+    });
+  }, [displayedClips]);
+
+  useEffect(() => () => {
+    if (repositionedClipAnimationFrameRef.current !== null) {
+      cancelAnimationFrame(repositionedClipAnimationFrameRef.current);
+    }
+  }, []);
 
   const selectPinnedShelfClip = useCallback((clip: ClipItem) => {
     const index = displayedClips.findIndex((item) => item.id === clip.id);
@@ -656,6 +720,7 @@ export default function App() {
     deleteClip: handleDeleteClip,
     copyClip: handleCopyClip,
     assignClipToBin,
+    removeClipFromBin,
     runTransformForClip: handleRunTransformForClip,
     addToSequentialStack: handleAddToSequentialStack,
     updateClipNoteLocally: handleUpdateClipNoteLocally,
@@ -678,6 +743,7 @@ export default function App() {
     fetchTrashedClips,
     fetchSequentialStatus,
     keepTrashedClipsVisible: currentTab === 'search',
+    onClipsRepositioned: requestRepositionedClipReveal,
   });
 
   const handleAssignClipToBin = useCallback(
@@ -1028,6 +1094,7 @@ export default function App() {
           onResetColumnWidths={resetColumnWidths}
           requestedTab={settingsNavigation?.tab}
           navigationKey={settingsNavigation?.key}
+          onOpenAnalytics={() => handleSidebarNavigate('analytics')}
         />
       ) : (
         <div className="flex-1 h-screen flex overflow-hidden">
@@ -1157,7 +1224,7 @@ export default function App() {
                     : clip.text_content
                       ? queuedIndexMap.get(clip.text_content)
                       : undefined;
-                  const primaryBin = clip.bin_id === null ? undefined : binsById.get(clip.bin_id);
+                  const clipBins = bins.filter((bin) => clip.bin_ids?.includes(bin.id));
                   const baseViewPolicy = getClipViewPolicy(currentTab, clip);
                   const queueReorderId = isQueueCollection
                     ? seqStatus?.item_ids[index]?.toString()
@@ -1188,8 +1255,7 @@ export default function App() {
                       viewPolicy={viewPolicy}
                       isQueueMode={isQueueCollection}
                       queueIndex={queueIndex}
-                      primaryBinName={primaryBin?.name}
-                      primaryBinIcon={primaryBin?.icon}
+                      bins={clipBins}
                       rowHeight={appSettings.rowHeight}
                       filePreviewMode={appSettings.filePreviewMode}
                       filePreviewMaxMb={appSettings.filePreviewMaxMb}
@@ -1327,6 +1393,9 @@ export default function App() {
                   onClick={() => {
                     const ids = Array.from(selectedClipIds);
                     const idSet = new Set(ids);
+                    requestRepositionedClipReveal(allClips
+                      .filter((clip) => idSet.has(clip.id) && !clip.is_pinned)
+                      .map((clip) => clip.id));
                     setAllClips((previous) => {
                       const newlyPinned = previous
                         .filter((clip) => idSet.has(clip.id))
@@ -1355,6 +1424,9 @@ export default function App() {
                   onClick={() => {
                     const ids = Array.from(selectedClipIds);
                     const idSet = new Set(ids);
+                    requestRepositionedClipReveal(allClips
+                      .filter((clip) => idSet.has(clip.id) && clip.is_pinned)
+                      .map((clip) => clip.id));
                     setAllClips((previous) => {
                       const updated = previous.map((clip) => idSet.has(clip.id)
                         ? { ...clip, is_pinned: false, pin_order: 0 }
@@ -1408,9 +1480,11 @@ export default function App() {
             clip={selectedClip}
             viewPolicy={selectedClipViewPolicy}
             bins={bins}
+            viewedBinId={isBinCollection ? selectedBinId : null}
             pipelines={pipelines}
             onUpdateClip={handlePreviewClipUpdate}
             onAssignBin={handleAssignBin}
+            onRemoveBin={removeClipFromBin}
             onTogglePin={handleTogglePin}
             onToggleProtected={handleToggleProtected}
             onDeleteClip={selectedClipViewPolicy.state === 'trash' ? handlePurgeClipPermanently : handleDeleteClip}
@@ -1418,6 +1492,7 @@ export default function App() {
             isTransforming={selectedClip ? transformingClipIds.has(selectedClip.id) : false}
             transformError={selectedClip ? transformErrorsByClipId.get(selectedClip.id) : undefined}
             onOpenTransformations={() => navigateToTab('transformations')}
+            onOpenConnections={() => navigateToTab('settings:connections')}
             trashEnabled={appSettings.enableTrash}
             filePreviewMode={appSettings.filePreviewMode}
             filePreviewMaxMb={appSettings.filePreviewMaxMb}
@@ -1441,6 +1516,7 @@ export default function App() {
             binId,
             { includeSelection: true },
           )}
+          onRemoveBin={(binId) => removeClipFromBin(contextMenu.clip.id, binId)}
           onRunTransform={(transform) => handleRunTransformForClip(contextMenu.clip, transform)}
           onOpenTransformations={() => navigateToTab('transformations')}
           onAddNote={() => handlePromptAddNote(contextMenu.clip)}

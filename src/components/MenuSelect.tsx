@@ -21,6 +21,7 @@ interface MenuSelectProps {
   leadingIcon?: ReactNode;
   className?: string;
   compact?: boolean;
+  disabled?: boolean;
 }
 
 export function MenuSelect({
@@ -31,6 +32,7 @@ export function MenuSelect({
   leadingIcon,
   className = '',
   compact = false,
+  disabled = false,
 }: MenuSelectProps) {
   const triggerRef = useRef<HTMLButtonElement>(null);
   const [isOpen, setIsOpen] = useState(false);
@@ -46,6 +48,7 @@ export function MenuSelect({
         aria-label={label}
         aria-haspopup="menu"
         aria-expanded={isOpen}
+        disabled={disabled}
         onClick={() => setIsOpen((open) => !open)}
       >
         {leadingIcon}
@@ -57,7 +60,7 @@ export function MenuSelect({
         <ChevronDown className={`h-3.5 w-3.5 shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} aria-hidden="true" />
       </button>
 
-      {isOpen && (
+      {isOpen && !disabled && (
         <AnchoredMenu
           anchor={{ kind: 'element', ref: triggerRef, align: 'start' }}
           ariaLabel={label}

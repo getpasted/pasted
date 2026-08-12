@@ -7,6 +7,7 @@ pub enum Feature {
     ContentDetection,
     Diagnostics,
     Notes,
+    Notifications,
     Ocr,
     Pinning,
     Protection,
@@ -21,12 +22,13 @@ pub enum Feature {
 }
 
 impl Feature {
-    pub const ALL: [Feature; 16] = [
+    pub const ALL: [Feature; 17] = [
         Feature::Analytics,
         Feature::Bins,
         Feature::ContentDetection,
         Feature::Diagnostics,
         Feature::Notes,
+        Feature::Notifications,
         Feature::Ocr,
         Feature::Pinning,
         Feature::Protection,
@@ -47,6 +49,7 @@ impl Feature {
             Feature::ContentDetection => "enableContentDetection",
             Feature::Diagnostics => "enableDiagnostics",
             Feature::Notes => "enableNotes",
+            Feature::Notifications => "enableNotifications",
             Feature::Ocr => "enableOcr",
             Feature::Pinning => "enablePinning",
             Feature::Protection => "enableProtection",
@@ -74,6 +77,7 @@ impl Feature {
             Feature::ContentDetection => "Content Detection",
             Feature::Diagnostics => "Diagnostics",
             Feature::Notes => "Notes",
+            Feature::Notifications => "Notifications",
             Feature::Ocr => "OCR",
             Feature::Pinning => "Pinning",
             Feature::Protection => "Protection",
@@ -131,7 +135,7 @@ mod tests {
 
     #[test]
     fn frontend_and_native_setting_keys_are_stable() {
-        assert_eq!(Feature::ALL.len(), 16);
+        assert_eq!(Feature::ALL.len(), 17);
         for feature in Feature::ALL {
             assert_eq!(
                 Feature::from_setting_key(feature.setting_key()),

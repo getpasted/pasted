@@ -12,6 +12,7 @@ mod intelligence_connections;
 pub mod intelligence_executor;
 mod intelligence_provider;
 mod intelligence_scheduler;
+pub mod library_storage;
 #[cfg(target_os = "linux")]
 mod linux_native_theme;
 pub mod ocr;
@@ -22,6 +23,7 @@ mod paste_target;
 pub mod resource_limits;
 mod sequential_paste;
 mod settings_activity;
+mod titlebar;
 mod transformation_intent;
 pub mod transformation_service;
 
@@ -112,7 +114,7 @@ fn trim_webview_memory(app: &tauri::AppHandle) {
 }
 
 #[cfg(target_os = "macos")]
-fn setup_hud_window_transparency(window: &tauri::WebviewWindow) {
+fn setup_overlay_window_transparency(window: &tauri::WebviewWindow) {
     use objc::runtime::Object;
     use objc::{msg_send, sel, sel_impl};
     if let Ok(ns_window_ptr) = window.ns_window() {
@@ -205,7 +207,7 @@ pub fn run() {
                 .path()
                 .app_data_dir()
                 .unwrap_or_else(|_| std::path::PathBuf::from("./pasted_data"));
-            let db_path = app_dir.join("pasted.db");
+            let db_path = library_storage::resolve_database_path(&app_dir);
 
             let db_state =
                 Arc::new(db::DbState::new(db_path).expect("Failed to initialize SQLite database"));
@@ -251,7 +253,10 @@ pub fn run() {
             #[cfg(target_os = "macos")]
             {
                 if let Some(hud_win) = app.get_webview_window("hud") {
-                    setup_hud_window_transparency(&hud_win);
+                    setup_overlay_window_transparency(&hud_win);
+                }
+                if let Some(feedback_win) = app.get_webview_window("capture-feedback") {
+                    setup_overlay_window_transparency(&feedback_win);
                 }
             }
 
@@ -338,6 +343,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::get_clips,
+            commands::get_capture_feedback_clip,
             commands::get_clip_image,
             commands::get_file_clip_metadata,
             commands::get_file_clip_previews,
@@ -353,12 +359,14 @@ pub fn run() {
             commands::save_app_settings,
             commands::get_all_app_settings,
             commands::set_linux_native_menu_theme,
+            commands::set_overlay_cursor,
             commands::enforce_clip_retention,
             commands::enforce_revision_retention,
             commands::update_clip_note,
             commands::delete_clip,
             commands::toggle_pin_clip,
             commands::assign_clip_bin,
+            commands::remove_clip_bin,
             commands::reorder_pinned_clips,
             commands::reorder_bin_clips,
             commands::get_clip_versions,
@@ -373,6 +381,7 @@ pub fn run() {
             commands::batch_trash_clips,
             commands::batch_assign_bin_clips,
             commands::copy_clip_to_system,
+            commands::copy_clip_by_id,
             commands::paste_text_to_frontmost,
             commands::get_bins,
             commands::create_bin,
@@ -407,6 +416,9 @@ pub fn run() {
             commands::cancel_transformation_execution,
             commands::get_intelligence_scheduler_snapshot,
             commands::get_installation_diagnostics,
+            commands::get_library_location,
+            commands::move_library,
+            commands::restore_default_library_location,
             commands::run_intelligence_scheduler_demo,
             commands::toggle_clip_protected,
             commands::trash_unpinned_clips,
@@ -442,7 +454,8 @@ pub fn run() {
             commands::get_analytics_summary,
             commands::install_cli_to_path,
             commands::get_hotkey_capability_status,
-            commands::request_accessibility_permission
+            commands::request_accessibility_permission,
+            commands::perform_titlebar_double_click
         ])
         .run(tauri::generate_context!())
         .expect("error while running Pasted application");

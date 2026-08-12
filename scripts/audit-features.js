@@ -8,13 +8,16 @@ const settingsHook = read('src/hooks/useAppSettings.ts');
 const nativePolicy = read('src-tauri/src/features.rs');
 const nativeRoot = read('src-tauri/src/lib.rs');
 const nativeCommands = read('src-tauri/src/commands.rs');
+const settingsModal = read('src/components/SettingsModal.tsx');
+const captureFeedbackWindow = read('src/components/CaptureFeedbackWindow.tsx');
+const clipboardMonitor = read('src-tauri/src/clipboard_monitor.rs');
 
 const frontendKeys = [...frontendRegistry.matchAll(/settingKey:\s*'(enable[A-Za-z]+)'/g)]
   .map((match) => match[1]);
 const nativeKeys = [...nativePolicy.matchAll(/=>\s*"(enable[A-Za-z]+)"/g)]
   .map((match) => match[1]);
 
-assert.equal(frontendKeys.length, 16, 'The frontend feature registry must include every supported capability');
+assert.equal(frontendKeys.length, 17, 'The frontend feature registry must include every supported capability');
 assert.deepEqual(
   [...new Set(nativeKeys)].sort(),
   [...new Set(frontendKeys)].sort(),
@@ -36,13 +39,28 @@ assert.doesNotMatch(
 
 assert.match(
   nativeCommands,
-  /"window-appearance-changed"/,
-  'Native appearance writes must notify every open window',
+  /"app-setting-changed"/,
+  'Native settings writes must notify every open window',
 );
 assert.match(
   settingsHook,
-  /listen<WindowAppearanceChanged>\('window-appearance-changed'/,
-  'Each window must synchronize appearance changed elsewhere',
+  /listen<AppSettingChanged>\('app-setting-changed'/,
+  'Each window must synchronize settings changed elsewhere',
+);
+assert.match(
+  settingsModal,
+  /settings\.enableNotifications && activeTab === 'notifications'/,
+  'The Notifications feature must own its Settings surface',
+);
+assert.match(
+  captureFeedbackWindow,
+  /currentSettings\.enableNotifications/,
+  'The capture feedback window must honor the shared Notifications feature gate',
+);
+assert.match(
+  clipboardMonitor,
+  /Feature::Notifications/,
+  'Clipboard capture must suppress notification events at the native policy boundary',
 );
 assert.match(
   settingsHook,

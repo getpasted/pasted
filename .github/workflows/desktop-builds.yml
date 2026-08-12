@@ -2,8 +2,22 @@ name: Desktop builds
 
 on:
   pull_request:
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+      - ".github/ISSUE_TEMPLATE/**"
+      - ".github/CODEOWNERS"
+      - ".github/dependabot.yml"
+      - "LICENSE"
   push:
     branches: [main]
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+      - ".github/ISSUE_TEMPLATE/**"
+      - ".github/CODEOWNERS"
+      - ".github/dependabot.yml"
+      - "LICENSE"
   workflow_dispatch:
 
 concurrency:
@@ -19,7 +33,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -54,7 +68,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -91,6 +105,9 @@ jobs:
         if: runner.os == 'macOS'
         env:
           APPLE_SIGNING_IDENTITY: '-'
+          # Exercise the branded Finder presentation in CI instead of Tauri's
+          # default plain-folder fallback.
+          TAURI_BUNDLER_DMG_IGNORE_CI: true
         run: npm run tauri -- build --target universal-apple-darwin --bundles dmg
       - name: Build Linux AppImage
         if: runner.os == 'Linux'

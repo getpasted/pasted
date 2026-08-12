@@ -11,12 +11,18 @@ const cargoManifest = fs.readFileSync('src-tauri/Cargo.toml', 'utf8');
 const rustMainSource = fs.readFileSync('src-tauri/src/main.rs', 'utf8');
 const settingsSource = fs.readFileSync('src/hooks/useAppSettings.ts', 'utf8');
 const linuxThemeSource = fs.readFileSync('src-tauri/src/linux_native_theme.rs', 'utf8');
+const windowDragSource = fs.readFileSync('src/utils/windowDrag.ts', 'utf8');
+const titlebarSource = fs.readFileSync('src-tauri/src/titlebar.rs', 'utf8');
+const rustLibSource = fs.readFileSync('src-tauri/src/lib.rs', 'utf8');
 
 const windowByLabel = (config, label) => config.app.windows.find((window) => window.label === label);
 const baseMain = windowByLabel(baseConfig, 'main');
 const macMain = windowByLabel(macConfig, 'main');
+const captureFeedback = windowByLabel(baseConfig, 'capture-feedback');
 
 assert.ok(baseMain, 'Base configuration must define the main window');
+assert.ok(captureFeedback, 'Base configuration must define the capture feedback window');
+assert.equal(captureFeedback.focus, false, 'Capture feedback must never steal focus');
 assert.equal(
   baseConfig.app.macOSPrivateApi,
   true,
@@ -77,5 +83,20 @@ assert.match(
   /arboard = \{ version = "3\.4", features = \["wayland-data-control"\] \}/,
   'Linux clipboard history needs Wayland data-control instead of an XWayland fallback',
 );
+assert.match(windowDragSource, /isInteractiveTitlebarTarget\(event\.target\)/);
+assert.match(windowDragSource, /document\.documentElement\.dataset\.platform === 'macos'/);
+assert.match(windowDragSource, /event\.detail === 2/);
+assert.match(windowDragSource, /perform_titlebar_double_click/);
+assert.match(windowDragSource, /\.titlebar-no-drag/);
+assert.match(titlebarSource, /AppleActionOnDoubleClick/);
+assert.match(titlebarSource, /TitlebarDoubleClickAction::Minimize/);
+assert.match(titlebarSource, /TitlebarDoubleClickAction::None/);
+assert.match(titlebarSource, /TitlebarDoubleClickAction::Fill/);
+assert.match(titlebarSource, /run_on_main_thread/);
+assert.match(titlebarSource, /STANDARD_ZOOM_WIDTH: f64 = 1040\.0/);
+assert.match(titlebarSource, /STANDARD_ZOOM_HEIGHT: f64 = 640\.0/);
+assert.match(titlebarSource, /setFrame: next display: 1i8 animate: 0i8/);
+assert.match(titlebarSource, /TitlebarDoubleClickAction::Fill => visible/);
+assert.match(rustLibSource, /commands::perform_titlebar_double_click/);
 
 console.log('Platform window-chrome audit passed.');

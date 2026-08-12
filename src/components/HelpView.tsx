@@ -17,6 +17,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { ToolPageHeader } from './ToolPageHeader';
+import { useToast } from './ToastProvider';
 
 const CLI_SYMLINK_COMMAND = 'sudo ln -s /Applications/Pasted.app/Contents/MacOS/pasted /usr/local/bin/pasted';
 const CLI_ALIAS_COMMAND = 'alias pasted="/Applications/Pasted.app/Contents/MacOS/pasted"';
@@ -60,6 +61,9 @@ const CLI_COMMAND_GROUPS = [
     title: 'Maintenance',
     commands: [
       { usage: 'pasted diagnostics [--json]', description: 'Show installation, signing, paths, and runtime details.' },
+      { usage: 'pasted library location [--json]', description: 'Show the active SQLite library location.' },
+      { usage: 'pasted library move <folder> [--json]', description: 'Move the library safely after quitting the Pasted app.' },
+      { usage: 'pasted library default [--json]', description: 'Return the SQLite library to Pasted’s native default location.' },
       { usage: 'pasted ocr status [--json]', description: 'Inspect OCR backfill progress.' },
       { usage: 'pasted ocr scan', description: 'Process eligible images that have not been OCR’d.' },
       { usage: 'pasted reset --yes [--json]', description: 'Reset all Pasted data and preferences. This is destructive.' },
@@ -90,9 +94,9 @@ interface HelpViewProps {
 }
 
 export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKey }) => {
+  const { showToast } = useToast();
   const [activeSubTab, setActiveSubTab] = useState<HelpTopic>('cli');
   const [copiedCmd, setCopiedCmd] = useState<string | null>(null);
-  const [installStatus, setInstallStatus] = useState<string | null>(null);
 
   useEffect(() => {
     if (requestedTopic) setActiveSubTab(requestedTopic);
@@ -107,9 +111,9 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
   const handleInstallCli = async () => {
     try {
       const res = await invoke<string>('install_cli_to_path');
-      setInstallStatus(res);
+      showToast({ tone: 'success', message: res });
     } catch (e: any) {
-      setInstallStatus(`Error: ${e}`);
+      showToast({ tone: 'error', message: String(e), durationMs: 8000 });
     }
   };
 
@@ -174,12 +178,6 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
                     <span>1-Click Symlink to ~/.local/bin</span>
                   </button>
                 </div>
-
-                {installStatus && (
-                  <div className="theme-code-surface p-2.5 rounded-lg border text-xs font-mono">
-                    {installStatus}
-                  </div>
-                )}
 
                 <div className="theme-text-main space-y-2 text-xs">
                   <p className="font-semibold theme-title">Manual $PATH setup:</p>

@@ -1,7 +1,7 @@
 use parking_lot::Mutex;
 use rusqlite::{params, Connection, OptionalExtension, Result, ToSql};
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::PathBuf;
 
@@ -95,6 +95,92 @@ fn push_smart_condition(
         _ => return,
     };
     conditions.push(condition);
+}
+
+fn append_smart_bin_memberships(conn: &Connection, clips: &mut [ClipItem]) -> Result<()> {
+    if clips.is_empty() {
+        return Ok(());
+    }
+    let requested_ids = clips.iter().map(|clip| clip.id).collect::<HashSet<_>>();
+    let mut memberships = HashMap::<i64, Vec<i64>>::new();
+    let mut bins_statement = conn
+        .prepare("SELECT id, smart_rule FROM bins WHERE smart_rule IS NOT NULL ORDER BY id ASC")?;
+    let smart_bins = bins_statement
+        .query_map([], |row| {
+            Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
+        })?
+        .collect::<Result<Vec<_>>>()?;
+
+    for (bin_id, smart_rule) in smart_bins {
+        let mut conditions = Vec::new();
+        let mut parameters: Vec<Box<dyn ToSql>> = Vec::new();
+        if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&smart_rule) {
+            if let Some(items) = parsed["conditions"].as_array() {
+                for condition in items {
+                    push_smart_condition(
+                        condition["type"].as_str().unwrap_or(""),
+                        condition["value"].as_str().unwrap_or(""),
+                        &mut conditions,
+                        &mut parameters,
+                    );
+                }
+            } else {
+                push_smart_condition(
+                    parsed["type"].as_str().unwrap_or(""),
+                    parsed["value"].as_str().unwrap_or(""),
+                    &mut conditions,
+                    &mut parameters,
+                );
+            }
+        }
+        let join = if serde_json::from_str::<serde_json::Value>(&smart_rule)
+            .ok()
+            .and_then(|rule| rule["match"].as_str().map(str::to_owned))
+            .as_deref()
+            == Some("all")
+        {
+            " AND "
+        } else {
+            " OR "
+        };
+        let rule_clause = if conditions.is_empty() {
+            "0".to_string()
+        } else {
+            format!("({})", conditions.join(join))
+        };
+        let sql = format!(
+            "SELECT id FROM clips
+             WHERE (is_trashed IS NULL OR is_trashed = 0)
+               AND ({rule_clause} OR bin_id = ? OR id IN (
+                    SELECT clip_id FROM clip_bins WHERE bin_id = ?
+               ))"
+        );
+        parameters.push(Box::new(bin_id));
+        parameters.push(Box::new(bin_id));
+        let parameter_refs = parameters
+            .iter()
+            .map(|parameter| parameter.as_ref())
+            .collect::<Vec<&dyn ToSql>>();
+        let mut match_statement = conn.prepare(&sql)?;
+        let matching_ids = match_statement
+            .query_map(parameter_refs.as_slice(), |row| row.get::<_, i64>(0))?
+            .collect::<Result<Vec<_>>>()?;
+        for clip_id in matching_ids {
+            if requested_ids.contains(&clip_id) {
+                memberships.entry(clip_id).or_default().push(bin_id);
+            }
+        }
+    }
+
+    for clip in clips {
+        let bin_ids = clip.bin_ids.get_or_insert_with(Vec::new);
+        for bin_id in memberships.remove(&clip.id).unwrap_or_default() {
+            if !bin_ids.contains(&bin_id) {
+                bin_ids.push(bin_id);
+            }
+        }
+    }
+    Ok(())
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -442,6 +528,7 @@ pub struct IntelligenceConnection {
 
 pub struct DbState {
     pub conn: Mutex<Connection>,
+    path: Mutex<PathBuf>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
@@ -523,18 +610,88 @@ fn migrate_legacy_container_schema(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
+fn configure_connection(conn: &Connection) -> Result<()> {
+    conn.set_db_config(rusqlite::config::DbConfig::SQLITE_DBCONFIG_DEFENSIVE, true)?;
+    conn.pragma_update(None, "foreign_keys", "ON")?;
+    let _ = conn.pragma_update(None, "journal_mode", "WAL");
+    let _ = conn.pragma_update(None, "synchronous", "NORMAL");
+    let _ = conn.pragma_update(None, "temp_store", "MEMORY");
+    let _ = conn.pragma_update(None, "wal_autocheckpoint", "500");
+    Ok(())
+}
+
 impl DbState {
     pub fn new(db_path: PathBuf) -> Result<Self> {
         if let Some(parent) = db_path.parent() {
             let _ = fs::create_dir_all(parent);
         }
-        let conn = Connection::open(db_path)?;
-        conn.set_db_config(rusqlite::config::DbConfig::SQLITE_DBCONFIG_DEFENSIVE, true)?;
+        let conn = Connection::open(&db_path)?;
+        configure_connection(&conn)?;
         let state = DbState {
             conn: Mutex::new(conn),
+            path: Mutex::new(db_path),
         };
         state.init_tables()?;
         Ok(state)
+    }
+
+    pub fn database_path(&self) -> PathBuf {
+        self.path.lock().clone()
+    }
+
+    pub fn relocate_database(&self, target_path: PathBuf) -> Result<PathBuf> {
+        let previous_path = self.database_path();
+        if previous_path == target_path {
+            return Ok(previous_path);
+        }
+        if target_path.exists() {
+            return Err(rusqlite::Error::InvalidPath(target_path));
+        }
+        let parent = target_path
+            .parent()
+            .ok_or_else(|| rusqlite::Error::InvalidPath(target_path.clone()))?;
+        fs::create_dir_all(parent).map_err(|_| rusqlite::Error::InvalidPath(parent.into()))?;
+        let temporary = parent.join(format!(".pasted-library-{}.tmp", std::process::id()));
+        if temporary.exists() {
+            fs::remove_file(&temporary)
+                .map_err(|_| rusqlite::Error::InvalidPath(temporary.clone()))?;
+        }
+
+        let mut source = self.conn.lock();
+        let _ = source.pragma_update(None, "wal_checkpoint", "TRUNCATE");
+        let mut destination = Connection::open(&temporary)?;
+        configure_connection(&destination)?;
+        {
+            let backup = rusqlite::backup::Backup::new(&source, &mut destination)?;
+            backup.run_to_completion(128, std::time::Duration::from_millis(5), None)?;
+        }
+        let integrity: String =
+            destination.query_row("PRAGMA integrity_check", [], |row| row.get(0))?;
+        if integrity != "ok" {
+            let _ = fs::remove_file(&temporary);
+            return Err(rusqlite::Error::InvalidQuery);
+        }
+        drop(destination);
+        fs::rename(&temporary, &target_path)
+            .map_err(|_| rusqlite::Error::InvalidPath(target_path.clone()))?;
+        let replacement = Connection::open(&target_path)?;
+        configure_connection(&replacement)?;
+        *source = replacement;
+        *self.path.lock() = target_path;
+        Ok(previous_path)
+    }
+
+    pub fn switch_to_database(&self, database_path: PathBuf) -> Result<()> {
+        let replacement = Connection::open(&database_path)?;
+        configure_connection(&replacement)?;
+        let integrity: String =
+            replacement.query_row("PRAGMA integrity_check", [], |row| row.get(0))?;
+        if integrity != "ok" {
+            return Err(rusqlite::Error::InvalidQuery);
+        }
+        *self.conn.lock() = replacement;
+        *self.path.lock() = database_path;
+        Ok(())
     }
 
     fn init_tables(&self) -> Result<()> {
@@ -1528,6 +1685,25 @@ impl DbState {
         self.get_clip_by_id_internal(&conn, id)
     }
 
+    pub fn reattribute_image_capture(
+        &self,
+        clip_id: i64,
+        content_hash: &str,
+        source_app: &str,
+    ) -> Result<Option<ClipItem>> {
+        let conn = self.conn.lock();
+        let changed = conn.execute(
+            "UPDATE clips SET source_app = ?1
+             WHERE id = ?2 AND content_hash = ?3 AND content_type = 'image'
+               AND COALESCE(is_trashed, 0) = 0",
+            params![source_app, clip_id, content_hash],
+        )?;
+        if changed == 0 {
+            return Ok(None);
+        }
+        self.get_clip_by_id_internal(&conn, clip_id).map(Some)
+    }
+
     pub fn enforce_history_limit_internal(&self, conn: &Connection) -> Result<()> {
         let keep_count: i64 = conn
             .query_row(
@@ -1665,7 +1841,7 @@ impl DbState {
     }
 
     fn get_clip_by_id_internal(&self, conn: &Connection, id: i64) -> Result<ClipItem> {
-        conn.query_row(
+        let mut clip = conn.query_row(
             "SELECT id, content_type, text_content, html_content, image_base64, image_path, content_hash, source_app, is_pinned, is_protected, COALESCE(pin_order, 0), bin_id, note, is_trashed, trashed_at, created_at,
                     (SELECT GROUP_CONCAT(bin_id) FROM clip_bins WHERE clip_id = clips.id),
                     current_transformation_id IS NOT NULL
@@ -1703,7 +1879,9 @@ impl DbState {
                     created_at: row.get(15)?,
                 })
             },
-        )
+        )?;
+        append_smart_bin_memberships(conn, std::slice::from_mut(&mut clip))?;
+        Ok(clip)
     }
 
     pub fn get_clips(
@@ -1872,6 +2050,7 @@ impl DbState {
         for clip in clip_iter {
             clips.push(clip?);
         }
+        append_smart_bin_memberships(&conn, &mut clips)?;
         Ok(clips)
     }
 
@@ -1909,6 +2088,7 @@ impl DbState {
         for clip in clip_iter {
             clips.push(clip?);
         }
+        append_smart_bin_memberships(&conn, &mut clips)?;
         Ok(clips)
     }
 
@@ -2381,27 +2561,43 @@ impl DbState {
         let requested_count = ids.len();
         let mut conn = self.conn.lock();
         let tx = conn.transaction()?;
+        if let Some(bin_id) = bin_id {
+            let is_manual = tx
+                .query_row(
+                    "SELECT smart_rule IS NULL FROM bins WHERE id = ?1",
+                    params![bin_id],
+                    |row| row.get::<_, bool>(0),
+                )
+                .optional()?
+                .unwrap_or(false);
+            if !is_manual {
+                return Err(rusqlite::Error::InvalidParameterName(
+                    "Clips can only be added directly to manual Bins".to_string(),
+                ));
+            }
+        }
         let mut changed_ids = Vec::new();
         for clip_id in ids {
-            let current_bin = tx
+            let is_active = tx
                 .query_row(
-                    "SELECT bin_id FROM clips WHERE id = ?1 AND (is_trashed IS NULL OR is_trashed = 0)",
+                    "SELECT 1 FROM clips WHERE id = ?1 AND (is_trashed IS NULL OR is_trashed = 0)",
                     params![clip_id],
-                    |row| row.get::<_, Option<i64>>(0),
+                    |row| row.get::<_, i64>(0),
                 )
-                .optional()?;
-            if current_bin.is_none() || current_bin.flatten() == bin_id {
+                .optional()?
+                .is_some();
+            if !is_active {
                 continue;
             }
-            tx.execute(
-                "DELETE FROM clip_bins
-                 WHERE clip_id = ?1
-                   AND bin_id IN (
-                       SELECT id FROM bins WHERE COALESCE(bin_type, 'category') != 'tag'
-                   )",
-                params![clip_id],
-            )?;
             if let Some(bid) = bin_id {
+                let already_assigned = tx.query_row(
+                    "SELECT EXISTS(SELECT 1 FROM clip_bins WHERE clip_id = ?1 AND bin_id = ?2)",
+                    params![clip_id, bid],
+                    |row| row.get::<_, bool>(0),
+                )?;
+                if already_assigned {
+                    continue;
+                }
                 tx.execute(
                     "INSERT OR REPLACE INTO clip_bins (clip_id, bin_id) VALUES (?1, ?2)",
                     params![clip_id, bid],
@@ -2411,6 +2607,25 @@ impl DbState {
                     params![bid, clip_id],
                 )?;
             } else {
+                let has_manual_bins = tx.query_row(
+                    "SELECT EXISTS(
+                        SELECT 1 FROM clip_bins membership
+                        JOIN bins ON bins.id = membership.bin_id
+                        WHERE membership.clip_id = ?1 AND bins.smart_rule IS NULL
+                    )",
+                    params![clip_id],
+                    |row| row.get::<_, bool>(0),
+                )?;
+                if !has_manual_bins {
+                    continue;
+                }
+                tx.execute(
+                    "DELETE FROM clip_bins
+                     WHERE clip_id = ?1 AND bin_id IN (
+                        SELECT id FROM bins WHERE smart_rule IS NULL
+                     )",
+                    params![clip_id],
+                )?;
                 tx.execute(
                     "UPDATE clips SET bin_id = NULL WHERE id = ?1",
                     params![clip_id],
@@ -2427,16 +2642,17 @@ impl DbState {
                 (false, 1) => "clip_bin_unassigned",
                 (false, _) => "clips_bin_unassigned",
             };
-            let destination = bin_id
-                .map(|id| format!("Bin #{id}"))
-                .unwrap_or_else(|| "No Bin".to_string());
             let _ = self.log_activity_internal(
                 &conn,
                 event_type,
-                &format!(
-                    "Moved {} to {}",
-                    describe_clip_ids(&changed_ids),
-                    destination
+                &bin_id.map_or_else(
+                    || {
+                        format!(
+                            "Removed {} from all manual Bins",
+                            describe_clip_ids(&changed_ids)
+                        )
+                    },
+                    |id| format!("Added {} to Bin #{id}", describe_clip_ids(&changed_ids)),
                 ),
             );
         }
@@ -2446,6 +2662,77 @@ impl DbState {
             } else {
                 "unassign_bin"
             },
+            requested_count,
+            changed_ids,
+        ))
+    }
+
+    pub fn batch_remove_bin_clips(
+        &self,
+        ids: Vec<i64>,
+        bin_id: i64,
+    ) -> Result<ClipMutationSummary> {
+        let requested_count = ids.len();
+        let mut conn = self.conn.lock();
+        let tx = conn.transaction()?;
+        let is_manual = tx
+            .query_row(
+                "SELECT smart_rule IS NULL FROM bins WHERE id = ?1",
+                params![bin_id],
+                |row| row.get::<_, bool>(0),
+            )
+            .optional()?
+            .unwrap_or(false);
+        if !is_manual {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "Clips can only be removed directly from manual Bins".to_string(),
+            ));
+        }
+        let mut changed_ids = Vec::new();
+        for clip_id in ids {
+            let removed = tx.execute(
+                "DELETE FROM clip_bins
+                 WHERE clip_id = ?1 AND bin_id = ?2
+                   AND EXISTS(
+                       SELECT 1 FROM clips
+                       WHERE id = ?1 AND (is_trashed IS NULL OR is_trashed = 0)
+                   )",
+                params![clip_id, bin_id],
+            )?;
+            if removed == 0 {
+                continue;
+            }
+            tx.execute(
+                "UPDATE clips
+                 SET bin_id = (
+                     SELECT membership.bin_id FROM clip_bins membership
+                     JOIN bins ON bins.id = membership.bin_id
+                     WHERE membership.clip_id = clips.id AND bins.smart_rule IS NULL
+                     ORDER BY membership.bin_id ASC LIMIT 1
+                 )
+                 WHERE id = ?1 AND bin_id = ?2",
+                params![clip_id, bin_id],
+            )?;
+            changed_ids.push(clip_id);
+        }
+        tx.commit()?;
+        if !changed_ids.is_empty() {
+            let event_type = if changed_ids.len() == 1 {
+                "clip_bin_removed"
+            } else {
+                "clips_bin_removed"
+            };
+            let _ = self.log_activity_internal(
+                &conn,
+                event_type,
+                &format!(
+                    "Removed {} from Bin #{bin_id}",
+                    describe_clip_ids(&changed_ids)
+                ),
+            );
+        }
+        Ok(ClipMutationSummary::new(
+            "remove_bin",
             requested_count,
             changed_ids,
         ))
@@ -4898,6 +5185,67 @@ mod tests {
     }
 
     #[test]
+    fn relocating_database_preserves_data_and_retains_the_source() {
+        let db = setup_test_db();
+        let source = db.database_path();
+        let destination_directory = std::env::temp_dir().join(format!(
+            "pasted_relocation_{}",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::create_dir_all(&destination_directory).unwrap();
+        let destination = destination_directory.join("pasted.db");
+        db.save_clip(
+            "text",
+            Some("Move me without losing me"),
+            None,
+            None,
+            "relocation-test-hash",
+            "Test",
+        )
+        .unwrap();
+
+        let retained = db.relocate_database(destination.clone()).unwrap();
+
+        assert_eq!(retained, source);
+        assert_eq!(db.database_path(), destination);
+        assert!(retained.is_file());
+        assert_eq!(
+            db.get_clips(None, None, false).unwrap()[0]
+                .text_content
+                .as_deref(),
+            Some("Move me without losing me")
+        );
+        let reopened = DbState::new(db.database_path()).unwrap();
+        assert_eq!(reopened.get_clips(None, None, false).unwrap().len(), 1);
+        let _ = fs::remove_file(retained);
+        let _ = fs::remove_dir_all(destination_directory);
+    }
+
+    #[test]
+    fn relocating_database_never_overwrites_an_existing_target() {
+        let db = setup_test_db();
+        let destination_directory = std::env::temp_dir().join(format!(
+            "pasted_relocation_existing_{}",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::create_dir_all(&destination_directory).unwrap();
+        let destination = destination_directory.join("pasted.db");
+        fs::write(&destination, b"keep this file").unwrap();
+
+        assert!(db.relocate_database(destination.clone()).is_err());
+        assert_eq!(fs::read(&destination).unwrap(), b"keep this file");
+        assert_ne!(db.database_path(), destination);
+        let _ = fs::remove_file(db.database_path());
+        let _ = fs::remove_dir_all(destination_directory);
+    }
+
+    #[test]
     fn factory_reset_removes_user_state_and_restores_first_launch_defaults() {
         let db = setup_test_db();
         let clip = db
@@ -5006,6 +5354,59 @@ mod tests {
     }
 
     #[test]
+    fn factory_reset_rolls_back_everything_when_a_delete_fails() {
+        let db = setup_test_db();
+        let clip = db
+            .save_clip(
+                "text",
+                Some("Do not partially reset me"),
+                None,
+                None,
+                "factory-reset-rollback-clip",
+                "Test",
+            )
+            .unwrap();
+        let bin = db
+            .create_bin("Keep This Bin", "Folder", "default", None)
+            .unwrap();
+        db.assign_to_bin(clip.id, Some(bin.id)).unwrap();
+        db.save_setting("themeMode", "flux").unwrap();
+        {
+            let conn = db.conn.lock();
+            conn.execute(
+                "INSERT INTO activity_logs (event_type, description)
+                 VALUES ('test', 'survive a failed reset')",
+                [],
+            )
+            .unwrap();
+            conn.execute_batch(
+                "CREATE TRIGGER reject_factory_reset_clip_delete
+                 BEFORE DELETE ON clips
+                 BEGIN
+                    SELECT RAISE(ABORT, 'simulated reset failure');
+                 END;",
+            )
+            .unwrap();
+        }
+
+        let error = db.factory_reset().unwrap_err();
+        assert!(error.to_string().contains("simulated reset failure"));
+
+        let preserved = db.get_clip_by_id(clip.id).unwrap();
+        assert_eq!(preserved.bin_id, Some(bin.id));
+        assert_eq!(
+            db.get_setting("themeMode").unwrap().as_deref(),
+            Some("flux")
+        );
+        assert!(db.get_bins().unwrap().iter().any(|item| item.id == bin.id));
+        let conn = db.conn.lock();
+        let activity_count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM activity_logs", [], |row| row.get(0))
+            .unwrap();
+        assert!(activity_count > 0);
+    }
+
+    #[test]
     fn test_clip_saving_and_retrieval() {
         let db = setup_test_db();
         let clip = db
@@ -5030,6 +5431,49 @@ mod tests {
         assert_eq!(derived_origin_kind("image", "Preview"), "clipboard_content");
         assert_eq!(derived_origin_kind("text", "Safari"), "clipboard_content");
         assert_eq!(derived_origin_kind("text", "CLI Terminal"), "command_line");
+    }
+
+    #[test]
+    fn image_capture_reattribution_is_hash_safe_and_image_only() {
+        let db = setup_test_db();
+        let image = db
+            .save_clip(
+                "image",
+                None,
+                None,
+                Some("data:image/png;base64,cGFzdGVk"),
+                "reattribute-image-hash",
+                "Safari",
+            )
+            .unwrap();
+        let file = db
+            .save_clip(
+                "file",
+                Some("[\"/tmp/capture.png\"]"),
+                None,
+                None,
+                "reattribute-file-hash",
+                "pasted-app",
+            )
+            .unwrap();
+
+        assert!(db
+            .reattribute_image_capture(image.id, "wrong-hash", "Screenshot")
+            .unwrap()
+            .is_none());
+        assert_eq!(db.get_clip_by_id(image.id).unwrap().source_app, "Safari");
+
+        let updated = db
+            .reattribute_image_capture(image.id, &image.content_hash, "Screenshot")
+            .unwrap()
+            .unwrap();
+        assert_eq!(updated.source_app, "Screenshot");
+
+        assert!(db
+            .reattribute_image_capture(file.id, &file.content_hash, "Screenshot")
+            .unwrap()
+            .is_none());
+        assert_eq!(db.get_clip_by_id(file.id).unwrap().source_app, "pasted-app");
     }
 
     #[test]
@@ -5110,6 +5554,15 @@ mod tests {
         assert!(screenshot_clips
             .iter()
             .any(|clip| clip.id == cleanshot_file.id));
+        assert!(db
+            .get_clip_by_id(screenshot.id)
+            .unwrap()
+            .bin_ids
+            .unwrap()
+            .contains(&screenshot_bin.id));
+        assert!(db
+            .assign_to_bin(screenshot.id, Some(screenshot_bin.id))
+            .is_err());
         assert_eq!(
             db.get_clips(None, Some(file_bin.id), false).unwrap()[0].id,
             file.id
@@ -6402,6 +6855,59 @@ mod tests {
     }
 
     #[test]
+    fn revision_restore_rejects_versions_from_another_clip_without_mutation() {
+        let db = setup_test_db();
+        let first = db
+            .save_clip(
+                "text",
+                Some("First original"),
+                None,
+                None,
+                "revision-boundary-first",
+                "Test",
+            )
+            .unwrap();
+        let second = db
+            .save_clip(
+                "text",
+                Some("Second original"),
+                None,
+                None,
+                "revision-boundary-second",
+                "Test",
+            )
+            .unwrap();
+        db.update_clip_text(first.id, "First current").unwrap();
+        db.update_clip_text(second.id, "Second current").unwrap();
+        let foreign_version = db.get_clip_versions(second.id).unwrap().remove(0);
+        let first_version_count = db.get_clip_version_count(first.id).unwrap();
+        let second_version_count = db.get_clip_version_count(second.id).unwrap();
+
+        assert!(db
+            .restore_clip_version(first.id, foreign_version.id)
+            .is_err());
+        assert_eq!(
+            db.get_clip_by_id(first.id).unwrap().text_content.as_deref(),
+            Some("First current")
+        );
+        assert_eq!(
+            db.get_clip_by_id(second.id)
+                .unwrap()
+                .text_content
+                .as_deref(),
+            Some("Second current")
+        );
+        assert_eq!(
+            db.get_clip_version_count(first.id).unwrap(),
+            first_version_count
+        );
+        assert_eq!(
+            db.get_clip_version_count(second.id).unwrap(),
+            second_version_count
+        );
+    }
+
+    #[test]
     fn disabled_revision_history_preserves_existing_versions_and_skips_new_snapshots() {
         let db = setup_test_db();
         let clip = db
@@ -6643,7 +7149,7 @@ mod tests {
     }
 
     #[test]
-    fn test_bin_assignment_is_exclusive_and_preserves_tags() {
+    fn test_manual_bin_assignment_is_additive_and_individually_removable() {
         let db = setup_test_db();
         let clip1 = db
             .save_clip("text", Some("Exclusive 1"), None, None, "HashE1", "App")
@@ -6667,10 +7173,10 @@ mod tests {
         db.add_clip_to_bin(clip1.id, tag.id).unwrap();
         db.assign_to_bin(clip1.id, Some(second_bin.id)).unwrap();
 
-        assert!(db
-            .get_clips(None, Some(first_bin.id), false)
-            .unwrap()
-            .is_empty());
+        assert_eq!(
+            db.get_clips(None, Some(first_bin.id), false).unwrap().len(),
+            1
+        );
         let second_bin_clips = db.get_clips(None, Some(second_bin.id), false).unwrap();
         assert_eq!(second_bin_clips.len(), 1);
         assert_eq!(second_bin_clips[0].id, clip1.id);
@@ -6688,19 +7194,16 @@ mod tests {
         assert_eq!(clip1_after_unassign.bin_id, None);
         assert!(clip1_after_unassign.is_pinned);
         assert!(clip1_after_unassign.is_protected);
-        assert_eq!(
-            clip1_after_unassign.bin_ids.as_ref().unwrap(),
-            &vec![tag.id]
-        );
+        assert!(clip1_after_unassign.bin_ids.as_ref().unwrap().is_empty());
 
         db.batch_assign_bin_clips(vec![clip1.id, clip2.id], Some(first_bin.id))
             .unwrap();
         db.batch_assign_bin_clips(vec![clip1.id, clip2.id], Some(second_bin.id))
             .unwrap();
-        assert!(db
-            .get_clips(None, Some(first_bin.id), false)
-            .unwrap()
-            .is_empty());
+        assert_eq!(
+            db.get_clips(None, Some(first_bin.id), false).unwrap().len(),
+            2
+        );
         let batch_assigned = db.get_clips(None, Some(second_bin.id), false).unwrap();
         assert_eq!(batch_assigned.len(), 2);
         let protected_pinned = batch_assigned
@@ -6709,6 +7212,22 @@ mod tests {
             .unwrap();
         assert!(protected_pinned.is_pinned);
         assert!(protected_pinned.is_protected);
+
+        let removed = db
+            .batch_remove_bin_clips(vec![clip1.id], second_bin.id)
+            .unwrap();
+        assert_eq!(removed.changed_count, 1);
+        let clip1_after_remove = db.get_clip_by_id(clip1.id).unwrap();
+        assert!(!clip1_after_remove
+            .bin_ids
+            .as_ref()
+            .unwrap()
+            .contains(&second_bin.id));
+        assert!(clip1_after_remove
+            .bin_ids
+            .as_ref()
+            .unwrap()
+            .contains(&first_bin.id));
     }
 
     #[test]
@@ -6988,6 +7507,87 @@ mod tests {
             .to_string()
             .contains("unsupported backup schema version"));
         assert!(destination.get_clips(None, None, false).unwrap().is_empty());
+    }
+
+    #[test]
+    fn backup_import_rolls_back_earlier_writes_when_valid_payload_fails_midway() {
+        let source = setup_test_db();
+        source
+            .create_bin("Imported Bin", "Folder", "default", None)
+            .unwrap();
+        source
+            .create_operation(
+                "Imported Operation",
+                "uppercase",
+                Some("{}"),
+                Some("Import Test"),
+            )
+            .unwrap();
+        let mut payload: serde_json::Value =
+            serde_json::from_str(&source.export_backup_json().unwrap()).unwrap();
+        let custom_operation = payload["operations"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|operation| {
+                operation["stable_id"]
+                    .as_str()
+                    .is_some_and(|stable_id| stable_id.starts_with("custom:"))
+            })
+            .unwrap();
+        custom_operation["stable_id"] = serde_json::json!("invalid-operation-reference");
+
+        let destination = setup_test_db();
+        let existing = destination
+            .save_clip(
+                "text",
+                Some("Destination must survive"),
+                None,
+                None,
+                "backup-rollback-existing",
+                "Test",
+            )
+            .unwrap();
+        destination.save_setting("themeMode", "warm").unwrap();
+        let bins_before = destination
+            .get_bins()
+            .unwrap()
+            .into_iter()
+            .map(|bin| (bin.id, bin.name))
+            .collect::<Vec<_>>();
+
+        let error = destination
+            .import_backup_json(&serde_json::to_string(&payload).unwrap())
+            .unwrap_err();
+        assert!(error
+            .to_string()
+            .contains("custom operation backup is missing a stable reference"));
+        assert_eq!(
+            destination
+                .get_clip_by_id(existing.id)
+                .unwrap()
+                .text_content
+                .as_deref(),
+            Some("Destination must survive")
+        );
+        assert_eq!(
+            destination.get_setting("themeMode").unwrap().as_deref(),
+            Some("warm")
+        );
+        assert_eq!(
+            destination
+                .get_bins()
+                .unwrap()
+                .into_iter()
+                .map(|bin| (bin.id, bin.name))
+                .collect::<Vec<_>>(),
+            bins_before
+        );
+        assert!(!destination
+            .get_operations()
+            .unwrap()
+            .iter()
+            .any(|operation| operation.name == "Imported Operation"));
     }
 
     #[test]

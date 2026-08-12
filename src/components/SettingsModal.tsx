@@ -12,6 +12,7 @@ import { SettingsDebugPanel } from './SettingsDebugPanel';
 import { SettingsFeaturesPanel } from './SettingsFeaturesPanel';
 import { SettingsAboutPanel } from './SettingsAboutPanel';
 import { SettingsResetPanel } from './SettingsResetPanel';
+import { SettingsNotificationsPanel } from './SettingsNotificationsPanel';
 
 interface SettingsModalProps {
   settings: AppSettings;
@@ -30,6 +31,7 @@ interface SettingsModalProps {
   onResetColumnWidths?: () => void;
   requestedTab?: SettingsTab;
   navigationKey?: number;
+  onOpenAnalytics?: () => void;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -49,6 +51,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onResetColumnWidths,
   requestedTab,
   navigationKey,
+  onOpenAnalytics,
 }) => {
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
 
@@ -68,16 +71,22 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   }, [activeTab, settings.enableDiagnostics]);
 
+  useEffect(() => {
+    if (!settings.enableNotifications && activeTab === 'notifications') {
+      setActiveTab('features');
+    }
+  }, [activeTab, settings.enableNotifications]);
+
   return (
     <div className="tools-page settings-page flex-1 settings-modal-bg h-screen overflow-hidden font-sans select-none flex flex-col">
       <ToolPageHeader
         icon={<Settings className="w-4 h-4" />}
         title="Settings"
-        actions={<SettingsTabs activeTab={activeTab} onChange={setActiveTab} showConnections={settings.enableTransformations} showDiagnostics={settings.enableDiagnostics} />}
+        actions={<SettingsTabs activeTab={activeTab} onChange={setActiveTab} showConnections={settings.enableTransformations} showDiagnostics={settings.enableDiagnostics} showNotifications={settings.enableNotifications} />}
       />
 
       <div className="tools-scroll-region flex-1 overflow-y-auto p-6">
-        <div className={`w-full max-w-xl mx-auto ${activeTab === 'backup' ? 'space-y-4' : 'settings-primary-well theme-panel rounded-2xl border p-6'}`}>
+        <div className={`w-full max-w-xl mx-auto ${activeTab === 'storage' ? 'space-y-4' : 'settings-primary-well theme-panel rounded-2xl border p-6'}`}>
 
         {/* TAB 1: GENERAL */}
         {activeTab === 'general' && (
@@ -91,6 +100,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
         {activeTab === 'features' && (
           <SettingsFeaturesPanel settings={settings} onUpdateSettings={onUpdateSettings} />
+        )}
+
+        {settings.enableNotifications && activeTab === 'notifications' && (
+          <SettingsNotificationsPanel settings={settings} onUpdateSettings={onUpdateSettings} />
         )}
 
         {/* TAB 2: HOTKEYS */}
@@ -119,7 +132,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         )}
 
         {/* TAB 5: SYNC & BACKUP */}
-        {activeTab === 'backup' && (
+        {activeTab === 'storage' && (
           <>
             <div className="settings-primary-well theme-panel rounded-2xl border p-6">
               <SettingsSyncPanel
@@ -127,6 +140,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 onRefreshPipelines={onRefreshPipelines}
                 onRefreshClips={onRefreshClips}
                 onRefreshTrashedClips={onRefreshTrashedClips}
+                analyticsEnabled={settings.enableAnalytics}
+                onOpenAnalytics={onOpenAnalytics}
               />
             </div>
             <SettingsResetPanel

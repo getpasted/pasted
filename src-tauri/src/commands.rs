@@ -17,6 +17,7 @@ use crate::db::{
 };
 use crate::features::{self, Feature};
 use crate::installation_diagnostics::InstallationDiagnostics;
+use crate::library_storage::{self, LibraryLocationInfo};
 use crate::sequential_paste::{SequentialQueueState, SequentialStatus};
 
 fn refresh_native_app_menu(app: &AppHandle, db: &Arc<DbState>) {
@@ -26,6 +27,12 @@ fn refresh_native_app_menu(app: &AppHandle, db: &Arc<DbState>) {
 }
 
 fn emit_window_appearance_change(app: &AppHandle, key: &str, value: &str) {
+    let _ = app.emit(
+        "app-setting-changed",
+        serde_json::json!({ "key": key, "value": value }),
+    );
+
+    // Retain the narrower event while older windows and integrations migrate.
     if matches!(key, "themeMode" | "textSize") {
         let _ = app.emit(
             "window-appearance-changed",
@@ -53,7 +60,39 @@ pub fn set_linux_native_menu_theme(app: AppHandle, dark: bool) -> Result<(), Str
 }
 
 #[tauri::command]
-pub fn get_installation_diagnostics(app: AppHandle) -> Result<InstallationDiagnostics, String> {
+pub fn set_overlay_cursor(app: AppHandle, pointing: bool) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        app.run_on_main_thread(move || unsafe {
+            use objc::runtime::Object;
+            use objc::{msg_send, sel, sel_impl};
+
+            let cursor: *mut Object = if pointing {
+                msg_send![objc::class!(NSCursor), pointingHandCursor]
+            } else {
+                msg_send![objc::class!(NSCursor), arrowCursor]
+            };
+            let _: () = msg_send![cursor, set];
+        })
+        .map_err(|error| error.to_string())?;
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    let _ = (app, pointing);
+
+    Ok(())
+}
+
+#[tauri::command]
+pub fn perform_titlebar_double_click(window: tauri::WebviewWindow) -> Result<(), String> {
+    crate::titlebar::perform_titlebar_double_click(window)
+}
+
+#[tauri::command]
+pub fn get_installation_diagnostics(
+    app: AppHandle,
+    db: State<'_, Arc<DbState>>,
+) -> Result<InstallationDiagnostics, String> {
     let executable = std::env::current_exe().map_err(|error| error.to_string())?;
     let app_path = executable
         .ancestors()
@@ -64,7 +103,148 @@ pub fn get_installation_diagnostics(app: AppHandle) -> Result<InstallationDiagno
         .path()
         .app_data_dir()
         .map_err(|error| error.to_string())?;
-    Ok(InstallationDiagnostics::collect(app_path, data_path))
+    Ok(InstallationDiagnostics::collect_with_database(
+        app_path,
+        data_path,
+        db.database_path(),
+    ))
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LibraryMoveReport {
+    location: LibraryLocationInfo,
+    recovery_path: String,
+}
+
+#[tauri::command]
+pub fn get_library_location(
+    app: AppHandle,
+    db: State<'_, Arc<DbState>>,
+) -> Result<LibraryLocationInfo, String> {
+    let app_data = app
+        .path()
+        .app_data_dir()
+        .map_err(|error| error.to_string())?;
+    Ok(library_storage::location_info(
+        &app_data,
+        &db.database_path(),
+    ))
+}
+
+#[tauri::command]
+pub async fn move_library(
+    app: AppHandle,
+    db: State<'_, Arc<DbState>>,
+) -> Result<Option<LibraryMoveReport>, String> {
+    let Some(folder) = app
+        .dialog()
+        .file()
+        .set_title("Choose Pasted Library Folder")
+        .blocking_pick_folder()
+    else {
+        return Ok(None);
+    };
+    let directory = folder
+        .into_path()
+        .map_err(|error| format!("The selected library location is not a local folder: {error}"))?;
+    let current_path = db.database_path();
+    let target = library_storage::validate_destination_directory(&directory, &current_path)?;
+    if target == current_path {
+        let app_data = app
+            .path()
+            .app_data_dir()
+            .map_err(|error| error.to_string())?;
+        return Ok(Some(LibraryMoveReport {
+            location: library_storage::location_info(&app_data, &current_path),
+            recovery_path: current_path.to_string_lossy().into_owned(),
+        }));
+    }
+
+    let db_for_move = Arc::clone(&db);
+    let target_for_move = target.clone();
+    let previous = tauri::async_runtime::spawn_blocking(move || {
+        db_for_move.relocate_database(target_for_move)
+    })
+    .await
+    .map_err(|error| error.to_string())?
+    .map_err(|error| format!("Could not move the Pasted library: {error}"))?;
+
+    let app_data = app
+        .path()
+        .app_data_dir()
+        .map_err(|error| error.to_string())?;
+    if let Err(error) = library_storage::persist_location(&app_data, &target) {
+        db.switch_to_database(previous.clone())
+            .map_err(|rollback| {
+                format!("{error} The previous library also could not be reopened: {rollback}")
+            })?;
+        return Err(error);
+    }
+    let _ = db.log_activity("library_moved", "Moved the Pasted library");
+    Ok(Some(LibraryMoveReport {
+        location: library_storage::location_info(&app_data, &target),
+        recovery_path: previous.to_string_lossy().into_owned(),
+    }))
+}
+
+#[tauri::command]
+pub async fn restore_default_library_location(
+    app: AppHandle,
+    db: State<'_, Arc<DbState>>,
+) -> Result<LibraryMoveReport, String> {
+    let app_data = app
+        .path()
+        .app_data_dir()
+        .map_err(|error| error.to_string())?;
+    let target = library_storage::default_database_path(&app_data);
+    let current = db.database_path();
+    if current == target {
+        return Ok(LibraryMoveReport {
+            location: library_storage::location_info(&app_data, &current),
+            recovery_path: current.to_string_lossy().into_owned(),
+        });
+    }
+
+    let archived_default = library_storage::archive_existing_database(&target)?;
+    let db_for_move = Arc::clone(&db);
+    let target_for_move = target.clone();
+    let move_result = tauri::async_runtime::spawn_blocking(move || {
+        db_for_move.relocate_database(target_for_move)
+    })
+    .await
+    .map_err(|error| error.to_string())?;
+    let previous = match move_result {
+        Ok(previous) => previous,
+        Err(error) => {
+            if let Some(archived) = archived_default.as_deref() {
+                library_storage::restore_archived_database(archived, &target);
+            }
+            return Err(format!(
+                "Could not restore the default library location: {error}"
+            ));
+        }
+    };
+
+    if let Err(error) = library_storage::persist_location(&app_data, &target) {
+        db.switch_to_database(previous.clone())
+            .map_err(|rollback| {
+                format!("{error} The custom library also could not be reopened: {rollback}")
+            })?;
+        library_storage::remove_database_files(&target);
+        if let Some(archived) = archived_default.as_deref() {
+            library_storage::restore_archived_database(archived, &target);
+        }
+        return Err(error);
+    }
+    let _ = db.log_activity(
+        "library_moved",
+        "Restored the default Pasted library location",
+    );
+    Ok(LibraryMoveReport {
+        location: library_storage::location_info(&app_data, &target),
+        recovery_path: previous.to_string_lossy().into_owned(),
+    })
 }
 
 fn apply_feature_policy_changes(app: &AppHandle, db: &Arc<DbState>, changed: &[Feature]) {
@@ -87,6 +267,11 @@ fn apply_feature_policy_changes(app: &AppHandle, db: &Arc<DbState>, changed: &[F
             Feature::Ocr => {
                 if let Some(ocr) = app.try_state::<Arc<crate::ocr::OcrService>>() {
                     ocr.cancel();
+                }
+            }
+            Feature::Notifications => {
+                if let Some(window) = app.get_webview_window("capture-feedback") {
+                    let _ = window.hide();
                 }
             }
             _ => {}
@@ -681,6 +866,61 @@ pub fn get_clips(
         .map_err(|e| e.to_string())
 }
 
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CaptureFeedbackClip {
+    id: i64,
+    content_type: String,
+    preview_text: Option<String>,
+    source_app: String,
+    is_pinned: bool,
+    is_protected: bool,
+    is_trashed: bool,
+}
+
+fn bounded_preview_text(value: &str) -> String {
+    value.chars().take(280).collect()
+}
+
+#[tauri::command]
+pub fn get_capture_feedback_clip(
+    id: i64,
+    db: State<'_, Arc<DbState>>,
+) -> Result<CaptureFeedbackClip, String> {
+    features::require(&db, Feature::Notifications)?;
+    let clip = db.get_clip_by_id(id).map_err(|error| error.to_string())?;
+    let preview_text = if clip.content_type == "file" {
+        clip.text_content
+            .as_deref()
+            .map(parse_file_clip_paths)
+            .map(|paths| {
+                bounded_preview_text(
+                    &paths
+                        .iter()
+                        .filter_map(|path| std::path::Path::new(path).file_name())
+                        .filter_map(|name| name.to_str())
+                        .collect::<Vec<_>>()
+                        .join(" · "),
+                )
+            })
+    } else {
+        clip.text_content
+            .as_deref()
+            .map(bounded_preview_text)
+            .filter(|text| !text.is_empty())
+    };
+
+    Ok(CaptureFeedbackClip {
+        id: clip.id,
+        content_type: clip.content_type,
+        preview_text,
+        source_app: clip.source_app,
+        is_pinned: clip.is_pinned,
+        is_protected: clip.is_protected,
+        is_trashed: clip.is_trashed,
+    })
+}
+
 #[tauri::command]
 pub fn get_total_clip_count(db: State<'_, Arc<DbState>>) -> Result<i64, String> {
     db.get_total_clip_count().map_err(|e| e.to_string())
@@ -864,6 +1104,21 @@ pub async fn assign_clip_bin(
 }
 
 #[tauri::command]
+pub async fn remove_clip_bin(
+    clip_id: i64,
+    bin_id: i64,
+    db: State<'_, Arc<DbState>>,
+) -> Result<BinAssignmentOutcome, String> {
+    features::require(&db, Feature::Bins)?;
+    let db = Arc::clone(&db);
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::bin_assignment::remove_clips_from_bin(&db, vec![clip_id], bin_id)
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
+#[tauri::command]
 pub fn reorder_pinned_clips(ids: Vec<i64>, db: State<'_, Arc<DbState>>) -> Result<(), String> {
     features::require(&db, Feature::Pinning)?;
     db.reorder_pinned_clips(ids).map_err(|e| e.to_string())
@@ -1037,11 +1292,6 @@ pub fn copy_clip_to_system(
             .set()
             .file_list(&paths)
             .map_err(|error| error.to_string())?;
-    } else if let Some(t) = text {
-        if t.len() > crate::resource_limits::MAX_CLIP_TEXT_BYTES {
-            return Err("Clip text exceeds Pasted's safety limit".to_string());
-        }
-        clipboard.set_text(t).map_err(|e| e.to_string())?;
     } else if let Some(img_b64) = image_base64 {
         // Strip data:image/png;base64,
         let clean = img_b64.split(',').next_back().unwrap_or(&img_b64);
@@ -1059,6 +1309,11 @@ pub fn copy_clip_to_system(
             bytes: std::borrow::Cow::Owned(rgba.into_raw()),
         };
         clipboard.set_image(img_data).map_err(|e| e.to_string())?;
+    } else if let Some(t) = text {
+        if t.len() > crate::resource_limits::MAX_CLIP_TEXT_BYTES {
+            return Err("Clip text exceeds Pasted's safety limit".to_string());
+        }
+        clipboard.set_text(t).map_err(|e| e.to_string())?;
     }
 
     Ok(())
@@ -1085,10 +1340,11 @@ pub(crate) fn write_clip_to_clipboard(
             .file_list(&paths)
             .map_err(|error| error.to_string());
     }
-    if let Some(text) = clip.text_content.as_deref() {
-        return clipboard.set_text(text).map_err(|error| error.to_string());
-    }
-    if let Some(image_base64) = clip.image_base64.as_deref() {
+    if clip.content_type == "image" {
+        let image_base64 = clip
+            .image_base64
+            .as_deref()
+            .ok_or_else(|| "Image clip has no stored image data".to_string())?;
         let clean = image_base64.split(',').next_back().unwrap_or(image_base64);
         if clean.len() > crate::resource_limits::MAX_STORED_IMAGE_BASE64_BYTES {
             return Err("Clip image exceeds Pasted's safety limit".to_string());
@@ -1105,6 +1361,9 @@ pub(crate) fn write_clip_to_clipboard(
             })
             .map_err(|error| error.to_string());
     }
+    if let Some(text) = clip.text_content.as_deref() {
+        return clipboard.set_text(text).map_err(|error| error.to_string());
+    }
     Err("Clip has no copyable content".to_string())
 }
 
@@ -1120,10 +1379,11 @@ fn clip_internal_clipboard_fingerprint(clip: &ClipItem) -> Result<String, String
             })?;
         return Ok(crate::clipboard_fingerprint::file_list(&paths));
     }
-    if let Some(text) = clip.text_content.as_deref() {
-        return Ok(text.to_string());
-    }
-    if let Some(image_base64) = clip.image_base64.as_deref() {
+    if clip.content_type == "image" {
+        let image_base64 = clip
+            .image_base64
+            .as_deref()
+            .ok_or_else(|| "Image clip has no stored image data".to_string())?;
         let clean = image_base64.split(',').next_back().unwrap_or(image_base64);
         let bytes = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, clean)
             .map_err(|error| error.to_string())?;
@@ -1132,7 +1392,29 @@ fn clip_internal_clipboard_fingerprint(clip: &ClipItem) -> Result<String, String
             image.to_rgba8().as_raw(),
         ));
     }
+    if let Some(text) = clip.text_content.as_deref() {
+        return Ok(text.to_string());
+    }
     Err("Clip has no copyable content".to_string())
+}
+
+#[tauri::command]
+pub fn copy_clip_by_id(
+    clip_id: i64,
+    db: State<'_, Arc<DbState>>,
+    sequential: State<'_, Arc<SequentialQueueState>>,
+) -> Result<(), String> {
+    let clip = db
+        .get_clip_by_id(clip_id)
+        .map_err(|error| error.to_string())?;
+    let fingerprint = clip_internal_clipboard_fingerprint(&clip)?;
+    let mut clipboard = Clipboard::new().map_err(|error| error.to_string())?;
+    sequential.mark_internal_clipboard_write(&fingerprint);
+    if let Err(error) = write_clip_to_clipboard(&mut clipboard, &clip) {
+        sequential.clear_internal_clipboard_write();
+        return Err(error);
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -3112,6 +3394,45 @@ fn install_cli_symlink(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn ocr_text_never_replaces_an_image_clips_copy_fingerprint() {
+        let rgba = vec![12, 34, 56, 255];
+        let image = image::RgbaImage::from_raw(1, 1, rgba.clone()).unwrap();
+        let mut encoded = Cursor::new(Vec::new());
+        image::DynamicImage::ImageRgba8(image)
+            .write_to(&mut encoded, image::ImageFormat::Png)
+            .unwrap();
+        let image_base64 = format!(
+            "data:image/png;base64,{}",
+            base64::engine::general_purpose::STANDARD.encode(encoded.into_inner())
+        );
+        let clip = ClipItem {
+            id: 1,
+            content_type: "image".to_string(),
+            text_content: Some("recognized OCR text".to_string()),
+            html_content: None,
+            image_base64: Some(image_base64),
+            image_path: None,
+            content_hash: "stored-image-hash".to_string(),
+            source_app: "Screenshot".to_string(),
+            is_pinned: false,
+            is_protected: false,
+            is_transformed: false,
+            pin_order: 0,
+            bin_id: None,
+            bin_ids: None,
+            note: None,
+            is_trashed: false,
+            trashed_at: None,
+            created_at: "2026-08-11T00:00:00Z".to_string(),
+        };
+
+        assert_eq!(
+            clip_internal_clipboard_fingerprint(&clip).unwrap(),
+            crate::clipboard_fingerprint::image_rgba(&rgba)
+        );
+    }
 
     #[cfg(target_os = "macos")]
     fn minimal_pdf() -> Vec<u8> {

@@ -1,7 +1,7 @@
 {
   "name": "pasted",
   "private": true,
-  "version": "1.0.0-rc.1",
+  "version": "1.0.0-rc.4",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -19,20 +19,21 @@
     "test:transformations": "node scripts/audit-transformations.js",
     "test:activity": "node scripts/audit-activity-events.js",
     "test:platform": "node scripts/audit-platform-chrome.js",
+    "test:feedback": "node scripts/audit-capture-feedback.js",
     "test:ipc": "node scripts/audit-ipc.js",
     "release:macos:local": "bash scripts/release-macos.sh --local",
     "release:macos": "bash scripts/release-macos.sh",
     "release:macos:verify": "bash scripts/verify-macos-release.sh",
     "release:linux": "bash scripts/release-linux-appimage.sh",
     "icons:generate": "bash scripts/generate-icons.sh",
-    "test:all": "cargo fmt --manifest-path src-tauri/Cargo.toml -- --check && cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings && npm run build && npm test && npm run test:css && npm run test:wcag && npm run test:ipc && npm run test:security && npm run test:release && npm run test:features && npm run test:collections && npm run test:menus && npm run test:cli && npm run test:transformations && npm run test:activity && npm run test:platform",
+    "test:all": "cargo fmt --manifest-path src-tauri/Cargo.toml -- --check && cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings && npm run build && npm test && npm run test:css && npm run test:wcag && npm run test:ipc && npm run test:security && npm run test:release && npm run test:features && npm run test:collections && npm run test:menus && npm run test:cli && npm run test:transformations && npm run test:activity && npm run test:platform && npm run test:feedback",
     "tauri": "tauri"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-autostart": "^2.5.1",
     "clsx": "^2.1.1",
-    "lucide-react": "^1.27.0",
+    "lucide-react": "^1.30.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "tailwind-merge": "^3.6.0"
@@ -40,11 +41,11 @@
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",
     "@tauri-apps/cli": "^2",
-    "@types/react": "^19.1.8",
-    "@types/react-dom": "^19.1.6",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
     "@vitejs/plugin-react": "^4.6.0",
     "tailwindcss": "^4.3.3",
-    "typescript": "~5.8.3",
+    "typescript": "~7.0.2",
     "vite": "^7.0.4"
   }
 }

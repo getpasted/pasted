@@ -23,7 +23,16 @@ pub struct InstallationDiagnostics {
 
 impl InstallationDiagnostics {
     pub fn collect(app_path: PathBuf, data_path: PathBuf) -> Self {
-        let database_size_bytes = database_disk_usage(&data_path.join("pasted.db"));
+        let database_path = data_path.join("pasted.db");
+        Self::collect_with_database(app_path, data_path, database_path)
+    }
+
+    pub fn collect_with_database(
+        app_path: PathBuf,
+        data_path: PathBuf,
+        database_path: PathBuf,
+    ) -> Self {
+        let database_size_bytes = database_disk_usage(&database_path);
         let cli_path = sibling_cli_path(&app_path).map(|path| display_path(&path));
         let signature = inspect_signature(&app_path);
 
