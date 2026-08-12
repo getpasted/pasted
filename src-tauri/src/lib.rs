@@ -4,6 +4,7 @@ mod clipboard_fingerprint;
 mod clipboard_monitor;
 mod commands;
 pub mod content_detection;
+pub mod content_types;
 pub mod db;
 pub mod features;
 mod filter_engine;
@@ -363,6 +364,17 @@ pub fn run() {
             commands::get_activity_logs,
             commands::clear_activity_logs,
             commands::get_content_detectors,
+            commands::get_content_types,
+            commands::get_content_type_groups,
+            commands::create_content_type_group,
+            commands::update_content_type_group,
+            commands::set_content_type_group_archived,
+            commands::delete_content_type_group,
+            commands::restore_default_content_type_groups,
+            commands::create_content_type,
+            commands::update_content_type,
+            commands::set_content_type_archived,
+            commands::restore_default_content_types,
             commands::create_content_detector,
             commands::update_content_detector,
             commands::delete_content_detector,

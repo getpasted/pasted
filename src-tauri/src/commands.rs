@@ -975,6 +975,108 @@ pub fn get_content_detectors(
 }
 
 #[tauri::command]
+pub fn get_content_types(
+    include_archived: Option<bool>,
+    db: State<'_, Arc<DbState>>,
+) -> Result<Vec<crate::content_types::ContentTypeDefinition>, String> {
+    db.get_content_types(include_archived.unwrap_or(false))
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn get_content_type_groups(
+    include_archived: Option<bool>,
+    db: State<'_, Arc<DbState>>,
+) -> Result<Vec<crate::content_types::ContentTypeGroupDefinition>, String> {
+    db.get_content_type_groups(include_archived.unwrap_or(false))
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn create_content_type_group(
+    input: crate::content_types::ContentTypeGroupInput,
+    db: State<'_, Arc<DbState>>,
+) -> Result<crate::content_types::ContentTypeGroupDefinition, String> {
+    db.create_content_type_group(&input)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn update_content_type_group(
+    id: String,
+    input: crate::content_types::ContentTypeGroupInput,
+    db: State<'_, Arc<DbState>>,
+) -> Result<crate::content_types::ContentTypeGroupDefinition, String> {
+    db.update_content_type_group(&id, &input)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn set_content_type_group_archived(
+    id: String,
+    archived: bool,
+    db: State<'_, Arc<DbState>>,
+) -> Result<(), String> {
+    db.set_content_type_group_archived(&id, archived)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn delete_content_type_group(id: String, db: State<'_, Arc<DbState>>) -> Result<(), String> {
+    db.delete_content_type_group(&id)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn restore_default_content_type_groups(
+    db: State<'_, Arc<DbState>>,
+) -> Result<Vec<crate::content_types::ContentTypeGroupDefinition>, String> {
+    db.restore_default_content_type_groups()
+        .map_err(|error| error.to_string())?;
+    db.get_content_type_groups(true)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn create_content_type(
+    input: crate::content_types::ContentTypeInput,
+    db: State<'_, Arc<DbState>>,
+) -> Result<crate::content_types::ContentTypeDefinition, String> {
+    db.create_content_type(&input)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn update_content_type(
+    id: String,
+    input: crate::content_types::ContentTypeInput,
+    db: State<'_, Arc<DbState>>,
+) -> Result<crate::content_types::ContentTypeDefinition, String> {
+    db.update_content_type(&id, &input)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn set_content_type_archived(
+    id: String,
+    archived: bool,
+    db: State<'_, Arc<DbState>>,
+) -> Result<(), String> {
+    db.set_content_type_archived(&id, archived)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn restore_default_content_types(
+    db: State<'_, Arc<DbState>>,
+) -> Result<Vec<crate::content_types::ContentTypeDefinition>, String> {
+    db.restore_default_content_types()
+        .map_err(|error| error.to_string())?;
+    db.get_content_types(true)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
 pub fn create_content_detector(
     input: crate::content_detection::DetectorInput,
     db: State<'_, Arc<DbState>>,
@@ -1044,6 +1146,7 @@ pub fn test_content_detector(
         enabled: true,
         priority: input.priority,
         is_builtin: false,
+        defaults: None,
         is_deleted: false,
     };
     Ok(crate::content_detection::detect_with_detectors(&sample, &[detector]) == input.content_type)

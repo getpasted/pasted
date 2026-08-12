@@ -12,7 +12,7 @@ import {
 import { ToolPageHeader } from './ToolPageHeader';
 import { OverflowText } from './OverflowText';
 import { ContentTypeIcon } from './ContentTypeIcon';
-import { CONTENT_TYPES, contentTypeLabel } from '../utils/contentTypes';
+import { useContentTypes } from './ContentTypeProvider';
 import type { ClipContentType } from '../types';
 
 interface SourceStat {
@@ -39,6 +39,7 @@ interface AnalyticsSummary {
 }
 
 export const AnalyticsView: React.FC = () => {
+  const { definitions: registeredContentTypes, groups: contentTypeGroups } = useContentTypes();
   const [summary, setSummary] = useState<AnalyticsSummary | null>(null);
 
   const loadStats = async () => {
@@ -64,10 +65,12 @@ export const AnalyticsView: React.FC = () => {
     return contentTypes.find((t) => t.content_type === type)?.count || 0;
   };
   const visibleContentTypes = [
-    ...CONTENT_TYPES.filter(({ value }) => getTypeCount(value) > 0),
+    ...registeredContentTypes
+      .filter(({ id }) => getTypeCount(id) > 0)
+      .map(({ id, label, group }) => ({ value: id as ClipContentType, label, group: contentTypeGroups.find(({ id: groupId }) => groupId === group)?.label ?? group })),
     ...contentTypes
-      .filter(({ content_type }) => !CONTENT_TYPES.some(({ value }) => value === content_type))
-      .map(({ content_type }) => ({ value: content_type as ClipContentType, label: contentTypeLabel(content_type), group: 'Custom' as const })),
+      .filter(({ content_type }) => !registeredContentTypes.some(({ id }) => id === content_type))
+      .map(({ content_type }) => ({ value: content_type as ClipContentType, label: content_type, group: 'custom' })),
   ];
 
   return (

@@ -1,5 +1,5 @@
 import { useRef, useState, type ReactNode } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Search } from 'lucide-react';
 import { AnchoredMenu, MenuItem } from './AnchoredMenu';
 import { OverflowText } from './OverflowText';
 
@@ -22,6 +22,8 @@ interface MenuSelectProps {
   className?: string;
   compact?: boolean;
   disabled?: boolean;
+  searchable?: boolean;
+  searchPlaceholder?: string;
 }
 
 export function MenuSelect({
@@ -33,10 +35,16 @@ export function MenuSelect({
   className = '',
   compact = false,
   disabled = false,
+  searchable = false,
+  searchPlaceholder = 'Search…',
 }: MenuSelectProps) {
   const triggerRef = useRef<HTMLButtonElement>(null);
   const [isOpen, setIsOpen] = useState(false);
+  const [query, setQuery] = useState('');
   const selected = options.find((option) => option.value === value) ?? options[0];
+  const visibleOptions = searchable && query.trim()
+    ? options.filter((option) => `${option.label} ${option.value}`.toLowerCase().includes(query.trim().toLowerCase()))
+    : options;
   const selectedText = `${selected?.label ?? 'No selection'}${typeof selected?.count === 'number' ? ` (${selected.count})` : ''}`;
 
   return (
@@ -49,7 +57,10 @@ export function MenuSelect({
         aria-haspopup="menu"
         aria-expanded={isOpen}
         disabled={disabled}
-        onClick={() => setIsOpen((open) => !open)}
+        onClick={() => setIsOpen((open) => {
+          if (!open) setQuery('');
+          return !open;
+        })}
       >
         {leadingIcon}
         <OverflowText
@@ -73,9 +84,21 @@ export function MenuSelect({
             ),
           }}
         >
-          {options.map((option, index) => {
+          {searchable && (
+            <label className="theme-menu-search theme-divider sticky top-0 z-10 flex items-center gap-2 border-b p-2">
+              <Search className="theme-text-subtle h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              <input
+                autoFocus
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder={searchPlaceholder}
+                className="theme-input min-w-0 flex-1 rounded-md border px-2 py-1.5 text-xs"
+              />
+            </label>
+          )}
+          {visibleOptions.map((option, index) => {
             const active = option.value === value;
-            const showGroup = option.group && option.group !== options[index - 1]?.group;
+            const showGroup = option.group && option.group !== visibleOptions[index - 1]?.group;
             return (
               <div key={option.value} role="none">
                 {showGroup && (
@@ -105,6 +128,7 @@ export function MenuSelect({
               </div>
             );
           })}
+          {visibleOptions.length === 0 && <div className="theme-text-subtle px-3 py-4 text-center text-xs">No matches</div>}
         </AnchoredMenu>
       )}
     </>

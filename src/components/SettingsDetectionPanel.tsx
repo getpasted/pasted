@@ -1,12 +1,14 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Copy, Plus, Radar, RotateCcw, Save, ScanSearch, Trash2 } from 'lucide-react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Copy, Plus, Radar, RotateCcw, Save, ScanSearch, Shapes, Trash2, X } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { ContentTypeIcon } from './ContentTypeIcon';
+import { ContentTypeManagerDialog } from './ContentTypeManagerDialog';
+import { useContentTypes } from './ContentTypeProvider';
 import { MenuSelect } from './MenuSelect';
+import { ModifiedFieldLabel } from './ModifiedFieldLabel';
 import { SettingsPanelHeader } from './SettingsPanelHeader';
 import { useToast } from './ToastProvider';
 import type { ClipContentType } from '../types';
-import { CONTENT_TYPES } from '../utils/contentTypes';
 
 interface ContentDetector {
   id: number;
@@ -19,6 +21,7 @@ interface ContentDetector {
   enabled: boolean;
   priority: number;
   is_builtin: boolean;
+  defaults: DetectorInput | null;
 }
 
 interface DetectorInput {
@@ -59,6 +62,7 @@ function toInput(detector?: ContentDetector): DetectorInput {
 
 export function SettingsDetectionPanel() {
   const { showToast } = useToast();
+  const { definitions: contentTypes, groups: contentTypeGroups, refresh: refreshContentTypes, refreshGroups } = useContentTypes();
   const [detectors, setDetectors] = useState<ContentDetector[]>([]);
   const [selectedId, setSelectedId] = useState<number | 'new' | null>(null);
   const [draft, setDraft] = useState<DetectorInput>(toInput());
@@ -68,6 +72,8 @@ export function SettingsDetectionPanel() {
   const [saving, setSaving] = useState(false);
   const [rescanning, setRescanning] = useState(false);
   const [togglingId, setTogglingId] = useState<number | null>(null);
+  const [isTypeManagerOpen, setIsTypeManagerOpen] = useState(false);
+  const previousSelectedIdRef = useRef<number | null>(null);
 
   const selected = useMemo(
     () => typeof selectedId === 'number' ? detectors.find((detector) => detector.id === selectedId) : undefined,
@@ -81,7 +87,7 @@ export function SettingsDetectionPanel() {
   };
 
   useEffect(() => { void load(); }, []);
-  useEffect(() => {
+  useLayoutEffect(() => {
     const next = selectedId === 'new' ? toInput() : toInput(selected);
     setDraft(next);
     setPatternsText(next.patterns.join('\n'));
@@ -95,6 +101,39 @@ export function SettingsDetectionPanel() {
     description: draft.description.trim(),
     patterns: patternsText.split('\n').map((pattern) => pattern.trim()).filter(Boolean),
   });
+
+  const comparisonInput = selectedId === 'new'
+    ? null
+    : selected?.is_builtin ? selected.defaults : selected ? toInput(selected) : null;
+  const inputForComparison = currentInput();
+  const modified = {
+    name: comparisonInput !== null && inputForComparison.name !== comparisonInput.name,
+    content_type: comparisonInput !== null && inputForComparison.content_type !== comparisonInput.content_type,
+    description: comparisonInput !== null && inputForComparison.description !== comparisonInput.description,
+    priority: comparisonInput !== null && inputForComparison.priority !== comparisonInput.priority,
+    validator: comparisonInput !== null && inputForComparison.validator !== comparisonInput.validator,
+    enabled: comparisonInput !== null && inputForComparison.enabled !== comparisonInput.enabled,
+    patterns: comparisonInput !== null && JSON.stringify(inputForComparison.patterns) !== JSON.stringify(comparisonInput.patterns),
+  };
+  const hasModifiedFields = Object.values(modified).some(Boolean);
+
+  const resetSelectedDraft = () => {
+    if (!selected?.is_builtin || !selected.defaults) return;
+    setDraft({ ...selected.defaults, patterns: [...selected.defaults.patterns] });
+    setPatternsText(selected.defaults.patterns.join('\n'));
+    setSampleMatched(null);
+  };
+
+  const beginNewDetector = () => {
+    if (typeof selectedId === 'number') previousSelectedIdRef.current = selectedId;
+    setSelectedId('new');
+  };
+
+  const cancelNewDetector = () => {
+    const previousId = previousSelectedIdRef.current;
+    const fallbackId = detectors[0]?.id ?? null;
+    setSelectedId(previousId !== null && detectors.some(({ id }) => id === previousId) ? previousId : fallbackId);
+  };
 
   const save = async () => {
     setSaving(true);
@@ -143,10 +182,15 @@ export function SettingsDetectionPanel() {
 
   const restore = async () => {
     try {
-      const restored = await invoke<ContentDetector[]>('restore_default_content_detectors');
+      const [restored] = await Promise.all([
+        invoke<ContentDetector[]>('restore_default_content_detectors'),
+        invoke('restore_default_content_types'),
+        invoke('restore_default_content_type_groups'),
+      ]);
+      await Promise.all([refreshContentTypes(), refreshGroups()]);
       setDetectors(restored);
       setSelectedId(restored[0]?.id ?? 'new');
-      showToast({ tone: 'success', message: 'Shipped detectors restored. Custom detectors were preserved.' });
+      showToast({ tone: 'success', message: 'Built-in Types and detectors restored. Custom entries were preserved.' });
     } catch (error) {
       showToast({ tone: 'error', message: String(error) });
     }
@@ -203,6 +247,9 @@ export function SettingsDetectionPanel() {
         description="Classify new clips with ordered, editable detectors."
         actions={(
           <div className="flex flex-wrap items-center justify-end gap-2">
+            <button type="button" onClick={() => setIsTypeManagerOpen(true)} className="app-dialog-button is-secondary">
+              <Shapes className="h-3.5 w-3.5" /> Manage Types
+            </button>
             <button type="button" onClick={() => void rescanHistory()} disabled={rescanning} className="app-dialog-button is-secondary">
               <ScanSearch className="h-3.5 w-3.5" /> {rescanning ? 'Rescanning…' : 'Rescan History'}
             </button>
@@ -220,7 +267,7 @@ export function SettingsDetectionPanel() {
               <span className="theme-text-muted block text-[10px] font-bold uppercase tracking-wider">Detectors</span>
               <span className="theme-text-subtle mt-0.5 block text-[9px]">Lowest priority number runs first</span>
             </span>
-            <button type="button" onClick={() => setSelectedId('new')} className="app-dialog-button is-secondary h-7 min-h-7 shrink-0 px-2.5">
+            <button type="button" onClick={beginNewDetector} className="app-dialog-button is-secondary h-7 min-h-7 shrink-0 px-2.5">
               <Plus className="h-3 w-3" /> New
             </button>
           </div>
@@ -228,9 +275,10 @@ export function SettingsDetectionPanel() {
             {detectors.map((detector) => (
               <div
                 key={detector.id}
-                className={`theme-menu-item flex w-full items-center gap-2 rounded-lg border border-transparent px-2 py-2 text-left ${selectedId === detector.id ? 'is-selected' : ''}`}
+                onClick={() => setSelectedId(detector.id)}
+                className={`theme-menu-item flex w-full cursor-pointer items-center gap-2 rounded-lg border border-transparent px-2 py-2 text-left ${selectedId === detector.id ? 'is-selected' : ''}`}
               >
-                <button type="button" onClick={() => setSelectedId(detector.id)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
+                <button type="button" className="flex min-w-0 flex-1 items-center gap-2 text-left">
                   <ContentTypeIcon type={detector.content_type as ClipContentType} className="h-4 w-4 shrink-0" />
                   <span className="theme-text-main min-w-0 flex-1 truncate font-semibold">{detector.name}</span>
                 </button>
@@ -240,7 +288,10 @@ export function SettingsDetectionPanel() {
                   aria-checked={selectedId === detector.id ? draft.enabled : detector.enabled}
                   aria-label={`${(selectedId === detector.id ? draft.enabled : detector.enabled) ? 'Disable' : 'Enable'} ${detector.name}`}
                   disabled={togglingId === detector.id}
-                  onClick={() => void toggleDetector(detector)}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    void toggleDetector(detector);
+                  }}
                   className={`settings-switch relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent disabled:cursor-wait disabled:opacity-50 ${(selectedId === detector.id ? draft.enabled : detector.enabled) ? 'is-on' : ''}`}
                 >
                   <span className={`settings-switch-thumb pointer-events-none inline-block h-4 w-4 rounded-full shadow transition-transform ${(selectedId === detector.id ? draft.enabled : detector.enabled) ? 'translate-x-4' : 'translate-x-0'}`} />
@@ -255,35 +306,39 @@ export function SettingsDetectionPanel() {
             <span className="theme-text-muted font-semibold">{selectedId === 'new' ? 'New detector' : 'Detector settings'}</span>
           </div>
           <div className="grid grid-cols-1 gap-3 @2xl:grid-cols-[minmax(0,1fr)_minmax(150px,0.45fr)]">
-            <label className="space-y-1">
-              <span className="theme-text-muted font-semibold">Name</span>
+            <label className={`space-y-1 ${modified.name ? 'settings-field-modified' : ''}`}>
+              <ModifiedFieldLabel modified={modified.name}>Name</ModifiedFieldLabel>
               <input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} className="theme-input w-full rounded-lg border px-3 py-2" />
             </label>
-            <label className="space-y-1">
-              <span className="flex items-center justify-between gap-2">
-                <span className="theme-text-muted font-semibold">Content type</span>
-                <span className="theme-text-subtle flex min-w-0 items-center gap-1 text-[9px]" title="The sidebar icon follows the content type">
-                  <ContentTypeIcon type={draft.content_type as ClipContentType} className="h-3 w-3 shrink-0" />
-                  <span className="truncate">Type icon</span>
-                </span>
-              </span>
-              <input list="detector-content-types" value={draft.content_type} onChange={(event) => setDraft({ ...draft, content_type: event.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '_') })} className="theme-input w-full rounded-lg border px-3 py-2 font-mono" />
-              <datalist id="detector-content-types">
-                {CONTENT_TYPES.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}
-              </datalist>
+            <label className={`space-y-1 ${modified.content_type ? 'settings-field-modified' : ''}`}>
+              <ModifiedFieldLabel modified={modified.content_type}>Content type</ModifiedFieldLabel>
+              <MenuSelect
+                value={draft.content_type}
+                onChange={(content_type) => setDraft({ ...draft, content_type })}
+                label="Detector content type"
+                leadingIcon={<ContentTypeIcon type={draft.content_type as ClipContentType} className="h-4 w-4" />}
+                options={contentTypes.map((type) => ({
+                  value: type.id,
+                  label: type.label,
+                  group: contentTypeGroups.find(({ id }) => id === type.group)?.label ?? type.group,
+                  disabled: type.isArchived,
+                  icon: <ContentTypeIcon type={type.id as ClipContentType} className="h-4 w-4" />,
+                }))}
+                className="w-full"
+              />
             </label>
           </div>
-          <label className="block space-y-1">
-            <span className="theme-text-muted font-semibold">Description</span>
+          <label className={`block space-y-1 ${modified.description ? 'settings-field-modified' : ''}`}>
+            <ModifiedFieldLabel modified={modified.description}>Description</ModifiedFieldLabel>
             <input value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} className="theme-input w-full rounded-lg border px-3 py-2" />
           </label>
           <div className="grid grid-cols-1 items-end gap-3 @xl:grid-cols-2 @3xl:grid-cols-[110px_minmax(180px,1fr)_auto]">
-            <label className="space-y-1">
-              <span className="theme-text-muted font-semibold">Priority</span>
+            <label className={`space-y-1 ${modified.priority ? 'settings-field-modified' : ''}`}>
+              <ModifiedFieldLabel modified={modified.priority}>Priority</ModifiedFieldLabel>
               <input type="number" value={draft.priority} onChange={(event) => setDraft({ ...draft, priority: Number(event.target.value) || 0 })} className="theme-input w-full rounded-lg border px-3 py-2 font-mono" />
             </label>
-            <label className="space-y-1">
-              <span className="theme-text-muted font-semibold">Validation</span>
+            <label className={`space-y-1 ${modified.validator ? 'settings-field-modified' : ''}`}>
+              <ModifiedFieldLabel modified={modified.validator}>Validation</ModifiedFieldLabel>
               <MenuSelect
                 value={draft.validator ?? ''}
                 onChange={(validator) => setDraft({ ...draft, validator: validator || null })}
@@ -300,13 +355,13 @@ export function SettingsDetectionPanel() {
                 className="w-full"
               />
             </label>
-            <label className="flex min-h-9 items-center gap-2 @xl:col-span-2 @3xl:col-span-1">
+            <label className={`flex min-h-9 items-center gap-2 @xl:col-span-2 @3xl:col-span-1 ${modified.enabled ? 'settings-field-modified' : ''}`}>
               <input type="checkbox" checked={draft.enabled} onChange={(event) => setDraft({ ...draft, enabled: event.target.checked })} className="theme-checkbox h-4 w-4 rounded" />
-              <span className="theme-text-main font-semibold">Enabled for new clips</span>
+              <ModifiedFieldLabel modified={modified.enabled}>Enabled for new clips</ModifiedFieldLabel>
             </label>
           </div>
-          <label className="block space-y-1">
-            <span className="theme-text-muted font-semibold">Regular expressions <span className="font-normal">(one per line; any may match)</span></span>
+          <label className={`block space-y-1 ${modified.patterns ? 'settings-field-modified' : ''}`}>
+            <ModifiedFieldLabel modified={modified.patterns}>Regular expressions <span className="font-normal">(one per line; any may match)</span></ModifiedFieldLabel>
             <textarea value={patternsText} onChange={(event) => setPatternsText(event.target.value)} spellCheck={false} className="theme-input min-h-36 w-full resize-y rounded-lg border px-3 py-2 font-mono text-[11px] leading-relaxed" />
           </label>
           {draft.validator && (
@@ -324,13 +379,16 @@ export function SettingsDetectionPanel() {
             </div>
           )}
           <div className="theme-divider flex flex-wrap items-center gap-2 border-t pt-3">
-            <button type="button" onClick={() => void duplicate()} className="app-dialog-button is-secondary"><Copy className="h-3.5 w-3.5" /> Duplicate</button>
+            {selectedId !== 'new' && <button type="button" onClick={() => void duplicate()} className="app-dialog-button is-secondary"><Copy className="h-3.5 w-3.5" /> Duplicate</button>}
             {typeof selectedId === 'number' && <button type="button" onClick={remove} className="app-dialog-button is-danger"><Trash2 className="h-3.5 w-3.5" /> Delete</button>}
-            <button type="button" onClick={save} disabled={saving} className="app-dialog-button is-primary ml-auto"><Save className="h-3.5 w-3.5" /> Save</button>
+            {selectedId === 'new' && <button type="button" onClick={cancelNewDetector} className="app-dialog-button is-secondary ml-auto"><X className="h-3.5 w-3.5" /> Cancel</button>}
+            {selected?.is_builtin && <button type="button" onClick={resetSelectedDraft} disabled={!hasModifiedFields || saving} className="app-dialog-button is-secondary ml-auto"><RotateCcw className="h-3.5 w-3.5" /> Reset to Default</button>}
+            <button type="button" onClick={save} disabled={saving} className={`app-dialog-button is-primary ${selectedId === 'new' || selected?.is_builtin ? '' : 'ml-auto'}`}><Save className="h-3.5 w-3.5" /> Save</button>
           </div>
         </section>
       </div>
       </div>
+      <ContentTypeManagerDialog isOpen={isTypeManagerOpen} onClose={() => setIsTypeManagerOpen(false)} />
     </div>
   );
 }

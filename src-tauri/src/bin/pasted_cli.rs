@@ -7,6 +7,7 @@ use std::path::PathBuf;
 use pasted_lib::bin_assignment::assign_clips_to_bin;
 use pasted_lib::content_detection::detect_with_detectors;
 use pasted_lib::content_detection::DetectorInput;
+use pasted_lib::content_types::{ContentTypeGroupInput, ContentTypeInput};
 use pasted_lib::db::{ClipMutationSummary, DbState, TransformClipApplication};
 use pasted_lib::features::{setting_value_is_enabled, Feature};
 use pasted_lib::installation_diagnostics::{InstallationDiagnostics, APP_IDENTIFIER};
@@ -81,6 +82,205 @@ fn main() -> Result<()> {
     }
 
     match command {
+        "type" | "types" => {
+            drop(conn);
+            let db = DbState::new(db_path.clone())?;
+            let subcommand = args.get(2).map(String::as_str).unwrap_or("list");
+            let json = args.iter().any(|argument| argument == "--json");
+            match subcommand {
+                "group-list" => {
+                    let groups = db
+                        .get_content_type_groups(args.iter().any(|argument| argument == "--all"))?;
+                    if json {
+                        println!(
+                            "{}",
+                            serde_json::to_string_pretty(&groups).map_err(json_error)?
+                        );
+                    } else {
+                        for group in groups {
+                            println!(
+                                "{}\t{}\t{}\t{}",
+                                group.id,
+                                group.sort_order,
+                                if group.is_archived {
+                                    "archived"
+                                } else {
+                                    "active"
+                                },
+                                group.label
+                            );
+                        }
+                    }
+                }
+                "group-create" => {
+                    let id = argument_value(&args, "--id").unwrap_or_else(|| { eprintln!("Usage: pasted type group-create --id ID --name NAME [--order NUMBER] [--json]"); std::process::exit(2); });
+                    let label = argument_value(&args, "--name").unwrap_or_else(|| {
+                        eprintln!("Group creation requires --name.");
+                        std::process::exit(2);
+                    });
+                    let created = db.create_content_type_group(&ContentTypeGroupInput {
+                        id,
+                        label,
+                        sort_order: argument_value(&args, "--order")
+                            .and_then(|value| value.parse().ok())
+                            .unwrap_or(100),
+                    })?;
+                    println!(
+                        "{}",
+                        if json {
+                            serde_json::to_string_pretty(&created).map_err(json_error)?
+                        } else {
+                            format!("Saved content type group {}: {}", created.id, created.label)
+                        }
+                    );
+                }
+                "group-update" => {
+                    let id = args.get(3).cloned().unwrap_or_else(|| { eprintln!("Usage: pasted type group-update <id> [--name NAME] [--order NUMBER] [--json]"); std::process::exit(2); });
+                    let current = db
+                        .get_content_type_groups(true)?
+                        .into_iter()
+                        .find(|item| item.id == id)
+                        .unwrap_or_else(|| {
+                            eprintln!("Content type group {id} was not found.");
+                            std::process::exit(1);
+                        });
+                    let updated = db.update_content_type_group(
+                        &id,
+                        &ContentTypeGroupInput {
+                            id: id.clone(),
+                            label: argument_value(&args, "--name").unwrap_or(current.label),
+                            sort_order: argument_value(&args, "--order")
+                                .and_then(|value| value.parse().ok())
+                                .unwrap_or(current.sort_order),
+                        },
+                    )?;
+                    println!(
+                        "{}",
+                        if json {
+                            serde_json::to_string_pretty(&updated).map_err(json_error)?
+                        } else {
+                            format!("Saved content type group {}: {}", updated.id, updated.label)
+                        }
+                    );
+                }
+                "group-archive" | "group-restore" => {
+                    let id = args.get(3).cloned().unwrap_or_else(|| {
+                        eprintln!("Usage: pasted type {subcommand} <id>");
+                        std::process::exit(2);
+                    });
+                    db.set_content_type_group_archived(&id, subcommand == "group-archive")?;
+                    println!(
+                        "{} content type group {id}.",
+                        if subcommand == "group-archive" {
+                            "Archived"
+                        } else {
+                            "Restored"
+                        }
+                    );
+                }
+                "group-delete" => {
+                    let id = args.get(3).cloned().unwrap_or_else(|| {
+                        eprintln!("Usage: pasted type group-delete <id>");
+                        std::process::exit(2);
+                    });
+                    db.delete_content_type_group(&id)?;
+                    println!("Deleted content type group {id}.");
+                }
+                "group-restore-defaults" => {
+                    db.restore_default_content_type_groups()?;
+                    println!("Restored built-in content type groups.");
+                }
+                "list" | "ls" => {
+                    let types =
+                        db.get_content_types(args.iter().any(|argument| argument == "--all"))?;
+                    if json {
+                        println!(
+                            "{}",
+                            serde_json::to_string_pretty(&types).map_err(json_error)?
+                        );
+                    } else {
+                        for item in types {
+                            println!(
+                                "{}\t{}\t{}\t{}",
+                                item.id,
+                                item.icon,
+                                if item.is_archived {
+                                    "archived"
+                                } else {
+                                    "active"
+                                },
+                                item.label
+                            );
+                        }
+                    }
+                }
+                "create" => {
+                    let id = argument_value(&args, "--id").unwrap_or_else(|| {
+                        eprintln!("Usage: pasted type create --id ID --name NAME [--icon ICON] [--group GROUP] [--json]");
+                        std::process::exit(2);
+                    });
+                    let label = argument_value(&args, "--name").unwrap_or_else(|| {
+                        eprintln!("Type creation requires --name.");
+                        std::process::exit(2);
+                    });
+                    let created = db.create_content_type(&ContentTypeInput {
+                        id,
+                        label,
+                        icon: argument_value(&args, "--icon").unwrap_or_else(|| "FileText".into()),
+                        group: argument_value(&args, "--group").unwrap_or_else(|| "custom".into()),
+                    })?;
+                    print_content_type(&created, json)?;
+                }
+                "update" => {
+                    let id = args.get(3).cloned().unwrap_or_else(|| {
+                        eprintln!("Usage: pasted type update <id> [--name NAME] [--icon ICON] [--group GROUP] [--json]");
+                        std::process::exit(2);
+                    });
+                    let current = db
+                        .get_content_types(true)?
+                        .into_iter()
+                        .find(|item| item.id == id)
+                        .unwrap_or_else(|| {
+                            eprintln!("Content type {id} was not found.");
+                            std::process::exit(1);
+                        });
+                    let updated = db.update_content_type(
+                        &id,
+                        &ContentTypeInput {
+                            id: id.clone(),
+                            label: argument_value(&args, "--name").unwrap_or(current.label),
+                            icon: argument_value(&args, "--icon").unwrap_or(current.icon),
+                            group: argument_value(&args, "--group").unwrap_or(current.group),
+                        },
+                    )?;
+                    print_content_type(&updated, json)?;
+                }
+                "archive" | "restore" => {
+                    let id = args.get(3).cloned().unwrap_or_else(|| {
+                        eprintln!("Usage: pasted type {subcommand} <id>");
+                        std::process::exit(2);
+                    });
+                    db.set_content_type_archived(&id, subcommand == "archive")?;
+                    println!(
+                        "{} content type {id}.",
+                        if subcommand == "archive" {
+                            "Archived"
+                        } else {
+                            "Restored"
+                        }
+                    );
+                }
+                "restore-defaults" => {
+                    db.restore_default_content_types()?;
+                    db.restore_default_content_type_groups()?;
+                    println!("Restored built-in content type names, icons, and groups.");
+                }
+                _ => {
+                    eprintln!("Usage: pasted type list|create|update|archive|restore|restore-defaults [--json]");
+                    std::process::exit(2);
+                }
+            }
+        }
         "detector" | "detectors" => {
             drop(conn);
             let db = DbState::new(db_path.clone())?;
@@ -930,6 +1130,7 @@ fn main() -> Result<()> {
             println!("  pasted search [query] [--type <type>] [--source <app>] [--json]");
             println!("  pasted diagnostics --json Show installation diagnostics");
             println!("  pasted detector list --json List editable content detectors");
+            println!("  pasted type list --json List registered content types");
             println!("  pasted detector create|update|delete Manage content detectors");
             println!("  pasted detector rescan --yes --json Reclassify existing text clips");
             println!("  pasted library location --json Show the active SQLite library");
@@ -1175,6 +1376,24 @@ fn print_detector(detector: &pasted_lib::content_detection::Detector, json: bool
         println!(
             "Saved detector #{}: {} ({})",
             detector.id, detector.name, detector.content_type
+        );
+    }
+    Ok(())
+}
+
+fn print_content_type(
+    content_type: &pasted_lib::content_types::ContentTypeDefinition,
+    json: bool,
+) -> Result<()> {
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(content_type).map_err(json_error)?
+        );
+    } else {
+        println!(
+            "Saved content type {}: {}",
+            content_type.id, content_type.label
         );
     }
     Ok(())

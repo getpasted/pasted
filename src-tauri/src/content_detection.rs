@@ -15,7 +15,20 @@ pub struct Detector {
     pub priority: i64,
     pub is_builtin: bool,
     #[serde(default)]
+    pub defaults: Option<DetectorDefaults>,
+    #[serde(default)]
     pub is_deleted: bool,
+}
+
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct DetectorDefaults {
+    pub name: String,
+    pub content_type: String,
+    pub description: String,
+    pub patterns: Vec<String>,
+    pub validator: Option<String>,
+    pub enabled: bool,
+    pub priority: i64,
 }
 
 #[derive(Clone, Debug, serde::Deserialize)]
@@ -222,6 +235,25 @@ pub const DETECTOR_PRESETS: &[DetectorPreset] = &[
     },
 ];
 
+pub fn detector_defaults(stable_ref: &str) -> Option<DetectorDefaults> {
+    DETECTOR_PRESETS
+        .iter()
+        .find(|preset| preset.stable_ref == stable_ref)
+        .map(|preset| DetectorDefaults {
+            name: preset.name.into(),
+            content_type: preset.content_type.into(),
+            description: preset.description.into(),
+            patterns: preset
+                .patterns
+                .iter()
+                .map(|pattern| (*pattern).into())
+                .collect(),
+            validator: preset.validator.map(str::to_string),
+            enabled: true,
+            priority: preset.priority,
+        })
+}
+
 pub fn validate_detector_input(input: &DetectorInput) -> Result<(), String> {
     if input.name.trim().is_empty() || input.name.chars().count() > 80 {
         return Err("Detector names must contain 1–80 characters".into());
@@ -411,6 +443,7 @@ mod tests {
                 enabled: true,
                 priority: preset.priority,
                 is_builtin: true,
+                defaults: super::detector_defaults(preset.stable_ref),
                 is_deleted: false,
             })
             .collect::<Vec<_>>();

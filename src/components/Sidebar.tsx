@@ -35,7 +35,7 @@ import { clipFacetRoute, getClipCollection, getSystemClipCollections, type ClipC
 import type { FeatureId } from '../utils/features';
 import { OverflowText } from './OverflowText';
 import { ContentTypeIcon } from './ContentTypeIcon';
-import { CONTENT_TYPES, contentTypeLabel } from '../utils/contentTypes';
+import { useContentTypes } from './ContentTypeProvider';
 import { safeInvoke as invoke } from '../utils/tauri';
 
 const SEARCH_HELPERS = [
@@ -115,6 +115,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   setIsCollapsed,
   sidebarWidth = 240,
 }) => {
+  const { definitions: contentTypes } = useContentTypes();
 
   // Section Collapse State
   const [isClipsOpen, setIsClipsOpen] = React.useState(true);
@@ -319,14 +320,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const typeItems = React.useMemo(() => {
     const counts = new Map<ClipItem['content_type'], number>();
     clips.forEach((clip) => counts.set(clip.content_type, (counts.get(clip.content_type) ?? 0) + 1));
-    const order = new Map(CONTENT_TYPES.map(({ value }, index) => [value, index]));
+    const order = new Map(contentTypes.map(({ id }, index) => [id, index]));
+    const labels = new Map(contentTypes.map(({ id, label }) => [id, label]));
     return [...counts].map(([value, count]) => ({
       value,
       count,
       route: clipFacetRoute('type', value),
-      label: contentTypeLabel(value),
+      label: labels.get(value) ?? value.split('_').map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(' '),
     })).sort((left, right) => (order.get(left.value) ?? Number.MAX_SAFE_INTEGER) - (order.get(right.value) ?? Number.MAX_SAFE_INTEGER));
-  }, [clips]);
+  }, [clips, contentTypes]);
   const sourceItems = React.useMemo(() => {
     const counts = new Map<string, number>();
     clips.forEach((clip) => {

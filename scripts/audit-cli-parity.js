@@ -28,6 +28,13 @@ const documentedCommands = [
   'pasted pipeline list',
   'pasted pipeline run',
   'pasted diagnostics',
+  'pasted type list',
+  'pasted type create',
+  'pasted type archive|restore',
+  'pasted type group-list',
+  'pasted type group-create',
+  'pasted type group-archive|group-restore',
+  'pasted type group-delete',
   'pasted detector list',
   'pasted detector rescan',
   'pasted ocr status',
@@ -40,7 +47,7 @@ for (const command of documentedCommands) {
 }
 assert.doesNotMatch(help, /pasted-cli/, 'Help & Docs must expose the stable pasted command, not an implementation alias');
 
-for (const route of ['copy', 'list', 'search', 'clear', 'clip', 'bin', 'transform', 'operation', 'pipeline', 'detector', 'diagnostics', 'ocr', 'reset']) {
+for (const route of ['copy', 'list', 'search', 'clear', 'clip', 'bin', 'transform', 'operation', 'pipeline', 'type', 'detector', 'diagnostics', 'ocr', 'reset']) {
   assert.match(cli, new RegExp(`"${route}"`), `The CLI must retain its ${route} route`);
 }
 
@@ -58,5 +65,15 @@ assert.doesNotMatch(actions, /Promise\.all\(idsToChange\.map\(\(clipId\) => invo
 assert.match(database, /pub struct ClipMutationSummary/, 'GUI and CLI mutations must share a stable result contract');
 assert.match(commands, /db\.rescan_content_detection\(\)/, 'GUI history rescans must use the shared detector domain service');
 assert.match(cli, /db\.rescan_content_detection\(\)/, 'CLI history rescans must use the shared detector domain service');
+for (const method of ['get_content_types', 'create_content_type', 'update_content_type', 'set_content_type_archived', 'restore_default_content_types']) {
+  assert.match(database, new RegExp(`pub fn ${method}`), `${method} must live in the shared database domain layer`);
+  assert.match(commands, new RegExp(`pub async fn ${method}|pub fn ${method}`), `${method} must be exposed to the GUI`);
+  assert.match(cli, new RegExp(`db\\s*\\.${method}`), `${method} must be reused by the CLI`);
+}
+for (const method of ['get_content_type_groups', 'create_content_type_group', 'update_content_type_group', 'set_content_type_group_archived', 'delete_content_type_group', 'restore_default_content_type_groups']) {
+  assert.match(database, new RegExp(`pub fn ${method}`), `${method} must live in the shared database domain layer`);
+  assert.match(commands, new RegExp(`pub fn ${method}`), `${method} must be exposed to the GUI`);
+  assert.match(cli, new RegExp(`db\\s*\\.${method}`), `${method} must be reused by the CLI`);
+}
 
 console.log('GUI and CLI parity audit passed.');

@@ -60,6 +60,16 @@ const CLI_COMMAND_GROUPS = [
   {
     title: 'Detection',
     commands: [
+      { usage: 'pasted type list [--all] [--json]', description: 'List registered content Types and their display metadata.' },
+      { usage: 'pasted type create --id ID --name NAME [--icon ICON] [--group GROUP] [--json]', description: 'Create a custom Type with a stable ID.' },
+      { usage: 'pasted type update <id> [options] [--json]', description: 'Customize a Type’s name, icon, or group without changing its ID.' },
+      { usage: 'pasted type archive|restore <id>', description: 'Archive or restore a custom Type while preserving historical clips.' },
+      { usage: 'pasted type restore-defaults', description: 'Restore built-in Type names, icons, and groups.' },
+      { usage: 'pasted type group-list [--all] [--json]', description: 'List registered Content Type Groups.' },
+      { usage: 'pasted type group-create --id ID --name NAME [--order NUMBER]', description: 'Create a reusable custom Type Group.' },
+      { usage: 'pasted type group-update <id> [options] [--json]', description: 'Rename or reorder a Type Group.' },
+      { usage: 'pasted type group-archive|group-restore <id>', description: 'Archive an empty custom Group or restore it.' },
+      { usage: 'pasted type group-delete <id>', description: 'Permanently delete an empty custom Group.' },
       { usage: 'pasted detector list [--json]', description: 'List editable detectors in effective priority order.' },
       { usage: 'pasted detector create --name NAME --type TYPE --regex REGEX [--json]', description: 'Create a custom detector.' },
       { usage: 'pasted detector update <id> [options] [--json]', description: 'Edit an existing shipped or custom detector.' },

@@ -8,7 +8,7 @@ import { AppDialog } from './AppDialog';
 import { AppDialogBody, AppDialogButton, AppDialogFooter, AppDialogHeader, AppDialogHeading } from './AppDialogLayout';
 import { AnchoredMenu } from './AnchoredMenu';
 import { MenuSelect } from './MenuSelect';
-import { CONTENT_TYPES, contentTypeLabel } from '../utils/contentTypes';
+import { useContentTypes } from './ContentTypeProvider';
 
 interface BinModalProps {
   isOpen: boolean;
@@ -88,6 +88,7 @@ export const BinModal: React.FC<BinModalProps> = ({
   onClose,
   onRefreshBins,
 }) => {
+  const { definitions: contentTypes, groups: contentTypeGroups } = useContentTypes();
   const [modalTab, setModalTab] = useState<'bin' | 'smart'>(() => {
     if (editingBin?.smart_rule) return 'smart';
     return 'bin';
@@ -105,7 +106,6 @@ export const BinModal: React.FC<BinModalProps> = ({
   // Installed OS Apps state
   const [installedApps, setInstalledApps] = useState<string[]>([]);
   const [transforms, setTransforms] = useState<SavedTransform[]>([]);
-  const [detectorTypes, setDetectorTypes] = useState<string[]>([]);
   const [transformRef, setTransformRef] = useState('');
 
   // Multi-condition Smart Rules state
@@ -190,9 +190,6 @@ export const BinModal: React.FC<BinModalProps> = ({
         .catch(console.error);
       invoke<SavedTransform[]>('get_saved_transforms')
         .then((savedTransforms) => setTransforms(Array.isArray(savedTransforms) ? savedTransforms : []))
-        .catch(console.error);
-      invoke<Array<{ content_type: string }>>('get_content_detectors')
-        .then((detectors) => setDetectorTypes([...new Set(detectors.map((detector) => detector.content_type))]))
         .catch(console.error);
       if (editingBin) {
         invoke<string | null>('get_bin_transform_ref', { binId: editingBin.id })
@@ -573,12 +570,11 @@ export const BinModal: React.FC<BinModalProps> = ({
                     <MenuSelect
                       value={c.value}
                       onChange={(value) => handleUpdateCondition(c.id, { value })}
-                      options={[
-                        ...CONTENT_TYPES.map(({ value, label, group }) => ({ value, label, group })),
-                        ...detectorTypes
-                          .filter((value) => !CONTENT_TYPES.some((type) => type.value === value))
-                          .map((value) => ({ value, label: contentTypeLabel(value), group: 'Custom' })),
-                      ]}
+                      options={contentTypes.map((type) => ({
+                        value: type.id,
+                        label: type.label,
+                        group: type.isArchived ? 'Archived' : contentTypeGroups.find(({ id }) => id === type.group)?.label ?? type.group,
+                      }))}
                       label="Content type"
                       className="min-w-0 flex-1"
                       compact

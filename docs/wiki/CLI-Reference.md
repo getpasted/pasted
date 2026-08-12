@@ -58,6 +58,19 @@ pasted pipeline run <ref> [--text TEXT | --clip ID | --stdin] [--json]
 ## Detection
 
 ```text
+pasted type list [--all] [--json]
+pasted type create --id <id> --name <name> [--icon <icon>] [--group <group>] [--json]
+pasted type update <id> [--name <name>] [--icon <icon>] [--group <group>] [--json]
+pasted type archive <id>
+pasted type restore <id>
+pasted type restore-defaults
+pasted type group-list [--all] [--json]
+pasted type group-create --id <id> --name <name> [--order <number>] [--json]
+pasted type group-update <id> [--name <name>] [--order <number>] [--json]
+pasted type group-archive <id>
+pasted type group-restore <id>
+pasted type group-delete <id>
+pasted type group-restore-defaults
 pasted detector list [--json]
 pasted detector create --name <name> --type <type> --regex <pattern> [--json]
 pasted detector update <id> [--name <name>] [--type <type>] [--regex <pattern>] [--validator <name|none>] [--priority <number>] [--enabled|--disabled] [--json]
@@ -66,7 +79,7 @@ pasted detector restore-defaults
 pasted detector rescan --yes [--json]
 ```
 
-Detectors run in ascending priority order. Repeat `--regex` to provide alternatives. Shipped detectors are editable and deletable; `restore-defaults` recovers their original definitions without removing custom detectors. `rescan` explicitly reclassifies existing text clips with the current enabled detector order while preserving image and file types.
+Type and Group IDs are stable. Built-in Types can be renamed, regrouped, and given a different icon, but cannot be archived; custom Types can be archived without reinterpreting historical clips. Custom Groups can be archived only when no Types use them. Archiving a custom Type disables detectors that produce it. Detectors run in ascending priority order. Repeat `--regex` to provide alternatives. Shipped detectors are editable and deletable; `restore-defaults` recovers their original definitions without removing custom detectors. `rescan` explicitly reclassifies existing text clips with the current enabled detector order while preserving image and file types.
 
 ## Maintenance
 

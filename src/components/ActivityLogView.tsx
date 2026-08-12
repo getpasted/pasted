@@ -109,6 +109,17 @@ export const ActivityLogView: React.FC = () => {
       case 'content_detector_deleted':
       case 'content_detectors_restored':
       case 'content_detection_history_rescanned':
+      case 'content_type_created':
+      case 'content_type_updated':
+      case 'content_type_archived':
+      case 'content_type_restored':
+      case 'content_types_restored':
+      case 'content_type_group_created':
+      case 'content_type_group_updated':
+      case 'content_type_group_archived':
+      case 'content_type_group_deleted':
+      case 'content_type_group_restored':
+      case 'content_type_groups_restored':
         return (
           <div className="theme-status-info flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold">
             <Radar className="w-3.5 h-3.5" />
@@ -379,7 +390,7 @@ export const ActivityLogView: React.FC = () => {
     if (selectedTypeFilter === 'app') return l.event_type.startsWith('app_');
     if (selectedTypeFilter === 'settings') return l.event_type.startsWith('setting_') || l.event_type.startsWith('settings_') || l.event_type.startsWith('autostart_');
     if (selectedTypeFilter === 'storage') return l.event_type.startsWith('library_');
-    if (selectedTypeFilter === 'detection') return l.event_type.startsWith('content_detector') || l.event_type.startsWith('content_detection');
+    if (selectedTypeFilter === 'detection') return l.event_type.startsWith('content_detector') || l.event_type.startsWith('content_detection') || l.event_type.startsWith('content_type');
     return true;
   });
 

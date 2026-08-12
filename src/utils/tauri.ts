@@ -1,4 +1,5 @@
 import { invoke as tauriInvoke } from '@tauri-apps/api/core';
+import { CONTENT_TYPES } from './contentTypes';
 
 type MockClip = {
   id: number;
@@ -70,10 +71,31 @@ let mockBins: MockBin[] = [
   { id: 2, name: 'Work Bin', icon: '💼', color: '#10b981', smart_rule: '', bin_type: 'category' },
 ];
 
+function mockDetector<T extends { id: number; patterns: string[] }>(detector: T) {
+  return { ...detector, defaults: { ...detector, patterns: [...detector.patterns] } };
+}
 let mockDetectors = [
-  { id: 1, stable_ref: 'email', name: 'Email Addresses', content_type: 'email', description: 'Individual email addresses', patterns: [String.raw`(?i)^[^\s@]+@[^\s@]+\.[^\s@]+$`], validator: null, enabled: true, priority: 30, is_builtin: true },
-  { id: 2, stable_ref: 'credential', name: 'Credentials', content_type: 'credential', description: 'Known API-key formats and secret assignments', patterns: [String.raw`^(?:sk_|ghp_).+$`], validator: null, enabled: true, priority: 60, is_builtin: true },
-  { id: 3, stable_ref: 'phone', name: 'Phone Numbers', content_type: 'phone', description: 'Formatted international and local phone numbers', patterns: [String.raw`^\+?[0-9 ()-]{7,}$`], validator: 'phone', enabled: true, priority: 160, is_builtin: true },
+  mockDetector({ id: 1, stable_ref: 'email', name: 'Email Addresses', content_type: 'email', description: 'Individual email addresses', patterns: [String.raw`(?i)^[^\s@]+@[^\s@]+\.[^\s@]+$`], validator: null, enabled: true, priority: 30, is_builtin: true }),
+  mockDetector({ id: 2, stable_ref: 'credential', name: 'Credentials', content_type: 'credential', description: 'Known API-key formats and secret assignments', patterns: [String.raw`^(?:sk_|ghp_).+$`], validator: null, enabled: true, priority: 60, is_builtin: true }),
+  mockDetector({ id: 3, stable_ref: 'phone', name: 'Phone Numbers', content_type: 'phone', description: 'Formatted international and local phone numbers', patterns: [String.raw`^\+?[0-9 ()-]{7,}$`], validator: 'phone', enabled: true, priority: 160, is_builtin: true }),
+];
+
+let mockContentTypes: Array<{
+  id: string; label: string; icon: string; group: string; isBuiltin: boolean; isArchived: boolean;
+  defaults: { label: string; icon: string; group: string } | null;
+}> = CONTENT_TYPES.map(({ value, label, icon, group }) => {
+  const groupId = group.toLowerCase().replace(/ & /g, '_').replace(/ /g, '_');
+  return { id: value as string, label, icon, group: groupId, isBuiltin: true, isArchived: false, defaults: { label, icon, group: groupId } };
+});
+let mockContentTypeGroups: Array<{
+  id: string; label: string; sortOrder: number; isBuiltin: boolean; isArchived: boolean;
+  defaults: { label: string; sortOrder: number } | null;
+}> = [
+  { id: 'general', label: 'General', sortOrder: 10, isBuiltin: true, isArchived: false, defaults: { label: 'General', sortOrder: 10 } },
+  { id: 'developer', label: 'Developer', sortOrder: 20, isBuiltin: true, isArchived: false, defaults: { label: 'Developer', sortOrder: 20 } },
+  { id: 'personal_financial', label: 'Personal & financial', sortOrder: 30, isBuiltin: true, isArchived: false, defaults: { label: 'Personal & financial', sortOrder: 30 } },
+  { id: 'identifiers', label: 'Identifiers', sortOrder: 40, isBuiltin: true, isArchived: false, defaults: { label: 'Identifiers', sortOrder: 40 } },
+  { id: 'custom', label: 'Custom', sortOrder: 50, isBuiltin: true, isArchived: false, defaults: { label: 'Custom', sortOrder: 50 } },
 ];
 
 let mockLibraryLocation = {
@@ -174,9 +196,54 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       return mockPipelines as unknown as T;
     case 'get_content_detectors':
       return mockDetectors.map((detector) => ({ ...detector, patterns: [...detector.patterns] })) as unknown as T;
+    case 'get_content_types':
+      return mockContentTypes
+        .filter((type) => Boolean(args?.includeArchived) || !type.isArchived)
+        .map((type) => ({ ...type })) as unknown as T;
+    case 'get_content_type_groups':
+      return mockContentTypeGroups.filter((group) => Boolean(args?.includeArchived) || !group.isArchived).map((group) => ({ ...group })) as unknown as T;
+    case 'create_content_type_group': {
+      const input = args?.input as { id: string; label: string; sortOrder: number };
+      const created = { ...input, isBuiltin: false, isArchived: false, defaults: null };
+      mockContentTypeGroups.push(created);
+      return created as unknown as T;
+    }
+    case 'update_content_type_group': {
+      const index = mockContentTypeGroups.findIndex(({ id }) => id === String(args?.id));
+      if (index >= 0) mockContentTypeGroups[index] = { ...mockContentTypeGroups[index], ...(args?.input as Record<string, string | number>) };
+      return mockContentTypeGroups[index] as unknown as T;
+    }
+    case 'set_content_type_group_archived': {
+      const index = mockContentTypeGroups.findIndex(({ id }) => id === String(args?.id));
+      if (index >= 0) mockContentTypeGroups[index] = { ...mockContentTypeGroups[index], isArchived: Boolean(args?.archived) };
+      return null as unknown as T;
+    }
+    case 'delete_content_type_group':
+      mockContentTypeGroups = mockContentTypeGroups.filter(({ id }) => id !== String(args?.id));
+      return null as unknown as T;
+    case 'restore_default_content_type_groups':
+      return mockContentTypeGroups as unknown as T;
+    case 'create_content_type': {
+      const input = args?.input as { id: string; label: string; icon: string; group: string };
+      const created = { ...input, isBuiltin: false, isArchived: false, defaults: null };
+      mockContentTypes.push(created);
+      return created as unknown as T;
+    }
+    case 'update_content_type': {
+      const index = mockContentTypes.findIndex(({ id }) => id === String(args?.id));
+      if (index >= 0) mockContentTypes[index] = { ...mockContentTypes[index], ...(args?.input as Record<string, string>) };
+      return mockContentTypes[index] as unknown as T;
+    }
+    case 'set_content_type_archived': {
+      const index = mockContentTypes.findIndex(({ id }) => id === String(args?.id));
+      if (index >= 0) mockContentTypes[index] = { ...mockContentTypes[index], isArchived: Boolean(args?.archived) };
+      return mockContentTypes[index] as unknown as T;
+    }
+    case 'restore_default_content_types':
+      return mockContentTypes as unknown as T;
     case 'create_content_detector': {
       const input = args?.input as Record<string, unknown>;
-      const detector = { ...input, id: Math.max(0, ...mockDetectors.map(({ id }) => id)) + 1, stable_ref: `custom-${Date.now()}`, is_builtin: false } as typeof mockDetectors[number];
+      const detector = { ...input, id: Math.max(0, ...mockDetectors.map(({ id }) => Number(id))) + 1, stable_ref: `custom-${Date.now()}`, is_builtin: false, defaults: null } as unknown as typeof mockDetectors[number];
       mockDetectors.push(detector);
       return detector as unknown as T;
     }

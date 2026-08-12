@@ -141,6 +141,12 @@ html:not(.is-stable-reordering) .connection-priority-card:hover {
   color: var(--status-warning);
 }
 
+.settings-field-modified :is(.theme-input, .menu-select-trigger, .theme-checkbox) {
+  background-color: color-mix(in srgb, var(--status-warning) 7%, var(--bg-input));
+  border-color: color-mix(in srgb, var(--status-warning) 68%, var(--border-input));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--status-warning) 28%, transparent);
+}
+
 .theme-status-danger,
 .theme-status-danger-text {
   color: var(--status-danger);
@@ -1304,6 +1310,10 @@ select.theme-input {
   box-shadow: 0 10px 30px color-mix(in srgb, var(--shadow-color) 42%, transparent);
   -webkit-backdrop-filter: blur(24px) saturate(var(--material-saturation));
   backdrop-filter: blur(24px) saturate(var(--material-saturation));
+}
+
+.theme-menu-search {
+  background-color: var(--menu-surface);
 }
 
 .theme-menu-item {

@@ -43,7 +43,7 @@ const filterFamilies = [
   ['hud', (event) => event.startsWith('hud_'), "event_type.startsWith('hud_')"],
   ['app', (event) => event.startsWith('app_'), "event_type.startsWith('app_')"],
   ['settings', (event) => event.startsWith('setting_') || event.startsWith('settings_') || event.startsWith('autostart_'), "event_type.startsWith('setting_')"],
-  ['detection', (event) => event.startsWith('content_detector') || event.startsWith('content_detection'), "event_type.startsWith('content_detector')"],
+  ['detection', (event) => event.startsWith('content_detector') || event.startsWith('content_detection') || event.startsWith('content_type'), "event_type.startsWith('content_detector')"],
   ['storage', (event) => event.startsWith('library_'), "event_type.startsWith('library_')"],
 ];
 

@@ -16,3 +16,8 @@ Other Settings pages cover:
 
 Appearance schemes use semantic theme tokens across the main app, HUD, menus, modals, Settings, and Tools pages.
 
+## Detection and Types
+
+**Settings → Detection** manages ordered detectors and the shared Type and Group registries. IDs are stable: built-in Types and Groups can be renamed and reordered, Types can be assigned searchable icons, and custom entries can be archived. A custom Group must be empty before it can be archived or permanently deleted. Archiving a Type preserves existing clips and disables detectors that would produce it. Registry metadata does not maintain revision history; changes are recorded in Activity Log, and **Restore Defaults** recovers the shipped metadata and detectors without removing custom entries.
+
+**Rescan History** explicitly reapplies enabled detectors to existing text clips. It leaves image and file Types unchanged and reports how many clips were reclassified.

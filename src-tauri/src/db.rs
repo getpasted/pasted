@@ -363,6 +363,10 @@ pub struct BackupPayload {
     pub ocr_metadata: Vec<OcrBackupMetadata>,
     #[serde(default)]
     pub content_detectors: Vec<crate::content_detection::Detector>,
+    #[serde(default)]
+    pub content_types: Vec<crate::content_types::ContentTypeDefinition>,
+    #[serde(default)]
+    pub content_type_groups: Vec<crate::content_types::ContentTypeGroupDefinition>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -1005,7 +1009,28 @@ impl DbState {
         )?;
 
         conn.execute_batch(
-            "CREATE TABLE IF NOT EXISTS content_detectors (
+            "CREATE TABLE IF NOT EXISTS content_type_groups (
+                id TEXT PRIMARY KEY,
+                label TEXT NOT NULL,
+                sort_order INTEGER NOT NULL DEFAULT 100,
+                is_builtin INTEGER NOT NULL DEFAULT 0,
+                is_archived INTEGER NOT NULL DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE TABLE IF NOT EXISTS content_types (
+                id TEXT PRIMARY KEY,
+                label TEXT NOT NULL,
+                icon TEXT NOT NULL,
+                group_name TEXT NOT NULL,
+                is_builtin INTEGER NOT NULL DEFAULT 0,
+                is_archived INTEGER NOT NULL DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE INDEX IF NOT EXISTS idx_content_types_order
+                ON content_types (is_archived, is_builtin DESC, group_name, label);
+            CREATE TABLE IF NOT EXISTS content_detectors (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 stable_ref TEXT NOT NULL UNIQUE,
                 name TEXT NOT NULL,
@@ -1023,6 +1048,22 @@ impl DbState {
             CREATE INDEX IF NOT EXISTS idx_content_detectors_order
                 ON content_detectors (is_deleted, enabled, priority, id);",
         )?;
+        for preset in crate::content_types::CONTENT_TYPE_GROUP_PRESETS {
+            conn.execute(
+                "INSERT OR IGNORE INTO content_type_groups
+                    (id, label, sort_order, is_builtin, is_archived)
+                 VALUES (?1, ?2, ?3, 1, 0)",
+                params![preset.id, preset.label, preset.sort_order],
+            )?;
+        }
+        for preset in crate::content_types::CONTENT_TYPE_PRESETS {
+            conn.execute(
+                "INSERT OR IGNORE INTO content_types
+                    (id, label, icon, group_name, is_builtin, is_archived)
+                 VALUES (?1, ?2, ?3, ?4, 1, 0)",
+                params![preset.id, preset.label, preset.icon, preset.group],
+            )?;
+        }
         for preset in crate::content_detection::DETECTOR_PRESETS {
             let patterns_json = serde_json::to_string(&preset.patterns)
                 .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?;
@@ -1031,6 +1072,25 @@ impl DbState {
                     (stable_ref, name, content_type, description, patterns_json, validator, enabled, priority, is_builtin)
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, 1, ?7, 1)",
                 params![preset.stable_ref, preset.name, preset.content_type, preset.description, patterns_json, preset.validator, preset.priority],
+            )?;
+        }
+        let legacy_type_ids = {
+            let mut statement = conn.prepare(
+                "SELECT content_type FROM content_detectors
+                 UNION SELECT content_type FROM clips
+                 ORDER BY content_type",
+            )?;
+            let ids = statement
+                .query_map([], |row| row.get::<_, String>(0))?
+                .collect::<Result<Vec<_>>>()?;
+            ids
+        };
+        for id in legacy_type_ids {
+            conn.execute(
+                "INSERT OR IGNORE INTO content_types
+                    (id, label, icon, group_name, is_builtin, is_archived)
+                 VALUES (?1, ?2, 'FileText', 'custom', 0, 0)",
+                params![id, crate::content_types::fallback_label(&id)],
             )?;
         }
         let detector_migration_applied: bool = conn.query_row(
@@ -1116,6 +1176,8 @@ impl DbState {
              DELETE FROM bins;
              DELETE FROM activity_logs;
              DELETE FROM content_detectors;
+             DELETE FROM content_types;
+             DELETE FROM content_type_groups;
              DELETE FROM settings;",
         )?;
         transaction.execute(
@@ -1126,6 +1188,22 @@ impl DbState {
             [],
         )?;
         insert_default_bins(&transaction)?;
+        for preset in crate::content_types::CONTENT_TYPE_GROUP_PRESETS {
+            transaction.execute(
+                "INSERT INTO content_type_groups
+                    (id, label, sort_order, is_builtin, is_archived)
+                 VALUES (?1, ?2, ?3, 1, 0)",
+                params![preset.id, preset.label, preset.sort_order],
+            )?;
+        }
+        for preset in crate::content_types::CONTENT_TYPE_PRESETS {
+            transaction.execute(
+                "INSERT INTO content_types
+                    (id, label, icon, group_name, is_builtin, is_archived)
+                 VALUES (?1, ?2, ?3, ?4, 1, 0)",
+                params![preset.id, preset.label, preset.icon, preset.group],
+            )?;
+        }
         for preset in crate::content_detection::DETECTOR_PRESETS {
             let patterns_json = serde_json::to_string(&preset.patterns)
                 .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?;
@@ -3729,6 +3807,8 @@ impl DbState {
             .collect();
         let ocr_metadata = self.get_ocr_backup_metadata()?;
         let content_detectors = self.get_all_content_detectors_for_backup()?;
+        let content_types = self.get_content_types(true)?;
+        let content_type_groups = self.get_content_type_groups(true)?;
 
         let payload = BackupPayload {
             version: BACKUP_SCHEMA_VERSION,
@@ -3741,6 +3821,8 @@ impl DbState {
             bin_transforms,
             ocr_metadata,
             content_detectors,
+            content_types,
+            content_type_groups,
         };
 
         serde_json::to_string_pretty(&payload)
@@ -3764,6 +3846,82 @@ impl DbState {
         let mut conn = self.conn.lock();
         let tx = conn.transaction()?;
         let mut bin_id_map = std::collections::HashMap::new();
+        if payload.content_type_groups.len() > 64 {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "Backup contains more than 64 content type groups".to_string(),
+            ));
+        }
+        for group in &payload.content_type_groups {
+            crate::content_types::validate_content_type_group_input(
+                &crate::content_types::ContentTypeGroupInput {
+                    id: group.id.clone(),
+                    label: group.label.clone(),
+                    sort_order: group.sort_order,
+                },
+            )
+            .map_err(rusqlite::Error::InvalidParameterName)?;
+            let is_builtin = crate::content_types::CONTENT_TYPE_GROUP_PRESETS
+                .iter()
+                .any(|preset| preset.id == group.id);
+            tx.execute(
+                "INSERT INTO content_type_groups
+                    (id, label, sort_order, is_builtin, is_archived)
+                 VALUES (?1, ?2, ?3, ?4, ?5)
+                 ON CONFLICT(id) DO UPDATE SET
+                    label = excluded.label, sort_order = excluded.sort_order,
+                    is_archived = CASE WHEN content_type_groups.is_builtin = 1 THEN 0 ELSE excluded.is_archived END,
+                    updated_at = CURRENT_TIMESTAMP",
+                params![group.id, group.label, group.sort_order, is_builtin, group.is_archived],
+            )?;
+        }
+        if payload.content_types.len() > 256 {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "Backup contains more than 256 content types".to_string(),
+            ));
+        }
+        for content_type in &payload.content_types {
+            crate::content_types::validate_content_type_input(
+                &crate::content_types::ContentTypeInput {
+                    id: content_type.id.clone(),
+                    label: content_type.label.clone(),
+                    icon: content_type.icon.clone(),
+                    group: content_type.group.clone(),
+                },
+            )
+            .map_err(rusqlite::Error::InvalidParameterName)?;
+            let group_exists: bool = tx.query_row(
+                "SELECT EXISTS(SELECT 1 FROM content_type_groups WHERE id = ?1 AND is_archived = 0)",
+                params![content_type.group],
+                |row| row.get(0),
+            )?;
+            if !group_exists {
+                return Err(rusqlite::Error::InvalidParameterName(format!(
+                    "Backup content type {} references a missing or archived Group",
+                    content_type.id
+                )));
+            }
+            let is_builtin = crate::content_types::CONTENT_TYPE_PRESETS
+                .iter()
+                .any(|preset| preset.id == content_type.id);
+            tx.execute(
+                "INSERT INTO content_types
+                    (id, label, icon, group_name, is_builtin, is_archived)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+                 ON CONFLICT(id) DO UPDATE SET
+                    label = excluded.label, icon = excluded.icon,
+                    group_name = excluded.group_name,
+                    is_archived = CASE WHEN content_types.is_builtin = 1 THEN 0 ELSE excluded.is_archived END,
+                    updated_at = CURRENT_TIMESTAMP",
+                params![
+                    content_type.id,
+                    content_type.label,
+                    content_type.icon,
+                    content_type.group,
+                    is_builtin,
+                    content_type.is_archived,
+                ],
+            )?;
+        }
         if payload.content_detectors.len() > 128 {
             return Err(rusqlite::Error::InvalidParameterName(
                 "Backup contains more than 128 content detectors".to_string(),
@@ -5316,6 +5474,357 @@ impl DbState {
         Ok(map)
     }
 
+    pub fn get_content_type_groups(
+        &self,
+        include_archived: bool,
+    ) -> Result<Vec<crate::content_types::ContentTypeGroupDefinition>> {
+        let conn = self.conn.lock();
+        let mut statement = conn.prepare(
+            "SELECT id, label, sort_order, is_builtin, is_archived
+             FROM content_type_groups WHERE ?1 OR is_archived = 0
+             ORDER BY is_archived, sort_order, label COLLATE NOCASE",
+        )?;
+        let groups: Result<Vec<_>> = statement
+            .query_map(params![include_archived], |row| {
+                Ok(crate::content_types::ContentTypeGroupDefinition {
+                    id: row.get(0)?,
+                    label: row.get(1)?,
+                    sort_order: row.get(2)?,
+                    is_builtin: row.get(3)?,
+                    is_archived: row.get(4)?,
+                    defaults: None,
+                })
+            })?
+            .collect();
+        groups.map(|mut groups: Vec<_>| {
+            for group in &mut groups {
+                if group.is_builtin {
+                    group.defaults = crate::content_types::content_type_group_defaults(&group.id);
+                }
+            }
+            groups
+        })
+    }
+
+    pub fn create_content_type_group(
+        &self,
+        input: &crate::content_types::ContentTypeGroupInput,
+    ) -> Result<crate::content_types::ContentTypeGroupDefinition> {
+        crate::content_types::validate_content_type_group_input(input)
+            .map_err(rusqlite::Error::InvalidParameterName)?;
+        let conn = self.conn.lock();
+        conn.execute(
+            "INSERT INTO content_type_groups (id, label, sort_order, is_builtin, is_archived) VALUES (?1, ?2, ?3, 0, 0)",
+            params![input.id, input.label.trim(), input.sort_order],
+        )?;
+        drop(conn);
+        let created = self
+            .get_content_type_groups(true)?
+            .into_iter()
+            .find(|item| item.id == input.id)
+            .ok_or(rusqlite::Error::QueryReturnedNoRows)?;
+        let _ = self.log_activity(
+            "content_type_group_created",
+            &format!("Created content type group \"{}\"", created.label),
+        );
+        Ok(created)
+    }
+
+    pub fn update_content_type_group(
+        &self,
+        id: &str,
+        input: &crate::content_types::ContentTypeGroupInput,
+    ) -> Result<crate::content_types::ContentTypeGroupDefinition> {
+        if id != input.id {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "Content type Group IDs cannot be changed".into(),
+            ));
+        }
+        crate::content_types::validate_content_type_group_input(input)
+            .map_err(rusqlite::Error::InvalidParameterName)?;
+        let conn = self.conn.lock();
+        let changed = conn.execute(
+            "UPDATE content_type_groups SET label = ?1, sort_order = ?2, updated_at = CURRENT_TIMESTAMP WHERE id = ?3",
+            params![input.label.trim(), input.sort_order, id],
+        )?;
+        drop(conn);
+        if changed == 0 {
+            return Err(rusqlite::Error::QueryReturnedNoRows);
+        }
+        let updated = self
+            .get_content_type_groups(true)?
+            .into_iter()
+            .find(|item| item.id == id)
+            .ok_or(rusqlite::Error::QueryReturnedNoRows)?;
+        let _ = self.log_activity(
+            "content_type_group_updated",
+            &format!("Updated content type group \"{}\"", updated.label),
+        );
+        Ok(updated)
+    }
+
+    pub fn set_content_type_group_archived(&self, id: &str, archived: bool) -> Result<()> {
+        let conn = self.conn.lock();
+        let (is_builtin, usage_count): (bool, i64) = conn.query_row(
+            "SELECT is_builtin, (SELECT COUNT(*) FROM content_types WHERE group_name = ?1) FROM content_type_groups WHERE id = ?1",
+            params![id], |row| Ok((row.get(0)?, row.get(1)?)),
+        ).optional()?.ok_or(rusqlite::Error::QueryReturnedNoRows)?;
+        if is_builtin {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "Built-in content type groups cannot be archived".into(),
+            ));
+        }
+        if archived && usage_count > 0 {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "Move Types out of this Group before archiving it".into(),
+            ));
+        }
+        conn.execute("UPDATE content_type_groups SET is_archived = ?1, updated_at = CURRENT_TIMESTAMP WHERE id = ?2", params![archived, id])?;
+        drop(conn);
+        let _ = self.log_activity(
+            if archived {
+                "content_type_group_archived"
+            } else {
+                "content_type_group_restored"
+            },
+            &format!(
+                "{} content type group {id}",
+                if archived { "Archived" } else { "Restored" }
+            ),
+        );
+        Ok(())
+    }
+
+    pub fn delete_content_type_group(&self, id: &str) -> Result<()> {
+        let conn = self.conn.lock();
+        let (is_builtin, usage_count, label): (bool, i64, String) = conn
+            .query_row(
+                "SELECT is_builtin, (SELECT COUNT(*) FROM content_types WHERE group_name = ?1), label
+                 FROM content_type_groups WHERE id = ?1",
+                params![id],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .optional()?
+            .ok_or(rusqlite::Error::QueryReturnedNoRows)?;
+        if is_builtin {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "Built-in content type groups cannot be deleted".into(),
+            ));
+        }
+        if usage_count > 0 {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "Move Types out of this Group before deleting it".into(),
+            ));
+        }
+        conn.execute("DELETE FROM content_type_groups WHERE id = ?1", params![id])?;
+        drop(conn);
+        let _ = self.log_activity(
+            "content_type_group_deleted",
+            &format!("Deleted content type group \"{label}\""),
+        );
+        Ok(())
+    }
+
+    pub fn restore_default_content_type_groups(&self) -> Result<()> {
+        let conn = self.conn.lock();
+        for preset in crate::content_types::CONTENT_TYPE_GROUP_PRESETS {
+            conn.execute(
+                "UPDATE content_type_groups SET label = ?1, sort_order = ?2, is_archived = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?3 AND is_builtin = 1",
+                params![preset.label, preset.sort_order, preset.id],
+            )?;
+        }
+        drop(conn);
+        let _ = self.log_activity(
+            "content_type_groups_restored",
+            "Restored built-in content type groups",
+        );
+        Ok(())
+    }
+
+    pub fn get_content_types(
+        &self,
+        include_archived: bool,
+    ) -> Result<Vec<crate::content_types::ContentTypeDefinition>> {
+        let conn = self.conn.lock();
+        let mut statement = conn.prepare(
+            "SELECT types.id, types.label, types.icon, types.group_name, types.is_builtin, types.is_archived
+             FROM content_types AS types
+             LEFT JOIN content_type_groups AS groups ON groups.id = types.group_name
+             WHERE ?1 OR types.is_archived = 0
+             ORDER BY types.is_archived, COALESCE(groups.sort_order, 10000), types.is_builtin DESC, types.label COLLATE NOCASE",
+        )?;
+        let definitions: Result<Vec<_>> = statement
+            .query_map(params![include_archived], |row| {
+                Ok(crate::content_types::ContentTypeDefinition {
+                    id: row.get(0)?,
+                    label: row.get(1)?,
+                    icon: row.get(2)?,
+                    group: row.get(3)?,
+                    is_builtin: row.get(4)?,
+                    is_archived: row.get(5)?,
+                    defaults: None,
+                })
+            })?
+            .collect();
+        definitions.map(|mut definitions: Vec<_>| {
+            for definition in &mut definitions {
+                if definition.is_builtin {
+                    definition.defaults =
+                        crate::content_types::content_type_defaults(&definition.id);
+                }
+            }
+            definitions
+        })
+    }
+
+    pub fn create_content_type(
+        &self,
+        input: &crate::content_types::ContentTypeInput,
+    ) -> Result<crate::content_types::ContentTypeDefinition> {
+        crate::content_types::validate_content_type_input(input).map_err(|error| {
+            rusqlite::Error::ToSqlConversionFailure(Box::new(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                error,
+            )))
+        })?;
+        let conn = self.conn.lock();
+        let group_exists: bool = conn.query_row(
+            "SELECT EXISTS(SELECT 1 FROM content_type_groups WHERE id = ?1 AND is_archived = 0)",
+            params![input.group],
+            |row| row.get(0),
+        )?;
+        if !group_exists {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "Content type Group must exist and be active".into(),
+            ));
+        }
+        conn.execute(
+            "INSERT INTO content_types (id, label, icon, group_name, is_builtin, is_archived)
+             VALUES (?1, ?2, ?3, ?4, 0, 0)",
+            params![input.id, input.label.trim(), input.icon, input.group],
+        )?;
+        drop(conn);
+        let created = self
+            .get_content_types(true)?
+            .into_iter()
+            .find(|item| item.id == input.id)
+            .ok_or(rusqlite::Error::QueryReturnedNoRows)?;
+        let _ = self.log_activity(
+            "content_type_created",
+            &format!("Created content type \"{}\"", created.label),
+        );
+        Ok(created)
+    }
+
+    pub fn update_content_type(
+        &self,
+        id: &str,
+        input: &crate::content_types::ContentTypeInput,
+    ) -> Result<crate::content_types::ContentTypeDefinition> {
+        if id != input.id {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "Content type IDs cannot be changed".into(),
+            ));
+        }
+        crate::content_types::validate_content_type_input(input).map_err(|error| {
+            rusqlite::Error::ToSqlConversionFailure(Box::new(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                error,
+            )))
+        })?;
+        let conn = self.conn.lock();
+        let group_exists: bool = conn.query_row(
+            "SELECT EXISTS(SELECT 1 FROM content_type_groups WHERE id = ?1 AND is_archived = 0)",
+            params![input.group],
+            |row| row.get(0),
+        )?;
+        if !group_exists {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "Content type Group must exist and be active".into(),
+            ));
+        }
+        let changed = conn.execute(
+            "UPDATE content_types SET label = ?1, icon = ?2, group_name = ?3,
+                    updated_at = CURRENT_TIMESTAMP WHERE id = ?4",
+            params![input.label.trim(), input.icon, input.group, id],
+        )?;
+        drop(conn);
+        if changed == 0 {
+            return Err(rusqlite::Error::QueryReturnedNoRows);
+        }
+        let updated = self
+            .get_content_types(true)?
+            .into_iter()
+            .find(|item| item.id == id)
+            .ok_or(rusqlite::Error::QueryReturnedNoRows)?;
+        let _ = self.log_activity(
+            "content_type_updated",
+            &format!("Updated content type \"{}\"", updated.label),
+        );
+        Ok(updated)
+    }
+
+    pub fn set_content_type_archived(&self, id: &str, archived: bool) -> Result<()> {
+        let conn = self.conn.lock();
+        let is_builtin = conn
+            .query_row(
+                "SELECT is_builtin FROM content_types WHERE id = ?1",
+                params![id],
+                |row| row.get::<_, bool>(0),
+            )
+            .optional()?
+            .ok_or(rusqlite::Error::QueryReturnedNoRows)?;
+        if is_builtin {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "Built-in content types cannot be archived".into(),
+            ));
+        }
+        let transaction = conn.unchecked_transaction()?;
+        transaction.execute(
+            "UPDATE content_types SET is_archived = ?1, updated_at = CURRENT_TIMESTAMP WHERE id = ?2",
+            params![archived, id],
+        )?;
+        if archived {
+            transaction.execute(
+                "UPDATE content_detectors SET enabled = 0, updated_at = CURRENT_TIMESTAMP
+                 WHERE content_type = ?1 AND is_deleted = 0",
+                params![id],
+            )?;
+        }
+        transaction.commit()?;
+        drop(conn);
+        let _ = self.log_activity(
+            if archived {
+                "content_type_archived"
+            } else {
+                "content_type_restored"
+            },
+            &format!(
+                "{} content type {id}",
+                if archived { "Archived" } else { "Restored" }
+            ),
+        );
+        Ok(())
+    }
+
+    pub fn restore_default_content_types(&self) -> Result<()> {
+        let conn = self.conn.lock();
+        for preset in crate::content_types::CONTENT_TYPE_PRESETS {
+            conn.execute(
+                "UPDATE content_types SET label = ?1, icon = ?2, group_name = ?3,
+                        is_archived = 0, updated_at = CURRENT_TIMESTAMP
+                 WHERE id = ?4 AND is_builtin = 1",
+                params![preset.label, preset.icon, preset.group, preset.id],
+            )?;
+        }
+        drop(conn);
+        let _ = self.log_activity(
+            "content_types_restored",
+            "Restored built-in content type metadata",
+        );
+        Ok(())
+    }
+
     pub fn get_content_detectors(&self) -> Result<Vec<crate::content_detection::Detector>> {
         let conn = self.conn.lock();
         let mut statement = conn.prepare(
@@ -5332,9 +5841,14 @@ impl DbState {
                     Box::new(error),
                 )
             })?;
+            let stable_ref: String = row.get(1)?;
+            let is_builtin: bool = row.get(9)?;
             Ok(crate::content_detection::Detector {
                 id: row.get(0)?,
-                stable_ref: row.get(1)?,
+                defaults: is_builtin
+                    .then(|| crate::content_detection::detector_defaults(&stable_ref))
+                    .flatten(),
+                stable_ref,
                 name: row.get(2)?,
                 content_type: row.get(3)?,
                 description: row.get(4)?,
@@ -5342,7 +5856,7 @@ impl DbState {
                 validator: row.get(6)?,
                 enabled: row.get(7)?,
                 priority: row.get(8)?,
-                is_builtin: row.get(9)?,
+                is_builtin,
                 is_deleted: row.get(10)?,
             })
         })?;
@@ -5367,9 +5881,14 @@ impl DbState {
                     Box::new(error),
                 )
             })?;
+            let stable_ref: String = row.get(1)?;
+            let is_builtin: bool = row.get(9)?;
             Ok(crate::content_detection::Detector {
                 id: row.get(0)?,
-                stable_ref: row.get(1)?,
+                defaults: is_builtin
+                    .then(|| crate::content_detection::detector_defaults(&stable_ref))
+                    .flatten(),
+                stable_ref,
                 name: row.get(2)?,
                 content_type: row.get(3)?,
                 description: row.get(4)?,
@@ -5377,7 +5896,7 @@ impl DbState {
                 validator: row.get(6)?,
                 enabled: row.get(7)?,
                 priority: row.get(8)?,
-                is_builtin: row.get(9)?,
+                is_builtin,
                 is_deleted: row.get(10)?,
             })
         })?;
@@ -5394,6 +5913,15 @@ impl DbState {
                 error,
             )))
         })?;
+        if !self
+            .get_content_types(false)?
+            .iter()
+            .any(|content_type| content_type.id == input.content_type)
+        {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "Detectors must use an active registered content type".into(),
+            ));
+        }
         let patterns_json = serde_json::to_string(&input.patterns)
             .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?;
         let conn = self.conn.lock();
@@ -5442,6 +5970,15 @@ impl DbState {
                 error,
             )))
         })?;
+        if !self
+            .get_content_types(false)?
+            .iter()
+            .any(|content_type| content_type.id == input.content_type)
+        {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "Detectors must use an active registered content type".into(),
+            ));
+        }
         let patterns_json = serde_json::to_string(&input.patterns)
             .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?;
         let conn = self.conn.lock();
@@ -5645,6 +6182,13 @@ mod tests {
             .iter()
             .find(|detector| detector.stable_ref == "email")
             .unwrap();
+        assert_eq!(
+            email
+                .defaults
+                .as_ref()
+                .map(|defaults| defaults.name.as_str()),
+            Some("Email Addresses")
+        );
         let custom_pattern = r"(?i)^[a-z0-9._%+-]+@example\.test$".to_string();
         source
             .update_content_detector(
@@ -5660,6 +6204,14 @@ mod tests {
                 },
             )
             .unwrap();
+        source
+            .create_content_type(&crate::content_types::ContentTypeInput {
+                id: "ticket_id".into(),
+                label: "Ticket ID".into(),
+                icon: "Hash".into(),
+                group: "custom".into(),
+            })
+            .unwrap();
         let custom = source
             .create_content_detector(&crate::content_detection::DetectorInput {
                 name: "Ticket IDs".into(),
@@ -5671,6 +6223,7 @@ mod tests {
                 priority: 8,
             })
             .unwrap();
+        assert!(custom.defaults.is_none());
         source.delete_content_detector(custom.id).unwrap();
 
         let backup = source.export_backup_json().unwrap();
@@ -5700,6 +6253,150 @@ mod tests {
         assert!(!defaults
             .iter()
             .any(|detector| detector.stable_ref == custom.stable_ref));
+    }
+
+    #[test]
+    fn content_type_registry_protects_builtin_ids_and_archives_custom_types_safely() {
+        let db = setup_test_db();
+        let mut payment = db
+            .get_content_types(false)
+            .unwrap()
+            .into_iter()
+            .find(|item| item.id == "payment_card")
+            .unwrap();
+        assert_eq!(
+            payment
+                .defaults
+                .as_ref()
+                .map(|defaults| defaults.label.as_str()),
+            Some("Payment Card")
+        );
+        payment.label = "Cards".into();
+        payment.icon = "ShieldKeyhole".into();
+        db.update_content_type(
+            "payment_card",
+            &crate::content_types::ContentTypeInput {
+                id: payment.id.clone(),
+                label: payment.label.clone(),
+                icon: payment.icon.clone(),
+                group: payment.group.clone(),
+            },
+        )
+        .unwrap();
+        assert!(db.set_content_type_archived("payment_card", true).is_err());
+
+        let custom_type = db
+            .create_content_type(&crate::content_types::ContentTypeInput {
+                id: "ticket_id".into(),
+                label: "Ticket ID".into(),
+                icon: "Hash".into(),
+                group: "custom".into(),
+            })
+            .unwrap();
+        assert!(custom_type.defaults.is_none());
+        let detector = db
+            .create_content_detector(&crate::content_detection::DetectorInput {
+                name: "Tickets".into(),
+                content_type: "ticket_id".into(),
+                description: String::new(),
+                patterns: vec![r"^T-[0-9]+$".into()],
+                validator: None,
+                enabled: true,
+                priority: 5,
+            })
+            .unwrap();
+        db.set_content_type_archived("ticket_id", true).unwrap();
+        assert!(db
+            .get_content_types(false)
+            .unwrap()
+            .iter()
+            .all(|item| item.id != "ticket_id"));
+        assert!(
+            !db.get_content_detectors()
+                .unwrap()
+                .into_iter()
+                .find(|item| item.id == detector.id)
+                .unwrap()
+                .enabled
+        );
+
+        db.restore_default_content_types().unwrap();
+        assert_eq!(
+            db.get_content_types(false)
+                .unwrap()
+                .into_iter()
+                .find(|item| item.id == "payment_card")
+                .unwrap()
+                .label,
+            "Payment Card"
+        );
+    }
+
+    #[test]
+    fn content_type_groups_are_editable_but_cannot_be_archived_while_in_use() {
+        let db = setup_test_db();
+        let general = db
+            .get_content_type_groups(false)
+            .unwrap()
+            .into_iter()
+            .find(|group| group.id == "general")
+            .unwrap();
+        assert_eq!(
+            general
+                .defaults
+                .as_ref()
+                .map(|defaults| defaults.label.as_str()),
+            Some("General")
+        );
+        let custom_group = db
+            .create_content_type_group(&crate::content_types::ContentTypeGroupInput {
+                id: "work".into(),
+                label: "Work".into(),
+                sort_order: 15,
+            })
+            .unwrap();
+        assert!(custom_group.defaults.is_none());
+        db.create_content_type(&crate::content_types::ContentTypeInput {
+            id: "ticket".into(),
+            label: "Ticket".into(),
+            icon: "Tag".into(),
+            group: "work".into(),
+        })
+        .unwrap();
+        assert!(db.set_content_type_group_archived("work", true).is_err());
+        db.update_content_type(
+            "ticket",
+            &crate::content_types::ContentTypeInput {
+                id: "ticket".into(),
+                label: "Ticket".into(),
+                icon: "Tag".into(),
+                group: "custom".into(),
+            },
+        )
+        .unwrap();
+        db.set_content_type_group_archived("work", true).unwrap();
+        assert!(db
+            .get_content_type_groups(false)
+            .unwrap()
+            .iter()
+            .all(|group| group.id != "work"));
+        assert!(db.set_content_type_group_archived("general", true).is_err());
+        let destination = setup_test_db();
+        destination
+            .import_backup_json(&db.export_backup_json().unwrap())
+            .unwrap();
+        assert!(destination
+            .get_content_type_groups(true)
+            .unwrap()
+            .iter()
+            .any(|group| group.id == "work" && group.is_archived));
+        db.delete_content_type_group("work").unwrap();
+        assert!(db
+            .get_content_type_groups(true)
+            .unwrap()
+            .iter()
+            .all(|group| group.id != "work"));
+        assert!(db.delete_content_type_group("general").is_err());
     }
 
     #[test]
@@ -5959,6 +6656,13 @@ mod tests {
             .unwrap();
         db.create_bin_with_type("Personal", "Folder", "default", None, "category")
             .unwrap();
+        db.create_content_type(&crate::content_types::ContentTypeInput {
+            id: "reset_custom".into(),
+            label: "Reset Custom".into(),
+            icon: "FileText".into(),
+            group: "custom".into(),
+        })
+        .unwrap();
         db.save_setting("themeMode", "vampire").unwrap();
         {
             let conn = db.conn.lock();
@@ -5994,7 +6698,7 @@ mod tests {
         assert_eq!(report.bins_deleted, 4);
         assert_eq!(report.transforms_deleted, 3);
         assert_eq!(report.connections_deleted, 1);
-        assert_eq!(report.activity_entries_deleted, 2);
+        assert_eq!(report.activity_entries_deleted, 3);
 
         assert!(db.get_clips(None, None, false).unwrap().is_empty());
         assert!(db
@@ -6019,6 +6723,12 @@ mod tests {
             vec![1, 2, 3]
         );
         assert_eq!(db.get_setting("themeMode").unwrap(), None);
+        let reset_types = db.get_content_types(true).unwrap();
+        assert_eq!(
+            reset_types.len(),
+            crate::content_types::CONTENT_TYPE_PRESETS.len()
+        );
+        assert!(!reset_types.iter().any(|item| item.id == "reset_custom"));
         let conn = db.conn.lock();
         for table in [
             "clip_versions",
