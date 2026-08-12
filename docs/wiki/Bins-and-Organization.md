@@ -31,4 +31,3 @@ Manual Bin order and per-Bin clip order persist across reloads, backups, and CLI
 ## Bin Transforms
 
 A Bin may run one saved Transform when a clip enters it. The original content and previous Bin can be recovered from Revision History when revisions are enabled.
-

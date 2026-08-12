@@ -7,6 +7,7 @@ import { intelligenceProviderLabel } from '../utils/intelligenceProviders';
 import { ConnectionModal } from './ConnectionModal';
 import { SettingsPanelHeader } from './SettingsPanelHeader';
 import { OverflowText } from './OverflowText';
+import { ActionButton } from './AppDialogLayout';
 
 let cachedConnections: IntelligenceConnection[] | null = null;
 let cachedDetectedConnections: DetectedIntelligenceConnection[] | null = null;
@@ -116,10 +117,10 @@ export function IntelligenceConnectionsPanel() {
         title="Intelligence connections"
         description="Manage local and remote intelligence providers."
         actions={(
-          <button type="button" onClick={() => setIsAddConnectionOpen(true)} className="theme-primary-button ui-control-radius border px-3 py-2 text-xs font-semibold flex items-center justify-center gap-1.5">
+          <ActionButton variant="primary" onClick={() => setIsAddConnectionOpen(true)}>
             <Plus className="w-4 h-4" />
             <span>Add connection</span>
-          </button>
+          </ActionButton>
         )}
       />
       <div className="space-y-5">

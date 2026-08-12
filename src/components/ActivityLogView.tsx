@@ -126,6 +126,19 @@ export const ActivityLogView: React.FC = () => {
             <span>Detection</span>
           </div>
         );
+      case 'operation_created':
+      case 'operation_updated':
+      case 'operation_deleted':
+      case 'pipeline_created':
+      case 'pipeline_updated':
+      case 'pipeline_deleted':
+      case 'library_item_enabled_changed':
+        return (
+          <div className="theme-status-info flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold">
+            <Workflow className="w-3.5 h-3.5" />
+            <span>Transforms</span>
+          </div>
+        );
       case 'autostart_enabled':
       case 'autostart_disabled':
         return (
@@ -186,10 +199,11 @@ export const ActivityLogView: React.FC = () => {
           </div>
         );
       case 'library_moved':
+      case 'external_history_imported':
         return (
           <div className="theme-status-info flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold">
             <Database className="w-3.5 h-3.5" />
-            <span>Library Moved</span>
+            <span>{type === 'external_history_imported' ? 'History Imported' : 'Library Moved'}</span>
           </div>
         );
       case 'bin_deleted':
@@ -383,14 +397,14 @@ export const ActivityLogView: React.FC = () => {
     if (selectedTypeFilter === 'resumed') return l.event_type === 'recording_auto_resumed' || l.event_type === 'recording_manually_resumed';
     if (selectedTypeFilter === 'notes') return l.event_type === 'note_updated';
     if (selectedTypeFilter === 'skipped') return l.event_type === 'clipboard_capture_ignored';
-    if (selectedTypeFilter === 'transforms') return l.event_type.startsWith('transform_') || l.event_type.startsWith('transformation_') || l.event_type.startsWith('bin_transform_') || l.event_type === 'clip_transformed' || l.event_type === 'intelligence_connection_fallback';
+    if (selectedTypeFilter === 'transforms') return l.event_type.startsWith('transform_') || l.event_type.startsWith('transformation_') || l.event_type.startsWith('bin_transform_') || l.event_type.startsWith('operation_') || l.event_type.startsWith('pipeline_') || l.event_type === 'library_item_enabled_changed' || l.event_type === 'clip_transformed' || l.event_type === 'intelligence_connection_fallback';
     if (selectedTypeFilter === 'queue') return l.event_type.startsWith('queue_');
     if (selectedTypeFilter === 'hud') return l.event_type.startsWith('hud_');
     if (selectedTypeFilter === 'bins') return l.event_type.startsWith('bin_') || l.event_type.includes('_bin_');
     if (selectedTypeFilter === 'app') return l.event_type.startsWith('app_');
     if (selectedTypeFilter === 'settings') return l.event_type.startsWith('setting_') || l.event_type.startsWith('settings_') || l.event_type.startsWith('autostart_');
-    if (selectedTypeFilter === 'storage') return l.event_type.startsWith('library_');
     if (selectedTypeFilter === 'detection') return l.event_type.startsWith('content_detector') || l.event_type.startsWith('content_detection') || l.event_type.startsWith('content_type');
+    if (selectedTypeFilter === 'storage') return l.event_type.startsWith('library_') || l.event_type === 'external_history_imported';
     return true;
   });
 

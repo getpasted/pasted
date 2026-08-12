@@ -2,15 +2,15 @@ import { useEffect, useState } from 'react';
 import { Check, ClipboardCopy, ClipboardPaste } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { UI_COPY } from '../utils/uiCopy';
+import { ActionButton } from './AppDialogLayout';
 
 interface TransformationOutputActionsProps {
   output: string;
-  accent: 'pipelines' | 'operations';
 }
 
 type OutputAction = 'copied' | 'pasted' | null;
 
-export function TransformationOutputActions({ output, accent }: TransformationOutputActionsProps) {
+export function TransformationOutputActions({ output }: TransformationOutputActionsProps) {
   const [lastAction, setLastAction] = useState<OutputAction>(null);
 
   useEffect(() => setLastAction(null), [output]);
@@ -28,25 +28,23 @@ export function TransformationOutputActions({ output, accent }: TransformationOu
   };
 
   return (
-    <div className="grid grid-cols-2 gap-2">
-      <button
-        type="button"
+    <div className="flex flex-wrap items-center justify-end gap-2">
+      <ActionButton
         onClick={copyResult}
         disabled={!output}
-        className="theme-secondary-button ui-control-radius flex h-9 items-center justify-center gap-2 border px-3 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+        className="h-9 min-h-9 px-3"
       >
         {lastAction === 'copied' ? <Check className="h-3.5 w-3.5" /> : <ClipboardCopy className="h-3.5 w-3.5" />}
         <span>{lastAction === 'copied' ? UI_COPY.copied : 'Copy Result'}</span>
-      </button>
-      <button
-        type="button"
+      </ActionButton>
+      <ActionButton
         onClick={pasteResult}
         disabled={!output}
-        className={`transform-workspace-action ui-control-radius ${accent} flex h-9 items-center justify-center gap-2 px-3 text-xs font-bold shadow-sm transition-[background-color,color,transform] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40`}
+        className="h-9 min-h-9 px-3"
       >
         {lastAction === 'pasted' ? <Check className="h-3.5 w-3.5" /> : <ClipboardPaste className="h-3.5 w-3.5" />}
         <span>{lastAction === 'pasted' ? 'Pasted' : 'Paste Result'}</span>
-      </button>
+      </ActionButton>
     </div>
   );
 }

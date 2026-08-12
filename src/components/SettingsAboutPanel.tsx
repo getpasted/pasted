@@ -1,8 +1,12 @@
 import { useEffect, useState } from 'react';
-import { CheckCircle2, Copy, Database, HardDrive, Info, ShieldCheck, TerminalSquare } from 'lucide-react';
+import { CheckCircle2, ChevronRight, Copy, Database, HardDrive, Info, Scale, ShieldCheck, TerminalSquare } from 'lucide-react';
 import type { InstallationDiagnostics } from '../types';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { SettingsPanelHeader } from './SettingsPanelHeader';
+import { SettingsSubsectionHeader } from './SettingsSubsectionHeader';
+import { OpenSourceLicensesDialog } from './OpenSourceLicensesDialog';
+import { ActionButton } from './AppDialogLayout';
+import { SettingsAccentTile } from './SettingsAccentTile';
 
 function fileSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
@@ -36,6 +40,7 @@ export function SettingsAboutPanel() {
   const [installation, setInstallation] = useState<InstallationDiagnostics | null>(null);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
+  const [licensesOpen, setLicensesOpen] = useState(false);
 
   useEffect(() => {
     invoke<InstallationDiagnostics>('get_installation_diagnostics')
@@ -68,19 +73,15 @@ export function SettingsAboutPanel() {
       </section>
 
       <section className="theme-surface rounded-2xl border p-5 space-y-4">
-        <div className="flex items-start gap-3">
-          <span className="settings-accent-tile flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border">
-            <HardDrive className="h-4 w-4" />
-          </span>
-          <div className="min-w-0 flex-1">
-            <h3 className="theme-title text-sm font-bold">This Installation</h3>
-            <p className="theme-text-muted mt-1 text-xs leading-relaxed">Details for troubleshooting and verification.</p>
-          </div>
-          <button type="button" disabled={!installation} onClick={() => void copyDetails()} className="theme-secondary-button flex shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold disabled:opacity-40">
+        <SettingsSubsectionHeader
+          icon={<HardDrive className="h-4 w-4" />}
+          title="This Installation"
+          description="Details for troubleshooting and verification."
+          actions={<ActionButton disabled={!installation} onClick={() => void copyDetails()} className="shrink-0 disabled:opacity-40">
             {copied ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
             {copied ? 'Copied' : 'Copy Details'}
-          </button>
-        </div>
+          </ActionButton>}
+        />
 
         {installation ? (
           <div className="grid gap-2 sm:grid-cols-2">
@@ -117,6 +118,27 @@ export function SettingsAboutPanel() {
         )}
         {error && <div className="theme-status-danger rounded-xl border px-3 py-2 text-xs">{error}</div>}
       </section>
+
+      <section className="theme-surface rounded-2xl border p-3">
+        <button
+          type="button"
+          onClick={() => setLicensesOpen(true)}
+          className="theme-card-idle flex w-full items-center gap-3 border px-3 py-3 text-left"
+        >
+          <SettingsAccentTile>
+            <Scale className="h-4 w-4" />
+          </SettingsAccentTile>
+          <span className="min-w-0 flex-1">
+            <span className="theme-title block text-sm font-bold">Open Source Licenses</span>
+            <span className="theme-text-muted mt-0.5 block text-xs">
+              Licenses and acknowledgements for software included with Pasted.
+            </span>
+          </span>
+          <ChevronRight className="theme-text-muted h-4 w-4 shrink-0" />
+        </button>
+      </section>
+
+      <OpenSourceLicensesDialog isOpen={licensesOpen} onClose={() => setLicensesOpen(false)} />
     </div>
   );
 }

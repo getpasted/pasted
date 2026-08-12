@@ -1,4 +1,4 @@
-import { Play, Settings2, Workflow } from 'lucide-react';
+import { Play, Wrench, Workflow } from 'lucide-react';
 import { ToolPageHeader } from './ToolPageHeader';
 
 export type TransformWorkspace = 'transforms' | 'advanced' | 'playground';
@@ -30,8 +30,8 @@ export function TransformWorkspaceHeader({
           className={`transform-workspace-tab pipelines flex h-8 items-center gap-2 rounded-lg px-3 text-xs font-semibold transition-colors ${activeWorkspace === 'transforms' ? 'is-active' : ''}`}
         >
           <Workflow className="w-4 h-4" />
-          <span>Transforms</span>
-          <span className="transform-workspace-count font-mono">{transformCount}</span>
+          <span className="hidden xl:inline">Library</span>
+          <span className="transform-workspace-count hidden font-mono xl:inline">{transformCount}</span>
         </button>
         <button
           type="button"
@@ -40,9 +40,9 @@ export function TransformWorkspaceHeader({
           onClick={() => onChange('advanced')}
           className={`transform-workspace-tab operations flex h-8 items-center gap-2 rounded-lg px-3 text-xs font-semibold transition-colors ${activeWorkspace === 'advanced' ? 'is-active' : ''}`}
         >
-          <Settings2 className="w-4 h-4" />
-          <span>Advanced</span>
-          <span className="transform-workspace-count font-mono">{operationCount}</span>
+          <Wrench className="w-4 h-4" />
+          <span className="hidden xl:inline">Operations</span>
+          <span className="transform-workspace-count hidden font-mono xl:inline">{operationCount}</span>
         </button>
         <button
           type="button"
@@ -52,7 +52,7 @@ export function TransformWorkspaceHeader({
           className={`transform-workspace-tab pipelines flex h-8 items-center gap-2 rounded-lg px-3 text-xs font-semibold transition-colors ${activeWorkspace === 'playground' ? 'is-active' : ''}`}
         >
           <Play className="w-4 h-4" />
-          <span>Playground</span>
+          <span className="hidden xl:inline">Playground</span>
         </button>
         </div>
       )}

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { CheckCircle2, LoaderCircle, Play, Sparkles } from 'lucide-react';
+import { LoaderCircle, Play, Sparkles } from 'lucide-react';
 import type { ExecutePlanOutcome, PlanIntentOutcome, SavedTransform } from '../types';
 import { safeInvoke as invoke } from '../utils/tauri';
 import {
@@ -7,6 +7,7 @@ import {
   startTransformTest,
   type CancellableTransformRequest,
 } from '../utils/transformExecution';
+import { ActionButton } from './AppDialogLayout';
 
 interface IntentTransformComposerProps {
   sampleInput: string;
@@ -149,15 +150,15 @@ export function IntentTransformComposer({ sampleInput, onTestResult, onTransform
   };
 
   return (
-    <section className={`${embedded ? '' : 'theme-surface border rounded-2xl p-5'} space-y-4`}>
+    <section className={`${embedded ? '' : 'theme-surface border rounded-2xl p-5'} @container space-y-4`}>
       <div className="flex items-start gap-3">
         <span className="theme-badge border rounded-xl p-2.5 shrink-0"><Sparkles className="w-5 h-5" /></span>
         <div className="min-w-0 flex-1">
-          <label htmlFor="transformation-intent" className="theme-title text-sm font-bold">What should happen?</label>
+          <label htmlFor="transformation-intent" className="theme-title text-xs font-bold">What should happen?</label>
           <p className="theme-text-muted text-[10px] mt-1">Describe the result. Pasted will draft the implementation.</p>
         </div>
       </div>
-      <div className="flex items-stretch gap-2">
+      <div className="flex flex-col items-stretch gap-2 @md:flex-row">
         <textarea
           id="transformation-intent"
           value={intent}
@@ -173,23 +174,23 @@ export function IntentTransformComposer({ sampleInput, onTestResult, onTransform
           placeholder="For example: Make this concise and friendly, preserving every URL."
           className="theme-input ui-field-radius border px-3 py-2.5 min-h-20 flex-1 resize-y text-xs"
         />
-        <button
-          type="button"
+        <ActionButton
+          variant="primary"
           disabled={!intent.trim() && !isPlanning}
           onClick={isPlanning ? cancelPlanning : buildTransform}
-          className="theme-primary-button ui-control-radius border px-4 min-w-32 text-xs font-semibold flex flex-col items-center justify-center gap-1.5 disabled:opacity-40"
+          className="min-h-10 min-w-32 px-4 disabled:opacity-40"
         >
           {isPlanning ? <LoaderCircle className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
           <span>{isPlanning ? 'Cancel draft' : 'Build draft'}</span>
-        </button>
+        </ActionButton>
       </div>
 
       {error && <div className="theme-status-danger border rounded-xl px-3 py-2 text-xs">{error}</div>}
 
       {outcome && (
-        <div className="theme-card-idle border p-4 space-y-3">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0 flex-1">
+        <section className="theme-surface overflow-hidden rounded-xl border">
+          <div className="theme-divider flex flex-wrap items-end justify-between gap-3 border-b p-3">
+            <div className="min-w-[min(14rem,100%)] flex-1">
               <label htmlFor="transform-name" className="theme-text-muted text-[10px] font-semibold">Name</label>
               <input
                 id="transform-name"
@@ -206,45 +207,39 @@ export function IntentTransformComposer({ sampleInput, onTestResult, onTransform
                   : `Drafted by ${outcome.connectionName} in ${(outcome.durationMs / 1000).toFixed(1)}s`}
               </div>
             </div>
-            <span className="theme-status-success border rounded-full px-2 py-1 text-[9px] font-semibold flex items-center gap-1 shrink-0">
-              <CheckCircle2 className="w-3 h-3" /> Draft ready
-            </span>
           </div>
-          <ol className="space-y-2">
+          <ol className="theme-subtle-surface space-y-1 p-1.5">
             {outcome.plan.steps.map((step, index) => (
-              <li key={`${step.name}-${index}`} className="theme-surface border rounded-lg px-3 py-2 flex items-start gap-2.5">
-                <span className="theme-text-muted font-mono text-[10px] mt-0.5">{index + 1}</span>
-                <div className="min-w-0">
+              <li key={`${step.name}-${index}`} className="theme-card-idle flex items-start gap-2.5 border p-2">
+                <span className="theme-text-subtle grid h-5 w-5 shrink-0 place-items-center rounded-full border text-[9px] font-bold">{index + 1}</span>
+                <div className="min-w-0 flex-1">
                   <div className="theme-text-main text-xs font-semibold">{step.name}</div>
                   <div className="theme-text-muted text-[10px] mt-0.5">{step.rationale}</div>
                 </div>
-                <span className="theme-badge border rounded-full px-2 py-0.5 text-[9px] ml-auto shrink-0">
+                <span className="theme-text-subtle shrink-0 text-[9px]">
                   {step.executor.kind === 'deterministic' ? 'Replayable' : 'AI'}
                 </span>
               </li>
             ))}
           </ol>
-          <div className="flex justify-end gap-2 pt-1">
-            <button
-              type="button"
+          <div className="theme-divider flex flex-wrap justify-end gap-2 border-t p-3">
+            <ActionButton
               onClick={isTesting ? cancelTesting : () => void testDraft()}
               disabled={!sampleInput && !isTesting}
-              className="theme-secondary-button border rounded-lg px-3 h-8 text-[10px] font-semibold flex items-center gap-1.5 disabled:opacity-40"
               title={!sampleInput ? 'Add Playground Input First' : 'Test Draft'}
             >
               {isTesting ? <LoaderCircle className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
               <span>{isTesting ? 'Cancel test' : 'Test draft'}</span>
-            </button>
-            <button
-              type="button"
+            </ActionButton>
+            <ActionButton
+              variant="primary"
               onClick={() => void saveTransform()}
               disabled={isSaving || Boolean(savedTransformRef)}
-              className="theme-primary-button border rounded-lg px-3 h-8 text-[10px] font-semibold disabled:opacity-55"
             >
               {isSaving ? 'Saving…' : savedTransformRef ? 'Saved' : isEditing ? 'Update Transform' : 'Save Transform'}
-            </button>
+            </ActionButton>
           </div>
-        </div>
+        </section>
       )}
     </section>
   );

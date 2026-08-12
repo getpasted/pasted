@@ -34,7 +34,7 @@ export function TransformComposerModal({
       onClose={onClose}
       labelledBy="transform-composer-title"
       isDirty={isDirty}
-      panelClassName="theme-panel max-h-[90vh] w-full max-w-3xl overflow-hidden rounded-2xl border shadow-2xl"
+      panelClassName="theme-panel max-h-[90vh] w-full max-w-3xl overflow-hidden border"
     >
       {({ requestClose }) => <>
         <AppDialogHeader onClose={requestClose}>

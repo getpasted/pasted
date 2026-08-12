@@ -5,6 +5,8 @@ use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::PathBuf;
 
+use crate::external_import::ExternalTextClip;
+
 const BACKUP_SCHEMA_VERSION: u32 = 9;
 
 fn ensure_resource_size(value: &str, maximum: usize, label: &str) -> Result<()> {
@@ -1121,6 +1123,7 @@ impl DbState {
                 [],
             )?;
         }
+        Self::init_library_items(&conn)?;
 
         // Insert default bins if empty
         let count: i64 = conn
@@ -1130,6 +1133,170 @@ impl DbState {
             insert_default_bins(&conn)?;
         }
 
+        Ok(())
+    }
+
+    fn init_library_items(conn: &Connection) -> Result<()> {
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS library_items (
+                stable_ref TEXT PRIMARY KEY,
+                kind TEXT NOT NULL CHECK (kind IN ('detector', 'operation', 'pipeline')),
+                name TEXT NOT NULL,
+                description TEXT NOT NULL DEFAULT '',
+                group_label TEXT,
+                icon TEXT NOT NULL DEFAULT 'FileText',
+                enabled INTEGER CHECK (enabled IS NULL OR enabled IN (0, 1)),
+                is_builtin INTEGER NOT NULL DEFAULT 0 CHECK (is_builtin IN (0, 1)),
+                is_archived INTEGER NOT NULL DEFAULT 0 CHECK (is_archived IN (0, 1)),
+                sort_order INTEGER,
+                revision INTEGER NOT NULL DEFAULT 1 CHECK (revision > 0),
+                input_contract TEXT NOT NULL DEFAULT 'text',
+                output_contract TEXT NOT NULL DEFAULT 'preserve_type',
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE INDEX IF NOT EXISTS idx_library_items_kind_order
+                ON library_items(kind, is_archived, sort_order, name);
+
+            INSERT INTO library_items
+                (stable_ref, kind, name, description, group_label, icon, enabled,
+                 is_builtin, is_archived, sort_order, revision, input_contract,
+                 output_contract, created_at, updated_at)
+            SELECT detectors.stable_ref, 'detector', detectors.name, detectors.description,
+                   groups.label, types.icon, detectors.enabled, detectors.is_builtin,
+                   detectors.is_deleted, detectors.priority, 1, 'text',
+                   'set_type:' || detectors.content_type, detectors.created_at, detectors.updated_at
+            FROM content_detectors AS detectors
+            LEFT JOIN content_types AS types ON types.id = detectors.content_type
+            LEFT JOIN content_type_groups AS groups ON groups.id = types.group_name
+            WHERE 1 = 1
+            ON CONFLICT(stable_ref) DO UPDATE SET
+                name=excluded.name, description=excluded.description,
+                group_label=excluded.group_label, icon=excluded.icon,
+                enabled=excluded.enabled, is_builtin=excluded.is_builtin,
+                is_archived=excluded.is_archived, sort_order=excluded.sort_order,
+                output_contract=excluded.output_contract, updated_at=excluded.updated_at;
+
+            INSERT INTO library_items
+                (stable_ref, kind, name, group_label, icon, enabled, is_builtin,
+                 is_archived, sort_order, revision, input_contract, output_contract,
+                 created_at, updated_at)
+            SELECT 'custom:' || id, 'operation', name, category, 'Wrench', enabled, 0,
+                   0, row_id, 1, 'text', 'preserve_type', created_at, updated_at
+            FROM custom_operations
+            WHERE 1 = 1
+            ON CONFLICT(stable_ref) DO UPDATE SET
+                name=excluded.name, group_label=excluded.group_label,
+                enabled=excluded.enabled, sort_order=excluded.sort_order,
+                updated_at=excluded.updated_at;
+
+            INSERT INTO library_items
+                (stable_ref, kind, name, group_label, icon, enabled, is_builtin,
+                 is_archived, sort_order, revision, input_contract, output_contract,
+                 created_at, updated_at)
+            SELECT 'pipeline:' || id, 'pipeline', name, 'Pipelines', 'Workflow', NULL, 0,
+                   0, row_id, revision, 'text', 'preserve_type', created_at, updated_at
+            FROM pipelines
+            WHERE 1 = 1
+            ON CONFLICT(stable_ref) DO UPDATE SET
+                name=excluded.name, sort_order=excluded.sort_order,
+                revision=excluded.revision, updated_at=excluded.updated_at;
+
+            DROP TRIGGER IF EXISTS library_items_detector_insert;
+            DROP TRIGGER IF EXISTS library_items_detector_update;
+            DROP TRIGGER IF EXISTS library_items_detector_delete;
+            DROP TRIGGER IF EXISTS library_items_content_type_update;
+            DROP TRIGGER IF EXISTS library_items_content_group_update;
+            DROP TRIGGER IF EXISTS library_items_operation_insert;
+            DROP TRIGGER IF EXISTS library_items_operation_update;
+            DROP TRIGGER IF EXISTS library_items_operation_delete;
+            DROP TRIGGER IF EXISTS library_items_pipeline_insert;
+            DROP TRIGGER IF EXISTS library_items_pipeline_update;
+            DROP TRIGGER IF EXISTS library_items_pipeline_delete;
+
+            CREATE TRIGGER library_items_detector_insert AFTER INSERT ON content_detectors BEGIN
+              DELETE FROM library_items WHERE stable_ref=NEW.stable_ref;
+              INSERT INTO library_items
+                (stable_ref, kind, name, description, group_label, icon, enabled, is_builtin,
+                 is_archived, sort_order, revision, input_contract, output_contract, created_at, updated_at)
+              SELECT NEW.stable_ref, 'detector', NEW.name, NEW.description, groups.label,
+                     types.icon, NEW.enabled, NEW.is_builtin, NEW.is_deleted, NEW.priority,
+                     1, 'text', 'set_type:' || NEW.content_type, NEW.created_at, NEW.updated_at
+              FROM content_types AS types LEFT JOIN content_type_groups AS groups ON groups.id=types.group_name
+              WHERE types.id=NEW.content_type;
+            END;
+            CREATE TRIGGER library_items_detector_update AFTER UPDATE ON content_detectors BEGIN
+              DELETE FROM library_items WHERE stable_ref=OLD.stable_ref OR stable_ref=NEW.stable_ref;
+              INSERT INTO library_items
+                (stable_ref, kind, name, description, group_label, icon, enabled, is_builtin,
+                 is_archived, sort_order, revision, input_contract, output_contract, created_at, updated_at)
+              SELECT NEW.stable_ref, 'detector', NEW.name, NEW.description, groups.label,
+                     types.icon, NEW.enabled, NEW.is_builtin, NEW.is_deleted, NEW.priority,
+                     1, 'text', 'set_type:' || NEW.content_type, NEW.created_at, NEW.updated_at
+              FROM content_types AS types LEFT JOIN content_type_groups AS groups ON groups.id=types.group_name
+              WHERE types.id=NEW.content_type;
+            END;
+            CREATE TRIGGER library_items_detector_delete AFTER DELETE ON content_detectors BEGIN
+              DELETE FROM library_items WHERE stable_ref=OLD.stable_ref;
+            END;
+            CREATE TRIGGER library_items_content_type_update AFTER UPDATE ON content_types BEGIN
+              UPDATE library_items SET
+                icon=NEW.icon,
+                group_label=(SELECT label FROM content_type_groups WHERE id=NEW.group_name),
+                output_contract='set_type:'||NEW.id,
+                updated_at=CURRENT_TIMESTAMP
+              WHERE kind='detector' AND stable_ref IN (
+                SELECT stable_ref FROM content_detectors WHERE content_type=NEW.id
+              );
+            END;
+            CREATE TRIGGER library_items_content_group_update AFTER UPDATE ON content_type_groups BEGIN
+              UPDATE library_items SET group_label=NEW.label,updated_at=CURRENT_TIMESTAMP
+              WHERE kind='detector' AND stable_ref IN (
+                SELECT detectors.stable_ref FROM content_detectors AS detectors
+                JOIN content_types AS types ON types.id=detectors.content_type
+                WHERE types.group_name=NEW.id
+              );
+            END;
+            CREATE TRIGGER library_items_operation_insert AFTER INSERT ON custom_operations BEGIN
+              INSERT OR REPLACE INTO library_items (stable_ref,kind,name,group_label,icon,enabled,is_builtin,is_archived,sort_order,revision,input_contract,output_contract,created_at,updated_at)
+              VALUES ('custom:'||NEW.id,'operation',NEW.name,NEW.category,'Wrench',NEW.enabled,0,0,NEW.row_id,1,'text','preserve_type',NEW.created_at,NEW.updated_at);
+            END;
+            CREATE TRIGGER library_items_operation_update AFTER UPDATE ON custom_operations BEGIN
+              UPDATE library_items SET name=NEW.name,group_label=NEW.category,enabled=NEW.enabled,updated_at=NEW.updated_at WHERE stable_ref='custom:'||NEW.id;
+            END;
+            CREATE TRIGGER library_items_operation_delete AFTER DELETE ON custom_operations BEGIN
+              DELETE FROM library_items WHERE stable_ref='custom:'||OLD.id;
+            END;
+            CREATE TRIGGER library_items_pipeline_insert AFTER INSERT ON pipelines BEGIN
+              INSERT OR REPLACE INTO library_items (stable_ref,kind,name,group_label,icon,enabled,is_builtin,is_archived,sort_order,revision,input_contract,output_contract,created_at,updated_at)
+              VALUES ('pipeline:'||NEW.id,'pipeline',NEW.name,'Pipelines','Workflow',NULL,0,0,NEW.row_id,NEW.revision,'text','preserve_type',NEW.created_at,NEW.updated_at);
+            END;
+            CREATE TRIGGER library_items_pipeline_update AFTER UPDATE ON pipelines BEGIN
+              UPDATE library_items SET name=NEW.name,revision=NEW.revision,updated_at=NEW.updated_at WHERE stable_ref='pipeline:'||NEW.id;
+            END;
+            CREATE TRIGGER library_items_pipeline_delete AFTER DELETE ON pipelines BEGIN
+              DELETE FROM library_items WHERE stable_ref='pipeline:'||OLD.id;
+            END;",
+        )?;
+        for (index, definition) in crate::operation_registry::BUILTIN_OPERATIONS
+            .iter()
+            .enumerate()
+        {
+            conn.execute(
+                "INSERT INTO library_items
+                    (stable_ref, kind, name, group_label, icon, enabled, is_builtin,
+                     is_archived, sort_order, revision, input_contract, output_contract)
+                 VALUES (?1, 'operation', ?2, ?3, 'Wrench', 1, 1, 0, ?4, 1, 'text', 'preserve_type')
+                 ON CONFLICT(stable_ref) DO UPDATE SET name=excluded.name,
+                    group_label=excluded.group_label, sort_order=excluded.sort_order",
+                params![
+                    format!("builtin:{}", definition.key),
+                    definition.name,
+                    definition.category_label,
+                    index as i64
+                ],
+            )?;
+        }
         Ok(())
     }
 
@@ -1879,6 +2046,72 @@ impl DbState {
         self.get_clip_by_id_internal(&conn, id)
     }
 
+    pub(crate) fn merge_external_text_clips(
+        &self,
+        source_label: &str,
+        clips: &[ExternalTextClip],
+    ) -> Result<(usize, usize, Option<usize>)> {
+        let mut conn = self.conn.lock();
+        let transaction = conn.transaction()?;
+        let active_count_before: i64 = transaction.query_row(
+            "SELECT COUNT(*) FROM clips WHERE COALESCE(is_trashed, 0) = 0",
+            [],
+            |row| row.get(0),
+        )?;
+        let current_capacity = transaction
+            .query_row(
+                "SELECT value FROM settings WHERE key = 'keepClipCount'",
+                [],
+                |row| row.get::<_, String>(0),
+            )
+            .ok()
+            .and_then(|value| value.parse::<usize>().ok())
+            .unwrap_or(1000);
+        let mut imported_count = 0usize;
+        let mut duplicate_count = 0usize;
+
+        for clip in clips {
+            let changed = transaction.execute(
+                "INSERT OR IGNORE INTO clips
+                    (content_type, text_content, content_hash, source, ocr_status, created_at)
+                 VALUES ('text', ?1, ?2, ?3, 'not_applicable', COALESCE(?4, strftime('%Y-%m-%dT%H:%M:%SZ', 'now')))",
+                params![clip.text, clip.content_hash, clip.source, clip.created_at],
+            )?;
+            if changed == 1 {
+                imported_count += 1;
+            } else {
+                duplicate_count += 1;
+            }
+        }
+
+        let required_capacity =
+            (active_count_before.max(0) as usize).saturating_add(imported_count);
+        let history_capacity_adjusted_to =
+            if current_capacity > 0 && required_capacity > current_capacity {
+                transaction.execute(
+                    "INSERT INTO settings (key, value) VALUES ('keepClipCount', ?1)
+                 ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                    [required_capacity.to_string()],
+                )?;
+                Some(required_capacity)
+            } else {
+                None
+            };
+
+        transaction.execute(
+            "INSERT INTO activity_logs (event_type, description) VALUES ('external_history_imported', ?1)",
+            [format!(
+                "Imported {imported_count} clips from {source_label}; skipped {duplicate_count} duplicates"
+            )],
+        )?;
+        transaction.commit()?;
+        Ok((
+            imported_count,
+            duplicate_count,
+            history_capacity_adjusted_to,
+        ))
+    }
+
     pub fn reattribute_image_capture(
         &self,
         clip_id: i64,
@@ -1907,17 +2140,28 @@ impl DbState {
             )
             .ok()
             .and_then(|v: String| v.parse().ok())
-            .unwrap_or(900);
+            .unwrap_or(1000);
+        let keep_age_days: i64 = conn
+            .query_row(
+                "SELECT value FROM settings WHERE key = 'keepClipAgeDays'",
+                [],
+                |r| r.get(0),
+            )
+            .ok()
+            .and_then(|v: String| v.parse().ok())
+            .unwrap_or(0);
 
-        self.enforce_history_limit_with_count_internal(conn, keep_count)
+        self.enforce_clip_retention_internal(conn, keep_count, keep_age_days)
     }
 
-    fn enforce_history_limit_with_count_internal(
+    fn enforce_clip_retention_internal(
         &self,
         conn: &Connection,
         keep_count: i64,
+        keep_age_days: i64,
     ) -> Result<()> {
         let keep_count = keep_count.max(0);
+        let keep_age_days = keep_age_days.max(0);
 
         let enable_trash: String = conn
             .query_row(
@@ -1927,59 +2171,79 @@ impl DbState {
             )
             .unwrap_or_else(|_| "true".to_string());
 
-        let active_count: i64 = conn
-            .query_row(
-                "SELECT COUNT(*) FROM clips
-             WHERE is_pinned = 0
-               AND (is_protected IS NULL OR is_protected = 0)
-               AND (is_trashed IS NULL OR is_trashed = 0)",
-                [],
-                |r| r.get(0),
-            )
-            .unwrap_or(0);
-
-        if active_count > keep_count {
-            let excess = active_count - keep_count;
+        let mut ids = Vec::new();
+        if keep_age_days > 0 {
+            let age_modifier = format!("-{keep_age_days} days");
             let mut stmt = conn.prepare(
                 "SELECT id FROM clips
                  WHERE is_pinned = 0
                    AND (is_protected IS NULL OR is_protected = 0)
                    AND (is_trashed IS NULL OR is_trashed = 0)
-                 ORDER BY created_at ASC, id ASC LIMIT ?1",
+                   AND datetime(created_at) < datetime('now', ?1)
+                 ORDER BY created_at ASC, id ASC",
             )?;
-            let ids: Vec<i64> = stmt
-                .query_map(params![excess], |r| r.get(0))?
-                .filter_map(|r| r.ok())
-                .collect();
+            ids.extend(
+                stmt.query_map([age_modifier], |r| r.get::<_, i64>(0))?
+                    .filter_map(|r| r.ok()),
+            );
+        }
 
-            for id in ids {
-                if enable_trash == "true" {
-                    let changed = conn.execute(
+        if keep_count > 0 {
+            let active_count: i64 = conn
+                .query_row(
+                    "SELECT COUNT(*) FROM clips
+                     WHERE is_pinned = 0
+                       AND (is_protected IS NULL OR is_protected = 0)
+                       AND (is_trashed IS NULL OR is_trashed = 0)",
+                    [],
+                    |r| r.get(0),
+                )
+                .unwrap_or(0);
+            let excess = active_count.saturating_sub(keep_count);
+            if excess > 0 {
+                let mut stmt = conn.prepare(
+                    "SELECT id FROM clips
+                     WHERE is_pinned = 0
+                       AND (is_protected IS NULL OR is_protected = 0)
+                       AND (is_trashed IS NULL OR is_trashed = 0)
+                     ORDER BY created_at ASC, id ASC LIMIT ?1",
+                )?;
+                ids.extend(
+                    stmt.query_map(params![excess], |r| r.get::<_, i64>(0))?
+                        .filter_map(|r| r.ok()),
+                );
+            }
+        }
+
+        ids.sort_unstable();
+        ids.dedup();
+        for id in ids {
+            if enable_trash == "true" {
+                let changed = conn.execute(
                         "UPDATE clips SET is_trashed = 1, trashed_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?1",
                         params![id],
                     ).unwrap_or(0);
-                    if changed > 0 {
-                        let _ = self.clear_category_bin_assignments_internal(conn, id);
-                    }
-                    let _ = self.log_activity_internal(
-                        conn,
-                        "clip_auto_trashed",
-                        &format!(
-                            "Auto-trashed clip #{} (history retention limit exceeded)",
-                            id
-                        ),
-                    );
-                } else {
-                    let _ = conn.execute("DELETE FROM clips WHERE id = ?1", params![id]);
-                    let _ = self.log_activity_internal(
-                        conn,
-                        "clip_deleted",
-                        &format!(
-                            "Auto-purged clip #{} (history retention limit exceeded)",
-                            id
-                        ),
-                    );
+                if changed > 0 {
+                    let _ = self.clear_category_bin_assignments_internal(conn, id);
                 }
+                let _ = self.log_activity_internal(
+                    conn,
+                    "clip_auto_trashed",
+                    &format!(
+                        "Auto-trashed clip #{} (history retention policy exceeded)",
+                        id
+                    ),
+                );
+            } else {
+                let _ = conn.execute("DELETE FROM clips WHERE id = ?1", params![id]);
+                let _ = self.log_activity_internal(
+                    conn,
+                    "clip_deleted",
+                    &format!(
+                        "Auto-purged clip #{} (history retention policy exceeded)",
+                        id
+                    ),
+                );
             }
         }
         Ok(())
@@ -1995,18 +2259,52 @@ impl DbState {
             .ok()
             .and_then(|v: String| v.parse().ok())
             .unwrap_or(500);
+        let keep_age_days: i64 = conn
+            .query_row(
+                "SELECT value FROM settings WHERE key = 'trashAgeDays'",
+                [],
+                |r| r.get(0),
+            )
+            .ok()
+            .and_then(|v: String| v.parse().ok())
+            .unwrap_or(0);
 
-        let _ = conn.execute(
-            "DELETE FROM clips
-             WHERE is_trashed = 1
-               AND (is_protected IS NULL OR is_protected = 0)
-               AND id NOT IN (
-                   SELECT id FROM clips
-                   WHERE is_trashed = 1 AND (is_protected IS NULL OR is_protected = 0)
-                   ORDER BY trashed_at DESC, id DESC LIMIT ?1
-               )",
-            params![capacity],
-        );
+        self.enforce_trash_retention_internal(conn, capacity, keep_age_days)
+    }
+
+    fn enforce_trash_retention_internal(
+        &self,
+        conn: &Connection,
+        keep_count: i64,
+        keep_age_days: i64,
+    ) -> Result<()> {
+        let keep_count = keep_count.max(0);
+        let keep_age_days = keep_age_days.max(0);
+
+        if keep_age_days > 0 {
+            let age_modifier = format!("-{keep_age_days} days");
+            conn.execute(
+                "DELETE FROM clips
+                 WHERE is_trashed = 1
+                   AND (is_protected IS NULL OR is_protected = 0)
+                   AND datetime(COALESCE(trashed_at, created_at)) < datetime('now', ?1)",
+                [age_modifier],
+            )?;
+        }
+
+        if keep_count > 0 {
+            conn.execute(
+                "DELETE FROM clips
+                 WHERE is_trashed = 1
+                   AND (is_protected IS NULL OR is_protected = 0)
+                   AND id NOT IN (
+                       SELECT id FROM clips
+                       WHERE is_trashed = 1 AND (is_protected IS NULL OR is_protected = 0)
+                       ORDER BY COALESCE(trashed_at, created_at) DESC, id DESC LIMIT ?1
+                   )",
+                params![keep_count],
+            )?;
+        }
         Ok(())
     }
 
@@ -2586,7 +2884,7 @@ impl DbState {
             return Ok(());
         }
 
-        let capacity: i64 = conn
+        let keep_count: i64 = conn
             .query_row(
                 "SELECT value FROM settings WHERE key = 'activityLogCapacity'",
                 [],
@@ -2595,16 +2893,47 @@ impl DbState {
             .ok()
             .and_then(|v: String| v.parse().ok())
             .unwrap_or(1000);
+        let keep_age_days: i64 = conn
+            .query_row(
+                "SELECT value FROM settings WHERE key = 'activityLogAgeDays'",
+                [],
+                |r| r.get(0),
+            )
+            .ok()
+            .and_then(|v: String| v.parse().ok())
+            .unwrap_or(0);
 
         let mut stmt = conn.prepare_cached(
             "INSERT INTO activity_logs (event_type, description, created_at) VALUES (?1, ?2, strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))"
         )?;
         stmt.execute(params![event_type, description])?;
 
-        let mut purge_stmt = conn.prepare_cached(
-            "DELETE FROM activity_logs WHERE id NOT IN (SELECT id FROM activity_logs ORDER BY created_at DESC, id DESC LIMIT ?1)"
-        )?;
-        let _ = purge_stmt.execute(params![capacity]);
+        self.enforce_activity_retention_internal(conn, keep_count, keep_age_days)
+    }
+
+    fn enforce_activity_retention_internal(
+        &self,
+        conn: &Connection,
+        keep_count: i64,
+        keep_age_days: i64,
+    ) -> Result<()> {
+        let keep_count = keep_count.max(0);
+        let keep_age_days = keep_age_days.max(0);
+
+        if keep_age_days > 0 {
+            let age_modifier = format!("-{keep_age_days} days");
+            conn.execute(
+                "DELETE FROM activity_logs WHERE datetime(created_at) < datetime('now', ?1)",
+                [age_modifier],
+            )?;
+        }
+
+        if keep_count > 0 {
+            let mut purge_stmt = conn.prepare_cached(
+                "DELETE FROM activity_logs WHERE id NOT IN (SELECT id FROM activity_logs ORDER BY created_at DESC, id DESC LIMIT ?1)"
+            )?;
+            purge_stmt.execute(params![keep_count])?;
+        }
         Ok(())
     }
 
@@ -5022,6 +5351,11 @@ impl DbState {
         debug_assert_eq!(pipeline.id, row_id);
         debug_assert_eq!(pipeline.created_at, created_at);
         debug_assert_eq!(pipeline.updated_at, updated_at);
+        drop(conn);
+        let _ = self.log_activity(
+            "pipeline_created",
+            &format!("Created Pipeline \"{}\"", pipeline.name),
+        );
         Ok(pipeline)
     }
 
@@ -5055,6 +5389,11 @@ impl DbState {
         Self::insert_pipeline_steps(&tx, pipeline_id, steps)?;
         let pipeline = Self::pipeline_by_id(&tx, pipeline_id)?;
         tx.commit()?;
+        drop(conn);
+        let _ = self.log_activity(
+            "pipeline_updated",
+            &format!("Updated Pipeline \"{}\"", pipeline.name),
+        );
         Ok(pipeline)
     }
 
@@ -5076,6 +5415,11 @@ impl DbState {
         if changed == 0 {
             return Err(rusqlite::Error::QueryReturnedNoRows);
         }
+        drop(conn);
+        let _ = self.log_activity(
+            "pipeline_updated",
+            &format!("Updated Pipeline {pipeline_id}"),
+        );
         Ok(())
     }
 
@@ -5084,10 +5428,25 @@ impl DbState {
             .strip_prefix("pipeline:")
             .unwrap_or(pipeline_ref);
         let conn = self.conn.lock();
+        let name = conn
+            .query_row(
+                "SELECT name FROM pipelines WHERE id = ?1",
+                params![pipeline_id],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()?;
         let changed = conn.execute("DELETE FROM pipelines WHERE id = ?1", params![pipeline_id])?;
         if changed == 0 {
             return Err(rusqlite::Error::QueryReturnedNoRows);
         }
+        drop(conn);
+        let _ = self.log_activity(
+            "pipeline_deleted",
+            &format!(
+                "Deleted Pipeline \"{}\"",
+                name.unwrap_or_else(|| pipeline_id.to_string())
+            ),
+        );
         Ok(())
     }
 
@@ -5292,6 +5651,105 @@ impl DbState {
         Ok(operations)
     }
 
+    pub fn get_library_items(
+        &self,
+        kind: Option<&str>,
+        include_archived: bool,
+    ) -> Result<Vec<crate::library_items::LibraryItemView>> {
+        if let Some(kind) = kind {
+            if !matches!(kind, "detector" | "operation" | "pipeline") {
+                return Err(rusqlite::Error::InvalidParameterName(
+                    "Unknown library item kind".into(),
+                ));
+            }
+        }
+        let conn = self.conn.lock();
+        let mut statement = conn.prepare(
+            "SELECT stable_ref, kind, name, description, group_label, icon, enabled,
+                    is_builtin, is_archived, sort_order, revision, input_contract,
+                    output_contract, created_at, updated_at
+             FROM library_items
+             WHERE (?1 IS NULL OR kind = ?1) AND (?2 OR is_archived = 0)
+             ORDER BY kind, COALESCE(sort_order, 10000), name COLLATE NOCASE",
+        )?;
+        let rows = statement.query_map(params![kind, include_archived], |row| {
+            let item = crate::library_items::LibraryItem {
+                stable_ref: row.get(0)?,
+                kind: row.get(1)?,
+                name: row.get(2)?,
+                description: row.get(3)?,
+                group_label: row.get(4)?,
+                icon: row.get(5)?,
+                enabled: row.get(6)?,
+                is_builtin: row.get(7)?,
+                is_archived: row.get(8)?,
+                sort_order: row.get(9)?,
+                revision: row.get(10)?,
+                input_contract: row.get(11)?,
+                output_contract: row.get(12)?,
+                created_at: row.get(13)?,
+                updated_at: row.get(14)?,
+            };
+            let capabilities = item.capabilities();
+            Ok(crate::library_items::LibraryItemView { item, capabilities })
+        })?;
+        rows.collect()
+    }
+
+    pub fn set_library_item_enabled(
+        &self,
+        kind: &str,
+        stable_ref: &str,
+        enabled: bool,
+    ) -> Result<()> {
+        let conn = self.conn.lock();
+        let changed = match kind {
+            "detector" => conn.execute(
+                "UPDATE content_detectors
+                 SET enabled = ?1, updated_at = CURRENT_TIMESTAMP
+                 WHERE stable_ref = ?2 AND is_deleted = 0",
+                params![enabled, stable_ref],
+            )?,
+            "operation" => {
+                let Some(operation_id) = stable_ref.strip_prefix("custom:") else {
+                    return Err(rusqlite::Error::InvalidParameterName(
+                        "Built-in Operations cannot be disabled".to_string(),
+                    ));
+                };
+                conn.execute(
+                    "UPDATE custom_operations
+                     SET enabled = ?1, updated_at = CURRENT_TIMESTAMP
+                     WHERE id = ?2",
+                    params![enabled, operation_id],
+                )?
+            }
+            "pipeline" => {
+                return Err(rusqlite::Error::InvalidParameterName(
+                    "Pipelines do not currently have an enabled state".to_string(),
+                ));
+            }
+            _ => {
+                return Err(rusqlite::Error::InvalidParameterName(
+                    "Unknown library item kind".to_string(),
+                ));
+            }
+        };
+        drop(conn);
+        if changed == 0 {
+            return Err(rusqlite::Error::QueryReturnedNoRows);
+        }
+        let _ = self.log_activity(
+            "library_item_enabled_changed",
+            &format!(
+                "{} {} {}",
+                if enabled { "Enabled" } else { "Disabled" },
+                kind,
+                stable_ref
+            ),
+        );
+        Ok(())
+    }
+
     pub fn create_operation(
         &self,
         name: &str,
@@ -5314,7 +5772,7 @@ impl DbState {
             params![id],
             |row| row.get(0),
         )?;
-        Ok(Operation {
+        let operation = Operation {
             id,
             stable_id: format!("custom:{stable_id}"),
             name: name.to_string(),
@@ -5326,7 +5784,13 @@ impl DbState {
                 params![id],
                 |row| row.get(0),
             )?,
-        })
+        };
+        drop(conn);
+        let _ = self.log_activity(
+            "operation_created",
+            &format!("Created Operation \"{}\"", operation.name),
+        );
+        Ok(operation)
     }
 
     pub fn update_operation(
@@ -5340,13 +5804,21 @@ impl DbState {
         let conn = self.conn.lock();
         let cat = category.unwrap_or("Custom Operations");
         let (executor_kind, config_json) = Self::operation_storage_fields(op_type, config);
-        conn.execute(
+        let changed = conn.execute(
             "UPDATE custom_operations
              SET name = ?1, executor_kind = ?2, config_json = ?3, category = ?4,
                  updated_at = CURRENT_TIMESTAMP
              WHERE row_id = ?5",
             params![name, executor_kind, config_json, cat, id],
         )?;
+        drop(conn);
+        if changed == 0 {
+            return Err(rusqlite::Error::QueryReturnedNoRows);
+        }
+        let _ = self.log_activity(
+            "operation_updated",
+            &format!("Updated Operation \"{}\"", name),
+        );
         Ok(())
     }
 
@@ -5386,12 +5858,100 @@ impl DbState {
             "DELETE FROM custom_operations WHERE row_id = ?1",
             params![id],
         )?;
+        drop(conn);
+        let _ = self.log_activity(
+            "operation_deleted",
+            &format!("Deleted Operation {operation_ref}"),
+        );
         Ok(())
     }
 
-    pub fn purge_old_clips(&self, keep_count: i64) -> Result<()> {
+    pub fn configure_clip_retention(&self, keep_count: i64, keep_age_days: i64) -> Result<()> {
+        let keep_count = keep_count.clamp(0, 100_000);
+        let keep_age_days = keep_age_days.clamp(0, 36_500);
+        let mut conn = self.conn.lock();
+        let tx = conn.transaction()?;
+        tx.execute(
+            "INSERT INTO settings (key, value) VALUES ('keepClipCount', ?1)
+             ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            [keep_count.to_string()],
+        )?;
+        tx.execute(
+            "INSERT INTO settings (key, value) VALUES ('keepClipAgeDays', ?1)
+             ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            [keep_age_days.to_string()],
+        )?;
+        self.enforce_clip_retention_internal(&tx, keep_count, keep_age_days)?;
+        tx.commit()
+    }
+
+    pub fn enforce_clip_retention(&self, keep_count: i64, keep_age_days: i64) -> Result<()> {
         let conn = self.conn.lock();
-        self.enforce_history_limit_with_count_internal(&conn, keep_count)
+        self.enforce_clip_retention_internal(
+            &conn,
+            keep_count.clamp(0, 100_000),
+            keep_age_days.clamp(0, 36_500),
+        )
+    }
+
+    pub fn configure_trash_retention(&self, keep_count: i64, keep_age_days: i64) -> Result<()> {
+        let keep_count = keep_count.clamp(0, 100_000);
+        let keep_age_days = keep_age_days.clamp(0, 36_500);
+        let mut conn = self.conn.lock();
+        let tx = conn.transaction()?;
+        tx.execute(
+            "INSERT INTO settings (key, value) VALUES ('trashCapacityCount', ?1)
+             ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            [keep_count.to_string()],
+        )?;
+        tx.execute(
+            "INSERT INTO settings (key, value) VALUES ('trashAgeDays', ?1)
+             ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            [keep_age_days.to_string()],
+        )?;
+        self.enforce_trash_retention_internal(&tx, keep_count, keep_age_days)?;
+        tx.commit()
+    }
+
+    pub fn enforce_trash_retention(&self, keep_count: i64, keep_age_days: i64) -> Result<()> {
+        let conn = self.conn.lock();
+        self.enforce_trash_retention_internal(
+            &conn,
+            keep_count.clamp(0, 100_000),
+            keep_age_days.clamp(0, 36_500),
+        )
+    }
+
+    pub fn configure_activity_retention(&self, keep_count: i64, keep_age_days: i64) -> Result<()> {
+        let keep_count = keep_count.clamp(0, 100_000);
+        let keep_age_days = keep_age_days.clamp(0, 36_500);
+        let mut conn = self.conn.lock();
+        let tx = conn.transaction()?;
+        tx.execute(
+            "INSERT INTO settings (key, value) VALUES ('activityLogCapacity', ?1)
+             ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            [keep_count.to_string()],
+        )?;
+        tx.execute(
+            "INSERT INTO settings (key, value) VALUES ('activityLogAgeDays', ?1)
+             ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            [keep_age_days.to_string()],
+        )?;
+        self.enforce_activity_retention_internal(&tx, keep_count, keep_age_days)?;
+        tx.commit()
+    }
+
+    pub fn enforce_activity_retention(&self, keep_count: i64, keep_age_days: i64) -> Result<()> {
+        let conn = self.conn.lock();
+        self.enforce_activity_retention_internal(
+            &conn,
+            keep_count.clamp(0, 100_000),
+            keep_age_days.clamp(0, 36_500),
+        )
+    }
+
+    pub fn purge_old_clips(&self, keep_count: i64) -> Result<()> {
+        self.enforce_clip_retention(keep_count, 0)
     }
 
     pub fn enforce_revision_retention(&self, keep_count: i64) -> Result<()> {
@@ -6170,6 +6730,17 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "run explicitly against a disposable copy of a real Pasted database"]
+    fn real_database_library_item_migration_smoke_test() {
+        let path = std::env::var("PASTED_MIGRATION_TEST_DB")
+            .expect("PASTED_MIGRATION_TEST_DB must point to a disposable database copy");
+        let db = DbState::new(PathBuf::from(path)).unwrap();
+        let items = db.get_library_items(None, true).unwrap();
+        assert!(items.iter().any(|item| item.item.kind == "detector"));
+        assert!(items.iter().any(|item| item.item.kind == "operation"));
+    }
+
+    #[test]
     fn content_detectors_are_editable_deletable_restorable_and_backed_up() {
         let source = setup_test_db();
         let shipped = source.get_content_detectors().unwrap();
@@ -6746,6 +7317,18 @@ mod tests {
             assert_eq!(count, 0, "{table} should be empty after reset");
         }
         drop(conn);
+        let reset_registry = db.get_library_items(None, true).unwrap();
+        assert!(!reset_registry.iter().any(|item| {
+            item.item.stable_ref == "custom:reset-operation"
+                || item.item.stable_ref == "pipeline:reset-pipeline"
+        }));
+        assert_eq!(
+            reset_registry
+                .iter()
+                .filter(|item| item.item.kind == "operation" && item.item.is_builtin)
+                .count(),
+            crate::operation_registry::BUILTIN_OPERATIONS.len()
+        );
 
         let fresh = db
             .save_clip(
@@ -7198,6 +7781,155 @@ mod tests {
         assert_eq!(active.iter().filter(|clip| !clip.is_pinned).count(), 2);
         assert!(active.iter().any(|clip| clip.id == pinned.id));
         assert!(db.get_trashed_clips().unwrap().is_empty());
+    }
+
+    #[test]
+    fn age_retention_uses_trash_and_preserves_pinned_and_protected_clips() {
+        let db = setup_test_db();
+        let old = db
+            .save_clip("text", Some("Old"), None, None, "age-old", "App")
+            .unwrap();
+        let recent = db
+            .save_clip("text", Some("Recent"), None, None, "age-new", "App")
+            .unwrap();
+        let pinned = db
+            .save_clip("text", Some("Pinned"), None, None, "age-pin", "App")
+            .unwrap();
+        let protected = db
+            .save_clip("text", Some("Protected"), None, None, "age-prot", "App")
+            .unwrap();
+        db.toggle_pin(pinned.id).unwrap();
+        db.toggle_protected(protected.id).unwrap();
+        {
+            let conn = db.conn.lock();
+            conn.execute(
+                "UPDATE clips SET created_at = datetime('now', '-31 days') WHERE id IN (?1, ?2, ?3)",
+                params![old.id, pinned.id, protected.id],
+            )
+            .unwrap();
+        }
+
+        db.configure_clip_retention(0, 30).unwrap();
+
+        let active = db.get_clips(None, None, false).unwrap();
+        assert!(!active.iter().any(|clip| clip.id == old.id));
+        assert!(active.iter().any(|clip| clip.id == recent.id));
+        assert!(active.iter().any(|clip| clip.id == pinned.id));
+        assert!(active.iter().any(|clip| clip.id == protected.id));
+        assert_eq!(db.get_trashed_clips().unwrap()[0].id, old.id);
+    }
+
+    #[test]
+    fn unlimited_count_and_forever_age_do_not_remove_clips() {
+        let db = setup_test_db();
+        let clip = db
+            .save_clip("text", Some("Kept"), None, None, "unlimited", "App")
+            .unwrap();
+        {
+            let conn = db.conn.lock();
+            conn.execute(
+                "UPDATE clips SET created_at = datetime('now', '-100 years') WHERE id = ?1",
+                [clip.id],
+            )
+            .unwrap();
+        }
+
+        db.configure_clip_retention(0, 0).unwrap();
+
+        assert_eq!(db.get_clips(None, None, false).unwrap().len(), 1);
+        assert!(db.get_trashed_clips().unwrap().is_empty());
+    }
+
+    #[test]
+    fn history_policy_change_does_not_cascade_into_trash_purging() {
+        let db = setup_test_db();
+        db.save_setting("trashCapacityCount", "1").unwrap();
+        for index in 0..3 {
+            db.save_clip(
+                "text",
+                Some(&format!("Grace {index}")),
+                None,
+                None,
+                &format!("grace-{index}"),
+                "App",
+            )
+            .unwrap();
+        }
+
+        db.enforce_clip_retention(1, 0).unwrap();
+
+        assert_eq!(db.get_trashed_clips().unwrap().len(), 2);
+        db.enforce_trash_retention(1, 0).unwrap();
+        assert_eq!(db.get_trashed_clips().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn trash_age_retention_purges_old_items_but_preserves_protected_clips() {
+        let db = setup_test_db();
+        let old = db
+            .save_clip("text", Some("Old Trash"), None, None, "trash-age", "App")
+            .unwrap();
+        let protected = db
+            .save_clip(
+                "text",
+                Some("Protected Trash"),
+                None,
+                None,
+                "trash-protected",
+                "App",
+            )
+            .unwrap();
+        let recent = db
+            .save_clip(
+                "text",
+                Some("Recent Trash"),
+                None,
+                None,
+                "trash-recent",
+                "App",
+            )
+            .unwrap();
+        db.batch_trash_clips(vec![old.id, protected.id, recent.id])
+            .unwrap();
+        {
+            let conn = db.conn.lock();
+            conn.execute(
+                "UPDATE clips
+                 SET trashed_at = datetime('now', '-31 days'),
+                     is_protected = CASE WHEN id = ?2 THEN 1 ELSE 0 END
+                 WHERE id IN (?1, ?2)",
+                params![old.id, protected.id],
+            )
+            .unwrap();
+        }
+
+        db.configure_trash_retention(0, 30).unwrap();
+
+        let trashed = db.get_trashed_clips().unwrap();
+        assert!(!trashed.iter().any(|clip| clip.id == old.id));
+        assert!(trashed.iter().any(|clip| clip.id == protected.id));
+        assert!(trashed.iter().any(|clip| clip.id == recent.id));
+    }
+
+    #[test]
+    fn activity_age_retention_removes_old_entries_with_unlimited_count() {
+        let db = setup_test_db();
+        db.log_activity("old_test", "Old activity").unwrap();
+        db.log_activity("recent_test", "Recent activity").unwrap();
+        {
+            let conn = db.conn.lock();
+            conn.execute(
+                "UPDATE activity_logs SET created_at = datetime('now', '-31 days') WHERE event_type = 'old_test'",
+                [],
+            )
+            .unwrap();
+        }
+
+        db.configure_activity_retention(0, 30).unwrap();
+
+        let logs = db.get_activity_logs(None, None).unwrap();
+        assert!(!logs.iter().any(|log| log.event_type == "old_test"));
+        assert!(logs.iter().any(|log| log.event_type == "recent_test"));
     }
 
     #[test]
@@ -7746,6 +8478,14 @@ mod tests {
 
         // Built-ins are registry-owned and the old seeded snapshot tables are gone.
         assert!(db.get_pipelines().unwrap().is_empty());
+        assert_eq!(
+            db.get_library_items(Some("operation"), false)
+                .unwrap()
+                .iter()
+                .filter(|item| item.item.is_builtin)
+                .count(),
+            crate::operation_registry::BUILTIN_OPERATIONS.len()
+        );
         {
             let conn = db.conn.lock();
             assert!(!table_exists(&conn, "operations").unwrap());
@@ -7773,6 +8513,14 @@ mod tests {
             )
             .unwrap();
         assert!(pipeline.id > 0);
+        let pipeline_item = db
+            .get_library_items(Some("pipeline"), false)
+            .unwrap()
+            .into_iter()
+            .find(|item| item.item.stable_ref == pipeline.stable_ref)
+            .unwrap();
+        assert_eq!(pipeline_item.item.input_contract, "text");
+        assert!(pipeline_item.capabilities.can_edit);
 
         let pipelines = db.get_pipelines().unwrap();
         assert_eq!(pipelines[0].name, "Trim");
@@ -7780,12 +8528,39 @@ mod tests {
 
         db.delete_pipeline(&pipeline.stable_ref).unwrap();
         assert!(db.get_pipelines().unwrap().is_empty());
+        assert!(db
+            .get_library_items(Some("pipeline"), false)
+            .unwrap()
+            .is_empty());
 
         // Operation CRUD
         let op = db
             .create_operation("JSON Prettify", "json_format", None, Some("Format"))
             .unwrap();
         assert!(op.id > 0);
+        assert!(db
+            .get_library_items(Some("operation"), false)
+            .unwrap()
+            .iter()
+            .any(|item| item.item.stable_ref == op.stable_id && item.capabilities.can_delete));
+
+        db.set_library_item_enabled("operation", &op.stable_id, false)
+            .unwrap();
+        let disabled = db
+            .get_library_items(Some("operation"), false)
+            .unwrap()
+            .into_iter()
+            .find(|item| item.item.stable_ref == op.stable_id)
+            .unwrap();
+        assert_eq!(disabled.item.enabled, Some(false));
+        assert!(
+            !db.resolve_custom_operation(&op.stable_id)
+                .unwrap()
+                .unwrap()
+                .enabled
+        );
+        db.set_library_item_enabled("operation", &op.stable_id, true)
+            .unwrap();
 
         let ops = db.get_operations().unwrap();
         assert!(ops.iter().any(|o| o.name == "JSON Prettify"));
@@ -7793,6 +8568,11 @@ mod tests {
         db.delete_operation(op.id).unwrap();
         let ops_after = db.get_operations().unwrap();
         assert!(!ops_after.iter().any(|o| o.id == op.id));
+        assert!(db
+            .get_library_items(Some("operation"), false)
+            .unwrap()
+            .iter()
+            .all(|item| item.item.stable_ref != op.stable_id));
     }
 
     #[test]
@@ -8783,6 +9563,15 @@ mod tests {
             .unwrap()
             .iter()
             .any(|item| item.name == "Backup Operation" && item.category == "Backup Tools"));
+        let restored_registry = db2.get_library_items(None, false).unwrap();
+        assert!(restored_registry
+            .iter()
+            .any(|item| item.item.stable_ref == backup_pipeline.stable_ref));
+        assert!(restored_registry.iter().any(|item| {
+            item.item.kind == "operation"
+                && item.item.name == "Backup Operation"
+                && item.item.group_label.as_deref() == Some("Backup Tools")
+        }));
     }
 
     #[test]

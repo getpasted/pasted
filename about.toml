@@ -1,0 +1,31 @@
+# Licenses accepted for Pasted's distributed Rust dependency graph. This file
+# is consumed by cargo-about; adding a new license is a review decision, not a
+# mechanical dependency-update step.
+accepted = [
+    "0BSD",
+    "Apache-2.0",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "BSL-1.0",
+    "CC0-1.0",
+    "ISC",
+    "MIT",
+    "MIT-0",
+    "MPL-2.0",
+    "Unicode-3.0",
+    "Unlicense",
+    "Zlib",
+]
+
+targets = [
+    "aarch64-apple-darwin",
+    "x86_64-apple-darwin",
+    "x86_64-pc-windows-msvc",
+    "x86_64-unknown-linux-gnu",
+]
+
+# Build tools and proc macros execute during compilation but are not distributed
+# with Pasted. Runtime transitive dependencies remain included.
+ignore-build-dependencies = true
+ignore-dev-dependencies = true
+ignore-transitive-dependencies = false

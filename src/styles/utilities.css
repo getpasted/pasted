@@ -161,8 +161,7 @@
 }
 
 .clip-card,
-.theme-card-idle,
-.filter-sandbox-card {
+.theme-card-idle {
   border-radius: var(--radius-card);
 }
 

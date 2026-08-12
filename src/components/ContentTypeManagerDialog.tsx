@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { Archive, Layers3, Plus, RotateCcw, Save, Shapes } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { AppDialog } from './AppDialog';
@@ -9,6 +9,9 @@ import { MenuSelect } from './MenuSelect';
 import { ModifiedFieldLabel } from './ModifiedFieldLabel';
 import { useContentTypes, type RegisteredContentType } from './ContentTypeProvider';
 import { useToast } from './ToastProvider';
+import { RegistryListItem } from './RegistryListItem';
+import { RegistryPanelHeader } from './RegistryPanelHeader';
+import { useNewItemSelection } from '../hooks/useNewItemSelection';
 
 const ICONS = [
   'AlignLeft', 'AtSign', 'Binary', 'BookOpen', 'Box', 'Braces', 'Calendar',
@@ -31,7 +34,6 @@ export function ContentTypeManagerDialog({ isOpen, onClose }: { isOpen: boolean;
   const selected = useMemo(() => definitions.find(({ id }) => id === selectedId), [definitions, selectedId]);
   const [draft, setDraft] = useState<TypeDraft>(newDraft());
   const [saving, setSaving] = useState(false);
-  const previousSelectedIdRef = useRef<string | null>(null);
   const [isGroupManagerOpen, setIsGroupManagerOpen] = useState(false);
 
   useEffect(() => {
@@ -55,17 +57,12 @@ export function ContentTypeManagerDialog({ isOpen, onClose }: { isOpen: boolean;
     setDraft({ id: selected.id, ...selected.defaults });
   };
 
-  const beginNewType = () => {
-    if (selectedId !== 'new') previousSelectedIdRef.current = selectedId;
-    setSelectedId('new');
-  };
-
-  const cancelNewType = () => {
-    const previousId = previousSelectedIdRef.current;
-    setSelectedId(previousId && definitions.some(({ id }) => id === previousId)
-      ? previousId
-      : definitions[0]?.id ?? 'new');
-  };
+  const { beginNew: beginNewType, cancelNew: cancelNewType } = useNewItemSelection({
+    selectedId,
+    setSelectedId,
+    itemIds: definitions.map(({ id }) => id),
+    emptySelection: 'new',
+  });
 
   const save = async () => {
     setSaving(true);
@@ -110,19 +107,23 @@ export function ContentTypeManagerDialog({ isOpen, onClose }: { isOpen: boolean;
         </AppDialogHeader>
         <AppDialogBody className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-y-auto text-xs @xl:grid-cols-[minmax(180px,0.72fr)_minmax(300px,1.3fr)]">
           <section className="theme-surface flex min-h-[260px] flex-col overflow-hidden rounded-xl border @xl:min-h-0">
-            <div className="theme-divider flex items-center justify-between gap-2 border-b p-2">
-              <span className="theme-text-muted px-1 text-[10px] font-bold uppercase tracking-wider">Registered Types</span>
-              <span className="flex items-center gap-1.5">
-                <button type="button" onClick={() => setIsGroupManagerOpen(true)} className="app-dialog-button is-secondary h-7 min-h-7 px-2.5"><Layers3 className="h-3 w-3" /> Groups</button>
-                <button type="button" onClick={beginNewType} className="app-dialog-button is-secondary h-7 min-h-7 px-2.5"><Plus className="h-3 w-3" /> New</button>
-              </span>
-            </div>
+            <RegistryPanelHeader
+              title="Registered Types"
+              actions={<span className="flex items-center gap-1.5">
+                <AppDialogButton onClick={() => setIsGroupManagerOpen(true)} className="h-7 min-h-7 px-2.5"><Layers3 className="h-3 w-3" /> Groups</AppDialogButton>
+                <AppDialogButton onClick={beginNewType} className="h-7 min-h-7 px-2.5"><Plus className="h-3 w-3" /> New</AppDialogButton>
+              </span>}
+            />
             <div className="min-h-0 flex-1 overflow-y-auto p-1.5">
-              {definitions.map((item) => <button key={item.id} type="button" onClick={() => setSelectedId(item.id)} className={`theme-menu-item flex w-full items-center gap-2 rounded-lg border border-transparent px-2 py-2 text-left ${selectedId === item.id ? 'is-selected' : ''} ${item.isArchived ? 'opacity-55' : ''}`}>
-                <ContentTypeGlyph icon={item.icon} className="h-4 w-4 shrink-0" />
-                <span className="theme-text-main min-w-0 flex-1 truncate font-semibold">{item.label}</span>
-                {item.isArchived && <Archive className="theme-text-subtle h-3.5 w-3.5" />}
-              </button>)}
+              {definitions.map((item) => <RegistryListItem
+                key={item.id}
+                selected={selectedId === item.id}
+                onSelect={() => setSelectedId(item.id)}
+                icon={<ContentTypeGlyph icon={item.icon} className="h-4 w-4" />}
+                title={item.label}
+                muted={item.isArchived}
+                trailing={item.isArchived && <Archive className="theme-text-subtle h-3.5 w-3.5" />}
+              />)}
             </div>
           </section>
           <section className="theme-surface min-w-0 space-y-4 rounded-xl border p-4">

@@ -2,11 +2,15 @@ import { useEffect, useState } from 'react';
 import { ArrowRight, Database, Download, FolderInput, Upload } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { SettingsPanelHeader } from './SettingsPanelHeader';
+import { SettingsSubsectionHeader } from './SettingsSubsectionHeader';
 import {
   LibraryTransitionDialog,
   waitForMinimumLibraryTransition,
 } from './LibraryTransitionDialog';
 import { useToast } from './ToastProvider';
+import { ExternalHistoryImport } from './ExternalHistoryImport';
+import { ActionButton } from './AppDialogLayout';
+import { SettingsAccentTile } from './SettingsAccentTile';
 
 const MAX_BACKUP_IMPORT_BYTES = 256 * 1024 * 1024;
 
@@ -141,33 +145,30 @@ export function SettingsSyncPanel({
       />
 
       <section className="space-y-3" aria-labelledby="library-location-title">
-        <div className="flex items-center justify-between gap-4">
-          <div className="min-w-0">
-            <h3 id="library-location-title" className="theme-title text-sm font-bold">Library Location</h3>
-            <p className="mt-1 theme-text-muted text-[11px]">Pasted keeps its SQLite library in this folder.</p>
-          </div>
-          <div className="flex shrink-0 items-center gap-2">
+        <SettingsSubsectionHeader
+          id="library-location-title"
+          title="Library Location"
+          description="Pasted keeps its SQLite library in this folder."
+          actions={<div className="flex shrink-0 items-center gap-2">
             {location && !location.isDefault && (
-              <button
-                type="button"
+              <ActionButton
                 onClick={() => void handleRestoreDefault()}
                 disabled={isMoving}
-                className="theme-secondary-button ui-control-radius border px-3 py-2 font-semibold disabled:opacity-50"
+                className="disabled:opacity-50"
               >
                 Use Default
-              </button>
+              </ActionButton>
             )}
-            <button
-              type="button"
+            <ActionButton
               onClick={() => void handleMoveLibrary()}
               disabled={isMoving}
-              className="theme-secondary-button ui-control-radius flex items-center gap-1.5 border px-3 py-2 font-semibold disabled:opacity-50"
+              className="disabled:opacity-50"
             >
               <FolderInput className="h-4 w-4" />
               <span>{isMoving ? 'Moving…' : 'Move Library…'}</span>
-            </button>
-          </div>
-        </div>
+            </ActionButton>
+          </div>}
+        />
         <div className="theme-surface rounded-xl border p-3">
           <p className="theme-label text-[10px] font-bold uppercase tracking-wider">
             {location?.isDefault ? 'Default Location' : 'Custom Location'}
@@ -182,20 +183,19 @@ export function SettingsSyncPanel({
       </section>
 
       <section className="space-y-3 border-t theme-divider pt-5" aria-labelledby="backup-restore-title">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <h3 id="backup-restore-title" className="theme-title text-sm font-bold">Backup & Restore</h3>
-            <p className="mt-1 theme-text-muted text-[11px]">Export everything or merge a previous backup.</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
+        <SettingsSubsectionHeader
+          id="backup-restore-title"
+          title="Backup & Restore"
+          description="Export everything or merge a previous backup."
+          actions={<div className="flex items-center gap-2">
+            <ActionButton
+              variant="primary"
               onClick={handleExport}
-              className="theme-primary-button ui-control-radius flex items-center space-x-1.5 px-3 py-2 border font-semibold text-xs cursor-pointer"
+              className="cursor-pointer"
             >
               <Download className="w-4 h-4" />
               <span>Export</span>
-            </button>
+            </ActionButton>
             <label className="theme-secondary-button ui-control-radius flex items-center space-x-1.5 px-3 py-2 font-semibold text-xs border cursor-pointer">
               <Upload className="w-4 h-4" />
               <span>Import</span>
@@ -210,23 +210,23 @@ export function SettingsSyncPanel({
                 }}
               />
             </label>
-          </div>
-        </div>
+          </div>}
+        />
 
         <div className="grid gap-4 theme-surface rounded-xl border p-4 sm:grid-cols-2">
           <div className="flex items-start gap-3">
-            <div className="settings-accent-tile shrink-0 rounded-lg border p-2">
+            <SettingsAccentTile size="compact">
               <Download className="h-4 w-4" />
-            </div>
+            </SettingsAccentTile>
             <div className="min-w-0 pt-0.5">
               <h4 className="text-sm font-bold theme-title">Export</h4>
               <p className="mt-1 text-[11px] theme-text-muted leading-relaxed">Creates one portable JSON backup file.</p>
             </div>
           </div>
           <div className="flex items-start gap-3">
-            <div className="settings-accent-tile shrink-0 rounded-lg border p-2">
+            <SettingsAccentTile size="compact">
               <Upload className="h-4 w-4" />
-            </div>
+            </SettingsAccentTile>
             <div className="min-w-0 pt-0.5">
               <h4 className="text-sm font-bold theme-title">Import</h4>
               <p className="mt-1 text-[11px] theme-text-muted leading-relaxed">
@@ -235,6 +235,22 @@ export function SettingsSyncPanel({
             </div>
           </div>
         </div>
+      </section>
+
+      <section className="space-y-3 border-t theme-divider pt-5" aria-labelledby="migration-title">
+        <SettingsSubsectionHeader
+          id="migration-title"
+          title="Move from Another Clipboard Manager"
+          description="Bring supported history into this library without changing the original app."
+        />
+        <ExternalHistoryImport
+          onImported={async () => {
+            await Promise.all([
+              Promise.resolve(onRefreshClips?.()),
+              Promise.resolve(onRefreshTrashedClips?.()),
+            ]);
+          }}
+        />
       </section>
 
       {analyticsEnabled && onOpenAnalytics && (

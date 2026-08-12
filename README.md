@@ -17,6 +17,7 @@ The [Pasted Wiki](https://github.com/getpasted/pasted/wiki) covers installation,
 - Preserves restorable revisions for content-changing actions and records important events in the Activity Log.
 - Includes seven appearance choices: System, Cool, Dark, Warm, Vampire, Flux, and 808.
 - Exposes meaningful clipboard-management workflows through the bundled `pasted` command.
+- Imports supported text history from Alfred, Pastebot, Pasta, Paste, CopyClip 2, Maccy, and Flycut without changing the source library.
 - Lets each major feature be disabled for a simpler clipboard manager.
 
 ## Privacy and safety
@@ -56,6 +57,12 @@ sudo ln -s /Applications/Pasted.app/Contents/MacOS/pasted /usr/local/bin/pasted
 ```
 
 The complete command reference is available inside **Help & Documentation → CLI Commands**. Commands that return structured records support stable JSON output where applicable.
+
+Managed or scripted installs can bypass the first-run walkthrough by launching the graphical app with `--skip-welcome`. On macOS:
+
+```sh
+open -a Pasted --args --skip-welcome
+```
 
 ## Development
 

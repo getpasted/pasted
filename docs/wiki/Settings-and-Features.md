@@ -10,7 +10,7 @@ Other Settings pages cover:
 - **Hotkeys:** global shortcuts and platform permission status;
 - **Connections:** detected and custom intelligence providers;
 - **Blacklist:** applications Pasted should not capture;
-- **Backup & Import:** export, merge import, and Factory Reset;
+- **Storage:** library location, Pasted backups, migration from supported clipboard managers, and Factory Reset;
 - **Debug:** schedulers and long-running background work;
 - **About:** version, installation paths, signing, runtime, and CLI installation.
 

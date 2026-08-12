@@ -4,9 +4,10 @@ import { useAltKeyPressed } from '../hooks/useAltKeyPressed';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { MenuSelect } from './MenuSelect';
 import { SettingsPanelHeader } from './SettingsPanelHeader';
-import { SettingsSectionHeading } from './SettingsSectionHeading';
+import { SettingsSubsectionHeader } from './SettingsSubsectionHeader';
 import { ACTUAL_SIZE, APP_ZOOM_STEPS, appZoomPercent, stepAppZoom } from '../utils/appZoom';
 import { useToast } from './ToastProvider';
+import { ActionButton } from './AppDialogLayout';
 
 interface SettingsGeneralPanelProps {
   settings: AppSettings;
@@ -54,6 +55,45 @@ const revisionLimitOptions = [10, 25, 50, 100]
   .map((value) => ({ value: String(value), label: `${value} revisions` }))
   .concat({ value: '0', label: 'Unlimited' });
 
+const historyCountPresets = [
+  { value: '0', label: 'Unlimited' },
+  { value: '250', label: '250 clips' },
+  { value: '500', label: '500 clips' },
+  { value: '1000', label: '1,000 clips (Default)' },
+  { value: '5000', label: '5,000 clips' },
+  { value: '10000', label: '10,000 clips' },
+  { value: '50000', label: '50,000 clips' },
+];
+
+const trashCountPresets = [
+  { value: '0', label: 'Unlimited' },
+  { value: '100', label: '100 clips' },
+  { value: '250', label: '250 clips' },
+  { value: '500', label: '500 clips (Default)' },
+  { value: '1000', label: '1,000 clips' },
+  { value: '2000', label: '2,000 clips' },
+  { value: '5000', label: '5,000 clips' },
+];
+
+const activityCountPresets = [
+  { value: '0', label: 'Unlimited' },
+  { value: '250', label: '250 entries' },
+  { value: '500', label: '500 entries' },
+  { value: '1000', label: '1,000 entries (Default)' },
+  { value: '2500', label: '2,500 entries' },
+  { value: '5000', label: '5,000 entries' },
+  { value: '10000', label: '10,000 entries' },
+];
+
+const retentionAgeOptions = [
+  { value: '0', label: 'Forever' },
+  { value: '1', label: '1 day' },
+  { value: '7', label: '7 days' },
+  { value: '30', label: '30 days' },
+  { value: '90', label: '90 days' },
+  { value: '365', label: '1 year' },
+];
+
 const rowHeightOptions = [
   { value: 'small', label: 'Compact' },
   { value: 'medium', label: 'Standard' },
@@ -80,6 +120,51 @@ export function SettingsGeneralPanel({
         { value: 'both', label: 'Always show Tray & Taskbar' },
         { value: 'menubar_only', label: 'System Tray Icon only' },
       ];
+  const historyCountOptions = historyCountPresets.some(({ value }) => Number(value) === settings.keepClipCount)
+    ? historyCountPresets
+    : [
+        ...historyCountPresets.slice(0, 1),
+        { value: String(settings.keepClipCount), label: `${settings.keepClipCount.toLocaleString()} clips (Custom)` },
+        ...historyCountPresets.slice(1),
+      ];
+  const historyAgeMenuOptions = retentionAgeOptions.some(({ value }) => Number(value) === settings.keepClipAgeDays)
+    ? retentionAgeOptions
+    : [
+        ...retentionAgeOptions.slice(0, 1),
+        { value: String(settings.keepClipAgeDays), label: `${settings.keepClipAgeDays.toLocaleString()} days (Custom)` },
+        ...retentionAgeOptions.slice(1),
+      ];
+  const trashCountOptions = trashCountPresets.some(({ value }) => Number(value) === settings.trashCapacityCount)
+    ? trashCountPresets
+    : [
+        ...trashCountPresets.slice(0, 1),
+        { value: String(settings.trashCapacityCount), label: `${settings.trashCapacityCount.toLocaleString()} clips (Custom)` },
+        ...trashCountPresets.slice(1),
+      ];
+  const trashAgeMenuOptions = retentionAgeOptions.some(({ value }) => Number(value) === settings.trashAgeDays)
+    ? retentionAgeOptions
+    : [
+        ...retentionAgeOptions.slice(0, 1),
+        { value: String(settings.trashAgeDays), label: `${settings.trashAgeDays.toLocaleString()} days (Custom)` },
+        ...retentionAgeOptions.slice(1),
+      ];
+  const activityCountOptions = activityCountPresets.some(({ value }) => Number(value) === settings.activityLogCapacity)
+    ? activityCountPresets
+    : [
+        ...activityCountPresets.slice(0, 1),
+        { value: String(settings.activityLogCapacity), label: `${settings.activityLogCapacity.toLocaleString()} entries (Custom)` },
+        ...activityCountPresets.slice(1),
+      ];
+  const activityAgeMenuOptions = retentionAgeOptions.some(({ value }) => Number(value) === settings.activityLogAgeDays)
+    ? retentionAgeOptions
+    : [
+        ...retentionAgeOptions.slice(0, 1),
+        { value: String(settings.activityLogAgeDays), label: `${settings.activityLogAgeDays.toLocaleString()} days (Custom)` },
+        ...retentionAgeOptions.slice(1),
+      ];
+  const retentionSummary = settings.keepClipCount === 0 && settings.keepClipAgeDays === 0
+    ? 'Automatic history cleanup is off. Pinned and protected clips remain exempt if you enable a limit later.'
+    : 'Eligible clips that exceed your active retention limits automatically move into Trash instead of dropping off forever.';
 
   const exportClips = async (format: 'json' | 'csv') => {
     try {
@@ -112,10 +197,15 @@ export function SettingsGeneralPanel({
             />
             {/* General Preferences */}
             <div className="space-y-4">
+              <SettingsSubsectionHeader
+                title="Appearance"
+                description="Choose the color scheme Pasted uses throughout the app."
+              />
+
               {/* Appearance Mode Switcher */}
               <div className="flex items-center justify-between pb-1">
                 <span className="font-medium">
-                  Appearance: <strong className="theme-text-muted ml-1">{appearanceModes.find(({ value }) => value === (settings.themeMode || 'system'))?.label}</strong>
+                  Color Scheme: <strong className="theme-text-muted ml-1">{appearanceModes.find(({ value }) => value === (settings.themeMode || 'system'))?.label}</strong>
                 </span>
                 <div className="theme-surface appearance-picker flex items-center p-1 rounded-xl border gap-1" role="group" aria-label="Appearance scheme">
                   {appearanceGroups.map((group) => (
@@ -146,7 +236,10 @@ export function SettingsGeneralPanel({
             <div className="theme-divider border-t" />
 
             <div className="space-y-4">
-              <SettingsSectionHeading title="Layout" align="center" />
+              <SettingsSubsectionHeader
+                title="Layout"
+                description="Adjust app scaling, clip density, and workspace dimensions."
+              />
 
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0 flex-1">
@@ -204,7 +297,7 @@ export function SettingsGeneralPanel({
                 />
               </div>
 
-              <div className="theme-divider border-t pt-3">
+              <div className="pt-4">
                 <div className="flex items-start justify-between">
                   <div className="pr-4 flex-1 min-w-0">
                     <span className="font-semibold theme-text-main block">Column Widths:</span>
@@ -212,8 +305,7 @@ export function SettingsGeneralPanel({
                       Resets the left sidebar and middle history list panel widths to their defaults.
                     </p>
                   </div>
-                  <button
-                    type="button"
+                  <ActionButton
                     onClick={() => {
                       if (onResetColumnWidths) onResetColumnWidths();
                       else {
@@ -222,11 +314,11 @@ export function SettingsGeneralPanel({
                         window.location.reload();
                       }
                     }}
-                    className="theme-secondary-button flex items-center space-x-1.5 px-3 py-1.5 border rounded-lg text-xs font-semibold transition-colors shrink-0 cursor-pointer"
+                    className="shrink-0 cursor-pointer"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
                     <span>Reset Column Widths</span>
-                  </button>
+                  </ActionButton>
                 </div>
               </div>
             </div>
@@ -235,7 +327,10 @@ export function SettingsGeneralPanel({
 
             {/* System & OS Integration Subsection */}
             <div className="space-y-4">
-              <SettingsSectionHeading title="System & OS Integration" align="center" />
+              <SettingsSubsectionHeader
+                title="System & OS Integration"
+                description="Control startup, sounds, and how Pasted appears in the operating system."
+              />
 
               {/* Dock / Menubar / System Tray Setting */}
               <div className="flex items-center justify-between pt-1">
@@ -290,9 +385,50 @@ export function SettingsGeneralPanel({
               </div>
             </div>
 
+            <div className="theme-divider border-t" />
+
             {/* Clipboard Preferences */}
             <div className="space-y-4">
-              <SettingsSectionHeading title="Clipboard" align="center" />
+              <SettingsSubsectionHeader
+                title="Clipboard"
+                description="Set capture, preview, retention, and revision behavior."
+              />
+
+              <div className="theme-surface overflow-hidden rounded-xl border">
+                <div className="flex items-center justify-between gap-4 px-3 py-2.5">
+                  <div className="min-w-0">
+                    <span className="font-semibold theme-text-main block">Keep clips for</span>
+                    <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
+                      Clips older than this move to Trash automatically.
+                    </p>
+                  </div>
+                  <MenuSelect
+                    value={String(settings.keepClipAgeDays)}
+                    options={historyAgeMenuOptions}
+                    onChange={(value) => onUpdateSettings({ keepClipAgeDays: Number(value) })}
+                    label="Maximum clip age"
+                    className="settings-menu-select w-40 shrink-0"
+                  />
+                </div>
+                <div className="theme-divider flex items-center justify-between gap-4 border-t px-3 py-2.5">
+                  <div className="min-w-0">
+                    <span className="font-semibold theme-text-main block">Maximum clips</span>
+                    <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
+                      The oldest eligible clips are cleaned up first.
+                    </p>
+                  </div>
+                  <MenuSelect
+                    value={String(settings.keepClipCount)}
+                    options={historyCountOptions}
+                    onChange={(value) => onUpdateSettings({ keepClipCount: Number(value) })}
+                    label="Maximum clips retained"
+                    className="settings-menu-select w-40 shrink-0"
+                  />
+                </div>
+                <p className="theme-divider theme-text-subtle border-t px-3 py-2 text-[10px] leading-normal">
+                  Both limits apply. Pinned and protected clips are always kept.
+                </p>
+              </div>
 
               <div className="flex items-start justify-between pt-1">
                 <div className="pr-4 flex-1 min-w-0">
@@ -366,43 +502,6 @@ export function SettingsGeneralPanel({
                 </div>
               )}
 
-              {/* Compact Keep Clippings Input + Slider */}
-              <div className="space-y-2">
-                <div className="flex items-start justify-between">
-                  <div className="pr-4 flex-1 min-w-0">
-                    <span className="font-semibold theme-text-main block">History Capacity (clips):</span>
-                    <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
-                      Maximum number of clippings saved in your local database history.
-                    </p>
-                  </div>
-                  <div className="flex items-center space-x-2 font-mono shrink-0">
-                    <input
-                      type="number"
-                      min={50}
-                      max={5000}
-                      step={50}
-                      value={settings.keepClipCount}
-                      onChange={(e) => onUpdateSettings({ keepClipCount: Number(e.target.value) })}
-                      className="theme-input w-20 border rounded-md px-2 py-1 text-center font-bold focus:outline-none"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex items-center space-x-3 pt-1">
-                  <span className="text-[10px] theme-text-subtle font-mono">50</span>
-                  <input
-                    type="range"
-                    min={50}
-                    max={3000}
-                    step={50}
-                    value={settings.keepClipCount}
-                    onChange={(e) => onUpdateSettings({ keepClipCount: Number(e.target.value) })}
-                    className="theme-range flex-1 h-1.5 rounded-lg cursor-pointer"
-                  />
-                  <span className="text-[10px] theme-text-subtle font-mono">3000</span>
-                </div>
-              </div>
-
               {settings.enableRevisions && <div className="flex items-start justify-between">
                 <div className="pr-4 flex-1 min-w-0">
                   <span className="font-semibold theme-text-main block">Revisions per Clip:</span>
@@ -420,7 +519,7 @@ export function SettingsGeneralPanel({
                 />
               </div>}
 
-              <div className="theme-divider pt-3 border-t">
+              <div className="theme-divider border-t pt-4">
                 <div className="flex items-start justify-between">
                   <div className="pr-4 flex-1 min-w-0">
                     <span className="font-semibold theme-text-main block">Backup & Export:</span>
@@ -456,50 +555,53 @@ export function SettingsGeneralPanel({
 
               {/* Trash Preferences */}
               <div className="space-y-4">
-              <SettingsSectionHeading title="Trash" align="center" />
+              <SettingsSubsectionHeader
+                title="Trash"
+                description="Choose how long deleted clips remain recoverable."
+              />
 
-              <div>
-                <div className="flex items-start justify-between">
-                  <div className="pr-4 flex-1 min-w-0">
-                    <span className="font-semibold theme-text-main block">Trash Capacity Limit:</span>
+              <div className="theme-surface overflow-hidden rounded-xl border">
+                <div className="flex items-center justify-between gap-4 px-3 py-2.5">
+                  <div className="min-w-0">
+                    <span className="font-semibold theme-text-main block">Keep trashed clips for</span>
                     <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
-                      Maximum number of items retained in Trash before oldest trashed clips are permanently purged (default: 500).
+                      Older trashed clips are permanently purged.
                     </p>
                   </div>
-                  <div className="flex items-center space-x-2 font-mono shrink-0">
-                    <input
-                      type="number"
-                      min={50}
-                      max={2000}
-                      step={50}
-                      value={settings.trashCapacityCount ?? 500}
-                      onChange={(e) => onUpdateSettings({ trashCapacityCount: Number(e.target.value) })}
-                      className="theme-input w-20 border rounded-md px-2 py-1 text-center font-bold focus:outline-none text-xs"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex items-center space-x-3 pt-2">
-                  <span className="text-[10px] theme-text-subtle font-mono">50</span>
-                  <input
-                    type="range"
-                    min={50}
-                    max={2000}
-                    step={50}
-                    value={settings.trashCapacityCount ?? 500}
-                    onChange={(e) => onUpdateSettings({ trashCapacityCount: Number(e.target.value) })}
-                    className="theme-range settings-danger-range flex-1 h-1.5 rounded-lg cursor-pointer"
+                  <MenuSelect
+                    value={String(settings.trashAgeDays)}
+                    options={trashAgeMenuOptions}
+                    onChange={(value) => onUpdateSettings({ trashAgeDays: Number(value) })}
+                    label="Maximum Trash age"
+                    className="settings-menu-select w-40 shrink-0"
                   />
-                  <span className="text-[10px] theme-text-subtle font-mono">2000</span>
                 </div>
+                <div className="theme-divider flex items-center justify-between gap-4 border-t px-3 py-2.5">
+                  <div className="min-w-0">
+                    <span className="font-semibold theme-text-main block">Maximum trashed clips</span>
+                    <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
+                      The oldest eligible items are permanently purged first.
+                    </p>
+                  </div>
+                  <MenuSelect
+                    value={String(settings.trashCapacityCount)}
+                    options={trashCountOptions}
+                    onChange={(value) => onUpdateSettings({ trashCapacityCount: Number(value) })}
+                    label="Maximum trashed clips retained"
+                    className="settings-menu-select w-40 shrink-0"
+                  />
+                </div>
+                <p className="theme-divider theme-text-subtle border-t px-3 py-2 text-[10px] leading-normal">
+                  Both limits apply. Protected clips are always kept.
+                </p>
               </div>
 
               <div className="theme-status-danger p-3 rounded-xl border text-xs">
                 <span className="font-bold">Auto-Trash Safety Net: </span>
-                When your active history reaches your clip limit ({settings.keepClipCount} clips), older unpinned items automatically move into Trash instead of dropping off forever.
+                {retentionSummary}
               </div>
 
-              <div className="theme-divider pt-3 border-t">
+              <div>
                 <div className="flex items-start justify-between">
                   <div className="pr-4 flex-1 min-w-0">
                     <span className="font-semibold theme-danger-text block">
@@ -527,28 +629,45 @@ export function SettingsGeneralPanel({
 
               {/* Activity Log Preferences */}
               <div className="space-y-4">
-              <SettingsSectionHeading title="Activity History" align="center" />
+              <SettingsSubsectionHeader
+                title="Activity History"
+                description="Control how much application activity Pasted retains."
+              />
 
-              <div>
-                <div className="flex items-start justify-between">
-                  <div className="pr-4 flex-1 min-w-0">
-                    <span className="font-semibold theme-text-main block">Log Capacity Limit:</span>
+              <div className="theme-surface overflow-hidden rounded-xl border">
+                <div className="flex items-center justify-between gap-4 px-3 py-2.5">
+                  <div className="min-w-0">
+                    <span className="font-semibold theme-text-main block">Keep activity for</span>
                     <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
-                      Maximum number of activity log entries to retain before auto-purging old logs (default: 1000).
+                      Older activity entries are removed automatically.
                     </p>
                   </div>
-                  <div className="flex items-center space-x-2 font-mono shrink-0">
-                    <input
-                      type="number"
-                      min={100}
-                      max={5000}
-                      step={100}
-                      value={settings.activityLogCapacity ?? 1000}
-                      onChange={(e) => onUpdateSettings({ activityLogCapacity: Number(e.target.value) })}
-                      className="theme-input w-20 border rounded-md px-2 py-1 text-center font-bold focus:outline-none text-xs"
-                    />
-                  </div>
+                  <MenuSelect
+                    value={String(settings.activityLogAgeDays)}
+                    options={activityAgeMenuOptions}
+                    onChange={(value) => onUpdateSettings({ activityLogAgeDays: Number(value) })}
+                    label="Maximum activity age"
+                    className="settings-menu-select w-40 shrink-0"
+                  />
                 </div>
+                <div className="theme-divider flex items-center justify-between gap-4 border-t px-3 py-2.5">
+                  <div className="min-w-0">
+                    <span className="font-semibold theme-text-main block">Maximum activity entries</span>
+                    <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
+                      The oldest entries are removed first.
+                    </p>
+                  </div>
+                  <MenuSelect
+                    value={String(settings.activityLogCapacity)}
+                    options={activityCountOptions}
+                    onChange={(value) => onUpdateSettings({ activityLogCapacity: Number(value) })}
+                    label="Maximum activity entries retained"
+                    className="settings-menu-select w-40 shrink-0"
+                  />
+                </div>
+                <p className="theme-divider theme-text-subtle border-t px-3 py-2 text-[10px] leading-normal">
+                  Both limits apply. Unlimited and Forever disable automatic removal.
+                </p>
               </div>
               </div>
             </>}

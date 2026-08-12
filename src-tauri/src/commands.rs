@@ -19,6 +19,7 @@ use crate::features::{self, Feature};
 use crate::installation_diagnostics::InstallationDiagnostics;
 use crate::library_storage::{self, LibraryLocationInfo};
 use crate::sequential_paste::{SequentialQueueState, SequentialStatus};
+use crate::third_party_licenses::ThirdPartyLicenseDocument;
 
 fn refresh_native_app_menu(app: &AppHandle, db: &Arc<DbState>) {
     if let Err(error) = crate::app_menu::install(app, db) {
@@ -108,6 +109,11 @@ pub fn get_installation_diagnostics(
         data_path,
         db.database_path(),
     ))
+}
+
+#[tauri::command]
+pub fn get_third_party_licenses() -> ThirdPartyLicenseDocument {
+    crate::third_party_licenses::document().clone()
 }
 
 #[derive(serde::Serialize)]
@@ -975,6 +981,28 @@ pub fn get_content_detectors(
 }
 
 #[tauri::command]
+pub fn get_library_items(
+    kind: Option<String>,
+    include_archived: Option<bool>,
+    db: State<'_, Arc<DbState>>,
+) -> Result<Vec<crate::library_items::LibraryItemView>, String> {
+    db.get_library_items(kind.as_deref(), include_archived.unwrap_or(false))
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn set_library_item_enabled(
+    kind: String,
+    stable_ref: String,
+    enabled: bool,
+    db: State<'_, Arc<DbState>>,
+) -> Result<(), String> {
+    features::require(&db, Feature::Transformations)?;
+    db.set_library_item_enabled(&kind, &stable_ref, enabled)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
 pub fn get_content_types(
     include_archived: Option<bool>,
     db: State<'_, Arc<DbState>>,
@@ -1238,8 +1266,33 @@ pub fn get_all_app_settings(
 }
 
 #[tauri::command]
-pub fn enforce_clip_retention(keep_count: i64, db: State<'_, Arc<DbState>>) -> Result<(), String> {
-    db.purge_old_clips(keep_count).map_err(|e| e.to_string())
+pub fn enforce_clip_retention(
+    keep_count: i64,
+    keep_age_days: i64,
+    db: State<'_, Arc<DbState>>,
+) -> Result<(), String> {
+    db.enforce_clip_retention(keep_count, keep_age_days)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn enforce_trash_retention(
+    keep_count: i64,
+    keep_age_days: i64,
+    db: State<'_, Arc<DbState>>,
+) -> Result<(), String> {
+    db.enforce_trash_retention(keep_count, keep_age_days)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn enforce_activity_retention(
+    keep_count: i64,
+    keep_age_days: i64,
+    db: State<'_, Arc<DbState>>,
+) -> Result<(), String> {
+    db.enforce_activity_retention(keep_count, keep_age_days)
+        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -1429,6 +1482,72 @@ pub fn import_backup_json(
         .map_err(|e| e.to_string())?;
     refresh_native_app_menu(&app, &db);
     Ok(imported)
+}
+
+#[tauri::command]
+pub fn get_external_import_sources() -> Vec<crate::external_import::ExternalImportSourceInfo> {
+    crate::external_import::source_infos()
+}
+
+#[tauri::command]
+pub async fn import_external_history(
+    source: String,
+    path: Option<String>,
+    choose_file: Option<bool>,
+    app: AppHandle,
+    db: State<'_, Arc<DbState>>,
+) -> Result<Option<crate::external_import::ExternalImportReport>, String> {
+    let source = source.parse::<crate::external_import::ExternalImportSource>()?;
+    let selected_path =
+        if choose_file.unwrap_or(false) {
+            let mut picker = app
+                .dialog()
+                .file()
+                .set_title(if source.prefers_folder_selection() {
+                    format!("Choose the {} Data Folder", source.label())
+                } else {
+                    format!("Import {} History", source.label())
+                });
+            if let Some(directory) = source.suggested_directory() {
+                picker = picker.set_directory(directory);
+            }
+            if source.prefers_folder_selection() {
+                let Some(selected_folder) = picker.blocking_pick_folder() else {
+                    return Ok(None);
+                };
+                Some(selected_folder.into_path().map_err(|error| {
+                    format!("The selected history folder is not accessible: {error}")
+                })?)
+            } else {
+                let Some(selected_file) = picker
+                    .add_filter(
+                        "Clipboard History",
+                        &["sqlite", "db", "alfdb", "plist", "data"],
+                    )
+                    .blocking_pick_file()
+                else {
+                    return Ok(None);
+                };
+                Some(selected_file.into_path().map_err(|error| {
+                    format!("The selected history file is not accessible: {error}")
+                })?)
+            }
+        } else {
+            path.map(PathBuf::from)
+        };
+    let db = Arc::clone(&db);
+    let report = tauri::async_runtime::spawn_blocking(move || {
+        crate::external_import::import_history(&db, source, selected_path).map(Some)
+    })
+    .await
+    .map_err(|error| error.to_string())??;
+    if let Some(capacity) = report
+        .as_ref()
+        .and_then(|report| report.history_capacity_adjusted_to)
+    {
+        emit_window_appearance_change(&app, "keepClipCount", &capacity.to_string());
+    }
+    Ok(report)
 }
 
 #[tauri::command]

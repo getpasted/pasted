@@ -196,6 +196,16 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       return mockPipelines as unknown as T;
     case 'get_content_detectors':
       return mockDetectors.map((detector) => ({ ...detector, patterns: [...detector.patterns] })) as unknown as T;
+    case 'get_library_items': {
+      const kind = String(args?.kind ?? '');
+      const items = [
+        ...mockDetectors.map((detector) => ({ stableRef: detector.stable_ref, kind: 'detector', name: detector.name, description: detector.description, groupLabel: null, icon: 'FileText', enabled: detector.enabled, isBuiltin: detector.is_builtin, isArchived: false, sortOrder: detector.priority, revision: 1, inputContract: 'text', outputContract: `set_type:${detector.content_type}`, createdAt: '', updatedAt: '', capabilities: { canEdit: true, canDuplicate: true, canDelete: true, canDisable: true, canRestore: detector.is_builtin } })),
+        ...mockPipelines.map((pipeline) => ({ stableRef: pipeline.stableRef, kind: 'pipeline', name: pipeline.name, description: '', groupLabel: 'Pipelines', icon: 'Workflow', enabled: null, isBuiltin: false, isArchived: false, sortOrder: pipeline.id, revision: pipeline.revision, inputContract: 'text', outputContract: 'preserve_type', createdAt: pipeline.createdAt, updatedAt: pipeline.updatedAt, capabilities: { canEdit: true, canDuplicate: true, canDelete: true, canDisable: false, canRestore: false } })),
+      ];
+      return items.filter((item) => !kind || item.kind === kind) as unknown as T;
+    }
+    case 'set_library_item_enabled':
+      return undefined as T;
     case 'get_content_types':
       return mockContentTypes
         .filter((type) => Boolean(args?.includeArchived) || !type.isArchived)
@@ -405,6 +415,23 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
         notarizationStatus: 'Not expected for development builds',
         cliPath: '/Applications/Pasted.app/Contents/MacOS/pasted',
       } as unknown as T;
+    case 'get_third_party_licenses':
+      return {
+        schemaVersion: 1,
+        componentCount: 2,
+        components: [
+          { ecosystem: 'cargo', name: 'tauri', version: '2.x', license: 'MIT OR Apache-2.0', repository: 'https://github.com/tauri-apps/tauri', noticeIds: ['development'] },
+          { ecosystem: 'npm', name: 'react', version: '19.x', license: 'MIT', repository: 'https://github.com/facebook/react', noticeIds: ['development'] },
+        ],
+        noticeText: [
+          'Pasted Third-Party Software Notices',
+          '',
+          'Development preview',
+          '',
+          'Production builds embed the complete generated component inventory and license text.',
+          'Run `pasted licenses` or open this dialog in the native app to inspect that document.',
+        ].join('\n'),
+      } as unknown as T;
     case 'run_intelligence_scheduler_demo':
       return undefined as T;
     case 'get_ocr_backfill_status':
@@ -579,6 +606,25 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       return {} as unknown as T;
     case 'get_source_icons':
       return {} as unknown as T;
+    case 'get_external_import_sources':
+      return [
+        { id: 'alfred', label: 'Alfred', description: 'Clipboard history from Alfred Powerpack', available: true, detected: true, defaultPath: '/mock/Alfred/clipboard.alfdb', supportsCustomFile: true, selectionKind: 'file' },
+        { id: 'pastebot', label: 'Pastebot', description: 'Text history from Pastebot', available: false, detected: true, defaultPath: '/mock/Pastebot.sqlite', supportsCustomFile: true, selectionKind: 'folder' },
+        { id: 'pasta', label: 'Pasta', description: 'Text history from Pasta', available: false, detected: false, defaultPath: '/mock/Pasta/pasta.sqlite', supportsCustomFile: true, selectionKind: 'file' },
+        { id: 'paste', label: 'Paste', description: 'Text history from Paste', available: false, detected: false, defaultPath: '/mock/Paste/Paste.sqlite', supportsCustomFile: true, selectionKind: 'folder' },
+        { id: 'copyclip', label: 'CopyClip 2', description: 'Text history from CopyClip 2', available: false, detected: false, defaultPath: '/mock/CopyClip.data', supportsCustomFile: true, selectionKind: 'file' },
+        { id: 'maccy', label: 'Maccy', description: 'Text history from Maccy', available: false, detected: false, defaultPath: '/mock/Maccy/Storage.sqlite', supportsCustomFile: true, selectionKind: 'file' },
+        { id: 'flycut', label: 'Flycut', description: 'Text history from Flycut', available: false, detected: false, defaultPath: '/mock/Flycut.plist', supportsCustomFile: true, selectionKind: 'file' },
+      ] as unknown as T;
+    case 'import_external_history':
+      return {
+        source: String(args?.source ?? 'pastebot'),
+        scannedCount: 42,
+        importedCount: 38,
+        duplicateCount: 3,
+        skippedCount: 1,
+        historyCapacityAdjustedTo: 1200,
+      } as unknown as T;
     case 'export_backup_file':
       return `/mock/Pasted_Backup_${new Date().toISOString().slice(0, 10)}.json` as unknown as T;
     case 'get_library_location':

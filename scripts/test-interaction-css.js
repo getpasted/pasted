@@ -14,6 +14,7 @@ const pipelineEditor = read('src/components/PipelineEditorModal.tsx');
 const reorderHook = read('src/hooks/useStableVerticalReorder.ts');
 const sidebarComponent = read('src/components/Sidebar.tsx');
 const app = read('src/App.tsx');
+const settingsPanelHeader = read('src/components/SettingsPanelHeader.tsx');
 
 const ruleBody = (css, selector) => {
   const start = css.indexOf(selector);
@@ -32,11 +33,19 @@ assert.match(accessibility, /html:not\(\.is-stable-reordering\) input:not\(\[typ
 assert.match(accessibility, /html:not\(\.is-stable-reordering\) \.clip-text-content/);
 assert.doesNotMatch(accessibility, /!important/);
 
-// Pipeline steps use the same whole-row drag contract as other reorderable collections.
-assert.match(pipelineEditor, /data-stable-reorder-id=\{step\.id\}/);
-assert.match(pipelineEditor, /onReorderPointerDown\(event\)/);
-assert.match(pipelineEditor, /cursor-grab active:cursor-grabbing touch-none/);
-assert.doesNotMatch(pipelineEditor, /step-drag-handle|GripVertical|ArrowUp|ArrowDown/);
+// Pipeline steps expose explicit keyboard-accessible ordering controls instead
+// of making the entire editor card a pointer-only drag target.
+assert.match(pipelineEditor, /aria-label="Move step up"/);
+assert.match(pipelineEditor, /aria-label="Move step down"/);
+assert.match(pipelineEditor, /handleMoveStep\(idx, -1\)/);
+assert.match(pipelineEditor, /handleMoveStep\(idx, 1\)/);
+assert.doesNotMatch(pipelineEditor, /data-stable-reorder-id|onReorderPointerDown|cursor-grab|GripVertical/);
+
+// Settings action clusters wrap before they can collapse headings or
+// descriptions at narrow widths and larger user-selected text sizes.
+assert.match(settingsPanelHeader, /settings-section-header flex flex-wrap/);
+assert.match(settingsPanelHeader, /min-w-\[min\(16rem,100%\)\] flex-1/);
+assert.match(settingsPanelHeader, /max-w-full flex-wrap/);
 
 // Resize mode disables the whole app except the captured divider.
 assert.match(ruleBody(sidebar, '.is-resizing-columns {'), /cursor:\s*col-resize;/);

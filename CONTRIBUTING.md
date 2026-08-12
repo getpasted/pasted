@@ -50,6 +50,18 @@ It covers Rust formatting, Clippy, frontend compilation, unit tests, IPC boundar
 
 Platform-sensitive changes also need focused human testing on every affected environment. Never infer Windows or constrained Wayland success solely from a macOS build.
 
+### Dependency license notices
+
+Changes to `Cargo.lock`, `package-lock.json`, or the approved license policy require regenerating the checked-in third-party notice files:
+
+```sh
+cargo install --locked --features cli --version 0.9.1 cargo-about
+npm run licenses:generate
+npm run licenses:check
+```
+
+Do not add a newly encountered license to `about.toml` merely to make generation pass. Review its distribution and source-availability obligations first. The generator includes production npm packages, the supported-platform Rust graph, package copyright/NOTICE files, and complete selected license texts.
+
 ## Pull requests
 
 - Keep each pull request focused enough to review and revert.
@@ -67,4 +79,3 @@ AI-assisted contributions are welcome, but the submitter remains responsible for
 Use clear, imperative commit messages. Reviewers may ask for narrower scope, additional tests, safer migrations, or a platform fallback before merging. A green build is required but is not a substitute for reviewing user-data and privacy consequences.
 
 By contributing, you agree that your contribution is licensed under the repository's [MIT License](LICENSE).
-

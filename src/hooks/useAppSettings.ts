@@ -8,6 +8,7 @@ import { FEATURE_SETTING_KEYS } from '../utils/features';
 import { clampAppZoom } from '../utils/appZoom';
 
 const DEFAULT_SETTINGS: AppSettings = {
+  onboardingVersion: 0,
   textSize: 16,
   enableSounds: true,
   captureFeedback: true,
@@ -20,15 +21,18 @@ const DEFAULT_SETTINGS: AppSettings = {
   maxClipSizeMb: 100,
   filePreviewMode: 'safe',
   filePreviewMaxMb: 25,
-  keepClipCount: 900,
+  keepClipCount: 1000,
+  keepClipAgeDays: 0,
   revisionHistoryLimit: 50,
   alwaysPastePlainText: false,
   rowHeight: 'medium',
   themeMode: 'system',
   enableActivityLog: true,
   activityLogCapacity: 1000,
+  activityLogAgeDays: 0,
   enableTrash: true,
   trashCapacityCount: 500,
+  trashAgeDays: 0,
   enableAnalytics: true,
   enableBins: true,
   enableContentDetection: true,
@@ -65,6 +69,7 @@ function parseSavedSettings(saved: Record<string, string>) {
     return Number.isFinite(value) ? value : fallback;
   };
 
+  if (saved.onboardingVersion) next.onboardingVersion = Math.max(0, numberValue('onboardingVersion', 0));
   if (saved.textSize) next.textSize = clampAppZoom(numberValue('textSize', next.textSize));
   if (saved.enableSounds !== undefined) next.enableSounds = saved.enableSounds === 'true';
   if (saved.captureFeedback !== undefined) next.captureFeedback = saved.captureFeedback === 'true';
@@ -82,15 +87,18 @@ function parseSavedSettings(saved: Record<string, string>) {
   if (saved.maxClipSizeMb) next.maxClipSizeMb = numberValue('maxClipSizeMb', next.maxClipSizeMb);
   if (['off', 'safe', 'all'].includes(saved.filePreviewMode)) next.filePreviewMode = saved.filePreviewMode as AppSettings['filePreviewMode'];
   if (saved.filePreviewMaxMb) next.filePreviewMaxMb = Math.max(1, Math.min(64, numberValue('filePreviewMaxMb', next.filePreviewMaxMb)));
-  if (saved.keepClipCount) next.keepClipCount = numberValue('keepClipCount', next.keepClipCount);
+  if (saved.keepClipCount !== undefined) next.keepClipCount = Math.max(0, numberValue('keepClipCount', next.keepClipCount));
+  if (saved.keepClipAgeDays !== undefined) next.keepClipAgeDays = Math.max(0, numberValue('keepClipAgeDays', next.keepClipAgeDays));
   if (saved.revisionHistoryLimit !== undefined) next.revisionHistoryLimit = numberValue('revisionHistoryLimit', next.revisionHistoryLimit);
   if (saved.alwaysPastePlainText !== undefined) next.alwaysPastePlainText = saved.alwaysPastePlainText === 'true';
   if (['small', 'medium', 'large'].includes(saved.rowHeight)) next.rowHeight = saved.rowHeight as AppSettings['rowHeight'];
   if (['system', 'cool', 'dark', 'warm', '2894', 'sauced', 'vampire', 'flux', '808'].includes(saved.themeMode)) next.themeMode = saved.themeMode as AppSettings['themeMode'];
   if (saved.enableActivityLog !== undefined) next.enableActivityLog = saved.enableActivityLog === 'true';
-  if (saved.activityLogCapacity) next.activityLogCapacity = numberValue('activityLogCapacity', next.activityLogCapacity ?? 1000);
+  if (saved.activityLogCapacity !== undefined) next.activityLogCapacity = Math.max(0, numberValue('activityLogCapacity', next.activityLogCapacity ?? 1000));
+  if (saved.activityLogAgeDays !== undefined) next.activityLogAgeDays = Math.max(0, numberValue('activityLogAgeDays', next.activityLogAgeDays));
   if (saved.enableTrash !== undefined) next.enableTrash = saved.enableTrash === 'true';
-  if (saved.trashCapacityCount) next.trashCapacityCount = numberValue('trashCapacityCount', next.trashCapacityCount ?? 500);
+  if (saved.trashCapacityCount !== undefined) next.trashCapacityCount = Math.max(0, numberValue('trashCapacityCount', next.trashCapacityCount ?? 500));
+  if (saved.trashAgeDays !== undefined) next.trashAgeDays = Math.max(0, numberValue('trashAgeDays', next.trashAgeDays));
   for (const key of [
     'enableAnalytics',
     'enableBins',
@@ -266,12 +274,35 @@ export function useAppSettings() {
   }, [appSettings.openAtLogin, settingsHydrated]);
 
   useEffect(() => {
-    if (settingsHydrated) invoke('enforce_clip_retention', { keepCount: appSettings.keepClipCount }).catch(console.error);
-  }, [appSettings.keepClipCount, settingsHydrated]);
+    if (settingsHydrated) {
+      invoke('enforce_clip_retention', {
+        keepCount: appSettings.keepClipCount,
+        keepAgeDays: appSettings.keepClipAgeDays,
+      }).catch(console.error);
+    }
+  }, [appSettings.keepClipAgeDays, appSettings.keepClipCount, settingsHydrated]);
 
   useEffect(() => {
     if (settingsHydrated && appSettings.enableRevisions) invoke('enforce_revision_retention', { keepCount: appSettings.revisionHistoryLimit }).catch(console.error);
   }, [appSettings.enableRevisions, appSettings.revisionHistoryLimit, settingsHydrated]);
+
+  useEffect(() => {
+    if (settingsHydrated && appSettings.enableTrash) {
+      invoke('enforce_trash_retention', {
+        keepCount: appSettings.trashCapacityCount,
+        keepAgeDays: appSettings.trashAgeDays,
+      }).catch(console.error);
+    }
+  }, [appSettings.enableTrash, appSettings.trashAgeDays, appSettings.trashCapacityCount, settingsHydrated]);
+
+  useEffect(() => {
+    if (settingsHydrated && appSettings.enableActivityLog) {
+      invoke('enforce_activity_retention', {
+        keepCount: appSettings.activityLogCapacity,
+        keepAgeDays: appSettings.activityLogAgeDays,
+      }).catch(console.error);
+    }
+  }, [appSettings.activityLogAgeDays, appSettings.activityLogCapacity, appSettings.enableActivityLog, settingsHydrated]);
 
   useEffect(() => {
     if (settingsHydrated) invoke('set_dock_visibility', { showDock: appSettings.dockMenubarIcon === 'both' }).catch(console.error);

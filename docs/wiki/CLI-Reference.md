@@ -15,10 +15,14 @@ pasted copy "Hello"
 cat server.log | pasted copy
 pasted list [limit]
 pasted search [query] [--type <type>] [--source <source>] [--json]
+pasted import <alfred|pastebot|pasta|paste|copyclip|maccy|flycut> [history-file-or-folder] [--json]
+pasted retention [--count <number|unlimited>] [--days <number|forever>]
+                 [--trash-count <number|unlimited>] [--trash-days <number|forever>]
+                 [--log-count <number|unlimited>] [--log-days <number|forever>] [--json]
 pasted clear
 ```
 
-`copy` accepts bounded stdin when text is omitted. `search` can reproduce the GUI's calculated Type and Source views with exact `--type` and `--source` filters; its structured records use the canonical `source` field and remain stable for scripts. `clear` permanently removes unpinned, unprotected active history.
+`copy` accepts bounded stdin when text is omitted. `search` can reproduce the GUI's calculated Type and Source views with exact `--type` and `--source` filters; its structured records use the canonical `source` field and remain stable for scripts. `import` uses the source app's standard macOS location when no path is supplied, reads it without modification, and merges supported text while skipping duplicates. Paste and Pastebot may use a protected data-folder path instead of a database file. If necessary, Pasted raises the history limit so a successful import is not immediately trimmed. `retention` reads or updates the same count and age policies as Settings for active history, Trash, and Activity History. Each pair works independently; `unlimited` disables its count limit and `forever` disables its age limit. Pinned and protected active clips remain exempt, and protected clips are never auto-purged from Trash. `clear` permanently removes unpinned, unprotected active history.
 
 ## Clip actions
 
@@ -58,6 +62,8 @@ pasted pipeline run <ref> [--text TEXT | --clip ID | --stdin] [--json]
 ## Detection
 
 ```text
+pasted registry list [--kind detector|operation|pipeline] [--all] [--json]
+pasted registry enable|disable --kind detector|operation --ref <stable-ref> [--json]
 pasted type list [--all] [--json]
 pasted type create --id <id> --name <name> [--icon <icon>] [--group <group>] [--json]
 pasted type update <id> [--name <name>] [--icon <icon>] [--group <group>] [--json]
@@ -85,9 +91,10 @@ Type and Group IDs are stable. Built-in Types can be renamed, regrouped, and giv
 
 ```text
 pasted diagnostics [--json]
+pasted licenses [--json]
 pasted ocr status [--json]
 pasted ocr scan
 pasted reset --yes [--json]
 ```
 
-`reset` is intentionally gated by `--yes`. The CLI respects feature settings and exits with an explicit explanation when a capability is disabled or unavailable.
+`licenses` remains available without a database and even when the optional clipboard-management CLI feature is disabled. `reset` is intentionally gated by `--yes`. Other commands respect feature settings and exit with an explicit explanation when a capability is disabled or unavailable.

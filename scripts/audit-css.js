@@ -59,12 +59,13 @@ const legacyFieldRadiusCount = [...componentSource.matchAll(/className=(?:"([^"]
 const rawPillRadiusCount = (themeCssOutsideFoundation.match(/border-radius:\s*(?:999|9999)(?:px)?\s*;/g) || []).length;
 const semanticRadiusOverrideCount = [...componentSource.matchAll(/className=(?:"([^"]*)"|`([^`]*)`)/g)]
   .map((match) => match[1] ?? match[2] ?? '')
-  .filter((className) => /\b(?:clip-card|theme-card-idle|filter-sandbox-card|app-dialog-panel|bin-modal-card|settings-panel)\b/.test(className)
+  .filter((className) => /\b(?:clip-card|theme-card-idle|app-dialog-panel|bin-modal-card|settings-panel)\b/.test(className)
     && /\brounded-(?:none|sm|md|lg|xl|2xl|3xl|full|\[[^\]]+\])\b/.test(className))
   .length;
 const unthemedDividerCount = [...componentSource.matchAll(/className="([^"]*\bdivide-[xy]\b[^"]*)"/g)]
   .filter((match) => !match[1].includes('theme-divide'))
   .length;
+const invalidSemanticButtonCount = (componentSource.match(/\btheme-button-(?:primary|secondary|danger)\b/g) || []).length;
 
 console.log('\nCSS architecture audit');
 console.log('----------------------');
@@ -78,6 +79,7 @@ console.log(`Legacy field radii: ${legacyFieldRadiusCount}/${LEGACY_FIELD_RADIUS
 console.log(`Raw pill radii: ${rawPillRadiusCount}/${RAW_PILL_RADIUS_BUDGET}`);
 console.log(`Conflicting semantic radius overrides: ${semanticRadiusOverrideCount}/${SEMANTIC_RADIUS_OVERRIDE_BUDGET}`);
 console.log(`Unthemed dividers: ${unthemedDividerCount}/0`);
+console.log(`Invalid semantic button class names: ${invalidSemanticButtonCount}/0`);
 console.log(`CSS modules imported: ${importedStyleModules.length}/${styleModuleFiles.length}`);
 
 let failed = false;
@@ -142,6 +144,11 @@ if (semanticRadiusOverrideCount > SEMANTIC_RADIUS_OVERRIDE_BUDGET) {
 if (unthemedDividerCount > 0) {
   failed = true;
   console.error('Every divide-x/divide-y utility must be paired with theme-divide.');
+}
+
+if (invalidSemanticButtonCount > 0) {
+  failed = true;
+  console.error('Use the defined theme-primary-button/theme-secondary-button or app-dialog-button variants.');
 }
 
 if (failed) process.exit(1);

@@ -59,6 +59,7 @@ docker run --rm \
       cp /cargo-target/release/pasted-app /workspace/release-artifacts/linux/pasted-app-linux-x86_64
     fi
     cp /cargo-target/release/pasted /workspace/release-artifacts/linux/pasted-linux-x86_64
+    cp /workspace/THIRD_PARTY_NOTICES.txt /workspace/release-artifacts/linux/
     cd /workspace/release-artifacts/linux
     find . -maxdepth 1 -type f ! -name SHA256SUMS -print0 \
       | sort -z \

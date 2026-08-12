@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { Archive, Layers3, Plus, RotateCcw, Save, Trash2 } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { AppDialog } from './AppDialog';
@@ -6,6 +6,9 @@ import { AppDialogBody, AppDialogButton, AppDialogFooter, AppDialogHeader, AppDi
 import { useContentTypes, type RegisteredContentTypeGroup } from './ContentTypeProvider';
 import { ModifiedFieldLabel } from './ModifiedFieldLabel';
 import { useToast } from './ToastProvider';
+import { RegistryListItem } from './RegistryListItem';
+import { RegistryPanelHeader } from './RegistryPanelHeader';
+import { useNewItemSelection } from '../hooks/useNewItemSelection';
 
 type GroupDraft = Pick<RegisteredContentTypeGroup, 'id' | 'label' | 'sortOrder'>;
 const newDraft = (): GroupDraft => ({ id: '', label: '', sortOrder: 100 });
@@ -17,7 +20,6 @@ export function ContentTypeGroupManagerDialog({ isOpen, onClose }: { isOpen: boo
   const selected = useMemo(() => groups.find(({ id }) => id === selectedId), [groups, selectedId]);
   const [draft, setDraft] = useState<GroupDraft>(newDraft());
   const [saving, setSaving] = useState(false);
-  const previousSelectedIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -40,14 +42,12 @@ export function ContentTypeGroupManagerDialog({ isOpen, onClose }: { isOpen: boo
     setDraft({ id: selected.id, ...selected.defaults });
   };
 
-  const beginNew = () => {
-    if (selectedId !== 'new') previousSelectedIdRef.current = selectedId;
-    setSelectedId('new');
-  };
-  const cancelNew = () => {
-    const previousId = previousSelectedIdRef.current;
-    setSelectedId(previousId && groups.some(({ id }) => id === previousId) ? previousId : groups[0]?.id ?? 'new');
-  };
+  const { beginNew, cancelNew } = useNewItemSelection({
+    selectedId,
+    setSelectedId,
+    itemIds: groups.map(({ id }) => id),
+    emptySelection: 'new',
+  });
   const save = async () => {
     setSaving(true);
     try {
@@ -95,16 +95,20 @@ export function ContentTypeGroupManagerDialog({ isOpen, onClose }: { isOpen: boo
       </AppDialogHeader>
       <AppDialogBody className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-y-auto text-xs sm:grid-cols-[minmax(170px,0.7fr)_minmax(280px,1.3fr)]">
         <section className="theme-surface flex min-h-[230px] flex-col overflow-hidden rounded-xl border sm:min-h-0">
-          <div className="theme-divider flex items-center justify-between border-b p-2">
-            <span className="theme-text-muted px-1 text-[10px] font-bold uppercase tracking-wider">Groups</span>
-            <button type="button" onClick={beginNew} className="app-dialog-button is-secondary h-7 min-h-7 px-2.5"><Plus className="h-3 w-3" /> New</button>
-          </div>
+          <RegistryPanelHeader
+            title="Groups"
+            actions={<AppDialogButton onClick={beginNew} className="h-7 min-h-7 px-2.5"><Plus className="h-3 w-3" /> New</AppDialogButton>}
+          />
           <div className="min-h-0 flex-1 overflow-y-auto p-1.5">
-            {groups.map((group) => <button key={group.id} type="button" onClick={() => setSelectedId(group.id)} className={`theme-menu-item flex w-full items-center gap-2 rounded-lg border border-transparent px-2 py-2 text-left ${selectedId === group.id ? 'is-selected' : ''} ${group.isArchived ? 'opacity-55' : ''}`}>
-              <Layers3 className="h-4 w-4 shrink-0" />
-              <span className="theme-text-main min-w-0 flex-1 truncate font-semibold">{group.label}</span>
-              <span className="theme-text-subtle tabular-nums">{definitions.filter(({ group: id }) => id === group.id).length}</span>
-            </button>)}
+            {groups.map((group) => <RegistryListItem
+              key={group.id}
+              selected={selectedId === group.id}
+              onSelect={() => setSelectedId(group.id)}
+              icon={<Layers3 className="h-4 w-4" />}
+              title={group.label}
+              muted={group.isArchived}
+              trailing={<span className="theme-text-subtle tabular-nums">{definitions.filter(({ group: id }) => id === group.id).length}</span>}
+            />)}
           </div>
         </section>
         <section className="theme-surface min-w-0 space-y-4 rounded-xl border p-4">

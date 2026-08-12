@@ -59,9 +59,17 @@ fn friendly_value(key: &str, value: &str) -> Option<String> {
         },
         "textSize" => format!("{value}px"),
         "maxClipSizeMb" | "filePreviewMaxMb" => format!("{value} MB"),
+        "keepClipCount" | "activityLogCapacity" | "trashCapacityCount" if value == "0" => {
+            "Unlimited".into()
+        }
         "keepClipCount" | "revisionHistoryLimit" | "activityLogCapacity" | "trashCapacityCount" => {
             value.to_string()
         }
+        "keepClipAgeDays" | "activityLogAgeDays" | "trashAgeDays" => match value {
+            "0" => "Forever".into(),
+            "1" => "1 day".into(),
+            _ => format!("{value} days"),
+        },
         "captureFeedbackDismissSeconds" => match value {
             "0" => "Never".into(),
             "3" | "5" | "7" | "10" | "15" | "30" => format!("{value} seconds"),
@@ -97,9 +105,12 @@ fn setting_label(key: &str) -> Option<&'static str> {
         "maxClipSizeMb" => Some("Clip size limit"),
         "filePreviewMaxMb" => Some("File preview limit"),
         "keepClipCount" => Some("History limit"),
+        "keepClipAgeDays" => Some("History age limit"),
         "revisionHistoryLimit" => Some("Revision limit"),
         "activityLogCapacity" => Some("Activity Log limit"),
+        "activityLogAgeDays" => Some("Activity Log age limit"),
         "trashCapacityCount" => Some("Trash limit"),
+        "trashAgeDays" => Some("Trash age limit"),
         "enableSounds" => Some("Interaction sounds"),
         "captureFeedback" => Some("Capture feedback"),
         "captureFeedbackIgnored" => Some("Skipped capture feedback"),

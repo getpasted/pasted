@@ -27,6 +27,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run test:release
+      - run: npm run licenses:check
       - id: version
         name: Read and verify version
         shell: bash
@@ -126,6 +127,7 @@ jobs:
           mkdir -p release-assets
           cp "$dmg_path" "release-assets/Pasted_${RELEASE_VERSION}_universal.dmg"
           cp src-tauri/target/universal-apple-darwin/release/pasted release-assets/pasted-macos-universal
+          cp THIRD_PARTY_NOTICES.txt release-assets/
           cd release-assets
           shasum -a 256 ./* > SHA256SUMS-macos.txt
       - uses: actions/upload-artifact@v7
@@ -164,6 +166,7 @@ jobs:
           mkdir -p release-assets
           cp src-tauri/target/release/bundle/appimage/*.AppImage release-assets/
           cp src-tauri/target/release/pasted release-assets/pasted-linux-x86_64
+          cp THIRD_PARTY_NOTICES.txt release-assets/
           cd release-assets
           sha256sum ./* > SHA256SUMS-linux.txt
       - uses: actions/upload-artifact@v7
@@ -195,6 +198,7 @@ jobs:
           New-Item -ItemType Directory -Force release-assets | Out-Null
           Copy-Item src-tauri/target/release/bundle/nsis/*-setup.exe release-assets/
           Copy-Item src-tauri/target/release/pasted.exe release-assets/pasted-windows-x86_64.exe
+          Copy-Item THIRD_PARTY_NOTICES.txt release-assets/
           $checksumLines = Get-ChildItem release-assets -File | ForEach-Object {
             "{0}  {1}" -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower(), $_.Name
           }

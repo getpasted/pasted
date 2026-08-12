@@ -35,7 +35,7 @@ Use the exact notarized DMG intended for publication. Do not substitute a develo
 
 ## Scale and appearance
 
-- [ ] A library near the default 900-clip retention limit opens, scrolls, searches, selects, and switches collections without unacceptable stalls.
+- [ ] A library near the default 1,000-clip retention limit opens, scrolls, searches, selects, and switches collections without unacceptable stalls.
 - [ ] Every appearance scheme renders the main window, Settings, Tools pages, menus, dialogs, disabled controls, selected rows, and hover states without unthemed surfaces.
 - [ ] Small, Medium, and Large Row Height visibly change text density, image preview height, and card spacing.
 

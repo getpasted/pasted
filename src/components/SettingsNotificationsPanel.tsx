@@ -2,6 +2,7 @@ import { Bell } from 'lucide-react';
 import type { AppSettings } from '../types';
 import { MenuSelect } from './MenuSelect';
 import { SettingsPanelHeader } from './SettingsPanelHeader';
+import { SettingsSwitch } from './SettingsSwitch';
 
 interface SettingsNotificationsPanelProps {
   settings: AppSettings;
@@ -23,17 +24,12 @@ function ToggleRow({ checked, disabled = false, label, description, onChange }: 
         <span className="theme-text-main block font-semibold">{label}</span>
         <p className="theme-text-muted mt-0.5 text-[11px] leading-normal">{description}</p>
       </div>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={checked}
-        aria-label={`${checked ? 'Disable' : 'Enable'} ${label}`}
+      <SettingsSwitch
+        checked={checked}
+        label={label}
         disabled={disabled}
         onClick={onChange}
-        className={`settings-switch relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent disabled:cursor-not-allowed ${checked ? 'is-on' : ''}`}
-      >
-        <span className={`settings-switch-thumb pointer-events-none inline-block h-4 w-4 rounded-full shadow transition-transform ${checked ? 'translate-x-4' : 'translate-x-0'}`} />
-      </button>
+      />
     </div>
   );
 }

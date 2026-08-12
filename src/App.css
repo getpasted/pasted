@@ -4,6 +4,6 @@
 @import "./styles/theme-primitives.css";
 @import "./styles/clips-sidebar.css";
 @import "./styles/accessibility.css";
-@import "./styles/tools-editors.css";
 @import "./styles/preview-notes.css";
+@import "./styles/welcome-setup.css";
 @import "./styles/utilities.css";

@@ -948,86 +948,12 @@ html:not(.is-stable-reordering) .connection-priority-card:hover {
   color: var(--operation-accent);
 }
 
-.transform-card:hover {
-  background-color: var(--bg-card-hover);
-  transform: translateY(-1px);
-}
-
-.transform-card.pipelines:hover {
-  border-color: var(--pipeline-accent);
-}
-
-.transform-card.operations:hover {
-  border-color: var(--operation-accent);
-}
-
-.operations-built-in-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(16rem, 100%), 1fr));
-  gap: 0.375rem;
-}
-
-.operation-library-row {
-  background-color: var(--bg-card);
-  border-color: var(--border-card);
-  color: var(--text-main);
-}
-
-.operation-library-row:hover {
-  background-color: var(--bg-card-hover);
-  border-color: color-mix(in srgb, var(--operation-accent) 58%, var(--border-card));
-}
-
-.operation-library-row.is-selected {
-  background-color: color-mix(in srgb, var(--operation-accent) 10%, var(--bg-card));
-  border-color: color-mix(in srgb, var(--operation-accent) 70%, var(--border-card));
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--operation-accent) 14%, transparent);
-}
-
-.operation-library-select {
-  color: inherit;
-}
-
-.operation-library-empty {
-  background-color: color-mix(in srgb, var(--bg-card) 88%, transparent);
-  border-color: var(--border-card);
-  color: var(--text-main);
-}
-
-.operation-library-empty:hover {
-  background-color: var(--bg-card-hover);
-  border-color: color-mix(in srgb, var(--operation-accent) 58%, var(--border-card));
-}
-
-.operation-playground-output {
-  background-color: var(--bg-input);
-  border-color: var(--border-input);
-  color: var(--status-success);
-}
-
-.operation-playground-output.has-error {
-  color: var(--status-danger);
-}
-
 .transform-accent.pipelines {
   color: var(--pipeline-accent-bright);
 }
 
 .transform-accent.operations {
   color: var(--operation-accent-bright);
-}
-
-.transform-tag {
-  background-color: color-mix(in srgb, currentColor 10%, var(--bg-surface));
-  border-color: color-mix(in srgb, currentColor 36%, var(--border-subtle));
-}
-
-.transform-tag.pipelines {
-  color: var(--pipeline-accent);
-}
-
-.transform-tag.operations {
-  color: var(--operation-accent);
 }
 
 .theme-input {
@@ -1038,6 +964,17 @@ html:not(.is-stable-reordering) .connection-priority-card:hover {
 
 select.theme-input {
   padding-block: 0;
+}
+
+optgroup {
+  background-color: var(--bg-tab-hover);
+  color: var(--accent-primary);
+  font-weight: 700;
+}
+
+option {
+  background-color: var(--bg-surface);
+  color: var(--text-main);
 }
 
 .theme-input::placeholder {
@@ -1349,6 +1286,7 @@ select.theme-input {
 
 .theme-menu-item.is-selected {
   background-color: var(--menu-selected);
+  border-color: color-mix(in srgb, var(--accent-primary) 34%, var(--border-subtle));
   color: var(--accent-primary);
 }
 

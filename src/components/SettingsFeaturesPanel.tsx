@@ -30,6 +30,7 @@ import {
 } from '../utils/features';
 import { SettingsPanelHeader } from './SettingsPanelHeader';
 import { SettingsSectionHeading } from './SettingsSectionHeading';
+import { SettingsSwitch } from './SettingsSwitch';
 import { InfoPopover } from './InfoPopover';
 
 const FEATURE_ICONS = {
@@ -124,16 +125,11 @@ export function SettingsFeaturesPanel({ settings, onUpdateSettings }: SettingsFe
                           <p className="theme-text-muted mt-1 text-[11px] leading-relaxed">{feature.description}</p>
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        role="switch"
-                        aria-checked={enabled}
-                        aria-label={`${enabled ? 'Disable' : 'Enable'} ${feature.label}`}
+                      <SettingsSwitch
+                        checked={enabled}
+                        label={feature.label}
                         onClick={() => onUpdateSettings({ [feature.settingKey]: !enabled })}
-                        className={`settings-switch relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent ${enabled ? 'is-on' : ''}`}
-                      >
-                        <span className={`settings-switch-thumb pointer-events-none inline-block h-4 w-4 rounded-full shadow transition-transform ${enabled ? 'translate-x-4' : 'translate-x-0'}`} />
-                      </button>
+                      />
                     </div>
                   </div>
                 );

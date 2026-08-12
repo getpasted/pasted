@@ -6,6 +6,7 @@ mod commands;
 pub mod content_detection;
 pub mod content_types;
 pub mod db;
+pub mod external_import;
 pub mod features;
 mod filter_engine;
 mod hotkey_manager;
@@ -14,6 +15,7 @@ mod intelligence_connections;
 pub mod intelligence_executor;
 mod intelligence_provider;
 mod intelligence_scheduler;
+pub mod library_items;
 pub mod library_storage;
 #[cfg(target_os = "linux")]
 mod linux_native_theme;
@@ -25,6 +27,7 @@ mod paste_target;
 pub mod resource_limits;
 mod sequential_paste;
 mod settings_activity;
+pub mod third_party_licenses;
 mod titlebar;
 mod transformation_intent;
 pub mod transformation_service;
@@ -153,9 +156,24 @@ pub fn run() {
                 .build(),
         )
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+        .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
             if EXIT_REQUESTED.load(Ordering::SeqCst) {
                 return;
+            }
+            if args.iter().any(|argument| argument == "--skip-welcome") {
+                if let Some(db) = app.try_state::<Arc<db::DbState>>() {
+                    let _ = db.save_setting(
+                        external_import::ONBOARDING_SETTING_KEY,
+                        &external_import::ONBOARDING_VERSION.to_string(),
+                    );
+                    let _ = app.emit(
+                        "app-setting-changed",
+                        serde_json::json!({
+                            "key": external_import::ONBOARDING_SETTING_KEY,
+                            "value": external_import::ONBOARDING_VERSION.to_string(),
+                        }),
+                    );
+                }
             }
             if let Some(w) = app.get_webview_window("main") {
                 let _ = w.show();
@@ -221,6 +239,12 @@ pub fn run() {
 
             let db_state =
                 Arc::new(db::DbState::new(db_path).expect("Failed to initialize SQLite database"));
+            if std::env::args().any(|argument| argument == "--skip-welcome") {
+                let _ = db_state.save_setting(
+                    external_import::ONBOARDING_SETTING_KEY,
+                    &external_import::ONBOARDING_VERSION.to_string(),
+                );
+            }
             let seq_state = Arc::new(sequential_paste::SequentialQueueState::persistent(
                 db_state.clone(),
             ));
@@ -364,6 +388,8 @@ pub fn run() {
             commands::get_activity_logs,
             commands::clear_activity_logs,
             commands::get_content_detectors,
+            commands::get_library_items,
+            commands::set_library_item_enabled,
             commands::get_content_types,
             commands::get_content_type_groups,
             commands::create_content_type_group,
@@ -389,6 +415,8 @@ pub fn run() {
             commands::set_linux_native_menu_theme,
             commands::set_overlay_cursor,
             commands::enforce_clip_retention,
+            commands::enforce_trash_retention,
+            commands::enforce_activity_retention,
             commands::enforce_revision_retention,
             commands::update_clip_note,
             commands::delete_clip,
@@ -444,6 +472,7 @@ pub fn run() {
             commands::cancel_transformation_execution,
             commands::get_intelligence_scheduler_snapshot,
             commands::get_installation_diagnostics,
+            commands::get_third_party_licenses,
             commands::get_library_location,
             commands::move_library,
             commands::restore_default_library_location,
@@ -479,6 +508,8 @@ pub fn run() {
             commands::export_clips_csv,
             commands::export_backup_file,
             commands::import_backup_json,
+            commands::get_external_import_sources,
+            commands::import_external_history,
             commands::factory_reset_app,
             commands::get_analytics_summary,
             commands::install_cli_to_path,

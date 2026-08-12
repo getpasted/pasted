@@ -30,6 +30,8 @@ const CLI_COMMAND_GROUPS = [
       { usage: 'cat server.log | pasted copy', description: 'Pipe bounded text into Pasted history.' },
       { usage: 'pasted list [limit]', description: 'List recent active clips; defaults to 10.' },
       { usage: 'pasted search [query] [--type TYPE] [--source APP] [--json]', description: 'Search active clips or reproduce Type and Source views.' },
+      { usage: 'pasted import <alfred|pastebot|pasta|paste|copyclip|maccy|flycut> [path] [--json]', description: 'Merge text history from another clipboard manager, skipping duplicates.' },
+      { usage: 'pasted retention [--count N] [--days N] [--trash-count N] [--trash-days N] [--log-count N] [--log-days N] [--json]', description: 'Read or update History, Trash, and Activity count and age policies.' },
       { usage: 'pasted clear', description: 'Permanently remove unpinned, unprotected clips.' },
     ],
   },
@@ -51,15 +53,17 @@ const CLI_COMMAND_GROUPS = [
       { usage: 'pasted bin order <bin-id> <clip-id>... [--json]', description: 'Replace a Bin’s complete saved clip order.' },
       { usage: 'pasted transform list', description: 'List reusable saved Transforms.' },
       { usage: 'pasted transform run <ref> [--text TEXT | --clip ID | --stdin] [--replace]', description: 'Preview a Transform, or replace a clip while preserving a revision.' },
-      { usage: 'pasted operation list [--json]', description: 'Inspect experimental built-in and custom Operations.' },
-      { usage: 'pasted operation run <ref> [--text TEXT | --clip ID | --stdin] [--json]', description: 'Run one experimental Operation through the shared executor.' },
-      { usage: 'pasted pipeline list [--json]', description: 'Inspect experimental deterministic Pipelines.' },
-      { usage: 'pasted pipeline run <ref> [--text TEXT | --clip ID | --stdin] [--json]', description: 'Run one experimental Pipeline through the shared executor.' },
+      { usage: 'pasted operation list [--json]', description: 'Inspect built-in and custom Operations.' },
+      { usage: 'pasted operation run <ref> [--text TEXT | --clip ID | --stdin] [--json]', description: 'Run one Operation through the shared executor.' },
+      { usage: 'pasted pipeline list [--json]', description: 'Inspect deterministic Pipelines.' },
+      { usage: 'pasted pipeline run <ref> [--text TEXT | --clip ID | --stdin] [--json]', description: 'Run one Pipeline through the shared executor.' },
     ],
   },
   {
     title: 'Detection',
     commands: [
+      { usage: 'pasted registry list [--kind detector|operation|pipeline] [--all] [--json]', description: 'Inspect shared lifecycle and input/output contracts for processing assets.' },
+      { usage: 'pasted registry enable|disable --kind detector|operation --ref REF [--json]', description: 'Change the shared enabled state using a stable processing-asset reference.' },
       { usage: 'pasted type list [--all] [--json]', description: 'List registered content Types and their display metadata.' },
       { usage: 'pasted type create --id ID --name NAME [--icon ICON] [--group GROUP] [--json]', description: 'Create a custom Type with a stable ID.' },
       { usage: 'pasted type update <id> [options] [--json]', description: 'Customize a Type’s name, icon, or group without changing its ID.' },
@@ -82,6 +86,7 @@ const CLI_COMMAND_GROUPS = [
     title: 'Maintenance',
     commands: [
       { usage: 'pasted diagnostics [--json]', description: 'Show installation, signing, paths, and runtime details.' },
+      { usage: 'pasted licenses [--json]', description: 'Show the bundled open-source component inventory and legal notices.' },
       { usage: 'pasted library location [--json]', description: 'Show the active SQLite library location.' },
       { usage: 'pasted library move <folder> [--json]', description: 'Move the library safely after quitting the Pasted app.' },
       { usage: 'pasted library default [--json]', description: 'Return the SQLite library to Pasted’s native default location.' },
@@ -403,10 +408,10 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
                 </div>
               </div>
 
-              <div className="theme-status-warning rounded-xl border p-4">
-                <h4 className="text-xs font-bold">Experimental Advanced Tools</h4>
+              <div className="theme-subtle-surface rounded-xl border p-4">
+                <h4 className="text-xs font-bold">Advanced Transformation Tools</h4>
                 <p className="theme-text-muted mt-1 text-xs">
-                  Operations and legacy Pipelines provide deterministic building blocks for advanced workflows. Their saved identifiers are stable, while their editor and command surface may evolve after 1.0.
+                  Operations and Pipelines provide deterministic building blocks for reusable workflows. Their stable identifiers let saved Transforms and command-line workflows refer to the same building blocks.
                 </p>
               </div>
             </div>

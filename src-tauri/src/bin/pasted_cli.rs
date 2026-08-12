@@ -9,10 +9,12 @@ use pasted_lib::content_detection::detect_with_detectors;
 use pasted_lib::content_detection::DetectorInput;
 use pasted_lib::content_types::{ContentTypeGroupInput, ContentTypeInput};
 use pasted_lib::db::{ClipMutationSummary, DbState, TransformClipApplication};
+use pasted_lib::external_import::{self, ExternalImportSource};
 use pasted_lib::features::{setting_value_is_enabled, Feature};
 use pasted_lib::installation_diagnostics::{InstallationDiagnostics, APP_IDENTIFIER};
 use pasted_lib::intelligence_executor::execute_saved_transform;
 use pasted_lib::library_storage;
+use pasted_lib::third_party_licenses;
 use pasted_lib::transformation_service::{
     execute, ExecutionDestination, ExecutionRequest, ExecutionTarget, ExecutionTrigger,
 };
@@ -50,6 +52,21 @@ fn main() -> Result<()> {
     let args: Vec<String> = env::args().collect();
     let command = args.get(1).map(|s| s.as_str()).unwrap_or("help");
 
+    // Legal notices must remain available even when the app database does not
+    // exist yet or the optional clipboard-management CLI feature is disabled.
+    if matches!(command, "licenses" | "license") {
+        let document = third_party_licenses::document();
+        if args.iter().any(|argument| argument == "--json") {
+            println!(
+                "{}",
+                serde_json::to_string_pretty(document).map_err(json_error)?
+            );
+        } else {
+            print!("{}", document.notice_text());
+        }
+        return Ok(());
+    }
+
     let db_path = get_db_path();
     let migration_db = match DbState::new(db_path.clone()) {
         Ok(db) => db,
@@ -82,6 +99,141 @@ fn main() -> Result<()> {
     }
 
     match command {
+        "retention" => {
+            drop(conn);
+            let db = DbState::new(db_path.clone())?;
+            let current_count = db
+                .get_setting("keepClipCount")?
+                .and_then(|value| value.parse::<i64>().ok())
+                .unwrap_or(1000);
+            let current_age_days = db
+                .get_setting("keepClipAgeDays")?
+                .and_then(|value| value.parse::<i64>().ok())
+                .unwrap_or(0);
+            let count = parse_retention_argument(&args, "--count", "unlimited", 100_000)
+                .unwrap_or(current_count);
+            let age_days = parse_retention_argument(&args, "--days", "forever", 36_500)
+                .unwrap_or(current_age_days);
+            let trash_count =
+                parse_retention_argument(&args, "--trash-count", "unlimited", 100_000)
+                    .unwrap_or(setting_i64(&db, "trashCapacityCount", 500)?);
+            let trash_age_days = parse_retention_argument(&args, "--trash-days", "forever", 36_500)
+                .unwrap_or(setting_i64(&db, "trashAgeDays", 0)?);
+            let activity_count =
+                parse_retention_argument(&args, "--log-count", "unlimited", 100_000)
+                    .unwrap_or(setting_i64(&db, "activityLogCapacity", 1000)?);
+            let activity_age_days =
+                parse_retention_argument(&args, "--log-days", "forever", 36_500)
+                    .unwrap_or(setting_i64(&db, "activityLogAgeDays", 0)?);
+            let history_changed = args
+                .iter()
+                .any(|argument| argument == "--count" || argument == "--days");
+            let trash_changed = args
+                .iter()
+                .any(|argument| argument == "--trash-count" || argument == "--trash-days");
+            let activity_changed = args
+                .iter()
+                .any(|argument| argument == "--log-count" || argument == "--log-days");
+            if history_changed {
+                db.configure_clip_retention(count, age_days)?;
+            }
+            if trash_changed {
+                db.configure_trash_retention(trash_count, trash_age_days)?;
+            }
+            if activity_changed {
+                db.configure_activity_retention(activity_count, activity_age_days)?;
+            }
+            if args.iter().any(|argument| argument == "--json") {
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&serde_json::json!({
+                        "maximumClips": count,
+                        "maximumAgeDays": age_days,
+                        "maximumClipsUnlimited": count == 0,
+                        "maximumAgeForever": age_days == 0,
+                        "trashMaximumClips": trash_count,
+                        "trashMaximumAgeDays": trash_age_days,
+                        "trashMaximumClipsUnlimited": trash_count == 0,
+                        "trashMaximumAgeForever": trash_age_days == 0,
+                        "activityMaximumEntries": activity_count,
+                        "activityMaximumAgeDays": activity_age_days,
+                        "activityMaximumEntriesUnlimited": activity_count == 0,
+                        "activityMaximumAgeForever": activity_age_days == 0,
+                    }))
+                    .map_err(json_error)?
+                );
+            } else {
+                let count_label = if count == 0 {
+                    "Unlimited".to_string()
+                } else {
+                    format!("{count} clips")
+                };
+                let age_label = if age_days == 0 {
+                    "Forever".to_string()
+                } else {
+                    format!("{age_days} days")
+                };
+                println!(
+                    "History: {count_label}; {age_label}\nTrash: {}; {}\nActivity: {}; {}",
+                    retention_count_label(trash_count, "clips"),
+                    retention_age_label(trash_age_days),
+                    retention_count_label(activity_count, "entries"),
+                    retention_age_label(activity_age_days),
+                );
+            }
+        }
+        "registry" => {
+            drop(conn);
+            let db = DbState::new(db_path.clone())?;
+            let subcommand = args.get(2).map(String::as_str).unwrap_or("list");
+            let kind = argument_value(&args, "--kind");
+            if matches!(subcommand, "enable" | "disable") {
+                let kind = kind.ok_or_else(|| {
+                    rusqlite::Error::InvalidParameterName(
+                        "registry enable/disable requires --kind".to_string(),
+                    )
+                })?;
+                let stable_ref = argument_value(&args, "--ref").ok_or_else(|| {
+                    rusqlite::Error::InvalidParameterName(
+                        "registry enable/disable requires --ref".to_string(),
+                    )
+                })?;
+                db.set_library_item_enabled(&kind, &stable_ref, subcommand == "enable")?;
+                if args.iter().any(|argument| argument == "--json") {
+                    println!(
+                        "{}",
+                        serde_json::json!({
+                            "kind": kind,
+                            "stableRef": stable_ref,
+                            "enabled": subcommand == "enable",
+                        })
+                    );
+                }
+                return Ok(());
+            }
+            if subcommand != "list" && subcommand.starts_with('-') == false {
+                return Err(rusqlite::Error::InvalidParameterName(format!(
+                    "Unknown registry command: {subcommand}"
+                )));
+            }
+            let items = db.get_library_items(
+                kind.as_deref(),
+                args.iter().any(|argument| argument == "--all"),
+            )?;
+            if args.iter().any(|argument| argument == "--json") {
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&items).map_err(json_error)?
+                );
+            } else {
+                for view in items {
+                    println!(
+                        "{}\t{}\t{}",
+                        view.item.kind, view.item.stable_ref, view.item.name
+                    );
+                }
+            }
+        }
         "type" | "types" => {
             drop(conn);
             let db = DbState::new(db_path.clone())?;
@@ -366,6 +518,51 @@ fn main() -> Result<()> {
                 _ => {
                     eprintln!("Usage: pasted detector list|create|update|delete|restore-defaults|rescan [--yes] [--json]");
                     std::process::exit(2);
+                }
+            }
+        }
+        "import" => {
+            let Some(source_name) = args.get(2) else {
+                eprintln!(
+                    "Usage: pasted import <alfred|pastebot|pasta|paste|copyclip|maccy|flycut> [history-file-or-folder] [--json]"
+                );
+                std::process::exit(2);
+            };
+            let source = source_name
+                .parse::<ExternalImportSource>()
+                .unwrap_or_else(|error| {
+                    eprintln!("{error}");
+                    std::process::exit(2);
+                });
+            let path = args
+                .get(3)
+                .filter(|argument| !argument.starts_with("--"))
+                .map(PathBuf::from);
+            drop(conn);
+            let db = DbState::new(db_path.clone())?;
+            let report =
+                external_import::import_history(&db, source, path).unwrap_or_else(|error| {
+                    eprintln!("Import failed: {error}");
+                    std::process::exit(1);
+                });
+            if args.iter().any(|argument| argument == "--json") {
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&report).map_err(json_error)?
+                );
+            } else {
+                println!(
+                    "Imported {} of {} {} clips; {} duplicates and {} unsupported items were skipped.",
+                    report.imported_count,
+                    report.scanned_count,
+                    source.label(),
+                    report.duplicate_count,
+                    report.skipped_count
+                );
+                if let Some(capacity) = report.history_capacity_adjusted_to {
+                    println!(
+                        "Expanded the history limit to {capacity} clips so the imported history is retained."
+                    );
                 }
             }
         }
@@ -1128,9 +1325,18 @@ fn main() -> Result<()> {
             println!("  pasted copy <text> [--json] Detect and save content, or pipe stdin");
             println!("  pasted list [limit]      List N recent clipboard items (default: 10)");
             println!("  pasted search [query] [--type <type>] [--source <app>] [--json]");
+            println!("  pasted import <source> [path] --json Import history from Alfred, Pastebot, Pasta, Paste, CopyClip 2, Maccy, or Flycut");
             println!("  pasted diagnostics --json Show installation diagnostics");
+            println!("  pasted licenses [--json] Show bundled open-source licenses and notices");
+            println!("  pasted retention [--count N|unlimited] [--days N|forever] [--json]");
+            println!("                   [--trash-count N|unlimited] [--trash-days N|forever]");
+            println!("                   [--log-count N|unlimited] [--log-days N|forever]");
             println!("  pasted detector list --json List editable content detectors");
             println!("  pasted type list --json List registered content types");
+            println!(
+                "  pasted registry list [--kind KIND] [--json] List shared processing metadata"
+            );
+            println!("  pasted registry enable|disable --kind KIND --ref REF");
             println!("  pasted detector create|update|delete Manage content detectors");
             println!("  pasted detector rescan --yes --json Reclassify existing text clips");
             println!("  pasted library location --json Show the active SQLite library");
@@ -1309,6 +1515,48 @@ fn argument_value(args: &[String], flag: &str) -> Option<String> {
         .position(|argument| argument == flag)
         .and_then(|index| args.get(index + 1))
         .cloned()
+}
+
+fn parse_retention_argument(
+    args: &[String],
+    flag: &str,
+    unlimited_label: &str,
+    maximum: i64,
+) -> Option<i64> {
+    let value = argument_value(args, flag)?;
+    if value.eq_ignore_ascii_case(unlimited_label) {
+        return Some(0);
+    }
+    match value.parse::<i64>() {
+        Ok(value) if (0..=maximum).contains(&value) => Some(value),
+        _ => {
+            eprintln!("{flag} must be {unlimited_label} or a number from 0 to {maximum}.");
+            std::process::exit(2);
+        }
+    }
+}
+
+fn setting_i64(db: &DbState, key: &str, fallback: i64) -> Result<i64> {
+    Ok(db
+        .get_setting(key)?
+        .and_then(|value| value.parse::<i64>().ok())
+        .unwrap_or(fallback))
+}
+
+fn retention_count_label(value: i64, unit: &str) -> String {
+    if value == 0 {
+        "Unlimited".to_string()
+    } else {
+        format!("{value} {unit}")
+    }
+}
+
+fn retention_age_label(value: i64) -> String {
+    if value == 0 {
+        "Forever".to_string()
+    } else {
+        format!("{value} days")
+    }
 }
 
 fn argument_values(args: &[String], flag: &str) -> Vec<String> {

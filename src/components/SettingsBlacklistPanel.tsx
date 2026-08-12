@@ -4,6 +4,8 @@ import type { BlacklistApp } from '../types';
 import { AddBlacklistAppModal } from './AddBlacklistAppModal';
 import { SettingsPanelHeader } from './SettingsPanelHeader';
 import { OverflowText } from './OverflowText';
+import { ActionButton } from './AppDialogLayout';
+import { SettingsAccentTile } from './SettingsAccentTile';
 
 interface SettingsBlacklistPanelProps {
   apps: BlacklistApp[];
@@ -46,14 +48,14 @@ export function SettingsBlacklistPanel({
         title="App exclusions"
         description="Choose which apps Pasted ignores."
         actions={(
-          <button
-            type="button"
+          <ActionButton
+            variant="primary"
             onClick={() => setIsAddAppOpen(true)}
-            className="theme-primary-button ui-control-radius border px-3 py-2 text-xs font-semibold flex items-center gap-1.5 shrink-0"
+            className="shrink-0"
           >
             <Plus className="w-4 h-4" />
             <span>Add app</span>
-          </button>
+          </ActionButton>
         )}
       />
 
@@ -70,9 +72,9 @@ export function SettingsBlacklistPanel({
             className="theme-surface flex items-center justify-between gap-4 p-3 rounded-xl border"
           >
             <div className="flex min-w-0 items-center space-x-3">
-              <div className="settings-accent-tile w-7 h-7 shrink-0 rounded-lg border flex items-center justify-center">
+              <SettingsAccentTile size="small">
                 <Lock className="w-4 h-4" />
-              </div>
+              </SettingsAccentTile>
               <OverflowText text={app.name} className="truncate font-semibold theme-text-main" />
             </div>
 

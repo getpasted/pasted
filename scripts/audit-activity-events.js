@@ -38,13 +38,13 @@ const filterFamilies = [
   ['pinning', (event) => event.includes('pinned'), "event_type.includes('pinned')"],
   ['notes', (event) => event === 'note_updated', "event_type === 'note_updated'"],
   ['bins', (event) => event.startsWith('bin_') || event.includes('_bin_'), "event_type.startsWith('bin_')"],
-  ['transforms', (event) => event.startsWith('transform_') || event.startsWith('transformation_') || event.startsWith('bin_transform_') || event === 'clip_transformed' || event === 'intelligence_connection_fallback', "event_type.startsWith('transform_')"],
+  ['transforms', (event) => event.startsWith('transform_') || event.startsWith('transformation_') || event.startsWith('bin_transform_') || event.startsWith('operation_') || event.startsWith('pipeline_') || event === 'library_item_enabled_changed' || event === 'clip_transformed' || event === 'intelligence_connection_fallback', "event_type.startsWith('transform_')"],
   ['queue', (event) => event.startsWith('queue_'), "event_type.startsWith('queue_')"],
   ['hud', (event) => event.startsWith('hud_'), "event_type.startsWith('hud_')"],
   ['app', (event) => event.startsWith('app_'), "event_type.startsWith('app_')"],
   ['settings', (event) => event.startsWith('setting_') || event.startsWith('settings_') || event.startsWith('autostart_'), "event_type.startsWith('setting_')"],
   ['detection', (event) => event.startsWith('content_detector') || event.startsWith('content_detection') || event.startsWith('content_type'), "event_type.startsWith('content_detector')"],
-  ['storage', (event) => event.startsWith('library_'), "event_type.startsWith('library_')"],
+  ['storage', (event) => event.startsWith('library_') || event === 'external_history_imported', "event_type.startsWith('library_')"],
 ];
 
 const missingFilters = [...emittedEvents].filter((event) => !filterFamilies.some(([, matches]) => matches(event)));

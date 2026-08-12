@@ -80,7 +80,7 @@ export function AppDialogFooter({
   );
 }
 
-export function AppDialogButton({
+export function ActionButton({
   variant = 'secondary',
   className,
   type = 'button',
@@ -95,4 +95,8 @@ export function AppDialogButton({
       {...props}
     />
   );
+}
+
+export function AppDialogButton(props: Parameters<typeof ActionButton>[0]) {
+  return <ActionButton {...props} />;
 }

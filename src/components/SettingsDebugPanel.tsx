@@ -3,8 +3,10 @@ import { Activity, Ban, CheckCircle2, CirclePlay, Clock3, GitFork, Layers3, Load
 import type { IntelligenceSchedulerEvent, IntelligenceSchedulerSnapshot, OcrBackfillStatus } from '../types';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { SettingsPanelHeader } from './SettingsPanelHeader';
+import { SettingsSubsectionHeader } from './SettingsSubsectionHeader';
 import { OverflowText } from './OverflowText';
 import { useToast } from './ToastProvider';
+import { ActionButton } from './AppDialogLayout';
 
 const EMPTY_SNAPSHOT: IntelligenceSchedulerSnapshot = {
   revision: 0,
@@ -89,28 +91,26 @@ export function SettingsDebugPanel({ ocrEnabled }: { ocrEnabled: boolean }) {
       />
 
       <section className="theme-surface rounded-2xl border p-5 space-y-4">
-        <div className="flex items-start gap-3">
-          <span className="settings-accent-tile flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border">
-            <ScanText className="h-4 w-4" />
-          </span>
-          <div className="min-w-0 flex-1">
-            <h3 className="theme-title text-sm font-bold">OCR</h3>
-            <p className="theme-text-muted mt-1 text-xs leading-relaxed">
+        <SettingsSubsectionHeader
+          icon={<ScanText className="h-4 w-4" />}
+          title="OCR"
+          description={
+            <>
               {ocrStatus.eligibleCount > 0
                 ? `${ocrStatus.eligibleCount} image${ocrStatus.eligibleCount === 1 ? '' : 's'} haven't been scanned.`
                 : 'All eligible images have been scanned.'}
-            </p>
-          </div>
-          {(ocrStatus.runningCount > 0 || ocrStatus.queuedCount > 0) ? (
-            <button type="button" onClick={() => void invoke('cancel_ocr_backfill')} className="theme-secondary-button flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold">
+            </>
+          }
+          actions={(ocrStatus.runningCount > 0 || ocrStatus.queuedCount > 0) ? (
+            <ActionButton onClick={() => void invoke('cancel_ocr_backfill')}>
               <Square className="h-3.5 w-3.5" /> Cancel
-            </button>
+            </ActionButton>
           ) : (
-            <button type="button" disabled={!ocrEnabled || ocrStatus.eligibleCount === 0} onClick={() => void invoke('start_ocr_backfill')} className="theme-primary-button flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-40">
+            <ActionButton variant="primary" disabled={!ocrEnabled || ocrStatus.eligibleCount === 0} onClick={() => void invoke('start_ocr_backfill')}>
               <ScanText className="h-3.5 w-3.5" /> Scan Existing
-            </button>
+            </ActionButton>
           )}
-        </div>
+        />
         <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
           {[
             ['Images', ocrStatus.totalImages],
@@ -128,13 +128,13 @@ export function SettingsDebugPanel({ ocrEnabled }: { ocrEnabled: boolean }) {
         </div>
         {!ocrEnabled && <p className="theme-status-info rounded-lg border px-3 py-2 text-[10px]">Enable OCR in Features to scan images.</p>}
         {ocrEnabled && ocrStatus.failedCount > 0 && (
-          <button type="button" onClick={() => void invoke('retry_failed_ocr')} className="theme-secondary-button w-full rounded-lg border px-3 py-2 text-xs font-semibold">
+          <ActionButton onClick={() => void invoke('retry_failed_ocr')} className="w-full">
             Retry {ocrStatus.failedCount} Failed Scan{ocrStatus.failedCount === 1 ? '' : 's'}
-          </button>
+          </ActionButton>
         )}
       </section>
 
-      <h2 className="theme-text-muted text-[10px] font-semibold uppercase tracking-wider">Intelligence scheduler</h2>
+      <SettingsSubsectionHeader title="Intelligence scheduler" />
       <section className="theme-surface rounded-2xl border p-5">
         <div className="grid grid-cols-2 gap-3">
           <div className="theme-card-idle border p-3">
@@ -150,12 +150,10 @@ export function SettingsDebugPanel({ ocrEnabled }: { ocrEnabled: boolean }) {
 
       {import.meta.env.DEV && (
         <section className="theme-surface rounded-2xl border p-5 space-y-3">
-          <div>
-            <h3 className="theme-title text-sm font-bold">Test scheduler</h3>
-            <p className="theme-text-muted mt-1 text-xs leading-relaxed">
-              Safe simulations use the real scheduler without contacting providers, consuming tokens, or changing clips.
-            </p>
-          </div>
+          <SettingsSubsectionHeader
+            title="Test scheduler"
+            description="Safe simulations use the real scheduler without contacting providers, consuming tokens, or changing clips."
+          />
           <div className="grid gap-2 sm:grid-cols-2">
             <button type="button" onClick={() => runDemo('fifo', 'Same provider ×3')} className="theme-secondary-button flex items-center gap-2 rounded-xl border px-3 py-2.5 text-left text-xs font-semibold">
               <Layers3 className="h-4 w-4 shrink-0" />

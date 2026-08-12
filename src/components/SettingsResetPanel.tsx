@@ -3,6 +3,7 @@ import { AlertTriangle } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { FactoryResetDialog } from './FactoryResetDialog';
 import { useToast } from './ToastProvider';
+import { ActionButton } from './AppDialogLayout';
 
 interface SettingsResetPanelProps {
   onRefreshBins?: () => void;
@@ -59,13 +60,13 @@ export function SettingsResetPanel({
             </p>
           </div>
         </div>
-        <button
-          type="button"
+        <ActionButton
+          variant="danger"
           onClick={() => setIsResetOpen(true)}
-          className="app-dialog-button is-danger shrink-0 cursor-pointer"
+          className="shrink-0 cursor-pointer"
         >
           Reset Pasted…
-        </button>
+        </ActionButton>
       </div>
 
       <FactoryResetDialog

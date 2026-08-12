@@ -1,24 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
 import type { Operation, Pipeline, SavedTransform } from '../types';
-import { Trash2, Code2, Edit3, Copy, Play, Download, Plus, Sparkles, Workflow } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { PipelineEditorModal } from './PipelineEditorModal';
 import { OperationsManager } from './OperationsManager';
-import { HotkeyRecorder } from './HotkeyRecorder';
 import { soundManager } from '../utils/sound';
 import { TransformWorkspaceHeader, type TransformWorkspace } from './TransformWorkspaceHeader';
-import { TransformLibraryToolbar } from './TransformLibraryToolbar';
-import { TransformCategorySelect } from './TransformCategorySelect';
 import { TransformComposerModal } from './TransformComposerModal';
 import type { PlaygroundRunState } from './PlaygroundRunStatus';
 import { TransformationPlayground, type PlaygroundTarget } from './TransformationPlayground';
-import { FloatingActionStrip } from './FloatingActionStrip';
 import { startTransformation, type TransformationExecutionHandle } from '../utils/transformExecution';
 import { useIntelligenceRequestStatus } from '../hooks/useIntelligenceRequestStatus';
-import { AnchoredMenu, MenuDivider, MenuItem } from './AnchoredMenu';
 import { DeleteTransformationAssetDialog } from './DeleteTransformationAssetDialog';
-import { OverflowText } from './OverflowText';
 import { useToast } from './ToastProvider';
+import { TransformationLibrary } from './TransformationLibrary';
 
 interface TransformationsViewProps {
   pipelines: Pipeline[];
@@ -63,8 +57,6 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
   const playgroundExecution = useRef<TransformationExecutionHandle | null>(null);
   const [playgroundClientRequestId, setPlaygroundClientRequestId] = useState<string | null>(null);
   const playgroundRequestStatus = useIntelligenceRequestStatus(playgroundClientRequestId);
-  const [pipelineContextMenu, setPipelineContextMenu] = useState<{ x: number; y: number; pipeline: Pipeline } | null>(null);
-  const [transformContextMenu, setTransformContextMenu] = useState<{ x: number; y: number; transform: SavedTransform } | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<
     | { kind: 'Transform'; name: string; ref: string }
     | { kind: 'Pipeline'; name: string; ref: string }
@@ -105,16 +97,6 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
       });
       soundManager.playCopySound();
       onRefreshPipelines();
-    } catch (e) {
-      showActionError(e);
-    }
-  };
-
-  const handleExportPipeline = async (pipeline: Pipeline) => {
-    try {
-      const exportJson = JSON.stringify(pipeline, null, 2);
-      await invoke('copy_clip_to_system', { text: exportJson, imageBase64: null });
-      soundManager.playCopySound();
     } catch (e) {
       showActionError(e);
     }
@@ -220,9 +202,9 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
   const [operations, setOperations] = useState<Operation[]>([]);
 
   const libraryFilterOptions = [
-    { value: 'all', label: 'All Transforms', count: transforms.length + pipelines.length },
+    { value: 'all', label: 'All Library Items', count: transforms.length + pipelines.length },
     { value: 'saved', label: 'Saved Transforms', count: transforms.length },
-    { value: 'pipelines', label: 'Legacy Pipelines', count: pipelines.length },
+    { value: 'pipelines', label: 'Pipelines', count: pipelines.length },
     ...FILTER_CATEGORIES.filter((category) => category !== 'All').map((category) => ({
       value: `pipeline:${category}`,
       label: `Pipelines · ${category}`,
@@ -231,14 +213,6 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
       ))).length,
     })),
   ].filter((option) => !option.value.startsWith('pipeline:') || option.count > 0);
-  const showSavedTransforms = activeLibraryFilter === 'all' || activeLibraryFilter === 'saved';
-  const showLegacyPipelines = activeLibraryFilter === 'all'
-    || activeLibraryFilter === 'pipelines'
-    || activeLibraryFilter.startsWith('pipeline:');
-  const activePipelineCategory = activeLibraryFilter.startsWith('pipeline:')
-    ? activeLibraryFilter.slice('pipeline:'.length)
-    : null;
-
   const fetchOpCount = () => {
     invoke<Operation[]>('get_operations')
       .then(setOperations)
@@ -261,7 +235,7 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
     <div className="tools-page filters-page flex-1 h-screen flex flex-col overflow-hidden select-none filter-manager-wrapper">
       <TransformWorkspaceHeader
         activeWorkspace={activeSubTab}
-        transformCount={transforms.length}
+        transformCount={transforms.length + pipelines.length}
         operationCount={operations.length}
         onChange={setActiveSubTab}
       />
@@ -296,362 +270,29 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
           requestStatus={playgroundRequestStatus}
         />
       ) : (
-        <>
-          <div className="transform-library-column min-w-0 space-y-6">
-          <TransformLibraryToolbar
-            accent="pipelines"
-            createLabel="New Transform"
-            onCreate={() => handleOpenTransformComposer()}
-          >
-            <TransformCategorySelect
-              accent="pipelines"
-              value={activeLibraryFilter}
-              options={libraryFilterOptions}
-              onChange={setActiveLibraryFilter}
-              label="Filter Transforms"
-            />
-          </TransformLibraryToolbar>
-
-          {showSavedTransforms && <section className="space-y-3" aria-labelledby="saved-transforms-heading">
-            <div className="flex items-baseline gap-2 px-1">
-                <h3 id="saved-transforms-heading" className="text-xs font-semibold theme-text-main">Saved Transforms</h3>
-                <span className="text-[10px] theme-text-subtle">Ready to reuse with the same plan</span>
-            </div>
-            {transforms.length === 0 ? (
-              <div className="theme-card-idle border border-dashed px-4 py-5 text-center">
-                <Workflow className="transform-accent pipelines mx-auto mb-2 h-5 w-5" />
-                <p className="text-xs font-semibold theme-text-main">No saved Transforms yet</p>
-                <p className="mt-1 text-[10px] theme-text-muted">Create and test a draft, then save it here.</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {transforms.map((transform) => {
-                  const semanticSteps = transform.plan.steps.filter((step) => step.executor.kind === 'semantic').length;
-                  const provenance = semanticSteps > 0
-                    ? (transform.connectionId ? 'AI-assisted · pinned connection' : 'AI-assisted · automatic connection')
-                    : 'Local · replayable';
-                  return (
-                    <div
-                      key={transform.stableRef}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => choosePlaygroundTarget({ kind: 'transform', item: transform })}
-                      onContextMenu={(event) => {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        setPipelineContextMenu(null);
-                        setTransformContextMenu({ x: event.clientX, y: event.clientY, transform });
-                      }}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter' || event.key === ' ') {
-                          event.preventDefault();
-                          choosePlaygroundTarget({ kind: 'transform', item: transform });
-                        }
-                      }}
-                      className="transform-card pipelines group relative flex cursor-pointer items-center justify-between border p-3.5 shadow-md transition-[background-color,border-color,box-shadow,transform] theme-card-idle"
-                    >
-                      <div className="flex min-w-0 items-center gap-3 pr-2">
-                        <span className="theme-badge grid h-9 w-9 shrink-0 place-items-center rounded-lg border">
-                          <Workflow className="transform-accent pipelines h-4 w-4" />
-                        </span>
-                        <span className="min-w-0">
-                          <OverflowText text={transform.name} className="block truncate text-xs font-bold theme-text-main" />
-                          <span className="mt-1 block min-w-0 text-[10px] theme-text-muted">
-                            <span className="block whitespace-nowrap">
-                              {transform.plan.steps.length} {transform.plan.steps.length === 1 ? 'step' : 'steps'}. Version {transform.revision}.
-                            </span>
-                            <span className="mt-0.5 flex min-w-0 items-center gap-1.5">
-                              <span className="inline-flex min-w-0 items-center gap-1 truncate">
-                                {semanticSteps > 0 && <Sparkles className="h-3 w-3" />}
-                                <OverflowText text={provenance} className="truncate" />
-                              </span>
-                            </span>
-                          </span>
-                        </span>
-                      </div>
-                      <FloatingActionStrip label="Transform actions" revealOnGroupInteraction>
-                        <button
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            handleOpenTransformComposer(transform);
-                          }}
-                          className="floating-action-button"
-                          title="Edit Transform"
-                        >
-                          <Edit3 className="h-3.5 w-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            void handleDuplicateTransform(transform);
-                          }}
-                          className="floating-action-button"
-                          title="Duplicate Transform"
-                        >
-                          <Copy className="h-3.5 w-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            setDeleteTarget({ kind: 'Transform', name: transform.name, ref: transform.stableRef });
-                          }}
-                          className="floating-action-button is-danger"
-                          title="Delete Transform"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </FloatingActionStrip>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </section>}
-
-          {showLegacyPipelines && <section className="space-y-3" aria-labelledby="legacy-pipelines-heading">
-            <div className="flex items-center justify-between gap-3 px-1">
-              <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
-                <h3 id="legacy-pipelines-heading" className="text-xs font-semibold theme-text-main">Legacy Pipelines</h3>
-                <span className="theme-status-warning rounded px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide">Experimental</span>
-                <span className="text-[10px] theme-text-subtle">Deterministic building blocks remain available</span>
-              </div>
-              <button
-                type="button"
-                onClick={handleOpenCreateModal}
-                className="theme-secondary-button ui-control-radius flex h-8 shrink-0 items-center gap-1.5 border px-3 text-xs font-semibold transition-colors"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                <span>New Pipeline</span>
-              </button>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {pipelines
-                .filter((f) => {
-                  if (!activePipelineCategory) return true;
-                  return f.steps.some((step) => operations.find((operation) => operation.stable_id === step.operationRef)?.category === activePipelineCategory);
-                })
-                .map((f) => {
-                  const stepTypes = f.steps.map((step) => (
-                    operations.find((operation) => operation.stable_id === step.operationRef)?.name
-                    || step.operationRef.replace(/^(?:builtin|custom):/, '')
-                  ));
-
-                  return (
-                    <div
-                      key={f.id}
-                      role="button"
-                      tabIndex={0}
-                      aria-label={`Preview ${f.name}`}
-                      onClick={() => choosePlaygroundTarget({ kind: 'pipeline', item: f })}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter' || event.key === ' ') {
-                          event.preventDefault();
-                          choosePlaygroundTarget({ kind: 'pipeline', item: f });
-                        }
-                      }}
-                      onContextMenu={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setTransformContextMenu(null);
-                        setPipelineContextMenu({ x: e.clientX, y: e.clientY, pipeline: f });
-                      }}
-                      className="transform-card pipelines group p-3.5 theme-card-idle border cursor-pointer transition-[background-color,border-color,box-shadow,transform] flex items-center justify-between shadow-md"
-                    >
-                      <div className="flex items-center space-x-3 truncate pr-2">
-                        <div className="p-2 rounded-lg theme-badge border shrink-0">
-                          <Code2 className="transform-accent pipelines w-4 h-4" />
-                        </div>
-                        <div className="truncate">
-                          <div className="flex items-center space-x-2">
-                            <OverflowText as="h4" text={f.name} className="text-xs font-bold theme-text-main truncate" />
-                            {stepTypes.length > 1 && (
-                              <span className="transform-tag pipelines text-[9px] font-bold border px-1.5 py-0.2 rounded-full">
-                                ⚡ {stepTypes.length} Steps
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex items-center space-x-1.5 mt-1 overflow-x-auto scrollbar-none">
-                            {stepTypes.map((st, i) => (
-                              <React.Fragment key={i}>
-                                {i > 0 && <span className="transform-accent pipelines text-[10px] opacity-60 font-bold">➔</span>}
-                                <span className="transform-tag pipelines text-[10px] font-mono px-1.5 py-0.5 rounded border whitespace-nowrap">
-                                  {st}
-                                </span>
-                              </React.Fragment>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-
-                  <div className="flex items-center space-x-2 shrink-0">
-                    <div onClick={(e) => e.stopPropagation()}>
-                      <HotkeyRecorder
-                        value={f.shortcut}
-                        onChange={async (newShortcut) => {
-                          try {
-                            await invoke('update_pipeline_shortcut', { pipelineRef: f.stableRef, shortcut: newShortcut });
-                            onRefreshPipelines();
-                          } catch (err) {
-                            showActionError(err);
-                          }
-                        }}
-                      />
-                    </div>
-
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleOpenEditModal(f);
-                      }}
-                      className="theme-icon-button p-1.5 border rounded-md transition-colors"
-                      title="Edit Pipeline"
-                    >
-                      <Edit3 className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setDeleteTarget({ kind: 'Pipeline', name: f.name, ref: f.stableRef });
-                      }}
-                      className="theme-icon-button theme-danger-text p-1.5 border rounded-md transition-colors"
-                      title="Delete Pipeline"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              );
-              })}
-            </div>
-          </section>}
-          </div>
-
-          {transformContextMenu && (
-            <AnchoredMenu
-              anchor={{ kind: 'point', x: transformContextMenu.x, y: transformContextMenu.y }}
-              ariaLabel={`${transformContextMenu.transform.name} actions`}
-              className="w-48"
-              onClose={() => setTransformContextMenu(null)}
-            >
-              <OverflowText as="div" text={transformContextMenu.transform.name} className="theme-text-muted px-3 py-1 text-[10px] font-bold uppercase truncate" />
-              <MenuItem
-                onClick={() => {
-                  handleOpenTransformComposer(transformContextMenu.transform);
-                  setTransformContextMenu(null);
-                }}
-                className="gap-2 px-3 py-1.5"
-              >
-                <Edit3 className="h-3.5 w-3.5" />
-                <span>Edit Transform</span>
-              </MenuItem>
-              <MenuItem
-                onClick={() => {
-                  void handleDuplicateTransform(transformContextMenu.transform);
-                  setTransformContextMenu(null);
-                }}
-                className="gap-2 px-3 py-1.5"
-              >
-                <Copy className="h-3.5 w-3.5" />
-                <span>Duplicate Transform</span>
-              </MenuItem>
-              <MenuItem
-                onClick={() => {
-                  choosePlaygroundTarget({ kind: 'transform', item: transformContextMenu.transform });
-                  setTransformContextMenu(null);
-                }}
-                className="gap-2 px-3 py-1.5"
-              >
-                <Play className="h-3.5 w-3.5" />
-                <span>Test in Playground</span>
-              </MenuItem>
-              <MenuDivider />
-              <MenuItem
-                danger
-                onClick={() => {
-                  setDeleteTarget({ kind: 'Transform', name: transformContextMenu.transform.name, ref: transformContextMenu.transform.stableRef });
-                  setTransformContextMenu(null);
-                }}
-                className="gap-2 px-3 py-1.5"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-                <span>Delete Transform</span>
-              </MenuItem>
-            </AnchoredMenu>
-          )}
-
-          {/* Pipeline context menu */}
-          {pipelineContextMenu && (
-            <AnchoredMenu
-              anchor={{ kind: 'point', x: pipelineContextMenu.x, y: pipelineContextMenu.y }}
-              ariaLabel={`${pipelineContextMenu.pipeline.name} actions`}
-              className="w-48"
-              onClose={() => setPipelineContextMenu(null)}
-            >
-              <OverflowText as="div" text={pipelineContextMenu.pipeline.name} className="theme-text-muted theme-divider px-3 py-1 text-[10px] uppercase font-bold border-b truncate" />
-
-              <MenuItem
-                onClick={() => {
-                  handleOpenEditModal(pipelineContextMenu.pipeline);
-                  setPipelineContextMenu(null);
-                }}
-                className="gap-2 px-3 py-1.5"
-              >
-                <Edit3 className="w-3.5 h-3.5" />
-                <span>Edit Pipeline</span>
-              </MenuItem>
-
-              <MenuItem
-                onClick={() => {
-                  handleDuplicatePipeline(pipelineContextMenu.pipeline);
-                  setPipelineContextMenu(null);
-                }}
-                className="gap-2 px-3 py-1.5"
-              >
-                <Copy className="w-3.5 h-3.5" />
-                <span>Duplicate Pipeline</span>
-              </MenuItem>
-
-              <MenuItem
-                onClick={() => {
-                  choosePlaygroundTarget({ kind: 'pipeline', item: pipelineContextMenu.pipeline });
-                  setPipelineContextMenu(null);
-                }}
-                className="gap-2 px-3 py-1.5"
-              >
-                <Play className="w-3.5 h-3.5" />
-                <span>Test in Playground</span>
-              </MenuItem>
-
-              <MenuItem
-                onClick={() => {
-                  handleExportPipeline(pipelineContextMenu.pipeline);
-                  setPipelineContextMenu(null);
-                }}
-                className="gap-2 px-3 py-1.5"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>Export / Copy JSON</span>
-              </MenuItem>
-
-              <MenuDivider />
-
-              <MenuItem
-                danger
-                onClick={() => {
-                  setDeleteTarget({ kind: 'Pipeline', name: pipelineContextMenu.pipeline.name, ref: pipelineContextMenu.pipeline.stableRef });
-                  setPipelineContextMenu(null);
-                }}
-                className="gap-2 px-3 py-1.5"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>Delete Pipeline</span>
-              </MenuItem>
-            </AnchoredMenu>
-          )}
-        </>
+        <TransformationLibrary
+          transforms={transforms}
+          pipelines={pipelines}
+          operations={operations}
+          filter={activeLibraryFilter}
+          filterOptions={libraryFilterOptions}
+          onFilterChange={setActiveLibraryFilter}
+          onCreateTransform={() => handleOpenTransformComposer()}
+          onCreatePipeline={handleOpenCreateModal}
+          onTestTransform={(transform) => choosePlaygroundTarget({ kind: 'transform', item: transform })}
+          onTestPipeline={(pipeline) => choosePlaygroundTarget({ kind: 'pipeline', item: pipeline })}
+          onEditTransform={handleOpenTransformComposer}
+          onEditPipeline={handleOpenEditModal}
+          onDuplicateTransform={(transform) => void handleDuplicateTransform(transform)}
+          onDuplicatePipeline={(pipeline) => void handleDuplicatePipeline(pipeline)}
+          onDeleteTransform={(transform) => setDeleteTarget({ kind: 'Transform', name: transform.name, ref: transform.stableRef })}
+          onDeletePipeline={(pipeline) => setDeleteTarget({ kind: 'Pipeline', name: pipeline.name, ref: pipeline.stableRef })}
+          onPipelineShortcutChange={(pipeline, shortcut) => {
+            void invoke('update_pipeline_shortcut', { pipelineRef: pipeline.stableRef, shortcut })
+              .then(onRefreshPipelines)
+              .catch(showActionError);
+          }}
+        />
       )}
 
       </div>

@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { Operation } from '../types';
-import { Braces, Play, Wrench } from 'lucide-react';
+import { Braces, Wrench } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { startWindowDrag } from '../utils/windowDrag';
 import { AppDialog } from './AppDialog';
 import { AppDialogBody, AppDialogButton, AppDialogFooter, AppDialogHeader, AppDialogHeading } from './AppDialogLayout';
 import { MenuSelect, type MenuSelectOption } from './MenuSelect';
+import { TransformationPreviewPanel } from './TransformationPreviewPanel';
 
 interface OperationEditorModalProps {
   operation: Operation | null;
@@ -165,6 +166,10 @@ export const OperationEditorModal: React.FC<OperationEditorModalProps> = ({
       : []),
     { value: 'ai', label: 'Connected intelligence · priority and fallback' },
   ];
+  const categoryOptions: MenuSelectOption[] = Array.from(new Set([
+    ...CATEGORIES,
+    ...(category && !CATEGORIES.includes(category) ? [category] : []),
+  ])).map((value) => ({ value, label: value }));
   const isDirty = JSON.stringify({ name, opType, category, findPattern, replacePattern, aiInstructions })
     !== JSON.stringify(operationFormValues(operation));
 
@@ -175,36 +180,36 @@ export const OperationEditorModal: React.FC<OperationEditorModalProps> = ({
       labelledBy="operation-editor-title"
       isDirty={isDirty}
       overlayClassName="p-6"
-      panelClassName="filter-editor-card w-full max-w-2xl max-h-[90vh] border rounded-2xl flex flex-col overflow-hidden"
+      panelClassName="theme-panel flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden border"
     >
       {({ requestClose }) => <>
         <AppDialogHeader onClose={requestClose} onMouseDown={startWindowDrag}>
-          <AppDialogHeading id="operation-editor-title" title={operation ? 'Edit Custom Operation' : 'New Custom Operation'} description="Custom Operations are yours to edit and reuse. Built-ins remain immutable." icon={<Wrench />} tone="info" />
+          <AppDialogHeading id="operation-editor-title" title={operation ? 'Edit Operation' : 'New Operation'} description="Configure a reusable building block for Transforms and Pipelines." icon={<Wrench />} tone="info" />
         </AppDialogHeader>
 
         <AppDialogBody className="space-y-5">
-          <div className="grid grid-cols-2 gap-4 text-xs">
+          <div className="grid grid-cols-1 gap-4 text-xs sm:grid-cols-2">
             <div>
               <label className="block font-semibold mb-1 theme-text-muted">Name</label>
               <input
                 value={name}
                 onChange={(event) => setName(event.target.value)}
                 placeholder="e.g. Redact phone numbers"
-                className="theme-input ui-field-radius w-full border p-2.5 focus:outline-none font-medium"
+                className="theme-input ui-field-radius w-full border px-3 py-2 text-xs font-medium focus:outline-none"
                 autoFocus
               />
             </div>
             <div>
               <label className="block font-semibold mb-1 theme-text-muted">Category</label>
-              <input
+              <MenuSelect
                 value={category}
-                onChange={(event) => setCategory(event.target.value)}
-                list="custom-operation-categories"
-                className="theme-input ui-field-radius w-full border p-2.5 focus:outline-none font-medium"
+                options={categoryOptions}
+                onChange={setCategory}
+                label="Operation category"
+                className="w-full"
+                searchable
+                searchPlaceholder="Search categories…"
               />
-              <datalist id="custom-operation-categories">
-                {CATEGORIES.map((value) => <option key={value} value={value} />)}
-              </datalist>
             </div>
           </div>
 
@@ -224,7 +229,7 @@ export const OperationEditorModal: React.FC<OperationEditorModalProps> = ({
 
           {opType === 'regex' ? (
             <>
-              <div className="grid grid-cols-2 gap-3 text-xs">
+              <div className="grid grid-cols-1 gap-3 text-xs sm:grid-cols-2">
                 <div>
                   <label className="block mb-1 theme-text-muted">Find pattern</label>
                   <textarea
@@ -245,22 +250,18 @@ export const OperationEditorModal: React.FC<OperationEditorModalProps> = ({
                 </div>
               </div>
 
-              <div className="filter-sandbox-card p-4 border space-y-3 shadow-inner">
-                <div className="theme-status-info-text text-xs font-semibold uppercase tracking-wider flex items-center space-x-1.5">
-                  <Play className="w-3.5 h-3.5" />
-                  <span>Safe local preview</span>
-                </div>
-                <div className="grid grid-cols-2 gap-3 text-xs font-mono">
-                  <textarea
+              <TransformationPreviewPanel
+                title="Local preview"
+                description="Runs on this device as you edit"
+                input={<textarea
                     value={testInput}
                     onChange={(event) => setTestInput(event.target.value)}
                     className="theme-input ui-field-radius w-full h-20 border p-2.5 focus:outline-none"
-                  />
-                  <div className="filter-sandbox-output theme-input ui-field-radius overlay-scroll-region w-full h-20 border p-2.5 overflow-y-auto whitespace-pre-wrap">
+                  />}
+                output={<div className="theme-input ui-field-radius overlay-scroll-region w-full h-20 border p-2.5 overflow-y-auto whitespace-pre-wrap">
                     {testOutput || 'Output will appear here…'}
-                  </div>
-                </div>
-              </div>
+                  </div>}
+              />
             </>
           ) : opType === 'ai' ? (
             <div className="space-y-3 text-xs">
@@ -298,7 +299,7 @@ export const OperationEditorModal: React.FC<OperationEditorModalProps> = ({
             onClick={handleSave}
             disabled={isSaving || !name.trim() || !isEditableKind || (opType === 'ai' && !aiInstructions.trim())}
           >
-            {isSaving ? 'Saving…' : operation ? 'Save Custom Operation' : 'Create Custom Operation'}
+            {isSaving ? 'Saving…' : operation ? 'Save Operation' : 'Create Operation'}
           </AppDialogButton>
         </AppDialogFooter>
       </>}

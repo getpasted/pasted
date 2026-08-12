@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Operation } from '../types';
+import { Operation, type LibraryItemView } from '../types';
 import {
   Code2,
+  Copy,
   Edit3,
   LockKeyhole,
-  Sparkles,
+  Play,
   Trash2,
   Wrench,
 } from 'lucide-react';
@@ -15,6 +16,12 @@ import { TransformLibraryToolbar } from './TransformLibraryToolbar';
 import { TransformCategorySelect } from './TransformCategorySelect';
 import { DeleteTransformationAssetDialog } from './DeleteTransformationAssetDialog';
 import { OverflowText } from './OverflowText';
+import { RegistryEditorShell } from './RegistryEditorShell';
+import { RegistryEditorActions } from './RegistryEditorActions';
+import { RegistryDetailHeader } from './RegistryDetailHeader';
+import { RegistryListItem } from './RegistryListItem';
+import { SettingsSwitch } from './SettingsSwitch';
+import { ActionButton } from './AppDialogLayout';
 
 interface OperationsManagerProps {
   isEmbedded?: boolean;
@@ -32,6 +39,7 @@ export const OperationsManager: React.FC<OperationsManagerProps> = ({
   onChooseOperation,
 }) => {
   const [operations, setOperations] = useState<Operation[]>([]);
+  const [libraryItems, setLibraryItems] = useState<LibraryItemView[]>([]);
   const [activeCategory, setActiveCategory] = useState('All');
   const [selectedOperationId, setSelectedOperationId] = useState<string | null>(null);
   const [selectedOperationForEdit, setSelectedOperationForEdit] = useState<Operation | null>(null);
@@ -39,11 +47,16 @@ export const OperationsManager: React.FC<OperationsManagerProps> = ({
   const [libraryError, setLibraryError] = useState('');
   const [operationToDelete, setOperationToDelete] = useState<Operation | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [togglingOperationId, setTogglingOperationId] = useState<string | null>(null);
 
   const fetchOperations = async () => {
     try {
-      const nextOperations = await invoke<Operation[]>('get_operations');
+      const [nextOperations, nextLibraryItems] = await Promise.all([
+        invoke<Operation[]>('get_operations'),
+        invoke<LibraryItemView[]>('get_library_items', { kind: 'operation', includeArchived: false }),
+      ]);
       setOperations(nextOperations);
+      setLibraryItems(nextLibraryItems);
       setSelectedOperationId((currentId) => {
         if (currentId && nextOperations.some((operation) => operation.stable_id === currentId)) {
           return currentId;
@@ -88,6 +101,39 @@ export const OperationsManager: React.FC<OperationsManagerProps> = ({
     }
   };
 
+  const handleDuplicate = async (operation: Operation) => {
+    setLibraryError('');
+    try {
+      await invoke('create_operation', {
+        name: `${operation.name} Copy`,
+        opType: operation.op_type,
+        config: operation.config,
+        category: operation.category,
+      });
+      await fetchOperations();
+    } catch (error) {
+      setLibraryError(error instanceof Error ? error.message : String(error));
+    }
+  };
+
+  const handleToggle = async (metadata: LibraryItemView) => {
+    if (!metadata.capabilities.canDisable || metadata.enabled === null) return;
+    setTogglingOperationId(metadata.stableRef);
+    setLibraryError('');
+    try {
+      await invoke('set_library_item_enabled', {
+        kind: 'operation',
+        stableRef: metadata.stableRef,
+        enabled: !metadata.enabled,
+      });
+      await fetchOperations();
+    } catch (error) {
+      setLibraryError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setTogglingOperationId(null);
+    }
+  };
+
   const dynamicCategories = useMemo(() => (
     Array.from(new Set([...CATEGORIES, ...operations.map((operation) => operation.category).filter(Boolean)]))
   ), [operations]);
@@ -105,68 +151,36 @@ export const OperationsManager: React.FC<OperationsManagerProps> = ({
   const filteredOperations = activeCategory === 'All'
     ? operations
     : operations.filter((operation) => operation.category === activeCategory);
-  const builtInOperations = filteredOperations.filter(isBuiltInOperation);
-  const customOperations = filteredOperations.filter((operation) => !isBuiltInOperation(operation));
+  const selectedOperation = operations.find(({ stable_id }) => stable_id === selectedOperationId) ?? null;
+  const selectedMetadata = libraryItems.find(({ stableRef }) => stableRef === selectedOperationId) ?? null;
 
   const renderOperationRow = (operation: Operation) => {
-    const builtIn = isBuiltInOperation(operation);
+    const metadata = libraryItems.find(({ stableRef }) => stableRef === operation.stable_id);
+    const builtIn = metadata?.isBuiltin ?? isBuiltInOperation(operation);
     const selected = operation.stable_id === selectedOperationId;
 
     return (
-      <div
+      <RegistryListItem
         key={operation.stable_id}
-        onClick={() => {
-          setSelectedOperationId(operation.stable_id);
-          onChooseOperation?.(operation);
-        }}
-        className={`operation-library-row group flex min-w-0 cursor-pointer items-center gap-2 rounded-xl border p-1.5 transition-[background-color,border-color,box-shadow] ${selected ? 'is-selected' : ''}`}
-      >
-        <button
-          type="button"
-          className="operation-library-select flex min-w-0 flex-1 items-center gap-2.5 rounded-lg p-1.5 text-left"
-          aria-pressed={selected}
-          title={`Run ${operation.name}`}
-        >
-          <span className="theme-badge grid h-8 w-8 shrink-0 place-items-center rounded-lg border">
+        selected={selected}
+        onSelect={() => setSelectedOperationId(operation.stable_id)}
+        icon={<span className="theme-badge grid h-8 w-8 place-items-center rounded-lg border">
             <Code2 className="transform-accent operations h-4 w-4" />
-          </span>
-          <span className="min-w-0 flex-1">
-            <OverflowText text={operation.name} className="block truncate text-xs font-semibold theme-text-main" />
-            <span className="mt-0.5 flex min-w-0 items-center gap-1.5">
-              <OverflowText text={operation.category} className="transform-tag operations max-w-full truncate rounded border px-1.5 py-0.5 font-mono text-[10px]" />
-            </span>
-          </span>
-        </button>
-
-        {builtIn ? (
+          </span>}
+        title={<OverflowText text={operation.name} className="block truncate text-xs" />}
+        subtitle={operation.category}
+        trailing={builtIn ? (
           <LockKeyhole className="mr-2 h-3.5 w-3.5 shrink-0 theme-text-subtle" aria-label="Built-in operation" />
-        ) : (
-          <span className="flex shrink-0 items-center gap-1 pr-0.5">
-            <button
-              type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-                handleOpenEdit(operation);
-              }}
-              className="theme-icon-button rounded-md border p-1.5 transition-colors"
-              title="Edit Operation"
-            >
-              <Edit3 className="h-3.5 w-3.5" />
-            </button>
-            <button
-              type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-                setOperationToDelete(operation);
-              }}
-              className="theme-icon-button theme-danger-text rounded-md border p-1.5 transition-colors"
-              title="Delete Operation"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </button>
-          </span>
-        )}
-      </div>
+        ) : metadata?.capabilities.canDisable ? (
+          <SettingsSwitch
+            checked={metadata.enabled ?? false}
+            label={operation.name}
+            busy={togglingOperationId === operation.stable_id}
+            onClick={() => void handleToggle(metadata)}
+            className="mr-1"
+          />
+        ) : null}
+      />
     );
   };
 
@@ -175,17 +189,16 @@ export const OperationsManager: React.FC<OperationsManagerProps> = ({
       {!isEmbedded && (
         <div onMouseDown={startWindowDrag} className="theme-divider flex items-center justify-between border-b pb-4">
           <div>
-            <h2 className="theme-title flex items-center space-x-2 text-lg font-bold">
-              <Wrench className="transform-accent operations h-5 w-5 opacity-70" />
+            <h2 className="theme-title flex items-center space-x-2 text-sm font-bold">
+              <Wrench className="transform-accent operations h-4 w-4 opacity-70" />
               <span>Operations</span>
             </h2>
-            <p className="mt-1 text-xs theme-text-muted">Experimental reusable building blocks for deterministic Advanced Transforms.</p>
+            <p className="mt-1 text-xs theme-text-muted">Reusable building blocks for Transforms and Pipelines.</p>
           </div>
         </div>
       )}
 
       <TransformLibraryToolbar
-        accent="operations"
         createLabel="New Operation"
         onCreate={onOpenCreateModal || handleOpenCreate}
       >
@@ -204,45 +217,67 @@ export const OperationsManager: React.FC<OperationsManagerProps> = ({
         </div>
       )}
 
-      <div className="min-w-0 space-y-5">
-          <section className="space-y-2" aria-labelledby="your-operations-heading">
-            <div className="flex items-baseline gap-2 px-1">
-              <h3 id="your-operations-heading" className="text-xs font-semibold theme-text-main">Your Operations</h3>
-              <span className="text-[10px] theme-text-subtle">Editable, local, and connected</span>
+      <RegistryEditorShell>
+        <section className="theme-surface overflow-hidden rounded-xl border" aria-label="Operations">
+          <div className="max-h-80 space-y-1 overflow-y-auto p-1.5 @4xl:max-h-[520px]">
+            {filteredOperations.length > 0
+              ? filteredOperations.map(renderOperationRow)
+              : <p className="theme-text-muted px-2 py-4 text-xs">No Operations match this category.</p>}
+          </div>
+        </section>
+
+        <section className="theme-surface min-w-0 rounded-xl border p-3 @md:p-4" aria-label="Operation details">
+          {selectedOperation && selectedMetadata ? (
+            <div className="flex h-full min-h-72 flex-col gap-4">
+              <RegistryDetailHeader
+                icon={<Code2 className="h-5 w-5" />}
+                title={selectedOperation.name}
+                meta={<>{selectedOperation.category} · {selectedMetadata.isBuiltin ? 'Built-in' : 'Custom'}</>}
+                trailing={selectedMetadata.isBuiltin && <LockKeyhole className="h-4 w-4 theme-text-subtle" aria-label="Built-in Operation" />}
+                iconClassName="transform-accent operations"
+              />
+
+              <dl className="theme-subtle-surface divide-y theme-divide overflow-hidden rounded-xl border text-xs">
+                <div className="grid grid-cols-[5rem_minmax(0,1fr)] items-center gap-3 px-3 py-2">
+                  <dt className="theme-text-subtle text-[9px] font-bold uppercase tracking-wider">Input</dt>
+                  <dd className="theme-text-main truncate font-mono">{selectedMetadata.inputContract}</dd>
+                </div>
+                <div className="grid grid-cols-[5rem_minmax(0,1fr)] items-center gap-3 px-3 py-2">
+                  <dt className="theme-text-subtle text-[9px] font-bold uppercase tracking-wider">Output</dt>
+                  <dd className="theme-text-main truncate font-mono">{selectedMetadata.outputContract}</dd>
+                </div>
+                <div className="grid grid-cols-[5rem_minmax(0,1fr)] items-center gap-3 px-3 py-2">
+                  <dt className="theme-text-subtle text-[9px] font-bold uppercase tracking-wider">Executor</dt>
+                  <dd className="theme-text-main truncate font-mono">{selectedOperation.op_type}</dd>
+                </div>
+              </dl>
+
+              <p className="theme-text-muted text-xs leading-relaxed">
+                {selectedMetadata.isBuiltin
+                  ? 'This Operation is maintained by Pasted. It can be used directly in Transforms and Pipelines.'
+                  : selectedMetadata.enabled
+                    ? 'This custom Operation is enabled and available to Transforms and Pipelines.'
+                    : 'This custom Operation is disabled and cannot run until it is enabled again.'}
+              </p>
+
+              <RegistryEditorActions
+                leading={<>
+                  <ActionButton onClick={() => onChooseOperation?.(selectedOperation)}>
+                    <Play className="h-3.5 w-3.5" /> Test in Playground
+                  </ActionButton>
+                  {selectedMetadata.capabilities.canDuplicate && <ActionButton onClick={() => void handleDuplicate(selectedOperation)}><Copy className="h-3.5 w-3.5" /> Duplicate</ActionButton>}
+                  {selectedMetadata.capabilities.canDelete && <ActionButton variant="danger" onClick={() => setOperationToDelete(selectedOperation)}><Trash2 className="h-3.5 w-3.5" /> Delete</ActionButton>}
+                </>}
+                trailing={selectedMetadata.capabilities.canEdit && <ActionButton variant="primary" onClick={() => handleOpenEdit(selectedOperation)}><Edit3 className="h-3.5 w-3.5" /> Edit</ActionButton>}
+              />
             </div>
-
-            {customOperations.length > 0 ? (
-              <div className="space-y-1.5">{customOperations.map(renderOperationRow)}</div>
-            ) : (
-              <button
-                type="button"
-                onClick={onOpenCreateModal || handleOpenCreate}
-                className="operation-library-empty flex w-full items-center gap-3 rounded-xl border border-dashed p-3 text-left transition-colors"
-              >
-                <span className="theme-badge grid h-8 w-8 place-items-center rounded-lg border">
-                  <Sparkles className="transform-accent operations h-4 w-4" />
-                </span>
-                <span>
-                  <span className="block text-xs font-semibold theme-text-main">Create your first Operation</span>
-                  <span className="text-[10px] theme-text-muted">Start with a safe local regex replacement.</span>
-                </span>
-              </button>
-            )}
-          </section>
-
-          <section className="space-y-2" aria-labelledby="built-in-operations-heading">
-            <div className="flex items-baseline gap-2 px-1">
-              <h3 id="built-in-operations-heading" className="text-xs font-semibold theme-text-main">Built-in Library</h3>
-              <span className="text-[10px] theme-text-subtle">Maintained by Pasted · always available</span>
+          ) : (
+            <div className="grid min-h-72 place-items-center text-center">
+              <p className="theme-text-muted text-xs">Select an Operation to see its settings.</p>
             </div>
-            {builtInOperations.length > 0 ? (
-              <div className="operations-built-in-grid">{builtInOperations.map(renderOperationRow)}</div>
-            ) : (
-              <p className="px-1 py-3 text-xs theme-text-muted">No built-in Operations match this category.</p>
-            )}
-          </section>
-
-      </div>
+          )}
+        </section>
+      </RegistryEditorShell>
 
       <OperationEditorModal
         operation={selectedOperationForEdit}

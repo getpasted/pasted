@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
+import { ActionButton } from './AppDialogLayout';
 
 const dialogStack: symbol[] = [];
 
@@ -156,17 +157,15 @@ export function AppDialog({
               <p className="app-dialog-description mt-2">{discardMessageRef.current}</p>
             </div>
             <div className="app-dialog-footer">
-              <button
-                type="button"
-                className="app-dialog-button is-secondary"
+              <ActionButton
                 onClick={() => setIsDiscardConfirmOpen(false)}
                 autoFocus
               >
                 Keep Editing
-              </button>
-              <button type="button" className="app-dialog-button is-danger" onClick={discardAndClose}>
+              </ActionButton>
+              <ActionButton variant="danger" onClick={discardAndClose}>
                 Discard
-              </button>
+              </ActionButton>
             </div>
           </div>
         </div>

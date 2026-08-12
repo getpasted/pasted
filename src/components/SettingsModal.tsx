@@ -14,6 +14,7 @@ import { SettingsAboutPanel } from './SettingsAboutPanel';
 import { SettingsResetPanel } from './SettingsResetPanel';
 import { SettingsNotificationsPanel } from './SettingsNotificationsPanel';
 import { SettingsDetectionPanel } from './SettingsDetectionPanel';
+import { SettingsWelcomePanel } from './SettingsWelcomePanel';
 
 interface SettingsModalProps {
   settings: AppSettings;
@@ -91,16 +92,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       />
 
       <div className="tools-scroll-region flex-1 overflow-y-auto p-6">
-        <div className={`w-full mx-auto ${activeTab === 'detection' ? 'max-w-5xl' : 'max-w-xl'} ${activeTab === 'storage' ? 'space-y-4' : 'settings-primary-well theme-panel rounded-2xl border p-6'}`}>
+        <div className={`w-full mx-auto ${activeTab === 'detection' ? 'max-w-5xl' : 'max-w-xl'} ${activeTab === 'storage' || activeTab === 'general' ? 'space-y-4' : 'settings-primary-well theme-panel rounded-2xl border p-6'}`}>
 
         {/* TAB 1: GENERAL */}
         {activeTab === 'general' && (
-          <SettingsGeneralPanel
-            settings={settings}
-            onUpdateSettings={onUpdateSettings}
-            onClearHistory={onClearHistory}
-            onResetColumnWidths={onResetColumnWidths}
-          />
+          <>
+            <div className="settings-primary-well theme-panel rounded-2xl border p-6">
+              <SettingsGeneralPanel
+                settings={settings}
+                onUpdateSettings={onUpdateSettings}
+                onClearHistory={onClearHistory}
+                onResetColumnWidths={onResetColumnWidths}
+              />
+            </div>
+            <SettingsWelcomePanel onOpen={() => onUpdateSettings({ onboardingVersion: 0 })} />
+          </>
         )}
 
         {activeTab === 'features' && (

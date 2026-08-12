@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Pipeline, PipelineStep, Operation } from '../types';
-import { Sliders, Plus, Trash2, Play, RotateCcw } from 'lucide-react';
+import { ArrowDown, ArrowUp, Sliders, Plus, Trash2, RotateCcw } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
-import { useStableVerticalReorder } from '../hooks/useStableVerticalReorder';
 import { HotkeyRecorder } from './HotkeyRecorder';
 import { startWindowDrag } from '../utils/windowDrag';
 import { AppDialog } from './AppDialog';
@@ -10,7 +9,8 @@ import { AppDialogBody, AppDialogButton, AppDialogFooter, AppDialogHeader, AppDi
 import { MenuSelect, type MenuSelectOption } from './MenuSelect';
 import { startPipelinePreview, type CancellableTransformRequest } from '../utils/transformExecution';
 import { PlaygroundRunStatus, type PlaygroundRunState } from './PlaygroundRunStatus';
-import { FloatingActionStrip } from './FloatingActionStrip';
+import { TransformationPreviewPanel } from './TransformationPreviewPanel';
+import { RegistryPanelHeader } from './RegistryPanelHeader';
 
 export interface PipelineEditorStep {
   id: string;
@@ -114,32 +114,32 @@ function compilePipelineStep(step: PipelineEditorStep) {
   };
 }
 
-const StepReorderCard: React.FC<{
+const PipelineStepEditor: React.FC<{
   step: PipelineEditorStep;
   idx: number;
   totalSteps: number;
-  onInsertBelow: () => void;
   onRemove: () => void;
   onUpdate: (updates: Partial<PipelineEditorStep>) => void;
   operationsList: Operation[];
-  isDragging: boolean;
-  reorderOffsetY: number;
-  onReorderPointerDown: (event: React.PointerEvent) => void;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
 }> = ({
   step,
   idx,
   totalSteps,
-  onInsertBelow,
   onRemove,
   onUpdate,
   operationsList,
-  isDragging,
-  reorderOffsetY,
-  onReorderPointerDown,
+  onMoveUp,
+  onMoveDown,
 }) => {
   const operationType = step.operation_ref.startsWith('builtin:')
     ? step.operation_ref.slice('builtin:'.length)
     : null;
+  const hasConfig = operationType === 'regex'
+    || operationType === 'quote_text'
+    || operationType === 'shell_script'
+    || operationType === 'wrap_tags';
   const operationOptions: MenuSelectOption[] = OPERATION_CATEGORIES.flatMap((category) => {
     const executors = EXECUTOR_OPTIONS
       .filter((option) => option.category === category.key)
@@ -155,62 +155,43 @@ const StepReorderCard: React.FC<{
     .filter((operation) => operation.stable_id.startsWith('custom:'))
     .map((operation) => ({ value: operation.stable_id, label: operation.name, group: 'Custom Operations' })));
   return (
-      <div
-        data-stable-reorder-id={step.id}
-        onPointerDown={(event) => {
-          const target = event.target as HTMLElement;
-          if (target.closest('button, input, textarea, label, [role="button"], [role="menu"]')) return;
-          onReorderPointerDown(event);
-        }}
-        style={reorderOffsetY !== 0 || isDragging ? {
-          transform: `translateY(${reorderOffsetY}px)`,
-          zIndex: isDragging ? 'var(--layer-drag)' : 1,
-        } : undefined}
-        className={`filter-step-card cursor-grab active:cursor-grabbing touch-none p-3.5 rounded-xl border space-y-3 relative group select-none transition-[background-color,border-color,box-shadow,opacity,transform] duration-100 ease-out ${
-          isDragging ? 'is-dragging' : ''
-        }`}
-      >
-        <FloatingActionStrip label="Pipeline step actions" revealOnGroupInteraction>
-          <button
-            type="button"
-            onClick={onInsertBelow}
-            className="floating-action-button"
-            title="Insert Below"
-          >
-            <Plus className="w-3.5 h-3.5" />
-          </button>
-
+    <section className="theme-card-idle border p-2" aria-label={`Pipeline step ${idx + 1}`}>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="theme-text-subtle grid h-5 w-5 shrink-0 place-items-center rounded-full border text-[9px] font-bold">{idx + 1}</span>
+        <MenuSelect
+          value={step.operation_ref}
+          options={operationOptions}
+          onChange={(value) => onUpdate({ operation_ref: value })}
+          label={`Step ${idx + 1} operation`}
+          className="min-w-44 flex-1 font-sans"
+          compact
+          searchable
+          searchPlaceholder="Search Operations…"
+        />
+        <span className="flex shrink-0 items-center gap-1">
+          <button type="button" onClick={onMoveUp} disabled={idx === 0} className="theme-icon-button rounded-md border p-1.5 disabled:opacity-35" aria-label="Move step up" title="Move step up"><ArrowUp className="h-3.5 w-3.5" /></button>
+          <button type="button" onClick={onMoveDown} disabled={idx === totalSteps - 1} className="theme-icon-button rounded-md border p-1.5 disabled:opacity-35" aria-label="Move step down" title="Move step down"><ArrowDown className="h-3.5 w-3.5" /></button>
           {totalSteps > 1 && (
             <button
               type="button"
               onClick={onRemove}
-              className="floating-action-button is-danger"
-              title="Remove Step"
+              className="theme-icon-button theme-danger-text rounded-md border p-1.5"
+              aria-label="Delete step"
+              title="Delete step"
             >
               <Trash2 className="w-3.5 h-3.5" />
             </button>
           )}
-        </FloatingActionStrip>
+        </span>
+      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-        <div className="col-span-2 flex items-center gap-3 pr-16">
-          <label className="shrink-0 theme-text-muted">Step Operation:</label>
-          <MenuSelect
-            value={step.operation_ref}
-            options={operationOptions}
-            onChange={(value) => onUpdate({ operation_ref: value })}
-            label={`Step ${idx + 1} operation`}
-            className="min-w-0 flex-1 font-sans"
-            compact
-          />
-        </div>
-
+      {hasConfig && <div className="theme-divider mt-2 grid grid-cols-1 gap-3 border-t pt-3 text-xs sm:grid-cols-2">
         {/* Step Specific Config Inputs */}
         {operationType === 'regex' && (
-          <div className="space-y-2 col-span-2">
-            <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-2 sm:col-span-2">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
-                <label className="block mb-1 theme-text-muted">Find:</label>
+                <label className="block mb-1 theme-text-muted">Find</label>
                 <textarea
                   placeholder="Text pattern or Regex pattern"
                   value={step.findPattern || ''}
@@ -219,7 +200,7 @@ const StepReorderCard: React.FC<{
                 />
               </div>
               <div>
-                <label className="block mb-1 theme-text-muted">Replace with:</label>
+                <label className="block mb-1 theme-text-muted">Replace with</label>
                 <textarea
                   placeholder="Replacement string"
                   value={step.replacePattern || ''}
@@ -228,7 +209,7 @@ const StepReorderCard: React.FC<{
                 />
               </div>
             </div>
-            <div className="flex items-center space-x-4 pt-1">
+            <div className="flex flex-wrap items-center gap-3 pt-1">
               <div className="flex items-center space-x-1.5 text-xs theme-text-muted">
                 <span>Match:</span>
                 <MenuSelect
@@ -258,10 +239,10 @@ const StepReorderCard: React.FC<{
         )}
 
         {operationType === 'quote_text' && (
-          <div className="space-y-2 col-span-2">
-            <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-2 sm:col-span-2">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
-                <label className="block mb-1 theme-text-muted">Before content:</label>
+                <label className="block mb-1 theme-text-muted">Before content</label>
                 <textarea
                   value={step.quoteBefore ?? '> '}
                   onChange={(e) => onUpdate({ quoteBefore: e.target.value })}
@@ -269,7 +250,7 @@ const StepReorderCard: React.FC<{
                 />
               </div>
               <div>
-                <label className="block mb-1 theme-text-muted">After content:</label>
+                <label className="block mb-1 theme-text-muted">After content</label>
                 <textarea
                   value={step.quoteAfter ?? ''}
                   onChange={(e) => onUpdate({ quoteAfter: e.target.value })}
@@ -290,8 +271,8 @@ const StepReorderCard: React.FC<{
         )}
 
         {operationType === 'shell_script' && (
-          <div className="col-span-2">
-            <label className="block mb-1 theme-text-muted">Shell Script Command (stdin -&gt; stdout):</label>
+          <div className="sm:col-span-2">
+            <label className="block mb-1 theme-text-muted">Shell command (stdin → stdout)</label>
             <input
               type="text"
               placeholder='e.g. tr "a-z" "A-Z"'
@@ -304,7 +285,7 @@ const StepReorderCard: React.FC<{
 
         {operationType === 'wrap_tags' && (
           <div>
-            <label className="block mb-1 theme-text-muted">HTML Tag Name:</label>
+            <label className="block mb-1 theme-text-muted">HTML tag name</label>
             <input
               type="text"
               placeholder="code, b, blockquote"
@@ -314,8 +295,8 @@ const StepReorderCard: React.FC<{
             />
           </div>
         )}
-      </div>
-    </div>
+      </div>}
+    </section>
   );
 };
 
@@ -337,23 +318,7 @@ export const PipelineEditorModal: React.FC<PipelineEditorModalProps> = ({
   const testRequestIdRef = useRef(0);
   const activeTestExecutionRef = useRef<CancellableTransformRequest<string> | null>(null);
   const [operationsList, setOperationsList] = useState<Operation[]>([]);
-  const stepListRef = useRef<HTMLDivElement>(null);
   const initialSnapshotRef = useRef('');
-  const {
-    activeId: activeStepId,
-    offsets: stepReorderOffsets,
-    isSettling: isStepReorderSettling,
-    startPointerReorder: startStepPointerReorder,
-  } = useStableVerticalReorder({
-    itemIds: steps.map((step) => step.id),
-    containerRef: stepListRef,
-    onCommit: (orderedIds) => {
-      setSteps((current) => {
-        const byId = new Map(current.map((step) => [step.id, step]));
-        return orderedIds.map((id) => byId.get(id)).filter((step): step is PipelineEditorStep => Boolean(step));
-      });
-    },
-  });
 
   const refreshOps = () => {
     invoke<Operation[]>('get_operations')
@@ -434,14 +399,6 @@ export const PipelineEditorModal: React.FC<PipelineEditorModalProps> = ({
     setSteps((prev) => [...prev, createDefaultStep('builtin:smart_punctuation', null)]);
   };
 
-  const handleInsertStepAt = (index: number) => {
-    setSteps((prev) => {
-      const copy = [...prev];
-      copy.splice(index, 0, createDefaultStep('builtin:trim', null));
-      return copy;
-    });
-  };
-
   const handleRemoveStep = (id: string) => {
     if (steps.length === 1) return; // Keep at least one step
     setSteps((prev) => prev.filter((s) => s.id !== id));
@@ -451,6 +408,16 @@ export const PipelineEditorModal: React.FC<PipelineEditorModalProps> = ({
     setSteps((prev) =>
       prev.map((s) => (s.id === id ? { ...s, ...updates } : s))
     );
+  };
+
+  const handleMoveStep = (index: number, offset: -1 | 1) => {
+    setSteps((current) => {
+      const destination = index + offset;
+      if (destination < 0 || destination >= current.length) return current;
+      const next = [...current];
+      [next[index], next[destination]] = [next[destination], next[index]];
+      return next;
+    });
   };
 
   const runLiveTest = async () => {
@@ -529,7 +496,7 @@ export const PipelineEditorModal: React.FC<PipelineEditorModalProps> = ({
       labelledBy="pipeline-editor-title"
       isDirty={isDirty}
       overlayClassName="p-6"
-      panelClassName="filter-editor-card w-full max-w-4xl max-h-[90vh] border rounded-2xl flex flex-col overflow-hidden"
+      panelClassName="theme-panel flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden border"
     >
       {({ requestClose }) => <>
         <AppDialogHeader onClose={requestClose} onMouseDown={startWindowDrag}>
@@ -540,21 +507,21 @@ export const PipelineEditorModal: React.FC<PipelineEditorModalProps> = ({
           {/* Filter Metadata */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
             <div className="md:col-span-2">
-              <label className="block text-xs font-semibold uppercase tracking-wider mb-2 theme-text-muted">
-                Pipeline Name:
+              <label className="mb-1 block text-xs font-semibold theme-text-muted">
+                Name
               </label>
               <input
                 type="text"
                 placeholder="e.g. Sanitize HTML & Convert Smileys"
                 value={pipelineName}
                 onChange={(e) => setPipelineName(e.target.value)}
-                className="theme-input ui-field-radius w-full border px-4 py-2.5 text-sm focus:outline-none font-medium"
+                className="theme-input ui-field-radius w-full border px-3 py-2 text-xs font-medium focus:outline-none"
                 autoFocus
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider mb-2 theme-text-muted">
-                Global Hotkey Shortcut:
+              <label className="mb-1 block text-xs font-semibold theme-text-muted">
+                Shortcut
               </label>
               <HotkeyRecorder
                 value={shortcut}
@@ -564,86 +531,54 @@ export const PipelineEditorModal: React.FC<PipelineEditorModalProps> = ({
             </div>
           </div>
 
-          {/* Sticky Interactive Split-Pane Sandbox Tester */}
-          <div className="filter-sandbox-card sticky-filter-sandbox sticky top-0 p-4 border space-y-3 shadow-xl backdrop-blur-xl">
-            <div className="flex items-center justify-between">
-              <span className="theme-status-info-text text-xs font-semibold uppercase tracking-wider flex items-center space-x-1.5">
-                <Play className="w-3.5 h-3.5" />
-                <span>Sticky Live Sandbox Tester</span>
-              </span>
-              <span className="text-[10px] theme-text-muted">Live preview updates automatically on step edit</span>
-            </div>
-
-            <PlaygroundRunStatus
+          <TransformationPreviewPanel
+            description="Updates automatically as steps change"
+            status={<PlaygroundRunStatus
               state={testRunState}
               label="preview"
               durationMs={testDurationMs}
               onRetry={() => void runLiveTest()}
               onStop={cancelLiveTest}
-            />
-
-            <div className="grid grid-cols-2 gap-4 text-xs font-mono">
-              <div>
-                <label className="block mb-1 font-sans theme-text-muted">Input Text:</label>
-                <textarea
+            />}
+            input={<textarea
                   value={testInput}
                   onChange={(e) => setTestInput(e.target.value)}
                   className="theme-input ui-field-radius w-full h-24 border p-2.5 focus:outline-none"
-                />
-              </div>
-              <div>
-                <label className="filter-sandbox-output-label block mb-1 font-sans font-semibold">Live Output Preview:</label>
-                <div className="filter-sandbox-output theme-input ui-field-radius overlay-scroll-region w-full h-24 border p-2.5 overflow-y-auto whitespace-pre-wrap font-mono">
+                />}
+            output={<div className="theme-input ui-field-radius overlay-scroll-region w-full h-24 border p-2.5 overflow-y-auto whitespace-pre-wrap font-mono">
                   {testOutput || 'Transformed output will appear here...'}
-                </div>
-              </div>
-            </div>
-          </div>
+                </div>}
+          />
 
           {/* Sequential Step Builder */}
-          <div className="space-y-3 pt-2">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-semibold uppercase tracking-wider theme-text-muted">
-                Pipeline Execution Steps ({steps.length})
-              </label>
-            </div>
-
-            {/* Dark Wrapper Container */}
-            <div className="filter-step-list p-3 rounded-2xl border space-y-2.5 shadow-inner">
-              <div
-                ref={stepListRef}
-                className={`space-y-2.5 ${isStepReorderSettling ? 'is-settling-stable-reorder' : ''}`}
+          <section className="theme-surface overflow-hidden rounded-xl border">
+            <RegistryPanelHeader
+              title={<>Steps <span className="theme-text-subtle font-normal">({steps.length})</span></>}
+              actions={<AppDialogButton
+                onClick={handleAddStep}
+                className="h-7 min-h-7 px-2.5"
               >
+                <Plus className="h-3 w-3" />
+                <span>Add Step</span>
+              </AppDialogButton>}
+            />
+
+            <div className="theme-subtle-surface space-y-1 p-1.5">
                 {steps.map((step, idx) => (
-                  <StepReorderCard
+                  <PipelineStepEditor
                     key={step.id}
                     step={step}
                     idx={idx}
                     totalSteps={steps.length}
-                    onInsertBelow={() => handleInsertStepAt(idx + 1)}
                     onRemove={() => handleRemoveStep(step.id)}
                     onUpdate={(updates) => handleUpdateStep(step.id, updates)}
                     operationsList={operationsList}
-                    isDragging={activeStepId === step.id}
-                    reorderOffsetY={stepReorderOffsets[step.id] ?? 0}
-                    onReorderPointerDown={(event) => startStepPointerReorder(step.id, event)}
+                    onMoveUp={() => handleMoveStep(idx, -1)}
+                    onMoveDown={() => handleMoveStep(idx, 1)}
                   />
                 ))}
-              </div>
-
-              {/* Bottom Add Step Button inside dark wrapper */}
-              <div className="pt-1 flex justify-center">
-                <button
-                  type="button"
-                  onClick={handleAddStep}
-                  className="theme-primary-button ui-control-radius flex items-center space-x-1.5 px-4 py-2 border text-xs font-semibold shadow-lg active:scale-95 transition-[background-color,transform]"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Add Step</span>
-                </button>
-              </div>
             </div>
-          </div>
+          </section>
           {saveError && <div role="alert" className="theme-status-danger rounded-xl border px-3 py-2 text-xs">{saveError}</div>}
         </AppDialogBody>
 

@@ -651,14 +651,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <Plus className="w-3.5 h-3.5" strokeWidth={2} />
             </button>
           </div>
-          <div
-            className={`transition-[background-color,border-color,color,opacity,transform] duration-150 ease-in-out ${
-              isBinsOpen ? 'max-h-[500px] opacity-100 mt-0 overflow-visible' : 'max-h-0 opacity-0 overflow-hidden'
-            }`}
-          >
+          <div className={`grid transition-[grid-template-rows,opacity] duration-150 ease-in-out ${isBinsOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
             <nav
               ref={binListRef}
-              className={`space-y-0.5 ${isBinReorderSettling ? 'is-settling-stable-reorder' : ''}`}
+              className={`min-h-0 space-y-0.5 ${isBinsOpen ? 'overflow-visible' : 'overflow-hidden'} ${isBinReorderSettling ? 'is-settling-stable-reorder' : ''}`}
             >
               {sortedBins.map((b) => {
                 const isDragging = activeDragBinId === b.id;

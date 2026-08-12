@@ -16,6 +16,8 @@ const gitignore = fs.readFileSync('.gitignore', 'utf8');
 const releaseWorkflow = fs.readFileSync('.github/workflows/desktop-release.yml', 'utf8');
 const desktopBuildWorkflow = fs.readFileSync('.github/workflows/desktop-builds.yml', 'utf8');
 const universalMacCliBuild = fs.readFileSync('scripts/build-macos-universal-cli.sh', 'utf8');
+const thirdPartyLicenses = readJson('THIRD_PARTY_LICENSES.json');
+const thirdPartyNotices = fs.readFileSync('THIRD_PARTY_NOTICES.txt', 'utf8');
 
 assert.equal(packageJson.name, 'pasted', 'Frontend package must use the Pasted product name');
 assert.equal(packageLock.name, packageJson.name, 'Package lock name must match package.json');
@@ -47,6 +49,14 @@ assert.match(
 );
 assert.equal(tauriConfig.bundle?.active, true, 'Release bundling must remain enabled');
 assert.ok(tauriConfig.bundle?.icon?.length > 0, 'Release bundles must include app icons');
+assert.equal(
+  tauriConfig.bundle?.resources?.['../THIRD_PARTY_NOTICES.txt'],
+  'THIRD_PARTY_NOTICES.txt',
+  'Desktop bundles must include the offline third-party notice file',
+);
+assert.equal(thirdPartyLicenses.schemaVersion, 1, 'Third-party license data must use the reviewed schema');
+assert.equal(thirdPartyLicenses.componentCount, thirdPartyLicenses.components.length, 'Third-party component count must be consistent');
+assert.equal(thirdPartyLicenses.noticeText, thirdPartyNotices, 'Structured and plain-text notices must match');
 assert.equal(
   tauriConfig.bundle?.macOS?.dmg?.background,
   'dmg/background.png',
@@ -154,6 +164,16 @@ assert.match(
   releaseWorkflow,
   /pasted-windows-x86_64\.exe[\s\S]*SHA256SUMS-windows-x86_64\.txt/,
   'The tagged release must include a portable Windows executable and checksum manifest',
+);
+assert.equal(
+  (releaseWorkflow.match(/cp THIRD_PARTY_NOTICES\.txt release-assets\//g) ?? []).length,
+  2,
+  'macOS and Linux portable releases must stage the notice beside the CLI',
+);
+assert.match(
+  releaseWorkflow,
+  /Copy-Item THIRD_PARTY_NOTICES\.txt release-assets\//,
+  'The Windows portable release must stage the notice beside the CLI',
 );
 assert.match(
   releaseWorkflow,

@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { Copy, Plus, Radar, RotateCcw, Save, ScanSearch, Shapes, Trash2, X } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { ContentTypeIcon } from './ContentTypeIcon';
@@ -6,9 +6,16 @@ import { ContentTypeManagerDialog } from './ContentTypeManagerDialog';
 import { useContentTypes } from './ContentTypeProvider';
 import { MenuSelect } from './MenuSelect';
 import { ModifiedFieldLabel } from './ModifiedFieldLabel';
+import { RegistryEditorShell } from './RegistryEditorShell';
+import { RegistryEditorActions } from './RegistryEditorActions';
+import { RegistryListItem } from './RegistryListItem';
+import { RegistryPanelHeader } from './RegistryPanelHeader';
 import { SettingsPanelHeader } from './SettingsPanelHeader';
+import { SettingsSwitch } from './SettingsSwitch';
+import { ActionButton } from './AppDialogLayout';
 import { useToast } from './ToastProvider';
 import type { ClipContentType } from '../types';
+import { useNewItemSelection } from '../hooks/useNewItemSelection';
 
 interface ContentDetector {
   id: number;
@@ -73,7 +80,6 @@ export function SettingsDetectionPanel() {
   const [rescanning, setRescanning] = useState(false);
   const [togglingId, setTogglingId] = useState<number | null>(null);
   const [isTypeManagerOpen, setIsTypeManagerOpen] = useState(false);
-  const previousSelectedIdRef = useRef<number | null>(null);
 
   const selected = useMemo(
     () => typeof selectedId === 'number' ? detectors.find((detector) => detector.id === selectedId) : undefined,
@@ -124,16 +130,12 @@ export function SettingsDetectionPanel() {
     setSampleMatched(null);
   };
 
-  const beginNewDetector = () => {
-    if (typeof selectedId === 'number') previousSelectedIdRef.current = selectedId;
-    setSelectedId('new');
-  };
-
-  const cancelNewDetector = () => {
-    const previousId = previousSelectedIdRef.current;
-    const fallbackId = detectors[0]?.id ?? null;
-    setSelectedId(previousId !== null && detectors.some(({ id }) => id === previousId) ? previousId : fallbackId);
-  };
+  const { beginNew: beginNewDetector, cancelNew: cancelNewDetector } = useNewItemSelection({
+    selectedId,
+    setSelectedId,
+    itemIds: detectors.map(({ id }) => id),
+    emptySelection: null,
+  });
 
   const save = async () => {
     setSaving(true);
@@ -247,56 +249,44 @@ export function SettingsDetectionPanel() {
         description="Classify new clips with ordered, editable detectors."
         actions={(
           <div className="flex flex-wrap items-center justify-end gap-2">
-            <button type="button" onClick={() => setIsTypeManagerOpen(true)} className="app-dialog-button is-secondary">
+            <ActionButton onClick={() => setIsTypeManagerOpen(true)}>
               <Shapes className="h-3.5 w-3.5" /> Manage Types
-            </button>
-            <button type="button" onClick={() => void rescanHistory()} disabled={rescanning} className="app-dialog-button is-secondary">
+            </ActionButton>
+            <ActionButton onClick={() => void rescanHistory()} disabled={rescanning}>
               <ScanSearch className="h-3.5 w-3.5" /> {rescanning ? 'Rescanning…' : 'Rescan History'}
-            </button>
-            <button type="button" onClick={() => void restore()} className="app-dialog-button is-secondary">
+            </ActionButton>
+            <ActionButton onClick={() => void restore()}>
               <RotateCcw className="h-3.5 w-3.5" /> Restore Defaults
-            </button>
+            </ActionButton>
           </div>
         )}
       />
-      <div className="@container">
-      <div className="grid min-h-[520px] grid-cols-1 gap-4 @4xl:grid-cols-[minmax(220px,0.72fr)_minmax(0,1.4fr)]">
+      <RegistryEditorShell>
         <section className="theme-surface overflow-hidden rounded-xl border" aria-label="Content detectors">
-          <div className="theme-divider flex items-center justify-between gap-3 border-b p-2">
-            <span className="min-w-0 px-1">
-              <span className="theme-text-muted block text-[10px] font-bold uppercase tracking-wider">Detectors</span>
-              <span className="theme-text-subtle mt-0.5 block text-[9px]">Lowest priority number runs first</span>
-            </span>
-            <button type="button" onClick={beginNewDetector} className="app-dialog-button is-secondary h-7 min-h-7 shrink-0 px-2.5">
+          <RegistryPanelHeader
+            title="Detectors"
+            description="Lowest priority number runs first"
+            actions={<ActionButton onClick={beginNewDetector} className="h-7 min-h-7 shrink-0 px-2.5">
               <Plus className="h-3 w-3" /> New
-            </button>
-          </div>
+            </ActionButton>}
+          />
           <div className="max-h-72 overflow-y-auto p-1.5 @4xl:max-h-[448px]">
             {detectors.map((detector) => (
-              <div
+              <RegistryListItem
                 key={detector.id}
-                onClick={() => setSelectedId(detector.id)}
-                className={`theme-menu-item flex w-full cursor-pointer items-center gap-2 rounded-lg border border-transparent px-2 py-2 text-left ${selectedId === detector.id ? 'is-selected' : ''}`}
-              >
-                <button type="button" className="flex min-w-0 flex-1 items-center gap-2 text-left">
-                  <ContentTypeIcon type={detector.content_type as ClipContentType} className="h-4 w-4 shrink-0" />
-                  <span className="theme-text-main min-w-0 flex-1 truncate font-semibold">{detector.name}</span>
-                </button>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={selectedId === detector.id ? draft.enabled : detector.enabled}
-                  aria-label={`${(selectedId === detector.id ? draft.enabled : detector.enabled) ? 'Disable' : 'Enable'} ${detector.name}`}
-                  disabled={togglingId === detector.id}
-                  onClick={(event) => {
-                    event.stopPropagation();
+                selected={selectedId === detector.id}
+                onSelect={() => setSelectedId(detector.id)}
+                icon={<ContentTypeIcon type={detector.content_type as ClipContentType} className="h-4 w-4" />}
+                title={detector.name}
+                trailing={<SettingsSwitch
+                  checked={selectedId === detector.id ? draft.enabled : detector.enabled}
+                  label={detector.name}
+                  busy={togglingId === detector.id}
+                  onClick={() => {
                     void toggleDetector(detector);
                   }}
-                  className={`settings-switch relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent disabled:cursor-wait disabled:opacity-50 ${(selectedId === detector.id ? draft.enabled : detector.enabled) ? 'is-on' : ''}`}
-                >
-                  <span className={`settings-switch-thumb pointer-events-none inline-block h-4 w-4 rounded-full shadow transition-transform ${(selectedId === detector.id ? draft.enabled : detector.enabled) ? 'translate-x-4' : 'translate-x-0'}`} />
-                </button>
-              </div>
+                />}
+              />
             ))}
           </div>
         </section>
@@ -371,23 +361,26 @@ export function SettingsDetectionPanel() {
           )}
           <div className="theme-divider grid grid-cols-1 gap-2 border-t pt-3 @md:grid-cols-[minmax(0,1fr)_auto]">
             <input value={sample} onChange={(event) => { setSample(event.target.value); setSampleMatched(null); }} placeholder="Try sample text…" className="theme-input rounded-lg border px-3 py-2 font-mono" />
-            <button type="button" onClick={test} className="app-dialog-button is-secondary h-auto min-h-9">Test</button>
+            <ActionButton onClick={test} className="h-auto min-h-9">Test</ActionButton>
           </div>
           {sampleMatched !== null && (
             <div className={sampleMatched ? 'theme-status-success-text' : 'theme-status-danger-text'}>
               {sampleMatched ? 'Matches this detector' : 'Does not match this detector'}
             </div>
           )}
-          <div className="theme-divider flex flex-wrap items-center gap-2 border-t pt-3">
-            {selectedId !== 'new' && <button type="button" onClick={() => void duplicate()} className="app-dialog-button is-secondary"><Copy className="h-3.5 w-3.5" /> Duplicate</button>}
-            {typeof selectedId === 'number' && <button type="button" onClick={remove} className="app-dialog-button is-danger"><Trash2 className="h-3.5 w-3.5" /> Delete</button>}
-            {selectedId === 'new' && <button type="button" onClick={cancelNewDetector} className="app-dialog-button is-secondary ml-auto"><X className="h-3.5 w-3.5" /> Cancel</button>}
-            {selected?.is_builtin && <button type="button" onClick={resetSelectedDraft} disabled={!hasModifiedFields || saving} className="app-dialog-button is-secondary ml-auto"><RotateCcw className="h-3.5 w-3.5" /> Reset to Default</button>}
-            <button type="button" onClick={save} disabled={saving} className={`app-dialog-button is-primary ${selectedId === 'new' || selected?.is_builtin ? '' : 'ml-auto'}`}><Save className="h-3.5 w-3.5" /> Save</button>
-          </div>
+          <RegistryEditorActions
+            leading={<>
+              {selectedId !== 'new' && <ActionButton onClick={() => void duplicate()}><Copy className="h-3.5 w-3.5" /> Duplicate</ActionButton>}
+              {typeof selectedId === 'number' && <ActionButton variant="danger" onClick={remove}><Trash2 className="h-3.5 w-3.5" /> Delete</ActionButton>}
+            </>}
+            trailing={<>
+              {selectedId === 'new' && <ActionButton onClick={cancelNewDetector}><X className="h-3.5 w-3.5" /> Cancel</ActionButton>}
+              {selected?.is_builtin && <ActionButton onClick={resetSelectedDraft} disabled={!hasModifiedFields || saving}><RotateCcw className="h-3.5 w-3.5" /> Reset to Default</ActionButton>}
+              <ActionButton variant="primary" onClick={save} disabled={saving}><Save className="h-3.5 w-3.5" /> Save</ActionButton>
+            </>}
+          />
         </section>
-      </div>
-      </div>
+      </RegistryEditorShell>
       <ContentTypeManagerDialog isOpen={isTypeManagerOpen} onClose={() => setIsTypeManagerOpen(false)} />
     </div>
   );

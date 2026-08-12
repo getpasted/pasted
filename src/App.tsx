@@ -40,6 +40,7 @@ import { enabledFeatureRecord, featureForRoute } from './utils/features';
 import { FeatureProvider } from './hooks/useFeatures';
 import { ACTUAL_SIZE, stepAppZoom } from './utils/appZoom';
 import { soundManager } from './utils/sound';
+import { WelcomeSetup } from './components/WelcomeSetup';
 import './App.css';
 
 const TRANSIENT_SCROLL_SURFACE_SELECTOR = [
@@ -1619,6 +1620,14 @@ export default function App() {
           onConfirm={handleClearHistory}
         />
       )}
+      <WelcomeSetup
+        isOpen={settingsHydrated && initialDataLoaded && appSettings.onboardingVersion < 1}
+        settings={appSettings}
+        onUpdateSettings={handleUpdateSettings}
+        onImported={async () => {
+          await Promise.all([fetchClips(), fetchTrashedClips(), fetchBins()]);
+        }}
+      />
     </div>
     </FeatureProvider>
   );

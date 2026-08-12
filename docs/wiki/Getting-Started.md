@@ -9,6 +9,14 @@
 
 Pasted begins listening while it is running. Copy text, an image, a screenshot, a PDF, or files and they appear in **History**.
 
+The first-run setup explains local storage, offers to merge supported Alfred, Pastebot, Pasta, Paste, CopyClip 2, Maccy, or Flycut text history, and checks shortcut access. Every step can be skipped, and the setup can be reopened from **Settings → General**.
+
+Scripted and managed installations can persistently mark the current setup walkthrough complete:
+
+```sh
+open -a Pasted --args --skip-welcome
+```
+
 ## The three-column window
 
 - **Left:** collections, Bins, Tools, and Search.
@@ -36,4 +44,3 @@ Drag the column dividers to resize them. Pasted remembers the window position an
 | `Esc` | Close Quick HUD, a menu, or a modal |
 
 Change or disable shortcuts in **Settings → Hotkeys**.
-

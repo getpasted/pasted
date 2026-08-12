@@ -6,6 +6,7 @@ import { HotkeyRecorder } from './HotkeyRecorder';
 import { SettingsPanelHeader } from './SettingsPanelHeader';
 import { OverflowText } from './OverflowText';
 import { useToast } from './ToastProvider';
+import { ActionButton } from './AppDialogLayout';
 
 interface SettingsHotkeysPanelProps {
   settings: AppSettings;
@@ -211,10 +212,10 @@ export function SettingsHotkeysPanel({
         title="Hotkeys"
         description="Shortcuts for Pasted, Bins, and Transforms."
         actions={(
-          <button type="button" onClick={() => void restoreDefaults()} className="theme-secondary-button ui-control-radius flex items-center space-x-1.5 px-3 py-2 border transition-colors">
+          <ActionButton onClick={() => void restoreDefaults()}>
             <RotateCcw className="w-3.5 h-3.5" />
             <span>Restore Defaults</span>
-          </button>
+          </ActionButton>
         )}
       />
 
@@ -236,9 +237,9 @@ export function SettingsHotkeysPanel({
               {capabilityBadge}
             </span>
             {isMac && (
-              <button type="button" onClick={() => void requestAccessibilityPermission()} className="theme-secondary-button whitespace-nowrap px-2.5 py-1 border rounded-lg text-[10px] font-semibold transition-colors cursor-pointer">
+              <ActionButton onClick={() => void requestAccessibilityPermission()} className="min-h-7 whitespace-nowrap px-2.5 text-[10px]">
                 Open Settings
-              </button>
+              </ActionButton>
             )}
           </div>
         </div>

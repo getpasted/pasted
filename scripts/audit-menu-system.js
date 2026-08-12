@@ -7,7 +7,6 @@ const floatingMenus = [
   'src/components/ClipWorkflowMenu.tsx',
   'src/components/ContextMenu.tsx',
   'src/components/MenuSelect.tsx',
-  'src/components/TransformationsView.tsx',
 ];
 
 const failures = [];

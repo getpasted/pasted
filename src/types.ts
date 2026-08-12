@@ -187,6 +187,31 @@ export interface Operation {
   created_at: string;
 }
 
+export interface LibraryItemView {
+  stableRef: string;
+  kind: 'detector' | 'operation' | 'pipeline';
+  name: string;
+  description: string;
+  groupLabel: string | null;
+  icon: string;
+  enabled: boolean | null;
+  isBuiltin: boolean;
+  isArchived: boolean;
+  sortOrder: number | null;
+  revision: number;
+  inputContract: string;
+  outputContract: string;
+  createdAt: string;
+  updatedAt: string;
+  capabilities: {
+    canEdit: boolean;
+    canDuplicate: boolean;
+    canDelete: boolean;
+    canDisable: boolean;
+    canRestore: boolean;
+  };
+}
+
 export type IntelligenceProviderKind =
   | 'openai_compatible'
   | 'anthropic'
@@ -233,6 +258,22 @@ export interface InstallationDiagnostics {
   signingTeamId: string | null;
   notarizationStatus: string;
   cliPath: string | null;
+}
+
+export interface ThirdPartyComponent {
+  ecosystem: 'cargo' | 'npm';
+  name: string;
+  version: string;
+  license: string;
+  repository: string;
+  noticeIds: string[];
+}
+
+export interface ThirdPartyLicenseDocument {
+  schemaVersion: number;
+  componentCount: number;
+  components: ThirdPartyComponent[];
+  noticeText: string;
 }
 
 export type IntentPlanningMode = 'pinned' | 'adaptive';
@@ -358,6 +399,7 @@ export interface QueuePasteTarget {
 }
 
 export interface AppSettings {
+  onboardingVersion: number;
   textSize: number;
   enableSounds: boolean;
   captureFeedback: boolean;
@@ -371,14 +413,17 @@ export interface AppSettings {
   filePreviewMode: 'off' | 'safe' | 'all';
   filePreviewMaxMb: number;
   keepClipCount: number;
+  keepClipAgeDays: number;
   revisionHistoryLimit: number;
   alwaysPastePlainText: boolean;
   rowHeight: 'small' | 'medium' | 'large';
   themeMode: 'system' | 'dark' | 'cool' | 'warm' | '2894' | 'sauced' | 'vampire' | 'flux' | '808';
   enableActivityLog: boolean;
   activityLogCapacity: number;
+  activityLogAgeDays: number;
   enableTrash: boolean;
   trashCapacityCount: number;
+  trashAgeDays: number;
   enableAnalytics: boolean;
   enableBins: boolean;
   enableContentDetection: boolean;
