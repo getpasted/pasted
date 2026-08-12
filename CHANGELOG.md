@@ -4,6 +4,19 @@ Notable user-facing changes to Pasted are recorded here. The project follows sem
 
 ## Unreleased
 
+## 1.0.0-rc.5 — 2026-08-12
+
+This release candidate expands library organization, capture feedback, and customization while hardening shared data contracts:
+
+- added multi-Bin clip organization with persistent per-Bin ordering and matching GUI and CLI behavior;
+- introduced editable content types, groups, and detectors, including rescanning and safe migration of earlier detection preferences;
+- added bounded external-history imports for Maccy, Pastebot, Paste, Pasta, CopyClip, and Flycut;
+- added welcome setup, reorganized feature settings, two new light themes, interactive capture previews, and a global notification gate;
+- consolidated Transform storage and interfaces while refining editor workflows, provider warnings, and execution provenance;
+- normalized clip source metadata and fixed screenshot and image-copy semantics without reinterpreting existing clip identity;
+- improved clip-list rendering, pin feedback, macOS titlebar and window-drag behavior, and in-app help; and
+- added in-app open-source license access and complete third-party notice artifacts for distributed packages.
+
 ## 1.0.0-rc.4 — 2026-08-10
 
 - renamed Backup settings to Storage and added a safe, reversible SQLite library-location workflow;
