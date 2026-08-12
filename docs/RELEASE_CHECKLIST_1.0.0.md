@@ -42,7 +42,7 @@ Use the exact notarized DMG intended for publication. Do not substitute a develo
 ## Operating-system integration
 
 - [ ] Denying Accessibility leaves capture usable and explains which hotkey/paste behavior is unavailable.
-- [ ] Granting Accessibility makes global hotkeys, Quick HUD paste, Paste Next, and Paste All work.
+- [ ] Granting Accessibility makes global hotkeys, HUD paste, Paste Next, and Paste All work.
 - [ ] Queue paste targets the previously focused app, keeps Pasted visible, consumes only successful items, and creates no duplicate history clip.
 - [ ] Launch at Login and Dock/menu-bar visibility settings survive relaunch.
 - [ ] CLI installation produces a working `pasted`, and representative list/search/Bin/Transform commands match the GUI.

@@ -183,7 +183,7 @@ export function WelcomeSetup({ isOpen, settings, onUpdateSettings, onImported }:
               <div className="welcome-setup-shortcut-card">
                 <span className="welcome-setup-keycap">{shortcutLabel}</span>
                 <div>
-                  <strong>Quick HUD</strong>
+                  <strong>HUD</strong>
                   <span>{permission?.state === 'ready' && permission.is_trusted ? 'Shortcut access is ready.' : 'You can change this shortcut later in Settings → Hotkeys.'}</span>
                 </div>
                 {permission?.platform === 'macos' && !permission.is_trusted && (

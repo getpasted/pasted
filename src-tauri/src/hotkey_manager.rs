@@ -528,7 +528,7 @@ impl HotkeyManager {
                         return;
                     };
                     if let Err(error) = commands::paste_clip_from_hud(&db, &paste_app, clip.id) {
-                        eprintln!("[Pasted Quick HUD] {error}");
+                        eprintln!("[Pasted HUD] {error}");
                     }
                 });
             }

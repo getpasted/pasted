@@ -438,7 +438,7 @@ export const ActivityLogView: React.FC = () => {
               { value: 'bins', label: 'Bins', group: 'Organization' },
               { value: 'transforms', label: 'Transforms', group: 'Automation' },
               { value: 'queue', label: 'Copy Queue', group: 'Automation' },
-              { value: 'hud', label: 'Quick HUD', group: 'Automation' },
+              { value: 'hud', label: 'HUD', group: 'Automation' },
             ]}
           />
 

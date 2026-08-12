@@ -33,7 +33,7 @@ The first public release candidate includes:
 
 - local clipboard history for text, images, screenshots, PDFs, and file references;
 - History search, Bins, Smart Bins, Queue, pinning, protection, notes, Trash, revisions, and activity logging;
-- the Quick HUD and configurable global shortcuts;
+- the HUD and configurable global shortcuts;
 - deterministic and intelligence-assisted Transforms;
 - native macOS OCR and bounded file previews;
 - local backup, import, reset, feature gates, themes, diagnostics, and the bundled `pasted` CLI;

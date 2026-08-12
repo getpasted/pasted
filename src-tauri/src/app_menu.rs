@@ -62,7 +62,7 @@ fn dispatch_for_id(id: &str) -> Option<MenuDispatch> {
         "window.maximize" => MenuDispatch::ToggleMaximize,
         "window.fullscreen" => MenuDispatch::ToggleFullscreen,
         "file.quit" => MenuDispatch::Quit,
-        "help.documentation" => MenuDispatch::Navigate("help:cli"),
+        "help.documentation" => MenuDispatch::Navigate("help:getting-started"),
         "help.hotkeys" => MenuDispatch::Navigate("help:hotkeys"),
         "help.privacy" => MenuDispatch::Navigate("help:autopause"),
         "help.trash" => MenuDispatch::Navigate("help:trash"),
@@ -337,7 +337,7 @@ pub fn install(app: &AppHandle, db: &Arc<DbState>) -> tauri::Result<()> {
     let mut window_builder =
         SubmenuBuilder::new(app, "Window").text("window.show_main", "Show Pasted");
     if feature_enabled(Feature::Hud) {
-        window_builder = window_builder.text("window.quick_hud", "Quick HUD");
+        window_builder = window_builder.text("window.quick_hud", "HUD");
     }
     window_builder = window_builder.separator();
     #[cfg(target_os = "macos")]

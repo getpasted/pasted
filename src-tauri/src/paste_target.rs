@@ -63,7 +63,7 @@ impl PasteAction {
     fn target_failure(self, name: &str) -> String {
         match self {
             Self::Queue => format!("Could not target {name}. Clip not removed from Queue."),
-            Self::Hud => format!("Could not target {name}. Quick HUD paste was cancelled."),
+            Self::Hud => format!("Could not target {name}. HUD paste was cancelled."),
         }
     }
 
@@ -71,7 +71,7 @@ impl PasteAction {
     fn accessibility_failure(self) -> String {
         let action = match self {
             Self::Queue => "Paste Next",
-            Self::Hud => "Quick HUD paste",
+            Self::Hud => "HUD paste",
         };
         format!("macOS blocked {action}. Allow Accessibility access for Pasted (or the terminal/IDE running this development build), then try again.")
     }
@@ -177,11 +177,11 @@ impl PasteTargetState {
         match action {
             PasteAction::Queue => Err(reason),
             PasteAction::Hud => Err(reason
-                .replace("Queue paste", "Quick HUD paste")
-                .replace("pasting from Queue", "using Quick HUD")
+                .replace("Queue paste", "HUD paste")
+                .replace("pasting from Queue", "using HUD")
                 .replace(
                     "Clip not removed from Queue.",
-                    "Quick HUD paste was cancelled.",
+                    "HUD paste was cancelled.",
                 )),
         }
     }
@@ -200,7 +200,7 @@ impl PasteTargetState {
             return Err(target
                 .unavailable_reason
                 .clone()
-                .unwrap_or_else(|| "Automatic Quick HUD paste is unavailable.".to_string()));
+                .unwrap_or_else(|| "Automatic HUD paste is unavailable.".to_string()));
         }
         paste_to_target(target, PasteAction::Hud)
     }
@@ -577,7 +577,7 @@ mod tests {
         );
         assert_eq!(
             PasteAction::Hud.target_failure("ChatGPT"),
-            "Could not target ChatGPT. Quick HUD paste was cancelled."
+            "Could not target ChatGPT. HUD paste was cancelled."
         );
     }
 

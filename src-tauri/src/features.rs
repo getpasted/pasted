@@ -89,7 +89,7 @@ impl Feature {
             Feature::Protection => "Protection",
             Feature::Queue => "Queue",
             Feature::Revisions => "Revision History",
-            Feature::Hud => "Quick HUD",
+            Feature::Hud => "HUD",
             Feature::Trash => "Trash",
             Feature::Transformations => "Transformations",
             Feature::ActivityLog => "Activity Log",

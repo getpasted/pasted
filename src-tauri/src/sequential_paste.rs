@@ -144,7 +144,7 @@ impl SequentialQueueState {
     /// Consume the short-lived marker for clipboard content written by Pasted
     /// itself. Text uses its exact content; image and file writes use the same
     /// content fingerprints as the clipboard monitor. This prevents Queue and
-    /// Quick HUD pastes from becoming duplicate clips or triggering automation.
+    /// HUD pastes from becoming duplicate clips or triggering automation.
     pub fn consume_internal_clipboard_write(&self, item: &str) -> bool {
         let mut internal_write = self.internal_clipboard_write.lock();
         if let Some((expected, written_at)) = internal_write.as_ref() {

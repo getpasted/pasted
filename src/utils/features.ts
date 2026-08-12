@@ -94,7 +94,7 @@ export const FEATURE_DEFINITIONS: readonly FeatureDefinition[] = [
     simple: true,
     caution: 'New edits and Transforms will not be reversible while Revision History is disabled.',
   },
-  { id: 'hud', group: 'workflow', settingKey: 'enableHud', label: 'Quick HUD', description: 'Open the compact keyboard-driven clipboard window.', simple: false },
+  { id: 'hud', group: 'workflow', settingKey: 'enableHud', label: 'HUD', description: 'Open the compact keyboard-driven clipboard window.', simple: false },
   {
     id: 'trash',
     group: 'library',

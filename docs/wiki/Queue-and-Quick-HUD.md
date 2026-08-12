@@ -1,4 +1,4 @@
-# Queue and Quick HUD
+# Queue and HUD
 
 ## Copy Queue
 
@@ -12,9 +12,9 @@ Queue records an ordered sequence for later paste. Add clips with the context me
 
 Automatic paste targets the previously focused application. Pasted never treats itself as the intended destination.
 
-## Quick HUD
+## HUD
 
-Quick HUD is the compact keyboard-driven history window.
+HUD is the compact keyboard-driven history window.
 
 - Type to filter.
 - Use arrow keys to change selection.
@@ -27,4 +27,3 @@ Internal clipboard writes made for HUD and Queue paste are marked and excluded f
 ## Platform limits
 
 macOS automatic paste requires Accessibility permission. Windows and X11 use platform-specific focus/paste integrations. Constrained Wayland sessions may decline system-wide shortcuts or automatic paste; Pasted reports that capability failure and does not consume queued data.
-

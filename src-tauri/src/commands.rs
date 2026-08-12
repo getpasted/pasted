@@ -2988,7 +2988,7 @@ pub(crate) fn paste_clip_from_hud(
         .map_err(|error| error.to_string())?;
     #[cfg(target_os = "macos")]
     if !check_accessibility_permission().is_trusted {
-        return Err("Quick HUD paste needs Accessibility access. Allow Pasted (or the terminal/IDE running this development build) in System Settings, then try again.".to_string());
+        return Err("HUD paste needs Accessibility access. Allow Pasted (or the terminal/IDE running this development build) in System Settings, then try again.".to_string());
     }
 
     let paste_target = app.state::<Arc<crate::paste_target::PasteTargetState>>();
@@ -3027,7 +3027,7 @@ pub(crate) fn paste_clip_from_hud(
     let _ = db.log_activity(
         "hud_clip_pasted",
         &format!(
-            "Pasted clip {} into {} from Quick HUD",
+            "Pasted clip {} into {} from HUD",
             clip.id, target.name
         ),
     );

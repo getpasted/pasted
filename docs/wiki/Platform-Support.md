@@ -4,7 +4,7 @@
 
 **Supported:** macOS 13 or newer on Apple Silicon and Intel through one universal signed, notarized, stapled DMG.
 
-Apple Vision OCR is macOS-only. Accessibility permission is needed for system-wide hotkeys and automatic Queue/Quick HUD paste, not ordinary capture.
+Apple Vision OCR is macOS-only. Accessibility permission is needed for system-wide hotkeys and automatic Queue/HUD paste, not ordinary capture.
 
 ## Linux
 
@@ -23,4 +23,3 @@ Windows may identify the publisher as unknown. Smart App Control or organization
 ## What “graceful failure” means
 
 Platform-specific features are gated. Unsupported hotkey, focus, OCR, or paste integrations must compile and return an explicit capability message; they must not silently claim success or discard data.
-

@@ -6,8 +6,11 @@ Pasted stores clipboard history, settings, previews, revisions, and Activity Log
 
 - Password managers and sensitive apps are included in the default blacklist.
 - The blacklist can be extended in Settings.
+- Capture feedback is rendered locally by Pasted. It does not send clip contents, images, file names, or paths through operating-system notifications.
 - Clipboard and IPC inputs are bounded by shared resource limits.
 - Activity and error events record metadata, not clipboard contents, file contents, credentials, or transformation prompts.
+
+Optional capture previews can show clip content in Pasted's own feedback window. Turn off **Show Clip Preview** under **Settings → Notifications** when screen sharing or working where an on-screen preview could be observed. See [Notifications and Capture Feedback](Notifications-and-Capture-Feedback).
 
 ## Intelligence
 

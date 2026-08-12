@@ -36,11 +36,11 @@ Pasted sends your private clip content outside the app only when you _explicitly
 
 | Shortcut | Action |
 | --- | --- |
-| `⌥⇧V` | Open the Quick HUD |
+| `⌥⇧V` | Open the HUD |
 | `⌥⇧C` | Start or stop recording copies into the Queue |
 | `⌥⇧X` | Paste the next queued item |
-| `1`–`9` | Paste the corresponding clip from the Quick HUD |
-| `Esc` | Close the Quick HUD or an open menu |
+| `1`–`9` | Paste the corresponding clip from the HUD |
+| `Esc` | Close the HUD or an open menu |
 
 Shortcuts can be changed or disabled in Settings.
 

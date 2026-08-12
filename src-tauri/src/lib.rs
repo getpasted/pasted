@@ -63,7 +63,7 @@ fn build_tray_menu(
     db: &Arc<db::DbState>,
 ) -> tauri::Result<Menu<tauri::Wry>> {
     let show = MenuItem::with_id(app, "show", "Show Pasted", true, None::<&str>)?;
-    let hud = MenuItem::with_id(app, "hud_toggle", "Toggle Quick HUD", true, None::<&str>)?;
+    let hud = MenuItem::with_id(app, "hud_toggle", "Toggle HUD", true, None::<&str>)?;
     let queue = MenuItem::with_id(
         app,
         "seq_toggle",

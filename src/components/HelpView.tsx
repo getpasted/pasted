@@ -14,6 +14,10 @@ import {
   Info,
   Command,
   Download,
+  Bell,
+  Radar,
+  ScanText,
+  History,
   type LucideIcon,
 } from 'lucide-react';
 import { ToolPageHeader } from './ToolPageHeader';
@@ -100,7 +104,7 @@ const CLI_COMMAND_GROUPS = [
   },
 ] as const;
 
-export type HelpTopic = 'cli' | 'hotkeys' | 'autopause' | 'trash' | 'pipelines';
+export type HelpTopic = 'getting-started' | 'cli' | 'hotkeys' | 'autopause' | 'trash' | 'detection' | 'pipelines';
 
 interface HelpTopicDefinition {
   id: HelpTopic;
@@ -110,11 +114,13 @@ interface HelpTopicDefinition {
 }
 
 const HELP_TOPICS: HelpTopicDefinition[] = [
-  { id: 'cli', label: 'CLI Commands', icon: Terminal, iconClassName: 'theme-status-info-text' },
-  { id: 'hotkeys', label: 'Hotkeys & Modifiers', icon: Keyboard, iconClassName: 'theme-status-success-text' },
-  { id: 'autopause', label: 'Auto-Pause & Privacy', icon: Shield, iconClassName: 'theme-status-warning-text' },
-  { id: 'trash', label: 'Soft Trash Protection', icon: Trash2, iconClassName: 'theme-status-danger-text' },
+  { id: 'getting-started', label: 'Getting Started', icon: BookOpen, iconClassName: 'theme-status-info-text' },
+  { id: 'hotkeys', label: 'Shortcuts & HUD', icon: Keyboard, iconClassName: 'theme-status-success-text' },
+  { id: 'autopause', label: 'Privacy & Capture', icon: Shield, iconClassName: 'theme-status-warning-text' },
+  { id: 'trash', label: 'Deletion & Recovery', icon: Trash2, iconClassName: 'theme-status-danger-text' },
+  { id: 'detection', label: 'Detection & OCR', icon: Radar, iconClassName: 'theme-status-info-text' },
   { id: 'pipelines', label: 'Transformations', icon: Workflow, iconClassName: 'theme-status-info-text' },
+  { id: 'cli', label: 'CLI Commands', icon: Terminal, iconClassName: 'theme-status-info-text' },
 ];
 
 interface HelpViewProps {
@@ -124,7 +130,7 @@ interface HelpViewProps {
 
 export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKey }) => {
   const { showToast } = useToast();
-  const [activeSubTab, setActiveSubTab] = useState<HelpTopic>('cli');
+  const [activeSubTab, setActiveSubTab] = useState<HelpTopic>('getting-started');
   const [copiedCmd, setCopiedCmd] = useState<string | null>(null);
 
   useEffect(() => {
@@ -180,6 +186,49 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
 
         {/* Right Detail Subpage Content */}
         <div className="tools-scroll-region flex-1 p-6 overflow-y-auto space-y-6">
+          {activeSubTab === 'getting-started' && (
+            <div className="space-y-6 animate-in fade-in">
+              <div>
+                <h3 className="theme-title flex items-center space-x-2 text-lg font-bold">
+                  <BookOpen className="h-5 w-5 theme-status-info-text" />
+                  <span>Getting Started with Pasted</span>
+                </h3>
+                <p className="theme-text-muted mt-1 text-xs">
+                  Pasted keeps a local history of the text, images, screenshots, PDFs, and files you copy while it is running.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                <section className="theme-panel space-y-3 rounded-xl border p-4">
+                  <h4 className="theme-title text-xs font-bold">The main window</h4>
+                  <ol className="theme-text-main list-inside list-decimal space-y-2 text-xs leading-relaxed">
+                    <li>Choose History, a collection, or a Bin from the left sidebar.</li>
+                    <li>Select a clip from the middle column.</li>
+                    <li>Preview, copy, organize, or transform it in the right column.</li>
+                  </ol>
+                  <p className="theme-text-muted text-xs">Drag the column dividers to resize the layout. Pasted remembers your window and column sizes.</p>
+                </section>
+
+                <section className="theme-panel space-y-3 rounded-xl border p-4">
+                  <h4 className="theme-title text-xs font-bold">First useful actions</h4>
+                  <ul className="theme-text-main list-inside list-disc space-y-2 text-xs leading-relaxed">
+                    <li>Copy normally in another app to add an item to History.</li>
+                    <li>Use Search to find clip content, Types, Sources, notes, or status.</li>
+                    <li>Right-click a clip for Queue, Pin, Protect, Note, Bin, Transform, and Trash actions.</li>
+                    <li>Open Settings → Functionality to choose the Simple or Full experience.</li>
+                  </ul>
+                </section>
+              </div>
+
+              <div className="theme-status-warning rounded-xl border p-4">
+                <h4 className="text-xs font-bold">Features normally hide without deleting data</h4>
+                <p className="mt-1 text-xs leading-relaxed">
+                  Disabling a feature usually hides its interface and stops new behavior while preserving existing data. Important exceptions are shown beside the setting: disabling Trash makes new deletions permanent, and disabling Revision History makes new edits and Transform replacements irreversible.
+                </p>
+              </div>
+            </div>
+          )}
+
           {activeSubTab === 'cli' && (
             <div className="space-y-6 animate-in fade-in">
               <div>
@@ -289,10 +338,10 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
               <div>
                 <h3 className="theme-title text-lg font-bold flex items-center space-x-2">
                   <Keyboard className="w-5 h-5 theme-status-success-text" />
-                  <span>Pro Keyboard Shortcuts & Modifiers</span>
+                  <span>Shortcuts & HUD</span>
                 </h3>
                 <p className="theme-text-muted text-xs mt-1">
-                  Hidden power shortcuts built for maximum speed and efficiency.
+                  Use the default shortcuts below, or change and disable them under Settings → Hotkeys.
                 </p>
               </div>
 
@@ -310,10 +359,10 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
               <div className="theme-panel p-4 rounded-xl border space-y-2">
                   <div className="theme-status-info-text flex items-center space-x-2 text-xs font-bold">
                     <Command className="w-4 h-4" />
-                    <span>Floating HUD Toggle</span>
+                    <span>Open HUD</span>
                   </div>
                   <p className="theme-text-muted text-xs">
-                    Press <kbd className="theme-kbd px-1.5 py-0.5 rounded border font-mono text-[10px]">⌥ Shift V</kbd> to pop open the transparent quick HUD next to your cursor.
+                    Press <kbd className="theme-kbd px-1.5 py-0.5 rounded border font-mono text-[10px]">⌥ Shift V</kbd> to open the compact clipboard window near your pointer. Use arrow keys to select and Enter to paste.
                   </p>
                 </div>
 
@@ -345,21 +394,36 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
               <div>
                 <h3 className="theme-title text-lg font-bold flex items-center space-x-2">
                   <Shield className="w-5 h-5 theme-status-warning-text" />
-                  <span>Auto-Pause & Application Blacklisting</span>
+                  <span>Privacy & Capture</span>
                 </h3>
                 <p className="theme-text-muted text-xs mt-1">
-                  Pasted protects your sensitive credentials by automatically pausing recording when focused on password managers.
+                  Control which applications Pasted records and how it confirms a capture without sending clipboard contents away from your device.
                 </p>
               </div>
 
-              <div className="theme-panel p-4 rounded-xl border space-y-3">
-                <h4 className="theme-status-warning-text text-xs font-bold">How Auto-Pause Works</h4>
-                <p className="theme-text-main text-xs leading-relaxed">
-                  When switching active focus into applications like <strong>1Password</strong>, <strong>Keychain Access</strong>, <strong>Passwords</strong>, or <strong>Bitwarden</strong>, Pasted automatically pauses background recording and updates the Pause button state to glowing amber.
-                </p>
-                <p className="theme-text-muted text-xs leading-relaxed">
-                  As soon as you switch back to allowed applications (e.g. VS Code, Chrome, Terminal), recording automatically resumes without losing any work!
-                </p>
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                <section className="theme-panel space-y-3 rounded-xl border p-4">
+                  <h4 className="theme-status-warning-text text-xs font-bold">Auto-pause and blacklist</h4>
+                  <p className="theme-text-main text-xs leading-relaxed">
+                    Pasted starts with common password managers such as <strong>1Password</strong>, <strong>Keychain Access</strong>, <strong>Passwords</strong>, and <strong>Bitwarden</strong> on its blacklist. When an excluded app is focused, capture pauses and the Pause control turns amber.
+                  </p>
+                  <p className="theme-text-muted text-xs leading-relaxed">
+                    Capture resumes when focus returns to an allowed app. Add applications or choose whether they block text, images, and shortcuts under Settings → Blacklist.
+                  </p>
+                </section>
+
+                <section className="theme-panel space-y-3 rounded-xl border p-4">
+                  <div className="theme-status-info-text flex items-center gap-2 text-xs font-bold">
+                    <Bell className="h-4 w-4" />
+                    <span>Capture feedback</span>
+                  </div>
+                  <p className="theme-text-main text-xs leading-relaxed">
+                    Settings → Notifications controls quiet capture confirmations, skipped-capture messages, optional clip previews, dismissal timing, and screen position. Disabling Notifications does not disable clipboard capture.
+                  </p>
+                  <p className="theme-text-muted text-xs leading-relaxed">
+                    Feedback is rendered locally by Pasted and does not send copied text, images, file names, or paths through system notification services. Optional previews can still be visible on screen, so disable them before screen sharing when appropriate.
+                  </p>
+                </section>
               </div>
             </div>
           )}
@@ -369,20 +433,75 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
               <div>
                 <h3 className="theme-title text-lg font-bold flex items-center space-x-2">
                   <Trash2 className="w-5 h-5 theme-status-danger-text" />
-                  <span>Soft Trash Protection Layer</span>
+                  <span>Deletion & Recovery</span>
                 </h3>
                 <p className="theme-text-muted text-xs mt-1">
-                  Accidentally deleted a clip? Pasted provides a soft Trash protection layer so clips can be restored cleanly.
+                  Understand which actions are recoverable before removing or changing important clips.
                 </p>
               </div>
 
-              <div className="theme-panel p-4 rounded-xl border space-y-3">
-                <h4 className="theme-status-danger-text text-xs font-bold">Soft Deletion vs Hard Purging</h4>
-                <ul className="theme-text-main text-xs space-y-2 list-disc list-inside">
-                  <li><strong>Normal Delete Click:</strong> Moves clip to the Trash tab. The sidebar badge updates instantly.</li>
-                  <li><strong>Trash Tab Recovery:</strong> Click the <RotateCcwIcon /> Restore button to return items back to your history.</li>
-                  <li><strong>Option / Alt Key Purge:</strong> Hold Option/Alt while clicking delete to permanently remove items immediately.</li>
-                </ul>
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                <section className="theme-panel space-y-3 rounded-xl border p-4">
+                  <h4 className="theme-status-danger-text text-xs font-bold">Trash and permanent deletion</h4>
+                  <ul className="theme-text-main list-inside list-disc space-y-2 text-xs">
+                    <li><strong>Normal deletion:</strong> moves an eligible clip to Trash while Trash is enabled.</li>
+                    <li><strong>Restore:</strong> use the <RotateCcwIcon /> action in Trash to return a clip to active History.</li>
+                    <li><strong>Permanent deletion:</strong> hold Option/Alt while deleting, purge from Trash, or disable Trash.</li>
+                    <li><strong>Protection:</strong> protected clips resist deletion and automatic retention until unprotected.</li>
+                  </ul>
+                </section>
+
+                <section className="theme-panel space-y-3 rounded-xl border p-4">
+                  <div className="theme-status-info-text flex items-center gap-2 text-xs font-bold">
+                    <History className="h-4 w-4" />
+                    <span>Revisions and backups</span>
+                  </div>
+                  <p className="theme-text-main text-xs leading-relaxed">
+                    Revision History saves restorable snapshots before content-changing edits and Transform replacements. Disabling it preserves old revisions but makes new changes irreversible.
+                  </p>
+                  <p className="theme-text-muted text-xs leading-relaxed">
+                    Use Settings → Storage to export a backup before major changes or Factory Reset. Factory Reset permanently removes the local library and preferences after confirmation.
+                  </p>
+                </section>
+              </div>
+            </div>
+          )}
+
+          {activeSubTab === 'detection' && (
+            <div className="space-y-6 animate-in fade-in">
+              <div>
+                <h3 className="theme-title flex items-center space-x-2 text-lg font-bold">
+                  <Radar className="h-5 w-5 theme-status-info-text" />
+                  <span>Detection & OCR</span>
+                </h3>
+                <p className="theme-text-muted mt-1 text-xs">
+                  Local detectors classify text into useful Types, while OCR makes captured images searchable on supported macOS systems.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                <section className="theme-panel space-y-3 rounded-xl border p-4">
+                  <h4 className="theme-status-info-text text-xs font-bold">Content Detection</h4>
+                  <p className="theme-text-main text-xs leading-relaxed">
+                    Enabled detectors run locally in priority order; the lowest number runs first. A detector uses one or more regular expressions and may add a validator to reduce false positives. Use Settings → Detection to test samples, manage Types, and restore shipped defaults.
+                  </p>
+                  <p className="theme-text-muted text-xs leading-relaxed">
+                    Editing a detector affects new text clips. <strong>Rescan History</strong> explicitly reapplies the current detector order to existing text and can change Types, Smart Bin membership, and sensitive-content masking. Images and files are left unchanged.
+                  </p>
+                </section>
+
+                <section className="theme-panel space-y-3 rounded-xl border p-4">
+                  <div className="theme-status-success-text flex items-center gap-2 text-xs font-bold">
+                    <ScanText className="h-4 w-4" />
+                    <span>Optical Character Recognition</span>
+                  </div>
+                  <p className="theme-text-main text-xs leading-relaxed">
+                    OCR uses Apple Vision on macOS to extract searchable text from captured images and screenshots. It does not replace the original image.
+                  </p>
+                  <p className="theme-text-muted text-xs leading-relaxed">
+                    Disabling OCR cancels background work and discards late results while preserving completed text. Re-enabling it resumes eligible backfill. Check progress under Settings → Diagnostics or with <code>pasted ocr status --json</code>.
+                  </p>
+                </section>
               </div>
             </div>
           )}

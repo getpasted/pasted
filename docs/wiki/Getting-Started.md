@@ -5,7 +5,7 @@
 1. Download the signed, notarized universal DMG from [GitHub Releases](https://github.com/getpasted/pasted/releases).
 2. Open the DMG and drag Pasted into Applications.
 3. Launch Pasted from Applications.
-4. Grant Accessibility only if you want system-wide hotkeys or automatic Queue/Quick HUD paste.
+4. Grant Accessibility only if you want system-wide hotkeys or automatic Queue/HUD paste.
 
 Pasted begins listening while it is running. Copy text, an image, a screenshot, a PDF, or files and they appear in **History**.
 
@@ -33,14 +33,16 @@ Drag the column dividers to resize them. Pasted remembers the window position an
 - Search across active and trashed history from the lower-left Search control.
 - Open **Settings → Functionality** for a simpler or more capable Pasted.
 
+The **Simple** Functionality preset keeps the core clipboard experience visible. **Full** enables every feature, and changing individual features creates a **Custom** setup. Hiding a feature normally preserves its existing data. Review [Settings and Features](Settings-and-Features) before disabling Trash or Revision History, because those choices affect whether future actions are reversible.
+
 ## Default shortcuts
 
 | Shortcut | Action |
 | --- | --- |
-| `⌥⇧V` | Open Quick HUD |
+| `⌥⇧V` | Open HUD |
 | `⌥⇧C` | Start or stop Queue recording |
 | `⌥⇧X` | Paste Next |
-| `1`–`9` | Paste that Quick HUD result |
-| `Esc` | Close Quick HUD, a menu, or a modal |
+| `1`–`9` | Paste that HUD result |
+| `Esc` | Close HUD, a menu, or a modal |
 
 Change or disable shortcuts in **Settings → Hotkeys**.
