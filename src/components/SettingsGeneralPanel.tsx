@@ -391,7 +391,7 @@ export function SettingsGeneralPanel({
             <div className="space-y-4">
               <SettingsSubsectionHeader
                 title="Clipboard"
-                description="Set capture, preview, retention, and revision behavior."
+                description="Set capture, preview, and history retention behavior."
               />
 
               <div className="theme-surface overflow-hidden rounded-xl border">
@@ -557,7 +557,7 @@ export function SettingsGeneralPanel({
               <div className="space-y-4">
               <SettingsSubsectionHeader
                 title="Trash"
-                description="Choose how long deleted clips remain recoverable."
+                description="Control how much deleted history remains recoverable."
               />
 
               <div className="theme-surface overflow-hidden rounded-xl border">
