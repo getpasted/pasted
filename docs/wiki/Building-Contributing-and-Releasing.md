@@ -25,6 +25,12 @@ The complete gate runs formatting, Clippy, frontend build, Rust unit tests, IPC 
 - Never expose clipboard contents, file paths, credentials, or prompts in logs/analytics.
 - Gate platform-specific behavior and provide an explicit graceful-failure path.
 
+## Protected branch workflow
+
+Create a short-lived branch from current `main`, commit and push there, and open a pull request. Direct pushes to `main` are blocked. A change can merge only after dependency review, dependency policy, the complete validation suite, and macOS, Linux, and Windows package checks pass, with review conversations resolved. A second approval is encouraged but is not required while Pasted has one active maintainer. Protection bypasses are for documented recovery from a GitHub or repository incident, never for routine changes.
+
+Dependabot checks npm, Cargo, and GitHub Actions weekly. The scheduled **Dependency policy** workflow independently refreshes RustSec findings and enforces license policy, notice/SBOM freshness, and advisory-exception deadlines even when the source tree has not changed.
+
 See the [contribution guide](https://github.com/getpasted/pasted/blob/main/CONTRIBUTING.md), [project governance](https://github.com/getpasted/pasted/blob/main/GOVERNANCE.md), [`AGENTS.md`](https://github.com/getpasted/pasted/blob/main/AGENTS.md), and the [issue tracker](https://github.com/getpasted/pasted/issues).
 
 ## Releases

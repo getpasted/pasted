@@ -69,6 +69,10 @@ Do not add a newly encountered license to `about.toml` or `dependency-policy.jso
 
 ## Pull requests
 
+- Create a short-lived branch from current `main`; maintainers use the `codex/` prefix and external contributors may use a descriptive personal prefix.
+- Push the branch and open a pull request. Direct pushes to `main`, force-pushes, and deletion of `main` are blocked.
+- Wait for dependency review, dependency policy, validation, and the macOS, Linux, and Windows package jobs. Merge only after every required check passes and review conversations are resolved.
+- A second approving reviewer is encouraged when available but is not required while the project has a single active maintainer. The pull request and green gates remain mandatory.
 - Keep each pull request focused enough to review and revert.
 - Explain user-visible behavior and important implementation choices.
 - Identify data migrations, destructive paths, permission changes, new network access, or new dependencies.
@@ -82,5 +86,7 @@ AI-assisted contributions are welcome, but the submitter remains responsible for
 ## Commit and review expectations
 
 Use clear, imperative commit messages. Reviewers may ask for narrower scope, additional tests, safer migrations, or a platform fallback before merging. A green build is required but is not a substitute for reviewing user-data and privacy consequences.
+
+If GitHub Actions or branch protection is unavailable, do not bypass the normal path just to land a change. Record the incident, preserve the branch, and restore the required checks first. Repository administrators retain GitHub's emergency recovery capability, but using it is an exceptional, auditable incident—not an alternate contribution workflow.
 
 By contributing, you agree that your contribution is licensed under the repository's [MIT License](LICENSE).

@@ -1,0 +1,31 @@
+name: Dependency policy
+
+on:
+  schedule:
+    # Runs after the Monday Dependabot windows configured in dependabot.yml.
+    - cron: '0 17 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dependency-policy:
+    name: Verify dependency policy
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run licenses:check
+      - run: npm run dependencies:check
+      - run: npm run sbom:check
+      - uses: EmbarkStudios/cargo-deny-action@b66acf5e9fe20f8aba065be86778a8a4c846f902 # v2.1.1
+        with:
+          manifest-path: src-tauri/Cargo.toml
+          arguments: --all-features
+          command: check
+          command-arguments: advisories bans licenses sources --hide-inclusion-graph
