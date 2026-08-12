@@ -62,6 +62,9 @@ interface SettingsFeaturesPanelProps {
 
 export function SettingsFeaturesPanel({ settings, onUpdateSettings }: SettingsFeaturesPanelProps) {
   const activePreset = activeFeaturePreset(settings);
+  const visiblePresets = activePreset === 'custom'
+    ? (['custom', 'simple', 'full'] as const)
+    : (['simple', 'full'] as const);
 
   return (
     <div className="space-y-5 text-xs">
@@ -71,12 +74,11 @@ export function SettingsFeaturesPanel({ settings, onUpdateSettings }: SettingsFe
         description="Make Pasted as focused or as powerful as you want. Hidden features keep their existing data."
         actions={(
           <div className="theme-surface flex rounded-xl border p-1" aria-label="Feature presets">
-            {(['custom', 'simple', 'full'] as const).map((preset) => (
+            {visiblePresets.map((preset) => (
               <button
                 key={preset}
                 type="button"
                 aria-pressed={activePreset === preset}
-                disabled={preset === 'custom' && activePreset !== 'custom'}
                 onClick={() => {
                   if (preset !== 'custom') onUpdateSettings(featureUpdatesForPreset(preset));
                 }}
