@@ -2,8 +2,8 @@
   "spdxVersion": "SPDX-2.3",
   "dataLicense": "CC0-1.0",
   "SPDXID": "SPDXRef-DOCUMENT",
-  "name": "Pasted-1.0.0-rc.5-supported-runtime-dependencies",
-  "documentNamespace": "https://getpasted.app/sbom/1.0.0-rc.5/1bbb5717c74dff452a7d599e24a24e6db33e32c3ffdf787831a7d83d7b69b684",
+  "name": "Pasted-1.0.0-rc.5-distributed-components",
+  "documentNamespace": "https://getpasted.app/sbom/1.0.0-rc.5/de3144b1352a85f64573a01664ce69f24f3cc984c0f5aa20dd156a4c1613fe1f",
   "creationInfo": {
     "creators": [
       "Tool: Pasted deterministic dependency inventory"
@@ -7116,6 +7116,40 @@
           "referenceLocator": "pkg:npm/tailwind-merge@3.6.0"
         }
       ]
+    },
+    {
+      "SPDXID": "SPDXRef-packaging-907dbcc553d218b4",
+      "name": "nsis_tauri_utils",
+      "versionInfo": "0.5.3",
+      "downloadLocation": "https://github.com/tauri-apps/nsis-tauri-utils",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0",
+      "licenseDeclared": "Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:generic/nsis_tauri_utils@0.5.3"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-packaging-449628e4056b4203",
+      "name": "Nullsoft Scriptable Install System",
+      "versionInfo": "3.11",
+      "downloadLocation": "https://github.com/kichik/nsis",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Zlib",
+      "licenseDeclared": "Zlib",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:generic/Nullsoft%20Scriptable%20Install%20System@3.11"
+        }
+      ]
     }
   ],
   "relationships": [
@@ -9208,6 +9242,16 @@
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
       "relatedSpdxElement": "SPDXRef-npm-084c7514e672a928"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-packaging-907dbcc553d218b4"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-packaging-449628e4056b4203"
     }
   ]
 }

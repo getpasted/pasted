@@ -13,8 +13,9 @@ Platform note
 
 Operating-system frameworks are supplied by the operating system. Linux AppImage
 runtime notices are embedded by the AppImage runtime and must remain intact.
+Windows installer-tool components and their notices are included in this inventory.
 
-Component inventory (418)
+Component inventory (420)
 
 - adler2 2.0.1 [cargo; 0BSD OR MIT OR Apache-2.0] — https://github.com/oyvindln/adler2
 - ahash 0.8.12 [cargo; MIT OR Apache-2.0] — https://github.com/tkaitchuck/ahash
@@ -434,13 +435,15 @@ Component inventory (418)
 - react-dom 19.2.8 [npm; MIT] — https://github.com/react/react
 - scheduler 0.27.0 [npm; MIT] — https://github.com/facebook/react
 - tailwind-merge 3.6.0 [npm; MIT] — https://github.com/dcastil/tailwind-merge
+- nsis_tauri_utils 0.5.3 [packaging; Apache-2.0] — https://github.com/tauri-apps/nsis-tauri-utils
+- Nullsoft Scriptable Install System 3.11 [packaging; Zlib] — https://github.com/kichik/nsis
 
 License and attribution notices (103)
 
 ================================================================================
 Apache License 2.0
 License identifier: Apache-2.0
-Used by: anyhow 1.0.104 (cargo), arboard 3.6.1 (cargo), async-trait 0.1.91 (cargo), dirs 4.0.0 (cargo), dirs 6.0.0 (cargo), dirs-sys 0.3.7 (cargo), dirs-sys 0.5.0 (cargo), dispatch2 0.3.1 (cargo), dtoa 1.0.11 (cargo), dunce 1.0.5 (cargo), dyn-clone 1.0.20 (cargo), erased-serde 0.4.10 (cargo), fdeflate 0.3.7 (cargo), field-offset 0.3.6 (cargo), half 2.7.1 (cargo), ident_case 1.0.1 (cargo), image 0.25.10 (cargo), image-webp 0.2.4 (cargo), itoa 1.0.18 (cargo), libappindicator-sys 0.9.0 (cargo), libc 0.2.189 (cargo), miniz_oxide 0.8.9 (cargo), num-conv 0.2.2 (cargo), objc2-app-kit 0.3.2 (cargo), objc2-core-foundation 0.3.2 (cargo), objc2-core-graphics 0.3.2 (cargo), objc2-exception-helper 0.1.1 (cargo), objc2-quartz-core 0.3.2 (cargo), objc2-web-kit 0.3.2 (cargo), pin-project-lite 0.2.17 (cargo), proc-macro2 1.0.107 (cargo), quote 1.0.47 (cargo), raw-window-handle 0.6.2 (cargo), rustc-hash 2.1.3 (cargo), semver 1.0.28 (cargo), serde 1.0.229 (cargo), serde_core 1.0.229 (cargo), serde_derive 1.0.229 (cargo), serde_derive_internals 0.29.1 (cargo), serde_json 1.0.151 (cargo), serde_repr 0.1.21 (cargo), serde-untagged 0.1.9 (cargo), siphasher 1.0.3 (cargo), syn 2.0.119 (cargo), syn 3.0.3 (cargo), tauri 2.11.5 (cargo), tauri-codegen 2.6.3 (cargo), tauri-macros 2.6.3 (cargo), tauri-plugin-autostart 2.5.1 (cargo), tauri-plugin-dialog 2.7.2 (cargo), tauri-plugin-fs 2.5.1 (cargo), tauri-plugin-global-shortcut 2.3.2 (cargo), tauri-plugin-single-instance 2.4.3 (cargo), tauri-plugin-window-state 2.4.1 (cargo), tauri-runtime 2.11.3 (cargo), tauri-runtime-wry 2.11.4 (cargo), tauri-utils 2.9.3 (cargo), thiserror 1.0.69 (cargo), thiserror 2.0.19 (cargo), thiserror-impl 1.0.69 (cargo), thiserror-impl 2.0.19 (cargo), time 0.3.54 (cargo), time-core 0.1.9 (cargo), time-macros 0.2.32 (cargo), typeid 1.0.3 (cargo), unic-char-property 0.9.0 (cargo), unic-char-range 0.9.0 (cargo), unic-common 0.9.0 (cargo), unic-ucd-ident 0.9.0 (cargo), unic-ucd-version 0.9.0 (cargo), unicode-ident 1.0.24 (cargo)
+Used by: anyhow 1.0.104 (cargo), arboard 3.6.1 (cargo), async-trait 0.1.91 (cargo), dirs 4.0.0 (cargo), dirs 6.0.0 (cargo), dirs-sys 0.3.7 (cargo), dirs-sys 0.5.0 (cargo), dispatch2 0.3.1 (cargo), dtoa 1.0.11 (cargo), dunce 1.0.5 (cargo), dyn-clone 1.0.20 (cargo), erased-serde 0.4.10 (cargo), fdeflate 0.3.7 (cargo), field-offset 0.3.6 (cargo), half 2.7.1 (cargo), ident_case 1.0.1 (cargo), image 0.25.10 (cargo), image-webp 0.2.4 (cargo), itoa 1.0.18 (cargo), libappindicator-sys 0.9.0 (cargo), libc 0.2.189 (cargo), miniz_oxide 0.8.9 (cargo), num-conv 0.2.2 (cargo), objc2-app-kit 0.3.2 (cargo), objc2-core-foundation 0.3.2 (cargo), objc2-core-graphics 0.3.2 (cargo), objc2-exception-helper 0.1.1 (cargo), objc2-quartz-core 0.3.2 (cargo), objc2-web-kit 0.3.2 (cargo), pin-project-lite 0.2.17 (cargo), proc-macro2 1.0.107 (cargo), quote 1.0.47 (cargo), raw-window-handle 0.6.2 (cargo), rustc-hash 2.1.3 (cargo), semver 1.0.28 (cargo), serde 1.0.229 (cargo), serde_core 1.0.229 (cargo), serde_derive 1.0.229 (cargo), serde_derive_internals 0.29.1 (cargo), serde_json 1.0.151 (cargo), serde_repr 0.1.21 (cargo), serde-untagged 0.1.9 (cargo), siphasher 1.0.3 (cargo), syn 2.0.119 (cargo), syn 3.0.3 (cargo), tauri 2.11.5 (cargo), tauri-codegen 2.6.3 (cargo), tauri-macros 2.6.3 (cargo), tauri-plugin-autostart 2.5.1 (cargo), tauri-plugin-dialog 2.7.2 (cargo), tauri-plugin-fs 2.5.1 (cargo), tauri-plugin-global-shortcut 2.3.2 (cargo), tauri-plugin-single-instance 2.4.3 (cargo), tauri-plugin-window-state 2.4.1 (cargo), tauri-runtime 2.11.3 (cargo), tauri-runtime-wry 2.11.4 (cargo), tauri-utils 2.9.3 (cargo), thiserror 1.0.69 (cargo), thiserror 2.0.19 (cargo), thiserror-impl 1.0.69 (cargo), thiserror-impl 2.0.19 (cargo), time 0.3.54 (cargo), time-core 0.1.9 (cargo), time-macros 0.2.32 (cargo), typeid 1.0.3 (cargo), unic-char-property 0.9.0 (cargo), unic-char-range 0.9.0 (cargo), unic-common 0.9.0 (cargo), unic-ucd-ident 0.9.0 (cargo), unic-ucd-version 0.9.0 (cargo), unicode-ident 1.0.24 (cargo), nsis_tauri_utils 0.5.3 (packaging)
 --------------------------------------------------------------------------------
 Apache License
 Version 2.0, January 2004
@@ -1081,7 +1084,7 @@ THE SOFTWARE.
 ================================================================================
 zlib License
 License identifier: Zlib
-Used by: foldhash 0.1.5 (cargo), foldhash 0.2.0 (cargo)
+Used by: foldhash 0.1.5 (cargo), foldhash 0.2.0 (cargo), Nullsoft Scriptable Install System 3.11 (packaging)
 --------------------------------------------------------------------------------
 Copyright (c) 2024 Orson Peters
 

@@ -74,6 +74,7 @@ function addNotice(notices, text, label, spdx) {
 }
 
 function buildInventory(rawCargo) {
+  const policy = JSON.parse(fs.readFileSync('dependency-policy.json', 'utf8'));
   const notices = new Map();
   const rustNoticeIds = new Map();
 
@@ -142,6 +143,23 @@ function buildInventory(rawCargo) {
     });
   }
 
+  for (const packaging of policy.packagingComponents) {
+    const noticeSource = components.find(({ name }) => name === packaging.noticeSourceComponent);
+    assert.ok(noticeSource, `No notice source found for packaging component ${packaging.name}`);
+    assert.ok(
+      noticeSource.license.includes(packaging.license),
+      `Notice source ${noticeSource.name} does not cover ${packaging.license}`,
+    );
+    components.push({
+      ecosystem: 'packaging',
+      name: packaging.name,
+      version: packaging.version,
+      license: packaging.license,
+      repository: packaging.repository,
+      noticeIds: noticeSource.noticeIds,
+    });
+  }
+
   components.sort((left, right) => (
     left.ecosystem.localeCompare(right.ecosystem)
     || left.name.localeCompare(right.name)
@@ -191,6 +209,7 @@ function buildInventory(rawCargo) {
     '',
     'Operating-system frameworks are supplied by the operating system. Linux AppImage',
     'runtime notices are embedded by the AppImage runtime and must remain intact.',
+    'Windows installer-tool components and their notices are included in this inventory.',
     '',
     `Component inventory (${components.length})`,
     '',
@@ -208,6 +227,7 @@ function buildInventory(rawCargo) {
 const sourceHashes = {
   aboutConfig: fileHash('about.toml'),
   cargoLock: fileHash('src-tauri/Cargo.lock'),
+  dependencyPolicy: fileHash('dependency-policy.json'),
   generatorScript: fileHash('scripts/generate-third-party-licenses.js'),
   packageLock: fileHash('package-lock.json'),
 };

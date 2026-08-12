@@ -24,7 +24,7 @@ npm run test:all
 | CLI parity | Static audits require GUI and CLI mutations to route through shared Rust services, keep documented commands synchronized, and preserve structured `--json` contracts. |
 | Platform integration | macOS, Windows, Linux X11, and constrained Wayland paths must compile and either succeed or return an explicit capability failure without consuming queued data. |
 | Dependency trust | Rust and npm licenses must match reviewed policy; forbidden telemetry dependencies, remote webview connections, untrusted package sources, stale notices/SBOMs, and expired advisory exceptions fail the gate. |
-| Release artifacts | Each packaged payload receives a Syft-generated SPDX SBOM and license-policy audit in addition to the deterministic 418-component source dependency SBOM. |
+| Release artifacts | Each packaged payload receives a Syft-generated SPDX SBOM and license-policy audit in addition to the deterministic 420-component distributed-software SBOM. |
 
 ## Human release checks
 

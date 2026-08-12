@@ -9,6 +9,7 @@ const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf8'));
 const digest = crypto.createHash('sha256').update(JSON.stringify(inventory.components)).digest('hex');
 const spdxId = (component) => `SPDXRef-${component.ecosystem}-${crypto.createHash('sha256').update(`${component.name}@${component.version}`).digest('hex').slice(0, 16)}`;
 const purlName = (value) => encodeURIComponent(value).replaceAll('%2F', '/');
+const purlType = (ecosystem) => ecosystem === 'packaging' ? 'generic' : ecosystem;
 const packages = inventory.components.map((component) => ({
   SPDXID: spdxId(component),
   name: component.name,
@@ -21,14 +22,14 @@ const packages = inventory.components.map((component) => ({
   externalRefs: [{
     referenceCategory: 'PACKAGE-MANAGER',
     referenceType: 'purl',
-    referenceLocator: `pkg:${component.ecosystem}/${purlName(component.name)}@${component.version}`,
+    referenceLocator: `pkg:${purlType(component.ecosystem)}/${purlName(component.name)}@${component.version}`,
   }],
 }));
 const document = {
   spdxVersion: 'SPDX-2.3',
   dataLicense: 'CC0-1.0',
   SPDXID: 'SPDXRef-DOCUMENT',
-  name: `Pasted-${packageJson.version}-supported-runtime-dependencies`,
+  name: `Pasted-${packageJson.version}-distributed-components`,
   documentNamespace: `https://getpasted.app/sbom/${packageJson.version}/${digest}`,
   creationInfo: {
     creators: ['Tool: Pasted deterministic dependency inventory'],

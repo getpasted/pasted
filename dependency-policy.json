@@ -149,5 +149,47 @@
     "linux": ["^Pasted$", "^pasted(?:-app|-linux-x86_64)?$"],
     "macos": ["^Pasted$", "^pasted(?:-app|-macos-universal)?$"],
     "windows": ["^Pasted$", "^pasted(?:-app|-windows-x86_64\\.exe)?$", "^Pasted_.*-setup\\.exe$"]
-  }
+  },
+  "artifactRequiredFilePatterns": {
+    "linux": [
+      "(^|/)squashfs-root/usr/bin/pasted-app$",
+      "(^|/)squashfs-root/usr/bin/pasted$",
+      "(^|/)pasted-linux-x86_64$"
+    ],
+    "macos": [
+      "(^|/)Pasted\\.app/Contents/MacOS/pasted-app$",
+      "(^|/)pasted-macos-universal$"
+    ],
+    "windows": [
+      "(^|/)(Pasted|pasted-app)\\.exe$",
+      "(^|/)pasted-windows-x86_64\\.exe$"
+    ]
+  },
+  "packagingComponents": [
+    {
+      "name": "Nullsoft Scriptable Install System",
+      "version": "3.11",
+      "license": "Zlib",
+      "repository": "https://github.com/kichik/nsis",
+      "noticeSourceComponent": "foldhash",
+      "artifactUnknownNames": {
+        "windows": [
+          "\\$PLUGINSDIR\\NSISdl",
+          "\\$PLUGINSDIR\\StartMenu",
+          "\\$PLUGINSDIR\\System",
+          "\\$PLUGINSDIR\\nsDialogs"
+        ]
+      }
+    },
+    {
+      "name": "nsis_tauri_utils",
+      "version": "0.5.3",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/tauri-apps/nsis-tauri-utils",
+      "noticeSourceComponent": "tauri",
+      "artifactUnknownNames": {
+        "windows": ["\\$PLUGINSDIR\\nsis_tauri_utils"]
+      }
+    }
+  ]
 }

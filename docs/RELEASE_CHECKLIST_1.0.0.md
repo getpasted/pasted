@@ -7,7 +7,7 @@ Use the exact notarized DMG intended for publication. Do not substitute a develo
 - [ ] Working tree is clean and points at the intended release commit.
 - [ ] `npm run release:macos` passes the complete test suite.
 - [ ] Dependency Review, `cargo-deny`, npm SPDX policy, mission-policy, notice, and source-SBOM gates pass on the release commit.
-- [ ] The extracted macOS, Linux, and Windows payload SBOM audits pass without unreviewed packages or forbidden licenses.
+- [ ] The extracted macOS, Linux, and Windows payload SBOM audits contain the required app/CLI files and pass without unreviewed packages or forbidden licenses.
 - [ ] Apple accepts the notarization submission.
 - [ ] The notarization ticket is stapled to the DMG.
 - [ ] `scripts/verify-macos-release.sh` passes code-signing, Gatekeeper, ticket, and disk-image checks.

@@ -8,8 +8,20 @@ const sbom = JSON.parse(fs.readFileSync(sbomPath, 'utf8'));
 const packages = (sbom.packages ?? []).filter((component) => (
   component.primaryPackagePurpose !== 'FILE' || component.versionInfo
 ));
-assert.ok(packages.length > 0, `Artifact SBOM for ${platform} did not identify any packages`);
-const allowedUnknown = new Set(policy.artifactUnknownLicenseAllowlist[platform] ?? []);
+const files = sbom.files ?? [];
+assert.ok(files.length > 0, `Artifact SBOM for ${platform} did not inventory any files`);
+const fileNames = files.map(({ fileName }) => fileName.replaceAll('\\', '/'));
+for (const requiredPattern of policy.artifactRequiredFilePatterns[platform] ?? []) {
+  const pattern = new RegExp(requiredPattern, 'i');
+  assert.ok(
+    fileNames.some((fileName) => pattern.test(fileName)),
+    `${platform} artifact SBOM is missing required payload evidence: ${requiredPattern}`,
+  );
+}
+const allowedUnknown = new Set([
+  ...(policy.artifactUnknownLicenseAllowlist[platform] ?? []),
+  ...policy.packagingComponents.flatMap((component) => component.artifactUnknownNames[platform] ?? []),
+]);
 const allowedUnknownPatterns = (policy.artifactUnknownLicensePatterns[platform] ?? []).map((pattern) => new RegExp(pattern));
 const forbidden = new RegExp(policy.forbiddenLicenseTerms.join('|'), 'i');
 for (const component of packages) {
@@ -22,4 +34,7 @@ for (const component of packages) {
     );
   }
 }
-console.log(`Artifact SBOM audit passed for ${packages.length} ${platform} package records.`);
+console.log(
+  `Artifact SBOM audit passed for ${files.length} ${platform} files and `
+  + `${packages.length} detected package records.`,
+);

@@ -11,6 +11,11 @@ const tauriConfig = readJson('src-tauri/tauri.conf.json');
 
 assert.equal(policy.schemaVersion, 1, 'Unsupported dependency policy schema');
 assert.ok(policy.approvedLicenses.length > 0, 'Dependency policy must approve licenses explicitly');
+for (const component of policy.packagingComponents) {
+  assert.ok(policy.approvedLicenses.includes(component.license), `${component.name} has an unapproved packaging license`);
+  assert.ok(component.version && component.repository, `${component.name} packaging provenance is incomplete`);
+  assert.ok(component.noticeSourceComponent, `${component.name} must identify its shipped license notice`);
+}
 
 const forbiddenLicense = new RegExp(
   policy.forbiddenLicenseTerms.map((term) => term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'),

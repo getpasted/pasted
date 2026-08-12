@@ -63,7 +63,7 @@ npm run sbom:check
 npm run dependencies:check
 ```
 
-Do not add a newly encountered license to `about.toml` or `dependency-policy.json` merely to make generation pass. Review its distribution and source-availability obligations first. The generator includes production npm packages, the supported-platform Rust graph, package copyright/NOTICE files, complete selected license texts, and a deterministic SPDX source SBOM.
+Do not add a newly encountered license to `about.toml` or `dependency-policy.json` merely to make generation pass. Review its distribution and source-availability obligations first. The generator includes production npm packages, the supported-platform Rust graph, shipped packaging components, package copyright/NOTICE files, complete selected license texts, and a deterministic SPDX source SBOM.
 
 `deny.toml` enforces Rust licenses, registries, wildcard versions, and RustSec advisories. Every advisory exception must also appear in `dependency-policy.json` with a substantive reason and future expiration date. New telemetry SDKs, remote webview connections, and network-capable direct dependencies require explicit review; Pasted's Analytics & Insights feature must remain an on-device database query.
 
