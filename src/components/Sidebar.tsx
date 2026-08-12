@@ -37,6 +37,7 @@ import { OverflowText } from './OverflowText';
 import { ContentTypeIcon } from './ContentTypeIcon';
 import { useContentTypes } from './ContentTypeProvider';
 import { safeInvoke as invoke } from '../utils/tauri';
+import type { SidebarSectionId, SidebarSectionState } from '../utils/appUiState';
 
 const SEARCH_HELPERS = [
   { prefix: 'regex:', desc: 'Regex' },
@@ -81,6 +82,8 @@ interface SidebarProps {
   disabledDropBinId?: number | null;
   disabledDropActions?: ClipDropAction[];
   features: Record<FeatureId, boolean>;
+  sectionState: SidebarSectionState;
+  onSectionStateChange: (section: SidebarSectionId, open: boolean) => void;
 }
 
 const SidebarComponent: React.FC<SidebarProps> = ({
@@ -114,15 +117,22 @@ const SidebarComponent: React.FC<SidebarProps> = ({
   isCollapsed,
   setIsCollapsed,
   sidebarWidth = 240,
+  sectionState,
+  onSectionStateChange,
 }) => {
   const { definitions: contentTypes } = useContentTypes();
 
   // Section Collapse State
-  const [isClipsOpen, setIsClipsOpen] = React.useState(true);
-  const [isBinsOpen, setIsBinsOpen] = React.useState(true);
-  const [isTypesOpen, setIsTypesOpen] = React.useState(true);
-  const [isSourcesOpen, setIsSourcesOpen] = React.useState(true);
-  const [isToolsOpen, setIsToolsOpen] = React.useState(true);
+  const isClipsOpen = sectionState.clips;
+  const isBinsOpen = sectionState.bins;
+  const isTypesOpen = sectionState.types;
+  const isSourcesOpen = sectionState.sources;
+  const isToolsOpen = sectionState.tools;
+  const setIsClipsOpen = (open: boolean) => onSectionStateChange('clips', open);
+  const setIsBinsOpen = (open: boolean) => onSectionStateChange('bins', open);
+  const setIsTypesOpen = (open: boolean) => onSectionStateChange('types', open);
+  const setIsSourcesOpen = (open: boolean) => onSectionStateChange('sources', open);
+  const setIsToolsOpen = (open: boolean) => onSectionStateChange('tools', open);
 
   const [dropTargetBinId, setDropTargetBinId] = React.useState<number | null>(null);
   const [isSearchMenuOpen, setIsSearchMenuOpen] = React.useState(false);

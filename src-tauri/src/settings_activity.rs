@@ -38,6 +38,11 @@ fn friendly_value(key: &str, value: &str) -> Option<String> {
             "large" => "Spacious".into(),
             _ => return None,
         },
+        "startupView" => match value {
+            "last_active" => "Last Active Page".into(),
+            "clip_history" => "Clip History".into(),
+            _ => return None,
+        },
         "dockMenubarIcon" => match value {
             "both" => "Dock and menu bar".into(),
             "menubar_only" => "Menu bar only".into(),
@@ -99,6 +104,7 @@ fn setting_label(key: &str) -> Option<&'static str> {
     match key {
         "themeMode" => Some("Appearance"),
         "rowHeight" => Some("Row height"),
+        "startupView" => Some("Startup View"),
         "dockMenubarIcon" => Some("Dock visibility"),
         "filePreviewMode" => Some("File previews"),
         "textSize" => Some("Zoom"),
@@ -204,6 +210,12 @@ mod tests {
                 .unwrap()
                 .description,
             "Changed Bins: On → Off"
+        );
+        assert_eq!(
+            describe_setting_change("startupView", Some("last_active"), "clip_history")
+                .unwrap()
+                .description,
+            "Changed Startup View: Last Active Page → Clip History"
         );
     }
 

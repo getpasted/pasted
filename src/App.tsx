@@ -41,6 +41,12 @@ import { FeatureProvider } from './hooks/useFeatures';
 import { ACTUAL_SIZE, stepAppZoom } from './utils/appZoom';
 import { soundManager } from './utils/sound';
 import { WelcomeSetup } from './components/WelcomeSetup';
+import {
+  readAppUiState,
+  writeAppUiState,
+  type SidebarSectionId,
+  type SidebarSectionState,
+} from './utils/appUiState';
 import './App.css';
 
 const TRANSIENT_SCROLL_SURFACE_SELECTOR = [
@@ -58,6 +64,7 @@ const TRANSIENT_SCROLL_SURFACE_SELECTOR = [
 ].join(', ');
 
 export default function App() {
+  const [restoredUiState] = useState(readAppUiState);
   const [isHudView, setIsHudView] = useState<boolean>(false);
 
   useEffect(() => {
@@ -182,22 +189,40 @@ export default function App() {
   const [selectedClipIds, setSelectedClipIds] = useState<Set<number>>(new Set());
   const [hoveredClipId, setHoveredClipId] = useState<number | null>(null);
   const [, setSelectedIndex] = useState<number>(-1);
-  const [currentTab, setCurrentTab] = useState<string>('all');
+  const [currentTab, setCurrentTab] = useState<string>(restoredUiState.currentTab);
+  const startupViewAppliedRef = useRef(false);
   const navigationSerialRef = useRef(0);
   const [settingsNavigation, setSettingsNavigation] = useState<{ tab: SettingsTab; key: number }>();
   const [helpNavigation, setHelpNavigation] = useState<{ topic: HelpTopic; key: number }>();
   const [transformNavigation, setTransformNavigation] = useState<{ workspace: TransformWorkspace; key: number }>();
-  const [selectedBinId, setSelectedBinId] = useState<number | null>(null);
-  const lastClipViewRef = useRef<{ tab: string; binId: number | null }>({ tab: 'all', binId: null });
+  const [selectedBinId, setSelectedBinId] = useState<number | null>(restoredUiState.selectedBinId);
+  const lastClipViewRef = useRef<{ tab: string; binId: number | null }>({
+    tab: restoredUiState.currentTab,
+    binId: restoredUiState.selectedBinId,
+  });
   const selectionViewKey = currentTab === 'bin' ? `bin:${selectedBinId ?? 'none'}` : `section:${currentTab}`;
-  const selectedClipByViewRef = useRef<Map<string, number | null>>(new Map());
+  const selectedClipByViewRef = useRef<Map<string, number | null>>(new Map([
+    [
+      restoredUiState.currentTab === 'bin'
+        ? `bin:${restoredUiState.selectedBinId ?? 'none'}`
+        : `section:${restoredUiState.currentTab}`,
+      restoredUiState.selectedClipId,
+    ],
+  ]));
   const activeSelectionViewRef = useRef<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isBinModalOpen, setIsBinModalOpen] = useState<boolean>(false);
   const [editingBin, setEditingBin] = useState<Bin | null>(null);
   const [clearHistoryMode, setClearHistoryMode] = useState<ClearHistoryMode | null>(null);
   const isClearConfirmOpen = clearHistoryMode !== null;
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(restoredUiState.isSidebarCollapsed);
+  const [sidebarSections, setSidebarSections] = useState<SidebarSectionState>(restoredUiState.sidebarSections);
+
+  const handleSidebarSectionStateChange = useCallback((section: SidebarSectionId, open: boolean) => {
+    setSidebarSections((previous) => previous[section] === open
+      ? previous
+      : { ...previous, [section]: open });
+  }, []);
 
   const clearClipSelection = useCallback(() => {
     setSelectedClip(null);
@@ -234,6 +259,23 @@ export default function App() {
       setSelectedBinId(null);
     }
   }, [currentTab, enabledFeatures]);
+
+  useEffect(() => {
+    if (!settingsHydrated || startupViewAppliedRef.current) return;
+    startupViewAppliedRef.current = true;
+    if (appSettings.startupView === 'clip_history') {
+      setCurrentTab('all');
+      setSelectedBinId(null);
+    }
+  }, [appSettings.startupView, settingsHydrated]);
+
+  useEffect(() => {
+    if (!settingsHydrated || !initialDataLoaded) return;
+    if (currentTab === 'bin' && (selectedBinId === null || !bins.some((bin) => bin.id === selectedBinId))) {
+      setCurrentTab('all');
+      setSelectedBinId(null);
+    }
+  }, [bins, currentTab, initialDataLoaded, selectedBinId, settingsHydrated]);
 
   useEffect(() => {
     if (isHudView) return undefined;
@@ -598,6 +640,7 @@ export default function App() {
   // view restores that clip (or its first eligible clip), while an explicit
   // dismissal remains dismissed until the user navigates away.
   useLayoutEffect(() => {
+    if (!initialDataLoaded) return;
     const displayedIds = new Set(displayedClips.map((clip) => clip.id));
     const viewChanged = activeSelectionViewRef.current !== selectionViewKey;
     const rememberedId = selectedClipByViewRef.current.get(selectionViewKey);
@@ -661,7 +704,28 @@ export default function App() {
       }
       return next;
     });
-  }, [displayedClips, selectedClip?.id, selectionViewKey]);
+  }, [displayedClips, initialDataLoaded, selectedClip?.id, selectionViewKey]);
+
+  useEffect(() => {
+    if (isHudView || !settingsHydrated || !initialDataLoaded) return;
+    writeAppUiState({
+      version: 1,
+      currentTab,
+      selectedBinId: currentTab === 'bin' ? selectedBinId : null,
+      selectedClipId: selectedClip?.id ?? null,
+      isSidebarCollapsed,
+      sidebarSections,
+    });
+  }, [
+    currentTab,
+    initialDataLoaded,
+    isHudView,
+    isSidebarCollapsed,
+    selectedBinId,
+    selectedClip?.id,
+    settingsHydrated,
+    sidebarSections,
+  ]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -1121,6 +1185,8 @@ export default function App() {
         isCollapsed={isSidebarCollapsed}
         setIsCollapsed={setIsSidebarCollapsed}
         sidebarWidth={sidebarWidth}
+        sectionState={sidebarSections}
+        onSectionStateChange={handleSidebarSectionStateChange}
       />
 
       {/* Sidebar Resizer Handle (Only active when sidebar is expanded) */}

@@ -100,6 +100,11 @@ const rowHeightOptions = [
   { value: 'large', label: 'Spacious' },
 ];
 
+const startupViewOptions = [
+  { value: 'last_active', label: 'Last Active Page' },
+  { value: 'clip_history', label: 'Clip History' },
+];
+
 export function SettingsGeneralPanel({
   settings,
   onUpdateSettings,
@@ -297,29 +302,43 @@ export function SettingsGeneralPanel({
                 />
               </div>
 
-              <div className="pt-4">
-                <div className="flex items-start justify-between">
-                  <div className="pr-4 flex-1 min-w-0">
-                    <span className="font-semibold theme-text-main block">Column Widths:</span>
-                    <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
-                      Resets the left sidebar and middle history list panel widths to their defaults.
-                    </p>
-                  </div>
-                  <ActionButton
-                    onClick={() => {
-                      if (onResetColumnWidths) onResetColumnWidths();
-                      else {
-                        localStorage.removeItem('pasted_sidebar_width');
-                        localStorage.removeItem('pasted_list_width');
-                        window.location.reload();
-                      }
-                    }}
-                    className="shrink-0 cursor-pointer"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5" />
-                    <span>Reset Column Widths</span>
-                  </ActionButton>
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0 flex-1">
+                  <span className="font-semibold theme-text-main block">Startup View:</span>
+                  <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
+                    Choose whether Pasted reopens where you left off or always starts in Clip History.
+                  </p>
                 </div>
+                <MenuSelect
+                  value={settings.startupView}
+                  options={startupViewOptions}
+                  onChange={(value) => onUpdateSettings({ startupView: value as AppSettings['startupView'] })}
+                  label="Startup view"
+                  className="settings-menu-select"
+                />
+              </div>
+
+              <div className="flex items-start justify-between">
+                <div className="pr-4 flex-1 min-w-0">
+                  <span className="font-semibold theme-text-main block">Column Widths:</span>
+                  <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
+                    Resets the left sidebar and middle history list panel widths to their defaults.
+                  </p>
+                </div>
+                <ActionButton
+                  onClick={() => {
+                    if (onResetColumnWidths) onResetColumnWidths();
+                    else {
+                      localStorage.removeItem('pasted_sidebar_width');
+                      localStorage.removeItem('pasted_list_width');
+                      window.location.reload();
+                    }
+                  }}
+                  className="shrink-0 cursor-pointer"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Reset Column Widths</span>
+                </ActionButton>
               </div>
             </div>
 

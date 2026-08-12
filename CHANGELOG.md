@@ -15,6 +15,7 @@ This release candidate expands library organization, capture feedback, and custo
 - added welcome setup, reorganized feature settings, two new light themes, interactive capture previews, and a global notification gate;
 - consolidated Transform storage and interfaces while refining editor workflows, provider warnings, and execution provenance;
 - normalized clip source metadata and fixed screenshot and image-copy semantics without reinterpreting existing clip identity;
+- restored the last active page, selected clip, sidebar state, and navigation sections across launches, with a configurable Startup View preference;
 - improved clip-list rendering, pin feedback, macOS titlebar and window-drag behavior, and in-app help; and
 - added in-app open-source license access and complete third-party notice artifacts for distributed packages.
 
