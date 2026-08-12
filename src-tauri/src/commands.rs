@@ -3742,7 +3742,7 @@ pub async fn get_source_icons(
         })
         .await
         .map_err(|error| error.to_string())?;
-        return Ok(cache_resolved_source_icons(cached_icons, resolved));
+        Ok(cache_resolved_source_icons(cached_icons, resolved))
     }
 
     #[cfg(target_os = "windows")]
@@ -3753,7 +3753,7 @@ pub async fn get_source_icons(
         })
         .await
         .map_err(|error| error.to_string())??;
-        return Ok(cache_resolved_source_icons(cached_icons, resolved));
+        Ok(cache_resolved_source_icons(cached_icons, resolved))
     }
 
     #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
