@@ -13,10 +13,13 @@ Pasted 1.0 is the first direct-download release of the local, privacy-first clip
 - Configurable feature gates, hotkeys, retention, previews, content detection, and appearance
 - Bundled `pasted` with shared native data and mutation contracts
 - Signed, notarized, stapled, and Gatekeeper-verified DMG
+- Release-blocking dependency license, advisory, mission-policy, and SPDX SBOM verification
 
 ## Privacy
 
 Pasted stores its library locally and includes no analytics or telemetry. Intelligence-assisted Transforms contact a provider only when the user explicitly runs them through an enabled connection.
+
+Production dependencies are checked against reviewed open-source license and source policies. Tagged releases include a deterministic dependency-graph SPDX SBOM plus an SPDX scan of each extracted platform payload.
 
 ## Updates
 

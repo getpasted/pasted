@@ -18,6 +18,7 @@ const desktopBuildWorkflow = fs.readFileSync('.github/workflows/desktop-builds.y
 const universalMacCliBuild = fs.readFileSync('scripts/build-macos-universal-cli.sh', 'utf8');
 const thirdPartyLicenses = readJson('THIRD_PARTY_LICENSES.json');
 const thirdPartyNotices = fs.readFileSync('THIRD_PARTY_NOTICES.txt', 'utf8');
+const sourceSbom = readJson('THIRD_PARTY_SBOM.spdx.json');
 
 assert.equal(packageJson.name, 'pasted', 'Frontend package must use the Pasted product name');
 assert.equal(packageLock.name, packageJson.name, 'Package lock name must match package.json');
@@ -57,6 +58,8 @@ assert.equal(
 assert.equal(thirdPartyLicenses.schemaVersion, 1, 'Third-party license data must use the reviewed schema');
 assert.equal(thirdPartyLicenses.componentCount, thirdPartyLicenses.components.length, 'Third-party component count must be consistent');
 assert.equal(thirdPartyLicenses.noticeText, thirdPartyNotices, 'Structured and plain-text notices must match');
+assert.equal(sourceSbom.spdxVersion, 'SPDX-2.3', 'Release source SBOM must use SPDX 2.3');
+assert.equal(sourceSbom.packages.length, thirdPartyLicenses.componentCount, 'Source SBOM must cover every inventoried component');
 assert.equal(
   tauriConfig.bundle?.macOS?.dmg?.background,
   'dmg/background.png',
@@ -175,6 +178,29 @@ assert.match(
   /Copy-Item THIRD_PARTY_NOTICES\.txt release-assets\//,
   'The Windows portable release must stage the notice beside the CLI',
 );
+assert.match(
+  releaseWorkflow,
+  /THIRD_PARTY_SBOM\.spdx\.json.*Pasted_\$\{RELEASE_VERSION\}_source\.spdx\.json/,
+  'The release must publish the deterministic dependency-graph SBOM',
+);
+assert.equal(
+  (releaseWorkflow.match(/anchore\/sbom-action@e22c389904149dbc22b58101806040fa8d37a610/g) ?? []).length,
+  3,
+  'Every release platform must generate an exact-artifact SBOM with the reviewed action revision',
+);
+assert.match(
+  desktopBuildWorkflow,
+  /actions\/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294/,
+  'Pull requests must review new dependency licenses and vulnerabilities',
+);
+for (const workflow of [desktopBuildWorkflow, releaseWorkflow]) {
+  assert.match(
+    workflow,
+    /EmbarkStudios\/cargo-deny-action@b66acf5e9fe20f8aba065be86778a8a4c846f902/,
+    'Build and release workflows must enforce the reviewed Rust dependency policy',
+  );
+  assert.match(workflow, /audit-artifact-sbom\.js/, 'Packaged payloads must pass artifact SBOM policy');
+}
 assert.match(
   releaseWorkflow,
   /needs: \[metadata, macos, linux, windows\]/,

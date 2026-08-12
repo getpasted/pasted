@@ -28,6 +28,33 @@ permissions:
   contents: read
 
 jobs:
+  dependency-review:
+    name: Review dependency changes
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      pull-requests: write
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          fail-on-severity: moderate
+          allow-licenses: 0BSD, Apache-2.0, BSD-2-Clause, BSD-3-Clause, BSL-1.0, CC0-1.0, ISC, MIT, MIT-0, MPL-2.0, Unicode-3.0, Unlicense, Zlib
+          comment-summary-in-pr: on-failure
+
+  dependency-policy:
+    name: Verify Rust dependency policy
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: EmbarkStudios/cargo-deny-action@b66acf5e9fe20f8aba065be86778a8a4c846f902 # v2.1.1
+        with:
+          manifest-path: src-tauri/Cargo.toml
+          arguments: --all-features
+          command: check
+          command-arguments: advisories bans licenses sources --hide-inclusion-graph
+
   validate:
     name: Validate
     runs-on: ubuntu-22.04
@@ -52,18 +79,21 @@ jobs:
 
   package:
     name: Package ${{ matrix.name }}
-    needs: validate
+    needs: [validate, dependency-policy]
     strategy:
       fail-fast: false
       matrix:
         include:
           - name: macOS universal
             os: macos-latest
+            platform: macos
           - name: Linux x86_64
             os: ubuntu-22.04
+            platform: linux
             artifact: Pasted-Linux-x86_64
           - name: Windows x86_64
             os: windows-latest
+            platform: windows
             artifact: Pasted-Windows-x86_64
     runs-on: ${{ matrix.os }}
     steps:
@@ -120,6 +150,56 @@ jobs:
         run: |
           dmg_path="$(find src-tauri/target/universal-apple-darwin/release/bundle/dmg -name 'Pasted_*.dmg' -type f -print -quit)"
           bash scripts/verify-macos-release.sh "$dmg_path" --local
+      - name: Extract packaged payload for SBOM
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          scan_root="$RUNNER_TEMP/pasted-artifact-scan"
+          rm -rf "$scan_root"
+          mkdir -p "$scan_root"
+          if [[ "$RUNNER_OS" == "macOS" ]]; then
+            dmg_path="$(find src-tauri/target/universal-apple-darwin/release/bundle/dmg -name 'Pasted_*.dmg' -type f -print -quit)"
+            mount_path="$scan_root/mount"
+            mkdir -p "$mount_path"
+            device="$(hdiutil attach "$dmg_path" -nobrowse -readonly -mountpoint "$mount_path" | awk '/^\/dev\// { print $1; exit }')"
+            ditto "$mount_path/Pasted.app" "$scan_root/Pasted.app"
+            hdiutil detach "$device"
+            cp src-tauri/target/universal-apple-darwin/release/pasted "$scan_root/pasted-macos-universal"
+            echo "ARTIFACT_SCAN_PATH=$scan_root" >> "$GITHUB_ENV"
+          else
+            appimage="$(find src-tauri/target/release/bundle/appimage -name '*.AppImage' -type f -print -quit)"
+            chmod +x "$appimage"
+            (
+              cd "$scan_root"
+              "$GITHUB_WORKSPACE/$appimage" --appimage-extract >/dev/null
+            )
+            cp src-tauri/target/release/pasted "$scan_root/pasted-linux-x86_64"
+            echo "ARTIFACT_SCAN_PATH=$scan_root" >> "$GITHUB_ENV"
+          fi
+          echo "ARTIFACT_SBOM_PATH=$RUNNER_TEMP/Pasted-${{ matrix.platform }}.artifact.spdx.json" >> "$GITHUB_ENV"
+      - name: Extract packaged payload for SBOM
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $scanRoot = Join-Path $env:RUNNER_TEMP 'pasted-artifact-scan'
+          New-Item -ItemType Directory -Force $scanRoot | Out-Null
+          $installer = Get-ChildItem src-tauri/target/release/bundle/nsis/*-setup.exe | Select-Object -First 1
+          & 7z x $installer.FullName "-o$scanRoot" -y | Out-Null
+          Copy-Item src-tauri/target/release/pasted.exe "$scanRoot/pasted-windows-x86_64.exe"
+          "ARTIFACT_SCAN_PATH=$scanRoot" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "ARTIFACT_SBOM_PATH=$env:RUNNER_TEMP/Pasted-windows.artifact.spdx.json" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+      - name: Generate exact-artifact SBOM
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
+        with:
+          path: ${{ env.ARTIFACT_SCAN_PATH }}
+          format: spdx-json
+          output-file: ${{ env.ARTIFACT_SBOM_PATH }}
+          artifact-name: Pasted-${{ matrix.platform }}-artifact.spdx.json
+          upload-artifact: true
+          upload-release-assets: false
+          syft-version: v1.51.0
+      - name: Audit exact-artifact SBOM
+        run: node scripts/audit-artifact-sbom.js "${{ env.ARTIFACT_SBOM_PATH }}" "${{ matrix.platform }}"
       - name: Stage Linux artifacts
         if: runner.os == 'Linux'
         run: |

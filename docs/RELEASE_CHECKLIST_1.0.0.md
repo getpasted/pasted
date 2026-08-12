@@ -6,6 +6,8 @@ Use the exact notarized DMG intended for publication. Do not substitute a develo
 
 - [ ] Working tree is clean and points at the intended release commit.
 - [ ] `npm run release:macos` passes the complete test suite.
+- [ ] Dependency Review, `cargo-deny`, npm SPDX policy, mission-policy, notice, and source-SBOM gates pass on the release commit.
+- [ ] The extracted macOS, Linux, and Windows payload SBOM audits pass without unreviewed packages or forbidden licenses.
 - [ ] Apple accepts the notarization submission.
 - [ ] The notarization ticket is stapled to the DMG.
 - [ ] `scripts/verify-macos-release.sh` passes code-signing, Gatekeeper, ticket, and disk-image checks.
@@ -49,7 +51,7 @@ Use the exact notarized DMG intended for publication. Do not substitute a develo
 
 ## Publication
 
-- [ ] Publish the DMG, SHA-256 checksum, system requirements, privacy summary, and `RELEASE_NOTES_1.0.0.md` together.
+- [ ] Publish the DMG, SHA-256 checksum, source and platform artifact SPDX SBOMs, system requirements, privacy summary, and `RELEASE_NOTES_1.0.0.md` together.
 - [ ] State that 1.0 supports macOS 13+ on Apple Silicon and Intel with manual DMG updates.
 - [ ] Label the Linux AppImage as a preview and Windows packages as unsigned experimental downloads.
 - [ ] Preserve the notarization submission identifier and final release commit in the release record.

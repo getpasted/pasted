@@ -1,0 +1,153 @@
+{
+  "schemaVersion": 1,
+  "approvedLicenses": [
+    "0BSD",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "BSL-1.0",
+    "CC0-1.0",
+    "ISC",
+    "MIT",
+    "MIT-0",
+    "MPL-2.0",
+    "Unicode-3.0",
+    "Unlicense",
+    "Zlib"
+  ],
+  "approvedNpmExpressions": [
+    "Apache-2.0 OR MIT",
+    "ISC",
+    "MIT",
+    "MIT OR Apache-2.0"
+  ],
+  "forbiddenLicenseTerms": [
+    "AGPL",
+    "BUSL",
+    "Commons-Clause",
+    "Elastic-2.0",
+    "GPL",
+    "LGPL",
+    "LicenseRef-Proprietary",
+    "NC",
+    "SSPL",
+    "UNKNOWN"
+  ],
+  "forbiddenDependencyNames": [
+    "@amplitude/analytics-browser",
+    "@datadog/browser-rum",
+    "@segment/analytics-next",
+    "mixpanel-browser",
+    "newrelic",
+    "opentelemetry",
+    "posthog-js",
+    "sentry"
+  ],
+  "networkCapableDirectDependencies": [
+    "@sentry/browser",
+    "axios",
+    "hyper",
+    "reqwest",
+    "surf",
+    "ureq"
+  ],
+  "approvedNetworkDependencies": [],
+  "ignoredRustAdvisories": [
+    {
+      "id": "RUSTSEC-2024-0370",
+      "expires": "2026-12-31",
+      "reason": "proc-macro-error is build-time-only and arrives through the GTK3 macros required by Tauri's Linux stack; no safe upgrade is available."
+    },
+    {
+      "id": "RUSTSEC-2024-0411",
+      "expires": "2026-12-31",
+      "reason": "The unmaintained GTK3 Wayland sys crate is required by Tauri's supported Linux stack; no safe upgrade is currently available."
+    },
+    {
+      "id": "RUSTSEC-2024-0412",
+      "expires": "2026-12-31",
+      "reason": "The unmaintained GTK3 GDK crate is required by Tauri's supported Linux stack; no safe upgrade is currently available."
+    },
+    {
+      "id": "RUSTSEC-2024-0413",
+      "expires": "2026-12-31",
+      "reason": "The unmaintained GTK3 ATK crate is required by Tauri's supported Linux stack; no safe upgrade is currently available."
+    },
+    {
+      "id": "RUSTSEC-2024-0414",
+      "expires": "2026-12-31",
+      "reason": "The unmaintained GTK3 X11 sys crate is required by Tauri's supported Linux stack; no safe upgrade is currently available."
+    },
+    {
+      "id": "RUSTSEC-2024-0415",
+      "expires": "2026-12-31",
+      "reason": "The unmaintained GTK3 crate is required by Tauri's supported Linux stack; no safe upgrade is currently available."
+    },
+    {
+      "id": "RUSTSEC-2024-0416",
+      "expires": "2026-12-31",
+      "reason": "The unmaintained GTK3 ATK sys crate is required by Tauri's supported Linux stack; no safe upgrade is currently available."
+    },
+    {
+      "id": "RUSTSEC-2024-0417",
+      "expires": "2026-12-31",
+      "reason": "The unmaintained GTK3 X11 crate is required by Tauri's supported Linux stack; no safe upgrade is currently available."
+    },
+    {
+      "id": "RUSTSEC-2024-0418",
+      "expires": "2026-12-31",
+      "reason": "The unmaintained GTK3 GDK sys crate is required by Tauri's supported Linux stack; no safe upgrade is currently available."
+    },
+    {
+      "id": "RUSTSEC-2024-0419",
+      "expires": "2026-12-31",
+      "reason": "The unmaintained GTK3 macros crate is build-time-only and required by Tauri's supported Linux stack; no safe upgrade is available."
+    },
+    {
+      "id": "RUSTSEC-2024-0420",
+      "expires": "2026-12-31",
+      "reason": "The unmaintained GTK3 sys crate is required by Tauri's supported Linux stack; no safe upgrade is currently available."
+    },
+    {
+      "id": "RUSTSEC-2024-0429",
+      "expires": "2026-09-30",
+      "reason": "Linux GTK/Tauri transitively requires glib 0.18; Pasted does not use VariantStrIter, and issue #15 tracks the upstream migration."
+    },
+    {
+      "id": "RUSTSEC-2025-0075",
+      "expires": "2026-12-31",
+      "reason": "The unmaintained unic-char-range crate is transitive through Tauri's URL-pattern parser; Pasted does not use it directly and no safe upgrade is available."
+    },
+    {
+      "id": "RUSTSEC-2025-0080",
+      "expires": "2026-12-31",
+      "reason": "The unmaintained unic-common crate is transitive through Tauri's URL-pattern parser; Pasted does not use it directly and no safe upgrade is available."
+    },
+    {
+      "id": "RUSTSEC-2025-0081",
+      "expires": "2026-12-31",
+      "reason": "The unmaintained unic-char-property crate is transitive through Tauri's URL-pattern parser; Pasted does not use it directly and no safe upgrade is available."
+    },
+    {
+      "id": "RUSTSEC-2025-0098",
+      "expires": "2026-12-31",
+      "reason": "The unmaintained unic-ucd-version crate is transitive through Tauri's URL-pattern parser; Pasted does not use it directly and no safe upgrade is available."
+    },
+    {
+      "id": "RUSTSEC-2025-0100",
+      "expires": "2026-12-31",
+      "reason": "The unmaintained unic-ucd-ident crate is transitive through Tauri's URL-pattern parser; Pasted does not use it directly and no safe upgrade is available."
+    }
+  ],
+  "artifactUnknownLicenseAllowlist": {
+    "linux": ["Pasted", "pasted"],
+    "macos": ["Pasted", "pasted"],
+    "windows": ["Pasted", "pasted"]
+  },
+  "artifactUnknownLicensePatterns": {
+    "linux": ["^Pasted$", "^pasted(?:-app|-linux-x86_64)?$"],
+    "macos": ["^Pasted$", "^pasted(?:-app|-macos-universal)?$"],
+    "windows": ["^Pasted$", "^pasted(?:-app|-windows-x86_64\\.exe)?$", "^Pasted_.*-setup\\.exe$"]
+  }
+}

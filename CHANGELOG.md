@@ -8,6 +8,7 @@ Notable user-facing changes to Pasted are recorded here. The project follows sem
 
 This release candidate expands library organization, capture feedback, and customization while hardening shared data contracts:
 
+- added release-blocking open-source policy checks, expiring RustSec exceptions, pull-request dependency review, and source plus exact-artifact SPDX SBOMs;
 - added multi-Bin clip organization with persistent per-Bin ordering and matching GUI and CLI behavior;
 - introduced editable content types, groups, and detectors, including rescanning and safe migration of earlier detection preferences;
 - added bounded external-history imports for Maccy, Pastebot, Paste, Pasta, CopyClip, and Flycut;

@@ -46,7 +46,7 @@ Run the complete local gate:
 npm run test:all
 ```
 
-It covers Rust formatting, Clippy, frontend compilation, unit tests, IPC boundaries, security rules, feature gates, collection contracts, menu behavior, CLI parity, Transform behavior, activity events, CSS architecture, WCAG contrast, and platform chrome.
+It covers Rust formatting, Clippy, frontend compilation, unit tests, IPC boundaries, security rules, dependency mission and license policy, deterministic SBOM freshness, feature gates, collection contracts, menu behavior, CLI parity, Transform behavior, activity events, CSS architecture, WCAG contrast, and platform chrome.
 
 Platform-sensitive changes also need focused human testing on every affected environment. Never infer Windows or constrained Wayland success solely from a macOS build.
 
@@ -58,9 +58,14 @@ Changes to `Cargo.lock`, `package-lock.json`, or the approved license policy req
 cargo install --locked --features cli --version 0.9.1 cargo-about
 npm run licenses:generate
 npm run licenses:check
+npm run sbom:generate
+npm run sbom:check
+npm run dependencies:check
 ```
 
-Do not add a newly encountered license to `about.toml` merely to make generation pass. Review its distribution and source-availability obligations first. The generator includes production npm packages, the supported-platform Rust graph, package copyright/NOTICE files, and complete selected license texts.
+Do not add a newly encountered license to `about.toml` or `dependency-policy.json` merely to make generation pass. Review its distribution and source-availability obligations first. The generator includes production npm packages, the supported-platform Rust graph, package copyright/NOTICE files, complete selected license texts, and a deterministic SPDX source SBOM.
+
+`deny.toml` enforces Rust licenses, registries, wildcard versions, and RustSec advisories. Every advisory exception must also appear in `dependency-policy.json` with a substantive reason and future expiration date. New telemetry SDKs, remote webview connections, and network-capable direct dependencies require explicit review; Pasted's Analytics & Insights feature must remain an on-device database query.
 
 ## Pull requests
 

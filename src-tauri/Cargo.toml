@@ -4,6 +4,7 @@ version = "1.0.0-rc.5"
 description = "Pasted - Native, Subscription-Free Clipboard Manager"
 authors = ["Antigravity"]
 license = "MIT"
+repository = "https://github.com/getpasted/pasted"
 edition = "2021"
 default-run = "pasted-app"
 

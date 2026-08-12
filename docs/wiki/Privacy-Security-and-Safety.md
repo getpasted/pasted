@@ -2,6 +2,8 @@
 
 Pasted stores clipboard history, settings, previews, revisions, and Activity Log data locally in SQLite. It includes no analytics or telemetry.
 
+The release gate checks production dependency licenses, known Rust advisories, package sources, telemetry SDK policy, and remote webview destinations. Tagged downloads include both a deterministic source dependency SPDX SBOM and an SPDX scan of the extracted platform payload.
+
 ## Capture privacy
 
 - Password managers and sensitive apps are included in the default blacklist.

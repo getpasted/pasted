@@ -4,8 +4,16 @@ Pasted keeps its build workflows in this repository so the packaging definition 
 
 ## Workflows
 
-- **Desktop builds** runs on pull requests, pushes to `main`, and manual dispatches. It executes the complete test suite once, validates macOS universal packaging locally, and uploads credential-free Linux and Windows test packages. The ad-hoc macOS package is deliberately discarded because Gatekeeper would reject it.
-- **Desktop release** is the only source of an installable macOS DMG. Its `Pasted-release-macOS` artifact is Developer ID signed, submitted to Apple, stapled, and verified before upload. It runs manually as a packaging rehearsal or from a `vX.Y.Z` tag; tag runs preserve per-platform checksums, include explicitly experimental unsigned Windows packages, and assemble one draft GitHub Release for final human review.
+- **Desktop builds** runs on pull requests, pushes to `main`, and manual dispatches. It executes the complete test suite, reviews dependency additions on pull requests, enforces Rust license/source/advisory policy, validates macOS universal packaging locally, creates exact-payload SPDX SBOMs, and uploads credential-free Linux and Windows test packages. The ad-hoc macOS package is deliberately discarded because Gatekeeper would reject it.
+- **Desktop release** is the only source of an installable macOS DMG. Its `Pasted-release-macOS` artifact is Developer ID signed, submitted to Apple, stapled, verified, extracted for an artifact-level SBOM, and audited before upload. It runs manually as a packaging rehearsal or from a `vX.Y.Z` tag; tag runs preserve per-platform checksums and SPDX SBOMs, include explicitly experimental unsigned Windows packages, and assemble one draft GitHub Release for final human review.
+
+## Dependency and artifact policy
+
+`about.toml` and `dependency-policy.json` are reviewed allowlists, not catalogs to expand automatically. `cargo-deny` rejects unapproved Rust licenses, unknown registries or Git sources, wildcard requirements, and unacknowledged RustSec findings. Advisory exceptions require a reason and an expiration date; expiration fails the ordinary local gate even if the upstream dependency has not yet moved.
+
+The checked-in `THIRD_PARTY_SBOM.spdx.json` describes the complete supported-target Rust runtime and production npm graph. Because statically linked packages cannot always be reconstructed from a desktop executable, each platform job also extracts the exact DMG, AppImage, or NSIS payload and scans it with pinned Syft. The source and artifact SBOMs are complementary and ship with tagged releases. Unknown artifact package licenses fail unless the package is an explicitly reviewed Pasted application record; forbidden license families always fail.
+
+Mission policy is separate from copyright licensing. The dependency audit blocks known telemetry SDKs, undeclared network-capable direct dependencies, and remote webview CSP destinations. User-configured intelligence providers and permission-declared operations remain explicit user actions; the locally named Analytics & Insights feature remains an on-device SQLite query and is guarded as such.
 
 Use GitHub Environments named `release-macos`, `release-linux`, and `release-publish`. Add required reviewers to the platform and publishing environments if the repository plan supports them. The Linux environment currently needs no secrets; it exists so Linux publishing can acquire an approval gate or GPG key later without changing the workflow shape.
 
@@ -33,7 +41,7 @@ Unsigned Windows packages are available from **Desktop builds** for compatibilit
 ## Cutting a release
 
 1. Update the matching version in `package.json`, `package-lock.json`, `src-tauri/Cargo.toml`, and `src-tauri/tauri.conf.json`.
-2. Merge and let **Desktop builds** pass on `main`.
+2. Regenerate notices and the source SBOM, then merge and let dependency review, dependency policy, and **Desktop builds** pass on `main`.
 3. Create and push an annotated version tag, for example `git tag -a v1.0.0-rc.1 -m "Pasted 1.0.0 RC 1"` followed by `git push origin v1.0.0-rc.1`.
 4. Approve protected GitHub Environments if prompted.
 5. Download and clean-install test the exact draft-release artifacts.
