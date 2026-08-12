@@ -3,7 +3,7 @@ import { Pipeline, PipelineStep, Operation } from '../types';
 import { ArrowDown, ArrowUp, Sliders, Plus, Trash2, RotateCcw } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { HotkeyRecorder } from './HotkeyRecorder';
-import { startWindowDrag } from '../utils/windowDrag';
+import { handleWindowDragDoubleClick, startWindowDrag } from '../utils/windowDrag';
 import { AppDialog } from './AppDialog';
 import { AppDialogBody, AppDialogButton, AppDialogFooter, AppDialogHeader, AppDialogHeading } from './AppDialogLayout';
 import { MenuSelect, type MenuSelectOption } from './MenuSelect';
@@ -499,7 +499,7 @@ export const PipelineEditorModal: React.FC<PipelineEditorModalProps> = ({
       panelClassName="theme-panel flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden border"
     >
       {({ requestClose }) => <>
-        <AppDialogHeader onClose={requestClose} onMouseDown={startWindowDrag}>
+        <AppDialogHeader onClose={requestClose} onMouseDown={startWindowDrag} onDoubleClick={handleWindowDragDoubleClick}>
           <AppDialogHeading id="pipeline-editor-title" title={pipeline ? 'Edit Pipeline' : 'New Pipeline'} description="Chain reusable Operations into a transformation that runs as one step." icon={<Sliders />} tone="info" />
         </AppDialogHeader>
 

@@ -34,19 +34,24 @@ export function startWindowDrag(event: ReactMouseEvent<HTMLElement>) {
 
   event.preventDefault();
 
-  // macOS overlays its native titlebar on Pasted's web content. Preserve the
-  // user's Desktop & Dock preference for titlebar double-clicks instead of
-  // beginning a second drag. Framed Windows/Linux windows keep native chrome.
-  if (document.documentElement.dataset.platform === 'macos' && event.detail > 1) {
-    if (event.detail === 2) {
-      invoke<void>('perform_titlebar_double_click').catch((error) => {
-        console.error('Failed to perform titlebar double-click action:', error);
-      });
-    }
-    return;
-  }
-
   getCurrentWindow().startDragging().catch((error) => {
     console.error('Failed to start window drag:', error);
+  });
+}
+
+/**
+ * Applies the configured macOS title-bar action after WebKit has confirmed a
+ * double-click. Handling this during the second mouse-down makes a click-drag
+ * resize the window before macOS can recognize that the pointer is moving.
+ */
+export function handleWindowDragDoubleClick(event: ReactMouseEvent<HTMLElement>) {
+  if (event.button !== 0) return;
+  if (isInteractiveTitlebarTarget(event.target)) return;
+  if (document.documentElement.dataset.platform !== 'macos') return;
+  if (typeof window === 'undefined' || !(window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__) return;
+
+  event.preventDefault();
+  invoke<void>('perform_titlebar_double_click').catch((error) => {
+    console.error('Failed to perform titlebar double-click action:', error);
   });
 }

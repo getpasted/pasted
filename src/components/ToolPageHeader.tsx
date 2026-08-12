@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { startWindowDrag } from '../utils/windowDrag';
+import { handleWindowDragDoubleClick, startWindowDrag } from '../utils/windowDrag';
 import { OverflowText } from './OverflowText';
 
 interface ToolPageHeaderProps {
@@ -14,6 +14,7 @@ export function ToolPageHeader({ icon, title, description, actions }: ToolPageHe
     <header
       className="theme-toolbar tool-page-header h-[60px] border-b px-6 flex items-center justify-between gap-4 shrink-0 titlebar-drag-handle"
       onMouseDown={startWindowDrag}
+      onDoubleClick={handleWindowDragDoubleClick}
     >
       <div className="flex min-w-0 items-center gap-3">
         <span className="tool-page-header-icon flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border">

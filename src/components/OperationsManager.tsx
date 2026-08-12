@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { OperationEditorModal, CATEGORIES } from './OperationEditorModal';
-import { startWindowDrag } from '../utils/windowDrag';
+import { handleWindowDragDoubleClick, startWindowDrag } from '../utils/windowDrag';
 import { TransformLibraryToolbar } from './TransformLibraryToolbar';
 import { TransformCategorySelect } from './TransformCategorySelect';
 import { DeleteTransformationAssetDialog } from './DeleteTransformationAssetDialog';
@@ -187,7 +187,7 @@ export const OperationsManager: React.FC<OperationsManagerProps> = ({
   const content = (
     <div className="space-y-4">
       {!isEmbedded && (
-        <div onMouseDown={startWindowDrag} className="theme-divider flex items-center justify-between border-b pb-4">
+        <div onMouseDown={startWindowDrag} onDoubleClick={handleWindowDragDoubleClick} className="theme-divider flex items-center justify-between border-b pb-4">
           <div>
             <h2 className="theme-title flex items-center space-x-2 text-sm font-bold">
               <Wrench className="transform-accent operations h-4 w-4 opacity-70" />

@@ -15,16 +15,22 @@ export function AppDialogHeader({
   onClose,
   closeLabel = 'Close dialog',
   onMouseDown,
+  onDoubleClick,
   className,
 }: {
   children: ReactNode;
   onClose: () => void;
   closeLabel?: string;
   onMouseDown?: MouseEventHandler<HTMLElement>;
+  onDoubleClick?: MouseEventHandler<HTMLElement>;
   className?: string;
 }) {
   return (
-    <header className={joinClasses('app-dialog-header', className)} onMouseDown={onMouseDown}>
+    <header
+      className={joinClasses('app-dialog-header', className)}
+      onMouseDown={onMouseDown}
+      onDoubleClick={onDoubleClick}
+    >
       <div className="min-w-0 flex-1">{children}</div>
       <button
         type="button"

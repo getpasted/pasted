@@ -84,10 +84,16 @@ assert.match(
   'Linux clipboard history needs Wayland data-control instead of an XWayland fallback',
 );
 assert.match(windowDragSource, /isInteractiveTitlebarTarget\(event\.target\)/);
-assert.match(windowDragSource, /document\.documentElement\.dataset\.platform === 'macos'/);
-assert.match(windowDragSource, /event\.detail === 2/);
+assert.match(windowDragSource, /document\.documentElement\.dataset\.platform !== 'macos'/);
+assert.match(windowDragSource, /handleWindowDragDoubleClick/);
+assert.doesNotMatch(windowDragSource, /event\.detail/);
 assert.match(windowDragSource, /perform_titlebar_double_click/);
 assert.match(windowDragSource, /\.titlebar-no-drag/);
+assert.match(
+  sidebarSource,
+  /onDoubleClick=\{handleWindowDragDoubleClick\}/,
+  'Custom title bars must wait for a confirmed double-click before resizing the window',
+);
 assert.match(titlebarSource, /AppleActionOnDoubleClick/);
 assert.match(titlebarSource, /TitlebarDoubleClickAction::Minimize/);
 assert.match(titlebarSource, /TitlebarDoubleClickAction::None/);

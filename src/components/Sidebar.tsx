@@ -1,7 +1,7 @@
 import React from 'react';
 import { formatEmojiIcon } from '../utils/emoji';
 import { binTextColor } from '../utils/binColor';
-import { startWindowDrag } from '../utils/windowDrag';
+import { handleWindowDragDoubleClick, startWindowDrag } from '../utils/windowDrag';
 import {
   Clipboard,
   Pin,
@@ -404,6 +404,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             platforms can use it for the sidebar control immediately. */}
         <div
           onMouseDown={startWindowDrag}
+          onDoubleClick={handleWindowDragDoubleClick}
           className="platform-sidebar-header h-[56px] w-full cursor-default titlebar-drag-handle shrink-0"
         >
           <button
@@ -532,6 +533,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           lights. Framed platforms place the collapse control beside Clips. */}
       <div
         onMouseDown={isClipDragging ? undefined : startWindowDrag}
+        onDoubleClick={isClipDragging ? undefined : handleWindowDragDoubleClick}
         className="platform-macos-only h-[60px] px-4 items-center justify-between border-b border-transparent cursor-default titlebar-drag-handle shrink-0"
       >
         <div className="sidebar-titlebar-leading flex items-center titlebar-drag-handle" />

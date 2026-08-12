@@ -6,7 +6,7 @@ import type { ClipTransformationProvenance, TransformationExecutionOutcome, Save
 import { parseColor, ColorFormats } from '../utils/color';
 import { soundManager } from '../utils/sound';
 import { detectSmartPipelineRecommendations } from '../utils/smartPipelineDetector';
-import { startWindowDrag } from '../utils/windowDrag';
+import { handleWindowDragDoubleClick, startWindowDrag } from '../utils/windowDrag';
 import { ClipRevisionHistory } from './ClipRevisionHistory';
 import { ClipPreviewContent } from './ClipPreviewContent';
 import { ClipTransformBar } from './ClipTransformBar';
@@ -741,6 +741,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
       {/* Finder Top Header Bar */}
       <div
         onMouseDown={startWindowDrag}
+        onDoubleClick={handleWindowDragDoubleClick}
         className="col-preview-header h-[60px] px-4 flex items-center justify-between cursor-default titlebar-drag-handle shrink-0"
       >
         <div className="flex min-w-0 items-center space-x-3 titlebar-drag-handle">

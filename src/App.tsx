@@ -24,7 +24,7 @@ import { DeleteBinDialog } from './components/DeleteBinDialog';
 import { ClipNoteDialog } from './components/ClipNoteDialog';
 import { ClearHistoryDialog, type ClearHistoryMode } from './components/ClearHistoryDialog';
 import { OverflowText } from './components/OverflowText';
-import { startWindowDrag } from './utils/windowDrag';
+import { handleWindowDragDoubleClick, startWindowDrag } from './utils/windowDrag';
 import { useColumnResize } from './hooks/useColumnResize';
 import { useAppSettings } from './hooks/useAppSettings';
 import { useClipViews } from './hooks/useClipViews';
@@ -1112,6 +1112,7 @@ export default function App() {
             {/* Finder Header Title Bar */}
             <div
               onMouseDown={startWindowDrag}
+              onDoubleClick={handleWindowDragDoubleClick}
               className="h-[60px] border-b px-3 flex items-center justify-between col-list-header cursor-default titlebar-drag-handle shrink-0"
             >
               <div className="flex items-center space-x-2 titlebar-drag-handle min-w-0 flex-1 mr-2">

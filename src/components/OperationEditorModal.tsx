@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Operation } from '../types';
 import { Braces, Wrench } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
-import { startWindowDrag } from '../utils/windowDrag';
+import { handleWindowDragDoubleClick, startWindowDrag } from '../utils/windowDrag';
 import { AppDialog } from './AppDialog';
 import { AppDialogBody, AppDialogButton, AppDialogFooter, AppDialogHeader, AppDialogHeading } from './AppDialogLayout';
 import { MenuSelect, type MenuSelectOption } from './MenuSelect';
@@ -183,7 +183,7 @@ export const OperationEditorModal: React.FC<OperationEditorModalProps> = ({
       panelClassName="theme-panel flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden border"
     >
       {({ requestClose }) => <>
-        <AppDialogHeader onClose={requestClose} onMouseDown={startWindowDrag}>
+        <AppDialogHeader onClose={requestClose} onMouseDown={startWindowDrag} onDoubleClick={handleWindowDragDoubleClick}>
           <AppDialogHeading id="operation-editor-title" title={operation ? 'Edit Operation' : 'New Operation'} description="Configure a reusable building block for Transforms and Pipelines." icon={<Wrench />} tone="info" />
         </AppDialogHeader>
 
