@@ -70,12 +70,15 @@ export function SettingsFeaturesPanel({ settings, onUpdateSettings }: SettingsFe
         description="Make Pasted as focused or as powerful as you want. Hidden features keep their existing data."
         actions={(
           <div className="theme-surface flex rounded-xl border p-1" aria-label="Feature presets">
-            {(['simple', 'full'] as const).map((preset) => (
+            {(['custom', 'simple', 'full'] as const).map((preset) => (
               <button
                 key={preset}
                 type="button"
                 aria-pressed={activePreset === preset}
-                onClick={() => onUpdateSettings(featureUpdatesForPreset(preset))}
+                disabled={preset === 'custom' && activePreset !== 'custom'}
+                onClick={() => {
+                  if (preset !== 'custom') onUpdateSettings(featureUpdatesForPreset(preset));
+                }}
                 className={`settings-feature-preset rounded-lg px-3 py-1.5 font-semibold capitalize ${activePreset === preset ? 'is-active' : ''}`}
               >
                 {preset}
@@ -84,12 +87,6 @@ export function SettingsFeaturesPanel({ settings, onUpdateSettings }: SettingsFe
           </div>
         )}
       />
-
-      {activePreset === 'custom' && (
-        <p className="theme-status-info rounded-xl border px-3 py-2 text-[11px]">
-          Custom setup — your individual choices differ from the Simple and Full presets.
-        </p>
-      )}
 
       <div className="space-y-6">
         {FEATURE_GROUPS.map((group) => (

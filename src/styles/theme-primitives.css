@@ -322,6 +322,16 @@ html:not(.is-stable-reordering) .connection-priority-card:hover {
   color: var(--text-title);
 }
 
+.settings-feature-preset:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.settings-feature-preset:disabled:hover {
+  background-color: transparent;
+  color: var(--text-muted);
+}
+
 .settings-feature-preset.is-active {
   background-color: var(--accent-primary);
   color: var(--accent-primary-contrast);
@@ -538,6 +548,11 @@ html:not(.is-stable-reordering) .connection-priority-card:hover {
 
 .settings-switch {
   background-color: var(--bg-tab-hover);
+}
+
+.settings-feature-card:hover .settings-switch:not(.is-on),
+.settings-feature-card:focus-within .settings-switch:not(.is-on) {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-primary) 48%, var(--border-subtle));
 }
 
 .settings-switch.is-on {
