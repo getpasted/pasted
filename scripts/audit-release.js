@@ -15,6 +15,7 @@ const packageScripts = packageJson.scripts ?? {};
 const gitignore = fs.readFileSync('.gitignore', 'utf8');
 const releaseWorkflow = fs.readFileSync('.github/workflows/desktop-release.yml', 'utf8');
 const desktopBuildWorkflow = fs.readFileSync('.github/workflows/desktop-builds.yml', 'utf8');
+const dependencyPolicyWorkflow = fs.readFileSync('.github/workflows/dependency-policy.yml', 'utf8');
 const universalMacCliBuild = fs.readFileSync('scripts/build-macos-universal-cli.sh', 'utf8');
 const thirdPartyLicenses = readJson('THIRD_PARTY_LICENSES.json');
 const thirdPartyNotices = fs.readFileSync('THIRD_PARTY_NOTICES.txt', 'utf8');
@@ -201,6 +202,13 @@ for (const workflow of [desktopBuildWorkflow, releaseWorkflow]) {
   );
   assert.match(workflow, /audit-artifact-sbom\.js/, 'Packaged payloads must pass artifact SBOM policy');
 }
+assert.match(dependencyPolicyWorkflow, /schedule:/, 'Dependency policy must run without a source change');
+assert.match(dependencyPolicyWorkflow, /npm run dependencies:check/, 'Scheduled policy must enforce mission and expiry rules');
+assert.match(
+  dependencyPolicyWorkflow,
+  /EmbarkStudios\/cargo-deny-action@b66acf5e9fe20f8aba065be86778a8a4c846f902/,
+  'Scheduled policy must refresh RustSec and Rust dependency findings',
+);
 assert.match(
   releaseWorkflow,
   /needs: \[metadata, macos, linux, windows\]/,

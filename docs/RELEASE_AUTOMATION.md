@@ -5,7 +5,14 @@ Pasted keeps its build workflows in this repository so the packaging definition 
 ## Workflows
 
 - **Desktop builds** runs on pull requests, pushes to `main`, and manual dispatches. It executes the complete test suite, reviews dependency additions on pull requests, enforces Rust license/source/advisory policy, validates macOS universal packaging locally, creates exact-payload SPDX SBOMs, and uploads credential-free Linux and Windows test packages. The ad-hoc macOS package is deliberately discarded because Gatekeeper would reject it.
+- **Dependency policy** runs every Monday after the Dependabot update windows and on manual dispatch. It re-evaluates RustSec data, advisory-exception expiry dates, licenses, notices, sources, mission policy, and source-SBOM freshness even when no repository change triggers the ordinary build.
 - **Desktop release** is the only source of an installable macOS DMG. Its `Pasted-release-macOS` artifact is Developer ID signed, submitted to Apple, stapled, verified, extracted for an artifact-level SBOM, and audited before upload. It runs manually as a packaging rehearsal or from a `vX.Y.Z` tag; tag runs preserve per-platform checksums and SPDX SBOMs, include explicitly experimental unsigned Windows packages, and assemble one draft GitHub Release for final human review.
+
+## Protected `main` workflow
+
+`main` is a protected integration branch. Start from an up-to-date `main`, create a short-lived branch, commit and push there, then open a pull request. The pull request must pass **Review dependency changes**, **Verify Rust dependency policy**, **Validate**, and the macOS, Linux, and Windows package jobs before merge. Review conversations must be resolved. Direct pushes, force-pushes, and branch deletion are blocked.
+
+The repository does not require a second approval while it has one active maintainer; doing so would make ordinary maintenance impossible. Add a required approval when a second regular reviewer is available. Administrators retain emergency recovery access through GitHub, but a protection bypass is reserved for an actual GitHub or repository incident. Preserve the source branch, document why the bypass was necessary, run the complete checks as soon as service returns, and revert immediately if they do not pass.
 
 ## Dependency and artifact policy
 
@@ -43,7 +50,7 @@ Unsigned Windows packages are available from **Desktop builds** for compatibilit
 ## Cutting a release
 
 1. Update the matching version in `package.json`, `package-lock.json`, `src-tauri/Cargo.toml`, and `src-tauri/tauri.conf.json`.
-2. Regenerate notices and the source SBOM, then merge and let dependency review, dependency policy, and **Desktop builds** pass on `main`.
+2. Regenerate notices and the source SBOM, then merge through a protected pull request after dependency review, dependency policy, and **Desktop builds** pass.
 3. Create and push an annotated version tag, for example `git tag -a v1.0.0-rc.1 -m "Pasted 1.0.0 RC 1"` followed by `git push origin v1.0.0-rc.1`.
 4. Approve protected GitHub Environments if prompted.
 5. Download and clean-install test the exact draft-release artifacts.
