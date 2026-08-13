@@ -31,7 +31,6 @@ Other Settings pages cover:
 - **Connections:** detected and custom intelligence providers;
 - **Blacklist:** applications Pasted should not capture;
 - **Storage:** database location, complete backup and restore, preflighted History and Organization transfer, Clip and Activity import/export, migration from supported clipboard managers, and Factory Reset;
-- **Diagnostics:** schedulers and long-running background work;
 - **About:** version, installation paths, signing, runtime, and CLI installation.
 
 Appearance schemes use semantic theme tokens across the main app, HUD, menus, modals, Settings, and Tools pages.

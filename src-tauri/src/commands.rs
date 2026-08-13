@@ -2869,24 +2869,6 @@ pub fn get_intelligence_scheduler_snapshot() -> crate::intelligence_scheduler::S
     crate::intelligence_scheduler::snapshot()
 }
 
-#[tauri::command]
-pub fn run_intelligence_scheduler_demo(
-    scenario: String,
-    db: State<'_, Arc<DbState>>,
-) -> Result<(), String> {
-    features::require(&db, Feature::Diagnostics)?;
-    if !cfg!(debug_assertions) {
-        return Err("Scheduler simulations are available only in development builds".to_string());
-    }
-    let db = Arc::clone(&db);
-    crate::intelligence_scheduler::run_demo(scenario, move || {
-        let _ = db.log_activity(
-            "intelligence_connection_fallback",
-            "Scheduler simulation fell back from Demo Primary to Demo Fallback",
-        );
-    })
-}
-
 // Sequential Paste Commands
 #[tauri::command]
 pub fn start_sequential_paste(

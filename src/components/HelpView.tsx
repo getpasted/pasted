@@ -517,7 +517,7 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
                     OCR uses Apple Vision on macOS to extract searchable text from captured images and screenshots. It does not replace the original image.
                   </p>
                   <p className="theme-text-muted text-xs leading-relaxed">
-                    Disabling OCR cancels background work and discards late results while preserving completed text. Re-enabling it resumes eligible backfill. Check progress under Settings → Diagnostics or with <code>pasted ocr status --json</code>.
+                    Disabling OCR cancels background work and discards late results while preserving completed text. Re-enabling it resumes eligible backfill. Check progress under Settings → Detection or with <code>pasted ocr status --json</code>.
                   </p>
                 </section>
               </div>

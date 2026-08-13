@@ -29,4 +29,4 @@ On macOS, Apple Vision can extract searchable text from clipboard images and scr
 - Deleting or purging a clip also removes or excludes its OCR lifecycle state.
 - Full Backup and History and Organization transfer round trips preserve completed OCR state.
 
-Use **Settings → Diagnostics** or `pasted ocr status --json` to inspect background progress.
+Use **Settings → Detection** or `pasted ocr status --json` to inspect background progress.

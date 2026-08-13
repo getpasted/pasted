@@ -16,6 +16,7 @@ Pasted aims to make its meaningful clipboard-management capabilities available t
 
 - Use Tailwind utilities for structure: layout, spacing, sizing, responsive behavior, and typography.
 - Use Pasted semantic theme classes and CSS custom properties for colors, surfaces, borders, dividers, focus rings, and visual emphasis.
+- A structural border utility such as `border`, `border-t`, or `border-b` never supplies its own color. Pair it on the same element with a semantic theme class or a component class that explicitly sets a semantic `border-color`; never allow it to fall back to `currentColor`. Dialog panels with borders must use `theme-panel` unless a documented semantic panel class owns the complete surface treatment.
 - Do not introduce Tailwind's default palette utilities directly into user-facing UI. If a reusable semantic class does not exist, add one to the theme primitives instead of special-casing a component.
 - Mechanical utilities such as `divide-y` must be paired with the corresponding semantic class, such as `theme-divide`.
 - Keep the CSS architecture audit budgets ratcheting downward; never increase a debt budget to accommodate new styling.

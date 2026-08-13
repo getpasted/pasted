@@ -88,7 +88,7 @@ export function ContentTypeGroupManagerDialog({ isOpen, onClose }: { isOpen: boo
   };
   const usageCount = selected ? definitions.filter(({ group }) => group === selected.id).length : 0;
 
-  return <AppDialog isOpen={isOpen} onClose={onClose} labelledBy="content-type-group-manager-title" panelClassName="flex max-h-[86vh] w-full max-w-2xl flex-col overflow-hidden border shadow-2xl">
+  return <AppDialog isOpen={isOpen} onClose={onClose} labelledBy="content-type-group-manager-title" panelClassName="theme-panel flex max-h-[86vh] w-full max-w-2xl flex-col overflow-hidden border shadow-2xl">
     {({ requestClose }) => <>
       <AppDialogHeader onClose={requestClose} className="shrink-0">
         <AppDialogHeading id="content-type-group-manager-title" title="Content Type Groups" description="Organize Types with stable, reusable groups." icon={<Layers3 />} />

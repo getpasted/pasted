@@ -519,7 +519,6 @@ pub fn run() {
             commands::get_library_location,
             commands::move_library,
             commands::restore_default_library_location,
-            commands::run_intelligence_scheduler_demo,
             commands::toggle_clip_protected,
             commands::trash_unpinned_clips,
             commands::purge_unpinned_clips,

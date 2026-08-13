@@ -436,8 +436,6 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
           'Run `pasted licenses` or open this dialog in the native app to inspect that document.',
         ].join('\n'),
       } as unknown as T;
-    case 'run_intelligence_scheduler_demo':
-      return undefined as T;
     case 'get_ocr_backfill_status':
       return {
         totalImages: 0,

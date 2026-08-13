@@ -252,7 +252,7 @@ export default function App() {
     if (requiredFeature && !enabledFeatures[requiredFeature]) route = 'all';
     const [tab, detail] = route.split(':', 2);
     const key = ++navigationSerialRef.current;
-    if (tab === 'settings' && ['general', 'features', 'notifications', 'hotkeys', 'connections', 'blacklist', 'storage', 'diagnostics', 'about'].includes(detail)) {
+    if (tab === 'settings' && ['general', 'features', 'detection', 'notifications', 'hotkeys', 'connections', 'blacklist', 'storage', 'about'].includes(detail)) {
       setSettingsNavigation({ tab: detail as SettingsTab, key });
     } else if (tab === 'help' && ['cli', 'hotkeys', 'autopause', 'trash', 'pipelines'].includes(detail)) {
       setHelpNavigation({ topic: detail as HelpTopic, key });

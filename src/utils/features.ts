@@ -4,7 +4,6 @@ export type FeatureId =
   | 'analytics'
   | 'bins'
   | 'contentDetection'
-  | 'diagnostics'
   | 'notes'
   | 'notifications'
   | 'ocr'
@@ -25,7 +24,6 @@ export type FeatureSettingKey =
   | 'enableAnalytics'
   | 'enableBins'
   | 'enableContentDetection'
-  | 'enableDiagnostics'
   | 'enableNotes'
   | 'enableNotifications'
   | 'enableOcr'
@@ -54,7 +52,7 @@ export const FEATURE_GROUPS: readonly FeatureGroupDefinition[] = [
   { id: 'library', label: 'Library', description: 'Organize, preserve, and manage clipboard history.' },
   { id: 'discovery', label: 'Intelligence and discovery', description: 'Understand clip contents and browse useful collections.' },
   { id: 'workflow', label: 'Workflow Tools', description: 'Use clips faster and build more capable workflows.' },
-  { id: 'app', label: 'App and support', description: 'Control feedback, inspect system health, and access supporting tools.' },
+  { id: 'app', label: 'App and support', description: 'Control feedback and access supporting tools.' },
 ] as const;
 
 export interface FeatureDefinition {
@@ -70,7 +68,6 @@ export interface FeatureDefinition {
 export const FEATURE_DEFINITIONS: readonly FeatureDefinition[] = [
   { id: 'bins', group: 'library', settingKey: 'enableBins', label: 'Bins', description: 'Organize clips manually or automatically with Smart Bins.', simple: false },
   { id: 'contentDetection', group: 'discovery', settingKey: 'enableContentDetection', label: 'Content Detection', description: 'Classify new text clips for Smart Bins and search.', simple: true },
-  { id: 'diagnostics', group: 'app', settingKey: 'enableDiagnostics', label: 'Diagnostics', description: 'Inspect background work, health, and developer tools.', simple: false },
   { id: 'notes', group: 'library', settingKey: 'enableNotes', label: 'Notes', description: 'Annotate clips and browse the Noted collection.', simple: false },
   { id: 'notifications', group: 'app', settingKey: 'enableNotifications', label: 'Notifications', description: 'Show interactive capture feedback without interrupting the current workflow.', simple: false },
   { id: 'ocr', group: 'discovery', settingKey: 'enableOcr', label: 'OCR', description: 'Extract searchable text from copied images.', simple: false },

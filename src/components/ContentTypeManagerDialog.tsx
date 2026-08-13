@@ -99,20 +99,17 @@ export function ContentTypeManagerDialog({ isOpen, onClose }: { isOpen: boolean;
       isOpen={isOpen}
       onClose={onClose}
       labelledBy="content-type-manager-title"
-      panelClassName="@container flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden border shadow-2xl"
+      panelClassName="theme-panel @container flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden border shadow-2xl"
     >
       {({ requestClose }) => <>
         <AppDialogHeader onClose={requestClose} className="shrink-0">
           <AppDialogHeading id="content-type-manager-title" title="Content Types" description="Manage shared names, icons, and groups. Type IDs remain stable." icon={<Shapes />} />
         </AppDialogHeader>
-        <AppDialogBody className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-y-auto text-xs @xl:grid-cols-[minmax(180px,0.72fr)_minmax(300px,1.3fr)]">
+        <AppDialogBody className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-y-auto text-xs @xl:grid-cols-[minmax(0,3fr)_minmax(0,7fr)]">
           <section className="theme-surface flex min-h-[260px] flex-col overflow-hidden rounded-xl border @xl:min-h-0">
             <RegistryPanelHeader
               title="Registered Types"
-              actions={<span className="flex items-center gap-1.5">
-                <AppDialogButton onClick={() => setIsGroupManagerOpen(true)} className="h-7 min-h-7 px-2.5"><Layers3 className="h-3 w-3" /> Groups</AppDialogButton>
-                <AppDialogButton onClick={beginNewType} className="h-7 min-h-7 px-2.5"><Plus className="h-3 w-3" /> New</AppDialogButton>
-              </span>}
+              actions={<AppDialogButton onClick={beginNewType} className="h-7 min-h-7 px-2.5"><Plus className="h-3 w-3" /> New</AppDialogButton>}
             />
             <div className="min-h-0 flex-1 overflow-y-auto p-1.5">
               {definitions.map((item) => <RegistryListItem
@@ -126,7 +123,12 @@ export function ContentTypeManagerDialog({ isOpen, onClose }: { isOpen: boolean;
               />)}
             </div>
           </section>
-          <section className="theme-surface min-w-0 space-y-4 rounded-xl border p-4">
+          <section className="theme-surface flex min-w-0 flex-col overflow-hidden rounded-xl border">
+            <RegistryPanelHeader
+              title="Type Settings"
+              actions={<AppDialogButton onClick={() => setIsGroupManagerOpen(true)} className="h-7 min-h-7 px-2.5"><Layers3 className="h-3 w-3" /> Manage Groups</AppDialogButton>}
+            />
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
             <div className="grid grid-cols-1 gap-3 @md:grid-cols-[1fr_150px]">
               <label className={`space-y-1 ${modified.label ? 'settings-field-modified' : ''}`}><ModifiedFieldLabel modified={modified.label}>Name</ModifiedFieldLabel><input value={draft.label} onChange={(event) => setDraft({ ...draft, label: event.target.value })} className="theme-input w-full rounded-lg border px-3 py-2" /></label>
               <label className="space-y-1"><span className="theme-text-muted font-semibold">Stable ID</span><input value={draft.id} disabled={selectedId !== 'new'} onChange={(event) => setDraft({ ...draft, id: event.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '_') })} className="theme-input w-full rounded-lg border px-3 py-2 font-mono disabled:opacity-60" /></label>
@@ -137,6 +139,7 @@ export function ContentTypeManagerDialog({ isOpen, onClose }: { isOpen: boolean;
             </div>
             <div className="theme-subtle-surface rounded-lg border p-3 text-[11px] leading-relaxed">
               {selected?.isBuiltin ? 'Built-in IDs cannot be changed or archived. Their name, icon, and group can be customized and restored later.' : 'Custom Types can be archived without changing historical clips. Archiving also disables detectors that produce this Type.'}
+            </div>
             </div>
           </section>
         </AppDialogBody>

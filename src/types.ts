@@ -464,7 +464,6 @@ export interface AppSettings {
   enableAnalytics: boolean;
   enableBins: boolean;
   enableContentDetection: boolean;
-  enableDiagnostics: boolean;
   enableNotes: boolean;
   enableNotifications: boolean;
   enableOcr: boolean;
