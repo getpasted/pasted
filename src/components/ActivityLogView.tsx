@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { safeInvoke as invoke } from '../utils/tauri';
 import {
   Activity,
@@ -31,43 +31,113 @@ import {
 import { ToolPageHeader } from './ToolPageHeader';
 import { MenuSelect } from './MenuSelect';
 import { OverflowText } from './OverflowText';
+import { useMinuteTick } from '../hooks/useMinuteTick';
+import { dateTimeAttribute, formatFullDateTime, formatRelativeTime } from '../utils/date';
+import { AppDialog } from './AppDialog';
+import { AppDialogBody, AppDialogButton, AppDialogFooter, AppDialogHeader, AppDialogHeading } from './AppDialogLayout';
 
 export interface ActivityLog {
   id: number;
   event_type: string;
   description: string;
   created_at: string;
+  observed_at: string;
+  severity_text: 'info' | 'warn' | 'error';
+  category: string;
+  outcome: 'success' | 'failure' | 'unknown';
+  attributes: Record<string, unknown>;
 }
+
+const ACTIVITY_BATCH_SIZE = 200;
 
 export const ActivityLogView: React.FC = () => {
   const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [filter, setFilter] = useState('');
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [isClearConfirmOpen, setIsClearConfirmOpen] = useState(false);
+  const logsRef = useRef<ActivityLog[]>([]);
+  const loadingMoreRef = useRef(false);
+  const loadMoreMarkerRef = useRef<HTMLDivElement>(null);
+  const relativeTimeNow = useMinuteTick();
 
-  const fetchLogs = async () => {
+  const replaceLogs = useCallback((next: ActivityLog[]) => {
+    logsRef.current = next;
+    setLogs(next);
+  }, []);
+
+  const fetchInitialLogs = useCallback(async () => {
     try {
-      const res = await invoke<ActivityLog[]>('get_activity_logs', { limit: 200, offset: 0 });
-      setLogs(res);
+      const res = await invoke<ActivityLog[]>('get_activity_logs', { limit: ACTIVITY_BATCH_SIZE, offset: 0 });
+      replaceLogs(res);
+      setHasMore(res.length === ACTIVITY_BATCH_SIZE);
     } catch (e) {
       console.error('Failed to fetch activity logs:', e);
     }
-  };
+  }, [replaceLogs]);
+
+  const refreshNewestLogs = useCallback(async () => {
+    try {
+      const newest = await invoke<ActivityLog[]>('get_activity_logs', { limit: ACTIVITY_BATCH_SIZE, offset: 0 });
+      const newestIds = new Set(newest.map(({ id }) => id));
+      replaceLogs([...newest, ...logsRef.current.filter(({ id }) => !newestIds.has(id))]);
+      if (newest.length < ACTIVITY_BATCH_SIZE) setHasMore(false);
+    } catch (error) {
+      console.error('Failed to refresh recent activity:', error);
+    }
+  }, [replaceLogs]);
+
+  const loadMore = useCallback(async () => {
+    if (!hasMore || loadingMoreRef.current) return;
+    loadingMoreRef.current = true;
+    setIsLoadingMore(true);
+    try {
+      const older = await invoke<ActivityLog[]>('get_activity_logs', {
+        limit: ACTIVITY_BATCH_SIZE,
+        offset: logsRef.current.length,
+      });
+      const knownIds = new Set(logsRef.current.map(({ id }) => id));
+      replaceLogs([...logsRef.current, ...older.filter(({ id }) => !knownIds.has(id))]);
+      setHasMore(older.length === ACTIVITY_BATCH_SIZE);
+    } catch (error) {
+      console.error('Failed to load older activity:', error);
+    } finally {
+      loadingMoreRef.current = false;
+      setIsLoadingMore(false);
+    }
+  }, [hasMore, replaceLogs]);
 
   useEffect(() => {
-    fetchLogs();
+    void fetchInitialLogs();
 
     const interval = setInterval(() => {
-      fetchLogs();
+      void refreshNewestLogs();
     }, 5000);
 
     return () => {
       clearInterval(interval);
     };
-  }, []);
+  }, [fetchInitialLogs, refreshNewestLogs]);
+
+  useEffect(() => {
+    const marker = loadMoreMarkerRef.current;
+    if (!marker || !hasMore) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) void loadMore();
+      },
+      { rootMargin: '300px 0px' },
+    );
+    observer.observe(marker);
+    return () => observer.disconnect();
+  }, [hasMore, loadMore]);
 
   const handleClearLogs = async () => {
     try {
       await invoke('clear_activity_logs');
-      setLogs([]);
+      replaceLogs([]);
+      setHasMore(false);
+      setIsClearConfirmOpen(false);
     } catch (e) {
       console.error('Failed to clear logs:', e);
     }
@@ -182,10 +252,11 @@ export const ActivityLogView: React.FC = () => {
           </div>
         );
       case 'clip_restored':
+      case 'clips_restored_all':
         return (
           <div className="theme-status-info flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold">
             <RotateCcw className="w-3.5 h-3.5" />
-            <span>Restored</span>
+            <span>{type === 'clips_restored_all' ? 'Restored all' : 'Restored'}</span>
           </div>
         );
       case 'clip_revision_restored':
@@ -197,10 +268,21 @@ export const ActivityLogView: React.FC = () => {
         );
       case 'library_moved':
       case 'external_history_imported':
+      case 'backup_created':
+      case 'backup_recovery_completed':
+      case 'data_export_completed':
         return (
           <div className="theme-status-info flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold">
             <Database className="w-3.5 h-3.5" />
-            <span>{type === 'external_history_imported' ? 'History Imported' : 'Library Moved'}</span>
+            <span>{type === 'external_history_imported'
+              ? 'History Imported'
+              : type === 'backup_created'
+                ? 'Backup Created'
+                : type === 'backup_recovery_completed'
+                  ? 'Backup Recovered'
+                  : type === 'data_export_completed'
+                    ? 'Data Exported'
+                    : 'Library Moved'}</span>
           </div>
         );
       case 'bin_deleted':
@@ -386,7 +468,7 @@ export const ActivityLogView: React.FC = () => {
     if (!matchesSearch) return false;
     if (selectedTypeFilter === 'all') return true;
     if (selectedTypeFilter === 'trashed') return l.event_type === 'clip_trashed' || l.event_type === 'clips_trashed' || l.event_type === 'clip_auto_trashed' || l.event_type === 'clips_trashed_all';
-    if (selectedTypeFilter === 'restored') return l.event_type === 'clip_restored';
+    if (selectedTypeFilter === 'restored') return l.event_type === 'clip_restored' || l.event_type === 'clips_restored_all';
     if (selectedTypeFilter === 'revisions') return l.event_type === 'clip_revision_restored';
     if (selectedTypeFilter === 'purged') return l.event_type === 'clip_deleted' || l.event_type === 'trash_emptied' || l.event_type === 'clips_purged_all';
     if (selectedTypeFilter === 'protection') return l.event_type === 'clip_protected_toggled' || l.event_type === 'clips_protected_toggled';
@@ -402,7 +484,10 @@ export const ActivityLogView: React.FC = () => {
     if (selectedTypeFilter === 'app') return l.event_type.startsWith('app_');
     if (selectedTypeFilter === 'settings') return l.event_type.startsWith('setting_') || l.event_type.startsWith('settings_') || l.event_type.startsWith('autostart_');
     if (selectedTypeFilter === 'detection') return l.event_type.startsWith('content_detector') || l.event_type.startsWith('content_detection') || l.event_type.startsWith('content_type');
-    if (selectedTypeFilter === 'storage') return l.event_type.startsWith('library_') || l.event_type === 'external_history_imported';
+    if (selectedTypeFilter === 'storage') return l.event_type.startsWith('library_')
+      || l.event_type.startsWith('backup_')
+      || l.event_type.startsWith('data_export_')
+      || l.event_type === 'external_history_imported';
     return true;
   });
 
@@ -410,13 +495,13 @@ export const ActivityLogView: React.FC = () => {
     <div className="tools-page activity-page flex-1 font-sans h-screen flex flex-col overflow-hidden">
       <ToolPageHeader
         icon={<Activity className="w-4 h-4" />}
-        title="Activity Log"
+        title="Activity"
         actions={(
           <div className="flex items-center space-x-2.5">
           <MenuSelect
             value={selectedTypeFilter}
             onChange={setSelectedTypeFilter}
-            label="Filter Activity"
+            label="Filter activity"
             leadingIcon={<ListFilter className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />}
             className="min-w-44"
             options={[
@@ -454,12 +539,12 @@ export const ActivityLogView: React.FC = () => {
           </div>
 
           <button
-            onClick={handleClearLogs}
+            onClick={() => setIsClearConfirmOpen(true)}
             disabled={logs.length === 0}
             className="theme-secondary-button ui-control-radius flex h-[34px] items-center space-x-1.5 px-3 disabled:opacity-40 border text-xs font-semibold transition-[background-color,border-color,color,opacity] cursor-pointer"
           >
             <Trash2 className="w-3.5 h-3.5" />
-            <span>Clear Log</span>
+            <span>Clear Activity</span>
           </button>
           </div>
         )}
@@ -470,7 +555,7 @@ export const ActivityLogView: React.FC = () => {
         {filteredLogs.length === 0 ? (
           <div className="theme-text-subtle h-full flex flex-col items-center justify-center space-y-2">
             <Activity className="w-10 h-10 opacity-30" />
-            <p className="text-xs font-medium">No activity recorded yet.</p>
+            <p className="text-xs font-medium">{logs.length === 0 ? 'No activity recorded yet.' : 'No matching activity.'}</p>
           </div>
         ) : (
           filteredLogs.map((log) => (
@@ -483,17 +568,46 @@ export const ActivityLogView: React.FC = () => {
                 <OverflowText text={log.description} className="theme-text-main text-xs truncate font-medium" />
               </div>
 
-              <span className="theme-text-muted text-[11px] font-mono shrink-0">
-                {new Date(log.created_at).toLocaleTimeString([], {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                  second: '2-digit',
-                })}
-              </span>
+              <time
+                className="theme-text-muted text-[11px] font-mono shrink-0"
+                dateTime={dateTimeAttribute(log.created_at)}
+                title={formatFullDateTime(log.created_at)}
+              >
+                {formatRelativeTime(log.created_at, relativeTimeNow)}
+              </time>
             </div>
           ))
         )}
+        {isLoadingMore && <p className="theme-text-muted py-2 text-center text-xs" role="status">Loading older activity…</p>}
+        <div ref={loadMoreMarkerRef} className="h-px" aria-hidden="true" />
       </div>
+      <AppDialog
+        isOpen={isClearConfirmOpen}
+        onClose={() => setIsClearConfirmOpen(false)}
+        labelledBy="clear-activity-title"
+        panelClassName="app-dialog-danger theme-panel w-full max-w-md rounded-2xl border overflow-hidden font-sans"
+      >
+        {({ requestClose }) => <>
+          <AppDialogHeader onClose={requestClose}>
+            <AppDialogHeading
+              id="clear-activity-title"
+              title="Clear Activity?"
+              description="This action cannot be undone."
+              icon={<Trash2 />}
+              tone="danger"
+            />
+          </AppDialogHeader>
+          <AppDialogBody>
+            <p className="app-dialog-message theme-surface rounded-xl border p-3 text-xs leading-relaxed">
+              Permanently remove every retained Activity entry? Clips and other library data are not affected.
+            </p>
+          </AppDialogBody>
+          <AppDialogFooter>
+            <AppDialogButton onClick={requestClose} autoFocus>Cancel</AppDialogButton>
+            <AppDialogButton variant="danger" onClick={() => void handleClearLogs()}>Clear Activity</AppDialogButton>
+          </AppDialogFooter>
+        </>}
+      </AppDialog>
     </div>
   );
 };

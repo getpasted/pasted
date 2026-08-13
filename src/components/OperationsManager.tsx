@@ -193,7 +193,7 @@ export const OperationsManager: React.FC<OperationsManagerProps> = ({
               <Wrench className="transform-accent operations h-4 w-4 opacity-70" />
               <span>Operations</span>
             </h2>
-            <p className="mt-1 text-xs theme-text-muted">Reusable building blocks for Transforms and Pipelines.</p>
+            <p className="mt-1 text-xs theme-text-muted">Reusable building blocks for Transforms.</p>
           </div>
         </div>
       )}
@@ -207,7 +207,7 @@ export const OperationsManager: React.FC<OperationsManagerProps> = ({
           value={activeCategory}
           options={categoryOptions}
           onChange={setActiveCategory}
-          label="Filter Operations"
+          label="Filter operations"
         />
       </TransformLibraryToolbar>
 
@@ -233,7 +233,7 @@ export const OperationsManager: React.FC<OperationsManagerProps> = ({
                 icon={<Code2 className="h-5 w-5" />}
                 title={selectedOperation.name}
                 meta={<>{selectedOperation.category} · {selectedMetadata.isBuiltin ? 'Built-in' : 'Custom'}</>}
-                trailing={selectedMetadata.isBuiltin && <LockKeyhole className="h-4 w-4 theme-text-subtle" aria-label="Built-in Operation" />}
+                trailing={selectedMetadata.isBuiltin && <LockKeyhole className="h-4 w-4 theme-text-subtle" aria-label="Built-in operation" />}
                 iconClassName="transform-accent operations"
               />
 
@@ -254,9 +254,9 @@ export const OperationsManager: React.FC<OperationsManagerProps> = ({
 
               <p className="theme-text-muted text-xs leading-relaxed">
                 {selectedMetadata.isBuiltin
-                  ? 'This Operation is maintained by Pasted. It can be used directly in Transforms and Pipelines.'
+                  ? 'This built-in Operation is maintained automatically and can be used directly in Transforms.'
                   : selectedMetadata.enabled
-                    ? 'This custom Operation is enabled and available to Transforms and Pipelines.'
+                    ? 'This custom Operation is enabled and available to Transforms.'
                     : 'This custom Operation is disabled and cannot run until it is enabled again.'}
               </p>
 

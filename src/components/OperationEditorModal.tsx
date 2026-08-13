@@ -59,7 +59,7 @@ export const OperationEditorModal: React.FC<OperationEditorModalProps> = ({
   const [findPattern, setFindPattern] = useState('');
   const [replacePattern, setReplacePattern] = useState('');
   const [aiInstructions, setAiInstructions] = useState('');
-  const [testInput, setTestInput] = useState('Hello Pasted Operation User! :)');
+  const [testInput, setTestInput] = useState('Hello there! :)');
   const [testOutput, setTestOutput] = useState('');
   const [saveError, setSaveError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -223,7 +223,7 @@ export const OperationEditorModal: React.FC<OperationEditorModalProps> = ({
               className="w-full"
             />
             <p className="theme-text-subtle text-[10px] mt-1.5">
-              This chooses how a custom Operation runs; built-in transformations are maintained by Pasted and are not duplicated here.
+              This chooses how a custom Operation runs; built-in transformations are maintained automatically and are not duplicated here.
             </p>
           </div>
 
@@ -252,7 +252,7 @@ export const OperationEditorModal: React.FC<OperationEditorModalProps> = ({
 
               <TransformationPreviewPanel
                 title="Local preview"
-                description="Runs on this device as you edit"
+                description="Runs locally during editing."
                 input={<textarea
                     value={testInput}
                     onChange={(event) => setTestInput(event.target.value)}

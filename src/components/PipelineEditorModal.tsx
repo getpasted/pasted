@@ -35,19 +35,19 @@ interface PipelineEditorModalProps {
 }
 
 const EXECUTOR_OPTIONS = [
-  { value: 'regex', label: 'Find & Replace (Regex / Text)', category: 'Search' },
+  { value: 'regex', label: 'Find and replace (regex/text)', category: 'Search' },
 ];
 
 const OPERATION_CATEGORIES = [
-  { key: 'Search', label: 'Search & Replace', registryCategory: null },
-  { key: 'Cleaners', label: 'Cleaners & Sanitizers', registryCategory: 'Cleaners & Sanitizers' },
+  { key: 'Search', label: 'Search and replace', registryCategory: null },
+  { key: 'Cleaners', label: 'Cleaners and sanitizers', registryCategory: 'Cleaners and sanitizers' },
   { key: 'Format', label: 'Smart Formatting', registryCategory: 'Smart Formatting' },
   { key: 'Case', label: 'Case Transformations', registryCategory: 'Case Transformations' },
   { key: 'Extract', label: 'Data Extraction', registryCategory: 'Data Extraction' },
   { key: 'Lines', label: 'Line Operations', registryCategory: 'Line Operations' },
-  { key: 'Structure', label: 'Structure & Formatting', registryCategory: 'Structure & Formatting' },
-  { key: 'Encoding', label: 'Encodings & Decodings', registryCategory: 'Encodings & Decodings' },
-  { key: 'Advanced', label: 'Advanced & Shell Scripts', registryCategory: null },
+  { key: 'Structure', label: 'Structure and formatting', registryCategory: 'Structure and formatting' },
+  { key: 'Encoding', label: 'Encodings and decodings', registryCategory: 'Encodings and decodings' },
+  { key: 'Advanced', label: 'Advanced and shell scripts', registryCategory: null },
 ];
 
 function operationTypeForRef(operationRef: string) {
@@ -211,7 +211,7 @@ const PipelineStepEditor: React.FC<{
             </div>
             <div className="flex flex-wrap items-center gap-3 pt-1">
               <div className="flex items-center space-x-1.5 text-xs theme-text-muted">
-                <span>Match:</span>
+                <span>Match</span>
                 <MenuSelect
                   value={step.matchMode || 'regex'}
                   onChange={(value) => onUpdate({ matchMode: value as PipelineEditorStep['matchMode'] })}
@@ -309,7 +309,7 @@ export const PipelineEditorModal: React.FC<PipelineEditorModalProps> = ({
   const [pipelineName, setPipelineName] = useState('');
   const [shortcut, setShortcut] = useState<string | null>(null);
   const [steps, setSteps] = useState<PipelineEditorStep[]>([]);
-  const [testInput, setTestInput] = useState('Hello Pasted User! :) https://example.com?utm_source=test');
+  const [testInput, setTestInput] = useState('Hello there! :) https://example.com?utm_source=test');
   const [testOutput, setTestOutput] = useState('');
   const [testRunState, setTestRunState] = useState<PlaygroundRunState>('idle');
   const [testDurationMs, setTestDurationMs] = useState<number>();
@@ -361,7 +361,7 @@ export const PipelineEditorModal: React.FC<PipelineEditorModalProps> = ({
       setPipelineName('');
       setShortcut(null);
       setSteps([createDefaultStep('builtin:smart_punctuation', null)]);
-      setTestInput('Hello Pasted User! :) https://example.com?utm_source=test');
+      setTestInput('Hello there! :) https://example.com?utm_source=test');
     }
   };
 
@@ -512,7 +512,7 @@ export const PipelineEditorModal: React.FC<PipelineEditorModalProps> = ({
               </label>
               <input
                 type="text"
-                placeholder="e.g. Sanitize HTML & Convert Smileys"
+                placeholder="e.g. Sanitize HTML and convert smileys"
                 value={pipelineName}
                 onChange={(e) => setPipelineName(e.target.value)}
                 className="theme-input ui-field-radius w-full border px-3 py-2 text-xs font-medium focus:outline-none"
@@ -532,7 +532,7 @@ export const PipelineEditorModal: React.FC<PipelineEditorModalProps> = ({
           </div>
 
           <TransformationPreviewPanel
-            description="Updates automatically as steps change"
+            description="Updates automatically as steps change."
             status={<PlaygroundRunStatus
               state={testRunState}
               label="preview"

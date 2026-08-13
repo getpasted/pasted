@@ -7,6 +7,8 @@ import { SettingsSubsectionHeader } from './SettingsSubsectionHeader';
 import { OverflowText } from './OverflowText';
 import { useToast } from './ToastProvider';
 import { ActionButton } from './AppDialogLayout';
+import { useMinuteTick } from '../hooks/useMinuteTick';
+import { dateTimeAttribute, formatFullDateTime, formatRelativeTime } from '../utils/date';
 
 const EMPTY_SNAPSHOT: IntelligenceSchedulerSnapshot = {
   revision: 0,
@@ -40,6 +42,7 @@ function eventIcon(event: IntelligenceSchedulerEvent) {
 
 export function SettingsDebugPanel({ ocrEnabled }: { ocrEnabled: boolean }) {
   const { showToast } = useToast();
+  const relativeTimeNow = useMinuteTick();
   const [snapshot, setSnapshot] = useState<IntelligenceSchedulerSnapshot>(EMPTY_SNAPSHOT);
   const [ocrStatus, setOcrStatus] = useState<OcrBackfillStatus>(EMPTY_OCR_STATUS);
   const [error, setError] = useState('');
@@ -87,7 +90,7 @@ export function SettingsDebugPanel({ ocrEnabled }: { ocrEnabled: boolean }) {
       <SettingsPanelHeader
         icon={Activity}
         title="Diagnostics"
-        description="Watch background work and inspect Pasted's health."
+        description="Watch background work and review diagnostics."
       />
 
       <section className="theme-surface rounded-2xl border p-5 space-y-4">
@@ -207,7 +210,13 @@ export function SettingsDebugPanel({ ocrEnabled }: { ocrEnabled: boolean }) {
                   {eventIcon(event)}
                 </span>
                 <OverflowText text={event.label} className="theme-text-main min-w-0 flex-1 truncate text-xs font-semibold" />
-                <span className="theme-text-muted text-[9px] tabular-nums">{new Date(event.timestampMs).toLocaleTimeString()}</span>
+                <time
+                  className="theme-text-muted text-[9px] tabular-nums"
+                  dateTime={dateTimeAttribute(event.timestampMs)}
+                  title={formatFullDateTime(event.timestampMs)}
+                >
+                  {formatRelativeTime(event.timestampMs, relativeTimeNow)}
+                </time>
               </div>
               <div className="theme-text-muted mt-1 pl-5.5 text-[10px]">
                 {event.connectionName} · {event.status}{event.detail ? ` · ${event.detail}` : ''}

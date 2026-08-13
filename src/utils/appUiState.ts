@@ -1,3 +1,5 @@
+import { scheduleBackupClientStatePersistence } from './backupClientState';
+
 export const APP_UI_STATE_KEY = 'pasted_app_ui_state';
 
 export const SIDEBAR_SECTION_IDS = ['clips', 'bins', 'types', 'sources', 'tools'] as const;
@@ -106,6 +108,7 @@ export function readAppUiState(): AppUiState {
 export function writeAppUiState(state: AppUiState) {
   try {
     localStorage.setItem(APP_UI_STATE_KEY, JSON.stringify(state));
+    scheduleBackupClientStatePersistence();
   } catch {
     // UI state is best-effort; the database and clipboard library remain authoritative.
   }

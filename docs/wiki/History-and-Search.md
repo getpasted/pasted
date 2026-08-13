@@ -1,6 +1,6 @@
 # History and Search
 
-**History** contains active clips. Trash remains separate so “everything you kept” and “everything you discarded” do not become the same list.
+**History** contains clips that have not been moved to Trash. Trash remains separate so “everything you kept” and “everything you discarded” do not become the same list.
 
 Pasted captures bounded representations of:
 
@@ -28,4 +28,4 @@ Trashed search results are marked and remain chronologically commingled with act
 
 ## Retention
 
-Active history, Trash, and Activity History each have independent count and age limits. An active clip that exceeds either enabled history limit moves to Trash (or is purged when Trash is disabled). Trash purges its oldest eligible items when either Trash limit is exceeded, and Activity History removes its oldest entries by the same rule. A zero count means **Unlimited**, and a zero age means **Forever**. Pinned and protected clips are excluded from active-history retention, and protected clips are never auto-purged from Trash. Hard resource ceilings remain in force even when a user-facing limit is permissive.
+History, Trash, and Activity History each have independent count and age limits. A clip that exceeds either enabled History limit moves to Trash (or is purged when Trash is disabled). Trash purges its oldest eligible items when either Trash limit is exceeded, and Activity History removes its oldest entries by the same rule. A zero count means **Unlimited**, and a zero age means **Forever**. Pinned and protected clips are excluded from History retention, and protected clips are never auto-purged from Trash. Hard resource ceilings remain in force even when a user-facing limit is permissive.

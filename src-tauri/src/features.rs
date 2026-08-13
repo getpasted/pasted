@@ -92,11 +92,11 @@ impl Feature {
             Feature::Hud => "HUD",
             Feature::Trash => "Trash",
             Feature::Transformations => "Transformations",
-            Feature::ActivityLog => "Activity Log",
+            Feature::ActivityLog => "Activity",
             Feature::Types => "Types",
             Feature::Sources => "Sources",
             Feature::Cli => "CLI",
-            Feature::Help => "Help & Documentation",
+            Feature::Help => "Help",
         }
     }
 }

@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { listen } from '@tauri-apps/api/event';
-import type { Bin, ClipItem, Pipeline, SequentialStatus } from '../types';
+import type { Bin, ClipCollectionSummary, ClipItem, Pipeline, SequentialStatus } from '../types';
 import { sortClipsForTimeline } from '../utils/clipOrder';
 import { soundManager } from '../utils/sound';
 import { safeInvoke as invoke } from '../utils/tauri';
@@ -57,6 +57,22 @@ function mergeClipSummary(clips: ClipItem[], incoming: ClipItem) {
   return sortClipsForTimeline(next);
 }
 
+const CLIP_PAGE_SIZE = 250;
+const EMPTY_COLLECTION_SUMMARY: ClipCollectionSummary = {
+  activeCount: 0,
+  trashCount: 0,
+  pinnedCount: 0,
+  protectedCount: 0,
+  notedCount: 0,
+  typeCounts: [],
+  sourceCounts: [],
+};
+
+function appendUniqueClips(current: ClipItem[], incoming: ClipItem[]): ClipItem[] {
+  const known = new Set(current.map((clip) => clip.id));
+  return [...current, ...incoming.filter((clip) => !known.has(clip.id))];
+}
+
 export function useAppData() {
   const [allClips, setAllClips] = useState<ClipItem[]>(() => normalizeClipItems(readCachedArray('pasted_cache_clips')));
   const [trashedClips, setTrashedClips] = useState<ClipItem[]>([]);
@@ -64,15 +80,26 @@ export function useAppData() {
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
   const [sequentialStatus, setSequentialStatus] = useState<SequentialStatus | null>(null);
   const [totalClipCount, setTotalClipCount] = useState(0);
+  const [totalTrashCount, setTotalTrashCount] = useState(0);
+  const [clipCollectionSummary, setClipCollectionSummary] = useState<ClipCollectionSummary>(EMPTY_COLLECTION_SUMMARY);
+  const [isLoadingMoreClips, setIsLoadingMoreClips] = useState(false);
+  const [isLoadingMoreTrash, setIsLoadingMoreTrash] = useState(false);
+  const activeOffsetRef = useRef(0);
+  const trashOffsetRef = useRef(0);
+  const activeLoadingRef = useRef(false);
+  const trashLoadingRef = useRef(false);
   const [isClipboardPaused, setIsClipboardPaused] = useState(false);
   const [initialDataLoaded, setInitialDataLoaded] = useState(false);
   const [ignoredAppStatus, setIgnoredAppStatus] = useState<{ app_name: string; timestamp: number } | null>(null);
 
-  const fetchTotalClipCount = useCallback(async () => {
+  const fetchClipCollectionSummary = useCallback(async () => {
     try {
-      setTotalClipCount(await invoke<number>('get_total_clip_count'));
+      const summary = await invoke<ClipCollectionSummary>('get_clip_collection_summary');
+      setClipCollectionSummary(summary);
+      setTotalClipCount(summary.activeCount);
+      setTotalTrashCount(summary.trashCount);
     } catch (error) {
-      console.error('Failed to fetch total count:', error);
+      console.error('Failed to fetch clip collection summary:', error);
     }
   }, []);
 
@@ -82,22 +109,74 @@ export function useAppData() {
         searchQuery: null,
         binId: null,
         onlyPinned: false,
+        limit: Math.max(CLIP_PAGE_SIZE, activeOffsetRef.current),
+        offset: 0,
       }));
       setAllClips(clips);
-      void fetchTotalClipCount();
+      activeOffsetRef.current = clips.length;
+      void fetchClipCollectionSummary();
       cacheClipSummaries(clips);
     } catch (error) {
       console.error('Failed to fetch clips:', error);
     }
-  }, [fetchTotalClipCount]);
+  }, [fetchClipCollectionSummary]);
 
   const fetchTrashedClips = useCallback(async () => {
     try {
-      setTrashedClips(normalizeClipItems(await invoke<unknown[]>('get_trashed_clips')));
+      const clips = normalizeClipItems(await invoke<unknown[]>('get_trashed_clips', {
+        limit: Math.max(CLIP_PAGE_SIZE, trashOffsetRef.current),
+        offset: 0,
+      }));
+      setTrashedClips(clips);
+      trashOffsetRef.current = clips.length;
+      void fetchClipCollectionSummary();
     } catch (error) {
       console.error('Failed to fetch trashed clips:', error);
     }
-  }, []);
+  }, [fetchClipCollectionSummary]);
+
+  const loadMoreClips = useCallback(async () => {
+    if (activeLoadingRef.current || activeOffsetRef.current >= totalClipCount) return;
+    activeLoadingRef.current = true;
+    setIsLoadingMoreClips(true);
+    try {
+      const page = normalizeClipItems(await invoke<unknown[]>('get_clips', {
+        searchQuery: null,
+        binId: null,
+        onlyPinned: false,
+        limit: CLIP_PAGE_SIZE,
+        offset: activeOffsetRef.current,
+      }));
+      activeOffsetRef.current += page.length;
+      if (page.length === 0) activeOffsetRef.current = totalClipCount;
+      setAllClips((current) => appendUniqueClips(current, page));
+    } catch (error) {
+      console.error('Failed to load older clips:', error);
+    } finally {
+      activeLoadingRef.current = false;
+      setIsLoadingMoreClips(false);
+    }
+  }, [totalClipCount]);
+
+  const loadMoreTrashedClips = useCallback(async () => {
+    if (trashLoadingRef.current || trashOffsetRef.current >= totalTrashCount) return;
+    trashLoadingRef.current = true;
+    setIsLoadingMoreTrash(true);
+    try {
+      const page = normalizeClipItems(await invoke<unknown[]>('get_trashed_clips', {
+        limit: CLIP_PAGE_SIZE,
+        offset: trashOffsetRef.current,
+      }));
+      trashOffsetRef.current += page.length;
+      if (page.length === 0) trashOffsetRef.current = totalTrashCount;
+      setTrashedClips((current) => appendUniqueClips(current, page));
+    } catch (error) {
+      console.error('Failed to load older trashed clips:', error);
+    } finally {
+      trashLoadingRef.current = false;
+      setIsLoadingMoreTrash(false);
+    }
+  }, [totalTrashCount]);
 
   const fetchBins = useCallback(async () => {
     try {
@@ -140,6 +219,7 @@ export function useAppData() {
   const restoreClip = useCallback(async (clipId: number) => {
     const restored = trashedClips.find((clip) => clip.id === clipId);
     setTrashedClips((previous) => previous.filter((clip) => clip.id !== clipId));
+    setTotalTrashCount((previous) => Math.max(0, previous - 1));
     if (restored) {
       const restoredActiveClip: ClipItem = {
         ...restored,
@@ -152,33 +232,41 @@ export function useAppData() {
     }
     try {
       await invoke('restore_clip', { id: clipId });
+      await fetchClipCollectionSummary();
     } catch (error) {
       console.error('Failed to restore clip:', error);
       void fetchClips();
       void fetchTrashedClips();
     }
-  }, [fetchClips, fetchTrashedClips, trashedClips]);
+  }, [fetchClipCollectionSummary, fetchClips, fetchTrashedClips, trashedClips]);
 
   const purgeClipPermanently = useCallback(async (clipId: number) => {
     if (trashedClips.find((clip) => clip.id === clipId)?.is_protected) return;
     setTrashedClips((previous) => previous.filter((clip) => clip.id !== clipId));
+    setTotalTrashCount((previous) => Math.max(0, previous - 1));
     try {
       await invoke('purge_clip_permanently', { id: clipId });
+      await fetchClipCollectionSummary();
     } catch (error) {
       console.error('Failed to permanently delete clip:', error);
       void fetchTrashedClips();
     }
-  }, [fetchTrashedClips, trashedClips]);
+  }, [fetchClipCollectionSummary, fetchTrashedClips, trashedClips]);
 
   const emptyTrash = useCallback(async () => {
-    setTrashedClips((previous) => previous.filter((clip) => clip.is_protected));
+    setTrashedClips((previous) => {
+      const retained = previous.filter((clip) => clip.is_protected);
+      setTotalTrashCount(retained.length);
+      return retained;
+    });
     try {
       await invoke('empty_trash');
+      await fetchClipCollectionSummary();
     } catch (error) {
       console.error('Failed to empty trash:', error);
       void fetchTrashedClips();
     }
-  }, [fetchTrashedClips]);
+  }, [fetchClipCollectionSummary, fetchTrashedClips]);
 
   useEffect(() => {
     let cancelled = false;
@@ -197,7 +285,7 @@ export function useAppData() {
     return () => {
       cancelled = true;
     };
-  }, [fetchBins, fetchClips, fetchPipelines, fetchSequentialStatus, fetchTrashedClips]);
+  }, [fetchBins, fetchClipCollectionSummary, fetchClips, fetchPipelines, fetchSequentialStatus, fetchTrashedClips]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !(window as any).__TAURI_INTERNALS__) return;
@@ -211,7 +299,7 @@ export function useAppData() {
           cacheClipSummaries(next);
           return next;
         });
-        void fetchTotalClipCount();
+        void fetchClipCollectionSummary();
       } else {
         // OCR currently emits only an ID after updating the stored clip.
         void fetchClips();
@@ -230,7 +318,7 @@ export function useAppData() {
       setIsClipboardPaused(event.payload.is_paused);
     });
     const unlistenLibraryChanged = listen('clip-library-changed', () => {
-      void Promise.all([fetchClips(), fetchTrashedClips(), fetchTotalClipCount()]);
+      void Promise.all([fetchClips(), fetchTrashedClips()]);
     });
     // Native backends should deliver every clip-added event while Pasted is in
     // the background. Reconcile on focus as a safety net for compositors or
@@ -248,7 +336,7 @@ export function useAppData() {
       void unlistenLibraryChanged.then((unlisten) => unlisten());
       void unlistenFocus.then((unlisten) => unlisten());
     };
-  }, [fetchClips, fetchTotalClipCount, fetchTrashedClips]);
+  }, [fetchClipCollectionSummary, fetchClips, fetchTrashedClips]);
 
   return {
     allClips,
@@ -260,12 +348,19 @@ export function useAppData() {
     pipelines,
     sequentialStatus,
     totalClipCount,
+    totalTrashCount,
+    clipCollectionSummary,
     setTotalClipCount,
     isClipboardPaused,
     ignoredAppStatus,
     initialDataLoaded,
     fetchClips,
     fetchTrashedClips,
+    fetchClipCollectionSummary,
+    loadMoreClips,
+    loadMoreTrashedClips,
+    isLoadingMoreClips,
+    isLoadingMoreTrash,
     fetchBins,
     fetchPipelines,
     fetchSequentialStatus,

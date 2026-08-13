@@ -60,7 +60,7 @@ export function FactoryResetDialog({
         isOpen={isOpen}
         variant="reset"
         title="Resetting Pasted"
-        description="Clearing the library and restoring defaults…"
+        description="Clearing saved data and restoring defaults…"
       />
     );
   }
@@ -85,7 +85,7 @@ export function FactoryResetDialog({
         <AppDialogBody className="space-y-4">
           <div className="theme-status-danger rounded-xl border p-3 text-xs leading-relaxed">
             This permanently deletes clips, Bins, Transforms, connections, activity history, and preferences.
-            Exported backups and the original files referenced by clips are not deleted.
+            Full backup files and the original files referenced by clips are not deleted.
           </div>
           <div>
             <label htmlFor="factory-reset-confirmation" className="block text-xs font-semibold theme-title">
@@ -105,7 +105,7 @@ export function FactoryResetDialog({
           {error && <div role="alert" className="theme-status-danger rounded-xl border px-3 py-2 text-xs">{error}</div>}
         </AppDialogBody>
         <AppDialogFooter align="between">
-          <AppDialogButton onClick={() => void onExport()} disabled={isResetting}>Export Backup</AppDialogButton>
+          <AppDialogButton onClick={() => void onExport()} disabled={isResetting}>Create Full Backup…</AppDialogButton>
           <div className="flex items-center gap-2">
             <AppDialogButton onClick={requestClose} disabled={isResetting}>Cancel</AppDialogButton>
             <AppDialogButton

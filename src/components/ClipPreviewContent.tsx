@@ -223,7 +223,7 @@ export function ClipPreviewContent({
             <div className="flex items-center justify-between">
               <div className="clip-content-accent flex items-center space-x-2 font-sans font-semibold text-xs">
                 <Palette className="w-4 h-4" />
-                <span>Color Inspector & Swatch Card</span>
+                <span>Color inspector and swatch card</span>
               </div>
               <span className="theme-text-subtle text-[10px] font-mono">WCAG Contrast Rated</span>
             </div>

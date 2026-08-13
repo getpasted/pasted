@@ -306,14 +306,14 @@ pub fn install(app: &AppHandle, db: &Arc<DbState>) -> tauri::Result<()> {
         .text("view.playground", "Playground")
         .build()?;
     let mut tools_builder = SubmenuBuilder::new(app, "Tools");
-    if feature_enabled(Feature::Analytics) {
-        tools_builder = tools_builder.text("view.analytics", "Analytics & Insights");
-    }
     if feature_enabled(Feature::Transformations) {
         tools_builder = tools_builder.item(&transforms_menu);
     }
+    if feature_enabled(Feature::Analytics) {
+        tools_builder = tools_builder.text("view.analytics", "Insights");
+    }
     if feature_enabled(Feature::ActivityLog) {
-        tools_builder = tools_builder.text("view.activity", "Activity Log");
+        tools_builder = tools_builder.text("view.activity", "Activity");
     }
     let tools_menu = tools_builder.build()?;
     let mut view_builder = SubmenuBuilder::new(app, "View").item(&clips_menu);
@@ -330,7 +330,7 @@ pub fn install(app: &AppHandle, db: &Arc<DbState>) -> tauri::Result<()> {
         .item(&zoom_in)
         .separator()
         .item(&toggle_sidebar)
-        .text("view.reset_columns", "Reset Column Widths")
+        .text("view.reset_columns", "Reset column widths")
         .item(&refresh)
         .build()?;
 
@@ -352,21 +352,21 @@ pub fn install(app: &AppHandle, db: &Arc<DbState>) -> tauri::Result<()> {
     let window_menu = window_builder
         .text("window.minimize", "Minimize")
         .text("window.maximize", "Maximize")
-        .text("window.fullscreen", "Toggle Full Screen")
+        .text("window.fullscreen", "Toggle full screen")
         .build()?;
 
     let documentation_menu = SubmenuBuilder::new(app, "Documentation")
-        .text("help.documentation", "CLI Commands")
-        .text("help.hotkeys", "Hotkeys & Modifiers")
-        .text("help.privacy", "Auto-Pause & Privacy")
-        .text("help.trash", "Soft Trash Protection")
+        .text("help.documentation", "CLI commands")
+        .text("help.hotkeys", "Hotkeys and Modifiers")
+        .text("help.privacy", "Auto-Pause and Privacy")
+        .text("help.trash", "Soft Trash protection")
         .text("help.transforms", "Transformations")
         .build()?;
     let mut help_builder = SubmenuBuilder::new(app, "Help");
     if feature_enabled(Feature::Help) {
         help_builder = help_builder.item(&documentation_menu).separator();
     }
-    help_builder = help_builder.text("help.shortcut_settings", "Keyboard Shortcut Settings…");
+    help_builder = help_builder.text("help.shortcut_settings", "Keyboard shortcut settings…");
     #[cfg(not(target_os = "macos"))]
     let help_builder = help_builder.separator().text("app.about", "About Pasted");
     let help_menu = help_builder.build()?;

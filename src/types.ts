@@ -98,6 +98,16 @@ export type ClipContentType =
   | 'hash' | 'iban' | 'jwt' | 'uuid'
   | (string & {});
 
+export interface ClipCollectionSummary {
+  activeCount: number;
+  trashCount: number;
+  pinnedCount: number;
+  protectedCount: number;
+  notedCount: number;
+  typeCounts: Array<{ content_type: ClipContentType; count: number }>;
+  sourceCounts: Array<{ name: string; count: number }>;
+}
+
 export type ClipOriginKind = 'clipboard_content' | 'file_reference' | 'screenshot' | 'command_line';
 
 export function getClipOriginKind(
@@ -157,6 +167,14 @@ export interface ClipVersion {
   action_label?: string | null;
   restores_organization?: boolean;
   created_at: string;
+}
+
+export interface ClipMutationSummary {
+  action: string;
+  requestedCount: number;
+  changedCount: number;
+  skippedCount: number;
+  clipIds: number[];
 }
 
 export interface Pipeline {

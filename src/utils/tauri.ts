@@ -93,7 +93,7 @@ let mockContentTypeGroups: Array<{
 }> = [
   { id: 'general', label: 'General', sortOrder: 10, isBuiltin: true, isArchived: false, defaults: { label: 'General', sortOrder: 10 } },
   { id: 'developer', label: 'Developer', sortOrder: 20, isBuiltin: true, isArchived: false, defaults: { label: 'Developer', sortOrder: 20 } },
-  { id: 'personal_financial', label: 'Personal & financial', sortOrder: 30, isBuiltin: true, isArchived: false, defaults: { label: 'Personal & financial', sortOrder: 30 } },
+  { id: 'personal_financial', label: 'Personal and financial', sortOrder: 30, isBuiltin: true, isArchived: false, defaults: { label: 'Personal and financial', sortOrder: 30 } },
   { id: 'identifiers', label: 'Identifiers', sortOrder: 40, isBuiltin: true, isArchived: false, defaults: { label: 'Identifiers', sortOrder: 40 } },
   { id: 'custom', label: 'Custom', sortOrder: 50, isBuiltin: true, isArchived: false, defaults: { label: 'Custom', sortOrder: 50 } },
 ];
@@ -179,14 +179,18 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
   }
   console.warn(`[safeInvoke mock] ${cmd}`, args);
   switch (cmd) {
-    case 'get_clips':
+    case 'get_clips': {
+      const offset = Math.max(0, Number(args?.offset ?? 0));
+      const limit = Math.max(1, Number(args?.limit ?? 10_000));
       return mockClips
         .filter((clip) => {
           const binId = Number(args?.binId);
           return clip.is_trashed === 0
             && (!Number.isInteger(binId) || binId <= 0 || clip.bin_ids.includes(binId));
         })
+        .slice(offset, offset + limit)
         .map((clip) => ({ ...clip, bin_ids: [...clip.bin_ids] })) as unknown as T;
+    }
     case 'get_bins':
       return mockBins.map((bin) => ({
         ...bin,
@@ -596,10 +600,24 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       updateMockSequentialStatus();
       return combined as unknown as T;
     }
-    case 'get_trashed_clips':
-      return mockClips.filter((clip) => clip.is_trashed !== 0) as unknown as T;
-    case 'get_total_clip_count':
-      return mockClips.filter((clip) => clip.is_trashed === 0).length as unknown as T;
+    case 'get_trashed_clips': {
+      const offset = Math.max(0, Number(args?.offset ?? 0));
+      const limit = Math.max(1, Number(args?.limit ?? 10_000));
+      return mockClips.filter((clip) => clip.is_trashed !== 0).slice(offset, offset + limit) as unknown as T;
+    }
+    case 'get_clip_collection_summary': {
+      const active = mockClips.filter((clip) => clip.is_trashed === 0);
+      const countBy = (key: 'content_type' | 'source') => [...active.reduce((counts, clip) => counts.set(String(clip[key]), (counts.get(String(clip[key])) ?? 0) + 1), new Map<string, number>())];
+      return {
+        activeCount: active.length,
+        trashCount: mockClips.length - active.length,
+        pinnedCount: active.filter((clip) => clip.is_pinned).length,
+        protectedCount: active.filter((clip) => clip.is_protected).length,
+        notedCount: active.filter((clip) => Boolean(clip.note?.trim())).length,
+        typeCounts: countBy('content_type').map(([content_type, count]) => ({ content_type, count })),
+        sourceCounts: countBy('source').map(([name, count]) => ({ name, count })),
+      } as unknown as T;
+    }
     case 'is_clipboard_paused':
       return false as unknown as T;
     case 'get_all_app_settings':
@@ -626,7 +644,51 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
         historyCapacityAdjustedTo: 1200,
       } as unknown as T;
     case 'export_backup_file':
-      return `/mock/Pasted_Backup_${new Date().toISOString().slice(0, 10)}.json` as unknown as T;
+      return `/mock/Pasted_Library_Archive_${new Date().toISOString().slice(0, 10)}.json` as unknown as T;
+    case 'inspect_library_archive_json': {
+      const parsed = JSON.parse(String(args?.jsonStr ?? '{}')) as Record<string, unknown[]>;
+      return {
+        schemaVersion: Number((parsed as { version?: number }).version ?? 1),
+        clipCount: parsed.clips?.length ?? 0,
+        binCount: parsed.bins?.length ?? 0,
+        operationCount: parsed.operations?.length ?? 0,
+        transformCount: (parsed.saved_transforms?.length ?? 0) + (parsed.pipelines?.length ?? 0),
+        detectorCount: parsed.content_detectors?.length ?? 0,
+        contentTypeCount: parsed.content_types?.length ?? 0,
+      } as unknown as T;
+    }
+    case 'choose_import_file':
+      return {
+        path: '/mock/Pasted_History_and_Organization.json',
+        name: 'Pasted_History_and_Organization.json',
+        kind: 'organization',
+        format: 'json',
+        sizeBytes: 184_320,
+        library: {
+          schemaVersion: 1,
+          clipCount: 248,
+          binCount: 7,
+          operationCount: 5,
+          transformCount: 12,
+          detectorCount: 4,
+          contentTypeCount: 9,
+        },
+      } as unknown as T;
+    case 'import_inspected_file':
+      return { importedCount: 248, duplicateCount: 0 } as unknown as T;
+    case 'export_full_backup_file':
+      return {
+        path: `/mock/Pasted_Full_Backup_${new Date().toISOString().slice(0, 10)}.pastedbackup`,
+        createdAt: new Date().toISOString(),
+        sizeBytes: 2_457_600,
+      } as unknown as T;
+    case 'restore_full_backup_file':
+      return {
+        recoveryPath: '/mock/Pasted_Pre_Restore.pastedbackup',
+        backupCreatedAt: new Date().toISOString(),
+      } as unknown as T;
+    case 'consume_pending_full_restore_client_state':
+      return null as unknown as T;
     case 'get_library_location':
       return mockLibraryLocation as unknown as T;
     case 'move_library':
@@ -654,7 +716,7 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       mockClips = [];
       mockBins = [
         { id: 1, name: 'Screenshots', icon: '📸', color: '#ec4899', smart_rule: '{"type":"origin_kind","value":"screenshot"}', bin_type: 'category' },
-        { id: 2, name: 'Links & Web', icon: 'Link', color: '#3b82f6', smart_rule: '{"type":"content_type","value":"link"}', bin_type: 'category' },
+        { id: 2, name: 'Links and web', icon: 'Link', color: '#3b82f6', smart_rule: '{"type":"content_type","value":"link"}', bin_type: 'category' },
         { id: 3, name: 'Code Snippets', icon: 'Code', color: '#10b981', smart_rule: '{"type":"content_type","value":"code"}', bin_type: 'category' },
       ];
       mockSavedTransforms = [];
@@ -667,6 +729,13 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       return [] as unknown as T;
     case 'get_activity_logs':
       return [] as unknown as T;
+    case 'export_activity_json':
+      return JSON.stringify({ schemaVersion: 1, exportedAt: new Date().toISOString(), resource: { 'service.name': 'Pasted' }, entries: [] }, null, 2) as unknown as T;
+    case 'export_activity_csv':
+      return 'timestamp,observed_timestamp,event_name,severity_text,body,category,outcome,attributes_json\n' as unknown as T;
+    case 'import_activity_json':
+    case 'import_activity_csv':
+      return { scannedCount: 0, importedCount: 0, duplicateCount: 0, retainedCount: 0 } as unknown as T;
     case 'get_clip_versions':
       return [] as unknown as T;
     case 'get_clip_version_count':
@@ -719,6 +788,22 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       const clip = mockClips.find((item) => item.id === Number(args?.id));
       if (clip) clip.is_trashed = 0;
       return null as unknown as T;
+    }
+    case 'restore_all_trashed_clips': {
+      const restoredIds = mockClips.filter((clip) => clip.is_trashed !== 0).map((clip) => clip.id);
+      for (const clip of mockClips) {
+        if (clip.is_trashed !== 0) {
+          clip.is_trashed = 0;
+          clip.trashed_at = null;
+        }
+      }
+      return {
+        action: 'restore_all',
+        requestedCount: restoredIds.length,
+        changedCount: restoredIds.length,
+        skippedCount: 0,
+        clipIds: restoredIds,
+      } as unknown as T;
     }
     case 'purge_clip_permanently':
       mockClips = mockClips.filter((clip) => clip.id !== Number(args?.id) || clip.is_protected);

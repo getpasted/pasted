@@ -175,16 +175,16 @@ export function SettingsHotkeysPanel({
           : 'Global Hotkeys';
   const capabilityDescription = isMac
     ? (hotkeyStatus?.is_dev_mode
-        ? <>In development, allow your active IDE or terminal under <strong>System Settings › Privacy &amp; Security › Accessibility</strong>.</>
+        ? <>In development, allow the active IDE or terminal under <strong>System Settings › Privacy &amp; Security › Accessibility</strong>.</>
         : <>Allow <strong>Pasted</strong> under <strong>System Settings › Privacy &amp; Security › Accessibility</strong>.</>)
     : hotkeyStatus?.backend === 'wayland-portal'
       ? (hotkeyStatus.state === 'unavailable'
-          ? <>This desktop does not provide the XDG Global Shortcuts portal. Pasted cannot register system-wide shortcuts in this Wayland session.</>
-          : <>Your desktop securely owns these shortcuts. It may ask you to approve or change them when Pasted registers them.</>)
+          ? <>This desktop does not provide the XDG Global Shortcuts portal, so system-wide shortcuts are unavailable in this Wayland session.</>
+          : <>The desktop securely owns these shortcuts and may request approval or changes during registration.</>)
       : hotkeyStatus?.backend === 'x11'
-        ? <>Pasted registers shortcuts directly with X11. Shortcuts already owned by the desktop or another app are reported below.</>
+        ? <>Shortcuts register directly with X11. Conflicts with the desktop or another app are reported below.</>
         : hotkeyStatus?.platform === 'windows'
-          ? <>Pasted registers shortcuts directly with Windows. Reserved shortcuts and conflicts with other apps are reported below.</>
+          ? <>Shortcuts register directly with Windows. Reserved shortcuts and conflicts with other apps are reported below.</>
           : isBrowserPreview
             ? <>This window could not register system-wide shortcuts, so hotkeys may not work correctly.</>
             : <>This platform does not currently provide a supported global-hotkey backend.</>;
@@ -210,7 +210,7 @@ export function SettingsHotkeysPanel({
       <SettingsPanelHeader
         icon={Keyboard}
         title="Hotkeys"
-        description="Shortcuts for Pasted, Bins, and Transforms."
+        description="Global shortcuts, Bin actions, and Transform triggers."
         actions={(
           <ActionButton onClick={() => void restoreDefaults()}>
             <RotateCcw className="w-3.5 h-3.5" />
@@ -304,10 +304,10 @@ export function SettingsHotkeysPanel({
       </section>
 
       <section className="space-y-2">
-        <h4 className="font-bold theme-text-muted uppercase tracking-wider text-[10px]">Paste Recent Clippings</h4>
+        <h4 className="font-bold theme-text-muted uppercase tracking-wider text-[10px]">Paste Clips by Position</h4>
         {Array.from({ length: 9 }, (_, index) => index + 1).map((number) => {
           const key = `pasteClip${number}Hotkey` as HotkeySetting;
-          return <HotkeyRow key={key} label={`Paste Clipping ${number}`} value={(settings[key] as string) || null} onChange={(value) => void updateSettingHotkey(key, value)} />;
+          return <HotkeyRow key={key} label={`Paste Clip ${number}`} value={(settings[key] as string) || null} onChange={(value) => void updateSettingHotkey(key, value)} />;
         })}
       </section>
     </div>

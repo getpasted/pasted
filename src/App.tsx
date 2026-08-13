@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useState, useCallback, useMemo, useRef } fr
 import { safeInvoke as invoke } from './utils/tauri';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { listen } from '@tauri-apps/api/event';
-import { ClipItem, Bin, getClipFileSummary } from './types';
+import { ClipItem, Bin, getClipFileSummary, type ClipMutationSummary } from './types';
 import { Sidebar } from './components/Sidebar';
 import { ClipCard } from './components/ClipCard';
 import { EmptyClipList } from './components/EmptyClipList';
@@ -48,6 +48,7 @@ import {
   type SidebarSectionState,
 } from './utils/appUiState';
 import './App.css';
+import { consumePendingBackupClientState } from './utils/backupClientState';
 
 const TRANSIENT_SCROLL_SURFACE_SELECTOR = [
   '.surface-scroll-region',
@@ -66,6 +67,14 @@ const TRANSIENT_SCROLL_SURFACE_SELECTOR = [
 export default function App() {
   const [restoredUiState] = useState(readAppUiState);
   const [isHudView, setIsHudView] = useState<boolean>(false);
+
+  useEffect(() => {
+    void consumePendingBackupClientState()
+      .then((restored) => {
+        if (restored) window.location.reload();
+      })
+      .catch((error) => console.error('Failed to restore backed-up interface state:', error));
+  }, []);
 
   useEffect(() => {
     const hideTimers = new Map<HTMLElement, number>();
@@ -146,12 +155,19 @@ export default function App() {
     pipelines,
     sequentialStatus: seqStatus,
     totalClipCount,
+    totalTrashCount,
+    clipCollectionSummary,
     setTotalClipCount,
     isClipboardPaused,
     ignoredAppStatus,
     initialDataLoaded,
     fetchClips,
     fetchTrashedClips,
+    fetchClipCollectionSummary,
+    loadMoreClips,
+    loadMoreTrashedClips,
+    isLoadingMoreClips,
+    isLoadingMoreTrash,
     fetchBins,
     fetchPipelines,
     fetchSequentialStatus,
@@ -441,9 +457,6 @@ export default function App() {
 
   const {
     displayedClips,
-    pinnedCount,
-    protectedCount,
-    notesCount,
     queuedIndexMap,
   } = useClipViews({
     allClips,
@@ -506,7 +519,10 @@ export default function App() {
     itemIds: binReorderIds,
     containerRef: clipListRef,
     onCommit: commitBinOrder,
-    disabled: !currentCollection?.capabilities.canReorder || !isBinCollection || binReorderIds.length < 2,
+    disabled: !currentCollection?.capabilities.canReorder
+      || !isBinCollection
+      || allClips.length < totalClipCount
+      || binReorderIds.length < 2,
   });
   const [stackedPinnedClipIds, setStackedPinnedClipIds] = useState<number[]>([]);
   const pinnedShelfClips = useMemo(
@@ -524,6 +540,11 @@ export default function App() {
   }, [selectionViewKey]);
 
   const handleClipListScroll = useCallback((element: HTMLDivElement) => {
+    const distanceFromEnd = element.scrollHeight - element.scrollTop - element.clientHeight;
+    if (distanceFromEnd < 800) {
+      if (currentCollection?.membership === 'trash') void loadMoreTrashedClips();
+      else if (currentCollection?.membership !== 'queue') void loadMoreClips();
+    }
     if (pinnedShelfClips.length === 0 || (currentCollection?.membership !== 'all' && !isPinnedCollection)) {
       setStackedPinnedClipIds([]);
       return;
@@ -549,7 +570,37 @@ export default function App() {
         ? previous
         : next;
     });
-  }, [currentCollection?.membership, isPinnedCollection, pinnedShelfClips.length]);
+  }, [currentCollection?.membership, isPinnedCollection, loadMoreClips, loadMoreTrashedClips, pinnedShelfClips.length]);
+
+  useLayoutEffect(() => {
+    const element = clipListRef.current;
+    if (!element) return;
+    const needsAnotherBatch = isBinCollection
+      ? allClips.length < totalClipCount
+      : element.scrollHeight - element.clientHeight < 800;
+    if (!needsAnotherBatch) return;
+    if (currentCollection?.membership === 'trash') {
+      if (!isLoadingMoreTrash && trashedClips.length < totalTrashCount) void loadMoreTrashedClips();
+    } else if (currentCollection?.membership !== 'queue') {
+      if (!isLoadingMoreClips && allClips.length < totalClipCount) void loadMoreClips();
+    }
+  }, [
+    allClips.length,
+    currentCollection?.membership,
+    displayedClips.length,
+    isLoadingMoreClips,
+    isLoadingMoreTrash,
+    isBinCollection,
+    loadMoreClips,
+    loadMoreTrashedClips,
+    totalClipCount,
+    totalTrashCount,
+    trashedClips.length,
+  ]);
+
+  const isLoadingCurrentCollection = currentCollection?.membership === 'trash'
+    ? isLoadingMoreTrash
+    : currentCollection?.membership !== 'queue' && isLoadingMoreClips;
 
   useLayoutEffect(() => {
     const element = clipListRef.current;
@@ -867,6 +918,7 @@ export default function App() {
     fetchClips,
     fetchTrashedClips,
     fetchSequentialStatus,
+    onCollectionChanged: fetchClipCollectionSummary,
     keepTrashedClipsVisible: currentTab === 'search',
     onClipsRepositioned: requestRepositionedClipReveal,
   });
@@ -1001,10 +1053,16 @@ export default function App() {
       if (clearHistoryMode === 'purge') await invoke('purge_unpinned_clips');
       else await invoke('trash_unpinned_clips');
       setClearHistoryMode(null);
-      await Promise.all([fetchClips(), fetchTrashedClips(), fetchBins()]);
+      await Promise.all([fetchClips(), fetchTrashedClips(), fetchBins(), fetchClipCollectionSummary()]);
     } catch (e) {
       console.error(e);
     }
+  };
+
+  const handleRestoreAllTrashedClips = async () => {
+    const summary = await invoke<ClipMutationSummary>('restore_all_trashed_clips');
+    await Promise.all([fetchClips(), fetchTrashedClips(), fetchBins(), fetchClipCollectionSummary()]);
+    return summary.changedCount;
   };
 
   useEffect(() => {
@@ -1069,6 +1127,7 @@ export default function App() {
             fetchBins(),
             fetchPipelines(),
             fetchSequentialStatus(),
+            fetchClipCollectionSummary(),
           ]);
           break;
         default:
@@ -1158,7 +1217,7 @@ export default function App() {
         selectedBinId={selectedBinId}
         setSelectedBinId={handleSidebarBinSelect}
         bins={bins}
-        clips={allClips}
+        clipCollectionSummary={clipCollectionSummary}
         features={enabledFeatures}
         onRefreshBins={fetchBins}
         onOpenNewBinModal={handleOpenNewBinModal}
@@ -1177,10 +1236,10 @@ export default function App() {
         onEmptySearchEscape={exitEmptySearch}
         seqStatus={seqStatus}
         onClearHistory={handleRequestClearHistory}
-        pinnedCount={pinnedCount}
-        protectedCount={protectedCount}
-        notesCount={notesCount}
-        trashedCount={trashedClips.length}
+        pinnedCount={clipCollectionSummary.pinnedCount}
+        protectedCount={clipCollectionSummary.protectedCount}
+        notesCount={clipCollectionSummary.notedCount}
+        trashedCount={totalTrashCount}
         totalClipCount={totalClipCount}
         isCollapsed={isSidebarCollapsed}
         setIsCollapsed={setIsSidebarCollapsed}
@@ -1232,6 +1291,8 @@ export default function App() {
           onRefreshClips={fetchClips}
           onRefreshTrashedClips={fetchTrashedClips}
           onClearHistory={(permanent) => setClearHistoryMode(permanent ? 'purge' : 'trash')}
+          onRestoreAllTrashedClips={handleRestoreAllTrashedClips}
+          trashedClipCount={trashedClips.length}
           onResetColumnWidths={resetColumnWidths}
           requestedTab={settingsNavigation?.tab}
           navigationKey={settingsNavigation?.key}
@@ -1353,14 +1414,15 @@ export default function App() {
                   if (event.target === event.currentTarget) clearClipSelection();
                 }}
               >
-                {displayedClips.length === 0 ? (
+                {displayedClips.length === 0 && !isLoadingCurrentCollection ? (
                   <EmptyClipList
                     currentTab={currentTab}
                     searchQuery={searchQuery}
                     selectedBin={selectedBinId === null ? undefined : binsById.get(selectedBinId)}
                   />
                 ) : (
-                  displayedClips.map((clip, index) => {
+                  <>
+                  {displayedClips.map((clip, index) => {
                   const queueIndex = isQueueCollection
                     ? index + 1
                     : clip.text_content
@@ -1482,7 +1544,13 @@ export default function App() {
                       }}
                     />
                   );
-                  })
+                  })}
+                  {isLoadingCurrentCollection && (
+                    <div className="theme-text-muted py-3 text-center text-xs" role="status">
+                      Loading older clips…
+                    </div>
+                  )}
+                  </>
                 )}
               </div>
             </div>
@@ -1515,7 +1583,7 @@ export default function App() {
                         ...previous.filter((clip) => !clip.is_pinned && !idSet.has(clip.id)),
                       ]);
                     });
-                    invoke('batch_pin_clips', { ids, pinState: true }).catch((err) => {
+                    invoke('batch_pin_clips', { ids, pinState: true }).then(fetchClipCollectionSummary).catch((err) => {
                       console.error(err);
                       fetchClips();
                     });
@@ -1539,7 +1607,7 @@ export default function App() {
                         : clip);
                       return sortClipsForTimeline(updated);
                     });
-                    invoke('batch_pin_clips', { ids, pinState: false }).catch((err) => {
+                    invoke('batch_pin_clips', { ids, pinState: false }).then(fetchClipCollectionSummary).catch((err) => {
                       console.error(err);
                       fetchClips();
                     });
@@ -1704,6 +1772,7 @@ export default function App() {
             setNotePromptClip(null);
             try {
               await invoke('update_clip_note', { clipId: clip.id, note });
+              await fetchClipCollectionSummary();
             } catch (error) {
               console.error(error);
               fetchClips();

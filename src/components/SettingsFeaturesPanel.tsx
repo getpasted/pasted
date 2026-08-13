@@ -71,7 +71,7 @@ export function SettingsFeaturesPanel({ settings, onUpdateSettings }: SettingsFe
       <SettingsPanelHeader
         icon={Cable}
         title="Functionality"
-        description="Make Pasted as focused or as powerful as you want. Hidden features keep their existing data."
+        description="Choose a focused setup or enable more powerful workflows. Hidden features keep their existing data."
         actions={(
           <div className="theme-surface flex rounded-xl border p-1" aria-label="Feature presets">
             {visiblePresets.map((preset) => (

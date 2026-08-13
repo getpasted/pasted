@@ -29,7 +29,7 @@ import {
   TerminalSquare,
   X,
 } from 'lucide-react';
-import { Bin, ClipItem, SequentialStatus } from '../types';
+import { Bin, ClipCollectionSummary, type ClipContentType, SequentialStatus } from '../types';
 import { useSidebarBinOrder } from '../hooks/useSidebarBinOrder';
 import { clipFacetRoute, getClipCollection, getSystemClipCollections, type ClipCollectionIcon, type ClipDropAction } from '../utils/clipCollections';
 import type { FeatureId } from '../utils/features';
@@ -55,7 +55,7 @@ interface SidebarProps {
   selectedBinId: number | null;
   setSelectedBinId: (id: number | null) => void;
   bins: Bin[];
-  clips: ClipItem[];
+  clipCollectionSummary: ClipCollectionSummary;
   onRefreshBins?: () => void;
   onOpenNewBinModal: () => void;
   onEditBin?: (bin: Bin) => void;
@@ -92,7 +92,7 @@ const SidebarComponent: React.FC<SidebarProps> = ({
   selectedBinId,
   setSelectedBinId,
   bins,
-  clips,
+  clipCollectionSummary,
   onOpenNewBinModal,
   onEditBin,
   onDeleteBin,
@@ -319,39 +319,32 @@ const SidebarComponent: React.FC<SidebarProps> = ({
     dropAction: collection.capabilities.dropAction,
   }));
   const allToolNavItems: Array<{ tab: string; label: string; title: string; icon: React.ReactElement<{ className: string; strokeWidth?: number }>; feature?: FeatureId }> = [
-    { tab: 'analytics', label: 'Analytics & Insights', title: 'Analytics & Insights', icon: <BarChart3 className="sidebar-icon-primary w-5 h-5" />, feature: 'analytics' },
     { tab: 'transformations', label: 'Transformations', title: 'Transformations', icon: <Workflow className="sidebar-icon-primary w-5 h-5" />, feature: 'transformations' },
-    { tab: 'activity', label: 'Activity Log', title: 'Activity Log', icon: <Activity className="sidebar-icon-info w-5 h-5" />, feature: 'activityLog' },
-    { tab: 'help', label: 'Help & Documentation', title: 'Help & Documentation', icon: <HelpCircle className="sidebar-icon-info w-5 h-5" />, feature: 'help' },
+    { tab: 'analytics', label: 'Insights', title: 'Insights', icon: <BarChart3 className="sidebar-icon-primary w-5 h-5" />, feature: 'analytics' },
+    { tab: 'activity', label: 'Activity', title: 'Activity', icon: <Activity className="sidebar-icon-info w-5 h-5" />, feature: 'activityLog' },
+    { tab: 'help', label: 'Help', title: 'Help', icon: <HelpCircle className="sidebar-icon-info w-5 h-5" />, feature: 'help' },
     { tab: 'settings', label: 'Settings', title: 'Settings', icon: <Settings className="sidebar-icon-primary w-5 h-5" /> },
   ];
   const toolNavItems = allToolNavItems.filter(({ feature }) => !feature || features[feature]);
 
   const typeItems = React.useMemo(() => {
-    const counts = new Map<ClipItem['content_type'], number>();
-    clips.forEach((clip) => counts.set(clip.content_type, (counts.get(clip.content_type) ?? 0) + 1));
     const order = new Map(contentTypes.map(({ id }, index) => [id, index]));
     const labels = new Map(contentTypes.map(({ id, label }) => [id, label]));
-    return [...counts].map(([value, count]) => ({
+    return clipCollectionSummary.typeCounts.map(({ content_type: value, count }) => ({
       value,
       count,
       route: clipFacetRoute('type', value),
       label: labels.get(value) ?? value.split('_').map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(' '),
     })).sort((left, right) => (order.get(left.value) ?? Number.MAX_SAFE_INTEGER) - (order.get(right.value) ?? Number.MAX_SAFE_INTEGER));
-  }, [clips, contentTypes]);
+  }, [clipCollectionSummary.typeCounts, contentTypes]);
   const sourceItems = React.useMemo(() => {
-    const counts = new Map<string, number>();
-    clips.forEach((clip) => {
-      const source = typeof clip.source === 'string' && clip.source.trim() ? clip.source : 'Unknown';
-      counts.set(source, (counts.get(source) ?? 0) + 1);
-    });
-    return [...counts].map(([value, count]) => ({
+    return clipCollectionSummary.sourceCounts.map(({ name: value, count }) => ({
       value,
       count,
       route: clipFacetRoute('source', value),
       label: value || 'Unknown Source',
     })).sort((left, right) => right.count - left.count || left.label.localeCompare(right.label));
-  }, [clips]);
+  }, [clipCollectionSummary.sourceCounts]);
   const [sourceIcons, setSourceIcons] = React.useState<Record<string, string>>({});
   const sourceIconsRef = React.useRef<Record<string, string>>({});
   const requestedSourceIconsRef = React.useRef(new Set<string>());
@@ -882,7 +875,7 @@ const SidebarComponent: React.FC<SidebarProps> = ({
                     <div className="flex min-w-0 items-center gap-3">
                       <span className="sidebar-nav-icon">
                         {section.id === 'types'
-                          ? <ContentTypeIcon type={item.value as ClipItem['content_type']} className="sidebar-icon-primary h-4 w-4 shrink-0" />
+                          ? <ContentTypeIcon type={item.value as ClipContentType} className="sidebar-icon-primary h-4 w-4 shrink-0" />
                           : sourceIcons[item.value]
                           ? <img src={sourceIcons[item.value]} alt="" className="h-4 w-4 shrink-0 object-contain" />
                           : sourceFallbackIcon(item.value)}

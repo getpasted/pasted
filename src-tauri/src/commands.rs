@@ -8,12 +8,14 @@ use std::thread;
 use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_dialog::DialogExt;
+use tauri_plugin_window_state::{AppHandleExt, StateFlags};
 
 use crate::bin_assignment::BinAssignmentOutcome;
 use crate::db::{
-    Bin, ClipItem, ClipMutationSummary, ContentDetectionRescanReport, DbState, FactoryResetReport,
-    IntelligenceConnection, IntelligenceConnectionUpdate, Pipeline, PipelineStepInput,
-    SavedTransform, TransformClipApplication, TransformDefinition,
+    Bin, ClipImportReport, ClipItem, ClipMutationSummary, ContentDetectionRescanReport, DbState,
+    FactoryResetReport, FullBackupInspection, IntelligenceConnection, IntelligenceConnectionUpdate,
+    LibraryArchiveInspection, Pipeline, PipelineStepInput, SavedTransform,
+    TransformClipApplication, TransformDefinition,
 };
 use crate::features::{self, Feature};
 use crate::installation_diagnostics::InstallationDiagnostics;
@@ -866,9 +868,11 @@ pub fn get_clips(
     search_query: Option<String>,
     bin_id: Option<i64>,
     only_pinned: bool,
+    limit: Option<i64>,
+    offset: Option<i64>,
     db: State<'_, Arc<DbState>>,
 ) -> Result<Vec<ClipItem>, String> {
-    db.get_clips(search_query.as_deref(), bin_id, only_pinned)
+    db.get_clips_page(search_query.as_deref(), bin_id, only_pinned, limit, offset)
         .map_err(|e| e.to_string())
 }
 
@@ -928,8 +932,11 @@ pub fn get_capture_feedback_clip(
 }
 
 #[tauri::command]
-pub fn get_total_clip_count(db: State<'_, Arc<DbState>>) -> Result<i64, String> {
-    db.get_total_clip_count().map_err(|e| e.to_string())
+pub fn get_clip_collection_summary(
+    db: State<'_, Arc<DbState>>,
+) -> Result<crate::db::ClipCollectionSummary, String> {
+    db.get_clip_collection_summary()
+        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -938,13 +945,27 @@ pub fn get_clip_image(db: State<'_, Arc<DbState>>, id: i64) -> Result<Option<Str
 }
 
 #[tauri::command]
-pub fn get_trashed_clips(db: State<'_, Arc<DbState>>) -> Result<Vec<ClipItem>, String> {
-    db.get_trashed_clips().map_err(|e| e.to_string())
+pub fn get_trashed_clips(
+    limit: Option<i64>,
+    offset: Option<i64>,
+    db: State<'_, Arc<DbState>>,
+) -> Result<Vec<ClipItem>, String> {
+    db.get_trashed_clips_page(limit, offset)
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub fn restore_clip(id: i64, db: State<'_, Arc<DbState>>) -> Result<(), String> {
     db.restore_clip(id).map(|_| ()).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn restore_all_trashed_clips(
+    db: State<'_, Arc<DbState>>,
+) -> Result<ClipMutationSummary, String> {
+    features::require(&db, Feature::Trash)?;
+    db.restore_all_trashed_clips()
+        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -970,6 +991,42 @@ pub fn get_activity_logs(
 #[tauri::command]
 pub fn clear_activity_logs(db: State<'_, Arc<DbState>>) -> Result<(), String> {
     db.clear_activity_logs().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn export_activity_json(db: State<'_, Arc<DbState>>) -> Result<String, String> {
+    let exported = db
+        .export_activity_json()
+        .map_err(|error| error.to_string())?;
+    let _ = db.log_activity("data_export_completed", "Exported Activity as JSON");
+    Ok(exported)
+}
+
+#[tauri::command]
+pub fn export_activity_csv(db: State<'_, Arc<DbState>>) -> Result<String, String> {
+    let exported = db
+        .export_activity_csv()
+        .map_err(|error| error.to_string())?;
+    let _ = db.log_activity("data_export_completed", "Exported Activity as CSV");
+    Ok(exported)
+}
+
+#[tauri::command]
+pub fn import_activity_json(
+    json: String,
+    db: State<'_, Arc<DbState>>,
+) -> Result<crate::db::ActivityImportReport, String> {
+    db.import_activity_json(&json)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn import_activity_csv(
+    csv: String,
+    db: State<'_, Arc<DbState>>,
+) -> Result<crate::db::ActivityImportReport, String> {
+    db.import_activity_csv(&csv)
+        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -1454,27 +1511,387 @@ pub async fn export_backup_file(
     db: State<'_, Arc<DbState>>,
 ) -> Result<Option<String>, String> {
     let suggested_name = format!(
-        "Pasted_Backup_{}.json",
+        "Pasted_History_and_Organization_{}.json",
         chrono::Local::now().format("%Y-%m-%d")
     );
     let Some(selected_file) = app
         .dialog()
         .file()
-        .set_title("Export Pasted Backup")
+        .set_title("Export History and Organization")
         .set_file_name(suggested_name)
-        .add_filter("Pasted Backup", &["json"])
+        .add_filter("Pasted JSON Export", &["json"])
         .blocking_save_file()
     else {
         return Ok(None);
     };
 
     let path = selected_file.into_path().map_err(|error| {
-        format!("The selected backup location is not a writable file path: {error}")
+        format!("The selected export location is not a writable file path: {error}")
     })?;
     let json = db.export_backup_json().map_err(|error| error.to_string())?;
     std::fs::write(&path, json)
-        .map_err(|error| format!("Could not save the Pasted backup: {error}"))?;
+        .map_err(|error| format!("Could not save the history and organization export: {error}"))?;
+    let _ = db.log_activity(
+        "data_export_completed",
+        "Exported History and Organization as JSON",
+    );
     Ok(Some(path.to_string_lossy().into_owned()))
+}
+
+#[tauri::command]
+pub async fn export_full_backup_file(
+    client_state_json: Option<String>,
+    app: AppHandle,
+    db: State<'_, Arc<DbState>>,
+) -> Result<Option<crate::db::FullBackupReport>, String> {
+    let suggested_name = format!(
+        "Pasted_Full_Backup_{}.pastedbackup",
+        chrono::Local::now().format("%Y-%m-%d")
+    );
+    let Some(selected_file) = app
+        .dialog()
+        .file()
+        .set_title("Create Full Pasted Backup")
+        .set_file_name(suggested_name)
+        .add_filter("Pasted Full Backup", &["pastedbackup"])
+        .blocking_save_file()
+    else {
+        return Ok(None);
+    };
+    let path = selected_file
+        .into_path()
+        .map_err(|error| format!("The selected backup location is not writable: {error}"))?;
+    if let Some(state) = client_state_json.as_deref() {
+        db.save_setting("backedUpClientState", state)
+            .map_err(|error| error.to_string())?;
+    }
+    let window_flags =
+        StateFlags::SIZE | StateFlags::POSITION | StateFlags::MAXIMIZED | StateFlags::FULLSCREEN;
+    let _ = app.save_window_state(window_flags);
+    let window_state_json = app
+        .path()
+        .app_config_dir()
+        .ok()
+        .and_then(|directory| std::fs::read_to_string(directory.join(app.filename())).ok());
+    let db = Arc::clone(&db);
+    tauri::async_runtime::spawn_blocking(move || {
+        db.create_full_backup(
+            &path,
+            client_state_json.as_deref(),
+            window_state_json.as_deref(),
+        )
+        .inspect(|_| {
+            let _ = db.log_activity("backup_created", "Created a complete recovery backup");
+        })
+        .map(Some)
+        .map_err(|error| error.to_string())
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
+#[tauri::command]
+pub async fn restore_full_backup_file(
+    current_client_state_json: Option<String>,
+    backup_path: Option<String>,
+    app: AppHandle,
+    db: State<'_, Arc<DbState>>,
+) -> Result<Option<crate::db::FullRestoreReport>, String> {
+    let path = if let Some(path) = backup_path {
+        PathBuf::from(path)
+    } else {
+        let Some(selected_file) = app
+            .dialog()
+            .file()
+            .set_title("Restore Full Pasted Backup")
+            .add_filter("Pasted Full Backup", &["pastedbackup"])
+            .blocking_pick_file()
+        else {
+            return Ok(None);
+        };
+        selected_file
+            .into_path()
+            .map_err(|error| format!("The selected backup is not accessible: {error}"))?
+    };
+    let window_flags =
+        StateFlags::SIZE | StateFlags::POSITION | StateFlags::MAXIMIZED | StateFlags::FULLSCREEN;
+    let _ = app.save_window_state(window_flags);
+    let current_window_state_json = app
+        .path()
+        .app_config_dir()
+        .ok()
+        .and_then(|directory| std::fs::read_to_string(directory.join(app.filename())).ok());
+    let db = Arc::clone(&db);
+    let restore_db = Arc::clone(&db);
+    let (report, _client_state, restored_window_state) =
+        tauri::async_runtime::spawn_blocking(move || {
+            restore_db
+                .restore_full_backup(
+                    &path,
+                    current_client_state_json.as_deref(),
+                    current_window_state_json.as_deref(),
+                )
+                .map_err(|error| error.to_string())
+        })
+        .await
+        .map_err(|error| error.to_string())??;
+
+    if let Some(window_state) = restored_window_state {
+        let parsed = serde_json::from_str::<serde_json::Value>(&window_state)
+            .map_err(|error| format!("The backup contains invalid window state: {error}"))?;
+        let directory = app
+            .path()
+            .app_config_dir()
+            .map_err(|error| error.to_string())?;
+        std::fs::create_dir_all(&directory).map_err(|error| error.to_string())?;
+        std::fs::write(
+            directory.join(app.filename()),
+            serde_json::to_vec_pretty(&parsed).map_err(|error| error.to_string())?,
+        )
+        .map_err(|error| format!("Could not restore the saved window state: {error}"))?;
+    }
+    if let Ok(cache_directory) = app.path().app_cache_dir() {
+        let _ = std::fs::remove_dir_all(cache_directory);
+    }
+    let _ = db.log_activity(
+        "backup_recovery_completed",
+        "Recovered the complete state from a backup",
+    );
+    if !tauri::is_dev() {
+        let restart_handle = app.clone();
+        thread::spawn(move || {
+            thread::sleep(Duration::from_millis(500));
+            restart_handle.restart();
+        });
+    }
+    Ok(Some(report))
+}
+
+#[tauri::command]
+pub fn consume_pending_full_restore_client_state(
+    db: State<'_, Arc<DbState>>,
+) -> Result<Option<String>, String> {
+    db.consume_pending_full_restore_client_state()
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn inspect_library_archive_json(
+    json_str: String,
+) -> Result<crate::db::LibraryArchiveInspection, String> {
+    DbState::inspect_library_archive_json(&json_str).map_err(|error| error.to_string())
+}
+
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportFileInspection {
+    path: String,
+    name: String,
+    kind: String,
+    format: String,
+    size_bytes: u64,
+    report: Option<serde_json::Value>,
+    library: Option<LibraryArchiveInspection>,
+    backup: Option<FullBackupInspection>,
+}
+
+#[tauri::command]
+pub async fn choose_import_file(
+    app: AppHandle,
+    db: State<'_, Arc<DbState>>,
+) -> Result<Option<ImportFileInspection>, String> {
+    let Some(selected_file) = app
+        .dialog()
+        .file()
+        .set_title("Choose Data to Import or Recover")
+        .add_filter("Pasted Data", &["json", "csv", "pastedbackup"])
+        .blocking_pick_file()
+    else {
+        return Ok(None);
+    };
+    let path = selected_file
+        .into_path()
+        .map_err(|error| format!("The selected file is not accessible: {error}"))?;
+    let db = Arc::clone(&db);
+    tauri::async_runtime::spawn_blocking(move || inspect_import_file_path(path, &db))
+        .await
+        .map_err(|error| error.to_string())?
+        .map(Some)
+}
+
+fn inspect_import_file_path(path: PathBuf, db: &DbState) -> Result<ImportFileInspection, String> {
+    let metadata = std::fs::metadata(&path)
+        .map_err(|error| format!("The selected file is not accessible: {error}"))?;
+    if !metadata.is_file() {
+        return Err("The selected item is not a file.".to_string());
+    }
+    let name = path
+        .file_name()
+        .and_then(|value| value.to_str())
+        .unwrap_or("Selected file")
+        .to_string();
+    let extension = path
+        .extension()
+        .and_then(|value| value.to_str())
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    let base = |kind: &str, format: &str| ImportFileInspection {
+        path: path.to_string_lossy().into_owned(),
+        name: name.clone(),
+        kind: kind.to_string(),
+        format: format.to_string(),
+        size_bytes: metadata.len(),
+        report: None,
+        library: None,
+        backup: None,
+    };
+
+    if extension == "pastedbackup" {
+        let inspection = db
+            .inspect_full_backup(&path)
+            .map_err(|error| format!("The backup is not valid: {error}"))?;
+        return Ok(ImportFileInspection {
+            backup: Some(inspection),
+            ..base("backup", "backup")
+        });
+    }
+    if !matches!(extension.as_str(), "json" | "csv") {
+        return Err("Choose a JSON, CSV, or Pasted Backup file.".to_string());
+    }
+    let contents = std::fs::read_to_string(&path)
+        .map_err(|error| format!("The selected file could not be read: {error}"))?;
+    if extension == "csv" {
+        let header = contents.lines().next().unwrap_or_default();
+        if header.starts_with("timestamp,observed_timestamp,event_name,") {
+            let report = db
+                .inspect_activity_csv(&contents)
+                .map_err(|error| format!("The Activity CSV is not valid: {error}"))?;
+            return Ok(ImportFileInspection {
+                report: Some(serde_json::to_value(report).map_err(|error| error.to_string())?),
+                ..base("activity", "csv")
+            });
+        }
+        if header.starts_with("id,content_type,source,") {
+            let report = db
+                .inspect_clips_csv(&contents)
+                .map_err(|error| format!("The Clips CSV is not valid: {error}"))?;
+            return Ok(ImportFileInspection {
+                report: Some(serde_json::to_value(report).map_err(|error| error.to_string())?),
+                ..base("clips", "csv")
+            });
+        }
+        return Err("The CSV does not match a supported Clips or Activity export.".to_string());
+    }
+
+    let parsed: serde_json::Value = serde_json::from_str(&contents)
+        .map_err(|error| format!("The selected file is not valid JSON: {error}"))?;
+    if parsed.is_array() {
+        let report = db
+            .inspect_clips_json(&contents)
+            .map_err(|error| format!("The Clips JSON is not valid: {error}"))?;
+        return Ok(ImportFileInspection {
+            report: Some(serde_json::to_value(report).map_err(|error| error.to_string())?),
+            ..base("clips", "json")
+        });
+    }
+    let object = parsed
+        .as_object()
+        .ok_or_else(|| "The JSON does not match a supported export.".to_string())?;
+    if object
+        .get("entries")
+        .and_then(serde_json::Value::as_array)
+        .is_some()
+        && object
+            .get("schemaVersion")
+            .and_then(serde_json::Value::as_u64)
+            .is_some()
+    {
+        let report = db
+            .inspect_activity_json(&contents)
+            .map_err(|error| format!("The Activity JSON is not valid: {error}"))?;
+        return Ok(ImportFileInspection {
+            report: Some(serde_json::to_value(report).map_err(|error| error.to_string())?),
+            ..base("activity", "json")
+        });
+    }
+    if object
+        .get("clips")
+        .and_then(serde_json::Value::as_array)
+        .is_some()
+        && object
+            .get("bins")
+            .and_then(serde_json::Value::as_array)
+            .is_some()
+        && object
+            .get("version")
+            .and_then(serde_json::Value::as_u64)
+            .is_some()
+    {
+        let inspection = DbState::inspect_library_archive_json(&contents)
+            .map_err(|error| format!("The History and Organization JSON is not valid: {error}"))?;
+        return Ok(ImportFileInspection {
+            library: Some(inspection),
+            ..base("organization", "json")
+        });
+    }
+    Err("The JSON does not match a supported export.".to_string())
+}
+
+#[tauri::command]
+pub async fn import_inspected_file(
+    path: String,
+    kind: String,
+    format: String,
+    app: AppHandle,
+    db: State<'_, Arc<DbState>>,
+) -> Result<serde_json::Value, String> {
+    let refresh_menu = kind == "organization";
+    let db = Arc::clone(&db);
+    let worker_db = Arc::clone(&db);
+    let report = tauri::async_runtime::spawn_blocking(move || {
+        let contents = std::fs::read_to_string(PathBuf::from(path))
+            .map_err(|error| format!("The selected file could not be read: {error}"))?;
+        let result: Result<serde_json::Value, String> = match (kind.as_str(), format.as_str()) {
+            ("clips", "json") => serde_json::to_value(
+                worker_db
+                    .import_clips_json(&contents)
+                    .map_err(|error| error.to_string())?,
+            )
+            .map_err(|error| error.to_string()),
+            ("clips", "csv") => serde_json::to_value(
+                worker_db
+                    .import_clips_csv(&contents)
+                    .map_err(|error| error.to_string())?,
+            )
+            .map_err(|error| error.to_string()),
+            ("activity", "json") => serde_json::to_value(
+                worker_db
+                    .import_activity_json(&contents)
+                    .map_err(|error| error.to_string())?,
+            )
+            .map_err(|error| error.to_string()),
+            ("activity", "csv") => serde_json::to_value(
+                worker_db
+                    .import_activity_csv(&contents)
+                    .map_err(|error| error.to_string())?,
+            )
+            .map_err(|error| error.to_string()),
+            ("organization", "json") => {
+                let imported = worker_db
+                    .import_backup_json(&contents)
+                    .map_err(|error| error.to_string())?;
+                Ok(serde_json::json!({ "importedCount": imported }))
+            }
+            _ => Err("The selected import action is not supported.".to_string()),
+        };
+        result
+    })
+    .await
+    .map_err(|error| error.to_string())??;
+    if refresh_menu {
+        refresh_native_app_menu(&app, &db);
+    }
+    Ok(report)
 }
 
 #[tauri::command]
@@ -3952,10 +4369,12 @@ pub fn is_clipboard_paused(
 
 #[tauri::command]
 pub fn export_clips_json(db: State<'_, Arc<DbState>>) -> Result<String, String> {
-    let clips = db.get_clips(None, None, false).map_err(|e| e.to_string())?;
-    serde_json::to_string_pretty(&clips).map_err(|e| e.to_string())
+    let exported = db.export_clips_json().map_err(|error| error.to_string())?;
+    let _ = db.log_activity("data_export_completed", "Exported Clips as JSON");
+    Ok(exported)
 }
 
+#[cfg(test)]
 fn csv_cell(value: &str) -> String {
     let escaped = value.replace('"', "\"\"");
     let neutralized = if matches!(
@@ -3971,21 +4390,26 @@ fn csv_cell(value: &str) -> String {
 
 #[tauri::command]
 pub fn export_clips_csv(db: State<'_, Arc<DbState>>) -> Result<String, String> {
-    let clips = db.get_clips(None, None, false).map_err(|e| e.to_string())?;
-    let mut csv = String::from("id,content_type,source,is_pinned,created_at,text_content\n");
-    for c in clips {
-        let line = format!(
-            "{},{},{},{},{},{}\n",
-            c.id,
-            csv_cell(&c.content_type),
-            csv_cell(&c.source),
-            c.is_pinned,
-            csv_cell(&c.created_at),
-            csv_cell(c.text_content.as_deref().unwrap_or_default()),
-        );
-        csv.push_str(&line);
-    }
-    Ok(csv)
+    let exported = db.export_clips_csv().map_err(|error| error.to_string())?;
+    let _ = db.log_activity("data_export_completed", "Exported Clips as CSV");
+    Ok(exported)
+}
+
+#[tauri::command]
+pub fn import_clips_json(
+    json: String,
+    db: State<'_, Arc<DbState>>,
+) -> Result<ClipImportReport, String> {
+    db.import_clips_json(&json)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn import_clips_csv(
+    csv: String,
+    db: State<'_, Arc<DbState>>,
+) -> Result<ClipImportReport, String> {
+    db.import_clips_csv(&csv).map_err(|error| error.to_string())
 }
 
 #[tauri::command]

@@ -1,4 +1,5 @@
-export function parseDbDate(timeStr: string): Date {
+export function parseDbDate(timeStr: string | number): Date {
+  if (typeof timeStr === 'number') return new Date(timeStr);
   if (!timeStr) return new Date();
   let isoStr = timeStr.trim();
   // Convert SQLite space separator "YYYY-MM-DD HH:MM:SS" to ISO "YYYY-MM-DDTHH:MM:SS"
@@ -14,19 +15,10 @@ export function parseDbDate(timeStr: string): Date {
   return isNaN(d.getTime()) ? new Date(timeStr) : d;
 }
 
-export function formatClipTime(timeStr: string): string {
-  try {
-    const d = parseDbDate(timeStr);
-    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  } catch {
-    return timeStr;
-  }
-}
-
-export function formatClipRelativeTime(timeStr: string, nowMs = Date.now()): string {
+export function formatRelativeTime(timeStr: string | number, nowMs = Date.now()): string {
   const date = parseDbDate(timeStr);
   const timestampMs = date.getTime();
-  if (Number.isNaN(timestampMs)) return timeStr;
+  if (Number.isNaN(timestampMs)) return String(timeStr);
 
   const elapsedSeconds = Math.max(0, Math.floor((nowMs - timestampMs) / 1000));
   if (elapsedSeconds < 60) return 'now';
@@ -44,21 +36,7 @@ export function formatClipRelativeTime(timeStr: string, nowMs = Date.now()): str
   return `${Math.floor(elapsedDays / 365)}y ago`;
 }
 
-export function formatClipDateTime(timeStr: string): string {
-  try {
-    const d = parseDbDate(timeStr);
-    return d.toLocaleString([], {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  } catch {
-    return timeStr;
-  }
-}
-
-export function formatClipFullDateTime(timeStr: string): string {
+export function formatFullDateTime(timeStr: string | number): string {
   try {
     const d = parseDbDate(timeStr);
     return d.toLocaleString([], {
@@ -68,13 +46,15 @@ export function formatClipFullDateTime(timeStr: string): string {
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
+      second: '2-digit',
+      timeZoneName: 'short',
     });
   } catch {
-    return timeStr;
+    return String(timeStr);
   }
 }
 
-export function clipDateTimeAttribute(timeStr: string): string {
+export function dateTimeAttribute(timeStr: string | number): string {
   const date = parseDbDate(timeStr);
-  return Number.isNaN(date.getTime()) ? timeStr : date.toISOString();
+  return Number.isNaN(date.getTime()) ? String(timeStr) : date.toISOString();
 }

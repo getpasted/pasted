@@ -1,7 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Pasted",
-  "mainBinaryName": "pasted-app",
   "version": "1.0.0-rc.5",
   "identifier": "software.jjj.pasted",
   "build": {

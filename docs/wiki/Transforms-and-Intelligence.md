@@ -17,9 +17,8 @@ Not every Transform uses AI. Pasted records which Transform ran, whether intelli
 
 Transforms can be previewed from the clip Workflow menu, run in the Playground, invoked from a Bin, or run through the CLI. Replacing clip content creates a revision when Revision History is enabled.
 
-## Advanced Operations and Pipelines
+## Advanced Operations and Manual Transforms
 
-Operations and deterministic Pipelines remain available under **Advanced** for compatibility and power-user workflows. Their identifiers and execution contracts are stable, but their editor experience is experimental in 1.0.
+Operations and deterministic manual Transforms remain available under **Advanced** for compatibility and power-user workflows. Legacy pipeline identifiers and execution contracts remain stable, but the editor experience is experimental in 1.0.
 
 Architecture details live in the repository’s [Transformations documentation](https://github.com/getpasted/pasted/blob/main/docs/TRANSFORMATIONS.md).
-

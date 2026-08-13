@@ -4,6 +4,7 @@ import { safeInvoke as invoke } from '../utils/tauri';
 import { FactoryResetDialog } from './FactoryResetDialog';
 import { useToast } from './ToastProvider';
 import { ActionButton } from './AppDialogLayout';
+import { collectBackupClientState } from '../utils/backupClientState';
 
 interface SettingsResetPanelProps {
   onRefreshBins?: () => void;
@@ -22,7 +23,7 @@ export function SettingsResetPanel({
   const [isResetOpen, setIsResetOpen] = useState(false);
 
   const handleExport = async () => {
-    await invoke<string | null>('export_backup_file');
+    await invoke('export_full_backup_file', { clientStateJson: collectBackupClientState() });
   };
 
   const handleFactoryReset = async () => {
@@ -56,7 +57,7 @@ export function SettingsResetPanel({
           <div className="min-w-0 pt-0.5">
             <h3 className="theme-danger-text text-sm font-bold">Reset Pasted</h3>
             <p className="mt-1 text-[11px] leading-relaxed theme-text-muted">
-              Permanently erase this library and return every setting to its default.
+              Permanently erase saved data and return every setting to its default.
             </p>
           </div>
         </div>

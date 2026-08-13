@@ -6,7 +6,7 @@ Pasted 1.0 is the first direct-download release of the local, privacy-first clip
 
 - Searchable history for text, images, screenshots, PDFs, and copied files
 - Manual and Smart Bins with drag-and-drop assignment and ordering
-- Pinning, protection, notes, Trash, revisions, Activity Log, and backup/import
+- Pinning, protection, notes, Trash, revisions, Activity, Full Backup and Restore, and portable History and Organization import
 - Native macOS OCR with resumable background processing
 - Persistent Copy Queue with target-aware Paste Next and Paste All
 - Reusable deterministic and intelligence-assisted Transforms

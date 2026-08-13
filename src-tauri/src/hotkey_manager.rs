@@ -190,7 +190,7 @@ impl HotkeyManager {
             let sc = get_setting(&key, "");
             add_shortcut(
                 format!("paste-clip-{i}"),
-                format!("Paste clipping {i}"),
+                format!("Paste clip {i}"),
                 sc,
                 AppHotkeyAction::PasteClip(i),
             );
@@ -521,10 +521,16 @@ impl HotkeyManager {
                     let Some(db) = paste_app.try_state::<Arc<DbState>>() else {
                         return;
                     };
-                    let Ok(clips) = db.get_clips(None, None, false) else {
+                    let Ok(clips) = db.get_clips_page(
+                        None,
+                        None,
+                        false,
+                        Some(1),
+                        Some(index.saturating_sub(1) as i64),
+                    ) else {
                         return;
                     };
-                    let Some(clip) = clips.get(index - 1) else {
+                    let Some(clip) = clips.first() else {
                         return;
                     };
                     if let Err(error) = commands::paste_clip_from_hud(&db, &paste_app, clip.id) {

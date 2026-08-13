@@ -4,7 +4,7 @@ export interface ContentTypeDescriptor {
   value: ClipContentType;
   label: string;
   icon: string;
-  group: 'General' | 'Developer' | 'Personal & financial' | 'Identifiers';
+  group: 'General' | 'Developer' | 'Personal and financial' | 'Identifiers';
 }
 
 export const CONTENT_TYPES: readonly ContentTypeDescriptor[] = [
@@ -21,9 +21,9 @@ export const CONTENT_TYPES: readonly ContentTypeDescriptor[] = [
   { value: 'shell_command', label: 'Shell Command', icon: 'TerminalSquare', group: 'Developer' },
   { value: 'env_variable', label: 'Environment Variable', icon: 'Variable', group: 'Developer' },
   { value: 'env_block', label: 'Environment Block', icon: 'FileCode2', group: 'Developer' },
-  { value: 'credential', label: 'Credential', icon: 'KeyRound', group: 'Personal & financial' },
-  { value: 'payment_card', label: 'Payment Card', icon: 'CreditCard', group: 'Personal & financial' },
-  { value: 'iban', label: 'IBAN', icon: 'Landmark', group: 'Personal & financial' },
+  { value: 'credential', label: 'Credential', icon: 'KeyRound', group: 'Personal and financial' },
+  { value: 'payment_card', label: 'Payment Card', icon: 'CreditCard', group: 'Personal and financial' },
+  { value: 'iban', label: 'IBAN', icon: 'Landmark', group: 'Personal and financial' },
   { value: 'jwt', label: 'JSON Web Token', icon: 'ShieldKeyhole', group: 'Identifiers' },
   { value: 'hash', label: 'Hash', icon: 'Hash', group: 'Identifiers' },
   { value: 'ip_address', label: 'IP Address', icon: 'Network', group: 'Identifiers' },

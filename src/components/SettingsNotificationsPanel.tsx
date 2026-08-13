@@ -19,7 +19,7 @@ interface ToggleRowProps {
 
 function ToggleRow({ checked, disabled = false, label, description, onChange }: ToggleRowProps) {
   return (
-    <div className={`flex items-start justify-between gap-4 ${disabled ? 'opacity-45' : ''}`}>
+    <div className={`flex items-start justify-between gap-4 ${disabled ? 'settings-disabled-row' : ''}`}>
       <div className="min-w-0">
         <span className="theme-text-main block font-semibold">{label}</span>
         <p className="theme-text-muted mt-0.5 text-[11px] leading-normal">{description}</p>
@@ -57,27 +57,27 @@ export function SettingsNotificationsPanel({ settings, onUpdateSettings }: Setti
       <SettingsPanelHeader
         icon={Bell}
         title="Notifications"
-        description="Quiet confirmation when Pasted captures—or cannot capture—something."
+        description="Get a quiet confirmation when clipboard capture succeeds or fails."
       />
 
       <div className="space-y-4">
         <ToggleRow
           checked={settings.captureFeedback}
-          label="Capture Feedback"
-          description="Briefly confirms successful captures without taking focus from your work."
+          label="Capture feedback"
+          description="Briefly confirms successful captures without taking focus from the current app."
           onChange={() => onUpdateSettings({ captureFeedback: !settings.captureFeedback })}
         />
         <ToggleRow
           checked={settings.captureFeedbackIgnored}
           disabled={!settings.captureFeedback}
-          label="Show Skipped Captures"
-          description="Also acknowledge clipboard items Pasted intentionally leaves alone."
+          label="Show skipped captures"
+          description="Also acknowledge clipboard items intentionally left alone."
           onChange={() => onUpdateSettings({ captureFeedbackIgnored: !settings.captureFeedbackIgnored })}
         />
         <ToggleRow
           checked={settings.captureFeedbackPreview}
           disabled={!settings.captureFeedback}
-          label="Show Clip Preview"
+          label="Show clip preview"
           description="Show the captured item with quick actions."
           onChange={() => onUpdateSettings({ captureFeedbackPreview: !settings.captureFeedbackPreview })}
         />
@@ -85,7 +85,7 @@ export function SettingsNotificationsPanel({ settings, onUpdateSettings }: Setti
           <div className="min-w-0 flex-1">
             <span className="theme-text-main block font-semibold">Dismiss Preview After</span>
             <p className="theme-text-muted mt-0.5 text-[11px] leading-normal">
-              The countdown pauses while your pointer is over a preview.
+              The countdown pauses while the pointer is over a preview.
             </p>
           </div>
           <MenuSelect
@@ -101,7 +101,7 @@ export function SettingsNotificationsPanel({ settings, onUpdateSettings }: Setti
           <div className="min-w-0 flex-1">
             <span className="theme-text-main block font-semibold">Screen Position</span>
             <p className="theme-text-muted mt-0.5 text-[11px] leading-normal">
-              Uses this corner on whichever display currently contains your pointer.
+              Uses this corner on whichever display currently contains the pointer.
             </p>
           </div>
           <MenuSelect
@@ -116,7 +116,7 @@ export function SettingsNotificationsPanel({ settings, onUpdateSettings }: Setti
         </div>
       </div>
       <p className="theme-text-muted text-[11px] leading-normal">
-        Capture feedback stays on your device and never exposes copied text, images, file names, or paths to system notifications.
+        Capture feedback stays on-device and never exposes copied text, images, file names, or paths to system notifications.
       </p>
     </div>
   );

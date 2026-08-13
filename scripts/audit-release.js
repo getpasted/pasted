@@ -9,6 +9,7 @@ const cargoToml = fs.readFileSync('src-tauri/Cargo.toml', 'utf8');
 const installationDiagnostics = fs.readFileSync('src-tauri/src/installation_diagnostics.rs', 'utf8');
 const appSettingsHook = fs.readFileSync('src/hooks/useAppSettings.ts', 'utf8');
 const cargoVersion = cargoToml.match(/^version\s*=\s*"([^"]+)"/m)?.[1];
+const cargoPackageName = cargoToml.match(/^name\s*=\s*"([^"]+)"/m)?.[1];
 const diagnosticsIdentifier = installationDiagnostics.match(/APP_IDENTIFIER:\s*&str\s*=\s*"([^"]+)"/)?.[1];
 const rootLockPackage = packageLock.packages?.[''];
 const packageScripts = packageJson.scripts ?? {};
@@ -27,11 +28,8 @@ assert.equal(rootLockPackage?.name, packageJson.name, 'Locked root package name 
 assert.equal(packageLock.version, packageJson.version, 'Package lock version must match package.json');
 assert.equal(rootLockPackage?.version, packageJson.version, 'Locked root package version must match package.json');
 assert.equal(tauriConfig.productName, 'Pasted', 'Native product name must remain Pasted');
-assert.equal(
-  tauriConfig.mainBinaryName,
-  'pasted-app',
-  'The private GUI executable must not collide with the public pasted CLI command',
-);
+assert.equal(cargoPackageName, 'pasted-app', 'The Cargo package name must select the private GUI executable for Tauri bundling');
+assert.equal(tauriConfig.mainBinaryName, undefined, 'Tauri must derive its main binary from the Cargo package name');
 assert.equal(tauriConfig.version, packageJson.version, 'Tauri and frontend versions must match');
 assert.equal(cargoVersion, packageJson.version, 'Rust crate and frontend versions must match');
 assert.equal(

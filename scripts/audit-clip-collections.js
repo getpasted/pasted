@@ -16,6 +16,7 @@ const database = read('src-tauri/src/db.rs');
 const cli = read('src-tauri/src/bin/pasted_cli.rs');
 const clipTypes = read('src/types.ts');
 const appData = read('src/hooks/useAppData.ts');
+const foundationCss = read('src/styles/foundation.css');
 
 for (const tab of ['all', 'sequential', 'pinned', 'protected', 'notes', 'trash']) {
   assert.match(registry, new RegExp(`tab:\\s*'${tab}'`), `${tab} must be registered as a system clip collection`);
@@ -56,7 +57,7 @@ assert.match(database, /ALTER TABLE clips RENAME COLUMN source_app TO source/, '
 assert.match(clipTypes, /source:\s*string;/, 'Frontend clip contracts must expose the canonical source field');
 assert.doesNotMatch(clipTypes, /source_app/, 'Frontend clip contracts must not retain the pre-1.0 source_app field');
 assert.match(cli, /"source": source/, 'CLI structured search output must expose the canonical source field');
-assert.match(nativeCommands, /id,content_type,source,is_pinned/, 'CSV exports must expose the canonical source header');
+assert.match(database, /id,content_type,source,is_pinned/, 'CSV exports must expose the canonical source header');
 assert.match(appData, /record\.source_app[\s\S]*source_app:\s*_legacySource/, 'Pre-1.0 cached and IPC clip summaries must migrate source_app without retaining it');
 assert.match(sidebar, /source\?\.trim\(\)\.toLowerCase\(\)\s*\?\?\s*''/, 'Source icon rendering must tolerate stale or incomplete cached metadata');
 assert.match(clipViews, /getClipCollection\(currentTab, selectedBin\)/, 'Clip filtering must resolve the active collection');
@@ -64,5 +65,12 @@ assert.match(emptyState, /collection\?\.emptyTitle/, 'Empty states must come fro
 assert.match(viewPolicy, /collection\?\.membership/, 'Interaction policy must use collection membership');
 assert.match(app, /currentCollection\?\.title/, 'The clip-list heading must use the collection descriptor');
 assert.doesNotMatch(dragHook, /export type ClipDropAction/, 'Drop actions must be owned by the collection contract');
+assert.match(database, /pub fn get_clips_page[\s\S]*LIMIT \? OFFSET \?/, 'Active clips must support bounded server pagination');
+assert.match(database, /pub fn get_trashed_clips_page[\s\S]*LIMIT \? OFFSET \?/, 'Trash must support bounded server pagination');
+assert.match(database, /pub fn get_clip_collection_summary/, 'Sidebar collection counts must come from an exact server summary');
+assert.match(appData, /const CLIP_PAGE_SIZE = 250;/, 'The GUI must fetch clip collections in bounded pages');
+assert.match(appData, /loadMoreClips[\s\S]*loadMoreTrashedClips/, 'Active clips and Trash must both support incremental loading');
+assert.match(sidebar, /clipCollectionSummary\.typeCounts[\s\S]*clipCollectionSummary\.sourceCounts/, 'Facet badges must not be derived from only the loaded page');
+assert.match(foundationCss, /\.clip-card[\s\S]*content-visibility:\s*auto/, 'Offscreen clip cards must retain browser-native rendering virtualization');
 
 console.log('Clip collection contract audit passed.');

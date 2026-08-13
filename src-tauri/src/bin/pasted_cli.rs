@@ -2,7 +2,7 @@ use rusqlite::{params, Connection, OptionalExtension, Result};
 use std::env;
 use std::fs;
 use std::io::{self, Read};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use pasted_lib::bin_assignment::assign_clips_to_bin;
 use pasted_lib::content_detection::detect_with_detectors;
@@ -46,9 +46,30 @@ fn get_app_data_dir() -> PathBuf {
     local_dir
 }
 
+fn get_app_config_dir() -> PathBuf {
+    dirs::config_dir()
+        .map(|mut dir| {
+            dir.push(APP_IDENTIFIER);
+            dir
+        })
+        .unwrap_or_else(get_app_data_dir)
+}
+
 fn get_db_path() -> PathBuf {
     let app_data = get_app_data_dir();
     library_storage::resolve_database_path(&app_data)
+}
+
+fn read_library_archive(path: &Path) -> Result<String> {
+    let metadata = fs::metadata(path)
+        .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?;
+    if metadata.len() > pasted_lib::resource_limits::MAX_BACKUP_IMPORT_BYTES as u64 {
+        return Err(rusqlite::Error::InvalidParameterName(
+            "Transfer file exceeds the 256 MB safety limit".to_string(),
+        ));
+    }
+    fs::read_to_string(path)
+        .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))
 }
 
 fn main() -> Result<()> {
@@ -183,6 +204,267 @@ fn main() -> Result<()> {
                     retention_count_label(activity_count, "entries"),
                     retention_age_label(activity_age_days),
                 );
+            }
+        }
+        "activity" => {
+            drop(conn);
+            let db = DbState::new(db_path.clone())?;
+            let subcommand = args.get(2).map(String::as_str).unwrap_or("list");
+            match subcommand {
+                "list" => {
+                    let limit = if args.iter().any(|argument| argument == "--all") {
+                        i64::MAX
+                    } else {
+                        argument_value(&args, "--limit")
+                            .and_then(|value| value.parse::<i64>().ok())
+                            .unwrap_or(100)
+                            .clamp(1, 100_000)
+                    };
+                    let logs = db.get_activity_logs(Some(limit), Some(0))?;
+                    if args.iter().any(|argument| argument == "--json") {
+                        println!(
+                            "{}",
+                            serde_json::to_string_pretty(&logs).map_err(json_error)?
+                        );
+                    } else {
+                        for log in logs {
+                            println!(
+                                "{}\t{}\t{}\t{}",
+                                log.created_at, log.severity_text, log.event_type, log.description
+                            );
+                        }
+                    }
+                }
+                "export" => {
+                    let path = args
+                        .get(3)
+                        .filter(|argument| !argument.starts_with("--"))
+                        .map(PathBuf::from);
+                    let format = argument_value(&args, "--format").unwrap_or_else(|| {
+                        path.as_ref()
+                            .and_then(|value| value.extension())
+                            .and_then(|value| value.to_str())
+                            .unwrap_or("json")
+                            .to_ascii_lowercase()
+                    });
+                    let contents = match format.as_str() {
+                        "json" => db.export_activity_json()?,
+                        "csv" => db.export_activity_csv()?,
+                        _ => {
+                            eprintln!("Activity export format must be json or csv.");
+                            std::process::exit(2);
+                        }
+                    };
+                    if let Some(path) = path {
+                        fs::write(&path, contents).map_err(|error| {
+                            rusqlite::Error::ToSqlConversionFailure(Box::new(error))
+                        })?;
+                        if args.iter().any(|argument| argument == "--json") {
+                            println!("{}", serde_json::json!({ "format": format, "path": path }));
+                        } else {
+                            println!("Exported Activity to {}.", path.display());
+                        }
+                    } else {
+                        print!("{contents}");
+                    }
+                }
+                "import" => {
+                    let Some(path) = args.get(3).filter(|argument| !argument.starts_with("--"))
+                    else {
+                        eprintln!(
+                            "Usage: pasted activity import <path> [--format json|csv] [--json]"
+                        );
+                        std::process::exit(2);
+                    };
+                    let format = argument_value(&args, "--format").unwrap_or_else(|| {
+                        Path::new(path)
+                            .extension()
+                            .and_then(|value| value.to_str())
+                            .unwrap_or("json")
+                            .to_ascii_lowercase()
+                    });
+                    let metadata = fs::metadata(path).map_err(|error| {
+                        rusqlite::Error::ToSqlConversionFailure(Box::new(error))
+                    })?;
+                    if metadata.len()
+                        > pasted_lib::resource_limits::MAX_ACTIVITY_IMPORT_BYTES as u64
+                    {
+                        eprintln!("Activity imports must be 32 MB or smaller.");
+                        std::process::exit(2);
+                    }
+                    let contents = fs::read_to_string(path).map_err(|error| {
+                        rusqlite::Error::ToSqlConversionFailure(Box::new(error))
+                    })?;
+                    let report = match format.as_str() {
+                        "json" => db.import_activity_json(&contents)?,
+                        "csv" => db.import_activity_csv(&contents)?,
+                        _ => {
+                            eprintln!("Activity import format must be json or csv.");
+                            std::process::exit(2);
+                        }
+                    };
+                    if args.iter().any(|argument| argument == "--json") {
+                        println!(
+                            "{}",
+                            serde_json::to_string_pretty(&report).map_err(json_error)?
+                        );
+                    } else {
+                        println!(
+                            "Imported {} of {} Activity entries; {} duplicates were skipped and {} entries are retained.",
+                            report.imported_count,
+                            report.scanned_count,
+                            report.duplicate_count,
+                            report.retained_count,
+                        );
+                    }
+                }
+                "clear" => {
+                    if !args.iter().any(|argument| argument == "--yes") {
+                        eprintln!("Clearing Activity is permanent. Re-run with --yes to continue.");
+                        std::process::exit(2);
+                    }
+                    db.clear_activity_logs()?;
+                    if args.iter().any(|argument| argument == "--json") {
+                        println!("{}", serde_json::json!({ "cleared": true }));
+                    } else {
+                        println!("Cleared Activity.");
+                    }
+                }
+                _ => {
+                    eprintln!("Usage: pasted activity list [--limit N|--all] [--json] | export [path] [--format json|csv] | import <activity.json> [--json] | clear --yes [--json]");
+                    std::process::exit(2);
+                }
+            }
+        }
+        "transfer" | "archive" => {
+            drop(conn);
+            let db = DbState::new(db_path.clone())?;
+            let subcommand = args.get(2).map(String::as_str).unwrap_or("inspect");
+            let Some(path) = args.get(3).filter(|argument| !argument.starts_with("--")) else {
+                eprintln!("Usage: pasted transfer export|inspect|import <path.json> [--json]");
+                std::process::exit(2);
+            };
+            match subcommand {
+                "export" => {
+                    let contents = db.export_backup_json()?;
+                    let inspection = DbState::inspect_library_archive_json(&contents)?;
+                    fs::write(path, contents).map_err(|error| {
+                        rusqlite::Error::ToSqlConversionFailure(Box::new(error))
+                    })?;
+                    if args.iter().any(|argument| argument == "--json") {
+                        println!(
+                            "{}",
+                            serde_json::to_string_pretty(&serde_json::json!({
+                                "path": path,
+                                "inspection": inspection,
+                            }))
+                            .map_err(json_error)?
+                        );
+                    } else {
+                        println!("Exported history and organization data to {path}.");
+                    }
+                }
+                "inspect" => {
+                    let inspection = DbState::inspect_library_archive_json(&read_library_archive(
+                        Path::new(path),
+                    )?)?;
+                    if args.iter().any(|argument| argument == "--json") {
+                        println!(
+                            "{}",
+                            serde_json::to_string_pretty(&inspection).map_err(json_error)?
+                        );
+                    } else {
+                        println!(
+                            "Transfer file v{}: {} clips, {} Bins, {} Transforms, {} Operations, {} detectors, and {} Types.",
+                            inspection.schema_version,
+                            inspection.clip_count,
+                            inspection.bin_count,
+                            inspection.transform_count,
+                            inspection.operation_count,
+                            inspection.detector_count,
+                            inspection.content_type_count,
+                        );
+                    }
+                }
+                "import" => {
+                    let contents = read_library_archive(Path::new(path))?;
+                    let inspection = DbState::inspect_library_archive_json(&contents)?;
+                    let imported_count = db.import_backup_json(&contents)?;
+                    if args.iter().any(|argument| argument == "--json") {
+                        println!(
+                            "{}",
+                            serde_json::to_string_pretty(&serde_json::json!({
+                                "inspection": inspection,
+                                "processedClipCount": imported_count,
+                            }))
+                            .map_err(json_error)?
+                        );
+                    } else {
+                        println!(
+                            "Imported history and organization data. Processed {imported_count} clips after preflight."
+                        );
+                    }
+                }
+                _ => {
+                    eprintln!("Usage: pasted transfer export|inspect|import <path.json> [--json]");
+                    std::process::exit(2);
+                }
+            }
+        }
+        "backup" => {
+            drop(conn);
+            let db = DbState::new(db_path.clone())?;
+            let subcommand = args.get(2).map(String::as_str).unwrap_or("create");
+            let Some(path) = args.get(3).filter(|argument| !argument.starts_with("--")) else {
+                eprintln!("Usage: pasted backup create <path.pastedbackup> | restore <path.pastedbackup> --yes [--json]");
+                std::process::exit(2);
+            };
+            let window_state =
+                fs::read_to_string(get_app_config_dir().join(".window-state.json")).ok();
+            match subcommand {
+                "create" => {
+                    let report =
+                        db.create_full_backup(Path::new(path), None, window_state.as_deref())?;
+                    if args.iter().any(|argument| argument == "--json") {
+                        println!(
+                            "{}",
+                            serde_json::to_string_pretty(&report).map_err(json_error)?
+                        );
+                    } else {
+                        println!("Created full backup at {}.", report.path);
+                    }
+                }
+                "restore" => {
+                    if !args.iter().any(|argument| argument == "--yes") {
+                        eprintln!("Full restore replaces the current state. Quit Pasted, then re-run with --yes.");
+                        std::process::exit(2);
+                    }
+                    let (report, _, restored_window_state) =
+                        db.restore_full_backup(Path::new(path), None, window_state.as_deref())?;
+                    if let Some(state) = restored_window_state {
+                        fs::create_dir_all(get_app_config_dir()).map_err(|error| {
+                            rusqlite::Error::ToSqlConversionFailure(Box::new(error))
+                        })?;
+                        fs::write(get_app_config_dir().join(".window-state.json"), state).map_err(
+                            |error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)),
+                        )?;
+                    }
+                    if args.iter().any(|argument| argument == "--json") {
+                        println!(
+                            "{}",
+                            serde_json::to_string_pretty(&report).map_err(json_error)?
+                        );
+                    } else {
+                        println!(
+                            "Restored the full backup. The previous state remains recoverable at {}.",
+                            report.recovery_path
+                        );
+                    }
+                }
+                _ => {
+                    eprintln!("Usage: pasted backup create <path.pastedbackup> | restore <path.pastedbackup> --yes [--json]");
+                    std::process::exit(2);
+                }
             }
         }
         "registry" => {
@@ -569,7 +851,7 @@ fn main() -> Result<()> {
                 }
             }
         }
-        "library" => {
+        "database" | "library" => {
             let app_data = get_app_data_dir();
             let subcommand = args.get(2).map(String::as_str).unwrap_or("location");
             match subcommand {
@@ -588,11 +870,11 @@ fn main() -> Result<()> {
                 }
                 "move" => {
                     let Some(directory) = args.get(3) else {
-                        eprintln!("Usage: pasted library move <folder> [--json]");
+                        eprintln!("Usage: pasted database move <folder> [--json]");
                         std::process::exit(2);
                     };
                     let directory = fs::canonicalize(directory).unwrap_or_else(|error| {
-                        eprintln!("Could not resolve the library folder: {error}");
+                        eprintln!("Could not resolve the database folder: {error}");
                         std::process::exit(2);
                     });
                     let target =
@@ -602,7 +884,7 @@ fn main() -> Result<()> {
                                 std::process::exit(2);
                             });
                     if target == db_path {
-                        println!("The Pasted library is already in that folder.");
+                        println!("The database is already in that folder.");
                         return Ok(());
                     }
                     drop(conn);
@@ -626,14 +908,14 @@ fn main() -> Result<()> {
                             })?
                         );
                     } else {
-                        println!("Moved the Pasted library to {}.", location.path);
-                        println!("Previous library retained at {}.", previous.display());
+                        println!("Moved the database to {}.", location.path);
+                        println!("Previous database retained at {}.", previous.display());
                     }
                 }
                 "default" => {
                     let target = library_storage::default_database_path(&app_data);
                     if target == db_path {
-                        println!("The Pasted library is already in its default location.");
+                        println!("The database is already in its default location.");
                         return Ok(());
                     }
                     let archived_default = library_storage::archive_existing_database(&target)
@@ -674,12 +956,12 @@ fn main() -> Result<()> {
                             })?
                         );
                     } else {
-                        println!("Restored the default Pasted library location.");
-                        println!("Custom library retained at {}.", previous.display());
+                        println!("Restored the default database location.");
+                        println!("Custom database retained at {}.", previous.display());
                     }
                 }
                 _ => {
-                    eprintln!("Usage: pasted library location|move <folder>|default [--json]");
+                    eprintln!("Usage: pasted database location|move <folder>|default [--json]");
                     std::process::exit(2);
                 }
             }
@@ -1206,6 +1488,73 @@ fn main() -> Result<()> {
             let subcommand = args.get(2).map(String::as_str).unwrap_or("help");
             let json = args.iter().any(|argument| argument == "--json");
             match subcommand {
+                "export" => {
+                    let path = args
+                        .get(3)
+                        .filter(|argument| !argument.starts_with("--"))
+                        .map(PathBuf::from);
+                    let format = argument_value(&args, "--format").unwrap_or_else(|| {
+                        path.as_ref()
+                            .and_then(|value| value.extension())
+                            .and_then(|value| value.to_str())
+                            .unwrap_or("json")
+                            .to_ascii_lowercase()
+                    });
+                    let contents = match format.as_str() {
+                        "json" => db.export_clips_json()?,
+                        "csv" => db.export_clips_csv()?,
+                        _ => {
+                            eprintln!("Clip export format must be json or csv.");
+                            std::process::exit(2);
+                        }
+                    };
+                    if let Some(path) = path {
+                        fs::write(&path, contents).map_err(|error| {
+                            rusqlite::Error::ToSqlConversionFailure(Box::new(error))
+                        })?;
+                        if json {
+                            println!("{}", serde_json::json!({ "format": format, "path": path }));
+                        } else {
+                            println!("Exported clips in History to {}.", path.display());
+                        }
+                    } else {
+                        print!("{contents}");
+                    }
+                }
+                "import" => {
+                    let Some(path) = args.get(3).filter(|argument| !argument.starts_with("--"))
+                    else {
+                        eprintln!("Usage: pasted clip import <path> [--format json|csv] [--json]");
+                        std::process::exit(2);
+                    };
+                    let format = argument_value(&args, "--format").unwrap_or_else(|| {
+                        Path::new(path)
+                            .extension()
+                            .and_then(|value| value.to_str())
+                            .unwrap_or("json")
+                            .to_ascii_lowercase()
+                    });
+                    let contents = read_library_archive(Path::new(path))?;
+                    let report = match format.as_str() {
+                        "json" => db.import_clips_json(&contents)?,
+                        "csv" => db.import_clips_csv(&contents)?,
+                        _ => {
+                            eprintln!("Clip import format must be json or csv.");
+                            std::process::exit(2);
+                        }
+                    };
+                    if json {
+                        println!(
+                            "{}",
+                            serde_json::to_string_pretty(&report).map_err(json_error)?
+                        );
+                    } else {
+                        println!(
+                            "Imported {} clips; skipped {} duplicates.",
+                            report.imported_count, report.duplicate_count
+                        );
+                    }
+                }
                 "get" | "show" => {
                     let Some(clip_id) = args.get(3).and_then(|value| value.parse::<i64>().ok())
                     else {
@@ -1262,6 +1611,11 @@ fn main() -> Result<()> {
                     };
                     print_mutation_summary(&summary, json)?;
                 }
+                "restore-all" => {
+                    require_feature(&db, Feature::Trash);
+                    let summary = db.restore_all_trashed_clips()?;
+                    print_mutation_summary(&summary, json)?;
+                }
                 "assign" => {
                     require_feature(&db, Feature::Bins);
                     let Some(destination) = args.get(3) else {
@@ -1302,7 +1656,7 @@ fn main() -> Result<()> {
                     print_mutation_summary(&outcome.mutation, json)?;
                 }
                 _ => {
-                    eprintln!("Usage: pasted clip [get <id> | pin|unpin|protect|unprotect|trash|restore <id>... | assign <bin-id|none> <id>... | remove-bin <bin-id> <id>...] [--json]");
+                    eprintln!("Usage: pasted clip [export [path] [--format json|csv] | import <path> [--format json|csv] | get <id> | pin|unpin|protect|unprotect|trash|restore <id>... | restore-all | assign <bin-id|none> <id>... | remove-bin <bin-id> <id>...] [--json]");
                     std::process::exit(2);
                 }
             }
@@ -1508,6 +1862,15 @@ fn main() -> Result<()> {
             println!("  pasted retention [--count N|unlimited] [--days N|forever] [--json]");
             println!("                   [--trash-count N|unlimited] [--trash-days N|forever]");
             println!("                   [--log-count N|unlimited] [--log-days N|forever]");
+            println!("  pasted activity list [--limit N|--all] [--json]");
+            println!("  pasted activity export [path] [--format json|csv]");
+            println!("  pasted activity import <path> [--format json|csv] [--json]");
+            println!("  pasted activity clear --yes [--json]");
+            println!("  pasted transfer export|inspect|import <path.json> [--json]");
+            println!("  pasted backup create <path.pastedbackup> [--json]");
+            println!("  pasted backup restore <path.pastedbackup> --yes [--json]");
+            println!("  pasted clip export [path] [--format json|csv]");
+            println!("  pasted clip import <path> [--format json|csv] [--json]");
             println!("  pasted detector list --json List editable content detectors");
             println!("  pasted type list --json List registered content types");
             println!(
@@ -1516,9 +1879,11 @@ fn main() -> Result<()> {
             println!("  pasted registry enable|disable --kind KIND --ref REF");
             println!("  pasted detector create|update|delete Manage content detectors");
             println!("  pasted detector rescan --yes --json Reclassify existing text clips");
-            println!("  pasted library location --json Show the active SQLite library");
-            println!("  pasted library move <folder> --json Move the library (quit Pasted first)");
-            println!("  pasted library default --json Restore the native default location");
+            println!("  pasted database location --json Show the active SQLite database");
+            println!(
+                "  pasted database move <folder> --json Move the database (quit Pasted first)"
+            );
+            println!("  pasted database default --json Restore the native default location");
             println!("  pasted ocr status --json Show OCR background-work status");
             println!("  pasted ocr scan          Scan existing unprocessed images");
             println!("  pasted transform list [--json] List saved and manually built Transforms");
@@ -1534,6 +1899,7 @@ fn main() -> Result<()> {
             println!("  pasted clip pin|unpin <id>... [--json]");
             println!("  pasted clip protect|unprotect <id>... [--json]");
             println!("  pasted clip trash|restore <id>... [--json]");
+            println!("  pasted clip restore-all [--json] Restore every clip from Trash");
             println!("  pasted clip assign <bin-id|none> <id>... [--json] Add to a Bin, or clear all manual Bins");
             println!("  pasted clip remove-bin <bin-id> <id>... [--json]");
             println!("  pasted clear             Clear unpinned clipboard history");

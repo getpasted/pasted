@@ -337,6 +337,11 @@ html:not(.is-stable-reordering) .connection-priority-card:hover {
   color: var(--accent-primary-contrast);
 }
 
+.settings-disabled-row {
+  opacity: 0.4;
+  transition: opacity 140ms ease;
+}
+
 .settings-feature-card {
   cursor: pointer;
   transition: background-color 140ms ease, border-color 140ms ease, opacity 140ms ease;

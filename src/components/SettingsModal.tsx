@@ -30,6 +30,8 @@ interface SettingsModalProps {
   onRefreshClips?: () => void;
   onRefreshTrashedClips?: () => void;
   onClearHistory?: (permanent: boolean) => void;
+  onRestoreAllTrashedClips?: () => Promise<number>;
+  trashedClipCount?: number;
   onResetColumnWidths?: () => void;
   requestedTab?: SettingsTab;
   navigationKey?: number;
@@ -50,6 +52,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onRefreshClips,
   onRefreshTrashedClips,
   onClearHistory,
+  onRestoreAllTrashedClips,
+  trashedClipCount = 0,
   onResetColumnWidths,
   requestedTab,
   navigationKey,
@@ -102,6 +106,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 settings={settings}
                 onUpdateSettings={onUpdateSettings}
                 onClearHistory={onClearHistory}
+                onRestoreAllTrashedClips={onRestoreAllTrashedClips}
+                trashedClipCount={trashedClipCount}
                 onResetColumnWidths={onResetColumnWidths}
               />
             </div>
@@ -154,6 +160,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 onRefreshClips={onRefreshClips}
                 onRefreshTrashedClips={onRefreshTrashedClips}
                 analyticsEnabled={settings.enableAnalytics}
+                activityEnabled={settings.enableActivityLog}
                 onOpenAnalytics={onOpenAnalytics}
               />
             </div>

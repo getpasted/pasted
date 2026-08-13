@@ -265,7 +265,7 @@ export function SettingsDetectionPanel() {
         <section className="theme-surface overflow-hidden rounded-xl border" aria-label="Content detectors">
           <RegistryPanelHeader
             title="Detectors"
-            description="Lowest priority number runs first"
+            description="The lowest priority number runs first."
             actions={<ActionButton onClick={beginNewDetector} className="h-7 min-h-7 shrink-0 px-2.5">
               <Plus className="h-3 w-3" /> New
             </ActionButton>}

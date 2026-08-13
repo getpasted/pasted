@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { clipDateTimeAttribute, formatClipFullDateTime, formatClipRelativeTime } from '../utils/date';
+import { dateTimeAttribute, formatFullDateTime, formatRelativeTime } from '../utils/date';
 import { ClipItem, getClipFilePaths, getClipFileSummary, getClipNoteSummary, isSensitiveText, maskSensitiveText, type Bin } from '../types';
 import type { ClipViewPolicy } from '../utils/clipViewPolicy';
 import { clipDeleteLabel, UI_COPY } from '../utils/uiCopy';
@@ -567,10 +567,10 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
           )}
           <time
             className="clip-meta-time"
-            dateTime={clipDateTimeAttribute(clip.created_at)}
-            title={formatClipFullDateTime(clip.created_at)}
+            dateTime={dateTimeAttribute(clip.created_at)}
+            title={formatFullDateTime(clip.created_at)}
           >
-            {formatClipRelativeTime(clip.created_at, relativeTimeNow)}
+            {formatRelativeTime(clip.created_at, relativeTimeNow)}
           </time>
         </div>
       </div>

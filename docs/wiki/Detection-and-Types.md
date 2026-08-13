@@ -33,7 +33,7 @@ Detector changes affect newly captured text. Existing clips keep their current T
 - Smart Bin membership;
 - sensitive-content masking driven by classification.
 
-Images and file clips are not reclassified. The completed operation reports how many text clips changed. Detector and Type registry edits are recorded in Activity Log when that feature is enabled, but registry metadata does not use clip Revision History.
+Images and file clips are not reclassified. The completed operation reports how many text clips changed. Detector and Type registry edits are recorded in Activity when that feature is enabled, but registry metadata does not use clip Revision History.
 
 The CLI equivalent requires explicit confirmation:
 

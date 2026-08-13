@@ -25,6 +25,7 @@ export function TransformWorkspaceHeader({
         <button
           type="button"
           role="tab"
+          title="Library"
           aria-selected={activeWorkspace === 'transforms'}
           onClick={() => onChange('transforms')}
           className={`transform-workspace-tab pipelines flex h-8 items-center gap-2 rounded-lg px-3 text-xs font-semibold transition-colors ${activeWorkspace === 'transforms' ? 'is-active' : ''}`}
@@ -36,6 +37,7 @@ export function TransformWorkspaceHeader({
         <button
           type="button"
           role="tab"
+          title="Operations"
           aria-selected={activeWorkspace === 'advanced'}
           onClick={() => onChange('advanced')}
           className={`transform-workspace-tab operations flex h-8 items-center gap-2 rounded-lg px-3 text-xs font-semibold transition-colors ${activeWorkspace === 'advanced' ? 'is-active' : ''}`}
@@ -47,6 +49,7 @@ export function TransformWorkspaceHeader({
         <button
           type="button"
           role="tab"
+          title="Playground"
           aria-selected={activeWorkspace === 'playground'}
           onClick={() => onChange('playground')}
           className={`transform-workspace-tab pipelines flex h-8 items-center gap-2 rounded-lg px-3 text-xs font-semibold transition-colors ${activeWorkspace === 'playground' ? 'is-active' : ''}`}

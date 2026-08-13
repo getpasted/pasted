@@ -35,7 +35,7 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
   const [selectedTransformForEdit, setSelectedTransformForEdit] = useState<SavedTransform | null>(null);
   const [isEditorModalOpen, setIsEditorModalOpen] = useState(false);
   const [isComposerModalOpen, setIsComposerModalOpen] = useState(false);
-  const [testText, setTestText] = useState('Hello Pasted User! :) https://example.com?utm_source=test');
+  const [testText, setTestText] = useState('Hello there! :) https://example.com?utm_source=test');
   const [testResult, setTestResult] = useState('');
   const [testError, setTestError] = useState('');
   const [transforms, setTransforms] = useState<SavedTransform[]>([]);

@@ -1,6 +1,7 @@
 import { FolderInput, History, LoaderCircle, RotateCcw, Workflow, X } from 'lucide-react';
 import type { ClipVersion } from '../types';
-import { formatClipDateTime } from '../utils/date';
+import { dateTimeAttribute, formatFullDateTime, formatRelativeTime } from '../utils/date';
+import { useMinuteTick } from '../hooks/useMinuteTick';
 import { OverflowText } from './OverflowText';
 
 interface ClipRevisionHistoryProps {
@@ -30,6 +31,7 @@ export function ClipRevisionHistory({
   onLoadMore,
   onRestore,
 }: ClipRevisionHistoryProps) {
+  const relativeTimeNow = useMinuteTick();
   return (
     <section
       id="clip-revision-history-panel"
@@ -85,7 +87,12 @@ export function ClipRevisionHistory({
                   )}
                   <div className="clip-revision-history-meta mb-2">
                     <strong>#{versions.length - index},</strong>
-                    <time dateTime={version.created_at}>{formatClipDateTime(version.created_at)},</time>
+                    <time
+                      dateTime={dateTimeAttribute(version.created_at)}
+                      title={formatFullDateTime(version.created_at)}
+                    >
+                      {formatRelativeTime(version.created_at, relativeTimeNow)},
+                    </time>
                     <span>{version.text_content.length} chars,</span>
                     <span>{version.restores_organization ? 'Content + Bin' : 'Content'}</span>
                   </div>

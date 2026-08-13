@@ -65,13 +65,13 @@ interface FeedbackItem {
 const FEEDBACK = {
   success: {
     title: 'Saved to History',
-    detail: 'Ready when you need it.',
+    detail: 'Ready on demand.',
     Icon: CheckCircle2,
     tone: 'success',
   },
   ignored: {
     title: 'Capture skipped',
-    detail: 'Pasted left this clipboard item alone.',
+    detail: 'This clipboard item was left alone.',
     Icon: EyeOff,
     tone: 'info',
   },

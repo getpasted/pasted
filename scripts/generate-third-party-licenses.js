@@ -89,7 +89,7 @@ function buildInventory(rawCargo) {
   }
 
   const components = rawCargo.crates
-    .filter(({ package: crate }) => crate.name !== 'pasted')
+    .filter(({ package: crate }) => crate.name !== 'pasted-app')
     .map(({ package: crate, license }) => {
       const key = `${crate.name}@${crate.version}`;
       const noticeIds = new Set(rustNoticeIds.get(key) ?? []);

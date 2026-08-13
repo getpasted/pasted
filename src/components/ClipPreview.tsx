@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { formatClipDateTime } from '../utils/date';
+import { dateTimeAttribute, formatFullDateTime, formatRelativeTime } from '../utils/date';
+import { useMinuteTick } from '../hooks/useMinuteTick';
 import { ClipItem, Bin, Pipeline, ClipNote, parseClipNotes, serializeClipNotes, ClipVersion, getClipFilePaths } from '../types';
 import type { AppSettings } from '../types';
 import type { ClipTransformationProvenance, TransformationExecutionOutcome, SavedTransform } from '../types';
@@ -147,6 +148,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   filePreviewMaxMb,
 }) => {
   const features = useFeatures();
+  const relativeTimeNow = useMinuteTick();
   const [copied, setCopied] = useState(false);
   const [copiedFormat, setCopiedFormat] = useState<string | null>(null);
   const [transformedText, setTransformedText] = useState<string | null>(null);
@@ -1003,7 +1005,14 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
                         : `Running${transformRequestStatus.connectionName ? ` with ${transformRequestStatus.connectionName}` : ''}${transformRequestStatus.didFallback ? ' · fallback' : ''}`
                     : 'Previewing'}:
                 {' '}<strong>{previewedVersion
-                  ? formatClipDateTime(previewedVersion.created_at)
+                  ? (
+                    <time
+                      dateTime={dateTimeAttribute(previewedVersion.created_at)}
+                      title={formatFullDateTime(previewedVersion.created_at)}
+                    >
+                      {formatRelativeTime(previewedVersion.created_at, relativeTimeNow)}
+                    </time>
+                  )
                   : activePipelineName}</strong>
               </span>
             </div>
@@ -1093,7 +1102,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center space-x-2 shrink-0">
               <Sliders className="preview-filter-accent w-4 h-4" />
-              <span className="theme-text-main text-xs font-semibold">Advanced Transform:</span>
+              <span className="theme-text-main text-xs font-semibold">Advanced Transform</span>
             </div>
 
             <div className="max-w-xs flex-1">
@@ -1235,8 +1244,8 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
         </div>
         <div className="clip-preview-footer-captured">
           <span>Captured:</span>
-          <time dateTime={clip.created_at} title={formatClipDateTime(clip.created_at)}>
-            {formatClipDateTime(clip.created_at)}
+          <time dateTime={dateTimeAttribute(clip.created_at)} title={formatFullDateTime(clip.created_at)}>
+            {formatRelativeTime(clip.created_at, relativeTimeNow)}
           </time>
         </div>
       </div>

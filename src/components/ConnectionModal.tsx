@@ -73,7 +73,7 @@ export function ConnectionModal({ onClose, onCreated }: ConnectionModalProps) {
     >
       {({ requestClose }) => <>
         <AppDialogHeader onClose={requestClose} closeLabel="Close add connection dialog">
-          <AppDialogHeading id="connection-modal-title" title="Add connection" description="Add a provider, local endpoint, or executable Pasted could not detect." icon={<BrainCircuit />} />
+          <AppDialogHeading id="connection-modal-title" title="Add connection" description="Add a provider, local endpoint, or executable that was not detected automatically." icon={<BrainCircuit />} />
         </AppDialogHeader>
 
         <form onSubmit={createConnection}>

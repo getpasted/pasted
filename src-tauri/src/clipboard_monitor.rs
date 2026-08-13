@@ -658,11 +658,7 @@ pub fn start_clipboard_monitor(
                                             &automation_source,
                                         );
                                     }
-                                    if let Ok(Some(updated)) =
-                                        automation_db.get_clips(None, None, false).map(|clips| {
-                                            clips.into_iter().find(|item| item.id == clip.id)
-                                        })
-                                    {
+                                    if let Ok(updated) = automation_db.get_clip_by_id(clip.id) {
                                         let _ = automation_app.emit("clip-added", updated);
                                     }
                                 });

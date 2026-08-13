@@ -24,7 +24,7 @@ OCR applies to captured image content, not arbitrary file references. Confirm OC
 
 ## Capture feedback does not appear
 
-Confirm **Notifications** is enabled under **Settings → Functionality**, then enable **Capture Feedback** under **Settings → Notifications**. Skipped captures appear only when **Show Skipped Captures** is enabled. The feedback window uses the selected corner of the display currently containing the pointer.
+Confirm **Notifications** is enabled under **Settings → Functionality**, then enable **Capture feedback** under **Settings → Notifications**. Skipped captures appear only when **Show skipped captures** is enabled. The feedback window uses the selected corner of the display currently containing the pointer.
 
 Capture feedback is separate from clipboard capture: a clip can be saved successfully even when feedback is hidden. See [Notifications and Capture Feedback](Notifications-and-Capture-Feedback).
 
@@ -38,4 +38,4 @@ Run it from a terminal and inspect WebKit/GTK output. SteamOS required host WebK
 
 ## Recovery
 
-Export before destructive troubleshooting. Backup import is a merge. Factory Reset is the last resort and permanently removes local data after confirmation.
+Create a Full Backup before destructive troubleshooting. Full Restore replaces the current state and creates a recovery backup first; History and Organization import merges portable data. Factory Reset is the last resort and permanently removes local data after confirmation.
