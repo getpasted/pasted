@@ -27,7 +27,7 @@ The complete gate runs formatting, Clippy, frontend build, Rust unit tests, IPC 
 
 ## Protected branch workflow
 
-Create a short-lived branch from current `main`, commit and push there, and open a pull request. Direct pushes to `main` are blocked. A change can merge only after dependency review, dependency policy, the complete validation suite, and macOS, Linux, and Windows package checks pass, with review conversations resolved. A second approval is encouraged but is not required while Pasted has one active maintainer. Protection bypasses are for documented recovery from a GitHub or repository incident, never for routine changes.
+Create a short-lived branch from current `main`, commit and push there, and open a pull request. Direct pushes to `main` are blocked. A change can merge only after dependency review, dependency policy, the complete validation suite, and native macOS, Linux, and Windows package smoke checks pass, with review conversations resolved. Full release-mode packages and exact-artifact SBOMs are built from the merged `main` revision. A second approval is encouraged but is not required while Pasted has one active maintainer. Protection bypasses are for documented recovery from a GitHub or repository incident, never for routine changes.
 
 Dependabot checks npm, Cargo, and GitHub Actions weekly. The scheduled **Dependency policy** workflow independently refreshes RustSec findings and enforces license policy, notice/SBOM freshness, and advisory-exception deadlines even when the source tree has not changed.
 

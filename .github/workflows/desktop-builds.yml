@@ -71,16 +71,55 @@ jobs:
       - run: npm ci
       - run: npm run test:all
 
+  smoke:
+    name: Smoke ${{ matrix.name }}
+    if: github.event_name == 'pull_request'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS native
+            os: macos-latest
+            bundle: app
+          - name: Linux x86_64
+            os: ubuntu-22.04
+            bundle: deb
+          - name: Windows x86_64
+            os: windows-latest
+            bundle: nsis
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - name: Install Linux build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev
+      - run: npm ci
+      - name: Check native GUI and CLI targets
+        run: cargo check --manifest-path src-tauri/Cargo.toml --all-targets
+      - name: Build native debug package
+        run: npm run tauri -- build --debug --bundles "${{ matrix.bundle }}"
+
   package:
     name: Package ${{ matrix.name }}
+    if: github.event_name != 'pull_request'
     needs: [validate, dependency-policy]
     strategy:
       fail-fast: false
       matrix:
         include:
-          - name: macOS universal
-            os: macos-latest
-            platform: macos
           - name: Linux x86_64
             os: ubuntu-22.04
             platform: linux
@@ -97,8 +136,6 @@ jobs:
           node-version: 22
           cache: npm
       - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ runner.os == 'macOS' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
@@ -112,64 +149,27 @@ jobs:
             librsvg2-dev \
             patchelf
       - run: npm ci
-      - name: Build and sign macOS universal CLI
-        if: runner.os == 'macOS'
-        run: |
-          bash scripts/build-macos-universal-cli.sh
-          codesign \
-            --force \
-            --sign - \
-            src-tauri/target/universal-apple-darwin/release/pasted
-          codesign \
-            --verify \
-            --strict \
-            --verbose=2 \
-            src-tauri/target/universal-apple-darwin/release/pasted
-      - name: Build unnotarized macOS test DMG
-        if: runner.os == 'macOS'
-        env:
-          APPLE_SIGNING_IDENTITY: '-'
-          # Exercise the branded Finder presentation in CI instead of Tauri's
-          # default plain-folder fallback.
-          TAURI_BUNDLER_DMG_IGNORE_CI: true
-        run: npm run tauri -- build --target universal-apple-darwin --bundles dmg
       - name: Build Linux AppImage
         if: runner.os == 'Linux'
         run: npm run tauri -- build --bundles appimage
       - name: Build Windows installer
         if: runner.os == 'Windows'
         run: npm run tauri -- build --bundles nsis
-      - name: Verify macOS test package
-        if: runner.os == 'macOS'
-        run: |
-          dmg_path="$(find src-tauri/target/universal-apple-darwin/release/bundle/dmg -name 'Pasted_*.dmg' -type f -print -quit)"
-          bash scripts/verify-macos-release.sh "$dmg_path" --local
       - name: Extract packaged payload for SBOM
-        if: runner.os != 'Windows'
+        if: runner.os == 'Linux'
         shell: bash
         run: |
           scan_root="$RUNNER_TEMP/pasted-artifact-scan"
           rm -rf "$scan_root"
           mkdir -p "$scan_root"
-          if [[ "$RUNNER_OS" == "macOS" ]]; then
-            dmg_path="$(find src-tauri/target/universal-apple-darwin/release/bundle/dmg -name 'Pasted_*.dmg' -type f -print -quit)"
-            mount_path="$scan_root/mount"
-            mkdir -p "$mount_path"
-            device="$(hdiutil attach "$dmg_path" -nobrowse -readonly -mountpoint "$mount_path" | awk '/^\/dev\// { print $1; exit }')"
-            ditto "$mount_path/Pasted.app" "$scan_root/Pasted.app"
-            hdiutil detach "$device"
-            cp src-tauri/target/universal-apple-darwin/release/pasted "$scan_root/pasted-macos-universal"
-            echo "ARTIFACT_SCAN_PATH=$scan_root" >> "$GITHUB_ENV"
-          else
-            appimage="$(find src-tauri/target/release/bundle/appimage -name '*.AppImage' -type f -print -quit)"
-            chmod +x "$appimage"
-            (
-              cd "$scan_root"
-              "$GITHUB_WORKSPACE/$appimage" --appimage-extract >/dev/null
-            )
-            cp src-tauri/target/release/pasted "$scan_root/pasted-linux-x86_64"
-            echo "ARTIFACT_SCAN_PATH=$scan_root" >> "$GITHUB_ENV"
-          fi
+          appimage="$(find src-tauri/target/release/bundle/appimage -name '*.AppImage' -type f -print -quit)"
+          chmod +x "$appimage"
+          (
+            cd "$scan_root"
+            "$GITHUB_WORKSPACE/$appimage" --appimage-extract >/dev/null
+          )
+          cp src-tauri/target/release/pasted "$scan_root/pasted-linux-x86_64"
+          echo "ARTIFACT_SCAN_PATH=$scan_root" >> "$GITHUB_ENV"
           echo "ARTIFACT_SBOM_PATH=$RUNNER_TEMP/Pasted-${{ matrix.platform }}.artifact.spdx.json" >> "$GITHUB_ENV"
       - name: Extract packaged payload for SBOM
         if: runner.os == 'Windows'
@@ -215,8 +215,118 @@ jobs:
           $checksumPath = Join-Path (Resolve-Path ci-artifacts) 'SHA256SUMS-windows-x86_64.txt'
           [IO.File]::WriteAllText($checksumPath, (($checksumLines -join "`n") + "`n"), [Text.UTF8Encoding]::new($false))
       - uses: actions/upload-artifact@v7
-        if: runner.os != 'macOS'
         with:
           name: ${{ matrix.artifact }}
           path: ci-artifacts/*
           if-no-files-found: error
+
+  package-macos-cli:
+    name: Package macOS universal CLI
+    if: github.event_name != 'pull_request'
+    needs: [validate, dependency-policy]
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          shared-key: macos-universal-cli
+      - name: Build and sign macOS universal CLI
+        run: |
+          bash scripts/build-macos-universal-cli.sh
+          codesign \
+            --force \
+            --sign - \
+            src-tauri/target/universal-apple-darwin/release/pasted
+          codesign \
+            --verify \
+            --strict \
+            --verbose=2 \
+            src-tauri/target/universal-apple-darwin/release/pasted
+      - uses: actions/upload-artifact@v7
+        with:
+          name: Pasted-macOS-universal-CLI
+          path: src-tauri/target/universal-apple-darwin/release/pasted
+          if-no-files-found: error
+          retention-days: 1
+
+  package-macos-dmg:
+    name: Package macOS universal DMG
+    if: github.event_name != 'pull_request'
+    needs: [validate, dependency-policy]
+    runs-on: macos-latest
+    env:
+      APPLE_SIGNING_IDENTITY: '-'
+      # Exercise the branded Finder presentation in CI instead of Tauri's
+      # default plain-folder fallback.
+      TAURI_BUNDLER_DMG_IGNORE_CI: true
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          shared-key: macos-universal-app
+      - run: npm ci
+      - name: Build unnotarized macOS test DMG
+        run: npm run tauri -- build --target universal-apple-darwin --bundles dmg
+      - name: Verify macOS test package
+        run: |
+          dmg_path="$(find src-tauri/target/universal-apple-darwin/release/bundle/dmg -name 'Pasted_*.dmg' -type f -print -quit)"
+          bash scripts/verify-macos-release.sh "$dmg_path" --local
+      - uses: actions/upload-artifact@v7
+        with:
+          name: Pasted-macOS-universal-DMG
+          path: src-tauri/target/universal-apple-darwin/release/bundle/dmg/Pasted_*.dmg
+          if-no-files-found: error
+          retention-days: 1
+
+  package-macos-artifact:
+    name: Audit macOS packaged artifact
+    if: github.event_name != 'pull_request'
+    needs: [package-macos-cli, package-macos-dmg]
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          name: Pasted-macOS-universal-CLI
+          path: ci-artifacts/cli
+      - uses: actions/download-artifact@v8
+        with:
+          name: Pasted-macOS-universal-DMG
+          path: ci-artifacts/dmg
+      - name: Extract packaged payload for SBOM
+        run: |
+          scan_root="$RUNNER_TEMP/pasted-artifact-scan"
+          dmg_path="$(find ci-artifacts/dmg -name 'Pasted_*.dmg' -type f -print -quit)"
+          cli_path="$(find ci-artifacts/cli -name pasted -type f -print -quit)"
+          mount_path="$scan_root/mount"
+          mkdir -p "$mount_path"
+          device="$(hdiutil attach "$dmg_path" -nobrowse -readonly -mountpoint "$mount_path" | awk '/^\/dev\// { print $1; exit }')"
+          ditto "$mount_path/Pasted.app" "$scan_root/Pasted.app"
+          hdiutil detach "$device"
+          cp "$cli_path" "$scan_root/pasted-macos-universal"
+          echo "ARTIFACT_SCAN_PATH=$scan_root" >> "$GITHUB_ENV"
+          echo "ARTIFACT_SBOM_PATH=$RUNNER_TEMP/Pasted-macos.artifact.spdx.json" >> "$GITHUB_ENV"
+      - name: Generate exact-artifact SBOM
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
+        with:
+          path: ${{ env.ARTIFACT_SCAN_PATH }}
+          format: spdx-json
+          output-file: ${{ env.ARTIFACT_SBOM_PATH }}
+          artifact-name: Pasted-macos-artifact.spdx.json
+          upload-artifact: true
+          upload-release-assets: false
+          syft-version: v1.51.0
+      - name: Audit exact-artifact SBOM
+        run: node scripts/audit-artifact-sbom.js "$ARTIFACT_SBOM_PATH" macos
