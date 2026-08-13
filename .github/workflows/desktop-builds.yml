@@ -80,20 +80,13 @@ jobs:
         include:
           - name: macOS native
             os: macos-latest
-            bundle: app
           - name: Linux x86_64
             os: ubuntu-22.04
-            bundle: deb
           - name: Windows x86_64
             os: windows-latest
-            bundle: nsis
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
-          cache: npm
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
@@ -106,11 +99,8 @@ jobs:
             libwebkit2gtk-4.1-dev \
             libayatana-appindicator3-dev \
             librsvg2-dev
-      - run: npm ci
-      - name: Check native GUI and CLI targets
-        run: cargo check --manifest-path src-tauri/Cargo.toml --all-targets
-      - name: Build native debug package
-        run: npm run tauri -- build --debug --bundles "${{ matrix.bundle }}"
+      - name: Compile native tests and binaries
+        run: cargo test --manifest-path src-tauri/Cargo.toml --no-run --locked
 
   package:
     name: Package ${{ matrix.name }}
