@@ -117,7 +117,7 @@ export function WelcomeSetup({ isOpen, settings, onUpdateSettings, onImported }:
             </p>
             <ul className="welcome-setup-highlights" aria-label="Pasted highlights">
               <li><HardDrive /> <span>No cloud account</span></li>
-              <li><RadioTower /> <span>No telemetry</span></li>
+              <li><RadioTower /> <span>No off-device telemetry</span></li>
               <li><HeartHandshake /> <span>No subscription</span></li>
             </ul>
           </div>
@@ -157,7 +157,7 @@ export function WelcomeSetup({ isOpen, settings, onUpdateSettings, onImported }:
                 </article>
                 <article>
                   <RadioTower />
-                  <div><strong>No telemetry</strong><span>Pasted does not watch how you work, measure engagement, or report clipboard activity.</span></div>
+                  <div><strong>No off-device telemetry</strong><span>Usage insights stay on this computer; Pasted does not report clipboard activity.</span></div>
                 </article>
                 <article>
                   <HeartHandshake />

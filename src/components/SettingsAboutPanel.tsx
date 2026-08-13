@@ -84,7 +84,7 @@ export function SettingsAboutPanel() {
         <div className="grid gap-2 sm:grid-cols-2">
           {[
             { icon: HardDrive, title: 'No cloud account', body: 'Your core library lives locally. Pasted works without an identity, sync account, or hosted copy of your history.' },
-            { icon: RadioTower, title: 'No telemetry', body: 'Pasted does not measure engagement or report how humans, scripts, or agents use the workspace.' },
+            { icon: RadioTower, title: 'No off-device telemetry', body: 'Usage insights stay local; Pasted does not report how humans, scripts, or agents use the workspace.' },
             { icon: HeartHandshake, title: 'No subscription', body: 'Pasted will not rent your clipboard back to you. Financial support is an endorsement, never an unlock.' },
             { icon: Bot, title: 'Every copycat welcome', body: 'The GUI and CLI share one library, so people and the tools they direct work from the same local context.' },
           ].map(({ icon: Icon, title, body }) => (
