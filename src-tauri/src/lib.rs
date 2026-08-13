@@ -45,6 +45,41 @@ use tauri_plugin_window_state::{StateFlags, WindowExt};
 
 static EXIT_REQUESTED: AtomicBool = AtomicBool::new(false);
 
+const DEFAULT_TRAY_ICON_STYLE: &str = "clipboard";
+const COPYCAT_TRAY_ICON_STYLE: &str = "copycat";
+
+fn load_tray_icon(style: &str) -> Result<tauri::image::Image<'static>, image::ImageError> {
+    let bytes = if style == COPYCAT_TRAY_ICON_STYLE {
+        include_bytes!("../icons/tray-icon-copycat@2x.png").as_slice()
+    } else {
+        include_bytes!("../icons/tray-icon@2x.png").as_slice()
+    };
+    let image = image::load_from_memory(bytes)?.to_rgba8();
+    let (width, height) = image.dimensions();
+    Ok(tauri::image::Image::new_owned(
+        image.into_raw(),
+        width,
+        height,
+    ))
+}
+
+pub(crate) fn refresh_tray_icon(app: &tauri::AppHandle, style: &str) {
+    #[cfg(target_os = "macos")]
+    if let Some(tray) = app.tray_by_id("main") {
+        match load_tray_icon(style) {
+            Ok(icon) => {
+                if let Err(error) = tray.set_icon_with_as_template(Some(icon), true) {
+                    eprintln!("Could not update the menu bar icon: {error}");
+                }
+            }
+            Err(error) => eprintln!("Could not load the menu bar icon: {error}"),
+        }
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    let _ = (app, style);
+}
+
 pub(crate) fn request_app_exit(app: &tauri::AppHandle) {
     if EXIT_REQUESTED.swap(true, Ordering::SeqCst) {
         return;
@@ -300,19 +335,21 @@ pub fn run() {
             // Create Menu Bar / System Tray Icon
             let menu = build_tray_menu(app.handle(), &db_state)?;
 
-            let tray_icon =
-                match image::load_from_memory(include_bytes!("../icons/tray-icon@2x.png")) {
-                    Ok(img) => {
-                        let rgba = img.to_rgba8();
-                        let (w, h) = rgba.dimensions();
-                        tauri::image::Image::new_owned(rgba.into_raw(), w, h)
-                    }
-                    Err(error) => app.default_window_icon().cloned().ok_or_else(|| {
-                        std::io::Error::other(format!(
-                            "Could not load the tray icon or default application icon: {error}"
-                        ))
-                    })?,
-                };
+            #[cfg(target_os = "macos")]
+            let tray_icon_style = db_state
+                .get_setting("menubarIconStyle")?
+                .unwrap_or_else(|| DEFAULT_TRAY_ICON_STYLE.to_string());
+            #[cfg(not(target_os = "macos"))]
+            let tray_icon_style = DEFAULT_TRAY_ICON_STYLE.to_string();
+
+            let tray_icon = match load_tray_icon(&tray_icon_style) {
+                Ok(icon) => icon,
+                Err(error) => app.default_window_icon().cloned().ok_or_else(|| {
+                    std::io::Error::other(format!(
+                        "Could not load the tray icon or default application icon: {error}"
+                    ))
+                })?,
+            };
 
             let _tray = TrayIconBuilder::with_id("main")
                 .icon(tray_icon)

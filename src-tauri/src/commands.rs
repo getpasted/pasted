@@ -1197,6 +1197,9 @@ pub fn save_app_setting(
     if let Some(feature) = Feature::from_setting_key(&key) {
         apply_feature_policy_changes(&app, &db, &[feature]);
     }
+    if key == "menubarIconStyle" {
+        crate::refresh_tray_icon(&app, &value);
+    }
     emit_window_appearance_change(&app, &key, &value);
     Ok(())
 }
@@ -1236,6 +1239,9 @@ pub fn save_app_settings(
         apply_feature_policy_changes(&app, &db, &changed);
     }
     for (key, value) in values {
+        if key == "menubarIconStyle" {
+            crate::refresh_tray_icon(&app, &value);
+        }
         emit_window_appearance_change(&app, &key, &value);
     }
     Ok(())

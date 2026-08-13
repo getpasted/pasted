@@ -79,6 +79,11 @@
   height: 3.75rem;
 }
 
+.welcome-setup-mark.is-copycat > svg {
+  width: 4.5rem;
+  height: 4.5rem;
+}
+
 .welcome-setup-mark > span {
   position: absolute;
   top: -0.45rem;
@@ -103,6 +108,27 @@
   color: var(--status-success);
   background: color-mix(in srgb, var(--status-success) 12%, var(--bg-input));
   border-color: color-mix(in srgb, var(--status-success) 44%, var(--border-subtle));
+}
+
+.welcome-setup-mark.is-copycat.is-ready {
+  border-radius: 2rem;
+}
+
+.copycat-about-mark {
+  display: grid;
+  width: 5rem;
+  height: 5rem;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--accent-primary) 38%, var(--border-subtle));
+  border-radius: 1.6rem;
+  background: color-mix(in srgb, var(--accent-primary) 11%, var(--bg-input));
+  color: var(--accent-primary);
+  box-shadow: 0 18px 55px color-mix(in srgb, var(--accent-primary) 16%, transparent);
+}
+
+.copycat-about-mark svg {
+  width: 3.5rem;
+  height: 3.5rem;
 }
 
 .welcome-setup-kicker {

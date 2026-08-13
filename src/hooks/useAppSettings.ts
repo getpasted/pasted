@@ -18,6 +18,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   captureFeedbackDismissSeconds: 7,
   openAtLogin: true,
   dockMenubarIcon: 'both',
+  menubarIconStyle: 'clipboard',
   maxClipSizeMb: 100,
   filePreviewMode: 'safe',
   filePreviewMaxMb: 25,
@@ -85,6 +86,7 @@ function parseSavedSettings(saved: Record<string, string>) {
   }
   if (saved.openAtLogin !== undefined) next.openAtLogin = saved.openAtLogin === 'true';
   if (['auto_hide', 'both', 'menubar_only'].includes(saved.dockMenubarIcon)) next.dockMenubarIcon = saved.dockMenubarIcon as AppSettings['dockMenubarIcon'];
+  if (['clipboard', 'copycat'].includes(saved.menubarIconStyle)) next.menubarIconStyle = saved.menubarIconStyle as AppSettings['menubarIconStyle'];
   if (saved.maxClipSizeMb) next.maxClipSizeMb = numberValue('maxClipSizeMb', next.maxClipSizeMb);
   if (['off', 'safe', 'all'].includes(saved.filePreviewMode)) next.filePreviewMode = saved.filePreviewMode as AppSettings['filePreviewMode'];
   if (saved.filePreviewMaxMb) next.filePreviewMaxMb = Math.max(1, Math.min(64, numberValue('filePreviewMaxMb', next.filePreviewMaxMb)));

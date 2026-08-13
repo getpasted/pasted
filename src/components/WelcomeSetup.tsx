@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, ArrowRight, Check, ClipboardCheck, Command, FolderKanban, HardDrive, ListOrdered, LockKeyhole, ShieldCheck, Sparkles, WandSparkles } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Bot, Check, ClipboardCheck, Command, HardDrive, HeartHandshake, ListOrdered, LockKeyhole, RadioTower, ShieldCheck, TerminalSquare } from 'lucide-react';
 import type { AppSettings } from '../types';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { AppDialog } from './AppDialog';
 import { ExternalHistoryImport, type ExternalImportReport } from './ExternalHistoryImport';
-import { PastedMark } from './PastedMark';
+import { CopycatMark } from './CopycatMark';
 import { ActionButton } from './AppDialogLayout';
 
 const ONBOARDING_VERSION = 1;
@@ -107,19 +107,18 @@ export function WelcomeSetup({ isOpen, settings, onUpdateSettings, onImported }:
       <div className="welcome-setup-body">
         {step === 'welcome' && (
           <div className="welcome-setup-hero">
-            <div className="welcome-setup-mark" aria-hidden="true">
-              <PastedMark />
-              <span><Sparkles /></span>
+            <div className="welcome-setup-mark is-copycat" aria-hidden="true">
+              <CopycatMark />
             </div>
-            <p className="welcome-setup-kicker">Your clipboard, kept close</p>
-            <h1 id="pasted-welcome-title">Welcome to Pasted</h1>
+            <p className="welcome-setup-kicker">The private, local clipboard workspace</p>
+            <h1 id="pasted-welcome-title">Welcome, copycat.</h1>
             <p>
-              Keep the things you copy, find them again quickly, and build a clipboard library that stays on your computer.
+              Pasted gives you, your scripts, and your agents one shared place to remember, organize, and reshape everything you copy.
             </p>
             <ul className="welcome-setup-highlights" aria-label="Pasted highlights">
-              <li><HardDrive /> <span>Local library</span></li>
-              <li><LockKeyhole /> <span>Private by default</span></li>
-              <li><Command /> <span>Keyboard ready</span></li>
+              <li><HardDrive /> <span>No cloud account</span></li>
+              <li><RadioTower /> <span>No telemetry</span></li>
+              <li><HeartHandshake /> <span>No subscription</span></li>
             </ul>
           </div>
         )}
@@ -145,24 +144,28 @@ export function WelcomeSetup({ isOpen, settings, onUpdateSettings, onImported }:
             <div className="welcome-setup-heading">
               <span className="welcome-setup-heading-icon"><ShieldCheck /></span>
               <div>
-                <p className="welcome-setup-kicker">Know what is saved</p>
-                <h1 id="pasted-welcome-title">A local library with visible controls</h1>
-                <p>Pasted stores clipboard history in its SQLite library. You decide when capture pauses, what apps are ignored, and when history is removed.</p>
+                <p className="welcome-setup-kicker">The Copycat Covenant</p>
+                <h1 id="pasted-welcome-title">Your clipboard is none of our business</h1>
+                <p>Pasted works for you without turning your work into our data. These are product constraints, not marketing preferences.</p>
               </div>
             </div>
             <div className="welcome-setup-content">
               <div className="welcome-setup-facts">
                 <article>
                   <HardDrive />
-                  <div><strong>Stored locally</strong><span>Your clipboard library stays on this computer unless you export or move it.</span></div>
+                  <div><strong>Local by default</strong><span>Your clipboard library stays on this computer unless you explicitly export, move, or send something.</span></div>
+                </article>
+                <article>
+                  <RadioTower />
+                  <div><strong>No telemetry</strong><span>Pasted does not watch how you work, measure engagement, or report clipboard activity.</span></div>
+                </article>
+                <article>
+                  <HeartHandshake />
+                  <div><strong>No subscription</strong><span>Pasted will not rent your own clipboard back to you or make payment a condition of remembering.</span></div>
                 </article>
                 <article>
                   <LockKeyhole />
-                  <div><strong>Sensitive apps excluded</strong><span>Password managers are included in the starter ignore list.</span></div>
-                </article>
-                <article>
-                  <ShieldCheck />
-                  <div><strong>Reversible cleanup</strong><span>Trash, protection, and backups provide safer ways to manage history.</span></div>
+                  <div><strong>Connections are a choice</strong><span>Outside intelligence runs only through a connection you explicitly enable and use.</span></div>
                 </article>
               </div>
             </div>
@@ -174,9 +177,9 @@ export function WelcomeSetup({ isOpen, settings, onUpdateSettings, onImported }:
             <div className="welcome-setup-heading">
               <span className="welcome-setup-heading-icon"><Command /></span>
               <div>
-                <p className="welcome-setup-kicker">Work your way</p>
-                <h1 id="pasted-welcome-title">A few ways to move faster</h1>
-                <p>Reach your history from anywhere, organize it automatically, or reshape text before it leaves Pasted.</p>
+                <p className="welcome-setup-kicker">Every copycat welcome</p>
+                <h1 id="pasted-welcome-title">One workspace, more than one way in</h1>
+                <p>Use the app with your hands, the CLI from a script, or the shared library as context for an agent you choose.</p>
               </div>
             </div>
             <div className="welcome-setup-content">
@@ -204,17 +207,17 @@ export function WelcomeSetup({ isOpen, settings, onUpdateSettings, onImported }:
                   </div>
                 </article>
                 <article>
-                  <FolderKanban />
+                  <TerminalSquare />
                   <div>
-                    <strong>Organize itself</strong>
-                    <span>Use Bins and smart rules to gather clips by app, type, content, or workflow.</span>
+                    <strong>Script the same workspace</strong>
+                    <span>The bundled CLI searches, organizes, transforms, and returns structured output from the same local library.</span>
                   </div>
                 </article>
                 <article>
-                  <WandSparkles />
+                  <Bot />
                   <div>
-                    <strong>Transform before pasting</strong>
-                    <span>Clean, format, extract, or combine text with reusable Operations and Pipelines.</span>
+                    <strong>Bring your own intelligence</strong>
+                    <span>Agents and optional providers can help only when you connect them and ask them to.</span>
                   </div>
                 </article>
               </div>
@@ -224,13 +227,13 @@ export function WelcomeSetup({ isOpen, settings, onUpdateSettings, onImported }:
 
         {step === 'ready' && (
           <div className="welcome-setup-hero">
-            <div className="welcome-setup-mark is-ready" aria-hidden="true"><Check /></div>
-            <p className="welcome-setup-kicker">Setup complete</p>
-            <h1 id="pasted-welcome-title">Your library is ready</h1>
+            <div className="welcome-setup-mark is-copycat is-ready" aria-hidden="true"><CopycatMark /></div>
+            <p className="welcome-setup-kicker">Copycat status: ready</p>
+            <h1 id="pasted-welcome-title">Go copy irresponsibly.</h1>
             <p>
               {importedCount > 0
-                ? `${importedCount} clips came with you. New copies will appear at the top of History.`
-                : 'Copy something new and it will appear at the top of History.'}
+                ? `${importedCount} clips came with you. Human and machine copycats can find them in the same local workspace.`
+                : 'Copy something new. Pasted will remember it without sending it anywhere.'}
             </p>
           </div>
         )}

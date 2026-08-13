@@ -15,14 +15,14 @@ export function SettingsWelcomePanel({ onOpen }: SettingsWelcomePanelProps) {
             <PlayCircle className="h-4 w-4" />
           </SettingsAccentTile>
           <div className="min-w-0 pt-0.5">
-            <h3 className="theme-title text-sm font-bold">Welcome Setup</h3>
+            <h3 className="theme-title text-sm font-bold">Welcome, Copycat</h3>
             <p className="theme-text-muted mt-1 text-[11px] leading-relaxed">
-              Walk through migration, privacy, keyboard access, and key Pasted features.
+              Revisit the Copycat Covenant, migration, shared workspace, and keyboard access.
             </p>
           </div>
         </div>
         <ActionButton onClick={onOpen} className="shrink-0 cursor-pointer">
-          Open Welcome Setup
+          Open Copycat Welcome
         </ActionButton>
       </div>
     </section>
