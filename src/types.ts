@@ -426,6 +426,7 @@ export interface AppSettings {
   captureFeedbackDismissSeconds: number;
   openAtLogin: boolean;
   dockMenubarIcon: 'auto_hide' | 'both' | 'menubar_only';
+  menubarIconStyle: 'clipboard' | 'copycat';
   maxClipSizeMb: number;
   filePreviewMode: 'off' | 'safe' | 'all';
   filePreviewMaxMb: number;

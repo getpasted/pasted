@@ -1197,6 +1197,9 @@ pub fn save_app_setting(
     if let Some(feature) = Feature::from_setting_key(&key) {
         apply_feature_policy_changes(&app, &db, &[feature]);
     }
+    if key == "menubarIconStyle" {
+        crate::refresh_tray_icon(&app, &value);
+    }
     emit_window_appearance_change(&app, &key, &value);
     Ok(())
 }
@@ -1236,6 +1239,9 @@ pub fn save_app_settings(
         apply_feature_policy_changes(&app, &db, &changed);
     }
     for (key, value) in values {
+        if key == "menubarIconStyle" {
+            crate::refresh_tray_icon(&app, &value);
+        }
         emit_window_appearance_change(&app, &key, &value);
     }
     Ok(())
@@ -4002,12 +4008,11 @@ pub fn install_cli_to_path() -> Result<String, String> {
         ));
     }
 
-    let target_dir = dirs::home_dir()
-        .map(|home| home.join(".local/bin"))
-        .ok_or("Cannot locate your home directory")?;
-
     #[cfg(unix)]
     {
+        let target_dir = dirs::home_dir()
+            .map(|home| home.join(".local/bin"))
+            .ok_or("Cannot locate your home directory")?;
         let symlink_path = install_cli_symlink(&cli_exe, &target_dir)?;
         Ok(format!(
             "Successfully installed the pasted command at '{}'. Make sure that directory is in your PATH.",
@@ -4146,7 +4151,6 @@ mod tests {
         pdf
     }
 
-    #[cfg(unix)]
     fn unique_test_directory(label: &str) -> std::path::PathBuf {
         let nonce = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)

@@ -125,6 +125,10 @@ export function SettingsGeneralPanel({
         { value: 'both', label: 'Always show Tray & Taskbar' },
         { value: 'menubar_only', label: 'System Tray Icon only' },
       ];
+  const menubarIconOptions = [
+    { value: 'clipboard', label: 'Clipboard' },
+    { value: 'copycat', label: 'Copycat' },
+  ];
   const historyCountOptions = historyCountPresets.some(({ value }) => Number(value) === settings.keepClipCount)
     ? historyCountPresets
     : [
@@ -366,6 +370,24 @@ export function SettingsGeneralPanel({
                   className="settings-menu-select"
                 />
               </div>
+
+              {isMac && (
+                <div className="flex items-start justify-between gap-4 pt-1">
+                  <div className="min-w-0 flex-1 pr-4">
+                    <span className="font-semibold theme-text-main block">Menu Bar Icon:</span>
+                    <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
+                      Choose the classic clipboard or the resident Copycat.
+                    </p>
+                  </div>
+                  <MenuSelect
+                    value={settings.menubarIconStyle}
+                    options={menubarIconOptions}
+                    onChange={(value) => onUpdateSettings({ menubarIconStyle: value as AppSettings['menubarIconStyle'] })}
+                    label="Menu bar icon"
+                    className="settings-menu-select shrink-0"
+                  />
+                </div>
+              )}
 
               <div className="flex items-start justify-between pt-1">
                 <div className="pr-4 flex-1 min-w-0">

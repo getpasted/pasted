@@ -1,6 +1,8 @@
 # Pasted
 
-Pasted is an elegant privacy-focused clipboard manager and transformation app for macOS.
+Pasted is the private, local clipboard workspace for copycats: humans, scripts, automations, and agents working from one shared library.
+
+**No cloud account. No off-device telemetry. No subscription.**
 
 The [Pasted Wiki](https://github.com/getpasted/pasted/wiki) covers installation, everyday workflows, recovery, CLI automation, platform support, privacy, and troubleshooting.
 
@@ -25,6 +27,13 @@ Clipboard history, settings, revisions, previews, and activity data are stored l
 Password managers and other sensitive apps are ignored by the default blacklist. Capture size, preview size, history retention, Trash retention, revisions, OCR, and content detection are bounded or configurable. Protected clips will remain, regardless of retention settings.
 
 Pasted sends your private clip content outside the app only when you _explicitly_ run an intelligence-assisted transform through a connection you manually enabled. Connection credentials remain with the provider, operating system, or authenticated command-line tool; Pasted stores references rather than API keys.
+
+## The Copycat Covenant
+
+- **No cloud account.** The core clipboard workspace stays local and works without a hosted identity.
+- **No off-device telemetry.** Usage insights stay local; Pasted does not report how copycats use the app or CLI.
+- **No subscription.** Pasted will not rent your clipboard back to you. Financial support is an endorsement, never a feature unlock.
+- **Every copycat welcome.** The GUI and CLI use the same local library so people and the tools they direct share one source of context.
 
 ## macOS requirements
 

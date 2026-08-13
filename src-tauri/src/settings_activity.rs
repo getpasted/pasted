@@ -49,6 +49,11 @@ fn friendly_value(key: &str, value: &str) -> Option<String> {
             "auto_hide" => "Automatically hidden Dock icon".into(),
             _ => return None,
         },
+        "menubarIconStyle" => match value {
+            "clipboard" => "Clipboard".into(),
+            "copycat" => "Copycat".into(),
+            _ => return None,
+        },
         "filePreviewMode" => match value {
             "off" => "Off".into(),
             "safe" => "Safe file types".into(),
@@ -106,6 +111,7 @@ fn setting_label(key: &str) -> Option<&'static str> {
         "rowHeight" => Some("Row height"),
         "startupView" => Some("Startup View"),
         "dockMenubarIcon" => Some("Dock visibility"),
+        "menubarIconStyle" => Some("Menu bar icon"),
         "filePreviewMode" => Some("File previews"),
         "textSize" => Some("Zoom"),
         "maxClipSizeMb" => Some("Clip size limit"),
@@ -216,6 +222,12 @@ mod tests {
                 .unwrap()
                 .description,
             "Changed Startup View: Last Active Page → Clip History"
+        );
+        assert_eq!(
+            describe_setting_change("menubarIconStyle", Some("clipboard"), "copycat")
+                .unwrap()
+                .description,
+            "Changed Menu bar icon: Clipboard → Copycat"
         );
     }
 

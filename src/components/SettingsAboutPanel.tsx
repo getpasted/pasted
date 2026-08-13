@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { CheckCircle2, ChevronRight, Copy, Database, HardDrive, Info, Scale, ShieldCheck, TerminalSquare } from 'lucide-react';
+import { Bot, CheckCircle2, ChevronRight, Copy, Database, HardDrive, HeartHandshake, Info, RadioTower, Scale, ShieldCheck, TerminalSquare } from 'lucide-react';
 import type { InstallationDiagnostics } from '../types';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { SettingsPanelHeader } from './SettingsPanelHeader';
@@ -7,6 +7,7 @@ import { SettingsSubsectionHeader } from './SettingsSubsectionHeader';
 import { OpenSourceLicensesDialog } from './OpenSourceLicensesDialog';
 import { ActionButton } from './AppDialogLayout';
 import { SettingsAccentTile } from './SettingsAccentTile';
+import { CopycatMark } from './CopycatMark';
 
 function fileSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
@@ -60,16 +61,43 @@ export function SettingsAboutPanel() {
       <SettingsPanelHeader
         icon={Info}
         title="About Pasted"
-        description="A fast, focused clipboard workspace that keeps you in control."
+        description="The private, local clipboard workspace for copycats."
       />
 
-      <section className="theme-surface flex flex-col items-center rounded-2xl border px-6 py-8 text-center">
-        <img src="/app_icon.png" alt="" className="h-20 w-20" draggable={false} />
+      <section className="theme-surface relative flex flex-col items-center overflow-hidden rounded-2xl border px-6 py-8 text-center">
+        <div className="copycat-about-mark" aria-hidden="true"><CopycatMark /></div>
         <h3 className="theme-title mt-3 text-xl font-bold">Pasted</h3>
-        <p className="theme-text-muted mt-1 text-xs">Copy once. Find it, organize it, and shape it whenever you need it.</p>
+        <p className="theme-text-muted mt-1 max-w-md text-xs leading-relaxed">
+          One local workspace for everything humans, scripts, automations, and agents copy along the way.
+        </p>
         <span className="theme-badge mt-4 rounded-full border px-3 py-1 font-mono text-[10px] font-semibold">
           {installation ? `Version ${installation.appVersion} · ${installation.buildKind}` : 'Loading version…'}
         </span>
+      </section>
+
+      <section className="theme-surface rounded-2xl border p-5 space-y-4">
+        <SettingsSubsectionHeader
+          icon={<HeartHandshake className="h-4 w-4" />}
+          title="The Copycat Covenant"
+          description="The constraints Pasted chooses so your clipboard remains yours."
+        />
+        <div className="grid gap-2 sm:grid-cols-2">
+          {[
+            { icon: HardDrive, title: 'No cloud account', body: 'Your core library lives locally. Pasted works without an identity, sync account, or hosted copy of your history.' },
+            { icon: RadioTower, title: 'No off-device telemetry', body: 'Usage insights stay local; Pasted does not report how humans, scripts, or agents use the workspace.' },
+            { icon: HeartHandshake, title: 'No subscription', body: 'Pasted will not rent your clipboard back to you. Financial support is an endorsement, never an unlock.' },
+            { icon: Bot, title: 'Every copycat welcome', body: 'The GUI and CLI share one library, so people and the tools they direct work from the same local context.' },
+          ].map(({ icon: Icon, title, body }) => (
+            <article key={title} className="theme-card-idle border p-3.5">
+              <Icon className="mb-2 h-4 w-4 text-[var(--accent-primary)]" />
+              <h4 className="theme-title text-xs font-bold">{title}</h4>
+              <p className="theme-text-muted mt-1 text-[10px] leading-relaxed">{body}</p>
+            </article>
+          ))}
+        </div>
+        <p className="theme-text-muted theme-divider border-t pt-3 text-[10px] leading-relaxed">
+          Outside intelligence is optional and explicit. Pasted sends clip content only when a copycat runs a connected intelligence-assisted action.
+        </p>
       </section>
 
       <section className="theme-surface rounded-2xl border p-5 space-y-4">
