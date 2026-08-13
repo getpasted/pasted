@@ -4008,12 +4008,11 @@ pub fn install_cli_to_path() -> Result<String, String> {
         ));
     }
 
-    let target_dir = dirs::home_dir()
-        .map(|home| home.join(".local/bin"))
-        .ok_or("Cannot locate your home directory")?;
-
     #[cfg(unix)]
     {
+        let target_dir = dirs::home_dir()
+            .map(|home| home.join(".local/bin"))
+            .ok_or("Cannot locate your home directory")?;
         let symlink_path = install_cli_symlink(&cli_exe, &target_dir)?;
         Ok(format!(
             "Successfully installed the pasted command at '{}'. Make sure that directory is in your PATH.",
@@ -4152,7 +4151,6 @@ mod tests {
         pdf
     }
 
-    #[cfg(unix)]
     fn unique_test_directory(label: &str) -> std::path::PathBuf {
         let nonce = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
