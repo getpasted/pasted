@@ -1236,10 +1236,13 @@ fn main() -> Result<()> {
                         let input = if let Some(text) = explicit_text {
                             text
                         } else if let Some(clip_id) = clip_id {
-                            db.get_active_clip_text(clip_id)?.unwrap_or_else(|| {
-                                eprintln!("Clip #{clip_id} has no analyzable text.");
-                                std::process::exit(2);
-                            })
+                            match db.get_active_clip_text(clip_id)? {
+                                Some(text) if !text.is_empty() => text,
+                                _ => {
+                                    eprintln!("Clip #{clip_id} has no analyzable text.");
+                                    std::process::exit(2);
+                                }
+                            }
                         } else {
                             read_stdin_bounded(
                                 pasted_lib::resource_limits::MAX_TRANSFORM_TEXT_BYTES,
