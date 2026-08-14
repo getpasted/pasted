@@ -3018,6 +3018,18 @@ impl DbState {
         if let Some(text) = recognized_text {
             ensure_resource_size(text, crate::resource_limits::MAX_OCR_TEXT_BYTES, "OCR text")?;
         }
+        if error.is_some_and(|code| {
+            code.is_empty()
+                || code.len() > 160
+                || !code
+                    .bytes()
+                    .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_')
+        }) {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "OCR error codes require 1–160 lowercase ASCII letters, numbers, or underscores"
+                    .into(),
+            ));
+        }
         let mut conn = self.conn.lock();
         let tx = conn.transaction()?;
         let current = tx
@@ -3094,6 +3106,27 @@ impl DbState {
         }
         tx.commit()?;
         Ok(true)
+    }
+
+    pub fn complete_or_reset_ocr_attempt(
+        &self,
+        clip_id: i64,
+        content_hash: &str,
+        recognized_text: Option<&str>,
+        engine_version: &str,
+        error: Option<&str>,
+    ) -> Result<bool> {
+        let result = self.complete_ocr_attempt(
+            clip_id,
+            content_hash,
+            recognized_text,
+            engine_version,
+            error,
+        );
+        if result.is_err() {
+            let _ = self.reset_ocr_work(Some(clip_id), Some(content_hash));
+        }
+        result
     }
 
     pub fn record_analysis_classification(

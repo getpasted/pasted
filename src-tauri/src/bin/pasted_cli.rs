@@ -1,7 +1,7 @@
 use rusqlite::{params, Connection, OptionalExtension, Result};
 use std::env;
 use std::fs;
-use std::io::{self, Read};
+use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 
 use pasted_lib::bin_assignment::assign_clips_to_bin;
@@ -1086,6 +1086,7 @@ fn main() -> Result<()> {
                         &extractor,
                         detectors.as_deref(),
                     );
+                    let extraction_failure = analysis.failure_for(&extractor.stable_ref).cloned();
                     if apply {
                         let clip_id = clip_id.expect("validated apply target");
                         let content_hash = content_hash.as_deref().expect("clip input has a hash");
@@ -1093,12 +1094,14 @@ fn main() -> Result<()> {
                             eprintln!("Clip #{clip_id} is no longer available for extraction.");
                             std::process::exit(1);
                         }
-                        db.complete_ocr_attempt(
+                        db.complete_or_reset_ocr_attempt(
                             clip_id,
                             content_hash,
                             analysis.context.searchable_text.as_deref(),
                             &extractor.engine,
-                            None,
+                            extraction_failure
+                                .as_ref()
+                                .map(|failure| failure.code.as_str()),
                         )?;
                         if detectors.is_some() && analysis.context.searchable_text.is_some() {
                             db.record_analysis_classification(
@@ -1120,12 +1123,27 @@ fn main() -> Result<()> {
                                 "detectedType": analysis.context.detected_type,
                                 "matchedDetectorRef": analysis.context.matched_detector_ref,
                                 "appliedClipId": clip_id.filter(|_| apply),
+                                "outcome": if extraction_failure.is_some() {
+                                    "failed"
+                                } else if analysis.context.searchable_text.is_some() {
+                                    "produced"
+                                } else {
+                                    "no_output"
+                                },
+                                "failure": extraction_failure.as_ref(),
                             })
                         );
+                    } else if let Some(failure) = extraction_failure.as_ref() {
+                        eprintln!("Extractor failed ({}): {}", failure.code, failure.message);
                     } else if let Some(text) = analysis.context.searchable_text {
                         print!("{text}");
                     } else {
                         println!("No text extracted.");
+                    }
+                    if extraction_failure.is_some() {
+                        let _ = io::stdout().flush();
+                        let _ = io::stderr().flush();
+                        std::process::exit(1);
                     }
                 }
                 "restore-defaults" => {
@@ -3715,7 +3733,7 @@ fn scan_existing_images(db: &DbState, clip_id: Option<i64>) -> Result<usize> {
             break;
         };
         let Some(bytes) = pasted_lib::ocr::decode_stored_image(&candidate.image_base64) else {
-            db.complete_ocr_attempt(
+            db.complete_or_reset_ocr_attempt(
                 candidate.clip_id,
                 &candidate.content_hash,
                 None,
@@ -3727,12 +3745,15 @@ fn scan_existing_images(db: &DbState, clip_id: Option<i64>) -> Result<usize> {
         };
         let analysis =
             pasted_lib::content_analysis::analyze_image(bytes, &extractor, detectors.as_deref());
-        db.complete_ocr_attempt(
+        let extraction_error = analysis
+            .failure_for(&extractor.stable_ref)
+            .map(|failure| failure.code.as_str());
+        db.complete_or_reset_ocr_attempt(
             candidate.clip_id,
             &candidate.content_hash,
             analysis.context.searchable_text.as_deref(),
             &extractor.engine,
-            None,
+            extraction_error,
         )?;
         if detectors.is_some() && analysis.context.searchable_text.is_some() {
             db.record_analysis_classification(
