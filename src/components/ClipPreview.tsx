@@ -273,7 +273,13 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
       && clip.content_type !== 'file';
     setInspection(null);
     setSmartActions(null);
-    invoke<AnalyzerPreview>('analyze_content', { ...input, includeEnricher })
+    invoke<AnalyzerPreview>('analyze_content', {
+      request: {
+        ...input,
+        includeDetectors: includeEnricher,
+        includeEnricher,
+      },
+    })
       .then((result) => {
         if (cancelled) return;
         setInspection(result.result.structure ? {

@@ -276,6 +276,8 @@ assert.match(tauriMock, /case 'analyze_content'/,
   'The frontend mock must preserve the whole-Analyzer contract');
 assert.match(clipPreview, /invoke<AnalyzerPreview>\('analyze_content'/,
   'Clip Preview must request structure and recommendations through one Analyzer call');
+assert.match(clipPreview, /includeDetectors: includeEnricher/,
+  'Clip Preview must skip classification when its Enricher consumer is disabled');
 assert.doesNotMatch(clipPreview, /invoke<StructuralInspection>\('inspect_clip_structure'|invoke<SmartActionEnrichment>\('enrich_smart_actions'/,
   'Clip Preview must not schedule Analyzer participants through parallel IPC calls');
 assert.doesNotMatch(analysisExecution, /pub struct AnalyzerSnapshot[\s\S]*?pub (?:text|content|paths|image_bytes):/,

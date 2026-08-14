@@ -973,6 +973,7 @@ fn main() -> Result<()> {
             let options = pasted_lib::analysis_execution::AnalyzerOptions {
                 policy,
                 include_extractor: args.iter().any(|argument| argument == "--extract"),
+                include_detectors: true,
                 include_enricher: pasted_lib::features::is_enabled(&db, Feature::Transformations),
             };
             let result = if let Some(clip_id) = clip_id {

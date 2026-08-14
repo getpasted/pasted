@@ -11,6 +11,7 @@ use serde::Serialize;
 pub struct AnalyzerOptions {
     pub policy: AnalysisPolicy,
     pub include_extractor: bool,
+    pub include_detectors: bool,
     pub include_enricher: bool,
 }
 
@@ -19,6 +20,7 @@ impl Default for AnalyzerOptions {
         Self {
             policy: AnalysisPolicy::Interactive,
             include_extractor: false,
+            include_detectors: true,
             include_enricher: true,
         }
     }
@@ -67,7 +69,9 @@ fn execute(
     options: AnalyzerOptions,
     allow_text_participants: bool,
 ) -> Result<AnalyzerPreview, String> {
-    let detectors = if allow_text_participants {
+    let run_detectors =
+        allow_text_participants && (options.include_detectors || options.include_enricher);
+    let detectors = if run_detectors {
         db.get_content_detectors()
             .map_err(|error| error.to_string())?
             .into_iter()
@@ -104,7 +108,7 @@ fn execute(
                 extractor,
                 registry: &registry,
             }),
-        detectors: allow_text_participants.then_some(detectors.as_slice()),
+        detectors: run_detectors.then_some(detectors.as_slice()),
         enricher: (allow_text_participants && options.include_enricher).then_some(
             EnricherParticipantSource {
                 transforms: transforms.as_slice(),
@@ -273,6 +277,28 @@ mod tests {
         .unwrap();
         assert!(result.analysis.result.recommendations.is_none());
         assert_eq!(result.analysis.participants.len(), 2);
+    }
+
+    #[test]
+    fn inspection_only_preview_skips_unused_text_passes() {
+        let result = analyze_text(
+            &db(),
+            "agent@example.com",
+            None,
+            AnalyzerOptions {
+                include_detectors: false,
+                include_enricher: false,
+                ..AnalyzerOptions::default()
+            },
+        )
+        .unwrap();
+        assert!(result.analysis.result.detected_type.is_none());
+        assert!(result.analysis.result.recommendations.is_none());
+        assert_eq!(result.analysis.participants.len(), 1);
+        assert_eq!(
+            result.analysis.participants[0].pass,
+            crate::analysis_contract::AnalysisPass::Inspect
+        );
     }
 
     #[test]

@@ -868,14 +868,15 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
     case 'get_clip_image':
       return null as unknown as T;
     case 'analyze_content': {
-      const hasText = typeof args?.text === 'string';
-      const hasClipId = args?.clipId !== undefined;
+      const request = (args?.request ?? {}) as Record<string, unknown>;
+      const hasText = typeof request.text === 'string';
+      const hasClipId = request.clipId !== undefined;
       if (hasText === hasClipId) throw new Error('Provide exactly one of text or clipId');
       const clip = hasClipId
-        ? mockClips.find((item) => item.id === Number(args?.clipId))
+        ? mockClips.find((item) => item.id === Number(request.clipId))
         : undefined;
       if (hasClipId && !clip) throw new Error('Clip not found');
-      const text = hasText ? String(args?.text) : String(clip?.text_content ?? '');
+      const text = hasText ? String(request.text) : String(clip?.text_content ?? '');
       const clipKind = clip?.content_type === 'file' || clip?.content_type === 'image'
         ? clip.content_type
         : 'text';
@@ -893,24 +894,27 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
             lineCount: text.length === 0 ? 0 : text.split(/\r?\n/).length - (/\r?\n$/.test(text) ? 1 : 0),
           } }),
       };
-      const includeEnricher = args?.includeEnricher !== false
-        && (args?.policy === undefined || args.policy === 'interactive')
+      const includeEnricher = request.includeEnricher !== false
+        && (request.policy === undefined || request.policy === 'interactive')
+        && clipKind !== 'file'
+        && clipKind !== 'image';
+      const includeDetectors = (request.includeDetectors !== false || includeEnricher)
         && clipKind !== 'file'
         && clipKind !== 'image';
       const recommendations = includeEnricher ? mockSmartActionRecommendations(text) : null;
       const participants = [
         { stableRef: 'inspector:structure-v1', pass: 'inspect', outcome: 'produced' },
-        ...(clipKind === 'file' || clipKind === 'image' ? [] : [{ stableRef: 'analysis:content-detectors', pass: 'classify', outcome: 'produced' }]),
+        ...(includeDetectors ? [{ stableRef: 'analysis:content-detectors', pass: 'classify', outcome: 'produced' }] : []),
         ...(recommendations ? [{ stableRef: 'enricher:smart-actions-v1', pass: 'enrich', outcome: 'produced' }] : []),
       ];
       return {
         formatVersion: 1,
-        policy: args?.policy ?? 'interactive',
-        through: args?.policy && args.policy !== 'interactive' ? 'classify' : 'enrich',
+        policy: request.policy ?? 'interactive',
+        through: request.policy && request.policy !== 'interactive' ? 'classify' : 'enrich',
         result: {
           clipKind,
           structure,
-          ...(clipKind === 'file' || clipKind === 'image' ? {} : { detectedType: clip?.content_type ?? 'text' }),
+          ...(includeDetectors ? { detectedType: clip?.content_type ?? 'text' } : {}),
           searchableTextAvailable: false,
           ...(recommendations ? { recommendations } : {}),
         },

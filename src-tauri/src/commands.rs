@@ -719,14 +719,18 @@ pub(crate) fn prefetch_file_clip_previews(
 
 #[tauri::command]
 pub async fn analyze_content(
-    text: Option<String>,
-    clip_id: Option<i64>,
-    source: Option<String>,
-    policy: Option<String>,
-    include_extractor: Option<bool>,
-    include_enricher: Option<bool>,
+    request: AnalyzeContentRequest,
     db: State<'_, Arc<DbState>>,
 ) -> Result<crate::analysis_execution::AnalyzerPreview, String> {
+    let AnalyzeContentRequest {
+        text,
+        clip_id,
+        source,
+        policy,
+        include_extractor,
+        include_detectors,
+        include_enricher,
+    } = request;
     if text.is_some() == clip_id.is_some() {
         return Err("Provide exactly one of text or clipId".into());
     }
@@ -744,6 +748,7 @@ pub async fn analyze_content(
     let options = crate::analysis_execution::AnalyzerOptions {
         policy,
         include_extractor: include_extractor.unwrap_or(false),
+        include_detectors: include_detectors.unwrap_or(true),
         include_enricher,
     };
     let db = Arc::clone(&db);
@@ -756,6 +761,18 @@ pub async fn analyze_content(
     })
     .await
     .map_err(|error| error.to_string())?
+}
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AnalyzeContentRequest {
+    text: Option<String>,
+    clip_id: Option<i64>,
+    source: Option<String>,
+    policy: Option<String>,
+    include_extractor: Option<bool>,
+    include_detectors: Option<bool>,
+    include_enricher: Option<bool>,
 }
 
 #[tauri::command]
