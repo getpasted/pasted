@@ -86,18 +86,22 @@ type MockExtractor = {
   isBuiltin: boolean; isAvailable: boolean; unavailableReason: string | null;
   defaults: typeof mockExtractorDefaults | null;
 };
-let mockExtractors: MockExtractor[] = [{
-  id: 1,
-  stableRef: 'extractor:apple-vision-ocr',
-  ...mockExtractorDefaults,
-  engine: 'macos-vision-v1',
-  inputContract: 'image',
-  outputContract: 'searchable_text',
-  isBuiltin: true,
-  isAvailable: true,
-  unavailableReason: null,
-  defaults: { ...mockExtractorDefaults },
-}];
+function mockBuiltinExtractor(): MockExtractor {
+  return {
+    id: 1,
+    stableRef: 'extractor:apple-vision-ocr',
+    ...mockExtractorDefaults,
+    engine: 'macos-vision-v1',
+    inputContract: 'image',
+    outputContract: 'searchable_text',
+    isBuiltin: true,
+    isAvailable: true,
+    unavailableReason: null,
+    defaults: { ...mockExtractorDefaults },
+  };
+}
+let nextMockExtractorId = 2;
+let mockExtractors: MockExtractor[] = [mockBuiltinExtractor()];
 
 let mockContentTypes: Array<{
   id: string; label: string; icon: string; group: string; isBuiltin: boolean; isArchived: boolean;
@@ -223,7 +227,7 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       return mockExtractors.map((extractor) => ({ ...extractor, defaults: extractor.defaults ? { ...extractor.defaults } : null })) as unknown as T;
     case 'create_content_extractor': {
       const input = args?.input as Omit<MockExtractor, 'id' | 'stableRef' | 'isBuiltin' | 'isAvailable' | 'unavailableReason' | 'defaults'>;
-      const id = Math.max(0, ...mockExtractors.map((extractor) => extractor.id)) + 1;
+      const id = nextMockExtractorId++;
       const created: MockExtractor = { id, stableRef: `extractor:custom:${id}`, ...input, isBuiltin: false, isAvailable: input.engine === 'macos-vision-v1', unavailableReason: input.engine === 'macos-vision-v1' ? null : `Engine ${input.engine} is not available on this system.`, defaults: null };
       mockExtractors = [...mockExtractors, created];
       return created as unknown as T;
@@ -238,7 +242,7 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       const reference = String(args?.reference ?? '');
       const source = mockExtractors.find((extractor) => extractor.stableRef === reference || String(extractor.id) === reference);
       if (!source) throw new Error('Extractor was not found.');
-      const id = Math.max(0, ...mockExtractors.map((extractor) => extractor.id)) + 1;
+      const id = nextMockExtractorId++;
       const created = { ...source, id, stableRef: `extractor:custom:${id}`, name: String(args?.name ?? `${source.name} Copy`), priority: source.priority + 1, isBuiltin: false, defaults: null };
       mockExtractors = [...mockExtractors, created];
       return created as unknown as T;
@@ -246,9 +250,14 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
     case 'delete_content_extractor':
       mockExtractors = mockExtractors.filter((extractor) => extractor.id !== Number(args?.id));
       return undefined as T;
-    case 'restore_default_content_extractors':
-      mockExtractors = mockExtractors.map((extractor) => ({ ...extractor, ...mockExtractorDefaults }));
+    case 'restore_default_content_extractors': {
+      const builtin = mockBuiltinExtractor();
+      mockExtractors = [
+        builtin,
+        ...mockExtractors.filter((extractor) => extractor.stableRef !== builtin.stableRef),
+      ];
       return mockExtractors as unknown as T;
+    }
     case 'get_library_items': {
       const kind = String(args?.kind ?? '');
       const items = [
