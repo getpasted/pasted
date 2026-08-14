@@ -168,50 +168,70 @@ pub fn schedule(
     let mut pending = participants.into_iter().map(Some).collect::<Vec<_>>();
 
     for pass in AnalysisPass::ORDERED {
-        for participant in pending.iter_mut().filter_map(Option::as_mut) {
-            if participant.contract.pass != pass {
-                continue;
-            }
-            let stable_ref = participant.contract.stable_ref.clone();
-            if !participant
-                .contract
-                .requires
-                .iter()
-                .all(|requirement| context.has(*requirement))
-            {
+        loop {
+            let mut progressed = false;
+            for slot in &mut pending {
+                let is_ready = slot.as_ref().is_some_and(|participant| {
+                    participant.contract.pass == pass
+                        && participant
+                            .contract
+                            .requires
+                            .iter()
+                            .all(|requirement| context.has(*requirement))
+                });
+                if !is_ready {
+                    continue;
+                }
+
+                let mut participant = slot.take().expect("ready participant exists");
+                let stable_ref = participant.contract.stable_ref.clone();
+                let (outcome, failure) = match (participant.execute)(&mut context) {
+                    Ok(ParticipantOutcome::Produced)
+                        if !participant
+                            .contract
+                            .provides
+                            .iter()
+                            .all(|provided| context.has(*provided)) =>
+                    {
+                        (
+                            ParticipantOutcome::Failed,
+                            Some(AnalysisFailure {
+                                code: "contract_violation".into(),
+                                message:
+                                    "Participant did not provide its declared representations."
+                                        .into(),
+                            }),
+                        )
+                    }
+                    Ok(outcome) => (outcome, None),
+                    Err(failure) => (ParticipantOutcome::Failed, Some(failure)),
+                };
                 runs.push(ParticipantRun {
                     stable_ref,
                     pass,
-                    outcome: ParticipantOutcome::MissingInput,
-                    failure: None,
+                    outcome,
+                    failure,
                 });
+                progressed = true;
+            }
+            if !progressed {
+                break;
+            }
+        }
+
+        for slot in &mut pending {
+            let is_blocked = slot
+                .as_ref()
+                .is_some_and(|participant| participant.contract.pass == pass);
+            if !is_blocked {
                 continue;
             }
-            let (outcome, failure) = match (participant.execute)(&mut context) {
-                Ok(ParticipantOutcome::Produced)
-                    if !participant
-                        .contract
-                        .provides
-                        .iter()
-                        .all(|provided| context.has(*provided)) =>
-                {
-                    (
-                        ParticipantOutcome::Failed,
-                        Some(AnalysisFailure {
-                            code: "contract_violation".into(),
-                            message: "Participant did not provide its declared representations."
-                                .into(),
-                        }),
-                    )
-                }
-                Ok(outcome) => (outcome, None),
-                Err(failure) => (ParticipantOutcome::Failed, Some(failure)),
-            };
+            let participant = slot.take().expect("blocked participant exists");
             runs.push(ParticipantRun {
-                stable_ref,
+                stable_ref: participant.contract.stable_ref,
                 pass,
-                outcome,
-                failure,
+                outcome: ParticipantOutcome::MissingInput,
+                failure: None,
             });
         }
     }
@@ -415,7 +435,7 @@ mod tests {
     }
 
     #[test]
-    fn missing_representations_skip_participants_without_retrying_or_recursing() {
+    fn unresolved_missing_representations_skip_without_execution() {
         let runs = schedule(
             AnalysisContext::for_text("hello"),
             vec![AnalysisParticipant::new(
@@ -434,6 +454,52 @@ mod tests {
 
         assert_eq!(runs.len(), 1);
         assert_eq!(runs[0].outcome, ParticipantOutcome::MissingInput);
+    }
+
+    #[test]
+    fn same_pass_consumers_run_after_their_inputs_become_available() {
+        let report = schedule(
+            AnalysisContext::for_image(vec![1]),
+            vec![
+                AnalysisParticipant::new(
+                    ParticipantContract {
+                        stable_ref: "consumer".into(),
+                        name: "Consumer".into(),
+                        pass: AnalysisPass::Extract,
+                        priority: 1,
+                        requires: vec![RepresentationKind::SearchableText],
+                        provides: vec![RepresentationKind::Classification],
+                    },
+                    |context| {
+                        context.detected_type = Some("derived".into());
+                        Ok(ParticipantOutcome::Produced)
+                    },
+                ),
+                AnalysisParticipant::new(
+                    ParticipantContract {
+                        stable_ref: "producer".into(),
+                        name: "Producer".into(),
+                        pass: AnalysisPass::Extract,
+                        priority: 2,
+                        requires: vec![RepresentationKind::ImageBytes],
+                        provides: vec![RepresentationKind::SearchableText],
+                    },
+                    |context| {
+                        context.searchable_text = Some("derived text".into());
+                        Ok(ParticipantOutcome::Produced)
+                    },
+                ),
+            ],
+        );
+
+        assert_eq!(report.context.detected_type.as_deref(), Some("derived"));
+        assert_eq!(report.runs.len(), 2);
+        assert_eq!(report.runs[0].stable_ref, "producer");
+        assert_eq!(report.runs[1].stable_ref, "consumer");
+        assert!(report
+            .runs
+            .iter()
+            .all(|run| run.outcome == ParticipantOutcome::Produced));
     }
 
     #[test]
