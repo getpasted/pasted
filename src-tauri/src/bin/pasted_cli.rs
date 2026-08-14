@@ -1032,17 +1032,6 @@ fn main() -> Result<()> {
                         std::process::exit(2);
                     });
                     let extractor = db.get_content_extractor(reference)?;
-                    if !extractor.is_available {
-                        eprintln!(
-                            "Extractor {} is unavailable: {}",
-                            extractor.name,
-                            extractor
-                                .unavailable_reason
-                                .as_deref()
-                                .unwrap_or("its engine is not installed")
-                        );
-                        std::process::exit(1);
-                    }
                     let clip_id =
                         argument_value(&args, "--clip").and_then(|value| value.parse::<i64>().ok());
                     let file_path = argument_value(&args, "--file");
@@ -1086,34 +1075,32 @@ fn main() -> Result<()> {
                         &extractor,
                         detectors.as_deref(),
                     );
-                    if apply {
+                    let result = if apply {
                         let clip_id = clip_id.expect("validated apply target");
                         let content_hash = content_hash.as_deref().expect("clip input has a hash");
-                        if !db.force_ocr_running(clip_id, content_hash)? {
-                            eprintln!("Clip #{clip_id} is no longer available for extraction.");
-                            std::process::exit(1);
-                        }
-                        pasted_lib::analysis_execution::persist_image_analysis(
+                        pasted_lib::analysis_execution::apply_image_analysis(
                             &db,
                             clip_id,
                             content_hash,
                             &extractor,
                             detectors.is_some(),
-                            &analysis,
-                        )?;
-                    }
+                            analysis,
+                        )?
+                    } else {
+                        pasted_lib::analysis_execution::ExtractionApplicationResult::preview(
+                            analysis,
+                        )
+                    };
                     if args.iter().any(|argument| argument == "--json") {
-                        let mut output = serde_json::json!(&analysis);
-                        output["appliedClipId"] = serde_json::json!(clip_id.filter(|_| apply));
-                        println!("{output}");
-                    } else if let Some(failure) = analysis.failure.as_ref() {
+                        println!("{}", serde_json::json!(&result));
+                    } else if let Some(failure) = result.analysis.failure.as_ref() {
                         eprintln!("Extractor failed ({}): {}", failure.code, failure.message);
-                    } else if let Some(text) = analysis.output.as_deref() {
+                    } else if let Some(text) = result.analysis.output.as_deref() {
                         print!("{text}");
                     } else {
                         println!("No text extracted.");
                     }
-                    if analysis.failed() {
+                    if result.analysis.failed() {
                         let _ = io::stdout().flush();
                         let _ = io::stderr().flush();
                         std::process::exit(1);
@@ -3720,13 +3707,13 @@ fn scan_existing_images(db: &DbState, clip_id: Option<i64>) -> Result<usize> {
         };
         let analysis =
             pasted_lib::analysis_execution::analyze_image(bytes, &extractor, detectors.as_deref());
-        pasted_lib::analysis_execution::persist_image_analysis(
+        pasted_lib::analysis_execution::persist_claimed_image_analysis(
             db,
             candidate.clip_id,
             &candidate.content_hash,
             &extractor,
             detectors.is_some(),
-            &analysis,
+            analysis,
         )?;
         scanned += 1;
     }

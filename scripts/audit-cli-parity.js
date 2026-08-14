@@ -215,22 +215,30 @@ assert.match(analysisExecution, /pub participants: Vec<ParticipantRun>/,
   'Image Analysis results must expose privacy-safe participant summaries');
 assert.doesNotMatch(analysis, /pub fn analyze_image\(/,
   'Raw Image Analysis reports must not remain a public execution path');
-assert.match(cli, /serde_json::json!\(&analysis\)/,
-  'CLI Extractor JSON must serialize the shared Analyzer result');
+assert.match(analysisExecution, /pub struct ExtractionApplicationResult/,
+  'Extractor application must expose one shared serializable result contract');
+assert.match(analysisExecution, /pub fn apply_image_analysis/,
+  'User-initiated Extractor application must use one shared application service');
+assert.match(analysisExecution, /pub fn persist_claimed_image_analysis/,
+  'Claimed background Extractor work must use the shared persistence service');
+assert.match(cli, /ExtractionApplicationResult::preview/,
+  'CLI Extractor previews must use the shared application result shape');
+assert.match(cli, /analysis_execution::apply_image_analysis/,
+  'CLI Extractor apply must use the shared application service');
+assert.match(commands, /analysis_execution::apply_image_analysis/,
+  'GUI Extractor apply must use the shared application service');
+assert.match(ocr, /analysis_execution::persist_claimed_image_analysis/,
+  'Background OCR must use the shared claimed-work application service');
+assert.doesNotMatch(cli, /output\["appliedClipId"\]/,
+  'CLI Extractor JSON must not synthesize application state');
+assert.match(cli, /serde_json::json!\(&result\)/,
+  'CLI Extractor JSON must serialize the shared application result');
 assert.match(database, /pub fn complete_or_reset_ocr_attempt/,
   'OCR runtimes must share failure-safe attempt persistence');
-assert.match(analysisExecution, /pub fn persist_image_analysis/,
-  'Image Analysis persistence must use a shared application service');
 assert.match(analysisExecution, /analysis\s*\.failure\s*\.as_ref\(\)/,
   'Shared Image Analysis persistence must preserve Extractor failure codes');
 assert.match(analysisExecution, /complete_or_reset_ocr_attempt/,
   'Shared Image Analysis persistence must reset claimed work on failure');
-assert.match(ocr, /analysis_execution::persist_image_analysis/,
-  'Background OCR must use shared Image Analysis persistence');
-assert.match(cli, /analysis_execution::persist_image_analysis/,
-  'CLI OCR must use shared Image Analysis persistence');
-assert.match(commands, /analysis_execution::persist_image_analysis/,
-  'GUI OCR must use shared Image Analysis persistence');
 assert.match(ocr, /analysis_execution::analyze_image_with_registry/,
   'Background OCR must use the shared Image Analysis execution result');
 assert.match(cli, /analysis_execution::analyze_image/,
@@ -280,6 +288,8 @@ for (const method of ['get_content_extractors', 'create_content_extractor', 'upd
 }
 assert.match(tauriMock, /function mockBuiltinExtractor\(\)/,
   'The frontend mock must retain a canonical shipped Extractor definition');
+assert.match(tauriMock, /case 'extract_ocr_from_clip':[\s\S]*?appliedClipId:[\s\S]*?ocrUpdated:/,
+  'The frontend mock must preserve the shared Extractor application result');
 assert.match(tauriMock, /case 'restore_default_content_extractors':[\s\S]*?mockBuiltinExtractor\(\)[\s\S]*?stableRef !== builtin\.stableRef/,
   'Mock Restore Defaults must recreate the shipped Extractor without replacing custom Extractors');
 assert.match(database, /pub fn get_content_detector/, 'Resolving one Detector must live in the shared database domain layer');

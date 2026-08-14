@@ -176,6 +176,32 @@ fn extractor_lifecycle_and_registry_capabilities_run_end_to_end() {
     );
     assert_eq!(duplicate["name"], "CLI Extractor Copy");
 
+    let image = temporary_path("extractor-input", "png");
+    std::fs::write(&image, b"private image bytes").expect("write Extractor input");
+    let preview_output = run(
+        &database,
+        &[
+            "extractor",
+            "run",
+            stable_ref,
+            "--file",
+            image.to_str().expect("image path"),
+            "--json",
+        ],
+    );
+    assert_eq!(preview_output.status.code(), Some(1));
+    let preview: Value = serde_json::from_slice(&preview_output.stdout).expect("Extractor JSON");
+    assert_eq!(preview["targetKind"], "extractor");
+    assert_eq!(preview["targetRef"], stable_ref);
+    assert_eq!(preview["outcome"], "failed");
+    assert_eq!(preview["failure"]["code"], "engine_not_installed");
+    assert_eq!(preview["appliedClipId"], Value::Null);
+    assert_eq!(preview["ocrUpdated"], false);
+    assert_eq!(preview["classificationUpdated"], false);
+    assert_eq!(preview["participants"][0]["pass"], "extract");
+    assert!(!preview.to_string().contains("private image bytes"));
+    let _ = std::fs::remove_file(image);
+
     success_json(
         &database,
         &[
