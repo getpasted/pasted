@@ -64,13 +64,18 @@ impl ImageAnalysisResult {
                 }),
             ),
         };
+        let produced = outcome == ImageAnalysisOutcome::Produced;
         Self {
             target_kind: AnalysisTargetKind::Extractor,
             target_ref: extractor.stable_ref.clone(),
             outcome,
-            output: analysis.context.searchable_text,
-            detected_type: analysis.context.detected_type,
-            matched_detector_ref: analysis.context.matched_detector_ref,
+            output: produced
+                .then_some(analysis.context.searchable_text)
+                .flatten(),
+            detected_type: produced.then_some(analysis.context.detected_type).flatten(),
+            matched_detector_ref: produced
+                .then_some(analysis.context.matched_detector_ref)
+                .flatten(),
             failure,
         }
     }
@@ -160,6 +165,7 @@ pub fn persist_image_analysis(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::content_analysis::{AnalysisContext, AnalysisPass, ParticipantRun};
     use crate::content_extraction::{EngineAvailability, ExtractionFailure, ExtractionOutcome};
     use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -306,6 +312,37 @@ mod tests {
         assert_eq!(result.outcome, ImageAnalysisOutcome::NoOutput);
         assert_eq!(result.output, None);
         assert_eq!(result.failure, None);
+    }
+
+    #[test]
+    fn failed_results_discard_context_mutated_before_failure() {
+        let report = AnalysisReport {
+            context: AnalysisContext {
+                clip_kind: "image".into(),
+                original_text: None,
+                image_bytes: None,
+                searchable_text: Some("partial output".into()),
+                detected_type: Some("email".into()),
+                matched_detector_ref: Some("detector:email".into()),
+            },
+            runs: vec![ParticipantRun {
+                stable_ref: "extractor:test".into(),
+                pass: AnalysisPass::Extract,
+                outcome: ParticipantOutcome::Failed,
+                failure: Some(AnalysisFailure {
+                    code: "contract_violation".into(),
+                    message: "The Extractor violated its contract.".into(),
+                }),
+            }],
+        };
+
+        let result = ImageAnalysisResult::from_report(&extractor(), report);
+
+        assert!(result.failed());
+        assert_eq!(result.output, None);
+        assert_eq!(result.detected_type, None);
+        assert_eq!(result.matched_detector_ref, None);
+        assert_eq!(result.failure.unwrap().code, "contract_violation");
     }
 
     #[test]
