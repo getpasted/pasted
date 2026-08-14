@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::analysis_contract::{RepresentationContract, RepresentationKind};
+
 pub const APPLE_VISION_OCR_REF: &str = "extractor:apple-vision-ocr";
 pub const APPLE_VISION_ENGINE: &str = "macos-vision-v1";
 
@@ -52,6 +54,17 @@ impl<'a> ExtractorEngineRegistry<'a> {
     }
 
     pub fn execute(&self, extractor: &Extractor, image_bytes: &[u8]) -> ExtractionOutcome {
+        if !extractor.supports_contract(
+            RepresentationKind::ImageBytes,
+            RepresentationKind::SearchableText,
+        ) {
+            return ExtractionOutcome::Failed {
+                failure: ExtractionFailure {
+                    code: "invalid_contract".into(),
+                    message: "This extraction contract is not supported.".into(),
+                },
+            };
+        }
         let Some(engine) = self
             .engines
             .iter()
@@ -153,6 +166,17 @@ pub struct Extractor {
     pub defaults: Option<ExtractorInput>,
 }
 
+impl Extractor {
+    pub fn representation_contract(&self) -> Result<RepresentationContract, String> {
+        RepresentationContract::parse(&self.input_contract, &self.output_contract)
+    }
+
+    pub fn supports_contract(&self, input: RepresentationKind, output: RepresentationKind) -> bool {
+        self.representation_contract()
+            .is_ok_and(|contract| contract.input == input && contract.output == output)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct ExtractorInput {
@@ -189,8 +213,8 @@ pub const EXTRACTOR_PRESETS: &[ExtractorPreset] = &[ExtractorPreset {
     name: "Apple Vision OCR",
     description: "Extracts searchable text from images locally with Apple Vision.",
     engine: APPLE_VISION_ENGINE,
-    input_contract: "image",
-    output_contract: "searchable_text",
+    input_contract: RepresentationKind::ImageBytes.stable_name(),
+    output_contract: RepresentationKind::SearchableText.stable_name(),
     priority: 10,
 }];
 
@@ -221,7 +245,11 @@ pub fn validate_extractor_definition(input: &ExtractorDefinitionInput) -> Result
     if input.engine.trim().is_empty() || input.engine.trim().len() > 80 {
         return Err("Extractor engines require 1–80 characters".to_string());
     }
-    if input.input_contract != "image" || input.output_contract != "searchable_text" {
+    let contract = RepresentationContract::parse(&input.input_contract, &input.output_contract)
+        .map_err(|_| "This version supports only image → searchable_text Extractors".to_string())?;
+    if contract.input != RepresentationKind::ImageBytes
+        || contract.output != RepresentationKind::SearchableText
+    {
         return Err("This version supports only image → searchable_text Extractors".to_string());
     }
     Ok(())
@@ -406,6 +434,29 @@ mod tests {
             registry.execute(&extractor("test-v1"), b"image"),
             ExtractionOutcome::Produced {
                 text: "recognized".into()
+            }
+        );
+    }
+
+    #[test]
+    fn registry_rejects_unknown_contracts_before_engine_dispatch() {
+        let engine = FixedEngine {
+            outcome: ExtractionOutcome::Produced {
+                text: "should not run".into(),
+            },
+        };
+        let engines: [&dyn ExtractorEngine; 1] = [&engine];
+        let registry = ExtractorEngineRegistry::new(&engines);
+        let mut invalid = extractor("test-v1");
+        invalid.output_contract = "mystery".into();
+
+        assert_eq!(
+            registry.execute(&invalid, b"image"),
+            ExtractionOutcome::Failed {
+                failure: ExtractionFailure {
+                    code: "invalid_contract".into(),
+                    message: "This extraction contract is not supported.".into(),
+                }
             }
         );
     }

@@ -2,6 +2,8 @@ use crate::content_detection::{detect_match_with_detectors, Detector};
 use crate::content_extraction::{ExtractionOutcome, Extractor, ExtractorEngineRegistry};
 use serde::Serialize;
 
+pub use crate::analysis_contract::RepresentationKind;
+
 pub const MAX_ANALYSIS_PASSES: usize = 4;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize)]
@@ -16,17 +18,6 @@ pub enum AnalysisPass {
 impl AnalysisPass {
     const ORDERED: [Self; MAX_ANALYSIS_PASSES] =
         [Self::Inspect, Self::Extract, Self::Classify, Self::Enrich];
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum RepresentationKind {
-    ClipKind,
-    OriginalText,
-    ImageBytes,
-    SearchableText,
-    AnalyzableText,
-    Classification,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -290,17 +281,24 @@ pub fn analyze_image_with_registry(
     let extractor_ref = extractor.stable_ref.clone();
     let extractor_name = extractor.name.clone();
     let extractor_priority = extractor.priority;
+    let representation_contract = extractor.representation_contract().unwrap_or(
+        crate::analysis_contract::RepresentationContract {
+            input: RepresentationKind::ImageBytes,
+            output: RepresentationKind::SearchableText,
+        },
+    );
+    let mut provided_representations = vec![representation_contract.output];
+    if representation_contract.output == RepresentationKind::SearchableText {
+        provided_representations.push(RepresentationKind::AnalyzableText);
+    }
     let mut participants = vec![AnalysisParticipant::new(
         ParticipantContract {
             stable_ref: extractor_ref,
             name: extractor_name,
             pass: AnalysisPass::Extract,
             priority: extractor_priority,
-            requires: vec![RepresentationKind::ImageBytes],
-            provides: vec![
-                RepresentationKind::SearchableText,
-                RepresentationKind::AnalyzableText,
-            ],
+            requires: vec![representation_contract.input],
+            provides: provided_representations,
         },
         move |context| {
             let Some(image_bytes) = context.image_bytes.as_deref() else {
