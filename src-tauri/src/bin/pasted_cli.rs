@@ -944,6 +944,123 @@ fn main() -> Result<()> {
                 }
             }
         }
+        "inspector" | "inspectors" => {
+            drop(conn);
+            let db = DbState::new(db_path.clone())?;
+            let subcommand = args.get(2).map(String::as_str).unwrap_or("list");
+            match subcommand {
+                "list" | "ls" => {
+                    let inspectors =
+                        vec![pasted_lib::content_inspection::structure_inspector_definition()];
+                    if args.iter().any(|argument| argument == "--json") {
+                        println!(
+                            "{}",
+                            serde_json::to_string_pretty(&inspectors).map_err(json_error)?
+                        );
+                    } else {
+                        for inspector in inspectors {
+                            println!(
+                                "{}\t{}\t{} → {}\t{}",
+                                inspector.stable_ref,
+                                inspector.priority,
+                                inspector.input_contract,
+                                inspector.output_contract,
+                                inspector.name
+                            );
+                        }
+                    }
+                }
+                "get" => {
+                    let reference = args.get(3).unwrap_or_else(|| {
+                        eprintln!("Usage: pasted inspector get <ref> [--json]");
+                        std::process::exit(2);
+                    });
+                    let inspector =
+                        pasted_lib::content_inspection::structure_inspector_definition();
+                    if reference != &inspector.stable_ref {
+                        eprintln!("Inspector {reference} was not found.");
+                        std::process::exit(1);
+                    }
+                    if args.iter().any(|argument| argument == "--json") {
+                        println!(
+                            "{}",
+                            serde_json::to_string_pretty(&inspector).map_err(json_error)?
+                        );
+                    } else {
+                        println!("{}\t{}", inspector.stable_ref, inspector.name);
+                    }
+                }
+                "run" | "test" => {
+                    let clip_id =
+                        argument_value(&args, "--clip").and_then(|value| value.parse::<i64>().ok());
+                    let explicit_text = argument_value(&args, "--text");
+                    if clip_id.is_some() && explicit_text.is_some() {
+                        eprintln!("Provide only one of --text or --clip ID.");
+                        std::process::exit(2);
+                    }
+                    let apply = args.iter().any(|argument| argument == "--apply");
+                    if apply && clip_id.is_none() {
+                        eprintln!("--apply requires --clip ID.");
+                        std::process::exit(2);
+                    }
+                    let result = if let Some(clip_id) = clip_id {
+                        pasted_lib::inspection_execution::inspect_clip(&db, clip_id, apply)?
+                    } else {
+                        let text = explicit_text.unwrap_or_else(|| {
+                            read_stdin_bounded(pasted_lib::resource_limits::MAX_CLIP_TEXT_BYTES)
+                                .unwrap_or_else(|error| {
+                                    eprintln!("Could not read inspection input: {error}");
+                                    std::process::exit(2);
+                                })
+                        });
+                        if text.is_empty() {
+                            eprintln!("Provide input with --text, --clip, or stdin.");
+                            std::process::exit(2);
+                        }
+                        let analysis =
+                            pasted_lib::content_inspection::inspect_text(&text, Some("Pasted CLI"))
+                                .map_err(|failure| {
+                                    rusqlite::Error::InvalidParameterName(failure.message)
+                                })?;
+                        pasted_lib::inspection_execution::ClipInspectionResult {
+                            analysis,
+                            application: pasted_lib::analysis_contract::ClipApplication::preview(),
+                            live_file_observations: None,
+                        }
+                    };
+                    if args.iter().any(|argument| argument == "--json") {
+                        println!(
+                            "{}",
+                            serde_json::to_string_pretty(&result).map_err(json_error)?
+                        );
+                    } else {
+                        let metadata = &result.analysis.result;
+                        println!("Origin: {}", metadata.origin.stable_name());
+                        println!("Bytes: {}", metadata.byte_count);
+                        if let Some(text) = metadata.text.as_ref() {
+                            println!(
+                                "Characters: {}; words: {}; lines: {}",
+                                text.character_count, text.word_count, text.line_count
+                            );
+                        }
+                        if let Some(image) = metadata.image.as_ref() {
+                            println!("Dimensions: {} × {}", image.width, image.height);
+                        }
+                        if let Some(files) = metadata.files.as_ref() {
+                            println!(
+                                "Items: {}; types: {}",
+                                files.item_count,
+                                files.extensions.join(", ")
+                            );
+                        }
+                    }
+                }
+                _ => {
+                    eprintln!("Usage: pasted inspector list|get|run [options] [--json]");
+                    std::process::exit(2);
+                }
+            }
+        }
         "extractor" | "extractors" => {
             drop(conn);
             let db = DbState::new(db_path.clone())?;
@@ -3126,6 +3243,10 @@ fn main() -> Result<()> {
             println!("  pasted clip export [path] [--format json|csv]");
             println!("  pasted clip import <path> [--format json|csv] [--json]");
             println!("  pasted extractor list --json List content Extractors and availability");
+            println!("  pasted inspector list --json List content Inspectors");
+            println!(
+                "  pasted inspector run [--text TEXT | --clip ID | --stdin] [--apply] [--json]"
+            );
             println!("  pasted detector list --json List editable content detectors");
             println!("  pasted type list --json List registered content types");
             println!(

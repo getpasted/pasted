@@ -116,6 +116,7 @@ pub(crate) fn analyze_detectors_with_policy(
                 source: source.map(str::to_owned),
             },
             policy,
+            inspector: false,
             extractor: None,
             detectors: Some(detectors),
         }),
@@ -132,6 +133,7 @@ pub fn analyze_detector(text: &str, detector: &Detector) -> DetectionResult {
                 source: None,
             },
             policy: crate::analysis_contract::AnalysisPolicy::Interactive,
+            inspector: false,
             extractor: None,
             detectors: Some(std::slice::from_ref(detector)),
         }),
@@ -208,6 +210,7 @@ mod tests {
                 searchable_text: None,
                 detected_type: Some("credential".into()),
                 matched_detector_ref: Some("detector:credential".into()),
+                structural_metadata: None,
             },
             runs: vec![ParticipantRun {
                 stable_ref: DETECTOR_PARTICIPANT_REF.into(),

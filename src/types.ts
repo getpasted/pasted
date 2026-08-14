@@ -207,7 +207,7 @@ export interface Operation {
 
 export interface LibraryItemView {
   stableRef: string;
-  kind: 'extractor' | 'detector' | 'operation' | 'transform';
+  kind: 'inspector' | 'extractor' | 'detector' | 'operation' | 'transform';
   name: string;
   description: string;
   groupLabel: string | null;
@@ -219,7 +219,7 @@ export interface LibraryItemView {
   revision: number;
   inputContract: string;
   outputContract: string;
-  analysisPass: 'extract' | 'classify' | null;
+  analysisPass: 'inspect' | 'extract' | 'classify' | 'enrich' | null;
   createdAt: string;
   updatedAt: string;
   capabilities: {

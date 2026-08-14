@@ -129,8 +129,11 @@ pasted connection order <id>... [--json]
 ## Content Analysis
 
 ```text
-pasted registry list [--kind extractor|detector|operation|transform] [--all] [--json]
+pasted registry list [--kind inspector|extractor|detector|operation|transform] [--all] [--json]
 pasted registry enable|disable --kind extractor|detector|operation --ref <stable-ref> [--json]
+pasted inspector list [--json]
+pasted inspector get <ref> [--json]
+pasted inspector run [--text <text> | --clip <id> | --stdin] [--apply] [--json]
 pasted extractor list [--json]
 pasted extractor get <ref> [--json]
 pasted extractor create [--name <name>] [--description <text>] [--engine <engine>] [--input <contract>] [--output <contract>] [--priority <number>] [--enabled|--disabled] [--json]
@@ -163,7 +166,9 @@ pasted detector restore-defaults [--json]
 pasted detector rescan --yes [--json]
 ```
 
-Registry JSON includes each analysis participant’s `analysisPass`, `inputContract`, and `outputContract`. Extractors run in the extract pass and Detectors run in the classify pass. Every participant runs at most once after its declared inputs become available. Extractor, Detector, and Transform management uses the same core verbs: `list`, `get`, `create`, `update`, `duplicate`, `delete`, and `run`. Runs preview by default; `--apply` explicitly mutates a clip.
+Registry JSON includes each analysis participant’s `analysisPass`, `inputContract`, and `outputContract`. The shipped Structure Inspector runs in the inspect pass, Extractors run in the extract pass, and Detectors run in the classify pass. Every participant runs at most once after its declared inputs become available. Inspector runs preview by default; `--apply` persists content-hash-bound structural metadata for a clip. Built-in Inspectors are immutable. Extractor, Detector, and Transform management uses the lifecycle verbs appropriate to each asset.
+
+Inspector run JSON uses the versioned Analysis envelope. Structure reports origin, byte count, text counts, image dimensions, or file item count and extensions without returning the inspected clipboard content or paths. File availability, file/directory counts, and total size are returned separately as live observations and are not persisted.
 
 Extractor run JSON serializes the shared Extractor application result used by the app, CLI, and background OCR. It includes `targetKind`, `targetRef`, `outcome` (`produced`, `no_output`, or `failed`), `output`, `detectedType`, `matchedDetectorRef`, a structured `failure`, privacy-safe `participants`, `appliedClipId`, `ocrUpdated`, and `classificationUpdated`. Preview results report no applied clip and both update flags as false. Applied runs claim the current clip by ID and content hash, and report an applied clip only after OCR state was persisted. A failed Extractor can still have `ocrUpdated: true` when its bounded failure code was successfully recorded for retry and diagnostics. Failures exit nonzero and never include input image or clipboard content.
 

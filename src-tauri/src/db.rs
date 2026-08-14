@@ -52,21 +52,7 @@ fn escape_like_literal(value: &str) -> String {
 }
 
 fn derived_origin_kind(content_type: &str, source: &str) -> &'static str {
-    let source = source.to_lowercase();
-    if matches!(content_type.to_lowercase().as_str(), "image" | "file")
-        && (source.contains("screenshot")
-            || source.contains("screencapture")
-            || source.contains("cleanshot"))
-    {
-        return "screenshot";
-    }
-    if content_type.eq_ignore_ascii_case("file") {
-        return "file_reference";
-    }
-    if source.eq_ignore_ascii_case("CLI Terminal") || source.eq_ignore_ascii_case("Pasted CLI") {
-        return "command_line";
-    }
-    "clipboard_content"
+    crate::content_inspection::origin_kind(content_type, Some(source)).stable_name()
 }
 
 fn push_smart_condition(
@@ -1863,6 +1849,19 @@ impl DbState {
              ON clip_analysis_classifications(content_type, clip_id)",
             [],
         )?;
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS clip_analysis_results (
+                clip_id INTEGER NOT NULL REFERENCES clips(id) ON DELETE CASCADE,
+                participant_ref TEXT NOT NULL,
+                content_hash TEXT NOT NULL,
+                input_hash TEXT NOT NULL,
+                format_version INTEGER NOT NULL CHECK(format_version > 0),
+                result_json TEXT NOT NULL,
+                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (clip_id, participant_ref)
+            )",
+            [],
+        )?;
 
         let _ = conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_clips_trashed ON clips (is_trashed, created_at DESC)",
@@ -2236,7 +2235,7 @@ impl DbState {
             DROP TABLE IF EXISTS library_items;
             CREATE TABLE library_items (
                 stable_ref TEXT PRIMARY KEY,
-                kind TEXT NOT NULL CHECK (kind IN ('extractor', 'detector', 'operation', 'transform')),
+                kind TEXT NOT NULL CHECK (kind IN ('inspector', 'extractor', 'detector', 'operation', 'transform')),
                 name TEXT NOT NULL,
                 description TEXT NOT NULL DEFAULT '',
                 group_label TEXT,
@@ -2253,6 +2252,15 @@ impl DbState {
             );
             CREATE INDEX IF NOT EXISTS idx_library_items_kind_order
                 ON library_items(kind, is_archived, sort_order, name);
+
+            INSERT INTO library_items
+                (stable_ref, kind, name, description, group_label, icon, enabled,
+                 is_builtin, is_archived, sort_order, revision, input_contract,
+                 output_contract, created_at, updated_at)
+            VALUES ('inspector:structure-v1', 'inspector', 'Structure',
+                    'Measures stable clip structure without retaining clipboard contents.',
+                    'Content Analysis', 'ScanSearch', NULL, 1, 0, 0, 1,
+                    'clip', 'structural_metadata', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
             INSERT INTO library_items
                 (stable_ref, kind, name, description, group_label, icon, enabled,
@@ -3242,6 +3250,71 @@ impl DbState {
         .optional()
     }
 
+    pub fn record_structural_inspection(
+        &self,
+        clip_id: i64,
+        content_hash: &str,
+        input_hash: &str,
+        metadata: &crate::content_inspection::StructuralMetadata,
+    ) -> Result<bool> {
+        let result_json = serde_json::to_string(metadata)
+            .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?;
+        if result_json.len() > 64 * 1024 || input_hash.len() > 128 {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "Structural inspection metadata exceeds its safety limit".into(),
+            ));
+        }
+        let conn = self.conn.lock();
+        let changed = conn.execute(
+            "INSERT INTO clip_analysis_results
+                (clip_id, participant_ref, content_hash, input_hash, format_version, result_json)
+             SELECT id, ?1, content_hash, ?2, ?3, ?4 FROM clips
+             WHERE id = ?5 AND content_hash = ?6 AND COALESCE(is_trashed, 0) = 0
+             ON CONFLICT(clip_id, participant_ref) DO UPDATE SET
+                content_hash = excluded.content_hash,
+                input_hash = excluded.input_hash,
+                format_version = excluded.format_version,
+                result_json = excluded.result_json,
+                updated_at = CURRENT_TIMESTAMP",
+            params![
+                crate::content_inspection::STRUCTURE_INSPECTOR_REF,
+                input_hash,
+                crate::analysis_contract::ANALYSIS_CONTRACT_VERSION,
+                result_json,
+                clip_id,
+                content_hash,
+            ],
+        )?;
+        Ok(changed == 1)
+    }
+
+    pub fn get_structural_inspection(
+        &self,
+        clip_id: i64,
+        input_hash: &str,
+    ) -> Result<Option<crate::content_inspection::StructuralMetadata>> {
+        let conn = self.conn.lock();
+        let result_json = conn
+            .query_row(
+                "SELECT results.result_json FROM clip_analysis_results AS results
+                 JOIN clips ON clips.id = results.clip_id
+                 WHERE results.clip_id = ?1 AND results.participant_ref = ?2
+                   AND results.input_hash = ?3
+                   AND results.content_hash = clips.content_hash
+                   AND results.format_version = ?4
+                   AND COALESCE(clips.is_trashed, 0) = 0",
+                params![
+                    clip_id,
+                    crate::content_inspection::STRUCTURE_INSPECTOR_REF,
+                    input_hash,
+                    crate::analysis_contract::ANALYSIS_CONTRACT_VERSION,
+                ],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()?;
+        Ok(result_json.and_then(|json| serde_json::from_str(&json).ok()))
+    }
+
     pub fn save_clip(
         &self,
         content_type: &str,
@@ -3281,7 +3354,15 @@ impl DbState {
                 "UPDATE clips SET created_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now'), is_trashed = 0, trashed_at = NULL WHERE id = ?1",
                 params![id],
             )?;
-            return self.get_clip_by_id_internal(&conn, id);
+            let clip = self.get_clip_by_id_internal(&conn, id)?;
+            drop(conn);
+            let _ = crate::inspection_execution::inspect_clip_with_policy(
+                self,
+                clip.id,
+                true,
+                crate::analysis_contract::AnalysisPolicy::Capture,
+            );
+            return Ok(clip);
         }
 
         let ocr_status = if content_type == "image" {
@@ -3310,7 +3391,15 @@ impl DbState {
         let id = conn.last_insert_rowid();
         let _ = self.enforce_history_limit_internal(&conn);
         let _ = self.enforce_trash_limit_internal(&conn);
-        self.get_clip_by_id_internal(&conn, id)
+        let clip = self.get_clip_by_id_internal(&conn, id)?;
+        drop(conn);
+        let _ = crate::inspection_execution::inspect_clip_with_policy(
+            self,
+            clip.id,
+            true,
+            crate::analysis_contract::AnalysisPolicy::Capture,
+        );
+        Ok(clip)
     }
 
     pub fn save_text_clip(&self, text: &str, source: &str) -> Result<ClipItem> {
@@ -8335,7 +8424,10 @@ impl DbState {
         include_archived: bool,
     ) -> Result<Vec<crate::library_items::LibraryItemView>> {
         if let Some(kind) = kind {
-            if !matches!(kind, "extractor" | "detector" | "operation" | "transform") {
+            if !matches!(
+                kind,
+                "inspector" | "extractor" | "detector" | "operation" | "transform"
+            ) {
                 return Err(rusqlite::Error::InvalidParameterName(
                     "Unknown library item kind".into(),
                 ));
@@ -8387,6 +8479,11 @@ impl DbState {
     ) -> Result<()> {
         let conn = self.conn.lock();
         let changed = match kind {
+            "inspector" => {
+                return Err(rusqlite::Error::InvalidParameterName(
+                    "Built-in Inspectors cannot be disabled".to_string(),
+                ));
+            }
             "extractor" => conn.execute(
                 "UPDATE content_extractors
                  SET enabled = ?1, updated_at = CURRENT_TIMESTAMP

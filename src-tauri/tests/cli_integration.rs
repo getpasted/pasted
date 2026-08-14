@@ -67,6 +67,59 @@ fn history_and_settings_commands_have_executable_json_contracts() {
 }
 
 #[test]
+fn structural_inspector_has_registry_preview_and_apply_parity() {
+    let database = temporary_path("inspector", "db");
+    let clip = success_json(&database, &["copy", "alpha beta\ngamma", "--json"]);
+    let clip_id = clip["id"].as_i64().expect("clip ID");
+    let clip_id_text = clip_id.to_string();
+
+    let inspectors = success_json(&database, &["inspector", "list", "--json"]);
+    assert_eq!(inspectors[0]["stableRef"], "inspector:structure-v1");
+    assert_eq!(inspectors[0]["outputContract"], "structural_metadata");
+
+    let registry = success_json(
+        &database,
+        &["registry", "list", "--kind", "inspector", "--json"],
+    );
+    assert_eq!(registry[0]["analysisPass"], "inspect");
+    assert_eq!(registry[0]["capabilities"]["canDisable"], false);
+
+    let preview = success_json(
+        &database,
+        &["inspector", "run", "--clip", &clip_id_text, "--json"],
+    );
+    assert_eq!(preview["formatVersion"], 1);
+    assert_eq!(preview["result"]["text"]["characterCount"], 16);
+    assert_eq!(preview["result"]["text"]["wordCount"], 3);
+    assert_eq!(preview["result"]["text"]["lineCount"], 2);
+    assert_eq!(preview["appliedClipId"], Value::Null);
+    assert!(!preview.to_string().contains("alpha beta"));
+
+    let unicode = success_json(
+        &database,
+        &["inspector", "run", "--text", "é 😀\n", "--json"],
+    );
+    assert_eq!(unicode["result"]["byteCount"], 8);
+    assert_eq!(unicode["result"]["text"]["characterCount"], 4);
+    assert_eq!(unicode["result"]["text"]["wordCount"], 2);
+    assert_eq!(unicode["result"]["text"]["lineCount"], 1);
+
+    let applied = success_json(
+        &database,
+        &[
+            "inspector",
+            "run",
+            "--clip",
+            &clip_id_text,
+            "--apply",
+            "--json",
+        ],
+    );
+    assert_eq!(applied["appliedClipId"], clip_id);
+    clean_database(&database);
+}
+
+#[test]
 fn bin_lifecycle_and_full_backup_inspection_run_end_to_end() {
     let database = temporary_path("management", "db");
     let created = success_json(&database, &["bin", "create", "--name", "CLI Bin", "--json"]);

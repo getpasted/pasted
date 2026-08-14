@@ -1,5 +1,6 @@
 import { invoke as tauriInvoke } from '@tauri-apps/api/core';
 import { CONTENT_TYPES } from './contentTypes';
+import { getClipFilePaths, getClipOriginKind } from '../types';
 
 type MockClip = {
   id: number;
@@ -819,15 +820,35 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       return 0 as unknown as T;
     case 'get_clip_image':
       return null as unknown as T;
-    case 'get_file_clip_metadata':
+    case 'inspect_clip_structure': {
+      const clip = mockClips.find((item) => item.id === Number(args?.clipId));
+      if (!clip) throw new Error('Clip not found');
+      const text = clip.text_content ?? '';
+      const paths = getClipFilePaths(clip);
+      const byteCount = new TextEncoder().encode(
+        clip.content_type === 'file' ? paths.join('') : text,
+      ).length;
+      const characterCount = Array.from(text).length;
+      const wordCount = text.split(/\p{White_Space}+/u).filter(Boolean).length;
+      const lineCount = text.length === 0
+        ? 0
+        : text.split(/\r?\n/).length - (/\r?\n$/.test(text) ? 1 : 0);
       return {
-        itemCount: 0,
-        availableCount: 0,
-        fileCount: 0,
-        directoryCount: 0,
-        totalSizeBytes: 0,
-        extensions: [],
+        formatVersion: 1,
+        policy: 'interactive',
+        through: 'enrich',
+        result: {
+          origin: getClipOriginKind(clip),
+          byteCount,
+          ...(clip.content_type === 'file'
+            ? { files: { itemCount: paths.length, extensions: [] } }
+            : { text: { characterCount, wordCount, lineCount } }),
+        },
+        participants: [{ stableRef: 'inspector:structure-v1', pass: 'inspect', outcome: 'produced' }],
+        appliedClipId: args?.apply ? clip.id : null,
+        ...(clip.content_type === 'file' ? { liveFileObservations: { availableCount: 0, fileCount: 0, directoryCount: 0, totalSizeBytes: 0 } } : {}),
       } as unknown as T;
+    }
     case 'get_file_clip_previews':
       return [] as unknown as T;
     case 'restore_clip_version': {

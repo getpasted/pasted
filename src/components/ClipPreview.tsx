@@ -67,13 +67,24 @@ interface ClipPreviewProps {
   filePreviewMaxMb: number;
 }
 
-interface FileClipMetadata {
-  itemCount: number;
-  availableCount: number;
-  fileCount: number;
-  directoryCount: number;
-  totalSizeBytes: number;
-  extensions: string[];
+interface StructuralInspection {
+  formatVersion: number;
+  policy: 'capture' | 'background' | 'interactive' | 'rescan';
+  through: 'inspect' | 'extract' | 'classify' | 'enrich';
+  result: {
+    origin: 'clipboard_content' | 'file_reference' | 'screenshot' | 'command_line';
+    byteCount: number;
+    text?: { characterCount: number; wordCount: number; lineCount: number };
+    image?: { width: number; height: number };
+    files?: { itemCount: number; extensions: string[] };
+  };
+  appliedClipId: number | null;
+  liveFileObservations?: {
+    availableCount: number;
+    fileCount: number;
+    directoryCount: number;
+    totalSizeBytes: number;
+  };
 }
 
 interface FileClipPreview {
@@ -200,7 +211,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   const [previewedVersion, setPreviewedVersion] = useState<ClipVersion | null>(null);
   const [restoringVersionId, setRestoringVersionId] = useState<number | null>(null);
   const [revisionCount, setRevisionCount] = useState<number | null>(null);
-  const [fileMetadata, setFileMetadata] = useState<FileClipMetadata | null>(null);
+  const [inspection, setInspection] = useState<StructuralInspection | null>(null);
   const [filePreviews, setFilePreviews] = useState<FileClipPreview[]>([]);
   const [isFilePreviewLoading, setIsFilePreviewLoading] = useState(false);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
@@ -209,20 +220,20 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
 
   useEffect(() => {
     let cancelled = false;
-    if (!clip || clip.content_type !== 'file') {
-      setFileMetadata(null);
+    if (!clip) {
+      setInspection(null);
       return () => { cancelled = true; };
     }
-    setFileMetadata(null);
-    invoke<FileClipMetadata>('get_file_clip_metadata', { clipId: clip.id })
-      .then((metadata) => {
-        if (!cancelled) setFileMetadata(metadata);
+    setInspection(null);
+    invoke<StructuralInspection>('inspect_clip_structure', { clipId: clip.id, apply: false })
+      .then((result) => {
+        if (!cancelled) setInspection(result);
       })
       .catch((error) => {
-        if (!cancelled) console.error('Failed to load file metadata:', error);
+        if (!cancelled) console.error('Failed to inspect clip structure:', error);
       });
     return () => { cancelled = true; };
-  }, [clip?.content_type, clip?.id]);
+  }, [clip?.content_hash, clip?.content_type, clip?.id, clip?.source, clip?.text_content]);
 
   useEffect(() => {
     let cancelled = false;
@@ -746,9 +757,10 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
     }
   };
 
-  const charCount = displayText.length;
-  const wordCount = displayText.trim() ? displayText.trim().split(/\s+/).length : 0;
-  const lineCount = displayText ? displayText.split('\n').length : 0;
+  const inspectedText = transformedText === null ? inspection?.result.text : undefined;
+  const charCount = inspectedText?.characterCount ?? displayText.length;
+  const wordCount = inspectedText?.wordCount ?? (displayText.trim() ? displayText.trim().split(/\s+/).length : 0);
+  const lineCount = inspectedText?.lineCount ?? (displayText ? displayText.split('\n').length : 0);
 
   const handleToggleAddNote = () => {
     if (!isAddingNote) {
@@ -1211,19 +1223,19 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
             <>
               <span className="clip-preview-footer-stat">
                 <span>Items:</span>
-                <strong>{fileMetadata?.itemCount ?? getClipFilePaths(clip).length}</strong>
+                <strong>{inspection?.result.files?.itemCount ?? getClipFilePaths(clip).length}</strong>
               </span>
-              <span className="clip-preview-footer-stat" title={fileMetadata?.extensions.join(', ') || 'No file extensions'}>
+              <span className="clip-preview-footer-stat" title={inspection?.result.files?.extensions.join(', ') || 'No file extensions'}>
                 <span>Types:</span>
-                <strong>{fileMetadata ? (fileMetadata.extensions.length > 2 ? `${fileMetadata.extensions.slice(0, 2).join(', ')} +${fileMetadata.extensions.length - 2}` : fileMetadata.extensions.join(', ') || '—') : '…'}</strong>
+                <strong>{inspection?.result.files ? (inspection.result.files.extensions.length > 2 ? `${inspection.result.files.extensions.slice(0, 2).join(', ')} +${inspection.result.files.extensions.length - 2}` : inspection.result.files.extensions.join(', ') || '—') : '…'}</strong>
               </span>
               <span className="clip-preview-footer-stat">
                 <span>Size:</span>
-                <strong>{fileMetadata ? (fileMetadata.fileCount > 0 ? formatFileSize(fileMetadata.totalSizeBytes) : '—') : '…'}</strong>
+                <strong>{inspection?.liveFileObservations ? (inspection.liveFileObservations.fileCount > 0 ? formatFileSize(inspection.liveFileObservations.totalSizeBytes) : '—') : '…'}</strong>
               </span>
               <span className="clip-preview-footer-stat">
                 <span>Available:</span>
-                <strong>{fileMetadata ? `${fileMetadata.availableCount}/${fileMetadata.itemCount}` : '…'}</strong>
+                <strong>{inspection?.liveFileObservations ? `${inspection.liveFileObservations.availableCount}/${inspection.result.files?.itemCount ?? 0}` : '…'}</strong>
               </span>
             </>
           ) : (

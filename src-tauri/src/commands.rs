@@ -290,17 +290,6 @@ fn apply_feature_policy_changes(app: &AppHandle, db: &Arc<DbState>, changed: &[F
     let _ = register_all_app_shortcuts(app);
 }
 
-#[derive(serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct FileClipMetadata {
-    item_count: usize,
-    available_count: usize,
-    file_count: usize,
-    directory_count: usize,
-    total_size_bytes: u64,
-    extensions: Vec<String>,
-}
-
 #[derive(Debug, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FileClipPreview {
@@ -312,31 +301,7 @@ pub struct FileClipPreview {
 }
 
 fn parse_file_clip_paths(value: &str) -> Vec<String> {
-    let parsed = serde_json::from_str::<serde_json::Value>(value).ok();
-    let paths = match parsed {
-        Some(serde_json::Value::Array(values)) => values
-            .into_iter()
-            .filter_map(|value| value.as_str().map(str::to_owned))
-            .collect(),
-        Some(serde_json::Value::String(path)) => vec![path],
-        _ => value.lines().map(str::to_owned).collect(),
-    };
-    paths
-        .into_iter()
-        .filter_map(|path| {
-            let path = path.trim();
-            if path.is_empty() {
-                return None;
-            }
-            if path.starts_with("file://") {
-                return url::Url::parse(path)
-                    .ok()
-                    .and_then(|url| url.to_file_path().ok())
-                    .map(|path| path.to_string_lossy().into_owned());
-            }
-            Some(path.to_string())
-        })
-        .collect()
+    crate::content_inspection::parse_file_paths(value)
 }
 
 fn is_safe_preview_extension(path: &std::path::Path) -> bool {
@@ -752,64 +717,16 @@ pub(crate) fn prefetch_file_clip_previews(
     );
 }
 
-fn collect_file_clip_metadata(paths: &[String]) -> FileClipMetadata {
-    let mut available_count = 0usize;
-    let mut file_count = 0usize;
-    let mut directory_count = 0usize;
-    let mut total_size_bytes = 0u64;
-    let mut extensions = Vec::new();
-    for path in paths {
-        let path = std::path::Path::new(path);
-        if let Some(extension) = path.extension().and_then(|value| value.to_str()) {
-            let extension = extension.to_uppercase();
-            if !extension.is_empty() && !extensions.contains(&extension) {
-                extensions.push(extension);
-            }
-        }
-        if let Ok(metadata) = std::fs::symlink_metadata(path) {
-            available_count += 1;
-            if metadata.is_dir() {
-                directory_count += 1;
-            } else {
-                file_count += 1;
-                total_size_bytes = total_size_bytes.saturating_add(metadata.len());
-            }
-        }
-    }
-    FileClipMetadata {
-        item_count: paths.len(),
-        available_count,
-        file_count,
-        directory_count,
-        total_size_bytes,
-        extensions,
-    }
-}
-
 #[tauri::command]
-pub async fn get_file_clip_metadata(
+pub async fn inspect_clip_structure(
     clip_id: i64,
+    apply: Option<bool>,
     db: State<'_, Arc<DbState>>,
-) -> Result<FileClipMetadata, String> {
+) -> Result<crate::inspection_execution::ClipInspectionResult, String> {
     let db = Arc::clone(&db);
     tauri::async_runtime::spawn_blocking(move || {
-        let clip = db
-            .get_clip_by_id(clip_id)
-            .map_err(|error| error.to_string())?;
-        if clip.content_type != "file" {
-            return Err("Clip is not a file list".to_string());
-        }
-        let paths = clip
-            .text_content
-            .as_deref()
-            .map(parse_file_clip_paths)
-            .filter(|paths| !paths.is_empty())
-            .ok_or_else(|| "File clip has no valid path metadata".to_string())?;
-        if !crate::resource_limits::file_list_within_limit(&paths) {
-            return Err("File list exceeds Pasted's safety limit".to_string());
-        }
-
-        Ok(collect_file_clip_metadata(&paths))
+        crate::inspection_execution::inspect_clip(&db, clip_id, apply.unwrap_or(false))
+            .map_err(|error| error.to_string())
     })
     .await
     .map_err(|error| error.to_string())?
@@ -4745,13 +4662,15 @@ mod tests {
             missing.to_string_lossy().into_owned(),
         ];
 
-        let metadata = collect_file_clip_metadata(&paths);
-        assert_eq!(metadata.item_count, 3);
-        assert_eq!(metadata.available_count, 2);
-        assert_eq!(metadata.file_count, 1);
-        assert_eq!(metadata.directory_count, 1);
-        assert_eq!(metadata.total_size_bytes, 6);
-        assert_eq!(metadata.extensions, vec!["TXT", "MP4"]);
+        let inspection = crate::content_inspection::inspect_files(paths.clone(), None).unwrap();
+        let structure = inspection.result.files.unwrap();
+        let observations = crate::content_inspection::observe_files(&paths);
+        assert_eq!(structure.item_count, 3);
+        assert_eq!(observations.available_count, 2);
+        assert_eq!(observations.file_count, 1);
+        assert_eq!(observations.directory_count, 1);
+        assert_eq!(observations.total_size_bytes, 6);
+        assert_eq!(structure.extensions, vec!["TXT", "MP4"]);
 
         std::fs::remove_dir_all(root).unwrap();
     }
