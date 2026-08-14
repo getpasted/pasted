@@ -201,7 +201,7 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
   if (typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__) {
     return tauriInvoke<T>(cmd, args);
   }
-  console.warn(`[safeInvoke mock] ${cmd}`, args);
+  console.warn(`[safeInvoke mock] ${cmd}`);
   switch (cmd) {
     case 'get_clips': {
       const offset = Math.max(0, Number(args?.offset ?? 0));
@@ -279,6 +279,8 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
     case 'get_library_items': {
       const kind = String(args?.kind ?? '');
       const items = [
+        { stableRef: 'inspector:structure-v1', kind: 'inspector', name: 'Structure', description: 'Measures stable clip structure without retaining clipboard contents.', groupLabel: 'Content Analysis', icon: 'ScanSearch', enabled: null, isBuiltin: true, isArchived: false, sortOrder: 0, revision: 1, inputContract: 'clip', outputContract: 'structural_metadata', analysisPass: 'inspect', createdAt: '', updatedAt: '', capabilities: { canEdit: false, canDuplicate: false, canDelete: false, canDisable: false, canRestore: false } },
+        { stableRef: 'enricher:smart-actions-v1', kind: 'enricher', name: 'Smart Actions', description: 'Recommends saved Transforms from content-free analysis signals.', groupLabel: 'Content Analysis', icon: 'Lightbulb', enabled: null, isBuiltin: true, isArchived: false, sortOrder: 0, revision: 1, inputContract: 'analyzable_text+classification+structural_metadata', outputContract: 'recommendations', analysisPass: 'enrich', createdAt: '', updatedAt: '', capabilities: { canEdit: false, canDuplicate: false, canDelete: false, canDisable: false, canRestore: false } },
         ...mockExtractors.map((extractor) => ({ stableRef: extractor.stableRef, kind: 'extractor', name: extractor.name, description: extractor.description, groupLabel: 'Content Analysis', icon: 'ScanText', enabled: extractor.enabled, isBuiltin: extractor.isBuiltin, isArchived: false, sortOrder: extractor.priority, revision: 1, inputContract: extractor.inputContract, outputContract: extractor.outputContract, analysisPass: 'extract', createdAt: '', updatedAt: '', capabilities: { canEdit: true, canDuplicate: true, canDelete: true, canDisable: true, canRestore: extractor.isBuiltin } })),
         ...mockDetectors.map((detector) => ({ stableRef: detector.stable_ref, kind: 'detector', name: detector.name, description: detector.description, groupLabel: null, icon: 'FileText', enabled: detector.enabled, isBuiltin: detector.is_builtin, isArchived: false, sortOrder: detector.priority, revision: 1, inputContract: 'text', outputContract: `set_type:${detector.content_type}`, analysisPass: 'classify', createdAt: '', updatedAt: '', capabilities: { canEdit: true, canDuplicate: true, canDelete: true, canDisable: true, canRestore: detector.is_builtin } })),
         ...mockPipelines.map((pipeline) => ({ stableRef: pipeline.stableRef, kind: 'transform', name: pipeline.name, description: '', groupLabel: 'Manual Transforms', icon: 'Workflow', enabled: null, isBuiltin: false, isArchived: false, sortOrder: pipeline.id, revision: pipeline.revision, inputContract: 'text', outputContract: 'preserve_type', analysisPass: null, createdAt: pipeline.createdAt, updatedAt: pipeline.updatedAt, capabilities: { canEdit: true, canDuplicate: true, canDelete: true, canDisable: false, canRestore: false } })),
@@ -847,6 +849,71 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
         participants: [{ stableRef: 'inspector:structure-v1', pass: 'inspect', outcome: 'produced' }],
         appliedClipId: args?.apply ? clip.id : null,
         ...(clip.content_type === 'file' ? { liveFileObservations: { availableCount: 0, fileCount: 0, directoryCount: 0, totalSizeBytes: 0 } } : {}),
+      } as unknown as T;
+    }
+    case 'enrich_smart_actions': {
+      const hasText = typeof args?.text === 'string';
+      const hasClipId = args?.clipId !== undefined;
+      if (hasText === hasClipId) throw new Error('Provide exactly one of text or clipId');
+      const clip = hasClipId
+        ? mockClips.find((item) => item.id === Number(args?.clipId))
+        : undefined;
+      if (hasClipId && (!clip || clip.content_type === 'file' || clip.content_type === 'image' || clip.text_content === null)) {
+        throw new Error('Clip has no enrichable text');
+      }
+      const text = hasText ? String(args?.text) : String(clip?.text_content);
+      const signals: string[] = [];
+      if (/https?:\/\/[^\s]+/i.test(text)) signals.push('url');
+      let isJson = false;
+      try {
+        const trimmed = text.trim();
+        if ((trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+          JSON.parse(trimmed);
+          isJson = true;
+          signals.push('json');
+        }
+      } catch {}
+      const hasHtml = /<[a-z][^>]*>.*<\/[a-z][^>]*>|<[a-z][^>]*\/?>/is.test(text);
+      if (hasHtml && !isJson) signals.push('html');
+      if (/(^|\s)(#{1,6}\s|\*\*|__|```|\[[^\]]+\]\([^\)]+\))/m.test(text) && !hasHtml && !isJson) signals.push('markdown');
+      const lineCount = text.length === 0 ? 0 : text.split(/\r?\n/).length - (/\r?\n$/.test(text) ? 1 : 0);
+      if (lineCount > 1) signals.push('multi_line');
+      if (/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i.test(text)) signals.push('email');
+      if (/(?:^|[^0-9])(?:\+?[0-9]{1,3}[-. ]?)?\(?[0-9]{3}\)?[-. ]?[0-9]{3}[-. ]?[0-9]{4}(?:$|[^0-9])/.test(text)) signals.push('phone');
+      const signalPatterns: Record<string, RegExp> = {
+        url: /url|link|tracking|clean_url_tracking|extract_urls/,
+        json: /json|json_format|json_minify/,
+        html: /html|markup|tag|strip_html|wrap_tags/,
+        markdown: /markdown|strip_markdown/,
+        multi_line: /line|list|sort|dedupe|sort_lines|dedupe_lines/,
+        email: /email|extract_emails/,
+        phone: /phone|extract_phones/,
+      };
+      const actions = mockPipelines
+        .slice(0, 256)
+        .flatMap((pipeline) => {
+          const searchable = `${pipeline.name} ${pipeline.steps.map((step) => step.operationRef).join(' ')}`.toLowerCase();
+          const reasons = signals.filter((signal) => signalPatterns[signal]?.test(searchable));
+          return reasons.length ? [{
+            transformRef: pipeline.stableRef,
+            transformName: pipeline.name,
+            transformRevision: pipeline.revision,
+            reasons,
+          }] : [];
+        })
+        .slice(0, 12);
+      const labels: Record<string, string> = { url: 'URL Link', json: 'JSON Data', html: 'HTML Markup', markdown: 'Markdown Text', multi_line: 'Multiple Lines', email: 'Email Address', phone: 'Phone Number' };
+      return {
+        formatVersion: 1,
+        policy: 'interactive',
+        through: 'enrich',
+        result: { signals, signalLabels: signals.map((signal) => labels[signal]), actions },
+        participants: [
+          { stableRef: 'inspector:structure-v1', pass: 'inspect', outcome: 'produced' },
+          { stableRef: 'analysis:content-detectors', pass: 'classify', outcome: 'produced' },
+          { stableRef: 'enricher:smart-actions-v1', pass: 'enrich', outcome: 'produced' },
+        ],
+        appliedClipId: null,
       } as unknown as T;
     }
     case 'get_file_clip_previews':

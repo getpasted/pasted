@@ -120,6 +120,58 @@ fn structural_inspector_has_registry_preview_and_apply_parity() {
 }
 
 #[test]
+fn smart_actions_enricher_has_registry_and_non_mutating_cli_parity() {
+    let database = temporary_path("enricher", "db");
+    let transform = success_json(
+        &database,
+        &[
+            "transform",
+            "create",
+            "--name",
+            "Clean URL",
+            "--steps-json",
+            r#"[{"operationRef":"builtin:clean_url_tracking","configJson":null,"failurePolicy":"stop"}]"#,
+            "--json",
+        ],
+    );
+    let transform_ref = transform["stableRef"].as_str().expect("Transform ref");
+    let secret_url = "https://example.com/private-token-0123456789?utm_source=test";
+    let clip = success_json(&database, &["copy", secret_url, "--json"]);
+    let clip_id = clip["id"].as_i64().expect("clip ID").to_string();
+
+    let enrichers = success_json(&database, &["enricher", "list", "--json"]);
+    assert_eq!(enrichers[0]["stableRef"], "enricher:smart-actions-v1");
+    assert_eq!(enrichers[0]["outputContract"], "recommendations");
+
+    let registry = success_json(
+        &database,
+        &["registry", "list", "--kind", "enricher", "--json"],
+    );
+    assert_eq!(registry[0]["analysisPass"], "enrich");
+    assert_eq!(
+        registry[0]["inputContract"],
+        "analyzable_text+classification+structural_metadata"
+    );
+    assert_eq!(registry[0]["capabilities"]["canDisable"], false);
+
+    let result = success_json(
+        &database,
+        &["enricher", "run", "--clip", &clip_id, "--json"],
+    );
+    assert_eq!(result["formatVersion"], 1);
+    assert_eq!(result["policy"], "interactive");
+    assert_eq!(result["through"], "enrich");
+    assert_eq!(result["result"]["signals"][0], "url");
+    assert_eq!(
+        result["result"]["actions"][0]["transformRef"],
+        transform_ref
+    );
+    assert_eq!(result["appliedClipId"], Value::Null);
+    assert!(!result.to_string().contains("private-token-0123456789"));
+    clean_database(&database);
+}
+
+#[test]
 fn bin_lifecycle_and_full_backup_inspection_run_end_to_end() {
     let database = temporary_path("management", "db");
     let created = success_json(&database, &["bin", "create", "--name", "CLI Bin", "--json"]);

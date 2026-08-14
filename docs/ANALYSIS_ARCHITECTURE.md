@@ -6,12 +6,14 @@ Pasted runs derived-content work through one bounded Analyzer and exposes partic
 
 - `analysis_contract.rs` owns the contract version, representation names, the four ordered passes, execution policies, participant contracts and run summaries, target kinds, failures, and clip-application state.
 - `content_analysis.rs` owns typed Analysis requests, scheduling, and the in-memory Analysis context. Raw `AnalysisReport` values stay crate-internal.
-- `inspection_execution.rs`, `extraction_execution.rs`, and `detection_execution.rs` translate raw reports into stable Inspector, Extractor, and Detector results. GUI, CLI, and background services consume these results instead of interpreting scheduler state.
+- `inspection_execution.rs`, `extraction_execution.rs`, `detection_execution.rs`, and `enrichment_execution.rs` translate raw reports into stable participant results. GUI, CLI, and background services consume these results instead of interpreting scheduler state.
 - Persistence accepts typed execution results. Preview and apply share the same serialized shape, and applied clip IDs come from shared application state rather than surface-specific JSON assembly.
 
 Capture, background, and rescan policies stop after classification. Interactive work may continue through enrichment, so optional expensive participants never run implicitly during capture. Callers choose a policy and available participants; they do not invoke scheduler passes directly.
 
 The shipped `inspector:structure-v1` participant produces `structural_metadata` during the inspect pass. Stable, content-free facts are persisted against the clip content hash and a structural input fingerprint. Filesystem availability and size are live observations kept outside durable Analysis results. Full Backup includes the durable result table automatically; portable History and Organization transfer omits recomputable derived results.
+
+The shipped `enricher:smart-actions-v1` participant consumes analyzable text, classification, and structural metadata only for interactive requests. It returns bounded signals and stable saved-Transform references; it never returns input content, executes a Transform, or writes a clip. Clip Preview and `pasted enricher run` use the same execution result.
 
 ## Adding an Inspector or Enricher
 

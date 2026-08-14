@@ -13,6 +13,9 @@ const extractionExecution = read('src-tauri/src/extraction_execution.rs');
 const detectionExecution = read('src-tauri/src/detection_execution.rs');
 const inspection = read('src-tauri/src/content_inspection.rs');
 const inspectionExecution = read('src-tauri/src/inspection_execution.rs');
+const enrichment = read('src-tauri/src/content_enrichment.rs');
+const enrichmentExecution = read('src-tauri/src/enrichment_execution.rs');
+const clipPreview = read('src/components/ClipPreview.tsx');
 const extraction = read('src-tauri/src/content_extraction.rs');
 const clipboardMonitor = read('src-tauri/src/clipboard_monitor.rs');
 const ocr = read('src-tauri/src/ocr.rs');
@@ -60,6 +63,9 @@ const documentedCommands = [
   'pasted clip purge',
   'pasted clip empty-trash',
   'pasted clip assign',
+  'pasted enricher list',
+  'pasted enricher get',
+  'pasted enricher run',
   'pasted bin list',
   'pasted bin get',
   'pasted bin create',
@@ -133,7 +139,7 @@ for (const command of documentedCommands) {
 }
 assert.doesNotMatch(help, /pasted-cli/, 'Help & Docs must expose the stable pasted command, not an implementation alias');
 
-for (const route of ['copy', 'list', 'search', 'import', 'retention', 'settings', 'recording', 'queue', 'activity', 'transfer', 'archive', 'backup', 'clear', 'clip', 'bin', 'transform', 'operation', 'connection', 'insights', 'database', 'library', 'registry', 'type', 'inspector', 'extractor', 'detector', 'diagnostics', 'licenses', 'ocr', 'reset']) {
+for (const route of ['copy', 'list', 'search', 'import', 'retention', 'settings', 'recording', 'queue', 'activity', 'transfer', 'archive', 'backup', 'clear', 'clip', 'bin', 'transform', 'operation', 'connection', 'insights', 'database', 'library', 'registry', 'type', 'inspector', 'extractor', 'detector', 'enricher', 'diagnostics', 'licenses', 'ocr', 'reset']) {
   assert.match(cli, new RegExp(`"${route}"`), `The CLI must retain its ${route} route`);
 }
 for (const method of ['export_backup_json', 'inspect_library_archive_json', 'import_backup_json']) {
@@ -238,6 +244,34 @@ assert.match(tauriMock, /case 'inspect_clip_structure'/,
   'The frontend mock must preserve the structural inspection contract');
 assert.doesNotMatch(inspection, /pub struct StructuralMetadata[\s\S]*?(?:content|path):\s*(?:String|Vec<String>)/,
   'Durable structural metadata must not include clipboard contents or file paths');
+assert.match(enrichment, /SMART_ACTIONS_ENRICHER_REF:\s*&str\s*=\s*"enricher:smart-actions-v1"/,
+  'Smart Actions must have a stable versioned Enricher reference');
+assert.match(enrichment, /pub struct SmartActionRecommendations/,
+  'Smart Actions must expose a typed recommendation result');
+assert.match(enrichmentExecution, /pub struct SmartActionEnrichmentResult/,
+  'GUI and CLI enrichment must share one application result');
+assert.match(commands, /enrichment_execution::enrich_(?:text|clip)/,
+  'GUI Smart Actions must use the shared Enricher execution service');
+assert.match(cli, /enrichment_execution::enrich_(?:text|clip)/,
+  'CLI Smart Actions must use the shared Enricher execution service');
+assert.match(tauriMock, /case 'enrich_smart_actions'/,
+  'The frontend mock must preserve the Smart Actions result contract');
+assert.doesNotMatch(tauriMock, /reasons:\s*signals/,
+  'Mock Smart Actions must preserve per-recommendation reasons');
+assert.match(tauriMock, /hasText === hasClipId/,
+  'Mock Smart Actions must reject ambiguous input combinations like the native command');
+assert.match(tauriMock, /\.slice\(0, 256\)[\s\S]*?\.slice\(0, 12\)/,
+  'Mock Smart Actions must preserve native candidate and output bounds');
+assert.match(clipPreview, /transformedText === null[\s\S]*?\{ clipId: clip\.id \}/,
+  'Clip Preview must prefer clip identity over resending stored clipboard text');
+for (const surface of [database, tauriMock]) {
+  assert.match(surface, /analyzable_text\+classification\+structural_metadata/,
+    'Smart Actions registry surfaces must expose every declared input representation');
+}
+assert.doesNotMatch(clipPreview, /smartPipelineDetector|detectSmartPipelineRecommendations/,
+  'Clip Preview must not maintain a parallel Smart Actions detector');
+assert.doesNotMatch(enrichment, /pub struct SmartActionRecommendations[\s\S]*?(?:content|input|text):\s*String/,
+  'Enricher results must not retain clipboard content');
 assert.doesNotMatch(analysis, /pub (?:enum|struct) (?:AnalysisPass|ParticipantContract|ParticipantOutcome|AnalysisFailure|ParticipantRun)/,
   'The scheduler must consume shared Analysis contracts instead of redefining them');
 for (const boundary of ['resolve_participant', 'AnalysisTargetKind', 'ClipApplication', 'enrichment_execution.rs']) {

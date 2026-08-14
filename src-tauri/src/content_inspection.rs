@@ -263,6 +263,7 @@ fn inspect(
         inspector: true,
         extractor: None,
         detectors: None,
+        enricher: None,
     });
     let resolution =
         report.resolve_participant(STRUCTURE_INSPECTOR_REF, AnalysisTargetKind::Inspector);
