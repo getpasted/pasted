@@ -4295,37 +4295,19 @@ pub fn extract_ocr_from_clip(clip_id: i64, db: State<'_, Arc<DbState>>) -> Resul
             let analysis =
                 crate::content_analysis::analyze_image(bytes, &extractor, detectors.as_deref());
             let extraction_failure = analysis.failure_for(&extractor.stable_ref).cloned();
-            if let Some(ocr_text) = analysis.context.searchable_text {
-                db.complete_or_reset_ocr_attempt(
-                    clip_id,
-                    &clip.content_hash,
-                    Some(&ocr_text),
-                    &extractor.engine,
-                    None,
-                )
-                .map_err(|error| error.to_string())?;
-                if detectors.is_some() {
-                    db.record_analysis_classification(
-                        clip_id,
-                        &clip.content_hash,
-                        analysis.context.detected_type.as_deref(),
-                        analysis.context.matched_detector_ref.as_deref(),
-                        "searchable_text",
-                    )
-                    .map_err(|error| error.to_string())?;
-                }
-                return Ok(ocr_text);
-            }
-            db.complete_or_reset_ocr_attempt(
+            let ocr_text = analysis.context.searchable_text.clone();
+            crate::analysis_execution::persist_image_analysis(
+                &db,
                 clip_id,
                 &clip.content_hash,
-                None,
-                &extractor.engine,
-                extraction_failure
-                    .as_ref()
-                    .map(|failure| failure.code.as_str()),
+                &extractor,
+                detectors.is_some(),
+                &analysis,
             )
             .map_err(|error| error.to_string())?;
+            if let Some(ocr_text) = ocr_text {
+                return Ok(ocr_text);
+            }
             if let Some(failure) = extraction_failure {
                 return Err(failure.message);
             }

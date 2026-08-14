@@ -25,6 +25,8 @@ Engine availability and execution use one shared native registry for app-driven 
 
 Extractor failures remain distinct from valid no-text results throughout Analysis. Background and applied runs record a bounded lowercase ASCII failure code for retry and diagnostics, while CLI JSON reports `outcome` and a structured `failure` without including image or clipboard content. If attempt persistence fails, claimed OCR work returns to the pending state instead of remaining stuck as running.
 
+Background OCR, manual GUI extraction, CLI Extractor application, and CLI rescans persist Analyzer reports through the same application service. The shared path records OCR state and any derived classification from searchable text with identical failure and stale-clip semantics.
+
 ## How detector matching works
 
 Enabled detectors are evaluated in priority order; the lowest priority number runs first. Each detector defines:
