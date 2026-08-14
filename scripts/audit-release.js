@@ -22,6 +22,22 @@ const thirdPartyLicenses = readJson('THIRD_PARTY_LICENSES.json');
 const thirdPartyNotices = fs.readFileSync('THIRD_PARTY_NOTICES.txt', 'utf8');
 const sourceSbom = readJson('THIRD_PARTY_SBOM.spdx.json');
 
+assert.match(
+  desktopBuildWorkflow,
+  /pull_request:\s*\n\s*types:\s*\[[^\]]*ready_for_review[^\]]*\]/,
+  'Desktop builds must run the complete PR matrix when a draft becomes ready',
+);
+assert.match(
+  desktopBuildWorkflow,
+  /validate:[\s\S]*?if: github\.event_name != 'pull_request' \|\| github\.event\.pull_request\.draft == false/,
+  'Full validation must remain deferred while a pull request is a draft',
+);
+assert.match(
+  desktopBuildWorkflow,
+  /smoke:[\s\S]*?github\.event\.pull_request\.draft == false[\s\S]*?needs: \[dependency-review, dependency-policy, validate\]/,
+  'Native smoke builds must wait for a ready PR and successful primary gates',
+);
+
 assert.equal(packageJson.name, 'pasted', 'Frontend package must use the Pasted product name');
 assert.equal(packageLock.name, packageJson.name, 'Package lock name must match package.json');
 assert.equal(rootLockPackage?.name, packageJson.name, 'Locked root package name must match package.json');

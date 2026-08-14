@@ -1,8 +1,10 @@
 name: Desktop builds
 
 on:
-  # Branch protection requires checks from this workflow on every pull request.
+  # Drafts run only the inexpensive dependency gates below. Moving a pull
+  # request to ready triggers the complete required validation matrix.
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches: [main]
     paths-ignore:
@@ -51,6 +53,7 @@ jobs:
 
   validate:
     name: Validate
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v7
@@ -73,7 +76,8 @@ jobs:
 
   smoke:
     name: Smoke ${{ matrix.name }}
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && github.event.pull_request.draft == false
+    needs: [dependency-review, dependency-policy, validate]
     strategy:
       fail-fast: false
       matrix:
