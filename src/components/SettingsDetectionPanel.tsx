@@ -51,6 +51,9 @@ interface DetectionRescanReport {
 }
 
 interface DetectionResult {
+  formatVersion: number;
+  policy: 'capture' | 'background' | 'interactive' | 'rescan';
+  through: 'inspect' | 'extract' | 'classify' | 'enrich';
   outcome: 'matched' | 'no_match' | 'failed';
   matched: boolean;
   failure: { code: string; message: string } | null;

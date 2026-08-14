@@ -333,6 +333,9 @@ fn extractor_lifecycle_and_registry_capabilities_run_end_to_end() {
     );
     assert_eq!(preview_output.status.code(), Some(1));
     let preview: Value = serde_json::from_slice(&preview_output.stdout).expect("Extractor JSON");
+    assert_eq!(preview["formatVersion"], 1);
+    assert_eq!(preview["policy"], "interactive");
+    assert_eq!(preview["through"], "enrich");
     assert_eq!(preview["targetKind"], "extractor");
     assert_eq!(preview["targetRef"], stable_ref);
     assert_eq!(preview["outcome"], "failed");
@@ -425,6 +428,9 @@ fn detector_preview_and_apply_share_the_safe_execution_contract() {
             "--json",
         ],
     );
+    assert_eq!(preview["formatVersion"], 1);
+    assert_eq!(preview["policy"], "interactive");
+    assert_eq!(preview["through"], "enrich");
     assert_eq!(preview["targetKind"], "detector");
     assert_eq!(preview["targetRef"], stable_ref);
     assert_eq!(preview["outcome"], "matched");

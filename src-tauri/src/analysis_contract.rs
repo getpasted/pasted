@@ -38,10 +38,27 @@ pub enum AnalysisPolicy {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct AnalysisEnvelope<T> {
+pub struct AnalysisMetadata {
     pub format_version: u32,
     pub policy: AnalysisPolicy,
     pub through: AnalysisPass,
+}
+
+impl AnalysisMetadata {
+    pub const fn new(policy: AnalysisPolicy) -> Self {
+        Self {
+            format_version: ANALYSIS_CONTRACT_VERSION,
+            policy,
+            through: policy.through(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AnalysisEnvelope<T> {
+    #[serde(flatten)]
+    pub metadata: AnalysisMetadata,
     pub result: T,
     pub participants: Vec<ParticipantRun>,
 }
@@ -49,9 +66,7 @@ pub struct AnalysisEnvelope<T> {
 impl<T> AnalysisEnvelope<T> {
     pub fn new(policy: AnalysisPolicy, result: T, participants: Vec<ParticipantRun>) -> Self {
         Self {
-            format_version: ANALYSIS_CONTRACT_VERSION,
-            policy,
-            through: policy.through(),
+            metadata: AnalysisMetadata::new(policy),
             result,
             participants,
         }

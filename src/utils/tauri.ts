@@ -275,6 +275,9 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       const clipId = Number(args?.clipId);
       if (!Number.isInteger(clipId) || clipId <= 0) throw new Error('A valid clip ID is required.');
       return {
+        formatVersion: 1,
+        policy: 'interactive',
+        through: 'enrich',
         targetKind: 'extractor',
         targetRef: 'extractor:apple-vision-ocr',
         outcome: 'produced',
@@ -412,6 +415,9 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
         try { return new RegExp(pattern.replace(/^\(\?i\)/, ''), pattern.startsWith('(?i)') ? 'i' : '').test(sample); } catch { return false; }
       }));
       return {
+        formatVersion: 1,
+        policy: 'interactive',
+        through: 'enrich',
         targetKind: 'detector',
         targetRef: 'preview',
         outcome: matched ? 'matched' : 'no_match',
