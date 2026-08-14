@@ -1,9 +1,18 @@
 export const MAX_RENDERABLE_RASTER_DATA_URL_BYTES = 192 * 1024 * 1024;
+export const MAX_RENDERABLE_RASTER_BYTES = 128 * 1024 * 1024;
 
 export type SafeRasterImage = {
-  bytes: Uint8Array;
+  bytes: ArrayBuffer;
   mimeType: 'image/png' | 'image/jpeg' | 'image/webp';
 };
+
+export function base64DecodedByteLength(payload: string): number | null {
+  if (payload.length === 0 || payload.length % 4 !== 0 || !/^[A-Za-z0-9+/]+={0,2}$/.test(payload)) {
+    return null;
+  }
+  const padding = payload.endsWith('==') ? 2 : payload.endsWith('=') ? 1 : 0;
+  return (payload.length / 4) * 3 - padding;
+}
 
 function hasPngSignature(bytes: Uint8Array): boolean {
   const signature = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
@@ -36,18 +45,24 @@ export function decodeSafeRasterDataUrl(value: unknown): SafeRasterImage | null 
       : header === 'data:image/webp;base64'
         ? 'image/webp'
         : null;
-  if (!mimeType || payload.length === 0 || payload.length % 4 !== 0 || !/^[A-Za-z0-9+/]+={0,2}$/.test(payload)) {
+  const decodedByteLength = base64DecodedByteLength(payload);
+  if (!mimeType || decodedByteLength === null || decodedByteLength > MAX_RENDERABLE_RASTER_BYTES) {
     return null;
   }
   try {
     const decoded = atob(payload);
-    const bytes = Uint8Array.from(decoded, (character) => character.charCodeAt(0));
+    if (decoded.length !== decodedByteLength) return null;
+    const buffer = new ArrayBuffer(decodedByteLength);
+    const bytes = new Uint8Array(buffer);
+    for (let index = 0; index < decoded.length; index += 1) {
+      bytes[index] = decoded.charCodeAt(index);
+    }
     const signatureMatches = mimeType === 'image/png'
       ? hasPngSignature(bytes)
       : mimeType === 'image/jpeg'
         ? hasJpegSignature(bytes)
         : hasWebpSignature(bytes);
-    return signatureMatches ? { bytes, mimeType } : null;
+    return signatureMatches ? { bytes: buffer, mimeType } : null;
   } catch {
     return null;
   }

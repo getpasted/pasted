@@ -56,6 +56,11 @@ assert.match(rustSource, /PROVIDER_EXECUTION_TIMEOUT_SECS/, 'Provider execution 
 assert.doesNotMatch(frontendSource, /dangerouslySetInnerHTML/, 'Render untrusted clip content as text, never raw HTML');
 assert.match(safeRasterImage, /decodeSafeRasterDataUrl\(source\)/, 'Dynamic image sources must pass the shared raster decoder');
 assert.match(safeRasterImage, /URL\.createObjectURL\(new Blob/, 'Validated raster bytes must render through an inert object URL');
+assert.match(
+  frontendSource,
+  /decodedByteLength > MAX_RENDERABLE_RASTER_BYTES[\s\S]*atob\(payload\)/,
+  'Dynamic raster sources must enforce the decoded-byte ceiling before allocating decoded data',
+);
 for (const consumer of safeRasterConsumers) {
   assert.match(consumer, /SafeRasterImage/, 'Every dynamic raster surface must use SafeRasterImage');
   assert.doesNotMatch(consumer, /<img\b/, 'Dynamic raster surfaces must not bypass SafeRasterImage');
