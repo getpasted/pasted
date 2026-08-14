@@ -236,10 +236,16 @@ assert.match(inspectionExecution, /pub struct ClipInspectionResult/,
   'Focused inspection must expose one stable application result');
 assert.match(inspectionExecution, /record_structural_inspection/,
   'Applied inspection must use hash-checked shared persistence');
+assert.match(inspectionExecution, /content_analysis::analyze\(AnalysisRequest/,
+  'Inspector scheduling must live in the shared execution boundary');
+assert.doesNotMatch(inspection, /content_analysis::analyze\(/,
+  'Structural metadata helpers must not schedule Analyzer work directly');
 assert.match(database, /CREATE TABLE IF NOT EXISTS clip_analysis_results/,
   'Stable Inspector results must use durable clip-owned storage');
 assert.match(cli, /inspection_execution::inspect_clip/,
   'CLI structural inspection must use the shared execution service');
+assert.match(cli, /inspection_execution::inspect_text/,
+  'CLI raw-text inspection must use the shared execution service');
 assert.doesNotMatch(inspection, /pub struct StructuralMetadata[\s\S]*?(?:content|path):\s*(?:String|Vec<String>)/,
   'Durable structural metadata must not include clipboard contents or file paths');
 assert.match(enrichment, /SMART_ACTIONS_ENRICHER_REF:\s*&str\s*=\s*"enricher:smart-actions-v1"/,
