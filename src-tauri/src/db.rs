@@ -9699,6 +9699,10 @@ impl DbState {
             for (id, current_type, text) in clips {
                 last_id = id;
                 scanned_count += 1;
+                if text.trim().is_empty() {
+                    failed_count += 1;
+                    continue;
+                }
                 let analysis = crate::detection_execution::analyze_detectors(&text, &detectors);
                 if analysis.failed() {
                     failed_count += 1;
@@ -10267,17 +10271,28 @@ mod tests {
                 "Test",
             )
             .unwrap();
+        let empty = db
+            .save_clip("code", Some(""), None, None, "empty-hash", "Test")
+            .unwrap();
+        let whitespace = db
+            .save_clip("code", Some(" \n\t"), None, None, "whitespace-hash", "Test")
+            .unwrap();
 
         let report = db.rescan_content_detection().unwrap();
-        assert_eq!(report.scanned_count, 1);
+        assert_eq!(report.scanned_count, 3);
         assert_eq!(report.changed_count, 1);
         assert_eq!(report.unchanged_count, 0);
-        assert_eq!(report.failed_count, 0);
+        assert_eq!(report.failed_count, 2);
         assert_eq!(
             db.get_clip_by_id(card.id).unwrap().content_type,
             "payment_card"
         );
         assert_eq!(db.get_clip_by_id(image.id).unwrap().content_type, "image");
+        assert_eq!(db.get_clip_by_id(empty.id).unwrap().content_type, "code");
+        assert_eq!(
+            db.get_clip_by_id(whitespace.id).unwrap().content_type,
+            "code"
+        );
     }
 
     #[test]
