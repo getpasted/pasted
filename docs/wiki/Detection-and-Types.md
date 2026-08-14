@@ -13,7 +13,7 @@ Analysis uses a shared, non-destructive scheduler. Original clip representations
 3. **Classify** applies Detectors to the text or representations now available.
 4. **Enrich** is reserved for optional, more expensive derived metadata.
 
-Missing inputs skip a participant without recursion. A participant that reports success without producing its declared output fails closed. Original clip content is never replaced by the scheduler. Operations remain separate because they are user-directed mutations rather than analysis participants.
+Within each pass, ready participants run in priority order. A participant blocked on a same-pass representation waits until a producer makes that input available; each participant still executes at most once, without recursion. Participants whose inputs remain missing after the pass settles are skipped. A participant that reports success without producing its declared output fails closed. Original clip content is never replaced by the scheduler. Operations remain separate because they are user-directed mutations rather than analysis participants.
 
 ## Extractors
 
