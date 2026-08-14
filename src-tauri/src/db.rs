@@ -9307,8 +9307,10 @@ impl DbState {
             .find(|extractor| {
                 extractor.enabled
                     && extractor.is_available
-                    && extractor.input_contract == "image"
-                    && extractor.output_contract == "searchable_text"
+                    && extractor.supports_contract(
+                        crate::analysis_contract::RepresentationKind::ImageBytes,
+                        crate::analysis_contract::RepresentationKind::SearchableText,
+                    )
             }))
     }
 

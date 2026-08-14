@@ -7,6 +7,7 @@ const help = read('src/components/HelpView.tsx');
 const database = read('src-tauri/src/db.rs');
 const commands = read('src-tauri/src/commands.rs');
 const analysis = read('src-tauri/src/content_analysis.rs');
+const analysisContract = read('src-tauri/src/analysis_contract.rs');
 const analysisExecution = read('src-tauri/src/analysis_execution.rs');
 const extraction = read('src-tauri/src/content_extraction.rs');
 const clipboardMonitor = read('src-tauri/src/clipboard_monitor.rs');
@@ -194,6 +195,14 @@ for (const scope of ['trash', 'activity']) {
 assert.match(commands, /db\.rescan_content_detection\(\)/, 'GUI history rescans must use the shared detector domain service');
 assert.match(cli, /db\.rescan_content_detection\(\)/, 'CLI history rescans must use the shared detector domain service');
 assert.match(analysis, /pub fn schedule/, 'Analysis participants must share the bounded scheduler');
+assert.match(analysisContract, /pub enum RepresentationKind/,
+  'Analysis representations must use the shared typed contract');
+assert.match(extraction, /pub fn representation_contract/,
+  'Extractors must parse metadata through the shared representation contract');
+assert.match(extraction, /code: "invalid_contract"/,
+  'Extractor engines must fail closed for unsupported representation contracts');
+assert.doesNotMatch(database, /extractor\.input_contract == "image"/,
+  'Active Extractor selection must not compare representation metadata ad hoc');
 assert.match(analysis, /MAX_ANALYSIS_PASSES:\s*usize\s*=\s*4/, 'Analysis must remain bounded to four ordered passes');
 assert.match(extraction, /pub trait ExtractorEngine:\s*Sync/, 'Extractor engines must use the shared runtime contract');
 assert.match(extraction, /pub enum ExtractionOutcome/, 'Extractor execution must return a typed outcome');

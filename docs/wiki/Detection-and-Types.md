@@ -19,6 +19,8 @@ Within each pass, ready participants run in priority order. A participant blocke
 
 Extractors create searchable representations from clip content without replacing the original. Apple Vision OCR is the built-in image-to-text Extractor. It runs locally on macOS and appears as unavailable on Windows and Linux, where Apple Vision is not present. Extractor names, descriptions, priority, and enabled state can be managed under **Settings → Analysis → Manage Extractors**.
 
+Extractor input and output names are parsed through the same typed representation contract used by the Analysis scheduler. Unknown or unsupported contracts fail closed instead of reaching an extraction engine, and active Extractor selection uses that shared contract rather than matching unrelated metadata strings.
+
 OCR scans use the first enabled, available Extractor with an `image` input and `searchable_text` output contract. The resulting text becomes available to the later classify pass during the same bounded run. This explicit boundary allows additional local or provider-backed engines without changing Detection or the stored OCR result model.
 
 Engine availability and execution use one shared native registry for app-driven OCR, manual runs, and the CLI. Every engine returns a bounded typed outcome: produced text, no output, or a failure with a stable code and neutral message. Unknown engines remain stored but unavailable instead of falling through to another executable. Apple Vision is the only shipped engine adapter in this release.
