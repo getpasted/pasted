@@ -41,7 +41,8 @@ pub fn persist_image_analysis(
                 analysis.context.detected_type.as_deref(),
                 analysis.context.matched_detector_ref.as_deref(),
                 "searchable_text",
-            )?
+            )
+            .unwrap_or(false)
         } else {
             false
         };
@@ -136,5 +137,55 @@ mod tests {
         assert_eq!(classification.content_type, "email");
         assert_eq!(classification.detector_ref, "detector:email");
         assert_eq!(classification.source_representation, "searchable_text");
+    }
+
+    #[test]
+    fn derived_classification_failure_does_not_fail_ocr_completion() {
+        let db = setup_test_db();
+        let clip = db
+            .save_clip(
+                "image",
+                None,
+                None,
+                Some(crate::resource_limits::TEST_PNG_DATA_URL),
+                "best-effort-classification",
+                "Screenshot",
+            )
+            .unwrap();
+        assert!(db.force_ocr_running(clip.id, &clip.content_hash).unwrap());
+        let analysis = AnalysisReport {
+            context: AnalysisContext {
+                clip_kind: "image".into(),
+                original_text: None,
+                image_bytes: None,
+                searchable_text: Some("recognized text".into()),
+                detected_type: Some("x".repeat(81)),
+                matched_detector_ref: Some("detector:test".into()),
+            },
+            runs: Vec::<ParticipantRun>::new(),
+        };
+
+        let persisted = persist_image_analysis(
+            &db,
+            clip.id,
+            &clip.content_hash,
+            &extractor(),
+            true,
+            &analysis,
+        )
+        .unwrap();
+
+        assert_eq!(
+            persisted,
+            ImageAnalysisPersistence {
+                ocr_updated: true,
+                classification_updated: false,
+            }
+        );
+        assert_eq!(
+            db.get_clip_by_id(clip.id).unwrap().text_content.as_deref(),
+            Some("recognized text")
+        );
+        assert!(db.get_analysis_classification(clip.id).unwrap().is_none());
     }
 }
