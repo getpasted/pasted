@@ -7,6 +7,7 @@ const help = read('src/components/HelpView.tsx');
 const database = read('src-tauri/src/db.rs');
 const commands = read('src-tauri/src/commands.rs');
 const analysis = read('src-tauri/src/content_analysis.rs');
+const extraction = read('src-tauri/src/content_extraction.rs');
 const clipboardMonitor = read('src-tauri/src/clipboard_monitor.rs');
 const ocr = read('src-tauri/src/ocr.rs');
 const actions = read('src/hooks/useClipActions.ts');
@@ -193,6 +194,10 @@ assert.match(commands, /db\.rescan_content_detection\(\)/, 'GUI history rescans 
 assert.match(cli, /db\.rescan_content_detection\(\)/, 'CLI history rescans must use the shared detector domain service');
 assert.match(analysis, /pub fn schedule/, 'Analysis participants must share the bounded scheduler');
 assert.match(analysis, /MAX_ANALYSIS_PASSES:\s*usize\s*=\s*4/, 'Analysis must remain bounded to four ordered passes');
+assert.match(extraction, /pub trait ExtractorEngine:\s*Sync/, 'Extractor engines must use the shared runtime contract');
+assert.match(extraction, /pub enum ExtractionOutcome/, 'Extractor execution must return a typed outcome');
+assert.match(analysis, /ExtractorEngineRegistry/, 'Analysis must dispatch Extractors through the shared engine registry');
+assert.doesNotMatch(cli, /perform_ocr_on_image_bytes/, 'The CLI must not bypass the shared Extractor engine registry');
 assert.match(clipboardMonitor, /save_text_clip/, 'GUI capture must use the shared text-capture service');
 assert.match(database, /content_analysis::classify_text/, 'Detector rescans must use the shared analysis scheduler');
 assert.match(cli, /db\.save_text_clip/, 'CLI capture must use the shared text-capture service');

@@ -1,141 +1,3 @@
-// Native macOS Vision OCR Engine using Apple's Vision Framework (VNRecognizeTextRequest)
-// Runs in-process with 0 external CLI dependencies, hardware-accelerated.
-
-#[cfg(target_os = "macos")]
-pub fn perform_ocr_on_image_bytes(image_bytes: &[u8]) -> Option<String> {
-    use objc::runtime::{Class, Object};
-    use objc::{msg_send, sel, sel_impl};
-    use std::ptr::null_mut;
-
-    type Id = *mut Object;
-
-    if image_bytes.is_empty() || image_bytes.len() > crate::resource_limits::MAX_ENCODED_IMAGE_BYTES
-    {
-        return None;
-    }
-
-    unsafe {
-        // Create NSData from raw image bytes
-        let ns_data_class = Class::get("NSData")?;
-        let ns_data: Id =
-            msg_send![ns_data_class, dataWithBytes:image_bytes.as_ptr() length:image_bytes.len()];
-        if ns_data.is_null() {
-            return None;
-        }
-
-        // Create NSImage from NSData
-        let ns_image_class = Class::get("NSImage")?;
-        let ns_image: Id = msg_send![ns_image_class, alloc];
-        let ns_image: Id = msg_send![ns_image, initWithData: ns_data];
-        if ns_image.is_null() {
-            return None;
-        }
-
-        // Get CGImageRef from NSImage
-        let cg_image: Id = msg_send![
-            ns_image,
-            CGImageForProposedRect: null_mut::<Object>()
-            context: null_mut::<Object>()
-            hints: null_mut::<Object>()
-        ];
-        if cg_image.is_null() {
-            return None;
-        }
-
-        // Create VNImageRequestHandler with CGImageRef
-        let handler_class = Class::get("VNImageRequestHandler")?;
-        let handler: Id = msg_send![handler_class, alloc];
-        let handler: Id = msg_send![handler, initWithCGImage:cg_image options:null_mut::<Object>()];
-        if handler.is_null() {
-            return None;
-        }
-
-        // Create VNRecognizeTextRequest
-        let request_class = Class::get("VNRecognizeTextRequest")?;
-        let request: Id = msg_send![request_class, alloc];
-        let request: Id = msg_send![request, init];
-        if request.is_null() {
-            return None;
-        }
-
-        // Set recognition level to 1 (VNRequestTextRecognitionLevelAccurate)
-        let _: () = msg_send![request, setRecognitionLevel: 1i64];
-
-        // Create NSArray containing the request
-        let array_class = Class::get("NSArray")?;
-        let requests: Id = msg_send![array_class, arrayWithObject: request];
-
-        // Perform Vision request
-        let mut error: Id = null_mut();
-        let success: bool = msg_send![handler, performRequests: requests error: &mut error];
-        if !success {
-            return None;
-        }
-
-        // Retrieve OCR results array (VNRecognizedTextObservation items)
-        let results: Id = msg_send![request, results];
-        if results.is_null() {
-            return None;
-        }
-
-        let count: usize = msg_send![results, count];
-        if count == 0 {
-            return None;
-        }
-
-        let mut lines = Vec::new();
-        let mut recognized_bytes = 0usize;
-        for i in 0..count {
-            let observation: Id = msg_send![results, objectAtIndex: i];
-            if observation.is_null() {
-                continue;
-            }
-
-            let top_candidates: Id = msg_send![observation, topCandidates: 1usize];
-            if !top_candidates.is_null() {
-                let cand_count: usize = msg_send![top_candidates, count];
-                if cand_count > 0 {
-                    let candidate: Id = msg_send![top_candidates, objectAtIndex: 0usize];
-                    if !candidate.is_null() {
-                        let string_val: Id = msg_send![candidate, string];
-                        if !string_val.is_null() {
-                            let utf8: *const std::os::raw::c_char =
-                                msg_send![string_val, UTF8String];
-                            if !utf8.is_null() {
-                                if let Ok(s) = std::ffi::CStr::from_ptr(utf8).to_str() {
-                                    let trimmed = s.trim();
-                                    if !trimmed.is_empty() {
-                                        recognized_bytes = recognized_bytes
-                                            .saturating_add(trimmed.len())
-                                            .saturating_add(1);
-                                        if recognized_bytes
-                                            > crate::resource_limits::MAX_OCR_TEXT_BYTES
-                                        {
-                                            return None;
-                                        }
-                                        lines.push(trimmed.to_string());
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        if lines.is_empty() {
-            None
-        } else {
-            Some(lines.join("\n"))
-        }
-    }
-}
-
-#[cfg(not(target_os = "macos"))]
-pub fn perform_ocr_on_image_bytes(_image_bytes: &[u8]) -> Option<String> {
-    None
-}
-
 pub struct OcrTask {
     pub clip_id: i64,
     pub content_hash: String,
@@ -184,14 +46,13 @@ pub fn decode_stored_image(value: &str) -> Option<Vec<u8>> {
         .ok()
 }
 
-fn execute_task<Recognize, Notify>(
+fn execute_task<Notify>(
     db_state: &crate::db::DbState,
     task: OcrTask,
     extractor: &crate::content_extraction::Extractor,
-    recognize: Recognize,
+    registry: &crate::content_extraction::ExtractorEngineRegistry<'_>,
     notify: Notify,
 ) where
-    Recognize: FnOnce(&[u8]) -> Option<String>,
     Notify: FnOnce(i64),
 {
     if !crate::features::is_enabled(db_state, crate::features::Feature::Ocr) {
@@ -205,11 +66,11 @@ fn execute_task<Recognize, Notify>(
         crate::features::is_enabled(db_state, crate::features::Feature::ContentDetection)
             .then(|| db_state.get_content_detectors().ok())
             .flatten();
-    let analysis = crate::content_analysis::analyze_image(
+    let analysis = crate::content_analysis::analyze_image_with_registry(
         task.image_bytes,
         extractor,
         detectors.as_deref(),
-        recognize,
+        registry,
     );
     if !crate::features::is_enabled(db_state, crate::features::Feature::Ocr) {
         let _ = db_state.reset_ocr_work(Some(task.clip_id), Some(&task.content_hash));
@@ -247,19 +108,14 @@ fn perform_task(app: &tauri::AppHandle, db_state: &crate::db::DbState, task: Ocr
         let _ = db_state.reset_ocr_work(Some(task.clip_id), Some(&task.content_hash));
         return;
     };
-    execute_task(
-        db_state,
-        task,
-        &extractor,
-        perform_ocr_on_image_bytes,
-        |clip_id| {
-            let _ = app.emit("clip-added", serde_json::json!({ "id": clip_id }));
-            let _ = app.emit(
-                "ocr-status-changed",
-                serde_json::json!({ "clipId": clip_id }),
-            );
-        },
-    );
+    let registry = crate::content_extraction::system_engine_registry();
+    execute_task(db_state, task, &extractor, &registry, |clip_id| {
+        let _ = app.emit("clip-added", serde_json::json!({ "id": clip_id }));
+        let _ = app.emit(
+            "ocr-status-changed",
+            serde_json::json!({ "clipId": clip_id }),
+        );
+    });
 }
 
 fn run_backfill_candidates<Ready, Process>(
@@ -355,12 +211,6 @@ mod tests {
     }
 
     #[test]
-    fn test_ocr_empty_or_invalid_bytes() {
-        assert_eq!(perform_ocr_on_image_bytes(&[]), None);
-        assert_eq!(perform_ocr_on_image_bytes(&[0, 1, 2, 3, 4]), None);
-    }
-
-    #[test]
     fn test_ocr_task_struct() {
         let task = OcrTask {
             clip_id: 42,
@@ -441,6 +291,30 @@ mod tests {
 
     #[test]
     fn disabling_ocr_during_recognition_discards_the_late_result() {
+        struct DisablingEngine<'a> {
+            db: &'a crate::db::DbState,
+        }
+
+        impl crate::content_extraction::ExtractorEngine for DisablingEngine<'_> {
+            fn id(&self) -> &'static str {
+                "fake-engine-v1"
+            }
+
+            fn availability(&self) -> crate::content_extraction::EngineAvailability {
+                crate::content_extraction::EngineAvailability {
+                    is_available: true,
+                    unavailable_reason: None,
+                }
+            }
+
+            fn extract(&self, _image_bytes: &[u8]) -> crate::content_extraction::ExtractionOutcome {
+                self.db.save_setting("enableOcr", "false").unwrap();
+                crate::content_extraction::ExtractionOutcome::Produced {
+                    text: "must not be saved".into(),
+                }
+            }
+        }
+
         let db = setup_test_db();
         let clip = db
             .save_clip(
@@ -468,6 +342,9 @@ mod tests {
             unavailable_reason: None,
             defaults: None,
         };
+        let engine = DisablingEngine { db: &db };
+        let engines: [&dyn crate::content_extraction::ExtractorEngine; 1] = [&engine];
+        let registry = crate::content_extraction::ExtractorEngineRegistry::new(&engines);
 
         execute_task(
             &db,
@@ -477,10 +354,7 @@ mod tests {
                 image_bytes: b"image".to_vec(),
             },
             &extractor,
-            |_| {
-                db.save_setting("enableOcr", "false").unwrap();
-                Some("must not be saved".to_string())
-            },
+            &registry,
             |_| notified.store(true, Ordering::Release),
         );
 

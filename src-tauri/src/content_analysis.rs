@@ -1,5 +1,5 @@
 use crate::content_detection::{detect_match_with_detectors, Detector};
-use crate::content_extraction::Extractor;
+use crate::content_extraction::{ExtractionOutcome, Extractor, ExtractorEngineRegistry};
 use serde::Serialize;
 
 pub const MAX_ANALYSIS_PASSES: usize = 4;
@@ -238,16 +238,21 @@ pub fn classify_text(text: &str, detectors: &[Detector]) -> String {
         .unwrap_or_else(|| "text".into())
 }
 
-pub fn analyze_image<Recognize>(
+pub fn analyze_image(
     image_bytes: Vec<u8>,
     extractor: &Extractor,
     detectors: Option<&[Detector]>,
-    recognize: Recognize,
-) -> AnalysisReport
-where
-    Recognize: FnOnce(&[u8]) -> Option<String>,
-{
-    let mut recognize = Some(recognize);
+) -> AnalysisReport {
+    let registry = crate::content_extraction::system_engine_registry();
+    analyze_image_with_registry(image_bytes, extractor, detectors, &registry)
+}
+
+pub fn analyze_image_with_registry(
+    image_bytes: Vec<u8>,
+    extractor: &Extractor,
+    detectors: Option<&[Detector]>,
+    registry: &ExtractorEngineRegistry<'_>,
+) -> AnalysisReport {
     let extractor_ref = extractor.stable_ref.clone();
     let extractor_name = extractor.name.clone();
     let extractor_priority = extractor.priority;
@@ -267,14 +272,16 @@ where
             let Some(image_bytes) = context.image_bytes.as_deref() else {
                 return Ok(ParticipantOutcome::NoOutput);
             };
-            let Some(recognize) = recognize.take() else {
-                return Err("Extractor attempted to run more than once".into());
-            };
-            let Some(text) = recognize(image_bytes).filter(|text| !text.trim().is_empty()) else {
-                return Ok(ParticipantOutcome::NoOutput);
-            };
-            context.searchable_text = Some(text);
-            Ok(ParticipantOutcome::Produced)
+            match registry.execute(extractor, image_bytes) {
+                ExtractionOutcome::Produced { text } => {
+                    context.searchable_text = Some(text);
+                    Ok(ParticipantOutcome::Produced)
+                }
+                ExtractionOutcome::NoOutput => Ok(ParticipantOutcome::NoOutput),
+                ExtractionOutcome::Failed { failure } => {
+                    Err(format!("{}: {}", failure.code, failure.message))
+                }
+            }
         },
     )];
     if let Some(detectors) = detectors {
@@ -286,6 +293,51 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    struct TestEngine;
+
+    struct FailingEngine;
+
+    impl crate::content_extraction::ExtractorEngine for TestEngine {
+        fn id(&self) -> &'static str {
+            "test-v1"
+        }
+
+        fn availability(&self) -> crate::content_extraction::EngineAvailability {
+            crate::content_extraction::EngineAvailability {
+                is_available: true,
+                unavailable_reason: None,
+            }
+        }
+
+        fn extract(&self, _image_bytes: &[u8]) -> ExtractionOutcome {
+            ExtractionOutcome::Produced {
+                text: "agent@example.com".into(),
+            }
+        }
+    }
+
+    impl crate::content_extraction::ExtractorEngine for FailingEngine {
+        fn id(&self) -> &'static str {
+            "test-v1"
+        }
+
+        fn availability(&self) -> crate::content_extraction::EngineAvailability {
+            crate::content_extraction::EngineAvailability {
+                is_available: true,
+                unavailable_reason: None,
+            }
+        }
+
+        fn extract(&self, _image_bytes: &[u8]) -> ExtractionOutcome {
+            ExtractionOutcome::Failed {
+                failure: crate::content_extraction::ExtractionFailure {
+                    code: "test_failure".into(),
+                    message: "The test engine failed.".into(),
+                },
+            }
+        }
+    }
 
     fn detector(pattern: &str, content_type: &str) -> Detector {
         Detector {
@@ -325,9 +377,11 @@ mod tests {
     #[test]
     fn extraction_makes_text_available_to_later_detection() {
         let detectors = vec![detector(r"^[^@]+@[^@]+\.[^@]+$", "email")];
-        let report = analyze_image(vec![1, 2, 3], &extractor(), Some(&detectors), |_| {
-            Some("agent@example.com".into())
-        });
+        let engine = TestEngine;
+        let engines: [&dyn crate::content_extraction::ExtractorEngine; 1] = [&engine];
+        let registry = ExtractorEngineRegistry::new(&engines);
+        let report =
+            analyze_image_with_registry(vec![1, 2, 3], &extractor(), Some(&detectors), &registry);
 
         assert_eq!(
             report.context.searchable_text.as_deref(),
@@ -359,6 +413,21 @@ mod tests {
 
         assert_eq!(runs.len(), 1);
         assert_eq!(runs[0].outcome, ParticipantOutcome::MissingInput);
+    }
+
+    #[test]
+    fn typed_engine_failures_fail_the_extractor_participant_closed() {
+        let engine = FailingEngine;
+        let engines: [&dyn crate::content_extraction::ExtractorEngine; 1] = [&engine];
+        let registry = ExtractorEngineRegistry::new(&engines);
+        let report = analyze_image_with_registry(vec![1], &extractor(), None, &registry);
+
+        assert_eq!(report.context.searchable_text, None);
+        assert_eq!(report.runs[0].outcome, ParticipantOutcome::Failed);
+        assert_eq!(
+            report.runs[0].error.as_deref(),
+            Some("test_failure: The test engine failed.")
+        );
     }
 
     #[test]
