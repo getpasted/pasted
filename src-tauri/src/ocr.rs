@@ -262,27 +262,20 @@ fn perform_task(app: &tauri::AppHandle, db_state: &crate::db::DbState, task: Ocr
     );
 }
 
-fn run_backfill_candidates<Process>(
+fn run_backfill_candidates<Ready, Process>(
     db_state: &crate::db::DbState,
     cancelled: &std::sync::atomic::AtomicBool,
+    mut ready: Ready,
     mut process: Process,
 ) where
+    Ready: FnMut(&crate::db::DbState) -> bool,
     Process: FnMut(crate::db::OcrCandidate),
 {
     loop {
         if cancelled.load(std::sync::atomic::Ordering::Acquire) {
             break;
         }
-        if !crate::features::is_enabled(db_state, crate::features::Feature::Ocr) {
-            let _ = db_state.reset_ocr_work(None, None);
-            break;
-        }
-        if db_state
-            .active_image_text_extractor()
-            .ok()
-            .flatten()
-            .is_none()
-        {
+        if !ready(db_state) {
             let _ = db_state.reset_ocr_work(None, None);
             break;
         }
@@ -304,8 +297,18 @@ pub fn spawn_ocr_worker(
         while let Ok(request) = rx.recv() {
             match request {
                 OcrRequest::Clip(task) => perform_task(&app, &db_state, task),
-                OcrRequest::Backfill => {
-                    run_backfill_candidates(&db_state, &worker_cancelled, |candidate| {
+                OcrRequest::Backfill => run_backfill_candidates(
+                    &db_state,
+                    &worker_cancelled,
+                    |db_state| {
+                        crate::features::is_enabled(db_state, crate::features::Feature::Ocr)
+                            && db_state
+                                .active_image_text_extractor()
+                                .ok()
+                                .flatten()
+                                .is_some()
+                    },
+                    |candidate| {
                         let Some(image_bytes) = decode_stored_image(&candidate.image_base64) else {
                             let _ = db_state.complete_ocr_attempt(
                                 candidate.clip_id,
@@ -325,8 +328,8 @@ pub fn spawn_ocr_worker(
                                 image_bytes,
                             },
                         );
-                    })
-                }
+                    },
+                ),
             }
         }
     });
@@ -386,18 +389,23 @@ mod tests {
 
         let cancelled = AtomicBool::new(false);
         let mut first_pass = Vec::new();
-        run_backfill_candidates(&db, &cancelled, |candidate| {
-            first_pass.push(candidate.clip_id);
-            db.complete_ocr_attempt(
-                candidate.clip_id,
-                &candidate.content_hash,
-                Some("recognized"),
-                "fake-engine-v1",
-                None,
-            )
-            .unwrap();
-            cancelled.store(true, Ordering::Release);
-        });
+        run_backfill_candidates(
+            &db,
+            &cancelled,
+            |_| true,
+            |candidate| {
+                first_pass.push(candidate.clip_id);
+                db.complete_ocr_attempt(
+                    candidate.clip_id,
+                    &candidate.content_hash,
+                    Some("recognized"),
+                    "fake-engine-v1",
+                    None,
+                )
+                .unwrap();
+                cancelled.store(true, Ordering::Release);
+            },
+        );
 
         assert_eq!(first_pass.len(), 1);
         let paused = db.get_ocr_backfill_status().unwrap();
@@ -406,17 +414,22 @@ mod tests {
 
         cancelled.store(false, Ordering::Release);
         let mut second_pass = Vec::new();
-        run_backfill_candidates(&db, &cancelled, |candidate| {
-            second_pass.push(candidate.clip_id);
-            db.complete_ocr_attempt(
-                candidate.clip_id,
-                &candidate.content_hash,
-                Some("recognized"),
-                "fake-engine-v1",
-                None,
-            )
-            .unwrap();
-        });
+        run_backfill_candidates(
+            &db,
+            &cancelled,
+            |_| true,
+            |candidate| {
+                second_pass.push(candidate.clip_id);
+                db.complete_ocr_attempt(
+                    candidate.clip_id,
+                    &candidate.content_hash,
+                    Some("recognized"),
+                    "fake-engine-v1",
+                    None,
+                )
+                .unwrap();
+            },
+        );
 
         assert_eq!(second_pass.len(), 2);
         assert!(!second_pass.contains(&first_pass[0]));

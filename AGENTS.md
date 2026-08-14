@@ -60,3 +60,4 @@ Pasted aims to make its meaningful clipboard-management capabilities available t
 ### Cross-platform behavior
 
 - Platform-specific behavior must be gated and leave macOS, Windows, Linux X11, and constrained Wayland environments with a compiling, explicit success or graceful-failure path.
+- Tests for platform-gated capabilities must not assume the host runner provides a particular operating-system implementation. Inject a portable test implementation or readiness fixture for shared scheduling, lifecycle, and persistence behavior, and test the real platform availability gate separately. Keep shared behavior tests running on every platform instead of hiding them behind platform-specific test configuration.

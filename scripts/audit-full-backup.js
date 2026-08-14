@@ -14,7 +14,11 @@ assert.match(database, /CREATE TABLE pasted_backup_manifest/, 'Full Backup must 
 assert.match(database, /PRAGMA integrity_check/, 'Full Backup and Full Restore must validate SQLite integrity');
 assert.match(database, /DbState::new\(temporary\.clone\(\)\)/, 'Full Restore must apply forward migrations before activation');
 assert.match(database, /Pasted_Pre_Restore_/, 'Full Restore must create a complete recovery backup first');
-assert.match(database, /validate_backup_json\(manifest\.2/, 'Full Restore must validate embedded interface state before replacement');
+assert.match(
+  database,
+  /validate_backup_json\(manifest\.client_state_json\.as_deref\(\), "Backup UI state"\)[\s\S]*validate_backup_json\(manifest\.window_state_json\.as_deref\(\), "Backup window state"\)/,
+  'Full Restore must validate embedded interface and window state before replacement',
+);
 assert.match(database, /full_backup_round_trip_covers_every_durable_table_and_interface_state/, 'Full Backup must have a table-coverage round-trip test');
 assert.match(database, /full_restore_rejects_invalid_embedded_state_before_replacing_library/, 'Full Restore must test pre-activation rejection');
 
