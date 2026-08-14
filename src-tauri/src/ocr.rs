@@ -44,6 +44,9 @@ pub fn decode_stored_image(value: &str) -> Option<Vec<u8>> {
     base64::engine::general_purpose::STANDARD
         .decode(payload)
         .ok()
+        .filter(|bytes| {
+            !bytes.is_empty() && bytes.len() <= crate::resource_limits::MAX_ENCODED_IMAGE_BYTES
+        })
 }
 
 fn execute_task<Notify>(

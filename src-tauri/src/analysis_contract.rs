@@ -71,6 +71,22 @@ impl AnalysisPolicy {
     }
 }
 
+impl FromStr for AnalysisPolicy {
+    type Err = String;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "capture" => Ok(Self::Capture),
+            "background" => Ok(Self::Background),
+            "interactive" => Ok(Self::Interactive),
+            "rescan" => Ok(Self::Rescan),
+            _ => Err(format!(
+                "Unknown analysis policy \"{value}\"; expected capture, background, interactive, or rescan"
+            )),
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AnalysisTargetKind {

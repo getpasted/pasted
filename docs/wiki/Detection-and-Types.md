@@ -92,4 +92,4 @@ Disabling **Types** hides calculated Type collections. Disabling **Content Detec
 
 ## CLI reference
 
-The CLI can run and inspect built-in Inspectors and Enrichers; list and configure Extractors; list, create, update, delete, enable, and restore Detectors; manage Types and Groups; and inspect the shared processing registry. Use [`pasted inspector`, `pasted enricher`, `pasted extractor`, `pasted detector`, `pasted type`, and `pasted registry`](CLI-Reference#content-analysis) for scriptable access.
+The CLI can preview the whole Analyzer; run and inspect built-in Inspectors and Enrichers; list and configure Extractors; list, create, update, delete, enable, and restore Detectors; manage Types and Groups; and inspect the shared processing registry. Use [`pasted analyzer`, `pasted inspector`, `pasted enricher`, `pasted extractor`, `pasted detector`, `pasted type`, and `pasted registry`](CLI-Reference#content-analysis) for scriptable access.

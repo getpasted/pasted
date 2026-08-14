@@ -8,6 +8,7 @@ const database = read('src-tauri/src/db.rs');
 const commands = read('src-tauri/src/commands.rs');
 const analysis = read('src-tauri/src/content_analysis.rs');
 const analysisContract = read('src-tauri/src/analysis_contract.rs');
+const analysisExecution = read('src-tauri/src/analysis_execution.rs');
 const analysisArchitecture = read('docs/ANALYSIS_ARCHITECTURE.md');
 const extractionExecution = read('src-tauri/src/extraction_execution.rs');
 const detectionExecution = read('src-tauri/src/detection_execution.rs');
@@ -40,6 +41,7 @@ const documentedCommands = [
   'pasted transfer export',
   'pasted transfer inspect',
   'pasted transfer import',
+  'pasted analyzer run',
   'pasted database location',
   'pasted database move',
   'pasted database default',
@@ -231,17 +233,13 @@ assert.match(inspection, /STRUCTURE_INSPECTOR_REF:\s*&str\s*=\s*"inspector:struc
 assert.match(inspection, /pub struct StructuralMetadata/,
   'Structural inspection must expose a typed content-free result');
 assert.match(inspectionExecution, /pub struct ClipInspectionResult/,
-  'GUI and CLI inspection must share one application result');
+  'Focused inspection must expose one stable application result');
 assert.match(inspectionExecution, /record_structural_inspection/,
   'Applied inspection must use hash-checked shared persistence');
 assert.match(database, /CREATE TABLE IF NOT EXISTS clip_analysis_results/,
   'Stable Inspector results must use durable clip-owned storage');
-assert.match(commands, /inspection_execution::inspect_clip/,
-  'GUI structural inspection must use the shared execution service');
 assert.match(cli, /inspection_execution::inspect_clip/,
   'CLI structural inspection must use the shared execution service');
-assert.match(tauriMock, /case 'inspect_clip_structure'/,
-  'The frontend mock must preserve the structural inspection contract');
 assert.doesNotMatch(inspection, /pub struct StructuralMetadata[\s\S]*?(?:content|path):\s*(?:String|Vec<String>)/,
   'Durable structural metadata must not include clipboard contents or file paths');
 assert.match(enrichment, /SMART_ACTIONS_ENRICHER_REF:\s*&str\s*=\s*"enricher:smart-actions-v1"/,
@@ -249,20 +247,16 @@ assert.match(enrichment, /SMART_ACTIONS_ENRICHER_REF:\s*&str\s*=\s*"enricher:sma
 assert.match(enrichment, /pub struct SmartActionRecommendations/,
   'Smart Actions must expose a typed recommendation result');
 assert.match(enrichmentExecution, /pub struct SmartActionEnrichmentResult/,
-  'GUI and CLI enrichment must share one application result');
-assert.match(commands, /enrichment_execution::enrich_(?:text|clip)/,
-  'GUI Smart Actions must use the shared Enricher execution service');
+  'Focused enrichment must expose one stable application result');
 assert.match(cli, /enrichment_execution::enrich_(?:text|clip)/,
   'CLI Smart Actions must use the shared Enricher execution service');
-assert.match(tauriMock, /case 'enrich_smart_actions'/,
-  'The frontend mock must preserve the Smart Actions result contract');
 assert.doesNotMatch(tauriMock, /reasons:\s*signals/,
   'Mock Smart Actions must preserve per-recommendation reasons');
 assert.match(tauriMock, /hasText === hasClipId/,
   'Mock Smart Actions must reject ambiguous input combinations like the native command');
 assert.match(tauriMock, /\.slice\(0, 256\)[\s\S]*?\.slice\(0, 12\)/,
   'Mock Smart Actions must preserve native candidate and output bounds');
-assert.match(clipPreview, /transformedText === null[\s\S]*?\{ clipId: clip\.id \}/,
+assert.match(clipPreview, /transformedText === null[\s\S]*?\{ clipId: clip\.id, includeExtractor: false \}/,
   'Clip Preview must prefer clip identity over resending stored clipboard text');
 for (const surface of [database, tauriMock]) {
   assert.match(surface, /analyzable_text\+classification\+structural_metadata/,
@@ -272,6 +266,22 @@ assert.doesNotMatch(clipPreview, /smartPipelineDetector|detectSmartPipelineRecom
   'Clip Preview must not maintain a parallel Smart Actions detector');
 assert.doesNotMatch(enrichment, /pub struct SmartActionRecommendations[\s\S]*?(?:content|input|text):\s*String/,
   'Enricher results must not retain clipboard content');
+assert.match(analysisExecution, /pub struct AnalyzerSnapshot/,
+  'The whole Analyzer must expose one typed snapshot contract');
+assert.match(commands, /analysis_execution::analyze_(?:text|clip)/,
+  'GUI whole-Analyzer previews must use the shared execution service');
+assert.match(cli, /analysis_execution::analyze_(?:text|clip)/,
+  'CLI whole-Analyzer previews must use the shared execution service');
+assert.match(tauriMock, /case 'analyze_content'/,
+  'The frontend mock must preserve the whole-Analyzer contract');
+assert.match(clipPreview, /invoke<AnalyzerPreview>\('analyze_content'/,
+  'Clip Preview must request structure and recommendations through one Analyzer call');
+assert.match(clipPreview, /includeDetectors: includeEnricher/,
+  'Clip Preview must skip classification when its Enricher consumer is disabled');
+assert.doesNotMatch(clipPreview, /invoke<StructuralInspection>\('inspect_clip_structure'|invoke<SmartActionEnrichment>\('enrich_smart_actions'/,
+  'Clip Preview must not schedule Analyzer participants through parallel IPC calls');
+assert.doesNotMatch(analysisExecution, /pub struct AnalyzerSnapshot[\s\S]*?pub (?:text|content|paths|image_bytes):/,
+  'Whole-Analyzer snapshots must not expose clipboard contents, OCR text, paths, or image bytes');
 assert.doesNotMatch(analysis, /pub (?:enum|struct) (?:AnalysisPass|ParticipantContract|ParticipantOutcome|AnalysisFailure|ParticipantRun)/,
   'The scheduler must consume shared Analysis contracts instead of redefining them');
 for (const boundary of ['resolve_participant', 'AnalysisTargetKind', 'ClipApplication', 'enrichment_execution.rs']) {

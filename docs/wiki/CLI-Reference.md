@@ -129,7 +129,8 @@ pasted connection order <id>... [--json]
 ## Content Analysis
 
 ```text
-pasted registry list [--kind inspector|extractor|detector|operation|transform] [--all] [--json]
+pasted analyzer run [--text <text> | --clip <id> | --stdin] [--policy capture|background|interactive|rescan] [--extract] [--json]
+pasted registry list [--kind inspector|extractor|detector|enricher|operation|transform] [--all] [--json]
 pasted registry enable|disable --kind extractor|detector|operation --ref <stable-ref> [--json]
 pasted inspector list [--json]
 pasted inspector get <ref> [--json]
@@ -170,6 +171,8 @@ pasted detector rescan --yes [--json]
 ```
 
 Registry JSON includes each analysis participant’s `analysisPass`, `inputContract`, and `outputContract`. The shipped Structure Inspector runs in the inspect pass, Extractors run in the extract pass, Detectors run in the classify pass, and Smart Actions runs in the enrich pass. Every participant runs at most once after its declared inputs become available. Inspector runs preview by default; `--apply` persists content-hash-bound structural metadata for a clip. Built-in Inspectors and Enrichers are immutable. Extractor, Detector, and Transform management uses the lifecycle verbs appropriate to each asset.
+
+`pasted analyzer run` returns one versioned preview of the applicable passes. Its JSON includes content-free structure, classification, Smart Action recommendations, and participant outcomes, but never original text, OCR text, image bytes, or file paths. Interactive policy includes enrichment when Transformations is enabled; capture, background, and rescan stop after classification. Image extraction is opt-in with `--extract` because OCR can be comparatively expensive. File clips are inspection-only so file-reference metadata never enters text Detectors or Enrichers.
 
 Inspector run JSON uses the versioned Analysis envelope. Structure reports origin, byte count, text counts, image dimensions, or file item count and extensions without returning the inspected clipboard content or paths. File availability, file/directory counts, and total size are returned separately as live observations and are not persisted.
 

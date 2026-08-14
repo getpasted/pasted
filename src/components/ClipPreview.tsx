@@ -103,6 +103,22 @@ interface SmartActionEnrichment {
   appliedClipId: null;
 }
 
+interface AnalyzerPreview {
+  formatVersion: number;
+  policy: 'capture' | 'background' | 'interactive' | 'rescan';
+  through: 'inspect' | 'extract' | 'classify' | 'enrich';
+  result: {
+    clipKind: string;
+    structure?: StructuralInspection['result'];
+    detectedType?: string;
+    matchedDetectorRef?: string;
+    searchableTextAvailable: boolean;
+    recommendations?: SmartActionEnrichment['result'];
+  };
+  appliedClipId: null;
+  liveFileObservations?: StructuralInspection['liveFileObservations'];
+}
+
 interface FileClipPreview {
   index: number;
   dataUrl: string | null;
@@ -239,41 +255,54 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
     let cancelled = false;
     if (!clip) {
       setInspection(null);
-      return () => { cancelled = true; };
-    }
-    setInspection(null);
-    invoke<StructuralInspection>('inspect_clip_structure', { clipId: clip.id, apply: false })
-      .then((result) => {
-        if (!cancelled) setInspection(result);
-      })
-      .catch((error) => {
-        if (!cancelled) console.error('Failed to inspect clip structure:', error);
-      });
-    return () => { cancelled = true; };
-  }, [clip?.content_hash, clip?.content_type, clip?.id, clip?.source, clip?.text_content]);
-
-  useEffect(() => {
-    let cancelled = false;
-    if (!features.transformations || !clip || !viewPolicy.canRunPipelines || clip.content_type === 'image' || clip.content_type === 'file') {
       setSmartActions(null);
       return () => { cancelled = true; };
     }
     const text = transformedText ?? clip.text_content ?? '';
-    if (!text) {
+    if (transformedText !== null && !text) {
+      setInspection(null);
       setSmartActions(null);
       return () => { cancelled = true; };
     }
     const input = transformedText === null
-      ? { clipId: clip.id }
-      : { text, source: clip.source };
-    invoke<SmartActionEnrichment>('enrich_smart_actions', input)
+      ? { clipId: clip.id, includeExtractor: false }
+      : { text, source: clip.source, includeExtractor: false };
+    const includeEnricher = features.transformations
+      && viewPolicy.canRunPipelines
+      && clip.content_type !== 'image'
+      && clip.content_type !== 'file';
+    setInspection(null);
+    setSmartActions(null);
+    invoke<AnalyzerPreview>('analyze_content', {
+      request: {
+        ...input,
+        includeDetectors: includeEnricher,
+        includeEnricher,
+      },
+    })
       .then((result) => {
-        if (!cancelled) setSmartActions(result);
+        if (cancelled) return;
+        setInspection(result.result.structure ? {
+          formatVersion: result.formatVersion,
+          policy: result.policy,
+          through: result.through,
+          result: result.result.structure,
+          appliedClipId: null,
+          liveFileObservations: result.liveFileObservations,
+        } : null);
+        setSmartActions(result.result.recommendations ? {
+          formatVersion: result.formatVersion,
+          policy: 'interactive',
+          through: 'enrich',
+          result: result.result.recommendations,
+          appliedClipId: null,
+        } : null);
       })
       .catch((error) => {
         if (!cancelled) {
+          setInspection(null);
           setSmartActions(null);
-          console.error('Failed to enrich Smart Actions:', error);
+          console.error('Failed to analyze clip:', error);
         }
       });
     return () => { cancelled = true; };

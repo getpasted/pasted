@@ -1,4 +1,5 @@
 pub mod analysis_contract;
+pub mod analysis_execution;
 mod app_menu;
 pub mod bin_assignment;
 mod clipboard_fingerprint;
@@ -440,8 +441,7 @@ pub fn run() {
             commands::get_clips,
             commands::get_capture_feedback_clip,
             commands::get_clip_image,
-            commands::inspect_clip_structure,
-            commands::enrich_smart_actions,
+            commands::analyze_content,
             commands::get_file_clip_previews,
             commands::get_trashed_clips,
             commands::restore_clip,
