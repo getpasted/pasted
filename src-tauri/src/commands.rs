@@ -4293,9 +4293,9 @@ pub fn extract_ocr_from_clip(clip_id: i64, db: State<'_, Arc<DbState>>) -> Resul
                 .then(|| db.get_content_detectors().ok())
                 .flatten();
             let analysis =
-                crate::content_analysis::analyze_image(bytes, &extractor, detectors.as_deref());
-            let extraction_failure = analysis.failure_for(&extractor.stable_ref).cloned();
-            let ocr_text = analysis.context.searchable_text.clone();
+                crate::analysis_execution::analyze_image(bytes, &extractor, detectors.as_deref());
+            let extraction_failure = analysis.failure.clone();
+            let ocr_text = analysis.output.clone();
             crate::analysis_execution::persist_image_analysis(
                 &db,
                 clip_id,

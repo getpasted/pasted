@@ -66,7 +66,7 @@ fn execute_task<Notify>(
         crate::features::is_enabled(db_state, crate::features::Feature::ContentDetection)
             .then(|| db_state.get_content_detectors().ok())
             .flatten();
-    let analysis = crate::content_analysis::analyze_image_with_registry(
+    let analysis = crate::analysis_execution::analyze_image_with_registry(
         task.image_bytes,
         extractor,
         detectors.as_deref(),

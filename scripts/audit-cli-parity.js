@@ -208,13 +208,17 @@ assert.match(extraction, /pub trait ExtractorEngine:\s*Sync/, 'Extractor engines
 assert.match(extraction, /pub enum ExtractionOutcome/, 'Extractor execution must return a typed outcome');
 assert.match(analysis, /ExtractorEngineRegistry/, 'Analysis must dispatch Extractors through the shared engine registry');
 assert.match(analysis, /pub struct AnalysisFailure/, 'Analysis must preserve typed participant failures');
-assert.match(cli, /"failure": extraction_failure\.as_ref\(\)/,
-  'CLI Extractor JSON must expose structured Analyzer failures');
+assert.match(analysisExecution, /pub struct ImageAnalysisResult/,
+  'Image Analysis must expose one shared execution-result contract');
+assert.doesNotMatch(analysis, /pub fn analyze_image\(/,
+  'Raw Image Analysis reports must not remain a public execution path');
+assert.match(cli, /serde_json::json!\(&analysis\)/,
+  'CLI Extractor JSON must serialize the shared Analyzer result');
 assert.match(database, /pub fn complete_or_reset_ocr_attempt/,
   'OCR runtimes must share failure-safe attempt persistence');
 assert.match(analysisExecution, /pub fn persist_image_analysis/,
   'Image Analysis persistence must use a shared application service');
-assert.match(analysisExecution, /failure_for\(&extractor\.stable_ref\)/,
+assert.match(analysisExecution, /analysis\s*\.failure\s*\.as_ref\(\)/,
   'Shared Image Analysis persistence must preserve Extractor failure codes');
 assert.match(analysisExecution, /complete_or_reset_ocr_attempt/,
   'Shared Image Analysis persistence must reset claimed work on failure');
@@ -224,6 +228,12 @@ assert.match(cli, /analysis_execution::persist_image_analysis/,
   'CLI OCR must use shared Image Analysis persistence');
 assert.match(commands, /analysis_execution::persist_image_analysis/,
   'GUI OCR must use shared Image Analysis persistence');
+assert.match(ocr, /analysis_execution::analyze_image_with_registry/,
+  'Background OCR must use the shared Image Analysis execution result');
+assert.match(cli, /analysis_execution::analyze_image/,
+  'CLI OCR must use the shared Image Analysis execution result');
+assert.match(commands, /analysis_execution::analyze_image/,
+  'GUI OCR must use the shared Image Analysis execution result');
 assert.doesNotMatch(ocr, /record_analysis_classification/,
   'Background OCR must not persist derived classifications independently');
 assert.doesNotMatch(cli, /record_analysis_classification/,
@@ -234,8 +244,9 @@ assert.doesNotMatch(cli, /perform_ocr_on_image_bytes/, 'The CLI must not bypass 
 assert.match(clipboardMonitor, /save_text_clip/, 'GUI capture must use the shared text-capture service');
 assert.match(database, /content_analysis::classify_text/, 'Detector rescans must use the shared analysis scheduler');
 assert.match(cli, /db\.save_text_clip/, 'CLI capture must use the shared text-capture service');
-assert.match(ocr, /content_analysis::analyze_image/, 'GUI OCR must feed extracted representations through the shared analysis scheduler');
-assert.match(cli, /content_analysis::analyze_image/, 'CLI OCR must feed extracted representations through the shared analysis scheduler');
+assert.doesNotMatch(ocr, /content_analysis::analyze_image/, 'Background OCR must not infer results directly from Analyzer reports');
+assert.doesNotMatch(cli, /content_analysis::analyze_image/, 'CLI OCR must not infer results directly from Analyzer reports');
+assert.doesNotMatch(commands, /content_analysis::analyze_image/, 'GUI OCR must not infer results directly from Analyzer reports');
 for (const method of ['get_content_extractors', 'create_content_extractor', 'update_content_extractor_definition', 'duplicate_content_extractor', 'delete_content_extractor', 'restore_default_content_extractors']) {
   assert.match(database, new RegExp(`pub fn ${method}`), `${method} must live in the shared database domain layer`);
   assert.match(commands, new RegExp(`pub fn ${method}`), `${method} must be exposed to the GUI`);

@@ -1081,12 +1081,11 @@ fn main() -> Result<()> {
                     )
                     .then(|| db.get_content_detectors())
                     .transpose()?;
-                    let analysis = pasted_lib::content_analysis::analyze_image(
+                    let analysis = pasted_lib::analysis_execution::analyze_image(
                         image_bytes,
                         &extractor,
                         detectors.as_deref(),
                     );
-                    let extraction_failure = analysis.failure_for(&extractor.stable_ref).cloned();
                     if apply {
                         let clip_id = clip_id.expect("validated apply target");
                         let content_hash = content_hash.as_deref().expect("clip input has a hash");
@@ -1104,33 +1103,17 @@ fn main() -> Result<()> {
                         )?;
                     }
                     if args.iter().any(|argument| argument == "--json") {
-                        println!(
-                            "{}",
-                            serde_json::json!({
-                                "targetKind": "extractor",
-                                "targetRef": extractor.stable_ref,
-                                "output": analysis.context.searchable_text,
-                                "detectedType": analysis.context.detected_type,
-                                "matchedDetectorRef": analysis.context.matched_detector_ref,
-                                "appliedClipId": clip_id.filter(|_| apply),
-                                "outcome": if extraction_failure.is_some() {
-                                    "failed"
-                                } else if analysis.context.searchable_text.is_some() {
-                                    "produced"
-                                } else {
-                                    "no_output"
-                                },
-                                "failure": extraction_failure.as_ref(),
-                            })
-                        );
-                    } else if let Some(failure) = extraction_failure.as_ref() {
+                        let mut output = serde_json::json!(&analysis);
+                        output["appliedClipId"] = serde_json::json!(clip_id.filter(|_| apply));
+                        println!("{output}");
+                    } else if let Some(failure) = analysis.failure.as_ref() {
                         eprintln!("Extractor failed ({}): {}", failure.code, failure.message);
-                    } else if let Some(text) = analysis.context.searchable_text {
+                    } else if let Some(text) = analysis.output.as_deref() {
                         print!("{text}");
                     } else {
                         println!("No text extracted.");
                     }
-                    if extraction_failure.is_some() {
+                    if analysis.failed() {
                         let _ = io::stdout().flush();
                         let _ = io::stderr().flush();
                         std::process::exit(1);
@@ -3734,7 +3717,7 @@ fn scan_existing_images(db: &DbState, clip_id: Option<i64>) -> Result<usize> {
             continue;
         };
         let analysis =
-            pasted_lib::content_analysis::analyze_image(bytes, &extractor, detectors.as_deref());
+            pasted_lib::analysis_execution::analyze_image(bytes, &extractor, detectors.as_deref());
         pasted_lib::analysis_execution::persist_image_analysis(
             db,
             candidate.clip_id,
