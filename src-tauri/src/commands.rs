@@ -718,37 +718,40 @@ pub(crate) fn prefetch_file_clip_previews(
 }
 
 #[tauri::command]
-pub async fn inspect_clip_structure(
-    clip_id: i64,
-    apply: Option<bool>,
-    db: State<'_, Arc<DbState>>,
-) -> Result<crate::inspection_execution::ClipInspectionResult, String> {
-    let db = Arc::clone(&db);
-    tauri::async_runtime::spawn_blocking(move || {
-        crate::inspection_execution::inspect_clip(&db, clip_id, apply.unwrap_or(false))
-            .map_err(|error| error.to_string())
-    })
-    .await
-    .map_err(|error| error.to_string())?
-}
-
-#[tauri::command]
-pub async fn enrich_smart_actions(
+pub async fn analyze_content(
     text: Option<String>,
     clip_id: Option<i64>,
     source: Option<String>,
+    policy: Option<String>,
+    include_extractor: Option<bool>,
+    include_enricher: Option<bool>,
     db: State<'_, Arc<DbState>>,
-) -> Result<crate::enrichment_execution::SmartActionEnrichmentResult, String> {
-    features::require(&db, Feature::Transformations)?;
+) -> Result<crate::analysis_execution::AnalyzerPreview, String> {
     if text.is_some() == clip_id.is_some() {
         return Err("Provide exactly one of text or clipId".into());
     }
+    let policy = policy
+        .as_deref()
+        .unwrap_or("interactive")
+        .parse::<crate::analysis_contract::AnalysisPolicy>()?;
+    let include_enricher = include_enricher.unwrap_or(true);
+    if include_enricher
+        && policy.includes(crate::analysis_contract::AnalysisPass::Enrich)
+        && !features::is_enabled(&db, Feature::Transformations)
+    {
+        return Err("Transformations is disabled in Settings → Functionality".into());
+    }
+    let options = crate::analysis_execution::AnalyzerOptions {
+        policy,
+        include_extractor: include_extractor.unwrap_or(false),
+        include_enricher,
+    };
     let db = Arc::clone(&db);
     tauri::async_runtime::spawn_blocking(move || match (text, clip_id) {
         (Some(text), None) => {
-            crate::enrichment_execution::enrich_text(&db, &text, source.as_deref())
+            crate::analysis_execution::analyze_text(&db, &text, source.as_deref(), options)
         }
-        (None, Some(clip_id)) => crate::enrichment_execution::enrich_clip(&db, clip_id),
+        (None, Some(clip_id)) => crate::analysis_execution::analyze_clip(&db, clip_id, options),
         _ => unreachable!("input combination validated"),
     })
     .await

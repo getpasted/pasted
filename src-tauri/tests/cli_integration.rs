@@ -172,6 +172,42 @@ fn smart_actions_enricher_has_registry_and_non_mutating_cli_parity() {
 }
 
 #[test]
+fn whole_analyzer_has_one_versioned_privacy_safe_cli_contract() {
+    let database = temporary_path("analyzer", "db");
+    let secret = "agent@example.com private-token-0123456789";
+    let interactive = success_json(&database, &["analyzer", "run", "--text", secret, "--json"]);
+    assert_eq!(interactive["formatVersion"], 1);
+    assert_eq!(interactive["policy"], "interactive");
+    assert_eq!(interactive["through"], "enrich");
+    assert_eq!(interactive["result"]["clipKind"], "text");
+    assert_eq!(interactive["result"]["detectedType"], "text");
+    assert!(interactive["result"]["structure"].is_object());
+    assert!(interactive["result"]["recommendations"].is_object());
+    assert_eq!(interactive["participants"][0]["pass"], "inspect");
+    assert_eq!(interactive["participants"][1]["pass"], "classify");
+    assert_eq!(interactive["participants"][2]["pass"], "enrich");
+    assert!(!interactive.to_string().contains("private-token-0123456789"));
+
+    let capture = success_json(
+        &database,
+        &[
+            "analyzer",
+            "run",
+            "--text",
+            "https://example.com/private",
+            "--policy",
+            "capture",
+            "--json",
+        ],
+    );
+    assert_eq!(capture["through"], "classify");
+    assert!(capture["result"].get("recommendations").is_none());
+    assert_eq!(capture["participants"].as_array().map(Vec::len), Some(2));
+    assert!(!capture.to_string().contains("example.com/private"));
+    clean_database(&database);
+}
+
+#[test]
 fn bin_lifecycle_and_full_backup_inspection_run_end_to_end() {
     let database = temporary_path("management", "db");
     let created = success_json(&database, &["bin", "create", "--name", "CLI Bin", "--json"]);
@@ -224,6 +260,7 @@ fn help_advertises_database_and_live_app_surfaces() {
     assert!(output.status.success());
     let text = String::from_utf8_lossy(&output.stdout);
     for command in [
+        "pasted analyzer",
         "pasted settings",
         "pasted recording",
         "pasted queue",

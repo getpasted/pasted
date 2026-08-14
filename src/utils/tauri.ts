@@ -197,6 +197,51 @@ function assignMockClips(ids: number[], binId: number | null) {
   }
 }
 
+function mockSmartActionRecommendations(text: string) {
+  const signals: string[] = [];
+  if (/https?:\/\/[^\s]+/i.test(text)) signals.push('url');
+  let isJson = false;
+  try {
+    const trimmed = text.trim();
+    if ((trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+      JSON.parse(trimmed);
+      isJson = true;
+      signals.push('json');
+    }
+  } catch {}
+  const hasHtml = /<[a-z][^>]*>.*<\/[a-z][^>]*>|<[a-z][^>]*\/?>/is.test(text);
+  if (hasHtml && !isJson) signals.push('html');
+  if (/(^|\s)(#{1,6}\s|\*\*|__|```|\[[^\]]+\]\([^\)]+\))/m.test(text) && !hasHtml && !isJson) signals.push('markdown');
+  const lineCount = text.length === 0 ? 0 : text.split(/\r?\n/).length - (/\r?\n$/.test(text) ? 1 : 0);
+  if (lineCount > 1) signals.push('multi_line');
+  if (/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i.test(text)) signals.push('email');
+  if (/(?:^|[^0-9])(?:\+?[0-9]{1,3}[-. ]?)?\(?[0-9]{3}\)?[-. ]?[0-9]{3}[-. ]?[0-9]{4}(?:$|[^0-9])/.test(text)) signals.push('phone');
+  const signalPatterns: Record<string, RegExp> = {
+    url: /url|link|tracking|clean_url_tracking|extract_urls/,
+    json: /json|json_format|json_minify/,
+    html: /html|markup|tag|strip_html|wrap_tags/,
+    markdown: /markdown|strip_markdown/,
+    multi_line: /line|list|sort|dedupe|sort_lines|dedupe_lines/,
+    email: /email|extract_emails/,
+    phone: /phone|extract_phones/,
+  };
+  const actions = mockPipelines
+    .slice(0, 256)
+    .flatMap((pipeline) => {
+      const searchable = `${pipeline.name} ${pipeline.steps.map((step) => step.operationRef).join(' ')}`.toLowerCase();
+      const reasons = signals.filter((signal) => signalPatterns[signal]?.test(searchable));
+      return reasons.length ? [{
+        transformRef: pipeline.stableRef,
+        transformName: pipeline.name,
+        transformRevision: pipeline.revision,
+        reasons,
+      }] : [];
+    })
+    .slice(0, 12);
+  const labels: Record<string, string> = { url: 'URL Link', json: 'JSON Data', html: 'HTML Markup', markdown: 'Markdown Text', multi_line: 'Multiple Lines', email: 'Email Address', phone: 'Phone Number' };
+  return { signals, signalLabels: signals.map((signal) => labels[signal]), actions };
+}
+
 export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
   if (typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__) {
     return tauriInvoke<T>(cmd, args);
@@ -822,98 +867,56 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       return 0 as unknown as T;
     case 'get_clip_image':
       return null as unknown as T;
-    case 'inspect_clip_structure': {
-      const clip = mockClips.find((item) => item.id === Number(args?.clipId));
-      if (!clip) throw new Error('Clip not found');
-      const text = clip.text_content ?? '';
-      const paths = getClipFilePaths(clip);
-      const byteCount = new TextEncoder().encode(
-        clip.content_type === 'file' ? paths.join('') : text,
-      ).length;
-      const characterCount = Array.from(text).length;
-      const wordCount = text.split(/\p{White_Space}+/u).filter(Boolean).length;
-      const lineCount = text.length === 0
-        ? 0
-        : text.split(/\r?\n/).length - (/\r?\n$/.test(text) ? 1 : 0);
-      return {
-        formatVersion: 1,
-        policy: 'interactive',
-        through: 'enrich',
-        result: {
-          origin: getClipOriginKind(clip),
-          byteCount,
-          ...(clip.content_type === 'file'
-            ? { files: { itemCount: paths.length, extensions: [] } }
-            : { text: { characterCount, wordCount, lineCount } }),
-        },
-        participants: [{ stableRef: 'inspector:structure-v1', pass: 'inspect', outcome: 'produced' }],
-        appliedClipId: args?.apply ? clip.id : null,
-        ...(clip.content_type === 'file' ? { liveFileObservations: { availableCount: 0, fileCount: 0, directoryCount: 0, totalSizeBytes: 0 } } : {}),
-      } as unknown as T;
-    }
-    case 'enrich_smart_actions': {
+    case 'analyze_content': {
       const hasText = typeof args?.text === 'string';
       const hasClipId = args?.clipId !== undefined;
       if (hasText === hasClipId) throw new Error('Provide exactly one of text or clipId');
       const clip = hasClipId
         ? mockClips.find((item) => item.id === Number(args?.clipId))
         : undefined;
-      if (hasClipId && (!clip || clip.content_type === 'file' || clip.content_type === 'image' || clip.text_content === null)) {
-        throw new Error('Clip has no enrichable text');
-      }
-      const text = hasText ? String(args?.text) : String(clip?.text_content);
-      const signals: string[] = [];
-      if (/https?:\/\/[^\s]+/i.test(text)) signals.push('url');
-      let isJson = false;
-      try {
-        const trimmed = text.trim();
-        if ((trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
-          JSON.parse(trimmed);
-          isJson = true;
-          signals.push('json');
-        }
-      } catch {}
-      const hasHtml = /<[a-z][^>]*>.*<\/[a-z][^>]*>|<[a-z][^>]*\/?>/is.test(text);
-      if (hasHtml && !isJson) signals.push('html');
-      if (/(^|\s)(#{1,6}\s|\*\*|__|```|\[[^\]]+\]\([^\)]+\))/m.test(text) && !hasHtml && !isJson) signals.push('markdown');
-      const lineCount = text.length === 0 ? 0 : text.split(/\r?\n/).length - (/\r?\n$/.test(text) ? 1 : 0);
-      if (lineCount > 1) signals.push('multi_line');
-      if (/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i.test(text)) signals.push('email');
-      if (/(?:^|[^0-9])(?:\+?[0-9]{1,3}[-. ]?)?\(?[0-9]{3}\)?[-. ]?[0-9]{3}[-. ]?[0-9]{4}(?:$|[^0-9])/.test(text)) signals.push('phone');
-      const signalPatterns: Record<string, RegExp> = {
-        url: /url|link|tracking|clean_url_tracking|extract_urls/,
-        json: /json|json_format|json_minify/,
-        html: /html|markup|tag|strip_html|wrap_tags/,
-        markdown: /markdown|strip_markdown/,
-        multi_line: /line|list|sort|dedupe|sort_lines|dedupe_lines/,
-        email: /email|extract_emails/,
-        phone: /phone|extract_phones/,
+      if (hasClipId && !clip) throw new Error('Clip not found');
+      const text = hasText ? String(args?.text) : String(clip?.text_content ?? '');
+      const clipKind = clip?.content_type === 'file' || clip?.content_type === 'image'
+        ? clip.content_type
+        : 'text';
+      const paths = clip ? getClipFilePaths(clip) : [];
+      const structure = {
+        origin: clip ? getClipOriginKind(clip) : 'command_line',
+        byteCount: new TextEncoder().encode(clipKind === 'file' ? paths.join('') : text).length,
+        ...(clipKind === 'file'
+          ? { files: { itemCount: paths.length, extensions: [] } }
+          : clipKind === 'image'
+            ? { image: { width: 0, height: 0 } }
+            : { text: {
+            characterCount: Array.from(text).length,
+            wordCount: text.split(/\p{White_Space}+/u).filter(Boolean).length,
+            lineCount: text.length === 0 ? 0 : text.split(/\r?\n/).length - (/\r?\n$/.test(text) ? 1 : 0),
+          } }),
       };
-      const actions = mockPipelines
-        .slice(0, 256)
-        .flatMap((pipeline) => {
-          const searchable = `${pipeline.name} ${pipeline.steps.map((step) => step.operationRef).join(' ')}`.toLowerCase();
-          const reasons = signals.filter((signal) => signalPatterns[signal]?.test(searchable));
-          return reasons.length ? [{
-            transformRef: pipeline.stableRef,
-            transformName: pipeline.name,
-            transformRevision: pipeline.revision,
-            reasons,
-          }] : [];
-        })
-        .slice(0, 12);
-      const labels: Record<string, string> = { url: 'URL Link', json: 'JSON Data', html: 'HTML Markup', markdown: 'Markdown Text', multi_line: 'Multiple Lines', email: 'Email Address', phone: 'Phone Number' };
+      const includeEnricher = args?.includeEnricher !== false
+        && (args?.policy === undefined || args.policy === 'interactive')
+        && clipKind !== 'file'
+        && clipKind !== 'image';
+      const recommendations = includeEnricher ? mockSmartActionRecommendations(text) : null;
+      const participants = [
+        { stableRef: 'inspector:structure-v1', pass: 'inspect', outcome: 'produced' },
+        ...(clipKind === 'file' || clipKind === 'image' ? [] : [{ stableRef: 'analysis:content-detectors', pass: 'classify', outcome: 'produced' }]),
+        ...(recommendations ? [{ stableRef: 'enricher:smart-actions-v1', pass: 'enrich', outcome: 'produced' }] : []),
+      ];
       return {
         formatVersion: 1,
-        policy: 'interactive',
-        through: 'enrich',
-        result: { signals, signalLabels: signals.map((signal) => labels[signal]), actions },
-        participants: [
-          { stableRef: 'inspector:structure-v1', pass: 'inspect', outcome: 'produced' },
-          { stableRef: 'analysis:content-detectors', pass: 'classify', outcome: 'produced' },
-          { stableRef: 'enricher:smart-actions-v1', pass: 'enrich', outcome: 'produced' },
-        ],
+        policy: args?.policy ?? 'interactive',
+        through: args?.policy && args.policy !== 'interactive' ? 'classify' : 'enrich',
+        result: {
+          clipKind,
+          structure,
+          ...(clipKind === 'file' || clipKind === 'image' ? {} : { detectedType: clip?.content_type ?? 'text' }),
+          searchableTextAvailable: false,
+          ...(recommendations ? { recommendations } : {}),
+        },
+        participants,
         appliedClipId: null,
+        ...(clipKind === 'file' ? { liveFileObservations: { availableCount: 0, fileCount: 0, directoryCount: 0, totalSizeBytes: 0 } } : {}),
       } as unknown as T;
     }
     case 'get_file_clip_previews':
