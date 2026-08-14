@@ -2,14 +2,16 @@ use crate::content_detection::{detect_match_with_detectors, Detector};
 use crate::content_extraction::{ExtractionOutcome, Extractor, ExtractorEngineRegistry};
 
 pub use crate::analysis_contract::{
-    AnalysisFailure, AnalysisPass, AnalysisTargetKind, ParticipantContract, ParticipantOutcome,
-    ParticipantRun, RepresentationKind, MAX_ANALYSIS_PASSES,
+    AnalysisFailure, AnalysisPass, AnalysisPolicy, AnalysisTargetKind, ParticipantContract,
+    ParticipantOutcome, ParticipantRun, RepresentationKind, ANALYSIS_CONTRACT_VERSION,
+    MAX_ANALYSIS_PASSES,
 };
 pub const DETECTOR_PARTICIPANT_REF: &str = "analysis:content-detectors";
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct AnalysisContext {
+pub(crate) struct AnalysisContext {
     pub clip_kind: String,
+    pub capture_source: Option<String>,
     pub original_text: Option<String>,
     pub image_bytes: Option<Vec<u8>>,
     pub searchable_text: Option<String>,
@@ -21,6 +23,7 @@ impl AnalysisContext {
     pub fn for_text(text: impl Into<String>) -> Self {
         Self {
             clip_kind: "text".into(),
+            capture_source: None,
             original_text: Some(text.into()),
             image_bytes: None,
             searchable_text: None,
@@ -32,6 +35,7 @@ impl AnalysisContext {
     pub fn for_image(image_bytes: Vec<u8>) -> Self {
         Self {
             clip_kind: "image".into(),
+            capture_source: None,
             original_text: None,
             image_bytes: Some(image_bytes),
             searchable_text: None,
@@ -40,9 +44,20 @@ impl AnalysisContext {
         }
     }
 
+    pub fn with_searchable_text(mut self, searchable_text: Option<String>) -> Self {
+        self.searchable_text = searchable_text;
+        self
+    }
+
+    pub fn with_capture_source(mut self, capture_source: Option<String>) -> Self {
+        self.capture_source = capture_source;
+        self
+    }
+
     pub fn has(&self, kind: RepresentationKind) -> bool {
         match kind {
             RepresentationKind::ClipKind => !self.clip_kind.is_empty(),
+            RepresentationKind::CaptureSource => self.capture_source.is_some(),
             RepresentationKind::OriginalText => self.original_text.is_some(),
             RepresentationKind::ImageBytes => self.image_bytes.is_some(),
             RepresentationKind::SearchableText => self.searchable_text.is_some(),
@@ -58,7 +73,48 @@ impl AnalysisContext {
     }
 }
 
-pub struct AnalysisReport {
+pub(crate) enum AnalysisInput {
+    Text {
+        text: String,
+        source: Option<String>,
+    },
+    Image {
+        image_bytes: Vec<u8>,
+        searchable_text: Option<String>,
+        source: Option<String>,
+    },
+}
+
+impl AnalysisInput {
+    fn into_context(self) -> AnalysisContext {
+        match self {
+            Self::Text { text, source } => {
+                AnalysisContext::for_text(text).with_capture_source(source)
+            }
+            Self::Image {
+                image_bytes,
+                searchable_text,
+                source,
+            } => AnalysisContext::for_image(image_bytes)
+                .with_searchable_text(searchable_text)
+                .with_capture_source(source),
+        }
+    }
+}
+
+pub(crate) struct ExtractorParticipantSource<'a> {
+    pub extractor: &'a Extractor,
+    pub registry: &'a ExtractorEngineRegistry<'a>,
+}
+
+pub(crate) struct AnalysisRequest<'a> {
+    pub input: AnalysisInput,
+    pub policy: AnalysisPolicy,
+    pub extractor: Option<ExtractorParticipantSource<'a>>,
+    pub detectors: Option<&'a [Detector]>,
+}
+
+pub(crate) struct AnalysisReport {
     pub context: AnalysisContext,
     pub runs: Vec<ParticipantRun>,
 }
@@ -69,13 +125,6 @@ pub(crate) struct ParticipantResolution {
 }
 
 impl AnalysisReport {
-    pub fn failure_for(&self, stable_ref: &str) -> Option<&AnalysisFailure> {
-        self.runs
-            .iter()
-            .find(|run| run.stable_ref == stable_ref)
-            .and_then(|run| run.failure.as_ref())
-    }
-
     pub(crate) fn resolve_participant(
         &self,
         stable_ref: &str,
@@ -118,13 +167,13 @@ impl AnalysisReport {
 type ParticipantExecutor<'a> =
     Box<dyn FnMut(&mut AnalysisContext) -> Result<ParticipantOutcome, AnalysisFailure> + 'a>;
 
-pub struct AnalysisParticipant<'a> {
+struct AnalysisParticipant<'a> {
     pub contract: ParticipantContract,
     execute: ParticipantExecutor<'a>,
 }
 
 impl<'a> AnalysisParticipant<'a> {
-    pub fn new(
+    fn new(
         contract: ParticipantContract,
         execute: impl FnMut(&mut AnalysisContext) -> Result<ParticipantOutcome, AnalysisFailure> + 'a,
     ) -> Self {
@@ -135,10 +184,12 @@ impl<'a> AnalysisParticipant<'a> {
     }
 }
 
-pub fn schedule(
+fn schedule(
     context: AnalysisContext,
     mut participants: Vec<AnalysisParticipant<'_>>,
+    through: AnalysisPass,
 ) -> AnalysisReport {
+    participants.retain(|participant| through.includes(participant.contract.pass));
     participants.sort_by(|left, right| {
         left.contract
             .pass
@@ -242,19 +293,10 @@ fn detector_participant<'a>(detectors: &'a [Detector]) -> AnalysisParticipant<'a
     )
 }
 
-pub(crate) fn analyze_text(text: &str, detectors: &[Detector]) -> AnalysisReport {
-    schedule(
-        AnalysisContext::for_text(text),
-        vec![detector_participant(detectors)],
-    )
-}
-
-pub(crate) fn analyze_image_with_registry(
-    image_bytes: Vec<u8>,
-    extractor: &Extractor,
-    detectors: Option<&[Detector]>,
-    registry: &ExtractorEngineRegistry<'_>,
-) -> AnalysisReport {
+fn extractor_participant<'a>(
+    extractor: &'a Extractor,
+    registry: &'a ExtractorEngineRegistry<'a>,
+) -> AnalysisParticipant<'a> {
     let extractor_ref = extractor.stable_ref.clone();
     let extractor_name = extractor.name.clone();
     let extractor_priority = extractor.priority;
@@ -268,7 +310,7 @@ pub(crate) fn analyze_image_with_registry(
     if representation_contract.output == RepresentationKind::SearchableText {
         provided_representations.push(RepresentationKind::AnalyzableText);
     }
-    let mut participants = vec![AnalysisParticipant::new(
+    AnalysisParticipant::new(
         ParticipantContract {
             stable_ref: extractor_ref,
             name: extractor_name,
@@ -293,11 +335,22 @@ pub(crate) fn analyze_image_with_registry(
                 }),
             }
         },
-    )];
-    if let Some(detectors) = detectors {
+    )
+}
+
+pub(crate) fn analyze(request: AnalysisRequest<'_>) -> AnalysisReport {
+    let mut participants = Vec::new();
+    if let Some(source) = request.extractor {
+        participants.push(extractor_participant(source.extractor, source.registry));
+    }
+    if let Some(detectors) = request.detectors {
         participants.push(detector_participant(detectors));
     }
-    schedule(AnalysisContext::for_image(image_bytes), participants)
+    schedule(
+        request.input.into_context(),
+        participants,
+        request.policy.through(),
+    )
 }
 
 #[cfg(test)]
@@ -384,14 +437,46 @@ mod tests {
         }
     }
 
+    fn analyze_test_image(
+        image_bytes: Vec<u8>,
+        extractor: &Extractor,
+        detectors: Option<&[Detector]>,
+        registry: &ExtractorEngineRegistry<'_>,
+    ) -> AnalysisReport {
+        analyze(AnalysisRequest {
+            input: AnalysisInput::Image {
+                image_bytes,
+                searchable_text: None,
+                source: None,
+            },
+            policy: AnalysisPolicy::Interactive,
+            extractor: Some(ExtractorParticipantSource {
+                extractor,
+                registry,
+            }),
+            detectors,
+        })
+    }
+
+    fn analyze_test_text(text: &str, detectors: &[Detector]) -> AnalysisReport {
+        analyze(AnalysisRequest {
+            input: AnalysisInput::Text {
+                text: text.into(),
+                source: None,
+            },
+            policy: AnalysisPolicy::Capture,
+            extractor: None,
+            detectors: Some(detectors),
+        })
+    }
+
     #[test]
     fn extraction_makes_text_available_to_later_detection() {
         let detectors = vec![detector(r"^[^@]+@[^@]+\.[^@]+$", "email")];
         let engine = TestEngine;
         let engines: [&dyn crate::content_extraction::ExtractorEngine; 1] = [&engine];
         let registry = ExtractorEngineRegistry::new(&engines);
-        let report =
-            analyze_image_with_registry(vec![1, 2, 3], &extractor(), Some(&detectors), &registry);
+        let report = analyze_test_image(vec![1, 2, 3], &extractor(), Some(&detectors), &registry);
 
         assert_eq!(
             report.context.searchable_text.as_deref(),
@@ -418,11 +503,50 @@ mod tests {
                 },
                 |_| panic!("a participant with missing inputs must not execute"),
             )],
+            AnalysisPass::Enrich,
         )
         .runs;
 
         assert_eq!(runs.len(), 1);
         assert_eq!(runs[0].outcome, ParticipantOutcome::MissingInput);
+    }
+
+    #[test]
+    fn bounded_policies_exclude_later_participants_without_reporting_fake_runs() {
+        let report = schedule(
+            AnalysisContext::for_text("hello"),
+            vec![AnalysisParticipant::new(
+                ParticipantContract {
+                    stable_ref: "enricher:test".into(),
+                    name: "Test Enricher".into(),
+                    pass: AnalysisPass::Enrich,
+                    priority: 1,
+                    requires: vec![RepresentationKind::AnalyzableText],
+                    provides: vec![],
+                },
+                |_| panic!("capture policy must not execute Enrich participants"),
+            )],
+            AnalysisPolicy::Capture.through(),
+        );
+
+        assert!(report.runs.is_empty());
+    }
+
+    #[test]
+    fn typed_inputs_carry_capture_source_without_changing_analyzable_text() {
+        let report = analyze(AnalysisRequest {
+            input: AnalysisInput::Text {
+                text: "hello".into(),
+                source: Some("Terminal".into()),
+            },
+            policy: AnalysisPolicy::Capture,
+            extractor: None,
+            detectors: None,
+        });
+
+        assert!(report.context.has(RepresentationKind::CaptureSource));
+        assert_eq!(report.context.analysis_text(), Some("hello"));
+        assert!(report.runs.is_empty());
     }
 
     #[test]
@@ -508,6 +632,7 @@ mod tests {
                     |_| Ok(ParticipantOutcome::Produced),
                 ),
             ],
+            AnalysisPass::Enrich,
         );
 
         assert_eq!(report.context.detected_type.as_deref(), Some("derived"));
@@ -526,7 +651,7 @@ mod tests {
         let engine = FailingEngine;
         let engines: [&dyn crate::content_extraction::ExtractorEngine; 1] = [&engine];
         let registry = ExtractorEngineRegistry::new(&engines);
-        let report = analyze_image_with_registry(vec![1], &extractor(), None, &registry);
+        let report = analyze_test_image(vec![1], &extractor(), None, &registry);
 
         assert_eq!(report.context.searchable_text, None);
         assert_eq!(report.runs[0].outcome, ParticipantOutcome::Failed);
@@ -536,10 +661,6 @@ mod tests {
                 code: "test_failure".into(),
                 message: "The test engine failed.".into(),
             })
-        );
-        assert_eq!(
-            report.failure_for("extractor:test"),
-            report.runs[0].failure.as_ref()
         );
     }
 
@@ -558,6 +679,7 @@ mod tests {
                 },
                 |_| Ok(ParticipantOutcome::Produced),
             )],
+            AnalysisPass::Enrich,
         )
         .runs;
 
@@ -574,7 +696,7 @@ mod tests {
     #[test]
     fn text_classification_uses_the_same_scheduler_contract() {
         let detectors = vec![detector(r"^#[0-9a-fA-F]{6}$", "color")];
-        let report = analyze_text("#112233", &detectors);
+        let report = analyze_test_text("#112233", &detectors);
         assert_eq!(report.context.detected_type.as_deref(), Some("color"));
         assert_eq!(report.runs[0].stable_ref, "analysis:content-detectors");
     }

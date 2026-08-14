@@ -15,7 +15,9 @@ Analysis uses a shared, non-destructive scheduler. Original clip representations
 
 Within each pass, ready participants run in priority order. A participant blocked on a same-pass representation waits until a producer makes that input available; each participant still executes at most once, without recursion. Participants whose inputs remain missing after the pass settles are skipped. A participant that reports success without producing its declared output fails closed. Original clip content is never replaced by the scheduler. Operations remain separate because they are user-directed mutations rather than analysis participants.
 
-The four passes share one versioned participant contract for target identity, requirements, outputs, outcomes, failures, and clip-application state. Extractor and Detector execution modules translate the internal scheduler report into their domain-specific result without redefining those fields. Inspector and Enricher implementations follow the same boundary, so adding a pass participant does not require GUI or CLI code to interpret raw Analyzer state.
+The four passes share one versioned participant contract for target identity, requirements, outputs, outcomes, failures, and clip-application state. Capture, background work, and rescans stop after classification. Interactive requests may continue through enrichment, so optional expensive participants do not run implicitly when content is captured. Extractor and Detector execution modules submit typed requests and translate the internal scheduler report into their domain-specific result without redefining those fields. Inspector and Enricher implementations follow the same boundary, so adding a pass participant does not require GUI or CLI code to interpret raw Analyzer state.
+
+Public whole-Analysis envelopes carry an explicit `formatVersion`, policy, final pass, result, and privacy-safe participant summaries. Existing participant-specific Extractor and Detector JSON remains stable while those envelopes are introduced.
 
 ## Extractors
 

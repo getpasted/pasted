@@ -196,13 +196,25 @@ for (const scope of ['trash', 'activity']) {
 }
 assert.match(commands, /db\.rescan_content_detection\(\)/, 'GUI history rescans must use the shared detector domain service');
 assert.match(cli, /db\.rescan_content_detection\(\)/, 'CLI history rescans must use the shared detector domain service');
-assert.match(analysis, /pub fn schedule/, 'Analysis participants must share the bounded scheduler');
+assert.match(analysis, /fn schedule/, 'Analysis participants must share the bounded scheduler');
+assert.doesNotMatch(analysis, /pub(?:\(crate\))? fn schedule/,
+  'Callers must enter Analysis through typed requests rather than invoke scheduler passes directly');
 assert.match(analysisContract, /pub enum RepresentationKind/,
   'Analysis representations must use the shared typed contract');
-for (const contract of ['AnalysisPass', 'AnalysisTargetKind', 'ParticipantContract', 'ParticipantOutcome', 'AnalysisFailure', 'ParticipantRun', 'ClipApplication']) {
+for (const contract of ['AnalysisPass', 'AnalysisPolicy', 'AnalysisTargetKind', 'ParticipantContract', 'ParticipantOutcome', 'AnalysisFailure', 'ParticipantRun', 'ClipApplication', 'AnalysisEnvelope']) {
   assert.match(analysisContract, new RegExp(`pub (?:enum|struct) ${contract}`),
     `${contract} must live in the shared Analysis contract`);
 }
+assert.match(analysisContract, /ANALYSIS_CONTRACT_VERSION:\s*u32\s*=\s*1/,
+  'Public Analysis envelopes must expose an explicit format version');
+assert.match(analysis, /pub\(crate\) fn analyze\(request: AnalysisRequest/,
+  'All participants must enter the scheduler through one typed Analysis request');
+assert.match(analysis, /participants\.retain\([\s\S]*?through\.includes/,
+  'Analysis policies must bound participant work before scheduling');
+assert.match(ocr, /AnalysisPolicy::Background/,
+  'Background OCR must explicitly use the non-enriching Analysis policy');
+assert.match(database, /AnalysisPolicy::Rescan/,
+  'History rescans must explicitly use the non-enriching Analysis policy');
 assert.doesNotMatch(analysis, /pub (?:enum|struct) (?:AnalysisPass|ParticipantContract|ParticipantOutcome|AnalysisFailure|ParticipantRun)/,
   'The scheduler must consume shared Analysis contracts instead of redefining them');
 for (const boundary of ['resolve_participant', 'AnalysisTargetKind', 'ClipApplication', 'enrichment_execution.rs']) {
