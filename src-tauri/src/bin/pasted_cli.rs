@@ -1050,6 +1050,11 @@ fn main() -> Result<()> {
                         eprintln!("Provide exactly one of --clip ID or --file PATH.");
                         std::process::exit(2);
                     }
+                    let apply = args.iter().any(|argument| argument == "--apply");
+                    if apply && clip_id.is_none() {
+                        eprintln!("--apply requires --clip ID.");
+                        std::process::exit(2);
+                    }
                     let (image_bytes, content_hash) = if let Some(clip_id) = clip_id {
                         let clip = db.get_clip_by_id(clip_id)?;
                         let bytes = clip
@@ -1082,12 +1087,8 @@ fn main() -> Result<()> {
                         detectors.as_deref(),
                         pasted_lib::ocr::perform_ocr_on_image_bytes,
                     );
-                    let apply = args.iter().any(|argument| argument == "--apply");
                     if apply {
-                        let clip_id = clip_id.unwrap_or_else(|| {
-                            eprintln!("--apply requires --clip ID.");
-                            std::process::exit(2);
-                        });
+                        let clip_id = clip_id.expect("validated apply target");
                         let content_hash = content_hash.as_deref().expect("clip input has a hash");
                         if !db.force_ocr_running(clip_id, content_hash)? {
                             eprintln!("Clip #{clip_id} is no longer available for extraction.");

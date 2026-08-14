@@ -50,8 +50,8 @@ impl LibraryItem {
         match self.kind.as_str() {
             "extractor" => LibraryItemCapabilities {
                 can_edit: true,
-                can_duplicate: false,
-                can_delete: false,
+                can_duplicate: true,
+                can_delete: true,
                 can_disable: true,
                 can_restore: self.is_builtin,
             },
@@ -84,5 +84,45 @@ impl LibraryItem {
                 can_restore: false,
             },
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn item(kind: &str, is_builtin: bool) -> LibraryItem {
+        LibraryItem {
+            stable_ref: format!("{kind}:test"),
+            kind: kind.into(),
+            name: "Test".into(),
+            description: String::new(),
+            group_label: None,
+            icon: String::new(),
+            enabled: Some(true),
+            is_builtin,
+            is_archived: false,
+            sort_order: Some(1),
+            revision: 1,
+            input_contract: String::new(),
+            output_contract: String::new(),
+            created_at: String::new(),
+            updated_at: String::new(),
+        }
+    }
+
+    #[test]
+    fn extractor_capabilities_match_the_shared_lifecycle_surface() {
+        let shipped = item("extractor", true).capabilities();
+        assert!(shipped.can_edit);
+        assert!(shipped.can_duplicate);
+        assert!(shipped.can_delete);
+        assert!(shipped.can_disable);
+        assert!(shipped.can_restore);
+
+        let custom = item("extractor", false).capabilities();
+        assert!(custom.can_duplicate);
+        assert!(custom.can_delete);
+        assert!(!custom.can_restore);
     }
 }
