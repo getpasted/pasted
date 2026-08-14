@@ -339,13 +339,23 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
     case 'restore_default_content_detectors':
       return mockDetectors as unknown as T;
     case 'rescan_content_detection_history':
-      return { scannedCount: mockClips.length, changedCount: 0, unchangedCount: mockClips.length } as unknown as T;
+      return { scannedCount: mockClips.length, changedCount: 0, unchangedCount: mockClips.length, failedCount: 0 } as unknown as T;
     case 'test_content_detector': {
       const input = args?.input as { patterns?: string[] };
       const sample = String(args?.sample ?? '');
-      return Boolean(input.patterns?.some((pattern) => {
+      const matched = Boolean(input.patterns?.some((pattern) => {
         try { return new RegExp(pattern.replace(/^\(\?i\)/, ''), pattern.startsWith('(?i)') ? 'i' : '').test(sample); } catch { return false; }
-      })) as unknown as T;
+      }));
+      return {
+        targetKind: 'detector',
+        targetRef: 'preview',
+        outcome: matched ? 'matched' : 'no_match',
+        matched,
+        detectedType: matched ? String((args?.input as { content_type?: string })?.content_type ?? 'text') : null,
+        matchedDetectorRef: matched ? 'preview' : null,
+        failure: null,
+        participants: [{ stableRef: 'analysis:content-detectors', pass: 'classify', outcome: 'produced' }],
+      } as unknown as T;
     }
     case 'get_hotkey_capability_status':
       return {

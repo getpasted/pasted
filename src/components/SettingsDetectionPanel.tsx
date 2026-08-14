@@ -47,6 +47,13 @@ interface DetectionRescanReport {
   scannedCount: number;
   changedCount: number;
   unchangedCount: number;
+  failedCount: number;
+}
+
+interface DetectionResult {
+  outcome: 'matched' | 'no_match' | 'failed';
+  matched: boolean;
+  failure: { code: string; message: string } | null;
 }
 
 function toInput(detector?: ContentDetector): DetectorInput {
@@ -242,8 +249,10 @@ export function SettingsDetectionPanel({
     try {
       const report = await invoke<DetectionRescanReport>('rescan_content_detection_history', { confirmed: true });
       showToast({
-        tone: 'success',
-        message: `Rescanned ${report.scannedCount} text clips; ${report.changedCount} reclassified.`,
+        tone: report.failedCount > 0 ? 'info' : 'success',
+        message: report.failedCount > 0
+          ? `Rescanned ${report.scannedCount} text clips; ${report.changedCount} reclassified and ${report.failedCount} failed.`
+          : `Rescanned ${report.scannedCount} text clips; ${report.changedCount} reclassified.`,
       });
     } catch (error) {
       showToast({ tone: 'error', message: String(error) });
@@ -254,7 +263,9 @@ export function SettingsDetectionPanel({
 
   const test = async () => {
     try {
-      setSampleMatched(await invoke<boolean>('test_content_detector', { input: currentInput(), sample }));
+      const result = await invoke<DetectionResult>('test_content_detector', { input: currentInput(), sample });
+      if (result.outcome === 'failed') throw new Error(result.failure?.message ?? 'Detection failed.');
+      setSampleMatched(result.matched);
     } catch (error) {
       setSampleMatched(false);
       showToast({ tone: 'error', message: String(error) });

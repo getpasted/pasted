@@ -9,6 +9,7 @@ const commands = read('src-tauri/src/commands.rs');
 const analysis = read('src-tauri/src/content_analysis.rs');
 const analysisContract = read('src-tauri/src/analysis_contract.rs');
 const analysisExecution = read('src-tauri/src/analysis_execution.rs');
+const detectionExecution = read('src-tauri/src/detection_execution.rs');
 const extraction = read('src-tauri/src/content_extraction.rs');
 const clipboardMonitor = read('src-tauri/src/clipboard_monitor.rs');
 const ocr = read('src-tauri/src/ocr.rs');
@@ -210,6 +211,8 @@ assert.match(analysis, /ExtractorEngineRegistry/, 'Analysis must dispatch Extrac
 assert.match(analysis, /pub struct AnalysisFailure/, 'Analysis must preserve typed participant failures');
 assert.match(analysisExecution, /pub struct ImageAnalysisResult/,
   'Image Analysis must expose one shared execution-result contract');
+assert.match(analysisExecution, /pub participants: Vec<ParticipantRun>/,
+  'Image Analysis results must expose privacy-safe participant summaries');
 assert.doesNotMatch(analysis, /pub fn analyze_image\(/,
   'Raw Image Analysis reports must not remain a public execution path');
 assert.match(cli, /serde_json::json!\(&analysis\)/,
@@ -242,7 +245,30 @@ assert.doesNotMatch(commands, /record_analysis_classification/,
   'GUI OCR must not persist derived classifications independently');
 assert.doesNotMatch(cli, /perform_ocr_on_image_bytes/, 'The CLI must not bypass the shared Extractor engine registry');
 assert.match(clipboardMonitor, /save_text_clip/, 'GUI capture must use the shared text-capture service');
-assert.match(database, /content_analysis::classify_text/, 'Detector rescans must use the shared analysis scheduler');
+assert.match(detectionExecution, /pub struct DetectionResult/,
+  'Detection must expose one shared execution-result contract');
+assert.match(detectionExecution, /pub struct DetectionApplicationResult/,
+  'Detector application must expose one shared mutation result');
+assert.match(detectionExecution, /pub participants: Vec<ParticipantRun>/,
+  'Detection results must expose privacy-safe participant summaries');
+assert.doesNotMatch(analysis, /pub fn analyze_text\(/,
+  'Raw text Analysis reports must not remain a public execution path');
+assert.match(database, /detection_execution::analyze_detectors/,
+  'Text capture and Detector rescans must use the shared Detection result');
+assert.match(database, /detection_execution::analyze_detector\(&text, &detector\)/,
+  'Detector application must execute transactionally through the shared result');
+assert.match(cli, /DetectionApplicationResult::preview/,
+  'CLI Detector previews must use the shared application result shape');
+assert.match(cli, /serde_json::json!\(&result\)/,
+  'CLI Detector JSON must serialize the shared Detection result');
+assert.match(commands, /detection_execution::analyze_detector/,
+  'GUI Detector tests must use the shared Detection result');
+assert.doesNotMatch(database, /content_analysis::classify_text/,
+  'Database classification paths must not infer results from raw Analyzer reports');
+assert.doesNotMatch(cli, /content_analysis::analyze_text/,
+  'CLI Detector runs must not infer results from raw Analyzer reports');
+assert.doesNotMatch(commands, /content_analysis::classify_text/,
+  'GUI Detector tests must not infer results from raw Analyzer reports');
 assert.match(cli, /db\.save_text_clip/, 'CLI capture must use the shared text-capture service');
 assert.doesNotMatch(ocr, /content_analysis::analyze_image/, 'Background OCR must not infer results directly from Analyzer reports');
 assert.doesNotMatch(cli, /content_analysis::analyze_image/, 'CLI OCR must not infer results directly from Analyzer reports');
