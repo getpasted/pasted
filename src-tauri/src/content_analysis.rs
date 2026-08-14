@@ -169,54 +169,48 @@ pub fn schedule(
 
     for pass in AnalysisPass::ORDERED {
         loop {
-            let mut progressed = false;
-            for slot in &mut pending {
-                let is_ready = slot.as_ref().is_some_and(|participant| {
+            let next_ready = pending.iter().position(|slot| {
+                slot.as_ref().is_some_and(|participant| {
                     participant.contract.pass == pass
                         && participant
                             .contract
                             .requires
                             .iter()
                             .all(|requirement| context.has(*requirement))
-                });
-                if !is_ready {
-                    continue;
-                }
-
-                let mut participant = slot.take().expect("ready participant exists");
-                let stable_ref = participant.contract.stable_ref.clone();
-                let (outcome, failure) = match (participant.execute)(&mut context) {
-                    Ok(ParticipantOutcome::Produced)
-                        if !participant
-                            .contract
-                            .provides
-                            .iter()
-                            .all(|provided| context.has(*provided)) =>
-                    {
-                        (
-                            ParticipantOutcome::Failed,
-                            Some(AnalysisFailure {
-                                code: "contract_violation".into(),
-                                message:
-                                    "Participant did not provide its declared representations."
-                                        .into(),
-                            }),
-                        )
-                    }
-                    Ok(outcome) => (outcome, None),
-                    Err(failure) => (ParticipantOutcome::Failed, Some(failure)),
-                };
-                runs.push(ParticipantRun {
-                    stable_ref,
-                    pass,
-                    outcome,
-                    failure,
-                });
-                progressed = true;
-            }
-            if !progressed {
+                })
+            });
+            let Some(index) = next_ready else {
                 break;
-            }
+            };
+
+            let mut participant = pending[index].take().expect("ready participant exists");
+            let stable_ref = participant.contract.stable_ref.clone();
+            let (outcome, failure) = match (participant.execute)(&mut context) {
+                Ok(ParticipantOutcome::Produced)
+                    if !participant
+                        .contract
+                        .provides
+                        .iter()
+                        .all(|provided| context.has(*provided)) =>
+                {
+                    (
+                        ParticipantOutcome::Failed,
+                        Some(AnalysisFailure {
+                            code: "contract_violation".into(),
+                            message: "Participant did not provide its declared representations."
+                                .into(),
+                        }),
+                    )
+                }
+                Ok(outcome) => (outcome, None),
+                Err(failure) => (ParticipantOutcome::Failed, Some(failure)),
+            };
+            runs.push(ParticipantRun {
+                stable_ref,
+                pass,
+                outcome,
+                failure,
+            });
         }
 
         for slot in &mut pending {
@@ -489,13 +483,25 @@ mod tests {
                         Ok(ParticipantOutcome::Produced)
                     },
                 ),
+                AnalysisParticipant::new(
+                    ParticipantContract {
+                        stable_ref: "independent".into(),
+                        name: "Independent".into(),
+                        pass: AnalysisPass::Extract,
+                        priority: 3,
+                        requires: vec![RepresentationKind::ImageBytes],
+                        provides: vec![],
+                    },
+                    |_| Ok(ParticipantOutcome::Produced),
+                ),
             ],
         );
 
         assert_eq!(report.context.detected_type.as_deref(), Some("derived"));
-        assert_eq!(report.runs.len(), 2);
+        assert_eq!(report.runs.len(), 3);
         assert_eq!(report.runs[0].stable_ref, "producer");
         assert_eq!(report.runs[1].stable_ref, "consumer");
+        assert_eq!(report.runs[2].stable_ref, "independent");
         assert!(report
             .runs
             .iter()
