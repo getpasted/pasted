@@ -33,7 +33,7 @@ fn completed_envelope(metadata: StructuralMetadata, policy: AnalysisPolicy) -> I
     )
 }
 
-fn inspection_input_hash(clip: &ClipItem) -> String {
+pub(crate) fn inspection_input_hash(clip: &ClipItem) -> String {
     let mut hasher = Sha256::new();
     hasher.update(b"pasted-structural-inspection-v1\0");
     hasher.update(clip.content_type.as_bytes());

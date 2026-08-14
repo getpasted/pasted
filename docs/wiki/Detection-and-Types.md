@@ -17,6 +17,8 @@ Within each pass, ready participants run in priority order. A participant blocke
 
 The four passes share one versioned participant contract for target identity, requirements, outputs, outcomes, failures, and clip-application state. Capture, background work, and rescans stop after classification. Interactive requests may continue through enrichment, so optional expensive participants do not run implicitly when content is captured. Inspector, Extractor, and Detector execution modules submit typed requests and translate the internal scheduler report into their domain-specific result without redefining those fields. Enricher implementations follow the same boundary, so adding a pass participant does not require GUI or CLI code to interpret raw Analyzer state.
 
+Text capture runs inspection and enabled detection in one Capture-policy request, then reuses that snapshot for the stored Type and content-hash-bound structural metadata. Focused history rescans and OCR application keep their narrower participant-specific mutation contracts.
+
 The built-in Structure Inspector records content-free text counts, image dimensions, file item counts and extensions, and the derived clip origin. Stable results are fingerprinted and persisted; filesystem availability and total file size remain live observations. Clip Preview and `pasted inspector run` consume the same versioned result.
 
 The built-in Smart Actions Enricher uses classification, structural metadata, and bounded content signals to recommend saved Transforms by stable reference. It runs only for interactive requests, never executes a recommendation, never mutates a clip, and never includes analyzed text in its result. Clip Preview and `pasted enricher run` consume the same versioned result.

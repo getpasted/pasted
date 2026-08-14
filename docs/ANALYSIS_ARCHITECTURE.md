@@ -11,6 +11,8 @@ Pasted runs derived-content work through one bounded Analyzer and exposes partic
 
 Capture, background, and rescan policies stop after classification. Interactive work may continue through enrichment, so optional expensive participants never run implicitly during capture. Callers choose a policy and available participants; they do not invoke scheduler passes directly.
 
+Text capture submits one Capture-policy Analyzer request and reuses its classification and structural metadata during insertion. Persistence falls back to focused structural inspection only when the precomputed snapshot is unavailable or cannot be safely activated. Focused rescans and OCR application remain participant-specific because their mutation contracts intentionally target only classification or extracted text.
+
 The shipped `inspector:structure-v1` participant produces `structural_metadata` during the inspect pass. Stable, content-free facts are persisted against the clip content hash and a structural input fingerprint. Filesystem availability and size are live observations kept outside durable Analysis results. Full Backup includes the durable result table automatically; portable History and Organization transfer omits recomputable derived results.
 
 The shipped `enricher:smart-actions-v1` participant consumes analyzable text, classification, and structural metadata only for interactive requests. It returns bounded signals and stable saved-Transform references; it never returns input content, executes a Transform, or writes a clip. Clip Preview and `pasted enricher run` use the same execution result.
