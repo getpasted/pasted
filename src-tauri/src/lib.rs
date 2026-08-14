@@ -10,6 +10,7 @@ pub mod content_detection;
 pub mod content_extraction;
 pub mod content_types;
 pub mod db;
+pub mod detection_execution;
 pub mod external_import;
 pub mod features;
 mod filter_engine;

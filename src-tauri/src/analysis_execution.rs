@@ -1,4 +1,6 @@
-use crate::content_analysis::{AnalysisFailure, AnalysisReport, ParticipantOutcome};
+use crate::content_analysis::{
+    AnalysisFailure, AnalysisReport, ParticipantOutcome, ParticipantRun,
+};
 use crate::content_extraction::{Extractor, ExtractorEngineRegistry};
 use crate::db::DbState;
 use serde::Serialize;
@@ -27,6 +29,7 @@ pub struct ImageAnalysisResult {
     pub detected_type: Option<String>,
     pub matched_detector_ref: Option<String>,
     pub failure: Option<AnalysisFailure>,
+    pub participants: Vec<ParticipantRun>,
 }
 
 impl ImageAnalysisResult {
@@ -77,6 +80,7 @@ impl ImageAnalysisResult {
                 .then_some(analysis.context.matched_detector_ref)
                 .flatten(),
             failure,
+            participants: analysis.runs,
         }
     }
 
@@ -234,6 +238,7 @@ mod tests {
             detected_type: detected_type.map(str::to_string),
             matched_detector_ref: matched_detector_ref.map(str::to_string),
             failure: None,
+            participants: Vec::new(),
         }
     }
 
@@ -261,6 +266,11 @@ mod tests {
                 "detectedType": null,
                 "matchedDetectorRef": null,
                 "failure": null,
+                "participants": [{
+                    "stableRef": "extractor:test",
+                    "pass": "extract",
+                    "outcome": "produced"
+                }],
             })
         );
     }
@@ -295,6 +305,15 @@ mod tests {
                     "code": "test_failure",
                     "message": "The test engine failed.",
                 },
+                "participants": [{
+                    "stableRef": "extractor:test",
+                    "pass": "extract",
+                    "outcome": "failed",
+                    "failure": {
+                        "code": "test_failure",
+                        "message": "The test engine failed."
+                    }
+                }],
             })
         );
     }

@@ -195,3 +195,100 @@ fn extractor_lifecycle_and_registry_capabilities_run_end_to_end() {
     assert_eq!(deleted["deleted"], true);
     clean_database(&database);
 }
+
+#[test]
+fn detector_preview_and_apply_share_the_safe_execution_contract() {
+    let database = temporary_path("detectors", "db");
+    let clip = success_json(&database, &["copy", "ticket-123", "--json"]);
+    let clip_id = clip["id"].as_i64().expect("clip ID");
+    let clip_id_text = clip_id.to_string();
+    let detector = success_json(
+        &database,
+        &[
+            "detector",
+            "create",
+            "--name",
+            "Ticket IDs",
+            "--type",
+            "code",
+            "--regex",
+            "^ticket-[0-9]+$",
+            "--json",
+        ],
+    );
+    let stable_ref = detector["stable_ref"]
+        .as_str()
+        .expect("Detector stable ref");
+    let fetched = success_json(&database, &["detector", "get", stable_ref, "--json"]);
+    assert_eq!(fetched["name"], "Ticket IDs");
+    let duplicate = success_json(
+        &database,
+        &[
+            "detector",
+            "duplicate",
+            stable_ref,
+            "--name",
+            "Ticket IDs Copy",
+            "--json",
+        ],
+    );
+    assert_eq!(duplicate["name"], "Ticket IDs Copy");
+
+    let registry = success_json(
+        &database,
+        &["registry", "list", "--kind", "detector", "--json"],
+    );
+    let registry_item = registry
+        .as_array()
+        .and_then(|items| items.iter().find(|item| item["stableRef"] == stable_ref))
+        .expect("Detector registry item");
+    assert_eq!(registry_item["analysisPass"], "classify");
+    assert_eq!(registry_item["capabilities"]["canDuplicate"], true);
+    assert_eq!(registry_item["capabilities"]["canDelete"], true);
+
+    let preview = success_json(
+        &database,
+        &[
+            "detector",
+            "run",
+            stable_ref,
+            "--text",
+            "ticket-123",
+            "--json",
+        ],
+    );
+    assert_eq!(preview["targetKind"], "detector");
+    assert_eq!(preview["targetRef"], stable_ref);
+    assert_eq!(preview["outcome"], "matched");
+    assert_eq!(preview["matched"], true);
+    assert_eq!(preview["detectedType"], "code");
+    assert_eq!(preview["appliedClipId"], Value::Null);
+    assert_eq!(preview["participants"][0]["pass"], "classify");
+    assert!(!preview.to_string().contains("ticket-123"));
+
+    let applied = success_json(
+        &database,
+        &[
+            "detector",
+            "run",
+            stable_ref,
+            "--clip",
+            &clip_id_text,
+            "--apply",
+            "--json",
+        ],
+    );
+    assert_eq!(applied["outcome"], "matched");
+    assert_eq!(applied["appliedClipId"], clip_id);
+
+    let clips = success_json(&database, &["list", "--limit", "5", "--json"]);
+    let updated = clips
+        .as_array()
+        .and_then(|items| items.iter().find(|item| item["id"] == clip_id))
+        .expect("updated clip");
+    assert_eq!(updated["content_type"], "code");
+
+    let deleted = success_json(&database, &["detector", "delete", stable_ref, "--json"]);
+    assert_eq!(deleted["deleted"], true);
+    clean_database(&database);
+}
