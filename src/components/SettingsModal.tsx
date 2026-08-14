@@ -8,7 +8,6 @@ import { SettingsHotkeysPanel } from './SettingsHotkeysPanel';
 import { SettingsSyncPanel } from './SettingsSyncPanel';
 import { ToolPageHeader } from './ToolPageHeader';
 import { IntelligenceConnectionsPanel } from './IntelligenceConnectionsPanel';
-import { SettingsDebugPanel } from './SettingsDebugPanel';
 import { SettingsFeaturesPanel } from './SettingsFeaturesPanel';
 import { SettingsAboutPanel } from './SettingsAboutPanel';
 import { SettingsResetPanel } from './SettingsResetPanel';
@@ -30,6 +29,8 @@ interface SettingsModalProps {
   onRefreshClips?: () => void;
   onRefreshTrashedClips?: () => void;
   onClearHistory?: (permanent: boolean) => void;
+  onRestoreAllTrashedClips?: () => Promise<number>;
+  trashedClipCount?: number;
   onResetColumnWidths?: () => void;
   requestedTab?: SettingsTab;
   navigationKey?: number;
@@ -50,6 +51,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onRefreshClips,
   onRefreshTrashedClips,
   onClearHistory,
+  onRestoreAllTrashedClips,
+  trashedClipCount = 0,
   onResetColumnWidths,
   requestedTab,
   navigationKey,
@@ -68,31 +71,25 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   }, [activeTab, settings.enableTransformations]);
 
   useEffect(() => {
-    if (!settings.enableDiagnostics && activeTab === 'diagnostics') {
-      setActiveTab('features');
-    }
-  }, [activeTab, settings.enableDiagnostics]);
-
-  useEffect(() => {
     if (!settings.enableNotifications && activeTab === 'notifications') {
       setActiveTab('features');
     }
   }, [activeTab, settings.enableNotifications]);
 
   useEffect(() => {
-    if (!settings.enableContentDetection && activeTab === 'detection') setActiveTab('features');
-  }, [activeTab, settings.enableContentDetection]);
+    if (!settings.enableContentDetection && !settings.enableOcr && activeTab === 'analysis') setActiveTab('features');
+  }, [activeTab, settings.enableContentDetection, settings.enableOcr]);
 
   return (
     <div className="tools-page settings-page flex-1 settings-modal-bg h-screen overflow-hidden font-sans select-none flex flex-col">
       <ToolPageHeader
         icon={<Settings className="w-4 h-4" />}
         title="Settings"
-        actions={<SettingsTabs activeTab={activeTab} onChange={setActiveTab} showConnections={settings.enableTransformations} showDiagnostics={settings.enableDiagnostics} showNotifications={settings.enableNotifications} showDetection={settings.enableContentDetection} />}
+        actions={<SettingsTabs activeTab={activeTab} onChange={setActiveTab} showConnections={settings.enableTransformations} showNotifications={settings.enableNotifications} showDetection={settings.enableContentDetection || settings.enableOcr} />}
       />
 
       <div className="tools-scroll-region flex-1 overflow-y-auto p-6">
-        <div className={`w-full mx-auto ${activeTab === 'detection' ? 'max-w-5xl' : 'max-w-xl'} ${activeTab === 'storage' || activeTab === 'general' ? 'space-y-4' : 'settings-primary-well theme-panel rounded-2xl border p-6'}`}>
+        <div className={`w-full mx-auto max-w-xl ${activeTab === 'storage' || activeTab === 'general' ? 'space-y-4' : 'settings-primary-well theme-panel rounded-2xl border p-6'}`}>
 
         {/* TAB 1: GENERAL */}
         {activeTab === 'general' && (
@@ -102,6 +99,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 settings={settings}
                 onUpdateSettings={onUpdateSettings}
                 onClearHistory={onClearHistory}
+                onRestoreAllTrashedClips={onRestoreAllTrashedClips}
+                trashedClipCount={trashedClipCount}
                 onResetColumnWidths={onResetColumnWidths}
               />
             </div>
@@ -113,7 +112,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           <SettingsFeaturesPanel settings={settings} onUpdateSettings={onUpdateSettings} />
         )}
 
-        {settings.enableContentDetection && activeTab === 'detection' && <SettingsDetectionPanel />}
+        {(settings.enableContentDetection || settings.enableOcr) && activeTab === 'analysis' && (
+          <SettingsDetectionPanel contentDetectionEnabled={settings.enableContentDetection} ocrEnabled={settings.enableOcr} />
+        )}
 
         {settings.enableNotifications && activeTab === 'notifications' && (
           <SettingsNotificationsPanel settings={settings} onUpdateSettings={onUpdateSettings} />
@@ -154,6 +155,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 onRefreshClips={onRefreshClips}
                 onRefreshTrashedClips={onRefreshTrashedClips}
                 analyticsEnabled={settings.enableAnalytics}
+                activityEnabled={settings.enableActivityLog}
                 onOpenAnalytics={onOpenAnalytics}
               />
             </div>
@@ -165,9 +167,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             />
           </>
         )}
-
-        {/* TAB 6: DIAGNOSTICS */}
-        {settings.enableDiagnostics && activeTab === 'diagnostics' && <SettingsDebugPanel ocrEnabled={settings.enableOcr} />}
 
         {activeTab === 'about' && <SettingsAboutPanel />}
         </div>

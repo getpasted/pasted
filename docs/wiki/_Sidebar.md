@@ -9,7 +9,7 @@
 - [Files, OCR, and Previews](Files-OCR-and-Previews)
 - [Backup and Recovery](Backup-Trash-Revisions-and-Recovery)
 - [Settings and Features](Settings-and-Features)
-- [Detection and Types](Detection-and-Types)
+- [Content Analysis](Detection-and-Types)
 - [Notifications and Capture Feedback](Notifications-and-Capture-Feedback)
 - [CLI Reference](CLI-Reference)
 - [Privacy and Safety](Privacy-Security-and-Safety)

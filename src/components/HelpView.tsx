@@ -31,46 +31,90 @@ const CLI_COMMAND_GROUPS = [
     title: 'History',
     commands: [
       { usage: 'pasted copy "Hello"', description: 'Save a text clip. Omit the argument to read stdin.' },
-      { usage: 'cat server.log | pasted copy', description: 'Pipe bounded text into Pasted history.' },
-      { usage: 'pasted list [limit]', description: 'List recent active clips; defaults to 10.' },
-      { usage: 'pasted search [query] [--type TYPE] [--source APP] [--json]', description: 'Search active clips or reproduce Type and Source views.' },
+      { usage: 'cat server.log | pasted copy', description: 'Pipe bounded text into clipboard history.' },
+      { usage: 'pasted list [--limit N] [--offset N] [--bin ID | --pinned | --trash] [--json]', description: 'List a bounded page from History, Trash, a Bin, or pinned clips.' },
+      { usage: 'pasted search [query] [--type TYPE] [--source APP] [--trash] [--limit N] [--offset N] [--json]', description: 'Search a bounded page of History or Trash with Type and Source filters.' },
+      { usage: 'pasted import sources [--json]', description: 'List supported external-history sources and their detected locations.' },
       { usage: 'pasted import <alfred|pastebot|pasta|paste|copyclip|maccy|flycut> [path] [--json]', description: 'Merge text history from another clipboard manager, skipping duplicates.' },
-      { usage: 'pasted retention [--count N] [--days N] [--trash-count N] [--trash-days N] [--log-count N] [--log-days N] [--json]', description: 'Read or update History, Trash, and Activity count and age policies.' },
-      { usage: 'pasted clear', description: 'Permanently remove unpinned, unprotected clips.' },
+      { usage: 'pasted retention [--count N] [--days N] [--trash-count N] [--trash-days N] [--log-count N] [--log-days N] [--revision-count N] [--json]', description: 'Read or update History, Trash, Activity, and revision retention.' },
+      { usage: 'pasted settings list|get|set [arguments] [--json]', description: 'Inspect or change persisted application settings.' },
+      { usage: 'pasted recording status|pause|resume [--json]', description: 'Control clipboard recording in the running app.' },
+      { usage: 'pasted queue status|start|stop|add|remove|order|paste|paste-all [arguments] [--json]', description: 'Manage and run the live Copy Queue.' },
+      { usage: 'pasted clear --yes [--json]', description: 'Permanently remove unpinned, unprotected clips.' },
     ],
   },
   {
     title: 'Clip actions',
     commands: [
       { usage: 'pasted clip get <id> [--json]', description: 'Inspect one clip and its metadata.' },
+      { usage: 'pasted clip note <id> [--text TEXT | --clear | --stdin] [--json]', description: 'Set or clear a clip note.' },
+      { usage: 'pasted clip revisions <id> [--limit N] [--offset N] [--json]', description: 'List retained clip revisions.' },
+      { usage: 'pasted clip restore-revision <id> <revision-id> [--json]', description: 'Restore an earlier clip revision and its recorded organization.' },
+      { usage: 'pasted clip provenance <id> [--json]', description: 'Inspect the Transform that produced the current clip content.' },
+      { usage: 'pasted clip copy|paste <id> [--json]', description: 'Copy or paste a saved clip through the running app.' },
       { usage: 'pasted clip pin|unpin <id>... [--json]', description: 'Set pin state explicitly for one or more clips.' },
+      { usage: 'pasted clip order-pinned <id>... [--json]', description: 'Replace the complete pinned-clip order.' },
       { usage: 'pasted clip protect|unprotect <id>... [--json]', description: 'Set protection explicitly for one or more clips.' },
       { usage: 'pasted clip trash|restore <id>... [--json]', description: 'Move clips into or out of Trash.' },
+      { usage: 'pasted clip restore-all [--json]', description: 'Return every trashed clip to History.' },
+      { usage: 'pasted clip purge <id>... --yes [--json]', description: 'Permanently delete unprotected clips.' },
+      { usage: 'pasted clip empty-trash --yes [--json]', description: 'Permanently delete every unprotected clip in Trash.' },
+      { usage: 'pasted clip export [path] [--format json|csv]', description: 'Export clips currently in History for external analysis.' },
+      { usage: 'pasted clip import <path> [--format json|csv] [--json]', description: 'Preflight and merge clip records while skipping duplicates.' },
       { usage: 'pasted clip assign <bin-id|none> <id>... [--json]', description: 'Assign clips to one manual Bin, or remove their manual Bin.' },
     ],
   },
   {
-    title: 'Bins & Transforms',
+    title: 'Bins and Transforms',
     commands: [
       { usage: 'pasted bin list [--json]', description: 'List Bins, counts, and saved ordering.' },
+      { usage: 'pasted bin get <id> [--json]', description: 'Inspect one Bin and its attached Transform.' },
+      { usage: 'pasted bin create --name NAME [options] [--json]', description: 'Create a manual or Smart Bin.' },
+      { usage: 'pasted bin update <id> [options] [--json]', description: 'Update a Bin definition.' },
+      { usage: 'pasted bin duplicate <id> [--name NAME] [--json]', description: 'Duplicate a Bin and its attached Transform.' },
+      { usage: 'pasted bin delete <id> [--disposition keep|trash|move] [--json]', description: 'Delete a Bin with an explicit clip disposition.' },
       { usage: 'pasted bin clips <bin-id> [--json]', description: 'List a Bin’s clips in persistent order.' },
       { usage: 'pasted bin order <bin-id> <clip-id>... [--json]', description: 'Replace a Bin’s complete saved clip order.' },
+      { usage: 'pasted bin transform <id> <transform-ref|none> [--json]', description: 'Set or clear a Bin’s default Transform.' },
+      { usage: 'pasted bin shortcut <id> <shortcut|none> [--json]', description: 'Set or clear a Bin shortcut.' },
       { usage: 'pasted transform list [--json]', description: 'List saved and manually built Transforms.' },
       { usage: 'pasted transform get <ref> [--json]', description: 'Inspect one canonical Transform definition.' },
-      { usage: 'pasted transform create --name NAME (--plan-json JSON | --steps-json JSON) [--json]', description: 'Create a planned or manually built Transform.' },
+      { usage: 'pasted transform plan [--intent TEXT | --stdin] [--sample TEXT] [--json]', description: 'Draft a Transform plan from natural-language intent.' },
+      { usage: 'pasted transform test --plan-json JSON [--text TEXT | --stdin] [--json]', description: 'Execute an unsaved Transform plan without changing a clip.' },
+      { usage: 'pasted transform create --name NAME (--intent TEXT | --plan-json JSON | --steps-json JSON) [--json]', description: 'Create an intent-planned or manually built Transform.' },
       { usage: 'pasted transform update <ref> [options] [--json]', description: 'Update a Transform without changing its stable reference or authoring form.' },
       { usage: 'pasted transform duplicate <ref> [--name NAME] [--json]', description: 'Duplicate a Transform with a new stable reference.' },
       { usage: 'pasted transform delete <ref> [--json]', description: 'Delete a Transform; existing clip revisions remain unchanged.' },
-      { usage: 'pasted transform run <ref> [--text TEXT | --clip ID | --stdin] [--replace]', description: 'Preview a Transform, or replace a clip while preserving a revision.' },
+      { usage: 'pasted transform run <ref> [--text TEXT | --clip ID | --stdin] [--apply] [--json]', description: 'Run a Transform in preview mode, or apply it to a clip while preserving a revision.' },
       { usage: 'pasted operation list [--json]', description: 'Inspect built-in and custom Operations.' },
+      { usage: 'pasted operation get <ref> [--json]', description: 'Inspect one Operation definition.' },
+      { usage: 'pasted operation create --name NAME --type TYPE [options] [--json]', description: 'Create an Operation.' },
+      { usage: 'pasted operation update <ref> [options] [--json]', description: 'Update a custom Operation.' },
+      { usage: 'pasted operation duplicate <ref> [--name NAME] [--json]', description: 'Duplicate an Operation with a new stable reference.' },
+      { usage: 'pasted operation delete <ref> [--json]', description: 'Delete a custom Operation.' },
       { usage: 'pasted operation run <ref> [--text TEXT | --clip ID | --stdin] [--json]', description: 'Run one Operation through the shared executor.' },
+      { usage: 'pasted connection list [--json]', description: 'List connected-intelligence providers in priority order.' },
+      { usage: 'pasted connection get <id> [--json]', description: 'Inspect one Connection definition.' },
+      { usage: 'pasted connection detect [--json]', description: 'Discover supported local intelligence providers.' },
+      { usage: 'pasted connection create --name NAME --provider KIND [options] [--json]', description: 'Create a Connection using credential references only.' },
+      { usage: 'pasted connection update <id> [options] [--json]', description: 'Update or enable a Connection.' },
+      { usage: 'pasted connection delete <id> [--json]', description: 'Delete a Connection definition.' },
+      { usage: 'pasted connection order <id>... [--json]', description: 'Replace Connection priority order.' },
     ],
   },
   {
-    title: 'Detection',
+    title: 'Content Analysis',
     commands: [
-      { usage: 'pasted registry list [--kind detector|operation|transform] [--all] [--json]', description: 'Inspect shared lifecycle and input/output contracts for processing assets.' },
-      { usage: 'pasted registry enable|disable --kind detector|operation --ref REF [--json]', description: 'Change the shared enabled state using a stable processing-asset reference.' },
+      { usage: 'pasted registry list [--kind extractor|detector|operation|transform] [--all] [--json]', description: 'Inspect shared lifecycle and input/output contracts for processing assets.' },
+      { usage: 'pasted registry enable|disable --kind extractor|detector|operation --ref REF [--json]', description: 'Change the shared enabled state using a stable processing-asset reference.' },
+      { usage: 'pasted extractor list [--json]', description: 'List Extractors, contracts, and system availability.' },
+      { usage: 'pasted extractor get <ref> [--json]', description: 'Inspect one Extractor definition.' },
+      { usage: 'pasted extractor create [options] [--json]', description: 'Create an Extractor.' },
+      { usage: 'pasted extractor update <ref> [options] [--json]', description: 'Update an Extractor definition.' },
+      { usage: 'pasted extractor duplicate <ref> [--name NAME] [--json]', description: 'Duplicate an Extractor with a new stable reference.' },
+      { usage: 'pasted extractor delete <ref> [--json]', description: 'Delete an Extractor; shipped defaults remain recoverable.' },
+      { usage: 'pasted extractor run <ref> (--clip ID | --file PATH) [--apply] [--json]', description: 'Run an Extractor in preview mode, or apply its output to a clip.' },
+      { usage: 'pasted extractor restore-defaults', description: 'Restore shipped Extractor settings.' },
       { usage: 'pasted type list [--all] [--json]', description: 'List registered content Types and their display metadata.' },
       { usage: 'pasted type create --id ID --name NAME [--icon ICON] [--group GROUP] [--json]', description: 'Create a custom Type with a stable ID.' },
       { usage: 'pasted type update <id> [options] [--json]', description: 'Customize a Type’s name, icon, or group without changing its ID.' },
@@ -81,25 +125,46 @@ const CLI_COMMAND_GROUPS = [
       { usage: 'pasted type group-update <id> [options] [--json]', description: 'Rename or reorder a Type Group.' },
       { usage: 'pasted type group-archive|group-restore <id>', description: 'Archive an empty custom Group or restore it.' },
       { usage: 'pasted type group-delete <id>', description: 'Permanently delete an empty custom Group.' },
-      { usage: 'pasted detector list [--json]', description: 'List editable detectors in effective priority order.' },
-      { usage: 'pasted detector create --name NAME --type TYPE --regex REGEX [--json]', description: 'Create a custom detector.' },
-      { usage: 'pasted detector update <id> [options] [--json]', description: 'Edit an existing shipped or custom detector.' },
-      { usage: 'pasted detector delete <id>', description: 'Delete a detector; shipped defaults remain recoverable.' },
-      { usage: 'pasted detector restore-defaults', description: 'Restore shipped detectors without removing custom entries.' },
-      { usage: 'pasted detector rescan --yes [--json]', description: 'Explicitly reclassify existing text clips with the current enabled detector order.' },
+      { usage: 'pasted detector list [--json]', description: 'List Detectors in effective priority order.' },
+      { usage: 'pasted detector get <ref> [--json]', description: 'Inspect one Detector definition.' },
+      { usage: 'pasted detector create --name NAME --type TYPE --regex REGEX [--json]', description: 'Create a Detector.' },
+      { usage: 'pasted detector update <ref> [options] [--json]', description: 'Update a Detector definition.' },
+      { usage: 'pasted detector duplicate <ref> [--name NAME] [--json]', description: 'Duplicate a Detector with a new stable reference.' },
+      { usage: 'pasted detector delete <ref> [--json]', description: 'Delete a Detector; shipped defaults remain recoverable.' },
+      { usage: 'pasted detector run <ref> [--text TEXT | --clip ID | --stdin] [--apply] [--json]', description: 'Run a Detector in preview mode, or apply its matching Type to a clip.' },
+      { usage: 'pasted detector restore-defaults', description: 'Restore shipped Detectors without removing custom entries.' },
+      { usage: 'pasted detector rescan --yes [--json]', description: 'Explicitly reclassify existing text clips with the current enabled Detector order.' },
     ],
   },
   {
     title: 'Maintenance',
     commands: [
       { usage: 'pasted diagnostics [--json]', description: 'Show installation, signing, paths, and runtime details.' },
+      { usage: 'pasted insights summary [--json]', description: 'Summarize clip volume, Types, sources, and daily activity.' },
       { usage: 'pasted licenses [--json]', description: 'Show the bundled open-source component inventory and legal notices.' },
-      { usage: 'pasted library location [--json]', description: 'Show the active SQLite library location.' },
-      { usage: 'pasted library move <folder> [--json]', description: 'Move the library safely after quitting the Pasted app.' },
-      { usage: 'pasted library default [--json]', description: 'Return the SQLite library to Pasted’s native default location.' },
+      { usage: 'pasted database location [--json]', description: 'Show the active SQLite database location.' },
+      { usage: 'pasted database move <folder> [--json]', description: 'Move the database safely after quitting.' },
+      { usage: 'pasted database default [--json]', description: 'Return the SQLite database to its native default location.' },
+      { usage: 'pasted transfer export <path.json> [--json]', description: 'Export history and organization as portable JSON.' },
+      { usage: 'pasted transfer inspect <path.json> [--json]', description: 'Validate and summarize portable JSON without changing saved data.' },
+      { usage: 'pasted transfer import <path.json> [--json]', description: 'Preflight and merge history and organization by stable identity and content hash.' },
+      { usage: 'pasted backup create <path.pastedbackup> [--json]', description: 'Create a validated snapshot of every durable state store.' },
+      { usage: 'pasted backup inspect <path.pastedbackup> [--json]', description: 'Validate a Full Backup and inspect its manifest without restoring it.' },
+      { usage: 'pasted backup restore <path.pastedbackup> --yes [--json]', description: 'Replace the current state after creating a complete recovery backup.' },
       { usage: 'pasted ocr status [--json]', description: 'Inspect OCR backfill progress.' },
-      { usage: 'pasted ocr scan', description: 'Process eligible images that have not been OCR’d.' },
-      { usage: 'pasted reset --yes [--json]', description: 'Reset all Pasted data and preferences. This is destructive.' },
+      { usage: 'pasted ocr scan [--clip ID] [--json]', description: 'Process eligible images or rescan one image clip.' },
+      { usage: 'pasted ocr retry [--json]', description: 'Reset failed OCR attempts and process them again.' },
+      { usage: 'pasted ocr cancel [--json]', description: 'Cancel OCR work in the running app.' },
+      { usage: 'pasted reset --yes [--json]', description: 'Reset all data and preferences. This is destructive.' },
+    ],
+  },
+  {
+    title: 'Activity',
+    commands: [
+      { usage: 'pasted activity list [--limit N|--all] [--offset N] [--category VALUE] [--severity VALUE] [--event NAME] [--json]', description: 'List or filter a bounded page of retained Activity entries.' },
+      { usage: 'pasted activity export [path] [--format json|csv]', description: 'Export all retained Activity entries for reporting.' },
+      { usage: 'pasted activity import <path> [--format json|csv] [--json]', description: 'Merge inert Activity records without replaying their actions.' },
+      { usage: 'pasted activity clear --yes [--json]', description: 'Permanently remove every retained Activity entry.' },
     ],
   },
 ] as const;
@@ -115,10 +180,10 @@ interface HelpTopicDefinition {
 
 const HELP_TOPICS: HelpTopicDefinition[] = [
   { id: 'getting-started', label: 'Getting Started', icon: BookOpen, iconClassName: 'theme-status-info-text' },
-  { id: 'hotkeys', label: 'Shortcuts & HUD', icon: Keyboard, iconClassName: 'theme-status-success-text' },
-  { id: 'autopause', label: 'Privacy & Capture', icon: Shield, iconClassName: 'theme-status-warning-text' },
-  { id: 'trash', label: 'Deletion & Recovery', icon: Trash2, iconClassName: 'theme-status-danger-text' },
-  { id: 'detection', label: 'Detection & OCR', icon: Radar, iconClassName: 'theme-status-info-text' },
+  { id: 'hotkeys', label: 'Shortcuts and HUD', icon: Keyboard, iconClassName: 'theme-status-success-text' },
+  { id: 'autopause', label: 'Privacy and Capture', icon: Shield, iconClassName: 'theme-status-warning-text' },
+  { id: 'trash', label: 'Deletion and Recovery', icon: Trash2, iconClassName: 'theme-status-danger-text' },
+  { id: 'detection', label: 'Content Analysis', icon: Radar, iconClassName: 'theme-status-info-text' },
   { id: 'pipelines', label: 'Transformations', icon: Workflow, iconClassName: 'theme-status-info-text' },
   { id: 'cli', label: 'CLI Commands', icon: Terminal, iconClassName: 'theme-status-info-text' },
 ];
@@ -156,7 +221,7 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
     <div className="tools-page help-page flex-1 font-sans h-screen flex flex-col overflow-hidden select-none">
       <ToolPageHeader
         icon={<BookOpen className="w-4 h-4" />}
-        title="Documentation"
+        title="Help"
       />
 
       {/* Subpage Navigation & Content Container */}
@@ -191,10 +256,10 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
               <div>
                 <h3 className="theme-title flex items-center space-x-2 text-lg font-bold">
                   <BookOpen className="h-5 w-5 theme-status-info-text" />
-                  <span>Getting Started with Pasted</span>
+                  <span>Getting Started</span>
                 </h3>
                 <p className="theme-text-muted mt-1 text-xs">
-                  Pasted keeps a local history of the text, images, screenshots, PDFs, and files you copy while it is running.
+                  Local history includes copied text, images, screenshots, PDFs, and files captured while clipboard monitoring is active.
                 </p>
               </div>
 
@@ -206,7 +271,7 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
                     <li>Select a clip from the middle column.</li>
                     <li>Preview, copy, organize, or transform it in the right column.</li>
                   </ol>
-                  <p className="theme-text-muted text-xs">Drag the column dividers to resize the layout. Pasted remembers your window and column sizes.</p>
+                  <p className="theme-text-muted text-xs">Drag the column dividers to resize the layout. Window and column sizes are remembered.</p>
                 </section>
 
                 <section className="theme-panel space-y-3 rounded-xl border p-4">
@@ -234,10 +299,10 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
               <div>
                 <h3 className="theme-title text-lg font-bold flex items-center space-x-2">
                   <Terminal className="w-5 h-5 theme-status-info-text" />
-                  <span>Pasted Terminal CLI Tool (<code>pasted</code>)</span>
+                  <span>Terminal CLI (<code>pasted</code>)</span>
                 </h3>
                 <p className="theme-text-muted text-xs mt-1">
-                  Pasted includes a standalone native command-line tool allowing terminal power users to pipe data into Pasted history, list clips, search from shell, or clear history.
+                  The standalone native command-line tool can pipe data into clipboard history, list clips, search from a shell, or clear history.
                 </p>
               </div>
 
@@ -258,7 +323,7 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
                 </div>
 
                 <div className="theme-text-main space-y-2 text-xs">
-                  <p className="font-semibold theme-title">Manual $PATH setup:</p>
+                  <p className="font-semibold theme-title">Manual $PATH setup</p>
                   <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
                     <div className="theme-code-surface min-w-0 rounded-lg border p-2.5">
                       <div className="mb-2 flex items-center justify-between gap-2">
@@ -267,7 +332,7 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
                           type="button"
                           onClick={() => handleCopyCode(CLI_SYMLINK_COMMAND)}
                           className="theme-icon-button shrink-0 rounded border p-1"
-                          title="Copy Command"
+                          title="Copy command"
                         >
                           {copiedCmd === CLI_SYMLINK_COMMAND ? <Check className="h-3.5 w-3.5 theme-status-success-text" /> : <Copy className="h-3.5 w-3.5" />}
                         </button>
@@ -282,7 +347,7 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
                           type="button"
                           onClick={() => handleCopyCode(CLI_ALIAS_COMMAND)}
                           className="theme-icon-button shrink-0 rounded border p-1"
-                          title="Copy Alias"
+                          title="Copy alias"
                         >
                           {copiedCmd === CLI_ALIAS_COMMAND ? <Check className="h-3.5 w-3.5 theme-status-success-text" /> : <Copy className="h-3.5 w-3.5" />}
                         </button>
@@ -319,7 +384,7 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
                               type="button"
                               onClick={() => handleCopyCode(command.usage)}
                               className="theme-icon-button shrink-0 rounded border p-1.5"
-                              title="Copy Command"
+                              title="Copy command"
                             >
                               {copiedCmd === command.usage ? <Check className="h-3.5 w-3.5 theme-status-success-text" /> : <Copy className="h-3.5 w-3.5" />}
                             </button>
@@ -338,7 +403,7 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
               <div>
                 <h3 className="theme-title text-lg font-bold flex items-center space-x-2">
                   <Keyboard className="w-5 h-5 theme-status-success-text" />
-                  <span>Shortcuts & HUD</span>
+                  <span>Shortcuts and HUD</span>
                 </h3>
                 <p className="theme-text-muted text-xs mt-1">
                   Use the default shortcuts below, or change and disable them under Settings → Hotkeys.
@@ -362,7 +427,7 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
                     <span>Open HUD</span>
                   </div>
                   <p className="theme-text-muted text-xs">
-                    Press <kbd className="theme-kbd px-1.5 py-0.5 rounded border font-mono text-[10px]">⌥ Shift V</kbd> to open the compact clipboard window near your pointer. Use arrow keys to select and Enter to paste.
+                    Press <kbd className="theme-kbd px-1.5 py-0.5 rounded border font-mono text-[10px]">⌥ Shift V</kbd> to open the compact clipboard window near the pointer. Use arrow keys to select and Enter to paste.
                   </p>
                 </div>
 
@@ -394,10 +459,10 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
               <div>
                 <h3 className="theme-title text-lg font-bold flex items-center space-x-2">
                   <Shield className="w-5 h-5 theme-status-warning-text" />
-                  <span>Privacy & Capture</span>
+                  <span>Privacy and Capture</span>
                 </h3>
                 <p className="theme-text-muted text-xs mt-1">
-                  Control which applications Pasted records and how it confirms a capture without sending clipboard contents away from your device.
+                  Control which applications are recorded and how captures are confirmed without sending clipboard contents off-device.
                 </p>
               </div>
 
@@ -405,7 +470,7 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
                 <section className="theme-panel space-y-3 rounded-xl border p-4">
                   <h4 className="theme-status-warning-text text-xs font-bold">Auto-pause and blacklist</h4>
                   <p className="theme-text-main text-xs leading-relaxed">
-                    Pasted starts with common password managers such as <strong>1Password</strong>, <strong>Keychain Access</strong>, <strong>Passwords</strong>, and <strong>Bitwarden</strong> on its blacklist. When an excluded app is focused, capture pauses and the Pause control turns amber.
+                    Common password managers such as <strong>1Password</strong>, <strong>Keychain Access</strong>, <strong>Passwords</strong>, and <strong>Bitwarden</strong> are excluded by default. When an excluded app is focused, capture pauses and the Pause control turns amber.
                   </p>
                   <p className="theme-text-muted text-xs leading-relaxed">
                     Capture resumes when focus returns to an allowed app. Add applications or choose whether they block text, images, and shortcuts under Settings → Blacklist.
@@ -421,7 +486,7 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
                     Settings → Notifications controls quiet capture confirmations, skipped-capture messages, optional clip previews, dismissal timing, and screen position. Disabling Notifications does not disable clipboard capture.
                   </p>
                   <p className="theme-text-muted text-xs leading-relaxed">
-                    Feedback is rendered locally by Pasted and does not send copied text, images, file names, or paths through system notification services. Optional previews can still be visible on screen, so disable them before screen sharing when appropriate.
+                    Feedback is rendered locally and does not send copied text, images, file names, or paths through system notification services. Optional previews can still be visible on screen, so disable them before screen sharing when appropriate.
                   </p>
                 </section>
               </div>
@@ -433,7 +498,7 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
               <div>
                 <h3 className="theme-title text-lg font-bold flex items-center space-x-2">
                   <Trash2 className="w-5 h-5 theme-status-danger-text" />
-                  <span>Deletion & Recovery</span>
+                  <span>Deletion and Recovery</span>
                 </h3>
                 <p className="theme-text-muted text-xs mt-1">
                   Understand which actions are recoverable before removing or changing important clips.
@@ -445,7 +510,8 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
                   <h4 className="theme-status-danger-text text-xs font-bold">Trash and permanent deletion</h4>
                   <ul className="theme-text-main list-inside list-disc space-y-2 text-xs">
                     <li><strong>Normal deletion:</strong> moves an eligible clip to Trash while Trash is enabled.</li>
-                    <li><strong>Restore:</strong> use the <RotateCcwIcon /> action in Trash to return a clip to active History.</li>
+                    <li><strong>Restore:</strong> use the <RotateCcwIcon /> action in Trash to return a clip to History.</li>
+                    <li><strong>Restore trashed clips:</strong> use Settings → General → Trash → Restore Trashed Clips to return every trashed clip to History.</li>
                     <li><strong>Permanent deletion:</strong> hold Option/Alt while deleting, purge from Trash, or disable Trash.</li>
                     <li><strong>Protection:</strong> protected clips resist deletion and automatic retention until unprotected.</li>
                   </ul>
@@ -454,13 +520,13 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
                 <section className="theme-panel space-y-3 rounded-xl border p-4">
                   <div className="theme-status-info-text flex items-center gap-2 text-xs font-bold">
                     <History className="h-4 w-4" />
-                    <span>Revisions and backups</span>
+                    <span>Revisions and Full Backups</span>
                   </div>
                   <p className="theme-text-main text-xs leading-relaxed">
                     Revision History saves restorable snapshots before content-changing edits and Transform replacements. Disabling it preserves old revisions but makes new changes irreversible.
                   </p>
                   <p className="theme-text-muted text-xs leading-relaxed">
-                    Use Settings → Storage to export a backup before major changes or Factory Reset. Factory Reset permanently removes the local library and preferences after confirmation.
+                    Use Settings → Storage to create a Full Backup before major changes or Factory Reset. Full Restore validates the backup and preserves the replaced state as a recovery backup before activation.
                   </p>
                 </section>
               </div>
@@ -472,10 +538,13 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
               <div>
                 <h3 className="theme-title flex items-center space-x-2 text-lg font-bold">
                   <Radar className="h-5 w-5 theme-status-info-text" />
-                  <span>Detection & OCR</span>
+                  <span>Content Analysis</span>
                 </h3>
                 <p className="theme-text-muted mt-1 text-xs">
-                  Local detectors classify text into useful Types, while OCR makes captured images searchable on supported macOS systems.
+                  Extractors create searchable representations from clip content, while Detectors classify text into useful Types.
+                </p>
+                <p className="theme-text-muted mt-2 max-w-3xl text-xs leading-relaxed">
+                  Analysis runs in four bounded passes: inspect, extract, classify, and enrich. Each participant runs at most once and only when its declared inputs are available.
                 </p>
               </div>
 
@@ -483,10 +552,10 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
                 <section className="theme-panel space-y-3 rounded-xl border p-4">
                   <h4 className="theme-status-info-text text-xs font-bold">Content Detection</h4>
                   <p className="theme-text-main text-xs leading-relaxed">
-                    Enabled detectors run locally in priority order; the lowest number runs first. A detector uses one or more regular expressions and may add a validator to reduce false positives. Use Settings → Detection to test samples, manage Types, and restore shipped defaults.
+                    Enabled detectors run locally in priority order; the lowest number runs first. A detector uses one or more regular expressions and may add a validator to reduce false positives. Use Settings → Analysis to test samples, manage Types, and restore shipped defaults.
                   </p>
                   <p className="theme-text-muted text-xs leading-relaxed">
-                    Editing a detector affects new text clips. <strong>Rescan History</strong> explicitly reapplies the current detector order to existing text and can change Types, Smart Bin membership, and sensitive-content masking. Images and files are left unchanged.
+                    Editing a detector affects new text clips. <strong>Rescan Clips</strong> explicitly reapplies the current detector order to existing text and can change Types, Smart Bin membership, and sensitive-content masking. Images and files are left unchanged.
                   </p>
                 </section>
 
@@ -499,7 +568,7 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
                     OCR uses Apple Vision on macOS to extract searchable text from captured images and screenshots. It does not replace the original image.
                   </p>
                   <p className="theme-text-muted text-xs leading-relaxed">
-                    Disabling OCR cancels background work and discards late results while preserving completed text. Re-enabling it resumes eligible backfill. Check progress under Settings → Diagnostics or with <code>pasted ocr status --json</code>.
+                    Disabling OCR cancels background work and discards late results while preserving completed text. Re-enabling it resumes eligible backfill when an available image text Extractor is enabled. Check progress under Settings → Analysis or with <code>pasted ocr status --json</code>.
                   </p>
                 </section>
               </div>
@@ -514,7 +583,7 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
                   <span>Transformations</span>
                 </h3>
                 <p className="theme-text-muted text-xs mt-1">
-                  Describe what you want once, save it as a Transform, then reuse it wherever text enters or leaves Pasted.
+                  Describe the result once, save it as a Transform, then reuse it wherever text enters or leaves the clipboard workflow.
                 </p>
               </div>
 

@@ -1,7 +1,7 @@
-import { Building2, Coffee, Download, Droplet, Drum, Laptop, Minus, Moon, Pizza, Plus, RotateCcw, Sliders, Snowflake, Trash2, Zap } from 'lucide-react';
+import { useState } from 'react';
+import { Building2, Coffee, Droplet, Drum, Laptop, Minus, Moon, Pizza, Plus, RotateCcw, Sliders, Snowflake, Trash2, Zap } from 'lucide-react';
 import type { AppSettings } from '../types';
 import { useAltKeyPressed } from '../hooks/useAltKeyPressed';
-import { safeInvoke as invoke } from '../utils/tauri';
 import { MenuSelect } from './MenuSelect';
 import { SettingsPanelHeader } from './SettingsPanelHeader';
 import { SettingsSubsectionHeader } from './SettingsSubsectionHeader';
@@ -13,6 +13,8 @@ interface SettingsGeneralPanelProps {
   settings: AppSettings;
   onUpdateSettings: (newSettings: Partial<AppSettings>) => void;
   onClearHistory?: (permanent: boolean) => void;
+  onRestoreAllTrashedClips?: () => Promise<number>;
+  trashedClipCount?: number;
   onResetColumnWidths?: () => void;
 }
 
@@ -109,20 +111,23 @@ export function SettingsGeneralPanel({
   settings,
   onUpdateSettings,
   onClearHistory,
+  onRestoreAllTrashedClips,
+  trashedClipCount = 0,
   onResetColumnWidths,
 }: SettingsGeneralPanelProps) {
   const { showToast } = useToast();
+  const [isRestoringTrash, setIsRestoringTrash] = useState(false);
   const isAltPressed = useAltKeyPressed();
   const isMac = typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.userAgent || navigator.platform);
   const dockIconOptions = isMac
     ? [
         { value: 'auto_hide', label: 'Auto hide Dock Icon' },
-        { value: 'both', label: 'Always show Dock & Menubar' },
+        { value: 'both', label: 'Always show Dock and menu bar' },
         { value: 'menubar_only', label: 'Menubar Icon only' },
       ]
     : [
         { value: 'auto_hide', label: 'Auto hide Taskbar Icon' },
-        { value: 'both', label: 'Always show Tray & Taskbar' },
+        { value: 'both', label: 'Always show tray and taskbar' },
         { value: 'menubar_only', label: 'System Tray Icon only' },
       ];
   const menubarIconOptions = [
@@ -171,29 +176,20 @@ export function SettingsGeneralPanel({
         { value: String(settings.activityLogAgeDays), label: `${settings.activityLogAgeDays.toLocaleString()} days (Custom)` },
         ...retentionAgeOptions.slice(1),
       ];
-  const retentionSummary = settings.keepClipCount === 0 && settings.keepClipAgeDays === 0
-    ? 'Automatic history cleanup is off. Pinned and protected clips remain exempt if you enable a limit later.'
-    : 'Eligible clips that exceed your active retention limits automatically move into Trash instead of dropping off forever.';
-
-  const exportClips = async (format: 'json' | 'csv') => {
+  const restoreAllTrashedClips = async () => {
+    if (!onRestoreAllTrashedClips || isRestoringTrash) return;
+    setIsRestoringTrash(true);
     try {
-      const contents = format === 'json'
-        ? await invoke<string>('export_clips_json')
-        : await invoke<string>('export_clips_csv');
-      const url = URL.createObjectURL(new Blob([contents], {
-        type: format === 'json' ? 'application/json' : 'text/csv',
-      }));
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = format === 'json'
-        ? `pasted_backup_${Date.now()}.json`
-        : `pasted_export_${Date.now()}.csv`;
-      link.click();
-      URL.revokeObjectURL(url);
-      showToast({ tone: 'success', message: `${format.toUpperCase()} export downloaded.` });
+      const restoredCount = await onRestoreAllTrashedClips();
+      showToast({
+        tone: 'success',
+        message: restoredCount === 1 ? 'Restored 1 clip from Trash.' : `Restored ${restoredCount} clips from Trash.`,
+      });
     } catch (error) {
-      console.error(`Failed to export clips as ${format}:`, error);
-      showToast({ tone: 'error', message: `${format.toUpperCase()} export failed.` });
+      console.error('Failed to restore Trash:', error);
+      showToast({ tone: 'error', message: 'Could not restore clips from Trash.' });
+    } finally {
+      setIsRestoringTrash(false);
     }
   };
 
@@ -208,7 +204,7 @@ export function SettingsGeneralPanel({
             <div className="space-y-4">
               <SettingsSubsectionHeader
                 title="Appearance"
-                description="Choose the color scheme Pasted uses throughout the app."
+                description="Choose a color scheme and display scale."
               />
 
               {/* Appearance Mode Switcher */}
@@ -252,9 +248,9 @@ export function SettingsGeneralPanel({
 
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0 flex-1">
-                  <span className="font-semibold theme-text-main block">Zoom:</span>
+                  <span className="font-semibold theme-text-main block">Zoom</span>
                   <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
-                    Scales navigation, controls, and clip content throughout Pasted.
+                    Adjust the size of navigation, controls, and clip content.
                   </p>
                 </div>
                 <div className="theme-surface flex shrink-0 items-center overflow-hidden rounded-lg border" role="group" aria-label="Application zoom">
@@ -292,7 +288,7 @@ export function SettingsGeneralPanel({
 
               <div className="flex items-start justify-between">
                 <div className="pr-4 flex-1 min-w-0">
-                  <span className="font-semibold theme-text-main block">Clip Density:</span>
+                  <span className="font-semibold theme-text-main block">Clip Density</span>
                   <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
                     Adjusts clip spacing, text depth, and preview size throughout the history list.
                   </p>
@@ -308,9 +304,9 @@ export function SettingsGeneralPanel({
 
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0 flex-1">
-                  <span className="font-semibold theme-text-main block">Startup View:</span>
+                  <span className="font-semibold theme-text-main block">Startup View</span>
                   <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
-                    Choose whether Pasted reopens where you left off or always starts in Clip History.
+                    Reopen the last view or always start in Clip History.
                   </p>
                 </div>
                 <MenuSelect
@@ -324,7 +320,7 @@ export function SettingsGeneralPanel({
 
               <div className="flex items-start justify-between">
                 <div className="pr-4 flex-1 min-w-0">
-                  <span className="font-semibold theme-text-main block">Column Widths:</span>
+                  <span className="font-semibold theme-text-main block">Column Widths</span>
                   <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
                     Resets the left sidebar and middle history list panel widths to their defaults.
                   </p>
@@ -348,19 +344,19 @@ export function SettingsGeneralPanel({
 
             <div className="theme-divider border-t" />
 
-            {/* System & OS Integration Subsection */}
+            {/* System integration subsection */}
             <div className="space-y-4">
               <SettingsSubsectionHeader
-                title="System & OS Integration"
-                description="Control startup, sounds, and how Pasted appears in the operating system."
+                title="System Integration"
+                description="Control startup, sounds, and operating-system integration."
               />
 
               {/* Dock / Menubar / System Tray Setting */}
               <div className="flex items-center justify-between pt-1">
                 <span className="font-medium">
                   {isMac
-                    ? 'Dock & Menubar Icon:'
-                    : 'System Tray & Taskbar:'}
+                    ? 'Dock and menu bar icon'
+                    : 'System tray and taskbar'}
                 </span>
                 <MenuSelect
                   value={settings.dockMenubarIcon}
@@ -374,7 +370,7 @@ export function SettingsGeneralPanel({
               {isMac && (
                 <div className="flex items-start justify-between gap-4 pt-1">
                   <div className="min-w-0 flex-1 pr-4">
-                    <span className="font-semibold theme-text-main block">Menu Bar Icon:</span>
+                    <span className="font-semibold theme-text-main block">Menu Bar Icon</span>
                     <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
                       Choose the classic clipboard or the resident Copycat.
                     </p>
@@ -391,7 +387,7 @@ export function SettingsGeneralPanel({
 
               <div className="flex items-start justify-between pt-1">
                 <div className="pr-4 flex-1 min-w-0">
-                  <span className="font-semibold theme-text-main block">Interaction Sounds:</span>
+                  <span className="font-semibold theme-text-main block">Interaction Sounds</span>
                   <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
                     Play subtle audio cues for copy, paste, and navigation actions.
                   </p>
@@ -409,9 +405,9 @@ export function SettingsGeneralPanel({
 
               <div className="flex items-start justify-between">
                 <div className="pr-4 flex-1 min-w-0">
-                  <span className="font-semibold theme-text-main block">Startup Behavior:</span>
+                  <span className="font-semibold theme-text-main block">Startup Behavior</span>
                   <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
-                    Automatically launch Pasted when logging into macOS.
+                    Launch automatically after logging into macOS.
                   </p>
                 </div>
                 <label className="flex items-center space-x-2 cursor-pointer shrink-0 pt-0.5">
@@ -440,7 +436,7 @@ export function SettingsGeneralPanel({
                   <div className="min-w-0">
                     <span className="font-semibold theme-text-main block">Keep clips for</span>
                     <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
-                      Clips older than this move to Trash automatically.
+                      Eligible clips older than this move to Trash automatically.
                     </p>
                   </div>
                   <MenuSelect
@@ -455,7 +451,7 @@ export function SettingsGeneralPanel({
                   <div className="min-w-0">
                     <span className="font-semibold theme-text-main block">Maximum clips</span>
                     <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
-                      The oldest eligible clips are cleaned up first.
+                      The oldest eligible clips move to Trash first.
                     </p>
                   </div>
                   <MenuSelect
@@ -467,13 +463,13 @@ export function SettingsGeneralPanel({
                   />
                 </div>
                 <p className="theme-divider theme-text-subtle border-t px-3 py-2 text-[10px] leading-normal">
-                  Both limits apply. Pinned and protected clips are always kept.
+                  Both limits apply. Pinned and protected clips never move to Trash automatically.
                 </p>
               </div>
 
               <div className="flex items-start justify-between pt-1">
                 <div className="pr-4 flex-1 min-w-0">
-                  <span className="font-semibold theme-text-main block">Default Paste Behavior:</span>
+                  <span className="font-semibold theme-text-main block">Default Paste Behavior</span>
                   <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
                     Sets the text formatting output type.
                   </p>
@@ -489,9 +485,9 @@ export function SettingsGeneralPanel({
 
               <div className="flex items-start justify-between">
                 <div className="pr-4 flex-1 min-w-0">
-                  <span className="font-semibold theme-text-main block">Maximum Clip Size (MB):</span>
+                  <span className="font-semibold theme-text-main block">Maximum Clip Size (MB)</span>
                   <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
-                    Ignore copied clippings larger than the specified limit.
+                    Ignore copied clips larger than the specified limit.
                   </p>
                 </div>
                 <div className="flex items-center space-x-1.5 font-mono shrink-0">
@@ -508,7 +504,7 @@ export function SettingsGeneralPanel({
 
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 min-w-0">
-                  <span className="font-semibold theme-text-main block">File Previews:</span>
+                  <span className="font-semibold theme-text-main block">File Previews</span>
                   <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
                     {filePreviewDescriptions[settings.filePreviewMode]}
                   </p>
@@ -525,7 +521,7 @@ export function SettingsGeneralPanel({
               {settings.filePreviewMode !== 'off' && (
                 <div className="flex items-start justify-between">
                   <div className="pr-4 flex-1 min-w-0">
-                    <span className="font-semibold theme-text-main block">Maximum Preview File Size (MB):</span>
+                    <span className="font-semibold theme-text-main block">Maximum Preview File Size (MB)</span>
                     <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
                       Files above this size stay as references.
                     </p>
@@ -545,7 +541,7 @@ export function SettingsGeneralPanel({
 
               {settings.enableRevisions && <div className="flex items-start justify-between">
                 <div className="pr-4 flex-1 min-w-0">
-                  <span className="font-semibold theme-text-main block">Revisions per Clip:</span>
+                  <span className="font-semibold theme-text-main block">Revisions per Clip</span>
                   <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
                     Keeps complete text snapshots for edits, OCR, Transforms, and restores.
                     {settings.revisionHistoryLimit === 0 && ' Unlimited history can grow quickly when Transforms run automatically.'}
@@ -560,35 +556,6 @@ export function SettingsGeneralPanel({
                 />
               </div>}
 
-              <div className="theme-divider border-t pt-4">
-                <div className="flex items-start justify-between">
-                  <div className="pr-4 flex-1 min-w-0">
-                    <span className="font-semibold theme-text-main block">Backup & Export:</span>
-                    <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
-                      Export clipboard history to JSON or CSV format.
-                    </p>
-                  </div>
-                  <div className="flex items-center space-x-2 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => void exportClips('json')}
-                      className="theme-status-info flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-colors cursor-pointer"
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                      <span>Export JSON</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => void exportClips('csv')}
-                      className="theme-status-info flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-colors cursor-pointer"
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                      <span>Export CSV</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
             </div>
 
             {settings.enableTrash && <>
@@ -637,25 +604,40 @@ export function SettingsGeneralPanel({
                 </p>
               </div>
 
-              <div className="theme-status-danger p-3 rounded-xl border text-xs">
-                <span className="font-bold">Auto-Trash Safety Net: </span>
-                {retentionSummary}
-              </div>
-
-              <div>
-                <div className="flex items-start justify-between">
-                  <div className="pr-4 flex-1 min-w-0">
-                    <span className="font-semibold theme-danger-text block">
-                      {isAltPressed ? 'Delete All Clips:' : 'Trash All Clips:'}
+              <div className="theme-surface overflow-hidden rounded-xl border">
+                <div className="flex items-start justify-between gap-4 px-3 py-2.5">
+                  <div className="min-w-0">
+                    <span className="font-semibold theme-text-main block">Restore Trashed Clips</span>
+                    <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
+                      Return every trashed clip to History.
+                    </p>
+                  </div>
+                  <div className="shrink-0">
+                    <ActionButton
+                      onClick={() => void restoreAllTrashedClips()}
+                      disabled={!onRestoreAllTrashedClips || trashedClipCount === 0 || isRestoringTrash}
+                      className="disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <RotateCcw className="h-3.5 w-3.5" />
+                      <span>{isRestoringTrash ? 'Restoring…' : 'Restore Trashed Clips'}</span>
+                    </ActionButton>
+                  </div>
+                </div>
+                <div className="theme-divider flex items-start justify-between gap-4 border-t px-3 py-2.5">
+                  <div className="min-w-0">
+                    <span className={`font-semibold block ${isAltPressed ? 'theme-danger-text' : 'theme-text-main'}`}>
+                      {isAltPressed ? 'Delete All Clips' : 'Trash All Clips'}
                     </span>
                     <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
-                      Moves all unpinned and unprotected clips (including clips assigned to Bins) into Trash. Hold Option ⌥ to permanently delete.
+                      {isAltPressed
+                        ? 'Permanently delete all unpinned and unprotected clips.'
+                        : 'Move all unpinned and unprotected clips to Trash. Hold Option ⌥ to permanently delete instead.'}
                     </p>
                   </div>
                   <button
                     type="button"
                     onClick={(e) => onClearHistory?.(e.altKey)}
-                    className="theme-status-danger flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors shrink-0 cursor-pointer"
+                    className="theme-status-danger flex shrink-0 items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors cursor-pointer"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                     <span>{isAltPressed ? 'Delete All Clips' : 'Trash All Clips'}</span>
@@ -668,11 +650,11 @@ export function SettingsGeneralPanel({
             {settings.enableActivityLog && <>
               <div className="theme-divider border-t" />
 
-              {/* Activity Log Preferences */}
+              {/* Activity preferences */}
               <div className="space-y-4">
               <SettingsSubsectionHeader
                 title="Activity History"
-                description="Control how much application activity Pasted retains."
+                description="Choose how much activity history to keep."
               />
 
               <div className="theme-surface overflow-hidden rounded-xl border">
@@ -710,6 +692,7 @@ export function SettingsGeneralPanel({
                   Both limits apply. Unlimited and Forever disable automatic removal.
                 </p>
               </div>
+
               </div>
             </>}
 

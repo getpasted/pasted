@@ -1,13 +1,17 @@
 use parking_lot::Mutex;
-use rusqlite::{params, Connection, OptionalExtension, Result, ToSql};
+use rusqlite::{params, Connection, OpenFlags, OptionalExtension, Result, ToSql};
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use crate::external_import::ExternalTextClip;
 
 const BACKUP_SCHEMA_VERSION: u32 = 10;
+const FULL_BACKUP_FORMAT_VERSION: i64 = 1;
+const PENDING_CLIENT_STATE_SETTING: &str = "pendingFullBackupClientState";
+const MAX_BACKUP_INTERFACE_STATE_BYTES: usize = 1024 * 1024;
 
 fn ensure_resource_size(value: &str, maximum: usize, label: &str) -> Result<()> {
     if value.len() <= maximum {
@@ -22,6 +26,16 @@ fn ensure_resource_size(value: &str, maximum: usize, label: &str) -> Result<()> 
             ),
         ),
     )))
+}
+
+fn validate_backup_json(value: Option<&str>, label: &str) -> Result<()> {
+    let Some(value) = value else {
+        return Ok(());
+    };
+    ensure_resource_size(value, MAX_BACKUP_INTERFACE_STATE_BYTES, label)?;
+    serde_json::from_str::<serde_json::Value>(value)
+        .map(|_| ())
+        .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))
 }
 
 fn escape_like_literal(value: &str) -> String {
@@ -219,10 +233,29 @@ pub struct ClipMutationSummary {
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
+pub struct ClipImportReport {
+    pub scanned_count: usize,
+    pub imported_count: usize,
+    pub duplicate_count: usize,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
 pub struct ContentDetectionRescanReport {
     pub scanned_count: usize,
     pub changed_count: usize,
     pub unchanged_count: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct AnalysisClassification {
+    pub clip_id: i64,
+    pub content_type: String,
+    pub detector_ref: String,
+    pub source_representation: String,
+    pub input_hash: String,
+    pub updated_at: String,
 }
 
 impl ClipMutationSummary {
@@ -260,6 +293,114 @@ pub struct ActivityLog {
     pub event_type: String,
     pub description: String,
     pub created_at: String,
+    pub observed_at: String,
+    pub severity_text: String,
+    pub category: String,
+    pub outcome: String,
+    pub attributes: serde_json::Value,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ActivityArchiveEntry {
+    pub timestamp: String,
+    pub observed_timestamp: String,
+    pub event_name: String,
+    pub severity_text: String,
+    pub body: String,
+    pub attributes: serde_json::Map<String, serde_json::Value>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ActivityArchive {
+    pub schema_version: u32,
+    pub exported_at: String,
+    pub resource: serde_json::Map<String, serde_json::Value>,
+    pub entries: Vec<ActivityArchiveEntry>,
+}
+
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ActivityImportReport {
+    pub scanned_count: usize,
+    pub imported_count: usize,
+    pub duplicate_count: usize,
+    pub retained_count: usize,
+}
+
+fn activity_classification(event_name: &str) -> (&'static str, &'static str, &'static str) {
+    let severity = if event_name.contains("failed") || event_name.contains("error") {
+        "error"
+    } else if event_name.contains("ignored")
+        || event_name.contains("skipped")
+        || event_name.contains("cancelled")
+        || event_name.contains("auto_paused")
+    {
+        "warn"
+    } else {
+        "info"
+    };
+    let category = if event_name.starts_with("clip_")
+        || event_name.starts_with("clips_")
+        || event_name.starts_with("trash_")
+        || event_name.starts_with("note_")
+    {
+        "clip"
+    } else if event_name.starts_with("recording_") || event_name.starts_with("clipboard_") {
+        "capture"
+    } else if event_name.starts_with("bin_")
+        || event_name.starts_with("type_")
+        || event_name.starts_with("detector_")
+        || event_name.starts_with("content_")
+    {
+        "organization"
+    } else if event_name.starts_with("transform")
+        || event_name.starts_with("operation_")
+        || event_name.starts_with("intelligence_")
+    {
+        "transformation"
+    } else if event_name.starts_with("setting_") || event_name == "settings_changed" {
+        "settings"
+    } else if event_name.starts_with("queue_") || event_name.starts_with("hud_") {
+        "workflow"
+    } else if event_name.starts_with("app_")
+        || event_name.starts_with("library_")
+        || event_name.starts_with("backup_")
+        || event_name.starts_with("data_export_")
+        || event_name.starts_with("external_")
+    {
+        "system"
+    } else {
+        "general"
+    };
+    let outcome = if event_name.contains("failed") || event_name.contains("error") {
+        "failure"
+    } else if event_name.contains("succeeded") || event_name.ends_with("_completed") {
+        "success"
+    } else {
+        "unknown"
+    };
+    (severity, category, outcome)
+}
+
+fn canonical_activity_timestamp(value: &str) -> Result<String> {
+    if let Ok(timestamp) = chrono::DateTime::parse_from_rfc3339(value) {
+        return Ok(timestamp
+            .with_timezone(&chrono::Utc)
+            .to_rfc3339_opts(chrono::SecondsFormat::Secs, true));
+    }
+    chrono::NaiveDateTime::parse_from_str(value, "%Y-%m-%d %H:%M:%S")
+        .map(|timestamp| {
+            timestamp
+                .and_utc()
+                .to_rfc3339_opts(chrono::SecondsFormat::Secs, true)
+        })
+        .map_err(|_| {
+            rusqlite::Error::InvalidParameterName(
+                "Activity contains an invalid stored timestamp".to_string(),
+            )
+        })
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
@@ -349,6 +490,48 @@ pub struct AnalyticsSummary {
     pub daily_activity: Vec<DailyStat>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClipCollectionSummary {
+    pub active_count: i64,
+    pub trash_count: i64,
+    pub pinned_count: i64,
+    pub protected_count: i64,
+    pub noted_count: i64,
+    pub type_counts: Vec<TypeStat>,
+    pub source_counts: Vec<SourceStat>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FullBackupReport {
+    pub path: String,
+    pub created_at: String,
+    pub size_bytes: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FullBackupInspection {
+    pub format_version: i64,
+    pub created_at: String,
+    pub size_bytes: u64,
+}
+
+struct FullBackupManifest {
+    format_version: i64,
+    created_at: String,
+    client_state_json: Option<String>,
+    window_state_json: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FullRestoreReport {
+    pub recovery_path: String,
+    pub backup_created_at: String,
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BackupPayload {
     pub version: u32,
@@ -370,6 +553,18 @@ pub struct BackupPayload {
     pub content_types: Vec<crate::content_types::ContentTypeDefinition>,
     #[serde(default)]
     pub content_type_groups: Vec<crate::content_types::ContentTypeGroupDefinition>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct LibraryArchiveInspection {
+    pub schema_version: u32,
+    pub clip_count: usize,
+    pub bin_count: usize,
+    pub operation_count: usize,
+    pub transform_count: usize,
+    pub detector_count: usize,
+    pub content_type_count: usize,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -656,7 +851,7 @@ fn insert_default_bins(conn: &Connection) -> Result<()> {
         [],
     )?;
     conn.execute(
-        "INSERT INTO bins (name, icon, color, smart_rule) VALUES ('Links & Web', 'Link', '#3b82f6', '{\"type\":\"content_type\",\"value\":\"link\"}')",
+        "INSERT INTO bins (name, icon, color, smart_rule) VALUES ('Links and web', 'Link', '#3b82f6', '{\"type\":\"content_type\",\"value\":\"link\"}')",
         [],
     )?;
     conn.execute(
@@ -1155,6 +1350,279 @@ impl DbState {
         self.path.lock().clone()
     }
 
+    pub fn create_full_backup(
+        &self,
+        destination_path: &Path,
+        client_state_json: Option<&str>,
+        window_state_json: Option<&str>,
+    ) -> Result<FullBackupReport> {
+        if destination_path == self.database_path() {
+            return Err(rusqlite::Error::InvalidPath(destination_path.to_path_buf()));
+        }
+        validate_backup_json(client_state_json, "Backup UI state")?;
+        validate_backup_json(window_state_json, "Backup window state")?;
+        let parent = destination_path
+            .parent()
+            .ok_or_else(|| rusqlite::Error::InvalidPath(destination_path.to_path_buf()))?;
+        fs::create_dir_all(parent)
+            .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?;
+        let temporary = parent.join(format!(
+            ".pasted-full-backup-{}-{}.tmp",
+            std::process::id(),
+            chrono::Utc::now().timestamp_millis()
+        ));
+        if temporary.exists() {
+            fs::remove_file(&temporary)
+                .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?;
+        }
+
+        let created_at = chrono::Utc::now().to_rfc3339();
+        let source = self.conn.lock();
+        let _ = source.pragma_update(None, "wal_checkpoint", "PASSIVE");
+        let mut destination = Connection::open(&temporary)?;
+        configure_connection(&destination)?;
+        {
+            let backup = rusqlite::backup::Backup::new(&source, &mut destination)?;
+            backup.run_to_completion(128, std::time::Duration::from_millis(5), None)?;
+        }
+        let effective_client_state = client_state_json.map(str::to_owned).or_else(|| {
+            destination
+                .query_row(
+                    "SELECT value FROM settings WHERE key = 'backedUpClientState'",
+                    [],
+                    |row| row.get::<_, String>(0),
+                )
+                .optional()
+                .ok()
+                .flatten()
+        });
+        destination.execute_batch(
+            "DROP TABLE IF EXISTS pasted_backup_manifest;
+             CREATE TABLE pasted_backup_manifest (
+                format_version INTEGER NOT NULL,
+                created_at TEXT NOT NULL,
+                app_version TEXT NOT NULL,
+                platform TEXT NOT NULL,
+                client_state_json TEXT,
+                window_state_json TEXT,
+                external_state_notice TEXT NOT NULL
+             );",
+        )?;
+        destination.execute(
+            "INSERT INTO pasted_backup_manifest
+                (format_version, created_at, app_version, platform, client_state_json,
+                 window_state_json, external_state_notice)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            params![
+                FULL_BACKUP_FORMAT_VERSION,
+                created_at,
+                env!("CARGO_PKG_VERSION"),
+                std::env::consts::OS,
+                effective_client_state,
+                window_state_json,
+                "Copied file clips contain paths to original files rather than copies of those files. Paths are preserved. API keys and passwords remain in their credential stores."
+            ],
+        )?;
+        let _ = destination.pragma_update(None, "wal_checkpoint", "TRUNCATE");
+        let integrity: String =
+            destination.query_row("PRAGMA integrity_check", [], |row| row.get(0))?;
+        if integrity != "ok" {
+            drop(destination);
+            let _ = fs::remove_file(&temporary);
+            return Err(rusqlite::Error::InvalidQuery);
+        }
+        drop(destination);
+        drop(source);
+
+        if destination_path.exists() {
+            fs::remove_file(destination_path)
+                .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?;
+        }
+        fs::rename(&temporary, destination_path)
+            .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(destination_path, fs::Permissions::from_mode(0o600))
+                .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?;
+        }
+        let size_bytes = fs::metadata(destination_path)
+            .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?
+            .len();
+        Ok(FullBackupReport {
+            path: destination_path.to_string_lossy().into_owned(),
+            created_at,
+            size_bytes,
+        })
+    }
+
+    pub fn restore_full_backup(
+        &self,
+        backup_path: &Path,
+        current_client_state_json: Option<&str>,
+        current_window_state_json: Option<&str>,
+    ) -> Result<(FullRestoreReport, Option<String>, Option<String>)> {
+        let (source, manifest) = self.open_validated_full_backup(backup_path)?;
+
+        let current_path = self.database_path();
+        let parent = current_path
+            .parent()
+            .ok_or_else(|| rusqlite::Error::InvalidPath(current_path.clone()))?;
+        let stamp = chrono::Utc::now().format("%Y%m%d-%H%M%S-%3f");
+        let recovery_path = parent.join(format!("Pasted_Pre_Restore_{stamp}.pastedbackup"));
+        self.create_full_backup(
+            &recovery_path,
+            current_client_state_json,
+            current_window_state_json,
+        )?;
+
+        let temporary = parent.join(format!(
+            ".pasted-full-restore-{}-{}.tmp",
+            std::process::id(),
+            chrono::Utc::now().timestamp_millis()
+        ));
+        let mut restored = Connection::open(&temporary)?;
+        configure_connection(&restored)?;
+        {
+            let backup = rusqlite::backup::Backup::new(&source, &mut restored)?;
+            backup.run_to_completion(128, std::time::Duration::from_millis(5), None)?;
+        }
+        drop(restored);
+        drop(source);
+
+        // Opening through DbState applies any forward migrations before the live
+        // library is replaced. A failed migration leaves the current library intact.
+        let migrated = DbState::new(temporary.clone())?;
+        if let Some(client_state) = manifest.client_state_json.as_deref() {
+            migrated.save_setting(PENDING_CLIENT_STATE_SETTING, client_state)?;
+        }
+        let migrated_integrity: String =
+            migrated
+                .conn
+                .lock()
+                .query_row("PRAGMA integrity_check", [], |row| row.get(0))?;
+        if migrated_integrity != "ok" {
+            drop(migrated);
+            let _ = fs::remove_file(&temporary);
+            return Err(rusqlite::Error::InvalidQuery);
+        }
+        let _ = migrated
+            .conn
+            .lock()
+            .pragma_update(None, "wal_checkpoint", "TRUNCATE");
+        drop(migrated);
+
+        let mut current = self.conn.lock();
+        let _ = current.pragma_update(None, "wal_checkpoint", "TRUNCATE");
+        let placeholder = Connection::open_in_memory()?;
+        let previous = std::mem::replace(&mut *current, placeholder);
+        drop(previous);
+        crate::library_storage::remove_database_files(&current_path);
+        let activate_result = fs::rename(&temporary, &current_path);
+        if let Err(error) = activate_result {
+            let _ = fs::copy(&recovery_path, &current_path);
+            let replacement = Connection::open(&current_path)?;
+            configure_connection(&replacement)?;
+            *current = replacement;
+            return Err(rusqlite::Error::ToSqlConversionFailure(Box::new(error)));
+        }
+        let replacement = match Connection::open(&current_path).and_then(|connection| {
+            configure_connection(&connection)?;
+            Ok(connection)
+        }) {
+            Ok(connection) => connection,
+            Err(error) => {
+                let _ = fs::copy(&recovery_path, &current_path);
+                let fallback = Connection::open(&current_path)?;
+                configure_connection(&fallback)?;
+                *current = fallback;
+                return Err(error);
+            }
+        };
+        *current = replacement;
+
+        Ok((
+            FullRestoreReport {
+                recovery_path: recovery_path.to_string_lossy().into_owned(),
+                backup_created_at: manifest.created_at,
+            },
+            manifest.client_state_json,
+            manifest.window_state_json,
+        ))
+    }
+
+    pub fn inspect_full_backup(&self, backup_path: &Path) -> Result<FullBackupInspection> {
+        let (_source, manifest) = self.open_validated_full_backup(backup_path)?;
+        let size_bytes = fs::metadata(backup_path)
+            .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?
+            .len();
+        Ok(FullBackupInspection {
+            format_version: manifest.format_version,
+            created_at: manifest.created_at,
+            size_bytes,
+        })
+    }
+
+    fn open_validated_full_backup(
+        &self,
+        backup_path: &Path,
+    ) -> Result<(Connection, FullBackupManifest)> {
+        if !backup_path.is_file() || backup_path == self.database_path() {
+            return Err(rusqlite::Error::InvalidPath(backup_path.to_path_buf()));
+        }
+        let source = Connection::open_with_flags(backup_path, OpenFlags::SQLITE_OPEN_READ_ONLY)?;
+        let integrity: String = source.query_row("PRAGMA integrity_check", [], |row| row.get(0))?;
+        if integrity != "ok" {
+            return Err(rusqlite::Error::InvalidQuery);
+        }
+        let manifest = source
+            .query_row(
+                "SELECT format_version, created_at, client_state_json, window_state_json
+                 FROM pasted_backup_manifest LIMIT 1",
+                [],
+                |row| {
+                    Ok(FullBackupManifest {
+                        format_version: row.get(0)?,
+                        created_at: row.get(1)?,
+                        client_state_json: row.get(2)?,
+                        window_state_json: row.get(3)?,
+                    })
+                },
+            )
+            .map_err(|_| {
+                rusqlite::Error::InvalidParameterName(
+                    "The selected file is not a complete Pasted backup".to_string(),
+                )
+            })?;
+        if manifest.format_version != FULL_BACKUP_FORMAT_VERSION {
+            return Err(rusqlite::Error::InvalidParameterName(format!(
+                "Unsupported full-backup format version {}",
+                manifest.format_version
+            )));
+        }
+        validate_backup_json(manifest.client_state_json.as_deref(), "Backup UI state")?;
+        validate_backup_json(manifest.window_state_json.as_deref(), "Backup window state")?;
+        Ok((source, manifest))
+    }
+
+    pub fn consume_pending_full_restore_client_state(&self) -> Result<Option<String>> {
+        let conn = self.conn.lock();
+        let state = conn
+            .query_row(
+                "SELECT value FROM settings WHERE key = ?1",
+                params![PENDING_CLIENT_STATE_SETTING],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()?;
+        if state.is_some() {
+            conn.execute(
+                "DELETE FROM settings WHERE key = ?1",
+                params![PENDING_CLIENT_STATE_SETTING],
+            )?;
+        }
+        Ok(state)
+    }
+
     pub fn relocate_database(&self, target_path: PathBuf) -> Result<PathBuf> {
         let previous_path = self.database_path();
         if previous_path == target_path {
@@ -1344,6 +1812,24 @@ impl DbState {
         );
         let _ = conn.execute("ALTER TABLE clip_versions ADD COLUMN context_json TEXT", []);
 
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS clip_analysis_classifications (
+                clip_id INTEGER PRIMARY KEY REFERENCES clips(id) ON DELETE CASCADE,
+                content_type TEXT NOT NULL,
+                detector_ref TEXT NOT NULL,
+                source_representation TEXT NOT NULL
+                    CHECK (source_representation IN ('original_text', 'searchable_text')),
+                input_hash TEXT NOT NULL,
+                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )",
+            [],
+        )?;
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_clip_analysis_classification_type
+             ON clip_analysis_classifications(content_type, clip_id)",
+            [],
+        )?;
+
         let _ = conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_clips_trashed ON clips (is_trashed, created_at DESC)",
             [],
@@ -1456,8 +1942,66 @@ impl DbState {
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 event_type TEXT NOT NULL,
                 description TEXT NOT NULL,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                observed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                severity_text TEXT NOT NULL DEFAULT 'info',
+                category TEXT NOT NULL DEFAULT 'general',
+                outcome TEXT NOT NULL DEFAULT 'unknown',
+                attributes_json TEXT NOT NULL DEFAULT '{}'
             )",
+            [],
+        );
+        let _ = conn.execute(
+            "ALTER TABLE activity_logs ADD COLUMN observed_at DATETIME",
+            [],
+        );
+        let _ = conn.execute(
+            "ALTER TABLE activity_logs ADD COLUMN severity_text TEXT NOT NULL DEFAULT 'info'",
+            [],
+        );
+        let _ = conn.execute(
+            "ALTER TABLE activity_logs ADD COLUMN category TEXT NOT NULL DEFAULT 'general'",
+            [],
+        );
+        let _ = conn.execute(
+            "ALTER TABLE activity_logs ADD COLUMN outcome TEXT NOT NULL DEFAULT 'unknown'",
+            [],
+        );
+        let _ = conn.execute(
+            "ALTER TABLE activity_logs ADD COLUMN attributes_json TEXT NOT NULL DEFAULT '{}'",
+            [],
+        );
+        let _ = conn.execute(
+            "UPDATE activity_logs SET observed_at = created_at WHERE observed_at IS NULL",
+            [],
+        );
+        let _ = conn.execute(
+            "UPDATE activity_logs
+             SET severity_text = CASE
+                    WHEN event_type LIKE '%failed%' OR event_type LIKE '%error%' THEN 'error'
+                    WHEN event_type LIKE '%ignored%' OR event_type LIKE '%skipped%'
+                      OR event_type LIKE '%cancelled%' OR event_type LIKE '%auto_paused%' THEN 'warn'
+                    ELSE severity_text
+                 END,
+                 category = CASE
+                    WHEN event_type LIKE 'clip_%' OR event_type LIKE 'clips_%'
+                      OR event_type LIKE 'trash_%' OR event_type LIKE 'note_%' THEN 'clip'
+                    WHEN event_type LIKE 'recording_%' OR event_type LIKE 'clipboard_%' THEN 'capture'
+                    WHEN event_type LIKE 'bin_%' OR event_type LIKE 'type_%'
+                      OR event_type LIKE 'detector_%' OR event_type LIKE 'content_%' THEN 'organization'
+                    WHEN event_type LIKE 'transform%' OR event_type LIKE 'operation_%'
+                      OR event_type LIKE 'intelligence_%' THEN 'transformation'
+                    WHEN event_type LIKE 'setting_%' OR event_type = 'settings_changed' THEN 'settings'
+                    WHEN event_type LIKE 'queue_%' OR event_type LIKE 'hud_%' THEN 'workflow'
+                    WHEN event_type LIKE 'app_%' OR event_type LIKE 'library_%'
+                      OR event_type LIKE 'backup_%' OR event_type LIKE 'external_%' THEN 'system'
+                    ELSE category
+                 END,
+                 outcome = CASE
+                    WHEN event_type LIKE '%failed%' OR event_type LIKE '%error%' THEN 'failure'
+                    WHEN event_type LIKE '%succeeded%' OR event_type LIKE '%_completed' THEN 'success'
+                    ELSE outcome
+                 END",
             [],
         );
         let _ = conn.execute(
@@ -1514,7 +2058,24 @@ impl DbState {
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
             );
             CREATE INDEX IF NOT EXISTS idx_content_detectors_order
-                ON content_detectors (is_deleted, enabled, priority, id);",
+                ON content_detectors (is_deleted, enabled, priority, id);
+            CREATE TABLE IF NOT EXISTS content_extractors (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                stable_ref TEXT NOT NULL UNIQUE,
+                name TEXT NOT NULL,
+                description TEXT NOT NULL DEFAULT '',
+                engine TEXT NOT NULL,
+                input_contract TEXT NOT NULL,
+                output_contract TEXT NOT NULL,
+                enabled INTEGER NOT NULL DEFAULT 1,
+                priority INTEGER NOT NULL DEFAULT 100,
+                is_builtin INTEGER NOT NULL DEFAULT 0,
+                is_deleted INTEGER NOT NULL DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE INDEX IF NOT EXISTS idx_content_extractors_order
+                ON content_extractors (is_deleted, enabled, priority, id);",
         )?;
         for preset in crate::content_types::CONTENT_TYPE_GROUP_PRESETS {
             conn.execute(
@@ -1540,6 +2101,23 @@ impl DbState {
                     (stable_ref, name, content_type, description, patterns_json, validator, enabled, priority, is_builtin)
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, 1, ?7, 1)",
                 params![preset.stable_ref, preset.name, preset.content_type, preset.description, patterns_json, preset.validator, preset.priority],
+            )?;
+        }
+        for preset in crate::content_extraction::EXTRACTOR_PRESETS {
+            conn.execute(
+                "INSERT OR IGNORE INTO content_extractors
+                    (stable_ref, name, description, engine, input_contract, output_contract,
+                     enabled, priority, is_builtin)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, 1, ?7, 1)",
+                params![
+                    preset.stable_ref,
+                    preset.name,
+                    preset.description,
+                    preset.engine,
+                    preset.input_contract,
+                    preset.output_contract,
+                    preset.priority
+                ],
             )?;
         }
         let legacy_type_ids = {
@@ -1604,7 +2182,10 @@ impl DbState {
 
     fn init_library_items(conn: &Connection) -> Result<()> {
         conn.execute_batch(
-            "DROP TRIGGER IF EXISTS library_items_detector_insert;
+            "DROP TRIGGER IF EXISTS library_items_extractor_insert;
+            DROP TRIGGER IF EXISTS library_items_extractor_update;
+            DROP TRIGGER IF EXISTS library_items_extractor_delete;
+            DROP TRIGGER IF EXISTS library_items_detector_insert;
             DROP TRIGGER IF EXISTS library_items_detector_update;
             DROP TRIGGER IF EXISTS library_items_detector_delete;
             DROP TRIGGER IF EXISTS library_items_content_type_update;
@@ -1621,7 +2202,7 @@ impl DbState {
             DROP TABLE IF EXISTS library_items;
             CREATE TABLE library_items (
                 stable_ref TEXT PRIMARY KEY,
-                kind TEXT NOT NULL CHECK (kind IN ('detector', 'operation', 'transform')),
+                kind TEXT NOT NULL CHECK (kind IN ('extractor', 'detector', 'operation', 'transform')),
                 name TEXT NOT NULL,
                 description TEXT NOT NULL DEFAULT '',
                 group_label TEXT,
@@ -1638,6 +2219,22 @@ impl DbState {
             );
             CREATE INDEX IF NOT EXISTS idx_library_items_kind_order
                 ON library_items(kind, is_archived, sort_order, name);
+
+            INSERT INTO library_items
+                (stable_ref, kind, name, description, group_label, icon, enabled,
+                 is_builtin, is_archived, sort_order, revision, input_contract,
+                 output_contract, created_at, updated_at)
+            SELECT stable_ref, 'extractor', name, description, 'Content Analysis',
+                   'ScanText', enabled, is_builtin, is_deleted, priority, 1,
+                   input_contract, output_contract, created_at, updated_at
+            FROM content_extractors
+            WHERE 1 = 1
+            ON CONFLICT(stable_ref) DO UPDATE SET
+                name=excluded.name, description=excluded.description,
+                enabled=excluded.enabled, is_builtin=excluded.is_builtin,
+                is_archived=excluded.is_archived, sort_order=excluded.sort_order,
+                input_contract=excluded.input_contract,
+                output_contract=excluded.output_contract, updated_at=excluded.updated_at;
 
             INSERT INTO library_items
                 (stable_ref, kind, name, description, group_label, icon, enabled,
@@ -1685,6 +2282,9 @@ impl DbState {
                 name=excluded.name, sort_order=excluded.sort_order,
                 revision=excluded.revision, updated_at=excluded.updated_at;
 
+            DROP TRIGGER IF EXISTS library_items_extractor_insert;
+            DROP TRIGGER IF EXISTS library_items_extractor_update;
+            DROP TRIGGER IF EXISTS library_items_extractor_delete;
             DROP TRIGGER IF EXISTS library_items_detector_insert;
             DROP TRIGGER IF EXISTS library_items_detector_update;
             DROP TRIGGER IF EXISTS library_items_detector_delete;
@@ -1697,6 +2297,27 @@ impl DbState {
             DROP TRIGGER IF EXISTS library_items_pipeline_update;
             DROP TRIGGER IF EXISTS library_items_pipeline_delete;
 
+            CREATE TRIGGER library_items_extractor_insert AFTER INSERT ON content_extractors BEGIN
+              DELETE FROM library_items WHERE stable_ref=NEW.stable_ref;
+              INSERT INTO library_items
+                (stable_ref, kind, name, description, group_label, icon, enabled, is_builtin,
+                 is_archived, sort_order, revision, input_contract, output_contract, created_at, updated_at)
+              VALUES (NEW.stable_ref, 'extractor', NEW.name, NEW.description, 'Content Analysis',
+                      'ScanText', NEW.enabled, NEW.is_builtin, NEW.is_deleted, NEW.priority,
+                      1, NEW.input_contract, NEW.output_contract, NEW.created_at, NEW.updated_at);
+            END;
+            CREATE TRIGGER library_items_extractor_update AFTER UPDATE ON content_extractors BEGIN
+              DELETE FROM library_items WHERE stable_ref=OLD.stable_ref OR stable_ref=NEW.stable_ref;
+              INSERT INTO library_items
+                (stable_ref, kind, name, description, group_label, icon, enabled, is_builtin,
+                 is_archived, sort_order, revision, input_contract, output_contract, created_at, updated_at)
+              VALUES (NEW.stable_ref, 'extractor', NEW.name, NEW.description, 'Content Analysis',
+                      'ScanText', NEW.enabled, NEW.is_builtin, NEW.is_deleted, NEW.priority,
+                      1, NEW.input_contract, NEW.output_contract, NEW.created_at, NEW.updated_at);
+            END;
+            CREATE TRIGGER library_items_extractor_delete AFTER DELETE ON content_extractors BEGIN
+              DELETE FROM library_items WHERE stable_ref=OLD.stable_ref;
+            END;
             CREATE TRIGGER library_items_detector_insert AFTER INSERT ON content_detectors BEGIN
               DELETE FROM library_items WHERE stable_ref=NEW.stable_ref;
               INSERT INTO library_items
@@ -1823,6 +2444,7 @@ impl DbState {
              DELETE FROM clips;
              DELETE FROM bins;
              DELETE FROM activity_logs;
+             DELETE FROM content_extractors;
              DELETE FROM content_detectors;
              DELETE FROM content_types;
              DELETE FROM content_type_groups;
@@ -1860,6 +2482,23 @@ impl DbState {
                     (stable_ref, name, content_type, description, patterns_json, validator, enabled, priority, is_builtin)
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, 1, ?7, 1)",
                 params![preset.stable_ref, preset.name, preset.content_type, preset.description, patterns_json, preset.validator, preset.priority],
+            )?;
+        }
+        for preset in crate::content_extraction::EXTRACTOR_PRESETS {
+            transaction.execute(
+                "INSERT INTO content_extractors
+                    (stable_ref, name, description, engine, input_contract, output_contract,
+                     enabled, priority, is_builtin)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, 1, ?7, 1)",
+                params![
+                    preset.stable_ref,
+                    preset.name,
+                    preset.description,
+                    preset.engine,
+                    preset.input_contract,
+                    preset.output_contract,
+                    preset.priority
+                ],
             )?;
         }
         let _ = transaction.execute("INSERT INTO clips_fts(clips_fts) VALUES('rebuild')", []);
@@ -2451,6 +3090,91 @@ impl DbState {
         Ok(true)
     }
 
+    pub fn record_analysis_classification(
+        &self,
+        clip_id: i64,
+        input_hash: &str,
+        content_type: Option<&str>,
+        detector_ref: Option<&str>,
+        source_representation: &str,
+    ) -> Result<bool> {
+        if !matches!(source_representation, "original_text" | "searchable_text") {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "Unknown analysis source representation".into(),
+            ));
+        }
+        if content_type.is_some_and(|value| value.len() > 80)
+            || detector_ref.is_some_and(|value| value.len() > 160)
+        {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "Analysis classification metadata exceeds its safety limit".into(),
+            ));
+        }
+        let conn = self.conn.lock();
+        let clip_matches: bool = conn.query_row(
+            "SELECT EXISTS(
+                SELECT 1 FROM clips
+                WHERE id = ?1 AND content_hash = ?2 AND COALESCE(is_trashed, 0) = 0
+            )",
+            params![clip_id, input_hash],
+            |row| row.get(0),
+        )?;
+        if !clip_matches {
+            return Ok(false);
+        }
+        let (Some(content_type), Some(detector_ref)) = (content_type, detector_ref) else {
+            conn.execute(
+                "DELETE FROM clip_analysis_classifications
+                 WHERE clip_id = ?1 AND input_hash = ?2",
+                params![clip_id, input_hash],
+            )?;
+            return Ok(true);
+        };
+        conn.execute(
+            "INSERT INTO clip_analysis_classifications
+                (clip_id, content_type, detector_ref, source_representation, input_hash)
+             VALUES (?1, ?2, ?3, ?4, ?5)
+             ON CONFLICT(clip_id) DO UPDATE SET
+                content_type = excluded.content_type,
+                detector_ref = excluded.detector_ref,
+                source_representation = excluded.source_representation,
+                input_hash = excluded.input_hash,
+                updated_at = CURRENT_TIMESTAMP",
+            params![
+                clip_id,
+                content_type,
+                detector_ref,
+                source_representation,
+                input_hash
+            ],
+        )?;
+        Ok(true)
+    }
+
+    pub fn get_analysis_classification(
+        &self,
+        clip_id: i64,
+    ) -> Result<Option<AnalysisClassification>> {
+        let conn = self.conn.lock();
+        conn.query_row(
+            "SELECT clip_id, content_type, detector_ref, source_representation,
+                    input_hash, updated_at
+             FROM clip_analysis_classifications WHERE clip_id = ?1",
+            params![clip_id],
+            |row| {
+                Ok(AnalysisClassification {
+                    clip_id: row.get(0)?,
+                    content_type: row.get(1)?,
+                    detector_ref: row.get(2)?,
+                    source_representation: row.get(3)?,
+                    input_hash: row.get(4)?,
+                    updated_at: row.get(5)?,
+                })
+            },
+        )
+        .optional()
+    }
+
     pub fn save_clip(
         &self,
         content_type: &str,
@@ -2524,6 +3248,25 @@ impl DbState {
         let _ = self.enforce_history_limit_internal(&conn);
         let _ = self.enforce_trash_limit_internal(&conn);
         self.get_clip_by_id_internal(&conn, id)
+    }
+
+    pub fn save_text_clip(&self, text: &str, source: &str) -> Result<ClipItem> {
+        let content_type =
+            if crate::features::is_enabled(self, crate::features::Feature::ContentDetection) {
+                self.get_content_detectors()
+                    .map(|detectors| crate::content_analysis::classify_text(text, &detectors))
+                    .unwrap_or_else(|_| "text".to_string())
+            } else {
+                "text".to_string()
+            };
+        self.save_clip(
+            &content_type,
+            Some(text),
+            None,
+            None,
+            &crate::clipboard_fingerprint::text(text),
+            source,
+        )
     }
 
     pub(crate) fn merge_external_text_clips(
@@ -2862,6 +3605,17 @@ impl DbState {
         bin_id: Option<i64>,
         only_pinned: bool,
     ) -> Result<Vec<ClipItem>> {
+        self.get_clips_page(search_query, bin_id, only_pinned, None, None)
+    }
+
+    pub fn get_clips_page(
+        &self,
+        search_query: Option<&str>,
+        bin_id: Option<i64>,
+        only_pinned: bool,
+        limit: Option<i64>,
+        offset: Option<i64>,
+    ) -> Result<Vec<ClipItem>> {
         let conn = self.conn.lock();
 
         // Check if target bin has smart_rule
@@ -2967,12 +3721,19 @@ impl DbState {
                     ) THEN 0 ELSE 1 END,
                     (SELECT position FROM bin_clip_order ordered
                      WHERE ordered.bin_id = ? AND ordered.clip_id = clips.id),
-                    created_at DESC",
+                    created_at DESC,
+                    id DESC",
             );
             query_params.push(Box::new(bid));
             query_params.push(Box::new(bid));
         } else {
-            sql.push_str(" ORDER BY is_pinned DESC, pin_order ASC, created_at DESC");
+            sql.push_str(" ORDER BY is_pinned DESC, pin_order ASC, created_at DESC, id DESC");
+        }
+
+        if let Some(limit) = limit {
+            sql.push_str(" LIMIT ? OFFSET ?");
+            query_params.push(Box::new(limit.clamp(1, 10_000)));
+            query_params.push(Box::new(offset.unwrap_or(0).max(0)));
         }
 
         let param_refs: Vec<&dyn rusqlite::ToSql> =
@@ -3027,13 +3788,39 @@ impl DbState {
     }
 
     pub fn get_trashed_clips(&self) -> Result<Vec<ClipItem>> {
+        self.get_trashed_clips_page(None, None)
+    }
+
+    pub fn get_trashed_clip_count(&self) -> Result<i64> {
         let conn = self.conn.lock();
-        let mut stmt = conn.prepare_cached(
+        conn.query_row(
+            "SELECT COUNT(*) FROM clips WHERE is_trashed = 1",
+            [],
+            |row| row.get(0),
+        )
+    }
+
+    pub fn get_trashed_clips_page(
+        &self,
+        limit: Option<i64>,
+        offset: Option<i64>,
+    ) -> Result<Vec<ClipItem>> {
+        let conn = self.conn.lock();
+        let mut sql = String::from(
             "SELECT id, content_type, text_content, NULL as html_content, NULL as image_base64, image_path, content_hash, source, is_pinned, is_protected, COALESCE(pin_order, 0), bin_id, note, is_trashed, trashed_at, created_at,
                     current_transformation_id IS NOT NULL
-             FROM clips WHERE is_trashed = 1 ORDER BY trashed_at DESC"
-        )?;
-        let clip_iter = stmt.query_map([], |row| {
+             FROM clips WHERE is_trashed = 1 ORDER BY COALESCE(trashed_at, created_at) DESC, id DESC"
+        );
+        let mut query_params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
+        if let Some(limit) = limit {
+            sql.push_str(" LIMIT ? OFFSET ?");
+            query_params.push(Box::new(limit.clamp(1, 10_000)));
+            query_params.push(Box::new(offset.unwrap_or(0).max(0)));
+        }
+        let param_refs: Vec<&dyn rusqlite::ToSql> =
+            query_params.iter().map(|value| value.as_ref()).collect();
+        let mut stmt = conn.prepare(&sql)?;
+        let clip_iter = stmt.query_map(param_refs.as_slice(), |row| {
             let bid: Option<i64> = row.get(11)?;
             Ok(ClipItem {
                 id: row.get(0)?,
@@ -3115,13 +3902,23 @@ impl DbState {
              WHERE id = ?2 AND (is_trashed IS NULL OR is_trashed = 0)",
         )?;
         let changed = stmt.execute(params![note, clip_id])?;
-        if changed > 0 {
-            let _ = self.log_activity_internal(
-                &conn,
-                "note_updated",
-                &format!("Updated note for clip #{}", clip_id),
-            );
+        if changed == 0 {
+            let exists = conn.query_row(
+                "SELECT EXISTS(SELECT 1 FROM clips WHERE id = ?1)",
+                [clip_id],
+                |row| row.get::<_, bool>(0),
+            )?;
+            return if exists {
+                Ok(())
+            } else {
+                Err(rusqlite::Error::QueryReturnedNoRows)
+            };
         }
+        let _ = self.log_activity_internal(
+            &conn,
+            "note_updated",
+            &format!("Updated note for clip #{}", clip_id),
+        );
         Ok(())
     }
 
@@ -3299,6 +4096,39 @@ impl DbState {
         ))
     }
 
+    pub fn restore_all_trashed_clips(&self) -> Result<ClipMutationSummary> {
+        let mut conn = self.conn.lock();
+        let tx = conn.transaction()?;
+        let clip_ids = {
+            let mut stmt =
+                tx.prepare_cached("SELECT id FROM clips WHERE is_trashed = 1 ORDER BY id ASC")?;
+            let rows = stmt
+                .query_map([], |row| row.get::<_, i64>(0))?
+                .collect::<Result<Vec<_>>>()?;
+            rows
+        };
+        let requested_count = clip_ids.len();
+        if !clip_ids.is_empty() {
+            tx.execute(
+                "UPDATE clips SET is_trashed = 0, trashed_at = NULL WHERE is_trashed = 1",
+                [],
+            )?;
+        }
+        tx.commit()?;
+        if !clip_ids.is_empty() {
+            let _ = self.log_activity_internal(
+                &conn,
+                "clips_restored_all",
+                &format!("Restored all clips from Trash ({} items)", clip_ids.len()),
+            );
+        }
+        Ok(ClipMutationSummary::new(
+            "restore_all",
+            requested_count,
+            clip_ids,
+        ))
+    }
+
     pub fn purge_clip_permanently(&self, id: i64) -> Result<()> {
         let conn = self.conn.lock();
         let is_protected: i32 = conn
@@ -3383,10 +4213,25 @@ impl DbState {
             .and_then(|v: String| v.parse().ok())
             .unwrap_or(0);
 
+        let (severity, category, outcome) = activity_classification(event_type);
         let mut stmt = conn.prepare_cached(
-            "INSERT INTO activity_logs (event_type, description, created_at) VALUES (?1, ?2, strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))"
+            "INSERT INTO activity_logs (
+                event_type, description, created_at, observed_at,
+                severity_text, category, outcome, attributes_json
+             ) VALUES (
+                ?1, ?2,
+                strftime('%Y-%m-%dT%H:%M:%SZ', 'now'),
+                strftime('%Y-%m-%dT%H:%M:%SZ', 'now'),
+                ?3, ?4, ?5, '{}'
+             )",
         )?;
-        stmt.execute(params![event_type, description])?;
+        stmt.execute(params![
+            event_type,
+            description,
+            severity,
+            category,
+            outcome
+        ])?;
 
         self.enforce_activity_retention_internal(conn, keep_count, keep_age_days)
     }
@@ -3422,23 +4267,417 @@ impl DbState {
         limit: Option<i64>,
         offset: Option<i64>,
     ) -> Result<Vec<ActivityLog>> {
+        self.get_activity_logs_filtered(limit, offset, None, None, None)
+    }
+
+    pub fn get_activity_logs_filtered(
+        &self,
+        limit: Option<i64>,
+        offset: Option<i64>,
+        category: Option<&str>,
+        severity: Option<&str>,
+        event_name: Option<&str>,
+    ) -> Result<Vec<ActivityLog>> {
         let conn = self.conn.lock();
-        let lim = limit.unwrap_or(100);
-        let off = offset.unwrap_or(0);
-        let mut stmt = conn.prepare_cached("SELECT id, event_type, description, created_at FROM activity_logs ORDER BY created_at DESC, id DESC LIMIT ?1 OFFSET ?2")?;
-        let log_iter = stmt.query_map(params![lim, off], |row| {
-            Ok(ActivityLog {
-                id: row.get(0)?,
-                event_type: row.get(1)?,
-                description: row.get(2)?,
-                created_at: row.get(3)?,
-            })
-        })?;
+        let lim = limit.unwrap_or(100).clamp(1, 100_000);
+        let off = offset.unwrap_or(0).max(0);
+        let mut stmt = conn.prepare_cached(
+            "SELECT id, event_type, description, created_at,
+                    COALESCE(observed_at, created_at), severity_text, category, outcome, attributes_json
+             FROM activity_logs
+             WHERE (?1 IS NULL OR category = ?1)
+               AND (?2 IS NULL OR severity_text = ?2)
+               AND (?3 IS NULL OR event_type = ?3)
+             ORDER BY created_at DESC, id DESC LIMIT ?4 OFFSET ?5"
+        )?;
+        let log_iter =
+            stmt.query_map(params![category, severity, event_name, lim, off], |row| {
+                let attributes_json: String = row.get(8)?;
+                Ok(ActivityLog {
+                    id: row.get(0)?,
+                    event_type: row.get(1)?,
+                    description: row.get(2)?,
+                    created_at: row.get(3)?,
+                    observed_at: row.get(4)?,
+                    severity_text: row.get(5)?,
+                    category: row.get(6)?,
+                    outcome: row.get(7)?,
+                    attributes: serde_json::from_str(&attributes_json)
+                        .unwrap_or_else(|_| serde_json::json!({})),
+                })
+            })?;
         let mut logs = Vec::new();
         for log in log_iter {
             logs.push(log?);
         }
         Ok(logs)
+    }
+
+    pub fn export_activity_json(&self) -> Result<String> {
+        let entries = self
+            .get_activity_logs(Some(i64::MAX), Some(0))?
+            .into_iter()
+            .map(Self::activity_archive_entry)
+            .collect::<Result<Vec<_>>>()?;
+        let mut resource = serde_json::Map::new();
+        resource.insert("service.name".to_string(), serde_json::json!("Pasted"));
+        resource.insert(
+            "service.version".to_string(),
+            serde_json::json!(env!("CARGO_PKG_VERSION")),
+        );
+        resource.insert(
+            "telemetry.schema".to_string(),
+            serde_json::json!("pasted.activity.v1"),
+        );
+        let archive = ActivityArchive {
+            schema_version: 1,
+            exported_at: chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
+            resource,
+            entries,
+        };
+        serde_json::to_string_pretty(&archive)
+            .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))
+    }
+
+    pub fn export_activity_csv(&self) -> Result<String> {
+        fn cell(value: &str) -> String {
+            let escaped = value.replace('"', "\"\"");
+            let neutralized = if matches!(
+                value.chars().next(),
+                Some('=' | '+' | '-' | '@' | '\t' | '\r')
+            ) {
+                format!("'{escaped}")
+            } else {
+                escaped
+            };
+            format!("\"{neutralized}\"")
+        }
+
+        let entries = self
+            .get_activity_logs(Some(i64::MAX), Some(0))?
+            .into_iter()
+            .map(Self::activity_archive_entry)
+            .collect::<Result<Vec<_>>>()?;
+        let mut csv = String::from(
+            "timestamp,observed_timestamp,event_name,severity_text,body,category,outcome,attributes_json\n",
+        );
+        for entry in entries {
+            let category = entry
+                .attributes
+                .get("pasted.category")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or("general");
+            let outcome = entry
+                .attributes
+                .get("pasted.outcome")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or("unknown");
+            let attributes_json = serde_json::Value::Object(entry.attributes.clone()).to_string();
+            csv.push_str(&format!(
+                "{},{},{},{},{},{},{},{}\n",
+                cell(&entry.timestamp),
+                cell(&entry.observed_timestamp),
+                cell(&entry.event_name),
+                cell(&entry.severity_text),
+                cell(&entry.body),
+                cell(category),
+                cell(outcome),
+                cell(&attributes_json),
+            ));
+        }
+        Ok(csv)
+    }
+
+    fn activity_archive_entry(log: ActivityLog) -> Result<ActivityArchiveEntry> {
+        let mut attributes = log.attributes.as_object().cloned().unwrap_or_default();
+        attributes.insert(
+            "pasted.category".to_string(),
+            serde_json::json!(log.category),
+        );
+        attributes.insert("pasted.outcome".to_string(), serde_json::json!(log.outcome));
+        attributes.insert("event.sequence".to_string(), serde_json::json!(log.id));
+        Ok(ActivityArchiveEntry {
+            timestamp: canonical_activity_timestamp(&log.created_at)?,
+            observed_timestamp: canonical_activity_timestamp(&log.observed_at)?,
+            event_name: log.event_type,
+            severity_text: log.severity_text,
+            body: log.description,
+            attributes,
+        })
+    }
+
+    pub fn import_activity_json(&self, json: &str) -> Result<ActivityImportReport> {
+        let entries = Self::parse_activity_json_import(json)?;
+        self.apply_activity_entries(entries, true)
+    }
+
+    pub fn inspect_activity_json(&self, json: &str) -> Result<ActivityImportReport> {
+        let entries = Self::parse_activity_json_import(json)?;
+        self.apply_activity_entries(entries, false)
+    }
+
+    fn parse_activity_json_import(json: &str) -> Result<Vec<ActivityArchiveEntry>> {
+        use crate::resource_limits::{MAX_ACTIVITY_IMPORT_BYTES, MAX_ACTIVITY_IMPORT_ROWS};
+
+        ensure_resource_size(json, MAX_ACTIVITY_IMPORT_BYTES, "Activity import")?;
+        let archive: ActivityArchive = serde_json::from_str(json).map_err(|error| {
+            rusqlite::Error::InvalidParameterName(format!("invalid Activity JSON: {error}"))
+        })?;
+        if archive.schema_version != 1 {
+            return Err(rusqlite::Error::InvalidParameterName(format!(
+                "unsupported Activity JSON schema version {} (supported: 1)",
+                archive.schema_version
+            )));
+        }
+        if archive.entries.len() > MAX_ACTIVITY_IMPORT_ROWS {
+            return Err(rusqlite::Error::InvalidParameterName(format!(
+                "Activity import contains more than {MAX_ACTIVITY_IMPORT_ROWS} entries"
+            )));
+        }
+
+        Ok(archive.entries)
+    }
+
+    pub fn import_activity_csv(&self, csv: &str) -> Result<ActivityImportReport> {
+        let entries = Self::parse_activity_csv_import(csv)?;
+        self.apply_activity_entries(entries, true)
+    }
+
+    pub fn inspect_activity_csv(&self, csv: &str) -> Result<ActivityImportReport> {
+        let entries = Self::parse_activity_csv_import(csv)?;
+        self.apply_activity_entries(entries, false)
+    }
+
+    fn parse_activity_csv_import(csv: &str) -> Result<Vec<ActivityArchiveEntry>> {
+        use crate::resource_limits::{MAX_ACTIVITY_IMPORT_BYTES, MAX_ACTIVITY_IMPORT_ROWS};
+
+        ensure_resource_size(csv, MAX_ACTIVITY_IMPORT_BYTES, "Activity CSV import")?;
+        let records = Self::parse_csv(csv)?;
+        if records.len().saturating_sub(1) > MAX_ACTIVITY_IMPORT_ROWS {
+            return Err(rusqlite::Error::InvalidParameterName(format!(
+                "Activity import contains more than {MAX_ACTIVITY_IMPORT_ROWS} entries"
+            )));
+        }
+        let expected = [
+            "timestamp",
+            "observed_timestamp",
+            "event_name",
+            "severity_text",
+            "body",
+            "category",
+            "outcome",
+            "attributes_json",
+        ];
+        if records.first().map(|header| {
+            header
+                .iter()
+                .map(String::as_str)
+                .eq(expected.iter().copied())
+        }) != Some(true)
+        {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "Activity CSV header does not match the supported export format".to_string(),
+            ));
+        }
+
+        let mut entries = Vec::with_capacity(records.len().saturating_sub(1));
+        for (index, row) in records.into_iter().skip(1).enumerate() {
+            if row.len() != expected.len() {
+                return Err(rusqlite::Error::InvalidParameterName(format!(
+                    "Activity CSV row {} has {} columns; expected {}",
+                    index + 2,
+                    row.len(),
+                    expected.len()
+                )));
+            }
+            let attributes_value: serde_json::Value =
+                serde_json::from_str(&row[7]).map_err(|_| {
+                    rusqlite::Error::InvalidParameterName(format!(
+                        "Activity CSV row {} has invalid attributes JSON",
+                        index + 2
+                    ))
+                })?;
+            let mut attributes = attributes_value.as_object().cloned().ok_or_else(|| {
+                rusqlite::Error::InvalidParameterName(format!(
+                    "Activity CSV row {} attributes must be a JSON object",
+                    index + 2
+                ))
+            })?;
+            attributes.insert(
+                "pasted.category".to_string(),
+                serde_json::Value::String(row[5].clone()),
+            );
+            attributes.insert(
+                "pasted.outcome".to_string(),
+                serde_json::Value::String(row[6].clone()),
+            );
+            entries.push(ActivityArchiveEntry {
+                timestamp: row[0].clone(),
+                observed_timestamp: row[1].clone(),
+                event_name: row[2].clone(),
+                severity_text: row[3].clone(),
+                body: row[4].clone(),
+                attributes,
+            });
+        }
+
+        Ok(entries)
+    }
+
+    fn apply_activity_entries(
+        &self,
+        entries: Vec<ActivityArchiveEntry>,
+        commit: bool,
+    ) -> Result<ActivityImportReport> {
+        use crate::resource_limits::{
+            MAX_ACTIVITY_ATTRIBUTES_BYTES, MAX_ACTIVITY_DESCRIPTION_BYTES,
+            MAX_ACTIVITY_EVENT_TYPE_BYTES,
+        };
+
+        let scanned_count = entries.len();
+        let mut conn = self.conn.lock();
+        let tx = conn.transaction()?;
+        let mut imported_count = 0usize;
+        let mut duplicate_count = 0usize;
+        {
+            let mut duplicate = tx.prepare_cached(
+                "SELECT EXISTS(SELECT 1 FROM activity_logs WHERE event_type = ?1 AND description = ?2 AND created_at = ?3)",
+            )?;
+            let mut insert = tx.prepare_cached(
+                "INSERT INTO activity_logs (
+                    event_type, description, created_at, observed_at,
+                    severity_text, category, outcome, attributes_json
+                 ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            )?;
+            for entry in entries {
+                let event_type = entry.event_name.trim();
+                let description = entry.body.trim();
+                if event_type.is_empty()
+                    || event_type.len() > MAX_ACTIVITY_EVENT_TYPE_BYTES
+                    || !event_type.chars().all(|character| {
+                        character.is_ascii_alphanumeric()
+                            || matches!(character, '_' | '-' | '.' | ':')
+                    })
+                {
+                    return Err(rusqlite::Error::InvalidParameterName(
+                        "Activity import contains an invalid event type".to_string(),
+                    ));
+                }
+                if description.is_empty() || description.len() > MAX_ACTIVITY_DESCRIPTION_BYTES {
+                    return Err(rusqlite::Error::InvalidParameterName(
+                        "Activity import contains an invalid description".to_string(),
+                    ));
+                }
+                let created_at = chrono::DateTime::parse_from_rfc3339(&entry.timestamp)
+                    .map_err(|_| {
+                        rusqlite::Error::InvalidParameterName(
+                            "Activity import contains an invalid timestamp".to_string(),
+                        )
+                    })?
+                    .with_timezone(&chrono::Utc)
+                    .to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
+                let observed_at = chrono::DateTime::parse_from_rfc3339(&entry.observed_timestamp)
+                    .map_err(|_| {
+                        rusqlite::Error::InvalidParameterName(
+                            "Activity import contains an invalid observed timestamp".to_string(),
+                        )
+                    })?
+                    .with_timezone(&chrono::Utc)
+                    .to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
+                let severity = entry.severity_text.to_ascii_lowercase();
+                if !matches!(severity.as_str(), "info" | "warn" | "error") {
+                    return Err(rusqlite::Error::InvalidParameterName(
+                        "Activity import contains an unsupported severity".to_string(),
+                    ));
+                }
+                let category = entry
+                    .attributes
+                    .get("pasted.category")
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or("general");
+                if category.is_empty()
+                    || category.len() > 64
+                    || !category.chars().all(|character| {
+                        character.is_ascii_alphanumeric() || matches!(character, '_' | '-')
+                    })
+                {
+                    return Err(rusqlite::Error::InvalidParameterName(
+                        "Activity import contains an invalid category".to_string(),
+                    ));
+                }
+                let outcome = entry
+                    .attributes
+                    .get("pasted.outcome")
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or("unknown");
+                if !matches!(outcome, "success" | "failure" | "unknown") {
+                    return Err(rusqlite::Error::InvalidParameterName(
+                        "Activity import contains an unsupported outcome".to_string(),
+                    ));
+                }
+                let attributes_json = serde_json::to_string(&entry.attributes)
+                    .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?;
+                if attributes_json.len() > MAX_ACTIVITY_ATTRIBUTES_BYTES {
+                    return Err(rusqlite::Error::InvalidParameterName(
+                        "Activity import contains oversized attributes".to_string(),
+                    ));
+                }
+                let exists: bool = duplicate
+                    .query_row(params![event_type, description, created_at], |row| {
+                        row.get(0)
+                    })?;
+                if exists {
+                    duplicate_count += 1;
+                    continue;
+                }
+                insert.execute(params![
+                    event_type,
+                    description,
+                    created_at,
+                    observed_at,
+                    severity,
+                    category,
+                    outcome,
+                    attributes_json,
+                ])?;
+                imported_count += 1;
+            }
+        }
+
+        let keep_count = tx
+            .query_row(
+                "SELECT value FROM settings WHERE key = 'activityLogCapacity'",
+                [],
+                |row| row.get::<_, String>(0),
+            )
+            .ok()
+            .and_then(|value| value.parse().ok())
+            .unwrap_or(1000);
+        let keep_age_days = tx
+            .query_row(
+                "SELECT value FROM settings WHERE key = 'activityLogAgeDays'",
+                [],
+                |row| row.get::<_, String>(0),
+            )
+            .ok()
+            .and_then(|value| value.parse().ok())
+            .unwrap_or(0);
+        self.enforce_activity_retention_internal(&tx, keep_count, keep_age_days)?;
+        let retained_count = tx.query_row("SELECT COUNT(*) FROM activity_logs", [], |row| {
+            row.get::<_, i64>(0)
+        })? as usize;
+        if commit {
+            tx.commit()?;
+        } else {
+            tx.rollback()?;
+        }
+
+        Ok(ActivityImportReport {
+            scanned_count,
+            imported_count,
+            duplicate_count,
+            retained_count,
+        })
     }
 
     pub fn clear_activity_logs(&self) -> Result<()> {
@@ -3447,55 +4686,6 @@ impl DbState {
         Ok(())
     }
 
-    pub fn backfill_analytics(&self) -> Result<usize> {
-        let conn = self.conn.lock();
-        let mut stmt = conn.prepare("SELECT id, content_type, text_content, source FROM clips")?;
-        let rows = stmt.query_map([], |row| {
-            Ok((
-                row.get::<_, i64>(0)?,
-                row.get::<_, String>(1)?,
-                row.get::<_, Option<String>>(2)?,
-                row.get::<_, Option<String>>(3)?,
-            ))
-        })?;
-
-        let mut updated_count = 0;
-        for row in rows {
-            let (id, c_type, text_opt, source_opt) = row?;
-            let source = source_opt.unwrap_or_default();
-            if source.is_empty() || source == "System Clipboard" || source == "Unknown" {
-                let text = text_opt.unwrap_or_default();
-                let inferred_app = if c_type == "code"
-                    || text.contains("function ")
-                    || text.contains("const ")
-                    || text.contains("let ")
-                    || text.contains("import ")
-                    || text.contains("pub fn ")
-                    || text.contains("class ")
-                {
-                    "VS Code"
-                } else if c_type == "link"
-                    || text.starts_with("http://")
-                    || text.starts_with("https://")
-                {
-                    "Browser"
-                } else if c_type == "color" || text.starts_with('#') {
-                    "Color Picker"
-                } else if c_type == "image" {
-                    "Screenshot"
-                } else {
-                    "macOS System"
-                };
-
-                conn.execute(
-                    "UPDATE clips SET source = ?1 WHERE id = ?2",
-                    params![inferred_app, id],
-                )?;
-                updated_count += 1;
-            }
-        }
-        Ok(updated_count)
-    }
     pub fn batch_pin_clips(&self, ids: Vec<i64>, pin_state: bool) -> Result<ClipMutationSummary> {
         let requested_count = ids.len();
         let mut conn = self.conn.lock();
@@ -3741,7 +4931,6 @@ impl DbState {
     }
 
     pub fn get_analytics_summary(&self) -> Result<AnalyticsSummary> {
-        self.backfill_analytics()?;
         let conn = self.conn.lock();
 
         let (total_clips, total_chars): (i64, i64) = conn.query_row(
@@ -3777,7 +4966,18 @@ impl DbState {
             .collect();
 
         let mut daily_stmt = conn.prepare(
-            "SELECT strftime('%Y-%m-%d', created_at) as day, COUNT(*) FROM clips WHERE (is_trashed IS NULL OR is_trashed = 0) GROUP BY day ORDER BY day DESC LIMIT 14"
+            "WITH RECURSIVE recent_days(day) AS (
+                SELECT date('now', '-13 days')
+                UNION ALL
+                SELECT date(day, '+1 day') FROM recent_days WHERE day < date('now')
+             )
+             SELECT recent_days.day, COUNT(clips.id)
+             FROM recent_days
+             LEFT JOIN clips
+               ON date(clips.created_at) = recent_days.day
+              AND (clips.is_trashed IS NULL OR clips.is_trashed = 0)
+             GROUP BY recent_days.day
+             ORDER BY recent_days.day DESC",
         )?;
         let daily_activity = daily_stmt
             .query_map([], |r| {
@@ -3795,6 +4995,56 @@ impl DbState {
             top_sources,
             content_types,
             daily_activity,
+        })
+    }
+
+    pub fn get_clip_collection_summary(&self) -> Result<ClipCollectionSummary> {
+        let conn = self.conn.lock();
+        let (active_count, trash_count, pinned_count, protected_count, noted_count) = conn.query_row(
+            "SELECT
+                COALESCE(SUM(CASE WHEN COALESCE(is_trashed, 0) = 0 THEN 1 ELSE 0 END), 0),
+                COALESCE(SUM(CASE WHEN is_trashed = 1 THEN 1 ELSE 0 END), 0),
+                COALESCE(SUM(CASE WHEN COALESCE(is_trashed, 0) = 0 AND is_pinned = 1 THEN 1 ELSE 0 END), 0),
+                COALESCE(SUM(CASE WHEN COALESCE(is_trashed, 0) = 0 AND COALESCE(is_protected, 0) = 1 THEN 1 ELSE 0 END), 0),
+                COALESCE(SUM(CASE WHEN COALESCE(is_trashed, 0) = 0 AND TRIM(COALESCE(note, '')) != '' THEN 1 ELSE 0 END), 0)
+             FROM clips",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
+        )?;
+        let type_counts = conn
+            .prepare(
+                "SELECT content_type, COUNT(*) FROM clips
+                 WHERE COALESCE(is_trashed, 0) = 0
+                 GROUP BY content_type ORDER BY content_type",
+            )?
+            .query_map([], |row| {
+                Ok(TypeStat {
+                    content_type: row.get(0)?,
+                    count: row.get(1)?,
+                })
+            })?
+            .collect::<Result<Vec<_>>>()?;
+        let source_counts = conn
+            .prepare(
+                "SELECT source, COUNT(*) FROM clips
+                 WHERE COALESCE(is_trashed, 0) = 0
+                 GROUP BY source ORDER BY COUNT(*) DESC, source",
+            )?
+            .query_map([], |row| {
+                Ok(SourceStat {
+                    name: row.get(0)?,
+                    count: row.get(1)?,
+                })
+            })?
+            .collect::<Result<Vec<_>>>()?;
+        Ok(ClipCollectionSummary {
+            active_count,
+            trash_count,
+            pinned_count,
+            protected_count,
+            noted_count,
+            type_counts,
+            source_counts,
         })
     }
 
@@ -3818,7 +5068,7 @@ impl DbState {
             &conn,
             "clips_trashed_all",
             &format!(
-                "Moved all unpinned & unprotected clips to Trash ({} items)",
+                "Moved all unpinned and unprotected clips to Trash ({} items)",
                 count
             ),
         );
@@ -3837,7 +5087,7 @@ impl DbState {
             &conn,
             "clips_purged_all",
             &format!(
-                "Permanently deleted all unpinned & unprotected clips ({} items)",
+                "Permanently deleted all unpinned and unprotected clips ({} items)",
                 count
             ),
         );
@@ -4068,6 +5318,13 @@ impl DbState {
         Ok(bins)
     }
 
+    pub fn get_bin(&self, id: i64) -> Result<Bin> {
+        self.get_bins()?
+            .into_iter()
+            .find(|bin| bin.id == id)
+            .ok_or(rusqlite::Error::QueryReturnedNoRows)
+    }
+
     pub fn update_bin_shortcut(&self, id: i64, shortcut: Option<&str>) -> Result<()> {
         let conn = self.conn.lock();
         conn.execute(
@@ -4223,6 +5480,30 @@ impl DbState {
     }
 
     pub fn reorder_pinned_clips(&self, ids: Vec<i64>) -> Result<()> {
+        if ids.len() > 100_000 {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "Pinned order exceeds Pasted's safety limit".to_string(),
+            ));
+        }
+        let requested = ids
+            .iter()
+            .copied()
+            .collect::<std::collections::HashSet<_>>();
+        if requested.len() != ids.len() {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "Pinned order contains duplicate clips".to_string(),
+            ));
+        }
+        let current = self
+            .get_clips(None, None, true)?
+            .into_iter()
+            .map(|clip| clip.id)
+            .collect::<std::collections::HashSet<_>>();
+        if requested != current {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "Pinned order must contain every current pinned clip exactly once".to_string(),
+            ));
+        }
         let mut conn = self.conn.lock();
         let tx = conn.transaction()?;
         for (idx, id) in ids.iter().enumerate() {
@@ -4638,20 +5919,705 @@ impl DbState {
             .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))
     }
 
-    pub fn import_backup_json(&self, json_str: &str) -> Result<usize> {
+    pub fn export_clips_json(&self) -> Result<String> {
+        let clips = self
+            .get_all_clips_for_backup()?
+            .into_iter()
+            .filter(|clip| !clip.is_trashed)
+            .collect::<Vec<_>>();
+        serde_json::to_string_pretty(&clips)
+            .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))
+    }
+
+    pub fn export_clips_csv(&self) -> Result<String> {
+        fn cell(value: &str) -> String {
+            let escaped = value.replace('"', "\"\"");
+            let neutralized = if matches!(
+                value.chars().next(),
+                Some('=' | '+' | '-' | '@' | '\t' | '\r')
+            ) {
+                format!("'{escaped}")
+            } else {
+                escaped
+            };
+            format!("\"{neutralized}\"")
+        }
+
+        let clips = self
+            .get_clips(None, None, false)?
+            .into_iter()
+            .filter(|clip| clip.text_content.is_some() && clip.content_type != "image")
+            .collect::<Vec<_>>();
+        let mut csv = String::from("id,content_type,source,is_pinned,created_at,text_content\n");
+        for clip in clips {
+            csv.push_str(&format!(
+                "{},{},{},{},{},{}\n",
+                clip.id,
+                cell(&clip.content_type),
+                cell(&clip.source),
+                clip.is_pinned,
+                cell(&clip.created_at),
+                cell(clip.text_content.as_deref().unwrap_or_default()),
+            ));
+        }
+        Ok(csv)
+    }
+
+    pub fn import_clips_json(&self, json: &str) -> Result<ClipImportReport> {
+        let clips = Self::parse_clips_json_import(json)?;
+        self.apply_imported_clips(clips, true)
+    }
+
+    pub fn inspect_clips_json(&self, json: &str) -> Result<ClipImportReport> {
+        let clips = Self::parse_clips_json_import(json)?;
+        self.apply_imported_clips(clips, false)
+    }
+
+    fn parse_clips_json_import(json: &str) -> Result<Vec<ClipItem>> {
+        use crate::resource_limits::{MAX_BACKUP_IMPORT_BYTES, MAX_LIBRARY_ARCHIVE_ROWS};
+        ensure_resource_size(json, MAX_BACKUP_IMPORT_BYTES, "Clip JSON import")?;
+        let clips: Vec<ClipItem> = serde_json::from_str(json).map_err(|error| {
+            rusqlite::Error::InvalidParameterName(format!("invalid clip JSON: {error}"))
+        })?;
+        if clips.len() > MAX_LIBRARY_ARCHIVE_ROWS {
+            return Err(rusqlite::Error::InvalidParameterName(format!(
+                "Clip import contains more than {MAX_LIBRARY_ARCHIVE_ROWS} records"
+            )));
+        }
+        Ok(clips)
+    }
+
+    pub fn import_clips_csv(&self, csv: &str) -> Result<ClipImportReport> {
+        let clips = Self::parse_clips_csv_import(csv)?;
+        self.apply_imported_clips(clips, true)
+    }
+
+    pub fn inspect_clips_csv(&self, csv: &str) -> Result<ClipImportReport> {
+        let clips = Self::parse_clips_csv_import(csv)?;
+        self.apply_imported_clips(clips, false)
+    }
+
+    fn parse_clips_csv_import(csv: &str) -> Result<Vec<ClipItem>> {
+        use crate::resource_limits::{MAX_BACKUP_IMPORT_BYTES, MAX_LIBRARY_ARCHIVE_ROWS};
+        ensure_resource_size(csv, MAX_BACKUP_IMPORT_BYTES, "Clip CSV import")?;
+        let records = Self::parse_csv(csv)?;
+        if records.len().saturating_sub(1) > MAX_LIBRARY_ARCHIVE_ROWS {
+            return Err(rusqlite::Error::InvalidParameterName(format!(
+                "Clip import contains more than {MAX_LIBRARY_ARCHIVE_ROWS} records"
+            )));
+        }
+        let expected = [
+            "id",
+            "content_type",
+            "source",
+            "is_pinned",
+            "created_at",
+            "text_content",
+        ];
+        if records.first().map(|header| {
+            header
+                .iter()
+                .map(String::as_str)
+                .eq(expected.iter().copied())
+        }) != Some(true)
+        {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "Clip CSV header does not match the supported export format".to_string(),
+            ));
+        }
+        let mut clips = Vec::with_capacity(records.len().saturating_sub(1));
+        for (index, row) in records.into_iter().skip(1).enumerate() {
+            if row.len() != expected.len() {
+                return Err(rusqlite::Error::InvalidParameterName(format!(
+                    "Clip CSV row {} has {} columns; expected {}",
+                    index + 2,
+                    row.len(),
+                    expected.len()
+                )));
+            }
+            let text = row[5].clone();
+            if text.is_empty() || row[1] == "image" {
+                return Err(rusqlite::Error::InvalidParameterName(format!(
+                    "Clip CSV row {} does not contain an importable text clip",
+                    index + 2
+                )));
+            }
+            let mut hasher = Sha256::new();
+            hasher.update(text.as_bytes());
+            clips.push(ClipItem {
+                id: 0,
+                content_type: row[1].clone(),
+                text_content: Some(text),
+                html_content: None,
+                image_base64: None,
+                image_path: None,
+                content_hash: format!("{:x}", hasher.finalize()),
+                source: row[2].clone(),
+                is_pinned: row[3].parse::<bool>().map_err(|_| {
+                    rusqlite::Error::InvalidParameterName(format!(
+                        "Clip CSV row {} has an invalid is_pinned value",
+                        index + 2
+                    ))
+                })?,
+                is_protected: false,
+                is_transformed: false,
+                pin_order: 0,
+                bin_id: None,
+                bin_ids: None,
+                note: None,
+                is_trashed: false,
+                trashed_at: None,
+                created_at: row[4].clone(),
+            });
+        }
+        Ok(clips)
+    }
+
+    fn parse_csv(csv: &str) -> Result<Vec<Vec<String>>> {
+        let mut records = Vec::new();
+        let mut record = Vec::new();
+        let mut field = String::new();
+        let mut quoted = false;
+        let mut chars = csv.chars().peekable();
+        while let Some(character) = chars.next() {
+            match character {
+                '"' if quoted && chars.peek() == Some(&'"') => {
+                    chars.next();
+                    field.push('"');
+                }
+                '"' => quoted = !quoted,
+                ',' if !quoted => {
+                    record.push(Self::deneutralize_csv_cell(std::mem::take(&mut field)));
+                }
+                '\n' if !quoted => {
+                    if field.ends_with('\r') {
+                        field.pop();
+                    }
+                    record.push(Self::deneutralize_csv_cell(std::mem::take(&mut field)));
+                    records.push(std::mem::take(&mut record));
+                }
+                other => field.push(other),
+            }
+        }
+        if quoted {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "CSV contains an unterminated quoted field".to_string(),
+            ));
+        }
+        if !field.is_empty() || !record.is_empty() {
+            record.push(Self::deneutralize_csv_cell(field));
+            records.push(record);
+        }
+        Ok(records)
+    }
+
+    fn deneutralize_csv_cell(value: String) -> String {
+        if value.starts_with("'=")
+            || value.starts_with("'+")
+            || value.starts_with("'-")
+            || value.starts_with("'@")
+            || value.starts_with("'\t")
+            || value.starts_with("'\r")
+        {
+            value[1..].to_string()
+        } else {
+            value
+        }
+    }
+
+    fn apply_imported_clips(&self, clips: Vec<ClipItem>, commit: bool) -> Result<ClipImportReport> {
+        use crate::resource_limits::{
+            MAX_CLIP_NOTE_BYTES, MAX_CLIP_TEXT_BYTES, MAX_STORED_IMAGE_BASE64_BYTES,
+        };
+        let mut input_hashes = HashSet::new();
+        for clip in &clips {
+            if clip.content_hash.trim().is_empty()
+                || !input_hashes.insert(clip.content_hash.clone())
+            {
+                return Err(rusqlite::Error::InvalidParameterName(
+                    "Clip import contains an empty or duplicate content hash".to_string(),
+                ));
+            }
+            if clip.content_type.trim().is_empty() || clip.content_type.len() > 128 {
+                return Err(rusqlite::Error::InvalidParameterName(
+                    "Clip import contains an invalid content type".to_string(),
+                ));
+            }
+            if let Some(value) = clip.text_content.as_deref() {
+                ensure_resource_size(value, MAX_CLIP_TEXT_BYTES, "Imported clip text")?;
+            }
+            if let Some(value) = clip.html_content.as_deref() {
+                ensure_resource_size(value, MAX_CLIP_TEXT_BYTES, "Imported clip HTML")?;
+            }
+            if let Some(value) = clip.image_base64.as_deref() {
+                ensure_resource_size(value, MAX_STORED_IMAGE_BASE64_BYTES, "Imported clip image")?;
+            }
+            if let Some(value) = clip.note.as_deref() {
+                ensure_resource_size(value, MAX_CLIP_NOTE_BYTES, "Imported clip note")?;
+            }
+        }
+
+        let scanned_count = clips.len();
+        let mut conn = self.conn.lock();
+        let tx = conn.transaction()?;
+        let active_count_before: usize = tx.query_row(
+            "SELECT COUNT(*) FROM clips WHERE COALESCE(is_trashed, 0) = 0",
+            [],
+            |row| row.get(0),
+        )?;
+        let mut imported_count = 0usize;
+        for clip in clips {
+            imported_count += tx.execute(
+                "INSERT OR IGNORE INTO clips (
+                    content_type, text_content, html_content, image_base64, image_path,
+                    content_hash, source, is_pinned, is_protected, pin_order, note,
+                    is_trashed, trashed_at, created_at, ocr_status, ocr_input_hash
+                 ) VALUES (?1, ?2, ?3, ?4, NULL, ?5, ?6, ?7, ?8, ?9, ?10, 0, NULL, ?11,
+                    CASE WHEN ?1 = 'image' THEN 'never' ELSE 'not_applicable' END,
+                    CASE WHEN ?1 = 'image' THEN ?5 ELSE NULL END)",
+                params![
+                    clip.content_type,
+                    clip.text_content,
+                    clip.html_content,
+                    clip.image_base64,
+                    clip.content_hash,
+                    clip.source,
+                    clip.is_pinned,
+                    clip.is_protected,
+                    clip.pin_order,
+                    clip.note,
+                    clip.created_at,
+                ],
+            )?;
+        }
+        let current_capacity = tx
+            .query_row(
+                "SELECT value FROM settings WHERE key = 'keepClipCount'",
+                [],
+                |row| row.get::<_, String>(0),
+            )
+            .ok()
+            .and_then(|value| value.parse::<usize>().ok())
+            .unwrap_or(1000);
+        let required_capacity = active_count_before.saturating_add(imported_count);
+        if current_capacity > 0 && required_capacity > current_capacity {
+            tx.execute(
+                "INSERT INTO settings (key, value) VALUES ('keepClipCount', ?1)
+                 ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                [required_capacity.to_string()],
+            )?;
+        }
+        let duplicate_count = scanned_count.saturating_sub(imported_count);
+        tx.execute(
+            "INSERT INTO activity_logs (event_type, description) VALUES ('clips_imported', ?1)",
+            [format!(
+                "Imported {imported_count} clips; skipped {duplicate_count} duplicates"
+            )],
+        )?;
+        if commit {
+            tx.commit()?;
+        } else {
+            tx.rollback()?;
+        }
+        Ok(ClipImportReport {
+            scanned_count,
+            imported_count,
+            duplicate_count,
+        })
+    }
+
+    fn parse_library_archive(json_str: &str) -> Result<(BackupPayload, LibraryArchiveInspection)> {
         ensure_resource_size(
             json_str,
             crate::resource_limits::MAX_BACKUP_IMPORT_BYTES,
-            "Backup",
+            "Transfer file",
         )?;
-        let payload: BackupPayload = serde_json::from_str(json_str)
-            .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+        let payload: BackupPayload = serde_json::from_str(json_str).map_err(|error| {
+            rusqlite::Error::InvalidParameterName(format!("invalid transfer JSON: {error}"))
+        })?;
+        let inspection = Self::preflight_library_archive(&payload)?;
+        Ok((payload, inspection))
+    }
+
+    fn preflight_library_archive(payload: &BackupPayload) -> Result<LibraryArchiveInspection> {
+        use crate::resource_limits::{
+            MAX_CLIP_NOTE_BYTES, MAX_CLIP_TEXT_BYTES, MAX_LIBRARY_ARCHIVE_ROWS,
+            MAX_STORED_IMAGE_BASE64_BYTES,
+        };
+
         if !(1..=BACKUP_SCHEMA_VERSION).contains(&payload.version) {
             return Err(rusqlite::Error::InvalidParameterName(format!(
-                "unsupported backup schema version {} (supported: 1-{BACKUP_SCHEMA_VERSION})",
+                "unsupported transfer schema version {} (supported: 1-{BACKUP_SCHEMA_VERSION})",
                 payload.version
             )));
         }
+        let total_rows = [
+            payload.clips.len(),
+            payload.bins.len(),
+            payload.pipelines.len(),
+            payload.operations.len(),
+            payload.saved_transforms.len(),
+            payload.bin_transforms.len(),
+            payload.ocr_metadata.len(),
+            payload.content_detectors.len(),
+            payload.content_types.len(),
+            payload.content_type_groups.len(),
+        ]
+        .into_iter()
+        .try_fold(0usize, usize::checked_add)
+        .ok_or_else(|| {
+            rusqlite::Error::InvalidParameterName(
+                "Transfer row count exceeds supported limits".to_string(),
+            )
+        })?;
+        if total_rows > MAX_LIBRARY_ARCHIVE_ROWS {
+            return Err(rusqlite::Error::InvalidParameterName(format!(
+                "Transfer file contains more than {MAX_LIBRARY_ARCHIVE_ROWS} records"
+            )));
+        }
+        if payload.content_type_groups.len() > 64 {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "Transfer file contains more than 64 content type groups".to_string(),
+            ));
+        }
+        if payload.content_types.len() > 256 {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "Transfer file contains more than 256 content types".to_string(),
+            ));
+        }
+        if payload.content_detectors.len() > 128 {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "Transfer file contains more than 128 content detectors".to_string(),
+            ));
+        }
+
+        let unique = |values: Vec<String>, label: &str| -> Result<HashSet<String>> {
+            let mut seen = HashSet::with_capacity(values.len());
+            for value in values {
+                if value.trim().is_empty() || !seen.insert(value.clone()) {
+                    return Err(rusqlite::Error::InvalidParameterName(format!(
+                        "Transfer file contains an empty or duplicate {label}: {value}"
+                    )));
+                }
+            }
+            Ok(seen)
+        };
+        let unique_ids = |values: Vec<i64>, label: &str| -> Result<HashSet<i64>> {
+            let mut seen = HashSet::with_capacity(values.len());
+            for value in values {
+                if value <= 0 || !seen.insert(value) {
+                    return Err(rusqlite::Error::InvalidParameterName(format!(
+                        "Transfer file contains an invalid or duplicate {label}: {value}"
+                    )));
+                }
+            }
+            Ok(seen)
+        };
+
+        let _group_ids = unique(
+            payload
+                .content_type_groups
+                .iter()
+                .map(|group| group.id.clone())
+                .collect(),
+            "content type group ID",
+        )?;
+        for group in &payload.content_type_groups {
+            crate::content_types::validate_content_type_group_input(
+                &crate::content_types::ContentTypeGroupInput {
+                    id: group.id.clone(),
+                    label: group.label.clone(),
+                    sort_order: group.sort_order,
+                },
+            )
+            .map_err(rusqlite::Error::InvalidParameterName)?;
+        }
+        let available_group_ids = payload
+            .content_type_groups
+            .iter()
+            .filter(|group| !group.is_archived)
+            .map(|group| group.id.clone())
+            .chain(
+                crate::content_types::CONTENT_TYPE_GROUP_PRESETS
+                    .iter()
+                    .map(|preset| preset.id.to_string()),
+            )
+            .collect::<HashSet<_>>();
+        unique(
+            payload
+                .content_types
+                .iter()
+                .map(|content_type| content_type.id.clone())
+                .collect(),
+            "content type ID",
+        )?;
+        for content_type in &payload.content_types {
+            crate::content_types::validate_content_type_input(
+                &crate::content_types::ContentTypeInput {
+                    id: content_type.id.clone(),
+                    label: content_type.label.clone(),
+                    icon: content_type.icon.clone(),
+                    group: content_type.group.clone(),
+                },
+            )
+            .map_err(rusqlite::Error::InvalidParameterName)?;
+            if !available_group_ids.contains(&content_type.group) {
+                return Err(rusqlite::Error::InvalidParameterName(format!(
+                    "Transfer content type {} references a missing Group",
+                    content_type.id
+                )));
+            }
+        }
+
+        unique(
+            payload
+                .content_detectors
+                .iter()
+                .map(|detector| detector.stable_ref.clone())
+                .collect(),
+            "detector reference",
+        )?;
+        for detector in &payload.content_detectors {
+            crate::content_detection::validate_detector_input(
+                &crate::content_detection::DetectorInput {
+                    name: detector.name.clone(),
+                    content_type: detector.content_type.clone(),
+                    description: detector.description.clone(),
+                    patterns: detector.patterns.clone(),
+                    validator: detector.validator.clone(),
+                    enabled: detector.enabled,
+                    priority: detector.priority,
+                },
+            )
+            .map_err(rusqlite::Error::InvalidParameterName)?;
+        }
+
+        let bin_ids = unique_ids(payload.bins.iter().map(|bin| bin.id).collect(), "Bin ID")?;
+        for bin in &payload.bins {
+            if !matches!(bin.bin_type.as_str(), "category" | "tag") {
+                return Err(rusqlite::Error::InvalidParameterName(format!(
+                    "Transfer Bin {} has an invalid type",
+                    bin.id
+                )));
+            }
+            if let Some(rule) = bin.smart_rule.as_deref() {
+                serde_json::from_str::<serde_json::Value>(rule).map_err(|error| {
+                    rusqlite::Error::InvalidParameterName(format!(
+                        "Transfer Bin {} has an invalid smart rule: {error}",
+                        bin.id
+                    ))
+                })?;
+            }
+        }
+
+        let clip_ids = unique_ids(
+            payload.clips.iter().map(|clip| clip.id).collect(),
+            "clip ID",
+        )?;
+        unique(
+            payload
+                .clips
+                .iter()
+                .map(|clip| clip.content_hash.clone())
+                .collect(),
+            "clip content hash",
+        )?;
+        let image_hashes = payload
+            .clips
+            .iter()
+            .filter(|clip| clip.content_type == "image")
+            .map(|clip| clip.content_hash.as_str())
+            .collect::<HashSet<_>>();
+        for clip in &payload.clips {
+            if let Some(text) = clip.text_content.as_deref() {
+                ensure_resource_size(text, MAX_CLIP_TEXT_BYTES, "Imported clip text")?;
+            }
+            if let Some(html) = clip.html_content.as_deref() {
+                ensure_resource_size(html, MAX_CLIP_TEXT_BYTES, "Imported clip HTML")?;
+            }
+            if let Some(image) = clip.image_base64.as_deref() {
+                ensure_resource_size(image, MAX_STORED_IMAGE_BASE64_BYTES, "Imported clip image")?;
+            }
+            if let Some(note) = clip.note.as_deref() {
+                ensure_resource_size(note, MAX_CLIP_NOTE_BYTES, "Imported clip note")?;
+            }
+            if clip.bin_id.is_some_and(|id| !bin_ids.contains(&id))
+                || clip
+                    .bin_ids
+                    .as_ref()
+                    .is_some_and(|ids| ids.iter().any(|id| !bin_ids.contains(id)))
+            {
+                return Err(rusqlite::Error::InvalidParameterName(format!(
+                    "Transfer clip {} references a missing Bin",
+                    clip.id
+                )));
+            }
+        }
+        for bin in &payload.bins {
+            let mut ordered = HashSet::new();
+            if bin
+                .clip_order
+                .iter()
+                .any(|id| !clip_ids.contains(id) || !ordered.insert(*id))
+            {
+                return Err(rusqlite::Error::InvalidParameterName(format!(
+                    "Transfer Bin {} contains an invalid clip order",
+                    bin.id
+                )));
+            }
+        }
+
+        unique(
+            payload
+                .ocr_metadata
+                .iter()
+                .map(|entry| entry.content_hash.clone())
+                .collect(),
+            "OCR content hash",
+        )?;
+        for metadata in &payload.ocr_metadata {
+            if !image_hashes.contains(metadata.content_hash.as_str())
+                || !matches!(
+                    metadata.status.as_str(),
+                    "complete" | "no_text" | "failed" | "never" | "queued" | "running"
+                )
+            {
+                return Err(rusqlite::Error::InvalidParameterName(format!(
+                    "Transfer file has invalid OCR metadata for {}",
+                    metadata.content_hash
+                )));
+            }
+        }
+
+        let custom_operation_refs = payload
+            .operations
+            .iter()
+            .filter(|operation| operation.id >= 0)
+            .map(|operation| {
+                operation
+                    .stable_id
+                    .strip_prefix("custom:")
+                    .filter(|id| !id.is_empty())
+                    .map(|_| operation.stable_id.clone())
+                    .ok_or_else(|| {
+                        rusqlite::Error::InvalidParameterName(
+                            "custom operation in transfer file is missing a stable reference"
+                                .to_string(),
+                        )
+                    })
+            })
+            .collect::<Result<Vec<_>>>()?;
+        let custom_operation_refs = unique(custom_operation_refs, "custom operation reference")?;
+        let validate_step = |step: &PipelineStep| -> Result<()> {
+            if !matches!(step.failure_policy.as_str(), "stop" | "skip") {
+                return Err(rusqlite::Error::InvalidParameterName(format!(
+                    "invalid failure policy: {}",
+                    step.failure_policy
+                )));
+            }
+            if let Some(config) = step.config_json.as_deref() {
+                serde_json::from_str::<serde_json::Value>(config).map_err(|error| {
+                    rusqlite::Error::InvalidParameterName(format!(
+                        "invalid step config JSON: {error}"
+                    ))
+                })?;
+            }
+            let valid = step
+                .operation_ref
+                .strip_prefix("builtin:")
+                .is_some_and(crate::operation_registry::is_builtin_operation)
+                || custom_operation_refs.contains(&step.operation_ref);
+            if !valid {
+                return Err(rusqlite::Error::InvalidParameterName(format!(
+                    "unknown operation reference: {}",
+                    step.operation_ref
+                )));
+            }
+            Ok(())
+        };
+        unique(
+            payload
+                .pipelines
+                .iter()
+                .map(|pipeline| pipeline.stable_ref.clone())
+                .collect(),
+            "legacy pipeline reference",
+        )?;
+        for pipeline in &payload.pipelines {
+            if pipeline
+                .stable_ref
+                .strip_prefix("pipeline:")
+                .is_none_or(str::is_empty)
+                || pipeline.steps.is_empty()
+            {
+                return Err(rusqlite::Error::InvalidParameterName(
+                    "legacy pipeline in transfer file is missing a stable reference or steps"
+                        .to_string(),
+                ));
+            }
+            for step in &pipeline.steps {
+                validate_step(step)?;
+            }
+        }
+        let transform_refs = unique(
+            payload
+                .saved_transforms
+                .iter()
+                .map(|transform| transform.stable_ref.clone())
+                .collect(),
+            "Transform reference",
+        )?;
+        for transform in &payload.saved_transforms {
+            if transform
+                .stable_ref
+                .strip_prefix("transform:")
+                .is_none_or(str::is_empty)
+                || !matches!(transform.authoring_kind.as_str(), "manual" | "intent")
+            {
+                return Err(rusqlite::Error::InvalidParameterName(
+                    "Transform in transfer file has invalid identity metadata".to_string(),
+                ));
+            }
+            transform
+                .plan
+                .validate()
+                .map_err(rusqlite::Error::InvalidParameterName)?;
+        }
+        for binding in &payload.bin_transforms {
+            if !bin_ids.contains(&binding.bin_id)
+                || (!transform_refs.contains(&binding.transform_ref)
+                    && !payload.pipelines.iter().any(|pipeline| {
+                        binding.transform_ref.strip_prefix("transform:")
+                            == pipeline.stable_ref.strip_prefix("pipeline:")
+                    }))
+            {
+                return Err(rusqlite::Error::InvalidParameterName(
+                    "Transfer file contains an invalid Bin Transform binding".to_string(),
+                ));
+            }
+        }
+
+        Ok(LibraryArchiveInspection {
+            schema_version: payload.version,
+            clip_count: payload.clips.len(),
+            bin_count: payload.bins.len(),
+            operation_count: payload
+                .operations
+                .iter()
+                .filter(|item| item.id >= 0)
+                .count(),
+            transform_count: payload.saved_transforms.len() + payload.pipelines.len(),
+            detector_count: payload.content_detectors.len(),
+            content_type_count: payload.content_types.len(),
+        })
+    }
+
+    pub fn inspect_library_archive_json(json_str: &str) -> Result<LibraryArchiveInspection> {
+        Self::parse_library_archive(json_str).map(|(_, inspection)| inspection)
+    }
+
+    pub fn import_backup_json(&self, json_str: &str) -> Result<usize> {
+        let (payload, _) = Self::parse_library_archive(json_str)?;
         let mut conn = self.conn.lock();
         let tx = conn.transaction()?;
         let mut bin_id_map = std::collections::HashMap::new();
@@ -6065,6 +8031,13 @@ impl DbState {
         rows.collect()
     }
 
+    pub fn get_intelligence_connection(&self, id: &str) -> Result<IntelligenceConnection> {
+        self.get_intelligence_connections()?
+            .into_iter()
+            .find(|connection| connection.id == id)
+            .ok_or(rusqlite::Error::QueryReturnedNoRows)
+    }
+
     pub fn create_intelligence_connection(
         &self,
         name: &str,
@@ -6073,6 +8046,13 @@ impl DbState {
         model: Option<&str>,
         credential_ref: Option<&str>,
     ) -> Result<IntelligenceConnection> {
+        if name.trim().is_empty() {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "Connection name cannot be empty".into(),
+            ));
+        }
+        crate::intelligence_connections::validate_credential_reference(credential_ref)
+            .map_err(rusqlite::Error::InvalidParameterName)?;
         let conn = self.conn.lock();
         let priority: i64 = conn.query_row(
             "SELECT COALESCE(MAX(priority), -1) + 1 FROM intelligence_connections",
@@ -6152,6 +8132,13 @@ impl DbState {
         &self,
         request: IntelligenceConnectionUpdate<'_>,
     ) -> Result<()> {
+        if request.name.trim().is_empty() {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "Connection name cannot be empty".into(),
+            ));
+        }
+        crate::intelligence_connections::validate_credential_reference(request.credential_ref)
+            .map_err(rusqlite::Error::InvalidParameterName)?;
         let conn = self.conn.lock();
         let changed = conn.execute(
             "UPDATE intelligence_connections
@@ -6187,6 +8174,22 @@ impl DbState {
     }
 
     pub fn reorder_intelligence_connections(&self, ids: &[String]) -> Result<()> {
+        let unique = ids.iter().collect::<std::collections::HashSet<_>>();
+        if unique.len() != ids.len() {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "Connection order contains duplicate IDs".into(),
+            ));
+        }
+        let current = self
+            .get_intelligence_connections()?
+            .into_iter()
+            .map(|connection| connection.id)
+            .collect::<std::collections::HashSet<_>>();
+        if current != ids.iter().cloned().collect() {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "Connection order must contain every current Connection exactly once".into(),
+            ));
+        }
         let mut conn = self.conn.lock();
         let transaction = conn.transaction()?;
         for (priority, id) in ids.iter().enumerate() {
@@ -6241,13 +8244,32 @@ impl DbState {
         Ok(operations)
     }
 
+    pub fn get_operation(&self, reference: &str) -> Result<Operation> {
+        let numeric_id = reference.parse::<i64>().ok();
+        self.get_operations()?
+            .into_iter()
+            .find(|operation| numeric_id == Some(operation.id) || operation.stable_id == reference)
+            .ok_or(rusqlite::Error::QueryReturnedNoRows)
+    }
+
+    pub fn duplicate_operation(&self, reference: &str, name: Option<&str>) -> Result<Operation> {
+        let source = self.get_operation(reference)?;
+        let default_name = format!("{} Copy", source.name);
+        self.create_operation(
+            name.unwrap_or(&default_name),
+            &source.op_type,
+            source.config.as_deref(),
+            Some(&source.category),
+        )
+    }
+
     pub fn get_library_items(
         &self,
         kind: Option<&str>,
         include_archived: bool,
     ) -> Result<Vec<crate::library_items::LibraryItemView>> {
         if let Some(kind) = kind {
-            if !matches!(kind, "detector" | "operation" | "transform") {
+            if !matches!(kind, "extractor" | "detector" | "operation" | "transform") {
                 return Err(rusqlite::Error::InvalidParameterName(
                     "Unknown library item kind".into(),
                 ));
@@ -6280,8 +8302,13 @@ impl DbState {
                 created_at: row.get(13)?,
                 updated_at: row.get(14)?,
             };
+            let analysis_pass = item.analysis_pass();
             let capabilities = item.capabilities();
-            Ok(crate::library_items::LibraryItemView { item, capabilities })
+            Ok(crate::library_items::LibraryItemView {
+                item,
+                analysis_pass,
+                capabilities,
+            })
         })?;
         rows.collect()
     }
@@ -6294,6 +8321,12 @@ impl DbState {
     ) -> Result<()> {
         let conn = self.conn.lock();
         let changed = match kind {
+            "extractor" => conn.execute(
+                "UPDATE content_extractors
+                 SET enabled = ?1, updated_at = CURRENT_TIMESTAMP
+                 WHERE stable_ref = ?2 AND is_deleted = 0",
+                params![enabled, stable_ref],
+            )?,
             "detector" => conn.execute(
                 "UPDATE content_detectors
                  SET enabled = ?1, updated_at = CURRENT_TIMESTAMP
@@ -6975,6 +9008,282 @@ impl DbState {
         Ok(())
     }
 
+    pub fn get_content_extractors(&self) -> Result<Vec<crate::content_extraction::Extractor>> {
+        let conn = self.conn.lock();
+        let mut statement = conn.prepare(
+            "SELECT id, stable_ref, name, description, engine, input_contract,
+                    output_contract, enabled, priority, is_builtin
+             FROM content_extractors WHERE is_deleted = 0 ORDER BY priority, id",
+        )?;
+        let rows = statement.query_map([], |row| {
+            let stable_ref = row.get::<_, String>(1)?;
+            let engine = row.get::<_, String>(4)?;
+            let preset = crate::content_extraction::EXTRACTOR_PRESETS
+                .iter()
+                .find(|preset| preset.stable_ref == stable_ref);
+            let (is_available, unavailable_reason) =
+                crate::content_extraction::availability(&engine);
+            Ok(crate::content_extraction::Extractor {
+                id: row.get(0)?,
+                stable_ref,
+                name: row.get(2)?,
+                description: row.get(3)?,
+                engine,
+                input_contract: row.get(5)?,
+                output_contract: row.get(6)?,
+                enabled: row.get(7)?,
+                priority: row.get(8)?,
+                is_builtin: row.get(9)?,
+                is_available,
+                unavailable_reason,
+                defaults: preset.map(|preset| crate::content_extraction::ExtractorInput {
+                    name: preset.name.to_string(),
+                    description: preset.description.to_string(),
+                    enabled: true,
+                    priority: preset.priority,
+                }),
+            })
+        })?;
+        rows.collect()
+    }
+
+    pub fn get_content_extractor(
+        &self,
+        reference: &str,
+    ) -> Result<crate::content_extraction::Extractor> {
+        let numeric_id = reference.parse::<i64>().ok();
+        self.get_content_extractors()?
+            .into_iter()
+            .find(|extractor| numeric_id == Some(extractor.id) || extractor.stable_ref == reference)
+            .ok_or(rusqlite::Error::QueryReturnedNoRows)
+    }
+
+    pub fn create_content_extractor(
+        &self,
+        input: &crate::content_extraction::ExtractorDefinitionInput,
+    ) -> Result<crate::content_extraction::Extractor> {
+        crate::content_extraction::validate_extractor_definition(input).map_err(|error| {
+            rusqlite::Error::ToSqlConversionFailure(Box::new(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                error,
+            )))
+        })?;
+        let conn = self.conn.lock();
+        let extractor_count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM content_extractors WHERE is_deleted = 0",
+            [],
+            |row| row.get(0),
+        )?;
+        if extractor_count >= 64 {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "Content Extractors are limited to 64 entries".into(),
+            ));
+        }
+        conn.execute(
+            "INSERT INTO content_extractors
+                (stable_ref, name, description, engine, input_contract, output_contract,
+                 enabled, priority, is_builtin)
+             VALUES ('pending', ?1, ?2, ?3, ?4, ?5, ?6, ?7, 0)",
+            params![
+                input.name.trim(),
+                input.description.trim(),
+                input.engine.trim(),
+                input.input_contract,
+                input.output_contract,
+                input.enabled,
+                input.priority
+            ],
+        )?;
+        let id = conn.last_insert_rowid();
+        conn.execute(
+            "UPDATE content_extractors SET stable_ref = ?1 WHERE id = ?2",
+            params![format!("extractor:custom:{id}"), id],
+        )?;
+        drop(conn);
+        let created = self.get_content_extractor(&id.to_string())?;
+        let _ = self.log_activity(
+            "content_extractor_created",
+            &format!("Created Extractor \"{}\"", created.name),
+        );
+        Ok(created)
+    }
+
+    pub fn update_content_extractor_definition(
+        &self,
+        id: i64,
+        input: &crate::content_extraction::ExtractorDefinitionInput,
+    ) -> Result<crate::content_extraction::Extractor> {
+        crate::content_extraction::validate_extractor_definition(input).map_err(|error| {
+            rusqlite::Error::ToSqlConversionFailure(Box::new(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                error,
+            )))
+        })?;
+        let current = self.get_content_extractor(&id.to_string())?;
+        if current.is_builtin
+            && (current.engine != input.engine
+                || current.input_contract != input.input_contract
+                || current.output_contract != input.output_contract)
+        {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "Built-in Extractor engine and contracts cannot be changed".into(),
+            ));
+        }
+        let conn = self.conn.lock();
+        let changed = conn.execute(
+            "UPDATE content_extractors SET name = ?1, description = ?2, engine = ?3,
+                    input_contract = ?4, output_contract = ?5, enabled = ?6,
+                    priority = ?7, updated_at = CURRENT_TIMESTAMP
+             WHERE id = ?8 AND is_deleted = 0",
+            params![
+                input.name.trim(),
+                input.description.trim(),
+                input.engine.trim(),
+                input.input_contract,
+                input.output_contract,
+                input.enabled,
+                input.priority,
+                id
+            ],
+        )?;
+        drop(conn);
+        if changed == 0 {
+            return Err(rusqlite::Error::QueryReturnedNoRows);
+        }
+        let updated = self.get_content_extractor(&id.to_string())?;
+        let _ = self.log_activity(
+            "content_extractor_updated",
+            &format!("Updated Extractor \"{}\"", updated.name),
+        );
+        Ok(updated)
+    }
+
+    pub fn duplicate_content_extractor(
+        &self,
+        reference: &str,
+        name: Option<&str>,
+    ) -> Result<crate::content_extraction::Extractor> {
+        let source = self.get_content_extractor(reference)?;
+        self.create_content_extractor(&crate::content_extraction::ExtractorDefinitionInput {
+            name: name
+                .map(str::to_string)
+                .unwrap_or_else(|| format!("{} Copy", source.name)),
+            description: source.description,
+            engine: source.engine,
+            input_contract: source.input_contract,
+            output_contract: source.output_contract,
+            enabled: source.enabled,
+            priority: source.priority.saturating_add(1).min(10_000),
+        })
+    }
+
+    pub fn delete_content_extractor(&self, id: i64) -> Result<()> {
+        let extractor = self.get_content_extractor(&id.to_string())?;
+        let conn = self.conn.lock();
+        let changed = conn.execute(
+            "UPDATE content_extractors SET is_deleted = 1, enabled = 0,
+                    updated_at = CURRENT_TIMESTAMP
+             WHERE id = ?1 AND is_deleted = 0",
+            params![id],
+        )?;
+        drop(conn);
+        if changed == 0 {
+            return Err(rusqlite::Error::QueryReturnedNoRows);
+        }
+        let _ = self.log_activity(
+            "content_extractor_deleted",
+            &format!("Deleted Extractor \"{}\"", extractor.name),
+        );
+        Ok(())
+    }
+
+    pub fn update_content_extractor(
+        &self,
+        id: i64,
+        input: &crate::content_extraction::ExtractorInput,
+    ) -> Result<crate::content_extraction::Extractor> {
+        crate::content_extraction::validate_extractor_input(input).map_err(|error| {
+            rusqlite::Error::ToSqlConversionFailure(Box::new(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                error,
+            )))
+        })?;
+        let conn = self.conn.lock();
+        let changed = conn.execute(
+            "UPDATE content_extractors SET name = ?1, description = ?2, enabled = ?3,
+                    priority = ?4, updated_at = CURRENT_TIMESTAMP
+             WHERE id = ?5 AND is_deleted = 0",
+            params![
+                input.name.trim(),
+                input.description.trim(),
+                input.enabled,
+                input.priority,
+                id
+            ],
+        )?;
+        drop(conn);
+        if changed == 0 {
+            return Err(rusqlite::Error::QueryReturnedNoRows);
+        }
+        let updated = self
+            .get_content_extractors()?
+            .into_iter()
+            .find(|extractor| extractor.id == id)
+            .ok_or(rusqlite::Error::QueryReturnedNoRows)?;
+        let _ = self.log_activity(
+            "content_extractor_updated",
+            &format!("Updated extractor \"{}\"", updated.name),
+        );
+        Ok(updated)
+    }
+
+    pub fn restore_default_content_extractors(&self) -> Result<()> {
+        let conn = self.conn.lock();
+        for preset in crate::content_extraction::EXTRACTOR_PRESETS {
+            conn.execute(
+                "INSERT INTO content_extractors
+                    (stable_ref, name, description, engine, input_contract, output_contract,
+                     enabled, priority, is_builtin, is_deleted)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, 1, ?7, 1, 0)
+                 ON CONFLICT(stable_ref) DO UPDATE SET
+                    name = excluded.name, description = excluded.description,
+                    engine = excluded.engine, input_contract = excluded.input_contract,
+                    output_contract = excluded.output_contract, enabled = 1,
+                    priority = excluded.priority, is_deleted = 0,
+                    updated_at = CURRENT_TIMESTAMP",
+                params![
+                    preset.stable_ref,
+                    preset.name,
+                    preset.description,
+                    preset.engine,
+                    preset.input_contract,
+                    preset.output_contract,
+                    preset.priority
+                ],
+            )?;
+        }
+        drop(conn);
+        let _ = self.log_activity(
+            "content_extractors_restored",
+            "Restored shipped extractor defaults",
+        );
+        Ok(())
+    }
+
+    pub fn active_image_text_extractor(
+        &self,
+    ) -> Result<Option<crate::content_extraction::Extractor>> {
+        Ok(self
+            .get_content_extractors()?
+            .into_iter()
+            .find(|extractor| {
+                extractor.enabled
+                    && extractor.is_available
+                    && extractor.input_contract == "image"
+                    && extractor.output_contract == "searchable_text"
+            }))
+    }
+
     pub fn get_content_detectors(&self) -> Result<Vec<crate::content_detection::Detector>> {
         let conn = self.conn.lock();
         let mut statement = conn.prepare(
@@ -7011,6 +9320,82 @@ impl DbState {
             })
         })?;
         rows.collect()
+    }
+
+    pub fn get_content_detector(
+        &self,
+        reference: &str,
+    ) -> Result<crate::content_detection::Detector> {
+        let numeric_id = reference.parse::<i64>().ok();
+        self.get_content_detectors()?
+            .into_iter()
+            .find(|detector| numeric_id == Some(detector.id) || detector.stable_ref == reference)
+            .ok_or(rusqlite::Error::QueryReturnedNoRows)
+    }
+
+    pub fn duplicate_content_detector(
+        &self,
+        reference: &str,
+        name: Option<&str>,
+    ) -> Result<crate::content_detection::Detector> {
+        let source = self.get_content_detector(reference)?;
+        self.create_content_detector(&crate::content_detection::DetectorInput {
+            name: name
+                .map(str::to_string)
+                .unwrap_or_else(|| format!("{} Copy", source.name)),
+            content_type: source.content_type,
+            description: source.description,
+            patterns: source.patterns,
+            validator: source.validator,
+            enabled: source.enabled,
+            priority: source.priority.saturating_add(1).min(10_000),
+        })
+    }
+
+    pub fn apply_content_detector(&self, clip_id: i64, reference: &str) -> Result<bool> {
+        let detector = self.get_content_detector(reference)?;
+        let mut conn = self.conn.lock();
+        let transaction = conn.transaction()?;
+        let clip = transaction
+            .query_row(
+                "SELECT content_type, text_content FROM clips
+                 WHERE id = ?1 AND COALESCE(is_trashed, 0) = 0",
+                params![clip_id],
+                |row| Ok((row.get::<_, String>(0)?, row.get::<_, Option<String>>(1)?)),
+            )
+            .optional()?;
+        let Some((current_type, Some(text))) = clip else {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "The selected clip has no analyzable text".into(),
+            ));
+        };
+        if matches!(current_type.as_str(), "image" | "file") {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "Applying a Detector cannot replace a structural image or file type".into(),
+            ));
+        }
+        let matched = crate::content_detection::detect_match_with_detectors(&text, &[detector])
+            .map(|matched| matched.content_type);
+        let Some(detected_type) = matched else {
+            transaction.commit()?;
+            return Ok(false);
+        };
+        let changed = current_type != detected_type;
+        if changed {
+            transaction.execute(
+                "UPDATE clips SET content_type = ?1 WHERE id = ?2",
+                params![detected_type, clip_id],
+            )?;
+        }
+        transaction.commit()?;
+        drop(conn);
+        if changed {
+            let _ = self.log_activity(
+                "content_detector_applied",
+                &format!("Applied a Detector to clip #{clip_id}"),
+            );
+        }
+        Ok(true)
     }
 
     fn get_all_content_detectors_for_backup(
@@ -7257,8 +9642,7 @@ impl DbState {
             for (id, current_type, text) in clips {
                 last_id = id;
                 scanned_count += 1;
-                let detected_type =
-                    crate::content_detection::detect_with_detectors(&text, &detectors);
+                let detected_type = crate::content_analysis::classify_text(&text, &detectors);
                 if detected_type != current_type {
                     transaction.execute(
                         "UPDATE clips SET content_type = ?1 WHERE id = ?2",
@@ -7327,7 +9711,162 @@ mod tests {
         let db = DbState::new(PathBuf::from(path)).unwrap();
         let items = db.get_library_items(None, true).unwrap();
         assert!(items.iter().any(|item| item.item.kind == "detector"));
+        assert!(items.iter().any(|item| item.item.kind == "extractor"));
         assert!(items.iter().any(|item| item.item.kind == "operation"));
+    }
+
+    #[test]
+    fn content_extractors_are_versioned_available_and_restorable() {
+        let db = setup_test_db();
+        let extractors = db.get_content_extractors().unwrap();
+        assert_eq!(
+            extractors.len(),
+            crate::content_extraction::EXTRACTOR_PRESETS.len()
+        );
+        let apple = extractors
+            .iter()
+            .find(|extractor| {
+                extractor.stable_ref == crate::content_extraction::APPLE_VISION_OCR_REF
+            })
+            .unwrap();
+        assert_eq!(apple.input_contract, "image");
+        assert_eq!(apple.output_contract, "searchable_text");
+        assert_eq!(apple.is_available, cfg!(target_os = "macos"));
+        assert_eq!(
+            apple.unavailable_reason.is_some(),
+            !cfg!(target_os = "macos")
+        );
+
+        db.update_content_extractor(
+            apple.id,
+            &crate::content_extraction::ExtractorInput {
+                name: "Local Image Text".into(),
+                description: "Customized label".into(),
+                enabled: false,
+                priority: 42,
+            },
+        )
+        .unwrap();
+        let updated = db.get_content_extractors().unwrap().remove(0);
+        assert_eq!(updated.name, "Local Image Text");
+        assert!(!updated.enabled);
+        assert!(db.active_image_text_extractor().unwrap().is_none());
+        assert!(db
+            .get_library_items(Some("extractor"), false)
+            .unwrap()
+            .iter()
+            .any(|item| {
+                item.item.stable_ref == apple.stable_ref
+                    && item.item.enabled == Some(false)
+                    && item.analysis_pass.as_deref() == Some("extract")
+            }));
+
+        let custom = db
+            .create_content_extractor(&crate::content_extraction::ExtractorDefinitionInput {
+                name: "Project OCR".into(),
+                description: "Extracts project screenshots".into(),
+                engine: crate::content_extraction::APPLE_VISION_ENGINE.into(),
+                input_contract: "image".into(),
+                output_contract: "searchable_text".into(),
+                enabled: true,
+                priority: 80,
+            })
+            .unwrap();
+        assert!(!custom.is_builtin);
+        assert_eq!(
+            db.get_content_extractor(&custom.stable_ref).unwrap().id,
+            custom.id
+        );
+        let duplicate = db
+            .duplicate_content_extractor(&custom.stable_ref, Some("Project OCR Copy"))
+            .unwrap();
+        assert_eq!(duplicate.priority, 81);
+        db.update_content_extractor_definition(
+            duplicate.id,
+            &crate::content_extraction::ExtractorDefinitionInput {
+                name: "Project OCR Revised".into(),
+                description: duplicate.description.clone(),
+                engine: duplicate.engine.clone(),
+                input_contract: duplicate.input_contract.clone(),
+                output_contract: duplicate.output_contract.clone(),
+                enabled: false,
+                priority: duplicate.priority,
+            },
+        )
+        .unwrap();
+        db.delete_content_extractor(custom.id).unwrap();
+        assert!(db.get_content_extractor(&custom.stable_ref).is_err());
+
+        db.restore_default_content_extractors().unwrap();
+        let restored_extractors = db.get_content_extractors().unwrap();
+        let restored = restored_extractors
+            .iter()
+            .find(|extractor| extractor.stable_ref == apple.stable_ref)
+            .unwrap();
+        assert_eq!(restored.name, "Apple Vision OCR");
+        assert!(restored.enabled);
+        assert_eq!(restored.priority, 10);
+        assert!(restored_extractors.iter().any(|extractor| {
+            extractor.stable_ref == duplicate.stable_ref
+                && extractor.name == "Project OCR Revised"
+                && !extractor.enabled
+        }));
+    }
+
+    #[test]
+    fn derived_analysis_classification_is_hash_safe_and_non_destructive() {
+        let db = setup_test_db();
+        let clip = db
+            .save_clip(
+                "image",
+                None,
+                None,
+                Some("aW1hZ2U="),
+                "analysis-image-hash",
+                "Screenshot",
+            )
+            .unwrap();
+
+        assert!(db
+            .record_analysis_classification(
+                clip.id,
+                &clip.content_hash,
+                Some("email"),
+                Some("email"),
+                "searchable_text",
+            )
+            .unwrap());
+        let classification = db.get_analysis_classification(clip.id).unwrap().unwrap();
+        assert_eq!(classification.content_type, "email");
+        assert_eq!(classification.source_representation, "searchable_text");
+        assert_eq!(db.get_clip_by_id(clip.id).unwrap().content_type, "image");
+
+        assert!(!db
+            .record_analysis_classification(
+                clip.id,
+                "stale-hash",
+                Some("credential"),
+                Some("credential"),
+                "searchable_text",
+            )
+            .unwrap());
+        assert_eq!(
+            db.get_analysis_classification(clip.id)
+                .unwrap()
+                .unwrap()
+                .content_type,
+            "email"
+        );
+
+        db.record_analysis_classification(
+            clip.id,
+            &clip.content_hash,
+            Some("text"),
+            None,
+            "searchable_text",
+        )
+        .unwrap();
+        assert!(db.get_analysis_classification(clip.id).unwrap().is_none());
     }
 
     #[test]
@@ -7414,6 +9953,73 @@ mod tests {
         assert!(!defaults
             .iter()
             .any(|detector| detector.stable_ref == custom.stable_ref));
+    }
+
+    #[test]
+    fn a_single_detector_can_be_resolved_duplicated_and_applied() {
+        let db = setup_test_db();
+        let email = db.get_content_detector("email").unwrap();
+        assert_eq!(
+            db.get_content_detector(&email.id.to_string()).unwrap().id,
+            email.id
+        );
+        let duplicate = db
+            .duplicate_content_detector("email", Some("Email Copy"))
+            .unwrap();
+        assert_eq!(duplicate.name, "Email Copy");
+        assert!(!duplicate.is_builtin);
+
+        let matching = db
+            .save_clip(
+                "text",
+                Some("person@example.com"),
+                None,
+                None,
+                "detector-apply-match",
+                "Test",
+            )
+            .unwrap();
+        assert!(db.apply_content_detector(matching.id, "email").unwrap());
+        assert_eq!(
+            db.get_clip_by_id(matching.id).unwrap().content_type,
+            "email"
+        );
+
+        let nonmatching = db
+            .save_clip(
+                "text",
+                Some("plain prose"),
+                None,
+                None,
+                "detector-apply-no-match",
+                "Test",
+            )
+            .unwrap();
+        assert!(!db.apply_content_detector(nonmatching.id, "email").unwrap());
+        assert_eq!(
+            db.get_clip_by_id(nonmatching.id).unwrap().content_type,
+            "text"
+        );
+
+        db.delete_content_detector(duplicate.id).unwrap();
+        assert!(db.get_content_detector(&duplicate.stable_ref).is_err());
+    }
+
+    #[test]
+    fn shared_text_capture_hashes_deduplicates_and_classifies() {
+        let db = setup_test_db();
+        let first = db
+            .save_text_clip("person@example.com", "CLI Terminal")
+            .unwrap();
+        assert_eq!(first.content_type, "email");
+        assert_eq!(first.source, "CLI Terminal");
+        assert!(!first.content_hash.is_empty());
+
+        let duplicate = db
+            .save_text_clip("person@example.com", "CLI Terminal")
+            .unwrap();
+        assert_eq!(duplicate.id, first.id);
+        assert_eq!(db.get_clips(None, None, false).unwrap().len(), 1);
     }
 
     #[test]
@@ -7872,7 +10478,7 @@ mod tests {
                 .iter()
                 .map(|bin| bin.name.as_str())
                 .collect::<Vec<_>>(),
-            vec!["Screenshots", "Links & Web", "Code Snippets"]
+            vec!["Screenshots", "Links and web", "Code Snippets"]
         );
         assert_eq!(
             default_bins[0].smart_rule.as_deref(),
@@ -8520,6 +11126,154 @@ mod tests {
         let logs = db.get_activity_logs(None, None).unwrap();
         assert!(!logs.iter().any(|log| log.description == "Old activity"));
         assert!(logs.iter().any(|log| log.description == "Recent activity"));
+    }
+
+    #[test]
+    fn activity_archive_roundtrip_is_structured_inert_and_deduplicated() {
+        let source = setup_test_db();
+        source
+            .log_activity("transformation_execution_failed", "Transform failed safely")
+            .unwrap();
+        source
+            .log_activity("clip_restored", "Restored one clip")
+            .unwrap();
+
+        let json = source.export_activity_json().unwrap();
+        let archive: ActivityArchive = serde_json::from_str(&json).unwrap();
+        assert_eq!(archive.schema_version, 1);
+        assert_eq!(archive.resource["service.name"], "Pasted");
+        let failure = archive
+            .entries
+            .iter()
+            .find(|entry| entry.event_name == "transformation_execution_failed")
+            .unwrap();
+        assert_eq!(failure.severity_text, "error");
+        assert_eq!(failure.attributes["pasted.category"], "transformation");
+        assert_eq!(failure.attributes["pasted.outcome"], "failure");
+        assert!(!json.contains("text_content"));
+
+        let destination = setup_test_db();
+        destination.configure_activity_retention(0, 0).unwrap();
+        let preview = destination.inspect_activity_json(&json).unwrap();
+        assert_eq!(preview.scanned_count, 2);
+        assert_eq!(preview.imported_count, 2);
+        assert!(destination
+            .get_activity_logs(None, None)
+            .unwrap()
+            .is_empty());
+        let first = destination.import_activity_json(&json).unwrap();
+        assert_eq!(first.scanned_count, 2);
+        assert_eq!(first.imported_count, 2);
+        assert_eq!(first.duplicate_count, 0);
+        let second = destination.import_activity_json(&json).unwrap();
+        assert_eq!(second.imported_count, 0);
+        assert_eq!(second.duplicate_count, 2);
+        assert_eq!(destination.get_activity_logs(None, None).unwrap().len(), 2);
+    }
+
+    #[test]
+    fn activity_import_rejects_invalid_records_without_partial_writes() {
+        let db = setup_test_db();
+        let archive = serde_json::json!({
+            "schemaVersion": 1,
+            "exportedAt": "2026-08-13T00:00:00Z",
+            "resource": { "service.name": "Pasted" },
+            "entries": [
+                {
+                    "timestamp": "2026-08-13T00:00:00Z",
+                    "observedTimestamp": "2026-08-13T00:00:00Z",
+                    "eventName": "clip_restored",
+                    "severityText": "info",
+                    "body": "Valid record",
+                    "attributes": {}
+                },
+                {
+                    "timestamp": "not-a-time",
+                    "observedTimestamp": "2026-08-13T00:00:00Z",
+                    "eventName": "clip_restored",
+                    "severityText": "info",
+                    "body": "Invalid record",
+                    "attributes": {}
+                }
+            ]
+        });
+        assert!(db.import_activity_json(&archive.to_string()).is_err());
+        assert!(db.get_activity_logs(None, None).unwrap().is_empty());
+    }
+
+    #[test]
+    fn activity_csv_export_has_a_stable_safe_content_contract() {
+        let db = setup_test_db();
+        {
+            let conn = db.conn.lock();
+            conn.execute(
+                "INSERT INTO activity_logs
+                    (event_type, description, created_at, observed_at, severity_text,
+                     category, outcome, attributes_json)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                params![
+                    "transformation_execution_failed",
+                    "=SUM(A1:A2), \"unsafe\"",
+                    "2026-08-13 12:34:56",
+                    "2026-08-13T12:35:00Z",
+                    "error",
+                    "transformation",
+                    "failure",
+                    r#"{"attempt":1}"#,
+                ],
+            )
+            .unwrap();
+        }
+
+        let csv = db.export_activity_csv().unwrap();
+        let mut lines = csv.lines();
+        assert_eq!(
+            lines.next(),
+            Some("timestamp,observed_timestamp,event_name,severity_text,body,category,outcome,attributes_json")
+        );
+        let row = lines.next().unwrap();
+        assert!(row.contains("\"2026-08-13T12:34:56Z\""));
+        assert!(row.contains("\"transformation_execution_failed\""));
+        assert!(row.contains("\"'=SUM(A1:A2), \"\"unsafe\"\"\""));
+        assert!(row.contains("\"error\""));
+        assert!(row.contains("\"transformation\",\"failure\""));
+        assert!(lines.next().is_none());
+        let records = DbState::parse_csv(&csv).unwrap();
+        let exported_attributes: serde_json::Value = serde_json::from_str(&records[1][7]).unwrap();
+        assert_eq!(exported_attributes["attempt"], 1);
+        assert_eq!(exported_attributes["pasted.category"], "transformation");
+        assert_eq!(exported_attributes["pasted.outcome"], "failure");
+        assert!(exported_attributes["event.sequence"].is_number());
+
+        let destination = setup_test_db();
+        destination.configure_activity_retention(0, 0).unwrap();
+        let preview = destination.inspect_activity_csv(&csv).unwrap();
+        assert_eq!(preview.imported_count, 1);
+        assert!(destination
+            .get_activity_logs(None, None)
+            .unwrap()
+            .is_empty());
+        let first = destination.import_activity_csv(&csv).unwrap();
+        assert_eq!(first.scanned_count, 1);
+        assert_eq!(first.imported_count, 1);
+        assert_eq!(first.duplicate_count, 0);
+        let second = destination.import_activity_csv(&csv).unwrap();
+        assert_eq!(second.imported_count, 0);
+        assert_eq!(second.duplicate_count, 1);
+        let imported = destination.get_activity_logs(None, None).unwrap().remove(0);
+        assert_eq!(imported.description, "=SUM(A1:A2), \"unsafe\"");
+        assert_eq!(imported.category, "transformation");
+        assert_eq!(imported.outcome, "failure");
+        assert_eq!(imported.attributes["attempt"], 1);
+        assert!(imported.attributes["event.sequence"].is_number());
+
+        let invalid_target = setup_test_db();
+        let invalid_csv = format!("{csv}\"broken\",\"row\"");
+        assert!(invalid_target.import_activity_csv(&invalid_csv).is_err());
+        assert!(invalid_target
+            .get_activity_logs(None, None)
+            .unwrap()
+            .is_empty());
     }
 
     #[test]
@@ -9447,6 +12201,13 @@ mod tests {
 
         let ops = db.get_operations().unwrap();
         assert!(ops.iter().any(|o| o.name == "JSON Prettify"));
+        assert_eq!(db.get_operation(&op.stable_id).unwrap().id, op.id);
+        let duplicate = db
+            .duplicate_operation(&op.stable_id, Some("JSON Prettify Copy"))
+            .unwrap();
+        assert_eq!(duplicate.op_type, op.op_type);
+        assert_eq!(duplicate.name, "JSON Prettify Copy");
+        db.delete_operation(duplicate.id).unwrap();
 
         db.delete_operation(op.id).unwrap();
         let ops_after = db.get_operations().unwrap();
@@ -9510,6 +12271,10 @@ mod tests {
                 None,
             )
             .unwrap();
+        assert_eq!(
+            db.get_intelligence_connection(&connection.id).unwrap(),
+            connection
+        );
         assert_eq!(connection.provider_kind, "ollama");
         assert_eq!(connection.credential_ref, None);
 
@@ -9541,6 +12306,12 @@ mod tests {
                 None,
             )
             .unwrap();
+        assert!(db
+            .reorder_intelligence_connections(std::slice::from_ref(&connection.id))
+            .is_err());
+        assert!(db
+            .reorder_intelligence_connections(&[connection.id.clone(), connection.id.clone()])
+            .is_err());
         db.reorder_intelligence_connections(&[fallback.id.clone(), connection.id.clone()])
             .unwrap();
         let reordered = db.get_intelligence_connections().unwrap();
@@ -9825,6 +12596,8 @@ mod tests {
         assert_eq!(newly_pinned_first[0].id, clip2.id);
         assert_eq!(newly_pinned_first[1].id, clip1.id);
 
+        assert!(db.reorder_pinned_clips(vec![clip1.id]).is_err());
+        assert!(db.reorder_pinned_clips(vec![clip1.id, clip1.id]).is_err());
         db.reorder_pinned_clips(vec![clip1.id, clip2.id]).unwrap();
         let clips = db.get_clips(None, None, true).unwrap();
         assert_eq!(clips[0].id, clip1.id);
@@ -10179,6 +12952,53 @@ mod tests {
         let trashed = db.get_trashed_clips().unwrap();
         assert_eq!(trashed.len(), 1);
         assert_eq!(trashed[0].id, clip1.id);
+    }
+
+    #[test]
+    fn restore_all_trashed_clips_restores_every_item_and_reports_a_stable_summary() {
+        let db = setup_test_db();
+        let first = db
+            .save_clip("text", Some("First"), None, None, "restore-all-1", "App")
+            .unwrap();
+        let second = db
+            .save_clip("text", Some("Second"), None, None, "restore-all-2", "App")
+            .unwrap();
+        let active = db
+            .save_clip("text", Some("Active"), None, None, "restore-all-3", "App")
+            .unwrap();
+
+        db.batch_trash_clips(vec![first.id, second.id]).unwrap();
+        let restored = db.restore_all_trashed_clips().unwrap();
+
+        assert_eq!(restored.action, "restore_all");
+        assert_eq!(restored.requested_count, 2);
+        assert_eq!(restored.changed_count, 2);
+        assert_eq!(restored.skipped_count, 0);
+        assert_eq!(restored.clip_ids, vec![first.id, second.id]);
+        assert!(db.get_trashed_clips().unwrap().is_empty());
+        let active_ids = db
+            .get_clips(None, None, false)
+            .unwrap()
+            .into_iter()
+            .map(|clip| clip.id)
+            .collect::<Vec<_>>();
+        assert!(active_ids.contains(&first.id));
+        assert!(active_ids.contains(&second.id));
+        assert!(active_ids.contains(&active.id));
+
+        let noop = db.restore_all_trashed_clips().unwrap();
+        assert_eq!(noop.requested_count, 0);
+        assert_eq!(noop.changed_count, 0);
+        assert_eq!(noop.skipped_count, 0);
+        assert!(noop.clip_ids.is_empty());
+
+        let logs = db.get_activity_logs(Some(20), None).unwrap();
+        assert_eq!(
+            logs.iter()
+                .filter(|entry| entry.event_type == "clips_restored_all")
+                .count(),
+            1
+        );
     }
 
     #[test]
@@ -10588,6 +13408,304 @@ mod tests {
     }
 
     #[test]
+    fn library_archive_preflight_reports_contents_and_rejects_late_corruption() {
+        let source = setup_test_db();
+        source.configure_clip_retention(0, 0).unwrap();
+        for index in 0..2_000 {
+            source
+                .save_clip(
+                    "text",
+                    Some(&format!("Archive item {index}")),
+                    None,
+                    None,
+                    &format!("archive-preflight-{index}"),
+                    "Tests",
+                )
+                .unwrap();
+        }
+        let json = source.export_backup_json().unwrap();
+        let inspection = DbState::inspect_library_archive_json(&json).unwrap();
+        assert_eq!(inspection.schema_version, BACKUP_SCHEMA_VERSION);
+        assert_eq!(inspection.clip_count, 2_000);
+        assert!(inspection.content_type_count > 0);
+        assert!(inspection.detector_count > 0);
+
+        let mut corrupted: serde_json::Value = serde_json::from_str(&json).unwrap();
+        let clips = corrupted["clips"].as_array_mut().unwrap();
+        let duplicate_hash = clips[0]["content_hash"].clone();
+        clips.last_mut().unwrap()["content_hash"] = duplicate_hash;
+        let corrupted = serde_json::to_string(&corrupted).unwrap();
+        let error = DbState::inspect_library_archive_json(&corrupted)
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("duplicate clip content hash"));
+
+        let destination = setup_test_db();
+        destination
+            .save_setting("preflightMarker", "unchanged")
+            .unwrap();
+        let changes_before = destination.conn.lock().total_changes();
+        assert!(destination.import_backup_json(&corrupted).is_err());
+        assert_eq!(destination.conn.lock().total_changes(), changes_before);
+        assert_eq!(
+            destination
+                .get_setting("preflightMarker")
+                .unwrap()
+                .as_deref(),
+            Some("unchanged")
+        );
+    }
+
+    #[test]
+    fn library_archive_reimport_updates_stable_identities_without_duplicates() {
+        let source = setup_test_db();
+        let clip = source
+            .save_clip(
+                "text",
+                Some("Idempotent archive clip"),
+                None,
+                None,
+                "idempotent-archive-clip",
+                "Tests",
+            )
+            .unwrap();
+        let bin = source
+            .create_bin("Archive Bin", "Folder", "default", None)
+            .unwrap();
+        source.assign_to_bin(clip.id, Some(bin.id)).unwrap();
+        source
+            .create_operation(
+                "Archive Operation",
+                "uppercase",
+                Some("{}"),
+                Some("Archive Tests"),
+            )
+            .unwrap();
+        let plan = crate::transformation_intent::TransformationPlan {
+            schema_version: crate::transformation_intent::TRANSFORMATION_PLAN_SCHEMA_VERSION,
+            intent: "Trim text".to_string(),
+            summary: "Trim text".to_string(),
+            planning_mode: crate::transformation_intent::IntentPlanningMode::Pinned,
+            steps: vec![crate::transformation_intent::PlannedTransformationStep {
+                name: "Trim".to_string(),
+                rationale: "Remove surrounding whitespace".to_string(),
+                scope: crate::transformation_intent::StepExecutionScope::WholeInput,
+                failure_policy: Default::default(),
+                executor: crate::transformation_intent::PlannedExecutor::Deterministic {
+                    operation_ref: "builtin:trim".to_string(),
+                    config_json: None,
+                },
+            }],
+        };
+        source
+            .create_saved_transform("Archive Transform", &plan, None)
+            .unwrap();
+        let archive = source.export_backup_json().unwrap();
+
+        let destination = setup_test_db();
+        assert_eq!(destination.import_backup_json(&archive).unwrap(), 1);
+        let counts_after_first = {
+            let conn = destination.conn.lock();
+            (
+                conn.query_row("SELECT COUNT(*) FROM clips", [], |row| row.get::<_, i64>(0))
+                    .unwrap(),
+                conn.query_row(
+                    "SELECT COUNT(*) FROM bins WHERE name = 'Archive Bin'",
+                    [],
+                    |row| row.get::<_, i64>(0),
+                )
+                .unwrap(),
+                conn.query_row(
+                    "SELECT COUNT(*) FROM custom_operations WHERE name = 'Archive Operation'",
+                    [],
+                    |row| row.get::<_, i64>(0),
+                )
+                .unwrap(),
+                conn.query_row(
+                    "SELECT COUNT(*) FROM saved_transforms WHERE name = 'Archive Transform'",
+                    [],
+                    |row| row.get::<_, i64>(0),
+                )
+                .unwrap(),
+            )
+        };
+        assert_eq!(counts_after_first, (1, 1, 1, 1));
+
+        assert_eq!(destination.import_backup_json(&archive).unwrap(), 1);
+        let counts_after_second = {
+            let conn = destination.conn.lock();
+            (
+                conn.query_row("SELECT COUNT(*) FROM clips", [], |row| row.get::<_, i64>(0))
+                    .unwrap(),
+                conn.query_row(
+                    "SELECT COUNT(*) FROM bins WHERE name = 'Archive Bin'",
+                    [],
+                    |row| row.get::<_, i64>(0),
+                )
+                .unwrap(),
+                conn.query_row(
+                    "SELECT COUNT(*) FROM custom_operations WHERE name = 'Archive Operation'",
+                    [],
+                    |row| row.get::<_, i64>(0),
+                )
+                .unwrap(),
+                conn.query_row(
+                    "SELECT COUNT(*) FROM saved_transforms WHERE name = 'Archive Transform'",
+                    [],
+                    |row| row.get::<_, i64>(0),
+                )
+                .unwrap(),
+            )
+        };
+        assert_eq!(counts_after_second, counts_after_first);
+    }
+
+    #[test]
+    fn clip_exports_match_their_documented_json_and_csv_contracts() {
+        let db = setup_test_db();
+        let active = db
+            .save_clip(
+                "text",
+                Some("=SUM(A1:A2), \"quoted\""),
+                Some("<b>preserved in JSON</b>"),
+                None,
+                "clip-export-active",
+                "Editor, Inc.",
+            )
+            .unwrap();
+        db.toggle_pin(active.id).unwrap();
+        let trashed = db
+            .save_clip(
+                "text",
+                Some("must not be exported"),
+                None,
+                None,
+                "clip-export-trashed",
+                "Tests",
+            )
+            .unwrap();
+        db.delete_clip(trashed.id).unwrap();
+
+        let json = db.export_clips_json().unwrap();
+        let clips: Vec<ClipItem> = serde_json::from_str(&json).unwrap();
+        assert_eq!(clips.len(), 1);
+        assert_eq!(clips[0].content_hash, "clip-export-active");
+        assert_eq!(
+            clips[0].html_content.as_deref(),
+            Some("<b>preserved in JSON</b>")
+        );
+        assert!(clips[0].is_pinned);
+        assert!(!json.contains("must not be exported"));
+
+        let csv = db.export_clips_csv().unwrap();
+        let mut lines = csv.lines();
+        assert_eq!(
+            lines.next(),
+            Some("id,content_type,source,is_pinned,created_at,text_content")
+        );
+        let row = lines.next().unwrap();
+        assert!(row.contains("\"Editor, Inc.\""));
+        assert!(row.contains("\"'=SUM(A1:A2), \"\"quoted\"\"\""));
+        assert!(row.contains(",true,"));
+        assert!(lines.next().is_none());
+
+        let json_target = setup_test_db();
+        let json_preview = json_target.inspect_clips_json(&json).unwrap();
+        assert_eq!(json_preview.imported_count, 1);
+        assert!(json_target.get_all_clips_for_backup().unwrap().is_empty());
+        let first_json_import = json_target.import_clips_json(&json).unwrap();
+        assert_eq!(first_json_import.scanned_count, 1);
+        assert_eq!(first_json_import.imported_count, 1);
+        assert_eq!(first_json_import.duplicate_count, 0);
+        let second_json_import = json_target.import_clips_json(&json).unwrap();
+        assert_eq!(second_json_import.imported_count, 0);
+        assert_eq!(second_json_import.duplicate_count, 1);
+        let imported_json_clip = json_target.get_all_clips_for_backup().unwrap().remove(0);
+        assert_eq!(
+            imported_json_clip.html_content.as_deref(),
+            Some("<b>preserved in JSON</b>")
+        );
+        assert!(imported_json_clip.is_pinned);
+
+        let csv_target = setup_test_db();
+        let csv_preview = csv_target.inspect_clips_csv(&csv).unwrap();
+        assert_eq!(csv_preview.imported_count, 1);
+        assert!(csv_target.get_clips(None, None, false).unwrap().is_empty());
+        let first_csv_import = csv_target.import_clips_csv(&csv).unwrap();
+        assert_eq!(first_csv_import.imported_count, 1);
+        assert_eq!(first_csv_import.duplicate_count, 0);
+        let second_csv_import = csv_target.import_clips_csv(&csv).unwrap();
+        assert_eq!(second_csv_import.imported_count, 0);
+        assert_eq!(second_csv_import.duplicate_count, 1);
+        let imported_csv_clip = csv_target.get_clips(None, None, false).unwrap().remove(0);
+        assert_eq!(
+            imported_csv_clip.text_content.as_deref(),
+            Some("=SUM(A1:A2), \"quoted\"")
+        );
+        assert_eq!(imported_csv_clip.source, "Editor, Inc.");
+
+        let invalid_target = setup_test_db();
+        let invalid_csv = format!("{csv}\n\"broken\",\"row\"");
+        assert!(invalid_target.import_clips_csv(&invalid_csv).is_err());
+        assert!(invalid_target
+            .get_clips(None, None, false)
+            .unwrap()
+            .is_empty());
+    }
+
+    #[test]
+    fn clip_json_import_round_trips_stored_images() {
+        let source = setup_test_db();
+        source
+            .save_clip(
+                "image",
+                Some("recognized text"),
+                None,
+                Some("aW1hZ2UtcGF5bG9hZA=="),
+                "clip-image-export-hash",
+                "Screenshot",
+            )
+            .unwrap();
+        let json = source.export_clips_json().unwrap();
+
+        let target = setup_test_db();
+        let report = target.import_clips_json(&json).unwrap();
+        assert_eq!(report.imported_count, 1);
+        let imported = target.get_all_clips_for_backup().unwrap().remove(0);
+        assert_eq!(imported.content_type, "image");
+        assert_eq!(imported.text_content.as_deref(), Some("recognized text"));
+        assert_eq!(
+            imported.image_base64.as_deref(),
+            Some("aW1hZ2UtcGF5bG9hZA==")
+        );
+        assert_eq!(imported.content_hash, "clip-image-export-hash");
+    }
+
+    #[test]
+    fn insights_summary_is_strictly_read_only() {
+        let db = setup_test_db();
+        let clip = db
+            .save_clip(
+                "text",
+                Some("Read-only insight"),
+                None,
+                None,
+                "insights-read-only",
+                "",
+            )
+            .unwrap();
+        let changes_before = db.conn.lock().total_changes();
+        let before = db.get_clip_by_id(clip.id).unwrap();
+        let summary = db.get_analytics_summary().unwrap();
+        let after = db.get_clip_by_id(clip.id).unwrap();
+
+        assert_eq!(summary.total_clips, 1);
+        assert_eq!(db.conn.lock().total_changes(), changes_before);
+        assert_eq!(after.source, before.source);
+        assert_eq!(after.content_hash, before.content_hash);
+    }
+
+    #[test]
     fn backup_roundtrip_preserves_completed_ocr_lifecycle_state() {
         let source = setup_test_db();
         let clip = source
@@ -10652,7 +13770,7 @@ mod tests {
             .unwrap_err();
         assert!(error
             .to_string()
-            .contains("unsupported backup schema version"));
+            .contains("unsupported transfer schema version"));
         assert!(destination.get_clips(None, None, false).unwrap().is_empty());
     }
 
@@ -10708,7 +13826,7 @@ mod tests {
             .unwrap_err();
         assert!(error
             .to_string()
-            .contains("custom operation backup is missing a stable reference"));
+            .contains("custom operation in transfer file is missing a stable reference"));
         assert_eq!(
             destination
                 .get_clip_by_id(existing.id)
@@ -11106,5 +14224,263 @@ mod tests {
                 .transform_name,
             "Uppercase"
         );
+    }
+
+    #[test]
+    fn clip_collection_pages_and_summary_cover_active_and_trashed_clips() {
+        let db = setup_test_db();
+        let empty = db.get_clip_collection_summary().unwrap();
+        assert_eq!(empty.active_count, 0);
+        assert_eq!(empty.trash_count, 0);
+
+        let clips = (0..6)
+            .map(|index| {
+                db.save_clip(
+                    if index % 2 == 0 { "text" } else { "link" },
+                    Some(&format!("clip {index}")),
+                    None,
+                    None,
+                    &format!("paged-clip-{index}"),
+                    if index < 4 { "Editor" } else { "Browser" },
+                )
+                .unwrap()
+            })
+            .collect::<Vec<_>>();
+        db.toggle_pin(clips[0].id).unwrap();
+        db.toggle_protected(clips[1].id).unwrap();
+        db.update_clip_note(clips[2].id, Some("Remember this"))
+            .unwrap();
+        db.delete_clip(clips[5].id).unwrap();
+        db.delete_clip(clips[4].id).unwrap();
+
+        let first = db
+            .get_clips_page(None, None, false, Some(2), Some(0))
+            .unwrap();
+        let second = db
+            .get_clips_page(None, None, false, Some(2), Some(2))
+            .unwrap();
+        assert_eq!(first.len(), 2);
+        assert_eq!(second.len(), 2);
+        assert!(first
+            .iter()
+            .all(|left| second.iter().all(|right| left.id != right.id)));
+        assert_eq!(
+            db.get_trashed_clips_page(Some(1), Some(0)).unwrap().len(),
+            1
+        );
+        assert_eq!(
+            db.get_trashed_clips_page(Some(1), Some(1)).unwrap().len(),
+            1
+        );
+
+        let summary = db.get_clip_collection_summary().unwrap();
+        assert_eq!(summary.active_count, 4);
+        assert_eq!(summary.trash_count, 2);
+        assert_eq!(summary.pinned_count, 1);
+        assert_eq!(summary.protected_count, 1);
+        assert_eq!(summary.noted_count, 1);
+        assert_eq!(
+            summary
+                .type_counts
+                .iter()
+                .map(|item| item.count)
+                .sum::<i64>(),
+            4
+        );
+        assert_eq!(
+            summary
+                .source_counts
+                .iter()
+                .map(|item| item.count)
+                .sum::<i64>(),
+            4
+        );
+    }
+
+    #[test]
+    fn full_backup_round_trip_covers_every_durable_table_and_interface_state() {
+        let db = setup_test_db();
+        let active_path = db.database_path();
+        let backup_path = active_path.with_extension("pastedbackup");
+        let clip = db
+            .save_clip(
+                "text",
+                Some("complete backup marker"),
+                None,
+                None,
+                "full-backup-marker",
+                "Tests",
+            )
+            .unwrap();
+        db.update_clip_text(clip.id, "updated backup marker")
+            .unwrap();
+        db.record_analysis_classification(
+            clip.id,
+            &clip.content_hash,
+            Some("prose"),
+            Some("prose"),
+            "original_text",
+        )
+        .unwrap();
+        db.save_setting("fullBackupSetting", "preserved").unwrap();
+        db.log_activity("app_started", "Complete backup test")
+            .unwrap();
+        db.create_intelligence_connection(
+            "Backup Connection",
+            "openai_compatible",
+            Some("http://127.0.0.1:1234/v1"),
+            Some("local-model"),
+            Some("keychain:pasted:test"),
+        )
+        .unwrap();
+        let extractor = db.get_content_extractors().unwrap().remove(0);
+        db.update_content_extractor(
+            extractor.id,
+            &crate::content_extraction::ExtractorInput {
+                name: "Backup Extractor Marker".into(),
+                description: extractor.description,
+                enabled: false,
+                priority: 77,
+            },
+        )
+        .unwrap();
+
+        let client_state = r#"{"version":1,"localStorage":{"pasted_sidebar_width":"280"}}"#;
+        let window_state = r#"{"main":{"width":1200,"height":800}}"#;
+        let report = db
+            .create_full_backup(&backup_path, Some(client_state), Some(window_state))
+            .unwrap();
+        assert!(report.size_bytes > 0);
+        let inspection = db.inspect_full_backup(&backup_path).unwrap();
+        assert_eq!(inspection.format_version, FULL_BACKUP_FORMAT_VERSION);
+        assert_eq!(inspection.created_at, report.created_at);
+        assert_eq!(inspection.size_bytes, report.size_bytes);
+
+        let table_names = |connection: &Connection| -> Vec<String> {
+            let mut statement = connection
+                .prepare(
+                    "SELECT name FROM sqlite_master
+                     WHERE type = 'table' AND name NOT LIKE 'sqlite_%'
+                     ORDER BY name",
+                )
+                .unwrap();
+            statement
+                .query_map([], |row| row.get(0))
+                .unwrap()
+                .collect::<Result<Vec<_>>>()
+                .unwrap()
+        };
+        let source_tables = table_names(&db.conn.lock());
+        let backup_connection = Connection::open(&backup_path).unwrap();
+        let backup_tables = table_names(&backup_connection);
+        for table in source_tables {
+            assert!(
+                backup_tables.contains(&table),
+                "full backup omitted durable table {table}"
+            );
+        }
+        assert!(backup_tables.contains(&"pasted_backup_manifest".to_string()));
+        drop(backup_connection);
+
+        db.save_setting("fullBackupSetting", "mutated").unwrap();
+        db.save_clip(
+            "text",
+            Some("post-backup marker"),
+            None,
+            None,
+            "post-backup-marker",
+            "Tests",
+        )
+        .unwrap();
+        let (restore_report, restored_client_state, restored_window_state) = db
+            .restore_full_backup(&backup_path, Some("{}"), Some("{}"))
+            .unwrap();
+
+        assert_eq!(restored_client_state.as_deref(), Some(client_state));
+        assert_eq!(restored_window_state.as_deref(), Some(window_state));
+        assert_eq!(
+            db.get_setting("fullBackupSetting").unwrap().as_deref(),
+            Some("preserved")
+        );
+        assert_eq!(db.get_all_clips_for_backup().unwrap().len(), 1);
+        assert!(!db.get_clip_versions(clip.id).unwrap().is_empty());
+        assert_eq!(
+            db.get_analysis_classification(clip.id)
+                .unwrap()
+                .unwrap()
+                .content_type,
+            "prose"
+        );
+        assert!(db
+            .get_activity_logs(None, None)
+            .unwrap()
+            .iter()
+            .any(|entry| entry.event_type == "app_started"));
+        assert_eq!(db.get_intelligence_connections().unwrap().len(), 1);
+        let restored_extractor = db.get_content_extractors().unwrap().remove(0);
+        assert_eq!(restored_extractor.name, "Backup Extractor Marker");
+        assert!(!restored_extractor.enabled);
+        assert_eq!(restored_extractor.priority, 77);
+        assert!(Path::new(&restore_report.recovery_path).is_file());
+        assert_eq!(
+            db.consume_pending_full_restore_client_state()
+                .unwrap()
+                .as_deref(),
+            Some(client_state)
+        );
+        assert!(db
+            .consume_pending_full_restore_client_state()
+            .unwrap()
+            .is_none());
+
+        let _ = fs::remove_file(backup_path);
+        let _ = fs::remove_file(restore_report.recovery_path);
+    }
+
+    #[test]
+    fn full_restore_rejects_invalid_embedded_state_before_replacing_library() {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let directory = std::env::temp_dir().join(format!("pasted-invalid-backup-{unique}"));
+        fs::create_dir_all(&directory).unwrap();
+        let db = DbState::new(directory.join("library.db")).unwrap();
+        let backup_path = db.database_path().with_extension("pastedbackup");
+        db.save_setting("liveStateMarker", "untouched").unwrap();
+        db.create_full_backup(&backup_path, Some("{}"), Some("{}"))
+            .unwrap();
+        let backup = Connection::open(&backup_path).unwrap();
+        backup
+            .execute(
+                "UPDATE pasted_backup_manifest SET client_state_json = 'not-json'",
+                [],
+            )
+            .unwrap();
+        let _ = backup.pragma_update(None, "wal_checkpoint", "TRUNCATE");
+        drop(backup);
+
+        assert!(db.inspect_full_backup(&backup_path).is_err());
+        assert!(db
+            .restore_full_backup(&backup_path, Some("{}"), Some("{}"))
+            .is_err());
+        assert_eq!(
+            db.get_setting("liveStateMarker").unwrap().as_deref(),
+            Some("untouched")
+        );
+        let recovery_count = fs::read_dir(&directory)
+            .unwrap()
+            .filter_map(|entry| entry.ok())
+            .filter(|entry| {
+                entry
+                    .file_name()
+                    .to_string_lossy()
+                    .starts_with("Pasted_Pre_Restore_")
+            })
+            .count();
+        assert_eq!(recovery_count, 0);
+        let _ = fs::remove_file(backup_path);
+        drop(db);
+        let _ = fs::remove_dir_all(directory);
     }
 }

@@ -15,7 +15,7 @@ npm run tauri dev
 npm run test:all
 ```
 
-The complete gate runs formatting, Clippy, frontend build, Rust unit tests, IPC parity, security, dependency license/mission policy, source-SBOM freshness, feature, collection, menu, CLI, Transform, Activity Log, platform, CSS architecture, and WCAG audits. Hosted builds additionally run dependency review, `cargo-deny`, and exact-payload SBOM inspection.
+The complete gate runs formatting, Clippy, frontend build, Rust unit tests, IPC parity, security, dependency license/mission policy, source-SBOM freshness, feature, collection, menu, CLI, Transform, Activity, platform, CSS architecture, and WCAG audits. Hosted builds additionally run dependency review, `cargo-deny`, and exact-payload SBOM inspection.
 
 ## Contribution rules
 

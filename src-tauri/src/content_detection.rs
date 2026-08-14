@@ -292,9 +292,21 @@ pub fn validate_detector_input(input: &DetectorInput) -> Result<(), String> {
 }
 
 pub fn detect_with_detectors(text: &str, detectors: &[Detector]) -> String {
+    detect_match_with_detectors(text, detectors)
+        .map(|matched| matched.content_type)
+        .unwrap_or_else(|| "text".into())
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct DetectionMatch {
+    pub detector_ref: String,
+    pub content_type: String,
+}
+
+pub fn detect_match_with_detectors(text: &str, detectors: &[Detector]) -> Option<DetectionMatch> {
     let trimmed = text.trim();
     if trimmed.is_empty() {
-        return "text".into();
+        return None;
     }
     detectors
         .iter()
@@ -304,10 +316,13 @@ pub fn detect_with_detectors(text: &str, detectors: &[Detector]) -> String {
                 .patterns
                 .iter()
                 .any(|pattern| Regex::new(pattern).is_ok_and(|regex| regex.is_match(trimmed)));
-            (candidate && passes_validator(trimmed, detector.validator.as_deref()))
-                .then(|| detector.content_type.clone())
+            (candidate && passes_validator(trimmed, detector.validator.as_deref())).then(|| {
+                DetectionMatch {
+                    detector_ref: detector.stable_ref.clone(),
+                    content_type: detector.content_type.clone(),
+                }
+            })
         })
-        .unwrap_or_else(|| "text".into())
 }
 
 fn passes_validator(value: &str, validator: Option<&str>) -> bool {

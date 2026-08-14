@@ -3,7 +3,9 @@ pub mod bin_assignment;
 mod clipboard_fingerprint;
 mod clipboard_monitor;
 mod commands;
+pub mod content_analysis;
 pub mod content_detection;
+pub mod content_extraction;
 pub mod content_types;
 pub mod db;
 pub mod external_import;
@@ -11,7 +13,7 @@ pub mod features;
 mod filter_engine;
 mod hotkey_manager;
 pub mod installation_diagnostics;
-mod intelligence_connections;
+pub mod intelligence_connections;
 pub mod intelligence_executor;
 mod intelligence_provider;
 mod intelligence_scheduler;
@@ -19,6 +21,7 @@ pub mod library_items;
 pub mod library_storage;
 #[cfg(target_os = "linux")]
 mod linux_native_theme;
+pub mod live_app;
 pub mod ocr;
 #[cfg(test)]
 mod operation_plugins;
@@ -26,7 +29,7 @@ mod operation_registry;
 mod paste_target;
 pub mod resource_limits;
 mod sequential_paste;
-mod settings_activity;
+pub mod settings_activity;
 pub mod third_party_licenses;
 mod titlebar;
 pub mod transformation_intent;
@@ -210,6 +213,10 @@ pub fn run() {
                     );
                 }
             }
+            if let Some(path) = live_app::request_from_args(&args) {
+                live_app::handle_request_file(app, &path);
+                return;
+            }
             if let Some(w) = app.get_webview_window("main") {
                 let _ = w.show();
                 let _ = w.set_focus();
@@ -233,7 +240,11 @@ pub fn run() {
             Some(vec!["--autostart"]),
         ))
         .setup(|app| {
-            let is_autostart = std::env::args().any(|argument| argument == "--autostart");
+            let startup_args = std::env::args().collect::<Vec<_>>();
+            let is_autostart = startup_args
+                .iter()
+                .any(|argument| argument == "--autostart");
+            let live_request = live_app::request_from_args(&startup_args);
 
             #[cfg(target_os = "linux")]
             if let Err(error) = linux_native_theme::apply_menu_theme(true) {
@@ -256,7 +267,9 @@ pub fn run() {
                 {
                     setup_window_vibrancy(&main_win);
                 }
-                if let Err(error) = main_win.show() {
+                if live_request.is_some() {
+                    let _ = main_win.hide();
+                } else if let Err(error) = main_win.show() {
                     eprintln!("Could not show the main window during startup: {error}");
                 } else if !is_autostart {
                     if let Err(error) = main_win.set_focus() {
@@ -318,6 +331,10 @@ pub fn run() {
                 is_auto_paused: monitor_handle.is_auto_paused.clone(),
             });
             app.manage(monitor_state);
+
+            if let Some(path) = live_request.as_deref() {
+                live_app::handle_request_file(app.handle(), path);
+            }
 
             #[cfg(target_os = "macos")]
             {
@@ -420,11 +437,20 @@ pub fn run() {
             commands::get_file_clip_previews,
             commands::get_trashed_clips,
             commands::restore_clip,
+            commands::restore_all_trashed_clips,
             commands::purge_clip_permanently,
             commands::empty_trash,
             commands::get_activity_logs,
             commands::clear_activity_logs,
+            commands::export_activity_json,
+            commands::export_activity_csv,
             commands::get_content_detectors,
+            commands::get_content_extractors,
+            commands::create_content_extractor,
+            commands::update_content_extractor_definition,
+            commands::duplicate_content_extractor,
+            commands::delete_content_extractor,
+            commands::restore_default_content_extractors,
             commands::get_library_items,
             commands::set_library_item_enabled,
             commands::get_content_types,
@@ -440,12 +466,13 @@ pub fn run() {
             commands::restore_default_content_types,
             commands::create_content_detector,
             commands::update_content_detector,
+            commands::duplicate_content_detector,
             commands::delete_content_detector,
             commands::restore_default_content_detectors,
             commands::rescan_content_detection_history,
             commands::test_content_detector,
             commands::play_system_sound,
-            commands::get_total_clip_count,
+            commands::get_clip_collection_summary,
             commands::save_app_setting,
             commands::save_app_settings,
             commands::get_all_app_settings,
@@ -504,6 +531,7 @@ pub fn run() {
             commands::get_clip_transformation_provenance,
             commands::create_operation,
             commands::update_operation,
+            commands::duplicate_operation,
             commands::delete_operation,
             commands::transform_text,
             commands::execute_transformation,
@@ -514,7 +542,6 @@ pub fn run() {
             commands::get_library_location,
             commands::move_library,
             commands::restore_default_library_location,
-            commands::run_intelligence_scheduler_demo,
             commands::toggle_clip_protected,
             commands::trash_unpinned_clips,
             commands::purge_unpinned_clips,
@@ -545,7 +572,11 @@ pub fn run() {
             commands::export_clips_json,
             commands::export_clips_csv,
             commands::export_backup_file,
-            commands::import_backup_json,
+            commands::choose_import_file,
+            commands::import_inspected_file,
+            commands::export_full_backup_file,
+            commands::restore_full_backup_file,
+            commands::consume_pending_full_restore_client_state,
             commands::get_external_import_sources,
             commands::import_external_history,
             commands::factory_reset_app,

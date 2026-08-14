@@ -78,7 +78,7 @@ for (const advisory of new Set(denyAdvisories)) {
 assert.match(
   fs.readFileSync('src/components/AnalyticsView.tsx', 'utf8'),
   /invoke<AnalyticsSummary>\('get_analytics_summary'\)/,
-  'Analytics & Insights must remain an on-device database query',
+  'Insights must remain an on-device database query',
 );
 
 console.log(

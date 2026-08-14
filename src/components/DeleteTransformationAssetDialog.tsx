@@ -41,7 +41,7 @@ export function DeleteTransformationAssetDialog({
         </AppDialogHeader>
         <AppDialogBody>
           <p className="text-xs theme-text-muted">
-            This removes the {asset.kind.toLowerCase()} from Pasted. Clips already created or changed by it remain unchanged.
+            This removes the {asset.kind.toLowerCase()} from the library. Clips already created or changed by it remain unchanged.
           </p>
         </AppDialogBody>
         <AppDialogFooter>

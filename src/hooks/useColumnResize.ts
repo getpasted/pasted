@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { scheduleBackupClientStatePersistence } from '../utils/backupClientState';
 
 const SIDEBAR_KEY = 'pasted_sidebar_width';
 const LIST_KEY = 'pasted_list_width';
@@ -66,6 +67,7 @@ export function useColumnResize() {
       if (finished) return;
       finished = true;
       localStorage.setItem(storageKey, String(finalWidth));
+      scheduleBackupClientStatePersistence();
       window.removeEventListener('pointermove', handlePointerMove);
       window.removeEventListener('pointerup', finish);
       window.removeEventListener('pointercancel', finish);
@@ -92,6 +94,7 @@ export function useColumnResize() {
     setClipsListWidth(LIST_DEFAULT);
     localStorage.removeItem(SIDEBAR_KEY);
     localStorage.removeItem(LIST_KEY);
+    scheduleBackupClientStatePersistence();
   }, []);
 
   return {

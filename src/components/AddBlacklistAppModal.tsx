@@ -41,7 +41,7 @@ export function AddBlacklistAppModal({ suggestions, onAdd, onClose }: AddBlackli
             <AppDialogHeading
               id="add-blacklist-app-title"
               title="Add app exclusion"
-              description="Pasted will ignore the selected content and shortcuts while this app is active."
+              description="Ignore the selected content and shortcuts while this app is active."
               icon={<Lock />}
             />
           </AppDialogHeader>

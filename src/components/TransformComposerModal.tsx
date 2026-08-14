@@ -41,7 +41,7 @@ export function TransformComposerModal({
           <AppDialogHeading
             id="transform-composer-title"
             title={transform ? 'Edit Transform' : 'New Transform'}
-            description={transform ? 'Rename it, revise the intent, or rebuild its reusable plan.' : 'Describe the result; Pasted will draft a reusable plan.'}
+            description={transform ? 'Rename it, revise the intent, or rebuild its reusable plan.' : 'Describe the result, then review the generated plan.'}
             icon={<Sparkles />}
             tone="info"
           />

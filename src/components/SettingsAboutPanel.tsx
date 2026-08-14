@@ -79,13 +79,13 @@ export function SettingsAboutPanel() {
         <SettingsSubsectionHeader
           icon={<HeartHandshake className="h-4 w-4" />}
           title="The Copycat Covenant"
-          description="The constraints Pasted chooses so your clipboard remains yours."
+          description="The constraints that keep your clipboard yours."
         />
         <div className="grid gap-2 sm:grid-cols-2">
           {[
-            { icon: HardDrive, title: 'No cloud account', body: 'Your core library lives locally. Pasted works without an identity, sync account, or hosted copy of your history.' },
-            { icon: RadioTower, title: 'No off-device telemetry', body: 'Usage insights stay local; Pasted does not report how humans, scripts, or agents use the workspace.' },
-            { icon: HeartHandshake, title: 'No subscription', body: 'Pasted will not rent your clipboard back to you. Financial support is an endorsement, never an unlock.' },
+            { icon: HardDrive, title: 'No cloud account', body: 'Your core library lives locally, without an identity, sync account, or hosted copy of your history.' },
+            { icon: RadioTower, title: 'No off-device telemetry', body: 'Usage insights stay local, without reporting how humans, scripts, or agents use the workspace.' },
+            { icon: HeartHandshake, title: 'No subscription', body: 'Your clipboard is yours, not something to rent back. Financial support is an endorsement, never an unlock.' },
             { icon: Bot, title: 'Every copycat welcome', body: 'The GUI and CLI share one library, so people and the tools they direct work from the same local context.' },
           ].map(({ icon: Icon, title, body }) => (
             <article key={title} className="theme-card-idle border p-3.5">
@@ -96,14 +96,14 @@ export function SettingsAboutPanel() {
           ))}
         </div>
         <p className="theme-text-muted theme-divider border-t pt-3 text-[10px] leading-relaxed">
-          Outside intelligence is optional and explicit. Pasted sends clip content only when a copycat runs a connected intelligence-assisted action.
+          Outside intelligence is optional and explicit. Clip content leaves the device only when a copycat runs a connected intelligence-assisted action.
         </p>
       </section>
 
       <section className="theme-surface rounded-2xl border p-5 space-y-4">
         <SettingsSubsectionHeader
           icon={<HardDrive className="h-4 w-4" />}
-          title="This Installation"
+          title="This installation"
           description="Details for troubleshooting and verification."
           actions={<ActionButton disabled={!installation} onClick={() => void copyDetails()} className="shrink-0 disabled:opacity-40">
             {copied ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
@@ -159,7 +159,7 @@ export function SettingsAboutPanel() {
           <span className="min-w-0 flex-1">
             <span className="theme-title block text-sm font-bold">Open Source Licenses</span>
             <span className="theme-text-muted mt-0.5 block text-xs">
-              Licenses and acknowledgements for software included with Pasted.
+              Licenses and acknowledgements for bundled software.
             </span>
           </span>
           <ChevronRight className="theme-text-muted h-4 w-4 shrink-0" />

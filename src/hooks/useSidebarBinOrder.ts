@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Bin } from '../types';
 import { useStableVerticalReorder } from './useStableVerticalReorder';
+import { scheduleBackupClientStatePersistence } from '../utils/backupClientState';
 
 const BIN_ORDER_KEY = 'pasted_bin_order';
 
@@ -36,6 +37,7 @@ export function useSidebarBinOrder(bins: Bin[], isClipDragging: boolean) {
     setBinOrder(nextOrder);
     try {
       localStorage.setItem(BIN_ORDER_KEY, JSON.stringify(nextOrder));
+      scheduleBackupClientStatePersistence();
     } catch {
       // Ordering remains valid for this session when browser storage is unavailable.
     }

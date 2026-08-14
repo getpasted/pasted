@@ -130,7 +130,7 @@ export function WelcomeSetup({ isOpen, settings, onUpdateSettings, onImported }:
               <div>
                 <p className="welcome-setup-kicker">Bring your history</p>
                 <h1 id="pasted-welcome-title">Start where you left off</h1>
-                <p>If you used another clipboard manager, Pasted can merge supported text history into this library.</p>
+                <p>Supported text history from another clipboard manager can be merged into History.</p>
               </div>
             </div>
             <div className="welcome-setup-content">
@@ -179,7 +179,7 @@ export function WelcomeSetup({ isOpen, settings, onUpdateSettings, onImported }:
               <div>
                 <p className="welcome-setup-kicker">Every copycat welcome</p>
                 <h1 id="pasted-welcome-title">One workspace, more than one way in</h1>
-                <p>Use the app with your hands, the CLI from a script, or the shared library as context for an agent you choose.</p>
+                <p>Use the interface directly, the CLI from a script, or the shared library as context for an agent.</p>
               </div>
             </div>
             <div className="welcome-setup-content">
@@ -210,7 +210,7 @@ export function WelcomeSetup({ isOpen, settings, onUpdateSettings, onImported }:
                   <TerminalSquare />
                   <div>
                     <strong>Script the same workspace</strong>
-                    <span>The bundled CLI searches, organizes, transforms, and returns structured output from the same local library.</span>
+                    <span>The bundled CLI searches, organizes, transforms, and returns structured output from the same local data.</span>
                   </div>
                 </article>
                 <article>

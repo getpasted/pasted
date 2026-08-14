@@ -17,6 +17,40 @@ pub struct DetectedIntelligenceConnection {
     pub execution_supported: bool,
 }
 
+pub fn validate_credential_reference(reference: Option<&str>) -> Result<(), String> {
+    let Some(reference) = reference else {
+        return Ok(());
+    };
+    if reference != reference.trim() || reference.is_empty() {
+        return Err("Credential reference cannot be empty or contain outer whitespace".to_string());
+    }
+    if let Some(variable) = reference.strip_prefix("env:") {
+        let mut characters = variable.chars();
+        let valid_first = characters
+            .next()
+            .is_some_and(|character| character == '_' || character.is_ascii_alphabetic());
+        if valid_first
+            && characters.all(|character| character == '_' || character.is_ascii_alphanumeric())
+        {
+            return Ok(());
+        }
+        return Err("Environment credential references must name a valid variable".to_string());
+    }
+    for scheme in ["op://", "keychain:"] {
+        if let Some(identifier) = reference.strip_prefix(scheme) {
+            if !identifier.is_empty()
+                && identifier
+                    .chars()
+                    .all(|character| !character.is_control() && !character.is_whitespace())
+            {
+                return Ok(());
+            }
+            return Err("Credential reference identifier is invalid".to_string());
+        }
+    }
+    Err("Credentials must be stored as an env:, op://, or keychain: reference".to_string())
+}
+
 #[derive(Clone, Copy)]
 struct AdapterDefinition {
     adapter_id: &'static str,

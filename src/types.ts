@@ -98,6 +98,16 @@ export type ClipContentType =
   | 'hash' | 'iban' | 'jwt' | 'uuid'
   | (string & {});
 
+export interface ClipCollectionSummary {
+  activeCount: number;
+  trashCount: number;
+  pinnedCount: number;
+  protectedCount: number;
+  notedCount: number;
+  typeCounts: Array<{ content_type: ClipContentType; count: number }>;
+  sourceCounts: Array<{ name: string; count: number }>;
+}
+
 export type ClipOriginKind = 'clipboard_content' | 'file_reference' | 'screenshot' | 'command_line';
 
 export function getClipOriginKind(
@@ -159,6 +169,14 @@ export interface ClipVersion {
   created_at: string;
 }
 
+export interface ClipMutationSummary {
+  action: string;
+  requestedCount: number;
+  changedCount: number;
+  skippedCount: number;
+  clipIds: number[];
+}
+
 export interface Pipeline {
   id: number;
   stableRef: string;
@@ -189,7 +207,7 @@ export interface Operation {
 
 export interface LibraryItemView {
   stableRef: string;
-  kind: 'detector' | 'operation' | 'transform';
+  kind: 'extractor' | 'detector' | 'operation' | 'transform';
   name: string;
   description: string;
   groupLabel: string | null;
@@ -201,6 +219,7 @@ export interface LibraryItemView {
   revision: number;
   inputContract: string;
   outputContract: string;
+  analysisPass: 'extract' | 'classify' | null;
   createdAt: string;
   updatedAt: string;
   capabilities: {
@@ -446,7 +465,6 @@ export interface AppSettings {
   enableAnalytics: boolean;
   enableBins: boolean;
   enableContentDetection: boolean;
-  enableDiagnostics: boolean;
   enableNotes: boolean;
   enableNotifications: boolean;
   enableOcr: boolean;

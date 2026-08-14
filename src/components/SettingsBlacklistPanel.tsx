@@ -16,11 +16,11 @@ interface SettingsBlacklistPanelProps {
 
 const suggestedApps = [
   {
-    label: 'Security & Password Managers',
+    label: 'Security and password managers',
     apps: ['1Password', 'Bitwarden', 'Dashlane', 'KeePassXC', 'Enpass', 'LastPass'],
   },
   {
-    label: 'Messaging & Private Chat',
+    label: 'Messaging and private chat',
     apps: ['Signal', 'Telegram', 'Slack', 'Discord', 'WhatsApp'],
   },
   {
@@ -28,7 +28,7 @@ const suggestedApps = [
     apps: ['Safari', 'Google Chrome', 'Firefox', 'Brave Browser', 'Arc', 'Orion'],
   },
   {
-    label: 'System & Developer Tools',
+    label: 'System and developer tools',
     apps: ['Terminal', 'Warp', 'VS Code', 'Xcode', 'Notes', 'Mail'],
   },
 ];
@@ -46,7 +46,7 @@ export function SettingsBlacklistPanel({
       <SettingsPanelHeader
         icon={Lock}
         title="App exclusions"
-        description="Choose which apps Pasted ignores."
+        description="Choose which apps to ignore."
         actions={(
           <ActionButton
             variant="primary"
@@ -114,7 +114,7 @@ export function SettingsBlacklistPanel({
                 onClick={() => onRemoveApp(app.id)}
                 className="theme-danger-text theme-icon-button p-1 rounded transition-colors"
                 aria-label={`Remove ${app.name} from blacklist`}
-                title="Remove from Blacklist"
+                title="Remove from blacklist"
               >
                 <Trash2 className="w-3.5 h-3.5" />
               </button>
@@ -124,7 +124,7 @@ export function SettingsBlacklistPanel({
       </div>
 
       <p className="theme-surface rounded-xl border p-4 text-[11px] theme-text-muted leading-relaxed">
-        Apps that mark sensitive data as transient (like 1Password) are already ignored. Checked items will be ignored by Pasted when copying or activating Pasted global shortcuts in these apps.
+        Apps that mark sensitive data as transient (like 1Password) are already ignored. Checked content is not captured, and checked shortcuts do not activate while these apps are focused.
       </p>
 
       {isAddAppOpen && (

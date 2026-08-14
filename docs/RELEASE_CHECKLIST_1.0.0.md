@@ -31,8 +31,9 @@ Use the exact notarized DMG intended for publication. Do not substitute a develo
 ## Existing library and recovery
 
 - [ ] Launching with a pre-release database migrates without losing clips, Bins, settings, revisions, or Queue order.
-- [ ] Export prompts for a destination and produces a restorable backup.
-- [ ] Import merges the backup and refreshes all collection counts immediately.
+- [ ] Full Backup captures every durable Pasted-owned table plus interface/window state and produces a validated `.pastedbackup` snapshot.
+- [ ] Full Restore rejects invalid files before replacement, creates a recovery backup, restores exact state, and relaunches successfully.
+- [ ] History and Organization import merges portable data and refreshes all collection counts immediately.
 - [ ] Factory Reset shows its confirmation/animation, relaunches successfully, and returns to fresh defaults.
 
 ## Scale and appearance

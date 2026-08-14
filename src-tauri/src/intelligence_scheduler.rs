@@ -1,7 +1,7 @@
 use serde::Serialize;
 use std::collections::{HashMap, VecDeque};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::{Arc, Condvar, Mutex, OnceLock};
+use std::sync::{Condvar, Mutex, OnceLock};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 const WAIT_POLL_INTERVAL: Duration = Duration::from_millis(25);
@@ -75,7 +75,6 @@ struct Scheduler {
 }
 
 static SCHEDULER: OnceLock<Scheduler> = OnceLock::new();
-static NEXT_DEMO_ID: AtomicU64 = AtomicU64::new(1);
 
 fn scheduler() -> &'static Scheduler {
     SCHEDULER.get_or_init(|| Scheduler {
@@ -352,176 +351,6 @@ pub fn snapshot() -> SchedulerSnapshot {
         jobs,
         recent_events: state.recent_events.iter().cloned().collect(),
     }
-}
-
-pub fn run_demo(
-    scenario: String,
-    on_fallback: impl FnOnce() + Send + 'static,
-) -> Result<(), String> {
-    if !matches!(
-        scenario.as_str(),
-        "fifo" | "parallel" | "cancel" | "fallback"
-    ) {
-        return Err(format!("Unknown scheduler simulation: {scenario}"));
-    }
-    let demo_id = NEXT_DEMO_ID.fetch_add(1, Ordering::Relaxed);
-    let request_prefix = format!("scheduler-demo-{demo_id}");
-    std::thread::spawn(move || match scenario.as_str() {
-        "fifo" => run_fifo_demo(&request_prefix),
-        "parallel" => run_parallel_demo(&request_prefix),
-        "cancel" => run_cancel_demo(&request_prefix),
-        "fallback" => run_fallback_demo(&request_prefix, on_fallback),
-        _ => unreachable!("scenario was validated before spawning"),
-    });
-    Ok(())
-}
-
-fn finish_demo_after(
-    mut permit: SchedulerPermit,
-    duration: Duration,
-    completion: SchedulerCompletion,
-    detail: &'static str,
-) {
-    std::thread::spawn(move || {
-        std::thread::sleep(duration);
-        permit.finish(completion, Some(detail.to_string()));
-    });
-}
-
-fn run_fifo_demo(request_prefix: &str) {
-    let first_id = format!("{request_prefix}-1");
-    let Ok(first) = acquire(
-        "demo-alpha",
-        "Demo Alpha",
-        "FIFO job 1",
-        Some(&first_id),
-        None,
-    ) else {
-        return;
-    };
-    finish_demo_after(
-        first,
-        Duration::from_millis(2_000),
-        SchedulerCompletion::Succeeded,
-        "Simulation completed",
-    );
-    for position in 2..=3 {
-        let request_id = format!("{request_prefix}-{position}");
-        std::thread::spawn(move || {
-            let Ok(permit) = acquire(
-                "demo-alpha",
-                "Demo Alpha",
-                &format!("FIFO job {position}"),
-                Some(&request_id),
-                None,
-            ) else {
-                return;
-            };
-            finish_demo_after(
-                permit,
-                Duration::from_millis(2_000),
-                SchedulerCompletion::Succeeded,
-                "Simulation completed",
-            );
-        });
-        std::thread::sleep(Duration::from_millis(40));
-    }
-}
-
-fn run_parallel_demo(request_prefix: &str) {
-    for (connection_id, connection_name, suffix) in [
-        ("demo-alpha", "Demo Alpha", "alpha"),
-        ("demo-bravo", "Demo Bravo", "bravo"),
-    ] {
-        let request_id = format!("{request_prefix}-{suffix}");
-        std::thread::spawn(move || {
-            let Ok(permit) = acquire(
-                connection_id,
-                connection_name,
-                "Parallel job",
-                Some(&request_id),
-                None,
-            ) else {
-                return;
-            };
-            finish_demo_after(
-                permit,
-                Duration::from_millis(3_000),
-                SchedulerCompletion::Succeeded,
-                "Simulation completed",
-            );
-        });
-    }
-}
-
-fn run_cancel_demo(request_prefix: &str) {
-    let active_id = format!("{request_prefix}-active");
-    let Ok(active) = acquire(
-        "demo-cancel",
-        "Demo Cancel",
-        "Blocking job",
-        Some(&active_id),
-        None,
-    ) else {
-        return;
-    };
-    finish_demo_after(
-        active,
-        Duration::from_millis(3_000),
-        SchedulerCompletion::Succeeded,
-        "Simulation completed",
-    );
-
-    let cancellation = Arc::new(AtomicBool::new(false));
-    let waiter_flag = Arc::clone(&cancellation);
-    let queued_id = format!("{request_prefix}-queued");
-    std::thread::spawn(move || {
-        let _ = acquire(
-            "demo-cancel",
-            "Demo Cancel",
-            "Cancelled queued job",
-            Some(&queued_id),
-            Some(waiter_flag.as_ref()),
-        );
-    });
-    std::thread::spawn(move || {
-        std::thread::sleep(Duration::from_millis(900));
-        cancellation.store(true, Ordering::Release);
-    });
-}
-
-fn run_fallback_demo(request_prefix: &str, on_fallback: impl FnOnce()) {
-    let request_id = format!("{request_prefix}-fallback");
-    let Ok(mut first) = acquire(
-        "demo-primary",
-        "Demo Primary",
-        "Fallback job",
-        Some(&request_id),
-        None,
-    ) else {
-        return;
-    };
-    std::thread::sleep(Duration::from_millis(1_200));
-    first.finish(
-        SchedulerCompletion::Failed,
-        Some("Simulated provider failure".to_string()),
-    );
-    on_fallback();
-    let Ok(fallback) = acquire(
-        "demo-fallback",
-        "Demo Fallback",
-        "Fallback job",
-        Some(&request_id),
-        None,
-    ) else {
-        return;
-    };
-    finish_demo_after(
-        fallback,
-        Duration::from_millis(2_000),
-        SchedulerCompletion::Succeeded,
-        "Simulation completed after fallback",
-    );
 }
 
 #[cfg(test)]

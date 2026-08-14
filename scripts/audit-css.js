@@ -65,6 +65,10 @@ const semanticRadiusOverrideCount = [...componentSource.matchAll(/className=(?:"
 const unthemedDividerCount = [...componentSource.matchAll(/className="([^"]*\bdivide-[xy]\b[^"]*)"/g)]
   .filter((match) => !match[1].includes('theme-divide'))
   .length;
+const unthemedDialogPanelCount = [...componentSource.matchAll(/panelClassName="([^"]*\bborder\b[^"]*)"/g)]
+  .filter((match) => !/\btheme-panel\b/.test(match[1])
+    && !/\b(?:welcome-setup-panel|clip-note-viewer-card|library-transition-panel|bin-modal-card)\b/.test(match[1]))
+  .length;
 const invalidSemanticButtonCount = (componentSource.match(/\btheme-button-(?:primary|secondary|danger)\b/g) || []).length;
 
 console.log('\nCSS architecture audit');
@@ -79,6 +83,7 @@ console.log(`Legacy field radii: ${legacyFieldRadiusCount}/${LEGACY_FIELD_RADIUS
 console.log(`Raw pill radii: ${rawPillRadiusCount}/${RAW_PILL_RADIUS_BUDGET}`);
 console.log(`Conflicting semantic radius overrides: ${semanticRadiusOverrideCount}/${SEMANTIC_RADIUS_OVERRIDE_BUDGET}`);
 console.log(`Unthemed dividers: ${unthemedDividerCount}/0`);
+console.log(`Unthemed dialog panels: ${unthemedDialogPanelCount}/0`);
 console.log(`Invalid semantic button class names: ${invalidSemanticButtonCount}/0`);
 console.log(`CSS modules imported: ${importedStyleModules.length}/${styleModuleFiles.length}`);
 
@@ -144,6 +149,11 @@ if (semanticRadiusOverrideCount > SEMANTIC_RADIUS_OVERRIDE_BUDGET) {
 if (unthemedDividerCount > 0) {
   failed = true;
   console.error('Every divide-x/divide-y utility must be paired with theme-divide.');
+}
+
+if (unthemedDialogPanelCount > 0) {
+  failed = true;
+  console.error('Every bordered dialog panel must use theme-panel or a documented semantic panel class.');
 }
 
 if (invalidSemanticButtonCount > 0) {

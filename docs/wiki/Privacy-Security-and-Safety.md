@@ -1,6 +1,6 @@
 # Privacy, Security, and Safety
 
-Pasted stores clipboard history, settings, previews, revisions, and Activity Log data locally in SQLite. It includes no analytics or telemetry.
+Pasted stores clipboard history, settings, previews, revisions, and Activity data locally in SQLite. It includes no analytics or telemetry.
 
 The release gate checks production dependency licenses, known Rust advisories, package sources, telemetry SDK policy, and remote webview destinations. Tagged downloads include both a deterministic source dependency SPDX SBOM and an SPDX scan of the extracted platform payload.
 
@@ -12,7 +12,7 @@ The release gate checks production dependency licenses, known Rust advisories, p
 - Clipboard and IPC inputs are bounded by shared resource limits.
 - Activity and error events record metadata, not clipboard contents, file contents, credentials, or transformation prompts.
 
-Optional capture previews can show clip content in Pasted's own feedback window. Turn off **Show Clip Preview** under **Settings → Notifications** when screen sharing or working where an on-screen preview could be observed. See [Notifications and Capture Feedback](Notifications-and-Capture-Feedback).
+Optional capture previews can show clip content in Pasted's own feedback window. Turn off **Show clip preview** under **Settings → Notifications** when screen sharing or working where an on-screen preview could be observed. See [Notifications and Capture Feedback](Notifications-and-Capture-Feedback).
 
 ## Intelligence
 
@@ -24,7 +24,7 @@ Clip content leaves Pasted only when you explicitly run an intelligence-assisted
 - Destructive and multi-record operations use transactions.
 - Protected clips survive automated destructive retention.
 - Queue items are consumed only after successful paste.
-- Backup import and Factory Reset roll back on simulated mid-operation failures.
+- Full Restore validates before replacement and creates a recovery backup first. History and Organization import and Factory Reset roll back on simulated mid-operation failures.
 - Revisions are scoped to their owning clip.
 
 The complete automated coverage matrix is maintained in [`docs/SAFETY_TEST_MATRIX.md`](https://github.com/getpasted/pasted/blob/main/docs/SAFETY_TEST_MATRIX.md).

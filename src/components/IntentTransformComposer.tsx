@@ -156,7 +156,7 @@ export function IntentTransformComposer({ sampleInput, onTestResult, onTransform
         <span className="theme-badge border rounded-xl p-2.5 shrink-0"><Sparkles className="w-5 h-5" /></span>
         <div className="min-w-0 flex-1">
           <label htmlFor="transformation-intent" className="theme-title text-xs font-bold">What should happen?</label>
-          <p className="theme-text-muted text-[10px] mt-1">Describe the result. Pasted will draft the implementation.</p>
+          <p className="theme-text-muted text-[10px] mt-1">Describe the result, then review the generated implementation.</p>
         </div>
       </div>
       <div className="flex flex-col items-stretch gap-2 @md:flex-row">

@@ -8,6 +8,8 @@ import {
   Layers,
   TrendingUp,
   Calendar,
+  AlertCircle,
+  LoaderCircle,
 } from 'lucide-react';
 import { ToolPageHeader } from './ToolPageHeader';
 import { OverflowText } from './OverflowText';
@@ -41,13 +43,16 @@ interface AnalyticsSummary {
 export const AnalyticsView: React.FC = () => {
   const { definitions: registeredContentTypes, groups: contentTypeGroups } = useContentTypes();
   const [summary, setSummary] = useState<AnalyticsSummary | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const loadStats = async () => {
+    setLoadError(null);
     try {
       const data = await invoke<AnalyticsSummary>('get_analytics_summary');
       setSummary(data);
     } catch (e) {
       console.error('Failed to fetch analytics summary:', e);
+      setLoadError('Insights could not load the History summary.');
     }
   };
 
@@ -55,11 +60,32 @@ export const AnalyticsView: React.FC = () => {
     loadStats();
   }, []);
 
-  const totalClips = summary?.total_clips || 0;
-  const totalChars = summary?.total_chars || 0;
-  const topSources = summary?.top_sources || [];
-  const contentTypes = summary?.content_types || [];
-  const dailyActivity = summary?.daily_activity || [];
+  if (!summary) {
+    return (
+      <div className="tools-page analytics-page flex h-screen flex-1 select-none flex-col overflow-hidden font-sans">
+        <ToolPageHeader
+          icon={<BarChart3 className="w-4 h-4" />}
+          title="Insights"
+          description="Current History composition and recent capture trends."
+        />
+        <div className="theme-text-muted flex flex-1 flex-col items-center justify-center gap-3 p-6 text-xs" role={loadError ? 'alert' : 'status'}>
+          {loadError ? <AlertCircle className="theme-danger-text h-7 w-7" /> : <LoaderCircle className="h-7 w-7 animate-spin" />}
+          <p>{loadError ?? 'Loading Insights…'}</p>
+          {loadError && (
+            <button type="button" onClick={() => void loadStats()} className="theme-secondary-button ui-control-radius border px-3 py-1.5 font-semibold">
+              Try Again
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  const totalClips = summary.total_clips;
+  const totalChars = summary.total_chars;
+  const topSources = summary.top_sources;
+  const contentTypes = summary.content_types;
+  const dailyActivity = summary.daily_activity;
 
   const getTypeCount = (type: string) => {
     return contentTypes.find((t) => t.content_type === type)?.count || 0;
@@ -77,8 +103,8 @@ export const AnalyticsView: React.FC = () => {
     <div className="tools-page analytics-page flex-1 h-screen overflow-hidden font-sans select-none flex flex-col">
       <ToolPageHeader
         icon={<BarChart3 className="w-4 h-4" />}
-        title="Analytics & Insights"
-        description="Clipboard trends, sources, and storage efficiency"
+        title="Insights"
+        description="Current History composition and recent capture trends."
       />
 
       <div className="tools-scroll-region flex-1 overflow-y-auto p-6">
@@ -93,7 +119,7 @@ export const AnalyticsView: React.FC = () => {
             <div className="theme-title text-2xl font-extrabold font-mono">
               {totalClips.toLocaleString()}
             </div>
-            <div className="theme-text-muted text-xs font-medium">Total Clips Saved</div>
+            <div className="theme-text-muted text-xs font-medium">Clips in History</div>
           </div>
         </div>
 
@@ -105,7 +131,7 @@ export const AnalyticsView: React.FC = () => {
             <div className="theme-title text-2xl font-extrabold font-mono">
               {totalChars.toLocaleString()}
             </div>
-            <div className="theme-text-muted text-xs font-medium">Text Characters Saved</div>
+            <div className="theme-text-muted text-xs font-medium">Text characters in History</div>
           </div>
         </div>
 
@@ -115,7 +141,7 @@ export const AnalyticsView: React.FC = () => {
           </div>
           <div>
             <OverflowText as="div" text={topSources[0]?.name || '—'} className="theme-title text-2xl font-extrabold font-mono truncate max-w-[140px]" />
-            <div className="theme-text-muted text-xs font-medium">Top Source</div>
+            <div className="theme-text-muted text-xs font-medium">Top source in History</div>
           </div>
         </div>
       </div>
@@ -126,7 +152,7 @@ export const AnalyticsView: React.FC = () => {
         <div className="theme-panel p-5 rounded-xl border flex flex-col">
           <h2 className="theme-title text-sm font-bold mb-4 flex items-center space-x-2">
             <Cpu className="w-4 h-4 theme-status-info-text" />
-            <span>Top Sources</span>
+            <span>Top sources in History</span>
           </h2>
           <div className="space-y-3 flex-1">
             {topSources.length === 0 ? (
@@ -157,7 +183,7 @@ export const AnalyticsView: React.FC = () => {
         <div className="theme-panel p-5 rounded-xl border flex flex-col">
           <h2 className="theme-title text-sm font-bold mb-4 flex items-center space-x-2">
             <PieChart className="w-4 h-4 theme-status-info-text" />
-            <span>Content Type Breakdown</span>
+            <span>History clips by type</span>
           </h2>
           <div className="grid grid-cols-2 gap-3 flex-1">
             {visibleContentTypes.length === 0 ? (
@@ -179,7 +205,7 @@ export const AnalyticsView: React.FC = () => {
       <div className="theme-panel p-5 rounded-xl border">
         <h2 className="theme-title text-sm font-bold mb-4 flex items-center space-x-2">
           <Calendar className="w-4 h-4 theme-status-info-text" />
-          <span>Daily Clipboard Activity (Recent Days)</span>
+          <span>Clips added to History · Last 14 days</span>
         </h2>
         <div className="space-y-2">
           {dailyActivity.length === 0 ? (

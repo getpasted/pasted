@@ -79,6 +79,25 @@ let mockDetectors = [
   mockDetector({ id: 2, stable_ref: 'credential', name: 'Credentials', content_type: 'credential', description: 'Known API-key formats and secret assignments', patterns: [String.raw`^(?:sk_|ghp_).+$`], validator: null, enabled: true, priority: 60, is_builtin: true }),
   mockDetector({ id: 3, stable_ref: 'phone', name: 'Phone Numbers', content_type: 'phone', description: 'Formatted international and local phone numbers', patterns: [String.raw`^\+?[0-9 ()-]{7,}$`], validator: 'phone', enabled: true, priority: 160, is_builtin: true }),
 ];
+const mockExtractorDefaults = { name: 'Apple Vision OCR', description: 'Extracts searchable text from images locally with Apple Vision.', enabled: true, priority: 10 };
+type MockExtractor = {
+  id: number; stableRef: string; name: string; description: string; engine: string;
+  inputContract: string; outputContract: string; enabled: boolean; priority: number;
+  isBuiltin: boolean; isAvailable: boolean; unavailableReason: string | null;
+  defaults: typeof mockExtractorDefaults | null;
+};
+let mockExtractors: MockExtractor[] = [{
+  id: 1,
+  stableRef: 'extractor:apple-vision-ocr',
+  ...mockExtractorDefaults,
+  engine: 'macos-vision-v1',
+  inputContract: 'image',
+  outputContract: 'searchable_text',
+  isBuiltin: true,
+  isAvailable: true,
+  unavailableReason: null,
+  defaults: { ...mockExtractorDefaults },
+}];
 
 let mockContentTypes: Array<{
   id: string; label: string; icon: string; group: string; isBuiltin: boolean; isArchived: boolean;
@@ -93,7 +112,7 @@ let mockContentTypeGroups: Array<{
 }> = [
   { id: 'general', label: 'General', sortOrder: 10, isBuiltin: true, isArchived: false, defaults: { label: 'General', sortOrder: 10 } },
   { id: 'developer', label: 'Developer', sortOrder: 20, isBuiltin: true, isArchived: false, defaults: { label: 'Developer', sortOrder: 20 } },
-  { id: 'personal_financial', label: 'Personal & financial', sortOrder: 30, isBuiltin: true, isArchived: false, defaults: { label: 'Personal & financial', sortOrder: 30 } },
+  { id: 'personal_financial', label: 'Personal and financial', sortOrder: 30, isBuiltin: true, isArchived: false, defaults: { label: 'Personal and financial', sortOrder: 30 } },
   { id: 'identifiers', label: 'Identifiers', sortOrder: 40, isBuiltin: true, isArchived: false, defaults: { label: 'Identifiers', sortOrder: 40 } },
   { id: 'custom', label: 'Custom', sortOrder: 50, isBuiltin: true, isArchived: false, defaults: { label: 'Custom', sortOrder: 50 } },
 ];
@@ -179,14 +198,18 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
   }
   console.warn(`[safeInvoke mock] ${cmd}`, args);
   switch (cmd) {
-    case 'get_clips':
+    case 'get_clips': {
+      const offset = Math.max(0, Number(args?.offset ?? 0));
+      const limit = Math.max(1, Number(args?.limit ?? 10_000));
       return mockClips
         .filter((clip) => {
           const binId = Number(args?.binId);
           return clip.is_trashed === 0
             && (!Number.isInteger(binId) || binId <= 0 || clip.bin_ids.includes(binId));
         })
+        .slice(offset, offset + limit)
         .map((clip) => ({ ...clip, bin_ids: [...clip.bin_ids] })) as unknown as T;
+    }
     case 'get_bins':
       return mockBins.map((bin) => ({
         ...bin,
@@ -196,11 +219,42 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       return mockPipelines as unknown as T;
     case 'get_content_detectors':
       return mockDetectors.map((detector) => ({ ...detector, patterns: [...detector.patterns] })) as unknown as T;
+    case 'get_content_extractors':
+      return mockExtractors.map((extractor) => ({ ...extractor, defaults: extractor.defaults ? { ...extractor.defaults } : null })) as unknown as T;
+    case 'create_content_extractor': {
+      const input = args?.input as Omit<MockExtractor, 'id' | 'stableRef' | 'isBuiltin' | 'isAvailable' | 'unavailableReason' | 'defaults'>;
+      const id = Math.max(0, ...mockExtractors.map((extractor) => extractor.id)) + 1;
+      const created: MockExtractor = { id, stableRef: `extractor:custom:${id}`, ...input, isBuiltin: false, isAvailable: input.engine === 'macos-vision-v1', unavailableReason: input.engine === 'macos-vision-v1' ? null : `Engine ${input.engine} is not available on this system.`, defaults: null };
+      mockExtractors = [...mockExtractors, created];
+      return created as unknown as T;
+    }
+    case 'update_content_extractor_definition': {
+      const id = Number(args?.id);
+      const input = args?.input as Partial<typeof mockExtractors[number]>;
+      mockExtractors = mockExtractors.map((extractor) => extractor.id === id ? { ...extractor, ...input } : extractor);
+      return mockExtractors.find((extractor) => extractor.id === id) as unknown as T;
+    }
+    case 'duplicate_content_extractor': {
+      const reference = String(args?.reference ?? '');
+      const source = mockExtractors.find((extractor) => extractor.stableRef === reference || String(extractor.id) === reference);
+      if (!source) throw new Error('Extractor was not found.');
+      const id = Math.max(0, ...mockExtractors.map((extractor) => extractor.id)) + 1;
+      const created = { ...source, id, stableRef: `extractor:custom:${id}`, name: String(args?.name ?? `${source.name} Copy`), priority: source.priority + 1, isBuiltin: false, defaults: null };
+      mockExtractors = [...mockExtractors, created];
+      return created as unknown as T;
+    }
+    case 'delete_content_extractor':
+      mockExtractors = mockExtractors.filter((extractor) => extractor.id !== Number(args?.id));
+      return undefined as T;
+    case 'restore_default_content_extractors':
+      mockExtractors = mockExtractors.map((extractor) => ({ ...extractor, ...mockExtractorDefaults }));
+      return mockExtractors as unknown as T;
     case 'get_library_items': {
       const kind = String(args?.kind ?? '');
       const items = [
-        ...mockDetectors.map((detector) => ({ stableRef: detector.stable_ref, kind: 'detector', name: detector.name, description: detector.description, groupLabel: null, icon: 'FileText', enabled: detector.enabled, isBuiltin: detector.is_builtin, isArchived: false, sortOrder: detector.priority, revision: 1, inputContract: 'text', outputContract: `set_type:${detector.content_type}`, createdAt: '', updatedAt: '', capabilities: { canEdit: true, canDuplicate: true, canDelete: true, canDisable: true, canRestore: detector.is_builtin } })),
-        ...mockPipelines.map((pipeline) => ({ stableRef: pipeline.stableRef, kind: 'transform', name: pipeline.name, description: '', groupLabel: 'Manual Transforms', icon: 'Workflow', enabled: null, isBuiltin: false, isArchived: false, sortOrder: pipeline.id, revision: pipeline.revision, inputContract: 'text', outputContract: 'preserve_type', createdAt: pipeline.createdAt, updatedAt: pipeline.updatedAt, capabilities: { canEdit: true, canDuplicate: true, canDelete: true, canDisable: false, canRestore: false } })),
+        ...mockExtractors.map((extractor) => ({ stableRef: extractor.stableRef, kind: 'extractor', name: extractor.name, description: extractor.description, groupLabel: 'Content Analysis', icon: 'ScanText', enabled: extractor.enabled, isBuiltin: true, isArchived: false, sortOrder: extractor.priority, revision: 1, inputContract: extractor.inputContract, outputContract: extractor.outputContract, analysisPass: 'extract', createdAt: '', updatedAt: '', capabilities: { canEdit: true, canDuplicate: false, canDelete: false, canDisable: true, canRestore: true } })),
+        ...mockDetectors.map((detector) => ({ stableRef: detector.stable_ref, kind: 'detector', name: detector.name, description: detector.description, groupLabel: null, icon: 'FileText', enabled: detector.enabled, isBuiltin: detector.is_builtin, isArchived: false, sortOrder: detector.priority, revision: 1, inputContract: 'text', outputContract: `set_type:${detector.content_type}`, analysisPass: 'classify', createdAt: '', updatedAt: '', capabilities: { canEdit: true, canDuplicate: true, canDelete: true, canDisable: true, canRestore: detector.is_builtin } })),
+        ...mockPipelines.map((pipeline) => ({ stableRef: pipeline.stableRef, kind: 'transform', name: pipeline.name, description: '', groupLabel: 'Manual Transforms', icon: 'Workflow', enabled: null, isBuiltin: false, isArchived: false, sortOrder: pipeline.id, revision: pipeline.revision, inputContract: 'text', outputContract: 'preserve_type', analysisPass: null, createdAt: pipeline.createdAt, updatedAt: pipeline.updatedAt, capabilities: { canEdit: true, canDuplicate: true, canDelete: true, canDisable: false, canRestore: false } })),
       ];
       return items.filter((item) => !kind || item.kind === kind) as unknown as T;
     }
@@ -261,6 +315,14 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       const index = mockDetectors.findIndex(({ id }) => id === Number(args?.id));
       if (index >= 0) mockDetectors[index] = { ...mockDetectors[index], ...(args?.input as Record<string, unknown>) } as typeof mockDetectors[number];
       return mockDetectors[index] as unknown as T;
+    }
+    case 'duplicate_content_detector': {
+      const reference = String(args?.reference ?? '');
+      const source = mockDetectors.find((detector) => detector.stable_ref === reference || String(detector.id) === reference);
+      if (!source) throw new Error('Detector was not found.');
+      const detector = { ...source, id: Math.max(0, ...mockDetectors.map(({ id }) => Number(id))) + 1, stable_ref: `custom-${Date.now()}`, name: String(args?.name ?? `${source.name} Copy`), priority: source.priority + 1, is_builtin: false, defaults: null } as unknown as typeof mockDetectors[number];
+      mockDetectors.push(detector);
+      return detector as unknown as T;
     }
     case 'delete_content_detector':
       mockDetectors = mockDetectors.filter(({ id }) => id !== Number(args?.id));
@@ -432,8 +494,6 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
           'Run `pasted licenses` or open this dialog in the native app to inspect that document.',
         ].join('\n'),
       } as unknown as T;
-    case 'run_intelligence_scheduler_demo':
-      return undefined as T;
     case 'get_ocr_backfill_status':
       return {
         totalImages: 0,
@@ -596,10 +656,24 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       updateMockSequentialStatus();
       return combined as unknown as T;
     }
-    case 'get_trashed_clips':
-      return mockClips.filter((clip) => clip.is_trashed !== 0) as unknown as T;
-    case 'get_total_clip_count':
-      return mockClips.filter((clip) => clip.is_trashed === 0).length as unknown as T;
+    case 'get_trashed_clips': {
+      const offset = Math.max(0, Number(args?.offset ?? 0));
+      const limit = Math.max(1, Number(args?.limit ?? 10_000));
+      return mockClips.filter((clip) => clip.is_trashed !== 0).slice(offset, offset + limit) as unknown as T;
+    }
+    case 'get_clip_collection_summary': {
+      const active = mockClips.filter((clip) => clip.is_trashed === 0);
+      const countBy = (key: 'content_type' | 'source') => [...active.reduce((counts, clip) => counts.set(String(clip[key]), (counts.get(String(clip[key])) ?? 0) + 1), new Map<string, number>())];
+      return {
+        activeCount: active.length,
+        trashCount: mockClips.length - active.length,
+        pinnedCount: active.filter((clip) => clip.is_pinned).length,
+        protectedCount: active.filter((clip) => clip.is_protected).length,
+        notedCount: active.filter((clip) => Boolean(clip.note?.trim())).length,
+        typeCounts: countBy('content_type').map(([content_type, count]) => ({ content_type, count })),
+        sourceCounts: countBy('source').map(([name, count]) => ({ name, count })),
+      } as unknown as T;
+    }
     case 'is_clipboard_paused':
       return false as unknown as T;
     case 'get_all_app_settings':
@@ -626,7 +700,39 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
         historyCapacityAdjustedTo: 1200,
       } as unknown as T;
     case 'export_backup_file':
-      return `/mock/Pasted_Backup_${new Date().toISOString().slice(0, 10)}.json` as unknown as T;
+      return `/mock/Pasted_Library_Archive_${new Date().toISOString().slice(0, 10)}.json` as unknown as T;
+    case 'choose_import_file':
+      return {
+        path: '/mock/Pasted_History_and_Organization.json',
+        name: 'Pasted_History_and_Organization.json',
+        kind: 'organization',
+        format: 'json',
+        sizeBytes: 184_320,
+        library: {
+          schemaVersion: 1,
+          clipCount: 248,
+          binCount: 7,
+          operationCount: 5,
+          transformCount: 12,
+          detectorCount: 4,
+          contentTypeCount: 9,
+        },
+      } as unknown as T;
+    case 'import_inspected_file':
+      return { importedCount: 248, duplicateCount: 0 } as unknown as T;
+    case 'export_full_backup_file':
+      return {
+        path: `/mock/Pasted_Full_Backup_${new Date().toISOString().slice(0, 10)}.pastedbackup`,
+        createdAt: new Date().toISOString(),
+        sizeBytes: 2_457_600,
+      } as unknown as T;
+    case 'restore_full_backup_file':
+      return {
+        recoveryPath: '/mock/Pasted_Pre_Restore.pastedbackup',
+        backupCreatedAt: new Date().toISOString(),
+      } as unknown as T;
+    case 'consume_pending_full_restore_client_state':
+      return null as unknown as T;
     case 'get_library_location':
       return mockLibraryLocation as unknown as T;
     case 'move_library':
@@ -654,7 +760,7 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       mockClips = [];
       mockBins = [
         { id: 1, name: 'Screenshots', icon: '📸', color: '#ec4899', smart_rule: '{"type":"origin_kind","value":"screenshot"}', bin_type: 'category' },
-        { id: 2, name: 'Links & Web', icon: 'Link', color: '#3b82f6', smart_rule: '{"type":"content_type","value":"link"}', bin_type: 'category' },
+        { id: 2, name: 'Links and web', icon: 'Link', color: '#3b82f6', smart_rule: '{"type":"content_type","value":"link"}', bin_type: 'category' },
         { id: 3, name: 'Code Snippets', icon: 'Code', color: '#10b981', smart_rule: '{"type":"content_type","value":"code"}', bin_type: 'category' },
       ];
       mockSavedTransforms = [];
@@ -667,6 +773,10 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       return [] as unknown as T;
     case 'get_activity_logs':
       return [] as unknown as T;
+    case 'export_activity_json':
+      return JSON.stringify({ schemaVersion: 1, exportedAt: new Date().toISOString(), resource: { 'service.name': 'Pasted' }, entries: [] }, null, 2) as unknown as T;
+    case 'export_activity_csv':
+      return 'timestamp,observed_timestamp,event_name,severity_text,body,category,outcome,attributes_json\n' as unknown as T;
     case 'get_clip_versions':
       return [] as unknown as T;
     case 'get_clip_version_count':
@@ -719,6 +829,22 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       const clip = mockClips.find((item) => item.id === Number(args?.id));
       if (clip) clip.is_trashed = 0;
       return null as unknown as T;
+    }
+    case 'restore_all_trashed_clips': {
+      const restoredIds = mockClips.filter((clip) => clip.is_trashed !== 0).map((clip) => clip.id);
+      for (const clip of mockClips) {
+        if (clip.is_trashed !== 0) {
+          clip.is_trashed = 0;
+          clip.trashed_at = null;
+        }
+      }
+      return {
+        action: 'restore_all',
+        requestedCount: restoredIds.length,
+        changedCount: restoredIds.length,
+        skippedCount: 0,
+        clipIds: restoredIds,
+      } as unknown as T;
     }
     case 'purge_clip_permanently':
       mockClips = mockClips.filter((clip) => clip.id !== Number(args?.id) || clip.is_protected);

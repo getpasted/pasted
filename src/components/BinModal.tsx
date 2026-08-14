@@ -339,7 +339,7 @@ export const BinModal: React.FC<BinModalProps> = ({
             </div>
           {/* Name Field */}
           <div className="flex items-center space-x-3">
-            <label className={`w-20 text-right font-semibold flex-shrink-0 ${errors.name ? 'theme-danger-text font-bold' : 'theme-text-muted'}`}>Name:</label>
+            <label className={`w-20 text-right font-semibold flex-shrink-0 ${errors.name ? 'theme-danger-text font-bold' : 'theme-text-muted'}`}>Name</label>
             <input
               type="text"
               placeholder="e.g. Code Snippets, Safari Clips"
@@ -360,7 +360,7 @@ export const BinModal: React.FC<BinModalProps> = ({
 
           {/* Color Palette Picker Row */}
           <div className="flex items-center space-x-3">
-            <label className={`w-20 text-right font-semibold flex-shrink-0 ${errors.color ? 'theme-danger-text font-bold' : 'theme-text-muted'}`}>Color:</label>
+            <label className={`w-20 text-right font-semibold flex-shrink-0 ${errors.color ? 'theme-danger-text font-bold' : 'theme-text-muted'}`}>Color</label>
             <div className={`flex items-center space-x-2 p-1 rounded-xl border border-transparent transition-colors ${errors.color ? 'form-field-error' : ''}`}>
               {COLOR_PALETTE.map((c) => (
                 <button
@@ -385,7 +385,7 @@ export const BinModal: React.FC<BinModalProps> = ({
 
           {/* Single Emoji Icon Selector */}
           <div className="flex items-center space-x-3">
-            <label className={`w-20 text-right font-semibold flex-shrink-0 ${errors.icon ? 'theme-danger-text font-bold' : 'theme-text-muted'}`}>Icon:</label>
+            <label className={`w-20 text-right font-semibold flex-shrink-0 ${errors.icon ? 'theme-danger-text font-bold' : 'theme-text-muted'}`}>Icon</label>
             <div className="flex-1 flex items-center space-x-2.5">
               {desktopPlatform === 'macos' ? (
                 <input
@@ -489,7 +489,7 @@ export const BinModal: React.FC<BinModalProps> = ({
           </div>
 
           <div className="flex items-center gap-3">
-            <span className="w-20 shrink-0 text-right text-xs font-semibold theme-text-muted">Transform:</span>
+            <span className="w-20 shrink-0 text-right text-xs font-semibold theme-text-muted">Transform</span>
             <MenuSelect
               value={transformRef}
               options={[
@@ -528,7 +528,7 @@ export const BinModal: React.FC<BinModalProps> = ({
           {/* Smart Bin Multi-Condition Builder */}
           {modalTab === 'smart' && (
             <div className="flex items-start gap-3">
-              <span className="w-20 shrink-0 pt-0.5 text-right text-xs font-semibold theme-text-muted">Filter:</span>
+              <span className="w-20 shrink-0 pt-0.5 text-right text-xs font-semibold theme-text-muted">Filter</span>
               <div className="min-w-0 flex-1 space-y-2">
                 <div className="p-4 theme-surface rounded-2xl border space-y-3">
               {conditions.map((c) => (
@@ -670,7 +670,7 @@ export const BinModal: React.FC<BinModalProps> = ({
               ))}
 
               <div className="flex items-center space-x-2 pt-1 theme-text-muted">
-                <span>Contain clippings that match</span>
+                <span>Contain clips that match</span>
                 <MenuSelect
                   value={matchCondition}
                   onChange={(value) => setMatchCondition(value as 'any' | 'all')}

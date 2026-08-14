@@ -29,9 +29,14 @@ export const QuickHudWindow: React.FC = () => {
 
   const fetchClips = async () => {
     try {
-      const result = await invoke<ClipItem[]>('get_clips', { searchQuery: search || null, binId: null, onlyPinned: false });
-      const topClips = result.slice(0, 9);
-      setClips(topClips);
+      const result = await invoke<ClipItem[]>('get_clips', {
+        searchQuery: search || null,
+        binId: null,
+        onlyPinned: false,
+        limit: 9,
+        offset: 0,
+      });
+      setClips(result);
       setSelectedIndex(0);
       if (!search) {
         try {

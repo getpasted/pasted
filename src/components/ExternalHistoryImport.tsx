@@ -99,7 +99,7 @@ export function ExternalHistoryImport({ compact = false, onImported }: ExternalH
     <div className={compact ? 'space-y-2' : 'space-y-3'}>
       {!compact && (
         <p className="theme-text-muted text-[11px] leading-relaxed">
-          Pasted reads the source file without modifying it, imports supported text history, and skips duplicates.
+          The source file is read without modification; supported text history is imported and duplicates are skipped.
         </p>
       )}
       {detectedCount === 0 && (

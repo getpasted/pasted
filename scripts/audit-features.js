@@ -10,6 +10,8 @@ const nativeRoot = read('src-tauri/src/lib.rs');
 const nativeCommands = read('src-tauri/src/commands.rs');
 const settingsModal = read('src/components/SettingsModal.tsx');
 const settingsFeaturesPanel = read('src/components/SettingsFeaturesPanel.tsx');
+const sidebar = read('src/components/Sidebar.tsx');
+const nativeMenu = read('src-tauri/src/app_menu.rs');
 const captureFeedbackWindow = read('src/components/CaptureFeedbackWindow.tsx');
 const clipboardMonitor = read('src-tauri/src/clipboard_monitor.rs');
 
@@ -18,7 +20,7 @@ const frontendKeys = [...frontendRegistry.matchAll(/settingKey:\s*'(enable[A-Za-
 const nativeKeys = [...nativePolicy.matchAll(/=>\s*"(enable[A-Za-z]+)"/g)]
   .map((match) => match[1]);
 
-assert.equal(frontendKeys.length, 19, 'The frontend feature registry must include every supported capability');
+assert.equal(frontendKeys.length, 18, 'The frontend feature registry must include every supported capability');
 const frontendGroups = [...frontendRegistry.matchAll(/group:\s*'([A-Za-z]+)'/g)]
   .map((match) => match[1]);
 assert.equal(frontendGroups.length, frontendKeys.length, 'Every feature must belong to a Functionality group');
@@ -31,6 +33,18 @@ assert.match(
   settingsFeaturesPanel,
   /FEATURE_GROUPS\.map\(\(group\)/,
   'Settings → Functionality must render features in their logical groups',
+);
+const toolOrder = ['transformations', 'analytics', 'activity', 'help', 'settings'];
+let previousToolIndex = -1;
+for (const tab of toolOrder) {
+  const index = sidebar.indexOf(`{ tab: '${tab}'`, previousToolIndex + 1);
+  assert.ok(index > previousToolIndex, `Tools must keep ${tab} in the intended navigation order`);
+  previousToolIndex = index;
+}
+assert.ok(
+  nativeMenu.indexOf('item(&transforms_menu)') < nativeMenu.indexOf('text("view.analytics", "Insights")')
+    && nativeMenu.indexOf('text("view.analytics", "Insights")') < nativeMenu.indexOf('text("view.activity", "Activity")'),
+  'The native Tools menu must mirror Transformations, Insights, and Activity order',
 );
 assert.deepEqual(
   [...new Set(nativeKeys)].sort(),

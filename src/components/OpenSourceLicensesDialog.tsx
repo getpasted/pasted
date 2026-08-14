@@ -50,7 +50,7 @@ export function OpenSourceLicensesDialog({
             title="Open Source Licenses"
             description={document
               ? `${document.componentCount} bundled Rust and JavaScript components`
-              : 'Licenses and acknowledgements for software included with Pasted.'}
+              : 'Licenses and acknowledgements for bundled software.'}
             icon={<Scale />}
             tone="info"
           />
@@ -62,7 +62,7 @@ export function OpenSourceLicensesDialog({
             </pre>
           ) : error ? (
             <div role="alert" className="theme-status-danger rounded-xl border px-3 py-2 text-xs">
-              Pasted could not load its bundled license notices: {error}
+              Could not load the bundled license notices: {error}
             </div>
           ) : (
             <div className="theme-text-muted p-6 text-center text-xs">Loading bundled notices…</div>

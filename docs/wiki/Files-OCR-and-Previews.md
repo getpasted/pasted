@@ -27,6 +27,6 @@ On macOS, Apple Vision can extract searchable text from clipboard images and scr
 - Re-enabling OCR resumes a hash-safe backfill of eligible images.
 - Disabling OCR cancels background work; late results are discarded.
 - Deleting or purging a clip also removes or excludes its OCR lifecycle state.
-- Backup/import preserves completed OCR state.
+- Full Backup and History and Organization transfer round trips preserve completed OCR state.
 
-Use **Settings → Diagnostics** or `pasted ocr status --json` to inspect background progress.
+Use **Settings → Analysis** or `pasted ocr status --json` to inspect background progress. OCR runs only when an available `image → searchable_text` Extractor is enabled.

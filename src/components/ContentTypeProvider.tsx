@@ -29,7 +29,7 @@ const fallbackTypes: RegisteredContentType[] = CONTENT_TYPES.map(({ value, label
 const fallbackGroups: RegisteredContentTypeGroup[] = [
   { id: 'general', label: 'General', sortOrder: 10, isBuiltin: true, isArchived: false, defaults: { label: 'General', sortOrder: 10 } },
   { id: 'developer', label: 'Developer', sortOrder: 20, isBuiltin: true, isArchived: false, defaults: { label: 'Developer', sortOrder: 20 } },
-  { id: 'personal_financial', label: 'Personal & financial', sortOrder: 30, isBuiltin: true, isArchived: false, defaults: { label: 'Personal & financial', sortOrder: 30 } },
+  { id: 'personal_financial', label: 'Personal and financial', sortOrder: 30, isBuiltin: true, isArchived: false, defaults: { label: 'Personal and financial', sortOrder: 30 } },
   { id: 'identifiers', label: 'Identifiers', sortOrder: 40, isBuiltin: true, isArchived: false, defaults: { label: 'Identifiers', sortOrder: 40 } },
   { id: 'custom', label: 'Custom', sortOrder: 50, isBuiltin: true, isArchived: false, defaults: { label: 'Custom', sortOrder: 50 } },
 ];

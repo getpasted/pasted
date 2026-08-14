@@ -1,8 +1,25 @@
-# Detection and Types
+# Content Analysis, Detection, and Types
 
 Content Detection classifies new text clips into Types used by search, calculated Type collections, and Smart Bins. It does not send content to an intelligence provider. Detection runs locally through an ordered registry of regular expressions and optional built-in validators.
 
-Enable **Content Detection** and **Types** under **Settings → Functionality**, then open **Settings → Detection**.
+Enable **Content Detection** and **Types** under **Settings → Functionality**, then open **Settings → Analysis**.
+
+## Bounded analysis passes
+
+Analysis uses a shared, non-destructive scheduler. Original clip representations enter an analysis context, and registered participants declare which representations they require and provide. Each participant runs at most once in one of four ordered passes:
+
+1. **Inspect** reads structural information already available at capture.
+2. **Extract** derives representations such as searchable image text.
+3. **Classify** applies Detectors to the text or representations now available.
+4. **Enrich** is reserved for optional, more expensive derived metadata.
+
+Missing inputs skip a participant without recursion. A participant that reports success without producing its declared output fails closed. Original clip content is never replaced by the scheduler. Operations remain separate because they are user-directed mutations rather than analysis participants.
+
+## Extractors
+
+Extractors create searchable representations from clip content without replacing the original. Apple Vision OCR is the built-in image-to-text Extractor. It runs locally on macOS and appears as unavailable on Windows and Linux, where Apple Vision is not present. Extractor names, descriptions, priority, and enabled state can be managed under **Settings → Analysis → Manage Extractors**.
+
+OCR scans use the first enabled, available Extractor with an `image` input and `searchable_text` output contract. The resulting text becomes available to the later classify pass during the same bounded run. This explicit boundary allows additional local or provider-backed engines without changing Detection or the stored OCR result model.
 
 ## How detector matching works
 
@@ -24,16 +41,16 @@ Built-in and custom detectors can be enabled, disabled, reordered by priority, d
 
 Detector changes affect newly captured text. Existing clips keep their current Type until an explicit rescan.
 
-## Rescan History
+## Rescan Clips
 
-**Rescan History** reapplies the current enabled detector order to existing text clips. Confirm it only when you intend to reinterpret existing data because it can change:
+**Rescan Clips** reapplies the current enabled detector order to existing text clips. Confirm it only when you intend to reinterpret existing data because it can change:
 
 - clip Types;
 - Type collection results;
 - Smart Bin membership;
 - sensitive-content masking driven by classification.
 
-Images and file clips are not reclassified. The completed operation reports how many text clips changed. Detector and Type registry edits are recorded in Activity Log when that feature is enabled, but registry metadata does not use clip Revision History.
+Images and file clips are not reclassified. The completed operation reports how many text clips changed. Detector and Type registry edits are recorded in Activity when that feature is enabled, but registry metadata does not use clip Revision History.
 
 The CLI equivalent requires explicit confirmation:
 
@@ -51,8 +68,8 @@ pasted detector rescan --yes --json
 - A custom Group must be empty before it can be archived or permanently deleted.
 - Archived entries remain recoverable and are excluded from ordinary selection.
 
-Disabling **Types** hides calculated Type collections. Disabling **Content Detection** stops new detector-based classification and hides the Detection settings page. Neither action deletes existing clips or registry data.
+Disabling **Types** hides calculated Type collections. Disabling **Content Detection** stops new detector-based classification and hides detector management. Analysis remains available when OCR is enabled. Neither action deletes existing clips or registry data.
 
 ## CLI reference
 
-The CLI can list, create, update, delete, enable, and restore detectors; manage Types and Groups; and inspect the shared processing registry. Use [`pasted detector`, `pasted type`, and `pasted registry`](CLI-Reference#detection) for scriptable access.
+The CLI can list and configure Extractors; list, create, update, delete, enable, and restore Detectors; manage Types and Groups; and inspect the shared processing registry. Use [`pasted extractor`, `pasted detector`, `pasted type`, and `pasted registry`](CLI-Reference#content-analysis) for scriptable access.

@@ -75,7 +75,7 @@ pub const CONTENT_TYPE_GROUP_PRESETS: &[ContentTypeGroupPreset] = &[
     },
     ContentTypeGroupPreset {
         id: "personal_financial",
-        label: "Personal & financial",
+        label: "Personal and financial",
         sort_order: 30,
     },
     ContentTypeGroupPreset {

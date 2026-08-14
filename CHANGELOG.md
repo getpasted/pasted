@@ -4,6 +4,14 @@ Notable user-facing changes to Pasted are recorded here. The project follows sem
 
 ## Unreleased
 
+- added validated Full Backup and Full Restore across Settings and the CLI, covering every durable database table plus saved interface/window state and creating a pre-restore recovery snapshot automatically.
+- consolidated reporting exports under Storage and added Library Archive preflight summaries in the GUI and `pasted archive` CLI workflows.
+- added one-step recovery for every trashed clip through Settings and `pasted clip restore-all`, with shared mutation summaries and Activity logging.
+- added seamless Activity history loading plus versioned OpenTelemetry-shaped JSON archives, round-trip reporting CSV, safe deduplicating imports, and matching CLI commands.
+- clarified the portable library archive scope and renamed clips-only exports so they cannot be mistaken for restorable archives.
+- bounded clip, Trash, and HUD queries with incremental loading, exact collection counts, and offscreen card virtualization.
+- renamed Activity clearing consistently across the GUI and CLI, and tightened Insights language to its active-library scope.
+
 ## 1.0.0-rc.5 — 2026-08-12
 
 This release candidate expands library organization, capture feedback, and customization while hardening shared data contracts:

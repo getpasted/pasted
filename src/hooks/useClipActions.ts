@@ -30,6 +30,7 @@ interface ClipActionsInput {
   fetchClips: () => Promise<void>;
   fetchTrashedClips: () => Promise<void>;
   fetchSequentialStatus: () => Promise<void>;
+  onCollectionChanged: () => Promise<void>;
   keepTrashedClipsVisible: boolean;
   onClipsRepositioned?: (ids: number[]) => void;
 }
@@ -49,6 +50,7 @@ export function useClipActions({
   fetchClips,
   fetchTrashedClips,
   fetchSequentialStatus,
+  onCollectionChanged,
   keepTrashedClipsVisible,
   onClipsRepositioned,
 }: ClipActionsInput) {
@@ -117,11 +119,13 @@ export function useClipActions({
     const request = isBatch
       ? invoke('batch_pin_clips', { ids: targetIds, pinState: nextPinState })
       : invoke('toggle_pin_clip', { id });
-    void request.catch((error) => {
-      console.error('Failed to update pinned state:', error);
-      void fetchClips();
-    });
-  }, [allClips, fetchClips, onClipsRepositioned, selectedClipIds, setAllClips, setSelectedClip]);
+    void request
+      .then(onCollectionChanged)
+      .catch((error) => {
+        console.error('Failed to update pinned state:', error);
+        void fetchClips();
+      });
+  }, [allClips, fetchClips, onClipsRepositioned, onCollectionChanged, selectedClipIds, setAllClips, setSelectedClip]);
 
   const toggleProtected = useCallback((id: number) => {
     setAllClips((previous) => previous.map((clip) => (
@@ -131,11 +135,13 @@ export function useClipActions({
       ? { ...previous, is_protected: !previous.is_protected }
       : previous);
 
-    void invoke('toggle_clip_protected', { clipId: id }).catch((error) => {
-      console.error('Failed to toggle protected state:', error);
-      void fetchClips();
-    });
-  }, [fetchClips, setAllClips, setSelectedClip]);
+    void invoke('toggle_clip_protected', { clipId: id })
+      .then(onCollectionChanged)
+      .catch((error) => {
+        console.error('Failed to toggle protected state:', error);
+        void fetchClips();
+      });
+  }, [fetchClips, onCollectionChanged, setAllClips, setSelectedClip]);
 
   const setPinned = useCallback((id: number, pinState: boolean) => {
     const targetIds = selectedClipIds.size > 1 && selectedClipIds.has(id)
@@ -172,11 +178,13 @@ export function useClipActions({
       ? { ...previous, is_pinned: pinState, pin_order: pinState ? 0 : previous.pin_order }
       : previous);
 
-    void invoke('batch_pin_clips', { ids: idsToChange, pinState }).catch((error) => {
-      console.error('Failed to set pinned state:', error);
-      void fetchClips();
-    });
-  }, [allClips, fetchClips, onClipsRepositioned, selectedClipIds, setAllClips, setSelectedClip]);
+    void invoke('batch_pin_clips', { ids: idsToChange, pinState })
+      .then(onCollectionChanged)
+      .catch((error) => {
+        console.error('Failed to set pinned state:', error);
+        void fetchClips();
+      });
+  }, [allClips, fetchClips, onClipsRepositioned, onCollectionChanged, selectedClipIds, setAllClips, setSelectedClip]);
 
   const setProtected = useCallback((id: number, protectedState: boolean) => {
     const targetIds = selectedClipIds.size > 1 && selectedClipIds.has(id)
@@ -196,11 +204,12 @@ export function useClipActions({
       : previous);
 
     void invoke('batch_protect_clips', { ids: idsToChange, protectedState })
+      .then(onCollectionChanged)
       .catch((error) => {
         console.error('Failed to set protected state:', error);
         void fetchClips();
       });
-  }, [allClips, fetchClips, selectedClipIds, setAllClips, setSelectedClip]);
+  }, [allClips, fetchClips, onCollectionChanged, selectedClipIds, setAllClips, setSelectedClip]);
 
   const deleteClipIds = useCallback((requestedIds: number[], forcePermanent = false) => {
     const ids = requestedIds.filter((id) => !allClips.find((clip) => clip.id === id)?.is_protected);
@@ -254,12 +263,13 @@ export function useClipActions({
       .then(() => permanently
         ? Promise.all([fetchClips(), fetchTrashedClips()])
         : undefined)
+      .then(onCollectionChanged)
       .catch((error) => {
         console.error(permanently ? 'Failed to permanently delete clips:' : 'Failed to trash clips:', error);
         void fetchClips();
         void fetchTrashedClips();
       });
-  }, [allClips, bins, fetchClips, fetchTrashedClips, keepTrashedClipsVisible, setAllClips, setSelectedClip, setSelectedClipIds, setTotalClipCount, setTrashedClips, settings.enableTrash]);
+  }, [allClips, bins, fetchClips, fetchTrashedClips, keepTrashedClipsVisible, onCollectionChanged, setAllClips, setSelectedClip, setSelectedClipIds, setTotalClipCount, setTrashedClips, settings.enableTrash]);
 
   const deleteSelectedClips = useCallback((forcePermanent = false) => {
     deleteClipIds(Array.from(selectedClipIds), forcePermanent);
@@ -505,11 +515,12 @@ export function useClipActions({
     updateClipNoteLocally(clipId, null);
     try {
       await invoke('update_clip_note', { clipId, note: null });
+      await onCollectionChanged();
     } catch (error) {
       console.error('Failed to delete clip note:', error);
       void fetchClips();
     }
-  }, [fetchClips, updateClipNoteLocally]);
+  }, [fetchClips, onCollectionChanged, updateClipNoteLocally]);
 
   return {
     togglePin,
