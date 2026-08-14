@@ -3018,6 +3018,11 @@ impl DbState {
         if let Some(text) = recognized_text {
             ensure_resource_size(text, crate::resource_limits::MAX_OCR_TEXT_BYTES, "OCR text")?;
         }
+        if error.is_some_and(|code| code.is_empty() || code.len() > 160) {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "OCR error codes require 1–160 characters".into(),
+            ));
+        }
         let mut conn = self.conn.lock();
         let tx = conn.transaction()?;
         let current = tx

@@ -165,6 +165,8 @@ pasted detector rescan --yes [--json]
 
 Registry JSON includes each analysis participant’s `analysisPass`, `inputContract`, and `outputContract`. Extractors run in the extract pass and Detectors run in the classify pass. Every participant runs at most once after its declared inputs become available. Extractor, Detector, and Transform management uses the same core verbs: `list`, `get`, `create`, `update`, `duplicate`, `delete`, and `run`. Runs preview by default; `--apply` explicitly mutates a clip.
 
+Extractor run JSON includes `outcome` (`produced`, `no_output`, or `failed`) and a structured `failure` for failed engine execution. Failures use stable codes and neutral messages, exit nonzero, and never include input image or clipboard content.
+
 Type and Group IDs are stable. Built-in Types can be renamed, regrouped, and given a different icon, but cannot be archived; custom Types can be archived without reinterpreting historical clips. Custom Groups can be archived only when no Types use them. Archiving a custom Type disables detectors that produce it. Detectors run in ascending priority order. Repeat `--regex` to provide alternatives. Shipped detectors are editable and deletable; `restore-defaults` recovers their original definitions without removing custom detectors. `rescan` explicitly reclassifies existing text clips with the current enabled detector order while preserving image and file types.
 
 ## Maintenance

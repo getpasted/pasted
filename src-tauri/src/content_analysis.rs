@@ -51,12 +51,19 @@ pub enum ParticipantOutcome {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct AnalysisFailure {
+    pub code: String,
+    pub message: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ParticipantRun {
     pub stable_ref: String,
     pub pass: AnalysisPass,
     pub outcome: ParticipantOutcome,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub error: Option<String>,
+    pub failure: Option<AnalysisFailure>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -115,8 +122,17 @@ pub struct AnalysisReport {
     pub runs: Vec<ParticipantRun>,
 }
 
+impl AnalysisReport {
+    pub fn failure_for(&self, stable_ref: &str) -> Option<&AnalysisFailure> {
+        self.runs
+            .iter()
+            .find(|run| run.stable_ref == stable_ref)
+            .and_then(|run| run.failure.as_ref())
+    }
+}
+
 type ParticipantExecutor<'a> =
-    Box<dyn FnMut(&mut AnalysisContext) -> Result<ParticipantOutcome, String> + 'a>;
+    Box<dyn FnMut(&mut AnalysisContext) -> Result<ParticipantOutcome, AnalysisFailure> + 'a>;
 
 pub struct AnalysisParticipant<'a> {
     pub contract: ParticipantContract,
@@ -126,7 +142,7 @@ pub struct AnalysisParticipant<'a> {
 impl<'a> AnalysisParticipant<'a> {
     pub fn new(
         contract: ParticipantContract,
-        execute: impl FnMut(&mut AnalysisContext) -> Result<ParticipantOutcome, String> + 'a,
+        execute: impl FnMut(&mut AnalysisContext) -> Result<ParticipantOutcome, AnalysisFailure> + 'a,
     ) -> Self {
         Self {
             contract,
@@ -167,11 +183,11 @@ pub fn schedule(
                     stable_ref,
                     pass,
                     outcome: ParticipantOutcome::MissingInput,
-                    error: None,
+                    failure: None,
                 });
                 continue;
             }
-            let (outcome, error) = match (participant.execute)(&mut context) {
+            let (outcome, failure) = match (participant.execute)(&mut context) {
                 Ok(ParticipantOutcome::Produced)
                     if !participant
                         .contract
@@ -181,17 +197,21 @@ pub fn schedule(
                 {
                     (
                         ParticipantOutcome::Failed,
-                        Some("Participant did not provide its declared representations".into()),
+                        Some(AnalysisFailure {
+                            code: "contract_violation".into(),
+                            message: "Participant did not provide its declared representations."
+                                .into(),
+                        }),
                     )
                 }
                 Ok(outcome) => (outcome, None),
-                Err(error) => (ParticipantOutcome::Failed, Some(error)),
+                Err(failure) => (ParticipantOutcome::Failed, Some(failure)),
             };
             runs.push(ParticipantRun {
                 stable_ref,
                 pass,
                 outcome,
-                error,
+                failure,
             });
         }
     }
@@ -278,9 +298,10 @@ pub fn analyze_image_with_registry(
                     Ok(ParticipantOutcome::Produced)
                 }
                 ExtractionOutcome::NoOutput => Ok(ParticipantOutcome::NoOutput),
-                ExtractionOutcome::Failed { failure } => {
-                    Err(format!("{}: {}", failure.code, failure.message))
-                }
+                ExtractionOutcome::Failed { failure } => Err(AnalysisFailure {
+                    code: failure.code,
+                    message: failure.message,
+                }),
             }
         },
     )];
@@ -425,8 +446,15 @@ mod tests {
         assert_eq!(report.context.searchable_text, None);
         assert_eq!(report.runs[0].outcome, ParticipantOutcome::Failed);
         assert_eq!(
-            report.runs[0].error.as_deref(),
-            Some("test_failure: The test engine failed.")
+            report.runs[0].failure.as_ref(),
+            Some(&AnalysisFailure {
+                code: "test_failure".into(),
+                message: "The test engine failed.".into(),
+            })
+        );
+        assert_eq!(
+            report.failure_for("extractor:test"),
+            report.runs[0].failure.as_ref()
         );
     }
 
@@ -449,7 +477,13 @@ mod tests {
         .runs;
 
         assert_eq!(runs[0].outcome, ParticipantOutcome::Failed);
-        assert!(runs[0].error.is_some());
+        assert_eq!(
+            runs[0]
+                .failure
+                .as_ref()
+                .map(|failure| failure.code.as_str()),
+            Some("contract_violation")
+        );
     }
 
     #[test]

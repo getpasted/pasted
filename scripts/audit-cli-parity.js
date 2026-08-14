@@ -197,6 +197,11 @@ assert.match(analysis, /MAX_ANALYSIS_PASSES:\s*usize\s*=\s*4/, 'Analysis must re
 assert.match(extraction, /pub trait ExtractorEngine:\s*Sync/, 'Extractor engines must use the shared runtime contract');
 assert.match(extraction, /pub enum ExtractionOutcome/, 'Extractor execution must return a typed outcome');
 assert.match(analysis, /ExtractorEngineRegistry/, 'Analysis must dispatch Extractors through the shared engine registry');
+assert.match(analysis, /pub struct AnalysisFailure/, 'Analysis must preserve typed participant failures');
+assert.match(cli, /"failure": extraction_failure\.as_ref\(\)/,
+  'CLI Extractor JSON must expose structured Analyzer failures');
+assert.match(ocr, /failure_for\(&extractor\.stable_ref\)/,
+  'Background OCR must preserve Extractor failure codes');
 assert.doesNotMatch(cli, /perform_ocr_on_image_bytes/, 'The CLI must not bypass the shared Extractor engine registry');
 assert.match(clipboardMonitor, /save_text_clip/, 'GUI capture must use the shared text-capture service');
 assert.match(database, /content_analysis::classify_text/, 'Detector rescans must use the shared analysis scheduler');

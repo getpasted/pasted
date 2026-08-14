@@ -4294,6 +4294,7 @@ pub fn extract_ocr_from_clip(clip_id: i64, db: State<'_, Arc<DbState>>) -> Resul
                 .flatten();
             let analysis =
                 crate::content_analysis::analyze_image(bytes, &extractor, detectors.as_deref());
+            let extraction_failure = analysis.failure_for(&extractor.stable_ref).cloned();
             if let Some(ocr_text) = analysis.context.searchable_text {
                 db.complete_ocr_attempt(
                     clip_id,
@@ -4315,8 +4316,19 @@ pub fn extract_ocr_from_clip(clip_id: i64, db: State<'_, Arc<DbState>>) -> Resul
                 }
                 return Ok(ocr_text);
             }
-            db.complete_ocr_attempt(clip_id, &clip.content_hash, None, &extractor.engine, None)
-                .map_err(|error| error.to_string())?;
+            db.complete_ocr_attempt(
+                clip_id,
+                &clip.content_hash,
+                None,
+                &extractor.engine,
+                extraction_failure
+                    .as_ref()
+                    .map(|failure| failure.code.as_str()),
+            )
+            .map_err(|error| error.to_string())?;
+            if let Some(failure) = extraction_failure {
+                return Err(failure.message);
+            }
         }
     }
     Err("No text recognized in image".to_string())
