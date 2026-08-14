@@ -7,6 +7,7 @@ const help = read('src/components/HelpView.tsx');
 const database = read('src-tauri/src/db.rs');
 const commands = read('src-tauri/src/commands.rs');
 const analysis = read('src-tauri/src/content_analysis.rs');
+const analysisExecution = read('src-tauri/src/analysis_execution.rs');
 const extraction = read('src-tauri/src/content_extraction.rs');
 const clipboardMonitor = read('src-tauri/src/clipboard_monitor.rs');
 const ocr = read('src-tauri/src/ocr.rs');
@@ -200,14 +201,26 @@ assert.match(analysis, /ExtractorEngineRegistry/, 'Analysis must dispatch Extrac
 assert.match(analysis, /pub struct AnalysisFailure/, 'Analysis must preserve typed participant failures');
 assert.match(cli, /"failure": extraction_failure\.as_ref\(\)/,
   'CLI Extractor JSON must expose structured Analyzer failures');
-assert.match(ocr, /failure_for\(&extractor\.stable_ref\)/,
-  'Background OCR must preserve Extractor failure codes');
 assert.match(database, /pub fn complete_or_reset_ocr_attempt/,
   'OCR runtimes must share failure-safe attempt persistence');
-assert.match(cli, /db\.complete_or_reset_ocr_attempt/,
-  'CLI OCR persistence failures must reset claimed work');
-assert.match(commands, /db\.complete_or_reset_ocr_attempt/,
-  'GUI OCR persistence failures must reset claimed work');
+assert.match(analysisExecution, /pub fn persist_image_analysis/,
+  'Image Analysis persistence must use a shared application service');
+assert.match(analysisExecution, /failure_for\(&extractor\.stable_ref\)/,
+  'Shared Image Analysis persistence must preserve Extractor failure codes');
+assert.match(analysisExecution, /complete_or_reset_ocr_attempt/,
+  'Shared Image Analysis persistence must reset claimed work on failure');
+assert.match(ocr, /analysis_execution::persist_image_analysis/,
+  'Background OCR must use shared Image Analysis persistence');
+assert.match(cli, /analysis_execution::persist_image_analysis/,
+  'CLI OCR must use shared Image Analysis persistence');
+assert.match(commands, /analysis_execution::persist_image_analysis/,
+  'GUI OCR must use shared Image Analysis persistence');
+assert.doesNotMatch(ocr, /record_analysis_classification/,
+  'Background OCR must not persist derived classifications independently');
+assert.doesNotMatch(cli, /record_analysis_classification/,
+  'CLI OCR must not persist derived classifications independently');
+assert.doesNotMatch(commands, /record_analysis_classification/,
+  'GUI OCR must not persist derived classifications independently');
 assert.doesNotMatch(cli, /perform_ocr_on_image_bytes/, 'The CLI must not bypass the shared Extractor engine registry');
 assert.match(clipboardMonitor, /save_text_clip/, 'GUI capture must use the shared text-capture service');
 assert.match(database, /content_analysis::classify_text/, 'Detector rescans must use the shared analysis scheduler');

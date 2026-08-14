@@ -1,3 +1,4 @@
+pub mod analysis_execution;
 mod app_menu;
 pub mod bin_assignment;
 mod clipboard_fingerprint;

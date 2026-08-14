@@ -1094,24 +1094,14 @@ fn main() -> Result<()> {
                             eprintln!("Clip #{clip_id} is no longer available for extraction.");
                             std::process::exit(1);
                         }
-                        db.complete_or_reset_ocr_attempt(
+                        pasted_lib::analysis_execution::persist_image_analysis(
+                            &db,
                             clip_id,
                             content_hash,
-                            analysis.context.searchable_text.as_deref(),
-                            &extractor.engine,
-                            extraction_failure
-                                .as_ref()
-                                .map(|failure| failure.code.as_str()),
+                            &extractor,
+                            detectors.is_some(),
+                            &analysis,
                         )?;
-                        if detectors.is_some() && analysis.context.searchable_text.is_some() {
-                            db.record_analysis_classification(
-                                clip_id,
-                                content_hash,
-                                analysis.context.detected_type.as_deref(),
-                                analysis.context.matched_detector_ref.as_deref(),
-                                "searchable_text",
-                            )?;
-                        }
                     }
                     if args.iter().any(|argument| argument == "--json") {
                         println!(
@@ -3745,25 +3735,14 @@ fn scan_existing_images(db: &DbState, clip_id: Option<i64>) -> Result<usize> {
         };
         let analysis =
             pasted_lib::content_analysis::analyze_image(bytes, &extractor, detectors.as_deref());
-        let extraction_error = analysis
-            .failure_for(&extractor.stable_ref)
-            .map(|failure| failure.code.as_str());
-        db.complete_or_reset_ocr_attempt(
+        pasted_lib::analysis_execution::persist_image_analysis(
+            db,
             candidate.clip_id,
             &candidate.content_hash,
-            analysis.context.searchable_text.as_deref(),
-            &extractor.engine,
-            extraction_error,
+            &extractor,
+            detectors.is_some(),
+            &analysis,
         )?;
-        if detectors.is_some() && analysis.context.searchable_text.is_some() {
-            db.record_analysis_classification(
-                candidate.clip_id,
-                &candidate.content_hash,
-                analysis.context.detected_type.as_deref(),
-                analysis.context.matched_detector_ref.as_deref(),
-                "searchable_text",
-            )?;
-        }
         scanned += 1;
     }
     Ok(scanned)

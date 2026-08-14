@@ -76,31 +76,17 @@ fn execute_task<Notify>(
         let _ = db_state.reset_ocr_work(Some(task.clip_id), Some(&task.content_hash));
         return;
     }
-    let text = analysis.context.searchable_text.as_deref();
-    let detected_type = analysis.context.detected_type.as_deref();
-    let detector_ref = analysis.context.matched_detector_ref.as_deref();
-    let extraction_error = analysis
-        .failure_for(&extractor.stable_ref)
-        .map(|failure| failure.code.as_str());
-    let completed = db_state
-        .complete_or_reset_ocr_attempt(
-            task.clip_id,
-            &task.content_hash,
-            text,
-            &extractor.engine,
-            extraction_error,
-        )
-        .unwrap_or(false);
+    let completed = crate::analysis_execution::persist_image_analysis(
+        db_state,
+        task.clip_id,
+        &task.content_hash,
+        extractor,
+        detectors.is_some(),
+        &analysis,
+    )
+    .map(|persisted| persisted.ocr_updated)
+    .unwrap_or(false);
     if completed {
-        if detectors.is_some() && text.is_some() {
-            let _ = db_state.record_analysis_classification(
-                task.clip_id,
-                &task.content_hash,
-                detected_type,
-                detector_ref,
-                "searchable_text",
-            );
-        }
         notify(task.clip_id);
     }
 }
