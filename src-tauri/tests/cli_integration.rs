@@ -129,3 +129,69 @@ fn help_advertises_database_and_live_app_surfaces() {
     }
     clean_database(&database);
 }
+
+#[test]
+fn extractor_lifecycle_and_registry_capabilities_run_end_to_end() {
+    let database = temporary_path("extractors", "db");
+    let created = success_json(
+        &database,
+        &[
+            "extractor",
+            "create",
+            "--name",
+            "CLI Extractor",
+            "--engine",
+            "test-unavailable-v1",
+            "--json",
+        ],
+    );
+    let stable_ref = created["stableRef"].as_str().expect("Extractor stable ref");
+    assert_eq!(created["isAvailable"], false);
+
+    let fetched = success_json(&database, &["extractor", "get", stable_ref, "--json"]);
+    assert_eq!(fetched["name"], "CLI Extractor");
+
+    let registry = success_json(
+        &database,
+        &["registry", "list", "--kind", "extractor", "--json"],
+    );
+    let registry_item = registry
+        .as_array()
+        .and_then(|items| items.iter().find(|item| item["stableRef"] == stable_ref))
+        .expect("Extractor registry item");
+    assert_eq!(registry_item["analysisPass"], "extract");
+    assert_eq!(registry_item["capabilities"]["canDuplicate"], true);
+    assert_eq!(registry_item["capabilities"]["canDelete"], true);
+
+    let duplicate = success_json(
+        &database,
+        &[
+            "extractor",
+            "duplicate",
+            stable_ref,
+            "--name",
+            "CLI Extractor Copy",
+            "--json",
+        ],
+    );
+    assert_eq!(duplicate["name"], "CLI Extractor Copy");
+
+    success_json(
+        &database,
+        &[
+            "registry",
+            "disable",
+            "--kind",
+            "extractor",
+            "--ref",
+            stable_ref,
+            "--json",
+        ],
+    );
+    let disabled = success_json(&database, &["extractor", "get", stable_ref, "--json"]);
+    assert_eq!(disabled["enabled"], false);
+
+    let deleted = success_json(&database, &["extractor", "delete", stable_ref, "--json"]);
+    assert_eq!(deleted["deleted"], true);
+    clean_database(&database);
+}
