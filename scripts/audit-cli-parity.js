@@ -127,13 +127,13 @@ for (const route of ['copy', 'list', 'search', 'import', 'retention', 'settings'
 }
 for (const method of ['export_backup_json', 'inspect_library_archive_json', 'import_backup_json']) {
   assert.match(database, new RegExp(`pub fn ${method}`), `${method} must live in the shared database domain layer`);
-  assert.match(cli, new RegExp(`(?:db\.|DbState::)${method}`), `${method} must be reused by the CLI`);
+  assert.match(cli, new RegExp(`(?:db\\.|DbState::)${method}`), `${method} must be reused by the CLI`);
 }
 assert.match(commands, /inspect_import_file_path[\s\S]*?inspect_library_archive_json/, 'The GUI must preflight portable transfers through the inspected-file workflow');
 for (const method of ['create_full_backup', 'restore_full_backup']) {
   assert.match(database, new RegExp(`pub fn ${method}`), `${method} must live in the shared database domain layer`);
   assert.match(commands, new RegExp(`\\w+\\s*\\.\\s*${method}`), `${method} must be reused by the GUI`);
-  assert.match(cli, new RegExp(`db\.${method}`), `${method} must be reused by the CLI`);
+  assert.match(cli, new RegExp(`db\\.${method}`), `${method} must be reused by the CLI`);
 }
 assert.match(cli, /db\.inspect_full_backup/, 'The CLI must expose non-mutating Full Backup inspection');
 assert.match(cli, /enforce_revision_retention/, 'The CLI must manage revision retention through the shared domain service');
@@ -200,14 +200,14 @@ assert.match(cli, /content_analysis::analyze_image/, 'CLI OCR must feed extracte
 for (const method of ['get_content_extractors', 'create_content_extractor', 'update_content_extractor_definition', 'duplicate_content_extractor', 'delete_content_extractor', 'restore_default_content_extractors']) {
   assert.match(database, new RegExp(`pub fn ${method}`), `${method} must live in the shared database domain layer`);
   assert.match(commands, new RegExp(`pub fn ${method}`), `${method} must be exposed to the GUI`);
-  assert.match(cli, new RegExp(`db\s*\.${method}`), `${method} must be reused by the CLI`);
+  assert.match(cli, new RegExp(`db\\s*\\.${method}`), `${method} must be reused by the CLI`);
 }
 assert.match(database, /pub fn get_content_detector/, 'Resolving one Detector must live in the shared database domain layer');
 assert.match(cli, /db\s*\.get_content_detector/, 'Detector references must use the shared database domain layer');
 for (const method of ['create_content_detector', 'update_content_detector', 'duplicate_content_detector', 'delete_content_detector']) {
   assert.match(database, new RegExp(`pub fn ${method}`), `${method} must live in the shared database domain layer`);
   assert.match(commands, new RegExp(`pub fn ${method}`), `${method} must be exposed to the GUI`);
-  assert.match(cli, new RegExp(`db\s*\.${method}`), `${method} must be reused by the CLI`);
+  assert.match(cli, new RegExp(`db\\s*\\.${method}`), `${method} must be reused by the CLI`);
 }
 assert.match(database, /pub fn apply_content_detector/, 'Applying one Detector must live in the shared database domain layer');
 assert.match(cli, /db\s*\.apply_content_detector/, 'Detector --apply must use the shared database domain layer');
