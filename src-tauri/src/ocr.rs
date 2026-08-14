@@ -82,16 +82,20 @@ fn execute_task<Notify>(
     let extraction_error = analysis
         .failure_for(&extractor.stable_ref)
         .map(|failure| failure.code.as_str());
-    if db_state
-        .complete_ocr_attempt(
-            task.clip_id,
-            &task.content_hash,
-            text,
-            &extractor.engine,
-            extraction_error,
-        )
-        .unwrap_or(false)
-    {
+    let completed = match db_state.complete_ocr_attempt(
+        task.clip_id,
+        &task.content_hash,
+        text,
+        &extractor.engine,
+        extraction_error,
+    ) {
+        Ok(completed) => completed,
+        Err(_) => {
+            let _ = db_state.reset_ocr_work(Some(task.clip_id), Some(&task.content_hash));
+            false
+        }
+    };
+    if completed {
         if detectors.is_some() && text.is_some() {
             let _ = db_state.record_analysis_classification(
                 task.clip_id,
@@ -371,7 +375,9 @@ mod tests {
 
     #[test]
     fn extractor_failures_are_persisted_as_failed_attempts() {
-        struct FailingEngine;
+        struct FailingEngine {
+            code: String,
+        }
 
         impl crate::content_extraction::ExtractorEngine for FailingEngine {
             fn id(&self) -> &'static str {
@@ -388,7 +394,7 @@ mod tests {
             fn extract(&self, _image_bytes: &[u8]) -> crate::content_extraction::ExtractionOutcome {
                 crate::content_extraction::ExtractionOutcome::Failed {
                     failure: crate::content_extraction::ExtractionFailure {
-                        code: "engine_failed".into(),
+                        code: self.code.clone(),
                         message: "The test engine failed.".into(),
                     },
                 }
@@ -421,7 +427,9 @@ mod tests {
             unavailable_reason: None,
             defaults: None,
         };
-        let engine = FailingEngine;
+        let engine = FailingEngine {
+            code: "engine_failed".into(),
+        };
         let engines: [&dyn crate::content_extraction::ExtractorEngine; 1] = [&engine];
         let registry = crate::content_extraction::ExtractorEngineRegistry::new(&engines);
 
@@ -440,5 +448,79 @@ mod tests {
         let status = db.get_ocr_backfill_status().unwrap();
         assert_eq!(status.failed_count, 1);
         assert_eq!(status.no_text_count, 0);
+    }
+
+    #[test]
+    fn persistence_errors_reset_running_ocr_work() {
+        struct InvalidFailureEngine;
+
+        impl crate::content_extraction::ExtractorEngine for InvalidFailureEngine {
+            fn id(&self) -> &'static str {
+                "fake-engine-v1"
+            }
+
+            fn availability(&self) -> crate::content_extraction::EngineAvailability {
+                crate::content_extraction::EngineAvailability {
+                    is_available: true,
+                    unavailable_reason: None,
+                }
+            }
+
+            fn extract(&self, _image_bytes: &[u8]) -> crate::content_extraction::ExtractionOutcome {
+                crate::content_extraction::ExtractionOutcome::Failed {
+                    failure: crate::content_extraction::ExtractionFailure {
+                        code: "x".repeat(161),
+                        message: "The test engine returned invalid failure metadata.".into(),
+                    },
+                }
+            }
+        }
+
+        let db = setup_test_db();
+        let clip = db
+            .save_clip(
+                "image",
+                None,
+                None,
+                Some(crate::resource_limits::TEST_PNG_DATA_URL),
+                "invalid-failure-metadata",
+                "Screenshot",
+            )
+            .unwrap();
+        let extractor = crate::content_extraction::Extractor {
+            id: 1,
+            stable_ref: "extractor:test".into(),
+            name: "Test OCR".into(),
+            description: String::new(),
+            engine: "fake-engine-v1".into(),
+            input_contract: "image".into(),
+            output_contract: "searchable_text".into(),
+            enabled: true,
+            priority: 10,
+            is_builtin: false,
+            is_available: true,
+            unavailable_reason: None,
+            defaults: None,
+        };
+        let engine = InvalidFailureEngine;
+        let engines: [&dyn crate::content_extraction::ExtractorEngine; 1] = [&engine];
+        let registry = crate::content_extraction::ExtractorEngineRegistry::new(&engines);
+
+        execute_task(
+            &db,
+            OcrTask {
+                clip_id: clip.id,
+                content_hash: clip.content_hash,
+                image_bytes: b"image".to_vec(),
+            },
+            &extractor,
+            &registry,
+            |_| {},
+        );
+
+        let status = db.get_ocr_backfill_status().unwrap();
+        assert_eq!(status.eligible_count, 1);
+        assert_eq!(status.running_count, 0);
+        assert_eq!(status.failed_count, 0);
     }
 }

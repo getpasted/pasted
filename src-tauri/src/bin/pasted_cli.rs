@@ -1,7 +1,7 @@
 use rusqlite::{params, Connection, OptionalExtension, Result};
 use std::env;
 use std::fs;
-use std::io::{self, Read};
+use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 
 use pasted_lib::bin_assignment::assign_clips_to_bin;
@@ -1141,6 +1141,8 @@ fn main() -> Result<()> {
                         println!("No text extracted.");
                     }
                     if extraction_failure.is_some() {
+                        let _ = io::stdout().flush();
+                        let _ = io::stderr().flush();
                         std::process::exit(1);
                     }
                 }
