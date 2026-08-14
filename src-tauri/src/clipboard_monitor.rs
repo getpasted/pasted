@@ -536,9 +536,7 @@ pub fn start_clipboard_monitor(
             };
             if let Some(text) = clipboard_text {
                 if !text.is_empty() {
-                    let mut hasher = Sha256::new();
-                    hasher.update(text.as_bytes());
-                    let hash = format!("{:x}", hasher.finalize());
+                    let hash = crate::clipboard_fingerprint::text(&text);
 
                     if hash != last_hash {
                         last_hash = hash.clone();
@@ -594,21 +592,6 @@ pub fn start_clipboard_monitor(
                             }
                         }
 
-                        // Detect type
-                        let content_type = if crate::features::is_enabled(
-                            &db_state,
-                            crate::features::Feature::ContentDetection,
-                        ) {
-                            db_state
-                                .get_content_detectors()
-                                .map(|detectors| {
-                                    crate::content_analysis::classify_text(&text, &detectors)
-                                })
-                                .unwrap_or_else(|_| "text".to_string())
-                        } else {
-                            "text".to_string()
-                        };
-
                         // If sequential mode active, push to queue as well
                         if crate::features::is_enabled(&db_state, crate::features::Feature::Queue)
                             && seq_state.capture_item(text.clone())
@@ -622,14 +605,7 @@ pub fn start_clipboard_monitor(
 
                         // Save with the best available capture-source attribution.
                         let source = capture_source.unwrap_or("System Clipboard");
-                        match db_state.save_clip(
-                            &content_type,
-                            Some(&text),
-                            None,
-                            None,
-                            &hash,
-                            source,
-                        ) {
+                        match db_state.save_text_clip(&text, source) {
                             Ok(clip) => {
                                 let _ = app.emit("clip-added", clip.clone());
                                 emit_capture_feedback(
@@ -640,7 +616,7 @@ pub fn start_clipboard_monitor(
                                 );
                                 let automation_db = db_state.clone();
                                 let automation_app = app.clone();
-                                let automation_type = content_type;
+                                let automation_type = clip.content_type.clone();
                                 let automation_text = text.clone();
                                 let automation_source = source.to_string();
                                 thread::spawn(move || {

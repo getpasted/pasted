@@ -518,6 +518,13 @@ pub struct FullBackupInspection {
     pub size_bytes: u64,
 }
 
+struct FullBackupManifest {
+    format_version: i64,
+    created_at: String,
+    client_state_json: Option<String>,
+    window_state_json: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FullRestoreReport {
@@ -1486,7 +1493,7 @@ impl DbState {
         // Opening through DbState applies any forward migrations before the live
         // library is replaced. A failed migration leaves the current library intact.
         let migrated = DbState::new(temporary.clone())?;
-        if let Some(client_state) = manifest.2.as_deref() {
+        if let Some(client_state) = manifest.client_state_json.as_deref() {
             migrated.save_setting(PENDING_CLIENT_STATE_SETTING, client_state)?;
         }
         let migrated_integrity: String =
@@ -1537,10 +1544,10 @@ impl DbState {
         Ok((
             FullRestoreReport {
                 recovery_path: recovery_path.to_string_lossy().into_owned(),
-                backup_created_at: manifest.1,
+                backup_created_at: manifest.created_at,
             },
-            manifest.2,
-            manifest.3,
+            manifest.client_state_json,
+            manifest.window_state_json,
         ))
     }
 
@@ -1550,8 +1557,8 @@ impl DbState {
             .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?
             .len();
         Ok(FullBackupInspection {
-            format_version: manifest.0,
-            created_at: manifest.1,
+            format_version: manifest.format_version,
+            created_at: manifest.created_at,
             size_bytes,
         })
     }
@@ -1559,7 +1566,7 @@ impl DbState {
     fn open_validated_full_backup(
         &self,
         backup_path: &Path,
-    ) -> Result<(Connection, (i64, String, Option<String>, Option<String>))> {
+    ) -> Result<(Connection, FullBackupManifest)> {
         if !backup_path.is_file() || backup_path == self.database_path() {
             return Err(rusqlite::Error::InvalidPath(backup_path.to_path_buf()));
         }
@@ -1574,12 +1581,12 @@ impl DbState {
                  FROM pasted_backup_manifest LIMIT 1",
                 [],
                 |row| {
-                    Ok((
-                        row.get::<_, i64>(0)?,
-                        row.get::<_, String>(1)?,
-                        row.get::<_, Option<String>>(2)?,
-                        row.get::<_, Option<String>>(3)?,
-                    ))
+                    Ok(FullBackupManifest {
+                        format_version: row.get(0)?,
+                        created_at: row.get(1)?,
+                        client_state_json: row.get(2)?,
+                        window_state_json: row.get(3)?,
+                    })
                 },
             )
             .map_err(|_| {
@@ -1587,14 +1594,14 @@ impl DbState {
                     "The selected file is not a complete Pasted backup".to_string(),
                 )
             })?;
-        if manifest.0 != FULL_BACKUP_FORMAT_VERSION {
+        if manifest.format_version != FULL_BACKUP_FORMAT_VERSION {
             return Err(rusqlite::Error::InvalidParameterName(format!(
                 "Unsupported full-backup format version {}",
-                manifest.0
+                manifest.format_version
             )));
         }
-        validate_backup_json(manifest.2.as_deref(), "Backup UI state")?;
-        validate_backup_json(manifest.3.as_deref(), "Backup window state")?;
+        validate_backup_json(manifest.client_state_json.as_deref(), "Backup UI state")?;
+        validate_backup_json(manifest.window_state_json.as_deref(), "Backup window state")?;
         Ok((source, manifest))
     }
 
@@ -3243,6 +3250,25 @@ impl DbState {
         self.get_clip_by_id_internal(&conn, id)
     }
 
+    pub fn save_text_clip(&self, text: &str, source: &str) -> Result<ClipItem> {
+        let content_type =
+            if crate::features::is_enabled(self, crate::features::Feature::ContentDetection) {
+                self.get_content_detectors()
+                    .map(|detectors| crate::content_analysis::classify_text(text, &detectors))
+                    .unwrap_or_else(|_| "text".to_string())
+            } else {
+                "text".to_string()
+            };
+        self.save_clip(
+            &content_type,
+            Some(text),
+            None,
+            None,
+            &crate::clipboard_fingerprint::text(text),
+            source,
+        )
+    }
+
     pub(crate) fn merge_external_text_clips(
         &self,
         source_label: &str,
@@ -3876,13 +3902,23 @@ impl DbState {
              WHERE id = ?2 AND (is_trashed IS NULL OR is_trashed = 0)",
         )?;
         let changed = stmt.execute(params![note, clip_id])?;
-        if changed > 0 {
-            let _ = self.log_activity_internal(
-                &conn,
-                "note_updated",
-                &format!("Updated note for clip #{}", clip_id),
-            );
+        if changed == 0 {
+            let exists = conn.query_row(
+                "SELECT EXISTS(SELECT 1 FROM clips WHERE id = ?1)",
+                [clip_id],
+                |row| row.get::<_, bool>(0),
+            )?;
+            return if exists {
+                Ok(())
+            } else {
+                Err(rusqlite::Error::QueryReturnedNoRows)
+            };
         }
+        let _ = self.log_activity_internal(
+            &conn,
+            "note_updated",
+            &format!("Updated note for clip #{}", clip_id),
+        );
         Ok(())
     }
 
@@ -4231,30 +4267,45 @@ impl DbState {
         limit: Option<i64>,
         offset: Option<i64>,
     ) -> Result<Vec<ActivityLog>> {
+        self.get_activity_logs_filtered(limit, offset, None, None, None)
+    }
+
+    pub fn get_activity_logs_filtered(
+        &self,
+        limit: Option<i64>,
+        offset: Option<i64>,
+        category: Option<&str>,
+        severity: Option<&str>,
+        event_name: Option<&str>,
+    ) -> Result<Vec<ActivityLog>> {
         let conn = self.conn.lock();
-        let lim = limit.unwrap_or(100);
-        let off = offset.unwrap_or(0);
+        let lim = limit.unwrap_or(100).clamp(1, 100_000);
+        let off = offset.unwrap_or(0).max(0);
         let mut stmt = conn.prepare_cached(
             "SELECT id, event_type, description, created_at,
                     COALESCE(observed_at, created_at), severity_text, category, outcome, attributes_json
              FROM activity_logs
-             ORDER BY created_at DESC, id DESC LIMIT ?1 OFFSET ?2"
+             WHERE (?1 IS NULL OR category = ?1)
+               AND (?2 IS NULL OR severity_text = ?2)
+               AND (?3 IS NULL OR event_type = ?3)
+             ORDER BY created_at DESC, id DESC LIMIT ?4 OFFSET ?5"
         )?;
-        let log_iter = stmt.query_map(params![lim, off], |row| {
-            let attributes_json: String = row.get(8)?;
-            Ok(ActivityLog {
-                id: row.get(0)?,
-                event_type: row.get(1)?,
-                description: row.get(2)?,
-                created_at: row.get(3)?,
-                observed_at: row.get(4)?,
-                severity_text: row.get(5)?,
-                category: row.get(6)?,
-                outcome: row.get(7)?,
-                attributes: serde_json::from_str(&attributes_json)
-                    .unwrap_or_else(|_| serde_json::json!({})),
-            })
-        })?;
+        let log_iter =
+            stmt.query_map(params![category, severity, event_name, lim, off], |row| {
+                let attributes_json: String = row.get(8)?;
+                Ok(ActivityLog {
+                    id: row.get(0)?,
+                    event_type: row.get(1)?,
+                    description: row.get(2)?,
+                    created_at: row.get(3)?,
+                    observed_at: row.get(4)?,
+                    severity_text: row.get(5)?,
+                    category: row.get(6)?,
+                    outcome: row.get(7)?,
+                    attributes: serde_json::from_str(&attributes_json)
+                        .unwrap_or_else(|_| serde_json::json!({})),
+                })
+            })?;
         let mut logs = Vec::new();
         for log in log_iter {
             logs.push(log?);
@@ -5267,6 +5318,13 @@ impl DbState {
         Ok(bins)
     }
 
+    pub fn get_bin(&self, id: i64) -> Result<Bin> {
+        self.get_bins()?
+            .into_iter()
+            .find(|bin| bin.id == id)
+            .ok_or(rusqlite::Error::QueryReturnedNoRows)
+    }
+
     pub fn update_bin_shortcut(&self, id: i64, shortcut: Option<&str>) -> Result<()> {
         let conn = self.conn.lock();
         conn.execute(
@@ -5422,6 +5480,30 @@ impl DbState {
     }
 
     pub fn reorder_pinned_clips(&self, ids: Vec<i64>) -> Result<()> {
+        if ids.len() > 100_000 {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "Pinned order exceeds Pasted's safety limit".to_string(),
+            ));
+        }
+        let requested = ids
+            .iter()
+            .copied()
+            .collect::<std::collections::HashSet<_>>();
+        if requested.len() != ids.len() {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "Pinned order contains duplicate clips".to_string(),
+            ));
+        }
+        let current = self
+            .get_clips(None, None, true)?
+            .into_iter()
+            .map(|clip| clip.id)
+            .collect::<std::collections::HashSet<_>>();
+        if requested != current {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "Pinned order must contain every current pinned clip exactly once".to_string(),
+            ));
+        }
         let mut conn = self.conn.lock();
         let tx = conn.transaction()?;
         for (idx, id) in ids.iter().enumerate() {
@@ -7949,6 +8031,13 @@ impl DbState {
         rows.collect()
     }
 
+    pub fn get_intelligence_connection(&self, id: &str) -> Result<IntelligenceConnection> {
+        self.get_intelligence_connections()?
+            .into_iter()
+            .find(|connection| connection.id == id)
+            .ok_or(rusqlite::Error::QueryReturnedNoRows)
+    }
+
     pub fn create_intelligence_connection(
         &self,
         name: &str,
@@ -7957,6 +8046,13 @@ impl DbState {
         model: Option<&str>,
         credential_ref: Option<&str>,
     ) -> Result<IntelligenceConnection> {
+        if name.trim().is_empty() {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "Connection name cannot be empty".into(),
+            ));
+        }
+        crate::intelligence_connections::validate_credential_reference(credential_ref)
+            .map_err(rusqlite::Error::InvalidParameterName)?;
         let conn = self.conn.lock();
         let priority: i64 = conn.query_row(
             "SELECT COALESCE(MAX(priority), -1) + 1 FROM intelligence_connections",
@@ -8036,6 +8132,13 @@ impl DbState {
         &self,
         request: IntelligenceConnectionUpdate<'_>,
     ) -> Result<()> {
+        if request.name.trim().is_empty() {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "Connection name cannot be empty".into(),
+            ));
+        }
+        crate::intelligence_connections::validate_credential_reference(request.credential_ref)
+            .map_err(rusqlite::Error::InvalidParameterName)?;
         let conn = self.conn.lock();
         let changed = conn.execute(
             "UPDATE intelligence_connections
@@ -8071,6 +8174,22 @@ impl DbState {
     }
 
     pub fn reorder_intelligence_connections(&self, ids: &[String]) -> Result<()> {
+        let unique = ids.iter().collect::<std::collections::HashSet<_>>();
+        if unique.len() != ids.len() {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "Connection order contains duplicate IDs".into(),
+            ));
+        }
+        let current = self
+            .get_intelligence_connections()?
+            .into_iter()
+            .map(|connection| connection.id)
+            .collect::<std::collections::HashSet<_>>();
+        if current != ids.iter().cloned().collect() {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "Connection order must contain every current Connection exactly once".into(),
+            ));
+        }
         let mut conn = self.conn.lock();
         let transaction = conn.transaction()?;
         for (priority, id) in ids.iter().enumerate() {
@@ -8123,6 +8242,25 @@ impl DbState {
             operations.push(o?);
         }
         Ok(operations)
+    }
+
+    pub fn get_operation(&self, reference: &str) -> Result<Operation> {
+        let numeric_id = reference.parse::<i64>().ok();
+        self.get_operations()?
+            .into_iter()
+            .find(|operation| numeric_id == Some(operation.id) || operation.stable_id == reference)
+            .ok_or(rusqlite::Error::QueryReturnedNoRows)
+    }
+
+    pub fn duplicate_operation(&self, reference: &str, name: Option<&str>) -> Result<Operation> {
+        let source = self.get_operation(reference)?;
+        let default_name = format!("{} Copy", source.name);
+        self.create_operation(
+            name.unwrap_or(&default_name),
+            &source.op_type,
+            source.config.as_deref(),
+            Some(&source.category),
+        )
     }
 
     pub fn get_library_items(
@@ -9865,6 +10003,23 @@ mod tests {
 
         db.delete_content_detector(duplicate.id).unwrap();
         assert!(db.get_content_detector(&duplicate.stable_ref).is_err());
+    }
+
+    #[test]
+    fn shared_text_capture_hashes_deduplicates_and_classifies() {
+        let db = setup_test_db();
+        let first = db
+            .save_text_clip("person@example.com", "CLI Terminal")
+            .unwrap();
+        assert_eq!(first.content_type, "email");
+        assert_eq!(first.source, "CLI Terminal");
+        assert!(!first.content_hash.is_empty());
+
+        let duplicate = db
+            .save_text_clip("person@example.com", "CLI Terminal")
+            .unwrap();
+        assert_eq!(duplicate.id, first.id);
+        assert_eq!(db.get_clips(None, None, false).unwrap().len(), 1);
     }
 
     #[test]
@@ -12046,6 +12201,13 @@ mod tests {
 
         let ops = db.get_operations().unwrap();
         assert!(ops.iter().any(|o| o.name == "JSON Prettify"));
+        assert_eq!(db.get_operation(&op.stable_id).unwrap().id, op.id);
+        let duplicate = db
+            .duplicate_operation(&op.stable_id, Some("JSON Prettify Copy"))
+            .unwrap();
+        assert_eq!(duplicate.op_type, op.op_type);
+        assert_eq!(duplicate.name, "JSON Prettify Copy");
+        db.delete_operation(duplicate.id).unwrap();
 
         db.delete_operation(op.id).unwrap();
         let ops_after = db.get_operations().unwrap();
@@ -12109,6 +12271,10 @@ mod tests {
                 None,
             )
             .unwrap();
+        assert_eq!(
+            db.get_intelligence_connection(&connection.id).unwrap(),
+            connection
+        );
         assert_eq!(connection.provider_kind, "ollama");
         assert_eq!(connection.credential_ref, None);
 
@@ -12140,6 +12306,12 @@ mod tests {
                 None,
             )
             .unwrap();
+        assert!(db
+            .reorder_intelligence_connections(std::slice::from_ref(&connection.id))
+            .is_err());
+        assert!(db
+            .reorder_intelligence_connections(&[connection.id.clone(), connection.id.clone()])
+            .is_err());
         db.reorder_intelligence_connections(&[fallback.id.clone(), connection.id.clone()])
             .unwrap();
         let reordered = db.get_intelligence_connections().unwrap();
@@ -12424,6 +12596,8 @@ mod tests {
         assert_eq!(newly_pinned_first[0].id, clip2.id);
         assert_eq!(newly_pinned_first[1].id, clip1.id);
 
+        assert!(db.reorder_pinned_clips(vec![clip1.id]).is_err());
+        assert!(db.reorder_pinned_clips(vec![clip1.id, clip1.id]).is_err());
         db.reorder_pinned_clips(vec![clip1.id, clip2.id]).unwrap();
         let clips = db.get_clips(None, None, true).unwrap();
         assert_eq!(clips[0].id, clip1.id);

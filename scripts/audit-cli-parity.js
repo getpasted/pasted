@@ -17,7 +17,11 @@ const documentedCommands = [
   'pasted list',
   'pasted search',
   'pasted import',
+  'pasted import sources',
   'pasted retention',
+  'pasted settings list|get|set',
+  'pasted recording status|pause|resume',
+  'pasted queue status|start|stop|add|remove|order|paste|paste-all',
   'pasted activity list',
   'pasted activity export',
   'pasted activity import',
@@ -29,28 +33,57 @@ const documentedCommands = [
   'pasted database move',
   'pasted database default',
   'pasted backup create',
+  'pasted backup inspect',
   'pasted backup restore',
   'pasted clear',
   'pasted clip get',
+  'pasted clip note',
+  'pasted clip revisions',
+  'pasted clip restore-revision',
+  'pasted clip provenance',
+  'pasted clip copy|paste',
   'pasted clip export',
   'pasted clip import',
   'pasted clip pin|unpin',
+  'pasted clip order-pinned',
   'pasted clip protect|unprotect',
   'pasted clip trash|restore',
   'pasted clip restore-all',
+  'pasted clip purge',
+  'pasted clip empty-trash',
   'pasted clip assign',
   'pasted bin list',
+  'pasted bin get',
+  'pasted bin create',
+  'pasted bin update',
+  'pasted bin duplicate',
+  'pasted bin delete',
   'pasted bin clips',
   'pasted bin order',
   'pasted transform list',
   'pasted transform get',
+  'pasted transform plan',
+  'pasted transform test',
   'pasted transform create',
   'pasted transform update',
   'pasted transform duplicate',
   'pasted transform delete',
   'pasted transform run',
   'pasted operation list',
+  'pasted operation get',
+  'pasted operation create',
+  'pasted operation update',
+  'pasted operation duplicate',
+  'pasted operation delete',
   'pasted operation run',
+  'pasted connection list',
+  'pasted connection get',
+  'pasted connection detect',
+  'pasted connection create',
+  'pasted connection update',
+  'pasted connection delete',
+  'pasted connection order',
+  'pasted insights summary',
   'pasted diagnostics',
   'pasted licenses',
   'pasted type list',
@@ -79,6 +112,8 @@ const documentedCommands = [
   'pasted detector rescan',
   'pasted ocr status',
   'pasted ocr scan',
+  'pasted ocr retry',
+  'pasted ocr cancel',
   'pasted reset',
 ];
 
@@ -87,35 +122,43 @@ for (const command of documentedCommands) {
 }
 assert.doesNotMatch(help, /pasted-cli/, 'Help & Docs must expose the stable pasted command, not an implementation alias');
 
-for (const route of ['copy', 'list', 'search', 'import', 'retention', 'activity', 'transfer', 'archive', 'backup', 'clear', 'clip', 'bin', 'transform', 'operation', 'database', 'library', 'registry', 'type', 'extractor', 'detector', 'diagnostics', 'licenses', 'ocr', 'reset']) {
+for (const route of ['copy', 'list', 'search', 'import', 'retention', 'settings', 'recording', 'queue', 'activity', 'transfer', 'archive', 'backup', 'clear', 'clip', 'bin', 'transform', 'operation', 'connection', 'insights', 'database', 'library', 'registry', 'type', 'extractor', 'detector', 'diagnostics', 'licenses', 'ocr', 'reset']) {
   assert.match(cli, new RegExp(`"${route}"`), `The CLI must retain its ${route} route`);
 }
 for (const method of ['export_backup_json', 'inspect_library_archive_json', 'import_backup_json']) {
   assert.match(database, new RegExp(`pub fn ${method}`), `${method} must live in the shared database domain layer`);
   assert.match(cli, new RegExp(`(?:db\.|DbState::)${method}`), `${method} must be reused by the CLI`);
 }
-assert.match(commands, /pub fn inspect_library_archive_json/, 'The GUI must expose portable-transfer preflight');
+assert.match(commands, /inspect_import_file_path[\s\S]*?inspect_library_archive_json/, 'The GUI must preflight portable transfers through the inspected-file workflow');
 for (const method of ['create_full_backup', 'restore_full_backup']) {
   assert.match(database, new RegExp(`pub fn ${method}`), `${method} must live in the shared database domain layer`);
   assert.match(commands, new RegExp(`\\w+\\s*\\.\\s*${method}`), `${method} must be reused by the GUI`);
   assert.match(cli, new RegExp(`db\.${method}`), `${method} must be reused by the CLI`);
 }
+assert.match(cli, /db\.inspect_full_backup/, 'The CLI must expose non-mutating Full Backup inspection');
+assert.match(cli, /enforce_revision_retention/, 'The CLI must manage revision retention through the shared domain service');
+assert.match(cli, /execute_plan/, 'The CLI must test unsaved Transform plans through the shared executor');
+assert.match(cli, /reset_failed_ocr/, 'The CLI must expose failed OCR retry');
+assert.match(cli, /reorder_pinned_clips/, 'The CLI must expose validated pinned ordering');
+assert.match(cli, /live_app::send/, 'Running-app controls must use the bounded live-app bridge');
 for (const method of ['export_activity_json', 'export_activity_csv', 'import_activity_json', 'import_activity_csv']) {
   assert.match(database, new RegExp(`pub fn ${method}`), `${method} must live in the shared database domain layer`);
-  assert.match(commands, new RegExp(`pub fn ${method}`), `${method} must be exposed to the GUI`);
   assert.match(cli, new RegExp(`db\\.${method}`), `${method} must be reused by the CLI`);
   if (method.startsWith('export_')) {
+    assert.match(commands, new RegExp(`pub fn ${method}`), `${method} must be exposed to the GUI`);
     assert.match(storageSettings, new RegExp(`['"]${method}['"]`), `${method} must be reachable from Storage`);
   }
 }
 for (const method of ['export_clips_json', 'export_clips_csv', 'import_clips_json', 'import_clips_csv']) {
   assert.match(database, new RegExp(`pub fn ${method}`), `${method} must live in the shared database domain layer`);
-  assert.match(commands, new RegExp(`pub fn ${method}`), `${method} must be exposed to the GUI`);
   assert.match(cli, new RegExp(`db\\.${method}`), `${method} must be reused by the CLI`);
+  if (method.startsWith('export_')) {
+    assert.match(commands, new RegExp(`pub fn ${method}`), `${method} must be exposed to the GUI`);
+  }
 }
 assert.match(storageSettings, /['"]import_inspected_file['"]/, 'Validated clip and Activity imports must be reachable from Storage');
 for (const method of ['import_activity_json', 'import_activity_csv', 'import_clips_json', 'import_clips_csv']) {
-  assert.match(commands, new RegExp(`db\.${method}`), `${method} must be reused by the inspected-import GUI command`);
+  assert.match(commands, new RegExp(`\\w+\\s*\\.\\s*${method}`), `${method} must be reused by the inspected-import GUI command`);
 }
 
 assert.match(cli, /if matches!\(command, "licenses" \| "license"\)/, 'Legal notices must be available before database initialization');
@@ -149,9 +192,9 @@ assert.match(commands, /db\.rescan_content_detection\(\)/, 'GUI history rescans 
 assert.match(cli, /db\.rescan_content_detection\(\)/, 'CLI history rescans must use the shared detector domain service');
 assert.match(analysis, /pub fn schedule/, 'Analysis participants must share the bounded scheduler');
 assert.match(analysis, /MAX_ANALYSIS_PASSES:\s*usize\s*=\s*4/, 'Analysis must remain bounded to four ordered passes');
-assert.match(clipboardMonitor, /content_analysis::classify_text/, 'GUI capture classification must use the shared analysis scheduler');
+assert.match(clipboardMonitor, /save_text_clip/, 'GUI capture must use the shared text-capture service');
 assert.match(database, /content_analysis::classify_text/, 'Detector rescans must use the shared analysis scheduler');
-assert.match(cli, /content_analysis::classify_text/, 'CLI capture classification must use the shared analysis scheduler');
+assert.match(cli, /db\.save_text_clip/, 'CLI capture must use the shared text-capture service');
 assert.match(ocr, /content_analysis::analyze_image/, 'GUI OCR must feed extracted representations through the shared analysis scheduler');
 assert.match(cli, /content_analysis::analyze_image/, 'CLI OCR must feed extracted representations through the shared analysis scheduler');
 for (const method of ['get_content_extractors', 'create_content_extractor', 'update_content_extractor_definition', 'duplicate_content_extractor', 'delete_content_extractor', 'restore_default_content_extractors']) {
@@ -173,6 +216,29 @@ for (const family of ['extractor', 'detector', 'transform']) {
     assert.ok(help.includes(`pasted ${family} ${verb}`), `Help & Docs must cover pasted ${family} ${verb}`);
   }
 }
+for (const method of ['get_operation', 'create_operation', 'update_operation', 'duplicate_operation', 'delete_operation']) {
+  assert.match(database, new RegExp(`pub fn ${method}`), `${method} must live in the shared database domain layer`);
+  assert.match(cli, new RegExp(`db\\s*\\.${method}`), `${method} must be reused by the CLI`);
+  if (method !== 'get_operation') {
+    assert.match(commands, new RegExp(`pub fn ${method}`), `${method} must be exposed to the GUI`);
+  }
+}
+for (const verb of ['list', 'get', 'create', 'update', 'duplicate', 'delete', 'run']) {
+  assert.ok(help.includes(`pasted operation ${verb}`), `Help & Docs must cover pasted operation ${verb}`);
+}
+for (const method of ['get_intelligence_connections', 'get_intelligence_connection', 'create_intelligence_connection', 'update_intelligence_connection', 'delete_intelligence_connection', 'reorder_intelligence_connections']) {
+  assert.match(database, new RegExp(`pub fn ${method}`), `${method} must live in the shared database domain layer`);
+  assert.match(cli, new RegExp(`db\\s*\\.${method}`), `${method} must be reused by the CLI`);
+}
+for (const method of ['get_bin', 'create_bin', 'update_bin', 'delete_bin', 'update_bin_shortcut', 'set_bin_transform_ref']) {
+  assert.match(database, new RegExp(`pub fn ${method}`), `${method} must live in the shared database domain layer`);
+  assert.match(cli, new RegExp(`db\\s*\\.${method}`), `${method} must be reused by the CLI`);
+}
+for (const method of ['update_clip_note', 'get_clip_versions_page', 'restore_clip_version', 'get_clip_transformation_provenance', 'purge_clip_permanently', 'empty_trash', 'get_analytics_summary']) {
+  assert.match(database, new RegExp(`pub fn ${method}`), `${method} must live in the shared database domain layer`);
+  assert.match(cli, new RegExp(`db\\s*\\.${method}`), `${method} must be reused by the CLI`);
+}
+assert.match(cli, /intelligence_executor::plan_intent/, 'CLI Transform planning must use the shared intelligence executor');
 assert.match(commands, /db\.get_library_items/, 'GUI library metadata must use the shared domain service');
 assert.match(cli, /db\.get_library_items/, 'CLI library metadata must use the shared domain service');
 assert.match(commands, /db\.set_library_item_enabled/, 'GUI lifecycle toggles must use the shared domain service');

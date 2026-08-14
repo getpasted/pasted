@@ -12,8 +12,8 @@ use tauri_plugin_window_state::{AppHandleExt, StateFlags};
 
 use crate::bin_assignment::BinAssignmentOutcome;
 use crate::db::{
-    Bin, ClipImportReport, ClipItem, ClipMutationSummary, ContentDetectionRescanReport, DbState,
-    FactoryResetReport, FullBackupInspection, IntelligenceConnection, IntelligenceConnectionUpdate,
+    Bin, ClipItem, ClipMutationSummary, ContentDetectionRescanReport, DbState, FactoryResetReport,
+    FullBackupInspection, IntelligenceConnection, IntelligenceConnectionUpdate,
     LibraryArchiveInspection, Pipeline, PipelineStepInput, SavedTransform,
     TransformClipApplication, TransformDefinition,
 };
@@ -1012,24 +1012,6 @@ pub fn export_activity_csv(db: State<'_, Arc<DbState>>) -> Result<String, String
 }
 
 #[tauri::command]
-pub fn import_activity_json(
-    json: String,
-    db: State<'_, Arc<DbState>>,
-) -> Result<crate::db::ActivityImportReport, String> {
-    db.import_activity_json(&json)
-        .map_err(|error| error.to_string())
-}
-
-#[tauri::command]
-pub fn import_activity_csv(
-    csv: String,
-    db: State<'_, Arc<DbState>>,
-) -> Result<crate::db::ActivityImportReport, String> {
-    db.import_activity_csv(&csv)
-        .map_err(|error| error.to_string())
-}
-
-#[tauri::command]
 pub fn get_content_detectors(
     db: State<'_, Arc<DbState>>,
 ) -> Result<Vec<crate::content_detection::Detector>, String> {
@@ -1738,13 +1720,6 @@ pub fn consume_pending_full_restore_client_state(
         .map_err(|error| error.to_string())
 }
 
-#[tauri::command]
-pub fn inspect_library_archive_json(
-    json_str: String,
-) -> Result<crate::db::LibraryArchiveInspection, String> {
-    DbState::inspect_library_archive_json(&json_str).map_err(|error| error.to_string())
-}
-
 #[derive(Debug, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ImportFileInspection {
@@ -1955,19 +1930,6 @@ pub async fn import_inspected_file(
         refresh_native_app_menu(&app, &db);
     }
     Ok(report)
-}
-
-#[tauri::command]
-pub fn import_backup_json(
-    json_str: String,
-    app: AppHandle,
-    db: State<'_, Arc<DbState>>,
-) -> Result<usize, String> {
-    let imported = db
-        .import_backup_json(&json_str)
-        .map_err(|e| e.to_string())?;
-    refresh_native_app_menu(&app, &db);
-    Ok(imported)
 }
 
 #[tauri::command]
@@ -2194,6 +2156,14 @@ pub fn copy_clip_by_id(
     clip_id: i64,
     db: State<'_, Arc<DbState>>,
     sequential: State<'_, Arc<SequentialQueueState>>,
+) -> Result<(), String> {
+    copy_clip_by_id_shared(&db, &sequential, clip_id)
+}
+
+pub(crate) fn copy_clip_by_id_shared(
+    db: &DbState,
+    sequential: &SequentialQueueState,
+    clip_id: i64,
 ) -> Result<(), String> {
     let clip = db
         .get_clip_by_id(clip_id)
@@ -2491,40 +2461,6 @@ pub async fn detect_intelligence_connections(
     Ok(detected)
 }
 
-fn validate_credential_reference(reference: Option<&str>) -> Result<(), String> {
-    let Some(reference) = reference else {
-        return Ok(());
-    };
-    if reference != reference.trim() || reference.is_empty() {
-        return Err("Credential reference cannot be empty or contain outer whitespace".to_string());
-    }
-    if let Some(variable) = reference.strip_prefix("env:") {
-        let mut characters = variable.chars();
-        let valid_first = characters
-            .next()
-            .is_some_and(|character| character == '_' || character.is_ascii_alphabetic());
-        if valid_first
-            && characters.all(|character| character == '_' || character.is_ascii_alphanumeric())
-        {
-            return Ok(());
-        }
-        return Err("Environment credential references must name a valid variable".to_string());
-    }
-    for scheme in ["op://", "keychain:"] {
-        if let Some(identifier) = reference.strip_prefix(scheme) {
-            if !identifier.is_empty()
-                && identifier
-                    .chars()
-                    .all(|character| !character.is_control() && !character.is_whitespace())
-            {
-                return Ok(());
-            }
-            return Err("Credential reference identifier is invalid".to_string());
-        }
-    }
-    Err("Credentials must be stored as an env:, op://, or keychain: reference".to_string())
-}
-
 #[tauri::command]
 pub fn create_intelligence_connection(
     name: String,
@@ -2538,7 +2474,7 @@ pub fn create_intelligence_connection(
     if name.trim().is_empty() {
         return Err("Connection name cannot be empty".to_string());
     }
-    validate_credential_reference(credential_ref.as_deref())?;
+    crate::intelligence_connections::validate_credential_reference(credential_ref.as_deref())?;
     db.create_intelligence_connection(
         &name,
         &provider_kind,
@@ -2565,7 +2501,7 @@ pub fn update_intelligence_connection(
     if name.trim().is_empty() {
         return Err("Connection name cannot be empty".to_string());
     }
-    validate_credential_reference(credential_ref.as_deref())?;
+    crate::intelligence_connections::validate_credential_reference(credential_ref.as_deref())?;
     db.update_intelligence_connection(IntelligenceConnectionUpdate {
         id: &id,
         name: &name,
@@ -2866,6 +2802,17 @@ pub fn update_operation(
     features::require(&db, Feature::Transformations)?;
     db.update_operation(id, &name, &op_type, config.as_deref(), category.as_deref())
         .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn duplicate_operation(
+    reference: String,
+    name: Option<String>,
+    db: State<'_, Arc<DbState>>,
+) -> Result<crate::db::Operation, String> {
+    features::require(&db, Feature::Transformations)?;
+    db.duplicate_operation(&reference, name.as_deref())
+        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -3203,6 +3150,14 @@ pub fn paste_all_sequential(
 ) -> Result<Option<String>, String> {
     let db = app.state::<Arc<DbState>>();
     features::require(&db, Feature::Queue)?;
+    paste_all_queue_items(&seq, &db, &app)
+}
+
+pub(crate) fn paste_all_queue_items(
+    seq: &SequentialQueueState,
+    db: &DbState,
+    app: &AppHandle,
+) -> Result<Option<String>, String> {
     let status = seq.get_status();
     if status.queue.is_empty() {
         return Ok(None);
@@ -3238,13 +3193,13 @@ pub fn paste_all_sequential(
     }
     if let Err(error) = paste_target.paste_to(&target) {
         seq.clear_internal_clipboard_write();
-        restore_main_window_after_queue_failure(&app);
+        restore_main_window_after_queue_failure(app);
         let _ = db.log_activity("queue_paste_failed", &error);
         return Err(error);
     }
     if let Err(error) = seq.consume_prefix(&status.item_ids) {
         seq.clear_internal_clipboard_write();
-        restore_main_window_after_queue_failure(&app);
+        restore_main_window_after_queue_failure(app);
         let message = format!("The Queue pasted but could not be cleared: {error}");
         let _ = db.log_activity("queue_paste_failed", &message);
         return Err(message);
@@ -3255,7 +3210,7 @@ pub fn paste_all_sequential(
         "queue_all_pasted",
         &format!("Pasted {} Queue items together", status.total_count),
     );
-    restore_main_window_after_ui_paste(&app);
+    restore_main_window_after_ui_paste(app);
 
     Ok(Some(combined))
 }
@@ -3451,6 +3406,14 @@ pub(crate) fn paste_clip_from_hud(
     clip_id: i64,
 ) -> Result<(), String> {
     features::require(db, Feature::Hud)?;
+    paste_clip_to_last_external(db, app, clip_id)
+}
+
+pub(crate) fn paste_clip_to_last_external(
+    db: &DbState,
+    app: &AppHandle,
+    clip_id: i64,
+) -> Result<(), String> {
     let clip = db
         .get_clip_by_id(clip_id)
         .map_err(|error| error.to_string())?;
@@ -4471,23 +4434,6 @@ pub fn export_clips_csv(db: State<'_, Arc<DbState>>) -> Result<String, String> {
 }
 
 #[tauri::command]
-pub fn import_clips_json(
-    json: String,
-    db: State<'_, Arc<DbState>>,
-) -> Result<ClipImportReport, String> {
-    db.import_clips_json(&json)
-        .map_err(|error| error.to_string())
-}
-
-#[tauri::command]
-pub fn import_clips_csv(
-    csv: String,
-    db: State<'_, Arc<DbState>>,
-) -> Result<ClipImportReport, String> {
-    db.import_clips_csv(&csv).map_err(|error| error.to_string())
-}
-
-#[tauri::command]
 pub fn get_analytics_summary(
     db: State<'_, Arc<DbState>>,
 ) -> Result<crate::db::AnalyticsSummary, String> {
@@ -4727,7 +4673,10 @@ mod tests {
             "op://Private/OpenAI/credential",
             "keychain:pasted.openai",
         ] {
-            assert!(validate_credential_reference(Some(reference)).is_ok());
+            assert!(
+                crate::intelligence_connections::validate_credential_reference(Some(reference))
+                    .is_ok()
+            );
         }
         for value in [
             "sk-proj-literal-secret",
@@ -4737,9 +4686,12 @@ mod tests {
             " keychain:pasted.openai",
             "",
         ] {
-            assert!(validate_credential_reference(Some(value)).is_err());
+            assert!(
+                crate::intelligence_connections::validate_credential_reference(Some(value))
+                    .is_err()
+            );
         }
-        assert!(validate_credential_reference(None).is_ok());
+        assert!(crate::intelligence_connections::validate_credential_reference(None).is_ok());
     }
 
     #[test]

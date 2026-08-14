@@ -9,15 +9,16 @@ use pasted_lib::content_detection::DetectorInput;
 use pasted_lib::content_extraction::{ExtractorDefinitionInput, APPLE_VISION_ENGINE};
 use pasted_lib::content_types::{ContentTypeGroupInput, ContentTypeInput};
 use pasted_lib::db::{
-    ClipMutationSummary, DbState, PipelineStepInput, TransformAuthoringKind,
-    TransformClipApplication, TransformDefinition,
+    ClipMutationSummary, DbState, IntelligenceConnectionUpdate, PipelineStepInput,
+    TransformAuthoringKind, TransformClipApplication, TransformDefinition,
 };
 use pasted_lib::external_import::{self, ExternalImportSource};
 use pasted_lib::features::{setting_value_is_enabled, Feature};
 use pasted_lib::installation_diagnostics::{InstallationDiagnostics, APP_IDENTIFIER};
+use pasted_lib::intelligence_executor::{ExecutePlanRequest, PlanIntentOutcome, PlanIntentRequest};
 use pasted_lib::library_storage;
 use pasted_lib::third_party_licenses;
-use pasted_lib::transformation_intent::TransformationPlan;
+use pasted_lib::transformation_intent::{IntentPlanningMode, TransformationPlan};
 use pasted_lib::transformation_service::{
     execute, ExecutionDestination, ExecutionRequest, ExecutionTarget, ExecutionTrigger,
 };
@@ -47,6 +48,9 @@ fn get_app_data_dir() -> PathBuf {
 }
 
 fn get_app_config_dir() -> PathBuf {
+    if let Some(path) = env::var_os("PASTED_CONFIG_DIR") {
+        return PathBuf::from(path);
+    }
     dirs::config_dir()
         .map(|mut dir| {
             dir.push(APP_IDENTIFIER);
@@ -56,6 +60,9 @@ fn get_app_config_dir() -> PathBuf {
 }
 
 fn get_db_path() -> PathBuf {
+    if let Some(path) = env::var_os("PASTED_DATABASE_PATH") {
+        return PathBuf::from(path);
+    }
     let app_data = get_app_data_dir();
     library_storage::resolve_database_path(&app_data)
 }
@@ -149,6 +156,9 @@ fn main() -> Result<()> {
             let activity_age_days =
                 parse_retention_argument(&args, "--log-days", "forever", 36_500)
                     .unwrap_or(setting_i64(&db, "activityLogAgeDays", 0)?);
+            let revision_count =
+                parse_retention_argument(&args, "--revision-count", "unlimited", 10_000)
+                    .unwrap_or(setting_i64(&db, "revisionHistoryLimit", 10)?);
             let history_changed = args
                 .iter()
                 .any(|argument| argument == "--count" || argument == "--days");
@@ -158,6 +168,7 @@ fn main() -> Result<()> {
             let activity_changed = args
                 .iter()
                 .any(|argument| argument == "--log-count" || argument == "--log-days");
+            let revisions_changed = args.iter().any(|argument| argument == "--revision-count");
             if history_changed {
                 db.configure_clip_retention(count, age_days)?;
             }
@@ -166,6 +177,9 @@ fn main() -> Result<()> {
             }
             if activity_changed {
                 db.configure_activity_retention(activity_count, activity_age_days)?;
+            }
+            if revisions_changed {
+                db.enforce_revision_retention(revision_count)?;
             }
             if args.iter().any(|argument| argument == "--json") {
                 println!(
@@ -183,6 +197,8 @@ fn main() -> Result<()> {
                         "activityMaximumAgeDays": activity_age_days,
                         "activityMaximumEntriesUnlimited": activity_count == 0,
                         "activityMaximumAgeForever": activity_age_days == 0,
+                        "revisionsPerClip": revision_count,
+                        "revisionsUnlimited": revision_count == 0,
                     }))
                     .map_err(json_error)?
                 );
@@ -198,13 +214,156 @@ fn main() -> Result<()> {
                     format!("{age_days} days")
                 };
                 println!(
-                    "History: {count_label}; {age_label}\nTrash: {}; {}\nActivity: {}; {}",
+                    "History: {count_label}; {age_label}\nTrash: {}; {}\nActivity: {}; {}\nRevisions: {}",
                     retention_count_label(trash_count, "clips"),
                     retention_age_label(trash_age_days),
                     retention_count_label(activity_count, "entries"),
                     retention_age_label(activity_age_days),
+                    retention_count_label(revision_count, "per clip"),
                 );
             }
+        }
+        "settings" | "setting" => {
+            drop(conn);
+            let db = DbState::new(db_path.clone())?;
+            let subcommand = args.get(2).map(String::as_str).unwrap_or("list");
+            let json = args.iter().any(|argument| argument == "--json");
+            match subcommand {
+                "list" | "ls" => {
+                    let mut values = db.get_all_settings()?;
+                    values.remove("pendingFullBackupClientState");
+                    if json {
+                        println!(
+                            "{}",
+                            serde_json::to_string_pretty(&values).map_err(json_error)?
+                        );
+                    } else {
+                        let mut values = values.into_iter().collect::<Vec<_>>();
+                        values.sort_by(|left, right| left.0.cmp(&right.0));
+                        for (key, value) in values {
+                            println!("{key}\t{value}");
+                        }
+                    }
+                }
+                "get" => {
+                    let key = args.get(3).unwrap_or_else(|| {
+                        eprintln!("Usage: pasted settings get <key> [--json]");
+                        std::process::exit(2);
+                    });
+                    if key == "pendingFullBackupClientState" {
+                        eprintln!("That setting is internal and cannot be read through the CLI.");
+                        std::process::exit(2);
+                    }
+                    let value = db.get_setting(key)?;
+                    if json {
+                        println!("{}", serde_json::json!({ "key": key, "value": value }));
+                    } else if let Some(value) = value {
+                        println!("{value}");
+                    } else {
+                        eprintln!("Setting {key} was not found.");
+                        std::process::exit(1);
+                    }
+                }
+                "set" => {
+                    let key = args.get(3).unwrap_or_else(|| {
+                        eprintln!("Usage: pasted settings set <key> <value> [--json]");
+                        std::process::exit(2);
+                    });
+                    let value = args.get(4).unwrap_or_else(|| {
+                        eprintln!("Usage: pasted settings set <key> <value> [--json]");
+                        std::process::exit(2);
+                    });
+                    if key == "pendingFullBackupClientState" || key.trim().is_empty() {
+                        eprintln!("That setting cannot be changed through the CLI.");
+                        std::process::exit(2);
+                    }
+                    if key.len() > 128 || value.len() > 1_048_576 {
+                        eprintln!(
+                            "Setting keys and values must remain within their safety limits."
+                        );
+                        std::process::exit(2);
+                    }
+                    let previous = db.get_setting(key)?;
+                    db.save_setting(key, value)?;
+                    if let Some(activity) = pasted_lib::settings_activity::describe_setting_change(
+                        key,
+                        previous.as_deref(),
+                        value,
+                    ) {
+                        let _ = db.log_activity(activity.event_type, &activity.description);
+                    }
+                    if json {
+                        println!("{}", serde_json::json!({ "key": key, "value": value }));
+                    } else {
+                        println!("Saved {key}.");
+                    }
+                }
+                _ => {
+                    eprintln!("Usage: pasted settings list|get|set [arguments] [--json]");
+                    std::process::exit(2);
+                }
+            }
+        }
+        "recording" | "capture" => {
+            let subcommand = args.get(2).map(String::as_str).unwrap_or("status");
+            let action = match subcommand {
+                "status" => pasted_lib::live_app::LiveAppAction::ClipboardStatus,
+                "pause" => pasted_lib::live_app::LiveAppAction::ClipboardSetPaused { paused: true },
+                "resume" => {
+                    pasted_lib::live_app::LiveAppAction::ClipboardSetPaused { paused: false }
+                }
+                _ => {
+                    eprintln!("Usage: pasted recording status|pause|resume [--json]");
+                    std::process::exit(2);
+                }
+            };
+            let result = send_live_or_exit(action);
+            print_live_result(&result, args.iter().any(|argument| argument == "--json"))?;
+        }
+        "queue" => {
+            let subcommand = args.get(2).map(String::as_str).unwrap_or("status");
+            let action = match subcommand {
+                "status" => pasted_lib::live_app::LiveAppAction::QueueStatus,
+                "start" => pasted_lib::live_app::LiveAppAction::QueueStart,
+                "stop" => pasted_lib::live_app::LiveAppAction::QueueStop,
+                "add" => pasted_lib::live_app::LiveAppAction::QueueAddClips {
+                    clip_ids: parse_clip_ids(&args, 3),
+                },
+                "remove" => pasted_lib::live_app::LiveAppAction::QueueRemove {
+                    index: args
+                        .get(3)
+                        .and_then(|value| value.parse::<usize>().ok())
+                        .unwrap_or_else(|| {
+                            eprintln!("Usage: pasted queue remove <zero-based-index> [--json]");
+                            std::process::exit(2);
+                        }),
+                },
+                "order" => pasted_lib::live_app::LiveAppAction::QueueReorder {
+                    item_ids: args
+                        .iter()
+                        .skip(3)
+                        .filter(|argument| argument.as_str() != "--json")
+                        .map(|value| value.parse::<u64>())
+                        .collect::<std::result::Result<Vec<_>, _>>()
+                        .unwrap_or_else(|_| {
+                            eprintln!("Every Queue item ID must be an integer.");
+                            std::process::exit(2);
+                        }),
+                },
+                "paste" => pasted_lib::live_app::LiveAppAction::QueuePaste {
+                    index: args
+                        .get(3)
+                        .and_then(|value| value.parse().ok())
+                        .unwrap_or(0),
+                },
+                "paste-all" => pasted_lib::live_app::LiveAppAction::QueuePasteAll,
+                _ => {
+                    eprintln!("Usage: pasted queue status|start|stop|add|remove|order|paste|paste-all [arguments] [--json]");
+                    std::process::exit(2);
+                }
+            };
+            let result = send_live_or_exit(action);
+            print_live_result(&result, args.iter().any(|argument| argument == "--json"))?;
         }
         "activity" => {
             drop(conn);
@@ -220,7 +379,17 @@ fn main() -> Result<()> {
                             .unwrap_or(100)
                             .clamp(1, 100_000)
                     };
-                    let logs = db.get_activity_logs(Some(limit), Some(0))?;
+                    let offset = argument_value(&args, "--offset")
+                        .and_then(|value| value.parse::<i64>().ok())
+                        .unwrap_or(0)
+                        .max(0);
+                    let logs = db.get_activity_logs_filtered(
+                        Some(limit),
+                        Some(offset),
+                        argument_value(&args, "--category").as_deref(),
+                        argument_value(&args, "--severity").as_deref(),
+                        argument_value(&args, "--event").as_deref(),
+                    )?;
                     if args.iter().any(|argument| argument == "--json") {
                         println!(
                             "{}",
@@ -331,7 +500,7 @@ fn main() -> Result<()> {
                     }
                 }
                 _ => {
-                    eprintln!("Usage: pasted activity list [--limit N|--all] [--json] | export [path] [--format json|csv] | import <activity.json> [--json] | clear --yes [--json]");
+                    eprintln!("Usage: pasted activity list [--limit N|--all] [--offset N] [--category VALUE] [--severity VALUE] [--event NAME] [--json] | export [path] [--format json|csv] | import <activity.json> [--json] | clear --yes [--json]");
                     std::process::exit(2);
                 }
             }
@@ -416,7 +585,7 @@ fn main() -> Result<()> {
             let db = DbState::new(db_path.clone())?;
             let subcommand = args.get(2).map(String::as_str).unwrap_or("create");
             let Some(path) = args.get(3).filter(|argument| !argument.starts_with("--")) else {
-                eprintln!("Usage: pasted backup create <path.pastedbackup> | restore <path.pastedbackup> --yes [--json]");
+                eprintln!("Usage: pasted backup create|inspect|restore <path.pastedbackup> [--yes] [--json]");
                 std::process::exit(2);
             };
             let window_state =
@@ -432,6 +601,20 @@ fn main() -> Result<()> {
                         );
                     } else {
                         println!("Created full backup at {}.", report.path);
+                    }
+                }
+                "inspect" => {
+                    let inspection = db.inspect_full_backup(Path::new(path))?;
+                    if args.iter().any(|argument| argument == "--json") {
+                        println!(
+                            "{}",
+                            serde_json::to_string_pretty(&inspection).map_err(json_error)?
+                        );
+                    } else {
+                        println!(
+                            "Full Backup v{} · {} bytes · created {}",
+                            inspection.format_version, inspection.size_bytes, inspection.created_at
+                        );
                     }
                 }
                 "restore" => {
@@ -462,7 +645,7 @@ fn main() -> Result<()> {
                     }
                 }
                 _ => {
-                    eprintln!("Usage: pasted backup create <path.pastedbackup> | restore <path.pastedbackup> --yes [--json]");
+                    eprintln!("Usage: pasted backup create|inspect|restore <path.pastedbackup> [--yes] [--json]");
                     std::process::exit(2);
                 }
             }
@@ -492,6 +675,17 @@ fn main() -> Result<()> {
                             "stableRef": stable_ref,
                             "enabled": subcommand == "enable",
                         })
+                    );
+                } else {
+                    println!(
+                        "{} {} {}.",
+                        if subcommand == "enable" {
+                            "Enabled"
+                        } else {
+                            "Disabled"
+                        },
+                        kind,
+                        stable_ref
                     );
                 }
                 return Ok(());
@@ -606,14 +800,21 @@ fn main() -> Result<()> {
                         std::process::exit(2);
                     });
                     db.set_content_type_group_archived(&id, subcommand == "group-archive")?;
-                    println!(
-                        "{} content type group {id}.",
-                        if subcommand == "group-archive" {
-                            "Archived"
-                        } else {
-                            "Restored"
-                        }
-                    );
+                    if json {
+                        println!(
+                            "{}",
+                            serde_json::json!({ "id": id, "archived": subcommand == "group-archive" })
+                        );
+                    } else {
+                        println!(
+                            "{} content type group {id}.",
+                            if subcommand == "group-archive" {
+                                "Archived"
+                            } else {
+                                "Restored"
+                            }
+                        );
+                    }
                 }
                 "group-delete" => {
                     let id = args.get(3).cloned().unwrap_or_else(|| {
@@ -621,11 +822,22 @@ fn main() -> Result<()> {
                         std::process::exit(2);
                     });
                     db.delete_content_type_group(&id)?;
-                    println!("Deleted content type group {id}.");
+                    if json {
+                        println!("{}", serde_json::json!({ "id": id, "deleted": true }));
+                    } else {
+                        println!("Deleted content type group {id}.");
+                    }
                 }
                 "group-restore-defaults" => {
                     db.restore_default_content_type_groups()?;
-                    println!("Restored built-in content type groups.");
+                    if json {
+                        println!(
+                            "{}",
+                            serde_json::json!({ "restoredDefaults": true, "kind": "contentTypeGroups" })
+                        );
+                    } else {
+                        println!("Restored built-in content type groups.");
+                    }
                 }
                 "list" | "ls" => {
                     let types =
@@ -698,19 +910,33 @@ fn main() -> Result<()> {
                         std::process::exit(2);
                     });
                     db.set_content_type_archived(&id, subcommand == "archive")?;
-                    println!(
-                        "{} content type {id}.",
-                        if subcommand == "archive" {
-                            "Archived"
-                        } else {
-                            "Restored"
-                        }
-                    );
+                    if json {
+                        println!(
+                            "{}",
+                            serde_json::json!({ "id": id, "archived": subcommand == "archive" })
+                        );
+                    } else {
+                        println!(
+                            "{} content type {id}.",
+                            if subcommand == "archive" {
+                                "Archived"
+                            } else {
+                                "Restored"
+                            }
+                        );
+                    }
                 }
                 "restore-defaults" => {
                     db.restore_default_content_types()?;
                     db.restore_default_content_type_groups()?;
-                    println!("Restored built-in content type names, icons, and groups.");
+                    if json {
+                        println!(
+                            "{}",
+                            serde_json::json!({ "restoredDefaults": true, "kind": "contentTypes" })
+                        );
+                    } else {
+                        println!("Restored built-in content type names, icons, and groups.");
+                    }
                 }
                 _ => {
                     eprintln!("Usage: pasted type list|create|update|archive|restore|restore-defaults [--json]");
@@ -904,7 +1130,14 @@ fn main() -> Result<()> {
                 }
                 "restore-defaults" => {
                     db.restore_default_content_extractors()?;
-                    println!("Restored shipped Extractor defaults.");
+                    if args.iter().any(|argument| argument == "--json") {
+                        println!(
+                            "{}",
+                            serde_json::json!({ "restoredDefaults": true, "kind": "extractors" })
+                        );
+                    } else {
+                        println!("Restored shipped Extractor defaults.");
+                    }
                 }
                 _ => {
                     eprintln!("Usage: pasted extractor list|get|create|update|duplicate|delete|run|restore-defaults [options] [--json]");
@@ -1050,9 +1283,16 @@ fn main() -> Result<()> {
                 }
                 "restore-defaults" => {
                     db.restore_default_content_detectors()?;
-                    println!(
-                        "Restored shipped detector defaults; custom detectors were preserved."
-                    );
+                    if args.iter().any(|argument| argument == "--json") {
+                        println!(
+                            "{}",
+                            serde_json::json!({ "restoredDefaults": true, "kind": "detectors" })
+                        );
+                    } else {
+                        println!(
+                            "Restored shipped detector defaults; custom detectors were preserved."
+                        );
+                    }
                 }
                 "rescan" => {
                     if !args.iter().any(|argument| argument == "--yes") {
@@ -1085,6 +1325,30 @@ fn main() -> Result<()> {
                 );
                 std::process::exit(2);
             };
+            if matches!(source_name.as_str(), "sources" | "list") {
+                let sources = external_import::source_infos();
+                if args.iter().any(|argument| argument == "--json") {
+                    println!(
+                        "{}",
+                        serde_json::to_string_pretty(&sources).map_err(json_error)?
+                    );
+                } else {
+                    for source in sources {
+                        println!(
+                            "{}\t{}\t{}\t{}",
+                            source.id,
+                            if source.detected {
+                                "detected"
+                            } else {
+                                "not detected"
+                            },
+                            source.selection_kind,
+                            source.label
+                        );
+                    }
+                }
+                return Ok(());
+            }
             let source = source_name
                 .parse::<ExternalImportSource>()
                 .unwrap_or_else(|error| {
@@ -1265,6 +1529,33 @@ fn main() -> Result<()> {
                 println!("{}", details.plain_text());
             }
         }
+        "insights" | "analytics" => {
+            drop(conn);
+            let db = DbState::new(db_path.clone())?;
+            let subcommand = args.get(2).map(String::as_str).unwrap_or("summary");
+            if subcommand != "summary" {
+                eprintln!("Usage: pasted insights summary [--json]");
+                std::process::exit(2);
+            }
+            let summary = db.get_analytics_summary()?;
+            if args.iter().any(|argument| argument == "--json") {
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&summary).map_err(json_error)?
+                );
+            } else {
+                println!(
+                    "{} clips · {} characters",
+                    summary.total_clips, summary.total_chars
+                );
+                if !summary.top_sources.is_empty() {
+                    println!("Top sources:");
+                    for source in summary.top_sources {
+                        println!("{}\t{}", source.count, source.name);
+                    }
+                }
+            }
+        }
         "ocr" => {
             let db = DbState::new(db_path.clone())?;
             let ocr_setting = db.get_setting(Feature::Ocr.setting_key())?;
@@ -1295,62 +1586,213 @@ fn main() -> Result<()> {
                         );
                     }
                 }
-                "scan" => {
-                    let extractor = db.active_image_text_extractor()?.unwrap_or_else(|| {
-                        eprintln!("No available image text Extractor is enabled.");
-                        std::process::exit(1);
-                    });
-                    let detectors = setting_value_is_enabled(
-                        db.get_setting(Feature::ContentDetection.setting_key())?
-                            .as_deref(),
-                    )
-                    .then(|| db.get_content_detectors())
-                    .transpose()?;
-                    let mut scanned = 0usize;
-                    while let Some(candidate) = db.claim_next_ocr_candidate()? {
-                        let Some(bytes) =
-                            pasted_lib::ocr::decode_stored_image(&candidate.image_base64)
-                        else {
-                            db.complete_ocr_attempt(
-                                candidate.clip_id,
-                                &candidate.content_hash,
-                                None,
-                                &extractor.engine,
-                                Some("invalid_image_data"),
-                            )?;
-                            continue;
-                        };
-                        let analysis = pasted_lib::content_analysis::analyze_image(
-                            bytes,
-                            &extractor,
-                            detectors.as_deref(),
-                            pasted_lib::ocr::perform_ocr_on_image_bytes,
+                "scan" | "retry" => {
+                    let retried = if subcommand == "retry" {
+                        db.reset_failed_ocr()?
+                    } else {
+                        0
+                    };
+                    let clip_id =
+                        argument_value(&args, "--clip").and_then(|value| value.parse::<i64>().ok());
+                    let scanned = scan_existing_images(&db, clip_id)?;
+                    if args.iter().any(|argument| argument == "--json") {
+                        println!(
+                            "{}",
+                            serde_json::json!({
+                                "scannedCount": scanned,
+                                "retriedCount": retried,
+                                "clipId": clip_id,
+                            })
                         );
-                        db.complete_ocr_attempt(
-                            candidate.clip_id,
-                            &candidate.content_hash,
-                            analysis.context.searchable_text.as_deref(),
-                            &extractor.engine,
-                            None,
-                        )?;
-                        if detectors.is_some() && analysis.context.searchable_text.is_some() {
-                            db.record_analysis_classification(
-                                candidate.clip_id,
-                                &candidate.content_hash,
-                                analysis.context.detected_type.as_deref(),
-                                analysis.context.matched_detector_ref.as_deref(),
-                                "searchable_text",
-                            )?;
-                        }
-                        scanned += 1;
+                    } else {
+                        println!(
+                            "Scanned {scanned} existing image{}{}.",
+                            if scanned == 1 { "" } else { "s" },
+                            if retried > 0 {
+                                format!(
+                                    " after resetting {retried} failed attempt{}",
+                                    if retried == 1 { "" } else { "s" }
+                                )
+                            } else {
+                                String::new()
+                            }
+                        );
                     }
-                    println!(
-                        "Scanned {scanned} existing image{}.",
-                        if scanned == 1 { "" } else { "s" }
-                    );
+                }
+                "cancel" => {
+                    let result = send_live_or_exit(pasted_lib::live_app::LiveAppAction::OcrCancel);
+                    print_live_result(&result, args.iter().any(|argument| argument == "--json"))?;
                 }
                 _ => {
-                    eprintln!("Usage: pasted ocr [status [--json] | scan]");
+                    eprintln!("Usage: pasted ocr status | scan [--clip ID] | retry [--json]");
+                    std::process::exit(2);
+                }
+            }
+        }
+        "connection" | "connections" => {
+            let db = DbState::new(db_path.clone())?;
+            require_feature(&db, Feature::Transformations);
+            let subcommand = args.get(2).map(String::as_str).unwrap_or("list");
+            let json = args.iter().any(|argument| argument == "--json");
+            match subcommand {
+                "list" | "ls" => {
+                    let connections = db.get_intelligence_connections()?;
+                    if json {
+                        println!(
+                            "{}",
+                            serde_json::to_string_pretty(&connections).map_err(json_error)?
+                        );
+                    } else {
+                        for connection in connections {
+                            print_connection(&connection, false)?;
+                        }
+                    }
+                }
+                "get" => {
+                    let id = args.get(3).unwrap_or_else(|| {
+                        eprintln!("Usage: pasted connection get <id> [--json]");
+                        std::process::exit(2);
+                    });
+                    print_connection(&db.get_intelligence_connection(id)?, json)?;
+                }
+                "detect" | "discover" => {
+                    let detected =
+                        pasted_lib::intelligence_connections::detect_intelligence_connections();
+                    for candidate in &detected {
+                        let endpoint = if candidate.provider_kind == "cli" {
+                            candidate.executable_path.as_deref()
+                        } else {
+                            candidate.default_endpoint
+                        };
+                        db.ensure_intelligence_connection_candidate(
+                            candidate.name,
+                            candidate.provider_kind,
+                            endpoint,
+                        )?;
+                    }
+                    if json {
+                        println!(
+                            "{}",
+                            serde_json::to_string_pretty(&detected).map_err(json_error)?
+                        );
+                    } else if detected.is_empty() {
+                        println!("No local intelligence connections detected.");
+                    } else {
+                        for candidate in detected {
+                            println!(
+                                "{}\t{}\t{}",
+                                candidate.adapter_id, candidate.provider_kind, candidate.name
+                            );
+                        }
+                    }
+                }
+                "create" | "new" => {
+                    let name = argument_value(&args, "--name").unwrap_or_else(|| {
+                        eprintln!("Usage: pasted connection create --name NAME --provider KIND [--endpoint VALUE] [--model MODEL] [--credential-ref REF] [--json]");
+                        std::process::exit(2);
+                    });
+                    let provider = argument_value(&args, "--provider").unwrap_or_else(|| {
+                        eprintln!("Connection creation requires --provider.");
+                        std::process::exit(2);
+                    });
+                    let credential_ref = argument_value(&args, "--credential-ref");
+                    pasted_lib::intelligence_connections::validate_credential_reference(
+                        credential_ref.as_deref(),
+                    )
+                    .unwrap_or_else(|error| {
+                        eprintln!("{error}");
+                        std::process::exit(2);
+                    });
+                    let connection = db.create_intelligence_connection(
+                        &name,
+                        &provider,
+                        argument_value(&args, "--endpoint").as_deref(),
+                        argument_value(&args, "--model").as_deref(),
+                        credential_ref.as_deref(),
+                    )?;
+                    print_connection(&connection, json)?;
+                }
+                "update" | "edit" => {
+                    let id = args.get(3).unwrap_or_else(|| {
+                        eprintln!("Usage: pasted connection update <id> [options] [--json]");
+                        std::process::exit(2);
+                    });
+                    let current = db.get_intelligence_connection(id)?;
+                    let credential_ref = optional_argument_update(
+                        &args,
+                        "--credential-ref",
+                        "--clear-credential-ref",
+                        current.credential_ref.clone(),
+                    );
+                    pasted_lib::intelligence_connections::validate_credential_reference(
+                        credential_ref.as_deref(),
+                    )
+                    .unwrap_or_else(|error| {
+                        eprintln!("{error}");
+                        std::process::exit(2);
+                    });
+                    let enabled = if args.iter().any(|argument| argument == "--disabled") {
+                        false
+                    } else if args.iter().any(|argument| argument == "--enabled") {
+                        true
+                    } else {
+                        current.enabled
+                    };
+                    let name = argument_value(&args, "--name").unwrap_or(current.name);
+                    let provider =
+                        argument_value(&args, "--provider").unwrap_or(current.provider_kind);
+                    let endpoint = optional_argument_update(
+                        &args,
+                        "--endpoint",
+                        "--clear-endpoint",
+                        current.endpoint,
+                    );
+                    let model =
+                        optional_argument_update(&args, "--model", "--clear-model", current.model);
+                    db.update_intelligence_connection(IntelligenceConnectionUpdate {
+                        id,
+                        name: &name,
+                        provider_kind: &provider,
+                        endpoint: endpoint.as_deref(),
+                        model: model.as_deref(),
+                        credential_ref: credential_ref.as_deref(),
+                        enabled,
+                    })?;
+                    print_connection(&db.get_intelligence_connection(id)?, json)?;
+                }
+                "delete" | "remove" => {
+                    let id = args.get(3).unwrap_or_else(|| {
+                        eprintln!("Usage: pasted connection delete <id> [--json]");
+                        std::process::exit(2);
+                    });
+                    let connection = db.get_intelligence_connection(id)?;
+                    db.delete_intelligence_connection(id)?;
+                    if json {
+                        println!("{}", serde_json::json!({ "deleted": true, "id": id }));
+                    } else {
+                        println!("Deleted Connection {}.", connection.name);
+                    }
+                }
+                "order" => {
+                    let ids = args
+                        .iter()
+                        .skip(3)
+                        .filter(|argument| argument.as_str() != "--json")
+                        .cloned()
+                        .collect::<Vec<_>>();
+                    if ids.is_empty() {
+                        eprintln!("Usage: pasted connection order <id>... [--json]");
+                        std::process::exit(2);
+                    }
+                    db.reorder_intelligence_connections(&ids)?;
+                    if json {
+                        println!("{}", serde_json::json!({ "connectionIds": ids }));
+                    } else {
+                        println!("Reordered {} Connections.", ids.len());
+                    }
+                }
+                _ => {
+                    eprintln!("Usage: pasted connection list|get|detect|create|update|delete|order [options] [--json]");
                     std::process::exit(2);
                 }
             }
@@ -1408,9 +1850,86 @@ fn main() -> Result<()> {
                         args.iter().any(|arg| arg == "--json"),
                     )?;
                 }
+                "plan" => {
+                    let intent = match argument_value(&args, "--intent") {
+                        Some(intent) => intent,
+                        None => read_stdin_bounded(8_000)?,
+                    };
+                    let outcome = plan_transform_or_exit(&db, &args, intent);
+                    if args.iter().any(|argument| argument == "--json") {
+                        println!(
+                            "{}",
+                            serde_json::to_string_pretty(&outcome).map_err(json_error)?
+                        );
+                    } else {
+                        println!(
+                            "{}",
+                            serde_json::to_string_pretty(&outcome.plan).map_err(json_error)?
+                        );
+                    }
+                }
+                "test" => {
+                    let plan_json = argument_value(&args, "--plan-json").unwrap_or_else(|| {
+                        eprintln!("Usage: pasted transform test --plan-json JSON [--text TEXT | --stdin] [--connection ID] [--json]");
+                        std::process::exit(2);
+                    });
+                    let plan = serde_json::from_str::<TransformationPlan>(&plan_json)
+                        .unwrap_or_else(|error| {
+                            eprintln!("Transform plan is invalid: {error}");
+                            std::process::exit(2);
+                        });
+                    let input = match argument_value(&args, "--text") {
+                        Some(text) => text,
+                        None => read_stdin_bounded(
+                            pasted_lib::resource_limits::MAX_TRANSFORM_TEXT_BYTES,
+                        )?,
+                    };
+                    if input.is_empty() {
+                        eprintln!("Provide test input with --text or stdin.");
+                        std::process::exit(2);
+                    }
+                    match pasted_lib::intelligence_executor::execute_plan(
+                        &db,
+                        ExecutePlanRequest {
+                            plan,
+                            input,
+                            connection_id: argument_value(&args, "--connection"),
+                        },
+                    ) {
+                        Ok(outcome) => {
+                            let provider = outcome
+                                .connection_name
+                                .as_deref()
+                                .unwrap_or("local Operations");
+                            let _ = db.log_activity(
+                                "transform_tested",
+                                &format!(
+                                    "Tested a Transform with {provider} in {} ms",
+                                    outcome.duration_ms
+                                ),
+                            );
+                            if args.iter().any(|argument| argument == "--json") {
+                                println!(
+                                    "{}",
+                                    serde_json::to_string_pretty(&outcome).map_err(json_error)?
+                                );
+                            } else {
+                                print!("{}", outcome.output);
+                            }
+                        }
+                        Err(error) => {
+                            let _ = db.log_activity(
+                                "transform_test_failed",
+                                &format!("Transform test failed ({})", error.code),
+                            );
+                            eprintln!("Transform test failed ({}): {}", error.code, error.message);
+                            std::process::exit(1);
+                        }
+                    }
+                }
                 "create" | "new" => {
                     let name = argument_value(&args, "--name").unwrap_or_else(|| {
-                        eprintln!("Usage: pasted transform create --name NAME (--plan-json JSON | --steps-json JSON) [--connection ID | --shortcut HOTKEY] [--json]");
+                        eprintln!("Usage: pasted transform create --name NAME (--intent TEXT | --plan-json JSON | --steps-json JSON) [options] [--json]");
                         std::process::exit(2);
                     });
                     if name.trim().is_empty() {
@@ -1419,8 +1938,17 @@ fn main() -> Result<()> {
                     }
                     let plan_json = argument_value(&args, "--plan-json");
                     let steps_json = argument_value(&args, "--steps-json");
-                    let definition = match (plan_json, steps_json) {
-                        (Some(plan_json), None) => {
+                    let intent = argument_value(&args, "--intent");
+                    let definition = match (intent, plan_json, steps_json) {
+                        (Some(intent), None, None) => {
+                            let outcome = plan_transform_or_exit(&db, &args, intent);
+                            TransformDefinition::from(db.create_saved_transform(
+                                &name,
+                                &outcome.plan,
+                                Some(&outcome.connection_id),
+                            )?)
+                        }
+                        (None, Some(plan_json), None) => {
                             let plan: TransformationPlan =
                                 serde_json::from_str(&plan_json).map_err(json_error)?;
                             TransformDefinition::from(db.create_saved_transform(
@@ -1429,7 +1957,7 @@ fn main() -> Result<()> {
                                 argument_value(&args, "--connection").as_deref(),
                             )?)
                         }
-                        (None, Some(steps_json)) => {
+                        (None, None, Some(steps_json)) => {
                             let steps: Vec<PipelineStepInput> =
                                 serde_json::from_str(&steps_json).map_err(json_error)?;
                             TransformDefinition::from(db.create_pipeline(
@@ -1439,7 +1967,9 @@ fn main() -> Result<()> {
                             )?)
                         }
                         _ => {
-                            eprintln!("Provide exactly one of --plan-json or --steps-json.");
+                            eprintln!(
+                                "Provide exactly one of --intent, --plan-json, or --steps-json."
+                            );
                             std::process::exit(2);
                         }
                     };
@@ -1660,7 +2190,7 @@ fn main() -> Result<()> {
                     }
                 }
                 _ => {
-                    eprintln!("Usage: pasted transform list|get|create|update|duplicate|delete|run [options] [--json]");
+                    eprintln!("Usage: pasted transform list|get|plan|test|create|update|duplicate|delete|run [options] [--json]");
                     std::process::exit(2);
                 }
             }
@@ -1689,9 +2219,104 @@ fn main() -> Result<()> {
                         }
                     }
                 }
-                "run" => run_operation(&args, &db),
+                "get" => {
+                    let reference = args.get(3).unwrap_or_else(|| {
+                        eprintln!("Usage: pasted operation get <ref> [--json]");
+                        std::process::exit(2);
+                    });
+                    let operation = db.get_operation(reference)?;
+                    print_operation(&operation, args.iter().any(|argument| argument == "--json"))?;
+                }
+                "create" | "new" => {
+                    let name = argument_value(&args, "--name").unwrap_or_else(|| {
+                        eprintln!("Usage: pasted operation create --name NAME --type TYPE [--config-json JSON] [--category CATEGORY] [--json]");
+                        std::process::exit(2);
+                    });
+                    let op_type = argument_value(&args, "--type").unwrap_or_else(|| {
+                        eprintln!("Operation creation requires --type.");
+                        std::process::exit(2);
+                    });
+                    if !matches!(op_type.as_str(), "regex" | "ai") {
+                        eprintln!("New Operations must use type regex or ai.");
+                        std::process::exit(2);
+                    }
+                    let config = argument_value(&args, "--config-json");
+                    validate_json_or_exit(config.as_deref(), "Operation configuration");
+                    let operation = db.create_operation(
+                        &name,
+                        &op_type,
+                        config.as_deref(),
+                        argument_value(&args, "--category").as_deref(),
+                    )?;
+                    print_operation(&operation, args.iter().any(|argument| argument == "--json"))?;
+                }
+                "update" | "edit" => {
+                    let reference = args.get(3).unwrap_or_else(|| {
+                        eprintln!("Usage: pasted operation update <ref> [--name NAME] [--type TYPE] [--config-json JSON] [--category CATEGORY] [--json]");
+                        std::process::exit(2);
+                    });
+                    let current = db.get_operation(reference)?;
+                    if current.id < 0 {
+                        eprintln!("Built-in Operations cannot be updated; duplicate one first.");
+                        std::process::exit(2);
+                    }
+                    let updated_type =
+                        argument_value(&args, "--type").unwrap_or_else(|| current.op_type.clone());
+                    if !matches!(updated_type.as_str(), "regex" | "ai") {
+                        eprintln!("Custom Operations must use type regex or ai.");
+                        std::process::exit(2);
+                    }
+                    let updated_config =
+                        argument_value(&args, "--config-json").or(current.config.clone());
+                    validate_json_or_exit(updated_config.as_deref(), "Operation configuration");
+                    db.update_operation(
+                        current.id,
+                        argument_value(&args, "--name")
+                            .as_deref()
+                            .unwrap_or(&current.name),
+                        &updated_type,
+                        updated_config.as_deref(),
+                        argument_value(&args, "--category")
+                            .as_deref()
+                            .or(Some(&current.category)),
+                    )?;
+                    let updated = db.get_operation(&current.stable_id)?;
+                    print_operation(&updated, args.iter().any(|argument| argument == "--json"))?;
+                }
+                "duplicate" | "copy" => {
+                    let reference = args.get(3).unwrap_or_else(|| {
+                        eprintln!("Usage: pasted operation duplicate <ref> [--name NAME] [--json]");
+                        std::process::exit(2);
+                    });
+                    let operation = db.duplicate_operation(
+                        reference,
+                        argument_value(&args, "--name").as_deref(),
+                    )?;
+                    print_operation(&operation, args.iter().any(|argument| argument == "--json"))?;
+                }
+                "delete" | "remove" => {
+                    let reference = args.get(3).unwrap_or_else(|| {
+                        eprintln!("Usage: pasted operation delete <ref> [--json]");
+                        std::process::exit(2);
+                    });
+                    let operation = db.get_operation(reference)?;
+                    if operation.id < 0 {
+                        eprintln!("Built-in Operations cannot be deleted.");
+                        std::process::exit(2);
+                    }
+                    db.delete_operation(operation.id)?;
+                    if args.iter().any(|argument| argument == "--json") {
+                        println!(
+                            "{}",
+                            serde_json::json!({ "deleted": true, "stableRef": operation.stable_id })
+                        );
+                    } else {
+                        println!("Deleted Operation {}.", operation.name);
+                    }
+                }
+                "run" | "test" => run_operation(&args, &db),
                 _ => {
-                    eprintln!("Usage: pasted operation [list [--json] | run <operation-ref> [--text TEXT | --clip ID | --stdin] [--json]]");
+                    eprintln!("Usage: pasted operation list|get|create|update|duplicate|delete|run [options] [--json]");
                     std::process::exit(2);
                 }
             }
@@ -1723,6 +2348,115 @@ fn main() -> Result<()> {
                                 bin.clip_count.unwrap_or(0)
                             );
                         }
+                    }
+                }
+                "get" => {
+                    let bin_id =
+                        parse_i64_argument(&args, 3, "Usage: pasted bin get <bin-id> [--json]");
+                    let bin = db.get_bin(bin_id)?;
+                    let transform_ref = db.get_bin_transform_ref(bin_id)?;
+                    if args.iter().any(|argument| argument == "--json") {
+                        println!(
+                            "{}",
+                            serde_json::json!({ "bin": bin, "transformRef": transform_ref })
+                        );
+                    } else {
+                        print_bin(&bin, false)?;
+                    }
+                }
+                "create" | "new" => {
+                    let name = argument_value(&args, "--name").unwrap_or_else(|| {
+                        eprintln!("Usage: pasted bin create --name NAME [--icon ICON] [--color COLOR] [--smart-rule-json JSON] [--transform REF] [--json]");
+                        std::process::exit(2);
+                    });
+                    let smart_rule = argument_value(&args, "--smart-rule-json");
+                    validate_json_or_exit(smart_rule.as_deref(), "Smart Bin rule");
+                    let bin = db.create_bin(
+                        &name,
+                        argument_value(&args, "--icon").as_deref().unwrap_or("📂"),
+                        argument_value(&args, "--color")
+                            .as_deref()
+                            .unwrap_or("default"),
+                        smart_rule.as_deref(),
+                    )?;
+                    if let Some(transform_ref) = argument_value(&args, "--transform") {
+                        db.set_bin_transform_ref(bin.id, Some(&transform_ref))?;
+                    }
+                    print_bin(
+                        &db.get_bin(bin.id)?,
+                        args.iter().any(|argument| argument == "--json"),
+                    )?;
+                }
+                "update" | "edit" => {
+                    let bin_id = parse_i64_argument(
+                        &args,
+                        3,
+                        "Usage: pasted bin update <bin-id> [options] [--json]",
+                    );
+                    let current = db.get_bin(bin_id)?;
+                    let smart_rule = optional_argument_update(
+                        &args,
+                        "--smart-rule-json",
+                        "--clear-smart-rule",
+                        current.smart_rule,
+                    );
+                    validate_json_or_exit(smart_rule.as_deref(), "Smart Bin rule");
+                    db.update_bin(
+                        bin_id,
+                        argument_value(&args, "--name")
+                            .as_deref()
+                            .unwrap_or(&current.name),
+                        argument_value(&args, "--icon")
+                            .as_deref()
+                            .unwrap_or(&current.icon),
+                        argument_value(&args, "--color")
+                            .as_deref()
+                            .unwrap_or(&current.color),
+                        smart_rule.as_deref(),
+                    )?;
+                    print_bin(
+                        &db.get_bin(bin_id)?,
+                        args.iter().any(|argument| argument == "--json"),
+                    )?;
+                }
+                "duplicate" | "copy" => {
+                    let bin_id = parse_i64_argument(
+                        &args,
+                        3,
+                        "Usage: pasted bin duplicate <bin-id> [--name NAME] [--json]",
+                    );
+                    let source = db.get_bin(bin_id)?;
+                    let duplicate_name = argument_value(&args, "--name")
+                        .unwrap_or_else(|| format!("{} Copy", source.name));
+                    let duplicate = db.create_bin(
+                        &duplicate_name,
+                        &source.icon,
+                        &source.color,
+                        source.smart_rule.as_deref(),
+                    )?;
+                    if let Some(transform_ref) = db.get_bin_transform_ref(source.id)? {
+                        db.set_bin_transform_ref(duplicate.id, Some(&transform_ref))?;
+                    }
+                    print_bin(
+                        &db.get_bin(duplicate.id)?,
+                        args.iter().any(|argument| argument == "--json"),
+                    )?;
+                }
+                "delete" | "remove" => {
+                    let bin_id = parse_i64_argument(&args, 3, "Usage: pasted bin delete <bin-id> [--disposition keep|trash|move --move-to BIN] [--json]");
+                    let bin = db.get_bin(bin_id)?;
+                    let disposition =
+                        argument_value(&args, "--disposition").unwrap_or_else(|| "keep".into());
+                    let destination = argument_value(&args, "--move-to")
+                        .and_then(|value| value.parse::<i64>().ok());
+                    db.delete_bin(bin_id, &disposition, destination)?;
+                    if args.iter().any(|argument| argument == "--json") {
+                        println!(
+                            "{}",
+                            serde_json::json!({ "deleted": true, "binId": bin_id, "disposition": disposition, "destinationBinId": destination })
+                        );
+                    } else {
+                        println!("Deleted Bin {}.", bin.name);
                     }
                 }
                 "clips" => {
@@ -1776,8 +2510,54 @@ fn main() -> Result<()> {
                         println!("Reordered {} clips in Bin #{bin_id}.", clip_ids.len());
                     }
                 }
+                "transform" => {
+                    let bin_id = parse_i64_argument(
+                        &args,
+                        3,
+                        "Usage: pasted bin transform <bin-id> <transform-ref|none> [--json]",
+                    );
+                    let value = args.get(4).unwrap_or_else(|| {
+                        eprintln!(
+                            "Usage: pasted bin transform <bin-id> <transform-ref|none> [--json]"
+                        );
+                        std::process::exit(2);
+                    });
+                    let transform_ref = (!matches!(value.as_str(), "none" | "null" | "-"))
+                        .then_some(value.as_str());
+                    db.set_bin_transform_ref(bin_id, transform_ref)?;
+                    if args.iter().any(|argument| argument == "--json") {
+                        println!(
+                            "{}",
+                            serde_json::json!({ "binId": bin_id, "transformRef": transform_ref })
+                        );
+                    } else {
+                        println!("Updated the default Transform for Bin #{bin_id}.");
+                    }
+                }
+                "shortcut" => {
+                    let bin_id = parse_i64_argument(
+                        &args,
+                        3,
+                        "Usage: pasted bin shortcut <bin-id> <shortcut|none> [--json]",
+                    );
+                    let value = args.get(4).unwrap_or_else(|| {
+                        eprintln!("Usage: pasted bin shortcut <bin-id> <shortcut|none> [--json]");
+                        std::process::exit(2);
+                    });
+                    let shortcut = (!matches!(value.as_str(), "none" | "null" | "-"))
+                        .then_some(value.as_str());
+                    db.update_bin_shortcut(bin_id, shortcut)?;
+                    if args.iter().any(|argument| argument == "--json") {
+                        println!(
+                            "{}",
+                            serde_json::json!({ "binId": bin_id, "shortcut": shortcut })
+                        );
+                    } else {
+                        println!("Updated the shortcut for Bin #{bin_id}.");
+                    }
+                }
                 _ => {
-                    eprintln!("Usage: pasted bin [list | clips <bin-id> | order <bin-id> <clip-id>...] [--json]");
+                    eprintln!("Usage: pasted bin list|get|create|update|duplicate|delete|clips|order|transform|shortcut [options] [--json]");
                     std::process::exit(2);
                 }
             }
@@ -1876,11 +2656,132 @@ fn main() -> Result<()> {
                         );
                     }
                 }
+                "note" => {
+                    let clip_id = parse_i64_argument(&args, 3, "Usage: pasted clip note <clip-id> [--text TEXT | --clear | --stdin] [--json]");
+                    let note = if args.iter().any(|argument| argument == "--clear") {
+                        None
+                    } else {
+                        Some(match argument_value(&args, "--text") {
+                            Some(note) => note,
+                            None => read_stdin_bounded(
+                                pasted_lib::resource_limits::MAX_CLIP_NOTE_BYTES,
+                            )?,
+                        })
+                    };
+                    db.update_clip_note(clip_id, note.as_deref())?;
+                    if json {
+                        println!("{}", serde_json::json!({ "clipId": clip_id, "note": note }));
+                    } else {
+                        println!("Updated note for clip #{clip_id}.");
+                    }
+                }
+                "revisions" | "versions" => {
+                    let clip_id = parse_i64_argument(
+                        &args,
+                        3,
+                        "Usage: pasted clip revisions <clip-id> [--limit N] [--offset N] [--json]",
+                    );
+                    let limit = argument_value(&args, "--limit")
+                        .and_then(|value| value.parse::<i64>().ok())
+                        .unwrap_or(50)
+                        .clamp(1, 1_000);
+                    let offset = argument_value(&args, "--offset")
+                        .and_then(|value| value.parse::<i64>().ok())
+                        .unwrap_or(0)
+                        .max(0);
+                    let revisions = db.get_clip_versions_page(clip_id, limit, offset)?;
+                    if json {
+                        println!(
+                            "{}",
+                            serde_json::to_string_pretty(&revisions).map_err(json_error)?
+                        );
+                    } else if revisions.is_empty() {
+                        println!("No revisions for clip #{clip_id}.");
+                    } else {
+                        for revision in revisions {
+                            println!(
+                                "{}\t{}\t{}",
+                                revision.id,
+                                revision.created_at,
+                                revision.action_label.as_deref().unwrap_or("Revision")
+                            );
+                        }
+                    }
+                }
+                "restore-revision" | "restore-version" => {
+                    let clip_id = parse_i64_argument(
+                        &args,
+                        3,
+                        "Usage: pasted clip restore-revision <clip-id> <revision-id> [--json]",
+                    );
+                    let revision_id = parse_i64_argument(
+                        &args,
+                        4,
+                        "Usage: pasted clip restore-revision <clip-id> <revision-id> [--json]",
+                    );
+                    let clip = db.restore_clip_version(clip_id, revision_id)?;
+                    if json {
+                        println!(
+                            "{}",
+                            serde_json::to_string_pretty(&clip).map_err(json_error)?
+                        );
+                    } else {
+                        println!("Restored revision #{revision_id} for clip #{clip_id}.");
+                    }
+                }
+                "provenance" => {
+                    let clip_id = parse_i64_argument(
+                        &args,
+                        3,
+                        "Usage: pasted clip provenance <clip-id> [--json]",
+                    );
+                    let provenance = db.get_clip_transformation_provenance(clip_id)?;
+                    if json {
+                        println!(
+                            "{}",
+                            serde_json::to_string_pretty(&provenance).map_err(json_error)?
+                        );
+                    } else if let Some(provenance) = provenance {
+                        println!(
+                            "{}\trevision {}\t{} ms\t{}",
+                            provenance.transform_ref,
+                            provenance.transform_revision,
+                            provenance.duration_ms,
+                            provenance.transform_name
+                        );
+                    } else {
+                        println!("Clip #{clip_id} has no Transform provenance.");
+                    }
+                }
+                "copy" | "paste" => {
+                    let clip_id = parse_i64_argument(
+                        &args,
+                        3,
+                        "Usage: pasted clip copy|paste <clip-id> [--json]",
+                    );
+                    let action = if subcommand == "copy" {
+                        pasted_lib::live_app::LiveAppAction::CopyClip { clip_id }
+                    } else {
+                        pasted_lib::live_app::LiveAppAction::PasteClip { clip_id }
+                    };
+                    let result = send_live_or_exit(action);
+                    print_live_result(&result, json)?;
+                }
                 "pin" | "unpin" => {
                     require_feature(&db, Feature::Pinning);
                     let ids = parse_clip_ids(&args, 3);
                     let summary = db.batch_pin_clips(ids, subcommand == "pin")?;
                     print_mutation_summary(&summary, json)?;
+                }
+                "order-pinned" => {
+                    require_feature(&db, Feature::Pinning);
+                    let ids = parse_clip_ids(&args, 3);
+                    db.reorder_pinned_clips(ids.clone())?;
+                    if json {
+                        println!("{}", serde_json::json!({ "clipIds": ids }));
+                    } else {
+                        println!("Saved the order of {} pinned clips.", ids.len());
+                    }
                 }
                 "protect" | "unprotect" => {
                     require_feature(&db, Feature::Protection);
@@ -1914,6 +2815,33 @@ fn main() -> Result<()> {
                     require_feature(&db, Feature::Trash);
                     let summary = db.restore_all_trashed_clips()?;
                     print_mutation_summary(&summary, json)?;
+                }
+                "purge" => {
+                    if !args.iter().any(|argument| argument == "--yes") {
+                        eprintln!("Permanent deletion cannot be undone. Re-run with --yes.");
+                        std::process::exit(2);
+                    }
+                    let ids = parse_clip_ids(&args, 3);
+                    for id in &ids {
+                        db.purge_clip_permanently(*id)?;
+                    }
+                    if json {
+                        println!("{}", serde_json::json!({ "purgedClipIds": ids }));
+                    } else {
+                        println!("Permanently deleted {} requested clips; protected clips were preserved.", ids.len());
+                    }
+                }
+                "empty-trash" => {
+                    if !args.iter().any(|argument| argument == "--yes") {
+                        eprintln!("Emptying Trash is permanent. Re-run with --yes.");
+                        std::process::exit(2);
+                    }
+                    db.empty_trash()?;
+                    if json {
+                        println!("{}", serde_json::json!({ "emptied": true }));
+                    } else {
+                        println!("Emptied Trash; protected clips were preserved.");
+                    }
                 }
                 "assign" => {
                     require_feature(&db, Feature::Bins);
@@ -1955,7 +2883,7 @@ fn main() -> Result<()> {
                     print_mutation_summary(&outcome.mutation, json)?;
                 }
                 _ => {
-                    eprintln!("Usage: pasted clip [export [path] [--format json|csv] | import <path> [--format json|csv] | get <id> | pin|unpin|protect|unprotect|trash|restore <id>... | restore-all | assign <bin-id|none> <id>... | remove-bin <bin-id> <id>...] [--json]");
+                    eprintln!("Usage: pasted clip get|note|revisions|restore-revision|provenance|copy|paste|pin|unpin|order-pinned|protect|unprotect|trash|restore|restore-all|purge|empty-trash|assign|remove-bin|export|import [options] [--json]");
                     std::process::exit(2);
                 }
             }
@@ -1981,50 +2909,66 @@ fn main() -> Result<()> {
                 std::process::exit(1);
             }
 
-            let detection_db = DbState::new(db_path.clone())?;
-            let content_type = if setting_value_is_enabled(
-                detection_db
-                    .get_setting(Feature::ContentDetection.setting_key())?
-                    .as_deref(),
-            ) {
-                pasted_lib::content_analysis::classify_text(
-                    &trimmed,
-                    &detection_db.get_content_detectors()?,
+            drop(conn);
+            let db = DbState::new(db_path.clone())?;
+            let clip = db.save_text_clip(&trimmed, "CLI Terminal")?;
+            if setting_value_is_enabled(db.get_setting(Feature::Bins.setting_key())?.as_deref())
+                && setting_value_is_enabled(
+                    db.get_setting(Feature::Transformations.setting_key())?
+                        .as_deref(),
                 )
-            } else {
-                "text".to_string()
-            };
-            drop(detection_db);
-            conn.execute(
-                "INSERT INTO clips (content_type, text_content, source, created_at) VALUES (?1, ?2, 'CLI Terminal', strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))",
-                params![content_type, trimmed],
-            )?;
-            let id = conn.last_insert_rowid();
+            {
+                pasted_lib::intelligence_executor::apply_smart_bin_transforms_for_clip(
+                    &db,
+                    clip.id,
+                    &clip.content_type,
+                    &trimmed,
+                    "CLI Terminal",
+                );
+            }
+            let clip = db.get_clip_by_id(clip.id)?;
 
             if args.iter().any(|argument| argument == "--json") {
                 println!(
                     "{}",
-                    serde_json::json!({ "id": id, "content_type": content_type })
+                    serde_json::json!({ "id": clip.id, "contentType": clip.content_type })
                 );
             } else {
-                println!("✓ Saved {content_type} clip #{id} to Pasted history.");
+                println!("Saved {} clip #{} to History.", clip.content_type, clip.id);
             }
         }
         "list" | "ls" => {
-            let limit: i64 = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(10);
-            let mut stmt = conn.prepare(
-                "SELECT id, content_type, text_content, source, created_at FROM clips WHERE is_trashed = 0 ORDER BY created_at DESC LIMIT ?1"
-            )?;
-            let rows = stmt.query_map(params![limit], |row| {
-                Ok((
-                    row.get::<_, i64>(0)?,
-                    row.get::<_, String>(1)?,
-                    row.get::<_, Option<String>>(2)?.unwrap_or_default(),
-                    row.get::<_, String>(3)?,
-                    row.get::<_, String>(4)?,
-                ))
-            })?;
-
+            let limit = argument_value(&args, "--limit")
+                .as_ref()
+                .or_else(|| args.get(2).filter(|value| !value.starts_with("--")))
+                .and_then(|value| value.parse::<i64>().ok())
+                .unwrap_or(10)
+                .clamp(1, 10_000);
+            let offset = argument_value(&args, "--offset")
+                .and_then(|value| value.parse::<i64>().ok())
+                .unwrap_or(0)
+                .max(0);
+            let bin_id = argument_value(&args, "--bin").and_then(|value| value.parse::<i64>().ok());
+            let pinned = args.iter().any(|argument| argument == "--pinned");
+            let trash = args.iter().any(|argument| argument == "--trash");
+            if trash && (bin_id.is_some() || pinned) {
+                eprintln!("--trash cannot be combined with --bin or --pinned.");
+                std::process::exit(2);
+            }
+            drop(conn);
+            let db = DbState::new(db_path.clone())?;
+            let clips = if trash {
+                db.get_trashed_clips_page(Some(limit), Some(offset))?
+            } else {
+                db.get_clips_page(None, bin_id, pinned, Some(limit), Some(offset))?
+            };
+            if args.iter().any(|argument| argument == "--json") {
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&clips).map_err(json_error)?
+                );
+                return Ok(());
+            }
             println!(
                 "{:<5} | {:<8} | {:<15} | {:<20} | CONTENT",
                 "ID", "TYPE", "SOURCE", "DATE"
@@ -2033,10 +2977,11 @@ fn main() -> Result<()> {
                 "{:-<5}-+-{:-<8}-+-{:-<15}-+-{:-<20}-+-{:-<30}",
                 "", "", "", "", ""
             );
-
-            for r in rows {
-                let (id, c_type, content, source, date) = r?;
-                let snippet: String = content
+            for clip in clips {
+                let snippet: String = clip
+                    .text_content
+                    .as_deref()
+                    .unwrap_or("")
                     .lines()
                     .next()
                     .unwrap_or("")
@@ -2045,7 +2990,7 @@ fn main() -> Result<()> {
                     .collect();
                 println!(
                     "{:<5} | {:<8} | {:<15} | {:<20} | {}",
-                    id, c_type, source, date, snippet
+                    clip.id, clip.content_type, clip.source, clip.created_at, snippet
                 );
             }
         }
@@ -2059,6 +3004,15 @@ fn main() -> Result<()> {
             let content_type = option_value("--type");
             let source = option_value("--source");
             let json = args.iter().any(|argument| argument == "--json");
+            let trash = args.iter().any(|argument| argument == "--trash");
+            let limit = option_value("--limit")
+                .and_then(|value| value.parse::<i64>().ok())
+                .unwrap_or(20)
+                .clamp(1, 10_000);
+            let offset = option_value("--offset")
+                .and_then(|value| value.parse::<i64>().ok())
+                .unwrap_or(0)
+                .max(0);
             let query = args
                 .iter()
                 .skip(2)
@@ -2070,23 +3024,26 @@ fn main() -> Result<()> {
             let mut stmt = conn.prepare(
                 "SELECT id, content_type, text_content, source, created_at
                  FROM clips
-                 WHERE is_trashed = 0
+                 WHERE is_trashed = ?5
                    AND (?1 = '' OR text_content LIKE ?2)
                    AND (?3 IS NULL OR content_type = ?3)
                    AND (?4 IS NULL OR source = ?4)
                  ORDER BY created_at DESC
-                 LIMIT 20",
+                 LIMIT ?6 OFFSET ?7",
             )?;
             let rows = stmt
-                .query_map(params![query, pattern, content_type, source], |row| {
-                    Ok((
-                        row.get::<_, i64>(0)?,
-                        row.get::<_, String>(1)?,
-                        row.get::<_, Option<String>>(2)?.unwrap_or_default(),
-                        row.get::<_, String>(3)?,
-                        row.get::<_, String>(4)?,
-                    ))
-                })?
+                .query_map(
+                    params![query, pattern, content_type, source, trash, limit, offset],
+                    |row| {
+                        Ok((
+                            row.get::<_, i64>(0)?,
+                            row.get::<_, String>(1)?,
+                            row.get::<_, Option<String>>(2)?.unwrap_or_default(),
+                            row.get::<_, String>(3)?,
+                            row.get::<_, String>(4)?,
+                        ))
+                    },
+                )?
                 .collect::<Result<Vec<_>, _>>()?;
 
             if json {
@@ -2113,10 +3070,18 @@ fn main() -> Result<()> {
             }
         }
         "clear" => {
+            if !args.iter().any(|argument| argument == "--yes") {
+                eprintln!("Clearing History is permanent. Re-run with --yes to continue.");
+                std::process::exit(2);
+            }
             drop(conn);
             let db = DbState::new(db_path.clone())?;
             db.purge_unpinned_clips()?;
-            println!("✓ Cleared unpinned clipboard history via CLI.");
+            if args.iter().any(|argument| argument == "--json") {
+                println!("{}", serde_json::json!({ "cleared": true }));
+            } else {
+                println!("Cleared unpinned, unprotected History clips.");
+            }
         }
         "reset" => {
             if !args.iter().any(|argument| argument == "--yes") {
@@ -2156,20 +3121,27 @@ fn main() -> Result<()> {
             println!("Pasted CLI Tool (v{})", env!("CARGO_PKG_VERSION"));
             println!("Usage:");
             println!("  pasted copy <text> [--json] Detect and save content, or pipe stdin");
-            println!("  pasted list [limit]      List N recent clipboard items (default: 10)");
-            println!("  pasted search [query] [--type <type>] [--source <app>] [--json]");
-            println!("  pasted import <source> [path] --json Import history from Alfred, Pastebot, Pasta, Paste, CopyClip 2, Maccy, or Flycut");
+            println!("  pasted list [--limit N] [--offset N] [--bin ID|--pinned|--trash] [--json]");
+            println!("  pasted search [query] [--type TYPE] [--source APP] [--trash] [--limit N] [--offset N] [--json]");
+            println!("  pasted import sources [--json] List supported external-history sources");
+            println!("  pasted import <source> [path] --json Import history from another clipboard manager");
             println!("  pasted diagnostics --json Show installation diagnostics");
+            println!("  pasted insights summary --json Show aggregate clipboard insights");
             println!("  pasted licenses [--json] Show bundled open-source licenses and notices");
             println!("  pasted retention [--count N|unlimited] [--days N|forever] [--json]");
             println!("                   [--trash-count N|unlimited] [--trash-days N|forever]");
             println!("                   [--log-count N|unlimited] [--log-days N|forever]");
+            println!("                   [--revision-count N|unlimited]");
+            println!("  pasted settings list|get|set [arguments] [--json]");
+            println!("  pasted recording status|pause|resume [--json] Control the running app");
+            println!("  pasted queue status|start|stop|add|remove|order|paste|paste-all [--json]");
             println!("  pasted activity list [--limit N|--all] [--json]");
             println!("  pasted activity export [path] [--format json|csv]");
             println!("  pasted activity import <path> [--format json|csv] [--json]");
             println!("  pasted activity clear --yes [--json]");
             println!("  pasted transfer export|inspect|import <path.json> [--json]");
             println!("  pasted backup create <path.pastedbackup> [--json]");
+            println!("  pasted backup inspect <path.pastedbackup> [--json]");
             println!("  pasted backup restore <path.pastedbackup> --yes [--json]");
             println!("  pasted clip export [path] [--format json|csv]");
             println!("  pasted clip import <path> [--format json|csv] [--json]");
@@ -2188,19 +3160,28 @@ fn main() -> Result<()> {
             );
             println!("  pasted database default --json Restore the native default location");
             println!("  pasted ocr status --json Show OCR background-work status");
-            println!("  pasted ocr scan          Scan existing unprocessed images");
+            println!("  pasted ocr scan [--clip ID] [--json] Scan eligible images or one clip");
+            println!("  pasted ocr retry|cancel [--json] Retry failures or cancel the running app");
             println!("  pasted transform list [--json] List saved and manually built Transforms");
-            println!("  pasted transform get|create|update|duplicate|delete Manage either Transform authoring form");
+            println!("  pasted transform test --plan-json JSON [--text TEXT|--stdin] [--json]");
+            println!("  pasted transform get|plan|test|create|update|duplicate|delete Manage either Transform authoring form");
             println!("  pasted transform run <ref> [--text TEXT | --clip ID | --stdin] [--apply]");
-            println!("  pasted operation list|run Experimental Operation inspection and execution");
-            println!("  pasted bin list --json   List Bins and their saved clip order");
+            println!("  pasted operation list|get|create|update|duplicate|delete|run");
+            println!("  pasted connection list|get|detect|create|update|delete|order");
+            println!("  pasted bin list|get|create|update|duplicate|delete [--json]");
             println!("  pasted bin clips <id> --json List clips in persistent Bin order");
             println!("  pasted bin order <id> <clip-id>... Persist a complete Bin order");
             println!("  pasted clip get <id> --json Inspect one clip");
+            println!(
+                "  pasted clip copy|paste <id> [--json] Use the running app and system clipboard"
+            );
             println!("  pasted clip pin|unpin <id>... [--json]");
+            println!("  pasted clip order-pinned <id>... [--json]");
             println!("  pasted clip protect|unprotect <id>... [--json]");
             println!("  pasted clip trash|restore <id>... [--json]");
             println!("  pasted clip restore-all [--json] Restore every clip from Trash");
+            println!("  pasted clip note|revisions|restore-revision|provenance <id> [options]");
+            println!("  pasted clip purge <id>... --yes | empty-trash --yes");
             println!("  pasted clip assign <bin-id|none> <id>... [--json] Add to a Bin, or clear all manual Bins");
             println!("  pasted clip remove-bin <bin-id> <id>... [--json]");
             println!("  pasted clear             Clear unpinned clipboard history");
@@ -2307,7 +3288,7 @@ fn parse_clip_ids(args: &[String], start: usize) -> Vec<i64> {
     let ids = args
         .iter()
         .skip(start)
-        .filter(|argument| argument.as_str() != "--json")
+        .filter(|argument| !matches!(argument.as_str(), "--json" | "--yes"))
         .map(|value| value.parse::<i64>())
         .collect::<Result<Vec<_>, _>>()
         .unwrap_or_else(|_| {
@@ -2351,6 +3332,37 @@ fn argument_value(args: &[String], flag: &str) -> Option<String> {
         .position(|argument| argument == flag)
         .and_then(|index| args.get(index + 1))
         .cloned()
+}
+
+fn parse_i64_argument(args: &[String], index: usize, usage: &str) -> i64 {
+    args.get(index)
+        .and_then(|value| value.parse::<i64>().ok())
+        .unwrap_or_else(|| {
+            eprintln!("{usage}");
+            std::process::exit(2);
+        })
+}
+
+fn optional_argument_update(
+    args: &[String],
+    value_flag: &str,
+    clear_flag: &str,
+    current: Option<String>,
+) -> Option<String> {
+    if args.iter().any(|argument| argument == clear_flag) {
+        None
+    } else {
+        argument_value(args, value_flag).or(current)
+    }
+}
+
+fn validate_json_or_exit(value: Option<&str>, label: &str) {
+    if let Some(value) = value {
+        if let Err(error) = serde_json::from_str::<serde_json::Value>(value) {
+            eprintln!("{label} must be valid JSON: {error}");
+            std::process::exit(2);
+        }
+    }
 }
 
 fn read_file_bounded(path: &Path, maximum_bytes: usize) -> Result<Vec<u8>> {
@@ -2569,6 +3581,216 @@ fn print_detector(detector: &pasted_lib::content_detection::Detector, json: bool
         );
     }
     Ok(())
+}
+
+fn print_operation(operation: &pasted_lib::db::Operation, json: bool) -> Result<()> {
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(operation).map_err(json_error)?
+        );
+    } else {
+        println!(
+            "{}\t{}\t{}\t{}",
+            operation.stable_id, operation.op_type, operation.category, operation.name
+        );
+    }
+    Ok(())
+}
+
+fn print_connection(connection: &pasted_lib::db::IntelligenceConnection, json: bool) -> Result<()> {
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(connection).map_err(json_error)?
+        );
+    } else {
+        println!(
+            "{}\t{}\t{}\t{}\t{}",
+            connection.id,
+            connection.priority,
+            if connection.enabled { "on" } else { "off" },
+            connection.provider_kind,
+            connection.name
+        );
+    }
+    Ok(())
+}
+
+fn print_bin(bin: &pasted_lib::db::Bin, json: bool) -> Result<()> {
+    if json {
+        println!("{}", serde_json::to_string_pretty(bin).map_err(json_error)?);
+    } else {
+        println!(
+            "#{}\t{}\t{}\t{} clips",
+            bin.id,
+            bin.icon,
+            bin.name,
+            bin.clip_count.unwrap_or(0)
+        );
+    }
+    Ok(())
+}
+
+fn send_live_or_exit(action: pasted_lib::live_app::LiveAppAction) -> serde_json::Value {
+    pasted_lib::live_app::send(action).unwrap_or_else(|error| {
+        eprintln!("Live-app command failed: {error}");
+        std::process::exit(1);
+    })
+}
+
+fn print_live_result(result: &serde_json::Value, json: bool) -> Result<()> {
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(result).map_err(json_error)?
+        );
+    } else if let Some(paused) = result.get("paused").and_then(serde_json::Value::as_bool) {
+        println!(
+            "Clipboard recording is {}.",
+            if paused { "paused" } else { "active" }
+        );
+    } else if let Some(total) = result
+        .get("total_count")
+        .and_then(serde_json::Value::as_u64)
+    {
+        println!(
+            "Queue contains {total} item{}.",
+            if total == 1 { "" } else { "s" }
+        );
+    } else if let Some(status) = result.get("status") {
+        let total = status
+            .get("total_count")
+            .and_then(serde_json::Value::as_u64)
+            .unwrap_or(0);
+        println!(
+            "Queue command completed; {total} item{} remain.",
+            if total == 1 { "" } else { "s" }
+        );
+    } else {
+        println!("Command completed.");
+    }
+    Ok(())
+}
+
+fn scan_existing_images(db: &DbState, clip_id: Option<i64>) -> Result<usize> {
+    let extractor = db.active_image_text_extractor()?.unwrap_or_else(|| {
+        eprintln!("No available image text Extractor is enabled.");
+        std::process::exit(1);
+    });
+    let detectors = setting_value_is_enabled(
+        db.get_setting(Feature::ContentDetection.setting_key())?
+            .as_deref(),
+    )
+    .then(|| db.get_content_detectors())
+    .transpose()?;
+    let mut pending = Vec::new();
+    if let Some(clip_id) = clip_id {
+        let clip = db.get_clip_by_id(clip_id)?;
+        let image_base64 = clip.image_base64.clone().unwrap_or_else(|| {
+            eprintln!("Clip #{clip_id} has no image data.");
+            std::process::exit(2);
+        });
+        if !db.force_ocr_running(clip_id, &clip.content_hash)? {
+            eprintln!("Clip #{clip_id} is not an active image clip.");
+            std::process::exit(2);
+        }
+        pending.push(pasted_lib::db::OcrCandidate {
+            clip_id,
+            content_hash: clip.content_hash,
+            image_base64,
+        });
+    }
+
+    let mut scanned = 0usize;
+    loop {
+        let candidate = if !pending.is_empty() {
+            Some(pending.remove(0))
+        } else if clip_id.is_none() {
+            db.claim_next_ocr_candidate()?
+        } else {
+            None
+        };
+        let Some(candidate) = candidate else {
+            break;
+        };
+        let Some(bytes) = pasted_lib::ocr::decode_stored_image(&candidate.image_base64) else {
+            db.complete_ocr_attempt(
+                candidate.clip_id,
+                &candidate.content_hash,
+                None,
+                &extractor.engine,
+                Some("invalid_image_data"),
+            )?;
+            scanned += 1;
+            continue;
+        };
+        let analysis = pasted_lib::content_analysis::analyze_image(
+            bytes,
+            &extractor,
+            detectors.as_deref(),
+            pasted_lib::ocr::perform_ocr_on_image_bytes,
+        );
+        db.complete_ocr_attempt(
+            candidate.clip_id,
+            &candidate.content_hash,
+            analysis.context.searchable_text.as_deref(),
+            &extractor.engine,
+            None,
+        )?;
+        if detectors.is_some() && analysis.context.searchable_text.is_some() {
+            db.record_analysis_classification(
+                candidate.clip_id,
+                &candidate.content_hash,
+                analysis.context.detected_type.as_deref(),
+                analysis.context.matched_detector_ref.as_deref(),
+                "searchable_text",
+            )?;
+        }
+        scanned += 1;
+    }
+    Ok(scanned)
+}
+
+fn plan_transform_or_exit(db: &DbState, args: &[String], intent: String) -> PlanIntentOutcome {
+    let planning_mode = match argument_value(args, "--mode").as_deref() {
+        None | Some("pinned") => IntentPlanningMode::Pinned,
+        Some("adaptive") => IntentPlanningMode::Adaptive,
+        Some(_) => {
+            eprintln!("--mode must be pinned or adaptive.");
+            std::process::exit(2);
+        }
+    };
+    let outcome = pasted_lib::intelligence_executor::plan_intent(
+        db,
+        PlanIntentRequest {
+            intent,
+            sample_input: argument_value(args, "--sample"),
+            planning_mode,
+            connection_id: argument_value(args, "--connection"),
+        },
+    )
+    .unwrap_or_else(|error| {
+        let _ = db.log_activity(
+            "transform_draft_failed",
+            &format!("Transform draft failed ({})", error.code),
+        );
+        eprintln!(
+            "Transform planning failed ({}): {}",
+            error.code, error.message
+        );
+        std::process::exit(1);
+    });
+    let _ = db.log_activity(
+        "transform_drafted",
+        &format!(
+            "Drafted a {}-step Transform with {} in {} ms",
+            outcome.plan.steps.len(),
+            outcome.connection_name,
+            outcome.duration_ms
+        ),
+    );
+    outcome
 }
 
 fn print_content_type(

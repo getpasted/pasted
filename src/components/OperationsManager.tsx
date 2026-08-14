@@ -104,11 +104,9 @@ export const OperationsManager: React.FC<OperationsManagerProps> = ({
   const handleDuplicate = async (operation: Operation) => {
     setLibraryError('');
     try {
-      await invoke('create_operation', {
+      await invoke('duplicate_operation', {
+        reference: operation.stable_id,
         name: `${operation.name} Copy`,
-        opType: operation.op_type,
-        config: operation.config,
-        category: operation.category,
       });
       await fetchOperations();
     } catch (error) {

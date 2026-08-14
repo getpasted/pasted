@@ -701,18 +701,6 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       } as unknown as T;
     case 'export_backup_file':
       return `/mock/Pasted_Library_Archive_${new Date().toISOString().slice(0, 10)}.json` as unknown as T;
-    case 'inspect_library_archive_json': {
-      const parsed = JSON.parse(String(args?.jsonStr ?? '{}')) as Record<string, unknown[]>;
-      return {
-        schemaVersion: Number((parsed as { version?: number }).version ?? 1),
-        clipCount: parsed.clips?.length ?? 0,
-        binCount: parsed.bins?.length ?? 0,
-        operationCount: parsed.operations?.length ?? 0,
-        transformCount: (parsed.saved_transforms?.length ?? 0) + (parsed.pipelines?.length ?? 0),
-        detectorCount: parsed.content_detectors?.length ?? 0,
-        contentTypeCount: parsed.content_types?.length ?? 0,
-      } as unknown as T;
-    }
     case 'choose_import_file':
       return {
         path: '/mock/Pasted_History_and_Organization.json',
@@ -789,9 +777,6 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       return JSON.stringify({ schemaVersion: 1, exportedAt: new Date().toISOString(), resource: { 'service.name': 'Pasted' }, entries: [] }, null, 2) as unknown as T;
     case 'export_activity_csv':
       return 'timestamp,observed_timestamp,event_name,severity_text,body,category,outcome,attributes_json\n' as unknown as T;
-    case 'import_activity_json':
-    case 'import_activity_csv':
-      return { scannedCount: 0, importedCount: 0, duplicateCount: 0, retainedCount: 0 } as unknown as T;
     case 'get_clip_versions':
       return [] as unknown as T;
     case 'get_clip_version_count':

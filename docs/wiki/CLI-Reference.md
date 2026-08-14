@@ -13,10 +13,11 @@ sudo ln -s /Applications/Pasted.app/Contents/MacOS/pasted /usr/local/bin/pasted
 ```text
 pasted copy "Hello"
 cat server.log | pasted copy
-pasted list [limit]
-pasted search [query] [--type <type>] [--source <source>] [--json]
+pasted list [--limit N] [--offset N] [--bin ID | --pinned | --trash] [--json]
+pasted search [query] [--type <type>] [--source <source>] [--trash] [--limit N] [--offset N] [--json]
+pasted import sources [--json]
 pasted import <alfred|pastebot|pasta|paste|copyclip|maccy|flycut> [history-file-or-folder] [--json]
-pasted activity list [--limit N|--all] [--json]
+pasted activity list [--limit N|--all] [--offset N] [--category VALUE] [--severity VALUE] [--event NAME] [--json]
 pasted activity export [path] [--format json|csv]
 pasted activity import <path> [--format json|csv] [--json]
 pasted activity clear --yes [--json]
@@ -27,11 +28,17 @@ pasted clip export [path] [--format json|csv]
 pasted clip import <path> [--format json|csv] [--json]
 pasted retention [--count <number|unlimited>] [--days <number|forever>]
                  [--trash-count <number|unlimited>] [--trash-days <number|forever>]
-                 [--log-count <number|unlimited>] [--log-days <number|forever>] [--json]
-pasted clear
+                 [--log-count <number|unlimited>] [--log-days <number|forever>]
+                 [--revision-count <number|unlimited>] [--json]
+pasted settings list|get|set [arguments] [--json]
+pasted recording status|pause|resume [--json]
+pasted queue status|start|stop|add|remove|order|paste|paste-all [arguments] [--json]
+pasted clear --yes [--json]
 ```
 
-`copy` accepts bounded stdin when text is omitted. `search` can reproduce the GUI's calculated Type and Source views with exact `--type` and `--source` filters; its structured records use the canonical `source` field and remain stable for scripts. `import` uses the source app's standard macOS location when no path is supplied, reads it without modification, and merges supported text while skipping duplicates. Paste and Pastebot may use a protected data-folder path instead of a database file. If necessary, Pasted raises the History limit so a successful import is not immediately trimmed. `retention` reads or updates the same count and age policies as Settings for History, Trash, and Activity History. Each pair works independently; `unlimited` disables its count limit and `forever` disables its age limit. Pinned and protected clips in History remain exempt, and protected clips are never auto-purged from Trash. `clear` permanently removes unpinned, unprotected clips from History.
+`copy` accepts bounded stdin when text is omitted. `list` and `search` provide bounded pagination; both can inspect Trash, while `list` can select a Bin or pinned clips. `search` reproduces Type and Source views with exact filters, and its structured records use the canonical `source` field. `import sources` reports supported managers and detected locations. `import` reads a source without modification and merges supported text while skipping duplicates. `retention` manages History, Trash, Activity History, and per-clip revision policies. `settings` reads or changes persisted values; app-bound visual or operating-system effects apply when the app observes the setting or next launches. `clear` requires `--yes` and permanently removes unpinned, unprotected clips from History.
+
+`recording`, `queue`, `clip copy`, `clip paste`, and `ocr cancel` contact the running app through a bounded private request. Clipboard monitoring, Queue state, paste targeting, and cancellation therefore remain inside the process that owns them. These commands can launch Pasted when its executable is installed beside the CLI.
 
 `activity list` exposes structured retained records to scripts. `activity export` writes every retained entry as OpenTelemetry-shaped JSON or analysis-friendly CSV; omitting the path writes to stdout. JSON archives include a versioned Pasted resource block and event timestamp, observed timestamp, event name, severity, body, and attributes. `activity import` accepts bounded JSON or CSV exports, validates the complete input, deduplicates records, applies the current Activity retention policy, and never replays imported actions. The file extension selects the format unless `--format` is supplied. `activity clear` permanently removes every retained entry and requires `--yes`.
 
@@ -45,6 +52,7 @@ pasted clear
 
 ```text
 pasted backup create <path.pastedbackup> [--json]
+pasted backup inspect <path.pastedbackup> [--json]
 pasted backup restore <path.pastedbackup> --yes [--json]
 ```
 
@@ -54,10 +62,18 @@ Quit the graphical app before CLI restore. Full Backup uses SQLite’s online ba
 
 ```text
 pasted clip get <id> [--json]
+pasted clip note <id> [--text <text> | --clear | --stdin] [--json]
+pasted clip revisions <id> [--limit <n>] [--offset <n>] [--json]
+pasted clip restore-revision <id> <revision-id> [--json]
+pasted clip provenance <id> [--json]
+pasted clip copy|paste <id> [--json]
 pasted clip pin|unpin <id>... [--json]
+pasted clip order-pinned <id>... [--json]
 pasted clip protect|unprotect <id>... [--json]
 pasted clip trash|restore <id>... [--json]
 pasted clip restore-all [--json]
+pasted clip purge <id>... --yes [--json]
+pasted clip empty-trash --yes [--json]
 pasted clip assign <bin-id|none> <id>... [--json]
 ```
 
@@ -67,8 +83,15 @@ Mutating commands report stable summaries and use explicit desired states rather
 
 ```text
 pasted bin list [--json]
+pasted bin get <id> [--json]
+pasted bin create --name <name> [--icon <icon>] [--color <color>] [--smart-rule-json <json>] [--transform <ref>] [--json]
+pasted bin update <id> [--name <name>] [--icon <icon>] [--color <color>] [--smart-rule-json <json> | --clear-smart-rule] [--json]
+pasted bin duplicate <id> [--name <name>] [--json]
+pasted bin delete <id> [--disposition keep|trash|move] [--move-to <bin-id>] [--json]
 pasted bin clips <bin-id> [--json]
 pasted bin order <bin-id> <clip-id>... [--json]
+pasted bin transform <id> <transform-ref|none> [--json]
+pasted bin shortcut <id> <shortcut|none> [--json]
 ```
 
 `bin order` replaces the complete saved order and rejects invalid/duplicate membership atomically.
@@ -78,16 +101,30 @@ pasted bin order <bin-id> <clip-id>... [--json]
 ```text
 pasted transform list
 pasted transform get <ref> [--json]
-pasted transform create --name <name> (--plan-json <json> | --steps-json <json>) [--json]
+pasted transform plan [--intent <text> | --stdin] [--sample <text>] [--mode pinned|adaptive] [--connection <id>] [--json]
+pasted transform test --plan-json <json> [--text <text> | --stdin] [--connection <id>] [--json]
+pasted transform create --name <name> (--intent <text> | --plan-json <json> | --steps-json <json>) [--json]
 pasted transform update <ref> [options] [--json]
 pasted transform duplicate <ref> [--name <name>] [--json]
 pasted transform delete <ref> [--json]
 pasted transform run <ref> [--text TEXT | --clip ID | --stdin] [--apply] [--json]
 pasted operation list [--json]
+pasted operation get <ref> [--json]
+pasted operation create --name <name> --type <type> [--config-json <json>] [--category <category>] [--json]
+pasted operation update <ref> [options] [--json]
+pasted operation duplicate <ref> [--name <name>] [--json]
+pasted operation delete <ref> [--json]
 pasted operation run <ref> [--text TEXT | --clip ID | --stdin] [--json]
+pasted connection list [--json]
+pasted connection get <id> [--json]
+pasted connection detect [--json]
+pasted connection create --name <name> --provider <kind> [--endpoint <value>] [--model <model>] [--credential-ref <ref>] [--json]
+pasted connection update <id> [options] [--json]
+pasted connection delete <id> [--json]
+pasted connection order <id>... [--json]
 ```
 
-`--apply` requires `--clip ID` so the expected input can be validated and a revision created. `--replace` remains an alias for compatibility. Operations are experimental in 1.0.
+`--apply` requires `--clip ID` so the expected input can be validated and a revision created. `--replace` remains an alias for compatibility. Intent planning uses the same bounded provider selection, credential references, and fallback behavior as the graphical composer. Operations are experimental in 1.0.
 
 ## Content Analysis
 
@@ -101,20 +138,20 @@ pasted extractor update <ref> [options] [--json]
 pasted extractor duplicate <ref> [--name <name>] [--json]
 pasted extractor delete <ref> [--json]
 pasted extractor run <ref> (--clip <id> | --file <path>) [--apply] [--json]
-pasted extractor restore-defaults
+pasted extractor restore-defaults [--json]
 pasted type list [--all] [--json]
 pasted type create --id <id> --name <name> [--icon <icon>] [--group <group>] [--json]
 pasted type update <id> [--name <name>] [--icon <icon>] [--group <group>] [--json]
-pasted type archive <id>
-pasted type restore <id>
-pasted type restore-defaults
+pasted type archive <id> [--json]
+pasted type restore <id> [--json]
+pasted type restore-defaults [--json]
 pasted type group-list [--all] [--json]
 pasted type group-create --id <id> --name <name> [--order <number>] [--json]
 pasted type group-update <id> [--name <name>] [--order <number>] [--json]
-pasted type group-archive <id>
-pasted type group-restore <id>
-pasted type group-delete <id>
-pasted type group-restore-defaults
+pasted type group-archive <id> [--json]
+pasted type group-restore <id> [--json]
+pasted type group-delete <id> [--json]
+pasted type group-restore-defaults [--json]
 pasted detector list [--json]
 pasted detector get <ref> [--json]
 pasted detector create --name <name> --type <type> --regex <pattern> [--json]
@@ -122,7 +159,7 @@ pasted detector update <ref> [--name <name>] [--type <type>] [--regex <pattern>]
 pasted detector duplicate <ref> [--name <name>] [--json]
 pasted detector delete <ref> [--json]
 pasted detector run <ref> [--text <text> | --clip <id> | --stdin] [--apply] [--json]
-pasted detector restore-defaults
+pasted detector restore-defaults [--json]
 pasted detector rescan --yes [--json]
 ```
 
@@ -135,9 +172,16 @@ Type and Group IDs are stable. Built-in Types can be renamed, regrouped, and giv
 ```text
 pasted diagnostics [--json]
 pasted licenses [--json]
+pasted insights summary [--json]
 pasted ocr status [--json]
-pasted ocr scan
+pasted ocr scan [--clip <id>] [--json]
+pasted ocr retry [--json]
+pasted ocr cancel [--json]
 pasted reset --yes [--json]
 ```
 
 `licenses` remains available without a database and even when the optional clipboard-management CLI feature is disabled. `reset` is intentionally gated by `--yes`. Other commands respect feature settings and exit with an explicit explanation when a capability is disabled or unavailable.
+
+## Intentional app-only boundaries
+
+Window, title-bar, dock, tray, cursor, emoji-picker, native-menu, preview-rendering, and operating-system permission-prompt commands remain graphical presentation behavior. Shortcut registration is owned by the running app; the CLI can persist shortcut settings and the app applies them when active or at launch. Provider scheduler cancellation remains process-local: a CLI Transform exits with its CLI process, while the app manages and cancels its own active jobs. Installation diagnostics remain available through `pasted diagnostics` without exposing internal presentation helpers.

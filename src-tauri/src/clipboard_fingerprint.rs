@@ -1,5 +1,11 @@
 use sha2::{Digest, Sha256};
 
+pub fn text(value: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(value.as_bytes());
+    format!("{:x}", hasher.finalize())
+}
+
 pub fn file_list(paths: &[String]) -> String {
     let mut hasher = Sha256::new();
     for path in paths {
@@ -31,5 +37,11 @@ mod tests {
     fn image_fingerprints_match_exact_rgba_content() {
         assert_eq!(image_rgba(&[1, 2, 3, 4]), image_rgba(&[1, 2, 3, 4]));
         assert_ne!(image_rgba(&[1, 2, 3, 4]), image_rgba(&[1, 2, 3, 5]));
+    }
+
+    #[test]
+    fn text_fingerprints_are_stable_and_content_sensitive() {
+        assert_eq!(text("hello"), text("hello"));
+        assert_ne!(text("hello"), text("Hello"));
     }
 }
