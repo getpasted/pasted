@@ -9417,7 +9417,7 @@ impl DbState {
                 "The selected clip has no analyzable text".into(),
             ));
         };
-        if text.is_empty() {
+        if text.trim().is_empty() {
             return Err(rusqlite::Error::InvalidParameterName(
                 "The selected clip has no analyzable text".into(),
             ));
@@ -10079,6 +10079,21 @@ mod tests {
             .unwrap();
         assert!(db
             .apply_content_detector(empty.id, "email")
+            .unwrap_err()
+            .to_string()
+            .contains("no analyzable text"));
+        let whitespace = db
+            .save_clip(
+                "text",
+                Some(" \n\t"),
+                None,
+                None,
+                "detector-apply-whitespace",
+                "Test",
+            )
+            .unwrap();
+        assert!(db
+            .apply_content_detector(whitespace.id, "email")
             .unwrap_err()
             .to_string()
             .contains("no analyzable text"));

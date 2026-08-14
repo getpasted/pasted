@@ -1237,7 +1237,7 @@ fn main() -> Result<()> {
                             text
                         } else if let Some(clip_id) = clip_id {
                             match db.get_active_clip_text(clip_id)? {
-                                Some(text) if !text.is_empty() => text,
+                                Some(text) if !text.trim().is_empty() => text,
                                 _ => {
                                     eprintln!("Clip #{clip_id} has no analyzable text.");
                                     std::process::exit(2);
