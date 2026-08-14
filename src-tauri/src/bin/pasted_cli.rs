@@ -5,8 +5,8 @@ use std::io::{self, Read};
 use std::path::{Path, PathBuf};
 
 use pasted_lib::bin_assignment::assign_clips_to_bin;
-use pasted_lib::content_detection::detect_with_detectors;
 use pasted_lib::content_detection::DetectorInput;
+use pasted_lib::content_extraction::{ExtractorDefinitionInput, APPLE_VISION_ENGINE};
 use pasted_lib::content_types::{ContentTypeGroupInput, ContentTypeInput};
 use pasted_lib::db::{
     ClipMutationSummary, DbState, PipelineStepInput, TransformAuthoringKind,
@@ -718,6 +718,200 @@ fn main() -> Result<()> {
                 }
             }
         }
+        "extractor" | "extractors" => {
+            drop(conn);
+            let db = DbState::new(db_path.clone())?;
+            let subcommand = args.get(2).map(String::as_str).unwrap_or("list");
+            match subcommand {
+                "list" | "ls" => {
+                    let extractors = db.get_content_extractors()?;
+                    if args.iter().any(|argument| argument == "--json") {
+                        println!(
+                            "{}",
+                            serde_json::to_string_pretty(&extractors).map_err(json_error)?
+                        );
+                    } else {
+                        for extractor in extractors {
+                            println!(
+                                "{}\t{}\t{}\t{}\t{} → {}\t{}",
+                                extractor.stable_ref,
+                                extractor.priority,
+                                if extractor.enabled { "on" } else { "off" },
+                                if extractor.is_available {
+                                    "available"
+                                } else {
+                                    "unavailable"
+                                },
+                                extractor.input_contract,
+                                extractor.output_contract,
+                                extractor.name
+                            );
+                        }
+                    }
+                }
+                "get" => {
+                    let reference = args.get(3).unwrap_or_else(|| {
+                        eprintln!("Usage: pasted extractor get <ref> [--json]");
+                        std::process::exit(2);
+                    });
+                    let extractor = db.get_content_extractor(reference)?;
+                    print_extractor(&extractor, args.iter().any(|argument| argument == "--json"))?;
+                }
+                "create" | "new" => {
+                    let input = extractor_definition_from_args(&args, None);
+                    let extractor = db.create_content_extractor(&input)?;
+                    print_extractor(&extractor, args.iter().any(|argument| argument == "--json"))?;
+                }
+                "update" => {
+                    let reference = args.get(3).unwrap_or_else(|| {
+                        eprintln!("Usage: pasted extractor update <ref> [--name NAME] [--description TEXT] [--engine ENGINE] [--input CONTRACT] [--output CONTRACT] [--priority N] [--enabled|--disabled] [--json]");
+                        std::process::exit(2);
+                    });
+                    let current = db.get_content_extractor(reference)?;
+                    let input = extractor_definition_from_args(&args, Some(&current));
+                    let updated = db.update_content_extractor_definition(current.id, &input)?;
+                    print_extractor(&updated, args.iter().any(|argument| argument == "--json"))?;
+                }
+                "duplicate" | "copy" => {
+                    let reference = args.get(3).unwrap_or_else(|| {
+                        eprintln!("Usage: pasted extractor duplicate <ref> [--name NAME] [--json]");
+                        std::process::exit(2);
+                    });
+                    let duplicate = db.duplicate_content_extractor(
+                        reference,
+                        argument_value(&args, "--name").as_deref(),
+                    )?;
+                    print_extractor(&duplicate, args.iter().any(|argument| argument == "--json"))?;
+                }
+                "delete" | "remove" => {
+                    let reference = args.get(3).unwrap_or_else(|| {
+                        eprintln!("Usage: pasted extractor delete <ref> [--json]");
+                        std::process::exit(2);
+                    });
+                    let extractor = db.get_content_extractor(reference)?;
+                    db.delete_content_extractor(extractor.id)?;
+                    if args.iter().any(|argument| argument == "--json") {
+                        println!(
+                            "{}",
+                            serde_json::json!({ "deleted": true, "stableRef": extractor.stable_ref })
+                        );
+                    } else {
+                        println!("Deleted Extractor {}.", extractor.name);
+                    }
+                }
+                "run" | "test" => {
+                    require_feature(&db, Feature::Ocr);
+                    let reference = args.get(3).unwrap_or_else(|| {
+                        eprintln!("Usage: pasted extractor run <ref> (--clip ID | --file PATH) [--apply] [--json]");
+                        std::process::exit(2);
+                    });
+                    let extractor = db.get_content_extractor(reference)?;
+                    if !extractor.is_available {
+                        eprintln!(
+                            "Extractor {} is unavailable: {}",
+                            extractor.name,
+                            extractor
+                                .unavailable_reason
+                                .as_deref()
+                                .unwrap_or("its engine is not installed")
+                        );
+                        std::process::exit(1);
+                    }
+                    let clip_id =
+                        argument_value(&args, "--clip").and_then(|value| value.parse::<i64>().ok());
+                    let file_path = argument_value(&args, "--file");
+                    if clip_id.is_some() == file_path.is_some() {
+                        eprintln!("Provide exactly one of --clip ID or --file PATH.");
+                        std::process::exit(2);
+                    }
+                    let (image_bytes, content_hash) = if let Some(clip_id) = clip_id {
+                        let clip = db.get_clip_by_id(clip_id)?;
+                        let bytes = clip
+                            .image_base64
+                            .as_deref()
+                            .and_then(pasted_lib::ocr::decode_stored_image)
+                            .unwrap_or_else(|| {
+                                eprintln!("Clip #{clip_id} has no extractable image data.");
+                                std::process::exit(2);
+                            });
+                        (bytes, Some(clip.content_hash))
+                    } else {
+                        (
+                            read_file_bounded(
+                                Path::new(file_path.as_deref().expect("checked above")),
+                                pasted_lib::resource_limits::MAX_ENCODED_IMAGE_BYTES,
+                            )?,
+                            None,
+                        )
+                    };
+                    let detectors = setting_value_is_enabled(
+                        db.get_setting(Feature::ContentDetection.setting_key())?
+                            .as_deref(),
+                    )
+                    .then(|| db.get_content_detectors())
+                    .transpose()?;
+                    let analysis = pasted_lib::content_analysis::analyze_image(
+                        image_bytes,
+                        &extractor,
+                        detectors.as_deref(),
+                        pasted_lib::ocr::perform_ocr_on_image_bytes,
+                    );
+                    let apply = args.iter().any(|argument| argument == "--apply");
+                    if apply {
+                        let clip_id = clip_id.unwrap_or_else(|| {
+                            eprintln!("--apply requires --clip ID.");
+                            std::process::exit(2);
+                        });
+                        let content_hash = content_hash.as_deref().expect("clip input has a hash");
+                        if !db.force_ocr_running(clip_id, content_hash)? {
+                            eprintln!("Clip #{clip_id} is no longer available for extraction.");
+                            std::process::exit(1);
+                        }
+                        db.complete_ocr_attempt(
+                            clip_id,
+                            content_hash,
+                            analysis.context.searchable_text.as_deref(),
+                            &extractor.engine,
+                            None,
+                        )?;
+                        if detectors.is_some() && analysis.context.searchable_text.is_some() {
+                            db.record_analysis_classification(
+                                clip_id,
+                                content_hash,
+                                analysis.context.detected_type.as_deref(),
+                                analysis.context.matched_detector_ref.as_deref(),
+                                "searchable_text",
+                            )?;
+                        }
+                    }
+                    if args.iter().any(|argument| argument == "--json") {
+                        println!(
+                            "{}",
+                            serde_json::json!({
+                                "targetKind": "extractor",
+                                "targetRef": extractor.stable_ref,
+                                "output": analysis.context.searchable_text,
+                                "detectedType": analysis.context.detected_type,
+                                "matchedDetectorRef": analysis.context.matched_detector_ref,
+                                "appliedClipId": clip_id.filter(|_| apply),
+                            })
+                        );
+                    } else if let Some(text) = analysis.context.searchable_text {
+                        print!("{text}");
+                    } else {
+                        println!("No text extracted.");
+                    }
+                }
+                "restore-defaults" => {
+                    db.restore_default_content_extractors()?;
+                    println!("Restored shipped Extractor defaults.");
+                }
+                _ => {
+                    eprintln!("Usage: pasted extractor list|get|create|update|duplicate|delete|run|restore-defaults [options] [--json]");
+                    std::process::exit(2);
+                }
+            }
+        }
         "detector" | "detectors" => {
             drop(conn);
             let db = DbState::new(db_path.clone())?;
@@ -734,7 +928,7 @@ fn main() -> Result<()> {
                         for detector in detectors {
                             println!(
                                 "{}\t{}\t{}\t{}\t{}",
-                                detector.id,
+                                detector.stable_ref,
                                 detector.priority,
                                 if detector.enabled { "on" } else { "off" },
                                 detector.content_type,
@@ -743,38 +937,116 @@ fn main() -> Result<()> {
                         }
                     }
                 }
-                "create" => {
+                "get" => {
+                    let reference = args.get(3).unwrap_or_else(|| {
+                        eprintln!("Usage: pasted detector get <ref> [--json]");
+                        std::process::exit(2);
+                    });
+                    let detector = db.get_content_detector(reference)?;
+                    print_detector(&detector, args.iter().any(|argument| argument == "--json"))?;
+                }
+                "create" | "new" => {
                     let input = detector_input_from_args(&args, None);
                     let detector = db.create_content_detector(&input)?;
                     print_detector(&detector, args.iter().any(|argument| argument == "--json"))?;
                 }
-                "update" => {
-                    let id = args.get(3).and_then(|value| value.parse::<i64>().ok()).unwrap_or_else(|| {
-                        eprintln!("Usage: pasted detector update <id> [--name NAME] [--type TYPE] [--regex REGEX] [--priority N] [--disabled] [--json]");
+                "update" | "edit" => {
+                    let reference = args.get(3).unwrap_or_else(|| {
+                        eprintln!("Usage: pasted detector update <ref> [--name NAME] [--type TYPE] [--regex REGEX] [--priority N] [--enabled|--disabled] [--json]");
                         std::process::exit(2);
                     });
-                    let current = db
-                        .get_content_detectors()?
-                        .into_iter()
-                        .find(|item| item.id == id)
-                        .unwrap_or_else(|| {
-                            eprintln!("Detector {id} was not found.");
-                            std::process::exit(1);
-                        });
+                    let current = db.get_content_detector(reference)?;
                     let input = detector_input_from_args(&args, Some(&current));
-                    let detector = db.update_content_detector(id, &input)?;
+                    let detector = db.update_content_detector(current.id, &input)?;
                     print_detector(&detector, args.iter().any(|argument| argument == "--json"))?;
                 }
-                "delete" => {
-                    let id = args
-                        .get(3)
-                        .and_then(|value| value.parse::<i64>().ok())
-                        .unwrap_or_else(|| {
-                            eprintln!("Usage: pasted detector delete <id>");
+                "duplicate" | "copy" => {
+                    let reference = args.get(3).unwrap_or_else(|| {
+                        eprintln!("Usage: pasted detector duplicate <ref> [--name NAME] [--json]");
+                        std::process::exit(2);
+                    });
+                    let duplicate = db.duplicate_content_detector(
+                        reference,
+                        argument_value(&args, "--name").as_deref(),
+                    )?;
+                    print_detector(&duplicate, args.iter().any(|argument| argument == "--json"))?;
+                }
+                "delete" | "remove" => {
+                    let reference = args.get(3).unwrap_or_else(|| {
+                        eprintln!("Usage: pasted detector delete <ref> [--json]");
+                        std::process::exit(2);
+                    });
+                    let detector = db.get_content_detector(reference)?;
+                    db.delete_content_detector(detector.id)?;
+                    if args.iter().any(|argument| argument == "--json") {
+                        println!(
+                            "{}",
+                            serde_json::json!({ "deleted": true, "stableRef": detector.stable_ref })
+                        );
+                    } else {
+                        println!("Deleted Detector {}.", detector.name);
+                    }
+                }
+                "run" | "test" => {
+                    require_feature(&db, Feature::ContentDetection);
+                    let reference = args.get(3).unwrap_or_else(|| {
+                        eprintln!("Usage: pasted detector run <ref> [--text TEXT | --clip ID | --stdin] [--apply] [--json]");
+                        std::process::exit(2);
+                    });
+                    let detector = db.get_content_detector(reference)?;
+                    let clip_id =
+                        argument_value(&args, "--clip").and_then(|value| value.parse::<i64>().ok());
+                    let explicit_text = argument_value(&args, "--text");
+                    if clip_id.is_some() && explicit_text.is_some() {
+                        eprintln!("Provide only one of --text or --clip ID.");
+                        std::process::exit(2);
+                    }
+                    let input = if let Some(text) = explicit_text {
+                        text
+                    } else if let Some(clip_id) = clip_id {
+                        db.get_active_clip_text(clip_id)?.unwrap_or_else(|| {
+                            eprintln!("Clip #{clip_id} has no analyzable text.");
                             std::process::exit(2);
-                        });
-                    db.delete_content_detector(id)?;
-                    println!("Deleted detector {id}.");
+                        })
+                    } else {
+                        read_stdin_bounded(pasted_lib::resource_limits::MAX_TRANSFORM_TEXT_BYTES)?
+                    };
+                    if input.is_empty() {
+                        eprintln!("Provide input with --text, --clip, or stdin.");
+                        std::process::exit(2);
+                    }
+                    let apply = args.iter().any(|argument| argument == "--apply");
+                    if apply && clip_id.is_none() {
+                        eprintln!("--apply requires --clip ID.");
+                        std::process::exit(2);
+                    }
+                    let report = pasted_lib::content_analysis::analyze_text(
+                        &input,
+                        std::slice::from_ref(&detector),
+                    );
+                    let matched = report.context.matched_detector_ref.is_some();
+                    if apply {
+                        db.apply_content_detector(clip_id.expect("checked above"), reference)?;
+                    }
+                    if args.iter().any(|argument| argument == "--json") {
+                        println!(
+                            "{}",
+                            serde_json::json!({
+                                "targetKind": "detector",
+                                "targetRef": detector.stable_ref,
+                                "matched": matched,
+                                "detectedType": matched.then_some(report.context.detected_type).flatten(),
+                                "appliedClipId": clip_id.filter(|_| apply && matched),
+                            })
+                        );
+                    } else if matched {
+                        println!(
+                            "Matches {}.",
+                            report.context.detected_type.as_deref().unwrap_or("text")
+                        );
+                    } else {
+                        println!("Does not match.");
+                    }
                 }
                 "restore-defaults" => {
                     db.restore_default_content_detectors()?;
@@ -801,7 +1073,7 @@ fn main() -> Result<()> {
                     }
                 }
                 _ => {
-                    eprintln!("Usage: pasted detector list|create|update|delete|restore-defaults|rescan [--yes] [--json]");
+                    eprintln!("Usage: pasted detector list|get|create|update|duplicate|delete|run|restore-defaults|rescan [options] [--json]");
                     std::process::exit(2);
                 }
             }
@@ -1024,6 +1296,16 @@ fn main() -> Result<()> {
                     }
                 }
                 "scan" => {
+                    let extractor = db.active_image_text_extractor()?.unwrap_or_else(|| {
+                        eprintln!("No available image text Extractor is enabled.");
+                        std::process::exit(1);
+                    });
+                    let detectors = setting_value_is_enabled(
+                        db.get_setting(Feature::ContentDetection.setting_key())?
+                            .as_deref(),
+                    )
+                    .then(|| db.get_content_detectors())
+                    .transpose()?;
                     let mut scanned = 0usize;
                     while let Some(candidate) = db.claim_next_ocr_candidate()? {
                         let Some(bytes) =
@@ -1033,19 +1315,33 @@ fn main() -> Result<()> {
                                 candidate.clip_id,
                                 &candidate.content_hash,
                                 None,
-                                "macos-vision-v1",
+                                &extractor.engine,
                                 Some("invalid_image_data"),
                             )?;
                             continue;
                         };
-                        let text = pasted_lib::ocr::perform_ocr_on_image_bytes(&bytes);
+                        let analysis = pasted_lib::content_analysis::analyze_image(
+                            bytes,
+                            &extractor,
+                            detectors.as_deref(),
+                            pasted_lib::ocr::perform_ocr_on_image_bytes,
+                        );
                         db.complete_ocr_attempt(
                             candidate.clip_id,
                             &candidate.content_hash,
-                            text.as_deref(),
-                            "macos-vision-v1",
+                            analysis.context.searchable_text.as_deref(),
+                            &extractor.engine,
                             None,
                         )?;
+                        if detectors.is_some() && analysis.context.searchable_text.is_some() {
+                            db.record_analysis_classification(
+                                candidate.clip_id,
+                                &candidate.content_hash,
+                                analysis.context.detected_type.as_deref(),
+                                analysis.context.matched_detector_ref.as_deref(),
+                                "searchable_text",
+                            )?;
+                        }
                         scanned += 1;
                     }
                     println!(
@@ -1265,7 +1561,7 @@ fn main() -> Result<()> {
                 }
                 "run" => {
                     let Some(transform_ref) = args.get(3) else {
-                        eprintln!("Usage: pasted transform run <transform-ref> [--text TEXT | --clip ID | --stdin] [--replace]");
+                        eprintln!("Usage: pasted transform run <transform-ref> [--text TEXT | --clip ID | --stdin] [--apply] [--json]");
                         std::process::exit(2);
                     };
                     let clip_id = args
@@ -1295,9 +1591,11 @@ fn main() -> Result<()> {
                         eprintln!("Provide input with --text, --clip, or stdin.");
                         std::process::exit(2);
                     }
-                    let replace = args.iter().any(|arg| arg == "--replace");
+                    let replace = args
+                        .iter()
+                        .any(|arg| arg == "--apply" || arg == "--replace");
                     if replace && clip_id.is_none() {
-                        eprintln!("--replace requires --clip ID so Pasted can create a revision.");
+                        eprintln!("--apply requires --clip ID so Pasted can create a revision.");
                         std::process::exit(2);
                     }
                     let target = ExecutionTarget::Transform {
@@ -1332,7 +1630,7 @@ fn main() -> Result<()> {
                                     })
                                 {
                                     eprintln!(
-                                        "Transform ran, but the clip was not replaced: {error}"
+                                        "Transform ran, but its output was not applied: {error}"
                                     );
                                     std::process::exit(1);
                                 }
@@ -1346,6 +1644,7 @@ fn main() -> Result<()> {
                                         "executionId": outcome.execution_id,
                                         "output": outcome.output,
                                         "durationMs": outcome.duration_ms,
+                                        "appliedClipId": clip_id.filter(|_| replace),
                                         "replacedClipId": clip_id.filter(|_| replace),
                                     }))
                                     .expect("transform output is serializable")
@@ -1688,7 +1987,10 @@ fn main() -> Result<()> {
                     .get_setting(Feature::ContentDetection.setting_key())?
                     .as_deref(),
             ) {
-                detect_with_detectors(&trimmed, &detection_db.get_content_detectors()?)
+                pasted_lib::content_analysis::classify_text(
+                    &trimmed,
+                    &detection_db.get_content_detectors()?,
+                )
             } else {
                 "text".to_string()
             };
@@ -1871,6 +2173,7 @@ fn main() -> Result<()> {
             println!("  pasted backup restore <path.pastedbackup> --yes [--json]");
             println!("  pasted clip export [path] [--format json|csv]");
             println!("  pasted clip import <path> [--format json|csv] [--json]");
+            println!("  pasted extractor list --json List content Extractors and availability");
             println!("  pasted detector list --json List editable content detectors");
             println!("  pasted type list --json List registered content types");
             println!(
@@ -1888,9 +2191,7 @@ fn main() -> Result<()> {
             println!("  pasted ocr scan          Scan existing unprocessed images");
             println!("  pasted transform list [--json] List saved and manually built Transforms");
             println!("  pasted transform get|create|update|duplicate|delete Manage either Transform authoring form");
-            println!(
-                "  pasted transform run <ref> [--text TEXT | --clip ID | --stdin] [--replace]"
-            );
+            println!("  pasted transform run <ref> [--text TEXT | --clip ID | --stdin] [--apply]");
             println!("  pasted operation list|run Experimental Operation inspection and execution");
             println!("  pasted bin list --json   List Bins and their saved clip order");
             println!("  pasted bin clips <id> --json List clips in persistent Bin order");
@@ -2052,6 +2353,88 @@ fn argument_value(args: &[String], flag: &str) -> Option<String> {
         .cloned()
 }
 
+fn read_file_bounded(path: &Path, maximum_bytes: usize) -> Result<Vec<u8>> {
+    let metadata = fs::metadata(path).map_err(|_| rusqlite::Error::InvalidPath(path.into()))?;
+    if !metadata.is_file() || metadata.len() > maximum_bytes as u64 {
+        return Err(rusqlite::Error::InvalidParameterName(format!(
+            "Input file must be a regular file no larger than {} MB",
+            maximum_bytes / 1024 / 1024
+        )));
+    }
+    let bytes = fs::read(path).map_err(|_| rusqlite::Error::InvalidPath(path.into()))?;
+    if bytes.len() > maximum_bytes {
+        return Err(rusqlite::Error::InvalidParameterName(
+            "Input file exceeded the extraction safety limit".into(),
+        ));
+    }
+    Ok(bytes)
+}
+
+fn extractor_definition_from_args(
+    args: &[String],
+    current: Option<&pasted_lib::content_extraction::Extractor>,
+) -> ExtractorDefinitionInput {
+    ExtractorDefinitionInput {
+        name: argument_value(args, "--name").unwrap_or_else(|| {
+            current
+                .map(|item| item.name.clone())
+                .unwrap_or_else(|| "Custom Extractor".into())
+        }),
+        description: argument_value(args, "--description").unwrap_or_else(|| {
+            current
+                .map(|item| item.description.clone())
+                .unwrap_or_else(|| "Extracts searchable text from images.".into())
+        }),
+        engine: argument_value(args, "--engine").unwrap_or_else(|| {
+            current
+                .map(|item| item.engine.clone())
+                .unwrap_or_else(|| APPLE_VISION_ENGINE.into())
+        }),
+        input_contract: argument_value(args, "--input").unwrap_or_else(|| {
+            current
+                .map(|item| item.input_contract.clone())
+                .unwrap_or_else(|| "image".into())
+        }),
+        output_contract: argument_value(args, "--output").unwrap_or_else(|| {
+            current
+                .map(|item| item.output_contract.clone())
+                .unwrap_or_else(|| "searchable_text".into())
+        }),
+        enabled: if args.iter().any(|argument| argument == "--disabled") {
+            false
+        } else if args.iter().any(|argument| argument == "--enabled") {
+            true
+        } else {
+            current.map(|item| item.enabled).unwrap_or(true)
+        },
+        priority: argument_value(args, "--priority")
+            .and_then(|value| value.parse::<i64>().ok())
+            .unwrap_or_else(|| current.map(|item| item.priority).unwrap_or(100)),
+    }
+}
+
+fn print_extractor(
+    extractor: &pasted_lib::content_extraction::Extractor,
+    json: bool,
+) -> Result<()> {
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(extractor).map_err(json_error)?
+        );
+    } else {
+        println!(
+            "{}\t{}\t{} → {}\t{}",
+            extractor.stable_ref,
+            extractor.engine,
+            extractor.input_contract,
+            extractor.output_contract,
+            extractor.name
+        );
+    }
+    Ok(())
+}
+
 fn parse_retention_argument(
     args: &[String],
     flag: &str,
@@ -2181,8 +2564,8 @@ fn print_detector(detector: &pasted_lib::content_detection::Detector, json: bool
         );
     } else {
         println!(
-            "Saved detector #{}: {} ({})",
-            detector.id, detector.name, detector.content_type
+            "{}\t{}\t{}\t{}",
+            detector.stable_ref, detector.priority, detector.content_type, detector.name
         );
     }
     Ok(())

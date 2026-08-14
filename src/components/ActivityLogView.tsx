@@ -177,7 +177,12 @@ export const ActivityLogView: React.FC = () => {
       case 'content_detector_created':
       case 'content_detector_updated':
       case 'content_detector_deleted':
+      case 'content_detector_applied':
       case 'content_detectors_restored':
+      case 'content_extractor_updated':
+      case 'content_extractor_created':
+      case 'content_extractor_deleted':
+      case 'content_extractors_restored':
       case 'content_detection_history_rescanned':
       case 'content_type_created':
       case 'content_type_updated':
@@ -193,7 +198,7 @@ export const ActivityLogView: React.FC = () => {
         return (
           <div className="theme-status-info flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold">
             <Radar className="w-3.5 h-3.5" />
-            <span>Detection</span>
+            <span>Analysis</span>
           </div>
         );
       case 'operation_created':
@@ -483,7 +488,7 @@ export const ActivityLogView: React.FC = () => {
     if (selectedTypeFilter === 'bins') return l.event_type.startsWith('bin_') || l.event_type.includes('_bin_');
     if (selectedTypeFilter === 'app') return l.event_type.startsWith('app_');
     if (selectedTypeFilter === 'settings') return l.event_type.startsWith('setting_') || l.event_type.startsWith('settings_') || l.event_type.startsWith('autostart_');
-    if (selectedTypeFilter === 'detection') return l.event_type.startsWith('content_detector') || l.event_type.startsWith('content_detection') || l.event_type.startsWith('content_type');
+    if (selectedTypeFilter === 'analysis') return l.event_type.startsWith('content_detector') || l.event_type.startsWith('content_detection') || l.event_type.startsWith('content_extractor') || l.event_type.startsWith('content_type');
     if (selectedTypeFilter === 'storage') return l.event_type.startsWith('library_')
       || l.event_type.startsWith('backup_')
       || l.event_type.startsWith('data_export_')
@@ -508,7 +513,7 @@ export const ActivityLogView: React.FC = () => {
               { value: 'all', label: 'All Event Types' },
               { value: 'app', label: 'App Opened or Quit', group: 'Application' },
               { value: 'settings', label: 'Settings Changed', group: 'Application' },
-              { value: 'detection', label: 'Detection Changed', group: 'Application' },
+              { value: 'analysis', label: 'Analysis Changed', group: 'Application' },
               { value: 'storage', label: 'Storage Changed', group: 'Application' },
               { value: 'paused', label: 'Recording Paused', group: 'Capture' },
               { value: 'resumed', label: 'Recording Resumed', group: 'Capture' },

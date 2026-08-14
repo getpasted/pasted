@@ -79,6 +79,25 @@ let mockDetectors = [
   mockDetector({ id: 2, stable_ref: 'credential', name: 'Credentials', content_type: 'credential', description: 'Known API-key formats and secret assignments', patterns: [String.raw`^(?:sk_|ghp_).+$`], validator: null, enabled: true, priority: 60, is_builtin: true }),
   mockDetector({ id: 3, stable_ref: 'phone', name: 'Phone Numbers', content_type: 'phone', description: 'Formatted international and local phone numbers', patterns: [String.raw`^\+?[0-9 ()-]{7,}$`], validator: 'phone', enabled: true, priority: 160, is_builtin: true }),
 ];
+const mockExtractorDefaults = { name: 'Apple Vision OCR', description: 'Extracts searchable text from images locally with Apple Vision.', enabled: true, priority: 10 };
+type MockExtractor = {
+  id: number; stableRef: string; name: string; description: string; engine: string;
+  inputContract: string; outputContract: string; enabled: boolean; priority: number;
+  isBuiltin: boolean; isAvailable: boolean; unavailableReason: string | null;
+  defaults: typeof mockExtractorDefaults | null;
+};
+let mockExtractors: MockExtractor[] = [{
+  id: 1,
+  stableRef: 'extractor:apple-vision-ocr',
+  ...mockExtractorDefaults,
+  engine: 'macos-vision-v1',
+  inputContract: 'image',
+  outputContract: 'searchable_text',
+  isBuiltin: true,
+  isAvailable: true,
+  unavailableReason: null,
+  defaults: { ...mockExtractorDefaults },
+}];
 
 let mockContentTypes: Array<{
   id: string; label: string; icon: string; group: string; isBuiltin: boolean; isArchived: boolean;
@@ -200,11 +219,42 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       return mockPipelines as unknown as T;
     case 'get_content_detectors':
       return mockDetectors.map((detector) => ({ ...detector, patterns: [...detector.patterns] })) as unknown as T;
+    case 'get_content_extractors':
+      return mockExtractors.map((extractor) => ({ ...extractor, defaults: extractor.defaults ? { ...extractor.defaults } : null })) as unknown as T;
+    case 'create_content_extractor': {
+      const input = args?.input as Omit<MockExtractor, 'id' | 'stableRef' | 'isBuiltin' | 'isAvailable' | 'unavailableReason' | 'defaults'>;
+      const id = Math.max(0, ...mockExtractors.map((extractor) => extractor.id)) + 1;
+      const created: MockExtractor = { id, stableRef: `extractor:custom:${id}`, ...input, isBuiltin: false, isAvailable: input.engine === 'macos-vision-v1', unavailableReason: input.engine === 'macos-vision-v1' ? null : `Engine ${input.engine} is not available on this system.`, defaults: null };
+      mockExtractors = [...mockExtractors, created];
+      return created as unknown as T;
+    }
+    case 'update_content_extractor_definition': {
+      const id = Number(args?.id);
+      const input = args?.input as Partial<typeof mockExtractors[number]>;
+      mockExtractors = mockExtractors.map((extractor) => extractor.id === id ? { ...extractor, ...input } : extractor);
+      return mockExtractors.find((extractor) => extractor.id === id) as unknown as T;
+    }
+    case 'duplicate_content_extractor': {
+      const reference = String(args?.reference ?? '');
+      const source = mockExtractors.find((extractor) => extractor.stableRef === reference || String(extractor.id) === reference);
+      if (!source) throw new Error('Extractor was not found.');
+      const id = Math.max(0, ...mockExtractors.map((extractor) => extractor.id)) + 1;
+      const created = { ...source, id, stableRef: `extractor:custom:${id}`, name: String(args?.name ?? `${source.name} Copy`), priority: source.priority + 1, isBuiltin: false, defaults: null };
+      mockExtractors = [...mockExtractors, created];
+      return created as unknown as T;
+    }
+    case 'delete_content_extractor':
+      mockExtractors = mockExtractors.filter((extractor) => extractor.id !== Number(args?.id));
+      return undefined as T;
+    case 'restore_default_content_extractors':
+      mockExtractors = mockExtractors.map((extractor) => ({ ...extractor, ...mockExtractorDefaults }));
+      return mockExtractors as unknown as T;
     case 'get_library_items': {
       const kind = String(args?.kind ?? '');
       const items = [
-        ...mockDetectors.map((detector) => ({ stableRef: detector.stable_ref, kind: 'detector', name: detector.name, description: detector.description, groupLabel: null, icon: 'FileText', enabled: detector.enabled, isBuiltin: detector.is_builtin, isArchived: false, sortOrder: detector.priority, revision: 1, inputContract: 'text', outputContract: `set_type:${detector.content_type}`, createdAt: '', updatedAt: '', capabilities: { canEdit: true, canDuplicate: true, canDelete: true, canDisable: true, canRestore: detector.is_builtin } })),
-        ...mockPipelines.map((pipeline) => ({ stableRef: pipeline.stableRef, kind: 'transform', name: pipeline.name, description: '', groupLabel: 'Manual Transforms', icon: 'Workflow', enabled: null, isBuiltin: false, isArchived: false, sortOrder: pipeline.id, revision: pipeline.revision, inputContract: 'text', outputContract: 'preserve_type', createdAt: pipeline.createdAt, updatedAt: pipeline.updatedAt, capabilities: { canEdit: true, canDuplicate: true, canDelete: true, canDisable: false, canRestore: false } })),
+        ...mockExtractors.map((extractor) => ({ stableRef: extractor.stableRef, kind: 'extractor', name: extractor.name, description: extractor.description, groupLabel: 'Content Analysis', icon: 'ScanText', enabled: extractor.enabled, isBuiltin: true, isArchived: false, sortOrder: extractor.priority, revision: 1, inputContract: extractor.inputContract, outputContract: extractor.outputContract, analysisPass: 'extract', createdAt: '', updatedAt: '', capabilities: { canEdit: true, canDuplicate: false, canDelete: false, canDisable: true, canRestore: true } })),
+        ...mockDetectors.map((detector) => ({ stableRef: detector.stable_ref, kind: 'detector', name: detector.name, description: detector.description, groupLabel: null, icon: 'FileText', enabled: detector.enabled, isBuiltin: detector.is_builtin, isArchived: false, sortOrder: detector.priority, revision: 1, inputContract: 'text', outputContract: `set_type:${detector.content_type}`, analysisPass: 'classify', createdAt: '', updatedAt: '', capabilities: { canEdit: true, canDuplicate: true, canDelete: true, canDisable: true, canRestore: detector.is_builtin } })),
+        ...mockPipelines.map((pipeline) => ({ stableRef: pipeline.stableRef, kind: 'transform', name: pipeline.name, description: '', groupLabel: 'Manual Transforms', icon: 'Workflow', enabled: null, isBuiltin: false, isArchived: false, sortOrder: pipeline.id, revision: pipeline.revision, inputContract: 'text', outputContract: 'preserve_type', analysisPass: null, createdAt: pipeline.createdAt, updatedAt: pipeline.updatedAt, capabilities: { canEdit: true, canDuplicate: true, canDelete: true, canDisable: false, canRestore: false } })),
       ];
       return items.filter((item) => !kind || item.kind === kind) as unknown as T;
     }
@@ -265,6 +315,14 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       const index = mockDetectors.findIndex(({ id }) => id === Number(args?.id));
       if (index >= 0) mockDetectors[index] = { ...mockDetectors[index], ...(args?.input as Record<string, unknown>) } as typeof mockDetectors[number];
       return mockDetectors[index] as unknown as T;
+    }
+    case 'duplicate_content_detector': {
+      const reference = String(args?.reference ?? '');
+      const source = mockDetectors.find((detector) => detector.stable_ref === reference || String(detector.id) === reference);
+      if (!source) throw new Error('Detector was not found.');
+      const detector = { ...source, id: Math.max(0, ...mockDetectors.map(({ id }) => Number(id))) + 1, stable_ref: `custom-${Date.now()}`, name: String(args?.name ?? `${source.name} Copy`), priority: source.priority + 1, is_builtin: false, defaults: null } as unknown as typeof mockDetectors[number];
+      mockDetectors.push(detector);
+      return detector as unknown as T;
     }
     case 'delete_content_detector':
       mockDetectors = mockDetectors.filter(({ id }) => id !== Number(args?.id));

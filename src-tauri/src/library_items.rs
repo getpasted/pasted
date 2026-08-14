@@ -33,12 +33,28 @@ pub struct LibraryItemCapabilities {
 pub struct LibraryItemView {
     #[serde(flatten)]
     pub item: LibraryItem,
+    pub analysis_pass: Option<String>,
     pub capabilities: LibraryItemCapabilities,
 }
 
 impl LibraryItem {
+    pub fn analysis_pass(&self) -> Option<String> {
+        match self.kind.as_str() {
+            "extractor" => Some("extract".into()),
+            "detector" => Some("classify".into()),
+            _ => None,
+        }
+    }
+
     pub fn capabilities(&self) -> LibraryItemCapabilities {
         match self.kind.as_str() {
+            "extractor" => LibraryItemCapabilities {
+                can_edit: true,
+                can_duplicate: false,
+                can_delete: false,
+                can_disable: true,
+                can_restore: self.is_builtin,
+            },
             "detector" => LibraryItemCapabilities {
                 can_edit: true,
                 can_duplicate: true,

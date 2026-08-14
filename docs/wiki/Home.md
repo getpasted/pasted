@@ -12,7 +12,7 @@ Pasted is a local, privacy-first clipboard manager for text, images, screenshots
 - [Files, OCR, and Previews](Files-OCR-and-Previews)
 - [Backup, Trash, Revisions, and Recovery](Backup-Trash-Revisions-and-Recovery)
 - [Settings and Features](Settings-and-Features)
-- [Detection and Types](Detection-and-Types)
+- [Content Analysis](Detection-and-Types)
 - [Notifications and Capture Feedback](Notifications-and-Capture-Feedback)
 - [CLI Reference](CLI-Reference)
 

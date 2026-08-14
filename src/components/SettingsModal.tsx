@@ -77,7 +77,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   }, [activeTab, settings.enableNotifications]);
 
   useEffect(() => {
-    if (!settings.enableContentDetection && !settings.enableOcr && activeTab === 'detection') setActiveTab('features');
+    if (!settings.enableContentDetection && !settings.enableOcr && activeTab === 'analysis') setActiveTab('features');
   }, [activeTab, settings.enableContentDetection, settings.enableOcr]);
 
   return (
@@ -112,7 +112,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           <SettingsFeaturesPanel settings={settings} onUpdateSettings={onUpdateSettings} />
         )}
 
-        {(settings.enableContentDetection || settings.enableOcr) && activeTab === 'detection' && (
+        {(settings.enableContentDetection || settings.enableOcr) && activeTab === 'analysis' && (
           <SettingsDetectionPanel contentDetectionEnabled={settings.enableContentDetection} ocrEnabled={settings.enableOcr} />
         )}
 

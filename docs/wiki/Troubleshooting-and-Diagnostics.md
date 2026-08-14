@@ -1,6 +1,6 @@
 # Troubleshooting and Diagnostics
 
-Open **Settings → About** for version, installation path, data path, CLI path, signing, and runtime information. OCR backfill progress and controls are under **Settings → Detection**. Intelligence connection setup remains under **Settings → Connections**.
+Open **Settings → About** for version, installation path, data path, CLI path, signing, and runtime information. OCR backfill progress and Extractor controls are under **Settings → Analysis**. Intelligence connection setup remains under **Settings → Connections**.
 
 The CLI equivalent is:
 

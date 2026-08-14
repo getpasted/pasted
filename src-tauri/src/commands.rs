@@ -1038,6 +1038,59 @@ pub fn get_content_detectors(
 }
 
 #[tauri::command]
+pub fn get_content_extractors(
+    db: State<'_, Arc<DbState>>,
+) -> Result<Vec<crate::content_extraction::Extractor>, String> {
+    db.get_content_extractors()
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn create_content_extractor(
+    input: crate::content_extraction::ExtractorDefinitionInput,
+    db: State<'_, Arc<DbState>>,
+) -> Result<crate::content_extraction::Extractor, String> {
+    db.create_content_extractor(&input)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn update_content_extractor_definition(
+    id: i64,
+    input: crate::content_extraction::ExtractorDefinitionInput,
+    db: State<'_, Arc<DbState>>,
+) -> Result<crate::content_extraction::Extractor, String> {
+    db.update_content_extractor_definition(id, &input)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn duplicate_content_extractor(
+    reference: String,
+    name: Option<String>,
+    db: State<'_, Arc<DbState>>,
+) -> Result<crate::content_extraction::Extractor, String> {
+    db.duplicate_content_extractor(&reference, name.as_deref())
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn delete_content_extractor(id: i64, db: State<'_, Arc<DbState>>) -> Result<(), String> {
+    db.delete_content_extractor(id)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn restore_default_content_extractors(
+    db: State<'_, Arc<DbState>>,
+) -> Result<Vec<crate::content_extraction::Extractor>, String> {
+    db.restore_default_content_extractors()
+        .map_err(|error| error.to_string())?;
+    db.get_content_extractors()
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
 pub fn get_library_items(
     kind: Option<String>,
     include_archived: Option<bool>,
@@ -1181,6 +1234,16 @@ pub fn update_content_detector(
 }
 
 #[tauri::command]
+pub fn duplicate_content_detector(
+    reference: String,
+    name: Option<String>,
+    db: State<'_, Arc<DbState>>,
+) -> Result<crate::content_detection::Detector, String> {
+    db.duplicate_content_detector(&reference, name.as_deref())
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
 pub fn delete_content_detector(id: i64, db: State<'_, Arc<DbState>>) -> Result<(), String> {
     db.delete_content_detector(id)
         .map_err(|error| error.to_string())
@@ -1234,7 +1297,7 @@ pub fn test_content_detector(
         defaults: None,
         is_deleted: false,
     };
-    Ok(crate::content_detection::detect_with_detectors(&sample, &[detector]) == input.content_type)
+    Ok(crate::content_analysis::classify_text(&sample, &[detector]) == input.content_type)
 }
 
 #[tauri::command]
@@ -4246,6 +4309,10 @@ pub fn get_installed_applications(db: State<'_, Arc<DbState>>) -> Result<Vec<Str
 #[tauri::command]
 pub fn extract_ocr_from_clip(clip_id: i64, db: State<'_, Arc<DbState>>) -> Result<String, String> {
     features::require(&db, Feature::Ocr)?;
+    let extractor = db
+        .active_image_text_extractor()
+        .map_err(|error| error.to_string())?
+        .ok_or_else(|| "No available image text Extractor is enabled".to_string())?;
     let clip = db.get_clip_by_id(clip_id).map_err(|e| e.to_string())?;
 
     if let Some(b64) = clip.image_base64 {
@@ -4256,18 +4323,37 @@ pub fn extract_ocr_from_clip(clip_id: i64, db: State<'_, Arc<DbState>>) -> Resul
             {
                 return Err("Clip is no longer available for OCR".to_string());
             }
-            if let Some(ocr_text) = crate::ocr::perform_ocr_on_image_bytes(&bytes) {
+            let detectors = features::is_enabled(&db, Feature::ContentDetection)
+                .then(|| db.get_content_detectors().ok())
+                .flatten();
+            let analysis = crate::content_analysis::analyze_image(
+                bytes,
+                &extractor,
+                detectors.as_deref(),
+                crate::ocr::perform_ocr_on_image_bytes,
+            );
+            if let Some(ocr_text) = analysis.context.searchable_text {
                 db.complete_ocr_attempt(
                     clip_id,
                     &clip.content_hash,
                     Some(&ocr_text),
-                    "macos-vision-v1",
+                    &extractor.engine,
                     None,
                 )
                 .map_err(|error| error.to_string())?;
+                if detectors.is_some() {
+                    db.record_analysis_classification(
+                        clip_id,
+                        &clip.content_hash,
+                        analysis.context.detected_type.as_deref(),
+                        analysis.context.matched_detector_ref.as_deref(),
+                        "searchable_text",
+                    )
+                    .map_err(|error| error.to_string())?;
+                }
                 return Ok(ocr_text);
             }
-            db.complete_ocr_attempt(clip_id, &clip.content_hash, None, "macos-vision-v1", None)
+            db.complete_ocr_attempt(clip_id, &clip.content_hash, None, &extractor.engine, None)
                 .map_err(|error| error.to_string())?;
         }
     }
@@ -4288,6 +4374,13 @@ pub fn start_ocr_backfill(
     ocr: State<'_, Arc<crate::ocr::OcrService>>,
 ) -> Result<(), String> {
     features::require(&db, Feature::Ocr)?;
+    if db
+        .active_image_text_extractor()
+        .map_err(|error| error.to_string())?
+        .is_none()
+    {
+        return Err("No available image text Extractor is enabled".to_string());
+    }
     ocr.start_backfill()
 }
 

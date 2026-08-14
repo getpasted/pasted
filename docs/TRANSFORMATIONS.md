@@ -37,7 +37,7 @@ The pre-1.0 storage decision and migration boundary are documented in
 - `update` preserves the existing authoring form and stable reference.
 - `duplicate` preserves the authoring form but creates a new stable reference.
 - `delete` accepts a `transform:*` stable reference.
-- `run --replace --clip ID` records a clip revision and durable provenance for
+- `run --apply --clip ID` records a clip revision and durable provenance for
   saved and manually built Transforms.
 
 Structured lifecycle output is available with `--json`.

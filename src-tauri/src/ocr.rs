@@ -187,6 +187,7 @@ pub fn decode_stored_image(value: &str) -> Option<Vec<u8>> {
 fn execute_task<Recognize, Notify>(
     db_state: &crate::db::DbState,
     task: OcrTask,
+    extractor: &crate::content_extraction::Extractor,
     recognize: Recognize,
     notify: Notify,
 ) where
@@ -200,35 +201,65 @@ fn execute_task<Recognize, Notify>(
     let Ok(true) = db_state.mark_ocr_running(task.clip_id, &task.content_hash) else {
         return;
     };
-    let result = recognize(&task.image_bytes);
+    let detectors =
+        crate::features::is_enabled(db_state, crate::features::Feature::ContentDetection)
+            .then(|| db_state.get_content_detectors().ok())
+            .flatten();
+    let analysis = crate::content_analysis::analyze_image(
+        task.image_bytes,
+        extractor,
+        detectors.as_deref(),
+        recognize,
+    );
     if !crate::features::is_enabled(db_state, crate::features::Feature::Ocr) {
         let _ = db_state.reset_ocr_work(Some(task.clip_id), Some(&task.content_hash));
         return;
     }
-    let text = result.as_deref().filter(|text| !text.trim().is_empty());
+    let text = analysis.context.searchable_text.as_deref();
+    let detected_type = analysis.context.detected_type.as_deref();
+    let detector_ref = analysis.context.matched_detector_ref.as_deref();
     if db_state
         .complete_ocr_attempt(
             task.clip_id,
             &task.content_hash,
             text,
-            "macos-vision-v1",
+            &extractor.engine,
             None,
         )
         .unwrap_or(false)
     {
+        if detectors.is_some() && text.is_some() {
+            let _ = db_state.record_analysis_classification(
+                task.clip_id,
+                &task.content_hash,
+                detected_type,
+                detector_ref,
+                "searchable_text",
+            );
+        }
         notify(task.clip_id);
     }
 }
 
 fn perform_task(app: &tauri::AppHandle, db_state: &crate::db::DbState, task: OcrTask) {
     use tauri::Emitter;
-    execute_task(db_state, task, perform_ocr_on_image_bytes, |clip_id| {
-        let _ = app.emit("clip-added", serde_json::json!({ "id": clip_id }));
-        let _ = app.emit(
-            "ocr-status-changed",
-            serde_json::json!({ "clipId": clip_id }),
-        );
-    });
+    let Ok(Some(extractor)) = db_state.active_image_text_extractor() else {
+        let _ = db_state.reset_ocr_work(Some(task.clip_id), Some(&task.content_hash));
+        return;
+    };
+    execute_task(
+        db_state,
+        task,
+        &extractor,
+        perform_ocr_on_image_bytes,
+        |clip_id| {
+            let _ = app.emit("clip-added", serde_json::json!({ "id": clip_id }));
+            let _ = app.emit(
+                "ocr-status-changed",
+                serde_json::json!({ "clipId": clip_id }),
+            );
+        },
+    );
 }
 
 fn run_backfill_candidates<Process>(
@@ -243,6 +274,15 @@ fn run_backfill_candidates<Process>(
             break;
         }
         if !crate::features::is_enabled(db_state, crate::features::Feature::Ocr) {
+            let _ = db_state.reset_ocr_work(None, None);
+            break;
+        }
+        if db_state
+            .active_image_text_extractor()
+            .ok()
+            .flatten()
+            .is_none()
+        {
             let _ = db_state.reset_ocr_work(None, None);
             break;
         }
@@ -400,6 +440,21 @@ mod tests {
             )
             .unwrap();
         let notified = AtomicBool::new(false);
+        let extractor = crate::content_extraction::Extractor {
+            id: 1,
+            stable_ref: "extractor:test".into(),
+            name: "Test OCR".into(),
+            description: String::new(),
+            engine: "fake-engine-v1".into(),
+            input_contract: "image".into(),
+            output_contract: "searchable_text".into(),
+            enabled: true,
+            priority: 10,
+            is_builtin: false,
+            is_available: true,
+            unavailable_reason: None,
+            defaults: None,
+        };
 
         execute_task(
             &db,
@@ -408,6 +463,7 @@ mod tests {
                 content_hash: clip.content_hash.clone(),
                 image_bytes: b"image".to_vec(),
             },
+            &extractor,
             |_| {
                 db.save_setting("enableOcr", "false").unwrap();
                 Some("must not be saved".to_string())

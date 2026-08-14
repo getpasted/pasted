@@ -5,6 +5,7 @@ import { AppDialog } from './AppDialog';
 import { AppDialogBody, AppDialogButton, AppDialogFooter, AppDialogHeader, AppDialogHeading, SaveButtonContent } from './AppDialogLayout';
 import { ContentTypeIcon } from './ContentTypeIcon';
 import { ContentTypeManagerDialog } from './ContentTypeManagerDialog';
+import { ContentExtractorManagerDialog } from './ContentExtractorManagerDialog';
 import { useContentTypes } from './ContentTypeProvider';
 import { MenuSelect } from './MenuSelect';
 import { ModifiedFieldLabel } from './ModifiedFieldLabel';
@@ -87,6 +88,7 @@ export function SettingsDetectionPanel({
   const [rescanning, setRescanning] = useState(false);
   const [togglingId, setTogglingId] = useState<number | null>(null);
   const [isTypeManagerOpen, setIsTypeManagerOpen] = useState(false);
+  const [isExtractorManagerOpen, setIsExtractorManagerOpen] = useState(false);
   const [isManagerOpen, setIsManagerOpen] = useState(false);
 
   const selected = useMemo(
@@ -188,11 +190,12 @@ export function SettingsDetectionPanel({
   };
 
   const duplicate = async () => {
-    const next = currentInput();
-    next.name = `${next.name || 'Detector'} Copy`;
-    next.priority += 1;
+    if (!selected) return;
     try {
-      const created = await invoke<ContentDetector>('create_content_detector', { input: next });
+      const created = await invoke<ContentDetector>('duplicate_content_detector', {
+        reference: selected.stable_ref,
+        name: `${draft.name || selected.name} Copy`,
+      });
       await load();
       setSelectedId(created.id);
       showToast({ tone: 'success', message: `${created.name} created.` });
@@ -261,22 +264,31 @@ export function SettingsDetectionPanel({
   return (
     <div className="space-y-5 text-xs">
       <SettingsPanelHeader
-        icon={Radar}
-        title="Detection"
-        description={contentDetectionEnabled
-          ? 'Classify text and extract searchable text from images.'
-          : 'Extract searchable text from copied images.'}
+        icon={ScanSearch}
+        title="Analysis"
+        description="Understand clip content and make it more useful."
         actions={contentDetectionEnabled ? (
           <ActionButton onClick={() => void rescanHistory()} disabled={rescanning}>
             <ScanSearch className="h-3.5 w-3.5" /> {rescanning ? 'Rescanning…' : 'Rescan Clips'}
           </ActionButton>
         ) : undefined}
       />
+      {ocrEnabled && <section className="theme-surface overflow-hidden rounded-xl border" aria-label="Content extractors">
+        <RegistryPanelHeader
+          title="Extractors"
+          description="Create searchable representations from clip content."
+          actions={
+            <ActionButton onClick={() => setIsExtractorManagerOpen(true)} className="h-7 min-h-7 shrink-0 px-2.5">
+              <Pencil className="h-3.5 w-3.5" /> Manage Extractors
+            </ActionButton>
+          }
+        />
+      </section>}
       {contentDetectionEnabled && <>
         <section className="theme-surface overflow-hidden rounded-xl border" aria-label="Content detectors">
           <RegistryPanelHeader
             title="Detectors"
-            description="Manage ordered classifiers for copied text."
+            description="Manage clip-types for copied text."
             actions={
               <ActionButton onClick={openDetectorManager} className="h-7 min-h-7 shrink-0 px-2.5">
                 <Pencil className="h-3.5 w-3.5" /> Manage Detectors
@@ -297,7 +309,7 @@ export function SettingsDetectionPanel({
               <AppDialogHeading
                 id="detector-manager-title"
                 title="Detectors"
-                description="Manage ordered classifiers for copied text. The lowest priority number runs first."
+                description="Manage clip-types for copied text. The lowest priority number runs first."
                 icon={<Radar />}
               />
             </AppDialogHeader>
@@ -442,6 +454,7 @@ export function SettingsDetectionPanel({
         </AppDialog>
         <ContentTypeManagerDialog isOpen={isTypeManagerOpen} onClose={() => setIsTypeManagerOpen(false)} />
       </>}
+      <ContentExtractorManagerDialog isOpen={isExtractorManagerOpen} onClose={() => setIsExtractorManagerOpen(false)} />
       {ocrEnabled && <SettingsOcrPanel />}
     </div>
   );

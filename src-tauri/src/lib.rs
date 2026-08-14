@@ -3,7 +3,9 @@ pub mod bin_assignment;
 mod clipboard_fingerprint;
 mod clipboard_monitor;
 mod commands;
+pub mod content_analysis;
 pub mod content_detection;
+pub mod content_extraction;
 pub mod content_types;
 pub mod db;
 pub mod external_import;
@@ -430,6 +432,12 @@ pub fn run() {
             commands::import_activity_json,
             commands::import_activity_csv,
             commands::get_content_detectors,
+            commands::get_content_extractors,
+            commands::create_content_extractor,
+            commands::update_content_extractor_definition,
+            commands::duplicate_content_extractor,
+            commands::delete_content_extractor,
+            commands::restore_default_content_extractors,
             commands::get_library_items,
             commands::set_library_item_enabled,
             commands::get_content_types,
@@ -445,6 +453,7 @@ pub fn run() {
             commands::restore_default_content_types,
             commands::create_content_detector,
             commands::update_content_detector,
+            commands::duplicate_content_detector,
             commands::delete_content_detector,
             commands::restore_default_content_detectors,
             commands::rescan_content_detection_history,

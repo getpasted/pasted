@@ -247,6 +247,17 @@ pub struct ContentDetectionRescanReport {
     pub unchanged_count: usize,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct AnalysisClassification {
+    pub clip_id: i64,
+    pub content_type: String,
+    pub detector_ref: String,
+    pub source_representation: String,
+    pub input_hash: String,
+    pub updated_at: String,
+}
+
 impl ClipMutationSummary {
     fn new(action: &str, requested_count: usize, clip_ids: Vec<i64>) -> Self {
         let changed_count = clip_ids.len();
@@ -1794,6 +1805,24 @@ impl DbState {
         );
         let _ = conn.execute("ALTER TABLE clip_versions ADD COLUMN context_json TEXT", []);
 
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS clip_analysis_classifications (
+                clip_id INTEGER PRIMARY KEY REFERENCES clips(id) ON DELETE CASCADE,
+                content_type TEXT NOT NULL,
+                detector_ref TEXT NOT NULL,
+                source_representation TEXT NOT NULL
+                    CHECK (source_representation IN ('original_text', 'searchable_text')),
+                input_hash TEXT NOT NULL,
+                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )",
+            [],
+        )?;
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_clip_analysis_classification_type
+             ON clip_analysis_classifications(content_type, clip_id)",
+            [],
+        )?;
+
         let _ = conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_clips_trashed ON clips (is_trashed, created_at DESC)",
             [],
@@ -2022,7 +2051,24 @@ impl DbState {
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
             );
             CREATE INDEX IF NOT EXISTS idx_content_detectors_order
-                ON content_detectors (is_deleted, enabled, priority, id);",
+                ON content_detectors (is_deleted, enabled, priority, id);
+            CREATE TABLE IF NOT EXISTS content_extractors (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                stable_ref TEXT NOT NULL UNIQUE,
+                name TEXT NOT NULL,
+                description TEXT NOT NULL DEFAULT '',
+                engine TEXT NOT NULL,
+                input_contract TEXT NOT NULL,
+                output_contract TEXT NOT NULL,
+                enabled INTEGER NOT NULL DEFAULT 1,
+                priority INTEGER NOT NULL DEFAULT 100,
+                is_builtin INTEGER NOT NULL DEFAULT 0,
+                is_deleted INTEGER NOT NULL DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE INDEX IF NOT EXISTS idx_content_extractors_order
+                ON content_extractors (is_deleted, enabled, priority, id);",
         )?;
         for preset in crate::content_types::CONTENT_TYPE_GROUP_PRESETS {
             conn.execute(
@@ -2048,6 +2094,23 @@ impl DbState {
                     (stable_ref, name, content_type, description, patterns_json, validator, enabled, priority, is_builtin)
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, 1, ?7, 1)",
                 params![preset.stable_ref, preset.name, preset.content_type, preset.description, patterns_json, preset.validator, preset.priority],
+            )?;
+        }
+        for preset in crate::content_extraction::EXTRACTOR_PRESETS {
+            conn.execute(
+                "INSERT OR IGNORE INTO content_extractors
+                    (stable_ref, name, description, engine, input_contract, output_contract,
+                     enabled, priority, is_builtin)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, 1, ?7, 1)",
+                params![
+                    preset.stable_ref,
+                    preset.name,
+                    preset.description,
+                    preset.engine,
+                    preset.input_contract,
+                    preset.output_contract,
+                    preset.priority
+                ],
             )?;
         }
         let legacy_type_ids = {
@@ -2112,7 +2175,10 @@ impl DbState {
 
     fn init_library_items(conn: &Connection) -> Result<()> {
         conn.execute_batch(
-            "DROP TRIGGER IF EXISTS library_items_detector_insert;
+            "DROP TRIGGER IF EXISTS library_items_extractor_insert;
+            DROP TRIGGER IF EXISTS library_items_extractor_update;
+            DROP TRIGGER IF EXISTS library_items_extractor_delete;
+            DROP TRIGGER IF EXISTS library_items_detector_insert;
             DROP TRIGGER IF EXISTS library_items_detector_update;
             DROP TRIGGER IF EXISTS library_items_detector_delete;
             DROP TRIGGER IF EXISTS library_items_content_type_update;
@@ -2129,7 +2195,7 @@ impl DbState {
             DROP TABLE IF EXISTS library_items;
             CREATE TABLE library_items (
                 stable_ref TEXT PRIMARY KEY,
-                kind TEXT NOT NULL CHECK (kind IN ('detector', 'operation', 'transform')),
+                kind TEXT NOT NULL CHECK (kind IN ('extractor', 'detector', 'operation', 'transform')),
                 name TEXT NOT NULL,
                 description TEXT NOT NULL DEFAULT '',
                 group_label TEXT,
@@ -2146,6 +2212,22 @@ impl DbState {
             );
             CREATE INDEX IF NOT EXISTS idx_library_items_kind_order
                 ON library_items(kind, is_archived, sort_order, name);
+
+            INSERT INTO library_items
+                (stable_ref, kind, name, description, group_label, icon, enabled,
+                 is_builtin, is_archived, sort_order, revision, input_contract,
+                 output_contract, created_at, updated_at)
+            SELECT stable_ref, 'extractor', name, description, 'Content Analysis',
+                   'ScanText', enabled, is_builtin, is_deleted, priority, 1,
+                   input_contract, output_contract, created_at, updated_at
+            FROM content_extractors
+            WHERE 1 = 1
+            ON CONFLICT(stable_ref) DO UPDATE SET
+                name=excluded.name, description=excluded.description,
+                enabled=excluded.enabled, is_builtin=excluded.is_builtin,
+                is_archived=excluded.is_archived, sort_order=excluded.sort_order,
+                input_contract=excluded.input_contract,
+                output_contract=excluded.output_contract, updated_at=excluded.updated_at;
 
             INSERT INTO library_items
                 (stable_ref, kind, name, description, group_label, icon, enabled,
@@ -2193,6 +2275,9 @@ impl DbState {
                 name=excluded.name, sort_order=excluded.sort_order,
                 revision=excluded.revision, updated_at=excluded.updated_at;
 
+            DROP TRIGGER IF EXISTS library_items_extractor_insert;
+            DROP TRIGGER IF EXISTS library_items_extractor_update;
+            DROP TRIGGER IF EXISTS library_items_extractor_delete;
             DROP TRIGGER IF EXISTS library_items_detector_insert;
             DROP TRIGGER IF EXISTS library_items_detector_update;
             DROP TRIGGER IF EXISTS library_items_detector_delete;
@@ -2205,6 +2290,27 @@ impl DbState {
             DROP TRIGGER IF EXISTS library_items_pipeline_update;
             DROP TRIGGER IF EXISTS library_items_pipeline_delete;
 
+            CREATE TRIGGER library_items_extractor_insert AFTER INSERT ON content_extractors BEGIN
+              DELETE FROM library_items WHERE stable_ref=NEW.stable_ref;
+              INSERT INTO library_items
+                (stable_ref, kind, name, description, group_label, icon, enabled, is_builtin,
+                 is_archived, sort_order, revision, input_contract, output_contract, created_at, updated_at)
+              VALUES (NEW.stable_ref, 'extractor', NEW.name, NEW.description, 'Content Analysis',
+                      'ScanText', NEW.enabled, NEW.is_builtin, NEW.is_deleted, NEW.priority,
+                      1, NEW.input_contract, NEW.output_contract, NEW.created_at, NEW.updated_at);
+            END;
+            CREATE TRIGGER library_items_extractor_update AFTER UPDATE ON content_extractors BEGIN
+              DELETE FROM library_items WHERE stable_ref=OLD.stable_ref OR stable_ref=NEW.stable_ref;
+              INSERT INTO library_items
+                (stable_ref, kind, name, description, group_label, icon, enabled, is_builtin,
+                 is_archived, sort_order, revision, input_contract, output_contract, created_at, updated_at)
+              VALUES (NEW.stable_ref, 'extractor', NEW.name, NEW.description, 'Content Analysis',
+                      'ScanText', NEW.enabled, NEW.is_builtin, NEW.is_deleted, NEW.priority,
+                      1, NEW.input_contract, NEW.output_contract, NEW.created_at, NEW.updated_at);
+            END;
+            CREATE TRIGGER library_items_extractor_delete AFTER DELETE ON content_extractors BEGIN
+              DELETE FROM library_items WHERE stable_ref=OLD.stable_ref;
+            END;
             CREATE TRIGGER library_items_detector_insert AFTER INSERT ON content_detectors BEGIN
               DELETE FROM library_items WHERE stable_ref=NEW.stable_ref;
               INSERT INTO library_items
@@ -2331,6 +2437,7 @@ impl DbState {
              DELETE FROM clips;
              DELETE FROM bins;
              DELETE FROM activity_logs;
+             DELETE FROM content_extractors;
              DELETE FROM content_detectors;
              DELETE FROM content_types;
              DELETE FROM content_type_groups;
@@ -2368,6 +2475,23 @@ impl DbState {
                     (stable_ref, name, content_type, description, patterns_json, validator, enabled, priority, is_builtin)
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, 1, ?7, 1)",
                 params![preset.stable_ref, preset.name, preset.content_type, preset.description, patterns_json, preset.validator, preset.priority],
+            )?;
+        }
+        for preset in crate::content_extraction::EXTRACTOR_PRESETS {
+            transaction.execute(
+                "INSERT INTO content_extractors
+                    (stable_ref, name, description, engine, input_contract, output_contract,
+                     enabled, priority, is_builtin)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, 1, ?7, 1)",
+                params![
+                    preset.stable_ref,
+                    preset.name,
+                    preset.description,
+                    preset.engine,
+                    preset.input_contract,
+                    preset.output_contract,
+                    preset.priority
+                ],
             )?;
         }
         let _ = transaction.execute("INSERT INTO clips_fts(clips_fts) VALUES('rebuild')", []);
@@ -2957,6 +3081,91 @@ impl DbState {
         }
         tx.commit()?;
         Ok(true)
+    }
+
+    pub fn record_analysis_classification(
+        &self,
+        clip_id: i64,
+        input_hash: &str,
+        content_type: Option<&str>,
+        detector_ref: Option<&str>,
+        source_representation: &str,
+    ) -> Result<bool> {
+        if !matches!(source_representation, "original_text" | "searchable_text") {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "Unknown analysis source representation".into(),
+            ));
+        }
+        if content_type.is_some_and(|value| value.len() > 80)
+            || detector_ref.is_some_and(|value| value.len() > 160)
+        {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "Analysis classification metadata exceeds its safety limit".into(),
+            ));
+        }
+        let conn = self.conn.lock();
+        let clip_matches: bool = conn.query_row(
+            "SELECT EXISTS(
+                SELECT 1 FROM clips
+                WHERE id = ?1 AND content_hash = ?2 AND COALESCE(is_trashed, 0) = 0
+            )",
+            params![clip_id, input_hash],
+            |row| row.get(0),
+        )?;
+        if !clip_matches {
+            return Ok(false);
+        }
+        let (Some(content_type), Some(detector_ref)) = (content_type, detector_ref) else {
+            conn.execute(
+                "DELETE FROM clip_analysis_classifications
+                 WHERE clip_id = ?1 AND input_hash = ?2",
+                params![clip_id, input_hash],
+            )?;
+            return Ok(true);
+        };
+        conn.execute(
+            "INSERT INTO clip_analysis_classifications
+                (clip_id, content_type, detector_ref, source_representation, input_hash)
+             VALUES (?1, ?2, ?3, ?4, ?5)
+             ON CONFLICT(clip_id) DO UPDATE SET
+                content_type = excluded.content_type,
+                detector_ref = excluded.detector_ref,
+                source_representation = excluded.source_representation,
+                input_hash = excluded.input_hash,
+                updated_at = CURRENT_TIMESTAMP",
+            params![
+                clip_id,
+                content_type,
+                detector_ref,
+                source_representation,
+                input_hash
+            ],
+        )?;
+        Ok(true)
+    }
+
+    pub fn get_analysis_classification(
+        &self,
+        clip_id: i64,
+    ) -> Result<Option<AnalysisClassification>> {
+        let conn = self.conn.lock();
+        conn.query_row(
+            "SELECT clip_id, content_type, detector_ref, source_representation,
+                    input_hash, updated_at
+             FROM clip_analysis_classifications WHERE clip_id = ?1",
+            params![clip_id],
+            |row| {
+                Ok(AnalysisClassification {
+                    clip_id: row.get(0)?,
+                    content_type: row.get(1)?,
+                    detector_ref: row.get(2)?,
+                    source_representation: row.get(3)?,
+                    input_hash: row.get(4)?,
+                    updated_at: row.get(5)?,
+                })
+            },
+        )
+        .optional()
     }
 
     pub fn save_clip(
@@ -7922,7 +8131,7 @@ impl DbState {
         include_archived: bool,
     ) -> Result<Vec<crate::library_items::LibraryItemView>> {
         if let Some(kind) = kind {
-            if !matches!(kind, "detector" | "operation" | "transform") {
+            if !matches!(kind, "extractor" | "detector" | "operation" | "transform") {
                 return Err(rusqlite::Error::InvalidParameterName(
                     "Unknown library item kind".into(),
                 ));
@@ -7955,8 +8164,13 @@ impl DbState {
                 created_at: row.get(13)?,
                 updated_at: row.get(14)?,
             };
+            let analysis_pass = item.analysis_pass();
             let capabilities = item.capabilities();
-            Ok(crate::library_items::LibraryItemView { item, capabilities })
+            Ok(crate::library_items::LibraryItemView {
+                item,
+                analysis_pass,
+                capabilities,
+            })
         })?;
         rows.collect()
     }
@@ -7969,6 +8183,12 @@ impl DbState {
     ) -> Result<()> {
         let conn = self.conn.lock();
         let changed = match kind {
+            "extractor" => conn.execute(
+                "UPDATE content_extractors
+                 SET enabled = ?1, updated_at = CURRENT_TIMESTAMP
+                 WHERE stable_ref = ?2 AND is_deleted = 0",
+                params![enabled, stable_ref],
+            )?,
             "detector" => conn.execute(
                 "UPDATE content_detectors
                  SET enabled = ?1, updated_at = CURRENT_TIMESTAMP
@@ -8650,6 +8870,282 @@ impl DbState {
         Ok(())
     }
 
+    pub fn get_content_extractors(&self) -> Result<Vec<crate::content_extraction::Extractor>> {
+        let conn = self.conn.lock();
+        let mut statement = conn.prepare(
+            "SELECT id, stable_ref, name, description, engine, input_contract,
+                    output_contract, enabled, priority, is_builtin
+             FROM content_extractors WHERE is_deleted = 0 ORDER BY priority, id",
+        )?;
+        let rows = statement.query_map([], |row| {
+            let stable_ref = row.get::<_, String>(1)?;
+            let engine = row.get::<_, String>(4)?;
+            let preset = crate::content_extraction::EXTRACTOR_PRESETS
+                .iter()
+                .find(|preset| preset.stable_ref == stable_ref);
+            let (is_available, unavailable_reason) =
+                crate::content_extraction::availability(&engine);
+            Ok(crate::content_extraction::Extractor {
+                id: row.get(0)?,
+                stable_ref,
+                name: row.get(2)?,
+                description: row.get(3)?,
+                engine,
+                input_contract: row.get(5)?,
+                output_contract: row.get(6)?,
+                enabled: row.get(7)?,
+                priority: row.get(8)?,
+                is_builtin: row.get(9)?,
+                is_available,
+                unavailable_reason,
+                defaults: preset.map(|preset| crate::content_extraction::ExtractorInput {
+                    name: preset.name.to_string(),
+                    description: preset.description.to_string(),
+                    enabled: true,
+                    priority: preset.priority,
+                }),
+            })
+        })?;
+        rows.collect()
+    }
+
+    pub fn get_content_extractor(
+        &self,
+        reference: &str,
+    ) -> Result<crate::content_extraction::Extractor> {
+        let numeric_id = reference.parse::<i64>().ok();
+        self.get_content_extractors()?
+            .into_iter()
+            .find(|extractor| numeric_id == Some(extractor.id) || extractor.stable_ref == reference)
+            .ok_or(rusqlite::Error::QueryReturnedNoRows)
+    }
+
+    pub fn create_content_extractor(
+        &self,
+        input: &crate::content_extraction::ExtractorDefinitionInput,
+    ) -> Result<crate::content_extraction::Extractor> {
+        crate::content_extraction::validate_extractor_definition(input).map_err(|error| {
+            rusqlite::Error::ToSqlConversionFailure(Box::new(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                error,
+            )))
+        })?;
+        let conn = self.conn.lock();
+        let extractor_count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM content_extractors WHERE is_deleted = 0",
+            [],
+            |row| row.get(0),
+        )?;
+        if extractor_count >= 64 {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "Content Extractors are limited to 64 entries".into(),
+            ));
+        }
+        conn.execute(
+            "INSERT INTO content_extractors
+                (stable_ref, name, description, engine, input_contract, output_contract,
+                 enabled, priority, is_builtin)
+             VALUES ('pending', ?1, ?2, ?3, ?4, ?5, ?6, ?7, 0)",
+            params![
+                input.name.trim(),
+                input.description.trim(),
+                input.engine.trim(),
+                input.input_contract,
+                input.output_contract,
+                input.enabled,
+                input.priority
+            ],
+        )?;
+        let id = conn.last_insert_rowid();
+        conn.execute(
+            "UPDATE content_extractors SET stable_ref = ?1 WHERE id = ?2",
+            params![format!("extractor:custom:{id}"), id],
+        )?;
+        drop(conn);
+        let created = self.get_content_extractor(&id.to_string())?;
+        let _ = self.log_activity(
+            "content_extractor_created",
+            &format!("Created Extractor \"{}\"", created.name),
+        );
+        Ok(created)
+    }
+
+    pub fn update_content_extractor_definition(
+        &self,
+        id: i64,
+        input: &crate::content_extraction::ExtractorDefinitionInput,
+    ) -> Result<crate::content_extraction::Extractor> {
+        crate::content_extraction::validate_extractor_definition(input).map_err(|error| {
+            rusqlite::Error::ToSqlConversionFailure(Box::new(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                error,
+            )))
+        })?;
+        let current = self.get_content_extractor(&id.to_string())?;
+        if current.is_builtin
+            && (current.engine != input.engine
+                || current.input_contract != input.input_contract
+                || current.output_contract != input.output_contract)
+        {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "Built-in Extractor engine and contracts cannot be changed".into(),
+            ));
+        }
+        let conn = self.conn.lock();
+        let changed = conn.execute(
+            "UPDATE content_extractors SET name = ?1, description = ?2, engine = ?3,
+                    input_contract = ?4, output_contract = ?5, enabled = ?6,
+                    priority = ?7, updated_at = CURRENT_TIMESTAMP
+             WHERE id = ?8 AND is_deleted = 0",
+            params![
+                input.name.trim(),
+                input.description.trim(),
+                input.engine.trim(),
+                input.input_contract,
+                input.output_contract,
+                input.enabled,
+                input.priority,
+                id
+            ],
+        )?;
+        drop(conn);
+        if changed == 0 {
+            return Err(rusqlite::Error::QueryReturnedNoRows);
+        }
+        let updated = self.get_content_extractor(&id.to_string())?;
+        let _ = self.log_activity(
+            "content_extractor_updated",
+            &format!("Updated Extractor \"{}\"", updated.name),
+        );
+        Ok(updated)
+    }
+
+    pub fn duplicate_content_extractor(
+        &self,
+        reference: &str,
+        name: Option<&str>,
+    ) -> Result<crate::content_extraction::Extractor> {
+        let source = self.get_content_extractor(reference)?;
+        self.create_content_extractor(&crate::content_extraction::ExtractorDefinitionInput {
+            name: name
+                .map(str::to_string)
+                .unwrap_or_else(|| format!("{} Copy", source.name)),
+            description: source.description,
+            engine: source.engine,
+            input_contract: source.input_contract,
+            output_contract: source.output_contract,
+            enabled: source.enabled,
+            priority: source.priority.saturating_add(1).min(10_000),
+        })
+    }
+
+    pub fn delete_content_extractor(&self, id: i64) -> Result<()> {
+        let extractor = self.get_content_extractor(&id.to_string())?;
+        let conn = self.conn.lock();
+        let changed = conn.execute(
+            "UPDATE content_extractors SET is_deleted = 1, enabled = 0,
+                    updated_at = CURRENT_TIMESTAMP
+             WHERE id = ?1 AND is_deleted = 0",
+            params![id],
+        )?;
+        drop(conn);
+        if changed == 0 {
+            return Err(rusqlite::Error::QueryReturnedNoRows);
+        }
+        let _ = self.log_activity(
+            "content_extractor_deleted",
+            &format!("Deleted Extractor \"{}\"", extractor.name),
+        );
+        Ok(())
+    }
+
+    pub fn update_content_extractor(
+        &self,
+        id: i64,
+        input: &crate::content_extraction::ExtractorInput,
+    ) -> Result<crate::content_extraction::Extractor> {
+        crate::content_extraction::validate_extractor_input(input).map_err(|error| {
+            rusqlite::Error::ToSqlConversionFailure(Box::new(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                error,
+            )))
+        })?;
+        let conn = self.conn.lock();
+        let changed = conn.execute(
+            "UPDATE content_extractors SET name = ?1, description = ?2, enabled = ?3,
+                    priority = ?4, updated_at = CURRENT_TIMESTAMP
+             WHERE id = ?5 AND is_deleted = 0",
+            params![
+                input.name.trim(),
+                input.description.trim(),
+                input.enabled,
+                input.priority,
+                id
+            ],
+        )?;
+        drop(conn);
+        if changed == 0 {
+            return Err(rusqlite::Error::QueryReturnedNoRows);
+        }
+        let updated = self
+            .get_content_extractors()?
+            .into_iter()
+            .find(|extractor| extractor.id == id)
+            .ok_or(rusqlite::Error::QueryReturnedNoRows)?;
+        let _ = self.log_activity(
+            "content_extractor_updated",
+            &format!("Updated extractor \"{}\"", updated.name),
+        );
+        Ok(updated)
+    }
+
+    pub fn restore_default_content_extractors(&self) -> Result<()> {
+        let conn = self.conn.lock();
+        for preset in crate::content_extraction::EXTRACTOR_PRESETS {
+            conn.execute(
+                "INSERT INTO content_extractors
+                    (stable_ref, name, description, engine, input_contract, output_contract,
+                     enabled, priority, is_builtin, is_deleted)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, 1, ?7, 1, 0)
+                 ON CONFLICT(stable_ref) DO UPDATE SET
+                    name = excluded.name, description = excluded.description,
+                    engine = excluded.engine, input_contract = excluded.input_contract,
+                    output_contract = excluded.output_contract, enabled = 1,
+                    priority = excluded.priority, is_deleted = 0,
+                    updated_at = CURRENT_TIMESTAMP",
+                params![
+                    preset.stable_ref,
+                    preset.name,
+                    preset.description,
+                    preset.engine,
+                    preset.input_contract,
+                    preset.output_contract,
+                    preset.priority
+                ],
+            )?;
+        }
+        drop(conn);
+        let _ = self.log_activity(
+            "content_extractors_restored",
+            "Restored shipped extractor defaults",
+        );
+        Ok(())
+    }
+
+    pub fn active_image_text_extractor(
+        &self,
+    ) -> Result<Option<crate::content_extraction::Extractor>> {
+        Ok(self
+            .get_content_extractors()?
+            .into_iter()
+            .find(|extractor| {
+                extractor.enabled
+                    && extractor.is_available
+                    && extractor.input_contract == "image"
+                    && extractor.output_contract == "searchable_text"
+            }))
+    }
+
     pub fn get_content_detectors(&self) -> Result<Vec<crate::content_detection::Detector>> {
         let conn = self.conn.lock();
         let mut statement = conn.prepare(
@@ -8686,6 +9182,82 @@ impl DbState {
             })
         })?;
         rows.collect()
+    }
+
+    pub fn get_content_detector(
+        &self,
+        reference: &str,
+    ) -> Result<crate::content_detection::Detector> {
+        let numeric_id = reference.parse::<i64>().ok();
+        self.get_content_detectors()?
+            .into_iter()
+            .find(|detector| numeric_id == Some(detector.id) || detector.stable_ref == reference)
+            .ok_or(rusqlite::Error::QueryReturnedNoRows)
+    }
+
+    pub fn duplicate_content_detector(
+        &self,
+        reference: &str,
+        name: Option<&str>,
+    ) -> Result<crate::content_detection::Detector> {
+        let source = self.get_content_detector(reference)?;
+        self.create_content_detector(&crate::content_detection::DetectorInput {
+            name: name
+                .map(str::to_string)
+                .unwrap_or_else(|| format!("{} Copy", source.name)),
+            content_type: source.content_type,
+            description: source.description,
+            patterns: source.patterns,
+            validator: source.validator,
+            enabled: source.enabled,
+            priority: source.priority.saturating_add(1).min(10_000),
+        })
+    }
+
+    pub fn apply_content_detector(&self, clip_id: i64, reference: &str) -> Result<bool> {
+        let detector = self.get_content_detector(reference)?;
+        let mut conn = self.conn.lock();
+        let transaction = conn.transaction()?;
+        let clip = transaction
+            .query_row(
+                "SELECT content_type, text_content FROM clips
+                 WHERE id = ?1 AND COALESCE(is_trashed, 0) = 0",
+                params![clip_id],
+                |row| Ok((row.get::<_, String>(0)?, row.get::<_, Option<String>>(1)?)),
+            )
+            .optional()?;
+        let Some((current_type, Some(text))) = clip else {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "The selected clip has no analyzable text".into(),
+            ));
+        };
+        if matches!(current_type.as_str(), "image" | "file") {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "Applying a Detector cannot replace a structural image or file type".into(),
+            ));
+        }
+        let matched = crate::content_detection::detect_match_with_detectors(&text, &[detector])
+            .map(|matched| matched.content_type);
+        let Some(detected_type) = matched else {
+            transaction.commit()?;
+            return Ok(false);
+        };
+        let changed = current_type != detected_type;
+        if changed {
+            transaction.execute(
+                "UPDATE clips SET content_type = ?1 WHERE id = ?2",
+                params![detected_type, clip_id],
+            )?;
+        }
+        transaction.commit()?;
+        drop(conn);
+        if changed {
+            let _ = self.log_activity(
+                "content_detector_applied",
+                &format!("Applied a Detector to clip #{clip_id}"),
+            );
+        }
+        Ok(true)
     }
 
     fn get_all_content_detectors_for_backup(
@@ -8932,8 +9504,7 @@ impl DbState {
             for (id, current_type, text) in clips {
                 last_id = id;
                 scanned_count += 1;
-                let detected_type =
-                    crate::content_detection::detect_with_detectors(&text, &detectors);
+                let detected_type = crate::content_analysis::classify_text(&text, &detectors);
                 if detected_type != current_type {
                     transaction.execute(
                         "UPDATE clips SET content_type = ?1 WHERE id = ?2",
@@ -9002,7 +9573,162 @@ mod tests {
         let db = DbState::new(PathBuf::from(path)).unwrap();
         let items = db.get_library_items(None, true).unwrap();
         assert!(items.iter().any(|item| item.item.kind == "detector"));
+        assert!(items.iter().any(|item| item.item.kind == "extractor"));
         assert!(items.iter().any(|item| item.item.kind == "operation"));
+    }
+
+    #[test]
+    fn content_extractors_are_versioned_available_and_restorable() {
+        let db = setup_test_db();
+        let extractors = db.get_content_extractors().unwrap();
+        assert_eq!(
+            extractors.len(),
+            crate::content_extraction::EXTRACTOR_PRESETS.len()
+        );
+        let apple = extractors
+            .iter()
+            .find(|extractor| {
+                extractor.stable_ref == crate::content_extraction::APPLE_VISION_OCR_REF
+            })
+            .unwrap();
+        assert_eq!(apple.input_contract, "image");
+        assert_eq!(apple.output_contract, "searchable_text");
+        assert_eq!(apple.is_available, cfg!(target_os = "macos"));
+        assert_eq!(
+            apple.unavailable_reason.is_some(),
+            !cfg!(target_os = "macos")
+        );
+
+        db.update_content_extractor(
+            apple.id,
+            &crate::content_extraction::ExtractorInput {
+                name: "Local Image Text".into(),
+                description: "Customized label".into(),
+                enabled: false,
+                priority: 42,
+            },
+        )
+        .unwrap();
+        let updated = db.get_content_extractors().unwrap().remove(0);
+        assert_eq!(updated.name, "Local Image Text");
+        assert!(!updated.enabled);
+        assert!(db.active_image_text_extractor().unwrap().is_none());
+        assert!(db
+            .get_library_items(Some("extractor"), false)
+            .unwrap()
+            .iter()
+            .any(|item| {
+                item.item.stable_ref == apple.stable_ref
+                    && item.item.enabled == Some(false)
+                    && item.analysis_pass.as_deref() == Some("extract")
+            }));
+
+        let custom = db
+            .create_content_extractor(&crate::content_extraction::ExtractorDefinitionInput {
+                name: "Project OCR".into(),
+                description: "Extracts project screenshots".into(),
+                engine: crate::content_extraction::APPLE_VISION_ENGINE.into(),
+                input_contract: "image".into(),
+                output_contract: "searchable_text".into(),
+                enabled: true,
+                priority: 80,
+            })
+            .unwrap();
+        assert!(!custom.is_builtin);
+        assert_eq!(
+            db.get_content_extractor(&custom.stable_ref).unwrap().id,
+            custom.id
+        );
+        let duplicate = db
+            .duplicate_content_extractor(&custom.stable_ref, Some("Project OCR Copy"))
+            .unwrap();
+        assert_eq!(duplicate.priority, 81);
+        db.update_content_extractor_definition(
+            duplicate.id,
+            &crate::content_extraction::ExtractorDefinitionInput {
+                name: "Project OCR Revised".into(),
+                description: duplicate.description.clone(),
+                engine: duplicate.engine.clone(),
+                input_contract: duplicate.input_contract.clone(),
+                output_contract: duplicate.output_contract.clone(),
+                enabled: false,
+                priority: duplicate.priority,
+            },
+        )
+        .unwrap();
+        db.delete_content_extractor(custom.id).unwrap();
+        assert!(db.get_content_extractor(&custom.stable_ref).is_err());
+
+        db.restore_default_content_extractors().unwrap();
+        let restored_extractors = db.get_content_extractors().unwrap();
+        let restored = restored_extractors
+            .iter()
+            .find(|extractor| extractor.stable_ref == apple.stable_ref)
+            .unwrap();
+        assert_eq!(restored.name, "Apple Vision OCR");
+        assert!(restored.enabled);
+        assert_eq!(restored.priority, 10);
+        assert!(restored_extractors.iter().any(|extractor| {
+            extractor.stable_ref == duplicate.stable_ref
+                && extractor.name == "Project OCR Revised"
+                && !extractor.enabled
+        }));
+    }
+
+    #[test]
+    fn derived_analysis_classification_is_hash_safe_and_non_destructive() {
+        let db = setup_test_db();
+        let clip = db
+            .save_clip(
+                "image",
+                None,
+                None,
+                Some("aW1hZ2U="),
+                "analysis-image-hash",
+                "Screenshot",
+            )
+            .unwrap();
+
+        assert!(db
+            .record_analysis_classification(
+                clip.id,
+                &clip.content_hash,
+                Some("email"),
+                Some("email"),
+                "searchable_text",
+            )
+            .unwrap());
+        let classification = db.get_analysis_classification(clip.id).unwrap().unwrap();
+        assert_eq!(classification.content_type, "email");
+        assert_eq!(classification.source_representation, "searchable_text");
+        assert_eq!(db.get_clip_by_id(clip.id).unwrap().content_type, "image");
+
+        assert!(!db
+            .record_analysis_classification(
+                clip.id,
+                "stale-hash",
+                Some("credential"),
+                Some("credential"),
+                "searchable_text",
+            )
+            .unwrap());
+        assert_eq!(
+            db.get_analysis_classification(clip.id)
+                .unwrap()
+                .unwrap()
+                .content_type,
+            "email"
+        );
+
+        db.record_analysis_classification(
+            clip.id,
+            &clip.content_hash,
+            Some("text"),
+            None,
+            "searchable_text",
+        )
+        .unwrap();
+        assert!(db.get_analysis_classification(clip.id).unwrap().is_none());
     }
 
     #[test]
@@ -9089,6 +9815,56 @@ mod tests {
         assert!(!defaults
             .iter()
             .any(|detector| detector.stable_ref == custom.stable_ref));
+    }
+
+    #[test]
+    fn a_single_detector_can_be_resolved_duplicated_and_applied() {
+        let db = setup_test_db();
+        let email = db.get_content_detector("email").unwrap();
+        assert_eq!(
+            db.get_content_detector(&email.id.to_string()).unwrap().id,
+            email.id
+        );
+        let duplicate = db
+            .duplicate_content_detector("email", Some("Email Copy"))
+            .unwrap();
+        assert_eq!(duplicate.name, "Email Copy");
+        assert!(!duplicate.is_builtin);
+
+        let matching = db
+            .save_clip(
+                "text",
+                Some("person@example.com"),
+                None,
+                None,
+                "detector-apply-match",
+                "Test",
+            )
+            .unwrap();
+        assert!(db.apply_content_detector(matching.id, "email").unwrap());
+        assert_eq!(
+            db.get_clip_by_id(matching.id).unwrap().content_type,
+            "email"
+        );
+
+        let nonmatching = db
+            .save_clip(
+                "text",
+                Some("plain prose"),
+                None,
+                None,
+                "detector-apply-no-match",
+                "Test",
+            )
+            .unwrap();
+        assert!(!db.apply_content_detector(nonmatching.id, "email").unwrap());
+        assert_eq!(
+            db.get_clip_by_id(nonmatching.id).unwrap().content_type,
+            "text"
+        );
+
+        db.delete_content_detector(duplicate.id).unwrap();
+        assert!(db.get_content_detector(&duplicate.stable_ref).is_err());
     }
 
     #[test]
@@ -13364,6 +14140,14 @@ mod tests {
             .unwrap();
         db.update_clip_text(clip.id, "updated backup marker")
             .unwrap();
+        db.record_analysis_classification(
+            clip.id,
+            &clip.content_hash,
+            Some("prose"),
+            Some("prose"),
+            "original_text",
+        )
+        .unwrap();
         db.save_setting("fullBackupSetting", "preserved").unwrap();
         db.log_activity("app_started", "Complete backup test")
             .unwrap();
@@ -13373,6 +14157,17 @@ mod tests {
             Some("http://127.0.0.1:1234/v1"),
             Some("local-model"),
             Some("keychain:pasted:test"),
+        )
+        .unwrap();
+        let extractor = db.get_content_extractors().unwrap().remove(0);
+        db.update_content_extractor(
+            extractor.id,
+            &crate::content_extraction::ExtractorInput {
+                name: "Backup Extractor Marker".into(),
+                description: extractor.description,
+                enabled: false,
+                priority: 77,
+            },
         )
         .unwrap();
 
@@ -13435,12 +14230,23 @@ mod tests {
         );
         assert_eq!(db.get_all_clips_for_backup().unwrap().len(), 1);
         assert!(!db.get_clip_versions(clip.id).unwrap().is_empty());
+        assert_eq!(
+            db.get_analysis_classification(clip.id)
+                .unwrap()
+                .unwrap()
+                .content_type,
+            "prose"
+        );
         assert!(db
             .get_activity_logs(None, None)
             .unwrap()
             .iter()
             .any(|entry| entry.event_type == "app_started"));
         assert_eq!(db.get_intelligence_connections().unwrap().len(), 1);
+        let restored_extractor = db.get_content_extractors().unwrap().remove(0);
+        assert_eq!(restored_extractor.name, "Backup Extractor Marker");
+        assert!(!restored_extractor.enabled);
+        assert_eq!(restored_extractor.priority, 77);
         assert!(Path::new(&restore_report.recovery_path).is_file());
         assert_eq!(
             db.consume_pending_full_restore_client_state()

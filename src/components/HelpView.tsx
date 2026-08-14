@@ -64,16 +64,24 @@ const CLI_COMMAND_GROUPS = [
       { usage: 'pasted transform update <ref> [options] [--json]', description: 'Update a Transform without changing its stable reference or authoring form.' },
       { usage: 'pasted transform duplicate <ref> [--name NAME] [--json]', description: 'Duplicate a Transform with a new stable reference.' },
       { usage: 'pasted transform delete <ref> [--json]', description: 'Delete a Transform; existing clip revisions remain unchanged.' },
-      { usage: 'pasted transform run <ref> [--text TEXT | --clip ID | --stdin] [--replace]', description: 'Preview a Transform, or replace a clip while preserving a revision.' },
+      { usage: 'pasted transform run <ref> [--text TEXT | --clip ID | --stdin] [--apply] [--json]', description: 'Run a Transform in preview mode, or apply it to a clip while preserving a revision.' },
       { usage: 'pasted operation list [--json]', description: 'Inspect built-in and custom Operations.' },
       { usage: 'pasted operation run <ref> [--text TEXT | --clip ID | --stdin] [--json]', description: 'Run one Operation through the shared executor.' },
     ],
   },
   {
-    title: 'Detection',
+    title: 'Content Analysis',
     commands: [
-      { usage: 'pasted registry list [--kind detector|operation|transform] [--all] [--json]', description: 'Inspect shared lifecycle and input/output contracts for processing assets.' },
-      { usage: 'pasted registry enable|disable --kind detector|operation --ref REF [--json]', description: 'Change the shared enabled state using a stable processing-asset reference.' },
+      { usage: 'pasted registry list [--kind extractor|detector|operation|transform] [--all] [--json]', description: 'Inspect shared lifecycle and input/output contracts for processing assets.' },
+      { usage: 'pasted registry enable|disable --kind extractor|detector|operation --ref REF [--json]', description: 'Change the shared enabled state using a stable processing-asset reference.' },
+      { usage: 'pasted extractor list [--json]', description: 'List Extractors, contracts, and system availability.' },
+      { usage: 'pasted extractor get <ref> [--json]', description: 'Inspect one Extractor definition.' },
+      { usage: 'pasted extractor create [options] [--json]', description: 'Create an Extractor.' },
+      { usage: 'pasted extractor update <ref> [options] [--json]', description: 'Update an Extractor definition.' },
+      { usage: 'pasted extractor duplicate <ref> [--name NAME] [--json]', description: 'Duplicate an Extractor with a new stable reference.' },
+      { usage: 'pasted extractor delete <ref> [--json]', description: 'Delete an Extractor; shipped defaults remain recoverable.' },
+      { usage: 'pasted extractor run <ref> (--clip ID | --file PATH) [--apply] [--json]', description: 'Run an Extractor in preview mode, or apply its output to a clip.' },
+      { usage: 'pasted extractor restore-defaults', description: 'Restore shipped Extractor settings.' },
       { usage: 'pasted type list [--all] [--json]', description: 'List registered content Types and their display metadata.' },
       { usage: 'pasted type create --id ID --name NAME [--icon ICON] [--group GROUP] [--json]', description: 'Create a custom Type with a stable ID.' },
       { usage: 'pasted type update <id> [options] [--json]', description: 'Customize a Type’s name, icon, or group without changing its ID.' },
@@ -84,12 +92,15 @@ const CLI_COMMAND_GROUPS = [
       { usage: 'pasted type group-update <id> [options] [--json]', description: 'Rename or reorder a Type Group.' },
       { usage: 'pasted type group-archive|group-restore <id>', description: 'Archive an empty custom Group or restore it.' },
       { usage: 'pasted type group-delete <id>', description: 'Permanently delete an empty custom Group.' },
-      { usage: 'pasted detector list [--json]', description: 'List editable detectors in effective priority order.' },
-      { usage: 'pasted detector create --name NAME --type TYPE --regex REGEX [--json]', description: 'Create a custom detector.' },
-      { usage: 'pasted detector update <id> [options] [--json]', description: 'Edit an existing shipped or custom detector.' },
-      { usage: 'pasted detector delete <id>', description: 'Delete a detector; shipped defaults remain recoverable.' },
-      { usage: 'pasted detector restore-defaults', description: 'Restore shipped detectors without removing custom entries.' },
-      { usage: 'pasted detector rescan --yes [--json]', description: 'Explicitly reclassify existing text clips with the current enabled detector order.' },
+      { usage: 'pasted detector list [--json]', description: 'List Detectors in effective priority order.' },
+      { usage: 'pasted detector get <ref> [--json]', description: 'Inspect one Detector definition.' },
+      { usage: 'pasted detector create --name NAME --type TYPE --regex REGEX [--json]', description: 'Create a Detector.' },
+      { usage: 'pasted detector update <ref> [options] [--json]', description: 'Update a Detector definition.' },
+      { usage: 'pasted detector duplicate <ref> [--name NAME] [--json]', description: 'Duplicate a Detector with a new stable reference.' },
+      { usage: 'pasted detector delete <ref> [--json]', description: 'Delete a Detector; shipped defaults remain recoverable.' },
+      { usage: 'pasted detector run <ref> [--text TEXT | --clip ID | --stdin] [--apply] [--json]', description: 'Run a Detector in preview mode, or apply its matching Type to a clip.' },
+      { usage: 'pasted detector restore-defaults', description: 'Restore shipped Detectors without removing custom entries.' },
+      { usage: 'pasted detector rescan --yes [--json]', description: 'Explicitly reclassify existing text clips with the current enabled Detector order.' },
     ],
   },
   {
@@ -135,7 +146,7 @@ const HELP_TOPICS: HelpTopicDefinition[] = [
   { id: 'hotkeys', label: 'Shortcuts and HUD', icon: Keyboard, iconClassName: 'theme-status-success-text' },
   { id: 'autopause', label: 'Privacy and Capture', icon: Shield, iconClassName: 'theme-status-warning-text' },
   { id: 'trash', label: 'Deletion and Recovery', icon: Trash2, iconClassName: 'theme-status-danger-text' },
-  { id: 'detection', label: 'Detection and OCR', icon: Radar, iconClassName: 'theme-status-info-text' },
+  { id: 'detection', label: 'Content Analysis', icon: Radar, iconClassName: 'theme-status-info-text' },
   { id: 'pipelines', label: 'Transformations', icon: Workflow, iconClassName: 'theme-status-info-text' },
   { id: 'cli', label: 'CLI Commands', icon: Terminal, iconClassName: 'theme-status-info-text' },
 ];
@@ -490,10 +501,13 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
               <div>
                 <h3 className="theme-title flex items-center space-x-2 text-lg font-bold">
                   <Radar className="h-5 w-5 theme-status-info-text" />
-                  <span>Detection and OCR</span>
+                  <span>Content Analysis</span>
                 </h3>
                 <p className="theme-text-muted mt-1 text-xs">
-                  Local detectors classify text into useful Types, while OCR makes captured images searchable on supported macOS systems.
+                  Extractors create searchable representations from clip content, while Detectors classify text into useful Types.
+                </p>
+                <p className="theme-text-muted mt-2 max-w-3xl text-xs leading-relaxed">
+                  Analysis runs in four bounded passes: inspect, extract, classify, and enrich. Each participant runs at most once and only when its declared inputs are available.
                 </p>
               </div>
 
@@ -501,10 +515,10 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
                 <section className="theme-panel space-y-3 rounded-xl border p-4">
                   <h4 className="theme-status-info-text text-xs font-bold">Content Detection</h4>
                   <p className="theme-text-main text-xs leading-relaxed">
-                    Enabled detectors run locally in priority order; the lowest number runs first. A detector uses one or more regular expressions and may add a validator to reduce false positives. Use Settings → Detection to test samples, manage Types, and restore shipped defaults.
+                    Enabled detectors run locally in priority order; the lowest number runs first. A detector uses one or more regular expressions and may add a validator to reduce false positives. Use Settings → Analysis to test samples, manage Types, and restore shipped defaults.
                   </p>
                   <p className="theme-text-muted text-xs leading-relaxed">
-                    Editing a detector affects new text clips. <strong>Rescan History</strong> explicitly reapplies the current detector order to existing text and can change Types, Smart Bin membership, and sensitive-content masking. Images and files are left unchanged.
+                    Editing a detector affects new text clips. <strong>Rescan Clips</strong> explicitly reapplies the current detector order to existing text and can change Types, Smart Bin membership, and sensitive-content masking. Images and files are left unchanged.
                   </p>
                 </section>
 
@@ -517,7 +531,7 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
                     OCR uses Apple Vision on macOS to extract searchable text from captured images and screenshots. It does not replace the original image.
                   </p>
                   <p className="theme-text-muted text-xs leading-relaxed">
-                    Disabling OCR cancels background work and discards late results while preserving completed text. Re-enabling it resumes eligible backfill. Check progress under Settings → Detection or with <code>pasted ocr status --json</code>.
+                    Disabling OCR cancels background work and discards late results while preserving completed text. Re-enabling it resumes eligible backfill when an available image text Extractor is enabled. Check progress under Settings → Analysis or with <code>pasted ocr status --json</code>.
                   </p>
                 </section>
               </div>

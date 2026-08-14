@@ -6,6 +6,9 @@ const cli = read('src-tauri/src/bin/pasted_cli.rs');
 const help = read('src/components/HelpView.tsx');
 const database = read('src-tauri/src/db.rs');
 const commands = read('src-tauri/src/commands.rs');
+const analysis = read('src-tauri/src/content_analysis.rs');
+const clipboardMonitor = read('src-tauri/src/clipboard_monitor.rs');
+const ocr = read('src-tauri/src/ocr.rs');
 const actions = read('src/hooks/useClipActions.ts');
 const storageSettings = read('src/components/SettingsSyncPanel.tsx');
 
@@ -40,6 +43,11 @@ const documentedCommands = [
   'pasted bin clips',
   'pasted bin order',
   'pasted transform list',
+  'pasted transform get',
+  'pasted transform create',
+  'pasted transform update',
+  'pasted transform duplicate',
+  'pasted transform delete',
   'pasted transform run',
   'pasted operation list',
   'pasted operation run',
@@ -53,7 +61,21 @@ const documentedCommands = [
   'pasted type group-archive|group-restore',
   'pasted type group-delete',
   'pasted registry',
+  'pasted extractor list',
+  'pasted extractor get',
+  'pasted extractor create',
+  'pasted extractor update',
+  'pasted extractor duplicate',
+  'pasted extractor delete',
+  'pasted extractor run',
+  'pasted extractor restore-defaults',
   'pasted detector list',
+  'pasted detector get',
+  'pasted detector create',
+  'pasted detector update',
+  'pasted detector duplicate',
+  'pasted detector delete',
+  'pasted detector run',
   'pasted detector rescan',
   'pasted ocr status',
   'pasted ocr scan',
@@ -65,7 +87,7 @@ for (const command of documentedCommands) {
 }
 assert.doesNotMatch(help, /pasted-cli/, 'Help & Docs must expose the stable pasted command, not an implementation alias');
 
-for (const route of ['copy', 'list', 'search', 'import', 'retention', 'activity', 'transfer', 'archive', 'backup', 'clear', 'clip', 'bin', 'transform', 'operation', 'database', 'library', 'registry', 'type', 'detector', 'diagnostics', 'licenses', 'ocr', 'reset']) {
+for (const route of ['copy', 'list', 'search', 'import', 'retention', 'activity', 'transfer', 'archive', 'backup', 'clear', 'clip', 'bin', 'transform', 'operation', 'database', 'library', 'registry', 'type', 'extractor', 'detector', 'diagnostics', 'licenses', 'ocr', 'reset']) {
   assert.match(cli, new RegExp(`"${route}"`), `The CLI must retain its ${route} route`);
 }
 for (const method of ['export_backup_json', 'inspect_library_archive_json', 'import_backup_json']) {
@@ -125,6 +147,32 @@ for (const scope of ['trash', 'activity']) {
 }
 assert.match(commands, /db\.rescan_content_detection\(\)/, 'GUI history rescans must use the shared detector domain service');
 assert.match(cli, /db\.rescan_content_detection\(\)/, 'CLI history rescans must use the shared detector domain service');
+assert.match(analysis, /pub fn schedule/, 'Analysis participants must share the bounded scheduler');
+assert.match(analysis, /MAX_ANALYSIS_PASSES:\s*usize\s*=\s*4/, 'Analysis must remain bounded to four ordered passes');
+assert.match(clipboardMonitor, /content_analysis::classify_text/, 'GUI capture classification must use the shared analysis scheduler');
+assert.match(database, /content_analysis::classify_text/, 'Detector rescans must use the shared analysis scheduler');
+assert.match(cli, /content_analysis::classify_text/, 'CLI capture classification must use the shared analysis scheduler');
+assert.match(ocr, /content_analysis::analyze_image/, 'GUI OCR must feed extracted representations through the shared analysis scheduler');
+assert.match(cli, /content_analysis::analyze_image/, 'CLI OCR must feed extracted representations through the shared analysis scheduler');
+for (const method of ['get_content_extractors', 'create_content_extractor', 'update_content_extractor_definition', 'duplicate_content_extractor', 'delete_content_extractor', 'restore_default_content_extractors']) {
+  assert.match(database, new RegExp(`pub fn ${method}`), `${method} must live in the shared database domain layer`);
+  assert.match(commands, new RegExp(`pub fn ${method}`), `${method} must be exposed to the GUI`);
+  assert.match(cli, new RegExp(`db\s*\.${method}`), `${method} must be reused by the CLI`);
+}
+assert.match(database, /pub fn get_content_detector/, 'Resolving one Detector must live in the shared database domain layer');
+assert.match(cli, /db\s*\.get_content_detector/, 'Detector references must use the shared database domain layer');
+for (const method of ['create_content_detector', 'update_content_detector', 'duplicate_content_detector', 'delete_content_detector']) {
+  assert.match(database, new RegExp(`pub fn ${method}`), `${method} must live in the shared database domain layer`);
+  assert.match(commands, new RegExp(`pub fn ${method}`), `${method} must be exposed to the GUI`);
+  assert.match(cli, new RegExp(`db\s*\.${method}`), `${method} must be reused by the CLI`);
+}
+assert.match(database, /pub fn apply_content_detector/, 'Applying one Detector must live in the shared database domain layer');
+assert.match(cli, /db\s*\.apply_content_detector/, 'Detector --apply must use the shared database domain layer');
+for (const family of ['extractor', 'detector', 'transform']) {
+  for (const verb of ['list', 'get', 'create', 'update', 'duplicate', 'delete', 'run']) {
+    assert.ok(help.includes(`pasted ${family} ${verb}`), `Help & Docs must cover pasted ${family} ${verb}`);
+  }
+}
 assert.match(commands, /db\.get_library_items/, 'GUI library metadata must use the shared domain service');
 assert.match(cli, /db\.get_library_items/, 'CLI library metadata must use the shared domain service');
 assert.match(commands, /db\.set_library_item_enabled/, 'GUI lifecycle toggles must use the shared domain service');

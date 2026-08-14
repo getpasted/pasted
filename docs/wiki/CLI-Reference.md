@@ -77,18 +77,31 @@ pasted bin order <bin-id> <clip-id>... [--json]
 
 ```text
 pasted transform list
-pasted transform run <ref> [--text TEXT | --clip ID | --stdin] [--replace]
+pasted transform get <ref> [--json]
+pasted transform create --name <name> (--plan-json <json> | --steps-json <json>) [--json]
+pasted transform update <ref> [options] [--json]
+pasted transform duplicate <ref> [--name <name>] [--json]
+pasted transform delete <ref> [--json]
+pasted transform run <ref> [--text TEXT | --clip ID | --stdin] [--apply] [--json]
 pasted operation list [--json]
 pasted operation run <ref> [--text TEXT | --clip ID | --stdin] [--json]
 ```
 
-`--replace` requires `--clip ID` so Pasted can validate the expected input and create a revision. Operations are experimental in 1.0.
+`--apply` requires `--clip ID` so the expected input can be validated and a revision created. `--replace` remains an alias for compatibility. Operations are experimental in 1.0.
 
-## Detection
+## Content Analysis
 
 ```text
-pasted registry list [--kind detector|operation|transform] [--all] [--json]
-pasted registry enable|disable --kind detector|operation --ref <stable-ref> [--json]
+pasted registry list [--kind extractor|detector|operation|transform] [--all] [--json]
+pasted registry enable|disable --kind extractor|detector|operation --ref <stable-ref> [--json]
+pasted extractor list [--json]
+pasted extractor get <ref> [--json]
+pasted extractor create [--name <name>] [--description <text>] [--engine <engine>] [--input <contract>] [--output <contract>] [--priority <number>] [--enabled|--disabled] [--json]
+pasted extractor update <ref> [options] [--json]
+pasted extractor duplicate <ref> [--name <name>] [--json]
+pasted extractor delete <ref> [--json]
+pasted extractor run <ref> (--clip <id> | --file <path>) [--apply] [--json]
+pasted extractor restore-defaults
 pasted type list [--all] [--json]
 pasted type create --id <id> --name <name> [--icon <icon>] [--group <group>] [--json]
 pasted type update <id> [--name <name>] [--icon <icon>] [--group <group>] [--json]
@@ -103,12 +116,17 @@ pasted type group-restore <id>
 pasted type group-delete <id>
 pasted type group-restore-defaults
 pasted detector list [--json]
+pasted detector get <ref> [--json]
 pasted detector create --name <name> --type <type> --regex <pattern> [--json]
-pasted detector update <id> [--name <name>] [--type <type>] [--regex <pattern>] [--validator <name|none>] [--priority <number>] [--enabled|--disabled] [--json]
-pasted detector delete <id>
+pasted detector update <ref> [--name <name>] [--type <type>] [--regex <pattern>] [--validator <name|none>] [--priority <number>] [--enabled|--disabled] [--json]
+pasted detector duplicate <ref> [--name <name>] [--json]
+pasted detector delete <ref> [--json]
+pasted detector run <ref> [--text <text> | --clip <id> | --stdin] [--apply] [--json]
 pasted detector restore-defaults
 pasted detector rescan --yes [--json]
 ```
+
+Registry JSON includes each analysis participant’s `analysisPass`, `inputContract`, and `outputContract`. Extractors run in the extract pass and Detectors run in the classify pass. Every participant runs at most once after its declared inputs become available. Extractor, Detector, and Transform management uses the same core verbs: `list`, `get`, `create`, `update`, `duplicate`, `delete`, and `run`. Runs preview by default; `--apply` explicitly mutates a clip.
 
 Type and Group IDs are stable. Built-in Types can be renamed, regrouped, and given a different icon, but cannot be archived; custom Types can be archived without reinterpreting historical clips. Custom Groups can be archived only when no Types use them. Archiving a custom Type disables detectors that produce it. Detectors run in ascending priority order. Repeat `--regex` to provide alternatives. Shipped detectors are editable and deletable; `restore-defaults` recovers their original definitions without removing custom detectors. `rescan` explicitly reclassifies existing text clips with the current enabled detector order while preserving image and file types.
 

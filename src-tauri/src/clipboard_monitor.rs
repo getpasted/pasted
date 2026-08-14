@@ -8,7 +8,6 @@ use std::thread;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter};
 
-use crate::content_detection::detect_with_detectors;
 use crate::db::DbState;
 use crate::sequential_paste::SequentialQueueState;
 
@@ -602,7 +601,9 @@ pub fn start_clipboard_monitor(
                         ) {
                             db_state
                                 .get_content_detectors()
-                                .map(|detectors| detect_with_detectors(&text, &detectors))
+                                .map(|detectors| {
+                                    crate::content_analysis::classify_text(&text, &detectors)
+                                })
                                 .unwrap_or_else(|_| "text".to_string())
                         } else {
                             "text".to_string()
