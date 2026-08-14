@@ -105,8 +105,11 @@ const CLI_COMMAND_GROUPS = [
   {
     title: 'Content Analysis',
     commands: [
-      { usage: 'pasted registry list [--kind extractor|detector|operation|transform] [--all] [--json]', description: 'Inspect shared lifecycle and input/output contracts for processing assets.' },
+      { usage: 'pasted registry list [--kind inspector|extractor|detector|operation|transform] [--all] [--json]', description: 'Inspect shared lifecycle and input/output contracts for processing assets.' },
       { usage: 'pasted registry enable|disable --kind extractor|detector|operation --ref REF [--json]', description: 'Change the shared enabled state using a stable processing-asset reference.' },
+      { usage: 'pasted inspector list [--json]', description: 'List structural Inspectors and their contracts.' },
+      { usage: 'pasted inspector get <ref> [--json]', description: 'Inspect one Inspector definition.' },
+      { usage: 'pasted inspector run [--text TEXT | --clip ID | --stdin] [--apply] [--json]', description: 'Measure content-free clip structure in preview mode, or persist it for a clip.' },
       { usage: 'pasted extractor list [--json]', description: 'List Extractors, contracts, and system availability.' },
       { usage: 'pasted extractor get <ref> [--json]', description: 'Inspect one Extractor definition.' },
       { usage: 'pasted extractor create [options] [--json]', description: 'Create an Extractor.' },
@@ -541,7 +544,7 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
                   <span>Content Analysis</span>
                 </h3>
                 <p className="theme-text-muted mt-1 text-xs">
-                  Extractors create searchable representations from clip content, while Detectors classify text into useful Types.
+                  Inspectors measure stable clip structure, Extractors create searchable representations, and Detectors classify text into useful Types.
                 </p>
                 <p className="theme-text-muted mt-2 max-w-3xl text-xs leading-relaxed">
                   Analysis runs in four bounded passes: inspect, extract, classify, and enrich. Each participant runs at most once and only when its declared inputs are available.
@@ -556,6 +559,16 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
                   </p>
                   <p className="theme-text-muted text-xs leading-relaxed">
                     Editing a detector affects new text clips. <strong>Rescan Clips</strong> explicitly reapplies the current detector order to existing text and can change Types, Smart Bin membership, and sensitive-content masking. Images and files are left unchanged.
+                  </p>
+                </section>
+
+                <section className="theme-panel space-y-3 rounded-xl border p-4">
+                  <h4 className="theme-status-info-text text-xs font-bold">Structural inspection</h4>
+                  <p className="theme-text-main text-xs leading-relaxed">
+                    Structure records content-free facts such as text counts, image dimensions, file item counts, and origin. Clip Preview and the CLI use the same versioned result.
+                  </p>
+                  <p className="theme-text-muted text-xs leading-relaxed">
+                    File availability and total size are live observations. They are checked when displayed and are not stored as durable analysis facts.
                   </p>
                 </section>
 

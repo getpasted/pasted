@@ -1,0 +1,213 @@
+use crate::analysis_contract::{
+    AnalysisEnvelope, AnalysisPass, AnalysisPolicy, ClipApplication, ParticipantOutcome,
+    ParticipantRun, ANALYSIS_CONTRACT_VERSION,
+};
+use crate::content_inspection::{
+    FileObservations, InspectionResult, StructuralMetadata, STRUCTURE_INSPECTOR_REF,
+};
+use crate::db::{ClipItem, DbState};
+use serde::Serialize;
+use sha2::{Digest, Sha256};
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClipInspectionResult {
+    #[serde(flatten)]
+    pub analysis: InspectionResult,
+    #[serde(flatten)]
+    pub application: ClipApplication,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub live_file_observations: Option<FileObservations>,
+}
+
+fn completed_envelope(metadata: StructuralMetadata, policy: AnalysisPolicy) -> InspectionResult {
+    AnalysisEnvelope::new(
+        policy,
+        metadata,
+        vec![ParticipantRun {
+            stable_ref: STRUCTURE_INSPECTOR_REF.into(),
+            pass: AnalysisPass::Inspect,
+            outcome: ParticipantOutcome::Produced,
+            failure: None,
+        }],
+    )
+}
+
+fn inspection_input_hash(clip: &ClipItem) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(b"pasted-structural-inspection-v1\0");
+    hasher.update(clip.content_type.as_bytes());
+    hasher.update([0]);
+    hasher.update(clip.source.as_bytes());
+    hasher.update([0]);
+    if clip.content_type == "image" {
+        hasher.update(clip.content_hash.as_bytes());
+    } else if let Some(text) = clip.text_content.as_deref() {
+        hasher.update(text.as_bytes());
+    }
+    format!("{:x}", hasher.finalize())
+}
+
+fn analyze_clip(
+    clip: &ClipItem,
+    policy: AnalysisPolicy,
+) -> Result<(InspectionResult, Option<Vec<String>>), String> {
+    match clip.content_type.as_str() {
+        "image" => {
+            let bytes = clip
+                .image_base64
+                .as_deref()
+                .and_then(crate::ocr::decode_stored_image)
+                .ok_or_else(|| "Clip has no inspectable image data".to_string())?;
+            crate::content_inspection::inspect_image_with_policy(bytes, Some(&clip.source), policy)
+                .map(|analysis| (analysis, None))
+                .map_err(|failure| failure.message)
+        }
+        "file" => {
+            let paths = clip
+                .text_content
+                .as_deref()
+                .map(crate::content_inspection::parse_file_paths)
+                .filter(|paths| !paths.is_empty())
+                .ok_or_else(|| "File clip has no valid path metadata".to_string())?;
+            if !crate::resource_limits::file_list_within_limit(&paths) {
+                return Err("File list exceeds Pasted's safety limit".into());
+            }
+            crate::content_inspection::inspect_files_with_policy(
+                paths.clone(),
+                Some(&clip.source),
+                policy,
+            )
+            .map(|analysis| (analysis, Some(paths)))
+            .map_err(|failure| failure.message)
+        }
+        _ => {
+            let text = clip
+                .text_content
+                .as_deref()
+                .ok_or_else(|| "Clip has no inspectable text".to_string())?;
+            crate::content_inspection::inspect_text_with_policy(text, Some(&clip.source), policy)
+                .map(|analysis| (analysis, None))
+                .map_err(|failure| failure.message)
+        }
+    }
+}
+
+pub fn inspect_clip(
+    db: &DbState,
+    clip_id: i64,
+    apply: bool,
+) -> rusqlite::Result<ClipInspectionResult> {
+    inspect_clip_with_policy(db, clip_id, apply, AnalysisPolicy::Interactive)
+}
+
+pub(crate) fn inspect_clip_with_policy(
+    db: &DbState,
+    clip_id: i64,
+    apply: bool,
+    policy: AnalysisPolicy,
+) -> rusqlite::Result<ClipInspectionResult> {
+    let clip = db.get_clip_by_id(clip_id)?;
+    let input_hash = inspection_input_hash(&clip);
+    let cached = db.get_structural_inspection(clip_id, &input_hash)?;
+    let (analysis, file_paths) = if let Some(metadata) = cached {
+        let paths = (clip.content_type == "file").then(|| {
+            clip.text_content
+                .as_deref()
+                .map(crate::content_inspection::parse_file_paths)
+                .unwrap_or_default()
+        });
+        (completed_envelope(metadata, policy), paths)
+    } else {
+        analyze_clip(&clip, policy).map_err(rusqlite::Error::InvalidParameterName)?
+    };
+    debug_assert_eq!(analysis.format_version, ANALYSIS_CONTRACT_VERSION);
+    let applied = if apply {
+        db.record_structural_inspection(clip.id, &clip.content_hash, &input_hash, &analysis.result)?
+    } else {
+        false
+    };
+    let live_file_observations = file_paths
+        .as_deref()
+        .map(crate::content_inspection::observe_files);
+    Ok(ClipInspectionResult {
+        analysis,
+        application: if applied {
+            ClipApplication::applied(clip.id)
+        } else {
+            ClipApplication::preview()
+        },
+        live_file_observations,
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    static NEXT_DATABASE: AtomicU64 = AtomicU64::new(0);
+
+    fn db() -> DbState {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let sequence = NEXT_DATABASE.fetch_add(1, Ordering::Relaxed);
+        DbState::new(std::env::temp_dir().join(format!(
+            "pasted-inspection-execution-{}-{nanos}-{sequence}.db",
+            std::process::id()
+        )))
+        .unwrap()
+    }
+
+    #[test]
+    fn captures_persist_inspection_and_previews_remain_non_mutating() {
+        let db = db();
+        let clip = db
+            .save_clip(
+                "text",
+                Some("alpha beta"),
+                None,
+                None,
+                "inspection-test-hash",
+                "Pasted CLI",
+            )
+            .unwrap();
+
+        let preview = inspect_clip(&db, clip.id, false).unwrap();
+        assert_eq!(preview.application, ClipApplication::preview());
+        assert_eq!(preview.analysis.result.text.unwrap().word_count, 2);
+        assert!(db
+            .get_structural_inspection(clip.id, &inspection_input_hash(&clip))
+            .unwrap()
+            .is_some());
+
+        let applied = inspect_clip(&db, clip.id, true).unwrap();
+        assert_eq!(applied.application, ClipApplication::applied(clip.id));
+        assert!(db
+            .get_structural_inspection(clip.id, &inspection_input_hash(&clip))
+            .unwrap()
+            .is_some());
+    }
+
+    #[test]
+    fn persisted_results_are_invalidated_by_structural_input_changes() {
+        let db = db();
+        let clip = db
+            .save_clip(
+                "text",
+                Some("one"),
+                None,
+                None,
+                "inspection-edit-hash",
+                "Safari",
+            )
+            .unwrap();
+        inspect_clip(&db, clip.id, true).unwrap();
+        db.update_clip_text(clip.id, "one two").unwrap();
+        let refreshed = inspect_clip(&db, clip.id, false).unwrap();
+        assert_eq!(refreshed.analysis.result.text.unwrap().word_count, 2);
+    }
+}

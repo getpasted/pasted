@@ -100,6 +100,7 @@ pub(crate) fn analyze_image_with_registry_and_policy(
                 source: None,
             },
             policy,
+            inspector: false,
             extractor: Some(crate::content_analysis::ExtractorParticipantSource {
                 extractor,
                 registry,
@@ -438,6 +439,7 @@ mod tests {
                 searchable_text: Some("partial output".into()),
                 detected_type: Some("email".into()),
                 matched_detector_ref: Some("detector:email".into()),
+                structural_metadata: None,
             },
             runs: vec![ParticipantRun {
                 stable_ref: "extractor:test".into(),

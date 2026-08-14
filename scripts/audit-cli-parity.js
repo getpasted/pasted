@@ -11,6 +11,8 @@ const analysisContract = read('src-tauri/src/analysis_contract.rs');
 const analysisArchitecture = read('docs/ANALYSIS_ARCHITECTURE.md');
 const extractionExecution = read('src-tauri/src/extraction_execution.rs');
 const detectionExecution = read('src-tauri/src/detection_execution.rs');
+const inspection = read('src-tauri/src/content_inspection.rs');
+const inspectionExecution = read('src-tauri/src/inspection_execution.rs');
 const extraction = read('src-tauri/src/content_extraction.rs');
 const clipboardMonitor = read('src-tauri/src/clipboard_monitor.rs');
 const ocr = read('src-tauri/src/ocr.rs');
@@ -100,6 +102,9 @@ const documentedCommands = [
   'pasted type group-archive|group-restore',
   'pasted type group-delete',
   'pasted registry',
+  'pasted inspector list',
+  'pasted inspector get',
+  'pasted inspector run',
   'pasted extractor list',
   'pasted extractor get',
   'pasted extractor create',
@@ -128,7 +133,7 @@ for (const command of documentedCommands) {
 }
 assert.doesNotMatch(help, /pasted-cli/, 'Help & Docs must expose the stable pasted command, not an implementation alias');
 
-for (const route of ['copy', 'list', 'search', 'import', 'retention', 'settings', 'recording', 'queue', 'activity', 'transfer', 'archive', 'backup', 'clear', 'clip', 'bin', 'transform', 'operation', 'connection', 'insights', 'database', 'library', 'registry', 'type', 'extractor', 'detector', 'diagnostics', 'licenses', 'ocr', 'reset']) {
+for (const route of ['copy', 'list', 'search', 'import', 'retention', 'settings', 'recording', 'queue', 'activity', 'transfer', 'archive', 'backup', 'clear', 'clip', 'bin', 'transform', 'operation', 'connection', 'insights', 'database', 'library', 'registry', 'type', 'inspector', 'extractor', 'detector', 'diagnostics', 'licenses', 'ocr', 'reset']) {
   assert.match(cli, new RegExp(`"${route}"`), `The CLI must retain its ${route} route`);
 }
 for (const method of ['export_backup_json', 'inspect_library_archive_json', 'import_backup_json']) {
@@ -215,6 +220,24 @@ assert.match(ocr, /AnalysisPolicy::Background/,
   'Background OCR must explicitly use the non-enriching Analysis policy');
 assert.match(database, /AnalysisPolicy::Rescan/,
   'History rescans must explicitly use the non-enriching Analysis policy');
+assert.match(inspection, /STRUCTURE_INSPECTOR_REF:\s*&str\s*=\s*"inspector:structure-v1"/,
+  'The structural Inspector must have a stable versioned reference');
+assert.match(inspection, /pub struct StructuralMetadata/,
+  'Structural inspection must expose a typed content-free result');
+assert.match(inspectionExecution, /pub struct ClipInspectionResult/,
+  'GUI and CLI inspection must share one application result');
+assert.match(inspectionExecution, /record_structural_inspection/,
+  'Applied inspection must use hash-checked shared persistence');
+assert.match(database, /CREATE TABLE IF NOT EXISTS clip_analysis_results/,
+  'Stable Inspector results must use durable clip-owned storage');
+assert.match(commands, /inspection_execution::inspect_clip/,
+  'GUI structural inspection must use the shared execution service');
+assert.match(cli, /inspection_execution::inspect_clip/,
+  'CLI structural inspection must use the shared execution service');
+assert.match(tauriMock, /case 'inspect_clip_structure'/,
+  'The frontend mock must preserve the structural inspection contract');
+assert.doesNotMatch(inspection, /pub struct StructuralMetadata[\s\S]*?(?:content|path):\s*(?:String|Vec<String>)/,
+  'Durable structural metadata must not include clipboard contents or file paths');
 assert.doesNotMatch(analysis, /pub (?:enum|struct) (?:AnalysisPass|ParticipantContract|ParticipantOutcome|AnalysisFailure|ParticipantRun)/,
   'The scheduler must consume shared Analysis contracts instead of redefining them');
 for (const boundary of ['resolve_participant', 'AnalysisTargetKind', 'ClipApplication', 'enrichment_execution.rs']) {

@@ -40,6 +40,7 @@ pub struct LibraryItemView {
 impl LibraryItem {
     pub fn analysis_pass(&self) -> Option<String> {
         match self.kind.as_str() {
+            "inspector" => Some("inspect".into()),
             "extractor" => Some("extract".into()),
             "detector" => Some("classify".into()),
             _ => None,

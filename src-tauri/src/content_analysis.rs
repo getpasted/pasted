@@ -17,6 +17,7 @@ pub(crate) struct AnalysisContext {
     pub searchable_text: Option<String>,
     pub detected_type: Option<String>,
     pub matched_detector_ref: Option<String>,
+    pub structural_metadata: Option<crate::content_inspection::StructuralMetadata>,
 }
 
 impl AnalysisContext {
@@ -29,6 +30,7 @@ impl AnalysisContext {
             searchable_text: None,
             detected_type: None,
             matched_detector_ref: None,
+            structural_metadata: None,
         }
     }
 
@@ -41,6 +43,7 @@ impl AnalysisContext {
             searchable_text: None,
             detected_type: None,
             matched_detector_ref: None,
+            structural_metadata: None,
         }
     }
 
@@ -63,6 +66,7 @@ impl AnalysisContext {
             RepresentationKind::SearchableText => self.searchable_text.is_some(),
             RepresentationKind::AnalyzableText => self.analysis_text().is_some(),
             RepresentationKind::Classification => self.detected_type.is_some(),
+            RepresentationKind::StructuralMetadata => self.structural_metadata.is_some(),
         }
     }
 
@@ -73,6 +77,7 @@ impl AnalysisContext {
     }
 }
 
+#[derive(Clone)]
 pub(crate) enum AnalysisInput {
     Text {
         text: String,
@@ -81,6 +86,10 @@ pub(crate) enum AnalysisInput {
     Image {
         image_bytes: Vec<u8>,
         searchable_text: Option<String>,
+        source: Option<String>,
+    },
+    Files {
+        paths: Vec<String>,
         source: Option<String>,
     },
 }
@@ -98,6 +107,16 @@ impl AnalysisInput {
             } => AnalysisContext::for_image(image_bytes)
                 .with_searchable_text(searchable_text)
                 .with_capture_source(source),
+            Self::Files { paths, source } => AnalysisContext {
+                clip_kind: "file".into(),
+                capture_source: source,
+                original_text: Some(serde_json::to_string(&paths).unwrap_or_default()),
+                image_bytes: None,
+                searchable_text: None,
+                detected_type: None,
+                matched_detector_ref: None,
+                structural_metadata: None,
+            },
         }
     }
 }
@@ -110,8 +129,29 @@ pub(crate) struct ExtractorParticipantSource<'a> {
 pub(crate) struct AnalysisRequest<'a> {
     pub input: AnalysisInput,
     pub policy: AnalysisPolicy,
+    pub inspector: bool,
     pub extractor: Option<ExtractorParticipantSource<'a>>,
     pub detectors: Option<&'a [Detector]>,
+}
+
+fn inspector_participant(input: AnalysisInput) -> AnalysisParticipant<'static> {
+    AnalysisParticipant::new(
+        ParticipantContract {
+            stable_ref: crate::content_inspection::STRUCTURE_INSPECTOR_REF.into(),
+            name: "Structure".into(),
+            pass: AnalysisPass::Inspect,
+            priority: 0,
+            requires: vec![RepresentationKind::ClipKind],
+            provides: vec![RepresentationKind::StructuralMetadata],
+        },
+        move |context| match crate::content_inspection::inspect_input(&input) {
+            Ok(metadata) => {
+                context.structural_metadata = Some(metadata);
+                Ok(ParticipantOutcome::Produced)
+            }
+            Err(failure) => Err(failure),
+        },
+    )
 }
 
 pub(crate) struct AnalysisReport {
@@ -340,6 +380,9 @@ fn extractor_participant<'a>(
 
 pub(crate) fn analyze(request: AnalysisRequest<'_>) -> AnalysisReport {
     let mut participants = Vec::new();
+    if request.inspector {
+        participants.push(inspector_participant(request.input.clone()));
+    }
     if let Some(source) = request.extractor {
         participants.push(extractor_participant(source.extractor, source.registry));
     }
@@ -450,6 +493,7 @@ mod tests {
                 source: None,
             },
             policy: AnalysisPolicy::Interactive,
+            inspector: false,
             extractor: Some(ExtractorParticipantSource {
                 extractor,
                 registry,
@@ -465,6 +509,7 @@ mod tests {
                 source: None,
             },
             policy: AnalysisPolicy::Capture,
+            inspector: false,
             extractor: None,
             detectors: Some(detectors),
         })
@@ -540,6 +585,7 @@ mod tests {
                 source: Some("Terminal".into()),
             },
             policy: AnalysisPolicy::Capture,
+            inspector: false,
             extractor: None,
             detectors: None,
         });

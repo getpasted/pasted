@@ -7,6 +7,7 @@ mod commands;
 pub mod content_analysis;
 pub mod content_detection;
 pub mod content_extraction;
+pub mod content_inspection;
 pub mod content_types;
 pub mod db;
 pub mod detection_execution;
@@ -15,6 +16,7 @@ pub mod extraction_execution;
 pub mod features;
 mod filter_engine;
 mod hotkey_manager;
+pub mod inspection_execution;
 pub mod installation_diagnostics;
 pub mod intelligence_connections;
 pub mod intelligence_executor;
@@ -436,7 +438,7 @@ pub fn run() {
             commands::get_clips,
             commands::get_capture_feedback_clip,
             commands::get_clip_image,
-            commands::get_file_clip_metadata,
+            commands::inspect_clip_structure,
             commands::get_file_clip_previews,
             commands::get_trashed_clips,
             commands::restore_clip,
