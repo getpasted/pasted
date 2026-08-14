@@ -76,13 +76,13 @@ fn execute_task<Notify>(
         let _ = db_state.reset_ocr_work(Some(task.clip_id), Some(&task.content_hash));
         return;
     }
-    let completed = crate::analysis_execution::persist_image_analysis(
+    let completed = crate::analysis_execution::persist_claimed_image_analysis(
         db_state,
         task.clip_id,
         &task.content_hash,
         extractor,
         detectors.is_some(),
-        &analysis,
+        analysis,
     )
     .map(|persisted| persisted.ocr_updated)
     .unwrap_or(false);

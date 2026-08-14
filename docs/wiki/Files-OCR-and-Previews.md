@@ -30,3 +30,5 @@ On macOS, Apple Vision can extract searchable text from clipboard images and scr
 - Full Backup and History and Organization transfer round trips preserve completed OCR state.
 
 Use **Settings → Analysis** or `pasted ocr status --json` to inspect background progress. OCR runs only when an available `image → searchable_text` Extractor is enabled.
+
+Manual extraction in the clip preview and `pasted extractor run --apply` use the same hash-safe application result as background OCR. A result reports whether OCR text and derived classification were actually updated; stale or removed clips are rejected instead of being reported as applied.

@@ -84,6 +84,15 @@ interface FileClipPreview {
   height: number | null;
 }
 
+interface ExtractionApplicationResult {
+  outcome: 'produced' | 'no_output' | 'failed';
+  output: string | null;
+  failure: { code: string; message: string } | null;
+  appliedClipId: number | null;
+  ocrUpdated: boolean;
+  classificationUpdated: boolean;
+}
+
 const filePreviewResultCache = new Map<string, FileClipPreview[]>();
 const filePreviewRequestCache = new Map<string, Promise<FileClipPreview[]>>();
 
@@ -462,7 +471,13 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
     if (!clip || !viewPolicy.canMutateContent) return;
     setIsOcrLoading(true);
     try {
-      await invoke<string>('extract_ocr_from_clip', { clipId: clip.id });
+      const result = await invoke<ExtractionApplicationResult>('extract_ocr_from_clip', { clipId: clip.id });
+      if (result.outcome === 'failed') {
+        throw new Error(result.failure?.message ?? 'The Extractor failed.');
+      }
+      if (result.outcome === 'no_output') {
+        throw new Error('No text recognized in image.');
+      }
       if (features.revisions) {
         invoke<number>('get_clip_version_count', { clipId: clip.id })
           .then(setRevisionCount)

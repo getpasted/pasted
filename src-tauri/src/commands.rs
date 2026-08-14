@@ -4275,7 +4275,10 @@ pub fn get_installed_applications(db: State<'_, Arc<DbState>>) -> Result<Vec<Str
 }
 
 #[tauri::command]
-pub fn extract_ocr_from_clip(clip_id: i64, db: State<'_, Arc<DbState>>) -> Result<String, String> {
+pub fn extract_ocr_from_clip(
+    clip_id: i64,
+    db: State<'_, Arc<DbState>>,
+) -> Result<crate::analysis_execution::ExtractionApplicationResult, String> {
     features::require(&db, Feature::Ocr)?;
     let extractor = db
         .active_image_text_extractor()
@@ -4283,39 +4286,26 @@ pub fn extract_ocr_from_clip(clip_id: i64, db: State<'_, Arc<DbState>>) -> Resul
         .ok_or_else(|| "No available image text Extractor is enabled".to_string())?;
     let clip = db.get_clip_by_id(clip_id).map_err(|e| e.to_string())?;
 
-    if let Some(b64) = clip.image_base64 {
-        if let Some(bytes) = crate::ocr::decode_stored_image(&b64) {
-            if !db
-                .force_ocr_running(clip_id, &clip.content_hash)
-                .map_err(|error| error.to_string())?
-            {
-                return Err("Clip is no longer available for OCR".to_string());
-            }
-            let detectors = features::is_enabled(&db, Feature::ContentDetection)
-                .then(|| db.get_content_detectors().ok())
-                .flatten();
-            let analysis =
-                crate::analysis_execution::analyze_image(bytes, &extractor, detectors.as_deref());
-            let extraction_failure = analysis.failure.clone();
-            let ocr_text = analysis.output.clone();
-            crate::analysis_execution::persist_image_analysis(
-                &db,
-                clip_id,
-                &clip.content_hash,
-                &extractor,
-                detectors.is_some(),
-                &analysis,
-            )
-            .map_err(|error| error.to_string())?;
-            if let Some(ocr_text) = ocr_text {
-                return Ok(ocr_text);
-            }
-            if let Some(failure) = extraction_failure {
-                return Err(failure.message);
-            }
-        }
-    }
-    Err("No text recognized in image".to_string())
+    let image = clip
+        .image_base64
+        .as_deref()
+        .ok_or_else(|| "Clip has no extractable image data".to_string())?;
+    let bytes = crate::ocr::decode_stored_image(image)
+        .ok_or_else(|| "Clip has no extractable image data".to_string())?;
+    let detectors = features::is_enabled(&db, Feature::ContentDetection)
+        .then(|| db.get_content_detectors().ok())
+        .flatten();
+    let analysis =
+        crate::analysis_execution::analyze_image(bytes, &extractor, detectors.as_deref());
+    crate::analysis_execution::apply_image_analysis(
+        &db,
+        clip_id,
+        &clip.content_hash,
+        &extractor,
+        detectors.is_some(),
+        analysis,
+    )
+    .map_err(|error| error.to_string())
 }
 
 #[tauri::command]

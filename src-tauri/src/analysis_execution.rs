@@ -121,7 +121,28 @@ pub struct ImageAnalysisPersistence {
     pub classification_updated: bool,
 }
 
-pub fn persist_image_analysis(
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExtractionApplicationResult {
+    #[serde(flatten)]
+    pub analysis: ImageAnalysisResult,
+    pub applied_clip_id: Option<i64>,
+    pub ocr_updated: bool,
+    pub classification_updated: bool,
+}
+
+impl ExtractionApplicationResult {
+    pub fn preview(analysis: ImageAnalysisResult) -> Self {
+        Self {
+            analysis,
+            applied_clip_id: None,
+            ocr_updated: false,
+            classification_updated: false,
+        }
+    }
+}
+
+fn persist_image_analysis(
     db: &DbState,
     clip_id: i64,
     content_hash: &str,
@@ -164,6 +185,59 @@ pub fn persist_image_analysis(
         ocr_updated,
         classification_updated,
     })
+}
+
+pub fn persist_claimed_image_analysis(
+    db: &DbState,
+    clip_id: i64,
+    content_hash: &str,
+    extractor: &Extractor,
+    classification_enabled: bool,
+    analysis: ImageAnalysisResult,
+) -> rusqlite::Result<ExtractionApplicationResult> {
+    let persistence = persist_image_analysis(
+        db,
+        clip_id,
+        content_hash,
+        extractor,
+        classification_enabled,
+        &analysis,
+    )?;
+    Ok(ExtractionApplicationResult {
+        applied_clip_id: persistence.ocr_updated.then_some(clip_id),
+        ocr_updated: persistence.ocr_updated,
+        classification_updated: persistence.classification_updated,
+        analysis,
+    })
+}
+
+pub fn apply_image_analysis(
+    db: &DbState,
+    clip_id: i64,
+    content_hash: &str,
+    extractor: &Extractor,
+    classification_enabled: bool,
+    analysis: ImageAnalysisResult,
+) -> rusqlite::Result<ExtractionApplicationResult> {
+    if !db.force_ocr_running(clip_id, content_hash)? {
+        return Err(rusqlite::Error::InvalidParameterName(
+            "The selected clip is no longer available for extraction".into(),
+        ));
+    }
+    let result = persist_claimed_image_analysis(
+        db,
+        clip_id,
+        content_hash,
+        extractor,
+        classification_enabled,
+        analysis,
+    )?;
+    if !result.ocr_updated {
+        return Err(rusqlite::Error::InvalidParameterName(
+            "The selected clip changed before extraction could be applied".into(),
+        ));
+    }
+    Ok(result)
 }
 
 #[cfg(test)]
@@ -271,6 +345,27 @@ mod tests {
                     "pass": "extract",
                     "outcome": "produced"
                 }],
+            })
+        );
+
+        assert_eq!(
+            serde_json::to_value(ExtractionApplicationResult::preview(result)).unwrap(),
+            serde_json::json!({
+                "targetKind": "extractor",
+                "targetRef": "extractor:test",
+                "outcome": "produced",
+                "output": "recognized text",
+                "detectedType": null,
+                "matchedDetectorRef": null,
+                "failure": null,
+                "participants": [{
+                    "stableRef": "extractor:test",
+                    "pass": "extract",
+                    "outcome": "produced"
+                }],
+                "appliedClipId": null,
+                "ocrUpdated": false,
+                "classificationUpdated": false,
             })
         );
     }
@@ -384,23 +479,19 @@ mod tests {
             Some("detector:email"),
         );
 
-        let persisted = persist_image_analysis(
+        let persisted = persist_claimed_image_analysis(
             &db,
             clip.id,
             &clip.content_hash,
             &extractor(),
             true,
-            &analysis,
+            analysis,
         )
         .unwrap();
 
-        assert_eq!(
-            persisted,
-            ImageAnalysisPersistence {
-                ocr_updated: true,
-                classification_updated: true,
-            }
-        );
+        assert_eq!(persisted.applied_clip_id, Some(clip.id));
+        assert!(persisted.ocr_updated);
+        assert!(persisted.classification_updated);
         assert_eq!(
             db.get_clip_by_id(clip.id).unwrap().text_content.as_deref(),
             Some("agent@example.com")
@@ -409,6 +500,50 @@ mod tests {
         assert_eq!(classification.content_type, "email");
         assert_eq!(classification.detector_ref, "detector:email");
         assert_eq!(classification.source_representation, "searchable_text");
+    }
+
+    #[test]
+    fn user_application_claims_the_clip_and_rejects_stale_input() {
+        let db = setup_test_db();
+        let clip = db
+            .save_clip(
+                "image",
+                None,
+                None,
+                Some(crate::resource_limits::TEST_PNG_DATA_URL),
+                "user-analysis-application",
+                "Screenshot",
+            )
+            .unwrap();
+
+        let stale = apply_image_analysis(
+            &db,
+            clip.id,
+            "stale-hash",
+            &extractor(),
+            false,
+            result(Some("must not be saved"), None, None),
+        )
+        .unwrap_err();
+        assert!(stale.to_string().contains("no longer available"));
+        assert_eq!(db.get_clip_by_id(clip.id).unwrap().text_content, None);
+
+        let applied = apply_image_analysis(
+            &db,
+            clip.id,
+            &clip.content_hash,
+            &extractor(),
+            false,
+            result(Some("recognized text"), None, None),
+        )
+        .unwrap();
+        assert_eq!(applied.applied_clip_id, Some(clip.id));
+        assert!(applied.ocr_updated);
+        assert!(!applied.classification_updated);
+        assert_eq!(
+            db.get_clip_by_id(clip.id).unwrap().text_content.as_deref(),
+            Some("recognized text")
+        );
     }
 
     #[test]
@@ -431,23 +566,19 @@ mod tests {
             Some("detector:test"),
         );
 
-        let persisted = persist_image_analysis(
+        let persisted = persist_claimed_image_analysis(
             &db,
             clip.id,
             &clip.content_hash,
             &extractor(),
             true,
-            &analysis,
+            analysis,
         )
         .unwrap();
 
-        assert_eq!(
-            persisted,
-            ImageAnalysisPersistence {
-                ocr_updated: true,
-                classification_updated: false,
-            }
-        );
+        assert_eq!(persisted.applied_clip_id, Some(clip.id));
+        assert!(persisted.ocr_updated);
+        assert!(!persisted.classification_updated);
         assert_eq!(
             db.get_clip_by_id(clip.id).unwrap().text_content.as_deref(),
             Some("recognized text")
