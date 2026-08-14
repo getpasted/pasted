@@ -4,10 +4,12 @@ Pasted runs derived-content work through one bounded Analyzer and exposes partic
 
 ## Stable layers
 
-- `analysis_contract.rs` owns representation names, the four ordered passes, participant contracts and run summaries, target kinds, failures, and clip-application state.
-- `content_analysis.rs` owns scheduling and the in-memory Analysis context. Raw `AnalysisReport` values stay crate-internal.
+- `analysis_contract.rs` owns the contract version, representation names, the four ordered passes, execution policies, participant contracts and run summaries, target kinds, failures, and clip-application state.
+- `content_analysis.rs` owns typed Analysis requests, scheduling, and the in-memory Analysis context. Raw `AnalysisReport` values stay crate-internal.
 - `extraction_execution.rs` and `detection_execution.rs` translate raw reports into stable Extractor and Detector results. GUI, CLI, and background services consume these results instead of interpreting scheduler state.
 - Persistence accepts typed execution results. Preview and apply share the same serialized shape, and applied clip IDs come from shared application state rather than surface-specific JSON assembly.
+
+Capture, background, and rescan policies stop after classification. Interactive work may continue through enrichment, so optional expensive participants never run implicitly during capture. Callers choose a policy and available participants; they do not invoke scheduler passes directly.
 
 ## Adding an Inspector or Enricher
 

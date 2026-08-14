@@ -1,9 +1,10 @@
 use serde::{Deserialize, Serialize};
 use std::{fmt, str::FromStr};
 
+pub const ANALYSIS_CONTRACT_VERSION: u32 = 1;
 pub const MAX_ANALYSIS_PASSES: usize = 4;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AnalysisPass {
     Inspect,
@@ -15,6 +16,59 @@ pub enum AnalysisPass {
 impl AnalysisPass {
     pub(crate) const ORDERED: [Self; MAX_ANALYSIS_PASSES] =
         [Self::Inspect, Self::Extract, Self::Classify, Self::Enrich];
+
+    pub const fn includes(self, pass: Self) -> bool {
+        match self {
+            Self::Inspect => matches!(pass, Self::Inspect),
+            Self::Extract => matches!(pass, Self::Inspect | Self::Extract),
+            Self::Classify => matches!(pass, Self::Inspect | Self::Extract | Self::Classify),
+            Self::Enrich => true,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AnalysisPolicy {
+    Capture,
+    Background,
+    Interactive,
+    Rescan,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AnalysisEnvelope<T> {
+    pub format_version: u32,
+    pub policy: AnalysisPolicy,
+    pub through: AnalysisPass,
+    pub result: T,
+    pub participants: Vec<ParticipantRun>,
+}
+
+impl<T> AnalysisEnvelope<T> {
+    pub fn new(policy: AnalysisPolicy, result: T, participants: Vec<ParticipantRun>) -> Self {
+        Self {
+            format_version: ANALYSIS_CONTRACT_VERSION,
+            policy,
+            through: policy.through(),
+            result,
+            participants,
+        }
+    }
+}
+
+impl AnalysisPolicy {
+    pub const fn through(self) -> AnalysisPass {
+        match self {
+            Self::Capture | Self::Background | Self::Rescan => AnalysisPass::Classify,
+            Self::Interactive => AnalysisPass::Enrich,
+        }
+    }
+
+    pub const fn includes(self, pass: AnalysisPass) -> bool {
+        self.through().includes(pass)
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -44,6 +98,7 @@ impl AnalysisTargetKind {
 #[serde(rename_all = "snake_case")]
 pub enum RepresentationKind {
     ClipKind,
+    CaptureSource,
     OriginalText,
     #[serde(rename = "image")]
     ImageBytes,
@@ -56,6 +111,7 @@ impl RepresentationKind {
     pub const fn stable_name(self) -> &'static str {
         match self {
             Self::ClipKind => "clip_kind",
+            Self::CaptureSource => "capture_source",
             Self::OriginalText => "original_text",
             Self::ImageBytes => "image",
             Self::SearchableText => "searchable_text",
@@ -77,6 +133,7 @@ impl FromStr for RepresentationKind {
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         match value {
             "clip_kind" => Ok(Self::ClipKind),
+            "capture_source" => Ok(Self::CaptureSource),
             "original_text" => Ok(Self::OriginalText),
             "image" => Ok(Self::ImageBytes),
             "searchable_text" => Ok(Self::SearchableText),
@@ -188,6 +245,40 @@ mod tests {
     }
 
     #[test]
+    fn analysis_policies_bound_work_at_the_expected_pass() {
+        assert_eq!(ANALYSIS_CONTRACT_VERSION, 1);
+        for policy in [
+            AnalysisPolicy::Capture,
+            AnalysisPolicy::Background,
+            AnalysisPolicy::Rescan,
+        ] {
+            assert!(policy.includes(AnalysisPass::Inspect));
+            assert!(policy.includes(AnalysisPass::Classify));
+            assert!(!policy.includes(AnalysisPass::Enrich));
+        }
+        assert!(AnalysisPolicy::Interactive.includes(AnalysisPass::Enrich));
+    }
+
+    #[test]
+    fn public_analysis_envelopes_are_explicitly_versioned() {
+        let envelope = AnalysisEnvelope::new(
+            AnalysisPolicy::Interactive,
+            serde_json::json!({ "kind": "test" }),
+            Vec::new(),
+        );
+        assert_eq!(
+            serde_json::to_value(envelope).unwrap(),
+            serde_json::json!({
+                "formatVersion": 1,
+                "policy": "interactive",
+                "through": "enrich",
+                "result": { "kind": "test" },
+                "participants": []
+            })
+        );
+    }
+
+    #[test]
     fn clip_application_flattens_to_the_shared_json_field() {
         assert_eq!(
             serde_json::to_value(ClipApplication::preview()).unwrap(),
@@ -203,6 +294,7 @@ mod tests {
     fn representation_names_round_trip_through_the_shared_contract() {
         for kind in [
             RepresentationKind::ClipKind,
+            RepresentationKind::CaptureSource,
             RepresentationKind::OriginalText,
             RepresentationKind::ImageBytes,
             RepresentationKind::SearchableText,

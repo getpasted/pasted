@@ -75,14 +75,37 @@ pub fn analyze_image_with_registry(
     detectors: Option<&[crate::content_detection::Detector]>,
     registry: &ExtractorEngineRegistry<'_>,
 ) -> ExtractionResult {
+    analyze_image_with_registry_and_policy(
+        image_bytes,
+        extractor,
+        detectors,
+        registry,
+        crate::analysis_contract::AnalysisPolicy::Interactive,
+    )
+}
+
+pub(crate) fn analyze_image_with_registry_and_policy(
+    image_bytes: Vec<u8>,
+    extractor: &Extractor,
+    detectors: Option<&[crate::content_detection::Detector]>,
+    registry: &ExtractorEngineRegistry<'_>,
+    policy: crate::analysis_contract::AnalysisPolicy,
+) -> ExtractionResult {
     ExtractionResult::from_report(
         extractor,
-        crate::content_analysis::analyze_image_with_registry(
-            image_bytes,
-            extractor,
+        crate::content_analysis::analyze(crate::content_analysis::AnalysisRequest {
+            input: crate::content_analysis::AnalysisInput::Image {
+                image_bytes,
+                searchable_text: None,
+                source: None,
+            },
+            policy,
+            extractor: Some(crate::content_analysis::ExtractorParticipantSource {
+                extractor,
+                registry,
+            }),
             detectors,
-            registry,
-        ),
+        }),
     )
 }
 
@@ -409,6 +432,7 @@ mod tests {
         let report = AnalysisReport {
             context: AnalysisContext {
                 clip_kind: "image".into(),
+                capture_source: None,
                 original_text: None,
                 image_bytes: None,
                 searchable_text: Some("partial output".into()),

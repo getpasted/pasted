@@ -3318,9 +3318,14 @@ impl DbState {
             if crate::features::is_enabled(self, crate::features::Feature::ContentDetection) {
                 self.get_content_detectors()
                     .map(|detectors| {
-                        crate::detection_execution::analyze_detectors(text, &detectors)
-                            .classification()
-                            .to_string()
+                        crate::detection_execution::analyze_detectors_with_policy(
+                            text,
+                            &detectors,
+                            crate::analysis_contract::AnalysisPolicy::Capture,
+                            Some(source),
+                        )
+                        .classification()
+                        .to_string()
                     })
                     .unwrap_or_else(|_| "text".to_string())
             } else {
@@ -9699,7 +9704,12 @@ impl DbState {
                     failed_count += 1;
                     continue;
                 }
-                let analysis = crate::detection_execution::analyze_detectors(&text, &detectors);
+                let analysis = crate::detection_execution::analyze_detectors_with_policy(
+                    &text,
+                    &detectors,
+                    crate::analysis_contract::AnalysisPolicy::Rescan,
+                    None,
+                );
                 if analysis.failed() {
                     failed_count += 1;
                     continue;

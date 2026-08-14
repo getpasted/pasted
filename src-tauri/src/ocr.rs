@@ -66,11 +66,12 @@ fn execute_task<Notify>(
         crate::features::is_enabled(db_state, crate::features::Feature::ContentDetection)
             .then(|| db_state.get_content_detectors().ok())
             .flatten();
-    let analysis = crate::extraction_execution::analyze_image_with_registry(
+    let analysis = crate::extraction_execution::analyze_image_with_registry_and_policy(
         task.image_bytes,
         extractor,
         detectors.as_deref(),
         registry,
+        crate::analysis_contract::AnalysisPolicy::Background,
     );
     if !crate::features::is_enabled(db_state, crate::features::Feature::Ocr) {
         let _ = db_state.reset_ocr_work(Some(task.clip_id), Some(&task.content_hash));

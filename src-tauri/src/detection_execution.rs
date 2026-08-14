@@ -93,10 +93,32 @@ impl DetectionApplicationResult {
 }
 
 pub fn analyze_detectors(text: &str, detectors: &[Detector]) -> DetectionResult {
+    analyze_detectors_with_policy(
+        text,
+        detectors,
+        crate::analysis_contract::AnalysisPolicy::Interactive,
+        None,
+    )
+}
+
+pub(crate) fn analyze_detectors_with_policy(
+    text: &str,
+    detectors: &[Detector],
+    policy: crate::analysis_contract::AnalysisPolicy,
+    source: Option<&str>,
+) -> DetectionResult {
     DetectionResult::from_report(
         AnalysisTargetKind::DetectorSet,
         DETECTOR_PARTICIPANT_REF.into(),
-        crate::content_analysis::analyze_text(text, detectors),
+        crate::content_analysis::analyze(crate::content_analysis::AnalysisRequest {
+            input: crate::content_analysis::AnalysisInput::Text {
+                text: text.into(),
+                source: source.map(str::to_owned),
+            },
+            policy,
+            extractor: None,
+            detectors: Some(detectors),
+        }),
     )
 }
 
@@ -104,7 +126,15 @@ pub fn analyze_detector(text: &str, detector: &Detector) -> DetectionResult {
     DetectionResult::from_report(
         AnalysisTargetKind::Detector,
         detector.stable_ref.clone(),
-        crate::content_analysis::analyze_text(text, std::slice::from_ref(detector)),
+        crate::content_analysis::analyze(crate::content_analysis::AnalysisRequest {
+            input: crate::content_analysis::AnalysisInput::Text {
+                text: text.into(),
+                source: None,
+            },
+            policy: crate::analysis_contract::AnalysisPolicy::Interactive,
+            extractor: None,
+            detectors: Some(std::slice::from_ref(detector)),
+        }),
     )
 }
 
@@ -172,6 +202,7 @@ mod tests {
         let report = AnalysisReport {
             context: AnalysisContext {
                 clip_kind: "text".into(),
+                capture_source: None,
                 original_text: None,
                 image_bytes: None,
                 searchable_text: None,
