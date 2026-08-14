@@ -15,6 +15,8 @@ Analysis uses a shared, non-destructive scheduler. Original clip representations
 
 Within each pass, ready participants run in priority order. A participant blocked on a same-pass representation waits until a producer makes that input available; each participant still executes at most once, without recursion. Participants whose inputs remain missing after the pass settles are skipped. A participant that reports success without producing its declared output fails closed. Original clip content is never replaced by the scheduler. Operations remain separate because they are user-directed mutations rather than analysis participants.
 
+The four passes share one versioned participant contract for target identity, requirements, outputs, outcomes, failures, and clip-application state. Extractor and Detector execution modules translate the internal scheduler report into their domain-specific result without redefining those fields. Inspector and Enricher implementations follow the same boundary, so adding a pass participant does not require GUI or CLI code to interpret raw Analyzer state.
+
 ## Extractors
 
 Extractors create searchable representations from clip content without replacing the original. Apple Vision OCR is the built-in image-to-text Extractor. It runs locally on macOS and appears as unavailable on Windows and Linux, where Apple Vision is not present. Extractor names, descriptions, priority, and enabled state can be managed under **Settings → Analysis → Manage Extractors**.

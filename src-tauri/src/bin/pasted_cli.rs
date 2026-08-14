@@ -1070,7 +1070,7 @@ fn main() -> Result<()> {
                     )
                     .then(|| db.get_content_detectors())
                     .transpose()?;
-                    let analysis = pasted_lib::analysis_execution::analyze_image(
+                    let analysis = pasted_lib::extraction_execution::analyze_image(
                         image_bytes,
                         &extractor,
                         detectors.as_deref(),
@@ -1078,7 +1078,7 @@ fn main() -> Result<()> {
                     let result = if apply {
                         let clip_id = clip_id.expect("validated apply target");
                         let content_hash = content_hash.as_deref().expect("clip input has a hash");
-                        pasted_lib::analysis_execution::apply_image_analysis(
+                        pasted_lib::extraction_execution::apply_image_analysis(
                             &db,
                             clip_id,
                             content_hash,
@@ -1087,7 +1087,7 @@ fn main() -> Result<()> {
                             analysis,
                         )?
                     } else {
-                        pasted_lib::analysis_execution::ExtractionApplicationResult::preview(
+                        pasted_lib::extraction_execution::ExtractionApplicationResult::preview(
                             analysis,
                         )
                     };
@@ -3705,9 +3705,12 @@ fn scan_existing_images(db: &DbState, clip_id: Option<i64>) -> Result<usize> {
             scanned += 1;
             continue;
         };
-        let analysis =
-            pasted_lib::analysis_execution::analyze_image(bytes, &extractor, detectors.as_deref());
-        pasted_lib::analysis_execution::persist_claimed_image_analysis(
+        let analysis = pasted_lib::extraction_execution::analyze_image(
+            bytes,
+            &extractor,
+            detectors.as_deref(),
+        );
+        pasted_lib::extraction_execution::persist_claimed_image_analysis(
             db,
             candidate.clip_id,
             &candidate.content_hash,

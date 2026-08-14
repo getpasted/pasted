@@ -8,7 +8,8 @@ const database = read('src-tauri/src/db.rs');
 const commands = read('src-tauri/src/commands.rs');
 const analysis = read('src-tauri/src/content_analysis.rs');
 const analysisContract = read('src-tauri/src/analysis_contract.rs');
-const analysisExecution = read('src-tauri/src/analysis_execution.rs');
+const analysisArchitecture = read('docs/ANALYSIS_ARCHITECTURE.md');
+const extractionExecution = read('src-tauri/src/extraction_execution.rs');
 const detectionExecution = read('src-tauri/src/detection_execution.rs');
 const extraction = read('src-tauri/src/content_extraction.rs');
 const clipboardMonitor = read('src-tauri/src/clipboard_monitor.rs');
@@ -198,36 +199,50 @@ assert.match(cli, /db\.rescan_content_detection\(\)/, 'CLI history rescans must 
 assert.match(analysis, /pub fn schedule/, 'Analysis participants must share the bounded scheduler');
 assert.match(analysisContract, /pub enum RepresentationKind/,
   'Analysis representations must use the shared typed contract');
+for (const contract of ['AnalysisPass', 'AnalysisTargetKind', 'ParticipantContract', 'ParticipantOutcome', 'AnalysisFailure', 'ParticipantRun', 'ClipApplication']) {
+  assert.match(analysisContract, new RegExp(`pub (?:enum|struct) ${contract}`),
+    `${contract} must live in the shared Analysis contract`);
+}
+assert.doesNotMatch(analysis, /pub (?:enum|struct) (?:AnalysisPass|ParticipantContract|ParticipantOutcome|AnalysisFailure|ParticipantRun)/,
+  'The scheduler must consume shared Analysis contracts instead of redefining them');
+for (const boundary of ['resolve_participant', 'AnalysisTargetKind', 'ClipApplication', 'enrichment_execution.rs']) {
+  assert.ok(analysisArchitecture.includes(boundary), `Analysis extension guidance must document ${boundary}`);
+}
 assert.match(extraction, /pub fn representation_contract/,
   'Extractors must parse metadata through the shared representation contract');
 assert.match(extraction, /code: "invalid_contract"/,
   'Extractor engines must fail closed for unsupported representation contracts');
 assert.doesNotMatch(database, /extractor\.input_contract == "image"/,
   'Active Extractor selection must not compare representation metadata ad hoc');
-assert.match(analysis, /MAX_ANALYSIS_PASSES:\s*usize\s*=\s*4/, 'Analysis must remain bounded to four ordered passes');
+assert.match(analysisContract, /MAX_ANALYSIS_PASSES:\s*usize\s*=\s*4/, 'Analysis must remain bounded to four ordered passes');
 assert.match(extraction, /pub trait ExtractorEngine:\s*Sync/, 'Extractor engines must use the shared runtime contract');
 assert.match(extraction, /pub enum ExtractionOutcome/, 'Extractor execution must return a typed outcome');
 assert.match(analysis, /ExtractorEngineRegistry/, 'Analysis must dispatch Extractors through the shared engine registry');
-assert.match(analysis, /pub struct AnalysisFailure/, 'Analysis must preserve typed participant failures');
-assert.match(analysisExecution, /pub struct ImageAnalysisResult/,
+assert.match(extractionExecution, /pub struct ExtractionResult/,
   'Image Analysis must expose one shared execution-result contract');
-assert.match(analysisExecution, /pub participants: Vec<ParticipantRun>/,
+assert.match(extractionExecution, /pub participants: Vec<ParticipantRun>/,
   'Image Analysis results must expose privacy-safe participant summaries');
+assert.match(extractionExecution, /resolve_participant/,
+  'Extractor results must use shared participant normalization');
+assert.match(extractionExecution, /pub application: ClipApplication/,
+  'Extractor results must use shared clip-application state');
+assert.doesNotMatch(extractionExecution, /pub enum AnalysisTargetKind/,
+  'Extractor targets must use the shared Analysis target kind');
 assert.doesNotMatch(analysis, /pub fn analyze_image\(/,
   'Raw Image Analysis reports must not remain a public execution path');
-assert.match(analysisExecution, /pub struct ExtractionApplicationResult/,
+assert.match(extractionExecution, /pub struct ExtractionApplicationResult/,
   'Extractor application must expose one shared serializable result contract');
-assert.match(analysisExecution, /pub fn apply_image_analysis/,
+assert.match(extractionExecution, /pub fn apply_image_analysis/,
   'User-initiated Extractor application must use one shared application service');
-assert.match(analysisExecution, /pub fn persist_claimed_image_analysis/,
+assert.match(extractionExecution, /pub fn persist_claimed_image_analysis/,
   'Claimed background Extractor work must use the shared persistence service');
 assert.match(cli, /ExtractionApplicationResult::preview/,
   'CLI Extractor previews must use the shared application result shape');
-assert.match(cli, /analysis_execution::apply_image_analysis/,
+assert.match(cli, /extraction_execution::apply_image_analysis/,
   'CLI Extractor apply must use the shared application service');
-assert.match(commands, /analysis_execution::apply_image_analysis/,
+assert.match(commands, /extraction_execution::apply_image_analysis/,
   'GUI Extractor apply must use the shared application service');
-assert.match(ocr, /analysis_execution::persist_claimed_image_analysis/,
+assert.match(ocr, /extraction_execution::persist_claimed_image_analysis/,
   'Background OCR must use the shared claimed-work application service');
 assert.doesNotMatch(cli, /output\["appliedClipId"\]/,
   'CLI Extractor JSON must not synthesize application state');
@@ -235,15 +250,15 @@ assert.match(cli, /serde_json::json!\(&result\)/,
   'CLI Extractor JSON must serialize the shared application result');
 assert.match(database, /pub fn complete_or_reset_ocr_attempt/,
   'OCR runtimes must share failure-safe attempt persistence');
-assert.match(analysisExecution, /analysis\s*\.failure\s*\.as_ref\(\)/,
+assert.match(extractionExecution, /analysis\s*\.failure\s*\.as_ref\(\)/,
   'Shared Image Analysis persistence must preserve Extractor failure codes');
-assert.match(analysisExecution, /complete_or_reset_ocr_attempt/,
+assert.match(extractionExecution, /complete_or_reset_ocr_attempt/,
   'Shared Image Analysis persistence must reset claimed work on failure');
-assert.match(ocr, /analysis_execution::analyze_image_with_registry/,
+assert.match(ocr, /extraction_execution::analyze_image_with_registry/,
   'Background OCR must use the shared Image Analysis execution result');
-assert.match(cli, /analysis_execution::analyze_image/,
+assert.match(cli, /extraction_execution::analyze_image/,
   'CLI OCR must use the shared Image Analysis execution result');
-assert.match(commands, /analysis_execution::analyze_image/,
+assert.match(commands, /extraction_execution::analyze_image/,
   'GUI OCR must use the shared Image Analysis execution result');
 assert.doesNotMatch(ocr, /record_analysis_classification/,
   'Background OCR must not persist derived classifications independently');
@@ -259,6 +274,12 @@ assert.match(detectionExecution, /pub struct DetectionApplicationResult/,
   'Detector application must expose one shared mutation result');
 assert.match(detectionExecution, /pub participants: Vec<ParticipantRun>/,
   'Detection results must expose privacy-safe participant summaries');
+assert.match(detectionExecution, /resolve_participant/,
+  'Detector results must use shared participant normalization');
+assert.match(detectionExecution, /pub application: ClipApplication/,
+  'Detector results must use shared clip-application state');
+assert.doesNotMatch(detectionExecution, /pub enum DetectionTargetKind/,
+  'Detector targets must use the shared Analysis target kind');
 assert.doesNotMatch(analysis, /pub fn analyze_text\(/,
   'Raw text Analysis reports must not remain a public execution path');
 assert.match(database, /detection_execution::analyze_detectors/,

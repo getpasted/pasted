@@ -66,7 +66,7 @@ fn execute_task<Notify>(
         crate::features::is_enabled(db_state, crate::features::Feature::ContentDetection)
             .then(|| db_state.get_content_detectors().ok())
             .flatten();
-    let analysis = crate::analysis_execution::analyze_image_with_registry(
+    let analysis = crate::extraction_execution::analyze_image_with_registry(
         task.image_bytes,
         extractor,
         detectors.as_deref(),
@@ -76,7 +76,7 @@ fn execute_task<Notify>(
         let _ = db_state.reset_ocr_work(Some(task.clip_id), Some(&task.content_hash));
         return;
     }
-    let completed = crate::analysis_execution::persist_claimed_image_analysis(
+    let completed = crate::extraction_execution::persist_claimed_image_analysis(
         db_state,
         task.clip_id,
         &task.content_hash,
