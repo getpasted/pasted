@@ -263,16 +263,7 @@ pub fn classify_text(text: &str, detectors: &[Detector]) -> String {
         .unwrap_or_else(|| "text".into())
 }
 
-pub fn analyze_image(
-    image_bytes: Vec<u8>,
-    extractor: &Extractor,
-    detectors: Option<&[Detector]>,
-) -> AnalysisReport {
-    let registry = crate::content_extraction::system_engine_registry();
-    analyze_image_with_registry(image_bytes, extractor, detectors, &registry)
-}
-
-pub fn analyze_image_with_registry(
+pub(crate) fn analyze_image_with_registry(
     image_bytes: Vec<u8>,
     extractor: &Extractor,
     detectors: Option<&[Detector]>,
