@@ -246,7 +246,7 @@ jobs:
   package-macos-dmg:
     name: Package macOS universal DMG
     if: github.event_name != 'pull_request'
-    needs: [validate, dependency-policy]
+    needs: [package-macos-cli]
     runs-on: macos-latest
     env:
       APPLE_SIGNING_IDENTITY: '-'
@@ -267,6 +267,21 @@ jobs:
           workspaces: src-tauri
           shared-key: macos-universal-app
       - run: npm ci
+      - uses: actions/download-artifact@v8
+        with:
+          name: Pasted-macOS-universal-CLI
+          path: src-tauri/target/universal-apple-darwin/release
+      - name: Verify bundled macOS universal CLI
+        run: |
+          chmod +x src-tauri/target/universal-apple-darwin/release/pasted
+          lipo \
+            src-tauri/target/universal-apple-darwin/release/pasted \
+            -verify_arch arm64 x86_64
+          codesign \
+            --verify \
+            --strict \
+            --verbose=2 \
+            src-tauri/target/universal-apple-darwin/release/pasted
       - name: Build unnotarized macOS test DMG
         run: npm run tauri -- build --target universal-apple-darwin --bundles dmg
       - name: Verify macOS test package

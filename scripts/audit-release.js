@@ -138,6 +138,11 @@ assert.match(
   'The hosted macOS release must stage a universal CLI before Tauri bundles the universal app',
 );
 assert.match(
+  desktopBuildWorkflow,
+  /package-macos-dmg:[\s\S]*needs: \[package-macos-cli\][\s\S]*name: Pasted-macOS-universal-CLI[\s\S]*path: src-tauri\/target\/universal-apple-darwin\/release[\s\S]*tauri -- build --target universal-apple-darwin/,
+  'The post-merge macOS build must stage the universal CLI artifact before Tauri bundles the universal app',
+);
+assert.match(
   releaseWorkflow,
   /codesign[\s\S]*--sign "\$APPLE_SIGNING_IDENTITY"[\s\S]*universal-apple-darwin\/release\/pasted[\s\S]*tauri -- build --target universal-apple-darwin/,
   'The hosted macOS release must sign the bundled CLI before Tauri signs the enclosing app',
