@@ -364,26 +364,10 @@ mod tests {
 
         assert_eq!(
             serde_json::to_value(ExtractionApplicationResult::preview(result)).unwrap(),
-            serde_json::json!({
-                "formatVersion": 1,
-                "policy": "interactive",
-                "through": "enrich",
-                "targetKind": "extractor",
-                "targetRef": "extractor:test",
-                "outcome": "produced",
-                "output": "recognized text",
-                "detectedType": null,
-                "matchedDetectorRef": null,
-                "failure": null,
-                "participants": [{
-                    "stableRef": "extractor:test",
-                    "pass": "extract",
-                    "outcome": "produced"
-                }],
-                "appliedClipId": null,
-                "ocrUpdated": false,
-                "classificationUpdated": false,
-            })
+            serde_json::from_str::<serde_json::Value>(include_str!(
+                "../../contracts/analysis/v1/extractor-interactive-produced.json"
+            ))
+            .unwrap()
         );
     }
 

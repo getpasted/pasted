@@ -1,0 +1,20 @@
+{
+  "formatVersion": 1,
+  "policy": "interactive",
+  "through": "enrich",
+  "targetKind": "detector",
+  "targetRef": "detector:email",
+  "outcome": "matched",
+  "matched": true,
+  "detectedType": "email",
+  "matchedDetectorRef": "detector:email",
+  "failure": null,
+  "participants": [
+    {
+      "stableRef": "analysis:content-detectors",
+      "pass": "classify",
+      "outcome": "produced"
+    }
+  ],
+  "appliedClipId": null
+}

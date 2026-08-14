@@ -1,0 +1,28 @@
+{
+  "formatVersion": 1,
+  "policy": "interactive",
+  "through": "enrich",
+  "result": {
+    "signals": [],
+    "signalLabels": [],
+    "actions": []
+  },
+  "participants": [
+    {
+      "stableRef": "inspector:structure-v1",
+      "pass": "inspect",
+      "outcome": "produced"
+    },
+    {
+      "stableRef": "analysis:content-detectors",
+      "pass": "classify",
+      "outcome": "produced"
+    },
+    {
+      "stableRef": "enricher:smart-actions-v1",
+      "pass": "enrich",
+      "outcome": "produced"
+    }
+  ],
+  "appliedClipId": null
+}

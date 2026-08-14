@@ -264,6 +264,22 @@ mod tests {
     }
 
     #[test]
+    fn interactive_text_matches_the_public_json_fixture() {
+        let result = analyze_text(
+            &db(),
+            "ordinary words",
+            Some("Pasted CLI"),
+            AnalyzerOptions::default(),
+        )
+        .unwrap();
+        let expected = serde_json::from_str::<serde_json::Value>(include_str!(
+            "../../contracts/analysis/v1/analyzer-interactive-text.json"
+        ))
+        .unwrap();
+        assert_eq!(serde_json::to_value(result).unwrap(), expected);
+    }
+
+    #[test]
     fn capture_policy_omits_enrichment() {
         let result = analyze_text(
             &db(),

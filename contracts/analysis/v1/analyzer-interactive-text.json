@@ -1,0 +1,42 @@
+{
+  "formatVersion": 1,
+  "policy": "interactive",
+  "through": "enrich",
+  "result": {
+    "clipKind": "text",
+    "structure": {
+      "origin": "command_line",
+      "byteCount": 14,
+      "text": {
+        "characterCount": 14,
+        "wordCount": 2,
+        "lineCount": 1
+      }
+    },
+    "detectedType": "text",
+    "searchableTextAvailable": false,
+    "recommendations": {
+      "signals": [],
+      "signalLabels": [],
+      "actions": []
+    }
+  },
+  "participants": [
+    {
+      "stableRef": "inspector:structure-v1",
+      "pass": "inspect",
+      "outcome": "produced"
+    },
+    {
+      "stableRef": "analysis:content-detectors",
+      "pass": "classify",
+      "outcome": "produced"
+    },
+    {
+      "stableRef": "enricher:smart-actions-v1",
+      "pass": "enrich",
+      "outcome": "produced"
+    }
+  ],
+  "appliedClipId": null
+}
