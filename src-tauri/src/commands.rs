@@ -733,6 +733,29 @@ pub async fn inspect_clip_structure(
 }
 
 #[tauri::command]
+pub async fn enrich_smart_actions(
+    text: Option<String>,
+    clip_id: Option<i64>,
+    source: Option<String>,
+    db: State<'_, Arc<DbState>>,
+) -> Result<crate::enrichment_execution::SmartActionEnrichmentResult, String> {
+    features::require(&db, Feature::Transformations)?;
+    if text.is_some() == clip_id.is_some() {
+        return Err("Provide exactly one of text or clipId".into());
+    }
+    let db = Arc::clone(&db);
+    tauri::async_runtime::spawn_blocking(move || match (text, clip_id) {
+        (Some(text), None) => {
+            crate::enrichment_execution::enrich_text(&db, &text, source.as_deref())
+        }
+        (None, Some(clip_id)) => crate::enrichment_execution::enrich_clip(&db, clip_id),
+        _ => unreachable!("input combination validated"),
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
+#[tauri::command]
 pub async fn get_file_clip_previews(
     clip_id: i64,
     mode: String,

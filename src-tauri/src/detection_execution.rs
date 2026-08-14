@@ -119,6 +119,7 @@ pub(crate) fn analyze_detectors_with_policy(
             inspector: false,
             extractor: None,
             detectors: Some(detectors),
+            enricher: None,
         }),
     )
 }
@@ -136,6 +137,7 @@ pub fn analyze_detector(text: &str, detector: &Detector) -> DetectionResult {
             inspector: false,
             extractor: None,
             detectors: Some(std::slice::from_ref(detector)),
+            enricher: None,
         }),
     )
 }
@@ -211,6 +213,7 @@ mod tests {
                 detected_type: Some("credential".into()),
                 matched_detector_ref: Some("detector:credential".into()),
                 structural_metadata: None,
+                recommendations: None,
             },
             runs: vec![ParticipantRun {
                 stable_ref: DETECTOR_PARTICIPANT_REF.into(),

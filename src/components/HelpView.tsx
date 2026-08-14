@@ -105,11 +105,14 @@ const CLI_COMMAND_GROUPS = [
   {
     title: 'Content Analysis',
     commands: [
-      { usage: 'pasted registry list [--kind inspector|extractor|detector|operation|transform] [--all] [--json]', description: 'Inspect shared lifecycle and input/output contracts for processing assets.' },
+      { usage: 'pasted registry list [--kind inspector|extractor|detector|enricher|operation|transform] [--all] [--json]', description: 'Inspect shared lifecycle and input/output contracts for processing assets.' },
       { usage: 'pasted registry enable|disable --kind extractor|detector|operation --ref REF [--json]', description: 'Change the shared enabled state using a stable processing-asset reference.' },
       { usage: 'pasted inspector list [--json]', description: 'List structural Inspectors and their contracts.' },
       { usage: 'pasted inspector get <ref> [--json]', description: 'Inspect one Inspector definition.' },
       { usage: 'pasted inspector run [--text TEXT | --clip ID | --stdin] [--apply] [--json]', description: 'Measure content-free clip structure in preview mode, or persist it for a clip.' },
+      { usage: 'pasted enricher list [--json]', description: 'List Enrichers and their contracts.' },
+      { usage: 'pasted enricher get <ref> [--json]', description: 'Inspect one Enricher definition.' },
+      { usage: 'pasted enricher run [--text TEXT | --clip ID | --stdin] [--json]', description: 'Recommend saved Transforms without changing content.' },
       { usage: 'pasted extractor list [--json]', description: 'List Extractors, contracts, and system availability.' },
       { usage: 'pasted extractor get <ref> [--json]', description: 'Inspect one Extractor definition.' },
       { usage: 'pasted extractor create [options] [--json]', description: 'Create an Extractor.' },
@@ -544,7 +547,7 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
                   <span>Content Analysis</span>
                 </h3>
                 <p className="theme-text-muted mt-1 text-xs">
-                  Inspectors measure stable clip structure, Extractors create searchable representations, and Detectors classify text into useful Types.
+                  Inspectors measure stable clip structure, Extractors create searchable representations, Detectors classify text into useful Types, and Enrichers recommend contextual next steps.
                 </p>
                 <p className="theme-text-muted mt-2 max-w-3xl text-xs leading-relaxed">
                   Analysis runs in four bounded passes: inspect, extract, classify, and enrich. Each participant runs at most once and only when its declared inputs are available.

@@ -106,6 +106,7 @@ pub(crate) fn analyze_image_with_registry_and_policy(
                 registry,
             }),
             detectors,
+            enricher: None,
         }),
     )
 }
@@ -440,6 +441,7 @@ mod tests {
                 detected_type: Some("email".into()),
                 matched_detector_ref: Some("detector:email".into()),
                 structural_metadata: None,
+                recommendations: None,
             },
             runs: vec![ParticipantRun {
                 stable_ref: "extractor:test".into(),

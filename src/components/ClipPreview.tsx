@@ -6,7 +6,6 @@ import type { AppSettings } from '../types';
 import type { ClipTransformationProvenance, TransformationExecutionOutcome, SavedTransform } from '../types';
 import { parseColor, ColorFormats } from '../utils/color';
 import { soundManager } from '../utils/sound';
-import { detectSmartPipelineRecommendations } from '../utils/smartPipelineDetector';
 import { handleWindowDragDoubleClick, startWindowDrag } from '../utils/windowDrag';
 import { ClipRevisionHistory } from './ClipRevisionHistory';
 import { ClipPreviewContent } from './ClipPreviewContent';
@@ -85,6 +84,23 @@ interface StructuralInspection {
     directoryCount: number;
     totalSizeBytes: number;
   };
+}
+
+interface SmartActionEnrichment {
+  formatVersion: number;
+  policy: 'interactive';
+  through: 'enrich';
+  result: {
+    signals: Array<'url' | 'json' | 'html' | 'markdown' | 'multi_line' | 'email' | 'phone'>;
+    signalLabels: string[];
+    actions: Array<{
+      transformRef: string;
+      transformName: string;
+      transformRevision: number;
+      reasons: string[];
+    }>;
+  };
+  appliedClipId: null;
 }
 
 interface FileClipPreview {
@@ -212,6 +228,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   const [restoringVersionId, setRestoringVersionId] = useState<number | null>(null);
   const [revisionCount, setRevisionCount] = useState<number | null>(null);
   const [inspection, setInspection] = useState<StructuralInspection | null>(null);
+  const [smartActions, setSmartActions] = useState<SmartActionEnrichment | null>(null);
   const [filePreviews, setFilePreviews] = useState<FileClipPreview[]>([]);
   const [isFilePreviewLoading, setIsFilePreviewLoading] = useState(false);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
@@ -234,6 +251,33 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
       });
     return () => { cancelled = true; };
   }, [clip?.content_hash, clip?.content_type, clip?.id, clip?.source, clip?.text_content]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!features.transformations || !clip || !viewPolicy.canRunPipelines || clip.content_type === 'image' || clip.content_type === 'file') {
+      setSmartActions(null);
+      return () => { cancelled = true; };
+    }
+    const text = transformedText ?? clip.text_content ?? '';
+    if (!text) {
+      setSmartActions(null);
+      return () => { cancelled = true; };
+    }
+    const input = transformedText === null
+      ? { clipId: clip.id }
+      : { text, source: clip.source };
+    invoke<SmartActionEnrichment>('enrich_smart_actions', input)
+      .then((result) => {
+        if (!cancelled) setSmartActions(result);
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          setSmartActions(null);
+          console.error('Failed to enrich Smart Actions:', error);
+        }
+      });
+    return () => { cancelled = true; };
+  }, [clip?.content_hash, clip?.content_type, clip?.id, clip?.source, clip?.text_content, features.transformations, transformedText, viewPolicy.canRunPipelines]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1072,43 +1116,32 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
 
       </div>
 
-      {/* Contextual filter suggestions live beside the controls they affect. */}
-      {(() => {
-        const currentText = transformedText !== null ? transformedText : (clip.text_content || '');
-        const { detectedTypes, recommendedPipelines, recommendedTransforms } = detectSmartPipelineRecommendations(currentText, pipelines, transforms);
-        if (!viewPolicy.canRunPipelines || !canTransformContent || (recommendedPipelines.length === 0 && recommendedTransforms.length === 0)) return null;
-
-        return (
+      {/* Contextual Transform suggestions live beside the controls they affect. */}
+      {features.transformations && viewPolicy.canRunPipelines && canTransformContent && smartActions && smartActions.result.actions.length > 0 && (
           <div className="smart-actions-bar px-4 py-2 flex items-center justify-between text-xs space-x-2 overflow-x-auto">
             <div className="smart-actions-heading flex items-center space-x-1.5 shrink-0 font-semibold text-[11px]">
               <Lightbulb className="w-3.5 h-3.5" />
-              <span>Smart Actions ({detectedTypes.join(', ')}):</span>
+              <span>Smart Actions ({smartActions.result.signalLabels.join(', ')})</span>
             </div>
             <div className="flex items-center space-x-1.5 overflow-x-auto scrollbar-none py-0.5">
-              {recommendedTransforms.map((transform) => (
-                <button
-                  key={transform.stableRef}
-                  onClick={() => handlePreviewTransform(transform)}
-                  className="smart-action-button px-2 py-0.5 rounded-md border text-[11px] font-medium flex items-center space-x-1 whitespace-nowrap shadow-sm"
-                  title={`Preview ${transform.name}`}
-                >
-                  <span>{transform.name}</span>
-                </button>
-              ))}
-              {recommendedPipelines.map((f) => (
-                <button
-                  key={f.id}
-                  onClick={() => handlePreviewPipeline(f)}
-                  className="smart-action-button px-2 py-0.5 rounded-md border text-[11px] font-medium flex items-center space-x-1 whitespace-nowrap shadow-sm"
-                  title={`Preview ${f.name}`}
-                >
-                  <span>{f.name}</span>
-                </button>
-              ))}
+              {smartActions.result.actions.map((action) => {
+                const transform = transforms.find((candidate) => candidate.stableRef === action.transformRef);
+                const pipeline = pipelines.find((candidate) => candidate.stableRef === action.transformRef);
+                if (!transform && !pipeline) return null;
+                return (
+                  <button
+                    key={action.transformRef}
+                    onClick={() => transform ? handlePreviewTransform(transform) : void handlePreviewPipeline(pipeline!)}
+                    className="smart-action-button px-2 py-0.5 rounded-md border text-[11px] font-medium flex items-center space-x-1 whitespace-nowrap shadow-sm"
+                    title={`Preview ${action.transformName}`}
+                  >
+                    <span>{action.transformName}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
-        );
-      })()}
+      )}
 
       {viewPolicy.canRunPipelines && canTransformContent && activeTransformRef && activeTransformName && (
         <ClipTransformBar

@@ -2235,7 +2235,7 @@ impl DbState {
             DROP TABLE IF EXISTS library_items;
             CREATE TABLE library_items (
                 stable_ref TEXT PRIMARY KEY,
-                kind TEXT NOT NULL CHECK (kind IN ('inspector', 'extractor', 'detector', 'operation', 'transform')),
+                kind TEXT NOT NULL CHECK (kind IN ('inspector', 'extractor', 'detector', 'enricher', 'operation', 'transform')),
                 name TEXT NOT NULL,
                 description TEXT NOT NULL DEFAULT '',
                 group_label TEXT,
@@ -2261,6 +2261,16 @@ impl DbState {
                     'Measures stable clip structure without retaining clipboard contents.',
                     'Content Analysis', 'ScanSearch', NULL, 1, 0, 0, 1,
                     'clip', 'structural_metadata', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+
+            INSERT INTO library_items
+                (stable_ref, kind, name, description, group_label, icon, enabled,
+                 is_builtin, is_archived, sort_order, revision, input_contract,
+                 output_contract, created_at, updated_at)
+            VALUES ('enricher:smart-actions-v1', 'enricher', 'Smart Actions',
+                    'Recommends saved Transforms from content-free analysis signals.',
+                    'Content Analysis', 'Lightbulb', NULL, 1, 0, 0, 1,
+                    'analyzable_text+classification+structural_metadata', 'recommendations',
+                    CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
             INSERT INTO library_items
                 (stable_ref, kind, name, description, group_label, icon, enabled,
@@ -8426,7 +8436,7 @@ impl DbState {
         if let Some(kind) = kind {
             if !matches!(
                 kind,
-                "inspector" | "extractor" | "detector" | "operation" | "transform"
+                "inspector" | "extractor" | "detector" | "enricher" | "operation" | "transform"
             ) {
                 return Err(rusqlite::Error::InvalidParameterName(
                     "Unknown library item kind".into(),
@@ -8479,9 +8489,9 @@ impl DbState {
     ) -> Result<()> {
         let conn = self.conn.lock();
         let changed = match kind {
-            "inspector" => {
+            "inspector" | "enricher" => {
                 return Err(rusqlite::Error::InvalidParameterName(
-                    "Built-in Inspectors cannot be disabled".to_string(),
+                    "Built-in Analysis participants cannot be disabled".to_string(),
                 ));
             }
             "extractor" => conn.execute(

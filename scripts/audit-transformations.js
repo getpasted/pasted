@@ -5,7 +5,8 @@ const read = (path) => fs.readFileSync(path, 'utf8');
 const pipelineEditor = read('src/components/PipelineEditorModal.tsx');
 const commands = read('src-tauri/src/commands.rs');
 const service = read('src-tauri/src/transformation_service.rs');
-const detector = read('src/utils/smartPipelineDetector.ts');
+const enricher = read('src-tauri/src/content_enrichment.rs');
+const enrichmentExecution = read('src-tauri/src/enrichment_execution.rs');
 const clipPreview = read('src/components/ClipPreview.tsx');
 const sound = read('src/utils/sound.ts');
 const app = read('src/App.tsx');
@@ -79,9 +80,13 @@ for (const command of ['create_pipeline', 'delete_pipeline']) {
     `${command} must reconcile global shortcuts immediately`);
 }
 
-assert.match(detector, /SavedTransform/, 'Smart Actions must understand Saved Transforms');
-assert.match(detector, /recommendedTransforms/, 'Smart Actions must return modern Transform recommendations');
-assert.match(clipPreview, /recommendedTransforms\.map/, 'Clip Preview must render modern Transform recommendations');
+assert.match(enricher, /TransformDefinition/, 'Smart Actions must consume canonical Transform definitions');
+assert.match(enricher, /transform_ref:\s*transform\.stable_ref\.clone\(\)/,
+  'Smart Actions must return stable Transform references');
+assert.match(enrichmentExecution, /get_transform_definitions/,
+  'Smart Actions must resolve recommendations from the canonical Transform facade');
+assert.match(clipPreview, /smartActions\.result\.actions\.map/,
+  'Clip Preview must render shared Enricher recommendations');
 
 assert.match(sound, /setEnabled\(enabled: boolean\)/, 'Interaction sound state must have one global authority');
 assert.match(app, /soundManager\.setEnabled\(appSettings\.enableSounds\)/,

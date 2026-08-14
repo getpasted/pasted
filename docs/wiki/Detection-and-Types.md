@@ -19,6 +19,8 @@ The four passes share one versioned participant contract for target identity, re
 
 The built-in Structure Inspector records content-free text counts, image dimensions, file item counts and extensions, and the derived clip origin. Stable results are fingerprinted and persisted; filesystem availability and total file size remain live observations. Clip Preview and `pasted inspector run` consume the same versioned result.
 
+The built-in Smart Actions Enricher uses classification, structural metadata, and bounded content signals to recommend saved Transforms by stable reference. It runs only for interactive requests, never executes a recommendation, never mutates a clip, and never includes analyzed text in its result. Clip Preview and `pasted enricher run` consume the same versioned result.
+
 Public whole-Analysis envelopes carry an explicit `formatVersion`, policy, final pass, result, and privacy-safe participant summaries. Existing participant-specific Extractor and Detector JSON remains stable while those envelopes are introduced.
 
 ## Extractors
@@ -90,4 +92,4 @@ Disabling **Types** hides calculated Type collections. Disabling **Content Detec
 
 ## CLI reference
 
-The CLI can run and inspect built-in Inspectors; list and configure Extractors; list, create, update, delete, enable, and restore Detectors; manage Types and Groups; and inspect the shared processing registry. Use [`pasted inspector`, `pasted extractor`, `pasted detector`, `pasted type`, and `pasted registry`](CLI-Reference#content-analysis) for scriptable access.
+The CLI can run and inspect built-in Inspectors and Enrichers; list and configure Extractors; list, create, update, delete, enable, and restore Detectors; manage Types and Groups; and inspect the shared processing registry. Use [`pasted inspector`, `pasted enricher`, `pasted extractor`, `pasted detector`, `pasted type`, and `pasted registry`](CLI-Reference#content-analysis) for scriptable access.

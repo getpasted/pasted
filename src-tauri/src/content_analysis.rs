@@ -18,6 +18,7 @@ pub(crate) struct AnalysisContext {
     pub detected_type: Option<String>,
     pub matched_detector_ref: Option<String>,
     pub structural_metadata: Option<crate::content_inspection::StructuralMetadata>,
+    pub recommendations: Option<crate::content_enrichment::SmartActionRecommendations>,
 }
 
 impl AnalysisContext {
@@ -31,6 +32,7 @@ impl AnalysisContext {
             detected_type: None,
             matched_detector_ref: None,
             structural_metadata: None,
+            recommendations: None,
         }
     }
 
@@ -44,6 +46,7 @@ impl AnalysisContext {
             detected_type: None,
             matched_detector_ref: None,
             structural_metadata: None,
+            recommendations: None,
         }
     }
 
@@ -67,6 +70,7 @@ impl AnalysisContext {
             RepresentationKind::AnalyzableText => self.analysis_text().is_some(),
             RepresentationKind::Classification => self.detected_type.is_some(),
             RepresentationKind::StructuralMetadata => self.structural_metadata.is_some(),
+            RepresentationKind::Recommendations => self.recommendations.is_some(),
         }
     }
 
@@ -116,6 +120,7 @@ impl AnalysisInput {
                 detected_type: None,
                 matched_detector_ref: None,
                 structural_metadata: None,
+                recommendations: None,
             },
         }
     }
@@ -126,12 +131,17 @@ pub(crate) struct ExtractorParticipantSource<'a> {
     pub registry: &'a ExtractorEngineRegistry<'a>,
 }
 
+pub(crate) struct EnricherParticipantSource<'a> {
+    pub transforms: &'a [crate::db::TransformDefinition],
+}
+
 pub(crate) struct AnalysisRequest<'a> {
     pub input: AnalysisInput,
     pub policy: AnalysisPolicy,
     pub inspector: bool,
     pub extractor: Option<ExtractorParticipantSource<'a>>,
     pub detectors: Option<&'a [Detector]>,
+    pub enricher: Option<EnricherParticipantSource<'a>>,
 }
 
 fn inspector_participant(input: AnalysisInput) -> AnalysisParticipant<'static> {
@@ -378,6 +388,30 @@ fn extractor_participant<'a>(
     )
 }
 
+fn enricher_participant<'a>(
+    transforms: &'a [crate::db::TransformDefinition],
+) -> AnalysisParticipant<'a> {
+    AnalysisParticipant::new(
+        crate::content_enrichment::smart_actions_enricher_definition().participant_contract(),
+        move |context| {
+            let Some(text) = context.analysis_text() else {
+                return Ok(ParticipantOutcome::NoOutput);
+            };
+            let Some(structure) = context.structural_metadata.as_ref() else {
+                return Ok(ParticipantOutcome::NoOutput);
+            };
+            let recommendations = crate::content_enrichment::recommend_smart_actions(
+                text,
+                context.detected_type.as_deref(),
+                structure,
+                transforms,
+            );
+            context.recommendations = Some(recommendations);
+            Ok(ParticipantOutcome::Produced)
+        },
+    )
+}
+
 pub(crate) fn analyze(request: AnalysisRequest<'_>) -> AnalysisReport {
     let mut participants = Vec::new();
     if request.inspector {
@@ -388,6 +422,9 @@ pub(crate) fn analyze(request: AnalysisRequest<'_>) -> AnalysisReport {
     }
     if let Some(detectors) = request.detectors {
         participants.push(detector_participant(detectors));
+    }
+    if let Some(source) = request.enricher {
+        participants.push(enricher_participant(source.transforms));
     }
     schedule(
         request.input.into_context(),
@@ -499,6 +536,7 @@ mod tests {
                 registry,
             }),
             detectors,
+            enricher: None,
         })
     }
 
@@ -512,6 +550,7 @@ mod tests {
             inspector: false,
             extractor: None,
             detectors: Some(detectors),
+            enricher: None,
         })
     }
 
@@ -588,6 +627,7 @@ mod tests {
             inspector: false,
             extractor: None,
             detectors: None,
+            enricher: None,
         });
 
         assert!(report.context.has(RepresentationKind::CaptureSource));

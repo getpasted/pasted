@@ -106,6 +106,7 @@ pub enum RepresentationKind {
     AnalyzableText,
     Classification,
     StructuralMetadata,
+    Recommendations,
 }
 
 impl RepresentationKind {
@@ -119,6 +120,7 @@ impl RepresentationKind {
             Self::AnalyzableText => "analyzable_text",
             Self::Classification => "classification",
             Self::StructuralMetadata => "structural_metadata",
+            Self::Recommendations => "recommendations",
         }
     }
 }
@@ -142,6 +144,7 @@ impl FromStr for RepresentationKind {
             "analyzable_text" => Ok(Self::AnalyzableText),
             "classification" => Ok(Self::Classification),
             "structural_metadata" => Ok(Self::StructuralMetadata),
+            "recommendations" => Ok(Self::Recommendations),
             _ => Err(format!("Unknown analysis representation \"{value}\"")),
         }
     }
@@ -304,6 +307,7 @@ mod tests {
             RepresentationKind::AnalyzableText,
             RepresentationKind::Classification,
             RepresentationKind::StructuralMetadata,
+            RepresentationKind::Recommendations,
         ] {
             assert_eq!(kind.stable_name().parse::<RepresentationKind>(), Ok(kind));
             assert_eq!(

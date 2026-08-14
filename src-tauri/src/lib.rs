@@ -6,11 +6,13 @@ mod clipboard_monitor;
 mod commands;
 pub mod content_analysis;
 pub mod content_detection;
+pub mod content_enrichment;
 pub mod content_extraction;
 pub mod content_inspection;
 pub mod content_types;
 pub mod db;
 pub mod detection_execution;
+pub mod enrichment_execution;
 pub mod external_import;
 pub mod extraction_execution;
 pub mod features;
@@ -439,6 +441,7 @@ pub fn run() {
             commands::get_capture_feedback_clip,
             commands::get_clip_image,
             commands::inspect_clip_structure,
+            commands::enrich_smart_actions,
             commands::get_file_clip_previews,
             commands::get_trashed_clips,
             commands::restore_clip,

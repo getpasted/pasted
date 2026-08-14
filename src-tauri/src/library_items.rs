@@ -43,6 +43,7 @@ impl LibraryItem {
             "inspector" => Some("inspect".into()),
             "extractor" => Some("extract".into()),
             "detector" => Some("classify".into()),
+            "enricher" => Some("enrich".into()),
             _ => None,
         }
     }
