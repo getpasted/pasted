@@ -43,6 +43,8 @@ Available validators include card and IBAN checksums, IP parsing, phone guardrai
 
 Use the sample field and **Test** before saving a detector. Testing reports whether the current draft matches the sample without reclassifying history.
 
+Detector previews, new text capture, explicit application, and history rescans consume the same typed Analysis result. It distinguishes `matched`, `no_match`, and `failed`, carries the matched Type and Detector reference, and includes bounded participant summaries without including analyzed text. Applying a Detector runs inside the clip mutation transaction, so the returned result describes the content and Detector definition that were actually applied.
+
 ## Editing and recovering detectors
 
 Built-in and custom detectors can be enabled, disabled, reordered by priority, duplicated, and edited. Deleting a shipped detector does not make it unrecoverable. **Reset to Default** restores the selected built-in draft, while **Restore Defaults** restores shipped Types and detectors and preserves custom entries.
@@ -58,7 +60,9 @@ Detector changes affect newly captured text. Existing clips keep their current T
 - Smart Bin membership;
 - sensitive-content masking driven by classification.
 
-Images and file clips are not reclassified. The completed operation reports how many text clips changed. Detector and Type registry edits are recorded in Activity when that feature is enabled, but registry metadata does not use clip Revision History.
+Images and file clips are not reclassified. The completed operation reports how many text clips changed, remained unchanged, or failed Analysis. Detector and Type registry edits are recorded in Activity when that feature is enabled, but registry metadata does not use clip Revision History.
+
+If Analysis itself fails for a clip, the rescan leaves that clip's existing Type unchanged instead of silently reclassifying it as plain text.
 
 The CLI equivalent requires explicit confirmation:
 

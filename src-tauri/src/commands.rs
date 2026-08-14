@@ -1263,7 +1263,7 @@ pub async fn rescan_content_detection_history(
 pub fn test_content_detector(
     input: crate::content_detection::DetectorInput,
     sample: String,
-) -> Result<bool, String> {
+) -> Result<crate::detection_execution::DetectionResult, String> {
     crate::content_detection::validate_detector_input(&input)?;
     let detector = crate::content_detection::Detector {
         id: 0,
@@ -1279,7 +1279,9 @@ pub fn test_content_detector(
         defaults: None,
         is_deleted: false,
     };
-    Ok(crate::content_analysis::classify_text(&sample, &[detector]) == input.content_type)
+    Ok(crate::detection_execution::analyze_detector(
+        &sample, &detector,
+    ))
 }
 
 #[tauri::command]

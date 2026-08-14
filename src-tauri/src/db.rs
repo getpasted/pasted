@@ -251,6 +251,7 @@ pub struct ContentDetectionRescanReport {
     pub scanned_count: usize,
     pub changed_count: usize,
     pub unchanged_count: usize,
+    pub failed_count: usize,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -262,6 +263,33 @@ pub struct AnalysisClassification {
     pub source_representation: String,
     pub input_hash: String,
     pub updated_at: String,
+}
+
+fn content_detector_from_row(
+    row: &rusqlite::Row<'_>,
+) -> rusqlite::Result<crate::content_detection::Detector> {
+    let patterns_json: String = row.get(5)?;
+    let patterns = serde_json::from_str(&patterns_json).map_err(|error| {
+        rusqlite::Error::FromSqlConversionFailure(5, rusqlite::types::Type::Text, Box::new(error))
+    })?;
+    let stable_ref: String = row.get(1)?;
+    let is_builtin: bool = row.get(9)?;
+    Ok(crate::content_detection::Detector {
+        id: row.get(0)?,
+        defaults: is_builtin
+            .then(|| crate::content_detection::detector_defaults(&stable_ref))
+            .flatten(),
+        stable_ref,
+        name: row.get(2)?,
+        content_type: row.get(3)?,
+        description: row.get(4)?,
+        patterns,
+        validator: row.get(6)?,
+        enabled: row.get(7)?,
+        priority: row.get(8)?,
+        is_builtin,
+        is_deleted: row.get(10)?,
+    })
 }
 
 impl ClipMutationSummary {
@@ -3289,7 +3317,11 @@ impl DbState {
         let content_type =
             if crate::features::is_enabled(self, crate::features::Feature::ContentDetection) {
                 self.get_content_detectors()
-                    .map(|detectors| crate::content_analysis::classify_text(text, &detectors))
+                    .map(|detectors| {
+                        crate::detection_execution::analyze_detectors(text, &detectors)
+                            .classification()
+                            .to_string()
+                    })
                     .unwrap_or_else(|_| "text".to_string())
             } else {
                 "text".to_string()
@@ -9321,34 +9353,7 @@ impl DbState {
                     validator, enabled, priority, is_builtin, is_deleted
              FROM content_detectors WHERE is_deleted = 0 ORDER BY priority, id",
         )?;
-        let rows = statement.query_map([], |row| {
-            let patterns_json: String = row.get(5)?;
-            let patterns = serde_json::from_str(&patterns_json).map_err(|error| {
-                rusqlite::Error::FromSqlConversionFailure(
-                    5,
-                    rusqlite::types::Type::Text,
-                    Box::new(error),
-                )
-            })?;
-            let stable_ref: String = row.get(1)?;
-            let is_builtin: bool = row.get(9)?;
-            Ok(crate::content_detection::Detector {
-                id: row.get(0)?,
-                defaults: is_builtin
-                    .then(|| crate::content_detection::detector_defaults(&stable_ref))
-                    .flatten(),
-                stable_ref,
-                name: row.get(2)?,
-                content_type: row.get(3)?,
-                description: row.get(4)?,
-                patterns,
-                validator: row.get(6)?,
-                enabled: row.get(7)?,
-                priority: row.get(8)?,
-                is_builtin,
-                is_deleted: row.get(10)?,
-            })
-        })?;
+        let rows = statement.query_map([], content_detector_from_row)?;
         rows.collect()
     }
 
@@ -9382,10 +9387,23 @@ impl DbState {
         })
     }
 
-    pub fn apply_content_detector(&self, clip_id: i64, reference: &str) -> Result<bool> {
-        let detector = self.get_content_detector(reference)?;
+    pub fn apply_content_detector(
+        &self,
+        clip_id: i64,
+        reference: &str,
+    ) -> Result<crate::detection_execution::DetectionApplicationResult> {
         let mut conn = self.conn.lock();
         let transaction = conn.transaction()?;
+        let numeric_id = reference.parse::<i64>().ok();
+        let detector = transaction.query_row(
+            "SELECT id, stable_ref, name, content_type, description, patterns_json,
+                    validator, enabled, priority, is_builtin, is_deleted
+             FROM content_detectors
+             WHERE is_deleted = 0 AND (stable_ref = ?1 OR id = ?2)
+             LIMIT 1",
+            params![reference, numeric_id],
+            content_detector_from_row,
+        )?;
         let clip = transaction
             .query_row(
                 "SELECT content_type, text_content FROM clips
@@ -9399,17 +9417,22 @@ impl DbState {
                 "The selected clip has no analyzable text".into(),
             ));
         };
+        if text.trim().is_empty() {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "The selected clip has no analyzable text".into(),
+            ));
+        }
         if matches!(current_type.as_str(), "image" | "file") {
             return Err(rusqlite::Error::InvalidParameterName(
                 "Applying a Detector cannot replace a structural image or file type".into(),
             ));
         }
-        let matched = crate::content_detection::detect_match_with_detectors(&text, &[detector])
-            .map(|matched| matched.content_type);
-        let Some(detected_type) = matched else {
+        let analysis = crate::detection_execution::analyze_detector(&text, &detector);
+        if !analysis.matched {
             transaction.commit()?;
-            return Ok(false);
-        };
+            return Ok(crate::detection_execution::DetectionApplicationResult::preview(analysis));
+        }
+        let detected_type = analysis.classification();
         let changed = current_type != detected_type;
         if changed {
             transaction.execute(
@@ -9425,7 +9448,10 @@ impl DbState {
                 &format!("Applied a Detector to clip #{clip_id}"),
             );
         }
-        Ok(true)
+        Ok(crate::detection_execution::DetectionApplicationResult {
+            analysis,
+            applied_clip_id: Some(clip_id),
+        })
     }
 
     fn get_all_content_detectors_for_backup(
@@ -9644,6 +9670,7 @@ impl DbState {
         let mut last_id = 0i64;
         let mut scanned_count = 0usize;
         let mut changed_count = 0usize;
+        let mut failed_count = 0usize;
 
         loop {
             let clips = {
@@ -9672,7 +9699,16 @@ impl DbState {
             for (id, current_type, text) in clips {
                 last_id = id;
                 scanned_count += 1;
-                let detected_type = crate::content_analysis::classify_text(&text, &detectors);
+                if text.trim().is_empty() {
+                    failed_count += 1;
+                    continue;
+                }
+                let analysis = crate::detection_execution::analyze_detectors(&text, &detectors);
+                if analysis.failed() {
+                    failed_count += 1;
+                    continue;
+                }
+                let detected_type = analysis.classification();
                 if detected_type != current_type {
                     transaction.execute(
                         "UPDATE clips SET content_type = ?1 WHERE id = ?2",
@@ -9688,13 +9724,16 @@ impl DbState {
         let report = ContentDetectionRescanReport {
             scanned_count,
             changed_count,
-            unchanged_count: scanned_count.saturating_sub(changed_count),
+            unchanged_count: scanned_count
+                .saturating_sub(changed_count)
+                .saturating_sub(failed_count),
+            failed_count,
         };
         let _ = self.log_activity(
             "content_detection_history_rescanned",
             &format!(
-                "Rescanned {} text clips; reclassified {}",
-                report.scanned_count, report.changed_count
+                "Rescanned {} text clips; reclassified {}; failed {}",
+                report.scanned_count, report.changed_count, report.failed_count
             ),
         );
         Ok(report)
@@ -10009,7 +10048,9 @@ mod tests {
                 "Test",
             )
             .unwrap();
-        assert!(db.apply_content_detector(matching.id, "email").unwrap());
+        let applied = db.apply_content_detector(matching.id, "email").unwrap();
+        assert!(applied.analysis.matched);
+        assert_eq!(applied.applied_clip_id, Some(matching.id));
         assert_eq!(
             db.get_clip_by_id(matching.id).unwrap().content_type,
             "email"
@@ -10025,11 +10066,37 @@ mod tests {
                 "Test",
             )
             .unwrap();
-        assert!(!db.apply_content_detector(nonmatching.id, "email").unwrap());
+        let not_applied = db.apply_content_detector(nonmatching.id, "email").unwrap();
+        assert!(!not_applied.analysis.matched);
+        assert_eq!(not_applied.applied_clip_id, None);
         assert_eq!(
             db.get_clip_by_id(nonmatching.id).unwrap().content_type,
             "text"
         );
+
+        let empty = db
+            .save_clip("text", Some(""), None, None, "detector-apply-empty", "Test")
+            .unwrap();
+        assert!(db
+            .apply_content_detector(empty.id, "email")
+            .unwrap_err()
+            .to_string()
+            .contains("no analyzable text"));
+        let whitespace = db
+            .save_clip(
+                "text",
+                Some(" \n\t"),
+                None,
+                None,
+                "detector-apply-whitespace",
+                "Test",
+            )
+            .unwrap();
+        assert!(db
+            .apply_content_detector(whitespace.id, "email")
+            .unwrap_err()
+            .to_string()
+            .contains("no analyzable text"));
 
         db.delete_content_detector(duplicate.id).unwrap();
         assert!(db.get_content_detector(&duplicate.stable_ref).is_err());
@@ -10219,16 +10286,28 @@ mod tests {
                 "Test",
             )
             .unwrap();
+        let empty = db
+            .save_clip("code", Some(""), None, None, "empty-hash", "Test")
+            .unwrap();
+        let whitespace = db
+            .save_clip("code", Some(" \n\t"), None, None, "whitespace-hash", "Test")
+            .unwrap();
 
         let report = db.rescan_content_detection().unwrap();
-        assert_eq!(report.scanned_count, 1);
+        assert_eq!(report.scanned_count, 3);
         assert_eq!(report.changed_count, 1);
         assert_eq!(report.unchanged_count, 0);
+        assert_eq!(report.failed_count, 2);
         assert_eq!(
             db.get_clip_by_id(card.id).unwrap().content_type,
             "payment_card"
         );
         assert_eq!(db.get_clip_by_id(image.id).unwrap().content_type, "image");
+        assert_eq!(db.get_clip_by_id(empty.id).unwrap().content_type, "code");
+        assert_eq!(
+            db.get_clip_by_id(whitespace.id).unwrap().content_type,
+            "code"
+        );
     }
 
     #[test]

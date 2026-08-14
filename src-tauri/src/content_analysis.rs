@@ -5,6 +5,7 @@ use serde::Serialize;
 pub use crate::analysis_contract::RepresentationKind;
 
 pub const MAX_ANALYSIS_PASSES: usize = 4;
+pub const DETECTOR_PARTICIPANT_REF: &str = "analysis:content-detectors";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -227,7 +228,7 @@ pub fn schedule(
 fn detector_participant<'a>(detectors: &'a [Detector]) -> AnalysisParticipant<'a> {
     AnalysisParticipant::new(
         ParticipantContract {
-            stable_ref: "analysis:content-detectors".into(),
+            stable_ref: DETECTOR_PARTICIPANT_REF.into(),
             name: "Content Detectors".into(),
             pass: AnalysisPass::Classify,
             priority: 0,
@@ -249,18 +250,11 @@ fn detector_participant<'a>(detectors: &'a [Detector]) -> AnalysisParticipant<'a
     )
 }
 
-pub fn analyze_text(text: &str, detectors: &[Detector]) -> AnalysisReport {
+pub(crate) fn analyze_text(text: &str, detectors: &[Detector]) -> AnalysisReport {
     schedule(
         AnalysisContext::for_text(text),
         vec![detector_participant(detectors)],
     )
-}
-
-pub fn classify_text(text: &str, detectors: &[Detector]) -> String {
-    analyze_text(text, detectors)
-        .context
-        .detected_type
-        .unwrap_or_else(|| "text".into())
 }
 
 pub(crate) fn analyze_image_with_registry(

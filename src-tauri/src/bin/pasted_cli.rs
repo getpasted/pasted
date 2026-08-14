@@ -1217,7 +1217,6 @@ fn main() -> Result<()> {
                         eprintln!("Usage: pasted detector run <ref> [--text TEXT | --clip ID | --stdin] [--apply] [--json]");
                         std::process::exit(2);
                     });
-                    let detector = db.get_content_detector(reference)?;
                     let clip_id =
                         argument_value(&args, "--clip").and_then(|value| value.parse::<i64>().ok());
                     let explicit_text = argument_value(&args, "--text");
@@ -1225,51 +1224,51 @@ fn main() -> Result<()> {
                         eprintln!("Provide only one of --text or --clip ID.");
                         std::process::exit(2);
                     }
-                    let input = if let Some(text) = explicit_text {
-                        text
-                    } else if let Some(clip_id) = clip_id {
-                        db.get_active_clip_text(clip_id)?.unwrap_or_else(|| {
-                            eprintln!("Clip #{clip_id} has no analyzable text.");
-                            std::process::exit(2);
-                        })
-                    } else {
-                        read_stdin_bounded(pasted_lib::resource_limits::MAX_TRANSFORM_TEXT_BYTES)?
-                    };
-                    if input.is_empty() {
-                        eprintln!("Provide input with --text, --clip, or stdin.");
-                        std::process::exit(2);
-                    }
                     let apply = args.iter().any(|argument| argument == "--apply");
                     if apply && clip_id.is_none() {
                         eprintln!("--apply requires --clip ID.");
                         std::process::exit(2);
                     }
-                    let report = pasted_lib::content_analysis::analyze_text(
-                        &input,
-                        std::slice::from_ref(&detector),
-                    );
-                    let matched = report.context.matched_detector_ref.is_some();
-                    if apply {
-                        db.apply_content_detector(clip_id.expect("checked above"), reference)?;
-                    }
+                    let result = if apply {
+                        db.apply_content_detector(clip_id.expect("checked above"), reference)?
+                    } else {
+                        let detector = db.get_content_detector(reference)?;
+                        let input = if let Some(text) = explicit_text {
+                            text
+                        } else if let Some(clip_id) = clip_id {
+                            match db.get_active_clip_text(clip_id)? {
+                                Some(text) if !text.trim().is_empty() => text,
+                                _ => {
+                                    eprintln!("Clip #{clip_id} has no analyzable text.");
+                                    std::process::exit(2);
+                                }
+                            }
+                        } else {
+                            read_stdin_bounded(
+                                pasted_lib::resource_limits::MAX_TRANSFORM_TEXT_BYTES,
+                            )?
+                        };
+                        if input.is_empty() {
+                            eprintln!("Provide input with --text, --clip, or stdin.");
+                            std::process::exit(2);
+                        }
+                        pasted_lib::detection_execution::DetectionApplicationResult::preview(
+                            pasted_lib::detection_execution::analyze_detector(&input, &detector),
+                        )
+                    };
                     if args.iter().any(|argument| argument == "--json") {
-                        println!(
-                            "{}",
-                            serde_json::json!({
-                                "targetKind": "detector",
-                                "targetRef": detector.stable_ref,
-                                "matched": matched,
-                                "detectedType": matched.then_some(report.context.detected_type).flatten(),
-                                "appliedClipId": clip_id.filter(|_| apply && matched),
-                            })
-                        );
-                    } else if matched {
-                        println!(
-                            "Matches {}.",
-                            report.context.detected_type.as_deref().unwrap_or("text")
-                        );
+                        println!("{}", serde_json::json!(&result));
+                    } else if let Some(failure) = result.analysis.failure.as_ref() {
+                        eprintln!("Detector failed ({}): {}", failure.code, failure.message);
+                    } else if result.analysis.matched {
+                        println!("Matches {}.", result.analysis.classification());
                     } else {
                         println!("Does not match.");
+                    }
+                    if result.analysis.failed() {
+                        let _ = io::stdout().flush();
+                        let _ = io::stderr().flush();
+                        std::process::exit(1);
                     }
                 }
                 "restore-defaults" => {
@@ -1298,8 +1297,11 @@ fn main() -> Result<()> {
                         );
                     } else {
                         println!(
-                            "Rescanned {} text clips; {} changed and {} were unchanged.",
-                            report.scanned_count, report.changed_count, report.unchanged_count
+                            "Rescanned {} text clips; {} changed, {} were unchanged, and {} failed.",
+                            report.scanned_count,
+                            report.changed_count,
+                            report.unchanged_count,
+                            report.failed_count
                         );
                     }
                 }
