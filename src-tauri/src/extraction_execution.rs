@@ -1,30 +1,25 @@
-use crate::content_analysis::{
-    AnalysisFailure, AnalysisReport, ParticipantOutcome, ParticipantRun,
+use crate::analysis_contract::{
+    AnalysisFailure, AnalysisTargetKind, ClipApplication, ParticipantOutcome, ParticipantRun,
 };
+use crate::content_analysis::AnalysisReport;
 use crate::content_extraction::{Extractor, ExtractorEngineRegistry};
 use crate::db::DbState;
 use serde::Serialize;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
-pub enum ImageAnalysisOutcome {
+pub enum ExtractionResultOutcome {
     Produced,
     NoOutput,
     Failed,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum AnalysisTargetKind {
-    Extractor,
-}
-
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ImageAnalysisResult {
+pub struct ExtractionResult {
     pub target_kind: AnalysisTargetKind,
     pub target_ref: String,
-    pub outcome: ImageAnalysisOutcome,
+    pub outcome: ExtractionResultOutcome,
     pub output: Option<String>,
     pub detected_type: Option<String>,
     pub matched_detector_ref: Option<String>,
@@ -32,42 +27,18 @@ pub struct ImageAnalysisResult {
     pub participants: Vec<ParticipantRun>,
 }
 
-impl ImageAnalysisResult {
+impl ExtractionResult {
     fn from_report(extractor: &Extractor, analysis: AnalysisReport) -> Self {
-        let run = analysis
-            .runs
-            .iter()
-            .find(|run| run.stable_ref == extractor.stable_ref);
-        let (outcome, failure) = match run {
-            Some(run) if run.outcome == ParticipantOutcome::Failed => (
-                ImageAnalysisOutcome::Failed,
-                run.failure.clone().or_else(|| {
-                    Some(AnalysisFailure {
-                        code: "analysis_failed".into(),
-                        message: "The Extractor failed without a structured reason.".into(),
-                    })
-                }),
-            ),
-            Some(run) if run.outcome == ParticipantOutcome::MissingInput => (
-                ImageAnalysisOutcome::Failed,
-                Some(AnalysisFailure {
-                    code: "missing_input".into(),
-                    message: "The Extractor's required input was not available.".into(),
-                }),
-            ),
-            Some(run) if run.outcome == ParticipantOutcome::Produced => {
-                (ImageAnalysisOutcome::Produced, None)
-            }
-            Some(_) => (ImageAnalysisOutcome::NoOutput, None),
-            None => (
-                ImageAnalysisOutcome::Failed,
-                Some(AnalysisFailure {
-                    code: "missing_participant".into(),
-                    message: "The Extractor did not participate in Analysis.".into(),
-                }),
-            ),
+        let resolution =
+            analysis.resolve_participant(&extractor.stable_ref, AnalysisTargetKind::Extractor);
+        let outcome = if resolution.failure.is_some() {
+            ExtractionResultOutcome::Failed
+        } else if resolution.outcome == ParticipantOutcome::Produced {
+            ExtractionResultOutcome::Produced
+        } else {
+            ExtractionResultOutcome::NoOutput
         };
-        let produced = outcome == ImageAnalysisOutcome::Produced;
+        let produced = outcome == ExtractionResultOutcome::Produced;
         Self {
             target_kind: AnalysisTargetKind::Extractor,
             target_ref: extractor.stable_ref.clone(),
@@ -79,13 +50,13 @@ impl ImageAnalysisResult {
             matched_detector_ref: produced
                 .then_some(analysis.context.matched_detector_ref)
                 .flatten(),
-            failure,
+            failure: resolution.failure,
             participants: analysis.runs,
         }
     }
 
     pub fn failed(&self) -> bool {
-        self.outcome == ImageAnalysisOutcome::Failed
+        self.outcome == ExtractionResultOutcome::Failed
     }
 }
 
@@ -93,7 +64,7 @@ pub fn analyze_image(
     image_bytes: Vec<u8>,
     extractor: &Extractor,
     detectors: Option<&[crate::content_detection::Detector]>,
-) -> ImageAnalysisResult {
+) -> ExtractionResult {
     let registry = crate::content_extraction::system_engine_registry();
     analyze_image_with_registry(image_bytes, extractor, detectors, &registry)
 }
@@ -103,8 +74,8 @@ pub fn analyze_image_with_registry(
     extractor: &Extractor,
     detectors: Option<&[crate::content_detection::Detector]>,
     registry: &ExtractorEngineRegistry<'_>,
-) -> ImageAnalysisResult {
-    ImageAnalysisResult::from_report(
+) -> ExtractionResult {
+    ExtractionResult::from_report(
         extractor,
         crate::content_analysis::analyze_image_with_registry(
             image_bytes,
@@ -116,7 +87,7 @@ pub fn analyze_image_with_registry(
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct ImageAnalysisPersistence {
+struct ExtractionPersistence {
     pub ocr_updated: bool,
     pub classification_updated: bool,
 }
@@ -125,17 +96,18 @@ pub struct ImageAnalysisPersistence {
 #[serde(rename_all = "camelCase")]
 pub struct ExtractionApplicationResult {
     #[serde(flatten)]
-    pub analysis: ImageAnalysisResult,
-    pub applied_clip_id: Option<i64>,
+    pub analysis: ExtractionResult,
+    #[serde(flatten)]
+    pub application: ClipApplication,
     pub ocr_updated: bool,
     pub classification_updated: bool,
 }
 
 impl ExtractionApplicationResult {
-    pub fn preview(analysis: ImageAnalysisResult) -> Self {
+    pub fn preview(analysis: ExtractionResult) -> Self {
         Self {
             analysis,
-            applied_clip_id: None,
+            application: ClipApplication::preview(),
             ocr_updated: false,
             classification_updated: false,
         }
@@ -148,8 +120,8 @@ fn persist_image_analysis(
     content_hash: &str,
     extractor: &Extractor,
     classification_enabled: bool,
-    analysis: &ImageAnalysisResult,
-) -> rusqlite::Result<ImageAnalysisPersistence> {
+    analysis: &ExtractionResult,
+) -> rusqlite::Result<ExtractionPersistence> {
     let extraction_error = analysis
         .failure
         .as_ref()
@@ -162,7 +134,7 @@ fn persist_image_analysis(
         extraction_error,
     )?;
     if !ocr_updated {
-        return Ok(ImageAnalysisPersistence {
+        return Ok(ExtractionPersistence {
             ocr_updated: false,
             classification_updated: false,
         });
@@ -181,7 +153,7 @@ fn persist_image_analysis(
         false
     };
 
-    Ok(ImageAnalysisPersistence {
+    Ok(ExtractionPersistence {
         ocr_updated,
         classification_updated,
     })
@@ -193,7 +165,7 @@ pub fn persist_claimed_image_analysis(
     content_hash: &str,
     extractor: &Extractor,
     classification_enabled: bool,
-    analysis: ImageAnalysisResult,
+    analysis: ExtractionResult,
 ) -> rusqlite::Result<ExtractionApplicationResult> {
     let persistence = persist_image_analysis(
         db,
@@ -204,7 +176,11 @@ pub fn persist_claimed_image_analysis(
         &analysis,
     )?;
     Ok(ExtractionApplicationResult {
-        applied_clip_id: persistence.ocr_updated.then_some(clip_id),
+        application: if persistence.ocr_updated {
+            ClipApplication::applied(clip_id)
+        } else {
+            ClipApplication::preview()
+        },
         ocr_updated: persistence.ocr_updated,
         classification_updated: persistence.classification_updated,
         analysis,
@@ -217,7 +193,7 @@ pub fn apply_image_analysis(
     content_hash: &str,
     extractor: &Extractor,
     classification_enabled: bool,
-    analysis: ImageAnalysisResult,
+    analysis: ExtractionResult,
 ) -> rusqlite::Result<ExtractionApplicationResult> {
     if !db.force_ocr_running(clip_id, content_hash)? {
         return Err(rusqlite::Error::InvalidParameterName(
@@ -273,7 +249,7 @@ mod tests {
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        DbState::new(std::env::temp_dir().join(format!("pasted_analysis_execution_{nonce}.db")))
+        DbState::new(std::env::temp_dir().join(format!("pasted_extraction_execution_{nonce}.db")))
             .unwrap()
     }
 
@@ -299,14 +275,14 @@ mod tests {
         output: Option<&str>,
         detected_type: Option<&str>,
         matched_detector_ref: Option<&str>,
-    ) -> ImageAnalysisResult {
-        ImageAnalysisResult {
+    ) -> ExtractionResult {
+        ExtractionResult {
             target_kind: AnalysisTargetKind::Extractor,
             target_ref: "extractor:test".into(),
             outcome: if output.is_some() {
-                ImageAnalysisOutcome::Produced
+                ExtractionResultOutcome::Produced
             } else {
-                ImageAnalysisOutcome::NoOutput
+                ExtractionResultOutcome::NoOutput
             },
             output: output.map(str::to_string),
             detected_type: detected_type.map(str::to_string),
@@ -328,7 +304,7 @@ mod tests {
 
         let result = analyze_image_with_registry(vec![1, 2, 3], &extractor(), None, &registry);
 
-        assert_eq!(result.outcome, ImageAnalysisOutcome::Produced);
+        assert_eq!(result.outcome, ExtractionResultOutcome::Produced);
         assert_eq!(result.output.as_deref(), Some("recognized text"));
         assert_eq!(
             serde_json::to_value(&result).unwrap(),
@@ -423,7 +399,7 @@ mod tests {
 
         let result = analyze_image_with_registry(vec![1], &extractor(), None, &registry);
 
-        assert_eq!(result.outcome, ImageAnalysisOutcome::NoOutput);
+        assert_eq!(result.outcome, ExtractionResultOutcome::NoOutput);
         assert_eq!(result.output, None);
         assert_eq!(result.failure, None);
     }
@@ -450,7 +426,7 @@ mod tests {
             }],
         };
 
-        let result = ImageAnalysisResult::from_report(&extractor(), report);
+        let result = ExtractionResult::from_report(&extractor(), report);
 
         assert!(result.failed());
         assert_eq!(result.output, None);
@@ -489,7 +465,7 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(persisted.applied_clip_id, Some(clip.id));
+        assert_eq!(persisted.application.applied_clip_id, Some(clip.id));
         assert!(persisted.ocr_updated);
         assert!(persisted.classification_updated);
         assert_eq!(
@@ -537,7 +513,7 @@ mod tests {
             result(Some("recognized text"), None, None),
         )
         .unwrap();
-        assert_eq!(applied.applied_clip_id, Some(clip.id));
+        assert_eq!(applied.application.applied_clip_id, Some(clip.id));
         assert!(applied.ocr_updated);
         assert!(!applied.classification_updated);
         assert_eq!(
@@ -576,7 +552,7 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(persisted.applied_clip_id, Some(clip.id));
+        assert_eq!(persisted.application.applied_clip_id, Some(clip.id));
         assert!(persisted.ocr_updated);
         assert!(!persisted.classification_updated);
         assert_eq!(

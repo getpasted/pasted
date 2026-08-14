@@ -1,15 +1,9 @@
-use crate::content_analysis::{
-    AnalysisFailure, AnalysisReport, ParticipantOutcome, ParticipantRun, DETECTOR_PARTICIPANT_REF,
+use crate::analysis_contract::{
+    AnalysisFailure, AnalysisTargetKind, ClipApplication, ParticipantRun,
 };
+use crate::content_analysis::{AnalysisReport, DETECTOR_PARTICIPANT_REF};
 use crate::content_detection::Detector;
 use serde::Serialize;
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum DetectionTargetKind {
-    Detector,
-    DetectorSet,
-}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -22,7 +16,7 @@ pub enum DetectionOutcome {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DetectionResult {
-    pub target_kind: DetectionTargetKind,
+    pub target_kind: AnalysisTargetKind,
     pub target_ref: String,
     pub outcome: DetectionOutcome,
     pub matched: bool,
@@ -34,33 +28,12 @@ pub struct DetectionResult {
 
 impl DetectionResult {
     fn from_report(
-        target_kind: DetectionTargetKind,
+        target_kind: AnalysisTargetKind,
         target_ref: String,
         analysis: AnalysisReport,
     ) -> Self {
-        let run = analysis
-            .runs
-            .iter()
-            .find(|run| run.stable_ref == DETECTOR_PARTICIPANT_REF);
-        let failure = match run {
-            Some(run) if run.outcome == ParticipantOutcome::Failed => {
-                run.failure.clone().or_else(|| {
-                    Some(AnalysisFailure {
-                        code: "analysis_failed".into(),
-                        message: "Detection failed without a structured reason.".into(),
-                    })
-                })
-            }
-            Some(run) if run.outcome == ParticipantOutcome::MissingInput => Some(AnalysisFailure {
-                code: "missing_input".into(),
-                message: "Detection's required input was not available.".into(),
-            }),
-            None => Some(AnalysisFailure {
-                code: "missing_participant".into(),
-                message: "Detection did not participate in Analysis.".into(),
-            }),
-            _ => None,
-        };
+        let resolution = analysis.resolve_participant(DETECTOR_PARTICIPANT_REF, target_kind);
+        let failure = resolution.failure;
         let matched = failure.is_none()
             && analysis.context.matched_detector_ref.is_some()
             && analysis.context.detected_type.is_some();
@@ -99,21 +72,29 @@ impl DetectionResult {
 pub struct DetectionApplicationResult {
     #[serde(flatten)]
     pub analysis: DetectionResult,
-    pub applied_clip_id: Option<i64>,
+    #[serde(flatten)]
+    pub application: ClipApplication,
 }
 
 impl DetectionApplicationResult {
     pub fn preview(analysis: DetectionResult) -> Self {
         Self {
             analysis,
-            applied_clip_id: None,
+            application: ClipApplication::preview(),
+        }
+    }
+
+    pub fn applied(analysis: DetectionResult, clip_id: i64) -> Self {
+        Self {
+            analysis,
+            application: ClipApplication::applied(clip_id),
         }
     }
 }
 
 pub fn analyze_detectors(text: &str, detectors: &[Detector]) -> DetectionResult {
     DetectionResult::from_report(
-        DetectionTargetKind::DetectorSet,
+        AnalysisTargetKind::DetectorSet,
         DETECTOR_PARTICIPANT_REF.into(),
         crate::content_analysis::analyze_text(text, detectors),
     )
@@ -121,7 +102,7 @@ pub fn analyze_detectors(text: &str, detectors: &[Detector]) -> DetectionResult 
 
 pub fn analyze_detector(text: &str, detector: &Detector) -> DetectionResult {
     DetectionResult::from_report(
-        DetectionTargetKind::Detector,
+        AnalysisTargetKind::Detector,
         detector.stable_ref.clone(),
         crate::content_analysis::analyze_text(text, std::slice::from_ref(detector)),
     )
@@ -130,7 +111,7 @@ pub fn analyze_detector(text: &str, detector: &Detector) -> DetectionResult {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::content_analysis::{AnalysisContext, AnalysisPass};
+    use crate::content_analysis::{AnalysisContext, AnalysisPass, ParticipantOutcome};
 
     fn detector() -> Detector {
         Detector {
@@ -209,7 +190,7 @@ mod tests {
         };
 
         let result = DetectionResult::from_report(
-            DetectionTargetKind::DetectorSet,
+            AnalysisTargetKind::DetectorSet,
             DETECTOR_PARTICIPANT_REF.into(),
             report,
         );

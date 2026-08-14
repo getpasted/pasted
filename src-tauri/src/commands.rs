@@ -4278,7 +4278,7 @@ pub fn get_installed_applications(db: State<'_, Arc<DbState>>) -> Result<Vec<Str
 pub fn extract_ocr_from_clip(
     clip_id: i64,
     db: State<'_, Arc<DbState>>,
-) -> Result<crate::analysis_execution::ExtractionApplicationResult, String> {
+) -> Result<crate::extraction_execution::ExtractionApplicationResult, String> {
     features::require(&db, Feature::Ocr)?;
     let extractor = db
         .active_image_text_extractor()
@@ -4296,8 +4296,8 @@ pub fn extract_ocr_from_clip(
         .then(|| db.get_content_detectors().ok())
         .flatten();
     let analysis =
-        crate::analysis_execution::analyze_image(bytes, &extractor, detectors.as_deref());
-    crate::analysis_execution::apply_image_analysis(
+        crate::extraction_execution::analyze_image(bytes, &extractor, detectors.as_deref());
+    crate::extraction_execution::apply_image_analysis(
         &db,
         clip_id,
         &clip.content_hash,

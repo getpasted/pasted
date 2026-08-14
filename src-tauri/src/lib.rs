@@ -1,5 +1,4 @@
 pub mod analysis_contract;
-pub mod analysis_execution;
 mod app_menu;
 pub mod bin_assignment;
 mod clipboard_fingerprint;
@@ -12,6 +11,7 @@ pub mod content_types;
 pub mod db;
 pub mod detection_execution;
 pub mod external_import;
+pub mod extraction_execution;
 pub mod features;
 mod filter_engine;
 mod hotkey_manager;

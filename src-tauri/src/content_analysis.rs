@@ -1,62 +1,11 @@
 use crate::content_detection::{detect_match_with_detectors, Detector};
 use crate::content_extraction::{ExtractionOutcome, Extractor, ExtractorEngineRegistry};
-use serde::Serialize;
 
-pub use crate::analysis_contract::RepresentationKind;
-
-pub const MAX_ANALYSIS_PASSES: usize = 4;
+pub use crate::analysis_contract::{
+    AnalysisFailure, AnalysisPass, AnalysisTargetKind, ParticipantContract, ParticipantOutcome,
+    ParticipantRun, RepresentationKind, MAX_ANALYSIS_PASSES,
+};
 pub const DETECTOR_PARTICIPANT_REF: &str = "analysis:content-detectors";
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum AnalysisPass {
-    Inspect,
-    Extract,
-    Classify,
-    Enrich,
-}
-
-impl AnalysisPass {
-    const ORDERED: [Self; MAX_ANALYSIS_PASSES] =
-        [Self::Inspect, Self::Extract, Self::Classify, Self::Enrich];
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ParticipantContract {
-    pub stable_ref: String,
-    pub name: String,
-    pub pass: AnalysisPass,
-    pub priority: i64,
-    pub requires: Vec<RepresentationKind>,
-    pub provides: Vec<RepresentationKind>,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ParticipantOutcome {
-    Produced,
-    NoOutput,
-    MissingInput,
-    Failed,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AnalysisFailure {
-    pub code: String,
-    pub message: String,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ParticipantRun {
-    pub stable_ref: String,
-    pub pass: AnalysisPass,
-    pub outcome: ParticipantOutcome,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub failure: Option<AnalysisFailure>,
-}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AnalysisContext {
@@ -114,12 +63,55 @@ pub struct AnalysisReport {
     pub runs: Vec<ParticipantRun>,
 }
 
+pub(crate) struct ParticipantResolution {
+    pub outcome: ParticipantOutcome,
+    pub failure: Option<AnalysisFailure>,
+}
+
 impl AnalysisReport {
     pub fn failure_for(&self, stable_ref: &str) -> Option<&AnalysisFailure> {
         self.runs
             .iter()
             .find(|run| run.stable_ref == stable_ref)
             .and_then(|run| run.failure.as_ref())
+    }
+
+    pub(crate) fn resolve_participant(
+        &self,
+        stable_ref: &str,
+        target_kind: AnalysisTargetKind,
+    ) -> ParticipantResolution {
+        let subject = target_kind.failure_subject();
+        let run = self.runs.iter().find(|run| run.stable_ref == stable_ref);
+        match run {
+            Some(run) if run.outcome == ParticipantOutcome::Failed => ParticipantResolution {
+                outcome: ParticipantOutcome::Failed,
+                failure: run.failure.clone().or_else(|| {
+                    Some(AnalysisFailure {
+                        code: "analysis_failed".into(),
+                        message: format!("{subject} failed without a structured reason."),
+                    })
+                }),
+            },
+            Some(run) if run.outcome == ParticipantOutcome::MissingInput => ParticipantResolution {
+                outcome: ParticipantOutcome::MissingInput,
+                failure: Some(AnalysisFailure {
+                    code: "missing_input".into(),
+                    message: format!("{subject}'s required input was not available."),
+                }),
+            },
+            Some(run) => ParticipantResolution {
+                outcome: run.outcome,
+                failure: None,
+            },
+            None => ParticipantResolution {
+                outcome: ParticipantOutcome::Failed,
+                failure: Some(AnalysisFailure {
+                    code: "missing_participant".into(),
+                    message: format!("{subject} did not participate in Analysis."),
+                }),
+            },
+        }
     }
 }
 
@@ -431,6 +423,44 @@ mod tests {
 
         assert_eq!(runs.len(), 1);
         assert_eq!(runs[0].outcome, ParticipantOutcome::MissingInput);
+    }
+
+    #[test]
+    fn participant_resolution_normalizes_scheduler_failures_for_every_surface() {
+        let failed = AnalysisReport {
+            context: AnalysisContext::for_text("text"),
+            runs: vec![ParticipantRun {
+                stable_ref: "participant:test".into(),
+                pass: AnalysisPass::Enrich,
+                outcome: ParticipantOutcome::Failed,
+                failure: None,
+            }],
+        }
+        .resolve_participant("participant:test", AnalysisTargetKind::Enricher);
+        assert_eq!(failed.outcome, ParticipantOutcome::Failed);
+        assert_eq!(failed.failure.unwrap().code, "analysis_failed");
+
+        let missing_input = AnalysisReport {
+            context: AnalysisContext::for_text("text"),
+            runs: vec![ParticipantRun {
+                stable_ref: "participant:test".into(),
+                pass: AnalysisPass::Enrich,
+                outcome: ParticipantOutcome::MissingInput,
+                failure: None,
+            }],
+        }
+        .resolve_participant("participant:test", AnalysisTargetKind::Enricher);
+        assert_eq!(missing_input.failure.unwrap().code, "missing_input");
+
+        let missing_participant = AnalysisReport {
+            context: AnalysisContext::for_text("text"),
+            runs: Vec::new(),
+        }
+        .resolve_participant("participant:test", AnalysisTargetKind::Enricher);
+        assert_eq!(
+            missing_participant.failure.unwrap().code,
+            "missing_participant"
+        );
     }
 
     #[test]

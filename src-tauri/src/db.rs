@@ -9394,6 +9394,9 @@ impl DbState {
     ) -> Result<crate::detection_execution::DetectionApplicationResult> {
         let mut conn = self.conn.lock();
         let transaction = conn.transaction()?;
+        let no_analyzable_text = || {
+            rusqlite::Error::InvalidParameterName("The selected clip has no analyzable text".into())
+        };
         let numeric_id = reference.parse::<i64>().ok();
         let detector = transaction.query_row(
             "SELECT id, stable_ref, name, content_type, description, patterns_json,
@@ -9413,14 +9416,10 @@ impl DbState {
             )
             .optional()?;
         let Some((current_type, Some(text))) = clip else {
-            return Err(rusqlite::Error::InvalidParameterName(
-                "The selected clip has no analyzable text".into(),
-            ));
+            return Err(no_analyzable_text());
         };
         if text.trim().is_empty() {
-            return Err(rusqlite::Error::InvalidParameterName(
-                "The selected clip has no analyzable text".into(),
-            ));
+            return Err(no_analyzable_text());
         }
         if matches!(current_type.as_str(), "image" | "file") {
             return Err(rusqlite::Error::InvalidParameterName(
@@ -9448,10 +9447,7 @@ impl DbState {
                 &format!("Applied a Detector to clip #{clip_id}"),
             );
         }
-        Ok(crate::detection_execution::DetectionApplicationResult {
-            analysis,
-            applied_clip_id: Some(clip_id),
-        })
+        Ok(crate::detection_execution::DetectionApplicationResult::applied(analysis, clip_id))
     }
 
     fn get_all_content_detectors_for_backup(
@@ -10050,7 +10046,7 @@ mod tests {
             .unwrap();
         let applied = db.apply_content_detector(matching.id, "email").unwrap();
         assert!(applied.analysis.matched);
-        assert_eq!(applied.applied_clip_id, Some(matching.id));
+        assert_eq!(applied.application.applied_clip_id, Some(matching.id));
         assert_eq!(
             db.get_clip_by_id(matching.id).unwrap().content_type,
             "email"
@@ -10068,7 +10064,7 @@ mod tests {
             .unwrap();
         let not_applied = db.apply_content_detector(nonmatching.id, "email").unwrap();
         assert!(!not_applied.analysis.matched);
-        assert_eq!(not_applied.applied_clip_id, None);
+        assert_eq!(not_applied.application.applied_clip_id, None);
         assert_eq!(
             db.get_clip_by_id(nonmatching.id).unwrap().content_type,
             "text"
