@@ -28,6 +28,12 @@ fn ensure_resource_size(value: &str, maximum: usize, label: &str) -> Result<()> 
     )))
 }
 
+fn ensure_safe_raster_data_url(value: &str, label: &str) -> Result<()> {
+    crate::resource_limits::validate_raster_data_url(value).map_err(|error| {
+        rusqlite::Error::InvalidParameterName(format!("{label} is invalid: {error}"))
+    })
+}
+
 fn validate_backup_json(value: Option<&str>, label: &str) -> Result<()> {
     let Some(value) = value else {
         return Ok(());
@@ -3199,11 +3205,7 @@ impl DbState {
             )?;
         }
         if let Some(image) = image_base64 {
-            ensure_resource_size(
-                image,
-                crate::resource_limits::MAX_STORED_IMAGE_BASE64_BYTES,
-                "Clip image",
-            )?;
+            ensure_safe_raster_data_url(image, "Clip image")?;
         }
         let conn = self.conn.lock();
 
@@ -3533,11 +3535,12 @@ impl DbState {
 
     pub fn get_clip_image(&self, id: i64) -> Result<Option<String>> {
         let conn = self.conn.lock();
-        conn.query_row(
+        let image: Option<String> = conn.query_row(
             "SELECT image_base64 FROM clips WHERE id = ?1",
             params![id],
             |row| row.get(0),
-        )
+        )?;
+        Ok(image.filter(|value| crate::resource_limits::validate_raster_data_url(value).is_ok()))
     }
 
     pub fn get_active_clip_text(&self, id: i64) -> Result<Option<String>> {
@@ -6126,9 +6129,7 @@ impl DbState {
     }
 
     fn apply_imported_clips(&self, clips: Vec<ClipItem>, commit: bool) -> Result<ClipImportReport> {
-        use crate::resource_limits::{
-            MAX_CLIP_NOTE_BYTES, MAX_CLIP_TEXT_BYTES, MAX_STORED_IMAGE_BASE64_BYTES,
-        };
+        use crate::resource_limits::{MAX_CLIP_NOTE_BYTES, MAX_CLIP_TEXT_BYTES};
         let mut input_hashes = HashSet::new();
         for clip in &clips {
             if clip.content_hash.trim().is_empty()
@@ -6150,7 +6151,7 @@ impl DbState {
                 ensure_resource_size(value, MAX_CLIP_TEXT_BYTES, "Imported clip HTML")?;
             }
             if let Some(value) = clip.image_base64.as_deref() {
-                ensure_resource_size(value, MAX_STORED_IMAGE_BASE64_BYTES, "Imported clip image")?;
+                ensure_safe_raster_data_url(value, "Imported clip image")?;
             }
             if let Some(value) = clip.note.as_deref() {
                 ensure_resource_size(value, MAX_CLIP_NOTE_BYTES, "Imported clip note")?;
@@ -6242,7 +6243,6 @@ impl DbState {
     fn preflight_library_archive(payload: &BackupPayload) -> Result<LibraryArchiveInspection> {
         use crate::resource_limits::{
             MAX_CLIP_NOTE_BYTES, MAX_CLIP_TEXT_BYTES, MAX_LIBRARY_ARCHIVE_ROWS,
-            MAX_STORED_IMAGE_BASE64_BYTES,
         };
 
         if !(1..=BACKUP_SCHEMA_VERSION).contains(&payload.version) {
@@ -6436,7 +6436,7 @@ impl DbState {
                 ensure_resource_size(html, MAX_CLIP_TEXT_BYTES, "Imported clip HTML")?;
             }
             if let Some(image) = clip.image_base64.as_deref() {
-                ensure_resource_size(image, MAX_STORED_IMAGE_BASE64_BYTES, "Imported clip image")?;
+                ensure_safe_raster_data_url(image, "Imported clip image")?;
             }
             if let Some(note) = clip.note.as_deref() {
                 ensure_resource_size(note, MAX_CLIP_NOTE_BYTES, "Imported clip note")?;
@@ -6951,11 +6951,7 @@ impl DbState {
                 )?;
             }
             if let Some(image) = clip.image_base64.as_deref() {
-                ensure_resource_size(
-                    image,
-                    crate::resource_limits::MAX_STORED_IMAGE_BASE64_BYTES,
-                    "Imported clip image",
-                )?;
+                ensure_safe_raster_data_url(image, "Imported clip image")?;
             }
             if let Some(note) = clip.note.as_deref() {
                 ensure_resource_size(
@@ -9821,7 +9817,7 @@ mod tests {
                 "image",
                 None,
                 None,
-                Some("aW1hZ2U="),
+                Some(crate::resource_limits::TEST_PNG_DATA_URL),
                 "analysis-image-hash",
                 "Screenshot",
             )
@@ -10184,7 +10180,7 @@ mod tests {
                 "image",
                 Some("4242-4242-4242-4242"),
                 None,
-                Some("aW1hZ2U="),
+                Some(crate::resource_limits::TEST_PNG_DATA_URL),
                 "image-hash",
                 "Test",
             )
@@ -10625,7 +10621,7 @@ mod tests {
                 "image",
                 None,
                 None,
-                Some("data:image/png;base64,cGFzdGVk"),
+                Some(crate::resource_limits::TEST_PNG_DATA_URL),
                 "reattribute-image-hash",
                 "Safari",
             )
@@ -10668,7 +10664,7 @@ mod tests {
                 "image",
                 None,
                 None,
-                Some("data:image/png;base64,cGFzdGVk"),
+                Some(crate::resource_limits::TEST_PNG_DATA_URL),
                 "origin_screenshot_hash",
                 "Screenshot",
             )
@@ -10841,7 +10837,7 @@ mod tests {
     #[test]
     fn clip_lists_defer_image_payloads_to_the_image_endpoint() {
         let db = setup_test_db();
-        let image_payload = "data:image/png;base64,cGFzdGVk";
+        let image_payload = crate::resource_limits::TEST_PNG_DATA_URL;
         let clip = db
             .save_clip(
                 "image",
@@ -12809,7 +12805,7 @@ mod tests {
                 "image",
                 None,
                 None,
-                Some("data:image/png;base64,AA=="),
+                Some(crate::resource_limits::TEST_PNG_DATA_URL),
                 "ocr-lifecycle-hash",
                 "Screenshot",
             )
@@ -12863,7 +12859,7 @@ mod tests {
                 "image",
                 None,
                 None,
-                Some("data:image/png;base64,AA=="),
+                Some(crate::resource_limits::TEST_PNG_DATA_URL),
                 "ocr-success-hash",
                 "Screenshot",
             )
@@ -13661,7 +13657,7 @@ mod tests {
                 "image",
                 Some("recognized text"),
                 None,
-                Some("aW1hZ2UtcGF5bG9hZA=="),
+                Some(crate::resource_limits::TEST_PNG_DATA_URL),
                 "clip-image-export-hash",
                 "Screenshot",
             )
@@ -13676,9 +13672,66 @@ mod tests {
         assert_eq!(imported.text_content.as_deref(), Some("recognized text"));
         assert_eq!(
             imported.image_base64.as_deref(),
-            Some("aW1hZ2UtcGF5bG9hZA==")
+            Some(crate::resource_limits::TEST_PNG_DATA_URL)
         );
         assert_eq!(imported.content_hash, "clip-image-export-hash");
+    }
+
+    #[test]
+    fn raster_image_boundaries_reject_active_content_without_mutation() {
+        let malicious = "data:image/png;base64,PHN2ZyBvbmxvYWQ9ImFsZXJ0KDEpIj48L3N2Zz4=";
+        let direct = setup_test_db();
+        assert!(direct
+            .save_clip(
+                "image",
+                None,
+                None,
+                Some(malicious),
+                "malicious-direct-image",
+                "Tests",
+            )
+            .is_err());
+        assert!(direct.get_all_clips_for_backup().unwrap().is_empty());
+
+        let source = setup_test_db();
+        source
+            .save_clip(
+                "image",
+                None,
+                None,
+                Some(crate::resource_limits::TEST_PNG_DATA_URL),
+                "malicious-import-image",
+                "Tests",
+            )
+            .unwrap();
+        let mut payload: serde_json::Value =
+            serde_json::from_str(&source.export_clips_json().unwrap()).unwrap();
+        payload[0]["image_base64"] = malicious.into();
+        let payload = serde_json::to_string(&payload).unwrap();
+        let target = setup_test_db();
+        assert!(target.inspect_clips_json(&payload).is_err());
+        assert!(target.import_clips_json(&payload).is_err());
+        assert!(target.get_all_clips_for_backup().unwrap().is_empty());
+
+        let legacy = source.get_all_clips_for_backup().unwrap().remove(0);
+        source
+            .conn
+            .lock()
+            .execute(
+                "UPDATE clips SET image_base64 = ?1 WHERE id = ?2",
+                params![malicious, legacy.id],
+            )
+            .unwrap();
+        assert_eq!(source.get_clip_image(legacy.id).unwrap(), None);
+        assert_eq!(
+            source
+                .get_all_clips_for_backup()
+                .unwrap()
+                .remove(0)
+                .image_base64
+                .as_deref(),
+            Some(malicious)
+        );
     }
 
     #[test]
@@ -13712,8 +13765,8 @@ mod tests {
             .save_clip(
                 "image",
                 None,
-                Some("aW1hZ2U="),
                 None,
+                Some(crate::resource_limits::TEST_PNG_DATA_URL),
                 "ocr-backup-hash",
                 "Screenshot",
             )
