@@ -1085,7 +1085,6 @@ fn main() -> Result<()> {
                         image_bytes,
                         &extractor,
                         detectors.as_deref(),
-                        pasted_lib::ocr::perform_ocr_on_image_bytes,
                     );
                     if apply {
                         let clip_id = clip_id.expect("validated apply target");
@@ -3726,12 +3725,8 @@ fn scan_existing_images(db: &DbState, clip_id: Option<i64>) -> Result<usize> {
             scanned += 1;
             continue;
         };
-        let analysis = pasted_lib::content_analysis::analyze_image(
-            bytes,
-            &extractor,
-            detectors.as_deref(),
-            pasted_lib::ocr::perform_ocr_on_image_bytes,
-        );
+        let analysis =
+            pasted_lib::content_analysis::analyze_image(bytes, &extractor, detectors.as_deref());
         db.complete_ocr_attempt(
             candidate.clip_id,
             &candidate.content_hash,

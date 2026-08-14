@@ -9017,8 +9017,7 @@ impl DbState {
             let preset = crate::content_extraction::EXTRACTOR_PRESETS
                 .iter()
                 .find(|preset| preset.stable_ref == stable_ref);
-            let (is_available, unavailable_reason) =
-                crate::content_extraction::availability(&engine);
+            let availability = crate::content_extraction::engine_availability(&engine);
             Ok(crate::content_extraction::Extractor {
                 id: row.get(0)?,
                 stable_ref,
@@ -9030,8 +9029,8 @@ impl DbState {
                 enabled: row.get(7)?,
                 priority: row.get(8)?,
                 is_builtin: row.get(9)?,
-                is_available,
-                unavailable_reason,
+                is_available: availability.is_available,
+                unavailable_reason: availability.unavailable_reason,
                 defaults: preset.map(|preset| crate::content_extraction::ExtractorInput {
                     name: preset.name.to_string(),
                     description: preset.description.to_string(),

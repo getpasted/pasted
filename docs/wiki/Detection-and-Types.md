@@ -21,6 +21,8 @@ Extractors create searchable representations from clip content without replacing
 
 OCR scans use the first enabled, available Extractor with an `image` input and `searchable_text` output contract. The resulting text becomes available to the later classify pass during the same bounded run. This explicit boundary allows additional local or provider-backed engines without changing Detection or the stored OCR result model.
 
+Engine availability and execution use one shared native registry for app-driven OCR, manual runs, and the CLI. Every engine returns a bounded typed outcome: produced text, no output, or a failure with a stable code and neutral message. Unknown engines remain stored but unavailable instead of falling through to another executable. Apple Vision is the only shipped engine adapter in this release.
+
 ## How detector matching works
 
 Enabled detectors are evaluated in priority order; the lowest priority number runs first. Each detector defines:

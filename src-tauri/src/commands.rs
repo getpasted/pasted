@@ -4292,12 +4292,8 @@ pub fn extract_ocr_from_clip(clip_id: i64, db: State<'_, Arc<DbState>>) -> Resul
             let detectors = features::is_enabled(&db, Feature::ContentDetection)
                 .then(|| db.get_content_detectors().ok())
                 .flatten();
-            let analysis = crate::content_analysis::analyze_image(
-                bytes,
-                &extractor,
-                detectors.as_deref(),
-                crate::ocr::perform_ocr_on_image_bytes,
-            );
+            let analysis =
+                crate::content_analysis::analyze_image(bytes, &extractor, detectors.as_deref());
             if let Some(ocr_text) = analysis.context.searchable_text {
                 db.complete_ocr_attempt(
                     clip_id,
