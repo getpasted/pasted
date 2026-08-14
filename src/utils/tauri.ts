@@ -225,7 +225,9 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       return mockDetectors.map((detector) => ({ ...detector, patterns: [...detector.patterns] })) as unknown as T;
     case 'get_content_extractors':
       return mockExtractors.map((extractor) => ({ ...extractor, defaults: extractor.defaults ? { ...extractor.defaults } : null })) as unknown as T;
-    case 'extract_ocr_from_clip':
+    case 'extract_ocr_from_clip': {
+      const clipId = Number(args?.clipId);
+      if (!Number.isInteger(clipId) || clipId <= 0) throw new Error('A valid clip ID is required.');
       return {
         targetKind: 'extractor',
         targetRef: 'extractor:apple-vision-ocr',
@@ -235,10 +237,11 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
         matchedDetectorRef: null,
         failure: null,
         participants: [{ stableRef: 'extractor:apple-vision-ocr', pass: 'extract', outcome: 'produced' }],
-        appliedClipId: Number(args?.clipId),
+        appliedClipId: clipId,
         ocrUpdated: true,
         classificationUpdated: false,
       } as unknown as T;
+    }
     case 'create_content_extractor': {
       const input = args?.input as Omit<MockExtractor, 'id' | 'stableRef' | 'isBuiltin' | 'isAvailable' | 'unavailableReason' | 'defaults'>;
       const id = nextMockExtractorId++;

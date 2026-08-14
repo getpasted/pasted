@@ -4305,7 +4305,10 @@ pub fn extract_ocr_from_clip(
         detectors.is_some(),
         analysis,
     )
-    .map_err(|error| error.to_string())
+    .map_err(|error| match error {
+        rusqlite::Error::InvalidParameterName(message) => message,
+        error => error.to_string(),
+    })
 }
 
 #[tauri::command]
