@@ -121,7 +121,7 @@ pub(crate) fn inspect_clip_with_policy(
     } else {
         analyze_clip(&clip, policy).map_err(rusqlite::Error::InvalidParameterName)?
     };
-    debug_assert_eq!(analysis.format_version, ANALYSIS_CONTRACT_VERSION);
+    debug_assert_eq!(analysis.metadata.format_version, ANALYSIS_CONTRACT_VERSION);
     let applied = if apply {
         db.record_structural_inspection(clip.id, &clip.content_hash, &input_hash, &analysis.result)?
     } else {

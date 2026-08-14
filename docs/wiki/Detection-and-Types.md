@@ -23,7 +23,7 @@ The built-in Structure Inspector records content-free text counts, image dimensi
 
 The built-in Smart Actions Enricher uses classification, structural metadata, and bounded content signals to recommend saved Transforms by stable reference. It runs only for interactive requests, never executes a recommendation, never mutates a clip, and never includes analyzed text in its result. Clip Preview and `pasted enricher run` consume the same versioned result.
 
-Public whole-Analysis envelopes carry an explicit `formatVersion`, policy, final pass, result, and privacy-safe participant summaries. Existing participant-specific Extractor and Detector JSON remains stable while those envelopes are introduced.
+Every public Analysis result carries the same explicit `formatVersion`, policy, final pass, and privacy-safe participant summaries. Extractor and Detector results retain their participant-specific outcome and application fields at the top level for stable GUI and CLI consumption.
 
 ## Extractors
 

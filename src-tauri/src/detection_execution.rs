@@ -1,5 +1,6 @@
 use crate::analysis_contract::{
-    AnalysisFailure, AnalysisTargetKind, ClipApplication, ParticipantRun,
+    AnalysisFailure, AnalysisMetadata, AnalysisPolicy, AnalysisTargetKind, ClipApplication,
+    ParticipantRun,
 };
 use crate::content_analysis::{AnalysisReport, DETECTOR_PARTICIPANT_REF};
 use crate::content_detection::Detector;
@@ -16,6 +17,8 @@ pub enum DetectionOutcome {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DetectionResult {
+    #[serde(flatten)]
+    pub metadata: AnalysisMetadata,
     pub target_kind: AnalysisTargetKind,
     pub target_ref: String,
     pub outcome: DetectionOutcome,
@@ -28,6 +31,7 @@ pub struct DetectionResult {
 
 impl DetectionResult {
     fn from_report(
+        policy: AnalysisPolicy,
         target_kind: AnalysisTargetKind,
         target_ref: String,
         analysis: AnalysisReport,
@@ -45,6 +49,7 @@ impl DetectionResult {
             DetectionOutcome::NoMatch
         };
         Self {
+            metadata: AnalysisMetadata::new(policy),
             target_kind,
             target_ref,
             outcome,
@@ -108,6 +113,7 @@ pub(crate) fn analyze_detectors_with_policy(
     source: Option<&str>,
 ) -> DetectionResult {
     DetectionResult::from_report(
+        policy,
         AnalysisTargetKind::DetectorSet,
         DETECTOR_PARTICIPANT_REF.into(),
         crate::content_analysis::analyze(crate::content_analysis::AnalysisRequest {
@@ -126,6 +132,7 @@ pub(crate) fn analyze_detectors_with_policy(
 
 pub fn analyze_detector(text: &str, detector: &Detector) -> DetectionResult {
     DetectionResult::from_report(
+        AnalysisPolicy::Interactive,
         AnalysisTargetKind::Detector,
         detector.stable_ref.clone(),
         crate::content_analysis::analyze(crate::content_analysis::AnalysisRequest {
@@ -174,6 +181,9 @@ mod tests {
         assert_eq!(
             serde_json::to_value(&result).unwrap(),
             serde_json::json!({
+                "formatVersion": 1,
+                "policy": "interactive",
+                "through": "enrich",
                 "targetKind": "detector",
                 "targetRef": "detector:email",
                 "outcome": "matched",
@@ -202,6 +212,21 @@ mod tests {
     }
 
     #[test]
+    fn bounded_detection_preserves_its_execution_policy() {
+        let result = analyze_detectors_with_policy(
+            "agent@example.com",
+            &[detector()],
+            AnalysisPolicy::Rescan,
+            Some("Pasted CLI"),
+        );
+
+        assert_eq!(
+            result.metadata,
+            AnalysisMetadata::new(AnalysisPolicy::Rescan)
+        );
+    }
+
+    #[test]
     fn failed_detection_discards_partial_classification_context() {
         let report = AnalysisReport {
             context: AnalysisContext {
@@ -227,6 +252,7 @@ mod tests {
         };
 
         let result = DetectionResult::from_report(
+            AnalysisPolicy::Interactive,
             AnalysisTargetKind::DetectorSet,
             DETECTOR_PARTICIPANT_REF.into(),
             report,

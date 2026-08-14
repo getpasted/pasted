@@ -309,6 +309,8 @@ assert.match(extraction, /pub enum ExtractionOutcome/, 'Extractor execution must
 assert.match(analysis, /ExtractorEngineRegistry/, 'Analysis must dispatch Extractors through the shared engine registry');
 assert.match(extractionExecution, /pub struct ExtractionResult/,
   'Image Analysis must expose one shared execution-result contract');
+assert.match(extractionExecution, /pub metadata: AnalysisMetadata/,
+  'Extractor results must carry the shared version and policy metadata');
 assert.match(extractionExecution, /pub participants: Vec<ParticipantRun>/,
   'Image Analysis results must expose privacy-safe participant summaries');
 assert.match(extractionExecution, /resolve_participant/,
@@ -359,6 +361,8 @@ assert.doesNotMatch(cli, /perform_ocr_on_image_bytes/, 'The CLI must not bypass 
 assert.match(clipboardMonitor, /save_text_clip/, 'GUI capture must use the shared text-capture service');
 assert.match(detectionExecution, /pub struct DetectionResult/,
   'Detection must expose one shared execution-result contract');
+assert.match(detectionExecution, /pub metadata: AnalysisMetadata/,
+  'Detector results must carry the shared version and policy metadata');
 assert.match(detectionExecution, /pub struct DetectionApplicationResult/,
   'Detector application must expose one shared mutation result');
 assert.match(detectionExecution, /pub participants: Vec<ParticipantRun>/,
@@ -381,6 +385,8 @@ assert.match(cli, /serde_json::json!\(&result\)/,
   'CLI Detector JSON must serialize the shared Detection result');
 assert.match(commands, /detection_execution::analyze_detector/,
   'GUI Detector tests must use the shared Detection result');
+assert.match(tauriMock, /case 'test_content_detector':[\s\S]*?formatVersion:\s*1,[\s\S]*?policy:\s*'interactive',[\s\S]*?through:\s*'enrich'/,
+  'The frontend Detector mock must preserve shared Analysis metadata');
 assert.doesNotMatch(database, /content_analysis::classify_text/,
   'Database classification paths must not infer results from raw Analyzer reports');
 assert.doesNotMatch(cli, /content_analysis::analyze_text/,
@@ -400,6 +406,8 @@ assert.match(tauriMock, /function mockBuiltinExtractor\(\)/,
   'The frontend mock must retain a canonical shipped Extractor definition');
 assert.match(tauriMock, /case 'extract_ocr_from_clip':[\s\S]*?appliedClipId:[\s\S]*?ocrUpdated:/,
   'The frontend mock must preserve the shared Extractor application result');
+assert.match(tauriMock, /case 'extract_ocr_from_clip':[\s\S]*?formatVersion:\s*1,[\s\S]*?policy:\s*'interactive',[\s\S]*?through:\s*'enrich'/,
+  'The frontend Extractor mock must preserve shared Analysis metadata');
 assert.match(tauriMock, /case 'restore_default_content_extractors':[\s\S]*?mockBuiltinExtractor\(\)[\s\S]*?stableRef !== builtin\.stableRef/,
   'Mock Restore Defaults must recreate the shipped Extractor without replacing custom Extractors');
 assert.match(database, /pub fn get_content_detector/, 'Resolving one Detector must live in the shared database domain layer');

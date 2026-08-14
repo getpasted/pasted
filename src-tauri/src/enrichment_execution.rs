@@ -148,7 +148,7 @@ mod tests {
     fn empty_results_still_return_a_versioned_enrichment_envelope() {
         let db = db();
         let result = enrich_text(&db, "ordinary words", Some("Pasted CLI")).unwrap();
-        assert_eq!(result.analysis.format_version, 1);
+        assert_eq!(result.analysis.metadata.format_version, 1);
         assert!(result.analysis.result.actions.is_empty());
         assert_eq!(
             result.analysis.participants.last().map(|run| run.outcome),

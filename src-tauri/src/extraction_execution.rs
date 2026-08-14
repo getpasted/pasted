@@ -1,5 +1,6 @@
 use crate::analysis_contract::{
-    AnalysisFailure, AnalysisTargetKind, ClipApplication, ParticipantOutcome, ParticipantRun,
+    AnalysisFailure, AnalysisMetadata, AnalysisPolicy, AnalysisTargetKind, ClipApplication,
+    ParticipantOutcome, ParticipantRun,
 };
 use crate::content_analysis::AnalysisReport;
 use crate::content_extraction::{Extractor, ExtractorEngineRegistry};
@@ -17,6 +18,8 @@ pub enum ExtractionResultOutcome {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ExtractionResult {
+    #[serde(flatten)]
+    pub metadata: AnalysisMetadata,
     pub target_kind: AnalysisTargetKind,
     pub target_ref: String,
     pub outcome: ExtractionResultOutcome,
@@ -28,7 +31,11 @@ pub struct ExtractionResult {
 }
 
 impl ExtractionResult {
-    fn from_report(extractor: &Extractor, analysis: AnalysisReport) -> Self {
+    fn from_report(
+        extractor: &Extractor,
+        policy: AnalysisPolicy,
+        analysis: AnalysisReport,
+    ) -> Self {
         let resolution =
             analysis.resolve_participant(&extractor.stable_ref, AnalysisTargetKind::Extractor);
         let outcome = if resolution.failure.is_some() {
@@ -40,6 +47,7 @@ impl ExtractionResult {
         };
         let produced = outcome == ExtractionResultOutcome::Produced;
         Self {
+            metadata: AnalysisMetadata::new(policy),
             target_kind: AnalysisTargetKind::Extractor,
             target_ref: extractor.stable_ref.clone(),
             outcome,
@@ -93,6 +101,7 @@ pub(crate) fn analyze_image_with_registry_and_policy(
 ) -> ExtractionResult {
     ExtractionResult::from_report(
         extractor,
+        policy,
         crate::content_analysis::analyze(crate::content_analysis::AnalysisRequest {
             input: crate::content_analysis::AnalysisInput::Image {
                 image_bytes,
@@ -302,6 +311,7 @@ mod tests {
         matched_detector_ref: Option<&str>,
     ) -> ExtractionResult {
         ExtractionResult {
+            metadata: AnalysisMetadata::new(AnalysisPolicy::Interactive),
             target_kind: AnalysisTargetKind::Extractor,
             target_ref: "extractor:test".into(),
             outcome: if output.is_some() {
@@ -334,6 +344,9 @@ mod tests {
         assert_eq!(
             serde_json::to_value(&result).unwrap(),
             serde_json::json!({
+                "formatVersion": 1,
+                "policy": "interactive",
+                "through": "enrich",
                 "targetKind": "extractor",
                 "targetRef": "extractor:test",
                 "outcome": "produced",
@@ -352,6 +365,9 @@ mod tests {
         assert_eq!(
             serde_json::to_value(ExtractionApplicationResult::preview(result)).unwrap(),
             serde_json::json!({
+                "formatVersion": 1,
+                "policy": "interactive",
+                "through": "enrich",
                 "targetKind": "extractor",
                 "targetRef": "extractor:test",
                 "outcome": "produced",
@@ -368,6 +384,28 @@ mod tests {
                 "ocrUpdated": false,
                 "classificationUpdated": false,
             })
+        );
+    }
+
+    #[test]
+    fn background_extraction_preserves_its_execution_policy() {
+        let engine = FixedEngine {
+            outcome: ExtractionOutcome::NoOutput,
+        };
+        let engines: [&dyn crate::content_extraction::ExtractorEngine; 1] = [&engine];
+        let registry = ExtractorEngineRegistry::new(&engines);
+
+        let result = analyze_image_with_registry_and_policy(
+            vec![1, 2, 3],
+            &extractor(),
+            None,
+            &registry,
+            AnalysisPolicy::Background,
+        );
+
+        assert_eq!(
+            result.metadata,
+            AnalysisMetadata::new(AnalysisPolicy::Background)
         );
     }
 
@@ -391,6 +429,9 @@ mod tests {
         assert_eq!(
             serde_json::to_value(&result).unwrap(),
             serde_json::json!({
+                "formatVersion": 1,
+                "policy": "interactive",
+                "through": "enrich",
                 "targetKind": "extractor",
                 "targetRef": "extractor:test",
                 "outcome": "failed",
@@ -454,7 +495,8 @@ mod tests {
             }],
         };
 
-        let result = ExtractionResult::from_report(&extractor(), report);
+        let result =
+            ExtractionResult::from_report(&extractor(), AnalysisPolicy::Interactive, report);
 
         assert!(result.failed());
         assert_eq!(result.output, None);

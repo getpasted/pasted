@@ -128,6 +128,9 @@ interface FileClipPreview {
 }
 
 interface ExtractionApplicationResult {
+  formatVersion: number;
+  policy: 'capture' | 'background' | 'interactive' | 'rescan';
+  through: 'inspect' | 'extract' | 'classify' | 'enrich';
   outcome: 'produced' | 'no_output' | 'failed';
   output: string | null;
   failure: { code: string; message: string } | null;
