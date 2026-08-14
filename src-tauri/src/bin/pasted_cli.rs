@@ -1093,11 +1093,13 @@ fn main() -> Result<()> {
                             eprintln!("Provide input with --text, --clip, or stdin.");
                             std::process::exit(2);
                         }
-                        let analysis =
-                            pasted_lib::content_inspection::inspect_text(&text, Some("Pasted CLI"))
-                                .map_err(|failure| {
-                                    rusqlite::Error::InvalidParameterName(failure.message)
-                                })?;
+                        let analysis = pasted_lib::inspection_execution::inspect_text(
+                            &text,
+                            Some("Pasted CLI"),
+                        )
+                        .map_err(|failure| {
+                            rusqlite::Error::InvalidParameterName(failure.message)
+                        })?;
                         pasted_lib::inspection_execution::ClipInspectionResult {
                             analysis,
                             application: pasted_lib::analysis_contract::ClipApplication::preview(),

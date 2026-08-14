@@ -1,7 +1,5 @@
-use crate::analysis_contract::{
-    AnalysisEnvelope, AnalysisFailure, AnalysisPolicy, AnalysisTargetKind,
-};
-use crate::content_analysis::{AnalysisInput, AnalysisRequest};
+use crate::analysis_contract::{AnalysisEnvelope, AnalysisFailure};
+use crate::content_analysis::AnalysisInput;
 use image::ImageReader;
 use serde::{Deserialize, Serialize};
 use std::io::Cursor;
@@ -238,107 +236,22 @@ pub(crate) fn inspect_input(input: &AnalysisInput) -> Result<StructuralMetadata,
     }
 }
 
-fn inspect(
-    input: AnalysisInput,
-    policy: AnalysisPolicy,
-) -> Result<InspectionResult, AnalysisFailure> {
-    let within_limit = match &input {
-        AnalysisInput::Text { text, .. } => {
-            text.len() <= crate::resource_limits::MAX_CLIP_TEXT_BYTES
-        }
-        AnalysisInput::Image { image_bytes, .. } => {
-            image_bytes.len() <= crate::resource_limits::MAX_ENCODED_IMAGE_BYTES
-        }
-        AnalysisInput::Files { paths, .. } => crate::resource_limits::file_list_within_limit(paths),
-    };
-    if !within_limit {
-        return Err(AnalysisFailure {
-            code: "input_too_large".into(),
-            message: "Inspection input exceeds the supported safety limit.".into(),
-        });
-    }
-    let report = crate::content_analysis::analyze(AnalysisRequest {
-        input,
-        policy,
-        inspector: true,
-        extractor: None,
-        detectors: None,
-        enricher: None,
-    });
-    let resolution =
-        report.resolve_participant(STRUCTURE_INSPECTOR_REF, AnalysisTargetKind::Inspector);
-    if let Some(failure) = resolution.failure {
-        return Err(failure);
-    }
-    let metadata = report
-        .context
-        .structural_metadata
-        .ok_or_else(|| AnalysisFailure {
-            code: "missing_output".into(),
-            message: "Inspection completed without structural metadata.".into(),
-        })?;
-    Ok(AnalysisEnvelope::new(policy, metadata, report.runs))
-}
-
 pub fn inspect_text(text: &str, source: Option<&str>) -> Result<InspectionResult, AnalysisFailure> {
-    inspect_text_with_policy(text, source, AnalysisPolicy::Interactive)
-}
-
-pub(crate) fn inspect_text_with_policy(
-    text: &str,
-    source: Option<&str>,
-    policy: AnalysisPolicy,
-) -> Result<InspectionResult, AnalysisFailure> {
-    inspect(
-        AnalysisInput::Text {
-            text: text.into(),
-            source: source.map(str::to_owned),
-        },
-        policy,
-    )
+    crate::inspection_execution::inspect_text(text, source)
 }
 
 pub fn inspect_image(
     image_bytes: Vec<u8>,
     source: Option<&str>,
 ) -> Result<InspectionResult, AnalysisFailure> {
-    inspect_image_with_policy(image_bytes, source, AnalysisPolicy::Interactive)
-}
-
-pub(crate) fn inspect_image_with_policy(
-    image_bytes: Vec<u8>,
-    source: Option<&str>,
-    policy: AnalysisPolicy,
-) -> Result<InspectionResult, AnalysisFailure> {
-    inspect(
-        AnalysisInput::Image {
-            image_bytes,
-            searchable_text: None,
-            source: source.map(str::to_owned),
-        },
-        policy,
-    )
+    crate::inspection_execution::inspect_image(image_bytes, source)
 }
 
 pub fn inspect_files(
     paths: Vec<String>,
     source: Option<&str>,
 ) -> Result<InspectionResult, AnalysisFailure> {
-    inspect_files_with_policy(paths, source, AnalysisPolicy::Interactive)
-}
-
-pub(crate) fn inspect_files_with_policy(
-    paths: Vec<String>,
-    source: Option<&str>,
-    policy: AnalysisPolicy,
-) -> Result<InspectionResult, AnalysisFailure> {
-    inspect(
-        AnalysisInput::Files {
-            paths,
-            source: source.map(str::to_owned),
-        },
-        policy,
-    )
+    crate::inspection_execution::inspect_files(paths, source)
 }
 
 #[cfg(test)]
