@@ -268,6 +268,16 @@ assert.doesNotMatch(enrichment, /pub struct SmartActionRecommendations[\s\S]*?(?
   'Enricher results must not retain clipboard content');
 assert.match(analysisExecution, /pub struct AnalyzerSnapshot/,
   'The whole Analyzer must expose one typed snapshot contract');
+assert.match(database, /pub fn save_text_clip[\s\S]*?analysis_execution::analyze_text/,
+  'Text capture must reuse the whole-Analyzer execution service');
+const textCapture = database.slice(
+  database.indexOf('pub fn save_text_clip'),
+  database.indexOf('pub(crate) fn merge_external_text_clips'),
+);
+assert.doesNotMatch(textCapture, /detection_execution::analyze_detectors_with_policy/,
+  'Text capture must not schedule a parallel Detector-only Analysis request');
+assert.match(database, /save_clip_with_structure[\s\S]*?record_structural_inspection/,
+  'Text capture must persist its precomputed structural snapshot instead of re-running inspection');
 assert.match(commands, /analysis_execution::analyze_(?:text|clip)/,
   'GUI whole-Analyzer previews must use the shared execution service');
 assert.match(cli, /analysis_execution::analyze_(?:text|clip)/,

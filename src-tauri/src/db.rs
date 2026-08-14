@@ -212,6 +212,15 @@ pub struct ClipItem {
     pub created_at: String,
 }
 
+struct ClipSaveInput<'a> {
+    content_type: &'a str,
+    text_content: Option<&'a str>,
+    html_content: Option<&'a str>,
+    image_base64: Option<&'a str>,
+    content_hash: &'a str,
+    source: &'a str,
+}
+
 /// Stable result contract shared by GUI commands and the CLI for clip mutations.
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -3334,6 +3343,32 @@ impl DbState {
         content_hash: &str,
         source: &str,
     ) -> Result<ClipItem> {
+        self.save_clip_with_structure(
+            ClipSaveInput {
+                content_type,
+                text_content,
+                html_content,
+                image_base64,
+                content_hash,
+                source,
+            },
+            None,
+        )
+    }
+
+    fn save_clip_with_structure(
+        &self,
+        input: ClipSaveInput<'_>,
+        structure: Option<&crate::content_inspection::StructuralMetadata>,
+    ) -> Result<ClipItem> {
+        let ClipSaveInput {
+            content_type,
+            text_content,
+            html_content,
+            image_base64,
+            content_hash,
+            source,
+        } = input;
         if let Some(text) = text_content {
             ensure_resource_size(
                 text,
@@ -3366,12 +3401,7 @@ impl DbState {
             )?;
             let clip = self.get_clip_by_id_internal(&conn, id)?;
             drop(conn);
-            let _ = crate::inspection_execution::inspect_clip_with_policy(
-                self,
-                clip.id,
-                true,
-                crate::analysis_contract::AnalysisPolicy::Capture,
-            );
+            self.persist_capture_structure(&clip, structure);
             return Ok(clip);
         }
 
@@ -3403,40 +3433,63 @@ impl DbState {
         let _ = self.enforce_trash_limit_internal(&conn);
         let clip = self.get_clip_by_id_internal(&conn, id)?;
         drop(conn);
-        let _ = crate::inspection_execution::inspect_clip_with_policy(
-            self,
-            clip.id,
-            true,
-            crate::analysis_contract::AnalysisPolicy::Capture,
-        );
+        self.persist_capture_structure(&clip, structure);
         Ok(clip)
     }
 
+    fn persist_capture_structure(
+        &self,
+        clip: &ClipItem,
+        structure: Option<&crate::content_inspection::StructuralMetadata>,
+    ) {
+        let persisted = structure.is_some_and(|metadata| {
+            let input_hash = crate::inspection_execution::inspection_input_hash(clip);
+            self.record_structural_inspection(clip.id, &clip.content_hash, &input_hash, metadata)
+                .unwrap_or(false)
+        });
+        if !persisted {
+            let _ = crate::inspection_execution::inspect_clip_with_policy(
+                self,
+                clip.id,
+                true,
+                crate::analysis_contract::AnalysisPolicy::Capture,
+            );
+        }
+    }
+
     pub fn save_text_clip(&self, text: &str, source: &str) -> Result<ClipItem> {
-        let content_type =
-            if crate::features::is_enabled(self, crate::features::Feature::ContentDetection) {
-                self.get_content_detectors()
-                    .map(|detectors| {
-                        crate::detection_execution::analyze_detectors_with_policy(
-                            text,
-                            &detectors,
-                            crate::analysis_contract::AnalysisPolicy::Capture,
-                            Some(source),
-                        )
-                        .classification()
-                        .to_string()
-                    })
-                    .unwrap_or_else(|_| "text".to_string())
-            } else {
-                "text".to_string()
-            };
-        self.save_clip(
-            &content_type,
-            Some(text),
-            None,
-            None,
-            &crate::clipboard_fingerprint::text(text),
-            source,
+        let include_detectors =
+            crate::features::is_enabled(self, crate::features::Feature::ContentDetection);
+        let analysis = crate::analysis_execution::analyze_text(
+            self,
+            text,
+            Some(source),
+            crate::analysis_execution::AnalyzerOptions {
+                policy: crate::analysis_contract::AnalysisPolicy::Capture,
+                include_extractor: false,
+                include_detectors,
+                include_enricher: false,
+            },
+        )
+        .ok();
+        let content_type = analysis
+            .as_ref()
+            .and_then(|result| result.analysis.result.detected_type.as_deref())
+            .unwrap_or("text");
+        let structure = analysis
+            .as_ref()
+            .and_then(|result| result.analysis.result.structure.as_ref());
+        let content_hash = crate::clipboard_fingerprint::text(text);
+        self.save_clip_with_structure(
+            ClipSaveInput {
+                content_type,
+                text_content: Some(text),
+                html_content: None,
+                image_base64: None,
+                content_hash: &content_hash,
+                source,
+            },
+            structure,
         )
     }
 
@@ -10224,12 +10277,43 @@ mod tests {
         assert_eq!(first.content_type, "email");
         assert_eq!(first.source, "CLI Terminal");
         assert!(!first.content_hash.is_empty());
+        let structure = db
+            .get_structural_inspection(
+                first.id,
+                &crate::inspection_execution::inspection_input_hash(&first),
+            )
+            .unwrap()
+            .expect("capture should persist its Analyzer structure");
+        assert_eq!(structure.text.unwrap().word_count, 1);
 
         let duplicate = db
             .save_text_clip("person@example.com", "CLI Terminal")
             .unwrap();
         assert_eq!(duplicate.id, first.id);
         assert_eq!(db.get_clips(None, None, false).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn text_capture_still_inspects_when_content_detection_is_disabled() {
+        let db = setup_test_db();
+        db.save_settings(&std::collections::HashMap::from([(
+            crate::features::Feature::ContentDetection
+                .setting_key()
+                .to_string(),
+            "false".to_string(),
+        )]))
+        .unwrap();
+        let clip = db
+            .save_text_clip("person@example.com", "CLI Terminal")
+            .unwrap();
+        assert_eq!(clip.content_type, "text");
+        assert!(db
+            .get_structural_inspection(
+                clip.id,
+                &crate::inspection_execution::inspection_input_hash(&clip),
+            )
+            .unwrap()
+            .is_some());
     }
 
     #[test]
