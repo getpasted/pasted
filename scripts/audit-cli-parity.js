@@ -202,6 +202,12 @@ assert.match(cli, /"failure": extraction_failure\.as_ref\(\)/,
   'CLI Extractor JSON must expose structured Analyzer failures');
 assert.match(ocr, /failure_for\(&extractor\.stable_ref\)/,
   'Background OCR must preserve Extractor failure codes');
+assert.match(database, /pub fn complete_or_reset_ocr_attempt/,
+  'OCR runtimes must share failure-safe attempt persistence');
+assert.match(cli, /db\.complete_or_reset_ocr_attempt/,
+  'CLI OCR persistence failures must reset claimed work');
+assert.match(commands, /db\.complete_or_reset_ocr_attempt/,
+  'GUI OCR persistence failures must reset claimed work');
 assert.doesNotMatch(cli, /perform_ocr_on_image_bytes/, 'The CLI must not bypass the shared Extractor engine registry');
 assert.match(clipboardMonitor, /save_text_clip/, 'GUI capture must use the shared text-capture service');
 assert.match(database, /content_analysis::classify_text/, 'Detector rescans must use the shared analysis scheduler');

@@ -4296,7 +4296,7 @@ pub fn extract_ocr_from_clip(clip_id: i64, db: State<'_, Arc<DbState>>) -> Resul
                 crate::content_analysis::analyze_image(bytes, &extractor, detectors.as_deref());
             let extraction_failure = analysis.failure_for(&extractor.stable_ref).cloned();
             if let Some(ocr_text) = analysis.context.searchable_text {
-                db.complete_ocr_attempt(
+                db.complete_or_reset_ocr_attempt(
                     clip_id,
                     &clip.content_hash,
                     Some(&ocr_text),
@@ -4316,7 +4316,7 @@ pub fn extract_ocr_from_clip(clip_id: i64, db: State<'_, Arc<DbState>>) -> Resul
                 }
                 return Ok(ocr_text);
             }
-            db.complete_ocr_attempt(
+            db.complete_or_reset_ocr_attempt(
                 clip_id,
                 &clip.content_hash,
                 None,

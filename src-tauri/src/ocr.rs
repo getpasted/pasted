@@ -82,19 +82,15 @@ fn execute_task<Notify>(
     let extraction_error = analysis
         .failure_for(&extractor.stable_ref)
         .map(|failure| failure.code.as_str());
-    let completed = match db_state.complete_ocr_attempt(
-        task.clip_id,
-        &task.content_hash,
-        text,
-        &extractor.engine,
-        extraction_error,
-    ) {
-        Ok(completed) => completed,
-        Err(_) => {
-            let _ = db_state.reset_ocr_work(Some(task.clip_id), Some(&task.content_hash));
-            false
-        }
-    };
+    let completed = db_state
+        .complete_or_reset_ocr_attempt(
+            task.clip_id,
+            &task.content_hash,
+            text,
+            &extractor.engine,
+            extraction_error,
+        )
+        .unwrap_or(false);
     if completed {
         if detectors.is_some() && text.is_some() {
             let _ = db_state.record_analysis_classification(
@@ -173,7 +169,7 @@ pub fn spawn_ocr_worker(
                     },
                     |candidate| {
                         let Some(image_bytes) = decode_stored_image(&candidate.image_base64) else {
-                            let _ = db_state.complete_ocr_attempt(
+                            let _ = db_state.complete_or_reset_ocr_attempt(
                                 candidate.clip_id,
                                 &candidate.content_hash,
                                 None,

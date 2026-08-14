@@ -1094,7 +1094,7 @@ fn main() -> Result<()> {
                             eprintln!("Clip #{clip_id} is no longer available for extraction.");
                             std::process::exit(1);
                         }
-                        db.complete_ocr_attempt(
+                        db.complete_or_reset_ocr_attempt(
                             clip_id,
                             content_hash,
                             analysis.context.searchable_text.as_deref(),
@@ -3733,7 +3733,7 @@ fn scan_existing_images(db: &DbState, clip_id: Option<i64>) -> Result<usize> {
             break;
         };
         let Some(bytes) = pasted_lib::ocr::decode_stored_image(&candidate.image_base64) else {
-            db.complete_ocr_attempt(
+            db.complete_or_reset_ocr_attempt(
                 candidate.clip_id,
                 &candidate.content_hash,
                 None,
@@ -3748,7 +3748,7 @@ fn scan_existing_images(db: &DbState, clip_id: Option<i64>) -> Result<usize> {
         let extraction_error = analysis
             .failure_for(&extractor.stable_ref)
             .map(|failure| failure.code.as_str());
-        db.complete_ocr_attempt(
+        db.complete_or_reset_ocr_attempt(
             candidate.clip_id,
             &candidate.content_hash,
             analysis.context.searchable_text.as_deref(),
