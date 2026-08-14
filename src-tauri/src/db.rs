@@ -9417,6 +9417,11 @@ impl DbState {
                 "The selected clip has no analyzable text".into(),
             ));
         };
+        if text.is_empty() {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "The selected clip has no analyzable text".into(),
+            ));
+        }
         if matches!(current_type.as_str(), "image" | "file") {
             return Err(rusqlite::Error::InvalidParameterName(
                 "Applying a Detector cannot replace a structural image or file type".into(),
@@ -10064,6 +10069,15 @@ mod tests {
             db.get_clip_by_id(nonmatching.id).unwrap().content_type,
             "text"
         );
+
+        let empty = db
+            .save_clip("text", Some(""), None, None, "detector-apply-empty", "Test")
+            .unwrap();
+        assert!(db
+            .apply_content_detector(empty.id, "email")
+            .unwrap_err()
+            .to_string()
+            .contains("no analyzable text"));
 
         db.delete_content_detector(duplicate.id).unwrap();
         assert!(db.get_content_detector(&duplicate.stable_ref).is_err());
