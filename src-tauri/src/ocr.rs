@@ -380,7 +380,7 @@ mod tests {
                 "image",
                 None,
                 None,
-                Some("aW1hZ2U="),
+                Some(crate::resource_limits::TEST_PNG_DATA_URL),
                 &format!("backfill-image-{index}"),
                 "Screenshot",
             )
@@ -447,7 +447,7 @@ mod tests {
                 "image",
                 None,
                 None,
-                Some("aW1hZ2U="),
+                Some(crate::resource_limits::TEST_PNG_DATA_URL),
                 "disable-during-ocr",
                 "Screenshot",
             )

@@ -19,6 +19,14 @@ const rustSource = readFilesRecursively('src-tauri/src', ['.rs']).join('\n');
 const cargoToml = fs.readFileSync('src-tauri/Cargo.toml', 'utf8');
 const clipActions = fs.readFileSync('src/hooks/useClipActions.ts', 'utf8');
 const plainText = fs.readFileSync('src/utils/plainText.ts', 'utf8');
+const safeRasterImage = fs.readFileSync('src/components/SafeRasterImage.tsx', 'utf8');
+const safeRasterConsumers = [
+  'src/components/CaptureFeedbackWindow.tsx',
+  'src/components/ClipCard.tsx',
+  'src/components/ClipPreviewContent.tsx',
+  'src/components/QuickHudWindow.tsx',
+  'src/components/Sidebar.tsx',
+].map((path) => fs.readFileSync(path, 'utf8'));
 const security = tauriConfig.app?.security;
 
 assert.ok(security?.csp, 'Production Tauri CSP must remain enabled');
@@ -46,6 +54,18 @@ assert.match(rustSource, /MAX_CLIP_TEXT_BYTES/, 'Untrusted clipboard text must r
 assert.match(rustSource, /MAX_PROVIDER_WORKSPACE_BYTES/, 'Provider disk output must remain bounded');
 assert.match(rustSource, /PROVIDER_EXECUTION_TIMEOUT_SECS/, 'Provider execution must retain a timeout');
 assert.doesNotMatch(frontendSource, /dangerouslySetInnerHTML/, 'Render untrusted clip content as text, never raw HTML');
+assert.match(safeRasterImage, /decodeSafeRasterDataUrl\(source\)/, 'Dynamic image sources must pass the shared raster decoder');
+assert.match(safeRasterImage, /URL\.createObjectURL\(new Blob/, 'Validated raster bytes must render through an inert object URL');
+assert.match(
+  frontendSource,
+  /decodedByteLength > MAX_RENDERABLE_RASTER_BYTES[\s\S]*atob\(payload\)/,
+  'Dynamic raster sources must enforce the decoded-byte ceiling before allocating decoded data',
+);
+for (const consumer of safeRasterConsumers) {
+  assert.match(consumer, /SafeRasterImage/, 'Every dynamic raster surface must use SafeRasterImage');
+  assert.doesNotMatch(consumer, /<img\b/, 'Dynamic raster surfaces must not bypass SafeRasterImage');
+}
+assert.match(rustSource, /validate_raster_data_url/, 'Native clip and icon boundaries must validate raster data URLs');
 assert.doesNotMatch(frontendSource, /\b(?:eval|Function)\s*\(/, 'Frontend dynamic code execution is forbidden');
 assert.match(clipActions, /htmlToPlainText\(clip\.text_content\)/, 'Plain-text copying must use the shared HTML parser');
 assert.match(plainText, /new DOMParser\(\)\.parseFromString\(value, 'text\/html'\)/, 'HTML-to-text conversion must use DOM parsing');

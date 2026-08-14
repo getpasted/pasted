@@ -4,6 +4,7 @@ import { getClipFilePaths, type ClipItem } from '../types';
 import type { ColorFormats } from '../utils/color';
 import { UI_COPY } from '../utils/uiCopy';
 import { OverflowText } from './OverflowText';
+import { SafeRasterImage } from './SafeRasterImage';
 
 interface ClipPreviewContentProps {
   clip: ClipItem;
@@ -179,8 +180,8 @@ export function ClipPreviewContent({
                       {preview && (
                         <div className="theme-code-surface flex min-h-36 items-center justify-center border-b p-2">
                           {preview.dataUrl ? (
-                            <img
-                              src={preview.dataUrl}
+                            <SafeRasterImage
+                              source={preview.dataUrl}
                               alt={`Preview of ${filename || 'copied file'}`}
                               className="max-h-72 w-full rounded-lg object-contain"
                             />
@@ -306,8 +307,8 @@ export function ClipPreviewContent({
           <div className="space-y-4 font-sans">
             <div className="image-preview-stage theme-panel flex flex-col items-center justify-center p-6 rounded-xl border shadow-inner">
               {resolvedImageBase64 ? (
-                <img
-                  src={resolvedImageBase64}
+                <SafeRasterImage
+                  source={resolvedImageBase64}
                   alt="Full Preview"
                   decoding="async"
                   className="max-h-96 object-contain rounded-lg shadow-2xl"

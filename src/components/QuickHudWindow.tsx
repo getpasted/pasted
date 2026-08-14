@@ -4,6 +4,7 @@ import { safeInvoke as invoke } from '../utils/tauri';
 import { listen } from '@tauri-apps/api/event';
 import { ClipItem, getClipFileSummary } from '../types';
 import { OverflowText } from './OverflowText';
+import { SafeRasterImage } from './SafeRasterImage';
 
 export const QuickHudWindow: React.FC = () => {
   const [hudAnchor, setHudAnchor] = useState({ flipped: false, x: 180 });
@@ -235,8 +236,8 @@ export const QuickHudWindow: React.FC = () => {
                     <div className="min-w-0 flex-1">
                       {clip.content_type === 'image' && clip.image_base64 ? (
                         <div className="flex items-center space-x-2">
-                          <img
-                            src={clip.image_base64}
+                          <SafeRasterImage
+                            source={clip.image_base64}
                             alt="Clip Preview"
                             className="theme-divider h-8 w-12 object-cover rounded border"
                           />

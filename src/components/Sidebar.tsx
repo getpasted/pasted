@@ -38,6 +38,7 @@ import { ContentTypeIcon } from './ContentTypeIcon';
 import { useContentTypes } from './ContentTypeProvider';
 import { safeInvoke as invoke } from '../utils/tauri';
 import type { SidebarSectionId, SidebarSectionState } from '../utils/appUiState';
+import { SafeRasterImage } from './SafeRasterImage';
 
 const SEARCH_HELPERS = [
   { prefix: 'regex:', desc: 'Regex' },
@@ -877,7 +878,7 @@ const SidebarComponent: React.FC<SidebarProps> = ({
                         {section.id === 'types'
                           ? <ContentTypeIcon type={item.value as ClipContentType} className="sidebar-icon-primary h-4 w-4 shrink-0" />
                           : sourceIcons[item.value]
-                          ? <img src={sourceIcons[item.value]} alt="" className="h-4 w-4 shrink-0 object-contain" />
+                          ? <SafeRasterImage source={sourceIcons[item.value]} alt="" className="h-4 w-4 shrink-0 object-contain" />
                           : sourceFallbackIcon(item.value)}
                       </span>
                       <OverflowText text={item.label} className="truncate" />

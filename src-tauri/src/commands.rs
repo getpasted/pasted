@@ -4118,6 +4118,9 @@ fn cache_resolved_source_icons(
 ) -> std::collections::HashMap<String, String> {
     let mut cache = SOURCE_ICON_CACHE.lock();
     for (name, icon) in resolved {
+        if crate::resource_limits::validate_raster_data_url(&icon).is_err() {
+            continue;
+        }
         cache.insert(name.clone(), icon.clone());
         existing.insert(name, icon);
     }

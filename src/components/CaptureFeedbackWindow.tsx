@@ -27,6 +27,7 @@ import {
 import type { AppSettings } from '../types';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { FloatingActionStrip } from './FloatingActionStrip';
+import { SafeRasterImage } from './SafeRasterImage';
 
 export type CaptureFeedbackKind = 'success' | 'ignored' | 'failure';
 
@@ -550,7 +551,7 @@ export function CaptureFeedbackWindow({ settings, settingsHydrated }: CaptureFee
                     <div className="truncate text-xs font-semibold theme-text-main">{item.clip.source || 'Captured clip'}</div>
                     <div className="capture-feedback-preview mt-1.5 min-h-0 overflow-hidden rounded-md">
                       {item.image ? (
-                        <img src={item.image} alt="Captured clip preview" className="h-11 w-full object-cover" />
+                        <SafeRasterImage source={item.image} alt="Captured clip preview" className="h-11 w-full object-cover" />
                       ) : (
                         <p className="line-clamp-2 w-full break-words px-2 py-1.5 font-mono text-[10px] leading-[1.35]">
                           {item.clip.previewText || 'Preview unavailable for this clip type.'}

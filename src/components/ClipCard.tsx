@@ -33,6 +33,7 @@ import {
   X,
 } from 'lucide-react';
 import { ClipBinSummary } from './ClipBinSummary';
+import { SafeRasterImage } from './SafeRasterImage';
 
 const clipImageCache = new Map<string, string | null>();
 interface FileCardPreview {
@@ -126,8 +127,8 @@ function ClipImageThumbnail({
       className={`clip-thumbnail-stage clip-thumbnail-lazy relative rounded border overflow-hidden p-1 flex justify-center ${source ? 'is-loaded' : placeholderHeightClass}`}
     >
       {source && (
-        <img
-          src={source}
+        <SafeRasterImage
+          source={source}
           alt="Clipboard Clip"
           loading="lazy"
           decoding="async"
@@ -220,8 +221,8 @@ function ClipFileThumbnail({
       {preview && (
         <>
           {preview.dataUrl ? (
-            <img
-              src={preview.dataUrl}
+            <SafeRasterImage
+              source={preview.dataUrl}
               alt={`Preview of ${previewPath.split(/[\\/]/).pop() || 'file'}`}
               loading="lazy"
               decoding="async"
