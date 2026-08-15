@@ -24,10 +24,10 @@ const releaseChecklist = read('docs/RELEASE_CHECKLIST_1.0.0.md');
 
 for (const [step, participant, icon] of [
   [1, 'Capture', 'Clipboard'],
-  [2, 'Inspectors', 'ScanSearch'],
-  [3, 'Extractors', 'ScanText'],
-  [4, 'Detectors', 'Radar'],
-  [5, 'Enrichers', 'Lightbulb'],
+  [2, 'Inspect', 'ScanSearch'],
+  [3, 'Extract', 'ScanText'],
+  [4, 'Detect', 'Radar'],
+  [5, 'Enrich', 'Lightbulb'],
 ]) {
   assert.match(
     analysisSettings,
@@ -44,9 +44,9 @@ assert.match(settingsModal, /activeTab === 'analysis' && \(\s*<SettingsDetection
   'Analysis Settings must remain available when optional participants are disabled');
 assert.doesNotMatch(settingsModal, /showAnalysis=/,
   'Functionality gates must not hide Analysis configuration');
-assert.match(analysisSettings, /\{\(ocrEnabled \|\| transcriptionsEnabled\) && <AnalysisManagerRow[\s\S]{0,220}title="Extractors"/,
+assert.match(analysisSettings, /\{\(ocrEnabled \|\| transcriptionsEnabled\) && <AnalysisManagerRow[\s\S]{0,220}title="Extract"/,
   'Extractors must remain visible for either OCR or Transcriptions');
-assert.match(analysisSettings, /\{\(contentDetectionEnabled \|\| typesEnabled\) && <AnalysisManagerRow[\s\S]{0,220}title="Detectors"/,
+assert.match(analysisSettings, /\{\(contentDetectionEnabled \|\| typesEnabled\) && <AnalysisManagerRow[\s\S]{0,220}title="Detect"/,
   'Detectors must remain visible for either Content Detection or Types');
 assert.match(settingsModal, /typesEnabled=\{settings\.enableTypes\}/,
   'Analysis Settings must receive the Types feature gate');
@@ -72,7 +72,7 @@ assert.match(analytics, /Clips by File Format/,
   'Insights must present file-format summaries separately');
 assert.match(analytics, /features\.types && <div className="theme-panel[\s\S]{0,1000}Clips by Content Type/,
   'Insights must hide semantic Content Type summaries when Content Types is disabled');
-assert.match(analysisSettings, /\{transformationsEnabled && <AnalysisManagerRow[\s\S]{0,220}title="Enrichers"/,
+assert.match(analysisSettings, /\{transformationsEnabled && <AnalysisManagerRow[\s\S]{0,220}title="Enrich"/,
   'Disabling Transformations must hide Smart Action Enrichers');
 assert.match(analysisExecution, /let run_detectors = allow_text_participants && options\.include_detectors;/,
   'Enrichment must not implicitly enable Detectors');
@@ -184,7 +184,7 @@ for (const field of ['ocr_extractor_ref', 'ocr_extractor_name', 'ocr_engine_vers
   assert.match(types, new RegExp(`${field}\\?: string \\| null`),
     `Frontend ClipItem must expose OCR provenance field ${field}`);
 }
-for (const title of ['Capture', 'Inspectors', 'Extractors', 'Detectors', 'Enrichers']) {
+for (const title of ['Capture', 'Inspect', 'Extract', 'Detect', 'Enrich']) {
   assert.match(analysisSettings, new RegExp(`title="${title}"`),
     `Analysis settings must expose ${title} behind a compact manager row`);
 }
