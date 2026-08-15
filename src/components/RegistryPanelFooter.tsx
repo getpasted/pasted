@@ -12,7 +12,7 @@ export function RegistryPanelFooter({
   return (
     <div
       className={joinClasses(
-        'theme-divider flex min-h-12 items-center gap-2 border-t p-2',
+        'theme-divider flex min-h-12 shrink-0 items-center gap-2 border-t p-2',
         align === 'end' ? 'justify-end' : 'justify-between',
         className,
       )}
