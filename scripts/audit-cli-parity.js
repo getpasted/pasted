@@ -26,6 +26,9 @@ const tauriMock = read('src/utils/tauri.ts');
 const extractorManager = read('src/components/ContentExtractorManagerDialog.tsx');
 const detectorManager = read('src/components/SettingsDetectionPanel.tsx');
 
+assert.match(commands, /pub async fn choose_extractor_model_file/,
+  'The native Extractor model picker must not block the app command thread');
+
 const documentedCommands = [
   'pasted copy',
   'pasted list',
