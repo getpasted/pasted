@@ -47,6 +47,13 @@ Pasted aims to make its meaningful clipboard-management capabilities available t
 - Use the product name when it carries necessary meaning: product identity and About content, literal operating-system permission labels, application or CLI paths, and clearly scoped destructive actions such as “Reset Pasted.” Deliberate ownership language may remain where the user-centered wording is the point.
 - Keep exceptions in the UI copy audit narrow, exact, and documented. New exceptions should explain why neutral in-app wording would be less clear.
 
+## Native file and folder dialogs
+
+- Any Tauri command that calls `blocking_pick_file`, `blocking_pick_files`, `blocking_save_file`, or `blocking_pick_folder` must be declared `async`. Never open a blocking native dialog from a synchronous `#[tauri::command]`; on macOS this blocks the app command thread and can beachball the application while the dialog is open.
+- Follow the existing asynchronous picker command pattern: await the command from the GUI, treat cancellation as a normal `None` result, and keep any file inspection, copying, database work, or other blocking post-selection work inside `spawn_blocking`.
+- Disable or otherwise settle repeated picker actions while a request is pending, preserve the parent dialog's state when the native dialog is cancelled, and surface inaccessible selections through the normal in-app error treatment.
+- Add or extend an automated source-contract audit when introducing a native picker so the command cannot silently regress to a synchronous declaration.
+
 ## Code Review Rules
 
 ### User data and reversibility
