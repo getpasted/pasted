@@ -243,6 +243,12 @@ assert.match(inspection, /Command::new\(&executable\)[\s\S]*?wait_bounded\(&mut 
   'ffprobe must use direct bounded external-tool execution');
 assert.match(inspection, /MAX_MEDIA_PROBE_FILES/,
   'Media inspection must bound the number of referenced files it probes');
+assert.match(extraction, /"aac"\s*\|\s*"m4a"\s*=>\s*Some\(WhisperAudioPreparation::FfmpegWav\)/,
+  'Whisper must route M4A and AAC audio through bounded FFmpeg preparation');
+assert.match(extraction, /Command::new\(ffmpeg\)[\s\S]*?wait_bounded\(&mut child, remaining\)/,
+  'Whisper audio preparation must use direct bounded FFmpeg execution');
+assert.match(extraction, /MAX_TRANSCRIPTION_AUDIO_BYTES/,
+  'Whisper audio preparation must bound staged audio');
 assert.doesNotMatch(inspection, /pub struct MediaMetadata[\s\S]*?(?:content|path):\s*(?:String|Vec<String>)/,
   'Media metadata must not retain clipboard contents or file paths');
 assert.match(inspectionExecution, /pub struct ClipInspectionResult/,
