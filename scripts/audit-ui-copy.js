@@ -19,7 +19,7 @@ const TOOL_COPY_FILES = [
   'src/components/PipelineEditorModal.tsx',
   'src/components/SettingsAboutPanel.tsx',
   'src/components/SettingsBlacklistPanel.tsx',
-  'src/components/SettingsDetectionPanel.tsx',
+  'src/components/SettingsAnalysisPanel.tsx',
   'src/components/SettingsOcrPanel.tsx',
   'src/components/SettingsFeaturesPanel.tsx',
   'src/components/SettingsGeneralPanel.tsx',
@@ -106,7 +106,7 @@ const nativeMenu = fs.readFileSync('src-tauri/src/app_menu.rs', 'utf8');
 const canonicalAnalysisCopyFiles = [
   'src/components/ContentExtractorManagerDialog.tsx',
   'src/components/ContentTypeManagerDialog.tsx',
-  'src/components/SettingsDetectionPanel.tsx',
+  'src/components/SettingsAnalysisPanel.tsx',
   'src/components/SettingsSyncPanel.tsx',
 ];
 for (const file of canonicalAnalysisCopyFiles) {
@@ -127,7 +127,7 @@ for (const [menuId, topic, label] of [
   ['help.shortcuts', 'shortcuts-hud', 'Shortcuts and HUD'],
   ['help.privacy', 'privacy-capture', 'Privacy and Capture'],
   ['help.deletion', 'deletion-recovery', 'Deletion and Recovery'],
-  ['help.analysis', 'detection', 'Content Analysis'],
+  ['help.analysis', 'analysis', 'Content Analysis'],
   ['help.transformations', 'transformations', 'Transformations'],
   ['help.cli', 'cli', 'CLI Commands'],
 ]) {
@@ -144,7 +144,7 @@ for (const [file, labels] of Object.entries({
   'src/components/IntelligenceConnectionsPanel.tsx': ['Add connection…'],
   'src/components/SettingsWelcomePanel.tsx': ['Open Copycat Welcome…'],
   'src/components/SettingsAboutPanel.tsx': ['Open Source Licenses…'],
-  'src/components/SettingsDetectionPanel.tsx': ['Manage ${title}…', 'Rescan Clips…', 'Delete…', 'Manage Content Types…', 'Reset…'],
+  'src/components/SettingsAnalysisPanel.tsx': ['Manage ${title}…', 'Rescan Clips…', 'Delete…', 'Manage Content Types…', 'Reset…'],
   'src/components/ContentExtractorManagerDialog.tsx': ['Delete…', 'Choose…', 'Reset…'],
   'src/components/ContentTypeManagerDialog.tsx': ['Manage Groups…'],
   'src/components/SettingsGeneralPanel.tsx': ['Delete All Clips…', 'Trash All Clips…'],
@@ -184,7 +184,7 @@ for (const file of [
   'src/components/SettingsNotificationsPanel.tsx',
   'src/components/SettingsBlacklistPanel.tsx',
   'src/components/SettingsSyncPanel.tsx',
-  'src/components/SettingsDetectionPanel.tsx',
+  'src/components/SettingsAnalysisPanel.tsx',
   'src/components/IntelligenceConnectionsPanel.tsx',
   'src/components/SettingsAboutPanel.tsx',
 ]) {

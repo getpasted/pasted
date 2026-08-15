@@ -11,19 +11,19 @@ pub enum AnalysisPass {
     Inspect,
     Extract,
     Classify,
-    Enrich,
+    Suggest,
 }
 
 impl AnalysisPass {
     pub(crate) const ORDERED: [Self; MAX_ANALYSIS_PASSES] =
-        [Self::Inspect, Self::Extract, Self::Classify, Self::Enrich];
+        [Self::Inspect, Self::Extract, Self::Classify, Self::Suggest];
 
     pub const fn includes(self, pass: Self) -> bool {
         match self {
             Self::Inspect => matches!(pass, Self::Inspect),
             Self::Extract => matches!(pass, Self::Inspect | Self::Extract),
             Self::Classify => matches!(pass, Self::Inspect | Self::Extract | Self::Classify),
-            Self::Enrich => true,
+            Self::Suggest => true,
         }
     }
 }
@@ -78,7 +78,7 @@ impl AnalysisPolicy {
     pub const fn through(self) -> AnalysisPass {
         match self {
             Self::Capture | Self::Background | Self::Rescan => AnalysisPass::Classify,
-            Self::Interactive => AnalysisPass::Enrich,
+            Self::Interactive => AnalysisPass::Suggest,
         }
     }
 
@@ -109,10 +109,10 @@ pub enum AnalysisTargetKind {
     Inspector,
     InspectorSet,
     Extractor,
-    Detector,
-    DetectorSet,
-    Enricher,
-    EnricherSet,
+    Classifier,
+    ClassifierSet,
+    Suggestion,
+    SuggestionSet,
 }
 
 impl AnalysisTargetKind {
@@ -120,8 +120,8 @@ impl AnalysisTargetKind {
         match self {
             Self::Inspector | Self::InspectorSet => "Inspection",
             Self::Extractor => "The Extractor",
-            Self::Detector | Self::DetectorSet => "Detection",
-            Self::Enricher | Self::EnricherSet => "The Enricher",
+            Self::Classifier | Self::ClassifierSet => "Classification",
+            Self::Suggestion | Self::SuggestionSet => "The Suggestion",
         }
     }
 }
@@ -140,7 +140,7 @@ pub enum RepresentationKind {
     Classification,
     StructuralMetadata,
     MediaMetadata,
-    Recommendations,
+    Suggestions,
 }
 
 impl RepresentationKind {
@@ -156,7 +156,7 @@ impl RepresentationKind {
             Self::Classification => "classification",
             Self::StructuralMetadata => "structural_metadata",
             Self::MediaMetadata => "media_metadata",
-            Self::Recommendations => "recommendations",
+            Self::Suggestions => "suggestions",
         }
     }
 }
@@ -182,7 +182,7 @@ impl FromStr for RepresentationKind {
             "classification" => Ok(Self::Classification),
             "structural_metadata" => Ok(Self::StructuralMetadata),
             "media_metadata" => Ok(Self::MediaMetadata),
-            "recommendations" => Ok(Self::Recommendations),
+            "suggestions" => Ok(Self::Suggestions),
             _ => Err(format!("Unknown analysis representation \"{value}\"")),
         }
     }
@@ -272,17 +272,17 @@ mod tests {
                 AnalysisPass::Inspect,
                 AnalysisPass::Extract,
                 AnalysisPass::Classify,
-                AnalysisPass::Enrich,
+                AnalysisPass::Suggest,
             ]
         );
         for (kind, name) in [
             (AnalysisTargetKind::Inspector, "inspector"),
             (AnalysisTargetKind::InspectorSet, "inspector_set"),
             (AnalysisTargetKind::Extractor, "extractor"),
-            (AnalysisTargetKind::Detector, "detector"),
-            (AnalysisTargetKind::DetectorSet, "detector_set"),
-            (AnalysisTargetKind::Enricher, "enricher"),
-            (AnalysisTargetKind::EnricherSet, "enricher_set"),
+            (AnalysisTargetKind::Classifier, "classifier"),
+            (AnalysisTargetKind::ClassifierSet, "classifier_set"),
+            (AnalysisTargetKind::Suggestion, "suggestion"),
+            (AnalysisTargetKind::SuggestionSet, "suggestion_set"),
         ] {
             assert_eq!(serde_json::to_string(&kind).unwrap(), format!("\"{name}\""));
         }
@@ -298,9 +298,9 @@ mod tests {
         ] {
             assert!(policy.includes(AnalysisPass::Inspect));
             assert!(policy.includes(AnalysisPass::Classify));
-            assert!(!policy.includes(AnalysisPass::Enrich));
+            assert!(!policy.includes(AnalysisPass::Suggest));
         }
-        assert!(AnalysisPolicy::Interactive.includes(AnalysisPass::Enrich));
+        assert!(AnalysisPolicy::Interactive.includes(AnalysisPass::Suggest));
     }
 
     #[test]
@@ -315,7 +315,7 @@ mod tests {
             serde_json::json!({
                 "formatVersion": 1,
                 "policy": "interactive",
-                "through": "enrich",
+                "through": "suggest",
                 "result": { "kind": "test" },
                 "participants": []
             })
@@ -347,7 +347,7 @@ mod tests {
             RepresentationKind::Classification,
             RepresentationKind::StructuralMetadata,
             RepresentationKind::MediaMetadata,
-            RepresentationKind::Recommendations,
+            RepresentationKind::Suggestions,
         ] {
             assert_eq!(kind.stable_name().parse::<RepresentationKind>(), Ok(kind));
             assert_eq!(

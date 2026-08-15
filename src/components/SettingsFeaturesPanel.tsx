@@ -36,7 +36,7 @@ import { InfoPopover } from './InfoPopover';
 const FEATURE_ICONS = {
   analytics: BarChart3,
   bins: Folder,
-  contentDetection: ScanSearch,
+  contentClassification: ScanSearch,
   notes: StickyNote,
   notifications: Bell,
   ocr: ScanText,

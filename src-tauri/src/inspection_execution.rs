@@ -99,8 +99,8 @@ fn inspect_with_media(
         policy,
         inspector: true,
         extractor: None,
-        detectors: None,
-        enricher: None,
+        classifiers: None,
+        suggestion: None,
     });
     let resolution =
         report.resolve_participant(STRUCTURE_INSPECTOR_REF, AnalysisTargetKind::Inspector);

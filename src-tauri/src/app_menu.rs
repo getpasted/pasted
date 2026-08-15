@@ -67,7 +67,7 @@ fn dispatch_for_id(id: &str) -> Option<MenuDispatch> {
         "help.shortcuts" => MenuDispatch::Navigate("help:shortcuts-hud"),
         "help.privacy" => MenuDispatch::Navigate("help:privacy-capture"),
         "help.deletion" => MenuDispatch::Navigate("help:deletion-recovery"),
-        "help.analysis" => MenuDispatch::Navigate("help:detection"),
+        "help.analysis" => MenuDispatch::Navigate("help:analysis"),
         "help.transformations" => MenuDispatch::Navigate("help:transformations"),
         "help.shortcut_settings" => MenuDispatch::Navigate("settings:hotkeys"),
         _ => {

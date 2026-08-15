@@ -12,7 +12,7 @@ import { SettingsFeaturesPanel } from './SettingsFeaturesPanel';
 import { SettingsAboutPanel } from './SettingsAboutPanel';
 import { SettingsResetPanel } from './SettingsResetPanel';
 import { SettingsNotificationsPanel } from './SettingsNotificationsPanel';
-import { SettingsDetectionPanel } from './SettingsDetectionPanel';
+import { SettingsAnalysisPanel } from './SettingsAnalysisPanel';
 import { SettingsWelcomePanel } from './SettingsWelcomePanel';
 
 interface SettingsModalProps {
@@ -109,8 +109,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         )}
 
         {activeTab === 'analysis' && (
-          <SettingsDetectionPanel
-            contentDetectionEnabled={settings.enableContentDetection}
+          <SettingsAnalysisPanel
+            contentClassificationEnabled={settings.enableContentClassification}
             ocrEnabled={settings.enableOcr}
             transcriptionsEnabled={settings.enableTranscriptions}
             transformationsEnabled={settings.enableTransformations}

@@ -2,18 +2,17 @@ pub mod analysis_contract;
 pub mod analysis_execution;
 mod app_menu;
 pub mod bin_assignment;
+pub mod classification_execution;
 mod clipboard_fingerprint;
 mod clipboard_monitor;
 mod commands;
 pub mod content_analysis;
-pub mod content_detection;
-pub mod content_enrichment;
+pub mod content_classification;
 pub mod content_extraction;
 pub mod content_inspection;
+pub mod content_suggestions;
 pub mod content_types;
 pub mod db;
-pub mod detection_execution;
-pub mod enrichment_execution;
 pub mod external_import;
 mod external_tools;
 pub mod extraction_execution;
@@ -39,6 +38,7 @@ mod paste_target;
 pub mod resource_limits;
 mod sequential_paste;
 pub mod settings_activity;
+pub mod suggestion_execution;
 pub mod third_party_licenses;
 mod titlebar;
 pub mod transformation_intent;
@@ -453,7 +453,7 @@ pub fn run() {
             commands::clear_activity_logs,
             commands::export_activity_json,
             commands::export_activity_csv,
-            commands::get_content_detectors,
+            commands::get_content_classifiers,
             commands::get_content_extractors,
             commands::get_content_inspectors,
             commands::choose_extractor_model_file,
@@ -475,13 +475,13 @@ pub fn run() {
             commands::update_content_type,
             commands::set_content_type_archived,
             commands::restore_default_content_types,
-            commands::create_content_detector,
-            commands::update_content_detector,
-            commands::duplicate_content_detector,
-            commands::delete_content_detector,
-            commands::restore_default_content_detectors,
-            commands::rescan_content_detection_history,
-            commands::test_content_detector,
+            commands::create_content_classifier,
+            commands::update_content_classifier,
+            commands::duplicate_content_classifier,
+            commands::delete_content_classifier,
+            commands::restore_default_content_classifiers,
+            commands::rescan_content_classification_history,
+            commands::test_content_classifier,
             commands::play_system_sound,
             commands::get_clip_collection_summary,
             commands::save_app_setting,

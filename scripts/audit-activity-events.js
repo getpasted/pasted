@@ -21,7 +21,7 @@ const dynamicLogEvents = [
   'clip_protected_toggled', 'clips_protected_toggled',
   'setting_changed', 'autostart_enabled', 'autostart_disabled',
   'content_extractor_enabled', 'content_extractor_disabled',
-  'content_detector_enabled', 'content_detector_disabled',
+  'content_classifier_enabled', 'content_classifier_disabled',
 ];
 const emittedEvents = new Set([...literalLogEvents, ...dynamicLogEvents]);
 const renderedEvents = new Set([...activityView.matchAll(/case '([^']+)'/g)].map((match) => match[1]));
@@ -46,12 +46,14 @@ const filterFamilies = [
   ['hud', (event) => event.startsWith('hud_'), "event_type.startsWith('hud_')"],
   ['app', (event) => event.startsWith('app_'), "event_type.startsWith('app_')"],
   ['settings', (event) => event.startsWith('setting_') || event.startsWith('settings_') || event.startsWith('autostart_'), "event_type.startsWith('setting_')"],
-  ['analysis', (event) => event.startsWith('content_detector') || event.startsWith('content_detection') || event.startsWith('content_extractor') || event.startsWith('content_type'), "event_type.startsWith('content_detector')"],
+  ['analysis', (event) => event.startsWith('content_classifier') || event.startsWith('content_classification') || event.startsWith('content_extractor') || event.startsWith('content_type'), "event_type.startsWith('content_classifier')"],
   ['storage', (event) => event.startsWith('library_') || event.startsWith('backup_') || event.startsWith('data_export_') || event === 'external_history_imported', "event_type.startsWith('library_')"],
 ];
 
 const missingFilters = [...emittedEvents].filter((event) => !filterFamilies.some(([, matches]) => matches(event)));
 assert.deepEqual(missingFilters, [], `Activity filter coverage is missing: ${missingFilters.join(', ')}`);
+assert.match(activityView, /content_detector[\s\S]*content_detection/,
+  'Activity must keep imported pre-rename analysis events visible');
 
 for (const [value, , predicate] of filterFamilies) {
   assert.match(activityView, new RegExp(`selectedTypeFilter === '${value}'[^\\n]+${predicate.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`),

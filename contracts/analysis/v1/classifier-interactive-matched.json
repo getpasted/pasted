@@ -1,17 +1,17 @@
 {
   "formatVersion": 1,
   "policy": "interactive",
-  "through": "enrich",
-  "targetKind": "detector",
-  "targetRef": "detector:email",
+  "through": "suggest",
+  "targetKind": "classifier",
+  "targetRef": "classifier:email",
   "outcome": "matched",
   "matched": true,
-  "detectedType": "email",
-  "matchedDetectorRef": "detector:email",
+  "classifiedType": "email",
+  "matchedClassifierRef": "classifier:email",
   "failure": null,
   "participants": [
     {
-      "stableRef": "analysis:content-detectors",
+      "stableRef": "analysis:content-classifiers",
       "pass": "classify",
       "outcome": "produced"
     }

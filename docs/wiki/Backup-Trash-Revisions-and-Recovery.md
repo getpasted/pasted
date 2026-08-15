@@ -17,7 +17,7 @@ Revisions record content-changing actions and enough organization context to und
 
 ## Full backup and restore
 
-**Settings → Storage → Full Backup and Restore** creates an exact recovery point: a validated SQLite snapshot of all durable state owned by Pasted, plus saved interface/window state. This includes clips in History and Trash, stored clipboard images, all Bins and ordering, revisions, Activity, settings and hotkeys, blacklist rules, Copy Queue state, Transforms, Operations, automations, execution history, OCR state, Extractors, Detectors, derived Analysis classifications, Content Types, and intelligence connection setup.
+**Settings → Storage → Full Backup and Restore** creates an exact recovery point: a validated SQLite snapshot of all durable state owned by Pasted, plus saved interface/window state. This includes clips in History and Trash, stored clipboard images, all Bins and ordering, revisions, Activity, settings and hotkeys, blacklist rules, Copy Queue state, Transforms, Operations, automations, execution history, OCR state, Extractors, Classifiers, derived Analysis classifications, Content Types, and intelligence connection setup.
 
 Full Restore replaces the current state only after the selected backup passes format and SQLite integrity checks. Before replacement, Pasted creates another complete backup of the current state beside the active database. The CLI equivalents are `pasted backup create <path.pastedbackup>` and `pasted backup restore <path.pastedbackup> --yes`.
 
@@ -25,7 +25,7 @@ Copied screenshots and bitmap clips are stored in the database and are included.
 
 ## History and organization transfer
 
-**Settings → Storage → History and Organization** exports portable JSON for merging clip history and organization into another installation. It includes clips, Trash state, stored images, all Bins and ordering, Transforms, Operations, OCR state, Content Types, and Detectors. Import preflights the complete file, updates matches by stable identity or content hash, adds new items, and leaves unrelated data unchanged. Settings, Extractor configuration, derived Analysis classifications, Activity, revision snapshots, automations, intelligence connections, and credentials are not included.
+**Settings → Storage → History and Organization** exports portable JSON for merging clip history and organization into another installation. It includes clips, Trash state, stored images, all Bins and ordering, Transforms, Operations, OCR state, Content Types, and Classifiers. Import preflights the complete file, updates matches by stable identity or content hash, adds new items, and leaves unrelated data unchanged. Settings, Extractor configuration, derived Analysis classifications, Activity, revision snapshots, automations, intelligence connections, and credentials are not included.
 
 Activity can be selected under **Settings → Storage → Export**. JSON and CSV both support a bounded, deduplicating round trip of inert audit records; CSV is also suitable for spreadsheet reporting. **Import** recognizes Activity exports automatically. Activity files do not contain clipboard contents, and importing one never replays the recorded actions. The current Activity retention limits still apply after import.
 

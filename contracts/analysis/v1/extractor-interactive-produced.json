@@ -1,13 +1,13 @@
 {
   "formatVersion": 1,
   "policy": "interactive",
-  "through": "enrich",
+  "through": "suggest",
   "targetKind": "extractor",
   "targetRef": "extractor:test",
   "outcome": "produced",
   "output": "recognized text",
-  "detectedType": null,
-  "matchedDetectorRef": null,
+  "classifiedType": null,
+  "matchedClassifierRef": null,
   "failure": null,
   "participants": [
     {

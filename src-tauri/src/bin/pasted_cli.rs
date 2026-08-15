@@ -5,7 +5,7 @@ use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 
 use pasted_lib::bin_assignment::assign_clips_to_bin;
-use pasted_lib::content_detection::DetectorInput;
+use pasted_lib::content_classification::ClassifierInput;
 use pasted_lib::content_extraction::{ExtractorDefinitionInput, APPLE_VISION_ENGINE};
 use pasted_lib::content_types::{ContentTypeGroupInput, ContentTypeInput};
 use pasted_lib::db::{
@@ -544,13 +544,13 @@ fn main() -> Result<()> {
                         );
                     } else {
                         println!(
-                            "Transfer file v{}: {} clips, {} Bins, {} Transforms, {} Operations, {} Detectors, and {} Content Types.",
+                            "Transfer file v{}: {} clips, {} Bins, {} Transforms, {} Operations, {} Classifiers, and {} Content Types.",
                             inspection.schema_version,
                             inspection.clip_count,
                             inspection.bin_count,
                             inspection.transform_count,
                             inspection.operation_count,
-                            inspection.detector_count,
+                            inspection.classifier_count,
                             inspection.content_type_count,
                         );
                     }
@@ -973,8 +973,14 @@ fn main() -> Result<()> {
             let options = pasted_lib::analysis_execution::AnalyzerOptions {
                 policy,
                 include_extractor: args.iter().any(|argument| argument == "--extract"),
-                include_detectors: pasted_lib::features::is_enabled(&db, Feature::ContentDetection),
-                include_enricher: pasted_lib::features::is_enabled(&db, Feature::Transformations),
+                include_classifiers: pasted_lib::features::is_enabled(
+                    &db,
+                    Feature::ContentClassification,
+                ),
+                include_suggestions: pasted_lib::features::is_enabled(
+                    &db,
+                    Feature::Transformations,
+                ),
             };
             let result = if let Some(clip_id) = clip_id {
                 pasted_lib::analysis_execution::analyze_clip(&db, clip_id, options)
@@ -1006,17 +1012,17 @@ fn main() -> Result<()> {
             } else {
                 println!("Kind: {}", result.analysis.result.clip_kind);
                 println!(
-                    "Detected type: {}",
+                    "Classified as: {}",
                     result
                         .analysis
                         .result
-                        .detected_type
+                        .classified_type
                         .as_deref()
                         .unwrap_or("—")
                 );
                 println!("Participants: {}", result.analysis.participants.len());
-                if let Some(recommendations) = result.analysis.result.recommendations.as_ref() {
-                    println!("Smart Actions: {}", recommendations.actions.len());
+                if let Some(suggestions) = result.analysis.result.suggestions.as_ref() {
+                    println!("Smart Actions: {}", suggestions.actions.len());
                 }
             }
         }
@@ -1160,7 +1166,7 @@ fn main() -> Result<()> {
                 }
             }
         }
-        "enricher" | "enrichers" => {
+        "suggestion" | "suggestions" => {
             drop(conn);
             let db = DbState::new(db_path.clone())?;
             require_feature(&db, Feature::Transformations);
@@ -1168,44 +1174,45 @@ fn main() -> Result<()> {
             let json = args.iter().any(|argument| argument == "--json");
             match subcommand {
                 "list" | "ls" => {
-                    let enrichers =
-                        vec![pasted_lib::content_enrichment::smart_actions_enricher_definition()];
+                    let suggestions = vec![
+                        pasted_lib::content_suggestions::smart_actions_suggestion_definition(),
+                    ];
                     if json {
                         println!(
                             "{}",
-                            serde_json::to_string_pretty(&enrichers).map_err(json_error)?
+                            serde_json::to_string_pretty(&suggestions).map_err(json_error)?
                         );
                     } else {
-                        for enricher in enrichers {
+                        for suggestion in suggestions {
                             println!(
                                 "{}\t{}\t{} → {}\t{}",
-                                enricher.stable_ref,
-                                enricher.priority,
-                                enricher.input_contracts.join(" + "),
-                                enricher.output_contract,
-                                enricher.name
+                                suggestion.stable_ref,
+                                suggestion.priority,
+                                suggestion.input_contracts.join(" + "),
+                                suggestion.output_contract,
+                                suggestion.name
                             );
                         }
                     }
                 }
                 "get" => {
                     let reference = args.get(3).unwrap_or_else(|| {
-                        eprintln!("Usage: pasted enricher get <ref> [--json]");
+                        eprintln!("Usage: pasted suggestion get <ref> [--json]");
                         std::process::exit(2);
                     });
-                    let enricher =
-                        pasted_lib::content_enrichment::smart_actions_enricher_definition();
-                    if reference != &enricher.stable_ref {
-                        eprintln!("Enricher {reference} was not found.");
+                    let suggestion =
+                        pasted_lib::content_suggestions::smart_actions_suggestion_definition();
+                    if reference != &suggestion.stable_ref {
+                        eprintln!("Suggestion {reference} was not found.");
                         std::process::exit(1);
                     }
                     if json {
                         println!(
                             "{}",
-                            serde_json::to_string_pretty(&enricher).map_err(json_error)?
+                            serde_json::to_string_pretty(&suggestion).map_err(json_error)?
                         );
                     } else {
-                        println!("{}\t{}", enricher.stable_ref, enricher.name);
+                        println!("{}\t{}", suggestion.stable_ref, suggestion.name);
                     }
                 }
                 "run" | "test" => {
@@ -1217,12 +1224,12 @@ fn main() -> Result<()> {
                         std::process::exit(2);
                     }
                     let result = if let Some(clip_id) = clip_id {
-                        pasted_lib::enrichment_execution::enrich_clip(&db, clip_id)
+                        pasted_lib::suggestion_execution::suggest_clip(&db, clip_id)
                     } else {
                         let text = explicit_text.unwrap_or_else(|| {
                             read_stdin_bounded(pasted_lib::resource_limits::MAX_CLIP_TEXT_BYTES)
                                 .unwrap_or_else(|error| {
-                                    eprintln!("Could not read enrichment input: {error}");
+                                    eprintln!("Could not read suggestion input: {error}");
                                     std::process::exit(2);
                                 })
                         });
@@ -1230,7 +1237,7 @@ fn main() -> Result<()> {
                             eprintln!("Provide input with --text, --clip, or stdin.");
                             std::process::exit(2);
                         }
-                        pasted_lib::enrichment_execution::enrich_text(
+                        pasted_lib::suggestion_execution::suggest_text(
                             &db,
                             &text,
                             Some("Pasted CLI"),
@@ -1243,7 +1250,7 @@ fn main() -> Result<()> {
                             serde_json::to_string_pretty(&result).map_err(json_error)?
                         );
                     } else if result.analysis.result.actions.is_empty() {
-                        println!("No Smart Actions were recommended.");
+                        println!("No Smart Actions were suggested.");
                     } else {
                         if !result.analysis.result.signal_labels.is_empty() {
                             println!(
@@ -1262,7 +1269,7 @@ fn main() -> Result<()> {
                     }
                 }
                 _ => {
-                    eprintln!("Usage: pasted enricher list|get|run [options] [--json]");
+                    eprintln!("Usage: pasted suggestion list|get|run [options] [--json]");
                     std::process::exit(2);
                 }
             }
@@ -1366,11 +1373,11 @@ fn main() -> Result<()> {
                         eprintln!("--apply requires --clip ID.");
                         std::process::exit(2);
                     }
-                    let detectors = setting_value_is_enabled(
-                        db.get_setting(Feature::ContentDetection.setting_key())?
+                    let classifiers = setting_value_is_enabled(
+                        db.get_setting(Feature::ContentClassification.setting_key())?
                             .as_deref(),
                     )
-                    .then(|| db.get_content_detectors())
+                    .then(|| db.get_content_classifiers())
                     .transpose()?;
                     let image_contract = extractor.supports_contract(
                         pasted_lib::analysis_contract::RepresentationKind::ImageBytes,
@@ -1411,7 +1418,7 @@ fn main() -> Result<()> {
                         pasted_lib::extraction_execution::analyze_image(
                             image_bytes,
                             &extractor,
-                            detectors.as_deref(),
+                            classifiers.as_deref(),
                         )
                     } else {
                         let paths = if let Some(clip_id) = clip_id {
@@ -1437,7 +1444,7 @@ fn main() -> Result<()> {
                         pasted_lib::extraction_execution::analyze_files(
                             paths,
                             &extractor,
-                            detectors.as_deref(),
+                            classifiers.as_deref(),
                         )
                     };
                     let result = if apply {
@@ -1449,7 +1456,7 @@ fn main() -> Result<()> {
                                 clip_id,
                                 content_hash,
                                 &extractor,
-                                detectors.is_some(),
+                                classifiers.is_some(),
                                 analysis,
                             )?
                         } else {
@@ -1458,7 +1465,7 @@ fn main() -> Result<()> {
                                 clip_id,
                                 content_hash,
                                 &extractor,
-                                detectors.is_some(),
+                                classifiers.is_some(),
                                 analysis,
                             )?
                         }
@@ -1499,85 +1506,96 @@ fn main() -> Result<()> {
                 }
             }
         }
-        "detector" | "detectors" => {
+        "classifier" | "classifiers" => {
             drop(conn);
             let db = DbState::new(db_path.clone())?;
             let subcommand = args.get(2).map(String::as_str).unwrap_or("list");
             match subcommand {
                 "list" | "ls" => {
-                    let detectors = db.get_content_detectors()?;
+                    let classifiers = db.get_content_classifiers()?;
                     if args.iter().any(|argument| argument == "--json") {
                         println!(
                             "{}",
-                            serde_json::to_string_pretty(&detectors).map_err(json_error)?
+                            serde_json::to_string_pretty(&classifiers).map_err(json_error)?
                         );
                     } else {
-                        for detector in detectors {
+                        for classifier in classifiers {
                             println!(
                                 "{}\t{}\t{}\t{}\t{}",
-                                detector.stable_ref,
-                                detector.priority,
-                                if detector.enabled { "on" } else { "off" },
-                                detector.content_type,
-                                detector.name
+                                classifier.stable_ref,
+                                classifier.priority,
+                                if classifier.enabled { "on" } else { "off" },
+                                classifier.content_type,
+                                classifier.name
                             );
                         }
                     }
                 }
                 "get" => {
                     let reference = args.get(3).unwrap_or_else(|| {
-                        eprintln!("Usage: pasted detector get <ref> [--json]");
+                        eprintln!("Usage: pasted classifier get <ref> [--json]");
                         std::process::exit(2);
                     });
-                    let detector = db.get_content_detector(reference)?;
-                    print_detector(&detector, args.iter().any(|argument| argument == "--json"))?;
+                    let classifier = db.get_content_classifier(reference)?;
+                    print_classifier(
+                        &classifier,
+                        args.iter().any(|argument| argument == "--json"),
+                    )?;
                 }
                 "create" | "new" => {
-                    let input = detector_input_from_args(&args, None);
-                    let detector = db.create_content_detector(&input)?;
-                    print_detector(&detector, args.iter().any(|argument| argument == "--json"))?;
+                    let input = classifier_input_from_args(&args, None);
+                    let classifier = db.create_content_classifier(&input)?;
+                    print_classifier(
+                        &classifier,
+                        args.iter().any(|argument| argument == "--json"),
+                    )?;
                 }
                 "update" | "edit" => {
                     let reference = args.get(3).unwrap_or_else(|| {
-                        eprintln!("Usage: pasted detector update <ref> [--name NAME] [--type TYPE] [--regex REGEX] [--priority N] [--enabled|--disabled] [--json]");
+                        eprintln!("Usage: pasted classifier update <ref> [--name NAME] [--type TYPE] [--regex REGEX] [--priority N] [--enabled|--disabled] [--json]");
                         std::process::exit(2);
                     });
-                    let current = db.get_content_detector(reference)?;
-                    let input = detector_input_from_args(&args, Some(&current));
-                    let detector = db.update_content_detector(current.id, &input)?;
-                    print_detector(&detector, args.iter().any(|argument| argument == "--json"))?;
+                    let current = db.get_content_classifier(reference)?;
+                    let input = classifier_input_from_args(&args, Some(&current));
+                    let classifier = db.update_content_classifier(current.id, &input)?;
+                    print_classifier(
+                        &classifier,
+                        args.iter().any(|argument| argument == "--json"),
+                    )?;
                 }
                 "duplicate" | "copy" => {
                     let reference = args.get(3).unwrap_or_else(|| {
-                        eprintln!("Usage: pasted detector duplicate <ref> [--name NAME] [--json]");
+                        eprintln!(
+                            "Usage: pasted classifier duplicate <ref> [--name NAME] [--json]"
+                        );
                         std::process::exit(2);
                     });
-                    let duplicate = db.duplicate_content_detector(
+                    let duplicate = db.duplicate_content_classifier(
                         reference,
                         argument_value(&args, "--name").as_deref(),
                     )?;
-                    print_detector(&duplicate, args.iter().any(|argument| argument == "--json"))?;
+                    print_classifier(&duplicate, args.iter().any(|argument| argument == "--json"))?;
                 }
                 "delete" | "remove" => {
                     let reference = args.get(3).unwrap_or_else(|| {
-                        eprintln!("Usage: pasted detector delete <ref> [--json]");
+                        eprintln!("Usage: pasted classifier delete <ref> [--json]");
                         std::process::exit(2);
                     });
-                    let detector = db.get_content_detector(reference)?;
-                    db.delete_content_detector(detector.id)?;
+                    let classifier = db.get_content_classifier(reference)?;
+                    db.delete_content_classifier(classifier.id)?;
                     if args.iter().any(|argument| argument == "--json") {
                         println!(
                             "{}",
-                            serde_json::json!({ "deleted": true, "stableRef": detector.stable_ref })
+                            serde_json::json!({ "deleted": true, "stableRef": classifier.stable_ref })
                         );
                     } else {
-                        println!("Deleted Detector {}.", detector.name);
+                        println!("Deleted Classifier {}.", classifier.name);
                     }
                 }
                 "run" | "test" => {
-                    require_feature(&db, Feature::ContentDetection);
+                    require_feature(&db, Feature::ContentClassification);
                     let reference = args.get(3).unwrap_or_else(|| {
-                        eprintln!("Usage: pasted detector run <ref> [--text TEXT | --clip ID | --stdin] [--apply] [--json]");
+                        eprintln!("Usage: pasted classifier run <ref> [--text TEXT | --clip ID | --stdin] [--apply] [--json]");
                         std::process::exit(2);
                     });
                     let clip_id =
@@ -1593,9 +1611,9 @@ fn main() -> Result<()> {
                         std::process::exit(2);
                     }
                     let result = if apply {
-                        db.apply_content_detector(clip_id.expect("checked above"), reference)?
+                        db.apply_content_classifier(clip_id.expect("checked above"), reference)?
                     } else {
-                        let detector = db.get_content_detector(reference)?;
+                        let classifier = db.get_content_classifier(reference)?;
                         let input = if let Some(text) = explicit_text {
                             text
                         } else if let Some(clip_id) = clip_id {
@@ -1615,14 +1633,14 @@ fn main() -> Result<()> {
                             eprintln!("Provide input with --text, --clip, or stdin.");
                             std::process::exit(2);
                         }
-                        pasted_lib::detection_execution::DetectionApplicationResult::preview(
-                            pasted_lib::detection_execution::analyze_detector(&input, &detector),
+                        pasted_lib::classification_execution::ClassificationApplicationResult::preview(
+                            pasted_lib::classification_execution::analyze_classifier(&input, &classifier),
                         )
                     };
                     if args.iter().any(|argument| argument == "--json") {
                         println!("{}", serde_json::json!(&result));
                     } else if let Some(failure) = result.analysis.failure.as_ref() {
-                        eprintln!("Detector failed ({}): {}", failure.code, failure.message);
+                        eprintln!("Classifier failed ({}): {}", failure.code, failure.message);
                     } else if result.analysis.matched {
                         println!("Matches {}.", result.analysis.classification());
                     } else {
@@ -1635,15 +1653,15 @@ fn main() -> Result<()> {
                     }
                 }
                 "restore-defaults" => {
-                    db.restore_default_content_detectors()?;
+                    db.restore_default_content_classifiers()?;
                     if args.iter().any(|argument| argument == "--json") {
                         println!(
                             "{}",
-                            serde_json::json!({ "restoredDefaults": true, "kind": "detectors" })
+                            serde_json::json!({ "restoredDefaults": true, "kind": "classifiers" })
                         );
                     } else {
                         println!(
-                            "Restored shipped detector defaults; custom detectors were preserved."
+                            "Restored shipped classifier defaults; custom classifiers were preserved."
                         );
                     }
                 }
@@ -1652,7 +1670,7 @@ fn main() -> Result<()> {
                         eprintln!("History rescans can change Content Types, Smart Bin membership, and sensitive-content masking. Re-run with --yes to continue.");
                         std::process::exit(2);
                     }
-                    let report = db.rescan_content_detection()?;
+                    let report = db.rescan_content_classification()?;
                     if args.iter().any(|argument| argument == "--json") {
                         println!(
                             "{}",
@@ -1669,7 +1687,7 @@ fn main() -> Result<()> {
                     }
                 }
                 _ => {
-                    eprintln!("Usage: pasted detector list|get|create|update|duplicate|delete|run|restore-defaults|rescan [options] [--json]");
+                    eprintln!("Usage: pasted classifier list|get|create|update|duplicate|delete|run|restore-defaults|rescan [options] [--json]");
                     std::process::exit(2);
                 }
             }
@@ -3494,7 +3512,7 @@ fn main() -> Result<()> {
         _ => {
             println!("Pasted CLI Tool (v{})", env!("CARGO_PKG_VERSION"));
             println!("Usage:");
-            println!("  pasted copy <text> [--json] Detect and save content, or pipe stdin");
+            println!("  pasted copy <text> [--json] Classify and save content, or pipe stdin");
             println!("  pasted list [--limit N] [--offset N] [--bin ID|--pinned|--trash] [--json]");
             println!("  pasted search [query] [--type TYPE] [--source APP] [--trash] [--limit N] [--offset N] [--json]");
             println!("  pasted import sources [--json] List supported external-history sources");
@@ -3525,16 +3543,16 @@ fn main() -> Result<()> {
             println!(
                 "  pasted inspector run [--text TEXT | --clip ID | --stdin] [--apply] [--json]"
             );
-            println!("  pasted enricher list --json List content Enrichers");
-            println!("  pasted enricher run [--text TEXT | --clip ID | --stdin] [--json]");
-            println!("  pasted detector list --json List editable content detectors");
+            println!("  pasted suggestion list --json List Suggestion participants");
+            println!("  pasted suggestion run [--text TEXT | --clip ID | --stdin] [--json]");
+            println!("  pasted classifier list --json List editable content classifiers");
             println!("  pasted type list --json List registered content types");
             println!(
                 "  pasted registry list [--kind KIND] [--json] List shared processing metadata"
             );
             println!("  pasted registry enable|disable --kind KIND --ref REF");
-            println!("  pasted detector create|update|delete Manage content detectors");
-            println!("  pasted detector rescan --yes --json Reclassify existing text clips");
+            println!("  pasted classifier create|update|delete Manage content classifiers");
+            println!("  pasted classifier rescan --yes --json Reclassify existing text clips");
             println!("  pasted database location --json Show the active SQLite database");
             println!(
                 "  pasted database move <folder> --json Move the database (quit Pasted first)"
@@ -3914,16 +3932,16 @@ fn print_transform_definition(definition: &TransformDefinition, json: bool) -> R
     Ok(())
 }
 
-fn detector_input_from_args(
+fn classifier_input_from_args(
     args: &[String],
-    current: Option<&pasted_lib::content_detection::Detector>,
-) -> DetectorInput {
+    current: Option<&pasted_lib::content_classification::Classifier>,
+) -> ClassifierInput {
     let patterns = argument_values(args, "--regex");
-    DetectorInput {
+    ClassifierInput {
         name: argument_value(args, "--name").unwrap_or_else(|| {
             current
                 .map(|item| item.name.clone())
-                .unwrap_or_else(|| "Custom Detector".into())
+                .unwrap_or_else(|| "Custom Classifier".into())
         }),
         content_type: argument_value(args, "--type").unwrap_or_else(|| {
             current
@@ -3958,16 +3976,19 @@ fn detector_input_from_args(
     }
 }
 
-fn print_detector(detector: &pasted_lib::content_detection::Detector, json: bool) -> Result<()> {
+fn print_classifier(
+    classifier: &pasted_lib::content_classification::Classifier,
+    json: bool,
+) -> Result<()> {
     if json {
         println!(
             "{}",
-            serde_json::to_string_pretty(detector).map_err(json_error)?
+            serde_json::to_string_pretty(classifier).map_err(json_error)?
         );
     } else {
         println!(
             "{}\t{}\t{}\t{}",
-            detector.stable_ref, detector.priority, detector.content_type, detector.name
+            classifier.stable_ref, classifier.priority, classifier.content_type, classifier.name
         );
     }
     Ok(())
@@ -4068,11 +4089,11 @@ fn scan_existing_images(db: &DbState, clip_id: Option<i64>) -> Result<usize> {
         eprintln!("No available image text Extractor is enabled.");
         std::process::exit(1);
     });
-    let detectors = setting_value_is_enabled(
-        db.get_setting(Feature::ContentDetection.setting_key())?
+    let classifiers = setting_value_is_enabled(
+        db.get_setting(Feature::ContentClassification.setting_key())?
             .as_deref(),
     )
-    .then(|| db.get_content_detectors())
+    .then(|| db.get_content_classifiers())
     .transpose()?;
     let mut pending = Vec::new();
     if let Some(clip_id) = clip_id {
@@ -4122,14 +4143,14 @@ fn scan_existing_images(db: &DbState, clip_id: Option<i64>) -> Result<usize> {
         let analysis = pasted_lib::extraction_execution::analyze_image(
             bytes,
             &extractor,
-            detectors.as_deref(),
+            classifiers.as_deref(),
         );
         pasted_lib::extraction_execution::persist_claimed_image_analysis(
             db,
             candidate.clip_id,
             &candidate.content_hash,
             &extractor,
-            detectors.is_some(),
+            classifiers.is_some(),
             analysis,
         )?;
         scanned += 1;

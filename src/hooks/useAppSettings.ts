@@ -37,7 +37,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   trashAgeDays: 0,
   enableAnalytics: true,
   enableBins: true,
-  enableContentDetection: true,
+  enableContentClassification: true,
   enableNotes: true,
   enableNotifications: true,
   enableOcr: true,
@@ -106,7 +106,7 @@ function parseSavedSettings(saved: Record<string, string>) {
   for (const key of [
     'enableAnalytics',
     'enableBins',
-    'enableContentDetection',
+    'enableContentClassification',
     'enableNotes',
     'enableNotifications',
     'enableOcr',

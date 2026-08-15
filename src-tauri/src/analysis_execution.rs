@@ -1,9 +1,9 @@
 use crate::analysis_contract::{AnalysisEnvelope, AnalysisPolicy, ClipApplication};
 use crate::content_analysis::{
-    AnalysisInput, AnalysisRequest, EnricherParticipantSource, ExtractorParticipantSource,
+    AnalysisInput, AnalysisRequest, ExtractorParticipantSource, SuggestionParticipantSource,
 };
-use crate::content_enrichment::SmartActionRecommendations;
 use crate::content_inspection::{FileObservations, StructuralMetadata};
+use crate::content_suggestions::SmartActionSuggestions;
 use crate::db::DbState;
 use serde::Serialize;
 
@@ -11,8 +11,8 @@ use serde::Serialize;
 pub struct AnalyzerOptions {
     pub policy: AnalysisPolicy,
     pub include_extractor: bool,
-    pub include_detectors: bool,
-    pub include_enricher: bool,
+    pub include_classifiers: bool,
+    pub include_suggestions: bool,
 }
 
 impl Default for AnalyzerOptions {
@@ -20,8 +20,8 @@ impl Default for AnalyzerOptions {
         Self {
             policy: AnalysisPolicy::Interactive,
             include_extractor: false,
-            include_detectors: true,
-            include_enricher: true,
+            include_classifiers: true,
+            include_suggestions: true,
         }
     }
 }
@@ -35,12 +35,12 @@ pub struct AnalyzerSnapshot {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub media_metadata: Option<crate::content_inspection::MediaMetadata>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub detected_type: Option<String>,
+    pub classified_type: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub matched_detector_ref: Option<String>,
+    pub matched_classifier_ref: Option<String>,
     pub searchable_text_available: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub recommendations: Option<SmartActionRecommendations>,
+    pub suggestions: Option<SmartActionSuggestions>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -72,21 +72,21 @@ fn execute(
     options: AnalyzerOptions,
     allow_text_participants: bool,
 ) -> Result<AnalyzerPreview, String> {
-    let run_detectors = allow_text_participants && options.include_detectors;
-    let detectors = if run_detectors {
-        db.get_content_detectors()
+    let run_classifiers = allow_text_participants && options.include_classifiers;
+    let classifiers = if run_classifiers {
+        db.get_content_classifiers()
             .map_err(|error| error.to_string())?
             .into_iter()
-            .filter(|detector| detector.enabled)
+            .filter(|classifier| classifier.enabled)
             .collect::<Vec<_>>()
     } else {
         Vec::new()
     };
     let transforms = if allow_text_participants
-        && options.include_enricher
+        && options.include_suggestions
         && options
             .policy
-            .includes(crate::analysis_contract::AnalysisPass::Enrich)
+            .includes(crate::analysis_contract::AnalysisPass::Suggest)
     {
         db.get_transform_definitions()
             .map_err(|error| error.to_string())?
@@ -118,9 +118,9 @@ fn execute(
                 extractor,
                 registry: &registry,
             }),
-        detectors: run_detectors.then_some(detectors.as_slice()),
-        enricher: (allow_text_participants && options.include_enricher).then_some(
-            EnricherParticipantSource {
+        classifiers: run_classifiers.then_some(classifiers.as_slice()),
+        suggestion: (allow_text_participants && options.include_suggestions).then_some(
+            SuggestionParticipantSource {
                 transforms: transforms.as_slice(),
             },
         ),
@@ -129,10 +129,10 @@ fn execute(
         clip_kind: report.context.clip_kind.clone(),
         structure: report.context.structural_metadata,
         media_metadata: report.context.media_metadata,
-        detected_type: report.context.detected_type,
-        matched_detector_ref: report.context.matched_detector_ref,
+        classified_type: report.context.classified_type,
+        matched_classifier_ref: report.context.matched_classifier_ref,
         searchable_text_available: report.context.searchable_text.is_some(),
-        recommendations: report.context.recommendations,
+        suggestions: report.context.suggestions,
     };
     Ok(AnalyzerPreview {
         analysis: AnalysisEnvelope::new(options.policy, snapshot, report.runs),
@@ -255,11 +255,11 @@ mod tests {
         )
         .unwrap();
         assert_eq!(
-            result.analysis.result.detected_type.as_deref(),
+            result.analysis.result.classified_type.as_deref(),
             Some("email")
         );
         assert!(result.analysis.result.structure.is_some());
-        assert!(result.analysis.result.recommendations.is_some());
+        assert!(result.analysis.result.suggestions.is_some());
         assert_eq!(result.analysis.participants.len(), 3);
         assert_eq!(
             result.analysis.participants[0].pass,
@@ -271,7 +271,7 @@ mod tests {
         );
         assert_eq!(
             result.analysis.participants[2].pass,
-            crate::analysis_contract::AnalysisPass::Enrich
+            crate::analysis_contract::AnalysisPass::Suggest
         );
     }
 
@@ -292,7 +292,7 @@ mod tests {
     }
 
     #[test]
-    fn capture_policy_omits_enrichment() {
+    fn capture_policy_omits_suggestion() {
         let result = analyze_text(
             &db(),
             "ordinary words",
@@ -303,7 +303,7 @@ mod tests {
             },
         )
         .unwrap();
-        assert!(result.analysis.result.recommendations.is_none());
+        assert!(result.analysis.result.suggestions.is_none());
         assert_eq!(result.analysis.participants.len(), 2);
         let expected = serde_json::from_str::<serde_json::Value>(include_str!(
             "../../contracts/analysis/v1/analyzer-capture-text.json"
@@ -319,14 +319,14 @@ mod tests {
             "agent@example.com",
             None,
             AnalyzerOptions {
-                include_detectors: false,
-                include_enricher: false,
+                include_classifiers: false,
+                include_suggestions: false,
                 ..AnalyzerOptions::default()
             },
         )
         .unwrap();
-        assert!(result.analysis.result.detected_type.is_none());
-        assert!(result.analysis.result.recommendations.is_none());
+        assert!(result.analysis.result.classified_type.is_none());
+        assert!(result.analysis.result.suggestions.is_none());
         assert_eq!(result.analysis.participants.len(), 1);
         assert_eq!(
             result.analysis.participants[0].pass,
@@ -335,20 +335,20 @@ mod tests {
     }
 
     #[test]
-    fn enrichment_does_not_implicitly_enable_detectors() {
+    fn suggestion_does_not_implicitly_enable_classifiers() {
         let result = analyze_text(
             &db(),
             "agent@example.com",
             None,
             AnalyzerOptions {
-                include_detectors: false,
-                include_enricher: true,
+                include_classifiers: false,
+                include_suggestions: true,
                 ..AnalyzerOptions::default()
             },
         )
         .unwrap();
-        assert!(result.analysis.result.detected_type.is_none());
-        assert!(result.analysis.result.recommendations.is_some());
+        assert!(result.analysis.result.classified_type.is_none());
+        assert!(result.analysis.result.suggestions.is_some());
         assert_eq!(result.analysis.participants.len(), 2);
         assert!(result
             .analysis
@@ -378,8 +378,8 @@ mod tests {
             .participants
             .iter()
             .any(|run| run.stable_ref == crate::content_inspection::MEDIA_INSPECTOR_REF));
-        assert!(result.analysis.result.detected_type.is_none());
-        assert!(result.analysis.result.recommendations.is_none());
+        assert!(result.analysis.result.classified_type.is_none());
+        assert!(result.analysis.result.suggestions.is_none());
         assert!(!serde_json::to_string(&result)
             .unwrap()
             .contains(secret_path));

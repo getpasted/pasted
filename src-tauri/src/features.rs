@@ -4,7 +4,7 @@ use crate::db::DbState;
 pub enum Feature {
     Insights,
     Bins,
-    ContentDetection,
+    ContentClassification,
     Notes,
     Notifications,
     Ocr,
@@ -27,7 +27,7 @@ impl Feature {
     pub const ALL: [Feature; 19] = [
         Feature::Insights,
         Feature::Bins,
-        Feature::ContentDetection,
+        Feature::ContentClassification,
         Feature::Notes,
         Feature::Notifications,
         Feature::Ocr,
@@ -50,7 +50,7 @@ impl Feature {
         match self {
             Feature::Insights => "enableAnalytics",
             Feature::Bins => "enableBins",
-            Feature::ContentDetection => "enableContentDetection",
+            Feature::ContentClassification => "enableContentClassification",
             Feature::Notes => "enableNotes",
             Feature::Notifications => "enableNotifications",
             Feature::Ocr => "enableOcr",
@@ -80,7 +80,7 @@ impl Feature {
         match self {
             Feature::Insights => "Insights",
             Feature::Bins => "Bins",
-            Feature::ContentDetection => "Content Detection",
+            Feature::ContentClassification => "Content Classification",
             Feature::Notes => "Notes",
             Feature::Notifications => "Notifications",
             Feature::Ocr => "OCR",

@@ -64,14 +64,14 @@ fn analysis_toggle_activity(
     let event_type = match (kind, enabled) {
         ("extractor", true) => "content_extractor_enabled",
         ("extractor", false) => "content_extractor_disabled",
-        ("detector", true) => "content_detector_enabled",
-        ("detector", false) => "content_detector_disabled",
+        ("classifier", true) => "content_classifier_enabled",
+        ("classifier", false) => "content_classifier_disabled",
         _ => return None,
     };
     let label = if kind == "extractor" {
         "Extractor"
     } else {
-        "Detector"
+        "Classifier"
     };
     Some((
         event_type,
@@ -308,7 +308,7 @@ pub struct ClipImportReport {
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
-pub struct ContentDetectionRescanReport {
+pub struct ContentClassificationRescanReport {
     pub scanned_count: usize,
     pub changed_count: usize,
     pub unchanged_count: usize,
@@ -320,7 +320,7 @@ pub struct ContentDetectionRescanReport {
 pub struct AnalysisClassification {
     pub clip_id: i64,
     pub content_type: String,
-    pub detector_ref: String,
+    pub classifier_ref: String,
     pub source_representation: String,
     pub input_hash: String,
     pub updated_at: String,
@@ -338,19 +338,19 @@ pub struct ClipSearchableText {
     pub updated_at: String,
 }
 
-fn content_detector_from_row(
+fn content_classifier_from_row(
     row: &rusqlite::Row<'_>,
-) -> rusqlite::Result<crate::content_detection::Detector> {
+) -> rusqlite::Result<crate::content_classification::Classifier> {
     let patterns_json: String = row.get(5)?;
     let patterns = serde_json::from_str(&patterns_json).map_err(|error| {
         rusqlite::Error::FromSqlConversionFailure(5, rusqlite::types::Type::Text, Box::new(error))
     })?;
     let stable_ref: String = row.get(1)?;
     let is_builtin: bool = row.get(9)?;
-    Ok(crate::content_detection::Detector {
+    Ok(crate::content_classification::Classifier {
         id: row.get(0)?,
         defaults: is_builtin
-            .then(|| crate::content_detection::detector_defaults(&stable_ref))
+            .then(|| crate::content_classification::classifier_defaults(&stable_ref))
             .flatten(),
         stable_ref,
         name: row.get(2)?,
@@ -458,7 +458,7 @@ fn activity_classification(event_name: &str) -> (&'static str, &'static str, &'s
         "capture"
     } else if event_name.starts_with("bin_")
         || event_name.starts_with("type_")
-        || event_name.starts_with("detector_")
+        || event_name.starts_with("classifier_")
         || event_name.starts_with("content_")
     {
         "organization"
@@ -668,8 +668,8 @@ pub struct BackupPayload {
     pub bin_transforms: Vec<BinTransformBinding>,
     #[serde(default)]
     pub ocr_metadata: Vec<OcrBackupMetadata>,
-    #[serde(default)]
-    pub content_detectors: Vec<crate::content_detection::Detector>,
+    #[serde(default, alias = "content_detectors", alias = "contentDetectors")]
+    pub content_classifiers: Vec<crate::content_classification::Classifier>,
     #[serde(default)]
     pub content_types: Vec<crate::content_types::ContentTypeDefinition>,
     #[serde(default)]
@@ -684,7 +684,7 @@ pub struct LibraryArchiveInspection {
     pub bin_count: usize,
     pub operation_count: usize,
     pub transform_count: usize,
-    pub detector_count: usize,
+    pub classifier_count: usize,
     pub content_type_count: usize,
 }
 
@@ -1072,6 +1072,61 @@ fn migrate_clip_source_schema(conn: &Connection) -> Result<()> {
         )?;
     }
     transaction.commit()?;
+    Ok(())
+}
+
+fn migrate_analysis_terminology_schema(conn: &Connection) -> Result<()> {
+    conn.execute_batch(
+        "DROP TRIGGER IF EXISTS library_items_detector_insert;
+         DROP TRIGGER IF EXISTS library_items_detector_update;
+         DROP TRIGGER IF EXISTS library_items_detector_delete;",
+    )?;
+    let has_legacy_classifiers = table_exists(conn, "content_detectors")?;
+    let has_classifiers = table_exists(conn, "content_classifiers")?;
+    if has_legacy_classifiers && !has_classifiers {
+        conn.execute(
+            "ALTER TABLE content_detectors RENAME TO content_classifiers",
+            [],
+        )?;
+    } else if has_legacy_classifiers {
+        let transaction = conn.unchecked_transaction()?;
+        transaction.execute_batch(
+            "INSERT OR IGNORE INTO content_classifiers
+                (stable_ref, name, content_type, description, patterns_json, validator,
+                 enabled, priority, is_builtin, is_deleted, created_at, updated_at)
+             SELECT stable_ref, name, content_type, description, patterns_json, validator,
+                    enabled, priority, is_builtin, is_deleted, created_at, updated_at
+             FROM content_detectors;
+             DROP TABLE content_detectors;",
+        )?;
+        transaction.commit()?;
+    }
+    conn.execute("DROP INDEX IF EXISTS idx_content_detectors_order", [])?;
+
+    if table_exists(conn, "settings")? {
+        conn.execute(
+            "INSERT OR IGNORE INTO settings (key, value)
+             SELECT 'enableContentClassification', value
+             FROM settings WHERE key = 'enableContentDetection'",
+            [],
+        )?;
+        conn.execute(
+            "DELETE FROM settings WHERE key = 'enableContentDetection'",
+            [],
+        )?;
+    }
+    if table_exists(conn, "schema_migrations")? {
+        conn.execute(
+            "INSERT OR IGNORE INTO schema_migrations (key)
+             SELECT 'contentClassifierRegistryV1'
+             FROM schema_migrations WHERE key = 'contentDetectorRegistryV1'",
+            [],
+        )?;
+        conn.execute(
+            "DELETE FROM schema_migrations WHERE key = 'contentDetectorRegistryV1'",
+            [],
+        )?;
+    }
     Ok(())
 }
 
@@ -1957,7 +2012,7 @@ impl DbState {
             "CREATE TABLE IF NOT EXISTS clip_analysis_classifications (
                 clip_id INTEGER PRIMARY KEY REFERENCES clips(id) ON DELETE CASCADE,
                 content_type TEXT NOT NULL,
-                detector_ref TEXT NOT NULL,
+                classifier_ref TEXT NOT NULL,
                 source_representation TEXT NOT NULL
                     CHECK (source_representation IN ('original_text', 'searchable_text')),
                 input_hash TEXT NOT NULL,
@@ -2190,7 +2245,7 @@ impl DbState {
                       OR event_type LIKE 'trash_%' OR event_type LIKE 'note_%' THEN 'clip'
                     WHEN event_type LIKE 'recording_%' OR event_type LIKE 'clipboard_%' THEN 'capture'
                     WHEN event_type LIKE 'bin_%' OR event_type LIKE 'type_%'
-                      OR event_type LIKE 'detector_%' OR event_type LIKE 'content_%' THEN 'organization'
+                      OR event_type LIKE 'classifier_%' OR event_type LIKE 'content_%' THEN 'organization'
                     WHEN event_type LIKE 'transform%' OR event_type LIKE 'operation_%'
                       OR event_type LIKE 'intelligence_%' THEN 'transformation'
                     WHEN event_type LIKE 'setting_%' OR event_type = 'settings_changed' THEN 'settings'
@@ -2221,6 +2276,7 @@ impl DbState {
             [],
         )?;
         migrate_pipelines_to_saved_transforms(&conn)?;
+        migrate_analysis_terminology_schema(&conn)?;
 
         conn.execute_batch(
             "CREATE TABLE IF NOT EXISTS content_type_groups (
@@ -2244,7 +2300,7 @@ impl DbState {
             );
             CREATE INDEX IF NOT EXISTS idx_content_types_order
                 ON content_types (is_archived, is_builtin DESC, group_name, label);
-            CREATE TABLE IF NOT EXISTS content_detectors (
+            CREATE TABLE IF NOT EXISTS content_classifiers (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 stable_ref TEXT NOT NULL UNIQUE,
                 name TEXT NOT NULL,
@@ -2259,8 +2315,8 @@ impl DbState {
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
             );
-            CREATE INDEX IF NOT EXISTS idx_content_detectors_order
-                ON content_detectors (is_deleted, enabled, priority, id);
+            CREATE INDEX IF NOT EXISTS idx_content_classifiers_order
+                ON content_classifiers (is_deleted, enabled, priority, id);
             CREATE TABLE IF NOT EXISTS content_extractors (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 stable_ref TEXT NOT NULL UNIQUE,
@@ -2302,11 +2358,11 @@ impl DbState {
                 params![preset.id, preset.label, preset.icon, preset.group],
             )?;
         }
-        for preset in crate::content_detection::DETECTOR_PRESETS {
+        for preset in crate::content_classification::CLASSIFIER_PRESETS {
             let patterns_json = serde_json::to_string(&preset.patterns)
                 .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?;
             conn.execute(
-                "INSERT OR IGNORE INTO content_detectors
+                "INSERT OR IGNORE INTO content_classifiers
                     (stable_ref, name, content_type, description, patterns_json, validator, enabled, priority, is_builtin)
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, 1, ?7, 1)",
                 params![preset.stable_ref, preset.name, preset.content_type, preset.description, patterns_json, preset.validator, preset.priority],
@@ -2332,7 +2388,7 @@ impl DbState {
         }
         let legacy_type_ids = {
             let mut statement = conn.prepare(
-                "SELECT content_type FROM content_detectors
+                "SELECT content_type FROM content_classifiers
                  UNION SELECT content_type FROM clips
                  ORDER BY content_type",
             )?;
@@ -2349,12 +2405,12 @@ impl DbState {
                 params![id, crate::content_types::fallback_label(&id)],
             )?;
         }
-        let detector_migration_applied: bool = conn.query_row(
-            "SELECT EXISTS(SELECT 1 FROM schema_migrations WHERE key = 'contentDetectorRegistryV1')",
+        let classifier_migration_applied: bool = conn.query_row(
+            "SELECT EXISTS(SELECT 1 FROM schema_migrations WHERE key = 'contentClassifierRegistryV1')",
             [],
             |row| row.get(0),
         )?;
-        if !detector_migration_applied {
+        if !classifier_migration_applied {
             for (setting_key, stable_ref) in [
                 ("detectColors", "color"),
                 ("detectLinks", "url"),
@@ -2367,13 +2423,13 @@ impl DbState {
                 )?;
                 if disabled {
                     conn.execute(
-                        "UPDATE content_detectors SET enabled = 0 WHERE stable_ref = ?1",
+                        "UPDATE content_classifiers SET enabled = 0 WHERE stable_ref = ?1",
                         params![stable_ref],
                     )?;
                 }
             }
             conn.execute(
-                "INSERT INTO schema_migrations (key) VALUES ('contentDetectorRegistryV1')",
+                "INSERT INTO schema_migrations (key) VALUES ('contentClassifierRegistryV1')",
                 [],
             )?;
         }
@@ -2395,9 +2451,9 @@ impl DbState {
             "DROP TRIGGER IF EXISTS library_items_extractor_insert;
             DROP TRIGGER IF EXISTS library_items_extractor_update;
             DROP TRIGGER IF EXISTS library_items_extractor_delete;
-            DROP TRIGGER IF EXISTS library_items_detector_insert;
-            DROP TRIGGER IF EXISTS library_items_detector_update;
-            DROP TRIGGER IF EXISTS library_items_detector_delete;
+            DROP TRIGGER IF EXISTS library_items_classifier_insert;
+            DROP TRIGGER IF EXISTS library_items_classifier_update;
+            DROP TRIGGER IF EXISTS library_items_classifier_delete;
             DROP TRIGGER IF EXISTS library_items_content_type_update;
             DROP TRIGGER IF EXISTS library_items_content_group_update;
             DROP TRIGGER IF EXISTS library_items_operation_insert;
@@ -2412,7 +2468,7 @@ impl DbState {
             DROP TABLE IF EXISTS library_items;
             CREATE TABLE library_items (
                 stable_ref TEXT PRIMARY KEY,
-                kind TEXT NOT NULL CHECK (kind IN ('capture', 'inspector', 'extractor', 'detector', 'enricher', 'operation', 'transform')),
+                kind TEXT NOT NULL CHECK (kind IN ('capture', 'inspector', 'extractor', 'classifier', 'suggestion', 'operation', 'transform')),
                 name TEXT NOT NULL,
                 description TEXT NOT NULL DEFAULT '',
                 group_label TEXT,
@@ -2470,10 +2526,10 @@ impl DbState {
                 (stable_ref, kind, name, description, group_label, icon, enabled,
                  is_builtin, is_archived, sort_order, revision, input_contract,
                  output_contract, created_at, updated_at)
-            VALUES ('enricher:smart-actions-v1', 'enricher', 'Smart Actions',
-                    'Recommends saved Transforms from content-free analysis signals.',
+            VALUES ('suggestion:smart-actions-v1', 'suggestion', 'Smart Actions',
+                    'Suggests saved Transforms from content-free analysis signals.',
                     'Content Analysis', 'Lightbulb', NULL, 1, 0, 0, 1,
-                    'analyzable_text+structural_metadata', 'recommendations',
+                    'analyzable_text+structural_metadata', 'suggestions',
                     CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
             INSERT INTO library_items
@@ -2496,12 +2552,12 @@ impl DbState {
                 (stable_ref, kind, name, description, group_label, icon, enabled,
                  is_builtin, is_archived, sort_order, revision, input_contract,
                  output_contract, created_at, updated_at)
-            SELECT detectors.stable_ref, 'detector', detectors.name, detectors.description,
-                   groups.label, types.icon, detectors.enabled, detectors.is_builtin,
-                   detectors.is_deleted, detectors.priority, 1, 'text',
-                   'set_type:' || detectors.content_type, detectors.created_at, detectors.updated_at
-            FROM content_detectors AS detectors
-            LEFT JOIN content_types AS types ON types.id = detectors.content_type
+            SELECT classifiers.stable_ref, 'classifier', classifiers.name, classifiers.description,
+                   groups.label, types.icon, classifiers.enabled, classifiers.is_builtin,
+                   classifiers.is_deleted, classifiers.priority, 1, 'text',
+                   'set_type:' || classifiers.content_type, classifiers.created_at, classifiers.updated_at
+            FROM content_classifiers AS classifiers
+            LEFT JOIN content_types AS types ON types.id = classifiers.content_type
             LEFT JOIN content_type_groups AS groups ON groups.id = types.group_name
             WHERE 1 = 1
             ON CONFLICT(stable_ref) DO UPDATE SET
@@ -2541,9 +2597,9 @@ impl DbState {
             DROP TRIGGER IF EXISTS library_items_extractor_insert;
             DROP TRIGGER IF EXISTS library_items_extractor_update;
             DROP TRIGGER IF EXISTS library_items_extractor_delete;
-            DROP TRIGGER IF EXISTS library_items_detector_insert;
-            DROP TRIGGER IF EXISTS library_items_detector_update;
-            DROP TRIGGER IF EXISTS library_items_detector_delete;
+            DROP TRIGGER IF EXISTS library_items_classifier_insert;
+            DROP TRIGGER IF EXISTS library_items_classifier_update;
+            DROP TRIGGER IF EXISTS library_items_classifier_delete;
             DROP TRIGGER IF EXISTS library_items_content_type_update;
             DROP TRIGGER IF EXISTS library_items_content_group_update;
             DROP TRIGGER IF EXISTS library_items_operation_insert;
@@ -2574,29 +2630,29 @@ impl DbState {
             CREATE TRIGGER library_items_extractor_delete AFTER DELETE ON content_extractors BEGIN
               DELETE FROM library_items WHERE stable_ref=OLD.stable_ref;
             END;
-            CREATE TRIGGER library_items_detector_insert AFTER INSERT ON content_detectors BEGIN
+            CREATE TRIGGER library_items_classifier_insert AFTER INSERT ON content_classifiers BEGIN
               DELETE FROM library_items WHERE stable_ref=NEW.stable_ref;
               INSERT INTO library_items
                 (stable_ref, kind, name, description, group_label, icon, enabled, is_builtin,
                  is_archived, sort_order, revision, input_contract, output_contract, created_at, updated_at)
-              SELECT NEW.stable_ref, 'detector', NEW.name, NEW.description, groups.label,
+              SELECT NEW.stable_ref, 'classifier', NEW.name, NEW.description, groups.label,
                      types.icon, NEW.enabled, NEW.is_builtin, NEW.is_deleted, NEW.priority,
                      1, 'text', 'set_type:' || NEW.content_type, NEW.created_at, NEW.updated_at
               FROM content_types AS types LEFT JOIN content_type_groups AS groups ON groups.id=types.group_name
               WHERE types.id=NEW.content_type;
             END;
-            CREATE TRIGGER library_items_detector_update AFTER UPDATE ON content_detectors BEGIN
+            CREATE TRIGGER library_items_classifier_update AFTER UPDATE ON content_classifiers BEGIN
               DELETE FROM library_items WHERE stable_ref=OLD.stable_ref OR stable_ref=NEW.stable_ref;
               INSERT INTO library_items
                 (stable_ref, kind, name, description, group_label, icon, enabled, is_builtin,
                  is_archived, sort_order, revision, input_contract, output_contract, created_at, updated_at)
-              SELECT NEW.stable_ref, 'detector', NEW.name, NEW.description, groups.label,
+              SELECT NEW.stable_ref, 'classifier', NEW.name, NEW.description, groups.label,
                      types.icon, NEW.enabled, NEW.is_builtin, NEW.is_deleted, NEW.priority,
                      1, 'text', 'set_type:' || NEW.content_type, NEW.created_at, NEW.updated_at
               FROM content_types AS types LEFT JOIN content_type_groups AS groups ON groups.id=types.group_name
               WHERE types.id=NEW.content_type;
             END;
-            CREATE TRIGGER library_items_detector_delete AFTER DELETE ON content_detectors BEGIN
+            CREATE TRIGGER library_items_classifier_delete AFTER DELETE ON content_classifiers BEGIN
               DELETE FROM library_items WHERE stable_ref=OLD.stable_ref;
             END;
             CREATE TRIGGER library_items_content_type_update AFTER UPDATE ON content_types BEGIN
@@ -2605,15 +2661,15 @@ impl DbState {
                 group_label=(SELECT label FROM content_type_groups WHERE id=NEW.group_name),
                 output_contract='set_type:'||NEW.id,
                 updated_at=CURRENT_TIMESTAMP
-              WHERE kind='detector' AND stable_ref IN (
-                SELECT stable_ref FROM content_detectors WHERE content_type=NEW.id
+              WHERE kind='classifier' AND stable_ref IN (
+                SELECT stable_ref FROM content_classifiers WHERE content_type=NEW.id
               );
             END;
             CREATE TRIGGER library_items_content_group_update AFTER UPDATE ON content_type_groups BEGIN
               UPDATE library_items SET group_label=NEW.label,updated_at=CURRENT_TIMESTAMP
-              WHERE kind='detector' AND stable_ref IN (
-                SELECT detectors.stable_ref FROM content_detectors AS detectors
-                JOIN content_types AS types ON types.id=detectors.content_type
+              WHERE kind='classifier' AND stable_ref IN (
+                SELECT classifiers.stable_ref FROM content_classifiers AS classifiers
+                JOIN content_types AS types ON types.id=classifiers.content_type
                 WHERE types.group_name=NEW.id
               );
             END;
@@ -2701,7 +2757,7 @@ impl DbState {
              DELETE FROM bins;
              DELETE FROM activity_logs;
              DELETE FROM content_extractors;
-             DELETE FROM content_detectors;
+             DELETE FROM content_classifiers;
              DELETE FROM content_types;
              DELETE FROM content_type_groups;
              DELETE FROM settings;",
@@ -2730,11 +2786,11 @@ impl DbState {
                 params![preset.id, preset.label, preset.icon, preset.group],
             )?;
         }
-        for preset in crate::content_detection::DETECTOR_PRESETS {
+        for preset in crate::content_classification::CLASSIFIER_PRESETS {
             let patterns_json = serde_json::to_string(&preset.patterns)
                 .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?;
             transaction.execute(
-                "INSERT INTO content_detectors
+                "INSERT INTO content_classifiers
                     (stable_ref, name, content_type, description, patterns_json, validator, enabled, priority, is_builtin)
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, 1, ?7, 1)",
                 params![preset.stable_ref, preset.name, preset.content_type, preset.description, patterns_json, preset.validator, preset.priority],
@@ -3454,7 +3510,7 @@ impl DbState {
         clip_id: i64,
         input_hash: &str,
         content_type: Option<&str>,
-        detector_ref: Option<&str>,
+        classifier_ref: Option<&str>,
         source_representation: &str,
     ) -> Result<bool> {
         if !matches!(source_representation, "original_text" | "searchable_text") {
@@ -3463,7 +3519,7 @@ impl DbState {
             ));
         }
         if content_type.is_some_and(|value| value.len() > 80)
-            || detector_ref.is_some_and(|value| value.len() > 160)
+            || classifier_ref.is_some_and(|value| value.len() > 160)
         {
             return Err(rusqlite::Error::InvalidParameterName(
                 "Analysis classification metadata exceeds its safety limit".into(),
@@ -3481,7 +3537,7 @@ impl DbState {
         if !clip_matches {
             return Ok(false);
         }
-        let (Some(content_type), Some(detector_ref)) = (content_type, detector_ref) else {
+        let (Some(content_type), Some(classifier_ref)) = (content_type, classifier_ref) else {
             conn.execute(
                 "DELETE FROM clip_analysis_classifications
                  WHERE clip_id = ?1 AND input_hash = ?2",
@@ -3491,18 +3547,18 @@ impl DbState {
         };
         conn.execute(
             "INSERT INTO clip_analysis_classifications
-                (clip_id, content_type, detector_ref, source_representation, input_hash)
+                (clip_id, content_type, classifier_ref, source_representation, input_hash)
              VALUES (?1, ?2, ?3, ?4, ?5)
              ON CONFLICT(clip_id) DO UPDATE SET
                 content_type = excluded.content_type,
-                detector_ref = excluded.detector_ref,
+                classifier_ref = excluded.classifier_ref,
                 source_representation = excluded.source_representation,
                 input_hash = excluded.input_hash,
                 updated_at = CURRENT_TIMESTAMP",
             params![
                 clip_id,
                 content_type,
-                detector_ref,
+                classifier_ref,
                 source_representation,
                 input_hash
             ],
@@ -3516,7 +3572,7 @@ impl DbState {
     ) -> Result<Option<AnalysisClassification>> {
         let conn = self.conn.lock();
         conn.query_row(
-            "SELECT clip_id, content_type, detector_ref, source_representation,
+            "SELECT clip_id, content_type, classifier_ref, source_representation,
                     input_hash, updated_at
              FROM clip_analysis_classifications WHERE clip_id = ?1",
             params![clip_id],
@@ -3524,7 +3580,7 @@ impl DbState {
                 Ok(AnalysisClassification {
                     clip_id: row.get(0)?,
                     content_type: row.get(1)?,
-                    detector_ref: row.get(2)?,
+                    classifier_ref: row.get(2)?,
                     source_representation: row.get(3)?,
                     input_hash: row.get(4)?,
                     updated_at: row.get(5)?,
@@ -3865,8 +3921,8 @@ impl DbState {
     }
 
     pub fn save_text_clip(&self, text: &str, source: &str) -> Result<ClipItem> {
-        let include_detectors =
-            crate::features::is_enabled(self, crate::features::Feature::ContentDetection);
+        let include_classifiers =
+            crate::features::is_enabled(self, crate::features::Feature::ContentClassification);
         let analysis = crate::analysis_execution::analyze_text(
             self,
             text,
@@ -3874,14 +3930,14 @@ impl DbState {
             crate::analysis_execution::AnalyzerOptions {
                 policy: crate::analysis_contract::AnalysisPolicy::Capture,
                 include_extractor: false,
-                include_detectors,
-                include_enricher: false,
+                include_classifiers,
+                include_suggestions: false,
             },
         )
         .ok();
         let content_type = analysis
             .as_ref()
-            .and_then(|result| result.analysis.result.detected_type.as_deref())
+            .and_then(|result| result.analysis.result.classified_type.as_deref())
             .unwrap_or("text");
         let structure = analysis
             .as_ref()
@@ -6260,7 +6316,7 @@ impl DbState {
         let (event_type, label) = if kind == "extractor" {
             ("content_extractor_updated", "Extractor")
         } else {
-            ("content_detector_updated", "Detector")
+            ("content_classifier_updated", "Classifier")
         };
         let _ = self.log_activity(event_type, &format!("Updated {label} \"{name}\""));
     }
@@ -6692,7 +6748,7 @@ impl DbState {
             })
             .collect();
         let ocr_metadata = self.get_ocr_backup_metadata()?;
-        let content_detectors = self.get_all_content_detectors_for_backup()?;
+        let content_classifiers = self.get_all_content_classifiers_for_backup()?;
         let content_types = self.get_content_types(true)?;
         let content_type_groups = self.get_content_type_groups(true)?;
 
@@ -6706,7 +6762,7 @@ impl DbState {
             saved_transforms,
             bin_transforms,
             ocr_metadata,
-            content_detectors,
+            content_classifiers,
             content_types,
             content_type_groups,
         };
@@ -7055,7 +7111,7 @@ impl DbState {
             payload.saved_transforms.len(),
             payload.bin_transforms.len(),
             payload.ocr_metadata.len(),
-            payload.content_detectors.len(),
+            payload.content_classifiers.len(),
             payload.content_types.len(),
             payload.content_type_groups.len(),
         ]
@@ -7081,9 +7137,9 @@ impl DbState {
                 "Transfer file contains more than 256 content types".to_string(),
             ));
         }
-        if payload.content_detectors.len() > 128 {
+        if payload.content_classifiers.len() > 128 {
             return Err(rusqlite::Error::InvalidParameterName(
-                "Transfer file contains more than 128 content detectors".to_string(),
+                "Transfer file contains more than 128 content classifiers".to_string(),
             ));
         }
 
@@ -7167,22 +7223,22 @@ impl DbState {
 
         unique(
             payload
-                .content_detectors
+                .content_classifiers
                 .iter()
-                .map(|detector| detector.stable_ref.clone())
+                .map(|classifier| classifier.stable_ref.clone())
                 .collect(),
-            "detector reference",
+            "classifier reference",
         )?;
-        for detector in &payload.content_detectors {
-            crate::content_detection::validate_detector_input(
-                &crate::content_detection::DetectorInput {
-                    name: detector.name.clone(),
-                    content_type: detector.content_type.clone(),
-                    description: detector.description.clone(),
-                    patterns: detector.patterns.clone(),
-                    validator: detector.validator.clone(),
-                    enabled: detector.enabled,
-                    priority: detector.priority,
+        for classifier in &payload.content_classifiers {
+            crate::content_classification::validate_classifier_input(
+                &crate::content_classification::ClassifierInput {
+                    name: classifier.name.clone(),
+                    content_type: classifier.content_type.clone(),
+                    description: classifier.description.clone(),
+                    patterns: classifier.patterns.clone(),
+                    validator: classifier.validator.clone(),
+                    enabled: classifier.enabled,
+                    priority: classifier.priority,
                 },
             )
             .map_err(rusqlite::Error::InvalidParameterName)?;
@@ -7415,7 +7471,7 @@ impl DbState {
                 .filter(|item| item.id >= 0)
                 .count(),
             transform_count: payload.saved_transforms.len() + payload.pipelines.len(),
-            detector_count: payload.content_detectors.len(),
+            classifier_count: payload.content_classifiers.len(),
             content_type_count: payload.content_types.len(),
         })
     }
@@ -7505,28 +7561,28 @@ impl DbState {
                 ],
             )?;
         }
-        if payload.content_detectors.len() > 128 {
+        if payload.content_classifiers.len() > 128 {
             return Err(rusqlite::Error::InvalidParameterName(
-                "Backup contains more than 128 content detectors".to_string(),
+                "Backup contains more than 128 content classifiers".to_string(),
             ));
         }
-        for detector in &payload.content_detectors {
-            crate::content_detection::validate_detector_input(
-                &crate::content_detection::DetectorInput {
-                    name: detector.name.clone(),
-                    content_type: detector.content_type.clone(),
-                    description: detector.description.clone(),
-                    patterns: detector.patterns.clone(),
-                    validator: detector.validator.clone(),
-                    enabled: detector.enabled,
-                    priority: detector.priority,
+        for classifier in &payload.content_classifiers {
+            crate::content_classification::validate_classifier_input(
+                &crate::content_classification::ClassifierInput {
+                    name: classifier.name.clone(),
+                    content_type: classifier.content_type.clone(),
+                    description: classifier.description.clone(),
+                    patterns: classifier.patterns.clone(),
+                    validator: classifier.validator.clone(),
+                    enabled: classifier.enabled,
+                    priority: classifier.priority,
                 },
             )
             .map_err(rusqlite::Error::InvalidParameterName)?;
-            let patterns_json = serde_json::to_string(&detector.patterns)
+            let patterns_json = serde_json::to_string(&classifier.patterns)
                 .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?;
             tx.execute(
-                "INSERT INTO content_detectors
+                "INSERT INTO content_classifiers
                     (stable_ref, name, content_type, description, patterns_json, validator,
                      enabled, priority, is_builtin, is_deleted)
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
@@ -7537,16 +7593,16 @@ impl DbState {
                     priority = excluded.priority, is_builtin = excluded.is_builtin,
                     is_deleted = excluded.is_deleted, updated_at = CURRENT_TIMESTAMP",
                 params![
-                    detector.stable_ref,
-                    detector.name,
-                    detector.content_type,
-                    detector.description,
+                    classifier.stable_ref,
+                    classifier.name,
+                    classifier.content_type,
+                    classifier.description,
                     patterns_json,
-                    detector.validator,
-                    detector.enabled,
-                    detector.priority,
-                    detector.is_builtin,
-                    detector.is_deleted
+                    classifier.validator,
+                    classifier.enabled,
+                    classifier.priority,
+                    classifier.is_builtin,
+                    classifier.is_deleted
                 ],
             )?;
         }
@@ -9088,8 +9144,8 @@ impl DbState {
                 "capture"
                     | "inspector"
                     | "extractor"
-                    | "detector"
-                    | "enricher"
+                    | "classifier"
+                    | "suggestion"
                     | "operation"
                     | "transform"
             ) {
@@ -9148,7 +9204,7 @@ impl DbState {
     ) -> Result<()> {
         let conn = self.conn.lock();
         let (changed, activity_event, activity_description, analysis_name) = match kind {
-            "capture" | "inspector" | "enricher" => {
+            "capture" | "inspector" | "suggestion" => {
                 return Err(rusqlite::Error::InvalidParameterName(
                     "Built-in lifecycle capabilities cannot be disabled".to_string(),
                 ));
@@ -9177,10 +9233,10 @@ impl DbState {
                         .expect("Extractor toggles have Activity metadata");
                 (changed, event_type, description, Some(name))
             }
-            "detector" => {
+            "classifier" => {
                 let (name, previous): (String, bool) = conn
                     .query_row(
-                        "SELECT name, enabled FROM content_detectors
+                        "SELECT name, enabled FROM content_classifiers
                          WHERE stable_ref = ?1 AND is_deleted = 0",
                         params![stable_ref],
                         |row| Ok((row.get(0)?, row.get(1)?)),
@@ -9191,14 +9247,14 @@ impl DbState {
                     return Ok(());
                 }
                 let changed = conn.execute(
-                    "UPDATE content_detectors
+                    "UPDATE content_classifiers
                      SET enabled = ?1, updated_at = CURRENT_TIMESTAMP
                      WHERE stable_ref = ?2 AND is_deleted = 0",
                     params![enabled, stable_ref],
                 )?;
                 let (event_type, description) =
-                    analysis_toggle_activity("detector", &name, enabled)
-                        .expect("Detector toggles have Activity metadata");
+                    analysis_toggle_activity("classifier", &name, enabled)
+                        .expect("Classifier toggles have Activity metadata");
                 (changed, event_type, description, Some(name))
             }
             "operation" => {
@@ -9238,7 +9294,7 @@ impl DbState {
         if changed == 0 {
             return Err(rusqlite::Error::QueryReturnedNoRows);
         }
-        if matches!(kind, "extractor" | "detector") {
+        if matches!(kind, "extractor" | "classifier") {
             self.log_analysis_participant_toggle(
                 kind,
                 stable_ref,
@@ -9849,7 +9905,7 @@ impl DbState {
         )?;
         if archived {
             transaction.execute(
-                "UPDATE content_detectors SET enabled = 0, updated_at = CURRENT_TIMESTAMP
+                "UPDATE content_classifiers SET enabled = 0, updated_at = CURRENT_TIMESTAMP
                  WHERE content_type = ?1 AND is_deleted = 0",
                 params![id],
             )?;
@@ -10202,35 +10258,39 @@ impl DbState {
             }))
     }
 
-    pub fn get_content_detectors(&self) -> Result<Vec<crate::content_detection::Detector>> {
+    pub fn get_content_classifiers(
+        &self,
+    ) -> Result<Vec<crate::content_classification::Classifier>> {
         let conn = self.conn.lock();
         let mut statement = conn.prepare(
             "SELECT id, stable_ref, name, content_type, description, patterns_json,
                     validator, enabled, priority, is_builtin, is_deleted
-             FROM content_detectors WHERE is_deleted = 0 ORDER BY priority, id",
+             FROM content_classifiers WHERE is_deleted = 0 ORDER BY priority, id",
         )?;
-        let rows = statement.query_map([], content_detector_from_row)?;
+        let rows = statement.query_map([], content_classifier_from_row)?;
         rows.collect()
     }
 
-    pub fn get_content_detector(
+    pub fn get_content_classifier(
         &self,
         reference: &str,
-    ) -> Result<crate::content_detection::Detector> {
+    ) -> Result<crate::content_classification::Classifier> {
         let numeric_id = reference.parse::<i64>().ok();
-        self.get_content_detectors()?
+        self.get_content_classifiers()?
             .into_iter()
-            .find(|detector| numeric_id == Some(detector.id) || detector.stable_ref == reference)
+            .find(|classifier| {
+                numeric_id == Some(classifier.id) || classifier.stable_ref == reference
+            })
             .ok_or(rusqlite::Error::QueryReturnedNoRows)
     }
 
-    pub fn duplicate_content_detector(
+    pub fn duplicate_content_classifier(
         &self,
         reference: &str,
         name: Option<&str>,
-    ) -> Result<crate::content_detection::Detector> {
-        let source = self.get_content_detector(reference)?;
-        self.create_content_detector(&crate::content_detection::DetectorInput {
+    ) -> Result<crate::content_classification::Classifier> {
+        let source = self.get_content_classifier(reference)?;
+        self.create_content_classifier(&crate::content_classification::ClassifierInput {
             name: name
                 .map(str::to_string)
                 .unwrap_or_else(|| format!("{} Copy", source.name)),
@@ -10243,25 +10303,25 @@ impl DbState {
         })
     }
 
-    pub fn apply_content_detector(
+    pub fn apply_content_classifier(
         &self,
         clip_id: i64,
         reference: &str,
-    ) -> Result<crate::detection_execution::DetectionApplicationResult> {
+    ) -> Result<crate::classification_execution::ClassificationApplicationResult> {
         let mut conn = self.conn.lock();
         let transaction = conn.transaction()?;
         let no_analyzable_text = || {
             rusqlite::Error::InvalidParameterName("The selected clip has no analyzable text".into())
         };
         let numeric_id = reference.parse::<i64>().ok();
-        let detector = transaction.query_row(
+        let classifier = transaction.query_row(
             "SELECT id, stable_ref, name, content_type, description, patterns_json,
                     validator, enabled, priority, is_builtin, is_deleted
-             FROM content_detectors
+             FROM content_classifiers
              WHERE is_deleted = 0 AND (stable_ref = ?1 OR id = ?2)
              LIMIT 1",
             params![reference, numeric_id],
-            content_detector_from_row,
+            content_classifier_from_row,
         )?;
         let clip = transaction
             .query_row(
@@ -10279,41 +10339,47 @@ impl DbState {
         }
         if matches!(current_type.as_str(), "image" | "file") {
             return Err(rusqlite::Error::InvalidParameterName(
-                "Applying a Detector cannot replace a structural image or file type".into(),
+                "Applying a Classifier cannot replace a structural image or file type".into(),
             ));
         }
-        let analysis = crate::detection_execution::analyze_detector(&text, &detector);
+        let analysis = crate::classification_execution::analyze_classifier(&text, &classifier);
         if !analysis.matched {
             transaction.commit()?;
-            return Ok(crate::detection_execution::DetectionApplicationResult::preview(analysis));
+            return Ok(
+                crate::classification_execution::ClassificationApplicationResult::preview(analysis),
+            );
         }
-        let detected_type = analysis.classification();
-        let changed = current_type != detected_type;
+        let classified_type = analysis.classification();
+        let changed = current_type != classified_type;
         if changed {
             transaction.execute(
                 "UPDATE clips SET content_type = ?1 WHERE id = ?2",
-                params![detected_type, clip_id],
+                params![classified_type, clip_id],
             )?;
         }
         transaction.commit()?;
         drop(conn);
         if changed {
             let _ = self.log_activity(
-                "content_detector_applied",
-                &format!("Applied a Detector to clip #{clip_id}"),
+                "content_classifier_applied",
+                &format!("Applied a Classifier to clip #{clip_id}"),
             );
         }
-        Ok(crate::detection_execution::DetectionApplicationResult::applied(analysis, clip_id))
+        Ok(
+            crate::classification_execution::ClassificationApplicationResult::applied(
+                analysis, clip_id,
+            ),
+        )
     }
 
-    fn get_all_content_detectors_for_backup(
+    fn get_all_content_classifiers_for_backup(
         &self,
-    ) -> Result<Vec<crate::content_detection::Detector>> {
+    ) -> Result<Vec<crate::content_classification::Classifier>> {
         let conn = self.conn.lock();
         let mut statement = conn.prepare(
             "SELECT id, stable_ref, name, content_type, description, patterns_json,
                     validator, enabled, priority, is_builtin, is_deleted
-             FROM content_detectors ORDER BY priority, id",
+             FROM content_classifiers ORDER BY priority, id",
         )?;
         let rows = statement.query_map([], |row| {
             let patterns_json: String = row.get(5)?;
@@ -10326,10 +10392,10 @@ impl DbState {
             })?;
             let stable_ref: String = row.get(1)?;
             let is_builtin: bool = row.get(9)?;
-            Ok(crate::content_detection::Detector {
+            Ok(crate::content_classification::Classifier {
                 id: row.get(0)?,
                 defaults: is_builtin
-                    .then(|| crate::content_detection::detector_defaults(&stable_ref))
+                    .then(|| crate::content_classification::classifier_defaults(&stable_ref))
                     .flatten(),
                 stable_ref,
                 name: row.get(2)?,
@@ -10346,11 +10412,11 @@ impl DbState {
         rows.collect()
     }
 
-    pub fn create_content_detector(
+    pub fn create_content_classifier(
         &self,
-        input: &crate::content_detection::DetectorInput,
-    ) -> Result<crate::content_detection::Detector> {
-        crate::content_detection::validate_detector_input(input).map_err(|error| {
+        input: &crate::content_classification::ClassifierInput,
+    ) -> Result<crate::content_classification::Classifier> {
+        crate::content_classification::validate_classifier_input(input).map_err(|error| {
             rusqlite::Error::ToSqlConversionFailure(Box::new(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
                 error,
@@ -10362,52 +10428,52 @@ impl DbState {
             .any(|content_type| content_type.id == input.content_type)
         {
             return Err(rusqlite::Error::InvalidParameterName(
-                "Detectors must use an active registered content type".into(),
+                "Classifiers must use an active registered content type".into(),
             ));
         }
         let patterns_json = serde_json::to_string(&input.patterns)
             .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?;
         let conn = self.conn.lock();
-        let detector_count: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM content_detectors WHERE is_deleted = 0",
+        let classifier_count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM content_classifiers WHERE is_deleted = 0",
             [],
             |row| row.get(0),
         )?;
-        if detector_count >= 128 {
+        if classifier_count >= 128 {
             return Err(rusqlite::Error::InvalidParameterName(
-                "Content detectors are limited to 128 entries".to_string(),
+                "Content classifiers are limited to 128 entries".to_string(),
             ));
         }
         conn.execute(
-            "INSERT INTO content_detectors
+            "INSERT INTO content_classifiers
                 (stable_ref, name, content_type, description, patterns_json, validator, enabled, priority, is_builtin)
              VALUES ('pending', ?1, ?2, ?3, ?4, ?5, ?6, ?7, 0)",
             params![input.name.trim(), input.content_type.trim(), input.description.trim(), patterns_json, input.validator, input.enabled, input.priority],
         )?;
         let id = conn.last_insert_rowid();
         conn.execute(
-            "UPDATE content_detectors SET stable_ref = ?1 WHERE id = ?2",
+            "UPDATE content_classifiers SET stable_ref = ?1 WHERE id = ?2",
             params![format!("custom-{id}"), id],
         )?;
         drop(conn);
-        let detector = self
-            .get_content_detectors()?
+        let classifier = self
+            .get_content_classifiers()?
             .into_iter()
             .find(|item| item.id == id)
             .ok_or(rusqlite::Error::QueryReturnedNoRows)?;
         let _ = self.log_activity(
-            "content_detector_created",
-            &format!("Created detector \"{}\"", detector.name),
+            "content_classifier_created",
+            &format!("Created classifier \"{}\"", classifier.name),
         );
-        Ok(detector)
+        Ok(classifier)
     }
 
-    pub fn update_content_detector(
+    pub fn update_content_classifier(
         &self,
         id: i64,
-        input: &crate::content_detection::DetectorInput,
-    ) -> Result<crate::content_detection::Detector> {
-        crate::content_detection::validate_detector_input(input).map_err(|error| {
+        input: &crate::content_classification::ClassifierInput,
+    ) -> Result<crate::content_classification::Classifier> {
+        crate::content_classification::validate_classifier_input(input).map_err(|error| {
             rusqlite::Error::ToSqlConversionFailure(Box::new(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
                 error,
@@ -10419,7 +10485,7 @@ impl DbState {
             .any(|content_type| content_type.id == input.content_type)
         {
             return Err(rusqlite::Error::InvalidParameterName(
-                "Detectors must use an active registered content type".into(),
+                "Classifiers must use an active registered content type".into(),
             ));
         }
         let patterns_json = serde_json::to_string(&input.patterns)
@@ -10427,14 +10493,14 @@ impl DbState {
         let conn = self.conn.lock();
         let previous_enabled = conn
             .query_row(
-                "SELECT enabled FROM content_detectors WHERE id = ?1 AND is_deleted = 0",
+                "SELECT enabled FROM content_classifiers WHERE id = ?1 AND is_deleted = 0",
                 params![id],
                 |row| row.get::<_, bool>(0),
             )
             .optional()?
             .ok_or(rusqlite::Error::QueryReturnedNoRows)?;
         let changed = conn.execute(
-            "UPDATE content_detectors SET name = ?1, content_type = ?2, description = ?3,
+            "UPDATE content_classifiers SET name = ?1, content_type = ?2, description = ?3,
                     patterns_json = ?4, validator = ?5, enabled = ?6, priority = ?7,
                     updated_at = CURRENT_TIMESTAMP
              WHERE id = ?8 AND is_deleted = 0",
@@ -10453,26 +10519,26 @@ impl DbState {
         if changed == 0 {
             return Err(rusqlite::Error::QueryReturnedNoRows);
         }
-        let detector = self
-            .get_content_detectors()?
+        let classifier = self
+            .get_content_classifiers()?
             .into_iter()
             .find(|item| item.id == id)
             .ok_or(rusqlite::Error::QueryReturnedNoRows)?;
         self.log_analysis_participant_update(
-            "detector",
-            &detector.stable_ref,
-            &detector.name,
+            "classifier",
+            &classifier.stable_ref,
+            &classifier.name,
             previous_enabled,
-            detector.enabled,
+            classifier.enabled,
         );
-        Ok(detector)
+        Ok(classifier)
     }
 
-    pub fn delete_content_detector(&self, id: i64) -> Result<()> {
+    pub fn delete_content_classifier(&self, id: i64) -> Result<()> {
         let conn = self.conn.lock();
         let name = conn
             .query_row(
-                "SELECT name FROM content_detectors WHERE id = ?1 AND is_deleted = 0",
+                "SELECT name FROM content_classifiers WHERE id = ?1 AND is_deleted = 0",
                 params![id],
                 |row| row.get::<_, String>(0),
             )
@@ -10481,25 +10547,25 @@ impl DbState {
             return Err(rusqlite::Error::QueryReturnedNoRows);
         }
         conn.execute(
-            "UPDATE content_detectors SET is_deleted = 1, enabled = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?1",
+            "UPDATE content_classifiers SET is_deleted = 1, enabled = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?1",
             params![id],
         )?;
         drop(conn);
         let name = name.expect("checked above");
         let _ = self.log_activity(
-            "content_detector_deleted",
-            &format!("Deleted detector \"{name}\""),
+            "content_classifier_deleted",
+            &format!("Deleted classifier \"{name}\""),
         );
         Ok(())
     }
 
-    pub fn restore_default_content_detectors(&self) -> Result<()> {
+    pub fn restore_default_content_classifiers(&self) -> Result<()> {
         let conn = self.conn.lock();
-        for preset in crate::content_detection::DETECTOR_PRESETS {
+        for preset in crate::content_classification::CLASSIFIER_PRESETS {
             let patterns_json = serde_json::to_string(&preset.patterns)
                 .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?;
             conn.execute(
-                "UPDATE content_detectors SET name = ?1, content_type = ?2, description = ?3,
+                "UPDATE content_classifiers SET name = ?1, content_type = ?2, description = ?3,
                         patterns_json = ?4, validator = ?5, enabled = 1, priority = ?6,
                         is_deleted = 0, updated_at = CURRENT_TIMESTAMP WHERE stable_ref = ?7",
                 params![
@@ -10515,19 +10581,19 @@ impl DbState {
         }
         drop(conn);
         let _ = self.log_activity(
-            "content_detectors_restored",
-            "Restored shipped detector defaults",
+            "content_classifiers_restored",
+            "Restored shipped classifier defaults",
         );
         Ok(())
     }
 
-    /// Reclassify existing text-backed clips with the current enabled detector order.
+    /// Reclassify existing text-backed clips with the current enabled classifier order.
     /// Image and file records are intentionally excluded because their types describe
     /// their storage representation rather than detected text semantics.
-    pub fn rescan_content_detection(&self) -> Result<ContentDetectionRescanReport> {
+    pub fn rescan_content_classification(&self) -> Result<ContentClassificationRescanReport> {
         const BATCH_SIZE: i64 = 128;
 
-        let detectors = self.get_content_detectors()?;
+        let classifiers = self.get_content_classifiers()?;
         let mut conn = self.conn.lock();
         let transaction = conn.transaction()?;
         let mut last_id = 0i64;
@@ -10566,9 +10632,9 @@ impl DbState {
                     failed_count += 1;
                     continue;
                 }
-                let analysis = crate::detection_execution::analyze_detectors_with_policy(
+                let analysis = crate::classification_execution::analyze_classifiers_with_policy(
                     &text,
-                    &detectors,
+                    &classifiers,
                     crate::analysis_contract::AnalysisPolicy::Rescan,
                     None,
                 );
@@ -10576,11 +10642,11 @@ impl DbState {
                     failed_count += 1;
                     continue;
                 }
-                let detected_type = analysis.classification();
-                if detected_type != current_type {
+                let classified_type = analysis.classification();
+                if classified_type != current_type {
                     transaction.execute(
                         "UPDATE clips SET content_type = ?1 WHERE id = ?2",
-                        params![detected_type, id],
+                        params![classified_type, id],
                     )?;
                     changed_count += 1;
                 }
@@ -10589,7 +10655,7 @@ impl DbState {
         transaction.commit()?;
         drop(conn);
 
-        let report = ContentDetectionRescanReport {
+        let report = ContentClassificationRescanReport {
             scanned_count,
             changed_count,
             unchanged_count: scanned_count
@@ -10598,7 +10664,7 @@ impl DbState {
             failed_count,
         };
         let _ = self.log_activity(
-            "content_detection_history_rescanned",
+            "content_classification_history_rescanned",
             &format!(
                 "Rescanned {} text clips; reclassified {}; failed {}",
                 report.scanned_count, report.changed_count, report.failed_count
@@ -10647,7 +10713,7 @@ mod tests {
             .expect("PASTED_MIGRATION_TEST_DB must point to a disposable database copy");
         let db = DbState::new(PathBuf::from(path)).unwrap();
         let items = db.get_library_items(None, true).unwrap();
-        assert!(items.iter().any(|item| item.item.kind == "detector"));
+        assert!(items.iter().any(|item| item.item.kind == "classifier"));
         assert!(items.iter().any(|item| item.item.kind == "extractor"));
         assert!(items.iter().any(|item| item.item.kind == "operation"));
         assert!(items.iter().any(|item| item.item.kind == "capture"));
@@ -10845,7 +10911,7 @@ mod tests {
     }
 
     #[test]
-    fn extractor_and_detector_toggles_record_explicit_activity_across_shared_paths() {
+    fn extractor_and_classifier_toggles_record_explicit_activity_across_shared_paths() {
         let db = setup_test_db();
         let extractor = db
             .get_content_extractor(crate::content_extraction::APPLE_VISION_OCR_REF)
@@ -10867,28 +10933,28 @@ mod tests {
         db.set_library_item_enabled("extractor", &extractor.stable_ref, true)
             .unwrap();
 
-        let detector = db
-            .get_content_detectors()
+        let classifier = db
+            .get_content_classifiers()
             .unwrap()
             .into_iter()
-            .find(|detector| detector.stable_ref == "email")
+            .find(|classifier| classifier.stable_ref == "email")
             .unwrap();
-        db.update_content_detector(
-            detector.id,
-            &crate::content_detection::DetectorInput {
-                name: detector.name.clone(),
-                content_type: detector.content_type.clone(),
-                description: detector.description.clone(),
-                patterns: detector.patterns.clone(),
-                validator: detector.validator.clone(),
+        db.update_content_classifier(
+            classifier.id,
+            &crate::content_classification::ClassifierInput {
+                name: classifier.name.clone(),
+                content_type: classifier.content_type.clone(),
+                description: classifier.description.clone(),
+                patterns: classifier.patterns.clone(),
+                validator: classifier.validator.clone(),
                 enabled: false,
-                priority: detector.priority,
+                priority: classifier.priority,
             },
         )
         .unwrap();
-        db.set_library_item_enabled("detector", &detector.stable_ref, true)
+        db.set_library_item_enabled("classifier", &classifier.stable_ref, true)
             .unwrap();
-        db.set_library_item_enabled("detector", &detector.stable_ref, true)
+        db.set_library_item_enabled("classifier", &classifier.stable_ref, true)
             .unwrap();
 
         let analysis_logs = db
@@ -10897,7 +10963,7 @@ mod tests {
             .into_iter()
             .filter(|log| {
                 log.event_type.starts_with("content_extractor_")
-                    || log.event_type.starts_with("content_detector_")
+                    || log.event_type.starts_with("content_classifier_")
             })
             .collect::<Vec<_>>();
         assert!(analysis_logs.iter().all(|log| {
@@ -10913,12 +10979,12 @@ mod tests {
             events,
             vec![
                 (
-                    "content_detector_enabled".to_string(),
-                    "Enabled Detector \"Email Addresses\"".to_string(),
+                    "content_classifier_enabled".to_string(),
+                    "Enabled Classifier \"Email Addresses\"".to_string(),
                 ),
                 (
-                    "content_detector_disabled".to_string(),
-                    "Disabled Detector \"Email Addresses\"".to_string(),
+                    "content_classifier_disabled".to_string(),
+                    "Disabled Classifier \"Email Addresses\"".to_string(),
                 ),
                 (
                     "content_extractor_enabled".to_string(),
@@ -10989,17 +11055,17 @@ mod tests {
     }
 
     #[test]
-    fn content_detectors_are_editable_deletable_restorable_and_backed_up() {
+    fn content_classifiers_are_editable_deletable_restorable_and_backed_up() {
         let source = setup_test_db();
-        let shipped = source.get_content_detectors().unwrap();
+        let shipped = source.get_content_classifiers().unwrap();
         assert_eq!(
             shipped.len(),
-            crate::content_detection::DETECTOR_PRESETS.len()
+            crate::content_classification::CLASSIFIER_PRESETS.len()
         );
 
         let email = shipped
             .iter()
-            .find(|detector| detector.stable_ref == "email")
+            .find(|classifier| classifier.stable_ref == "email")
             .unwrap();
         assert_eq!(
             email
@@ -11010,9 +11076,9 @@ mod tests {
         );
         let custom_pattern = r"(?i)^[a-z0-9._%+-]+@example\.test$".to_string();
         source
-            .update_content_detector(
+            .update_content_classifier(
                 email.id,
-                &crate::content_detection::DetectorInput {
+                &crate::content_classification::ClassifierInput {
                     name: "Example Mail".into(),
                     content_type: "email".into(),
                     description: "Project-specific addresses".into(),
@@ -11032,7 +11098,7 @@ mod tests {
             })
             .unwrap();
         let custom = source
-            .create_content_detector(&crate::content_detection::DetectorInput {
+            .create_content_classifier(&crate::content_classification::ClassifierInput {
                 name: "Ticket IDs".into(),
                 content_type: "ticket_id".into(),
                 description: "Internal issue identifiers".into(),
@@ -11043,47 +11109,61 @@ mod tests {
             })
             .unwrap();
         assert!(custom.defaults.is_none());
-        source.delete_content_detector(custom.id).unwrap();
+        source.delete_content_classifier(custom.id).unwrap();
 
         let backup = source.export_backup_json().unwrap();
+        assert!(backup.contains("\"content_classifiers\""));
+        assert!(!backup.contains("\"content_detectors\""));
+        let mut legacy_backup: serde_json::Value = serde_json::from_str(&backup).unwrap();
+        let classifiers = legacy_backup
+            .as_object_mut()
+            .unwrap()
+            .remove("content_classifiers")
+            .unwrap();
+        legacy_backup
+            .as_object_mut()
+            .unwrap()
+            .insert("content_detectors".into(), classifiers);
         let destination = setup_test_db();
-        destination.import_backup_json(&backup).unwrap();
-        let restored = destination.get_content_detectors().unwrap();
+        destination
+            .import_backup_json(&serde_json::to_string(&legacy_backup).unwrap())
+            .unwrap();
+        let restored = destination.get_content_classifiers().unwrap();
         let restored_email = restored
             .iter()
-            .find(|detector| detector.stable_ref == "email")
+            .find(|classifier| classifier.stable_ref == "email")
             .unwrap();
         assert_eq!(restored_email.name, "Example Mail");
         assert_eq!(restored_email.patterns, vec![custom_pattern]);
         assert!(!restored
             .iter()
-            .any(|detector| detector.stable_ref == custom.stable_ref));
+            .any(|classifier| classifier.stable_ref == custom.stable_ref));
 
-        destination.restore_default_content_detectors().unwrap();
-        let defaults = destination.get_content_detectors().unwrap();
+        destination.restore_default_content_classifiers().unwrap();
+        let defaults = destination.get_content_classifiers().unwrap();
         assert_eq!(
             defaults
                 .iter()
-                .find(|detector| detector.stable_ref == "email")
+                .find(|classifier| classifier.stable_ref == "email")
                 .unwrap()
                 .name,
             "Email Addresses"
         );
         assert!(!defaults
             .iter()
-            .any(|detector| detector.stable_ref == custom.stable_ref));
+            .any(|classifier| classifier.stable_ref == custom.stable_ref));
     }
 
     #[test]
-    fn a_single_detector_can_be_resolved_duplicated_and_applied() {
+    fn a_single_classifier_can_be_resolved_duplicated_and_applied() {
         let db = setup_test_db();
-        let email = db.get_content_detector("email").unwrap();
+        let email = db.get_content_classifier("email").unwrap();
         assert_eq!(
-            db.get_content_detector(&email.id.to_string()).unwrap().id,
+            db.get_content_classifier(&email.id.to_string()).unwrap().id,
             email.id
         );
         let duplicate = db
-            .duplicate_content_detector("email", Some("Email Copy"))
+            .duplicate_content_classifier("email", Some("Email Copy"))
             .unwrap();
         assert_eq!(duplicate.name, "Email Copy");
         assert!(!duplicate.is_builtin);
@@ -11094,11 +11174,11 @@ mod tests {
                 Some("person@example.com"),
                 None,
                 None,
-                "detector-apply-match",
+                "classifier-apply-match",
                 "Test",
             )
             .unwrap();
-        let applied = db.apply_content_detector(matching.id, "email").unwrap();
+        let applied = db.apply_content_classifier(matching.id, "email").unwrap();
         assert!(applied.analysis.matched);
         assert_eq!(applied.application.applied_clip_id, Some(matching.id));
         assert_eq!(
@@ -11112,11 +11192,13 @@ mod tests {
                 Some("plain prose"),
                 None,
                 None,
-                "detector-apply-no-match",
+                "classifier-apply-no-match",
                 "Test",
             )
             .unwrap();
-        let not_applied = db.apply_content_detector(nonmatching.id, "email").unwrap();
+        let not_applied = db
+            .apply_content_classifier(nonmatching.id, "email")
+            .unwrap();
         assert!(!not_applied.analysis.matched);
         assert_eq!(not_applied.application.applied_clip_id, None);
         assert_eq!(
@@ -11125,10 +11207,17 @@ mod tests {
         );
 
         let empty = db
-            .save_clip("text", Some(""), None, None, "detector-apply-empty", "Test")
+            .save_clip(
+                "text",
+                Some(""),
+                None,
+                None,
+                "classifier-apply-empty",
+                "Test",
+            )
             .unwrap();
         assert!(db
-            .apply_content_detector(empty.id, "email")
+            .apply_content_classifier(empty.id, "email")
             .unwrap_err()
             .to_string()
             .contains("no analyzable text"));
@@ -11138,18 +11227,18 @@ mod tests {
                 Some(" \n\t"),
                 None,
                 None,
-                "detector-apply-whitespace",
+                "classifier-apply-whitespace",
                 "Test",
             )
             .unwrap();
         assert!(db
-            .apply_content_detector(whitespace.id, "email")
+            .apply_content_classifier(whitespace.id, "email")
             .unwrap_err()
             .to_string()
             .contains("no analyzable text"));
 
-        db.delete_content_detector(duplicate.id).unwrap();
-        assert!(db.get_content_detector(&duplicate.stable_ref).is_err());
+        db.delete_content_classifier(duplicate.id).unwrap();
+        assert!(db.get_content_classifier(&duplicate.stable_ref).is_err());
     }
 
     #[test]
@@ -11201,10 +11290,10 @@ mod tests {
     }
 
     #[test]
-    fn text_capture_still_inspects_when_content_detection_is_disabled() {
+    fn text_capture_still_inspects_when_content_classification_is_disabled() {
         let db = setup_test_db();
         db.save_settings(&std::collections::HashMap::from([(
-            crate::features::Feature::ContentDetection
+            crate::features::Feature::ContentClassification
                 .setting_key()
                 .to_string(),
             "false".to_string(),
@@ -11262,8 +11351,8 @@ mod tests {
             })
             .unwrap();
         assert!(custom_type.defaults.is_none());
-        let detector = db
-            .create_content_detector(&crate::content_detection::DetectorInput {
+        let classifier = db
+            .create_content_classifier(&crate::content_classification::ClassifierInput {
                 name: "Tickets".into(),
                 content_type: "ticket_id".into(),
                 description: String::new(),
@@ -11280,10 +11369,10 @@ mod tests {
             .iter()
             .all(|item| item.id != "ticket_id"));
         assert!(
-            !db.get_content_detectors()
+            !db.get_content_classifiers()
                 .unwrap()
                 .into_iter()
-                .find(|item| item.id == detector.id)
+                .find(|item| item.id == classifier.id)
                 .unwrap()
                 .enabled
         );
@@ -11368,7 +11457,7 @@ mod tests {
     }
 
     #[test]
-    fn content_detection_rescan_reclassifies_text_but_preserves_structural_types() {
+    fn content_classification_rescan_reclassifies_text_but_preserves_structural_types() {
         let db = setup_test_db();
         let card = db
             .save_clip(
@@ -11397,7 +11486,7 @@ mod tests {
             .save_clip("code", Some(" \n\t"), None, None, "whitespace-hash", "Test")
             .unwrap();
 
-        let report = db.rescan_content_detection().unwrap();
+        let report = db.rescan_content_classification().unwrap();
         assert_eq!(report.scanned_count, 3);
         assert_eq!(report.changed_count, 1);
         assert_eq!(report.unchanged_count, 0);
@@ -11497,12 +11586,12 @@ mod tests {
     }
 
     #[test]
-    fn legacy_detection_preferences_migrate_once_into_detector_records() {
+    fn legacy_classification_preferences_migrate_once_into_classifier_records() {
         let nanos = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        let path = std::env::temp_dir().join(format!("pasted_detector_migration_{nanos}.db"));
+        let path = std::env::temp_dir().join(format!("pasted_classifier_migration_{nanos}.db"));
         let connection = Connection::open(&path).unwrap();
         connection
             .execute_batch(
@@ -11513,29 +11602,29 @@ mod tests {
         drop(connection);
 
         let db = DbState::new(path).unwrap();
-        let detectors = db.get_content_detectors().unwrap();
+        let classifiers = db.get_content_classifiers().unwrap();
         assert!(
-            !detectors
+            !classifiers
                 .iter()
-                .find(|detector| detector.stable_ref == "color")
+                .find(|classifier| classifier.stable_ref == "color")
                 .unwrap()
                 .enabled
         );
         assert!(
-            detectors
+            classifiers
                 .iter()
-                .find(|detector| detector.stable_ref == "url")
+                .find(|classifier| classifier.stable_ref == "url")
                 .unwrap()
                 .enabled
         );
 
-        let color = detectors
+        let color = classifiers
             .iter()
-            .find(|detector| detector.stable_ref == "color")
+            .find(|classifier| classifier.stable_ref == "color")
             .unwrap();
-        db.update_content_detector(
+        db.update_content_classifier(
             color.id,
-            &crate::content_detection::DetectorInput {
+            &crate::content_classification::ClassifierInput {
                 name: color.name.clone(),
                 content_type: color.content_type.clone(),
                 description: color.description.clone(),
@@ -11549,13 +11638,100 @@ mod tests {
         let reopened = DbState::new(db.database_path()).unwrap();
         assert!(
             reopened
-                .get_content_detectors()
+                .get_content_classifiers()
                 .unwrap()
                 .iter()
-                .find(|detector| detector.stable_ref == "color")
+                .find(|classifier| classifier.stable_ref == "color")
                 .unwrap()
                 .enabled
         );
+    }
+
+    #[test]
+    fn legacy_analysis_terminology_migrates_without_losing_classifier_configuration() {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!("pasted_analysis_terms_{nanos}.db"));
+        let connection = Connection::open(&path).unwrap();
+        connection
+            .execute_batch(
+                "CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+                 INSERT INTO settings (key, value) VALUES ('enableContentDetection', 'false');
+                 CREATE TABLE schema_migrations (key TEXT PRIMARY KEY, applied_at DATETIME DEFAULT CURRENT_TIMESTAMP);
+                 INSERT INTO schema_migrations (key) VALUES ('contentDetectorRegistryV1');
+                 CREATE TABLE content_detectors (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    stable_ref TEXT NOT NULL UNIQUE,
+                    name TEXT NOT NULL,
+                    content_type TEXT NOT NULL,
+                    description TEXT NOT NULL DEFAULT '',
+                    patterns_json TEXT NOT NULL,
+                    validator TEXT,
+                    enabled INTEGER NOT NULL DEFAULT 1,
+                    priority INTEGER NOT NULL DEFAULT 100,
+                    is_builtin INTEGER NOT NULL DEFAULT 0,
+                    is_deleted INTEGER NOT NULL DEFAULT 0,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                 );
+                 INSERT INTO content_detectors
+                    (stable_ref, name, content_type, patterns_json, enabled, priority)
+                 VALUES ('custom:legacy-classifier', 'Legacy Classifier', 'prose', '[\"legacy\"]', 0, 42);
+                 CREATE TABLE content_classifiers (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    stable_ref TEXT NOT NULL UNIQUE,
+                    name TEXT NOT NULL,
+                    content_type TEXT NOT NULL,
+                    description TEXT NOT NULL DEFAULT '',
+                    patterns_json TEXT NOT NULL,
+                    validator TEXT,
+                    enabled INTEGER NOT NULL DEFAULT 1,
+                    priority INTEGER NOT NULL DEFAULT 100,
+                    is_builtin INTEGER NOT NULL DEFAULT 0,
+                    is_deleted INTEGER NOT NULL DEFAULT 0,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                 );
+                 INSERT INTO content_classifiers
+                    (stable_ref, name, content_type, patterns_json, enabled, priority)
+                 VALUES ('custom:current-classifier', 'Current Classifier', 'prose', '[\"current\"]', 1, 41);",
+            )
+            .unwrap();
+        drop(connection);
+
+        let db = DbState::new(path).unwrap();
+        let classifiers = db.get_content_classifiers().unwrap();
+        let migrated = classifiers
+            .iter()
+            .find(|classifier| classifier.stable_ref == "custom:legacy-classifier")
+            .unwrap();
+        assert_eq!(migrated.name, "Legacy Classifier");
+        assert!(!migrated.enabled);
+        assert_eq!(migrated.priority, 42);
+        assert!(classifiers
+            .iter()
+            .any(|classifier| classifier.stable_ref == "custom:current-classifier"));
+        assert_eq!(
+            db.get_setting("enableContentClassification")
+                .unwrap()
+                .as_deref(),
+            Some("false")
+        );
+        assert_eq!(db.get_setting("enableContentDetection").unwrap(), None);
+
+        let conn = db.conn.lock();
+        assert!(table_exists(&conn, "content_classifiers").unwrap());
+        assert!(!table_exists(&conn, "content_detectors").unwrap());
+        let migrated_key: bool = conn
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM schema_migrations WHERE key = 'contentClassifierRegistryV1')",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert!(migrated_key);
     }
 
     #[test]
@@ -14776,7 +14952,7 @@ mod tests {
         assert_eq!(inspection.schema_version, BACKUP_SCHEMA_VERSION);
         assert_eq!(inspection.clip_count, 2_000);
         assert!(inspection.content_type_count > 0);
-        assert!(inspection.detector_count > 0);
+        assert!(inspection.classifier_count > 0);
 
         let mut corrupted: serde_json::Value = serde_json::from_str(&json).unwrap();
         let clips = corrupted["clips"].as_array_mut().unwrap();

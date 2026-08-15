@@ -22,7 +22,7 @@ import type { ClipContentType } from '../types';
 import { useNewItemSelection } from '../hooks/useNewItemSelection';
 import { BuiltinLifecycleManagerDialog } from './BuiltinLifecycleManagerDialog';
 
-interface ContentDetector {
+interface ContentClassifier {
   id: number;
   stable_ref: string;
   name: string;
@@ -33,10 +33,10 @@ interface ContentDetector {
   enabled: boolean;
   priority: number;
   is_builtin: boolean;
-  defaults: DetectorInput | null;
+  defaults: ClassifierInput | null;
 }
 
-interface DetectorInput {
+interface ClassifierInput {
   name: string;
   content_type: string;
   description: string;
@@ -46,33 +46,33 @@ interface DetectorInput {
   priority: number;
 }
 
-interface DetectionRescanReport {
+interface ClassificationRescanReport {
   scannedCount: number;
   changedCount: number;
   unchangedCount: number;
   failedCount: number;
 }
 
-interface DetectionResult {
+interface ClassificationResult {
   formatVersion: number;
   policy: 'capture' | 'background' | 'interactive' | 'rescan';
-  through: 'inspect' | 'extract' | 'classify' | 'enrich';
+  through: 'inspect' | 'extract' | 'classify' | 'suggest';
   outcome: 'matched' | 'no_match' | 'failed';
   matched: boolean;
   failure: { code: string; message: string } | null;
 }
 
-function toInput(detector?: ContentDetector): DetectorInput {
-  return detector ? {
-    name: detector.name,
-    content_type: detector.content_type,
-    description: detector.description,
-    patterns: detector.patterns,
-    validator: detector.validator,
-    enabled: detector.enabled,
-    priority: detector.priority,
+function toInput(classifier?: ContentClassifier): ClassifierInput {
+  return classifier ? {
+    name: classifier.name,
+    content_type: classifier.content_type,
+    description: classifier.description,
+    patterns: classifier.patterns,
+    validator: classifier.validator,
+    enabled: classifier.enabled,
+    priority: classifier.priority,
   } : {
-    name: 'Custom Detector',
+    name: 'Custom Classifier',
     content_type: 'text',
     description: '',
     patterns: ['^.+$'],
@@ -115,15 +115,15 @@ function AnalysisManagerRow({
   );
 }
 
-export function SettingsDetectionPanel({
-  contentDetectionEnabled,
+export function SettingsAnalysisPanel({
+  contentClassificationEnabled,
   ocrEnabled,
   transcriptionsEnabled,
   transformationsEnabled,
   typesEnabled,
   sourcesEnabled,
 }: {
-  contentDetectionEnabled: boolean;
+  contentClassificationEnabled: boolean;
   ocrEnabled: boolean;
   transcriptionsEnabled: boolean;
   transformationsEnabled: boolean;
@@ -132,9 +132,9 @@ export function SettingsDetectionPanel({
 }) {
   const { showToast } = useToast();
   const { definitions: contentTypes, groups: contentTypeGroups, refresh: refreshContentTypes, refreshGroups } = useContentTypes();
-  const [detectors, setDetectors] = useState<ContentDetector[]>([]);
+  const [classifiers, setClassifiers] = useState<ContentClassifier[]>([]);
   const [selectedId, setSelectedId] = useState<number | 'new' | null>(null);
-  const [draft, setDraft] = useState<DetectorInput>(toInput());
+  const [draft, setDraft] = useState<ClassifierInput>(toInput());
   const [patternsText, setPatternsText] = useState('^.+$');
   const [sample, setSample] = useState('');
   const [sampleMatched, setSampleMatched] = useState<boolean | null>(null);
@@ -147,23 +147,23 @@ export function SettingsDetectionPanel({
   const [isInspectorManagerOpen, setIsInspectorManagerOpen] = useState(false);
   const [isExtractorManagerOpen, setIsExtractorManagerOpen] = useState(false);
   const [isManagerOpen, setIsManagerOpen] = useState(false);
-  const [isEnricherManagerOpen, setIsEnricherManagerOpen] = useState(false);
+  const [isSuggestionManagerOpen, setIsSuggestionManagerOpen] = useState(false);
   const [confirmation, setConfirmation] = useState<ConfirmationDialogRequest | null>(null);
 
   const selected = useMemo(
-    () => typeof selectedId === 'number' ? detectors.find((detector) => detector.id === selectedId) : undefined,
-    [detectors, selectedId],
+    () => typeof selectedId === 'number' ? classifiers.find((classifier) => classifier.id === selectedId) : undefined,
+    [classifiers, selectedId],
   );
-  const { beginNew: beginNewDetector, cancelNew: cancelNewDetector } = useNewItemSelection({
+  const { beginNew: beginNewClassifier, cancelNew: cancelNewClassifier } = useNewItemSelection({
     selectedId,
     setSelectedId,
-    itemIds: detectors.map(({ id }) => id),
+    itemIds: classifiers.map(({ id }) => id),
     emptySelection: null,
   });
 
   const load = async () => {
-    const loaded = await invoke<ContentDetector[]>('get_content_detectors');
-    setDetectors(loaded);
+    const loaded = await invoke<ContentClassifier[]>('get_content_classifiers');
+    setClassifiers(loaded);
     return loaded;
   };
 
@@ -172,8 +172,8 @@ export function SettingsDetectionPanel({
   }, []);
   useEffect(() => {
     if (!isManagerOpen) return;
-    setSelectedId((current) => current ?? detectors[0]?.id ?? 'new');
-  }, [detectors, isManagerOpen]);
+    setSelectedId((current) => current ?? classifiers[0]?.id ?? 'new');
+  }, [classifiers, isManagerOpen]);
   useLayoutEffect(() => {
     const next = selectedId === 'new' ? toInput() : toInput(selected);
     setDraft(next);
@@ -181,7 +181,7 @@ export function SettingsDetectionPanel({
     setSampleMatched(null);
   }, [selected, selectedId]);
 
-  const currentInput = (): DetectorInput => ({
+  const currentInput = (): ClassifierInput => ({
     ...draft,
     name: draft.name.trim(),
     content_type: draft.content_type.trim(),
@@ -224,24 +224,24 @@ export function SettingsDetectionPanel({
     }
     requestConfirmation({
       title: 'Discard changes?',
-      description: 'Unsaved changes to this Detector will be lost.',
+      description: 'Unsaved changes to this Classifier will be lost.',
       confirmLabel: 'Discard Changes',
       tone: 'danger',
       onConfirm: action,
     });
   };
 
-  const selectDetector = (id: number) => {
+  const selectClassifier = (id: number) => {
     discardDraftThen(() => setSelectedId(id));
   };
 
   const beginNew = () => {
-    discardDraftThen(beginNewDetector);
+    discardDraftThen(beginNewClassifier);
   };
 
   const cancelDraft = () => {
     if (selectedId === 'new') {
-      cancelNewDetector();
+      cancelNewClassifier();
       return;
     }
     if (!selected) return;
@@ -258,7 +258,7 @@ export function SettingsDetectionPanel({
     setSampleMatched(null);
   };
 
-  const openDetectorManager = () => {
+  const openClassifierManager = () => {
     setIsManagerOpen(true);
   };
 
@@ -267,8 +267,8 @@ export function SettingsDetectionPanel({
     try {
       const input = currentInput();
       const saved = selectedId === 'new'
-        ? await invoke<ContentDetector>('create_content_detector', { input })
-        : await invoke<ContentDetector>('update_content_detector', { id: selectedId, input });
+        ? await invoke<ContentClassifier>('create_content_classifier', { input })
+        : await invoke<ContentClassifier>('update_content_classifier', { id: selectedId, input });
       await load();
       setSelectedId(saved.id);
       showToast({ tone: 'success', message: `${saved.name} saved.` });
@@ -282,10 +282,10 @@ export function SettingsDetectionPanel({
   const removeConfirmed = async () => {
     if (typeof selectedId !== 'number' || !selected) return;
     try {
-      await invoke('delete_content_detector', { id: selectedId });
+      await invoke('delete_content_classifier', { id: selectedId });
       const remaining = await load();
       setSelectedId((current) => current === selectedId ? remaining[0]?.id ?? 'new' : current);
-      showToast({ tone: 'success', message: `${selected.name} deleted. Reset can recover shipped Detectors.` });
+      showToast({ tone: 'success', message: `${selected.name} deleted. Reset can recover shipped Classifiers.` });
     } catch (error) {
       showToast({ tone: 'error', message: String(error) });
     }
@@ -294,12 +294,12 @@ export function SettingsDetectionPanel({
   const remove = () => {
     if (!selected) return;
     requestConfirmation({
-      title: 'Delete Detector?',
+      title: 'Delete Classifier?',
       description: selected.name,
       details: selected.is_builtin
-        ? 'This removes the Detector from the library. Reset can recover it.'
-        : 'This permanently removes the custom Detector from the library.',
-      confirmLabel: 'Delete Detector',
+        ? 'This removes the Classifier from the library. Reset can recover it.'
+        : 'This permanently removes the custom Classifier from the library.',
+      confirmLabel: 'Delete Classifier',
       tone: 'danger',
       onConfirm: removeConfirmed,
     });
@@ -308,7 +308,7 @@ export function SettingsDetectionPanel({
   const duplicate = async () => {
     if (!selected || isEditorDirty) return;
     try {
-      const created = await invoke<ContentDetector>('duplicate_content_detector', {
+      const created = await invoke<ContentClassifier>('duplicate_content_classifier', {
         reference: selected.stable_ref,
         name: `${selected.name} Copy`,
       });
@@ -324,13 +324,13 @@ export function SettingsDetectionPanel({
     setRestoring(true);
     try {
       const [restored] = await Promise.all([
-        invoke<ContentDetector[]>('restore_default_content_detectors'),
+        invoke<ContentClassifier[]>('restore_default_content_classifiers'),
         invoke('restore_default_content_extractors'),
         invoke('restore_default_content_types'),
         invoke('restore_default_content_type_groups'),
       ]);
       await Promise.all([refreshContentTypes(), refreshGroups()]);
-      setDetectors(restored);
+      setClassifiers(restored);
       setSelectedId(restored[0]?.id ?? 'new');
       showToast({ tone: 'success', message: 'Shipped Analysis defaults restored. Custom definitions were preserved.' });
     } catch (error) {
@@ -343,50 +343,50 @@ export function SettingsDetectionPanel({
   const restoreAnalysis = () => {
     requestConfirmation({
       title: 'Reset shipped Analysis definitions?',
-      description: 'Shipped Extractors, Detectors, Content Types, and Content Type Groups return to their defaults.',
+      description: 'Shipped Extractors, Classifiers, Content Types, and Content Type Groups return to their defaults.',
       details: 'Custom definitions remain unchanged.',
       confirmLabel: 'Reset',
       onConfirm: restoreAnalysisConfirmed,
     });
   };
 
-  const restoreDetectorDefaultsConfirmed = async () => {
+  const restoreClassifierDefaultsConfirmed = async () => {
     try {
       const [restored] = await Promise.all([
-        invoke<ContentDetector[]>('restore_default_content_detectors'),
+        invoke<ContentClassifier[]>('restore_default_content_classifiers'),
         invoke('restore_default_content_types'),
         invoke('restore_default_content_type_groups'),
       ]);
       await Promise.all([refreshContentTypes(), refreshGroups()]);
-      setDetectors(restored);
+      setClassifiers(restored);
       setSelectedId(restored[0]?.id ?? 'new');
-      showToast({ tone: 'success', message: 'Built-in Content Types and Detectors reset. Custom definitions were preserved.' });
+      showToast({ tone: 'success', message: 'Built-in Content Types and Classifiers reset. Custom definitions were preserved.' });
     } catch (error) {
       showToast({ tone: 'error', message: String(error) });
     }
   };
 
-  const restoreDetectorDefaults = () => {
+  const restoreClassifierDefaults = () => {
     discardDraftThen(() => requestConfirmation({
-      title: 'Reset shipped Detector definitions?',
-      description: 'Shipped Content Types, Content Type Groups, and Detectors return to their defaults.',
+      title: 'Reset shipped Classifier definitions?',
+      description: 'Shipped Content Types, Content Type Groups, and Classifiers return to their defaults.',
       details: 'Custom definitions remain unchanged.',
       confirmLabel: 'Reset',
-      onConfirm: restoreDetectorDefaultsConfirmed,
+      onConfirm: restoreClassifierDefaultsConfirmed,
     }));
   };
 
-  const toggleDetectorConfirmed = async (detector: ContentDetector) => {
-    setTogglingId(detector.id);
+  const toggleClassifierConfirmed = async (classifier: ContentClassifier) => {
+    setTogglingId(classifier.id);
     try {
-      const enabled = !detector.enabled;
+      const enabled = !classifier.enabled;
       await invoke('set_library_item_enabled', {
-        kind: 'detector',
-        stableRef: detector.stable_ref,
+        kind: 'classifier',
+        stableRef: classifier.stable_ref,
         enabled,
       });
-      setDetectors((current) => current.map((item) => (
-        item.id === detector.id ? { ...item, enabled } : item
+      setClassifiers((current) => current.map((item) => (
+        item.id === classifier.id ? { ...item, enabled } : item
       )));
     } catch (error) {
       showToast({ tone: 'error', message: String(error) });
@@ -395,18 +395,18 @@ export function SettingsDetectionPanel({
     }
   };
 
-  const toggleDetector = (detector: ContentDetector) => {
-    if (selectedId === detector.id) {
-      discardDraftThen(() => toggleDetectorConfirmed(detector));
+  const toggleClassifier = (classifier: ContentClassifier) => {
+    if (selectedId === classifier.id) {
+      discardDraftThen(() => toggleClassifierConfirmed(classifier));
       return;
     }
-    void toggleDetectorConfirmed(detector);
+    void toggleClassifierConfirmed(classifier);
   };
 
   const rescanHistoryConfirmed = async () => {
     setRescanning(true);
     try {
-      const report = await invoke<DetectionRescanReport>('rescan_content_detection_history', { confirmed: true });
+      const report = await invoke<ClassificationRescanReport>('rescan_content_classification_history', { confirmed: true });
       showToast({
         tone: report.failedCount > 0 ? 'info' : 'success',
         message: report.failedCount > 0
@@ -423,7 +423,7 @@ export function SettingsDetectionPanel({
   const rescanHistory = () => {
     requestConfirmation({
       title: 'Rescan existing text clips?',
-      description: 'Current enabled Detectors will reclassify the text clip history.',
+      description: 'Current enabled Classifiers will reclassify the text clip history.',
       details: 'Content Types, Smart Bin membership, and sensitive-content masking can change. Images and files remain unchanged.',
       confirmLabel: 'Rescan Clips',
       onConfirm: rescanHistoryConfirmed,
@@ -432,8 +432,8 @@ export function SettingsDetectionPanel({
 
   const test = async () => {
     try {
-      const result = await invoke<DetectionResult>('test_content_detector', { input: currentInput(), sample });
-      if (result.outcome === 'failed') throw new Error(result.failure?.message ?? 'Detection failed.');
+      const result = await invoke<ClassificationResult>('test_content_classifier', { input: currentInput(), sample });
+      if (result.outcome === 'failed') throw new Error(result.failure?.message ?? 'Classification failed.');
       setSampleMatched(result.matched);
     } catch (error) {
       setSampleMatched(false);
@@ -447,7 +447,7 @@ export function SettingsDetectionPanel({
         icon={ScanSearch}
         title="Analysis"
         description="Automatically scan clips and index their contents."
-        actions={contentDetectionEnabled ? (
+        actions={contentClassificationEnabled ? (
           <ActionButton onClick={rescanHistory} disabled={rescanning}>
             <ScanSearch className="h-3.5 w-3.5" /> {rescanning ? 'Rescanning…' : 'Rescan Clips…'}
           </ActionButton>
@@ -476,19 +476,19 @@ export function SettingsDetectionPanel({
             description="Create searchable representations."
             onManage={() => setIsExtractorManagerOpen(true)}
           />}
-          {(contentDetectionEnabled || typesEnabled) && <AnalysisManagerRow
+          {(contentClassificationEnabled || typesEnabled) && <AnalysisManagerRow
             step={4}
             icon={Radar}
-            title="Detect"
-            description="Classify text as registered Content Types."
-            onManage={openDetectorManager}
+            title="Classify"
+            description="Assign registered Content Types to analyzable text."
+            onManage={openClassifierManager}
           />}
           {transformationsEnabled && <AnalysisManagerRow
             step={5}
             icon={Lightbulb}
-            title="Enrich"
-            description="Recommend actions from analysis signals."
-            onManage={() => setIsEnricherManagerOpen(true)}
+            title="Suggest"
+            description="Suggest actions from analysis signals."
+            onManage={() => setIsSuggestionManagerOpen(true)}
           />}
         </div>
         <div className="theme-divider flex items-center justify-between gap-3 border-t px-3 py-2">
@@ -504,24 +504,24 @@ export function SettingsDetectionPanel({
         <AppDialog
           isOpen={isManagerOpen}
           onClose={() => setIsManagerOpen(false)}
-          labelledBy="detector-manager-title"
+          labelledBy="classifier-manager-title"
           isDirty={isEditorDirty}
-          discardMessage="Discard changes to this detector?"
+          discardMessage="Discard changes to this classifier?"
           panelClassName="theme-panel @container flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden border shadow-2xl"
         >
           {({ requestClose }) => <>
             <AppDialogHeader onClose={requestClose} className="shrink-0">
               <AppDialogHeading
-                id="detector-manager-title"
-                title="Detectors"
-                description="Manage clip-types for copied text. The lowest priority number runs first."
+                id="classifier-manager-title"
+                title="Classifiers"
+                description="Manage how copied text is classified. The lowest priority number runs first."
                 icon={<Radar />}
               />
             </AppDialogHeader>
             <AppDialogBody className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-y-auto text-xs @xl:grid-cols-[minmax(0,3fr)_minmax(0,7fr)]">
               <section className="theme-surface flex min-h-[260px] flex-col overflow-hidden rounded-xl border @xl:min-h-0">
                 <RegistryPanelHeader
-                  title="Detectors"
+                  title="Classifiers"
                   actions={
                     <AppDialogButton onClick={beginNew} className="h-7 min-h-7 px-2.5">
                       <Plus className="h-3 w-3" /> New
@@ -529,21 +529,21 @@ export function SettingsDetectionPanel({
                   }
                 />
                 <div className="min-h-0 flex-1 overflow-y-auto p-1.5">
-                  {detectors.map((detector) => (
+                  {classifiers.map((classifier) => (
                     <RegistryListItem
-                      key={detector.id}
-                      selected={selectedId === detector.id}
-                      onSelect={() => selectDetector(detector.id)}
-                      icon={<ContentTypeIcon type={detector.content_type as ClipContentType} className="h-4 w-4" />}
-                      title={detector.name}
-                      subtitle={detector.description}
+                      key={classifier.id}
+                      selected={selectedId === classifier.id}
+                      onSelect={() => selectClassifier(classifier.id)}
+                      icon={<ContentTypeIcon type={classifier.content_type as ClipContentType} className="h-4 w-4" />}
+                      title={classifier.name}
+                      subtitle={classifier.description}
                       trailing={
                         <SettingsSwitch
-                          checked={detector.enabled}
-                          label={detector.name}
-                          busy={togglingId === detector.id}
+                          checked={classifier.enabled}
+                          label={classifier.name}
+                          busy={togglingId === classifier.id}
                           onClick={() => {
-                            toggleDetector(detector);
+                            toggleClassifier(classifier);
                           }}
                         />
                       }
@@ -557,7 +557,7 @@ export function SettingsDetectionPanel({
               </section>
               <section className="theme-surface flex min-w-0 flex-col overflow-hidden rounded-xl border">
                 <RegistryPanelHeader
-                  title="Detector Settings"
+                  title="Classifier Settings"
                   actions={
                     <AppDialogButton onClick={() => setIsTypeManagerOpen(true)} className="h-7 min-h-7 shrink-0 px-2.5">
                       <Shapes className="h-3.5 w-3.5" /> Manage Content Types…
@@ -575,7 +575,7 @@ export function SettingsDetectionPanel({
                     <MenuSelect
                       value={draft.content_type}
                       onChange={(content_type) => setDraft({ ...draft, content_type })}
-                      label="Detector content type"
+                      label="Classifier content type"
                       leadingIcon={<ContentTypeIcon type={draft.content_type as ClipContentType} className="h-4 w-4" />}
                       options={contentTypes.map((type) => ({
                         value: type.id,
@@ -635,7 +635,7 @@ export function SettingsDetectionPanel({
                 </div>
                 {sampleMatched !== null && (
                   <div className={sampleMatched ? 'theme-status-success-text' : 'theme-status-danger-text'}>
-                    {sampleMatched ? 'Matches this detector' : 'Does not match this detector'}
+                    {sampleMatched ? 'Matches this classifier' : 'Does not match this classifier'}
                   </div>
                 )}
                 </div>
@@ -651,7 +651,7 @@ export function SettingsDetectionPanel({
               </section>
             </AppDialogBody>
             <AppDialogFooter align="between" className="shrink-0">
-              <AppDialogButton onClick={restoreDetectorDefaults} disabled={saving}>
+              <AppDialogButton onClick={restoreClassifierDefaults} disabled={saving}>
                 <RotateCcw className="h-3.5 w-3.5" /> Reset…
               </AppDialogButton>
               <AppDialogButton onClick={requestClose}>Close</AppDialogButton>
@@ -684,11 +684,11 @@ export function SettingsDetectionPanel({
         transcriptionsEnabled={transcriptionsEnabled}
       />
       <BuiltinLifecycleManagerDialog
-        isOpen={isEnricherManagerOpen}
-        onClose={() => setIsEnricherManagerOpen(false)}
-        kind="enricher"
-        title="Enrichers"
-        description="Review enrichment behavior and outputs."
+        isOpen={isSuggestionManagerOpen}
+        onClose={() => setIsSuggestionManagerOpen(false)}
+        kind="suggestion"
+        title="Suggestions"
+        description="Review Smart Action suggestions."
         icon={Lightbulb}
       />
       <ConfirmationDialog request={confirmation} onCancel={() => setConfirmation(null)} />

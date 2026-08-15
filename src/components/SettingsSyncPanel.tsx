@@ -52,7 +52,7 @@ interface LibraryArchiveInspection {
   binCount: number;
   operationCount: number;
   transformCount: number;
-  detectorCount: number;
+  classifierCount: number;
   contentTypeCount: number;
 }
 
@@ -117,7 +117,7 @@ const EXPORT_DATA: ReadonlyArray<{
   nested?: boolean;
 }> = [
   { id: 'clips', label: 'Clips', description: 'History, rich content, notes, protection, pins, and capture details.', formats: ['json', 'csv', 'backup'] },
-  { id: 'organization', label: 'Organization', description: 'Adds Trash, Bins, Transforms, Operations, Content Types, Detectors, and OCR.', formats: ['json', 'backup'], nested: true },
+  { id: 'organization', label: 'Organization', description: 'Adds Trash, Bins, Transforms, Operations, Content Types, Classifiers, and OCR.', formats: ['json', 'backup'], nested: true },
   { id: 'activity', label: 'Activity', description: 'Portable audit records without clipboard contents or action replay.', formats: ['json', 'csv', 'backup'] },
   { id: 'settings', label: 'Settings and Application Data', description: 'Settings, hotkeys, blacklist rules, Queue state, and connection configuration.', formats: ['backup'] },
   { id: 'recovery', label: 'Revisions and Automation History', description: 'Clip revisions, automations, and execution history.', formats: ['backup'] },

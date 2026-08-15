@@ -1,4 +1,4 @@
-use crate::content_detection::{detect_match_with_detectors, Detector};
+use crate::content_classification::{classify_with_classifiers, Classifier};
 use crate::content_extraction::{ExtractionOutcome, Extractor, ExtractorEngineRegistry};
 
 pub use crate::analysis_contract::{
@@ -6,7 +6,7 @@ pub use crate::analysis_contract::{
     ParticipantOutcome, ParticipantRun, RepresentationKind, ANALYSIS_CONTRACT_VERSION,
     MAX_ANALYSIS_PASSES,
 };
-pub const DETECTOR_PARTICIPANT_REF: &str = "analysis:content-detectors";
+pub const CLASSIFIER_PARTICIPANT_REF: &str = "analysis:content-classifiers";
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct AnalysisContext {
@@ -16,11 +16,11 @@ pub(crate) struct AnalysisContext {
     pub file_references: Option<Vec<String>>,
     pub image_bytes: Option<Vec<u8>>,
     pub searchable_text: Option<String>,
-    pub detected_type: Option<String>,
-    pub matched_detector_ref: Option<String>,
+    pub classified_type: Option<String>,
+    pub matched_classifier_ref: Option<String>,
     pub structural_metadata: Option<crate::content_inspection::StructuralMetadata>,
     pub media_metadata: Option<crate::content_inspection::MediaMetadata>,
-    pub recommendations: Option<crate::content_enrichment::SmartActionRecommendations>,
+    pub suggestions: Option<crate::content_suggestions::SmartActionSuggestions>,
 }
 
 impl AnalysisContext {
@@ -32,11 +32,11 @@ impl AnalysisContext {
             file_references: None,
             image_bytes: None,
             searchable_text: None,
-            detected_type: None,
-            matched_detector_ref: None,
+            classified_type: None,
+            matched_classifier_ref: None,
             structural_metadata: None,
             media_metadata: None,
-            recommendations: None,
+            suggestions: None,
         }
     }
 
@@ -48,11 +48,11 @@ impl AnalysisContext {
             file_references: None,
             image_bytes: Some(image_bytes),
             searchable_text: None,
-            detected_type: None,
-            matched_detector_ref: None,
+            classified_type: None,
+            matched_classifier_ref: None,
             structural_metadata: None,
             media_metadata: None,
-            recommendations: None,
+            suggestions: None,
         }
     }
 
@@ -75,10 +75,10 @@ impl AnalysisContext {
             RepresentationKind::ImageBytes => self.image_bytes.is_some(),
             RepresentationKind::SearchableText => self.searchable_text.is_some(),
             RepresentationKind::AnalyzableText => self.analysis_text().is_some(),
-            RepresentationKind::Classification => self.detected_type.is_some(),
+            RepresentationKind::Classification => self.classified_type.is_some(),
             RepresentationKind::StructuralMetadata => self.structural_metadata.is_some(),
             RepresentationKind::MediaMetadata => self.media_metadata.is_some(),
-            RepresentationKind::Recommendations => self.recommendations.is_some(),
+            RepresentationKind::Suggestions => self.suggestions.is_some(),
         }
     }
 
@@ -126,11 +126,11 @@ impl AnalysisInput {
                 file_references: Some(paths),
                 image_bytes: None,
                 searchable_text: None,
-                detected_type: None,
-                matched_detector_ref: None,
+                classified_type: None,
+                matched_classifier_ref: None,
                 structural_metadata: None,
                 media_metadata: None,
-                recommendations: None,
+                suggestions: None,
             },
         }
     }
@@ -141,7 +141,7 @@ pub(crate) struct ExtractorParticipantSource<'a> {
     pub registry: &'a ExtractorEngineRegistry<'a>,
 }
 
-pub(crate) struct EnricherParticipantSource<'a> {
+pub(crate) struct SuggestionParticipantSource<'a> {
     pub transforms: &'a [crate::db::TransformDefinition],
 }
 
@@ -150,8 +150,8 @@ pub(crate) struct AnalysisRequest<'a> {
     pub policy: AnalysisPolicy,
     pub inspector: bool,
     pub extractor: Option<ExtractorParticipantSource<'a>>,
-    pub detectors: Option<&'a [Detector]>,
-    pub enricher: Option<EnricherParticipantSource<'a>>,
+    pub classifiers: Option<&'a [Classifier]>,
+    pub suggestion: Option<SuggestionParticipantSource<'a>>,
 }
 
 fn inspector_participant(input: AnalysisInput) -> AnalysisParticipant<'static> {
@@ -348,11 +348,11 @@ fn schedule(
     AnalysisReport { context, runs }
 }
 
-fn detector_participant<'a>(detectors: &'a [Detector]) -> AnalysisParticipant<'a> {
+fn classifier_participant<'a>(classifiers: &'a [Classifier]) -> AnalysisParticipant<'a> {
     AnalysisParticipant::new(
         ParticipantContract {
-            stable_ref: DETECTOR_PARTICIPANT_REF.into(),
-            name: "Content Detectors".into(),
+            stable_ref: CLASSIFIER_PARTICIPANT_REF.into(),
+            name: "Content Classifiers".into(),
             pass: AnalysisPass::Classify,
             priority: 0,
             requires: vec![RepresentationKind::AnalyzableText],
@@ -362,12 +362,12 @@ fn detector_participant<'a>(detectors: &'a [Detector]) -> AnalysisParticipant<'a
             let Some(text) = context.analysis_text() else {
                 return Ok(ParticipantOutcome::NoOutput);
             };
-            let detection = detect_match_with_detectors(text, detectors);
-            context.detected_type = Some(detection.as_ref().map_or_else(
+            let classification = classify_with_classifiers(text, classifiers);
+            context.classified_type = Some(classification.as_ref().map_or_else(
                 || "text".to_string(),
                 |matched| matched.content_type.clone(),
             ));
-            context.matched_detector_ref = detection.map(|matched| matched.detector_ref);
+            context.matched_classifier_ref = classification.map(|matched| matched.classifier_ref);
             Ok(ParticipantOutcome::Produced)
         },
     )
@@ -435,11 +435,11 @@ fn extractor_participant<'a>(
     )
 }
 
-fn enricher_participant<'a>(
+fn suggestion_participant<'a>(
     transforms: &'a [crate::db::TransformDefinition],
 ) -> AnalysisParticipant<'a> {
     AnalysisParticipant::new(
-        crate::content_enrichment::smart_actions_enricher_definition().participant_contract(),
+        crate::content_suggestions::smart_actions_suggestion_definition().participant_contract(),
         move |context| {
             let Some(text) = context.analysis_text() else {
                 return Ok(ParticipantOutcome::NoOutput);
@@ -447,13 +447,13 @@ fn enricher_participant<'a>(
             let Some(structure) = context.structural_metadata.as_ref() else {
                 return Ok(ParticipantOutcome::NoOutput);
             };
-            let recommendations = crate::content_enrichment::recommend_smart_actions(
+            let suggestions = crate::content_suggestions::suggest_smart_actions(
                 text,
-                context.detected_type.as_deref(),
+                context.classified_type.as_deref(),
                 structure,
                 transforms,
             );
-            context.recommendations = Some(recommendations);
+            context.suggestions = Some(suggestions);
             Ok(ParticipantOutcome::Produced)
         },
     )
@@ -477,11 +477,11 @@ pub(crate) fn analyze(request: AnalysisRequest<'_>) -> AnalysisReport {
     if let Some(source) = request.extractor {
         participants.push(extractor_participant(source.extractor, source.registry));
     }
-    if let Some(detectors) = request.detectors {
-        participants.push(detector_participant(detectors));
+    if let Some(classifiers) = request.classifiers {
+        participants.push(classifier_participant(classifiers));
     }
-    if let Some(source) = request.enricher {
-        participants.push(enricher_participant(source.transforms));
+    if let Some(source) = request.suggestion {
+        participants.push(suggestion_participant(source.transforms));
     }
     schedule(
         request.input.into_context(),
@@ -539,8 +539,8 @@ mod tests {
         }
     }
 
-    fn detector(pattern: &str, content_type: &str) -> Detector {
-        Detector {
+    fn classifier(pattern: &str, content_type: &str) -> Classifier {
+        Classifier {
             id: 1,
             stable_ref: format!("test:{content_type}"),
             name: content_type.into(),
@@ -578,7 +578,7 @@ mod tests {
     fn analyze_test_image(
         image_bytes: Vec<u8>,
         extractor: &Extractor,
-        detectors: Option<&[Detector]>,
+        classifiers: Option<&[Classifier]>,
         registry: &ExtractorEngineRegistry<'_>,
     ) -> AnalysisReport {
         analyze(AnalysisRequest {
@@ -593,12 +593,12 @@ mod tests {
                 extractor,
                 registry,
             }),
-            detectors,
-            enricher: None,
+            classifiers,
+            suggestion: None,
         })
     }
 
-    fn analyze_test_text(text: &str, detectors: &[Detector]) -> AnalysisReport {
+    fn analyze_test_text(text: &str, classifiers: &[Classifier]) -> AnalysisReport {
         analyze(AnalysisRequest {
             input: AnalysisInput::Text {
                 text: text.into(),
@@ -607,8 +607,8 @@ mod tests {
             policy: AnalysisPolicy::Capture,
             inspector: false,
             extractor: None,
-            detectors: Some(detectors),
-            enricher: None,
+            classifiers: Some(classifiers),
+            suggestion: None,
         })
     }
 
@@ -622,8 +622,8 @@ mod tests {
             policy,
             inspector: true,
             extractor: None,
-            detectors: None,
-            enricher: None,
+            classifiers: None,
+            suggestion: None,
         };
         let capture = analyze(request(AnalysisPolicy::Capture));
         assert_eq!(capture.runs.len(), 1);
@@ -641,18 +641,18 @@ mod tests {
     }
 
     #[test]
-    fn extraction_makes_text_available_to_later_detection() {
-        let detectors = vec![detector(r"^[^@]+@[^@]+\.[^@]+$", "email")];
+    fn extraction_makes_text_available_to_later_classification() {
+        let classifiers = vec![classifier(r"^[^@]+@[^@]+\.[^@]+$", "email")];
         let engine = TestEngine;
         let engines: [&dyn crate::content_extraction::ExtractorEngine; 1] = [&engine];
         let registry = ExtractorEngineRegistry::new(&engines);
-        let report = analyze_test_image(vec![1, 2, 3], &extractor(), Some(&detectors), &registry);
+        let report = analyze_test_image(vec![1, 2, 3], &extractor(), Some(&classifiers), &registry);
 
         assert_eq!(
             report.context.searchable_text.as_deref(),
             Some("agent@example.com")
         );
-        assert_eq!(report.context.detected_type.as_deref(), Some("email"));
+        assert_eq!(report.context.classified_type.as_deref(), Some("email"));
         assert_eq!(report.runs.len(), 2);
         assert_eq!(report.runs[0].pass, AnalysisPass::Extract);
         assert_eq!(report.runs[1].pass, AnalysisPass::Classify);
@@ -666,14 +666,14 @@ mod tests {
                 ParticipantContract {
                     stable_ref: "needs-image".into(),
                     name: "Needs Image".into(),
-                    pass: AnalysisPass::Enrich,
+                    pass: AnalysisPass::Suggest,
                     priority: 1,
                     requires: vec![RepresentationKind::ImageBytes],
                     provides: vec![RepresentationKind::SearchableText],
                 },
                 |_| panic!("a participant with missing inputs must not execute"),
             )],
-            AnalysisPass::Enrich,
+            AnalysisPass::Suggest,
         )
         .runs;
 
@@ -687,14 +687,14 @@ mod tests {
             AnalysisContext::for_text("hello"),
             vec![AnalysisParticipant::new(
                 ParticipantContract {
-                    stable_ref: "enricher:test".into(),
-                    name: "Test Enricher".into(),
-                    pass: AnalysisPass::Enrich,
+                    stable_ref: "suggestion:test".into(),
+                    name: "Test Suggestion".into(),
+                    pass: AnalysisPass::Suggest,
                     priority: 1,
                     requires: vec![RepresentationKind::AnalyzableText],
                     provides: vec![],
                 },
-                |_| panic!("capture policy must not execute Enrich participants"),
+                |_| panic!("capture policy must not execute Suggest participants"),
             )],
             AnalysisPolicy::Capture.through(),
         );
@@ -712,8 +712,8 @@ mod tests {
             policy: AnalysisPolicy::Capture,
             inspector: false,
             extractor: None,
-            detectors: None,
-            enricher: None,
+            classifiers: None,
+            suggestion: None,
         });
 
         assert!(report.context.has(RepresentationKind::CaptureSource));
@@ -727,12 +727,12 @@ mod tests {
             context: AnalysisContext::for_text("text"),
             runs: vec![ParticipantRun {
                 stable_ref: "participant:test".into(),
-                pass: AnalysisPass::Enrich,
+                pass: AnalysisPass::Suggest,
                 outcome: ParticipantOutcome::Failed,
                 failure: None,
             }],
         }
-        .resolve_participant("participant:test", AnalysisTargetKind::Enricher);
+        .resolve_participant("participant:test", AnalysisTargetKind::Suggestion);
         assert_eq!(failed.outcome, ParticipantOutcome::Failed);
         assert_eq!(failed.failure.unwrap().code, "analysis_failed");
 
@@ -740,19 +740,19 @@ mod tests {
             context: AnalysisContext::for_text("text"),
             runs: vec![ParticipantRun {
                 stable_ref: "participant:test".into(),
-                pass: AnalysisPass::Enrich,
+                pass: AnalysisPass::Suggest,
                 outcome: ParticipantOutcome::MissingInput,
                 failure: None,
             }],
         }
-        .resolve_participant("participant:test", AnalysisTargetKind::Enricher);
+        .resolve_participant("participant:test", AnalysisTargetKind::Suggestion);
         assert_eq!(missing_input.failure.unwrap().code, "missing_input");
 
         let missing_participant = AnalysisReport {
             context: AnalysisContext::for_text("text"),
             runs: Vec::new(),
         }
-        .resolve_participant("participant:test", AnalysisTargetKind::Enricher);
+        .resolve_participant("participant:test", AnalysisTargetKind::Suggestion);
         assert_eq!(
             missing_participant.failure.unwrap().code,
             "missing_participant"
@@ -774,7 +774,7 @@ mod tests {
                         provides: vec![RepresentationKind::Classification],
                     },
                     |context| {
-                        context.detected_type = Some("derived".into());
+                        context.classified_type = Some("derived".into());
                         Ok(ParticipantOutcome::Produced)
                     },
                 ),
@@ -804,10 +804,10 @@ mod tests {
                     |_| Ok(ParticipantOutcome::Produced),
                 ),
             ],
-            AnalysisPass::Enrich,
+            AnalysisPass::Suggest,
         );
 
-        assert_eq!(report.context.detected_type.as_deref(), Some("derived"));
+        assert_eq!(report.context.classified_type.as_deref(), Some("derived"));
         assert_eq!(report.runs.len(), 3);
         assert_eq!(report.runs[0].stable_ref, "producer");
         assert_eq!(report.runs[1].stable_ref, "consumer");
@@ -851,7 +851,7 @@ mod tests {
                 },
                 |_| Ok(ParticipantOutcome::Produced),
             )],
-            AnalysisPass::Enrich,
+            AnalysisPass::Suggest,
         )
         .runs;
 
@@ -867,9 +867,9 @@ mod tests {
 
     #[test]
     fn text_classification_uses_the_same_scheduler_contract() {
-        let detectors = vec![detector(r"^#[0-9a-fA-F]{6}$", "color")];
-        let report = analyze_test_text("#112233", &detectors);
-        assert_eq!(report.context.detected_type.as_deref(), Some("color"));
-        assert_eq!(report.runs[0].stable_ref, "analysis:content-detectors");
+        let classifiers = vec![classifier(r"^#[0-9a-fA-F]{6}$", "color")];
+        let report = analyze_test_text("#112233", &classifiers);
+        assert_eq!(report.context.classified_type.as_deref(), Some("color"));
+        assert_eq!(report.runs[0].stable_ref, "analysis:content-classifiers");
     }
 }

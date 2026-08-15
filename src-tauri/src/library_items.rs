@@ -63,8 +63,8 @@ impl LibraryItem {
         match self.kind.as_str() {
             "inspector" => Some("inspect".into()),
             "extractor" => Some("extract".into()),
-            "detector" => Some("classify".into()),
-            "enricher" => Some("enrich".into()),
+            "classifier" => Some("classify".into()),
+            "suggestion" => Some("suggest".into()),
             _ => None,
         }
     }
@@ -78,7 +78,7 @@ impl LibraryItem {
                 can_disable: true,
                 can_restore: self.is_builtin,
             },
-            "detector" => LibraryItemCapabilities {
+            "classifier" => LibraryItemCapabilities {
                 can_edit: true,
                 can_duplicate: true,
                 can_delete: true,
@@ -113,12 +113,12 @@ impl LibraryItem {
         let pass = match self.kind.as_str() {
             "inspector" => AnalysisPass::Inspect,
             "extractor" => AnalysisPass::Extract,
-            "detector" => AnalysisPass::Classify,
-            "enricher" => AnalysisPass::Enrich,
+            "classifier" => AnalysisPass::Classify,
+            "suggestion" => AnalysisPass::Suggest,
             _ => return None,
         };
         let requires = representation_list(&self.input_contract);
-        let mut provides = if self.kind == "detector" {
+        let mut provides = if self.kind == "classifier" {
             vec![RepresentationKind::Classification]
         } else {
             representation_list(&self.output_contract)
@@ -156,7 +156,7 @@ impl LibraryItem {
                 });
             }
         }
-        if self.kind == "detector" {
+        if self.kind == "classifier" {
             if let Some(type_id) = self
                 .output_contract
                 .strip_prefix("set_type:")
@@ -246,22 +246,22 @@ mod tests {
             }]
         );
 
-        let mut detector = item("detector", true);
-        detector.input_contract = "text".into();
-        detector.output_contract = "set_type:link".into();
+        let mut classifier = item("classifier", true);
+        classifier.input_contract = "text".into();
+        classifier.output_contract = "set_type:link".into();
         assert_eq!(
-            detector.participant_contract().unwrap().provides,
+            classifier.participant_contract().unwrap().provides,
             vec![RepresentationKind::Classification]
         );
         assert_eq!(
-            detector.type_relations(),
+            classifier.type_relations(),
             vec![AnalysisTypeRelation {
                 kind: AnalysisTypeRelationKind::ClassifiesAs,
                 type_id: "link".into(),
             }]
         );
 
-        detector.input_contract = "unknown".into();
-        assert!(detector.participant_contract().is_none());
+        classifier.input_contract = "unknown".into();
+        assert!(classifier.participant_contract().is_none());
     }
 }

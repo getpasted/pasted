@@ -11,7 +11,7 @@ Notable user-facing changes to Pasted are recorded here. The project follows sem
 - clarified the portable History and Organization scope and renamed clips-only exports so they cannot be mistaken for Full Backups.
 - bounded clip, Trash, and HUD queries with incremental loading, exact collection counts, and offscreen card virtualization.
 - renamed Activity clearing consistently across the GUI and CLI, and tightened Insights language to its active-library scope.
-- unified Capture, Inspectors, Extractors, Detectors, and Enrichers under one bounded Analysis lifecycle with matching GUI, CLI, and versioned JSON contracts.
+- unified Capture, Inspectors, Extractors, Classifiers, and Suggestions under one bounded Analysis lifecycle with matching GUI, CLI, and versioned JSON contracts.
 - added Tesseract OCR, ffprobe and MediaInfo inspection, and whisper.cpp transcription with explicit local dependency and model configuration.
 - separated structural Clip Type, referenced File Format, and semantic Content Type throughout Analysis, Insights, Functionality, Help, and documentation.
 - aligned Reset, Content Type, Insights, and Help navigation language across dialogs, native menus, CLI messages, and architecture documentation.
@@ -22,7 +22,7 @@ This release candidate expands library organization, capture feedback, and custo
 
 - added release-blocking open-source policy checks, expiring RustSec exceptions, pull-request dependency review, and source plus exact-artifact SPDX SBOMs;
 - added multi-Bin clip organization with persistent per-Bin ordering and matching GUI and CLI behavior;
-- introduced editable content types, groups, and detectors, including rescanning and safe migration of earlier detection preferences;
+- introduced editable content types, groups, and classifiers, including rescanning and safe migration of earlier classification preferences;
 - added bounded external-history imports for Maccy, Pastebot, Paste, Pasta, CopyClip, and Flycut;
 - added welcome setup, reorganized feature settings, two new light themes, interactive capture previews, and a global notification gate;
 - consolidated Transform storage and interfaces while refining editor workflows, provider warnings, and execution provenance;

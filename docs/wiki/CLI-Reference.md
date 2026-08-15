@@ -130,14 +130,14 @@ pasted connection order <id>... [--json]
 
 ```text
 pasted analyzer run [--text <text> | --clip <id> | --stdin] [--policy capture|background|interactive|rescan] [--extract] [--json]
-pasted registry list [--kind capture|inspector|extractor|detector|enricher|operation|transform] [--all] [--json]
-pasted registry enable|disable --kind extractor|detector|operation --ref <stable-ref> [--json]
+pasted registry list [--kind capture|inspector|extractor|classifier|suggestion|operation|transform] [--all] [--json]
+pasted registry enable|disable --kind extractor|classifier|operation --ref <stable-ref> [--json]
 pasted inspector list [--json]
 pasted inspector get <ref> [--json]
 pasted inspector run [--text <text> | --clip <id> | --stdin] [--apply] [--json]
-pasted enricher list [--json]
-pasted enricher get <ref> [--json]
-pasted enricher run [--text <text> | --clip <id> | --stdin] [--json]
+pasted suggestion list [--json]
+pasted suggestion get <ref> [--json]
+pasted suggestion run [--text <text> | --clip <id> | --stdin] [--json]
 pasted extractor list [--json]
 pasted extractor get <ref> [--json]
 pasted extractor create [--name <name>] [--description <text>] [--engine <engine>] [--model <path>] [--input <contract>] [--output <contract>] [--priority <number>] [--enabled|--disabled] [--json]
@@ -159,32 +159,32 @@ pasted type group-archive <id> [--json]
 pasted type group-restore <id> [--json]
 pasted type group-delete <id> [--json]
 pasted type group-restore-defaults [--json]
-pasted detector list [--json]
-pasted detector get <ref> [--json]
-pasted detector create --name <name> --type <type> --regex <pattern> [--json]
-pasted detector update <ref> [--name <name>] [--type <type>] [--regex <pattern>] [--validator <name|none>] [--priority <number>] [--enabled|--disabled] [--json]
-pasted detector duplicate <ref> [--name <name>] [--json]
-pasted detector delete <ref> [--json]
-pasted detector run <ref> [--text <text> | --clip <id> | --stdin] [--apply] [--json]
-pasted detector restore-defaults [--json]
-pasted detector rescan --yes [--json]
+pasted classifier list [--json]
+pasted classifier get <ref> [--json]
+pasted classifier create --name <name> --type <type> --regex <pattern> [--json]
+pasted classifier update <ref> [--name <name>] [--type <type>] [--regex <pattern>] [--validator <name|none>] [--priority <number>] [--enabled|--disabled] [--json]
+pasted classifier duplicate <ref> [--name <name>] [--json]
+pasted classifier delete <ref> [--json]
+pasted classifier run <ref> [--text <text> | --clip <id> | --stdin] [--apply] [--json]
+pasted classifier restore-defaults [--json]
+pasted classifier rescan --yes [--json]
 ```
 
-Registry JSON includes Capture definitions and each Analysis participant’s `analysisPass`, legacy `inputContract` and `outputContract` strings, typed `participantContract`, and `typeRelations`. The typed contract lists required and produced representations. The current `accepts` relations use the legacy `image` and `file` registry IDs to describe Clip Type applicability; `classifies_as` names the semantic Content Type produced by a Detector. Structure and Media Metadata Inspectors run in the inspect pass, Extractors run in the extract pass, Detectors run in the classify pass, and Smart Actions runs in the enrich pass. Every participant runs at most once after its declared inputs become available. Inspector runs preview by default; `--apply` persists content-hash-bound structural metadata for a clip. Built-in Inspectors and Enrichers are immutable. Extractor, Detector, and Transform management uses the lifecycle verbs appropriate to each asset.
+Registry JSON includes Capture definitions and each Analysis participant’s `analysisPass`, legacy `inputContract` and `outputContract` strings, typed `participantContract`, and `typeRelations`. The typed contract lists required and produced representations. The current `accepts` relations use the legacy `image` and `file` registry IDs to describe Clip Type applicability; `classifies_as` names the semantic Content Type produced by a Classifier. Structure and Media Metadata Inspectors run in the inspect pass, Extractors run in the extract pass, Classifiers run in the classify pass, and Smart Actions runs in the suggest pass. Every participant runs at most once after its declared inputs become available. Inspector runs preview by default; `--apply` persists content-hash-bound structural metadata for a clip. Built-in Inspectors and Suggestions are immutable. Extractor, Classifier, and Transform management uses the lifecycle verbs appropriate to each asset.
 
-`pasted analyzer run` returns one versioned preview of the applicable passes. Its JSON includes content-free structure, classification, Smart Action recommendations, and participant outcomes, but never original text, extracted text, image bytes, or file paths. Interactive policy includes enrichment when Transformations is enabled; capture, background, and rescan stop after classification. Image and file extraction are opt-in with `--extract` because OCR and transcription can be comparatively expensive. File references never enter text Detectors or Enrichers; only a produced searchable-text representation can feed later passes.
+`pasted analyzer run` returns one versioned preview of the applicable passes. Its JSON includes content-free structure, classification, Smart Action suggestions, and participant outcomes, but never original text, extracted text, image bytes, or file paths. Interactive policy includes suggestion when Transformations is enabled; capture, background, and rescan stop after classification. Image and file extraction are opt-in with `--extract` because OCR and transcription can be comparatively expensive. File references never enter text Classifiers or Suggestions; only a produced searchable-text representation can feed later passes.
 
 Whisper Transcription uses engine `whisper-cpp-cli-v1`. Configure a local GGML model with `pasted extractor update extractor:whisper-transcription --model /absolute/path/to/ggml-model.bin`. Use `--no-model` to clear it. Installing whisper.cpp or selecting a model never occurs implicitly. `pasted extractor run extractor:whisper-transcription --clip <id> --apply` stores hash-bound searchable text and provenance without replacing the clip's file references.
 
 Inspector run JSON uses the versioned Analysis envelope. Structure reports origin, byte count, text counts, image dimensions, or file item count and extensions without returning the inspected clipboard content or paths. File availability, file/directory counts, and total size are returned separately as live observations and are not persisted. When ffprobe or MediaInfo is installed, file runs can also return live aggregate `mediaMetadata` containing container, codec, stream-count, and duration facts. Up to eight files are inspected with bounded execution and output; paths never appear in results.
 
-Enricher run JSON uses the same versioned envelope and is always non-mutating. Smart Actions reports bounded content signals plus stable Transform references, names, revisions, and reasons. It does not return the analyzed text or execute a recommendation. Capture, background, and rescan policies stop before enrichment.
+Suggestion run JSON uses the same versioned envelope and is always non-mutating. Smart Actions reports bounded content signals plus stable Transform references, names, revisions, and reasons. It does not return the analyzed text or execute a suggestion. Capture, background, and rescan policies stop before suggestion.
 
-Extractor run JSON serializes the shared Extractor application result used by the app, CLI, and background OCR. It includes the shared `formatVersion`, policy, final pass, and privacy-safe `participants` fields alongside `targetKind`, `targetRef`, `outcome` (`produced`, `no_output`, or `failed`), `output`, `detectedType`, `matchedDetectorRef`, a structured `failure`, `appliedClipId`, `ocrUpdated`, and `classificationUpdated`. Preview results report no applied clip and both update flags as false. Applied runs claim the current clip by ID and content hash, and report an applied clip only after OCR state was persisted. A failed Extractor can still have `ocrUpdated: true` when its bounded failure code was successfully recorded for retry and diagnostics. Failures exit nonzero and never include input image or clipboard content.
+Extractor run JSON serializes the shared Extractor application result used by the app, CLI, and background OCR. It includes the shared `formatVersion`, policy, final pass, and privacy-safe `participants` fields alongside `targetKind`, `targetRef`, `outcome` (`produced`, `no_output`, or `failed`), `output`, `classifiedType`, `matchedClassifierRef`, a structured `failure`, `appliedClipId`, `ocrUpdated`, and `classificationUpdated`. Preview results report no applied clip and both update flags as false. Applied runs claim the current clip by ID and content hash, and report an applied clip only after OCR state was persisted. A failed Extractor can still have `ocrUpdated: true` when its bounded failure code was successfully recorded for retry and diagnostics. Failures exit nonzero and never include input image or clipboard content.
 
-Detector run JSON serializes the corresponding shared Detection application result. It includes the shared `formatVersion`, policy, final pass, and privacy-safe `participants` fields alongside `outcome` (`matched`, `no_match`, or `failed`), `matched`, `detectedType`, `matchedDetectorRef`, `failure`, and `appliedClipId`. Applied runs execute against the clip inside the database transaction, so the reported result and mutation cannot diverge. Participant summaries contain only stable references, passes, outcomes, and neutral failures—not analyzed text.
+Classifier run JSON serializes the corresponding shared Classification application result. It includes the shared `formatVersion`, policy, final pass, and privacy-safe `participants` fields alongside `outcome` (`matched`, `no_match`, or `failed`), `matched`, `classifiedType`, `matchedClassifierRef`, `failure`, and `appliedClipId`. Applied runs execute against the clip inside the database transaction, so the reported result and mutation cannot diverge. Participant summaries contain only stable references, passes, outcomes, and neutral failures—not analyzed text.
 
-Content Type and Group IDs are stable. Built-in Content Types can be renamed, regrouped, and given a different icon, but cannot be archived; custom Content Types can be archived without reinterpreting historical clips. Custom Groups can be archived only when no Content Types use them. Archiving a custom Content Type disables Detectors that produce it. Detectors run in ascending priority order. Repeat `--regex` to provide alternatives. Shipped Detectors are editable and deletable; `restore-defaults` recovers their original definitions without removing custom Detectors. `rescan` explicitly reclassifies existing text clips while preserving Image and Files Clip Types.
+Content Type and Group IDs are stable. Built-in Content Types can be renamed, regrouped, and given a different icon, but cannot be archived; custom Content Types can be archived without reinterpreting historical clips. Custom Groups can be archived only when no Content Types use them. Archiving a custom Content Type disables Classifiers that produce it. Classifiers run in ascending priority order. Repeat `--regex` to provide alternatives. Shipped Classifiers are editable and deletable; `restore-defaults` recovers their original definitions without removing custom Classifiers. `rescan` explicitly reclassifies existing text clips while preserving Image and Files Clip Types.
 
 ## Maintenance
 
