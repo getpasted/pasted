@@ -52,10 +52,10 @@ fn measure(mut operation: impl FnMut(), name: &'static str, iterations: usize) -
         for _ in 0..iterations {
             operation();
         }
-        samples.push(started.elapsed().as_nanos() / iterations as u128);
+        samples.push((started.elapsed().as_nanos() / iterations as u128).max(1));
     }
     samples.sort_unstable();
-    let median = samples[SAMPLE_COUNT / 2].max(1);
+    let median = samples[SAMPLE_COUNT / 2];
     let p95 = samples[SAMPLE_COUNT - 1];
     Measurement {
         name,
