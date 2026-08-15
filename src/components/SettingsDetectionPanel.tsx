@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
-import { Copy, Pencil, Plus, Radar, RotateCcw, ScanSearch, Shapes, Trash2 } from 'lucide-react';
+import { Copy, Lightbulb, Pencil, Plus, Radar, RotateCcw, ScanSearch, Shapes, Trash2 } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { AppDialog } from './AppDialog';
 import { AppDialogBody, AppDialogButton, AppDialogFooter, AppDialogHeader, AppDialogHeading, SaveButtonContent } from './AppDialogLayout';
@@ -20,6 +20,7 @@ import { ActionButton } from './AppDialogLayout';
 import { useToast } from './ToastProvider';
 import type { ClipContentType } from '../types';
 import { useNewItemSelection } from '../hooks/useNewItemSelection';
+import { BuiltinAnalysisManagerDialog } from './BuiltinAnalysisManagerDialog';
 
 interface ContentDetector {
   id: number;
@@ -81,6 +82,30 @@ function toInput(detector?: ContentDetector): DetectorInput {
   };
 }
 
+function AnalysisManagerRow({
+  title,
+  description,
+  onManage,
+}: {
+  title: string;
+  description: string;
+  onManage: () => void;
+}) {
+  return (
+    <section className="theme-surface overflow-hidden rounded-xl border" aria-label={title}>
+      <RegistryPanelHeader
+        title={title}
+        description={description}
+        actions={
+          <ActionButton aria-label={`Manage ${title}`} onClick={onManage} className="h-7 min-h-7 shrink-0 px-2.5">
+            <Pencil className="h-3.5 w-3.5" /> Manage…
+          </ActionButton>
+        }
+      />
+    </section>
+  );
+}
+
 export function SettingsDetectionPanel({
   contentDetectionEnabled,
   ocrEnabled,
@@ -100,8 +125,10 @@ export function SettingsDetectionPanel({
   const [rescanning, setRescanning] = useState(false);
   const [togglingId, setTogglingId] = useState<number | null>(null);
   const [isTypeManagerOpen, setIsTypeManagerOpen] = useState(false);
+  const [isInspectorManagerOpen, setIsInspectorManagerOpen] = useState(false);
   const [isExtractorManagerOpen, setIsExtractorManagerOpen] = useState(false);
   const [isManagerOpen, setIsManagerOpen] = useState(false);
+  const [isEnricherManagerOpen, setIsEnricherManagerOpen] = useState(false);
   const [confirmation, setConfirmation] = useState<ConfirmationDialogRequest | null>(null);
 
   const selected = useMemo(
@@ -377,29 +404,27 @@ export function SettingsDetectionPanel({
           </ActionButton>
         ) : undefined}
       />
-      {ocrEnabled && <section className="theme-surface overflow-hidden rounded-xl border" aria-label="Content extractors">
-        <RegistryPanelHeader
-          title="Extractors"
-          description="Create searchable representations from clip content."
-          actions={
-            <ActionButton aria-label="Manage Extractors" onClick={() => setIsExtractorManagerOpen(true)} className="h-7 min-h-7 shrink-0 px-2.5">
-              <Pencil className="h-3.5 w-3.5" /> Manage…
-            </ActionButton>
-          }
-        />
-      </section>}
+      <AnalysisManagerRow
+        title="Inspectors"
+        description="Measure clip structure and media facts."
+        onManage={() => setIsInspectorManagerOpen(true)}
+      />
+      {ocrEnabled && <AnalysisManagerRow
+        title="Extractors"
+        description="Create searchable representations from clip content."
+        onManage={() => setIsExtractorManagerOpen(true)}
+      />}
+      {contentDetectionEnabled && <AnalysisManagerRow
+        title="Detectors"
+        description="Classify analyzable text as registered Types."
+        onManage={openDetectorManager}
+      />}
+      <AnalysisManagerRow
+        title="Enrichers"
+        description="Recommend useful actions from analysis signals."
+        onManage={() => setIsEnricherManagerOpen(true)}
+      />
       {contentDetectionEnabled && <>
-        <section className="theme-surface overflow-hidden rounded-xl border" aria-label="Content detectors">
-          <RegistryPanelHeader
-            title="Detectors"
-            description="Manage clip-types for copied text."
-            actions={
-              <ActionButton aria-label="Manage Detectors" onClick={openDetectorManager} className="h-7 min-h-7 shrink-0 px-2.5">
-                <Pencil className="h-3.5 w-3.5" /> Manage…
-              </ActionButton>
-            }
-          />
-        </section>
         <AppDialog
           isOpen={isManagerOpen}
           onClose={() => setIsManagerOpen(false)}
@@ -559,7 +584,23 @@ export function SettingsDetectionPanel({
         </AppDialog>
         <ContentTypeManagerDialog isOpen={isTypeManagerOpen} onClose={() => setIsTypeManagerOpen(false)} />
       </>}
+      <BuiltinAnalysisManagerDialog
+        isOpen={isInspectorManagerOpen}
+        onClose={() => setIsInspectorManagerOpen(false)}
+        kind="inspector"
+        title="Inspectors"
+        description="Review clip inspection behavior and media availability."
+        icon={ScanSearch}
+      />
       <ContentExtractorManagerDialog isOpen={isExtractorManagerOpen} onClose={() => setIsExtractorManagerOpen(false)} />
+      <BuiltinAnalysisManagerDialog
+        isOpen={isEnricherManagerOpen}
+        onClose={() => setIsEnricherManagerOpen(false)}
+        kind="enricher"
+        title="Enrichers"
+        description="Review enrichment behavior and outputs."
+        icon={Lightbulb}
+      />
       <ConfirmationDialog request={confirmation} onCancel={() => setConfirmation(null)} />
       {ocrEnabled && <SettingsOcrPanel />}
     </div>

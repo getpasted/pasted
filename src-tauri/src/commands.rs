@@ -988,6 +988,11 @@ pub fn get_content_extractors(
 }
 
 #[tauri::command]
+pub fn get_content_inspectors() -> Vec<crate::content_inspection::InspectorDefinition> {
+    crate::content_inspection::inspector_definitions()
+}
+
+#[tauri::command]
 pub async fn choose_extractor_model_file(app: AppHandle) -> Result<Option<String>, String> {
     let Some(selected_file) = app
         .dialog()
