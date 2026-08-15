@@ -233,12 +233,15 @@ export function SettingsDetectionPanel({
   const toggleDetector = async (detector: ContentDetector) => {
     setTogglingId(detector.id);
     try {
-      const input = { ...toInput(detector), enabled: !detector.enabled };
-      const saved = await invoke<ContentDetector>('update_content_detector', {
-        id: detector.id,
-        input,
+      const enabled = !detector.enabled;
+      await invoke('set_library_item_enabled', {
+        kind: 'detector',
+        stableRef: detector.stable_ref,
+        enabled,
       });
-      setDetectors((current) => current.map((item) => item.id === saved.id ? saved : item));
+      setDetectors((current) => current.map((item) => (
+        item.id === detector.id ? { ...item, enabled } : item
+      )));
     } catch (error) {
       showToast({ tone: 'error', message: String(error) });
     } finally {

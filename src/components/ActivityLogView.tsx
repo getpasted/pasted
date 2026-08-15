@@ -174,6 +174,19 @@ export const ActivityLogView: React.FC = () => {
             <span>Settings</span>
           </div>
         );
+      case 'content_extractor_enabled':
+      case 'content_extractor_disabled':
+      case 'content_detector_enabled':
+      case 'content_detector_disabled': {
+        const enabled = type.endsWith('_enabled');
+        const participant = type.startsWith('content_extractor') ? 'Extractor' : 'Detector';
+        return (
+          <div className={`${enabled ? 'theme-status-success' : 'theme-badge'} flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold`}>
+            <Radar className="w-3.5 h-3.5" />
+            <span>{participant} {enabled ? 'Enabled' : 'Disabled'}</span>
+          </div>
+        );
+      }
       case 'content_detector_created':
       case 'content_detector_updated':
       case 'content_detector_deleted':

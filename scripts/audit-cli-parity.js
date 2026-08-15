@@ -23,6 +23,8 @@ const ocr = read('src-tauri/src/ocr.rs');
 const actions = read('src/hooks/useClipActions.ts');
 const storageSettings = read('src/components/SettingsSyncPanel.tsx');
 const tauriMock = read('src/utils/tauri.ts');
+const extractorManager = read('src/components/ContentExtractorManagerDialog.tsx');
+const detectorManager = read('src/components/SettingsDetectionPanel.tsx');
 
 const documentedCommands = [
   'pasted copy',
@@ -457,6 +459,10 @@ assert.match(commands, /db\.get_library_items/, 'GUI library metadata must use t
 assert.match(cli, /db\.get_library_items/, 'CLI library metadata must use the shared domain service');
 assert.match(commands, /db\.set_library_item_enabled/, 'GUI lifecycle toggles must use the shared domain service');
 assert.match(cli, /db\.set_library_item_enabled/, 'CLI lifecycle toggles must use the shared domain service');
+assert.match(extractorManager, /invoke\('set_library_item_enabled',[\s\S]*?kind: 'extractor'/,
+  'GUI Extractor toggles must use the shared lifecycle service');
+assert.match(detectorManager, /invoke\('set_library_item_enabled',[\s\S]*?kind: 'detector'/,
+  'GUI Detector toggles must use the shared lifecycle service');
 for (const method of ['get_content_types', 'create_content_type', 'update_content_type', 'set_content_type_archived', 'restore_default_content_types']) {
   assert.match(database, new RegExp(`pub fn ${method}`), `${method} must live in the shared database domain layer`);
   assert.match(commands, new RegExp(`pub async fn ${method}|pub fn ${method}`), `${method} must be exposed to the GUI`);

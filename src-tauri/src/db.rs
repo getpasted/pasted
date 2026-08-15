@@ -55,6 +55,32 @@ fn derived_origin_kind(content_type: &str, source: &str) -> &'static str {
     crate::content_inspection::origin_kind(content_type, Some(source)).stable_name()
 }
 
+fn analysis_toggle_activity(
+    kind: &str,
+    name: &str,
+    enabled: bool,
+) -> Option<(&'static str, String)> {
+    let event_type = match (kind, enabled) {
+        ("extractor", true) => "content_extractor_enabled",
+        ("extractor", false) => "content_extractor_disabled",
+        ("detector", true) => "content_detector_enabled",
+        ("detector", false) => "content_detector_disabled",
+        _ => return None,
+    };
+    let label = if kind == "extractor" {
+        "Extractor"
+    } else {
+        "Detector"
+    };
+    Some((
+        event_type,
+        format!(
+            "{} {label} \"{name}\"",
+            if enabled { "Enabled" } else { "Disabled" }
+        ),
+    ))
+}
+
 fn push_smart_condition(
     kind: &str,
     value: &str,
@@ -4543,11 +4569,38 @@ impl DbState {
         self.log_activity_internal(&conn, event_type, description)
     }
 
+    fn log_activity_with_attributes(
+        &self,
+        event_type: &str,
+        description: &str,
+        attributes: &serde_json::Value,
+    ) -> Result<()> {
+        let attributes_json = serde_json::to_string(attributes)
+            .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?;
+        if !attributes.is_object() || attributes_json.len() > 4 * 1024 {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "Activity attributes must be a bounded JSON object".into(),
+            ));
+        }
+        let conn = self.conn.lock();
+        self.log_activity_internal_with_attributes(&conn, event_type, description, &attributes_json)
+    }
+
     fn log_activity_internal(
         &self,
         conn: &Connection,
         event_type: &str,
         description: &str,
+    ) -> Result<()> {
+        self.log_activity_internal_with_attributes(conn, event_type, description, "{}")
+    }
+
+    fn log_activity_internal_with_attributes(
+        &self,
+        conn: &Connection,
+        event_type: &str,
+        description: &str,
+        attributes_json: &str,
     ) -> Result<()> {
         let is_enabled: String = conn
             .query_row(
@@ -4588,7 +4641,7 @@ impl DbState {
                 ?1, ?2,
                 strftime('%Y-%m-%dT%H:%M:%SZ', 'now'),
                 strftime('%Y-%m-%dT%H:%M:%SZ', 'now'),
-                ?3, ?4, ?5, '{}'
+                ?3, ?4, ?5, ?6
              )",
         )?;
         stmt.execute(params![
@@ -4596,7 +4649,8 @@ impl DbState {
             description,
             severity,
             category,
-            outcome
+            outcome,
+            attributes_json
         ])?;
 
         self.enforce_activity_retention_internal(conn, keep_count, keep_age_days)
@@ -5833,6 +5887,47 @@ impl DbState {
                 })
             },
         )
+    }
+
+    fn log_analysis_participant_toggle(
+        &self,
+        kind: &str,
+        stable_ref: &str,
+        name: &str,
+        enabled: bool,
+    ) {
+        let Some((event_type, description)) = analysis_toggle_activity(kind, name, enabled) else {
+            return;
+        };
+        let _ = self.log_activity_with_attributes(
+            event_type,
+            &description,
+            &serde_json::json!({
+                "analysis.participant.kind": kind,
+                "analysis.participant.ref": stable_ref,
+                "analysis.participant.enabled": enabled,
+            }),
+        );
+    }
+
+    fn log_analysis_participant_update(
+        &self,
+        kind: &str,
+        stable_ref: &str,
+        name: &str,
+        previous_enabled: bool,
+        enabled: bool,
+    ) {
+        if previous_enabled != enabled {
+            self.log_analysis_participant_toggle(kind, stable_ref, name, enabled);
+            return;
+        }
+        let (event_type, label) = if kind == "extractor" {
+            ("content_extractor_updated", "Extractor")
+        } else {
+            ("content_detector_updated", "Detector")
+        };
+        let _ = self.log_activity(event_type, &format!("Updated {label} \"{name}\""));
     }
 
     pub fn create_bin(
@@ -8707,36 +8802,81 @@ impl DbState {
         enabled: bool,
     ) -> Result<()> {
         let conn = self.conn.lock();
-        let changed = match kind {
+        let (changed, activity_event, activity_description, analysis_name) = match kind {
             "inspector" | "enricher" => {
                 return Err(rusqlite::Error::InvalidParameterName(
                     "Built-in Analysis participants cannot be disabled".to_string(),
                 ));
             }
-            "extractor" => conn.execute(
-                "UPDATE content_extractors
-                 SET enabled = ?1, updated_at = CURRENT_TIMESTAMP
-                 WHERE stable_ref = ?2 AND is_deleted = 0",
-                params![enabled, stable_ref],
-            )?,
-            "detector" => conn.execute(
-                "UPDATE content_detectors
-                 SET enabled = ?1, updated_at = CURRENT_TIMESTAMP
-                 WHERE stable_ref = ?2 AND is_deleted = 0",
-                params![enabled, stable_ref],
-            )?,
+            "extractor" => {
+                let (name, previous): (String, bool) = conn
+                    .query_row(
+                        "SELECT name, enabled FROM content_extractors
+                         WHERE stable_ref = ?1 AND is_deleted = 0",
+                        params![stable_ref],
+                        |row| Ok((row.get(0)?, row.get(1)?)),
+                    )
+                    .optional()?
+                    .ok_or(rusqlite::Error::QueryReturnedNoRows)?;
+                if previous == enabled {
+                    return Ok(());
+                }
+                let changed = conn.execute(
+                    "UPDATE content_extractors
+                     SET enabled = ?1, updated_at = CURRENT_TIMESTAMP
+                     WHERE stable_ref = ?2 AND is_deleted = 0",
+                    params![enabled, stable_ref],
+                )?;
+                let (event_type, description) =
+                    analysis_toggle_activity("extractor", &name, enabled)
+                        .expect("Extractor toggles have Activity metadata");
+                (changed, event_type, description, Some(name))
+            }
+            "detector" => {
+                let (name, previous): (String, bool) = conn
+                    .query_row(
+                        "SELECT name, enabled FROM content_detectors
+                         WHERE stable_ref = ?1 AND is_deleted = 0",
+                        params![stable_ref],
+                        |row| Ok((row.get(0)?, row.get(1)?)),
+                    )
+                    .optional()?
+                    .ok_or(rusqlite::Error::QueryReturnedNoRows)?;
+                if previous == enabled {
+                    return Ok(());
+                }
+                let changed = conn.execute(
+                    "UPDATE content_detectors
+                     SET enabled = ?1, updated_at = CURRENT_TIMESTAMP
+                     WHERE stable_ref = ?2 AND is_deleted = 0",
+                    params![enabled, stable_ref],
+                )?;
+                let (event_type, description) =
+                    analysis_toggle_activity("detector", &name, enabled)
+                        .expect("Detector toggles have Activity metadata");
+                (changed, event_type, description, Some(name))
+            }
             "operation" => {
                 let Some(operation_id) = stable_ref.strip_prefix("custom:") else {
                     return Err(rusqlite::Error::InvalidParameterName(
                         "Built-in Operations cannot be disabled".to_string(),
                     ));
                 };
-                conn.execute(
+                let changed = conn.execute(
                     "UPDATE custom_operations
                      SET enabled = ?1, updated_at = CURRENT_TIMESTAMP
                      WHERE id = ?2",
                     params![enabled, operation_id],
-                )?
+                )?;
+                (
+                    changed,
+                    "library_item_enabled_changed",
+                    format!(
+                        "{} operation {stable_ref}",
+                        if enabled { "Enabled" } else { "Disabled" }
+                    ),
+                    None,
+                )
             }
             "transform" => {
                 return Err(rusqlite::Error::InvalidParameterName(
@@ -8753,15 +8893,18 @@ impl DbState {
         if changed == 0 {
             return Err(rusqlite::Error::QueryReturnedNoRows);
         }
-        let _ = self.log_activity(
-            "library_item_enabled_changed",
-            &format!(
-                "{} {} {}",
-                if enabled { "Enabled" } else { "Disabled" },
+        if matches!(kind, "extractor" | "detector") {
+            self.log_analysis_participant_toggle(
                 kind,
-                stable_ref
-            ),
-        );
+                stable_ref,
+                analysis_name
+                    .as_deref()
+                    .expect("Analysis toggles retain the participant name"),
+                enabled,
+            );
+        } else {
+            let _ = self.log_activity(activity_event, &activity_description);
+        }
         Ok(())
     }
 
@@ -9542,9 +9685,12 @@ impl DbState {
             return Err(rusqlite::Error::QueryReturnedNoRows);
         }
         let updated = self.get_content_extractor(&id.to_string())?;
-        let _ = self.log_activity(
-            "content_extractor_updated",
-            &format!("Updated Extractor \"{}\"", updated.name),
+        self.log_analysis_participant_update(
+            "extractor",
+            &updated.stable_ref,
+            &updated.name,
+            current.enabled,
+            updated.enabled,
         );
         Ok(updated)
     }
@@ -9600,6 +9746,14 @@ impl DbState {
             )))
         })?;
         let conn = self.conn.lock();
+        let previous_enabled = conn
+            .query_row(
+                "SELECT enabled FROM content_extractors WHERE id = ?1 AND is_deleted = 0",
+                params![id],
+                |row| row.get::<_, bool>(0),
+            )
+            .optional()?
+            .ok_or(rusqlite::Error::QueryReturnedNoRows)?;
         let changed = conn.execute(
             "UPDATE content_extractors SET name = ?1, description = ?2, enabled = ?3,
                     priority = ?4, updated_at = CURRENT_TIMESTAMP
@@ -9621,9 +9775,12 @@ impl DbState {
             .into_iter()
             .find(|extractor| extractor.id == id)
             .ok_or(rusqlite::Error::QueryReturnedNoRows)?;
-        let _ = self.log_activity(
-            "content_extractor_updated",
-            &format!("Updated extractor \"{}\"", updated.name),
+        self.log_analysis_participant_update(
+            "extractor",
+            &updated.stable_ref,
+            &updated.name,
+            previous_enabled,
+            updated.enabled,
         );
         Ok(updated)
     }
@@ -9900,6 +10057,14 @@ impl DbState {
         let patterns_json = serde_json::to_string(&input.patterns)
             .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?;
         let conn = self.conn.lock();
+        let previous_enabled = conn
+            .query_row(
+                "SELECT enabled FROM content_detectors WHERE id = ?1 AND is_deleted = 0",
+                params![id],
+                |row| row.get::<_, bool>(0),
+            )
+            .optional()?
+            .ok_or(rusqlite::Error::QueryReturnedNoRows)?;
         let changed = conn.execute(
             "UPDATE content_detectors SET name = ?1, content_type = ?2, description = ?3,
                     patterns_json = ?4, validator = ?5, enabled = ?6, priority = ?7,
@@ -9925,9 +10090,12 @@ impl DbState {
             .into_iter()
             .find(|item| item.id == id)
             .ok_or(rusqlite::Error::QueryReturnedNoRows)?;
-        let _ = self.log_activity(
-            "content_detector_updated",
-            &format!("Updated detector \"{}\"", detector.name),
+        self.log_analysis_participant_update(
+            "detector",
+            &detector.stable_ref,
+            &detector.name,
+            previous_enabled,
+            detector.enabled,
         );
         Ok(detector)
     }
@@ -10239,6 +10407,93 @@ mod tests {
                 && extractor.name == "Project OCR Revised"
                 && !extractor.enabled
         }));
+    }
+
+    #[test]
+    fn extractor_and_detector_toggles_record_explicit_activity_across_shared_paths() {
+        let db = setup_test_db();
+        let extractor = db
+            .get_content_extractor(crate::content_extraction::APPLE_VISION_OCR_REF)
+            .unwrap();
+        db.update_content_extractor_definition(
+            extractor.id,
+            &crate::content_extraction::ExtractorDefinitionInput {
+                name: extractor.name.clone(),
+                description: extractor.description.clone(),
+                engine: extractor.engine.clone(),
+                input_contract: extractor.input_contract.clone(),
+                output_contract: extractor.output_contract.clone(),
+                enabled: false,
+                priority: extractor.priority,
+            },
+        )
+        .unwrap();
+        db.set_library_item_enabled("extractor", &extractor.stable_ref, true)
+            .unwrap();
+
+        let detector = db
+            .get_content_detectors()
+            .unwrap()
+            .into_iter()
+            .find(|detector| detector.stable_ref == "email")
+            .unwrap();
+        db.update_content_detector(
+            detector.id,
+            &crate::content_detection::DetectorInput {
+                name: detector.name.clone(),
+                content_type: detector.content_type.clone(),
+                description: detector.description.clone(),
+                patterns: detector.patterns.clone(),
+                validator: detector.validator.clone(),
+                enabled: false,
+                priority: detector.priority,
+            },
+        )
+        .unwrap();
+        db.set_library_item_enabled("detector", &detector.stable_ref, true)
+            .unwrap();
+        db.set_library_item_enabled("detector", &detector.stable_ref, true)
+            .unwrap();
+
+        let analysis_logs = db
+            .get_activity_logs(Some(100), None)
+            .unwrap()
+            .into_iter()
+            .filter(|log| {
+                log.event_type.starts_with("content_extractor_")
+                    || log.event_type.starts_with("content_detector_")
+            })
+            .collect::<Vec<_>>();
+        assert!(analysis_logs.iter().all(|log| {
+            log.attributes["analysis.participant.kind"].is_string()
+                && log.attributes["analysis.participant.ref"].is_string()
+                && log.attributes["analysis.participant.enabled"].is_boolean()
+        }));
+        let events = analysis_logs
+            .into_iter()
+            .map(|log| (log.event_type, log.description))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            events,
+            vec![
+                (
+                    "content_detector_enabled".to_string(),
+                    "Enabled Detector \"Email Addresses\"".to_string(),
+                ),
+                (
+                    "content_detector_disabled".to_string(),
+                    "Disabled Detector \"Email Addresses\"".to_string(),
+                ),
+                (
+                    "content_extractor_enabled".to_string(),
+                    "Enabled Extractor \"Apple Vision OCR\"".to_string(),
+                ),
+                (
+                    "content_extractor_disabled".to_string(),
+                    "Disabled Extractor \"Apple Vision OCR\"".to_string(),
+                ),
+            ]
+        );
     }
 
     #[test]

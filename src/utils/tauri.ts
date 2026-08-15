@@ -348,8 +348,21 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       ];
       return items.filter((item) => !kind || item.kind === kind) as unknown as T;
     }
-    case 'set_library_item_enabled':
+    case 'set_library_item_enabled': {
+      const kind = String(args?.kind ?? '');
+      const stableRef = String(args?.stableRef ?? '');
+      const enabled = Boolean(args?.enabled);
+      if (kind === 'extractor') {
+        mockExtractors = mockExtractors.map((extractor) => (
+          extractor.stableRef === stableRef ? { ...extractor, enabled } : extractor
+        ));
+      } else if (kind === 'detector') {
+        mockDetectors = mockDetectors.map((detector) => (
+          detector.stable_ref === stableRef ? { ...detector, enabled } : detector
+        ));
+      }
       return undefined as T;
+    }
     case 'get_content_types':
       return mockContentTypes
         .filter((type) => Boolean(args?.includeArchived) || !type.isArchived)

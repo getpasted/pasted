@@ -423,6 +423,13 @@ fn extractor_lifecycle_and_registry_capabilities_run_end_to_end() {
     );
     let disabled = success_json(&database, &["extractor", "get", stable_ref, "--json"]);
     assert_eq!(disabled["enabled"], false);
+    let activity = success_json(&database, &["activity", "list", "--all", "--json"]);
+    assert!(activity
+        .as_array()
+        .is_some_and(|logs| logs.iter().any(|log| {
+            log["event_type"] == "content_extractor_disabled"
+                && log["description"] == "Disabled Extractor \"CLI Extractor\""
+        })));
 
     let deleted = success_json(&database, &["extractor", "delete", stable_ref, "--json"]);
     assert_eq!(deleted["deleted"], true);
@@ -478,6 +485,27 @@ fn detector_preview_and_apply_share_the_safe_execution_contract() {
     assert_eq!(registry_item["analysisPass"], "classify");
     assert_eq!(registry_item["capabilities"]["canDuplicate"], true);
     assert_eq!(registry_item["capabilities"]["canDelete"], true);
+
+    success_json(
+        &database,
+        &[
+            "registry", "disable", "--kind", "detector", "--ref", stable_ref, "--json",
+        ],
+    );
+    success_json(
+        &database,
+        &[
+            "registry", "enable", "--kind", "detector", "--ref", stable_ref, "--json",
+        ],
+    );
+    let activity = success_json(&database, &["activity", "list", "--all", "--json"]);
+    assert!(activity.as_array().is_some_and(|logs| {
+        logs.iter()
+            .any(|log| log["event_type"] == "content_detector_disabled")
+            && logs
+                .iter()
+                .any(|log| log["event_type"] == "content_detector_enabled")
+    }));
 
     let mut no_match = success_json(
         &database,
