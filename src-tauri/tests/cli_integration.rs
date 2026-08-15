@@ -475,6 +475,7 @@ fn detector_preview_and_apply_share_the_safe_execution_contract() {
             "--json",
         ],
     );
+    assert_eq!(no_match["targetRef"], stable_ref);
     no_match["targetRef"] = Value::String("detector:email".into());
     assert_eq!(no_match, analysis_fixture("detector-interactive-no-match"));
 
