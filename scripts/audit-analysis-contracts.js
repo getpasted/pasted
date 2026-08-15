@@ -10,6 +10,7 @@ const clipPreviewContent = read('src/components/ClipPreviewContent.tsx');
 const database = read('src-tauri/src/db.rs');
 const types = read('src/types.ts');
 const analysisSettings = read('src/components/SettingsDetectionPanel.tsx');
+const extractorManager = read('src/components/ContentExtractorManagerDialog.tsx');
 const architecture = read('docs/ANALYSIS_ARCHITECTURE.md');
 const releaseChecklist = read('docs/RELEASE_CHECKLIST_1.0.0.md');
 
@@ -98,6 +99,16 @@ assert.match(analysisSettings, /title="Extractors"/, 'Analysis settings must exp
 assert.match(analysisSettings, /title="Detectors"/, 'Analysis settings must expose authorable Detectors');
 assert.doesNotMatch(analysisSettings, /Manage (?:Inspectors|Enrichers)/,
   'Immutable built-in participants must not gain redundant management surfaces');
+for (const [label, manager] of [['Extractor', extractorManager], ['Detector', analysisSettings]]) {
+  assert.equal((manager.match(/<RegistryPanelFooter/g) ?? []).length, 2,
+    `${label} management must keep item actions and form actions in their owning panels`);
+  assert.match(manager, /<AppDialogFooter[\s\S]*Restore Shipped Defaults…[\s\S]*Close/,
+    `${label} management must keep global restore and dialog close actions in the modal footer`);
+  assert.match(manager, /discardDraftThen[\s\S]*ConfirmationDialog/,
+    `${label} management must protect edited drafts with the shared confirmation UI`);
+  assert.doesNotMatch(manager, /window\.confirm/,
+    `${label} management must not fall back to a browser confirmation prompt`);
+}
 assert.match(architecture, /## Version 1 freeze/, 'Analysis architecture must declare the v1 freeze');
 assert.match(releaseChecklist, /## Content Analysis/, 'The release checklist must retain Analysis acceptance');
 
