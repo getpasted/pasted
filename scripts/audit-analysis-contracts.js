@@ -111,10 +111,14 @@ for (const [label, manager] of [['Extractor', extractorManager], ['Detector', an
   assert.doesNotMatch(manager, /window\.confirm/,
     `${label} management must not fall back to a browser confirmation prompt`);
 }
-assert.match(registryPanelHeader, /min-h-\[49px\] shrink-0/,
+assert.match(registryPanelHeader, /min-h-\[49px\]/,
   'Registry panel headers must match the rendered action-header height');
-assert.match(registryPanelFooter, /min-h-12 shrink-0/,
-  'Registry panel footers must retain aligned minimum heights with and without actions');
+for (const [label, panelEdge] of [['header', registryPanelHeader], ['footer', registryPanelFooter]]) {
+  assert.match(panelEdge, /shrink-0/,
+    `Registry panel ${label}s must not shrink below their aligned minimum height`);
+}
+assert.match(registryPanelFooter, /min-h-12/,
+  'Registry panel footers must retain their aligned minimum height with and without actions');
 assert.match(architecture, /## Version 1 freeze/, 'Analysis architecture must declare the v1 freeze');
 assert.match(releaseChecklist, /## Content Analysis/, 'The release checklist must retain Analysis acceptance');
 
