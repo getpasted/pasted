@@ -475,12 +475,12 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
 
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                 <section className="theme-panel space-y-3 rounded-xl border p-4">
-                  <h4 className="theme-status-warning-text text-xs font-bold">Auto-pause and blacklist</h4>
+                  <h4 className="theme-status-warning-text text-xs font-bold">Auto-pause and app exclusions</h4>
                   <p className="theme-text-main text-xs leading-relaxed">
                     Common password managers such as <strong>1Password</strong>, <strong>Keychain Access</strong>, <strong>Passwords</strong>, and <strong>Bitwarden</strong> are excluded by default. When an excluded app is focused, capture pauses and the Pause control turns amber.
                   </p>
                   <p className="theme-text-muted text-xs leading-relaxed">
-                    Capture resumes when focus returns to an allowed app. Add applications or choose whether they block text, images, and shortcuts under Settings → Blacklist.
+                    Capture resumes when focus returns to an allowed app. Add applications or choose whether they block text, images, and shortcuts under Settings → App Exclusions.
                   </p>
                 </section>
 

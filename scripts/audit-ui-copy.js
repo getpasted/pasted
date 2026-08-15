@@ -118,6 +118,20 @@ for (const [id, label] of settingsDestinations) {
 }
 assert.doesNotMatch(settingsTabs, /id: '(?:features|connections|blacklist)'/,
   'Settings destination IDs must match current product terminology');
+const destinationCopyFiles = [
+  'src/components/HelpView.tsx',
+  ...fs.readdirSync('docs', { recursive: true })
+    .filter((name) => typeof name === 'string' && name.endsWith('.md'))
+    .map((name) => `docs/${name}`),
+];
+for (const file of destinationCopyFiles) {
+  const source = fs.readFileSync(file, 'utf8');
+  assert.doesNotMatch(
+    source,
+    /Settings → (?:Connections|Blacklist|Detection|Features)\b/,
+    `${file} must use current Settings destination names`,
+  );
+}
 for (const title of ['Database Location', 'Export', 'Import']) {
   assert.ok(
     settingsImportExport.includes(`>${title}<`) || settingsImportExport.includes(`title="${title}"`),

@@ -11,7 +11,7 @@ Not every Transform uses AI. Pasted records which Transform ran, whether intelli
 
 ## Connections
 
-**Settings → Connections** detects supported local tools without reading their credentials. Enable and order connections to define priority and fallback. Pasted stores connection metadata and credential references, not API keys.
+**Settings → Intelligence** detects supported local tools without reading their credentials. Enable and order connections to define priority and fallback. Pasted stores connection metadata and credential references, not API keys.
 
 ## Running a Transform
 

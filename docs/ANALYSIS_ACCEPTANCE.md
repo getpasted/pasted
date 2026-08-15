@@ -6,14 +6,14 @@ This matrix is the acceptance boundary for the frozen Pasted 1.0 Analysis contra
 
 | Participant | GUI surface | CLI and API surface | 1.0 configuration boundary |
 | --- | --- | --- | --- |
-| Structure Inspector | Content-free statistics in Clip Preview | `pasted inspector` and `pasted registry --kind inspector` | Immutable and always available; no separate switch. |
+| Structure and Media Metadata Inspectors | Read-only Manage Inspectors dialog plus content-free facts in Clip Preview | `pasted inspector` and `pasted registry --kind inspector` | Immutable; no separate switches. Runtime availability is reported for Media Metadata. |
 | Image Text Extractor | Settings → Analysis → Extractors and OCR controls | `pasted extractor`, `pasted ocr`, and `pasted registry --kind extractor` | Definitions are manageable; engine availability remains platform-specific. |
 | File Text Extractor | Settings → Analysis → Extractors and persistent availability status | `pasted extractor`, the file-extraction API, and `pasted registry --kind extractor` | Definitions and local model paths are manageable; expensive transcription remains explicit. |
 | Detectors | Settings → Analysis → Detectors, Types, testing, and Rescan Clips | `pasted detector`, `pasted type`, and `pasted registry --kind detector` | Definitions, priority, enabled state, and supported validators are manageable. |
-| Smart Actions Enricher | Contextual Smart Actions in Clip Preview | `pasted enricher` and `pasted registry --kind enricher` | Immutable; follows the Transformations feature and interactive policy. |
+| Smart Actions Enricher | Read-only Manage Enrichers dialog plus contextual Smart Actions in Clip Preview | `pasted enricher` and `pasted registry --kind enricher` | Immutable; follows the Transformations feature and interactive policy. |
 | Whole Analyzer | Clip Preview | `pasted analyzer run` and the shared Analysis API | Callers select a bounded policy and optional extraction; they do not invoke passes directly. |
 
-Inspector and Enricher settings are intentionally absent. Inspector output is required by Clip Preview and other participants. Enricher output is useful only when Transformations can consume its stable recommendations, so the existing Transformations feature state is its user-facing control.
+Inspector and Enricher definitions are inspectable but immutable in Settings. Their managers explain what each participant works with and provides, while technical details expose stable references and contracts for CLI and API use. Structure remains always available because Clip Preview depends on it. Smart Actions follows the existing Transformations feature state rather than adding a redundant switch.
 
 ## Automated acceptance
 
@@ -66,7 +66,7 @@ The preview must return only the explicitly requested bounded transcript, classi
 
 ## GUI acceptance
 
-1. Open Settings → Analysis. Confirm Extractors, Detectors, and OCR status are present and that there are no redundant Inspector or Enricher switches. In Manage Extractors, confirm the selected Extractor's concise availability remains visible in the settings header and full remediation appears in its tooltip.
+1. Open Settings → Analysis. Confirm all four participant groups and OCR status are present. Manage Inspectors and Manage Enrichers must be read-only, show practical input/output relationships, keep technical contracts secondary, and add no redundant switches. In Manage Extractors, confirm the selected Extractor's concise availability remains visible in the settings header and full remediation appears in its tooltip.
 2. Select a text clip. Confirm Clip Preview shows character, word, and line statistics without an additional mutation or permission prompt.
 3. Save a Transform whose name or Operations match a bounded Smart Action signal such as URL or JSON. Select a matching text clip and confirm the recommendation appears without executing automatically.
 4. Select an image clip and run OCR explicitly. Confirm progress, success, no-text, failure, retry, and cancellation states settle rather than remaining indefinitely active.

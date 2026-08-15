@@ -30,7 +30,7 @@ Use the exact notarized DMG intended for publication. Do not substitute a develo
 
 ## Content Analysis
 
-- [ ] Settings → Analysis exposes authorable Extractors and Detectors plus OCR status. Extractor Settings keeps concise runtime availability visible in its header. Structure Inspection remains always-on; the Inspector registry reports the selected ffprobe or MediaInfo runtime for Media Metadata; and Smart Actions follows the Transformations feature without redundant participant switches.
+- [ ] Settings → Analysis exposes read-only Inspector and Enricher managers, authorable Extractors and Detectors, and OCR status. The read-only managers lead with practical input/output relationships, keep technical contracts secondary, and add no redundant switches. Extractor Settings keeps concise runtime availability visible in its header. Structure Inspection remains always-on; Media Metadata reports the selected ffprobe or MediaInfo runtime; and Smart Actions follows the Transformations feature.
 - [ ] A text clip shows content-free character, word, and line statistics; a matching saved Transform appears under Smart Actions and is not executed until explicitly selected.
 - [ ] New text capture and `pasted detector run` choose the same Type and Detector. Preview does not mutate; apply and confirmed rescan report the clip mutations they actually commit.
 - [ ] Apple Vision OCR recognizes a high-contrast text image on macOS, returns the same Extractor contract through the GUI and CLI, and makes the stored result searchable after relaunch.
