@@ -34,7 +34,7 @@ Other Settings pages cover:
 - **General:** layout, zoom, row height, retention, sounds, startup, previews, and OS integration;
 - **Hotkeys:** global shortcuts and platform permission status;
 - **Intelligence:** detected and custom intelligence providers;
-- **App Exclusions:** applications that should block selected text, image, file, or shortcut behavior;
+- **App Exclusions:** applications that should block selected text, image, file, or hotkey behavior;
 - **Storage:** database location, complete backup and restore, preflighted History and Organization transfer, Clip and Activity import/export, migration from supported clipboard managers, and Factory Reset;
 - **About:** version, installation paths, signing, runtime, and CLI installation.
 

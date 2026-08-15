@@ -58,20 +58,20 @@ const DEFAULT_SETTINGS: AppSettings = {
 };
 
 const DEFAULT_BLACKLIST_APPS: BlacklistApp[] = [
-  { id: '1', name: '1Password', icon: 'Lock', ignoreText: true, ignoreImages: true, ignoreFiles: true, ignoreShortcuts: false },
-  { id: '2', name: 'Passwords', icon: 'Lock', ignoreText: true, ignoreImages: true, ignoreFiles: true, ignoreShortcuts: false },
-  { id: '3', name: 'Keychain Access', icon: 'Key', ignoreText: true, ignoreImages: true, ignoreFiles: true, ignoreShortcuts: false },
-  { id: '4', name: 'Bitwarden', icon: 'Shield', ignoreText: true, ignoreImages: true, ignoreFiles: true, ignoreShortcuts: false },
-  { id: '5', name: 'Dashlane', icon: 'Shield', ignoreText: true, ignoreImages: true, ignoreFiles: true, ignoreShortcuts: false },
-  { id: '6', name: 'Enpass', icon: 'Shield', ignoreText: true, ignoreImages: true, ignoreFiles: true, ignoreShortcuts: false },
-  { id: '7', name: 'KeePassXC', icon: 'Shield', ignoreText: true, ignoreImages: true, ignoreFiles: true, ignoreShortcuts: false },
+  { id: '1', name: '1Password', icon: 'Lock', ignoreText: true, ignoreImages: true, ignoreFiles: true, ignoreHotkeys: false },
+  { id: '2', name: 'Passwords', icon: 'Lock', ignoreText: true, ignoreImages: true, ignoreFiles: true, ignoreHotkeys: false },
+  { id: '3', name: 'Keychain Access', icon: 'Key', ignoreText: true, ignoreImages: true, ignoreFiles: true, ignoreHotkeys: false },
+  { id: '4', name: 'Bitwarden', icon: 'Shield', ignoreText: true, ignoreImages: true, ignoreFiles: true, ignoreHotkeys: false },
+  { id: '5', name: 'Dashlane', icon: 'Shield', ignoreText: true, ignoreImages: true, ignoreFiles: true, ignoreHotkeys: false },
+  { id: '6', name: 'Enpass', icon: 'Shield', ignoreText: true, ignoreImages: true, ignoreFiles: true, ignoreHotkeys: false },
+  { id: '7', name: 'KeePassXC', icon: 'Shield', ignoreText: true, ignoreImages: true, ignoreFiles: true, ignoreHotkeys: false },
 ];
 
 function normalizeBlacklistApps(value: unknown): BlacklistApp[] {
   if (!Array.isArray(value)) return DEFAULT_BLACKLIST_APPS;
   return value.flatMap((entry, index) => {
     if (typeof entry === 'string' && entry.trim()) {
-      return [{ id: `legacy-${index}`, name: entry, icon: 'Lock', ignoreText: true, ignoreImages: true, ignoreFiles: true, ignoreShortcuts: false }];
+      return [{ id: `legacy-${index}`, name: entry, icon: 'Lock', ignoreText: true, ignoreImages: true, ignoreFiles: true, ignoreHotkeys: false }];
     }
     if (!entry || typeof entry !== 'object') return [];
     const rule = entry as Partial<BlacklistApp>;
@@ -83,7 +83,7 @@ function normalizeBlacklistApps(value: unknown): BlacklistApp[] {
       ignoreText: rule.ignoreText !== false,
       ignoreImages: rule.ignoreImages !== false,
       ignoreFiles: rule.ignoreFiles !== false,
-      ignoreShortcuts: rule.ignoreShortcuts === true,
+      ignoreHotkeys: rule.ignoreHotkeys === true,
     }];
   });
 }
@@ -395,7 +395,7 @@ export function useAppSettings() {
       ignoreText: true,
       ignoreImages: true,
       ignoreFiles: true,
-      ignoreShortcuts: false,
+      ignoreHotkeys: false,
     }]);
   }, []);
 
@@ -404,7 +404,7 @@ export function useAppSettings() {
     setBlacklistApps((current) => current.filter((app) => app.id !== id));
   }, []);
 
-  const toggleBlacklistRule = useCallback((id: string, rule: 'ignoreText' | 'ignoreImages' | 'ignoreFiles' | 'ignoreShortcuts') => {
+  const toggleBlacklistRule = useCallback((id: string, rule: 'ignoreText' | 'ignoreImages' | 'ignoreFiles' | 'ignoreHotkeys') => {
     blacklistChangedRef.current = true;
     setBlacklistApps((current) => current.map((app) => app.id === id ? { ...app, [rule]: !app[rule] } : app));
   }, []);

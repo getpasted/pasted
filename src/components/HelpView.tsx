@@ -478,7 +478,7 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
                 <section className="theme-panel space-y-3 rounded-xl border p-4">
                   <h4 className="theme-status-warning-text text-xs font-bold">Auto-pause and app exclusions</h4>
                   <p className="theme-text-main text-xs leading-relaxed">
-                    Common password managers such as <strong>1Password</strong>, <strong>Keychain Access</strong>, <strong>Passwords</strong>, and <strong>Bitwarden</strong> are excluded by default. Text, images, files, and app shortcuts can be blocked independently.
+                    Common password managers such as <strong>1Password</strong>, <strong>Keychain Access</strong>, <strong>Passwords</strong>, and <strong>Bitwarden</strong> are excluded by default. Text, images, files, and hotkeys can be blocked independently.
                   </p>
                   <p className="theme-text-muted text-xs leading-relaxed">
                     Blocking every content kind presents as an automatic capture pause; partial rules skip only the selected kinds. Native Wayland sessions cannot identify the globally focused app, so App Exclusions cannot be enforced there.
