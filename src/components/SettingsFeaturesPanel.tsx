@@ -32,6 +32,7 @@ import { SettingsPanelHeader } from './SettingsPanelHeader';
 import { SettingsSectionHeading } from './SettingsSectionHeading';
 import { SettingsSwitch } from './SettingsSwitch';
 import { InfoPopover } from './InfoPopover';
+import { SettingsPanelNote } from './SettingsPanelNote';
 
 const FEATURE_ICONS = {
   analytics: BarChart3,
@@ -71,7 +72,7 @@ export function SettingsFeaturesPanel({ settings, onUpdateSettings }: SettingsFe
       <SettingsPanelHeader
         icon={Cable}
         title="Functionality"
-        description="Choose a focused setup or enable more powerful workflows. Hidden features keep their existing data."
+        description="Choose which features are available."
         actions={(
           <div className="theme-surface flex rounded-xl border p-1" aria-label="Feature presets">
             {visiblePresets.map((preset) => (
@@ -140,6 +141,10 @@ export function SettingsFeaturesPanel({ settings, onUpdateSettings }: SettingsFe
           </section>
         ))}
       </div>
+
+      <SettingsPanelNote>
+        Simple enables essential clipboard tools; Full enables every feature. Disabling a feature hides its interface and stops new behavior while preserving existing data unless noted.
+      </SettingsPanelNote>
     </div>
   );
 }

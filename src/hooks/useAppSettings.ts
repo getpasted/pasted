@@ -58,11 +58,35 @@ const DEFAULT_SETTINGS: AppSettings = {
 };
 
 const DEFAULT_BLACKLIST_APPS: BlacklistApp[] = [
-  { id: '1', name: '1Password', icon: 'Lock', ignoreText: true, ignoreImages: true, ignoreShortcuts: false },
-  { id: '2', name: 'Passwords', icon: 'Lock', ignoreText: true, ignoreImages: true, ignoreShortcuts: false },
-  { id: '3', name: 'Keychain Access', icon: 'Key', ignoreText: true, ignoreImages: true, ignoreShortcuts: false },
-  { id: '4', name: 'Bitwarden', icon: 'Shield', ignoreText: true, ignoreImages: true, ignoreShortcuts: false },
+  { id: '1', name: '1Password', icon: 'Lock', ignoreText: true, ignoreImages: true, ignoreFiles: true, ignoreShortcuts: false },
+  { id: '2', name: 'Passwords', icon: 'Lock', ignoreText: true, ignoreImages: true, ignoreFiles: true, ignoreShortcuts: false },
+  { id: '3', name: 'Keychain Access', icon: 'Key', ignoreText: true, ignoreImages: true, ignoreFiles: true, ignoreShortcuts: false },
+  { id: '4', name: 'Bitwarden', icon: 'Shield', ignoreText: true, ignoreImages: true, ignoreFiles: true, ignoreShortcuts: false },
+  { id: '5', name: 'Dashlane', icon: 'Shield', ignoreText: true, ignoreImages: true, ignoreFiles: true, ignoreShortcuts: false },
+  { id: '6', name: 'Enpass', icon: 'Shield', ignoreText: true, ignoreImages: true, ignoreFiles: true, ignoreShortcuts: false },
+  { id: '7', name: 'KeePassXC', icon: 'Shield', ignoreText: true, ignoreImages: true, ignoreFiles: true, ignoreShortcuts: false },
 ];
+
+function normalizeBlacklistApps(value: unknown): BlacklistApp[] {
+  if (!Array.isArray(value)) return DEFAULT_BLACKLIST_APPS;
+  return value.flatMap((entry, index) => {
+    if (typeof entry === 'string' && entry.trim()) {
+      return [{ id: `legacy-${index}`, name: entry, icon: 'Lock', ignoreText: true, ignoreImages: true, ignoreFiles: true, ignoreShortcuts: false }];
+    }
+    if (!entry || typeof entry !== 'object') return [];
+    const rule = entry as Partial<BlacklistApp>;
+    if (typeof rule.name !== 'string' || !rule.name.trim()) return [];
+    return [{
+      id: typeof rule.id === 'string' ? rule.id : `legacy-${index}`,
+      name: rule.name,
+      icon: typeof rule.icon === 'string' ? rule.icon : 'Lock',
+      ignoreText: rule.ignoreText !== false,
+      ignoreImages: rule.ignoreImages !== false,
+      ignoreFiles: rule.ignoreFiles !== false,
+      ignoreShortcuts: rule.ignoreShortcuts === true,
+    }];
+  });
+}
 
 function parseSavedSettings(saved: Record<string, string>) {
   const next = { ...DEFAULT_SETTINGS };
@@ -139,7 +163,7 @@ function parseSavedSettings(saved: Record<string, string>) {
 function readCachedBlacklist() {
   try {
     const parsed = JSON.parse(localStorage.getItem('pasted_cache_blacklist_apps') ?? 'null');
-    return Array.isArray(parsed) ? parsed as BlacklistApp[] : DEFAULT_BLACKLIST_APPS;
+    return normalizeBlacklistApps(parsed);
   } catch {
     return DEFAULT_BLACKLIST_APPS;
   }
@@ -188,7 +212,7 @@ export function useAppSettings() {
         if (saved.blacklistApps && !blacklistChangedRef.current) {
           try {
             const parsed = JSON.parse(saved.blacklistApps);
-            if (Array.isArray(parsed)) setBlacklistApps(parsed);
+            if (Array.isArray(parsed)) setBlacklistApps(normalizeBlacklistApps(parsed));
           } catch (error) {
             console.error('Failed to restore blacklist settings:', error);
           }
@@ -370,6 +394,7 @@ export function useAppSettings() {
       icon: 'Lock',
       ignoreText: true,
       ignoreImages: true,
+      ignoreFiles: true,
       ignoreShortcuts: false,
     }]);
   }, []);
@@ -379,7 +404,7 @@ export function useAppSettings() {
     setBlacklistApps((current) => current.filter((app) => app.id !== id));
   }, []);
 
-  const toggleBlacklistRule = useCallback((id: string, rule: 'ignoreText' | 'ignoreImages' | 'ignoreShortcuts') => {
+  const toggleBlacklistRule = useCallback((id: string, rule: 'ignoreText' | 'ignoreImages' | 'ignoreFiles' | 'ignoreShortcuts') => {
     blacklistChangedRef.current = true;
     setBlacklistApps((current) => current.map((app) => app.id === id ? { ...app, [rule]: !app[rule] } : app));
   }, []);

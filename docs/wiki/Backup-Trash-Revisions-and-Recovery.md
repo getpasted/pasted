@@ -17,7 +17,7 @@ Revisions record content-changing actions and enough organization context to und
 
 ## Full backup and restore
 
-**Settings → Storage → Full Backup and Restore** creates an exact recovery point: a validated SQLite snapshot of all durable state owned by Pasted, plus saved interface/window state. This includes clips in History and Trash, stored clipboard images, all Bins and ordering, revisions, Activity, settings and hotkeys, blacklist rules, Copy Queue state, Transforms, Operations, automations, execution history, OCR state, Extractors, Classifiers, derived Analysis classifications, Content Types, and intelligence connection setup.
+**Settings → Storage → Full Backup and Restore** creates an exact recovery point: a validated SQLite snapshot of all durable state owned by Pasted, plus saved interface/window state. This includes clips in History and Trash, stored clipboard images, all Bins and ordering, revisions, Activity, settings and hotkeys, App Exclusion rules, Copy Queue state, Transforms, Operations, automations, execution history, OCR state, Extractors, Classifiers, derived Analysis classifications, Content Types, and intelligence connection setup.
 
 Full Restore replaces the current state only after the selected backup passes format and SQLite integrity checks. Before replacement, Pasted creates another complete backup of the current state beside the active database. The CLI equivalents are `pasted backup create <path.pastedbackup>` and `pasted backup restore <path.pastedbackup> --yes`.
 

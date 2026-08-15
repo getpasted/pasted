@@ -25,7 +25,7 @@ The [Pasted Wiki](https://github.com/getpasted/pasted/wiki) covers installation,
 
 Clipboard history, settings, revisions, previews, and activity data are stored locally in SQLite. **Pasted has no analytics or telemetry**.
 
-Password managers and other sensitive apps are ignored by the default blacklist. Capture size, preview size, history retention, Trash retention, revisions, OCR, and content classification are bounded or configurable. Protected clips will remain, regardless of retention settings.
+Password managers and other sensitive apps are ignored by default App Exclusions. Capture size, preview size, history retention, Trash retention, revisions, OCR, and content classification are bounded or configurable. Protected clips will remain, regardless of retention settings.
 
 Pasted sends your private clip content outside the app only when you _explicitly_ run an intelligence-assisted transform through a connection you manually enabled. Connection credentials remain with the provider, operating system, or authenticated command-line tool; Pasted stores references rather than API keys.
 
