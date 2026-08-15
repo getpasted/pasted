@@ -6,12 +6,13 @@ import { SettingsPanelHeader } from './SettingsPanelHeader';
 import { OverflowText } from './OverflowText';
 import { ActionButton } from './AppDialogLayout';
 import { SettingsAccentTile } from './SettingsAccentTile';
+import { SettingsPanelNote } from './SettingsPanelNote';
 
 interface SettingsBlacklistPanelProps {
   apps: BlacklistApp[];
   onAddApp: (appName: string) => void;
   onRemoveApp: (appId: string) => void;
-  onToggleRule: (appId: string, rule: 'ignoreText' | 'ignoreImages' | 'ignoreShortcuts') => void;
+  onToggleRule: (appId: string, rule: 'ignoreText' | 'ignoreImages' | 'ignoreFiles' | 'ignoreShortcuts') => void;
 }
 
 const suggestedApps = [
@@ -78,7 +79,7 @@ export function SettingsBlacklistPanel({
               <OverflowText text={app.name} className="truncate font-semibold theme-text-main" />
             </div>
 
-            <div className="flex shrink-0 items-center space-x-4">
+            <div className="flex shrink-0 flex-wrap items-center justify-end gap-x-4 gap-y-2">
               <label className="flex items-center space-x-1.5 cursor-pointer theme-text-muted">
                 <input
                   type="checkbox"
@@ -109,6 +110,16 @@ export function SettingsBlacklistPanel({
                 <span>Images</span>
               </label>
 
+              <label className="flex items-center space-x-1.5 cursor-pointer theme-text-main font-medium">
+                <input
+                  type="checkbox"
+                  checked={app.ignoreFiles}
+                  onChange={() => onToggleRule(app.id, 'ignoreFiles')}
+                  className="theme-checkbox w-3.5 h-3.5 cursor-pointer rounded"
+                />
+                <span>Files</span>
+              </label>
+
               <button
                 type="button"
                 onClick={() => onRemoveApp(app.id)}
@@ -123,9 +134,9 @@ export function SettingsBlacklistPanel({
         ))}
       </div>
 
-      <p className="theme-surface rounded-xl border p-4 text-[11px] theme-text-muted leading-relaxed">
-        Apps that mark sensitive data as transient (like 1Password) are already ignored. Checked content is not captured, and checked shortcuts do not activate while these apps are focused.
-      </p>
+      <SettingsPanelNote>
+        Common password managers, including 1Password, are excluded by default. Checked content is not captured, and checked shortcuts do not activate while these apps are focused.
+      </SettingsPanelNote>
 
       {isAddAppOpen && (
         <AddBlacklistAppModal

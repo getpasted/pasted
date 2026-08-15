@@ -5,8 +5,13 @@ const config = JSON.parse(fs.readFileSync('src-tauri/tauri.conf.json', 'utf8'));
 const appSource = fs.readFileSync('src/App.tsx', 'utf8');
 const rootSource = fs.readFileSync('src/main.tsx', 'utf8');
 const monitorSource = fs.readFileSync('src-tauri/src/clipboard_monitor.rs', 'utf8');
+const exclusionsNativeSource = fs.readFileSync('src-tauri/src/app_exclusions.rs', 'utf8');
+const hotkeySource = fs.readFileSync('src-tauri/src/hotkey_manager.rs', 'utf8');
+const pasteTargetSource = fs.readFileSync('src-tauri/src/paste_target.rs', 'utf8');
 const settingsSource = fs.readFileSync('src/hooks/useAppSettings.ts', 'utf8');
 const panelSource = fs.readFileSync('src/components/SettingsNotificationsPanel.tsx', 'utf8');
+const exclusionsSource = fs.readFileSync('src/components/SettingsBlacklistPanel.tsx', 'utf8');
+const panelNoteSource = fs.readFileSync('src/components/SettingsPanelNote.tsx', 'utf8');
 const overlaySource = fs.readFileSync('src/components/CaptureFeedbackWindow.tsx', 'utf8');
 const tabsSource = fs.readFileSync('src/components/SettingsTabs.tsx', 'utf8');
 const capabilitiesSource = fs.readFileSync('src-tauri/capabilities/default.json', 'utf8');
@@ -52,6 +57,29 @@ assert.doesNotMatch(appSource, /CaptureFeedbackWindow/);
 assert.match(rootSource, /rootView === "capture-feedback"/);
 assert.match(rootSource, /<CaptureFeedbackRoot/);
 assert.match(panelSource, /never exposes copied text, images, file names, or paths to system notifications\./);
+assert.match(panelSource, /<SettingsPanelNote>/, 'Notifications must use the shared Settings note well');
+assert.match(exclusionsSource, /<SettingsPanelNote>/, 'App Exclusions must use the shared Settings note well');
+assert.match(panelNoteSource, /theme-surface theme-text-muted rounded-xl border p-4 text-\[11px\] leading-relaxed/,
+  'Settings note wells must share one semantic surface and layout');
+for (const rule of ['ignoreText', 'ignoreImages', 'ignoreFiles', 'ignoreShortcuts']) {
+  assert.match(exclusionsSource, new RegExp(rule), `App Exclusions must expose the ${rule} rule`);
+}
+for (const kind of ['Text', 'Image', 'Files']) {
+  assert.match(monitorSource, new RegExp(`ExcludedCaptureKind::${kind}`),
+    `Clipboard capture must enforce the ${kind} App Exclusion rule`);
+}
+assert.doesNotMatch(monitorSource, /from_str::<Vec<String>>\(&blacklist_json\)/,
+  'Clipboard capture must not bypass structured App Exclusion rules with the obsolete string-list parser');
+assert.match(hotkeySource, /app_exclusions::should_ignore_shortcuts/,
+  'Every native and portal hotkey action must honor App Exclusions before dispatch');
+assert.match(exclusionsNativeSource, /explicit_empty_lists_remain_empty/,
+  'Removing every App Exclusion must not silently restore defaults');
+assert.match(exclusionsNativeSource, /older_object_rules_default_files_to_excluded/,
+  'Saved rules from before the Files control must preserve their existing capture protection');
+assert.match(pasteTargetSource, /QueryFullProcessImageNameW/,
+  'Windows App Exclusions must match the focused executable rather than its changing window title');
+assert.match(pasteTargetSource, /getwindowclassname/,
+  'X11 App Exclusions must match the focused application class rather than its changing window title');
 assert.doesNotMatch(panelSource, /capture-feedback-preview/);
 assert.match(overlaySource, /clipboard-capture-feedback/);
 assert.match(overlaySource, /is-global-pointer-hover/);

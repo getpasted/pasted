@@ -1,5 +1,6 @@
 pub mod analysis_contract;
 pub mod analysis_execution;
+mod app_exclusions;
 mod app_menu;
 pub mod bin_assignment;
 pub mod classification_execution;

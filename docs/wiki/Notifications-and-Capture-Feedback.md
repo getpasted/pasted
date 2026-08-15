@@ -21,7 +21,7 @@ The dismissal countdown pauses while the pointer is over a preview. Controls tha
 
 Capture feedback is a Pasted window and stays on the device. Pasted does not expose copied text, images, file names, or paths through operating-system notification services.
 
-When **Show clip preview** is enabled, the local feedback window can visibly display the copied item. Disable previews before screen sharing or when on-screen content should remain concealed. Password-manager and sensitive-application capture rules remain governed separately by the blacklist and auto-pause behavior.
+When **Show clip preview** is enabled, the local feedback window can visibly display the copied item. Disable previews before screen sharing or when on-screen content should remain concealed. Password-manager and sensitive-application capture rules remain governed separately by App Exclusions and auto-pause behavior.
 
 ## Preview actions and safety
 

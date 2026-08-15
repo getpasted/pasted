@@ -8,6 +8,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter};
 
+use crate::app_exclusions::{AppExclusionRule, ExcludedCaptureKind};
 use crate::db::DbState;
 use crate::sequential_paste::SequentialQueueState;
 
@@ -53,6 +54,26 @@ fn report_ignored_capture(app: &AppHandle, db: &DbState, reason: &str) {
 
 fn report_failed_capture(app: &AppHandle, db: &DbState) {
     emit_capture_feedback(app, db, CaptureFeedbackKind::Failure, None);
+}
+
+fn ignore_excluded_capture(
+    app: &AppHandle,
+    db: &DbState,
+    active_app: Option<&str>,
+    rule: Option<&AppExclusionRule>,
+    kind: ExcludedCaptureKind,
+) -> bool {
+    if !rule.is_some_and(|rule| crate::app_exclusions::ignores_capture(rule, kind)) {
+        return false;
+    }
+    if let Some(active_app) = active_app {
+        let _ = app.emit(
+            "blacklist-clip-ignored",
+            serde_json::json!({ "app_name": active_app }),
+        );
+    }
+    emit_capture_feedback(app, db, CaptureFeedbackKind::Ignored, None);
+    true
 }
 
 fn configured_capture_bytes(db: &DbState) -> usize {
@@ -251,53 +272,23 @@ pub fn start_clipboard_monitor(
             thread::sleep(Duration::from_millis(300));
 
             let active_app_opt = crate::paste_target::active_application_name();
+            let exclusion_rules = crate::app_exclusions::load_rules(&db_state);
+            let active_exclusion = active_app_opt.as_deref().and_then(|active_app| {
+                crate::app_exclusions::matching_rule(&exclusion_rules, active_app)
+            });
+            let fully_excluded_app = active_app_opt.as_ref().filter(|_| {
+                active_exclusion.is_some_and(crate::app_exclusions::ignores_all_capture)
+            });
 
-            // Auto-Pause & Auto-Resume on Blacklisted Application Focus Change
-            if let Some(ref active_app) = active_app_opt {
-                let active_app_lower = active_app.to_lowercase();
-
-                let mut blacklisted_names = Vec::new();
-                if let Ok(Some(blacklist_json)) = db_state.get_setting("blacklistApps") {
-                    if let Ok(val) = serde_json::from_str::<serde_json::Value>(&blacklist_json) {
-                        if let Some(arr) = val.as_array() {
-                            for item in arr {
-                                if let Some(s) = item.as_str() {
-                                    blacklisted_names.push(s.to_string());
-                                } else if let Some(s) = item.get("name").and_then(|n| n.as_str()) {
-                                    blacklisted_names.push(s.to_string());
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // Built-in default sensitive apps if blacklist settings haven't been saved yet
-                if blacklisted_names.is_empty() {
-                    blacklisted_names = vec![
-                        "1password".to_string(),
-                        "passwords".to_string(),
-                        "keychain access".to_string(),
-                        "bitwarden".to_string(),
-                        "dashlane".to_string(),
-                        "enpass".to_string(),
-                        "keepassxc".to_string(),
-                    ];
-                }
-
-                let is_blacklisted = blacklisted_names.iter().any(|b| {
-                    let b_lower = b.to_lowercase();
-                    !b_lower.is_empty()
-                        && (active_app_lower == b_lower
-                            || active_app_lower.contains(&b_lower)
-                            || b_lower.contains(&active_app_lower))
-                });
-
-                if is_blacklisted && auto_paused_app.is_none() {
+            // Only a rule that excludes every capture kind presents as a full recording pause.
+            // Partial rules remain active below and suppress only their selected clipboard kind.
+            if let Some(active_app) = fully_excluded_app {
+                if auto_paused_app.as_deref() != Some(active_app.as_str()) {
                     is_auto_paused_clone.store(true, Ordering::Relaxed);
                     auto_paused_app = Some(active_app.clone());
                     let _ = db_state.log_activity(
                         "recording_auto_paused",
-                        &format!("Auto-paused recording for blacklisted app: {}", active_app),
+                        &format!("Auto-paused recording for excluded app: {}", active_app),
                     );
                     let _ = app.emit(
                         "clipboard-pause-changed",
@@ -306,23 +297,21 @@ pub fn start_clipboard_monitor(
                             "auto_paused_by": active_app
                         }),
                     );
-                } else if !is_blacklisted && auto_paused_app.is_some() {
-                    if let Some(prev_app) = auto_paused_app.take() {
-                        is_auto_paused_clone.store(false, Ordering::Relaxed);
-                        let _ = db_state.log_activity(
-                            "recording_auto_resumed",
-                            &format!("Auto-resumed recording after leaving {}", prev_app),
-                        );
-                        let is_still_paused = is_manually_paused_clone.load(Ordering::Relaxed);
-                        let _ = app.emit(
-                            "clipboard-pause-changed",
-                            serde_json::json!({
-                                "is_paused": is_still_paused,
-                                "auto_paused_by": serde_json::Value::Null
-                            }),
-                        );
-                    }
                 }
+            } else if let Some(prev_app) = auto_paused_app.take() {
+                is_auto_paused_clone.store(false, Ordering::Relaxed);
+                let _ = db_state.log_activity(
+                    "recording_auto_resumed",
+                    &format!("Auto-resumed recording after leaving {}", prev_app),
+                );
+                let is_still_paused = is_manually_paused_clone.load(Ordering::Relaxed);
+                let _ = app.emit(
+                    "clipboard-pause-changed",
+                    serde_json::json!({
+                        "is_paused": is_still_paused,
+                        "auto_paused_by": serde_json::Value::Null
+                    }),
+                );
             }
 
             if is_manually_paused_clone.load(Ordering::Relaxed)
@@ -446,29 +435,13 @@ pub fn start_clipboard_monitor(
                         continue;
                     }
 
-                    let is_blacklisted = active_app_opt.as_ref().is_some_and(|active_app| {
-                        db_state
-                            .get_setting("blacklistApps")
-                            .ok()
-                            .flatten()
-                            .and_then(|json| serde_json::from_str::<Vec<String>>(&json).ok())
-                            .is_some_and(|entries| {
-                                let active_app = active_app.to_lowercase();
-                                entries.iter().any(|entry| {
-                                    let entry = entry.to_lowercase();
-                                    !entry.is_empty()
-                                        && (active_app == entry || active_app.contains(&entry))
-                                })
-                            })
-                    });
-                    if is_blacklisted {
-                        if let Some(active_app) = active_app_opt.as_ref() {
-                            let _ = app.emit(
-                                "blacklist-clip-ignored",
-                                serde_json::json!({ "app_name": active_app }),
-                            );
-                        }
-                        emit_capture_feedback(&app, &db_state, CaptureFeedbackKind::Ignored, None);
+                    if ignore_excluded_capture(
+                        &app,
+                        &db_state,
+                        active_app_opt.as_deref(),
+                        active_exclusion,
+                        ExcludedCaptureKind::Files,
+                    ) {
                         continue;
                     }
 
@@ -562,34 +535,14 @@ pub fn start_clipboard_monitor(
                             continue;
                         }
 
-                        // Check blacklist
-                        if let Some(ref active_app) = active_app_opt {
-                            if let Ok(Some(blacklist_json)) = db_state.get_setting("blacklistApps")
-                            {
-                                if let Ok(blacklisted_list) =
-                                    serde_json::from_str::<Vec<String>>(&blacklist_json)
-                                {
-                                    let active_app_lower = active_app.to_lowercase();
-                                    if blacklisted_list.iter().any(|b| {
-                                        let b_lower = b.to_lowercase();
-                                        !b_lower.is_empty()
-                                            && (active_app_lower == b_lower
-                                                || active_app_lower.contains(&b_lower))
-                                    }) {
-                                        let _ = app.emit(
-                                            "blacklist-clip-ignored",
-                                            serde_json::json!({ "app_name": active_app }),
-                                        );
-                                        emit_capture_feedback(
-                                            &app,
-                                            &db_state,
-                                            CaptureFeedbackKind::Ignored,
-                                            None,
-                                        );
-                                        continue;
-                                    }
-                                }
-                            }
+                        if ignore_excluded_capture(
+                            &app,
+                            &db_state,
+                            active_app_opt.as_deref(),
+                            active_exclusion,
+                            ExcludedCaptureKind::Text,
+                        ) {
+                            continue;
                         }
 
                         // If sequential mode active, push to queue as well
@@ -699,33 +652,14 @@ pub fn start_clipboard_monitor(
                         continue;
                     }
 
-                    // Check blacklist
-                    if let Some(ref active_app) = active_app_opt {
-                        if let Ok(Some(blacklist_json)) = db_state.get_setting("blacklistApps") {
-                            if let Ok(blacklisted_list) =
-                                serde_json::from_str::<Vec<String>>(&blacklist_json)
-                            {
-                                let active_app_lower = active_app.to_lowercase();
-                                if blacklisted_list.iter().any(|b| {
-                                    let b_lower = b.to_lowercase();
-                                    !b_lower.is_empty()
-                                        && (active_app_lower == b_lower
-                                            || active_app_lower.contains(&b_lower))
-                                }) {
-                                    let _ = app.emit(
-                                        "blacklist-clip-ignored",
-                                        serde_json::json!({ "app_name": active_app }),
-                                    );
-                                    emit_capture_feedback(
-                                        &app,
-                                        &db_state,
-                                        CaptureFeedbackKind::Ignored,
-                                        None,
-                                    );
-                                    continue;
-                                }
-                            }
-                        }
+                    if ignore_excluded_capture(
+                        &app,
+                        &db_state,
+                        active_app_opt.as_deref(),
+                        active_exclusion,
+                        ExcludedCaptureKind::Image,
+                    ) {
+                        continue;
                     }
 
                     if let Some(img_bytes) = rgba_to_png(width, height, &raw_bytes) {

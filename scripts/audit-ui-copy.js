@@ -100,6 +100,7 @@ assert.deepEqual(
 const settingsImportExport = fs.readFileSync('src/components/SettingsSyncPanel.tsx', 'utf8');
 const settingsTabs = fs.readFileSync('src/components/SettingsTabs.tsx', 'utf8');
 const settingsHotkeys = fs.readFileSync('src/components/SettingsHotkeysPanel.tsx', 'utf8');
+const settingsFeatures = fs.readFileSync('src/components/SettingsFeaturesPanel.tsx', 'utf8');
 const helpView = fs.readFileSync('src/components/HelpView.tsx', 'utf8');
 const app = fs.readFileSync('src/App.tsx', 'utf8');
 const nativeMenu = fs.readFileSync('src-tauri/src/app_menu.rs', 'utf8');
@@ -122,6 +123,10 @@ for (const file of canonicalAnalysisCopyFiles) {
   }
 }
 assert.match(settingsHotkeys, />Reset<\/span>/, 'Hotkeys must use the shared Reset label');
+assert.match(settingsFeatures, /description="Choose which features are available\."/,
+  'Functionality must keep its header description concise');
+assert.match(settingsFeatures, /<SettingsPanelNote>[\s\S]*preserving existing data unless noted\.[\s\S]*<\/SettingsPanelNote>/,
+  'Functionality must move preset and preservation guidance into the shared Settings note well');
 for (const [menuId, topic, label] of [
   ['help.getting_started', 'getting-started', 'Getting Started'],
   ['help.shortcuts', 'shortcuts-hud', 'Shortcuts and HUD'],

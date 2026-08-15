@@ -205,7 +205,7 @@ impl PasteTargetState {
 
 /// Best-effort name of the application that currently owns keyboard focus.
 ///
-/// Clipboard capture uses this shared platform adapter for blacklist behavior,
+/// Clipboard capture uses this shared platform adapter for App Exclusions,
 /// while Queue and HUD paste retain the richer target record above.
 pub(crate) fn active_application_name() -> Option<String> {
     #[cfg(target_os = "macos")]
@@ -215,7 +215,8 @@ pub(crate) fn active_application_name() -> Option<String> {
 
     #[cfg(target_os = "windows")]
     {
-        frontmost_application().map(|target| target.name)
+        frontmost_application()
+            .and_then(|target| windows_application_name(target.pid).or(Some(target.name)))
     }
 
     #[cfg(target_os = "linux")]
@@ -226,9 +227,10 @@ pub(crate) fn active_application_name() -> Option<String> {
         if is_native_wayland_session() {
             return None;
         }
-        active_x11_window_id()
-            .and_then(x11_application_for_window)
-            .map(|target| target.name)
+        active_x11_window_id().and_then(|window_id| {
+            x11_application_name_for_window(window_id)
+                .or_else(|| x11_application_for_window(window_id).map(|target| target.name))
+        })
     }
 
     #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
@@ -435,6 +437,32 @@ fn frontmost_application() -> Option<PasteTarget> {
 }
 
 #[cfg(target_os = "windows")]
+fn windows_application_name(pid: i32) -> Option<String> {
+    use std::ffi::OsString;
+    use std::os::windows::ffi::OsStringExt;
+    use std::path::Path;
+
+    const PROCESS_QUERY_LIMITED_INFORMATION: u32 = 0x1000;
+    let process = unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid as u32) };
+    if process == 0 {
+        return None;
+    }
+    let mut buffer = vec![0u16; 32_768];
+    let mut length = buffer.len() as u32;
+    let success =
+        unsafe { QueryFullProcessImageNameW(process, 0, buffer.as_mut_ptr(), &mut length) != 0 };
+    unsafe { CloseHandle(process) };
+    if !success || length == 0 {
+        return None;
+    }
+    let path = OsString::from_wide(&buffer[..length as usize]);
+    Path::new(&path)
+        .file_stem()
+        .and_then(|name| name.to_str())
+        .map(str::to_string)
+}
+
+#[cfg(target_os = "windows")]
 fn paste_to_target(target: &PasteTarget, action: PasteAction) -> Result<(), String> {
     let handle = target.native_handle as isize;
     if handle == 0
@@ -471,6 +499,19 @@ extern "system" {
     fn IsWindow(window: isize) -> i32;
     fn SetForegroundWindow(window: isize) -> i32;
     fn keybd_event(virtual_key: u8, scan_code: u8, flags: u32, extra_info: usize);
+}
+
+#[cfg(target_os = "windows")]
+#[link(name = "kernel32")]
+extern "system" {
+    fn OpenProcess(desired_access: u32, inherit_handle: i32, process_id: u32) -> isize;
+    fn QueryFullProcessImageNameW(
+        process: isize,
+        flags: u32,
+        executable_name: *mut u16,
+        size: *mut u32,
+    ) -> i32;
+    fn CloseHandle(object: isize) -> i32;
 }
 
 #[cfg(target_os = "linux")]
@@ -516,6 +557,19 @@ fn x11_application_for_window(window_id: u64) -> Option<PasteTarget> {
             name
         },
     ))
+}
+
+#[cfg(target_os = "linux")]
+fn x11_application_name_for_window(window_id: u64) -> Option<String> {
+    let output = std::process::Command::new("xdotool")
+        .args(["getwindowclassname", &window_id.to_string()])
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let name = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    (!name.is_empty()).then_some(name)
 }
 
 #[cfg(target_os = "linux")]
