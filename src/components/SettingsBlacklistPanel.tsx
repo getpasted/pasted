@@ -1,12 +1,15 @@
-import { useState } from 'react';
-import { Lock, Plus, Trash2 } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { Check, ChevronDown, Lock, Plus, Trash2 } from 'lucide-react';
 import type { BlacklistApp } from '../types';
 import { AddBlacklistAppModal } from './AddBlacklistAppModal';
+import { AnchoredMenu, MenuDivider, MenuItem } from './AnchoredMenu';
 import { SettingsPanelHeader } from './SettingsPanelHeader';
 import { OverflowText } from './OverflowText';
 import { ActionButton } from './AppDialogLayout';
 import { SettingsAccentTile } from './SettingsAccentTile';
 import { SettingsPanelNote } from './SettingsPanelNote';
+import { ConfirmationDialog, type ConfirmationDialogRequest } from './ConfirmationDialog';
+import { ConnectedMenuAction } from './ConnectedMenuAction';
 
 interface SettingsBlacklistPanelProps {
   apps: BlacklistApp[];
@@ -34,6 +37,100 @@ const suggestedApps = [
   },
 ];
 
+type ExclusionRule = 'ignoreText' | 'ignoreImages' | 'ignoreFiles' | 'ignoreShortcuts';
+
+const exclusionOptions: Array<{ label: string; rule: ExclusionRule }> = [
+  { label: 'Text', rule: 'ignoreText' },
+  { label: 'Images', rule: 'ignoreImages' },
+  { label: 'Files', rule: 'ignoreFiles' },
+];
+
+function AppExclusionMenu({
+  app,
+  onRemove,
+  onToggle,
+}: {
+  app: BlacklistApp;
+  onRemove: () => void;
+  onToggle: (rule: ExclusionRule) => void;
+}) {
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const [isOpen, setIsOpen] = useState(false);
+  const captureLabels = exclusionOptions.filter(({ rule }) => app[rule]).map(({ label }) => label);
+  const activeCount = captureLabels.length + Number(app.ignoreShortcuts);
+  const summary = activeCount === 0
+    ? 'Nothing'
+    : captureLabels.length === exclusionOptions.length && app.ignoreShortcuts
+      ? 'Everything'
+      : captureLabels.length === exclusionOptions.length
+        ? 'All content'
+        : [...captureLabels, ...(app.ignoreShortcuts ? ['Shortcuts'] : [])].join(', ');
+
+  const renderOption = ({ label, rule }: { label: string; rule: ExclusionRule }) => {
+    const active = app[rule];
+    return (
+      <MenuItem
+        key={rule}
+        role="menuitemcheckbox"
+        aria-checked={active}
+        active={active}
+        className="gap-2 px-2.5 py-2"
+        onClick={() => onToggle(rule)}
+      >
+        <span className="min-w-0 flex-1">{label}</span>
+        <span className="grid h-3.5 w-3.5 shrink-0 place-items-center" aria-hidden="true">
+          {active && <Check className="h-3.5 w-3.5" />}
+        </span>
+      </MenuItem>
+    );
+  };
+
+  return (
+    <>
+      <ConnectedMenuAction
+        className="w-48"
+        groupLabel={`Exclusions for ${app.name}`}
+        actionLabel={`Remove ${app.name} from App Exclusions`}
+        action={<Trash2 className="h-3.5 w-3.5" aria-hidden="true" />}
+        danger
+        onAction={onRemove}
+      >
+        <button
+          ref={triggerRef}
+          type="button"
+          className="menu-select-trigger theme-focusable flex min-w-0 flex-1 items-center gap-2 rounded-l-lg border px-2.5 text-left"
+          aria-label={`Choose exclusions for ${app.name}`}
+          aria-haspopup="menu"
+          aria-expanded={isOpen}
+          onClick={() => setIsOpen((open) => !open)}
+        >
+          <span className="min-w-0 flex-1 truncate py-2 text-xs font-semibold">{summary}</span>
+          <ChevronDown className={`h-3.5 w-3.5 shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} aria-hidden="true" />
+        </button>
+      </ConnectedMenuAction>
+
+      {isOpen && (
+        <AnchoredMenu
+          anchor={{ kind: 'element', ref: triggerRef, align: 'end' }}
+          ariaLabel={`Exclusions for ${app.name}`}
+          onClose={() => setIsOpen(false)}
+          style={{ width: 208 }}
+        >
+          <div className="theme-text-subtle px-2.5 pb-1 pt-1 text-[10px] font-bold uppercase tracking-wider">
+            Content
+          </div>
+          {exclusionOptions.map(renderOption)}
+          <MenuDivider />
+          <div className="theme-text-subtle px-2.5 pb-1 pt-1 text-[10px] font-bold uppercase tracking-wider">
+            Actions
+          </div>
+          {renderOption({ label: 'Shortcuts', rule: 'ignoreShortcuts' })}
+        </AnchoredMenu>
+      )}
+    </>
+  );
+}
+
 export function SettingsBlacklistPanel({
   apps,
   onAddApp,
@@ -41,6 +138,21 @@ export function SettingsBlacklistPanel({
   onToggleRule,
 }: SettingsBlacklistPanelProps) {
   const [isAddAppOpen, setIsAddAppOpen] = useState(false);
+  const [confirmation, setConfirmation] = useState<ConfirmationDialogRequest | null>(null);
+
+  const requestRemove = (app: BlacklistApp) => {
+    setConfirmation({
+      title: 'Remove app exclusion?',
+      description: `${app.name} will no longer be excluded.`,
+      details: 'Enabled capture and shortcuts will resume while this app is focused.',
+      confirmLabel: 'Remove',
+      tone: 'danger',
+      onConfirm: () => {
+        onRemoveApp(app.id);
+        setConfirmation(null);
+      },
+    });
+  };
 
   return (
     <div className="space-y-5 text-xs">
@@ -79,57 +191,11 @@ export function SettingsBlacklistPanel({
               <OverflowText text={app.name} className="truncate font-semibold theme-text-main" />
             </div>
 
-            <div className="flex shrink-0 flex-wrap items-center justify-end gap-x-4 gap-y-2">
-              <label className="flex items-center space-x-1.5 cursor-pointer theme-text-muted">
-                <input
-                  type="checkbox"
-                  checked={app.ignoreShortcuts}
-                  onChange={() => onToggleRule(app.id, 'ignoreShortcuts')}
-                  className="theme-checkbox w-3.5 h-3.5 cursor-pointer rounded"
-                />
-                <span>Shortcuts</span>
-              </label>
-
-              <label className="flex items-center space-x-1.5 cursor-pointer theme-text-main font-medium">
-                <input
-                  type="checkbox"
-                  checked={app.ignoreText}
-                  onChange={() => onToggleRule(app.id, 'ignoreText')}
-                  className="theme-checkbox w-3.5 h-3.5 cursor-pointer rounded"
-                />
-                <span>Text</span>
-              </label>
-
-              <label className="flex items-center space-x-1.5 cursor-pointer theme-text-main font-medium">
-                <input
-                  type="checkbox"
-                  checked={app.ignoreImages}
-                  onChange={() => onToggleRule(app.id, 'ignoreImages')}
-                  className="theme-checkbox w-3.5 h-3.5 cursor-pointer rounded"
-                />
-                <span>Images</span>
-              </label>
-
-              <label className="flex items-center space-x-1.5 cursor-pointer theme-text-main font-medium">
-                <input
-                  type="checkbox"
-                  checked={app.ignoreFiles}
-                  onChange={() => onToggleRule(app.id, 'ignoreFiles')}
-                  className="theme-checkbox w-3.5 h-3.5 cursor-pointer rounded"
-                />
-                <span>Files</span>
-              </label>
-
-              <button
-                type="button"
-                onClick={() => onRemoveApp(app.id)}
-                className="theme-danger-text theme-icon-button p-1 rounded transition-colors"
-                aria-label={`Remove ${app.name} from App Exclusions`}
-                title="Remove from App Exclusions"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
-            </div>
+            <AppExclusionMenu
+              app={app}
+              onToggle={(rule) => onToggleRule(app.id, rule)}
+              onRemove={() => requestRemove(app)}
+            />
           </div>
         ))}
       </div>
@@ -145,6 +211,7 @@ export function SettingsBlacklistPanel({
           onClose={() => setIsAddAppOpen(false)}
         />
       )}
+      <ConfirmationDialog request={confirmation} onCancel={() => setConfirmation(null)} />
     </div>
   );
 }

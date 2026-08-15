@@ -16,7 +16,7 @@ Notable user-facing changes to Pasted are recorded here. The project follows sem
 - separated structural Clip Type, referenced File Format, and semantic Content Type throughout Analysis, Insights, Functionality, Help, and documentation.
 - aligned Reset, Content Type, Insights, and Help navigation language across dialogs, native menus, CLI messages, and architecture documentation.
 - made App Exclusions enforce independent text, image, file, and shortcut rules, with reliable focused-app identity on macOS, Windows, and X11.
-- unified the Functionality, Notifications, and App Exclusions footer guidance and tightened their Settings copy and row layout.
+- unified Settings footer guidance, connected registry controls, and selected-menu styling while tightening copy and row layout.
 
 ## 1.0.0-rc.5 — 2026-08-12
 

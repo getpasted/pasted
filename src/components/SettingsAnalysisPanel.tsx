@@ -21,6 +21,7 @@ import { useToast } from './ToastProvider';
 import type { ClipContentType } from '../types';
 import { useNewItemSelection } from '../hooks/useNewItemSelection';
 import { BuiltinLifecycleManagerDialog } from './BuiltinLifecycleManagerDialog';
+import { ConnectedMenuAction } from './ConnectedMenuAction';
 
 interface ContentClassifier {
   id: number;
@@ -558,34 +559,37 @@ export function SettingsAnalysisPanel({
               <section className="theme-surface flex min-w-0 flex-col overflow-hidden rounded-xl border">
                 <RegistryPanelHeader
                   title="Classifier Settings"
-                  actions={
-                    <AppDialogButton onClick={() => setIsTypeManagerOpen(true)} className="h-7 min-h-7 shrink-0 px-2.5">
-                      <Shapes className="h-3.5 w-3.5" /> Manage Content Types…
-                    </AppDialogButton>
-                  }
                 />
                 <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
-                <div className="grid grid-cols-1 gap-3 @md:grid-cols-[minmax(0,1fr)_minmax(150px,0.45fr)]">
+                <div className="grid grid-cols-1 gap-3 @md:grid-cols-[minmax(0,1fr)_minmax(270px,0.8fr)]">
                   <label className={`space-y-1 ${modified.name ? 'settings-field-modified' : ''}`}>
                     <ModifiedFieldLabel modified={modified.name}>Name</ModifiedFieldLabel>
                     <input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} className="theme-input ui-field-radius w-full border px-3 py-2" />
                   </label>
                   <div className={`space-y-1 ${modified.content_type ? 'settings-field-modified' : ''}`}>
                     <ModifiedFieldLabel modified={modified.content_type}>Content type</ModifiedFieldLabel>
-                    <MenuSelect
-                      value={draft.content_type}
-                      onChange={(content_type) => setDraft({ ...draft, content_type })}
-                      label="Classifier content type"
-                      leadingIcon={<ContentTypeIcon type={draft.content_type as ClipContentType} className="h-4 w-4" />}
-                      options={contentTypes.map((type) => ({
-                        value: type.id,
-                        label: type.label,
-                        group: contentTypeGroups.find(({ id }) => id === type.group)?.label ?? type.group,
-                        disabled: type.isArchived,
-                        icon: <ContentTypeIcon type={type.id as ClipContentType} className="h-4 w-4" />,
-                      }))}
+                    <ConnectedMenuAction
                       className="w-full"
-                    />
+                      groupLabel="Classifier content type"
+                      actionLabel="Manage Content Types"
+                      action={<><Shapes className="h-3.5 w-3.5" aria-hidden="true" /><span>Manage…</span></>}
+                      onAction={() => setIsTypeManagerOpen(true)}
+                    >
+                      <MenuSelect
+                        value={draft.content_type}
+                        onChange={(content_type) => setDraft({ ...draft, content_type })}
+                        label="Classifier content type"
+                        leadingIcon={<ContentTypeIcon type={draft.content_type as ClipContentType} className="h-4 w-4" />}
+                        options={contentTypes.map((type) => ({
+                          value: type.id,
+                          label: type.label,
+                          group: contentTypeGroups.find(({ id }) => id === type.group)?.label ?? type.group,
+                          disabled: type.isArchived,
+                          icon: <ContentTypeIcon type={type.id as ClipContentType} className="h-4 w-4" />,
+                        }))}
+                        className="min-w-0 flex-1"
+                      />
+                    </ConnectedMenuAction>
                   </div>
                 </div>
                 <label className={`block space-y-1 ${modified.description ? 'settings-field-modified' : ''}`}>

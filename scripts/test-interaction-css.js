@@ -9,12 +9,14 @@ const read = (path) => fs.readFileSync(path, 'utf8');
 const accessibility = read('src/styles/accessibility.css');
 const sidebar = read('src/styles/clips-sidebar.css');
 const theme = read('src/styles/theme-primitives.css');
+const foundation = read('src/styles/foundation.css');
 const utilities = read('src/styles/utilities.css');
 const pipelineEditor = read('src/components/PipelineEditorModal.tsx');
 const reorderHook = read('src/hooks/useStableVerticalReorder.ts');
 const sidebarComponent = read('src/components/Sidebar.tsx');
 const app = read('src/App.tsx');
 const settingsPanelHeader = read('src/components/SettingsPanelHeader.tsx');
+const connectedMenuAction = read('src/components/ConnectedMenuAction.tsx');
 
 const ruleBody = (css, selector) => {
   const start = css.indexOf(selector);
@@ -46,6 +48,13 @@ assert.doesNotMatch(pipelineEditor, /data-stable-reorder-id|onReorderPointerDown
 assert.match(settingsPanelHeader, /settings-section-header flex flex-wrap/);
 assert.match(settingsPanelHeader, /min-w-\[min\(16rem,100%\)\] flex-1/);
 assert.match(settingsPanelHeader, /max-w-full flex-wrap/);
+
+// Connected menu/action controls use shared square mating edges, and selected
+// menu items use an inset ring so neither treatment changes layout geometry.
+assert.match(connectedMenuAction, /connected-menu-action/);
+assert.match(ruleBody(foundation, '.connected-menu-action > button:first-child {'), /border-top-right-radius:\s*0;/);
+assert.match(ruleBody(foundation, '.connected-menu-action > button:last-child {'), /border-top-left-radius:\s*0;/);
+assert.match(ruleBody(theme, '.theme-menu-item.is-selected {'), /box-shadow:\s*inset 0 0 0 1px/);
 
 // Resize mode disables the whole app except the captured divider.
 assert.match(ruleBody(sidebar, '.is-resizing-columns {'), /cursor:\s*col-resize;/);
@@ -104,7 +113,7 @@ const importantLines = [
   ['accessibility', accessibility],
   ['sidebar', sidebar],
   ['theme', theme],
-  ['foundation', read('src/styles/foundation.css')],
+  ['foundation', foundation],
   ['preview', read('src/styles/preview-notes.css')],
 ].flatMap(([name, source]) => source
   .split('\n')

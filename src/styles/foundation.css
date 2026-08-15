@@ -587,3 +587,13 @@
     padding-right: 1.75rem;
   }
 }
+/* Connected menu/action controls keep only their outer corners rounded. */
+.connected-menu-action > button:first-child {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.connected-menu-action > button:last-child {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
