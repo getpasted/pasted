@@ -174,7 +174,7 @@ policy. Silent failure and implicit shell fallback are not supported.
   proposed output and Transform before approval.
 - **Transforms** lists saved Intents using human descriptions and reports whether
   their current Transform is replayable, interpretive, or mixed.
-- **Settings → Connections** manages local engines, cloud providers, CLI
+- **Settings → Intelligence** manages local engines, cloud providers, CLI
   adapters, and credential references behind one provider-neutral contract.
 - **Advanced** may expose Operations and Pipeline steps for inspection,
   debugging, export, and manual repair without making them required concepts.

@@ -28,8 +28,8 @@ Other Settings pages cover:
 
 - **General:** layout, zoom, row height, retention, sounds, startup, previews, and OS integration;
 - **Hotkeys:** global shortcuts and platform permission status;
-- **Connections:** detected and custom intelligence providers;
-- **Blacklist:** applications Pasted should not capture;
+- **Intelligence:** detected and custom intelligence providers;
+- **App Exclusions:** applications Pasted should not capture;
 - **Storage:** database location, complete backup and restore, preflighted History and Organization transfer, Clip and Activity import/export, migration from supported clipboard managers, and Factory Reset;
 - **About:** version, installation paths, signing, runtime, and CLI installation.
 
@@ -37,7 +37,7 @@ Appearance schemes use semantic theme tokens across the main app, HUD, menus, mo
 
 ## Content Analysis
 
-**Settings → Analysis** manages Extractors, ordered Detectors, and the shared Type and Group registries. Extractors create searchable representations without replacing original clip content. IDs are stable: built-in Types and Groups can be renamed and reordered, Types can be assigned searchable icons, and custom entries can be archived. A custom Group must be empty before it can be archived or permanently deleted. Archiving a Type preserves existing clips and disables Detectors that would produce it. Registry metadata does not maintain revision history; changes are recorded in Activity, and **Restore Defaults** recovers shipped metadata without removing custom entries.
+**Settings → Analysis** summarizes all four Analyzer participant groups. Inspectors and Enrichers have read-only managers for their practical input, output, runtime availability, and optional technical contracts. Extractors and ordered Detectors remain authorable, alongside the shared Type and Group registries. Extractors create searchable representations without replacing original clip content. IDs are stable: built-in Types and Groups can be renamed and reordered, Types can be assigned searchable icons, and custom entries can be archived. A custom Group must be empty before it can be archived or permanently deleted. Archiving a Type preserves existing clips and disables Detectors that would produce it. Registry metadata does not maintain revision history; changes are recorded in Activity, and **Restore Defaults** recovers shipped metadata without removing custom entries.
 
 **Rescan Clips** explicitly reapplies enabled detectors to existing text clips. It leaves image and file Types unchanged and reports how many clips were reclassified.
 
