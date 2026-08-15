@@ -20,7 +20,7 @@ Focus the intended destination before opening Pasted/HUD. Pasted stores the last
 
 ## OCR is not offered
 
-OCR applies to captured image content, not arbitrary file references. Confirm OCR is enabled, the item contains previewable image bytes, and the platform supports Apple Vision. Check `pasted ocr status --json`.
+OCR applies to captured image content, not arbitrary file references. Confirm OCR is enabled, the item contains previewable image bytes, and either Apple Vision or Tesseract OCR appears as available under **Settings → Analysis → Manage Extractors**. Install Tesseract 5 when a cross-platform engine is needed, then check `pasted extractor list --json` and `pasted ocr status --json`.
 
 ## Capture feedback does not appear
 

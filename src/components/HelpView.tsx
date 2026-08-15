@@ -582,7 +582,7 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
                     <span>Optical Character Recognition</span>
                   </div>
                   <p className="theme-text-main text-xs leading-relaxed">
-                    OCR uses Apple Vision on macOS to extract searchable text from captured images and screenshots. It does not replace the original image.
+                    OCR uses Apple Vision on macOS or an installed Tesseract 5 executable to extract searchable text from captured images and screenshots. It does not replace the original image.
                   </p>
                   <p className="theme-text-muted text-xs leading-relaxed">
                     Disabling OCR cancels background work and discards late results while preserving completed text. Re-enabling it resumes eligible backfill when an available image text Extractor is enabled. Check progress under Settings → Analysis or with <code>pasted ocr status --json</code>.

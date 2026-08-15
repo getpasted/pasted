@@ -160,11 +160,15 @@ fn persist_image_analysis(
         .failure
         .as_ref()
         .map(|failure| failure.code.as_str());
-    let ocr_updated = db.complete_or_reset_ocr_attempt(
+    let ocr_updated = db.complete_or_reset_ocr_attempt_with_extractor(
         clip_id,
         content_hash,
         analysis.output.as_deref(),
-        &extractor.engine,
+        crate::db::OcrExtractorProvenance::identified(
+            &extractor.engine,
+            &extractor.stable_ref,
+            &extractor.name,
+        ),
         extraction_error,
     )?;
     if !ocr_updated {

@@ -21,12 +21,13 @@ Pasted can cache bounded thumbnails for familiar image formats and the first pag
 
 ## OCR
 
-On macOS, Apple Vision can extract searchable text from clipboard images and screenshots.
+Apple Vision extracts searchable text from clipboard images and screenshots on macOS. Tesseract 5 provides an optional local alternative on macOS, Linux, and Windows. Install it with `brew install tesseract` on Homebrew systems or the distribution's `tesseract-ocr` package on Linux, then reopen or refresh Extractor settings.
 
 - OCR is optional under **Settings → Functionality**.
 - Re-enabling OCR resumes a hash-safe backfill of eligible images.
 - Disabling OCR cancels background work; late results are discarded.
 - Deleting or purging a clip also removes or excludes its OCR lifecycle state.
+- The clip Inspector identifies the Extractor that produced the displayed OCR text. This provenance is also available in clip JSON as `ocr_extractor_ref`, `ocr_extractor_name`, and `ocr_engine_version`.
 - Full Backup and History and Organization transfer round trips preserve completed OCR state.
 
 Use **Settings → Analysis** or `pasted ocr status --json` to inspect background progress. OCR runs only when an available `image → searchable_text` Extractor is enabled.

@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 
 use crate::external_import::ExternalTextClip;
 
-const BACKUP_SCHEMA_VERSION: u32 = 10;
+const BACKUP_SCHEMA_VERSION: u32 = 11;
 const FULL_BACKUP_FORMAT_VERSION: i64 = 1;
 const PENDING_CLIENT_STATE_SETTING: &str = "pendingFullBackupClientState";
 const MAX_BACKUP_INTERFACE_STATE_BYTES: usize = 1024 * 1024;
@@ -210,6 +210,12 @@ pub struct ClipItem {
     pub is_trashed: bool,
     pub trashed_at: Option<String>,
     pub created_at: String,
+    #[serde(default)]
+    pub ocr_extractor_ref: Option<String>,
+    #[serde(default)]
+    pub ocr_extractor_name: Option<String>,
+    #[serde(default)]
+    pub ocr_engine_version: Option<String>,
 }
 
 struct ClipSaveInput<'a> {
@@ -219,6 +225,31 @@ struct ClipSaveInput<'a> {
     image_base64: Option<&'a str>,
     content_hash: &'a str,
     source: &'a str,
+}
+
+#[derive(Clone, Copy)]
+pub struct OcrExtractorProvenance<'a> {
+    pub engine_version: &'a str,
+    pub stable_ref: Option<&'a str>,
+    pub name: Option<&'a str>,
+}
+
+impl<'a> OcrExtractorProvenance<'a> {
+    pub fn identified(engine_version: &'a str, stable_ref: &'a str, name: &'a str) -> Self {
+        Self {
+            engine_version,
+            stable_ref: Some(stable_ref),
+            name: Some(name),
+        }
+    }
+
+    fn engine_only(engine_version: &'a str) -> Self {
+        Self {
+            engine_version,
+            stable_ref: None,
+            name: None,
+        }
+    }
 }
 
 /// Stable result contract shared by GUI commands and the CLI for clip mutations.
@@ -602,6 +633,10 @@ pub struct OcrBackupMetadata {
     pub status: String,
     pub input_hash: Option<String>,
     pub engine_version: Option<String>,
+    #[serde(default)]
+    pub extractor_ref: Option<String>,
+    #[serde(default)]
+    pub extractor_name: Option<String>,
     pub attempted_at: Option<String>,
 }
 
@@ -1790,6 +1825,8 @@ impl DbState {
         );
         let _ = conn.execute("ALTER TABLE clips ADD COLUMN ocr_input_hash TEXT", []);
         let _ = conn.execute("ALTER TABLE clips ADD COLUMN ocr_engine_version TEXT", []);
+        let _ = conn.execute("ALTER TABLE clips ADD COLUMN ocr_extractor_ref TEXT", []);
+        let _ = conn.execute("ALTER TABLE clips ADD COLUMN ocr_extractor_name TEXT", []);
         let _ = conn.execute("ALTER TABLE clips ADD COLUMN ocr_attempted_at DATETIME", []);
         let _ = conn.execute("ALTER TABLE clips ADD COLUMN ocr_error TEXT", []);
         conn.execute(
@@ -1805,6 +1842,20 @@ impl DbState {
                     ELSE ocr_engine_version
                  END
              WHERE content_type = 'image' AND ocr_input_hash IS NULL",
+            [],
+        )?;
+        conn.execute(
+            "UPDATE clips
+             SET ocr_extractor_ref = CASE ocr_engine_version
+                    WHEN 'macos-vision-v1' THEN 'extractor:apple-vision-ocr'
+                    ELSE ocr_extractor_ref
+                 END,
+                 ocr_extractor_name = CASE ocr_engine_version
+                    WHEN 'macos-vision-v1' THEN 'Apple Vision OCR'
+                    WHEN 'legacy' THEN 'Legacy OCR'
+                    ELSE ocr_extractor_name
+                 END
+             WHERE ocr_status = 'complete' AND ocr_extractor_name IS NULL",
             [],
         )?;
         conn.execute(
@@ -3070,8 +3121,38 @@ impl DbState {
         engine_version: &str,
         error: Option<&str>,
     ) -> Result<bool> {
+        self.complete_ocr_attempt_with_extractor(
+            clip_id,
+            content_hash,
+            recognized_text,
+            OcrExtractorProvenance::engine_only(engine_version),
+            error,
+        )
+    }
+
+    pub fn complete_ocr_attempt_with_extractor(
+        &self,
+        clip_id: i64,
+        content_hash: &str,
+        recognized_text: Option<&str>,
+        provenance: OcrExtractorProvenance<'_>,
+        error: Option<&str>,
+    ) -> Result<bool> {
         if let Some(text) = recognized_text {
             ensure_resource_size(text, crate::resource_limits::MAX_OCR_TEXT_BYTES, "OCR text")?;
+        }
+        if provenance.engine_version.is_empty()
+            || provenance.engine_version.len() > 80
+            || provenance
+                .stable_ref
+                .is_some_and(|value| value.is_empty() || value.len() > 160)
+            || provenance
+                .name
+                .is_some_and(|value| value.is_empty() || value.len() > 80)
+        {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "OCR extractor provenance exceeds supported limits".into(),
+            ));
         }
         if error.is_some_and(|code| {
             code.is_empty()
@@ -3141,11 +3222,20 @@ impl DbState {
                  SET text_content = ?1, current_transformation_id = NULL,
                      ocr_status = 'complete', ocr_input_hash = ?2,
                      ocr_engine_version = ?3,
+                     ocr_extractor_ref = COALESCE(?4, ocr_extractor_ref),
+                     ocr_extractor_name = COALESCE(?5, ocr_extractor_name),
                      ocr_attempted_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now'),
                      ocr_error = NULL
-                 WHERE id = ?4 AND content_hash = ?2 AND content_type = 'image'
+                 WHERE id = ?6 AND content_hash = ?2 AND content_type = 'image'
                    AND COALESCE(is_trashed, 0) = 0",
-                params![recognized_text, content_hash, engine_version, clip_id],
+                params![
+                    recognized_text,
+                    content_hash,
+                    provenance.engine_version,
+                    provenance.stable_ref,
+                    provenance.name,
+                    clip_id
+                ],
             )?;
         } else {
             tx.execute(
@@ -3156,7 +3246,13 @@ impl DbState {
                      ocr_error = ?4
                  WHERE id = ?5 AND content_hash = ?2 AND content_type = 'image'
                    AND COALESCE(is_trashed, 0) = 0",
-                params![status, content_hash, engine_version, error, clip_id],
+                params![
+                    status,
+                    content_hash,
+                    provenance.engine_version,
+                    error,
+                    clip_id
+                ],
             )?;
         }
         tx.commit()?;
@@ -3176,6 +3272,27 @@ impl DbState {
             content_hash,
             recognized_text,
             engine_version,
+            error,
+        );
+        if result.is_err() {
+            let _ = self.reset_ocr_work(Some(clip_id), Some(content_hash));
+        }
+        result
+    }
+
+    pub fn complete_or_reset_ocr_attempt_with_extractor(
+        &self,
+        clip_id: i64,
+        content_hash: &str,
+        recognized_text: Option<&str>,
+        provenance: OcrExtractorProvenance<'_>,
+        error: Option<&str>,
+    ) -> Result<bool> {
+        let result = self.complete_ocr_attempt_with_extractor(
+            clip_id,
+            content_hash,
+            recognized_text,
+            provenance,
             error,
         );
         if result.is_err() {
@@ -3789,7 +3906,8 @@ impl DbState {
         let mut clip = conn.query_row(
             "SELECT id, content_type, text_content, html_content, image_base64, image_path, content_hash, source, is_pinned, is_protected, COALESCE(pin_order, 0), bin_id, note, is_trashed, trashed_at, created_at,
                     (SELECT GROUP_CONCAT(bin_id) FROM clip_bins WHERE clip_id = clips.id),
-                    current_transformation_id IS NOT NULL
+                    current_transformation_id IS NOT NULL,
+                    ocr_extractor_ref, ocr_extractor_name, ocr_engine_version
              FROM clips WHERE id = ?1",
             params![id],
             |row| {
@@ -3822,6 +3940,9 @@ impl DbState {
                     is_trashed: row.get::<_, i32>(13)? != 0,
                     trashed_at: row.get(14)?,
                     created_at: row.get(15)?,
+                    ocr_extractor_ref: row.get(18)?,
+                    ocr_extractor_name: row.get(19)?,
+                    ocr_engine_version: row.get(20)?,
                 })
             },
         )?;
@@ -3864,7 +3985,8 @@ impl DbState {
         let mut sql = String::from(
             "SELECT id, content_type, text_content, NULL as html_content, NULL as image_base64, image_path, content_hash, source, is_pinned, is_protected, COALESCE(pin_order, 0), bin_id, note, is_trashed, trashed_at, created_at,
              (SELECT GROUP_CONCAT(bin_id) FROM clip_bins WHERE clip_id = clips.id) as bin_ids_str,
-             current_transformation_id IS NOT NULL
+             current_transformation_id IS NOT NULL,
+             ocr_extractor_ref, ocr_extractor_name, ocr_engine_version
              FROM clips WHERE (is_trashed IS NULL OR is_trashed = 0)"
         );
 
@@ -4006,6 +4128,9 @@ impl DbState {
                 is_trashed: row.get::<_, i32>(13)? != 0,
                 trashed_at: row.get(14)?,
                 created_at: row.get(15)?,
+                ocr_extractor_ref: row.get(18)?,
+                ocr_extractor_name: row.get(19)?,
+                ocr_engine_version: row.get(20)?,
             })
         })?;
 
@@ -4038,7 +4163,8 @@ impl DbState {
         let conn = self.conn.lock();
         let mut sql = String::from(
             "SELECT id, content_type, text_content, NULL as html_content, NULL as image_base64, image_path, content_hash, source, is_pinned, is_protected, COALESCE(pin_order, 0), bin_id, note, is_trashed, trashed_at, created_at,
-                    current_transformation_id IS NOT NULL
+                    current_transformation_id IS NOT NULL,
+                    ocr_extractor_ref, ocr_extractor_name, ocr_engine_version
              FROM clips WHERE is_trashed = 1 ORDER BY COALESCE(trashed_at, created_at) DESC, id DESC"
         );
         let mut query_params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
@@ -4071,6 +4197,9 @@ impl DbState {
                 is_trashed: row.get::<_, i32>(13)? != 0,
                 trashed_at: row.get(14)?,
                 created_at: row.get(15)?,
+                ocr_extractor_ref: row.get(17)?,
+                ocr_extractor_name: row.get(18)?,
+                ocr_engine_version: row.get(19)?,
             })
         })?;
         let mut clips = Vec::new();
@@ -4085,7 +4214,8 @@ impl DbState {
         let conn = self.conn.lock();
         let mut stmt = conn.prepare_cached(
             "SELECT id, content_type, text_content, NULL as html_content, NULL as image_base64, image_path, content_hash, source, is_pinned, is_protected, COALESCE(pin_order, 0), bin_id, note, is_trashed, trashed_at, created_at,
-                    current_transformation_id IS NOT NULL
+                    current_transformation_id IS NOT NULL,
+                    ocr_extractor_ref, ocr_extractor_name, ocr_engine_version
              FROM clips WHERE is_protected = 1 AND (is_trashed IS NULL OR is_trashed = 0) ORDER BY created_at DESC"
         )?;
         let clip_iter = stmt.query_map([], |row| {
@@ -4109,6 +4239,9 @@ impl DbState {
                 is_trashed: row.get::<_, i32>(13)? != 0,
                 trashed_at: row.get(14)?,
                 created_at: row.get(15)?,
+                ocr_extractor_ref: row.get(17)?,
+                ocr_extractor_name: row.get(18)?,
+                ocr_engine_version: row.get(19)?,
             })
         })?;
         let mut clips = Vec::new();
@@ -6298,6 +6431,9 @@ impl DbState {
                 is_trashed: false,
                 trashed_at: None,
                 created_at: row[4].clone(),
+                ocr_extractor_ref: None,
+                ocr_extractor_name: None,
+                ocr_engine_version: None,
             });
         }
         Ok(clips)
@@ -6708,6 +6844,18 @@ impl DbState {
                     metadata.status.as_str(),
                     "complete" | "no_text" | "failed" | "never" | "queued" | "running"
                 )
+                || metadata
+                    .engine_version
+                    .as_ref()
+                    .is_some_and(|value| value.is_empty() || value.len() > 80)
+                || metadata
+                    .extractor_ref
+                    .as_ref()
+                    .is_some_and(|value| value.is_empty() || value.len() > 160)
+                || metadata
+                    .extractor_name
+                    .as_ref()
+                    .is_some_and(|value| value.is_empty() || value.len() > 80)
             {
                 return Err(rusqlite::Error::InvalidParameterName(format!(
                     "Transfer file has invalid OCR metadata for {}",
@@ -7230,13 +7378,16 @@ impl DbState {
                     tx.execute(
                         "UPDATE clips
                          SET ocr_status = ?1, ocr_input_hash = ?2,
-                             ocr_engine_version = ?3, ocr_attempted_at = ?4,
+                             ocr_engine_version = ?3, ocr_extractor_ref = ?4,
+                             ocr_extractor_name = ?5, ocr_attempted_at = ?6,
                              ocr_error = NULL
-                         WHERE id = ?5",
+                         WHERE id = ?7",
                         params![
                             status,
                             metadata.input_hash.as_deref().unwrap_or(&clip.content_hash),
                             metadata.engine_version.as_deref(),
+                            metadata.extractor_ref.as_deref(),
+                            metadata.extractor_name.as_deref(),
                             metadata.attempted_at.as_deref(),
                             new_clip_id
                         ],
@@ -7293,7 +7444,8 @@ impl DbState {
         let mut statement = conn.prepare(
             "SELECT content_hash,
                     CASE WHEN ocr_status IN ('queued', 'running') THEN 'never' ELSE ocr_status END,
-                    ocr_input_hash, ocr_engine_version, ocr_attempted_at
+                    ocr_input_hash, ocr_engine_version, ocr_extractor_ref,
+                    ocr_extractor_name, ocr_attempted_at
              FROM clips WHERE content_type = 'image'",
         )?;
         let metadata = statement
@@ -7303,7 +7455,9 @@ impl DbState {
                     status: row.get(1)?,
                     input_hash: row.get(2)?,
                     engine_version: row.get(3)?,
-                    attempted_at: row.get(4)?,
+                    extractor_ref: row.get(4)?,
+                    extractor_name: row.get(5)?,
+                    attempted_at: row.get(6)?,
                 })
             })?
             .collect();
@@ -7317,7 +7471,8 @@ impl DbState {
                     content_hash, source, is_pinned, is_protected, COALESCE(pin_order, 0),
                     bin_id, note, COALESCE(is_trashed, 0), trashed_at, created_at,
                     (SELECT GROUP_CONCAT(bin_id) FROM clip_bins WHERE clip_id = clips.id),
-                    current_transformation_id IS NOT NULL
+                    current_transformation_id IS NOT NULL,
+                    ocr_extractor_ref, ocr_extractor_name, ocr_engine_version
              FROM clips ORDER BY created_at DESC, id DESC",
         )?;
         let rows = stmt.query_map([], |row| {
@@ -7350,6 +7505,9 @@ impl DbState {
                 is_trashed: row.get::<_, i32>(13)? != 0,
                 trashed_at: row.get(14)?,
                 created_at: row.get(15)?,
+                ocr_extractor_ref: row.get(18)?,
+                ocr_extractor_name: row.get(19)?,
+                ocr_engine_version: row.get(20)?,
             })
         })?;
         rows.collect()
@@ -9976,6 +10134,23 @@ mod tests {
             apple.unavailable_reason.is_some(),
             !cfg!(target_os = "macos")
         );
+        let tesseract = extractors
+            .iter()
+            .find(|extractor| extractor.stable_ref == crate::content_extraction::TESSERACT_OCR_REF)
+            .unwrap();
+        assert_eq!(
+            tesseract.engine,
+            crate::content_extraction::TESSERACT_ENGINE
+        );
+        assert_eq!(tesseract.input_contract, "image");
+        assert_eq!(tesseract.output_contract, "searchable_text");
+        assert_eq!(
+            tesseract.is_available,
+            crate::content_extraction::engine_availability(
+                crate::content_extraction::TESSERACT_ENGINE
+            )
+            .is_available
+        );
 
         db.update_content_extractor(
             apple.id,
@@ -9987,10 +10162,20 @@ mod tests {
             },
         )
         .unwrap();
-        let updated = db.get_content_extractors().unwrap().remove(0);
+        let updated = db.get_content_extractor(&apple.stable_ref).unwrap();
         assert_eq!(updated.name, "Local Image Text");
         assert!(!updated.enabled);
-        assert!(db.active_image_text_extractor().unwrap().is_none());
+        let active = db.active_image_text_extractor().unwrap();
+        if tesseract.is_available {
+            assert_eq!(
+                active
+                    .as_ref()
+                    .map(|extractor| extractor.stable_ref.as_str()),
+                Some(crate::content_extraction::TESSERACT_OCR_REF)
+            );
+        } else {
+            assert!(active.is_none());
+        }
         assert!(db
             .get_library_items(Some("extractor"), false)
             .unwrap()
@@ -13204,23 +13389,44 @@ mod tests {
             .unwrap();
 
         assert!(db
-            .complete_ocr_attempt(
+            .complete_ocr_attempt_with_extractor(
                 clip.id,
                 &clip.content_hash,
                 Some("First OCR"),
-                "test-engine-v1",
+                OcrExtractorProvenance::identified(
+                    "test-engine-v1",
+                    "extractor:test-ocr",
+                    "Test OCR",
+                ),
                 None,
             )
             .unwrap());
+        let completed_clip = db.get_clip_by_id(clip.id).unwrap();
+        assert_eq!(
+            completed_clip.ocr_extractor_ref.as_deref(),
+            Some("extractor:test-ocr")
+        );
+        assert_eq!(
+            completed_clip.ocr_extractor_name.as_deref(),
+            Some("Test OCR")
+        );
+        assert_eq!(
+            completed_clip.ocr_engine_version.as_deref(),
+            Some("test-engine-v1")
+        );
         assert_eq!(db.get_ocr_backfill_status().unwrap().completed_count, 1);
         assert_eq!(db.get_clip_version_count(clip.id).unwrap(), 0);
 
         db.force_ocr_running(clip.id, &clip.content_hash).unwrap();
-        db.complete_ocr_attempt(
+        db.complete_ocr_attempt_with_extractor(
             clip.id,
             &clip.content_hash,
             Some("Improved OCR"),
-            "test-engine-v2",
+            OcrExtractorProvenance::identified(
+                "test-engine-v2",
+                "extractor:test-ocr-v2",
+                "Test OCR 2",
+            ),
             None,
         )
         .unwrap();
@@ -13228,6 +13434,26 @@ mod tests {
         assert_eq!(
             db.get_clip_versions(clip.id).unwrap()[0].text_content,
             "First OCR"
+        );
+
+        db.force_ocr_running(clip.id, &clip.content_hash).unwrap();
+        db.complete_ocr_attempt_with_extractor(
+            clip.id,
+            &clip.content_hash,
+            None,
+            OcrExtractorProvenance::identified(
+                "failed-engine-v1",
+                "extractor:failed-ocr",
+                "Failed OCR",
+            ),
+            Some("recognition_failed"),
+        )
+        .unwrap();
+        let failed_rerun = db.get_clip_by_id(clip.id).unwrap();
+        assert_eq!(failed_rerun.text_content.as_deref(), Some("Improved OCR"));
+        assert_eq!(
+            failed_rerun.ocr_extractor_name.as_deref(),
+            Some("Test OCR 2")
         );
     }
 
@@ -14110,11 +14336,15 @@ mod tests {
             )
             .unwrap();
         assert!(source
-            .complete_ocr_attempt(
+            .complete_ocr_attempt_with_extractor(
                 clip.id,
                 "ocr-backup-hash",
                 Some("Recovered words"),
-                "vision-test-v1",
+                OcrExtractorProvenance::identified(
+                    "vision-test-v1",
+                    "extractor:test-vision",
+                    "Test Vision OCR",
+                ),
                 None,
             )
             .unwrap());
@@ -14135,6 +14365,14 @@ mod tests {
         assert_eq!(
             restored_payload.ocr_metadata[0].engine_version.as_deref(),
             Some("vision-test-v1")
+        );
+        assert_eq!(
+            restored_payload.ocr_metadata[0].extractor_ref.as_deref(),
+            Some("extractor:test-vision")
+        );
+        assert_eq!(
+            restored_payload.ocr_metadata[0].extractor_name.as_deref(),
+            Some("Test Vision OCR")
         );
     }
 
@@ -14808,7 +15046,7 @@ mod tests {
             .iter()
             .any(|entry| entry.event_type == "app_started"));
         assert_eq!(db.get_intelligence_connections().unwrap().len(), 1);
-        let restored_extractor = db.get_content_extractors().unwrap().remove(0);
+        let restored_extractor = db.get_content_extractor(&extractor.stable_ref).unwrap();
         assert_eq!(restored_extractor.name, "Backup Extractor Marker");
         assert!(!restored_extractor.enabled);
         assert_eq!(restored_extractor.priority, 77);

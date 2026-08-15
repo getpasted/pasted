@@ -4510,6 +4510,9 @@ mod tests {
             is_trashed: false,
             trashed_at: None,
             created_at: "2026-08-11T00:00:00Z".to_string(),
+            ocr_extractor_ref: None,
+            ocr_extractor_name: None,
+            ocr_engine_version: None,
         };
 
         assert_eq!(

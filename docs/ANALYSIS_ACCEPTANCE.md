@@ -38,6 +38,16 @@ The result must report `outcome: "produced"`, return the recognized sentence onl
 
 Repeat through the graphical app with an image clip. Confirm OCR status completes, extracted text becomes searchable after relaunch, and a later Detector may classify the derived text without replacing the original image.
 
+## Native Tesseract acceptance
+
+Install Tesseract 5 from Homebrew or the operating-system package manager. Confirm that `pasted extractor list --json` reports Tesseract OCR as available, then run:
+
+```sh
+pasted extractor run extractor:tesseract-ocr --file /absolute/path/to/test-image.png --json
+```
+
+The result must satisfy the same produced-text, classification, preview, and privacy contract as Apple Vision. The portable test suite generates a bounded image and exercises the real Tesseract executable whenever it is installed; Linux validation installs `tesseract-ocr` so this native adapter cannot pass solely through a mock. With Tesseract absent, the shipped Extractor must remain visible and report an explicit unavailable reason without attempting another engine.
+
 ## GUI acceptance
 
 1. Open Settings → Analysis. Confirm Extractors, Detectors, and OCR status are present and that there are no redundant Inspector or Enricher switches.

@@ -4004,11 +4004,15 @@ fn scan_existing_images(db: &DbState, clip_id: Option<i64>) -> Result<usize> {
             break;
         };
         let Some(bytes) = pasted_lib::ocr::decode_stored_image(&candidate.image_base64) else {
-            db.complete_or_reset_ocr_attempt(
+            db.complete_or_reset_ocr_attempt_with_extractor(
                 candidate.clip_id,
                 &candidate.content_hash,
                 None,
-                &extractor.engine,
+                pasted_lib::db::OcrExtractorProvenance::identified(
+                    &extractor.engine,
+                    &extractor.stable_ref,
+                    &extractor.name,
+                ),
                 Some("invalid_image_data"),
             )?;
             scanned += 1;

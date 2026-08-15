@@ -408,14 +408,14 @@ for (const method of ['get_content_extractors', 'create_content_extractor', 'upd
   assert.match(commands, new RegExp(`pub fn ${method}`), `${method} must be exposed to the GUI`);
   assert.match(cli, new RegExp(`db\\s*\\.${method}`), `${method} must be reused by the CLI`);
 }
-assert.match(tauriMock, /function mockBuiltinExtractor\(\)/,
-  'The frontend mock must retain a canonical shipped Extractor definition');
+assert.match(tauriMock, /function mockBuiltinExtractors\(\)/,
+  'The frontend mock must retain canonical shipped Extractor definitions');
 assert.match(tauriMock, /case 'extract_ocr_from_clip':[\s\S]*?appliedClipId:[\s\S]*?ocrUpdated:/,
   'The frontend mock must preserve the shared Extractor application result');
 assert.match(tauriMock, /case 'extract_ocr_from_clip':[\s\S]*?formatVersion:\s*1,[\s\S]*?policy:\s*'interactive',[\s\S]*?through:\s*'enrich'/,
   'The frontend Extractor mock must preserve shared Analysis metadata');
-assert.match(tauriMock, /case 'restore_default_content_extractors':[\s\S]*?mockBuiltinExtractor\(\)[\s\S]*?stableRef !== builtin\.stableRef/,
-  'Mock Restore Defaults must recreate the shipped Extractor without replacing custom Extractors');
+assert.match(tauriMock, /case 'restore_default_content_extractors':[\s\S]*?mockBuiltinExtractors\(\)[\s\S]*?builtinRefs\.has\(extractor\.stableRef\)/,
+  'Mock Restore Defaults must recreate all shipped Extractors without replacing custom Extractors');
 assert.match(database, /pub fn get_content_detector/, 'Resolving one Detector must live in the shared database domain layer');
 assert.match(cli, /db\s*\.get_content_detector/, 'Detector references must use the shared database domain layer');
 for (const method of ['create_content_detector', 'update_content_detector', 'duplicate_content_detector', 'delete_content_detector']) {
