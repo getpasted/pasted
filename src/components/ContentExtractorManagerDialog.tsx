@@ -126,9 +126,15 @@ export function ContentExtractorManagerDialog({
 
   const toggle = async (extractor: ContentExtractor) => {
     try {
-      const input = { ...toInput(extractor), enabled: !extractor.enabled };
-      const saved = await invoke<ContentExtractor>('update_content_extractor_definition', { id: extractor.id, input });
-      setExtractors((current) => current.map((item) => item.id === saved.id ? saved : item));
+      const enabled = !extractor.enabled;
+      await invoke('set_library_item_enabled', {
+        kind: 'extractor',
+        stableRef: extractor.stableRef,
+        enabled,
+      });
+      setExtractors((current) => current.map((item) => (
+        item.id === extractor.id ? { ...item, enabled } : item
+      )));
       onChanged?.();
     } catch (error) {
       showToast({ tone: 'error', message: String(error) });

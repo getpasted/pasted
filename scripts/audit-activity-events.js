@@ -20,6 +20,8 @@ const dynamicLogEvents = [
   'clip_bin_assigned', 'clips_bin_assigned', 'clip_bin_unassigned', 'clips_bin_unassigned',
   'clip_protected_toggled', 'clips_protected_toggled',
   'setting_changed', 'autostart_enabled', 'autostart_disabled',
+  'content_extractor_enabled', 'content_extractor_disabled',
+  'content_detector_enabled', 'content_detector_disabled',
 ];
 const emittedEvents = new Set([...literalLogEvents, ...dynamicLogEvents]);
 const renderedEvents = new Set([...activityView.matchAll(/case '([^']+)'/g)].map((match) => match[1]));

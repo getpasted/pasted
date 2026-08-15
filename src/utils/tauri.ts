@@ -348,8 +348,31 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       ];
       return items.filter((item) => !kind || item.kind === kind) as unknown as T;
     }
-    case 'set_library_item_enabled':
+    case 'set_library_item_enabled': {
+      const kind = String(args?.kind ?? '');
+      const stableRef = String(args?.stableRef ?? '');
+      const enabled = Boolean(args?.enabled);
+      let matched = false;
+      if (kind === 'extractor') {
+        mockExtractors = mockExtractors.map((extractor) => {
+          if (extractor.stableRef !== stableRef) return extractor;
+          matched = true;
+          return { ...extractor, enabled };
+        });
+      } else if (kind === 'detector') {
+        mockDetectors = mockDetectors.map((detector) => {
+          if (detector.stable_ref !== stableRef) return detector;
+          matched = true;
+          return { ...detector, enabled };
+        });
+      } else if (kind === 'inspector' || kind === 'enricher') {
+        throw new Error('Built-in Analysis participants cannot be disabled.');
+      } else if (kind !== 'operation') {
+        throw new Error('Unknown library item kind.');
+      }
+      if (!matched) throw new Error('Library item was not found.');
       return undefined as T;
+    }
     case 'get_content_types':
       return mockContentTypes
         .filter((type) => Boolean(args?.includeArchived) || !type.isArchived)
