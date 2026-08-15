@@ -77,7 +77,7 @@ const actionHotkeys: Array<{ label: string; key: HotkeySetting; fallback?: strin
 
 function HotkeyRow({ label, value, onChange }: { label: string; value: string | null; onChange: (value: string | null) => void }) {
   return (
-    <div className="theme-surface flex items-center justify-between p-2.5 rounded-xl border">
+    <div className="theme-divider flex items-center justify-between gap-3 border-b p-2.5 last:border-b-0">
       <span className="font-medium theme-text-main">{label}</span>
       <HotkeyRecorder value={value} onChange={onChange} />
     </div>
@@ -206,7 +206,7 @@ export function SettingsHotkeysPanel({
     && (!isMac || hotkeyStatus.is_trusted));
 
   return (
-    <div className="space-y-6 text-xs">
+    <div className="space-y-5 text-xs">
       <SettingsPanelHeader
         icon={Keyboard}
         title="Hotkeys"
@@ -258,9 +258,10 @@ export function SettingsHotkeysPanel({
 
       {settings.enableBins && <section className="space-y-2">
         <h4 className="font-bold theme-text-muted uppercase tracking-wider text-[10px]">Custom Bin Hotkeys ({bins.length})</h4>
-        {bins.length === 0
-          ? <p className="theme-subtle-surface text-[11px] theme-text-subtle italic p-2.5 rounded-xl border">No custom bins created yet. Create bins in the sidebar to assign global shortcuts.</p>
-          : bins.map((bin) => <HotkeyRow key={bin.id} label={bin.name} value={bin.shortcut ?? null} onChange={async (shortcut) => {
+        <div className="theme-surface overflow-hidden rounded-xl border">
+          {bins.length === 0
+            ? <p className="theme-text-subtle p-2.5 text-[11px] italic">No custom bins created yet. Create bins in the sidebar to assign global shortcuts.</p>
+            : bins.map((bin) => <HotkeyRow key={bin.id} label={bin.name} value={bin.shortcut ?? null} onChange={async (shortcut) => {
               try {
                 await invoke('update_bin_shortcut', { id: bin.id, shortcut });
                 onRefreshBins?.();
@@ -269,11 +270,12 @@ export function SettingsHotkeysPanel({
                 showToast({ tone: 'error', message: 'That bin shortcut could not be registered.' });
               }
             }} />)}
+        </div>
       </section>}
 
       {settings.enableTransformations && pipelines.length > 0 && <section className="space-y-2">
         <h4 className="font-bold theme-text-muted uppercase tracking-wider text-[10px]">Saved Transform Hotkeys ({pipelines.length})</h4>
-        <div className="overlay-scroll-region space-y-2 pt-1 max-h-60 overflow-y-auto pr-1">
+        <div className="theme-surface overlay-scroll-region max-h-60 overflow-y-auto rounded-xl border">
           {pipelines.map((pipeline) => <HotkeyRow key={pipeline.id} label={pipeline.name} value={pipeline.shortcut ?? null} onChange={async (shortcut) => {
               try {
                 await invoke('update_pipeline_shortcut', { pipelineRef: pipeline.stableRef, shortcut });
@@ -288,27 +290,31 @@ export function SettingsHotkeysPanel({
 
       <section className="space-y-2">
         <h4 className="font-bold theme-text-muted uppercase tracking-wider text-[10px]">Actions</h4>
-        {settings.enableHud && <HotkeyRow label="HUD" value={settings.hudHotkey === '' ? null : (settings.hudHotkey || 'Alt+Shift+V')} onChange={async (newKey) => {
-          const value = newKey ?? '';
-          onUpdateSettings({ hudHotkey: value });
-          try {
-            await invoke('register_hud_shortcut', { shortcutStr: value });
-          } catch (error) {
-            console.error('Failed to register HUD shortcut:', error);
-            showToast({ tone: 'error', message: 'That shortcut could not be registered. Try a different key combination.' });
-          }
-        }} />}
-        {actionHotkeys.filter(({ feature }) => !feature || settings[feature === 'queue' ? 'enableQueue' : 'enableTransformations']).map(({ label, key, fallback }) => (
-          <HotkeyRow key={key} label={label} value={(settings[key] as string) === '' ? null : ((settings[key] as string) || fallback || null)} onChange={(value) => void updateSettingHotkey(key, value)} />
-        ))}
+        <div className="theme-surface overflow-hidden rounded-xl border">
+          {settings.enableHud && <HotkeyRow label="HUD" value={settings.hudHotkey === '' ? null : (settings.hudHotkey || 'Alt+Shift+V')} onChange={async (newKey) => {
+            const value = newKey ?? '';
+            onUpdateSettings({ hudHotkey: value });
+            try {
+              await invoke('register_hud_shortcut', { shortcutStr: value });
+            } catch (error) {
+              console.error('Failed to register HUD shortcut:', error);
+              showToast({ tone: 'error', message: 'That shortcut could not be registered. Try a different key combination.' });
+            }
+          }} />}
+          {actionHotkeys.filter(({ feature }) => !feature || settings[feature === 'queue' ? 'enableQueue' : 'enableTransformations']).map(({ label, key, fallback }) => (
+            <HotkeyRow key={key} label={label} value={(settings[key] as string) === '' ? null : ((settings[key] as string) || fallback || null)} onChange={(value) => void updateSettingHotkey(key, value)} />
+          ))}
+        </div>
       </section>
 
       <section className="space-y-2">
         <h4 className="font-bold theme-text-muted uppercase tracking-wider text-[10px]">Paste Clips by Position</h4>
-        {Array.from({ length: 9 }, (_, index) => index + 1).map((number) => {
-          const key = `pasteClip${number}Hotkey` as HotkeySetting;
-          return <HotkeyRow key={key} label={`Paste Clip ${number}`} value={(settings[key] as string) || null} onChange={(value) => void updateSettingHotkey(key, value)} />;
-        })}
+        <div className="theme-surface overflow-hidden rounded-xl border">
+          {Array.from({ length: 9 }, (_, index) => index + 1).map((number) => {
+            const key = `pasteClip${number}Hotkey` as HotkeySetting;
+            return <HotkeyRow key={key} label={`Paste Clip ${number}`} value={(settings[key] as string) || null} onChange={(value) => void updateSettingHotkey(key, value)} />;
+          })}
+        </div>
       </section>
     </div>
   );

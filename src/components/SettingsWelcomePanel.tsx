@@ -22,7 +22,7 @@ export function SettingsWelcomePanel({ onOpen }: SettingsWelcomePanelProps) {
           </div>
         </div>
         <ActionButton onClick={onOpen} className="shrink-0 cursor-pointer">
-          Open Copycat Welcome
+          Open Copycat Welcome…
         </ActionButton>
       </div>
     </section>

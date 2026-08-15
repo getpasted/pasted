@@ -17,6 +17,38 @@ const registryPanelFooter = read('src/components/RegistryPanelFooter.tsx');
 const architecture = read('docs/ANALYSIS_ARCHITECTURE.md');
 const releaseChecklist = read('docs/RELEASE_CHECKLIST_1.0.0.md');
 
+for (const [step, participant, icon] of [
+  [1, 'Inspectors', 'ScanSearch'],
+  [2, 'Extractors', 'ScanText'],
+  [3, 'Detectors', 'Radar'],
+  [4, 'Enrichers', 'Lightbulb'],
+]) {
+  assert.match(
+    analysisSettings,
+    new RegExp(`step=\\{${step}\\}[\\s\\S]{0,80}icon=\\{${icon}\\}[\\s\\S]{0,80}title="${participant}"`),
+    `Analysis Settings must present ${participant} as ordered pass ${step} with its participant icon`,
+  );
+}
+assert.match(
+  analysisSettings,
+  /Not all steps run for all clips\. Some steps may be long-running\./,
+  'Analysis Settings must explain that the ordered passes are conditional',
+);
+for (const command of [
+  'restore_default_content_extractors',
+  'restore_default_content_detectors',
+  'restore_default_content_types',
+  'restore_default_content_type_groups',
+]) {
+  assert.match(
+    analysisSettings,
+    new RegExp(`invoke(?:<[^>]+>)?\\('${command}'\\)`),
+    `The global Analysis restore must include ${command}`,
+  );
+}
+assert.match(analysisSettings, /<ActionButton onClick=\{restoreAnalysis\}[\s\S]{0,180}'Reset…'/,
+  'Analysis Settings must expose one global Reset action');
+
 function commandBlock(command) {
   const start = frontendMock.indexOf(`case '${command}':`);
   assert.notEqual(start, -1, `Frontend mock must implement ${command}`);
@@ -117,8 +149,8 @@ assert.match(builtinAnalysisManager, /pasted \{kind\} get &lt;ref&gt; --json/,
 for (const [label, manager] of [['Extractor', extractorManager], ['Detector', analysisSettings]]) {
   assert.equal((manager.match(/<RegistryPanelFooter/g) ?? []).length, 2,
     `${label} management must keep item actions and form actions in their owning panels`);
-  assert.match(manager, /<AppDialogFooter[\s\S]*Restore Shipped Defaults…[\s\S]*Close/,
-    `${label} management must keep global restore and dialog close actions in the modal footer`);
+  assert.match(manager, /<AppDialogFooter[\s\S]*Reset…[\s\S]*Close/,
+    `${label} management must keep scoped restore and close actions in the modal footer`);
   assert.match(manager, /discardDraftThen[\s\S]*ConfirmationDialog/,
     `${label} management must protect edited drafts with the shared confirmation UI`);
   assert.doesNotMatch(manager, /window\.confirm/,

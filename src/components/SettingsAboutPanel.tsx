@@ -157,7 +157,7 @@ export function SettingsAboutPanel() {
             <Scale className="h-4 w-4" />
           </SettingsAccentTile>
           <span className="min-w-0 flex-1">
-            <span className="theme-title block text-sm font-bold">Open Source Licenses</span>
+            <span className="theme-title block text-sm font-bold">Open Source Licenses…</span>
             <span className="theme-text-muted mt-0.5 block text-xs">
               Licenses and acknowledgements for bundled software.
             </span>

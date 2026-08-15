@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
-import { Copy, Lightbulb, Pencil, Plus, Radar, RotateCcw, ScanSearch, Shapes, Trash2 } from 'lucide-react';
+import { Copy, Lightbulb, Plus, Radar, RotateCcw, ScanSearch, ScanText, Shapes, Trash2, type LucideIcon } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { AppDialog } from './AppDialog';
 import { AppDialogBody, AppDialogButton, AppDialogFooter, AppDialogHeader, AppDialogHeading, SaveButtonContent } from './AppDialogLayout';
@@ -83,25 +83,32 @@ function toInput(detector?: ContentDetector): DetectorInput {
 }
 
 function AnalysisManagerRow({
+  step,
+  icon: Icon,
   title,
   description,
   onManage,
 }: {
+  step: number;
+  icon: LucideIcon;
   title: string;
   description: string;
   onManage: () => void;
 }) {
   return (
-    <section className="theme-surface overflow-hidden rounded-xl border" aria-label={title}>
-      <RegistryPanelHeader
-        title={title}
-        description={description}
-        actions={
-          <ActionButton aria-label={`Manage ${title}`} onClick={onManage} className="h-7 min-h-7 shrink-0 px-2.5">
-            <Pencil className="h-3.5 w-3.5" /> Manage…
-          </ActionButton>
-        }
-      />
+    <section className="theme-divider flex min-h-[49px] items-center justify-between gap-3 border-b p-2 last:border-b-0" aria-label={`${step}. ${title}`}>
+      <div className="flex min-w-0 items-center gap-2 px-1">
+        <span className="theme-badge grid h-6 w-6 shrink-0 place-items-center rounded-full border text-[10px] font-bold tabular-nums" aria-hidden="true">
+          {step}
+        </span>
+        <div className="min-w-0">
+          <h3 className="theme-text-main text-xs font-semibold">{title}</h3>
+          <p className="theme-text-muted mt-0.5 text-[10px]">{description}</p>
+        </div>
+      </div>
+      <ActionButton aria-label={`Manage ${title}…`} onClick={onManage} className="h-7 min-h-7 shrink-0 px-2.5">
+        <Icon className="h-3.5 w-3.5" /> Manage…
+      </ActionButton>
     </section>
   );
 }
@@ -122,6 +129,7 @@ export function SettingsDetectionPanel({
   const [sample, setSample] = useState('');
   const [sampleMatched, setSampleMatched] = useState<boolean | null>(null);
   const [saving, setSaving] = useState(false);
+  const [restoring, setRestoring] = useState(false);
   const [rescanning, setRescanning] = useState(false);
   const [togglingId, setTogglingId] = useState<number | null>(null);
   const [isTypeManagerOpen, setIsTypeManagerOpen] = useState(false);
@@ -278,7 +286,7 @@ export function SettingsDetectionPanel({
       title: 'Delete Detector?',
       description: selected.name,
       details: selected.is_builtin
-        ? 'This removes the Detector from the library. Restore Shipped Defaults can recover it.'
+        ? 'This removes the Detector from the library. Restore Defaults can recover it.'
         : 'This permanently removes the custom Detector from the library.',
       confirmLabel: 'Delete Detector',
       tone: 'danger',
@@ -301,7 +309,37 @@ export function SettingsDetectionPanel({
     }
   };
 
-  const restoreConfirmed = async () => {
+  const restoreAnalysisConfirmed = async () => {
+    setRestoring(true);
+    try {
+      const [restored] = await Promise.all([
+        invoke<ContentDetector[]>('restore_default_content_detectors'),
+        invoke('restore_default_content_extractors'),
+        invoke('restore_default_content_types'),
+        invoke('restore_default_content_type_groups'),
+      ]);
+      await Promise.all([refreshContentTypes(), refreshGroups()]);
+      setDetectors(restored);
+      setSelectedId(restored[0]?.id ?? 'new');
+      showToast({ tone: 'success', message: 'Shipped Analysis defaults restored. Custom definitions were preserved.' });
+    } catch (error) {
+      showToast({ tone: 'error', message: String(error) });
+    } finally {
+      setRestoring(false);
+    }
+  };
+
+  const restoreAnalysis = () => {
+    requestConfirmation({
+      title: 'Reset shipped Analysis definitions?',
+      description: 'Shipped Extractors, Detectors, Types, and Type Groups return to their defaults.',
+      details: 'Custom definitions remain unchanged.',
+      confirmLabel: 'Reset',
+      onConfirm: restoreAnalysisConfirmed,
+    });
+  };
+
+  const restoreDetectorDefaultsConfirmed = async () => {
     try {
       const [restored] = await Promise.all([
         invoke<ContentDetector[]>('restore_default_content_detectors'),
@@ -311,19 +349,19 @@ export function SettingsDetectionPanel({
       await Promise.all([refreshContentTypes(), refreshGroups()]);
       setDetectors(restored);
       setSelectedId(restored[0]?.id ?? 'new');
-      showToast({ tone: 'success', message: 'Built-in Types and detectors restored. Custom entries were preserved.' });
+      showToast({ tone: 'success', message: 'Built-in Types and Detectors restored. Custom definitions were preserved.' });
     } catch (error) {
       showToast({ tone: 'error', message: String(error) });
     }
   };
 
-  const restore = () => {
+  const restoreDetectorDefaults = () => {
     discardDraftThen(() => requestConfirmation({
-      title: 'Restore shipped Analysis definitions?',
+      title: 'Reset shipped Detector definitions?',
       description: 'Shipped Types, Type Groups, and Detectors return to their defaults.',
       details: 'Custom definitions remain unchanged.',
-      confirmLabel: 'Restore Defaults',
-      onConfirm: restoreConfirmed,
+      confirmLabel: 'Reset',
+      onConfirm: restoreDetectorDefaultsConfirmed,
     }));
   };
 
@@ -400,30 +438,50 @@ export function SettingsDetectionPanel({
         description="Understand clip content and make it more useful."
         actions={contentDetectionEnabled ? (
           <ActionButton onClick={rescanHistory} disabled={rescanning}>
-            <ScanSearch className="h-3.5 w-3.5" /> {rescanning ? 'Rescanning…' : 'Rescan Clips'}
+            <ScanSearch className="h-3.5 w-3.5" /> {rescanning ? 'Rescanning…' : 'Rescan Clips…'}
           </ActionButton>
         ) : undefined}
       />
-      <AnalysisManagerRow
-        title="Inspectors"
-        description="Measure clip structure and media facts."
-        onManage={() => setIsInspectorManagerOpen(true)}
-      />
-      {ocrEnabled && <AnalysisManagerRow
-        title="Extractors"
-        description="Create searchable representations from clip content."
-        onManage={() => setIsExtractorManagerOpen(true)}
-      />}
-      {contentDetectionEnabled && <AnalysisManagerRow
-        title="Detectors"
-        description="Classify analyzable text as registered Types."
-        onManage={openDetectorManager}
-      />}
-      <AnalysisManagerRow
-        title="Enrichers"
-        description="Recommend useful actions from analysis signals."
-        onManage={() => setIsEnricherManagerOpen(true)}
-      />
+      <section className="theme-surface overflow-hidden rounded-xl border" aria-label="Analysis sequence">
+        <div>
+          <AnalysisManagerRow
+            step={1}
+            icon={ScanSearch}
+            title="Inspectors"
+            description="Measure clip structure and media facts."
+            onManage={() => setIsInspectorManagerOpen(true)}
+          />
+          {ocrEnabled && <AnalysisManagerRow
+            step={2}
+            icon={ScanText}
+            title="Extractors"
+            description="Create searchable representations from clip content."
+            onManage={() => setIsExtractorManagerOpen(true)}
+          />}
+          {contentDetectionEnabled && <AnalysisManagerRow
+            step={3}
+            icon={Radar}
+            title="Detectors"
+            description="Classify analyzable text as registered Types."
+            onManage={openDetectorManager}
+          />}
+          <AnalysisManagerRow
+            step={4}
+            icon={Lightbulb}
+            title="Enrichers"
+            description="Recommend useful actions from analysis signals."
+            onManage={() => setIsEnricherManagerOpen(true)}
+          />
+        </div>
+        <div className="theme-divider flex items-center justify-between gap-3 border-t px-3 py-2">
+          <ActionButton onClick={restoreAnalysis} disabled={restoring}>
+            <RotateCcw className="h-3.5 w-3.5" /> {restoring ? 'Resetting…' : 'Reset…'}
+          </ActionButton>
+          <p className="theme-text-muted text-right text-[10px]">
+            Not all steps run for all clips. Some steps may be long-running.
+          </p>
+        </div>
+      </section>
       {contentDetectionEnabled && <>
         <AppDialog
           isOpen={isManagerOpen}
@@ -476,7 +534,7 @@ export function SettingsDetectionPanel({
                 </div>
                 <RegistryPanelFooter align="end">
                   <AppDialogButton onClick={() => void duplicate()} disabled={!selected || isEditorDirty || saving} title={isEditorDirty ? 'Save or cancel changes before duplicating.' : undefined}><Copy className="h-3.5 w-3.5" /> Duplicate</AppDialogButton>
-                  <AppDialogButton variant="danger" onClick={remove} disabled={!selected || saving}><Trash2 className="h-3.5 w-3.5" /> Delete</AppDialogButton>
+                  <AppDialogButton variant="danger" onClick={remove} disabled={!selected || saving}><Trash2 className="h-3.5 w-3.5" /> Delete…</AppDialogButton>
                 </RegistryPanelFooter>
               </section>
               <section className="theme-surface flex min-w-0 flex-col overflow-hidden rounded-xl border">
@@ -484,7 +542,7 @@ export function SettingsDetectionPanel({
                   title="Detector Settings"
                   actions={
                     <AppDialogButton onClick={() => setIsTypeManagerOpen(true)} className="h-7 min-h-7 shrink-0 px-2.5">
-                      <Shapes className="h-3.5 w-3.5" /> Manage Types
+                      <Shapes className="h-3.5 w-3.5" /> Manage Types…
                     </AppDialogButton>
                   }
                 />
@@ -575,8 +633,8 @@ export function SettingsDetectionPanel({
               </section>
             </AppDialogBody>
             <AppDialogFooter align="between" className="shrink-0">
-              <AppDialogButton onClick={restore} disabled={saving}>
-                <RotateCcw className="h-3.5 w-3.5" /> Restore Shipped Defaults…
+              <AppDialogButton onClick={restoreDetectorDefaults} disabled={saving}>
+                <RotateCcw className="h-3.5 w-3.5" /> Reset…
               </AppDialogButton>
               <AppDialogButton onClick={requestClose}>Close</AppDialogButton>
             </AppDialogFooter>

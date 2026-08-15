@@ -126,7 +126,7 @@ export function ContentTypeManagerDialog({ isOpen, onClose }: { isOpen: boolean;
           <section className="theme-surface flex min-w-0 flex-col overflow-hidden rounded-xl border">
             <RegistryPanelHeader
               title="Type Settings"
-              actions={<AppDialogButton onClick={() => setIsGroupManagerOpen(true)} className="h-7 min-h-7 px-2.5"><Layers3 className="h-3 w-3" /> Manage Groups</AppDialogButton>}
+              actions={<AppDialogButton onClick={() => setIsGroupManagerOpen(true)} className="h-7 min-h-7 px-2.5"><Layers3 className="h-3 w-3" /> Manage Groups…</AppDialogButton>}
             />
             <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
             <div className="grid grid-cols-1 gap-3 @md:grid-cols-[1fr_150px]">
