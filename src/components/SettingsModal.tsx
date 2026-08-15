@@ -65,19 +65,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   }, [navigationKey, requestedTab]);
 
   useEffect(() => {
-    if (!settings.enableTransformations && activeTab === 'connections') {
-      setActiveTab('features');
+    if (!settings.enableTransformations && activeTab === 'intelligence') {
+      setActiveTab('functionality');
     }
   }, [activeTab, settings.enableTransformations]);
 
   useEffect(() => {
     if (!settings.enableNotifications && activeTab === 'notifications') {
-      setActiveTab('features');
+      setActiveTab('functionality');
     }
   }, [activeTab, settings.enableNotifications]);
 
   useEffect(() => {
-    if (!settings.enableContentDetection && !settings.enableOcr && activeTab === 'analysis') setActiveTab('features');
+    if (!settings.enableContentDetection && !settings.enableOcr && activeTab === 'analysis') setActiveTab('functionality');
   }, [activeTab, settings.enableContentDetection, settings.enableOcr]);
 
   return (
@@ -85,7 +85,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       <ToolPageHeader
         icon={<Settings className="w-4 h-4" />}
         title="Settings"
-        actions={<SettingsTabs activeTab={activeTab} onChange={setActiveTab} showConnections={settings.enableTransformations} showNotifications={settings.enableNotifications} showDetection={settings.enableContentDetection || settings.enableOcr} />}
+        actions={<SettingsTabs activeTab={activeTab} onChange={setActiveTab} showIntelligence={settings.enableTransformations} showNotifications={settings.enableNotifications} showAnalysis={settings.enableContentDetection || settings.enableOcr} />}
       />
 
       <div className="tools-scroll-region flex-1 overflow-y-auto p-6">
@@ -108,7 +108,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </>
         )}
 
-        {activeTab === 'features' && (
+        {activeTab === 'functionality' && (
           <SettingsFeaturesPanel settings={settings} onUpdateSettings={onUpdateSettings} />
         )}
 
@@ -120,7 +120,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           <SettingsNotificationsPanel settings={settings} onUpdateSettings={onUpdateSettings} />
         )}
 
-        {/* TAB 2: HOTKEYS */}
+        {/* HOTKEYS */}
         {activeTab === 'hotkeys' && (
           <SettingsHotkeysPanel
             settings={settings}
@@ -132,11 +132,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           />
         )}
 
-        {/* TAB 3: CONNECTIONS */}
-        {settings.enableTransformations && activeTab === 'connections' && <IntelligenceConnectionsPanel />}
+        {/* INTELLIGENCE */}
+        {settings.enableTransformations && activeTab === 'intelligence' && <IntelligenceConnectionsPanel />}
 
-        {/* TAB 4: BLACKLIST */}
-        {activeTab === 'blacklist' && (
+        {/* APP EXCLUSIONS */}
+        {activeTab === 'app-exclusions' && (
           <SettingsBlacklistPanel
             apps={blacklistApps}
             onAddApp={onAddBlacklistApp}
@@ -145,7 +145,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           />
         )}
 
-        {/* TAB 5: SYNC & BACKUP */}
+        {/* STORAGE */}
         {activeTab === 'storage' && (
           <>
             <div className="settings-primary-well theme-panel rounded-2xl border p-6">
