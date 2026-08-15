@@ -308,6 +308,11 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       return mockDetectors.map((detector) => ({ ...detector, patterns: [...detector.patterns] })) as unknown as T;
     case 'get_content_extractors':
       return mockExtractors.map((extractor) => ({ ...extractor, defaults: extractor.defaults ? { ...extractor.defaults } : null })) as unknown as T;
+    case 'get_content_inspectors':
+      return [
+        { stableRef: 'inspector:structure-v1', name: 'Structure', description: 'Measures stable clip structure without retaining clipboard contents.', inputContract: 'clip', outputContract: 'structural_metadata', priority: 0, isBuiltin: true, engine: null, isAvailable: true, unavailableReason: null },
+        { stableRef: 'inspector:media-metadata-v1', name: 'Media Metadata', description: 'Reads bounded audio and video metadata locally.', inputContract: 'file_references', outputContract: 'media_metadata', priority: 10, isBuiltin: true, engine: 'ffprobe-cli-v1', isAvailable: true, unavailableReason: null },
+      ] as unknown as T;
     case 'choose_extractor_model_file':
       return '/mock/models/ggml-base.en.bin' as unknown as T;
     case 'extract_ocr_from_clip': {
