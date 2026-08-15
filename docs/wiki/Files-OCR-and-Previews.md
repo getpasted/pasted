@@ -19,6 +19,12 @@ When the file and bitmap representations arrive as separate clipboard updates, P
 
 Pasted can cache bounded thumbnails for familiar image formats and the first page of PDFs. Preview settings control which safe types are shown and the maximum preview size. Large or unsupported files remain references.
 
+## Media metadata
+
+The shipped **Media Metadata** Inspector uses an installed `ffprobe` executable to read bounded audio and video facts from up to eight referenced files. Results include aggregate container, codec, stream-count, and duration metadata without returning file paths. Install FFmpeg with `brew install ffmpeg` on Homebrew systems or the distribution's FFmpeg package on Linux. The Inspector remains registered when ffprobe is missing and reports its unavailable engine explicitly.
+
+Media metadata is inspected live because referenced files can change outside the library. Structural metadata remains hash-bound and persistent; live ffprobe results are not written into Activity or portable exports.
+
 ## OCR
 
 Apple Vision extracts searchable text from clipboard images and screenshots on macOS. Tesseract 5 provides an optional local alternative on macOS, Linux, and Windows. Install it with `brew install tesseract` on Homebrew systems or the distribution's `tesseract-ocr` package on Linux, then reopen or refresh Extractor settings.

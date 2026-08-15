@@ -13,11 +13,13 @@ pub(crate) struct AnalysisContext {
     pub clip_kind: String,
     pub capture_source: Option<String>,
     pub original_text: Option<String>,
+    pub file_references: Option<Vec<String>>,
     pub image_bytes: Option<Vec<u8>>,
     pub searchable_text: Option<String>,
     pub detected_type: Option<String>,
     pub matched_detector_ref: Option<String>,
     pub structural_metadata: Option<crate::content_inspection::StructuralMetadata>,
+    pub media_metadata: Option<crate::content_inspection::MediaMetadata>,
     pub recommendations: Option<crate::content_enrichment::SmartActionRecommendations>,
 }
 
@@ -27,11 +29,13 @@ impl AnalysisContext {
             clip_kind: "text".into(),
             capture_source: None,
             original_text: Some(text.into()),
+            file_references: None,
             image_bytes: None,
             searchable_text: None,
             detected_type: None,
             matched_detector_ref: None,
             structural_metadata: None,
+            media_metadata: None,
             recommendations: None,
         }
     }
@@ -41,11 +45,13 @@ impl AnalysisContext {
             clip_kind: "image".into(),
             capture_source: None,
             original_text: None,
+            file_references: None,
             image_bytes: Some(image_bytes),
             searchable_text: None,
             detected_type: None,
             matched_detector_ref: None,
             structural_metadata: None,
+            media_metadata: None,
             recommendations: None,
         }
     }
@@ -65,11 +71,13 @@ impl AnalysisContext {
             RepresentationKind::ClipKind => !self.clip_kind.is_empty(),
             RepresentationKind::CaptureSource => self.capture_source.is_some(),
             RepresentationKind::OriginalText => self.original_text.is_some(),
+            RepresentationKind::FileReferences => self.file_references.is_some(),
             RepresentationKind::ImageBytes => self.image_bytes.is_some(),
             RepresentationKind::SearchableText => self.searchable_text.is_some(),
             RepresentationKind::AnalyzableText => self.analysis_text().is_some(),
             RepresentationKind::Classification => self.detected_type.is_some(),
             RepresentationKind::StructuralMetadata => self.structural_metadata.is_some(),
+            RepresentationKind::MediaMetadata => self.media_metadata.is_some(),
             RepresentationKind::Recommendations => self.recommendations.is_some(),
         }
     }
@@ -114,12 +122,14 @@ impl AnalysisInput {
             Self::Files { paths, source } => AnalysisContext {
                 clip_kind: "file".into(),
                 capture_source: source,
-                original_text: Some(serde_json::to_string(&paths).unwrap_or_default()),
+                original_text: None,
+                file_references: Some(paths),
                 image_bytes: None,
                 searchable_text: None,
                 detected_type: None,
                 matched_detector_ref: None,
                 structural_metadata: None,
+                media_metadata: None,
                 recommendations: None,
             },
         }
@@ -160,6 +170,26 @@ fn inspector_participant(input: AnalysisInput) -> AnalysisParticipant<'static> {
                 Ok(ParticipantOutcome::Produced)
             }
             Err(failure) => Err(failure),
+        },
+    )
+}
+
+fn media_inspector_participant(paths: Vec<String>) -> AnalysisParticipant<'static> {
+    AnalysisParticipant::new(
+        ParticipantContract {
+            stable_ref: crate::content_inspection::MEDIA_INSPECTOR_REF.into(),
+            name: "Media Metadata".into(),
+            pass: AnalysisPass::Inspect,
+            priority: 10,
+            requires: vec![RepresentationKind::FileReferences],
+            provides: vec![RepresentationKind::MediaMetadata],
+        },
+        move |context| match crate::content_inspection::inspect_media_paths(&paths)? {
+            Some(metadata) => {
+                context.media_metadata = Some(metadata);
+                Ok(ParticipantOutcome::Produced)
+            }
+            None => Ok(ParticipantOutcome::NoOutput),
         },
     )
 }
@@ -416,6 +446,16 @@ pub(crate) fn analyze(request: AnalysisRequest<'_>) -> AnalysisReport {
     let mut participants = Vec::new();
     if request.inspector {
         participants.push(inspector_participant(request.input.clone()));
+        if request.policy == AnalysisPolicy::Interactive {
+            if let AnalysisInput::Files { paths, .. } = &request.input {
+                let probe_paths = paths
+                    .iter()
+                    .take(crate::resource_limits::MAX_MEDIA_PROBE_FILES)
+                    .cloned()
+                    .collect();
+                participants.push(media_inspector_participant(probe_paths));
+            }
+        }
     }
     if let Some(source) = request.extractor {
         participants.push(extractor_participant(source.extractor, source.registry));
@@ -552,6 +592,34 @@ mod tests {
             detectors: Some(detectors),
             enricher: None,
         })
+    }
+
+    #[test]
+    fn media_inspection_is_interactive_only() {
+        let request = |policy| AnalysisRequest {
+            input: AnalysisInput::Files {
+                paths: vec!["/missing/private-recording.wav".into()],
+                source: Some("Finder".into()),
+            },
+            policy,
+            inspector: true,
+            extractor: None,
+            detectors: None,
+            enricher: None,
+        };
+        let capture = analyze(request(AnalysisPolicy::Capture));
+        assert_eq!(capture.runs.len(), 1);
+        assert_eq!(
+            capture.runs[0].stable_ref,
+            crate::content_inspection::STRUCTURE_INSPECTOR_REF
+        );
+
+        let interactive = analyze(request(AnalysisPolicy::Interactive));
+        assert_eq!(interactive.runs.len(), 2);
+        assert!(interactive
+            .runs
+            .iter()
+            .any(|run| run.stable_ref == crate::content_inspection::MEDIA_INSPECTOR_REF));
     }
 
     #[test]

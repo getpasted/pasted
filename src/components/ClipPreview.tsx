@@ -78,6 +78,15 @@ interface StructuralInspection {
     files?: { itemCount: number; extensions: string[] };
   };
   appliedClipId: number | null;
+  mediaMetadata?: {
+    examinedFileCount: number;
+    mediaFileCount: number;
+    audioStreamCount: number;
+    videoStreamCount: number;
+    totalDurationMs: number;
+    containers: string[];
+    codecs: string[];
+  };
   liveFileObservations?: {
     availableCount: number;
     fileCount: number;
@@ -110,6 +119,7 @@ interface AnalyzerPreview {
   result: {
     clipKind: string;
     structure?: StructuralInspection['result'];
+    mediaMetadata?: StructuralInspection['mediaMetadata'];
     detectedType?: string;
     matchedDetectorRef?: string;
     searchableTextAvailable: boolean;
@@ -171,6 +181,16 @@ function formatFileSize(bytes: number): string {
     unit = units[index];
   }
   return `${value >= 10 ? value.toFixed(0) : value.toFixed(1)} ${unit}`;
+}
+
+function formatMediaDuration(milliseconds: number): string {
+  const totalSeconds = Math.floor(milliseconds / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return hours > 0
+    ? `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+    : `${minutes}:${String(seconds).padStart(2, '0')}`;
 }
 
 const CLEVER_PLACEHOLDERS = [
@@ -290,6 +310,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
           policy: result.policy,
           through: result.through,
           result: result.result.structure,
+          mediaMetadata: result.result.mediaMetadata,
           appliedClipId: null,
           liveFileObservations: result.liveFileObservations,
         } : null);
@@ -1302,6 +1323,20 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
                 <span>Available:</span>
                 <strong>{inspection?.liveFileObservations ? `${inspection.liveFileObservations.availableCount}/${inspection.result.files?.itemCount ?? 0}` : '…'}</strong>
               </span>
+              {inspection?.mediaMetadata && <>
+                <span className="clip-preview-footer-stat" title={inspection.mediaMetadata.containers.join(', ')}>
+                  <span>Media</span>
+                  <strong>{inspection.mediaMetadata.mediaFileCount}</strong>
+                </span>
+                <span className="clip-preview-footer-stat" title={inspection.mediaMetadata.codecs.join(', ')}>
+                  <span>Codecs</span>
+                  <strong>{inspection.mediaMetadata.codecs.slice(0, 2).join(', ') || '—'}</strong>
+                </span>
+                <span className="clip-preview-footer-stat">
+                  <span>Duration</span>
+                  <strong>{formatMediaDuration(inspection.mediaMetadata.totalDurationMs)}</strong>
+                </span>
+              </>}
             </>
           ) : (
             <>

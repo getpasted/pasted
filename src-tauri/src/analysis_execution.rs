@@ -33,6 +33,8 @@ pub struct AnalyzerSnapshot {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub structure: Option<StructuralMetadata>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub media_metadata: Option<crate::content_inspection::MediaMetadata>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub detected_type: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub matched_detector_ref: Option<String>,
@@ -119,6 +121,7 @@ fn execute(
     let snapshot = AnalyzerSnapshot {
         clip_kind: report.context.clip_kind.clone(),
         structure: report.context.structural_metadata,
+        media_metadata: report.context.media_metadata,
         detected_type: report.context.detected_type,
         matched_detector_ref: report.context.matched_detector_ref,
         searchable_text_available: report.context.searchable_text.is_some(),
@@ -338,7 +341,12 @@ mod tests {
             )
             .unwrap();
         let result = analyze_clip(&db, clip.id, AnalyzerOptions::default()).unwrap();
-        assert_eq!(result.analysis.participants.len(), 1);
+        assert_eq!(result.analysis.participants.len(), 2);
+        assert!(result
+            .analysis
+            .participants
+            .iter()
+            .any(|run| run.stable_ref == crate::content_inspection::MEDIA_INSPECTOR_REF));
         assert!(result.analysis.result.detected_type.is_none());
         assert!(result.analysis.result.recommendations.is_none());
         assert!(!serde_json::to_string(&result)

@@ -502,11 +502,13 @@ mod tests {
                 clip_kind: "image".into(),
                 capture_source: None,
                 original_text: None,
+                file_references: None,
                 image_bytes: None,
                 searchable_text: Some("partial output".into()),
                 detected_type: Some("email".into()),
                 matched_detector_ref: Some("detector:email".into()),
                 structural_metadata: None,
+                media_metadata: None,
                 recommendations: None,
             },
             runs: vec![ParticipantRun {
