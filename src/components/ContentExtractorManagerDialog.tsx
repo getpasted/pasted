@@ -40,6 +40,19 @@ interface ExtractorInput {
   priority: number;
 }
 
+const EXTRACTOR_INPUT_OPTIONS = [
+  { value: 'original_text', label: 'Text', disabled: true },
+  { value: 'image', label: 'Image', disabled: false },
+  { value: 'file_references', label: 'Files', disabled: false },
+] as const;
+
+const EXTRACTOR_OUTPUT_OPTIONS = [
+  { value: 'searchable_text', label: 'Searchable text' },
+] as const;
+
+const IMAGE_ENGINES = ['macos-vision-v1', 'tesseract-cli-v1'];
+const FILE_ENGINES = ['whisper-cpp-cli-v1'];
+
 function toInput(extractor?: ContentExtractor): ExtractorInput {
   return extractor ? {
     name: extractor.name,
@@ -180,6 +193,17 @@ export function ContentExtractorManagerDialog({
       return;
     }
     if (selected) setDraft(toInput(selected));
+  };
+
+  const changeInputContract = (inputContract: string) => {
+    let engine = draft.engine;
+    let modelPath = draft.modelPath;
+    if (inputContract === 'image' && FILE_ENGINES.includes(engine)) {
+      engine = 'tesseract-cli-v1';
+      modelPath = null;
+    }
+    if (inputContract === 'file_references' && IMAGE_ENGINES.includes(engine)) engine = 'whisper-cpp-cli-v1';
+    setDraft({ ...draft, inputContract, engine, modelPath });
   };
 
   const save = async () => {
@@ -377,13 +401,37 @@ export function ContentExtractorManagerDialog({
               <ModifiedFieldLabel modified={selectedId !== 'new' && draft.description !== defaults?.description}>Description</ModifiedFieldLabel>
               <input value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} className="theme-input ui-field-radius w-full border px-3 py-2" />
             </label>
-            <div className="grid grid-cols-1 gap-3 @md:grid-cols-3">
-              <div className="theme-subtle-surface rounded-lg border p-3">
-                <span className="theme-text-muted block text-[10px] font-semibold">Pass</span>
-                <strong className="theme-text-main mt-1 block font-mono">extract</strong>
-              </div>
-              <label className="space-y-1"><span className="theme-text-muted block text-[10px] font-semibold">Input</span><input value={draft.inputContract} disabled className="theme-input ui-field-radius w-full border px-3 py-2 font-mono disabled:opacity-60" /></label>
-              <label className="space-y-1"><span className="theme-text-muted block text-[10px] font-semibold">Output</span><input value={draft.outputContract} disabled className="theme-input ui-field-radius w-full border px-3 py-2 font-mono disabled:opacity-60" /></label>
+            <div className="grid grid-cols-1 gap-3 @md:grid-cols-2">
+              <label className="space-y-1">
+                <span className="theme-text-muted block text-[10px] font-semibold">Input Clip Type</span>
+                <select
+                  value={draft.inputContract}
+                  disabled={selectedId === null || selected?.isBuiltin}
+                  onChange={(event) => changeInputContract(event.target.value)}
+                  title="The Clip Type this Extractor accepts. Text clips are already searchable."
+                  className="theme-input ui-field-radius w-full border px-3 py-2 disabled:opacity-60"
+                >
+                  {EXTRACTOR_INPUT_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value} disabled={option.disabled}>
+                      {option.label}{option.disabled ? ' — already searchable' : ''}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="space-y-1">
+                <span className="theme-text-muted block text-[10px] font-semibold">Output</span>
+                <select
+                  value={draft.outputContract}
+                  disabled={selectedId === null || selected?.isBuiltin}
+                  onChange={(event) => setDraft({ ...draft, outputContract: event.target.value })}
+                  title="The representation this Extractor adds to the clip."
+                  className="theme-input ui-field-radius w-full border px-3 py-2 disabled:opacity-60"
+                >
+                  {EXTRACTOR_OUTPUT_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </label>
             </div>
             <label className="block space-y-1">
               <span className="theme-text-muted font-semibold">Engine</span>
