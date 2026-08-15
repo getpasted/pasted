@@ -5,6 +5,7 @@ const read = (path) => fs.readFileSync(path, 'utf8');
 const cli = read('src-tauri/src/bin/pasted_cli.rs');
 const help = read('src/components/HelpView.tsx');
 const database = read('src-tauri/src/db.rs');
+const libraryItems = read('src-tauri/src/library_items.rs');
 const commands = read('src-tauri/src/commands.rs');
 const analysis = read('src-tauri/src/content_analysis.rs');
 const analysisContract = read('src-tauri/src/analysis_contract.rs');
@@ -485,6 +486,12 @@ for (const method of ['update_clip_note', 'get_clip_versions_page', 'restore_cli
 assert.match(cli, /intelligence_executor::plan_intent/, 'CLI Transform planning must use the shared intelligence executor');
 assert.match(commands, /db\.get_library_items/, 'GUI library metadata must use the shared domain service');
 assert.match(cli, /db\.get_library_items/, 'CLI library metadata must use the shared domain service');
+for (const field of ['participant_contract', 'type_relations']) {
+  assert.match(libraryItems, new RegExp(`pub ${field}:`),
+    `Shared registry views must expose ${field} to GUI and CLI consumers`);
+}
+assert.match(tauriMock, /participantContract:[\s\S]*typeRelations:/,
+  'Frontend registry mocks must preserve participant contracts and Type relations');
 assert.match(commands, /db\.set_library_item_enabled/, 'GUI lifecycle toggles must use the shared domain service');
 assert.match(cli, /db\.set_library_item_enabled/, 'CLI lifecycle toggles must use the shared domain service');
 assert.match(extractorManager, /invoke\('set_library_item_enabled',[\s\S]*?kind: 'extractor'/,

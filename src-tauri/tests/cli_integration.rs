@@ -127,12 +127,19 @@ fn structural_inspector_has_registry_preview_and_apply_parity() {
         &["registry", "list", "--kind", "inspector", "--json"],
     );
     assert_eq!(registry[0]["analysisPass"], "inspect");
+    assert_eq!(registry[0]["participantContract"]["pass"], "inspect");
+    assert_eq!(
+        registry[0]["participantContract"]["requires"][0],
+        "clip_kind"
+    );
     assert_eq!(registry[0]["capabilities"]["canDisable"], false);
     assert!(registry
         .as_array()
         .is_some_and(|items| items.iter().any(|item| {
             item["stableRef"] == "inspector:media-metadata-v1"
                 && item["outputContract"] == "media_metadata"
+                && item["typeRelations"][0]["kind"] == "accepts"
+                && item["typeRelations"][0]["typeId"] == "file"
         })));
 
     let preview = success_json(
@@ -200,6 +207,10 @@ fn smart_actions_enricher_has_registry_and_non_mutating_cli_parity() {
         &["registry", "list", "--kind", "enricher", "--json"],
     );
     assert_eq!(registry[0]["analysisPass"], "enrich");
+    assert_eq!(
+        registry[0]["participantContract"]["requires"],
+        serde_json::json!(["analyzable_text", "classification", "structural_metadata"])
+    );
     assert_eq!(
         registry[0]["inputContract"],
         "analyzable_text+classification+structural_metadata"
@@ -410,6 +421,11 @@ fn extractor_lifecycle_and_registry_capabilities_run_end_to_end() {
         .and_then(|items| items.iter().find(|item| item["stableRef"] == stable_ref))
         .expect("Extractor registry item");
     assert_eq!(registry_item["analysisPass"], "extract");
+    assert_eq!(
+        registry_item["participantContract"]["provides"],
+        serde_json::json!(["searchable_text", "analyzable_text"])
+    );
+    assert_eq!(registry_item["typeRelations"][0]["typeId"], "image");
     assert_eq!(registry_item["capabilities"]["canDuplicate"], true);
     assert_eq!(registry_item["capabilities"]["canDelete"], true);
 
@@ -538,6 +554,12 @@ fn detector_preview_and_apply_share_the_safe_execution_contract() {
         .and_then(|items| items.iter().find(|item| item["stableRef"] == stable_ref))
         .expect("Detector registry item");
     assert_eq!(registry_item["analysisPass"], "classify");
+    assert_eq!(
+        registry_item["participantContract"]["requires"],
+        serde_json::json!(["analyzable_text"])
+    );
+    assert_eq!(registry_item["typeRelations"][0]["kind"], "classifies_as");
+    assert_eq!(registry_item["typeRelations"][0]["typeId"], "code");
     assert_eq!(registry_item["capabilities"]["canDuplicate"], true);
     assert_eq!(registry_item["capabilities"]["canDelete"], true);
 
