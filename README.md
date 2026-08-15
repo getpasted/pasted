@@ -87,7 +87,7 @@ Prerequisites:
 
 - Node.js 22 or newer
 - Rust 1.75 or newer
-- macOS for native OCR and signed macOS packaging; optional FFmpeg supplies cross-platform media inspection
+- macOS for native OCR and signed macOS packaging; optional FFmpeg supplies cross-platform media inspection, while whisper.cpp plus a local GGML model supplies local audio transcription
 
 ```sh
 npm install

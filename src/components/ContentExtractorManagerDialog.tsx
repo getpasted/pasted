@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
-import { CircleAlert, CircleCheck, Copy, Plus, RotateCcw, ScanText, Trash2 } from 'lucide-react';
+import { CircleAlert, CircleCheck, Copy, FolderOpen, Plus, RotateCcw, ScanText, Trash2 } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { AppDialog } from './AppDialog';
 import { AppDialogBody, AppDialogButton, AppDialogFooter, AppDialogHeader, AppDialogHeading, SaveButtonContent } from './AppDialogLayout';
@@ -18,6 +18,7 @@ export interface ContentExtractor {
   name: string;
   description: string;
   engine: string;
+  modelPath: string | null;
   inputContract: string;
   outputContract: string;
   enabled: boolean;
@@ -32,6 +33,7 @@ interface ExtractorInput {
   name: string;
   description: string;
   engine: string;
+  modelPath: string | null;
   inputContract: string;
   outputContract: string;
   enabled: boolean;
@@ -43,6 +45,7 @@ function toInput(extractor?: ContentExtractor): ExtractorInput {
     name: extractor.name,
     description: extractor.description,
     engine: extractor.engine,
+    modelPath: extractor.modelPath,
     inputContract: extractor.inputContract,
     outputContract: extractor.outputContract,
     enabled: extractor.enabled,
@@ -51,6 +54,7 @@ function toInput(extractor?: ContentExtractor): ExtractorInput {
     name: 'Custom Extractor',
     description: 'Extracts searchable text from images.',
     engine: 'macos-vision-v1',
+    modelPath: null,
     inputContract: 'image',
     outputContract: 'searchable_text',
     enabled: true,
@@ -100,6 +104,23 @@ export function ContentExtractorManagerDialog({
   const defaults = selected?.defaults;
   const defaultDraft = selected && defaults ? { ...toInput(selected), ...defaults } : null;
   const differsFromDefaults = defaultDraft !== null && JSON.stringify(draft) !== JSON.stringify(defaultDraft);
+  const runtimeConfigurationChanged = selected !== undefined
+    && (draft.engine !== selected.engine || draft.modelPath !== selected.modelPath);
+  const unavailableReason = selected?.unavailableReason ?? 'The configured engine is unavailable.';
+  const shortUnavailableReason = unavailableReason.match(/^.*?\.(?:\s|$)/)?.[0].trim()
+    ?? unavailableReason;
+  const availabilityLabel = selectedId === 'new'
+    ? 'Save to check availability'
+    : runtimeConfigurationChanged
+      ? 'Save to check availability'
+      : selected?.isAvailable
+        ? 'Available'
+        : shortUnavailableReason;
+  const availabilityTitle = selectedId === 'new' || runtimeConfigurationChanged
+    ? 'Save the Extractor to check engine availability.'
+    : selected?.isAvailable
+      ? 'The configured engine is ready on this system.'
+      : unavailableReason;
 
   const requestConfirmation = (request: ConfirmationDialogRequest) => {
     setConfirmation({
@@ -155,6 +176,15 @@ export function ContentExtractorManagerDialog({
       showToast({ tone: 'error', message: String(error) });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const chooseModel = async () => {
+    try {
+      const modelPath = await invoke<string | null>('choose_extractor_model_file');
+      if (modelPath) setDraft((current) => ({ ...current, modelPath }));
+    } catch (error) {
+      showToast({ tone: 'error', message: String(error) });
     }
   };
 
@@ -293,7 +323,22 @@ export function ContentExtractorManagerDialog({
           </RegistryPanelFooter>
         </section>
         <section className="theme-surface flex min-w-0 flex-col overflow-hidden rounded-xl border">
-          <RegistryPanelHeader title="Extractor Settings" />
+          <RegistryPanelHeader
+            title="Extractor Settings"
+            actions={<span
+              title={availabilityTitle}
+              className={`${selectedId !== 'new' && !runtimeConfigurationChanged && selected?.isAvailable
+                ? 'theme-status-success-text'
+                : selectedId !== 'new' && !runtimeConfigurationChanged
+                  ? 'theme-status-warning-text'
+                  : 'theme-text-muted'} flex min-w-0 max-w-[70%] shrink items-center gap-1.5 text-[10px] font-semibold`}
+            >
+              {selectedId !== 'new' && !runtimeConfigurationChanged && selected?.isAvailable
+                ? <CircleCheck className="h-3.5 w-3.5 shrink-0" />
+                : <CircleAlert className="h-3.5 w-3.5 shrink-0" />}
+              <span className="truncate">{availabilityLabel}</span>
+            </span>}
+          />
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
             <div className="grid grid-cols-1 gap-3 @md:grid-cols-[minmax(0,1fr)_110px]">
               <label className="space-y-1">
@@ -321,20 +366,20 @@ export function ContentExtractorManagerDialog({
               <span className="theme-text-muted font-semibold">Engine</span>
               <input value={draft.engine} disabled={selected?.isBuiltin} onChange={(event) => setDraft({ ...draft, engine: event.target.value })} className="theme-input ui-field-radius w-full border px-3 py-2 font-mono disabled:opacity-60" />
             </label>
+            {(draft.engine === 'whisper-cpp-cli-v1' || draft.modelPath !== null) && <label className="block space-y-1">
+              <span className="theme-text-muted font-semibold">Model</span>
+              <span className="flex gap-2">
+                <input value={draft.modelPath ?? ''} onChange={(event) => setDraft({ ...draft, modelPath: event.target.value || null })} placeholder="/path/to/ggml-model.bin" className="theme-input ui-field-radius min-w-0 flex-1 border px-3 py-2 font-mono" />
+                <AppDialogButton type="button" onClick={() => void chooseModel()} title="Choose a local Whisper model file">
+                  <FolderOpen className="h-3.5 w-3.5" /> Choose…
+                </AppDialogButton>
+              </span>
+              <span className="theme-text-muted block text-[10px]">Choose a local whisper.cpp GGML model file. Model downloads are not automatic.</span>
+            </label>}
             <label className="flex items-center gap-2">
               <input type="checkbox" checked={draft.enabled} onChange={(event) => setDraft({ ...draft, enabled: event.target.checked })} className="theme-checkbox h-4 w-4 rounded" />
               <ModifiedFieldLabel modified={selectedId !== 'new' && draft.enabled !== defaults?.enabled}>Enabled</ModifiedFieldLabel>
             </label>
-            {selected && (
-              <div className="theme-subtle-surface flex items-center justify-between gap-3 rounded-lg border p-3">
-                <span className="theme-text-muted text-[10px] font-semibold">Availability</span>
-                <span className={`${selected.isAvailable ? 'theme-status-success-text' : 'theme-status-warning-text'} flex items-center gap-1.5 text-right text-[11px] font-semibold`}>
-                  {selected.isAvailable
-                    ? <><CircleCheck className="h-3.5 w-3.5 shrink-0" /> Available on this system</>
-                    : <><CircleAlert className="h-3.5 w-3.5 shrink-0" /> {selected.unavailableReason}</>}
-                </span>
-              </div>
-            )}
           </div>
           <RegistryPanelFooter>
             <div>

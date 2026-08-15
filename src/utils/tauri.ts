@@ -82,8 +82,10 @@ let mockDetectors = [
 ];
 const mockAppleExtractorDefaults = { name: 'Apple Vision OCR', description: 'Extracts searchable text from images locally with Apple Vision.', enabled: true, priority: 10 };
 const mockTesseractExtractorDefaults = { name: 'Tesseract OCR', description: 'Extracts searchable text from images locally with Tesseract.', enabled: true, priority: 20 };
+const mockWhisperExtractorDefaults = { name: 'Whisper Transcription', description: 'Extracts searchable text from local audio files with whisper.cpp.', enabled: true, priority: 30 };
 type MockExtractor = {
   id: number; stableRef: string; name: string; description: string; engine: string;
+  modelPath: string | null;
   inputContract: string; outputContract: string; enabled: boolean; priority: number;
   isBuiltin: boolean; isAvailable: boolean; unavailableReason: string | null;
   defaults: typeof mockAppleExtractorDefaults | null;
@@ -94,6 +96,7 @@ function mockBuiltinExtractors(): MockExtractor[] {
     stableRef: 'extractor:apple-vision-ocr',
     ...mockAppleExtractorDefaults,
     engine: 'macos-vision-v1',
+    modelPath: null,
     inputContract: 'image',
     outputContract: 'searchable_text',
     isBuiltin: true,
@@ -105,16 +108,38 @@ function mockBuiltinExtractors(): MockExtractor[] {
     stableRef: 'extractor:tesseract-ocr',
     ...mockTesseractExtractorDefaults,
     engine: 'tesseract-cli-v1',
+    modelPath: null,
     inputContract: 'image',
     outputContract: 'searchable_text',
     isBuiltin: true,
     isAvailable: false,
     unavailableReason: 'Tesseract OCR is not installed. Install Tesseract 5, then check again.',
     defaults: { ...mockTesseractExtractorDefaults },
+  }, {
+    id: 3,
+    stableRef: 'extractor:whisper-transcription',
+    ...mockWhisperExtractorDefaults,
+    engine: 'whisper-cpp-cli-v1',
+    modelPath: null,
+    inputContract: 'file_references',
+    outputContract: 'searchable_text',
+    isBuiltin: true,
+    isAvailable: false,
+    unavailableReason: 'Whisper.cpp is not installed. Install whisper-cpp, then check again.',
+    defaults: { ...mockWhisperExtractorDefaults },
   }];
 }
-let nextMockExtractorId = 3;
+let nextMockExtractorId = 4;
 let mockExtractors: MockExtractor[] = mockBuiltinExtractors();
+const mockFileSearchableText = new Map<number, {
+  clipId: number;
+  extractorRef: string;
+  extractorName: string;
+  engine: string;
+  inputHash: string;
+  searchableText: string;
+  updatedAt: string;
+}>();
 
 let mockContentTypes: Array<{
   id: string; label: string; icon: string; group: string; isBuiltin: boolean; isArchived: boolean;
@@ -283,6 +308,8 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       return mockDetectors.map((detector) => ({ ...detector, patterns: [...detector.patterns] })) as unknown as T;
     case 'get_content_extractors':
       return mockExtractors.map((extractor) => ({ ...extractor, defaults: extractor.defaults ? { ...extractor.defaults } : null })) as unknown as T;
+    case 'choose_extractor_model_file':
+      return '/mock/models/ggml-base.en.bin' as unknown as T;
     case 'extract_ocr_from_clip': {
       const clipId = Number(args?.clipId);
       if (!Number.isInteger(clipId) || clipId <= 0) throw new Error('A valid clip ID is required.');
@@ -300,7 +327,41 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
         participants: [{ stableRef: 'extractor:apple-vision-ocr', pass: 'extract', outcome: 'produced' }],
         appliedClipId: clipId,
         ocrUpdated: true,
+        searchableTextUpdated: false,
         classificationUpdated: false,
+      } as unknown as T;
+    }
+    case 'get_clip_searchable_text':
+      return (mockFileSearchableText.get(Number(args?.clipId)) ?? null) as unknown as T;
+    case 'extract_text_from_file_clip': {
+      const clipId = Number(args?.clipId);
+      if (!Number.isInteger(clipId) || clipId <= 0) throw new Error('A valid clip ID is required.');
+      const searchableText = 'Locally transcribed audio';
+      mockFileSearchableText.set(clipId, {
+        clipId,
+        extractorRef: 'extractor:whisper-transcription',
+        extractorName: 'Whisper Transcription',
+        engine: 'whisper-cpp-cli-v1',
+        inputHash: `mock-file-${clipId}`,
+        searchableText,
+        updatedAt: new Date().toISOString(),
+      });
+      return {
+        formatVersion: 1,
+        policy: 'interactive',
+        through: 'enrich',
+        targetKind: 'extractor',
+        targetRef: 'extractor:whisper-transcription',
+        outcome: 'produced',
+        output: searchableText,
+        detectedType: 'prose',
+        matchedDetectorRef: 'detector:prose',
+        failure: null,
+        participants: [{ stableRef: 'extractor:whisper-transcription', pass: 'extract', outcome: 'produced' }],
+        appliedClipId: clipId,
+        ocrUpdated: false,
+        searchableTextUpdated: true,
+        classificationUpdated: true,
       } as unknown as T;
     }
     case 'create_content_extractor': {

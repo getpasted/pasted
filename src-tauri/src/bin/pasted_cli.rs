@@ -1310,7 +1310,7 @@ fn main() -> Result<()> {
                 }
                 "update" => {
                     let reference = args.get(3).unwrap_or_else(|| {
-                        eprintln!("Usage: pasted extractor update <ref> [--name NAME] [--description TEXT] [--engine ENGINE] [--input CONTRACT] [--output CONTRACT] [--priority N] [--enabled|--disabled] [--json]");
+                        eprintln!("Usage: pasted extractor update <ref> [--name NAME] [--description TEXT] [--engine ENGINE] [--model PATH|--no-model] [--input CONTRACT] [--output CONTRACT] [--priority N] [--enabled|--disabled] [--json]");
                         std::process::exit(2);
                     });
                     let current = db.get_content_extractor(reference)?;
@@ -1346,7 +1346,6 @@ fn main() -> Result<()> {
                     }
                 }
                 "run" | "test" => {
-                    require_feature(&db, Feature::Ocr);
                     let reference = args.get(3).unwrap_or_else(|| {
                         eprintln!("Usage: pasted extractor run <ref> (--clip ID | --file PATH) [--apply] [--json]");
                         std::process::exit(2);
@@ -1364,48 +1363,99 @@ fn main() -> Result<()> {
                         eprintln!("--apply requires --clip ID.");
                         std::process::exit(2);
                     }
-                    let (image_bytes, content_hash) = if let Some(clip_id) = clip_id {
-                        let clip = db.get_clip_by_id(clip_id)?;
-                        let bytes = clip
-                            .image_base64
-                            .as_deref()
-                            .and_then(pasted_lib::ocr::decode_stored_image)
-                            .unwrap_or_else(|| {
-                                eprintln!("Clip #{clip_id} has no extractable image data.");
-                                std::process::exit(2);
-                            });
-                        (bytes, Some(clip.content_hash))
-                    } else {
-                        (
-                            read_file_bounded(
-                                Path::new(file_path.as_deref().expect("checked above")),
-                                pasted_lib::resource_limits::MAX_ENCODED_IMAGE_BYTES,
-                            )?,
-                            None,
-                        )
-                    };
                     let detectors = setting_value_is_enabled(
                         db.get_setting(Feature::ContentDetection.setting_key())?
                             .as_deref(),
                     )
                     .then(|| db.get_content_detectors())
                     .transpose()?;
-                    let analysis = pasted_lib::extraction_execution::analyze_image(
-                        image_bytes,
-                        &extractor,
-                        detectors.as_deref(),
+                    let image_contract = extractor.supports_contract(
+                        pasted_lib::analysis_contract::RepresentationKind::ImageBytes,
+                        pasted_lib::analysis_contract::RepresentationKind::SearchableText,
                     );
+                    let file_contract = extractor.supports_contract(
+                        pasted_lib::analysis_contract::RepresentationKind::FileReferences,
+                        pasted_lib::analysis_contract::RepresentationKind::SearchableText,
+                    );
+                    if !image_contract && !file_contract {
+                        eprintln!("This Extractor does not have a runnable input contract.");
+                        std::process::exit(2);
+                    }
+                    if image_contract {
+                        require_feature(&db, Feature::Ocr);
+                    }
+                    let mut content_hash = None;
+                    let analysis = if image_contract {
+                        let image_bytes = if let Some(clip_id) = clip_id {
+                            let clip = db.get_clip_by_id(clip_id)?;
+                            content_hash = Some(clip.content_hash);
+                            clip.image_base64
+                                .as_deref()
+                                .and_then(pasted_lib::ocr::decode_stored_image)
+                                .unwrap_or_else(|| {
+                                    eprintln!("Clip #{clip_id} has no extractable image data.");
+                                    std::process::exit(2);
+                                })
+                        } else {
+                            read_file_bounded(
+                                Path::new(file_path.as_deref().expect("checked above")),
+                                pasted_lib::resource_limits::MAX_ENCODED_IMAGE_BYTES,
+                            )?
+                        };
+                        pasted_lib::extraction_execution::analyze_image(
+                            image_bytes,
+                            &extractor,
+                            detectors.as_deref(),
+                        )
+                    } else {
+                        let paths = if let Some(clip_id) = clip_id {
+                            let clip = db.get_clip_by_id(clip_id)?;
+                            content_hash = Some(clip.content_hash.clone());
+                            clip.text_content
+                                .as_deref()
+                                .map(pasted_lib::content_inspection::parse_file_paths)
+                                .filter(|paths| !paths.is_empty())
+                                .unwrap_or_else(|| {
+                                    eprintln!(
+                                        "Clip #{clip_id} has no extractable file references."
+                                    );
+                                    std::process::exit(2);
+                                })
+                        } else {
+                            vec![file_path.expect("checked above")]
+                        };
+                        if !pasted_lib::resource_limits::file_list_within_limit(&paths) {
+                            eprintln!("File references exceed the extraction safety limit.");
+                            std::process::exit(2);
+                        }
+                        pasted_lib::extraction_execution::analyze_files(
+                            paths,
+                            &extractor,
+                            detectors.as_deref(),
+                        )
+                    };
                     let result = if apply {
                         let clip_id = clip_id.expect("validated apply target");
                         let content_hash = content_hash.as_deref().expect("clip input has a hash");
-                        pasted_lib::extraction_execution::apply_image_analysis(
-                            &db,
-                            clip_id,
-                            content_hash,
-                            &extractor,
-                            detectors.is_some(),
-                            analysis,
-                        )?
+                        if image_contract {
+                            pasted_lib::extraction_execution::apply_image_analysis(
+                                &db,
+                                clip_id,
+                                content_hash,
+                                &extractor,
+                                detectors.is_some(),
+                                analysis,
+                            )?
+                        } else {
+                            pasted_lib::extraction_execution::apply_file_analysis(
+                                &db,
+                                clip_id,
+                                content_hash,
+                                &extractor,
+                                detectors.is_some(),
+                                analysis,
+                            )?
+                        }
                     } else {
                         pasted_lib::extraction_execution::ExtractionApplicationResult::preview(
                             analysis,
@@ -3709,6 +3759,12 @@ fn extractor_definition_from_args(
                 .map(|item| item.engine.clone())
                 .unwrap_or_else(|| APPLE_VISION_ENGINE.into())
         }),
+        model_path: optional_argument_update(
+            args,
+            "--model",
+            "--no-model",
+            current.and_then(|item| item.model_path.clone()),
+        ),
         input_contract: argument_value(args, "--input").unwrap_or_else(|| {
             current
                 .map(|item| item.input_contract.clone())
@@ -3750,6 +3806,9 @@ fn print_extractor(
             extractor.output_contract,
             extractor.name
         );
+        if let Some(model_path) = extractor.model_path.as_deref() {
+            println!("Model: {model_path}");
+        }
     }
     Ok(())
 }

@@ -92,6 +92,41 @@ pub fn analyze_image_with_registry(
     )
 }
 
+pub fn analyze_files(
+    paths: Vec<String>,
+    extractor: &Extractor,
+    detectors: Option<&[crate::content_detection::Detector]>,
+) -> ExtractionResult {
+    let registry = crate::content_extraction::system_engine_registry();
+    analyze_files_with_registry(paths, extractor, detectors, &registry)
+}
+
+pub fn analyze_files_with_registry(
+    paths: Vec<String>,
+    extractor: &Extractor,
+    detectors: Option<&[crate::content_detection::Detector]>,
+    registry: &ExtractorEngineRegistry<'_>,
+) -> ExtractionResult {
+    ExtractionResult::from_report(
+        extractor,
+        AnalysisPolicy::Interactive,
+        crate::content_analysis::analyze(crate::content_analysis::AnalysisRequest {
+            input: crate::content_analysis::AnalysisInput::Files {
+                paths,
+                source: None,
+            },
+            policy: AnalysisPolicy::Interactive,
+            inspector: false,
+            extractor: Some(crate::content_analysis::ExtractorParticipantSource {
+                extractor,
+                registry,
+            }),
+            detectors,
+            enricher: None,
+        }),
+    )
+}
+
 pub(crate) fn analyze_image_with_registry_and_policy(
     image_bytes: Vec<u8>,
     extractor: &Extractor,
@@ -123,6 +158,7 @@ pub(crate) fn analyze_image_with_registry_and_policy(
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct ExtractionPersistence {
     pub ocr_updated: bool,
+    pub searchable_text_updated: bool,
     pub classification_updated: bool,
 }
 
@@ -134,6 +170,7 @@ pub struct ExtractionApplicationResult {
     #[serde(flatten)]
     pub application: ClipApplication,
     pub ocr_updated: bool,
+    pub searchable_text_updated: bool,
     pub classification_updated: bool,
 }
 
@@ -143,6 +180,7 @@ impl ExtractionApplicationResult {
             analysis,
             application: ClipApplication::preview(),
             ocr_updated: false,
+            searchable_text_updated: false,
             classification_updated: false,
         }
     }
@@ -174,6 +212,7 @@ fn persist_image_analysis(
     if !ocr_updated {
         return Ok(ExtractionPersistence {
             ocr_updated: false,
+            searchable_text_updated: false,
             classification_updated: false,
         });
     }
@@ -193,6 +232,7 @@ fn persist_image_analysis(
 
     Ok(ExtractionPersistence {
         ocr_updated,
+        searchable_text_updated: false,
         classification_updated,
     })
 }
@@ -220,7 +260,51 @@ pub fn persist_claimed_image_analysis(
             ClipApplication::preview()
         },
         ocr_updated: persistence.ocr_updated,
+        searchable_text_updated: persistence.searchable_text_updated,
         classification_updated: persistence.classification_updated,
+        analysis,
+    })
+}
+
+pub fn apply_file_analysis(
+    db: &DbState,
+    clip_id: i64,
+    content_hash: &str,
+    extractor: &Extractor,
+    classification_enabled: bool,
+    analysis: ExtractionResult,
+) -> rusqlite::Result<ExtractionApplicationResult> {
+    if analysis.outcome != ExtractionResultOutcome::Produced {
+        return Ok(ExtractionApplicationResult::preview(analysis));
+    }
+    let searchable_text_updated = db.replace_clip_searchable_text(
+        clip_id,
+        content_hash,
+        extractor,
+        analysis.output.as_deref(),
+    )?;
+    if !searchable_text_updated {
+        return Err(rusqlite::Error::InvalidParameterName(
+            "The selected clip changed before extraction could be applied".into(),
+        ));
+    }
+    let classification_updated = if classification_enabled {
+        db.record_analysis_classification(
+            clip_id,
+            content_hash,
+            analysis.detected_type.as_deref(),
+            analysis.matched_detector_ref.as_deref(),
+            "searchable_text",
+        )
+        .unwrap_or(false)
+    } else {
+        false
+    };
+    Ok(ExtractionApplicationResult {
+        application: ClipApplication::applied(clip_id),
+        ocr_updated: false,
+        searchable_text_updated,
+        classification_updated,
         analysis,
     })
 }
@@ -265,6 +349,10 @@ mod tests {
         outcome: ExtractionOutcome,
     }
 
+    struct FixedFileEngine {
+        outcome: ExtractionOutcome,
+    }
+
     impl crate::content_extraction::ExtractorEngine for FixedEngine {
         fn id(&self) -> &'static str {
             "test-engine-v1"
@@ -278,6 +366,31 @@ mod tests {
         }
 
         fn extract(&self, _image_bytes: &[u8]) -> ExtractionOutcome {
+            self.outcome.clone()
+        }
+    }
+
+    impl crate::content_extraction::ExtractorEngine for FixedFileEngine {
+        fn id(&self) -> &'static str {
+            "test-file-engine-v1"
+        }
+
+        fn availability(&self) -> EngineAvailability {
+            EngineAvailability {
+                is_available: true,
+                unavailable_reason: None,
+            }
+        }
+
+        fn extract(&self, _image_bytes: &[u8]) -> ExtractionOutcome {
+            ExtractionOutcome::NoOutput
+        }
+
+        fn extract_files(
+            &self,
+            _paths: &[String],
+            _model_path: Option<&std::path::Path>,
+        ) -> ExtractionOutcome {
             self.outcome.clone()
         }
     }
@@ -298,10 +411,30 @@ mod tests {
             name: "Test OCR".into(),
             description: String::new(),
             engine: "test-engine-v1".into(),
+            model_path: None,
             input_contract: "image".into(),
             output_contract: "searchable_text".into(),
             enabled: true,
             priority: 10,
+            is_builtin: false,
+            is_available: true,
+            unavailable_reason: None,
+            defaults: None,
+        }
+    }
+
+    fn file_extractor() -> Extractor {
+        Extractor {
+            id: 2,
+            stable_ref: "extractor:test-file".into(),
+            name: "Test Transcription".into(),
+            description: String::new(),
+            engine: "test-file-engine-v1".into(),
+            model_path: None,
+            input_contract: "file_references".into(),
+            output_contract: "searchable_text".into(),
+            enabled: true,
+            priority: 20,
             is_builtin: false,
             is_available: true,
             unavailable_reason: None,
@@ -573,6 +706,100 @@ mod tests {
         assert_eq!(classification.content_type, "email");
         assert_eq!(classification.detector_ref, "detector:email");
         assert_eq!(classification.source_representation, "searchable_text");
+    }
+
+    #[test]
+    fn file_transcription_application_preserves_paths_and_adds_searchable_text() {
+        let db = setup_test_db();
+        let clip = db
+            .save_clip(
+                "file",
+                Some(r#"["/tmp/interview.wav"]"#),
+                None,
+                None,
+                "file-analysis-persistence",
+                "Tests",
+            )
+            .unwrap();
+        let engine = FixedFileEngine {
+            outcome: ExtractionOutcome::Produced {
+                text: "Recorded discussion about nebulae".into(),
+            },
+        };
+        let engines: [&dyn crate::content_extraction::ExtractorEngine; 1] = [&engine];
+        let registry = ExtractorEngineRegistry::new(&engines);
+        let extractor = file_extractor();
+        let analysis = analyze_files_with_registry(
+            vec!["/tmp/interview.wav".into()],
+            &extractor,
+            None,
+            &registry,
+        );
+
+        let applied = apply_file_analysis(
+            &db,
+            clip.id,
+            &clip.content_hash,
+            &extractor,
+            false,
+            analysis,
+        )
+        .unwrap();
+
+        assert_eq!(applied.application.applied_clip_id, Some(clip.id));
+        assert!(applied.searchable_text_updated);
+        assert!(!applied.ocr_updated);
+        assert_eq!(
+            db.get_clip_by_id(clip.id).unwrap().text_content.as_deref(),
+            Some(r#"["/tmp/interview.wav"]"#)
+        );
+        let stored = db.get_clip_searchable_text(clip.id).unwrap().unwrap();
+        assert_eq!(stored.extractor_ref, extractor.stable_ref);
+        assert_eq!(stored.searchable_text, "Recorded discussion about nebulae");
+    }
+
+    #[test]
+    fn file_transcription_no_output_preserves_existing_searchable_text() {
+        let db = setup_test_db();
+        let clip = db
+            .save_clip(
+                "file",
+                Some(r#"["/tmp/interview.wav"]"#),
+                None,
+                None,
+                "file-analysis-no-output",
+                "Tests",
+            )
+            .unwrap();
+        let extractor = file_extractor();
+        assert!(db
+            .replace_clip_searchable_text(
+                clip.id,
+                &clip.content_hash,
+                &extractor,
+                Some("Previously transcribed discussion"),
+            )
+            .unwrap());
+
+        let applied = apply_file_analysis(
+            &db,
+            clip.id,
+            &clip.content_hash,
+            &extractor,
+            false,
+            result(None, None, None),
+        )
+        .unwrap();
+
+        assert_eq!(applied.application.applied_clip_id, None);
+        assert!(!applied.searchable_text_updated);
+        assert_eq!(
+            db.get_clip_searchable_text(clip.id)
+                .unwrap()
+                .unwrap()
+                .searchable_text,
+            "Previously transcribed discussion"
+        );
     }
 
     #[test]

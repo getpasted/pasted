@@ -105,8 +105,16 @@ fn push_smart_condition(
             "source LIKE ?".to_string()
         }
         "contains" => {
-            parameters.push(Box::new(format!("%{}%", value)));
-            "text_content LIKE ?".to_string()
+            let pattern = format!("%{}%", value);
+            parameters.push(Box::new(pattern.clone()));
+            parameters.push(Box::new(pattern));
+            "(text_content LIKE ? OR EXISTS (
+                SELECT 1 FROM clip_searchable_text AS extracted
+                WHERE extracted.clip_id = clips.id
+                  AND extracted.input_hash = clips.content_hash
+                  AND extracted.searchable_text LIKE ?
+            ))"
+            .to_string()
         }
         "file_extension" => {
             let extension =
@@ -314,6 +322,18 @@ pub struct AnalysisClassification {
     pub detector_ref: String,
     pub source_representation: String,
     pub input_hash: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ClipSearchableText {
+    pub clip_id: i64,
+    pub extractor_ref: String,
+    pub extractor_name: String,
+    pub engine: String,
+    pub input_hash: String,
+    pub searchable_text: String,
     pub updated_at: String,
 }
 
@@ -1948,6 +1968,18 @@ impl DbState {
             )",
             [],
         )?;
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS clip_searchable_text (
+                clip_id INTEGER PRIMARY KEY REFERENCES clips(id) ON DELETE CASCADE,
+                extractor_ref TEXT NOT NULL,
+                extractor_name TEXT NOT NULL,
+                engine TEXT NOT NULL,
+                input_hash TEXT NOT NULL,
+                searchable_text TEXT NOT NULL,
+                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )",
+            [],
+        )?;
 
         let _ = conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_clips_trashed ON clips (is_trashed, created_at DESC)",
@@ -2003,6 +2035,42 @@ impl DbState {
             // older trigger implementation cannot leave clip updates failing with a
             // misleading "database disk image is malformed" error.
             let _ = conn.execute("INSERT INTO clips_fts(clips_fts) VALUES('rebuild')", []);
+        }
+
+        let extracted_fts_res = conn.execute(
+            "CREATE VIRTUAL TABLE IF NOT EXISTS clip_searchable_text_fts USING fts5(
+                searchable_text,
+                content='clip_searchable_text',
+                content_rowid='clip_id'
+            )",
+            [],
+        );
+        if extracted_fts_res.is_ok() {
+            let _ = conn.execute_batch(
+                "CREATE TRIGGER IF NOT EXISTS clip_searchable_text_ai
+                    AFTER INSERT ON clip_searchable_text BEGIN
+                        INSERT INTO clip_searchable_text_fts(rowid, searchable_text)
+                        VALUES (new.clip_id, new.searchable_text);
+                    END;
+                 CREATE TRIGGER IF NOT EXISTS clip_searchable_text_ad
+                    AFTER DELETE ON clip_searchable_text BEGIN
+                        INSERT INTO clip_searchable_text_fts(
+                            clip_searchable_text_fts, rowid, searchable_text
+                        ) VALUES ('delete', old.clip_id, old.searchable_text);
+                    END;
+                 CREATE TRIGGER IF NOT EXISTS clip_searchable_text_au
+                    AFTER UPDATE ON clip_searchable_text BEGIN
+                        INSERT INTO clip_searchable_text_fts(
+                            clip_searchable_text_fts, rowid, searchable_text
+                        ) VALUES ('delete', old.clip_id, old.searchable_text);
+                        INSERT INTO clip_searchable_text_fts(rowid, searchable_text)
+                        VALUES (new.clip_id, new.searchable_text);
+                    END;",
+            );
+            let _ = conn.execute(
+                "INSERT INTO clip_searchable_text_fts(clip_searchable_text_fts) VALUES('rebuild')",
+                [],
+            );
         }
 
         conn.execute(
@@ -2184,6 +2252,7 @@ impl DbState {
                 name TEXT NOT NULL,
                 description TEXT NOT NULL DEFAULT '',
                 engine TEXT NOT NULL,
+                model_path TEXT,
                 input_contract TEXT NOT NULL,
                 output_contract TEXT NOT NULL,
                 enabled INTEGER NOT NULL DEFAULT 1,
@@ -2196,6 +2265,12 @@ impl DbState {
             CREATE INDEX IF NOT EXISTS idx_content_extractors_order
                 ON content_extractors (is_deleted, enabled, priority, id);",
         )?;
+        if !column_exists(&conn, "content_extractors", "model_path")? {
+            conn.execute(
+                "ALTER TABLE content_extractors ADD COLUMN model_path TEXT",
+                [],
+            )?;
+        }
         for preset in crate::content_types::CONTENT_TYPE_GROUP_PRESETS {
             conn.execute(
                 "INSERT OR IGNORE INTO content_type_groups
@@ -2225,14 +2300,15 @@ impl DbState {
         for preset in crate::content_extraction::EXTRACTOR_PRESETS {
             conn.execute(
                 "INSERT OR IGNORE INTO content_extractors
-                    (stable_ref, name, description, engine, input_contract, output_contract,
+                    (stable_ref, name, description, engine, model_path, input_contract, output_contract,
                      enabled, priority, is_builtin)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, 1, ?7, 1)",
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 1, ?8, 1)",
                 params![
                     preset.stable_ref,
                     preset.name,
                     preset.description,
                     preset.engine,
+                    preset.model_path,
                     preset.input_contract,
                     preset.output_contract,
                     preset.priority
@@ -2634,14 +2710,15 @@ impl DbState {
         for preset in crate::content_extraction::EXTRACTOR_PRESETS {
             transaction.execute(
                 "INSERT INTO content_extractors
-                    (stable_ref, name, description, engine, input_contract, output_contract,
+                    (stable_ref, name, description, engine, model_path, input_contract, output_contract,
                      enabled, priority, is_builtin)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, 1, ?7, 1)",
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 1, ?8, 1)",
                 params![
                     preset.stable_ref,
                     preset.name,
                     preset.description,
                     preset.engine,
+                    preset.model_path,
                     preset.input_contract,
                     preset.output_contract,
                     preset.priority
@@ -3424,6 +3501,98 @@ impl DbState {
         .optional()
     }
 
+    pub fn replace_clip_searchable_text(
+        &self,
+        clip_id: i64,
+        input_hash: &str,
+        extractor: &crate::content_extraction::Extractor,
+        searchable_text: Option<&str>,
+    ) -> Result<bool> {
+        if input_hash.len() > 128
+            || extractor.stable_ref.len() > 160
+            || extractor.name.len() > 80
+            || extractor.engine.len() > 80
+            || searchable_text
+                .is_some_and(|text| text.len() > crate::resource_limits::MAX_OCR_TEXT_BYTES)
+        {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "Searchable extraction exceeds its safety limit".into(),
+            ));
+        }
+        let mut conn = self.conn.lock();
+        let transaction = conn.transaction()?;
+        let clip_matches: bool = transaction.query_row(
+            "SELECT EXISTS(
+                SELECT 1 FROM clips
+                WHERE id = ?1 AND content_hash = ?2 AND content_type = 'file'
+                  AND COALESCE(is_trashed, 0) = 0
+            )",
+            params![clip_id, input_hash],
+            |row| row.get(0),
+        )?;
+        if !clip_matches {
+            transaction.rollback()?;
+            return Ok(false);
+        }
+        if let Some(searchable_text) = searchable_text {
+            transaction.execute(
+                "INSERT INTO clip_searchable_text
+                    (clip_id, extractor_ref, extractor_name, engine, input_hash, searchable_text)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+                 ON CONFLICT(clip_id) DO UPDATE SET
+                    extractor_ref = excluded.extractor_ref,
+                    extractor_name = excluded.extractor_name,
+                    engine = excluded.engine,
+                    input_hash = excluded.input_hash,
+                    searchable_text = excluded.searchable_text,
+                    updated_at = CURRENT_TIMESTAMP",
+                params![
+                    clip_id,
+                    extractor.stable_ref,
+                    extractor.name,
+                    extractor.engine,
+                    input_hash,
+                    searchable_text,
+                ],
+            )?;
+        } else {
+            transaction.execute(
+                "DELETE FROM clip_searchable_text WHERE clip_id = ?1",
+                params![clip_id],
+            )?;
+        }
+        transaction.commit()?;
+        Ok(true)
+    }
+
+    pub fn get_clip_searchable_text(&self, clip_id: i64) -> Result<Option<ClipSearchableText>> {
+        let conn = self.conn.lock();
+        conn.query_row(
+            "SELECT extracted.clip_id, extracted.extractor_ref, extracted.extractor_name,
+                    extracted.engine, extracted.input_hash, extracted.searchable_text,
+                    extracted.updated_at
+             FROM clip_searchable_text AS extracted
+             JOIN clips ON clips.id = extracted.clip_id
+             WHERE extracted.clip_id = ?1
+               AND extracted.input_hash = clips.content_hash
+               AND clips.content_type = 'file'
+               AND COALESCE(clips.is_trashed, 0) = 0",
+            params![clip_id],
+            |row| {
+                Ok(ClipSearchableText {
+                    clip_id: row.get(0)?,
+                    extractor_ref: row.get(1)?,
+                    extractor_name: row.get(2)?,
+                    engine: row.get(3)?,
+                    input_hash: row.get(4)?,
+                    searchable_text: row.get(5)?,
+                    updated_at: row.get(6)?,
+                })
+            },
+        )
+        .optional()
+    }
+
     pub fn record_structural_inspection(
         &self,
         clip_id: i64,
@@ -4088,7 +4257,16 @@ impl DbState {
             if !cleaned.is_empty() {
                 let fts_query = cleaned.replace('"', "\"\"").replace('*', "");
                 if !fts_query.trim().is_empty() {
-                    sql.push_str(" AND (id IN (SELECT rowid FROM clips_fts WHERE clips_fts MATCH ?) OR content_type LIKE ?)");
+                    sql.push_str(" AND (id IN (SELECT rowid FROM clips_fts WHERE clips_fts MATCH ?) OR id IN (
+                        SELECT extracted.clip_id
+                        FROM clip_searchable_text_fts
+                        JOIN clip_searchable_text AS extracted
+                          ON extracted.clip_id = clip_searchable_text_fts.rowid
+                        JOIN clips AS source_clip ON source_clip.id = extracted.clip_id
+                        WHERE clip_searchable_text_fts MATCH ?
+                          AND extracted.input_hash = source_clip.content_hash
+                    ) OR content_type LIKE ?)");
+                    query_params.push(Box::new(format!("\"{}\"*", fts_query)));
                     query_params.push(Box::new(format!("\"{}\"*", fts_query)));
                     query_params.push(Box::new(format!("%{}%", cleaned)));
                 } else {
@@ -9555,28 +9733,31 @@ impl DbState {
     pub fn get_content_extractors(&self) -> Result<Vec<crate::content_extraction::Extractor>> {
         let conn = self.conn.lock();
         let mut statement = conn.prepare(
-            "SELECT id, stable_ref, name, description, engine, input_contract,
+            "SELECT id, stable_ref, name, description, engine, model_path, input_contract,
                     output_contract, enabled, priority, is_builtin
              FROM content_extractors WHERE is_deleted = 0 ORDER BY priority, id",
         )?;
         let rows = statement.query_map([], |row| {
             let stable_ref = row.get::<_, String>(1)?;
             let engine = row.get::<_, String>(4)?;
+            let model_path = row.get::<_, Option<String>>(5)?;
             let preset = crate::content_extraction::EXTRACTOR_PRESETS
                 .iter()
                 .find(|preset| preset.stable_ref == stable_ref);
-            let availability = crate::content_extraction::engine_availability(&engine);
+            let availability =
+                crate::content_extraction::engine_availability_for(&engine, model_path.as_deref());
             Ok(crate::content_extraction::Extractor {
                 id: row.get(0)?,
                 stable_ref,
                 name: row.get(2)?,
                 description: row.get(3)?,
                 engine,
-                input_contract: row.get(5)?,
-                output_contract: row.get(6)?,
-                enabled: row.get(7)?,
-                priority: row.get(8)?,
-                is_builtin: row.get(9)?,
+                model_path,
+                input_contract: row.get(6)?,
+                output_contract: row.get(7)?,
+                enabled: row.get(8)?,
+                priority: row.get(9)?,
+                is_builtin: row.get(10)?,
                 is_available: availability.is_available,
                 unavailable_reason: availability.unavailable_reason,
                 defaults: preset.map(|preset| crate::content_extraction::ExtractorInput {
@@ -9624,13 +9805,14 @@ impl DbState {
         }
         conn.execute(
             "INSERT INTO content_extractors
-                (stable_ref, name, description, engine, input_contract, output_contract,
+                (stable_ref, name, description, engine, model_path, input_contract, output_contract,
                  enabled, priority, is_builtin)
-             VALUES ('pending', ?1, ?2, ?3, ?4, ?5, ?6, ?7, 0)",
+             VALUES ('pending', ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 0)",
             params![
                 input.name.trim(),
                 input.description.trim(),
                 input.engine.trim(),
+                input.model_path.as_deref().map(str::trim),
                 input.input_contract,
                 input.output_contract,
                 input.enabled,
@@ -9675,13 +9857,14 @@ impl DbState {
         let conn = self.conn.lock();
         let changed = conn.execute(
             "UPDATE content_extractors SET name = ?1, description = ?2, engine = ?3,
-                    input_contract = ?4, output_contract = ?5, enabled = ?6,
-                    priority = ?7, updated_at = CURRENT_TIMESTAMP
-             WHERE id = ?8 AND is_deleted = 0",
+                    model_path = ?4, input_contract = ?5, output_contract = ?6, enabled = ?7,
+                    priority = ?8, updated_at = CURRENT_TIMESTAMP
+             WHERE id = ?9 AND is_deleted = 0",
             params![
                 input.name.trim(),
                 input.description.trim(),
                 input.engine.trim(),
+                input.model_path.as_deref().map(str::trim),
                 input.input_contract,
                 input.output_contract,
                 input.enabled,
@@ -9716,6 +9899,7 @@ impl DbState {
                 .unwrap_or_else(|| format!("{} Copy", source.name)),
             description: source.description,
             engine: source.engine,
+            model_path: source.model_path,
             input_contract: source.input_contract,
             output_contract: source.output_contract,
             enabled: source.enabled,
@@ -9799,9 +9983,9 @@ impl DbState {
         for preset in crate::content_extraction::EXTRACTOR_PRESETS {
             conn.execute(
                 "INSERT INTO content_extractors
-                    (stable_ref, name, description, engine, input_contract, output_contract,
+                    (stable_ref, name, description, engine, model_path, input_contract, output_contract,
                      enabled, priority, is_builtin, is_deleted)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, 1, ?7, 1, 0)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 1, ?8, 1, 0)
                  ON CONFLICT(stable_ref) DO UPDATE SET
                     name = excluded.name, description = excluded.description,
                     engine = excluded.engine, input_contract = excluded.input_contract,
@@ -9813,6 +9997,7 @@ impl DbState {
                     preset.name,
                     preset.description,
                     preset.engine,
+                    preset.model_path,
                     preset.input_contract,
                     preset.output_contract,
                     preset.priority
@@ -9838,6 +10023,22 @@ impl DbState {
                     && extractor.is_available
                     && extractor.supports_contract(
                         crate::analysis_contract::RepresentationKind::ImageBytes,
+                        crate::analysis_contract::RepresentationKind::SearchableText,
+                    )
+            }))
+    }
+
+    pub fn active_file_text_extractor(
+        &self,
+    ) -> Result<Option<crate::content_extraction::Extractor>> {
+        Ok(self
+            .get_content_extractors()?
+            .into_iter()
+            .find(|extractor| {
+                extractor.enabled
+                    && extractor.is_available
+                    && extractor.supports_contract(
+                        crate::analysis_contract::RepresentationKind::FileReferences,
                         crate::analysis_contract::RepresentationKind::SearchableText,
                     )
             }))
@@ -10331,6 +10532,39 @@ mod tests {
             )
             .is_available
         );
+        let whisper = extractors
+            .iter()
+            .find(|extractor| {
+                extractor.stable_ref == crate::content_extraction::WHISPER_TRANSCRIPTION_REF
+            })
+            .unwrap();
+        assert_eq!(
+            whisper.engine,
+            crate::content_extraction::WHISPER_CPP_ENGINE
+        );
+        assert_eq!(whisper.input_contract, "file_references");
+        assert_eq!(whisper.output_contract, "searchable_text");
+        assert_eq!(whisper.model_path, None);
+        db.update_content_extractor_definition(
+            whisper.id,
+            &crate::content_extraction::ExtractorDefinitionInput {
+                name: whisper.name.clone(),
+                description: whisper.description.clone(),
+                engine: whisper.engine.clone(),
+                model_path: Some("/tmp/pasted-missing-whisper-model.bin".into()),
+                input_contract: whisper.input_contract.clone(),
+                output_contract: whisper.output_contract.clone(),
+                enabled: whisper.enabled,
+                priority: whisper.priority,
+            },
+        )
+        .unwrap();
+        let configured_whisper = db.get_content_extractor(&whisper.stable_ref).unwrap();
+        assert_eq!(
+            configured_whisper.model_path.as_deref(),
+            Some("/tmp/pasted-missing-whisper-model.bin")
+        );
+        assert!(!configured_whisper.is_available);
 
         db.update_content_extractor(
             apple.id,
@@ -10371,6 +10605,7 @@ mod tests {
                 name: "Project OCR".into(),
                 description: "Extracts project screenshots".into(),
                 engine: crate::content_extraction::APPLE_VISION_ENGINE.into(),
+                model_path: None,
                 input_contract: "image".into(),
                 output_contract: "searchable_text".into(),
                 enabled: true,
@@ -10392,6 +10627,7 @@ mod tests {
                 name: "Project OCR Revised".into(),
                 description: duplicate.description.clone(),
                 engine: duplicate.engine.clone(),
+                model_path: duplicate.model_path.clone(),
                 input_contract: duplicate.input_contract.clone(),
                 output_contract: duplicate.output_contract.clone(),
                 enabled: false,
@@ -10411,6 +10647,13 @@ mod tests {
         assert_eq!(restored.name, "Apple Vision OCR");
         assert!(restored.enabled);
         assert_eq!(restored.priority, 10);
+        assert_eq!(
+            db.get_content_extractor(crate::content_extraction::WHISPER_TRANSCRIPTION_REF)
+                .unwrap()
+                .model_path
+                .as_deref(),
+            Some("/tmp/pasted-missing-whisper-model.bin")
+        );
         assert!(restored_extractors.iter().any(|extractor| {
             extractor.stable_ref == duplicate.stable_ref
                 && extractor.name == "Project OCR Revised"
@@ -10430,6 +10673,7 @@ mod tests {
                 name: extractor.name.clone(),
                 description: extractor.description.clone(),
                 engine: extractor.engine.clone(),
+                model_path: extractor.model_path.clone(),
                 input_contract: extractor.input_contract.clone(),
                 output_contract: extractor.output_contract.clone(),
                 enabled: false,
@@ -13322,6 +13566,87 @@ mod tests {
     }
 
     #[test]
+    fn file_extraction_is_hash_safe_searchable_and_non_destructive() {
+        let db = setup_test_db();
+        let clip = db
+            .save_clip(
+                "file",
+                Some(r#"["/tmp/interview.wav"]"#),
+                None,
+                None,
+                "file-transcription-hash",
+                "Tests",
+            )
+            .unwrap();
+        let extractor = db
+            .get_content_extractors()
+            .unwrap()
+            .into_iter()
+            .find(|extractor| {
+                extractor.stable_ref == crate::content_extraction::WHISPER_TRANSCRIPTION_REF
+            })
+            .unwrap();
+
+        assert!(!db
+            .replace_clip_searchable_text(
+                clip.id,
+                "stale-hash",
+                &extractor,
+                Some("quasar transcript marker"),
+            )
+            .unwrap());
+        assert!(db
+            .replace_clip_searchable_text(
+                clip.id,
+                &clip.content_hash,
+                &extractor,
+                Some("quasar transcript marker"),
+            )
+            .unwrap());
+
+        let stored = db.get_clip_searchable_text(clip.id).unwrap().unwrap();
+        assert_eq!(stored.searchable_text, "quasar transcript marker");
+        assert_eq!(stored.extractor_ref, extractor.stable_ref);
+        assert_eq!(
+            db.get_clip_by_id(clip.id).unwrap().text_content.as_deref(),
+            Some(r#"["/tmp/interview.wav"]"#)
+        );
+        let matches = db.get_clips(Some("quasar"), None, false).unwrap();
+        assert_eq!(matches.len(), 1);
+        assert_eq!(matches[0].id, clip.id);
+
+        assert!(db
+            .replace_clip_searchable_text(clip.id, &clip.content_hash, &extractor, None)
+            .unwrap());
+        assert!(db.get_clip_searchable_text(clip.id).unwrap().is_none());
+        assert!(db
+            .get_clips(Some("quasar"), None, false)
+            .unwrap()
+            .is_empty());
+
+        assert!(db
+            .replace_clip_searchable_text(
+                clip.id,
+                &clip.content_hash,
+                &extractor,
+                Some("stale quasar marker"),
+            )
+            .unwrap());
+        db.conn
+            .lock()
+            .execute(
+                "UPDATE clips SET content_hash = 'changed-file-hash' WHERE id = ?1",
+                params![clip.id],
+            )
+            .unwrap();
+        assert!(db.get_clip_searchable_text(clip.id).unwrap().is_none());
+        assert!(db
+            .get_clips(Some("quasar"), None, false)
+            .unwrap()
+            .is_empty());
+    }
+
+    #[test]
     fn test_startup_rebuilds_fts_before_clip_updates() {
         let db = setup_test_db();
         let clip = db
@@ -15222,6 +15547,32 @@ mod tests {
             "original_text",
         )
         .unwrap();
+        let file_clip = db
+            .save_clip(
+                "file",
+                Some(r#"["/tmp/backup-audio.wav"]"#),
+                None,
+                None,
+                "full-backup-file-marker",
+                "Tests",
+            )
+            .unwrap();
+        let transcription_extractor = db
+            .get_content_extractors()
+            .unwrap()
+            .into_iter()
+            .find(|candidate| {
+                candidate.stable_ref == crate::content_extraction::WHISPER_TRANSCRIPTION_REF
+            })
+            .unwrap();
+        assert!(db
+            .replace_clip_searchable_text(
+                file_clip.id,
+                &file_clip.content_hash,
+                &transcription_extractor,
+                Some("complete transcription backup marker"),
+            )
+            .unwrap());
         db.save_setting("fullBackupSetting", "preserved").unwrap();
         db.log_activity("app_started", "Complete backup test")
             .unwrap();
@@ -15302,7 +15653,7 @@ mod tests {
             db.get_setting("fullBackupSetting").unwrap().as_deref(),
             Some("preserved")
         );
-        assert_eq!(db.get_all_clips_for_backup().unwrap().len(), 1);
+        assert_eq!(db.get_all_clips_for_backup().unwrap().len(), 2);
         assert!(!db.get_clip_versions(clip.id).unwrap().is_empty());
         assert_eq!(
             db.get_analysis_classification(clip.id)
@@ -15317,6 +15668,13 @@ mod tests {
             .iter()
             .any(|entry| entry.event_type == "app_started"));
         assert_eq!(db.get_intelligence_connections().unwrap().len(), 1);
+        assert_eq!(
+            db.get_clip_searchable_text(file_clip.id)
+                .unwrap()
+                .unwrap()
+                .searchable_text,
+            "complete transcription backup marker"
+        );
         let restored_extractor = db.get_content_extractor(&extractor.stable_ref).unwrap();
         assert_eq!(restored_extractor.name, "Backup Extractor Marker");
         assert!(!restored_extractor.enabled);

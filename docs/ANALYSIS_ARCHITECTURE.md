@@ -25,7 +25,13 @@ The shipped `inspector:ffprobe-media-v1` participant consumes file references on
 
 The shipped `enricher:smart-actions-v1` participant consumes analyzable text, classification, and structural metadata only for interactive requests. It returns bounded signals and stable saved-Transform references; it never returns input content, executes a Transform, or writes a clip. Clip Preview and `pasted enricher run` use the same execution result.
 
-Clip Preview and `pasted analyzer run` consume the whole-Analyzer snapshot. The snapshot reports clip kind, structural metadata, classification, content-free recommendations, participant outcomes, and only a boolean indicating whether searchable text became available. It never returns original text, OCR text, image bytes, or file paths. File clips intentionally schedule inspection only, preventing serialized file-reference metadata from being reinterpreted as analyzable text. Automatic Clip Preview requests do not enable extraction; `pasted analyzer run --clip ID --extract` is the explicit potentially expensive image path.
+Clip Preview and `pasted analyzer run` consume the whole-Analyzer snapshot. The snapshot reports clip kind, structural metadata, classification, content-free recommendations, participant outcomes, and only a boolean indicating whether searchable text became available. It never returns original text, extracted text, image bytes, or file paths. File references cannot be reinterpreted as analyzable text; only a successful Extractor may produce the searchable-text representation consumed by later passes. Automatic Clip Preview requests do not enable extraction; explicit GUI extraction or `pasted analyzer run --clip ID --extract` opts into potentially expensive OCR or transcription.
+
+## Type applicability after 1.0
+
+The stored clip representation and a derived semantic Type are separate axes. An image or file remains an image or file after Analysis; a derived classification records what its searchable representation means without rewriting storage identity.
+
+The next Types contract should model applicability as typed edges: each Analyzer participant declares accepted representation kinds and produced representations or facts, while each Type or Type family declares which produced evidence may classify it. The Types API and Analysis UI can then visualize participant → representation → eligible Type relationships, distinguish text-only Detectors from future image, audio, media, or structural classifiers, and explain why a participant applies or does not apply to a selected clip. Do not encode this relationship through display names, engine IDs, or a single overloaded `content_type` field.
 
 ## Adding an Inspector or Enricher
 

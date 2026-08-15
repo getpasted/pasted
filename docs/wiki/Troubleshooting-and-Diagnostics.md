@@ -22,6 +22,10 @@ Focus the intended destination before opening Pasted/HUD. Pasted stores the last
 
 OCR applies to captured image content, not arbitrary file references. Confirm OCR is enabled, the item contains previewable image bytes, and either Apple Vision or Tesseract OCR appears as available under **Settings → Analysis → Manage Extractors**. Install Tesseract 5 when a cross-platform engine is needed, then check `pasted extractor list --json` and `pasted ocr status --json`.
 
+## Whisper Transcription is unavailable
+
+Open **Settings → Analysis → Manage Extractors** and select Whisper Transcription. The settings header identifies the missing dependency; hover it for remediation. Install whisper.cpp, then configure an existing local GGML model in the Model field. Pasted does not download models automatically. `pasted extractor get extractor:whisper-transcription --json` reports the saved model path and current availability.
+
 ## Capture feedback does not appear
 
 Confirm **Notifications** is enabled under **Settings → Functionality**, then enable **Capture feedback** under **Settings → Notifications**. Skipped captures appear only when **Show skipped captures** is enabled. The feedback window uses the selected corner of the display currently containing the pointer.

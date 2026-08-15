@@ -43,6 +43,7 @@ import { startTransformation, type TransformationExecutionHandle } from '../util
 import { useIntelligenceRequestStatus } from '../hooks/useIntelligenceRequestStatus';
 import { useFeatures } from '../hooks/useFeatures';
 import { contentTypeLabel } from '../utils/contentTypes';
+import { useToast } from './ToastProvider';
 
 interface ClipPreviewProps {
   clip: ClipItem | null;
@@ -146,7 +147,18 @@ interface ExtractionApplicationResult {
   failure: { code: string; message: string } | null;
   appliedClipId: number | null;
   ocrUpdated: boolean;
+  searchableTextUpdated: boolean;
   classificationUpdated: boolean;
+}
+
+interface ClipSearchableText {
+  clipId: number;
+  extractorRef: string;
+  extractorName: string;
+  engine: string;
+  inputHash: string;
+  searchableText: string;
+  updatedAt: string;
 }
 
 const filePreviewResultCache = new Map<string, FileClipPreview[]>();
@@ -223,6 +235,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   filePreviewMaxMb,
 }) => {
   const features = useFeatures();
+  const { showToast } = useToast();
   const relativeTimeNow = useMinuteTick();
   const [copied, setCopied] = useState(false);
   const [copiedFormat, setCopiedFormat] = useState<string | null>(null);
@@ -245,6 +258,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const copiedFormatTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pipelineRequestIdRef = useRef(0);
+  const fileExtractionRequestIdRef = useRef(0);
   const activeTransformExecutionRef = useRef<TransformationExecutionHandle | null>(null);
   const [transformClientRequestId, setTransformClientRequestId] = useState<string | null>(null);
   const transformRequestStatus = useIntelligenceRequestStatus(transformClientRequestId);
@@ -268,6 +282,8 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   const [revisionCount, setRevisionCount] = useState<number | null>(null);
   const [inspection, setInspection] = useState<StructuralInspection | null>(null);
   const [smartActions, setSmartActions] = useState<SmartActionEnrichment | null>(null);
+  const [fileSearchableText, setFileSearchableText] = useState<ClipSearchableText | null>(null);
+  const [isFileExtractionLoading, setIsFileExtractionLoading] = useState(false);
   const [filePreviews, setFilePreviews] = useState<FileClipPreview[]>([]);
   const [isFilePreviewLoading, setIsFilePreviewLoading] = useState(false);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
@@ -331,6 +347,25 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
       });
     return () => { cancelled = true; };
   }, [clip?.content_hash, clip?.content_type, clip?.id, clip?.source, clip?.text_content, features.transformations, transformedText, viewPolicy.canRunPipelines]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fileExtractionRequestIdRef.current += 1;
+    setIsFileExtractionLoading(false);
+    if (!clip || clip.content_type !== 'file') {
+      setFileSearchableText(null);
+      return () => { cancelled = true; };
+    }
+    setFileSearchableText(null);
+    invoke<ClipSearchableText | null>('get_clip_searchable_text', { clipId: clip.id })
+      .then((result) => {
+        if (!cancelled) setFileSearchableText(result);
+      })
+      .catch((error) => {
+        if (!cancelled) console.error('Failed to load extracted file text:', error);
+      });
+    return () => { cancelled = true; };
+  }, [clip?.content_hash, clip?.content_type, clip?.id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -597,6 +632,36 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
       console.error('OCR Extraction Failed:', e);
     } finally {
       setIsOcrLoading(false);
+    }
+  };
+
+  const handleRunFileExtraction = async () => {
+    if (!clip || clip.content_type !== 'file' || !viewPolicy.canMutateContent) return;
+    const requestedClipId = clip.id;
+    const requestId = ++fileExtractionRequestIdRef.current;
+    setIsFileExtractionLoading(true);
+    try {
+      const result = await invoke<ExtractionApplicationResult>('extract_text_from_file_clip', { clipId: requestedClipId });
+      if (requestId !== fileExtractionRequestIdRef.current) return;
+      if (result.outcome === 'failed') {
+        throw new Error(result.failure?.message ?? 'The Extractor failed.');
+      }
+      if (result.outcome === 'no_output') {
+        throw new Error('No speech was transcribed from the selected file references.');
+      }
+      const stored = await invoke<ClipSearchableText | null>('get_clip_searchable_text', { clipId: requestedClipId });
+      if (requestId !== fileExtractionRequestIdRef.current) return;
+      setFileSearchableText(stored);
+      soundManager.playCopySound();
+      onUpdateClip();
+    } catch (error) {
+      if (requestId === fileExtractionRequestIdRef.current) {
+        showToast({ tone: 'error', message: String(error) });
+      }
+    } finally {
+      if (requestId === fileExtractionRequestIdRef.current) {
+        setIsFileExtractionLoading(false);
+      }
     }
   };
 
@@ -1158,6 +1223,8 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
           resolvedImageBase64={resolvedImage?.clipId === clip.id ? resolvedImage.base64 : null}
           filePreviews={filePreviews}
           isFilePreviewLoading={isFilePreviewLoading}
+          fileSearchableText={fileSearchableText}
+          isFileExtractionLoading={isFileExtractionLoading}
           copiedFormat={copiedFormat}
           isOcrLoading={isOcrLoading}
           ocrEnabled={features.ocr}
@@ -1165,6 +1232,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
           onColorChange={setTransformedText}
           onCopyFormat={(label, value) => void handleCopySpecificFormat(label, value)}
           onRunOCR={() => void handleRunOCR()}
+          onRunFileExtraction={() => void handleRunFileExtraction()}
         />
 
       </div>

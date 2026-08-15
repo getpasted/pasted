@@ -64,7 +64,9 @@ export function SettingsOcrPanel() {
   };
 
   const busy = status.runningCount > 0 || status.queuedCount > 0;
-  const activeExtractor = extractors.find((extractor) => extractor.enabled && extractor.isAvailable);
+  const activeExtractor = extractors.find((extractor) => (
+    extractor.enabled && extractor.isAvailable && extractor.inputContract === 'image'
+  ));
   const statusText = !activeExtractor
     ? 'No available image text Extractor is enabled.'
     : status.eligibleCount > 0

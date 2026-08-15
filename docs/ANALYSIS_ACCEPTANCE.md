@@ -8,6 +8,7 @@ This matrix is the acceptance boundary for the frozen Pasted 1.0 Analysis contra
 | --- | --- | --- | --- |
 | Structure Inspector | Content-free statistics in Clip Preview | `pasted inspector` and `pasted registry --kind inspector` | Immutable and always available; no separate switch. |
 | Image Text Extractor | Settings → Analysis → Extractors and OCR controls | `pasted extractor`, `pasted ocr`, and `pasted registry --kind extractor` | Definitions are manageable; engine availability remains platform-specific. |
+| File Text Extractor | Settings → Analysis → Extractors and persistent availability status | `pasted extractor`, the file-extraction API, and `pasted registry --kind extractor` | Definitions and local model paths are manageable; expensive transcription remains explicit. |
 | Detectors | Settings → Analysis → Detectors, Types, testing, and Rescan Clips | `pasted detector`, `pasted type`, and `pasted registry --kind detector` | Definitions, priority, enabled state, and supported validators are manageable. |
 | Smart Actions Enricher | Contextual Smart Actions in Clip Preview | `pasted enricher` and `pasted registry --kind enricher` | Immutable; follows the Transformations feature and interactive policy. |
 | Whole Analyzer | Clip Preview | `pasted analyzer run` and the shared Analysis API | Callers select a bounded policy and optional extraction; they do not invoke passes directly. |
@@ -48,9 +49,20 @@ pasted extractor run extractor:tesseract-ocr --file /absolute/path/to/test-image
 
 The result must satisfy the same produced-text, classification, preview, and privacy contract as Apple Vision. The portable test suite generates a bounded image and exercises the real Tesseract executable whenever it is installed; Linux validation installs `tesseract-ocr` so this native adapter cannot pass solely through a mock. With Tesseract absent, the shipped Extractor must remain visible and report an explicit unavailable reason without attempting another engine.
 
+## Native whisper.cpp acceptance
+
+Install whisper.cpp and obtain a local GGML model without placing either inside the repository. Configure the model and confirm availability:
+
+```sh
+pasted extractor update extractor:whisper-transcription --model /absolute/path/to/ggml-model.bin --json
+pasted extractor run extractor:whisper-transcription --file /absolute/path/to/test-audio.wav --json
+```
+
+The preview must return only the explicitly requested bounded transcript, classify from that derived text when Detection is enabled, and leave application flags false. Repeat with a disposable file clip and `--clip <id> --apply`; `searchableTextUpdated` and `appliedClipId` must report success, the original file-reference payload must remain unchanged, and searching a unique transcript phrase must find the clip. With `whisper-cli` or the model missing, the shipped Extractor remains visible and reports which dependency is unavailable. No model download may begin.
+
 ## GUI acceptance
 
-1. Open Settings → Analysis. Confirm Extractors, Detectors, and OCR status are present and that there are no redundant Inspector or Enricher switches.
+1. Open Settings → Analysis. Confirm Extractors, Detectors, and OCR status are present and that there are no redundant Inspector or Enricher switches. In Manage Extractors, confirm the selected Extractor's concise availability remains visible in the settings header and full remediation appears in its tooltip.
 2. Select a text clip. Confirm Clip Preview shows character, word, and line statistics without an additional mutation or permission prompt.
 3. Save a Transform whose name or Operations match a bounded Smart Action signal such as URL or JSON. Select a matching text clip and confirm the recommendation appears without executing automatically.
 4. Select an image clip and run OCR explicitly. Confirm progress, success, no-text, failure, retry, and cancellation states settle rather than remaining indefinitely active.

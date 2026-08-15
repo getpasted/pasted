@@ -400,10 +400,27 @@ fn extractor_participant<'a>(
             provides: provided_representations,
         },
         move |context| {
-            let Some(image_bytes) = context.image_bytes.as_deref() else {
-                return Ok(ParticipantOutcome::NoOutput);
+            let outcome = match representation_contract.input {
+                RepresentationKind::ImageBytes => {
+                    let Some(image_bytes) = context.image_bytes.as_deref() else {
+                        return Ok(ParticipantOutcome::NoOutput);
+                    };
+                    registry.execute(extractor, image_bytes)
+                }
+                RepresentationKind::FileReferences => {
+                    let Some(paths) = context.file_references.as_deref() else {
+                        return Ok(ParticipantOutcome::NoOutput);
+                    };
+                    registry.execute_files(extractor, paths)
+                }
+                _ => ExtractionOutcome::Failed {
+                    failure: crate::content_extraction::ExtractionFailure {
+                        code: "invalid_contract".into(),
+                        message: "This extraction input is not supported.".into(),
+                    },
+                },
             };
-            match registry.execute(extractor, image_bytes) {
+            match outcome {
                 ExtractionOutcome::Produced { text } => {
                     context.searchable_text = Some(text);
                     Ok(ParticipantOutcome::Produced)
@@ -546,6 +563,7 @@ mod tests {
             name: "Test OCR".into(),
             description: String::new(),
             engine: "test-v1".into(),
+            model_path: None,
             input_contract: "image".into(),
             output_contract: "searchable_text".into(),
             enabled: true,
