@@ -147,7 +147,7 @@ const CLI_COMMAND_GROUPS = [
     title: 'Maintenance',
     commands: [
       { usage: 'pasted diagnostics [--json]', description: 'Show installation, signing, paths, and runtime details.' },
-      { usage: 'pasted insights summary [--json]', description: 'Summarize clip volume, Types, sources, and daily activity.' },
+      { usage: 'pasted insights summary [--json]', description: 'Summarize Clip Types, File Formats, Content Types, sources, and daily activity.' },
       { usage: 'pasted licenses [--json]', description: 'Show the bundled open-source component inventory and legal notices.' },
       { usage: 'pasted database location [--json]', description: 'Show the active SQLite database location.' },
       { usage: 'pasted database move <folder> [--json]', description: 'Move the database safely after quitting.' },

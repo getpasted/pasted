@@ -1913,7 +1913,7 @@ fn main() -> Result<()> {
                 if !summary.clip_types.is_empty() {
                     println!("Clip types:");
                     for clip_type in summary.clip_types {
-                        println!("{}\t{}", clip_type.count, clip_type.content_type);
+                        println!("{}\t{}", clip_type.count, clip_type.clip_type);
                     }
                 }
                 if !summary.file_formats.is_empty() {
