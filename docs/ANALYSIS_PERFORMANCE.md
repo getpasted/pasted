@@ -8,7 +8,7 @@ Run the portable release-mode harness from the repository root:
 npm run bench:analysis -- --iterations 100
 ```
 
-The harness warms each workload, records nine samples, and prints versioned JSON containing median and worst-sample (p95 for this nine-sample set) nanoseconds per iteration. It covers:
+The harness warms each workload, records nine samples, and prints versioned JSON containing median and worst-sample (p95 for this nine-sample set) nanoseconds per iteration. The Detector workload therefore measures the normal steady state after definitions have entered the bounded compiled-pattern cache. It covers:
 
 - structural inspection of approximately 64 KiB of text;
 - a worst-case no-match scan across 256 Detectors;
@@ -19,4 +19,4 @@ Capture a baseline with a clean release build, record the commit, operating syst
 
 The checked-in `docs/baselines/analysis-macos-arm64.json` is the initial development reference. It is descriptive rather than a cross-machine pass/fail threshold; replace it only after a repeatable same-machine run and review of the change.
 
-Deterministic bounds remain the primary regression guard: four ordered passes, bounded clipboard inputs and source metadata, at most 16 patterns per Detector definition, 256 Transform candidates per Enricher run, and 12 returned recommendations. The benchmark stress count is explicit in the harness so future changes to those budgets are deliberate and reviewable.
+Deterministic bounds remain the primary regression guard: four ordered passes, bounded clipboard inputs and source metadata, at most 16 patterns per Detector definition, 1,024 retained compiled Detector patterns, 256 Transform candidates per Enricher run, and 12 returned recommendations. The benchmark stress count is explicit in the harness so future changes to those budgets are deliberate and reviewable.

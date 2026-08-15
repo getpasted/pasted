@@ -1,6 +1,51 @@
 use once_cell::sync::Lazy;
+use parking_lot::Mutex;
 use regex::Regex;
+use std::collections::{HashMap, VecDeque};
 use std::net::IpAddr;
+
+// Definitions recur across clips, so retain both successful and failed compilations without
+// allowing an arbitrarily large custom registry to create an unbounded process cache.
+const DETECTOR_REGEX_CACHE_CAPACITY: usize = 1_024;
+
+#[derive(Default)]
+struct DetectorRegexCache {
+    entries: HashMap<String, Option<Regex>>,
+    insertion_order: VecDeque<String>,
+}
+
+impl DetectorRegexCache {
+    fn get(&self, pattern: &str) -> Option<Option<Regex>> {
+        self.entries.get(pattern).cloned()
+    }
+
+    fn insert(&mut self, pattern: String, regex: Option<Regex>) -> Option<Regex> {
+        if let Some(existing) = self.entries.get(&pattern) {
+            return existing.clone();
+        }
+        if self.entries.len() >= DETECTOR_REGEX_CACHE_CAPACITY {
+            if let Some(oldest) = self.insertion_order.pop_front() {
+                self.entries.remove(&oldest);
+            }
+        }
+        self.insertion_order.push_back(pattern.clone());
+        self.entries.insert(pattern, regex.clone());
+        regex
+    }
+}
+
+static DETECTOR_REGEX_CACHE: Lazy<Mutex<DetectorRegexCache>> =
+    Lazy::new(|| Mutex::new(DetectorRegexCache::default()));
+
+fn compiled_detector_pattern(pattern: &str) -> Option<Regex> {
+    if let Some(regex) = DETECTOR_REGEX_CACHE.lock().get(pattern) {
+        return regex;
+    }
+    let compiled = Regex::new(pattern).ok();
+    DETECTOR_REGEX_CACHE
+        .lock()
+        .insert(pattern.to_owned(), compiled)
+}
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Detector {
@@ -312,10 +357,9 @@ pub fn detect_match_with_detectors(text: &str, detectors: &[Detector]) -> Option
         .iter()
         .filter(|detector| detector.enabled)
         .find_map(|detector| {
-            let candidate = detector
-                .patterns
-                .iter()
-                .any(|pattern| Regex::new(pattern).is_ok_and(|regex| regex.is_match(trimmed)));
+            let candidate = detector.patterns.iter().any(|pattern| {
+                compiled_detector_pattern(pattern).is_some_and(|regex| regex.is_match(trimmed))
+            });
             (candidate && passes_validator(trimmed, detector.validator.as_deref())).then(|| {
                 DetectionMatch {
                     detector_ref: detector.stable_ref.clone(),
@@ -437,7 +481,10 @@ fn is_prose(value: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{detect_with_detectors, Detector, DETECTOR_PRESETS};
+    use super::{
+        compiled_detector_pattern, detect_with_detectors, Detector, DETECTOR_PRESETS,
+        DETECTOR_REGEX_CACHE_CAPACITY,
+    };
 
     fn detect(value: &str) -> String {
         let detectors = DETECTOR_PRESETS
@@ -505,5 +552,22 @@ mod tests {
         assert_eq!(detect("313041"), "text");
         assert_eq!(detect("1234567890123456"), "text");
         assert_eq!(detect("not-an-email@example"), "text");
+    }
+
+    #[test]
+    fn compiled_pattern_cache_preserves_valid_and_invalid_regex_behavior() {
+        for _ in 0..2 {
+            assert!(compiled_detector_pattern(r"^cached-[0-9]+$")
+                .is_some_and(|regex| regex.is_match("cached-42")));
+            assert!(compiled_detector_pattern("[").is_none());
+        }
+    }
+
+    #[test]
+    fn compiled_pattern_cache_is_bounded() {
+        for index in 0..=DETECTOR_REGEX_CACHE_CAPACITY {
+            assert!(compiled_detector_pattern(&format!(r"^cache-bound-{index}$")).is_some());
+        }
+        assert!(super::DETECTOR_REGEX_CACHE.lock().entries.len() <= DETECTOR_REGEX_CACHE_CAPACITY);
     }
 }

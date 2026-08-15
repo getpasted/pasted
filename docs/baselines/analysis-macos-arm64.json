@@ -13,33 +13,33 @@
       "name": "inspector_text_64k",
       "iterationsPerSample": 10000,
       "samples": 9,
-      "medianNsPerIteration": 192889,
-      "p95NsPerIteration": 193516,
-      "medianIterationsPerSecond": 5184
+      "medianNsPerIteration": 196551,
+      "p95NsPerIteration": 207709,
+      "medianIterationsPerSecond": 5087
     },
     {
       "name": "detector_256_no_match",
       "iterationsPerSample": 1000,
       "samples": 9,
-      "medianNsPerIteration": 2579596,
-      "p95NsPerIteration": 2602077,
-      "medianIterationsPerSecond": 387
+      "medianNsPerIteration": 37707,
+      "p95NsPerIteration": 38592,
+      "medianIterationsPerSecond": 26520
     },
     {
       "name": "enricher_256_candidates_last_match",
       "iterationsPerSample": 1000,
       "samples": 9,
-      "medianNsPerIteration": 171679,
-      "p95NsPerIteration": 172267,
-      "medianIterationsPerSecond": 5824
+      "medianNsPerIteration": 171979,
+      "p95NsPerIteration": 180199,
+      "medianIterationsPerSecond": 5814
     },
     {
       "name": "analyzer_interactive_text",
       "iterationsPerSample": 1000,
       "samples": 9,
-      "medianNsPerIteration": 3700677,
-      "p95NsPerIteration": 4071135,
-      "medianIterationsPerSecond": 270
+      "medianNsPerIteration": 800791,
+      "p95NsPerIteration": 844381,
+      "medianIterationsPerSecond": 1248
     }
   ]
 }
