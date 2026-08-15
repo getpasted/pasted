@@ -258,6 +258,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const copiedFormatTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pipelineRequestIdRef = useRef(0);
+  const fileExtractionRequestIdRef = useRef(0);
   const activeTransformExecutionRef = useRef<TransformationExecutionHandle | null>(null);
   const [transformClientRequestId, setTransformClientRequestId] = useState<string | null>(null);
   const transformRequestStatus = useIntelligenceRequestStatus(transformClientRequestId);
@@ -349,9 +350,10 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
 
   useEffect(() => {
     let cancelled = false;
+    fileExtractionRequestIdRef.current += 1;
+    setIsFileExtractionLoading(false);
     if (!clip || clip.content_type !== 'file') {
       setFileSearchableText(null);
-      setIsFileExtractionLoading(false);
       return () => { cancelled = true; };
     }
     setFileSearchableText(null);
@@ -635,23 +637,31 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
 
   const handleRunFileExtraction = async () => {
     if (!clip || clip.content_type !== 'file' || !viewPolicy.canMutateContent) return;
+    const requestedClipId = clip.id;
+    const requestId = ++fileExtractionRequestIdRef.current;
     setIsFileExtractionLoading(true);
     try {
-      const result = await invoke<ExtractionApplicationResult>('extract_text_from_file_clip', { clipId: clip.id });
+      const result = await invoke<ExtractionApplicationResult>('extract_text_from_file_clip', { clipId: requestedClipId });
+      if (requestId !== fileExtractionRequestIdRef.current) return;
       if (result.outcome === 'failed') {
         throw new Error(result.failure?.message ?? 'The Extractor failed.');
       }
       if (result.outcome === 'no_output') {
         throw new Error('No speech was transcribed from the selected file references.');
       }
-      const stored = await invoke<ClipSearchableText | null>('get_clip_searchable_text', { clipId: clip.id });
+      const stored = await invoke<ClipSearchableText | null>('get_clip_searchable_text', { clipId: requestedClipId });
+      if (requestId !== fileExtractionRequestIdRef.current) return;
       setFileSearchableText(stored);
       soundManager.playCopySound();
       onUpdateClip();
     } catch (error) {
-      showToast({ tone: 'error', message: String(error) });
+      if (requestId === fileExtractionRequestIdRef.current) {
+        showToast({ tone: 'error', message: String(error) });
+      }
     } finally {
-      setIsFileExtractionLoading(false);
+      if (requestId === fileExtractionRequestIdRef.current) {
+        setIsFileExtractionLoading(false);
+      }
     }
   };
 

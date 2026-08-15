@@ -252,6 +252,7 @@ export function ClipPreviewContent({
                     <button
                       onClick={() => onCopyFormat('Transcription', fileSearchableText.searchableText)}
                       className="theme-icon-button theme-focusable cursor-pointer rounded-lg border p-1.5 transition-colors"
+                      aria-label={copiedFormat === 'Transcription' ? UI_COPY.copied : 'Copy transcription'}
                       title={copiedFormat === 'Transcription' ? UI_COPY.copied : 'Copy Transcription'}
                     >
                       <Copy className="h-3.5 w-3.5" />
@@ -261,6 +262,7 @@ export function ClipPreviewContent({
                     onClick={onRunFileExtraction}
                     disabled={isFileExtractionLoading || readOnly}
                     className="theme-primary-button theme-focusable cursor-pointer rounded-lg border p-1.5 shadow transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+                    aria-label={readOnly ? 'Restore before transcribing' : isFileExtractionLoading ? 'Transcribing…' : fileSearchableText ? 'Transcribe again' : 'Transcribe'}
                     title={readOnly ? 'Restore Before Transcribing' : isFileExtractionLoading ? 'Transcribing…' : fileSearchableText ? 'Transcribe Again' : 'Transcribe'}
                   >
                     <Sparkles className={`h-3.5 w-3.5 ${isFileExtractionLoading ? 'animate-spin' : ''}`} />

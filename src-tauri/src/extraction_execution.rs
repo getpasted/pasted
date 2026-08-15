@@ -274,7 +274,7 @@ pub fn apply_file_analysis(
     classification_enabled: bool,
     analysis: ExtractionResult,
 ) -> rusqlite::Result<ExtractionApplicationResult> {
-    if analysis.failed() {
+    if analysis.outcome != ExtractionResultOutcome::Produced {
         return Ok(ExtractionApplicationResult::preview(analysis));
     }
     let searchable_text_updated = db.replace_clip_searchable_text(
@@ -756,6 +756,50 @@ mod tests {
         let stored = db.get_clip_searchable_text(clip.id).unwrap().unwrap();
         assert_eq!(stored.extractor_ref, extractor.stable_ref);
         assert_eq!(stored.searchable_text, "Recorded discussion about nebulae");
+    }
+
+    #[test]
+    fn file_transcription_no_output_preserves_existing_searchable_text() {
+        let db = setup_test_db();
+        let clip = db
+            .save_clip(
+                "file",
+                Some(r#"["/tmp/interview.wav"]"#),
+                None,
+                None,
+                "file-analysis-no-output",
+                "Tests",
+            )
+            .unwrap();
+        let extractor = file_extractor();
+        assert!(db
+            .replace_clip_searchable_text(
+                clip.id,
+                &clip.content_hash,
+                &extractor,
+                Some("Previously transcribed discussion"),
+            )
+            .unwrap());
+
+        let applied = apply_file_analysis(
+            &db,
+            clip.id,
+            &clip.content_hash,
+            &extractor,
+            false,
+            result(None, None, None),
+        )
+        .unwrap();
+
+        assert_eq!(applied.application.applied_clip_id, None);
+        assert!(!applied.searchable_text_updated);
+        assert_eq!(
+            db.get_clip_searchable_text(clip.id)
+                .unwrap()
+                .unwrap()
+                .searchable_text,
+            "Previously transcribed discussion"
+        );
     }
 
     #[test]
