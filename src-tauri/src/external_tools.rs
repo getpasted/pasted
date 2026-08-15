@@ -23,9 +23,8 @@ pub(crate) fn find_executable(name: &str, explicit_paths: &[&str]) -> Option<Pat
         .map(PathBuf::from)
         .find(|path| is_executable(path))
         .or_else(|| {
-            std::env::var_os("PATH")
-                .into_iter()
-                .flat_map(|value| std::env::split_paths(&value).collect::<Vec<_>>())
+            let path = std::env::var_os("PATH")?;
+            std::env::split_paths(&path)
                 .filter(|directory| directory.is_absolute())
                 .map(|directory| directory.join(name))
                 .find(|path| is_executable(path))

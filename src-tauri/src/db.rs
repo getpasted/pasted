@@ -3241,7 +3241,10 @@ impl DbState {
             tx.execute(
                 "UPDATE clips
                  SET ocr_status = ?1, ocr_input_hash = ?2,
-                     ocr_engine_version = ?3,
+                     ocr_engine_version = CASE
+                        WHEN COALESCE(text_content, '') = '' THEN ?3
+                        ELSE ocr_engine_version
+                     END,
                      ocr_attempted_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now'),
                      ocr_error = ?4
                  WHERE id = ?5 AND content_hash = ?2 AND content_type = 'image'
@@ -13454,6 +13457,10 @@ mod tests {
         assert_eq!(
             failed_rerun.ocr_extractor_name.as_deref(),
             Some("Test OCR 2")
+        );
+        assert_eq!(
+            failed_rerun.ocr_engine_version.as_deref(),
+            Some("test-engine-v2")
         );
     }
 
