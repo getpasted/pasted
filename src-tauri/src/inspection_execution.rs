@@ -4,7 +4,7 @@ use crate::analysis_contract::{
 };
 use crate::content_analysis::{AnalysisInput, AnalysisRequest};
 use crate::content_inspection::{
-    FileObservations, InspectionResult, StructuralMetadata, STRUCTURE_INSPECTOR_REF,
+    FileObservations, InspectionResult, MediaMetadata, StructuralMetadata, STRUCTURE_INSPECTOR_REF,
 };
 use crate::db::{ClipItem, DbState};
 use serde::Serialize;
@@ -19,6 +19,8 @@ pub struct ClipInspectionResult {
     pub application: ClipApplication,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub live_file_observations: Option<FileObservations>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub media_metadata: Option<MediaMetadata>,
 }
 
 fn completed_envelope(metadata: StructuralMetadata, policy: AnalysisPolicy) -> InspectionResult {
@@ -34,10 +36,34 @@ fn completed_envelope(metadata: StructuralMetadata, policy: AnalysisPolicy) -> I
     )
 }
 
-fn inspect(
+fn completed_file_envelope(
+    metadata: StructuralMetadata,
+    policy: AnalysisPolicy,
+    paths: &[String],
+) -> (InspectionResult, Option<MediaMetadata>) {
+    let mut result = completed_envelope(metadata, policy);
+    if policy != AnalysisPolicy::Interactive {
+        return (result, None);
+    }
+    let (outcome, failure, media_metadata) =
+        match crate::content_inspection::inspect_media_paths(paths) {
+            Ok(Some(media)) => (ParticipantOutcome::Produced, None, Some(media)),
+            Ok(None) => (ParticipantOutcome::NoOutput, None, None),
+            Err(failure) => (ParticipantOutcome::Failed, Some(failure), None),
+        };
+    result.participants.push(ParticipantRun {
+        stable_ref: crate::content_inspection::MEDIA_INSPECTOR_REF.into(),
+        pass: AnalysisPass::Inspect,
+        outcome,
+        failure,
+    });
+    (result, media_metadata)
+}
+
+fn inspect_with_media(
     input: AnalysisInput,
     policy: AnalysisPolicy,
-) -> Result<InspectionResult, AnalysisFailure> {
+) -> Result<(InspectionResult, Option<MediaMetadata>), AnalysisFailure> {
     let source_within_limit = match &input {
         AnalysisInput::Text { source, .. }
         | AnalysisInput::Image { source, .. }
@@ -86,7 +112,17 @@ fn inspect(
             code: "missing_output".into(),
             message: "Inspection completed without structural metadata.".into(),
         })?;
-    Ok(AnalysisEnvelope::new(policy, metadata, report.runs))
+    Ok((
+        AnalysisEnvelope::new(policy, metadata, report.runs),
+        report.context.media_metadata,
+    ))
+}
+
+fn inspect(
+    input: AnalysisInput,
+    policy: AnalysisPolicy,
+) -> Result<InspectionResult, AnalysisFailure> {
+    inspect_with_media(input, policy).map(|(analysis, _)| analysis)
 }
 
 pub fn inspect_text(text: &str, source: Option<&str>) -> Result<InspectionResult, AnalysisFailure> {
@@ -168,7 +204,7 @@ pub(crate) fn inspection_input_hash(clip: &ClipItem) -> String {
 fn analyze_clip(
     clip: &ClipItem,
     policy: AnalysisPolicy,
-) -> Result<(InspectionResult, Option<Vec<String>>), String> {
+) -> Result<(InspectionResult, Option<Vec<String>>, Option<MediaMetadata>), String> {
     match clip.content_type.as_str() {
         "image" => {
             let bytes = clip
@@ -177,7 +213,7 @@ fn analyze_clip(
                 .and_then(crate::ocr::decode_stored_image)
                 .ok_or_else(|| "Clip has no inspectable image data".to_string())?;
             inspect_image_with_policy(bytes, Some(&clip.source), policy)
-                .map(|analysis| (analysis, None))
+                .map(|analysis| (analysis, None, None))
                 .map_err(|failure| failure.message)
         }
         "file" => {
@@ -190,9 +226,15 @@ fn analyze_clip(
             if !crate::resource_limits::file_list_within_limit(&paths) {
                 return Err("File list exceeds Pasted's safety limit".into());
             }
-            inspect_files_with_policy(paths.clone(), Some(&clip.source), policy)
-                .map(|analysis| (analysis, Some(paths)))
-                .map_err(|failure| failure.message)
+            inspect_with_media(
+                AnalysisInput::Files {
+                    paths: paths.clone(),
+                    source: Some(clip.source.clone()),
+                },
+                policy,
+            )
+            .map(|(analysis, media)| (analysis, Some(paths), media))
+            .map_err(|failure| failure.message)
         }
         _ => {
             let text = clip
@@ -200,7 +242,7 @@ fn analyze_clip(
                 .as_deref()
                 .ok_or_else(|| "Clip has no inspectable text".to_string())?;
             inspect_text_with_policy(text, Some(&clip.source), policy)
-                .map(|analysis| (analysis, None))
+                .map(|analysis| (analysis, None, None))
                 .map_err(|failure| failure.message)
         }
     }
@@ -223,14 +265,18 @@ pub(crate) fn inspect_clip_with_policy(
     let clip = db.get_clip_by_id(clip_id)?;
     let input_hash = inspection_input_hash(&clip);
     let cached = db.get_structural_inspection(clip_id, &input_hash)?;
-    let (analysis, file_paths) = if let Some(metadata) = cached {
+    let (analysis, file_paths, media_metadata) = if let Some(metadata) = cached {
         let paths = (clip.content_type == "file").then(|| {
             clip.text_content
                 .as_deref()
                 .map(crate::content_inspection::parse_file_paths)
                 .unwrap_or_default()
         });
-        (completed_envelope(metadata, policy), paths)
+        let (analysis, media_metadata) = match paths.as_deref() {
+            Some(paths) => completed_file_envelope(metadata, policy, paths),
+            None => (completed_envelope(metadata, policy), None),
+        };
+        (analysis, paths, media_metadata)
     } else {
         analyze_clip(&clip, policy).map_err(rusqlite::Error::InvalidParameterName)?
     };
@@ -251,6 +297,7 @@ pub(crate) fn inspect_clip_with_policy(
             ClipApplication::preview()
         },
         live_file_observations,
+        media_metadata,
     })
 }
 
@@ -282,6 +329,7 @@ mod tests {
             analysis,
             application: ClipApplication::preview(),
             live_file_observations: None,
+            media_metadata: None,
         };
         let expected = serde_json::from_str::<serde_json::Value>(include_str!(
             "../../contracts/analysis/v1/inspector-interactive-text.json"

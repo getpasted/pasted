@@ -228,11 +228,13 @@ mod tests {
                 clip_kind: "text".into(),
                 capture_source: None,
                 original_text: None,
+                file_references: None,
                 image_bytes: None,
                 searchable_text: None,
                 detected_type: Some("credential".into()),
                 matched_detector_ref: Some("detector:credential".into()),
                 structural_metadata: None,
+                media_metadata: None,
                 recommendations: None,
             },
             runs: vec![ParticipantRun {

@@ -108,9 +108,9 @@ const CLI_COMMAND_GROUPS = [
       { usage: 'pasted analyzer run [--text TEXT | --clip ID | --stdin] [--policy POLICY] [--extract] [--json]', description: 'Preview one versioned, content-free snapshot across the applicable Analysis passes.' },
       { usage: 'pasted registry list [--kind inspector|extractor|detector|enricher|operation|transform] [--all] [--json]', description: 'Inspect shared lifecycle and input/output contracts for processing assets.' },
       { usage: 'pasted registry enable|disable --kind extractor|detector|operation --ref REF [--json]', description: 'Change the shared enabled state using a stable processing-asset reference.' },
-      { usage: 'pasted inspector list [--json]', description: 'List structural Inspectors and their contracts.' },
+      { usage: 'pasted inspector list [--json]', description: 'List Inspectors, contracts, and system availability.' },
       { usage: 'pasted inspector get <ref> [--json]', description: 'Inspect one Inspector definition.' },
-      { usage: 'pasted inspector run [--text TEXT | --clip ID | --stdin] [--apply] [--json]', description: 'Measure content-free clip structure in preview mode, or persist it for a clip.' },
+      { usage: 'pasted inspector run [--text TEXT | --clip ID | --stdin] [--apply] [--json]', description: 'Inspect content-free structure and live media metadata, or persist clip structure.' },
       { usage: 'pasted enricher list [--json]', description: 'List Enrichers and their contracts.' },
       { usage: 'pasted enricher get <ref> [--json]', description: 'Inspect one Enricher definition.' },
       { usage: 'pasted enricher run [--text TEXT | --clip ID | --stdin] [--json]', description: 'Recommend saved Transforms without changing content.' },
@@ -573,6 +573,9 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
                   </p>
                   <p className="theme-text-muted text-xs leading-relaxed">
                     File availability and total size are live observations. They are checked when displayed and are not stored as durable analysis facts.
+                  </p>
+                  <p className="theme-text-muted text-xs leading-relaxed">
+                    An installed ffprobe executable also supplies bounded container, codec, stream-count, and duration facts for copied audio and video files. Media metadata is inspected live without returning file paths.
                   </p>
                 </section>
 

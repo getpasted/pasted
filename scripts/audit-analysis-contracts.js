@@ -84,7 +84,7 @@ for (const name of [
   assert.ok(cliTests.includes(`${name}.json`), `CLI integration must consume ${name}.json`);
 }
 
-for (const field of ['structure', 'recommendations']) {
+for (const field of ['structure', 'mediaMetadata', 'recommendations']) {
   assert.match(clipPreview, new RegExp(`result\\.${field}`),
     `Clip Preview must consume whole-Analyzer ${field}`);
 }

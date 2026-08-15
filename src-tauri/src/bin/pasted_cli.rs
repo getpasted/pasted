@@ -1026,8 +1026,7 @@ fn main() -> Result<()> {
             let subcommand = args.get(2).map(String::as_str).unwrap_or("list");
             match subcommand {
                 "list" | "ls" => {
-                    let inspectors =
-                        vec![pasted_lib::content_inspection::structure_inspector_definition()];
+                    let inspectors = pasted_lib::content_inspection::inspector_definitions();
                     if args.iter().any(|argument| argument == "--json") {
                         println!(
                             "{}",
@@ -1036,12 +1035,17 @@ fn main() -> Result<()> {
                     } else {
                         for inspector in inspectors {
                             println!(
-                                "{}\t{}\t{} → {}\t{}",
+                                "{}\t{}\t{} → {}\t{}{}",
                                 inspector.stable_ref,
                                 inspector.priority,
                                 inspector.input_contract,
                                 inspector.output_contract,
-                                inspector.name
+                                inspector.name,
+                                if inspector.is_available {
+                                    ""
+                                } else {
+                                    " (unavailable)"
+                                }
                             );
                         }
                     }
@@ -1051,12 +1055,13 @@ fn main() -> Result<()> {
                         eprintln!("Usage: pasted inspector get <ref> [--json]");
                         std::process::exit(2);
                     });
-                    let inspector =
-                        pasted_lib::content_inspection::structure_inspector_definition();
-                    if reference != &inspector.stable_ref {
-                        eprintln!("Inspector {reference} was not found.");
-                        std::process::exit(1);
-                    }
+                    let inspector = pasted_lib::content_inspection::inspector_definitions()
+                        .into_iter()
+                        .find(|inspector| reference == &inspector.stable_ref)
+                        .unwrap_or_else(|| {
+                            eprintln!("Inspector {reference} was not found.");
+                            std::process::exit(1);
+                        });
                     if args.iter().any(|argument| argument == "--json") {
                         println!(
                             "{}",
@@ -1104,6 +1109,7 @@ fn main() -> Result<()> {
                             analysis,
                             application: pasted_lib::analysis_contract::ClipApplication::preview(),
                             live_file_observations: None,
+                            media_metadata: None,
                         }
                     };
                     if args.iter().any(|argument| argument == "--json") {
@@ -1130,6 +1136,18 @@ fn main() -> Result<()> {
                                 files.item_count,
                                 files.extensions.join(", ")
                             );
+                        }
+                        if let Some(media) = result.media_metadata.as_ref() {
+                            println!(
+                                "Media: {} file(s); audio streams: {}; video streams: {}; duration: {} ms",
+                                media.media_file_count,
+                                media.audio_stream_count,
+                                media.video_stream_count,
+                                media.total_duration_ms
+                            );
+                            if !media.codecs.is_empty() {
+                                println!("Codecs: {}", media.codecs.join(", "));
+                            }
                         }
                     }
                 }

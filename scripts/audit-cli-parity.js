@@ -234,6 +234,14 @@ assert.match(inspection, /STRUCTURE_INSPECTOR_REF:\s*&str\s*=\s*"inspector:struc
   'The structural Inspector must have a stable versioned reference');
 assert.match(inspection, /pub struct StructuralMetadata/,
   'Structural inspection must expose a typed content-free result');
+assert.match(inspection, /MEDIA_INSPECTOR_REF:\s*&str\s*=\s*"inspector:ffprobe-media-v1"/,
+  'The ffprobe Inspector must have a stable versioned reference');
+assert.match(inspection, /Command::new\(&executable\)[\s\S]*?wait_bounded\(&mut child, remaining\)/,
+  'ffprobe must use direct bounded external-tool execution');
+assert.match(inspection, /MAX_MEDIA_PROBE_FILES/,
+  'Media inspection must bound the number of referenced files it probes');
+assert.doesNotMatch(inspection, /pub struct MediaMetadata[\s\S]*?(?:content|path):\s*(?:String|Vec<String>)/,
+  'Media metadata must not retain clipboard contents or file paths');
 assert.match(inspectionExecution, /pub struct ClipInspectionResult/,
   'Focused inspection must expose one stable application result');
 assert.match(inspectionExecution, /record_structural_inspection/,

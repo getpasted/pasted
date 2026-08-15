@@ -132,12 +132,14 @@ pub enum RepresentationKind {
     ClipKind,
     CaptureSource,
     OriginalText,
+    FileReferences,
     #[serde(rename = "image")]
     ImageBytes,
     SearchableText,
     AnalyzableText,
     Classification,
     StructuralMetadata,
+    MediaMetadata,
     Recommendations,
 }
 
@@ -147,11 +149,13 @@ impl RepresentationKind {
             Self::ClipKind => "clip_kind",
             Self::CaptureSource => "capture_source",
             Self::OriginalText => "original_text",
+            Self::FileReferences => "file_references",
             Self::ImageBytes => "image",
             Self::SearchableText => "searchable_text",
             Self::AnalyzableText => "analyzable_text",
             Self::Classification => "classification",
             Self::StructuralMetadata => "structural_metadata",
+            Self::MediaMetadata => "media_metadata",
             Self::Recommendations => "recommendations",
         }
     }
@@ -171,11 +175,13 @@ impl FromStr for RepresentationKind {
             "clip_kind" => Ok(Self::ClipKind),
             "capture_source" => Ok(Self::CaptureSource),
             "original_text" => Ok(Self::OriginalText),
+            "file_references" => Ok(Self::FileReferences),
             "image" => Ok(Self::ImageBytes),
             "searchable_text" => Ok(Self::SearchableText),
             "analyzable_text" => Ok(Self::AnalyzableText),
             "classification" => Ok(Self::Classification),
             "structural_metadata" => Ok(Self::StructuralMetadata),
+            "media_metadata" => Ok(Self::MediaMetadata),
             "recommendations" => Ok(Self::Recommendations),
             _ => Err(format!("Unknown analysis representation \"{value}\"")),
         }
@@ -334,11 +340,13 @@ mod tests {
             RepresentationKind::ClipKind,
             RepresentationKind::CaptureSource,
             RepresentationKind::OriginalText,
+            RepresentationKind::FileReferences,
             RepresentationKind::ImageBytes,
             RepresentationKind::SearchableText,
             RepresentationKind::AnalyzableText,
             RepresentationKind::Classification,
             RepresentationKind::StructuralMetadata,
+            RepresentationKind::MediaMetadata,
             RepresentationKind::Recommendations,
         ] {
             assert_eq!(kind.stable_name().parse::<RepresentationKind>(), Ok(kind));

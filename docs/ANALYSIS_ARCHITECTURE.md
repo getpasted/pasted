@@ -6,7 +6,7 @@ Pasted runs derived-content work through one bounded Analyzer and exposes partic
 
 The serialized contracts under `contracts/analysis/v1`, their outcome and failure semantics, the four ordered passes, and the privacy boundary described here are frozen for Pasted 1.0. Internal implementation and performance changes may continue without changing observable behavior. Any incompatible field, outcome, pass, mutation, or privacy change requires a new contract version; additive changes require explicit GUI, CLI, fixture, and documentation review.
 
-Structure Inspection and Smart Actions are immutable built-in participants in 1.0. Inspection is always available because Clip Preview depends on its bounded structural facts. Smart Actions follows the user-facing Transformations feature state and runs only under the interactive policy. Neither participant has a redundant Settings switch. Their definitions and contracts remain inspectable through `pasted inspector`, `pasted enricher`, and `pasted registry`.
+Structure Inspection, Media Metadata, and Smart Actions are immutable built-in participants in 1.0. Structure Inspection is always available because Clip Preview depends on its bounded structural facts. The ffprobe-backed Media Metadata Inspector and Smart Actions run only under the interactive policy. Smart Actions also follows the user-facing Transformations feature state. These participants do not have redundant Settings switches. Their definitions and contracts remain inspectable through `pasted inspector`, `pasted enricher`, and `pasted registry`.
 
 ## Stable layers
 
@@ -20,6 +20,8 @@ Capture, background, and rescan policies stop after classification. Interactive 
 Text capture submits one Capture-policy Analyzer request and reuses its classification and structural metadata during insertion. Persistence falls back to focused structural inspection only when the precomputed snapshot is unavailable or cannot be safely activated. Focused rescans and OCR application remain participant-specific because their mutation contracts intentionally target only classification or extracted text.
 
 The shipped `inspector:structure-v1` participant produces `structural_metadata` during the inspect pass. Stable, content-free facts are persisted against the clip content hash and a structural input fingerprint. Filesystem availability and size are live observations kept outside durable Analysis results. Full Backup includes the durable result table automatically; portable History and Organization transfer omits recomputable derived results.
+
+The shipped `inspector:ffprobe-media-v1` participant consumes file references only during interactive inspection and produces bounded aggregate `media_metadata`. It invokes a discovered ffprobe executable directly with fixed arguments, a five-second total timeout, an eight-file ceiling, private output staging, and a bounded JSON parser. Media metadata and external paths remain live and are not persisted.
 
 The shipped `enricher:smart-actions-v1` participant consumes analyzable text, classification, and structural metadata only for interactive requests. It returns bounded signals and stable saved-Transform references; it never returns input content, executes a Transform, or writes a clip. Clip Preview and `pasted enricher run` use the same execution result.
 
