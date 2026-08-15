@@ -463,6 +463,8 @@ assert.match(extractorManager, /invoke\('set_library_item_enabled',[\s\S]*?kind:
   'GUI Extractor toggles must use the shared lifecycle service');
 assert.match(detectorManager, /invoke\('set_library_item_enabled',[\s\S]*?kind: 'detector'/,
   'GUI Detector toggles must use the shared lifecycle service');
+assert.match(tauriMock, /case 'set_library_item_enabled':[\s\S]*?let matched = false;[\s\S]*?if \(!matched\) throw new Error/,
+  'Frontend lifecycle mocks must reject missing items like the shared domain service');
 for (const method of ['get_content_types', 'create_content_type', 'update_content_type', 'set_content_type_archived', 'restore_default_content_types']) {
   assert.match(database, new RegExp(`pub fn ${method}`), `${method} must live in the shared database domain layer`);
   assert.match(commands, new RegExp(`pub async fn ${method}|pub fn ${method}`), `${method} must be exposed to the GUI`);

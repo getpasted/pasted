@@ -352,15 +352,25 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       const kind = String(args?.kind ?? '');
       const stableRef = String(args?.stableRef ?? '');
       const enabled = Boolean(args?.enabled);
+      let matched = false;
       if (kind === 'extractor') {
-        mockExtractors = mockExtractors.map((extractor) => (
-          extractor.stableRef === stableRef ? { ...extractor, enabled } : extractor
-        ));
+        mockExtractors = mockExtractors.map((extractor) => {
+          if (extractor.stableRef !== stableRef) return extractor;
+          matched = true;
+          return { ...extractor, enabled };
+        });
       } else if (kind === 'detector') {
-        mockDetectors = mockDetectors.map((detector) => (
-          detector.stable_ref === stableRef ? { ...detector, enabled } : detector
-        ));
+        mockDetectors = mockDetectors.map((detector) => {
+          if (detector.stable_ref !== stableRef) return detector;
+          matched = true;
+          return { ...detector, enabled };
+        });
+      } else if (kind === 'inspector' || kind === 'enricher') {
+        throw new Error('Built-in Analysis participants cannot be disabled.');
+      } else if (kind !== 'operation') {
+        throw new Error('Unknown library item kind.');
       }
+      if (!matched) throw new Error('Library item was not found.');
       return undefined as T;
     }
     case 'get_content_types':
