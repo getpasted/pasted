@@ -27,6 +27,7 @@ const TOOL_COPY_FILES = [
   'src/components/SettingsNotificationsPanel.tsx',
   'src/components/SettingsResetPanel.tsx',
   'src/components/SettingsSyncPanel.tsx',
+  'src/components/SettingsTabs.tsx',
   'src/components/TransformComposerModal.tsx',
   'src/components/TransformationsView.tsx',
   'src/utils/features.ts',
@@ -96,6 +97,27 @@ assert.deepEqual(
 );
 
 const settingsImportExport = fs.readFileSync('src/components/SettingsSyncPanel.tsx', 'utf8');
+const settingsTabs = fs.readFileSync('src/components/SettingsTabs.tsx', 'utf8');
+const settingsDestinations = [
+  ['general', 'General'],
+  ['functionality', 'Functionality'],
+  ['hotkeys', 'Hotkeys'],
+  ['notifications', 'Notifications'],
+  ['app-exclusions', 'App Exclusions'],
+  ['storage', 'Storage'],
+  ['analysis', 'Analysis'],
+  ['intelligence', 'Intelligence'],
+  ['about', 'About'],
+];
+let previousSettingsTab = -1;
+for (const [id, label] of settingsDestinations) {
+  const entry = `{ id: '${id}', label: '${label}'`;
+  const index = settingsTabs.indexOf(entry);
+  assert.ok(index > previousSettingsTab, `Settings destination ${label} must retain its requested order`);
+  previousSettingsTab = index;
+}
+assert.doesNotMatch(settingsTabs, /id: '(?:features|connections|blacklist)'/,
+  'Settings destination IDs must match current product terminology');
 for (const title of ['Database Location', 'Export', 'Import']) {
   assert.ok(
     settingsImportExport.includes(`>${title}<`) || settingsImportExport.includes(`title="${title}"`),

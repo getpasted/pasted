@@ -45,7 +45,7 @@ export function SettingsBlacklistPanel({
     <div className="space-y-5 text-xs">
       <SettingsPanelHeader
         icon={Lock}
-        title="App exclusions"
+        title="App Exclusions"
         description="Choose which apps to ignore."
         actions={(
           <ActionButton
@@ -113,8 +113,8 @@ export function SettingsBlacklistPanel({
                 type="button"
                 onClick={() => onRemoveApp(app.id)}
                 className="theme-danger-text theme-icon-button p-1 rounded transition-colors"
-                aria-label={`Remove ${app.name} from blacklist`}
-                title="Remove from blacklist"
+                aria-label={`Remove ${app.name} from App Exclusions`}
+                title="Remove from App Exclusions"
               >
                 <Trash2 className="w-3.5 h-3.5" />
               </button>

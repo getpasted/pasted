@@ -61,7 +61,7 @@ interface ClipPreviewProps {
   isTransforming?: boolean;
   transformError?: string;
   onOpenTransformations?: () => void;
-  onOpenConnections?: () => void;
+  onOpenIntelligence?: () => void;
   trashEnabled: boolean;
   filePreviewMode: AppSettings['filePreviewMode'];
   filePreviewMaxMb: number;
@@ -229,7 +229,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   isTransforming = false,
   transformError,
   onOpenTransformations,
-  onOpenConnections,
+  onOpenIntelligence,
   trashEnabled,
   filePreviewMode,
   filePreviewMaxMb,
@@ -1165,11 +1165,11 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
             <div className="min-w-0">
               <strong className="block">Transform failed.</strong>
               <span>The clip stayed in its Bin and its content was not replaced. </span>
-              {transformError === 'Power on a provider and try again.' && onOpenConnections ? (
+              {transformError === 'Power on a provider and try again.' && onOpenIntelligence ? (
                 <button
                   type="button"
                   className="cursor-pointer font-semibold underline underline-offset-2"
-                  onClick={onOpenConnections}
+                  onClick={onOpenIntelligence}
                 >
                   {transformError}
                 </button>

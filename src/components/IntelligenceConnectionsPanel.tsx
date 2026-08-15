@@ -114,7 +114,7 @@ export function IntelligenceConnectionsPanel() {
     <div className="space-y-5">
       <SettingsPanelHeader
         icon={BrainCircuit}
-        title="Intelligence connections"
+        title="Intelligence"
         description="Manage local and remote intelligence providers."
         actions={(
           <ActionButton variant="primary" onClick={() => setIsAddConnectionOpen(true)}>
