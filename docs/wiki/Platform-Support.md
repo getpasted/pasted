@@ -1,5 +1,7 @@
 # Platform Support
 
+Optional whisper.cpp transcription, FFmpeg audio preparation, ffprobe or MediaInfo inspection, and Tesseract OCR use locally installed executables. Availability is reported under **Settings → Analysis** and through the corresponding CLI registry commands; no engine or model is downloaded automatically.
+
 ## macOS
 
 **Supported:** macOS 13 or newer on Apple Silicon and Intel through one universal signed, notarized, stapled DMG.

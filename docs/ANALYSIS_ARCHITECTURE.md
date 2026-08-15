@@ -29,9 +29,9 @@ Clip Preview and `pasted analyzer run` consume the whole-Analyzer snapshot. The 
 
 ## Type applicability
 
-The stored clip representation and a derived semantic Type are separate axes. An image or file remains an image or file after Analysis; a derived classification records what its searchable representation means without rewriting storage identity.
+Capture establishes three distinct axes. Every clip has one structural Clip Type—Text, Image, or Files. A Files clip may expose several File Formats because it can reference several files. Analysis may add a semantic Content Type without rewriting either structural identity or original content. Version 1 persistence retains one winning Content Type; a future multi-match schema may associate several Content Types with one clip.
 
-The shared registry models applicability as typed edges. Every Analyzer item exposes a `participantContract` containing accepted and produced representations. Its `typeRelations` identify direct Type edges: `accepts` connects Image and File inputs to their registered Types, while `classifies_as` connects each Detector to the Type it produces. GUI and CLI consumers can therefore visualize participant → representation → Type relationships, distinguish text analysis from image, file, media, and structural work, and explain why a participant applies without interpreting display names or engine IDs.
+The shared registry models applicability as typed edges. Every Analyzer item exposes a `participantContract` containing accepted and produced representations. Its `typeRelations` identify direct edges: `accepts` currently uses the legacy `image` and `file` registry IDs to describe Clip Type applicability, while `classifies_as` connects each Detector to the semantic Content Type it produces. GUI and CLI consumers can visualize participant → representation → classification relationships without interpreting display names or engine IDs. This legacy wire naming is frozen for the version 1 contract; user-facing surfaces must keep Clip Type and Content Type distinct.
 
 ## Adding an Inspector or Enricher
 
