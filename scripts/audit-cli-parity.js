@@ -17,6 +17,7 @@ const inspectionExecution = read('src-tauri/src/inspection_execution.rs');
 const enrichment = read('src-tauri/src/content_enrichment.rs');
 const enrichmentExecution = read('src-tauri/src/enrichment_execution.rs');
 const clipPreview = read('src/components/ClipPreview.tsx');
+const clipViews = read('src/hooks/useClipViews.ts');
 const extraction = read('src-tauri/src/content_extraction.rs');
 const clipboardMonitor = read('src-tauri/src/clipboard_monitor.rs');
 const ocr = read('src-tauri/src/ocr.rs');
@@ -275,6 +276,12 @@ assert.match(enrichmentExecution, /pub struct SmartActionEnrichmentResult/,
   'Focused enrichment must expose one stable application result');
 assert.match(cli, /enrichment_execution::enrich_(?:text|clip)/,
   'CLI Smart Actions must use the shared Enricher execution service');
+assert.match(clipViews, /invoke<number\[]>\('search_clip_searchable_text_ids',[\s\S]*?terms:\s*plan\.terms/,
+  'GUI search must consult the native index so extracted searchable text can match');
+assert.match(clipViews, /indexedSearchResult\.clipIds\.forEach/,
+  'GUI search must merge native-index matches without adding extracted text to clip-list payloads');
+assert.match(database, /search_clip_searchable_text_ids[\s\S]*?query\.join\(" AND "\)/,
+  'Extracted-text search must evaluate bounded multi-term queries atomically in FTS');
 assert.doesNotMatch(tauriMock, /reasons:\s*signals/,
   'Mock Smart Actions must preserve per-recommendation reasons');
 assert.match(tauriMock, /hasText === hasClipId/,

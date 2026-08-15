@@ -1,10 +1,11 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { Bin, ClipItem, SequentialStatus } from '../types';
 import { getClipFilePaths, getClipOriginKind } from '../types';
 import { sortClipsChronologically } from '../utils/clipOrder';
 import { clipMatchesSearch, parseClipSearch } from '../utils/clipSearch';
 import { getClipCollection, parseClipFacetRoute } from '../utils/clipCollections';
 import type { FeatureId } from '../utils/features';
+import { safeInvoke as invoke } from '../utils/tauri';
 
 interface ClipViewsInput {
   allClips: ClipItem[];
@@ -23,6 +24,33 @@ interface SmartCondition {
   value: string;
 }
 
+interface IndexedSearchResult {
+  query: string;
+  clipIds: number[];
+}
+
+function canUseIndexedSearch(rawQuery: string) {
+  const plan = parseClipSearch(rawQuery);
+  return plan.terms.length > 0
+    && plan.terms.length <= 8
+    && !plan.regex
+    && plan.regexFallback === null
+    && !plan.requiresTrashed
+    && !plan.hasIncompleteFilter;
+}
+
+function clipWithFeaturePolicy(
+  clip: ClipItem,
+  features?: Pick<Record<FeatureId, boolean>, 'notes' | 'pinning' | 'protection'>,
+) {
+  return features ? {
+    ...clip,
+    note: features.notes ? clip.note : null,
+    is_pinned: features.pinning && clip.is_pinned,
+    is_protected: features.protection && clip.is_protected,
+  } : clip;
+}
+
 export function applyClipSearch(
   items: ClipItem[],
   rawQuery: string,
@@ -31,12 +59,7 @@ export function applyClipSearch(
   const trimmed = rawQuery.trim();
   if (!trimmed) return items;
   const plan = parseClipSearch(trimmed);
-  return items.filter((clip) => clipMatchesSearch(features ? {
-    ...clip,
-    note: features.notes ? clip.note : null,
-    is_pinned: features.pinning && clip.is_pinned,
-    is_protected: features.protection && clip.is_protected,
-  } : clip, plan));
+  return items.filter((clip) => clipMatchesSearch(clipWithFeaturePolicy(clip, features), plan));
 }
 
 function matchesCondition(clip: ClipItem, condition: SmartCondition) {
@@ -118,6 +141,40 @@ export function useClipViews({
   sequentialStatus,
   features,
 }: ClipViewsInput) {
+  const normalizedSearchQuery = searchQuery.trim();
+  const [indexedSearchResult, setIndexedSearchResult] = useState<IndexedSearchResult>({
+    query: '',
+    clipIds: [],
+  });
+
+  useEffect(() => {
+    if (currentTab !== 'search' || !canUseIndexedSearch(normalizedSearchQuery)) {
+      setIndexedSearchResult((current) => (
+        current.query === '' && current.clipIds.length === 0
+          ? current
+          : { query: '', clipIds: [] }
+      ));
+      return;
+    }
+    let active = true;
+    const timer = window.setTimeout(() => {
+      const plan = parseClipSearch(normalizedSearchQuery);
+      invoke<number[]>('search_clip_searchable_text_ids', {
+        terms: plan.terms,
+      }).then((clipIds) => {
+        if (active) setIndexedSearchResult({ query: normalizedSearchQuery, clipIds });
+      }).catch((error) => {
+        console.error('Failed to search the native clip index:', error);
+        if (active) setIndexedSearchResult({ query: normalizedSearchQuery, clipIds: [] });
+      });
+    }, 120);
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  // Refresh after clip updates so newly persisted OCR or transcription joins an active search.
+  }, [allClips, currentTab, normalizedSearchQuery]);
+
   const displayedClips = useMemo(() => {
     const selectedBin = selectedBinId === null ? undefined : bins.find((bin) => bin.id === selectedBinId);
     const collection = getClipCollection(currentTab, selectedBin);
@@ -139,9 +196,23 @@ export function useClipViews({
     }
 
     if (collection?.membership === 'search') {
-      return searchQuery.trim()
-        ? applyClipSearch(sortClipsChronologically([...allClips, ...trashedClips]), searchQuery, features)
-        : [];
+      if (!normalizedSearchQuery) return [];
+      const localMatches = applyClipSearch(
+        sortClipsChronologically([...allClips, ...trashedClips]),
+        normalizedSearchQuery,
+        features,
+      );
+      if (indexedSearchResult.query !== normalizedSearchQuery) return localMatches;
+      const matchesById = new Map(localMatches.map((clip) => [clip.id, clip]));
+      const availableById = new Map([...allClips, ...trashedClips].map((clip) => [clip.id, clip]));
+      const metadataPlan = { ...parseClipSearch(normalizedSearchQuery), terms: [] };
+      indexedSearchResult.clipIds.forEach((clipId) => {
+        const clip = availableById.get(clipId);
+        if (clip && clipMatchesSearch(clipWithFeaturePolicy(clip, features), metadataPlan)) {
+          matchesById.set(clipId, clip);
+        }
+      });
+      return sortClipsChronologically([...matchesById.values()]);
     }
 
     let clips = collection?.membership === 'trash' ? trashedClips : allClips;
@@ -155,7 +226,7 @@ export function useClipViews({
     if (collection?.membership === 'noted') clips = clips.filter((clip) => Boolean(clip.note?.trim()));
     if (!features.pinning) clips = sortClipsChronologically(clips);
     return clips;
-  }, [allClips, trashedClips, searchQuery, currentTab, selectedBinId, sequentialStatus, bins, features]);
+  }, [allClips, trashedClips, normalizedSearchQuery, currentTab, selectedBinId, sequentialStatus, bins, features, indexedSearchResult]);
 
   const counts = useMemo(() => allClips.reduce((result, clip) => ({
     pinnedCount: result.pinnedCount + Number(features.pinning && Boolean(clip.is_pinned)),

@@ -4298,6 +4298,15 @@ pub fn get_clip_searchable_text(
 }
 
 #[tauri::command]
+pub fn search_clip_searchable_text_ids(
+    terms: Vec<String>,
+    db: State<'_, Arc<DbState>>,
+) -> Result<Vec<i64>, String> {
+    db.search_clip_searchable_text_ids(&terms)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
 pub async fn extract_text_from_file_clip(
     clip_id: i64,
     db: State<'_, Arc<DbState>>,

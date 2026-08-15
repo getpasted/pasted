@@ -333,6 +333,17 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
     }
     case 'get_clip_searchable_text':
       return (mockFileSearchableText.get(Number(args?.clipId)) ?? null) as unknown as T;
+    case 'search_clip_searchable_text_ids': {
+      const terms = Array.isArray(args?.terms)
+        ? args.terms.filter((term): term is string => typeof term === 'string').map((term) => term.toLowerCase())
+        : [];
+      if (terms.length === 0 || terms.length > 8 || terms.some((term) => term.length === 0 || term.length > 256)) {
+        throw new Error('Searchable text query exceeds its safety limit');
+      }
+      return [...mockFileSearchableText.entries()]
+        .filter(([, value]) => terms.every((term) => value.searchableText.toLowerCase().includes(term)))
+        .map(([clipId]) => clipId) as unknown as T;
+    }
     case 'extract_text_from_file_clip': {
       const clipId = Number(args?.clipId);
       if (!Number.isInteger(clipId) || clipId <= 0) throw new Error('A valid clip ID is required.');
