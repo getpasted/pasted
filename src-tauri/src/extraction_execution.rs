@@ -24,8 +24,8 @@ pub struct ExtractionResult {
     pub target_ref: String,
     pub outcome: ExtractionResultOutcome,
     pub output: Option<String>,
-    pub detected_type: Option<String>,
-    pub matched_detector_ref: Option<String>,
+    pub classified_type: Option<String>,
+    pub matched_classifier_ref: Option<String>,
     pub failure: Option<AnalysisFailure>,
     pub participants: Vec<ParticipantRun>,
 }
@@ -54,9 +54,11 @@ impl ExtractionResult {
             output: produced
                 .then_some(analysis.context.searchable_text)
                 .flatten(),
-            detected_type: produced.then_some(analysis.context.detected_type).flatten(),
-            matched_detector_ref: produced
-                .then_some(analysis.context.matched_detector_ref)
+            classified_type: produced
+                .then_some(analysis.context.classified_type)
+                .flatten(),
+            matched_classifier_ref: produced
+                .then_some(analysis.context.matched_classifier_ref)
                 .flatten(),
             failure: resolution.failure,
             participants: analysis.runs,
@@ -71,22 +73,22 @@ impl ExtractionResult {
 pub fn analyze_image(
     image_bytes: Vec<u8>,
     extractor: &Extractor,
-    detectors: Option<&[crate::content_detection::Detector]>,
+    classifiers: Option<&[crate::content_classification::Classifier]>,
 ) -> ExtractionResult {
     let registry = crate::content_extraction::system_engine_registry();
-    analyze_image_with_registry(image_bytes, extractor, detectors, &registry)
+    analyze_image_with_registry(image_bytes, extractor, classifiers, &registry)
 }
 
 pub fn analyze_image_with_registry(
     image_bytes: Vec<u8>,
     extractor: &Extractor,
-    detectors: Option<&[crate::content_detection::Detector]>,
+    classifiers: Option<&[crate::content_classification::Classifier]>,
     registry: &ExtractorEngineRegistry<'_>,
 ) -> ExtractionResult {
     analyze_image_with_registry_and_policy(
         image_bytes,
         extractor,
-        detectors,
+        classifiers,
         registry,
         crate::analysis_contract::AnalysisPolicy::Interactive,
     )
@@ -95,16 +97,16 @@ pub fn analyze_image_with_registry(
 pub fn analyze_files(
     paths: Vec<String>,
     extractor: &Extractor,
-    detectors: Option<&[crate::content_detection::Detector]>,
+    classifiers: Option<&[crate::content_classification::Classifier]>,
 ) -> ExtractionResult {
     let registry = crate::content_extraction::system_engine_registry();
-    analyze_files_with_registry(paths, extractor, detectors, &registry)
+    analyze_files_with_registry(paths, extractor, classifiers, &registry)
 }
 
 pub fn analyze_files_with_registry(
     paths: Vec<String>,
     extractor: &Extractor,
-    detectors: Option<&[crate::content_detection::Detector]>,
+    classifiers: Option<&[crate::content_classification::Classifier]>,
     registry: &ExtractorEngineRegistry<'_>,
 ) -> ExtractionResult {
     ExtractionResult::from_report(
@@ -121,8 +123,8 @@ pub fn analyze_files_with_registry(
                 extractor,
                 registry,
             }),
-            detectors,
-            enricher: None,
+            classifiers,
+            suggestion: None,
         }),
     )
 }
@@ -130,7 +132,7 @@ pub fn analyze_files_with_registry(
 pub(crate) fn analyze_image_with_registry_and_policy(
     image_bytes: Vec<u8>,
     extractor: &Extractor,
-    detectors: Option<&[crate::content_detection::Detector]>,
+    classifiers: Option<&[crate::content_classification::Classifier]>,
     registry: &ExtractorEngineRegistry<'_>,
     policy: crate::analysis_contract::AnalysisPolicy,
 ) -> ExtractionResult {
@@ -149,8 +151,8 @@ pub(crate) fn analyze_image_with_registry_and_policy(
                 extractor,
                 registry,
             }),
-            detectors,
-            enricher: None,
+            classifiers,
+            suggestion: None,
         }),
     )
 }
@@ -221,8 +223,8 @@ fn persist_image_analysis(
         db.record_analysis_classification(
             clip_id,
             content_hash,
-            analysis.detected_type.as_deref(),
-            analysis.matched_detector_ref.as_deref(),
+            analysis.classified_type.as_deref(),
+            analysis.matched_classifier_ref.as_deref(),
             "searchable_text",
         )
         .unwrap_or(false)
@@ -292,8 +294,8 @@ pub fn apply_file_analysis(
         db.record_analysis_classification(
             clip_id,
             content_hash,
-            analysis.detected_type.as_deref(),
-            analysis.matched_detector_ref.as_deref(),
+            analysis.classified_type.as_deref(),
+            analysis.matched_classifier_ref.as_deref(),
             "searchable_text",
         )
         .unwrap_or(false)
@@ -444,8 +446,8 @@ mod tests {
 
     fn result(
         output: Option<&str>,
-        detected_type: Option<&str>,
-        matched_detector_ref: Option<&str>,
+        classified_type: Option<&str>,
+        matched_classifier_ref: Option<&str>,
     ) -> ExtractionResult {
         ExtractionResult {
             metadata: AnalysisMetadata::new(AnalysisPolicy::Interactive),
@@ -457,8 +459,8 @@ mod tests {
                 ExtractionResultOutcome::NoOutput
             },
             output: output.map(str::to_string),
-            detected_type: detected_type.map(str::to_string),
-            matched_detector_ref: matched_detector_ref.map(str::to_string),
+            classified_type: classified_type.map(str::to_string),
+            matched_classifier_ref: matched_classifier_ref.map(str::to_string),
             failure: None,
             participants: Vec::new(),
         }
@@ -483,13 +485,13 @@ mod tests {
             serde_json::json!({
                 "formatVersion": 1,
                 "policy": "interactive",
-                "through": "enrich",
+                "through": "suggest",
                 "targetKind": "extractor",
                 "targetRef": "extractor:test",
                 "outcome": "produced",
                 "output": "recognized text",
-                "detectedType": null,
-                "matchedDetectorRef": null,
+                "classifiedType": null,
+                "matchedClassifierRef": null,
                 "failure": null,
                 "participants": [{
                     "stableRef": "extractor:test",
@@ -552,13 +554,13 @@ mod tests {
             serde_json::json!({
                 "formatVersion": 1,
                 "policy": "interactive",
-                "through": "enrich",
+                "through": "suggest",
                 "targetKind": "extractor",
                 "targetRef": "extractor:test",
                 "outcome": "failed",
                 "output": null,
-                "detectedType": null,
-                "matchedDetectorRef": null,
+                "classifiedType": null,
+                "matchedClassifierRef": null,
                 "failure": {
                     "code": "test_failure",
                     "message": "The test engine failed.",
@@ -588,8 +590,8 @@ mod tests {
             target_ref: "extractor:test".into(),
             outcome: ExtractionResultOutcome::Failed,
             output: None,
-            detected_type: None,
-            matched_detector_ref: None,
+            classified_type: None,
+            matched_classifier_ref: None,
             failure: Some(failure.clone()),
             participants: vec![
                 ParticipantRun {
@@ -599,7 +601,7 @@ mod tests {
                     failure: Some(failure),
                 },
                 ParticipantRun {
-                    stable_ref: crate::content_analysis::DETECTOR_PARTICIPANT_REF.into(),
+                    stable_ref: crate::content_analysis::CLASSIFIER_PARTICIPANT_REF.into(),
                     pass: AnalysisPass::Classify,
                     outcome: ParticipantOutcome::MissingInput,
                     failure: None,
@@ -638,11 +640,11 @@ mod tests {
                 file_references: None,
                 image_bytes: None,
                 searchable_text: Some("partial output".into()),
-                detected_type: Some("email".into()),
-                matched_detector_ref: Some("detector:email".into()),
+                classified_type: Some("email".into()),
+                matched_classifier_ref: Some("classifier:email".into()),
                 structural_metadata: None,
                 media_metadata: None,
-                recommendations: None,
+                suggestions: None,
             },
             runs: vec![ParticipantRun {
                 stable_ref: "extractor:test".into(),
@@ -660,8 +662,8 @@ mod tests {
 
         assert!(result.failed());
         assert_eq!(result.output, None);
-        assert_eq!(result.detected_type, None);
-        assert_eq!(result.matched_detector_ref, None);
+        assert_eq!(result.classified_type, None);
+        assert_eq!(result.matched_classifier_ref, None);
         assert_eq!(result.failure.unwrap().code, "contract_violation");
     }
 
@@ -682,7 +684,7 @@ mod tests {
         let analysis = result(
             Some("agent@example.com"),
             Some("email"),
-            Some("detector:email"),
+            Some("classifier:email"),
         );
 
         let persisted = persist_claimed_image_analysis(
@@ -704,7 +706,7 @@ mod tests {
         );
         let classification = db.get_analysis_classification(clip.id).unwrap().unwrap();
         assert_eq!(classification.content_type, "email");
-        assert_eq!(classification.detector_ref, "detector:email");
+        assert_eq!(classification.classifier_ref, "classifier:email");
         assert_eq!(classification.source_representation, "searchable_text");
     }
 
@@ -863,7 +865,7 @@ mod tests {
         let analysis = result(
             Some("recognized text"),
             Some(&"x".repeat(81)),
-            Some("detector:test"),
+            Some("classifier:test"),
         );
 
         let persisted = persist_claimed_image_analysis(

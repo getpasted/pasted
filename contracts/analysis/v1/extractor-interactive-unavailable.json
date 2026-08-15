@@ -1,13 +1,13 @@
 {
   "formatVersion": 1,
   "policy": "interactive",
-  "through": "enrich",
+  "through": "suggest",
   "targetKind": "extractor",
   "targetRef": "extractor:test",
   "outcome": "failed",
   "output": null,
-  "detectedType": null,
-  "matchedDetectorRef": null,
+  "classifiedType": null,
+  "matchedClassifierRef": null,
   "failure": {
     "code": "engine_not_installed",
     "message": "This extraction engine is not installed."
@@ -23,7 +23,7 @@
       }
     },
     {
-      "stableRef": "analysis:content-detectors",
+      "stableRef": "analysis:content-classifiers",
       "pass": "classify",
       "outcome": "missing_input"
     }

@@ -1,7 +1,7 @@
 {
   "formatVersion": 1,
   "policy": "interactive",
-  "through": "enrich",
+  "through": "suggest",
   "result": {
     "origin": "command_line",
     "byteCount": 16,

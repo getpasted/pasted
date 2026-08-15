@@ -107,14 +107,14 @@ const CLI_COMMAND_GROUPS = [
     title: 'Content Analysis',
     commands: [
       { usage: 'pasted analyzer run [--text TEXT | --clip ID | --stdin] [--policy POLICY] [--extract] [--json]', description: 'Preview one versioned, content-free snapshot across the applicable Analysis passes.' },
-      { usage: 'pasted registry list [--kind capture|inspector|extractor|detector|enricher|operation|transform] [--all] [--json]', description: 'Inspect shared lifecycle and input/output contracts for processing assets.' },
-      { usage: 'pasted registry enable|disable --kind extractor|detector|operation --ref REF [--json]', description: 'Change the shared enabled state using a stable processing-asset reference.' },
+      { usage: 'pasted registry list [--kind capture|inspector|extractor|classifier|suggestion|operation|transform] [--all] [--json]', description: 'Inspect shared lifecycle and input/output contracts for processing assets.' },
+      { usage: 'pasted registry enable|disable --kind extractor|classifier|operation --ref REF [--json]', description: 'Change the shared enabled state using a stable processing-asset reference.' },
       { usage: 'pasted inspector list [--json]', description: 'List Inspectors, contracts, and system availability.' },
       { usage: 'pasted inspector get <ref> [--json]', description: 'Inspect one Inspector definition.' },
       { usage: 'pasted inspector run [--text TEXT | --clip ID | --stdin] [--apply] [--json]', description: 'Inspect content-free structure and live media metadata, or persist clip structure.' },
-      { usage: 'pasted enricher list [--json]', description: 'List Enrichers and their contracts.' },
-      { usage: 'pasted enricher get <ref> [--json]', description: 'Inspect one Enricher definition.' },
-      { usage: 'pasted enricher run [--text TEXT | --clip ID | --stdin] [--json]', description: 'Recommend saved Transforms without changing content.' },
+      { usage: 'pasted suggestion list [--json]', description: 'List Suggestions and their contracts.' },
+      { usage: 'pasted suggestion get <ref> [--json]', description: 'Inspect one Suggestion definition.' },
+      { usage: 'pasted suggestion run [--text TEXT | --clip ID | --stdin] [--json]', description: 'Suggest saved Transforms without changing content.' },
       { usage: 'pasted extractor list [--json]', description: 'List Extractors, contracts, and system availability.' },
       { usage: 'pasted extractor get <ref> [--json]', description: 'Inspect one Extractor definition.' },
       { usage: 'pasted extractor create [options] [--json]', description: 'Create an Extractor.' },
@@ -133,15 +133,15 @@ const CLI_COMMAND_GROUPS = [
       { usage: 'pasted type group-update <id> [options] [--json]', description: 'Rename or reorder a Content Type Group.' },
       { usage: 'pasted type group-archive|group-restore <id>', description: 'Archive an empty custom Group or restore it.' },
       { usage: 'pasted type group-delete <id>', description: 'Permanently delete an empty custom Group.' },
-      { usage: 'pasted detector list [--json]', description: 'List Detectors in effective priority order.' },
-      { usage: 'pasted detector get <ref> [--json]', description: 'Inspect one Detector definition.' },
-      { usage: 'pasted detector create --name NAME --type TYPE --regex REGEX [--json]', description: 'Create a Detector.' },
-      { usage: 'pasted detector update <ref> [options] [--json]', description: 'Update a Detector definition.' },
-      { usage: 'pasted detector duplicate <ref> [--name NAME] [--json]', description: 'Duplicate a Detector with a new stable reference.' },
-      { usage: 'pasted detector delete <ref> [--json]', description: 'Delete a Detector; shipped defaults remain recoverable.' },
-      { usage: 'pasted detector run <ref> [--text TEXT | --clip ID | --stdin] [--apply] [--json]', description: 'Run a Detector in preview mode, or apply its matching Content Type to a clip.' },
-      { usage: 'pasted detector restore-defaults', description: 'Restore shipped Detectors without removing custom entries.' },
-      { usage: 'pasted detector rescan --yes [--json]', description: 'Explicitly reclassify existing text clips with the current enabled Detector order.' },
+      { usage: 'pasted classifier list [--json]', description: 'List Classifiers in effective priority order.' },
+      { usage: 'pasted classifier get <ref> [--json]', description: 'Inspect one Classifier definition.' },
+      { usage: 'pasted classifier create --name NAME --type TYPE --regex REGEX [--json]', description: 'Create a Classifier.' },
+      { usage: 'pasted classifier update <ref> [options] [--json]', description: 'Update a Classifier definition.' },
+      { usage: 'pasted classifier duplicate <ref> [--name NAME] [--json]', description: 'Duplicate a Classifier with a new stable reference.' },
+      { usage: 'pasted classifier delete <ref> [--json]', description: 'Delete a Classifier; shipped defaults remain recoverable.' },
+      { usage: 'pasted classifier run <ref> [--text TEXT | --clip ID | --stdin] [--apply] [--json]', description: 'Run a Classifier in preview mode, or apply its matching Content Type to a clip.' },
+      { usage: 'pasted classifier restore-defaults', description: 'Restore shipped Classifiers without removing custom entries.' },
+      { usage: 'pasted classifier rescan --yes [--json]', description: 'Explicitly reclassify existing text clips with the current enabled Classifier order.' },
     ],
   },
   {
@@ -177,7 +177,7 @@ const CLI_COMMAND_GROUPS = [
   },
 ] as const;
 
-export type HelpTopic = 'getting-started' | 'cli' | 'shortcuts-hud' | 'privacy-capture' | 'deletion-recovery' | 'detection' | 'transformations';
+export type HelpTopic = 'getting-started' | 'cli' | 'shortcuts-hud' | 'privacy-capture' | 'deletion-recovery' | 'analysis' | 'transformations';
 
 interface HelpTopicDefinition {
   id: HelpTopic;
@@ -191,7 +191,7 @@ const HELP_TOPICS: HelpTopicDefinition[] = [
   { id: 'shortcuts-hud', label: 'Shortcuts and HUD', icon: Keyboard, iconClassName: 'theme-status-success-text' },
   { id: 'privacy-capture', label: 'Privacy and Capture', icon: Shield, iconClassName: 'theme-status-warning-text' },
   { id: 'deletion-recovery', label: 'Deletion and Recovery', icon: Trash2, iconClassName: 'theme-status-danger-text' },
-  { id: 'detection', label: 'Content Analysis', icon: Radar, iconClassName: 'theme-status-info-text' },
+  { id: 'analysis', label: 'Content Analysis', icon: Radar, iconClassName: 'theme-status-info-text' },
   { id: 'transformations', label: 'Transformations', icon: Workflow, iconClassName: 'theme-status-info-text' },
   { id: 'cli', label: 'CLI Commands', icon: Terminal, iconClassName: 'theme-status-info-text' },
 ];
@@ -541,7 +541,7 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
             </div>
           )}
 
-          {activeSubTab === 'detection' && (
+          {activeSubTab === 'analysis' && (
             <div className="space-y-6 animate-in fade-in">
               <div>
                 <h3 className="theme-title flex items-center space-x-2 text-lg font-bold">
@@ -549,21 +549,21 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
                   <span>Content Analysis</span>
                 </h3>
                 <p className="theme-text-muted mt-1 text-xs">
-                  Capture assigns a structural Clip Type and records source attribution. Inspectors measure structure, Extractors create searchable representations, Detectors classify Content Types, and Enrichers recommend contextual next steps.
+                  Capture assigns a structural Clip Type and records source attribution. Inspectors measure structure, Extractors create searchable representations, Classifiers assign Content Types, and Suggestions offer contextual next steps.
                 </p>
                 <p className="theme-text-muted mt-2 max-w-3xl text-xs leading-relaxed">
-                  Analysis runs in four bounded passes: inspect, extract, classify, and enrich. Each participant runs at most once and only when its declared inputs are available.
+                  Analysis runs in four bounded passes: inspect, extract, classify, and suggest. Each participant runs at most once and only when its declared inputs are available.
                 </p>
               </div>
 
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                 <section className="theme-panel space-y-3 rounded-xl border p-4">
-                  <h4 className="theme-status-info-text text-xs font-bold">Content Detection</h4>
+                  <h4 className="theme-status-info-text text-xs font-bold">Content Classification</h4>
                   <p className="theme-text-main text-xs leading-relaxed">
-                    Enabled Detectors run locally in priority order; the lowest number runs first. A Detector uses one or more regular expressions and may add a validator to reduce false positives. Use Settings → Analysis to test samples, manage Content Types, and reset shipped definitions.
+                    Enabled Classifiers run locally in priority order; the lowest number runs first. A Classifier uses one or more regular expressions and may add a validator to reduce false positives. Use Settings → Analysis to test samples, manage Content Types, and reset shipped definitions.
                   </p>
                   <p className="theme-text-muted text-xs leading-relaxed">
-                    Editing a Detector affects new text clips. <strong>Rescan Clips</strong> explicitly reapplies the current Detector order and can change Content Types, Smart Bin membership, and sensitive-content masking. Images and files are left unchanged.
+                    Editing a Classifier affects new text clips. <strong>Rescan Clips</strong> explicitly reapplies the current Classifier order and can change Content Types, Smart Bin membership, and sensitive-content masking. Images and files are left unchanged.
                   </p>
                 </section>
 

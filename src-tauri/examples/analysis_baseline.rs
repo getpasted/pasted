@@ -1,8 +1,8 @@
 use pasted_lib::analysis_execution::{analyze_text, AnalyzerOptions};
-use pasted_lib::content_detection::Detector;
-use pasted_lib::content_enrichment::recommend_smart_actions;
+use pasted_lib::classification_execution::analyze_classifiers;
+use pasted_lib::content_classification::Classifier;
+use pasted_lib::content_suggestions::suggest_smart_actions;
 use pasted_lib::db::{DbState, PipelineStep, TransformAuthoringKind, TransformDefinition};
-use pasted_lib::detection_execution::analyze_detectors;
 use pasted_lib::inspection_execution::inspect_text;
 use serde::Serialize;
 use std::hint::black_box;
@@ -67,12 +67,12 @@ fn measure(mut operation: impl FnMut(), name: &'static str, iterations: usize) -
     }
 }
 
-fn stress_detectors() -> Vec<Detector> {
+fn stress_classifiers() -> Vec<Classifier> {
     (0..STRESS_PARTICIPANTS)
-        .map(|index| Detector {
+        .map(|index| Classifier {
             id: index as i64,
-            stable_ref: format!("detector:baseline:{index}"),
-            name: format!("Baseline Detector {index}"),
+            stable_ref: format!("classifier:baseline:{index}"),
+            name: format!("Baseline Classifier {index}"),
             content_type: "baseline".into(),
             description: String::new(),
             patterns: vec![format!(r"^unmatched-{index}$")],
@@ -142,16 +142,16 @@ fn main() {
     let inspection = inspect_text(&text, Some("Pasted CLI"))
         .expect("baseline inspection")
         .result;
-    let detectors = stress_detectors();
+    let classifiers = stress_classifiers();
     let transforms = stress_transforms();
     let (database, database_path) = temporary_database();
 
     assert!((60_000..=66_000).contains(&text.len()));
-    assert!(!analyze_detectors("ordinary benchmark text", &detectors).matched);
-    let enrichment = recommend_smart_actions(&text, Some("link"), &inspection, &transforms);
-    assert_eq!(enrichment.actions.len(), 1);
+    assert!(!analyze_classifiers("ordinary benchmark text", &classifiers).matched);
+    let suggestion = suggest_smart_actions(&text, Some("link"), &inspection, &transforms);
+    assert_eq!(suggestion.actions.len(), 1);
     assert_eq!(
-        enrichment.actions[0].transform_ref,
+        suggestion.actions[0].transform_ref,
         format!("transform:baseline:{}", STRESS_PARTICIPANTS - 1)
     );
     assert_eq!(
@@ -178,24 +178,24 @@ fn main() {
         ),
         measure(
             || {
-                black_box(analyze_detectors(
+                black_box(analyze_classifiers(
                     black_box("ordinary benchmark text"),
-                    black_box(&detectors),
+                    black_box(&classifiers),
                 ));
             },
-            "detector_256_no_match",
+            "classifier_256_no_match",
             iterations,
         ),
         measure(
             || {
-                black_box(recommend_smart_actions(
+                black_box(suggest_smart_actions(
                     black_box(&text),
                     Some("link"),
                     black_box(&inspection),
                     black_box(&transforms),
                 ));
             },
-            "enricher_256_candidates_last_match",
+            "suggestion_256_candidates_last_match",
             iterations,
         ),
         measure(

@@ -84,7 +84,7 @@ export function ContentTypeManagerDialog({ isOpen, onClose }: { isOpen: boolean;
   const toggleArchived = async () => {
     if (!selected || selected.isBuiltin) return;
     const action = selected.isArchived ? 'restore' : 'archive';
-    if (!selected.isArchived && !window.confirm(`Archive “${selected.label}”? Its detectors will be disabled, while existing clips keep this Type.`)) return;
+    if (!selected.isArchived && !window.confirm(`Archive “${selected.label}”? Its classifiers will be disabled, while existing clips keep this Type.`)) return;
     try {
       await invoke('set_content_type_archived', { id: selected.id, archived: !selected.isArchived });
       await refresh();
@@ -138,7 +138,7 @@ export function ContentTypeManagerDialog({ isOpen, onClose }: { isOpen: boolean;
               <label className={`space-y-1 ${modified.group ? 'settings-field-modified' : ''}`}><ModifiedFieldLabel modified={modified.group}>Group</ModifiedFieldLabel><MenuSelect value={draft.group} onChange={(group) => setDraft({ ...draft, group })} label="Content type group" options={groups.map((group) => ({ value: group.id, label: group.label, disabled: group.isArchived }))} className="w-full" /></label>
             </div>
             <div className="theme-subtle-surface rounded-lg border p-3 text-[11px] leading-relaxed">
-              {selected?.isBuiltin ? 'Built-in IDs cannot be changed or archived. Their name, icon, and group can be customized and reset later.' : 'Custom Content Types can be archived without changing historical clips. Archiving also disables Detectors that produce the Content Type.'}
+              {selected?.isBuiltin ? 'Built-in IDs cannot be changed or archived. Their name, icon, and group can be customized and reset later.' : 'Custom Content Types can be archived without changing historical clips. Archiving also disables Classifiers that produce the Content Type.'}
             </div>
             </div>
           </section>

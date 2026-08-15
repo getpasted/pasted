@@ -44,14 +44,14 @@ fn analysis_fixture(name: &str) -> Value {
         "inspector-interactive-text" => {
             include_str!("../../contracts/analysis/v1/inspector-interactive-text.json")
         }
-        "enricher-interactive-empty" => {
-            include_str!("../../contracts/analysis/v1/enricher-interactive-empty.json")
+        "suggestion-interactive-empty" => {
+            include_str!("../../contracts/analysis/v1/suggestion-interactive-empty.json")
         }
         "extractor-interactive-unavailable" => {
             include_str!("../../contracts/analysis/v1/extractor-interactive-unavailable.json")
         }
-        "detector-interactive-no-match" => {
-            include_str!("../../contracts/analysis/v1/detector-interactive-no-match.json")
+        "classifier-interactive-no-match" => {
+            include_str!("../../contracts/analysis/v1/classifier-interactive-no-match.json")
         }
         _ => panic!("unknown Analysis fixture {name}"),
     };
@@ -184,8 +184,8 @@ fn structural_inspector_has_registry_preview_and_apply_parity() {
 }
 
 #[test]
-fn smart_actions_enricher_has_registry_and_non_mutating_cli_parity() {
-    let database = temporary_path("enricher", "db");
+fn smart_actions_suggestion_has_registry_and_non_mutating_cli_parity() {
+    let database = temporary_path("suggestion", "db");
     let transform = success_json(
         &database,
         &[
@@ -203,15 +203,15 @@ fn smart_actions_enricher_has_registry_and_non_mutating_cli_parity() {
     let clip = success_json(&database, &["copy", secret_url, "--json"]);
     let clip_id = clip["id"].as_i64().expect("clip ID").to_string();
 
-    let enrichers = success_json(&database, &["enricher", "list", "--json"]);
-    assert_eq!(enrichers[0]["stableRef"], "enricher:smart-actions-v1");
-    assert_eq!(enrichers[0]["outputContract"], "recommendations");
+    let suggestions = success_json(&database, &["suggestion", "list", "--json"]);
+    assert_eq!(suggestions[0]["stableRef"], "suggestion:smart-actions-v1");
+    assert_eq!(suggestions[0]["outputContract"], "suggestions");
 
     let registry = success_json(
         &database,
-        &["registry", "list", "--kind", "enricher", "--json"],
+        &["registry", "list", "--kind", "suggestion", "--json"],
     );
-    assert_eq!(registry[0]["analysisPass"], "enrich");
+    assert_eq!(registry[0]["analysisPass"], "suggest");
     assert_eq!(
         registry[0]["participantContract"]["requires"],
         serde_json::json!(["analyzable_text", "structural_metadata"])
@@ -224,11 +224,11 @@ fn smart_actions_enricher_has_registry_and_non_mutating_cli_parity() {
 
     let result = success_json(
         &database,
-        &["enricher", "run", "--clip", &clip_id, "--json"],
+        &["suggestion", "run", "--clip", &clip_id, "--json"],
     );
     assert_eq!(result["formatVersion"], 1);
     assert_eq!(result["policy"], "interactive");
-    assert_eq!(result["through"], "enrich");
+    assert_eq!(result["through"], "suggest");
     assert_eq!(result["result"]["signals"][0], "url");
     assert_eq!(
         result["result"]["actions"][0]["transformRef"],
@@ -239,9 +239,9 @@ fn smart_actions_enricher_has_registry_and_non_mutating_cli_parity() {
 
     let empty = success_json(
         &database,
-        &["enricher", "run", "--text", "ordinary words", "--json"],
+        &["suggestion", "run", "--text", "ordinary words", "--json"],
     );
-    assert_eq!(empty, analysis_fixture("enricher-interactive-empty"));
+    assert_eq!(empty, analysis_fixture("suggestion-interactive-empty"));
     clean_database(&database);
 }
 
@@ -252,14 +252,14 @@ fn whole_analyzer_has_one_versioned_privacy_safe_cli_contract() {
     let interactive = success_json(&database, &["analyzer", "run", "--text", secret, "--json"]);
     assert_eq!(interactive["formatVersion"], 1);
     assert_eq!(interactive["policy"], "interactive");
-    assert_eq!(interactive["through"], "enrich");
+    assert_eq!(interactive["through"], "suggest");
     assert_eq!(interactive["result"]["clipKind"], "text");
-    assert_eq!(interactive["result"]["detectedType"], "text");
+    assert_eq!(interactive["result"]["classifiedType"], "text");
     assert!(interactive["result"]["structure"].is_object());
-    assert!(interactive["result"]["recommendations"].is_object());
+    assert!(interactive["result"]["suggestions"].is_object());
     assert_eq!(interactive["participants"][0]["pass"], "inspect");
     assert_eq!(interactive["participants"][1]["pass"], "classify");
-    assert_eq!(interactive["participants"][2]["pass"], "enrich");
+    assert_eq!(interactive["participants"][2]["pass"], "suggest");
     assert!(!interactive.to_string().contains("private-token-0123456789"));
     assert_eq!(
         success_json(
@@ -282,7 +282,7 @@ fn whole_analyzer_has_one_versioned_privacy_safe_cli_contract() {
         ],
     );
     assert_eq!(capture["through"], "classify");
-    assert!(capture["result"].get("recommendations").is_none());
+    assert!(capture["result"].get("suggestions").is_none());
     assert_eq!(capture["participants"].as_array().map(Vec::len), Some(2));
     assert!(!capture.to_string().contains("ordinary words"));
     assert_eq!(capture, analysis_fixture("analyzer-capture-text"));
@@ -465,7 +465,7 @@ fn extractor_lifecycle_and_registry_capabilities_run_end_to_end() {
         serde_json::from_slice(&preview_output.stdout).expect("Extractor JSON");
     assert_eq!(preview["formatVersion"], 1);
     assert_eq!(preview["policy"], "interactive");
-    assert_eq!(preview["through"], "enrich");
+    assert_eq!(preview["through"], "suggest");
     assert_eq!(preview["targetKind"], "extractor");
     assert_eq!(preview["targetRef"], stable_ref);
     assert_eq!(preview["outcome"], "failed");
@@ -513,15 +513,15 @@ fn extractor_lifecycle_and_registry_capabilities_run_end_to_end() {
 }
 
 #[test]
-fn detector_preview_and_apply_share_the_safe_execution_contract() {
-    let database = temporary_path("detectors", "db");
+fn classifier_preview_and_apply_share_the_safe_execution_contract() {
+    let database = temporary_path("classifiers", "db");
     let clip = success_json(&database, &["copy", "ticket-123", "--json"]);
     let clip_id = clip["id"].as_i64().expect("clip ID");
     let clip_id_text = clip_id.to_string();
-    let detector = success_json(
+    let classifier = success_json(
         &database,
         &[
-            "detector",
+            "classifier",
             "create",
             "--name",
             "Ticket IDs",
@@ -532,15 +532,15 @@ fn detector_preview_and_apply_share_the_safe_execution_contract() {
             "--json",
         ],
     );
-    let stable_ref = detector["stable_ref"]
+    let stable_ref = classifier["stable_ref"]
         .as_str()
-        .expect("Detector stable ref");
-    let fetched = success_json(&database, &["detector", "get", stable_ref, "--json"]);
+        .expect("Classifier stable ref");
+    let fetched = success_json(&database, &["classifier", "get", stable_ref, "--json"]);
     assert_eq!(fetched["name"], "Ticket IDs");
     let duplicate = success_json(
         &database,
         &[
-            "detector",
+            "classifier",
             "duplicate",
             stable_ref,
             "--name",
@@ -552,12 +552,12 @@ fn detector_preview_and_apply_share_the_safe_execution_contract() {
 
     let registry = success_json(
         &database,
-        &["registry", "list", "--kind", "detector", "--json"],
+        &["registry", "list", "--kind", "classifier", "--json"],
     );
     let registry_item = registry
         .as_array()
         .and_then(|items| items.iter().find(|item| item["stableRef"] == stable_ref))
-        .expect("Detector registry item");
+        .expect("Classifier registry item");
     assert_eq!(registry_item["analysisPass"], "classify");
     assert_eq!(
         registry_item["participantContract"]["requires"],
@@ -571,28 +571,40 @@ fn detector_preview_and_apply_share_the_safe_execution_contract() {
     success_json(
         &database,
         &[
-            "registry", "disable", "--kind", "detector", "--ref", stable_ref, "--json",
+            "registry",
+            "disable",
+            "--kind",
+            "classifier",
+            "--ref",
+            stable_ref,
+            "--json",
         ],
     );
     success_json(
         &database,
         &[
-            "registry", "enable", "--kind", "detector", "--ref", stable_ref, "--json",
+            "registry",
+            "enable",
+            "--kind",
+            "classifier",
+            "--ref",
+            stable_ref,
+            "--json",
         ],
     );
     let activity = success_json(&database, &["activity", "list", "--all", "--json"]);
     assert!(activity.as_array().is_some_and(|logs| {
         logs.iter()
-            .any(|log| log["event_type"] == "content_detector_disabled")
+            .any(|log| log["event_type"] == "content_classifier_disabled")
             && logs
                 .iter()
-                .any(|log| log["event_type"] == "content_detector_enabled")
+                .any(|log| log["event_type"] == "content_classifier_enabled")
     }));
 
     let mut no_match = success_json(
         &database,
         &[
-            "detector",
+            "classifier",
             "run",
             stable_ref,
             "--text",
@@ -601,13 +613,16 @@ fn detector_preview_and_apply_share_the_safe_execution_contract() {
         ],
     );
     assert_eq!(no_match["targetRef"], stable_ref);
-    no_match["targetRef"] = Value::String("detector:email".into());
-    assert_eq!(no_match, analysis_fixture("detector-interactive-no-match"));
+    no_match["targetRef"] = Value::String("classifier:email".into());
+    assert_eq!(
+        no_match,
+        analysis_fixture("classifier-interactive-no-match")
+    );
 
     let preview = success_json(
         &database,
         &[
-            "detector",
+            "classifier",
             "run",
             stable_ref,
             "--text",
@@ -617,12 +632,12 @@ fn detector_preview_and_apply_share_the_safe_execution_contract() {
     );
     assert_eq!(preview["formatVersion"], 1);
     assert_eq!(preview["policy"], "interactive");
-    assert_eq!(preview["through"], "enrich");
-    assert_eq!(preview["targetKind"], "detector");
+    assert_eq!(preview["through"], "suggest");
+    assert_eq!(preview["targetKind"], "classifier");
     assert_eq!(preview["targetRef"], stable_ref);
     assert_eq!(preview["outcome"], "matched");
     assert_eq!(preview["matched"], true);
-    assert_eq!(preview["detectedType"], "code");
+    assert_eq!(preview["classifiedType"], "code");
     assert_eq!(preview["appliedClipId"], Value::Null);
     assert_eq!(preview["participants"][0]["pass"], "classify");
     assert!(!preview.to_string().contains("ticket-123"));
@@ -630,7 +645,7 @@ fn detector_preview_and_apply_share_the_safe_execution_contract() {
     let applied = success_json(
         &database,
         &[
-            "detector",
+            "classifier",
             "run",
             stable_ref,
             "--clip",
@@ -649,7 +664,7 @@ fn detector_preview_and_apply_share_the_safe_execution_contract() {
         .expect("updated clip");
     assert_eq!(updated["content_type"], "code");
 
-    let deleted = success_json(&database, &["detector", "delete", stable_ref, "--json"]);
+    let deleted = success_json(&database, &["classifier", "delete", stable_ref, "--json"]);
     assert_eq!(deleted["deleted"], true);
     clean_database(&database);
 }

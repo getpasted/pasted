@@ -1,7 +1,7 @@
 {
   "formatVersion": 1,
   "policy": "interactive",
-  "through": "enrich",
+  "through": "suggest",
   "result": {
     "signals": [],
     "signalLabels": [],
@@ -14,13 +14,13 @@
       "outcome": "produced"
     },
     {
-      "stableRef": "analysis:content-detectors",
+      "stableRef": "analysis:content-classifiers",
       "pass": "classify",
       "outcome": "produced"
     },
     {
-      "stableRef": "enricher:smart-actions-v1",
-      "pass": "enrich",
+      "stableRef": "suggestion:smart-actions-v1",
+      "pass": "suggest",
       "outcome": "produced"
     }
   ],

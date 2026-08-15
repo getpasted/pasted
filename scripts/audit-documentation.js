@@ -52,7 +52,13 @@ const productDocs = [
 for (const [file, content] of productDocs) {
   for (const stale of [
     'Analytics & Insights',
-    'Content Analysis, Detection, and Types',
+    'Content Analysis, Classification, and Types',
+    'Content Detection',
+    'Detectors',
+    'Enrichers',
+    'Detection-and-Types',
+    'pasted detector',
+    'pasted enricher',
     'custom Type',
     'Manage Types',
     'Restore Defaults',
@@ -64,7 +70,7 @@ for (const [file, content] of productDocs) {
 const cliReference = readFileSync(join(repositoryRoot, 'docs/wiki/CLI-Reference.md'), 'utf8');
 assert.match(
   cliReference,
-  /registry list \[--kind capture\|inspector\|extractor\|detector\|enricher\|operation\|transform\]/,
+  /registry list \[--kind capture\|inspector\|extractor\|classifier\|suggestion\|operation\|transform\]/,
   'CLI Reference must list every registry kind, including Capture',
 );
 
@@ -72,7 +78,7 @@ for (const file of [
   'README.md',
   'docs/ANALYSIS_ARCHITECTURE.md',
   'docs/ANALYSIS_ACCEPTANCE.md',
-  'docs/wiki/Detection-and-Types.md',
+  'docs/wiki/Classification-and-Types.md',
   'docs/wiki/Settings-and-Features.md',
 ]) {
   const content = readFileSync(join(repositoryRoot, file), 'utf8');
@@ -81,7 +87,7 @@ for (const file of [
   }
 }
 
-const taxonomyGuide = readFileSync(join(repositoryRoot, 'docs/wiki/Detection-and-Types.md'), 'utf8');
+const taxonomyGuide = readFileSync(join(repositoryRoot, 'docs/wiki/Classification-and-Types.md'), 'utf8');
 assert.ok(taxonomyGuide.includes('File Format'), 'Content Analysis guide must distinguish File Format');
 
 console.log(`Documentation audit passed (${files.length} Markdown files checked).`);

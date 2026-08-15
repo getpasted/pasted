@@ -70,7 +70,7 @@ interface ClipPreviewProps {
 interface StructuralInspection {
   formatVersion: number;
   policy: 'capture' | 'background' | 'interactive' | 'rescan';
-  through: 'inspect' | 'extract' | 'classify' | 'enrich';
+  through: 'inspect' | 'extract' | 'classify' | 'suggest';
   result: {
     origin: 'clipboard_content' | 'file_reference' | 'screenshot' | 'command_line';
     byteCount: number;
@@ -96,10 +96,10 @@ interface StructuralInspection {
   };
 }
 
-interface SmartActionEnrichment {
+interface SmartActionSuggestion {
   formatVersion: number;
   policy: 'interactive';
-  through: 'enrich';
+  through: 'suggest';
   result: {
     signals: Array<'url' | 'json' | 'html' | 'markdown' | 'multi_line' | 'email' | 'phone'>;
     signalLabels: string[];
@@ -116,15 +116,15 @@ interface SmartActionEnrichment {
 interface AnalyzerPreview {
   formatVersion: number;
   policy: 'capture' | 'background' | 'interactive' | 'rescan';
-  through: 'inspect' | 'extract' | 'classify' | 'enrich';
+  through: 'inspect' | 'extract' | 'classify' | 'suggest';
   result: {
     clipKind: string;
     structure?: StructuralInspection['result'];
     mediaMetadata?: StructuralInspection['mediaMetadata'];
-    detectedType?: string;
-    matchedDetectorRef?: string;
+    classifiedType?: string;
+    matchedClassifierRef?: string;
     searchableTextAvailable: boolean;
-    recommendations?: SmartActionEnrichment['result'];
+    suggestions?: SmartActionSuggestion['result'];
   };
   appliedClipId: null;
   liveFileObservations?: StructuralInspection['liveFileObservations'];
@@ -141,7 +141,7 @@ interface FileClipPreview {
 interface ExtractionApplicationResult {
   formatVersion: number;
   policy: 'capture' | 'background' | 'interactive' | 'rescan';
-  through: 'inspect' | 'extract' | 'classify' | 'enrich';
+  through: 'inspect' | 'extract' | 'classify' | 'suggest';
   outcome: 'produced' | 'no_output' | 'failed';
   output: string | null;
   failure: { code: string; message: string } | null;
@@ -281,7 +281,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   const [restoringVersionId, setRestoringVersionId] = useState<number | null>(null);
   const [revisionCount, setRevisionCount] = useState<number | null>(null);
   const [inspection, setInspection] = useState<StructuralInspection | null>(null);
-  const [smartActions, setSmartActions] = useState<SmartActionEnrichment | null>(null);
+  const [smartActions, setSmartActions] = useState<SmartActionSuggestion | null>(null);
   const [fileSearchableText, setFileSearchableText] = useState<ClipSearchableText | null>(null);
   const [isFileExtractionLoading, setIsFileExtractionLoading] = useState(false);
   const [filePreviews, setFilePreviews] = useState<FileClipPreview[]>([]);
@@ -306,7 +306,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
     const input = transformedText === null
       ? { clipId: clip.id, includeExtractor: false }
       : { text, source: clip.source, includeExtractor: false };
-    const includeEnricher = features.transformations
+    const includeSuggestions = features.transformations
       && viewPolicy.canRunPipelines
       && clip.content_type !== 'image'
       && clip.content_type !== 'file';
@@ -315,8 +315,8 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
     invoke<AnalyzerPreview>('analyze_content', {
       request: {
         ...input,
-        includeDetectors: includeEnricher,
-        includeEnricher,
+        includeClassifiers: includeSuggestions,
+        includeSuggestions,
       },
     })
       .then((result) => {
@@ -330,11 +330,11 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
           appliedClipId: null,
           liveFileObservations: result.liveFileObservations,
         } : null);
-        setSmartActions(result.result.recommendations ? {
+        setSmartActions(result.result.suggestions ? {
           formatVersion: result.formatVersion,
           policy: 'interactive',
-          through: 'enrich',
-          result: result.result.recommendations,
+          through: 'suggest',
+          result: result.result.suggestions,
           appliedClipId: null,
         } : null);
       })

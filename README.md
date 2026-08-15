@@ -10,7 +10,7 @@ The [Pasted Wiki](https://github.com/getpasted/pasted/wiki) covers installation,
 
 - Captures text, images, screenshots, PDFs, and copied file references in a searchable local history.
 - Organizes clips with manual Bins, Smart Bins, Content Types, Sources, pinning, protection, notes, Trash, and persistent per-collection ordering.
-- Analyzes clips locally through bounded Inspect, Extract, Classify, and Enrich passes, with native macOS OCR, optional Tesseract OCR, ffprobe or MediaInfo media metadata, local whisper.cpp transcription, editable Detectors, content-free structural metadata, and Smart Action recommendations.
+- Analyzes clips locally through bounded Inspect, Extract, Classify, and Suggest passes, with native macOS OCR, optional Tesseract OCR, ffprobe or MediaInfo media metadata, local whisper.cpp transcription, editable Classifiers, content-free structural metadata, and Smart Action suggestions.
 - Previews common image files and the first page of copied PDFs without changing the copied file reference.
 - Records copies into a persistent Queue, then pastes the next item or the whole Queue into the previously focused app.
 - Builds reusable Transforms from deterministic Operations or an explicitly connected intelligence provider.
@@ -25,11 +25,11 @@ The [Pasted Wiki](https://github.com/getpasted/pasted/wiki) covers installation,
 
 Clipboard history, settings, revisions, previews, and activity data are stored locally in SQLite. **Pasted has no analytics or telemetry**.
 
-Password managers and other sensitive apps are ignored by the default blacklist. Capture size, preview size, history retention, Trash retention, revisions, OCR, and content detection are bounded or configurable. Protected clips will remain, regardless of retention settings.
+Password managers and other sensitive apps are ignored by the default blacklist. Capture size, preview size, history retention, Trash retention, revisions, OCR, and content classification are bounded or configurable. Protected clips will remain, regardless of retention settings.
 
 Pasted sends your private clip content outside the app only when you _explicitly_ run an intelligence-assisted transform through a connection you manually enabled. Connection credentials remain with the provider, operating system, or authenticated command-line tool; Pasted stores references rather than API keys.
 
-Analyzer snapshots and participant summaries are deliberately content-free. They can report bounded structure, a detected Content Type, participant outcomes, and recommended Transform references, but never return original text, extracted text, image bytes, or file paths. An explicit Extractor preview may return its bounded derived text to the caller that requested it.
+Analyzer snapshots and participant summaries are deliberately content-free. They can report bounded structure, a classified Content Type, participant outcomes, and suggested Transform references, but never return original text, extracted text, image bytes, or file paths. An explicit Extractor preview may return its bounded derived text to the caller that requested it.
 
 The Analysis settings sequence shows Capture ahead of the Analyzer. Capture assigns one structural Clip Type and records source attribution; optional source presentation and icon resolution follow the Sources setting.
 
@@ -75,7 +75,7 @@ pasted backup create Pasted.pastedbackup --json
 pasted transfer export Pasted-history.json --json
 ```
 
-The Analyzer command returns one versioned, privacy-safe preview across the applicable Inspector, Extractor, Detector, and Enricher participants. Focused commands such as `pasted inspector`, `pasted extractor`, `pasted detector`, and `pasted enricher` expose the same contracts for automation and diagnostics.
+The Analyzer command returns one versioned, privacy-safe preview across the applicable Inspector, Extractor, Classifier, and Suggestion participants. Focused commands such as `pasted inspector`, `pasted extractor`, `pasted classifier`, and `pasted suggestion` expose the same contracts for automation and diagnostics.
 
 Managed or scripted installs can bypass the first-run walkthrough by launching the graphical app with `--skip-welcome`. On macOS:
 

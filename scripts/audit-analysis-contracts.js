@@ -11,7 +11,7 @@ const clipCard = read('src/components/ClipCard.tsx');
 const analytics = read('src/components/AnalyticsView.tsx');
 const database = read('src-tauri/src/db.rs');
 const types = read('src/types.ts');
-const analysisSettings = read('src/components/SettingsDetectionPanel.tsx');
+const analysisSettings = read('src/components/SettingsAnalysisPanel.tsx');
 const settingsModal = read('src/components/SettingsModal.tsx');
 const analysisExecution = read('src-tauri/src/analysis_execution.rs');
 const commands = read('src-tauri/src/commands.rs');
@@ -26,8 +26,8 @@ for (const [step, participant, icon] of [
   [1, 'Capture', 'Clipboard'],
   [2, 'Inspect', 'ScanSearch'],
   [3, 'Extract', 'ScanText'],
-  [4, 'Detect', 'Radar'],
-  [5, 'Enrich', 'Lightbulb'],
+  [4, 'Classify', 'Radar'],
+  [5, 'Suggest', 'Lightbulb'],
 ]) {
   assert.match(
     analysisSettings,
@@ -40,14 +40,14 @@ assert.match(
   /Not all steps run for all clips\. Some steps may be long-running\./,
   'Analysis Settings must explain that the ordered passes are conditional',
 );
-assert.match(settingsModal, /activeTab === 'analysis' && \(\s*<SettingsDetectionPanel/,
+assert.match(settingsModal, /activeTab === 'analysis' && \(\s*<SettingsAnalysisPanel/,
   'Analysis Settings must remain available when optional participants are disabled');
 assert.doesNotMatch(settingsModal, /showAnalysis=/,
   'Functionality gates must not hide Analysis configuration');
 assert.match(analysisSettings, /\{\(ocrEnabled \|\| transcriptionsEnabled\) && <AnalysisManagerRow[\s\S]{0,220}title="Extract"/,
   'Extractors must remain visible for either OCR or Transcriptions');
-assert.match(analysisSettings, /\{\(contentDetectionEnabled \|\| typesEnabled\) && <AnalysisManagerRow[\s\S]{0,220}title="Detect"/,
-  'Detectors must remain visible for either Content Detection or Types');
+assert.match(analysisSettings, /\{\(contentClassificationEnabled \|\| typesEnabled\) && <AnalysisManagerRow[\s\S]{0,220}title="Classify"/,
+  'Classifiers must remain visible for either Content Classification or Types');
 assert.match(settingsModal, /typesEnabled=\{settings\.enableTypes\}/,
   'Analysis Settings must receive the Types feature gate');
 assert.match(settingsModal, /sourcesEnabled=\{settings\.enableSources\}/,
@@ -72,12 +72,12 @@ assert.match(analytics, /Clips by File Format/,
   'Insights must present file-format summaries separately');
 assert.match(analytics, /features\.types && <div className="theme-panel[\s\S]{0,1000}Clips by Content Type/,
   'Insights must hide semantic Content Type summaries when Content Types is disabled');
-assert.match(analysisSettings, /\{transformationsEnabled && <AnalysisManagerRow[\s\S]{0,220}title="Enrich"/,
-  'Disabling Transformations must hide Smart Action Enrichers');
-assert.match(analysisExecution, /let run_detectors = allow_text_participants && options\.include_detectors;/,
-  'Enrichment must not implicitly enable Detectors');
-assert.match(commands, /include_detectors: include_detectors\.unwrap_or\(true\)[\s\S]{0,100}Feature::ContentDetection/,
-  'The live Analyzer command must honor the Content Detection feature gate');
+assert.match(analysisSettings, /\{transformationsEnabled && <AnalysisManagerRow[\s\S]{0,220}title="Suggest"/,
+  'Disabling Transformations must hide Smart Action Suggestions');
+assert.match(analysisExecution, /let run_classifiers = allow_text_participants && options\.include_classifiers;/,
+  'Suggestion must not implicitly enable Classifiers');
+assert.match(commands, /include_classifiers: include_classifiers\.unwrap_or\(true\)[\s\S]{0,100}Feature::ContentClassification/,
+  'The live Analyzer command must honor the Content Classification feature gate');
 assert.match(extractorManager, /inputContract !== 'image' \|\| ocrEnabled/,
   'Disabling OCR must hide image Extractors');
 assert.match(extractorManager, /inputContract !== 'file_references' \|\| transcriptionsEnabled/,
@@ -100,7 +100,7 @@ assert.match(clipPreviewContent, /transcriptionsEnabled && <div className="theme
   'Clip Preview must hide transcription controls when Transcriptions is disabled');
 for (const command of [
   'restore_default_content_extractors',
-  'restore_default_content_detectors',
+  'restore_default_content_classifiers',
   'restore_default_content_types',
   'restore_default_content_type_groups',
 ]) {
@@ -126,15 +126,15 @@ const fixtures = {
   inspector: fixture('inspector-interactive-text'),
   extractor: fixture('extractor-interactive-produced'),
   extractorUnavailable: fixture('extractor-interactive-unavailable'),
-  detector: fixture('detector-interactive-matched'),
-  detectorNoMatch: fixture('detector-interactive-no-match'),
-  enricher: fixture('enricher-interactive-empty'),
+  classifier: fixture('classifier-interactive-matched'),
+  classifierNoMatch: fixture('classifier-interactive-no-match'),
+  suggestion: fixture('suggestion-interactive-empty'),
 };
 
 for (const [surface, value] of Object.entries(fixtures)) {
   assert.equal(value.formatVersion, 1, `${surface} fixture must use Analysis contract v1`);
   assert.ok(['capture', 'interactive'].includes(value.policy), `${surface} fixture must name its policy`);
-  assert.equal(value.through, value.policy === 'capture' ? 'classify' : 'enrich',
+  assert.equal(value.through, value.policy === 'capture' ? 'classify' : 'suggest',
     `${surface} fixture must name its policy's final pass`);
   assert.ok(Array.isArray(value.participants), `${surface} fixture must include participant runs`);
   for (const run of value.participants) {
@@ -152,6 +152,8 @@ for (const [surface, value] of Object.entries(fixtures)) {
 }
 
 const analyzerMock = commandBlock('analyze_content');
+assert.match(analyzerMock, /const includeClassifiers = request\.includeClassifiers !== false/,
+  'Frontend Analyzer mock must not implicitly enable Classifiers for Suggestions');
 for (const field of ['formatVersion', 'policy', 'through', 'participants']) {
   assert.match(analyzerMock, new RegExp(`\\b${field}\\b`), `Frontend Analyzer mock must include ${field}`);
 }
@@ -174,18 +176,18 @@ for (const name of [
   'analyzer-interactive-text',
   'analyzer-capture-text',
   'inspector-interactive-text',
-  'enricher-interactive-empty',
+  'suggestion-interactive-empty',
   'extractor-interactive-unavailable',
-  'detector-interactive-no-match',
+  'classifier-interactive-no-match',
 ]) {
   assert.ok(cliTests.includes(`${name}.json`), `CLI integration must consume ${name}.json`);
 }
 
-for (const field of ['structure', 'mediaMetadata', 'recommendations']) {
+for (const field of ['structure', 'mediaMetadata', 'suggestions']) {
   assert.match(clipPreview, new RegExp(`result\\.${field}`),
     `Clip Preview must consume whole-Analyzer ${field}`);
 }
-assert.match(clipPreview, /Smart Actions/, 'Clip Preview must present Enricher recommendations contextually');
+assert.match(clipPreview, /Smart Actions/, 'Clip Preview must present Smart Action suggestions contextually');
 assert.match(clipPreviewContent, /Extracted by \{ocrExtractorLabel\}/,
   'Clip Preview must identify the Extractor that produced OCR text');
 for (const field of ['ocr_extractor_ref', 'ocr_extractor_name', 'ocr_engine_version']) {
@@ -194,23 +196,23 @@ for (const field of ['ocr_extractor_ref', 'ocr_extractor_name', 'ocr_engine_vers
   assert.match(types, new RegExp(`${field}\\?: string \\| null`),
     `Frontend ClipItem must expose OCR provenance field ${field}`);
 }
-for (const title of ['Capture', 'Inspect', 'Extract', 'Detect', 'Enrich']) {
+for (const title of ['Capture', 'Inspect', 'Extract', 'Classify', 'Suggest']) {
   assert.match(analysisSettings, new RegExp(`title="${title}"`),
     `Analysis settings must expose ${title} behind a compact manager row`);
 }
 assert.match(builtinLifecycleManager, /get_library_items/,
-  'Capture, Inspector, and Enricher managers must consume the shared registry');
+  'Capture, Inspector, and Suggestion managers must consume the shared registry');
 assert.match(builtinLifecycleManager, /participantContract/,
-  'Inspector and Enricher managers must render typed participant contracts');
+  'Inspector and Suggestion managers must render typed participant contracts');
 assert.match(builtinLifecycleManager, /typeRelations/,
-  'Inspector and Enricher managers must render registered Type relations');
+  'Inspector and Suggestion managers must render registered Type relations');
 assert.match(builtinLifecycleManager, /get_content_inspectors/,
   'Inspector management must load shared engine availability');
 assert.match(builtinLifecycleManager, /Technical details/,
   'Internal participant contracts must remain behind contextual technical details');
 assert.match(builtinLifecycleManager, /pasted \{kind\} get &lt;ref&gt; --json/,
   'Stable references must explain their CLI and API purpose');
-for (const [label, manager] of [['Extractor', extractorManager], ['Detector', analysisSettings]]) {
+for (const [label, manager] of [['Extractor', extractorManager], ['Classifier', analysisSettings]]) {
   assert.equal((manager.match(/<RegistryPanelFooter/g) ?? []).length, 2,
     `${label} management must keep item actions and form actions in their owning panels`);
   assert.match(manager, /<AppDialogFooter[\s\S]*Reset…[\s\S]*Close/,

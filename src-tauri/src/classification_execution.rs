@@ -2,13 +2,13 @@ use crate::analysis_contract::{
     AnalysisFailure, AnalysisMetadata, AnalysisPolicy, AnalysisTargetKind, ClipApplication,
     ParticipantRun,
 };
-use crate::content_analysis::{AnalysisReport, DETECTOR_PARTICIPANT_REF};
-use crate::content_detection::Detector;
+use crate::content_analysis::{AnalysisReport, CLASSIFIER_PARTICIPANT_REF};
+use crate::content_classification::Classifier;
 use serde::Serialize;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
-pub enum DetectionOutcome {
+pub enum ClassificationOutcome {
     Matched,
     NoMatch,
     Failed,
@@ -16,37 +16,37 @@ pub enum DetectionOutcome {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct DetectionResult {
+pub struct ClassificationResult {
     #[serde(flatten)]
     pub metadata: AnalysisMetadata,
     pub target_kind: AnalysisTargetKind,
     pub target_ref: String,
-    pub outcome: DetectionOutcome,
+    pub outcome: ClassificationOutcome,
     pub matched: bool,
-    pub detected_type: Option<String>,
-    pub matched_detector_ref: Option<String>,
+    pub classified_type: Option<String>,
+    pub matched_classifier_ref: Option<String>,
     pub failure: Option<AnalysisFailure>,
     pub participants: Vec<ParticipantRun>,
 }
 
-impl DetectionResult {
+impl ClassificationResult {
     fn from_report(
         policy: AnalysisPolicy,
         target_kind: AnalysisTargetKind,
         target_ref: String,
         analysis: AnalysisReport,
     ) -> Self {
-        let resolution = analysis.resolve_participant(DETECTOR_PARTICIPANT_REF, target_kind);
+        let resolution = analysis.resolve_participant(CLASSIFIER_PARTICIPANT_REF, target_kind);
         let failure = resolution.failure;
         let matched = failure.is_none()
-            && analysis.context.matched_detector_ref.is_some()
-            && analysis.context.detected_type.is_some();
+            && analysis.context.matched_classifier_ref.is_some()
+            && analysis.context.classified_type.is_some();
         let outcome = if failure.is_some() {
-            DetectionOutcome::Failed
+            ClassificationOutcome::Failed
         } else if matched {
-            DetectionOutcome::Matched
+            ClassificationOutcome::Matched
         } else {
-            DetectionOutcome::NoMatch
+            ClassificationOutcome::NoMatch
         };
         Self {
             metadata: AnalysisMetadata::new(policy),
@@ -54,9 +54,11 @@ impl DetectionResult {
             target_ref,
             outcome,
             matched,
-            detected_type: matched.then_some(analysis.context.detected_type).flatten(),
-            matched_detector_ref: matched
-                .then_some(analysis.context.matched_detector_ref)
+            classified_type: matched
+                .then_some(analysis.context.classified_type)
+                .flatten(),
+            matched_classifier_ref: matched
+                .then_some(analysis.context.matched_classifier_ref)
                 .flatten(),
             failure,
             participants: analysis.runs,
@@ -64,32 +66,32 @@ impl DetectionResult {
     }
 
     pub fn classification(&self) -> &str {
-        self.detected_type.as_deref().unwrap_or("text")
+        self.classified_type.as_deref().unwrap_or("text")
     }
 
     pub fn failed(&self) -> bool {
-        self.outcome == DetectionOutcome::Failed
+        self.outcome == ClassificationOutcome::Failed
     }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct DetectionApplicationResult {
+pub struct ClassificationApplicationResult {
     #[serde(flatten)]
-    pub analysis: DetectionResult,
+    pub analysis: ClassificationResult,
     #[serde(flatten)]
     pub application: ClipApplication,
 }
 
-impl DetectionApplicationResult {
-    pub fn preview(analysis: DetectionResult) -> Self {
+impl ClassificationApplicationResult {
+    pub fn preview(analysis: ClassificationResult) -> Self {
         Self {
             analysis,
             application: ClipApplication::preview(),
         }
     }
 
-    pub fn applied(analysis: DetectionResult, clip_id: i64) -> Self {
+    pub fn applied(analysis: ClassificationResult, clip_id: i64) -> Self {
         Self {
             analysis,
             application: ClipApplication::applied(clip_id),
@@ -97,25 +99,25 @@ impl DetectionApplicationResult {
     }
 }
 
-pub fn analyze_detectors(text: &str, detectors: &[Detector]) -> DetectionResult {
-    analyze_detectors_with_policy(
+pub fn analyze_classifiers(text: &str, classifiers: &[Classifier]) -> ClassificationResult {
+    analyze_classifiers_with_policy(
         text,
-        detectors,
+        classifiers,
         crate::analysis_contract::AnalysisPolicy::Interactive,
         None,
     )
 }
 
-pub(crate) fn analyze_detectors_with_policy(
+pub(crate) fn analyze_classifiers_with_policy(
     text: &str,
-    detectors: &[Detector],
+    classifiers: &[Classifier],
     policy: crate::analysis_contract::AnalysisPolicy,
     source: Option<&str>,
-) -> DetectionResult {
-    DetectionResult::from_report(
+) -> ClassificationResult {
+    ClassificationResult::from_report(
         policy,
-        AnalysisTargetKind::DetectorSet,
-        DETECTOR_PARTICIPANT_REF.into(),
+        AnalysisTargetKind::ClassifierSet,
+        CLASSIFIER_PARTICIPANT_REF.into(),
         crate::content_analysis::analyze(crate::content_analysis::AnalysisRequest {
             input: crate::content_analysis::AnalysisInput::Text {
                 text: text.into(),
@@ -124,17 +126,17 @@ pub(crate) fn analyze_detectors_with_policy(
             policy,
             inspector: false,
             extractor: None,
-            detectors: Some(detectors),
-            enricher: None,
+            classifiers: Some(classifiers),
+            suggestion: None,
         }),
     )
 }
 
-pub fn analyze_detector(text: &str, detector: &Detector) -> DetectionResult {
-    DetectionResult::from_report(
+pub fn analyze_classifier(text: &str, classifier: &Classifier) -> ClassificationResult {
+    ClassificationResult::from_report(
         AnalysisPolicy::Interactive,
-        AnalysisTargetKind::Detector,
-        detector.stable_ref.clone(),
+        AnalysisTargetKind::Classifier,
+        classifier.stable_ref.clone(),
         crate::content_analysis::analyze(crate::content_analysis::AnalysisRequest {
             input: crate::content_analysis::AnalysisInput::Text {
                 text: text.into(),
@@ -143,8 +145,8 @@ pub fn analyze_detector(text: &str, detector: &Detector) -> DetectionResult {
             policy: crate::analysis_contract::AnalysisPolicy::Interactive,
             inspector: false,
             extractor: None,
-            detectors: Some(std::slice::from_ref(detector)),
-            enricher: None,
+            classifiers: Some(std::slice::from_ref(classifier)),
+            suggestion: None,
         }),
     )
 }
@@ -154,10 +156,10 @@ mod tests {
     use super::*;
     use crate::content_analysis::{AnalysisContext, AnalysisPass, ParticipantOutcome};
 
-    fn detector() -> Detector {
-        Detector {
+    fn classifier() -> Classifier {
+        Classifier {
             id: 1,
-            stable_ref: "detector:email".into(),
+            stable_ref: "classifier:email".into(),
             name: "Email".into(),
             content_type: "email".into(),
             description: String::new(),
@@ -172,16 +174,16 @@ mod tests {
     }
 
     #[test]
-    fn detector_results_have_a_stable_matched_json_contract() {
-        let result = analyze_detector("agent@example.com", &detector());
+    fn classifier_results_have_a_stable_matched_json_contract() {
+        let result = analyze_classifier("agent@example.com", &classifier());
 
         assert!(result.matched);
         assert_eq!(result.classification(), "email");
         assert_eq!(result.participants.len(), 1);
         assert_eq!(
-            serde_json::to_value(DetectionApplicationResult::preview(result)).unwrap(),
+            serde_json::to_value(ClassificationApplicationResult::preview(result)).unwrap(),
             serde_json::from_str::<serde_json::Value>(include_str!(
-                "../../contracts/analysis/v1/detector-interactive-matched.json"
+                "../../contracts/analysis/v1/classifier-interactive-matched.json"
             ))
             .unwrap()
         );
@@ -189,28 +191,28 @@ mod tests {
 
     #[test]
     fn no_match_is_distinct_and_classifies_as_plain_text() {
-        let result = analyze_detector("ordinary prose", &detector());
+        let result = analyze_classifier("ordinary prose", &classifier());
 
-        assert_eq!(result.outcome, DetectionOutcome::NoMatch);
+        assert_eq!(result.outcome, ClassificationOutcome::NoMatch);
         assert!(!result.matched);
         assert_eq!(result.classification(), "text");
-        assert_eq!(result.detected_type, None);
+        assert_eq!(result.classified_type, None);
         assert_eq!(result.failure, None);
         let expected = serde_json::from_str::<serde_json::Value>(include_str!(
-            "../../contracts/analysis/v1/detector-interactive-no-match.json"
+            "../../contracts/analysis/v1/classifier-interactive-no-match.json"
         ))
         .unwrap();
         assert_eq!(
-            serde_json::to_value(DetectionApplicationResult::preview(result)).unwrap(),
+            serde_json::to_value(ClassificationApplicationResult::preview(result)).unwrap(),
             expected
         );
     }
 
     #[test]
-    fn bounded_detection_preserves_its_execution_policy() {
-        let result = analyze_detectors_with_policy(
+    fn bounded_classification_preserves_its_execution_policy() {
+        let result = analyze_classifiers_with_policy(
             "agent@example.com",
-            &[detector()],
+            &[classifier()],
             AnalysisPolicy::Rescan,
             Some("Pasted CLI"),
         );
@@ -222,7 +224,7 @@ mod tests {
     }
 
     #[test]
-    fn failed_detection_discards_partial_classification_context() {
+    fn failed_classification_discards_partial_classification_context() {
         let report = AnalysisReport {
             context: AnalysisContext {
                 clip_kind: "text".into(),
@@ -231,34 +233,34 @@ mod tests {
                 file_references: None,
                 image_bytes: None,
                 searchable_text: None,
-                detected_type: Some("credential".into()),
-                matched_detector_ref: Some("detector:credential".into()),
+                classified_type: Some("credential".into()),
+                matched_classifier_ref: Some("classifier:credential".into()),
                 structural_metadata: None,
                 media_metadata: None,
-                recommendations: None,
+                suggestions: None,
             },
             runs: vec![ParticipantRun {
-                stable_ref: DETECTOR_PARTICIPANT_REF.into(),
+                stable_ref: CLASSIFIER_PARTICIPANT_REF.into(),
                 pass: AnalysisPass::Classify,
                 outcome: ParticipantOutcome::Failed,
                 failure: Some(AnalysisFailure {
                     code: "contract_violation".into(),
-                    message: "Detection violated its contract.".into(),
+                    message: "Classification violated its contract.".into(),
                 }),
             }],
         };
 
-        let result = DetectionResult::from_report(
+        let result = ClassificationResult::from_report(
             AnalysisPolicy::Interactive,
-            AnalysisTargetKind::DetectorSet,
-            DETECTOR_PARTICIPANT_REF.into(),
+            AnalysisTargetKind::ClassifierSet,
+            CLASSIFIER_PARTICIPANT_REF.into(),
             report,
         );
 
         assert!(result.failed());
         assert!(!result.matched);
-        assert_eq!(result.detected_type, None);
-        assert_eq!(result.matched_detector_ref, None);
+        assert_eq!(result.classified_type, None);
+        assert_eq!(result.matched_classifier_ref, None);
         assert_eq!(result.classification(), "text");
     }
 }

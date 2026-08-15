@@ -4,10 +4,10 @@ Analysis distinguishes absence, valid empty results, failures, and rejected muta
 
 | Condition | Contract result | Mutation | Surface behavior |
 | --- | --- | --- | --- |
-| Pass excluded by policy | No participant run is reported. | None. | Capture, background, and rescan stop after `classify`; interactive work may continue through `enrich`. |
+| Pass excluded by policy | No participant run is reported. | None. | Capture, background, and rescan stop after `classify`; interactive work may continue through `suggest`. |
 | Participant lacks a required representation | Participant outcome is `missing_input`. A focused participant result resolves this to failure code `missing_input`. | None. | GUI, CLI, and background callers preserve the same participant summary. |
 | Extractor finds no text | Extractor outcome is `no_output`; `failure` and `output` are null. | Applied runs may record successful OCR completion with no text. | This is a valid result, not an engine failure. |
-| Detector finds no match | Detector outcome is `no_match`; `matched` is false and classification fields are null. | Applied runs retain the plain-text classification. | This is a valid result and exits successfully in the CLI. |
+| Classifier finds no match | Classifier outcome is `no_match`; `matched` is false and classification fields are null. | Applied runs retain the plain-text classification. | This is a valid result and exits successfully in the CLI. |
 | Participant fails | Outcome is `failed` with a stable code and neutral bounded message. Partial derived context is discarded. | No derived output is applied. Extractor attempt state may record the bounded failure code. | CLI Extractor runs emit the structured result and exit nonzero; GUI and background callers receive the same result. |
 | Declared output is absent | Scheduler converts the apparent success to `failed` with code `contract_violation`. | None. | Every caller fails closed before interpreting participant-specific fields. |
 | Participant is unexpectedly absent | Focused resolution returns `failed` with code `missing_participant`. | None. | Indicates an internal scheduling/registry mismatch, never a valid empty result. |

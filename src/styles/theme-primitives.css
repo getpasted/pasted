@@ -626,7 +626,7 @@ html:not(.is-stable-reordering) .connection-priority-card:hover {
   color: var(--status-danger);
 }
 
-/* Contextual recommendations follow the active scheme's accent without
+/* Contextual suggestions follow the active scheme's accent without
    becoming a second, independently hard-coded color system. */
 .smart-actions-bar {
   background-color: color-mix(in srgb, var(--accent-primary) 11%, var(--material-toolbar));

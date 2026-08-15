@@ -210,7 +210,7 @@ export interface Operation {
 
 export interface LibraryItemView {
   stableRef: string;
-  kind: 'capture' | 'inspector' | 'extractor' | 'detector' | 'enricher' | 'operation' | 'transform';
+  kind: 'capture' | 'inspector' | 'extractor' | 'classifier' | 'suggestion' | 'operation' | 'transform';
   name: string;
   description: string;
   groupLabel: string | null;
@@ -222,11 +222,11 @@ export interface LibraryItemView {
   revision: number;
   inputContract: string;
   outputContract: string;
-  analysisPass: 'inspect' | 'extract' | 'classify' | 'enrich' | null;
+  analysisPass: 'inspect' | 'extract' | 'classify' | 'suggest' | null;
   participantContract?: {
     stableRef: string;
     name: string;
-    pass: 'inspect' | 'extract' | 'classify' | 'enrich';
+    pass: 'inspect' | 'extract' | 'classify' | 'suggest';
     priority: number;
     requires: AnalysisRepresentation[];
     provides: AnalysisRepresentation[];
@@ -257,7 +257,7 @@ export type AnalysisRepresentation =
   | 'classification'
   | 'structural_metadata'
   | 'media_metadata'
-  | 'recommendations';
+  | 'suggestions';
 
 export type IntelligenceProviderKind =
   | 'openai_compatible'
@@ -492,7 +492,7 @@ export interface AppSettings {
   trashAgeDays: number;
   enableAnalytics: boolean;
   enableBins: boolean;
-  enableContentDetection: boolean;
+  enableContentClassification: boolean;
   enableNotes: boolean;
   enableNotifications: boolean;
   enableOcr: boolean;

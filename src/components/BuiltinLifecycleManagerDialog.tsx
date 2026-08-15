@@ -8,7 +8,7 @@ import { RegistryDetailHeader } from './RegistryDetailHeader';
 import { RegistryListItem } from './RegistryListItem';
 import { RegistryPanelHeader } from './RegistryPanelHeader';
 
-type BuiltinLifecycleKind = Extract<LibraryItemView['kind'], 'capture' | 'inspector' | 'enricher'>;
+type BuiltinLifecycleKind = Extract<LibraryItemView['kind'], 'capture' | 'inspector' | 'suggestion'>;
 
 interface InspectorDefinition {
   stableRef: string;
@@ -80,7 +80,7 @@ export function BuiltinLifecycleManagerDialog({
     ? 'Clipboard representations'
     : kind === 'capture'
     ? 'Clipboard captures'
-    : kind === 'enricher'
+    : kind === 'suggestion'
     ? 'Clips with analyzable text'
     : selected?.typeRelations?.some(({ kind: relationKind, typeId }) => relationKind === 'accepts' && typeId === 'file')
       ? 'File clips'
@@ -89,8 +89,8 @@ export function BuiltinLifecycleManagerDialog({
     ? 'Text, Image, or Files'
     : kind === 'capture'
     ? 'App name and icon'
-    : kind === 'enricher'
-    ? 'Smart Action recommendations'
+    : kind === 'suggestion'
+    ? 'Smart Action suggestions'
     : selected?.stableRef.includes('media') ? 'Media metadata' : 'Structural details';
   const availabilityText = runtime?.engine
     ? runtime.isAvailable
@@ -103,7 +103,7 @@ export function BuiltinLifecycleManagerDialog({
     ? AppWindow
     : kind === 'inspector' && selected?.stableRef.includes('media')
     ? FileAudio
-    : kind === 'enricher' ? Lightbulb : ScanSearch;
+    : kind === 'suggestion' ? Lightbulb : ScanSearch;
 
   return (
     <AppDialog
@@ -138,7 +138,7 @@ export function BuiltinLifecycleManagerDialog({
             </div>
           </section>
           <section className="theme-surface flex min-w-0 flex-col overflow-hidden rounded-xl border">
-            <RegistryPanelHeader title={`${kind === 'capture' ? 'Capture' : kind === 'inspector' ? 'Inspector' : 'Enricher'} Details`} />
+            <RegistryPanelHeader title={`${kind === 'capture' ? 'Capture' : kind === 'inspector' ? 'Inspector' : 'Suggestion'} Details`} />
             <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
               {error && <div role="alert" className="theme-status-danger rounded-lg border px-3 py-2">Definitions could not be loaded.</div>}
               {selected && <>

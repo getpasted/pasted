@@ -72,13 +72,13 @@ let mockBins: MockBin[] = [
   { id: 2, name: 'Work Bin', icon: '💼', color: '#10b981', smart_rule: '', bin_type: 'category' },
 ];
 
-function mockDetector<T extends { id: number; patterns: string[] }>(detector: T) {
-  return { ...detector, defaults: { ...detector, patterns: [...detector.patterns] } };
+function mockClassifier<T extends { id: number; patterns: string[] }>(classifier: T) {
+  return { ...classifier, defaults: { ...classifier, patterns: [...classifier.patterns] } };
 }
-let mockDetectors = [
-  mockDetector({ id: 1, stable_ref: 'email', name: 'Email Addresses', content_type: 'email', description: 'Individual email addresses', patterns: [String.raw`(?i)^[^\s@]+@[^\s@]+\.[^\s@]+$`], validator: null, enabled: true, priority: 30, is_builtin: true }),
-  mockDetector({ id: 2, stable_ref: 'credential', name: 'Credentials', content_type: 'credential', description: 'Known API-key formats and secret assignments', patterns: [String.raw`^(?:sk_|ghp_).+$`], validator: null, enabled: true, priority: 60, is_builtin: true }),
-  mockDetector({ id: 3, stable_ref: 'phone', name: 'Phone Numbers', content_type: 'phone', description: 'Formatted international and local phone numbers', patterns: [String.raw`^\+?[0-9 ()-]{7,}$`], validator: 'phone', enabled: true, priority: 160, is_builtin: true }),
+let mockClassifiers = [
+  mockClassifier({ id: 1, stable_ref: 'email', name: 'Email Addresses', content_type: 'email', description: 'Individual email addresses', patterns: [String.raw`(?i)^[^\s@]+@[^\s@]+\.[^\s@]+$`], validator: null, enabled: true, priority: 30, is_builtin: true }),
+  mockClassifier({ id: 2, stable_ref: 'credential', name: 'Credentials', content_type: 'credential', description: 'Known API-key formats and secret assignments', patterns: [String.raw`^(?:sk_|ghp_).+$`], validator: null, enabled: true, priority: 60, is_builtin: true }),
+  mockClassifier({ id: 3, stable_ref: 'phone', name: 'Phone Numbers', content_type: 'phone', description: 'Formatted international and local phone numbers', patterns: [String.raw`^\+?[0-9 ()-]{7,}$`], validator: 'phone', enabled: true, priority: 160, is_builtin: true }),
 ];
 const mockAppleExtractorDefaults = { name: 'Apple Vision OCR', description: 'Extracts searchable text from images locally with Apple Vision.', enabled: true, priority: 10 };
 const mockTesseractExtractorDefaults = { name: 'Tesseract OCR', description: 'Extracts searchable text from images locally with Tesseract.', enabled: true, priority: 20 };
@@ -234,7 +234,7 @@ function assignMockClips(ids: number[], binId: number | null) {
   }
 }
 
-function mockSmartActionRecommendations(text: string) {
+function mockSmartActionSuggestions(text: string) {
   const signals: string[] = [];
   if (/https?:\/\/[^\s]+/i.test(text)) signals.push('url');
   let isJson = false;
@@ -322,8 +322,8 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
     }
     case 'get_pipelines':
       return mockPipelines as unknown as T;
-    case 'get_content_detectors':
-      return mockDetectors.map((detector) => ({ ...detector, patterns: [...detector.patterns] })) as unknown as T;
+    case 'get_content_classifiers':
+      return mockClassifiers.map((classifier) => ({ ...classifier, patterns: [...classifier.patterns] })) as unknown as T;
     case 'get_content_extractors':
       return mockExtractors.map((extractor) => ({ ...extractor, defaults: extractor.defaults ? { ...extractor.defaults } : null })) as unknown as T;
     case 'get_content_inspectors':
@@ -339,13 +339,13 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       return {
         formatVersion: 1,
         policy: 'interactive',
-        through: 'enrich',
+        through: 'suggest',
         targetKind: 'extractor',
         targetRef: 'extractor:apple-vision-ocr',
         outcome: 'produced',
         output: 'Recognized text',
-        detectedType: 'text',
-        matchedDetectorRef: null,
+        classifiedType: 'text',
+        matchedClassifierRef: null,
         failure: null,
         participants: [{ stableRef: 'extractor:apple-vision-ocr', pass: 'extract', outcome: 'produced' }],
         appliedClipId: clipId,
@@ -383,13 +383,13 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       return {
         formatVersion: 1,
         policy: 'interactive',
-        through: 'enrich',
+        through: 'suggest',
         targetKind: 'extractor',
         targetRef: 'extractor:whisper-transcription',
         outcome: 'produced',
         output: searchableText,
-        detectedType: 'prose',
-        matchedDetectorRef: 'detector:prose',
+        classifiedType: 'prose',
+        matchedClassifierRef: 'classifier:prose',
         failure: null,
         participants: [{ stableRef: 'extractor:whisper-transcription', pass: 'extract', outcome: 'produced' }],
         appliedClipId: clipId,
@@ -439,9 +439,9 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
         { stableRef: 'capture:source-attribution-v1', kind: 'capture', name: 'Source Attribution', description: 'Records the application associated with a clipboard capture and resolves its icon when shown.', groupLabel: 'Capture', icon: 'AppWindow', enabled: null, isBuiltin: true, isArchived: false, sortOrder: 10, revision: 1, inputContract: 'clipboard_event', outputContract: 'source_attribution', analysisPass: null, typeRelations: [], createdAt: '', updatedAt: '', capabilities: { canEdit: false, canDuplicate: false, canDelete: false, canDisable: false, canRestore: false } },
         { stableRef: 'inspector:structure-v1', kind: 'inspector', name: 'Structure', description: 'Measures stable clip structure without retaining clipboard contents.', groupLabel: 'Content Analysis', icon: 'ScanSearch', enabled: null, isBuiltin: true, isArchived: false, sortOrder: 0, revision: 1, inputContract: 'clip', outputContract: 'structural_metadata', analysisPass: 'inspect', participantContract: { stableRef: 'inspector:structure-v1', name: 'Structure', pass: 'inspect', priority: 0, requires: ['clip_kind'], provides: ['structural_metadata'] }, typeRelations: [], createdAt: '', updatedAt: '', capabilities: { canEdit: false, canDuplicate: false, canDelete: false, canDisable: false, canRestore: false } },
         { stableRef: 'inspector:media-metadata-v1', kind: 'inspector', name: 'Media Metadata', description: 'Reads bounded audio and video metadata locally.', groupLabel: 'Content Analysis', icon: 'FileAudio', enabled: null, isBuiltin: true, isArchived: false, sortOrder: 10, revision: 1, inputContract: 'file_references', outputContract: 'media_metadata', analysisPass: 'inspect', participantContract: { stableRef: 'inspector:media-metadata-v1', name: 'Media Metadata', pass: 'inspect', priority: 10, requires: ['file_references'], provides: ['media_metadata'] }, typeRelations: [{ kind: 'accepts', typeId: 'file' }], createdAt: '', updatedAt: '', capabilities: { canEdit: false, canDuplicate: false, canDelete: false, canDisable: false, canRestore: false } },
-        { stableRef: 'enricher:smart-actions-v1', kind: 'enricher', name: 'Smart Actions', description: 'Recommends saved Transforms from content-free analysis signals.', groupLabel: 'Content Analysis', icon: 'Lightbulb', enabled: null, isBuiltin: true, isArchived: false, sortOrder: 0, revision: 1, inputContract: 'analyzable_text+structural_metadata', outputContract: 'recommendations', analysisPass: 'enrich', participantContract: { stableRef: 'enricher:smart-actions-v1', name: 'Smart Actions', pass: 'enrich', priority: 0, requires: ['analyzable_text', 'structural_metadata'], provides: ['recommendations'] }, typeRelations: [], createdAt: '', updatedAt: '', capabilities: { canEdit: false, canDuplicate: false, canDelete: false, canDisable: false, canRestore: false } },
+        { stableRef: 'suggestion:smart-actions-v1', kind: 'suggestion', name: 'Smart Actions', description: 'Suggests saved Transforms from content-free analysis signals.', groupLabel: 'Content Analysis', icon: 'Lightbulb', enabled: null, isBuiltin: true, isArchived: false, sortOrder: 0, revision: 1, inputContract: 'analyzable_text+structural_metadata', outputContract: 'suggestions', analysisPass: 'suggest', participantContract: { stableRef: 'suggestion:smart-actions-v1', name: 'Smart Actions', pass: 'suggest', priority: 0, requires: ['analyzable_text', 'structural_metadata'], provides: ['suggestions'] }, typeRelations: [], createdAt: '', updatedAt: '', capabilities: { canEdit: false, canDuplicate: false, canDelete: false, canDisable: false, canRestore: false } },
         ...mockExtractors.map((extractor) => ({ stableRef: extractor.stableRef, kind: 'extractor', name: extractor.name, description: extractor.description, groupLabel: 'Content Analysis', icon: 'ScanText', enabled: extractor.enabled, isBuiltin: extractor.isBuiltin, isArchived: false, sortOrder: extractor.priority, revision: 1, inputContract: extractor.inputContract, outputContract: extractor.outputContract, analysisPass: 'extract', participantContract: { stableRef: extractor.stableRef, name: extractor.name, pass: 'extract', priority: extractor.priority, requires: [extractor.inputContract], provides: [extractor.outputContract, 'analyzable_text'] }, typeRelations: extractor.inputContract === 'image' ? [{ kind: 'accepts', typeId: 'image' }] : extractor.inputContract === 'file_references' ? [{ kind: 'accepts', typeId: 'file' }] : [], createdAt: '', updatedAt: '', capabilities: { canEdit: true, canDuplicate: true, canDelete: true, canDisable: true, canRestore: extractor.isBuiltin } })),
-        ...mockDetectors.map((detector) => ({ stableRef: detector.stable_ref, kind: 'detector', name: detector.name, description: detector.description, groupLabel: null, icon: 'FileText', enabled: detector.enabled, isBuiltin: detector.is_builtin, isArchived: false, sortOrder: detector.priority, revision: 1, inputContract: 'text', outputContract: `set_type:${detector.content_type}`, analysisPass: 'classify', participantContract: { stableRef: detector.stable_ref, name: detector.name, pass: 'classify', priority: detector.priority, requires: ['analyzable_text'], provides: ['classification'] }, typeRelations: [{ kind: 'classifies_as', typeId: detector.content_type }], createdAt: '', updatedAt: '', capabilities: { canEdit: true, canDuplicate: true, canDelete: true, canDisable: true, canRestore: detector.is_builtin } })),
+        ...mockClassifiers.map((classifier) => ({ stableRef: classifier.stable_ref, kind: 'classifier', name: classifier.name, description: classifier.description, groupLabel: null, icon: 'FileText', enabled: classifier.enabled, isBuiltin: classifier.is_builtin, isArchived: false, sortOrder: classifier.priority, revision: 1, inputContract: 'text', outputContract: `set_type:${classifier.content_type}`, analysisPass: 'classify', participantContract: { stableRef: classifier.stable_ref, name: classifier.name, pass: 'classify', priority: classifier.priority, requires: ['analyzable_text'], provides: ['classification'] }, typeRelations: [{ kind: 'classifies_as', typeId: classifier.content_type }], createdAt: '', updatedAt: '', capabilities: { canEdit: true, canDuplicate: true, canDelete: true, canDisable: true, canRestore: classifier.is_builtin } })),
         ...mockPipelines.map((pipeline) => ({ stableRef: pipeline.stableRef, kind: 'transform', name: pipeline.name, description: '', groupLabel: 'Manual Transforms', icon: 'Workflow', enabled: null, isBuiltin: false, isArchived: false, sortOrder: pipeline.id, revision: pipeline.revision, inputContract: 'text', outputContract: 'preserve_type', analysisPass: null, createdAt: pipeline.createdAt, updatedAt: pipeline.updatedAt, capabilities: { canEdit: true, canDuplicate: true, canDelete: true, canDisable: false, canRestore: false } })),
       ];
       return items.filter((item) => !kind || item.kind === kind) as unknown as T;
@@ -457,13 +457,13 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
           matched = true;
           return { ...extractor, enabled };
         });
-      } else if (kind === 'detector') {
-        mockDetectors = mockDetectors.map((detector) => {
-          if (detector.stable_ref !== stableRef) return detector;
+      } else if (kind === 'classifier') {
+        mockClassifiers = mockClassifiers.map((classifier) => {
+          if (classifier.stable_ref !== stableRef) return classifier;
           matched = true;
-          return { ...detector, enabled };
+          return { ...classifier, enabled };
         });
-      } else if (kind === 'capture' || kind === 'inspector' || kind === 'enricher') {
+      } else if (kind === 'capture' || kind === 'inspector' || kind === 'suggestion') {
         throw new Error('Built-in lifecycle capabilities cannot be disabled.');
       } else if (kind !== 'operation') {
         throw new Error('Unknown library item kind.');
@@ -516,33 +516,33 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
     }
     case 'restore_default_content_types':
       return mockContentTypes as unknown as T;
-    case 'create_content_detector': {
+    case 'create_content_classifier': {
       const input = args?.input as Record<string, unknown>;
-      const detector = { ...input, id: Math.max(0, ...mockDetectors.map(({ id }) => Number(id))) + 1, stable_ref: `custom-${Date.now()}`, is_builtin: false, defaults: null } as unknown as typeof mockDetectors[number];
-      mockDetectors.push(detector);
-      return detector as unknown as T;
+      const classifier = { ...input, id: Math.max(0, ...mockClassifiers.map(({ id }) => Number(id))) + 1, stable_ref: `custom-${Date.now()}`, is_builtin: false, defaults: null } as unknown as typeof mockClassifiers[number];
+      mockClassifiers.push(classifier);
+      return classifier as unknown as T;
     }
-    case 'update_content_detector': {
-      const index = mockDetectors.findIndex(({ id }) => id === Number(args?.id));
-      if (index >= 0) mockDetectors[index] = { ...mockDetectors[index], ...(args?.input as Record<string, unknown>) } as typeof mockDetectors[number];
-      return mockDetectors[index] as unknown as T;
+    case 'update_content_classifier': {
+      const index = mockClassifiers.findIndex(({ id }) => id === Number(args?.id));
+      if (index >= 0) mockClassifiers[index] = { ...mockClassifiers[index], ...(args?.input as Record<string, unknown>) } as typeof mockClassifiers[number];
+      return mockClassifiers[index] as unknown as T;
     }
-    case 'duplicate_content_detector': {
+    case 'duplicate_content_classifier': {
       const reference = String(args?.reference ?? '');
-      const source = mockDetectors.find((detector) => detector.stable_ref === reference || String(detector.id) === reference);
-      if (!source) throw new Error('Detector was not found.');
-      const detector = { ...source, id: Math.max(0, ...mockDetectors.map(({ id }) => Number(id))) + 1, stable_ref: `custom-${Date.now()}`, name: String(args?.name ?? `${source.name} Copy`), priority: source.priority + 1, is_builtin: false, defaults: null } as unknown as typeof mockDetectors[number];
-      mockDetectors.push(detector);
-      return detector as unknown as T;
+      const source = mockClassifiers.find((classifier) => classifier.stable_ref === reference || String(classifier.id) === reference);
+      if (!source) throw new Error('Classifier was not found.');
+      const classifier = { ...source, id: Math.max(0, ...mockClassifiers.map(({ id }) => Number(id))) + 1, stable_ref: `custom-${Date.now()}`, name: String(args?.name ?? `${source.name} Copy`), priority: source.priority + 1, is_builtin: false, defaults: null } as unknown as typeof mockClassifiers[number];
+      mockClassifiers.push(classifier);
+      return classifier as unknown as T;
     }
-    case 'delete_content_detector':
-      mockDetectors = mockDetectors.filter(({ id }) => id !== Number(args?.id));
+    case 'delete_content_classifier':
+      mockClassifiers = mockClassifiers.filter(({ id }) => id !== Number(args?.id));
       return null as unknown as T;
-    case 'restore_default_content_detectors':
-      return mockDetectors as unknown as T;
-    case 'rescan_content_detection_history':
+    case 'restore_default_content_classifiers':
+      return mockClassifiers as unknown as T;
+    case 'rescan_content_classification_history':
       return { scannedCount: mockClips.length, changedCount: 0, unchangedCount: mockClips.length, failedCount: 0 } as unknown as T;
-    case 'test_content_detector': {
+    case 'test_content_classifier': {
       const input = args?.input as { patterns?: string[] };
       const sample = String(args?.sample ?? '');
       const matched = Boolean(input.patterns?.some((pattern) => {
@@ -551,15 +551,15 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       return {
         formatVersion: 1,
         policy: 'interactive',
-        through: 'enrich',
-        targetKind: 'detector',
+        through: 'suggest',
+        targetKind: 'classifier',
         targetRef: 'preview',
         outcome: matched ? 'matched' : 'no_match',
         matched,
-        detectedType: matched ? String((args?.input as { content_type?: string })?.content_type ?? 'text') : null,
-        matchedDetectorRef: matched ? 'preview' : null,
+        classifiedType: matched ? String((args?.input as { content_type?: string })?.content_type ?? 'text') : null,
+        matchedClassifierRef: matched ? 'preview' : null,
         failure: null,
-        participants: [{ stableRef: 'analysis:content-detectors', pass: 'classify', outcome: 'produced' }],
+        participants: [{ stableRef: 'analysis:content-classifiers', pass: 'classify', outcome: 'produced' }],
       } as unknown as T;
     }
     case 'get_hotkey_capability_status':
@@ -938,7 +938,7 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
           binCount: 7,
           operationCount: 5,
           transformCount: 12,
-          detectorCount: 4,
+          classifierCount: 4,
           contentTypeCount: 9,
         },
       } as unknown as T;
@@ -1034,29 +1034,29 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
             lineCount: text.length === 0 ? 0 : text.split(/\r?\n/).length - (/\r?\n$/.test(text) ? 1 : 0),
           } }),
       };
-      const includeEnricher = request.includeEnricher !== false
+      const includeSuggestions = request.includeSuggestions !== false
         && (request.policy === undefined || request.policy === 'interactive')
         && clipKind !== 'file'
         && clipKind !== 'image';
-      const includeDetectors = (request.includeDetectors !== false || includeEnricher)
+      const includeClassifiers = request.includeClassifiers !== false
         && clipKind !== 'file'
         && clipKind !== 'image';
-      const recommendations = includeEnricher ? mockSmartActionRecommendations(text) : null;
+      const suggestions = includeSuggestions ? mockSmartActionSuggestions(text) : null;
       const participants = [
         { stableRef: 'inspector:structure-v1', pass: 'inspect', outcome: 'produced' },
-        ...(includeDetectors ? [{ stableRef: 'analysis:content-detectors', pass: 'classify', outcome: 'produced' }] : []),
-        ...(recommendations ? [{ stableRef: 'enricher:smart-actions-v1', pass: 'enrich', outcome: 'produced' }] : []),
+        ...(includeClassifiers ? [{ stableRef: 'analysis:content-classifiers', pass: 'classify', outcome: 'produced' }] : []),
+        ...(suggestions ? [{ stableRef: 'suggestion:smart-actions-v1', pass: 'suggest', outcome: 'produced' }] : []),
       ];
       return {
         formatVersion: 1,
         policy: request.policy ?? 'interactive',
-        through: request.policy && request.policy !== 'interactive' ? 'classify' : 'enrich',
+        through: request.policy && request.policy !== 'interactive' ? 'classify' : 'suggest',
         result: {
           clipKind,
           structure,
-          ...(includeDetectors ? { detectedType: clip?.content_type ?? 'text' } : {}),
+          ...(includeClassifiers ? { classifiedType: clip?.content_type ?? 'text' } : {}),
           searchableTextAvailable: false,
-          ...(recommendations ? { recommendations } : {}),
+          ...(suggestions ? { suggestions } : {}),
         },
         participants,
         appliedClipId: null,

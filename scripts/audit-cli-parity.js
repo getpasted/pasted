@@ -12,11 +12,11 @@ const analysisContract = read('src-tauri/src/analysis_contract.rs');
 const analysisExecution = read('src-tauri/src/analysis_execution.rs');
 const analysisArchitecture = read('docs/ANALYSIS_ARCHITECTURE.md');
 const extractionExecution = read('src-tauri/src/extraction_execution.rs');
-const detectionExecution = read('src-tauri/src/detection_execution.rs');
+const classificationExecution = read('src-tauri/src/classification_execution.rs');
 const inspection = read('src-tauri/src/content_inspection.rs');
 const inspectionExecution = read('src-tauri/src/inspection_execution.rs');
-const enrichment = read('src-tauri/src/content_enrichment.rs');
-const enrichmentExecution = read('src-tauri/src/enrichment_execution.rs');
+const suggestion = read('src-tauri/src/content_suggestions.rs');
+const suggestionExecution = read('src-tauri/src/suggestion_execution.rs');
 const clipPreview = read('src/components/ClipPreview.tsx');
 const clipViews = read('src/hooks/useClipViews.ts');
 const extraction = read('src-tauri/src/content_extraction.rs');
@@ -26,7 +26,7 @@ const actions = read('src/hooks/useClipActions.ts');
 const storageSettings = read('src/components/SettingsSyncPanel.tsx');
 const tauriMock = read('src/utils/tauri.ts');
 const extractorManager = read('src/components/ContentExtractorManagerDialog.tsx');
-const detectorManager = read('src/components/SettingsDetectionPanel.tsx');
+const classifierManager = read('src/components/SettingsAnalysisPanel.tsx');
 
 assert.match(commands, /pub async fn choose_extractor_model_file/,
   'The native Extractor model picker must not block the app command thread');
@@ -72,9 +72,9 @@ const documentedCommands = [
   'pasted clip purge',
   'pasted clip empty-trash',
   'pasted clip assign',
-  'pasted enricher list',
-  'pasted enricher get',
-  'pasted enricher run',
+  'pasted suggestion list',
+  'pasted suggestion get',
+  'pasted suggestion run',
   'pasted bin list',
   'pasted bin get',
   'pasted bin create',
@@ -128,14 +128,14 @@ const documentedCommands = [
   'pasted extractor delete',
   'pasted extractor run',
   'pasted extractor restore-defaults',
-  'pasted detector list',
-  'pasted detector get',
-  'pasted detector create',
-  'pasted detector update',
-  'pasted detector duplicate',
-  'pasted detector delete',
-  'pasted detector run',
-  'pasted detector rescan',
+  'pasted classifier list',
+  'pasted classifier get',
+  'pasted classifier create',
+  'pasted classifier update',
+  'pasted classifier duplicate',
+  'pasted classifier delete',
+  'pasted classifier run',
+  'pasted classifier rescan',
   'pasted ocr status',
   'pasted ocr scan',
   'pasted ocr retry',
@@ -148,7 +148,7 @@ for (const command of documentedCommands) {
 }
 assert.doesNotMatch(help, /pasted-cli/, 'Help & Docs must expose the stable pasted command, not an implementation alias');
 
-for (const route of ['copy', 'list', 'search', 'import', 'retention', 'settings', 'recording', 'queue', 'activity', 'transfer', 'archive', 'backup', 'clear', 'clip', 'bin', 'transform', 'operation', 'connection', 'insights', 'database', 'library', 'registry', 'type', 'inspector', 'extractor', 'detector', 'enricher', 'diagnostics', 'licenses', 'ocr', 'reset']) {
+for (const route of ['copy', 'list', 'search', 'import', 'retention', 'settings', 'recording', 'queue', 'activity', 'transfer', 'archive', 'backup', 'clear', 'clip', 'bin', 'transform', 'operation', 'connection', 'insights', 'database', 'library', 'registry', 'type', 'inspector', 'extractor', 'classifier', 'suggestion', 'diagnostics', 'licenses', 'ocr', 'reset']) {
   assert.match(cli, new RegExp(`"${route}"`), `The CLI must retain its ${route} route`);
 }
 for (const method of ['export_backup_json', 'inspect_library_archive_json', 'import_backup_json']) {
@@ -214,8 +214,8 @@ for (const scope of ['trash', 'activity']) {
   assert.match(commands, new RegExp(`db\\.enforce_${scope}_retention`), `GUI ${scope} retention must use the shared domain policy`);
   assert.match(cli, new RegExp(`db\\.configure_${scope}_retention`), `CLI ${scope} retention must use the shared domain policy`);
 }
-assert.match(commands, /db\.rescan_content_detection\(\)/, 'GUI history rescans must use the shared detector domain service');
-assert.match(cli, /db\.rescan_content_detection\(\)/, 'CLI history rescans must use the shared detector domain service');
+assert.match(commands, /db\.rescan_content_classification\(\)/, 'GUI history rescans must use the shared classifier domain service');
+assert.match(cli, /db\.rescan_content_classification\(\)/, 'CLI history rescans must use the shared classifier domain service');
 assert.match(analysis, /fn schedule/, 'Analysis participants must share the bounded scheduler');
 assert.doesNotMatch(analysis, /pub(?:\(crate\))? fn schedule/,
   'Callers must enter Analysis through typed requests rather than invoke scheduler passes directly');
@@ -232,9 +232,9 @@ assert.match(analysis, /pub\(crate\) fn analyze\(request: AnalysisRequest/,
 assert.match(analysis, /participants\.retain\([\s\S]*?through\.includes/,
   'Analysis policies must bound participant work before scheduling');
 assert.match(ocr, /AnalysisPolicy::Background/,
-  'Background OCR must explicitly use the non-enriching Analysis policy');
+  'Background OCR must explicitly use the non-suggesting Analysis policy');
 assert.match(database, /AnalysisPolicy::Rescan/,
-  'History rescans must explicitly use the non-enriching Analysis policy');
+  'History rescans must explicitly use the non-suggesting Analysis policy');
 assert.match(inspection, /STRUCTURE_INSPECTOR_REF:\s*&str\s*=\s*"inspector:structure-v1"/,
   'The structural Inspector must have a stable versioned reference');
 assert.match(inspection, /pub struct StructuralMetadata/,
@@ -273,14 +273,14 @@ assert.match(cli, /inspection_execution::inspect_text/,
   'CLI raw-text inspection must use the shared execution service');
 assert.doesNotMatch(inspection, /pub struct StructuralMetadata[\s\S]*?(?:content|path):\s*(?:String|Vec<String>)/,
   'Durable structural metadata must not include clipboard contents or file paths');
-assert.match(enrichment, /SMART_ACTIONS_ENRICHER_REF:\s*&str\s*=\s*"enricher:smart-actions-v1"/,
-  'Smart Actions must have a stable versioned Enricher reference');
-assert.match(enrichment, /pub struct SmartActionRecommendations/,
-  'Smart Actions must expose a typed recommendation result');
-assert.match(enrichmentExecution, /pub struct SmartActionEnrichmentResult/,
-  'Focused enrichment must expose one stable application result');
-assert.match(cli, /enrichment_execution::enrich_(?:text|clip)/,
-  'CLI Smart Actions must use the shared Enricher execution service');
+assert.match(suggestion, /SMART_ACTIONS_SUGGESTION_REF:\s*&str\s*=\s*"suggestion:smart-actions-v1"/,
+  'Smart Actions must have a stable versioned Suggestion reference');
+assert.match(suggestion, /pub struct SmartActionSuggestions/,
+  'Smart Actions must expose a typed suggestion result');
+assert.match(suggestionExecution, /pub struct SmartActionSuggestionResult/,
+  'Focused suggestion must expose one stable application result');
+assert.match(cli, /suggestion_execution::suggest_(?:text|clip)/,
+  'CLI Smart Actions must use the shared Suggestion execution service');
 assert.match(clipViews, /invoke<number\[]>\('search_clip_searchable_text_ids',[\s\S]*?terms:\s*plan\.terms/,
   'GUI search must consult the native index so extracted searchable text can match');
 assert.match(clipViews, /indexedSearchResult\.clipIds\.forEach/,
@@ -288,7 +288,7 @@ assert.match(clipViews, /indexedSearchResult\.clipIds\.forEach/,
 assert.match(database, /search_clip_searchable_text_ids[\s\S]*?query\.join\(" AND "\)/,
   'Extracted-text search must evaluate bounded multi-term queries atomically in FTS');
 assert.doesNotMatch(tauriMock, /reasons:\s*signals/,
-  'Mock Smart Actions must preserve per-recommendation reasons');
+  'Mock Smart Actions must preserve per-suggestion reasons');
 assert.match(tauriMock, /hasText === hasClipId/,
   'Mock Smart Actions must reject ambiguous input combinations like the native command');
 assert.match(tauriMock, /\.slice\(0, 256\)[\s\S]*?\.slice\(0, 12\)/,
@@ -299,12 +299,12 @@ for (const surface of [database, tauriMock]) {
   assert.match(surface, /analyzable_text\+structural_metadata/,
     'Smart Actions registry surfaces must expose every declared input representation');
 }
-assert.doesNotMatch(enrichment, /requires:\s*vec!\[[^\]]*RepresentationKind::Classification/,
-  'Smart Actions must remain usable when Content Detection is disabled');
-assert.doesNotMatch(clipPreview, /smartPipelineDetector|detectSmartPipelineRecommendations/,
-  'Clip Preview must not maintain a parallel Smart Actions detector');
-assert.doesNotMatch(enrichment, /pub struct SmartActionRecommendations[\s\S]*?(?:content|input|text):\s*String/,
-  'Enricher results must not retain clipboard content');
+assert.doesNotMatch(suggestion, /requires:\s*vec!\[[^\]]*RepresentationKind::Classification/,
+  'Smart Actions must remain usable when Content Classification is disabled');
+assert.doesNotMatch(clipPreview, /smartPipelineClassifier|detectSmartPipelineSuggestions/,
+  'Clip Preview must not maintain a parallel Smart Actions classifier');
+assert.doesNotMatch(suggestion, /pub struct SmartActionSuggestions[\s\S]*?(?:content|input|text):\s*String/,
+  'Suggestion results must not retain clipboard content');
 assert.match(analysisExecution, /pub struct AnalyzerSnapshot/,
   'The whole Analyzer must expose one typed snapshot contract');
 assert.match(database, /pub fn save_text_clip[\s\S]*?analysis_execution::analyze_text/,
@@ -313,8 +313,8 @@ const textCapture = database.slice(
   database.indexOf('pub fn save_text_clip'),
   database.indexOf('pub(crate) fn merge_external_text_clips'),
 );
-assert.doesNotMatch(textCapture, /detection_execution::analyze_detectors_with_policy/,
-  'Text capture must not schedule a parallel Detector-only Analysis request');
+assert.doesNotMatch(textCapture, /classification_execution::analyze_classifiers_with_policy/,
+  'Text capture must not schedule a parallel Classifier-only Analysis request');
 assert.match(database, /save_clip_with_structure[\s\S]*?record_structural_inspection/,
   'Text capture must persist its precomputed structural snapshot instead of re-running inspection');
 assert.match(commands, /analysis_execution::analyze_(?:text|clip)/,
@@ -324,16 +324,16 @@ assert.match(cli, /analysis_execution::analyze_(?:text|clip)/,
 assert.match(tauriMock, /case 'analyze_content'/,
   'The frontend mock must preserve the whole-Analyzer contract');
 assert.match(clipPreview, /invoke<AnalyzerPreview>\('analyze_content'/,
-  'Clip Preview must request structure and recommendations through one Analyzer call');
-assert.match(clipPreview, /includeDetectors: includeEnricher/,
-  'Clip Preview must skip classification when its Enricher consumer is disabled');
-assert.doesNotMatch(clipPreview, /invoke<StructuralInspection>\('inspect_clip_structure'|invoke<SmartActionEnrichment>\('enrich_smart_actions'/,
+  'Clip Preview must request structure and suggestions through one Analyzer call');
+assert.match(clipPreview, /includeClassifiers: includeSuggestions/,
+  'Clip Preview must skip classification when its Suggestion consumer is disabled');
+assert.doesNotMatch(clipPreview, /invoke<StructuralInspection>\('inspect_clip_structure'|invoke<SmartActionSuggestion>\('enrich_smart_actions'/,
   'Clip Preview must not schedule Analyzer participants through parallel IPC calls');
 assert.doesNotMatch(analysisExecution, /pub struct AnalyzerSnapshot[\s\S]*?pub (?:text|content|paths|image_bytes):/,
   'Whole-Analyzer snapshots must not expose clipboard contents, OCR text, paths, or image bytes');
 assert.doesNotMatch(analysis, /pub (?:enum|struct) (?:AnalysisPass|ParticipantContract|ParticipantOutcome|AnalysisFailure|ParticipantRun)/,
   'The scheduler must consume shared Analysis contracts instead of redefining them');
-for (const boundary of ['resolve_participant', 'AnalysisTargetKind', 'ClipApplication', 'enrichment_execution.rs']) {
+for (const boundary of ['resolve_participant', 'AnalysisTargetKind', 'ClipApplication', 'suggestion_execution.rs']) {
   assert.ok(analysisArchitecture.includes(boundary), `Analysis extension guidance must document ${boundary}`);
 }
 assert.match(extraction, /pub fn representation_contract/,
@@ -398,40 +398,40 @@ assert.doesNotMatch(commands, /record_analysis_classification/,
   'GUI OCR must not persist derived classifications independently');
 assert.doesNotMatch(cli, /perform_ocr_on_image_bytes/, 'The CLI must not bypass the shared Extractor engine registry');
 assert.match(clipboardMonitor, /save_text_clip/, 'GUI capture must use the shared text-capture service');
-assert.match(detectionExecution, /pub struct DetectionResult/,
-  'Detection must expose one shared execution-result contract');
-assert.match(detectionExecution, /pub metadata: AnalysisMetadata/,
-  'Detector results must carry the shared version and policy metadata');
-assert.match(detectionExecution, /pub struct DetectionApplicationResult/,
-  'Detector application must expose one shared mutation result');
-assert.match(detectionExecution, /pub participants: Vec<ParticipantRun>/,
-  'Detection results must expose privacy-safe participant summaries');
-assert.match(detectionExecution, /resolve_participant/,
-  'Detector results must use shared participant normalization');
-assert.match(detectionExecution, /pub application: ClipApplication/,
-  'Detector results must use shared clip-application state');
-assert.doesNotMatch(detectionExecution, /pub enum DetectionTargetKind/,
-  'Detector targets must use the shared Analysis target kind');
+assert.match(classificationExecution, /pub struct ClassificationResult/,
+  'Classification must expose one shared execution-result contract');
+assert.match(classificationExecution, /pub metadata: AnalysisMetadata/,
+  'Classifier results must carry the shared version and policy metadata');
+assert.match(classificationExecution, /pub struct ClassificationApplicationResult/,
+  'Classifier application must expose one shared mutation result');
+assert.match(classificationExecution, /pub participants: Vec<ParticipantRun>/,
+  'Classification results must expose privacy-safe participant summaries');
+assert.match(classificationExecution, /resolve_participant/,
+  'Classifier results must use shared participant normalization');
+assert.match(classificationExecution, /pub application: ClipApplication/,
+  'Classifier results must use shared clip-application state');
+assert.doesNotMatch(classificationExecution, /pub enum ClassificationTargetKind/,
+  'Classifier targets must use the shared Analysis target kind');
 assert.doesNotMatch(analysis, /pub fn analyze_text\(/,
   'Raw text Analysis reports must not remain a public execution path');
-assert.match(database, /detection_execution::analyze_detectors/,
-  'Text capture and Detector rescans must use the shared Detection result');
-assert.match(database, /detection_execution::analyze_detector\(&text, &detector\)/,
-  'Detector application must execute transactionally through the shared result');
-assert.match(cli, /DetectionApplicationResult::preview/,
-  'CLI Detector previews must use the shared application result shape');
+assert.match(database, /classification_execution::analyze_classifiers/,
+  'Text capture and Classifier rescans must use the shared Classification result');
+assert.match(database, /classification_execution::analyze_classifier\(&text, &classifier\)/,
+  'Classifier application must execute transactionally through the shared result');
+assert.match(cli, /ClassificationApplicationResult::preview/,
+  'CLI Classifier previews must use the shared application result shape');
 assert.match(cli, /serde_json::json!\(&result\)/,
-  'CLI Detector JSON must serialize the shared Detection result');
-assert.match(commands, /detection_execution::analyze_detector/,
-  'GUI Detector tests must use the shared Detection result');
-assert.match(tauriMock, /case 'test_content_detector':[\s\S]*?formatVersion:\s*1,[\s\S]*?policy:\s*'interactive',[\s\S]*?through:\s*'enrich'/,
-  'The frontend Detector mock must preserve shared Analysis metadata');
+  'CLI Classifier JSON must serialize the shared Classification result');
+assert.match(commands, /classification_execution::analyze_classifier/,
+  'GUI Classifier tests must use the shared Classification result');
+assert.match(tauriMock, /case 'test_content_classifier':[\s\S]*?formatVersion:\s*1,[\s\S]*?policy:\s*'interactive',[\s\S]*?through:\s*'suggest'/,
+  'The frontend Classifier mock must preserve shared Analysis metadata');
 assert.doesNotMatch(database, /content_analysis::classify_text/,
   'Database classification paths must not infer results from raw Analyzer reports');
 assert.doesNotMatch(cli, /content_analysis::analyze_text/,
-  'CLI Detector runs must not infer results from raw Analyzer reports');
+  'CLI Classifier runs must not infer results from raw Analyzer reports');
 assert.doesNotMatch(commands, /content_analysis::classify_text/,
-  'GUI Detector tests must not infer results from raw Analyzer reports');
+  'GUI Classifier tests must not infer results from raw Analyzer reports');
 assert.match(cli, /db\.save_text_clip/, 'CLI capture must use the shared text-capture service');
 assert.doesNotMatch(ocr, /content_analysis::analyze_image/, 'Background OCR must not infer results directly from Analyzer reports');
 assert.doesNotMatch(cli, /content_analysis::analyze_image/, 'CLI OCR must not infer results directly from Analyzer reports');
@@ -445,20 +445,20 @@ assert.match(tauriMock, /function mockBuiltinExtractors\(\)/,
   'The frontend mock must retain canonical shipped Extractor definitions');
 assert.match(tauriMock, /case 'extract_ocr_from_clip':[\s\S]*?appliedClipId:[\s\S]*?ocrUpdated:/,
   'The frontend mock must preserve the shared Extractor application result');
-assert.match(tauriMock, /case 'extract_ocr_from_clip':[\s\S]*?formatVersion:\s*1,[\s\S]*?policy:\s*'interactive',[\s\S]*?through:\s*'enrich'/,
+assert.match(tauriMock, /case 'extract_ocr_from_clip':[\s\S]*?formatVersion:\s*1,[\s\S]*?policy:\s*'interactive',[\s\S]*?through:\s*'suggest'/,
   'The frontend Extractor mock must preserve shared Analysis metadata');
 assert.match(tauriMock, /case 'restore_default_content_extractors':[\s\S]*?mockBuiltinExtractors\(\)[\s\S]*?builtinRefs\.has\(extractor\.stableRef\)/,
   'Mock Restore Defaults must recreate all shipped Extractors without replacing custom Extractors');
-assert.match(database, /pub fn get_content_detector/, 'Resolving one Detector must live in the shared database domain layer');
-assert.match(cli, /db\s*\.get_content_detector/, 'Detector references must use the shared database domain layer');
-for (const method of ['create_content_detector', 'update_content_detector', 'duplicate_content_detector', 'delete_content_detector']) {
+assert.match(database, /pub fn get_content_classifier/, 'Resolving one Classifier must live in the shared database domain layer');
+assert.match(cli, /db\s*\.get_content_classifier/, 'Classifier references must use the shared database domain layer');
+for (const method of ['create_content_classifier', 'update_content_classifier', 'duplicate_content_classifier', 'delete_content_classifier']) {
   assert.match(database, new RegExp(`pub fn ${method}`), `${method} must live in the shared database domain layer`);
   assert.match(commands, new RegExp(`pub fn ${method}`), `${method} must be exposed to the GUI`);
   assert.match(cli, new RegExp(`db\\s*\\.${method}`), `${method} must be reused by the CLI`);
 }
-assert.match(database, /pub fn apply_content_detector/, 'Applying one Detector must live in the shared database domain layer');
-assert.match(cli, /db\s*\.apply_content_detector/, 'Detector --apply must use the shared database domain layer');
-for (const family of ['extractor', 'detector', 'transform']) {
+assert.match(database, /pub fn apply_content_classifier/, 'Applying one Classifier must live in the shared database domain layer');
+assert.match(cli, /db\s*\.apply_content_classifier/, 'Classifier --apply must use the shared database domain layer');
+for (const family of ['extractor', 'classifier', 'transform']) {
   for (const verb of ['list', 'get', 'create', 'update', 'duplicate', 'delete', 'run']) {
     assert.ok(help.includes(`pasted ${family} ${verb}`), `Help & Docs must cover pasted ${family} ${verb}`);
   }
@@ -498,8 +498,8 @@ assert.match(commands, /db\.set_library_item_enabled/, 'GUI lifecycle toggles mu
 assert.match(cli, /db\.set_library_item_enabled/, 'CLI lifecycle toggles must use the shared domain service');
 assert.match(extractorManager, /invoke\('set_library_item_enabled',[\s\S]*?kind: 'extractor'/,
   'GUI Extractor toggles must use the shared lifecycle service');
-assert.match(detectorManager, /invoke\('set_library_item_enabled',[\s\S]*?kind: 'detector'/,
-  'GUI Detector toggles must use the shared lifecycle service');
+assert.match(classifierManager, /invoke\('set_library_item_enabled',[\s\S]*?kind: 'classifier'/,
+  'GUI Classifier toggles must use the shared lifecycle service');
 assert.match(tauriMock, /case 'set_library_item_enabled':[\s\S]*?let matched = false;[\s\S]*?if \(!matched\) throw new Error/,
   'Frontend lifecycle mocks must reject missing items like the shared domain service');
 for (const method of ['get_content_types', 'create_content_type', 'update_content_type', 'set_content_type_archived', 'restore_default_content_types']) {

@@ -8,8 +8,8 @@ use regex::Regex;
 use serde::Serialize;
 use std::collections::BTreeSet;
 
-pub const SMART_ACTIONS_ENRICHER_REF: &str = "enricher:smart-actions-v1";
-const MAX_RECOMMENDATIONS: usize = 12;
+pub const SMART_ACTIONS_SUGGESTION_REF: &str = "suggestion:smart-actions-v1";
+const MAX_SUGGESTIONS: usize = 12;
 const MAX_TRANSFORM_CANDIDATES: usize = 256;
 
 static URL_PATTERN: Lazy<Regex> =
@@ -31,7 +31,7 @@ static MARKDOWN_PATTERN: Lazy<Regex> = Lazy::new(|| {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct EnricherDefinition {
+pub struct SuggestionDefinition {
     pub stable_ref: String,
     pub name: String,
     pub description: String,
@@ -40,30 +40,30 @@ pub struct EnricherDefinition {
     pub output_contract: String,
 }
 
-impl EnricherDefinition {
+impl SuggestionDefinition {
     pub(crate) fn participant_contract(&self) -> ParticipantContract {
         ParticipantContract {
             stable_ref: self.stable_ref.clone(),
             name: self.name.clone(),
-            pass: AnalysisPass::Enrich,
+            pass: AnalysisPass::Suggest,
             priority: self.priority,
             requires: vec![
                 RepresentationKind::AnalyzableText,
                 RepresentationKind::StructuralMetadata,
             ],
-            provides: vec![RepresentationKind::Recommendations],
+            provides: vec![RepresentationKind::Suggestions],
         }
     }
 }
 
-pub fn smart_actions_enricher_definition() -> EnricherDefinition {
-    EnricherDefinition {
-        stable_ref: SMART_ACTIONS_ENRICHER_REF.into(),
+pub fn smart_actions_suggestion_definition() -> SuggestionDefinition {
+    SuggestionDefinition {
+        stable_ref: SMART_ACTIONS_SUGGESTION_REF.into(),
         name: "Smart Actions".into(),
-        description: "Recommends saved Transforms from content-free analysis signals.".into(),
+        description: "Suggests saved Transforms from content-free analysis signals.".into(),
         priority: 0,
         input_contracts: vec!["analyzable_text".into(), "structural_metadata".into()],
-        output_contract: "recommendations".into(),
+        output_contract: "suggestions".into(),
     }
 }
 
@@ -120,7 +120,7 @@ impl SmartActionSignal {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct SmartActionRecommendation {
+pub struct SmartActionSuggestion {
     pub transform_ref: String,
     pub transform_name: String,
     pub transform_revision: i64,
@@ -129,13 +129,13 @@ pub struct SmartActionRecommendation {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct SmartActionRecommendations {
+pub struct SmartActionSuggestions {
     pub signals: Vec<SmartActionSignal>,
     pub signal_labels: Vec<String>,
-    pub actions: Vec<SmartActionRecommendation>,
+    pub actions: Vec<SmartActionSuggestion>,
 }
 
-pub type EnrichmentResult = AnalysisEnvelope<SmartActionRecommendations>;
+pub type SuggestionResult = AnalysisEnvelope<SmartActionSuggestions>;
 
 fn detect_signals(
     text: &str,
@@ -209,19 +209,19 @@ fn searchable_transform(transform: &TransformDefinition) -> String {
     parts.join(" ").to_lowercase()
 }
 
-pub fn recommend_smart_actions(
+pub fn suggest_smart_actions(
     text: &str,
     classification: Option<&str>,
     structure: &StructuralMetadata,
     transforms: &[TransformDefinition],
-) -> SmartActionRecommendations {
+) -> SmartActionSuggestions {
     let signals = detect_signals(text, classification, structure);
     let signal_labels = signals
         .iter()
         .map(|signal| signal.label().to_string())
         .collect();
     if signals.is_empty() {
-        return SmartActionRecommendations {
+        return SmartActionSuggestions {
             signals,
             signal_labels,
             actions: Vec::new(),
@@ -242,16 +242,16 @@ pub fn recommend_smart_actions(
                         .any(|keyword| searchable.contains(keyword))
                 })
                 .collect::<Vec<_>>();
-            (!reasons.is_empty()).then(|| SmartActionRecommendation {
+            (!reasons.is_empty()).then(|| SmartActionSuggestion {
                 transform_ref: transform.stable_ref.clone(),
                 transform_name: transform.name.clone(),
                 transform_revision: transform.revision,
                 reasons,
             })
         })
-        .take(MAX_RECOMMENDATIONS)
+        .take(MAX_SUGGESTIONS)
         .collect();
-    SmartActionRecommendations {
+    SmartActionSuggestions {
         signals,
         signal_labels,
         actions,
@@ -301,8 +301,8 @@ mod tests {
     }
 
     #[test]
-    fn recommends_stable_transform_references_from_shared_signals() {
-        let result = recommend_smart_actions(
+    fn suggests_stable_transform_references_from_shared_signals() {
+        let result = suggest_smart_actions(
             "https://example.com?a=1\nhttps://example.com?a=2",
             Some("url"),
             &structure(2),
@@ -317,9 +317,9 @@ mod tests {
     }
 
     #[test]
-    fn recommendations_never_serialize_clipboard_content() {
+    fn suggestions_never_serialize_clipboard_content() {
         let secret = "private-token-0123456789";
-        let result = recommend_smart_actions(
+        let result = suggest_smart_actions(
             &format!("{{\"value\":\"{secret}\"}}"),
             Some("code"),
             &structure(1),
@@ -336,7 +336,7 @@ mod tests {
             .map(|_| transform("Uppercase", "builtin:uppercase"))
             .collect::<Vec<_>>();
         transforms.push(transform("Format JSON", "builtin:json_format"));
-        let result = recommend_smart_actions(
+        let result = suggest_smart_actions(
             "{\"hello\":\"world\"}",
             Some("code"),
             &structure(1),

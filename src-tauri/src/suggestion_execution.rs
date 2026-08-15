@@ -1,38 +1,38 @@
 use crate::analysis_contract::{
     AnalysisEnvelope, AnalysisPolicy, AnalysisTargetKind, ClipApplication,
 };
-use crate::content_analysis::{AnalysisInput, AnalysisRequest, EnricherParticipantSource};
-use crate::content_enrichment::{EnrichmentResult, SMART_ACTIONS_ENRICHER_REF};
+use crate::content_analysis::{AnalysisInput, AnalysisRequest, SuggestionParticipantSource};
+use crate::content_suggestions::{SuggestionResult, SMART_ACTIONS_SUGGESTION_REF};
 use crate::db::DbState;
 use serde::Serialize;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct SmartActionEnrichmentResult {
+pub struct SmartActionSuggestionResult {
     #[serde(flatten)]
-    pub analysis: EnrichmentResult,
+    pub analysis: SuggestionResult,
     #[serde(flatten)]
     pub application: ClipApplication,
 }
 
-pub fn enrich_text(
+pub fn suggest_text(
     db: &DbState,
     text: &str,
     source: Option<&str>,
-) -> Result<SmartActionEnrichmentResult, String> {
+) -> Result<SmartActionSuggestionResult, String> {
     if text.len() > crate::resource_limits::MAX_CLIP_TEXT_BYTES {
-        return Err("Enrichment input exceeds Pasted's safety limit".into());
+        return Err("Suggestion input exceeds Pasted's safety limit".into());
     }
     if source
         .is_some_and(|source| source.len() > crate::analysis_contract::MAX_ANALYSIS_SOURCE_BYTES)
     {
-        return Err("Enrichment source metadata exceeds Pasted's safety limit".into());
+        return Err("Suggestion source metadata exceeds Pasted's safety limit".into());
     }
-    let detectors = db
-        .get_content_detectors()
+    let classifiers = db
+        .get_content_classifiers()
         .map_err(|error| error.to_string())?
         .into_iter()
-        .filter(|detector| detector.enabled)
+        .filter(|classifier| classifier.enabled)
         .collect::<Vec<_>>();
     let transforms = db
         .get_transform_definitions()
@@ -45,24 +45,24 @@ pub fn enrich_text(
         policy: AnalysisPolicy::Interactive,
         inspector: true,
         extractor: None,
-        detectors: Some(&detectors),
-        enricher: Some(EnricherParticipantSource {
+        classifiers: Some(&classifiers),
+        suggestion: Some(SuggestionParticipantSource {
             transforms: &transforms,
         }),
     });
     let resolution =
-        report.resolve_participant(SMART_ACTIONS_ENRICHER_REF, AnalysisTargetKind::Enricher);
+        report.resolve_participant(SMART_ACTIONS_SUGGESTION_REF, AnalysisTargetKind::Suggestion);
     if let Some(failure) = resolution.failure {
         return Err(failure.message);
     }
-    let recommendations = report.context.recommendations.unwrap_or_default();
-    Ok(SmartActionEnrichmentResult {
-        analysis: AnalysisEnvelope::new(AnalysisPolicy::Interactive, recommendations, report.runs),
+    let suggestions = report.context.suggestions.unwrap_or_default();
+    Ok(SmartActionSuggestionResult {
+        analysis: AnalysisEnvelope::new(AnalysisPolicy::Interactive, suggestions, report.runs),
         application: ClipApplication::preview(),
     })
 }
 
-pub fn enrich_clip(db: &DbState, clip_id: i64) -> Result<SmartActionEnrichmentResult, String> {
+pub fn suggest_clip(db: &DbState, clip_id: i64) -> Result<SmartActionSuggestionResult, String> {
     let clip = db
         .get_clip_by_id(clip_id)
         .map_err(|error| error.to_string())?;
@@ -70,8 +70,8 @@ pub fn enrich_clip(db: &DbState, clip_id: i64) -> Result<SmartActionEnrichmentRe
         .text_content
         .as_deref()
         .filter(|_| clip.content_type != "file" && clip.content_type != "image")
-        .ok_or_else(|| "Clip has no enrichable text".to_string())?;
-    enrich_text(db, text, Some(&clip.source))
+        .ok_or_else(|| "Clip has no analyzable text".to_string())?;
+    suggest_text(db, text, Some(&clip.source))
 }
 
 #[cfg(test)]
@@ -93,7 +93,7 @@ mod tests {
             .as_nanos();
         let sequence = NEXT_DATABASE.fetch_add(1, Ordering::Relaxed);
         DbState::new(std::env::temp_dir().join(format!(
-            "pasted-enrichment-execution-{}-{nanos}-{sequence}.db",
+            "pasted-suggestion-execution-{}-{nanos}-{sequence}.db",
             std::process::id()
         )))
         .unwrap()
@@ -129,14 +129,14 @@ mod tests {
                 Some("{\"hello\":\"world\"}"),
                 None,
                 None,
-                "enrichment-test-hash",
+                "suggestion-test-hash",
                 "Terminal",
             )
             .unwrap();
 
         let direct =
-            enrich_text(&db, clip.text_content.as_deref().unwrap(), Some("Terminal")).unwrap();
-        let from_clip = enrich_clip(&db, clip.id).unwrap();
+            suggest_text(&db, clip.text_content.as_deref().unwrap(), Some("Terminal")).unwrap();
+        let from_clip = suggest_clip(&db, clip.id).unwrap();
         assert_eq!(direct.analysis.result, from_clip.analysis.result);
         assert_eq!(from_clip.application, ClipApplication::preview());
         assert_eq!(from_clip.analysis.result.actions.len(), 1);
@@ -147,9 +147,9 @@ mod tests {
     }
 
     #[test]
-    fn empty_results_still_return_a_versioned_enrichment_envelope() {
+    fn empty_results_still_return_a_versioned_suggestion_envelope() {
         let db = db();
-        let result = enrich_text(&db, "ordinary words", Some("Pasted CLI")).unwrap();
+        let result = suggest_text(&db, "ordinary words", Some("Pasted CLI")).unwrap();
         assert_eq!(result.analysis.metadata.format_version, 1);
         assert!(result.analysis.result.actions.is_empty());
         assert_eq!(
@@ -158,7 +158,7 @@ mod tests {
         );
         assert_eq!(result.application, ClipApplication::preview());
         let expected = serde_json::from_str::<serde_json::Value>(include_str!(
-            "../../contracts/analysis/v1/enricher-interactive-empty.json"
+            "../../contracts/analysis/v1/suggestion-interactive-empty.json"
         ))
         .unwrap();
         assert_eq!(serde_json::to_value(result).unwrap(), expected);
@@ -168,12 +168,12 @@ mod tests {
     fn oversized_text_and_source_metadata_fail_before_analysis() {
         let db = db();
         let text = "x".repeat(crate::resource_limits::MAX_CLIP_TEXT_BYTES + 1);
-        assert!(enrich_text(&db, &text, None)
+        assert!(suggest_text(&db, &text, None)
             .unwrap_err()
             .contains("safety limit"));
 
         let source = "x".repeat(crate::analysis_contract::MAX_ANALYSIS_SOURCE_BYTES + 1);
-        let error = enrich_text(&db, "hello", Some(&source)).unwrap_err();
+        let error = suggest_text(&db, "hello", Some(&source)).unwrap_err();
         assert!(error.contains("source metadata"));
     }
 }

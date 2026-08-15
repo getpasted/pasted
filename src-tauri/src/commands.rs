@@ -12,8 +12,8 @@ use tauri_plugin_window_state::{AppHandleExt, StateFlags};
 
 use crate::bin_assignment::BinAssignmentOutcome;
 use crate::db::{
-    Bin, ClipItem, ClipMutationSummary, ContentDetectionRescanReport, DbState, FactoryResetReport,
-    FullBackupInspection, IntelligenceConnection, IntelligenceConnectionUpdate,
+    Bin, ClipItem, ClipMutationSummary, ContentClassificationRescanReport, DbState,
+    FactoryResetReport, FullBackupInspection, IntelligenceConnection, IntelligenceConnectionUpdate,
     LibraryArchiveInspection, Pipeline, PipelineStepInput, SavedTransform,
     TransformClipApplication, TransformDefinition,
 };
@@ -728,8 +728,8 @@ pub async fn analyze_content(
         source,
         policy,
         include_extractor,
-        include_detectors,
-        include_enricher,
+        include_classifiers,
+        include_suggestions,
     } = request;
     if text.is_some() == clip_id.is_some() {
         return Err("Provide exactly one of text or clipId".into());
@@ -738,9 +738,9 @@ pub async fn analyze_content(
         .as_deref()
         .unwrap_or("interactive")
         .parse::<crate::analysis_contract::AnalysisPolicy>()?;
-    let include_enricher = include_enricher.unwrap_or(true);
-    if include_enricher
-        && policy.includes(crate::analysis_contract::AnalysisPass::Enrich)
+    let include_suggestions = include_suggestions.unwrap_or(true);
+    if include_suggestions
+        && policy.includes(crate::analysis_contract::AnalysisPass::Suggest)
         && !features::is_enabled(&db, Feature::Transformations)
     {
         return Err("Transformations is disabled in Settings → Functionality".into());
@@ -748,9 +748,9 @@ pub async fn analyze_content(
     let options = crate::analysis_execution::AnalyzerOptions {
         policy,
         include_extractor: include_extractor.unwrap_or(false),
-        include_detectors: include_detectors.unwrap_or(true)
-            && features::is_enabled(&db, Feature::ContentDetection),
-        include_enricher,
+        include_classifiers: include_classifiers.unwrap_or(true)
+            && features::is_enabled(&db, Feature::ContentClassification),
+        include_suggestions,
     };
     let db = Arc::clone(&db);
     tauri::async_runtime::spawn_blocking(move || match (text, clip_id) {
@@ -772,8 +772,8 @@ pub struct AnalyzeContentRequest {
     source: Option<String>,
     policy: Option<String>,
     include_extractor: Option<bool>,
-    include_detectors: Option<bool>,
-    include_enricher: Option<bool>,
+    include_classifiers: Option<bool>,
+    include_suggestions: Option<bool>,
 }
 
 #[tauri::command]
@@ -973,10 +973,10 @@ pub fn export_activity_csv(db: State<'_, Arc<DbState>>) -> Result<String, String
 }
 
 #[tauri::command]
-pub fn get_content_detectors(
+pub fn get_content_classifiers(
     db: State<'_, Arc<DbState>>,
-) -> Result<Vec<crate::content_detection::Detector>, String> {
-    db.get_content_detectors()
+) -> Result<Vec<crate::content_classification::Classifier>, String> {
+    db.get_content_classifiers()
         .map_err(|error| error.to_string())
 }
 
@@ -1072,7 +1072,9 @@ pub fn set_library_item_enabled(
     enabled: bool,
     db: State<'_, Arc<DbState>>,
 ) -> Result<(), String> {
-    features::require(&db, Feature::Transformations)?;
+    if matches!(kind.as_str(), "operation" | "transform") {
+        features::require(&db, Feature::Transformations)?;
+    }
     db.set_library_item_enabled(&kind, &stable_ref, enabled)
         .map_err(|error| error.to_string())
 }
@@ -1180,62 +1182,62 @@ pub fn restore_default_content_types(
 }
 
 #[tauri::command]
-pub fn create_content_detector(
-    input: crate::content_detection::DetectorInput,
+pub fn create_content_classifier(
+    input: crate::content_classification::ClassifierInput,
     db: State<'_, Arc<DbState>>,
-) -> Result<crate::content_detection::Detector, String> {
-    db.create_content_detector(&input)
+) -> Result<crate::content_classification::Classifier, String> {
+    db.create_content_classifier(&input)
         .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
-pub fn update_content_detector(
+pub fn update_content_classifier(
     id: i64,
-    input: crate::content_detection::DetectorInput,
+    input: crate::content_classification::ClassifierInput,
     db: State<'_, Arc<DbState>>,
-) -> Result<crate::content_detection::Detector, String> {
-    db.update_content_detector(id, &input)
+) -> Result<crate::content_classification::Classifier, String> {
+    db.update_content_classifier(id, &input)
         .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
-pub fn duplicate_content_detector(
+pub fn duplicate_content_classifier(
     reference: String,
     name: Option<String>,
     db: State<'_, Arc<DbState>>,
-) -> Result<crate::content_detection::Detector, String> {
-    db.duplicate_content_detector(&reference, name.as_deref())
+) -> Result<crate::content_classification::Classifier, String> {
+    db.duplicate_content_classifier(&reference, name.as_deref())
         .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
-pub fn delete_content_detector(id: i64, db: State<'_, Arc<DbState>>) -> Result<(), String> {
-    db.delete_content_detector(id)
+pub fn delete_content_classifier(id: i64, db: State<'_, Arc<DbState>>) -> Result<(), String> {
+    db.delete_content_classifier(id)
         .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
-pub fn restore_default_content_detectors(
+pub fn restore_default_content_classifiers(
     db: State<'_, Arc<DbState>>,
-) -> Result<Vec<crate::content_detection::Detector>, String> {
-    db.restore_default_content_detectors()
+) -> Result<Vec<crate::content_classification::Classifier>, String> {
+    db.restore_default_content_classifiers()
         .map_err(|error| error.to_string())?;
-    db.get_content_detectors()
+    db.get_content_classifiers()
         .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
-pub async fn rescan_content_detection_history(
+pub async fn rescan_content_classification_history(
     confirmed: bool,
     app: AppHandle,
     db: State<'_, Arc<DbState>>,
-) -> Result<ContentDetectionRescanReport, String> {
-    features::require(&db, Feature::ContentDetection)?;
+) -> Result<ContentClassificationRescanReport, String> {
+    features::require(&db, Feature::ContentClassification)?;
     if !confirmed {
         return Err("History rescans require explicit confirmation.".to_string());
     }
     let db = Arc::clone(&db);
-    let report = tauri::async_runtime::spawn_blocking(move || db.rescan_content_detection())
+    let report = tauri::async_runtime::spawn_blocking(move || db.rescan_content_classification())
         .await
         .map_err(|error| error.to_string())?
         .map_err(|error| error.to_string())?;
@@ -1244,12 +1246,12 @@ pub async fn rescan_content_detection_history(
 }
 
 #[tauri::command]
-pub fn test_content_detector(
-    input: crate::content_detection::DetectorInput,
+pub fn test_content_classifier(
+    input: crate::content_classification::ClassifierInput,
     sample: String,
-) -> Result<crate::detection_execution::DetectionResult, String> {
-    crate::content_detection::validate_detector_input(&input)?;
-    let detector = crate::content_detection::Detector {
+) -> Result<crate::classification_execution::ClassificationResult, String> {
+    crate::content_classification::validate_classifier_input(&input)?;
+    let classifier = crate::content_classification::Classifier {
         id: 0,
         stable_ref: "preview".into(),
         name: input.name,
@@ -1263,8 +1265,9 @@ pub fn test_content_detector(
         defaults: None,
         is_deleted: false,
     };
-    Ok(crate::detection_execution::analyze_detector(
-        &sample, &detector,
+    Ok(crate::classification_execution::analyze_classifier(
+        &sample,
+        &classifier,
     ))
 }
 
@@ -4276,17 +4279,17 @@ pub fn extract_ocr_from_clip(
         .ok_or_else(|| "Clip has no extractable image data".to_string())?;
     let bytes = crate::ocr::decode_stored_image(image)
         .ok_or_else(|| "Clip has no extractable image data".to_string())?;
-    let detectors = features::is_enabled(&db, Feature::ContentDetection)
-        .then(|| db.get_content_detectors().ok())
+    let classifiers = features::is_enabled(&db, Feature::ContentClassification)
+        .then(|| db.get_content_classifiers().ok())
         .flatten();
     let analysis =
-        crate::extraction_execution::analyze_image(bytes, &extractor, detectors.as_deref());
+        crate::extraction_execution::analyze_image(bytes, &extractor, classifiers.as_deref());
     crate::extraction_execution::apply_image_analysis(
         &db,
         clip_id,
         &clip.content_hash,
         &extractor,
-        detectors.is_some(),
+        classifiers.is_some(),
         analysis,
     )
     .map_err(|error| match error {
@@ -4337,17 +4340,17 @@ pub async fn extract_text_from_file_clip(
         if !crate::resource_limits::file_list_within_limit(&paths) {
             return Err("File references exceed the extraction safety limit".to_string());
         }
-        let detectors = features::is_enabled(&db, Feature::ContentDetection)
-            .then(|| db.get_content_detectors().ok())
+        let classifiers = features::is_enabled(&db, Feature::ContentClassification)
+            .then(|| db.get_content_classifiers().ok())
             .flatten();
         let analysis =
-            crate::extraction_execution::analyze_files(paths, &extractor, detectors.as_deref());
+            crate::extraction_execution::analyze_files(paths, &extractor, classifiers.as_deref());
         crate::extraction_execution::apply_file_analysis(
             &db,
             clip_id,
             &clip.content_hash,
             &extractor,
-            detectors.is_some(),
+            classifiers.is_some(),
             analysis,
         )
         .map_err(|error| match error {

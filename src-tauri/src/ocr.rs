@@ -65,14 +65,14 @@ fn execute_task<Notify>(
     let Ok(true) = db_state.mark_ocr_running(task.clip_id, &task.content_hash) else {
         return;
     };
-    let detectors =
-        crate::features::is_enabled(db_state, crate::features::Feature::ContentDetection)
-            .then(|| db_state.get_content_detectors().ok())
+    let classifiers =
+        crate::features::is_enabled(db_state, crate::features::Feature::ContentClassification)
+            .then(|| db_state.get_content_classifiers().ok())
             .flatten();
     let analysis = crate::extraction_execution::analyze_image_with_registry_and_policy(
         task.image_bytes,
         extractor,
-        detectors.as_deref(),
+        classifiers.as_deref(),
         registry,
         crate::analysis_contract::AnalysisPolicy::Background,
     );
@@ -85,7 +85,7 @@ fn execute_task<Notify>(
         task.clip_id,
         &task.content_hash,
         extractor,
-        detectors.is_some(),
+        classifiers.is_some(),
         analysis,
     )
     .map(|persisted| persisted.ocr_updated)
