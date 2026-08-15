@@ -1,0 +1,45 @@
+{
+  "formatVersion": 1,
+  "capturedAt": "2026-08-14",
+  "environment": {
+    "os": "macOS 27.0",
+    "architecture": "aarch64",
+    "hardware": "Apple M3 Pro, 12 cores, 18 GB",
+    "profile": "release"
+  },
+  "command": "npm run bench:analysis -- --iterations 1000",
+  "measurements": [
+    {
+      "name": "inspector_text_64k",
+      "iterationsPerSample": 10000,
+      "samples": 9,
+      "medianNsPerIteration": 192889,
+      "p95NsPerIteration": 193516,
+      "medianIterationsPerSecond": 5184
+    },
+    {
+      "name": "detector_256_no_match",
+      "iterationsPerSample": 1000,
+      "samples": 9,
+      "medianNsPerIteration": 2579596,
+      "p95NsPerIteration": 2602077,
+      "medianIterationsPerSecond": 387
+    },
+    {
+      "name": "enricher_256_candidates_last_match",
+      "iterationsPerSample": 1000,
+      "samples": 9,
+      "medianNsPerIteration": 171679,
+      "p95NsPerIteration": 172267,
+      "medianIterationsPerSecond": 5824
+    },
+    {
+      "name": "analyzer_interactive_text",
+      "iterationsPerSample": 1000,
+      "samples": 9,
+      "medianNsPerIteration": 3700677,
+      "p95NsPerIteration": 4071135,
+      "medianIterationsPerSecond": 270
+    }
+  ]
+}

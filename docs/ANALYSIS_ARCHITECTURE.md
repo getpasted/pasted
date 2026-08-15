@@ -32,3 +32,5 @@ Clip Preview and `pasted analyzer run` consume the whole-Analyzer snapshot. The 
 Participant results and Activity records must not include input content, credentials, sensitive file paths, or unbounded provider output. User-visible output may contain an explicitly requested derived result, but participant summaries and failures remain neutral and bounded.
 
 See [Analysis failure and parity matrix](ANALYSIS_FAILURE_MATRIX.md) for the shared outcome, mutation, and surface semantics.
+
+See [Analysis performance baselines](ANALYSIS_PERFORMANCE.md) for the opt-in release-mode harness and regression policy.
