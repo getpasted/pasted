@@ -10,6 +10,7 @@ const clipPreviewContent = read('src/components/ClipPreviewContent.tsx');
 const database = read('src-tauri/src/db.rs');
 const types = read('src/types.ts');
 const analysisSettings = read('src/components/SettingsDetectionPanel.tsx');
+const builtinAnalysisManager = read('src/components/BuiltinAnalysisManagerDialog.tsx');
 const extractorManager = read('src/components/ContentExtractorManagerDialog.tsx');
 const registryPanelHeader = read('src/components/RegistryPanelHeader.tsx');
 const registryPanelFooter = read('src/components/RegistryPanelFooter.tsx');
@@ -97,10 +98,22 @@ for (const field of ['ocr_extractor_ref', 'ocr_extractor_name', 'ocr_engine_vers
   assert.match(types, new RegExp(`${field}\\?: string \\| null`),
     `Frontend ClipItem must expose OCR provenance field ${field}`);
 }
-assert.match(analysisSettings, /title="Extractors"/, 'Analysis settings must expose authorable Extractors');
-assert.match(analysisSettings, /title="Detectors"/, 'Analysis settings must expose authorable Detectors');
-assert.doesNotMatch(analysisSettings, /Manage (?:Inspectors|Enrichers)/,
-  'Immutable built-in participants must not gain redundant management surfaces');
+for (const title of ['Inspectors', 'Extractors', 'Detectors', 'Enrichers']) {
+  assert.match(analysisSettings, new RegExp(`title="${title}"`),
+    `Analysis settings must expose ${title} behind a compact manager row`);
+}
+assert.match(builtinAnalysisManager, /get_library_items/,
+  'Inspector and Enricher managers must consume the shared registry');
+assert.match(builtinAnalysisManager, /participantContract/,
+  'Inspector and Enricher managers must render typed participant contracts');
+assert.match(builtinAnalysisManager, /typeRelations/,
+  'Inspector and Enricher managers must render registered Type relations');
+assert.match(builtinAnalysisManager, /get_content_inspectors/,
+  'Inspector management must load shared engine availability');
+assert.match(builtinAnalysisManager, /Technical details/,
+  'Internal participant contracts must remain behind contextual technical details');
+assert.match(builtinAnalysisManager, /pasted \{kind\} get &lt;ref&gt; --json/,
+  'Stable references must explain their CLI and API purpose');
 for (const [label, manager] of [['Extractor', extractorManager], ['Detector', analysisSettings]]) {
   assert.equal((manager.match(/<RegistryPanelFooter/g) ?? []).length, 2,
     `${label} management must keep item actions and form actions in their owning panels`);
