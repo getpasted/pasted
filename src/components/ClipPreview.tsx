@@ -1325,15 +1325,15 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
               </span>
               {inspection?.mediaMetadata && <>
                 <span className="clip-preview-footer-stat" title={inspection.mediaMetadata.containers.join(', ')}>
-                  <span>Media:</span>
+                  <span>Media</span>
                   <strong>{inspection.mediaMetadata.mediaFileCount}</strong>
                 </span>
                 <span className="clip-preview-footer-stat" title={inspection.mediaMetadata.codecs.join(', ')}>
-                  <span>Codecs:</span>
+                  <span>Codecs</span>
                   <strong>{inspection.mediaMetadata.codecs.slice(0, 2).join(', ') || '—'}</strong>
                 </span>
                 <span className="clip-preview-footer-stat">
-                  <span>Duration:</span>
+                  <span>Duration</span>
                   <strong>{formatMediaDuration(inspection.mediaMetadata.totalDurationMs)}</strong>
                 </span>
               </>}
