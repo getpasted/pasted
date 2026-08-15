@@ -1057,7 +1057,10 @@ fn main() -> Result<()> {
                     });
                     let inspector = pasted_lib::content_inspection::inspector_definitions()
                         .into_iter()
-                        .find(|inspector| reference == &inspector.stable_ref)
+                        .find(|inspector| {
+                            pasted_lib::content_inspection::canonical_inspector_ref(reference)
+                                == inspector.stable_ref
+                        })
                         .unwrap_or_else(|| {
                             eprintln!("Inspector {reference} was not found.");
                             std::process::exit(1);
