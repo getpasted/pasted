@@ -9,10 +9,49 @@ use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
 pub const STRUCTURE_INSPECTOR_REF: &str = "inspector:structure-v1";
-pub const MEDIA_INSPECTOR_REF: &str = "inspector:ffprobe-media-v1";
+pub const MEDIA_INSPECTOR_REF: &str = "inspector:media-metadata-v1";
+pub const LEGACY_FFPROBE_INSPECTOR_REF: &str = "inspector:ffprobe-media-v1";
 pub const FFPROBE_ENGINE: &str = "ffprobe-cli-v1";
 
 const FFPROBE_TIMEOUT: Duration = Duration::from_secs(5);
+
+trait MediaMetadataEngine: Sync {
+    fn id(&self) -> &'static str;
+    fn is_available(&self) -> bool;
+    fn unavailable_reason(&self) -> String;
+    fn inspect_paths(&self, paths: &[String]) -> Result<Option<MediaMetadata>, AnalysisFailure>;
+}
+
+struct FfprobeMediaMetadataEngine;
+
+impl MediaMetadataEngine for FfprobeMediaMetadataEngine {
+    fn id(&self) -> &'static str {
+        FFPROBE_ENGINE
+    }
+
+    fn is_available(&self) -> bool {
+        find_ffprobe_executable().is_some()
+    }
+
+    fn unavailable_reason(&self) -> String {
+        "ffprobe is not installed. Install FFmpeg, then check again.".into()
+    }
+
+    fn inspect_paths(&self, paths: &[String]) -> Result<Option<MediaMetadata>, AnalysisFailure> {
+        inspect_ffprobe_paths(paths)
+    }
+}
+
+static FFPROBE_MEDIA_METADATA_ENGINE: FfprobeMediaMetadataEngine = FfprobeMediaMetadataEngine;
+static MEDIA_METADATA_ENGINES: [&dyn MediaMetadataEngine; 1] = [&FFPROBE_MEDIA_METADATA_ENGINE];
+
+fn preferred_media_metadata_engine() -> &'static dyn MediaMetadataEngine {
+    MEDIA_METADATA_ENGINES
+        .iter()
+        .copied()
+        .find(|engine| engine.is_available())
+        .unwrap_or(MEDIA_METADATA_ENGINES[0])
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -83,20 +122,27 @@ pub fn structure_inspector_definition() -> InspectorDefinition {
 }
 
 pub fn media_inspector_definition() -> InspectorDefinition {
-    let executable = find_ffprobe_executable();
+    let engine = preferred_media_metadata_engine();
+    let is_available = engine.is_available();
     InspectorDefinition {
         stable_ref: MEDIA_INSPECTOR_REF.into(),
         name: "Media Metadata".into(),
-        description: "Reads bounded audio and video metadata locally with ffprobe.".into(),
+        description: "Reads bounded audio and video metadata locally.".into(),
         input_contract: "file_references".into(),
         output_contract: "media_metadata".into(),
         priority: 10,
         is_builtin: true,
-        engine: Some(FFPROBE_ENGINE.into()),
-        is_available: executable.is_some(),
-        unavailable_reason: executable
-            .is_none()
-            .then(|| "ffprobe is not installed. Install FFmpeg, then check again.".into()),
+        engine: Some(engine.id().into()),
+        is_available,
+        unavailable_reason: (!is_available).then(|| engine.unavailable_reason()),
+    }
+}
+
+pub fn canonical_inspector_ref(reference: &str) -> &str {
+    if reference == LEGACY_FFPROBE_INSPECTOR_REF {
+        MEDIA_INSPECTOR_REF
+    } else {
+        reference
     }
 }
 
@@ -223,6 +269,17 @@ fn push_unique_bounded(values: &mut Vec<String>, value: &str) {
 pub(crate) fn inspect_media_paths(
     paths: &[String],
 ) -> Result<Option<MediaMetadata>, AnalysisFailure> {
+    let engine = preferred_media_metadata_engine();
+    if !engine.is_available() {
+        return Err(AnalysisFailure {
+            code: "engine_unavailable".into(),
+            message: engine.unavailable_reason(),
+        });
+    }
+    engine.inspect_paths(paths)
+}
+
+fn inspect_ffprobe_paths(paths: &[String]) -> Result<Option<MediaMetadata>, AnalysisFailure> {
     let executable = find_ffprobe_executable().ok_or_else(|| AnalysisFailure {
         code: "engine_unavailable".into(),
         message: "ffprobe is not installed. Install FFmpeg, then check again.".into(),
@@ -550,13 +607,18 @@ mod tests {
     }
 
     #[test]
-    fn ffprobe_definition_reports_the_discovered_runtime() {
+    fn media_definition_separates_participant_and_engine_identity() {
         let definition = media_inspector_definition();
+        assert_eq!(definition.stable_ref, MEDIA_INSPECTOR_REF);
         assert_eq!(definition.engine.as_deref(), Some(FFPROBE_ENGINE));
         assert_eq!(definition.is_available, find_ffprobe_executable().is_some());
         assert_eq!(
             definition.unavailable_reason.is_none(),
             definition.is_available
+        );
+        assert_eq!(
+            canonical_inspector_ref(LEGACY_FFPROBE_INSPECTOR_REF),
+            MEDIA_INSPECTOR_REF
         );
     }
 

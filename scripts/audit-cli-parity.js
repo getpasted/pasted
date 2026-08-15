@@ -234,8 +234,8 @@ assert.match(inspection, /STRUCTURE_INSPECTOR_REF:\s*&str\s*=\s*"inspector:struc
   'The structural Inspector must have a stable versioned reference');
 assert.match(inspection, /pub struct StructuralMetadata/,
   'Structural inspection must expose a typed content-free result');
-assert.match(inspection, /MEDIA_INSPECTOR_REF:\s*&str\s*=\s*"inspector:ffprobe-media-v1"/,
-  'The ffprobe Inspector must have a stable versioned reference');
+assert.match(inspection, /MEDIA_INSPECTOR_REF:\s*&str\s*=\s*"inspector:media-metadata-v1"/,
+  'The Media Metadata Inspector must have an engine-neutral stable versioned reference');
 assert.match(inspection, /Command::new\(&executable\)[\s\S]*?wait_bounded\(&mut child, remaining\)/,
   'ffprobe must use direct bounded external-tool execution');
 assert.match(inspection, /MAX_MEDIA_PROBE_FILES/,

@@ -2428,8 +2428,8 @@ impl DbState {
                 (stable_ref, kind, name, description, group_label, icon, enabled,
                  is_builtin, is_archived, sort_order, revision, input_contract,
                  output_contract, created_at, updated_at)
-            VALUES ('inspector:ffprobe-media-v1', 'inspector', 'Media Metadata',
-                    'Reads bounded audio and video metadata locally with ffprobe.',
+            VALUES ('inspector:media-metadata-v1', 'inspector', 'Media Metadata',
+                    'Reads bounded audio and video metadata locally.',
                     'Content Analysis', 'FileAudio', NULL, 1, 0, 10, 1,
                     'file_references', 'media_metadata', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 

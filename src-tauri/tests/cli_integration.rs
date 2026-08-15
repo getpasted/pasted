@@ -106,13 +106,18 @@ fn structural_inspector_has_registry_preview_and_apply_parity() {
         .and_then(|items| {
             items
                 .iter()
-                .find(|item| item["stableRef"] == "inspector:ffprobe-media-v1")
+                .find(|item| item["stableRef"] == "inspector:media-metadata-v1")
         })
         .expect("shipped ffprobe Inspector");
     assert_eq!(media["engine"], "ffprobe-cli-v1");
     assert_eq!(media["inputContract"], "file_references");
     assert_eq!(media["outputContract"], "media_metadata");
     assert!(media["isAvailable"].is_boolean());
+    let legacy_media = success_json(
+        &database,
+        &["inspector", "get", "inspector:ffprobe-media-v1", "--json"],
+    );
+    assert_eq!(legacy_media["stableRef"], "inspector:media-metadata-v1");
 
     let registry = success_json(
         &database,
@@ -123,7 +128,7 @@ fn structural_inspector_has_registry_preview_and_apply_parity() {
     assert!(registry
         .as_array()
         .is_some_and(|items| items.iter().any(|item| {
-            item["stableRef"] == "inspector:ffprobe-media-v1"
+            item["stableRef"] == "inspector:media-metadata-v1"
                 && item["outputContract"] == "media_metadata"
         })));
 
