@@ -155,6 +155,11 @@ mod tests {
             Some(crate::analysis_contract::ParticipantOutcome::Produced)
         );
         assert_eq!(result.application, ClipApplication::preview());
+        let expected = serde_json::from_str::<serde_json::Value>(include_str!(
+            "../../contracts/analysis/v1/enricher-interactive-empty.json"
+        ))
+        .unwrap();
+        assert_eq!(serde_json::to_value(result).unwrap(), expected);
     }
 
     #[test]

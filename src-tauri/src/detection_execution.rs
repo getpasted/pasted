@@ -179,24 +179,11 @@ mod tests {
         assert_eq!(result.classification(), "email");
         assert_eq!(result.participants.len(), 1);
         assert_eq!(
-            serde_json::to_value(&result).unwrap(),
-            serde_json::json!({
-                "formatVersion": 1,
-                "policy": "interactive",
-                "through": "enrich",
-                "targetKind": "detector",
-                "targetRef": "detector:email",
-                "outcome": "matched",
-                "matched": true,
-                "detectedType": "email",
-                "matchedDetectorRef": "detector:email",
-                "failure": null,
-                "participants": [{
-                    "stableRef": DETECTOR_PARTICIPANT_REF,
-                    "pass": "classify",
-                    "outcome": "produced"
-                }]
-            })
+            serde_json::to_value(DetectionApplicationResult::preview(result)).unwrap(),
+            serde_json::from_str::<serde_json::Value>(include_str!(
+                "../../contracts/analysis/v1/detector-interactive-matched.json"
+            ))
+            .unwrap()
         );
     }
 

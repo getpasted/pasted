@@ -1,0 +1,22 @@
+{
+  "formatVersion": 1,
+  "policy": "interactive",
+  "through": "enrich",
+  "targetKind": "extractor",
+  "targetRef": "extractor:test",
+  "outcome": "produced",
+  "output": "recognized text",
+  "detectedType": null,
+  "matchedDetectorRef": null,
+  "failure": null,
+  "participants": [
+    {
+      "stableRef": "extractor:test",
+      "pass": "extract",
+      "outcome": "produced"
+    }
+  ],
+  "appliedClipId": null,
+  "ocrUpdated": false,
+  "classificationUpdated": false
+}

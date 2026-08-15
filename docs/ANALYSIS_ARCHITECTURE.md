@@ -26,6 +26,7 @@ Clip Preview and `pasted analyzer run` consume the whole-Analyzer snapshot. The 
 3. Add a participant-specific execution module, such as `enrichment_execution.rs`. Translate `AnalysisReport` through `resolve_participant`, use `AnalysisTargetKind`, and expose privacy-safe `ParticipantRun` summaries.
 4. Use `ClipApplication` for preview and apply identity. Add participant-specific persistence flags beside it only when callers need to distinguish derived records that were actually updated.
 5. Route GUI, CLI, and background work through the same execution and application functions. Keep structured JSON stable and never synthesize application state in a surface adapter.
-6. Add portable engine or participant fixtures so scheduling, failure, stale-input, and persistence behavior runs on every platform. Test real platform availability separately.
+6. Treat the privacy-safe examples in `contracts/analysis/v1` as the public serialized contract for the Analyzer and its participant surfaces. Rust serialization tests and CLI integration tests consume them directly, and the frontend parity audit checks its mocks against their fields.
+7. Add portable engine or participant fixtures so scheduling, failure, stale-input, and persistence behavior runs on every platform. Test real platform availability separately.
 
 Participant results and Activity records must not include input content, credentials, sensitive file paths, or unbounded provider output. User-visible output may contain an explicitly requested derived result, but participant summaries and failures remain neutral and bounded.

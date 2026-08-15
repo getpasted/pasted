@@ -21,7 +21,7 @@
     "test:copy": "node scripts/audit-ui-copy.js",
     "test:collections": "node scripts/audit-clip-collections.js",
     "test:menus": "node scripts/audit-menu-system.js",
-    "test:cli": "node scripts/audit-cli-parity.js",
+    "test:cli": "node scripts/audit-cli-parity.js && node scripts/audit-analysis-contracts.js",
     "test:transformations": "node scripts/audit-transformations.js",
     "test:activity": "node scripts/audit-activity-events.js",
     "test:backup": "node --experimental-strip-types scripts/test-backup-client-state.js && node scripts/audit-full-backup.js",

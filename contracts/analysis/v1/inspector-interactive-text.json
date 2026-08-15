@@ -1,0 +1,22 @@
+{
+  "formatVersion": 1,
+  "policy": "interactive",
+  "through": "enrich",
+  "result": {
+    "origin": "command_line",
+    "byteCount": 16,
+    "text": {
+      "characterCount": 16,
+      "wordCount": 3,
+      "lineCount": 2
+    }
+  },
+  "participants": [
+    {
+      "stableRef": "inspector:structure-v1",
+      "pass": "inspect",
+      "outcome": "produced"
+    }
+  ],
+  "appliedClipId": null
+}

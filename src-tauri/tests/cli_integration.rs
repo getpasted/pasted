@@ -33,6 +33,22 @@ fn success_json(database: &Path, arguments: &[&str]) -> Value {
     serde_json::from_slice(&output.stdout).expect("valid JSON output")
 }
 
+fn analysis_fixture(name: &str) -> Value {
+    let contents = match name {
+        "analyzer-interactive-text" => {
+            include_str!("../../contracts/analysis/v1/analyzer-interactive-text.json")
+        }
+        "inspector-interactive-text" => {
+            include_str!("../../contracts/analysis/v1/inspector-interactive-text.json")
+        }
+        "enricher-interactive-empty" => {
+            include_str!("../../contracts/analysis/v1/enricher-interactive-empty.json")
+        }
+        _ => panic!("unknown Analysis fixture {name}"),
+    };
+    serde_json::from_str(contents).expect("valid Analysis contract fixture")
+}
+
 fn clean_database(path: &Path) {
     let _ = std::fs::remove_file(path);
     let _ = std::fs::remove_file(format!("{}-wal", path.display()));
@@ -94,6 +110,7 @@ fn structural_inspector_has_registry_preview_and_apply_parity() {
     assert_eq!(preview["result"]["text"]["lineCount"], 2);
     assert_eq!(preview["appliedClipId"], Value::Null);
     assert!(!preview.to_string().contains("alpha beta"));
+    assert_eq!(preview, analysis_fixture("inspector-interactive-text"));
 
     let unicode = success_json(
         &database,
@@ -168,6 +185,12 @@ fn smart_actions_enricher_has_registry_and_non_mutating_cli_parity() {
     );
     assert_eq!(result["appliedClipId"], Value::Null);
     assert!(!result.to_string().contains("private-token-0123456789"));
+
+    let empty = success_json(
+        &database,
+        &["enricher", "run", "--text", "ordinary words", "--json"],
+    );
+    assert_eq!(empty, analysis_fixture("enricher-interactive-empty"));
     clean_database(&database);
 }
 
@@ -187,6 +210,13 @@ fn whole_analyzer_has_one_versioned_privacy_safe_cli_contract() {
     assert_eq!(interactive["participants"][1]["pass"], "classify");
     assert_eq!(interactive["participants"][2]["pass"], "enrich");
     assert!(!interactive.to_string().contains("private-token-0123456789"));
+    assert_eq!(
+        success_json(
+            &database,
+            &["analyzer", "run", "--text", "ordinary words", "--json"],
+        ),
+        analysis_fixture("analyzer-interactive-text")
+    );
 
     let capture = success_json(
         &database,

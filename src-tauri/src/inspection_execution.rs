@@ -263,6 +263,21 @@ mod tests {
     }
 
     #[test]
+    fn interactive_text_matches_the_public_json_fixture() {
+        let analysis = inspect_text("alpha beta\ngamma", Some("Pasted CLI")).unwrap();
+        let result = ClipInspectionResult {
+            analysis,
+            application: ClipApplication::preview(),
+            live_file_observations: None,
+        };
+        let expected = serde_json::from_str::<serde_json::Value>(include_str!(
+            "../../contracts/analysis/v1/inspector-interactive-text.json"
+        ))
+        .unwrap();
+        assert_eq!(serde_json::to_value(result).unwrap(), expected);
+    }
+
+    #[test]
     fn captures_persist_inspection_and_previews_remain_non_mutating() {
         let db = db();
         let clip = db
