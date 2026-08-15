@@ -385,6 +385,7 @@ fn extractor_lifecycle_and_registry_capabilities_run_end_to_end() {
     assert_eq!(preview["ocrUpdated"], false);
     assert_eq!(preview["classificationUpdated"], false);
     assert_eq!(preview["participants"][0]["pass"], "extract");
+    assert_eq!(preview["participants"][0]["stableRef"], stable_ref);
     assert!(!preview.to_string().contains("private image bytes"));
     preview["targetRef"] = Value::String("extractor:test".into());
     preview["participants"][0]["stableRef"] = Value::String("extractor:test".into());
