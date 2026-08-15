@@ -28,6 +28,16 @@ interface ClipPreviewContentProps {
   onRunOCR: () => void;
 }
 
+function getOcrExtractorLabel(clip: ClipItem): string | null {
+  if (clip.ocr_extractor_name) return clip.ocr_extractor_name;
+  switch (clip.ocr_engine_version) {
+    case 'macos-vision-v1': return 'Apple Vision OCR';
+    case 'tesseract-cli-v1': return 'Tesseract OCR';
+    case 'legacy': return 'Legacy OCR';
+    default: return clip.ocr_engine_version || null;
+  }
+}
+
 function useAutoHorizontalScroll(
   ref: React.RefObject<HTMLDivElement | null>,
   value: string,
@@ -145,6 +155,7 @@ export function ClipPreviewContent({
   onCopyFormat,
   onRunOCR,
 }: ClipPreviewContentProps) {
+  const ocrExtractorLabel = getOcrExtractorLabel(clip);
   const filePaths = getClipFilePaths(clip);
   const [imageLoadingIndicatorClipId, setImageLoadingIndicatorClipId] = React.useState<number | null>(null);
   React.useEffect(() => {
@@ -353,6 +364,12 @@ export function ClipPreviewContent({
                   </button>}
                 </div>
               </div>
+
+              {clip.text_content && ocrExtractorLabel && (
+                <p className="theme-text-muted text-xs">
+                  Extracted by {ocrExtractorLabel}
+                </p>
+              )}
 
               {clip.text_content ? (
                 <div className="theme-code-surface overlay-scroll-region p-3.5 border rounded-xl font-mono text-xs whitespace-pre-wrap leading-relaxed select-text shadow-inner max-h-60 overflow-y-auto">

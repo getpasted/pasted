@@ -80,29 +80,41 @@ let mockDetectors = [
   mockDetector({ id: 2, stable_ref: 'credential', name: 'Credentials', content_type: 'credential', description: 'Known API-key formats and secret assignments', patterns: [String.raw`^(?:sk_|ghp_).+$`], validator: null, enabled: true, priority: 60, is_builtin: true }),
   mockDetector({ id: 3, stable_ref: 'phone', name: 'Phone Numbers', content_type: 'phone', description: 'Formatted international and local phone numbers', patterns: [String.raw`^\+?[0-9 ()-]{7,}$`], validator: 'phone', enabled: true, priority: 160, is_builtin: true }),
 ];
-const mockExtractorDefaults = { name: 'Apple Vision OCR', description: 'Extracts searchable text from images locally with Apple Vision.', enabled: true, priority: 10 };
+const mockAppleExtractorDefaults = { name: 'Apple Vision OCR', description: 'Extracts searchable text from images locally with Apple Vision.', enabled: true, priority: 10 };
+const mockTesseractExtractorDefaults = { name: 'Tesseract OCR', description: 'Extracts searchable text from images locally with Tesseract.', enabled: true, priority: 20 };
 type MockExtractor = {
   id: number; stableRef: string; name: string; description: string; engine: string;
   inputContract: string; outputContract: string; enabled: boolean; priority: number;
   isBuiltin: boolean; isAvailable: boolean; unavailableReason: string | null;
-  defaults: typeof mockExtractorDefaults | null;
+  defaults: typeof mockAppleExtractorDefaults | null;
 };
-function mockBuiltinExtractor(): MockExtractor {
-  return {
+function mockBuiltinExtractors(): MockExtractor[] {
+  return [{
     id: 1,
     stableRef: 'extractor:apple-vision-ocr',
-    ...mockExtractorDefaults,
+    ...mockAppleExtractorDefaults,
     engine: 'macos-vision-v1',
     inputContract: 'image',
     outputContract: 'searchable_text',
     isBuiltin: true,
     isAvailable: true,
     unavailableReason: null,
-    defaults: { ...mockExtractorDefaults },
-  };
+    defaults: { ...mockAppleExtractorDefaults },
+  }, {
+    id: 2,
+    stableRef: 'extractor:tesseract-ocr',
+    ...mockTesseractExtractorDefaults,
+    engine: 'tesseract-cli-v1',
+    inputContract: 'image',
+    outputContract: 'searchable_text',
+    isBuiltin: true,
+    isAvailable: false,
+    unavailableReason: 'Tesseract OCR is not installed. Install Tesseract 5, then check again.',
+    defaults: { ...mockTesseractExtractorDefaults },
+  }];
 }
-let nextMockExtractorId = 2;
-let mockExtractors: MockExtractor[] = [mockBuiltinExtractor()];
+let nextMockExtractorId = 3;
+let mockExtractors: MockExtractor[] = mockBuiltinExtractors();
 
 let mockContentTypes: Array<{
   id: string; label: string; icon: string; group: string; isBuiltin: boolean; isArchived: boolean;
@@ -317,10 +329,11 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       mockExtractors = mockExtractors.filter((extractor) => extractor.id !== Number(args?.id));
       return undefined as T;
     case 'restore_default_content_extractors': {
-      const builtin = mockBuiltinExtractor();
+      const builtins = mockBuiltinExtractors();
+      const builtinRefs = new Set(builtins.map(({ stableRef }) => stableRef));
       mockExtractors = [
-        builtin,
-        ...mockExtractors.filter((extractor) => extractor.stableRef !== builtin.stableRef),
+        ...builtins,
+        ...mockExtractors.filter((extractor) => !builtinRefs.has(extractor.stableRef)),
       ];
       return mockExtractors as unknown as T;
     }

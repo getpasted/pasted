@@ -159,13 +159,24 @@ pub fn spawn_ocr_worker(
                     },
                     |candidate| {
                         let Some(image_bytes) = decode_stored_image(&candidate.image_base64) else {
-                            let _ = db_state.complete_or_reset_ocr_attempt(
-                                candidate.clip_id,
-                                &candidate.content_hash,
-                                None,
-                                "macos-vision-v1",
-                                Some("invalid_image_data"),
-                            );
+                            if let Ok(Some(extractor)) = db_state.active_image_text_extractor() {
+                                let _ = db_state.complete_or_reset_ocr_attempt_with_extractor(
+                                    candidate.clip_id,
+                                    &candidate.content_hash,
+                                    None,
+                                    crate::db::OcrExtractorProvenance::identified(
+                                        &extractor.engine,
+                                        &extractor.stable_ref,
+                                        &extractor.name,
+                                    ),
+                                    Some("invalid_image_data"),
+                                );
+                            } else {
+                                let _ = db_state.reset_ocr_work(
+                                    Some(candidate.clip_id),
+                                    Some(&candidate.content_hash),
+                                );
+                            }
                             return;
                         };
                         perform_task(

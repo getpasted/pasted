@@ -15,6 +15,7 @@ pub mod db;
 pub mod detection_execution;
 pub mod enrichment_execution;
 pub mod external_import;
+mod external_tools;
 pub mod extraction_execution;
 pub mod features;
 mod filter_engine;

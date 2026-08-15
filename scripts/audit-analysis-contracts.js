@@ -6,6 +6,9 @@ const fixture = (name) => JSON.parse(read(`contracts/analysis/v1/${name}.json`))
 const frontendMock = read('src/utils/tauri.ts');
 const cliTests = read('src-tauri/tests/cli_integration.rs');
 const clipPreview = read('src/components/ClipPreview.tsx');
+const clipPreviewContent = read('src/components/ClipPreviewContent.tsx');
+const database = read('src-tauri/src/db.rs');
+const types = read('src/types.ts');
 const analysisSettings = read('src/components/SettingsDetectionPanel.tsx');
 const architecture = read('docs/ANALYSIS_ARCHITECTURE.md');
 const releaseChecklist = read('docs/RELEASE_CHECKLIST_1.0.0.md');
@@ -83,6 +86,14 @@ for (const field of ['structure', 'recommendations']) {
     `Clip Preview must consume whole-Analyzer ${field}`);
 }
 assert.match(clipPreview, /Smart Actions/, 'Clip Preview must present Enricher recommendations contextually');
+assert.match(clipPreviewContent, /Extracted by \{ocrExtractorLabel\}/,
+  'Clip Preview must identify the Extractor that produced OCR text');
+for (const field of ['ocr_extractor_ref', 'ocr_extractor_name', 'ocr_engine_version']) {
+  assert.match(database, new RegExp(`pub ${field}: Option<String>`),
+    `Shared ClipItem must expose OCR provenance field ${field}`);
+  assert.match(types, new RegExp(`${field}\\?: string \\| null`),
+    `Frontend ClipItem must expose OCR provenance field ${field}`);
+}
 assert.match(analysisSettings, /title="Extractors"/, 'Analysis settings must expose authorable Extractors');
 assert.match(analysisSettings, /title="Detectors"/, 'Analysis settings must expose authorable Detectors');
 assert.doesNotMatch(analysisSettings, /Manage (?:Inspectors|Enrichers)/,

@@ -88,6 +88,9 @@ export interface ClipItem {
   is_trashed?: boolean | number;
   trashed_at?: string | null;
   created_at: string;
+  ocr_extractor_ref?: string | null;
+  ocr_extractor_name?: string | null;
+  ocr_engine_version?: string | null;
 }
 
 export type ClipContentType =

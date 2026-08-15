@@ -315,6 +315,20 @@ fn help_advertises_database_and_live_app_surfaces() {
 #[test]
 fn extractor_lifecycle_and_registry_capabilities_run_end_to_end() {
     let database = temporary_path("extractors", "db");
+    let shipped = success_json(&database, &["extractor", "list", "--json"]);
+    let tesseract = shipped
+        .as_array()
+        .and_then(|items| {
+            items
+                .iter()
+                .find(|item| item["stableRef"] == "extractor:tesseract-ocr")
+        })
+        .expect("shipped Tesseract Extractor");
+    assert_eq!(tesseract["engine"], "tesseract-cli-v1");
+    assert_eq!(tesseract["inputContract"], "image");
+    assert_eq!(tesseract["outputContract"], "searchable_text");
+    assert!(tesseract["isAvailable"].is_boolean());
+
     let created = success_json(
         &database,
         &[

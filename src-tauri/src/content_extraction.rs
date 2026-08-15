@@ -1,4 +1,8 @@
 use serde::{Deserialize, Serialize};
+use std::fs;
+use std::path::Path;
+use std::process::{Command, Stdio};
+use std::time::Duration;
 
 use crate::analysis_contract::{RepresentationContract, RepresentationKind};
 
@@ -8,6 +12,10 @@ extern "C" {}
 
 pub const APPLE_VISION_OCR_REF: &str = "extractor:apple-vision-ocr";
 pub const APPLE_VISION_ENGINE: &str = "macos-vision-v1";
+pub const TESSERACT_OCR_REF: &str = "extractor:tesseract-ocr";
+pub const TESSERACT_ENGINE: &str = "tesseract-cli-v1";
+
+const TESSERACT_TIMEOUT: Duration = Duration::from_secs(15);
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -112,6 +120,7 @@ impl<'a> ExtractorEngineRegistry<'a> {
 }
 
 struct AppleVisionOcrEngine;
+struct TesseractOcrEngine;
 
 impl ExtractorEngine for AppleVisionOcrEngine {
     fn id(&self) -> &'static str {
@@ -141,8 +150,44 @@ impl ExtractorEngine for AppleVisionOcrEngine {
     }
 }
 
+impl ExtractorEngine for TesseractOcrEngine {
+    fn id(&self) -> &'static str {
+        TESSERACT_ENGINE
+    }
+
+    fn availability(&self) -> EngineAvailability {
+        if find_tesseract_executable().is_some() {
+            EngineAvailability {
+                is_available: true,
+                unavailable_reason: None,
+            }
+        } else {
+            EngineAvailability {
+                is_available: false,
+                unavailable_reason: Some(
+                    "Tesseract OCR is not installed. Install Tesseract 5, then check again.".into(),
+                ),
+            }
+        }
+    }
+
+    fn extract(&self, image_bytes: &[u8]) -> ExtractionOutcome {
+        let Some(executable) = find_tesseract_executable() else {
+            return ExtractionOutcome::Failed {
+                failure: ExtractionFailure {
+                    code: "engine_unavailable".into(),
+                    message: "Tesseract OCR is not installed.".into(),
+                },
+            };
+        };
+        perform_tesseract_ocr(&executable, image_bytes, TESSERACT_TIMEOUT)
+    }
+}
+
 static APPLE_VISION_OCR_ENGINE: AppleVisionOcrEngine = AppleVisionOcrEngine;
-static SYSTEM_ENGINES: [&dyn ExtractorEngine; 1] = [&APPLE_VISION_OCR_ENGINE];
+static TESSERACT_OCR_ENGINE: TesseractOcrEngine = TesseractOcrEngine;
+static SYSTEM_ENGINES: [&dyn ExtractorEngine; 2] =
+    [&APPLE_VISION_OCR_ENGINE, &TESSERACT_OCR_ENGINE];
 
 pub fn system_engine_registry() -> ExtractorEngineRegistry<'static> {
     ExtractorEngineRegistry::new(&SYSTEM_ENGINES)
@@ -212,15 +257,26 @@ pub struct ExtractorPreset {
     pub priority: i64,
 }
 
-pub const EXTRACTOR_PRESETS: &[ExtractorPreset] = &[ExtractorPreset {
-    stable_ref: APPLE_VISION_OCR_REF,
-    name: "Apple Vision OCR",
-    description: "Extracts searchable text from images locally with Apple Vision.",
-    engine: APPLE_VISION_ENGINE,
-    input_contract: RepresentationKind::ImageBytes.stable_name(),
-    output_contract: RepresentationKind::SearchableText.stable_name(),
-    priority: 10,
-}];
+pub const EXTRACTOR_PRESETS: &[ExtractorPreset] = &[
+    ExtractorPreset {
+        stable_ref: APPLE_VISION_OCR_REF,
+        name: "Apple Vision OCR",
+        description: "Extracts searchable text from images locally with Apple Vision.",
+        engine: APPLE_VISION_ENGINE,
+        input_contract: RepresentationKind::ImageBytes.stable_name(),
+        output_contract: RepresentationKind::SearchableText.stable_name(),
+        priority: 10,
+    },
+    ExtractorPreset {
+        stable_ref: TESSERACT_OCR_REF,
+        name: "Tesseract OCR",
+        description: "Extracts searchable text from images locally with Tesseract.",
+        engine: TESSERACT_ENGINE,
+        input_contract: RepresentationKind::ImageBytes.stable_name(),
+        output_contract: RepresentationKind::SearchableText.stable_name(),
+        priority: 20,
+    },
+];
 
 pub fn engine_availability(engine: &str) -> EngineAvailability {
     system_engine_registry().availability(engine)
@@ -257,6 +313,150 @@ pub fn validate_extractor_definition(input: &ExtractorDefinitionInput) -> Result
         return Err("This version supports only image → searchable_text Extractors".to_string());
     }
     Ok(())
+}
+
+fn find_tesseract_executable() -> Option<std::path::PathBuf> {
+    #[cfg(windows)]
+    let (name, explicit) = (
+        "tesseract.exe",
+        &[
+            r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+            r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
+        ][..],
+    );
+    #[cfg(not(windows))]
+    let (name, explicit) = (
+        "tesseract",
+        &[
+            "/opt/homebrew/bin/tesseract",
+            "/usr/local/bin/tesseract",
+            "/usr/bin/tesseract",
+            "/home/linuxbrew/.linuxbrew/bin/tesseract",
+        ][..],
+    );
+
+    crate::external_tools::find_executable(name, explicit)
+}
+
+fn perform_tesseract_ocr(
+    executable: &Path,
+    image_bytes: &[u8],
+    timeout: Duration,
+) -> ExtractionOutcome {
+    if image_bytes.is_empty() || image_bytes.len() > crate::resource_limits::MAX_ENCODED_IMAGE_BYTES
+    {
+        return ExtractionOutcome::NoOutput;
+    }
+
+    let workspace = match crate::external_tools::PrivateWorkspace::create("extractor") {
+        Ok(workspace) => workspace,
+        Err(_) => {
+            return ExtractionOutcome::Failed {
+                failure: ExtractionFailure {
+                    code: "workspace_error".into(),
+                    message: "A private extraction workspace could not be created.".into(),
+                },
+            };
+        }
+    };
+    let input_path = workspace.join("input.image");
+    let output_base = workspace.join("recognized");
+    let output_path = workspace.join("recognized.txt");
+    if fs::write(&input_path, image_bytes).is_err() {
+        return ExtractionOutcome::Failed {
+            failure: ExtractionFailure {
+                code: "workspace_error".into(),
+                message: "The image could not be staged for local extraction.".into(),
+            },
+        };
+    }
+    #[cfg(unix)]
+    if let Ok(metadata) = input_path.metadata() {
+        use std::os::unix::fs::PermissionsExt;
+        let mut permissions = metadata.permissions();
+        permissions.set_mode(0o600);
+        let _ = fs::set_permissions(&input_path, permissions);
+    }
+
+    let mut child = match Command::new(executable)
+        .arg(&input_path)
+        .arg(&output_base)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+    {
+        Ok(child) => child,
+        Err(_) => {
+            return ExtractionOutcome::Failed {
+                failure: ExtractionFailure {
+                    code: "engine_unavailable".into(),
+                    message: "Tesseract OCR could not be started.".into(),
+                },
+            };
+        }
+    };
+    let status = match crate::external_tools::wait_bounded(&mut child, timeout) {
+        Ok(status) => status,
+        Err(crate::external_tools::ProcessWaitError::TimedOut) => {
+            return ExtractionOutcome::Failed {
+                failure: ExtractionFailure {
+                    code: "engine_timeout".into(),
+                    message: "Tesseract OCR exceeded the local extraction time limit.".into(),
+                },
+            };
+        }
+        Err(crate::external_tools::ProcessWaitError::Failed) => {
+            return ExtractionOutcome::Failed {
+                failure: ExtractionFailure {
+                    code: "engine_failed".into(),
+                    message: "Tesseract OCR did not complete successfully.".into(),
+                },
+            };
+        }
+    };
+    if !status.success() {
+        return ExtractionOutcome::Failed {
+            failure: ExtractionFailure {
+                code: "engine_failed".into(),
+                message: "Tesseract OCR did not complete successfully.".into(),
+            },
+        };
+    }
+
+    let Ok(metadata) = output_path.metadata() else {
+        return ExtractionOutcome::NoOutput;
+    };
+    if metadata.len() > crate::resource_limits::MAX_OCR_TEXT_BYTES as u64 {
+        return ExtractionOutcome::Failed {
+            failure: ExtractionFailure {
+                code: "output_too_large".into(),
+                message: "Extracted text exceeds the supported size limit.".into(),
+            },
+        };
+    }
+    let Ok(bytes) = fs::read(output_path) else {
+        return ExtractionOutcome::Failed {
+            failure: ExtractionFailure {
+                code: "engine_failed".into(),
+                message: "Tesseract OCR output could not be read.".into(),
+            },
+        };
+    };
+    let Ok(text) = String::from_utf8(bytes) else {
+        return ExtractionOutcome::Failed {
+            failure: ExtractionFailure {
+                code: "invalid_output".into(),
+                message: "Tesseract OCR returned invalid text.".into(),
+            },
+        };
+    };
+    let text = text.trim().to_string();
+    if text.is_empty() {
+        ExtractionOutcome::NoOutput
+    } else {
+        ExtractionOutcome::Produced { text }
+    }
 }
 
 #[cfg(target_os = "macos")]
@@ -384,6 +584,74 @@ fn perform_apple_vision_ocr(_image_bytes: &[u8]) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn ocr_acceptance_image() -> Vec<u8> {
+        const SCALE: u32 = 12;
+        const GLYPH_WIDTH: u32 = 5;
+        const GLYPH_HEIGHT: u32 = 7;
+        const TEXT: &str = "PASTED OCR";
+        fn glyph(character: char) -> [&'static str; GLYPH_HEIGHT as usize] {
+            match character {
+                'P' => [
+                    "11110", "10001", "10001", "11110", "10000", "10000", "10000",
+                ],
+                'A' => [
+                    "01110", "10001", "10001", "11111", "10001", "10001", "10001",
+                ],
+                'S' => [
+                    "01111", "10000", "10000", "01110", "00001", "00001", "11110",
+                ],
+                'T' => [
+                    "11111", "00100", "00100", "00100", "00100", "00100", "00100",
+                ],
+                'E' => [
+                    "11111", "10000", "10000", "11110", "10000", "10000", "11111",
+                ],
+                'D' => [
+                    "11110", "10001", "10001", "10001", "10001", "10001", "11110",
+                ],
+                'O' => [
+                    "01110", "10001", "10001", "10001", "10001", "10001", "01110",
+                ],
+                'C' => [
+                    "01111", "10000", "10000", "10000", "10000", "10000", "01111",
+                ],
+                'R' => [
+                    "11110", "10001", "10001", "11110", "10100", "10010", "10001",
+                ],
+                _ => ["00000"; GLYPH_HEIGHT as usize],
+            }
+        }
+
+        let margin = 24;
+        let advance = (GLYPH_WIDTH + 2) * SCALE;
+        let width = margin * 2 + advance * TEXT.chars().count() as u32;
+        let height = margin * 2 + GLYPH_HEIGHT * SCALE;
+        let mut image = image::GrayImage::from_pixel(width, height, image::Luma([255]));
+        for (index, character) in TEXT.chars().enumerate() {
+            for (row, pixels) in glyph(character).iter().enumerate() {
+                for (column, pixel) in pixels.bytes().enumerate() {
+                    if pixel != b'1' {
+                        continue;
+                    }
+                    for y in 0..SCALE {
+                        for x in 0..SCALE {
+                            image.put_pixel(
+                                margin + index as u32 * advance + column as u32 * SCALE + x,
+                                margin + row as u32 * SCALE + y,
+                                image::Luma([0]),
+                            );
+                        }
+                    }
+                }
+            }
+        }
+        let mut bytes = std::io::Cursor::new(Vec::new());
+        image::DynamicImage::ImageLuma8(image)
+            .write_to(&mut bytes, image::ImageFormat::Png)
+            .unwrap();
+        bytes.into_inner()
+    }
 
     #[cfg(target_os = "macos")]
     #[test]
@@ -517,11 +785,38 @@ mod tests {
             apple.unavailable_reason.is_none(),
             cfg!(target_os = "macos")
         );
+
+        let tesseract = system_engine_registry().availability(TESSERACT_ENGINE);
+        assert_eq!(
+            tesseract.is_available,
+            find_tesseract_executable().is_some()
+        );
+        assert_eq!(
+            tesseract.unavailable_reason.is_none(),
+            tesseract.is_available
+        );
     }
 
     #[test]
     fn apple_vision_adapter_rejects_empty_and_invalid_input_without_output() {
         assert_eq!(perform_apple_vision_ocr(&[]), None);
         assert_eq!(perform_apple_vision_ocr(&[0, 1, 2, 3, 4]), None);
+    }
+
+    #[test]
+    fn tesseract_adapter_recognizes_text_when_installed() {
+        let Some(executable) = find_tesseract_executable() else {
+            return;
+        };
+        let outcome = perform_tesseract_ocr(
+            &executable,
+            &ocr_acceptance_image(),
+            Duration::from_secs(15),
+        );
+        assert!(
+            matches!(outcome, ExtractionOutcome::Produced { ref text }
+                if text.to_ascii_uppercase().contains("PASTE")),
+            "unexpected Tesseract result: {outcome:?}"
+        );
     }
 }
