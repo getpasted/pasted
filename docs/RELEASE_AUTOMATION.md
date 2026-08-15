@@ -22,7 +22,7 @@ The checked-in `THIRD_PARTY_SBOM.spdx.json` describes the complete supported-tar
 
 The Windows artifact allowlist also names the four NSIS stock plug-ins embedded by the installer (covered by NSIS's zlib/libpng license) and Tauri's Apache-2.0 `nsis_tauri_utils` plug-in. Syft identifies those temporary installer records by filename but cannot recover their licenses from the DLL metadata, so each is reviewed and allowed by exact name rather than by a broad pattern.
 
-Mission policy is separate from copyright licensing. The dependency audit blocks known telemetry SDKs, undeclared network-capable direct dependencies, and remote webview CSP destinations. User-configured intelligence providers and permission-declared operations remain explicit user actions; the locally named Analytics & Insights feature remains an on-device SQLite query and is guarded as such.
+Mission policy is separate from copyright licensing. The dependency audit blocks known telemetry SDKs, undeclared network-capable direct dependencies, and remote webview CSP destinations. User-configured intelligence providers and permission-declared operations remain explicit user actions; Insights remains an on-device SQLite query and is guarded as such.
 
 Use GitHub Environments named `release-macos`, `release-linux`, and `release-publish`. Add required reviewers to the platform and publishing environments if the repository plan supports them. The Linux environment currently needs no secrets; it exists so Linux publishing can acquire an approval gate or GPG key later without changing the workflow shape.
 

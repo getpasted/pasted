@@ -5,12 +5,15 @@ Notable user-facing changes to Pasted are recorded here. The project follows sem
 ## Unreleased
 
 - added validated Full Backup and Full Restore across Settings and the CLI, covering every durable database table plus saved interface/window state and creating a pre-restore recovery snapshot automatically.
-- consolidated reporting exports under Storage and added Library Archive preflight summaries in the GUI and `pasted archive` CLI workflows.
+- consolidated reporting exports under Storage and added History and Organization preflight summaries in the GUI and `pasted transfer` CLI workflow.
 - added one-step recovery for every trashed clip through Settings and `pasted clip restore-all`, with shared mutation summaries and Activity logging.
 - added seamless Activity history loading plus versioned OpenTelemetry-shaped JSON archives, round-trip reporting CSV, safe deduplicating imports, and matching CLI commands.
-- clarified the portable library archive scope and renamed clips-only exports so they cannot be mistaken for restorable archives.
+- clarified the portable History and Organization scope and renamed clips-only exports so they cannot be mistaken for Full Backups.
 - bounded clip, Trash, and HUD queries with incremental loading, exact collection counts, and offscreen card virtualization.
 - renamed Activity clearing consistently across the GUI and CLI, and tightened Insights language to its active-library scope.
+- unified Capture, Inspectors, Extractors, Detectors, and Enrichers under one bounded Analysis lifecycle with matching GUI, CLI, and versioned JSON contracts.
+- added Tesseract OCR, ffprobe and MediaInfo inspection, and whisper.cpp transcription with explicit local dependency and model configuration.
+- separated structural Clip Type, referenced File Format, and semantic Content Type throughout Analysis, Insights, Functionality, Help, and documentation.
 
 ## 1.0.0-rc.5 — 2026-08-12
 

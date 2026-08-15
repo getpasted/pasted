@@ -15,6 +15,7 @@ import {
   Command,
   Download,
   Bell,
+  AudioLines,
   Radar,
   ScanText,
   History,
@@ -33,7 +34,7 @@ const CLI_COMMAND_GROUPS = [
       { usage: 'pasted copy "Hello"', description: 'Save a text clip. Omit the argument to read stdin.' },
       { usage: 'cat server.log | pasted copy', description: 'Pipe bounded text into clipboard history.' },
       { usage: 'pasted list [--limit N] [--offset N] [--bin ID | --pinned | --trash] [--json]', description: 'List a bounded page from History, Trash, a Bin, or pinned clips.' },
-      { usage: 'pasted search [query] [--type TYPE] [--source APP] [--trash] [--limit N] [--offset N] [--json]', description: 'Search a bounded page of History or Trash with Type and Source filters.' },
+      { usage: 'pasted search [query] [--type TYPE] [--source APP] [--trash] [--limit N] [--offset N] [--json]', description: 'Search a bounded page of History or Trash with Content Type and Source filters.' },
       { usage: 'pasted import sources [--json]', description: 'List supported external-history sources and their detected locations.' },
       { usage: 'pasted import <alfred|pastebot|pasta|paste|copyclip|maccy|flycut> [path] [--json]', description: 'Merge text history from another clipboard manager, skipping duplicates.' },
       { usage: 'pasted retention [--count N] [--days N] [--trash-count N] [--trash-days N] [--log-count N] [--log-days N] [--revision-count N] [--json]', description: 'Read or update History, Trash, Activity, and revision retention.' },
@@ -122,14 +123,14 @@ const CLI_COMMAND_GROUPS = [
       { usage: 'pasted extractor delete <ref> [--json]', description: 'Delete an Extractor; shipped defaults remain recoverable.' },
       { usage: 'pasted extractor run <ref> (--clip ID | --file PATH) [--apply] [--json]', description: 'Run an Extractor in preview mode, or apply its output to a clip.' },
       { usage: 'pasted extractor restore-defaults', description: 'Restore shipped Extractor settings.' },
-      { usage: 'pasted type list [--all] [--json]', description: 'List registered content Types and their display metadata.' },
-      { usage: 'pasted type create --id ID --name NAME [--icon ICON] [--group GROUP] [--json]', description: 'Create a custom Type with a stable ID.' },
-      { usage: 'pasted type update <id> [options] [--json]', description: 'Customize a Type’s name, icon, or group without changing its ID.' },
-      { usage: 'pasted type archive|restore <id>', description: 'Archive or restore a custom Type while preserving historical clips.' },
-      { usage: 'pasted type restore-defaults', description: 'Restore built-in Type names, icons, and groups.' },
+      { usage: 'pasted type list [--all] [--json]', description: 'List registered Content Types and their display metadata.' },
+      { usage: 'pasted type create --id ID --name NAME [--icon ICON] [--group GROUP] [--json]', description: 'Create a custom Content Type with a stable ID.' },
+      { usage: 'pasted type update <id> [options] [--json]', description: 'Customize a Content Type’s name, icon, or group without changing its ID.' },
+      { usage: 'pasted type archive|restore <id>', description: 'Archive or restore a custom Content Type while preserving historical clips.' },
+      { usage: 'pasted type restore-defaults', description: 'Restore built-in Content Type names, icons, and groups.' },
       { usage: 'pasted type group-list [--all] [--json]', description: 'List registered Content Type Groups.' },
-      { usage: 'pasted type group-create --id ID --name NAME [--order NUMBER]', description: 'Create a reusable custom Type Group.' },
-      { usage: 'pasted type group-update <id> [options] [--json]', description: 'Rename or reorder a Type Group.' },
+      { usage: 'pasted type group-create --id ID --name NAME [--order NUMBER]', description: 'Create a reusable custom Content Type Group.' },
+      { usage: 'pasted type group-update <id> [options] [--json]', description: 'Rename or reorder a Content Type Group.' },
       { usage: 'pasted type group-archive|group-restore <id>', description: 'Archive an empty custom Group or restore it.' },
       { usage: 'pasted type group-delete <id>', description: 'Permanently delete an empty custom Group.' },
       { usage: 'pasted detector list [--json]', description: 'List Detectors in effective priority order.' },
@@ -138,7 +139,7 @@ const CLI_COMMAND_GROUPS = [
       { usage: 'pasted detector update <ref> [options] [--json]', description: 'Update a Detector definition.' },
       { usage: 'pasted detector duplicate <ref> [--name NAME] [--json]', description: 'Duplicate a Detector with a new stable reference.' },
       { usage: 'pasted detector delete <ref> [--json]', description: 'Delete a Detector; shipped defaults remain recoverable.' },
-      { usage: 'pasted detector run <ref> [--text TEXT | --clip ID | --stdin] [--apply] [--json]', description: 'Run a Detector in preview mode, or apply its matching Type to a clip.' },
+      { usage: 'pasted detector run <ref> [--text TEXT | --clip ID | --stdin] [--apply] [--json]', description: 'Run a Detector in preview mode, or apply its matching Content Type to a clip.' },
       { usage: 'pasted detector restore-defaults', description: 'Restore shipped Detectors without removing custom entries.' },
       { usage: 'pasted detector rescan --yes [--json]', description: 'Explicitly reclassify existing text clips with the current enabled Detector order.' },
     ],
@@ -285,7 +286,7 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
                   <h4 className="theme-title text-xs font-bold">First useful actions</h4>
                   <ul className="theme-text-main list-inside list-disc space-y-2 text-xs leading-relaxed">
                     <li>Copy normally in another app to add an item to History.</li>
-                    <li>Use Search to find clip content, Types, Sources, notes, or status.</li>
+                    <li>Use Search to find clip content, Content Types, Sources, notes, or status.</li>
                     <li>Right-click a clip for Queue, Pin, Protect, Note, Bin, Transform, and Trash actions.</li>
                     <li>Open Settings → Functionality to choose the Simple or Full experience.</li>
                   </ul>
@@ -548,7 +549,7 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
                   <span>Content Analysis</span>
                 </h3>
                 <p className="theme-text-muted mt-1 text-xs">
-                  Inspectors measure stable clip structure, Extractors create searchable representations, Detectors classify text into useful Types, and Enrichers recommend contextual next steps.
+                  Capture assigns a structural Clip Type and records source attribution. Inspectors measure structure, Extractors create searchable representations, Detectors classify Content Types, and Enrichers recommend contextual next steps.
                 </p>
                 <p className="theme-text-muted mt-2 max-w-3xl text-xs leading-relaxed">
                   Analysis runs in four bounded passes: inspect, extract, classify, and enrich. Each participant runs at most once and only when its declared inputs are available.
@@ -559,10 +560,10 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
                 <section className="theme-panel space-y-3 rounded-xl border p-4">
                   <h4 className="theme-status-info-text text-xs font-bold">Content Detection</h4>
                   <p className="theme-text-main text-xs leading-relaxed">
-                    Enabled detectors run locally in priority order; the lowest number runs first. A detector uses one or more regular expressions and may add a validator to reduce false positives. Use Settings → Analysis to test samples, manage Types, and restore shipped defaults.
+                    Enabled Detectors run locally in priority order; the lowest number runs first. A Detector uses one or more regular expressions and may add a validator to reduce false positives. Use Settings → Analysis to test samples, manage Content Types, and reset shipped definitions.
                   </p>
                   <p className="theme-text-muted text-xs leading-relaxed">
-                    Editing a detector affects new text clips. <strong>Rescan Clips</strong> explicitly reapplies the current detector order to existing text and can change Types, Smart Bin membership, and sensitive-content masking. Images and files are left unchanged.
+                    Editing a Detector affects new text clips. <strong>Rescan Clips</strong> explicitly reapplies the current Detector order and can change Content Types, Smart Bin membership, and sensitive-content masking. Images and files are left unchanged.
                   </p>
                 </section>
 
@@ -576,6 +577,19 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
                   </p>
                   <p className="theme-text-muted text-xs leading-relaxed">
                     An installed ffprobe or MediaInfo executable also supplies bounded container, codec, stream-count, and duration facts for copied audio and video files. Media metadata is inspected live without returning file paths.
+                  </p>
+                </section>
+
+                <section className="theme-panel space-y-3 rounded-xl border p-4">
+                  <div className="theme-status-success-text flex items-center gap-2 text-xs font-bold">
+                    <AudioLines className="h-4 w-4" />
+                    <span>Audio transcription</span>
+                  </div>
+                  <p className="theme-text-main text-xs leading-relaxed">
+                    Whisper Transcription uses an installed whisper.cpp executable and a selected local GGML model. M4A and AAC preparation also requires FFmpeg.
+                  </p>
+                  <p className="theme-text-muted text-xs leading-relaxed">
+                    Stored transcripts are searchable and do not replace file references. Models are never downloaded automatically.
                   </p>
                 </section>
 

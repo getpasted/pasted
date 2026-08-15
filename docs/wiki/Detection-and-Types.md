@@ -1,6 +1,6 @@
-# Content Analysis, Detection, and Types
+# Content Analysis and Content Types
 
-Content Detection classifies new text clips into Types used by search, calculated Type collections, and Smart Bins. It does not send content to an intelligence provider. Detection runs locally through an ordered registry of regular expressions and optional built-in validators.
+Content Detection classifies new text clips into semantic Content Types used by search, calculated collections, and Smart Bins. It runs locally through an ordered registry of regular expressions and optional built-in validators; no intelligence provider is involved.
 
 Open **Settings → Analysis** to configure Analyzer participants. **Content Detection** controls whether Detectors run; **Content Types** controls semantic labels, collections, and related library presentation without stopping classification.
 
@@ -19,7 +19,7 @@ Within each pass, ready participants run in priority order. A participant blocke
 
 The four passes share one versioned participant contract for target identity, requirements, outputs, outcomes, failures, and clip-application state. Capture, background work, and rescans stop after classification. Interactive requests may continue through enrichment, so optional expensive participants do not run implicitly when content is captured. Inspector, Extractor, and Detector execution modules submit typed requests and translate the internal scheduler report into their domain-specific result without redefining those fields. Enricher implementations follow the same boundary, so adding a pass participant does not require GUI or CLI code to interpret raw Analyzer state.
 
-Text capture runs inspection and enabled detection in one Capture-policy request, then reuses that snapshot for the stored Type and content-hash-bound structural metadata. Focused history rescans and OCR application keep their narrower participant-specific mutation contracts.
+Text capture runs inspection and enabled detection in one Capture-policy request, then reuses that snapshot for the stored Content Type and content-hash-bound structural metadata. Focused history rescans and OCR application keep their narrower participant-specific mutation contracts.
 
 The built-in Structure Inspector records content-free text counts, image dimensions, file item counts and extensions, and the derived clip origin. Stable results are fingerprinted and persisted; filesystem availability and total file size remain live observations. Clip Preview and `pasted inspector run` consume the same versioned result.
 
@@ -50,7 +50,7 @@ Background OCR, manual GUI extraction, CLI Extractor application, and CLI rescan
 Enabled detectors are evaluated in priority order; the lowest priority number runs first. Each detector defines:
 
 - a display name and description;
-- the Type assigned to a match;
+- the Content Type assigned to a match;
 - one or more regular expressions, where any expression may produce a candidate;
 - an optional validator that rejects likely false positives;
 - an enabled state for new clips.
@@ -59,26 +59,26 @@ Available validators include card and IBAN checksums, IP parsing, phone guardrai
 
 Use the sample field and **Test** before saving a detector. Testing reports whether the current draft matches the sample without reclassifying history.
 
-Detector previews, new text capture, explicit application, and history rescans consume the same typed Analysis result. It distinguishes `matched`, `no_match`, and `failed`, carries the matched Type and Detector reference, and includes bounded participant summaries without including analyzed text. Applying a Detector runs inside the clip mutation transaction, so the returned result describes the content and Detector definition that were actually applied.
+Detector previews, new text capture, explicit application, and history rescans consume the same typed Analysis result. It distinguishes `matched`, `no_match`, and `failed`, carries the matched Content Type and Detector reference, and includes bounded participant summaries without including analyzed text. Applying a Detector runs inside the clip mutation transaction, so the returned result describes the content and Detector definition that were actually applied.
 
 ## Editing and recovering detectors
 
-Built-in and custom detectors can be enabled, disabled, reordered by priority, duplicated, and edited. Deleting a shipped detector does not make it unrecoverable. **Reset to Default** restores the selected built-in draft, while **Restore Defaults** restores shipped Types and detectors and preserves custom entries.
+Built-in and custom detectors can be enabled, disabled, reordered by priority, duplicated, and edited. Deleting a shipped detector does not make it unrecoverable. **Reset to Default** restores the selected built-in draft. **Reset…** restores shipped Content Types and Detectors while preserving custom entries.
 
-Detector changes affect newly captured text. Existing clips keep their current Type until an explicit rescan.
+Detector changes affect newly captured text. Existing clips keep their current Content Type until an explicit rescan.
 
 ## Rescan Clips
 
 **Rescan Clips** reapplies the current enabled detector order to existing text clips. Confirm it only when you intend to reinterpret existing data because it can change:
 
-- clip Types;
-- Type collection results;
+- clip Content Types;
+- Content Type collection results;
 - Smart Bin membership;
 - sensitive-content masking driven by classification.
 
-Images and file clips are not reclassified. The completed operation reports how many text clips changed, remained unchanged, or failed Analysis. Detector and Type registry edits are recorded in Activity when that feature is enabled, but registry metadata does not use clip Revision History.
+Images and file clips are not reclassified. The completed operation reports how many text clips changed, remained unchanged, or failed Analysis. Detector and Content Type registry edits are recorded in Activity when that feature is enabled, but registry metadata does not use clip Revision History.
 
-If Analysis itself fails for a clip, the rescan leaves that clip's existing Type unchanged instead of silently reclassifying it as plain text.
+If Analysis itself fails for a clip, the rescan leaves that clip's existing Content Type unchanged instead of silently reclassifying it as plain text.
 
 The CLI equivalent requires explicit confirmation:
 
@@ -86,15 +86,15 @@ The CLI equivalent requires explicit confirmation:
 pasted detector rescan --yes --json
 ```
 
-## Types and Groups
+## Content Types and Groups
 
 Clip Type, File Format, and Content Type are separate concepts. Every clip has exactly one structural Clip Type: Text, Image, or Files. A Files clip may contain several referenced files and therefore several File Formats. Detectors may eventually associate several semantic Content Types with one clip; the current persistence contract retains one winning detection until the multi-match schema migration is complete. Insights presents these categories separately rather than combining them.
 
-**Manage Types** opens the shared Type and Group registry. Type IDs are stable so saved searches, Smart Bins, CLI output, and historical clips can keep referring to the same concept even when its name, icon, or group changes.
+**Manage Content Types…** opens the shared Content Type and Group registry. Content Type IDs are stable so saved searches, Smart Bins, CLI output, and historical clips can keep referring to the same concept even when its name, icon, or group changes.
 
-- Built-in Types and Groups can be customized and later restored.
-- Custom Types can be archived without changing historical clips.
-- Archiving a Type disables detectors that would produce it.
+- Built-in Content Types and Groups can be customized and later reset.
+- Custom Content Types can be archived without changing historical clips.
+- Archiving a Content Type disables Detectors that would produce it.
 - A custom Group must be empty before it can be archived or permanently deleted.
 - Archived entries remain recoverable and are excluded from ordinary selection.
 

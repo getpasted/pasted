@@ -9,7 +9,7 @@ The [Pasted Wiki](https://github.com/getpasted/pasted/wiki) covers installation,
 ## What Pasted does
 
 - Captures text, images, screenshots, PDFs, and copied file references in a searchable local history.
-- Organizes clips with manual Bins, Smart Bins, Types, Sources, pinning, protection, notes, Trash, and persistent per-collection ordering.
+- Organizes clips with manual Bins, Smart Bins, Content Types, Sources, pinning, protection, notes, Trash, and persistent per-collection ordering.
 - Analyzes clips locally through bounded Inspect, Extract, Classify, and Enrich passes, with native macOS OCR, optional Tesseract OCR, ffprobe or MediaInfo media metadata, local whisper.cpp transcription, editable Detectors, content-free structural metadata, and Smart Action recommendations.
 - Previews common image files and the first page of copied PDFs without changing the copied file reference.
 - Records copies into a persistent Queue, then pastes the next item or the whole Queue into the previously focused app.
@@ -29,7 +29,7 @@ Password managers and other sensitive apps are ignored by the default blacklist.
 
 Pasted sends your private clip content outside the app only when you _explicitly_ run an intelligence-assisted transform through a connection you manually enabled. Connection credentials remain with the provider, operating system, or authenticated command-line tool; Pasted stores references rather than API keys.
 
-Analysis results are deliberately content-free. They can report bounded structure, a detected Type, participant outcomes, and recommended Transform references, but never return original text, OCR text, image bytes, or file paths.
+Analyzer snapshots and participant summaries are deliberately content-free. They can report bounded structure, a detected Content Type, participant outcomes, and recommended Transform references, but never return original text, extracted text, image bytes, or file paths. An explicit Extractor preview may return its bounded derived text to the caller that requested it.
 
 The Analysis settings sequence shows Capture ahead of the Analyzer. Capture assigns one structural Clip Type and records source attribution; optional source presentation and icon resolution follow the Sources setting.
 
