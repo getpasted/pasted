@@ -1,5 +1,5 @@
 import { AlertTriangle } from 'lucide-react';
-import { useId, type ReactNode } from 'react';
+import { useId } from 'react';
 import { AppDialog } from './AppDialog';
 import {
   AppDialogBody,
@@ -12,7 +12,7 @@ import {
 export interface ConfirmationDialogRequest {
   title: string;
   description: string;
-  details?: ReactNode;
+  details?: string;
   confirmLabel: string;
   tone?: 'warning' | 'danger';
   onConfirm: () => void | Promise<void>;

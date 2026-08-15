@@ -118,6 +118,7 @@ export function SettingsDetectionPanel({
   const load = async () => {
     const loaded = await invoke<ContentDetector[]>('get_content_detectors');
     setDetectors(loaded);
+    return loaded;
   };
 
   useEffect(() => {
@@ -236,9 +237,8 @@ export function SettingsDetectionPanel({
     if (typeof selectedId !== 'number' || !selected) return;
     try {
       await invoke('delete_content_detector', { id: selectedId });
-      const remaining = detectors.filter((detector) => detector.id !== selectedId);
-      setDetectors(remaining);
-      setSelectedId(remaining[0]?.id ?? 'new');
+      const remaining = await load();
+      setSelectedId((current) => current === selectedId ? remaining[0]?.id ?? 'new' : current);
       showToast({ tone: 'success', message: `${selected.name} deleted. Restore Shipped Defaults can recover shipped detectors.` });
     } catch (error) {
       showToast({ tone: 'error', message: String(error) });

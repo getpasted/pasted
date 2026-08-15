@@ -229,9 +229,7 @@ export function ContentExtractorManagerDialog({
     if (!selected) return;
     try {
       await invoke('delete_content_extractor', { id: selected.id });
-      const remaining = extractors.filter((extractor) => extractor.id !== selected.id);
-      setExtractors(remaining);
-      setSelectedId(remaining[0]?.id ?? 'new');
+      await load();
       onChanged?.();
       showToast({ tone: 'success', message: `${selected.name} deleted.` });
     } catch (error) {
