@@ -106,9 +106,11 @@ function AnalysisManagerRow({
           <p className="theme-text-muted mt-0.5 text-[10px]">{description}</p>
         </div>
       </div>
-      <ActionButton aria-label={`Manage ${title}…`} onClick={onManage} className="h-7 min-h-7 shrink-0 px-2.5">
-        <Icon className="h-3.5 w-3.5" /> Manage…
-      </ActionButton>
+      <div className="flex shrink-0 items-center gap-2">
+        <ActionButton aria-label={`Manage ${title}…`} onClick={onManage} className="h-7 min-h-7 shrink-0 px-2.5">
+          <Icon className="h-3.5 w-3.5" /> Manage…
+        </ActionButton>
+      </div>
     </section>
   );
 }
@@ -116,9 +118,15 @@ function AnalysisManagerRow({
 export function SettingsDetectionPanel({
   contentDetectionEnabled,
   ocrEnabled,
+  transcriptionsEnabled,
+  transformationsEnabled,
+  typesEnabled,
 }: {
   contentDetectionEnabled: boolean;
   ocrEnabled: boolean;
+  transcriptionsEnabled: boolean;
+  transformationsEnabled: boolean;
+  typesEnabled: boolean;
 }) {
   const { showToast } = useToast();
   const { definitions: contentTypes, groups: contentTypeGroups, refresh: refreshContentTypes, refreshGroups } = useContentTypes();
@@ -157,8 +165,8 @@ export function SettingsDetectionPanel({
   };
 
   useEffect(() => {
-    if (contentDetectionEnabled) void load();
-  }, [contentDetectionEnabled]);
+    void load();
+  }, []);
   useEffect(() => {
     if (!isManagerOpen) return;
     setSelectedId((current) => current ?? detectors[0]?.id ?? 'new');
@@ -448,30 +456,30 @@ export function SettingsDetectionPanel({
             step={1}
             icon={ScanSearch}
             title="Inspectors"
-            description="Measure clip structure and media facts."
+            description="Measure structure and media facts."
             onManage={() => setIsInspectorManagerOpen(true)}
           />
-          {ocrEnabled && <AnalysisManagerRow
+          {(ocrEnabled || transcriptionsEnabled) && <AnalysisManagerRow
             step={2}
             icon={ScanText}
             title="Extractors"
-            description="Create searchable representations from clip content."
+            description="Create searchable representations."
             onManage={() => setIsExtractorManagerOpen(true)}
           />}
-          {contentDetectionEnabled && <AnalysisManagerRow
+          {(contentDetectionEnabled || typesEnabled) && <AnalysisManagerRow
             step={3}
             icon={Radar}
             title="Detectors"
-            description="Classify analyzable text as registered Types."
+            description="Classify text as registered Types."
             onManage={openDetectorManager}
           />}
-          <AnalysisManagerRow
+          {transformationsEnabled && <AnalysisManagerRow
             step={4}
             icon={Lightbulb}
             title="Enrichers"
-            description="Recommend useful actions from analysis signals."
+            description="Recommend actions from analysis signals."
             onManage={() => setIsEnricherManagerOpen(true)}
-          />
+          />}
         </div>
         <div className="theme-divider flex items-center justify-between gap-3 border-t px-3 py-2">
           <ActionButton onClick={restoreAnalysis} disabled={restoring}>
@@ -482,7 +490,7 @@ export function SettingsDetectionPanel({
           </p>
         </div>
       </section>
-      {contentDetectionEnabled && <>
+      <>
         <AppDialog
           isOpen={isManagerOpen}
           onClose={() => setIsManagerOpen(false)}
@@ -641,7 +649,7 @@ export function SettingsDetectionPanel({
           </>}
         </AppDialog>
         <ContentTypeManagerDialog isOpen={isTypeManagerOpen} onClose={() => setIsTypeManagerOpen(false)} />
-      </>}
+      </>
       <BuiltinAnalysisManagerDialog
         isOpen={isInspectorManagerOpen}
         onClose={() => setIsInspectorManagerOpen(false)}
@@ -650,7 +658,12 @@ export function SettingsDetectionPanel({
         description="Review clip inspection behavior and media availability."
         icon={ScanSearch}
       />
-      <ContentExtractorManagerDialog isOpen={isExtractorManagerOpen} onClose={() => setIsExtractorManagerOpen(false)} />
+      <ContentExtractorManagerDialog
+        isOpen={isExtractorManagerOpen}
+        onClose={() => setIsExtractorManagerOpen(false)}
+        ocrEnabled={ocrEnabled}
+        transcriptionsEnabled={transcriptionsEnabled}
+      />
       <BuiltinAnalysisManagerDialog
         isOpen={isEnricherManagerOpen}
         onClose={() => setIsEnricherManagerOpen(false)}

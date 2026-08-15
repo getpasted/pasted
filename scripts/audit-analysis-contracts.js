@@ -10,6 +10,9 @@ const clipPreviewContent = read('src/components/ClipPreviewContent.tsx');
 const database = read('src-tauri/src/db.rs');
 const types = read('src/types.ts');
 const analysisSettings = read('src/components/SettingsDetectionPanel.tsx');
+const settingsModal = read('src/components/SettingsModal.tsx');
+const analysisExecution = read('src-tauri/src/analysis_execution.rs');
+const commands = read('src-tauri/src/commands.rs');
 const builtinAnalysisManager = read('src/components/BuiltinAnalysisManagerDialog.tsx');
 const extractorManager = read('src/components/ContentExtractorManagerDialog.tsx');
 const registryPanelHeader = read('src/components/RegistryPanelHeader.tsx');
@@ -34,6 +37,32 @@ assert.match(
   /Not all steps run for all clips\. Some steps may be long-running\./,
   'Analysis Settings must explain that the ordered passes are conditional',
 );
+assert.match(settingsModal, /activeTab === 'analysis' && \(\s*<SettingsDetectionPanel/,
+  'Analysis Settings must remain available when optional participants are disabled');
+assert.doesNotMatch(settingsModal, /showAnalysis=/,
+  'Functionality gates must not hide Analysis configuration');
+assert.match(analysisSettings, /\{\(ocrEnabled \|\| transcriptionsEnabled\) && <AnalysisManagerRow[\s\S]{0,220}title="Extractors"/,
+  'Extractors must remain visible for either OCR or Transcriptions');
+assert.match(analysisSettings, /\{\(contentDetectionEnabled \|\| typesEnabled\) && <AnalysisManagerRow[\s\S]{0,220}title="Detectors"/,
+  'Detectors must remain visible for either Content Detection or Types');
+assert.match(settingsModal, /typesEnabled=\{settings\.enableTypes\}/,
+  'Analysis Settings must receive the Types feature gate');
+assert.match(analysisSettings, /\{transformationsEnabled && <AnalysisManagerRow[\s\S]{0,220}title="Enrichers"/,
+  'Disabling Transformations must hide Smart Action Enrichers');
+assert.match(analysisExecution, /let run_detectors = allow_text_participants && options\.include_detectors;/,
+  'Enrichment must not implicitly enable Detectors');
+assert.match(commands, /include_detectors: include_detectors\.unwrap_or\(true\)[\s\S]{0,100}Feature::ContentDetection/,
+  'The live Analyzer command must honor the Content Detection feature gate');
+assert.match(extractorManager, /inputContract !== 'image' \|\| ocrEnabled/,
+  'Disabling OCR must hide image Extractors');
+assert.match(extractorManager, /inputContract !== 'file_references' \|\| transcriptionsEnabled/,
+  'Disabling Transcriptions must hide file transcription Extractors');
+assert.match(analysisSettings, /<ContentExtractorManagerDialog[\s\S]{0,220}ocrEnabled=\{ocrEnabled\}[\s\S]{0,100}transcriptionsEnabled=\{transcriptionsEnabled\}/,
+  'Analysis Settings must pass both extraction feature gates to Extractor management');
+assert.match(commands, /extract_text_from_file_clip[\s\S]{0,220}Feature::Transcriptions/,
+  'Native file transcription must enforce the Transcriptions feature gate');
+assert.match(clipPreviewContent, /transcriptionsEnabled && <div className="theme-panel space-y-3 rounded-xl border p-4 shadow-lg">/,
+  'Clip Preview must hide transcription controls when Transcriptions is disabled');
 for (const command of [
   'restore_default_content_extractors',
   'restore_default_content_detectors',

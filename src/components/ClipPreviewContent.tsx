@@ -27,6 +27,7 @@ interface ClipPreviewContentProps {
   copiedFormat: string | null;
   isOcrLoading: boolean;
   ocrEnabled: boolean;
+  transcriptionsEnabled: boolean;
   readOnly?: boolean;
   onColorChange: (value: string) => void;
   onCopyFormat: (label: string, value: string) => void;
@@ -158,6 +159,7 @@ export function ClipPreviewContent({
   copiedFormat,
   isOcrLoading,
   ocrEnabled,
+  transcriptionsEnabled,
   readOnly = false,
   onColorChange,
   onCopyFormat,
@@ -241,7 +243,7 @@ export function ClipPreviewContent({
               )}
             </div>
 
-            <div className="theme-panel space-y-3 rounded-xl border p-4 shadow-lg">
+            {transcriptionsEnabled && <div className="theme-panel space-y-3 rounded-xl border p-4 shadow-lg">
               <div className="flex items-center justify-between">
                 <div className="clip-content-accent flex items-center space-x-2 text-xs font-semibold">
                   <ScanText className="h-4 w-4" />
@@ -277,7 +279,7 @@ export function ClipPreviewContent({
               </> : (
                 <p className="theme-text-muted text-xs italic">Run an available file text Extractor to create searchable text.</p>
               )}
-            </div>
+            </div>}
           </div>
         ) : colorData ? (
           <div className="clip-color-inspector theme-panel p-6 rounded-2xl border shadow-2xl space-y-6">

@@ -748,7 +748,8 @@ pub async fn analyze_content(
     let options = crate::analysis_execution::AnalyzerOptions {
         policy,
         include_extractor: include_extractor.unwrap_or(false),
-        include_detectors: include_detectors.unwrap_or(true),
+        include_detectors: include_detectors.unwrap_or(true)
+            && features::is_enabled(&db, Feature::ContentDetection),
         include_enricher,
     };
     let db = Arc::clone(&db);
@@ -1229,6 +1230,7 @@ pub async fn rescan_content_detection_history(
     app: AppHandle,
     db: State<'_, Arc<DbState>>,
 ) -> Result<ContentDetectionRescanReport, String> {
+    features::require(&db, Feature::ContentDetection)?;
     if !confirmed {
         return Err("History rescans require explicit confirmation.".to_string());
     }
@@ -4316,6 +4318,7 @@ pub async fn extract_text_from_file_clip(
     clip_id: i64,
     db: State<'_, Arc<DbState>>,
 ) -> Result<crate::extraction_execution::ExtractionApplicationResult, String> {
+    features::require(&db, Feature::Transcriptions)?;
     let db = db.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
         let extractor = db

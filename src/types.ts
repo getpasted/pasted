@@ -496,6 +496,7 @@ export interface AppSettings {
   enableNotes: boolean;
   enableNotifications: boolean;
   enableOcr: boolean;
+  enableTranscriptions: boolean;
   enablePinning: boolean;
   enableProtection: boolean;
   enableQueue: boolean;

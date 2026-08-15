@@ -49,7 +49,6 @@ impl EnricherDefinition {
             priority: self.priority,
             requires: vec![
                 RepresentationKind::AnalyzableText,
-                RepresentationKind::Classification,
                 RepresentationKind::StructuralMetadata,
             ],
             provides: vec![RepresentationKind::Recommendations],
@@ -63,11 +62,7 @@ pub fn smart_actions_enricher_definition() -> EnricherDefinition {
         name: "Smart Actions".into(),
         description: "Recommends saved Transforms from content-free analysis signals.".into(),
         priority: 0,
-        input_contracts: vec![
-            "analyzable_text".into(),
-            "classification".into(),
-            "structural_metadata".into(),
-        ],
+        input_contracts: vec!["analyzable_text".into(), "structural_metadata".into()],
         output_contract: "recommendations".into(),
     }
 }

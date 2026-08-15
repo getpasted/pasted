@@ -18,6 +18,7 @@ import {
   Trash2,
   Shapes,
   AppWindow,
+  AudioLines,
 } from 'lucide-react';
 import type { AppSettings } from '../types';
 import {
@@ -39,6 +40,7 @@ const FEATURE_ICONS = {
   notes: StickyNote,
   notifications: Bell,
   ocr: ScanText,
+  transcriptions: AudioLines,
   pinning: Pin,
   protection: Shield,
   queue: ListOrdered,

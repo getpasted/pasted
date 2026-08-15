@@ -973,7 +973,7 @@ fn main() -> Result<()> {
             let options = pasted_lib::analysis_execution::AnalyzerOptions {
                 policy,
                 include_extractor: args.iter().any(|argument| argument == "--extract"),
-                include_detectors: true,
+                include_detectors: pasted_lib::features::is_enabled(&db, Feature::ContentDetection),
                 include_enricher: pasted_lib::features::is_enabled(&db, Feature::Transformations),
             };
             let result = if let Some(clip_id) = clip_id {
@@ -1386,6 +1386,9 @@ fn main() -> Result<()> {
                     }
                     if image_contract {
                         require_feature(&db, Feature::Ocr);
+                    }
+                    if file_contract {
+                        require_feature(&db, Feature::Transcriptions);
                     }
                     let mut content_hash = None;
                     let analysis = if image_contract {

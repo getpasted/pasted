@@ -352,7 +352,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
     let cancelled = false;
     fileExtractionRequestIdRef.current += 1;
     setIsFileExtractionLoading(false);
-    if (!clip || clip.content_type !== 'file') {
+    if (!features.transcriptions || !clip || clip.content_type !== 'file') {
       setFileSearchableText(null);
       return () => { cancelled = true; };
     }
@@ -365,7 +365,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
         if (!cancelled) console.error('Failed to load extracted file text:', error);
       });
     return () => { cancelled = true; };
-  }, [clip?.content_hash, clip?.content_type, clip?.id]);
+  }, [clip?.content_hash, clip?.content_type, clip?.id, features.transcriptions]);
 
   useEffect(() => {
     let cancelled = false;
@@ -636,7 +636,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   };
 
   const handleRunFileExtraction = async () => {
-    if (!clip || clip.content_type !== 'file' || !viewPolicy.canMutateContent) return;
+    if (!features.transcriptions || !clip || clip.content_type !== 'file' || !viewPolicy.canMutateContent) return;
     const requestedClipId = clip.id;
     const requestId = ++fileExtractionRequestIdRef.current;
     setIsFileExtractionLoading(true);
@@ -1228,6 +1228,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
           copiedFormat={copiedFormat}
           isOcrLoading={isOcrLoading}
           ocrEnabled={features.ocr}
+          transcriptionsEnabled={features.transcriptions}
           readOnly={!viewPolicy.canMutateContent}
           onColorChange={setTransformedText}
           onCopyFormat={(label, value) => void handleCopySpecificFormat(label, value)}
