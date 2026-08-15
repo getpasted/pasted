@@ -2,6 +2,12 @@
 
 Pasted runs derived-content work through one bounded Analyzer and exposes participant-specific results through parallel execution modules.
 
+## Version 1 freeze
+
+The serialized contracts under `contracts/analysis/v1`, their outcome and failure semantics, the four ordered passes, and the privacy boundary described here are frozen for Pasted 1.0. Internal implementation and performance changes may continue without changing observable behavior. Any incompatible field, outcome, pass, mutation, or privacy change requires a new contract version; additive changes require explicit GUI, CLI, fixture, and documentation review.
+
+Structure Inspection and Smart Actions are immutable built-in participants in 1.0. Inspection is always available because Clip Preview depends on its bounded structural facts. Smart Actions follows the user-facing Transformations feature state and runs only under the interactive policy. Neither participant has a redundant Settings switch. Their definitions and contracts remain inspectable through `pasted inspector`, `pasted enricher`, and `pasted registry`.
+
 ## Stable layers
 
 - `analysis_contract.rs` owns the shared result metadata, contract version, representation names, the four ordered passes, execution policies, participant contracts and run summaries, target kinds, failures, and clip-application state.
@@ -34,3 +40,5 @@ Participant results and Activity records must not include input content, credent
 See [Analysis failure and parity matrix](ANALYSIS_FAILURE_MATRIX.md) for the shared outcome, mutation, and surface semantics.
 
 See [Analysis performance baselines](ANALYSIS_PERFORMANCE.md) for the opt-in release-mode harness and regression policy.
+
+See [Analysis 1.0 acceptance](ANALYSIS_ACCEPTANCE.md) for the release acceptance matrix across GUI, CLI, capture, and platform-specific extraction.
