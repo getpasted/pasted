@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
 use std::process::{Command, Stdio};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use crate::analysis_contract::{RepresentationContract, RepresentationKind};
 
@@ -14,8 +14,11 @@ pub const APPLE_VISION_OCR_REF: &str = "extractor:apple-vision-ocr";
 pub const APPLE_VISION_ENGINE: &str = "macos-vision-v1";
 pub const TESSERACT_OCR_REF: &str = "extractor:tesseract-ocr";
 pub const TESSERACT_ENGINE: &str = "tesseract-cli-v1";
+pub const WHISPER_TRANSCRIPTION_REF: &str = "extractor:whisper-transcription";
+pub const WHISPER_CPP_ENGINE: &str = "whisper-cpp-cli-v1";
 
 const TESSERACT_TIMEOUT: Duration = Duration::from_secs(15);
+const WHISPER_TIMEOUT: Duration = Duration::from_secs(5 * 60);
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -42,7 +45,18 @@ pub enum ExtractionOutcome {
 pub trait ExtractorEngine: Sync {
     fn id(&self) -> &'static str;
     fn availability(&self) -> EngineAvailability;
+    fn availability_with_model(&self, _model_path: Option<&Path>) -> EngineAvailability {
+        self.availability()
+    }
     fn extract(&self, image_bytes: &[u8]) -> ExtractionOutcome;
+    fn extract_files(&self, _paths: &[String], _model_path: Option<&Path>) -> ExtractionOutcome {
+        ExtractionOutcome::Failed {
+            failure: ExtractionFailure {
+                code: "invalid_contract".into(),
+                message: "This extraction engine does not accept file references.".into(),
+            },
+        }
+    }
 }
 
 pub struct ExtractorEngineRegistry<'a> {
@@ -59,6 +73,17 @@ impl<'a> ExtractorEngineRegistry<'a> {
             .iter()
             .find(|candidate| candidate.id() == engine)
             .map(|candidate| candidate.availability())
+            .unwrap_or_else(|| EngineAvailability {
+                is_available: false,
+                unavailable_reason: Some("This extraction engine is not installed.".into()),
+            })
+    }
+
+    pub fn availability_for(&self, engine: &str, model_path: Option<&Path>) -> EngineAvailability {
+        self.engines
+            .iter()
+            .find(|candidate| candidate.id() == engine)
+            .map(|candidate| candidate.availability_with_model(model_path))
             .unwrap_or_else(|| EngineAvailability {
                 is_available: false,
                 unavailable_reason: Some("This extraction engine is not installed.".into()),
@@ -89,7 +114,8 @@ impl<'a> ExtractorEngineRegistry<'a> {
                 },
             };
         };
-        let availability = engine.availability();
+        let availability =
+            engine.availability_with_model(extractor.model_path.as_deref().map(Path::new));
         if !availability.is_available {
             return ExtractionOutcome::Failed {
                 failure: ExtractionFailure {
@@ -100,27 +126,71 @@ impl<'a> ExtractorEngineRegistry<'a> {
                 },
             };
         }
-        match engine.extract(image_bytes) {
-            ExtractionOutcome::Produced { text } if text.trim().is_empty() => {
-                ExtractionOutcome::NoOutput
-            }
-            ExtractionOutcome::Produced { text }
-                if text.len() > crate::resource_limits::MAX_OCR_TEXT_BYTES =>
-            {
-                ExtractionOutcome::Failed {
-                    failure: ExtractionFailure {
-                        code: "output_too_large".into(),
-                        message: "Extracted text exceeds the supported size limit.".into(),
-                    },
-                }
-            }
-            outcome => outcome,
+        normalize_extraction_outcome(engine.extract(image_bytes))
+    }
+
+    pub fn execute_files(&self, extractor: &Extractor, paths: &[String]) -> ExtractionOutcome {
+        if !extractor.supports_contract(
+            RepresentationKind::FileReferences,
+            RepresentationKind::SearchableText,
+        ) {
+            return ExtractionOutcome::Failed {
+                failure: ExtractionFailure {
+                    code: "invalid_contract".into(),
+                    message: "This extraction contract is not supported.".into(),
+                },
+            };
         }
+        let Some(engine) = self
+            .engines
+            .iter()
+            .find(|candidate| candidate.id() == extractor.engine)
+        else {
+            return ExtractionOutcome::Failed {
+                failure: ExtractionFailure {
+                    code: "engine_not_installed".into(),
+                    message: "This extraction engine is not installed.".into(),
+                },
+            };
+        };
+        let model_path = extractor.model_path.as_deref().map(Path::new);
+        let availability = engine.availability_with_model(model_path);
+        if !availability.is_available {
+            return ExtractionOutcome::Failed {
+                failure: ExtractionFailure {
+                    code: "engine_unavailable".into(),
+                    message: availability
+                        .unavailable_reason
+                        .unwrap_or_else(|| "This extraction engine is unavailable.".into()),
+                },
+            };
+        }
+        normalize_extraction_outcome(engine.extract_files(paths, model_path))
+    }
+}
+
+fn normalize_extraction_outcome(outcome: ExtractionOutcome) -> ExtractionOutcome {
+    match outcome {
+        ExtractionOutcome::Produced { text } if text.trim().is_empty() => {
+            ExtractionOutcome::NoOutput
+        }
+        ExtractionOutcome::Produced { text }
+            if text.len() > crate::resource_limits::MAX_OCR_TEXT_BYTES =>
+        {
+            ExtractionOutcome::Failed {
+                failure: ExtractionFailure {
+                    code: "output_too_large".into(),
+                    message: "Extracted text exceeds the supported size limit.".into(),
+                },
+            }
+        }
+        outcome => outcome,
     }
 }
 
 struct AppleVisionOcrEngine;
 struct TesseractOcrEngine;
+struct WhisperCppEngine;
 
 impl ExtractorEngine for AppleVisionOcrEngine {
     fn id(&self) -> &'static str {
@@ -184,10 +254,80 @@ impl ExtractorEngine for TesseractOcrEngine {
     }
 }
 
+impl ExtractorEngine for WhisperCppEngine {
+    fn id(&self) -> &'static str {
+        WHISPER_CPP_ENGINE
+    }
+
+    fn availability(&self) -> EngineAvailability {
+        self.availability_with_model(None)
+    }
+
+    fn availability_with_model(&self, model_path: Option<&Path>) -> EngineAvailability {
+        if find_whisper_cpp_executable().is_none() {
+            return EngineAvailability {
+                is_available: false,
+                unavailable_reason: Some(
+                    "Whisper.cpp is not installed. Install whisper-cpp, then check again.".into(),
+                ),
+            };
+        }
+        let Some(model_path) = model_path else {
+            return EngineAvailability {
+                is_available: false,
+                unavailable_reason: Some("A local Whisper GGML model is not configured.".into()),
+            };
+        };
+        if !model_path.is_file() {
+            return EngineAvailability {
+                is_available: false,
+                unavailable_reason: Some("The configured Whisper model is unavailable.".into()),
+            };
+        }
+        EngineAvailability {
+            is_available: true,
+            unavailable_reason: None,
+        }
+    }
+
+    fn extract(&self, _image_bytes: &[u8]) -> ExtractionOutcome {
+        ExtractionOutcome::Failed {
+            failure: ExtractionFailure {
+                code: "invalid_contract".into(),
+                message: "Whisper transcription requires audio file references.".into(),
+            },
+        }
+    }
+
+    fn extract_files(&self, paths: &[String], model_path: Option<&Path>) -> ExtractionOutcome {
+        let Some(executable) = find_whisper_cpp_executable() else {
+            return ExtractionOutcome::Failed {
+                failure: ExtractionFailure {
+                    code: "engine_unavailable".into(),
+                    message: "Whisper.cpp is not installed.".into(),
+                },
+            };
+        };
+        let Some(model_path) = model_path else {
+            return ExtractionOutcome::Failed {
+                failure: ExtractionFailure {
+                    code: "engine_unavailable".into(),
+                    message: "A local Whisper GGML model is not configured.".into(),
+                },
+            };
+        };
+        perform_whisper_cpp_transcription(&executable, model_path, paths, WHISPER_TIMEOUT)
+    }
+}
+
 static APPLE_VISION_OCR_ENGINE: AppleVisionOcrEngine = AppleVisionOcrEngine;
 static TESSERACT_OCR_ENGINE: TesseractOcrEngine = TesseractOcrEngine;
-static SYSTEM_ENGINES: [&dyn ExtractorEngine; 2] =
-    [&APPLE_VISION_OCR_ENGINE, &TESSERACT_OCR_ENGINE];
+static WHISPER_CPP_ENGINE_IMPLEMENTATION: WhisperCppEngine = WhisperCppEngine;
+static SYSTEM_ENGINES: [&dyn ExtractorEngine; 3] = [
+    &APPLE_VISION_OCR_ENGINE,
+    &TESSERACT_OCR_ENGINE,
+    &WHISPER_CPP_ENGINE_IMPLEMENTATION,
+];
 
 pub fn system_engine_registry() -> ExtractorEngineRegistry<'static> {
     ExtractorEngineRegistry::new(&SYSTEM_ENGINES)
@@ -205,6 +345,7 @@ pub struct Extractor {
     pub name: String,
     pub description: String,
     pub engine: String,
+    pub model_path: Option<String>,
     pub input_contract: String,
     pub output_contract: String,
     pub enabled: bool,
@@ -241,6 +382,7 @@ pub struct ExtractorDefinitionInput {
     pub name: String,
     pub description: String,
     pub engine: String,
+    pub model_path: Option<String>,
     pub input_contract: String,
     pub output_contract: String,
     pub enabled: bool,
@@ -252,6 +394,7 @@ pub struct ExtractorPreset {
     pub name: &'static str,
     pub description: &'static str,
     pub engine: &'static str,
+    pub model_path: Option<&'static str>,
     pub input_contract: &'static str,
     pub output_contract: &'static str,
     pub priority: i64,
@@ -263,6 +406,7 @@ pub const EXTRACTOR_PRESETS: &[ExtractorPreset] = &[
         name: "Apple Vision OCR",
         description: "Extracts searchable text from images locally with Apple Vision.",
         engine: APPLE_VISION_ENGINE,
+        model_path: None,
         input_contract: RepresentationKind::ImageBytes.stable_name(),
         output_contract: RepresentationKind::SearchableText.stable_name(),
         priority: 10,
@@ -272,14 +416,29 @@ pub const EXTRACTOR_PRESETS: &[ExtractorPreset] = &[
         name: "Tesseract OCR",
         description: "Extracts searchable text from images locally with Tesseract.",
         engine: TESSERACT_ENGINE,
+        model_path: None,
         input_contract: RepresentationKind::ImageBytes.stable_name(),
         output_contract: RepresentationKind::SearchableText.stable_name(),
         priority: 20,
+    },
+    ExtractorPreset {
+        stable_ref: WHISPER_TRANSCRIPTION_REF,
+        name: "Whisper Transcription",
+        description: "Extracts searchable text from local audio files with whisper.cpp.",
+        engine: WHISPER_CPP_ENGINE,
+        model_path: None,
+        input_contract: RepresentationKind::FileReferences.stable_name(),
+        output_contract: RepresentationKind::SearchableText.stable_name(),
+        priority: 30,
     },
 ];
 
 pub fn engine_availability(engine: &str) -> EngineAvailability {
     system_engine_registry().availability(engine)
+}
+
+pub fn engine_availability_for(engine: &str, model_path: Option<&str>) -> EngineAvailability {
+    system_engine_registry().availability_for(engine, model_path.map(Path::new))
 }
 
 pub fn validate_extractor_input(input: &ExtractorInput) -> Result<(), String> {
@@ -305,12 +464,23 @@ pub fn validate_extractor_definition(input: &ExtractorDefinitionInput) -> Result
     if input.engine.trim().is_empty() || input.engine.trim().len() > 80 {
         return Err("Extractor engines require 1–80 characters".to_string());
     }
-    let contract = RepresentationContract::parse(&input.input_contract, &input.output_contract)
-        .map_err(|_| "This version supports only image → searchable_text Extractors".to_string())?;
-    if contract.input != RepresentationKind::ImageBytes
-        || contract.output != RepresentationKind::SearchableText
+    if input
+        .model_path
+        .as_deref()
+        .is_some_and(|path| path.is_empty() || path.len() > 4_096 || path.contains('\0'))
     {
-        return Err("This version supports only image → searchable_text Extractors".to_string());
+        return Err("Extractor model paths require 1–4,096 characters".to_string());
+    }
+    let contract = RepresentationContract::parse(&input.input_contract, &input.output_contract)
+        .map_err(|_| "Extractors require a supported searchable-text contract".to_string())?;
+    if !matches!(
+        (contract.input, contract.output),
+        (
+            RepresentationKind::ImageBytes | RepresentationKind::FileReferences,
+            RepresentationKind::SearchableText
+        )
+    ) {
+        return Err("Extractors require image or file references → searchable_text".to_string());
     }
     Ok(())
 }
@@ -336,6 +506,173 @@ fn find_tesseract_executable() -> Option<std::path::PathBuf> {
     );
 
     crate::external_tools::find_executable(name, explicit)
+}
+
+fn find_whisper_cpp_executable() -> Option<std::path::PathBuf> {
+    #[cfg(windows)]
+    let (name, explicit) = (
+        "whisper-cli.exe",
+        &[
+            r"C:\Program Files\whisper.cpp\whisper-cli.exe",
+            r"C:\whisper.cpp\whisper-cli.exe",
+        ][..],
+    );
+    #[cfg(not(windows))]
+    let (name, explicit) = (
+        "whisper-cli",
+        &[
+            "/opt/homebrew/bin/whisper-cli",
+            "/usr/local/bin/whisper-cli",
+            "/usr/bin/whisper-cli",
+            "/home/linuxbrew/.linuxbrew/bin/whisper-cli",
+        ][..],
+    );
+    crate::external_tools::find_executable(name, explicit)
+}
+
+fn perform_whisper_cpp_transcription(
+    executable: &Path,
+    model_path: &Path,
+    paths: &[String],
+    timeout: Duration,
+) -> ExtractionOutcome {
+    let audio_paths = paths
+        .iter()
+        .map(Path::new)
+        .filter(|path| path.is_file())
+        .filter(|path| {
+            path.extension()
+                .and_then(|extension| extension.to_str())
+                .is_some_and(|extension| {
+                    matches!(
+                        extension.to_ascii_lowercase().as_str(),
+                        "flac" | "mp3" | "ogg" | "wav"
+                    )
+                })
+        })
+        .take(crate::resource_limits::MAX_MEDIA_PROBE_FILES)
+        .collect::<Vec<_>>();
+    if audio_paths.is_empty() {
+        return ExtractionOutcome::NoOutput;
+    }
+    let workspace = match crate::external_tools::PrivateWorkspace::create("transcription") {
+        Ok(workspace) => workspace,
+        Err(_) => {
+            return ExtractionOutcome::Failed {
+                failure: ExtractionFailure {
+                    code: "workspace_error".into(),
+                    message: "A private transcription workspace could not be created.".into(),
+                },
+            };
+        }
+    };
+    let started = Instant::now();
+    let mut transcripts = Vec::new();
+    let mut transcript_bytes = 0usize;
+    for (index, audio_path) in audio_paths.into_iter().enumerate() {
+        let output_base = workspace.join(format!("transcript-{index}"));
+        let output_path = workspace.join(format!("transcript-{index}.txt"));
+        let mut child = match Command::new(executable)
+            .arg("-m")
+            .arg(model_path)
+            .arg("-f")
+            .arg(audio_path)
+            .arg("-otxt")
+            .arg("-of")
+            .arg(&output_base)
+            .arg("-np")
+            .arg("-nt")
+            .arg("-l")
+            .arg("auto")
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+        {
+            Ok(child) => child,
+            Err(_) => {
+                return ExtractionOutcome::Failed {
+                    failure: ExtractionFailure {
+                        code: "engine_unavailable".into(),
+                        message: "Whisper.cpp could not be started.".into(),
+                    },
+                };
+            }
+        };
+        let remaining = timeout.saturating_sub(started.elapsed());
+        if remaining.is_zero() {
+            let _ = child.kill();
+            let _ = child.wait();
+            return ExtractionOutcome::Failed {
+                failure: ExtractionFailure {
+                    code: "engine_timeout".into(),
+                    message: "Whisper.cpp exceeded the transcription time limit.".into(),
+                },
+            };
+        }
+        let status = match crate::external_tools::wait_bounded(&mut child, remaining) {
+            Ok(status) => status,
+            Err(crate::external_tools::ProcessWaitError::TimedOut) => {
+                return ExtractionOutcome::Failed {
+                    failure: ExtractionFailure {
+                        code: "engine_timeout".into(),
+                        message: "Whisper.cpp exceeded the transcription time limit.".into(),
+                    },
+                };
+            }
+            Err(crate::external_tools::ProcessWaitError::Failed) => {
+                return ExtractionOutcome::Failed {
+                    failure: ExtractionFailure {
+                        code: "engine_failed".into(),
+                        message: "Whisper.cpp did not complete successfully.".into(),
+                    },
+                };
+            }
+        };
+        if !status.success() {
+            return ExtractionOutcome::Failed {
+                failure: ExtractionFailure {
+                    code: "engine_failed".into(),
+                    message: "Whisper.cpp did not complete successfully.".into(),
+                },
+            };
+        }
+        let Ok(metadata) = output_path.metadata() else {
+            continue;
+        };
+        if metadata.len() > crate::resource_limits::MAX_OCR_TEXT_BYTES as u64 {
+            return ExtractionOutcome::Failed {
+                failure: ExtractionFailure {
+                    code: "output_too_large".into(),
+                    message: "Transcribed text exceeds the supported size limit.".into(),
+                },
+            };
+        }
+        if let Ok(text) = fs::read_to_string(&output_path) {
+            let text = text.trim();
+            if !text.is_empty() {
+                transcript_bytes = transcript_bytes
+                    .saturating_add(text.len())
+                    .saturating_add(2);
+                if transcript_bytes > crate::resource_limits::MAX_OCR_TEXT_BYTES {
+                    return ExtractionOutcome::Failed {
+                        failure: ExtractionFailure {
+                            code: "output_too_large".into(),
+                            message: "Transcribed text exceeds the supported size limit.".into(),
+                        },
+                    };
+                }
+                transcripts.push(text.to_string());
+            }
+        }
+    }
+    if transcripts.is_empty() {
+        ExtractionOutcome::NoOutput
+    } else {
+        ExtractionOutcome::Produced {
+            text: transcripts.join("\n\n"),
+        }
+    }
 }
 
 fn perform_tesseract_ocr(
@@ -687,6 +1024,7 @@ mod tests {
             name: "Test Extractor".into(),
             description: String::new(),
             engine: engine.into(),
+            model_path: None,
             input_contract: "image".into(),
             output_contract: "searchable_text".into(),
             enabled: true,

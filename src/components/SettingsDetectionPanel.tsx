@@ -382,8 +382,8 @@ export function SettingsDetectionPanel({
           title="Extractors"
           description="Create searchable representations from clip content."
           actions={
-            <ActionButton onClick={() => setIsExtractorManagerOpen(true)} className="h-7 min-h-7 shrink-0 px-2.5">
-              <Pencil className="h-3.5 w-3.5" /> Manage Extractors
+            <ActionButton aria-label="Manage Extractors" onClick={() => setIsExtractorManagerOpen(true)} className="h-7 min-h-7 shrink-0 px-2.5">
+              <Pencil className="h-3.5 w-3.5" /> Manage…
             </ActionButton>
           }
         />
@@ -394,8 +394,8 @@ export function SettingsDetectionPanel({
             title="Detectors"
             description="Manage clip-types for copied text."
             actions={
-              <ActionButton onClick={openDetectorManager} className="h-7 min-h-7 shrink-0 px-2.5">
-                <Pencil className="h-3.5 w-3.5" /> Manage Detectors
+              <ActionButton aria-label="Manage Detectors" onClick={openDetectorManager} className="h-7 min-h-7 shrink-0 px-2.5">
+                <Pencil className="h-3.5 w-3.5" /> Manage…
               </ActionButton>
             }
           />

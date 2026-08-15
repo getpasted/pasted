@@ -94,9 +94,13 @@ fn execute(
     } else {
         Vec::new()
     };
-    let extractor = if clip_kind == "image" && options.include_extractor {
-        db.active_image_text_extractor()
-            .map_err(|error| error.to_string())?
+    let extractor = if options.include_extractor {
+        match clip_kind {
+            "image" => db.active_image_text_extractor(),
+            "file" => db.active_file_text_extractor(),
+            _ => Ok(None),
+        }
+        .map_err(|error| error.to_string())?
     } else {
         None
     };
@@ -193,6 +197,7 @@ pub fn analyze_clip(
                 return Err("File list exceeds Pasted's safety limit".into());
             }
             let observations = crate::content_inspection::observe_files(&paths);
+            let allow_text_participants = options.include_extractor;
             let mut result = execute(
                 db,
                 AnalysisInput::Files {
@@ -201,7 +206,7 @@ pub fn analyze_clip(
                 },
                 "file",
                 options,
-                false,
+                allow_text_participants,
             )?;
             result.live_file_observations = Some(observations);
             Ok(result)

@@ -19,6 +19,11 @@ interface ClipPreviewContentProps {
     height: number | null;
   }>;
   isFilePreviewLoading: boolean;
+  fileSearchableText: {
+    extractorName: string;
+    searchableText: string;
+  } | null;
+  isFileExtractionLoading: boolean;
   copiedFormat: string | null;
   isOcrLoading: boolean;
   ocrEnabled: boolean;
@@ -26,6 +31,7 @@ interface ClipPreviewContentProps {
   onColorChange: (value: string) => void;
   onCopyFormat: (label: string, value: string) => void;
   onRunOCR: () => void;
+  onRunFileExtraction: () => void;
 }
 
 function getOcrExtractorLabel(clip: ClipItem): string | null {
@@ -147,6 +153,8 @@ export function ClipPreviewContent({
   resolvedImageBase64,
   filePreviews,
   isFilePreviewLoading,
+  fileSearchableText,
+  isFileExtractionLoading,
   copiedFormat,
   isOcrLoading,
   ocrEnabled,
@@ -154,6 +162,7 @@ export function ClipPreviewContent({
   onColorChange,
   onCopyFormat,
   onRunOCR,
+  onRunFileExtraction,
 }: ClipPreviewContentProps) {
   const ocrExtractorLabel = getOcrExtractorLabel(clip);
   const filePaths = getClipFilePaths(clip);
@@ -170,65 +179,103 @@ export function ClipPreviewContent({
   return (
     <>
         {clip.content_type === 'file' ? (
-          <div className="theme-panel rounded-2xl border p-4 shadow-lg">
-            <div className="theme-title mb-3 flex items-center gap-2 text-xs font-semibold">
-              <Files className="theme-status-info-text h-4 w-4" />
-              <span>{filePaths.length === 1 ? 'Copied File' : `${filePaths.length} Copied Files`}</span>
-            </div>
-            {isFilePreviewLoading && (
-              <div className="theme-text-muted mb-3 flex items-center justify-center gap-2 rounded-xl py-8 text-xs">
-                <Sparkles className="h-4 w-4 animate-spin" />
-                <span>Preparing file preview…</span>
+          <div className="space-y-4">
+            <div className="theme-panel rounded-2xl border p-4 shadow-lg">
+              <div className="theme-title mb-3 flex items-center gap-2 text-xs font-semibold">
+                <Files className="theme-status-info-text h-4 w-4" />
+                <span>{filePaths.length === 1 ? 'Copied File' : `${filePaths.length} Copied Files`}</span>
               </div>
-            )}
-            {filePaths.length > 0 && (
-              <div className={`grid gap-2 ${filePaths.length > 1 ? 'grid-cols-2' : 'grid-cols-1'}`}>
-                {filePaths.map((path, index) => {
-                  const preview = filePreviews.find((item) => item.index === index);
-                  const filename = path.split(/[\\/]/).pop() || path;
-                  return (
-                    <article key={`${index}-${path}`} className="theme-surface min-w-0 overflow-hidden rounded-xl border">
-                      {preview && (
-                        <div className="theme-code-surface flex min-h-36 items-center justify-center border-b p-2">
-                          {preview.dataUrl ? (
-                            <SafeRasterImage
-                              source={preview.dataUrl}
-                              alt={`Preview of ${filename || 'copied file'}`}
-                              className="max-h-72 w-full rounded-lg object-contain"
-                            />
-                          ) : (
-                            <pre className="theme-text-main overlay-scroll-region max-h-72 w-full overflow-auto whitespace-pre-wrap break-words p-2 font-mono text-xs">
-                              {preview.textContent}
-                            </pre>
-                          )}
-                        </div>
-                      )}
-                      <div>
-                        <FileCopyField
-                          label="Name"
-                          value={filename}
-                          copyLabel={`File Name ${index + 1}`}
-                          autoScroll
-                          copiedFormat={copiedFormat}
-                          onCopyFormat={onCopyFormat}
-                        />
-                        <div className="theme-divider border-t">
+              {isFilePreviewLoading && (
+                <div className="theme-text-muted mb-3 flex items-center justify-center gap-2 rounded-xl py-8 text-xs">
+                  <Sparkles className="h-4 w-4 animate-spin" />
+                  <span>Preparing file preview…</span>
+                </div>
+              )}
+              {filePaths.length > 0 && (
+                <div className={`grid gap-2 ${filePaths.length > 1 ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                  {filePaths.map((path, index) => {
+                    const preview = filePreviews.find((item) => item.index === index);
+                    const filename = path.split(/[\\/]/).pop() || path;
+                    return (
+                      <article key={`${index}-${path}`} className="theme-surface min-w-0 overflow-hidden rounded-xl border">
+                        {preview && (
+                          <div className="theme-code-surface flex min-h-36 items-center justify-center border-b p-2">
+                            {preview.dataUrl ? (
+                              <SafeRasterImage
+                                source={preview.dataUrl}
+                                alt={`Preview of ${filename || 'copied file'}`}
+                                className="max-h-72 w-full rounded-lg object-contain"
+                              />
+                            ) : (
+                              <pre className="theme-text-main overlay-scroll-region max-h-72 w-full overflow-auto whitespace-pre-wrap break-words p-2 font-mono text-xs">
+                                {preview.textContent}
+                              </pre>
+                            )}
+                          </div>
+                        )}
+                        <div>
                           <FileCopyField
-                            label="Path"
-                            value={path}
-                            copyLabel={`File Path ${index + 1}`}
+                            label="Name"
+                            value={filename}
+                            copyLabel={`File Name ${index + 1}`}
                             autoScroll
-                            emphasized
                             copiedFormat={copiedFormat}
                             onCopyFormat={onCopyFormat}
                           />
+                          <div className="theme-divider border-t">
+                            <FileCopyField
+                              label="Path"
+                              value={path}
+                              copyLabel={`File Path ${index + 1}`}
+                              autoScroll
+                              emphasized
+                              copiedFormat={copiedFormat}
+                              onCopyFormat={onCopyFormat}
+                            />
+                          </div>
                         </div>
-                      </div>
-                    </article>
-                  );
-                })}
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="theme-panel space-y-3 rounded-xl border p-4 shadow-lg">
+              <div className="flex items-center justify-between">
+                <div className="clip-content-accent flex items-center space-x-2 text-xs font-semibold">
+                  <ScanText className="h-4 w-4" />
+                  <span>Transcription</span>
+                </div>
+                <div className="flex items-center space-x-1.5">
+                  {fileSearchableText && (
+                    <button
+                      onClick={() => onCopyFormat('Transcription', fileSearchableText.searchableText)}
+                      className="theme-icon-button theme-focusable cursor-pointer rounded-lg border p-1.5 transition-colors"
+                      title={copiedFormat === 'Transcription' ? UI_COPY.copied : 'Copy Transcription'}
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                  <button
+                    onClick={onRunFileExtraction}
+                    disabled={isFileExtractionLoading || readOnly}
+                    className="theme-primary-button theme-focusable cursor-pointer rounded-lg border p-1.5 shadow transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+                    title={readOnly ? 'Restore Before Transcribing' : isFileExtractionLoading ? 'Transcribing…' : fileSearchableText ? 'Transcribe Again' : 'Transcribe'}
+                  >
+                    <Sparkles className={`h-3.5 w-3.5 ${isFileExtractionLoading ? 'animate-spin' : ''}`} />
+                  </button>
+                </div>
               </div>
-            )}
+              {fileSearchableText ? <>
+                <p className="theme-text-muted text-xs">Extracted by {fileSearchableText.extractorName}</p>
+                <div className="theme-code-surface overlay-scroll-region max-h-60 overflow-y-auto whitespace-pre-wrap rounded-xl border p-3.5 font-mono text-xs leading-relaxed shadow-inner select-text">
+                  {fileSearchableText.searchableText}
+                </div>
+              </> : (
+                <p className="theme-text-muted text-xs italic">Run an available file text Extractor to create searchable text.</p>
+              )}
+            </div>
           </div>
         ) : colorData ? (
           <div className="clip-color-inspector theme-panel p-6 rounded-2xl border shadow-2xl space-y-6">

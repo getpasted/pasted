@@ -30,13 +30,14 @@ Use the exact notarized DMG intended for publication. Do not substitute a develo
 
 ## Content Analysis
 
-- [ ] Settings → Analysis exposes authorable Extractors and Detectors plus OCR status. Structure Inspection remains always-on; the Inspector registry reports ffprobe Media Metadata runtime availability; and Smart Actions follows the Transformations feature without redundant participant switches.
+- [ ] Settings → Analysis exposes authorable Extractors and Detectors plus OCR status. Extractor Settings keeps concise runtime availability visible in its header. Structure Inspection remains always-on; the Inspector registry reports ffprobe Media Metadata runtime availability; and Smart Actions follows the Transformations feature without redundant participant switches.
 - [ ] A text clip shows content-free character, word, and line statistics; a matching saved Transform appears under Smart Actions and is not executed until explicitly selected.
 - [ ] New text capture and `pasted detector run` choose the same Type and Detector. Preview does not mutate; apply and confirmed rescan report the clip mutations they actually commit.
 - [ ] Apple Vision OCR recognizes a high-contrast text image on macOS, returns the same Extractor contract through the GUI and CLI, and makes the stored result searchable after relaunch.
 - [ ] Tesseract OCR is detected from a standard installation, recognizes a high-contrast text image on Linux or macOS, obeys the same output and privacy bounds, and remains explicitly unavailable when it is not installed.
-- [ ] Image extraction can feed later classification in one bounded run. An unavailable or disabled Extractor fails or skips explicitly without leaving OCR work stuck as running.
-- [ ] File clips report bounded item, extension, availability, and size facts but never pass file-reference metadata to text Detectors or Enrichers.
+- [ ] Whisper Transcription distinguishes a missing executable from a missing local model, transcribes a bounded audio fixture when configured, persists searchable text without replacing file references, and never downloads a model implicitly.
+- [ ] Image or file extraction can feed later classification in one bounded run. An unavailable or disabled Extractor fails or skips explicitly without leaving work stuck as running.
+- [ ] File clips report bounded item, extension, availability, size, and optional media facts but never pass file-reference metadata to text Detectors or Enrichers.
 - [ ] `pasted analyzer`, `inspector`, `extractor`, `detector`, `enricher`, and `registry` return version 1 JSON without original text, OCR text, image bytes, credentials, or file paths in participant summaries.
 - [ ] Disabling Content Detection, OCR, or Transformations leaves the other Analysis surfaces usable and produces an explicit success, skip, unavailable, or failure result rather than a stalled job.
 

@@ -25,6 +25,12 @@ The shipped **Media Metadata** Inspector uses an installed `ffprobe` executable 
 
 Media metadata is inspected live because referenced files can change outside the library. Structural metadata remains hash-bound and persistent; live ffprobe results are not written into Activity or portable exports.
 
+## Audio transcription
+
+The shipped **Whisper Transcription** Extractor uses an installed whisper.cpp `whisper-cli` executable and an explicitly selected local GGML model. Homebrew installations can use `brew install whisper-cpp`; model files remain a separate user-managed dependency and are never downloaded automatically. Configure the model under **Settings → Analysis → Manage Extractors** or with `pasted extractor update extractor:whisper-transcription --model /absolute/path/to/ggml-model.bin`.
+
+Explicit transcription accepts bounded FLAC, MP3, OGG, and WAV file references. Applying a result stores searchable text and Extractor provenance without replacing the file clip's original path list. Search and smart `contains` rules include current hash-bound transcription text. A stale result cannot attach to a changed or removed clip.
+
 ## OCR
 
 Apple Vision extracts searchable text from clipboard images and screenshots on macOS. Tesseract 5 provides an optional local alternative on macOS, Linux, and Windows. Install it with `brew install tesseract` on Homebrew systems or the distribution's `tesseract-ocr` package on Linux, then reopen or refresh Extractor settings.
@@ -38,4 +44,4 @@ Apple Vision extracts searchable text from clipboard images and screenshots on m
 
 Use **Settings → Analysis** or `pasted ocr status --json` to inspect background progress. OCR runs only when an available `image → searchable_text` Extractor is enabled.
 
-Manual extraction in the clip preview and `pasted extractor run --apply` use the same hash-safe application result as background OCR. A result reports whether OCR text and derived classification were actually updated; stale or removed clips are rejected instead of being reported as applied.
+Manual extraction APIs and `pasted extractor run --apply` use the same hash-safe application result as background OCR. A result reports whether OCR text, file-backed searchable text, and derived classification were actually updated; stale or removed clips are rejected instead of being reported as applied.

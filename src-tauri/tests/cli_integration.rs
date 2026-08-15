@@ -346,6 +346,34 @@ fn extractor_lifecycle_and_registry_capabilities_run_end_to_end() {
     assert_eq!(tesseract["inputContract"], "image");
     assert_eq!(tesseract["outputContract"], "searchable_text");
     assert!(tesseract["isAvailable"].is_boolean());
+    let whisper = shipped
+        .as_array()
+        .and_then(|items| {
+            items
+                .iter()
+                .find(|item| item["stableRef"] == "extractor:whisper-transcription")
+        })
+        .expect("shipped Whisper Extractor");
+    assert_eq!(whisper["engine"], "whisper-cpp-cli-v1");
+    assert_eq!(whisper["inputContract"], "file_references");
+    assert_eq!(whisper["outputContract"], "searchable_text");
+    assert_eq!(whisper["modelPath"], Value::Null);
+    let configured_whisper = success_json(
+        &database,
+        &[
+            "extractor",
+            "update",
+            "extractor:whisper-transcription",
+            "--model",
+            "/tmp/pasted-cli-missing-whisper-model.bin",
+            "--json",
+        ],
+    );
+    assert_eq!(
+        configured_whisper["modelPath"],
+        "/tmp/pasted-cli-missing-whisper-model.bin"
+    );
+    assert_eq!(configured_whisper["isAvailable"], false);
 
     let created = success_json(
         &database,
@@ -415,6 +443,7 @@ fn extractor_lifecycle_and_registry_capabilities_run_end_to_end() {
     assert_eq!(preview["failure"]["code"], "engine_not_installed");
     assert_eq!(preview["appliedClipId"], Value::Null);
     assert_eq!(preview["ocrUpdated"], false);
+    assert_eq!(preview["searchableTextUpdated"], false);
     assert_eq!(preview["classificationUpdated"], false);
     assert_eq!(preview["participants"][0]["pass"], "extract");
     assert_eq!(preview["participants"][0]["stableRef"], stable_ref);

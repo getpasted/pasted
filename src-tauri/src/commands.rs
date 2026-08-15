@@ -988,6 +988,23 @@ pub fn get_content_extractors(
 }
 
 #[tauri::command]
+pub fn choose_extractor_model_file(app: AppHandle) -> Result<Option<String>, String> {
+    let Some(selected_file) = app
+        .dialog()
+        .file()
+        .set_title("Choose a Whisper Model")
+        .add_filter("Whisper GGML Model", &["bin"])
+        .blocking_pick_file()
+    else {
+        return Ok(None);
+    };
+    selected_file
+        .into_path()
+        .map(|path| Some(path.to_string_lossy().into_owned()))
+        .map_err(|error| format!("The selected model file is not accessible: {error}"))
+}
+
+#[tauri::command]
 pub fn create_content_extractor(
     input: crate::content_extraction::ExtractorDefinitionInput,
     db: State<'_, Arc<DbState>>,
@@ -4269,6 +4286,60 @@ pub fn extract_ocr_from_clip(
         rusqlite::Error::InvalidParameterName(message) => message,
         error => error.to_string(),
     })
+}
+
+#[tauri::command]
+pub fn get_clip_searchable_text(
+    clip_id: i64,
+    db: State<'_, Arc<DbState>>,
+) -> Result<Option<crate::db::ClipSearchableText>, String> {
+    db.get_clip_searchable_text(clip_id)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub async fn extract_text_from_file_clip(
+    clip_id: i64,
+    db: State<'_, Arc<DbState>>,
+) -> Result<crate::extraction_execution::ExtractionApplicationResult, String> {
+    let db = db.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let extractor = db
+            .active_file_text_extractor()
+            .map_err(|error| error.to_string())?
+            .ok_or_else(|| "No available file text Extractor is enabled".to_string())?;
+        let clip = db
+            .get_clip_by_id(clip_id)
+            .map_err(|error| error.to_string())?;
+        let paths = clip
+            .text_content
+            .as_deref()
+            .map(crate::content_inspection::parse_file_paths)
+            .filter(|paths| !paths.is_empty())
+            .ok_or_else(|| "Clip has no extractable file references".to_string())?;
+        if !crate::resource_limits::file_list_within_limit(&paths) {
+            return Err("File references exceed the extraction safety limit".to_string());
+        }
+        let detectors = features::is_enabled(&db, Feature::ContentDetection)
+            .then(|| db.get_content_detectors().ok())
+            .flatten();
+        let analysis =
+            crate::extraction_execution::analyze_files(paths, &extractor, detectors.as_deref());
+        crate::extraction_execution::apply_file_analysis(
+            &db,
+            clip_id,
+            &clip.content_hash,
+            &extractor,
+            detectors.is_some(),
+            analysis,
+        )
+        .map_err(|error| match error {
+            rusqlite::Error::InvalidParameterName(message) => message,
+            error => error.to_string(),
+        })
+    })
+    .await
+    .map_err(|error| format!("File extraction task failed: {error}"))?
 }
 
 #[tauri::command]

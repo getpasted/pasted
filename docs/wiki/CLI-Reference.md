@@ -140,7 +140,7 @@ pasted enricher get <ref> [--json]
 pasted enricher run [--text <text> | --clip <id> | --stdin] [--json]
 pasted extractor list [--json]
 pasted extractor get <ref> [--json]
-pasted extractor create [--name <name>] [--description <text>] [--engine <engine>] [--input <contract>] [--output <contract>] [--priority <number>] [--enabled|--disabled] [--json]
+pasted extractor create [--name <name>] [--description <text>] [--engine <engine>] [--model <path>] [--input <contract>] [--output <contract>] [--priority <number>] [--enabled|--disabled] [--json]
 pasted extractor update <ref> [options] [--json]
 pasted extractor duplicate <ref> [--name <name>] [--json]
 pasted extractor delete <ref> [--json]
@@ -172,7 +172,9 @@ pasted detector rescan --yes [--json]
 
 Registry JSON includes each analysis participant’s `analysisPass`, `inputContract`, and `outputContract`. The shipped Structure and ffprobe Media Metadata Inspectors run in the inspect pass, Extractors run in the extract pass, Detectors run in the classify pass, and Smart Actions runs in the enrich pass. Every participant runs at most once after its declared inputs become available. Inspector runs preview by default; `--apply` persists content-hash-bound structural metadata for a clip. Built-in Inspectors and Enrichers are immutable. Extractor, Detector, and Transform management uses the lifecycle verbs appropriate to each asset.
 
-`pasted analyzer run` returns one versioned preview of the applicable passes. Its JSON includes content-free structure, classification, Smart Action recommendations, and participant outcomes, but never original text, OCR text, image bytes, or file paths. Interactive policy includes enrichment when Transformations is enabled; capture, background, and rescan stop after classification. Image extraction is opt-in with `--extract` because OCR can be comparatively expensive. File clips are inspection-only so file-reference metadata never enters text Detectors or Enrichers.
+`pasted analyzer run` returns one versioned preview of the applicable passes. Its JSON includes content-free structure, classification, Smart Action recommendations, and participant outcomes, but never original text, extracted text, image bytes, or file paths. Interactive policy includes enrichment when Transformations is enabled; capture, background, and rescan stop after classification. Image and file extraction are opt-in with `--extract` because OCR and transcription can be comparatively expensive. File references never enter text Detectors or Enrichers; only a produced searchable-text representation can feed later passes.
+
+Whisper Transcription uses engine `whisper-cpp-cli-v1`. Configure a local GGML model with `pasted extractor update extractor:whisper-transcription --model /absolute/path/to/ggml-model.bin`. Use `--no-model` to clear it. Installing whisper.cpp or selecting a model never occurs implicitly. `pasted extractor run extractor:whisper-transcription --clip <id> --apply` stores hash-bound searchable text and provenance without replacing the clip's file references.
 
 Inspector run JSON uses the versioned Analysis envelope. Structure reports origin, byte count, text counts, image dimensions, or file item count and extensions without returning the inspected clipboard content or paths. File availability, file/directory counts, and total size are returned separately as live observations and are not persisted. When ffprobe is installed, file runs can also return live aggregate `mediaMetadata` containing container, codec, stream-count, and duration facts. Up to eight files are probed with bounded execution and output; paths never appear in results.
 
