@@ -1,0 +1,34 @@
+{
+  "formatVersion": 1,
+  "policy": "interactive",
+  "through": "enrich",
+  "targetKind": "extractor",
+  "targetRef": "extractor:test",
+  "outcome": "failed",
+  "output": null,
+  "detectedType": null,
+  "matchedDetectorRef": null,
+  "failure": {
+    "code": "engine_not_installed",
+    "message": "This extraction engine is not installed."
+  },
+  "participants": [
+    {
+      "stableRef": "extractor:test",
+      "pass": "extract",
+      "outcome": "failed",
+      "failure": {
+        "code": "engine_not_installed",
+        "message": "This extraction engine is not installed."
+      }
+    },
+    {
+      "stableRef": "analysis:content-detectors",
+      "pass": "classify",
+      "outcome": "missing_input"
+    }
+  ],
+  "appliedClipId": null,
+  "ocrUpdated": false,
+  "classificationUpdated": false
+}

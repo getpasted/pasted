@@ -1,0 +1,32 @@
+{
+  "formatVersion": 1,
+  "policy": "capture",
+  "through": "classify",
+  "result": {
+    "clipKind": "text",
+    "structure": {
+      "origin": "command_line",
+      "byteCount": 14,
+      "text": {
+        "characterCount": 14,
+        "wordCount": 2,
+        "lineCount": 1
+      }
+    },
+    "detectedType": "text",
+    "searchableTextAvailable": false
+  },
+  "participants": [
+    {
+      "stableRef": "inspector:structure-v1",
+      "pass": "inspect",
+      "outcome": "produced"
+    },
+    {
+      "stableRef": "analysis:content-detectors",
+      "pass": "classify",
+      "outcome": "produced"
+    }
+  ],
+  "appliedClipId": null
+}

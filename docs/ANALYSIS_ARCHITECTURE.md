@@ -30,3 +30,5 @@ Clip Preview and `pasted analyzer run` consume the whole-Analyzer snapshot. The 
 7. Add portable engine or participant fixtures so scheduling, failure, stale-input, and persistence behavior runs on every platform. Test real platform availability separately.
 
 Participant results and Activity records must not include input content, credentials, sensitive file paths, or unbounded provider output. User-visible output may contain an explicitly requested derived result, but participant summaries and failures remain neutral and bounded.
+
+See [Analysis failure and parity matrix](ANALYSIS_FAILURE_MATRIX.md) for the shared outcome, mutation, and surface semantics.

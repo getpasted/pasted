@@ -196,6 +196,14 @@ mod tests {
         assert_eq!(result.classification(), "text");
         assert_eq!(result.detected_type, None);
         assert_eq!(result.failure, None);
+        let expected = serde_json::from_str::<serde_json::Value>(include_str!(
+            "../../contracts/analysis/v1/detector-interactive-no-match.json"
+        ))
+        .unwrap();
+        assert_eq!(
+            serde_json::to_value(DetectionApplicationResult::preview(result)).unwrap(),
+            expected
+        );
     }
 
     #[test]

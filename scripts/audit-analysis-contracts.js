@@ -15,16 +15,20 @@ function commandBlock(command) {
 
 const fixtures = {
   analyzer: fixture('analyzer-interactive-text'),
+  analyzerCapture: fixture('analyzer-capture-text'),
   inspector: fixture('inspector-interactive-text'),
   extractor: fixture('extractor-interactive-produced'),
+  extractorUnavailable: fixture('extractor-interactive-unavailable'),
   detector: fixture('detector-interactive-matched'),
+  detectorNoMatch: fixture('detector-interactive-no-match'),
   enricher: fixture('enricher-interactive-empty'),
 };
 
 for (const [surface, value] of Object.entries(fixtures)) {
   assert.equal(value.formatVersion, 1, `${surface} fixture must use Analysis contract v1`);
-  assert.equal(value.policy, 'interactive', `${surface} fixture must name its policy`);
-  assert.equal(value.through, 'enrich', `${surface} fixture must name its final pass`);
+  assert.ok(['capture', 'interactive'].includes(value.policy), `${surface} fixture must name its policy`);
+  assert.equal(value.through, value.policy === 'capture' ? 'classify' : 'enrich',
+    `${surface} fixture must name its policy's final pass`);
   assert.ok(Array.isArray(value.participants), `${surface} fixture must include participant runs`);
   for (const run of value.participants) {
     for (const field of ['stableRef', 'pass', 'outcome']) {
@@ -59,7 +63,14 @@ for (const field of Object.keys(fixtures.analyzer.result)) {
     `Frontend Analyzer mock must preserve the canonical result.${field} field`,
   );
 }
-for (const name of ['analyzer-interactive-text', 'inspector-interactive-text', 'enricher-interactive-empty']) {
+for (const name of [
+  'analyzer-interactive-text',
+  'analyzer-capture-text',
+  'inspector-interactive-text',
+  'enricher-interactive-empty',
+  'extractor-interactive-unavailable',
+  'detector-interactive-no-match',
+]) {
   assert.ok(cliTests.includes(`${name}.json`), `CLI integration must consume ${name}.json`);
 }
 

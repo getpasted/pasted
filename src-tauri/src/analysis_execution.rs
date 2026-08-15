@@ -56,7 +56,8 @@ fn validate_text_input(text: &str, source: Option<&str>) -> Result<(), String> {
     if text.len() > crate::resource_limits::MAX_CLIP_TEXT_BYTES {
         return Err("Analysis input exceeds Pasted's safety limit".into());
     }
-    if source.is_some_and(|value| value.len() > 1_024) {
+    if source.is_some_and(|value| value.len() > crate::analysis_contract::MAX_ANALYSIS_SOURCE_BYTES)
+    {
         return Err("Analysis source metadata exceeds Pasted's safety limit".into());
     }
     Ok(())
@@ -283,8 +284,8 @@ mod tests {
     fn capture_policy_omits_enrichment() {
         let result = analyze_text(
             &db(),
-            "https://example.com",
-            None,
+            "ordinary words",
+            Some("Pasted CLI"),
             AnalyzerOptions {
                 policy: AnalysisPolicy::Capture,
                 ..AnalyzerOptions::default()
@@ -293,6 +294,11 @@ mod tests {
         .unwrap();
         assert!(result.analysis.result.recommendations.is_none());
         assert_eq!(result.analysis.participants.len(), 2);
+        let expected = serde_json::from_str::<serde_json::Value>(include_str!(
+            "../../contracts/analysis/v1/analyzer-capture-text.json"
+        ))
+        .unwrap();
+        assert_eq!(serde_json::to_value(result).unwrap(), expected);
     }
 
     #[test]
@@ -345,5 +351,21 @@ mod tests {
         let secret = "private-token-123";
         let result = analyze_text(&db(), secret, None, AnalyzerOptions::default()).unwrap();
         assert!(!serde_json::to_string(&result).unwrap().contains(secret));
+    }
+
+    #[test]
+    fn oversized_text_and_source_fail_before_analysis() {
+        let db = db();
+        let text = "x".repeat(crate::resource_limits::MAX_CLIP_TEXT_BYTES + 1);
+        assert!(analyze_text(&db, &text, None, AnalyzerOptions::default())
+            .unwrap_err()
+            .contains("safety limit"));
+
+        let source = "x".repeat(crate::analysis_contract::MAX_ANALYSIS_SOURCE_BYTES + 1);
+        assert!(
+            analyze_text(&db, "hello", Some(&source), AnalyzerOptions::default())
+                .unwrap_err()
+                .contains("source metadata")
+        );
     }
 }

@@ -38,11 +38,20 @@ fn analysis_fixture(name: &str) -> Value {
         "analyzer-interactive-text" => {
             include_str!("../../contracts/analysis/v1/analyzer-interactive-text.json")
         }
+        "analyzer-capture-text" => {
+            include_str!("../../contracts/analysis/v1/analyzer-capture-text.json")
+        }
         "inspector-interactive-text" => {
             include_str!("../../contracts/analysis/v1/inspector-interactive-text.json")
         }
         "enricher-interactive-empty" => {
             include_str!("../../contracts/analysis/v1/enricher-interactive-empty.json")
+        }
+        "extractor-interactive-unavailable" => {
+            include_str!("../../contracts/analysis/v1/extractor-interactive-unavailable.json")
+        }
+        "detector-interactive-no-match" => {
+            include_str!("../../contracts/analysis/v1/detector-interactive-no-match.json")
         }
         _ => panic!("unknown Analysis fixture {name}"),
     };
@@ -224,7 +233,7 @@ fn whole_analyzer_has_one_versioned_privacy_safe_cli_contract() {
             "analyzer",
             "run",
             "--text",
-            "https://example.com/private",
+            "ordinary words",
             "--policy",
             "capture",
             "--json",
@@ -233,7 +242,8 @@ fn whole_analyzer_has_one_versioned_privacy_safe_cli_contract() {
     assert_eq!(capture["through"], "classify");
     assert!(capture["result"].get("recommendations").is_none());
     assert_eq!(capture["participants"].as_array().map(Vec::len), Some(2));
-    assert!(!capture.to_string().contains("example.com/private"));
+    assert!(!capture.to_string().contains("ordinary words"));
+    assert_eq!(capture, analysis_fixture("analyzer-capture-text"));
     clean_database(&database);
 }
 
@@ -362,7 +372,8 @@ fn extractor_lifecycle_and_registry_capabilities_run_end_to_end() {
         ],
     );
     assert_eq!(preview_output.status.code(), Some(1));
-    let preview: Value = serde_json::from_slice(&preview_output.stdout).expect("Extractor JSON");
+    let mut preview: Value =
+        serde_json::from_slice(&preview_output.stdout).expect("Extractor JSON");
     assert_eq!(preview["formatVersion"], 1);
     assert_eq!(preview["policy"], "interactive");
     assert_eq!(preview["through"], "enrich");
@@ -375,6 +386,12 @@ fn extractor_lifecycle_and_registry_capabilities_run_end_to_end() {
     assert_eq!(preview["classificationUpdated"], false);
     assert_eq!(preview["participants"][0]["pass"], "extract");
     assert!(!preview.to_string().contains("private image bytes"));
+    preview["targetRef"] = Value::String("extractor:test".into());
+    preview["participants"][0]["stableRef"] = Value::String("extractor:test".into());
+    assert_eq!(
+        preview,
+        analysis_fixture("extractor-interactive-unavailable")
+    );
     let _ = std::fs::remove_file(image);
 
     success_json(
@@ -446,6 +463,20 @@ fn detector_preview_and_apply_share_the_safe_execution_contract() {
     assert_eq!(registry_item["analysisPass"], "classify");
     assert_eq!(registry_item["capabilities"]["canDuplicate"], true);
     assert_eq!(registry_item["capabilities"]["canDelete"], true);
+
+    let mut no_match = success_json(
+        &database,
+        &[
+            "detector",
+            "run",
+            stable_ref,
+            "--text",
+            "ordinary words",
+            "--json",
+        ],
+    );
+    no_match["targetRef"] = Value::String("detector:email".into());
+    assert_eq!(no_match, analysis_fixture("detector-interactive-no-match"));
 
     let preview = success_json(
         &database,

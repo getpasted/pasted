@@ -23,7 +23,9 @@ pub fn enrich_text(
     if text.len() > crate::resource_limits::MAX_CLIP_TEXT_BYTES {
         return Err("Enrichment input exceeds Pasted's safety limit".into());
     }
-    if source.is_some_and(|source| source.len() > 1_024) {
+    if source
+        .is_some_and(|source| source.len() > crate::analysis_contract::MAX_ANALYSIS_SOURCE_BYTES)
+    {
         return Err("Enrichment source metadata exceeds Pasted's safety limit".into());
     }
     let detectors = db
@@ -163,9 +165,14 @@ mod tests {
     }
 
     #[test]
-    fn oversized_source_metadata_fails_before_analysis() {
+    fn oversized_text_and_source_metadata_fail_before_analysis() {
         let db = db();
-        let source = "x".repeat(1_025);
+        let text = "x".repeat(crate::resource_limits::MAX_CLIP_TEXT_BYTES + 1);
+        assert!(enrich_text(&db, &text, None)
+            .unwrap_err()
+            .contains("safety limit"));
+
+        let source = "x".repeat(crate::analysis_contract::MAX_ANALYSIS_SOURCE_BYTES + 1);
         let error = enrich_text(&db, "hello", Some(&source)).unwrap_err();
         assert!(error.contains("source metadata"));
     }
