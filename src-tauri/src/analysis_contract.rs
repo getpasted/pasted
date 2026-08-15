@@ -3,6 +3,7 @@ use std::{fmt, str::FromStr};
 
 pub const ANALYSIS_CONTRACT_VERSION: u32 = 1;
 pub const MAX_ANALYSIS_PASSES: usize = 4;
+pub const MAX_ANALYSIS_SOURCE_BYTES: usize = 1_024;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

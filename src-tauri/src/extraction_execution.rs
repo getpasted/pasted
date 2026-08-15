@@ -440,6 +440,43 @@ mod tests {
     }
 
     #[test]
+    fn unavailable_engine_and_missing_downstream_input_match_the_public_fixture() {
+        let failure = AnalysisFailure {
+            code: "engine_not_installed".into(),
+            message: "This extraction engine is not installed.".into(),
+        };
+        let result = ExtractionApplicationResult::preview(ExtractionResult {
+            metadata: AnalysisMetadata::new(AnalysisPolicy::Interactive),
+            target_kind: AnalysisTargetKind::Extractor,
+            target_ref: "extractor:test".into(),
+            outcome: ExtractionResultOutcome::Failed,
+            output: None,
+            detected_type: None,
+            matched_detector_ref: None,
+            failure: Some(failure.clone()),
+            participants: vec![
+                ParticipantRun {
+                    stable_ref: "extractor:test".into(),
+                    pass: AnalysisPass::Extract,
+                    outcome: ParticipantOutcome::Failed,
+                    failure: Some(failure),
+                },
+                ParticipantRun {
+                    stable_ref: crate::content_analysis::DETECTOR_PARTICIPANT_REF.into(),
+                    pass: AnalysisPass::Classify,
+                    outcome: ParticipantOutcome::MissingInput,
+                    failure: None,
+                },
+            ],
+        });
+        let expected = serde_json::from_str::<serde_json::Value>(include_str!(
+            "../../contracts/analysis/v1/extractor-interactive-unavailable.json"
+        ))
+        .unwrap();
+        assert_eq!(serde_json::to_value(result).unwrap(), expected);
+    }
+
+    #[test]
     fn execution_keeps_no_output_distinct_from_failure() {
         let engine = FixedEngine {
             outcome: ExtractionOutcome::NoOutput,

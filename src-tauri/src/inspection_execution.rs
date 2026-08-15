@@ -38,6 +38,19 @@ fn inspect(
     input: AnalysisInput,
     policy: AnalysisPolicy,
 ) -> Result<InspectionResult, AnalysisFailure> {
+    let source_within_limit = match &input {
+        AnalysisInput::Text { source, .. }
+        | AnalysisInput::Image { source, .. }
+        | AnalysisInput::Files { source, .. } => source.as_ref().is_none_or(|source| {
+            source.len() <= crate::analysis_contract::MAX_ANALYSIS_SOURCE_BYTES
+        }),
+    };
+    if !source_within_limit {
+        return Err(AnalysisFailure {
+            code: "input_too_large".into(),
+            message: "Inspection source metadata exceeds the supported safety limit.".into(),
+        });
+    }
     let within_limit = match &input {
         AnalysisInput::Text { text, .. } => {
             text.len() <= crate::resource_limits::MAX_CLIP_TEXT_BYTES
@@ -275,6 +288,18 @@ mod tests {
         ))
         .unwrap();
         assert_eq!(serde_json::to_value(result).unwrap(), expected);
+    }
+
+    #[test]
+    fn oversized_text_and_source_return_the_same_bounded_failure() {
+        let text = "x".repeat(crate::resource_limits::MAX_CLIP_TEXT_BYTES + 1);
+        let text_failure = inspect_text(&text, None).unwrap_err();
+        assert_eq!(text_failure.code, "input_too_large");
+
+        let source = "x".repeat(crate::analysis_contract::MAX_ANALYSIS_SOURCE_BYTES + 1);
+        let source_failure = inspect_text("hello", Some(&source)).unwrap_err();
+        assert_eq!(source_failure.code, "input_too_large");
+        assert!(!source_failure.message.contains(&source));
     }
 
     #[test]
