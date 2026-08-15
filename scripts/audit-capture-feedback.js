@@ -61,7 +61,7 @@ assert.match(panelSource, /<SettingsPanelNote>/, 'Notifications must use the sha
 assert.match(exclusionsSource, /<SettingsPanelNote>/, 'App Exclusions must use the shared Settings note well');
 assert.match(panelNoteSource, /theme-surface theme-text-muted rounded-xl border p-4 text-\[11px\] leading-relaxed/,
   'Settings note wells must share one semantic surface and layout');
-for (const rule of ['ignoreText', 'ignoreImages', 'ignoreFiles', 'ignoreShortcuts']) {
+for (const rule of ['ignoreText', 'ignoreImages', 'ignoreFiles', 'ignoreHotkeys']) {
   assert.match(exclusionsSource, new RegExp(rule), `App Exclusions must expose the ${rule} rule`);
 }
 for (const kind of ['Text', 'Image', 'Files']) {
@@ -70,7 +70,7 @@ for (const kind of ['Text', 'Image', 'Files']) {
 }
 assert.doesNotMatch(monitorSource, /from_str::<Vec<String>>\(&blacklist_json\)/,
   'Clipboard capture must not bypass structured App Exclusion rules with the obsolete string-list parser');
-assert.match(hotkeySource, /app_exclusions::should_ignore_shortcuts/,
+assert.match(hotkeySource, /app_exclusions::should_ignore_hotkeys/,
   'Every native and portal hotkey action must honor App Exclusions before dispatch');
 assert.match(exclusionsNativeSource, /explicit_empty_lists_remain_empty/,
   'Removing every App Exclusion must not silently restore defaults');

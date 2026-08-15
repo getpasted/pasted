@@ -145,7 +145,7 @@ for (const [menuId, topic, label] of [
   assert.ok(app.includes(`'${topic}'`), `App navigation must accept the ${label} Help topic`);
 }
 for (const [file, labels] of Object.entries({
-  'src/components/SettingsBlacklistPanel.tsx': ['Add app…'],
+  'src/components/SettingsBlacklistPanel.tsx': ['Add app…', "label: 'Hotkeys'", 'checked hotkeys'],
   'src/components/IntelligenceConnectionsPanel.tsx': ['Add connection…'],
   'src/components/SettingsWelcomePanel.tsx': ['Open Copycat Welcome…'],
   'src/components/SettingsAboutPanel.tsx': ['Open Source Licenses…'],

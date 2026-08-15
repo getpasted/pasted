@@ -542,5 +542,5 @@ export interface BlacklistApp {
   ignoreText: boolean;
   ignoreImages: boolean;
   ignoreFiles: boolean;
-  ignoreShortcuts: boolean;
+  ignoreHotkeys: boolean;
 }

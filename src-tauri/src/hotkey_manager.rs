@@ -467,7 +467,7 @@ impl HotkeyManager {
     fn dispatch_action(&self, app: &AppHandle, action: AppHotkeyAction) {
         if let Some(db) = app.try_state::<Arc<DbState>>() {
             let active_app = crate::paste_target::active_application_name();
-            if crate::app_exclusions::should_ignore_shortcuts(&db, active_app.as_deref()) {
+            if crate::app_exclusions::should_ignore_hotkeys(&db, active_app.as_deref()) {
                 return;
             }
         }
