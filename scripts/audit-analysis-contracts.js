@@ -82,6 +82,16 @@ assert.match(extractorManager, /inputContract !== 'image' \|\| ocrEnabled/,
   'Disabling OCR must hide image Extractors');
 assert.match(extractorManager, /inputContract !== 'file_references' \|\| transcriptionsEnabled/,
   'Disabling Transcriptions must hide file transcription Extractors');
+assert.match(extractorManager, /value: 'original_text', label: 'Text', disabled: true/,
+  'Extractor settings must explain that Text clips are already searchable');
+assert.match(extractorManager, /value: 'image', label: 'Image'/,
+  'Extractor settings must present the Image Clip Type instead of its wire contract');
+assert.match(extractorManager, /value: 'file_references', label: 'Files'/,
+  'Extractor settings must present the Files Clip Type instead of its wire contract');
+assert.match(extractorManager, /value: 'searchable_text', label: 'Searchable text'/,
+  'Extractor settings must present the searchable-text output contract readably');
+assert.doesNotMatch(extractorManager, />Pass<|>extract<\/strong>/,
+  'Extractor settings must not repeat the enclosing Analysis step');
 assert.match(analysisSettings, /<ContentExtractorManagerDialog[\s\S]{0,220}ocrEnabled=\{ocrEnabled\}[\s\S]{0,100}transcriptionsEnabled=\{transcriptionsEnabled\}/,
   'Analysis Settings must pass both extraction feature gates to Extractor management');
 assert.match(commands, /extract_text_from_file_clip[\s\S]{0,220}Feature::Transcriptions/,
