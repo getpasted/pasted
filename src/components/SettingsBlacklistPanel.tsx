@@ -15,7 +15,7 @@ interface SettingsBlacklistPanelProps {
   apps: BlacklistApp[];
   onAddApp: (appName: string) => void;
   onRemoveApp: (appId: string) => void;
-  onToggleRule: (appId: string, rule: 'ignoreText' | 'ignoreImages' | 'ignoreFiles' | 'ignoreShortcuts') => void;
+  onToggleRule: (appId: string, rule: 'ignoreText' | 'ignoreImages' | 'ignoreFiles' | 'ignoreHotkeys') => void;
 }
 
 const suggestedApps = [
@@ -37,7 +37,7 @@ const suggestedApps = [
   },
 ];
 
-type ExclusionRule = 'ignoreText' | 'ignoreImages' | 'ignoreFiles' | 'ignoreShortcuts';
+type ExclusionRule = 'ignoreText' | 'ignoreImages' | 'ignoreFiles' | 'ignoreHotkeys';
 
 const exclusionOptions: Array<{ label: string; rule: ExclusionRule }> = [
   { label: 'Text', rule: 'ignoreText' },
@@ -57,14 +57,14 @@ function AppExclusionMenu({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const [isOpen, setIsOpen] = useState(false);
   const captureLabels = exclusionOptions.filter(({ rule }) => app[rule]).map(({ label }) => label);
-  const activeCount = captureLabels.length + Number(app.ignoreShortcuts);
+  const activeCount = captureLabels.length + Number(app.ignoreHotkeys);
   const summary = activeCount === 0
     ? 'Nothing'
-    : captureLabels.length === exclusionOptions.length && app.ignoreShortcuts
+    : captureLabels.length === exclusionOptions.length && app.ignoreHotkeys
       ? 'Everything'
       : captureLabels.length === exclusionOptions.length
         ? 'All content'
-        : [...captureLabels, ...(app.ignoreShortcuts ? ['Shortcuts'] : [])].join(', ');
+        : [...captureLabels, ...(app.ignoreHotkeys ? ['Hotkeys'] : [])].join(', ');
 
   const renderOption = ({ label, rule }: { label: string; rule: ExclusionRule }) => {
     const active = app[rule];
@@ -124,7 +124,7 @@ function AppExclusionMenu({
           <div className="theme-text-subtle px-2.5 pb-1 pt-1 text-[10px] font-bold uppercase tracking-wider">
             Actions
           </div>
-          {renderOption({ label: 'Shortcuts', rule: 'ignoreShortcuts' })}
+          {renderOption({ label: 'Hotkeys', rule: 'ignoreHotkeys' })}
         </AnchoredMenu>
       )}
     </>
@@ -144,7 +144,7 @@ export function SettingsBlacklistPanel({
     setConfirmation({
       title: 'Remove app exclusion?',
       description: `${app.name} will no longer be excluded.`,
-      details: 'Enabled capture and shortcuts will resume while this app is focused.',
+      details: 'Enabled capture and hotkeys will resume while this app is focused.',
       confirmLabel: 'Remove',
       tone: 'danger',
       onConfirm: () => {
@@ -201,7 +201,7 @@ export function SettingsBlacklistPanel({
       </div>
 
       <SettingsPanelNote>
-        Common password managers, including 1Password, are excluded by default. Checked content is not captured, and checked shortcuts do not activate while these apps are focused.
+        Common password managers, including 1Password, are excluded by default. Checked content is not captured, and checked hotkeys do not activate while these apps are focused.
       </SettingsPanelNote>
 
       {isAddAppOpen && (

@@ -28,7 +28,7 @@ pub(crate) struct AppExclusionRule {
     #[serde(default = "enabled")]
     pub ignore_files: bool,
     #[serde(default)]
-    pub ignore_shortcuts: bool,
+    pub ignore_hotkeys: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -53,7 +53,7 @@ fn default_rules() -> Vec<AppExclusionRule> {
             ignore_text: true,
             ignore_images: true,
             ignore_files: true,
-            ignore_shortcuts: false,
+            ignore_hotkeys: false,
         })
         .collect()
 }
@@ -79,7 +79,7 @@ pub(crate) fn parse_rules(value: Option<&str>) -> Vec<AppExclusionRule> {
                     ignore_text: true,
                     ignore_images: true,
                     ignore_files: true,
-                    ignore_shortcuts: false,
+                    ignore_hotkeys: false,
                 },
                 StoredAppExclusion::Rule(rule) => rule,
             };
@@ -141,16 +141,17 @@ pub(crate) fn ignores_all_capture(rule: &AppExclusionRule) -> bool {
     rule.ignore_text && rule.ignore_images && rule.ignore_files
 }
 
-pub(crate) fn should_ignore_shortcuts(db: &DbState, active_app: Option<&str>) -> bool {
+pub(crate) fn should_ignore_hotkeys(db: &DbState, active_app: Option<&str>) -> bool {
     let Some(active_app) = active_app else {
         return false;
     };
-    matching_rule(&load_rules(db), active_app).is_some_and(|rule| rule.ignore_shortcuts)
+    matching_rule(&load_rules(db), active_app).is_some_and(|rule| rule.ignore_hotkeys)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rusqlite::Connection;
     use std::time::{SystemTime, UNIX_EPOCH};
 
     #[test]
@@ -167,7 +168,7 @@ mod tests {
         assert!(legacy[0].ignore_text);
         assert!(legacy[0].ignore_images);
         assert!(legacy[0].ignore_files);
-        assert!(!legacy[0].ignore_shortcuts);
+        assert!(!legacy[0].ignore_hotkeys);
     }
 
     #[test]
@@ -178,26 +179,26 @@ mod tests {
     #[test]
     fn older_object_rules_default_files_to_excluded() {
         let rules = parse_rules(Some(
-            r#"[{"name":"Terminal","ignoreText":false,"ignoreImages":true,"ignoreShortcuts":true}]"#,
+            r#"[{"name":"Terminal","ignoreText":false,"ignoreImages":true,"ignoreHotkeys":true}]"#,
         ));
         assert_eq!(rules.len(), 1);
         assert!(!rules[0].ignore_text);
         assert!(rules[0].ignore_images);
         assert!(rules[0].ignore_files);
-        assert!(rules[0].ignore_shortcuts);
+        assert!(rules[0].ignore_hotkeys);
     }
 
     #[test]
     fn content_rules_are_independent_and_full_pause_requires_all_three() {
         let rules = parse_rules(Some(
-            r#"[{"name":"Example App","ignoreText":true,"ignoreImages":false,"ignoreFiles":true,"ignoreShortcuts":true}]"#,
+            r#"[{"name":"Example App","ignoreText":true,"ignoreImages":false,"ignoreFiles":true,"ignoreHotkeys":true}]"#,
         ));
         let rule = matching_rule(&rules, "Example App").unwrap();
         assert!(ignores_capture(rule, ExcludedCaptureKind::Text));
         assert!(!ignores_capture(rule, ExcludedCaptureKind::Image));
         assert!(ignores_capture(rule, ExcludedCaptureKind::Files));
         assert!(!ignores_all_capture(rule));
-        assert!(rule.ignore_shortcuts);
+        assert!(rule.ignore_hotkeys);
     }
 
     #[test]
@@ -211,7 +212,7 @@ mod tests {
     }
 
     #[test]
-    fn persisted_shortcut_rules_gate_only_the_matching_focused_app() {
+    fn persisted_hotkey_rules_gate_only_the_matching_focused_app() {
         let nanos = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
@@ -221,12 +222,36 @@ mod tests {
                 .unwrap();
         db.save_setting(
             "blacklistApps",
-            r#"[{"name":"Terminal","ignoreText":false,"ignoreImages":false,"ignoreFiles":false,"ignoreShortcuts":true}]"#,
+            r#"[{"name":"Terminal","ignoreText":false,"ignoreImages":false,"ignoreFiles":false,"ignoreHotkeys":true}]"#,
         )
         .unwrap();
 
-        assert!(should_ignore_shortcuts(&db, Some("Terminal")));
-        assert!(!should_ignore_shortcuts(&db, Some("Finder")));
-        assert!(!should_ignore_shortcuts(&db, None));
+        assert!(should_ignore_hotkeys(&db, Some("Terminal")));
+        assert!(!should_ignore_hotkeys(&db, Some("Finder")));
+        assert!(!should_ignore_hotkeys(&db, None));
+    }
+
+    #[test]
+    fn startup_migrates_the_legacy_hotkey_field_once() {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!("pasted_app_exclusion_migration_{nanos}.db"));
+        let connection = Connection::open(&path).unwrap();
+        connection
+            .execute_batch(
+                r#"CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+                   INSERT INTO settings (key, value) VALUES
+                   ('blacklistApps', '[{"name":"Terminal","ignoreText":false,"ignoreImages":false,"ignoreFiles":false,"ignoreShortcuts":true}]');"#,
+            )
+            .unwrap();
+        drop(connection);
+
+        let db = DbState::new(path).unwrap();
+        let stored = db.get_setting("blacklistApps").unwrap().unwrap();
+        assert!(!stored.contains("ignoreShortcuts"));
+        assert!(stored.contains("ignoreHotkeys"));
+        assert!(should_ignore_hotkeys(&db, Some("Terminal")));
     }
 }

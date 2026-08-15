@@ -21,7 +21,7 @@ interface SettingsModalProps {
   blacklistApps: BlacklistApp[];
   onAddBlacklistApp: (appName: string) => void;
   onRemoveBlacklistApp: (appId: string) => void;
-  onToggleBlacklistRule: (appId: string, rule: 'ignoreText' | 'ignoreImages' | 'ignoreFiles' | 'ignoreShortcuts') => void;
+  onToggleBlacklistRule: (appId: string, rule: 'ignoreText' | 'ignoreImages' | 'ignoreFiles' | 'ignoreHotkeys') => void;
   pipelines?: Pipeline[];
   onRefreshPipelines?: () => void;
   bins?: Bin[];

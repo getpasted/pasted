@@ -7,7 +7,7 @@ The release gate checks production dependency licenses, known Rust advisories, p
 ## Capture privacy
 
 - Common password managers and sensitive apps are included in App Exclusions by default.
-- Text, image, file, and Pasted-shortcut rules can be configured independently under **Settings → App Exclusions**. Blocking every content kind presents as an automatic capture pause; partial rules skip only the selected kinds.
+- Text, image, file, and Pasted hotkey rules can be configured independently under **Settings → App Exclusions**. Blocking every content kind presents as an automatic capture pause; partial rules skip only the selected kinds.
 - Native Wayland sessions do not expose the globally focused application, so App Exclusions cannot be enforced there.
 - Capture feedback is rendered locally by Pasted. It does not send clip contents, images, file names, or paths through operating-system notifications.
 - Clipboard and IPC inputs are bounded by shared resource limits.
