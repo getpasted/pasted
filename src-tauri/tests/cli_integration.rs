@@ -108,8 +108,11 @@ fn structural_inspector_has_registry_preview_and_apply_parity() {
                 .iter()
                 .find(|item| item["stableRef"] == "inspector:media-metadata-v1")
         })
-        .expect("shipped ffprobe Inspector");
-    assert_eq!(media["engine"], "ffprobe-cli-v1");
+        .expect("shipped Media Metadata Inspector");
+    assert!(matches!(
+        media["engine"].as_str(),
+        Some("ffprobe-cli-v1" | "mediainfo-cli-v1")
+    ));
     assert_eq!(media["inputContract"], "file_references");
     assert_eq!(media["outputContract"], "media_metadata");
     assert!(media["isAvailable"].is_boolean());

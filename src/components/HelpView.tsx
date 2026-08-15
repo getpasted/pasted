@@ -575,7 +575,7 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
                     File availability and total size are live observations. They are checked when displayed and are not stored as durable analysis facts.
                   </p>
                   <p className="theme-text-muted text-xs leading-relaxed">
-                    An installed ffprobe executable also supplies bounded container, codec, stream-count, and duration facts for copied audio and video files. Media metadata is inspected live without returning file paths.
+                    An installed ffprobe or MediaInfo executable also supplies bounded container, codec, stream-count, and duration facts for copied audio and video files. Media metadata is inspected live without returning file paths.
                   </p>
                 </section>
 
