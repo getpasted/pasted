@@ -7,6 +7,7 @@ const TOOL_COPY_FILES = [
   'src/components/AnalyticsView.tsx',
   'src/components/CaptureFeedbackWindow.tsx',
   'src/components/ConnectionModal.tsx',
+  'src/components/ContentExtractorManagerDialog.tsx',
   'src/components/DeleteTransformationAssetDialog.tsx',
   'src/components/ExternalHistoryImport.tsx',
   'src/components/HelpView.tsx',

@@ -6,10 +6,12 @@ import { AppDialogBody, AppDialogButton, AppDialogFooter, AppDialogHeader, AppDi
 import { ContentTypeIcon } from './ContentTypeIcon';
 import { ContentTypeManagerDialog } from './ContentTypeManagerDialog';
 import { ContentExtractorManagerDialog } from './ContentExtractorManagerDialog';
+import { ConfirmationDialog, type ConfirmationDialogRequest } from './ConfirmationDialog';
 import { useContentTypes } from './ContentTypeProvider';
 import { MenuSelect } from './MenuSelect';
 import { ModifiedFieldLabel } from './ModifiedFieldLabel';
 import { RegistryListItem } from './RegistryListItem';
+import { RegistryPanelFooter } from './RegistryPanelFooter';
 import { RegistryPanelHeader } from './RegistryPanelHeader';
 import { SettingsPanelHeader } from './SettingsPanelHeader';
 import { SettingsOcrPanel } from './SettingsOcrPanel';
@@ -100,6 +102,7 @@ export function SettingsDetectionPanel({
   const [isTypeManagerOpen, setIsTypeManagerOpen] = useState(false);
   const [isExtractorManagerOpen, setIsExtractorManagerOpen] = useState(false);
   const [isManagerOpen, setIsManagerOpen] = useState(false);
+  const [confirmation, setConfirmation] = useState<ConfirmationDialogRequest | null>(null);
 
   const selected = useMemo(
     () => typeof selectedId === 'number' ? detectors.find((detector) => detector.id === selectedId) : undefined,
@@ -157,6 +160,50 @@ export function SettingsDetectionPanel({
   const isEditorDirty = editorBaseline !== null
     && JSON.stringify(inputForComparison) !== JSON.stringify(editorBaseline);
 
+  const requestConfirmation = (request: ConfirmationDialogRequest) => {
+    setConfirmation({
+      ...request,
+      onConfirm: async () => {
+        setConfirmation(null);
+        await request.onConfirm();
+      },
+    });
+  };
+
+  const discardDraftThen = (action: () => void | Promise<void>) => {
+    if (!isEditorDirty) {
+      void action();
+      return;
+    }
+    requestConfirmation({
+      title: 'Discard changes?',
+      description: 'Unsaved changes to this Detector will be lost.',
+      confirmLabel: 'Discard Changes',
+      tone: 'danger',
+      onConfirm: action,
+    });
+  };
+
+  const selectDetector = (id: number) => {
+    discardDraftThen(() => setSelectedId(id));
+  };
+
+  const beginNew = () => {
+    discardDraftThen(beginNewDetector);
+  };
+
+  const cancelDraft = () => {
+    if (selectedId === 'new') {
+      cancelNewDetector();
+      return;
+    }
+    if (!selected) return;
+    const restored = toInput(selected);
+    setDraft(restored);
+    setPatternsText(restored.patterns.join('\n'));
+    setSampleMatched(null);
+  };
+
   const resetSelectedDraft = () => {
     if (!selected?.is_builtin || !selected.defaults) return;
     setDraft({ ...selected.defaults, patterns: [...selected.defaults.patterns] });
@@ -185,26 +232,39 @@ export function SettingsDetectionPanel({
     }
   };
 
-  const remove = async () => {
+  const removeConfirmed = async () => {
     if (typeof selectedId !== 'number' || !selected) return;
-    if (!window.confirm(`Delete the detector “${selected.name}”? Shipped detectors can be recovered with Restore Defaults.`)) return;
     try {
       await invoke('delete_content_detector', { id: selectedId });
       const remaining = detectors.filter((detector) => detector.id !== selectedId);
       setDetectors(remaining);
       setSelectedId(remaining[0]?.id ?? 'new');
-      showToast({ tone: 'success', message: `${selected.name} deleted. Restore Defaults can recover shipped detectors.` });
+      showToast({ tone: 'success', message: `${selected.name} deleted. Restore Shipped Defaults can recover shipped detectors.` });
     } catch (error) {
       showToast({ tone: 'error', message: String(error) });
     }
   };
 
-  const duplicate = async () => {
+  const remove = () => {
     if (!selected) return;
+    requestConfirmation({
+      title: 'Delete Detector?',
+      description: selected.name,
+      details: selected.is_builtin
+        ? 'This removes the Detector from the library. Restore Shipped Defaults can recover it.'
+        : 'This permanently removes the custom Detector from the library.',
+      confirmLabel: 'Delete Detector',
+      tone: 'danger',
+      onConfirm: removeConfirmed,
+    });
+  };
+
+  const duplicate = async () => {
+    if (!selected || isEditorDirty) return;
     try {
       const created = await invoke<ContentDetector>('duplicate_content_detector', {
         reference: selected.stable_ref,
-        name: `${draft.name || selected.name} Copy`,
+        name: `${selected.name} Copy`,
       });
       await load();
       setSelectedId(created.id);
@@ -214,7 +274,7 @@ export function SettingsDetectionPanel({
     }
   };
 
-  const restore = async () => {
+  const restoreConfirmed = async () => {
     try {
       const [restored] = await Promise.all([
         invoke<ContentDetector[]>('restore_default_content_detectors'),
@@ -230,7 +290,17 @@ export function SettingsDetectionPanel({
     }
   };
 
-  const toggleDetector = async (detector: ContentDetector) => {
+  const restore = () => {
+    discardDraftThen(() => requestConfirmation({
+      title: 'Restore shipped Analysis definitions?',
+      description: 'Shipped Types, Type Groups, and Detectors return to their defaults.',
+      details: 'Custom definitions remain unchanged.',
+      confirmLabel: 'Restore Defaults',
+      onConfirm: restoreConfirmed,
+    }));
+  };
+
+  const toggleDetectorConfirmed = async (detector: ContentDetector) => {
     setTogglingId(detector.id);
     try {
       const enabled = !detector.enabled;
@@ -249,8 +319,15 @@ export function SettingsDetectionPanel({
     }
   };
 
-  const rescanHistory = async () => {
-    if (!window.confirm('Rescan all existing text clips with the current enabled detectors? This can change Types, Smart Bin membership, and sensitive-content masking. Images and files will not be changed.')) return;
+  const toggleDetector = (detector: ContentDetector) => {
+    if (selectedId === detector.id) {
+      discardDraftThen(() => toggleDetectorConfirmed(detector));
+      return;
+    }
+    void toggleDetectorConfirmed(detector);
+  };
+
+  const rescanHistoryConfirmed = async () => {
     setRescanning(true);
     try {
       const report = await invoke<DetectionRescanReport>('rescan_content_detection_history', { confirmed: true });
@@ -265,6 +342,16 @@ export function SettingsDetectionPanel({
     } finally {
       setRescanning(false);
     }
+  };
+
+  const rescanHistory = () => {
+    requestConfirmation({
+      title: 'Rescan existing text clips?',
+      description: 'Current enabled Detectors will reclassify the text clip history.',
+      details: 'Types, Smart Bin membership, and sensitive-content masking can change. Images and files remain unchanged.',
+      confirmLabel: 'Rescan Clips',
+      onConfirm: rescanHistoryConfirmed,
+    });
   };
 
   const test = async () => {
@@ -285,7 +372,7 @@ export function SettingsDetectionPanel({
         title="Analysis"
         description="Understand clip content and make it more useful."
         actions={contentDetectionEnabled ? (
-          <ActionButton onClick={() => void rescanHistory()} disabled={rescanning}>
+          <ActionButton onClick={rescanHistory} disabled={rescanning}>
             <ScanSearch className="h-3.5 w-3.5" /> {rescanning ? 'Rescanning…' : 'Rescan Clips'}
           </ActionButton>
         ) : undefined}
@@ -335,7 +422,7 @@ export function SettingsDetectionPanel({
                 <RegistryPanelHeader
                   title="Detectors"
                   actions={
-                    <AppDialogButton onClick={beginNewDetector} className="h-7 min-h-7 px-2.5">
+                    <AppDialogButton onClick={beginNew} className="h-7 min-h-7 px-2.5">
                       <Plus className="h-3 w-3" /> New
                     </AppDialogButton>
                   }
@@ -345,7 +432,7 @@ export function SettingsDetectionPanel({
                     <RegistryListItem
                       key={detector.id}
                       selected={selectedId === detector.id}
-                      onSelect={() => setSelectedId(detector.id)}
+                      onSelect={() => selectDetector(detector.id)}
                       icon={<ContentTypeIcon type={detector.content_type as ClipContentType} className="h-4 w-4" />}
                       title={detector.name}
                       subtitle={detector.description}
@@ -355,18 +442,17 @@ export function SettingsDetectionPanel({
                           label={detector.name}
                           busy={togglingId === detector.id}
                           onClick={() => {
-                            void toggleDetector(detector);
+                            toggleDetector(detector);
                           }}
                         />
                       }
                     />
                   ))}
                 </div>
-                <div className="theme-divider flex justify-end border-t p-2">
-                  <AppDialogButton onClick={() => void restore()} className="h-7 min-h-7 px-2.5">
-                    <RotateCcw className="h-3.5 w-3.5" /> Restore Defaults
-                  </AppDialogButton>
-                </div>
+                <RegistryPanelFooter align="end">
+                  <AppDialogButton onClick={() => void duplicate()} disabled={!selected || isEditorDirty || saving} title={isEditorDirty ? 'Save or cancel changes before duplicating.' : undefined}><Copy className="h-3.5 w-3.5" /> Duplicate</AppDialogButton>
+                  <AppDialogButton variant="danger" onClick={remove} disabled={!selected || saving}><Trash2 className="h-3.5 w-3.5" /> Delete</AppDialogButton>
+                </RegistryPanelFooter>
               </section>
               <section className="theme-surface flex min-w-0 flex-col overflow-hidden rounded-xl border">
                 <RegistryPanelHeader
@@ -452,26 +538,29 @@ export function SettingsDetectionPanel({
                   </div>
                 )}
                 </div>
+                <RegistryPanelFooter>
+                  <div>
+                    {selected?.is_builtin && <AppDialogButton onClick={resetSelectedDraft} disabled={!hasModifiedFields || saving}><RotateCcw className="h-3.5 w-3.5" /> Reset to Default</AppDialogButton>}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <AppDialogButton onClick={cancelDraft} disabled={selectedId !== 'new' && !isEditorDirty}>Cancel</AppDialogButton>
+                    <AppDialogButton variant="primary" onClick={save} disabled={saving || (selectedId !== 'new' && !isEditorDirty)}><SaveButtonContent isSaving={saving} /></AppDialogButton>
+                  </div>
+                </RegistryPanelFooter>
               </section>
             </AppDialogBody>
             <AppDialogFooter align="between" className="shrink-0">
-              <div className="flex items-center gap-2">
-                {selectedId !== 'new' && <AppDialogButton onClick={() => void duplicate()}><Copy className="h-3.5 w-3.5" /> Duplicate</AppDialogButton>}
-                {typeof selectedId === 'number' && <AppDialogButton variant="danger" onClick={remove}><Trash2 className="h-3.5 w-3.5" /> Delete</AppDialogButton>}
-              </div>
-              <div className="flex items-center gap-2">
-                {selectedId === 'new'
-                  ? <AppDialogButton onClick={cancelNewDetector}>Cancel</AppDialogButton>
-                  : <AppDialogButton onClick={requestClose}>Close</AppDialogButton>}
-                {selected?.is_builtin && <AppDialogButton onClick={resetSelectedDraft} disabled={!hasModifiedFields || saving}><RotateCcw className="h-3.5 w-3.5" /> Reset to Default</AppDialogButton>}
-                <AppDialogButton variant="primary" onClick={save} disabled={saving}><SaveButtonContent isSaving={saving} /></AppDialogButton>
-              </div>
+              <AppDialogButton onClick={restore} disabled={saving}>
+                <RotateCcw className="h-3.5 w-3.5" /> Restore Shipped Defaults…
+              </AppDialogButton>
+              <AppDialogButton onClick={requestClose}>Close</AppDialogButton>
             </AppDialogFooter>
           </>}
         </AppDialog>
         <ContentTypeManagerDialog isOpen={isTypeManagerOpen} onClose={() => setIsTypeManagerOpen(false)} />
       </>}
       <ContentExtractorManagerDialog isOpen={isExtractorManagerOpen} onClose={() => setIsExtractorManagerOpen(false)} />
+      <ConfirmationDialog request={confirmation} onCancel={() => setConfirmation(null)} />
       {ocrEnabled && <SettingsOcrPanel />}
     </div>
   );

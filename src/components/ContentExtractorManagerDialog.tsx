@@ -3,11 +3,14 @@ import { CircleAlert, CircleCheck, Copy, Plus, RotateCcw, ScanText, Trash2 } fro
 import { safeInvoke as invoke } from '../utils/tauri';
 import { AppDialog } from './AppDialog';
 import { AppDialogBody, AppDialogButton, AppDialogFooter, AppDialogHeader, AppDialogHeading, SaveButtonContent } from './AppDialogLayout';
+import { ConfirmationDialog, type ConfirmationDialogRequest } from './ConfirmationDialog';
 import { ModifiedFieldLabel } from './ModifiedFieldLabel';
 import { RegistryListItem } from './RegistryListItem';
+import { RegistryPanelFooter } from './RegistryPanelFooter';
 import { RegistryPanelHeader } from './RegistryPanelHeader';
 import { SettingsSwitch } from './SettingsSwitch';
 import { useToast } from './ToastProvider';
+import { useNewItemSelection } from '../hooks/useNewItemSelection';
 
 export interface ContentExtractor {
   id: number;
@@ -69,10 +72,17 @@ export function ContentExtractorManagerDialog({
   const [selectedId, setSelectedId] = useState<number | 'new' | null>(null);
   const [draft, setDraft] = useState<ExtractorInput>(toInput());
   const [saving, setSaving] = useState(false);
+  const [confirmation, setConfirmation] = useState<ConfirmationDialogRequest | null>(null);
   const selected = useMemo(
     () => typeof selectedId === 'number' ? extractors.find((extractor) => extractor.id === selectedId) : undefined,
     [extractors, selectedId],
   );
+  const { beginNew: beginNewExtractor, cancelNew: cancelNewExtractor } = useNewItemSelection({
+    selectedId,
+    setSelectedId,
+    itemIds: extractors.map(({ id }) => id),
+    emptySelection: null,
+  });
 
   const load = async () => {
     const loaded = await invoke<ContentExtractor[]>('get_content_extractors');
@@ -91,6 +101,46 @@ export function ContentExtractorManagerDialog({
   const defaultDraft = selected && defaults ? { ...toInput(selected), ...defaults } : null;
   const differsFromDefaults = defaultDraft !== null && JSON.stringify(draft) !== JSON.stringify(defaultDraft);
 
+  const requestConfirmation = (request: ConfirmationDialogRequest) => {
+    setConfirmation({
+      ...request,
+      onConfirm: async () => {
+        setConfirmation(null);
+        await request.onConfirm();
+      },
+    });
+  };
+
+  const discardDraftThen = (action: () => void | Promise<void>) => {
+    if (!isDirty) {
+      void action();
+      return;
+    }
+    requestConfirmation({
+      title: 'Discard changes?',
+      description: 'Unsaved changes to this Extractor will be lost.',
+      confirmLabel: 'Discard Changes',
+      tone: 'danger',
+      onConfirm: action,
+    });
+  };
+
+  const selectExtractor = (id: number) => {
+    discardDraftThen(() => setSelectedId(id));
+  };
+
+  const beginNew = () => {
+    discardDraftThen(beginNewExtractor);
+  };
+
+  const cancelDraft = () => {
+    if (selectedId === 'new') {
+      cancelNewExtractor();
+      return;
+    }
+    if (selected) setDraft(toInput(selected));
+  };
+
   const save = async () => {
     setSaving(true);
     try {
@@ -108,7 +158,7 @@ export function ContentExtractorManagerDialog({
     }
   };
 
-  const restoreAll = async () => {
+  const restoreAllConfirmed = async () => {
     try {
       const restored = await invoke<ContentExtractor[]>('restore_default_content_extractors');
       setExtractors(restored);
@@ -120,11 +170,21 @@ export function ContentExtractorManagerDialog({
     }
   };
 
+  const restoreAll = () => {
+    discardDraftThen(() => requestConfirmation({
+      title: 'Restore shipped Extractors?',
+      description: 'Shipped Extractors return to their defaults.',
+      details: 'Custom Extractors remain unchanged.',
+      confirmLabel: 'Restore Defaults',
+      onConfirm: restoreAllConfirmed,
+    }));
+  };
+
   const resetDraft = () => {
     if (defaultDraft) setDraft(defaultDraft);
   };
 
-  const toggle = async (extractor: ContentExtractor) => {
+  const toggleConfirmed = async (extractor: ContentExtractor) => {
     try {
       const enabled = !extractor.enabled;
       await invoke('set_library_item_enabled', {
@@ -141,12 +201,20 @@ export function ContentExtractorManagerDialog({
     }
   };
 
+  const toggle = (extractor: ContentExtractor) => {
+    if (selectedId === extractor.id) {
+      discardDraftThen(() => toggleConfirmed(extractor));
+      return;
+    }
+    void toggleConfirmed(extractor);
+  };
+
   const duplicate = async () => {
-    if (!selected) return;
+    if (!selected || isDirty) return;
     try {
       const created = await invoke<ContentExtractor>('duplicate_content_extractor', {
         reference: selected.stableRef,
-        name: `${draft.name || selected.name} Copy`,
+        name: `${selected.name} Copy`,
       });
       await load();
       setSelectedId(created.id);
@@ -157,9 +225,8 @@ export function ContentExtractorManagerDialog({
     }
   };
 
-  const remove = async () => {
+  const removeConfirmed = async () => {
     if (!selected) return;
-    if (!window.confirm(`Delete the Extractor “${selected.name}”? Shipped Extractors can be recovered with Restore Defaults.`)) return;
     try {
       await invoke('delete_content_extractor', { id: selected.id });
       const remaining = extractors.filter((extractor) => extractor.id !== selected.id);
@@ -172,7 +239,21 @@ export function ContentExtractorManagerDialog({
     }
   };
 
-  return <AppDialog
+  const remove = () => {
+    if (!selected) return;
+    requestConfirmation({
+      title: 'Delete Extractor?',
+      description: selected.name,
+      details: selected.isBuiltin
+        ? 'This removes the Extractor from the library. Restore Shipped Defaults can recover it.'
+        : 'This permanently removes the custom Extractor from the library.',
+      confirmLabel: 'Delete Extractor',
+      tone: 'danger',
+      onConfirm: removeConfirmed,
+    });
+  };
+
+  return <><AppDialog
     isOpen={isOpen}
     onClose={onClose}
     labelledBy="extractor-manager-title"
@@ -191,12 +272,12 @@ export function ContentExtractorManagerDialog({
       </AppDialogHeader>
       <AppDialogBody className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-y-auto text-xs @xl:grid-cols-[minmax(0,3fr)_minmax(0,7fr)]">
         <section className="theme-surface flex min-h-[260px] flex-col overflow-hidden rounded-xl border @xl:min-h-0">
-          <RegistryPanelHeader title="Extractors" actions={<AppDialogButton onClick={() => setSelectedId('new')} className="h-7 min-h-7 px-2.5"><Plus className="h-3.5 w-3.5" /> New</AppDialogButton>} />
+          <RegistryPanelHeader title="Extractors" actions={<AppDialogButton onClick={beginNew} className="h-7 min-h-7 px-2.5"><Plus className="h-3.5 w-3.5" /> New</AppDialogButton>} />
           <div className="min-h-0 flex-1 overflow-y-auto p-1.5">
             {extractors.map((extractor) => <RegistryListItem
               key={extractor.id}
               selected={selectedId === extractor.id}
-              onSelect={() => setSelectedId(extractor.id)}
+              onSelect={() => selectExtractor(extractor.id)}
               icon={<ScanText className="h-4 w-4" />}
               title={extractor.name}
               subtitle={extractor.isAvailable ? extractor.description : extractor.unavailableReason}
@@ -204,15 +285,14 @@ export function ContentExtractorManagerDialog({
               trailing={<SettingsSwitch
                 checked={extractor.enabled}
                 label={extractor.name}
-                onClick={() => void toggle(extractor)}
+                onClick={() => toggle(extractor)}
               />}
             />)}
           </div>
-          <div className="theme-divider flex justify-end border-t p-2">
-            <AppDialogButton onClick={() => void restoreAll()} className="h-7 min-h-7 px-2.5">
-              <RotateCcw className="h-3.5 w-3.5" /> Restore Defaults
-            </AppDialogButton>
-          </div>
+          <RegistryPanelFooter align="end">
+            <AppDialogButton onClick={() => void duplicate()} disabled={!selected || isDirty || saving} title={isDirty ? 'Save or cancel changes before duplicating.' : undefined}><Copy className="h-3.5 w-3.5" /> Duplicate</AppDialogButton>
+            <AppDialogButton variant="danger" onClick={remove} disabled={!selected || saving}><Trash2 className="h-3.5 w-3.5" /> Delete</AppDialogButton>
+          </RegistryPanelFooter>
         </section>
         <section className="theme-surface flex min-w-0 flex-col overflow-hidden rounded-xl border">
           <RegistryPanelHeader title="Extractor Settings" />
@@ -258,19 +338,25 @@ export function ContentExtractorManagerDialog({
               </div>
             )}
           </div>
+          <RegistryPanelFooter>
+            <div>
+              {selected?.isBuiltin && <AppDialogButton onClick={resetDraft} disabled={!differsFromDefaults || saving}><RotateCcw className="h-3.5 w-3.5" /> Reset to Default</AppDialogButton>}
+            </div>
+            <div className="flex items-center gap-2">
+              <AppDialogButton onClick={cancelDraft} disabled={selectedId !== 'new' && !isDirty}>Cancel</AppDialogButton>
+              <AppDialogButton variant="primary" onClick={() => void save()} disabled={selectedId === null || saving || (selectedId !== 'new' && !isDirty)}><SaveButtonContent isSaving={saving} /></AppDialogButton>
+            </div>
+          </RegistryPanelFooter>
         </section>
       </AppDialogBody>
       <AppDialogFooter align="between" className="shrink-0">
-        <div className="flex items-center gap-2">
-          {selected && <AppDialogButton onClick={() => void duplicate()}><Copy className="h-3.5 w-3.5" /> Duplicate</AppDialogButton>}
-          {selected && <AppDialogButton variant="danger" onClick={() => void remove()}><Trash2 className="h-3.5 w-3.5" /> Delete</AppDialogButton>}
-        </div>
-        <div className="flex items-center gap-2">
-          {selectedId === 'new' ? <AppDialogButton onClick={() => setSelectedId(extractors[0]?.id ?? null)}>Cancel</AppDialogButton> : <AppDialogButton onClick={requestClose}>Close</AppDialogButton>}
-          {selected?.isBuiltin && <AppDialogButton onClick={resetDraft} disabled={!differsFromDefaults || saving}><RotateCcw className="h-3.5 w-3.5" /> Reset to Default</AppDialogButton>}
-          <AppDialogButton variant="primary" onClick={() => void save()} disabled={selectedId === null || saving}><SaveButtonContent isSaving={saving} /></AppDialogButton>
-        </div>
+        <AppDialogButton onClick={restoreAll} disabled={saving}>
+          <RotateCcw className="h-3.5 w-3.5" /> Restore Shipped Defaults…
+        </AppDialogButton>
+        <AppDialogButton onClick={requestClose}>Close</AppDialogButton>
       </AppDialogFooter>
     </>}
-  </AppDialog>;
+  </AppDialog>
+  <ConfirmationDialog request={confirmation} onCancel={() => setConfirmation(null)} />
+  </>;
 }
