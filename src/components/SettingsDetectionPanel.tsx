@@ -446,7 +446,7 @@ export function SettingsDetectionPanel({
       <SettingsPanelHeader
         icon={ScanSearch}
         title="Analysis"
-        description="Understand clip content and make it more useful."
+        description="Automatically scan clips and index their contents."
         actions={contentDetectionEnabled ? (
           <ActionButton onClick={rescanHistory} disabled={rescanning}>
             <ScanSearch className="h-3.5 w-3.5" /> {rescanning ? 'Rescanning…' : 'Rescan Clips…'}
@@ -465,28 +465,28 @@ export function SettingsDetectionPanel({
           <AnalysisManagerRow
             step={2}
             icon={ScanSearch}
-            title="Inspectors"
+            title="Inspect"
             description="Measure structure and media facts."
             onManage={() => setIsInspectorManagerOpen(true)}
           />
           {(ocrEnabled || transcriptionsEnabled) && <AnalysisManagerRow
             step={3}
             icon={ScanText}
-            title="Extractors"
+            title="Extract"
             description="Create searchable representations."
             onManage={() => setIsExtractorManagerOpen(true)}
           />}
           {(contentDetectionEnabled || typesEnabled) && <AnalysisManagerRow
             step={4}
             icon={Radar}
-            title="Detectors"
+            title="Detect"
             description="Classify text as registered Content Types."
             onManage={openDetectorManager}
           />}
           {transformationsEnabled && <AnalysisManagerRow
             step={5}
             icon={Lightbulb}
-            title="Enrichers"
+            title="Enrich"
             description="Recommend actions from analysis signals."
             onManage={() => setIsEnricherManagerOpen(true)}
           />}
