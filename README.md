@@ -10,7 +10,7 @@ The [Pasted Wiki](https://github.com/getpasted/pasted/wiki) covers installation,
 
 - Captures text, images, screenshots, PDFs, and copied file references in a searchable local history.
 - Organizes clips with manual Bins, Smart Bins, Types, Sources, pinning, protection, notes, Trash, and persistent per-collection ordering.
-- Analyzes clips locally through bounded Inspect, Extract, Classify, and Enrich passes, with native macOS OCR, optional Tesseract OCR, ffprobe media metadata, editable Detectors, content-free structural metadata, and Smart Action recommendations.
+- Analyzes clips locally through bounded Inspect, Extract, Classify, and Enrich passes, with native macOS OCR, optional Tesseract OCR, ffprobe media metadata, local whisper.cpp transcription, editable Detectors, content-free structural metadata, and Smart Action recommendations.
 - Previews common image files and the first page of copied PDFs without changing the copied file reference.
 - Records copies into a persistent Queue, then pastes the next item or the whole Queue into the previously focused app.
 - Builds reusable Transforms from deterministic Operations or an explicitly connected intelligence provider.
@@ -87,7 +87,7 @@ Prerequisites:
 
 - Node.js 22 or newer
 - Rust 1.75 or newer
-- macOS for native OCR and signed macOS packaging; optional FFmpeg supplies cross-platform media inspection, while whisper.cpp plus a local GGML model supplies local audio transcription
+- macOS for native OCR and signed macOS packaging; optional FFmpeg supplies cross-platform media inspection and M4A/AAC preparation, while whisper.cpp plus a local GGML model supplies local audio transcription
 
 ```sh
 npm install

@@ -530,6 +530,205 @@ fn find_whisper_cpp_executable() -> Option<std::path::PathBuf> {
     crate::external_tools::find_executable(name, explicit)
 }
 
+fn find_ffmpeg_executable() -> Option<std::path::PathBuf> {
+    #[cfg(windows)]
+    let (name, explicit) = (
+        "ffmpeg.exe",
+        &[
+            r"C:\Program Files\ffmpeg\bin\ffmpeg.exe",
+            r"C:\ffmpeg\bin\ffmpeg.exe",
+        ][..],
+    );
+    #[cfg(not(windows))]
+    let (name, explicit) = (
+        "ffmpeg",
+        &[
+            "/opt/homebrew/bin/ffmpeg",
+            "/usr/local/bin/ffmpeg",
+            "/usr/bin/ffmpeg",
+            "/home/linuxbrew/.linuxbrew/bin/ffmpeg",
+        ][..],
+    );
+    crate::external_tools::find_executable(name, explicit)
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum WhisperAudioPreparation {
+    Native,
+    FfmpegWav,
+}
+
+fn whisper_audio_preparation(path: &Path) -> Option<WhisperAudioPreparation> {
+    match path
+        .extension()
+        .and_then(|extension| extension.to_str())?
+        .to_ascii_lowercase()
+        .as_str()
+    {
+        "flac" | "mp3" | "ogg" | "wav" => Some(WhisperAudioPreparation::Native),
+        "aac" | "m4a" => Some(WhisperAudioPreparation::FfmpegWav),
+        _ => None,
+    }
+}
+
+fn extraction_failure(code: &str, message: &str) -> ExtractionOutcome {
+    ExtractionOutcome::Failed {
+        failure: ExtractionFailure {
+            code: code.into(),
+            message: message.into(),
+        },
+    }
+}
+
+fn prepare_whisper_audio<'a>(
+    audio_path: &'a Path,
+    preparation: WhisperAudioPreparation,
+    workspace: &crate::external_tools::PrivateWorkspace,
+    index: usize,
+    remaining: Duration,
+) -> Result<std::borrow::Cow<'a, Path>, ExtractionOutcome> {
+    if preparation == WhisperAudioPreparation::Native {
+        return Ok(std::borrow::Cow::Borrowed(audio_path));
+    }
+    if audio_path.metadata().is_ok_and(|metadata| {
+        metadata.len() > crate::resource_limits::MAX_TRANSCRIPTION_AUDIO_BYTES
+    }) {
+        return Err(extraction_failure(
+            "input_too_large",
+            "The audio file exceeds the transcription size limit.",
+        ));
+    }
+    let Some(ffmpeg) = find_ffmpeg_executable() else {
+        return Err(extraction_failure(
+            "preparation_unavailable",
+            "FFmpeg is required to transcribe M4A or AAC audio.",
+        ));
+    };
+    let prepared_path = workspace.join(format!("prepared-{index}.wav"));
+    let mut child = Command::new(ffmpeg)
+        .arg("-nostdin")
+        .arg("-v")
+        .arg("error")
+        .arg("-y")
+        .arg("-i")
+        .arg(audio_path)
+        .arg("-map")
+        .arg("0:a:0")
+        .arg("-vn")
+        .arg("-ac")
+        .arg("1")
+        .arg("-ar")
+        .arg("16000")
+        .arg("-c:a")
+        .arg("pcm_s16le")
+        .arg("-fs")
+        .arg(crate::resource_limits::MAX_TRANSCRIPTION_AUDIO_BYTES.to_string())
+        .arg(&prepared_path)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .map_err(|_| {
+            extraction_failure(
+                "preparation_unavailable",
+                "FFmpeg could not be started to prepare the audio.",
+            )
+        })?;
+    if remaining.is_zero() {
+        let _ = child.kill();
+        let _ = child.wait();
+        return Err(extraction_failure(
+            "engine_timeout",
+            "Audio preparation exceeded the transcription time limit.",
+        ));
+    }
+    let status =
+        crate::external_tools::wait_bounded(&mut child, remaining).map_err(
+            |error| match error {
+                crate::external_tools::ProcessWaitError::TimedOut => extraction_failure(
+                    "engine_timeout",
+                    "Audio preparation exceeded the transcription time limit.",
+                ),
+                crate::external_tools::ProcessWaitError::Failed => extraction_failure(
+                    "preparation_failed",
+                    "The audio file could not be prepared for transcription.",
+                ),
+            },
+        )?;
+    if !status.success() {
+        return Err(extraction_failure(
+            "preparation_failed",
+            "The audio file could not be prepared for transcription.",
+        ));
+    }
+    let Ok(metadata) = prepared_path.metadata() else {
+        return Err(extraction_failure(
+            "preparation_failed",
+            "The audio file could not be prepared for transcription.",
+        ));
+    };
+    if metadata.len() >= crate::resource_limits::MAX_TRANSCRIPTION_AUDIO_BYTES {
+        return Err(extraction_failure(
+            "input_too_large",
+            "The prepared audio exceeds the transcription size limit.",
+        ));
+    }
+    Ok(std::borrow::Cow::Owned(prepared_path))
+}
+
+fn spawn_whisper_cpp(
+    executable: &Path,
+    model_path: &Path,
+    audio_path: &Path,
+    output_base: &Path,
+    disable_gpu: bool,
+) -> std::io::Result<std::process::Child> {
+    let mut command = Command::new(executable);
+    if disable_gpu {
+        command.arg("-ng");
+    }
+    command
+        .arg("-m")
+        .arg(model_path)
+        .arg("-f")
+        .arg(audio_path)
+        .arg("-otxt")
+        .arg("-of")
+        .arg(output_base)
+        .arg("-np")
+        .arg("-nt")
+        .arg("-l")
+        .arg("auto")
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+}
+
+fn wait_for_whisper(
+    child: &mut std::process::Child,
+    remaining: Duration,
+) -> Result<std::process::ExitStatus, ExtractionOutcome> {
+    if remaining.is_zero() {
+        let _ = child.kill();
+        let _ = child.wait();
+        return Err(extraction_failure(
+            "engine_timeout",
+            "Whisper.cpp exceeded the transcription time limit.",
+        ));
+    }
+    crate::external_tools::wait_bounded(child, remaining).map_err(|error| match error {
+        crate::external_tools::ProcessWaitError::TimedOut => extraction_failure(
+            "engine_timeout",
+            "Whisper.cpp exceeded the transcription time limit.",
+        ),
+        crate::external_tools::ProcessWaitError::Failed => extraction_failure(
+            "engine_failed",
+            "Whisper.cpp did not complete successfully.",
+        ),
+    })
+}
+
 fn perform_whisper_cpp_transcription(
     executable: &Path,
     model_path: &Path,
@@ -540,20 +739,18 @@ fn perform_whisper_cpp_transcription(
         .iter()
         .map(Path::new)
         .filter(|path| path.is_file())
-        .filter(|path| {
-            path.extension()
-                .and_then(|extension| extension.to_str())
-                .is_some_and(|extension| {
-                    matches!(
-                        extension.to_ascii_lowercase().as_str(),
-                        "flac" | "mp3" | "ogg" | "wav"
-                    )
-                })
-        })
+        .filter_map(|path| whisper_audio_preparation(path).map(|preparation| (path, preparation)))
         .take(crate::resource_limits::MAX_MEDIA_PROBE_FILES)
         .collect::<Vec<_>>();
     if audio_paths.is_empty() {
-        return ExtractionOutcome::NoOutput;
+        return if paths.iter().map(Path::new).any(Path::is_file) {
+            extraction_failure(
+                "unsupported_input",
+                "Whisper Transcription supports FLAC, MP3, OGG, WAV, M4A, or AAC audio files.",
+            )
+        } else {
+            ExtractionOutcome::NoOutput
+        };
     }
     let workspace = match crate::external_tools::PrivateWorkspace::create("transcription") {
         Ok(workspace) => workspace,
@@ -569,73 +766,63 @@ fn perform_whisper_cpp_transcription(
     let started = Instant::now();
     let mut transcripts = Vec::new();
     let mut transcript_bytes = 0usize;
-    for (index, audio_path) in audio_paths.into_iter().enumerate() {
+    for (index, (audio_path, preparation)) in audio_paths.into_iter().enumerate() {
+        let remaining = timeout.saturating_sub(started.elapsed());
+        let prepared_audio =
+            match prepare_whisper_audio(audio_path, preparation, &workspace, index, remaining) {
+                Ok(path) => path,
+                Err(outcome) => return outcome,
+            };
         let output_base = workspace.join(format!("transcript-{index}"));
         let output_path = workspace.join(format!("transcript-{index}.txt"));
-        let mut child = match Command::new(executable)
-            .arg("-m")
-            .arg(model_path)
-            .arg("-f")
-            .arg(audio_path)
-            .arg("-otxt")
-            .arg("-of")
-            .arg(&output_base)
-            .arg("-np")
-            .arg("-nt")
-            .arg("-l")
-            .arg("auto")
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn()
-        {
+        let mut child = match spawn_whisper_cpp(
+            executable,
+            model_path,
+            prepared_audio.as_ref(),
+            &output_base,
+            false,
+        ) {
             Ok(child) => child,
             Err(_) => {
-                return ExtractionOutcome::Failed {
-                    failure: ExtractionFailure {
-                        code: "engine_unavailable".into(),
-                        message: "Whisper.cpp could not be started.".into(),
-                    },
-                };
+                return extraction_failure(
+                    "engine_unavailable",
+                    "Whisper.cpp could not be started.",
+                );
             }
         };
         let remaining = timeout.saturating_sub(started.elapsed());
-        if remaining.is_zero() {
-            let _ = child.kill();
-            let _ = child.wait();
-            return ExtractionOutcome::Failed {
-                failure: ExtractionFailure {
-                    code: "engine_timeout".into(),
-                    message: "Whisper.cpp exceeded the transcription time limit.".into(),
-                },
-            };
-        }
-        let status = match crate::external_tools::wait_bounded(&mut child, remaining) {
+        let status = match wait_for_whisper(&mut child, remaining) {
             Ok(status) => status,
-            Err(crate::external_tools::ProcessWaitError::TimedOut) => {
-                return ExtractionOutcome::Failed {
-                    failure: ExtractionFailure {
-                        code: "engine_timeout".into(),
-                        message: "Whisper.cpp exceeded the transcription time limit.".into(),
-                    },
-                };
-            }
-            Err(crate::external_tools::ProcessWaitError::Failed) => {
-                return ExtractionOutcome::Failed {
-                    failure: ExtractionFailure {
-                        code: "engine_failed".into(),
-                        message: "Whisper.cpp did not complete successfully.".into(),
-                    },
-                };
-            }
+            Err(outcome) => return outcome,
         };
         if !status.success() {
-            return ExtractionOutcome::Failed {
-                failure: ExtractionFailure {
-                    code: "engine_failed".into(),
-                    message: "Whisper.cpp did not complete successfully.".into(),
-                },
+            let _ = fs::remove_file(&output_path);
+            let mut fallback = match spawn_whisper_cpp(
+                executable,
+                model_path,
+                prepared_audio.as_ref(),
+                &output_base,
+                true,
+            ) {
+                Ok(child) => child,
+                Err(_) => {
+                    return extraction_failure(
+                        "engine_unavailable",
+                        "Whisper.cpp could not be started.",
+                    );
+                }
             };
+            let remaining = timeout.saturating_sub(started.elapsed());
+            let status = match wait_for_whisper(&mut fallback, remaining) {
+                Ok(status) => status,
+                Err(outcome) => return outcome,
+            };
+            if !status.success() {
+                return extraction_failure(
+                    "engine_failed",
+                    "Whisper.cpp did not complete successfully.",
+                );
+            }
         }
         let Ok(metadata) = output_path.metadata() else {
             continue;
@@ -1139,6 +1326,74 @@ mod tests {
     fn apple_vision_adapter_rejects_empty_and_invalid_input_without_output() {
         assert_eq!(perform_apple_vision_ocr(&[]), None);
         assert_eq!(perform_apple_vision_ocr(&[0, 1, 2, 3, 4]), None);
+    }
+
+    #[test]
+    fn whisper_classifies_native_container_and_unsupported_audio() {
+        assert_eq!(
+            whisper_audio_preparation(Path::new("recording.WAV")),
+            Some(WhisperAudioPreparation::Native)
+        );
+        assert_eq!(
+            whisper_audio_preparation(Path::new("recording.m4a")),
+            Some(WhisperAudioPreparation::FfmpegWav)
+        );
+        assert_eq!(
+            whisper_audio_preparation(Path::new("recording.AAC")),
+            Some(WhisperAudioPreparation::FfmpegWav)
+        );
+        assert_eq!(whisper_audio_preparation(Path::new("notes.txt")), None);
+    }
+
+    #[test]
+    fn whisper_reports_unsupported_files_instead_of_no_speech() {
+        let workspace =
+            crate::external_tools::PrivateWorkspace::create("unsupported-audio-test").unwrap();
+        let input = workspace.join("notes.txt");
+        fs::write(&input, b"not audio").unwrap();
+        let outcome = perform_whisper_cpp_transcription(
+            Path::new("unused-whisper"),
+            Path::new("unused-model"),
+            &[input.to_string_lossy().into_owned()],
+            Duration::from_secs(1),
+        );
+        assert!(matches!(
+            outcome,
+            ExtractionOutcome::Failed {
+                failure: ExtractionFailure { ref code, .. }
+            } if code == "unsupported_input"
+        ));
+    }
+
+    #[test]
+    fn ffmpeg_prepares_m4a_for_whisper_when_installed() {
+        let Some(ffmpeg) = find_ffmpeg_executable() else {
+            return;
+        };
+        let workspace = crate::external_tools::PrivateWorkspace::create("m4a-test").unwrap();
+        let input = workspace.join("tone.m4a");
+        let status = Command::new(ffmpeg)
+            .args(["-nostdin", "-v", "error", "-y", "-f", "lavfi", "-i"])
+            .arg("sine=frequency=440:duration=0.2")
+            .args(["-c:a", "aac"])
+            .arg(&input)
+            .status()
+            .unwrap();
+        assert!(status.success());
+
+        let prepared = prepare_whisper_audio(
+            &input,
+            WhisperAudioPreparation::FfmpegWav,
+            &workspace,
+            0,
+            Duration::from_secs(10),
+        )
+        .unwrap();
+        assert_eq!(
+            prepared.extension().and_then(|value| value.to_str()),
+            Some("wav")
+        );
+        assert!(prepared.metadata().unwrap().len() > 44);
     }
 
     #[test]
