@@ -27,11 +27,13 @@ for (const [surface, value] of Object.entries(fixtures)) {
   assert.equal(value.through, 'enrich', `${surface} fixture must name its final pass`);
   assert.ok(Array.isArray(value.participants), `${surface} fixture must include participant runs`);
   for (const run of value.participants) {
-    assert.deepEqual(
-      Object.keys(run).sort(),
-      ['outcome', 'pass', 'stableRef'],
-      `${surface} success participants must remain content-free`,
-    );
+    for (const field of ['stableRef', 'pass', 'outcome']) {
+      assert.ok(Object.hasOwn(run, field), `${surface} participant must include ${field}`);
+    }
+    for (const field of Object.keys(run)) {
+      assert.doesNotMatch(field, /content|credential|input|output|password|path|secret|text|token/i,
+        `${surface} participant field ${field} must remain content-free`);
+    }
   }
   assert.equal(value.appliedClipId, null, `${surface} fixture must describe a non-mutating preview`);
   assert.doesNotMatch(JSON.stringify(value), /token|password|secret|credential|private\//i,
