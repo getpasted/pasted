@@ -74,6 +74,11 @@ fn history_and_settings_commands_have_executable_json_contracts() {
     assert_eq!(listed.as_array().map(Vec::len), Some(1));
     assert_eq!(listed[0]["content_type"], "email");
 
+    let insights = success_json(&database, &["insights", "summary", "--json"]);
+    assert_eq!(insights["clip_types"][0]["clip_type"], "text");
+    assert!(insights["clip_types"][0].get("content_type").is_none());
+    assert_eq!(insights["content_types"][0]["content_type"], "email");
+
     let setting = success_json(
         &database,
         &["settings", "set", "revisionHistoryLimit", "7", "--json"],

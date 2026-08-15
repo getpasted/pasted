@@ -201,6 +201,8 @@ pasted reset --yes [--json]
 
 `licenses` remains available without a database and even when the optional clipboard-management CLI feature is disabled. `reset` is intentionally gated by `--yes`. Other commands respect feature settings and exit with an explicit explanation when a capability is disabled or unavailable.
 
+`insights summary --json` keeps structural `clip_types`, bounded `file_formats`, and semantic `content_types` separate. Clip Type entries use `clip_type`; Content Type entries use `content_type`. File Formats are ordered by clip count and limited to the top 24 distinct extensions.
+
 ## Intentional app-only boundaries
 
 Window, title-bar, dock, tray, cursor, emoji-picker, native-menu, preview-rendering, and operating-system permission-prompt commands remain graphical presentation behavior. Shortcut registration is owned by the running app; the CLI can persist shortcut settings and the app applies them when active or at launch. Provider scheduler cancellation remains process-local: a CLI Transform exits with its CLI process, while the app manages and cancels its own active jobs. Installation diagnostics remain available through `pasted diagnostics` without exposing internal presentation helpers.

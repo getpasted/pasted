@@ -313,7 +313,7 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
         total_chars: active.reduce((total, clip) => total + clip.text_content.length, 0),
         top_sources: countBy(active.map((clip) => clip.source)).map(([name, count]) => ({ name, count })),
         clip_types: countBy(active.map((clip) => clip.content_type === 'image' || clip.content_type === 'file' ? clip.content_type : 'text'))
-          .map(([content_type, count]) => ({ content_type, count })),
+          .map(([clip_type, count]) => ({ clip_type, count })),
         file_formats: [],
         content_types: countBy(active.map((clip) => clip.content_type).filter((type) => !['text', 'image', 'file'].includes(type)))
           .map(([content_type, count]) => ({ content_type, count })),

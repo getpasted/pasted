@@ -31,6 +31,11 @@ interface TypeStat {
   count: number;
 }
 
+interface ClipTypeStat {
+  clip_type: string;
+  count: number;
+}
+
 interface FileFormatStat {
   file_format: string;
   count: number;
@@ -45,7 +50,7 @@ interface AnalyticsSummary {
   total_clips: number;
   total_chars: number;
   top_sources: SourceStat[];
-  clip_types: TypeStat[];
+  clip_types: ClipTypeStat[];
   file_formats: FileFormatStat[];
   content_types: TypeStat[];
   daily_activity: DailyStat[];
@@ -208,7 +213,7 @@ export const AnalyticsView: React.FC = () => {
               <div key={value} className="theme-surface p-3 rounded-lg border flex items-center space-x-3">
                 <Icon className="w-4 h-4 theme-text-muted shrink-0" />
                 <div className="min-w-0">
-                  <div className="theme-title text-sm font-bold font-mono">{clipTypes.find((type) => type.content_type === value)?.count ?? 0}</div>
+                  <div className="theme-title text-sm font-bold font-mono">{clipTypes.find((type) => type.clip_type === value)?.count ?? 0}</div>
                   <div className="theme-text-muted truncate text-[11px]">{label}</div>
                 </div>
               </div>

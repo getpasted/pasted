@@ -12,6 +12,7 @@ const BACKUP_SCHEMA_VERSION: u32 = 11;
 const FULL_BACKUP_FORMAT_VERSION: i64 = 1;
 const PENDING_CLIENT_STATE_SETTING: &str = "pendingFullBackupClientState";
 const MAX_BACKUP_INTERFACE_STATE_BYTES: usize = 1024 * 1024;
+const MAX_ANALYTICS_FILE_FORMATS: usize = 24;
 
 fn ensure_resource_size(value: &str, maximum: usize, label: &str) -> Result<()> {
     if value.len() <= maximum {
@@ -582,6 +583,12 @@ pub struct TypeStat {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClipTypeStat {
+    pub clip_type: String,
+    pub count: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FileFormatStat {
     pub file_format: String,
     pub count: i64,
@@ -598,7 +605,7 @@ pub struct AnalyticsSummary {
     pub total_clips: i64,
     pub total_chars: i64,
     pub top_sources: Vec<SourceStat>,
-    pub clip_types: Vec<TypeStat>,
+    pub clip_types: Vec<ClipTypeStat>,
     pub file_formats: Vec<FileFormatStat>,
     pub content_types: Vec<TypeStat>,
     pub daily_activity: Vec<DailyStat>,
@@ -5618,7 +5625,7 @@ impl DbState {
         ).unwrap_or((0, 0));
 
         let mut source_stmt = conn.prepare(
-            "SELECT source, COUNT(*) FROM clips WHERE (is_trashed IS NULL OR is_trashed = 0) GROUP BY source ORDER BY COUNT(*) DESC LIMIT 8"
+            "SELECT source, COUNT(*) FROM clips WHERE (is_trashed IS NULL OR is_trashed = 0) GROUP BY source ORDER BY COUNT(*) DESC, source COLLATE NOCASE ASC LIMIT 8"
         )?;
         let top_sources = source_stmt
             .query_map([], |r| {
@@ -5635,12 +5642,17 @@ impl DbState {
                     COUNT(*)
              FROM clips
              WHERE (is_trashed IS NULL OR is_trashed = 0)
-             GROUP BY clip_type"
+             GROUP BY clip_type
+             ORDER BY CASE
+               WHEN content_type = 'image' THEN 1
+               WHEN content_type = 'file' THEN 2
+               ELSE 0
+             END"
         )?;
         let clip_types = clip_type_stmt
             .query_map([], |r| {
-                Ok(TypeStat {
-                    content_type: r.get(0)?,
+                Ok(ClipTypeStat {
+                    clip_type: r.get(0)?,
                     count: r.get(1)?,
                 })
             })?
@@ -5682,6 +5694,7 @@ impl DbState {
                 .cmp(&left.count)
                 .then_with(|| left.file_format.cmp(&right.file_format))
         });
+        file_formats.truncate(MAX_ANALYTICS_FILE_FORMATS);
 
         let mut content_type_stmt = conn.prepare(
             "SELECT COALESCE(classifications.content_type, clips.content_type) AS content_type,
@@ -5692,7 +5705,8 @@ impl DbState {
               AND classifications.input_hash = clips.content_hash
              WHERE (clips.is_trashed IS NULL OR clips.is_trashed = 0)
                AND COALESCE(classifications.content_type, clips.content_type) NOT IN ('text', 'image', 'file')
-             GROUP BY COALESCE(classifications.content_type, clips.content_type)"
+             GROUP BY COALESCE(classifications.content_type, clips.content_type)
+             ORDER BY COUNT(*) DESC, content_type COLLATE NOCASE ASC"
         )?;
         let content_types = content_type_stmt
             .query_map([], |r| {
@@ -15127,7 +15141,7 @@ mod tests {
             summary
                 .clip_types
                 .iter()
-                .find(|entry| entry.content_type == name)
+                .find(|entry| entry.clip_type == name)
                 .map(|entry| entry.count)
                 .unwrap_or_default()
         };
@@ -15146,6 +15160,23 @@ mod tests {
         assert_eq!(format_count("png"), 1);
         assert_eq!(summary.content_types[0].content_type, "email");
         assert_eq!(summary.content_types[0].count, 1);
+        let serialized = serde_json::to_value(&summary).unwrap();
+        assert_eq!(serialized["clip_types"][0]["clip_type"], "text");
+        assert!(serialized["clip_types"][0].get("content_type").is_none());
+    }
+
+    #[test]
+    fn insights_bounds_file_format_breakdowns() {
+        let db = setup_test_db();
+        let paths = (0..MAX_ANALYTICS_FILE_FORMATS + 5)
+            .map(|index| format!("/tmp/file.{index:02}"))
+            .collect::<Vec<_>>();
+        let payload = serde_json::to_string(&paths).unwrap();
+        db.save_clip("file", Some(&payload), None, None, "many-formats", "Tests")
+            .unwrap();
+
+        let summary = db.get_analytics_summary().unwrap();
+        assert_eq!(summary.file_formats.len(), MAX_ANALYTICS_FILE_FORMATS);
     }
 
     #[test]
