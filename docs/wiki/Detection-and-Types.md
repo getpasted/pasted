@@ -2,7 +2,9 @@
 
 Content Detection classifies new text clips into Types used by search, calculated Type collections, and Smart Bins. It does not send content to an intelligence provider. Detection runs locally through an ordered registry of regular expressions and optional built-in validators.
 
-Open **Settings → Analysis** to configure Analyzer participants. **Content Detection** controls whether Detectors run; **Types** only controls whether Type collections appear in the library.
+Open **Settings → Analysis** to configure Analyzer participants. **Content Detection** controls whether Detectors run; **Content Types** controls semantic labels, collections, and related library presentation without stopping classification.
+
+The settings sequence begins with **Capture**. Clip Type assigns exactly one structural Text, Image, or Files value from the captured representation. Source Attribution records the associated application name; disabling **Sources** hides that capability and its presentation but retains attribution so the setting is reversible. Application icons are resolved only when displayed.
 
 ## Bounded analysis passes
 
@@ -86,6 +88,8 @@ pasted detector rescan --yes --json
 
 ## Types and Groups
 
+Clip Type, File Format, and Content Type are separate concepts. Every clip has exactly one structural Clip Type: Text, Image, or Files. A Files clip may contain several referenced files and therefore several File Formats. Detectors may eventually associate several semantic Content Types with one clip; the current persistence contract retains one winning detection until the multi-match schema migration is complete. Insights presents these categories separately rather than combining them.
+
 **Manage Types** opens the shared Type and Group registry. Type IDs are stable so saved searches, Smart Bins, CLI output, and historical clips can keep referring to the same concept even when its name, icon, or group changes.
 
 - Built-in Types and Groups can be customized and later restored.
@@ -94,8 +98,8 @@ pasted detector rescan --yes --json
 - A custom Group must be empty before it can be archived or permanently deleted.
 - Archived entries remain recoverable and are excluded from ordinary selection.
 
-Disabling **Types** hides calculated Type collections without stopping classification. Disabling **Content Detection** stops detector-based classification and rescans. The Detector manager remains available when either feature is enabled. Neither action deletes existing clips or registry data.
+Disabling **Content Types** hides semantic labels, calculated collections, and Content Type summaries without stopping classification. Structural Clip Type remains visible. Disabling **Content Detection** stops detector-based classification and rescans. The Detector manager remains available when either feature is enabled. Neither action deletes existing clips or registry data.
 
 ## CLI reference
 
-The CLI can preview the whole Analyzer; run and inspect built-in Inspectors and Enrichers; list and configure Extractors; list, create, update, delete, enable, and restore Detectors; manage Types and Groups; and inspect the shared processing registry. Use [`pasted analyzer`, `pasted inspector`, `pasted enricher`, `pasted extractor`, `pasted detector`, `pasted type`, and `pasted registry`](CLI-Reference#content-analysis) for scriptable access.
+The CLI can preview the whole Analyzer; run and inspect built-in Inspectors and Enrichers; list and configure Extractors; list, create, update, delete, enable, and restore Detectors; manage Content Types and Groups; and inspect the shared processing registry. `pasted registry list --kind capture --json` exposes Clip Type and Source Attribution alongside the processing definitions. Use [`pasted analyzer`, `pasted inspector`, `pasted enricher`, `pasted extractor`, `pasted detector`, `pasted type`, and `pasted registry`](CLI-Reference#content-analysis) for scriptable access.

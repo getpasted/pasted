@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ComponentType } from 'react';
-import { FileAudio, Lightbulb, ScanSearch } from 'lucide-react';
+import { AppWindow, FileAudio, Lightbulb, ScanSearch, Shapes } from 'lucide-react';
 import type { LibraryItemView } from '../types';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { AppDialog } from './AppDialog';
@@ -8,7 +8,7 @@ import { RegistryDetailHeader } from './RegistryDetailHeader';
 import { RegistryListItem } from './RegistryListItem';
 import { RegistryPanelHeader } from './RegistryPanelHeader';
 
-type BuiltinAnalysisKind = Extract<LibraryItemView['kind'], 'inspector' | 'enricher'>;
+type BuiltinLifecycleKind = Extract<LibraryItemView['kind'], 'capture' | 'inspector' | 'enricher'>;
 
 interface InspectorDefinition {
   stableRef: string;
@@ -23,20 +23,22 @@ function engineLabel(engine: string) {
   return engine;
 }
 
-export function BuiltinAnalysisManagerDialog({
+export function BuiltinLifecycleManagerDialog({
   isOpen,
   onClose,
   kind,
   title,
   description,
   icon: HeadingIcon,
+  sourcesEnabled = true,
 }: {
   isOpen: boolean;
   onClose: () => void;
-  kind: BuiltinAnalysisKind;
+  kind: BuiltinLifecycleKind;
   title: string;
   description: string;
   icon: ComponentType<{ className?: string }>;
+  sourcesEnabled?: boolean;
 }) {
   const [items, setItems] = useState<LibraryItemView[]>([]);
   const [inspectors, setInspectors] = useState<InspectorDefinition[]>([]);
@@ -53,16 +55,19 @@ export function BuiltinAnalysisManagerDialog({
             ? invoke<InspectorDefinition[]>('get_content_inspectors')
             : Promise.resolve([]),
         ]);
-        setItems(loaded);
+        const visibleItems = kind === 'capture' && !sourcesEnabled
+          ? loaded.filter(({ stableRef }) => stableRef !== 'capture:source-attribution-v1')
+          : loaded;
+        setItems(visibleItems);
         setInspectors(loadedInspectors);
-        setSelectedRef((current) => loaded.some(({ stableRef }) => stableRef === current) ? current : loaded[0]?.stableRef ?? null);
+        setSelectedRef((current) => visibleItems.some(({ stableRef }) => stableRef === current) ? current : visibleItems[0]?.stableRef ?? null);
         setError(null);
       } catch (reason) {
         setError(String(reason));
       }
     };
     void load();
-  }, [isOpen, kind]);
+  }, [isOpen, kind, sourcesEnabled]);
 
   const selected = useMemo(
     () => items.find(({ stableRef }) => stableRef === selectedRef),
@@ -70,12 +75,21 @@ export function BuiltinAnalysisManagerDialog({
   );
   const contract = selected?.participantContract;
   const runtime = inspectors.find(({ stableRef }) => stableRef === selectedRef);
-  const worksWith = kind === 'enricher'
+  const isClipType = kind === 'capture' && selected?.stableRef === 'capture:clip-type-v1';
+  const worksWith = isClipType
+    ? 'Clipboard representations'
+    : kind === 'capture'
+    ? 'Clipboard captures'
+    : kind === 'enricher'
     ? 'Clips with analyzable text'
     : selected?.typeRelations?.some(({ kind: relationKind, typeId }) => relationKind === 'accepts' && typeId === 'file')
       ? 'File clips'
       : 'All clips';
-  const provides = kind === 'enricher'
+  const provides = isClipType
+    ? 'Text, Image, or Files'
+    : kind === 'capture'
+    ? 'App name and icon'
+    : kind === 'enricher'
     ? 'Smart Action recommendations'
     : selected?.stableRef.includes('media') ? 'Media metadata' : 'Structural details';
   const availabilityText = runtime?.engine
@@ -83,7 +97,11 @@ export function BuiltinAnalysisManagerDialog({
       ? `${engineLabel(runtime.engine)} available`
       : runtime.unavailableReason?.match(/^.*?\.(?:\s|$)/)?.[0].trim() ?? 'Engine unavailable'
     : null;
-  const DetailIcon = kind === 'inspector' && selected?.stableRef.includes('media')
+  const DetailIcon = isClipType
+    ? Shapes
+    : kind === 'capture'
+    ? AppWindow
+    : kind === 'inspector' && selected?.stableRef.includes('media')
     ? FileAudio
     : kind === 'enricher' ? Lightbulb : ScanSearch;
 
@@ -102,20 +120,25 @@ export function BuiltinAnalysisManagerDialog({
           <section className="theme-surface flex min-h-[220px] flex-col overflow-hidden rounded-xl border @xl:min-h-0">
             <RegistryPanelHeader title={title} />
             <div className="min-h-0 flex-1 overflow-y-auto p-1.5">
-              {items.map((item) => (
-                <RegistryListItem
+              {items.map((item) => {
+                const ItemIcon = item.stableRef === 'capture:clip-type-v1'
+                  ? Shapes
+                  : item.stableRef === 'capture:source-attribution-v1'
+                  ? AppWindow
+                  : HeadingIcon;
+                return <RegistryListItem
                   key={item.stableRef}
                   selected={selectedRef === item.stableRef}
                   onSelect={() => setSelectedRef(item.stableRef)}
-                  icon={<HeadingIcon className="h-4 w-4" />}
+                  icon={<ItemIcon className="h-4 w-4" />}
                   title={item.name}
                   subtitle={item.description}
-                />
-              ))}
+                />;
+              })}
             </div>
           </section>
           <section className="theme-surface flex min-w-0 flex-col overflow-hidden rounded-xl border">
-            <RegistryPanelHeader title={`${kind === 'inspector' ? 'Inspector' : 'Enricher'} Details`} />
+            <RegistryPanelHeader title={`${kind === 'capture' ? 'Capture' : kind === 'inspector' ? 'Inspector' : 'Enricher'} Details`} />
             <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
               {error && <div role="alert" className="theme-status-danger rounded-lg border px-3 py-2">Definitions could not be loaded.</div>}
               {selected && <>
@@ -143,7 +166,9 @@ export function BuiltinAnalysisManagerDialog({
                   <summary className="theme-text-main cursor-pointer text-[10px] font-semibold">Technical details</summary>
                   <div className="theme-divider mt-3 space-y-3 border-t pt-3 text-[10px]">
                     <p className="theme-text-subtle leading-relaxed">
-                      The stable reference identifies this {kind} in the CLI and API. Use it with <code>pasted {kind} get &lt;ref&gt; --json</code>.
+                      {kind === 'capture'
+                        ? <>The stable reference identifies this capability in the API and shared library registry. Inspect it with <code>pasted registry list --kind capture --json</code>.</>
+                        : <>The stable reference identifies this {kind} in the CLI and API. Use it with <code>pasted {kind} get &lt;ref&gt; --json</code>.</>}
                     </p>
                     <div className="space-y-1">
                       <span className="theme-text-muted block font-semibold">Stable reference</span>
@@ -155,6 +180,12 @@ export function BuiltinAnalysisManagerDialog({
                       <div><span className="theme-text-muted block font-semibold">Requires</span><code>{contract.requires.join(' + ')}</code></div>
                       <div><span className="theme-text-muted block font-semibold">Provides</span><code>{contract.provides.join(' + ')}</code></div>
                     </div>}
+                    {isClipType && <p className="theme-text-subtle leading-relaxed">
+                      Every clip has one structural Clip Type. Copies containing multiple files remain one Files clip.
+                    </p>}
+                    {kind === 'capture' && !isClipType && <p className="theme-text-subtle leading-relaxed">
+                      Application names are recorded during capture. Icons are resolved only when displayed. Native Wayland may use System Clipboard when application attribution is unavailable.
+                    </p>}
                   </div>
                 </details>
               </>}

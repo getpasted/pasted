@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type CSSProperties, type WheelEvent } from
 import { FileText, Image as ImageIcon, Pin } from 'lucide-react';
 import type { ClipItem } from '../types';
 import { getClipFileSummary } from '../types';
+import { useFeatures } from '../hooks/useFeatures';
 
 interface PinnedClipShelfProps {
   clips: ClipItem[];
@@ -26,6 +27,7 @@ export function PinnedClipShelf({
   onRevealAll,
   onWheel,
 }: PinnedClipShelfProps) {
+  const features = useFeatures();
   const stackedIds = new Set(stackedClipIds);
   const stackedClips = clips.filter((clip) => stackedIds.has(clip.id));
   const [displayedClips, setDisplayedClips] = useState(stackedClips);
@@ -106,13 +108,16 @@ export function PinnedClipShelf({
             style={{
               '--pinned-shelf-index': index,
               '--pinned-shelf-depth': shownClips.length - index,
+              gridTemplateColumns: features.sources
+                ? undefined
+                : '1.25rem minmax(0, 1fr) auto',
             } as CSSProperties}
             onClick={() => onSelect(clip)}
           >
             <span className="pinned-clip-shelf-icon" aria-hidden="true">
               {clip.content_type === 'image' ? <ImageIcon /> : clip.content_type === 'file' ? <FileText /> : <Pin />}
             </span>
-            <span className="pinned-clip-shelf-source">{clip.source}</span>
+            {features.sources && <span className="pinned-clip-shelf-source">{clip.source}</span>}
             <span className="pinned-clip-shelf-summary">{clipSummary(clip)}</span>
             {index === 0 && (
               <span className="pinned-clip-shelf-count">{stackedClips.length}</span>

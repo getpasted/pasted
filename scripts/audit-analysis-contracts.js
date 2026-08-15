@@ -7,13 +7,15 @@ const frontendMock = read('src/utils/tauri.ts');
 const cliTests = read('src-tauri/tests/cli_integration.rs');
 const clipPreview = read('src/components/ClipPreview.tsx');
 const clipPreviewContent = read('src/components/ClipPreviewContent.tsx');
+const clipCard = read('src/components/ClipCard.tsx');
+const analytics = read('src/components/AnalyticsView.tsx');
 const database = read('src-tauri/src/db.rs');
 const types = read('src/types.ts');
 const analysisSettings = read('src/components/SettingsDetectionPanel.tsx');
 const settingsModal = read('src/components/SettingsModal.tsx');
 const analysisExecution = read('src-tauri/src/analysis_execution.rs');
 const commands = read('src-tauri/src/commands.rs');
-const builtinAnalysisManager = read('src/components/BuiltinAnalysisManagerDialog.tsx');
+const builtinLifecycleManager = read('src/components/BuiltinLifecycleManagerDialog.tsx');
 const extractorManager = read('src/components/ContentExtractorManagerDialog.tsx');
 const registryPanelHeader = read('src/components/RegistryPanelHeader.tsx');
 const registryPanelFooter = read('src/components/RegistryPanelFooter.tsx');
@@ -21,15 +23,16 @@ const architecture = read('docs/ANALYSIS_ARCHITECTURE.md');
 const releaseChecklist = read('docs/RELEASE_CHECKLIST_1.0.0.md');
 
 for (const [step, participant, icon] of [
-  [1, 'Inspectors', 'ScanSearch'],
-  [2, 'Extractors', 'ScanText'],
-  [3, 'Detectors', 'Radar'],
-  [4, 'Enrichers', 'Lightbulb'],
+  [1, 'Capture', 'Clipboard'],
+  [2, 'Inspectors', 'ScanSearch'],
+  [3, 'Extractors', 'ScanText'],
+  [4, 'Detectors', 'Radar'],
+  [5, 'Enrichers', 'Lightbulb'],
 ]) {
   assert.match(
     analysisSettings,
     new RegExp(`step=\\{${step}\\}[\\s\\S]{0,80}icon=\\{${icon}\\}[\\s\\S]{0,80}title="${participant}"`),
-    `Analysis Settings must present ${participant} as ordered pass ${step} with its participant icon`,
+    `Analysis Settings must present ${participant} as ordered lifecycle step ${step} with its icon`,
   );
 }
 assert.match(
@@ -47,6 +50,28 @@ assert.match(analysisSettings, /\{\(contentDetectionEnabled \|\| typesEnabled\) 
   'Detectors must remain visible for either Content Detection or Types');
 assert.match(settingsModal, /typesEnabled=\{settings\.enableTypes\}/,
   'Analysis Settings must receive the Types feature gate');
+assert.match(settingsModal, /sourcesEnabled=\{settings\.enableSources\}/,
+  'Analysis Settings must receive the Sources feature gate');
+assert.match(analysisSettings, /step=\{1\}[\s\S]{0,220}title="Capture"/,
+  'Capture must remain visible independently of optional presentation features');
+assert.match(builtinLifecycleManager, /stableRef !== 'capture:source-attribution-v1'/,
+  'Disabling Sources must hide Source Attribution without hiding Clip Type');
+assert.match(clipCard, /features\.types[\s\S]{0,100}structuralClipType/,
+  'Clip cards must fall back to structural Clip Type when Content Types is disabled');
+assert.match(clipCard, /features\.sources && <span className="font-medium theme-text-main/,
+  'Clip cards must hide Source chrome when Sources is disabled');
+assert.match(clipPreview, /features\.types[\s\S]{0,180}structuralClipType/,
+  'Clip Preview must fall back to structural Clip Type when Content Types is disabled');
+assert.match(clipPreview, /features\.sources && <OverflowText text=\{clip\.source\}/,
+  'Clip Preview must hide its Source label when Sources is disabled');
+assert.match(analytics, /features\.sources && <div className="theme-panel[\s\S]{0,1000}Top source in History/,
+  'Insights must hide Source summaries when Sources is disabled');
+assert.match(analytics, /Clips by Clip Type/,
+  'Insights must always present structural Clip Type summaries');
+assert.match(analytics, /Clips by File Format/,
+  'Insights must present file-format summaries separately');
+assert.match(analytics, /features\.types && <div className="theme-panel[\s\S]{0,1000}Clips by Content Type/,
+  'Insights must hide semantic Content Type summaries when Content Types is disabled');
 assert.match(analysisSettings, /\{transformationsEnabled && <AnalysisManagerRow[\s\S]{0,220}title="Enrichers"/,
   'Disabling Transformations must hide Smart Action Enrichers');
 assert.match(analysisExecution, /let run_detectors = allow_text_participants && options\.include_detectors;/,
@@ -159,21 +184,21 @@ for (const field of ['ocr_extractor_ref', 'ocr_extractor_name', 'ocr_engine_vers
   assert.match(types, new RegExp(`${field}\\?: string \\| null`),
     `Frontend ClipItem must expose OCR provenance field ${field}`);
 }
-for (const title of ['Inspectors', 'Extractors', 'Detectors', 'Enrichers']) {
+for (const title of ['Capture', 'Inspectors', 'Extractors', 'Detectors', 'Enrichers']) {
   assert.match(analysisSettings, new RegExp(`title="${title}"`),
     `Analysis settings must expose ${title} behind a compact manager row`);
 }
-assert.match(builtinAnalysisManager, /get_library_items/,
-  'Inspector and Enricher managers must consume the shared registry');
-assert.match(builtinAnalysisManager, /participantContract/,
+assert.match(builtinLifecycleManager, /get_library_items/,
+  'Capture, Inspector, and Enricher managers must consume the shared registry');
+assert.match(builtinLifecycleManager, /participantContract/,
   'Inspector and Enricher managers must render typed participant contracts');
-assert.match(builtinAnalysisManager, /typeRelations/,
+assert.match(builtinLifecycleManager, /typeRelations/,
   'Inspector and Enricher managers must render registered Type relations');
-assert.match(builtinAnalysisManager, /get_content_inspectors/,
+assert.match(builtinLifecycleManager, /get_content_inspectors/,
   'Inspector management must load shared engine availability');
-assert.match(builtinAnalysisManager, /Technical details/,
+assert.match(builtinLifecycleManager, /Technical details/,
   'Internal participant contracts must remain behind contextual technical details');
-assert.match(builtinAnalysisManager, /pasted \{kind\} get &lt;ref&gt; --json/,
+assert.match(builtinLifecycleManager, /pasted \{kind\} get &lt;ref&gt; --json/,
   'Stable references must explain their CLI and API purpose');
 for (const [label, manager] of [['Extractor', extractorManager], ['Detector', analysisSettings]]) {
   assert.equal((manager.match(/<RegistryPanelFooter/g) ?? []).length, 2,

@@ -115,6 +115,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             transcriptionsEnabled={settings.enableTranscriptions}
             transformationsEnabled={settings.enableTransformations}
             typesEnabled={settings.enableTypes}
+            sourcesEnabled={settings.enableSources}
           />
         )}
 

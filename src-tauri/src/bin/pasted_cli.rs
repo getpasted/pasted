@@ -1910,6 +1910,24 @@ fn main() -> Result<()> {
                         println!("{}\t{}", source.count, source.name);
                     }
                 }
+                if !summary.clip_types.is_empty() {
+                    println!("Clip types:");
+                    for clip_type in summary.clip_types {
+                        println!("{}\t{}", clip_type.count, clip_type.content_type);
+                    }
+                }
+                if !summary.file_formats.is_empty() {
+                    println!("File formats:");
+                    for format in summary.file_formats {
+                        println!("{}\t{}", format.count, format.file_format);
+                    }
+                }
+                if !summary.content_types.is_empty() {
+                    println!("Content types:");
+                    for content_type in summary.content_types {
+                        println!("{}\t{}", content_type.count, content_type.content_type);
+                    }
+                }
             }
         }
         "ocr" => {

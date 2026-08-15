@@ -10,12 +10,16 @@ import {
   Calendar,
   AlertCircle,
   LoaderCircle,
+  FileText,
+  Image,
+  Files,
 } from 'lucide-react';
 import { ToolPageHeader } from './ToolPageHeader';
 import { OverflowText } from './OverflowText';
 import { ContentTypeIcon } from './ContentTypeIcon';
 import { useContentTypes } from './ContentTypeProvider';
 import type { ClipContentType } from '../types';
+import { useFeatures } from '../hooks/useFeatures';
 
 interface SourceStat {
   name: string;
@@ -24,6 +28,11 @@ interface SourceStat {
 
 interface TypeStat {
   content_type: string;
+  count: number;
+}
+
+interface FileFormatStat {
+  file_format: string;
   count: number;
 }
 
@@ -36,11 +45,14 @@ interface AnalyticsSummary {
   total_clips: number;
   total_chars: number;
   top_sources: SourceStat[];
+  clip_types: TypeStat[];
+  file_formats: FileFormatStat[];
   content_types: TypeStat[];
   daily_activity: DailyStat[];
 }
 
 export const AnalyticsView: React.FC = () => {
+  const features = useFeatures();
   const { definitions: registeredContentTypes, groups: contentTypeGroups } = useContentTypes();
   const [summary, setSummary] = useState<AnalyticsSummary | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -84,6 +96,8 @@ export const AnalyticsView: React.FC = () => {
   const totalClips = summary.total_clips;
   const totalChars = summary.total_chars;
   const topSources = summary.top_sources;
+  const clipTypes = summary.clip_types;
+  const fileFormats = summary.file_formats;
   const contentTypes = summary.content_types;
   const dailyActivity = summary.daily_activity;
 
@@ -98,6 +112,11 @@ export const AnalyticsView: React.FC = () => {
       .filter(({ content_type }) => !registeredContentTypes.some(({ id }) => id === content_type))
       .map(({ content_type }) => ({ value: content_type as ClipContentType, label: content_type, group: 'custom' })),
   ];
+  const structuralTypes = [
+    { value: 'text', label: 'Text', icon: FileText },
+    { value: 'image', label: 'Image', icon: Image },
+    { value: 'file', label: 'Files', icon: Files },
+  ];
 
   return (
     <div className="tools-page analytics-page flex-1 h-screen overflow-hidden font-sans select-none flex flex-col">
@@ -110,7 +129,7 @@ export const AnalyticsView: React.FC = () => {
       <div className="tools-scroll-region flex-1 overflow-y-auto p-6">
 
       {/* Top Stat Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div className={`grid grid-cols-1 gap-4 mb-6 ${features.sources ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
         <div className="theme-panel p-4 rounded-xl border flex items-center space-x-4">
           <div className="theme-status-info p-3 rounded-lg border">
             <Layers className="w-6 h-6" />
@@ -135,7 +154,7 @@ export const AnalyticsView: React.FC = () => {
           </div>
         </div>
 
-        <div className="theme-panel p-4 rounded-xl border flex items-center space-x-4">
+        {features.sources && <div className="theme-panel p-4 rounded-xl border flex items-center space-x-4">
           <div className="theme-status-warning p-3 rounded-lg border">
             <TrendingUp className="w-6 h-6" />
           </div>
@@ -143,13 +162,13 @@ export const AnalyticsView: React.FC = () => {
             <OverflowText as="div" text={topSources[0]?.name || '—'} className="theme-title text-2xl font-extrabold font-mono truncate max-w-[140px]" />
             <div className="theme-text-muted text-xs font-medium">Top source in History</div>
           </div>
-        </div>
+        </div>}
       </div>
 
       {/* Detailed Insights Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+      <div className="grid grid-cols-1 gap-6 mb-6 lg:grid-cols-2">
         {/* Top Sources */}
-        <div className="theme-panel p-5 rounded-xl border flex flex-col">
+        {features.sources && <div className="theme-panel p-5 rounded-xl border flex flex-col">
           <h2 className="theme-title text-sm font-bold mb-4 flex items-center space-x-2">
             <Cpu className="w-4 h-4 theme-status-info-text" />
             <span>Top sources in History</span>
@@ -164,7 +183,7 @@ export const AnalyticsView: React.FC = () => {
                   <div key={source.name} className="space-y-1">
                     <div className="flex justify-between text-xs font-mono">
                       <span className="theme-text-main font-medium">{source.name}</span>
-                      <span className="theme-text-muted">{source.count} clips ({pct}%)</span>
+                      <span className="theme-text-muted">{source.count} {source.count === 1 ? 'clip' : 'clips'} ({pct}%)</span>
                     </div>
                     <div className="theme-track w-full h-2 rounded-full overflow-hidden">
                       <div
@@ -177,13 +196,51 @@ export const AnalyticsView: React.FC = () => {
               })
             )}
           </div>
+        </div>}
+
+        <div className="theme-panel p-5 rounded-xl border flex flex-col">
+          <h2 className="theme-title text-sm font-bold mb-4 flex items-center space-x-2">
+            <Layers className="w-4 h-4 theme-status-info-text" />
+            <span>Clips by Clip Type</span>
+          </h2>
+          <div className="grid grid-cols-3 gap-3 flex-1">
+            {structuralTypes.map(({ value, label, icon: Icon }) => (
+              <div key={value} className="theme-surface p-3 rounded-lg border flex items-center space-x-3">
+                <Icon className="w-4 h-4 theme-text-muted shrink-0" />
+                <div className="min-w-0">
+                  <div className="theme-title text-sm font-bold font-mono">{clipTypes.find((type) => type.content_type === value)?.count ?? 0}</div>
+                  <div className="theme-text-muted truncate text-[11px]">{label}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="theme-panel p-5 rounded-xl border flex flex-col">
+          <h2 className="theme-title text-sm font-bold mb-4 flex items-center space-x-2">
+            <Files className="w-4 h-4 theme-status-info-text" />
+            <span>Clips by File Format</span>
+          </h2>
+          <div className="grid grid-cols-2 gap-3 flex-1">
+            {fileFormats.length === 0 ? (
+              <div className="theme-text-subtle col-span-2 py-6 text-center text-xs">No file formats recorded yet</div>
+            ) : fileFormats.map(({ file_format: format, count }) => (
+              <div key={format} className="theme-surface p-3 rounded-lg border flex items-center space-x-3">
+                <FileText className="w-4 h-4 theme-text-muted shrink-0" />
+                <div className="min-w-0">
+                  <div className="theme-title text-sm font-bold font-mono">{count}</div>
+                  <div className="theme-text-muted truncate text-[11px]">{format === 'No extension' ? format : format.toUpperCase()}</div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Content Type Breakdown */}
-        <div className="theme-panel p-5 rounded-xl border flex flex-col">
+        {features.types && <div className="theme-panel p-5 rounded-xl border flex flex-col">
           <h2 className="theme-title text-sm font-bold mb-4 flex items-center space-x-2">
             <PieChart className="w-4 h-4 theme-status-info-text" />
-            <span>History clips by type</span>
+            <span>Clips by Content Type</span>
           </h2>
           <div className="grid grid-cols-2 gap-3 flex-1">
             {visibleContentTypes.length === 0 ? (
@@ -198,7 +255,7 @@ export const AnalyticsView: React.FC = () => {
               </div>
             ))}
           </div>
-        </div>
+        </div>}
       </div>
 
       {/* Daily Activity Timeline */}

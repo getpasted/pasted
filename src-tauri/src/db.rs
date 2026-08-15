@@ -582,6 +582,12 @@ pub struct TypeStat {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FileFormatStat {
+    pub file_format: String,
+    pub count: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DailyStat {
     pub date: String,
     pub count: i64,
@@ -592,6 +598,8 @@ pub struct AnalyticsSummary {
     pub total_clips: i64,
     pub total_chars: i64,
     pub top_sources: Vec<SourceStat>,
+    pub clip_types: Vec<TypeStat>,
+    pub file_formats: Vec<FileFormatStat>,
     pub content_types: Vec<TypeStat>,
     pub daily_activity: Vec<DailyStat>,
 }
@@ -2397,7 +2405,7 @@ impl DbState {
             DROP TABLE IF EXISTS library_items;
             CREATE TABLE library_items (
                 stable_ref TEXT PRIMARY KEY,
-                kind TEXT NOT NULL CHECK (kind IN ('inspector', 'extractor', 'detector', 'enricher', 'operation', 'transform')),
+                kind TEXT NOT NULL CHECK (kind IN ('capture', 'inspector', 'extractor', 'detector', 'enricher', 'operation', 'transform')),
                 name TEXT NOT NULL,
                 description TEXT NOT NULL DEFAULT '',
                 group_label TEXT,
@@ -2414,6 +2422,24 @@ impl DbState {
             );
             CREATE INDEX IF NOT EXISTS idx_library_items_kind_order
                 ON library_items(kind, is_archived, sort_order, name);
+
+            INSERT INTO library_items
+                (stable_ref, kind, name, description, group_label, icon, enabled,
+                 is_builtin, is_archived, sort_order, revision, input_contract,
+                 output_contract, created_at, updated_at)
+            VALUES ('capture:clip-type-v1', 'capture', 'Clip Type',
+                    'Assigns exactly one structural Text, Image, or Files type from the captured clipboard representation.',
+                    'Capture', 'Shapes', NULL, 1, 0, 0, 1,
+                    'clipboard_representation', 'clip_type', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+
+            INSERT INTO library_items
+                (stable_ref, kind, name, description, group_label, icon, enabled,
+                 is_builtin, is_archived, sort_order, revision, input_contract,
+                 output_contract, created_at, updated_at)
+            VALUES ('capture:source-attribution-v1', 'capture', 'Source Attribution',
+                    'Records the application associated with a clipboard capture and resolves its icon when shown.',
+                    'Capture', 'AppWindow', NULL, 1, 0, 10, 1,
+                    'clipboard_event', 'source_attribution', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
             INSERT INTO library_items
                 (stable_ref, kind, name, description, group_label, icon, enabled,
@@ -5604,10 +5630,71 @@ impl DbState {
             .filter_map(|r| r.ok())
             .collect();
 
-        let mut type_stmt = conn.prepare(
-            "SELECT content_type, COUNT(*) FROM clips WHERE (is_trashed IS NULL OR is_trashed = 0) GROUP BY content_type"
+        let mut clip_type_stmt = conn.prepare(
+            "SELECT CASE WHEN content_type = 'image' THEN 'image' WHEN content_type = 'file' THEN 'file' ELSE 'text' END AS clip_type,
+                    COUNT(*)
+             FROM clips
+             WHERE (is_trashed IS NULL OR is_trashed = 0)
+             GROUP BY clip_type"
         )?;
-        let content_types = type_stmt
+        let clip_types = clip_type_stmt
+            .query_map([], |r| {
+                Ok(TypeStat {
+                    content_type: r.get(0)?,
+                    count: r.get(1)?,
+                })
+            })?
+            .filter_map(|r| r.ok())
+            .collect();
+
+        let mut file_formats_by_clip = HashMap::<String, i64>::new();
+        let mut file_stmt = conn.prepare(
+            "SELECT text_content FROM clips
+             WHERE content_type = 'file'
+               AND (is_trashed IS NULL OR is_trashed = 0)",
+        )?;
+        let file_payloads = file_stmt
+            .query_map([], |row| row.get::<_, Option<String>>(0))?
+            .collect::<Result<Vec<_>>>()?;
+        for payload in file_payloads.into_iter().flatten() {
+            let formats = crate::content_inspection::parse_file_paths(&payload)
+                .into_iter()
+                .map(|path| {
+                    Path::new(&path)
+                        .extension()
+                        .and_then(|extension| extension.to_str())
+                        .map(|extension| extension.to_lowercase())
+                        .filter(|extension| !extension.is_empty())
+                        .unwrap_or_else(|| "No extension".into())
+                })
+                .collect::<HashSet<_>>();
+            for format in formats {
+                *file_formats_by_clip.entry(format).or_default() += 1;
+            }
+        }
+        let mut file_formats = file_formats_by_clip
+            .into_iter()
+            .map(|(file_format, count)| FileFormatStat { file_format, count })
+            .collect::<Vec<_>>();
+        file_formats.sort_by(|left, right| {
+            right
+                .count
+                .cmp(&left.count)
+                .then_with(|| left.file_format.cmp(&right.file_format))
+        });
+
+        let mut content_type_stmt = conn.prepare(
+            "SELECT COALESCE(classifications.content_type, clips.content_type) AS content_type,
+                    COUNT(*)
+             FROM clips
+             LEFT JOIN clip_analysis_classifications AS classifications
+               ON classifications.clip_id = clips.id
+              AND classifications.input_hash = clips.content_hash
+             WHERE (clips.is_trashed IS NULL OR clips.is_trashed = 0)
+               AND COALESCE(classifications.content_type, clips.content_type) NOT IN ('text', 'image', 'file')
+             GROUP BY COALESCE(classifications.content_type, clips.content_type)"
+        )?;
+        let content_types = content_type_stmt
             .query_map([], |r| {
                 Ok(TypeStat {
                     content_type: r.get(0)?,
@@ -5645,6 +5732,8 @@ impl DbState {
             total_clips,
             total_chars,
             top_sources,
+            clip_types,
+            file_formats,
             content_types,
             daily_activity,
         })
@@ -8982,7 +9071,13 @@ impl DbState {
         if let Some(kind) = kind {
             if !matches!(
                 kind,
-                "inspector" | "extractor" | "detector" | "enricher" | "operation" | "transform"
+                "capture"
+                    | "inspector"
+                    | "extractor"
+                    | "detector"
+                    | "enricher"
+                    | "operation"
+                    | "transform"
             ) {
                 return Err(rusqlite::Error::InvalidParameterName(
                     "Unknown library item kind".into(),
@@ -9039,9 +9134,9 @@ impl DbState {
     ) -> Result<()> {
         let conn = self.conn.lock();
         let (changed, activity_event, activity_description, analysis_name) = match kind {
-            "inspector" | "enricher" => {
+            "capture" | "inspector" | "enricher" => {
                 return Err(rusqlite::Error::InvalidParameterName(
-                    "Built-in Analysis participants cannot be disabled".to_string(),
+                    "Built-in lifecycle capabilities cannot be disabled".to_string(),
                 ));
             }
             "extractor" => {
@@ -10541,6 +10636,31 @@ mod tests {
         assert!(items.iter().any(|item| item.item.kind == "detector"));
         assert!(items.iter().any(|item| item.item.kind == "extractor"));
         assert!(items.iter().any(|item| item.item.kind == "operation"));
+        assert!(items.iter().any(|item| item.item.kind == "capture"));
+    }
+
+    #[test]
+    fn capture_capabilities_are_exposed_through_the_shared_registry() {
+        let db = setup_test_db();
+        let items = db.get_library_items(Some("capture"), false).unwrap();
+        assert_eq!(items.len(), 2);
+        let clip_type = items
+            .iter()
+            .find(|item| item.item.stable_ref == "capture:clip-type-v1")
+            .unwrap();
+        assert_eq!(clip_type.item.input_contract, "clipboard_representation");
+        assert_eq!(clip_type.item.output_contract, "clip_type");
+        assert_eq!(clip_type.analysis_pass, None);
+        assert_eq!(clip_type.participant_contract, None);
+        let source = items
+            .iter()
+            .find(|item| item.item.stable_ref == "capture:source-attribution-v1")
+            .unwrap();
+        assert_eq!(source.item.stable_ref, "capture:source-attribution-v1");
+        assert_eq!(source.item.input_contract, "clipboard_event");
+        assert_eq!(source.item.output_contract, "source_attribution");
+        assert_eq!(source.analysis_pass, None);
+        assert_eq!(source.participant_contract, None);
     }
 
     #[test]
@@ -14974,6 +15094,58 @@ mod tests {
         assert_eq!(db.conn.lock().total_changes(), changes_before);
         assert_eq!(after.source, before.source);
         assert_eq!(after.content_hash, before.content_hash);
+    }
+
+    #[test]
+    fn insights_separates_clip_types_file_formats_and_content_types() {
+        let db = setup_test_db();
+        db.save_clip("text", Some("Plain text"), None, None, "plain", "Tests")
+            .unwrap();
+        db.save_clip(
+            "email",
+            Some("name@example.com"),
+            None,
+            None,
+            "email",
+            "Tests",
+        )
+        .unwrap();
+        db.save_clip("image", None, None, None, "image", "Tests")
+            .unwrap();
+        db.save_clip(
+            "file",
+            Some(r#"["/tmp/recording.m4a","/tmp/artwork.png","/tmp/alternate.M4A"]"#),
+            None,
+            None,
+            "files",
+            "Tests",
+        )
+        .unwrap();
+
+        let summary = db.get_analytics_summary().unwrap();
+        let clip_type_count = |name: &str| {
+            summary
+                .clip_types
+                .iter()
+                .find(|entry| entry.content_type == name)
+                .map(|entry| entry.count)
+                .unwrap_or_default()
+        };
+        let format_count = |name: &str| {
+            summary
+                .file_formats
+                .iter()
+                .find(|entry| entry.file_format == name)
+                .map(|entry| entry.count)
+                .unwrap_or_default()
+        };
+        assert_eq!(clip_type_count("text"), 2);
+        assert_eq!(clip_type_count("image"), 1);
+        assert_eq!(clip_type_count("file"), 1);
+        assert_eq!(format_count("m4a"), 1);
+        assert_eq!(format_count("png"), 1);
+        assert_eq!(summary.content_types[0].content_type, "email");
+        assert_eq!(summary.content_types[0].count, 1);
     }
 
     #[test]

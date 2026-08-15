@@ -91,7 +91,7 @@ export function ContentTypeGroupManagerDialog({ isOpen, onClose }: { isOpen: boo
   return <AppDialog isOpen={isOpen} onClose={onClose} labelledBy="content-type-group-manager-title" panelClassName="theme-panel flex max-h-[86vh] w-full max-w-2xl flex-col overflow-hidden border shadow-2xl">
     {({ requestClose }) => <>
       <AppDialogHeader onClose={requestClose} className="shrink-0">
-        <AppDialogHeading id="content-type-group-manager-title" title="Content Type Groups" description="Organize Types with stable, reusable groups." icon={<Layers3 />} />
+        <AppDialogHeading id="content-type-group-manager-title" title="Content Type Groups" description="Organize Content Types with stable, reusable groups." icon={<Layers3 />} />
       </AppDialogHeader>
       <AppDialogBody className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-y-auto text-xs sm:grid-cols-[minmax(170px,0.7fr)_minmax(280px,1.3fr)]">
         <section className="theme-surface flex min-h-[230px] flex-col overflow-hidden rounded-xl border sm:min-h-0">

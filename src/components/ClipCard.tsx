@@ -10,7 +10,7 @@ import { OverflowText } from './OverflowText';
 import { useFeatures } from '../hooks/useFeatures';
 import { useMinuteTick } from '../hooks/useMinuteTick';
 import { ContentTypeIcon } from './ContentTypeIcon';
-import { isSensitiveContentType } from '../utils/contentTypes';
+import { isSensitiveContentType, structuralClipType } from '../utils/contentTypes';
 import {
   Files,
   Pin,
@@ -338,10 +338,6 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
     setTimeout(() => setCopied(false), 1500);
   };
 
-  const getIcon = () => {
-    return <ContentTypeIcon type={clip.content_type} className="w-3.5 h-3.5 theme-text-muted" />;
-  };
-
   const isSmall = rowHeight === 'small';
   const isLarge = rowHeight === 'large';
 
@@ -482,11 +478,11 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
       <div className={`clip-card-header flex items-center justify-between ${headerTextClass} ${headerSpacingClass}`}>
         <div className="flex items-center space-x-2">
           <div className="clip-type-icon theme-badge p-1 rounded border">
-            {getIcon()}
+            <ContentTypeIcon type={features.types ? clip.content_type : structuralClipType(clip.content_type)} className="w-3.5 h-3.5 theme-text-muted" />
           </div>
-          <span className="font-medium theme-text-main truncate max-w-[120px]" title={clip.source}>
+          {features.sources && <span className="font-medium theme-text-main truncate max-w-[120px]" title={clip.source}>
             <HighlightedClipText text={clip.source} query={searchQuery} field="source" />
-          </span>
+          </span>}
         </div>
         <div className="clip-meta-row theme-text-subtle flex items-center text-[11px] font-mono">
           {features.transformations && isTransforming && (

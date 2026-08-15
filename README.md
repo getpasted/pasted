@@ -31,6 +31,8 @@ Pasted sends your private clip content outside the app only when you _explicitly
 
 Analysis results are deliberately content-free. They can report bounded structure, a detected Type, participant outcomes, and recommended Transform references, but never return original text, OCR text, image bytes, or file paths.
 
+The Analysis settings sequence shows Capture ahead of the Analyzer. Capture assigns one structural Clip Type and records source attribution; optional source presentation and icon resolution follow the Sources setting.
+
 ## The Copycat Covenant
 
 - **No cloud account.** The core clipboard workspace stays local and works without a hosted identity.
