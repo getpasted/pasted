@@ -5,6 +5,10 @@ const read = (path) => readFileSync(path, 'utf8');
 const fixture = (name) => JSON.parse(read(`contracts/analysis/v1/${name}.json`));
 const frontendMock = read('src/utils/tauri.ts');
 const cliTests = read('src-tauri/tests/cli_integration.rs');
+const clipPreview = read('src/components/ClipPreview.tsx');
+const analysisSettings = read('src/components/SettingsDetectionPanel.tsx');
+const architecture = read('docs/ANALYSIS_ARCHITECTURE.md');
+const releaseChecklist = read('docs/RELEASE_CHECKLIST_1.0.0.md');
 
 function commandBlock(command) {
   const start = frontendMock.indexOf(`case '${command}':`);
@@ -73,5 +77,17 @@ for (const name of [
 ]) {
   assert.ok(cliTests.includes(`${name}.json`), `CLI integration must consume ${name}.json`);
 }
+
+for (const field of ['structure', 'recommendations']) {
+  assert.match(clipPreview, new RegExp(`result\\.${field}`),
+    `Clip Preview must consume whole-Analyzer ${field}`);
+}
+assert.match(clipPreview, /Smart Actions/, 'Clip Preview must present Enricher recommendations contextually');
+assert.match(analysisSettings, /title="Extractors"/, 'Analysis settings must expose authorable Extractors');
+assert.match(analysisSettings, /title="Detectors"/, 'Analysis settings must expose authorable Detectors');
+assert.doesNotMatch(analysisSettings, /Manage (?:Inspectors|Enrichers)/,
+  'Immutable built-in participants must not gain redundant management surfaces');
+assert.match(architecture, /## Version 1 freeze/, 'Analysis architecture must declare the v1 freeze');
+assert.match(releaseChecklist, /## Content Analysis/, 'The release checklist must retain Analysis acceptance');
 
 console.log('Analysis JSON contract audit passed.');

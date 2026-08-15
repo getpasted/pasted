@@ -2,6 +2,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::analysis_contract::{RepresentationContract, RepresentationKind};
 
+#[cfg(target_os = "macos")]
+#[link(name = "Vision", kind = "framework")]
+extern "C" {}
+
 pub const APPLE_VISION_OCR_REF: &str = "extractor:apple-vision-ocr";
 pub const APPLE_VISION_ENGINE: &str = "macos-vision-v1";
 
@@ -380,6 +384,12 @@ fn perform_apple_vision_ocr(_image_bytes: &[u8]) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn advertised_apple_vision_engine_is_linked() {
+        assert!(objc::runtime::Class::get("VNRecognizeTextRequest").is_some());
+    }
 
     struct FixedEngine {
         outcome: ExtractionOutcome,

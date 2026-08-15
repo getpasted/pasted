@@ -28,6 +28,17 @@ Use the exact notarized DMG intended for publication. Do not substitute a develo
 - [ ] Search, Smart Bins, manual Bin assignment, pinning, protection, notes, Trash, and restore behave correctly.
 - [ ] OCR explains its permission/state, processes eligible images, and remains searchable after relaunch.
 
+## Content Analysis
+
+- [ ] Settings → Analysis exposes authorable Extractors and Detectors plus OCR status. Structure Inspection remains always-on, and Smart Actions follows the Transformations feature without redundant participant switches.
+- [ ] A text clip shows content-free character, word, and line statistics; a matching saved Transform appears under Smart Actions and is not executed until explicitly selected.
+- [ ] New text capture and `pasted detector run` choose the same Type and Detector. Preview does not mutate; apply and confirmed rescan report the clip mutations they actually commit.
+- [ ] Apple Vision OCR recognizes a high-contrast text image on macOS, returns the same Extractor contract through the GUI and CLI, and makes the stored result searchable after relaunch.
+- [ ] Image extraction can feed later classification in one bounded run. An unavailable or disabled Extractor fails or skips explicitly without leaving OCR work stuck as running.
+- [ ] File clips report bounded item, extension, availability, and size facts but never pass file-reference metadata to text Detectors or Enrichers.
+- [ ] `pasted analyzer`, `inspector`, `extractor`, `detector`, `enricher`, and `registry` return version 1 JSON without original text, OCR text, image bytes, credentials, or file paths in participant summaries.
+- [ ] Disabling Content Detection, OCR, or Transformations leaves the other Analysis surfaces usable and produces an explicit success, skip, unavailable, or failure result rather than a stalled job.
+
 ## Existing library and recovery
 
 - [ ] Launching with a pre-release database migrates without losing clips, Bins, settings, revisions, or Queue order.
