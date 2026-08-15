@@ -242,6 +242,10 @@ assert.match(inspection, /MEDIA_INSPECTOR_REF:\s*&str\s*=\s*"inspector:media-met
   'The Media Metadata Inspector must have an engine-neutral stable versioned reference');
 assert.match(inspection, /Command::new\(&executable\)[\s\S]*?wait_bounded\(&mut child, remaining\)/,
   'ffprobe must use direct bounded external-tool execution');
+assert.match(inspection, /MEDIAINFO_ENGINE:\s*&str\s*=\s*"mediainfo-cli-v1"/,
+  'MediaInfo must be a distinct implementation of the shared Media Metadata contract');
+assert.match(inspection, /arg\("--Output=JSON"\)[\s\S]*?wait_bounded\(&mut child, remaining\)/,
+  'MediaInfo must use direct bounded external-tool execution');
 assert.match(inspection, /MAX_MEDIA_PROBE_FILES/,
   'Media inspection must bound the number of referenced files it probes');
 assert.match(extraction, /"aac"\s*\|\s*"m4a"\s*=>\s*Some\(WhisperAudioPreparation::FfmpegWav\)/,

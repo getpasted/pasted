@@ -12,8 +12,9 @@ pub const STRUCTURE_INSPECTOR_REF: &str = "inspector:structure-v1";
 pub const MEDIA_INSPECTOR_REF: &str = "inspector:media-metadata-v1";
 pub const LEGACY_FFPROBE_INSPECTOR_REF: &str = "inspector:ffprobe-media-v1";
 pub const FFPROBE_ENGINE: &str = "ffprobe-cli-v1";
+pub const MEDIAINFO_ENGINE: &str = "mediainfo-cli-v1";
 
-const FFPROBE_TIMEOUT: Duration = Duration::from_secs(5);
+const MEDIA_INSPECTION_TIMEOUT: Duration = Duration::from_secs(5);
 
 trait MediaMetadataEngine: Sync {
     fn id(&self) -> &'static str;
@@ -23,6 +24,7 @@ trait MediaMetadataEngine: Sync {
 }
 
 struct FfprobeMediaMetadataEngine;
+struct MediaInfoMetadataEngine;
 
 impl MediaMetadataEngine for FfprobeMediaMetadataEngine {
     fn id(&self) -> &'static str {
@@ -42,8 +44,28 @@ impl MediaMetadataEngine for FfprobeMediaMetadataEngine {
     }
 }
 
+impl MediaMetadataEngine for MediaInfoMetadataEngine {
+    fn id(&self) -> &'static str {
+        MEDIAINFO_ENGINE
+    }
+
+    fn is_available(&self) -> bool {
+        find_mediainfo_executable().is_some()
+    }
+
+    fn unavailable_reason(&self) -> String {
+        "MediaInfo is not installed. Install MediaInfo, then check again.".into()
+    }
+
+    fn inspect_paths(&self, paths: &[String]) -> Result<Option<MediaMetadata>, AnalysisFailure> {
+        inspect_mediainfo_paths(paths)
+    }
+}
+
 static FFPROBE_MEDIA_METADATA_ENGINE: FfprobeMediaMetadataEngine = FfprobeMediaMetadataEngine;
-static MEDIA_METADATA_ENGINES: [&dyn MediaMetadataEngine; 1] = [&FFPROBE_MEDIA_METADATA_ENGINE];
+static MEDIAINFO_METADATA_ENGINE: MediaInfoMetadataEngine = MediaInfoMetadataEngine;
+static MEDIA_METADATA_ENGINES: [&dyn MediaMetadataEngine; 2] =
+    [&FFPROBE_MEDIA_METADATA_ENGINE, &MEDIAINFO_METADATA_ENGINE];
 
 fn preferred_media_metadata_engine() -> &'static dyn MediaMetadataEngine {
     MEDIA_METADATA_ENGINES
@@ -123,7 +145,9 @@ pub fn structure_inspector_definition() -> InspectorDefinition {
 
 pub fn media_inspector_definition() -> InspectorDefinition {
     let engine = preferred_media_metadata_engine();
-    let is_available = engine.is_available();
+    let any_available = MEDIA_METADATA_ENGINES
+        .iter()
+        .any(|candidate| candidate.is_available());
     InspectorDefinition {
         stable_ref: MEDIA_INSPECTOR_REF.into(),
         name: "Media Metadata".into(),
@@ -133,8 +157,10 @@ pub fn media_inspector_definition() -> InspectorDefinition {
         priority: 10,
         is_builtin: true,
         engine: Some(engine.id().into()),
-        is_available,
-        unavailable_reason: (!is_available).then(|| engine.unavailable_reason()),
+        is_available: any_available,
+        unavailable_reason: (!any_available).then(|| {
+            "ffprobe or MediaInfo is not installed. Install either engine, then check again.".into()
+        }),
     }
 }
 
@@ -250,6 +276,28 @@ fn find_ffprobe_executable() -> Option<std::path::PathBuf> {
     crate::external_tools::find_executable(name, explicit)
 }
 
+fn find_mediainfo_executable() -> Option<std::path::PathBuf> {
+    #[cfg(windows)]
+    let (name, explicit) = (
+        "MediaInfo.exe",
+        &[
+            r"C:\Program Files\MediaInfo\MediaInfo.exe",
+            r"C:\Program Files (x86)\MediaInfo\MediaInfo.exe",
+        ][..],
+    );
+    #[cfg(not(windows))]
+    let (name, explicit) = (
+        "mediainfo",
+        &[
+            "/opt/homebrew/bin/mediainfo",
+            "/usr/local/bin/mediainfo",
+            "/usr/bin/mediainfo",
+            "/home/linuxbrew/.linuxbrew/bin/mediainfo",
+        ][..],
+    );
+    crate::external_tools::find_executable(name, explicit)
+}
+
 fn push_unique_bounded(values: &mut Vec<String>, value: &str) {
     for value in value
         .split(',')
@@ -328,7 +376,7 @@ fn inspect_ffprobe_paths(paths: &[String]) -> Result<Option<MediaMetadata>, Anal
                 });
             }
         };
-        let remaining = FFPROBE_TIMEOUT.saturating_sub(started.elapsed());
+        let remaining = MEDIA_INSPECTION_TIMEOUT.saturating_sub(started.elapsed());
         if remaining.is_zero() {
             let _ = child.kill();
             let _ = child.wait();
@@ -403,6 +451,155 @@ fn inspect_ffprobe_paths(paths: &[String]) -> Result<Option<MediaMetadata>, Anal
             {
                 result.total_duration_ms = result.total_duration_ms.saturating_add(duration_ms);
             }
+        }
+    }
+    Ok((result.media_file_count > 0).then_some(result))
+}
+
+fn mediainfo_field<'a>(track: &'a serde_json::Value, key: &str) -> Option<&'a str> {
+    track.get(key).and_then(serde_json::Value::as_str)
+}
+
+fn parse_mediainfo_document(bytes: &[u8]) -> Option<MediaMetadata> {
+    let document = serde_json::from_slice::<serde_json::Value>(bytes).ok()?;
+    let tracks = document.pointer("/media/track")?.as_array()?;
+    let mut result = MediaMetadata::default();
+    let mut has_media_stream = false;
+    for track in tracks {
+        match mediainfo_field(track, "@type") {
+            Some("General") => {
+                if let Some(container) = mediainfo_field(track, "Format") {
+                    push_unique_bounded(&mut result.containers, container);
+                }
+                if let Some(duration_ms) = mediainfo_field(track, "Duration")
+                    .and_then(|duration| duration.parse::<f64>().ok())
+                    .filter(|duration| duration.is_finite() && *duration >= 0.0)
+                    .map(|duration| (duration * 1_000.0).round() as u64)
+                {
+                    result.total_duration_ms = duration_ms;
+                }
+            }
+            Some("Audio") => {
+                has_media_stream = true;
+                result.audio_stream_count += 1;
+                if let Some(codec) =
+                    mediainfo_field(track, "Format").or_else(|| mediainfo_field(track, "CodecID"))
+                {
+                    push_unique_bounded(&mut result.codecs, codec);
+                }
+            }
+            Some("Video") => {
+                has_media_stream = true;
+                result.video_stream_count += 1;
+                if let Some(codec) =
+                    mediainfo_field(track, "Format").or_else(|| mediainfo_field(track, "CodecID"))
+                {
+                    push_unique_bounded(&mut result.codecs, codec);
+                }
+            }
+            _ => {}
+        }
+    }
+    has_media_stream.then_some(result)
+}
+
+fn inspect_mediainfo_paths(paths: &[String]) -> Result<Option<MediaMetadata>, AnalysisFailure> {
+    let executable = find_mediainfo_executable().ok_or_else(|| AnalysisFailure {
+        code: "engine_unavailable".into(),
+        message: "MediaInfo is not installed. Install MediaInfo, then check again.".into(),
+    })?;
+    let workspace = crate::external_tools::PrivateWorkspace::create("mediainfo-inspector")
+        .map_err(|_| AnalysisFailure {
+            code: "workspace_error".into(),
+            message: "A private media inspection workspace could not be created.".into(),
+        })?;
+    let mut result = MediaMetadata::default();
+    let started = Instant::now();
+    for (index, path) in paths
+        .iter()
+        .filter(|path| Path::new(path).is_file())
+        .take(crate::resource_limits::MAX_MEDIA_PROBE_FILES)
+        .enumerate()
+    {
+        result.examined_file_count += 1;
+        let output_path = workspace.join(format!("mediainfo-{index}.json"));
+        let output = fs::File::create(&output_path).map_err(|_| AnalysisFailure {
+            code: "workspace_error".into(),
+            message: "Media inspection output could not be staged.".into(),
+        })?;
+        let mut child = Command::new(&executable)
+            .arg("--Output=JSON")
+            .arg(path)
+            .stdin(Stdio::null())
+            .stdout(Stdio::from(output))
+            .stderr(Stdio::null())
+            .spawn()
+            .map_err(|_| AnalysisFailure {
+                code: "engine_unavailable".into(),
+                message: "MediaInfo could not be started.".into(),
+            })?;
+        let remaining = MEDIA_INSPECTION_TIMEOUT.saturating_sub(started.elapsed());
+        if remaining.is_zero() {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err(AnalysisFailure {
+                code: "engine_timeout".into(),
+                message: "MediaInfo exceeded the media inspection time limit.".into(),
+            });
+        }
+        let status = crate::external_tools::wait_bounded(&mut child, remaining).map_err(
+            |error| match error {
+                crate::external_tools::ProcessWaitError::TimedOut => AnalysisFailure {
+                    code: "engine_timeout".into(),
+                    message: "MediaInfo exceeded the media inspection time limit.".into(),
+                },
+                crate::external_tools::ProcessWaitError::Failed => AnalysisFailure {
+                    code: "engine_failed".into(),
+                    message: "MediaInfo did not complete successfully.".into(),
+                },
+            },
+        )?;
+        if !status.success() {
+            continue;
+        }
+        let output_size = match output_path.metadata() {
+            Ok(metadata)
+                if metadata.len() <= crate::resource_limits::MAX_MEDIA_PROBE_OUTPUT_BYTES =>
+            {
+                metadata.len()
+            }
+            Ok(_) => {
+                return Err(AnalysisFailure {
+                    code: "output_too_large".into(),
+                    message: "MediaInfo output exceeds the supported size limit.".into(),
+                });
+            }
+            Err(_) => continue,
+        };
+        if output_size == 0 {
+            continue;
+        }
+        let Some(parsed) = fs::read(&output_path)
+            .ok()
+            .and_then(|bytes| parse_mediainfo_document(&bytes))
+        else {
+            continue;
+        };
+        result.media_file_count += 1;
+        result.audio_stream_count = result
+            .audio_stream_count
+            .saturating_add(parsed.audio_stream_count);
+        result.video_stream_count = result
+            .video_stream_count
+            .saturating_add(parsed.video_stream_count);
+        result.total_duration_ms = result
+            .total_duration_ms
+            .saturating_add(parsed.total_duration_ms);
+        for container in parsed.containers {
+            push_unique_bounded(&mut result.containers, &container);
+        }
+        for codec in parsed.codecs {
+            push_unique_bounded(&mut result.codecs, &codec);
         }
     }
     Ok((result.media_file_count > 0).then_some(result))
@@ -610,8 +807,18 @@ mod tests {
     fn media_definition_separates_participant_and_engine_identity() {
         let definition = media_inspector_definition();
         assert_eq!(definition.stable_ref, MEDIA_INSPECTOR_REF);
-        assert_eq!(definition.engine.as_deref(), Some(FFPROBE_ENGINE));
-        assert_eq!(definition.is_available, find_ffprobe_executable().is_some());
+        let expected_engine = if find_ffprobe_executable().is_some() {
+            FFPROBE_ENGINE
+        } else if find_mediainfo_executable().is_some() {
+            MEDIAINFO_ENGINE
+        } else {
+            FFPROBE_ENGINE
+        };
+        assert_eq!(definition.engine.as_deref(), Some(expected_engine));
+        assert_eq!(
+            definition.is_available,
+            find_ffprobe_executable().is_some() || find_mediainfo_executable().is_some()
+        );
         assert_eq!(
             definition.unavailable_reason.is_none(),
             definition.is_available
@@ -620,6 +827,30 @@ mod tests {
             canonical_inspector_ref(LEGACY_FFPROBE_INSPECTOR_REF),
             MEDIA_INSPECTOR_REF
         );
+    }
+
+    #[test]
+    fn mediainfo_json_normalizes_to_the_shared_media_contract() {
+        let document = br#"{
+            "media": {
+                "@ref": "/private/interview.wav",
+                "track": [
+                    {"@type": "General", "Format": "Wave", "Duration": "1.250"},
+                    {"@type": "Audio", "Format": "PCM", "CodecID": "1"}
+                ]
+            }
+        }"#;
+
+        let metadata = parse_mediainfo_document(document).expect("MediaInfo metadata");
+        assert_eq!(metadata.media_file_count, 0);
+        assert_eq!(metadata.audio_stream_count, 1);
+        assert_eq!(metadata.video_stream_count, 0);
+        assert_eq!(metadata.total_duration_ms, 1_250);
+        assert_eq!(metadata.containers, vec!["Wave"]);
+        assert_eq!(metadata.codecs, vec!["PCM"]);
+        assert!(!serde_json::to_string(&metadata)
+            .unwrap()
+            .contains("private"));
     }
 
     #[test]

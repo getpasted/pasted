@@ -21,9 +21,9 @@ Pasted can cache bounded thumbnails for familiar image formats and the first pag
 
 ## Media metadata
 
-The shipped **Media Metadata** Inspector uses an installed `ffprobe` executable to read bounded audio and video facts from up to eight referenced files. Results include aggregate container, codec, stream-count, and duration metadata without returning file paths. Install FFmpeg with `brew install ffmpeg` on Homebrew systems or the distribution's FFmpeg package on Linux. The Inspector remains registered when ffprobe is missing and reports its unavailable engine explicitly.
+The shipped **Media Metadata** Inspector uses an installed `ffprobe` executable when available and falls back to MediaInfo. Both engines normalize bounded audio and video facts from up to eight referenced files into the same aggregate container, codec, stream-count, and duration contract without returning file paths. Install FFmpeg with `brew install ffmpeg` or MediaInfo with `brew install mediainfo` on Homebrew systems, or use the corresponding distribution package on Linux. The Inspector remains registered when neither engine is installed and reports the missing runtime explicitly.
 
-Media metadata is inspected live because referenced files can change outside the library. Structural metadata remains hash-bound and persistent; live ffprobe results are not written into Activity or portable exports.
+Media metadata is inspected live because referenced files can change outside the library. Structural metadata remains hash-bound and persistent; live engine results are not written into Activity or portable exports.
 
 ## Audio transcription
 

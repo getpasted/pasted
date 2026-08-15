@@ -49,6 +49,10 @@ pasted extractor run extractor:tesseract-ocr --file /absolute/path/to/test-image
 
 The result must satisfy the same produced-text, classification, preview, and privacy contract as Apple Vision. The portable test suite generates a bounded image and exercises the real Tesseract executable whenever it is installed; Linux validation installs `tesseract-ocr` so this native adapter cannot pass solely through a mock. With Tesseract absent, the shipped Extractor must remain visible and report an explicit unavailable reason without attempting another engine.
 
+## Native media metadata acceptance
+
+With ffprobe installed, inspect a disposable audio or video file clip and confirm `pasted inspector list --json` reports `inspector:media-metadata-v1` with engine `ffprobe-cli-v1`. The interactive result must contain bounded aggregate `mediaMetadata` without a file path. Repeat on a system where ffprobe is absent and MediaInfo is installed; the same participant and output contract must report engine `mediainfo-cli-v1`. When neither runtime is installed, the participant remains visible and reports that either engine can satisfy it.
+
 ## Native whisper.cpp acceptance
 
 Install whisper.cpp and obtain a local GGML model without placing either inside the repository. Configure the model and confirm availability:
