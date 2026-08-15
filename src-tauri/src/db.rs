@@ -3593,6 +3593,51 @@ impl DbState {
         .optional()
     }
 
+    pub fn search_clip_searchable_text_ids(&self, terms: &[String]) -> Result<Vec<i64>> {
+        if terms.is_empty()
+            || terms.len() > crate::resource_limits::MAX_SEARCHABLE_TEXT_QUERY_TERMS
+            || terms.iter().any(|term| term.is_empty() || term.len() > 256)
+        {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "Searchable text query exceeds its safety limit".into(),
+            ));
+        }
+        let query = terms
+            .iter()
+            .map(|term| term.replace('"', "\"\"").replace('*', ""))
+            .filter(|term| !term.trim().is_empty())
+            .map(|term| format!("\"{term}\"*"))
+            .collect::<Vec<_>>();
+        if query.len() != terms.len() {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "Searchable text query is empty".into(),
+            ));
+        }
+        let conn = self.conn.lock();
+        let mut statement = conn.prepare(
+            "SELECT extracted.clip_id
+             FROM clip_searchable_text_fts
+             JOIN clip_searchable_text AS extracted
+               ON extracted.clip_id = clip_searchable_text_fts.rowid
+             JOIN clips AS source_clip ON source_clip.id = extracted.clip_id
+             WHERE clip_searchable_text_fts MATCH ?1
+               AND extracted.input_hash = source_clip.content_hash
+               AND COALESCE(source_clip.is_trashed, 0) = 0
+             ORDER BY source_clip.created_at DESC, source_clip.id DESC
+             LIMIT ?2",
+        )?;
+        let matches = statement
+            .query_map(
+                params![
+                    query.join(" AND "),
+                    crate::resource_limits::MAX_SEARCHABLE_TEXT_MATCHES
+                ],
+                |row| row.get(0),
+            )?
+            .collect();
+        matches
+    }
+
     pub fn record_structural_inspection(
         &self,
         clip_id: i64,
@@ -13614,6 +13659,15 @@ mod tests {
         let matches = db.get_clips(Some("quasar"), None, false).unwrap();
         assert_eq!(matches.len(), 1);
         assert_eq!(matches[0].id, clip.id);
+        assert_eq!(
+            db.search_clip_searchable_text_ids(&["quasar".into(), "marker".into()])
+                .unwrap(),
+            vec![clip.id]
+        );
+        assert!(db
+            .search_clip_searchable_text_ids(&["quasar".into(), "missing".into()])
+            .unwrap()
+            .is_empty());
 
         assert!(db
             .replace_clip_searchable_text(clip.id, &clip.content_hash, &extractor, None)
