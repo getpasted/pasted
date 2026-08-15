@@ -42,6 +42,10 @@ export function contentTypeLabel(type: string): string {
     ?? type.split('_').map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(' ');
 }
 
+export function structuralClipType(type: string): 'text' | 'image' | 'file' {
+  return type === 'image' || type === 'file' ? type : 'text';
+}
+
 export function isSensitiveContentType(type: ClipContentType): boolean {
   return type === 'credential' || type === 'payment_card' || type === 'jwt';
 }

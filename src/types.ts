@@ -210,7 +210,7 @@ export interface Operation {
 
 export interface LibraryItemView {
   stableRef: string;
-  kind: 'inspector' | 'extractor' | 'detector' | 'enricher' | 'operation' | 'transform';
+  kind: 'capture' | 'inspector' | 'extractor' | 'detector' | 'enricher' | 'operation' | 'transform';
   name: string;
   description: string;
   groupLabel: string | null;

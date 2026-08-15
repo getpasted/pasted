@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
-import { Copy, Lightbulb, Plus, Radar, RotateCcw, ScanSearch, ScanText, Shapes, Trash2, type LucideIcon } from 'lucide-react';
+import { Clipboard, Copy, Lightbulb, Plus, Radar, RotateCcw, ScanSearch, ScanText, Shapes, Trash2, type LucideIcon } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { AppDialog } from './AppDialog';
 import { AppDialogBody, AppDialogButton, AppDialogFooter, AppDialogHeader, AppDialogHeading, SaveButtonContent } from './AppDialogLayout';
@@ -20,7 +20,7 @@ import { ActionButton } from './AppDialogLayout';
 import { useToast } from './ToastProvider';
 import type { ClipContentType } from '../types';
 import { useNewItemSelection } from '../hooks/useNewItemSelection';
-import { BuiltinAnalysisManagerDialog } from './BuiltinAnalysisManagerDialog';
+import { BuiltinLifecycleManagerDialog } from './BuiltinLifecycleManagerDialog';
 
 interface ContentDetector {
   id: number;
@@ -121,12 +121,14 @@ export function SettingsDetectionPanel({
   transcriptionsEnabled,
   transformationsEnabled,
   typesEnabled,
+  sourcesEnabled,
 }: {
   contentDetectionEnabled: boolean;
   ocrEnabled: boolean;
   transcriptionsEnabled: boolean;
   transformationsEnabled: boolean;
   typesEnabled: boolean;
+  sourcesEnabled: boolean;
 }) {
   const { showToast } = useToast();
   const { definitions: contentTypes, groups: contentTypeGroups, refresh: refreshContentTypes, refreshGroups } = useContentTypes();
@@ -141,6 +143,7 @@ export function SettingsDetectionPanel({
   const [rescanning, setRescanning] = useState(false);
   const [togglingId, setTogglingId] = useState<number | null>(null);
   const [isTypeManagerOpen, setIsTypeManagerOpen] = useState(false);
+  const [isCaptureManagerOpen, setIsCaptureManagerOpen] = useState(false);
   const [isInspectorManagerOpen, setIsInspectorManagerOpen] = useState(false);
   const [isExtractorManagerOpen, setIsExtractorManagerOpen] = useState(false);
   const [isManagerOpen, setIsManagerOpen] = useState(false);
@@ -454,27 +457,34 @@ export function SettingsDetectionPanel({
         <div>
           <AnalysisManagerRow
             step={1}
+            icon={Clipboard}
+            title="Capture"
+            description="Assign Clip Type and capture context."
+            onManage={() => setIsCaptureManagerOpen(true)}
+          />
+          <AnalysisManagerRow
+            step={2}
             icon={ScanSearch}
             title="Inspectors"
             description="Measure structure and media facts."
             onManage={() => setIsInspectorManagerOpen(true)}
           />
           {(ocrEnabled || transcriptionsEnabled) && <AnalysisManagerRow
-            step={2}
+            step={3}
             icon={ScanText}
             title="Extractors"
             description="Create searchable representations."
             onManage={() => setIsExtractorManagerOpen(true)}
           />}
           {(contentDetectionEnabled || typesEnabled) && <AnalysisManagerRow
-            step={3}
+            step={4}
             icon={Radar}
             title="Detectors"
-            description="Classify text as registered Types."
+            description="Classify text as registered Content Types."
             onManage={openDetectorManager}
           />}
           {transformationsEnabled && <AnalysisManagerRow
-            step={4}
+            step={5}
             icon={Lightbulb}
             title="Enrichers"
             description="Recommend actions from analysis signals."
@@ -550,7 +560,7 @@ export function SettingsDetectionPanel({
                   title="Detector Settings"
                   actions={
                     <AppDialogButton onClick={() => setIsTypeManagerOpen(true)} className="h-7 min-h-7 shrink-0 px-2.5">
-                      <Shapes className="h-3.5 w-3.5" /> Manage Types…
+                      <Shapes className="h-3.5 w-3.5" /> Manage Content Types…
                     </AppDialogButton>
                   }
                 />
@@ -650,7 +660,16 @@ export function SettingsDetectionPanel({
         </AppDialog>
         <ContentTypeManagerDialog isOpen={isTypeManagerOpen} onClose={() => setIsTypeManagerOpen(false)} />
       </>
-      <BuiltinAnalysisManagerDialog
+      <BuiltinLifecycleManagerDialog
+        isOpen={isCaptureManagerOpen}
+        onClose={() => setIsCaptureManagerOpen(false)}
+        kind="capture"
+        title="Capture"
+        description="Review Clip Type and context recorded before Analysis begins."
+        icon={Clipboard}
+        sourcesEnabled={sourcesEnabled}
+      />
+      <BuiltinLifecycleManagerDialog
         isOpen={isInspectorManagerOpen}
         onClose={() => setIsInspectorManagerOpen(false)}
         kind="inspector"
@@ -664,7 +683,7 @@ export function SettingsDetectionPanel({
         ocrEnabled={ocrEnabled}
         transcriptionsEnabled={transcriptionsEnabled}
       />
-      <BuiltinAnalysisManagerDialog
+      <BuiltinLifecycleManagerDialog
         isOpen={isEnricherManagerOpen}
         onClose={() => setIsEnricherManagerOpen(false)}
         kind="enricher"

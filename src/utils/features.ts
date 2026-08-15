@@ -69,7 +69,7 @@ export interface FeatureDefinition {
 
 export const FEATURE_DEFINITIONS: readonly FeatureDefinition[] = [
   { id: 'bins', group: 'library', settingKey: 'enableBins', label: 'Bins', description: 'Organize clips manually or automatically with Smart Bins.', simple: false },
-  { id: 'contentDetection', group: 'discovery', settingKey: 'enableContentDetection', label: 'Content Detection', description: 'Run Detectors to classify analyzable text as registered Types.', simple: true },
+  { id: 'contentDetection', group: 'discovery', settingKey: 'enableContentDetection', label: 'Content Detection', description: 'Run Detectors to classify analyzable text as registered Content Types.', simple: true },
   { id: 'notes', group: 'library', settingKey: 'enableNotes', label: 'Notes', description: 'Annotate clips and browse the Noted collection.', simple: false },
   { id: 'notifications', group: 'app', settingKey: 'enableNotifications', label: 'Notifications', description: 'Show interactive capture feedback without interrupting the current workflow.', simple: false },
   { id: 'ocr', group: 'discovery', settingKey: 'enableOcr', label: 'OCR', description: 'Automatically extract searchable text from copied images.', simple: false },
@@ -107,8 +107,8 @@ export const FEATURE_DEFINITIONS: readonly FeatureDefinition[] = [
   { id: 'transformations', group: 'workflow', settingKey: 'enableTransformations', label: 'Transformations', description: 'Run text workflows and receive Smart Action recommendations.', simple: false },
   { id: 'analytics', group: 'discovery', settingKey: 'enableAnalytics', label: 'Insights', description: 'Browse active-library composition and recent additions.', simple: false },
   { id: 'activityLog', group: 'app', settingKey: 'enableActivityLog', label: 'Activity', description: 'Record and inspect important app events.', simple: false },
-  { id: 'types', group: 'discovery', settingKey: 'enableTypes', label: 'Types', description: 'Browse collections for stored and detected clip Types.', simple: false },
-  { id: 'sources', group: 'discovery', settingKey: 'enableSources', label: 'Sources', description: 'Browse collections for recorded capture sources.', simple: false },
+  { id: 'types', group: 'discovery', settingKey: 'enableTypes', label: 'Content Types', description: 'Show recognized Content Types and their collections.', simple: false },
+  { id: 'sources', group: 'discovery', settingKey: 'enableSources', label: 'Sources', description: 'Show the applications associated with captured clips and their collections.', simple: false },
   { id: 'cli', group: 'app', settingKey: 'enableCli', label: 'Command-Line Interface', description: 'Use pasted to automate clipboard workflows.', simple: false },
   { id: 'help', group: 'app', settingKey: 'enableHelp', label: 'Help', description: 'Show in-app documentation and its navigation entry.', simple: true },
 ] as const;

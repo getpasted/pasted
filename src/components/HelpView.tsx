@@ -106,7 +106,7 @@ const CLI_COMMAND_GROUPS = [
     title: 'Content Analysis',
     commands: [
       { usage: 'pasted analyzer run [--text TEXT | --clip ID | --stdin] [--policy POLICY] [--extract] [--json]', description: 'Preview one versioned, content-free snapshot across the applicable Analysis passes.' },
-      { usage: 'pasted registry list [--kind inspector|extractor|detector|enricher|operation|transform] [--all] [--json]', description: 'Inspect shared lifecycle and input/output contracts for processing assets.' },
+      { usage: 'pasted registry list [--kind capture|inspector|extractor|detector|enricher|operation|transform] [--all] [--json]', description: 'Inspect shared lifecycle and input/output contracts for processing assets.' },
       { usage: 'pasted registry enable|disable --kind extractor|detector|operation --ref REF [--json]', description: 'Change the shared enabled state using a stable processing-asset reference.' },
       { usage: 'pasted inspector list [--json]', description: 'List Inspectors, contracts, and system availability.' },
       { usage: 'pasted inspector get <ref> [--json]', description: 'Inspect one Inspector definition.' },

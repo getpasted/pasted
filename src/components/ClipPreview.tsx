@@ -42,7 +42,7 @@ import { clipDeleteLabel, UI_COPY } from '../utils/uiCopy';
 import { startTransformation, type TransformationExecutionHandle } from '../utils/transformExecution';
 import { useIntelligenceRequestStatus } from '../hooks/useIntelligenceRequestStatus';
 import { useFeatures } from '../hooks/useFeatures';
-import { contentTypeLabel } from '../utils/contentTypes';
+import { contentTypeLabel, structuralClipType } from '../utils/contentTypes';
 import { useToast } from './ToastProvider';
 
 interface ClipPreviewProps {
@@ -942,9 +942,11 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
       >
         <div className="flex min-w-0 items-center space-x-3 titlebar-drag-handle">
           <span className="clip-type-badge theme-badge text-xs font-semibold px-2.5 py-1 rounded-md border capitalize titlebar-drag-handle">
-            {clip.content_type === 'file' && getClipFilePaths(clip).length > 1 ? 'Files' : contentTypeLabel(clip.content_type)}
+            {clip.content_type === 'file' && getClipFilePaths(clip).length > 1
+              ? 'Files'
+              : contentTypeLabel(features.types ? clip.content_type : structuralClipType(clip.content_type))}
           </span>
-          <OverflowText text={clip.source} className="theme-text-main min-w-0 max-w-[200px] truncate text-xs font-medium titlebar-drag-handle" />
+          {features.sources && <OverflowText text={clip.source} className="theme-text-main min-w-0 max-w-[200px] truncate text-xs font-medium titlebar-drag-handle" />}
           {isTransforming && (
             <LoaderCircle
               className="clip-transform-working h-4 w-4 shrink-0 animate-spin"
@@ -1381,7 +1383,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
                 <strong>{inspection?.result.files?.itemCount ?? getClipFilePaths(clip).length}</strong>
               </span>
               <span className="clip-preview-footer-stat" title={inspection?.result.files?.extensions.join(', ') || 'No file extensions'}>
-                <span>Types:</span>
+                <span>File formats</span>
                 <strong>{inspection?.result.files ? (inspection.result.files.extensions.length > 2 ? `${inspection.result.files.extensions.slice(0, 2).join(', ')} +${inspection.result.files.extensions.length - 2}` : inspection.result.files.extensions.join(', ') || '—') : '…'}</strong>
               </span>
               <span className="clip-preview-footer-stat">
@@ -1449,7 +1451,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
       {viewingNote && (
         <ClipNoteViewer
           note={viewingNote}
-          source={clip.source}
+          source={features.sources ? clip.source : null}
           onClose={() => setViewingNote(null)}
         />
       )}

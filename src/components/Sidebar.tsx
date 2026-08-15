@@ -849,7 +849,7 @@ const SidebarComponent: React.FC<SidebarProps> = ({
         </div>}
 
         {([
-          { id: 'types', label: 'Types', enabled: features.types, open: isTypesOpen, setOpen: setIsTypesOpen, items: typeItems },
+          { id: 'types', label: 'Content Types', enabled: features.types, open: isTypesOpen, setOpen: setIsTypesOpen, items: typeItems },
           { id: 'sources', label: 'Sources', enabled: features.sources, open: isSourcesOpen, setOpen: setIsSourcesOpen, items: sourceItems },
         ] as const).map((section) => section.enabled && section.items.length > 0 && (
           <div key={section.id}>

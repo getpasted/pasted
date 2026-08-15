@@ -104,7 +104,7 @@ for (const [file, labels] of Object.entries({
   'src/components/IntelligenceConnectionsPanel.tsx': ['Add connection…'],
   'src/components/SettingsWelcomePanel.tsx': ['Open Copycat Welcome…'],
   'src/components/SettingsAboutPanel.tsx': ['Open Source Licenses…'],
-  'src/components/SettingsDetectionPanel.tsx': ['Manage ${title}…', 'Rescan Clips…', 'Delete…', 'Manage Types…', 'Reset…'],
+  'src/components/SettingsDetectionPanel.tsx': ['Manage ${title}…', 'Rescan Clips…', 'Delete…', 'Manage Content Types…', 'Reset…'],
   'src/components/ContentExtractorManagerDialog.tsx': ['Delete…', 'Choose…', 'Reset…'],
   'src/components/ContentTypeManagerDialog.tsx': ['Manage Groups…'],
   'src/components/SettingsGeneralPanel.tsx': ['Delete All Clips…', 'Trash All Clips…'],

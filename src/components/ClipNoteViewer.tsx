@@ -13,7 +13,7 @@ import {
 
 interface ClipNoteViewerProps {
   note: ClipNote;
-  source: string;
+  source: string | null;
   onClose: () => void;
 }
 
@@ -49,8 +49,8 @@ export function ClipNoteViewer({ note, source, onClose }: ClipNoteViewerProps) {
             <div className="clip-note-viewer-content border rounded-xl p-4 font-mono text-xs whitespace-pre-wrap leading-relaxed select-text shadow-inner">
               {note.text}
             </div>
-            <div className="clip-note-viewer-meta flex items-center justify-between text-[11px] font-sans px-1">
-              <span>Source: <strong className="clip-note-viewer-meta-strong">{source}</strong></span>
+            <div className={`clip-note-viewer-meta flex items-center text-[11px] font-sans px-1 ${source ? 'justify-between' : 'justify-end'}`}>
+              {source && <span>Source: <strong className="clip-note-viewer-meta-strong">{source}</strong></span>}
               <span>{note.text.length} Characters</span>
             </div>
           </AppDialogBody>

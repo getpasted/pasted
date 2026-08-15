@@ -108,7 +108,7 @@ export function ContentTypeManagerDialog({ isOpen, onClose }: { isOpen: boolean;
         <AppDialogBody className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-y-auto text-xs @xl:grid-cols-[minmax(0,3fr)_minmax(0,7fr)]">
           <section className="theme-surface flex min-h-[260px] flex-col overflow-hidden rounded-xl border @xl:min-h-0">
             <RegistryPanelHeader
-              title="Registered Types"
+              title="Registered Content Types"
               actions={<AppDialogButton onClick={beginNewType} className="h-7 min-h-7 px-2.5"><Plus className="h-3 w-3" /> New</AppDialogButton>}
             />
             <div className="min-h-0 flex-1 overflow-y-auto p-1.5">

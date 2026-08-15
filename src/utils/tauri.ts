@@ -302,6 +302,24 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
         ...bin,
       clip_count: mockClips.filter((clip) => clip.is_trashed === 0 && clip.bin_ids.includes(bin.id)).length,
       })) as unknown as T;
+    case 'get_analytics_summary': {
+      const active = mockClips.filter((clip) => clip.is_trashed === 0);
+      const countBy = (values: string[]) => Object.entries(values.reduce<Record<string, number>>((counts, value) => {
+        counts[value] = (counts[value] ?? 0) + 1;
+        return counts;
+      }, {}));
+      return {
+        total_clips: active.length,
+        total_chars: active.reduce((total, clip) => total + clip.text_content.length, 0),
+        top_sources: countBy(active.map((clip) => clip.source)).map(([name, count]) => ({ name, count })),
+        clip_types: countBy(active.map((clip) => clip.content_type === 'image' || clip.content_type === 'file' ? clip.content_type : 'text'))
+          .map(([content_type, count]) => ({ content_type, count })),
+        file_formats: [],
+        content_types: countBy(active.map((clip) => clip.content_type).filter((type) => !['text', 'image', 'file'].includes(type)))
+          .map(([content_type, count]) => ({ content_type, count })),
+        daily_activity: [],
+      } as unknown as T;
+    }
     case 'get_pipelines':
       return mockPipelines as unknown as T;
     case 'get_content_detectors':
@@ -417,6 +435,8 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
     case 'get_library_items': {
       const kind = String(args?.kind ?? '');
       const items = [
+        { stableRef: 'capture:clip-type-v1', kind: 'capture', name: 'Clip Type', description: 'Assigns exactly one structural Text, Image, or Files type from the captured clipboard representation.', groupLabel: 'Capture', icon: 'Shapes', enabled: null, isBuiltin: true, isArchived: false, sortOrder: 0, revision: 1, inputContract: 'clipboard_representation', outputContract: 'clip_type', analysisPass: null, typeRelations: [], createdAt: '', updatedAt: '', capabilities: { canEdit: false, canDuplicate: false, canDelete: false, canDisable: false, canRestore: false } },
+        { stableRef: 'capture:source-attribution-v1', kind: 'capture', name: 'Source Attribution', description: 'Records the application associated with a clipboard capture and resolves its icon when shown.', groupLabel: 'Capture', icon: 'AppWindow', enabled: null, isBuiltin: true, isArchived: false, sortOrder: 10, revision: 1, inputContract: 'clipboard_event', outputContract: 'source_attribution', analysisPass: null, typeRelations: [], createdAt: '', updatedAt: '', capabilities: { canEdit: false, canDuplicate: false, canDelete: false, canDisable: false, canRestore: false } },
         { stableRef: 'inspector:structure-v1', kind: 'inspector', name: 'Structure', description: 'Measures stable clip structure without retaining clipboard contents.', groupLabel: 'Content Analysis', icon: 'ScanSearch', enabled: null, isBuiltin: true, isArchived: false, sortOrder: 0, revision: 1, inputContract: 'clip', outputContract: 'structural_metadata', analysisPass: 'inspect', participantContract: { stableRef: 'inspector:structure-v1', name: 'Structure', pass: 'inspect', priority: 0, requires: ['clip_kind'], provides: ['structural_metadata'] }, typeRelations: [], createdAt: '', updatedAt: '', capabilities: { canEdit: false, canDuplicate: false, canDelete: false, canDisable: false, canRestore: false } },
         { stableRef: 'inspector:media-metadata-v1', kind: 'inspector', name: 'Media Metadata', description: 'Reads bounded audio and video metadata locally.', groupLabel: 'Content Analysis', icon: 'FileAudio', enabled: null, isBuiltin: true, isArchived: false, sortOrder: 10, revision: 1, inputContract: 'file_references', outputContract: 'media_metadata', analysisPass: 'inspect', participantContract: { stableRef: 'inspector:media-metadata-v1', name: 'Media Metadata', pass: 'inspect', priority: 10, requires: ['file_references'], provides: ['media_metadata'] }, typeRelations: [{ kind: 'accepts', typeId: 'file' }], createdAt: '', updatedAt: '', capabilities: { canEdit: false, canDuplicate: false, canDelete: false, canDisable: false, canRestore: false } },
         { stableRef: 'enricher:smart-actions-v1', kind: 'enricher', name: 'Smart Actions', description: 'Recommends saved Transforms from content-free analysis signals.', groupLabel: 'Content Analysis', icon: 'Lightbulb', enabled: null, isBuiltin: true, isArchived: false, sortOrder: 0, revision: 1, inputContract: 'analyzable_text+structural_metadata', outputContract: 'recommendations', analysisPass: 'enrich', participantContract: { stableRef: 'enricher:smart-actions-v1', name: 'Smart Actions', pass: 'enrich', priority: 0, requires: ['analyzable_text', 'structural_metadata'], provides: ['recommendations'] }, typeRelations: [], createdAt: '', updatedAt: '', capabilities: { canEdit: false, canDuplicate: false, canDelete: false, canDisable: false, canRestore: false } },
@@ -443,8 +463,8 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
           matched = true;
           return { ...detector, enabled };
         });
-      } else if (kind === 'inspector' || kind === 'enricher') {
-        throw new Error('Built-in Analysis participants cannot be disabled.');
+      } else if (kind === 'capture' || kind === 'inspector' || kind === 'enricher') {
+        throw new Error('Built-in lifecycle capabilities cannot be disabled.');
       } else if (kind !== 'operation') {
         throw new Error('Unknown library item kind.');
       }
