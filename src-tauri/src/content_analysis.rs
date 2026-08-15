@@ -448,7 +448,12 @@ pub(crate) fn analyze(request: AnalysisRequest<'_>) -> AnalysisReport {
         participants.push(inspector_participant(request.input.clone()));
         if request.policy == AnalysisPolicy::Interactive {
             if let AnalysisInput::Files { paths, .. } = &request.input {
-                participants.push(media_inspector_participant(paths.clone()));
+                let probe_paths = paths
+                    .iter()
+                    .take(crate::resource_limits::MAX_MEDIA_PROBE_FILES)
+                    .cloned()
+                    .collect();
+                participants.push(media_inspector_participant(probe_paths));
             }
         }
     }

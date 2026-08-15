@@ -10,6 +10,8 @@ use crate::db::{ClipItem, DbState};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 
+type ClipAnalysis = (InspectionResult, Option<Vec<String>>, Option<MediaMetadata>);
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ClipInspectionResult {
@@ -201,10 +203,7 @@ pub(crate) fn inspection_input_hash(clip: &ClipItem) -> String {
     format!("{:x}", hasher.finalize())
 }
 
-fn analyze_clip(
-    clip: &ClipItem,
-    policy: AnalysisPolicy,
-) -> Result<(InspectionResult, Option<Vec<String>>, Option<MediaMetadata>), String> {
+fn analyze_clip(clip: &ClipItem, policy: AnalysisPolicy) -> Result<ClipAnalysis, String> {
     match clip.content_type.as_str() {
         "image" => {
             let bytes = clip
