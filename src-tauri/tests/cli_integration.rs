@@ -209,11 +209,11 @@ fn smart_actions_enricher_has_registry_and_non_mutating_cli_parity() {
     assert_eq!(registry[0]["analysisPass"], "enrich");
     assert_eq!(
         registry[0]["participantContract"]["requires"],
-        serde_json::json!(["analyzable_text", "classification", "structural_metadata"])
+        serde_json::json!(["analyzable_text", "structural_metadata"])
     );
     assert_eq!(
         registry[0]["inputContract"],
-        "analyzable_text+classification+structural_metadata"
+        "analyzable_text+structural_metadata"
     );
     assert_eq!(registry[0]["capabilities"]["canDisable"], false);
 

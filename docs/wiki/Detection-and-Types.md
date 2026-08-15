@@ -2,7 +2,7 @@
 
 Content Detection classifies new text clips into Types used by search, calculated Type collections, and Smart Bins. It does not send content to an intelligence provider. Detection runs locally through an ordered registry of regular expressions and optional built-in validators.
 
-Enable **Content Detection** and **Types** under **Settings → Functionality**, then open **Settings → Analysis**.
+Open **Settings → Analysis** to configure Analyzer participants. **Content Detection** controls whether Detectors run; **Types** only controls whether Type collections appear in the library.
 
 ## Bounded analysis passes
 
@@ -30,6 +30,8 @@ Every public Analysis result carries the same explicit `formatVersion`, policy, 
 ## Extractors
 
 Extractors create searchable representations from clip content without replacing the original. Apple Vision OCR is built in on macOS. Tesseract OCR is a shipped optional Extractor on macOS, Linux, and Windows. Whisper Transcription is a shipped optional `file_references → searchable_text` Extractor backed by whisper.cpp. Extractor names, descriptions, runtime configuration, priority, and enabled state can be managed under **Settings → Analysis → Manage Extractors**. The settings header always reports runtime availability; concise status remains visible while installation guidance is available from its tooltip.
+
+Disabling **OCR** hides image-input Extractors and their controls. Disabling **Transcriptions** hides file-input transcription Extractors such as Whisper. The Extractors step remains available while either feature is enabled.
 
 Extractor input and output names are parsed through the same typed representation contract used by the Analysis scheduler. Unknown or unsupported contracts fail closed instead of reaching an extraction engine, and active Extractor selection uses that shared contract rather than matching unrelated metadata strings.
 
@@ -92,7 +94,7 @@ pasted detector rescan --yes --json
 - A custom Group must be empty before it can be archived or permanently deleted.
 - Archived entries remain recoverable and are excluded from ordinary selection.
 
-Disabling **Types** hides calculated Type collections. Disabling **Content Detection** stops new detector-based classification and hides detector management. Analysis remains available when OCR is enabled. Neither action deletes existing clips or registry data.
+Disabling **Types** hides calculated Type collections without stopping classification. Disabling **Content Detection** stops detector-based classification and rescans. The Detector manager remains available when either feature is enabled. Neither action deletes existing clips or registry data.
 
 ## CLI reference
 

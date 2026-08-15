@@ -7,7 +7,6 @@ interface SettingsTabsProps {
   onChange: (tab: SettingsTab) => void;
   showIntelligence?: boolean;
   showNotifications?: boolean;
-  showAnalysis?: boolean;
 }
 
 const TABS = [
@@ -22,12 +21,11 @@ const TABS = [
   { id: 'about', label: 'About', Icon: Info },
 ] as const;
 
-export function SettingsTabs({ activeTab, onChange, showIntelligence = true, showNotifications = true, showAnalysis = true }: SettingsTabsProps) {
+export function SettingsTabs({ activeTab, onChange, showIntelligence = true, showNotifications = true }: SettingsTabsProps) {
   return (
     <nav className="theme-surface settings-tabs flex items-center gap-1 rounded-xl border p-1" aria-label="Settings sections">
       {TABS.filter(({ id }) => (
         (id !== 'intelligence' || showIntelligence)
-        && (id !== 'analysis' || showAnalysis)
         && (id !== 'notifications' || showNotifications)
       )).map(({ id, label, Icon }) => (
         <button

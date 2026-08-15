@@ -296,9 +296,11 @@ assert.match(tauriMock, /\.slice\(0, 256\)[\s\S]*?\.slice\(0, 12\)/,
 assert.match(clipPreview, /transformedText === null[\s\S]*?\{ clipId: clip\.id, includeExtractor: false \}/,
   'Clip Preview must prefer clip identity over resending stored clipboard text');
 for (const surface of [database, tauriMock]) {
-  assert.match(surface, /analyzable_text\+classification\+structural_metadata/,
+  assert.match(surface, /analyzable_text\+structural_metadata/,
     'Smart Actions registry surfaces must expose every declared input representation');
 }
+assert.doesNotMatch(enrichment, /requires:\s*vec!\[[^\]]*RepresentationKind::Classification/,
+  'Smart Actions must remain usable when Content Detection is disabled');
 assert.doesNotMatch(clipPreview, /smartPipelineDetector|detectSmartPipelineRecommendations/,
   'Clip Preview must not maintain a parallel Smart Actions detector');
 assert.doesNotMatch(enrichment, /pub struct SmartActionRecommendations[\s\S]*?(?:content|input|text):\s*String/,

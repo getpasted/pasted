@@ -1,6 +1,6 @@
 # Settings and Features
 
-Pasted can be a full workspace or a small clipboard history. **Settings → Functionality** provides global gates for Bins, Queue, pinning, protection, notes, Trash, Types, Sources, Transformations, Activity, CLI, OCR, Revision History, content detection, HUD, and related tools.
+Pasted can be a full workspace or a small clipboard history. **Settings → Functionality** provides global gates for Bins, Queue, pinning, protection, notes, Trash, Types, Sources, Transformations, Activity, CLI, OCR, Transcriptions, Revision History, content detection, HUD, and related tools.
 
 Disabling a feature hides its active UI and preserves existing data unless the setting explicitly describes destruction. Related settings are hidden when they cannot apply.
 
@@ -17,8 +17,13 @@ Changing presets does not erase clips or supporting records. Feature cards with 
 - **Trash:** when enabled, ordinary deletion moves clips to recoverable Trash. Restore clips individually from Trash or restore every trashed clip from Settings → General. When disabled, new deletions are permanent. Existing trashed clips remain stored and become available again when Trash is re-enabled.
 - **Revision History:** disabling it preserves existing revisions, but new edits and Transform replacements do not receive restorable snapshots.
 - **Protection:** disabling the interface does not unprotect previously protected clips. Re-enable Protection to change them.
-- **Content Detection:** disabling it stops detector-driven classification of new text clips and hides detector management. Analysis remains available when OCR is enabled. Existing clips are not reinterpreted.
-- **OCR:** disabling it stops and cancels background OCR work. Completed OCR remains with its clips; re-enabling resumes eligible backfill.
+- **Content Detection:** disabling it stops detector-driven classification and rescans. Detectors remain available while Types is enabled. Existing clips and Detector configuration are preserved.
+- **OCR:** disabling it stops and cancels automatic image OCR and hides image Extractors. File transcription follows the separate Transcriptions feature. Completed extracted text remains with its clips; re-enabling OCR resumes eligible image backfill.
+- **Transcriptions:** disabling it hides audio transcription controls and file-input Extractors. Completed transcripts remain stored; re-enabling restores the controls and Extractor configuration.
+- **Transformations:** disabling it stops text workflows and Smart Action enrichment and hides Enrichers under Analysis.
+- **Types:** disabling it hides calculated Type collections. Detectors may still classify clips using the preserved Type registry.
+- **Sources:** disabling it hides calculated Source collections. Capture-source attribution continues to be recorded.
+- **Insights:** disabling it hides library statistics. It does not change Analyzer execution or stored analysis results.
 - **Notifications:** disabling the feature removes capture feedback. Clipboard capture itself continues.
 - **Help:** disabling it hides the in-app documentation entry; it does not affect the external wiki.
 
@@ -37,7 +42,9 @@ Appearance schemes use semantic theme tokens across the main app, HUD, menus, mo
 
 ## Content Analysis
 
-**Settings → Analysis** summarizes all four Analyzer participant groups. Inspectors and Enrichers have read-only managers for their practical input, output, runtime availability, and optional technical contracts. Extractors and ordered Detectors remain authorable, alongside the shared Type and Group registries. Extractors create searchable representations without replacing original clip content. IDs are stable: built-in Types and Groups can be renamed and reordered, Types can be assigned searchable icons, and custom entries can be archived. A custom Group must be empty before it can be archived or permanently deleted. Archiving a Type preserves existing clips and disables Detectors that would produce it. Registry metadata does not maintain revision history; changes are recorded in Activity, and **Restore Defaults** recovers shipped metadata without removing custom entries.
+**Settings → Analysis** remains available because Inspectors always run. Optional participant surfaces follow Functionality: Extractors remain visible for OCR or Transcriptions, Detectors remain visible for Content Detection or Types, and Transformations controls Smart Action Enrichers. Types and Sources organize the library, while Insights summarizes it; those three browsing features do not run Analyzer participants.
+
+Inspectors and Enrichers have read-only managers for their practical input, output, runtime availability, and optional technical contracts. Extractors and ordered Detectors remain authorable, alongside the shared Type and Group registries. Extractors create searchable representations without replacing original clip content. IDs are stable: built-in Types and Groups can be renamed and reordered, Types can be assigned searchable icons, and custom entries can be archived. A custom Group must be empty before it can be archived or permanently deleted. Archiving a Type preserves existing clips and disables Detectors that would produce it. Registry metadata does not maintain revision history; changes are recorded in Activity, and **Reset** recovers shipped metadata without removing custom entries.
 
 **Rescan Clips** explicitly reapplies enabled detectors to existing text clips. It leaves image and file Types unchanged and reports how many clips were reclassified.
 

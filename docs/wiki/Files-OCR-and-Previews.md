@@ -29,6 +29,8 @@ Media metadata is inspected live because referenced files can change outside the
 
 The shipped **Whisper Transcription** Extractor uses an installed whisper.cpp `whisper-cli` executable and an explicitly selected local GGML model. Homebrew installations can use `brew install whisper-cpp`; model files remain a separate user-managed dependency and are never downloaded automatically. Configure the model under **Settings → Analysis → Manage Extractors** or with `pasted extractor update extractor:whisper-transcription --model /absolute/path/to/ggml-model.bin`.
 
+**Transcriptions** under **Settings → Functionality** controls Whisper and other file-input transcription Extractors across the app and CLI.
+
 Explicit transcription accepts bounded FLAC, MP3, OGG, WAV, M4A, and AAC file references. M4A and AAC audio is converted to a private temporary WAV with an installed FFmpeg executable before whisper.cpp runs. Applying a result stores searchable text and Extractor provenance without replacing the file clip's original path list. Search and smart `contains` rules include current hash-bound transcription text. A stale result cannot attach to a changed or removed clip.
 
 ## OCR

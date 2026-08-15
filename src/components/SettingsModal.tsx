@@ -76,16 +76,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   }, [activeTab, settings.enableNotifications]);
 
-  useEffect(() => {
-    if (!settings.enableContentDetection && !settings.enableOcr && activeTab === 'analysis') setActiveTab('functionality');
-  }, [activeTab, settings.enableContentDetection, settings.enableOcr]);
-
   return (
     <div className="tools-page settings-page flex-1 settings-modal-bg h-screen overflow-hidden font-sans select-none flex flex-col">
       <ToolPageHeader
         icon={<Settings className="w-4 h-4" />}
         title="Settings"
-        actions={<SettingsTabs activeTab={activeTab} onChange={setActiveTab} showIntelligence={settings.enableTransformations} showNotifications={settings.enableNotifications} showAnalysis={settings.enableContentDetection || settings.enableOcr} />}
+        actions={<SettingsTabs activeTab={activeTab} onChange={setActiveTab} showIntelligence={settings.enableTransformations} showNotifications={settings.enableNotifications} />}
       />
 
       <div className="tools-scroll-region flex-1 overflow-y-auto p-6">
@@ -112,8 +108,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           <SettingsFeaturesPanel settings={settings} onUpdateSettings={onUpdateSettings} />
         )}
 
-        {(settings.enableContentDetection || settings.enableOcr) && activeTab === 'analysis' && (
-          <SettingsDetectionPanel contentDetectionEnabled={settings.enableContentDetection} ocrEnabled={settings.enableOcr} />
+        {activeTab === 'analysis' && (
+          <SettingsDetectionPanel
+            contentDetectionEnabled={settings.enableContentDetection}
+            ocrEnabled={settings.enableOcr}
+            transcriptionsEnabled={settings.enableTranscriptions}
+            transformationsEnabled={settings.enableTransformations}
+            typesEnabled={settings.enableTypes}
+          />
         )}
 
         {settings.enableNotifications && activeTab === 'notifications' && (

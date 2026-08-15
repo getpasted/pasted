@@ -2440,7 +2440,7 @@ impl DbState {
             VALUES ('enricher:smart-actions-v1', 'enricher', 'Smart Actions',
                     'Recommends saved Transforms from content-free analysis signals.',
                     'Content Analysis', 'Lightbulb', NULL, 1, 0, 0, 1,
-                    'analyzable_text+classification+structural_metadata', 'recommendations',
+                    'analyzable_text+structural_metadata', 'recommendations',
                     CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
             INSERT INTO library_items

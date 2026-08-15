@@ -72,8 +72,7 @@ fn execute(
     options: AnalyzerOptions,
     allow_text_participants: bool,
 ) -> Result<AnalyzerPreview, String> {
-    let run_detectors =
-        allow_text_participants && (options.include_detectors || options.include_enricher);
+    let run_detectors = allow_text_participants && options.include_detectors;
     let detectors = if run_detectors {
         db.get_content_detectors()
             .map_err(|error| error.to_string())?
@@ -96,8 +95,12 @@ fn execute(
     };
     let extractor = if options.include_extractor {
         match clip_kind {
-            "image" => db.active_image_text_extractor(),
-            "file" => db.active_file_text_extractor(),
+            "image" if crate::features::is_enabled(db, crate::features::Feature::Ocr) => {
+                db.active_image_text_extractor()
+            }
+            "file" if crate::features::is_enabled(db, crate::features::Feature::Transcriptions) => {
+                db.active_file_text_extractor()
+            }
             _ => Ok(None),
         }
         .map_err(|error| error.to_string())?
@@ -329,6 +332,29 @@ mod tests {
             result.analysis.participants[0].pass,
             crate::analysis_contract::AnalysisPass::Inspect
         );
+    }
+
+    #[test]
+    fn enrichment_does_not_implicitly_enable_detectors() {
+        let result = analyze_text(
+            &db(),
+            "agent@example.com",
+            None,
+            AnalyzerOptions {
+                include_detectors: false,
+                include_enricher: true,
+                ..AnalyzerOptions::default()
+            },
+        )
+        .unwrap();
+        assert!(result.analysis.result.detected_type.is_none());
+        assert!(result.analysis.result.recommendations.is_some());
+        assert_eq!(result.analysis.participants.len(), 2);
+        assert!(result
+            .analysis
+            .participants
+            .iter()
+            .all(|run| run.pass != crate::analysis_contract::AnalysisPass::Classify));
     }
 
     #[test]

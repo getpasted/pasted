@@ -66,10 +66,14 @@ export function ContentExtractorManagerDialog({
   isOpen,
   onClose,
   onChanged,
+  ocrEnabled,
+  transcriptionsEnabled,
 }: {
   isOpen: boolean;
   onClose: () => void;
   onChanged?: () => void;
+  ocrEnabled: boolean;
+  transcriptionsEnabled: boolean;
 }) {
   const { showToast } = useToast();
   const [extractors, setExtractors] = useState<ContentExtractor[]>([]);
@@ -77,26 +81,42 @@ export function ContentExtractorManagerDialog({
   const [draft, setDraft] = useState<ExtractorInput>(toInput());
   const [saving, setSaving] = useState(false);
   const [confirmation, setConfirmation] = useState<ConfirmationDialogRequest | null>(null);
+  const visibleExtractors = useMemo(
+    () => extractors.filter(({ inputContract }) => (
+      (inputContract !== 'image' || ocrEnabled)
+      && (inputContract !== 'file_references' || transcriptionsEnabled)
+    )),
+    [extractors, ocrEnabled, transcriptionsEnabled],
+  );
   const selected = useMemo(
-    () => typeof selectedId === 'number' ? extractors.find((extractor) => extractor.id === selectedId) : undefined,
-    [extractors, selectedId],
+    () => typeof selectedId === 'number' ? visibleExtractors.find((extractor) => extractor.id === selectedId) : undefined,
+    [selectedId, visibleExtractors],
   );
   const { beginNew: beginNewExtractor, cancelNew: cancelNewExtractor } = useNewItemSelection({
     selectedId,
     setSelectedId,
-    itemIds: extractors.map(({ id }) => id),
+    itemIds: visibleExtractors.map(({ id }) => id),
     emptySelection: null,
   });
 
   const load = async () => {
     const loaded = await invoke<ContentExtractor[]>('get_content_extractors');
     setExtractors(loaded);
-    setSelectedId((current) => loaded.some(({ id }) => id === current) ? current : loaded[0]?.id ?? null);
+    const visible = loaded.filter(({ inputContract }) => (
+      (inputContract !== 'image' || ocrEnabled)
+      && (inputContract !== 'file_references' || transcriptionsEnabled)
+    ));
+    setSelectedId((current) => visible.some(({ id }) => id === current) ? current : visible[0]?.id ?? null);
   };
 
   useEffect(() => {
     if (isOpen) void load();
-  }, [isOpen]);
+  }, [isOpen, ocrEnabled, transcriptionsEnabled]);
+  useEffect(() => {
+    setSelectedId((current) => visibleExtractors.some(({ id }) => id === current)
+      ? current
+      : visibleExtractors[0]?.id ?? null);
+  }, [visibleExtractors]);
   useLayoutEffect(() => setDraft(selectedId === 'new' ? toInput() : toInput(selected)), [selected, selectedId]);
 
   const baseline = selectedId === 'new' ? toInput() : selected ? toInput(selected) : null;
@@ -300,9 +320,12 @@ export function ContentExtractorManagerDialog({
       </AppDialogHeader>
       <AppDialogBody className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-y-auto text-xs @xl:grid-cols-[minmax(0,3fr)_minmax(0,7fr)]">
         <section className="theme-surface flex min-h-[260px] flex-col overflow-hidden rounded-xl border @xl:min-h-0">
-          <RegistryPanelHeader title="Extractors" actions={<AppDialogButton onClick={beginNew} className="h-7 min-h-7 px-2.5"><Plus className="h-3.5 w-3.5" /> New</AppDialogButton>} />
+          <RegistryPanelHeader title="Extractors" actions={ocrEnabled ? <AppDialogButton onClick={beginNew} className="h-7 min-h-7 px-2.5"><Plus className="h-3.5 w-3.5" /> New</AppDialogButton> : undefined} />
           <div className="min-h-0 flex-1 overflow-y-auto p-1.5">
-            {extractors.map((extractor) => <RegistryListItem
+            {visibleExtractors.length === 0 && (
+              <p className="theme-text-muted px-3 py-4 text-center text-[10px]">No Extractors are available for enabled functionality.</p>
+            )}
+            {visibleExtractors.map((extractor) => <RegistryListItem
               key={extractor.id}
               selected={selectedId === extractor.id}
               onSelect={() => selectExtractor(extractor.id)}
