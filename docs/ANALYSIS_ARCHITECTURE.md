@@ -27,11 +27,11 @@ The shipped `enricher:smart-actions-v1` participant consumes analyzable text, cl
 
 Clip Preview and `pasted analyzer run` consume the whole-Analyzer snapshot. The snapshot reports clip kind, structural metadata, classification, content-free recommendations, participant outcomes, and only a boolean indicating whether searchable text became available. It never returns original text, extracted text, image bytes, or file paths. File references cannot be reinterpreted as analyzable text; only a successful Extractor may produce the searchable-text representation consumed by later passes. Automatic Clip Preview requests do not enable extraction; explicit GUI extraction or `pasted analyzer run --clip ID --extract` opts into potentially expensive OCR or transcription.
 
-## Type applicability after 1.0
+## Type applicability
 
 The stored clip representation and a derived semantic Type are separate axes. An image or file remains an image or file after Analysis; a derived classification records what its searchable representation means without rewriting storage identity.
 
-The next Types contract should model applicability as typed edges: each Analyzer participant declares accepted representation kinds and produced representations or facts, while each Type or Type family declares which produced evidence may classify it. The Types API and Analysis UI can then visualize participant → representation → eligible Type relationships, distinguish text-only Detectors from future image, audio, media, or structural classifiers, and explain why a participant applies or does not apply to a selected clip. Do not encode this relationship through display names, engine IDs, or a single overloaded `content_type` field.
+The shared registry models applicability as typed edges. Every Analyzer item exposes a `participantContract` containing accepted and produced representations. Its `typeRelations` identify direct Type edges: `accepts` connects Image and File inputs to their registered Types, while `classifies_as` connects each Detector to the Type it produces. GUI and CLI consumers can therefore visualize participant → representation → Type relationships, distinguish text analysis from image, file, media, and structural work, and explain why a participant applies without interpreting display names or engine IDs.
 
 ## Adding an Inspector or Enricher
 

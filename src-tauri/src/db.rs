@@ -9017,10 +9017,14 @@ impl DbState {
                 updated_at: row.get(14)?,
             };
             let analysis_pass = item.analysis_pass();
+            let participant_contract = item.participant_contract();
+            let type_relations = item.type_relations();
             let capabilities = item.capabilities();
             Ok(crate::library_items::LibraryItemView {
                 item,
                 analysis_pass,
+                participant_contract,
+                type_relations,
                 capabilities,
             })
         })?;

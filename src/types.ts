@@ -223,6 +223,18 @@ export interface LibraryItemView {
   inputContract: string;
   outputContract: string;
   analysisPass: 'inspect' | 'extract' | 'classify' | 'enrich' | null;
+  participantContract?: {
+    stableRef: string;
+    name: string;
+    pass: 'inspect' | 'extract' | 'classify' | 'enrich';
+    priority: number;
+    requires: AnalysisRepresentation[];
+    provides: AnalysisRepresentation[];
+  };
+  typeRelations?: Array<{
+    kind: 'accepts' | 'classifies_as';
+    typeId: string;
+  }>;
   createdAt: string;
   updatedAt: string;
   capabilities: {
@@ -233,6 +245,19 @@ export interface LibraryItemView {
     canRestore: boolean;
   };
 }
+
+export type AnalysisRepresentation =
+  | 'clip_kind'
+  | 'capture_source'
+  | 'original_text'
+  | 'file_references'
+  | 'image'
+  | 'searchable_text'
+  | 'analyzable_text'
+  | 'classification'
+  | 'structural_metadata'
+  | 'media_metadata'
+  | 'recommendations';
 
 export type IntelligenceProviderKind =
   | 'openai_compatible'
