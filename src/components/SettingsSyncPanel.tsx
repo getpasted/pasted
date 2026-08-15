@@ -423,7 +423,7 @@ export function SettingsSyncPanel({
   };
 
   return (
-    <div className="space-y-6 text-xs">
+    <div className="space-y-5 text-xs">
       <SettingsPanelHeader
         icon={Database}
         title="Storage"

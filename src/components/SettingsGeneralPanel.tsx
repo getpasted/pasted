@@ -194,7 +194,7 @@ export function SettingsGeneralPanel({
   };
 
   return (
-          <div className="space-y-6 text-xs">
+          <div className="space-y-5 text-xs">
             <SettingsPanelHeader
               icon={Sliders}
               title="General"
@@ -640,7 +640,7 @@ export function SettingsGeneralPanel({
                     className="theme-status-danger flex shrink-0 items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors cursor-pointer"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
-                    <span>{isAltPressed ? 'Delete All Clips' : 'Trash All Clips'}</span>
+                    <span>{isAltPressed ? 'Delete All Clips…' : 'Trash All Clips…'}</span>
                   </button>
                 </div>
               </div>

@@ -202,10 +202,10 @@ export function ContentExtractorManagerDialog({
 
   const restoreAll = () => {
     discardDraftThen(() => requestConfirmation({
-      title: 'Restore shipped Extractors?',
+      title: 'Reset shipped Extractors?',
       description: 'Shipped Extractors return to their defaults.',
       details: 'Custom Extractors remain unchanged.',
-      confirmLabel: 'Restore Defaults',
+      confirmLabel: 'Reset',
       onConfirm: restoreAllConfirmed,
     }));
   };
@@ -273,7 +273,7 @@ export function ContentExtractorManagerDialog({
       title: 'Delete Extractor?',
       description: selected.name,
       details: selected.isBuiltin
-        ? 'This removes the Extractor from the library. Restore Shipped Defaults can recover it.'
+        ? 'This removes the Extractor from the library. Restore Defaults can recover it.'
         : 'This permanently removes the custom Extractor from the library.',
       confirmLabel: 'Delete Extractor',
       tone: 'danger',
@@ -319,7 +319,7 @@ export function ContentExtractorManagerDialog({
           </div>
           <RegistryPanelFooter align="end">
             <AppDialogButton onClick={() => void duplicate()} disabled={!selected || isDirty || saving} title={isDirty ? 'Save or cancel changes before duplicating.' : undefined}><Copy className="h-3.5 w-3.5" /> Duplicate</AppDialogButton>
-            <AppDialogButton variant="danger" onClick={remove} disabled={!selected || saving}><Trash2 className="h-3.5 w-3.5" /> Delete</AppDialogButton>
+            <AppDialogButton variant="danger" onClick={remove} disabled={!selected || saving}><Trash2 className="h-3.5 w-3.5" /> Delete…</AppDialogButton>
           </RegistryPanelFooter>
         </section>
         <section className="theme-surface flex min-w-0 flex-col overflow-hidden rounded-xl border">
@@ -394,7 +394,7 @@ export function ContentExtractorManagerDialog({
       </AppDialogBody>
       <AppDialogFooter align="between" className="shrink-0">
         <AppDialogButton onClick={restoreAll} disabled={saving}>
-          <RotateCcw className="h-3.5 w-3.5" /> Restore Shipped Defaults…
+          <RotateCcw className="h-3.5 w-3.5" /> Reset…
         </AppDialogButton>
         <AppDialogButton onClick={requestClose}>Close</AppDialogButton>
       </AppDialogFooter>

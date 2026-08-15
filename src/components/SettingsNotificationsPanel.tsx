@@ -53,7 +53,7 @@ const DISMISS_OPTIONS = [
 
 export function SettingsNotificationsPanel({ settings, onUpdateSettings }: SettingsNotificationsPanelProps) {
   return (
-    <div className="space-y-6 text-xs">
+    <div className="space-y-5 text-xs">
       <SettingsPanelHeader
         icon={Bell}
         title="Notifications"

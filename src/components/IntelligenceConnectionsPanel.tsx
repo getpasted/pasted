@@ -119,7 +119,7 @@ export function IntelligenceConnectionsPanel() {
         actions={(
           <ActionButton variant="primary" onClick={() => setIsAddConnectionOpen(true)}>
             <Plus className="w-4 h-4" />
-            <span>Add connection</span>
+            <span>Add connection…</span>
           </ActionButton>
         )}
       />

@@ -54,7 +54,7 @@ export function SettingsBlacklistPanel({
             className="shrink-0"
           >
             <Plus className="w-4 h-4" />
-            <span>Add app</span>
+            <span>Add app…</span>
           </ActionButton>
         )}
       />

@@ -98,6 +98,25 @@ assert.deepEqual(
 
 const settingsImportExport = fs.readFileSync('src/components/SettingsSyncPanel.tsx', 'utf8');
 const settingsTabs = fs.readFileSync('src/components/SettingsTabs.tsx', 'utf8');
+const settingsHotkeys = fs.readFileSync('src/components/SettingsHotkeysPanel.tsx', 'utf8');
+for (const [file, labels] of Object.entries({
+  'src/components/SettingsBlacklistPanel.tsx': ['Add app…'],
+  'src/components/IntelligenceConnectionsPanel.tsx': ['Add connection…'],
+  'src/components/SettingsWelcomePanel.tsx': ['Open Copycat Welcome…'],
+  'src/components/SettingsAboutPanel.tsx': ['Open Source Licenses…'],
+  'src/components/SettingsDetectionPanel.tsx': ['Manage ${title}…', 'Rescan Clips…', 'Delete…', 'Manage Types…', 'Reset…'],
+  'src/components/ContentExtractorManagerDialog.tsx': ['Delete…', 'Choose…', 'Reset…'],
+  'src/components/ContentTypeManagerDialog.tsx': ['Manage Groups…'],
+  'src/components/SettingsGeneralPanel.tsx': ['Delete All Clips…', 'Trash All Clips…'],
+  'src/components/SettingsSyncPanel.tsx': ['Move…', 'Export…', 'Choose File…', 'Recover…'],
+  'src/components/SettingsResetPanel.tsx': ['Reset Pasted…'],
+  'src/components/FactoryResetDialog.tsx': ['Create Full Backup…'],
+})) {
+  const source = fs.readFileSync(file, 'utf8');
+  for (const label of labels) {
+    assert.ok(source.includes(label), `${file} must show “${label}” before opening follow-up UI`);
+  }
+}
 const settingsDestinations = [
   ['general', 'General'],
   ['functionality', 'Functionality'],
@@ -118,6 +137,25 @@ for (const [id, label] of settingsDestinations) {
 }
 assert.doesNotMatch(settingsTabs, /id: '(?:features|connections|blacklist)'/,
   'Settings destination IDs must match current product terminology');
+for (const file of [
+  'src/components/SettingsGeneralPanel.tsx',
+  'src/components/SettingsFeaturesPanel.tsx',
+  'src/components/SettingsHotkeysPanel.tsx',
+  'src/components/SettingsNotificationsPanel.tsx',
+  'src/components/SettingsBlacklistPanel.tsx',
+  'src/components/SettingsSyncPanel.tsx',
+  'src/components/SettingsDetectionPanel.tsx',
+  'src/components/IntelligenceConnectionsPanel.tsx',
+  'src/components/SettingsAboutPanel.tsx',
+]) {
+  const source = fs.readFileSync(file, 'utf8');
+  assert.match(source, /<div className="space-y-5(?:\s|\")/,
+    `${file} must use the shared 20px Settings panel rhythm`);
+}
+assert.match(settingsHotkeys, /theme-divider flex items-center justify-between gap-3 border-b p-2\.5 last:border-b-0/,
+  'Hotkey rows must render as divided rows instead of individual wells');
+assert.ok((settingsHotkeys.match(/theme-surface overflow-hidden rounded-xl border/g) ?? []).length >= 3,
+  'Hotkey categories must group rows into shared wells');
 const destinationCopyFiles = [
   'src/components/HelpView.tsx',
   ...fs.readdirSync('docs', { recursive: true })

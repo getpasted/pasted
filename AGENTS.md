@@ -37,6 +37,8 @@ Pasted aims to make its meaningful clipboard-management capabilities available t
 
 ## In-app voice and grammar
 
+- Keep interface copy terse and non-redundant. Lead with information that is not already communicated by the destination, heading, label, control, numbering, or visible layout. Remove helper text that merely restates what the interface already shows.
+- End initiating control labels with an ellipsis (`…`) when the action opens a modal, confirmation, native picker, or other follow-up input. Do not add an ellipsis to the final action inside that flow or to an immediate command.
 - Write interface copy from inside the product. Do not describe Pasted as though an outside narrator is explaining the app when the current screen or control already supplies that context.
 - Prefer concise, neutral, control-led phrasing in settings descriptions, status text, Help, and other Tools surfaces. Avoid unnecessary first- or second-person pronouns such as “we,” “our,” “you,” and “your.”
 - Do not replace a redundant “Pasted” with an equally unnecessary pronoun. Restructure the sentence instead: for example, use “Launch automatically after logging into macOS,” not “Automatically launch Pasted…” or “Launch automatically when you log in…”.
