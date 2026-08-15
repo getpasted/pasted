@@ -12,6 +12,7 @@ import { useToast } from './ToastProvider';
 import { RegistryListItem } from './RegistryListItem';
 import { RegistryPanelHeader } from './RegistryPanelHeader';
 import { useNewItemSelection } from '../hooks/useNewItemSelection';
+import { ConnectedMenuAction } from './ConnectedMenuAction';
 
 const ICONS = [
   'AlignLeft', 'AtSign', 'Binary', 'BookOpen', 'Box', 'Braces', 'Calendar',
@@ -124,18 +125,26 @@ export function ContentTypeManagerDialog({ isOpen, onClose }: { isOpen: boolean;
             </div>
           </section>
           <section className="theme-surface flex min-w-0 flex-col overflow-hidden rounded-xl border">
-            <RegistryPanelHeader
-              title="Content Type Settings"
-              actions={<AppDialogButton onClick={() => setIsGroupManagerOpen(true)} className="h-7 min-h-7 px-2.5"><Layers3 className="h-3 w-3" /> Manage Groups…</AppDialogButton>}
-            />
+            <RegistryPanelHeader title="Content Type Settings" />
             <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
             <div className="grid grid-cols-1 gap-3 @md:grid-cols-[1fr_150px]">
               <label className={`space-y-1 ${modified.label ? 'settings-field-modified' : ''}`}><ModifiedFieldLabel modified={modified.label}>Name</ModifiedFieldLabel><input value={draft.label} onChange={(event) => setDraft({ ...draft, label: event.target.value })} className="theme-input w-full rounded-lg border px-3 py-2" /></label>
               <label className="space-y-1"><span className="theme-text-muted font-semibold">Stable ID</span><input value={draft.id} disabled={selectedId !== 'new'} onChange={(event) => setDraft({ ...draft, id: event.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '_') })} className="theme-input w-full rounded-lg border px-3 py-2 font-mono disabled:opacity-60" /></label>
             </div>
-            <div className="grid grid-cols-1 gap-3 @md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 @md:grid-cols-[minmax(180px,0.7fr)_minmax(320px,1.3fr)]">
               <label className={`space-y-1 ${modified.icon ? 'settings-field-modified' : ''}`}><ModifiedFieldLabel modified={modified.icon}>Icon</ModifiedFieldLabel><MenuSelect value={draft.icon} onChange={(icon) => setDraft({ ...draft, icon })} label="Content type icon" leadingIcon={<ContentTypeGlyph icon={draft.icon} className="h-4 w-4" />} options={ICONS.map((icon) => ({ value: icon, label: icon.replace(/([a-z])([A-Z])/g, '$1 $2'), icon: <ContentTypeGlyph icon={icon} className="h-4 w-4" /> }))} className="w-full" searchable searchPlaceholder="Search icons…" /></label>
-              <label className={`space-y-1 ${modified.group ? 'settings-field-modified' : ''}`}><ModifiedFieldLabel modified={modified.group}>Group</ModifiedFieldLabel><MenuSelect value={draft.group} onChange={(group) => setDraft({ ...draft, group })} label="Content type group" options={groups.map((group) => ({ value: group.id, label: group.label, disabled: group.isArchived }))} className="w-full" /></label>
+              <div className={`space-y-1 ${modified.group ? 'settings-field-modified' : ''}`}>
+                <ModifiedFieldLabel modified={modified.group}>Group</ModifiedFieldLabel>
+                <ConnectedMenuAction
+                  className="w-full"
+                  groupLabel="Content type group"
+                  actionLabel="Manage Content Type Groups"
+                  action={<><Layers3 className="h-3.5 w-3.5" aria-hidden="true" /><span>Manage…</span></>}
+                  onAction={() => setIsGroupManagerOpen(true)}
+                >
+                  <MenuSelect value={draft.group} onChange={(group) => setDraft({ ...draft, group })} label="Content type group" options={groups.map((group) => ({ value: group.id, label: group.label, disabled: group.isArchived }))} className="min-w-0 flex-1" />
+                </ConnectedMenuAction>
+              </div>
             </div>
             <div className="theme-subtle-surface rounded-lg border p-3 text-[11px] leading-relaxed">
               {selected?.isBuiltin ? 'Built-in IDs cannot be changed or archived. Their name, icon, and group can be customized and reset later.' : 'Custom Content Types can be archived without changing historical clips. Archiving also disables Classifiers that produce the Content Type.'}

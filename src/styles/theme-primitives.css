@@ -1291,8 +1291,8 @@ option {
 
 .theme-menu-item.is-selected {
   background-color: var(--menu-selected);
-  border-color: color-mix(in srgb, var(--accent-primary) 34%, var(--border-subtle));
   color: var(--accent-primary);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-primary) 34%, var(--border-subtle));
 }
 
 .theme-menu-item.is-selected:hover,
