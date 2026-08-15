@@ -196,7 +196,7 @@ export function useAppData() {
     try {
       setPipelines(await invoke<Pipeline[]>('get_pipelines'));
     } catch (error) {
-      console.error('Failed to fetch Pipelines:', error);
+      console.error('Failed to fetch manual Transforms:', error);
     }
   }, []);
 

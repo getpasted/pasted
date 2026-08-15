@@ -2,7 +2,7 @@ use crate::db::DbState;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Feature {
-    Analytics,
+    Insights,
     Bins,
     ContentDetection,
     Notes,
@@ -17,7 +17,7 @@ pub enum Feature {
     Trash,
     Transformations,
     ActivityLog,
-    Types,
+    ContentTypes,
     Sources,
     Cli,
     Help,
@@ -25,7 +25,7 @@ pub enum Feature {
 
 impl Feature {
     pub const ALL: [Feature; 19] = [
-        Feature::Analytics,
+        Feature::Insights,
         Feature::Bins,
         Feature::ContentDetection,
         Feature::Notes,
@@ -40,7 +40,7 @@ impl Feature {
         Feature::Trash,
         Feature::Transformations,
         Feature::ActivityLog,
-        Feature::Types,
+        Feature::ContentTypes,
         Feature::Sources,
         Feature::Cli,
         Feature::Help,
@@ -48,7 +48,7 @@ impl Feature {
 
     pub const fn setting_key(self) -> &'static str {
         match self {
-            Feature::Analytics => "enableAnalytics",
+            Feature::Insights => "enableAnalytics",
             Feature::Bins => "enableBins",
             Feature::ContentDetection => "enableContentDetection",
             Feature::Notes => "enableNotes",
@@ -63,7 +63,7 @@ impl Feature {
             Feature::Trash => "enableTrash",
             Feature::Transformations => "enableTransformations",
             Feature::ActivityLog => "enableActivityLog",
-            Feature::Types => "enableTypes",
+            Feature::ContentTypes => "enableTypes",
             Feature::Sources => "enableSources",
             Feature::Cli => "enableCli",
             Feature::Help => "enableHelp",
@@ -78,7 +78,7 @@ impl Feature {
 
     pub const fn label(self) -> &'static str {
         match self {
-            Feature::Analytics => "Analytics",
+            Feature::Insights => "Insights",
             Feature::Bins => "Bins",
             Feature::ContentDetection => "Content Detection",
             Feature::Notes => "Notes",
@@ -93,7 +93,7 @@ impl Feature {
             Feature::Trash => "Trash",
             Feature::Transformations => "Transformations",
             Feature::ActivityLog => "Activity",
-            Feature::Types => "Types",
+            Feature::ContentTypes => "Content Types",
             Feature::Sources => "Sources",
             Feature::Cli => "CLI",
             Feature::Help => "Help",

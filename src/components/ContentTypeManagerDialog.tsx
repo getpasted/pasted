@@ -103,7 +103,7 @@ export function ContentTypeManagerDialog({ isOpen, onClose }: { isOpen: boolean;
     >
       {({ requestClose }) => <>
         <AppDialogHeader onClose={requestClose} className="shrink-0">
-          <AppDialogHeading id="content-type-manager-title" title="Content Types" description="Manage shared names, icons, and groups. Type IDs remain stable." icon={<Shapes />} />
+          <AppDialogHeading id="content-type-manager-title" title="Content Types" description="Manage shared names, icons, and groups. Content Type IDs remain stable." icon={<Shapes />} />
         </AppDialogHeader>
         <AppDialogBody className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-y-auto text-xs @xl:grid-cols-[minmax(0,3fr)_minmax(0,7fr)]">
           <section className="theme-surface flex min-h-[260px] flex-col overflow-hidden rounded-xl border @xl:min-h-0">
@@ -125,7 +125,7 @@ export function ContentTypeManagerDialog({ isOpen, onClose }: { isOpen: boolean;
           </section>
           <section className="theme-surface flex min-w-0 flex-col overflow-hidden rounded-xl border">
             <RegistryPanelHeader
-              title="Type Settings"
+              title="Content Type Settings"
               actions={<AppDialogButton onClick={() => setIsGroupManagerOpen(true)} className="h-7 min-h-7 px-2.5"><Layers3 className="h-3 w-3" /> Manage Groups…</AppDialogButton>}
             />
             <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
@@ -138,13 +138,13 @@ export function ContentTypeManagerDialog({ isOpen, onClose }: { isOpen: boolean;
               <label className={`space-y-1 ${modified.group ? 'settings-field-modified' : ''}`}><ModifiedFieldLabel modified={modified.group}>Group</ModifiedFieldLabel><MenuSelect value={draft.group} onChange={(group) => setDraft({ ...draft, group })} label="Content type group" options={groups.map((group) => ({ value: group.id, label: group.label, disabled: group.isArchived }))} className="w-full" /></label>
             </div>
             <div className="theme-subtle-surface rounded-lg border p-3 text-[11px] leading-relaxed">
-              {selected?.isBuiltin ? 'Built-in IDs cannot be changed or archived. Their name, icon, and group can be customized and restored later.' : 'Custom Types can be archived without changing historical clips. Archiving also disables detectors that produce this Type.'}
+              {selected?.isBuiltin ? 'Built-in IDs cannot be changed or archived. Their name, icon, and group can be customized and reset later.' : 'Custom Content Types can be archived without changing historical clips. Archiving also disables Detectors that produce the Content Type.'}
             </div>
             </div>
           </section>
         </AppDialogBody>
         <AppDialogFooter align="between" className="shrink-0">
-          <div>{selected && !selected.isBuiltin && <AppDialogButton onClick={() => void toggleArchived()} variant={selected.isArchived ? 'secondary' : 'warning'}><Archive className="h-3.5 w-3.5" /> {selected.isArchived ? 'Restore Type' : 'Archive Type'}</AppDialogButton>}</div>
+          <div>{selected && !selected.isBuiltin && <AppDialogButton onClick={() => void toggleArchived()} variant={selected.isArchived ? 'secondary' : 'warning'}><Archive className="h-3.5 w-3.5" /> {selected.isArchived ? 'Restore Content Type' : 'Archive Content Type'}</AppDialogButton>}</div>
           <div className="flex items-center gap-2">
             {selectedId === 'new'
               ? <AppDialogButton onClick={cancelNewType}>Cancel</AppDialogButton>

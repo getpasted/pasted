@@ -9639,7 +9639,7 @@ impl DbState {
         }
         if archived && usage_count > 0 {
             return Err(rusqlite::Error::InvalidParameterName(
-                "Move Types out of this Group before archiving it".into(),
+                "Move Content Types out of this Group before archiving it".into(),
             ));
         }
         conn.execute("UPDATE content_type_groups SET is_archived = ?1, updated_at = CURRENT_TIMESTAMP WHERE id = ?2", params![archived, id])?;
@@ -9676,7 +9676,7 @@ impl DbState {
         }
         if usage_count > 0 {
             return Err(rusqlite::Error::InvalidParameterName(
-                "Move Types out of this Group before deleting it".into(),
+                "Move Content Types out of this Group before deleting it".into(),
             ));
         }
         conn.execute("DELETE FROM content_type_groups WHERE id = ?1", params![id])?;

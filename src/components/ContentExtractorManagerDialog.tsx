@@ -293,7 +293,7 @@ export function ContentExtractorManagerDialog({
       title: 'Delete Extractor?',
       description: selected.name,
       details: selected.isBuiltin
-        ? 'This removes the Extractor from the library. Restore Defaults can recover it.'
+        ? 'This removes the Extractor from the library. Reset can recover it.'
         : 'This permanently removes the custom Extractor from the library.',
       confirmLabel: 'Delete Extractor',
       tone: 'danger',

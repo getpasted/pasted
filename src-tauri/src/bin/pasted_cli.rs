@@ -544,7 +544,7 @@ fn main() -> Result<()> {
                         );
                     } else {
                         println!(
-                            "Transfer file v{}: {} clips, {} Bins, {} Transforms, {} Operations, {} detectors, and {} Types.",
+                            "Transfer file v{}: {} clips, {} Bins, {} Transforms, {} Operations, {} Detectors, and {} Content Types.",
                             inspection.schema_version,
                             inspection.clip_count,
                             inspection.bin_count,
@@ -1649,7 +1649,7 @@ fn main() -> Result<()> {
                 }
                 "rescan" => {
                     if !args.iter().any(|argument| argument == "--yes") {
-                        eprintln!("History rescans can change Types, Smart Bin membership, and sensitive-content masking. Re-run with --yes to continue.");
+                        eprintln!("History rescans can change Content Types, Smart Bin membership, and sensitive-content masking. Re-run with --yes to continue.");
                         std::process::exit(2);
                     }
                     let report = db.rescan_content_detection()?;
