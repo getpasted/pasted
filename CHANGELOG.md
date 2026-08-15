@@ -14,6 +14,7 @@ Notable user-facing changes to Pasted are recorded here. The project follows sem
 - unified Capture, Inspectors, Extractors, Detectors, and Enrichers under one bounded Analysis lifecycle with matching GUI, CLI, and versioned JSON contracts.
 - added Tesseract OCR, ffprobe and MediaInfo inspection, and whisper.cpp transcription with explicit local dependency and model configuration.
 - separated structural Clip Type, referenced File Format, and semantic Content Type throughout Analysis, Insights, Functionality, Help, and documentation.
+- aligned Reset, Content Type, Insights, and Help navigation language across dialogs, native menus, CLI messages, and architecture documentation.
 
 ## 1.0.0-rc.5 — 2026-08-12
 

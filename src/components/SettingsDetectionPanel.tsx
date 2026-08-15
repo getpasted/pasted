@@ -285,7 +285,7 @@ export function SettingsDetectionPanel({
       await invoke('delete_content_detector', { id: selectedId });
       const remaining = await load();
       setSelectedId((current) => current === selectedId ? remaining[0]?.id ?? 'new' : current);
-      showToast({ tone: 'success', message: `${selected.name} deleted. Restore Shipped Defaults can recover shipped detectors.` });
+      showToast({ tone: 'success', message: `${selected.name} deleted. Reset can recover shipped Detectors.` });
     } catch (error) {
       showToast({ tone: 'error', message: String(error) });
     }
@@ -297,7 +297,7 @@ export function SettingsDetectionPanel({
       title: 'Delete Detector?',
       description: selected.name,
       details: selected.is_builtin
-        ? 'This removes the Detector from the library. Restore Defaults can recover it.'
+        ? 'This removes the Detector from the library. Reset can recover it.'
         : 'This permanently removes the custom Detector from the library.',
       confirmLabel: 'Delete Detector',
       tone: 'danger',
@@ -343,7 +343,7 @@ export function SettingsDetectionPanel({
   const restoreAnalysis = () => {
     requestConfirmation({
       title: 'Reset shipped Analysis definitions?',
-      description: 'Shipped Extractors, Detectors, Types, and Type Groups return to their defaults.',
+      description: 'Shipped Extractors, Detectors, Content Types, and Content Type Groups return to their defaults.',
       details: 'Custom definitions remain unchanged.',
       confirmLabel: 'Reset',
       onConfirm: restoreAnalysisConfirmed,
@@ -360,7 +360,7 @@ export function SettingsDetectionPanel({
       await Promise.all([refreshContentTypes(), refreshGroups()]);
       setDetectors(restored);
       setSelectedId(restored[0]?.id ?? 'new');
-      showToast({ tone: 'success', message: 'Built-in Types and Detectors restored. Custom definitions were preserved.' });
+      showToast({ tone: 'success', message: 'Built-in Content Types and Detectors reset. Custom definitions were preserved.' });
     } catch (error) {
       showToast({ tone: 'error', message: String(error) });
     }
@@ -369,7 +369,7 @@ export function SettingsDetectionPanel({
   const restoreDetectorDefaults = () => {
     discardDraftThen(() => requestConfirmation({
       title: 'Reset shipped Detector definitions?',
-      description: 'Shipped Types, Type Groups, and Detectors return to their defaults.',
+      description: 'Shipped Content Types, Content Type Groups, and Detectors return to their defaults.',
       details: 'Custom definitions remain unchanged.',
       confirmLabel: 'Reset',
       onConfirm: restoreDetectorDefaultsConfirmed,
@@ -424,7 +424,7 @@ export function SettingsDetectionPanel({
     requestConfirmation({
       title: 'Rescan existing text clips?',
       description: 'Current enabled Detectors will reclassify the text clip history.',
-      details: 'Types, Smart Bin membership, and sensitive-content masking can change. Images and files remain unchanged.',
+      details: 'Content Types, Smart Bin membership, and sensitive-content masking can change. Images and files remain unchanged.',
       confirmLabel: 'Rescan Clips',
       onConfirm: rescanHistoryConfirmed,
     });

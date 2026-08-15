@@ -177,7 +177,7 @@ const CLI_COMMAND_GROUPS = [
   },
 ] as const;
 
-export type HelpTopic = 'getting-started' | 'cli' | 'hotkeys' | 'autopause' | 'trash' | 'detection' | 'pipelines';
+export type HelpTopic = 'getting-started' | 'cli' | 'shortcuts-hud' | 'privacy-capture' | 'deletion-recovery' | 'detection' | 'transformations';
 
 interface HelpTopicDefinition {
   id: HelpTopic;
@@ -188,11 +188,11 @@ interface HelpTopicDefinition {
 
 const HELP_TOPICS: HelpTopicDefinition[] = [
   { id: 'getting-started', label: 'Getting Started', icon: BookOpen, iconClassName: 'theme-status-info-text' },
-  { id: 'hotkeys', label: 'Shortcuts and HUD', icon: Keyboard, iconClassName: 'theme-status-success-text' },
-  { id: 'autopause', label: 'Privacy and Capture', icon: Shield, iconClassName: 'theme-status-warning-text' },
-  { id: 'trash', label: 'Deletion and Recovery', icon: Trash2, iconClassName: 'theme-status-danger-text' },
+  { id: 'shortcuts-hud', label: 'Shortcuts and HUD', icon: Keyboard, iconClassName: 'theme-status-success-text' },
+  { id: 'privacy-capture', label: 'Privacy and Capture', icon: Shield, iconClassName: 'theme-status-warning-text' },
+  { id: 'deletion-recovery', label: 'Deletion and Recovery', icon: Trash2, iconClassName: 'theme-status-danger-text' },
   { id: 'detection', label: 'Content Analysis', icon: Radar, iconClassName: 'theme-status-info-text' },
-  { id: 'pipelines', label: 'Transformations', icon: Workflow, iconClassName: 'theme-status-info-text' },
+  { id: 'transformations', label: 'Transformations', icon: Workflow, iconClassName: 'theme-status-info-text' },
   { id: 'cli', label: 'CLI Commands', icon: Terminal, iconClassName: 'theme-status-info-text' },
 ];
 
@@ -406,7 +406,7 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
             </div>
           )}
 
-          {activeSubTab === 'hotkeys' && (
+          {activeSubTab === 'shortcuts-hud' && (
             <div className="space-y-6 animate-in fade-in">
               <div>
                 <h3 className="theme-title text-lg font-bold flex items-center space-x-2">
@@ -462,7 +462,7 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
             </div>
           )}
 
-          {activeSubTab === 'autopause' && (
+          {activeSubTab === 'privacy-capture' && (
             <div className="space-y-6 animate-in fade-in">
               <div>
                 <h3 className="theme-title text-lg font-bold flex items-center space-x-2">
@@ -501,7 +501,7 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
             </div>
           )}
 
-          {activeSubTab === 'trash' && (
+          {activeSubTab === 'deletion-recovery' && (
             <div className="space-y-6 animate-in fade-in">
               <div>
                 <h3 className="theme-title text-lg font-bold flex items-center space-x-2">
@@ -609,7 +609,7 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
             </div>
           )}
 
-          {activeSubTab === 'pipelines' && (
+          {activeSubTab === 'transformations' && (
             <div className="space-y-6 animate-in fade-in">
               <div>
                 <h3 className="theme-title text-lg font-bold flex items-center space-x-2">

@@ -214,7 +214,7 @@ export function SettingsHotkeysPanel({
         actions={(
           <ActionButton onClick={() => void restoreDefaults()}>
             <RotateCcw className="w-3.5 h-3.5" />
-            <span>Restore Defaults</span>
+            <span>Reset</span>
           </ActionButton>
         )}
       />

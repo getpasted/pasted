@@ -62,11 +62,13 @@ fn dispatch_for_id(id: &str) -> Option<MenuDispatch> {
         "window.maximize" => MenuDispatch::ToggleMaximize,
         "window.fullscreen" => MenuDispatch::ToggleFullscreen,
         "file.quit" => MenuDispatch::Quit,
-        "help.documentation" => MenuDispatch::Navigate("help:getting-started"),
-        "help.hotkeys" => MenuDispatch::Navigate("help:hotkeys"),
-        "help.privacy" => MenuDispatch::Navigate("help:autopause"),
-        "help.trash" => MenuDispatch::Navigate("help:trash"),
-        "help.transforms" => MenuDispatch::Navigate("help:pipelines"),
+        "help.getting_started" => MenuDispatch::Navigate("help:getting-started"),
+        "help.cli" => MenuDispatch::Navigate("help:cli"),
+        "help.shortcuts" => MenuDispatch::Navigate("help:shortcuts-hud"),
+        "help.privacy" => MenuDispatch::Navigate("help:privacy-capture"),
+        "help.deletion" => MenuDispatch::Navigate("help:deletion-recovery"),
+        "help.analysis" => MenuDispatch::Navigate("help:detection"),
+        "help.transformations" => MenuDispatch::Navigate("help:transformations"),
         "help.shortcut_settings" => MenuDispatch::Navigate("settings:hotkeys"),
         _ => {
             let bin_id = id.strip_prefix("view.bin.")?.parse::<i64>().ok()?;
@@ -309,7 +311,7 @@ pub fn install(app: &AppHandle, db: &Arc<DbState>) -> tauri::Result<()> {
     if feature_enabled(Feature::Transformations) {
         tools_builder = tools_builder.item(&transforms_menu);
     }
-    if feature_enabled(Feature::Analytics) {
+    if feature_enabled(Feature::Insights) {
         tools_builder = tools_builder.text("view.analytics", "Insights");
     }
     if feature_enabled(Feature::ActivityLog) {
@@ -317,7 +319,7 @@ pub fn install(app: &AppHandle, db: &Arc<DbState>) -> tauri::Result<()> {
     }
     let tools_menu = tools_builder.build()?;
     let mut view_builder = SubmenuBuilder::new(app, "View").item(&clips_menu);
-    if feature_enabled(Feature::Analytics)
+    if feature_enabled(Feature::Insights)
         || feature_enabled(Feature::Transformations)
         || feature_enabled(Feature::ActivityLog)
     {
@@ -356,17 +358,19 @@ pub fn install(app: &AppHandle, db: &Arc<DbState>) -> tauri::Result<()> {
         .build()?;
 
     let documentation_menu = SubmenuBuilder::new(app, "Documentation")
-        .text("help.documentation", "CLI commands")
-        .text("help.hotkeys", "Hotkeys and Modifiers")
-        .text("help.privacy", "Auto-Pause and Privacy")
-        .text("help.trash", "Soft Trash protection")
-        .text("help.transforms", "Transformations")
+        .text("help.getting_started", "Getting Started")
+        .text("help.shortcuts", "Shortcuts and HUD")
+        .text("help.privacy", "Privacy and Capture")
+        .text("help.deletion", "Deletion and Recovery")
+        .text("help.analysis", "Content Analysis")
+        .text("help.transformations", "Transformations")
+        .text("help.cli", "CLI Commands")
         .build()?;
     let mut help_builder = SubmenuBuilder::new(app, "Help");
     if feature_enabled(Feature::Help) {
         help_builder = help_builder.item(&documentation_menu).separator();
     }
-    help_builder = help_builder.text("help.shortcut_settings", "Keyboard shortcut settings…");
+    help_builder = help_builder.text("help.shortcut_settings", "Hotkeys…");
     #[cfg(not(target_os = "macos"))]
     let help_builder = help_builder.separator().text("app.about", "About Pasted");
     let help_menu = help_builder.build()?;

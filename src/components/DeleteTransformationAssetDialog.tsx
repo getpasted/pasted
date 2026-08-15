@@ -9,7 +9,7 @@ import {
 } from './AppDialogLayout';
 
 interface DeleteTransformationAssetDialogProps {
-  asset: { kind: 'Transform' | 'Pipeline' | 'Operation'; name: string } | null;
+  asset: { kind: 'Transform' | 'Operation'; name: string } | null;
   isDeleting?: boolean;
   onCancel: () => void;
   onConfirm: () => void | Promise<void>;

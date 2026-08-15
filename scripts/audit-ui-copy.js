@@ -8,6 +8,7 @@ const TOOL_COPY_FILES = [
   'src/components/CaptureFeedbackWindow.tsx',
   'src/components/ConnectionModal.tsx',
   'src/components/ContentExtractorManagerDialog.tsx',
+  'src/components/ContentTypeManagerDialog.tsx',
   'src/components/DeleteTransformationAssetDialog.tsx',
   'src/components/ExternalHistoryImport.tsx',
   'src/components/HelpView.tsx',
@@ -99,6 +100,45 @@ assert.deepEqual(
 const settingsImportExport = fs.readFileSync('src/components/SettingsSyncPanel.tsx', 'utf8');
 const settingsTabs = fs.readFileSync('src/components/SettingsTabs.tsx', 'utf8');
 const settingsHotkeys = fs.readFileSync('src/components/SettingsHotkeysPanel.tsx', 'utf8');
+const helpView = fs.readFileSync('src/components/HelpView.tsx', 'utf8');
+const app = fs.readFileSync('src/App.tsx', 'utf8');
+const nativeMenu = fs.readFileSync('src-tauri/src/app_menu.rs', 'utf8');
+const canonicalAnalysisCopyFiles = [
+  'src/components/ContentExtractorManagerDialog.tsx',
+  'src/components/ContentTypeManagerDialog.tsx',
+  'src/components/SettingsDetectionPanel.tsx',
+  'src/components/SettingsSyncPanel.tsx',
+];
+for (const file of canonicalAnalysisCopyFiles) {
+  const source = fs.readFileSync(file, 'utf8');
+  for (const stale of [
+    'Restore Defaults',
+    'Restore Shipped Defaults',
+    'Built-in Types',
+    'Custom Types',
+    'Shipped Types',
+  ]) {
+    assert.ok(!source.includes(stale), `${file} must not use stale Analysis wording: ${stale}`);
+  }
+}
+assert.match(settingsHotkeys, />Reset<\/span>/, 'Hotkeys must use the shared Reset label');
+for (const [menuId, topic, label] of [
+  ['help.getting_started', 'getting-started', 'Getting Started'],
+  ['help.shortcuts', 'shortcuts-hud', 'Shortcuts and HUD'],
+  ['help.privacy', 'privacy-capture', 'Privacy and Capture'],
+  ['help.deletion', 'deletion-recovery', 'Deletion and Recovery'],
+  ['help.analysis', 'detection', 'Content Analysis'],
+  ['help.transformations', 'transformations', 'Transformations'],
+  ['help.cli', 'cli', 'CLI Commands'],
+]) {
+  assert.ok(nativeMenu.includes(`"${menuId}" => MenuDispatch::Navigate("help:${topic}")`),
+    `Native Help menu must route ${label} to its matching Help topic`);
+  assert.ok(nativeMenu.includes(`.text("${menuId}", "${label}")`),
+    `Native Help menu must use the Help topic label ${label}`);
+  assert.ok(helpView.includes(`id: '${topic}', label: '${label}'`),
+    `Help must register the ${label} topic with its canonical ID`);
+  assert.ok(app.includes(`'${topic}'`), `App navigation must accept the ${label} Help topic`);
+}
 for (const [file, labels] of Object.entries({
   'src/components/SettingsBlacklistPanel.tsx': ['Add app…'],
   'src/components/IntelligenceConnectionsPanel.tsx': ['Add connection…'],

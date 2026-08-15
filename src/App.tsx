@@ -254,7 +254,7 @@ export default function App() {
     const key = ++navigationSerialRef.current;
     if (tab === 'settings' && ['general', 'functionality', 'hotkeys', 'notifications', 'app-exclusions', 'storage', 'analysis', 'intelligence', 'about'].includes(detail)) {
       setSettingsNavigation({ tab: detail as SettingsTab, key });
-    } else if (tab === 'help' && ['cli', 'hotkeys', 'autopause', 'trash', 'pipelines'].includes(detail)) {
+    } else if (tab === 'help' && ['getting-started', 'shortcuts-hud', 'privacy-capture', 'deletion-recovery', 'detection', 'transformations', 'cli'].includes(detail)) {
       setHelpNavigation({ topic: detail as HelpTopic, key });
     } else if (tab === 'transformations' && ['transforms', 'advanced', 'playground'].includes(detail)) {
       setTransformNavigation({ workspace: detail as TransformWorkspace, key });

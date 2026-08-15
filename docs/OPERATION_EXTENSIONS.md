@@ -37,7 +37,7 @@ connections begin disabled and untrusted.
 ## Execution rules
 
 Extensions receive an input value and return an output value through the same
-canonical execution service as built-ins and Pipelines. They cannot directly
+canonical execution service as built-ins and manual Transforms. They cannot directly
 read clipboard history, query SQLite, mutate Bins, or write to the system
 clipboard. Automations remain host-owned and explicitly opt into an extension
 Operation.
