@@ -155,6 +155,18 @@ pub fn get_library_location(
 }
 
 #[tauri::command]
+pub async fn get_storage_protection(
+    db: State<'_, Arc<DbState>>,
+) -> Result<crate::storage_protection::StorageProtectionInfo, String> {
+    let database_path = db.database_path();
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::storage_protection::inspect_cached(&database_path)
+    })
+    .await
+    .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
 pub async fn move_library(
     app: AppHandle,
     db: State<'_, Arc<DbState>>,
@@ -1465,28 +1477,7 @@ pub fn disable_app_lock(
     state: State<'_, Arc<crate::app_lock::AppLockState>>,
 ) -> Result<crate::app_lock::AppLockStatus, String> {
     features::require(&db, Feature::AppLock)?;
-    if !crate::app_lock::verify(&db, &passphrase)? {
-        return Err("The passphrase is incorrect.".to_string());
-    }
-    db.save_settings(&std::collections::HashMap::from([
-        (
-            crate::app_lock::ENABLED_SETTING.to_string(),
-            "false".to_string(),
-        ),
-        (
-            crate::app_lock::LEGACY_BIOMETRIC_SETTING.to_string(),
-            "false".to_string(),
-        ),
-        (
-            crate::app_lock::SYSTEM_AUTH_SETTING.to_string(),
-            "false".to_string(),
-        ),
-        (
-            crate::app_lock::APPLE_WATCH_SETTING.to_string(),
-            "false".to_string(),
-        ),
-    ]))
-    .map_err(|error| error.to_string())?;
+    crate::app_lock::disable(&db, &passphrase)?;
     state.unlock();
     let _ = db.log_activity("app_lock_disabled", "Disabled app lock");
     let status = crate::app_lock::status(&db, &state);
@@ -1588,15 +1579,7 @@ async fn set_system_auth_enabled(
             return Err("System authentication was not completed.".to_string());
         }
     }
-    let next = if enabled { "true" } else { "false" };
-    let previous = db.get_setting(setting).map_err(|error| error.to_string())?;
-    db.save_setting(setting, next)
-        .map_err(|error| error.to_string())?;
-    if let Some(activity) =
-        crate::settings_activity::describe_setting_change(setting, previous.as_deref(), next)
-    {
-        let _ = db.log_activity(activity.event_type, &activity.description);
-    }
+    crate::app_lock::set_bool_policy(db, setting, enabled)?;
     let status = crate::app_lock::status(db, state);
     let _ = app.emit("app-lock-changed", &status);
     Ok(status)
@@ -1646,19 +1629,7 @@ pub fn set_app_lock_idle_minutes(
     state: State<'_, Arc<crate::app_lock::AppLockState>>,
 ) -> Result<crate::app_lock::AppLockStatus, String> {
     features::require(&db, Feature::AppLock)?;
-    if !matches!(minutes, 0 | 1 | 5 | 60 | 480) {
-        return Err("Choose Never, 1 minute, 5 minutes, 1 hour, or 8 hours.".to_string());
-    }
-    let setting = crate::app_lock::IDLE_MINUTES_SETTING;
-    let next = minutes.to_string();
-    let previous = db.get_setting(setting).map_err(|error| error.to_string())?;
-    db.save_setting(setting, &next)
-        .map_err(|error| error.to_string())?;
-    if let Some(activity) =
-        crate::settings_activity::describe_setting_change(setting, previous.as_deref(), &next)
-    {
-        let _ = db.log_activity(activity.event_type, &activity.description);
-    }
+    crate::app_lock::set_idle_minutes(&db, minutes)?;
     let status = crate::app_lock::status(&db, &state);
     let _ = app.emit("app-lock-changed", &status);
     Ok(status)
@@ -1672,16 +1643,21 @@ pub fn set_app_lock_lock_on_sleep(
     state: State<'_, Arc<crate::app_lock::AppLockState>>,
 ) -> Result<crate::app_lock::AppLockStatus, String> {
     features::require(&db, Feature::AppLock)?;
-    let setting = crate::app_lock::LOCK_ON_SLEEP_SETTING;
-    let next = if enabled { "true" } else { "false" };
-    let previous = db.get_setting(setting).map_err(|error| error.to_string())?;
-    db.save_setting(setting, next)
-        .map_err(|error| error.to_string())?;
-    if let Some(activity) =
-        crate::settings_activity::describe_setting_change(setting, previous.as_deref(), next)
-    {
-        let _ = db.log_activity(activity.event_type, &activity.description);
-    }
+    crate::app_lock::set_bool_policy(&db, crate::app_lock::LOCK_ON_SLEEP_SETTING, enabled)?;
+    let status = crate::app_lock::status(&db, &state);
+    let _ = app.emit("app-lock-changed", &status);
+    Ok(status)
+}
+
+#[tauri::command]
+pub fn set_app_lock_lock_on_restart(
+    enabled: bool,
+    app: AppHandle,
+    db: State<'_, Arc<DbState>>,
+    state: State<'_, Arc<crate::app_lock::AppLockState>>,
+) -> Result<crate::app_lock::AppLockStatus, String> {
+    features::require(&db, Feature::AppLock)?;
+    crate::app_lock::set_bool_policy(&db, crate::app_lock::LOCK_ON_RESTART_SETTING, enabled)?;
     let status = crate::app_lock::status(&db, &state);
     let _ = app.emit("app-lock-changed", &status);
     Ok(status)
@@ -1695,16 +1671,7 @@ pub fn set_app_lock_capture_while_locked(
     state: State<'_, Arc<crate::app_lock::AppLockState>>,
 ) -> Result<crate::app_lock::AppLockStatus, String> {
     features::require(&db, Feature::AppLock)?;
-    let setting = crate::app_lock::CAPTURE_WHILE_LOCKED_SETTING;
-    let next = if enabled { "true" } else { "false" };
-    let previous = db.get_setting(setting).map_err(|error| error.to_string())?;
-    db.save_setting(setting, next)
-        .map_err(|error| error.to_string())?;
-    if let Some(activity) =
-        crate::settings_activity::describe_setting_change(setting, previous.as_deref(), next)
-    {
-        let _ = db.log_activity(activity.event_type, &activity.description);
-    }
+    crate::app_lock::set_bool_policy(&db, crate::app_lock::CAPTURE_WHILE_LOCKED_SETTING, enabled)?;
     let status = crate::app_lock::status(&db, &state);
     let _ = app.emit("app-lock-changed", &status);
     Ok(status)

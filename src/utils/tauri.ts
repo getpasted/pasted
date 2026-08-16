@@ -86,6 +86,7 @@ let mockAppLockStatus = {
   appleWatchAvailable: false,
   idleMinutes: 5,
   lockOnSleep: true,
+  lockOnRestart: true,
   captureWhileLocked: true,
 };
 
@@ -949,6 +950,9 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
     case 'set_app_lock_lock_on_sleep':
       mockAppLockStatus = { ...mockAppLockStatus, lockOnSleep: Boolean(args?.enabled) };
       return { ...mockAppLockStatus } as unknown as T;
+    case 'set_app_lock_lock_on_restart':
+      mockAppLockStatus = { ...mockAppLockStatus, lockOnRestart: Boolean(args?.enabled) };
+      return { ...mockAppLockStatus } as unknown as T;
     case 'set_app_lock_capture_while_locked':
       mockAppLockStatus = { ...mockAppLockStatus, captureWhileLocked: Boolean(args?.enabled) };
       return { ...mockAppLockStatus } as unknown as T;
@@ -1009,6 +1013,13 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       return null as unknown as T;
     case 'get_library_location':
       return mockLibraryLocation as unknown as T;
+    case 'get_storage_protection':
+      return {
+        status: 'protected',
+        technology: 'FileVault',
+        summary: 'FileVault is on',
+        detail: 'The volume containing this database is encrypted.',
+      } as unknown as T;
     case 'move_library':
       mockLibraryLocation = {
         path: '/mock/Custom Pasted Library/pasted.db',

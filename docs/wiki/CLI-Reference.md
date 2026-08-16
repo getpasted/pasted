@@ -31,8 +31,14 @@ pasted retention [--count <number|unlimited>] [--days <number|forever>]
                  [--log-count <number|unlimited>] [--log-days <number|forever>]
                  [--revision-count <number|unlimited>] [--json]
 pasted settings list|get|set [arguments] [--json]
-pasted app-lock status|enable|disable|lock|unlock [--stdin] [--json]
+pasted app-lock status|enable|change-passphrase|disable|lock|unlock [--stdin] [--json]
+pasted app-lock idle <never|1m|5m|1h|8h> [--stdin] [--json]
+pasted app-lock lock-on-sleep <on|off> [--stdin] [--json]
+pasted app-lock lock-on-restart <on|off> [--stdin] [--json]
 pasted app-lock capture-while-locked <on|off> [--stdin] [--json]
+pasted app-lock system-auth <on|off> [--stdin] [--json]
+pasted app-lock apple-watch <on|off> [--stdin] [--json]
+pasted app-lock reset --yes [--json]
 pasted recording status|pause|resume [--json]
 pasted queue status|start|stop|add|remove|order|paste|paste-all [arguments] [--json]
 pasted clear --yes [--json]
@@ -40,7 +46,9 @@ pasted clear --yes [--json]
 
 `copy` accepts bounded stdin when text is omitted. `list` and `search` provide bounded pagination; both can inspect Trash, while `list` can select a Bin or pinned clips. `search` reproduces Content Type and Source views with exact filters, and its structured records use the canonical `source` field. `import sources` reports supported managers and detected locations. `import` reads a source without modification and merges supported text while skipping duplicates. `retention` manages History, Trash, Activity History, and per-clip revision policies. `settings` reads or changes persisted values; app-bound visual or operating-system effects apply when the app observes the setting or next launches. `clear` requires `--yes` and permanently removes unpinned, unprotected clips from History.
 
-`app-lock enable`, `disable`, `unlock`, and `capture-while-locked` when protection is active read the passphrase from a hidden terminal prompt or bounded stdin with `--stdin`; the passphrase is never accepted as a command-line argument. `lock` and `unlock` contact the running app. App-lock commands are unavailable when App Lock is disabled under Functionality; `pasted settings set enableAppLock true` restores the feature. While app lock is enabled, other CLI commands require a valid `PASTED_APP_LOCK_PASSPHRASE` in their process environment. `status --json` reports the stable `enabled`, `systemAuthEnabled`, `systemAuthLabel`, `appleWatchEnabled`, `idleMinutes`, `lockOnSleep`, and `captureWhileLocked` fields without exposing the verifier.
+App-lock mutations read the passphrase from a hidden terminal prompt or bounded stdin with `--stdin`; the passphrase is never accepted as a command-line argument. `change-passphrase --stdin` accepts exactly two lines: the current passphrase followed by the new passphrase. `lock` and `unlock` contact the running app. Enabling `system-auth` or `apple-watch` verifies that the operating-system method is available; the operating-system prompt appears when that method is used to unlock. App-lock commands are unavailable when App Lock is disabled under Functionality; `pasted settings set enableAppLock true` restores the feature. While app lock is enabled, other CLI commands require a valid `PASTED_APP_LOCK_PASSPHRASE` in their process environment. `status --json` reports the stable `enabled`, `systemAuthEnabled`, `systemAuthAvailable`, `systemAuthLabel`, `appleWatchEnabled`, `appleWatchAvailable`, `idleMinutes`, `lockOnSleep`, `lockOnRestart`, and `captureWhileLocked` fields without exposing the verifier.
+
+`app-lock disable` requires the current passphrase and removes the passphrase verifier plus every system-authentication preference. If the passphrase is unavailable, quit Pasted and run `pasted app-lock reset --yes`. Recovery reset does not require the passphrase because App Lock protects the interface rather than encrypting the database. It disables App Lock, removes its verifier and authenticator preferences, preserves timing and capture policies, records a local Activity event, and does not delete clips or unrelated settings. The command refuses to reset a running app.
 
 `recording`, `queue`, `clip copy`, `clip paste`, and `ocr cancel` contact the running app through a bounded private request. Clipboard monitoring, Queue state, paste targeting, and cancellation therefore remain inside the process that owns them. These commands can launch Pasted when its executable is installed beside the CLI.
 
@@ -50,7 +58,7 @@ pasted clear --yes [--json]
 
 `clip export` and `clip import` are the CLI equivalents of selecting Clips under Settings → Storage → Export or choosing a Clips file under Import. JSON preserves complete clip records. CSV carries text-based rows for spreadsheet workflows. Imports validate the complete file before writing and skip existing content hashes.
 
-`database location`, `database move`, and `database default` inspect or change the SQLite storage location. The former `library` command remains as a compatibility alias.
+`database location`, `database protection`, `database move`, and `database default` inspect or change SQLite storage. `database protection` reports `protected`, `notDetected`, or `unknown` for the volume containing the active database; it never treats an unavailable operating-system check as proof that encryption is off. The former `library` command remains as a compatibility alias.
 
 ## Full backup and restore
 
@@ -60,7 +68,7 @@ pasted backup inspect <path.pastedbackup> [--json]
 pasted backup restore <path.pastedbackup> --yes [--json]
 ```
 
-Quit the graphical app before CLI restore. Full Backup uses SQLite’s online backup API to snapshot every durable Pasted-owned table. Full Restore validates the backup, migrates a temporary copy, creates a complete pre-restore recovery backup, and then replaces the active state. Provider and operating-system credentials and original files referenced by file clips remain external; saved references and paths are preserved.
+Quit the graphical app before CLI restore. Full Backup uses SQLite’s online backup API to create an unencrypted snapshot of every durable Pasted-owned table. Protect the resulting file with an encrypted archive or encrypted storage when needed. Full Restore validates the backup, migrates a temporary copy, creates a complete pre-restore recovery backup, and then replaces the active state. Provider and operating-system credentials and original files referenced by file clips remain external; saved references and paths are preserved.
 
 ## Clip actions
 

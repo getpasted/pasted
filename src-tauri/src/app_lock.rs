@@ -17,6 +17,7 @@ pub const SYSTEM_AUTH_SETTING: &str = "appLockSystemAuthEnabled";
 pub const APPLE_WATCH_SETTING: &str = "appLockAppleWatchEnabled";
 pub const IDLE_MINUTES_SETTING: &str = "appLockIdleMinutes";
 pub const LOCK_ON_SLEEP_SETTING: &str = "appLockOnSleep";
+pub const LOCK_ON_RESTART_SETTING: &str = "appLockOnRestart";
 pub const CAPTURE_WHILE_LOCKED_SETTING: &str = "appLockCaptureWhileLocked";
 
 pub fn is_private_setting(key: &str) -> bool {
@@ -33,6 +34,7 @@ pub fn is_managed_setting(key: &str) -> bool {
             | APPLE_WATCH_SETTING
             | IDLE_MINUTES_SETTING
             | LOCK_ON_SLEEP_SETTING
+            | LOCK_ON_RESTART_SETTING
             | CAPTURE_WHILE_LOCKED_SETTING
     )
 }
@@ -49,6 +51,7 @@ pub struct AppLockStatus {
     pub apple_watch_available: bool,
     pub idle_minutes: u32,
     pub lock_on_sleep: bool,
+    pub lock_on_restart: bool,
     pub capture_while_locked: bool,
 }
 
@@ -67,7 +70,7 @@ impl AppLockState {
         let enabled = crate::features::is_enabled(db, crate::features::Feature::AppLock)
             && setting_bool(db, ENABLED_SETTING);
         Self {
-            locked: AtomicBool::new(enabled),
+            locked: AtomicBool::new(enabled && lock_on_restart(db)),
             failures: Mutex::new(FailureState {
                 consecutive: 0,
                 retry_after: None,
@@ -140,8 +143,17 @@ pub fn status(db: &DbState, state: &AppLockState) -> AppLockStatus {
             .flatten()
             .as_deref()
             != Some("false"),
+        lock_on_restart: lock_on_restart(db),
         capture_while_locked: capture_while_locked(db),
     }
+}
+
+pub fn lock_on_restart(db: &DbState) -> bool {
+    db.get_setting(LOCK_ON_RESTART_SETTING)
+        .ok()
+        .flatten()
+        .as_deref()
+        != Some("false")
 }
 
 pub fn capture_while_locked(db: &DbState) -> bool {
@@ -168,6 +180,84 @@ pub fn configure(db: &DbState, passphrase: &str) -> Result<(), String> {
         (VERIFIER_SETTING.to_string(), verifier),
     ]))
     .map_err(|error| error.to_string())
+}
+
+pub fn change_passphrase(
+    db: &DbState,
+    current_passphrase: &str,
+    new_passphrase: &str,
+) -> Result<(), String> {
+    if !verify(db, current_passphrase)? {
+        return Err("The current passphrase is incorrect.".to_string());
+    }
+    configure(db, new_passphrase)
+}
+
+pub fn disable(db: &DbState, passphrase: &str) -> Result<(), String> {
+    if !verify(db, passphrase)? {
+        return Err("The passphrase is incorrect.".to_string());
+    }
+    clear_credentials(db)
+}
+
+pub fn reset(db: &DbState) -> Result<(), String> {
+    clear_credentials(db)
+}
+
+fn clear_credentials(db: &DbState) -> Result<(), String> {
+    db.save_and_delete_settings(
+        &std::collections::HashMap::from([
+            (ENABLED_SETTING.to_string(), "false".to_string()),
+            (LEGACY_BIOMETRIC_SETTING.to_string(), "false".to_string()),
+            (SYSTEM_AUTH_SETTING.to_string(), "false".to_string()),
+            (APPLE_WATCH_SETTING.to_string(), "false".to_string()),
+        ]),
+        &[VERIFIER_SETTING],
+    )
+    .map_err(|error| error.to_string())
+}
+
+pub fn set_bool_policy(db: &DbState, setting: &str, enabled: bool) -> Result<(), String> {
+    if !matches!(
+        setting,
+        SYSTEM_AUTH_SETTING
+            | APPLE_WATCH_SETTING
+            | LOCK_ON_SLEEP_SETTING
+            | LOCK_ON_RESTART_SETTING
+            | CAPTURE_WHILE_LOCKED_SETTING
+    ) {
+        return Err("Unknown app-lock policy.".to_string());
+    }
+    let next = if enabled { "true" } else { "false" };
+    let previous = db.get_setting(setting).map_err(|error| error.to_string())?;
+    db.save_setting(setting, next)
+        .map_err(|error| error.to_string())?;
+    if let Some(activity) =
+        crate::settings_activity::describe_setting_change(setting, previous.as_deref(), next)
+    {
+        let _ = db.log_activity(activity.event_type, &activity.description);
+    }
+    Ok(())
+}
+
+pub fn set_idle_minutes(db: &DbState, minutes: u32) -> Result<(), String> {
+    if !matches!(minutes, 0 | 1 | 5 | 60 | 480) {
+        return Err("Choose Never, 1 minute, 5 minutes, 1 hour, or 8 hours.".to_string());
+    }
+    let next = minutes.to_string();
+    let previous = db
+        .get_setting(IDLE_MINUTES_SETTING)
+        .map_err(|error| error.to_string())?;
+    db.save_setting(IDLE_MINUTES_SETTING, &next)
+        .map_err(|error| error.to_string())?;
+    if let Some(activity) = crate::settings_activity::describe_setting_change(
+        IDLE_MINUTES_SETTING,
+        previous.as_deref(),
+        &next,
+    ) {
+        let _ = db.log_activity(activity.event_type, &activity.description);
+    }
+    Ok(())
 }
 
 pub fn verify(db: &DbState, passphrase: &str) -> Result<bool, String> {
@@ -213,17 +303,17 @@ pub enum SystemAuthMethod {
 }
 
 #[cfg(target_os = "macos")]
-fn platform_auth_label() -> &'static str {
+pub fn platform_auth_label() -> &'static str {
     "Touch ID"
 }
 
 #[cfg(target_os = "windows")]
-fn platform_auth_label() -> &'static str {
+pub fn platform_auth_label() -> &'static str {
     "Windows Hello"
 }
 
 #[cfg(target_os = "linux")]
-fn platform_auth_label() -> &'static str {
+pub fn platform_auth_label() -> &'static str {
     "System authentication"
 }
 
@@ -361,6 +451,42 @@ mod tests {
     }
 
     #[test]
+    fn disabling_and_resetting_remove_every_unlock_credential() {
+        let db = db();
+        configure(&db, "remembered").unwrap();
+        db.save_setting(SYSTEM_AUTH_SETTING, "true").unwrap();
+        db.save_setting(APPLE_WATCH_SETTING, "true").unwrap();
+        disable(&db, "remembered").unwrap();
+        assert_eq!(
+            db.get_setting(ENABLED_SETTING).unwrap().as_deref(),
+            Some("false")
+        );
+        assert_eq!(db.get_setting(VERIFIER_SETTING).unwrap(), None);
+        assert!(!status(&db, &AppLockState::from_db(&db)).system_auth_enabled);
+        assert!(!status(&db, &AppLockState::from_db(&db)).apple_watch_enabled);
+
+        configure(&db, "forgotten").unwrap();
+        reset(&db).unwrap();
+        assert_eq!(db.get_setting(VERIFIER_SETTING).unwrap(), None);
+        assert!(!status(&db, &AppLockState::from_db(&db)).enabled);
+    }
+
+    #[test]
+    fn policy_mutations_are_bounded_and_logged() {
+        let db = db();
+        set_idle_minutes(&db, 60).unwrap();
+        assert_eq!(
+            db.get_setting(IDLE_MINUTES_SETTING).unwrap().as_deref(),
+            Some("60")
+        );
+        assert!(set_idle_minutes(&db, 2).is_err());
+
+        set_bool_policy(&db, LOCK_ON_SLEEP_SETTING, false).unwrap();
+        assert!(!status(&db, &AppLockState::from_db(&db)).lock_on_sleep);
+        assert!(set_bool_policy(&db, ENABLED_SETTING, false).is_err());
+    }
+
+    #[test]
     fn private_setting_is_narrowly_scoped() {
         assert!(is_private_setting(VERIFIER_SETTING));
         assert!(!is_private_setting(ENABLED_SETTING));
@@ -387,6 +513,24 @@ mod tests {
         assert!(!capture_allowed(&db, &state));
         state.unlock();
         assert!(capture_allowed(&db, &state));
+    }
+
+    #[test]
+    fn lock_on_restart_defaults_on_and_can_be_disabled() {
+        let db = db();
+        configure(&db, "remembered").unwrap();
+
+        let default_state = AppLockState::from_db(&db);
+        assert!(status(&db, &default_state).lock_on_restart);
+        assert!(default_state.is_locked());
+
+        db.save_setting(LOCK_ON_RESTART_SETTING, "false").unwrap();
+        let unlocked_state = AppLockState::from_db(&db);
+        assert!(!status(&db, &unlocked_state).lock_on_restart);
+        assert!(!unlocked_state.is_locked());
+
+        db.save_setting(LOCK_ON_RESTART_SETTING, "true").unwrap();
+        assert!(AppLockState::from_db(&db).is_locked());
     }
 
     #[test]

@@ -1,6 +1,8 @@
+use rusqlite::OptionalExtension;
 use serde_json::Value;
+use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Output};
+use std::process::{Command, Output, Stdio};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 fn temporary_path(label: &str, extension: &str) -> PathBuf {
@@ -23,8 +25,37 @@ fn run(database: &Path, arguments: &[&str]) -> Output {
         .expect("run pasted CLI")
 }
 
+fn run_with_stdin(database: &Path, arguments: &[&str], input: &str) -> Output {
+    let mut child = Command::new(env!("CARGO_BIN_EXE_pasted"))
+        .env("PASTED_DATABASE_PATH", database)
+        .env("PASTED_CONFIG_DIR", database.with_extension("config"))
+        .args(arguments)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("run pasted CLI with stdin");
+    child
+        .stdin
+        .take()
+        .expect("piped stdin")
+        .write_all(input.as_bytes())
+        .expect("write CLI stdin");
+    child.wait_with_output().expect("read pasted CLI output")
+}
+
 fn success_json(database: &Path, arguments: &[&str]) -> Value {
     let output = run(database, arguments);
+    assert!(
+        output.status.success(),
+        "command failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    serde_json::from_slice(&output.stdout).expect("valid JSON output")
+}
+
+fn success_json_with_stdin(database: &Path, arguments: &[&str], input: &str) -> Value {
+    let output = run_with_stdin(database, arguments, input);
     assert!(
         output.status.success(),
         "command failed: {}",
@@ -93,6 +124,101 @@ fn history_and_settings_commands_have_executable_json_contracts() {
     let refused = run(&database, &["clear"]);
     assert_eq!(refused.status.code(), Some(2));
     assert!(String::from_utf8_lossy(&refused.stderr).contains("--yes"));
+    clean_database(&database);
+}
+
+#[test]
+fn app_lock_restart_policy_has_a_stable_cli_contract() {
+    let database = temporary_path("app-lock-restart", "db");
+
+    let initial = success_json(&database, &["app-lock", "status", "--json"]);
+    assert_eq!(initial["lockOnRestart"], true);
+    assert!(initial["systemAuthAvailable"].is_boolean());
+    assert!(initial["appleWatchAvailable"].is_boolean());
+
+    let changed = success_json(&database, &["app-lock", "lock-on-restart", "off", "--json"]);
+    assert_eq!(changed["lockOnRestart"], false);
+
+    assert_eq!(
+        success_json(&database, &["app-lock", "idle", "1h", "--json"])["idleMinutes"],
+        60
+    );
+    assert_eq!(
+        success_json(&database, &["app-lock", "lock-on-sleep", "off", "--json"])["lockOnSleep"],
+        false
+    );
+    assert_eq!(
+        success_json(
+            &database,
+            &["app-lock", "capture-while-locked", "off", "--json"],
+        )["captureWhileLocked"],
+        false
+    );
+    assert_eq!(
+        success_json(&database, &["app-lock", "system-auth", "off", "--json"])["systemAuthEnabled"],
+        false
+    );
+    assert_eq!(
+        success_json(&database, &["app-lock", "apple-watch", "off", "--json"])["appleWatchEnabled"],
+        false
+    );
+
+    let enabled = success_json_with_stdin(
+        &database,
+        &["app-lock", "enable", "--stdin", "--json"],
+        "x\n",
+    );
+    assert_eq!(enabled["enabled"], true);
+    let changed_passphrase = success_json_with_stdin(
+        &database,
+        &["app-lock", "change-passphrase", "--stdin", "--json"],
+        "x\ny\n",
+    );
+    assert_eq!(changed_passphrase["changed"], true);
+    let idle = success_json_with_stdin(
+        &database,
+        &["app-lock", "idle", "5m", "--stdin", "--json"],
+        "y\n",
+    );
+    assert_eq!(idle["idleMinutes"], 5);
+
+    let disabled = success_json_with_stdin(
+        &database,
+        &["app-lock", "disable", "--stdin", "--json"],
+        "y\n",
+    );
+    assert_eq!(disabled["enabled"], false);
+    assert_eq!(disabled["credentialsCleared"], true);
+
+    let connection = rusqlite::Connection::open(&database).expect("open CLI database");
+    let verifier = connection
+        .query_row(
+            "SELECT value FROM settings WHERE key = 'appLockVerifier'",
+            [],
+            |row| row.get::<_, String>(0),
+        )
+        .optional()
+        .expect("query app-lock verifier");
+    assert_eq!(verifier, None);
+
+    let status = success_json(&database, &["app-lock", "status", "--json"]);
+    assert_eq!(status["lockOnRestart"], false);
+    assert_eq!(status["lockOnSleep"], false);
+    assert_eq!(status["captureWhileLocked"], false);
+    clean_database(&database);
+}
+
+#[test]
+fn database_protection_has_a_conservative_cli_contract() {
+    let database = temporary_path("storage-protection", "db");
+    let protection = success_json(&database, &["database", "protection", "--json"]);
+    assert!(matches!(
+        protection["status"].as_str(),
+        Some("protected" | "notDetected" | "unknown")
+    ));
+    assert!(protection["summary"].is_string());
+    assert!(protection["detail"].is_string());
+    assert!(protection.get("technology").is_some());
     clean_database(&database);
 }
 

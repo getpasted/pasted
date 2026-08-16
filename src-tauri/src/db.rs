@@ -1553,13 +1553,29 @@ fn configure_connection(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
+/// Opens a Pasted-owned SQLite database and applies the shared connection policy.
+/// Keep keying or storage-engine setup here so the GUI, CLI, backup, restore, and
+/// library relocation paths cannot silently diverge.
+pub fn open_pasted_database(path: &Path) -> Result<Connection> {
+    let connection = Connection::open(path)?;
+    configure_connection(&connection)?;
+    Ok(connection)
+}
+
+fn open_pasted_database_read_only(path: &Path) -> Result<Connection> {
+    let connection = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY)?;
+    connection.set_db_config(rusqlite::config::DbConfig::SQLITE_DBCONFIG_DEFENSIVE, true)?;
+    connection.pragma_update(None, "foreign_keys", "ON")?;
+    let _ = connection.pragma_update(None, "temp_store", "MEMORY");
+    Ok(connection)
+}
+
 impl DbState {
     pub fn new(db_path: PathBuf) -> Result<Self> {
         if let Some(parent) = db_path.parent() {
             let _ = fs::create_dir_all(parent);
         }
-        let conn = Connection::open(&db_path)?;
-        configure_connection(&conn)?;
+        let conn = open_pasted_database(&db_path)?;
         let state = DbState {
             conn: Mutex::new(conn),
             path: Mutex::new(db_path),
@@ -1601,8 +1617,7 @@ impl DbState {
         let created_at = chrono::Utc::now().to_rfc3339();
         let source = self.conn.lock();
         let _ = source.pragma_update(None, "wal_checkpoint", "PASSIVE");
-        let mut destination = Connection::open(&temporary)?;
-        configure_connection(&destination)?;
+        let mut destination = open_pasted_database(&temporary)?;
         {
             let backup = rusqlite::backup::Backup::new(&source, &mut destination)?;
             backup.run_to_completion(128, std::time::Duration::from_millis(5), None)?;
@@ -1703,8 +1718,7 @@ impl DbState {
             std::process::id(),
             chrono::Utc::now().timestamp_millis()
         ));
-        let mut restored = Connection::open(&temporary)?;
-        configure_connection(&restored)?;
+        let mut restored = open_pasted_database(&temporary)?;
         {
             let backup = rusqlite::backup::Backup::new(&source, &mut restored)?;
             backup.run_to_completion(128, std::time::Duration::from_millis(5), None)?;
@@ -1743,20 +1757,15 @@ impl DbState {
         let activate_result = fs::rename(&temporary, &current_path);
         if let Err(error) = activate_result {
             let _ = fs::copy(&recovery_path, &current_path);
-            let replacement = Connection::open(&current_path)?;
-            configure_connection(&replacement)?;
+            let replacement = open_pasted_database(&current_path)?;
             *current = replacement;
             return Err(rusqlite::Error::ToSqlConversionFailure(Box::new(error)));
         }
-        let replacement = match Connection::open(&current_path).and_then(|connection| {
-            configure_connection(&connection)?;
-            Ok(connection)
-        }) {
+        let replacement = match open_pasted_database(&current_path) {
             Ok(connection) => connection,
             Err(error) => {
                 let _ = fs::copy(&recovery_path, &current_path);
-                let fallback = Connection::open(&current_path)?;
-                configure_connection(&fallback)?;
+                let fallback = open_pasted_database(&current_path)?;
                 *current = fallback;
                 return Err(error);
             }
@@ -1792,7 +1801,7 @@ impl DbState {
         if !backup_path.is_file() || backup_path == self.database_path() {
             return Err(rusqlite::Error::InvalidPath(backup_path.to_path_buf()));
         }
-        let source = Connection::open_with_flags(backup_path, OpenFlags::SQLITE_OPEN_READ_ONLY)?;
+        let source = open_pasted_database_read_only(backup_path)?;
         let integrity: String = source.query_row("PRAGMA integrity_check", [], |row| row.get(0))?;
         if integrity != "ok" {
             return Err(rusqlite::Error::InvalidQuery);
@@ -1865,8 +1874,7 @@ impl DbState {
 
         let mut source = self.conn.lock();
         let _ = source.pragma_update(None, "wal_checkpoint", "TRUNCATE");
-        let mut destination = Connection::open(&temporary)?;
-        configure_connection(&destination)?;
+        let mut destination = open_pasted_database(&temporary)?;
         {
             let backup = rusqlite::backup::Backup::new(&source, &mut destination)?;
             backup.run_to_completion(128, std::time::Duration::from_millis(5), None)?;
@@ -1880,16 +1888,14 @@ impl DbState {
         drop(destination);
         fs::rename(&temporary, &target_path)
             .map_err(|_| rusqlite::Error::InvalidPath(target_path.clone()))?;
-        let replacement = Connection::open(&target_path)?;
-        configure_connection(&replacement)?;
+        let replacement = open_pasted_database(&target_path)?;
         *source = replacement;
         *self.path.lock() = target_path;
         Ok(previous_path)
     }
 
     pub fn switch_to_database(&self, database_path: PathBuf) -> Result<()> {
-        let replacement = Connection::open(&database_path)?;
-        configure_connection(&replacement)?;
+        let replacement = open_pasted_database(&database_path)?;
         let integrity: String =
             replacement.query_row("PRAGMA integrity_check", [], |row| row.get(0))?;
         if integrity != "ok" {
@@ -9722,6 +9728,31 @@ impl DbState {
             )?;
             for (key, value) in values {
                 statement.execute(params![key, value])?;
+            }
+        }
+        tx.commit()
+    }
+
+    pub fn save_and_delete_settings(
+        &self,
+        values: &std::collections::HashMap<String, String>,
+        deleted_keys: &[&str],
+    ) -> Result<()> {
+        let mut conn = self.conn.lock();
+        let tx = conn.transaction()?;
+        {
+            let mut save = tx.prepare_cached(
+                "INSERT INTO settings (key, value) VALUES (?1, ?2)
+                 ON CONFLICT(key) DO UPDATE SET value = ?2",
+            )?;
+            for (key, value) in values {
+                save.execute(params![key, value])?;
+            }
+        }
+        {
+            let mut delete = tx.prepare_cached("DELETE FROM settings WHERE key = ?1")?;
+            for key in deleted_keys {
+                delete.execute(params![key])?;
             }
         }
         tx.commit()

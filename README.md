@@ -15,7 +15,7 @@ The [Pasted Wiki](https://github.com/getpasted/pasted/wiki) covers installation,
 - Records copies into a persistent Queue, then pastes the next item or the whole Queue into the previously focused app.
 - Builds reusable Transforms from deterministic Operations or an explicitly connected intelligence provider.
 - Preserves revisions for content-changing actions, records important events in Activity, and summarizes the active library locally in Insights.
-- Creates complete, validated Full Backups and separately exports portable History and Organization JSON for merging into another library.
+- Creates complete, validated Full Backups as unencrypted SQLite snapshots and separately exports portable History and Organization JSON for merging into another library.
 - Includes nine appearance choices: System, Dark, Cool, Warm, 2894, Sauced, Vampire, Flux, and 808.
 - Protects the interface with App Lock using a passphrase, configurable auto-locking, and supported operating-system authentication while optionally continuing capture.
 - Exposes powerful clipboard-management workflows through the bundled `pasted` command.

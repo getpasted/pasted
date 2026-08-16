@@ -40,6 +40,7 @@ mod paste_target;
 pub mod resource_limits;
 mod sequential_paste;
 pub mod settings_activity;
+pub mod storage_protection;
 pub mod suggestion_execution;
 pub mod third_party_licenses;
 mod titlebar;
@@ -257,7 +258,7 @@ pub fn run() {
                 }
             }
             if let Some(path) = live_app::request_from_args(&args) {
-                live_app::handle_request_file(app, &path);
+                live_app::handle_request_file(app, &path, false);
                 return;
             }
             if let Some(w) = app.get_webview_window("main") {
@@ -345,6 +346,14 @@ pub fn run() {
             app.manage(seq_state.clone());
             app.manage(paste_target_state);
 
+            if let Some(path) = live_request.as_deref() {
+                if live_app::is_recovery_reset_request(path) {
+                    live_app::handle_request_file(app.handle(), path, true);
+                    app.handle().exit(0);
+                    return Ok(());
+                }
+            }
+
             let launch_description = if is_autostart {
                 "Opened Pasted at login"
             } else {
@@ -375,7 +384,7 @@ pub fn run() {
             app.manage(monitor_state);
 
             if let Some(path) = live_request.as_deref() {
-                live_app::handle_request_file(app.handle(), path);
+                live_app::handle_request_file(app.handle(), path, false);
             }
 
             #[cfg(target_os = "macos")]
@@ -546,6 +555,7 @@ pub fn run() {
             commands::set_app_lock_apple_watch,
             commands::set_app_lock_idle_minutes,
             commands::set_app_lock_lock_on_sleep,
+            commands::set_app_lock_lock_on_restart,
             commands::set_app_lock_capture_while_locked,
             commands::set_linux_native_menu_theme,
             commands::set_overlay_cursor,
@@ -611,6 +621,7 @@ pub fn run() {
             commands::get_installation_diagnostics,
             commands::get_third_party_licenses,
             commands::get_library_location,
+            commands::get_storage_protection,
             commands::move_library,
             commands::restore_default_library_location,
             commands::toggle_clip_protected,

@@ -151,6 +151,7 @@ const CLI_COMMAND_GROUPS = [
       { usage: 'pasted insights summary [--json]', description: 'Summarize Clip Types, File Formats, Content Types, sources, and daily activity.' },
       { usage: 'pasted licenses [--json]', description: 'Show the bundled open-source component inventory and legal notices.' },
       { usage: 'pasted database location [--json]', description: 'Show the active SQLite database location.' },
+      { usage: 'pasted database protection [--json]', description: 'Inspect volume encryption for the active database.' },
       { usage: 'pasted database move <folder> [--json]', description: 'Move the database safely after quitting.' },
       { usage: 'pasted database default [--json]', description: 'Return the SQLite database to its native default location.' },
       { usage: 'pasted transfer export <path.json> [--json]', description: 'Export history and organization as portable JSON.' },

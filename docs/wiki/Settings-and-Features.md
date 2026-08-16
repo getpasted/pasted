@@ -25,7 +25,7 @@ Changing presets does not erase clips or supporting records. Feature cards with 
 - **Sources:** disabling it hides source metadata and calculated Source collections and stops icon resolution. Attribution remains stored so re-enabling Sources is reversible.
 - **Insights:** disabling it hides library statistics. It does not change Analyzer execution or stored analysis results.
 - **Notifications:** disabling the feature removes capture feedback. Clipboard capture itself continues.
-- **App Lock:** disabling it immediately removes lock enforcement and hides Security while preserving the saved passphrase and lock preferences. Re-enabling restores the prior configuration.
+- **App Lock:** disabling it immediately removes lock enforcement, hides Security, and clears the saved passphrase and authentication preferences. Timing and capture policies remain available when App Lock is enabled again.
 - **Help:** disabling it hides the in-app documentation entry; it does not affect the external wiki.
 
 Feature gates control visibility and future behavior. Factory Reset, permanent deletion, retention purges, and other destructive operations remain separately confirmed or explicitly described.
@@ -34,10 +34,10 @@ Other Settings pages cover:
 
 - **General:** layout, zoom, row height, retention, sounds, startup, previews, and OS integration;
 - **Hotkeys:** global shortcuts and platform permission status, including configurable Lock Pasted and Unlock Pasted actions when App Lock is available;
-- **Security:** when App Lock is enabled under Functionality, passphrase setup, system authentication, immediate lock, and inactivity auto-lock;
+- **Security:** when App Lock is enabled under Functionality, passphrase setup, system authentication, immediate lock, restart and sleep policies, inactivity auto-lock, and capture behavior while locked;
 - **Intelligence:** detected and custom intelligence providers;
 - **App Exclusions:** applications that should block selected text, image, file, or hotkey behavior;
-- **Storage:** database location, complete backup and restore, preflighted History and Organization transfer, Clip and Activity import/export, migration from supported clipboard managers, and Factory Reset;
+- **Storage:** database location and detected volume-encryption status, complete backup and restore, preflighted History and Organization transfer, Clip and Activity import/export, migration from supported clipboard managers, and Factory Reset;
 - **About:** version, installation paths, signing, runtime, and CLI installation.
 
 Appearance schemes use semantic theme tokens across the main app, HUD, menus, modals, Settings, and Tools pages.
