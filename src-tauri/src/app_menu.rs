@@ -191,6 +191,8 @@ pub fn install(app: &AppHandle, db: &Arc<DbState>) -> tauri::Result<()> {
         Some("CmdOrCtrl+,"),
     )?;
     let about = MenuItem::with_id(app, "app.about", "About Pasted", unlocked, None::<&str>)?;
+    #[cfg(target_os = "macos")]
+    let quit = MenuItem::with_id(app, "file.quit", "Quit Pasted", true, Some("CmdOrCtrl+Q"))?;
     let toggle_history = MenuItem::with_id(
         app,
         "file.toggle_history",
@@ -250,7 +252,7 @@ pub fn install(app: &AppHandle, db: &Arc<DbState>) -> tauri::Result<()> {
         .hide_others()
         .show_all()
         .separator()
-        .quit()
+        .item(&quit)
         .build()?;
 
     let mut file_builder = SubmenuBuilder::new(app, "File");

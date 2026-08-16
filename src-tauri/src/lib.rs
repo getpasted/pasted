@@ -58,6 +58,9 @@ use tauri::{
 use tauri_plugin_window_state::{StateFlags, WindowExt};
 
 static EXIT_REQUESTED: AtomicBool = AtomicBool::new(false);
+static MAIN_PAGE_LOADED: AtomicBool = AtomicBool::new(false);
+static STARTUP_SETUP_READY: AtomicBool = AtomicBool::new(false);
+static MAIN_WINDOW_REVEALED: AtomicBool = AtomicBool::new(false);
 
 const DEFAULT_TRAY_ICON_STYLE: &str = "clipboard";
 const COPYCAT_TRAY_ICON_STYLE: &str = "copycat";
@@ -149,13 +152,42 @@ fn main_window_state_flags() -> StateFlags {
     StateFlags::SIZE | StateFlags::POSITION | StateFlags::MAXIMIZED | StateFlags::FULLSCREEN
 }
 
+fn reveal_main_window_when_ready(app: &tauri::AppHandle) {
+    if !MAIN_PAGE_LOADED.load(Ordering::Acquire)
+        || !STARTUP_SETUP_READY.load(Ordering::Acquire)
+        || MAIN_WINDOW_REVEALED.swap(true, Ordering::AcqRel)
+    {
+        return;
+    }
+
+    let startup_args = std::env::args().collect::<Vec<_>>();
+    if live_app::request_from_args(&startup_args).is_some() {
+        return;
+    }
+    let is_autostart = startup_args
+        .iter()
+        .any(|argument| argument == "--autostart");
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.eval(
+            "document.getElementById('startup-splash')?.getAnimations({ subtree: true }).forEach((animation) => { animation.currentTime = 0; });",
+        );
+        if let Err(error) = window.show() {
+            eprintln!("Could not show the main window during startup: {error}");
+        } else if !is_autostart {
+            if let Err(error) = window.set_focus() {
+                eprintln!("Could not focus the main window during startup: {error}");
+            }
+        }
+    }
+}
+
 #[cfg(target_os = "macos")]
 fn setup_window_vibrancy(window: &tauri::WebviewWindow) {
     use window_vibrancy::{apply_vibrancy, NSVisualEffectMaterial, NSVisualEffectState};
     let _ = apply_vibrancy(
         window,
         NSVisualEffectMaterial::UnderWindowBackground,
-        Some(NSVisualEffectState::FollowsWindowActiveState),
+        Some(NSVisualEffectState::Active),
         Some(12.0),
     );
 }
@@ -250,6 +282,14 @@ pub fn run() {
             tauri_plugin_autostart::MacosLauncher::AppleScript,
             Some(vec!["--autostart"]),
         ))
+        .on_page_load(|webview, payload| {
+            if webview.label() == "main"
+                && payload.event() == tauri::webview::PageLoadEvent::Finished
+            {
+                MAIN_PAGE_LOADED.store(true, Ordering::Release);
+                reveal_main_window_when_ready(webview.app_handle());
+            }
+        })
         .setup(|app| {
             let startup_args = std::env::args().collect::<Vec<_>>();
             let is_autostart = startup_args
@@ -262,10 +302,9 @@ pub fn run() {
                 eprintln!("Could not apply the initial native Linux menu theme: {error}");
             }
 
-            // Restore while hidden, then reveal the main window. Automatic restore
-            // is skipped for this window so a later webview-ready event cannot move
-            // an already-visible window. Visibility itself is intentionally not
-            // persisted because Pasted is commonly hidden from its tray lifecycle.
+            // Restore and configure the native window while it remains hidden.
+            // The page-load hook reveals it only after both native setup and the
+            // startup splash are ready to paint.
             if let Some(main_win) = app.get_webview_window("main") {
                 let _ = main_win.restore_state(main_window_state_flags());
                 // Window-state restoration dispatches native geometry updates to
@@ -277,15 +316,6 @@ pub fn run() {
                 #[cfg(target_os = "macos")]
                 {
                     setup_window_vibrancy(&main_win);
-                }
-                if live_request.is_some() {
-                    let _ = main_win.hide();
-                } else if let Err(error) = main_win.show() {
-                    eprintln!("Could not show the main window during startup: {error}");
-                } else if !is_autostart {
-                    if let Err(error) = main_win.set_focus() {
-                        eprintln!("Could not focus the main window during startup: {error}");
-                    }
                 }
             }
 
@@ -442,6 +472,9 @@ pub fn run() {
                     }
                 })
                 .build(app)?;
+
+            STARTUP_SETUP_READY.store(true, Ordering::Release);
+            reveal_main_window_when_ready(app.handle());
 
             Ok(())
         })

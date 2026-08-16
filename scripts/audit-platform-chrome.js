@@ -22,6 +22,7 @@ const captureFeedback = windowByLabel(baseConfig, 'capture-feedback');
 
 assert.ok(baseMain, 'Base configuration must define the main window');
 assert.ok(captureFeedback, 'Base configuration must define the capture feedback window');
+assert.equal(baseMain.visible, false, 'The main window must remain hidden until its startup surface is ready');
 assert.equal(captureFeedback.focus, false, 'Capture feedback must never steal focus');
 assert.equal(
   baseConfig.app.macOSPrivateApi,
@@ -40,6 +41,7 @@ assert.equal('trafficLightPosition' in baseMain, false, 'macOS traffic-light pla
 assert.equal('hiddenTitle' in baseMain, false, 'Native framed platforms must retain their window title');
 
 assert.ok(macMain, 'macOS configuration must define the main window override');
+assert.equal(macMain.visible, false, 'The macOS window must not expose vibrancy before the splash is ready');
 assert.equal(macConfig.app.macOSPrivateApi, true, 'The macOS overlay requires the private API opt-in');
 assert.equal(macMain.decorations, true, 'macOS must retain native traffic-light behavior');
 assert.equal(macMain.titleBarStyle, 'Overlay', 'macOS must retain the full-size overlay titlebar');
@@ -104,5 +106,19 @@ assert.match(titlebarSource, /STANDARD_ZOOM_HEIGHT: f64 = 640\.0/);
 assert.match(titlebarSource, /setFrame: next display: 1i8 animate: 0i8/);
 assert.match(titlebarSource, /TitlebarDoubleClickAction::Fill => visible/);
 assert.match(rustLibSource, /commands::perform_titlebar_double_click/);
+assert.match(
+  rustLibSource,
+  /NSVisualEffectState::Active/,
+  'macOS vibrancy must not retint the app when the native active-state calculation changes',
+);
+assert.doesNotMatch(rustLibSource, /NSVisualEffectState::FollowsWindowActiveState/);
+assert.match(rustLibSource, /MAIN_PAGE_LOADED/);
+assert.match(rustLibSource, /STARTUP_SETUP_READY/);
+assert.match(rustLibSource, /PageLoadEvent::Finished/);
+assert.match(
+  rustLibSource,
+  /getElementById\('startup-splash'\).*getAnimations\(\{ subtree: true \}\)/,
+  'The first visible startup frame must restart the splash animation instead of exposing native chrome',
+);
 
 console.log('Platform window-chrome audit passed.');

@@ -177,7 +177,7 @@ export function SettingsSecurityPanel() {
               <AppDialogHeading
                 id="app-lock-credentials-title"
                 title={credentialMode === 'disable' ? 'Disable app lock?' : appLock.status.enabled ? 'Change passphrase' : 'Enable app lock'}
-                description={credentialMode === 'disable' ? 'Clipboard history will open without authentication. Saved unlock preferences will no longer protect access.' : 'Set the passphrase used when system authentication is unavailable.'}
+                description={credentialMode === 'disable' ? 'Clipboard history will open without authentication. Saved unlock preferences will no longer protect access.' : 'Set a fallback passphrase for app unlock.'}
                 icon={<LockKeyhole />}
                 tone={credentialMode === 'disable' ? 'danger' : 'default'}
               />
