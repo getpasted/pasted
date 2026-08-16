@@ -18,7 +18,7 @@
     <style>
       :root {
         color-scheme: dark;
-        --startup-bg: rgb(20, 20, 21);
+        --startup-bg: #171717;
         --startup-text: rgba(255, 255, 255, 0.94);
         --startup-copycat: #65e6b4;
         --startup-copycat-inner: #a7ffd6;
@@ -27,7 +27,7 @@
       @media (prefers-color-scheme: light) {
         :root {
           color-scheme: light;
-          --startup-bg: rgb(244, 245, 248);
+          --startup-bg: #f4f4f7;
           --startup-text: rgba(18, 22, 30, 0.92);
           --startup-copycat: #138b64;
           --startup-copycat-inner: #2caf7f;
@@ -39,7 +39,7 @@
       html[data-startup-theme="flux"],
       html[data-startup-theme="808"] {
         color-scheme: dark;
-        --startup-bg: rgb(20, 20, 21);
+        --startup-bg: #171717;
         --startup-text: rgba(255, 255, 255, 0.94);
         --startup-copycat: #65e6b4;
         --startup-copycat-inner: #a7ffd6;
@@ -50,11 +50,18 @@
       html[data-startup-theme="2894"],
       html[data-startup-theme="sauced"] {
         color-scheme: light;
-        --startup-bg: rgb(244, 245, 248);
+        --startup-bg: #f4f4f7;
         --startup-text: rgba(18, 22, 30, 0.92);
         --startup-copycat: #138b64;
         --startup-copycat-inner: #2caf7f;
       }
+
+      html[data-startup-theme="warm"] { --startup-bg: #f3eee5; }
+      html[data-startup-theme="2894"] { --startup-bg: #edf2f3; }
+      html[data-startup-theme="sauced"] { --startup-bg: #fff4fa; }
+      html[data-startup-theme="vampire"] { --startup-bg: #19131f; }
+      html[data-startup-theme="flux"] { --startup-bg: #07151d; }
+      html[data-startup-theme="808"] { --startup-bg: #151515; }
 
       html,
       body,
