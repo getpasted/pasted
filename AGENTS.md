@@ -56,6 +56,15 @@ Pasted aims to make its meaningful clipboard-management capabilities available t
 - Disable or otherwise settle repeated picker actions while a request is pending, preserve the parent dialog's state when the native dialog is cancelled, and surface inaccessible selections through the normal in-app error treatment.
 - Add or extend an automated source-contract audit when introducing a native picker so the command cannot silently regress to a synchronous declaration.
 
+## In-app dialogs and confirmations
+
+- Use Pasted's shared modal API for every product-authored alert, confirmation, prompt, warning, or message. Use `AppDialog` for custom flows and `ConfirmationDialog` for standard confirmations, including dialogs nested inside another modal.
+- Never use browser primitives such as `window.alert`, `window.confirm`, or `window.prompt`, Tauri message dialogs, operating-system message boxes, or equivalent OEM prompts for product-authored UI.
+- Keep the parent modal and its draft state intact while a nested dialog is open. Cancellation must close only the nested dialog and must not mutate data or discard the parent state.
+- Destructive confirmations must state the concrete consequence, use the appropriate warning or danger treatment, and keep the final confirming action free of an ellipsis.
+- Native file and folder pickers and operating-system permission prompts are narrow exceptions because the operating system owns those interactions; follow the dedicated native-dialog rules above.
+- Add or extend an automated source-contract audit whenever a prompt path is introduced or changed so vanilla or OEM message UI cannot silently return.
+
 ## Code Review Rules
 
 ### User data and reversibility
