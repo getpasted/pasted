@@ -10,7 +10,7 @@ The [Pasted Wiki](https://github.com/getpasted/pasted/wiki) covers installation,
 
 - Captures text, images, screenshots, PDFs, and copied file references in a searchable local history.
 - Organizes clips with manual Bins, Smart Bins, Content Types, Sources, pinning, protection, notes, Trash, and persistent per-collection ordering.
-- Analyzes clips locally through bounded Inspect, Extract, Classify, and Suggest passes, with native macOS OCR, optional Tesseract OCR, ffprobe or MediaInfo media metadata, local whisper.cpp transcription, editable Classifiers, content-free structural metadata, and Smart Action suggestions.
+- Analyzes clips locally through bounded Inspect, Extract, Classify, and Suggest passes, with native macOS OCR, optional Tesseract OCR, ffprobe or MediaInfo media metadata, local whisper.cpp transcription, bounded custom-command Extractors, editable Classifiers, content-free structural metadata, and Smart Action suggestions.
 - Previews common image files and the first page of copied PDFs without changing the copied file reference.
 - Records copies into a persistent Queue, then pastes the next item or the whole Queue into the previously focused app.
 - Builds reusable Transforms from deterministic Operations or an explicitly connected intelligence provider.

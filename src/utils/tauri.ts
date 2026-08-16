@@ -80,14 +80,15 @@ let mockClassifiers = [
   mockClassifier({ id: 2, stable_ref: 'credential', name: 'Credentials', content_type: 'credential', description: 'Known API-key formats and secret assignments', patterns: [String.raw`^(?:sk_|ghp_).+$`], validator: null, enabled: true, priority: 60, is_builtin: true }),
   mockClassifier({ id: 3, stable_ref: 'phone', name: 'Phone Numbers', content_type: 'phone', description: 'Formatted international and local phone numbers', patterns: [String.raw`^\+?[0-9 ()-]{7,}$`], validator: 'phone', enabled: true, priority: 160, is_builtin: true }),
 ];
-const mockAppleExtractorDefaults = { name: 'Apple Vision OCR', description: 'Extracts searchable text from images locally with Apple Vision.', enabled: true, priority: 10 };
-const mockTesseractExtractorDefaults = { name: 'Tesseract OCR', description: 'Extracts searchable text from images locally with Tesseract.', enabled: true, priority: 20 };
-const mockWhisperExtractorDefaults = { name: 'Whisper Transcription', description: 'Extracts searchable text from local audio files with whisper.cpp.', enabled: true, priority: 30 };
+const mockAppleExtractorDefaults = { name: 'Apple Vision OCR', description: 'Extracts searchable text from images locally with Apple Vision.', engine: 'macos-vision-v1', executablePath: null, modelPath: null, inputContract: 'image', outputContract: 'searchable_text', enabled: true, priority: 10 };
+const mockTesseractExtractorDefaults = { name: 'Tesseract OCR', description: 'Extracts searchable text from images locally with Tesseract.', engine: 'tesseract-cli-v1', executablePath: null, modelPath: null, inputContract: 'image', outputContract: 'searchable_text', enabled: true, priority: 20 };
+const mockWhisperExtractorDefaults = { name: 'Whisper Transcription', description: 'Extracts searchable text from local audio files with whisper.cpp.', engine: 'whisper-cpp-cli-v1', executablePath: null, modelPath: null, inputContract: 'file_references', outputContract: 'searchable_text', enabled: true, priority: 30 };
 type MockExtractor = {
   id: number; stableRef: string; name: string; description: string; engine: string;
-  modelPath: string | null;
+  executablePath: string | null; modelPath: string | null; revision: number;
   inputContract: string; outputContract: string; enabled: boolean; priority: number;
   isBuiltin: boolean; isAvailable: boolean; unavailableReason: string | null;
+  runtime: { method: string; location: string | null; version: string | null; usesAutomaticDiscovery: boolean; dependencies: Array<{ name: string; location: string | null; version: string | null; isAvailable: boolean; unavailableReason: string | null }> };
   defaults: typeof mockAppleExtractorDefaults | null;
 };
 function mockBuiltinExtractors(): MockExtractor[] {
@@ -95,10 +96,8 @@ function mockBuiltinExtractors(): MockExtractor[] {
     id: 1,
     stableRef: 'extractor:apple-vision-ocr',
     ...mockAppleExtractorDefaults,
-    engine: 'macos-vision-v1',
-    modelPath: null,
-    inputContract: 'image',
-    outputContract: 'searchable_text',
+    revision: 1,
+    runtime: { method: 'system', location: 'macOS Vision framework', version: null, usesAutomaticDiscovery: false, dependencies: [] },
     isBuiltin: true,
     isAvailable: true,
     unavailableReason: null,
@@ -107,10 +106,8 @@ function mockBuiltinExtractors(): MockExtractor[] {
     id: 2,
     stableRef: 'extractor:tesseract-ocr',
     ...mockTesseractExtractorDefaults,
-    engine: 'tesseract-cli-v1',
-    modelPath: null,
-    inputContract: 'image',
-    outputContract: 'searchable_text',
+    revision: 1,
+    runtime: { method: 'command', location: null, version: null, usesAutomaticDiscovery: true, dependencies: [] },
     isBuiltin: true,
     isAvailable: false,
     unavailableReason: 'Tesseract OCR is not installed. Install Tesseract 5, then check again.',
@@ -119,10 +116,8 @@ function mockBuiltinExtractors(): MockExtractor[] {
     id: 3,
     stableRef: 'extractor:whisper-transcription',
     ...mockWhisperExtractorDefaults,
-    engine: 'whisper-cpp-cli-v1',
-    modelPath: null,
-    inputContract: 'file_references',
-    outputContract: 'searchable_text',
+    revision: 1,
+    runtime: { method: 'command', location: null, version: null, usesAutomaticDiscovery: true, dependencies: [{ name: 'FFmpeg', location: '/mock/bin/ffmpeg', version: 'ffmpeg mock', isAvailable: true, unavailableReason: null }] },
     isBuiltin: true,
     isAvailable: false,
     unavailableReason: 'Whisper.cpp is not installed. Install whisper-cpp, then check again.',
@@ -333,6 +328,8 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       ] as unknown as T;
     case 'choose_extractor_model_file':
       return '/mock/models/ggml-base.en.bin' as unknown as T;
+    case 'choose_extractor_executable':
+      return '/mock/bin/custom-extractor' as unknown as T;
     case 'extract_ocr_from_clip': {
       const clipId = Number(args?.clipId);
       if (!Number.isInteger(clipId) || clipId <= 0) throw new Error('A valid clip ID is required.');
@@ -401,14 +398,14 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
     case 'create_content_extractor': {
       const input = args?.input as Omit<MockExtractor, 'id' | 'stableRef' | 'isBuiltin' | 'isAvailable' | 'unavailableReason' | 'defaults'>;
       const id = nextMockExtractorId++;
-      const created: MockExtractor = { id, stableRef: `extractor:custom:${id}`, ...input, isBuiltin: false, isAvailable: input.engine === 'macos-vision-v1', unavailableReason: input.engine === 'macos-vision-v1' ? null : `Engine ${input.engine} is not available on this system.`, defaults: null };
+      const created: MockExtractor = { id, stableRef: `extractor:custom:${id}`, ...input, revision: 1, runtime: { method: 'command', location: input.executablePath, version: null, usesAutomaticDiscovery: false, dependencies: [] }, isBuiltin: false, isAvailable: Boolean(input.executablePath), unavailableReason: input.executablePath ? null : 'A custom executable is not configured.', defaults: null };
       mockExtractors = [...mockExtractors, created];
       return created as unknown as T;
     }
     case 'update_content_extractor_definition': {
       const id = Number(args?.id);
       const input = args?.input as Partial<typeof mockExtractors[number]>;
-      mockExtractors = mockExtractors.map((extractor) => extractor.id === id ? { ...extractor, ...input } : extractor);
+      mockExtractors = mockExtractors.map((extractor) => extractor.id === id ? { ...extractor, ...input, revision: extractor.revision + 1 } : extractor);
       return mockExtractors.find((extractor) => extractor.id === id) as unknown as T;
     }
     case 'duplicate_content_extractor': {
@@ -416,7 +413,7 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       const source = mockExtractors.find((extractor) => extractor.stableRef === reference || String(extractor.id) === reference);
       if (!source) throw new Error('Extractor was not found.');
       const id = nextMockExtractorId++;
-      const created = { ...source, id, stableRef: `extractor:custom:${id}`, name: String(args?.name ?? `${source.name} Copy`), priority: source.priority + 1, isBuiltin: false, defaults: null };
+      const created = { ...source, id, stableRef: `extractor:custom:${id}`, name: String(args?.name ?? `${source.name} Copy`), priority: source.priority + 1, revision: 1, isBuiltin: false, defaults: null };
       mockExtractors = [...mockExtractors, created];
       return created as unknown as T;
     }

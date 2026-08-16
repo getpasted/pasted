@@ -27,7 +27,7 @@ Media metadata is inspected live because referenced files can change outside the
 
 ## Audio transcription
 
-The shipped **Whisper Transcription** Extractor uses an installed whisper.cpp `whisper-cli` executable and an explicitly selected local GGML model. Homebrew installations can use `brew install whisper-cpp`; model files remain a separate user-managed dependency and are never downloaded automatically. Configure the model under **Settings → Analysis → Manage Extractors** or with `pasted extractor update extractor:whisper-transcription --model /absolute/path/to/ggml-model.bin`.
+The shipped **Whisper Transcription** Extractor uses an installed whisper.cpp `whisper-cli` executable and an explicitly selected local GGML model. Homebrew installations can use `brew install whisper-cpp`; model files remain a separate user-managed dependency and are never downloaded automatically. Extractor settings show the automatically discovered executable, detected version, model, and FFmpeg dependency. Select an explicit executable when discovery is insufficient. Configure the same fields through `pasted extractor update` with `--executable`, `--automatic-discovery`, `--model`, and `--no-model`.
 
 **Transcriptions** under **Settings → Functionality** controls Whisper and other file-input transcription Extractors across the app and CLI.
 
@@ -35,7 +35,7 @@ Explicit transcription accepts bounded FLAC, MP3, OGG, WAV, M4A, and AAC file re
 
 ## OCR
 
-Apple Vision extracts searchable text from clipboard images and screenshots on macOS. Tesseract 5 provides an optional local alternative on macOS, Linux, and Windows. Install it with `brew install tesseract` on Homebrew systems or the distribution's `tesseract-ocr` package on Linux, then reopen or refresh Extractor settings.
+Apple Vision extracts searchable text from clipboard images and screenshots through the macOS Vision framework. Tesseract 5 provides an optional local alternative on macOS, Linux, and Windows. Install it with `brew install tesseract` on Homebrew systems or the distribution's `tesseract-ocr` package on Linux. Extractor settings show the framework or resolved executable location and detected version; an explicit Tesseract path can override automatic discovery.
 
 - OCR is optional under **Settings → Functionality**.
 - Re-enabling OCR resumes a hash-safe backfill of eligible images.

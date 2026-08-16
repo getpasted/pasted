@@ -458,6 +458,7 @@ pub fn run() {
             commands::get_content_extractors,
             commands::get_content_inspectors,
             commands::choose_extractor_model_file,
+            commands::choose_extractor_executable,
             commands::create_content_extractor,
             commands::update_content_extractor_definition,
             commands::duplicate_content_extractor,

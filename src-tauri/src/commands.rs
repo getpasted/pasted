@@ -1011,6 +1011,22 @@ pub async fn choose_extractor_model_file(app: AppHandle) -> Result<Option<String
 }
 
 #[tauri::command]
+pub async fn choose_extractor_executable(app: AppHandle) -> Result<Option<String>, String> {
+    let Some(selected_file) = app
+        .dialog()
+        .file()
+        .set_title("Choose an Extractor Executable")
+        .blocking_pick_file()
+    else {
+        return Ok(None);
+    };
+    selected_file
+        .into_path()
+        .map(|path| Some(path.to_string_lossy().into_owned()))
+        .map_err(|error| format!("The selected executable is not accessible: {error}"))
+}
+
+#[tauri::command]
 pub fn create_content_extractor(
     input: crate::content_extraction::ExtractorDefinitionInput,
     db: State<'_, Arc<DbState>>,

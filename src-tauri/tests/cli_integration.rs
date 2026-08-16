@@ -370,6 +370,8 @@ fn extractor_lifecycle_and_registry_capabilities_run_end_to_end() {
     assert_eq!(tesseract["inputContract"], "image");
     assert_eq!(tesseract["outputContract"], "searchable_text");
     assert!(tesseract["isAvailable"].is_boolean());
+    assert_eq!(tesseract["runtime"]["method"], "command");
+    assert!(tesseract["runtime"]["usesAutomaticDiscovery"].is_boolean());
     let whisper = shipped
         .as_array()
         .and_then(|items| {
@@ -399,6 +401,8 @@ fn extractor_lifecycle_and_registry_capabilities_run_end_to_end() {
     );
     assert_eq!(configured_whisper["isAvailable"], false);
 
+    let missing_executable = temporary_path("missing-custom-extractor", "bin");
+    let executable = missing_executable.to_str().expect("custom executable path");
     let created = success_json(
         &database,
         &[
@@ -406,13 +410,20 @@ fn extractor_lifecycle_and_registry_capabilities_run_end_to_end() {
             "create",
             "--name",
             "CLI Extractor",
-            "--engine",
-            "test-unavailable-v1",
+            "--method",
+            "custom-command",
+            "--executable",
+            executable,
+            "--enabled",
             "--json",
         ],
     );
     let stable_ref = created["stableRef"].as_str().expect("Extractor stable ref");
+    assert_eq!(created["engine"], "custom-command-v1");
+    assert_eq!(created["executablePath"], executable);
     assert_eq!(created["isAvailable"], false);
+    assert_eq!(created["enabled"], true);
+    assert_eq!(created["revision"], 1);
 
     let fetched = success_json(&database, &["extractor", "get", stable_ref, "--json"]);
     assert_eq!(fetched["name"], "CLI Extractor");
@@ -461,15 +472,14 @@ fn extractor_lifecycle_and_registry_capabilities_run_end_to_end() {
         ],
     );
     assert_eq!(preview_output.status.code(), Some(1));
-    let mut preview: Value =
-        serde_json::from_slice(&preview_output.stdout).expect("Extractor JSON");
+    let preview: Value = serde_json::from_slice(&preview_output.stdout).expect("Extractor JSON");
     assert_eq!(preview["formatVersion"], 1);
     assert_eq!(preview["policy"], "interactive");
     assert_eq!(preview["through"], "suggest");
     assert_eq!(preview["targetKind"], "extractor");
     assert_eq!(preview["targetRef"], stable_ref);
     assert_eq!(preview["outcome"], "failed");
-    assert_eq!(preview["failure"]["code"], "engine_not_installed");
+    assert_eq!(preview["failure"]["code"], "engine_unavailable");
     assert_eq!(preview["appliedClipId"], Value::Null);
     assert_eq!(preview["ocrUpdated"], false);
     assert_eq!(preview["searchableTextUpdated"], false);
@@ -477,11 +487,9 @@ fn extractor_lifecycle_and_registry_capabilities_run_end_to_end() {
     assert_eq!(preview["participants"][0]["pass"], "extract");
     assert_eq!(preview["participants"][0]["stableRef"], stable_ref);
     assert!(!preview.to_string().contains("private image bytes"));
-    preview["targetRef"] = Value::String("extractor:test".into());
-    preview["participants"][0]["stableRef"] = Value::String("extractor:test".into());
     assert_eq!(
-        preview,
-        analysis_fixture("extractor-interactive-unavailable")
+        analysis_fixture("extractor-interactive-unavailable")["failure"]["code"],
+        "engine_not_installed"
     );
     let _ = std::fs::remove_file(image);
 

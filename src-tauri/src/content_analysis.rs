@@ -563,14 +563,17 @@ mod tests {
             name: "Test OCR".into(),
             description: String::new(),
             engine: "test-v1".into(),
+            executable_path: None,
             model_path: None,
             input_contract: "image".into(),
             output_contract: "searchable_text".into(),
             enabled: true,
             priority: 10,
+            revision: 1,
             is_builtin: false,
             is_available: true,
             unavailable_reason: None,
+            runtime: crate::content_extraction::runtime_status_for("test-v1", None),
             defaults: None,
         }
     }
