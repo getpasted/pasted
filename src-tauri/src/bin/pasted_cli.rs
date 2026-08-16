@@ -240,6 +240,7 @@ fn run_command(command: &str, args: &[String], db_path: PathBuf, conn: Connectio
                     }
                     let passphrase = read_lock_passphrase(&args, "New app-lock passphrase: ")?;
                     pasted_lib::app_lock::configure(&db, &passphrase).map_err(cli_input_error)?;
+                    let _ = db.log_activity("app_lock_enabled", "Enabled app lock");
                     if json {
                         println!("{}", serde_json::json!({ "enabled": true }));
                     } else {
@@ -274,6 +275,7 @@ fn run_command(command: &str, args: &[String], db_path: PathBuf, conn: Connectio
                             "false".to_string(),
                         ),
                     ]))?;
+                    let _ = db.log_activity("app_lock_disabled", "Disabled app lock");
                     if json {
                         println!("{}", serde_json::json!({ "enabled": false }));
                     } else {
@@ -317,10 +319,17 @@ fn run_command(command: &str, args: &[String], db_path: PathBuf, conn: Connectio
                             std::process::exit(1);
                         }
                     }
-                    db.save_setting(
-                        pasted_lib::app_lock::CAPTURE_WHILE_LOCKED_SETTING,
-                        if enabled { "true" } else { "false" },
-                    )?;
+                    let setting = pasted_lib::app_lock::CAPTURE_WHILE_LOCKED_SETTING;
+                    let next = if enabled { "true" } else { "false" };
+                    let previous = db.get_setting(setting)?;
+                    db.save_setting(setting, next)?;
+                    if let Some(activity) = pasted_lib::settings_activity::describe_setting_change(
+                        setting,
+                        previous.as_deref(),
+                        next,
+                    ) {
+                        let _ = db.log_activity(activity.event_type, &activity.description);
+                    }
                     if json {
                         println!("{}", serde_json::json!({ "captureWhileLocked": enabled }));
                     } else {

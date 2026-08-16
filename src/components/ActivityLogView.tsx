@@ -169,10 +169,11 @@ export const ActivityLogView: React.FC = () => {
         );
       case 'app_lock_enabled':
       case 'app_lock_disabled':
+      case 'app_lock_passphrase_changed':
         return (
           <div className="theme-status-info flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold">
             <LockKeyhole className="w-3.5 h-3.5" />
-            <span>App Lock {type.endsWith('_enabled') ? 'Enabled' : 'Disabled'}</span>
+            <span>App Lock {type === 'app_lock_passphrase_changed' ? 'Passphrase Changed' : type.endsWith('_enabled') ? 'Enabled' : 'Disabled'}</span>
           </div>
         );
       case 'setting_changed':

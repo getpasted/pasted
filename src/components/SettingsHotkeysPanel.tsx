@@ -77,8 +77,8 @@ const actionHotkeys: Array<{ label: string; key: HotkeySetting; fallback?: strin
   { label: 'Paste with Last Advanced Transform', key: 'pasteLastPipelineHotkey', feature: 'transformations' },
   { label: 'Open Transformations', key: 'openTransformationsHotkey', feature: 'transformations' },
   { label: 'Toggle Main Window', key: 'openMainWindowHotkey' },
-  { label: 'Lock Pasted', key: 'lockAppHotkey', fallback: 'Alt+Shift+L', feature: 'appLock' },
-  { label: 'Unlock Pasted', key: 'unlockAppHotkey', fallback: 'Alt+Shift+U', feature: 'appLock' },
+  { label: 'Lock app', key: 'lockAppHotkey', fallback: 'Alt+Shift+L', feature: 'appLock' },
+  { label: 'Unlock app', key: 'unlockAppHotkey', fallback: 'Alt+Shift+U', feature: 'appLock' },
 ];
 
 function HotkeyRow({ label, value, onChange }: { label: string; value: string | null; onChange: (value: string | null) => void }) {
