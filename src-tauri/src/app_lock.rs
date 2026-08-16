@@ -267,10 +267,10 @@ pub fn platform_authenticate(
         return Err("That authentication method is not available on Windows.".to_string());
     }
     use windows::core::{factory, HSTRING};
-    use windows::Foundation::IAsyncOperation;
     use windows::Security::Credentials::UI::{UserConsentVerificationResult, UserConsentVerifier};
     use windows::Win32::Foundation::HWND;
     use windows::Win32::System::WinRT::IUserConsentVerifierInterop;
+    use windows_future::IAsyncOperation;
     let window_handle =
         window_handle.ok_or_else(|| "The Pasted window is unavailable.".to_string())?;
     let interop = factory::<UserConsentVerifier, IUserConsentVerifierInterop>()
