@@ -15,7 +15,7 @@ Operating-system frameworks are supplied by the operating system. Linux AppImage
 runtime notices are embedded by the AppImage runtime and must remain intact.
 Windows installer-tool components and their notices are included in this inventory.
 
-Component inventory (430)
+Component inventory (429)
 
 - adler2 2.0.1 [cargo; 0BSD OR MIT OR Apache-2.0] — https://github.com/oyvindln/adler2
 - ahash 0.8.12 [cargo; MIT OR Apache-2.0] — https://github.com/tkaitchuck/ahash
@@ -49,7 +49,6 @@ Component inventory (430)
 - bitflags 1.3.2 [cargo; MIT OR Apache-2.0] — https://github.com/bitflags/bitflags
 - bitflags 2.13.1 [cargo; MIT OR Apache-2.0] — https://github.com/bitflags/bitflags
 - blake2 0.10.6 [cargo; MIT OR Apache-2.0] — https://github.com/RustCrypto/hashes
-- block 0.1.6 [cargo; MIT] — http://github.com/SSheldon/rust-block
 - block-buffer 0.10.4 [cargo; MIT OR Apache-2.0] — https://github.com/RustCrypto/utils
 - block2 0.6.2 [cargo; MIT] — https://github.com/madsmtm/objc2
 - blocking 1.6.2 [cargo; Apache-2.0 OR MIT] — https://github.com/smol-rs/blocking
@@ -6844,7 +6843,7 @@ limitations under the License.
 ================================================================================
 MIT License
 License identifier: MIT
-Used by: block 0.1.6 (cargo), block2 0.6.2 (cargo), dlopen2 0.8.2 (cargo), dlopen2_derive 0.4.3 (cargo), dpi 0.1.2 (cargo), malloc_buf 0.0.6 (cargo), objc2 0.6.4 (cargo), objc2-encode 4.1.0 (cargo), objc2-foundation 0.3.2 (cargo), webview2-com 0.38.2 (cargo), webview2-com-macros 0.8.1 (cargo), webview2-com-sys 0.38.2 (cargo)
+Used by: block2 0.6.2 (cargo), dlopen2 0.8.2 (cargo), dlopen2_derive 0.4.3 (cargo), dpi 0.1.2 (cargo), malloc_buf 0.0.6 (cargo), objc2 0.6.4 (cargo), objc2-encode 4.1.0 (cargo), objc2-foundation 0.3.2 (cargo), webview2-com 0.38.2 (cargo), webview2-com-macros 0.8.1 (cargo), webview2-com-sys 0.38.2 (cargo)
 --------------------------------------------------------------------------------
 MIT License
 

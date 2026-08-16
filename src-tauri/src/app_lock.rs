@@ -298,9 +298,10 @@ pub fn platform_authenticate(
 
 #[cfg(target_os = "macos")]
 fn macos_auth(method: SystemAuthMethod, evaluate: bool) -> Result<bool, String> {
-    use block::ConcreteBlock;
+    use block2::RcBlock;
     use objc::runtime::{Object, BOOL, YES};
     use objc::{class, msg_send, sel, sel_impl};
+    use objc2::runtime::Bool;
     use std::sync::mpsc;
 
     // macOS owns enrollment and returns only success or failure; Pasted receives
@@ -326,10 +327,10 @@ fn macos_auth(method: SystemAuthMethod, evaluate: bool) -> Result<bool, String> 
         let reason: *mut Object =
             msg_send![class!(NSString), stringWithUTF8String: c"Unlock Pasted".as_ptr()];
         let (sender, receiver) = mpsc::sync_channel(1);
-        let reply = ConcreteBlock::new(move |success: BOOL, _error: *mut Object| {
-            let _ = sender.send(success == YES);
-        });
-        let reply = reply.copy();
+        let reply: RcBlock<dyn Fn(Bool, *mut std::ffi::c_void)> =
+            RcBlock::new(move |success: Bool, _error: *mut std::ffi::c_void| {
+                let _ = sender.send(success.as_bool());
+            });
         let _: () =
             msg_send![context, evaluatePolicy: policy localizedReason: reason reply: &*reply];
         let result = receiver
