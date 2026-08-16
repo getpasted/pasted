@@ -17,6 +17,8 @@ const analysisExecution = read('src-tauri/src/analysis_execution.rs');
 const commands = read('src-tauri/src/commands.rs');
 const builtinLifecycleManager = read('src/components/BuiltinLifecycleManagerDialog.tsx');
 const extractorManager = read('src/components/ContentExtractorManagerDialog.tsx');
+const contentTypeManager = read('src/components/ContentTypeManagerDialog.tsx');
+const contentTypeGroupManager = read('src/components/ContentTypeGroupManagerDialog.tsx');
 const registryPanelHeader = read('src/components/RegistryPanelHeader.tsx');
 const registryPanelFooter = read('src/components/RegistryPanelFooter.tsx');
 const architecture = read('docs/ANALYSIS_ARCHITECTURE.md');
@@ -219,6 +221,15 @@ for (const [label, manager] of [['Extractor', extractorManager], ['Classifier', 
     `${label} management must keep scoped restore and close actions in the modal footer`);
   assert.match(manager, /discardDraftThen[\s\S]*ConfirmationDialog/,
     `${label} management must protect edited drafts with the shared confirmation UI`);
+  assert.doesNotMatch(manager, /window\.confirm/,
+    `${label} management must not fall back to a browser confirmation prompt`);
+}
+for (const [label, manager] of [
+  ['Content Type', contentTypeManager],
+  ['Content Type Group', contentTypeGroupManager],
+]) {
+  assert.match(manager, /ConfirmationDialog/,
+    `${label} management must use the shared nested confirmation UI`);
   assert.doesNotMatch(manager, /window\.confirm/,
     `${label} management must not fall back to a browser confirmation prompt`);
 }

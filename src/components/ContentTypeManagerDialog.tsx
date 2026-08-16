@@ -13,6 +13,7 @@ import { RegistryListItem } from './RegistryListItem';
 import { RegistryPanelHeader } from './RegistryPanelHeader';
 import { useNewItemSelection } from '../hooks/useNewItemSelection';
 import { ConnectedMenuAction } from './ConnectedMenuAction';
+import { ConfirmationDialog, type ConfirmationDialogRequest } from './ConfirmationDialog';
 
 const ICONS = [
   'AlignLeft', 'AtSign', 'Binary', 'BookOpen', 'Box', 'Braces', 'Calendar',
@@ -36,6 +37,7 @@ export function ContentTypeManagerDialog({ isOpen, onClose }: { isOpen: boolean;
   const [draft, setDraft] = useState<TypeDraft>(newDraft());
   const [saving, setSaving] = useState(false);
   const [isGroupManagerOpen, setIsGroupManagerOpen] = useState(false);
+  const [confirmation, setConfirmation] = useState<ConfirmationDialogRequest | null>(null);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -85,7 +87,6 @@ export function ContentTypeManagerDialog({ isOpen, onClose }: { isOpen: boolean;
   const toggleArchived = async () => {
     if (!selected || selected.isBuiltin) return;
     const action = selected.isArchived ? 'restore' : 'archive';
-    if (!selected.isArchived && !window.confirm(`Archive “${selected.label}”? Its classifiers will be disabled, while existing clips keep this Type.`)) return;
     try {
       await invoke('set_content_type_archived', { id: selected.id, archived: !selected.isArchived });
       await refresh();
@@ -93,6 +94,25 @@ export function ContentTypeManagerDialog({ isOpen, onClose }: { isOpen: boolean;
     } catch (error) {
       showToast({ tone: 'error', message: String(error) });
     }
+  };
+
+  const requestToggleArchived = () => {
+    if (!selected || selected.isBuiltin) return;
+    if (selected.isArchived) {
+      void toggleArchived();
+      return;
+    }
+    setConfirmation({
+      title: 'Archive Content Type?',
+      description: `“${selected.label}” will be archived.`,
+      details: 'Its Classifiers will be disabled. Existing clips will keep this Content Type.',
+      confirmLabel: 'Archive',
+      tone: 'warning',
+      onConfirm: async () => {
+        setConfirmation(null);
+        await toggleArchived();
+      },
+    });
   };
 
   return <>
@@ -153,7 +173,7 @@ export function ContentTypeManagerDialog({ isOpen, onClose }: { isOpen: boolean;
           </section>
         </AppDialogBody>
         <AppDialogFooter align="between" className="shrink-0">
-          <div>{selected && !selected.isBuiltin && <AppDialogButton onClick={() => void toggleArchived()} variant={selected.isArchived ? 'secondary' : 'warning'}><Archive className="h-3.5 w-3.5" /> {selected.isArchived ? 'Restore Content Type' : 'Archive Content Type'}</AppDialogButton>}</div>
+          <div>{selected && !selected.isBuiltin && <AppDialogButton onClick={requestToggleArchived} variant={selected.isArchived ? 'secondary' : 'warning'}><Archive className="h-3.5 w-3.5" /> {selected.isArchived ? 'Restore Content Type' : 'Archive Content Type…'}</AppDialogButton>}</div>
           <div className="flex items-center gap-2">
             {selectedId === 'new'
               ? <AppDialogButton onClick={cancelNewType}>Cancel</AppDialogButton>
@@ -165,5 +185,6 @@ export function ContentTypeManagerDialog({ isOpen, onClose }: { isOpen: boolean;
       </>}
     </AppDialog>
     <ContentTypeGroupManagerDialog isOpen={isGroupManagerOpen} onClose={() => setIsGroupManagerOpen(false)} />
+    <ConfirmationDialog request={confirmation} onCancel={() => setConfirmation(null)} />
   </>;
 }
