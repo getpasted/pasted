@@ -34,6 +34,7 @@ import { getClipViewPolicy } from './utils/clipViewPolicy';
 import { getClipCollection, type ClipDropAction } from './utils/clipCollections';
 import { sortClipsForTimeline } from './utils/clipOrder';
 import { useAppData } from './hooks/useAppData';
+import { dismissStartupSplash } from './utils/startupSplash';
 import { useClipActions } from './hooks/useClipActions';
 import { Clipboard, Trash2, Pause, Disc, Square, Pin, Search, X } from 'lucide-react';
 import { enabledFeatureRecord, featureForRoute } from './utils/features';
@@ -186,19 +187,7 @@ export default function App() {
     }
     if (!settingsHydrated || !initialDataLoaded) return;
 
-    let removeTimer: ReturnType<typeof setTimeout> | undefined;
-    let secondFrame = 0;
-    const firstFrame = requestAnimationFrame(() => {
-      secondFrame = requestAnimationFrame(() => {
-        splash.classList.add('is-ready');
-        removeTimer = setTimeout(() => splash.remove(), 160);
-      });
-    });
-    return () => {
-      cancelAnimationFrame(firstFrame);
-      if (secondFrame) cancelAnimationFrame(secondFrame);
-      if (removeTimer) clearTimeout(removeTimer);
-    };
+    return dismissStartupSplash(splash);
   }, [initialDataLoaded, isHudView, settingsHydrated]);
 
   useEffect(() => {

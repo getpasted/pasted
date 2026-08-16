@@ -8,6 +8,7 @@ import { useAppSettings } from "./hooks/useAppSettings";
 import { ContentTypeProvider } from "./components/ContentTypeProvider";
 import { useAppLock, type AppLockStatus } from "./hooks/useAppLock";
 import { AppLockScreen } from "./components/AppLockScreen";
+import { dismissStartupSplash } from "./utils/startupSplash";
 
 // Window chrome is native on every desktop platform, but only macOS overlays
 // those controls on top of Pasted's web content. Set this synchronously before
@@ -38,15 +39,7 @@ function ProtectedAppRoot() {
     if (!appLock.hydrated || !appLock.status.locked) return undefined;
     const splash = document.getElementById("startup-splash");
     if (!splash) return undefined;
-    let removeTimer = 0;
-    const frame = window.requestAnimationFrame(() => {
-      splash.classList.add("is-ready");
-      removeTimer = window.setTimeout(() => splash.remove(), 160);
-    });
-    return () => {
-      window.cancelAnimationFrame(frame);
-      window.clearTimeout(removeTimer);
-    };
+    return dismissStartupSplash(splash);
   }, [appLock.hydrated, appLock.status.locked]);
   if (!appLock.hydrated) return null;
   const showLockScreen = appLock.status.locked || appLock.unlockingSuccess;
