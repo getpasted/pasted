@@ -7,7 +7,7 @@ import { SettingsSubsectionHeader } from './SettingsSubsectionHeader';
 import { OpenSourceLicensesDialog } from './OpenSourceLicensesDialog';
 import { ActionButton } from './AppDialogLayout';
 import { SettingsAccentTile } from './SettingsAccentTile';
-import { CopycatMark } from './CopycatMark';
+import { CopycatHeadMark } from './CopycatMark';
 
 function fileSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
@@ -71,14 +71,17 @@ export function SettingsAboutPanel() {
       <SettingsPanelHeader
         icon={Info}
         title="About Pasted"
-        description="The private, local clipboard workspace for copycats."
+        description="The cat captures clips. We don’t capture copycats."
       />
 
       <section className="theme-surface relative flex flex-col items-center overflow-hidden rounded-2xl border px-6 py-8 text-center">
-        <div className="copycat-about-mark" aria-hidden="true"><CopycatMark /></div>
+        <div className="copycat-about-mark" aria-hidden="true"><CopycatHeadMark /></div>
         <h3 className="theme-title mt-3 text-xl font-bold">Pasted</h3>
-        <p className="theme-text-muted mt-1 max-w-md text-xs leading-relaxed">
-          One local workspace for everything humans, scripts, automations, and agents copy along the way.
+        <p className="theme-title mt-1 max-w-md text-sm font-bold">
+          Works for copycats. Not for corporations.
+        </p>
+        <p className="theme-text-muted mt-2 max-w-lg text-xs leading-relaxed">
+          Copycats are people, scripts, automations, and agents. They share one private workspace with each other. Nobody else gets a copy—and certainly not us.
         </p>
         <span className="theme-badge mt-4 rounded-full border px-3 py-1 font-mono text-[10px] font-semibold">
           {installation ? `Version ${installation.appVersion} · ${installation.buildKind}` : 'Loading version…'}
@@ -89,14 +92,14 @@ export function SettingsAboutPanel() {
         <SettingsSubsectionHeader
           icon={<HeartHandshake className="h-4 w-4" />}
           title="The Copycat Covenant"
-          description="The constraints that keep your clipboard yours."
+          description="Product constraints, not marketing preferences."
         />
         <div className="grid gap-2 sm:grid-cols-2">
           {[
-            { icon: HardDrive, title: 'No cloud account', body: 'Your core library lives locally, without an identity, sync account, or hosted copy of your history.' },
-            { icon: RadioTower, title: 'No off-device telemetry', body: 'Usage insights stay local, without reporting how humans, scripts, or agents use the workspace.' },
-            { icon: HeartHandshake, title: 'No subscription', body: 'Your clipboard is yours, not something to rent back. Financial support is an endorsement, never an unlock.' },
-            { icon: Bot, title: 'Every copycat welcome', body: 'The GUI and CLI share one library, so people and the tools they direct work from the same local context.' },
+            { icon: HardDrive, title: 'No cloud account', body: 'Pasted works without an identity, a sync account, or a hosted copy of your clipboard history. The core workspace lives where you do.' },
+            { icon: RadioTower, title: 'No telemetry', body: 'We do not measure engagement, inspect clipboard activity, or teach a dashboard how copycats behave. Your work is not our dataset.' },
+            { icon: HeartHandshake, title: 'No subscription', body: 'Pasted will not rent your own clipboard back to you. If it earns a place in your workflow, support is an endorsement—not an unlock.' },
+            { icon: Bot, title: 'Every copycat welcome', body: 'Humans use the app. Scripts use the CLI. Automations and agents use the tools you explicitly give them. Everyone shares the same local library.' },
           ].map(({ icon: Icon, title, body }) => (
             <article key={title} className="theme-card-idle border p-3.5">
               <Icon className="mb-2 h-4 w-4 text-[var(--accent-primary)]" />

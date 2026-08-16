@@ -45,14 +45,16 @@ const ALLOWED_COPY = [
   ['src/components/SettingsAboutPanel.tsx', "'Not installed beside Pasted'"],
   ['src/components/SettingsAboutPanel.tsx', 'title="About Pasted"'],
   ['src/components/SettingsAboutPanel.tsx', '>Pasted</h3>'],
+  // About intentionally carries the public Copycat Covenant into the product.
+  ['src/components/SettingsAboutPanel.tsx', 'The cat captures clips. We don’t capture copycats.'],
+  ['src/components/SettingsAboutPanel.tsx', 'Nobody else gets a copy—and certainly not us.'],
+  ['src/components/SettingsAboutPanel.tsx', 'Pasted works without an identity, a sync account, or a hosted copy of your clipboard history. The core workspace lives where you do.'],
+  ['src/components/SettingsAboutPanel.tsx', 'We do not measure engagement, inspect clipboard activity, or teach a dashboard how copycats behave. Your work is not our dataset.'],
+  ['src/components/SettingsAboutPanel.tsx', 'Pasted will not rent your own clipboard back to you. If it earns a place in your workflow, support is an endorsement—not an unlock.'],
+  ['src/components/SettingsAboutPanel.tsx', 'Humans use the app. Scripts use the CLI. Automations and agents use the tools you explicitly give them. Everyone shares the same local library.'],
   // The backing CTA names the product and intentionally matches the public site.
   ['src/components/SettingsAboutPanel.tsx', 'If Pasted earns a permanent place in your workflow'],
   ['src/components/SettingsAboutPanel.tsx', 'Back Pasted — $9.99'],
-  // The Covenant deliberately addresses the user to emphasize ownership.
-  ['src/components/SettingsAboutPanel.tsx', 'keep your clipboard yours'],
-  ['src/components/SettingsAboutPanel.tsx', 'Your core library lives locally'],
-  ['src/components/SettingsAboutPanel.tsx', 'hosted copy of your history'],
-  ['src/components/SettingsAboutPanel.tsx', 'Your clipboard is yours'],
   // macOS requires approval under the literal application name shown by the OS.
   ['src/components/SettingsHotkeysPanel.tsx', 'Allow <strong>Pasted</strong> under <strong>System Settings'],
   // Example executable name, not first-person interface narration.
