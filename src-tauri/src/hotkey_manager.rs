@@ -16,6 +16,8 @@ use crate::sequential_paste::SequentialQueueState;
 pub enum AppHotkeyAction {
     ToggleHud,
     ToggleMainWindow,
+    LockApp,
+    UnlockApp,
     OpenTransformations,
     ToggleCopyQueue,
     PopCopyQueue,
@@ -153,6 +155,21 @@ impl HotkeyManager {
             main_sc,
             AppHotkeyAction::ToggleMainWindow,
         );
+
+        if features::is_enabled(&db, Feature::AppLock) {
+            add_shortcut(
+                "app-lock".into(),
+                "Lock Pasted".into(),
+                get_setting("lockAppHotkey", "Alt+Shift+L"),
+                AppHotkeyAction::LockApp,
+            );
+            add_shortcut(
+                "app-unlock".into(),
+                "Unlock Pasted".into(),
+                get_setting("unlockAppHotkey", "Alt+Shift+U"),
+                AppHotkeyAction::UnlockApp,
+            );
+        }
 
         if features::is_enabled(&db, Feature::Transformations) {
             let transformations_sc = get_setting("openTransformationsHotkey", "");
@@ -465,6 +482,51 @@ impl HotkeyManager {
     }
 
     fn dispatch_action(&self, app: &AppHandle, action: AppHotkeyAction) {
+        let lock_state = app.try_state::<Arc<crate::app_lock::AppLockState>>();
+        let locked = lock_state.as_ref().is_some_and(|state| state.is_locked());
+        if locked && !matches!(&action, AppHotkeyAction::UnlockApp) {
+            return;
+        }
+        if matches!(
+            &action,
+            AppHotkeyAction::LockApp | AppHotkeyAction::UnlockApp
+        ) {
+            let app_handle = app.clone();
+            if let Err(error) = app.run_on_main_thread(move || match action {
+                AppHotkeyAction::LockApp => {
+                    let db = app_handle.state::<Arc<DbState>>();
+                    let state = app_handle.state::<Arc<crate::app_lock::AppLockState>>();
+                    if features::is_enabled(&db, Feature::AppLock)
+                        && db
+                            .get_setting(crate::app_lock::ENABLED_SETTING)
+                            .ok()
+                            .flatten()
+                            .as_deref()
+                            == Some("true")
+                    {
+                        state.lock();
+                        let _ = crate::app_menu::install(&app_handle, &db);
+                        let _ = app_handle
+                            .emit("app-lock-changed", crate::app_lock::status(&db, &state));
+                        if let Some(window) = app_handle.get_webview_window("main") {
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                        }
+                    }
+                }
+                AppHotkeyAction::UnlockApp => {
+                    if let Some(window) = app_handle.get_webview_window("main") {
+                        let _ = window.show();
+                        let _ = window.set_focus();
+                    }
+                    let _ = app_handle.emit("app-lock-unlock-requested", ());
+                }
+                _ => {}
+            }) {
+                eprintln!("[Pasted Hotkeys] Could not dispatch app-lock shortcut: {error}");
+            }
+            return;
+        }
         if let Some(db) = app.try_state::<Arc<DbState>>() {
             let active_app = crate::paste_target::active_application_name();
             if crate::app_exclusions::should_ignore_hotkeys(&db, active_app.as_deref()) {
@@ -486,6 +548,7 @@ impl HotkeyManager {
                     }
                 }
             }
+            AppHotkeyAction::LockApp | AppHotkeyAction::UnlockApp => {}
             AppHotkeyAction::OpenTransformations => {
                 if let Some(w) = app_handle.get_webview_window("main") {
                     let _ = w.show();

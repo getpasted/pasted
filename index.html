@@ -18,21 +18,19 @@
     <style>
       :root {
         color-scheme: dark;
-        --startup-bg: rgba(20, 20, 21, 0.985);
-        --startup-panel: rgba(255, 255, 255, 0.065);
-        --startup-border: rgba(255, 255, 255, 0.11);
+        --startup-bg: #171717;
         --startup-text: rgba(255, 255, 255, 0.94);
-        --startup-accent: #4d9dff;
+        --startup-copycat: #65e6b4;
+        --startup-copycat-inner: #a7ffd6;
       }
 
       @media (prefers-color-scheme: light) {
         :root {
           color-scheme: light;
-          --startup-bg: rgba(244, 245, 248, 0.985);
-          --startup-panel: rgba(255, 255, 255, 0.74);
-          --startup-border: rgba(22, 28, 40, 0.12);
+          --startup-bg: #f4f4f7;
           --startup-text: rgba(18, 22, 30, 0.92);
-          --startup-accent: #087ad8;
+          --startup-copycat: #138b64;
+          --startup-copycat-inner: #2caf7f;
         }
       }
 
@@ -41,22 +39,29 @@
       html[data-startup-theme="flux"],
       html[data-startup-theme="808"] {
         color-scheme: dark;
-        --startup-bg: rgba(20, 20, 21, 0.985);
-        --startup-panel: rgba(255, 255, 255, 0.065);
-        --startup-border: rgba(255, 255, 255, 0.11);
+        --startup-bg: #171717;
         --startup-text: rgba(255, 255, 255, 0.94);
-        --startup-accent: #4d9dff;
+        --startup-copycat: #65e6b4;
+        --startup-copycat-inner: #a7ffd6;
       }
 
       html[data-startup-theme="cool"],
-      html[data-startup-theme="warm"] {
+      html[data-startup-theme="warm"],
+      html[data-startup-theme="2894"],
+      html[data-startup-theme="sauced"] {
         color-scheme: light;
-        --startup-bg: rgba(244, 245, 248, 0.985);
-        --startup-panel: rgba(255, 255, 255, 0.74);
-        --startup-border: rgba(22, 28, 40, 0.12);
+        --startup-bg: #f4f4f7;
         --startup-text: rgba(18, 22, 30, 0.92);
-        --startup-accent: #087ad8;
+        --startup-copycat: #138b64;
+        --startup-copycat-inner: #2caf7f;
       }
+
+      html[data-startup-theme="warm"] { --startup-bg: #f3eee5; }
+      html[data-startup-theme="2894"] { --startup-bg: #edf2f3; }
+      html[data-startup-theme="sauced"] { --startup-bg: #fff4fa; }
+      html[data-startup-theme="vampire"] { --startup-bg: #19131f; }
+      html[data-startup-theme="flux"] { --startup-bg: #07151d; }
+      html[data-startup-theme="808"] { --startup-bg: #151515; }
 
       html,
       body,
@@ -78,16 +83,14 @@
         display: grid;
         place-items: center;
         overflow: hidden;
-        background:
-          radial-gradient(circle at 50% 42%, color-mix(in srgb, var(--startup-accent) 10%, transparent), transparent 36%),
-          var(--startup-bg);
+        background: var(--startup-bg);
         color: var(--startup-text);
         font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
         cursor: default;
         user-select: none;
         -webkit-user-select: none;
         opacity: 1;
-        transition: opacity 140ms ease-out;
+        will-change: opacity;
       }
 
       #startup-splash,
@@ -96,82 +99,112 @@
       }
 
       #startup-splash.is-ready {
-        opacity: 0;
         pointer-events: none;
+      }
+
+      #startup-splash.is-dismiss-ready .startup-copycat-outline,
+      #startup-splash.is-dismiss-ready .startup-copycat-ear,
+      #startup-splash.is-ready .startup-copycat-outline,
+      #startup-splash.is-ready .startup-copycat-ear {
+        animation-play-state: paused;
       }
 
       #startup-splash .startup-content {
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 0.7rem;
-        transform: translateY(-0.5rem);
+        transform: translateY(-0.5rem) scale(1);
       }
 
-      #startup-splash .startup-mark {
-        width: 3.25rem;
-        height: 3.25rem;
-        display: grid;
-        place-items: center;
-        border: 1px solid var(--startup-border);
-        border-radius: 1rem;
-        background: var(--startup-panel);
-        color: var(--startup-accent);
-        box-shadow: 0 18px 45px rgba(0, 0, 0, 0.16);
-        backdrop-filter: blur(22px);
-        -webkit-backdrop-filter: blur(22px);
+      #startup-splash .startup-lockup {
+        position: relative;
+        width: 8.5rem;
+        height: 5.35rem;
+        transform: scale(1.35);
+        transform-origin: center;
       }
 
-      #startup-splash .startup-mark svg {
+      #startup-splash .startup-copycat-mask {
+        position: absolute;
+        inset: 0 0 1.5625rem;
+        overflow: hidden;
+      }
+
+      #startup-splash .startup-copycat {
+        position: absolute;
+        inset: 0 0 -1.5625rem;
+        overflow: visible;
+        transform: translateX(12px) rotate(-24deg);
+        transform-origin: 50% 70%;
+      }
+
+      #startup-splash .startup-copycat svg {
         display: block;
-        width: 1.55rem;
-        height: 1.55rem;
-        stroke: currentColor;
-        stroke-width: 1.8;
+        width: 100%;
+        height: 100%;
+        overflow: visible;
+      }
+
+      #startup-splash .startup-copycat-outline {
         fill: none;
+        stroke: var(--startup-copycat);
+        stroke-width: 14px;
         stroke-linecap: round;
         stroke-linejoin: round;
+        stroke-dasharray: 1;
+        stroke-dashoffset: -1;
+        animation: startup-copycat-draw 3.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+      }
+
+      #startup-splash .startup-copycat-ear {
+        fill: var(--startup-copycat-inner);
+        opacity: 0;
+        animation: startup-copycat-ear-fill 3.6s ease-in-out infinite;
       }
 
       #startup-splash .startup-name {
-        margin-top: 0.1rem;
+        position: absolute;
+        z-index: 1;
+        left: 50%;
+        bottom: 0.38rem;
+        padding: 0.08rem 0.48rem 0.12rem;
+        background: var(--startup-bg);
         font-size: 1.05rem;
         font-weight: 680;
         line-height: 1.15;
         letter-spacing: -0.025em;
-      }
-
-      #startup-splash .startup-progress {
-        width: 4.5rem;
-        height: 2px;
-        margin-top: 0.2rem;
-        overflow: hidden;
-        border-radius: 999px;
-        background: color-mix(in srgb, var(--startup-text) 9%, transparent);
-      }
-
-      #startup-splash .startup-progress::after {
-        content: "";
-        display: block;
-        width: 42%;
-        height: 100%;
-        border-radius: inherit;
-        background: var(--startup-accent);
-        animation: startup-progress 1.05s ease-in-out infinite;
+        transform: translateX(-50%);
       }
 
       html[data-pasted-view="hud"] #startup-splash {
         display: none;
       }
 
-      @keyframes startup-progress {
-        from { transform: translateX(-115%); }
-        to { transform: translateX(340%); }
+      @keyframes startup-copycat-draw {
+        0%, 10% { stroke-dashoffset: -1; opacity: 0; }
+        18% { opacity: 0.45; }
+        58%, 78% { stroke-dashoffset: 0; opacity: 1; }
+        94%, 100% { stroke-dashoffset: 0; opacity: 0; }
+      }
+
+      @keyframes startup-copycat-ear-fill {
+        0%, 52%, 100% { opacity: 0; }
+        64%, 78% { opacity: 0.92; }
+        92% { opacity: 0; }
       }
 
       @media (prefers-reduced-motion: reduce) {
-        #startup-splash { transition: none; }
-        #startup-splash .startup-progress::after { animation: none; width: 100%; opacity: 0.55; }
+        #startup-splash,
+        #startup-splash .startup-content { transition: none; }
+        #startup-splash .startup-copycat-outline {
+          animation: none;
+          stroke-dashoffset: 0;
+          opacity: 1;
+        }
+        #startup-splash .startup-copycat-ear {
+          animation: none;
+          opacity: 0.92;
+        }
       }
     </style>
   </head>
@@ -179,16 +212,23 @@
   <body>
     <div id="startup-splash" data-tauri-drag-region aria-live="polite" aria-label="Pasted is starting">
       <div class="startup-content" data-tauri-drag-region>
-        <div class="startup-mark" data-tauri-drag-region aria-hidden="true">
-          <svg viewBox="0 0 32 32" data-tauri-drag-region>
-            <path d="M21 8h2.5A3.5 3.5 0 0 1 27 11.5v14A3.5 3.5 0 0 1 23.5 29h-14A3.5 3.5 0 0 1 6 25.5V23" opacity=".72"></path>
-            <path d="M8.5 6h15A2.5 2.5 0 0 1 26 8.5v15a2.5 2.5 0 0 1-2.5 2.5h-15A2.5 2.5 0 0 1 6 23.5v-15A2.5 2.5 0 0 1 8.5 6Z"></path>
-            <path d="M12 6V4.75A1.75 1.75 0 0 1 13.75 3h4.5A1.75 1.75 0 0 1 20 4.75V6"></path>
-            <path d="M11 14h10M11 19h7"></path>
-          </svg>
+        <div class="startup-lockup" data-tauri-drag-region>
+          <div class="startup-copycat-mask" data-tauri-drag-region aria-hidden="true">
+            <div class="startup-copycat" data-tauri-drag-region>
+              <!-- Exact Head/Ear paths from Pasted-Website/public/copycat/copycat.svg. -->
+              <svg viewBox="200 0 390 330" data-tauri-drag-region>
+                <g transform="matrix(1,0,0,1,-341.923,-160.282)" data-tauri-drag-region>
+                  <path class="startup-copycat-outline" pathLength="1" d="M762.025,620.149C792.044,608.035 843.614,576.749 851.237,451.875C894.917,385.847 905.932,326.914 905.525,294.084C905.384,269.438 829.823,286.574 786.666,321.664C771.878,304.128 721.228,275.201 676.949,275.591C668.951,234.12 653.991,172.808 628.925,167.302C596.322,165.665 547.394,263.912 544.258,306.23C487.41,359.697 383.39,506.226 577.086,579.023" />
+                  <path class="startup-copycat-ear" d="M568.875,301.546C568.519,284.235 606.629,194.829 624.529,197.231C637.313,198.946 648.148,275.414 648.148,275.414C648.148,275.414 610.988,280.491 568.875,301.546Z" />
+                  <g transform="matrix(-0.897657,-0.937758,-0.849026,0.81272,1610.05,720.378)" data-tauri-drag-region>
+                    <path class="startup-copycat-ear" d="M574.828,299.41C579.864,275.433 595.27,222.372 619.789,207.431C629.713,207.255 642.219,275.66 642.219,275.66C642.219,275.66 616.941,278.355 574.828,299.41Z" />
+                  </g>
+                </g>
+              </svg>
+            </div>
+          </div>
+          <div class="startup-name" data-tauri-drag-region>Pasted</div>
         </div>
-        <div class="startup-name" data-tauri-drag-region>Pasted</div>
-        <div class="startup-progress" data-tauri-drag-region aria-hidden="true"></div>
       </div>
     </div>
     <div id="root"></div>

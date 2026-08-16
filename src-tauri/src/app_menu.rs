@@ -88,10 +88,29 @@ fn reveal_main<R: Runtime>(app: &AppHandle<R>) {
     }
 }
 
+fn dispatch_allowed_while_locked(dispatch: &MenuDispatch) -> bool {
+    matches!(
+        dispatch,
+        MenuDispatch::ShowMain
+            | MenuDispatch::CloseMain
+            | MenuDispatch::MinimizeMain
+            | MenuDispatch::ToggleMaximize
+            | MenuDispatch::ToggleFullscreen
+            | MenuDispatch::Quit
+    )
+}
+
 pub fn handle_menu_event(app: &AppHandle, event: MenuEvent) {
     let Some(dispatch) = dispatch_for_id(event.id().as_ref()) else {
         return;
     };
+    if app
+        .try_state::<Arc<crate::app_lock::AppLockState>>()
+        .is_some_and(|state| state.is_locked())
+        && !dispatch_allowed_while_locked(&dispatch)
+    {
+        return;
+    }
 
     match dispatch {
         MenuDispatch::Navigate(route) => {
@@ -148,6 +167,9 @@ fn safe_menu_label(value: &str) -> String {
 
 pub fn install(app: &AppHandle, db: &Arc<DbState>) -> tauri::Result<()> {
     let feature_enabled = |feature| features::is_enabled(db, feature);
+    let unlocked = !app
+        .try_state::<Arc<crate::app_lock::AppLockState>>()
+        .is_some_and(|state| state.is_locked());
     let bins = if feature_enabled(Feature::Bins) {
         db.get_bins().unwrap_or_default()
     } else {
@@ -158,10 +180,41 @@ pub fn install(app: &AppHandle, db: &Arc<DbState>) -> tauri::Result<()> {
         app,
         "file.new_bin",
         "New Bin…",
-        true,
+        unlocked,
         Some("CmdOrCtrl+Shift+N"),
     )?;
-    let settings = MenuItem::with_id(app, "app.settings", "Settings…", true, Some("CmdOrCtrl+,"))?;
+    let settings = MenuItem::with_id(
+        app,
+        "app.settings",
+        "Settings…",
+        unlocked,
+        Some("CmdOrCtrl+,"),
+    )?;
+    let about = MenuItem::with_id(app, "app.about", "About Pasted", unlocked, None::<&str>)?;
+    #[cfg(target_os = "macos")]
+    let quit = MenuItem::with_id(app, "file.quit", "Quit Pasted", true, Some("CmdOrCtrl+Q"))?;
+    let toggle_history = MenuItem::with_id(
+        app,
+        "file.toggle_history",
+        "Pause or Resume History",
+        unlocked,
+        None::<&str>,
+    )?;
+    let toggle_queue = MenuItem::with_id(
+        app,
+        "file.toggle_queue",
+        "Start or Stop Copy Queue",
+        unlocked,
+        None::<&str>,
+    )?;
+    let quick_hud = MenuItem::with_id(app, "window.quick_hud", "HUD", unlocked, None::<&str>)?;
+    let shortcut_settings = MenuItem::with_id(
+        app,
+        "help.shortcut_settings",
+        "Hotkeys…",
+        unlocked,
+        None::<&str>,
+    )?;
     let search = MenuItem::with_id(
         app,
         "view.search",
@@ -189,7 +242,7 @@ pub fn install(app: &AppHandle, db: &Arc<DbState>) -> tauri::Result<()> {
 
     #[cfg(target_os = "macos")]
     let app_menu = SubmenuBuilder::new(app, "Pasted")
-        .text("app.about", "About Pasted")
+        .item(&about)
         .separator()
         .item(&settings)
         .separator()
@@ -199,7 +252,7 @@ pub fn install(app: &AppHandle, db: &Arc<DbState>) -> tauri::Result<()> {
         .hide_others()
         .show_all()
         .separator()
-        .quit()
+        .item(&quit)
         .build()?;
 
     let mut file_builder = SubmenuBuilder::new(app, "File");
@@ -210,9 +263,9 @@ pub fn install(app: &AppHandle, db: &Arc<DbState>) -> tauri::Result<()> {
     {
         file_builder = file_builder.item(&settings).separator();
     }
-    file_builder = file_builder.text("file.toggle_history", "Pause or Resume History");
+    file_builder = file_builder.item(&toggle_history);
     if feature_enabled(Feature::Queue) {
-        file_builder = file_builder.text("file.toggle_queue", "Start or Stop Copy Queue");
+        file_builder = file_builder.item(&toggle_queue);
     }
     #[cfg(target_os = "macos")]
     let file_menu = file_builder.separator().close_window().build()?;
@@ -252,6 +305,7 @@ pub fn install(app: &AppHandle, db: &Arc<DbState>) -> tauri::Result<()> {
     #[cfg(not(target_os = "macos"))]
     let edit_builder = SubmenuBuilder::new(app, "Edit");
     let edit_menu = edit_builder
+        .enabled(unlocked)
         .cut()
         .copy()
         .paste()
@@ -318,7 +372,9 @@ pub fn install(app: &AppHandle, db: &Arc<DbState>) -> tauri::Result<()> {
         tools_builder = tools_builder.text("view.activity", "Activity");
     }
     let tools_menu = tools_builder.build()?;
-    let mut view_builder = SubmenuBuilder::new(app, "View").item(&clips_menu);
+    let mut view_builder = SubmenuBuilder::new(app, "View")
+        .enabled(unlocked)
+        .item(&clips_menu);
     if feature_enabled(Feature::Insights)
         || feature_enabled(Feature::Transformations)
         || feature_enabled(Feature::ActivityLog)
@@ -339,7 +395,7 @@ pub fn install(app: &AppHandle, db: &Arc<DbState>) -> tauri::Result<()> {
     let mut window_builder =
         SubmenuBuilder::new(app, "Window").text("window.show_main", "Show Pasted");
     if feature_enabled(Feature::Hud) {
-        window_builder = window_builder.text("window.quick_hud", "HUD");
+        window_builder = window_builder.item(&quick_hud);
     }
     window_builder = window_builder.separator();
     #[cfg(target_os = "macos")]
@@ -358,6 +414,7 @@ pub fn install(app: &AppHandle, db: &Arc<DbState>) -> tauri::Result<()> {
         .build()?;
 
     let documentation_menu = SubmenuBuilder::new(app, "Documentation")
+        .enabled(unlocked)
         .text("help.getting_started", "Getting Started")
         .text("help.shortcuts", "Shortcuts and HUD")
         .text("help.privacy", "Privacy and Capture")
@@ -370,9 +427,9 @@ pub fn install(app: &AppHandle, db: &Arc<DbState>) -> tauri::Result<()> {
     if feature_enabled(Feature::Help) {
         help_builder = help_builder.item(&documentation_menu).separator();
     }
-    help_builder = help_builder.text("help.shortcut_settings", "Hotkeys…");
+    help_builder = help_builder.item(&shortcut_settings);
     #[cfg(not(target_os = "macos"))]
-    let help_builder = help_builder.separator().text("app.about", "About Pasted");
+    let help_builder = help_builder.separator().item(&about);
     let help_menu = help_builder.build()?;
 
     #[allow(unused_mut)]
@@ -429,5 +486,17 @@ mod tests {
     #[test]
     fn dynamic_labels_cannot_create_mnemonics_or_extra_lines() {
         assert_eq!(safe_menu_label("R&D\nInbox"), "R&&D Inbox");
+    }
+
+    #[test]
+    fn locked_menu_allows_only_window_management_and_quit() {
+        assert!(dispatch_allowed_while_locked(&MenuDispatch::ShowMain));
+        assert!(dispatch_allowed_while_locked(&MenuDispatch::Quit));
+        assert!(!dispatch_allowed_while_locked(&MenuDispatch::Navigate(
+            "settings"
+        )));
+        assert!(!dispatch_allowed_while_locked(
+            &MenuDispatch::FrontendAction("refresh-data")
+        ));
     }
 }

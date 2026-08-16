@@ -40,6 +40,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   enableContentClassification: true,
   enableNotes: true,
   enableNotifications: true,
+  enableAppLock: true,
   enableOcr: true,
   enableTranscriptions: true,
   enablePinning: true,
@@ -55,6 +56,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   hudHotkey: 'Alt+Shift+V',
   seqToggleHotkey: 'Alt+Shift+C',
   seqPopHotkey: 'Alt+Shift+X',
+  lockAppHotkey: 'Alt+Shift+L',
+  unlockAppHotkey: 'Alt+Shift+U',
 };
 
 const DEFAULT_BLACKLIST_APPS: BlacklistApp[] = [
@@ -133,6 +136,7 @@ function parseSavedSettings(saved: Record<string, string>) {
     'enableContentClassification',
     'enableNotes',
     'enableNotifications',
+    'enableAppLock',
     'enableOcr',
     'enableTranscriptions',
     'enablePinning',
@@ -152,6 +156,7 @@ function parseSavedSettings(saved: Record<string, string>) {
   const hotkeyKeys = [
     'hudHotkey', 'seqToggleHotkey', 'seqPopHotkey', 'copyLastPipelineHotkey',
     'pasteLastPipelineHotkey', 'openTransformationsHotkey', 'openMainWindowHotkey',
+    'lockAppHotkey', 'unlockAppHotkey',
     ...Array.from({ length: 9 }, (_, index) => `pasteClip${index + 1}Hotkey`),
   ];
   for (const key of hotkeyKeys) {

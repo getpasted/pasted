@@ -582,6 +582,19 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
 
                 <section className="theme-panel space-y-3 rounded-xl border p-4">
                   <div className="theme-status-success-text flex items-center gap-2 text-xs font-bold">
+                    <Terminal className="h-4 w-4" />
+                    <span>Custom Extractors</span>
+                  </div>
+                  <p className="theme-text-main text-xs leading-relaxed">
+                    A custom command can turn image data or file references into searchable text through the bounded <code>custom-command-v1</code> protocol.
+                  </p>
+                  <p className="theme-text-muted text-xs leading-relaxed">
+                    New custom commands begin disabled. Review the selected executable before enabling automatic processing for matching clips.
+                  </p>
+                </section>
+
+                <section className="theme-panel space-y-3 rounded-xl border p-4">
+                  <div className="theme-status-success-text flex items-center gap-2 text-xs font-bold">
                     <AudioLines className="h-4 w-4" />
                     <span>Audio transcription</span>
                   </div>

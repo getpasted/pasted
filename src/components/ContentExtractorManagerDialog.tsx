@@ -11,6 +11,7 @@ import { RegistryPanelHeader } from './RegistryPanelHeader';
 import { SettingsSwitch } from './SettingsSwitch';
 import { useToast } from './ToastProvider';
 import { useNewItemSelection } from '../hooks/useNewItemSelection';
+import { MenuSelect } from './MenuSelect';
 
 export interface ContentExtractor {
   id: number;
@@ -18,14 +19,29 @@ export interface ContentExtractor {
   name: string;
   description: string;
   engine: string;
+  executablePath: string | null;
   modelPath: string | null;
   inputContract: string;
   outputContract: string;
   enabled: boolean;
   priority: number;
+  revision: number;
   isBuiltin: boolean;
   isAvailable: boolean;
   unavailableReason: string | null;
+  runtime: {
+    method: string;
+    location: string | null;
+    version: string | null;
+    usesAutomaticDiscovery: boolean;
+    dependencies: Array<{
+      name: string;
+      location: string | null;
+      version: string | null;
+      isAvailable: boolean;
+      unavailableReason: string | null;
+    }>;
+  };
   defaults: ExtractorInput | null;
 }
 
@@ -33,6 +49,7 @@ interface ExtractorInput {
   name: string;
   description: string;
   engine: string;
+  executablePath: string | null;
   modelPath: string | null;
   inputContract: string;
   outputContract: string;
@@ -52,12 +69,21 @@ const EXTRACTOR_OUTPUT_OPTIONS = [
 
 const IMAGE_ENGINES = ['macos-vision-v1', 'tesseract-cli-v1'];
 const FILE_ENGINES = ['whisper-cpp-cli-v1'];
+const CUSTOM_COMMAND_ENGINE = 'custom-command-v1';
+
+const EXTRACTOR_METHOD_OPTIONS = [
+  { value: 'macos-vision-v1', label: 'Apple Vision' },
+  { value: 'tesseract-cli-v1', label: 'Tesseract' },
+  { value: 'whisper-cpp-cli-v1', label: 'Whisper.cpp' },
+  { value: CUSTOM_COMMAND_ENGINE, label: 'Custom command' },
+] as const;
 
 function toInput(extractor?: ContentExtractor): ExtractorInput {
   return extractor ? {
     name: extractor.name,
     description: extractor.description,
     engine: extractor.engine,
+    executablePath: extractor.executablePath,
     modelPath: extractor.modelPath,
     inputContract: extractor.inputContract,
     outputContract: extractor.outputContract,
@@ -65,12 +91,13 @@ function toInput(extractor?: ContentExtractor): ExtractorInput {
     priority: extractor.priority,
   } : {
     name: 'Custom Extractor',
-    description: 'Extracts searchable text from images.',
-    engine: 'macos-vision-v1',
+    description: 'Extracts searchable text with a local command.',
+    engine: CUSTOM_COMMAND_ENGINE,
+    executablePath: null,
     modelPath: null,
     inputContract: 'image',
     outputContract: 'searchable_text',
-    enabled: true,
+    enabled: false,
     priority: 100,
   };
 }
@@ -138,7 +165,9 @@ export function ContentExtractorManagerDialog({
   const defaultDraft = selected && defaults ? { ...toInput(selected), ...defaults } : null;
   const differsFromDefaults = defaultDraft !== null && JSON.stringify(draft) !== JSON.stringify(defaultDraft);
   const runtimeConfigurationChanged = selected !== undefined
-    && (draft.engine !== selected.engine || draft.modelPath !== selected.modelPath);
+    && (draft.engine !== selected.engine
+      || draft.executablePath !== selected.executablePath
+      || draft.modelPath !== selected.modelPath);
   const unavailableReason = selected?.unavailableReason ?? 'The configured engine is unavailable.';
   const shortUnavailableReason = unavailableReason.match(/^.*?\.(?:\s|$)/)?.[0].trim()
     ?? unavailableReason;
@@ -206,6 +235,21 @@ export function ContentExtractorManagerDialog({
     setDraft({ ...draft, inputContract, engine, modelPath });
   };
 
+  const changeMethod = (engine: string) => {
+    const inputContract = IMAGE_ENGINES.includes(engine)
+      ? 'image'
+      : FILE_ENGINES.includes(engine)
+        ? 'file_references'
+        : draft.inputContract;
+    setDraft({
+      ...draft,
+      engine,
+      inputContract,
+      executablePath: engine === draft.engine ? draft.executablePath : null,
+      modelPath: engine === 'whisper-cpp-cli-v1' ? draft.modelPath : null,
+    });
+  };
+
   const save = async () => {
     setSaving(true);
     try {
@@ -227,6 +271,15 @@ export function ContentExtractorManagerDialog({
     try {
       const modelPath = await invoke<string | null>('choose_extractor_model_file');
       if (modelPath) setDraft((current) => ({ ...current, modelPath }));
+    } catch (error) {
+      showToast({ tone: 'error', message: String(error) });
+    }
+  };
+
+  const chooseExecutable = async () => {
+    try {
+      const executablePath = await invoke<string | null>('choose_extractor_executable');
+      if (executablePath) setDraft((current) => ({ ...current, executablePath }));
     } catch (error) {
       showToast({ tone: 'error', message: String(error) });
     }
@@ -344,7 +397,7 @@ export function ContentExtractorManagerDialog({
       </AppDialogHeader>
       <AppDialogBody className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-y-auto text-xs @xl:grid-cols-[minmax(0,3fr)_minmax(0,7fr)]">
         <section className="theme-surface flex min-h-[260px] flex-col overflow-hidden rounded-xl border @xl:min-h-0">
-          <RegistryPanelHeader title="Extractors" actions={ocrEnabled ? <AppDialogButton onClick={beginNew} className="h-7 min-h-7 px-2.5"><Plus className="h-3.5 w-3.5" /> New</AppDialogButton> : undefined} />
+          <RegistryPanelHeader title="Extractors" actions={ocrEnabled || transcriptionsEnabled ? <AppDialogButton onClick={beginNew} className="h-7 min-h-7 px-2.5"><Plus className="h-3.5 w-3.5" /> New</AppDialogButton> : undefined} />
           <div className="min-h-0 flex-1 overflow-y-auto p-1.5">
             {visibleExtractors.length === 0 && (
               <p className="theme-text-muted px-3 py-4 text-center text-[10px]">No Extractors are available for enabled functionality.</p>
@@ -433,24 +486,86 @@ export function ContentExtractorManagerDialog({
                 </select>
               </label>
             </div>
-            <label className="block space-y-1">
-              <span className="theme-text-muted font-semibold">Engine</span>
-              <input value={draft.engine} disabled={selected?.isBuiltin} onChange={(event) => setDraft({ ...draft, engine: event.target.value })} className="theme-input ui-field-radius w-full border px-3 py-2 font-mono disabled:opacity-60" />
-            </label>
-            {(draft.engine === 'whisper-cpp-cli-v1' || draft.modelPath !== null) && <label className="block space-y-1">
-              <span className="theme-text-muted font-semibold">Model</span>
-              <span className="flex gap-2">
-                <input value={draft.modelPath ?? ''} onChange={(event) => setDraft({ ...draft, modelPath: event.target.value || null })} placeholder="/path/to/ggml-model.bin" className="theme-input ui-field-radius min-w-0 flex-1 border px-3 py-2 font-mono" />
-                <AppDialogButton type="button" onClick={() => void chooseModel()} title="Choose a local Whisper model file">
-                  <FolderOpen className="h-3.5 w-3.5" /> Choose…
-                </AppDialogButton>
-              </span>
-              <span className="theme-text-muted block text-[10px]">Choose a local whisper.cpp GGML model file. Model downloads are not automatic.</span>
-            </label>}
+            <div className="grid grid-cols-1 gap-3 @md:grid-cols-[180px_minmax(0,1fr)]">
+              <div className="space-y-1">
+                <span className="theme-text-muted block text-[10px] font-semibold">Method</span>
+                <MenuSelect
+                  value={draft.engine}
+                  options={EXTRACTOR_METHOD_OPTIONS.map((option) => ({ ...option }))}
+                  onChange={changeMethod}
+                  label="Extractor method"
+                  disabled={selected?.isBuiltin}
+                  className="w-full"
+                />
+              </div>
+              <label className="space-y-1">
+                <span className="theme-text-muted block text-[10px] font-semibold">Runtime location</span>
+                <span className="flex gap-2">
+                  <input
+                    value={draft.engine === 'macos-vision-v1'
+                      ? 'macOS Vision framework'
+                      : draft.executablePath ?? (selected?.engine === draft.engine ? selected.runtime.location ?? '' : '')}
+                    disabled={draft.engine === 'macos-vision-v1'}
+                    onChange={(event) => setDraft({ ...draft, executablePath: event.target.value || null })}
+                    placeholder={draft.engine === CUSTOM_COMMAND_ENGINE ? '/path/to/executable' : 'Automatic discovery'}
+                    className="theme-input ui-field-radius min-w-0 flex-1 border px-3 py-2 font-mono disabled:opacity-60"
+                  />
+                  {draft.engine !== 'macos-vision-v1' && <AppDialogButton type="button" onClick={() => void chooseExecutable()} title="Choose a local executable">
+                    <FolderOpen className="h-3.5 w-3.5" /> Choose…
+                  </AppDialogButton>}
+                </span>
+                <span className="theme-text-muted block text-[10px]">
+                  {draft.engine === 'macos-vision-v1'
+                    ? 'Provided by macOS.'
+                    : draft.executablePath
+                      ? 'Using the selected executable.'
+                      : draft.engine === CUSTOM_COMMAND_ENGINE
+                        ? 'Choose an executable that supports the custom Extractor protocol.'
+                        : `Discovered automatically${selected?.runtime.location ? ` at ${selected.runtime.location}` : ''}.`}
+                </span>
+                {draft.executablePath && draft.engine !== CUSTOM_COMMAND_ENGINE && <AppDialogButton type="button" onClick={() => setDraft({ ...draft, executablePath: null })}>Use Automatic Discovery</AppDialogButton>}
+              </label>
+            </div>
+            <div className="theme-subtle-surface space-y-3 rounded-xl border p-3">
+              <div>
+                <span className="theme-text-muted block text-[10px] font-semibold">Resources</span>
+                {draft.engine !== 'whisper-cpp-cli-v1' && <span className="theme-text-muted text-[10px]">No additional resources are required.</span>}
+              </div>
+              {draft.engine === 'whisper-cpp-cli-v1' && <label className="block space-y-1">
+                <span className="theme-text-muted font-semibold">Model</span>
+                <span className="flex gap-2">
+                  <input value={draft.modelPath ?? ''} onChange={(event) => setDraft({ ...draft, modelPath: event.target.value || null })} placeholder="/path/to/ggml-model.bin" className="theme-input ui-field-radius min-w-0 flex-1 border px-3 py-2 font-mono" />
+                  <AppDialogButton type="button" onClick={() => void chooseModel()} title="Choose a local Whisper model file">
+                    <FolderOpen className="h-3.5 w-3.5" /> Choose…
+                  </AppDialogButton>
+                </span>
+                <span className="theme-text-muted block text-[10px]">Choose a local whisper.cpp GGML model file. Model downloads are not automatic.</span>
+              </label>}
+              {selected?.engine === draft.engine && selected.runtime.dependencies.map((dependency) => <div key={dependency.name} className="flex min-w-0 items-start justify-between gap-3 text-[10px]">
+                <span className="theme-text-muted font-semibold">{dependency.name}</span>
+                <span className={`${dependency.isAvailable ? 'theme-status-success-text' : 'theme-status-warning-text'} min-w-0 truncate text-right`} title={dependency.unavailableReason ?? dependency.location ?? undefined}>
+                  {dependency.isAvailable ? dependency.version ?? dependency.location ?? 'Available' : dependency.unavailableReason}
+                </span>
+              </div>)}
+            </div>
+            {draft.engine === CUSTOM_COMMAND_ENGINE && <div className="theme-subtle-surface rounded-xl border p-3 text-[10px] leading-relaxed">
+              Saving runs <code>--version</code> without clip content to check the selected executable. Extraction receives <code>--pasted-extract-v1 &lt;request.json&gt;</code> and writes a JSON object containing a string or null <code>text</code> field to standard output. It runs locally with a 60-second limit.
+            </div>}
+            <details className="theme-subtle-surface rounded-xl border p-3 text-[10px]">
+              <summary className="theme-text-muted cursor-pointer font-semibold">Technical details</summary>
+              <dl className="mt-3 grid grid-cols-[110px_minmax(0,1fr)] gap-x-3 gap-y-2">
+                <dt className="theme-text-muted">Stable reference</dt><dd className="truncate font-mono">{selected?.stableRef ?? 'Assigned when saved'}</dd>
+                <dt className="theme-text-muted">Engine contract</dt><dd className="font-mono">{draft.engine}</dd>
+                <dt className="theme-text-muted">Revision</dt><dd>{selected?.revision ?? 1}</dd>
+                <dt className="theme-text-muted">Runtime version</dt><dd>{selected?.runtime.version ?? 'Unavailable'}</dd>
+              </dl>
+              <p className="theme-text-muted mt-3 leading-relaxed">Engine contracts identify the runtime adapter and protocol version and are managed automatically.</p>
+            </details>
             <label className="flex items-center gap-2">
               <input type="checkbox" checked={draft.enabled} onChange={(event) => setDraft({ ...draft, enabled: event.target.checked })} className="theme-checkbox h-4 w-4 rounded" />
               <ModifiedFieldLabel modified={selectedId !== 'new' && draft.enabled !== defaults?.enabled}>Enabled</ModifiedFieldLabel>
             </label>
+            {draft.engine === CUSTOM_COMMAND_ENGINE && draft.enabled && <p className="theme-status-warning rounded-lg border px-3 py-2 text-[10px] leading-relaxed">Enabled custom commands may run automatically for matching clips and receive their image data or file references.</p>}
           </div>
           <RegistryPanelFooter>
             <div>
@@ -458,7 +573,7 @@ export function ContentExtractorManagerDialog({
             </div>
             <div className="flex items-center gap-2">
               <AppDialogButton onClick={cancelDraft} disabled={selectedId !== 'new' && !isDirty}>Cancel</AppDialogButton>
-              <AppDialogButton variant="primary" onClick={() => void save()} disabled={selectedId === null || saving || (selectedId !== 'new' && !isDirty)}><SaveButtonContent isSaving={saving} /></AppDialogButton>
+              <AppDialogButton variant="primary" onClick={() => void save()} disabled={selectedId === null || saving || (draft.engine === CUSTOM_COMMAND_ENGINE && !draft.executablePath) || (selectedId !== 'new' && !isDirty)}><SaveButtonContent isSaving={saving} /></AppDialogButton>
             </div>
           </RegistryPanelFooter>
         </section>

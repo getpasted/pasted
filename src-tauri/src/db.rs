@@ -2365,11 +2365,15 @@ impl DbState {
                 name TEXT NOT NULL,
                 description TEXT NOT NULL DEFAULT '',
                 engine TEXT NOT NULL,
+                executable_path TEXT,
                 model_path TEXT,
                 input_contract TEXT NOT NULL,
                 output_contract TEXT NOT NULL,
                 enabled INTEGER NOT NULL DEFAULT 1,
                 priority INTEGER NOT NULL DEFAULT 100,
+                revision INTEGER NOT NULL DEFAULT 1,
+                shipped_revision INTEGER,
+                shipped_definition_json TEXT,
                 is_builtin INTEGER NOT NULL DEFAULT 0,
                 is_deleted INTEGER NOT NULL DEFAULT 0,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -2381,6 +2385,30 @@ impl DbState {
         if !column_exists(&conn, "content_extractors", "model_path")? {
             conn.execute(
                 "ALTER TABLE content_extractors ADD COLUMN model_path TEXT",
+                [],
+            )?;
+        }
+        if !column_exists(&conn, "content_extractors", "executable_path")? {
+            conn.execute(
+                "ALTER TABLE content_extractors ADD COLUMN executable_path TEXT",
+                [],
+            )?;
+        }
+        if !column_exists(&conn, "content_extractors", "revision")? {
+            conn.execute(
+                "ALTER TABLE content_extractors ADD COLUMN revision INTEGER NOT NULL DEFAULT 1",
+                [],
+            )?;
+        }
+        if !column_exists(&conn, "content_extractors", "shipped_revision")? {
+            conn.execute(
+                "ALTER TABLE content_extractors ADD COLUMN shipped_revision INTEGER",
+                [],
+            )?;
+        }
+        if !column_exists(&conn, "content_extractors", "shipped_definition_json")? {
+            conn.execute(
+                "ALTER TABLE content_extractors ADD COLUMN shipped_definition_json TEXT",
                 [],
             )?;
         }
@@ -2413,20 +2441,98 @@ impl DbState {
         for preset in crate::content_extraction::EXTRACTOR_PRESETS {
             conn.execute(
                 "INSERT OR IGNORE INTO content_extractors
-                    (stable_ref, name, description, engine, model_path, input_contract, output_contract,
-                     enabled, priority, is_builtin)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 1, ?8, 1)",
+                    (stable_ref, name, description, engine, executable_path, model_path,
+                     input_contract, output_contract, enabled, priority, revision,
+                     shipped_revision, shipped_definition_json, is_builtin)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 1, ?9, 1, ?10, ?11, 1)",
                 params![
                     preset.stable_ref,
                     preset.name,
                     preset.description,
                     preset.engine,
+                    preset.executable_path,
                     preset.model_path,
                     preset.input_contract,
                     preset.output_contract,
-                    preset.priority
+                    preset.priority,
+                    preset.revision,
+                    serde_json::to_string(&preset.definition()).map_err(|error| {
+                        rusqlite::Error::ToSqlConversionFailure(Box::new(error))
+                    })?
                 ],
             )?;
+            conn.execute(
+                "UPDATE content_extractors
+                 SET shipped_revision = COALESCE(shipped_revision, ?1),
+                     shipped_definition_json = COALESCE(shipped_definition_json, ?2)
+                 WHERE stable_ref = ?3 AND is_builtin = 1",
+                params![
+                    preset.revision,
+                    serde_json::to_string(&preset.definition()).map_err(|error| {
+                        rusqlite::Error::ToSqlConversionFailure(Box::new(error))
+                    })?,
+                    preset.stable_ref,
+                ],
+            )?;
+            let shipped = conn.query_row(
+                "SELECT shipped_revision, shipped_definition_json,
+                        name, description, engine, executable_path, model_path,
+                        input_contract, output_contract, enabled, priority
+                 FROM content_extractors WHERE stable_ref = ?1 AND is_builtin = 1",
+                params![preset.stable_ref],
+                |row| {
+                    Ok((
+                        row.get::<_, i64>(0)?,
+                        row.get::<_, String>(1)?,
+                        crate::content_extraction::ExtractorDefinitionInput {
+                            name: row.get(2)?,
+                            description: row.get(3)?,
+                            engine: row.get(4)?,
+                            executable_path: row.get(5)?,
+                            model_path: row.get(6)?,
+                            input_contract: row.get(7)?,
+                            output_contract: row.get(8)?,
+                            enabled: row.get(9)?,
+                            priority: row.get(10)?,
+                        },
+                    ))
+                },
+            )?;
+            if shipped.0 < preset.revision {
+                let previous = serde_json::from_str::<
+                    crate::content_extraction::ExtractorDefinitionInput,
+                >(&shipped.1)
+                .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?;
+                let next = preset.definition();
+                let effective = crate::content_extraction::merge_shipped_definition(
+                    &shipped.2, &previous, &next,
+                );
+                conn.execute(
+                    "UPDATE content_extractors
+                     SET name = ?1, description = ?2, engine = ?3, executable_path = ?4,
+                         model_path = ?5, input_contract = ?6, output_contract = ?7,
+                         enabled = ?8, priority = ?9, revision = revision + 1,
+                         shipped_revision = ?10, shipped_definition_json = ?11,
+                         updated_at = CURRENT_TIMESTAMP
+                     WHERE stable_ref = ?12 AND is_builtin = 1",
+                    params![
+                        effective.name,
+                        effective.description,
+                        effective.engine,
+                        effective.executable_path,
+                        effective.model_path,
+                        effective.input_contract,
+                        effective.output_contract,
+                        effective.enabled,
+                        effective.priority,
+                        preset.revision,
+                        serde_json::to_string(&next).map_err(|error| {
+                            rusqlite::Error::ToSqlConversionFailure(Box::new(error))
+                        })?,
+                        preset.stable_ref,
+                    ],
+                )?;
+            }
         }
         let legacy_type_ids = {
             let mut statement = conn.prepare(
@@ -2841,18 +2947,24 @@ impl DbState {
         for preset in crate::content_extraction::EXTRACTOR_PRESETS {
             transaction.execute(
                 "INSERT INTO content_extractors
-                    (stable_ref, name, description, engine, model_path, input_contract, output_contract,
-                     enabled, priority, is_builtin)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 1, ?8, 1)",
+                    (stable_ref, name, description, engine, executable_path, model_path,
+                     input_contract, output_contract, enabled, priority, revision,
+                     shipped_revision, shipped_definition_json, is_builtin)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 1, ?9, 1, ?10, ?11, 1)",
                 params![
                     preset.stable_ref,
                     preset.name,
                     preset.description,
                     preset.engine,
+                    preset.executable_path,
                     preset.model_path,
                     preset.input_contract,
                     preset.output_contract,
-                    preset.priority
+                    preset.priority,
+                    preset.revision,
+                    serde_json::to_string(&preset.definition()).map_err(|error| {
+                        rusqlite::Error::ToSqlConversionFailure(Box::new(error))
+                    })?
                 ],
             )?;
         }
@@ -10001,39 +10113,43 @@ impl DbState {
     pub fn get_content_extractors(&self) -> Result<Vec<crate::content_extraction::Extractor>> {
         let conn = self.conn.lock();
         let mut statement = conn.prepare(
-            "SELECT id, stable_ref, name, description, engine, model_path, input_contract,
-                    output_contract, enabled, priority, is_builtin
+            "SELECT id, stable_ref, name, description, engine, executable_path, model_path,
+                    input_contract, output_contract, enabled, priority, revision, is_builtin
              FROM content_extractors WHERE is_deleted = 0 ORDER BY priority, id",
         )?;
         let rows = statement.query_map([], |row| {
             let stable_ref = row.get::<_, String>(1)?;
             let engine = row.get::<_, String>(4)?;
-            let model_path = row.get::<_, Option<String>>(5)?;
+            let executable_path = row.get::<_, Option<String>>(5)?;
+            let model_path = row.get::<_, Option<String>>(6)?;
             let preset = crate::content_extraction::EXTRACTOR_PRESETS
                 .iter()
                 .find(|preset| preset.stable_ref == stable_ref);
-            let availability =
-                crate::content_extraction::engine_availability_for(&engine, model_path.as_deref());
+            let availability = crate::content_extraction::engine_availability_for(
+                &engine,
+                executable_path.as_deref(),
+                model_path.as_deref(),
+            );
+            let runtime =
+                crate::content_extraction::runtime_status_for(&engine, executable_path.as_deref());
             Ok(crate::content_extraction::Extractor {
                 id: row.get(0)?,
                 stable_ref,
                 name: row.get(2)?,
                 description: row.get(3)?,
                 engine,
+                executable_path,
                 model_path,
-                input_contract: row.get(6)?,
-                output_contract: row.get(7)?,
-                enabled: row.get(8)?,
-                priority: row.get(9)?,
-                is_builtin: row.get(10)?,
+                input_contract: row.get(7)?,
+                output_contract: row.get(8)?,
+                enabled: row.get(9)?,
+                priority: row.get(10)?,
+                revision: row.get(11)?,
+                is_builtin: row.get(12)?,
                 is_available: availability.is_available,
                 unavailable_reason: availability.unavailable_reason,
-                defaults: preset.map(|preset| crate::content_extraction::ExtractorInput {
-                    name: preset.name.to_string(),
-                    description: preset.description.to_string(),
-                    enabled: true,
-                    priority: preset.priority,
-                }),
+                runtime,
+                defaults: preset.map(crate::content_extraction::ExtractorPreset::definition),
             })
         })?;
         rows.collect()
@@ -10073,13 +10189,14 @@ impl DbState {
         }
         conn.execute(
             "INSERT INTO content_extractors
-                (stable_ref, name, description, engine, model_path, input_contract, output_contract,
-                 enabled, priority, is_builtin)
-             VALUES ('pending', ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 0)",
+                (stable_ref, name, description, engine, executable_path, model_path,
+                 input_contract, output_contract, enabled, priority, revision, is_builtin)
+             VALUES ('pending', ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 1, 0)",
             params![
                 input.name.trim(),
                 input.description.trim(),
                 input.engine.trim(),
+                input.executable_path.as_deref().map(str::trim),
                 input.model_path.as_deref().map(str::trim),
                 input.input_contract,
                 input.output_contract,
@@ -10125,13 +10242,15 @@ impl DbState {
         let conn = self.conn.lock();
         let changed = conn.execute(
             "UPDATE content_extractors SET name = ?1, description = ?2, engine = ?3,
-                    model_path = ?4, input_contract = ?5, output_contract = ?6, enabled = ?7,
-                    priority = ?8, updated_at = CURRENT_TIMESTAMP
-             WHERE id = ?9 AND is_deleted = 0",
+                    executable_path = ?4, model_path = ?5, input_contract = ?6,
+                    output_contract = ?7, enabled = ?8, priority = ?9,
+                    revision = revision + 1, updated_at = CURRENT_TIMESTAMP
+             WHERE id = ?10 AND is_deleted = 0",
             params![
                 input.name.trim(),
                 input.description.trim(),
                 input.engine.trim(),
+                input.executable_path.as_deref().map(str::trim),
                 input.model_path.as_deref().map(str::trim),
                 input.input_contract,
                 input.output_contract,
@@ -10167,6 +10286,7 @@ impl DbState {
                 .unwrap_or_else(|| format!("{} Copy", source.name)),
             description: source.description,
             engine: source.engine,
+            executable_path: source.executable_path,
             model_path: source.model_path,
             input_contract: source.input_contract,
             output_contract: source.output_contract,
@@ -10217,7 +10337,7 @@ impl DbState {
             .ok_or(rusqlite::Error::QueryReturnedNoRows)?;
         let changed = conn.execute(
             "UPDATE content_extractors SET name = ?1, description = ?2, enabled = ?3,
-                    priority = ?4, updated_at = CURRENT_TIMESTAMP
+                    priority = ?4, revision = revision + 1, updated_at = CURRENT_TIMESTAMP
              WHERE id = ?5 AND is_deleted = 0",
             params![
                 input.name.trim(),
@@ -10251,24 +10371,33 @@ impl DbState {
         for preset in crate::content_extraction::EXTRACTOR_PRESETS {
             conn.execute(
                 "INSERT INTO content_extractors
-                    (stable_ref, name, description, engine, model_path, input_contract, output_contract,
-                     enabled, priority, is_builtin, is_deleted)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 1, ?8, 1, 0)
+                    (stable_ref, name, description, engine, executable_path, model_path,
+                     input_contract, output_contract, enabled, priority, revision,
+                     shipped_revision, shipped_definition_json, is_builtin, is_deleted)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 1, ?9, 1, ?10, ?11, 1, 0)
                  ON CONFLICT(stable_ref) DO UPDATE SET
                     name = excluded.name, description = excluded.description,
-                    engine = excluded.engine, input_contract = excluded.input_contract,
+                    engine = excluded.engine, executable_path = excluded.executable_path,
+                    model_path = excluded.model_path, input_contract = excluded.input_contract,
                     output_contract = excluded.output_contract, enabled = 1,
-                    priority = excluded.priority, is_deleted = 0,
+                    priority = excluded.priority, revision = content_extractors.revision + 1,
+                    shipped_revision = excluded.shipped_revision,
+                    shipped_definition_json = excluded.shipped_definition_json, is_deleted = 0,
                     updated_at = CURRENT_TIMESTAMP",
                 params![
                     preset.stable_ref,
                     preset.name,
                     preset.description,
                     preset.engine,
+                    preset.executable_path,
                     preset.model_path,
                     preset.input_contract,
                     preset.output_contract,
-                    preset.priority
+                    preset.priority,
+                    preset.revision,
+                    serde_json::to_string(&preset.definition()).map_err(|error| {
+                        rusqlite::Error::ToSqlConversionFailure(Box::new(error))
+                    })?
                 ],
             )?;
         }
@@ -10854,6 +10983,7 @@ mod tests {
                 name: whisper.name.clone(),
                 description: whisper.description.clone(),
                 engine: whisper.engine.clone(),
+                executable_path: whisper.executable_path.clone(),
                 model_path: Some("/tmp/pasted-missing-whisper-model.bin".into()),
                 input_contract: whisper.input_contract.clone(),
                 output_contract: whisper.output_contract.clone(),
@@ -10868,6 +10998,7 @@ mod tests {
             Some("/tmp/pasted-missing-whisper-model.bin")
         );
         assert!(!configured_whisper.is_available);
+        assert_eq!(configured_whisper.revision, whisper.revision + 1);
 
         db.update_content_extractor(
             apple.id,
@@ -10908,6 +11039,7 @@ mod tests {
                 name: "Project OCR".into(),
                 description: "Extracts project screenshots".into(),
                 engine: crate::content_extraction::APPLE_VISION_ENGINE.into(),
+                executable_path: None,
                 model_path: None,
                 input_contract: "image".into(),
                 output_contract: "searchable_text".into(),
@@ -10924,12 +11056,14 @@ mod tests {
             .duplicate_content_extractor(&custom.stable_ref, Some("Project OCR Copy"))
             .unwrap();
         assert_eq!(duplicate.priority, 81);
+        assert_eq!(duplicate.revision, 1);
         db.update_content_extractor_definition(
             duplicate.id,
             &crate::content_extraction::ExtractorDefinitionInput {
                 name: "Project OCR Revised".into(),
                 description: duplicate.description.clone(),
                 engine: duplicate.engine.clone(),
+                executable_path: duplicate.executable_path.clone(),
                 model_path: duplicate.model_path.clone(),
                 input_contract: duplicate.input_contract.clone(),
                 output_contract: duplicate.output_contract.clone(),
@@ -10950,12 +11084,13 @@ mod tests {
         assert_eq!(restored.name, "Apple Vision OCR");
         assert!(restored.enabled);
         assert_eq!(restored.priority, 10);
+        assert!(restored.revision > updated.revision);
         assert_eq!(
             db.get_content_extractor(crate::content_extraction::WHISPER_TRANSCRIPTION_REF)
                 .unwrap()
                 .model_path
                 .as_deref(),
-            Some("/tmp/pasted-missing-whisper-model.bin")
+            None
         );
         assert!(restored_extractors.iter().any(|extractor| {
             extractor.stable_ref == duplicate.stable_ref
@@ -10976,6 +11111,7 @@ mod tests {
                 name: extractor.name.clone(),
                 description: extractor.description.clone(),
                 engine: extractor.engine.clone(),
+                executable_path: extractor.executable_path.clone(),
                 model_path: extractor.model_path.clone(),
                 input_contract: extractor.input_contract.clone(),
                 output_contract: extractor.output_contract.clone(),

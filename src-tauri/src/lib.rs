@@ -1,6 +1,7 @@
 pub mod analysis_contract;
 pub mod analysis_execution;
 mod app_exclusions;
+pub mod app_lock;
 mod app_menu;
 pub mod bin_assignment;
 pub mod classification_execution;
@@ -57,6 +58,9 @@ use tauri::{
 use tauri_plugin_window_state::{StateFlags, WindowExt};
 
 static EXIT_REQUESTED: AtomicBool = AtomicBool::new(false);
+static MAIN_PAGE_LOADED: AtomicBool = AtomicBool::new(false);
+static STARTUP_SETUP_READY: AtomicBool = AtomicBool::new(false);
+static MAIN_WINDOW_REVEALED: AtomicBool = AtomicBool::new(false);
 
 const DEFAULT_TRAY_ICON_STYLE: &str = "clipboard";
 const COPYCAT_TRAY_ICON_STYLE: &str = "copycat";
@@ -148,13 +152,42 @@ fn main_window_state_flags() -> StateFlags {
     StateFlags::SIZE | StateFlags::POSITION | StateFlags::MAXIMIZED | StateFlags::FULLSCREEN
 }
 
+fn reveal_main_window_when_ready(app: &tauri::AppHandle) {
+    if !MAIN_PAGE_LOADED.load(Ordering::Acquire)
+        || !STARTUP_SETUP_READY.load(Ordering::Acquire)
+        || MAIN_WINDOW_REVEALED.swap(true, Ordering::AcqRel)
+    {
+        return;
+    }
+
+    let startup_args = std::env::args().collect::<Vec<_>>();
+    if live_app::request_from_args(&startup_args).is_some() {
+        return;
+    }
+    let is_autostart = startup_args
+        .iter()
+        .any(|argument| argument == "--autostart");
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.eval(
+            "document.getElementById('startup-splash')?.getAnimations({ subtree: true }).forEach((animation) => { animation.currentTime = 0; });",
+        );
+        if let Err(error) = window.show() {
+            eprintln!("Could not show the main window during startup: {error}");
+        } else if !is_autostart {
+            if let Err(error) = window.set_focus() {
+                eprintln!("Could not focus the main window during startup: {error}");
+            }
+        }
+    }
+}
+
 #[cfg(target_os = "macos")]
 fn setup_window_vibrancy(window: &tauri::WebviewWindow) {
     use window_vibrancy::{apply_vibrancy, NSVisualEffectMaterial, NSVisualEffectState};
     let _ = apply_vibrancy(
         window,
         NSVisualEffectMaterial::UnderWindowBackground,
-        Some(NSVisualEffectState::FollowsWindowActiveState),
+        Some(NSVisualEffectState::Active),
         Some(12.0),
     );
 }
@@ -249,6 +282,14 @@ pub fn run() {
             tauri_plugin_autostart::MacosLauncher::AppleScript,
             Some(vec!["--autostart"]),
         ))
+        .on_page_load(|webview, payload| {
+            if webview.label() == "main"
+                && payload.event() == tauri::webview::PageLoadEvent::Finished
+            {
+                MAIN_PAGE_LOADED.store(true, Ordering::Release);
+                reveal_main_window_when_ready(webview.app_handle());
+            }
+        })
         .setup(|app| {
             let startup_args = std::env::args().collect::<Vec<_>>();
             let is_autostart = startup_args
@@ -261,10 +302,9 @@ pub fn run() {
                 eprintln!("Could not apply the initial native Linux menu theme: {error}");
             }
 
-            // Restore while hidden, then reveal the main window. Automatic restore
-            // is skipped for this window so a later webview-ready event cannot move
-            // an already-visible window. Visibility itself is intentionally not
-            // persisted because Pasted is commonly hidden from its tray lifecycle.
+            // Restore and configure the native window while it remains hidden.
+            // The page-load hook reveals it only after both native setup and the
+            // startup splash are ready to paint.
             if let Some(main_win) = app.get_webview_window("main") {
                 let _ = main_win.restore_state(main_window_state_flags());
                 // Window-state restoration dispatches native geometry updates to
@@ -276,15 +316,6 @@ pub fn run() {
                 #[cfg(target_os = "macos")]
                 {
                     setup_window_vibrancy(&main_win);
-                }
-                if live_request.is_some() {
-                    let _ = main_win.hide();
-                } else if let Err(error) = main_win.show() {
-                    eprintln!("Could not show the main window during startup: {error}");
-                } else if !is_autostart {
-                    if let Err(error) = main_win.set_focus() {
-                        eprintln!("Could not focus the main window during startup: {error}");
-                    }
                 }
             }
 
@@ -310,6 +341,7 @@ pub fn run() {
             paste_target_state.start_tracking();
 
             app.manage(db_state.clone());
+            app.manage(Arc::new(app_lock::AppLockState::from_db(&db_state)));
             app.manage(seq_state.clone());
             app.manage(paste_target_state);
 
@@ -390,9 +422,21 @@ pub fn run() {
                         }
                     }
                     "hud_toggle" => {
+                        if app
+                            .try_state::<Arc<app_lock::AppLockState>>()
+                            .is_some_and(|state| state.is_locked())
+                        {
+                            return;
+                        }
                         let _ = commands::toggle_hud_window(app.clone());
                     }
                     "seq_toggle" => {
+                        if app
+                            .try_state::<Arc<app_lock::AppLockState>>()
+                            .is_some_and(|state| state.is_locked())
+                        {
+                            return;
+                        }
                         let db = app.state::<Arc<db::DbState>>();
                         if !features::is_enabled(&db, features::Feature::Queue) {
                             return;
@@ -429,6 +473,9 @@ pub fn run() {
                 })
                 .build(app)?;
 
+            STARTUP_SETUP_READY.store(true, Ordering::Release);
+            reveal_main_window_when_ready(app.handle());
+
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -458,6 +505,7 @@ pub fn run() {
             commands::get_content_extractors,
             commands::get_content_inspectors,
             commands::choose_extractor_model_file,
+            commands::choose_extractor_executable,
             commands::create_content_extractor,
             commands::update_content_extractor_definition,
             commands::duplicate_content_extractor,
@@ -484,10 +532,21 @@ pub fn run() {
             commands::rescan_content_classification_history,
             commands::test_content_classifier,
             commands::play_system_sound,
+            commands::quit_app,
             commands::get_clip_collection_summary,
             commands::save_app_setting,
             commands::save_app_settings,
             commands::get_all_app_settings,
+            commands::get_app_lock_status,
+            commands::configure_app_lock,
+            commands::disable_app_lock,
+            commands::lock_app,
+            commands::unlock_app,
+            commands::set_app_lock_system_auth,
+            commands::set_app_lock_apple_watch,
+            commands::set_app_lock_idle_minutes,
+            commands::set_app_lock_lock_on_sleep,
+            commands::set_app_lock_capture_while_locked,
             commands::set_linux_native_menu_theme,
             commands::set_overlay_cursor,
             commands::enforce_clip_retention,
@@ -601,8 +660,33 @@ pub fn run() {
             commands::request_accessibility_permission,
             commands::perform_titlebar_double_click
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running Pasted application");
+        .build(tauri::generate_context!())
+        .expect("error while building Pasted application")
+        .run(|app, event| {
+            if matches!(event, tauri::RunEvent::Resumed) {
+                let db = app.state::<Arc<db::DbState>>();
+                let state = app.state::<Arc<app_lock::AppLockState>>();
+                let enabled = db
+                    .get_setting(app_lock::ENABLED_SETTING)
+                    .ok()
+                    .flatten()
+                    .as_deref()
+                    == Some("true");
+                let lock_on_sleep = db
+                    .get_setting(app_lock::LOCK_ON_SLEEP_SETTING)
+                    .ok()
+                    .flatten()
+                    .as_deref()
+                    != Some("false");
+                if features::is_enabled(&db, features::Feature::AppLock) && enabled && lock_on_sleep
+                {
+                    state.lock();
+                    let _ = app_menu::install(app, &db);
+                    let status = app_lock::status(&db, &state);
+                    let _ = app.emit("app-lock-changed", status);
+                }
+            }
+        });
 }
 
 #[cfg(test)]

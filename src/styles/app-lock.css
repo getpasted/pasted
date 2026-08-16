@@ -1,0 +1,117 @@
+.app-lock-screen {
+  background-color: var(--bg-app);
+  backface-visibility: hidden;
+  contain: paint;
+  will-change: opacity, transform;
+}
+
+.app-lock-screen.is-unlocking {
+  pointer-events: none;
+  animation: app-lock-screen-exit 520ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.app-unlock-content {
+  animation: app-unlock-content-enter 520ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  transform-origin: 50% 50%;
+  will-change: opacity, transform;
+}
+
+.app-lock-mark {
+  transform-origin: 50% 60%;
+}
+
+.app-lock-auth-group {
+  align-self: stretch;
+}
+
+.app-lock-auth-button.app-dialog-button {
+  width: 2.75rem;
+  height: 100%;
+  min-height: 0;
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.app-lock-auth-group .app-lock-auth-button + .app-lock-auth-button {
+  margin-left: -1px;
+}
+
+.app-lock-auth-group .app-lock-auth-button:not(:only-child):first-child {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.app-lock-auth-group .app-lock-auth-button:not(:only-child):last-child {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.app-lock-auth-button .app-lock-fingerprint-icon {
+  width: 1rem;
+  height: 1rem;
+}
+
+.app-lock-auth-button .app-lock-watch-icon {
+  width: 1.125rem;
+  height: 1.125rem;
+  stroke-width: 2;
+}
+
+.app-lock-mark.is-authenticating {
+  animation: app-lock-key-turn 520ms cubic-bezier(0.34, 1.56, 0.64, 1) 2 alternate;
+}
+
+.app-lock-mark.is-authenticating svg {
+  animation: app-lock-key-breathe 520ms ease-in-out 2 alternate;
+}
+
+@keyframes app-lock-key-turn {
+  from { transform: rotate(-4deg) scale(0.98); }
+  to { transform: rotate(5deg) scale(1.06); }
+}
+
+@keyframes app-lock-key-breathe {
+  from { transform: scale(0.94); }
+  to { transform: scale(1.08); }
+}
+
+@keyframes app-lock-screen-exit {
+  0% { opacity: 1; transform: translateZ(0) scale(1); }
+  18% { opacity: 1; transform: translateZ(0) scale(0.985); }
+  100% { opacity: 0; transform: translateZ(0) scale(1.07); }
+}
+
+@keyframes app-unlock-content-enter {
+  from { opacity: 0.18; transform: translateZ(0) scale(0.975); }
+  to { opacity: 1; transform: translateZ(0) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-lock-screen.is-unlocking,
+  .app-unlock-content {
+    animation-duration: 180ms;
+  }
+
+  .app-lock-screen.is-unlocking {
+    animation-name: app-lock-reduced-fade;
+  }
+
+  .app-unlock-content {
+    animation-name: app-unlock-reduced-enter;
+  }
+
+  .app-lock-mark.is-authenticating,
+  .app-lock-mark.is-authenticating svg {
+    animation: none;
+  }
+}
+
+@keyframes app-lock-reduced-fade {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes app-unlock-reduced-enter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}

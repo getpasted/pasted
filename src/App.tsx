@@ -34,6 +34,7 @@ import { getClipViewPolicy } from './utils/clipViewPolicy';
 import { getClipCollection, type ClipDropAction } from './utils/clipCollections';
 import { sortClipsForTimeline } from './utils/clipOrder';
 import { useAppData } from './hooks/useAppData';
+import { dismissStartupSplash } from './utils/startupSplash';
 import { useClipActions } from './hooks/useClipActions';
 import { Clipboard, Trash2, Pause, Disc, Square, Pin, Search, X } from 'lucide-react';
 import { enabledFeatureRecord, featureForRoute } from './utils/features';
@@ -186,20 +187,17 @@ export default function App() {
     }
     if (!settingsHydrated || !initialDataLoaded) return;
 
-    let removeTimer: ReturnType<typeof setTimeout> | undefined;
-    let secondFrame = 0;
-    const firstFrame = requestAnimationFrame(() => {
-      secondFrame = requestAnimationFrame(() => {
-        splash.classList.add('is-ready');
-        removeTimer = setTimeout(() => splash.remove(), 160);
-      });
-    });
-    return () => {
-      cancelAnimationFrame(firstFrame);
-      if (secondFrame) cancelAnimationFrame(secondFrame);
-      if (removeTimer) clearTimeout(removeTimer);
-    };
+    return dismissStartupSplash(splash);
   }, [initialDataLoaded, isHudView, settingsHydrated]);
+
+  useEffect(() => {
+    if (!settingsHydrated || !initialDataLoaded) return undefined;
+    document.documentElement.dataset.pastedContentReady = 'true';
+    window.dispatchEvent(new Event('pasted-app-content-ready'));
+    return () => {
+      delete document.documentElement.dataset.pastedContentReady;
+    };
+  }, [initialDataLoaded, settingsHydrated]);
 
   const [selectedClip, setSelectedClip] = useState<ClipItem | null>(null);
   const [selectedClipIds, setSelectedClipIds] = useState<Set<number>>(new Set());
@@ -252,7 +250,7 @@ export default function App() {
     if (requiredFeature && !enabledFeatures[requiredFeature]) route = 'all';
     const [tab, detail] = route.split(':', 2);
     const key = ++navigationSerialRef.current;
-    if (tab === 'settings' && ['general', 'functionality', 'hotkeys', 'notifications', 'app-exclusions', 'storage', 'analysis', 'intelligence', 'about'].includes(detail)) {
+    if (tab === 'settings' && ['general', 'functionality', 'hotkeys', 'notifications', 'security', 'app-exclusions', 'storage', 'analysis', 'intelligence', 'about'].includes(detail)) {
       setSettingsNavigation({ tab: detail as SettingsTab, key });
     } else if (tab === 'help' && ['getting-started', 'shortcuts-hud', 'privacy-capture', 'deletion-recovery', 'analysis', 'transformations', 'cli'].includes(detail)) {
       setHelpNavigation({ topic: detail as HelpTopic, key });

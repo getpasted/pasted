@@ -33,6 +33,8 @@ Capture establishes three distinct axes. Every clip has one structural Clip Type
 
 The shared registry models applicability as typed edges. Every Analyzer item exposes a `participantContract` containing accepted and produced representations. Its `typeRelations` identify direct edges: `accepts` currently uses the legacy `image` and `file` registry IDs to describe Clip Type applicability, while `classifies_as` connects each Classifier to the semantic Content Type it produces. GUI and CLI consumers can visualize participant → representation → classification relationships without interpreting display names or engine IDs. This legacy wire naming is frozen for the version 1 contract; user-facing surfaces must keep Clip Type and Content Type distinct.
 
+Extractor definitions use one runtime configuration contract across shipped and custom entries. A definition records its versioned engine contract, optional executable override, resources, input and output representations, scheduling state, and revision. Runtime status resolves automatic discovery into a visible location and detected version. Shipped definitions carry a versioned baseline so upgrades can change untouched defaults while preserving field-level user overrides; Reset targets the current release baseline. Custom commands use `custom-command-v1`, direct process invocation, a private JSON request workspace, bounded JSON output, and no shell interpolation.
+
 ## Adding an Inspector or Suggestion participant
 
 1. Add a typed `RepresentationKind` and bounded `AnalysisContext` field only when the participant has a concrete new input or output. Reuse an existing representation when its semantics match exactly.

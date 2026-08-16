@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 
 const sharedMenu = fs.readFileSync('src/components/AnchoredMenu.tsx', 'utf8');
+const nativeMenu = fs.readFileSync('src-tauri/src/app_menu.rs', 'utf8');
 const floatingMenus = [
   'src/components/BinModal.tsx',
   'src/components/BinContextMenu.tsx',
@@ -45,6 +46,12 @@ if (!sharedMenu.includes('onWheelCapture') || !sharedMenu.includes('onScroll')) 
 }
 if (!fs.readFileSync('src/components/ContextMenu.tsx', 'utf8').includes('MenuSubmenu')) {
   failures.push('Clip context submenus do not use the shared hover-corridor implementation');
+}
+if (!nativeMenu.includes('"file.quit", "Quit Pasted", true, Some("CmdOrCtrl+Q")')) {
+  failures.push('The macOS application menu must use the product name for Quit Pasted');
+}
+if (nativeMenu.includes('.quit()')) {
+  failures.push('The generated macOS quit item must not expose the development binary name');
 }
 
 if (failures.length > 0) {

@@ -13,6 +13,7 @@ Notable user-facing changes to Pasted are recorded here. The project follows sem
 - renamed Activity clearing consistently across the GUI and CLI, and tightened Insights language to its active-library scope.
 - unified Capture, Inspectors, Extractors, Classifiers, and Suggestions under one bounded Analysis lifecycle with matching GUI, CLI, and versioned JSON contracts.
 - added Tesseract OCR, ffprobe and MediaInfo inspection, and whisper.cpp transcription with explicit local dependency and model configuration.
+- made Extractor runtimes visible and configurable, added revisioned shipped defaults, and introduced bounded local custom-command Extractors with GUI and CLI parity.
 - separated structural Clip Type, referenced File Format, and semantic Content Type throughout Analysis, Insights, Functionality, Help, and documentation.
 - aligned Reset, Content Type, Insights, and Help navigation language across dialogs, native menus, CLI messages, and architecture documentation.
 - made App Exclusions enforce independent text, image, file, and hotkey rules, with reliable focused-app identity on macOS, Windows, and X11.

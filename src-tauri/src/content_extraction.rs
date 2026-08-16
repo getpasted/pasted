@@ -1,3 +1,4 @@
+use base64::Engine as _;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
@@ -16,6 +17,7 @@ pub const TESSERACT_OCR_REF: &str = "extractor:tesseract-ocr";
 pub const TESSERACT_ENGINE: &str = "tesseract-cli-v1";
 pub const WHISPER_TRANSCRIPTION_REF: &str = "extractor:whisper-transcription";
 pub const WHISPER_CPP_ENGINE: &str = "whisper-cpp-cli-v1";
+pub const CUSTOM_COMMAND_ENGINE: &str = "custom-command-v1";
 
 const TESSERACT_TIMEOUT: Duration = Duration::from_secs(15);
 const WHISPER_TIMEOUT: Duration = Duration::from_secs(5 * 60);
@@ -48,7 +50,22 @@ pub trait ExtractorEngine: Sync {
     fn availability_with_model(&self, _model_path: Option<&Path>) -> EngineAvailability {
         self.availability()
     }
+    fn availability_with_configuration(
+        &self,
+        _executable_path: Option<&Path>,
+        model_path: Option<&Path>,
+    ) -> EngineAvailability {
+        self.availability_with_model(model_path)
+    }
     fn extract(&self, image_bytes: &[u8]) -> ExtractionOutcome;
+    fn extract_with_configuration(
+        &self,
+        image_bytes: &[u8],
+        _executable_path: Option<&Path>,
+        _model_path: Option<&Path>,
+    ) -> ExtractionOutcome {
+        self.extract(image_bytes)
+    }
     fn extract_files(&self, _paths: &[String], _model_path: Option<&Path>) -> ExtractionOutcome {
         ExtractionOutcome::Failed {
             failure: ExtractionFailure {
@@ -56,6 +73,14 @@ pub trait ExtractorEngine: Sync {
                 message: "This extraction engine does not accept file references.".into(),
             },
         }
+    }
+    fn extract_files_with_configuration(
+        &self,
+        paths: &[String],
+        _executable_path: Option<&Path>,
+        model_path: Option<&Path>,
+    ) -> ExtractionOutcome {
+        self.extract_files(paths, model_path)
     }
 }
 
@@ -79,11 +104,16 @@ impl<'a> ExtractorEngineRegistry<'a> {
             })
     }
 
-    pub fn availability_for(&self, engine: &str, model_path: Option<&Path>) -> EngineAvailability {
+    pub fn availability_for(
+        &self,
+        engine: &str,
+        executable_path: Option<&Path>,
+        model_path: Option<&Path>,
+    ) -> EngineAvailability {
         self.engines
             .iter()
             .find(|candidate| candidate.id() == engine)
-            .map(|candidate| candidate.availability_with_model(model_path))
+            .map(|candidate| candidate.availability_with_configuration(executable_path, model_path))
             .unwrap_or_else(|| EngineAvailability {
                 is_available: false,
                 unavailable_reason: Some("This extraction engine is not installed.".into()),
@@ -114,8 +144,9 @@ impl<'a> ExtractorEngineRegistry<'a> {
                 },
             };
         };
-        let availability =
-            engine.availability_with_model(extractor.model_path.as_deref().map(Path::new));
+        let executable_path = extractor.executable_path.as_deref().map(Path::new);
+        let model_path = extractor.model_path.as_deref().map(Path::new);
+        let availability = engine.availability_with_configuration(executable_path, model_path);
         if !availability.is_available {
             return ExtractionOutcome::Failed {
                 failure: ExtractionFailure {
@@ -126,7 +157,11 @@ impl<'a> ExtractorEngineRegistry<'a> {
                 },
             };
         }
-        normalize_extraction_outcome(engine.extract(image_bytes))
+        normalize_extraction_outcome(engine.extract_with_configuration(
+            image_bytes,
+            executable_path,
+            model_path,
+        ))
     }
 
     pub fn execute_files(&self, extractor: &Extractor, paths: &[String]) -> ExtractionOutcome {
@@ -153,8 +188,9 @@ impl<'a> ExtractorEngineRegistry<'a> {
                 },
             };
         };
+        let executable_path = extractor.executable_path.as_deref().map(Path::new);
         let model_path = extractor.model_path.as_deref().map(Path::new);
-        let availability = engine.availability_with_model(model_path);
+        let availability = engine.availability_with_configuration(executable_path, model_path);
         if !availability.is_available {
             return ExtractionOutcome::Failed {
                 failure: ExtractionFailure {
@@ -165,7 +201,11 @@ impl<'a> ExtractorEngineRegistry<'a> {
                 },
             };
         }
-        normalize_extraction_outcome(engine.extract_files(paths, model_path))
+        normalize_extraction_outcome(engine.extract_files_with_configuration(
+            paths,
+            executable_path,
+            model_path,
+        ))
     }
 }
 
@@ -191,6 +231,7 @@ fn normalize_extraction_outcome(outcome: ExtractionOutcome) -> ExtractionOutcome
 struct AppleVisionOcrEngine;
 struct TesseractOcrEngine;
 struct WhisperCppEngine;
+struct CustomCommandEngine;
 
 impl ExtractorEngine for AppleVisionOcrEngine {
     fn id(&self) -> &'static str {
@@ -249,6 +290,31 @@ impl ExtractorEngine for TesseractOcrEngine {
                     message: "Tesseract OCR is not installed.".into(),
                 },
             };
+        };
+        perform_tesseract_ocr(&executable, image_bytes, TESSERACT_TIMEOUT)
+    }
+
+    fn availability_with_configuration(
+        &self,
+        executable_path: Option<&Path>,
+        _model_path: Option<&Path>,
+    ) -> EngineAvailability {
+        executable_availability(
+            configured_or_discovered_executable(executable_path, find_tesseract_executable),
+            "Tesseract OCR is not installed. Install Tesseract 5, then check again.",
+        )
+    }
+
+    fn extract_with_configuration(
+        &self,
+        image_bytes: &[u8],
+        executable_path: Option<&Path>,
+        _model_path: Option<&Path>,
+    ) -> ExtractionOutcome {
+        let Some(executable) =
+            configured_or_discovered_executable(executable_path, find_tesseract_executable)
+        else {
+            return extraction_failure("engine_unavailable", "Tesseract OCR is not installed.");
         };
         perform_tesseract_ocr(&executable, image_bytes, TESSERACT_TIMEOUT)
     }
@@ -318,15 +384,115 @@ impl ExtractorEngine for WhisperCppEngine {
         };
         perform_whisper_cpp_transcription(&executable, model_path, paths, WHISPER_TIMEOUT)
     }
+
+    fn availability_with_configuration(
+        &self,
+        executable_path: Option<&Path>,
+        model_path: Option<&Path>,
+    ) -> EngineAvailability {
+        if configured_or_discovered_executable(executable_path, find_whisper_cpp_executable)
+            .is_none()
+        {
+            return EngineAvailability {
+                is_available: false,
+                unavailable_reason: Some(
+                    "Whisper.cpp is not installed. Install whisper-cpp, then check again.".into(),
+                ),
+            };
+        }
+        whisper_model_availability(model_path)
+    }
+
+    fn extract_files_with_configuration(
+        &self,
+        paths: &[String],
+        executable_path: Option<&Path>,
+        model_path: Option<&Path>,
+    ) -> ExtractionOutcome {
+        let Some(executable) =
+            configured_or_discovered_executable(executable_path, find_whisper_cpp_executable)
+        else {
+            return extraction_failure("engine_unavailable", "Whisper.cpp is not installed.");
+        };
+        let Some(model_path) = model_path else {
+            return extraction_failure(
+                "engine_unavailable",
+                "A local Whisper GGML model is not configured.",
+            );
+        };
+        perform_whisper_cpp_transcription(&executable, model_path, paths, WHISPER_TIMEOUT)
+    }
+}
+
+impl ExtractorEngine for CustomCommandEngine {
+    fn id(&self) -> &'static str {
+        CUSTOM_COMMAND_ENGINE
+    }
+
+    fn availability(&self) -> EngineAvailability {
+        EngineAvailability {
+            is_available: false,
+            unavailable_reason: Some("A custom executable is not configured.".into()),
+        }
+    }
+
+    fn availability_with_configuration(
+        &self,
+        executable_path: Option<&Path>,
+        _model_path: Option<&Path>,
+    ) -> EngineAvailability {
+        executable_availability(
+            executable_path
+                .filter(|path| crate::external_tools::is_executable(path))
+                .map(Path::to_path_buf),
+            "A custom executable is not configured or cannot be run.",
+        )
+    }
+
+    fn extract(&self, _image_bytes: &[u8]) -> ExtractionOutcome {
+        extraction_failure(
+            "engine_unavailable",
+            "A custom executable is not configured.",
+        )
+    }
+
+    fn extract_with_configuration(
+        &self,
+        image_bytes: &[u8],
+        executable_path: Option<&Path>,
+        _model_path: Option<&Path>,
+    ) -> ExtractionOutcome {
+        let Some(executable) = executable_path else {
+            return self.extract(image_bytes);
+        };
+        execute_custom_command(executable, CustomCommandInput::Image { bytes: image_bytes })
+    }
+
+    fn extract_files_with_configuration(
+        &self,
+        paths: &[String],
+        executable_path: Option<&Path>,
+        _model_path: Option<&Path>,
+    ) -> ExtractionOutcome {
+        let Some(executable) = executable_path else {
+            return extraction_failure(
+                "engine_unavailable",
+                "A custom executable is not configured.",
+            );
+        };
+        execute_custom_command(executable, CustomCommandInput::Files { paths })
+    }
 }
 
 static APPLE_VISION_OCR_ENGINE: AppleVisionOcrEngine = AppleVisionOcrEngine;
 static TESSERACT_OCR_ENGINE: TesseractOcrEngine = TesseractOcrEngine;
 static WHISPER_CPP_ENGINE_IMPLEMENTATION: WhisperCppEngine = WhisperCppEngine;
-static SYSTEM_ENGINES: [&dyn ExtractorEngine; 3] = [
+static CUSTOM_COMMAND_ENGINE_IMPLEMENTATION: CustomCommandEngine = CustomCommandEngine;
+static SYSTEM_ENGINES: [&dyn ExtractorEngine; 4] = [
     &APPLE_VISION_OCR_ENGINE,
     &TESSERACT_OCR_ENGINE,
     &WHISPER_CPP_ENGINE_IMPLEMENTATION,
+    &CUSTOM_COMMAND_ENGINE_IMPLEMENTATION,
 ];
 
 pub fn system_engine_registry() -> ExtractorEngineRegistry<'static> {
@@ -345,15 +511,18 @@ pub struct Extractor {
     pub name: String,
     pub description: String,
     pub engine: String,
+    pub executable_path: Option<String>,
     pub model_path: Option<String>,
     pub input_contract: String,
     pub output_contract: String,
     pub enabled: bool,
     pub priority: i64,
+    pub revision: i64,
     pub is_builtin: bool,
     pub is_available: bool,
     pub unavailable_reason: Option<String>,
-    pub defaults: Option<ExtractorInput>,
+    pub runtime: ExtractorRuntimeStatus,
+    pub defaults: Option<ExtractorDefinitionInput>,
 }
 
 impl Extractor {
@@ -382,6 +551,7 @@ pub struct ExtractorDefinitionInput {
     pub name: String,
     pub description: String,
     pub engine: String,
+    pub executable_path: Option<String>,
     pub model_path: Option<String>,
     pub input_contract: String,
     pub output_contract: String,
@@ -394,10 +564,32 @@ pub struct ExtractorPreset {
     pub name: &'static str,
     pub description: &'static str,
     pub engine: &'static str,
+    pub executable_path: Option<&'static str>,
     pub model_path: Option<&'static str>,
     pub input_contract: &'static str,
     pub output_contract: &'static str,
     pub priority: i64,
+    pub revision: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ExtractorRuntimeDependency {
+    pub name: String,
+    pub location: Option<String>,
+    pub version: Option<String>,
+    pub is_available: bool,
+    pub unavailable_reason: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ExtractorRuntimeStatus {
+    pub method: String,
+    pub location: Option<String>,
+    pub version: Option<String>,
+    pub uses_automatic_discovery: bool,
+    pub dependencies: Vec<ExtractorRuntimeDependency>,
 }
 
 pub const EXTRACTOR_PRESETS: &[ExtractorPreset] = &[
@@ -406,30 +598,36 @@ pub const EXTRACTOR_PRESETS: &[ExtractorPreset] = &[
         name: "Apple Vision OCR",
         description: "Extracts searchable text from images locally with Apple Vision.",
         engine: APPLE_VISION_ENGINE,
+        executable_path: None,
         model_path: None,
         input_contract: RepresentationKind::ImageBytes.stable_name(),
         output_contract: RepresentationKind::SearchableText.stable_name(),
         priority: 10,
+        revision: 1,
     },
     ExtractorPreset {
         stable_ref: TESSERACT_OCR_REF,
         name: "Tesseract OCR",
         description: "Extracts searchable text from images locally with Tesseract.",
         engine: TESSERACT_ENGINE,
+        executable_path: None,
         model_path: None,
         input_contract: RepresentationKind::ImageBytes.stable_name(),
         output_contract: RepresentationKind::SearchableText.stable_name(),
         priority: 20,
+        revision: 1,
     },
     ExtractorPreset {
         stable_ref: WHISPER_TRANSCRIPTION_REF,
         name: "Whisper Transcription",
         description: "Extracts searchable text from local audio files with whisper.cpp.",
         engine: WHISPER_CPP_ENGINE,
+        executable_path: None,
         model_path: None,
         input_contract: RepresentationKind::FileReferences.stable_name(),
         output_contract: RepresentationKind::SearchableText.stable_name(),
         priority: 30,
+        revision: 1,
     },
 ];
 
@@ -437,8 +635,16 @@ pub fn engine_availability(engine: &str) -> EngineAvailability {
     system_engine_registry().availability(engine)
 }
 
-pub fn engine_availability_for(engine: &str, model_path: Option<&str>) -> EngineAvailability {
-    system_engine_registry().availability_for(engine, model_path.map(Path::new))
+pub fn engine_availability_for(
+    engine: &str,
+    executable_path: Option<&str>,
+    model_path: Option<&str>,
+) -> EngineAvailability {
+    system_engine_registry().availability_for(
+        engine,
+        executable_path.map(Path::new),
+        model_path.map(Path::new),
+    )
 }
 
 pub fn validate_extractor_input(input: &ExtractorInput) -> Result<(), String> {
@@ -464,6 +670,29 @@ pub fn validate_extractor_definition(input: &ExtractorDefinitionInput) -> Result
     if input.engine.trim().is_empty() || input.engine.trim().len() > 80 {
         return Err("Extractor engines require 1–80 characters".to_string());
     }
+    if !matches!(
+        input.engine.as_str(),
+        APPLE_VISION_ENGINE | TESSERACT_ENGINE | WHISPER_CPP_ENGINE | CUSTOM_COMMAND_ENGINE
+    ) {
+        return Err("Extractors require a registered execution method".to_string());
+    }
+    if input
+        .executable_path
+        .as_deref()
+        .is_some_and(|path| path.is_empty() || path.len() > 4_096 || path.contains('\0'))
+    {
+        return Err("Extractor executable paths require 1–4,096 characters".to_string());
+    }
+    if input
+        .executable_path
+        .as_deref()
+        .is_some_and(|path| !Path::new(path).is_absolute())
+    {
+        return Err("Extractor executable paths must be absolute".to_string());
+    }
+    if input.engine == CUSTOM_COMMAND_ENGINE && input.executable_path.is_none() {
+        return Err("Custom command Extractors require an executable path".to_string());
+    }
     if input
         .model_path
         .as_deref()
@@ -483,6 +712,350 @@ pub fn validate_extractor_definition(input: &ExtractorDefinitionInput) -> Result
         return Err("Extractors require image or file references → searchable_text".to_string());
     }
     Ok(())
+}
+
+impl ExtractorPreset {
+    pub fn definition(&self) -> ExtractorDefinitionInput {
+        ExtractorDefinitionInput {
+            name: self.name.into(),
+            description: self.description.into(),
+            engine: self.engine.into(),
+            executable_path: self.executable_path.map(str::to_string),
+            model_path: self.model_path.map(str::to_string),
+            input_contract: self.input_contract.into(),
+            output_contract: self.output_contract.into(),
+            enabled: true,
+            priority: self.priority,
+        }
+    }
+}
+
+pub fn merge_shipped_definition(
+    current: &ExtractorDefinitionInput,
+    previous: &ExtractorDefinitionInput,
+    next: &ExtractorDefinitionInput,
+) -> ExtractorDefinitionInput {
+    ExtractorDefinitionInput {
+        name: if current.name != previous.name {
+            current.name.clone()
+        } else {
+            next.name.clone()
+        },
+        description: if current.description != previous.description {
+            current.description.clone()
+        } else {
+            next.description.clone()
+        },
+        engine: if current.engine != previous.engine {
+            current.engine.clone()
+        } else {
+            next.engine.clone()
+        },
+        executable_path: if current.executable_path != previous.executable_path {
+            current.executable_path.clone()
+        } else {
+            next.executable_path.clone()
+        },
+        model_path: if current.model_path != previous.model_path {
+            current.model_path.clone()
+        } else {
+            next.model_path.clone()
+        },
+        input_contract: if current.input_contract != previous.input_contract {
+            current.input_contract.clone()
+        } else {
+            next.input_contract.clone()
+        },
+        output_contract: if current.output_contract != previous.output_contract {
+            current.output_contract.clone()
+        } else {
+            next.output_contract.clone()
+        },
+        enabled: if current.enabled != previous.enabled {
+            current.enabled
+        } else {
+            next.enabled
+        },
+        priority: if current.priority != previous.priority {
+            current.priority
+        } else {
+            next.priority
+        },
+    }
+}
+
+fn configured_or_discovered_executable(
+    configured: Option<&Path>,
+    discover: impl FnOnce() -> Option<std::path::PathBuf>,
+) -> Option<std::path::PathBuf> {
+    match configured {
+        Some(path) if crate::external_tools::is_executable(path) => Some(path.to_path_buf()),
+        Some(_) => None,
+        None => discover(),
+    }
+}
+
+fn executable_availability(
+    executable: Option<std::path::PathBuf>,
+    unavailable_reason: &str,
+) -> EngineAvailability {
+    EngineAvailability {
+        is_available: executable.is_some(),
+        unavailable_reason: executable.is_none().then(|| unavailable_reason.into()),
+    }
+}
+
+fn whisper_model_availability(model_path: Option<&Path>) -> EngineAvailability {
+    let Some(model_path) = model_path else {
+        return EngineAvailability {
+            is_available: false,
+            unavailable_reason: Some("A local Whisper GGML model is not configured.".into()),
+        };
+    };
+    if !model_path.is_file() {
+        return EngineAvailability {
+            is_available: false,
+            unavailable_reason: Some("The configured Whisper model is unavailable.".into()),
+        };
+    }
+    EngineAvailability {
+        is_available: true,
+        unavailable_reason: None,
+    }
+}
+
+fn runtime_dependency(
+    name: &str,
+    path: Option<std::path::PathBuf>,
+    version_arguments: &[&str],
+    unavailable_reason: &str,
+) -> ExtractorRuntimeDependency {
+    let is_available = path.is_some();
+    let version = path
+        .as_deref()
+        .and_then(|path| crate::external_tools::probe_version(path, version_arguments));
+    ExtractorRuntimeDependency {
+        name: name.into(),
+        location: path
+            .as_deref()
+            .map(|path| path.to_string_lossy().into_owned()),
+        version,
+        is_available,
+        unavailable_reason: (!is_available).then(|| unavailable_reason.into()),
+    }
+}
+
+pub fn runtime_status_for(engine: &str, executable_path: Option<&str>) -> ExtractorRuntimeStatus {
+    let configured = executable_path.map(Path::new);
+    match engine {
+        APPLE_VISION_ENGINE => ExtractorRuntimeStatus {
+            method: "system".into(),
+            location: Some("macOS Vision framework".into()),
+            version: apple_vision_runtime_version(),
+            uses_automatic_discovery: false,
+            dependencies: Vec::new(),
+        },
+        TESSERACT_ENGINE => {
+            let path = configured_or_discovered_executable(configured, find_tesseract_executable);
+            let version = path
+                .as_deref()
+                .and_then(|path| crate::external_tools::probe_version(path, &["--version"]));
+            ExtractorRuntimeStatus {
+                method: "command".into(),
+                location: path
+                    .as_deref()
+                    .map(|path| path.to_string_lossy().into_owned()),
+                version,
+                uses_automatic_discovery: configured.is_none(),
+                dependencies: Vec::new(),
+            }
+        }
+        WHISPER_CPP_ENGINE => {
+            let path = configured_or_discovered_executable(configured, find_whisper_cpp_executable);
+            let version = path
+                .as_deref()
+                .and_then(|path| crate::external_tools::probe_version(path, &["--version"]));
+            ExtractorRuntimeStatus {
+                method: "command".into(),
+                location: path
+                    .as_deref()
+                    .map(|path| path.to_string_lossy().into_owned()),
+                version,
+                uses_automatic_discovery: configured.is_none(),
+                dependencies: vec![runtime_dependency(
+                    "FFmpeg",
+                    find_ffmpeg_executable(),
+                    &["-version"],
+                    "FFmpeg is not installed. M4A and AAC audio cannot be prepared.",
+                )],
+            }
+        }
+        CUSTOM_COMMAND_ENGINE => {
+            let path = configured.filter(|path| crate::external_tools::is_executable(path));
+            ExtractorRuntimeStatus {
+                method: "command".into(),
+                location: path.map(|path| path.to_string_lossy().into_owned()),
+                version: path
+                    .and_then(|path| crate::external_tools::probe_version(path, &["--version"])),
+                uses_automatic_discovery: false,
+                dependencies: Vec::new(),
+            }
+        }
+        _ => ExtractorRuntimeStatus {
+            method: "unregistered".into(),
+            location: executable_path.map(str::to_string),
+            version: None,
+            uses_automatic_discovery: false,
+            dependencies: Vec::new(),
+        },
+    }
+}
+
+fn apple_vision_runtime_version() -> Option<String> {
+    #[cfg(target_os = "macos")]
+    {
+        crate::external_tools::probe_version(Path::new("/usr/bin/sw_vers"), &["-productVersion"])
+            .map(|version| format!("macOS {version}"))
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        None
+    }
+}
+
+enum CustomCommandInput<'a> {
+    Image { bytes: &'a [u8] },
+    Files { paths: &'a [String] },
+}
+
+fn execute_custom_command(executable: &Path, input: CustomCommandInput<'_>) -> ExtractionOutcome {
+    if !crate::external_tools::is_executable(executable) {
+        return extraction_failure(
+            "engine_unavailable",
+            "The configured custom executable cannot be run.",
+        );
+    }
+    let workspace = match crate::external_tools::PrivateWorkspace::create("custom-extractor") {
+        Ok(workspace) => workspace,
+        Err(_) => {
+            return extraction_failure(
+                "workspace_error",
+                "A private custom extraction workspace could not be created.",
+            );
+        }
+    };
+    let request_path = workspace.join("request.json");
+    let response_path = workspace.join("response.json");
+    let request = match input {
+        CustomCommandInput::Image { bytes } => serde_json::json!({
+            "protocolVersion": 1,
+            "input": {
+                "kind": "image",
+                "dataBase64": base64::engine::general_purpose::STANDARD.encode(bytes),
+            }
+        }),
+        CustomCommandInput::Files { paths } => serde_json::json!({
+            "protocolVersion": 1,
+            "input": {
+                "kind": "file_references",
+                "paths": paths.iter().take(crate::resource_limits::MAX_MEDIA_PROBE_FILES).collect::<Vec<_>>(),
+            }
+        }),
+    };
+    let Ok(request) = serde_json::to_vec(&request) else {
+        return extraction_failure(
+            "invalid_input",
+            "Custom extraction input could not be encoded.",
+        );
+    };
+    if fs::write(&request_path, request).is_err() {
+        return extraction_failure(
+            "workspace_error",
+            "Custom extraction input could not be staged.",
+        );
+    }
+    let response = match fs::File::create(&response_path) {
+        Ok(response) => response,
+        Err(_) => {
+            return extraction_failure(
+                "workspace_error",
+                "Custom extraction output could not be staged.",
+            );
+        }
+    };
+    let mut command = Command::new(executable);
+    command
+        .arg("--pasted-extract-v1")
+        .arg(&request_path)
+        .current_dir(workspace.join("."))
+        .env_clear()
+        .stdin(Stdio::null())
+        .stdout(response)
+        .stderr(Stdio::null());
+    for name in ["PATH", "LANG", "LC_ALL", "SystemRoot", "WINDIR"] {
+        if let Some(value) = std::env::var_os(name) {
+            command.env(name, value);
+        }
+    }
+    let mut child = match command.spawn() {
+        Ok(child) => child,
+        Err(_) => {
+            return extraction_failure(
+                "engine_unavailable",
+                "The custom executable could not be started.",
+            );
+        }
+    };
+    let status = match crate::external_tools::wait_bounded(&mut child, Duration::from_secs(60)) {
+        Ok(status) => status,
+        Err(crate::external_tools::ProcessWaitError::TimedOut) => {
+            return extraction_failure(
+                "engine_timeout",
+                "The custom Extractor exceeded the 60-second time limit.",
+            );
+        }
+        Err(crate::external_tools::ProcessWaitError::Failed) => {
+            return extraction_failure(
+                "engine_failed",
+                "The custom Extractor did not complete successfully.",
+            );
+        }
+    };
+    if !status.success() {
+        return extraction_failure(
+            "engine_failed",
+            "The custom Extractor did not complete successfully.",
+        );
+    }
+    let Ok(metadata) = response_path.metadata() else {
+        return ExtractionOutcome::NoOutput;
+    };
+    if metadata.len() > crate::resource_limits::MAX_OCR_TEXT_BYTES as u64 + 4_096 {
+        return extraction_failure(
+            "output_too_large",
+            "Custom Extractor output exceeds the supported size limit.",
+        );
+    }
+    let Ok(response) = fs::read_to_string(&response_path) else {
+        return extraction_failure(
+            "invalid_output",
+            "The custom Extractor returned unreadable output.",
+        );
+    };
+    let Ok(response) = serde_json::from_str::<serde_json::Value>(&response) else {
+        return extraction_failure(
+            "invalid_output",
+            "The custom Extractor must return a JSON object.",
+        );
+    };
+    match response.get("text") {
+        Some(serde_json::Value::String(text)) => ExtractionOutcome::Produced { text: text.clone() },
+        Some(serde_json::Value::Null) | None => ExtractionOutcome::NoOutput,
+        _ => extraction_failure(
+            "invalid_output",
+            "Custom Extractor output requires a string or null text field.",
+        ),
+    }
 }
 
 fn find_tesseract_executable() -> Option<std::path::PathBuf> {
@@ -1211,14 +1784,17 @@ mod tests {
             name: "Test Extractor".into(),
             description: String::new(),
             engine: engine.into(),
+            executable_path: None,
             model_path: None,
             input_contract: "image".into(),
             output_contract: "searchable_text".into(),
             enabled: true,
             priority: 10,
+            revision: 1,
             is_builtin: false,
             is_available: true,
             unavailable_reason: None,
+            runtime: runtime_status_for(engine, None),
             defaults: None,
         }
     }
@@ -1289,6 +1865,74 @@ mod tests {
                 failure: ExtractionFailure { ref code, .. }
             } if code == "output_too_large"
         ));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn custom_command_executes_the_bounded_v1_protocol() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let workspace =
+            crate::external_tools::PrivateWorkspace::create("custom-engine-test").unwrap();
+        let executable = workspace.join("extractor");
+        fs::write(
+            &executable,
+            "#!/bin/sh\nif [ \"$1\" = \"--version\" ]; then echo 'Example Extractor 1.2.3'; exit 0; fi\nif [ \"$1\" = \"--pasted-extract-v1\" ] && [ -f \"$2\" ]; then printf '{\"text\":\"custom searchable text\"}'; exit 0; fi\nexit 2\n",
+        )
+        .unwrap();
+        let mut permissions = executable.metadata().unwrap().permissions();
+        permissions.set_mode(0o700);
+        fs::set_permissions(&executable, permissions).unwrap();
+
+        let mut custom = extractor(CUSTOM_COMMAND_ENGINE);
+        custom.executable_path = Some(executable.to_string_lossy().into_owned());
+        custom.runtime =
+            runtime_status_for(CUSTOM_COMMAND_ENGINE, custom.executable_path.as_deref());
+        assert_eq!(
+            custom.runtime.version.as_deref(),
+            Some("Example Extractor 1.2.3")
+        );
+        assert!(
+            system_engine_registry()
+                .availability_for(CUSTOM_COMMAND_ENGINE, Some(&executable), None,)
+                .is_available
+        );
+        assert_eq!(
+            system_engine_registry().execute(&custom, b"image"),
+            ExtractionOutcome::Produced {
+                text: "custom searchable text".into(),
+            }
+        );
+    }
+
+    #[test]
+    fn shipped_definition_upgrades_preserve_only_user_overrides() {
+        let previous = ExtractorDefinitionInput {
+            name: "Shipped".into(),
+            description: "Old description".into(),
+            engine: TESSERACT_ENGINE.into(),
+            executable_path: None,
+            model_path: None,
+            input_contract: "image".into(),
+            output_contract: "searchable_text".into(),
+            enabled: true,
+            priority: 20,
+        };
+        let current = ExtractorDefinitionInput {
+            name: "My OCR".into(),
+            executable_path: Some("/custom/tesseract".into()),
+            ..previous.clone()
+        };
+        let next = ExtractorDefinitionInput {
+            description: "New shipped description".into(),
+            priority: 15,
+            ..previous.clone()
+        };
+        let merged = merge_shipped_definition(&current, &previous, &next);
+        assert_eq!(merged.name, "My OCR");
+        assert_eq!(merged.executable_path.as_deref(), Some("/custom/tesseract"));
+        assert_eq!(merged.description, "New shipped description");
+        assert_eq!(merged.priority, 15);
     }
 
     #[test]

@@ -30,6 +30,8 @@ const classifierManager = read('src/components/SettingsAnalysisPanel.tsx');
 
 assert.match(commands, /pub async fn choose_extractor_model_file/,
   'The native Extractor model picker must not block the app command thread');
+assert.match(commands, /pub async fn choose_extractor_executable/,
+  'The native Extractor executable picker must not block the app command thread');
 
 const documentedCommands = [
   'pasted copy',
@@ -344,6 +346,14 @@ assert.doesNotMatch(database, /extractor\.input_contract == "image"/,
   'Active Extractor selection must not compare representation metadata ad hoc');
 assert.match(analysisContract, /MAX_ANALYSIS_PASSES:\s*usize\s*=\s*4/, 'Analysis must remain bounded to four ordered passes');
 assert.match(extraction, /pub trait ExtractorEngine:\s*Sync/, 'Extractor engines must use the shared runtime contract');
+assert.match(extraction, /CUSTOM_COMMAND_ENGINE:\s*&str\s*=\s*"custom-command-v1"/,
+  'Custom Extractors must use the registered versioned command protocol');
+assert.match(extraction, /--pasted-extract-v1/,
+  'Custom command execution must use the bounded versioned request protocol');
+assert.match(extraction, /pub fn runtime_status_for/,
+  'Extractor definitions must expose resolved runtime location and version status');
+assert.match(extraction, /merge_shipped_definition/,
+  'Shipped Extractor upgrades must preserve user overrides');
 assert.match(extraction, /pub enum ExtractionOutcome/, 'Extractor execution must return a typed outcome');
 assert.match(analysis, /ExtractorEngineRegistry/, 'Analysis must dispatch Extractors through the shared engine registry');
 assert.match(extractionExecution, /pub struct ExtractionResult/,
@@ -441,6 +451,20 @@ for (const method of ['get_content_extractors', 'create_content_extractor', 'upd
   assert.match(commands, new RegExp(`pub fn ${method}`), `${method} must be exposed to the GUI`);
   assert.match(cli, new RegExp(`db\\s*\\.${method}`), `${method} must be reused by the CLI`);
 }
+assert.match(extractorManager, />Method</,
+  'Extractor management must present a concrete execution Method instead of an editable engine ID');
+assert.match(extractorManager, />Runtime location</,
+  'Extractor management must expose configured and discovered runtime locations');
+assert.match(extractorManager, /choose_extractor_executable/,
+  'Extractor management must allow executable selection through the native picker');
+assert.doesNotMatch(extractorManager, /<input[^>]+value=\{draft\.engine\}/,
+  'Extractor engine contract IDs must not be arbitrary editable strings');
+assert.match(cli, /"--method"/,
+  'CLI Extractor authoring must use the same execution Method contract as the GUI');
+assert.match(cli, /"--executable"/,
+  'CLI Extractor authoring must expose executable location parity');
+assert.match(cli, /current\.map\(\|item\| item\.enabled\)\.unwrap_or\(false\)/,
+  'New custom Extractors must remain disabled until explicitly enabled');
 assert.match(tauriMock, /function mockBuiltinExtractors\(\)/,
   'The frontend mock must retain canonical shipped Extractor definitions');
 assert.match(tauriMock, /case 'extract_ocr_from_clip':[\s\S]*?appliedClipId:[\s\S]*?ocrUpdated:/,

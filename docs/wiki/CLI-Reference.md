@@ -31,12 +31,16 @@ pasted retention [--count <number|unlimited>] [--days <number|forever>]
                  [--log-count <number|unlimited>] [--log-days <number|forever>]
                  [--revision-count <number|unlimited>] [--json]
 pasted settings list|get|set [arguments] [--json]
+pasted app-lock status|enable|disable|lock|unlock [--stdin] [--json]
+pasted app-lock capture-while-locked <on|off> [--stdin] [--json]
 pasted recording status|pause|resume [--json]
 pasted queue status|start|stop|add|remove|order|paste|paste-all [arguments] [--json]
 pasted clear --yes [--json]
 ```
 
 `copy` accepts bounded stdin when text is omitted. `list` and `search` provide bounded pagination; both can inspect Trash, while `list` can select a Bin or pinned clips. `search` reproduces Content Type and Source views with exact filters, and its structured records use the canonical `source` field. `import sources` reports supported managers and detected locations. `import` reads a source without modification and merges supported text while skipping duplicates. `retention` manages History, Trash, Activity History, and per-clip revision policies. `settings` reads or changes persisted values; app-bound visual or operating-system effects apply when the app observes the setting or next launches. `clear` requires `--yes` and permanently removes unpinned, unprotected clips from History.
+
+`app-lock enable`, `disable`, `unlock`, and `capture-while-locked` when protection is active read the passphrase from a hidden terminal prompt or bounded stdin with `--stdin`; the passphrase is never accepted as a command-line argument. `lock` and `unlock` contact the running app. App-lock commands are unavailable when App Lock is disabled under Functionality; `pasted settings set enableAppLock true` restores the feature. While app lock is enabled, other CLI commands require a valid `PASTED_APP_LOCK_PASSPHRASE` in their process environment. `status --json` reports the stable `enabled`, `systemAuthEnabled`, `systemAuthLabel`, `appleWatchEnabled`, `idleMinutes`, `lockOnSleep`, and `captureWhileLocked` fields without exposing the verifier.
 
 `recording`, `queue`, `clip copy`, `clip paste`, and `ocr cancel` contact the running app through a bounded private request. Clipboard monitoring, Queue state, paste targeting, and cancellation therefore remain inside the process that owns them. These commands can launch Pasted when its executable is installed beside the CLI.
 
@@ -140,7 +144,7 @@ pasted suggestion get <ref> [--json]
 pasted suggestion run [--text <text> | --clip <id> | --stdin] [--json]
 pasted extractor list [--json]
 pasted extractor get <ref> [--json]
-pasted extractor create [--name <name>] [--description <text>] [--engine <engine>] [--model <path>] [--input <contract>] [--output <contract>] [--priority <number>] [--enabled|--disabled] [--json]
+pasted extractor create [--name <name>] [--description <text>] [--method <apple-vision|tesseract|whisper|custom-command>] [--executable <path>] [--model <path>] [--input <contract>] [--output <contract>] [--priority <number>] [--enabled|--disabled] [--json]
 pasted extractor update <ref> [options] [--json]
 pasted extractor duplicate <ref> [--name <name>] [--json]
 pasted extractor delete <ref> [--json]
@@ -174,7 +178,9 @@ Registry JSON includes Capture definitions and each Analysis participant’s `an
 
 `pasted analyzer run` returns one versioned preview of the applicable passes. Its JSON includes content-free structure, classification, Smart Action suggestions, and participant outcomes, but never original text, extracted text, image bytes, or file paths. Interactive policy includes suggestion when Transformations is enabled; capture, background, and rescan stop after classification. Image and file extraction are opt-in with `--extract` because OCR and transcription can be comparatively expensive. File references never enter text Classifiers or Suggestions; only a produced searchable-text representation can feed later passes.
 
-Whisper Transcription uses engine `whisper-cpp-cli-v1`. Configure a local GGML model with `pasted extractor update extractor:whisper-transcription --model /absolute/path/to/ggml-model.bin`. Use `--no-model` to clear it. Installing whisper.cpp or selecting a model never occurs implicitly. `pasted extractor run extractor:whisper-transcription --clip <id> --apply` stores hash-bound searchable text and provenance without replacing the clip's file references.
+Whisper Transcription uses engine contract `whisper-cpp-cli-v1`. Configure a local GGML model with `pasted extractor update extractor:whisper-transcription --model /absolute/path/to/ggml-model.bin`. Use `--executable` to override automatic runtime discovery, `--automatic-discovery` to restore discovery, and `--no-model` to clear the model. Installing whisper.cpp or selecting a model never occurs implicitly. `pasted extractor run extractor:whisper-transcription --clip <id> --apply` stores hash-bound searchable text and provenance without replacing the clip's file references.
+
+Custom commands use the `custom-command-v1` contract and require an absolute executable path. Saving or listing the definition may run `COMMAND --version` without clip content to report its runtime version. Extraction runs `COMMAND --pasted-extract-v1 REQUEST.json` in a private workspace with a 60-second limit and a reduced environment. The request contains `protocolVersion: 1` and either base64 image input or up to eight file-reference paths. Standard output must be a JSON object with a string or null `text` field. New custom Extractors are disabled unless `--enabled` is explicit. The repository includes [`docs/examples/plain-text-file-extractor.py`](../examples/plain-text-file-extractor.py) as a local file-content example.
 
 Inspector run JSON uses the versioned Analysis envelope. Structure reports origin, byte count, text counts, image dimensions, or file item count and extensions without returning the inspected clipboard content or paths. File availability, file/directory counts, and total size are returned separately as live observations and are not persisted. When ffprobe or MediaInfo is installed, file runs can also return live aggregate `mediaMetadata` containing container, codec, stream-count, and duration facts. Up to eight files are inspected with bounded execution and output; paths never appear in results.
 

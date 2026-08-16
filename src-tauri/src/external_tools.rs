@@ -1,9 +1,10 @@
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::{Child, ExitStatus};
+use std::process::{Child, Command, ExitStatus, Stdio};
+use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-fn is_executable(path: &Path) -> bool {
+pub(crate) fn is_executable(path: &Path) -> bool {
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -15,6 +16,65 @@ fn is_executable(path: &Path) -> bool {
     {
         path.is_file()
     }
+}
+
+pub(crate) fn probe_version(path: &Path, arguments: &[&str]) -> Option<String> {
+    if !is_executable(path) {
+        return None;
+    }
+    let metadata = path.metadata().ok()?;
+    let modified = metadata
+        .modified()
+        .ok()
+        .and_then(|value| value.duration_since(SystemTime::UNIX_EPOCH).ok())
+        .map(|value| value.as_nanos())
+        .unwrap_or_default();
+    let cache_key = format!(
+        "{}\0{}\0{}\0{}",
+        path.to_string_lossy(),
+        arguments.join("\0"),
+        metadata.len(),
+        modified,
+    );
+    static VERSION_CACHE: OnceLock<Mutex<std::collections::HashMap<String, Option<String>>>> =
+        OnceLock::new();
+    let cache = VERSION_CACHE.get_or_init(|| Mutex::new(std::collections::HashMap::new()));
+    if let Some(version) = cache.lock().ok()?.get(&cache_key).cloned() {
+        return version;
+    }
+    let workspace = PrivateWorkspace::create("version-probe").ok()?;
+    let stdout_path = workspace.join("stdout");
+    let stderr_path = workspace.join("stderr");
+    let stdout = fs::File::create(&stdout_path).ok()?;
+    let stderr = fs::File::create(&stderr_path).ok()?;
+    let mut child = Command::new(path)
+        .args(arguments)
+        .stdin(Stdio::null())
+        .stdout(stdout)
+        .stderr(stderr)
+        .spawn()
+        .ok()?;
+    let status = wait_bounded(&mut child, Duration::from_secs(2)).ok()?;
+    if !status.success() {
+        return None;
+    }
+    for output_path in [&stdout_path, &stderr_path] {
+        if output_path.metadata().ok()?.len() > 16 * 1024 {
+            continue;
+        }
+        let output = fs::read_to_string(output_path).ok()?;
+        if let Some(line) = output.lines().map(str::trim).find(|line| !line.is_empty()) {
+            let version = Some(line.chars().take(160).collect());
+            if let Ok(mut cache) = cache.lock() {
+                cache.insert(cache_key, version.clone());
+            }
+            return version;
+        }
+    }
+    if let Ok(mut cache) = cache.lock() {
+        cache.insert(cache_key, None);
+    }
+    None
 }
 
 pub(crate) fn find_executable(name: &str, explicit_paths: &[&str]) -> Option<PathBuf> {

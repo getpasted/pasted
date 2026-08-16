@@ -10,13 +10,14 @@ The [Pasted Wiki](https://github.com/getpasted/pasted/wiki) covers installation,
 
 - Captures text, images, screenshots, PDFs, and copied file references in a searchable local history.
 - Organizes clips with manual Bins, Smart Bins, Content Types, Sources, pinning, protection, notes, Trash, and persistent per-collection ordering.
-- Analyzes clips locally through bounded Inspect, Extract, Classify, and Suggest passes, with native macOS OCR, optional Tesseract OCR, ffprobe or MediaInfo media metadata, local whisper.cpp transcription, editable Classifiers, content-free structural metadata, and Smart Action suggestions.
+- Analyzes clips locally through bounded Inspect, Extract, Classify, and Suggest passes, with native macOS OCR, optional Tesseract OCR, ffprobe or MediaInfo media metadata, local whisper.cpp transcription, bounded custom-command Extractors, editable Classifiers, content-free structural metadata, and Smart Action suggestions.
 - Previews common image files and the first page of copied PDFs without changing the copied file reference.
 - Records copies into a persistent Queue, then pastes the next item or the whole Queue into the previously focused app.
 - Builds reusable Transforms from deterministic Operations or an explicitly connected intelligence provider.
 - Preserves revisions for content-changing actions, records important events in Activity, and summarizes the active library locally in Insights.
 - Creates complete, validated Full Backups and separately exports portable History and Organization JSON for merging into another library.
-- Includes seven appearance choices: System, Cool, Dark, Warm, Vampire, Flux, and 808.
+- Includes nine appearance choices: System, Dark, Cool, Warm, 2894, Sauced, Vampire, Flux, and 808.
+- Protects the interface with App Lock using a passphrase, configurable auto-locking, and supported operating-system authentication while optionally continuing capture.
 - Exposes powerful clipboard-management workflows through the bundled `pasted` command.
 - Imports supported text history from Alfred, Pastebot, Pasta, Paste, CopyClip 2, Maccy, and Flycut without changing the source library.
 - Lets each major feature be disabled for a simpler clipboard manager.
@@ -44,9 +45,9 @@ The Analysis settings sequence shows Capture ahead of the Analyzer. Capture assi
 
 Pasted 1.0 supports macOS 13 or newer on Apple Silicon and Intel. Accessibility permission is required for global hotkeys and automatic Queue and HUD pasting. Linux is available as an x86_64 AppImage preview, and Windows builds are unsigned and experimental. See [Platform Support](docs/wiki/Platform-Support.md) for the explicit capability matrix.
 
-## Default shortcuts
+## Default hotkeys
 
-| Shortcut | Action |
+| Hotkey | Action |
 | --- | --- |
 | `⌥⇧V` | Open the HUD |
 | `⌥⇧C` | Start or stop recording copies into the Queue |
@@ -54,7 +55,7 @@ Pasted 1.0 supports macOS 13 or newer on Apple Silicon and Intel. Accessibility 
 | `1`–`9` | Paste the corresponding clip from the HUD |
 | `Esc` | Close the HUD or an open menu |
 
-Shortcuts can be changed or disabled in Settings.
+Hotkeys can be changed or disabled in **Settings → Hotkeys**.
 
 ## CLI
 

@@ -19,6 +19,7 @@ import {
   Shapes,
   AppWindow,
   AudioLines,
+  LockKeyhole,
 } from 'lucide-react';
 import type { AppSettings } from '../types';
 import {
@@ -40,6 +41,7 @@ const FEATURE_ICONS = {
   contentClassification: ScanSearch,
   notes: StickyNote,
   notifications: Bell,
+  appLock: LockKeyhole,
   ocr: ScanText,
   transcriptions: AudioLines,
   pinning: Pin,

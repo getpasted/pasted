@@ -1,16 +1,18 @@
-import { Sliders, Command, Shield, Database, Cable, Blocks, Info, Bell, ScanSearch } from 'lucide-react';
+import { Sliders, Command, Shield, Database, Cable, Blocks, Info, Bell, ScanSearch, LockKeyhole } from 'lucide-react';
 
-export type SettingsTab = 'general' | 'functionality' | 'hotkeys' | 'notifications' | 'app-exclusions' | 'storage' | 'analysis' | 'intelligence' | 'about';
+export type SettingsTab = 'general' | 'functionality' | 'hotkeys' | 'notifications' | 'security' | 'app-exclusions' | 'storage' | 'analysis' | 'intelligence' | 'about';
 
 interface SettingsTabsProps {
   activeTab: SettingsTab;
   onChange: (tab: SettingsTab) => void;
   showIntelligence?: boolean;
   showNotifications?: boolean;
+  showSecurity?: boolean;
 }
 
 const TABS = [
   { id: 'general', label: 'General', Icon: Sliders },
+  { id: 'security', label: 'Security', Icon: LockKeyhole },
   { id: 'functionality', label: 'Functionality', Icon: Blocks },
   { id: 'hotkeys', label: 'Hotkeys', Icon: Command },
   { id: 'notifications', label: 'Notifications', Icon: Bell },
@@ -21,12 +23,13 @@ const TABS = [
   { id: 'about', label: 'About', Icon: Info },
 ] as const;
 
-export function SettingsTabs({ activeTab, onChange, showIntelligence = true, showNotifications = true }: SettingsTabsProps) {
+export function SettingsTabs({ activeTab, onChange, showIntelligence = true, showNotifications = true, showSecurity = true }: SettingsTabsProps) {
   return (
     <nav className="theme-surface settings-tabs flex items-center gap-1 rounded-xl border p-1" aria-label="Settings sections">
       {TABS.filter(({ id }) => (
         (id !== 'intelligence' || showIntelligence)
         && (id !== 'notifications' || showNotifications)
+        && (id !== 'security' || showSecurity)
       )).map(({ id, label, Icon }) => (
         <button
           key={id}

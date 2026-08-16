@@ -85,11 +85,23 @@ fn friendly_value(key: &str, value: &str) -> Option<String> {
             "3" | "5" | "7" | "10" | "15" | "30" => format!("{value} seconds"),
             _ => return None,
         },
+        "appLockIdleMinutes" => match value {
+            "0" => "Never".into(),
+            "1" => "1 minute".into(),
+            "5" => "5 minutes".into(),
+            "60" => "1 hour".into(),
+            "480" => "8 hours".into(),
+            _ => return None,
+        },
         "enableSounds"
         | "captureFeedback"
         | "captureFeedbackIgnored"
         | "captureFeedbackPreview"
-        | "alwaysPastePlainText" => on_off(value)?.into(),
+        | "alwaysPastePlainText"
+        | "appLockSystemAuthEnabled"
+        | "appLockAppleWatchEnabled"
+        | "appLockOnSleep"
+        | "appLockCaptureWhileLocked" => on_off(value)?.into(),
         _ if key.ends_with("Hotkey") => {
             if value.is_empty() {
                 "Not set".into()
@@ -130,6 +142,11 @@ fn setting_label(key: &str) -> Option<&'static str> {
         "captureFeedbackPosition" => Some("Capture feedback position"),
         "captureFeedbackDismissSeconds" => Some("Capture preview dismissal"),
         "alwaysPastePlainText" => Some("Plain-text paste"),
+        "appLockSystemAuthEnabled" => Some("System authentication"),
+        "appLockAppleWatchEnabled" => Some("Apple Watch unlock"),
+        "appLockIdleMinutes" => Some("App Lock idle timing"),
+        "appLockOnSleep" => Some("Lock when device locks or sleeps"),
+        "appLockCaptureWhileLocked" => Some("Capture while locked"),
         "hudHotkey" => Some("HUD shortcut"),
         "seqToggleHotkey" => Some("Copy Queue shortcut"),
         "seqPopHotkey" => Some("Paste Next shortcut"),
@@ -262,5 +279,28 @@ mod tests {
                 .description,
             "Changed HUD shortcut: Alt+Shift+V → Command+Space"
         );
+    }
+
+    #[test]
+    fn formats_app_lock_setting_changes_without_sensitive_values() {
+        assert_eq!(
+            describe_setting_change("appLockIdleMinutes", Some("5"), "60")
+                .unwrap()
+                .description,
+            "Changed App Lock idle timing: 5 minutes → 1 hour"
+        );
+        assert_eq!(
+            describe_setting_change("appLockSystemAuthEnabled", Some("false"), "true")
+                .unwrap()
+                .description,
+            "Changed System authentication: Off → On"
+        );
+        assert_eq!(
+            describe_setting_change("appLockCaptureWhileLocked", Some("true"), "false")
+                .unwrap()
+                .description,
+            "Changed Capture while locked: On → Off"
+        );
+        assert!(describe_setting_change("appLockVerifier", Some("old"), "new").is_none());
     }
 }

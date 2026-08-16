@@ -23,6 +23,20 @@ use crate::library_storage::{self, LibraryLocationInfo};
 use crate::sequential_paste::{SequentialQueueState, SequentialStatus};
 use crate::third_party_licenses::ThirdPartyLicenseDocument;
 
+#[cfg(target_os = "windows")]
+fn system_auth_window_handle(app: &AppHandle) -> Result<Option<isize>, String> {
+    app.get_webview_window("main")
+        .ok_or_else(|| "The Pasted window is unavailable.".to_string())?
+        .hwnd()
+        .map(|handle| Some(handle.0 as isize))
+        .map_err(|error| error.to_string())
+}
+
+#[cfg(not(target_os = "windows"))]
+fn system_auth_window_handle(_app: &AppHandle) -> Result<Option<isize>, String> {
+    Ok(None)
+}
+
 fn refresh_native_app_menu(app: &AppHandle, db: &Arc<DbState>) {
     if let Err(error) = crate::app_menu::install(app, db) {
         eprintln!("Could not refresh the native app menu: {error}");
@@ -257,6 +271,16 @@ pub async fn restore_default_library_location(
 
 fn apply_feature_policy_changes(app: &AppHandle, db: &Arc<DbState>, changed: &[Feature]) {
     for feature in changed {
+        if *feature == Feature::AppLock {
+            if let Some(state) = app.try_state::<Arc<crate::app_lock::AppLockState>>() {
+                if !features::is_enabled(db, *feature) {
+                    state.unlock();
+                }
+                let status = crate::app_lock::status(db, &state);
+                let _ = app.emit("app-lock-changed", status);
+            }
+            continue;
+        }
         if features::is_enabled(db, *feature) {
             continue;
         }
@@ -1011,6 +1035,22 @@ pub async fn choose_extractor_model_file(app: AppHandle) -> Result<Option<String
 }
 
 #[tauri::command]
+pub async fn choose_extractor_executable(app: AppHandle) -> Result<Option<String>, String> {
+    let Some(selected_file) = app
+        .dialog()
+        .file()
+        .set_title("Choose an Extractor Executable")
+        .blocking_pick_file()
+    else {
+        return Ok(None);
+    };
+    selected_file
+        .into_path()
+        .map(|path| Some(path.to_string_lossy().into_owned()))
+        .map_err(|error| format!("The selected executable is not accessible: {error}"))
+}
+
+#[tauri::command]
 pub fn create_content_extractor(
     input: crate::content_extraction::ExtractorDefinitionInput,
     db: State<'_, Arc<DbState>>,
@@ -1278,6 +1318,9 @@ pub fn save_app_setting(
     app: AppHandle,
     db: State<'_, Arc<DbState>>,
 ) -> Result<(), String> {
+    if crate::app_lock::is_managed_setting(&key) {
+        return Err("Use the app-lock controls to change this setting.".to_string());
+    }
     let previous = db.get_setting(&key).map_err(|e| e.to_string())?;
     db.save_setting(&key, &value).map_err(|e| e.to_string())?;
     if let Some(activity) =
@@ -1301,6 +1344,12 @@ pub fn save_app_settings(
     app: AppHandle,
     db: State<'_, Arc<DbState>>,
 ) -> Result<(), String> {
+    if values
+        .keys()
+        .any(|key| crate::app_lock::is_managed_setting(key))
+    {
+        return Err("Use the app-lock controls to change app-lock settings.".to_string());
+    }
     let mut activities = values
         .iter()
         .filter_map(|(key, value)| {
@@ -1356,10 +1405,309 @@ pub fn play_system_sound(sound_id: Option<u32>) {
 pub fn play_system_sound(_sound_id: Option<u32>) {}
 
 #[tauri::command]
+pub fn quit_app(app: AppHandle) {
+    crate::request_app_exit(&app);
+}
+
+#[tauri::command]
 pub fn get_all_app_settings(
     db: State<'_, Arc<DbState>>,
 ) -> Result<std::collections::HashMap<String, String>, String> {
-    db.get_all_settings().map_err(|e| e.to_string())
+    let mut settings = db.get_all_settings().map_err(|e| e.to_string())?;
+    settings.retain(|key, _| !crate::app_lock::is_private_setting(key));
+    Ok(settings)
+}
+
+#[tauri::command]
+pub fn get_app_lock_status(
+    db: State<'_, Arc<DbState>>,
+    state: State<'_, Arc<crate::app_lock::AppLockState>>,
+) -> crate::app_lock::AppLockStatus {
+    crate::app_lock::status(&db, &state)
+}
+
+#[tauri::command]
+pub fn configure_app_lock(
+    passphrase: String,
+    current_passphrase: Option<String>,
+    app: AppHandle,
+    db: State<'_, Arc<DbState>>,
+    state: State<'_, Arc<crate::app_lock::AppLockState>>,
+) -> Result<crate::app_lock::AppLockStatus, String> {
+    features::require(&db, Feature::AppLock)?;
+    let was_enabled = db
+        .get_setting(crate::app_lock::ENABLED_SETTING)
+        .map_err(|error| error.to_string())?
+        .as_deref()
+        == Some("true");
+    if was_enabled
+        && !crate::app_lock::verify(&db, current_passphrase.as_deref().unwrap_or_default())?
+    {
+        return Err("The current passphrase is incorrect.".to_string());
+    }
+    crate::app_lock::configure(&db, &passphrase)?;
+    state.unlock();
+    let _ = if was_enabled {
+        db.log_activity("app_lock_passphrase_changed", "Changed app lock passphrase")
+    } else {
+        db.log_activity("app_lock_enabled", "Enabled app lock")
+    };
+    let status = crate::app_lock::status(&db, &state);
+    let _ = app.emit("app-lock-changed", &status);
+    Ok(status)
+}
+
+#[tauri::command]
+pub fn disable_app_lock(
+    passphrase: String,
+    app: AppHandle,
+    db: State<'_, Arc<DbState>>,
+    state: State<'_, Arc<crate::app_lock::AppLockState>>,
+) -> Result<crate::app_lock::AppLockStatus, String> {
+    features::require(&db, Feature::AppLock)?;
+    if !crate::app_lock::verify(&db, &passphrase)? {
+        return Err("The passphrase is incorrect.".to_string());
+    }
+    db.save_settings(&std::collections::HashMap::from([
+        (
+            crate::app_lock::ENABLED_SETTING.to_string(),
+            "false".to_string(),
+        ),
+        (
+            crate::app_lock::LEGACY_BIOMETRIC_SETTING.to_string(),
+            "false".to_string(),
+        ),
+        (
+            crate::app_lock::SYSTEM_AUTH_SETTING.to_string(),
+            "false".to_string(),
+        ),
+        (
+            crate::app_lock::APPLE_WATCH_SETTING.to_string(),
+            "false".to_string(),
+        ),
+    ]))
+    .map_err(|error| error.to_string())?;
+    state.unlock();
+    let _ = db.log_activity("app_lock_disabled", "Disabled app lock");
+    let status = crate::app_lock::status(&db, &state);
+    let _ = app.emit("app-lock-changed", &status);
+    Ok(status)
+}
+
+#[tauri::command]
+pub fn lock_app(
+    app: AppHandle,
+    db: State<'_, Arc<DbState>>,
+    state: State<'_, Arc<crate::app_lock::AppLockState>>,
+) -> Result<crate::app_lock::AppLockStatus, String> {
+    features::require(&db, Feature::AppLock)?;
+    if db
+        .get_setting(crate::app_lock::ENABLED_SETTING)
+        .map_err(|error| error.to_string())?
+        .as_deref()
+        != Some("true")
+    {
+        return Err("App lock is not enabled.".to_string());
+    }
+    state.lock();
+    refresh_native_app_menu(&app, &db);
+    let status = crate::app_lock::status(&db, &state);
+    let _ = app.emit("app-lock-changed", &status);
+    Ok(status)
+}
+
+#[tauri::command]
+pub async fn unlock_app(
+    passphrase: Option<String>,
+    auth_method: Option<String>,
+    app: AppHandle,
+    db: State<'_, Arc<DbState>>,
+    state: State<'_, Arc<crate::app_lock::AppLockState>>,
+) -> Result<crate::app_lock::AppLockStatus, String> {
+    features::require(&db, Feature::AppLock)?;
+    state.check_retry()?;
+    let authenticated = if let Some(method) = auth_method.as_deref() {
+        let (method, enabled) = match method {
+            "system" => (
+                crate::app_lock::SystemAuthMethod::Primary,
+                crate::app_lock::status(&db, &state).system_auth_enabled,
+            ),
+            "apple_watch" => (
+                crate::app_lock::SystemAuthMethod::AppleWatch,
+                crate::app_lock::status(&db, &state).apple_watch_enabled,
+            ),
+            _ => return Err("Unknown system authentication method.".to_string()),
+        };
+        if !enabled {
+            return Err("That unlock method is not enabled.".to_string());
+        }
+        let window_handle = system_auth_window_handle(&app)?;
+        tauri::async_runtime::spawn_blocking(move || {
+            crate::app_lock::platform_authenticate(method, window_handle)
+        })
+        .await
+        .map_err(|error| error.to_string())??
+    } else {
+        crate::app_lock::verify(&db, passphrase.as_deref().unwrap_or_default())?
+    };
+    if !authenticated {
+        if auth_method.is_some() {
+            // The operating-system prompt already communicates rejection or
+            // cancellation. Returning to the lock screen is not a failed
+            // passphrase attempt and must not advance the retry throttle.
+            return Err("Authentication canceled.".to_string());
+        }
+        state.record_failure();
+        return Err("The passphrase is incorrect.".to_string());
+    }
+    state.unlock();
+    refresh_native_app_menu(&app, &db);
+    let status = crate::app_lock::status(&db, &state);
+    let _ = app.emit("app-lock-changed", &status);
+    Ok(status)
+}
+
+#[tauri::command]
+async fn set_system_auth_enabled(
+    method: crate::app_lock::SystemAuthMethod,
+    setting: &str,
+    enabled: bool,
+    app: &AppHandle,
+    db: &DbState,
+    state: &crate::app_lock::AppLockState,
+) -> Result<crate::app_lock::AppLockStatus, String> {
+    features::require(db, Feature::AppLock)?;
+    if enabled {
+        let window_handle = system_auth_window_handle(app)?;
+        let authenticated = tauri::async_runtime::spawn_blocking(move || {
+            crate::app_lock::platform_authenticate(method, window_handle)
+        })
+        .await
+        .map_err(|error| error.to_string())??;
+        if !authenticated {
+            return Err("System authentication was not completed.".to_string());
+        }
+    }
+    let next = if enabled { "true" } else { "false" };
+    let previous = db.get_setting(setting).map_err(|error| error.to_string())?;
+    db.save_setting(setting, next)
+        .map_err(|error| error.to_string())?;
+    if let Some(activity) =
+        crate::settings_activity::describe_setting_change(setting, previous.as_deref(), next)
+    {
+        let _ = db.log_activity(activity.event_type, &activity.description);
+    }
+    let status = crate::app_lock::status(db, state);
+    let _ = app.emit("app-lock-changed", &status);
+    Ok(status)
+}
+
+#[tauri::command]
+pub async fn set_app_lock_system_auth(
+    enabled: bool,
+    app: AppHandle,
+    db: State<'_, Arc<DbState>>,
+    state: State<'_, Arc<crate::app_lock::AppLockState>>,
+) -> Result<crate::app_lock::AppLockStatus, String> {
+    set_system_auth_enabled(
+        crate::app_lock::SystemAuthMethod::Primary,
+        crate::app_lock::SYSTEM_AUTH_SETTING,
+        enabled,
+        &app,
+        &db,
+        &state,
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn set_app_lock_apple_watch(
+    enabled: bool,
+    app: AppHandle,
+    db: State<'_, Arc<DbState>>,
+    state: State<'_, Arc<crate::app_lock::AppLockState>>,
+) -> Result<crate::app_lock::AppLockStatus, String> {
+    set_system_auth_enabled(
+        crate::app_lock::SystemAuthMethod::AppleWatch,
+        crate::app_lock::APPLE_WATCH_SETTING,
+        enabled,
+        &app,
+        &db,
+        &state,
+    )
+    .await
+}
+
+#[tauri::command]
+pub fn set_app_lock_idle_minutes(
+    minutes: u32,
+    app: AppHandle,
+    db: State<'_, Arc<DbState>>,
+    state: State<'_, Arc<crate::app_lock::AppLockState>>,
+) -> Result<crate::app_lock::AppLockStatus, String> {
+    features::require(&db, Feature::AppLock)?;
+    if !matches!(minutes, 0 | 1 | 5 | 60 | 480) {
+        return Err("Choose Never, 1 minute, 5 minutes, 1 hour, or 8 hours.".to_string());
+    }
+    let setting = crate::app_lock::IDLE_MINUTES_SETTING;
+    let next = minutes.to_string();
+    let previous = db.get_setting(setting).map_err(|error| error.to_string())?;
+    db.save_setting(setting, &next)
+        .map_err(|error| error.to_string())?;
+    if let Some(activity) =
+        crate::settings_activity::describe_setting_change(setting, previous.as_deref(), &next)
+    {
+        let _ = db.log_activity(activity.event_type, &activity.description);
+    }
+    let status = crate::app_lock::status(&db, &state);
+    let _ = app.emit("app-lock-changed", &status);
+    Ok(status)
+}
+
+#[tauri::command]
+pub fn set_app_lock_lock_on_sleep(
+    enabled: bool,
+    app: AppHandle,
+    db: State<'_, Arc<DbState>>,
+    state: State<'_, Arc<crate::app_lock::AppLockState>>,
+) -> Result<crate::app_lock::AppLockStatus, String> {
+    features::require(&db, Feature::AppLock)?;
+    let setting = crate::app_lock::LOCK_ON_SLEEP_SETTING;
+    let next = if enabled { "true" } else { "false" };
+    let previous = db.get_setting(setting).map_err(|error| error.to_string())?;
+    db.save_setting(setting, next)
+        .map_err(|error| error.to_string())?;
+    if let Some(activity) =
+        crate::settings_activity::describe_setting_change(setting, previous.as_deref(), next)
+    {
+        let _ = db.log_activity(activity.event_type, &activity.description);
+    }
+    let status = crate::app_lock::status(&db, &state);
+    let _ = app.emit("app-lock-changed", &status);
+    Ok(status)
+}
+
+#[tauri::command]
+pub fn set_app_lock_capture_while_locked(
+    enabled: bool,
+    app: AppHandle,
+    db: State<'_, Arc<DbState>>,
+    state: State<'_, Arc<crate::app_lock::AppLockState>>,
+) -> Result<crate::app_lock::AppLockStatus, String> {
+    features::require(&db, Feature::AppLock)?;
+    let setting = crate::app_lock::CAPTURE_WHILE_LOCKED_SETTING;
+    let next = if enabled { "true" } else { "false" };
+    let previous = db.get_setting(setting).map_err(|error| error.to_string())?;
+    db.save_setting(setting, next)
+        .map_err(|error| error.to_string())?;
+    if let Some(activity) =
+        crate::settings_activity::describe_setting_change(setting, previous.as_deref(), next)
+    {
+        let _ = db.log_activity(activity.event_type, &activity.description);
+    }
+    let status = crate::app_lock::status(&db, &state);
+    let _ = app.emit("app-lock-changed", &status);
+    Ok(status)
 }
 
 #[tauri::command]

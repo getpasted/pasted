@@ -6,7 +6,10 @@ use std::path::{Path, PathBuf};
 
 use pasted_lib::bin_assignment::assign_clips_to_bin;
 use pasted_lib::content_classification::ClassifierInput;
-use pasted_lib::content_extraction::{ExtractorDefinitionInput, APPLE_VISION_ENGINE};
+use pasted_lib::content_extraction::{
+    ExtractorDefinitionInput, APPLE_VISION_ENGINE, CUSTOM_COMMAND_ENGINE, TESSERACT_ENGINE,
+    WHISPER_CPP_ENGINE,
+};
 use pasted_lib::content_types::{ContentTypeGroupInput, ContentTypeInput};
 use pasted_lib::db::{
     ClipMutationSummary, DbState, IntelligenceConnectionUpdate, PipelineStepInput,
@@ -129,7 +132,219 @@ fn main() -> Result<()> {
         std::process::exit(1);
     }
 
+    let app_lock_feature_setting = conn
+        .query_row(
+            "SELECT value FROM settings WHERE key = ?1",
+            [Feature::AppLock.setting_key()],
+            |row| row.get::<_, String>(0),
+        )
+        .optional()
+        .ok()
+        .flatten();
+    if command != "app-lock"
+        && setting_value_is_enabled(app_lock_feature_setting.as_deref())
+        && conn
+            .query_row(
+                "SELECT value FROM settings WHERE key = ?1",
+                [pasted_lib::app_lock::ENABLED_SETTING],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()
+            .ok()
+            .flatten()
+            .as_deref()
+            == Some("true")
+    {
+        let supplied = env::var("PASTED_APP_LOCK_PASSPHRASE").unwrap_or_default();
+        drop(conn);
+        let db = DbState::new(db_path.clone())?;
+        if supplied.is_empty() || !pasted_lib::app_lock::verify(&db, &supplied).unwrap_or(false) {
+            eprintln!("Pasted is locked. Set PASTED_APP_LOCK_PASSPHRASE for this command, or run `pasted app-lock unlock`.");
+            std::process::exit(1);
+        }
+        drop(db);
+        let conn = Connection::open(&db_path)?;
+        return run_command(command, &args, db_path, conn);
+    }
+
+    run_command(command, &args, db_path, conn)
+}
+
+fn run_command(command: &str, args: &[String], db_path: PathBuf, conn: Connection) -> Result<()> {
+    let args = args.to_vec();
     match command {
+        "app-lock" => {
+            if !pasted_lib::features::is_enabled(&DbState::new(db_path.clone())?, Feature::AppLock)
+            {
+                eprintln!("App Lock is disabled in Settings → Functionality.");
+                std::process::exit(1);
+            }
+            let subcommand = args.get(2).map(String::as_str).unwrap_or("status");
+            let json = args.iter().any(|argument| argument == "--json");
+            match subcommand {
+                "status" => {
+                    drop(conn);
+                    let db = DbState::new(db_path)?;
+                    let enabled = db
+                        .get_setting(pasted_lib::app_lock::ENABLED_SETTING)?
+                        .as_deref()
+                        == Some("true");
+                    let lock_state = pasted_lib::app_lock::AppLockState::from_db(&db);
+                    let lock_status = pasted_lib::app_lock::status(&db, &lock_state);
+                    let idle_minutes = db
+                        .get_setting(pasted_lib::app_lock::IDLE_MINUTES_SETTING)?
+                        .and_then(|value| value.parse::<u32>().ok())
+                        .unwrap_or(5);
+                    let lock_on_sleep = db
+                        .get_setting(pasted_lib::app_lock::LOCK_ON_SLEEP_SETTING)?
+                        .as_deref()
+                        != Some("false");
+                    if json {
+                        println!(
+                            "{}",
+                            serde_json::json!({ "enabled": enabled, "systemAuthEnabled": lock_status.system_auth_enabled, "systemAuthLabel": lock_status.system_auth_label, "appleWatchEnabled": lock_status.apple_watch_enabled, "idleMinutes": idle_minutes, "lockOnSleep": lock_on_sleep, "captureWhileLocked": lock_status.capture_while_locked })
+                        );
+                    } else {
+                        println!(
+                            "App lock: {}\nSystem authentication: {}\nLock after sleep: {}\nAuto-lock: {}\nCapture while locked: {}",
+                            if enabled { "enabled" } else { "disabled" },
+                            if lock_status.system_auth_enabled {
+                                "enabled"
+                            } else {
+                                "disabled"
+                            },
+                            if lock_on_sleep { "enabled" } else { "disabled" },
+                            if idle_minutes == 0 {
+                                "Never".to_string()
+                            } else if idle_minutes == 60 {
+                                "1 hour".to_string()
+                            } else if idle_minutes == 480 {
+                                "8 hours".to_string()
+                            } else {
+                                format!("{idle_minutes} minutes")
+                            },
+                            if lock_status.capture_while_locked { "enabled" } else { "disabled" }
+                        );
+                    }
+                }
+                "enable" => {
+                    drop(conn);
+                    let db = DbState::new(db_path)?;
+                    if db
+                        .get_setting(pasted_lib::app_lock::ENABLED_SETTING)?
+                        .as_deref()
+                        == Some("true")
+                    {
+                        eprintln!("App lock is already enabled. Change its passphrase in Settings → Security.");
+                        std::process::exit(2);
+                    }
+                    let passphrase = read_lock_passphrase(&args, "New app-lock passphrase: ")?;
+                    pasted_lib::app_lock::configure(&db, &passphrase).map_err(cli_input_error)?;
+                    let _ = db.log_activity("app_lock_enabled", "Enabled app lock");
+                    if json {
+                        println!("{}", serde_json::json!({ "enabled": true }));
+                    } else {
+                        println!(
+                            "Enabled app lock. It will be required the next time Pasted starts."
+                        );
+                    }
+                }
+                "disable" => {
+                    drop(conn);
+                    let db = DbState::new(db_path)?;
+                    let passphrase = read_lock_passphrase(&args, "App-lock passphrase: ")?;
+                    if !pasted_lib::app_lock::verify(&db, &passphrase).map_err(cli_input_error)? {
+                        eprintln!("The passphrase is incorrect.");
+                        std::process::exit(1);
+                    }
+                    db.save_settings(&std::collections::HashMap::from([
+                        (
+                            pasted_lib::app_lock::ENABLED_SETTING.to_string(),
+                            "false".to_string(),
+                        ),
+                        (
+                            pasted_lib::app_lock::LEGACY_BIOMETRIC_SETTING.to_string(),
+                            "false".to_string(),
+                        ),
+                        (
+                            pasted_lib::app_lock::SYSTEM_AUTH_SETTING.to_string(),
+                            "false".to_string(),
+                        ),
+                        (
+                            pasted_lib::app_lock::APPLE_WATCH_SETTING.to_string(),
+                            "false".to_string(),
+                        ),
+                    ]))?;
+                    let _ = db.log_activity("app_lock_disabled", "Disabled app lock");
+                    if json {
+                        println!("{}", serde_json::json!({ "enabled": false }));
+                    } else {
+                        println!("Disabled app lock.");
+                    }
+                }
+                "lock" => {
+                    let result =
+                        send_live_or_exit(pasted_lib::live_app::LiveAppAction::AppLockLock);
+                    print_live_result(&result, json)?;
+                }
+                "unlock" => {
+                    let passphrase = read_lock_passphrase(&args, "App-lock passphrase: ")?;
+                    let result =
+                        send_live_or_exit(pasted_lib::live_app::LiveAppAction::AppLockUnlock {
+                            passphrase,
+                        });
+                    print_live_result(&result, json)?;
+                }
+                "capture-while-locked" => {
+                    let enabled = match args.get(3).map(String::as_str) {
+                        Some("on" | "enable" | "enabled" | "true") => true,
+                        Some("off" | "disable" | "disabled" | "false") => false,
+                        _ => {
+                            eprintln!("Usage: pasted app-lock capture-while-locked <on|off> [--stdin] [--json]");
+                            std::process::exit(2);
+                        }
+                    };
+                    drop(conn);
+                    let db = DbState::new(db_path)?;
+                    if db
+                        .get_setting(pasted_lib::app_lock::ENABLED_SETTING)?
+                        .as_deref()
+                        == Some("true")
+                    {
+                        let passphrase = read_lock_passphrase(&args, "App-lock passphrase: ")?;
+                        if !pasted_lib::app_lock::verify(&db, &passphrase)
+                            .map_err(cli_input_error)?
+                        {
+                            eprintln!("The passphrase is incorrect.");
+                            std::process::exit(1);
+                        }
+                    }
+                    let setting = pasted_lib::app_lock::CAPTURE_WHILE_LOCKED_SETTING;
+                    let next = if enabled { "true" } else { "false" };
+                    let previous = db.get_setting(setting)?;
+                    db.save_setting(setting, next)?;
+                    if let Some(activity) = pasted_lib::settings_activity::describe_setting_change(
+                        setting,
+                        previous.as_deref(),
+                        next,
+                    ) {
+                        let _ = db.log_activity(activity.event_type, &activity.description);
+                    }
+                    if json {
+                        println!("{}", serde_json::json!({ "captureWhileLocked": enabled }));
+                    } else {
+                        println!(
+                            "Capture while locked: {}.",
+                            if enabled { "enabled" } else { "disabled" }
+                        );
+                    }
+                }
+                _ => {
+                    eprintln!("Usage: pasted app-lock status|enable|disable|lock|unlock|capture-while-locked [--stdin] [--json]");
+                    std::process::exit(2);
+                }
+            }
+        }
         "retention" => {
             drop(conn);
             let db = DbState::new(db_path.clone())?;
@@ -232,6 +447,7 @@ fn main() -> Result<()> {
                 "list" | "ls" => {
                     let mut values = db.get_all_settings()?;
                     values.remove("pendingFullBackupClientState");
+                    values.retain(|key, _| !pasted_lib::app_lock::is_private_setting(key));
                     if json {
                         println!(
                             "{}",
@@ -250,7 +466,9 @@ fn main() -> Result<()> {
                         eprintln!("Usage: pasted settings get <key> [--json]");
                         std::process::exit(2);
                     });
-                    if key == "pendingFullBackupClientState" {
+                    if key == "pendingFullBackupClientState"
+                        || pasted_lib::app_lock::is_private_setting(key)
+                    {
                         eprintln!("That setting is internal and cannot be read through the CLI.");
                         std::process::exit(2);
                     }
@@ -273,7 +491,10 @@ fn main() -> Result<()> {
                         eprintln!("Usage: pasted settings set <key> <value> [--json]");
                         std::process::exit(2);
                     });
-                    if key == "pendingFullBackupClientState" || key.trim().is_empty() {
+                    if key == "pendingFullBackupClientState"
+                        || pasted_lib::app_lock::is_managed_setting(key)
+                        || key.trim().is_empty()
+                    {
                         eprintln!("That setting cannot be changed through the CLI.");
                         std::process::exit(2);
                     }
@@ -1320,7 +1541,7 @@ fn main() -> Result<()> {
                 }
                 "update" => {
                     let reference = args.get(3).unwrap_or_else(|| {
-                        eprintln!("Usage: pasted extractor update <ref> [--name NAME] [--description TEXT] [--engine ENGINE] [--model PATH|--no-model] [--input CONTRACT] [--output CONTRACT] [--priority N] [--enabled|--disabled] [--json]");
+                        eprintln!("Usage: pasted extractor update <ref> [--name NAME] [--description TEXT] [--method METHOD] [--executable PATH|--automatic-discovery] [--model PATH|--no-model] [--input CONTRACT] [--output CONTRACT] [--priority N] [--enabled|--disabled] [--json]");
                         std::process::exit(2);
                     });
                     let current = db.get_content_extractor(reference)?;
@@ -3525,6 +3746,8 @@ fn main() -> Result<()> {
             println!("                   [--log-count N|unlimited] [--log-days N|forever]");
             println!("                   [--revision-count N|unlimited]");
             println!("  pasted settings list|get|set [arguments] [--json]");
+            println!("  pasted app-lock status|enable|disable|lock|unlock [--stdin] [--json]");
+            println!("  pasted app-lock capture-while-locked <on|off> [--stdin] [--json]");
             println!("  pasted recording status|pause|resume [--json] Control the running app");
             println!("  pasted queue status|start|stop|add|remove|order|paste|paste-all [--json]");
             println!("  pasted activity list [--limit N|--all] [--json]");
@@ -3785,6 +4008,22 @@ fn extractor_definition_from_args(
     args: &[String],
     current: Option<&pasted_lib::content_extraction::Extractor>,
 ) -> ExtractorDefinitionInput {
+    let engine = argument_value(args, "--method")
+        .map(|method| match method.as_str() {
+            "apple-vision" => APPLE_VISION_ENGINE.into(),
+            "tesseract" => TESSERACT_ENGINE.into(),
+            "whisper" | "whisper-cpp" => WHISPER_CPP_ENGINE.into(),
+            "custom-command" | "command" => CUSTOM_COMMAND_ENGINE.into(),
+            _ => {
+                eprintln!("--method must be apple-vision, tesseract, whisper, or custom-command");
+                std::process::exit(2);
+            }
+        })
+        .unwrap_or_else(|| {
+            current
+                .map(|item| item.engine.clone())
+                .unwrap_or_else(|| CUSTOM_COMMAND_ENGINE.into())
+        });
     ExtractorDefinitionInput {
         name: argument_value(args, "--name").unwrap_or_else(|| {
             current
@@ -3794,13 +4033,15 @@ fn extractor_definition_from_args(
         description: argument_value(args, "--description").unwrap_or_else(|| {
             current
                 .map(|item| item.description.clone())
-                .unwrap_or_else(|| "Extracts searchable text from images.".into())
+                .unwrap_or_else(|| "Extracts searchable text with a local command.".into())
         }),
-        engine: argument_value(args, "--engine").unwrap_or_else(|| {
-            current
-                .map(|item| item.engine.clone())
-                .unwrap_or_else(|| APPLE_VISION_ENGINE.into())
-        }),
+        engine,
+        executable_path: optional_argument_update(
+            args,
+            "--executable",
+            "--automatic-discovery",
+            current.and_then(|item| item.executable_path.clone()),
+        ),
         model_path: optional_argument_update(
             args,
             "--model",
@@ -3822,7 +4063,7 @@ fn extractor_definition_from_args(
         } else if args.iter().any(|argument| argument == "--enabled") {
             true
         } else {
-            current.map(|item| item.enabled).unwrap_or(true)
+            current.map(|item| item.enabled).unwrap_or(false)
         },
         priority: argument_value(args, "--priority")
             .and_then(|value| value.parse::<i64>().ok())
@@ -3851,6 +4092,15 @@ fn print_extractor(
         if let Some(model_path) = extractor.model_path.as_deref() {
             println!("Model: {model_path}");
         }
+        if let Some(executable_path) = extractor.executable_path.as_deref() {
+            println!("Executable: {executable_path}");
+        } else if let Some(location) = extractor.runtime.location.as_deref() {
+            println!("Runtime: {location}");
+        }
+        if let Some(version) = extractor.runtime.version.as_deref() {
+            println!("Version: {version}");
+        }
+        println!("Revision: {}", extractor.revision);
     }
     Ok(())
 }
@@ -4235,4 +4485,26 @@ fn read_stdin_bounded(maximum: usize) -> Result<String> {
         )));
     }
     Ok(buffer)
+}
+
+fn read_lock_passphrase(args: &[String], prompt: &str) -> Result<String> {
+    let passphrase = if args.iter().any(|argument| argument == "--stdin") {
+        read_stdin_bounded(4096)?
+            .trim_end_matches(['\r', '\n'])
+            .to_string()
+    } else {
+        rpassword::prompt_password(prompt)
+            .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?
+    };
+    if passphrase.is_empty() {
+        return Err(cli_input_error("A passphrase is required.".to_string()));
+    }
+    Ok(passphrase)
+}
+
+fn cli_input_error(error: String) -> rusqlite::Error {
+    rusqlite::Error::ToSqlConversionFailure(Box::new(io::Error::new(
+        io::ErrorKind::InvalidInput,
+        error,
+    )))
 }

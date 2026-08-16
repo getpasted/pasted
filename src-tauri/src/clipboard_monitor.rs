@@ -6,7 +6,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant};
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 
 use crate::app_exclusions::{AppExclusionRule, ExcludedCaptureKind};
 use crate::db::DbState;
@@ -320,6 +320,10 @@ pub fn start_clipboard_monitor(
                 continue;
             }
 
+            let capture_suppressed = app
+                .try_state::<Arc<crate::app_lock::AppLockState>>()
+                .is_some_and(|state| !crate::app_lock::capture_allowed(&db_state, &state));
+
             let clipboard_files = clipboard.get().file_list().unwrap_or_default();
 
             let inferred_source = clipboard_files
@@ -406,6 +410,9 @@ pub fn start_clipboard_monitor(
                 let hash = crate::clipboard_fingerprint::file_list(&paths);
                 if hash != last_hash {
                     last_hash = hash.clone();
+                    if capture_suppressed {
+                        continue;
+                    }
                     if seq_state.consume_internal_clipboard_write(&hash) {
                         continue;
                     }
@@ -513,6 +520,9 @@ pub fn start_clipboard_monitor(
 
                     if hash != last_hash {
                         last_hash = hash.clone();
+                        if capture_suppressed {
+                            continue;
+                        }
                         let capture_limit = configured_capture_bytes(&db_state);
                         if text.len() > capture_limit {
                             report_ignored_capture(
@@ -620,6 +630,9 @@ pub fn start_clipboard_monitor(
                     let hash = format!("{:x}", hasher.finalize());
                     if hash != last_hash {
                         last_hash = hash;
+                        if capture_suppressed {
+                            continue;
+                        }
                         report_ignored_capture(
                             &app,
                             &db_state,
@@ -634,6 +647,9 @@ pub fn start_clipboard_monitor(
 
                 if hash != last_hash {
                     last_hash = hash.clone();
+                    if capture_suppressed {
+                        continue;
+                    }
                     if seq_state.consume_internal_clipboard_write(&hash) {
                         continue;
                     }
