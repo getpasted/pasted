@@ -101,6 +101,7 @@ fn friendly_value(key: &str, value: &str) -> Option<String> {
         | "appLockSystemAuthEnabled"
         | "appLockAppleWatchEnabled"
         | "appLockOnSleep"
+        | "appLockOnRestart"
         | "appLockCaptureWhileLocked" => on_off(value)?.into(),
         _ if key.ends_with("Hotkey") => {
             if value.is_empty() {
@@ -146,6 +147,7 @@ fn setting_label(key: &str) -> Option<&'static str> {
         "appLockAppleWatchEnabled" => Some("Apple Watch unlock"),
         "appLockIdleMinutes" => Some("App Lock idle timing"),
         "appLockOnSleep" => Some("Lock when device locks or sleeps"),
+        "appLockOnRestart" => Some("Lock after restart"),
         "appLockCaptureWhileLocked" => Some("Capture while locked"),
         "hudHotkey" => Some("HUD shortcut"),
         "seqToggleHotkey" => Some("Copy Queue shortcut"),
@@ -294,6 +296,12 @@ mod tests {
                 .unwrap()
                 .description,
             "Changed System authentication: Off → On"
+        );
+        assert_eq!(
+            describe_setting_change("appLockOnRestart", Some("true"), "false")
+                .unwrap()
+                .description,
+            "Changed Lock after restart: On → Off"
         );
         assert_eq!(
             describe_setting_change("appLockCaptureWhileLocked", Some("true"), "false")

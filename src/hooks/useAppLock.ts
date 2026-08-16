@@ -12,6 +12,7 @@ export interface AppLockStatus {
   appleWatchAvailable: boolean;
   idleMinutes: number;
   lockOnSleep: boolean;
+  lockOnRestart: boolean;
   captureWhileLocked: boolean;
 }
 
@@ -25,6 +26,7 @@ const DEFAULT_STATUS: AppLockStatus = {
   appleWatchAvailable: false,
   idleMinutes: 5,
   lockOnSleep: true,
+  lockOnRestart: true,
   captureWhileLocked: true,
 };
 
@@ -202,6 +204,7 @@ export function useAppLock() {
     setAppleWatch: (enabled: boolean) => apply(invoke<AppLockStatus>('set_app_lock_apple_watch', { enabled })),
     setIdleMinutes: (minutes: number) => apply(invoke<AppLockStatus>('set_app_lock_idle_minutes', { minutes })),
     setLockOnSleep: (enabled: boolean) => apply(invoke<AppLockStatus>('set_app_lock_lock_on_sleep', { enabled })),
+    setLockOnRestart: (enabled: boolean) => apply(invoke<AppLockStatus>('set_app_lock_lock_on_restart', { enabled })),
     setCaptureWhileLocked: (enabled: boolean) => apply(invoke<AppLockStatus>('set_app_lock_capture_while_locked', { enabled })),
   };
 }

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ArrowRight, CheckCircle2, Database, Download, FileWarning, FolderInput, LoaderCircle, RotateCcw, Upload, X } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Database, Download, FileWarning, FolderInput, LoaderCircle, RotateCcw, ShieldAlert, ShieldCheck, ShieldQuestion, Upload, X } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { SettingsPanelHeader } from './SettingsPanelHeader';
 import { SettingsSubsectionHeader } from './SettingsSubsectionHeader';
@@ -33,6 +33,34 @@ interface LibraryLocationInfo {
 interface LibraryMoveReport {
   location: LibraryLocationInfo;
   recoveryPath: string;
+}
+
+interface StorageProtectionInfo {
+  status: 'protected' | 'notDetected' | 'unknown';
+  technology: string | null;
+  summary: string;
+  detail: string;
+}
+
+let cachedStorageProtection: StorageProtectionInfo | null = null;
+let storageProtectionRequest: Promise<StorageProtectionInfo> | null = null;
+
+function loadStorageProtection(force = false): Promise<StorageProtectionInfo> {
+  if (force) {
+    cachedStorageProtection = null;
+    storageProtectionRequest = null;
+  }
+  if (cachedStorageProtection) return Promise.resolve(cachedStorageProtection);
+  if (storageProtectionRequest) return storageProtectionRequest;
+  storageProtectionRequest = invoke<StorageProtectionInfo>('get_storage_protection')
+    .then((protection) => {
+      cachedStorageProtection = protection;
+      return protection;
+    })
+    .finally(() => {
+      storageProtectionRequest = null;
+    });
+  return storageProtectionRequest;
 }
 
 interface FullBackupReport {
@@ -177,6 +205,7 @@ export function SettingsSyncPanel({
   const [isRestoringFullBackup, setIsRestoringFullBackup] = useState(false);
   const [isRestoreConfirmOpen, setIsRestoreConfirmOpen] = useState(false);
   const [location, setLocation] = useState<LibraryLocationInfo | null>(null);
+  const [storageProtection, setStorageProtection] = useState<StorageProtectionInfo | null>(cachedStorageProtection);
   const [exportMode, setExportMode] = useState<ExportMode>('full');
   const [exportFormat, setExportFormat] = useState<ExportFormat>('json');
   const [exportData, setExportData] = useState<Record<ExportDataId, boolean>>({
@@ -196,8 +225,25 @@ export function SettingsSyncPanel({
     }
   };
 
+  const refreshStorageProtection = async (force = false) => {
+    try {
+      setStorageProtection(await loadStorageProtection(force));
+    } catch (error) {
+      console.error('Could not inspect storage protection:', error);
+      const unavailable: StorageProtectionInfo = {
+        status: 'unknown',
+        technology: null,
+        summary: 'Volume encryption could not be determined',
+        detail: 'Check the operating system’s storage security settings.',
+      };
+      cachedStorageProtection = unavailable;
+      setStorageProtection(unavailable);
+    }
+  };
+
   useEffect(() => {
     void refreshLocation();
+    void refreshStorageProtection();
   }, []);
 
   const handleMoveLibrary = async () => {
@@ -207,6 +253,7 @@ export function SettingsSyncPanel({
       const report = await invoke<LibraryMoveReport | null>('move_library');
       if (!report) return;
       setLocation(report.location);
+      await refreshStorageProtection(true);
       await waitForMinimumLibraryTransition(transitionStartedAt);
       showToast({
         tone: 'success',
@@ -227,6 +274,7 @@ export function SettingsSyncPanel({
     try {
       const report = await invoke<LibraryMoveReport>('restore_default_library_location');
       setLocation(report.location);
+      await refreshStorageProtection(true);
       await waitForMinimumLibraryTransition(transitionStartedAt);
       showToast({
         tone: 'success',
@@ -455,16 +503,34 @@ export function SettingsSyncPanel({
             </ActionButton>
           </div>}
         />
-        <div className="theme-surface rounded-xl border p-3">
-          <p className="theme-label text-[10px] font-bold uppercase tracking-wider">
-            {location?.isDefault ? 'Default Location' : 'Custom Location'}
-          </p>
-          <p
-            className="theme-text-main mt-1 select-text truncate font-mono text-[11px]"
-            title={location?.path}
-          >
-            {location?.path ?? 'Loading database location…'}
-          </p>
+        <div className="theme-surface overflow-hidden rounded-xl border">
+          <div className="p-3">
+            <p className="theme-label text-[10px] font-bold uppercase tracking-wider">
+              {location?.isDefault ? 'Default Location' : 'Custom Location'}
+            </p>
+            <p
+              className="theme-text-main mt-1 select-text truncate font-mono text-[11px]"
+              title={location?.path}
+            >
+              {location?.path ?? 'Loading database location…'}
+            </p>
+          </div>
+          <div className="theme-subtle-surface flex min-h-[4.5rem] items-start gap-3 border-t theme-divider px-3 py-3">
+            {storageProtection?.status === 'protected'
+              ? <ShieldCheck className="theme-status-success-text mt-0.5 h-4 w-4 shrink-0" />
+              : storageProtection?.status === 'notDetected'
+                ? <ShieldAlert className="theme-status-warning-text mt-0.5 h-4 w-4 shrink-0" />
+                : <ShieldQuestion className="theme-text-muted mt-0.5 h-4 w-4 shrink-0" />}
+            <div className="min-w-0">
+              <p className="theme-label text-[9px] font-bold uppercase tracking-wider">Storage protection</p>
+              <p className="theme-text-main mt-0.5 text-[11px] font-semibold">
+                {storageProtection?.summary ?? 'Checking volume encryption…'}
+              </p>
+              <p className="theme-text-muted mt-0.5 text-[10px] leading-relaxed">
+                {storageProtection?.detail ?? 'Checking the active database volume.'}
+              </p>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -512,7 +578,7 @@ export function SettingsSyncPanel({
             <div className="min-w-0">
               <p className="theme-text-muted text-[10px] leading-relaxed">
                 {exportMode === 'full'
-                  ? <>1 <code className="theme-code-surface theme-text-main rounded px-1 font-mono">.pastedbackup</code> file will be created.</>
+                  ? <>1 <code className="theme-code-surface theme-text-main rounded px-1 font-mono">.pastedbackup</code> SQLite snapshot will be created.</>
                   : <>{customExportFileCount} <code className="theme-code-surface theme-text-main rounded px-1 font-mono">{EXPORT_EXTENSION[exportFormat]}</code> {customExportFileCount === 1 ? 'file' : 'files'} will be created.</>}
               </p>
               <dl className="mt-2 grid grid-cols-[5rem_minmax(0,1fr)] gap-x-2 gap-y-1 text-[9px] leading-relaxed">
@@ -522,6 +588,8 @@ export function SettingsSyncPanel({
                 <dd className="theme-text-muted">Remain in their current locations</dd>
                 <dt className="theme-label font-semibold">Credentials</dt>
                 <dd className="theme-text-muted">Are not copied</dd>
+                <dt className="theme-label font-semibold">Encryption</dt>
+                <dd className="theme-text-muted">None</dd>
               </dl>
             </div>
             <ActionButton

@@ -20,21 +20,41 @@ const MAX_REQUEST_BYTES: u64 = 64 * 1024;
 #[serde(tag = "action", rename_all = "snake_case")]
 pub enum LiveAppAction {
     ClipboardStatus,
-    ClipboardSetPaused { paused: bool },
+    ClipboardSetPaused {
+        paused: bool,
+    },
     QueueStatus,
     QueueStart,
     QueueStop,
-    QueueAddClips { clip_ids: Vec<i64> },
-    QueueRemove { index: usize },
-    QueueReorder { item_ids: Vec<u64> },
-    QueuePaste { index: usize },
+    QueueAddClips {
+        clip_ids: Vec<i64>,
+    },
+    QueueRemove {
+        index: usize,
+    },
+    QueueReorder {
+        item_ids: Vec<u64>,
+    },
+    QueuePaste {
+        index: usize,
+    },
     QueuePasteAll,
-    CopyClip { clip_id: i64 },
-    PasteClip { clip_id: i64 },
+    CopyClip {
+        clip_id: i64,
+    },
+    PasteClip {
+        clip_id: i64,
+    },
     OcrCancel,
     AppLockStatus,
     AppLockLock,
-    AppLockUnlock { passphrase: String },
+    AppLockUnlock {
+        passphrase: String,
+    },
+    AppLockReset {
+        confirmed: bool,
+        database_path: PathBuf,
+    },
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -96,8 +116,13 @@ pub fn request_from_args(args: &[String]) -> Option<PathBuf> {
         .map(PathBuf::from)
 }
 
-pub fn handle_request_file(app: &tauri::AppHandle, path: &Path) {
-    let response = match read_and_execute(app, path) {
+pub fn handle_request_file(
+    app: &tauri::AppHandle,
+    path: &Path,
+    allow_recovery_reset: bool,
+) -> bool {
+    let recovery_reset = is_recovery_reset_request(path);
+    let response = match read_and_execute(app, path, allow_recovery_reset) {
         Ok((request_id, result)) => LiveAppResponse {
             request_id,
             ok: true,
@@ -115,11 +140,20 @@ pub fn handle_request_file(app: &tauri::AppHandle, path: &Path) {
         let _ = write_private(&response_path(path), &contents);
     }
     let _ = fs::remove_file(path);
+    recovery_reset
+}
+
+pub fn is_recovery_reset_request(path: &Path) -> bool {
+    fs::read(path)
+        .ok()
+        .and_then(|contents| serde_json::from_slice::<LiveAppRequest>(&contents).ok())
+        .is_some_and(|request| matches!(request.command, LiveAppAction::AppLockReset { .. }))
 }
 
 fn read_and_execute(
     app: &tauri::AppHandle,
     path: &Path,
+    allow_recovery_reset: bool,
 ) -> Result<(String, Value), (String, String)> {
     let unknown = "unknown".to_string();
     validate_request_path(path).map_err(|error| (unknown.clone(), error))?;
@@ -133,12 +167,16 @@ fn read_and_execute(
         ));
     }
     let request_id = request.request_id.clone();
-    execute(app, request.command)
+    execute(app, request.command, allow_recovery_reset)
         .map(|result| (request_id.clone(), result))
         .map_err(|error| (request_id, error))
 }
 
-fn execute(app: &tauri::AppHandle, action: LiveAppAction) -> Result<Value, String> {
+fn execute(
+    app: &tauri::AppHandle,
+    action: LiveAppAction,
+    allow_recovery_reset: bool,
+) -> Result<Value, String> {
     let db = app.state::<Arc<DbState>>();
     let queue = app.state::<Arc<SequentialQueueState>>();
     let lock_state = app.state::<Arc<crate::app_lock::AppLockState>>();
@@ -148,6 +186,7 @@ fn execute(app: &tauri::AppHandle, action: LiveAppAction) -> Result<Value, Strin
             LiveAppAction::AppLockStatus
                 | LiveAppAction::AppLockLock
                 | LiveAppAction::AppLockUnlock { .. }
+                | LiveAppAction::AppLockReset { .. }
                 | LiveAppAction::ClipboardStatus
                 | LiveAppAction::ClipboardSetPaused { .. }
         )
@@ -286,6 +325,27 @@ fn execute(app: &tauri::AppHandle, action: LiveAppAction) -> Result<Value, Strin
             let status = crate::app_lock::status(&db, &state);
             let _ = app.emit("app-lock-changed", &status);
             serde_json::to_value(status).map_err(|error| error.to_string())
+        }
+        LiveAppAction::AppLockReset {
+            confirmed,
+            database_path,
+        } => {
+            if !allow_recovery_reset {
+                return Err("Quit Pasted before resetting app lock.".to_string());
+            }
+            if !confirmed {
+                return Err("Resetting app lock requires explicit confirmation.".to_string());
+            }
+            let recovery_db = DbState::new(database_path).map_err(|error| error.to_string())?;
+            crate::app_lock::reset(&recovery_db)?;
+            let _ = recovery_db.log_activity(
+                "app_lock_reset",
+                "Reset app lock after local recovery confirmation",
+            );
+            Ok(serde_json::json!({
+                "enabled": false,
+                "credentialsCleared": true
+            }))
         }
     }
 }

@@ -146,6 +146,13 @@ export function SettingsSecurityPanel() {
           <SettingsSubsectionHeader title="Auto-lock" description="Choose when authentication is required again." />
           <div className={`flex items-start justify-between gap-4 ${!appLock.status.enabled ? 'settings-disabled-row' : ''}`}>
             <div className="min-w-0 flex-1">
+              <span className="theme-text-main block font-semibold">Lock after restart</span>
+              <p className="theme-text-muted mt-0.5 text-[11px] leading-normal">Require authentication after closing and reopening the app.</p>
+            </div>
+            <SettingsSwitch checked={appLock.status.lockOnRestart} disabled={pending || !appLock.status.enabled} label="lock after restart" onClick={() => void appLock.setLockOnRestart(!appLock.status.lockOnRestart).catch((cause) => setError(message(cause)))} />
+          </div>
+          <div className={`flex items-start justify-between gap-4 ${!appLock.status.enabled ? 'settings-disabled-row' : ''}`}>
+            <div className="min-w-0 flex-1">
               <span className="theme-text-main block font-semibold">Lock when the device sleeps</span>
               <p className="theme-text-muted mt-0.5 text-[11px] leading-normal">Require authentication after the device wakes.</p>
             </div>
@@ -155,13 +162,14 @@ export function SettingsSecurityPanel() {
             <span className="theme-text-main font-semibold">Lock after inactivity</span>
             <MenuSelect value={String(appLock.status.idleMinutes)} options={IDLE_OPTIONS} label="Auto-lock delay" disabled={pending || !appLock.status.enabled} onChange={(value) => void appLock.setIdleMinutes(Number(value)).catch((cause) => setError(message(cause)))} />
           </div>
-          <div className={`flex items-start justify-between gap-4 ${!appLock.status.enabled ? 'settings-disabled-row' : ''}`}>
-            <div className="min-w-0 flex-1">
-              <span className="theme-text-main block font-semibold">Capture while locked</span>
-              <p className="theme-text-muted mt-0.5 text-[11px] leading-normal">Keep recording new clipboard items while the interface is locked.</p>
-            </div>
-            <SettingsSwitch checked={appLock.status.captureWhileLocked} disabled={pending || !appLock.status.enabled} label="capture while locked" onClick={() => void appLock.setCaptureWhileLocked(!appLock.status.captureWhileLocked).catch((cause) => setError(message(cause)))} />
-          </div>
+      </div>
+      <div className="theme-divider border-t" />
+      <div className={`flex items-start justify-between gap-4 ${!appLock.status.enabled ? 'settings-disabled-row' : ''}`}>
+        <div className="min-w-0 flex-1">
+          <span className="theme-text-main block font-semibold">Capture while locked</span>
+          <p className="theme-text-muted mt-0.5 text-[11px] leading-normal">Keep capturing new clips while the interface is locked.</p>
+        </div>
+        <SettingsSwitch checked={appLock.status.captureWhileLocked} disabled={pending || !appLock.status.enabled} label="capture while locked" onClick={() => void appLock.setCaptureWhileLocked(!appLock.status.captureWhileLocked).catch((cause) => setError(message(cause)))} />
       </div>
       <AppDialog
         isOpen={credentialMode !== null}
