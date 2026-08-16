@@ -45,6 +45,9 @@ const ALLOWED_COPY = [
   ['src/components/SettingsAboutPanel.tsx', "'Not installed beside Pasted'"],
   ['src/components/SettingsAboutPanel.tsx', 'title="About Pasted"'],
   ['src/components/SettingsAboutPanel.tsx', '>Pasted</h3>'],
+  // The backing CTA names the product and intentionally matches the public site.
+  ['src/components/SettingsAboutPanel.tsx', 'If Pasted earns a permanent place in your workflow'],
+  ['src/components/SettingsAboutPanel.tsx', 'Back Pasted — $9.99'],
   // The Covenant deliberately addresses the user to emphasize ownership.
   ['src/components/SettingsAboutPanel.tsx', 'keep your clipboard yours'],
   ['src/components/SettingsAboutPanel.tsx', 'Your core library lives locally'],

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Bot, CheckCircle2, ChevronRight, Copy, Database, HardDrive, HeartHandshake, Info, RadioTower, Scale, ShieldCheck, TerminalSquare } from 'lucide-react';
+import { Bot, CheckCircle2, ChevronRight, Copy, Database, ExternalLink, HardDrive, HeartHandshake, Info, RadioTower, Scale, ShieldCheck, TerminalSquare } from 'lucide-react';
 import type { InstallationDiagnostics } from '../types';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { SettingsPanelHeader } from './SettingsPanelHeader';
@@ -42,6 +42,7 @@ export function SettingsAboutPanel() {
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
   const [licensesOpen, setLicensesOpen] = useState(false);
+  const [backingError, setBackingError] = useState('');
 
   useEffect(() => {
     invoke<InstallationDiagnostics>('get_installation_diagnostics')
@@ -54,6 +55,15 @@ export function SettingsAboutPanel() {
     await navigator.clipboard.writeText(installationSummary(installation));
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1_500);
+  };
+
+  const openBackingPage = async () => {
+    setBackingError('');
+    try {
+      await invoke('open_backing_page');
+    } catch (reason) {
+      setBackingError(String(reason));
+    }
   };
 
   return (
@@ -98,6 +108,20 @@ export function SettingsAboutPanel() {
         <p className="theme-text-muted theme-divider border-t pt-3 text-[10px] leading-relaxed">
           Outside intelligence is optional and explicit. Clip content leaves the device only when a copycat runs a connected intelligence-assisted action.
         </p>
+        <div className="theme-card-idle flex flex-col gap-3 border p-4 sm:flex-row sm:items-center">
+          <div className="min-w-0 flex-1">
+            <p className="theme-title text-sm font-bold">
+              If Pasted earns a permanent place in your workflow, put $9.99 behind its future.
+            </p>
+            <p className="theme-text-muted mt-1 text-[10px] leading-relaxed">
+              Nothing to unlock. No license key. No ET phone home. Just useful software—and one more reason to keep making it.
+            </p>
+          </div>
+          <ActionButton variant="primary" className="shrink-0" onClick={() => void openBackingPage()}>
+            Back Pasted — $9.99 <ExternalLink className="h-3.5 w-3.5" />
+          </ActionButton>
+        </div>
+        {backingError && <div role="alert" className="theme-status-danger rounded-xl border px-3 py-2 text-xs">{backingError}</div>}
       </section>
 
       <section className="theme-surface rounded-2xl border p-5 space-y-4">
