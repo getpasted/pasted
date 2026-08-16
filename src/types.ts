@@ -495,6 +495,7 @@ export interface AppSettings {
   enableContentClassification: boolean;
   enableNotes: boolean;
   enableNotifications: boolean;
+  enableAppLock: boolean;
   enableOcr: boolean;
   enableTranscriptions: boolean;
   enablePinning: boolean;
@@ -514,6 +515,8 @@ export interface AppSettings {
   pasteLastPipelineHotkey?: string;
   openTransformationsHotkey?: string;
   openMainWindowHotkey?: string;
+  lockAppHotkey?: string;
+  unlockAppHotkey?: string;
   pasteClip1Hotkey?: string;
   pasteClip2Hotkey?: string;
   pasteClip3Hotkey?: string;

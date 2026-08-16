@@ -31,12 +31,16 @@ pasted retention [--count <number|unlimited>] [--days <number|forever>]
                  [--log-count <number|unlimited>] [--log-days <number|forever>]
                  [--revision-count <number|unlimited>] [--json]
 pasted settings list|get|set [arguments] [--json]
+pasted app-lock status|enable|disable|lock|unlock [--stdin] [--json]
+pasted app-lock capture-while-locked <on|off> [--stdin] [--json]
 pasted recording status|pause|resume [--json]
 pasted queue status|start|stop|add|remove|order|paste|paste-all [arguments] [--json]
 pasted clear --yes [--json]
 ```
 
 `copy` accepts bounded stdin when text is omitted. `list` and `search` provide bounded pagination; both can inspect Trash, while `list` can select a Bin or pinned clips. `search` reproduces Content Type and Source views with exact filters, and its structured records use the canonical `source` field. `import sources` reports supported managers and detected locations. `import` reads a source without modification and merges supported text while skipping duplicates. `retention` manages History, Trash, Activity History, and per-clip revision policies. `settings` reads or changes persisted values; app-bound visual or operating-system effects apply when the app observes the setting or next launches. `clear` requires `--yes` and permanently removes unpinned, unprotected clips from History.
+
+`app-lock enable`, `disable`, `unlock`, and `capture-while-locked` when protection is active read the passphrase from a hidden terminal prompt or bounded stdin with `--stdin`; the passphrase is never accepted as a command-line argument. `lock` and `unlock` contact the running app. App-lock commands are unavailable when App Lock is disabled under Functionality; `pasted settings set enableAppLock true` restores the feature. While app lock is enabled, other CLI commands require a valid `PASTED_APP_LOCK_PASSPHRASE` in their process environment. `status --json` reports the stable `enabled`, `systemAuthEnabled`, `systemAuthLabel`, `appleWatchEnabled`, `idleMinutes`, `lockOnSleep`, and `captureWhileLocked` fields without exposing the verifier.
 
 `recording`, `queue`, `clip copy`, `clip paste`, and `ocr cancel` contact the running app through a bounded private request. Clipboard monitoring, Queue state, paste targeting, and cancellation therefore remain inside the process that owns them. These commands can launch Pasted when its executable is installed beside the CLI.
 

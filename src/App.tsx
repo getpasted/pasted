@@ -201,6 +201,15 @@ export default function App() {
     };
   }, [initialDataLoaded, isHudView, settingsHydrated]);
 
+  useEffect(() => {
+    if (!settingsHydrated || !initialDataLoaded) return undefined;
+    document.documentElement.dataset.pastedContentReady = 'true';
+    window.dispatchEvent(new Event('pasted-app-content-ready'));
+    return () => {
+      delete document.documentElement.dataset.pastedContentReady;
+    };
+  }, [initialDataLoaded, settingsHydrated]);
+
   const [selectedClip, setSelectedClip] = useState<ClipItem | null>(null);
   const [selectedClipIds, setSelectedClipIds] = useState<Set<number>>(new Set());
   const [hoveredClipId, setHoveredClipId] = useState<number | null>(null);
@@ -252,7 +261,7 @@ export default function App() {
     if (requiredFeature && !enabledFeatures[requiredFeature]) route = 'all';
     const [tab, detail] = route.split(':', 2);
     const key = ++navigationSerialRef.current;
-    if (tab === 'settings' && ['general', 'functionality', 'hotkeys', 'notifications', 'app-exclusions', 'storage', 'analysis', 'intelligence', 'about'].includes(detail)) {
+    if (tab === 'settings' && ['general', 'functionality', 'hotkeys', 'notifications', 'security', 'app-exclusions', 'storage', 'analysis', 'intelligence', 'about'].includes(detail)) {
       setSettingsNavigation({ tab: detail as SettingsTab, key });
     } else if (tab === 'help' && ['getting-started', 'shortcuts-hud', 'privacy-capture', 'deletion-recovery', 'analysis', 'transformations', 'cli'].includes(detail)) {
       setHelpNavigation({ topic: detail as HelpTopic, key });

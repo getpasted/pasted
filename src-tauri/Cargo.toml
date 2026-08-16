@@ -31,6 +31,9 @@ serde_json = "1"
 rusqlite = { version = "0.32", features = ["bundled", "backup"] }
 arboard = { version = "3.4", features = ["wayland-data-control"] }
 sha2 = "0.10"
+argon2 = "0.5"
+rand_core = { version = "0.6", features = ["getrandom"] }
+rpassword = "7"
 chrono = { version = "0.4", features = ["serde"] }
 regex = "1.10"
 parking_lot = "0.12"
@@ -49,6 +52,10 @@ url = "2.5"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc = "0.2"
+block = "0.1"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows = { version = "0.61", features = ["Foundation", "Security_Credentials_UI", "Win32_Foundation", "Win32_System_WinRT"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 ashpd = { version = "0.13", default-features = false, features = ["tokio", "global_shortcuts"] }

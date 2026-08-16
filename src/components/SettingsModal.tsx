@@ -14,6 +14,7 @@ import { SettingsResetPanel } from './SettingsResetPanel';
 import { SettingsNotificationsPanel } from './SettingsNotificationsPanel';
 import { SettingsAnalysisPanel } from './SettingsAnalysisPanel';
 import { SettingsWelcomePanel } from './SettingsWelcomePanel';
+import { SettingsSecurityPanel } from './SettingsSecurityPanel';
 
 interface SettingsModalProps {
   settings: AppSettings;
@@ -76,12 +77,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   }, [activeTab, settings.enableNotifications]);
 
+  useEffect(() => {
+    if (!settings.enableAppLock && activeTab === 'security') {
+      setActiveTab('functionality');
+    }
+  }, [activeTab, settings.enableAppLock]);
+
   return (
     <div className="tools-page settings-page flex-1 settings-modal-bg h-screen overflow-hidden font-sans select-none flex flex-col">
       <ToolPageHeader
         icon={<Settings className="w-4 h-4" />}
         title="Settings"
-        actions={<SettingsTabs activeTab={activeTab} onChange={setActiveTab} showIntelligence={settings.enableTransformations} showNotifications={settings.enableNotifications} />}
+        actions={<SettingsTabs activeTab={activeTab} onChange={setActiveTab} showIntelligence={settings.enableTransformations} showNotifications={settings.enableNotifications} showSecurity={settings.enableAppLock} />}
       />
 
       <div className="tools-scroll-region flex-1 overflow-y-auto p-6">
@@ -122,6 +129,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         {settings.enableNotifications && activeTab === 'notifications' && (
           <SettingsNotificationsPanel settings={settings} onUpdateSettings={onUpdateSettings} />
         )}
+
+        {settings.enableAppLock && activeTab === 'security' && <SettingsSecurityPanel />}
 
         {/* HOTKEYS */}
         {activeTab === 'hotkeys' && (

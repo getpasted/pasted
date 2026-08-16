@@ -67,6 +67,28 @@ let mockClips: MockClip[] = [
   },
 ];
 
+const mockPlatformDescription = typeof navigator === 'undefined'
+  ? ''
+  : `${navigator.platform} ${navigator.userAgent}`;
+const mockSystemAuthLabel = /Mac|iPhone|iPad/i.test(mockPlatformDescription)
+  ? 'Touch ID'
+  : /Win/i.test(mockPlatformDescription)
+    ? 'Windows Hello'
+    : 'System authentication';
+
+let mockAppLockStatus = {
+  enabled: false,
+  locked: false,
+  systemAuthEnabled: false,
+  systemAuthAvailable: false,
+  systemAuthLabel: mockSystemAuthLabel,
+  appleWatchEnabled: false,
+  appleWatchAvailable: false,
+  idleMinutes: 5,
+  lockOnSleep: true,
+  captureWhileLocked: true,
+};
+
 let mockBins: MockBin[] = [
   { id: 1, name: 'My Manual Bin', icon: '📂', color: 'default', smart_rule: null, bin_type: 'category' },
   { id: 2, name: 'Work Bin', icon: '💼', color: '#10b981', smart_rule: '', bin_type: 'category' },
@@ -899,6 +921,37 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       return false as unknown as T;
     case 'get_all_app_settings':
       return {} as unknown as T;
+    case 'get_app_lock_status':
+      return { ...mockAppLockStatus } as unknown as T;
+    case 'quit_app':
+      return undefined as unknown as T;
+    case 'configure_app_lock':
+      mockAppLockStatus = { ...mockAppLockStatus, enabled: true, locked: false };
+      return { ...mockAppLockStatus } as unknown as T;
+    case 'disable_app_lock':
+      mockAppLockStatus = { ...mockAppLockStatus, enabled: false, locked: false, systemAuthEnabled: false, appleWatchEnabled: false };
+      return { ...mockAppLockStatus } as unknown as T;
+    case 'lock_app':
+      mockAppLockStatus = { ...mockAppLockStatus, locked: true };
+      return { ...mockAppLockStatus } as unknown as T;
+    case 'unlock_app':
+      mockAppLockStatus = { ...mockAppLockStatus, locked: false };
+      return { ...mockAppLockStatus } as unknown as T;
+    case 'set_app_lock_system_auth':
+      mockAppLockStatus = { ...mockAppLockStatus, systemAuthEnabled: Boolean(args?.enabled) };
+      return { ...mockAppLockStatus } as unknown as T;
+    case 'set_app_lock_apple_watch':
+      mockAppLockStatus = { ...mockAppLockStatus, appleWatchEnabled: Boolean(args?.enabled) };
+      return { ...mockAppLockStatus } as unknown as T;
+    case 'set_app_lock_idle_minutes':
+      mockAppLockStatus = { ...mockAppLockStatus, idleMinutes: Number(args?.minutes ?? 5) };
+      return { ...mockAppLockStatus } as unknown as T;
+    case 'set_app_lock_lock_on_sleep':
+      mockAppLockStatus = { ...mockAppLockStatus, lockOnSleep: Boolean(args?.enabled) };
+      return { ...mockAppLockStatus } as unknown as T;
+    case 'set_app_lock_capture_while_locked':
+      mockAppLockStatus = { ...mockAppLockStatus, captureWhileLocked: Boolean(args?.enabled) };
+      return { ...mockAppLockStatus } as unknown as T;
     case 'get_source_icons':
       return {} as unknown as T;
     case 'get_external_import_sources':

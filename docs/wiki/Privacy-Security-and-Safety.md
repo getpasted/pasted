@@ -15,6 +15,16 @@ The release gate checks production dependency licenses, known Rust advisories, p
 
 Optional capture previews can show clip content in Pasted's own feedback window. Turn off **Show clip preview** under **Settings → Notifications** when screen sharing or working where an on-screen preview could be observed. See [Notifications and Capture Feedback](Notifications-and-Capture-Feedback).
 
+## App lock
+
+Enable **App Lock** under **Settings → Functionality** to make Security available. **Settings → Security** can then require a Pasted passphrase before the graphical app loads clipboard history. Disabling the Functionality feature immediately removes lock enforcement and hides Security without deleting the saved passphrase or preferences. The app starts locked, can be locked immediately, and can lock after a configurable period without keyboard, pointer, touch, or scroll activity. Capture continues while the interface is locked by default. Turn off **Capture while locked** to discard clipboard changes instead; those changes are not saved to History or the Queue and do not start OCR, automations, Activity records, or capture notifications. Capture previews, the HUD, global Pasted shortcuts, live-app data commands, and data-bearing native menu actions are unavailable until unlock. Window management and Quit remain available.
+
+Passphrases are stored only as salted Argon2 verifiers and may be any non-empty length. Native unlock uses LocalAuthentication for separately configured Touch ID and Apple Watch on macOS and Windows Hello on Windows; the operating system returns only success or failure and never shares biometric data with Pasted. Linux retains the complete passphrase path and reports system authentication as unavailable when the desktop session does not provide a supported authentication broker.
+
+Lock Pasted and Unlock Pasted can be assigned under **Settings → Hotkeys** and default to `Alt+Shift+L` and `Alt+Shift+U`. Unlock Pasted brings the locked window forward and requests an enabled system authentication method; when none is available, it focuses the passphrase field. The shortcut never bypasses authentication.
+
+App lock is a local privacy barrier, not database encryption. A user or process with access to the library file can still inspect it outside Pasted. Full Backup includes the verifier and lock configuration so restored state retains the same protection; History and Organization transfer does not.
+
 ## Intelligence
 
 Clip content leaves Pasted only when you explicitly run an intelligence-assisted Transform through an enabled Connection. Pasted stores provider metadata and credential references; credentials remain with the operating system, provider, or authenticated CLI.

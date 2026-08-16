@@ -36,6 +36,8 @@ type HotkeySetting = keyof Pick<
   | 'pasteLastPipelineHotkey'
   | 'openTransformationsHotkey'
   | 'openMainWindowHotkey'
+  | 'lockAppHotkey'
+  | 'unlockAppHotkey'
   | 'pasteClip1Hotkey'
   | 'pasteClip2Hotkey'
   | 'pasteClip3Hotkey'
@@ -55,6 +57,8 @@ const defaultHotkeys: Partial<AppSettings> = {
   pasteLastPipelineHotkey: '',
   openTransformationsHotkey: '',
   openMainWindowHotkey: '',
+  lockAppHotkey: 'Alt+Shift+L',
+  unlockAppHotkey: 'Alt+Shift+U',
   pasteClip1Hotkey: '',
   pasteClip2Hotkey: '',
   pasteClip3Hotkey: '',
@@ -66,13 +70,15 @@ const defaultHotkeys: Partial<AppSettings> = {
   pasteClip9Hotkey: '',
 };
 
-const actionHotkeys: Array<{ label: string; key: HotkeySetting; fallback?: string; feature?: 'queue' | 'transformations' }> = [
+const actionHotkeys: Array<{ label: string; key: HotkeySetting; fallback?: string; feature?: 'queue' | 'transformations' | 'appLock' }> = [
   { label: 'Enable/Disable Queue', key: 'seqToggleHotkey', fallback: 'Alt+Shift+C', feature: 'queue' },
   { label: 'Paste Next Item from Queue', key: 'seqPopHotkey', fallback: 'Alt+Shift+X', feature: 'queue' },
   { label: 'Copy with Last Advanced Transform', key: 'copyLastPipelineHotkey', feature: 'transformations' },
   { label: 'Paste with Last Advanced Transform', key: 'pasteLastPipelineHotkey', feature: 'transformations' },
   { label: 'Open Transformations', key: 'openTransformationsHotkey', feature: 'transformations' },
   { label: 'Toggle Main Window', key: 'openMainWindowHotkey' },
+  { label: 'Lock Pasted', key: 'lockAppHotkey', fallback: 'Alt+Shift+L', feature: 'appLock' },
+  { label: 'Unlock Pasted', key: 'unlockAppHotkey', fallback: 'Alt+Shift+U', feature: 'appLock' },
 ];
 
 function HotkeyRow({ label, value, onChange }: { label: string; value: string | null; onChange: (value: string | null) => void }) {
@@ -301,7 +307,7 @@ export function SettingsHotkeysPanel({
               showToast({ tone: 'error', message: 'That shortcut could not be registered. Try a different key combination.' });
             }
           }} />}
-          {actionHotkeys.filter(({ feature }) => !feature || settings[feature === 'queue' ? 'enableQueue' : 'enableTransformations']).map(({ label, key, fallback }) => (
+          {actionHotkeys.filter(({ feature }) => !feature || settings[feature === 'queue' ? 'enableQueue' : feature === 'transformations' ? 'enableTransformations' : 'enableAppLock']).map(({ label, key, fallback }) => (
             <HotkeyRow key={key} label={label} value={(settings[key] as string) === '' ? null : ((settings[key] as string) || fallback || null)} onChange={(value) => void updateSettingHotkey(key, value)} />
           ))}
         </div>

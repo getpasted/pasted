@@ -32,6 +32,9 @@ pub enum LiveAppAction {
     CopyClip { clip_id: i64 },
     PasteClip { clip_id: i64 },
     OcrCancel,
+    AppLockStatus,
+    AppLockLock,
+    AppLockUnlock { passphrase: String },
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -138,6 +141,19 @@ fn read_and_execute(
 fn execute(app: &tauri::AppHandle, action: LiveAppAction) -> Result<Value, String> {
     let db = app.state::<Arc<DbState>>();
     let queue = app.state::<Arc<SequentialQueueState>>();
+    let lock_state = app.state::<Arc<crate::app_lock::AppLockState>>();
+    if lock_state.is_locked()
+        && !matches!(
+            &action,
+            LiveAppAction::AppLockStatus
+                | LiveAppAction::AppLockLock
+                | LiveAppAction::AppLockUnlock { .. }
+                | LiveAppAction::ClipboardStatus
+                | LiveAppAction::ClipboardSetPaused { .. }
+        )
+    {
+        return Err("Pasted is locked.".to_string());
+    }
     match action {
         LiveAppAction::ClipboardStatus => {
             let monitor = app.state::<Arc<ClipboardMonitorState>>();
@@ -234,6 +250,42 @@ fn execute(app: &tauri::AppHandle, action: LiveAppAction) -> Result<Value, Strin
         LiveAppAction::OcrCancel => {
             app.state::<Arc<OcrService>>().cancel();
             Ok(serde_json::json!({ "cancelled": true }))
+        }
+        LiveAppAction::AppLockStatus => {
+            let state = app.state::<Arc<crate::app_lock::AppLockState>>();
+            serde_json::to_value(crate::app_lock::status(&db, &state))
+                .map_err(|error| error.to_string())
+        }
+        LiveAppAction::AppLockLock => {
+            crate::features::require(&db, crate::features::Feature::AppLock)?;
+            let state = app.state::<Arc<crate::app_lock::AppLockState>>();
+            if db
+                .get_setting(crate::app_lock::ENABLED_SETTING)
+                .map_err(|error| error.to_string())?
+                .as_deref()
+                != Some("true")
+            {
+                return Err("App lock is not enabled.".to_string());
+            }
+            state.lock();
+            let _ = crate::app_menu::install(app, &db);
+            let status = crate::app_lock::status(&db, &state);
+            let _ = app.emit("app-lock-changed", &status);
+            serde_json::to_value(status).map_err(|error| error.to_string())
+        }
+        LiveAppAction::AppLockUnlock { passphrase } => {
+            crate::features::require(&db, crate::features::Feature::AppLock)?;
+            let state = app.state::<Arc<crate::app_lock::AppLockState>>();
+            state.check_retry()?;
+            if !crate::app_lock::verify(&db, &passphrase)? {
+                state.record_failure();
+                return Err("The passphrase is incorrect.".to_string());
+            }
+            state.unlock();
+            let _ = crate::app_menu::install(app, &db);
+            let status = crate::app_lock::status(&db, &state);
+            let _ = app.emit("app-lock-changed", &status);
+            serde_json::to_value(status).map_err(|error| error.to_string())
         }
     }
 }

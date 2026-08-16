@@ -6,6 +6,7 @@ export type FeatureId =
   | 'contentClassification'
   | 'notes'
   | 'notifications'
+  | 'appLock'
   | 'ocr'
   | 'transcriptions'
   | 'pinning'
@@ -27,6 +28,7 @@ export type FeatureSettingKey =
   | 'enableContentClassification'
   | 'enableNotes'
   | 'enableNotifications'
+  | 'enableAppLock'
   | 'enableOcr'
   | 'enableTranscriptions'
   | 'enablePinning'
@@ -72,6 +74,15 @@ export const FEATURE_DEFINITIONS: readonly FeatureDefinition[] = [
   { id: 'contentClassification', group: 'discovery', settingKey: 'enableContentClassification', label: 'Content Classification', description: 'Assign registered Content Types to analyzable text.', simple: true },
   { id: 'notes', group: 'library', settingKey: 'enableNotes', label: 'Notes', description: 'Annotate clips and browse the Noted collection.', simple: false },
   { id: 'notifications', group: 'app', settingKey: 'enableNotifications', label: 'Notifications', description: 'Show interactive capture feedback without interrupting the current workflow.', simple: false },
+  {
+    id: 'appLock',
+    group: 'app',
+    settingKey: 'enableAppLock',
+    label: 'App Lock',
+    description: 'Require authentication before showing clipboard history.',
+    simple: false,
+    caution: 'The saved passphrase and lock preferences remain available when App Lock is re-enabled.',
+  },
   { id: 'ocr', group: 'discovery', settingKey: 'enableOcr', label: 'OCR', description: 'Automatically extract searchable text from copied images.', simple: false },
   { id: 'transcriptions', group: 'discovery', settingKey: 'enableTranscriptions', label: 'Transcriptions', description: 'Create searchable text from copied audio files.', simple: false },
   { id: 'pinning', group: 'library', settingKey: 'enablePinning', label: 'Pinning', description: 'Keep important clips at the top of history.', simple: false },

@@ -1,6 +1,7 @@
 pub mod analysis_contract;
 pub mod analysis_execution;
 mod app_exclusions;
+pub mod app_lock;
 mod app_menu;
 pub mod bin_assignment;
 pub mod classification_execution;
@@ -310,6 +311,7 @@ pub fn run() {
             paste_target_state.start_tracking();
 
             app.manage(db_state.clone());
+            app.manage(Arc::new(app_lock::AppLockState::from_db(&db_state)));
             app.manage(seq_state.clone());
             app.manage(paste_target_state);
 
@@ -390,9 +392,21 @@ pub fn run() {
                         }
                     }
                     "hud_toggle" => {
+                        if app
+                            .try_state::<Arc<app_lock::AppLockState>>()
+                            .is_some_and(|state| state.is_locked())
+                        {
+                            return;
+                        }
                         let _ = commands::toggle_hud_window(app.clone());
                     }
                     "seq_toggle" => {
+                        if app
+                            .try_state::<Arc<app_lock::AppLockState>>()
+                            .is_some_and(|state| state.is_locked())
+                        {
+                            return;
+                        }
                         let db = app.state::<Arc<db::DbState>>();
                         if !features::is_enabled(&db, features::Feature::Queue) {
                             return;
@@ -485,10 +499,21 @@ pub fn run() {
             commands::rescan_content_classification_history,
             commands::test_content_classifier,
             commands::play_system_sound,
+            commands::quit_app,
             commands::get_clip_collection_summary,
             commands::save_app_setting,
             commands::save_app_settings,
             commands::get_all_app_settings,
+            commands::get_app_lock_status,
+            commands::configure_app_lock,
+            commands::disable_app_lock,
+            commands::lock_app,
+            commands::unlock_app,
+            commands::set_app_lock_system_auth,
+            commands::set_app_lock_apple_watch,
+            commands::set_app_lock_idle_minutes,
+            commands::set_app_lock_lock_on_sleep,
+            commands::set_app_lock_capture_while_locked,
             commands::set_linux_native_menu_theme,
             commands::set_overlay_cursor,
             commands::enforce_clip_retention,
@@ -602,8 +627,33 @@ pub fn run() {
             commands::request_accessibility_permission,
             commands::perform_titlebar_double_click
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running Pasted application");
+        .build(tauri::generate_context!())
+        .expect("error while building Pasted application")
+        .run(|app, event| {
+            if matches!(event, tauri::RunEvent::Resumed) {
+                let db = app.state::<Arc<db::DbState>>();
+                let state = app.state::<Arc<app_lock::AppLockState>>();
+                let enabled = db
+                    .get_setting(app_lock::ENABLED_SETTING)
+                    .ok()
+                    .flatten()
+                    .as_deref()
+                    == Some("true");
+                let lock_on_sleep = db
+                    .get_setting(app_lock::LOCK_ON_SLEEP_SETTING)
+                    .ok()
+                    .flatten()
+                    .as_deref()
+                    != Some("false");
+                if features::is_enabled(&db, features::Feature::AppLock) && enabled && lock_on_sleep
+                {
+                    state.lock();
+                    let _ = app_menu::install(app, &db);
+                    let status = app_lock::status(&db, &state);
+                    let _ = app.emit("app-lock-changed", status);
+                }
+            }
+        });
 }
 
 #[cfg(test)]

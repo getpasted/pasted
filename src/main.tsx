@@ -6,6 +6,8 @@ import { ToastProvider } from "./components/ToastProvider";
 import { CaptureFeedbackWindow } from "./components/CaptureFeedbackWindow";
 import { useAppSettings } from "./hooks/useAppSettings";
 import { ContentTypeProvider } from "./components/ContentTypeProvider";
+import { useAppLock, type AppLockStatus } from "./hooks/useAppLock";
+import { AppLockScreen } from "./components/AppLockScreen";
 
 // Window chrome is native on every desktop platform, but only macOS overlays
 // those controls on top of Pasted's web content. Set this synchronously before
@@ -22,7 +24,51 @@ if (rootView === "capture-feedback") {
 
 function CaptureFeedbackRoot() {
   const { appSettings, settingsHydrated } = useAppSettings();
+  const appLock = useAppLock();
+  if (!appLock.hydrated || appLock.status.locked) return null;
   return <CaptureFeedbackWindow settings={appSettings} settingsHydrated={settingsHydrated} />;
+}
+
+function ProtectedAppRoot() {
+  const appLock = useAppLock();
+  const lastLockedStatus = React.useRef<AppLockStatus | null>(null);
+  if (appLock.status.locked) lastLockedStatus.current = appLock.status;
+
+  React.useEffect(() => {
+    if (!appLock.hydrated || !appLock.status.locked) return undefined;
+    const splash = document.getElementById("startup-splash");
+    if (!splash) return undefined;
+    let removeTimer = 0;
+    const frame = window.requestAnimationFrame(() => {
+      splash.classList.add("is-ready");
+      removeTimer = window.setTimeout(() => splash.remove(), 160);
+    });
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(removeTimer);
+    };
+  }, [appLock.hydrated, appLock.status.locked]);
+  if (!appLock.hydrated) return null;
+  const showLockScreen = appLock.status.locked || appLock.unlockingSuccess;
+  const showApp = !appLock.status.locked || appLock.unlockingSuccess;
+  const overlayStatus = appLock.status.locked ? appLock.status : lastLockedStatus.current;
+  return <>
+    {showLockScreen && overlayStatus && (
+      <AppLockScreen
+        key="app-lock-screen"
+        status={overlayStatus}
+        unlocking={appLock.unlockAnimationActive}
+        onUnlockWithPassphrase={appLock.unlockWithPassphrase}
+        onUnlockWithSystemAuth={appLock.unlockWithSystemAuth}
+        onUnlockWithAppleWatch={appLock.unlockWithAppleWatch}
+      />
+    )}
+    {showApp && (
+      <div className={`h-screen w-screen ${appLock.unlockAnimationActive ? 'app-unlock-content' : ''}`}>
+        <ToastProvider><ContentTypeProvider><App /></ContentTypeProvider></ToastProvider>
+      </div>
+    )}
+  </>;
 }
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
@@ -30,9 +76,7 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
     {rootView === "capture-feedback" ? (
       <CaptureFeedbackRoot />
     ) : (
-      <ToastProvider>
-        <ContentTypeProvider><App /></ContentTypeProvider>
-      </ToastProvider>
+      <ProtectedAppRoot />
     )}
   </React.StrictMode>,
 );
