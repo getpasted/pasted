@@ -9,6 +9,7 @@ import { useToast } from './ToastProvider';
 import { RegistryListItem } from './RegistryListItem';
 import { RegistryPanelHeader } from './RegistryPanelHeader';
 import { useNewItemSelection } from '../hooks/useNewItemSelection';
+import { ConfirmationDialog, type ConfirmationDialogRequest } from './ConfirmationDialog';
 
 type GroupDraft = Pick<RegisteredContentTypeGroup, 'id' | 'label' | 'sortOrder'>;
 const newDraft = (): GroupDraft => ({ id: '', label: '', sortOrder: 100 });
@@ -20,6 +21,7 @@ export function ContentTypeGroupManagerDialog({ isOpen, onClose }: { isOpen: boo
   const selected = useMemo(() => groups.find(({ id }) => id === selectedId), [groups, selectedId]);
   const [draft, setDraft] = useState<GroupDraft>(newDraft());
   const [saving, setSaving] = useState(false);
+  const [confirmation, setConfirmation] = useState<ConfirmationDialogRequest | null>(null);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -74,21 +76,30 @@ export function ContentTypeGroupManagerDialog({ isOpen, onClose }: { isOpen: boo
       showToast({ tone: 'error', message: String(error) });
     }
   };
-  const remove = async () => {
+  const remove = () => {
     if (!selected || selected.isBuiltin) return;
-    if (!window.confirm(`Permanently delete the empty Group “${selected.label}”? This cannot be undone.`)) return;
-    try {
-      await invoke('delete_content_type_group', { id: selected.id });
-      const loaded = await refreshGroups();
-      setSelectedId(loaded[0]?.id ?? 'new');
-      showToast({ tone: 'success', message: `${selected.label} deleted.` });
-    } catch (error) {
-      showToast({ tone: 'error', message: String(error) });
-    }
+    setConfirmation({
+      title: 'Delete Content Type Group?',
+      description: `“${selected.label}” will be permanently deleted.`,
+      details: 'This cannot be undone.',
+      confirmLabel: 'Delete',
+      tone: 'danger',
+      onConfirm: async () => {
+        setConfirmation(null);
+        try {
+          await invoke('delete_content_type_group', { id: selected.id });
+          const loaded = await refreshGroups();
+          setSelectedId(loaded[0]?.id ?? 'new');
+          showToast({ tone: 'success', message: `${selected.label} deleted.` });
+        } catch (error) {
+          showToast({ tone: 'error', message: String(error) });
+        }
+      },
+    });
   };
   const usageCount = selected ? definitions.filter(({ group }) => group === selected.id).length : 0;
 
-  return <AppDialog isOpen={isOpen} onClose={onClose} labelledBy="content-type-group-manager-title" panelClassName="theme-panel flex max-h-[86vh] w-full max-w-2xl flex-col overflow-hidden border shadow-2xl">
+  return <><AppDialog isOpen={isOpen} onClose={onClose} labelledBy="content-type-group-manager-title" panelClassName="theme-panel flex max-h-[86vh] w-full max-w-2xl flex-col overflow-hidden border shadow-2xl">
     {({ requestClose }) => <>
       <AppDialogHeader onClose={requestClose} className="shrink-0">
         <AppDialogHeading id="content-type-group-manager-title" title="Content Type Groups" description="Organize Content Types with stable, reusable groups." icon={<Layers3 />} />
@@ -123,9 +134,9 @@ export function ContentTypeGroupManagerDialog({ isOpen, onClose }: { isOpen: boo
         </section>
       </AppDialogBody>
       <AppDialogFooter align="between" className="shrink-0">
-        <div className="flex items-center gap-2">{selected && !selected.isBuiltin && <><AppDialogButton onClick={() => void toggleArchived()} variant={selected.isArchived ? 'secondary' : 'warning'} disabled={!selected.isArchived && usageCount > 0}><Archive className="h-3.5 w-3.5" /> {selected.isArchived ? 'Restore Group' : 'Archive Group'}</AppDialogButton><AppDialogButton onClick={() => void remove()} variant="danger" disabled={usageCount > 0}><Trash2 className="h-3.5 w-3.5" /> Delete</AppDialogButton></>}</div>
+        <div className="flex items-center gap-2">{selected && !selected.isBuiltin && <><AppDialogButton onClick={() => void toggleArchived()} variant={selected.isArchived ? 'secondary' : 'warning'} disabled={!selected.isArchived && usageCount > 0}><Archive className="h-3.5 w-3.5" /> {selected.isArchived ? 'Restore Group' : 'Archive Group'}</AppDialogButton><AppDialogButton onClick={remove} variant="danger" disabled={usageCount > 0}><Trash2 className="h-3.5 w-3.5" /> Delete…</AppDialogButton></>}</div>
         <div className="flex items-center gap-2">{selectedId === 'new' ? <AppDialogButton onClick={cancelNew}>Cancel</AppDialogButton> : <AppDialogButton onClick={requestClose}>Close</AppDialogButton>}{selected?.isBuiltin && <AppDialogButton onClick={resetSelectedDraft} disabled={!hasModifiedFields || saving}><RotateCcw className="h-3.5 w-3.5" /> Reset to Default</AppDialogButton>}<AppDialogButton variant="primary" onClick={() => void save()} disabled={saving}><SaveButtonContent isSaving={saving} /></AppDialogButton></div>
       </AppDialogFooter>
     </>}
-  </AppDialog>;
+  </AppDialog><ConfirmationDialog request={confirmation} onCancel={() => setConfirmation(null)} /></>;
 }
