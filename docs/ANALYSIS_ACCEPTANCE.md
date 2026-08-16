@@ -8,7 +8,7 @@ This matrix is the acceptance boundary for the frozen Pasted 1.0 Analysis contra
 | --- | --- | --- | --- |
 | Capture | Settings → Analysis → read-only Manage Capture dialog | `pasted registry --kind capture` | Assigns one structural Clip Type and records source attribution before Analysis. Sources controls attribution presentation, not retained data. |
 | Structure and Media Metadata Inspectors | Read-only Manage Inspectors dialog plus content-free facts in Clip Preview | `pasted inspector` and `pasted registry --kind inspector` | Immutable; no separate switches. Runtime availability is reported for Media Metadata. |
-| Image Text Extractor | Settings → Analysis → Extractors and OCR controls | `pasted extractor`, `pasted ocr`, and `pasted registry --kind extractor` | Methods, runtime locations, resources, revisions, and availability are manageable. |
+| Image Text Extractor | Settings → Analysis → Extractors and OCR controls | `pasted extractor`, `pasted ocr`, and `pasted registry --kind extractor` | Runtime locations, resources, revisions, and availability are manageable. |
 | File Text Extractor | Settings → Analysis → Extractors and persistent availability status | `pasted extractor`, the file-extraction API, and `pasted registry --kind extractor` | Shipped and custom commands share the same runtime contract; expensive extraction remains explicit. |
 | Classifiers | Settings → Analysis → Classifiers, Content Types, testing, and Rescan Clips | `pasted classifier`, `pasted type`, and `pasted registry --kind classifier` | Definitions, priority, enabled state, and supported validators are manageable. |
 | Smart Actions | Read-only Manage Suggestions dialog plus contextual Smart Actions in Clip Preview | `pasted suggestion` and `pasted registry --kind suggestion` | Immutable; follows the Transformations feature and interactive policy. |
@@ -70,10 +70,12 @@ The preview must return only the explicitly requested bounded transcript, classi
 Make `docs/examples/plain-text-file-extractor.py` executable and create a disabled file Extractor with its absolute path:
 
 ```sh
-pasted extractor create --name "Plain Text Files" --method custom-command --executable /absolute/path/to/docs/examples/plain-text-file-extractor.py --input file_references --disabled --json
+pasted extractor create --name "Plain Text Files" --executable /absolute/path/to/docs/examples/plain-text-file-extractor.py --input file_references --disabled --json
 ```
 
 The definition must report engine contract `custom-command-v1`, revision 1, the selected and resolved executable location, its detected example version, and available status. Run it explicitly against a disposable UTF-8 file and confirm bounded searchable text is returned. Enable it only after reviewing the executable, then apply it to a copied file clip and confirm search finds a unique phrase without replacing its file references. Invalid JSON, oversized output, a nonzero exit, and a 60-second timeout must fail with stable neutral errors and leave no private workspace behind.
+
+With Poppler installed, repeat using `docs/examples/pdftotext-extractor.py` and a disposable PDF. The Extractor executable owns the complete integration with `pdftotext`; no new Pasted execution method is registered.
 
 ## GUI acceptance
 

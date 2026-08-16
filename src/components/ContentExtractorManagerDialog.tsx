@@ -11,7 +11,6 @@ import { RegistryPanelHeader } from './RegistryPanelHeader';
 import { SettingsSwitch } from './SettingsSwitch';
 import { useToast } from './ToastProvider';
 import { useNewItemSelection } from '../hooks/useNewItemSelection';
-import { MenuSelect } from './MenuSelect';
 import { translate } from '../localization/runtime';
 import { localizedBuiltinDescription, localizedBuiltinName } from '../localization/presentation';
 
@@ -69,16 +68,7 @@ const EXTRACTOR_OUTPUT_OPTIONS = [
   { value: 'searchable_text', get label() { return translate('component.contentExtractorManagerDialog.searchableText'); } },
 ] as const;
 
-const IMAGE_ENGINES = ['macos-vision-v1', 'tesseract-cli-v1'];
-const FILE_ENGINES = ['whisper-cpp-cli-v1'];
 const CUSTOM_COMMAND_ENGINE = 'custom-command-v1';
-
-const EXTRACTOR_METHOD_OPTIONS = [
-  { value: 'macos-vision-v1', get label() { return translate('component.contentExtractorManagerDialog.appleVision'); } },
-  { value: 'tesseract-cli-v1', get label() { return translate('component.contentExtractorManagerDialog.tesseract'); } },
-  { value: 'whisper-cpp-cli-v1', label: 'Whisper.cpp' },
-  { value: CUSTOM_COMMAND_ENGINE, get label() { return translate('component.contentExtractorManagerDialog.customCommand'); } },
-] as const;
 
 function toInput(extractor?: ContentExtractor): ExtractorInput {
   return extractor ? {
@@ -227,29 +217,7 @@ export function ContentExtractorManagerDialog({
   };
 
   const changeInputContract = (inputContract: string) => {
-    let engine = draft.engine;
-    let modelPath = draft.modelPath;
-    if (inputContract === 'image' && FILE_ENGINES.includes(engine)) {
-      engine = 'tesseract-cli-v1';
-      modelPath = null;
-    }
-    if (inputContract === 'file_references' && IMAGE_ENGINES.includes(engine)) engine = 'whisper-cpp-cli-v1';
-    setDraft({ ...draft, inputContract, engine, modelPath });
-  };
-
-  const changeMethod = (engine: string) => {
-    const inputContract = IMAGE_ENGINES.includes(engine)
-      ? 'image'
-      : FILE_ENGINES.includes(engine)
-        ? 'file_references'
-        : draft.inputContract;
-    setDraft({
-      ...draft,
-      engine,
-      inputContract,
-      executablePath: engine === draft.engine ? draft.executablePath : null,
-      modelPath: engine === 'whisper-cpp-cli-v1' ? draft.modelPath : null,
-    });
+    setDraft({ ...draft, inputContract });
   };
 
   const save = async () => {
@@ -492,18 +460,7 @@ export function ContentExtractorManagerDialog({
                 </select>
               </label>
             </div>
-            <div className="grid grid-cols-1 gap-3 @md:grid-cols-[180px_minmax(0,1fr)]">
-              <div className="space-y-1">
-                <span className="theme-text-muted block text-[10px] font-semibold">{translate('component.contentExtractorManagerDialog.method')}</span>
-                <MenuSelect
-                  value={draft.engine}
-                  options={EXTRACTOR_METHOD_OPTIONS.map((option) => ({ ...option }))}
-                  onChange={changeMethod}
-                  label={translate('component.contentExtractorManagerDialog.extractorMethod')}
-                  disabled={selected?.isBuiltin}
-                  className="w-full"
-                />
-              </div>
+            <div>
               <label className="space-y-1">
                 <span className="theme-text-muted block text-[10px] font-semibold">{translate('component.contentExtractorManagerDialog.runtimeLocation')}</span>
                 <span className="flex gap-2">

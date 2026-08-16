@@ -6,10 +6,7 @@ use std::path::{Path, PathBuf};
 
 use pasted_lib::bin_assignment::assign_clips_to_bin;
 use pasted_lib::content_classification::ClassifierInput;
-use pasted_lib::content_extraction::{
-    ExtractorDefinitionInput, APPLE_VISION_ENGINE, CUSTOM_COMMAND_ENGINE, TESSERACT_ENGINE,
-    WHISPER_CPP_ENGINE,
-};
+use pasted_lib::content_extraction::{ExtractorDefinitionInput, CUSTOM_COMMAND_ENGINE};
 use pasted_lib::content_types::{ContentTypeGroupInput, ContentTypeInput};
 use pasted_lib::db::{
     open_pasted_database, ClipMutationSummary, DbState, IntelligenceConnectionUpdate,
@@ -1641,7 +1638,7 @@ fn run_command(command: &str, args: &[String], db_path: PathBuf, conn: Connectio
                 }
                 "update" => {
                     let reference = args.get(3).unwrap_or_else(|| {
-                        eprintln!("Usage: pasted extractor update <ref> [--name NAME] [--description TEXT] [--method METHOD] [--executable PATH|--automatic-discovery] [--model PATH|--no-model] [--input CONTRACT] [--output CONTRACT] [--priority N] [--enabled|--disabled] [--json]");
+                        eprintln!("Usage: pasted extractor update <ref> [--name NAME] [--description TEXT] [--executable PATH|--automatic-discovery] [--model PATH|--no-model] [--input CONTRACT] [--output CONTRACT] [--priority N] [--enabled|--disabled] [--json]");
                         std::process::exit(2);
                     });
                     let current = db.get_content_extractor(reference)?;
@@ -4136,22 +4133,6 @@ fn extractor_definition_from_args(
     args: &[String],
     current: Option<&pasted_lib::content_extraction::Extractor>,
 ) -> ExtractorDefinitionInput {
-    let engine = argument_value(args, "--method")
-        .map(|method| match method.as_str() {
-            "apple-vision" => APPLE_VISION_ENGINE.into(),
-            "tesseract" => TESSERACT_ENGINE.into(),
-            "whisper" | "whisper-cpp" => WHISPER_CPP_ENGINE.into(),
-            "custom-command" | "command" => CUSTOM_COMMAND_ENGINE.into(),
-            _ => {
-                eprintln!("--method must be apple-vision, tesseract, whisper, or custom-command");
-                std::process::exit(2);
-            }
-        })
-        .unwrap_or_else(|| {
-            current
-                .map(|item| item.engine.clone())
-                .unwrap_or_else(|| CUSTOM_COMMAND_ENGINE.into())
-        });
     ExtractorDefinitionInput {
         name: argument_value(args, "--name").unwrap_or_else(|| {
             current
@@ -4163,7 +4144,9 @@ fn extractor_definition_from_args(
                 .map(|item| item.description.clone())
                 .unwrap_or_else(|| "Extracts searchable text with a local command.".into())
         }),
-        engine,
+        engine: current
+            .map(|item| item.engine.clone())
+            .unwrap_or_else(|| CUSTOM_COMMAND_ENGINE.into()),
         executable_path: optional_argument_update(
             args,
             "--executable",

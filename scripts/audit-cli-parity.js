@@ -453,9 +453,8 @@ for (const method of ['get_content_extractors', 'create_content_extractor', 'upd
   assert.match(commands, new RegExp(`pub fn ${method}`), `${method} must be exposed to the GUI`);
   assert.match(cli, new RegExp(`db\\s*\\.${method}`), `${method} must be reused by the CLI`);
 }
-assert.match(extractorManager, /translate\('component\.contentExtractorManagerDialog\.method'\)/,
-  'Extractor management must present a concrete execution Method instead of an editable engine ID');
-assert.equal(englishCatalog['component.contentExtractorManagerDialog.method'], 'Method');
+assert.doesNotMatch(extractorManager, /translate\('component\.contentExtractorManagerDialog\.method'\)/,
+  'Extractor management must not expose a registry-backed Method selector');
 assert.match(extractorManager, /translate\('component\.contentExtractorManagerDialog\.runtimeLocation'\)/,
   'Extractor management must expose configured and discovered runtime locations');
 assert.equal(englishCatalog['component.contentExtractorManagerDialog.runtimeLocation'], 'Runtime location');
@@ -463,8 +462,8 @@ assert.match(extractorManager, /choose_extractor_executable/,
   'Extractor management must allow executable selection through the native picker');
 assert.doesNotMatch(extractorManager, /<input[^>]+value=\{draft\.engine\}/,
   'Extractor engine contract IDs must not be arbitrary editable strings');
-assert.match(cli, /"--method"/,
-  'CLI Extractor authoring must use the same execution Method contract as the GUI');
+assert.doesNotMatch(cli, /argument_value\(args, "--method"\)/,
+  'CLI Extractor authoring must not expose a registry-backed Method selector');
 assert.match(cli, /"--executable"/,
   'CLI Extractor authoring must expose executable location parity');
 assert.match(cli, /current\.map\(\|item\| item\.enabled\)\.unwrap_or\(false\)/,
