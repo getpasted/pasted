@@ -590,6 +590,14 @@ fn run_command(command: &str, args: &[String], db_path: PathBuf, conn: Connectio
                         eprintln!("That setting cannot be changed through the CLI.");
                         std::process::exit(2);
                     }
+                    if key == pasted_lib::localization::LANGUAGE_SETTING_KEY {
+                        if let Err(error) =
+                            pasted_lib::localization::validate_configured_language(value)
+                        {
+                            eprintln!("{error}");
+                            std::process::exit(2);
+                        }
+                    }
                     if key.len() > 128 || value.len() > 1_048_576 {
                         eprintln!(
                             "Setting keys and values must remain within their safety limits."

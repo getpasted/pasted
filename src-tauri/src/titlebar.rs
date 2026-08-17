@@ -46,6 +46,59 @@ static ZOOM_RESTORE_FRAME: Lazy<Mutex<Option<WindowFrame>>> = Lazy::new(|| Mutex
 #[cfg(target_os = "macos")]
 static FILL_RESTORE_FRAME: Lazy<Mutex<Option<WindowFrame>>> = Lazy::new(|| Mutex::new(None));
 
+#[cfg(target_os = "macos")]
+unsafe fn position_traffic_lights(ns_window: *mut objc::runtime::Object, rtl: bool) {
+    use objc::{msg_send, sel, sel_impl};
+
+    unsafe {
+        let close: *mut objc::runtime::Object = msg_send![ns_window, standardWindowButton: 0i64];
+        let minimize: *mut objc::runtime::Object = msg_send![ns_window, standardWindowButton: 1i64];
+        let zoom: *mut objc::runtime::Object = msg_send![ns_window, standardWindowButton: 2i64];
+        if close.is_null() || minimize.is_null() || zoom.is_null() {
+            return;
+        }
+
+        let originals = [close, minimize, zoom];
+        for button in originals {
+            let _: () = msg_send![button, setHidden: rtl];
+        }
+
+        if !rtl {
+            const TRAFFIC_LIGHT_X: f64 = 20.0;
+            const TRAFFIC_LIGHT_Y: f64 = 30.0;
+
+            let titlebar_view: *mut objc::runtime::Object = msg_send![close, superview];
+            if titlebar_view.is_null() {
+                return;
+            }
+            let titlebar_container: *mut objc::runtime::Object =
+                msg_send![titlebar_view, superview];
+            if titlebar_container.is_null() {
+                return;
+            }
+
+            let window_frame: WindowFrame = msg_send![ns_window, frame];
+            let close_frame: WindowFrame = msg_send![close, frame];
+            let minimize_frame: WindowFrame = msg_send![minimize, frame];
+            let titlebar_height = close_frame.size.height + TRAFFIC_LIGHT_Y;
+            let mut container_frame: WindowFrame = msg_send![titlebar_container, frame];
+            container_frame.size.height = titlebar_height;
+            container_frame.origin.y = window_frame.size.height - titlebar_height;
+            let _: () = msg_send![titlebar_container, setFrame: container_frame];
+
+            let spacing = minimize_frame.origin.x - close_frame.origin.x;
+            for (index, button) in originals.into_iter().enumerate() {
+                let frame: WindowFrame = msg_send![button, frame];
+                let origin = WindowPoint {
+                    x: TRAFFIC_LIGHT_X + (index as f64 * spacing),
+                    y: frame.origin.y,
+                };
+                let _: () = msg_send![button, setFrameOrigin: origin];
+            }
+        }
+    }
+}
+
 #[cfg(any(target_os = "macos", test))]
 fn parse_titlebar_double_click_action(value: Option<&str>) -> TitlebarDoubleClickAction {
     let normalized = value.unwrap_or_default().trim().to_ascii_lowercase();
@@ -97,6 +150,31 @@ fn frames_are_equivalent(left: WindowFrame, right: WindowFrame) -> bool {
         && (left.origin.y - right.origin.y).abs() <= TOLERANCE
         && (left.size.width - right.size.width).abs() <= TOLERANCE
         && (left.size.height - right.size.height).abs() <= TOLERANCE
+}
+
+fn apply_titlebar_direction(window: tauri::WebviewWindow, rtl: bool) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        use objc::runtime::Object;
+        use tauri::Manager;
+
+        let ns_window = window.ns_window().map_err(|error| error.to_string())? as usize;
+        window
+            .app_handle()
+            .run_on_main_thread(move || unsafe {
+                position_traffic_lights(ns_window as *mut Object, rtl);
+            })
+            .map_err(|error| error.to_string())?;
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    let _ = (window, rtl);
+
+    Ok(())
+}
+
+pub fn set_titlebar_direction(window: tauri::WebviewWindow, rtl: bool) -> Result<(), String> {
+    apply_titlebar_direction(window, rtl)
 }
 
 #[cfg(target_os = "macos")]

@@ -91,7 +91,7 @@
 .welcome-setup-mark > span {
   position: absolute;
   top: -0.45rem;
-  right: -0.45rem;
+  inset-inline-end: -0.45rem;
   display: flex;
   width: 2rem;
   height: 2rem;
@@ -182,7 +182,7 @@
 }
 
 .welcome-setup-highlights li + li {
-  border-left: 1px solid var(--border-subtle);
+  border-inline-start: 1px solid var(--border-subtle);
 }
 
 .welcome-setup-highlights svg {
@@ -222,7 +222,7 @@
   min-height: 0;
   flex: 1 1 auto;
   overflow-y: auto;
-  padding-right: 0.35rem;
+  padding-inline-end: 0.35rem;
   scrollbar-gutter: stable;
 }
 
@@ -424,7 +424,7 @@
   border: 1px solid color-mix(in srgb, var(--status-success) 26%, var(--border-subtle));
   border-radius: 1rem;
   background: color-mix(in srgb, var(--status-success) 6%, var(--bg-input));
-  text-align: left;
+  text-align: start;
 }
 
 .welcome-setup-backing > svg {

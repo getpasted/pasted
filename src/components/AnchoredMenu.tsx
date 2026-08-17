@@ -12,6 +12,7 @@ import {
 import { createPortal } from 'react-dom';
 import { ChevronRight } from 'lucide-react';
 import { OverflowText } from './OverflowText';
+import { useLocalization } from '../localization/LocalizationProvider';
 
 const VIEWPORT_PADDING = 8;
 
@@ -58,6 +59,7 @@ export function AnchoredMenu({
   restoreFocus = true,
   style,
 }: AnchoredMenuProps) {
+  const { direction } = useLocalization();
   const menuRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
   const positionedAnchorRef = useRef<string | null>(null);
@@ -72,7 +74,7 @@ export function AnchoredMenu({
   const anchorGap = anchor.kind === 'element' ? anchor.gap : undefined;
   const anchorKey = anchor.kind === 'point'
     ? `point:${anchor.x}:${anchor.y}`
-    : `element:${anchor.align ?? 'end'}:${anchor.gap ?? 6}`;
+    : `element:${anchor.align ?? 'end'}:${anchor.gap ?? 6}:${direction}`;
   const [position, setPosition] = useState<MenuPosition>({
     anchorKey: null,
     left: VIEWPORT_PADDING,
@@ -108,9 +110,8 @@ export function AnchoredMenu({
         }
         const anchorRect = anchorElement.getBoundingClientRect();
         const gap = anchor.gap ?? 6;
-        preferredLeft = anchor.align === 'start'
-          ? anchorRect.left
-          : anchorRect.right - menuRect.width;
+        const alignToPhysicalLeft = (anchor.align === 'start') === (direction === 'ltr');
+        preferredLeft = alignToPhysicalLeft ? anchorRect.left : anchorRect.right - menuRect.width;
         const fitsBelow = anchorRect.bottom + gap + menuRect.height <= window.innerHeight - VIEWPORT_PADDING;
         preferredTop = fitsBelow
           ? anchorRect.bottom + gap
@@ -145,7 +146,7 @@ export function AnchoredMenu({
       window.removeEventListener('resize', positionMenu);
       window.removeEventListener('scroll', positionMenu, true);
     };
-  }, [anchorAlign, anchorGap, anchorKey, anchorKind, anchorRef, anchorX, anchorY]);
+  }, [anchorAlign, anchorGap, anchorKey, anchorKind, anchorRef, anchorX, anchorY, direction]);
 
   useEffect(() => {
     const closeOutside = (event: PointerEvent) => {
@@ -233,7 +234,7 @@ export const MenuItem = forwardRef<HTMLButtonElement, MenuItemProps>(function Me
       ref={ref}
       type={type}
       role={props.role ?? 'menuitem'}
-      className={`theme-menu-item flex w-full items-center rounded-lg text-left disabled:cursor-not-allowed disabled:opacity-40 ${active ? 'is-selected' : ''} ${danger ? 'theme-danger-text' : ''} ${className}`}
+      className={`theme-menu-item flex w-full items-center rounded-lg text-start disabled:cursor-not-allowed disabled:opacity-40 ${active ? 'is-selected' : ''} ${danger ? 'theme-danger-text' : ''} ${className}`}
       {...props}
     />
   );
@@ -260,10 +261,13 @@ export function MenuSubmenu({
   open,
   panelClassName = 'w-48',
 }: MenuSubmenuProps) {
+  const { direction } = useLocalization();
   const rootRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [panelStyle, setPanelStyle] = useState<CSSProperties>({ left: 'calc(100% - 1px)', top: -4 });
+  const [panelStyle, setPanelStyle] = useState<CSSProperties>(
+    direction === 'rtl' ? { right: 'calc(100% - 1px)', top: -4 } : { left: 'calc(100% - 1px)', top: -4 },
+  );
 
   const cancelClose = () => {
     if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
@@ -285,10 +289,12 @@ export function MenuSubmenu({
     if (!root || !panel) return;
     const rootRect = root.getBoundingClientRect();
     const panelRect = panel.getBoundingClientRect();
-    const opensLeft = rootRect.right + panelRect.width - 1 > window.innerWidth - VIEWPORT_PADDING;
+    const fitsLeft = rootRect.left - panelRect.width + 1 >= VIEWPORT_PADDING;
+    const fitsRight = rootRect.right + panelRect.width - 1 <= window.innerWidth - VIEWPORT_PADDING;
+    const opensLeft = direction === 'rtl' ? fitsLeft || !fitsRight : !fitsRight && fitsLeft;
     const top = clamp(-4, VIEWPORT_PADDING - rootRect.top, window.innerHeight - VIEWPORT_PADDING - rootRect.top - panelRect.height);
     setPanelStyle(opensLeft ? { right: 'calc(100% - 1px)', top } : { left: 'calc(100% - 1px)', top });
-  }, [open]);
+  }, [direction, open]);
 
   useEffect(() => () => cancelClose(), []);
 
@@ -312,9 +318,9 @@ export function MenuSubmenu({
       >
         <span className="flex min-w-0 items-center gap-2.5">
           {icon}
-          <OverflowText text={label} className="truncate" />
+          <OverflowText text={label} className="bidi-interface-align truncate" />
         </span>
-        <ChevronRight className="theme-text-muted h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+        <ChevronRight className="theme-text-muted h-3.5 w-3.5 shrink-0 rtl:-scale-x-100" aria-hidden="true" />
       </MenuItem>
       {open && (
         <div

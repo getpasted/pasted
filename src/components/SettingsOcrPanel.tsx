@@ -6,6 +6,7 @@ import { ActionButton } from './AppDialogLayout';
 import { SettingsSubsectionHeader } from './SettingsSubsectionHeader';
 import { useToast } from './ToastProvider';
 import type { ContentExtractor } from './ContentExtractorManagerDialog';
+import { translate } from '../localization/runtime';
 
 const EMPTY_OCR_STATUS: OcrBackfillStatus = {
   totalImages: 0,
@@ -27,7 +28,7 @@ export function SettingsOcrPanel() {
       setStatus(await invoke<OcrBackfillStatus>('get_ocr_backfill_status'));
       setExtractors(await invoke<ContentExtractor[]>('get_content_extractors'));
     } catch (error) {
-      showToast({ tone: 'error', message: `OCR status could not be loaded: ${String(error)}` });
+      showToast({ tone: 'error', message: translate('component.settingsOcrPanel.ocrStatusCouldNotBeLoadedValue', { value: String(error) }) });
     }
   };
 
@@ -59,7 +60,7 @@ export function SettingsOcrPanel() {
       await operation();
       await refresh();
     } catch (error) {
-      showToast({ tone: 'error', message: `OCR operation failed: ${String(error)}` });
+      showToast({ tone: 'error', message: translate('component.settingsOcrPanel.ocrOperationFailedValue', { value: String(error) }) });
     }
   };
 
@@ -68,10 +69,10 @@ export function SettingsOcrPanel() {
     extractor.enabled && extractor.isAvailable && extractor.inputContract === 'image'
   ));
   const statusText = !activeExtractor
-    ? 'No available image text Extractor is enabled.'
+    ? translate('component.settingsOcrPanel.noAvailableImageTextExtractorIsEnabled')
     : status.eligibleCount > 0
-    ? `${status.eligibleCount} image${status.eligibleCount === 1 ? '' : 's'} can be scanned for searchable text.`
-    : 'All eligible images have been scanned.';
+    ? translate('component.settingsOcrPanel.eligibleImages', { count: status.eligibleCount })
+    : translate('component.settingsOcrPanel.allEligibleImagesHaveBeenScanned');
 
   return (
     <section className="theme-surface overflow-hidden rounded-2xl border" aria-labelledby="ocr-maintenance-title">
@@ -79,8 +80,8 @@ export function SettingsOcrPanel() {
         <SettingsSubsectionHeader
           id="ocr-maintenance-title"
           icon={<ScanText className="h-4 w-4" />}
-          title="OCR"
-          description="Automatically makes text in images searchable."
+          title={translate('component.settingsOcrPanel.ocr')}
+          description={translate('component.settingsOcrPanel.automaticallyMakesTextInImagesSearchable')}
         />
         <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
           {[
@@ -98,8 +99,7 @@ export function SettingsOcrPanel() {
           ))}
         </div>
         {!busy && status.failedCount > 0 && (
-          <ActionButton onClick={() => void run(() => invoke('retry_failed_ocr'))} className="w-full">
-            Retry {status.failedCount} Failed Scan{status.failedCount === 1 ? '' : 's'}
+          <ActionButton onClick={() => void run(() => invoke('retry_failed_ocr'))} className="w-full">{translate('common.retry')}{status.failedCount}{translate('component.settingsOcrPanel.failedScan')}{status.failedCount === 1 ? '' : translate('component.settingsOcrPanel.s')}
           </ActionButton>
         )}
       </div>
@@ -107,11 +107,11 @@ export function SettingsOcrPanel() {
         <p className="theme-text-muted text-[11px] leading-relaxed">{statusText}</p>
         {busy ? (
           <ActionButton onClick={() => void run(() => invoke('cancel_ocr_backfill'))}>
-            <Square className="h-3.5 w-3.5" /> Cancel
+            <Square className="h-3.5 w-3.5" /> {translate('common.cancel')}
           </ActionButton>
         ) : (
           <ActionButton variant="primary" disabled={status.eligibleCount === 0 || !activeExtractor} onClick={() => void run(() => invoke('start_ocr_backfill'))}>
-            <ScanText className="h-3.5 w-3.5" /> Scan
+            <ScanText className="h-3.5 w-3.5" /> {translate('component.settingsOcrPanel.scan')}
           </ActionButton>
         )}
       </div>

@@ -65,7 +65,7 @@
 .app-toast-region {
   position: fixed;
   top: max(16px, env(safe-area-inset-top));
-  right: 16px;
+  inset-inline-end: 16px;
   z-index: var(--layer-critical);
   display: flex;
   width: min(360px, calc(100vw - 32px));
@@ -422,9 +422,9 @@ html:not(.is-stable-reordering) .connection-priority-card:hover {
 .settings-feature-caution {
   position: absolute;
   top: 50%;
-  left: 100%;
+  inset-inline-start: 100%;
   display: inline-flex;
-  margin-left: 0.3rem;
+  margin-inline-start: 0.3rem;
   transform: translateY(-50%);
 }
 
@@ -761,9 +761,9 @@ html:not(.is-stable-reordering) .connection-priority-card:hover {
 }
 
 .appearance-picker-group + .appearance-picker-group {
-  margin-left: 0.125rem;
-  padding-left: 0.375rem;
-  border-left: 1px solid var(--border-subtle);
+  margin-inline-start: 0.125rem;
+  padding-inline-start: 0.375rem;
+  border-inline-start: 1px solid var(--border-subtle);
 }
 
 .preview-filter-bar {

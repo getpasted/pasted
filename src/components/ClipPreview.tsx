@@ -44,6 +44,8 @@ import { useIntelligenceRequestStatus } from '../hooks/useIntelligenceRequestSta
 import { useFeatures } from '../hooks/useFeatures';
 import { contentTypeLabel, structuralClipType } from '../utils/contentTypes';
 import { useToast } from './ToastProvider';
+import { formatTransformRequestPhase, translate } from '../localization/runtime';
+import { localizedSourceName } from '../localization/presentation';
 
 interface ClipPreviewProps {
   clip: ClipItem | null;
@@ -671,9 +673,9 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
         <div className="clip-preview-empty-icon theme-surface w-16 h-16 rounded-2xl border flex items-center justify-center mb-4 shadow-xl">
           <FileText className="w-8 h-8" />
         </div>
-        <p className="theme-text-main text-sm font-medium">No Clip Selected</p>
+        <p className="theme-text-main text-sm font-medium">{translate('component.clipPreview.noClipSelected')}</p>
         <p className="theme-text-muted text-xs mt-1 max-w-xs text-center">
-          Select an item from history or right-click to copy, transform, add notes, or organize.
+          {translate('component.clipPreview.selectAnItemFromHistoryOrRightClickToCopyTransformAdd')}
         </p>
       </div>
     );
@@ -744,7 +746,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
     } catch (e) {
       if (requestId !== pipelineRequestIdRef.current) return;
       console.error(e);
-      setPipelineError(e instanceof Error ? e.message : 'Advanced Transform failed to run.');
+      setPipelineError(e instanceof Error ? e.message : translate('component.clipPreview.advancedTransformFailedToRun'));
     } finally {
       if (requestId === pipelineRequestIdRef.current) {
         activeTransformExecutionRef.current = null;
@@ -782,7 +784,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
       setTransformedText(result.output);
     } catch (error) {
       if (requestId !== pipelineRequestIdRef.current) return;
-      setPipelineError(error instanceof Error ? error.message : 'Transform failed to run.');
+      setPipelineError(error instanceof Error ? error.message : translate('component.clipPreview.transformFailedToRun'));
     } finally {
       if (requestId === pipelineRequestIdRef.current) {
         activeTransformExecutionRef.current = null;
@@ -860,7 +862,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
       setPipelineError(null);
     } catch (error) {
       console.error(`Failed to ${destination} Advanced Transform output:`, error);
-      setPipelineError(`Could not ${destination} the Advanced Transform result.`);
+      setPipelineError(translate('component.clipPreview.couldNotDestinationTheAdvancedTransformResult', { destination: destination }));
     }
   };
 
@@ -943,26 +945,26 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
         <div className="flex min-w-0 items-center space-x-3 titlebar-drag-handle">
           <span className="clip-type-badge theme-badge text-xs font-semibold px-2.5 py-1 rounded-md border capitalize titlebar-drag-handle">
             {clip.content_type === 'file' && getClipFilePaths(clip).length > 1
-              ? 'Files'
+              ? translate('component.clipPreview.files')
               : contentTypeLabel(features.types ? clip.content_type : structuralClipType(clip.content_type))}
           </span>
-          {features.sources && <OverflowText text={clip.source} className="theme-text-main min-w-0 max-w-[200px] truncate text-xs font-medium titlebar-drag-handle" />}
+          {features.sources && <OverflowText text={localizedSourceName(clip.source)} className="theme-text-main min-w-0 max-w-[200px] truncate text-xs font-medium titlebar-drag-handle" />}
           {isTransforming && (
             <LoaderCircle
               className="clip-transform-working h-4 w-4 shrink-0 animate-spin"
-              aria-label="Applying Transform"
+              aria-label={translate('component.clipPreview.applyingTransform')}
             />
           )}
           {features.transformations && !isTransforming && provenance && (
             <Workflow
               className="transform-accent pipelines h-4 w-4 shrink-0"
-              aria-label={`Transformed with ${provenance.transformName}`}
+              aria-label={translate('component.clipPreview.transformedWithTransformname', { transformName: provenance.transformName })}
             />
           )}
           {features.transformations && !isTransforming && provenance?.connectionId && (
             <Sparkles
               className="transform-accent pipelines h-3.5 w-3.5 shrink-0"
-              aria-label="Transform used connected intelligence"
+              aria-label={translate('component.clipPreview.transformUsedConnectedIntelligence')}
             />
           )}
         </div>
@@ -975,8 +977,8 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
                 type="button"
                 onClick={() => setIsWorkflowMenuOpen((current) => !current)}
                 className={`clip-preview-action clip-workflow-trigger theme-focusable transition-colors ${isWorkflowMenuOpen || activeTransformRef ? 'is-active' : ''}`}
-                title="Workflow"
-                aria-label="Open clip workflow"
+                title={translate('component.clipPreview.workflow')}
+                aria-label={translate('component.clipPreview.openClipWorkflow')}
                 aria-haspopup="menu"
                 aria-expanded={isWorkflowMenuOpen}
               >
@@ -1002,7 +1004,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
             onClick={handleCopy}
             className={`clip-preview-action copy-clip-main-btn theme-focusable active:scale-95 transition-[background-color,color,transform] ${copied ? 'is-copied' : ''}`}
             title={copied ? UI_COPY.copied : UI_COPY.copy}
-            aria-label={copied ? 'Clip copied' : 'Copy clip'}
+            aria-label={copied ? translate('component.clipPreview.clipCopied') : translate('component.clipPreview.copyClip')}
           >
             {copied ? <Check /> : <Copy />}
           </button>
@@ -1037,8 +1039,8 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
               type="button"
               onClick={handleToggleAddNote}
               className={`clip-preview-action preview-note-btn theme-focusable transition-colors ${isAddingNote ? 'is-active' : ''}`}
-              title={isAddingNote ? 'Cancel Note' : 'Add Note'}
-              aria-label={isAddingNote ? 'Cancel Note' : 'Add Note'}
+              title={isAddingNote ? translate('component.clipPreview.cancelNote') : translate('action.addNote')}
+              aria-label={isAddingNote ? translate('component.clipPreview.cancelNote') : translate('action.addNote')}
               aria-pressed={isAddingNote}
             >
               <StickyNote />
@@ -1051,9 +1053,9 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
             disabled={Boolean(clip.is_protected) && viewPolicy.state !== 'trash'}
             className={`clip-preview-action preview-delete-btn theme-danger-text theme-focusable active:scale-95 transition-[background-color,color,opacity,transform] ${clip.is_protected && viewPolicy.state !== 'trash' ? 'cursor-not-allowed opacity-45' : ''}`}
             title={clip.is_protected && viewPolicy.state !== 'trash'
-              ? 'Clip is Protected. Unprotect first to delete.'
+              ? translate('component.clipPreview.clipIsProtectedUnprotectFirstToDelete')
               : clipDeleteLabel({ trashEnabled, permanent: viewPolicy.state === 'trash' })}
-            aria-label={viewPolicy.state === 'trash' || !trashEnabled ? 'Delete Clip Permanently' : 'Move Clip to Trash'}
+            aria-label={viewPolicy.state === 'trash' || !trashEnabled ? translate('component.clipPreview.deleteClipPermanently') : translate('component.clipPreview.moveClipToTrash')}
           >
             {viewPolicy.state === 'trash' || !trashEnabled ? <X /> : <Trash2 />}
           </button>
@@ -1081,7 +1083,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
         <div className="preview-bin-bar px-4 py-2 flex items-center justify-between text-xs border-b" role="note">
           <div className="preview-readonly-notice flex items-center space-x-2">
             <Trash2 className="w-3.5 h-3.5" />
-            <span>Restore to organize or edit notes.</span>
+            <span>{translate('component.clipPreview.restoreToOrganizeOrEditNotes')}</span>
           </div>
         </div>
       ))}
@@ -1091,7 +1093,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
         <div className="px-4 py-2.5 border-b space-y-2 note-container select-none">
           <div className="note-header-text flex items-center space-x-1.5 text-[11px] font-semibold uppercase tracking-wider select-none">
             <StickyNote className="w-3.5 h-3.5" />
-            <span>Notes ({notes.length})</span>
+            <span>{translate('component.clipPreview.noteCount', { count: notes.length })}</span>
           </div>
 
           <div
@@ -1120,7 +1122,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
             {/* Inline New Note Card */}
             {isAddingNote && (
               <div className="note-input-row p-3 rounded-lg border flex flex-col space-y-2 animate-in fade-in duration-100">
-                <textarea
+                <textarea dir="auto"
                   rows={3}
                   placeholder={placeholderText}
                   value={newNoteText}
@@ -1143,14 +1145,14 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
                     }}
                     className="note-cancel-button px-3 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer"
                   >
-                    Cancel
+                    {translate('common.cancel')}
                   </button>
                   <button
                     type="button"
                     onClick={handleCreateNote}
                     className="note-save-button px-3 py-1 rounded-md text-xs font-semibold shadow cursor-pointer"
                   >
-                    Save
+                    {translate('common.save')}
                   </button>
                 </div>
               </div>
@@ -1165,8 +1167,8 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
           <div className="theme-status-warning flex items-start gap-2 rounded-lg border px-3 py-2" role="status">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
             <div className="min-w-0">
-              <strong className="block">Transform failed.</strong>
-              <span>The clip stayed in its Bin and its content was not replaced. </span>
+              <strong className="block">{translate('component.clipPreview.transformFailed')}</strong>
+              <span>{translate('component.clipPreview.theClipStayedInItsBinAndItsContentWasNotReplaced')} </span>
               {transformError === 'Power on a provider and try again.' && onOpenIntelligence ? (
                 <button
                   type="button"
@@ -1185,17 +1187,15 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
           <div className="active-filter-banner flex items-center justify-between px-3 py-2 border rounded-lg">
             <div className="flex items-center space-x-2">
               <Sliders className="w-4 h-4" />
-              <span>
+              <span className="flex items-center gap-1.5">
+                <span>
                 {previewedVersion
-                  ? 'Previewing revision'
+                  ? translate('component.clipPreview.previewingRevision')
                   : isPipelineRunning
-                    ? transformRequestStatus.phase === 'queued'
-                      ? `Queued${transformRequestStatus.connectionName ? ` for ${transformRequestStatus.connectionName}` : ''}`
-                      : transformRequestStatus.phase === 'starting'
-                        ? 'Starting'
-                        : `Running${transformRequestStatus.connectionName ? ` with ${transformRequestStatus.connectionName}` : ''}${transformRequestStatus.didFallback ? ' · fallback' : ''}`
-                    : 'Previewing'}:
-                {' '}<strong>{previewedVersion
+                    ? formatTransformRequestPhase(transformRequestStatus)
+                    : translate('component.clipPreview.previewing')}
+                </span>
+                <strong>{previewedVersion
                   ? (
                     <time
                       dateTime={dateTimeAttribute(previewedVersion.created_at)}
@@ -1212,7 +1212,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
                 onClick={handleResetTransform}
                 className="active-filter-reset text-xs underline"
               >
-                Reset
+                {translate('common.reset')}
               </button>
             )}
           </div>
@@ -1245,7 +1245,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
           <div className="smart-actions-bar px-4 py-2 flex items-center justify-between text-xs space-x-2 overflow-x-auto">
             <div className="smart-actions-heading flex items-center space-x-1.5 shrink-0 font-semibold text-[11px]">
               <Lightbulb className="w-3.5 h-3.5" />
-              <span>Smart Actions ({smartActions.result.signalLabels.join(', ')})</span>
+              <span>{translate('component.clipPreview.smartActionsSignals', { signals: smartActions.result.signalLabels.join(', ') })}</span>
             </div>
             <div className="flex items-center space-x-1.5 overflow-x-auto scrollbar-none py-0.5">
               {smartActions.result.actions.map((action) => {
@@ -1257,7 +1257,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
                     key={action.transformRef}
                     onClick={() => transform ? handlePreviewTransform(transform) : void handlePreviewPipeline(pipeline!)}
                     className="smart-action-button px-2 py-0.5 rounded-md border text-[11px] font-medium flex items-center space-x-1 whitespace-nowrap shadow-sm"
-                    title={`Preview ${action.transformName}`}
+                    title={translate('component.clipPreview.previewTransformname', { transformName: action.transformName })}
                   >
                     <span>{action.transformName}</span>
                   </button>
@@ -1286,7 +1286,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center space-x-2 shrink-0">
               <Sliders className="preview-filter-accent w-4 h-4" />
-              <span className="theme-text-main text-xs font-semibold">Advanced Transform</span>
+              <span className="theme-text-main text-xs font-semibold">{translate('component.clipPreview.advancedTransform')}</span>
             </div>
 
             <div className="max-w-xs flex-1">
@@ -1300,12 +1300,12 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
                     if (found) void handlePreviewPipeline(found);
                   }
                 }}
-                label="Choose Advanced Transform"
+                label={translate('component.clipPreview.chooseAdvancedTransform')}
                 className={`w-full ${activePipelineRef ? 'preview-filter-select-active' : 'form-field-valid'}`}
                 searchable
-                searchPlaceholder="Search manual Transforms…"
+                searchPlaceholder={translate('component.clipPreview.searchManualTransforms')}
                 options={[
-                  { value: '', label: 'Original clip' },
+                  { value: '', get label() { return translate('component.clipPreview.originalClip'); } },
                   ...pipelines.map((pipeline) => ({ value: pipeline.stableRef, label: pipeline.name })),
                 ]}
               />
@@ -1319,27 +1319,27 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
                   onClick={() => void handlePipelineOutput('copy')}
                   disabled={isPipelineRunning || transformedText === null}
                   className="theme-secondary-button flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40"
-                  title="Copy Result"
+                  title={translate('component.clipPreview.copyResult')}
                 >
                   {pipelineAction === 'copied' ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                  <span>{pipelineAction === 'copied' ? 'Copied' : 'Copy'}</span>
+                  <span>{pipelineAction === 'copied' ? translate('action.copied') : translate('action.copy')}</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => void handlePipelineOutput('paste')}
                   disabled={isPipelineRunning || transformedText === null}
                   className="transform-workspace-action pipelines flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-40"
-                  title="Paste Result"
+                  title={translate('component.clipPreview.pasteResult')}
                 >
                   <ClipboardPaste className="h-3.5 w-3.5" />
-                  <span>{pipelineAction === 'pasted' ? 'Pasted' : 'Paste'}</span>
+                  <span>{pipelineAction === 'pasted' ? translate('component.clipPreview.pasted') : translate('component.clipPreview.paste')}</span>
                 </button>
                 <button
                   onClick={handleResetTransform}
                   className="preview-filter-reset flex items-center space-x-1 px-2.5 py-1 rounded-lg border text-xs font-semibold transition-colors"
-                  title="Reset"
+                  title={translate('common.reset')}
                 >
-                  <span>Reset</span>
+                  <span>{translate('common.reset')}</span>
                 </button>
               </div>
             )}
@@ -1348,7 +1348,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
             <div role="status" className="theme-status-error mt-2 flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-[11px]">
               <span className="min-w-0 flex-1">{pipelineError}</span>
               <button type="button" onClick={handleRetryTransform} className="playground-run-status-action inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 font-semibold">
-                <RotateCcw className="h-3 w-3" /> Retry
+                <RotateCcw className="h-3 w-3" /> {translate('common.retry')}
               </button>
             </div>
           )}
@@ -1379,32 +1379,32 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
           {clip.content_type === 'file' ? (
             <>
               <span className="clip-preview-footer-stat">
-                <span>Items:</span>
+                <span>{translate('component.clipPreview.items')}</span>
                 <strong>{inspection?.result.files?.itemCount ?? getClipFilePaths(clip).length}</strong>
               </span>
-              <span className="clip-preview-footer-stat" title={inspection?.result.files?.extensions.join(', ') || 'No file extensions'}>
-                <span>File formats</span>
-                <strong>{inspection?.result.files ? (inspection.result.files.extensions.length > 2 ? `${inspection.result.files.extensions.slice(0, 2).join(', ')} +${inspection.result.files.extensions.length - 2}` : inspection.result.files.extensions.join(', ') || '—') : '…'}</strong>
+              <span className="clip-preview-footer-stat" title={inspection?.result.files?.extensions.join(', ') || translate('component.clipPreview.noFileExtensions')}>
+                <span>{translate('component.clipPreview.fileFormats')}</span>
+                <strong>{inspection?.result.files ? (inspection.result.files.extensions.length > 2 ? translate('component.clipPreview.valueValue2', { value: inspection.result.files.extensions.slice(0, 2).join(', '), value2: inspection.result.files.extensions.length - 2 }) : inspection.result.files.extensions.join(', ') || '—') : '…'}</strong>
               </span>
               <span className="clip-preview-footer-stat">
-                <span>Size:</span>
+                <span>{translate('component.clipPreview.size')}</span>
                 <strong>{inspection?.liveFileObservations ? (inspection.liveFileObservations.fileCount > 0 ? formatFileSize(inspection.liveFileObservations.totalSizeBytes) : '—') : '…'}</strong>
               </span>
               <span className="clip-preview-footer-stat">
-                <span>Available:</span>
+                <span>{translate('component.clipPreview.available')}</span>
                 <strong>{inspection?.liveFileObservations ? `${inspection.liveFileObservations.availableCount}/${inspection.result.files?.itemCount ?? 0}` : '…'}</strong>
               </span>
               {inspection?.mediaMetadata && <>
                 <span className="clip-preview-footer-stat" title={inspection.mediaMetadata.containers.join(', ')}>
-                  <span>Media</span>
+                  <span>{translate('component.clipPreview.media')}</span>
                   <strong>{inspection.mediaMetadata.mediaFileCount}</strong>
                 </span>
                 <span className="clip-preview-footer-stat" title={inspection.mediaMetadata.codecs.join(', ')}>
-                  <span>Codecs</span>
+                  <span>{translate('component.clipPreview.codecs')}</span>
                   <strong>{inspection.mediaMetadata.codecs.slice(0, 2).join(', ') || '—'}</strong>
                 </span>
                 <span className="clip-preview-footer-stat">
-                  <span>Duration</span>
+                  <span>{translate('component.clipPreview.duration')}</span>
                   <strong>{formatMediaDuration(inspection.mediaMetadata.totalDurationMs)}</strong>
                 </span>
               </>}
@@ -1412,25 +1412,25 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
           ) : (
             <>
           <span className="clip-preview-footer-stat">
-            <span>Chars:</span>
+            <span>{translate('component.clipPreview.chars')}</span>
             <strong>{charCount}</strong>
           </span>
           <span className="clip-preview-footer-stat">
-            <span>Words:</span>
+            <span>{translate('component.clipPreview.words')}</span>
             <strong>{wordCount}</strong>
           </span>
           <span className="clip-preview-footer-stat">
-            <span>Lines:</span>
+            <span>{translate('component.clipPreview.lines')}</span>
             <strong>{lineCount}</strong>
           </span>
           {features.revisions && <span className="clip-preview-footer-stat">
-            <span>Revisions:</span>
+            <span>{translate('component.clipPreview.revisions')}</span>
             <button
               type="button"
               onClick={() => setShowHistory((prev) => !prev)}
               className={`clip-revision-count ${showHistory ? 'is-active' : ''}`}
-              title={revisionCount === null ? 'Loading Revisions…' : 'View Revisions'}
-              aria-label={revisionCount === null ? 'Loading clip revision count' : `View ${revisionCount} clip revisions`}
+              title={revisionCount === null ? translate('component.clipPreview.loadingRevisions') : translate('component.clipPreview.viewRevisions')}
+              aria-label={revisionCount === null ? translate('component.clipPreview.loadingClipRevisionCount') : translate('component.clipPreview.viewCountClipRevisions', { count: revisionCount })}
               aria-expanded={showHistory}
               aria-controls="clip-revision-history-panel"
             >
@@ -1441,7 +1441,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
           )}
         </div>
         <div className="clip-preview-footer-captured">
-          <span>Captured:</span>
+          <span>{translate('component.clipPreview.captured')}</span>
           <time dateTime={dateTimeAttribute(clip.created_at)} title={formatFullDateTime(clip.created_at)}>
             {formatRelativeTime(clip.created_at, relativeTimeNow)}
           </time>
@@ -1451,7 +1451,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
       {viewingNote && (
         <ClipNoteViewer
           note={viewingNote}
-          source={features.sources ? clip.source : null}
+          source={features.sources ? localizedSourceName(clip.source) : null}
           onClose={() => setViewingNote(null)}
         />
       )}

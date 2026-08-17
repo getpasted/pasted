@@ -8,6 +8,7 @@ import {
   type CancellableTransformRequest,
 } from '../utils/transformExecution';
 import { ActionButton, SaveButtonContent } from './AppDialogLayout';
+import { translate } from '../localization/runtime';
 
 interface IntentTransformComposerProps {
   sampleInput: string;
@@ -31,7 +32,9 @@ export function IntentTransformComposer({ sampleInput, onTestResult, onTransform
   const [outcome, setOutcome] = useState<PlanIntentOutcome | null>(() => initialTransform ? {
     plan: initialTransform.plan,
     connectionId: initialTransform.connectionId ?? '',
-    connectionName: initialTransform.connectionId ? 'Saved connection' : 'Automatic connection',
+    connectionName: initialTransform.connectionId
+      ? translate('component.intentTransformComposer.savedConnection')
+      : translate('component.intentTransformComposer.automaticConnection'),
     durationMs: 0,
   } : null);
   const [error, setError] = useState('');
@@ -155,12 +158,12 @@ export function IntentTransformComposer({ sampleInput, onTestResult, onTransform
       <div className="flex items-start gap-3">
         <span className="theme-badge border rounded-xl p-2.5 shrink-0"><Sparkles className="w-5 h-5" /></span>
         <div className="min-w-0 flex-1">
-          <label htmlFor="transformation-intent" className="theme-title text-xs font-bold">What should happen?</label>
-          <p className="theme-text-muted text-[10px] mt-1">Describe the result, then review the generated implementation.</p>
+          <label htmlFor="transformation-intent" className="theme-title text-xs font-bold">{translate('component.intentTransformComposer.whatShouldHappen')}</label>
+          <p className="theme-text-muted text-[10px] mt-1">{translate('component.intentTransformComposer.describeTheResultThenReviewTheGeneratedImplementation')}</p>
         </div>
       </div>
       <div className="flex flex-col items-stretch gap-2 @md:flex-row">
-        <textarea
+        <textarea dir="auto"
           id="transformation-intent"
           value={intent}
           onChange={(event) => {
@@ -172,7 +175,7 @@ export function IntentTransformComposer({ sampleInput, onTestResult, onTransform
           onKeyDown={(event) => {
             if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') void buildTransform();
           }}
-          placeholder="For example: Make this concise and friendly, preserving every URL."
+          placeholder={translate('component.intentTransformComposer.forExampleMakeThisConciseAndFriendlyPreservingEveryUrl')}
           className="theme-input ui-field-radius border px-3 py-2.5 min-h-20 flex-1 resize-y text-xs"
         />
         <ActionButton
@@ -182,7 +185,7 @@ export function IntentTransformComposer({ sampleInput, onTestResult, onTransform
           className="min-h-10 min-w-32 px-4 disabled:opacity-40"
         >
           {isPlanning ? <LoaderCircle className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-          <span>{isPlanning ? 'Cancel draft' : 'Build draft'}</span>
+          <span>{isPlanning ? translate('component.intentTransformComposer.cancelDraft') : translate('component.intentTransformComposer.buildDraft')}</span>
         </ActionButton>
       </div>
 
@@ -192,7 +195,7 @@ export function IntentTransformComposer({ sampleInput, onTestResult, onTransform
         <section className="theme-surface overflow-hidden rounded-xl border">
           <div className="theme-divider flex flex-wrap items-end justify-between gap-3 border-b p-3">
             <div className="min-w-[min(14rem,100%)] flex-1">
-              <label htmlFor="transform-name" className="theme-text-muted text-[10px] font-semibold">Name</label>
+              <label htmlFor="transform-name" className="theme-text-muted text-[10px] font-semibold">{translate('common.name')}</label>
               <input
                 id="transform-name"
                 value={transformName}
@@ -204,8 +207,8 @@ export function IntentTransformComposer({ sampleInput, onTestResult, onTransform
               />
               <div className="theme-text-muted mt-1 text-[10px]">
                 {isEditing && outcome.durationMs === 0
-                  ? `Revision ${initialTransform?.revision ?? 1} · ${outcome.connectionName}`
-                  : `Drafted by ${outcome.connectionName} in ${(outcome.durationMs / 1000).toFixed(1)}s`}
+                  ? translate('component.intentTransformComposer.revisionConnection', { revision: initialTransform?.revision ?? 1, connection: outcome.connectionName })
+                  : translate('component.intentTransformComposer.draftedByConnectionnameInValueS', { connectionName: outcome.connectionName, value: (outcome.durationMs / 1000).toFixed(1) })}
               </div>
             </div>
           </div>
@@ -218,7 +221,7 @@ export function IntentTransformComposer({ sampleInput, onTestResult, onTransform
                   <div className="theme-text-muted text-[10px] mt-0.5">{step.rationale}</div>
                 </div>
                 <span className="theme-text-subtle shrink-0 text-[9px]">
-                  {step.executor.kind === 'deterministic' ? 'Replayable' : 'AI'}
+                  {step.executor.kind === 'deterministic' ? translate('component.intentTransformComposer.replayable') : translate('component.intentTransformComposer.ai')}
                 </span>
               </li>
             ))}
@@ -227,13 +230,13 @@ export function IntentTransformComposer({ sampleInput, onTestResult, onTransform
             <ActionButton
               onClick={isTesting ? cancelTesting : () => void testDraft()}
               disabled={!sampleInput && !isTesting}
-              title={!sampleInput ? 'Add Playground Input First' : 'Test Draft'}
+              title={!sampleInput ? translate('component.intentTransformComposer.addPlaygroundInputFirst') : translate('component.intentTransformComposer.testDraft')}
             >
               {isTesting ? <LoaderCircle className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
-              <span>{isTesting ? 'Cancel test' : 'Test draft'}</span>
+              <span>{isTesting ? translate('component.intentTransformComposer.cancelTest') : translate('component.intentTransformComposer.testDraft2')}</span>
             </ActionButton>
             <div className="flex items-center gap-2">
-              <ActionButton onClick={onCancel}>Cancel</ActionButton>
+              <ActionButton onClick={onCancel}>{translate('common.cancel')}</ActionButton>
               <ActionButton
                 variant="primary"
                 onClick={() => void saveTransform()}

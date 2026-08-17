@@ -28,6 +28,7 @@ import type { AppSettings } from '../types';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { FloatingActionStrip } from './FloatingActionStrip';
 import { SafeRasterImage } from './SafeRasterImage';
+import { translate } from '../localization/runtime';
 
 export type CaptureFeedbackKind = 'success' | 'ignored' | 'failure';
 
@@ -65,20 +66,20 @@ interface FeedbackItem {
 
 const FEEDBACK = {
   success: {
-    title: 'Saved to History',
-    detail: 'Ready on demand.',
+    get title() { return translate('component.captureFeedbackWindow.savedToHistory'); },
+    get detail() { return translate('component.captureFeedbackWindow.readyOnDemand'); },
     Icon: CheckCircle2,
     tone: 'success',
   },
   ignored: {
-    title: 'Capture skipped',
-    detail: 'This clipboard item was left alone.',
+    get title() { return translate('component.captureFeedbackWindow.captureSkipped'); },
+    get detail() { return translate('component.captureFeedbackWindow.thisClipboardItemWasLeftAlone'); },
     Icon: EyeOff,
     tone: 'info',
   },
   failure: {
-    title: 'Capture failed',
-    detail: 'This clipboard item could not be saved.',
+    get title() { return translate('component.captureFeedbackWindow.captureFailed'); },
+    get detail() { return translate('component.captureFeedbackWindow.thisClipboardItemCouldNotBeSaved'); },
     Icon: AlertTriangle,
     tone: 'danger',
   },
@@ -548,33 +549,33 @@ export function CaptureFeedbackWindow({ settings, settingsHydrated }: CaptureFee
                     <ContentIcon className="h-3.5 w-3.5" aria-hidden="true" />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-xs font-semibold theme-text-main">{settings.enableSources ? item.clip.source || 'Captured clip' : 'Captured clip'}</div>
+                    <div className="truncate text-xs font-semibold theme-text-main">{settings.enableSources ? item.clip.source || translate('component.captureFeedbackWindow.capturedClip') : translate('component.captureFeedbackWindow.capturedClip')}</div>
                     <div className="capture-feedback-preview mt-1.5 min-h-0 overflow-hidden rounded-md">
                       {item.image ? (
-                        <SafeRasterImage source={item.image} alt="Captured clip preview" className="h-11 w-full object-cover" />
+                        <SafeRasterImage source={item.image} alt={translate('component.captureFeedbackWindow.capturedClipPreview')} className="h-11 w-full object-cover" />
                       ) : (
                         <p className="line-clamp-2 w-full break-words px-2 py-1.5 font-mono text-[10px] leading-[1.35]">
-                          {item.clip.previewText || 'Preview unavailable for this clip type.'}
+                          {item.clip.previewText || translate('component.captureFeedbackWindow.previewUnavailableForThisClipType')}
                         </p>
                       )}
                     </div>
                   </div>
                 </div>
-                <FloatingActionStrip label="Captured clip actions">
+                <FloatingActionStrip label={translate('component.captureFeedbackWindow.capturedClipActions')}>
                   {settings.enablePinning && (
-                    <button type="button" className={`floating-action-button ${item.clip.isPinned ? 'is-success pin-icon' : ''}`} onClick={() => void togglePinned(item)} title={item.clip.isPinned ? 'Unpin' : 'Pin'} aria-label={item.clip.isPinned ? 'Unpin clip' : 'Pin clip'}>
+                    <button type="button" className={`floating-action-button ${item.clip.isPinned ? 'is-success pin-icon' : ''}`} onClick={() => void togglePinned(item)} title={item.clip.isPinned ? translate('action.unpin') : translate('action.pin')} aria-label={item.clip.isPinned ? translate('component.captureFeedbackWindow.unpinClip') : translate('component.captureFeedbackWindow.pinClip')}>
                       <Pin aria-hidden="true" />
                     </button>
                   )}
                   {settings.enableProtection && (
-                    <button type="button" className={`floating-action-button ${item.clip.isProtected ? 'is-accent' : ''}`} onClick={() => void toggleProtected(item)} title={item.clip.isProtected ? 'Unprotect' : 'Protect'} aria-label={item.clip.isProtected ? 'Unprotect clip' : 'Protect clip'}>
+                    <button type="button" className={`floating-action-button ${item.clip.isProtected ? 'is-accent' : ''}`} onClick={() => void toggleProtected(item)} title={item.clip.isProtected ? translate('action.unprotect') : translate('action.protect')} aria-label={item.clip.isProtected ? translate('component.captureFeedbackWindow.unprotectClip') : translate('component.captureFeedbackWindow.protectClip')}>
                       {item.clip.isProtected ? <ShieldOff aria-hidden="true" /> : <Shield aria-hidden="true" />}
                     </button>
                   )}
-                  <button type="button" className="floating-action-button is-danger" disabled={item.clip.isProtected || item.clip.isTrashed} onClick={() => void removeClip(item)} title={settings.enableTrash ? 'Move to Trash' : 'Delete'} aria-label={settings.enableTrash ? 'Move clip to Trash' : 'Delete clip'}>
+                  <button type="button" className="floating-action-button is-danger" disabled={item.clip.isProtected || item.clip.isTrashed} onClick={() => void removeClip(item)} title={settings.enableTrash ? translate('action.moveToTrash') : translate('common.delete')} aria-label={settings.enableTrash ? translate('component.captureFeedbackWindow.moveClipToTrash') : translate('component.captureFeedbackWindow.deleteClip')}>
                     <Trash2 aria-hidden="true" />
                   </button>
-                  <button type="button" className="floating-action-button" onClick={() => dismiss(item.id)} title="Dismiss" aria-label="Dismiss preview">
+                  <button type="button" className="floating-action-button" onClick={() => dismiss(item.id)} title={translate('common.dismiss')} aria-label={translate('component.captureFeedbackWindow.dismissPreview')}>
                     <X aria-hidden="true" />
                   </button>
                 </FloatingActionStrip>

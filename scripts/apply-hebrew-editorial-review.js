@@ -1,0 +1,255 @@
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+
+const english = JSON.parse(fs.readFileSync('src/locales/en.json', 'utf8'));
+const path = 'src/locales/he.json';
+const hebrew = JSON.parse(fs.readFileSync(path, 'utf8'));
+
+const count = (one, two, other) => ({ one, two, other });
+const overrides = {
+  'common.automatic': 'אוטומטי',
+  'common.back': 'חזרה',
+  'common.cancel': 'ביטול',
+  'common.close': 'סגירה',
+  'common.custom': 'מותאם אישית',
+  'common.default': 'ברירת מחדל',
+  'common.delete': 'מחיקה',
+  'common.description': 'תיאור',
+  'common.discardChangesQuestion': 'לבטל את השינויים?',
+  'common.dismiss': 'סגירה',
+  'common.done': 'סיום',
+  'common.duplicate': 'שכפול',
+  'common.edit': 'עריכה',
+  'common.enabled': 'מופעל',
+  'common.english': 'אנגלית',
+  'common.errorMessage': 'שגיאה: {error}',
+  'common.input': 'קלט',
+  'common.name': 'שם',
+  'common.new': 'חדש',
+  'common.noBin': 'ללא אוסף',
+  'common.output': 'פלט',
+  'common.priority': 'עדיפות',
+  'common.remove': 'הסרה',
+  'common.reset': 'איפוס',
+  'common.resetToDefault': 'איפוס לברירת המחדל',
+  'common.retry': 'ניסיון חוזר',
+  'common.save': 'שמירה',
+  'common.saved': 'נשמר',
+  'common.saving': 'מתבצעת שמירה…',
+  'common.stableId': 'מזהה קבוע',
+  'common.stableReference': 'הפניה קבועה',
+  'common.system': 'מערכת',
+  'common.technicalDetails': 'פרטים טכניים',
+  'common.thisActionCannotBeUndone': 'לא ניתן לבטל פעולה זו.',
+  'common.unknown': 'לא ידוע',
+  'common.unknownSource': 'מקור לא ידוע',
+  'collection.bin': 'אוסף',
+  'collection.activeClipboardHistory': 'היסטוריית הלוח הפעילה',
+  'collection.addANoteToAClip': 'הוסיפו הערה לקטע כדי לתאר אותו ולמצוא אותו כאן בהמשך.',
+  'collection.addTextClipsToQueue': 'הוסיפו קטעי טקסט או הקליטו פעולות העתקה כדי להדביק אותם לפי הסדר.',
+  'collection.clipsMovedToTrash': 'קטעים שהועברו לאשפה נשארים כאן עד לריקונה.',
+  'collection.copySomethingInAnyApp': 'העתיקו דבר כלשהו בכל יישום. הוא יופיע כאן אוטומטית.',
+  'collection.dragClipsHere': 'גררו קטעים לכאן או בחרו אוסף זה מתוך קטע.',
+  'collection.history': 'היסטוריה',
+  'collection.noted': 'עם הערות',
+  'collection.pinned': 'מוצמדים',
+  'collection.protected': 'מוגנים',
+  'collection.queue': 'תור',
+  'collection.search': 'חיפוש',
+  'collection.trashed': 'אשפה',
+  'collection.noClipsYet': 'אין עדיין קטעים',
+  'collection.noClipsInBin': 'אין קטעים ב-{name}',
+  'collection.noFacetClips': 'אין קטעים מסוג {label}',
+  'collection.noMatchingClips': 'אין קטעים תואמים',
+  'collection.noNotedClips': 'אין קטעים עם הערות',
+  'collection.noPinnedClips': 'אין קטעים מוצמדים',
+  'collection.noProtectedClips': 'אין קטעים מוגנים',
+  'collection.pinAClip': 'הצמידו קטע כדי לשמור אותו בראש הרשימה ולמצוא אותו כאן.',
+  'collection.protectAClip': 'הגנו על קטע כדי למנוע את מחיקתו בניקוי אוטומטי.',
+  'collection.queueIsEmpty': 'התור ריק',
+  'collection.searchActiveAndTrashedClips': 'חיפוש בקטעים פעילים ובקטעים שבאשפה.',
+  'collection.searchYourClips': 'חיפוש בקטעים',
+  'collection.smartBinMatchesAppearAutomatically': 'קטעים שתואמים לכללי {name} יופיעו כאן אוטומטית.',
+  'collection.sourceClipsAppearAutomatically': 'קטעים שהועתקו מ-{label} יופיעו כאן אוטומטית.',
+  'collection.thisBin': 'אוסף זה',
+  'collection.thisBinIsEmpty': 'אוסף זה ריק',
+  'collection.trashIsEmpty': 'האשפה ריקה',
+  'collection.tryAnotherSearchOrFilter': 'נסו חיפוש או מסנן אחר.',
+  'collection.typeClipsAppearAutomatically': 'קטעים מסוג {label} יופיעו כאן אוטומטית.',
+  'app.deleteSelectedPermanently': 'מחיקה סופית של הנבחרים',
+  'app.emptyClip': 'קטע ריק',
+  'app.emptyTrash': 'ריקון האשפה',
+  'app.loadingOlderClips': 'קטעים ישנים יותר נטענים…',
+  'app.moveSelectedToTrash': 'העברת הנבחרים לאשפה',
+  'app.pauseHistory': 'השהיית ההיסטוריה',
+  'app.pinSelected': 'הצמדת הנבחרים',
+  'app.resizeClipList': 'שינוי רוחב רשימת הקטעים',
+  'app.resizeSidebar': 'שינוי רוחב סרגל הצד',
+  'app.resumeHistory': 'המשך ההיסטוריה',
+  'app.startQueue': 'הפעלת התור',
+  'app.stopQueueCount': 'עצירת התור ({count})',
+  'app.unpinSelected': 'ביטול הצמדת הנבחרים',
+  'component.binModal.emoji.clipboard': 'לוח',
+  'component.contentExtractorManagerDialog.extractors': 'כלי חילוץ',
+  'component.sidebar.alreadyInThisBin': 'כבר באוסף זה',
+  'component.sidebar.bins': 'אוספים',
+  'component.sidebar.clearSearch': 'ניקוי החיפוש',
+  'component.sidebar.clearSearch2': 'ניקוי החיפוש',
+  'component.sidebar.clips': 'קטעים',
+  'component.sidebar.collapseSidebar': 'כיווץ סרגל הצד',
+  'component.sidebar.contentTypes': 'סוגי תוכן',
+  'component.sidebar.deleteBin': 'מחיקת אוסף',
+  'component.sidebar.editBin': 'עריכת אוסף',
+  'component.sidebar.expandSidebar': 'הרחבת סרגל הצד',
+  'component.sidebar.newBin': 'אוסף חדש',
+  'component.sidebar.searchAllClips': 'חיפוש בכל הקטעים',
+  'component.sidebar.searchFilters': 'מסנני חיפוש',
+  'component.sidebar.searchFilters2': 'מסנני חיפוש',
+  'component.sidebar.smartBinAutomatic': 'אוסף חכם — אוטומטי',
+  'component.sidebar.smartBinCountMatches': 'אוסף חכם · {count} התאמות',
+  'component.sidebar.sources': 'מקורות',
+  'component.sidebar.toggleBins': 'הצגה או הסתרה של אוספים',
+  'component.sidebar.toggleClips': 'הצגה או הסתרה של קטעים',
+  'component.sidebar.toggleTools': 'הצגה או הסתרה של כלים',
+  'component.sidebar.tools': 'כלים',
+  'component.settingsTabs.about': 'אודות',
+  'component.settingsTabs.analysis': 'ניתוח',
+  'component.settingsTabs.appExclusions': 'יישומים מוחרגים',
+  'component.settingsTabs.functionality': 'תכונות',
+  'component.settingsTabs.general': 'כללי',
+  'component.settingsTabs.hotkeys': 'קיצורי מקלדת',
+  'component.settingsTabs.intelligence': 'בינה',
+  'component.settingsTabs.notifications': 'התראות',
+  'component.settingsTabs.security': 'אבטחה',
+  'component.settingsTabs.settingsSections': 'קטגוריות הגדרות',
+  'component.settingsTabs.storage': 'אחסון',
+  'native.app.about': 'אודות Pasted',
+  'native.app.settings': 'הגדרות…',
+  'native.clips.bins': 'אוספים',
+  'native.clips.history': 'היסטוריה',
+  'native.clips.noted': 'עם הערות',
+  'native.clips.pinned': 'מוצמדים',
+  'native.clips.protected': 'מוגנים',
+  'native.clips.queue': 'תור',
+  'native.clips.title': 'קטעים',
+  'native.clips.trashed': 'אשפה',
+  'native.edit.copyClip': 'העתקת קטע',
+  'native.edit.delete': 'מחיקה סופית',
+  'native.edit.note': 'הוספה או עריכה של הערה…',
+  'native.edit.pin': 'הצמדה או ביטול הצמדה',
+  'native.edit.protect': 'הגנה או ביטול הגנה',
+  'native.edit.selectedClip': 'הקטע הנבחר',
+  'native.edit.title': 'עריכה',
+  'native.edit.trash': 'העברה לאשפה',
+  'native.file.closeWindow': 'סגירת החלון',
+  'native.file.newBin': 'אוסף חדש…',
+  'native.file.quit': 'יציאה מ-Pasted',
+  'native.file.title': 'קובץ',
+  'native.file.toggleHistory': 'השהיה או המשך של ההיסטוריה',
+  'native.file.toggleQueue': 'הפעלה או עצירה של תור ההעתקה',
+  'native.help.analysis': 'ניתוח תוכן',
+  'native.help.cli': 'פקודות CLI',
+  'native.help.deletion': 'מחיקה ושחזור',
+  'native.help.documentation': 'תיעוד',
+  'native.help.gettingStarted': 'תחילת העבודה',
+  'native.help.hotkeys': 'קיצורי מקלדת…',
+  'native.help.privacy': 'פרטיות ולכידה',
+  'native.help.shortcuts': 'קיצורים ו-HUD',
+  'native.help.title': 'עזרה',
+  'native.help.transformations': 'המרות',
+  'native.tools.activity': 'פעילות',
+  'native.tools.advancedOperations': 'פעולות מתקדמות',
+  'native.tools.insights': 'תובנות',
+  'native.tools.playground': 'סביבת ניסוי',
+  'native.tools.savedTransforms': 'המרות שמורות',
+  'native.tools.title': 'כלים',
+  'native.tools.transformations': 'המרות',
+  'native.tray.quit': 'יציאה מ-Pasted',
+  'native.tray.show': 'הצגת Pasted',
+  'native.tray.startQueue': 'התחלת הדבקה רציפה',
+  'native.tray.toggleHud': 'הצגה או הסתרה של HUD',
+  'native.view.actualSize': 'גודל בפועל',
+  'native.view.refresh': 'רענון',
+  'native.view.resetColumns': 'איפוס רוחבי העמודות',
+  'native.view.search': 'חיפוש בכל הקטעים',
+  'native.view.title': 'תצוגה',
+  'native.view.toggleSidebar': 'הצגה או הסתרה של סרגל הצד',
+  'native.view.zoomIn': 'הגדלה',
+  'native.view.zoomOut': 'הקטנה',
+  'native.window.fullscreen': 'מסך מלא',
+  'native.window.hud': 'HUD',
+  'native.window.maximize': 'הגדלה מרבית',
+  'native.window.minimize': 'מזעור',
+  'native.window.show': 'הצגת Pasted',
+  'native.window.title': 'חלון',
+  'native.window.zoom': 'שינוי גודל',
+  'settings.activity.language.label': 'שפה',
+  'settings.activity.language.system': 'אוטומטי',
+  'settings.general.language.ariaLabel': 'שפת הממשק',
+  'settings.general.language.automaticDetail': 'שפת המערכת',
+  'settings.general.language.description': 'שימוש בשפת המערכת כאשר קיים תרגום, או בחירת שפה.',
+  'settings.general.language.englishDetail': 'אנגלית',
+  'settings.general.language.label': 'שפה',
+  'app.resultCount': count('תוצאה אחת', 'שתי תוצאות', '{count} תוצאות'),
+  'app.searchResultCount': count('תוצאת חיפוש אחת', 'שתי תוצאות חיפוש', '{count} תוצאות חיפוש'),
+  'component.clipBinPicker.selectedBins': count('אוסף אחד', 'שני אוספים', '{count} אוספים'),
+  'component.externalHistoryImport.importedCount': count('פריט אחד יובא', 'שני פריטים יובאו', '{count} פריטים יובאו'),
+  'component.externalHistoryImport.skippedCount': count('דולג על פריט אחד', 'דולג על שני פריטים', 'דולג על {count} פריטים'),
+  'component.pinnedClipShelf.stackedPinnedClips': count('קטע מוצמד אחד בערימה', 'שני קטעים מוצמדים בערימה', '{count} קטעים מוצמדים בערימה'),
+  'component.settingsHotkeysPanel.conflicts': count('התנגשות אחת', 'שתי התנגשויות', '{count} התנגשויות'),
+  'component.settingsOcrPanel.eligibleImages': count('ניתן לסרוק תמונה אחת לטקסט ניתן לחיפוש.', 'ניתן לסרוק שתי תמונות לטקסט ניתן לחיפוש.', 'ניתן לסרוק {count} תמונות לטקסט ניתן לחיפוש.'),
+  'format.clipCount': count('קטע אחד', 'שני קטעים', '{count} קטעים'),
+  'format.dayCount': count('יום אחד', 'יומיים', '{count} ימים'),
+  'format.entryCount': count('רשומה אחת', 'שתי רשומות', '{count} רשומות'),
+  'component.analyticsView.sourceCountPercent': count('קטע אחד ({percent}%)', 'שני קטעים ({percent}%)', '{count} קטעים ({percent}%)'),
+  'component.clipPreview.noteCount': count('הערות ({count})', 'הערות ({count})', 'הערות ({count})'),
+  'component.deleteBinDialog.binContentsQuestion': count('אוסף זה מכיל קטע אחד. מה לעשות בו?', 'אוסף זה מכיל שני קטעים. מה לעשות בהם?', 'אוסף זה מכיל {count} קטעים. מה לעשות בהם?'),
+  'component.pipelineEditorModal.stepCount': count('שלב אחד', 'שני שלבים', '{count} שלבים'),
+  'component.sequentialQueueBar.bufferCount': count('פריט אחד במאגר', 'שני פריטים במאגר', '{count} פריטים במאגר'),
+  'component.settingsSyncPanel.exportFileSummary': count('ייווצר קובץ {extension} אחד.', 'ייווצרו שני קובצי {extension}.', 'ייווצרו {count} קובצי {extension}.'),
+  'format.characterCount': count('תו אחד', 'שני תווים', '{count} תווים'),
+  'format.fileCount': count('קובץ אחד', 'שני קבצים', '{count} קבצים'),
+  'format.versionCount': count('גרסה אחת', 'שתי גרסאות', '{count} גרסאות'),
+};
+
+for (const [key, value] of Object.entries(overrides)) {
+  assert.ok(key in english, `Unknown Hebrew editorial key: ${key}`);
+  hebrew[key] = value;
+}
+
+for (const [key, source] of Object.entries(english)) {
+  if (source && typeof source === 'object' && !Array.isArray(source)) {
+    const message = hebrew[key];
+    assert.ok(message && typeof message === 'object' && !Array.isArray(message), `${key} must remain a plural map.`);
+    message.two ??= message.other;
+    continue;
+  }
+  if (typeof source !== 'string' || typeof hebrew[key] !== 'string') continue;
+  if (/\bBins?\b/.test(source)) {
+    hebrew[key] = hebrew[key]
+      .replaceAll('מיכלים חכמים', 'אוספים חכמים').replaceAll('מיכל חכם', 'אוסף חכם')
+      .replaceAll('סלים חכמים', 'אוספים חכמים').replaceAll('סל חכם', 'אוסף חכם')
+      .replaceAll('תיקיות חכמות', 'אוספים חכמים').replaceAll('תיקייה חכמה', 'אוסף חכם')
+      .replaceAll('מיכלים', 'אוספים').replaceAll('מיכל', 'אוסף')
+      .replaceAll('תיקיות', 'אוספים').replaceAll('תיקייה', 'אוסף');
+  }
+  if (/\bClips?\b/.test(source)) {
+    hebrew[key] = hebrew[key]
+      .replaceAll('קטעים קצרים', 'קטעים').replaceAll('קליפים', 'קטעים')
+      .replaceAll('הקליפ', 'הקטע').replaceAll('קליפ', 'קטע')
+      .replaceAll('חיתוכים', 'קטעים').replaceAll('חיתוך', 'קטע')
+      .replaceAll('וידאוים', 'קטעים');
+  }
+  if (/\b(?:Pin|Pinned|Unpin)\b/i.test(source)) {
+    hebrew[key] = hebrew[key]
+      .replaceAll('הדבקה', 'הצמדה').replaceAll('הדבק', 'הצמד')
+      .replaceAll('מודבק', 'מוצמד').replaceAll('מודבקים', 'מוצמדים');
+  }
+  if (/\bClipboard\b/.test(source)) {
+    hebrew[key] = hebrew[key].replaceAll('ה-clipboard', 'הלוח').replaceAll('clipboard', 'לוח');
+  }
+}
+
+const ordered = Object.fromEntries(Object.keys(english).map((key) => [key, hebrew[key]]));
+fs.writeFileSync(path, `${JSON.stringify(ordered, null, 2)}\n`);
+console.log(`Applied ${Object.keys(overrides).length} reviewed Hebrew overrides.`);

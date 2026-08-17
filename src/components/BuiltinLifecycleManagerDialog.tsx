@@ -7,6 +7,8 @@ import { AppDialogBody, AppDialogButton, AppDialogFooter, AppDialogHeader, AppDi
 import { RegistryDetailHeader } from './RegistryDetailHeader';
 import { RegistryListItem } from './RegistryListItem';
 import { RegistryPanelHeader } from './RegistryPanelHeader';
+import { translate } from '../localization/runtime';
+import { localizedBuiltinDescription, localizedBuiltinName } from '../localization/presentation';
 
 type BuiltinLifecycleKind = Extract<LibraryItemView['kind'], 'capture' | 'inspector' | 'suggestion'>;
 
@@ -77,25 +79,27 @@ export function BuiltinLifecycleManagerDialog({
   const runtime = inspectors.find(({ stableRef }) => stableRef === selectedRef);
   const isClipType = kind === 'capture' && selected?.stableRef === 'capture:clip-type-v1';
   const worksWith = isClipType
-    ? 'Clipboard representations'
+    ? translate('component.builtinLifecycleManagerDialog.clipboardRepresentations')
     : kind === 'capture'
-    ? 'Clipboard captures'
+    ? translate('component.builtinLifecycleManagerDialog.clipboardCaptures')
     : kind === 'suggestion'
-    ? 'Clips with analyzable text'
+    ? translate('component.builtinLifecycleManagerDialog.clipsWithAnalyzableText')
     : selected?.typeRelations?.some(({ kind: relationKind, typeId }) => relationKind === 'accepts' && typeId === 'file')
-      ? 'File clips'
-      : 'All clips';
+      ? translate('component.builtinLifecycleManagerDialog.fileClips')
+      : translate('component.builtinLifecycleManagerDialog.allClips');
   const provides = isClipType
-    ? 'Text, Image, or Files'
+    ? translate('component.builtinLifecycleManagerDialog.textImageOrFiles')
     : kind === 'capture'
-    ? 'App name and icon'
+    ? translate('component.builtinLifecycleManagerDialog.appNameAndIcon')
     : kind === 'suggestion'
-    ? 'Smart Action suggestions'
-    : selected?.stableRef.includes('media') ? 'Media metadata' : 'Structural details';
+    ? translate('component.builtinLifecycleManagerDialog.smartActionSuggestions')
+    : selected?.stableRef.includes('media')
+      ? translate('component.builtinLifecycleManagerDialog.mediaMetadata')
+      : translate('component.builtinLifecycleManagerDialog.structuralDetails');
   const availabilityText = runtime?.engine
     ? runtime.isAvailable
-      ? `${engineLabel(runtime.engine)} available`
-      : runtime.unavailableReason?.match(/^.*?\.(?:\s|$)/)?.[0].trim() ?? 'Engine unavailable'
+      ? translate('component.builtinLifecycleManagerDialog.engineAvailable', { engine: engineLabel(runtime.engine) })
+      : runtime.unavailableReason?.match(/^.*?\.(?:\s|$)/)?.[0].trim() ?? translate('component.builtinLifecycleManagerDialog.engineUnavailable')
     : null;
   const DetailIcon = isClipType
     ? Shapes
@@ -121,6 +125,8 @@ export function BuiltinLifecycleManagerDialog({
             <RegistryPanelHeader title={title} />
             <div className="min-h-0 flex-1 overflow-y-auto p-1.5">
               {items.map((item) => {
+                const displayName = localizedBuiltinName('library', item.stableRef, item.name, item.isBuiltin);
+                const displayDescription = localizedBuiltinDescription('library', item.stableRef, item.description, item.isBuiltin);
                 const ItemIcon = item.stableRef === 'capture:clip-type-v1'
                   ? Shapes
                   : item.stableRef === 'capture:source-attribution-v1'
@@ -131,61 +137,69 @@ export function BuiltinLifecycleManagerDialog({
                   selected={selectedRef === item.stableRef}
                   onSelect={() => setSelectedRef(item.stableRef)}
                   icon={<ItemIcon className="h-4 w-4" />}
-                  title={item.name}
-                  subtitle={item.description}
+                  title={displayName}
+                  subtitle={displayDescription}
                 />;
               })}
             </div>
           </section>
           <section className="theme-surface flex min-w-0 flex-col overflow-hidden rounded-xl border">
-            <RegistryPanelHeader title={`${kind === 'capture' ? 'Capture' : kind === 'inspector' ? 'Inspector' : 'Suggestion'} Details`} />
+            <RegistryPanelHeader title={kind === 'capture'
+              ? translate('component.builtinLifecycleManagerDialog.captureDetails')
+              : kind === 'inspector'
+                ? translate('component.builtinLifecycleManagerDialog.inspectorDetails')
+                : translate('component.builtinLifecycleManagerDialog.suggestionDetails')} />
             <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
-              {error && <div role="alert" className="theme-status-danger rounded-lg border px-3 py-2">Definitions could not be loaded.</div>}
+              {error && <div role="alert" className="theme-status-danger rounded-lg border px-3 py-2">{translate('component.builtinLifecycleManagerDialog.definitionsCouldNotBeLoaded')}</div>}
               {selected && <>
+                {(() => {
+                  const displayName = localizedBuiltinName('library', selected.stableRef, selected.name, selected.isBuiltin);
+                  const displayDescription = localizedBuiltinDescription('library', selected.stableRef, selected.description, selected.isBuiltin);
+                  return <>
                 <RegistryDetailHeader
                   icon={<DetailIcon className="h-5 w-5" />}
-                  title={selected.name}
-                  meta={selected.description}
+                  title={displayName}
+                  meta={displayDescription}
                   trailing={availabilityText ? <span
-                    className={`max-w-56 rounded border px-2 py-1 text-right text-[9px] font-semibold ${runtime?.isAvailable ? 'theme-status-success' : 'theme-status-warning'}`}
-                    title={runtime?.unavailableReason ?? `The ${engineLabel(runtime?.engine ?? '')} engine is ready.`}
+                    className={`max-w-56 rounded border px-2 py-1 text-end text-[9px] font-semibold ${runtime?.isAvailable ? 'theme-status-success' : 'theme-status-warning'}`}
+                    title={runtime?.unavailableReason ?? translate('component.builtinLifecycleManagerDialog.theValueEngineIsReady', { value: engineLabel(runtime?.engine ?? '') })}
                   >{availabilityText}</span> : undefined}
                 />
+                  </>;
+                })()}
                 <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-stretch gap-2">
                   <div className="theme-subtle-surface rounded-lg border p-3">
-                    <span className="theme-text-muted block text-[9px] font-semibold">Works with</span>
+                    <span className="theme-text-muted block text-[9px] font-semibold">{translate('component.builtinLifecycleManagerDialog.worksWith')}</span>
                     <strong className="theme-text-main mt-1 block text-[11px]">{worksWith}</strong>
                   </div>
                   <span className="theme-text-muted self-center" aria-hidden="true">→</span>
                   <div className="theme-subtle-surface rounded-lg border p-3">
-                    <span className="theme-text-muted block text-[9px] font-semibold">Provides</span>
+                    <span className="theme-text-muted block text-[9px] font-semibold">{translate('component.builtinLifecycleManagerDialog.provides')}</span>
                     <strong className="theme-text-main mt-1 block text-[11px]">{provides}</strong>
                   </div>
                 </div>
                 <details className="theme-subtle-surface rounded-lg border px-3 py-2">
-                  <summary className="theme-text-main cursor-pointer text-[10px] font-semibold">Technical details</summary>
+                  <summary className="theme-text-main cursor-pointer text-[10px] font-semibold">{translate('common.technicalDetails')}</summary>
                   <div className="theme-divider mt-3 space-y-3 border-t pt-3 text-[10px]">
                     <p className="theme-text-subtle leading-relaxed">
                       {kind === 'capture'
-                        ? <>The stable reference identifies this capability in the API and shared library registry. Inspect it with <code>pasted registry list --kind capture --json</code>.</>
-                        : <>The stable reference identifies this {kind} in the CLI and API. Use it with <code>pasted {kind} get &lt;ref&gt; --json</code>.</>}
+                        ? translate('component.builtinLifecycleManagerDialog.captureStableReferenceUsage', { command: 'pasted registry list --kind capture --json' })
+                        : translate('component.builtinLifecycleManagerDialog.stableReferenceUsage', { kind, command: `pasted ${kind} get <ref> --json` })}
                     </p>
                     <div className="space-y-1">
-                      <span className="theme-text-muted block font-semibold">Stable reference</span>
+                      <span className="theme-text-muted block font-semibold">{translate('common.stableReference')}</span>
                       <code className="theme-input block break-all rounded-lg border px-3 py-2">{selected.stableRef}</code>
                     </div>
                     {contract && <div className="grid grid-cols-1 gap-2 @md:grid-cols-2">
-                      <div><span className="theme-text-muted block font-semibold">Analysis pass</span><code>{contract.pass}</code></div>
-                      <div><span className="theme-text-muted block font-semibold">Priority</span><code>{contract.priority}</code></div>
-                      <div><span className="theme-text-muted block font-semibold">Requires</span><code>{contract.requires.join(' + ')}</code></div>
-                      <div><span className="theme-text-muted block font-semibold">Provides</span><code>{contract.provides.join(' + ')}</code></div>
+                      <div><span className="theme-text-muted block font-semibold">{translate('component.builtinLifecycleManagerDialog.analysisPass')}</span><code>{contract.pass}</code></div>
+                      <div><span className="theme-text-muted block font-semibold">{translate('common.priority')}</span><code>{contract.priority}</code></div>
+                      <div><span className="theme-text-muted block font-semibold">{translate('component.builtinLifecycleManagerDialog.requires')}</span><code>{contract.requires.join(' + ')}</code></div>
+                      <div><span className="theme-text-muted block font-semibold">{translate('component.builtinLifecycleManagerDialog.provides')}</span><code>{contract.provides.join(' + ')}</code></div>
                     </div>}
                     {isClipType && <p className="theme-text-subtle leading-relaxed">
-                      Every clip has one structural Clip Type. Copies containing multiple files remain one Files clip.
+                      {translate('component.builtinLifecycleManagerDialog.everyClipHasOneStructuralClipTypeCopiesContainingMultipleFilesRemain')}
                     </p>}
-                    {kind === 'capture' && !isClipType && <p className="theme-text-subtle leading-relaxed">
-                      Application names are recorded during capture. Icons are resolved only when displayed. Native Wayland may use System Clipboard when application attribution is unavailable.
-                    </p>}
+                    {kind === 'capture' && !isClipType && <p className="theme-text-subtle leading-relaxed">{translate('component.builtinLifecycleManagerDialog.applicationNamesAreRecordedDuringCaptureIconsAreResolvedOnlyWhenDisplayed')}</p>}
                   </div>
                 </details>
               </>}
@@ -193,7 +207,7 @@ export function BuiltinLifecycleManagerDialog({
           </section>
         </AppDialogBody>
         <AppDialogFooter className="shrink-0">
-          <AppDialogButton onClick={requestClose}>Close</AppDialogButton>
+          <AppDialogButton onClick={requestClose}>{translate('common.close')}</AppDialogButton>
         </AppDialogFooter>
       </>}
     </AppDialog>

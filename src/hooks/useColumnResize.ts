@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { scheduleBackupClientStatePersistence } from '../utils/backupClientState';
+import { useLocalization } from '../localization/LocalizationProvider';
+import { inlineResizeDelta } from '../utils/direction';
 
 const SIDEBAR_KEY = 'pasted_sidebar_width';
 const LIST_KEY = 'pasted_list_width';
@@ -16,6 +18,7 @@ function readWidth(key: string, fallback: number, min: number, max: number) {
 }
 
 export function useColumnResize() {
+  const { direction } = useLocalization();
   const [sidebarWidth, setSidebarWidth] = useState(() => readWidth(SIDEBAR_KEY, SIDEBAR_DEFAULT, 180, 360));
   const [clipsListWidth, setClipsListWidth] = useState(() => readWidth(LIST_KEY, LIST_DEFAULT, 280, 520));
   const [activeColumn, setActiveColumn] = useState<'sidebar' | 'list' | null>(null);
@@ -53,7 +56,7 @@ export function useColumnResize() {
     setActiveColumn(column);
 
     const handlePointerMove = (moveEvent: PointerEvent) => {
-      finalWidth = clamp(startWidth + moveEvent.clientX - startX, min, max);
+      finalWidth = clamp(startWidth + inlineResizeDelta(startX, moveEvent.clientX, direction), min, max);
       if (column === 'sidebar') {
         sidebarWidthRef.current = finalWidth;
         setSidebarWidth(finalWidth);
@@ -82,7 +85,7 @@ export function useColumnResize() {
     window.addEventListener('pointerup', finish);
     window.addEventListener('pointercancel', finish);
     window.addEventListener('blur', finish);
-  }, []);
+  }, [direction]);
 
   useEffect(() => () => activeCleanupRef.current?.(), []);
 

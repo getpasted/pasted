@@ -3,6 +3,7 @@ import { UI_COPY } from '../utils/uiCopy';
 import type { ClipNote } from '../types';
 import { soundManager } from '../utils/sound';
 import { AppDialog } from './AppDialog';
+import { translate } from '../localization/runtime';
 import {
   AppDialogBody,
   AppDialogButton,
@@ -36,10 +37,10 @@ export function ClipNoteViewer({ note, source, onClose }: ClipNoteViewerProps) {
     >
       {({ requestClose }) => (
         <>
-          <AppDialogHeader onClose={requestClose} closeLabel="Close note viewer">
+          <AppDialogHeader onClose={requestClose} closeLabel={translate('component.clipNoteViewer.closeNoteViewer')}>
             <AppDialogHeading
               id="clip-note-viewer-title"
-              title="Note Annotation"
+              title={translate('component.clipNoteViewer.noteAnnotation')}
               icon={<StickyNote />}
               tone="warning"
             />
@@ -50,8 +51,8 @@ export function ClipNoteViewer({ note, source, onClose }: ClipNoteViewerProps) {
               {note.text}
             </div>
             <div className={`clip-note-viewer-meta flex items-center text-[11px] font-sans px-1 ${source ? 'justify-between' : 'justify-end'}`}>
-              {source && <span>Source: <strong className="clip-note-viewer-meta-strong">{source}</strong></span>}
-              <span>{note.text.length} Characters</span>
+              {source && <span>{translate('format.labelValue', { label: translate('component.clipNoteViewer.source'), value: source })}</span>}
+              <span>{translate('format.characterCount', { count: note.text.length })}</span>
             </div>
           </AppDialogBody>
 
@@ -60,7 +61,7 @@ export function ClipNoteViewer({ note, source, onClose }: ClipNoteViewerProps) {
               <Copy className="w-3.5 h-3.5" />
               <span>{UI_COPY.copy}</span>
             </AppDialogButton>
-            <AppDialogButton onClick={requestClose}>Close</AppDialogButton>
+            <AppDialogButton onClick={requestClose}>{translate('common.close')}</AppDialogButton>
           </AppDialogFooter>
         </>
       )}

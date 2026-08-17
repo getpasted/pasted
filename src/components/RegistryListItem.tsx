@@ -37,7 +37,7 @@ export function RegistryListItem({
       onClick={onSelect}
       onKeyDown={handleKeyDown}
       onContextMenu={onContextMenu}
-      className={`theme-menu-item flex w-full cursor-pointer items-center gap-2 rounded-lg border border-transparent px-2 py-2 text-left ${selected ? 'is-selected' : ''} ${muted ? 'opacity-55' : ''} ${className}`}
+      className={`theme-menu-item flex w-full cursor-pointer items-center gap-2 rounded-lg border border-transparent px-2 py-2 text-start ${selected ? 'is-selected' : ''} ${muted ? 'opacity-55' : ''} ${className}`}
     >
       <span className="shrink-0">{icon}</span>
       <span className="min-w-0 flex-1">

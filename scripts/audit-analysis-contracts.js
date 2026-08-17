@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const read = (path) => readFileSync(path, 'utf8');
+const englishCatalog = JSON.parse(read('src/locales/en.json'));
 const fixture = (name) => JSON.parse(read(`contracts/analysis/v1/${name}.json`));
 const frontendMock = read('src/utils/tauri.ts');
 const cliTests = read('src-tauri/tests/cli_integration.rs');
@@ -32,30 +33,32 @@ for (const [step, participant, icon] of [
   [4, 'Classify', 'Radar'],
   [5, 'Suggest', 'Lightbulb'],
 ]) {
+  const participantKey = `component.settingsAnalysisPanel.${participant.toLowerCase()}`;
   assert.match(
     analysisSettings,
-    new RegExp(`step=\\{${step}\\}[\\s\\S]{0,80}icon=\\{${icon}\\}[\\s\\S]{0,80}title="${participant}"`),
+    new RegExp(`step=\\{${step}\\}[\\s\\S]{0,80}icon=\\{${icon}\\}[\\s\\S]{0,120}translate\\('${participantKey.replaceAll('.', '\\.')}\\'\\)`),
     `Analysis Settings must present ${participant} as ordered lifecycle step ${step} with its icon`,
   );
+  assert.equal(englishCatalog[participantKey], participant);
 }
 assert.match(
   analysisSettings,
-  /Not all steps run for all clips\. Some steps may be long-running\./,
+  /translate\('component\.settingsAnalysisPanel\.notAllStepsRunForAllClipsSomeStepsMayBeLong'\)/,
   'Analysis Settings must explain that the ordered passes are conditional',
 );
 assert.match(settingsModal, /activeTab === 'analysis' && \(\s*<SettingsAnalysisPanel/,
   'Analysis Settings must remain available when optional participants are disabled');
 assert.doesNotMatch(settingsModal, /showAnalysis=/,
   'Functionality gates must not hide Analysis configuration');
-assert.match(analysisSettings, /\{\(ocrEnabled \|\| transcriptionsEnabled\) && <AnalysisManagerRow[\s\S]{0,220}title="Extract"/,
+assert.match(analysisSettings, /\{\(ocrEnabled \|\| transcriptionsEnabled\) && <AnalysisManagerRow[\s\S]{0,220}translate\('component\.settingsAnalysisPanel\.extract'\)/,
   'Extractors must remain visible for either OCR or Transcriptions');
-assert.match(analysisSettings, /\{\(contentClassificationEnabled \|\| typesEnabled\) && <AnalysisManagerRow[\s\S]{0,220}title="Classify"/,
+assert.match(analysisSettings, /\{\(contentClassificationEnabled \|\| typesEnabled\) && <AnalysisManagerRow[\s\S]{0,220}translate\('component\.settingsAnalysisPanel\.classify'\)/,
   'Classifiers must remain visible for either Content Classification or Types');
 assert.match(settingsModal, /typesEnabled=\{settings\.enableTypes\}/,
   'Analysis Settings must receive the Types feature gate');
 assert.match(settingsModal, /sourcesEnabled=\{settings\.enableSources\}/,
   'Analysis Settings must receive the Sources feature gate');
-assert.match(analysisSettings, /step=\{1\}[\s\S]{0,220}title="Capture"/,
+assert.match(analysisSettings, /step=\{1\}[\s\S]{0,220}translate\('component\.settingsAnalysisPanel\.capture'\)/,
   'Capture must remain visible independently of optional presentation features');
 assert.match(builtinLifecycleManager, /stableRef !== 'capture:source-attribution-v1'/,
   'Disabling Sources must hide Source Attribution without hiding Clip Type');
@@ -65,15 +68,15 @@ assert.match(clipCard, /features\.sources && <span className="font-medium theme-
   'Clip cards must hide Source chrome when Sources is disabled');
 assert.match(clipPreview, /features\.types[\s\S]{0,180}structuralClipType/,
   'Clip Preview must fall back to structural Clip Type when Content Types is disabled');
-assert.match(clipPreview, /features\.sources && <OverflowText text=\{clip\.source\}/,
+assert.match(clipPreview, /features\.sources && <OverflowText text=\{localizedSourceName\(clip\.source\)\}/,
   'Clip Preview must hide its Source label when Sources is disabled');
-assert.match(analytics, /features\.sources && <div className="theme-panel[\s\S]{0,1000}Top source in History/,
+assert.match(analytics, /features\.sources && <div className="theme-panel[\s\S]{0,1000}translate\('component\.analyticsView\.topSourceInHistory'\)/,
   'Insights must hide Source summaries when Sources is disabled');
-assert.match(analytics, /Clips by Clip Type/,
+assert.match(analytics, /translate\('component\.analyticsView\.clipsByClipType'\)/,
   'Insights must always present structural Clip Type summaries');
-assert.match(analytics, /Clips by File Format/,
+assert.match(analytics, /translate\('component\.analyticsView\.clipsByFileFormat'\)/,
   'Insights must present file-format summaries separately');
-assert.match(analytics, /features\.types && <div className="theme-panel[\s\S]{0,1000}Clips by Content Type/,
+assert.match(analytics, /features\.types && <div className="theme-panel[\s\S]{0,1000}translate\('component\.analyticsView\.clipsByContentType'\)/,
   'Insights must hide semantic Content Type summaries when Content Types is disabled');
 assert.match(database, /get_daily_activity_for_calendar[\s\S]{0,1800}date\(clips\.created_at, \?2\)/,
   'Insights daily activity must group stored UTC instants through an explicit calendar modifier');
@@ -87,7 +90,7 @@ assert.match(analytics, /nextMidnight[\s\S]{0,500}setTimeout/,
   'Insights must refresh across the local midnight boundary');
 assert.match(clipOrder, /parseDbDate\(left\.created_at\)[\s\S]{0,300}rightTimestamp - leftTimestamp/,
   'History ordering must compare timestamp instants rather than mixed timestamp strings');
-assert.match(analysisSettings, /\{transformationsEnabled && <AnalysisManagerRow[\s\S]{0,220}title="Suggest"/,
+assert.match(analysisSettings, /\{transformationsEnabled && <AnalysisManagerRow[\s\S]{0,220}translate\('component\.settingsAnalysisPanel\.suggest'\)/,
   'Disabling Transformations must hide Smart Action Suggestions');
 assert.match(analysisExecution, /let run_classifiers = allow_text_participants && options\.include_classifiers;/,
   'Suggestion must not implicitly enable Classifiers');
@@ -97,13 +100,13 @@ assert.match(extractorManager, /inputContract !== 'image' \|\| ocrEnabled/,
   'Disabling OCR must hide image Extractors');
 assert.match(extractorManager, /inputContract !== 'file_references' \|\| transcriptionsEnabled/,
   'Disabling Transcriptions must hide file transcription Extractors');
-assert.match(extractorManager, /value: 'original_text', label: 'Text', disabled: true/,
+assert.match(extractorManager, /value: 'original_text',[\s\S]{0,100}translate\('component\.contentExtractorManagerDialog\.text'\)[\s\S]{0,40}disabled: true/,
   'Extractor settings must explain that Text clips are already searchable');
-assert.match(extractorManager, /value: 'image', label: 'Image'/,
+assert.match(extractorManager, /value: 'image',[\s\S]{0,100}translate\('component\.contentExtractorManagerDialog\.image'\)/,
   'Extractor settings must present the Image Clip Type instead of its wire contract');
-assert.match(extractorManager, /value: 'file_references', label: 'Files'/,
+assert.match(extractorManager, /value: 'file_references',[\s\S]{0,100}translate\('component\.contentExtractorManagerDialog\.files'\)/,
   'Extractor settings must present the Files Clip Type instead of its wire contract');
-assert.match(extractorManager, /value: 'searchable_text', label: 'Searchable text'/,
+assert.match(extractorManager, /value: 'searchable_text',[\s\S]{0,100}translate\('component\.contentExtractorManagerDialog\.searchableText'\)/,
   'Extractor settings must present the searchable-text output contract readably');
 assert.doesNotMatch(extractorManager, />Pass<|>extract<\/strong>/,
   'Extractor settings must not repeat the enclosing Analysis step');
@@ -125,7 +128,7 @@ for (const command of [
     `The global Analysis restore must include ${command}`,
   );
 }
-assert.match(analysisSettings, /<ActionButton onClick=\{restoreAnalysis\}[\s\S]{0,180}'Reset…'/,
+assert.match(analysisSettings, /<ActionButton onClick=\{restoreAnalysis\}[\s\S]{0,180}translate\('component\.settingsAnalysisPanel\.reset'\)/,
   'Analysis Settings must expose one global Reset action');
 
 function commandBlock(command) {
@@ -202,8 +205,8 @@ for (const field of ['structure', 'mediaMetadata', 'suggestions']) {
   assert.match(clipPreview, new RegExp(`result\\.${field}`),
     `Clip Preview must consume whole-Analyzer ${field}`);
 }
-assert.match(clipPreview, /Smart Actions/, 'Clip Preview must present Smart Action suggestions contextually');
-assert.match(clipPreviewContent, /Extracted by \{ocrExtractorLabel\}/,
+assert.match(clipPreview, /translate\('component\.clipPreview\.smartActionsSignals'/, 'Clip Preview must present Smart Action suggestions contextually');
+assert.match(clipPreviewContent, /translate\('component\.clipPreviewContent\.extractedByName'/,
   'Clip Preview must identify the Extractor that produced OCR text');
 for (const field of ['ocr_extractor_ref', 'ocr_extractor_name', 'ocr_engine_version']) {
   assert.match(database, new RegExp(`pub ${field}: Option<String>`),
@@ -212,7 +215,7 @@ for (const field of ['ocr_extractor_ref', 'ocr_extractor_name', 'ocr_engine_vers
     `Frontend ClipItem must expose OCR provenance field ${field}`);
 }
 for (const title of ['Capture', 'Inspect', 'Extract', 'Classify', 'Suggest']) {
-  assert.match(analysisSettings, new RegExp(`title="${title}"`),
+  assert.match(analysisSettings, new RegExp(`translate\\('component\\.settingsAnalysisPanel\\.${title.toLowerCase()}'\\)`),
     `Analysis settings must expose ${title} behind a compact manager row`);
 }
 assert.match(builtinLifecycleManager, /get_library_items/,
@@ -223,14 +226,14 @@ assert.match(builtinLifecycleManager, /typeRelations/,
   'Inspector and Suggestion managers must render registered Type relations');
 assert.match(builtinLifecycleManager, /get_content_inspectors/,
   'Inspector management must load shared engine availability');
-assert.match(builtinLifecycleManager, /Technical details/,
+assert.match(builtinLifecycleManager, /translate\('common\.technicalDetails'\)/,
   'Internal participant contracts must remain behind contextual technical details');
-assert.match(builtinLifecycleManager, /pasted \{kind\} get &lt;ref&gt; --json/,
+assert.match(builtinLifecycleManager, /captureStableReferenceUsage[\s\S]{0,200}pasted registry list --kind capture --json[\s\S]{0,300}stableReferenceUsage[\s\S]{0,200}get <ref> --json/,
   'Stable references must explain their CLI and API purpose');
 for (const [label, manager] of [['Extractor', extractorManager], ['Classifier', analysisSettings]]) {
   assert.equal((manager.match(/<RegistryPanelFooter/g) ?? []).length, 2,
     `${label} management must keep item actions and form actions in their owning panels`);
-  assert.match(manager, /<AppDialogFooter[\s\S]*Reset…[\s\S]*Close/,
+  assert.match(manager, /<AppDialogFooter[\s\S]*translate\('component\.(?:contentExtractorManagerDialog|settingsAnalysisPanel)\.reset'\)[\s\S]*translate\('common\.close'\)/,
     `${label} management must keep scoped restore and close actions in the modal footer`);
   assert.match(manager, /discardDraftThen[\s\S]*ConfirmationDialog/,
     `${label} management must protect edited drafts with the shared confirmation UI`);

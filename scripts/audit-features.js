@@ -14,6 +14,7 @@ const sidebar = read('src/components/Sidebar.tsx');
 const nativeMenu = read('src-tauri/src/app_menu.rs');
 const captureFeedbackWindow = read('src/components/CaptureFeedbackWindow.tsx');
 const clipboardMonitor = read('src-tauri/src/clipboard_monitor.rs');
+const frontendDefinitions = frontendRegistry.match(/export const FEATURE_DEFINITIONS[\s\S]*?\n\] as const;/)?.[0] ?? '';
 
 const frontendKeys = [...frontendRegistry.matchAll(/settingKey:\s*'(enable[A-Za-z]+)'/g)]
   .map((match) => match[1]);
@@ -34,6 +35,23 @@ assert.match(
   /FEATURE_GROUPS\.map\(\(group\)/,
   'Settings → Functionality must render features in their logical groups',
 );
+assert.match(
+  settingsFeaturesPanel,
+  /useLocalization\(\)/,
+  'Settings → Functionality must react to language changes',
+);
+for (const featureId of [...frontendDefinitions.matchAll(/id:\s*'([A-Za-z]+)'/g)].map((match) => match[1])) {
+  assert.match(
+    settingsFeaturesPanel,
+    new RegExp(`feature\\.${featureId}\\.label`),
+    `${featureId} must have a localized Functionality label`,
+  );
+  assert.match(
+    settingsFeaturesPanel,
+    new RegExp(`feature\\.${featureId}\\.description`),
+    `${featureId} must have a localized Functionality description`,
+  );
+}
 const toolOrder = ['transformations', 'analytics', 'activity', 'help', 'settings'];
 let previousToolIndex = -1;
 for (const tab of toolOrder) {
@@ -42,8 +60,8 @@ for (const tab of toolOrder) {
   previousToolIndex = index;
 }
 assert.ok(
-  nativeMenu.indexOf('item(&transforms_menu)') < nativeMenu.indexOf('text("view.analytics", "Insights")')
-    && nativeMenu.indexOf('text("view.analytics", "Insights")') < nativeMenu.indexOf('text("view.activity", "Activity")'),
+  nativeMenu.indexOf('item(&transforms_menu)') < nativeMenu.indexOf('text("view.analytics", t("native.tools.insights"))')
+    && nativeMenu.indexOf('text("view.analytics", t("native.tools.insights"))') < nativeMenu.indexOf('text("view.activity", t("native.tools.activity"))'),
   'The native Tools menu must mirror Transformations, Insights, and Activity order',
 );
 assert.deepEqual(

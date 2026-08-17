@@ -10,6 +10,8 @@ import { RegistryListItem } from './RegistryListItem';
 import { RegistryPanelHeader } from './RegistryPanelHeader';
 import { useNewItemSelection } from '../hooks/useNewItemSelection';
 import { ConfirmationDialog, type ConfirmationDialogRequest } from './ConfirmationDialog';
+import { translate } from '../localization/runtime';
+import { localizedContentTypeGroupLabel } from '../localization/presentation';
 
 type GroupDraft = Pick<RegisteredContentTypeGroup, 'id' | 'label' | 'sortOrder'>;
 const newDraft = (): GroupDraft => ({ id: '', label: '', sortOrder: 100 });
@@ -59,7 +61,7 @@ export function ContentTypeGroupManagerDialog({ isOpen, onClose }: { isOpen: boo
         : await invoke<RegisteredContentTypeGroup>('update_content_type_group', { id: selectedId, input });
       await Promise.all([refresh(), refreshGroups()]);
       setSelectedId(saved.id);
-      showToast({ tone: 'success', message: `${saved.label} saved.` });
+      showToast({ tone: 'success', message: translate('component.contentTypeGroupManagerDialog.labelSaved', { label: saved.label }) });
     } catch (error) {
       showToast({ tone: 'error', message: String(error) });
     } finally {
@@ -71,7 +73,9 @@ export function ContentTypeGroupManagerDialog({ isOpen, onClose }: { isOpen: boo
     try {
       await invoke('set_content_type_group_archived', { id: selected.id, archived: !selected.isArchived });
       await Promise.all([refresh(), refreshGroups()]);
-      showToast({ tone: 'success', message: `${selected.label} ${selected.isArchived ? 'restored' : 'archived'}.` });
+      showToast({ tone: 'success', message: selected.isArchived
+        ? translate('component.contentTypeGroupManagerDialog.labelRestored', { label: selected.label })
+        : translate('component.contentTypeGroupManagerDialog.labelArchived', { label: selected.label }) });
     } catch (error) {
       showToast({ tone: 'error', message: String(error) });
     }
@@ -79,10 +83,10 @@ export function ContentTypeGroupManagerDialog({ isOpen, onClose }: { isOpen: boo
   const remove = () => {
     if (!selected || selected.isBuiltin) return;
     setConfirmation({
-      title: 'Delete Content Type Group?',
-      description: `“${selected.label}” will be permanently deleted.`,
-      details: 'This cannot be undone.',
-      confirmLabel: 'Delete',
+      get title() { return translate('component.contentTypeGroupManagerDialog.deleteContentTypeGroup'); },
+      description: translate('component.contentTypeGroupManagerDialog.labelWillBePermanentlyDeleted', { label: selected.label }),
+      details: translate('common.thisActionCannotBeUndone'),
+      confirmLabel: translate('common.delete'),
       tone: 'danger',
       onConfirm: async () => {
         setConfirmation(null);
@@ -90,7 +94,7 @@ export function ContentTypeGroupManagerDialog({ isOpen, onClose }: { isOpen: boo
           await invoke('delete_content_type_group', { id: selected.id });
           const loaded = await refreshGroups();
           setSelectedId(loaded[0]?.id ?? 'new');
-          showToast({ tone: 'success', message: `${selected.label} deleted.` });
+          showToast({ tone: 'success', message: translate('component.contentTypeGroupManagerDialog.labelDeleted', { label: selected.label }) });
         } catch (error) {
           showToast({ tone: 'error', message: String(error) });
         }
@@ -102,13 +106,13 @@ export function ContentTypeGroupManagerDialog({ isOpen, onClose }: { isOpen: boo
   return <><AppDialog isOpen={isOpen} onClose={onClose} labelledBy="content-type-group-manager-title" panelClassName="theme-panel flex max-h-[86vh] w-full max-w-2xl flex-col overflow-hidden border shadow-2xl">
     {({ requestClose }) => <>
       <AppDialogHeader onClose={requestClose} className="shrink-0">
-        <AppDialogHeading id="content-type-group-manager-title" title="Content Type Groups" description="Organize Content Types with stable, reusable groups." icon={<Layers3 />} />
+        <AppDialogHeading id="content-type-group-manager-title" title={translate('component.contentTypeGroupManagerDialog.contentTypeGroups')} description={translate('component.contentTypeGroupManagerDialog.organizeContentTypesWithStableReusableGroups')} icon={<Layers3 />} />
       </AppDialogHeader>
       <AppDialogBody className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-y-auto text-xs sm:grid-cols-[minmax(170px,0.7fr)_minmax(280px,1.3fr)]">
         <section className="theme-surface flex min-h-[230px] flex-col overflow-hidden rounded-xl border sm:min-h-0">
           <RegistryPanelHeader
-            title="Groups"
-            actions={<AppDialogButton onClick={beginNew} className="h-7 min-h-7 px-2.5"><Plus className="h-3 w-3" /> New</AppDialogButton>}
+            title={translate('component.contentTypeGroupManagerDialog.groups')}
+            actions={<AppDialogButton onClick={beginNew} className="h-7 min-h-7 px-2.5"><Plus className="h-3 w-3" /> {translate('common.new')}</AppDialogButton>}
           />
           <div className="min-h-0 flex-1 overflow-y-auto p-1.5">
             {groups.map((group) => <RegistryListItem
@@ -116,26 +120,28 @@ export function ContentTypeGroupManagerDialog({ isOpen, onClose }: { isOpen: boo
               selected={selectedId === group.id}
               onSelect={() => setSelectedId(group.id)}
               icon={<Layers3 className="h-4 w-4" />}
-              title={group.label}
+              title={localizedContentTypeGroupLabel(group.id, group.label, group.isBuiltin, group.defaults?.label)}
               muted={group.isArchived}
               trailing={<span className="theme-text-subtle tabular-nums">{definitions.filter(({ group: id }) => id === group.id).length}</span>}
             />)}
           </div>
         </section>
         <section className="theme-surface min-w-0 space-y-4 rounded-xl border p-4">
-          <label className={`block space-y-1 ${modified.label ? 'settings-field-modified' : ''}`}><ModifiedFieldLabel modified={modified.label}>Name</ModifiedFieldLabel><input value={draft.label} onChange={(event) => setDraft({ ...draft, label: event.target.value })} className="theme-input w-full rounded-lg border px-3 py-2" /></label>
+          <label className={`block space-y-1 ${modified.label ? 'settings-field-modified' : ''}`}><ModifiedFieldLabel modified={modified.label}>{translate('common.name')}</ModifiedFieldLabel><input value={draft.label} onChange={(event) => setDraft({ ...draft, label: event.target.value })} className="theme-input w-full rounded-lg border px-3 py-2" /></label>
           <div className="grid grid-cols-[minmax(0,1fr)_110px] gap-3">
-            <label className="space-y-1"><span className="theme-text-muted font-semibold">Stable ID</span><input value={draft.id} disabled={selectedId !== 'new'} onChange={(event) => setDraft({ ...draft, id: event.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '_') })} className="theme-input w-full rounded-lg border px-3 py-2 font-mono disabled:opacity-60" /></label>
-            <label className={`space-y-1 ${modified.sortOrder ? 'settings-field-modified' : ''}`}><ModifiedFieldLabel modified={modified.sortOrder}>Sort order</ModifiedFieldLabel><input type="number" value={draft.sortOrder} onChange={(event) => setDraft({ ...draft, sortOrder: Number(event.target.value) || 0 })} className="theme-input w-full rounded-lg border px-3 py-2 font-mono" /></label>
+            <label className="space-y-1"><span className="theme-text-muted font-semibold">{translate('common.stableId')}</span><input value={draft.id} disabled={selectedId !== 'new'} onChange={(event) => setDraft({ ...draft, id: event.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '_') })} className="theme-input w-full rounded-lg border px-3 py-2 font-mono disabled:opacity-60" /></label>
+            <label className={`space-y-1 ${modified.sortOrder ? 'settings-field-modified' : ''}`}><ModifiedFieldLabel modified={modified.sortOrder}>{translate('component.contentTypeGroupManagerDialog.sortOrder')}</ModifiedFieldLabel><input type="number" value={draft.sortOrder} onChange={(event) => setDraft({ ...draft, sortOrder: Number(event.target.value) || 0 })} className="theme-input w-full rounded-lg border px-3 py-2 font-mono" /></label>
           </div>
           <div className="theme-subtle-surface rounded-lg border p-3 text-[11px] leading-relaxed">
-            {selected?.isBuiltin ? 'Built-in Group IDs cannot be changed or archived. Names and sort order can be restored later.' : `Custom Groups can be archived when empty. ${usageCount} Type${usageCount === 1 ? '' : 's'} currently use this Group.`}
+            {selected?.isBuiltin
+              ? translate('component.contentTypeGroupManagerDialog.builtInGroupIdsCannotBeChangedOrArchivedNamesAndSort')
+              : translate('component.contentTypeGroupManagerDialog.customGroupUsage', { count: usageCount })}
           </div>
         </section>
       </AppDialogBody>
       <AppDialogFooter align="between" className="shrink-0">
-        <div className="flex items-center gap-2">{selected && !selected.isBuiltin && <><AppDialogButton onClick={() => void toggleArchived()} variant={selected.isArchived ? 'secondary' : 'warning'} disabled={!selected.isArchived && usageCount > 0}><Archive className="h-3.5 w-3.5" /> {selected.isArchived ? 'Restore Group' : 'Archive Group'}</AppDialogButton><AppDialogButton onClick={remove} variant="danger" disabled={usageCount > 0}><Trash2 className="h-3.5 w-3.5" /> Delete…</AppDialogButton></>}</div>
-        <div className="flex items-center gap-2">{selectedId === 'new' ? <AppDialogButton onClick={cancelNew}>Cancel</AppDialogButton> : <AppDialogButton onClick={requestClose}>Close</AppDialogButton>}{selected?.isBuiltin && <AppDialogButton onClick={resetSelectedDraft} disabled={!hasModifiedFields || saving}><RotateCcw className="h-3.5 w-3.5" /> Reset to Default</AppDialogButton>}<AppDialogButton variant="primary" onClick={() => void save()} disabled={saving}><SaveButtonContent isSaving={saving} /></AppDialogButton></div>
+        <div className="flex items-center gap-2">{selected && !selected.isBuiltin && <><AppDialogButton onClick={() => void toggleArchived()} variant={selected.isArchived ? 'secondary' : 'warning'} disabled={!selected.isArchived && usageCount > 0}><Archive className="h-3.5 w-3.5" /> {selected.isArchived ? translate('component.contentTypeGroupManagerDialog.restoreGroup') : translate('component.contentTypeGroupManagerDialog.archiveGroup')}</AppDialogButton><AppDialogButton onClick={remove} variant="danger" disabled={usageCount > 0}><Trash2 className="h-3.5 w-3.5" /> {translate('component.contentTypeGroupManagerDialog.delete')}</AppDialogButton></>}</div>
+        <div className="flex items-center gap-2">{selectedId === 'new' ? <AppDialogButton onClick={cancelNew}>{translate('common.cancel')}</AppDialogButton> : <AppDialogButton onClick={requestClose}>{translate('common.close')}</AppDialogButton>}{selected?.isBuiltin && <AppDialogButton onClick={resetSelectedDraft} disabled={!hasModifiedFields || saving}><RotateCcw className="h-3.5 w-3.5" /> {translate('common.resetToDefault')}</AppDialogButton>}<AppDialogButton variant="primary" onClick={() => void save()} disabled={saving}><SaveButtonContent isSaving={saving} /></AppDialogButton></div>
       </AppDialogFooter>
     </>}
   </AppDialog><ConfirmationDialog request={confirmation} onCancel={() => setConfirmation(null)} /></>;

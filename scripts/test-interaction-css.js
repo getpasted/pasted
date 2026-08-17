@@ -37,8 +37,8 @@ assert.doesNotMatch(accessibility, /!important/);
 
 // Pipeline steps expose explicit keyboard-accessible ordering controls instead
 // of making the entire editor card a pointer-only drag target.
-assert.match(pipelineEditor, /aria-label="Move step up"/);
-assert.match(pipelineEditor, /aria-label="Move step down"/);
+assert.match(pipelineEditor, /aria-label=\{translate\('component\.pipelineEditorModal\.moveStepUp'\)\}/);
+assert.match(pipelineEditor, /aria-label=\{translate\('component\.pipelineEditorModal\.moveStepDown'\)\}/);
 assert.match(pipelineEditor, /handleMoveStep\(idx, -1\)/);
 assert.match(pipelineEditor, /handleMoveStep\(idx, 1\)/);
 assert.doesNotMatch(pipelineEditor, /data-stable-reorder-id|onReorderPointerDown|cursor-grab|GripVertical/);
@@ -52,8 +52,8 @@ assert.match(settingsPanelHeader, /max-w-full flex-wrap/);
 // Connected menu/action controls use shared square mating edges, and selected
 // menu items use an inset ring so neither treatment changes layout geometry.
 assert.match(connectedMenuAction, /connected-menu-action/);
-assert.match(ruleBody(foundation, '.connected-menu-action > button:first-child {'), /border-top-right-radius:\s*0;/);
-assert.match(ruleBody(foundation, '.connected-menu-action > button:last-child {'), /border-top-left-radius:\s*0;/);
+assert.match(ruleBody(foundation, '.connected-menu-action > button:first-child {'), /border-start-end-radius:\s*0;/);
+assert.match(ruleBody(foundation, '.connected-menu-action > button:last-child {'), /border-start-start-radius:\s*0;/);
 assert.match(ruleBody(theme, '.theme-menu-item.is-selected {'), /box-shadow:\s*inset 0 0 0 1px/);
 
 // Resize mode disables the whole app except the captured divider.

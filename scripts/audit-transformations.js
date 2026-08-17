@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
 const read = (path) => fs.readFileSync(path, 'utf8');
+const englishCatalog = JSON.parse(read('src/locales/en.json'));
 const pipelineEditor = read('src/components/PipelineEditorModal.tsx');
 const commands = read('src-tauri/src/commands.rs');
 const service = read('src-tauri/src/transformation_service.rs');
@@ -39,16 +40,20 @@ assert.doesNotMatch(compactEditorTypography, /\btext-(?:sm|base|lg|xl|2xl)\b/,
   'Transformation editors must use the compact GUI typography scale');
 assert.doesNotMatch(operationEditor, /<datalist|list="custom-operation-categories"/,
   'Operation categories must use the shared searchable menu instead of a native datalist');
-assert.match(operationEditor, /searchPlaceholder="Search categories…"/,
+assert.match(operationEditor, /searchPlaceholder=\{translate\('component\.operationEditorModal\.searchCategories'\)\}/,
   'The Operation category menu must remain searchable');
+assert.equal(englishCatalog['component.operationEditorModal.searchCategories'], 'Search categories…');
 assert.match(operationManager, /theme-subtle-surface divide-y theme-divide/,
   'Operation contracts must use the compact shared definition well');
-assert.match(transformationLibrary, /label: 'Build Manually'/,
+assert.match(transformationLibrary, /translate\('component\.transformationLibrary\.buildManually'\)/,
   'The Transform library must present deterministic composition as a creation method, not a separate asset kind');
+assert.equal(englishCatalog['component.transformationLibrary.buildManually'], 'Build Manually');
 assert.doesNotMatch(transformationLibrary, />Pipelines</,
   'The Transform library must not split compatibility-backed items into a separate Pipeline section');
-assert.match(transformationPlayground, /Run a Transform or Operation without changing a clip/,
+assert.match(transformationPlayground, /translate\('component\.transformationPlayground\.runATransformOrOperationWithoutChangingAClip'\)/,
   'The playground must use the consolidated Transform vocabulary');
+assert.equal(englishCatalog['component.transformationPlayground.runATransformOrOperationWithoutChangingAClip'],
+  'Run a Transform or Operation without changing a clip.');
 assert.match(cli, /db\.get_transform_definitions\(\)\?/,
   'The primary Transform CLI listing must use the canonical definition facade');
 assert.match(service, /ExecutionTarget::Pipeline \{ pipeline_ref \} => ExecutionTarget::Transform/,

@@ -13,6 +13,8 @@ import { AppDialog } from './AppDialog';
 import { AppDialogBody, AppDialogButton, AppDialogFooter, AppDialogHeader, AppDialogHeading, ActionButton } from './AppDialogLayout';
 import { collectBackupClientState } from '../utils/backupClientState';
 import { SettingsSwitch } from './SettingsSwitch';
+import { useLocalization } from '../localization/LocalizationProvider';
+import { translate } from '../localization/runtime';
 
 interface SettingsSyncPanelProps {
   onRefreshBins?: () => void;
@@ -144,12 +146,12 @@ const EXPORT_DATA: ReadonlyArray<{
   formats: readonly VisibleExportFormat[];
   nested?: boolean;
 }> = [
-  { id: 'clips', label: 'Clips', description: 'History, rich content, notes, protection, pins, and capture details.', formats: ['json', 'csv', 'backup'] },
-  { id: 'organization', label: 'Organization', description: 'Adds Trash, Bins, Transforms, Operations, Content Types, Classifiers, and OCR.', formats: ['json', 'backup'], nested: true },
-  { id: 'activity', label: 'Activity', description: 'Portable audit records without clipboard contents or action replay.', formats: ['json', 'csv', 'backup'] },
-  { id: 'settings', label: 'Settings and Application Data', description: 'Settings, hotkeys, App Exclusion rules, Queue state, and connection configuration.', formats: ['backup'] },
-  { id: 'recovery', label: 'Revisions and Automation History', description: 'Clip revisions, automations, and execution history.', formats: ['backup'] },
-  { id: 'interface', label: 'Interface and Window State', description: 'Saved layout, navigation, and window state.', formats: ['backup'] },
+  { id: 'clips', get label() { return translate('component.settingsSyncPanel.clips'); }, get description() { return translate('component.settingsSyncPanel.historyRichContentNotesProtectionPinsAndCaptureDetails'); }, formats: ['json', 'csv', 'backup'] },
+  { id: 'organization', get label() { return translate('component.settingsSyncPanel.organization'); }, get description() { return translate('component.settingsSyncPanel.addsTrashBinsTransformsOperationsContentTypesClassifiersAndOcr'); }, formats: ['json', 'backup'], nested: true },
+  { id: 'activity', get label() { return translate('destination.activity'); }, get description() { return translate('component.settingsSyncPanel.portableAuditRecordsWithoutClipboardContentsOrActionReplay'); }, formats: ['json', 'csv', 'backup'] },
+  { id: 'settings', get label() { return translate('component.settingsSyncPanel.settingsAndApplicationData'); }, get description() { return translate('component.settingsSyncPanel.settingsHotkeysAppExclusionRulesQueueStateAndConnectionConfiguration'); }, formats: ['backup'] },
+  { id: 'recovery', get label() { return translate('component.settingsSyncPanel.revisionsAndAutomationHistory'); }, get description() { return translate('component.settingsSyncPanel.clipRevisionsAutomationsAndExecutionHistory'); }, formats: ['backup'] },
+  { id: 'interface', get label() { return translate('component.settingsSyncPanel.interfaceAndWindowState'); }, get description() { return translate('component.settingsSyncPanel.savedLayoutNavigationAndWindowState'); }, formats: ['backup'] },
 ];
 
 function ExportDataRow({
@@ -163,15 +165,15 @@ function ExportDataRow({
   disabled: boolean;
   onToggle: () => void;
 }) {
-  return <div className={`relative flex items-start justify-between gap-4 py-3 pr-4 ${item.nested ? 'pl-10' : 'pl-4'} ${disabled ? 'settings-disabled-row' : ''}`}>
+  return <div className={`relative flex items-start justify-between gap-4 py-3 pe-4 ${item.nested ? 'ps-10' : 'ps-4'} ${disabled ? 'settings-disabled-row' : ''}`}>
     {item.nested && <span
       aria-hidden="true"
-      className="theme-divider absolute left-4 top-0 h-1/2 w-3 rounded-bl-md border-b border-l"
+      className="theme-divider absolute start-4 top-0 h-1/2 w-3 rounded-es-md border-b border-s"
     />}
     <div className="min-w-0">
       <div className="flex flex-wrap items-center gap-2">
         <h4 className="theme-text-main text-[11px] font-semibold">{item.label}</h4>
-        <span className="flex items-center gap-1" aria-label={`Supported formats: ${item.formats.map((format) => EXPORT_FORMAT_LABEL[format]).join(', ')}`}>
+        <span className="flex items-center gap-1" aria-label={translate('component.settingsSyncPanel.supportedFormatsValue', { value: item.formats.map((format) => EXPORT_FORMAT_LABEL[format]).join(', ') })}>
           {item.formats.map((format) => <span
             key={format}
             className="theme-code-surface theme-label rounded border px-1.5 py-0.5 text-[8px] font-bold tracking-wide"
@@ -195,6 +197,7 @@ export function SettingsSyncPanel({
   activityEnabled = false,
   onOpenAnalytics,
 }: SettingsSyncPanelProps) {
+  const { formatDateTime, formatNumber } = useLocalization();
   const { showToast } = useToast();
   const [isImporting, setIsImporting] = useState(false);
   const [isInspectingImport, setIsInspectingImport] = useState(false);
@@ -233,8 +236,8 @@ export function SettingsSyncPanel({
       const unavailable: StorageProtectionInfo = {
         status: 'unknown',
         technology: null,
-        summary: 'Volume encryption could not be determined',
-        detail: 'Check the operating system’s storage security settings.',
+        get summary() { return translate('component.settingsSyncPanel.volumeEncryptionCouldNotBeDetermined'); },
+        get detail() { return translate('component.settingsSyncPanel.checkTheOperatingSystemSStorageSecuritySettings'); },
       };
       cachedStorageProtection = unavailable;
       setStorageProtection(unavailable);
@@ -257,7 +260,7 @@ export function SettingsSyncPanel({
       await waitForMinimumLibraryTransition(transitionStartedAt);
       showToast({
         tone: 'success',
-        message: 'Database moved. The previous database was kept as a recovery copy.',
+        get message() { return translate('component.settingsSyncPanel.databaseMovedThePreviousDatabaseWasKeptAsARecoveryCopy'); },
       });
     } catch (error) {
       console.error('Library move failed:', error);
@@ -278,7 +281,7 @@ export function SettingsSyncPanel({
       await waitForMinimumLibraryTransition(transitionStartedAt);
       showToast({
         tone: 'success',
-        message: 'Database returned to its default location. The custom database was kept as a recovery copy.',
+        get message() { return translate('component.settingsSyncPanel.databaseReturnedToItsDefaultLocationTheCustomDatabaseWasKeptAs'); },
       });
     } catch (error) {
       console.error('Default library restore failed:', error);
@@ -292,10 +295,10 @@ export function SettingsSyncPanel({
   const handleExport = async () => {
     try {
       const savedPath = await invoke<string | null>('export_backup_file');
-      if (savedPath) showToast({ tone: 'success', message: 'History and organization data exported successfully.' });
+      if (savedPath) showToast({ tone: 'success', get message() { return translate('component.settingsSyncPanel.historyAndOrganizationDataExportedSuccessfully'); } });
     } catch (error) {
       console.error('History and organization export failed:', error);
-      showToast({ tone: 'error', message: 'History and organization export failed.' });
+      showToast({ tone: 'error', get message() { return translate('component.settingsSyncPanel.historyAndOrganizationExportFailed'); } });
     }
   };
 
@@ -312,10 +315,10 @@ export function SettingsSyncPanel({
       link.download = `pasted_activity_${Date.now()}.${format}`;
       link.click();
       URL.revokeObjectURL(url);
-      showToast({ tone: 'success', message: `${format.toUpperCase()} Activity export downloaded.` });
+      showToast({ tone: 'success', message: translate('component.settingsSyncPanel.valueActivityExportDownloaded', { value: format.toUpperCase() }) });
     } catch (error) {
       console.error(`Failed to export Activity as ${format}:`, error);
-      showToast({ tone: 'error', message: `${format.toUpperCase()} Activity export failed.` });
+      showToast({ tone: 'error', message: translate('component.settingsSyncPanel.valueActivityExportFailed', { value: format.toUpperCase() }) });
     }
   };
 
@@ -332,10 +335,10 @@ export function SettingsSyncPanel({
       link.download = `pasted_clips_${Date.now()}.${format}`;
       link.click();
       URL.revokeObjectURL(url);
-      showToast({ tone: 'success', message: `${format.toUpperCase()} clip export downloaded.` });
+      showToast({ tone: 'success', message: translate('component.settingsSyncPanel.valueClipExportDownloaded', { value: format.toUpperCase() }) });
     } catch (error) {
       console.error(`Failed to export clips as ${format}:`, error);
-      showToast({ tone: 'error', message: `${format.toUpperCase()} clip export failed.` });
+      showToast({ tone: 'error', message: translate('component.settingsSyncPanel.valueClipExportFailed', { value: format.toUpperCase() }) });
     }
   };
 
@@ -381,13 +384,15 @@ export function SettingsSyncPanel({
       showToast({
         tone: 'success',
         message: selected.kind === 'organization'
-          ? `History and organization merged. Processed ${importedCount} clips.`
-          : `Merged ${importedCount} ${selected.kind === 'activity' ? 'Activity entries' : 'clips'}; skipped ${duplicateCount} duplicates.`,
+          ? translate('component.settingsSyncPanel.historyAndOrganizationMergedProcessedCountClips', { count: importedCount })
+          : selected.kind === 'activity'
+            ? translate('component.settingsSyncPanel.mergedActivityEntries', { count: importedCount, duplicateCount })
+            : translate('component.settingsSyncPanel.mergedClips', { count: importedCount, duplicateCount }),
       });
       setImportInspection(null);
     } catch (error) {
       console.error('Import failed after inspection:', error);
-      showToast({ tone: 'error', message: `The selected file could not be merged: ${String(error)}`, durationMs: 8000 });
+      showToast({ tone: 'error', message: translate('component.settingsSyncPanel.theSelectedFileCouldNotBeMergedValue', { value: String(error) }), durationMs: 8000 });
     } finally {
       setIsImporting(false);
     }
@@ -433,10 +438,10 @@ export function SettingsSyncPanel({
       const report = await invoke<FullBackupReport | null>('export_full_backup_file', {
         clientStateJson: collectBackupClientState(),
       });
-      if (report) showToast({ tone: 'success', message: 'Full backup created successfully.' });
+      if (report) showToast({ tone: 'success', get message() { return translate('component.settingsSyncPanel.fullBackupCreatedSuccessfully'); } });
     } catch (error) {
       console.error('Full backup creation failed:', error);
-      showToast({ tone: 'error', message: `Full backup creation failed: ${String(error)}`, durationMs: 8000 });
+      showToast({ tone: 'error', message: translate('component.settingsSyncPanel.fullBackupCreationFailedValue', { value: String(error) }), durationMs: 8000 });
     } finally {
       setIsCreatingFullBackup(false);
     }
@@ -457,7 +462,7 @@ export function SettingsSyncPanel({
       setImportInspection(null);
       showToast({
         tone: 'success',
-        message: 'Full backup restored. Restarting with the restored state…',
+        get message() { return translate('component.settingsSyncPanel.fullBackupRestoredRestartingWithTheRestoredState'); },
       });
       if ((window as Window & { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__) {
         setTimeout(() => window.location.reload(), 700);
@@ -465,7 +470,7 @@ export function SettingsSyncPanel({
       setIsRestoringFullBackup(false);
     } catch (error) {
       console.error('Full backup restore failed:', error);
-      showToast({ tone: 'error', message: `Full backup restore failed: ${String(error)}`, durationMs: 8000 });
+      showToast({ tone: 'error', message: translate('component.settingsSyncPanel.fullBackupRestoreFailedValue', { value: String(error) }), durationMs: 8000 });
       setIsRestoringFullBackup(false);
     }
   };
@@ -474,15 +479,15 @@ export function SettingsSyncPanel({
     <div className="space-y-5 text-xs">
       <SettingsPanelHeader
         icon={Database}
-        title="Storage"
-        description="Manage recovery and data transfers."
+        title={translate('component.settingsSyncPanel.storage')}
+        description={translate('component.settingsSyncPanel.manageRecoveryAndDataTransfers')}
       />
 
       <section className="space-y-3" aria-labelledby="library-location-title">
         <SettingsSubsectionHeader
           id="library-location-title"
-          title="Database Location"
-          description="Choose where everything is stored."
+          title={translate('component.settingsSyncPanel.databaseLocation')}
+          description={translate('component.settingsSyncPanel.chooseWhereEverythingIsStored')}
           actions={<div className="flex shrink-0 items-center gap-2">
             {location && !location.isDefault && (
               <ActionButton
@@ -490,7 +495,7 @@ export function SettingsSyncPanel({
                 disabled={isMoving}
                 className="disabled:opacity-50"
               >
-                Use Default
+                {translate('component.settingsSyncPanel.useDefault')}
               </ActionButton>
             )}
             <ActionButton
@@ -499,20 +504,20 @@ export function SettingsSyncPanel({
               className="disabled:opacity-50"
             >
               <FolderInput className="h-4 w-4" />
-              <span>{isMoving ? 'Moving…' : 'Move…'}</span>
+              <span>{isMoving ? translate('component.settingsSyncPanel.moving') : translate('component.settingsSyncPanel.move')}</span>
             </ActionButton>
           </div>}
         />
         <div className="theme-surface overflow-hidden rounded-xl border">
           <div className="p-3">
             <p className="theme-label text-[10px] font-bold uppercase tracking-wider">
-              {location?.isDefault ? 'Default Location' : 'Custom Location'}
+              {location?.isDefault ? translate('component.settingsSyncPanel.defaultLocation') : translate('component.settingsSyncPanel.customLocation')}
             </p>
             <p
               className="theme-text-main mt-1 select-text truncate font-mono text-[11px]"
               title={location?.path}
             >
-              {location?.path ?? 'Loading database location…'}
+              {location?.path ?? translate('component.settingsSyncPanel.loadingDatabaseLocation')}
             </p>
           </div>
           <div className="theme-subtle-surface flex min-h-[4.5rem] items-start gap-3 border-t theme-divider px-3 py-3">
@@ -522,12 +527,12 @@ export function SettingsSyncPanel({
                 ? <ShieldAlert className="theme-status-warning-text mt-0.5 h-4 w-4 shrink-0" />
                 : <ShieldQuestion className="theme-text-muted mt-0.5 h-4 w-4 shrink-0" />}
             <div className="min-w-0">
-              <p className="theme-label text-[9px] font-bold uppercase tracking-wider">Storage protection</p>
+              <p className="theme-label text-[9px] font-bold uppercase tracking-wider">{translate('component.settingsSyncPanel.storageProtection')}</p>
               <p className="theme-text-main mt-0.5 text-[11px] font-semibold">
-                {storageProtection?.summary ?? 'Checking volume encryption…'}
+                {storageProtection?.summary ?? translate('component.settingsSyncPanel.checkingVolumeEncryption')}
               </p>
               <p className="theme-text-muted mt-0.5 text-[10px] leading-relaxed">
-                {storageProtection?.detail ?? 'Checking the active database volume.'}
+                {storageProtection?.detail ?? translate('component.settingsSyncPanel.checkingTheActiveDatabaseVolume')}
               </p>
             </div>
           </div>
@@ -537,10 +542,10 @@ export function SettingsSyncPanel({
       <section className="space-y-3 border-t theme-divider pt-5" aria-labelledby="export-title">
         <SettingsSubsectionHeader
           id="export-title"
-          title="Export"
-          description="Choose what to include and how to package it."
+          title={translate('component.settingsSyncPanel.export')}
+          description={translate('component.settingsSyncPanel.chooseWhatToIncludeAndHowToPackageIt')}
           actions={
-            <div className="theme-code-surface flex shrink-0 rounded-lg border p-1" aria-label="Export format">
+            <div className="theme-code-surface flex shrink-0 rounded-lg border p-1" aria-label={translate('component.settingsSyncPanel.exportFormat')}>
               {(['json', 'csv', 'backup'] as const satisfies readonly VisibleExportFormat[]).map((format) => {
                 const active = exportMode === 'full' ? format === 'backup' : format === exportFormat;
                 return <button
@@ -578,18 +583,18 @@ export function SettingsSyncPanel({
             <div className="min-w-0">
               <p className="theme-text-muted text-[10px] leading-relaxed">
                 {exportMode === 'full'
-                  ? <>1 <code className="theme-code-surface theme-text-main rounded px-1 font-mono">.pastedbackup</code> SQLite snapshot will be created.</>
-                  : <>{customExportFileCount} <code className="theme-code-surface theme-text-main rounded px-1 font-mono">{EXPORT_EXTENSION[exportFormat]}</code> {customExportFileCount === 1 ? 'file' : 'files'} will be created.</>}
+                  ? translate('component.settingsSyncPanel.fullBackupFileSummary', { extension: '.pastedbackup' })
+                  : translate('component.settingsSyncPanel.exportFileSummary', { count: customExportFileCount, extension: EXPORT_EXTENSION[exportFormat] })}
               </p>
               <dl className="mt-2 grid grid-cols-[5rem_minmax(0,1fr)] gap-x-2 gap-y-1 text-[9px] leading-relaxed">
-                <dt className="theme-label font-semibold">Scope</dt>
+                <dt className="theme-label font-semibold">{translate('component.settingsSyncPanel.scope')}</dt>
                 <dd className="theme-text-muted">{EXPORT_FORMAT_DESCRIPTION[activeExportFormat]}</dd>
-                <dt className="theme-label font-semibold">Original files</dt>
-                <dd className="theme-text-muted">Remain in their current locations</dd>
-                <dt className="theme-label font-semibold">Credentials</dt>
-                <dd className="theme-text-muted">Are not copied</dd>
-                <dt className="theme-label font-semibold">Encryption</dt>
-                <dd className="theme-text-muted">None</dd>
+                <dt className="theme-label font-semibold">{translate('component.settingsSyncPanel.originalFiles')}</dt>
+                <dd className="theme-text-muted">{translate('component.settingsSyncPanel.remainInTheirCurrentLocations')}</dd>
+                <dt className="theme-label font-semibold">{translate('component.settingsSyncPanel.credentials')}</dt>
+                <dd className="theme-text-muted">{translate('component.settingsSyncPanel.areNotCopied')}</dd>
+                <dt className="theme-label font-semibold">{translate('component.settingsSyncPanel.encryption')}</dt>
+                <dd className="theme-text-muted">{translate('component.settingsSyncPanel.none')}</dd>
               </dl>
             </div>
             <ActionButton
@@ -599,7 +604,7 @@ export function SettingsSyncPanel({
               className="shrink-0 disabled:opacity-50"
             >
               <Download className="h-4 w-4" />
-              <span>{isCreatingFullBackup ? 'Exporting…' : 'Export…'}</span>
+              <span>{isCreatingFullBackup ? translate('component.settingsSyncPanel.exporting') : translate('component.settingsSyncPanel.export2')}</span>
             </ActionButton>
           </div>
         </div>
@@ -608,12 +613,12 @@ export function SettingsSyncPanel({
       <section className="space-y-3 border-t theme-divider pt-5" aria-labelledby="import-title">
         <SettingsSubsectionHeader
           id="import-title"
-          title="Import"
-          description="Choose a file to inspect before anything changes."
+          title={translate('component.settingsSyncPanel.import')}
+          description={translate('component.settingsSyncPanel.chooseAFileToInspectBeforeAnythingChanges')}
           actions={
             <ActionButton onClick={() => void handleChooseImportFile()} disabled={isInspectingImport || isImporting || isRestoringFullBackup} className="disabled:opacity-50">
               <Upload className="h-4 w-4" />
-              {importInspection ? 'Choose Another…' : 'Choose File…'}
+              {importInspection ? translate('component.settingsSyncPanel.chooseAnother') : translate('component.settingsSyncPanel.chooseFile')}
             </ActionButton>
           }
         />
@@ -622,15 +627,15 @@ export function SettingsSyncPanel({
             <div className="flex min-h-24 items-center gap-3 px-4 py-5" role="status">
               <LoaderCircle className="theme-text-muted h-5 w-5 shrink-0 animate-spin" />
               <div>
-                <h4 className="theme-text-main text-[11px] font-semibold">Checking file…</h4>
-                <p className="theme-text-muted mt-0.5 text-[10px] leading-relaxed">Identifying the data and validating its contents.</p>
+                <h4 className="theme-text-main text-[11px] font-semibold">{translate('component.settingsSyncPanel.checkingFile')}</h4>
+                <p className="theme-text-muted mt-0.5 text-[10px] leading-relaxed">{translate('component.settingsSyncPanel.identifyingTheDataAndValidatingItsContents')}</p>
               </div>
             </div>
           ) : importInspectionError ? (
             <div className="flex min-h-24 items-center gap-3 px-4 py-4">
               <FileWarning className="theme-status-danger-text h-5 w-5 shrink-0" />
               <div className="min-w-0">
-                <h4 className="theme-text-main text-[11px] font-semibold">This file cannot be used</h4>
+                <h4 className="theme-text-main text-[11px] font-semibold">{translate('component.settingsSyncPanel.thisFileCannotBeUsed')}</h4>
                 <p className="theme-text-muted mt-1 break-words text-[10px] leading-relaxed">{importInspectionError}</p>
               </div>
             </div>
@@ -642,17 +647,17 @@ export function SettingsSyncPanel({
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-1.5">
                       <h4 className="theme-text-main max-w-full truncate text-[11px] font-semibold" title={importInspection.name}>{importInspection.name}</h4>
-                      <span className="theme-code-surface theme-label rounded border px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide">Valid</span>
-                      <span className="theme-code-surface theme-label rounded border px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide">{importInspection.format === 'backup' ? 'Backup' : importInspection.format}</span>
+                      <span className="theme-code-surface theme-label rounded border px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide">{translate('component.settingsSyncPanel.valid')}</span>
+                      <span className="theme-code-surface theme-label rounded border px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide">{importInspection.format === 'backup' ? translate('component.settingsSyncPanel.backup') : importInspection.format}</span>
                     </div>
                     <p className="theme-text-muted mt-1 text-[10px] leading-relaxed">
-                      {importInspection.kind === 'clips' && 'Clips'}
-                      {importInspection.kind === 'activity' && 'Activity'}
-                      {importInspection.kind === 'organization' && 'History and Organization'}
-                      {importInspection.kind === 'backup' && 'Complete recovery backup'}
+                      {importInspection.kind === 'clips' && translate('component.settingsSyncPanel.clips')}
+                      {importInspection.kind === 'activity' && translate('destination.activity')}
+                      {importInspection.kind === 'organization' && translate('component.settingsSyncPanel.historyAndOrganization')}
+                      {importInspection.kind === 'backup' && translate('component.settingsSyncPanel.completeRecoveryBackup')}
                       {' · '}{(importInspection.sizeBytes / 1024 < 1024
-                        ? `${Math.max(1, Math.round(importInspection.sizeBytes / 1024)).toLocaleString()} KB`
-                        : `${(importInspection.sizeBytes / 1024 / 1024).toFixed(1)} MB`)}
+                        ? translate('component.settingsSyncPanel.valueKb', { value: formatNumber(Math.max(1, Math.round(importInspection.sizeBytes / 1024))) })
+                        : translate('component.settingsSyncPanel.valueMb', { value: (importInspection.sizeBytes / 1024 / 1024).toFixed(1) }))}
                     </p>
                   </div>
                 </div>
@@ -660,28 +665,38 @@ export function SettingsSyncPanel({
                   type="button"
                   className="theme-icon-button theme-focusable shrink-0 rounded-lg border p-1.5"
                   onClick={() => setImportInspection(null)}
-                  aria-label="Remove selected file"
-                  title="Remove selected file"
+                  aria-label={translate('component.settingsSyncPanel.removeSelectedFile')}
+                  title={translate('component.settingsSyncPanel.removeSelectedFile')}
                 >
                   <X className="h-3.5 w-3.5" />
                 </button>
               </div>
               <div className="border-t theme-divider px-4 py-3">
-                <p className="theme-label text-[9px] font-semibold uppercase tracking-wider">Contents</p>
+                <p className="theme-label text-[9px] font-semibold uppercase tracking-wider">{translate('component.settingsSyncPanel.contents')}</p>
                 <p className="theme-text-main mt-1 text-[10px] leading-relaxed">
-                  {importInspection.report && `${importInspection.report.scannedCount.toLocaleString()} ${importInspection.kind === 'activity' ? 'Activity entries' : 'clips'} checked · ${importInspection.report.importedCount.toLocaleString()} new · ${importInspection.report.duplicateCount.toLocaleString()} duplicates`}
-                  {importInspection.library && `${importInspection.library.clipCount.toLocaleString()} clips · ${importInspection.library.binCount.toLocaleString()} Bins · ${importInspection.library.transformCount.toLocaleString()} Transforms · ${importInspection.library.operationCount.toLocaleString()} Operations`}
-                  {importInspection.backup && `Created ${new Date(importInspection.backup.createdAt).toLocaleString()} · Format version ${importInspection.backup.formatVersion}`}
+                  {importInspection.report && (importInspection.kind === 'activity'
+                    ? translate('component.settingsSyncPanel.activityInspectionSummary', {
+                      scannedCount: importInspection.report.scannedCount,
+                      importedCount: importInspection.report.importedCount,
+                      duplicateCount: importInspection.report.duplicateCount,
+                    })
+                    : translate('component.settingsSyncPanel.clipInspectionSummary', {
+                      scannedCount: importInspection.report.scannedCount,
+                      importedCount: importInspection.report.importedCount,
+                      duplicateCount: importInspection.report.duplicateCount,
+                    }))}
+                  {importInspection.library && translate('component.settingsSyncPanel.valueClipsValue2BinsValue3TransformsValue4Operations', { value: formatNumber(importInspection.library.clipCount), value2: formatNumber(importInspection.library.binCount), value3: formatNumber(importInspection.library.transformCount), value4: formatNumber(importInspection.library.operationCount) })}
+                  {importInspection.backup && translate('component.settingsSyncPanel.createdValueFormatVersionFormatversion', { value: formatDateTime(importInspection.backup.createdAt), formatVersion: importInspection.backup.formatVersion })}
                 </p>
               </div>
               <div className="theme-subtle-surface flex items-start justify-between gap-4 border-t px-4 py-3">
                 <div className="min-w-0">
-                  <h4 className="theme-text-main text-[11px] font-semibold">{importInspection.kind === 'backup' ? 'Recovery' : 'Merge'}</h4>
+                  <h4 className="theme-text-main text-[11px] font-semibold">{importInspection.kind === 'backup' ? translate('component.settingsSyncPanel.recovery') : translate('component.settingsSyncPanel.merge')}</h4>
                   <p className="theme-text-muted mt-0.5 text-[10px] leading-relaxed">
-                    {importInspection.kind === 'clips' && 'Adds new clips, skips existing matches, and keeps unrelated data.'}
-                    {importInspection.kind === 'activity' && 'Adds inert Activity history, skips duplicates, and never replays recorded actions.'}
-                    {importInspection.kind === 'organization' && 'Updates recognizable matches, adds new data, and keeps unrelated data.'}
-                    {importInspection.kind === 'backup' && 'Replaces the current state after creating a complete recovery backup.'}
+                    {importInspection.kind === 'clips' && translate('component.settingsSyncPanel.addsNewClipsSkipsExistingMatchesAndKeepsUnrelatedData')}
+                    {importInspection.kind === 'activity' && translate('component.settingsSyncPanel.addsInertActivityHistorySkipsDuplicatesAndNeverReplaysRecordedActions')}
+                    {importInspection.kind === 'organization' && translate('component.settingsSyncPanel.updatesRecognizableMatchesAddsNewDataAndKeepsUnrelatedData')}
+                    {importInspection.kind === 'backup' && translate('component.settingsSyncPanel.replacesTheCurrentStateAfterCreatingACompleteRecoveryBackup')}
                   </p>
                 </div>
                 <ActionButton
@@ -691,7 +706,7 @@ export function SettingsSyncPanel({
                   className="shrink-0 disabled:opacity-50"
                 >
                   {importInspection.kind === 'backup' ? <RotateCcw className="h-4 w-4" /> : <Upload className="h-4 w-4" />}
-                  <span>{importInspection.kind === 'backup' ? 'Recover…' : 'Merge'}</span>
+                  <span>{importInspection.kind === 'backup' ? translate('component.settingsSyncPanel.recover2') : translate('component.settingsSyncPanel.merge')}</span>
                 </ActionButton>
               </div>
             </>
@@ -699,8 +714,8 @@ export function SettingsSyncPanel({
             <div className="flex min-h-24 items-center gap-3 px-4 py-5">
               <Upload className="theme-text-muted h-5 w-5 shrink-0" />
               <div>
-                <h4 className="theme-text-main text-[11px] font-semibold">No file selected</h4>
-                <p className="theme-text-muted mt-0.5 text-[10px] leading-relaxed">JSON, CSV, and <code className="theme-code-surface theme-text-main rounded px-1 font-mono">.pastedbackup</code> files are supported.</p>
+                <h4 className="theme-text-main text-[11px] font-semibold">{translate('component.settingsSyncPanel.noFileSelected')}</h4>
+                <p className="theme-text-muted mt-0.5 text-[10px] leading-relaxed">{translate('component.settingsSyncPanel.supportedImportFiles', { backupExtension: '.pastedbackup' })}</p>
               </div>
             </div>
           )}
@@ -710,8 +725,8 @@ export function SettingsSyncPanel({
       <section className="space-y-3 border-t theme-divider pt-5" aria-labelledby="migration-title">
         <SettingsSubsectionHeader
           id="migration-title"
-          title="Move from another clipboard manager"
-          description="Import supported history without changing the source clipboard manager."
+          title={translate('component.settingsSyncPanel.moveFromAnotherClipboardManager')}
+          description={translate('component.settingsSyncPanel.importSupportedHistoryWithoutChangingTheSourceClipboardManager')}
         />
         <ExternalHistoryImport
           onImported={async () => {
@@ -727,27 +742,27 @@ export function SettingsSyncPanel({
         <button
           type="button"
           onClick={onOpenAnalytics}
-          className="theme-secondary-button flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left"
+          className="theme-secondary-button flex w-full items-center justify-between rounded-xl border px-4 py-3 text-start"
         >
           <span>
-            <strong className="theme-title block text-xs">Curious what’s taking up space?</strong>
-            <span className="theme-text-muted mt-0.5 block text-[11px]">Open Insights</span>
+            <strong className="theme-title block text-xs">{translate('component.settingsSyncPanel.curiousWhatSTakingUpSpace')}</strong>
+            <span className="theme-text-muted mt-0.5 block text-[11px]">{translate('component.settingsSyncPanel.openInsights')}</span>
           </span>
-          <ArrowRight className="h-4 w-4 shrink-0" />
+          <ArrowRight className="h-4 w-4 shrink-0 rtl:-scale-x-100" />
         </button>
       )}
 
       <LibraryTransitionDialog
         isOpen={isImporting || isRestoringFullBackup}
         variant="import"
-        title={isRestoringFullBackup ? 'Recovering from backup' : 'Merging selected data'}
-        description={isRestoringFullBackup ? 'Validating and replacing the complete local state…' : 'Validating again and adding the selected records…'}
+        title={isRestoringFullBackup ? translate('component.settingsSyncPanel.recoveringFromBackup') : translate('component.settingsSyncPanel.mergingSelectedData')}
+        description={isRestoringFullBackup ? translate('component.settingsSyncPanel.validatingAndReplacingTheCompleteLocalState') : translate('component.settingsSyncPanel.validatingAgainAndAddingTheSelectedRecords')}
       />
       <LibraryTransitionDialog
         isOpen={isMoving}
         variant="move"
-        title="Moving database"
-        description="Carrying every clip, Bin, Transform, and revision to its new home…"
+        title={translate('component.settingsSyncPanel.movingDatabase')}
+        description={translate('component.settingsSyncPanel.carryingEveryClipBinTransformAndRevisionToItsNewHome')}
       />
       <AppDialog
         isOpen={isRestoreConfirmOpen}
@@ -759,20 +774,20 @@ export function SettingsSyncPanel({
           <AppDialogHeader onClose={requestClose}>
             <AppDialogHeading
               id="restore-full-backup-title"
-              title="Recover from Backup?"
-              description={importInspection?.name ?? 'The selected backup will replace the current state.'}
+              title={translate('component.settingsSyncPanel.recoverFromBackup')}
+              description={importInspection?.name ?? translate('component.settingsSyncPanel.theSelectedBackupWillReplaceTheCurrentState')}
               icon={<RotateCcw />}
               tone="danger"
             />
           </AppDialogHeader>
           <AppDialogBody>
             <p className="app-dialog-message theme-surface rounded-xl border p-3 text-xs leading-relaxed">
-              The backup is validated before replacement. A full recovery backup of the current state is created automatically beside the active database.
+              {translate('component.settingsSyncPanel.theBackupIsValidatedBeforeReplacementAFullRecoveryBackupOfThe')}
             </p>
           </AppDialogBody>
           <AppDialogFooter>
-            <AppDialogButton onClick={requestClose} autoFocus>Cancel</AppDialogButton>
-            <AppDialogButton variant="danger" onClick={() => void handleRestoreFullBackup()}>Recover</AppDialogButton>
+            <AppDialogButton onClick={requestClose} autoFocus>{translate('common.cancel')}</AppDialogButton>
+            <AppDialogButton variant="danger" onClick={() => void handleRestoreFullBackup()}>{translate('component.settingsSyncPanel.recover')}</AppDialogButton>
           </AppDialogFooter>
         </>}
       </AppDialog>

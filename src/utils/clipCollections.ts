@@ -1,6 +1,7 @@
 import type { Bin } from '../types';
 import type { FeatureId } from './features';
 import { contentTypeLabel } from './contentTypes';
+import { translate, type TranslationKey } from '../localization/runtime';
 
 export type ClipCollectionTab =
   | 'all'
@@ -86,6 +87,59 @@ const SEARCH_COLLECTION: ClipCollectionDefinition = {
   capabilities: calculated(), emptyTitle: 'Search your clips', emptyDescription: 'Search active and trashed clips.',
 };
 
+const COLLECTION_MESSAGE_KEYS: Record<string, { label: TranslationKey; tooltip?: TranslationKey; emptyTitle: TranslationKey; emptyDescription: TranslationKey }> = {
+  'system:all': {
+    label: 'collection.history',
+    tooltip: 'collection.activeClipboardHistory',
+    emptyTitle: 'collection.noClipsYet',
+    emptyDescription: 'collection.copySomethingInAnyApp',
+  },
+  'system:queue': {
+    label: 'collection.queue',
+    emptyTitle: 'collection.queueIsEmpty',
+    emptyDescription: 'collection.addTextClipsToQueue',
+  },
+  'system:pinned': {
+    label: 'collection.pinned',
+    emptyTitle: 'collection.noPinnedClips',
+    emptyDescription: 'collection.pinAClip',
+  },
+  'system:protected': {
+    label: 'collection.protected',
+    emptyTitle: 'collection.noProtectedClips',
+    emptyDescription: 'collection.protectAClip',
+  },
+  'system:noted': {
+    label: 'collection.noted',
+    emptyTitle: 'collection.noNotedClips',
+    emptyDescription: 'collection.addANoteToAClip',
+  },
+  'system:trash': {
+    label: 'collection.trashed',
+    emptyTitle: 'collection.trashIsEmpty',
+    emptyDescription: 'collection.clipsMovedToTrash',
+  },
+  'system:search': {
+    label: 'collection.search',
+    emptyTitle: 'collection.searchYourClips',
+    emptyDescription: 'collection.searchActiveAndTrashedClips',
+  },
+};
+
+function localizeCollection(collection: ClipCollectionDefinition): ClipCollectionDefinition {
+  const keys = COLLECTION_MESSAGE_KEYS[collection.key];
+  if (!keys) return collection;
+  const label = translate(keys.label);
+  return {
+    ...collection,
+    label,
+    title: label,
+    tooltip: keys.tooltip ? translate(keys.tooltip) : collection.tooltip,
+    emptyTitle: translate(keys.emptyTitle),
+    emptyDescription: translate(keys.emptyDescription),
+  };
+}
+
 export type ClipFacetKind = 'type' | 'source';
 
 export function clipFacetRoute(kind: ClipFacetKind, value: string): string {
@@ -105,16 +159,18 @@ export function parseClipFacetRoute(route: string): { kind: ClipFacetKind; value
 }
 
 function facetLabel(kind: ClipFacetKind, value: string) {
-  if (kind === 'source') return value || 'Unknown Source';
+  if (kind === 'source') return value || translate('common.unknownSource');
   return contentTypeLabel(value);
 }
 
 export function getSystemClipCollections(features: Record<FeatureId, boolean>): ClipCollectionDefinition[] {
-  return SYSTEM_CLIP_COLLECTIONS.filter(({ feature }) => !feature || features[feature]);
+  return SYSTEM_CLIP_COLLECTIONS
+    .filter(({ feature }) => !feature || features[feature])
+    .map(localizeCollection);
 }
 
 export function getClipCollection(tab: string, bin?: Bin | null): ClipCollectionDefinition | undefined {
-  if (tab === 'search') return SEARCH_COLLECTION;
+  if (tab === 'search') return localizeCollection(SEARCH_COLLECTION);
   const facet = parseClipFacetRoute(tab);
   if (facet) {
     const label = facetLabel(facet.kind, facet.value);
@@ -127,10 +183,10 @@ export function getClipCollection(tab: string, bin?: Bin | null): ClipCollection
       membership: 'facet',
       ordering: 'chronological',
       capabilities: calculated(),
-      emptyTitle: `No ${facet.kind === 'type' ? label.toLowerCase() : label} clips`,
+      emptyTitle: translate('collection.noFacetClips', { label: facet.kind === 'type' ? label.toLowerCase() : label }),
       emptyDescription: facet.kind === 'type'
-        ? `Clips with the ${label.toLowerCase()} type will appear here automatically.`
-        : `Clips copied from ${label} will appear here automatically.`,
+        ? translate('collection.typeClipsAppearAutomatically', { label: label.toLowerCase() })
+        : translate('collection.sourceClipsAppearAutomatically', { label }),
     };
   }
   if (tab === 'bin') {
@@ -138,8 +194,8 @@ export function getClipCollection(tab: string, bin?: Bin | null): ClipCollection
     return {
       key: `bin:${bin?.id ?? 'none'}`,
       tab: 'bin',
-      label: bin?.name ?? 'Bin',
-      title: bin?.name ?? 'Bin',
+      label: bin?.name ?? translate('collection.bin'),
+      title: bin?.name ?? translate('collection.bin'),
       icon: 'bin',
       membership: 'bin',
       ordering: 'collection',
@@ -150,11 +206,16 @@ export function getClipCollection(tab: string, bin?: Bin | null): ClipCollection
         isCalculated: isSmart,
         isReadOnly: false,
       },
-      emptyTitle: isSmart ? 'No matching clips' : bin ? `No clips in ${bin.name}` : 'This Bin is empty',
+      emptyTitle: isSmart
+        ? translate('collection.noMatchingClips')
+        : bin
+          ? translate('collection.noClipsInBin', { name: bin.name })
+          : translate('collection.thisBinIsEmpty'),
       emptyDescription: isSmart
-        ? `Clips matching ${bin?.name ?? 'this Bin'}’s rules will appear here automatically.`
-        : 'Drag clips here or choose this Bin from a clip.',
+        ? translate('collection.smartBinMatchesAppearAutomatically', { name: bin?.name ?? translate('collection.thisBin') })
+        : translate('collection.dragClipsHere'),
     };
   }
-  return SYSTEM_CLIP_COLLECTIONS.find((collection) => collection.tab === tab);
+  const collection = SYSTEM_CLIP_COLLECTIONS.find((candidate) => candidate.tab === tab);
+  return collection ? localizeCollection(collection) : undefined;
 }

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { ActionButton } from './AppDialogLayout';
+import { translate } from '../localization/runtime';
 
 const dialogStack: symbol[] = [];
 
@@ -25,7 +26,7 @@ export function AppDialog({
   labelledBy,
   children,
   isDirty = false,
-  discardMessage = 'Discard your unsaved changes?',
+  discardMessage = translate('component.appDialog.discardUnsavedChanges'),
   overlayClassName = 'p-4',
   panelClassName = '',
 }: AppDialogProps) {
@@ -153,7 +154,7 @@ export function AppDialog({
             className="app-dialog-confirm-panel theme-panel w-full max-w-sm overflow-hidden rounded-2xl border shadow-2xl"
           >
             <div className="app-dialog-body">
-              <h2 id={discardTitleId} className="app-dialog-title">Discard changes?</h2>
+              <h2 id={discardTitleId} className="app-dialog-title">{translate('common.discardChangesQuestion')}</h2>
               <p className="app-dialog-description mt-2">{discardMessageRef.current}</p>
             </div>
             <div className="app-dialog-footer">
@@ -161,10 +162,10 @@ export function AppDialog({
                 onClick={() => setIsDiscardConfirmOpen(false)}
                 autoFocus
               >
-                Keep Editing
+                {translate('component.appDialog.keepEditing')}
               </ActionButton>
               <ActionButton variant="danger" onClick={discardAndClose}>
-                Discard
+                {translate('component.appDialog.discard')}
               </ActionButton>
             </div>
           </div>

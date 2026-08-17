@@ -106,6 +106,11 @@ pub fn perform_titlebar_double_click(window: tauri::WebviewWindow) -> Result<(),
 }
 
 #[tauri::command]
+pub fn set_titlebar_direction(window: tauri::WebviewWindow, rtl: bool) -> Result<(), String> {
+    crate::titlebar::set_titlebar_direction(window, rtl)
+}
+
+#[tauri::command]
 pub fn get_installation_diagnostics(
     app: AppHandle,
     db: State<'_, Arc<DbState>>,
@@ -1333,6 +1338,9 @@ pub fn save_app_setting(
     if crate::app_lock::is_managed_setting(&key) {
         return Err("Use the app-lock controls to change this setting.".to_string());
     }
+    if key == crate::localization::LANGUAGE_SETTING_KEY {
+        crate::localization::validate_configured_language(&value)?;
+    }
     let previous = db.get_setting(&key).map_err(|e| e.to_string())?;
     db.save_setting(&key, &value).map_err(|e| e.to_string())?;
     if let Some(activity) =
@@ -1345,6 +1353,10 @@ pub fn save_app_setting(
     }
     if key == "menubarIconStyle" {
         crate::refresh_tray_icon(&app, &value);
+    }
+    if key == crate::localization::LANGUAGE_SETTING_KEY {
+        refresh_native_app_menu(&app, &db);
+        crate::refresh_tray_menu(&app, &db);
     }
     emit_window_appearance_change(&app, &key, &value);
     Ok(())
@@ -1361,6 +1373,9 @@ pub fn save_app_settings(
         .any(|key| crate::app_lock::is_managed_setting(key))
     {
         return Err("Use the app-lock controls to change app-lock settings.".to_string());
+    }
+    if let Some(language) = values.get(crate::localization::LANGUAGE_SETTING_KEY) {
+        crate::localization::validate_configured_language(language)?;
     }
     let mut activities = values
         .iter()
@@ -1390,11 +1405,16 @@ pub fn save_app_settings(
     if !changed.is_empty() {
         apply_feature_policy_changes(&app, &db, &changed);
     }
+    let language_changed = values.contains_key(crate::localization::LANGUAGE_SETTING_KEY);
     for (key, value) in values {
         if key == "menubarIconStyle" {
             crate::refresh_tray_icon(&app, &value);
         }
         emit_window_appearance_change(&app, &key, &value);
+    }
+    if language_changed {
+        refresh_native_app_menu(&app, &db);
+        crate::refresh_tray_menu(&app, &db);
     }
     Ok(())
 }

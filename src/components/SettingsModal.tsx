@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { Settings } from 'lucide-react';
 import { AppSettings, BlacklistApp, Pipeline, Bin } from '../types';
 import { SettingsTabs, type SettingsTab } from './SettingsTabs';
@@ -15,6 +15,7 @@ import { SettingsNotificationsPanel } from './SettingsNotificationsPanel';
 import { SettingsAnalysisPanel } from './SettingsAnalysisPanel';
 import { SettingsWelcomePanel } from './SettingsWelcomePanel';
 import { SettingsSecurityPanel } from './SettingsSecurityPanel';
+import { translate } from '../localization/runtime';
 
 interface SettingsModalProps {
   settings: AppSettings;
@@ -33,8 +34,8 @@ interface SettingsModalProps {
   onRestoreAllTrashedClips?: () => Promise<number>;
   trashedClipCount?: number;
   onResetColumnWidths?: () => void;
-  requestedTab?: SettingsTab;
-  navigationKey?: number;
+  activeTab: SettingsTab;
+  onActiveTabChange: (tab: SettingsTab) => void;
   onOpenAnalytics?: () => void;
 }
 
@@ -55,40 +56,34 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onRestoreAllTrashedClips,
   trashedClipCount = 0,
   onResetColumnWidths,
-  requestedTab,
-  navigationKey,
+  activeTab,
+  onActiveTabChange,
   onOpenAnalytics,
 }) => {
-  const [activeTab, setActiveTab] = useState<SettingsTab>('general');
-
-  useEffect(() => {
-    if (requestedTab) setActiveTab(requestedTab);
-  }, [navigationKey, requestedTab]);
-
   useEffect(() => {
     if (!settings.enableTransformations && activeTab === 'intelligence') {
-      setActiveTab('functionality');
+      onActiveTabChange('functionality');
     }
-  }, [activeTab, settings.enableTransformations]);
+  }, [activeTab, onActiveTabChange, settings.enableTransformations]);
 
   useEffect(() => {
     if (!settings.enableNotifications && activeTab === 'notifications') {
-      setActiveTab('functionality');
+      onActiveTabChange('functionality');
     }
-  }, [activeTab, settings.enableNotifications]);
+  }, [activeTab, onActiveTabChange, settings.enableNotifications]);
 
   useEffect(() => {
     if (!settings.enableAppLock && activeTab === 'security') {
-      setActiveTab('functionality');
+      onActiveTabChange('functionality');
     }
-  }, [activeTab, settings.enableAppLock]);
+  }, [activeTab, onActiveTabChange, settings.enableAppLock]);
 
   return (
     <div className="tools-page settings-page flex-1 settings-modal-bg h-screen overflow-hidden font-sans select-none flex flex-col">
       <ToolPageHeader
         icon={<Settings className="w-4 h-4" />}
-        title="Settings"
-        actions={<SettingsTabs activeTab={activeTab} onChange={setActiveTab} showIntelligence={settings.enableTransformations} showNotifications={settings.enableNotifications} showSecurity={settings.enableAppLock} />}
+        title={translate('destination.settings')}
+        actions={<SettingsTabs activeTab={activeTab} onChange={onActiveTabChange} showIntelligence={settings.enableTransformations} showNotifications={settings.enableNotifications} showSecurity={settings.enableAppLock} />}
       />
 
       <div className="tools-scroll-region flex-1 overflow-y-auto p-6">

@@ -20,6 +20,14 @@ fn friendly_value(key: &str, value: &str) -> Option<String> {
     }
 
     let value = match key {
+        "language" => match value {
+            "system" => "Automatic".into(),
+            "en" => "English".into(),
+            "de-DE" => "German".into(),
+            "fr-FR" => "French".into(),
+            "ja-JP" => "Japanese".into(),
+            _ => return None,
+        },
         "themeMode" => match value {
             "system" => "System".into(),
             "cool" => "Cool".into(),
@@ -120,6 +128,7 @@ fn setting_label(key: &str) -> Option<&'static str> {
         return Some(feature.label());
     }
     match key {
+        "language" => Some("Language"),
         "themeMode" => Some("Appearance"),
         "rowHeight" => Some("Row height"),
         "startupView" => Some("Startup View"),
@@ -247,6 +256,30 @@ mod tests {
                 .unwrap()
                 .description,
             "Changed Menu bar icon: Clipboard → Copycat"
+        );
+        assert_eq!(
+            describe_setting_change("language", Some("system"), "en")
+                .unwrap()
+                .description,
+            "Changed Language: Automatic → English"
+        );
+        assert_eq!(
+            describe_setting_change("language", Some("en"), "de-DE")
+                .unwrap()
+                .description,
+            "Changed Language: English → German"
+        );
+        assert_eq!(
+            describe_setting_change("language", Some("de-DE"), "fr-FR")
+                .unwrap()
+                .description,
+            "Changed Language: German → French"
+        );
+        assert_eq!(
+            describe_setting_change("language", Some("fr-FR"), "ja-JP")
+                .unwrap()
+                .description,
+            "Changed Language: French → Japanese"
         );
     }
 

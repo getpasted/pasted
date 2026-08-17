@@ -11,6 +11,8 @@ import { startPipelinePreview, type CancellableTransformRequest } from '../utils
 import { PlaygroundRunStatus, type PlaygroundRunState } from './PlaygroundRunStatus';
 import { TransformationPreviewPanel } from './TransformationPreviewPanel';
 import { RegistryPanelHeader } from './RegistryPanelHeader';
+import { translate } from '../localization/runtime';
+import { localizedBuiltinName } from '../localization/presentation';
 
 export interface PipelineEditorStep {
   id: string;
@@ -35,19 +37,19 @@ interface PipelineEditorModalProps {
 }
 
 const EXECUTOR_OPTIONS = [
-  { value: 'regex', label: 'Find and replace (regex/text)', category: 'Search' },
+  { value: 'regex', get label() { return translate('component.pipelineEditorModal.findAndReplaceRegexText'); }, category: 'Search' },
 ];
 
 const OPERATION_CATEGORIES = [
-  { key: 'Search', label: 'Search and replace', registryCategory: null },
-  { key: 'Cleaners', label: 'Cleaners and sanitizers', registryCategory: 'Cleaners and sanitizers' },
-  { key: 'Format', label: 'Smart Formatting', registryCategory: 'Smart Formatting' },
-  { key: 'Case', label: 'Case Transformations', registryCategory: 'Case Transformations' },
-  { key: 'Extract', label: 'Data Extraction', registryCategory: 'Data Extraction' },
-  { key: 'Lines', label: 'Line Operations', registryCategory: 'Line Operations' },
-  { key: 'Structure', label: 'Structure and formatting', registryCategory: 'Structure and formatting' },
-  { key: 'Encoding', label: 'Encodings and decodings', registryCategory: 'Encodings and decodings' },
-  { key: 'Advanced', label: 'Advanced and shell scripts', registryCategory: null },
+  { key: 'Search', get label() { return translate('component.pipelineEditorModal.searchAndReplace'); }, registryCategory: null },
+  { key: 'Cleaners', get label() { return translate('component.pipelineEditorModal.cleanersAndSanitizers'); }, registryCategory: 'Cleaners and sanitizers' },
+  { key: 'Format', get label() { return translate('component.pipelineEditorModal.smartFormatting'); }, registryCategory: 'Smart Formatting' },
+  { key: 'Case', get label() { return translate('component.pipelineEditorModal.caseTransformations'); }, registryCategory: 'Case Transformations' },
+  { key: 'Extract', get label() { return translate('component.pipelineEditorModal.dataExtraction'); }, registryCategory: 'Data Extraction' },
+  { key: 'Lines', get label() { return translate('component.pipelineEditorModal.lineOperations'); }, registryCategory: 'Line Operations' },
+  { key: 'Structure', get label() { return translate('component.pipelineEditorModal.structureAndFormatting'); }, registryCategory: 'Structure and formatting' },
+  { key: 'Encoding', get label() { return translate('component.pipelineEditorModal.encodingsAndDecodings'); }, registryCategory: 'Encodings and decodings' },
+  { key: 'Advanced', get label() { return translate('component.pipelineEditorModal.advancedAndShellScripts'); }, registryCategory: null },
 ];
 
 function operationTypeForRef(operationRef: string) {
@@ -147,37 +149,37 @@ const PipelineStepEditor: React.FC<{
     const builtIns = category.registryCategory
       ? operationsList
         .filter((operation) => operation.stable_id.startsWith('builtin:') && operation.category === category.registryCategory)
-        .map((operation) => ({ value: operation.stable_id, label: operation.name, group: category.label }))
+        .map((operation) => ({ value: operation.stable_id, label: localizedBuiltinName('operation', operation.stable_id, operation.name, true), group: category.label }))
       : [];
     return [...executors, ...builtIns];
   });
   operationOptions.push(...operationsList
     .filter((operation) => operation.stable_id.startsWith('custom:'))
-    .map((operation) => ({ value: operation.stable_id, label: operation.name, group: 'Custom Operations' })));
+    .map((operation) => ({ value: operation.stable_id, label: operation.name, group: translate('component.pipelineEditorModal.customOperations') })));
   return (
-    <section className="theme-card-idle border p-2" aria-label={`Transform step ${idx + 1}`}>
+    <section className="theme-card-idle border p-2" aria-label={translate('component.pipelineEditorModal.transformStepValue', { value: idx + 1 })}>
       <div className="flex flex-wrap items-center gap-2">
         <span className="theme-text-subtle grid h-5 w-5 shrink-0 place-items-center rounded-full border text-[9px] font-bold">{idx + 1}</span>
         <MenuSelect
           value={step.operation_ref}
           options={operationOptions}
           onChange={(value) => onUpdate({ operation_ref: value })}
-          label={`Step ${idx + 1} operation`}
+          label={translate('component.pipelineEditorModal.stepValueOperation', { value: idx + 1 })}
           className="min-w-44 flex-1 font-sans"
           compact
           searchable
-          searchPlaceholder="Search Operations…"
+          searchPlaceholder={translate('component.pipelineEditorModal.searchOperations')}
         />
         <span className="flex shrink-0 items-center gap-1">
-          <button type="button" onClick={onMoveUp} disabled={idx === 0} className="theme-icon-button rounded-md border p-1.5 disabled:opacity-35" aria-label="Move step up" title="Move step up"><ArrowUp className="h-3.5 w-3.5" /></button>
-          <button type="button" onClick={onMoveDown} disabled={idx === totalSteps - 1} className="theme-icon-button rounded-md border p-1.5 disabled:opacity-35" aria-label="Move step down" title="Move step down"><ArrowDown className="h-3.5 w-3.5" /></button>
+          <button type="button" onClick={onMoveUp} disabled={idx === 0} className="theme-icon-button rounded-md border p-1.5 disabled:opacity-35" aria-label={translate('component.pipelineEditorModal.moveStepUp')} title={translate('component.pipelineEditorModal.moveStepUp')}><ArrowUp className="h-3.5 w-3.5" /></button>
+          <button type="button" onClick={onMoveDown} disabled={idx === totalSteps - 1} className="theme-icon-button rounded-md border p-1.5 disabled:opacity-35" aria-label={translate('component.pipelineEditorModal.moveStepDown')} title={translate('component.pipelineEditorModal.moveStepDown')}><ArrowDown className="h-3.5 w-3.5" /></button>
           {totalSteps > 1 && (
             <button
               type="button"
               onClick={onRemove}
               className="theme-icon-button theme-danger-text rounded-md border p-1.5"
-              aria-label="Delete step"
-              title="Delete step"
+              aria-label={translate('component.pipelineEditorModal.deleteStep')}
+              title={translate('component.pipelineEditorModal.deleteStep')}
             >
               <Trash2 className="w-3.5 h-3.5" />
             </button>
@@ -191,18 +193,18 @@ const PipelineStepEditor: React.FC<{
           <div className="space-y-2 sm:col-span-2">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
-                <label className="block mb-1 theme-text-muted">Find</label>
-                <textarea
-                  placeholder="Text pattern or Regex pattern"
+                <label className="block mb-1 theme-text-muted">{translate('component.pipelineEditorModal.find')}</label>
+                <textarea dir="auto"
+                  placeholder={translate('component.pipelineEditorModal.textPatternOrRegexPattern')}
                   value={step.findPattern || ''}
                   onChange={(e) => onUpdate({ findPattern: e.target.value })}
                   className="w-full h-16 border rounded-lg p-2 font-mono text-xs focus:outline-none theme-input"
                 />
               </div>
               <div>
-                <label className="block mb-1 theme-text-muted">Replace with</label>
-                <textarea
-                  placeholder="Replacement string"
+                <label className="block mb-1 theme-text-muted">{translate('component.pipelineEditorModal.replaceWith')}</label>
+                <textarea dir="auto"
+                  placeholder={translate('component.pipelineEditorModal.replacementString')}
                   value={step.replacePattern || ''}
                   onChange={(e) => onUpdate({ replacePattern: e.target.value })}
                   className="w-full h-16 border rounded-lg p-2 font-mono text-xs focus:outline-none theme-input"
@@ -211,16 +213,16 @@ const PipelineStepEditor: React.FC<{
             </div>
             <div className="flex flex-wrap items-center gap-3 pt-1">
               <div className="flex items-center space-x-1.5 text-xs theme-text-muted">
-                <span>Match</span>
+                <span>{translate('component.pipelineEditorModal.match')}</span>
                 <MenuSelect
                   value={step.matchMode || 'regex'}
                   onChange={(value) => onUpdate({ matchMode: value as PipelineEditorStep['matchMode'] })}
                   options={[
-                    { value: 'literal', label: 'Contains' },
-                    { value: 'wildcard', label: 'Wildcard' },
-                    { value: 'regex', label: 'Regular Expression' },
+                    { value: 'literal', get label() { return translate('component.pipelineEditorModal.contains'); } },
+                    { value: 'wildcard', get label() { return translate('component.pipelineEditorModal.wildcard'); } },
+                    { value: 'regex', get label() { return translate('component.pipelineEditorModal.regularExpression'); } },
                   ]}
-                  label="Match mode"
+                  label={translate('component.pipelineEditorModal.matchMode')}
                   className="w-40"
                   compact
                 />
@@ -232,7 +234,7 @@ const PipelineStepEditor: React.FC<{
                   onChange={(e) => onUpdate({ caseSensitive: e.target.checked })}
                   className="theme-checkbox rounded focus:ring-0"
                 />
-                <span>Case Sensitive</span>
+                <span>{translate('component.pipelineEditorModal.caseSensitive')}</span>
               </label>
             </div>
           </div>
@@ -242,16 +244,16 @@ const PipelineStepEditor: React.FC<{
           <div className="space-y-2 sm:col-span-2">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
-                <label className="block mb-1 theme-text-muted">Before content</label>
-                <textarea
+                <label className="block mb-1 theme-text-muted">{translate('component.pipelineEditorModal.beforeContent')}</label>
+                <textarea dir="auto"
                   value={step.quoteBefore ?? '> '}
                   onChange={(e) => onUpdate({ quoteBefore: e.target.value })}
                   className="w-full h-16 border rounded-lg p-2 font-mono text-xs focus:outline-none theme-input"
                 />
               </div>
               <div>
-                <label className="block mb-1 theme-text-muted">After content</label>
-                <textarea
+                <label className="block mb-1 theme-text-muted">{translate('component.pipelineEditorModal.afterContent')}</label>
+                <textarea dir="auto"
                   value={step.quoteAfter ?? ''}
                   onChange={(e) => onUpdate({ quoteAfter: e.target.value })}
                   className="w-full h-16 border rounded-lg p-2 font-mono text-xs focus:outline-none theme-input"
@@ -265,17 +267,17 @@ const PipelineStepEditor: React.FC<{
                 onChange={(e) => onUpdate({ applyToEachLine: e.target.checked })}
                 className="theme-checkbox rounded focus:ring-0"
               />
-              <span>Apply to each line</span>
+              <span>{translate('component.pipelineEditorModal.applyToEachLine')}</span>
             </label>
           </div>
         )}
 
         {operationType === 'shell_script' && (
           <div className="sm:col-span-2">
-            <label className="block mb-1 theme-text-muted">Shell command (stdin → stdout)</label>
+            <label className="block mb-1 theme-text-muted">{translate('component.pipelineEditorModal.shellCommandStdinStdout')}</label>
             <input
               type="text"
-              placeholder='e.g. tr "a-z" "A-Z"'
+              placeholder={translate('component.pipelineEditorModal.eGTrAZAZ')}
               value={step.shellCommand || ''}
               onChange={(e) => onUpdate({ shellCommand: e.target.value })}
               className="w-full border rounded-lg p-2 font-mono text-xs focus:outline-none theme-input"
@@ -285,10 +287,10 @@ const PipelineStepEditor: React.FC<{
 
         {operationType === 'wrap_tags' && (
           <div>
-            <label className="block mb-1 theme-text-muted">HTML tag name</label>
+            <label className="block mb-1 theme-text-muted">{translate('component.pipelineEditorModal.htmlTagName')}</label>
             <input
               type="text"
-              placeholder="code, b, blockquote"
+              placeholder={translate('component.pipelineEditorModal.codeBBlockquote')}
               value={step.tagName || ''}
               onChange={(e) => onUpdate({ tagName: e.target.value })}
               className="w-full border rounded-lg p-2 font-mono text-xs focus:outline-none theme-input"
@@ -439,7 +441,7 @@ export const PipelineEditorModal: React.FC<PipelineEditorModalProps> = ({
       setTestDurationMs(performance.now() - startedAt);
     } catch (e) {
       if (requestId !== testRequestIdRef.current) return;
-      setTestOutput(`Error: ${e}`);
+      setTestOutput(translate('common.errorMessage', { error: String(e) }));
       setTestRunState(String(e).includes('execution_cancelled') ? 'cancelled' : 'error');
     } finally {
       if (requestId === testRequestIdRef.current) activeTestExecutionRef.current = null;
@@ -500,7 +502,7 @@ export const PipelineEditorModal: React.FC<PipelineEditorModalProps> = ({
     >
       {({ requestClose }) => <>
         <AppDialogHeader onClose={requestClose} onMouseDown={startWindowDrag} onDoubleClick={handleWindowDragDoubleClick}>
-          <AppDialogHeading id="pipeline-editor-title" title={pipeline ? 'Edit Transform' : 'Build Transform Manually'} description="Chain reusable Operations into a local, replayable Transform." icon={<Sliders />} tone="info" />
+          <AppDialogHeading id="pipeline-editor-title" title={pipeline ? translate('component.pipelineEditorModal.editTransform') : translate('component.pipelineEditorModal.buildTransformManually')} description={translate('component.pipelineEditorModal.chainReusableOperationsIntoALocalReplayableTransform')} icon={<Sliders />} tone="info" />
         </AppDialogHeader>
 
         <AppDialogBody className="space-y-6 relative">
@@ -508,11 +510,11 @@ export const PipelineEditorModal: React.FC<PipelineEditorModalProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
             <div className="md:col-span-2">
               <label className="mb-1 block text-xs font-semibold theme-text-muted">
-                Name
+                {translate('common.name')}
               </label>
               <input
                 type="text"
-                placeholder="e.g. Sanitize HTML and convert smileys"
+                placeholder={translate('component.pipelineEditorModal.eGSanitizeHtmlAndConvertSmileys')}
                 value={pipelineName}
                 onChange={(e) => setPipelineName(e.target.value)}
                 className="theme-input ui-field-radius w-full border px-3 py-2 text-xs font-medium focus:outline-none"
@@ -521,45 +523,45 @@ export const PipelineEditorModal: React.FC<PipelineEditorModalProps> = ({
             </div>
             <div>
               <label className="mb-1 block text-xs font-semibold theme-text-muted">
-                Shortcut
+                {translate('component.pipelineEditorModal.shortcut')}
               </label>
               <HotkeyRecorder
                 value={shortcut}
-                placeholder="+ Set Hotkey"
+                placeholder={translate('component.pipelineEditorModal.setHotkey')}
                 onChange={(newShortcut) => setShortcut(newShortcut)}
               />
             </div>
           </div>
 
           <TransformationPreviewPanel
-            description="Updates automatically as steps change."
+            description={translate('component.pipelineEditorModal.updatesAutomaticallyAsStepsChange')}
             status={<PlaygroundRunStatus
               state={testRunState}
-              label="preview"
+              label={translate('component.pipelineEditorModal.preview')}
               durationMs={testDurationMs}
               onRetry={() => void runLiveTest()}
               onStop={cancelLiveTest}
             />}
-            input={<textarea
+            input={<textarea dir="auto"
                   value={testInput}
                   onChange={(e) => setTestInput(e.target.value)}
                   className="theme-input ui-field-radius w-full h-24 border p-2.5 focus:outline-none"
                 />}
             output={<div className="theme-input ui-field-radius overlay-scroll-region w-full h-24 border p-2.5 overflow-y-auto whitespace-pre-wrap font-mono">
-                  {testOutput || 'Transformed output will appear here...'}
+                  {testOutput || translate('component.pipelineEditorModal.transformedOutputWillAppearHere')}
                 </div>}
           />
 
           {/* Sequential Step Builder */}
           <section className="theme-surface overflow-hidden rounded-xl border">
             <RegistryPanelHeader
-              title={<>Steps <span className="theme-text-subtle font-normal">({steps.length})</span></>}
+              title={translate('component.pipelineEditorModal.stepCount', { count: steps.length })}
               actions={<AppDialogButton
                 onClick={handleAddStep}
                 className="h-7 min-h-7 px-2.5"
               >
                 <Plus className="h-3 w-3" />
-                <span>Add Step</span>
+                <span>{translate('component.pipelineEditorModal.addStep')}</span>
               </AppDialogButton>}
             />
 
@@ -585,14 +587,14 @@ export const PipelineEditorModal: React.FC<PipelineEditorModalProps> = ({
         <AppDialogFooter align="between">
           <AppDialogButton
             onClick={handleReset}
-            title="Reset Transform"
+            title={translate('component.pipelineEditorModal.resetTransform')}
           >
             <RotateCcw className="w-3.5 h-3.5" />
-            <span>Reset</span>
+            <span>{translate('common.reset')}</span>
           </AppDialogButton>
 
           <div className="flex items-center space-x-3">
-            <AppDialogButton onClick={requestClose}>Cancel</AppDialogButton>
+            <AppDialogButton onClick={requestClose}>{translate('common.cancel')}</AppDialogButton>
             <AppDialogButton variant="primary" onClick={handleSavePipeline} disabled={isSaving}>
               <SaveButtonContent isSaving={isSaving} />
             </AppDialogButton>
