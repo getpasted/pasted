@@ -14,6 +14,17 @@ const PENDING_CLIENT_STATE_SETTING: &str = "pendingFullBackupClientState";
 const MAX_BACKUP_INTERFACE_STATE_BYTES: usize = 1024 * 1024;
 const MAX_ANALYTICS_FILE_FORMATS: usize = 24;
 
+fn sqlite_count(row: &rusqlite::Row<'_>) -> Result<usize> {
+    let count = row.get::<_, i64>(0)?;
+    usize::try_from(count).map_err(|error| {
+        rusqlite::Error::FromSqlConversionFailure(
+            0,
+            rusqlite::types::Type::Integer,
+            Box::new(error),
+        )
+    })
+}
+
 fn ensure_resource_size(value: &str, maximum: usize, label: &str) -> Result<()> {
     if value.len() <= maximum {
         return Ok(());
@@ -2964,22 +2975,22 @@ impl DbState {
         let transaction = conn.transaction()?;
 
         let report = FactoryResetReport {
-            clips_deleted: transaction.query_row("SELECT COUNT(*) FROM clips", [], |row| row.get(0))?,
-            bins_deleted: transaction.query_row("SELECT COUNT(*) FROM bins", [], |row| row.get(0))?,
+            clips_deleted: transaction.query_row("SELECT COUNT(*) FROM clips", [], sqlite_count)?,
+            bins_deleted: transaction.query_row("SELECT COUNT(*) FROM bins", [], sqlite_count)?,
             transforms_deleted: transaction.query_row(
                 "SELECT (SELECT COUNT(*) FROM saved_transforms) + (SELECT COUNT(*) FROM custom_operations)",
                 [],
-                |row| row.get(0),
+                sqlite_count,
             )?,
             connections_deleted: transaction.query_row(
                 "SELECT COUNT(*) FROM intelligence_connections",
                 [],
-                |row| row.get(0),
+                sqlite_count,
             )?,
             activity_entries_deleted: transaction.query_row(
                 "SELECT COUNT(*) FROM activity_logs",
                 [],
-                |row| row.get(0),
+                sqlite_count,
             )?,
         };
 
@@ -7298,7 +7309,7 @@ impl DbState {
         let active_count_before: usize = tx.query_row(
             "SELECT COUNT(*) FROM clips WHERE COALESCE(is_trashed, 0) = 0",
             [],
-            |row| row.get(0),
+            sqlite_count,
         )?;
         let mut imported_count = 0usize;
         for clip in clips {
