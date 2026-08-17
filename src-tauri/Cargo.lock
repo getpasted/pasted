@@ -2693,6 +2693,7 @@ dependencies = [
  "url",
  "window-vibrancy",
  "windows",
+ "windows-future 0.2.1",
  "windows-future 0.3.2",
  "x11rb",
 ]

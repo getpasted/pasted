@@ -360,11 +360,12 @@ pub fn platform_authenticate(
     use windows::Security::Credentials::UI::{UserConsentVerificationResult, UserConsentVerifier};
     use windows::Win32::Foundation::HWND;
     use windows::Win32::System::WinRT::IUserConsentVerifierInterop;
+    use windows_future_compat::IAsyncOperation;
     let window_handle =
         window_handle.ok_or_else(|| "The Pasted window is unavailable.".to_string())?;
     let interop = factory::<UserConsentVerifier, IUserConsentVerifierInterop>()
         .map_err(|error| format!("Windows Hello is unavailable: {error}"))?;
-    let operation = unsafe {
+    let operation: IAsyncOperation<UserConsentVerificationResult> = unsafe {
         interop.RequestVerificationForWindowAsync(
             HWND(window_handle as *mut std::ffi::c_void),
             &HSTRING::from("Unlock Pasted"),
