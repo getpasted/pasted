@@ -47,7 +47,7 @@ const filterFamilies = [
   ['app', (event) => event.startsWith('app_'), "event_type.startsWith('app_')"],
   ['settings', (event) => event.startsWith('setting_') || event.startsWith('settings_') || event.startsWith('autostart_'), "event_type.startsWith('setting_')"],
   ['analysis', (event) => event.startsWith('content_classifier') || event.startsWith('content_classification') || event.startsWith('content_extractor') || event.startsWith('content_type'), "event_type.startsWith('content_classifier')"],
-  ['storage', (event) => event.startsWith('library_') || event.startsWith('backup_') || event.startsWith('data_export_') || event === 'external_history_imported', "event_type.startsWith('library_')"],
+  ['storage', (event) => event.startsWith('library_') || event.startsWith('backup_') || event.startsWith('data_export_') || event === 'external_history_imported' || event === 'clips_imported', "event_type.startsWith('library_')"],
 ];
 
 const missingFilters = [...emittedEvents].filter((event) => !filterFamilies.some(([, matches]) => matches(event)));

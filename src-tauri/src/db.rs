@@ -15658,7 +15658,7 @@ mod tests {
                 "Tests",
             )
             .unwrap();
-        db.log_activity("clip_tested", "Tested legacy timestamp")
+        db.log_activity("app_started", "Tested legacy timestamp")
             .unwrap();
         let conn = db.conn.lock();
         conn.execute(

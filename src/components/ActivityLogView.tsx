@@ -306,14 +306,15 @@ export const ActivityLogView: React.FC = () => {
         );
       case 'library_moved':
       case 'external_history_imported':
+      case 'clips_imported':
       case 'backup_created':
       case 'backup_recovery_completed':
       case 'data_export_completed':
         return (
           <div className="theme-status-info flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold">
             <Database className="w-3.5 h-3.5" />
-            <span>{type === 'external_history_imported'
-              ? 'History Imported'
+            <span>{type === 'external_history_imported' || type === 'clips_imported'
+              ? type === 'clips_imported' ? 'Clips Imported' : 'History Imported'
               : type === 'backup_created'
                 ? 'Backup Created'
                 : type === 'backup_recovery_completed'
@@ -530,7 +531,8 @@ export const ActivityLogView: React.FC = () => {
     if (selectedTypeFilter === 'storage') return l.event_type.startsWith('library_')
       || l.event_type.startsWith('backup_')
       || l.event_type.startsWith('data_export_')
-      || l.event_type === 'external_history_imported';
+      || l.event_type === 'external_history_imported'
+      || l.event_type === 'clips_imported';
     return true;
   });
 
