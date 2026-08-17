@@ -669,6 +669,7 @@ pub fn run() {
             commands::install_cli_to_path,
             commands::get_hotkey_capability_status,
             commands::request_accessibility_permission,
+            commands::open_backing_page,
             commands::perform_titlebar_double_click
         ])
         .build(tauri::generate_context!())

@@ -84,6 +84,10 @@
   height: 4.5rem;
 }
 
+.welcome-setup-mark.is-mirrored > svg {
+  transform: scaleX(-1);
+}
+
 .welcome-setup-mark > span {
   position: absolute;
   top: -0.45rem;
@@ -340,6 +344,128 @@
   display: block;
 }
 
+.welcome-setup-shared-library {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: 0.75rem;
+  margin-top: 0.9rem;
+  padding: 1rem;
+  border: 1px solid color-mix(in srgb, var(--accent-primary) 24%, var(--border-subtle));
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--accent-primary) 5%, var(--bg-input));
+}
+
+.welcome-setup-library-hub {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.welcome-setup-library-hub > svg {
+  width: 1.15rem;
+  height: 1.15rem;
+  flex: 0 0 auto;
+  margin-top: 0.05rem;
+  color: var(--accent-primary);
+}
+
+.welcome-setup-library-hub strong,
+.welcome-setup-library-hub span {
+  display: block;
+}
+
+.welcome-setup-library-hub strong {
+  color: var(--text-title);
+  font-size: 0.72rem;
+}
+
+.welcome-setup-library-hub span {
+  margin-top: 0.25rem;
+  color: var(--text-muted);
+  font-size: 0.65rem;
+  line-height: 1.45;
+}
+
+.welcome-setup-library-routes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+.welcome-setup-library-routes span {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 0.65rem;
+  background: var(--bg-surface);
+  color: var(--text-main);
+  font-size: 0.62rem;
+  font-weight: 650;
+}
+
+.welcome-setup-library-routes svg {
+  width: 0.8rem;
+  height: 0.8rem;
+  flex: 0 0 auto;
+  color: var(--accent-primary);
+}
+
+.welcome-setup-backing {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.8rem;
+  margin-top: 1.5rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--status-success) 26%, var(--border-subtle));
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--status-success) 6%, var(--bg-input));
+  text-align: left;
+}
+
+.welcome-setup-backing > svg {
+  width: 1.15rem;
+  height: 1.15rem;
+  flex: 0 0 auto;
+  color: var(--status-success);
+}
+
+.welcome-setup-backing > div {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.welcome-setup-backing strong,
+.welcome-setup-backing span {
+  display: block;
+}
+
+.welcome-setup-backing strong {
+  color: var(--text-title);
+  font-size: 0.72rem;
+}
+
+.welcome-setup-backing span {
+  margin-top: 0.2rem;
+  color: var(--text-muted);
+  font-size: 0.65rem;
+  line-height: 1.4;
+}
+
+.welcome-setup-backing .app-dialog-button {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.welcome-setup-backing .app-dialog-button svg {
+  width: 0.85rem;
+  height: 0.85rem;
+}
+
 .welcome-setup-feature-grid strong {
   color: var(--text-title);
   font-size: 0.72rem;
@@ -426,5 +552,18 @@
   .welcome-setup-feature-grid article > svg {
     flex: 0 0 auto;
     margin: 0.1rem 0 0;
+  }
+
+  .welcome-setup-shared-library {
+    grid-template-columns: 1fr;
+  }
+
+  .welcome-setup-backing {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .welcome-setup-backing .app-dialog-button {
+    justify-content: center;
   }
 }

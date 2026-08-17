@@ -4071,6 +4071,41 @@ pub fn request_accessibility_permission() -> bool {
     true
 }
 
+const BACKING_URL: &str = "https://back.getpasted.app";
+
+#[tauri::command]
+pub fn open_backing_page() -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    let mut command = {
+        let mut command = std::process::Command::new("open");
+        command.arg(BACKING_URL);
+        command
+    };
+
+    #[cfg(target_os = "windows")]
+    let mut command = {
+        let mut command = std::process::Command::new("cmd");
+        command.args(["/c", "start", "", BACKING_URL]);
+        command
+    };
+
+    #[cfg(target_os = "linux")]
+    let mut command = {
+        let mut command = std::process::Command::new("xdg-open");
+        command.arg(BACKING_URL);
+        command
+    };
+
+    #[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
+    return command
+        .spawn()
+        .map(|_| ())
+        .map_err(|error| format!("Could not open the backing page: {error}"));
+
+    #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
+    Err("Opening the backing page is unavailable on this platform".to_string())
+}
+
 #[tauri::command]
 pub fn register_app_setting_hotkey(
     key: String,

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Bot, CheckCircle2, ChevronRight, Copy, Database, HardDrive, HeartHandshake, Info, RadioTower, Scale, ShieldCheck, TerminalSquare } from 'lucide-react';
+import { Bot, CheckCircle2, ChevronRight, Copy, Database, ExternalLink, HardDrive, HeartHandshake, Info, RadioTower, Scale, ShieldCheck, TerminalSquare } from 'lucide-react';
 import type { InstallationDiagnostics } from '../types';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { SettingsPanelHeader } from './SettingsPanelHeader';
@@ -7,7 +7,7 @@ import { SettingsSubsectionHeader } from './SettingsSubsectionHeader';
 import { OpenSourceLicensesDialog } from './OpenSourceLicensesDialog';
 import { ActionButton } from './AppDialogLayout';
 import { SettingsAccentTile } from './SettingsAccentTile';
-import { CopycatMark } from './CopycatMark';
+import { CopycatHeadMark } from './CopycatMark';
 
 function fileSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
@@ -42,6 +42,7 @@ export function SettingsAboutPanel() {
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
   const [licensesOpen, setLicensesOpen] = useState(false);
+  const [backingError, setBackingError] = useState('');
 
   useEffect(() => {
     invoke<InstallationDiagnostics>('get_installation_diagnostics')
@@ -56,19 +57,31 @@ export function SettingsAboutPanel() {
     window.setTimeout(() => setCopied(false), 1_500);
   };
 
+  const openBackingPage = async () => {
+    setBackingError('');
+    try {
+      await invoke('open_backing_page');
+    } catch (reason) {
+      setBackingError(String(reason));
+    }
+  };
+
   return (
     <div className="space-y-5">
       <SettingsPanelHeader
         icon={Info}
         title="About Pasted"
-        description="The private, local clipboard workspace for copycats."
+        description="The cat captures clips. We don’t capture copycats."
       />
 
       <section className="theme-surface relative flex flex-col items-center overflow-hidden rounded-2xl border px-6 py-8 text-center">
-        <div className="copycat-about-mark" aria-hidden="true"><CopycatMark /></div>
+        <div className="copycat-about-mark" aria-hidden="true"><CopycatHeadMark /></div>
         <h3 className="theme-title mt-3 text-xl font-bold">Pasted</h3>
-        <p className="theme-text-muted mt-1 max-w-md text-xs leading-relaxed">
-          One local workspace for everything humans, scripts, automations, and agents copy along the way.
+        <p className="theme-title mt-1 max-w-md text-sm font-bold">
+          Works for copycats. Not for corporations.
+        </p>
+        <p className="theme-text-muted mt-2 max-w-lg text-xs leading-relaxed">
+          Copycats are people, scripts, automations, and agents. They share one private workspace with each other. Nobody else gets a copy—and certainly not us.
         </p>
         <span className="theme-badge mt-4 rounded-full border px-3 py-1 font-mono text-[10px] font-semibold">
           {installation ? `Version ${installation.appVersion} · ${installation.buildKind}` : 'Loading version…'}
@@ -79,14 +92,14 @@ export function SettingsAboutPanel() {
         <SettingsSubsectionHeader
           icon={<HeartHandshake className="h-4 w-4" />}
           title="The Copycat Covenant"
-          description="The constraints that keep your clipboard yours."
+          description="Product constraints, not marketing preferences."
         />
         <div className="grid gap-2 sm:grid-cols-2">
           {[
-            { icon: HardDrive, title: 'No cloud account', body: 'Your core library lives locally, without an identity, sync account, or hosted copy of your history.' },
-            { icon: RadioTower, title: 'No off-device telemetry', body: 'Usage insights stay local, without reporting how humans, scripts, or agents use the workspace.' },
-            { icon: HeartHandshake, title: 'No subscription', body: 'Your clipboard is yours, not something to rent back. Financial support is an endorsement, never an unlock.' },
-            { icon: Bot, title: 'Every copycat welcome', body: 'The GUI and CLI share one library, so people and the tools they direct work from the same local context.' },
+            { icon: HardDrive, title: 'No cloud account', body: 'Pasted works without an identity, a sync account, or a hosted copy of your clipboard history. The core workspace lives where you do.' },
+            { icon: RadioTower, title: 'No telemetry', body: 'We do not measure engagement, inspect clipboard activity, or teach a dashboard how copycats behave. Your work is not our dataset.' },
+            { icon: HeartHandshake, title: 'No subscription', body: 'Pasted will not rent your own clipboard back to you. If it earns a place in your workflow, support is an endorsement—not an unlock.' },
+            { icon: Bot, title: 'Every copycat welcome', body: 'Humans use the app. Scripts use the CLI. Automations and agents use the tools you explicitly give them. Everyone shares the same local library.' },
           ].map(({ icon: Icon, title, body }) => (
             <article key={title} className="theme-card-idle border p-3.5">
               <Icon className="mb-2 h-4 w-4 text-[var(--accent-primary)]" />
@@ -98,6 +111,20 @@ export function SettingsAboutPanel() {
         <p className="theme-text-muted theme-divider border-t pt-3 text-[10px] leading-relaxed">
           Outside intelligence is optional and explicit. Clip content leaves the device only when a copycat runs a connected intelligence-assisted action.
         </p>
+        <div className="theme-card-idle flex flex-col gap-3 border p-4 sm:flex-row sm:items-center">
+          <div className="min-w-0 flex-1">
+            <p className="theme-title text-sm font-bold">
+              If Pasted earns a permanent place in your workflow, put $9.99 behind its future.
+            </p>
+            <p className="theme-text-muted mt-1 text-[10px] leading-relaxed">
+              Nothing to unlock. No license key. No ET phone home. Just useful software—and one more reason to keep making it.
+            </p>
+          </div>
+          <ActionButton variant="primary" className="shrink-0" onClick={() => void openBackingPage()}>
+            Back Pasted — $9.99 <ExternalLink className="h-3.5 w-3.5" />
+          </ActionButton>
+        </div>
+        {backingError && <div role="alert" className="theme-status-danger rounded-xl border px-3 py-2 text-xs">{backingError}</div>}
       </section>
 
       <section className="theme-surface rounded-2xl border p-5 space-y-4">
