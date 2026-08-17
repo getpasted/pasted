@@ -2762,10 +2762,39 @@ impl DbState {
                 },
             )?;
             let effective_recipe = match (current_recipe, previous_shipped_recipe) {
-                (Some(current), Some(previous)) if current != previous => current,
+                (Some(current), Some(previous)) => {
+                    let matches_previous = match (
+                        serde_json::from_str::<crate::extractor_recipe::ExtractorRecipe>(&current),
+                        serde_json::from_str::<crate::extractor_recipe::ExtractorRecipe>(&previous),
+                    ) {
+                        (Ok(current), Ok(previous)) => current == previous,
+                        _ => current == previous,
+                    };
+                    if matches_previous {
+                        recipe_json.clone()
+                    } else {
+                        current
+                    }
+                }
                 (Some(current), None) => current,
                 _ => recipe_json.clone(),
             };
+            let effective_recipe =
+                serde_json::from_str::<crate::extractor_recipe::ExtractorRecipe>(&effective_recipe)
+                    .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?;
+            let effective_recipe = crate::content_extraction::migrate_builtin_recipe_compatibility(
+                preset.stable_ref,
+                &effective_recipe,
+                shipped.2.model_path.as_deref(),
+            );
+            crate::extractor_recipe::validate_recipe(&effective_recipe).map_err(|error| {
+                rusqlite::Error::ToSqlConversionFailure(Box::new(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    error,
+                )))
+            })?;
+            let effective_recipe = serde_json::to_string(&effective_recipe)
+                .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?;
             conn.execute(
                 "UPDATE content_extractors
                  SET recipe_json = ?1, shipped_recipe_json = ?2
