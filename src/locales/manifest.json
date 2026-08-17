@@ -17,6 +17,13 @@
       "catalog": "en.json"
     },
     {
+      "code": "es",
+      "name": "Spanish",
+      "nativeName": "Español",
+      "direction": "ltr",
+      "catalog": "es.json"
+    },
+    {
       "code": "de-DE",
       "name": "German",
       "nativeName": "Deutsch",
@@ -43,6 +50,13 @@
       "nativeName": "日本語",
       "direction": "ltr",
       "catalog": "ja-JP.json"
+    },
+    {
+      "code": "pt-BR",
+      "name": "Brazilian Portuguese",
+      "nativeName": "Português (Brasil)",
+      "direction": "ltr",
+      "catalog": "pt-BR.json"
     }
   ]
 }
