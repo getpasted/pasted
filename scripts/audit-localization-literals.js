@@ -4,7 +4,7 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 
 const require = createRequire(import.meta.url);
-const ts = require('typescript');
+const ts = require('typescript-compiler-api');
 
 const roots = ['src/App.tsx', 'src/components', 'src/hooks/useAppLock.ts', 'src/types.ts'];
 const files = [];
