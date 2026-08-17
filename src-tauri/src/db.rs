@@ -736,6 +736,25 @@ fn normalize_library_archive_timestamps(payload: &mut BackupPayload) -> Result<(
         clip.created_at = canonical_utc_timestamp(&clip.created_at, "Transfer clip")?;
         canonicalize_optional_timestamp(&mut clip.trashed_at, "Transfer clip")?;
     }
+    for bin in &mut payload.bins {
+        bin.created_at = canonical_utc_timestamp(&bin.created_at, "Transfer Bin")?;
+    }
+    for operation in &mut payload.operations {
+        if operation.id >= 0 {
+            operation.created_at =
+                canonical_utc_timestamp(&operation.created_at, "Transfer Operation")?;
+        }
+    }
+    for pipeline in &mut payload.pipelines {
+        pipeline.created_at = canonical_utc_timestamp(&pipeline.created_at, "Transfer Transform")?;
+        pipeline.updated_at = canonical_utc_timestamp(&pipeline.updated_at, "Transfer Transform")?;
+    }
+    for transform in &mut payload.saved_transforms {
+        transform.created_at =
+            canonical_utc_timestamp(&transform.created_at, "Transfer Transform")?;
+        transform.updated_at =
+            canonical_utc_timestamp(&transform.updated_at, "Transfer Transform")?;
+    }
     for metadata in &mut payload.ocr_metadata {
         canonicalize_optional_timestamp(&mut metadata.attempted_at, "Transfer OCR metadata")?;
     }
@@ -15643,6 +15662,34 @@ mod tests {
             .get_clips(None, None, false)
             .unwrap()
             .is_empty());
+
+        let mut archive: serde_json::Value =
+            serde_json::from_str(&source.export_backup_json().unwrap()).unwrap();
+        archive["bins"][0]["created_at"] = serde_json::json!("2026-08-16T18:45:00-05:00");
+        let mut custom_operation = archive["operations"][0].clone();
+        custom_operation["id"] = serde_json::json!(12345);
+        custom_operation["stable_id"] = serde_json::json!("custom:timezone-test");
+        custom_operation["name"] = serde_json::json!("Timezone Test");
+        custom_operation["created_at"] = serde_json::json!("2026-08-16 23:45:00");
+        archive["operations"]
+            .as_array_mut()
+            .unwrap()
+            .push(custom_operation);
+        let (normalized, _) =
+            DbState::parse_library_archive(&serde_json::to_string(&archive).unwrap()).unwrap();
+        assert_eq!(normalized.bins[0].created_at, "2026-08-16T23:45:00Z");
+        assert_eq!(
+            normalized
+                .operations
+                .iter()
+                .find(|operation| operation.id == 12345)
+                .unwrap()
+                .created_at,
+            "2026-08-16T23:45:00Z"
+        );
+
+        archive["bins"][0]["created_at"] = serde_json::json!("not-a-timestamp");
+        assert!(DbState::parse_library_archive(&serde_json::to_string(&archive).unwrap()).is_err());
     }
 
     #[test]
