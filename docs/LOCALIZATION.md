@@ -1,6 +1,6 @@
 # Localization
 
-Pasted uses one versioned locale manifest and one message catalog per shipped language. The React interface and Rust-native menus share the catalogs under `src/locales/`.
+Pasted uses one versioned locale manifest and one message catalog per shipped language. The React interface and Rust-native menus share the catalogs under `src/locales/`. Arabic and Hebrew are the shipped right-to-left reference locales.
 
 English (`en`) is the canonical source language and the runtime fallback. A missing translation must never produce an empty control or expose an internal message key.
 

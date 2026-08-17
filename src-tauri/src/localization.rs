@@ -38,6 +38,8 @@ fn catalogs() -> &'static Catalogs {
             .expect("the bundled German catalog must be valid");
         let fr_fr = serde_json::from_str(include_str!("../../src/locales/fr-FR.json"))
             .expect("the bundled French catalog must be valid");
+        let he = serde_json::from_str(include_str!("../../src/locales/he.json"))
+            .expect("the bundled Hebrew catalog must be valid");
         let ja_jp = serde_json::from_str(include_str!("../../src/locales/ja-JP.json"))
             .expect("the bundled Japanese catalog must be valid");
         Catalogs {
@@ -47,6 +49,7 @@ fn catalogs() -> &'static Catalogs {
                 ("en", english),
                 ("de-DE", de_de),
                 ("fr-FR", fr_fr),
+                ("he", he),
                 ("ja-JP", ja_jp),
             ]),
         }
@@ -123,6 +126,7 @@ mod tests {
         assert!(validate_configured_language("en").is_ok());
         assert!(validate_configured_language("de-DE").is_ok());
         assert!(validate_configured_language("fr-FR").is_ok());
+        assert!(validate_configured_language("he").is_ok());
         assert!(validate_configured_language("ja-JP").is_ok());
         assert!(validate_configured_language("not-a-locale").is_err());
     }
@@ -133,6 +137,7 @@ mod tests {
         assert_eq!(text_for_locale("ar", "native.file.title"), "ملف");
         assert_eq!(text_for_locale("de-DE", "native.file.title"), "Datei");
         assert_eq!(text_for_locale("fr-FR", "native.file.title"), "Fichier");
+        assert_eq!(text_for_locale("he", "native.file.title"), "קובץ");
         assert_eq!(text_for_locale("ja-JP", "native.file.title"), "ファイル");
         assert_eq!(text_for_locale("missing", "native.file.title"), "File");
         assert_eq!(text_for_locale("en", "missing.key"), "missing.key");
