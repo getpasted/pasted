@@ -3,7 +3,7 @@
   "dataLicense": "CC0-1.0",
   "SPDXID": "SPDXRef-DOCUMENT",
   "name": "Pasted-1.0.0-rc.5-distributed-components",
-  "documentNamespace": "https://getpasted.app/sbom/1.0.0-rc.5/3a1ad31c3b2e113eabd756f884b2d00571d27c9c07e376ac023b8adcee565aad",
+  "documentNamespace": "https://getpasted.app/sbom/1.0.0-rc.5/54354842c3ea8798b8d64b665eef00c0bcb70bf639972e61607d644adc3ce0f8",
   "creationInfo": {
     "creators": [
       "Tool: Pasted deterministic dependency inventory"
@@ -1950,9 +1950,9 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-a6e327b710208dfe",
+      "SPDXID": "SPDXRef-cargo-8772c4c8fa519ad0",
       "name": "futures-core",
-      "versionInfo": "0.3.33",
+      "versionInfo": "0.3.34",
       "downloadLocation": "https://github.com/rust-lang/futures-rs",
       "filesAnalyzed": false,
       "licenseConcluded": "MIT OR Apache-2.0",
@@ -1962,7 +1962,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/futures-core@0.3.33"
+          "referenceLocator": "pkg:cargo/futures-core@0.3.34"
         }
       ]
     },
@@ -1984,9 +1984,9 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-d535fd19ebfcca81",
+      "SPDXID": "SPDXRef-cargo-07fece938281c740",
       "name": "futures-io",
-      "versionInfo": "0.3.33",
+      "versionInfo": "0.3.34",
       "downloadLocation": "https://github.com/rust-lang/futures-rs",
       "filesAnalyzed": false,
       "licenseConcluded": "MIT OR Apache-2.0",
@@ -1996,7 +1996,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/futures-io@0.3.33"
+          "referenceLocator": "pkg:cargo/futures-io@0.3.34"
         }
       ]
     },
@@ -2018,9 +2018,9 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-2e498462791a06f2",
+      "SPDXID": "SPDXRef-cargo-1401623cb416bc0f",
       "name": "futures-macro",
-      "versionInfo": "0.3.33",
+      "versionInfo": "0.3.34",
       "downloadLocation": "https://github.com/rust-lang/futures-rs",
       "filesAnalyzed": false,
       "licenseConcluded": "MIT OR Apache-2.0",
@@ -2030,14 +2030,14 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/futures-macro@0.3.33"
+          "referenceLocator": "pkg:cargo/futures-macro@0.3.34"
         }
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-b0d9bbacc68c2ec4",
+      "SPDXID": "SPDXRef-cargo-5ce24bde6e800d37",
       "name": "futures-task",
-      "versionInfo": "0.3.33",
+      "versionInfo": "0.3.34",
       "downloadLocation": "https://github.com/rust-lang/futures-rs",
       "filesAnalyzed": false,
       "licenseConcluded": "MIT OR Apache-2.0",
@@ -2047,14 +2047,14 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/futures-task@0.3.33"
+          "referenceLocator": "pkg:cargo/futures-task@0.3.34"
         }
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-b060be5cb894943c",
+      "SPDXID": "SPDXRef-cargo-96d6434e7d53b37b",
       "name": "futures-util",
-      "versionInfo": "0.3.33",
+      "versionInfo": "0.3.34",
       "downloadLocation": "https://github.com/rust-lang/futures-rs",
       "filesAnalyzed": false,
       "licenseConcluded": "MIT OR Apache-2.0",
@@ -2064,7 +2064,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/futures-util@0.3.33"
+          "referenceLocator": "pkg:cargo/futures-util@0.3.34"
         }
       ]
     },
@@ -7879,7 +7879,7 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-a6e327b710208dfe"
+      "relatedSpdxElement": "SPDXRef-cargo-8772c4c8fa519ad0"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -7889,7 +7889,7 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-d535fd19ebfcca81"
+      "relatedSpdxElement": "SPDXRef-cargo-07fece938281c740"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -7899,17 +7899,17 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-2e498462791a06f2"
+      "relatedSpdxElement": "SPDXRef-cargo-1401623cb416bc0f"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-b0d9bbacc68c2ec4"
+      "relatedSpdxElement": "SPDXRef-cargo-5ce24bde6e800d37"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-b060be5cb894943c"
+      "relatedSpdxElement": "SPDXRef-cargo-96d6434e7d53b37b"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
