@@ -3,7 +3,7 @@
   "dataLicense": "CC0-1.0",
   "SPDXID": "SPDXRef-DOCUMENT",
   "name": "Pasted-1.0.0-rc.5-distributed-components",
-  "documentNamespace": "https://getpasted.app/sbom/1.0.0-rc.5/54354842c3ea8798b8d64b665eef00c0bcb70bf639972e61607d644adc3ce0f8",
+  "documentNamespace": "https://getpasted.app/sbom/1.0.0-rc.5/0539682d4db657b60f6ad40702c2832d3ea76a4d2c570df127075b9d64ab4b52",
   "creationInfo": {
     "creators": [
       "Tool: Pasted deterministic dependency inventory"
@@ -6370,6 +6370,23 @@
       ]
     },
     {
+      "SPDXID": "SPDXRef-cargo-65f1e2bb2e36535b",
+      "name": "windows-future",
+      "versionInfo": "0.3.2",
+      "downloadLocation": "https://github.com/microsoft/windows-rs",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT OR Apache-2.0",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/windows-future@0.3.2"
+        }
+      ]
+    },
+    {
       "SPDXID": "SPDXRef-cargo-ec57f4eda21f864f",
       "name": "windows-implement",
       "versionInfo": "0.60.2",
@@ -6621,6 +6638,23 @@
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
           "referenceLocator": "pkg:cargo/windows-threading@0.1.0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-cargo-898f136301fac5b4",
+      "name": "windows-threading",
+      "versionInfo": "0.2.1",
+      "downloadLocation": "https://github.com/microsoft/windows-rs",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT OR Apache-2.0",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/windows-threading@0.2.1"
         }
       ]
     },
@@ -9179,6 +9213,11 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-cargo-65f1e2bb2e36535b"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
       "relatedSpdxElement": "SPDXRef-cargo-ec57f4eda21f864f"
     },
     {
@@ -9250,6 +9289,11 @@
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
       "relatedSpdxElement": "SPDXRef-cargo-0cda853fb8833c7f"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-cargo-898f136301fac5b4"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
