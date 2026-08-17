@@ -33,7 +33,7 @@ Feature gates control visibility and future behavior. Factory Reset, permanent d
 Other Settings pages cover:
 
 - **General:** layout, zoom, row height, retention, sounds, startup, previews, and OS integration;
-- **Hotkeys:** global shortcuts and platform permission status, including configurable Lock Pasted and Unlock Pasted actions when App Lock is available;
+- **Hotkeys:** global shortcuts and platform permission status, including a configurable Lock Pasted action when App Lock is available;
 - **Security:** when App Lock is enabled under Functionality, passphrase setup, system authentication, immediate lock, restart and sleep policies, inactivity auto-lock, and capture behavior while locked;
 - **Intelligence:** detected and custom intelligence providers;
 - **App Exclusions:** applications that should block selected text, image, file, or hotkey behavior;

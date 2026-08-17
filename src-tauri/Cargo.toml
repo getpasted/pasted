@@ -63,6 +63,7 @@ windows-future = "0.2"
 ashpd = { version = "0.13", default-features = false, features = ["tokio", "global_shortcuts"] }
 futures-util = "0.3"
 gtk = "0.18"
+x11rb = { version = "0.13", features = ["xkb"] }
 
 [lints.rust]
 unexpected_cfgs = "allow"

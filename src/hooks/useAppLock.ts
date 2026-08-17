@@ -138,6 +138,10 @@ export function useAppLock() {
       cachedHydrated = true;
       setHydrated(true);
     });
+    const refreshOnFocus = () => void refresh().catch((error) => {
+      console.error('Could not refresh app-lock status:', error);
+    });
+    window.addEventListener('focus', refreshOnFocus);
     let disposed = false;
     let unlisten: (() => void) | undefined;
     void listen<AppLockStatus>('app-lock-changed', ({ payload }) => {
@@ -152,6 +156,7 @@ export function useAppLock() {
     return () => {
       disposed = true;
       unlisten?.();
+      window.removeEventListener('focus', refreshOnFocus);
     };
   }, [acceptStatus, refresh, transitionToUnlocked]);
 

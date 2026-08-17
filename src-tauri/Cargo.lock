@@ -2694,6 +2694,7 @@ dependencies = [
  "window-vibrancy",
  "windows",
  "windows-future",
+ "x11rb",
 ]
 
 [[package]]

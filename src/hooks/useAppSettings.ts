@@ -57,7 +57,6 @@ const DEFAULT_SETTINGS: AppSettings = {
   seqToggleHotkey: 'Alt+Shift+C',
   seqPopHotkey: 'Alt+Shift+X',
   lockAppHotkey: 'Alt+Shift+L',
-  unlockAppHotkey: 'Alt+Shift+U',
 };
 
 const DEFAULT_BLACKLIST_APPS: BlacklistApp[] = [
@@ -69,6 +68,18 @@ const DEFAULT_BLACKLIST_APPS: BlacklistApp[] = [
   { id: '6', name: 'Enpass', icon: 'Shield', ignoreText: true, ignoreImages: true, ignoreFiles: true, ignoreHotkeys: false },
   { id: '7', name: 'KeePassXC', icon: 'Shield', ignoreText: true, ignoreImages: true, ignoreFiles: true, ignoreHotkeys: false },
 ];
+
+const HOTKEY_SETTING_KEYS = new Set([
+  'hudHotkey',
+  'seqToggleHotkey',
+  'seqPopHotkey',
+  'copyLastPipelineHotkey',
+  'pasteLastPipelineHotkey',
+  'openTransformationsHotkey',
+  'openMainWindowHotkey',
+  'lockAppHotkey',
+  ...Array.from({ length: 9 }, (_, index) => `pasteClip${index + 1}Hotkey`),
+]);
 
 function normalizeBlacklistApps(value: unknown): BlacklistApp[] {
   if (!Array.isArray(value)) return DEFAULT_BLACKLIST_APPS;
@@ -156,7 +167,7 @@ function parseSavedSettings(saved: Record<string, string>) {
   const hotkeyKeys = [
     'hudHotkey', 'seqToggleHotkey', 'seqPopHotkey', 'copyLastPipelineHotkey',
     'pasteLastPipelineHotkey', 'openTransformationsHotkey', 'openMainWindowHotkey',
-    'lockAppHotkey', 'unlockAppHotkey',
+    'lockAppHotkey',
     ...Array.from({ length: 9 }, (_, index) => `pasteClip${index + 1}Hotkey`),
   ];
   for (const key of hotkeyKeys) {
@@ -381,6 +392,15 @@ export function useAppSettings() {
     }
     for (const [key, value] of entries) {
       locallyChangedKeysRef.current.add(key);
+      // Hotkeys are persisted synchronously by their registration commands so
+      // SQLite and the native registry change as one operation. Scheduling a
+      // second generic save here can leave those two sources out of sync.
+      if (HOTKEY_SETTING_KEYS.has(key)) {
+        if (saveTimersRef.current[key]) clearTimeout(saveTimersRef.current[key]);
+        delete saveTimersRef.current[key];
+        delete pendingSettingsRef.current[key];
+        continue;
+      }
       pendingSettingsRef.current[key] = String(value);
       if (saveTimersRef.current[key]) clearTimeout(saveTimersRef.current[key]);
       saveTimersRef.current[key] = setTimeout(() => {

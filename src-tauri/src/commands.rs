@@ -1491,7 +1491,25 @@ pub fn lock_app(
     db: State<'_, Arc<DbState>>,
     state: State<'_, Arc<crate::app_lock::AppLockState>>,
 ) -> Result<crate::app_lock::AppLockStatus, String> {
-    features::require(&db, Feature::AppLock)?;
+    lock_app_with_state(&app, &db, &state)
+}
+
+pub(crate) fn lock_app_with_state(
+    app: &AppHandle,
+    db: &Arc<DbState>,
+    state: &crate::app_lock::AppLockState,
+) -> Result<crate::app_lock::AppLockStatus, String> {
+    let status = lock_app_state(db, state)?;
+    refresh_native_app_menu(app, db);
+    let _ = app.emit("app-lock-changed", &status);
+    Ok(status)
+}
+
+pub(crate) fn lock_app_state(
+    db: &DbState,
+    state: &crate::app_lock::AppLockState,
+) -> Result<crate::app_lock::AppLockStatus, String> {
+    features::require(db, Feature::AppLock)?;
     if db
         .get_setting(crate::app_lock::ENABLED_SETTING)
         .map_err(|error| error.to_string())?
@@ -1501,10 +1519,7 @@ pub fn lock_app(
         return Err("App lock is not enabled.".to_string());
     }
     state.lock();
-    refresh_native_app_menu(&app, &db);
-    let status = crate::app_lock::status(&db, &state);
-    let _ = app.emit("app-lock-changed", &status);
-    Ok(status)
+    Ok(crate::app_lock::status(db, state))
 }
 
 #[tauri::command]
@@ -2633,9 +2648,29 @@ pub fn update_pipeline_shortcut(
     app: AppHandle,
 ) -> Result<(), String> {
     features::require(&db, Feature::Transformations)?;
+    let previous = db
+        .get_pipelines()
+        .map_err(|error| error.to_string())?
+        .into_iter()
+        .find(|pipeline| {
+            pipeline.stable_ref == pipeline_ref
+                || pipeline.stable_ref.strip_prefix("transform:")
+                    == pipeline_ref
+                        .strip_prefix("pipeline:")
+                        .or_else(|| pipeline_ref.strip_prefix("transform:"))
+        })
+        .ok_or_else(|| "Transform not found.".to_string())?
+        .shortcut;
     db.update_pipeline_shortcut(&pipeline_ref, shortcut.as_deref())
         .map_err(|error| error.to_string())?;
-    let _ = register_all_app_shortcuts(&app);
+    if let Err(error) = register_all_app_shortcuts(&app) {
+        db.update_pipeline_shortcut(&pipeline_ref, previous.as_deref())
+            .map_err(|rollback| {
+                format!("{error}; restoring the previous Transform shortcut failed: {rollback}")
+            })?;
+        let _ = register_all_app_shortcuts(&app);
+        return Err(error);
+    }
     Ok(())
 }
 
@@ -2699,9 +2734,17 @@ pub fn update_bin_shortcut(
     app: AppHandle,
 ) -> Result<(), String> {
     features::require(&db, Feature::Bins)?;
+    let previous = db.get_bin(id).map_err(|error| error.to_string())?.shortcut;
     db.update_bin_shortcut(id, shortcut.as_deref())
         .map_err(|e| e.to_string())?;
-    let _ = register_all_app_shortcuts(&app);
+    if let Err(error) = register_all_app_shortcuts(&app) {
+        db.update_bin_shortcut(id, previous.as_deref())
+            .map_err(|rollback| {
+                format!("{error}; restoring the previous Bin shortcut failed: {rollback}")
+            })?;
+        let _ = register_all_app_shortcuts(&app);
+        return Err(error);
+    }
     Ok(())
 }
 
@@ -3793,51 +3836,7 @@ pub fn purge_unpinned_clips(db: State<'_, Arc<DbState>>) -> Result<(), String> {
     db.purge_unpinned_clips().map_err(|e| e.to_string())
 }
 
-fn get_dvorak_code_for_char(ch: char) -> Option<tauri_plugin_global_shortcut::Code> {
-    use tauri_plugin_global_shortcut::Code;
-
-    match ch.to_ascii_uppercase() {
-        'A' => Some(Code::KeyA),
-        'B' => Some(Code::KeyN),
-        'C' => Some(Code::KeyI),
-        'D' => Some(Code::KeyH),
-        'E' => Some(Code::KeyD),
-        'F' => Some(Code::KeyW),
-        'G' => Some(Code::KeyE),
-        'H' => Some(Code::KeyJ),
-        'I' => Some(Code::KeyG),
-        'J' => Some(Code::KeyP),
-        'K' => Some(Code::BracketLeft),
-        'L' => Some(Code::KeyU),
-        'M' => Some(Code::KeyM),
-        'N' => Some(Code::KeyL),
-        'O' => Some(Code::KeyS),
-        'P' => Some(Code::KeyR),
-        'Q' => Some(Code::KeyO),
-        'R' => Some(Code::KeyY),
-        'S' => Some(Code::Semicolon),
-        'T' => Some(Code::KeyK),
-        'U' => Some(Code::KeyF),
-        'V' => Some(Code::Period),
-        'W' => Some(Code::Comma),
-        'X' => Some(Code::KeyQ),
-        'Y' => Some(Code::KeyT),
-        'Z' => Some(Code::Slash),
-        '1' => Some(Code::Digit1),
-        '2' => Some(Code::Digit2),
-        '3' => Some(Code::Digit3),
-        '4' => Some(Code::Digit4),
-        '5' => Some(Code::Digit5),
-        '6' => Some(Code::Digit6),
-        '7' => Some(Code::Digit7),
-        '8' => Some(Code::Digit8),
-        '9' => Some(Code::Digit9),
-        '0' => Some(Code::Digit0),
-        '`' => Some(Code::Backquote),
-        _ => None,
-    }
-}
-
+#[cfg_attr(target_os = "linux", allow(dead_code))]
 fn normalize_shortcut_aliases(shortcut: &str) -> String {
     shortcut
         .replace("CmdOrCtrl", "Super")
@@ -3845,29 +3844,9 @@ fn normalize_shortcut_aliases(shortcut: &str) -> String {
         .replace("Cmd", "Super")
         .replace("Option", "Alt")
         .replace("Control", "Ctrl")
-        .replace(['ç', 'Ç'], "C")
-        .replace(['√', '◊'], "V")
-        .replace(['µ', 'Â'], "M")
-        .replace('≈', "X")
-        .replace('ß', "S")
-        .replace('∂', "D")
-        .replace('ƒ', "F")
-        .replace('©', "G")
-        .replace('®', "R")
-        .replace('†', "T")
-        .replace('¥', "Y")
-        .replace(['ø', 'Ø'], "O")
-        .replace(['π', '∏'], "P")
-        .replace(['å', 'Å'], "A")
-        .replace('∫', "B")
-        .replace('∆', "J")
-        .replace('˚', "K")
-        .replace('¬', "L")
-        .replace('Ω', "Z")
-        .replace('œ', "Q")
-        .replace('∑', "W")
 }
 
+#[cfg_attr(target_os = "linux", allow(dead_code))]
 pub fn parse_shortcut_str(sc_str: &str) -> Option<tauri_plugin_global_shortcut::Shortcut> {
     use std::str::FromStr;
     use tauri_plugin_global_shortcut::Shortcut;
@@ -3909,7 +3888,8 @@ pub fn parse_shortcut_str(sc_str: &str) -> Option<tauri_plugin_global_shortcut::
     None
 }
 
-pub fn parse_shortcut_str_all_layouts(
+#[cfg_attr(target_os = "linux", allow(dead_code))]
+pub fn parse_shortcut_str_for_current_layout(
     sc_str: &str,
 ) -> Option<Vec<tauri_plugin_global_shortcut::Shortcut>> {
     use tauri_plugin_global_shortcut::{Modifiers, Shortcut};
@@ -3943,11 +3923,15 @@ pub fn parse_shortcut_str_all_layouts(
                 }
             }
 
-            if let Some(dvorak_code) = get_dvorak_code_for_char(ch) {
-                let dvorak_sc = Shortcut::new(Some(mods), dvorak_code);
-                if !shortcuts.contains(&dvorak_sc) {
-                    shortcuts.push(dvorak_sc);
-                }
+            let command_modifier = mods.intersects(Modifiers::SUPER | Modifiers::META);
+            if let Some(layout_code) =
+                crate::keyboard_layout::code_for_character(ch, command_modifier)
+            {
+                // On platforms whose global-hotkey backend consumes physical
+                // codes, replace the parser's ANSI position with the physical
+                // key that the active OS layout says produces this letter.
+                shortcuts.clear();
+                shortcuts.push(Shortcut::new(Some(mods), layout_code));
             }
         }
     }
@@ -4006,6 +3990,7 @@ pub struct HotkeyCapabilityStatus {
     pub configured_count: usize,
     pub registered_count: usize,
     pub issues: Vec<crate::hotkey_manager::HotkeyRegistrationIssue>,
+    pub bindings: Vec<crate::hotkey_manager::HotkeyRegisteredBinding>,
 }
 
 #[tauri::command]
@@ -4034,6 +4019,7 @@ pub fn get_hotkey_capability_status(app: AppHandle) -> HotkeyCapabilityStatus {
         configured_count: registration.configured_count,
         registered_count: registration.registered_count,
         issues: registration.issues,
+        bindings: registration.bindings,
     }
 }
 
@@ -4112,18 +4098,97 @@ pub fn register_app_setting_hotkey(
     value: String,
     app: AppHandle,
 ) -> Result<(), String> {
+    if !is_app_setting_hotkey_key(&key) {
+        return Err("Unknown app hotkey setting.".to_string());
+    }
+    persist_hotkey_settings_and_register(std::iter::once((key, value)).collect(), &app)
+}
+
+fn is_app_setting_hotkey_key(key: &str) -> bool {
+    matches!(
+        key,
+        "hudHotkey"
+            | "seqToggleHotkey"
+            | "seqPopHotkey"
+            | "copyLastPipelineHotkey"
+            | "pasteLastPipelineHotkey"
+            | "openTransformationsHotkey"
+            | "openMainWindowHotkey"
+            | "lockAppHotkey"
+    ) || key
+        .strip_prefix("pasteClip")
+        .and_then(|suffix| suffix.strip_suffix("Hotkey"))
+        .and_then(|position| position.parse::<usize>().ok())
+        .is_some_and(|position| (1..=9).contains(&position))
+}
+
+#[tauri::command]
+pub fn register_app_setting_hotkeys(
+    values: std::collections::HashMap<String, String>,
+    app: AppHandle,
+) -> Result<(), String> {
+    if values.keys().any(|key| !is_app_setting_hotkey_key(key)) {
+        return Err("Unknown app hotkey setting.".to_string());
+    }
+    persist_hotkey_settings_and_register(values, &app)
+}
+
+fn persist_hotkey_settings_and_register(
+    values: std::collections::HashMap<String, String>,
+    app: &AppHandle,
+) -> Result<(), String> {
     let db = app.state::<Arc<DbState>>();
-    db.save_setting(&key, &value)
+    let previous: std::collections::HashMap<String, Option<String>> = values
+        .keys()
+        .map(|key| {
+            db.get_setting(key)
+                .map(|value| (key.clone(), value))
+                .map_err(|error| error.to_string())
+        })
+        .collect::<Result<_, _>>()?;
+    db.save_settings(&values)
         .map_err(|error| error.to_string())?;
-    register_all_app_shortcuts(&app)
+    if let Err(registration_error) = register_all_app_shortcuts(app) {
+        let restored: std::collections::HashMap<String, String> = previous
+            .iter()
+            .filter_map(|(key, value)| value.clone().map(|value| (key.clone(), value)))
+            .collect();
+        let deleted: Vec<&str> = previous
+            .iter()
+            .filter_map(|(key, value)| value.is_none().then_some(key.as_str()))
+            .collect();
+        db.save_and_delete_settings(&restored, &deleted)
+            .map_err(|error| {
+                format!(
+                    "{registration_error}; restoring the previous shortcut settings failed: {error}"
+                )
+            })?;
+        if let Err(rollback_error) = register_all_app_shortcuts(app) {
+            return Err(format!(
+                "{registration_error}; restoring the previous native shortcuts failed: {rollback_error}"
+            ));
+        }
+        return Err(registration_error);
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn resolve_logical_shortcut_key(code: String, fallback: String) -> String {
+    use std::str::FromStr;
+
+    tauri_plugin_global_shortcut::Code::from_str(&code)
+        .ok()
+        .and_then(crate::keyboard_layout::logical_key_for_code)
+        .unwrap_or(fallback)
 }
 
 #[tauri::command]
 pub fn register_hud_shortcut(shortcut_str: String, app: AppHandle) -> Result<(), String> {
-    let db = app.state::<Arc<DbState>>();
-    db.save_setting("hudHotkey", &shortcut_str)
-        .map_err(|error| error.to_string())?;
-    register_all_app_shortcuts(&app)
+    persist_hotkey_settings_and_register(
+        std::iter::once(("hudHotkey".to_string(), shortcut_str)).collect(),
+        &app,
+    )
 }
 
 #[tauri::command]
@@ -5050,11 +5115,44 @@ mod tests {
             sc1, sc2,
             "Option+Command+C should resolve to identical Shortcut struct as Alt+Super+KeyC"
         );
+    }
 
-        // Option unicode character resolution tests
-        let sc_unicode_c = parse_shortcut_str("Alt+ç").unwrap();
-        let sc_ascii_c = parse_shortcut_str("Alt+KeyC").unwrap();
-        assert_eq!(sc_unicode_c, sc_ascii_c, "Alt+ç should map to Alt+KeyC");
+    #[test]
+    fn native_lock_transition_uses_the_shared_app_lock_state() {
+        let root = unique_test_directory("hotkey-app-lock");
+        std::fs::create_dir_all(&root).unwrap();
+        let db = crate::db::DbState::new(root.join("pasted.db")).unwrap();
+        crate::app_lock::configure(&db, "test passphrase").unwrap();
+        let state = crate::app_lock::AppLockState::from_db(&db);
+        state.unlock();
+
+        let status = lock_app_state(&db, &state).unwrap();
+        assert!(status.enabled);
+        assert!(status.locked);
+        assert!(state.is_locked());
+
+        state.unlock();
+        db.save_setting("enableAppLock", "false").unwrap();
+        assert_eq!(
+            lock_app_state(&db, &state).unwrap_err(),
+            "App Lock is disabled in Settings → Functionality"
+        );
+        assert!(!state.is_locked());
+
+        drop(db);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn app_setting_hotkey_keys_are_narrowly_scoped() {
+        assert!(is_app_setting_hotkey_key("hudHotkey"));
+        assert!(is_app_setting_hotkey_key("lockAppHotkey"));
+        assert!(is_app_setting_hotkey_key("pasteClip1Hotkey"));
+        assert!(is_app_setting_hotkey_key("pasteClip9Hotkey"));
+        assert!(!is_app_setting_hotkey_key("unlockAppHotkey"));
+        assert!(!is_app_setting_hotkey_key("pasteClip0Hotkey"));
+        assert!(!is_app_setting_hotkey_key("pasteClip10Hotkey"));
+        assert!(!is_app_setting_hotkey_key("enableAppLock"));
     }
 
     #[test]

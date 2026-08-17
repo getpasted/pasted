@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Keyboard, X } from 'lucide-react';
+import { safeInvoke as invoke } from '../utils/tauri';
 
 interface HotkeyRecorderProps {
   value?: string | null;
@@ -7,44 +8,37 @@ interface HotkeyRecorderProps {
   placeholder?: string;
 }
 
-const OPTION_KEY_MAP: Record<string, string> = {
-  'ç': 'C', 'Ç': 'C',
-  '√': 'V', '◊': 'V',
-  'µ': 'M', 'Â': 'M',
-  '≈': 'X',
-  'ß': 'S', 'Í': 'S',
-  '∂': 'D', 'Î': 'D',
-  'ƒ': 'F', 'Ï': 'F',
-  '©': 'G', '˝': 'G',
-  '®': 'R', '‰': 'R',
-  '†': 'T', 'ˇ': 'T',
-  '¥': 'Y', 'Á': 'Y',
-  'ø': 'O', 'Ø': 'O',
-  'π': 'P', '∏': 'P',
-  'å': 'A', 'Å': 'A',
-  '∫': 'B',
-  '∆': 'J', 'Ô': 'J',
-  '˚': 'K', '': 'K',
-  '¬': 'L', 'Ò': 'L',
-  'Ω': 'Z', '¸': 'Z',
-  'œ': 'Q', 'Œ': 'Q',
-  '∑': 'W', '„': 'W',
-  '´': 'E',
-  '¡': '1', '™': '2', '£': '3', '¢': '4', '∞': '5',
-  '§': '6', '¶': '7', '•': '8', 'ª': '9', 'º': '0',
+type KeyboardLayoutNavigator = Navigator & {
+  keyboard?: {
+    getLayoutMap?: () => Promise<{ get: (code: string) => string | undefined }>;
+  };
 };
 
-const getLayoutKey = (e: KeyboardEvent): string => {
-  if (e.key && OPTION_KEY_MAP[e.key]) {
-    return OPTION_KEY_MAP[e.key];
-  }
-  if (e.key && e.key.length === 1) {
-    return e.key.toUpperCase();
-  }
+const getLogicalKey = async (e: KeyboardEvent): Promise<string> => {
   if (e.code === 'Space') return 'Space';
   if (e.code === 'Tab') return 'Tab';
   if (e.code === 'Enter') return 'Enter';
-  return e.key;
+  // macOS can intentionally use a QWERTY command layer over another typing
+  // layout. In that case KeyboardEvent.key reflects the logical command key,
+  // while getLayoutMap() reflects the unmodified typing layer.
+  if (e.metaKey && e.key?.length === 1) return e.key.toUpperCase();
+  try {
+    const layoutMap = await (navigator as KeyboardLayoutNavigator).keyboard?.getLayoutMap?.();
+    const mapped = layoutMap?.get(e.code);
+    if (mapped?.length === 1) return mapped.toUpperCase();
+  } catch {
+    // The native resolver below covers platforms without the Keyboard Map API.
+  }
+  const fallback = e.key?.length === 1 ? e.key.toUpperCase() : e.key;
+  try {
+    const resolved = await invoke<string>('resolve_logical_shortcut_key', {
+      code: e.code,
+      fallback,
+    });
+    return resolved || fallback;
+  } catch {
+    return fallback;
+  }
 };
 
 export const HotkeyRecorder: React.FC<HotkeyRecorderProps> = ({
@@ -57,7 +51,7 @@ export const HotkeyRecorder: React.FC<HotkeyRecorderProps> = ({
   useEffect(() => {
     if (!isRecording) return;
 
-    const handleKeyDown = (e: KeyboardEvent) => {
+    const handleKeyDown = async (e: KeyboardEvent) => {
       e.preventDefault();
       e.stopPropagation();
 
@@ -83,12 +77,12 @@ export const HotkeyRecorder: React.FC<HotkeyRecorderProps> = ({
         return;
       }
 
-      const keyStr = getLayoutKey(e);
+      setIsRecording(false);
+      const keyStr = await getLogicalKey(e);
       parts.push(keyStr);
 
       const hotkeyStr = parts.join('+');
       onChange(hotkeyStr);
-      setIsRecording(false);
     };
 
     window.addEventListener('keydown', handleKeyDown, true);

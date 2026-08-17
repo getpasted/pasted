@@ -7,6 +7,7 @@ import { SettingsPanelHeader } from './SettingsPanelHeader';
 import { OverflowText } from './OverflowText';
 import { useToast } from './ToastProvider';
 import { ActionButton } from './AppDialogLayout';
+import { listen } from '@tauri-apps/api/event';
 
 interface SettingsHotkeysPanelProps {
   settings: AppSettings;
@@ -26,6 +27,7 @@ type HotkeyCapabilityStatus = {
   configured_count: number;
   registered_count: number;
   issues: Array<{ shortcut: string; description: string; message: string }>;
+  bindings: Array<{ id: string; description: string; trigger: string }>;
 };
 let cachedHotkeyStatus: HotkeyCapabilityStatus | null = null;
 type HotkeySetting = keyof Pick<
@@ -37,7 +39,6 @@ type HotkeySetting = keyof Pick<
   | 'openTransformationsHotkey'
   | 'openMainWindowHotkey'
   | 'lockAppHotkey'
-  | 'unlockAppHotkey'
   | 'pasteClip1Hotkey'
   | 'pasteClip2Hotkey'
   | 'pasteClip3Hotkey'
@@ -58,7 +59,6 @@ const defaultHotkeys: Partial<AppSettings> = {
   openTransformationsHotkey: '',
   openMainWindowHotkey: '',
   lockAppHotkey: 'Alt+Shift+L',
-  unlockAppHotkey: 'Alt+Shift+U',
   pasteClip1Hotkey: '',
   pasteClip2Hotkey: '',
   pasteClip3Hotkey: '',
@@ -78,7 +78,6 @@ const actionHotkeys: Array<{ label: string; key: HotkeySetting; fallback?: strin
   { label: 'Open Transformations', key: 'openTransformationsHotkey', feature: 'transformations' },
   { label: 'Toggle Main Window', key: 'openMainWindowHotkey' },
   { label: 'Lock app', key: 'lockAppHotkey', fallback: 'Alt+Shift+L', feature: 'appLock' },
-  { label: 'Unlock app', key: 'unlockAppHotkey', fallback: 'Alt+Shift+U', feature: 'appLock' },
 ];
 
 function HotkeyRow({ label, value, onChange }: { label: string; value: string | null; onChange: (value: string | null) => void }) {
@@ -111,7 +110,7 @@ export function SettingsHotkeysPanel({
       const fallback: HotkeyCapabilityStatus = {
         platform: 'unsupported', backend: 'unsupported', state: 'unavailable',
         is_trusted: true, is_dev_mode: false, configured_count: 0, registered_count: 0,
-        issues: [],
+        issues: [], bindings: [],
       };
       cachedHotkeyStatus = fallback;
       setHotkeyStatus(fallback);
@@ -120,9 +119,17 @@ export function SettingsHotkeysPanel({
 
   useEffect(() => {
     void refreshHotkeyStatus();
+    let disposed = false;
+    let unlisten: (() => void) | undefined;
+    void listen('hotkey-registration-changed', () => void refreshHotkeyStatus()).then((dispose) => {
+      if (disposed) dispose();
+      else unlisten = dispose;
+    }).catch(console.error);
     const interval = window.setInterval(() => void refreshHotkeyStatus(), 10000);
     window.addEventListener('focus', refreshHotkeyStatus);
     return () => {
+      disposed = true;
+      unlisten?.();
       window.clearInterval(interval);
       window.removeEventListener('focus', refreshHotkeyStatus);
       if (permissionRefreshTimer.current) clearTimeout(permissionRefreshTimer.current);
@@ -131,25 +138,29 @@ export function SettingsHotkeysPanel({
 
   const updateSettingHotkey = async (key: HotkeySetting, newKey: string | null) => {
     const value = newKey ?? '';
+    const previousValue = settings[key] ?? '';
     onUpdateSettings({ [key]: value });
     try {
       await invoke('register_app_setting_hotkey', { key, value });
       await refreshHotkeyStatus();
     } catch (error) {
+      onUpdateSettings({ [key]: previousValue });
       console.error(`Failed to register ${key}:`, error);
       showToast({ tone: 'error', message: 'That shortcut could not be registered. Try a different key combination.' });
     }
   };
 
   const restoreDefaults = async () => {
+    const previousValues = Object.fromEntries(
+      Object.keys(defaultHotkeys).map((key) => [key, settings[key as keyof AppSettings] ?? '']),
+    ) as Partial<AppSettings>;
     onUpdateSettings(defaultHotkeys);
     try {
-      await invoke('register_hud_shortcut', { shortcutStr: defaultHotkeys.hudHotkey });
-      for (const [key, value] of Object.entries(defaultHotkeys)) {
-        if (key !== 'hudHotkey') await invoke('register_app_setting_hotkey', { key, value });
-      }
+      await invoke('register_app_setting_hotkeys', { values: defaultHotkeys });
+      await refreshHotkeyStatus();
       showToast({ tone: 'success', message: 'Default shortcuts restored.' });
     } catch (error) {
+      onUpdateSettings(previousValues);
       console.error('Failed to restore default hotkeys:', error);
       showToast({ tone: 'error', message: 'Some default shortcuts could not be registered.' });
     }
@@ -260,6 +271,16 @@ export function SettingsHotkeysPanel({
             ))}
           </ul>
         )}
+        {hotkeyStatus?.backend === 'wayland-portal' && (hotkeyStatus.bindings?.length ?? 0) > 0 && (
+          <ul className="theme-subtle-surface theme-divide divide-y overflow-hidden rounded-lg border" aria-label="System-managed hotkeys">
+            {(hotkeyStatus.bindings ?? []).map((binding) => (
+              <li key={binding.id} className="flex items-start justify-between gap-3 px-2.5 py-2 text-[10px]">
+                <OverflowText text={binding.description} className="min-w-0 truncate theme-text-main" />
+                <kbd className="shrink-0 font-mono theme-text-muted">{binding.trigger}</kbd>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
       {settings.enableBins && <section className="space-y-2">
@@ -299,10 +320,12 @@ export function SettingsHotkeysPanel({
         <div className="theme-surface overflow-hidden rounded-xl border">
           {settings.enableHud && <HotkeyRow label="HUD" value={settings.hudHotkey === '' ? null : (settings.hudHotkey || 'Alt+Shift+V')} onChange={async (newKey) => {
             const value = newKey ?? '';
+            const previousValue = settings.hudHotkey ?? 'Alt+Shift+V';
             onUpdateSettings({ hudHotkey: value });
             try {
               await invoke('register_hud_shortcut', { shortcutStr: value });
             } catch (error) {
+              onUpdateSettings({ hudHotkey: previousValue });
               console.error('Failed to register HUD shortcut:', error);
               showToast({ tone: 'error', message: 'That shortcut could not be registered. Try a different key combination.' });
             }
