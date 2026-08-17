@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import { createRequire } from 'node:module';
 import path from 'node:path';
-import * as ts from 'typescript';
+
+const require = createRequire(import.meta.url);
+const ts = require('typescript');
 
 const SOURCE_ROOT = 'src';
 const ALLOWED_COMPOSITIONS = [

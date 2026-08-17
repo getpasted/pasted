@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import { createRequire } from 'node:module';
 import path from 'node:path';
-import * as ts from 'typescript';
+
+const require = createRequire(import.meta.url);
+const ts = require('typescript');
 
 const roots = ['src/App.tsx', 'src/components', 'src/hooks/useAppLock.ts', 'src/types.ts'];
 const files = [];
