@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, ArrowRight, Bot, Check, ClipboardCheck, Command, HardDrive, HeartHandshake, ListOrdered, LockKeyhole, RadioTower, ShieldCheck, TerminalSquare } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Bot, Check, ClipboardCheck, Command, Database, ExternalLink, HardDrive, HeartHandshake, ListOrdered, LockKeyhole, Monitor, RadioTower, ShieldCheck, TerminalSquare, Workflow } from 'lucide-react';
 import type { AppSettings } from '../types';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { AppDialog } from './AppDialog';
@@ -32,12 +32,14 @@ export function WelcomeSetup({ isOpen, settings, onUpdateSettings, onImported }:
   const [step, setStep] = useState<SetupStep>('welcome');
   const [permission, setPermission] = useState<HotkeyCapabilityStatus | null>(null);
   const [importedCount, setImportedCount] = useState(0);
+  const [backingError, setBackingError] = useState('');
   const stepIndex = STEPS.indexOf(step);
 
   useEffect(() => {
     if (!isOpen) return;
     setStep('welcome');
     setImportedCount(0);
+    setBackingError('');
   }, [isOpen]);
 
   useEffect(() => {
@@ -83,6 +85,14 @@ export function WelcomeSetup({ isOpen, settings, onUpdateSettings, onImported }:
       await invoke('request_accessibility_permission');
     } catch (error) {
       console.error('Could not open permission settings:', error);
+    }
+  };
+  const openBackingPage = async () => {
+    setBackingError('');
+    try {
+      await invoke('open_backing_page');
+    } catch (error) {
+      setBackingError(String(error));
     }
   };
   const handleImported = async (report: ExternalImportReport) => {
@@ -221,6 +231,21 @@ export function WelcomeSetup({ isOpen, settings, onUpdateSettings, onImported }:
                   </div>
                 </article>
               </div>
+              <div className="welcome-setup-shared-library">
+                <div className="welcome-setup-library-hub">
+                  <Database />
+                  <div>
+                    <strong>One local library underneath it all</strong>
+                    <span>History, Bins, notes, and workflows stay consistent from every entry point.</span>
+                  </div>
+                </div>
+                <div className="welcome-setup-library-routes" aria-label="Shared library entry points">
+                  <span><Monitor /> Interface</span>
+                  <span><TerminalSquare /> CLI</span>
+                  <span><Workflow /> Automations</span>
+                  <span><Bot /> Agents</span>
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -235,6 +260,17 @@ export function WelcomeSetup({ isOpen, settings, onUpdateSettings, onImported }:
                 ? `${importedCount} clips came with you. Human and machine copycats can find them in the same local workspace.`
                 : 'Copy something new. Pasted will remember it without sending it anywhere.'}
             </p>
+            <div className="welcome-setup-backing">
+              <HeartHandshake />
+              <div>
+                <strong>Keep the copycat copying.</strong>
+                <span>Nothing to unlock. Just useful software—and one more reason to keep making it.</span>
+              </div>
+              <ActionButton onClick={() => void openBackingPage()}>
+                Back Pasted — $9.99 <ExternalLink />
+              </ActionButton>
+            </div>
+            {backingError && <div role="alert" className="theme-status-danger mt-3 rounded-xl border px-3 py-2 text-xs">{backingError}</div>}
           </div>
         )}
       </div>
