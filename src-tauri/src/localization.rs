@@ -32,6 +32,8 @@ fn catalogs() -> &'static Catalogs {
             .expect("the bundled locale manifest must be valid");
         let english = serde_json::from_str(include_str!("../../src/locales/en.json"))
             .expect("the bundled English catalog must be valid");
+        let es = serde_json::from_str(include_str!("../../src/locales/es.json"))
+            .expect("the bundled Spanish catalog must be valid");
         let ar = serde_json::from_str(include_str!("../../src/locales/ar.json"))
             .expect("the bundled Arabic catalog must be valid");
         let de_de = serde_json::from_str(include_str!("../../src/locales/de-DE.json"))
@@ -42,15 +44,19 @@ fn catalogs() -> &'static Catalogs {
             .expect("the bundled Hebrew catalog must be valid");
         let ja_jp = serde_json::from_str(include_str!("../../src/locales/ja-JP.json"))
             .expect("the bundled Japanese catalog must be valid");
+        let pt_br = serde_json::from_str(include_str!("../../src/locales/pt-BR.json"))
+            .expect("the bundled Brazilian Portuguese catalog must be valid");
         Catalogs {
             manifest,
             messages: HashMap::from([
                 ("ar", ar),
                 ("en", english),
+                ("es", es),
                 ("de-DE", de_de),
                 ("fr-FR", fr_fr),
                 ("he", he),
                 ("ja-JP", ja_jp),
+                ("pt-BR", pt_br),
             ]),
         }
     })
@@ -124,21 +130,25 @@ mod tests {
         assert!(validate_configured_language("system").is_ok());
         assert!(validate_configured_language("ar").is_ok());
         assert!(validate_configured_language("en").is_ok());
+        assert!(validate_configured_language("es").is_ok());
         assert!(validate_configured_language("de-DE").is_ok());
         assert!(validate_configured_language("fr-FR").is_ok());
         assert!(validate_configured_language("he").is_ok());
         assert!(validate_configured_language("ja-JP").is_ok());
+        assert!(validate_configured_language("pt-BR").is_ok());
         assert!(validate_configured_language("not-a-locale").is_err());
     }
 
     #[test]
     fn catalog_uses_keys_only_as_a_last_resort() {
         assert_eq!(text_for_locale("en", "native.file.title"), "File");
+        assert_eq!(text_for_locale("es", "native.file.title"), "Archivo");
         assert_eq!(text_for_locale("ar", "native.file.title"), "ملف");
         assert_eq!(text_for_locale("de-DE", "native.file.title"), "Datei");
         assert_eq!(text_for_locale("fr-FR", "native.file.title"), "Fichier");
         assert_eq!(text_for_locale("he", "native.file.title"), "קובץ");
         assert_eq!(text_for_locale("ja-JP", "native.file.title"), "ファイル");
+        assert_eq!(text_for_locale("pt-BR", "native.file.title"), "Arquivo");
         assert_eq!(text_for_locale("missing", "native.file.title"), "File");
         assert_eq!(text_for_locale("en", "missing.key"), "missing.key");
     }
