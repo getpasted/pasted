@@ -15,7 +15,7 @@ Operating-system frameworks are supplied by the operating system. Linux AppImage
 runtime notices are embedded by the AppImage runtime and must remain intact.
 Windows installer-tool components and their notices are included in this inventory.
 
-Component inventory (431)
+Component inventory (433)
 
 - adler2 2.0.1 [cargo; 0BSD OR MIT OR Apache-2.0] — https://github.com/oyvindln/adler2
 - ahash 0.8.12 [cargo; MIT OR Apache-2.0] — https://github.com/tkaitchuck/ahash
@@ -418,7 +418,9 @@ Component inventory (431)
 - x11 2.21.0 [cargo; MIT] — https://github.com/AltF02/x11-rs.git
 - x11-dl 2.21.0 [cargo; MIT] — https://github.com/AltF02/x11-rs.git
 - x11rb 0.13.2 [cargo; MIT OR Apache-2.0] — https://github.com/psychon/x11rb
+- x11rb 0.14.0 [cargo; MIT OR Apache-2.0] — https://github.com/psychon/x11rb
 - x11rb-protocol 0.13.2 [cargo; MIT OR Apache-2.0] — https://github.com/psychon/x11rb
+- x11rb-protocol 0.14.0 [cargo; MIT OR Apache-2.0] — https://github.com/psychon/x11rb
 - xkeysym 0.2.1 [cargo; MIT OR Apache-2.0 OR Zlib] — https://github.com/notgull/xkeysym
 - yoke 0.8.3 [cargo; Unicode-3.0] — https://github.com/unicode-org/icu4x
 - yoke-derive 0.8.2 [cargo; Unicode-3.0] — https://github.com/unicode-org/icu4x
@@ -2864,7 +2866,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ================================================================================
 Apache License 2.0
 License identifier: Apache-2.0
-Used by: embed_plist 1.2.2 (cargo), serialize-to-javascript 0.1.2 (cargo), serialize-to-javascript-impl 0.1.2 (cargo), tinyvec 1.12.0 (cargo), utf8_iter 1.0.4 (cargo), x11rb 0.13.2 (cargo), x11rb-protocol 0.13.2 (cargo), zune-core 0.5.1 (cargo), zune-jpeg 0.5.15 (cargo)
+Used by: embed_plist 1.2.2 (cargo), serialize-to-javascript 0.1.2 (cargo), serialize-to-javascript-impl 0.1.2 (cargo), tinyvec 1.12.0 (cargo), utf8_iter 1.0.4 (cargo), x11rb 0.13.2 (cargo), x11rb 0.14.0 (cargo), x11rb-protocol 0.13.2 (cargo), x11rb-protocol 0.14.0 (cargo), zune-core 0.5.1 (cargo), zune-jpeg 0.5.15 (cargo)
 --------------------------------------------------------------------------------
 Apache License
                            Version 2.0, January 2004

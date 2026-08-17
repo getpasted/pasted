@@ -3,7 +3,7 @@
   "dataLicense": "CC0-1.0",
   "SPDXID": "SPDXRef-DOCUMENT",
   "name": "Pasted-1.0.0-rc.5-distributed-components",
-  "documentNamespace": "https://getpasted.app/sbom/1.0.0-rc.5/0539682d4db657b60f6ad40702c2832d3ea76a4d2c570df127075b9d64ab4b52",
+  "documentNamespace": "https://getpasted.app/sbom/1.0.0-rc.5/caada3c25e3f403963dd40b499fdd26cfaabf45c401d95a47b92a99af3341856",
   "creationInfo": {
     "creators": [
       "Tool: Pasted deterministic dependency inventory"
@@ -6829,6 +6829,23 @@
       ]
     },
     {
+      "SPDXID": "SPDXRef-cargo-9690597eb17a1d58",
+      "name": "x11rb",
+      "versionInfo": "0.14.0",
+      "downloadLocation": "https://github.com/psychon/x11rb",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT OR Apache-2.0",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/x11rb@0.14.0"
+        }
+      ]
+    },
+    {
       "SPDXID": "SPDXRef-cargo-c3c37d2d5063491b",
       "name": "x11rb-protocol",
       "versionInfo": "0.13.2",
@@ -6842,6 +6859,23 @@
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
           "referenceLocator": "pkg:cargo/x11rb-protocol@0.13.2"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-cargo-406e246e10c676dd",
+      "name": "x11rb-protocol",
+      "versionInfo": "0.14.0",
+      "downloadLocation": "https://github.com/psychon/x11rb",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT OR Apache-2.0",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/x11rb-protocol@0.14.0"
         }
       ]
     },
@@ -9348,7 +9382,17 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-cargo-9690597eb17a1d58"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
       "relatedSpdxElement": "SPDXRef-cargo-c3c37d2d5063491b"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-cargo-406e246e10c676dd"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
