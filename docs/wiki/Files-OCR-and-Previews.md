@@ -27,9 +27,9 @@ Media metadata is inspected live because referenced files can change outside the
 
 ## Audio transcription
 
-The shipped **Whisper Transcription** Extractor uses an installed whisper.cpp `whisper-cli` executable and an explicitly selected local GGML model. Homebrew installations can use `brew install whisper-cpp`; model files remain a separate user-managed dependency and are never downloaded automatically. Extractor settings show the automatically discovered executable, detected version, model, and FFmpeg dependency. Select an explicit executable when discovery is insufficient. Configure the same fields through `pasted extractor update` with `--executable`, `--automatic-discovery`, `--model`, and `--no-model`.
+The shipped **Whisper Transcription** Extractor is a visible local recipe: FFmpeg prepares bounded audio, then an installed whisper.cpp `whisper-cli` executable writes searchable text with an explicitly selected local GGML model. Homebrew installations can use `brew install ffmpeg whisper-cpp`; model files remain a separate user-managed resource and are never downloaded automatically. Advanced Extractor settings expose both commands, their discovery or absolute executable paths, argv tokens, time limits, output handling, and the model resource.
 
-**Transcriptions** under **Settings → Functionality** controls Whisper and other file-input transcription Extractors across the app and CLI.
+**Transcriptions** under **Settings → Functionality** controls the shipped Whisper Extractor. It does not hide unrelated user-defined file Extractors such as PDF text readers.
 
 Explicit transcription accepts bounded FLAC, MP3, OGG, WAV, M4A, and AAC file references. M4A and AAC audio is converted to a private temporary WAV with an installed FFmpeg executable before whisper.cpp runs. Applying a result stores searchable text and Extractor provenance without replacing the file clip's original path list. Search and smart `contains` rules include current hash-bound transcription text. A stale result cannot attach to a changed or removed clip.
 

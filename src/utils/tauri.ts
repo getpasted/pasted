@@ -103,15 +103,30 @@ let mockClassifiers = [
   mockClassifier({ id: 2, stable_ref: 'credential', name: 'Credentials', content_type: 'credential', description: 'Known API-key formats and secret assignments', patterns: [String.raw`^(?:sk_|ghp_).+$`], validator: null, enabled: true, priority: 60, is_builtin: true }),
   mockClassifier({ id: 3, stable_ref: 'phone', name: 'Phone Numbers', content_type: 'phone', description: 'Formatted international and local phone numbers', patterns: [String.raw`^\+?[0-9 ()-]{7,}$`], validator: 'phone', enabled: true, priority: 160, is_builtin: true }),
 ];
-const mockAppleExtractorDefaults = { name: 'Apple Vision OCR', description: 'Extracts searchable text from images locally with Apple Vision.', engine: 'macos-vision-v1', executablePath: null, modelPath: null, inputContract: 'image', outputContract: 'searchable_text', enabled: true, priority: 10 };
-const mockTesseractExtractorDefaults = { name: 'Tesseract OCR', description: 'Extracts searchable text from images locally with Tesseract.', engine: 'tesseract-cli-v1', executablePath: null, modelPath: null, inputContract: 'image', outputContract: 'searchable_text', enabled: true, priority: 20 };
-const mockWhisperExtractorDefaults = { name: 'Whisper Transcription', description: 'Extracts searchable text from local audio files with whisper.cpp.', engine: 'whisper-cpp-cli-v1', executablePath: null, modelPath: null, inputContract: 'file_references', outputContract: 'searchable_text', enabled: true, priority: 30 };
+const mockAppleExtractorDefaults = { name: 'Apple Vision OCR', description: 'Extracts searchable text from images locally with Apple Vision.', engine: 'recipe-v1', executablePath: null, modelPath: null, inputContract: 'image', outputContract: 'searchable_text', enabled: true, priority: 10 };
+const mockTesseractExtractorDefaults = { name: 'Tesseract OCR', description: 'Extracts searchable text from images locally with Tesseract.', engine: 'recipe-v1', executablePath: null, modelPath: null, inputContract: 'image', outputContract: 'searchable_text', enabled: true, priority: 20 };
+const mockWhisperExtractorDefaults = { name: 'Whisper Transcription', description: 'Extracts searchable text from local audio files with whisper.cpp.', engine: 'recipe-v1', executablePath: null, modelPath: null, inputContract: 'file_references', outputContract: 'searchable_text', enabled: true, priority: 30 };
+type MockExtractorRecipe = {
+  definitionVersion: 1;
+  accepts: Array<'image' | 'file_references'>;
+  output: 'searchable_text';
+  steps: Array<{ id: string; executable: { path: string | null; discover: string[]; versionArguments: string[] }; arguments: string[]; mode: 'once' | 'each_input'; capture: 'ignore' | 'stdout_text' | 'file_text' | 'pasted_json_v1'; outputExtension: string | null; timeoutSeconds: number }>;
+  resources: Array<{ id: string; label: string; kind: 'file' | 'directory'; required: boolean; path: string | null }>;
+};
+const mockExtractorRecipe = (input: 'image' | 'file_references', command: string): MockExtractorRecipe => ({
+  definitionVersion: 1,
+  accepts: [input],
+  output: 'searchable_text',
+  steps: [{ id: 'extract', executable: { path: null, discover: [command], versionArguments: ['--version'] }, arguments: ['{input.path}'], mode: 'once', capture: 'stdout_text', outputExtension: null, timeoutSeconds: 60 }],
+  resources: [],
+});
 type MockExtractor = {
   id: number; stableRef: string; name: string; description: string; engine: string;
   executablePath: string | null; modelPath: string | null; revision: number;
   inputContract: string; outputContract: string; enabled: boolean; priority: number;
   isBuiltin: boolean; isAvailable: boolean; unavailableReason: string | null;
   runtime: { method: string; location: string | null; version: string | null; usesAutomaticDiscovery: boolean; dependencies: Array<{ name: string; location: string | null; version: string | null; isAvailable: boolean; unavailableReason: string | null }> };
+  recipe: MockExtractorRecipe; recipeHash: string; defaultRecipe: MockExtractorRecipe | null;
   defaults: typeof mockAppleExtractorDefaults | null;
 };
 function mockBuiltinExtractors(): MockExtractor[] {
@@ -124,7 +139,7 @@ function mockBuiltinExtractors(): MockExtractor[] {
     isBuiltin: true,
     isAvailable: true,
     unavailableReason: null,
-    defaults: { ...mockAppleExtractorDefaults },
+    recipe: mockExtractorRecipe('image', 'pasted-bundled-extractor'), recipeHash: 'mock-apple', defaultRecipe: mockExtractorRecipe('image', 'pasted-bundled-extractor'), defaults: { ...mockAppleExtractorDefaults },
   }, {
     id: 2,
     stableRef: 'extractor:tesseract-ocr',
@@ -134,7 +149,7 @@ function mockBuiltinExtractors(): MockExtractor[] {
     isBuiltin: true,
     isAvailable: false,
     unavailableReason: 'Tesseract OCR is not installed. Install Tesseract 5, then check again.',
-    defaults: { ...mockTesseractExtractorDefaults },
+    recipe: mockExtractorRecipe('image', 'tesseract'), recipeHash: 'mock-tesseract', defaultRecipe: mockExtractorRecipe('image', 'tesseract'), defaults: { ...mockTesseractExtractorDefaults },
   }, {
     id: 3,
     stableRef: 'extractor:whisper-transcription',
@@ -144,7 +159,7 @@ function mockBuiltinExtractors(): MockExtractor[] {
     isBuiltin: true,
     isAvailable: false,
     unavailableReason: 'Whisper.cpp is not installed. Install whisper-cpp, then check again.',
-    defaults: { ...mockWhisperExtractorDefaults },
+    recipe: mockExtractorRecipe('file_references', 'whisper-cli'), recipeHash: 'mock-whisper', defaultRecipe: mockExtractorRecipe('file_references', 'whisper-cli'), defaults: { ...mockWhisperExtractorDefaults },
   }];
 }
 let nextMockExtractorId = 4;
@@ -343,16 +358,18 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
     case 'get_content_classifiers':
       return mockClassifiers.map((classifier) => ({ ...classifier, patterns: [...classifier.patterns] })) as unknown as T;
     case 'get_content_extractors':
-      return mockExtractors.map((extractor) => ({ ...extractor, defaults: extractor.defaults ? { ...extractor.defaults } : null })) as unknown as T;
+      return mockExtractors.map((extractor) => ({ ...extractor, recipe: structuredClone(extractor.recipe), defaultRecipe: extractor.defaultRecipe ? structuredClone(extractor.defaultRecipe) : null, defaults: extractor.defaults ? { ...extractor.defaults } : null })) as unknown as T;
     case 'get_content_inspectors':
       return [
         { stableRef: 'inspector:structure-v1', name: 'Structure', description: 'Measures stable clip structure without retaining clipboard contents.', inputContract: 'clip', outputContract: 'structural_metadata', priority: 0, isBuiltin: true, engine: null, isAvailable: true, unavailableReason: null },
         { stableRef: 'inspector:media-metadata-v1', name: 'Media Metadata', description: 'Reads bounded audio and video metadata locally.', inputContract: 'file_references', outputContract: 'media_metadata', priority: 10, isBuiltin: true, engine: 'ffprobe-cli-v1', isAvailable: true, unavailableReason: null },
       ] as unknown as T;
-    case 'choose_extractor_model_file':
-      return '/mock/models/ggml-base.en.bin' as unknown as T;
     case 'choose_extractor_executable':
       return '/mock/bin/custom-extractor' as unknown as T;
+    case 'choose_extractor_resource_file':
+      return '/mock/input/sample.dat' as unknown as T;
+    case 'test_content_extractor_recipe':
+      return { outcome: 'produced', text: 'Mock extracted text' } as unknown as T;
     case 'extract_ocr_from_clip': {
       const clipId = Number(args?.clipId);
       if (!Number.isInteger(clipId) || clipId <= 0) throw new Error('A valid clip ID is required.');
@@ -418,18 +435,24 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
         classificationUpdated: true,
       } as unknown as T;
     }
-    case 'create_content_extractor': {
-      const input = args?.input as Omit<MockExtractor, 'id' | 'stableRef' | 'isBuiltin' | 'isAvailable' | 'unavailableReason' | 'defaults'>;
+    case 'create_content_extractor_recipe': {
+      const input = args?.input as { name: string; description: string; enabled: boolean; priority: number; recipe: MockExtractorRecipe };
       const id = nextMockExtractorId++;
-      const created: MockExtractor = { id, stableRef: `extractor:custom:${id}`, ...input, revision: 1, runtime: { method: 'command', location: input.executablePath, version: null, usesAutomaticDiscovery: false, dependencies: [] }, isBuiltin: false, isAvailable: Boolean(input.executablePath), unavailableReason: input.executablePath ? null : 'A custom executable is not configured.', defaults: null };
+      const created: MockExtractor = { id, stableRef: `extractor:custom:${id}`, name: input.name, description: input.description, engine: 'recipe-v1', executablePath: input.recipe.steps[0]?.executable.path ?? null, modelPath: null, inputContract: input.recipe.accepts[0] ?? 'image', outputContract: 'searchable_text', enabled: input.enabled, priority: input.priority, recipe: structuredClone(input.recipe), recipeHash: `mock-${id}`, defaultRecipe: null, revision: 1, runtime: { method: 'recipe', location: input.recipe.steps[0]?.executable.path ?? null, version: null, usesAutomaticDiscovery: !input.recipe.steps[0]?.executable.path, dependencies: [] }, isBuiltin: false, isAvailable: true, unavailableReason: null, defaults: null };
       mockExtractors = [...mockExtractors, created];
       return created as unknown as T;
     }
-    case 'update_content_extractor_definition': {
+    case 'update_content_extractor_recipe': {
       const id = Number(args?.id);
-      const input = args?.input as Partial<typeof mockExtractors[number]>;
-      mockExtractors = mockExtractors.map((extractor) => extractor.id === id ? { ...extractor, ...input, revision: extractor.revision + 1 } : extractor);
+      const input = args?.input as { name: string; description: string; enabled: boolean; priority: number; recipe: MockExtractorRecipe };
+      mockExtractors = mockExtractors.map((extractor) => extractor.id === id ? { ...extractor, ...input, recipe: structuredClone(input.recipe), recipeHash: `mock-${id}-${extractor.revision + 1}`, revision: extractor.revision + 1 } : extractor);
       return mockExtractors.find((extractor) => extractor.id === id) as unknown as T;
+    }
+    case 'get_extractor_authoring_sessions':
+      return [] as unknown as T;
+    case 'propose_extractor_recipe': {
+      const recipe = mockExtractorRecipe('file_references', 'pdftotext');
+      return { name: 'PDF Text', description: 'Extracts searchable text from PDF files.', recipe, setupGuidance: ['Install Poppler.'], authoring: { manifestVersion: 1, source: 'ai', originalPrompt: String((args?.request as { prompt?: unknown } | undefined)?.prompt ?? ''), provider: 'Mock AI', model: 'mock', messages: [] }, connectionId: 'mock', connectionName: 'Mock AI', durationMs: 1 } as unknown as T;
     }
     case 'duplicate_content_extractor': {
       const reference = String(args?.reference ?? '');

@@ -348,6 +348,9 @@ mod tests {
             is_available: true,
             unavailable_reason: None,
             runtime: crate::content_extraction::runtime_status_for("fake-engine-v1", None),
+            recipe: crate::content_extraction::test_recipe("image"),
+            recipe_hash: "test".into(),
+            default_recipe: None,
             defaults: None,
         };
         let engine = DisablingEngine { db: &db };
@@ -430,6 +433,9 @@ mod tests {
             is_available: true,
             unavailable_reason: None,
             runtime: crate::content_extraction::runtime_status_for("fake-engine-v1", None),
+            recipe: crate::content_extraction::test_recipe("image"),
+            recipe_hash: "test".into(),
+            default_recipe: None,
             defaults: None,
         };
         let engine = FailingEngine {
@@ -509,6 +515,9 @@ mod tests {
             is_available: true,
             unavailable_reason: None,
             runtime: crate::content_extraction::runtime_status_for("fake-engine-v1", None),
+            recipe: crate::content_extraction::test_recipe("image"),
+            recipe_hash: "test".into(),
+            default_recipe: None,
             defaults: None,
         };
         let engine = InvalidFailureEngine;

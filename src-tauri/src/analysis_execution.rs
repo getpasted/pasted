@@ -95,12 +95,14 @@ fn execute(
     };
     let extractor = if options.include_extractor {
         match clip_kind {
-            "image" if crate::features::is_enabled(db, crate::features::Feature::Ocr) => {
-                db.active_image_text_extractor()
-            }
-            "file" if crate::features::is_enabled(db, crate::features::Feature::Transcriptions) => {
-                db.active_file_text_extractor()
-            }
+            "image" => db.active_image_text_extractor_for_features(crate::features::is_enabled(
+                db,
+                crate::features::Feature::Ocr,
+            )),
+            "file" => db.active_file_text_extractor_for_features(crate::features::is_enabled(
+                db,
+                crate::features::Feature::Transcriptions,
+            )),
             _ => Ok(None),
         }
         .map_err(|error| error.to_string())?

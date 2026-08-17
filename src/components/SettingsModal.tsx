@@ -61,12 +61,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onOpenAnalytics,
 }) => {
   useEffect(() => {
-    if (!settings.enableTransformations && activeTab === 'intelligence') {
-      onActiveTabChange('functionality');
-    }
-  }, [activeTab, onActiveTabChange, settings.enableTransformations]);
-
-  useEffect(() => {
     if (!settings.enableNotifications && activeTab === 'notifications') {
       onActiveTabChange('functionality');
     }
@@ -83,7 +77,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       <ToolPageHeader
         icon={<Settings className="w-4 h-4" />}
         title={translate('destination.settings')}
-        actions={<SettingsTabs activeTab={activeTab} onChange={onActiveTabChange} showIntelligence={settings.enableTransformations} showNotifications={settings.enableNotifications} showSecurity={settings.enableAppLock} />}
+        actions={<SettingsTabs activeTab={activeTab} onChange={onActiveTabChange} showNotifications={settings.enableNotifications} showSecurity={settings.enableAppLock} />}
       />
 
       <div className="tools-scroll-region flex-1 overflow-y-auto p-6">
@@ -118,6 +112,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             transformationsEnabled={settings.enableTransformations}
             typesEnabled={settings.enableTypes}
             sourcesEnabled={settings.enableSources}
+            onOpenIntelligence={() => onActiveTabChange('intelligence')}
           />
         )}
 
@@ -140,7 +135,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         )}
 
         {/* INTELLIGENCE */}
-        {settings.enableTransformations && activeTab === 'intelligence' && <IntelligenceConnectionsPanel />}
+        {activeTab === 'intelligence' && <IntelligenceConnectionsPanel />}
 
         {/* APP EXCLUSIONS */}
         {activeTab === 'app-exclusions' && (

@@ -6,19 +6,22 @@ use std::path::{Path, PathBuf};
 
 use pasted_lib::bin_assignment::assign_clips_to_bin;
 use pasted_lib::content_classification::ClassifierInput;
-use pasted_lib::content_extraction::{
-    ExtractorDefinitionInput, APPLE_VISION_ENGINE, CUSTOM_COMMAND_ENGINE, TESSERACT_ENGINE,
-    WHISPER_CPP_ENGINE,
-};
+use pasted_lib::content_extraction::{ExtractorDefinitionInput, CUSTOM_COMMAND_ENGINE};
 use pasted_lib::content_types::{ContentTypeGroupInput, ContentTypeInput};
 use pasted_lib::db::{
     open_pasted_database, ClipMutationSummary, DbState, IntelligenceConnectionUpdate,
     PipelineStepInput, TransformAuthoringKind, TransformClipApplication, TransformDefinition,
 };
 use pasted_lib::external_import::{self, ExternalImportSource};
+use pasted_lib::extractor_recipe::{
+    ExtractorAuthoringManifest, ExtractorAuthoringSource, ExtractorRecipe,
+    ExtractorRecipeDefinitionInput, EXTRACTOR_AUTHORING_VERSION,
+};
 use pasted_lib::features::{setting_value_is_enabled, Feature};
 use pasted_lib::installation_diagnostics::{InstallationDiagnostics, APP_IDENTIFIER};
-use pasted_lib::intelligence_executor::{ExecutePlanRequest, PlanIntentOutcome, PlanIntentRequest};
+use pasted_lib::intelligence_executor::{
+    ExecutePlanRequest, PlanIntentOutcome, PlanIntentRequest, ProposeExtractorRecipeRequest,
+};
 use pasted_lib::library_storage;
 use pasted_lib::third_party_licenses;
 use pasted_lib::transformation_intent::{IntentPlanningMode, TransformationPlan};
@@ -84,6 +87,9 @@ fn read_library_archive(path: &Path) -> Result<String> {
 
 fn main() -> Result<()> {
     let args: Vec<String> = env::args().collect();
+    if let Some(code) = pasted_lib::content_extraction::run_bundled_extractor_helper(&args) {
+        std::process::exit(code);
+    }
     let command = args.get(1).map(|s| s.as_str()).unwrap_or("help");
 
     // Legal notices must remain available even when the app database does not
@@ -1635,19 +1641,118 @@ fn run_command(command: &str, args: &[String], db_path: PathBuf, conn: Connectio
                     print_extractor(&extractor, args.iter().any(|argument| argument == "--json"))?;
                 }
                 "create" | "new" => {
-                    let input = extractor_definition_from_args(&args, None);
-                    let extractor = db.create_content_extractor(&input)?;
+                    let extractor = if let Some(prompt) = argument_value(&args, "--prompt") {
+                        let proposal = pasted_lib::intelligence_executor::propose_extractor_recipe(
+                            &db,
+                            ProposeExtractorRecipeRequest {
+                                prompt,
+                                connection_id: argument_value(&args, "--connection"),
+                            },
+                            None,
+                        )
+                        .map_err(|error| rusqlite::Error::InvalidParameterName(error.message))?;
+                        let mut input = extractor_recipe_definition_from_args(
+                            &args,
+                            proposal.recipe,
+                            None,
+                            Some(proposal.authoring),
+                        );
+                        if argument_value(&args, "--name").is_none() {
+                            input.name = proposal.name;
+                        }
+                        if argument_value(&args, "--description").is_none() {
+                            input.description = proposal.description;
+                        }
+                        db.create_content_extractor_recipe(&input)?
+                    } else if let Some(recipe_path) = argument_value(&args, "--recipe") {
+                        let recipe = read_extractor_recipe(Path::new(&recipe_path))?;
+                        let input =
+                            extractor_recipe_definition_from_args(&args, recipe, None, None);
+                        db.create_content_extractor_recipe(&input)?
+                    } else {
+                        let legacy = extractor_definition_from_args(&args, None);
+                        let recipe =
+                            pasted_lib::content_extraction::recipe_for_legacy_definition(&legacy);
+                        let input =
+                            extractor_recipe_definition_from_args(&args, recipe, None, None);
+                        db.create_content_extractor_recipe(&input)?
+                    };
                     print_extractor(&extractor, args.iter().any(|argument| argument == "--json"))?;
                 }
                 "update" => {
                     let reference = args.get(3).unwrap_or_else(|| {
-                        eprintln!("Usage: pasted extractor update <ref> [--name NAME] [--description TEXT] [--method METHOD] [--executable PATH|--automatic-discovery] [--model PATH|--no-model] [--input CONTRACT] [--output CONTRACT] [--priority N] [--enabled|--disabled] [--json]");
+                        eprintln!("Usage: pasted extractor update <ref> --recipe FILE [--name NAME] [--description TEXT] [--priority N] [--enabled|--disabled] [--json]");
                         std::process::exit(2);
                     });
                     let current = db.get_content_extractor(reference)?;
-                    let input = extractor_definition_from_args(&args, Some(&current));
-                    let updated = db.update_content_extractor_definition(current.id, &input)?;
+                    let updated = if let Some(recipe_path) = argument_value(&args, "--recipe") {
+                        let recipe = read_extractor_recipe(Path::new(&recipe_path))?;
+                        let input = extractor_recipe_definition_from_args(
+                            &args,
+                            recipe,
+                            Some(&current),
+                            None,
+                        );
+                        db.update_content_extractor_recipe(current.id, &input)?
+                    } else {
+                        let input = extractor_definition_from_args(&args, Some(&current));
+                        db.update_content_extractor_definition(current.id, &input)?
+                    };
                     print_extractor(&updated, args.iter().any(|argument| argument == "--json"))?;
+                }
+                "propose" | "draft" => {
+                    let prompt = argument_value(&args, "--prompt").unwrap_or_else(|| {
+                        eprintln!("Usage: pasted extractor propose --prompt TEXT [--connection ID] [--json]");
+                        std::process::exit(2);
+                    });
+                    let proposal = pasted_lib::intelligence_executor::propose_extractor_recipe(
+                        &db,
+                        ProposeExtractorRecipeRequest {
+                            prompt,
+                            connection_id: argument_value(&args, "--connection"),
+                        },
+                        None,
+                    )
+                    .map_err(|error| rusqlite::Error::InvalidParameterName(error.message))?;
+                    if args.iter().any(|argument| argument == "--json") {
+                        println!(
+                            "{}",
+                            serde_json::to_string_pretty(&proposal).map_err(json_error)?
+                        );
+                    } else {
+                        println!(
+                            "{}",
+                            serde_json::to_string_pretty(&proposal.recipe).map_err(json_error)?
+                        );
+                        for item in proposal.setup_guidance {
+                            eprintln!("Setup: {item}");
+                        }
+                    }
+                }
+                "history" => {
+                    let reference = args.get(3).unwrap_or_else(|| {
+                        eprintln!("Usage: pasted extractor history <ref> [--json]");
+                        std::process::exit(2);
+                    });
+                    let sessions = db.get_extractor_authoring_sessions(reference)?;
+                    if args.iter().any(|argument| argument == "--json") {
+                        println!(
+                            "{}",
+                            serde_json::to_string_pretty(&sessions).map_err(json_error)?
+                        );
+                    } else if sessions.is_empty() {
+                        println!("No authoring history.");
+                    } else {
+                        for session in sessions {
+                            println!(
+                                "{}\t{}\t{}\t{}",
+                                session.created_at,
+                                session.source.stable_name(),
+                                session.provider.as_deref().unwrap_or("local"),
+                                session.model.as_deref().unwrap_or("-")
+                            );
+                        }
+                    }
                 }
                 "duplicate" | "copy" => {
                     let reference = args.get(3).unwrap_or_else(|| {
@@ -1712,10 +1817,19 @@ fn run_command(command: &str, args: &[String], db_path: PathBuf, conn: Connectio
                         eprintln!("This Extractor does not have a runnable input contract.");
                         std::process::exit(2);
                     }
-                    if image_contract {
+                    if image_contract
+                        && matches!(
+                            extractor.stable_ref.as_str(),
+                            pasted_lib::content_extraction::APPLE_VISION_OCR_REF
+                                | pasted_lib::content_extraction::TESSERACT_OCR_REF
+                        )
+                    {
                         require_feature(&db, Feature::Ocr);
                     }
-                    if file_contract {
+                    if file_contract
+                        && extractor.stable_ref
+                            == pasted_lib::content_extraction::WHISPER_TRANSCRIPTION_REF
+                    {
                         require_feature(&db, Feature::Transcriptions);
                     }
                     let mut content_hash = None;
@@ -1822,7 +1936,7 @@ fn run_command(command: &str, args: &[String], db_path: PathBuf, conn: Connectio
                     }
                 }
                 _ => {
-                    eprintln!("Usage: pasted extractor list|get|create|update|duplicate|delete|run|restore-defaults [options] [--json]");
+                    eprintln!("Usage: pasted extractor list|get|create|update|propose|history|duplicate|delete|run|restore-defaults [options] [--json]");
                     std::process::exit(2);
                 }
             }
@@ -3889,6 +4003,9 @@ fn run_command(command: &str, args: &[String], db_path: PathBuf, conn: Connectio
             println!("  pasted clip import <path> [--format json|csv] [--json]");
             println!("  pasted analyzer run [--text TEXT | --clip ID | --stdin] [--policy POLICY] [--extract] [--json]");
             println!("  pasted extractor list --json List content Extractors and availability");
+            println!("  pasted extractor create --recipe FILE [options] Create a local recipe");
+            println!("  pasted extractor propose --prompt TEXT Draft a recipe with AI");
+            println!("  pasted extractor history <ref> Review local authoring history");
             println!("  pasted inspector list --json List content Inspectors");
             println!(
                 "  pasted inspector run [--text TEXT | --clip ID | --stdin] [--apply] [--json]"
@@ -4136,22 +4253,6 @@ fn extractor_definition_from_args(
     args: &[String],
     current: Option<&pasted_lib::content_extraction::Extractor>,
 ) -> ExtractorDefinitionInput {
-    let engine = argument_value(args, "--method")
-        .map(|method| match method.as_str() {
-            "apple-vision" => APPLE_VISION_ENGINE.into(),
-            "tesseract" => TESSERACT_ENGINE.into(),
-            "whisper" | "whisper-cpp" => WHISPER_CPP_ENGINE.into(),
-            "custom-command" | "command" => CUSTOM_COMMAND_ENGINE.into(),
-            _ => {
-                eprintln!("--method must be apple-vision, tesseract, whisper, or custom-command");
-                std::process::exit(2);
-            }
-        })
-        .unwrap_or_else(|| {
-            current
-                .map(|item| item.engine.clone())
-                .unwrap_or_else(|| CUSTOM_COMMAND_ENGINE.into())
-        });
     ExtractorDefinitionInput {
         name: argument_value(args, "--name").unwrap_or_else(|| {
             current
@@ -4163,7 +4264,9 @@ fn extractor_definition_from_args(
                 .map(|item| item.description.clone())
                 .unwrap_or_else(|| "Extracts searchable text with a local command.".into())
         }),
-        engine,
+        engine: current
+            .map(|item| item.engine.clone())
+            .unwrap_or_else(|| CUSTOM_COMMAND_ENGINE.into()),
         executable_path: optional_argument_update(
             args,
             "--executable",
@@ -4196,6 +4299,60 @@ fn extractor_definition_from_args(
         priority: argument_value(args, "--priority")
             .and_then(|value| value.parse::<i64>().ok())
             .unwrap_or_else(|| current.map(|item| item.priority).unwrap_or(100)),
+    }
+}
+
+fn read_extractor_recipe(path: &Path) -> Result<ExtractorRecipe> {
+    let metadata =
+        fs::metadata(path).map_err(|_| rusqlite::Error::InvalidPath(path.to_path_buf()))?;
+    if !metadata.is_file() || metadata.len() > 1024 * 1024 {
+        return Err(rusqlite::Error::InvalidParameterName(
+            "Extractor recipe must be a regular JSON file no larger than 1 MB".into(),
+        ));
+    }
+    let bytes = fs::read(path).map_err(|_| rusqlite::Error::InvalidPath(path.to_path_buf()))?;
+    let recipe = serde_json::from_slice::<ExtractorRecipe>(&bytes).map_err(json_error)?;
+    pasted_lib::extractor_recipe::validate_recipe(&recipe)
+        .map_err(rusqlite::Error::InvalidParameterName)?;
+    Ok(recipe)
+}
+
+fn extractor_recipe_definition_from_args(
+    args: &[String],
+    recipe: ExtractorRecipe,
+    current: Option<&pasted_lib::content_extraction::Extractor>,
+    authoring: Option<ExtractorAuthoringManifest>,
+) -> ExtractorRecipeDefinitionInput {
+    ExtractorRecipeDefinitionInput {
+        name: argument_value(args, "--name").unwrap_or_else(|| {
+            current
+                .map(|item| item.name.clone())
+                .unwrap_or_else(|| "Custom Extractor".into())
+        }),
+        description: argument_value(args, "--description").unwrap_or_else(|| {
+            current
+                .map(|item| item.description.clone())
+                .unwrap_or_else(|| "Extracts searchable text with local commands.".into())
+        }),
+        enabled: if args.iter().any(|argument| argument == "--disabled") {
+            false
+        } else if args.iter().any(|argument| argument == "--enabled") {
+            true
+        } else {
+            current.map(|item| item.enabled).unwrap_or(false)
+        },
+        priority: argument_value(args, "--priority")
+            .and_then(|value| value.parse::<i64>().ok())
+            .unwrap_or_else(|| current.map(|item| item.priority).unwrap_or(100)),
+        recipe,
+        authoring: Some(authoring.unwrap_or(ExtractorAuthoringManifest {
+            manifest_version: EXTRACTOR_AUTHORING_VERSION,
+            source: ExtractorAuthoringSource::Manual,
+            original_prompt: None,
+            provider: None,
+            model: None,
+            messages: Vec::new(),
+        })),
     }
 }
 

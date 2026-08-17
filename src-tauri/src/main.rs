@@ -40,6 +40,10 @@ fn configure_appimage_wayland_compatibility() {
 }
 
 fn main() {
+    let arguments = std::env::args().collect::<Vec<_>>();
+    if let Some(code) = pasted_lib::content_extraction::run_bundled_extractor_helper(&arguments) {
+        std::process::exit(code);
+    }
     #[cfg(target_os = "linux")]
     configure_appimage_wayland_compatibility();
     pasted_lib::run()

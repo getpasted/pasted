@@ -96,6 +96,83 @@ fn clean_database(path: &Path) {
 }
 
 #[test]
+fn extractor_recipes_have_cli_authoring_and_execution_parity() {
+    let database = temporary_path("extractor-recipe", "db");
+    let recipe_path = temporary_path("extractor-recipe", "json");
+    let input_path = temporary_path("extractor-input", "txt");
+    let recipe = serde_json::json!({
+        "definitionVersion": 1,
+        "accepts": ["file_references"],
+        "output": "searchable_text",
+        "steps": [{
+            "id": "extract",
+            "executable": {
+                "path": env!("CARGO_BIN_EXE_pasted"),
+                "discover": [],
+                "versionArguments": ["--version"]
+            },
+            "arguments": ["licenses"],
+            "mode": "once",
+            "capture": "stdout_text",
+            "timeoutSeconds": 30
+        }],
+        "resources": []
+    });
+    std::fs::write(
+        &recipe_path,
+        serde_json::to_vec_pretty(&recipe).expect("serialize recipe"),
+    )
+    .expect("write recipe");
+    std::fs::write(&input_path, "input").expect("write input");
+
+    let created = success_json(
+        &database,
+        &[
+            "extractor",
+            "create",
+            "--name",
+            "Portable Test Extractor",
+            "--recipe",
+            recipe_path.to_str().expect("recipe path"),
+            "--json",
+        ],
+    );
+    assert_eq!(created["engine"], "recipe-v1");
+    assert_eq!(created["recipe"]["accepts"][0], "file_references");
+
+    let history = success_json(
+        &database,
+        &[
+            "extractor",
+            "history",
+            created["stableRef"].as_str().expect("stable ref"),
+            "--json",
+        ],
+    );
+    assert_eq!(history[0]["source"], "manual");
+
+    let run = success_json(
+        &database,
+        &[
+            "extractor",
+            "run",
+            created["stableRef"].as_str().expect("stable ref"),
+            "--file",
+            input_path.to_str().expect("input path"),
+            "--json",
+        ],
+    );
+    assert_eq!(run["outcome"], "produced");
+    assert!(run["output"]
+        .as_str()
+        .is_some_and(|output| !output.is_empty()));
+
+    clean_database(&database);
+    let _ = std::fs::remove_file(recipe_path);
+    let _ = std::fs::remove_file(input_path);
+}
+
+#[test]
 fn history_and_settings_commands_have_executable_json_contracts() {
     let database = temporary_path("history", "db");
     let saved = success_json(&database, &["copy", "person@example.com", "--json"]);
@@ -518,11 +595,15 @@ fn extractor_lifecycle_and_registry_capabilities_run_end_to_end() {
                 .find(|item| item["stableRef"] == "extractor:tesseract-ocr")
         })
         .expect("shipped Tesseract Extractor");
-    assert_eq!(tesseract["engine"], "tesseract-cli-v1");
+    assert_eq!(tesseract["engine"], "recipe-v1");
+    assert_eq!(
+        tesseract["recipe"]["steps"][0]["executable"]["discover"],
+        serde_json::json!(["tesseract"])
+    );
     assert_eq!(tesseract["inputContract"], "image");
     assert_eq!(tesseract["outputContract"], "searchable_text");
     assert!(tesseract["isAvailable"].is_boolean());
-    assert_eq!(tesseract["runtime"]["method"], "command");
+    assert_eq!(tesseract["runtime"]["method"], "recipe");
     assert!(tesseract["runtime"]["usesAutomaticDiscovery"].is_boolean());
     let whisper = shipped
         .as_array()
@@ -532,7 +613,15 @@ fn extractor_lifecycle_and_registry_capabilities_run_end_to_end() {
                 .find(|item| item["stableRef"] == "extractor:whisper-transcription")
         })
         .expect("shipped Whisper Extractor");
-    assert_eq!(whisper["engine"], "whisper-cpp-cli-v1");
+    assert_eq!(whisper["engine"], "recipe-v1");
+    assert_eq!(
+        whisper["recipe"]["steps"][0]["executable"]["discover"],
+        serde_json::json!(["ffmpeg"])
+    );
+    assert_eq!(
+        whisper["recipe"]["steps"][1]["executable"]["discover"],
+        serde_json::json!(["whisper-cli"])
+    );
     assert_eq!(whisper["inputContract"], "file_references");
     assert_eq!(whisper["outputContract"], "searchable_text");
     assert_eq!(whisper["modelPath"], Value::Null);
@@ -571,7 +660,11 @@ fn extractor_lifecycle_and_registry_capabilities_run_end_to_end() {
         ],
     );
     let stable_ref = created["stableRef"].as_str().expect("Extractor stable ref");
-    assert_eq!(created["engine"], "custom-command-v1");
+    assert_eq!(created["engine"], "recipe-v1");
+    assert_eq!(
+        created["recipe"]["steps"][0]["executable"]["path"],
+        executable
+    );
     assert_eq!(created["executablePath"], executable);
     assert_eq!(created["isAvailable"], false);
     assert_eq!(created["enabled"], true);

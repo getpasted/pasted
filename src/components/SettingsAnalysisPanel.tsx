@@ -126,6 +126,7 @@ export function SettingsAnalysisPanel({
   transformationsEnabled,
   typesEnabled,
   sourcesEnabled,
+  onOpenIntelligence,
 }: {
   contentClassificationEnabled: boolean;
   ocrEnabled: boolean;
@@ -133,6 +134,7 @@ export function SettingsAnalysisPanel({
   transformationsEnabled: boolean;
   typesEnabled: boolean;
   sourcesEnabled: boolean;
+  onOpenIntelligence?: () => void;
 }) {
   const { showToast } = useToast();
   const { definitions: contentTypes, groups: contentTypeGroups, refresh: refreshContentTypes, refreshGroups } = useContentTypes();
@@ -473,13 +475,13 @@ export function SettingsAnalysisPanel({
             description={translate('component.settingsAnalysisPanel.measureStructureAndMediaFacts')}
             onManage={() => setIsInspectorManagerOpen(true)}
           />
-          {(ocrEnabled || transcriptionsEnabled) && <AnalysisManagerRow
+          <AnalysisManagerRow
             step={3}
             icon={ScanText}
             title={translate('component.settingsAnalysisPanel.extract')}
             description={translate('component.settingsAnalysisPanel.createSearchableRepresentations')}
             onManage={() => setIsExtractorManagerOpen(true)}
-          />}
+          />
           {(contentClassificationEnabled || typesEnabled) && <AnalysisManagerRow
             step={4}
             icon={Radar}
@@ -693,6 +695,10 @@ export function SettingsAnalysisPanel({
         onClose={() => setIsExtractorManagerOpen(false)}
         ocrEnabled={ocrEnabled}
         transcriptionsEnabled={transcriptionsEnabled}
+        onOpenIntelligence={onOpenIntelligence ? () => {
+          setIsExtractorManagerOpen(false);
+          onOpenIntelligence();
+        } : undefined}
       />
       <BuiltinLifecycleManagerDialog
         isOpen={isSuggestionManagerOpen}

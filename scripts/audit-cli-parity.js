@@ -29,8 +29,6 @@ const tauriMock = read('src/utils/tauri.ts');
 const extractorManager = read('src/components/ContentExtractorManagerDialog.tsx');
 const classifierManager = read('src/components/SettingsAnalysisPanel.tsx');
 
-assert.match(commands, /pub async fn choose_extractor_model_file/,
-  'The native Extractor model picker must not block the app command thread');
 assert.match(commands, /pub async fn choose_extractor_executable/,
   'The native Extractor executable picker must not block the app command thread');
 
@@ -448,25 +446,31 @@ assert.match(cli, /db\.save_text_clip/, 'CLI capture must use the shared text-ca
 assert.doesNotMatch(ocr, /content_analysis::analyze_image/, 'Background OCR must not infer results directly from Analyzer reports');
 assert.doesNotMatch(cli, /content_analysis::analyze_image/, 'CLI OCR must not infer results directly from Analyzer reports');
 assert.doesNotMatch(commands, /content_analysis::analyze_image/, 'GUI OCR must not infer results directly from Analyzer reports');
-for (const method of ['get_content_extractors', 'create_content_extractor', 'update_content_extractor_definition', 'duplicate_content_extractor', 'delete_content_extractor', 'restore_default_content_extractors']) {
+for (const method of ['get_content_extractors', 'duplicate_content_extractor', 'delete_content_extractor', 'restore_default_content_extractors']) {
   assert.match(database, new RegExp(`pub fn ${method}`), `${method} must live in the shared database domain layer`);
   assert.match(commands, new RegExp(`pub fn ${method}`), `${method} must be exposed to the GUI`);
   assert.match(cli, new RegExp(`db\\s*\\.${method}`), `${method} must be reused by the CLI`);
 }
-assert.match(extractorManager, /translate\('component\.contentExtractorManagerDialog\.method'\)/,
-  'Extractor management must present a concrete execution Method instead of an editable engine ID');
-assert.equal(englishCatalog['component.contentExtractorManagerDialog.method'], 'Method');
-assert.match(extractorManager, /translate\('component\.contentExtractorManagerDialog\.runtimeLocation'\)/,
-  'Extractor management must expose configured and discovered runtime locations');
-assert.equal(englishCatalog['component.contentExtractorManagerDialog.runtimeLocation'], 'Runtime location');
+assert.doesNotMatch(extractorManager, /translate\('component\.contentExtractorManagerDialog\.method'\)/,
+  'Extractor management must not expose a registry-backed Method selector');
+for (const field of ['executable.path', 'executable.discover', 'executable.versionArguments', 'arguments', 'outputExtension', 'resources']) {
+  assert.ok(extractorManager.includes(field), `Extractor recipes must expose ${field}`);
+}
 assert.match(extractorManager, /choose_extractor_executable/,
   'Extractor management must allow executable selection through the native picker');
 assert.doesNotMatch(extractorManager, /<input[^>]+value=\{draft\.engine\}/,
   'Extractor engine contract IDs must not be arbitrary editable strings');
-assert.match(cli, /"--method"/,
-  'CLI Extractor authoring must use the same execution Method contract as the GUI');
+assert.doesNotMatch(cli, /argument_value\(args, "--method"\)/,
+  'CLI Extractor authoring must not expose a registry-backed Method selector');
 assert.match(cli, /"--executable"/,
   'CLI Extractor authoring must expose executable location parity');
+for (const command of ['create_content_extractor_recipe', 'update_content_extractor_recipe', 'get_extractor_authoring_sessions']) {
+  assert.match(database, new RegExp(`pub fn ${command}`), `${command} must live in the shared database domain layer`);
+  assert.match(commands, new RegExp(`pub fn ${command}`), `${command} must be exposed to the GUI`);
+}
+assert.match(cli, /"--recipe"/, 'CLI Extractor authoring must accept the shared recipe document');
+assert.match(cli, /"propose" \| "draft"/, 'CLI Extractor authoring must expose AI recipe drafting');
+assert.match(cli, /"history"/, 'CLI Extractor authoring must expose local authoring history');
 assert.match(cli, /current\.map\(\|item\| item\.enabled\)\.unwrap_or\(false\)/,
   'New custom Extractors must remain disabled until explicitly enabled');
 assert.match(tauriMock, /function mockBuiltinExtractors\(\)/,

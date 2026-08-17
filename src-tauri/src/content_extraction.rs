@@ -6,6 +6,11 @@ use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
 use crate::analysis_contract::{RepresentationContract, RepresentationKind};
+use crate::extractor_recipe::{
+    ExtractorCapture, ExtractorCommandStep, ExtractorExecutable, ExtractorInputKind,
+    ExtractorOutputKind, ExtractorRecipe, ExtractorResource, ExtractorResourceKind,
+    ExtractorStepMode, EXTRACTOR_RECIPE_VERSION,
+};
 
 #[cfg(target_os = "macos")]
 #[link(name = "Vision", kind = "framework")]
@@ -18,6 +23,8 @@ pub const TESSERACT_ENGINE: &str = "tesseract-cli-v1";
 pub const WHISPER_TRANSCRIPTION_REF: &str = "extractor:whisper-transcription";
 pub const WHISPER_CPP_ENGINE: &str = "whisper-cpp-cli-v1";
 pub const CUSTOM_COMMAND_ENGINE: &str = "custom-command-v1";
+pub const RECIPE_ENGINE: &str = "recipe-v1";
+pub const BUNDLED_EXTRACTOR_EXECUTABLE: &str = "pasted-bundled-extractor";
 
 const TESSERACT_TIMEOUT: Duration = Duration::from_secs(15);
 const WHISPER_TIMEOUT: Duration = Duration::from_secs(5 * 60);
@@ -132,6 +139,12 @@ impl<'a> ExtractorEngineRegistry<'a> {
                 },
             };
         }
+        if extractor.engine == RECIPE_ENGINE {
+            return normalize_extraction_outcome(crate::extractor_recipe::execute_image(
+                &extractor.recipe,
+                image_bytes,
+            ));
+        }
         let Some(engine) = self
             .engines
             .iter()
@@ -175,6 +188,12 @@ impl<'a> ExtractorEngineRegistry<'a> {
                     message: "This extraction contract is not supported.".into(),
                 },
             };
+        }
+        if extractor.engine == RECIPE_ENGINE {
+            return normalize_extraction_outcome(crate::extractor_recipe::execute_files(
+                &extractor.recipe,
+                paths,
+            ));
         }
         let Some(engine) = self
             .engines
@@ -522,6 +541,9 @@ pub struct Extractor {
     pub is_available: bool,
     pub unavailable_reason: Option<String>,
     pub runtime: ExtractorRuntimeStatus,
+    pub recipe: ExtractorRecipe,
+    pub recipe_hash: String,
+    pub default_recipe: Option<ExtractorRecipe>,
     pub defaults: Option<ExtractorDefinitionInput>,
 }
 
@@ -531,8 +553,16 @@ impl Extractor {
     }
 
     pub fn supports_contract(&self, input: RepresentationKind, output: RepresentationKind) -> bool {
-        self.representation_contract()
-            .is_ok_and(|contract| contract.input == input && contract.output == output)
+        if output != RepresentationKind::SearchableText {
+            return false;
+        }
+        match input {
+            RepresentationKind::ImageBytes => self.recipe.accepts(ExtractorInputKind::Image),
+            RepresentationKind::FileReferences => {
+                self.recipe.accepts(ExtractorInputKind::FileReferences)
+            }
+            _ => false,
+        }
     }
 }
 
@@ -597,37 +627,37 @@ pub const EXTRACTOR_PRESETS: &[ExtractorPreset] = &[
         stable_ref: APPLE_VISION_OCR_REF,
         name: "Apple Vision OCR",
         description: "Extracts searchable text from images locally with Apple Vision.",
-        engine: APPLE_VISION_ENGINE,
+        engine: RECIPE_ENGINE,
         executable_path: None,
         model_path: None,
         input_contract: RepresentationKind::ImageBytes.stable_name(),
         output_contract: RepresentationKind::SearchableText.stable_name(),
         priority: 10,
-        revision: 1,
+        revision: 2,
     },
     ExtractorPreset {
         stable_ref: TESSERACT_OCR_REF,
         name: "Tesseract OCR",
         description: "Extracts searchable text from images locally with Tesseract.",
-        engine: TESSERACT_ENGINE,
+        engine: RECIPE_ENGINE,
         executable_path: None,
         model_path: None,
         input_contract: RepresentationKind::ImageBytes.stable_name(),
         output_contract: RepresentationKind::SearchableText.stable_name(),
         priority: 20,
-        revision: 1,
+        revision: 2,
     },
     ExtractorPreset {
         stable_ref: WHISPER_TRANSCRIPTION_REF,
         name: "Whisper Transcription",
         description: "Extracts searchable text from local audio files with whisper.cpp.",
-        engine: WHISPER_CPP_ENGINE,
+        engine: RECIPE_ENGINE,
         executable_path: None,
         model_path: None,
         input_contract: RepresentationKind::FileReferences.stable_name(),
         output_contract: RepresentationKind::SearchableText.stable_name(),
         priority: 30,
-        revision: 1,
+        revision: 2,
     },
 ];
 
@@ -672,7 +702,11 @@ pub fn validate_extractor_definition(input: &ExtractorDefinitionInput) -> Result
     }
     if !matches!(
         input.engine.as_str(),
-        APPLE_VISION_ENGINE | TESSERACT_ENGINE | WHISPER_CPP_ENGINE | CUSTOM_COMMAND_ENGINE
+        APPLE_VISION_ENGINE
+            | TESSERACT_ENGINE
+            | WHISPER_CPP_ENGINE
+            | CUSTOM_COMMAND_ENGINE
+            | RECIPE_ENGINE
     ) {
         return Err("Extractors require a registered execution method".to_string());
     }
@@ -714,6 +748,154 @@ pub fn validate_extractor_definition(input: &ExtractorDefinitionInput) -> Result
     Ok(())
 }
 
+pub fn recipe_for_legacy_definition(input: &ExtractorDefinitionInput) -> ExtractorRecipe {
+    let accepts = ExtractorInputKind::from_legacy(&input.input_contract)
+        .into_iter()
+        .collect::<Vec<_>>();
+    let executable = |discover: &[&str], version_arguments: &[&str]| ExtractorExecutable {
+        path: input.executable_path.clone(),
+        discover: discover.iter().map(|value| (*value).to_string()).collect(),
+        version_arguments: version_arguments
+            .iter()
+            .map(|value| (*value).to_string())
+            .collect(),
+    };
+    let (steps, resources) = match input.engine.as_str() {
+        APPLE_VISION_ENGINE => (
+            vec![ExtractorCommandStep {
+                id: "extract".into(),
+                executable: executable(&[BUNDLED_EXTRACTOR_EXECUTABLE], &[]),
+                arguments: vec![
+                    "--pasted-extractor-helper-v1".into(),
+                    "apple-vision-ocr".into(),
+                    "{request.path}".into(),
+                ],
+                mode: ExtractorStepMode::Once,
+                capture: ExtractorCapture::PastedJsonV1,
+                output_extension: None,
+                timeout_seconds: 15,
+            }],
+            Vec::new(),
+        ),
+        TESSERACT_ENGINE => (
+            vec![ExtractorCommandStep {
+                id: "extract".into(),
+                executable: executable(&["tesseract"], &["--version"]),
+                arguments: vec!["{input.stagedPath}".into(), "stdout".into()],
+                mode: ExtractorStepMode::Once,
+                capture: ExtractorCapture::StdoutText,
+                output_extension: None,
+                timeout_seconds: TESSERACT_TIMEOUT.as_secs(),
+            }],
+            Vec::new(),
+        ),
+        WHISPER_CPP_ENGINE => (
+            vec![
+                ExtractorCommandStep {
+                    id: "prepare_audio".into(),
+                    executable: ExtractorExecutable {
+                        path: None,
+                        discover: vec!["ffmpeg".into()],
+                        version_arguments: vec!["-version".into()],
+                    },
+                    arguments: vec![
+                        "-nostdin".into(),
+                        "-y".into(),
+                        "-i".into(),
+                        "{input.path}".into(),
+                        "-ar".into(),
+                        "16000".into(),
+                        "-ac".into(),
+                        "1".into(),
+                        "-c:a".into(),
+                        "pcm_s16le".into(),
+                        "-f".into(),
+                        "wav".into(),
+                        "{output.path}".into(),
+                    ],
+                    mode: ExtractorStepMode::EachInput,
+                    capture: ExtractorCapture::Ignore,
+                    output_extension: Some("wav".into()),
+                    timeout_seconds: 60,
+                },
+                ExtractorCommandStep {
+                    id: "transcribe".into(),
+                    executable: executable(&["whisper-cli"], &["--version"]),
+                    arguments: vec![
+                        "-m".into(),
+                        "{resource.model.path}".into(),
+                        "-f".into(),
+                        "{step.prepare_audio.output}".into(),
+                        "-otxt".into(),
+                        "-of".into(),
+                        "{output.base}".into(),
+                        "-np".into(),
+                        "-nt".into(),
+                        "-l".into(),
+                        "auto".into(),
+                    ],
+                    mode: ExtractorStepMode::EachInput,
+                    capture: ExtractorCapture::FileText,
+                    output_extension: Some("txt".into()),
+                    timeout_seconds: WHISPER_TIMEOUT.as_secs(),
+                },
+            ],
+            vec![ExtractorResource {
+                id: "model".into(),
+                label: "Whisper GGML model".into(),
+                kind: ExtractorResourceKind::File,
+                required: true,
+                path: input.model_path.clone(),
+            }],
+        ),
+        _ => (
+            vec![ExtractorCommandStep {
+                id: "extract".into(),
+                executable: executable(&[], &["--version"]),
+                arguments: vec!["--pasted-extract-v1".into(), "{request.path}".into()],
+                mode: ExtractorStepMode::Once,
+                capture: ExtractorCapture::PastedJsonV1,
+                output_extension: None,
+                timeout_seconds: 60,
+            }],
+            input
+                .model_path
+                .as_ref()
+                .map(|path| ExtractorResource {
+                    id: "model".into(),
+                    label: "Model".into(),
+                    kind: ExtractorResourceKind::File,
+                    required: true,
+                    path: Some(path.clone()),
+                })
+                .into_iter()
+                .collect(),
+        ),
+    };
+    ExtractorRecipe {
+        definition_version: EXTRACTOR_RECIPE_VERSION,
+        accepts,
+        output: ExtractorOutputKind::SearchableText,
+        steps,
+        resources,
+    }
+}
+
+#[cfg(test)]
+pub fn test_recipe(input_contract: &str) -> ExtractorRecipe {
+    recipe_for_legacy_definition(&ExtractorDefinitionInput {
+        name: "Test Extractor".into(),
+        description: String::new(),
+        engine: CUSTOM_COMMAND_ENGINE.into(),
+        executable_path: Some("/test/extractor".into()),
+        model_path: None,
+        input_contract: input_contract.into(),
+        output_contract: "searchable_text".into(),
+        enabled: true,
+        priority: 10,
+    })
+}
+
 impl ExtractorPreset {
     pub fn definition(&self) -> ExtractorDefinitionInput {
         ExtractorDefinitionInput {
@@ -727,6 +909,18 @@ impl ExtractorPreset {
             enabled: true,
             priority: self.priority,
         }
+    }
+
+    pub fn recipe(&self) -> ExtractorRecipe {
+        let mut definition = self.definition();
+        definition.engine = match self.stable_ref {
+            APPLE_VISION_OCR_REF => APPLE_VISION_ENGINE,
+            TESSERACT_OCR_REF => TESSERACT_ENGINE,
+            WHISPER_TRANSCRIPTION_REF => WHISPER_CPP_ENGINE,
+            _ => CUSTOM_COMMAND_ENGINE,
+        }
+        .into();
+        recipe_for_legacy_definition(&definition)
     }
 }
 
@@ -1678,6 +1872,53 @@ fn perform_apple_vision_ocr(_image_bytes: &[u8]) -> Option<String> {
     None
 }
 
+pub fn run_bundled_extractor_helper(arguments: &[String]) -> Option<i32> {
+    let marker = arguments
+        .iter()
+        .position(|argument| argument == "--pasted-extractor-helper-v1")?;
+    let method = arguments.get(marker + 1).map(String::as_str);
+    let request_path = arguments.get(marker + 2).map(Path::new);
+    let result = match (method, request_path) {
+        (Some("apple-vision-ocr"), Some(request_path)) => {
+            let request = fs::metadata(request_path)
+                .ok()
+                .filter(|metadata| metadata.is_file() && metadata.len() <= 1024 * 1024)
+                .and_then(|_| fs::read(request_path).ok())
+                .and_then(|bytes| serde_json::from_slice::<serde_json::Value>(&bytes).ok());
+            let image_path = request
+                .as_ref()
+                .and_then(|request| request.pointer("/input/path"))
+                .and_then(serde_json::Value::as_str)
+                .map(Path::new);
+            let image = image_path
+                .and_then(|path| fs::metadata(path).ok().map(|metadata| (path, metadata)))
+                .filter(|(_, metadata)| {
+                    metadata.is_file()
+                        && metadata.len() <= crate::resource_limits::MAX_ENCODED_IMAGE_BYTES as u64
+                })
+                .and_then(|(path, _)| fs::read(path).ok());
+            image.map_or_else(
+                || Err("invalid_input"),
+                |image| Ok(perform_apple_vision_ocr(&image)),
+            )
+        }
+        _ => Err("unsupported_helper"),
+    };
+    match result {
+        Ok(text) => match serde_json::to_string(&serde_json::json!({ "text": text })) {
+            Ok(output) => {
+                println!("{output}");
+                Some(0)
+            }
+            Err(_) => Some(1),
+        },
+        Err(code) => {
+            eprintln!("{code}");
+            Some(2)
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1795,6 +2036,9 @@ mod tests {
             is_available: true,
             unavailable_reason: None,
             runtime: runtime_status_for(engine, None),
+            recipe: test_recipe("image"),
+            recipe_hash: "test".into(),
+            default_recipe: None,
             defaults: None,
         }
     }
@@ -1827,7 +2071,7 @@ mod tests {
         let engines: [&dyn ExtractorEngine; 1] = [&engine];
         let registry = ExtractorEngineRegistry::new(&engines);
         let mut invalid = extractor("test-v1");
-        invalid.output_contract = "mystery".into();
+        invalid.recipe.accepts = vec![ExtractorInputKind::FileReferences];
 
         assert_eq!(
             registry.execute(&invalid, b"image"),
@@ -2054,6 +2298,24 @@ mod tests {
             matches!(outcome, ExtractionOutcome::Produced { ref text }
                 if text.to_ascii_uppercase().contains("PASTE")),
             "unexpected Tesseract result: {outcome:?}"
+        );
+    }
+
+    #[test]
+    fn shipped_tesseract_recipe_uses_the_universal_runner() {
+        if find_tesseract_executable().is_none() {
+            return;
+        }
+        let recipe = EXTRACTOR_PRESETS
+            .iter()
+            .find(|preset| preset.stable_ref == TESSERACT_OCR_REF)
+            .unwrap()
+            .recipe();
+        let outcome = crate::extractor_recipe::execute_image(&recipe, &ocr_acceptance_image());
+        assert!(
+            matches!(outcome, ExtractionOutcome::Produced { ref text }
+                if text.to_ascii_uppercase().contains("PASTE")),
+            "unexpected recipe result: {outcome:?}"
         );
     }
 }

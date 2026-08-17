@@ -1035,23 +1035,6 @@ pub fn get_content_inspectors() -> Vec<crate::content_inspection::InspectorDefin
 }
 
 #[tauri::command]
-pub async fn choose_extractor_model_file(app: AppHandle) -> Result<Option<String>, String> {
-    let Some(selected_file) = app
-        .dialog()
-        .file()
-        .set_title("Choose a Whisper Model")
-        .add_filter("Whisper GGML Model", &["bin"])
-        .blocking_pick_file()
-    else {
-        return Ok(None);
-    };
-    selected_file
-        .into_path()
-        .map(|path| Some(path.to_string_lossy().into_owned()))
-        .map_err(|error| format!("The selected model file is not accessible: {error}"))
-}
-
-#[tauri::command]
 pub async fn choose_extractor_executable(app: AppHandle) -> Result<Option<String>, String> {
     let Some(selected_file) = app
         .dialog()
@@ -1068,21 +1051,85 @@ pub async fn choose_extractor_executable(app: AppHandle) -> Result<Option<String
 }
 
 #[tauri::command]
-pub fn create_content_extractor(
-    input: crate::content_extraction::ExtractorDefinitionInput,
+pub async fn choose_extractor_resource_file(
+    kind: Option<String>,
+    app: AppHandle,
+    db: State<'_, Arc<DbState>>,
+) -> Result<Option<String>, String> {
+    let picker = app.dialog().file().set_title(crate::localization::text(
+        &db,
+        "component.contentExtractorManagerDialog.chooseResource",
+    ));
+    let selected = if kind.as_deref() == Some("directory") {
+        picker.blocking_pick_folder()
+    } else {
+        picker.blocking_pick_file()
+    };
+    let Some(selected) = selected else {
+        return Ok(None);
+    };
+    selected
+        .into_path()
+        .map(|path| Some(path.to_string_lossy().into_owned()))
+        .map_err(|error| format!("The selected resource is not accessible: {error}"))
+}
+
+#[tauri::command]
+pub async fn test_content_extractor_recipe(
+    recipe: crate::extractor_recipe::ExtractorRecipe,
+    path: String,
+) -> Result<crate::content_extraction::ExtractionOutcome, String> {
+    crate::extractor_recipe::validate_recipe(&recipe)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let path = std::path::PathBuf::from(path);
+        let metadata = std::fs::metadata(&path)
+            .map_err(|_| "The selected test file is unavailable.".to_string())?;
+        if !metadata.is_file() {
+            return Err("Select a regular file to test this Extractor.".to_string());
+        }
+        if recipe.accepts(crate::extractor_recipe::ExtractorInputKind::FileReferences) {
+            Ok(crate::extractor_recipe::execute_files(
+                &recipe,
+                &[path.to_string_lossy().into_owned()],
+            ))
+        } else {
+            if metadata.len() > crate::resource_limits::MAX_ENCODED_IMAGE_BYTES as u64 {
+                return Err("The selected image exceeds the extraction limit.".to_string());
+            }
+            let image = std::fs::read(path)
+                .map_err(|_| "The selected image could not be read.".to_string())?;
+            Ok(crate::extractor_recipe::execute_image(&recipe, &image))
+        }
+    })
+    .await
+    .map_err(|error| format!("Extractor test failed: {error}"))?
+}
+
+#[tauri::command]
+pub fn create_content_extractor_recipe(
+    input: crate::extractor_recipe::ExtractorRecipeDefinitionInput,
     db: State<'_, Arc<DbState>>,
 ) -> Result<crate::content_extraction::Extractor, String> {
-    db.create_content_extractor(&input)
+    db.create_content_extractor_recipe(&input)
         .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
-pub fn update_content_extractor_definition(
+pub fn update_content_extractor_recipe(
     id: i64,
-    input: crate::content_extraction::ExtractorDefinitionInput,
+    input: crate::extractor_recipe::ExtractorRecipeDefinitionInput,
     db: State<'_, Arc<DbState>>,
 ) -> Result<crate::content_extraction::Extractor, String> {
-    db.update_content_extractor_definition(id, &input)
+    db.update_content_extractor_recipe(id, &input)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn get_extractor_authoring_sessions(
+    reference: String,
+    db: State<'_, Arc<DbState>>,
+) -> Result<Vec<crate::extractor_recipe::ExtractorAuthoringSession>, String> {
+    db.get_extractor_authoring_sessions(&reference)
         .map_err(|error| error.to_string())
 }
 
@@ -2806,7 +2853,6 @@ pub fn get_intelligence_connections(
 pub async fn detect_intelligence_connections(
     db: State<'_, Arc<DbState>>,
 ) -> Result<Vec<crate::intelligence_connections::DetectedIntelligenceConnection>, String> {
-    features::require(&db, Feature::Transformations)?;
     let detected = tauri::async_runtime::spawn_blocking(
         crate::intelligence_connections::detect_intelligence_connections,
     )
@@ -2837,7 +2883,6 @@ pub fn create_intelligence_connection(
     credential_ref: Option<String>,
     db: State<'_, Arc<DbState>>,
 ) -> Result<IntelligenceConnection, String> {
-    features::require(&db, Feature::Transformations)?;
     if name.trim().is_empty() {
         return Err("Connection name cannot be empty".to_string());
     }
@@ -2864,7 +2909,6 @@ pub fn update_intelligence_connection(
     enabled: bool,
     db: State<'_, Arc<DbState>>,
 ) -> Result<(), String> {
-    features::require(&db, Feature::Transformations)?;
     if name.trim().is_empty() {
         return Err("Connection name cannot be empty".to_string());
     }
@@ -2899,6 +2943,36 @@ pub fn reorder_intelligence_connections(
     features::require(&db, Feature::Transformations)?;
     db.reorder_intelligence_connections(&ids)
         .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub async fn propose_extractor_recipe(
+    request: crate::intelligence_executor::ProposeExtractorRecipeRequest,
+    client_request_id: Option<String>,
+    db: State<'_, Arc<DbState>>,
+) -> Result<
+    crate::intelligence_executor::ExtractorRecipeProposal,
+    crate::intelligence_executor::IntelligenceExecutionError,
+> {
+    let cancellation =
+        client_request_id.map(crate::transformation_service::CancellationRegistration::register);
+    let db = Arc::clone(&db);
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::intelligence_executor::propose_extractor_recipe(
+            &db,
+            request,
+            cancellation
+                .as_ref()
+                .map(|registration| registration.flag()),
+        )
+    })
+    .await
+    .map_err(
+        |error| crate::intelligence_executor::IntelligenceExecutionError {
+            code: "executor_join_failed",
+            message: error.to_string(),
+        },
+    )?
 }
 
 #[tauri::command]
@@ -4756,11 +4830,11 @@ pub async fn extract_text_from_file_clip(
     clip_id: i64,
     db: State<'_, Arc<DbState>>,
 ) -> Result<crate::extraction_execution::ExtractionApplicationResult, String> {
-    features::require(&db, Feature::Transcriptions)?;
+    let transcriptions_enabled = features::is_enabled(&db, Feature::Transcriptions);
     let db = db.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
         let extractor = db
-            .active_file_text_extractor()
+            .active_file_text_extractor_for_features(transcriptions_enabled)
             .map_err(|error| error.to_string())?
             .ok_or_else(|| "No available file text Extractor is enabled".to_string())?;
         let clip = db

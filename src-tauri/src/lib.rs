@@ -18,6 +18,7 @@ pub mod db;
 pub mod external_import;
 mod external_tools;
 pub mod extraction_execution;
+pub mod extractor_recipe;
 pub mod features;
 mod filter_engine;
 mod hotkey_manager;
@@ -523,10 +524,12 @@ pub fn run() {
             commands::get_content_classifiers,
             commands::get_content_extractors,
             commands::get_content_inspectors,
-            commands::choose_extractor_model_file,
             commands::choose_extractor_executable,
-            commands::create_content_extractor,
-            commands::update_content_extractor_definition,
+            commands::choose_extractor_resource_file,
+            commands::test_content_extractor_recipe,
+            commands::create_content_extractor_recipe,
+            commands::update_content_extractor_recipe,
+            commands::get_extractor_authoring_sessions,
             commands::duplicate_content_extractor,
             commands::delete_content_extractor,
             commands::restore_default_content_extractors,
@@ -611,6 +614,7 @@ pub fn run() {
             commands::update_intelligence_connection,
             commands::delete_intelligence_connection,
             commands::reorder_intelligence_connections,
+            commands::propose_extractor_recipe,
             commands::plan_transformation_intent,
             commands::test_transformation_plan,
             commands::get_intent_transforms,
