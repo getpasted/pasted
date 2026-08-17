@@ -167,6 +167,7 @@ assert.match(cli, /db\.inspect_full_backup/, 'The CLI must expose non-mutating F
 assert.match(cli, /enforce_revision_retention/, 'The CLI must manage revision retention through the shared domain service');
 assert.match(cli, /execute_plan/, 'The CLI must test unsaved Transform plans through the shared executor');
 assert.match(cli, /reset_failed_ocr/, 'The CLI must expose failed OCR retry');
+assert.match(cli, /Daily activity \(local time\):/, 'Human-readable Insights must include the shared local-day activity summary');
 assert.match(cli, /reorder_pinned_clips/, 'The CLI must expose validated pinned ordering');
 assert.match(cli, /live_app::send/, 'Running-app controls must use the bounded live-app bridge');
 for (const method of ['export_activity_json', 'export_activity_csv', 'import_activity_json', 'import_activity_csv']) {

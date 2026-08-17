@@ -491,23 +491,77 @@ fn activity_classification(event_name: &str) -> (&'static str, &'static str, &'s
     (severity, category, outcome)
 }
 
-fn canonical_activity_timestamp(value: &str) -> Result<String> {
+fn canonical_utc_timestamp(value: &str, label: &str) -> Result<String> {
     if let Ok(timestamp) = chrono::DateTime::parse_from_rfc3339(value) {
         return Ok(timestamp
             .with_timezone(&chrono::Utc)
             .to_rfc3339_opts(chrono::SecondsFormat::Secs, true));
     }
-    chrono::NaiveDateTime::parse_from_str(value, "%Y-%m-%d %H:%M:%S")
-        .map(|timestamp| {
-            timestamp
+    for format in ["%Y-%m-%d %H:%M:%S%.f", "%Y-%m-%dT%H:%M:%S%.f"] {
+        if let Ok(timestamp) = chrono::NaiveDateTime::parse_from_str(value, format) {
+            return Ok(timestamp
                 .and_utc()
-                .to_rfc3339_opts(chrono::SecondsFormat::Secs, true)
-        })
-        .map_err(|_| {
-            rusqlite::Error::InvalidParameterName(
-                "Activity contains an invalid stored timestamp".to_string(),
-            )
-        })
+                .to_rfc3339_opts(chrono::SecondsFormat::Secs, true));
+        }
+    }
+    Err(rusqlite::Error::InvalidParameterName(format!(
+        "{label} contains an invalid timestamp"
+    )))
+}
+
+fn canonical_activity_timestamp(value: &str) -> Result<String> {
+    canonical_utc_timestamp(value, "Activity")
+}
+
+fn canonicalize_optional_timestamp(value: &mut Option<String>, label: &str) -> Result<()> {
+    if let Some(timestamp) = value.as_deref() {
+        *value = Some(canonical_utc_timestamp(timestamp, label)?);
+    }
+    Ok(())
+}
+
+fn migrate_canonical_timestamps(conn: &Connection) -> Result<()> {
+    const MIGRATION_KEY: &str = "canonicalUtcTimestampsV1";
+    let applied: bool = conn.query_row(
+        "SELECT EXISTS(SELECT 1 FROM schema_migrations WHERE key = ?1)",
+        [MIGRATION_KEY],
+        |row| row.get(0),
+    )?;
+    if applied {
+        return Ok(());
+    }
+
+    let transaction = conn.unchecked_transaction()?;
+    for (table, columns) in [
+        (
+            "clips",
+            &["created_at", "trashed_at", "ocr_attempted_at"][..],
+        ),
+        ("activity_logs", &["created_at", "observed_at"][..]),
+    ] {
+        if !table_exists(&transaction, table)? {
+            continue;
+        }
+        for column in columns {
+            if !column_exists(&transaction, table, column)? {
+                continue;
+            }
+            transaction.execute(
+                &format!(
+                    "UPDATE {table}
+                     SET {column} = strftime('%Y-%m-%dT%H:%M:%SZ', {column})
+                     WHERE {column} IS NOT NULL AND datetime({column}) IS NOT NULL"
+                ),
+                [],
+            )?;
+        }
+    }
+    transaction.execute(
+        "INSERT INTO schema_migrations (key, applied_at)
+         VALUES (?1, strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))",
+        [MIGRATION_KEY],
+    )?;
+    transaction.commit()
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
@@ -674,6 +728,37 @@ pub struct BackupPayload {
     pub content_types: Vec<crate::content_types::ContentTypeDefinition>,
     #[serde(default)]
     pub content_type_groups: Vec<crate::content_types::ContentTypeGroupDefinition>,
+}
+
+fn normalize_library_archive_timestamps(payload: &mut BackupPayload) -> Result<()> {
+    payload.timestamp = canonical_utc_timestamp(&payload.timestamp, "Transfer file")?;
+    for clip in &mut payload.clips {
+        clip.created_at = canonical_utc_timestamp(&clip.created_at, "Transfer clip")?;
+        canonicalize_optional_timestamp(&mut clip.trashed_at, "Transfer clip")?;
+    }
+    for bin in &mut payload.bins {
+        bin.created_at = canonical_utc_timestamp(&bin.created_at, "Transfer Bin")?;
+    }
+    for operation in &mut payload.operations {
+        if operation.id >= 0 {
+            operation.created_at =
+                canonical_utc_timestamp(&operation.created_at, "Transfer Operation")?;
+        }
+    }
+    for pipeline in &mut payload.pipelines {
+        pipeline.created_at = canonical_utc_timestamp(&pipeline.created_at, "Transfer Transform")?;
+        pipeline.updated_at = canonical_utc_timestamp(&pipeline.updated_at, "Transfer Transform")?;
+    }
+    for transform in &mut payload.saved_transforms {
+        transform.created_at =
+            canonical_utc_timestamp(&transform.created_at, "Transfer Transform")?;
+        transform.updated_at =
+            canonical_utc_timestamp(&transform.updated_at, "Transfer Transform")?;
+    }
+    for metadata in &mut payload.ocr_metadata {
+        canonicalize_optional_timestamp(&mut metadata.attempted_at, "Transfer OCR metadata")?;
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -1932,7 +2017,7 @@ impl DbState {
                 is_pinned INTEGER DEFAULT 0,
                 bin_id INTEGER,
                 note TEXT,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                created_at DATETIME DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
             )",
             [],
         )?;
@@ -2247,8 +2332,8 @@ impl DbState {
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 event_type TEXT NOT NULL,
                 description TEXT NOT NULL,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                observed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                created_at DATETIME DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+                observed_at DATETIME DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
                 severity_text TEXT NOT NULL DEFAULT 'info',
                 category TEXT NOT NULL DEFAULT 'general',
                 outcome TEXT NOT NULL DEFAULT 'unknown',
@@ -2588,6 +2673,7 @@ impl DbState {
             )?;
         }
         Self::init_library_items(&conn)?;
+        migrate_canonical_timestamps(&conn)?;
 
         // Insert default bins if empty
         let count: i64 = conn
@@ -4153,11 +4239,16 @@ impl DbState {
         let mut duplicate_count = 0usize;
 
         for clip in clips {
+            let created_at = clip
+                .created_at
+                .as_deref()
+                .map(|value| canonical_utc_timestamp(value, "External history"))
+                .transpose()?;
             let changed = transaction.execute(
                 "INSERT OR IGNORE INTO clips
                     (content_type, text_content, content_hash, source, ocr_status, created_at)
                  VALUES ('text', ?1, ?2, ?3, 'not_applicable', COALESCE(?4, strftime('%Y-%m-%dT%H:%M:%SZ', 'now')))",
-                params![clip.text, clip.content_hash, clip.source, clip.created_at],
+                params![clip.text, clip.content_hash, clip.source, created_at],
             )?;
             if changed == 1 {
                 imported_count += 1;
@@ -4180,11 +4271,12 @@ impl DbState {
                 None
             };
 
-        transaction.execute(
-            "INSERT INTO activity_logs (event_type, description) VALUES ('external_history_imported', ?1)",
-            [format!(
+        self.log_activity_internal(
+            &transaction,
+            "external_history_imported",
+            &format!(
                 "Imported {imported_count} clips from {source_label}; skipped {duplicate_count} duplicates"
-            )],
+            ),
         )?;
         transaction.commit()?;
         Ok((
@@ -5946,29 +6038,9 @@ impl DbState {
             .filter_map(|r| r.ok())
             .collect();
 
-        let mut daily_stmt = conn.prepare(
-            "WITH RECURSIVE recent_days(day) AS (
-                SELECT date('now', '-13 days')
-                UNION ALL
-                SELECT date(day, '+1 day') FROM recent_days WHERE day < date('now')
-             )
-             SELECT recent_days.day, COUNT(clips.id)
-             FROM recent_days
-             LEFT JOIN clips
-               ON date(clips.created_at) = recent_days.day
-              AND (clips.is_trashed IS NULL OR clips.is_trashed = 0)
-             GROUP BY recent_days.day
-             ORDER BY recent_days.day DESC",
-        )?;
-        let daily_activity = daily_stmt
-            .query_map([], |r| {
-                Ok(DailyStat {
-                    date: r.get(0)?,
-                    count: r.get(1)?,
-                })
-            })?
-            .filter_map(|r| r.ok())
-            .collect();
+        let reference_time = chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
+        let daily_activity =
+            Self::get_daily_activity_for_calendar(&conn, &reference_time, "localtime")?;
 
         Ok(AnalyticsSummary {
             total_clips,
@@ -5979,6 +6051,39 @@ impl DbState {
             content_types,
             daily_activity,
         })
+    }
+
+    fn get_daily_activity_for_calendar(
+        conn: &Connection,
+        reference_time: &str,
+        calendar_modifier: &str,
+    ) -> Result<Vec<DailyStat>> {
+        let mut daily_stmt = conn.prepare(
+            "WITH RECURSIVE recent_days(day) AS (
+                SELECT date(?1, ?2, '-13 days')
+                UNION ALL
+                SELECT date(day, '+1 day')
+                FROM recent_days
+                WHERE day < date(?1, ?2)
+             )
+             SELECT recent_days.day, COUNT(clips.id)
+             FROM recent_days
+             LEFT JOIN clips
+               ON date(clips.created_at, ?2) = recent_days.day
+              AND (clips.is_trashed IS NULL OR clips.is_trashed = 0)
+             GROUP BY recent_days.day
+             ORDER BY recent_days.day DESC",
+        )?;
+        let daily_activity = daily_stmt
+            .query_map(params![reference_time, calendar_modifier], |r| {
+                Ok(DailyStat {
+                    date: r.get(0)?,
+                    count: r.get(1)?,
+                })
+            })?
+            .filter_map(|r| r.ok())
+            .collect::<Vec<_>>();
+        Ok(daily_activity)
     }
 
     pub fn get_clip_collection_summary(&self) -> Result<ClipCollectionSummary> {
@@ -7152,10 +7257,14 @@ impl DbState {
         }
     }
 
-    fn apply_imported_clips(&self, clips: Vec<ClipItem>, commit: bool) -> Result<ClipImportReport> {
+    fn apply_imported_clips(
+        &self,
+        mut clips: Vec<ClipItem>,
+        commit: bool,
+    ) -> Result<ClipImportReport> {
         use crate::resource_limits::{MAX_CLIP_NOTE_BYTES, MAX_CLIP_TEXT_BYTES};
         let mut input_hashes = HashSet::new();
-        for clip in &clips {
+        for clip in &mut clips {
             if clip.content_hash.trim().is_empty()
                 || !input_hashes.insert(clip.content_hash.clone())
             {
@@ -7180,6 +7289,7 @@ impl DbState {
             if let Some(value) = clip.note.as_deref() {
                 ensure_resource_size(value, MAX_CLIP_NOTE_BYTES, "Imported clip note")?;
             }
+            clip.created_at = canonical_utc_timestamp(&clip.created_at, "Clip import")?;
         }
 
         let scanned_count = clips.len();
@@ -7233,11 +7343,10 @@ impl DbState {
             )?;
         }
         let duplicate_count = scanned_count.saturating_sub(imported_count);
-        tx.execute(
-            "INSERT INTO activity_logs (event_type, description) VALUES ('clips_imported', ?1)",
-            [format!(
-                "Imported {imported_count} clips; skipped {duplicate_count} duplicates"
-            )],
+        self.log_activity_internal(
+            &tx,
+            "clips_imported",
+            &format!("Imported {imported_count} clips; skipped {duplicate_count} duplicates"),
         )?;
         if commit {
             tx.commit()?;
@@ -7257,9 +7366,10 @@ impl DbState {
             crate::resource_limits::MAX_BACKUP_IMPORT_BYTES,
             "Transfer file",
         )?;
-        let payload: BackupPayload = serde_json::from_str(json_str).map_err(|error| {
+        let mut payload: BackupPayload = serde_json::from_str(json_str).map_err(|error| {
             rusqlite::Error::InvalidParameterName(format!("invalid transfer JSON: {error}"))
         })?;
+        normalize_library_archive_timestamps(&mut payload)?;
         let inspection = Self::preflight_library_archive(&payload)?;
         Ok((payload, inspection))
     }
@@ -15505,6 +15615,165 @@ mod tests {
         assert_eq!(db.conn.lock().total_changes(), changes_before);
         assert_eq!(after.source, before.source);
         assert_eq!(after.content_hash, before.content_hash);
+    }
+
+    #[test]
+    fn canonical_timestamps_preserve_instants_and_reject_malformed_imports() {
+        assert_eq!(
+            canonical_utc_timestamp("2026-08-16 23:45:00", "Test").unwrap(),
+            "2026-08-16T23:45:00Z"
+        );
+        assert_eq!(
+            canonical_utc_timestamp("2026-08-16T18:45:00-05:00", "Test").unwrap(),
+            "2026-08-16T23:45:00Z"
+        );
+        assert!(canonical_utc_timestamp("tomorrow sometime", "Test").is_err());
+
+        let source = setup_test_db();
+        source
+            .save_clip(
+                "text",
+                Some("Timestamp import"),
+                None,
+                None,
+                "timestamp-import",
+                "Tests",
+            )
+            .unwrap();
+        let mut payload: serde_json::Value =
+            serde_json::from_str(&source.export_clips_json().unwrap()).unwrap();
+        payload[0]["created_at"] = serde_json::json!("2026-08-16 23:45:00");
+
+        let target = setup_test_db();
+        target
+            .import_clips_json(&serde_json::to_string(&payload).unwrap())
+            .unwrap();
+        assert_eq!(
+            target.get_clips(None, None, false).unwrap()[0].created_at,
+            "2026-08-16T23:45:00Z"
+        );
+
+        payload[0]["created_at"] = serde_json::json!("not-a-timestamp");
+        let invalid_target = setup_test_db();
+        assert!(invalid_target
+            .inspect_clips_json(&serde_json::to_string(&payload).unwrap())
+            .is_err());
+        assert!(invalid_target
+            .get_clips(None, None, false)
+            .unwrap()
+            .is_empty());
+
+        let mut archive: serde_json::Value =
+            serde_json::from_str(&source.export_backup_json().unwrap()).unwrap();
+        archive["bins"][0]["created_at"] = serde_json::json!("2026-08-16T18:45:00-05:00");
+        let mut custom_operation = archive["operations"][0].clone();
+        custom_operation["id"] = serde_json::json!(12345);
+        custom_operation["stable_id"] = serde_json::json!("custom:timezone-test");
+        custom_operation["name"] = serde_json::json!("Timezone Test");
+        custom_operation["created_at"] = serde_json::json!("2026-08-16 23:45:00");
+        archive["operations"]
+            .as_array_mut()
+            .unwrap()
+            .push(custom_operation);
+        let (normalized, _) =
+            DbState::parse_library_archive(&serde_json::to_string(&archive).unwrap()).unwrap();
+        assert_eq!(normalized.bins[0].created_at, "2026-08-16T23:45:00Z");
+        assert_eq!(
+            normalized
+                .operations
+                .iter()
+                .find(|operation| operation.id == 12345)
+                .unwrap()
+                .created_at,
+            "2026-08-16T23:45:00Z"
+        );
+
+        archive["bins"][0]["created_at"] = serde_json::json!("not-a-timestamp");
+        assert!(DbState::parse_library_archive(&serde_json::to_string(&archive).unwrap()).is_err());
+    }
+
+    #[test]
+    fn timestamp_migration_normalizes_legacy_timeline_values() {
+        let db = setup_test_db();
+        let clip = db
+            .save_clip(
+                "text",
+                Some("Legacy time"),
+                None,
+                None,
+                "legacy-time",
+                "Tests",
+            )
+            .unwrap();
+        db.log_activity("app_started", "Tested legacy timestamp")
+            .unwrap();
+        let conn = db.conn.lock();
+        conn.execute(
+            "UPDATE clips SET created_at = '2026-08-16 23:45:00' WHERE id = ?1",
+            [clip.id],
+        )
+        .unwrap();
+        conn.execute(
+            "UPDATE activity_logs SET created_at = '2026-08-16 23:46:00'",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "DELETE FROM schema_migrations WHERE key = 'canonicalUtcTimestampsV1'",
+            [],
+        )
+        .unwrap();
+
+        migrate_canonical_timestamps(&conn).unwrap();
+        let clip_timestamp: String = conn
+            .query_row(
+                "SELECT created_at FROM clips WHERE id = ?1",
+                [clip.id],
+                |row| row.get(0),
+            )
+            .unwrap();
+        let activity_timestamp: String = conn
+            .query_row("SELECT created_at FROM activity_logs LIMIT 1", [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!(clip_timestamp, "2026-08-16T23:45:00Z");
+        assert_eq!(activity_timestamp, "2026-08-16T23:46:00Z");
+    }
+
+    #[test]
+    fn insights_groups_daily_activity_by_the_requested_local_calendar() {
+        let db = setup_test_db();
+        let clip = db
+            .save_clip(
+                "text",
+                Some("Boundary clip"),
+                None,
+                None,
+                "boundary-clip",
+                "Tests",
+            )
+            .unwrap();
+        db.conn
+            .lock()
+            .execute(
+                "UPDATE clips SET created_at = '2026-08-17T00:15:00Z' WHERE id = ?1",
+                [clip.id],
+            )
+            .unwrap();
+
+        let conn = db.conn.lock();
+        let west =
+            DbState::get_daily_activity_for_calendar(&conn, "2026-08-17T00:30:00Z", "-05:00")
+                .unwrap();
+        assert_eq!(west[0].date, "2026-08-16");
+        assert_eq!(west[0].count, 1);
+
+        let east =
+            DbState::get_daily_activity_for_calendar(&conn, "2026-08-17T00:30:00Z", "+05:30")
+                .unwrap();
+        assert_eq!(east[0].date, "2026-08-17");
+        assert_eq!(east[0].count, 1);
     }
 
     #[test]

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { listen } from '@tauri-apps/api/event';
 import { safeInvoke as invoke } from '../utils/tauri';
 import {
   BarChart3,
@@ -74,7 +75,41 @@ export const AnalyticsView: React.FC = () => {
   };
 
   useEffect(() => {
-    loadStats();
+    let disposed = false;
+    let midnightTimer: ReturnType<typeof setTimeout> | undefined;
+    const unlisteners: Array<Promise<() => void>> = [];
+    const refresh = () => {
+      if (!disposed) void loadStats();
+    };
+    const scheduleLocalMidnightRefresh = () => {
+      const now = new Date();
+      const nextMidnight = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate() + 1,
+        0,
+        0,
+        1,
+      );
+      midnightTimer = setTimeout(() => {
+        refresh();
+        scheduleLocalMidnightRefresh();
+      }, Math.max(1, nextMidnight.getTime() - now.getTime()));
+    };
+
+    refresh();
+    scheduleLocalMidnightRefresh();
+    if (typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__) {
+      unlisteners.push(listen('clip-added', refresh));
+      unlisteners.push(listen('clip-library-changed', refresh));
+      unlisteners.push(listen('tauri://focus', refresh));
+    }
+
+    return () => {
+      disposed = true;
+      if (midnightTimer) clearTimeout(midnightTimer);
+      unlisteners.forEach((unlisten) => void unlisten.then((stop) => stop()));
+    };
   }, []);
 
   if (!summary) {

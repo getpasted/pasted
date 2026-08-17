@@ -1,6 +1,12 @@
 import type { ClipItem } from '../types';
+import { parseDbDate } from './date';
 
 export function compareClipChronologicalOrder(left: ClipItem, right: ClipItem) {
+  const leftTimestamp = parseDbDate(left.created_at).getTime();
+  const rightTimestamp = parseDbDate(right.created_at).getTime();
+  if (Number.isFinite(leftTimestamp) && Number.isFinite(rightTimestamp)) {
+    return rightTimestamp - leftTimestamp || right.id - left.id;
+  }
   return right.created_at.localeCompare(left.created_at) || right.id - left.id;
 }
 
