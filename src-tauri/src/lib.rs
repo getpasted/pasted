@@ -33,6 +33,7 @@ pub mod library_storage;
 #[cfg(target_os = "linux")]
 mod linux_native_theme;
 pub mod live_app;
+pub mod localization;
 pub mod ocr;
 #[cfg(test)]
 mod operation_plugins;
@@ -116,16 +117,23 @@ fn build_tray_menu(
     app: &tauri::AppHandle,
     db: &Arc<db::DbState>,
 ) -> tauri::Result<Menu<tauri::Wry>> {
-    let show = MenuItem::with_id(app, "show", "Show Pasted", true, None::<&str>)?;
-    let hud = MenuItem::with_id(app, "hud_toggle", "Toggle HUD", true, None::<&str>)?;
-    let queue = MenuItem::with_id(
+    let t = |key| localization::text(db, key);
+    let show = MenuItem::with_id(app, "show", t("native.tray.show"), true, None::<&str>)?;
+    let hud = MenuItem::with_id(
         app,
-        "seq_toggle",
-        "Start Sequential Paste",
+        "hud_toggle",
+        t("native.tray.toggleHud"),
         true,
         None::<&str>,
     )?;
-    let quit = MenuItem::with_id(app, "quit", "Quit Pasted", true, None::<&str>)?;
+    let queue = MenuItem::with_id(
+        app,
+        "seq_toggle",
+        t("native.tray.startQueue"),
+        true,
+        None::<&str>,
+    )?;
+    let quit = MenuItem::with_id(app, "quit", t("native.tray.quit"), true, None::<&str>)?;
     let mut builder = MenuBuilder::new(app).item(&show);
     if features::is_enabled(db, features::Feature::Hud) {
         builder = builder.item(&hud);

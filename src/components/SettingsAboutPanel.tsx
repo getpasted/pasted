@@ -8,6 +8,7 @@ import { OpenSourceLicensesDialog } from './OpenSourceLicensesDialog';
 import { ActionButton } from './AppDialogLayout';
 import { SettingsAccentTile } from './SettingsAccentTile';
 import { CopycatHeadMark } from './CopycatMark';
+import { translate } from '../localization/runtime';
 
 function fileSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
@@ -24,16 +25,16 @@ function fileSize(bytes: number) {
 function installationSummary(details: InstallationDiagnostics) {
   return [
     `Pasted ${details.appVersion} (${details.buildKind})`,
-    `Platform: ${details.platform} (${details.architecture})`,
-    `Bundle identifier: ${details.bundleIdentifier}`,
-    `Application: ${details.appPath}`,
-    `Data: ${details.dataPath}`,
-    `Database: ${details.databaseSizeBytes} bytes`,
-    `Code signing: ${details.signingStatus}`,
-    ...(details.signingIdentity ? [`Signing identity: ${details.signingIdentity}`] : []),
-    ...(details.signingTeamId ? [`Signing team: ${details.signingTeamId}`] : []),
-    `Notarization: ${details.notarizationStatus}`,
-    `CLI: ${details.cliPath ?? 'Not installed beside Pasted'}`,
+    translate('component.settingsAboutPanel.diagnosticPlatform', { platform: details.platform, architecture: details.architecture }),
+    translate('component.settingsAboutPanel.diagnosticBundleIdentifier', { value: details.bundleIdentifier }),
+    translate('component.settingsAboutPanel.diagnosticApplication', { value: details.appPath }),
+    translate('component.settingsAboutPanel.diagnosticData', { value: details.dataPath }),
+    translate('component.settingsAboutPanel.diagnosticDatabaseBytes', { value: details.databaseSizeBytes }),
+    translate('component.settingsAboutPanel.diagnosticCodeSigning', { value: details.signingStatus }),
+    ...(details.signingIdentity ? [translate('component.settingsAboutPanel.diagnosticSigningIdentity', { value: details.signingIdentity })] : []),
+    ...(details.signingTeamId ? [translate('component.settingsAboutPanel.diagnosticSigningTeam', { value: details.signingTeamId })] : []),
+    translate('component.settingsAboutPanel.diagnosticNotarization', { value: details.notarizationStatus }),
+    translate('component.settingsAboutPanel.diagnosticCli', { value: details.cliPath ?? translate('component.settingsAboutPanel.notInstalledBesidePasted') }),
   ].join('\n');
 }
 
@@ -70,36 +71,36 @@ export function SettingsAboutPanel() {
     <div className="space-y-5">
       <SettingsPanelHeader
         icon={Info}
-        title="About Pasted"
-        description="The cat captures clips. We don’t capture copycats."
+        title={translate('component.settingsAboutPanel.aboutPasted')}
+        description={translate('component.settingsAboutPanel.theCatCapturesClipsWeDonTCaptureCopycats')}
       />
 
       <section className="theme-surface relative flex flex-col items-center overflow-hidden rounded-2xl border px-6 py-8 text-center">
         <div className="copycat-about-mark" aria-hidden="true"><CopycatHeadMark /></div>
-        <h3 className="theme-title mt-3 text-xl font-bold">Pasted</h3>
+        <h3 className="theme-title mt-3 text-xl font-bold">{translate('component.settingsAboutPanel.pasted')}</h3>
         <p className="theme-title mt-1 max-w-md text-sm font-bold">
-          Works for copycats. Not for corporations.
+          {translate('component.settingsAboutPanel.worksForCopycatsNotForCorporations')}
         </p>
         <p className="theme-text-muted mt-2 max-w-lg text-xs leading-relaxed">
-          Copycats are people, scripts, automations, and agents. They share one private workspace with each other. Nobody else gets a copy—and certainly not us.
+          {translate('component.settingsAboutPanel.copycatsArePeopleScriptsAutomationsAndAgentsTheyShareOnePrivateWorkspace')}
         </p>
         <span className="theme-badge mt-4 rounded-full border px-3 py-1 font-mono text-[10px] font-semibold">
-          {installation ? `Version ${installation.appVersion} · ${installation.buildKind}` : 'Loading version…'}
+          {installation ? translate('component.settingsAboutPanel.versionAppversionBuildkind', { appVersion: installation.appVersion, buildKind: installation.buildKind }) : translate('component.settingsAboutPanel.loadingVersion')}
         </span>
       </section>
 
       <section className="theme-surface rounded-2xl border p-5 space-y-4">
         <SettingsSubsectionHeader
           icon={<HeartHandshake className="h-4 w-4" />}
-          title="The Copycat Covenant"
-          description="Product constraints, not marketing preferences."
+          title={translate('component.settingsAboutPanel.theCopycatCovenant')}
+          description={translate('component.settingsAboutPanel.productConstraintsNotMarketingPreferences')}
         />
         <div className="grid gap-2 sm:grid-cols-2">
           {[
-            { icon: HardDrive, title: 'No cloud account', body: 'Pasted works without an identity, a sync account, or a hosted copy of your clipboard history. The core workspace lives where you do.' },
-            { icon: RadioTower, title: 'No telemetry', body: 'We do not measure engagement, inspect clipboard activity, or teach a dashboard how copycats behave. Your work is not our dataset.' },
-            { icon: HeartHandshake, title: 'No subscription', body: 'Pasted will not rent your own clipboard back to you. If it earns a place in your workflow, support is an endorsement—not an unlock.' },
-            { icon: Bot, title: 'Every copycat welcome', body: 'Humans use the app. Scripts use the CLI. Automations and agents use the tools you explicitly give them. Everyone shares the same local library.' },
+            { icon: HardDrive, get title() { return translate('component.settingsAboutPanel.noCloudAccount'); }, get body() { return translate('component.settingsAboutPanel.pastedWorksWithoutAnIdentityASyncAccountOrAHostedCopy'); } },
+            { icon: RadioTower, get title() { return translate('component.settingsAboutPanel.noTelemetry'); }, get body() { return translate('component.settingsAboutPanel.weDoNotMeasureEngagementInspectClipboardActivityOrTeachADashboard'); } },
+            { icon: HeartHandshake, get title() { return translate('component.settingsAboutPanel.noSubscription'); }, get body() { return translate('component.settingsAboutPanel.pastedWillNotRentYourOwnClipboardBackToYouIfIt'); } },
+            { icon: Bot, get title() { return translate('component.settingsAboutPanel.everyCopycatWelcome'); }, get body() { return translate('component.settingsAboutPanel.humansUseTheAppScriptsUseTheCliAutomationsAndAgentsUse'); } },
           ].map(({ icon: Icon, title, body }) => (
             <article key={title} className="theme-card-idle border p-3.5">
               <Icon className="mb-2 h-4 w-4 text-[var(--accent-primary)]" />
@@ -109,19 +110,19 @@ export function SettingsAboutPanel() {
           ))}
         </div>
         <p className="theme-text-muted theme-divider border-t pt-3 text-[10px] leading-relaxed">
-          Outside intelligence is optional and explicit. Clip content leaves the device only when a copycat runs a connected intelligence-assisted action.
+          {translate('component.settingsAboutPanel.outsideIntelligenceIsOptionalAndExplicitClipContentLeavesTheDeviceOnly')}
         </p>
         <div className="theme-card-idle flex flex-col gap-3 border p-4 sm:flex-row sm:items-center">
           <div className="min-w-0 flex-1">
             <p className="theme-title text-sm font-bold">
-              If Pasted earns a permanent place in your workflow, put $9.99 behind its future.
+              {translate('component.settingsAboutPanel.ifPastedEarnsAPermanentPlaceInYourWorkflowPut999')}
             </p>
             <p className="theme-text-muted mt-1 text-[10px] leading-relaxed">
-              Nothing to unlock. No license key. No ET phone home. Just useful software—and one more reason to keep making it.
+              {translate('component.settingsAboutPanel.nothingToUnlockNoLicenseKeyNoEtPhoneHomeJustUseful')}
             </p>
           </div>
           <ActionButton variant="primary" className="shrink-0" onClick={() => void openBackingPage()}>
-            Back Pasted — $9.99 <ExternalLink className="h-3.5 w-3.5" />
+            {translate('component.settingsAboutPanel.backPasted999')} <ExternalLink className="h-3.5 w-3.5" />
           </ActionButton>
         </div>
         {backingError && <div role="alert" className="theme-status-danger rounded-xl border px-3 py-2 text-xs">{backingError}</div>}
@@ -130,21 +131,21 @@ export function SettingsAboutPanel() {
       <section className="theme-surface rounded-2xl border p-5 space-y-4">
         <SettingsSubsectionHeader
           icon={<HardDrive className="h-4 w-4" />}
-          title="This installation"
-          description="Details for troubleshooting and verification."
+          title={translate('component.settingsAboutPanel.thisInstallation')}
+          description={translate('component.settingsAboutPanel.detailsForTroubleshootingAndVerification')}
           actions={<ActionButton disabled={!installation} onClick={() => void copyDetails()} className="shrink-0 disabled:opacity-40">
             {copied ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-            {copied ? 'Copied' : 'Copy Details'}
+            {copied ? translate('action.copied') : translate('component.settingsAboutPanel.copyDetails')}
           </ActionButton>}
         />
 
         {installation ? (
           <div className="grid gap-2 sm:grid-cols-2">
             {[
-              { icon: HardDrive, label: 'Version', value: `${installation.appVersion} · ${installation.buildKind}` },
-              { icon: ShieldCheck, label: 'Verification', value: `${installation.signingStatus} · ${installation.notarizationStatus}` },
-              { icon: Database, label: 'Database', value: fileSize(installation.databaseSizeBytes) },
-              { icon: TerminalSquare, label: 'Command Line', value: installation.cliPath ? 'Installed' : 'Not installed beside Pasted' },
+              { icon: HardDrive, get label() { return translate('component.settingsAboutPanel.version'); }, value: translate('component.settingsAboutPanel.appversionBuildkind', { appVersion: installation.appVersion, buildKind: installation.buildKind }) },
+              { icon: ShieldCheck, get label() { return translate('component.settingsAboutPanel.verification'); }, value: translate('component.settingsAboutPanel.signingstatusNotarizationstatus', { signingStatus: installation.signingStatus, notarizationStatus: installation.notarizationStatus }) },
+              { icon: Database, get label() { return translate('component.settingsAboutPanel.database'); }, value: fileSize(installation.databaseSizeBytes) },
+              { icon: TerminalSquare, get label() { return translate('component.settingsAboutPanel.commandLine'); }, value: installation.cliPath ? translate('component.settingsAboutPanel.installed') : translate('component.settingsAboutPanel.notInstalledBesidePasted') },
             ].map(({ icon: Icon, label, value }) => (
               <div key={label} className="theme-card-idle flex min-w-0 items-center gap-2.5 border px-3 py-2.5">
                 <Icon className="theme-text-muted h-4 w-4 shrink-0" />
@@ -155,8 +156,8 @@ export function SettingsAboutPanel() {
               </div>
             ))}
             {[
-              ['Application', installation.appPath],
-              ['Data', installation.dataPath],
+              [translate('component.settingsAboutPanel.application'), installation.appPath],
+              [translate('component.settingsAboutPanel.data'), installation.dataPath],
             ].map(([label, value]) => (
               <div key={label} className="theme-card-idle min-w-0 border px-3 py-2.5 sm:col-span-2">
                 <div className="theme-text-muted text-[9px] font-semibold uppercase tracking-wider">{label}</div>
@@ -165,11 +166,11 @@ export function SettingsAboutPanel() {
             ))}
             <div className="theme-text-muted px-1 text-[10px] sm:col-span-2">
               {installation.bundleIdentifier} · {installation.platform} {installation.architecture}
-              {installation.signingTeamId ? ` · Team ${installation.signingTeamId}` : ''}
+              {installation.signingTeamId ? translate('component.settingsAboutPanel.teamId', { id: installation.signingTeamId }) : ''}
             </div>
           </div>
         ) : (
-          <div className="theme-text-muted p-3 text-center text-xs">Inspecting this installation…</div>
+          <div className="theme-text-muted p-3 text-center text-xs">{translate('component.settingsAboutPanel.inspectingThisInstallation')}</div>
         )}
         {error && <div className="theme-status-danger rounded-xl border px-3 py-2 text-xs">{error}</div>}
       </section>
@@ -184,9 +185,9 @@ export function SettingsAboutPanel() {
             <Scale className="h-4 w-4" />
           </SettingsAccentTile>
           <span className="min-w-0 flex-1">
-            <span className="theme-title block text-sm font-bold">Open Source Licenses…</span>
+            <span className="theme-title block text-sm font-bold">{translate('component.settingsAboutPanel.openSourceLicenses')}</span>
             <span className="theme-text-muted mt-0.5 block text-xs">
-              Licenses and acknowledgements for bundled software.
+              {translate('component.settingsAboutPanel.licensesAndAcknowledgementsForBundledSoftware')}
             </span>
           </span>
           <ChevronRight className="theme-text-muted h-4 w-4 shrink-0" />

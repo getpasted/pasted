@@ -1,6 +1,7 @@
 import { PlayCircle } from 'lucide-react';
 import { ActionButton } from './AppDialogLayout';
 import { SettingsAccentTile } from './SettingsAccentTile';
+import { translate } from '../localization/runtime';
 
 interface SettingsWelcomePanelProps {
   onOpen: () => void;
@@ -15,14 +16,14 @@ export function SettingsWelcomePanel({ onOpen }: SettingsWelcomePanelProps) {
             <PlayCircle className="h-4 w-4" />
           </SettingsAccentTile>
           <div className="min-w-0 pt-0.5">
-            <h3 className="theme-title text-sm font-bold">Welcome, Copycat</h3>
+            <h3 className="theme-title text-sm font-bold">{translate('component.settingsWelcomePanel.welcomeCopycat')}</h3>
             <p className="theme-text-muted mt-1 text-[11px] leading-relaxed">
-              Revisit the Copycat Covenant, migration, shared workspace, and keyboard access.
+              {translate('component.settingsWelcomePanel.revisitTheCopycatCovenantMigrationSharedWorkspaceAndKeyboardAccess')}
             </p>
           </div>
         </div>
         <ActionButton onClick={onOpen} className="shrink-0 cursor-pointer">
-          Open Copycat Welcome…
+          {translate('component.settingsWelcomePanel.openCopycatWelcome')}
         </ActionButton>
       </div>
     </section>

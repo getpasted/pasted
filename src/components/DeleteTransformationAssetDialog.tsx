@@ -1,5 +1,6 @@
 import { Trash2 } from 'lucide-react';
 import { AppDialog } from './AppDialog';
+import { translate } from '../localization/runtime';
 import {
   AppDialogBody,
   AppDialogButton,
@@ -30,24 +31,22 @@ export function DeleteTransformationAssetDialog({
       panelClassName="theme-panel w-full max-w-md overflow-hidden border"
     >
       {({ requestClose }) => <>
-        <AppDialogHeader onClose={requestClose} closeLabel={`Close delete ${asset.kind} dialog`}>
+        <AppDialogHeader onClose={requestClose} closeLabel={translate('component.deleteTransformationAssetDialog.closeDeleteKindDialog', { kind: asset.kind })}>
           <AppDialogHeading
             id="delete-transformation-asset-title"
-            title={`Delete ${asset.kind}?`}
+            title={translate('component.deleteTransformationAssetDialog.deleteKind', { kind: asset.kind })}
             description={asset.name}
             icon={<Trash2 />}
             tone="danger"
           />
         </AppDialogHeader>
         <AppDialogBody>
-          <p className="text-xs theme-text-muted">
-            This removes the {asset.kind.toLowerCase()} from the library. Clips already created or changed by it remain unchanged.
-          </p>
+          <p className="text-xs theme-text-muted">{translate('component.deleteTransformationAssetDialog.removesKindFromLibrary', { kind: asset.kind.toLowerCase() })}</p>
         </AppDialogBody>
         <AppDialogFooter>
-          <AppDialogButton onClick={requestClose} disabled={isDeleting} autoFocus>Cancel</AppDialogButton>
+          <AppDialogButton onClick={requestClose} disabled={isDeleting} autoFocus>{translate('common.cancel')}</AppDialogButton>
           <AppDialogButton variant="danger" onClick={onConfirm} disabled={isDeleting}>
-            {isDeleting ? 'Deleting…' : `Delete ${asset.kind}`}
+            {isDeleting ? translate('component.deleteTransformationAssetDialog.deleting') : translate('component.deleteTransformationAssetDialog.deleteKind2', { kind: asset.kind })}
           </AppDialogButton>
         </AppDialogFooter>
       </>}

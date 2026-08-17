@@ -1,6 +1,7 @@
 import { Edit3, Trash2 } from 'lucide-react';
 import type { Bin } from '../types';
 import { AnchoredMenu, MenuDivider, MenuItem } from './AnchoredMenu';
+import { translate } from '../localization/runtime';
 
 interface BinContextMenuProps {
   menu: { x: number; y: number; bin: Bin };
@@ -13,7 +14,7 @@ export function BinContextMenu({ menu, onClose, onEdit, onDelete }: BinContextMe
   return (
     <AnchoredMenu
       anchor={{ kind: 'point', x: menu.x, y: menu.y }}
-      ariaLabel={`${menu.bin.name} actions`}
+      ariaLabel={translate('component.binContextMenu.nameActions', { name: menu.bin.name })}
       className="bin-context-menu min-w-[170px]"
       onClose={onClose}
     >
@@ -22,7 +23,7 @@ export function BinContextMenu({ menu, onClose, onEdit, onDelete }: BinContextMe
         className="gap-2 px-2.5 py-1.5"
       >
         <Edit3 className="theme-status-info-text w-3.5 h-3.5" />
-        <span>Edit Bin...</span>
+        <span>{translate('component.binContextMenu.editBin')}</span>
       </MenuItem>
       <MenuDivider />
       <MenuItem
@@ -31,7 +32,7 @@ export function BinContextMenu({ menu, onClose, onEdit, onDelete }: BinContextMe
         className="gap-2 px-2.5 py-1.5"
       >
         <Trash2 className="theme-danger-text w-3.5 h-3.5" />
-        <span>Delete Bin</span>
+        <span>{translate('component.binContextMenu.deleteBin')}</span>
       </MenuItem>
     </AnchoredMenu>
   );

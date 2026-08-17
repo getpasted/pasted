@@ -9,6 +9,7 @@ import {
   AppDialogHeading,
 } from './AppDialogLayout';
 import { MenuSelect } from './MenuSelect';
+import { translate } from '../localization/runtime';
 
 interface AddBlacklistAppModalProps {
   suggestions: Array<{ label: string; apps: string[] }>;
@@ -37,24 +38,24 @@ export function AddBlacklistAppModal({ suggestions, onAdd, onClose }: AddBlackli
     >
       {({ requestClose }) => (
         <>
-          <AppDialogHeader onClose={requestClose} closeLabel="Close add app dialog">
+          <AppDialogHeader onClose={requestClose} closeLabel={translate('component.addBlacklistAppModal.closeAddAppDialog')}>
             <AppDialogHeading
               id="add-blacklist-app-title"
-              title="Add app exclusion"
-              description="Ignore the selected content and hotkeys while this app is active."
+              title={translate('component.addBlacklistAppModal.addAppExclusion')}
+              description={translate('component.addBlacklistAppModal.ignoreTheSelectedContentAndHotkeysWhileThisAppIsActive')}
               icon={<Lock />}
             />
           </AppDialogHeader>
           <form onSubmit={submit}>
             <AppDialogBody className="space-y-4">
               <div className="space-y-1.5 text-xs theme-text-muted">
-                <span className="block font-semibold">Suggested app</span>
+                <span className="block font-semibold">{translate('component.addBlacklistAppModal.suggestedApp')}</span>
                 <MenuSelect
-                  label="Suggested app"
+                  label={translate('component.addBlacklistAppModal.suggestedApp')}
                   onChange={setAppName}
                   value={suggestions.some((group) => group.apps.includes(appName)) ? appName : ''}
                   options={[
-                    { value: '', label: 'Select an installed or popular app', disabled: true },
+                    { value: '', get label() { return translate('component.addBlacklistAppModal.selectAnInstalledOrPopularApp'); }, disabled: true },
                     ...suggestions.flatMap((group) => group.apps.map((name) => ({
                       value: name,
                       label: name,
@@ -65,11 +66,11 @@ export function AddBlacklistAppModal({ suggestions, onAdd, onClose }: AddBlackli
                 />
               </div>
               <label className="block space-y-1.5 text-xs theme-text-muted">
-                <span className="block font-semibold">App name</span>
+                <span className="block font-semibold">{translate('component.addBlacklistAppModal.appName')}</span>
                 <input
                   autoFocus
                   type="text"
-                  placeholder="Signal, Bitwarden, Terminal…"
+                  placeholder={translate('component.addBlacklistAppModal.signalBitwardenTerminal')}
                   value={appName}
                   onChange={(event) => setAppName(event.target.value)}
                   className="theme-input ui-field-radius w-full border px-3 py-2.5 focus:outline-none"
@@ -77,9 +78,9 @@ export function AddBlacklistAppModal({ suggestions, onAdd, onClose }: AddBlackli
               </label>
             </AppDialogBody>
             <AppDialogFooter>
-              <AppDialogButton onClick={requestClose}>Cancel</AppDialogButton>
+              <AppDialogButton onClick={requestClose}>{translate('common.cancel')}</AppDialogButton>
               <AppDialogButton type="submit" variant="primary" disabled={!appName.trim()}>
-                Add app
+                {translate('component.addBlacklistAppModal.addApp')}
               </AppDialogButton>
             </AppDialogFooter>
           </form>

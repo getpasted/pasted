@@ -3,6 +3,7 @@ import { LoaderCircle, Sparkles, Workflow } from 'lucide-react';
 import type { SavedTransform } from '../types';
 import { AnchoredMenu, MenuDivider, MenuItem } from './AnchoredMenu';
 import { OverflowText } from './OverflowText';
+import { translate } from '../localization/runtime';
 
 interface ClipWorkflowMenuProps {
   transforms: SavedTransform[];
@@ -26,7 +27,7 @@ export function ClipWorkflowMenu({
   return (
     <AnchoredMenu
       anchor={{ kind: 'element', ref: anchorRef, align: 'end', gap: 8 }}
-      ariaLabel="Clip workflow"
+      ariaLabel={translate('component.clipWorkflowMenu.clipWorkflow')}
       onClose={onClose}
       className="w-72"
     >
@@ -51,13 +52,13 @@ export function ClipWorkflowMenu({
                 : <Workflow className="theme-workflow-text h-4 w-4 shrink-0" />}
               <OverflowText text={transform.name} className="min-w-0 flex-1 truncate" />
               {usesIntelligence && (
-                <Sparkles className="theme-intelligence-text h-3.5 w-3.5 shrink-0" aria-label="Uses connected intelligence" />
+                <Sparkles className="theme-intelligence-text h-3.5 w-3.5 shrink-0" aria-label={translate('component.clipWorkflowMenu.usesConnectedIntelligence')} />
               )}
             </MenuItem>
           );
         }) : (
           <p className="theme-text-muted px-2.5 py-3 text-[11px] font-normal">
-            No saved Transforms yet.
+            {translate('component.clipWorkflowMenu.noSavedTransformsYet')}
           </p>
         )}
       </div>
@@ -73,7 +74,7 @@ export function ClipWorkflowMenu({
         className="gap-2.5 px-2.5 py-2"
       >
         <Workflow className="theme-workflow-text h-4 w-4 shrink-0" />
-        <span className="flex-1">Manage Transforms…</span>
+        <span className="flex-1">{translate('component.clipWorkflowMenu.manageTransforms')}</span>
       </MenuItem>
     </AnchoredMenu>
   );

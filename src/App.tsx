@@ -50,6 +50,9 @@ import {
 } from './utils/appUiState';
 import './App.css';
 import { consumePendingBackupClientState } from './utils/backupClientState';
+import { useLocalization } from './localization/LocalizationProvider';
+import { translate } from './localization/runtime';
+import { localizedSourceName } from './localization/presentation';
 
 const TRANSIENT_SCROLL_SURFACE_SELECTOR = [
   '.surface-scroll-region',
@@ -66,6 +69,7 @@ const TRANSIENT_SCROLL_SURFACE_SELECTOR = [
 ].join(', ');
 
 export default function App() {
+  const { locale } = useLocalization();
   const [restoredUiState] = useState(readAppUiState);
   const [isHudView, setIsHudView] = useState<boolean>(false);
 
@@ -205,10 +209,9 @@ export default function App() {
   const [, setSelectedIndex] = useState<number>(-1);
   const [currentTab, setCurrentTab] = useState<string>(restoredUiState.currentTab);
   const startupViewAppliedRef = useRef(false);
-  const navigationSerialRef = useRef(0);
-  const [settingsNavigation, setSettingsNavigation] = useState<{ tab: SettingsTab; key: number }>();
-  const [helpNavigation, setHelpNavigation] = useState<{ topic: HelpTopic; key: number }>();
-  const [transformNavigation, setTransformNavigation] = useState<{ workspace: TransformWorkspace; key: number }>();
+  const [activeSettingsTab, setActiveSettingsTab] = useState<SettingsTab>(restoredUiState.settingsTab);
+  const [activeHelpTopic, setActiveHelpTopic] = useState<HelpTopic>(restoredUiState.helpTopic);
+  const [activeTransformWorkspace, setActiveTransformWorkspace] = useState<TransformWorkspace>(restoredUiState.transformWorkspace);
   const [selectedBinId, setSelectedBinId] = useState<number | null>(restoredUiState.selectedBinId);
   const lastClipViewRef = useRef<{ tab: string; binId: number | null }>({
     tab: restoredUiState.currentTab,
@@ -249,13 +252,12 @@ export default function App() {
     const requiredFeature = featureForRoute(route);
     if (requiredFeature && !enabledFeatures[requiredFeature]) route = 'all';
     const [tab, detail] = route.split(':', 2);
-    const key = ++navigationSerialRef.current;
     if (tab === 'settings' && ['general', 'functionality', 'hotkeys', 'notifications', 'security', 'app-exclusions', 'storage', 'analysis', 'intelligence', 'about'].includes(detail)) {
-      setSettingsNavigation({ tab: detail as SettingsTab, key });
+      setActiveSettingsTab(detail as SettingsTab);
     } else if (tab === 'help' && ['getting-started', 'shortcuts-hud', 'privacy-capture', 'deletion-recovery', 'analysis', 'transformations', 'cli'].includes(detail)) {
-      setHelpNavigation({ topic: detail as HelpTopic, key });
+      setActiveHelpTopic(detail as HelpTopic);
     } else if (tab === 'transformations' && ['transforms', 'advanced', 'playground'].includes(detail)) {
-      setTransformNavigation({ workspace: detail as TransformWorkspace, key });
+      setActiveTransformWorkspace(detail as TransformWorkspace);
     }
     setCurrentTab(tab);
     if (tab !== 'bin') setSelectedBinId(null);
@@ -468,7 +470,7 @@ export default function App() {
   });
   const currentCollection = useMemo(
     () => getClipCollection(currentTab, selectedBinId === null ? undefined : bins.find((bin) => bin.id === selectedBinId)),
-    [bins, currentTab, selectedBinId],
+    [bins, currentTab, locale, selectedBinId],
   );
   const isQueueCollection = currentCollection?.membership === 'queue';
   const isPinnedCollection = currentCollection?.membership === 'pinned';
@@ -758,14 +760,20 @@ export default function App() {
   useEffect(() => {
     if (isHudView || !settingsHydrated || !initialDataLoaded) return;
     writeAppUiState({
-      version: 1,
+      version: 2,
       currentTab,
+      settingsTab: activeSettingsTab,
+      helpTopic: activeHelpTopic,
+      transformWorkspace: activeTransformWorkspace,
       selectedBinId: currentTab === 'bin' ? selectedBinId : null,
       selectedClipId: selectedClip?.id ?? null,
       isSidebarCollapsed,
       sidebarSections,
     });
   }, [
+    activeHelpTopic,
+    activeSettingsTab,
+    activeTransformWorkspace,
     currentTab,
     initialDataLoaded,
     isHudView,
@@ -1182,10 +1190,10 @@ export default function App() {
         if (!previewClip) return null;
         const batchCount = selectedClipIds.has(previewClip.id) ? selectedClipIds.size : 1;
         const previewText = previewClip.content_type === 'image'
-          ? 'Image clip'
+          ? translate('app.imageClip')
           : previewClip.content_type === 'file'
             ? getClipFileSummary(previewClip)
-            : previewClip.text_content || 'Empty clip';
+            : previewClip.text_content || translate('app.emptyClip');
         return (
           <div
             data-testid="clip-drag-preview"
@@ -1197,10 +1205,10 @@ export default function App() {
             }}
           >
             {(enabledFeatures.sources || batchCount > 1) && <div className="theme-text-muted flex items-center justify-between gap-3 text-[10px]">
-              {enabledFeatures.sources && <OverflowText text={previewClip.source} className="theme-text-main truncate font-semibold" />}
+              {enabledFeatures.sources && <OverflowText text={localizedSourceName(previewClip.source)} className="theme-text-main truncate font-semibold" />}
               {batchCount > 1 && (
                 <span className="clip-drag-preview-count shrink-0 rounded-full px-2 py-0.5 font-bold">
-                  {batchCount} clips
+                  {translate('format.clipCount', { count: batchCount })}
                 </span>
               )}
             </div>}
@@ -1251,7 +1259,7 @@ export default function App() {
         <div
           onPointerDown={handleSidebarPointerDown}
           className="column-resizer relative w-[1px] h-screen cursor-col-resize z-30 shrink-0 select-none touch-none"
-          title="Resize Sidebar"
+          title={translate('app.resizeSidebar')}
         >
           <div className={`column-resizer-line w-[1px] h-full transition-colors ${isResizingSidebar ? 'is-active' : ''}`} />
           <div className="absolute inset-y-0 -left-1 -right-1 z-40 cursor-col-resize" />
@@ -1263,8 +1271,8 @@ export default function App() {
         <TransformationsView
           pipelines={pipelines}
           onRefreshPipelines={fetchPipelines}
-          requestedWorkspace={transformNavigation?.workspace}
-          navigationKey={transformNavigation?.key}
+          activeWorkspace={activeTransformWorkspace}
+          onActiveWorkspaceChange={setActiveTransformWorkspace}
         />
       ) : currentTab === 'activity' ? (
         <ActivityLogView />
@@ -1272,8 +1280,8 @@ export default function App() {
         <AnalyticsView />
       ) : currentTab === 'help' ? (
         <HelpView
-          requestedTopic={helpNavigation?.topic}
-          navigationKey={helpNavigation?.key}
+          activeTopic={activeHelpTopic}
+          onActiveTopicChange={setActiveHelpTopic}
         />
       ) : currentTab === 'settings' ? (
         <SettingsModal
@@ -1292,8 +1300,8 @@ export default function App() {
           onRestoreAllTrashedClips={handleRestoreAllTrashedClips}
           trashedClipCount={trashedClips.length}
           onResetColumnWidths={resetColumnWidths}
-          requestedTab={settingsNavigation?.tab}
-          navigationKey={settingsNavigation?.key}
+          activeTab={activeSettingsTab}
+          onActiveTabChange={setActiveSettingsTab}
           onOpenAnalytics={() => handleSidebarNavigate('analytics')}
         />
       ) : (
@@ -1315,12 +1323,12 @@ export default function App() {
                 ) : (
                   <Clipboard className="theme-text-main w-4 h-4 titlebar-drag-handle shrink-0" />
                 )}
-                <OverflowText as="h2" text={currentCollection?.title ?? 'History'} className="theme-title text-xs font-bold uppercase tracking-wider titlebar-drag-handle truncate" />
+                <OverflowText as="h2" text={currentCollection?.title ?? translate('collection.history')} className="theme-title text-xs font-bold uppercase tracking-wider titlebar-drag-handle truncate" />
                 {currentTab === 'search' && (
                   <span
                     className="theme-badge min-w-5 rounded-md border px-1.5 py-0.5 text-center font-mono text-[10px] font-semibold"
-                    aria-label={`${displayedClips.length} search ${displayedClips.length === 1 ? 'result' : 'results'}`}
-                    title={`${displayedClips.length} ${displayedClips.length === 1 ? 'Result' : 'Results'}`}
+                    aria-label={translate('app.searchResultCount', { count: displayedClips.length })}
+                    title={translate('app.resultCount', { count: displayedClips.length })}
                   >
                     {displayedClips.length}
                   </span>
@@ -1331,7 +1339,7 @@ export default function App() {
               <div className="flex items-center space-x-1.5 shrink-0">
                 {ignoredAppStatus && (
                   <span className="theme-status-danger text-[10px] px-2 py-0.5 rounded border font-mono flex items-center animate-in fade-in">
-                    Ignored: {ignoredAppStatus.app_name}
+                    {translate('app.ignoredApp', { name: ignoredAppStatus.app_name })}
                   </span>
                 )}
 
@@ -1342,7 +1350,7 @@ export default function App() {
                     className="theme-status-danger px-2 py-1 rounded-lg border text-xs font-semibold disabled:opacity-40 transition-colors cursor-pointer flex items-center space-x-1"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
-                    <span>Empty Trash</span>
+                    <span>{translate('app.emptyTrash')}</span>
                   </button>
                 )}
 
@@ -1354,7 +1362,7 @@ export default function App() {
                       ? 'is-warning shadow-sm'
                       : ''
                   }`}
-                  title={isClipboardPaused ? 'Resume History' : 'Pause History'}
+                  title={isClipboardPaused ? translate('app.resumeHistory') : translate('app.pauseHistory')}
                 >
                   <Pause
                     className={`w-4 h-4 ${isClipboardPaused ? 'fill-current animate-pulse' : ''}`}
@@ -1370,7 +1378,9 @@ export default function App() {
                       ? 'is-queue-active shadow-sm'
                       : ''
                   }`}
-                  title={seqStatus?.is_active ? `Stop Queue (${seqStatus.queue.length})` : 'Start Queue'}
+                  title={seqStatus?.is_active
+                    ? translate('app.stopQueueCount', { count: seqStatus.queue.length })
+                    : translate('app.startQueue')}
                 >
                   {seqStatus?.is_active ? (
                     <Square className="w-3.5 h-3.5 fill-current animate-pulse" strokeWidth={2.5} />
@@ -1545,7 +1555,7 @@ export default function App() {
                   })}
                   {isLoadingCurrentCollection && (
                     <div className="theme-text-muted py-3 text-center text-xs" role="status">
-                      Loading older clips…
+                    {translate('app.loadingOlderClips')}
                     </div>
                   )}
                   </>
@@ -1587,10 +1597,10 @@ export default function App() {
                     });
                   }}
                   className="batch-action-button flex items-center space-x-1 transition-colors font-medium cursor-pointer whitespace-nowrap shrink-0"
-                  title="Pin Selected"
+                  title={translate('app.pinSelected')}
                 >
                   <Pin className="pin-icon w-3.5 h-3.5 shrink-0" />
-                  <span>Pin</span>
+                  <span>{translate('action.pin')}</span>
                 </button>
                 <button
                   onClick={() => {
@@ -1611,25 +1621,25 @@ export default function App() {
                     });
                   }}
                   className="batch-action-button flex items-center space-x-1 transition-colors font-medium cursor-pointer whitespace-nowrap shrink-0"
-                  title="Unpin Selected"
+                  title={translate('app.unpinSelected')}
                 >
                   <Pin className="theme-text-muted w-3.5 h-3.5 opacity-60 shrink-0" />
-                  <span>Unpin</span>
+                  <span>{translate('action.unpin')}</span>
                 </button>
                 <div className="batch-action-divider h-3.5 w-px shrink-0" />
                 </>}
                 <button
                   onClick={() => handleBatchTrash()}
                   className="batch-action-button is-danger flex items-center space-x-1 transition-colors font-medium cursor-pointer whitespace-nowrap shrink-0"
-                  title={appSettings.enableTrash ? 'Move Selected to Trash' : 'Delete Selected Permanently'}
+                  title={appSettings.enableTrash ? translate('app.moveSelectedToTrash') : translate('app.deleteSelectedPermanently')}
                 >
                   <Trash2 className="w-3.5 h-3.5 shrink-0" />
-                  <span>Trash</span>
+                  <span>{translate('feature.trash.label')}</span>
                 </button>
                 <button
                   onClick={clearClipSelection}
                   className="batch-action-button p-0.5 rounded-full transition-colors cursor-pointer shrink-0 ml-0.5"
-                  title="Deselect"
+                  title={translate('app.deselect')}
                 >
                   <X className="w-3.5 h-3.5 shrink-0" />
                 </button>
@@ -1641,7 +1651,7 @@ export default function App() {
           <div
             onPointerDown={handleListPointerDown}
             className="column-resizer relative w-[1px] h-screen cursor-col-resize z-20 shrink-0 select-none touch-none"
-            title="Resize Clip List"
+            title={translate('app.resizeClipList')}
           >
             <div className={`column-resizer-line w-[1px] h-full transition-colors ${isResizingList ? 'is-active' : ''}`} />
             <div className="absolute inset-y-0 left-0 -right-2 z-20 cursor-col-resize" />

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
 const activityView = fs.readFileSync('src/components/ActivityLogView.tsx', 'utf8');
+const englishCatalog = JSON.parse(fs.readFileSync('src/locales/en.json', 'utf8'));
 const rustSources = fs.readdirSync('src-tauri/src')
   .filter((name) => name.endsWith('.rs'))
   .map((name) => fs.readFileSync(`src-tauri/src/${name}`, 'utf8'))
@@ -62,14 +63,18 @@ for (const [value, , predicate] of filterFamilies) {
     `Activity must expose the ${value} filter option`);
 }
 
-assert.match(activityView, /group: 'Automation'/, 'Activity filters should remain grouped for scanning');
+assert.match(activityView, /get group\(\) \{ return translate\('component\.activityLogView\.automation'\); \}/,
+  'Activity filters should remain grouped for scanning');
+assert.equal(englishCatalog['component.activityLogView.automation'], 'Automation');
 assert.match(activityView, /const ACTIVITY_BATCH_SIZE = 200/, 'Activity must load retained entries in bounded batches');
 assert.match(activityView, /new IntersectionObserver/, 'Activity must load older entries seamlessly while scrolling');
 assert.match(activityView, /limit: ACTIVITY_BATCH_SIZE,\s+offset: logsRef\.current\.length/, 'Activity scrolling must request only the next bounded page');
 assert.match(activityView, /limit: ACTIVITY_BATCH_SIZE, offset: 0/, 'Activity polling must refresh only the newest bounded page');
 assert.doesNotMatch(activityView, /limit:\s*logsRef\.current\.length|loadedLimitRef/, 'Activity polling must not refetch the entire loaded prefix');
 assert.match(activityView, /setIsClearConfirmOpen\(true\)/, 'Permanent Activity clearing must require GUI confirmation');
-assert.match(activityView, /title="Clear Activity\?"/, 'Permanent Activity clearing must explain the action before confirmation');
+assert.match(activityView, /title=\{translate\('component\.activityLogView\.clearActivity2'\)\}/,
+  'Permanent Activity clearing must explain the action before confirmation');
+assert.equal(englishCatalog['component.activityLogView.clearActivity2'], 'Clear Activity?');
 assert.doesNotMatch(activityView, /Showing \{.*\} of|Load more/, 'Activity must not expose pagination boundaries in the list');
 
 for (const field of ['timestamp', 'observed_timestamp', 'event_name', 'severity_text', 'body', 'attributes']) {

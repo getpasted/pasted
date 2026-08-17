@@ -9,6 +9,7 @@ import { ContentTypeProvider } from "./components/ContentTypeProvider";
 import { useAppLock, type AppLockStatus } from "./hooks/useAppLock";
 import { AppLockScreen } from "./components/AppLockScreen";
 import { dismissStartupSplash } from "./utils/startupSplash";
+import { LocalizationProvider } from "./localization/LocalizationProvider";
 
 // Window chrome is native on every desktop platform, but only macOS overlays
 // those controls on top of Pasted's web content. Set this synchronously before
@@ -66,10 +67,12 @@ function ProtectedAppRoot() {
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
-    {rootView === "capture-feedback" ? (
-      <CaptureFeedbackRoot />
-    ) : (
-      <ProtectedAppRoot />
-    )}
+    <LocalizationProvider>
+      {rootView === "capture-feedback" ? (
+        <CaptureFeedbackRoot />
+      ) : (
+        <ProtectedAppRoot />
+      )}
+    </LocalizationProvider>
   </React.StrictMode>,
 );

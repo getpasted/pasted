@@ -5,6 +5,7 @@ import { formatEmojiIcon } from '../utils/emoji';
 import { AppDialog } from './AppDialog';
 import { AppDialogBody, AppDialogButton, AppDialogFooter, AppDialogHeader, AppDialogHeading } from './AppDialogLayout';
 import { MenuSelect } from './MenuSelect';
+import { translate } from '../localization/runtime';
 
 export type BinDeleteDisposition = 'keep' | 'trash' | 'move';
 
@@ -59,50 +60,48 @@ export function DeleteBinDialog({ bin, bins, onCancel, onConfirm }: DeleteBinDia
     >
       {({ requestClose }) => <>
         <AppDialogHeader onClose={requestClose}>
-          <AppDialogHeading id="delete-bin-title" title={<>Delete Bin &quot;{bin.name}&quot;?</>} icon={<Trash2 />} tone="danger" />
+          <AppDialogHeading id="delete-bin-title" title={translate('component.deleteBinDialog.deleteNamedBin', { name: bin.name })} icon={<Trash2 />} tone="danger" />
         </AppDialogHeader>
         <AppDialogBody>
           {hasAssignedClips ? (
             <div className="delete-bin-options">
-              <p className="theme-text-muted text-xs">
-                This Bin contains {bin.clip_count} {bin.clip_count === 1 ? 'clip' : 'clips'}. What should happen to {bin.clip_count === 1 ? 'it' : 'them'}?
-              </p>
+              <p className="theme-text-muted text-xs">{translate('component.deleteBinDialog.binContentsQuestion', { count: bin.clip_count ?? 0 })}</p>
               <MenuSelect
                 value={destination}
                 onChange={setDestination}
-                label="Move clips to"
+                label={translate('component.deleteBinDialog.moveClipsTo')}
                 className="delete-bin-destination"
                 options={[
-                  { value: 'none', label: 'No Bin', icon: <Inbox className="h-4 w-4" /> },
-                  { value: 'trash', label: 'Trash', icon: <Trash2 className="h-4 w-4" /> },
+                  { value: 'none', get label() { return translate('common.noBin'); }, icon: <Inbox className="h-4 w-4" /> },
+                  { value: 'trash', get label() { return translate('component.deleteBinDialog.trash'); }, icon: <Trash2 className="h-4 w-4" /> },
                   ...destinationBins.map((candidate) => ({
                     value: `bin:${candidate.id}`,
                     label: candidate.name,
-                    group: 'Bins',
+                    group: translate('component.sidebar.bins'),
                     icon: <span>{formatEmojiIcon(candidate.icon)}</span>,
                   })),
                 ]}
               />
               {destination === 'trash' && (
-                <p className="theme-text-subtle text-[11px]">Protected clips will be kept in No Bin.</p>
+                <p className="theme-text-subtle text-[11px]">{translate('component.deleteBinDialog.protectedClipsWillBeKeptInNoBin')}</p>
               )}
             </div>
           ) : (
             <p className="theme-text-muted text-xs">
               {bin.smart_rule
-                ? 'Clips matched by this Smart Bin will be preserved.'
-                : 'This Bin is empty. No clips will be affected.'}
+                ? translate('component.deleteBinDialog.clipsMatchedByThisSmartBinWillBePreserved')
+                : translate('component.deleteBinDialog.thisBinIsEmptyNoClipsWillBeAffected')}
             </p>
           )}
         </AppDialogBody>
         <AppDialogFooter>
-          <AppDialogButton onClick={requestClose} autoFocus disabled={isSubmitting}>Cancel</AppDialogButton>
+          <AppDialogButton onClick={requestClose} autoFocus disabled={isSubmitting}>{translate('common.cancel')}</AppDialogButton>
           <AppDialogButton
             variant="danger"
             disabled={isSubmitting}
             onClick={submit}
           >
-            Delete Bin
+            {translate('component.deleteBinDialog.deleteBin')}
           </AppDialogButton>
         </AppDialogFooter>
       </>}

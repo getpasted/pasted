@@ -3,6 +3,7 @@ import { CheckCircle2, Copy, Scale } from 'lucide-react';
 import type { ThirdPartyLicenseDocument } from '../types';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { AppDialog } from './AppDialog';
+import { translate } from '../localization/runtime';
 import {
   AppDialogBody,
   AppDialogButton,
@@ -44,13 +45,13 @@ export function OpenSourceLicensesDialog({
       panelClassName="theme-panel flex max-h-[85vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border font-sans"
     >
       {({ requestClose }) => <>
-        <AppDialogHeader onClose={requestClose} closeLabel="Close open-source licenses">
+        <AppDialogHeader onClose={requestClose} closeLabel={translate('component.openSourceLicensesDialog.closeOpenSourceLicenses')}>
           <AppDialogHeading
             id="open-source-licenses-title"
-            title="Open Source Licenses"
+            title={translate('component.openSourceLicensesDialog.openSourceLicenses')}
             description={document
-              ? `${document.componentCount} bundled Rust and JavaScript components`
-              : 'Licenses and acknowledgements for bundled software.'}
+              ? translate('component.openSourceLicensesDialog.countBundledRustAndJavascriptComponents', { count: document.componentCount })
+              : translate('component.openSourceLicensesDialog.licensesAndAcknowledgementsForBundledSoftware')}
             icon={<Scale />}
             tone="info"
           />
@@ -61,19 +62,18 @@ export function OpenSourceLicensesDialog({
               {document.noticeText}
             </pre>
           ) : error ? (
-            <div role="alert" className="theme-status-danger rounded-xl border px-3 py-2 text-xs">
-              Could not load the bundled license notices: {error}
+            <div role="alert" className="theme-status-danger rounded-xl border px-3 py-2 text-xs">{translate('component.openSourceLicensesDialog.couldNotLoadTheBundledLicenseNotices')}{error}
             </div>
           ) : (
-            <div className="theme-text-muted p-6 text-center text-xs">Loading bundled notices…</div>
+            <div className="theme-text-muted p-6 text-center text-xs">{translate('component.openSourceLicensesDialog.loadingBundledNotices')}</div>
           )}
         </AppDialogBody>
         <AppDialogFooter>
           <AppDialogButton onClick={() => void copyNotices()} disabled={!document}>
             {copied ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-            {copied ? 'Copied' : 'Copy Notices'}
+            {copied ? translate('action.copied') : translate('component.openSourceLicensesDialog.copyNotices')}
           </AppDialogButton>
-          <AppDialogButton variant="primary" onClick={requestClose}>Done</AppDialogButton>
+          <AppDialogButton variant="primary" onClick={requestClose}>{translate('common.done')}</AppDialogButton>
         </AppDialogFooter>
       </>}
     </AppDialog>

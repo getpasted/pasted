@@ -1,4 +1,5 @@
 import type { ClipContentType } from '../types';
+import { localizedContentTypeLabel } from '../localization/presentation';
 
 export interface ContentTypeDescriptor {
   value: ClipContentType;
@@ -31,15 +32,27 @@ export const CONTENT_TYPES: readonly ContentTypeDescriptor[] = [
   { value: 'uuid', label: 'UUID', icon: 'Fingerprint', group: 'Identifiers' },
 ] as const;
 
-let contentTypeLabels = new Map<string, string>(CONTENT_TYPES.map(({ value, label }) => [value, label]));
+interface RuntimeContentTypeLabel {
+  label: string;
+  isBuiltin: boolean;
+  defaultLabel?: string;
+}
 
-export function setRuntimeContentTypes(definitions: ReadonlyArray<{ id: string; label: string }>): void {
-  contentTypeLabels = new Map(definitions.map(({ id, label }) => [id, label]));
+let contentTypeLabels = new Map<string, RuntimeContentTypeLabel>(CONTENT_TYPES.map(({ value, label }) => [value, { label, isBuiltin: true, defaultLabel: label }]));
+
+export function setRuntimeContentTypes(definitions: ReadonlyArray<{ id: string; label: string; isBuiltin?: boolean; defaults?: { label: string } | null }>): void {
+  contentTypeLabels = new Map(definitions.map(({ id, label, isBuiltin = false, defaults }) => [id, {
+    label,
+    isBuiltin,
+    defaultLabel: defaults?.label,
+  }]));
 }
 
 export function contentTypeLabel(type: string): string {
-  return contentTypeLabels.get(type)
-    ?? type.split('_').map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(' ');
+  const definition = contentTypeLabels.get(type);
+  return definition
+    ? localizedContentTypeLabel(type, definition.label, definition.isBuiltin, definition.defaultLabel)
+    : type.split('_').map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(' ');
 }
 
 export function structuralClipType(type: string): 'text' | 'image' | 'file' {

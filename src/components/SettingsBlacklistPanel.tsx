@@ -10,6 +10,8 @@ import { SettingsAccentTile } from './SettingsAccentTile';
 import { SettingsPanelNote } from './SettingsPanelNote';
 import { ConfirmationDialog, type ConfirmationDialogRequest } from './ConfirmationDialog';
 import { ConnectedMenuAction } from './ConnectedMenuAction';
+import { translate } from '../localization/runtime';
+import { useLocalization } from '../localization/LocalizationProvider';
 
 interface SettingsBlacklistPanelProps {
   apps: BlacklistApp[];
@@ -20,19 +22,19 @@ interface SettingsBlacklistPanelProps {
 
 const suggestedApps = [
   {
-    label: 'Security and password managers',
+    get label() { return translate('component.settingsBlacklistPanel.securityAndPasswordManagers'); },
     apps: ['1Password', 'Bitwarden', 'Dashlane', 'KeePassXC', 'Enpass', 'LastPass'],
   },
   {
-    label: 'Messaging and private chat',
+    get label() { return translate('component.settingsBlacklistPanel.messagingAndPrivateChat'); },
     apps: ['Signal', 'Telegram', 'Slack', 'Discord', 'WhatsApp'],
   },
   {
-    label: 'Web Browsers (Private Windows)',
+    get label() { return translate('component.settingsBlacklistPanel.webBrowsersPrivateWindows'); },
     apps: ['Safari', 'Google Chrome', 'Firefox', 'Brave Browser', 'Arc', 'Orion'],
   },
   {
-    label: 'System and developer tools',
+    get label() { return translate('component.settingsBlacklistPanel.systemAndDeveloperTools'); },
     apps: ['Terminal', 'Warp', 'VS Code', 'Xcode', 'Notes', 'Mail'],
   },
 ];
@@ -40,9 +42,9 @@ const suggestedApps = [
 type ExclusionRule = 'ignoreText' | 'ignoreImages' | 'ignoreFiles' | 'ignoreHotkeys';
 
 const exclusionOptions: Array<{ label: string; rule: ExclusionRule }> = [
-  { label: 'Text', rule: 'ignoreText' },
-  { label: 'Images', rule: 'ignoreImages' },
-  { label: 'Files', rule: 'ignoreFiles' },
+  { get label() { return translate('component.settingsBlacklistPanel.text'); }, rule: 'ignoreText' },
+  { get label() { return translate('component.settingsBlacklistPanel.images'); }, rule: 'ignoreImages' },
+  { get label() { return translate('component.settingsBlacklistPanel.files'); }, rule: 'ignoreFiles' },
 ];
 
 function AppExclusionMenu({
@@ -54,17 +56,18 @@ function AppExclusionMenu({
   onRemove: () => void;
   onToggle: (rule: ExclusionRule) => void;
 }) {
+  useLocalization();
   const triggerRef = useRef<HTMLButtonElement>(null);
   const [isOpen, setIsOpen] = useState(false);
   const captureLabels = exclusionOptions.filter(({ rule }) => app[rule]).map(({ label }) => label);
   const activeCount = captureLabels.length + Number(app.ignoreHotkeys);
   const summary = activeCount === 0
-    ? 'Nothing'
+    ? translate('component.settingsBlacklistPanel.nothing')
     : captureLabels.length === exclusionOptions.length && app.ignoreHotkeys
-      ? 'Everything'
+      ? translate('component.settingsBlacklistPanel.everything')
       : captureLabels.length === exclusionOptions.length
-        ? 'All content'
-        : [...captureLabels, ...(app.ignoreHotkeys ? ['Hotkeys'] : [])].join(', ');
+        ? translate('component.settingsBlacklistPanel.allContent')
+        : [...captureLabels, ...(app.ignoreHotkeys ? [translate('component.settingsBlacklistPanel.hotkeys')] : [])].join(', ');
 
   const renderOption = ({ label, rule }: { label: string; rule: ExclusionRule }) => {
     const active = app[rule];
@@ -89,8 +92,8 @@ function AppExclusionMenu({
     <>
       <ConnectedMenuAction
         className="w-48"
-        groupLabel={`Exclusions for ${app.name}`}
-        actionLabel={`Remove ${app.name} from App Exclusions`}
+        groupLabel={translate('component.settingsBlacklistPanel.exclusionsForName', { name: app.name })}
+        actionLabel={translate('component.settingsBlacklistPanel.removeNameFromAppExclusions', { name: app.name })}
         action={<Trash2 className="h-3.5 w-3.5" aria-hidden="true" />}
         danger
         onAction={onRemove}
@@ -99,7 +102,7 @@ function AppExclusionMenu({
           ref={triggerRef}
           type="button"
           className="menu-select-trigger theme-focusable flex min-w-0 flex-1 items-center gap-2 rounded-l-lg border px-2.5 text-left"
-          aria-label={`Choose exclusions for ${app.name}`}
+          aria-label={translate('component.settingsBlacklistPanel.chooseExclusionsForName', { name: app.name })}
           aria-haspopup="menu"
           aria-expanded={isOpen}
           onClick={() => setIsOpen((open) => !open)}
@@ -112,19 +115,19 @@ function AppExclusionMenu({
       {isOpen && (
         <AnchoredMenu
           anchor={{ kind: 'element', ref: triggerRef, align: 'end' }}
-          ariaLabel={`Exclusions for ${app.name}`}
+          ariaLabel={translate('component.settingsBlacklistPanel.exclusionsForName', { name: app.name })}
           onClose={() => setIsOpen(false)}
           style={{ width: 208 }}
         >
           <div className="theme-text-subtle px-2.5 pb-1 pt-1 text-[10px] font-bold uppercase tracking-wider">
-            Content
+            {translate('component.settingsBlacklistPanel.content')}
           </div>
           {exclusionOptions.map(renderOption)}
           <MenuDivider />
           <div className="theme-text-subtle px-2.5 pb-1 pt-1 text-[10px] font-bold uppercase tracking-wider">
-            Actions
+            {translate('component.settingsBlacklistPanel.actions')}
           </div>
-          {renderOption({ label: 'Hotkeys', rule: 'ignoreHotkeys' })}
+          {renderOption({ get label() { return translate('component.settingsBlacklistPanel.hotkeys'); }, rule: 'ignoreHotkeys' })}
         </AnchoredMenu>
       )}
     </>
@@ -142,10 +145,10 @@ export function SettingsBlacklistPanel({
 
   const requestRemove = (app: BlacklistApp) => {
     setConfirmation({
-      title: 'Remove app exclusion?',
-      description: `${app.name} will no longer be excluded.`,
-      details: 'Enabled capture and hotkeys will resume while this app is focused.',
-      confirmLabel: 'Remove',
+      get title() { return translate('component.settingsBlacklistPanel.removeAppExclusion'); },
+      description: translate('component.settingsBlacklistPanel.nameWillNoLongerBeExcluded', { name: app.name }),
+      details: translate('component.settingsBlacklistPanel.enabledCaptureAndHotkeysWillResume'),
+      confirmLabel: translate('common.remove'),
       tone: 'danger',
       onConfirm: () => {
         onRemoveApp(app.id);
@@ -158,8 +161,8 @@ export function SettingsBlacklistPanel({
     <div className="space-y-5 text-xs">
       <SettingsPanelHeader
         icon={Lock}
-        title="App Exclusions"
-        description="Choose which apps to ignore."
+        title={translate('component.settingsBlacklistPanel.appExclusions')}
+        description={translate('component.settingsBlacklistPanel.chooseWhichAppsToIgnore')}
         actions={(
           <ActionButton
             variant="primary"
@@ -167,7 +170,7 @@ export function SettingsBlacklistPanel({
             className="shrink-0"
           >
             <Plus className="w-4 h-4" />
-            <span>Add app…</span>
+            <span>{translate('component.settingsBlacklistPanel.addApp')}</span>
           </ActionButton>
         )}
       />
@@ -175,7 +178,7 @@ export function SettingsBlacklistPanel({
       <div className="space-y-2">
         {apps.length === 0 && (
           <p className="theme-text-muted theme-divider rounded-xl border border-dashed px-4 py-5 text-center text-[11px]">
-            No custom app exclusions yet.
+            {translate('component.settingsBlacklistPanel.noCustomAppExclusionsYet')}
           </p>
         )}
 
@@ -200,9 +203,7 @@ export function SettingsBlacklistPanel({
         ))}
       </div>
 
-      <SettingsPanelNote>
-        Common password managers, including 1Password, are excluded by default. Checked content is not captured, and checked hotkeys do not activate while these apps are focused.
-      </SettingsPanelNote>
+      <SettingsPanelNote>{translate('component.settingsBlacklistPanel.commonPasswordManagersIncluding1passwordAreExcludedByDefaultCheckedContentIs')}</SettingsPanelNote>
 
       {isAddAppOpen && (
         <AddBlacklistAppModal

@@ -3,6 +3,7 @@ import type { ClipVersion } from '../types';
 import { dateTimeAttribute, formatFullDateTime, formatRelativeTime } from '../utils/date';
 import { useMinuteTick } from '../hooks/useMinuteTick';
 import { OverflowText } from './OverflowText';
+import { translate } from '../localization/runtime';
 
 interface ClipRevisionHistoryProps {
   versions: ClipVersion[];
@@ -36,25 +37,25 @@ export function ClipRevisionHistory({
     <section
       id="clip-revision-history-panel"
       className="clip-revision-history p-4 space-y-3 animate-in slide-in-from-bottom-2 duration-150"
-      aria-label="Clip revision history"
+      aria-label={translate('component.clipRevisionHistory.clipRevisionHistory')}
     >
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-2">
           <History className="clip-revision-history-icon w-4 h-4" />
-          <h4 className="clip-revision-history-title text-xs font-bold">Revision History</h4>
+          <h4 className="clip-revision-history-title text-xs font-bold">{translate('component.clipRevisionHistory.revisionHistory')}</h4>
           <span className="clip-revision-history-count text-[10px] font-mono">
-            {versions.length} {versions.length === 1 ? 'version' : 'versions'}
+            {translate('format.versionCount', { count: versions.length })}
           </span>
         </div>
-        <button type="button" onClick={onClose} aria-label="Close revision history" className="clip-revision-history-close p-1 rounded-full">
+        <button type="button" onClick={onClose} aria-label={translate('component.clipRevisionHistory.closeRevisionHistory')} className="clip-revision-history-close p-1 rounded-full">
           <X className="w-3.5 h-3.5" />
         </button>
       </div>
 
       {isLoading ? (
-        <p role="status" className="clip-revision-history-empty text-xs py-2">Loading revision history…</p>
+        <p role="status" className="clip-revision-history-empty text-xs py-2">{translate('component.clipRevisionHistory.loadingRevisionHistory')}</p>
       ) : versions.length === 0 ? (
-        <p className="clip-revision-history-empty text-xs py-2">No revisions yet.</p>
+        <p className="clip-revision-history-empty text-xs py-2">{translate('component.clipRevisionHistory.noRevisionsYet')}</p>
       ) : (
         <div className="max-h-48 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
           {versions.map((version, index) => {
@@ -93,8 +94,8 @@ export function ClipRevisionHistory({
                     >
                       {formatRelativeTime(version.created_at, relativeTimeNow)},
                     </time>
-                    <span>{version.text_content.length} chars,</span>
-                    <span>{version.restores_organization ? 'Content + Bin' : 'Content'}</span>
+                    <span>{translate('format.characterCount', { count: version.text_content.length })}</span>
+                    <span>{version.restores_organization ? translate('component.clipRevisionHistory.contentBin') : translate('component.clipRevisionHistory.content')}</span>
                   </div>
                   <OverflowText as="p" text={version.text_content} className="clip-revision-history-preview text-xs font-mono truncate" />
                 </div>
@@ -104,8 +105,8 @@ export function ClipRevisionHistory({
                     disabled={restoreInProgress}
                     onClick={(event) => { event.stopPropagation(); onRestore(version); }}
                   className="clip-revision-history-restore px-2.5 py-1 font-semibold rounded-md text-[11px] cursor-pointer"
-                  aria-label={`Restore revision ${versions.length - index}`}
-                  title="Restore Revision"
+                  aria-label={translate('component.clipRevisionHistory.restoreRevisionValue', { value: versions.length - index })}
+                  title={translate('component.clipRevisionHistory.restoreRevision')}
                 >
                     {isRestoring
                       ? <LoaderCircle className="h-4 w-4 animate-spin" />
@@ -123,8 +124,8 @@ export function ClipRevisionHistory({
               className="clip-revision-history-load-more w-full rounded-lg border px-3 py-2 text-[11px] font-semibold"
             >
               {isLoadingMore
-                ? <><LoaderCircle className="h-3.5 w-3.5 animate-spin" /> Loading older…</>
-                : 'Load older revisions'}
+                ? <><LoaderCircle className="h-3.5 w-3.5 animate-spin" /> {translate('component.clipRevisionHistory.loadingOlder')}</>
+                : translate('component.clipRevisionHistory.loadOlderRevisions')}
             </button>
           )}
         </div>

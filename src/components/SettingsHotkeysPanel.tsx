@@ -8,6 +8,7 @@ import { OverflowText } from './OverflowText';
 import { useToast } from './ToastProvider';
 import { ActionButton } from './AppDialogLayout';
 import { listen } from '@tauri-apps/api/event';
+import { translate } from '../localization/runtime';
 
 interface SettingsHotkeysPanelProps {
   settings: AppSettings;
@@ -71,13 +72,13 @@ const defaultHotkeys: Partial<AppSettings> = {
 };
 
 const actionHotkeys: Array<{ label: string; key: HotkeySetting; fallback?: string; feature?: 'queue' | 'transformations' | 'appLock' }> = [
-  { label: 'Enable/Disable Queue', key: 'seqToggleHotkey', fallback: 'Alt+Shift+C', feature: 'queue' },
-  { label: 'Paste Next Item from Queue', key: 'seqPopHotkey', fallback: 'Alt+Shift+X', feature: 'queue' },
-  { label: 'Copy with Last Advanced Transform', key: 'copyLastPipelineHotkey', feature: 'transformations' },
-  { label: 'Paste with Last Advanced Transform', key: 'pasteLastPipelineHotkey', feature: 'transformations' },
-  { label: 'Open Transformations', key: 'openTransformationsHotkey', feature: 'transformations' },
-  { label: 'Toggle Main Window', key: 'openMainWindowHotkey' },
-  { label: 'Lock app', key: 'lockAppHotkey', fallback: 'Alt+Shift+L', feature: 'appLock' },
+  { get label() { return translate('component.settingsHotkeysPanel.enableOrDisableQueue'); }, key: 'seqToggleHotkey', fallback: 'Alt+Shift+C', feature: 'queue' },
+  { get label() { return translate('component.settingsHotkeysPanel.pasteNextItemFromQueue'); }, key: 'seqPopHotkey', fallback: 'Alt+Shift+X', feature: 'queue' },
+  { get label() { return translate('component.settingsHotkeysPanel.copyWithLastAdvancedTransform'); }, key: 'copyLastPipelineHotkey', feature: 'transformations' },
+  { get label() { return translate('component.settingsHotkeysPanel.pasteWithLastAdvancedTransform'); }, key: 'pasteLastPipelineHotkey', feature: 'transformations' },
+  { get label() { return translate('component.settingsHotkeysPanel.openTransformations'); }, key: 'openTransformationsHotkey', feature: 'transformations' },
+  { get label() { return translate('component.settingsHotkeysPanel.toggleMainWindow'); }, key: 'openMainWindowHotkey' },
+  { get label() { return translate('component.settingsHotkeysPanel.lockApp'); }, key: 'lockAppHotkey', fallback: 'Alt+Shift+L', feature: 'appLock' },
 ];
 
 function HotkeyRow({ label, value, onChange }: { label: string; value: string | null; onChange: (value: string | null) => void }) {
@@ -146,7 +147,7 @@ export function SettingsHotkeysPanel({
     } catch (error) {
       onUpdateSettings({ [key]: previousValue });
       console.error(`Failed to register ${key}:`, error);
-      showToast({ tone: 'error', message: 'That shortcut could not be registered. Try a different key combination.' });
+      showToast({ tone: 'error', get message() { return translate('component.settingsHotkeysPanel.thatShortcutCouldNotBeRegisteredTryADifferentKeyCombination'); } });
     }
   };
 
@@ -158,11 +159,11 @@ export function SettingsHotkeysPanel({
     try {
       await invoke('register_app_setting_hotkeys', { values: defaultHotkeys });
       await refreshHotkeyStatus();
-      showToast({ tone: 'success', message: 'Default shortcuts restored.' });
+      showToast({ tone: 'success', get message() { return translate('component.settingsHotkeysPanel.defaultShortcutsRestored'); } });
     } catch (error) {
       onUpdateSettings(previousValues);
       console.error('Failed to restore default hotkeys:', error);
-      showToast({ tone: 'error', message: 'Some default shortcuts could not be registered.' });
+      showToast({ tone: 'error', get message() { return translate('component.settingsHotkeysPanel.someDefaultShortcutsCouldNotBeRegistered'); } });
     }
   };
 
@@ -173,7 +174,7 @@ export function SettingsHotkeysPanel({
       permissionRefreshTimer.current = setTimeout(() => void refreshHotkeyStatus(), 1500);
     } catch (error) {
       console.error('Failed to open Accessibility settings:', error);
-      showToast({ tone: 'error', message: 'Could not open macOS Accessibility settings.' });
+      showToast({ tone: 'error', get message() { return translate('component.settingsHotkeysPanel.couldNotOpenMacosAccessibilitySettings'); } });
     }
   };
 
@@ -182,42 +183,42 @@ export function SettingsHotkeysPanel({
     && !(window as Window & { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__;
   const hasHotkeyIssues = Boolean(hotkeyStatus && hotkeyStatus.issues.length > 0);
   const capabilityTitle = isMac
-    ? 'Accessibility Access'
+    ? translate('component.settingsHotkeysPanel.accessibilityAccess')
     : hotkeyStatus?.backend === 'wayland-portal'
-      ? 'Wayland System Hotkeys'
+      ? translate('component.settingsHotkeysPanel.waylandSystemHotkeys')
       : hotkeyStatus?.backend === 'x11'
-        ? 'X11 Global Hotkeys'
+        ? translate('component.settingsHotkeysPanel.x11GlobalHotkeys')
         : hotkeyStatus?.platform === 'windows'
-          ? 'Windows Global Hotkeys'
-          : 'Global Hotkeys';
+          ? translate('component.settingsHotkeysPanel.windowsGlobalHotkeys')
+          : translate('component.settingsHotkeysPanel.globalHotkeys');
   const capabilityDescription = isMac
     ? (hotkeyStatus?.is_dev_mode
-        ? <>In development, allow the active IDE or terminal under <strong>System Settings › Privacy &amp; Security › Accessibility</strong>.</>
-        : <>Allow <strong>Pasted</strong> under <strong>System Settings › Privacy &amp; Security › Accessibility</strong>.</>)
+        ? translate('component.settingsHotkeysPanel.developmentAccessibilityInstructions', { settingsPath: translate('component.settingsHotkeysPanel.systemSettingsPrivacySecurityAccessibility') })
+        : translate('component.settingsHotkeysPanel.accessibilityInstructions', { app: translate('component.settingsHotkeysPanel.pasted'), settingsPath: translate('component.settingsHotkeysPanel.systemSettingsPrivacySecurityAccessibility') }))
     : hotkeyStatus?.backend === 'wayland-portal'
       ? (hotkeyStatus.state === 'unavailable'
-          ? <>This desktop does not provide the XDG Global Shortcuts portal, so system-wide shortcuts are unavailable in this Wayland session.</>
-          : <>The desktop securely owns these shortcuts and may request approval or changes during registration.</>)
+          ? <>{translate('component.settingsHotkeysPanel.thisDesktopDoesNotProvideTheXdgGlobalShortcutsPortalSoSystem')}</>
+          : <>{translate('component.settingsHotkeysPanel.theDesktopSecurelyOwnsTheseShortcutsAndMayRequestApprovalOrChanges')}</>)
       : hotkeyStatus?.backend === 'x11'
-        ? <>Shortcuts register directly with X11. Conflicts with the desktop or another app are reported below.</>
+        ? <>{translate('component.settingsHotkeysPanel.shortcutsRegisterDirectlyWithX11ConflictsWithTheDesktopOrAnotherApp')}</>
         : hotkeyStatus?.platform === 'windows'
-          ? <>Shortcuts register directly with Windows. Reserved shortcuts and conflicts with other apps are reported below.</>
+          ? <>{translate('component.settingsHotkeysPanel.shortcutsRegisterDirectlyWithWindowsReservedShortcutsAndConflictsWithOtherApps')}</>
           : isBrowserPreview
-            ? <>This window could not register system-wide shortcuts, so hotkeys may not work correctly.</>
-            : <>This platform does not currently provide a supported global-hotkey backend.</>;
+            ? <>{translate('component.settingsHotkeysPanel.thisWindowCouldNotRegisterSystemWideShortcutsSoHotkeysMayNot')}</>
+            : <>{translate('component.settingsHotkeysPanel.thisPlatformDoesNotCurrentlyProvideASupportedGlobalHotkeyBackend')}</>;
   const capabilityBadge = !hotkeyStatus || hotkeyStatus.state === 'checking'
-    ? 'CHECKING'
+    ? translate('component.settingsHotkeysPanel.checking')
     : isMac && !hotkeyStatus.is_trusted
-      ? 'REQUIRED'
+      ? translate('component.settingsHotkeysPanel.required')
       : hotkeyStatus.state === 'unavailable'
-        ? 'UNAVAILABLE'
+        ? translate('component.settingsHotkeysPanel.unavailable')
         : hasHotkeyIssues
-          ? `${hotkeyStatus.issues.length} CONFLICT${hotkeyStatus.issues.length === 1 ? '' : 'S'}`
+          ? translate('component.settingsHotkeysPanel.conflicts', { count: hotkeyStatus.issues.length })
           : isMac
-            ? 'GRANTED'
+            ? translate('component.settingsHotkeysPanel.granted')
             : hotkeyStatus.backend === 'wayland-portal'
-              ? 'SYSTEM MANAGED'
-              : 'READY';
+              ? translate('component.settingsHotkeysPanel.systemManaged')
+              : translate('component.settingsHotkeysPanel.ready');
   const capabilityIsHealthy = Boolean(hotkeyStatus
     && hotkeyStatus.state === 'ready'
     && (!isMac || hotkeyStatus.is_trusted));
@@ -226,12 +227,12 @@ export function SettingsHotkeysPanel({
     <div className="space-y-5 text-xs">
       <SettingsPanelHeader
         icon={Keyboard}
-        title="Hotkeys"
-        description="Global shortcuts, Bin actions, and Transform triggers."
+        title={translate('component.settingsHotkeysPanel.hotkeys')}
+        description={translate('component.settingsHotkeysPanel.globalShortcutsBinActionsAndTransformTriggers')}
         actions={(
           <ActionButton onClick={() => void restoreDefaults()}>
             <RotateCcw className="w-3.5 h-3.5" />
-            <span>Reset</span>
+            <span>{translate('common.reset')}</span>
           </ActionButton>
         )}
       />
@@ -248,21 +249,21 @@ export function SettingsHotkeysPanel({
           </div>
           <div className="shrink-0 flex items-center gap-2">
             {isMac && hotkeyStatus?.is_dev_mode && (
-              <span className="theme-status-info whitespace-nowrap text-[9px] font-mono px-2 py-0.5 rounded border font-bold">DEV MODE</span>
+              <span className="theme-status-info whitespace-nowrap text-[9px] font-mono px-2 py-0.5 rounded border font-bold">{translate('component.settingsHotkeysPanel.devMode')}</span>
             )}
             <span className={`whitespace-nowrap text-center text-[9px] font-mono font-bold px-2 py-0.5 rounded-full border ${capabilityIsHealthy ? 'theme-status-success' : 'theme-status-warning'}`}>
               {capabilityBadge}
             </span>
             {isMac && (
               <ActionButton onClick={() => void requestAccessibilityPermission()} className="min-h-7 whitespace-nowrap px-2.5 text-[10px]">
-                Open Settings
+                {translate('component.settingsHotkeysPanel.openSettings')}
               </ActionButton>
             )}
           </div>
         </div>
         <p className="text-[11px] theme-text-muted leading-normal">{capabilityDescription}</p>
         {hasHotkeyIssues && (
-          <ul className="theme-subtle-surface theme-divide divide-y overflow-hidden rounded-lg border" aria-label="Unavailable hotkeys">
+          <ul className="theme-subtle-surface theme-divide divide-y overflow-hidden rounded-lg border" aria-label={translate('component.settingsHotkeysPanel.unavailableHotkeys')}>
             {hotkeyStatus!.issues.slice(0, 4).map((issue, index) => (
               <li key={`${issue.description}-${issue.shortcut}-${index}`} className="flex items-start justify-between gap-3 px-2.5 py-2 text-[10px]">
                 <OverflowText text={issue.description} className="min-w-0 truncate theme-text-main" />
@@ -272,7 +273,7 @@ export function SettingsHotkeysPanel({
           </ul>
         )}
         {hotkeyStatus?.backend === 'wayland-portal' && (hotkeyStatus.bindings?.length ?? 0) > 0 && (
-          <ul className="theme-subtle-surface theme-divide divide-y overflow-hidden rounded-lg border" aria-label="System-managed hotkeys">
+          <ul className="theme-subtle-surface theme-divide divide-y overflow-hidden rounded-lg border" aria-label={translate('component.settingsHotkeysPanel.systemManagedHotkeys')}>
             {(hotkeyStatus.bindings ?? []).map((binding) => (
               <li key={binding.id} className="flex items-start justify-between gap-3 px-2.5 py-2 text-[10px]">
                 <OverflowText text={binding.description} className="min-w-0 truncate theme-text-main" />
@@ -284,24 +285,24 @@ export function SettingsHotkeysPanel({
       </div>
 
       {settings.enableBins && <section className="space-y-2">
-        <h4 className="font-bold theme-text-muted uppercase tracking-wider text-[10px]">Custom Bin Hotkeys ({bins.length})</h4>
+        <h4 className="font-bold theme-text-muted uppercase tracking-wider text-[10px]">{translate('component.settingsHotkeysPanel.customBinHotkeys')}{bins.length})</h4>
         <div className="theme-surface overflow-hidden rounded-xl border">
           {bins.length === 0
-            ? <p className="theme-text-subtle p-2.5 text-[11px] italic">No custom bins created yet. Create bins in the sidebar to assign global shortcuts.</p>
+            ? <p className="theme-text-subtle p-2.5 text-[11px] italic">{translate('component.settingsHotkeysPanel.noCustomBinsCreatedYetCreateBinsInTheSidebarToAssign')}</p>
             : bins.map((bin) => <HotkeyRow key={bin.id} label={bin.name} value={bin.shortcut ?? null} onChange={async (shortcut) => {
               try {
                 await invoke('update_bin_shortcut', { id: bin.id, shortcut });
                 onRefreshBins?.();
               } catch (error) {
                 console.error('Failed to update bin shortcut:', error);
-                showToast({ tone: 'error', message: 'That bin shortcut could not be registered.' });
+                showToast({ tone: 'error', get message() { return translate('component.settingsHotkeysPanel.thatBinShortcutCouldNotBeRegistered'); } });
               }
             }} />)}
         </div>
       </section>}
 
       {settings.enableTransformations && pipelines.length > 0 && <section className="space-y-2">
-        <h4 className="font-bold theme-text-muted uppercase tracking-wider text-[10px]">Saved Transform Hotkeys ({pipelines.length})</h4>
+        <h4 className="font-bold theme-text-muted uppercase tracking-wider text-[10px]">{translate('component.settingsHotkeysPanel.savedTransformHotkeys')}{pipelines.length})</h4>
         <div className="theme-surface overlay-scroll-region max-h-60 overflow-y-auto rounded-xl border">
           {pipelines.map((pipeline) => <HotkeyRow key={pipeline.id} label={pipeline.name} value={pipeline.shortcut ?? null} onChange={async (shortcut) => {
               try {
@@ -309,16 +310,16 @@ export function SettingsHotkeysPanel({
                 onRefreshPipelines?.();
               } catch (error) {
                 console.error('Failed to update Advanced Transform shortcut:', error);
-                showToast({ tone: 'error', message: 'That Advanced Transform shortcut could not be registered.' });
+                showToast({ tone: 'error', get message() { return translate('component.settingsHotkeysPanel.thatAdvancedTransformShortcutCouldNotBeRegistered'); } });
               }
             }} />)}
         </div>
       </section>}
 
       <section className="space-y-2">
-        <h4 className="font-bold theme-text-muted uppercase tracking-wider text-[10px]">Actions</h4>
+        <h4 className="font-bold theme-text-muted uppercase tracking-wider text-[10px]">{translate('component.settingsHotkeysPanel.actions')}</h4>
         <div className="theme-surface overflow-hidden rounded-xl border">
-          {settings.enableHud && <HotkeyRow label="HUD" value={settings.hudHotkey === '' ? null : (settings.hudHotkey || 'Alt+Shift+V')} onChange={async (newKey) => {
+          {settings.enableHud && <HotkeyRow label={translate('component.settingsHotkeysPanel.hud')} value={settings.hudHotkey === '' ? null : (settings.hudHotkey || translate('component.settingsHotkeysPanel.altShiftV'))} onChange={async (newKey) => {
             const value = newKey ?? '';
             const previousValue = settings.hudHotkey ?? 'Alt+Shift+V';
             onUpdateSettings({ hudHotkey: value });
@@ -327,7 +328,7 @@ export function SettingsHotkeysPanel({
             } catch (error) {
               onUpdateSettings({ hudHotkey: previousValue });
               console.error('Failed to register HUD shortcut:', error);
-              showToast({ tone: 'error', message: 'That shortcut could not be registered. Try a different key combination.' });
+              showToast({ tone: 'error', get message() { return translate('component.settingsHotkeysPanel.thatShortcutCouldNotBeRegisteredTryADifferentKeyCombination'); } });
             }
           }} />}
           {actionHotkeys.filter(({ feature }) => !feature || settings[feature === 'queue' ? 'enableQueue' : feature === 'transformations' ? 'enableTransformations' : 'enableAppLock']).map(({ label, key, fallback }) => (
@@ -337,11 +338,11 @@ export function SettingsHotkeysPanel({
       </section>
 
       <section className="space-y-2">
-        <h4 className="font-bold theme-text-muted uppercase tracking-wider text-[10px]">Paste Clips by Position</h4>
+        <h4 className="font-bold theme-text-muted uppercase tracking-wider text-[10px]">{translate('component.settingsHotkeysPanel.pasteClipsByPosition')}</h4>
         <div className="theme-surface overflow-hidden rounded-xl border">
           {Array.from({ length: 9 }, (_, index) => index + 1).map((number) => {
             const key = `pasteClip${number}Hotkey` as HotkeySetting;
-            return <HotkeyRow key={key} label={`Paste Clip ${number}`} value={(settings[key] as string) || null} onChange={(value) => void updateSettingHotkey(key, value)} />;
+            return <HotkeyRow key={key} label={translate('component.settingsHotkeysPanel.pasteClipNumber', { number: number })} value={(settings[key] as string) || null} onChange={(value) => void updateSettingHotkey(key, value)} />;
           })}
         </div>
       </section>

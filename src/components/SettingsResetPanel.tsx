@@ -5,6 +5,7 @@ import { FactoryResetDialog } from './FactoryResetDialog';
 import { useToast } from './ToastProvider';
 import { ActionButton } from './AppDialogLayout';
 import { collectBackupClientState } from '../utils/backupClientState';
+import { translate } from '../localization/runtime';
 
 interface SettingsResetPanelProps {
   onRefreshBins?: () => void;
@@ -43,7 +44,7 @@ export function SettingsResetPanel({
     } else if (!isNative) {
       // Keep browser previews usable; packaged Pasted restarts natively.
       setIsResetOpen(false);
-      showToast({ tone: 'success', message: 'Pasted was reset to its first-launch state.' });
+      showToast({ tone: 'success', get message() { return translate('component.settingsResetPanel.pastedWasResetToItsFirstLaunchState'); } });
     }
   };
 
@@ -55,9 +56,9 @@ export function SettingsResetPanel({
             <AlertTriangle className="h-4 w-4" />
           </div>
           <div className="min-w-0 pt-0.5">
-            <h3 className="theme-danger-text text-sm font-bold">Reset Pasted</h3>
+            <h3 className="theme-danger-text text-sm font-bold">{translate('component.settingsResetPanel.resetPasted')}</h3>
             <p className="mt-1 text-[11px] leading-relaxed theme-text-muted">
-              Permanently erase saved data and return every setting to its default.
+              {translate('component.settingsResetPanel.permanentlyEraseSavedDataAndReturnEverySettingToItsDefault')}
             </p>
           </div>
         </div>
@@ -66,7 +67,7 @@ export function SettingsResetPanel({
           onClick={() => setIsResetOpen(true)}
           className="shrink-0 cursor-pointer"
         >
-          Reset Pasted…
+          {translate('component.settingsResetPanel.resetPasted2')}
         </ActionButton>
       </div>
 

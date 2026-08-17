@@ -5,6 +5,7 @@ import type { ColorFormats } from '../utils/color';
 import { UI_COPY } from '../utils/uiCopy';
 import { OverflowText } from './OverflowText';
 import { SafeRasterImage } from './SafeRasterImage';
+import { translate } from '../localization/runtime';
 
 interface ClipPreviewContentProps {
   clip: ClipItem;
@@ -139,7 +140,7 @@ function FileCopyField({
         type="button"
         onClick={() => onCopyFormat(copyLabel, value)}
         className="theme-icon-button theme-focusable flex h-8 w-8 shrink-0 items-center justify-center rounded-md border transition-colors"
-        title={copiedFormat === copyLabel ? UI_COPY.copied : `Copy ${label}`}
+        title={copiedFormat === copyLabel ? UI_COPY.copied : translate('component.clipPreviewContent.copyLabel', { label: label })}
       >
         {copiedFormat === copyLabel ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
       </button>
@@ -185,12 +186,12 @@ export function ClipPreviewContent({
             <div className="theme-panel rounded-2xl border p-4 shadow-lg">
               <div className="theme-title mb-3 flex items-center gap-2 text-xs font-semibold">
                 <Files className="theme-status-info-text h-4 w-4" />
-                <span>{filePaths.length === 1 ? 'Copied File' : `${filePaths.length} Copied Files`}</span>
+                <span>{filePaths.length === 1 ? translate('component.clipPreviewContent.copiedFile') : translate('component.clipPreviewContent.lengthCopiedFiles', { length: filePaths.length })}</span>
               </div>
               {isFilePreviewLoading && (
                 <div className="theme-text-muted mb-3 flex items-center justify-center gap-2 rounded-xl py-8 text-xs">
                   <Sparkles className="h-4 w-4 animate-spin" />
-                  <span>Preparing file preview…</span>
+                  <span>{translate('component.clipPreviewContent.preparingFilePreview')}</span>
                 </div>
               )}
               {filePaths.length > 0 && (
@@ -205,7 +206,7 @@ export function ClipPreviewContent({
                             {preview.dataUrl ? (
                               <SafeRasterImage
                                 source={preview.dataUrl}
-                                alt={`Preview of ${filename || 'copied file'}`}
+                                alt={translate('common.previewOfName', { name: filename || translate('component.clipPreviewContent.copiedFileLowercase') })}
                                 className="max-h-72 w-full rounded-lg object-contain"
                               />
                             ) : (
@@ -217,18 +218,18 @@ export function ClipPreviewContent({
                         )}
                         <div>
                           <FileCopyField
-                            label="Name"
+                            label={translate('common.name')}
                             value={filename}
-                            copyLabel={`File Name ${index + 1}`}
+                            copyLabel={translate('component.clipPreviewContent.fileNameValue', { value: index + 1 })}
                             autoScroll
                             copiedFormat={copiedFormat}
                             onCopyFormat={onCopyFormat}
                           />
                           <div className="theme-divider border-t">
                             <FileCopyField
-                              label="Path"
+                              label={translate('component.clipPreviewContent.path')}
                               value={path}
-                              copyLabel={`File Path ${index + 1}`}
+                              copyLabel={translate('component.clipPreviewContent.filePathValue', { value: index + 1 })}
                               autoScroll
                               emphasized
                               copiedFormat={copiedFormat}
@@ -247,15 +248,15 @@ export function ClipPreviewContent({
               <div className="flex items-center justify-between">
                 <div className="clip-content-accent flex items-center space-x-2 text-xs font-semibold">
                   <ScanText className="h-4 w-4" />
-                  <span>Transcription</span>
+                  <span>{translate('component.clipPreviewContent.transcription')}</span>
                 </div>
                 <div className="flex items-center space-x-1.5">
                   {fileSearchableText && (
                     <button
                       onClick={() => onCopyFormat('Transcription', fileSearchableText.searchableText)}
                       className="theme-icon-button theme-focusable cursor-pointer rounded-lg border p-1.5 transition-colors"
-                      aria-label={copiedFormat === 'Transcription' ? UI_COPY.copied : 'Copy transcription'}
-                      title={copiedFormat === 'Transcription' ? UI_COPY.copied : 'Copy Transcription'}
+                      aria-label={copiedFormat === 'Transcription' ? UI_COPY.copied : translate('component.clipPreviewContent.copyTranscription')}
+                      title={copiedFormat === 'Transcription' ? UI_COPY.copied : translate('component.clipPreviewContent.copyTranscription2')}
                     >
                       <Copy className="h-3.5 w-3.5" />
                     </button>
@@ -264,20 +265,20 @@ export function ClipPreviewContent({
                     onClick={onRunFileExtraction}
                     disabled={isFileExtractionLoading || readOnly}
                     className="theme-primary-button theme-focusable cursor-pointer rounded-lg border p-1.5 shadow transition-colors disabled:cursor-not-allowed disabled:opacity-40"
-                    aria-label={readOnly ? 'Restore before transcribing' : isFileExtractionLoading ? 'Transcribing…' : fileSearchableText ? 'Transcribe again' : 'Transcribe'}
-                    title={readOnly ? 'Restore Before Transcribing' : isFileExtractionLoading ? 'Transcribing…' : fileSearchableText ? 'Transcribe Again' : 'Transcribe'}
+                    aria-label={readOnly ? translate('component.clipPreviewContent.restoreBeforeTranscribing') : isFileExtractionLoading ? translate('component.clipPreviewContent.transcribing') : fileSearchableText ? translate('component.clipPreviewContent.transcribeAgain') : translate('component.clipPreviewContent.transcribe')}
+                    title={readOnly ? translate('component.clipPreviewContent.restoreBeforeTranscribing2') : isFileExtractionLoading ? translate('component.clipPreviewContent.transcribing') : fileSearchableText ? translate('component.clipPreviewContent.transcribeAgain2') : translate('component.clipPreviewContent.transcribe')}
                   >
                     <Sparkles className={`h-3.5 w-3.5 ${isFileExtractionLoading ? 'animate-spin' : ''}`} />
                   </button>
                 </div>
               </div>
               {fileSearchableText ? <>
-                <p className="theme-text-muted text-xs">Extracted by {fileSearchableText.extractorName}</p>
+                <p className="theme-text-muted text-xs">{translate('component.clipPreviewContent.extractedByName', { name: fileSearchableText.extractorName })}</p>
                 <div className="theme-code-surface overlay-scroll-region max-h-60 overflow-y-auto whitespace-pre-wrap rounded-xl border p-3.5 font-mono text-xs leading-relaxed shadow-inner select-text">
                   {fileSearchableText.searchableText}
                 </div>
               </> : (
-                <p className="theme-text-muted text-xs italic">Run an available file text Extractor to create searchable text.</p>
+                <p className="theme-text-muted text-xs italic">{translate('component.clipPreviewContent.runAnAvailableFileTextExtractorToCreateSearchableText')}</p>
               )}
             </div>}
           </div>
@@ -286,9 +287,9 @@ export function ClipPreviewContent({
             <div className="flex items-center justify-between">
               <div className="clip-content-accent flex items-center space-x-2 font-sans font-semibold text-xs">
                 <Palette className="w-4 h-4" />
-                <span>Color inspector and swatch card</span>
+                <span>{translate('component.clipPreviewContent.colorInspectorAndSwatchCard')}</span>
               </div>
-              <span className="theme-text-subtle text-[10px] font-mono">WCAG Contrast Rated</span>
+              <span className="theme-text-subtle text-[10px] font-mono">{translate('component.clipPreviewContent.wcagContrastRated')}</span>
             </div>
 
             <div className="flex items-center space-x-6">
@@ -304,7 +305,7 @@ export function ClipPreviewContent({
                   value={colorData.hex}
                   onChange={(e) => onColorChange(e.target.value)}
                   className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                  title="Pick Color"
+                  title={translate('component.clipPreviewContent.pickColor')}
                 />
               </div>
 
@@ -327,7 +328,7 @@ export function ClipPreviewContent({
                 { label: 'HEX', val: colorData.hex },
                 { label: 'RGB', val: colorData.rgb },
                 { label: 'HSL', val: colorData.hsl },
-                { label: 'Tailwind BG', val: colorData.tailwindBg },
+                { get label() { return translate('component.clipPreviewContent.tailwindBg'); }, val: colorData.tailwindBg },
               ].map((fmt) => (
                 <button
                   key={fmt.label}
@@ -353,14 +354,14 @@ export function ClipPreviewContent({
                 className="color-contrast-sample px-3 py-1.5 rounded-lg font-semibold flex items-center space-x-1.5 border"
                 style={{ backgroundColor: colorData.hex, color: '#ffffff' }}
               >
-                <span>White Text</span>
+                <span>{translate('component.clipPreviewContent.whiteText')}</span>
                 <span className="text-[10px] opacity-80">({colorData.contrastWithWhite}:1)</span>
               </div>
               <div
                 className="color-contrast-sample px-3 py-1.5 rounded-lg font-semibold flex items-center space-x-1.5 border"
                 style={{ backgroundColor: colorData.hex, color: '#000000' }}
               >
-                <span>Black Text</span>
+                <span>{translate('component.clipPreviewContent.blackText')}</span>
                 <span className="text-[10px] opacity-80">({colorData.contrastWithBlack}:1)</span>
               </div>
             </div>
@@ -371,7 +372,7 @@ export function ClipPreviewContent({
               {resolvedImageBase64 ? (
                 <SafeRasterImage
                   source={resolvedImageBase64}
-                  alt="Full Preview"
+                  alt={translate('component.clipPreviewContent.fullPreview')}
                   decoding="async"
                   className="max-h-96 object-contain rounded-lg shadow-2xl"
                 />
@@ -380,7 +381,7 @@ export function ClipPreviewContent({
                   {showImageLoadingIndicator && (
                     <>
                       <Sparkles className="clip-content-accent w-5 h-5 animate-spin" />
-                      <span>Loading image preview...</span>
+                      <span>{translate('component.clipPreviewContent.loadingImagePreview')}</span>
                     </>
                   )}
                 </div>
@@ -392,7 +393,7 @@ export function ClipPreviewContent({
               <div className="flex items-center justify-between">
                 <div className="clip-content-accent flex items-center space-x-2 font-semibold text-xs">
                   <ScanText className="w-4 h-4" />
-                  <span>OCR Text</span>
+                  <span>{translate('component.clipPreviewContent.ocrText')}</span>
                 </div>
 
                 <div className="flex items-center space-x-1.5">
@@ -400,7 +401,7 @@ export function ClipPreviewContent({
                     <button
                       onClick={() => onCopyFormat('OCR Text', clip.text_content || '')}
                       className="theme-icon-button theme-focusable p-1.5 rounded-lg border transition-colors cursor-pointer"
-                      title={copiedFormat === 'OCR Text' ? UI_COPY.copied : 'Copy OCR Text'}
+                      title={copiedFormat === 'OCR Text' ? UI_COPY.copied : translate('component.clipPreviewContent.copyOcrText')}
                     >
                       <Copy className="w-3.5 h-3.5" />
                     </button>
@@ -409,7 +410,7 @@ export function ClipPreviewContent({
                     onClick={onRunOCR}
                     disabled={isOcrLoading || readOnly}
                     className="theme-primary-button theme-focusable p-1.5 rounded-lg border transition-colors shadow cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                    title={readOnly ? 'Restore Before OCR' : isOcrLoading ? 'Running OCR…' : clip.text_content ? 'Run OCR Again' : 'Run OCR'}
+                    title={readOnly ? translate('component.clipPreviewContent.restoreBeforeOcr') : isOcrLoading ? translate('component.clipPreviewContent.runningOcr') : clip.text_content ? translate('component.clipPreviewContent.runOcrAgain') : translate('component.clipPreviewContent.runOcr')}
                   >
                     <Sparkles className={`w-3.5 h-3.5 ${isOcrLoading ? 'animate-spin' : ''}`} />
                   </button>}
@@ -417,8 +418,7 @@ export function ClipPreviewContent({
               </div>
 
               {clip.text_content && ocrExtractorLabel && (
-                <p className="theme-text-muted text-xs">
-                  Extracted by {ocrExtractorLabel}
+                <p className="theme-text-muted text-xs">{translate('component.clipPreviewContent.extractedByName', { name: ocrExtractorLabel })}
                 </p>
               )}
 
@@ -428,7 +428,7 @@ export function ClipPreviewContent({
                 </div>
               ) : (
                 <p className="theme-text-muted text-xs italic">
-                  {ocrEnabled ? 'Run OCR to recognize text in this image.' : 'OCR is disabled in Settings → Functionality.'}
+                  {ocrEnabled ? translate('component.clipPreviewContent.runOcrToRecognizeTextInThisImage') : translate('component.clipPreviewContent.ocrIsDisabledInSettingsFunctionality')}
                 </p>
               )}
             </div>

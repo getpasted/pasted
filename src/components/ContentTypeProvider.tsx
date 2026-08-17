@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { CONTENT_TYPES, setRuntimeContentTypes } from '../utils/contentTypes';
+import { translate } from '../localization/runtime';
 
 export interface RegisteredContentType {
   id: string;
@@ -27,11 +28,11 @@ const fallbackTypes: RegisteredContentType[] = CONTENT_TYPES.map(({ value, label
 });
 
 const fallbackGroups: RegisteredContentTypeGroup[] = [
-  { id: 'general', label: 'General', sortOrder: 10, isBuiltin: true, isArchived: false, defaults: { label: 'General', sortOrder: 10 } },
-  { id: 'developer', label: 'Developer', sortOrder: 20, isBuiltin: true, isArchived: false, defaults: { label: 'Developer', sortOrder: 20 } },
-  { id: 'personal_financial', label: 'Personal and financial', sortOrder: 30, isBuiltin: true, isArchived: false, defaults: { label: 'Personal and financial', sortOrder: 30 } },
-  { id: 'identifiers', label: 'Identifiers', sortOrder: 40, isBuiltin: true, isArchived: false, defaults: { label: 'Identifiers', sortOrder: 40 } },
-  { id: 'custom', label: 'Custom', sortOrder: 50, isBuiltin: true, isArchived: false, defaults: { label: 'Custom', sortOrder: 50 } },
+  { id: 'general', get label() { return translate('component.contentTypeProvider.general'); }, sortOrder: 10, isBuiltin: true, isArchived: false, defaults: { get label() { return translate('component.contentTypeProvider.general'); }, sortOrder: 10 } },
+  { id: 'developer', get label() { return translate('component.contentTypeProvider.developer'); }, sortOrder: 20, isBuiltin: true, isArchived: false, defaults: { get label() { return translate('component.contentTypeProvider.developer'); }, sortOrder: 20 } },
+  { id: 'personal_financial', get label() { return translate('component.contentTypeProvider.personalAndFinancial'); }, sortOrder: 30, isBuiltin: true, isArchived: false, defaults: { get label() { return translate('component.contentTypeProvider.personalAndFinancial'); }, sortOrder: 30 } },
+  { id: 'identifiers', get label() { return translate('component.contentTypeProvider.identifiers'); }, sortOrder: 40, isBuiltin: true, isArchived: false, defaults: { get label() { return translate('component.contentTypeProvider.identifiers'); }, sortOrder: 40 } },
+  { id: 'custom', get label() { return translate('common.custom'); }, sortOrder: 50, isBuiltin: true, isArchived: false, defaults: { get label() { return translate('common.custom'); }, sortOrder: 50 } },
 ];
 
 const ContentTypeContext = createContext({

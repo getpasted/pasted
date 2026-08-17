@@ -37,8 +37,8 @@ assert.doesNotMatch(accessibility, /!important/);
 
 // Pipeline steps expose explicit keyboard-accessible ordering controls instead
 // of making the entire editor card a pointer-only drag target.
-assert.match(pipelineEditor, /aria-label="Move step up"/);
-assert.match(pipelineEditor, /aria-label="Move step down"/);
+assert.match(pipelineEditor, /aria-label=\{translate\('component\.pipelineEditorModal\.moveStepUp'\)\}/);
+assert.match(pipelineEditor, /aria-label=\{translate\('component\.pipelineEditorModal\.moveStepDown'\)\}/);
 assert.match(pipelineEditor, /handleMoveStep\(idx, -1\)/);
 assert.match(pipelineEditor, /handleMoveStep\(idx, 1\)/);
 assert.doesNotMatch(pipelineEditor, /data-stable-reorder-id|onReorderPointerDown|cursor-grab|GripVertical/);

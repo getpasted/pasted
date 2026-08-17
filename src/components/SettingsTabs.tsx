@@ -1,6 +1,8 @@
 import { Sliders, Command, Shield, Database, Cable, Blocks, Info, Bell, ScanSearch, LockKeyhole } from 'lucide-react';
+import { translate } from '../localization/runtime';
+import type { SettingsTab } from '../utils/appUiState';
 
-export type SettingsTab = 'general' | 'functionality' | 'hotkeys' | 'notifications' | 'security' | 'app-exclusions' | 'storage' | 'analysis' | 'intelligence' | 'about';
+export type { SettingsTab } from '../utils/appUiState';
 
 interface SettingsTabsProps {
   activeTab: SettingsTab;
@@ -11,21 +13,21 @@ interface SettingsTabsProps {
 }
 
 const TABS = [
-  { id: 'general', label: 'General', Icon: Sliders },
-  { id: 'security', label: 'Security', Icon: LockKeyhole },
-  { id: 'functionality', label: 'Functionality', Icon: Blocks },
-  { id: 'hotkeys', label: 'Hotkeys', Icon: Command },
-  { id: 'notifications', label: 'Notifications', Icon: Bell },
-  { id: 'app-exclusions', label: 'App Exclusions', Icon: Shield },
-  { id: 'storage', label: 'Storage', Icon: Database },
-  { id: 'analysis', label: 'Analysis', Icon: ScanSearch },
-  { id: 'intelligence', label: 'Intelligence', Icon: Cable },
-  { id: 'about', label: 'About', Icon: Info },
+  { id: 'general', get label() { return translate('component.settingsTabs.general'); }, Icon: Sliders },
+  { id: 'security', get label() { return translate('component.settingsTabs.security'); }, Icon: LockKeyhole },
+  { id: 'functionality', get label() { return translate('component.settingsTabs.functionality'); }, Icon: Blocks },
+  { id: 'hotkeys', get label() { return translate('component.settingsTabs.hotkeys'); }, Icon: Command },
+  { id: 'notifications', get label() { return translate('component.settingsTabs.notifications'); }, Icon: Bell },
+  { id: 'app-exclusions', get label() { return translate('component.settingsTabs.appExclusions'); }, Icon: Shield },
+  { id: 'storage', get label() { return translate('component.settingsTabs.storage'); }, Icon: Database },
+  { id: 'analysis', get label() { return translate('component.settingsTabs.analysis'); }, Icon: ScanSearch },
+  { id: 'intelligence', get label() { return translate('component.settingsTabs.intelligence'); }, Icon: Cable },
+  { id: 'about', get label() { return translate('component.settingsTabs.about'); }, Icon: Info },
 ] as const;
 
 export function SettingsTabs({ activeTab, onChange, showIntelligence = true, showNotifications = true, showSecurity = true }: SettingsTabsProps) {
   return (
-    <nav className="theme-surface settings-tabs flex items-center gap-1 rounded-xl border p-1" aria-label="Settings sections">
+    <nav className="theme-surface settings-tabs flex items-center gap-1 rounded-xl border p-1" aria-label={translate('component.settingsTabs.settingsSections')}>
       {TABS.filter(({ id }) => (
         (id !== 'intelligence' || showIntelligence)
         && (id !== 'notifications' || showNotifications)

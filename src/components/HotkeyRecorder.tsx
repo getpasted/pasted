@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Keyboard, X } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
+import { translate } from '../localization/runtime';
 
 interface HotkeyRecorderProps {
   value?: string | null;
@@ -121,13 +122,13 @@ export const HotkeyRecorder: React.FC<HotkeyRecorderProps> = ({
           type="button"
           onClick={() => setIsRecording(true)}
           className="flex items-center space-x-1"
-          title={value ? `Shortcut: ${formatHotkeyDisplay(value)}` : 'Set Shortcut'}
+          title={value ? translate('component.hotkeyRecorder.shortcutValue', { value: formatHotkeyDisplay(value) ?? value }) : translate('component.hotkeyRecorder.setShortcut')}
         >
           <Keyboard className="hotkey-recorder-icon w-3.5 h-3.5 opacity-80 shrink-0" />
           {(isRecording || value || placeholder) && (
             <span>
               {isRecording
-                ? 'Press hotkey...'
+                ? translate('component.hotkeyRecorder.pressHotkey')
                 : value
                 ? formatHotkeyDisplay(value)
                 : placeholder}
@@ -143,7 +144,7 @@ export const HotkeyRecorder: React.FC<HotkeyRecorderProps> = ({
               onChange(null);
             }}
             className="hotkey-recorder-clear ml-1.5 p-0.5 rounded transition-colors"
-            title="Clear Shortcut"
+            title={translate('component.hotkeyRecorder.clearShortcut')}
           >
             <X className="w-3 h-3" />
           </button>

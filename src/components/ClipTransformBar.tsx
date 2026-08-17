@@ -1,6 +1,7 @@
 import { Check, Clock3, LoaderCircle, RotateCcw, Workflow } from 'lucide-react';
 import type { IntelligenceRequestStatus } from '../hooks/useIntelligenceRequestStatus';
 import { OverflowText } from './OverflowText';
+import { formatTransformRequestPhase, translate } from '../localization/runtime';
 
 interface ClipTransformBarProps {
   activeTransformName: string;
@@ -23,12 +24,14 @@ export function ClipTransformBar({
   onReset,
   requestStatus,
 }: ClipTransformBarProps) {
-  const runningLabel = requestStatus?.phase === 'queued'
-    ? `Queued${requestStatus.connectionName ? ` for ${requestStatus.connectionName}` : ''}`
-    : requestStatus?.phase === 'starting'
-      ? 'Starting'
-      : `Running${requestStatus?.connectionName ? ` with ${requestStatus.connectionName}` : ''}${requestStatus?.didFallback ? ' · fallback' : ''}`;
-  const statusText = `${isRunning ? runningLabel : 'Previewing'}: ${activeTransformName}`;
+  const runningLabel = formatTransformRequestPhase({
+    phase: requestStatus?.phase ?? 'running',
+    connectionName: requestStatus?.connectionName,
+    didFallback: requestStatus?.didFallback,
+  });
+  const statusText = isRunning
+    ? translate('component.clipTransformBar.statusTransform', { status: runningLabel, transform: activeTransformName })
+    : translate('component.clipTransformBar.previewingTransform', { transform: activeTransformName });
 
   return (
     <div className="preview-filter-bar px-4 py-2.5 border-t select-none">
@@ -43,32 +46,32 @@ export function ClipTransformBar({
             onClick={onApply}
             disabled={isRunning || !hasPreview}
             className="transform-workspace-action pipelines flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-40"
-            title="Apply and Save Revision"
+            title={translate('component.clipTransformBar.applyAndSaveRevision')}
           >
             {isRunning
               ? requestStatus?.phase === 'queued'
                 ? <Clock3 className="h-3.5 w-3.5" />
                 : <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
               : <Check className="h-3.5 w-3.5" />}
-            <span>{isRunning ? (requestStatus?.phase === 'queued' ? 'Queued…' : 'Running…') : 'Apply'}</span>
+            <span>{isRunning ? (requestStatus?.phase === 'queued' ? translate('component.clipTransformBar.queued') : translate('component.clipTransformBar.running')) : translate('component.clipTransformBar.apply')}</span>
           </button>
           <button
             type="button"
             onClick={onReset}
             className="preview-filter-reset px-2.5 py-1 rounded-lg border text-xs font-semibold transition-colors"
           >
-            Cancel
+            {translate('common.cancel')}
           </button>
         </div>
       </div>
       {!isRunning && hasPreview && (
-        <p className="theme-text-muted mt-2 text-[10px]">Preview only—Apply replaces the clip and keeps the original in Revision History.</p>
+        <p className="theme-text-muted mt-2 text-[10px]">{translate('component.clipTransformBar.previewOnlyApplyReplacesTheClipAndKeepsTheOriginalInRevision')}</p>
       )}
       {error && (
         <div role="status" className="theme-status-error mt-2 flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-[11px]">
           <span className="min-w-0 flex-1">{error}</span>
           <button type="button" onClick={onRetry} className="playground-run-status-action inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 font-semibold">
-            <RotateCcw className="h-3 w-3" /> Retry
+            <RotateCcw className="h-3 w-3" /> {translate('common.retry')}
           </button>
         </div>
       )}

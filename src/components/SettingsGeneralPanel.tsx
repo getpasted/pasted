@@ -8,6 +8,8 @@ import { SettingsSubsectionHeader } from './SettingsSubsectionHeader';
 import { ACTUAL_SIZE, APP_ZOOM_STEPS, appZoomPercent, stepAppZoom } from '../utils/appZoom';
 import { useToast } from './ToastProvider';
 import { ActionButton } from './AppDialogLayout';
+import { useLocalization } from '../localization/LocalizationProvider';
+import { translate } from '../localization/runtime';
 
 interface SettingsGeneralPanelProps {
   settings: AppSettings;
@@ -19,92 +21,92 @@ interface SettingsGeneralPanelProps {
 }
 
 const appearanceModes = [
-  { value: 'system', label: 'System', Icon: Laptop },
-  { value: 'dark', label: 'Dark', Icon: Moon },
-  { value: 'cool', label: 'Cool', Icon: Snowflake },
-  { value: 'warm', label: 'Warm', Icon: Coffee },
+  { value: 'system', get label() { return translate('common.system'); }, Icon: Laptop },
+  { value: 'dark', get label() { return translate('component.settingsGeneralPanel.dark'); }, Icon: Moon },
+  { value: 'cool', get label() { return translate('component.settingsGeneralPanel.cool'); }, Icon: Snowflake },
+  { value: 'warm', get label() { return translate('component.settingsGeneralPanel.warm'); }, Icon: Coffee },
   { value: '2894', label: '2894', Icon: Building2 },
-  { value: 'sauced', label: 'Sauced', Icon: Pizza },
-  { value: 'vampire', label: 'Vampire', Icon: Droplet },
-  { value: 'flux', label: 'Flux', Icon: Zap },
+  { value: 'sauced', get label() { return translate('component.settingsGeneralPanel.sauced'); }, Icon: Pizza },
+  { value: 'vampire', get label() { return translate('component.settingsGeneralPanel.vampire'); }, Icon: Droplet },
+  { value: 'flux', get label() { return translate('component.settingsGeneralPanel.flux'); }, Icon: Zap },
   { value: '808', label: '808', Icon: Drum },
 ] as const;
 
 const appearanceGroups = [
-  { label: 'System', values: ['system'] },
-  { label: 'Dark schemes', values: ['dark', 'vampire', 'flux', '808'] },
-  { label: 'Light schemes', values: ['cool', 'warm', '2894', 'sauced'] },
+  { get label() { return translate('common.system'); }, values: ['system'] },
+  { get label() { return translate('component.settingsGeneralPanel.darkSchemes'); }, values: ['dark', 'vampire', 'flux', '808'] },
+  { get label() { return translate('component.settingsGeneralPanel.lightSchemes'); }, values: ['cool', 'warm', '2894', 'sauced'] },
 ] as const;
 
 const pasteBehaviorOptions = [
-  { value: 'rich', label: 'Preserve Formatting (Default)' },
-  { value: 'plain', label: 'Always Paste Plain Text' },
+  { value: 'rich', get label() { return translate('component.settingsGeneralPanel.preserveFormattingDefault'); } },
+  { value: 'plain', get label() { return translate('component.settingsGeneralPanel.alwaysPastePlainText'); } },
 ];
 
 const filePreviewOptions = [
-  { value: 'off', label: 'Off' },
-  { value: 'safe', label: 'Safe Types' },
-  { value: 'all', label: 'All Supported' },
+  { value: 'off', get label() { return translate('component.settingsGeneralPanel.off'); } },
+  { value: 'safe', get label() { return translate('component.settingsGeneralPanel.safeTypes'); } },
+  { value: 'all', get label() { return translate('component.settingsGeneralPanel.allSupported'); } },
 ];
 
 const filePreviewDescriptions: Record<AppSettings['filePreviewMode'], string> = {
-  off: 'Show file names and locations without previewing their contents.',
-  safe: 'Show previews for TXT, PNG, JPEG, WebP, and the first page of PDF files.',
-  all: 'Preview supported text, images, and the first page of PDF files.',
+  get off() { return translate('component.settingsGeneralPanel.filePreviewOffDescription'); },
+  get safe() { return translate('component.settingsGeneralPanel.filePreviewSafeDescription'); },
+  get all() { return translate('component.settingsGeneralPanel.filePreviewAllDescription'); },
 };
 
 const revisionLimitOptions = [10, 25, 50, 100]
-  .map((value) => ({ value: String(value), label: `${value} revisions` }))
-  .concat({ value: '0', label: 'Unlimited' });
+  .map((value) => ({ value: String(value), label: translate('component.settingsGeneralPanel.valueRevisions', { value: value }) }))
+  .concat({ value: '0', get label() { return translate('component.settingsGeneralPanel.unlimited'); } });
 
 const historyCountPresets = [
-  { value: '0', label: 'Unlimited' },
-  { value: '250', label: '250 clips' },
-  { value: '500', label: '500 clips' },
-  { value: '1000', label: '1,000 clips (Default)' },
-  { value: '5000', label: '5,000 clips' },
-  { value: '10000', label: '10,000 clips' },
-  { value: '50000', label: '50,000 clips' },
+  { value: '0', get label() { return translate('component.settingsGeneralPanel.unlimited'); } },
+  { value: '250', get label() { return translate('component.settingsGeneralPanel.value250Clips'); } },
+  { value: '500', get label() { return translate('component.settingsGeneralPanel.value500Clips'); } },
+  { value: '1000', get label() { return translate('component.settingsGeneralPanel.value1000ClipsDefault'); } },
+  { value: '5000', get label() { return translate('component.settingsGeneralPanel.value5000Clips'); } },
+  { value: '10000', get label() { return translate('component.settingsGeneralPanel.value10000Clips'); } },
+  { value: '50000', get label() { return translate('component.settingsGeneralPanel.value50000Clips'); } },
 ];
 
 const trashCountPresets = [
-  { value: '0', label: 'Unlimited' },
-  { value: '100', label: '100 clips' },
-  { value: '250', label: '250 clips' },
-  { value: '500', label: '500 clips (Default)' },
-  { value: '1000', label: '1,000 clips' },
-  { value: '2000', label: '2,000 clips' },
-  { value: '5000', label: '5,000 clips' },
+  { value: '0', get label() { return translate('component.settingsGeneralPanel.unlimited'); } },
+  { value: '100', get label() { return translate('component.settingsGeneralPanel.value100Clips'); } },
+  { value: '250', get label() { return translate('component.settingsGeneralPanel.value250Clips'); } },
+  { value: '500', get label() { return translate('component.settingsGeneralPanel.value500ClipsDefault'); } },
+  { value: '1000', get label() { return translate('component.settingsGeneralPanel.value1000Clips'); } },
+  { value: '2000', get label() { return translate('component.settingsGeneralPanel.value2000Clips'); } },
+  { value: '5000', get label() { return translate('component.settingsGeneralPanel.value5000Clips'); } },
 ];
 
 const activityCountPresets = [
-  { value: '0', label: 'Unlimited' },
-  { value: '250', label: '250 entries' },
-  { value: '500', label: '500 entries' },
-  { value: '1000', label: '1,000 entries (Default)' },
-  { value: '2500', label: '2,500 entries' },
-  { value: '5000', label: '5,000 entries' },
-  { value: '10000', label: '10,000 entries' },
+  { value: '0', get label() { return translate('component.settingsGeneralPanel.unlimited'); } },
+  { value: '250', get label() { return translate('component.settingsGeneralPanel.value250Entries'); } },
+  { value: '500', get label() { return translate('component.settingsGeneralPanel.value500Entries'); } },
+  { value: '1000', get label() { return translate('component.settingsGeneralPanel.value1000EntriesDefault'); } },
+  { value: '2500', get label() { return translate('component.settingsGeneralPanel.value2500Entries'); } },
+  { value: '5000', get label() { return translate('component.settingsGeneralPanel.value5000Entries'); } },
+  { value: '10000', get label() { return translate('component.settingsGeneralPanel.value10000Entries'); } },
 ];
 
 const retentionAgeOptions = [
-  { value: '0', label: 'Forever' },
-  { value: '1', label: '1 day' },
-  { value: '7', label: '7 days' },
-  { value: '30', label: '30 days' },
-  { value: '90', label: '90 days' },
-  { value: '365', label: '1 year' },
+  { value: '0', get label() { return translate('component.settingsGeneralPanel.forever'); } },
+  { value: '1', get label() { return translate('component.settingsGeneralPanel.value1Day'); } },
+  { value: '7', get label() { return translate('component.settingsGeneralPanel.value7Days'); } },
+  { value: '30', get label() { return translate('component.settingsGeneralPanel.value30Days'); } },
+  { value: '90', get label() { return translate('component.settingsGeneralPanel.value90Days'); } },
+  { value: '365', get label() { return translate('component.settingsGeneralPanel.value1Year'); } },
 ];
 
 const rowHeightOptions = [
-  { value: 'small', label: 'Compact' },
-  { value: 'medium', label: 'Standard' },
-  { value: 'large', label: 'Spacious' },
+  { value: 'small', get label() { return translate('component.settingsGeneralPanel.compact'); } },
+  { value: 'medium', get label() { return translate('component.settingsGeneralPanel.standard'); } },
+  { value: 'large', get label() { return translate('component.settingsGeneralPanel.spacious'); } },
 ];
 
 const startupViewOptions = [
-  { value: 'last_active', label: 'Last Active Page' },
-  { value: 'clip_history', label: 'Clip History' },
+  { value: 'last_active', get label() { return translate('component.settingsGeneralPanel.lastActivePage'); } },
+  { value: 'clip_history', get label() { return translate('component.settingsGeneralPanel.clipHistory'); } },
 ];
 
 export function SettingsGeneralPanel({
@@ -116,64 +118,65 @@ export function SettingsGeneralPanel({
   onResetColumnWidths,
 }: SettingsGeneralPanelProps) {
   const { showToast } = useToast();
+  const { t, locales } = useLocalization();
   const [isRestoringTrash, setIsRestoringTrash] = useState(false);
   const isAltPressed = useAltKeyPressed();
   const isMac = typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.userAgent || navigator.platform);
   const dockIconOptions = isMac
     ? [
-        { value: 'auto_hide', label: 'Auto hide Dock Icon' },
-        { value: 'both', label: 'Always show Dock and menu bar' },
-        { value: 'menubar_only', label: 'Menubar Icon only' },
+        { value: 'auto_hide', get label() { return translate('component.settingsGeneralPanel.autoHideDockIcon'); } },
+        { value: 'both', get label() { return translate('component.settingsGeneralPanel.alwaysShowDockAndMenuBar'); } },
+        { value: 'menubar_only', get label() { return translate('component.settingsGeneralPanel.menubarIconOnly'); } },
       ]
     : [
-        { value: 'auto_hide', label: 'Auto hide Taskbar Icon' },
-        { value: 'both', label: 'Always show tray and taskbar' },
-        { value: 'menubar_only', label: 'System Tray Icon only' },
+        { value: 'auto_hide', get label() { return translate('component.settingsGeneralPanel.autoHideTaskbarIcon'); } },
+        { value: 'both', get label() { return translate('component.settingsGeneralPanel.alwaysShowTrayAndTaskbar'); } },
+        { value: 'menubar_only', get label() { return translate('component.settingsGeneralPanel.systemTrayIconOnly'); } },
       ];
   const menubarIconOptions = [
-    { value: 'clipboard', label: 'Clipboard' },
-    { value: 'copycat', label: 'Copycat' },
+    { value: 'clipboard', get label() { return translate('component.settingsGeneralPanel.clipboard'); } },
+    { value: 'copycat', get label() { return translate('component.settingsGeneralPanel.copycat'); } },
   ];
   const historyCountOptions = historyCountPresets.some(({ value }) => Number(value) === settings.keepClipCount)
     ? historyCountPresets
     : [
         ...historyCountPresets.slice(0, 1),
-        { value: String(settings.keepClipCount), label: `${settings.keepClipCount.toLocaleString()} clips (Custom)` },
+        { value: String(settings.keepClipCount), label: t('format.customValue', { value: t('format.clipCount', { count: settings.keepClipCount }), custom: t('common.custom') }) },
         ...historyCountPresets.slice(1),
       ];
   const historyAgeMenuOptions = retentionAgeOptions.some(({ value }) => Number(value) === settings.keepClipAgeDays)
     ? retentionAgeOptions
     : [
         ...retentionAgeOptions.slice(0, 1),
-        { value: String(settings.keepClipAgeDays), label: `${settings.keepClipAgeDays.toLocaleString()} days (Custom)` },
+        { value: String(settings.keepClipAgeDays), label: t('format.customValue', { value: t('format.dayCount', { count: settings.keepClipAgeDays }), custom: t('common.custom') }) },
         ...retentionAgeOptions.slice(1),
       ];
   const trashCountOptions = trashCountPresets.some(({ value }) => Number(value) === settings.trashCapacityCount)
     ? trashCountPresets
     : [
         ...trashCountPresets.slice(0, 1),
-        { value: String(settings.trashCapacityCount), label: `${settings.trashCapacityCount.toLocaleString()} clips (Custom)` },
+        { value: String(settings.trashCapacityCount), label: t('format.customValue', { value: t('format.clipCount', { count: settings.trashCapacityCount }), custom: t('common.custom') }) },
         ...trashCountPresets.slice(1),
       ];
   const trashAgeMenuOptions = retentionAgeOptions.some(({ value }) => Number(value) === settings.trashAgeDays)
     ? retentionAgeOptions
     : [
         ...retentionAgeOptions.slice(0, 1),
-        { value: String(settings.trashAgeDays), label: `${settings.trashAgeDays.toLocaleString()} days (Custom)` },
+        { value: String(settings.trashAgeDays), label: t('format.customValue', { value: t('format.dayCount', { count: settings.trashAgeDays }), custom: t('common.custom') }) },
         ...retentionAgeOptions.slice(1),
       ];
   const activityCountOptions = activityCountPresets.some(({ value }) => Number(value) === settings.activityLogCapacity)
     ? activityCountPresets
     : [
         ...activityCountPresets.slice(0, 1),
-        { value: String(settings.activityLogCapacity), label: `${settings.activityLogCapacity.toLocaleString()} entries (Custom)` },
+        { value: String(settings.activityLogCapacity), label: t('format.customValue', { value: t('format.entryCount', { count: settings.activityLogCapacity }), custom: t('common.custom') }) },
         ...activityCountPresets.slice(1),
       ];
   const activityAgeMenuOptions = retentionAgeOptions.some(({ value }) => Number(value) === settings.activityLogAgeDays)
     ? retentionAgeOptions
     : [
         ...retentionAgeOptions.slice(0, 1),
-        { value: String(settings.activityLogAgeDays), label: `${settings.activityLogAgeDays.toLocaleString()} days (Custom)` },
+        { value: String(settings.activityLogAgeDays), label: t('format.customValue', { value: t('format.dayCount', { count: settings.activityLogAgeDays }), custom: t('common.custom') }) },
         ...retentionAgeOptions.slice(1),
       ];
   const restoreAllTrashedClips = async () => {
@@ -183,11 +186,11 @@ export function SettingsGeneralPanel({
       const restoredCount = await onRestoreAllTrashedClips();
       showToast({
         tone: 'success',
-        message: restoredCount === 1 ? 'Restored 1 clip from Trash.' : `Restored ${restoredCount} clips from Trash.`,
+        message: translate('component.settingsGeneralPanel.restoredCountClipsFromTrash', { count: restoredCount }),
       });
     } catch (error) {
       console.error('Failed to restore Trash:', error);
-      showToast({ tone: 'error', message: 'Could not restore clips from Trash.' });
+      showToast({ tone: 'error', get message() { return translate('component.settingsGeneralPanel.couldNotRestoreClipsFromTrash'); } });
     } finally {
       setIsRestoringTrash(false);
     }
@@ -197,22 +200,22 @@ export function SettingsGeneralPanel({
           <div className="space-y-5 text-xs">
             <SettingsPanelHeader
               icon={Sliders}
-              title="General"
-              description="Appearance, clipboard behavior, and history."
+              title={translate('component.settingsGeneralPanel.general')}
+              description={translate('component.settingsGeneralPanel.appearanceClipboardBehaviorAndHistory')}
             />
             {/* General Preferences */}
             <div className="space-y-4">
               <SettingsSubsectionHeader
-                title="Appearance"
-                description="Choose a color scheme and display scale."
+                title={translate('component.settingsGeneralPanel.appearance')}
+                description={translate('component.settingsGeneralPanel.chooseAColorSchemeAndDisplayScale')}
               />
 
               {/* Appearance Mode Switcher */}
               <div className="flex items-center justify-between pb-1">
                 <span className="font-medium">
-                  Color Scheme: <strong className="theme-text-muted ml-1">{appearanceModes.find(({ value }) => value === (settings.themeMode || 'system'))?.label}</strong>
+                  {translate('component.settingsGeneralPanel.colorScheme')} <strong className="theme-text-muted ml-1">{appearanceModes.find(({ value }) => value === (settings.themeMode || 'system'))?.label}</strong>
                 </span>
-                <div className="theme-surface appearance-picker flex items-center p-1 rounded-xl border gap-1" role="group" aria-label="Appearance scheme">
+                <div className="theme-surface appearance-picker flex items-center p-1 rounded-xl border gap-1" role="group" aria-label={translate('component.settingsGeneralPanel.appearanceScheme')}>
                   {appearanceGroups.map((group) => (
                     <div key={group.label} className="appearance-picker-group flex items-center gap-1" role="group" aria-label={group.label}>
                       {group.values.map((value) => {
@@ -223,7 +226,7 @@ export function SettingsGeneralPanel({
                             key={value}
                             type="button"
                             title={mode.label}
-                            aria-label={`${mode.label} appearance`}
+                            aria-label={translate('component.settingsGeneralPanel.labelAppearance', { label: mode.label })}
                             aria-pressed={isActive}
                             onClick={() => onUpdateSettings({ themeMode: value })}
                             className={`appearance-mode-button flex h-8 w-8 items-center justify-center rounded-lg transition-[background-color,color,box-shadow] ${isActive ? 'is-active' : ''}`}
@@ -236,28 +239,47 @@ export function SettingsGeneralPanel({
                   ))}
                 </div>
               </div>
+
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0 flex-1 pr-4">
+                  <span className="font-semibold theme-text-main block">{t('settings.general.language.label')}</span>
+                  <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
+                    {t('settings.general.language.description')}
+                  </p>
+                </div>
+                <MenuSelect
+                  value={settings.language}
+                  options={[
+                    { value: 'system', label: t('common.automatic') },
+                    ...locales.map(({ code, nativeName }, index) => ({ value: code, label: nativeName, dividerBefore: index === 0 })),
+                  ]}
+                  onChange={(value) => onUpdateSettings({ language: value })}
+                  label={t('settings.general.language.ariaLabel')}
+                  className="settings-menu-select shrink-0"
+                />
+              </div>
             </div>
 
             <div className="theme-divider border-t" />
 
             <div className="space-y-4">
               <SettingsSubsectionHeader
-                title="Layout"
-                description="Adjust app scaling, clip density, and workspace dimensions."
+                title={translate('component.settingsGeneralPanel.layout')}
+                description={translate('component.settingsGeneralPanel.adjustAppScalingClipDensityAndWorkspaceDimensions')}
               />
 
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0 flex-1">
-                  <span className="font-semibold theme-text-main block">Zoom</span>
+                  <span className="font-semibold theme-text-main block">{translate('component.settingsGeneralPanel.zoom')}</span>
                   <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
-                    Adjust the size of navigation, controls, and clip content.
+                    {translate('component.settingsGeneralPanel.adjustTheSizeOfNavigationControlsAndClipContent')}
                   </p>
                 </div>
-                <div className="theme-surface flex shrink-0 items-center overflow-hidden rounded-lg border" role="group" aria-label="Application zoom">
+                <div className="theme-surface flex shrink-0 items-center overflow-hidden rounded-lg border" role="group" aria-label={translate('component.settingsGeneralPanel.applicationZoom')}>
                   <button
                     type="button"
-                    aria-label="Zoom Out"
-                    title="Zoom Out (⌘−)"
+                    aria-label={translate('component.settingsGeneralPanel.zoomOut')}
+                    title={translate('component.settingsGeneralPanel.zoomOut2')}
                     disabled={settings.textSize <= APP_ZOOM_STEPS[0]}
                     onClick={() => onUpdateSettings({ textSize: stepAppZoom(settings.textSize, -1) })}
                     className="theme-secondary-button flex h-8 w-8 items-center justify-center border-0 border-r disabled:cursor-not-allowed disabled:opacity-35"
@@ -266,8 +288,8 @@ export function SettingsGeneralPanel({
                   </button>
                   <button
                     type="button"
-                    aria-label="Actual Size"
-                    title="Actual Size (⌘0)"
+                    aria-label={translate('component.settingsGeneralPanel.actualSize')}
+                    title={translate('component.settingsGeneralPanel.actualSize0')}
                     onClick={() => onUpdateSettings({ textSize: ACTUAL_SIZE })}
                     className="theme-secondary-button h-8 min-w-14 border-0 px-2 font-mono text-[10px] font-semibold"
                   >
@@ -275,8 +297,8 @@ export function SettingsGeneralPanel({
                   </button>
                   <button
                     type="button"
-                    aria-label="Zoom In"
-                    title="Zoom In (⌘+)"
+                    aria-label={translate('component.settingsGeneralPanel.zoomIn')}
+                    title={translate('component.settingsGeneralPanel.zoomIn2')}
                     disabled={settings.textSize >= APP_ZOOM_STEPS[APP_ZOOM_STEPS.length - 1]}
                     onClick={() => onUpdateSettings({ textSize: stepAppZoom(settings.textSize, 1) })}
                     className="theme-secondary-button flex h-8 w-8 items-center justify-center border-0 border-l disabled:cursor-not-allowed disabled:opacity-35"
@@ -288,41 +310,41 @@ export function SettingsGeneralPanel({
 
               <div className="flex items-start justify-between">
                 <div className="pr-4 flex-1 min-w-0">
-                  <span className="font-semibold theme-text-main block">Clip Density</span>
+                  <span className="font-semibold theme-text-main block">{translate('component.settingsGeneralPanel.clipDensity')}</span>
                   <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
-                    Adjusts clip spacing, text depth, and preview size throughout the history list.
+                    {translate('component.settingsGeneralPanel.adjustsClipSpacingTextDepthAndPreviewSizeThroughoutTheHistoryList')}
                   </p>
                 </div>
                 <MenuSelect
                   value={settings.rowHeight}
                   options={rowHeightOptions}
                   onChange={(value) => onUpdateSettings({ rowHeight: value as AppSettings['rowHeight'] })}
-                  label="Clip density"
+                  label={translate('component.settingsGeneralPanel.clipDensity2')}
                   className="settings-menu-select"
                 />
               </div>
 
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0 flex-1">
-                  <span className="font-semibold theme-text-main block">Startup View</span>
+                  <span className="font-semibold theme-text-main block">{translate('component.settingsGeneralPanel.startupView')}</span>
                   <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
-                    Reopen the last view or always start in Clip History.
+                    {translate('component.settingsGeneralPanel.reopenTheLastViewOrAlwaysStartInClipHistory')}
                   </p>
                 </div>
                 <MenuSelect
                   value={settings.startupView}
                   options={startupViewOptions}
                   onChange={(value) => onUpdateSettings({ startupView: value as AppSettings['startupView'] })}
-                  label="Startup view"
+                  label={translate('component.settingsGeneralPanel.startupView2')}
                   className="settings-menu-select"
                 />
               </div>
 
               <div className="flex items-start justify-between">
                 <div className="pr-4 flex-1 min-w-0">
-                  <span className="font-semibold theme-text-main block">Column Widths</span>
+                  <span className="font-semibold theme-text-main block">{translate('component.settingsGeneralPanel.columnWidths')}</span>
                   <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
-                    Resets the left sidebar and middle history list panel widths to their defaults.
+                    {translate('component.settingsGeneralPanel.resetsTheLeftSidebarAndMiddleHistoryListPanelWidthsToTheir')}
                   </p>
                 </div>
                 <ActionButton
@@ -337,7 +359,7 @@ export function SettingsGeneralPanel({
                   className="shrink-0 cursor-pointer"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
-                  <span>Reset Column Widths</span>
+                  <span>{translate('component.settingsGeneralPanel.resetColumnWidths')}</span>
                 </ActionButton>
               </div>
             </div>
@@ -347,22 +369,22 @@ export function SettingsGeneralPanel({
             {/* System integration subsection */}
             <div className="space-y-4">
               <SettingsSubsectionHeader
-                title="System Integration"
-                description="Control startup, sounds, and operating-system integration."
+                title={translate('component.settingsGeneralPanel.systemIntegration')}
+                description={translate('component.settingsGeneralPanel.controlStartupSoundsAndOperatingSystemIntegration')}
               />
 
               {/* Dock / Menubar / System Tray Setting */}
               <div className="flex items-center justify-between pt-1">
                 <span className="font-medium">
                   {isMac
-                    ? 'Dock and menu bar icon'
-                    : 'System tray and taskbar'}
+                    ? translate('component.settingsGeneralPanel.dockAndMenuBarIcon')
+                    : translate('component.settingsGeneralPanel.systemTrayAndTaskbar')}
                 </span>
                 <MenuSelect
                   value={settings.dockMenubarIcon}
                   options={dockIconOptions}
                   onChange={(value) => onUpdateSettings({ dockMenubarIcon: value as AppSettings['dockMenubarIcon'] })}
-                  label="Dock and menu bar icon behavior"
+                  label={translate('component.settingsGeneralPanel.dockAndMenuBarIconBehavior')}
                   className="settings-menu-select"
                 />
               </div>
@@ -370,16 +392,16 @@ export function SettingsGeneralPanel({
               {isMac && (
                 <div className="flex items-start justify-between gap-4 pt-1">
                   <div className="min-w-0 flex-1 pr-4">
-                    <span className="font-semibold theme-text-main block">Menu Bar Icon</span>
+                    <span className="font-semibold theme-text-main block">{translate('component.settingsGeneralPanel.menuBarIcon')}</span>
                     <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
-                      Choose the classic clipboard or the resident Copycat.
+                      {translate('component.settingsGeneralPanel.chooseTheClassicClipboardOrTheResidentCopycat')}
                     </p>
                   </div>
                   <MenuSelect
                     value={settings.menubarIconStyle}
                     options={menubarIconOptions}
                     onChange={(value) => onUpdateSettings({ menubarIconStyle: value as AppSettings['menubarIconStyle'] })}
-                    label="Menu bar icon"
+                    label={translate('component.settingsGeneralPanel.menuBarIcon2')}
                     className="settings-menu-select shrink-0"
                   />
                 </div>
@@ -387,9 +409,9 @@ export function SettingsGeneralPanel({
 
               <div className="flex items-start justify-between pt-1">
                 <div className="pr-4 flex-1 min-w-0">
-                  <span className="font-semibold theme-text-main block">Interaction Sounds</span>
+                  <span className="font-semibold theme-text-main block">{translate('component.settingsGeneralPanel.interactionSounds')}</span>
                   <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
-                    Play subtle audio cues for copy, paste, and navigation actions.
+                    {translate('component.settingsGeneralPanel.playSubtleAudioCuesForCopyPasteAndNavigationActions')}
                   </p>
                 </div>
                 <label className="flex items-center space-x-2 cursor-pointer shrink-0 pt-0.5">
@@ -399,15 +421,15 @@ export function SettingsGeneralPanel({
                     onChange={(e) => onUpdateSettings({ enableSounds: e.target.checked })}
                     className="theme-checkbox w-4 h-4 cursor-pointer rounded"
                   />
-                  <span className="theme-text-main">Enable Sounds</span>
+                  <span className="theme-text-main">{translate('component.settingsGeneralPanel.enableSounds')}</span>
                 </label>
               </div>
 
               <div className="flex items-start justify-between">
                 <div className="pr-4 flex-1 min-w-0">
-                  <span className="font-semibold theme-text-main block">Startup Behavior</span>
+                  <span className="font-semibold theme-text-main block">{translate('component.settingsGeneralPanel.startupBehavior')}</span>
                   <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
-                    Launch automatically after logging into macOS.
+                    {translate('component.settingsGeneralPanel.launchAutomaticallyAfterLoggingIntoMacos')}
                   </p>
                 </div>
                 <label className="flex items-center space-x-2 cursor-pointer shrink-0 pt-0.5">
@@ -417,7 +439,7 @@ export function SettingsGeneralPanel({
                     onChange={(e) => onUpdateSettings({ openAtLogin: e.target.checked })}
                     className="theme-checkbox w-4 h-4 cursor-pointer rounded"
                   />
-                  <span className="theme-text-main">Open at login</span>
+                  <span className="theme-text-main">{translate('component.settingsGeneralPanel.openAtLogin')}</span>
                 </label>
               </div>
             </div>
@@ -427,67 +449,67 @@ export function SettingsGeneralPanel({
             {/* Clipboard Preferences */}
             <div className="space-y-4">
               <SettingsSubsectionHeader
-                title="Clipboard"
-                description="Set capture, preview, and history retention behavior."
+                title={translate('component.settingsGeneralPanel.clipboard')}
+                description={translate('component.settingsGeneralPanel.setCapturePreviewAndHistoryRetentionBehavior')}
               />
 
               <div className="theme-surface overflow-hidden rounded-xl border">
                 <div className="flex items-center justify-between gap-4 px-3 py-2.5">
                   <div className="min-w-0">
-                    <span className="font-semibold theme-text-main block">Keep clips for</span>
+                    <span className="font-semibold theme-text-main block">{translate('component.settingsGeneralPanel.keepClipsFor')}</span>
                     <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
-                      Eligible clips older than this move to Trash automatically.
+                      {translate('component.settingsGeneralPanel.eligibleClipsOlderThanThisMoveToTrashAutomatically')}
                     </p>
                   </div>
                   <MenuSelect
                     value={String(settings.keepClipAgeDays)}
                     options={historyAgeMenuOptions}
                     onChange={(value) => onUpdateSettings({ keepClipAgeDays: Number(value) })}
-                    label="Maximum clip age"
+                    label={translate('component.settingsGeneralPanel.maximumClipAge')}
                     className="settings-menu-select w-40 shrink-0"
                   />
                 </div>
                 <div className="theme-divider flex items-center justify-between gap-4 border-t px-3 py-2.5">
                   <div className="min-w-0">
-                    <span className="font-semibold theme-text-main block">Maximum clips</span>
+                    <span className="font-semibold theme-text-main block">{translate('component.settingsGeneralPanel.maximumClips')}</span>
                     <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
-                      The oldest eligible clips move to Trash first.
+                      {translate('component.settingsGeneralPanel.theOldestEligibleClipsMoveToTrashFirst')}
                     </p>
                   </div>
                   <MenuSelect
                     value={String(settings.keepClipCount)}
                     options={historyCountOptions}
                     onChange={(value) => onUpdateSettings({ keepClipCount: Number(value) })}
-                    label="Maximum clips retained"
+                    label={translate('component.settingsGeneralPanel.maximumClipsRetained')}
                     className="settings-menu-select w-40 shrink-0"
                   />
                 </div>
                 <p className="theme-divider theme-text-subtle border-t px-3 py-2 text-[10px] leading-normal">
-                  Both limits apply. Pinned and protected clips never move to Trash automatically.
+                  {translate('component.settingsGeneralPanel.bothLimitsApplyPinnedAndProtectedClipsNeverMoveToTrashAutomatically')}
                 </p>
               </div>
 
               <div className="flex items-start justify-between pt-1">
                 <div className="pr-4 flex-1 min-w-0">
-                  <span className="font-semibold theme-text-main block">Default Paste Behavior</span>
+                  <span className="font-semibold theme-text-main block">{translate('component.settingsGeneralPanel.defaultPasteBehavior')}</span>
                   <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
-                    Sets the text formatting output type.
+                    {translate('component.settingsGeneralPanel.setsTheTextFormattingOutputType')}
                   </p>
                 </div>
                 <MenuSelect
                   value={settings.alwaysPastePlainText ? 'plain' : 'rich'}
                   options={pasteBehaviorOptions}
                   onChange={(value) => onUpdateSettings({ alwaysPastePlainText: value === 'plain' })}
-                  label="Default paste behavior"
+                  label={translate('component.settingsGeneralPanel.defaultPasteBehavior2')}
                   className="settings-menu-select"
                 />
               </div>
 
               <div className="flex items-start justify-between">
                 <div className="pr-4 flex-1 min-w-0">
-                  <span className="font-semibold theme-text-main block">Maximum Clip Size (MB)</span>
+                  <span className="font-semibold theme-text-main block">{translate('component.settingsGeneralPanel.maximumClipSizeMb')}</span>
                   <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
-                    Ignore copied clips larger than the specified limit.
+                    {translate('component.settingsGeneralPanel.ignoreCopiedClipsLargerThanTheSpecifiedLimit')}
                   </p>
                 </div>
                 <div className="flex items-center space-x-1.5 font-mono shrink-0">
@@ -504,7 +526,7 @@ export function SettingsGeneralPanel({
 
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 min-w-0">
-                  <span className="font-semibold theme-text-main block">File Previews</span>
+                  <span className="font-semibold theme-text-main block">{translate('component.settingsGeneralPanel.filePreviews')}</span>
                   <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
                     {filePreviewDescriptions[settings.filePreviewMode]}
                   </p>
@@ -513,7 +535,7 @@ export function SettingsGeneralPanel({
                   value={settings.filePreviewMode}
                   options={filePreviewOptions}
                   onChange={(value) => onUpdateSettings({ filePreviewMode: value as AppSettings['filePreviewMode'] })}
-                  label="File preview behavior"
+                  label={translate('component.settingsGeneralPanel.filePreviewBehavior')}
                   className="settings-menu-select"
                 />
               </div>
@@ -521,9 +543,9 @@ export function SettingsGeneralPanel({
               {settings.filePreviewMode !== 'off' && (
                 <div className="flex items-start justify-between">
                   <div className="pr-4 flex-1 min-w-0">
-                    <span className="font-semibold theme-text-main block">Maximum Preview File Size (MB)</span>
+                    <span className="font-semibold theme-text-main block">{translate('component.settingsGeneralPanel.maximumPreviewFileSizeMb')}</span>
                     <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
-                      Files above this size stay as references.
+                      {translate('component.settingsGeneralPanel.filesAboveThisSizeStayAsReferences')}
                     </p>
                   </div>
                   <input
@@ -541,17 +563,16 @@ export function SettingsGeneralPanel({
 
               {settings.enableRevisions && <div className="flex items-start justify-between">
                 <div className="pr-4 flex-1 min-w-0">
-                  <span className="font-semibold theme-text-main block">Revisions per Clip</span>
-                  <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
-                    Keeps complete text snapshots for edits, OCR, Transforms, and restores.
-                    {settings.revisionHistoryLimit === 0 && ' Unlimited history can grow quickly when Transforms run automatically.'}
-                  </p>
+                  <span className="font-semibold theme-text-main block">{translate('component.settingsGeneralPanel.revisionsPerClip')}</span>
+                  <p className="text-[11px] theme-text-muted leading-normal mt-0.5">{settings.revisionHistoryLimit === 0
+                    ? translate('component.settingsGeneralPanel.unlimitedRevisionHistoryDescription')
+                    : translate('component.settingsGeneralPanel.keepsCompleteTextSnapshotsForEditsOcrTransformsAndRestores')}</p>
                 </div>
                 <MenuSelect
                   value={String(settings.revisionHistoryLimit)}
                   options={revisionLimitOptions}
                   onChange={(value) => onUpdateSettings({ revisionHistoryLimit: Number(value) })}
-                  label="Revisions retained per clip"
+                  label={translate('component.settingsGeneralPanel.revisionsRetainedPerClip')}
                   className="settings-menu-select"
                 />
               </div>}
@@ -564,52 +585,52 @@ export function SettingsGeneralPanel({
               {/* Trash Preferences */}
               <div className="space-y-4">
               <SettingsSubsectionHeader
-                title="Trash"
-                description="Control how much deleted history remains recoverable."
+                title={translate('component.settingsGeneralPanel.trash')}
+                description={translate('component.settingsGeneralPanel.controlHowMuchDeletedHistoryRemainsRecoverable')}
               />
 
               <div className="theme-surface overflow-hidden rounded-xl border">
                 <div className="flex items-center justify-between gap-4 px-3 py-2.5">
                   <div className="min-w-0">
-                    <span className="font-semibold theme-text-main block">Keep trashed clips for</span>
+                    <span className="font-semibold theme-text-main block">{translate('component.settingsGeneralPanel.keepTrashedClipsFor')}</span>
                     <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
-                      Older trashed clips are permanently purged.
+                      {translate('component.settingsGeneralPanel.olderTrashedClipsArePermanentlyPurged')}
                     </p>
                   </div>
                   <MenuSelect
                     value={String(settings.trashAgeDays)}
                     options={trashAgeMenuOptions}
                     onChange={(value) => onUpdateSettings({ trashAgeDays: Number(value) })}
-                    label="Maximum Trash age"
+                    label={translate('component.settingsGeneralPanel.maximumTrashAge')}
                     className="settings-menu-select w-40 shrink-0"
                   />
                 </div>
                 <div className="theme-divider flex items-center justify-between gap-4 border-t px-3 py-2.5">
                   <div className="min-w-0">
-                    <span className="font-semibold theme-text-main block">Maximum trashed clips</span>
+                    <span className="font-semibold theme-text-main block">{translate('component.settingsGeneralPanel.maximumTrashedClips')}</span>
                     <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
-                      The oldest eligible items are permanently purged first.
+                      {translate('component.settingsGeneralPanel.theOldestEligibleItemsArePermanentlyPurgedFirst')}
                     </p>
                   </div>
                   <MenuSelect
                     value={String(settings.trashCapacityCount)}
                     options={trashCountOptions}
                     onChange={(value) => onUpdateSettings({ trashCapacityCount: Number(value) })}
-                    label="Maximum trashed clips retained"
+                    label={translate('component.settingsGeneralPanel.maximumTrashedClipsRetained')}
                     className="settings-menu-select w-40 shrink-0"
                   />
                 </div>
                 <p className="theme-divider theme-text-subtle border-t px-3 py-2 text-[10px] leading-normal">
-                  Both limits apply. Protected clips are always kept.
+                  {translate('component.settingsGeneralPanel.bothLimitsApplyProtectedClipsAreAlwaysKept')}
                 </p>
               </div>
 
               <div className="theme-surface overflow-hidden rounded-xl border">
                 <div className="flex items-start justify-between gap-4 px-3 py-2.5">
                   <div className="min-w-0">
-                    <span className="font-semibold theme-text-main block">Restore Trashed Clips</span>
+                    <span className="font-semibold theme-text-main block">{translate('component.settingsGeneralPanel.restoreTrashedClips')}</span>
                     <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
-                      Return every trashed clip to History.
+                      {translate('component.settingsGeneralPanel.returnEveryTrashedClipToHistory')}
                     </p>
                   </div>
                   <div className="shrink-0">
@@ -619,19 +640,19 @@ export function SettingsGeneralPanel({
                       className="disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       <RotateCcw className="h-3.5 w-3.5" />
-                      <span>{isRestoringTrash ? 'Restoring…' : 'Restore Trashed Clips'}</span>
+                      <span>{isRestoringTrash ? translate('component.settingsGeneralPanel.restoring') : translate('component.settingsGeneralPanel.restoreTrashedClips')}</span>
                     </ActionButton>
                   </div>
                 </div>
                 <div className="theme-divider flex items-start justify-between gap-4 border-t px-3 py-2.5">
                   <div className="min-w-0">
                     <span className={`font-semibold block ${isAltPressed ? 'theme-danger-text' : 'theme-text-main'}`}>
-                      {isAltPressed ? 'Delete All Clips' : 'Trash All Clips'}
+                      {isAltPressed ? translate('component.settingsGeneralPanel.deleteAllClips') : translate('component.settingsGeneralPanel.trashAllClips')}
                     </span>
                     <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
                       {isAltPressed
-                        ? 'Permanently delete all unpinned and unprotected clips.'
-                        : 'Move all unpinned and unprotected clips to Trash. Hold Option ⌥ to permanently delete instead.'}
+                        ? translate('component.settingsGeneralPanel.permanentlyDeleteAllUnpinnedAndUnprotectedClips')
+                        : translate('component.settingsGeneralPanel.moveAllUnpinnedAndUnprotectedClipsToTrashHoldOptionToPermanently')}
                     </p>
                   </div>
                   <button
@@ -640,7 +661,7 @@ export function SettingsGeneralPanel({
                     className="theme-status-danger flex shrink-0 items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors cursor-pointer"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
-                    <span>{isAltPressed ? 'Delete All Clips…' : 'Trash All Clips…'}</span>
+                    <span>{isAltPressed ? translate('component.settingsGeneralPanel.deleteAllClips2') : translate('component.settingsGeneralPanel.trashAllClips2')}</span>
                   </button>
                 </div>
               </div>
@@ -653,43 +674,43 @@ export function SettingsGeneralPanel({
               {/* Activity preferences */}
               <div className="space-y-4">
               <SettingsSubsectionHeader
-                title="Activity History"
-                description="Choose how much activity history to keep."
+                title={translate('component.settingsGeneralPanel.activityHistory')}
+                description={translate('component.settingsGeneralPanel.chooseHowMuchActivityHistoryToKeep')}
               />
 
               <div className="theme-surface overflow-hidden rounded-xl border">
                 <div className="flex items-center justify-between gap-4 px-3 py-2.5">
                   <div className="min-w-0">
-                    <span className="font-semibold theme-text-main block">Keep activity for</span>
+                    <span className="font-semibold theme-text-main block">{translate('component.settingsGeneralPanel.keepActivityFor')}</span>
                     <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
-                      Older activity entries are removed automatically.
+                      {translate('component.settingsGeneralPanel.olderActivityEntriesAreRemovedAutomatically')}
                     </p>
                   </div>
                   <MenuSelect
                     value={String(settings.activityLogAgeDays)}
                     options={activityAgeMenuOptions}
                     onChange={(value) => onUpdateSettings({ activityLogAgeDays: Number(value) })}
-                    label="Maximum activity age"
+                    label={translate('component.settingsGeneralPanel.maximumActivityAge')}
                     className="settings-menu-select w-40 shrink-0"
                   />
                 </div>
                 <div className="theme-divider flex items-center justify-between gap-4 border-t px-3 py-2.5">
                   <div className="min-w-0">
-                    <span className="font-semibold theme-text-main block">Maximum activity entries</span>
+                    <span className="font-semibold theme-text-main block">{translate('component.settingsGeneralPanel.maximumActivityEntries')}</span>
                     <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
-                      The oldest entries are removed first.
+                      {translate('component.settingsGeneralPanel.theOldestEntriesAreRemovedFirst')}
                     </p>
                   </div>
                   <MenuSelect
                     value={String(settings.activityLogCapacity)}
                     options={activityCountOptions}
                     onChange={(value) => onUpdateSettings({ activityLogCapacity: Number(value) })}
-                    label="Maximum activity entries retained"
+                    label={translate('component.settingsGeneralPanel.maximumActivityEntriesRetained')}
                     className="settings-menu-select w-40 shrink-0"
                   />
                 </div>
                 <p className="theme-divider theme-text-subtle border-t px-3 py-2 text-[10px] leading-normal">
-                  Both limits apply. Unlimited and Forever disable automatic removal.
+                  {translate('component.settingsGeneralPanel.bothLimitsApplyUnlimitedAndForeverDisableAutomaticRemoval')}
                 </p>
               </div>
 

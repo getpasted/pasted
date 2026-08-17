@@ -134,6 +134,19 @@ fn history_and_settings_commands_have_executable_json_contracts() {
     );
     assert_eq!(fetched["value"], "7");
 
+    let language = success_json(&database, &["settings", "set", "language", "en", "--json"]);
+    assert_eq!(language["value"], "en");
+    let invalid_language = run(
+        &database,
+        &["settings", "set", "language", "not-a-locale", "--json"],
+    );
+    assert_eq!(invalid_language.status.code(), Some(2));
+    assert!(String::from_utf8_lossy(&invalid_language.stderr).contains("Unsupported language"));
+    assert_eq!(
+        success_json(&database, &["settings", "get", "language", "--json"],)["value"],
+        "en"
+    );
+
     let refused = run(&database, &["clear"]);
     assert_eq!(refused.status.code(), Some(2));
     assert!(String::from_utf8_lossy(&refused.stderr).contains("--yes"));

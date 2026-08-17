@@ -2,6 +2,7 @@ import { StickyNote } from 'lucide-react';
 import type { ClipItem } from '../types';
 import { AppDialog } from './AppDialog';
 import { AppDialogBody, AppDialogButton, AppDialogFooter, AppDialogHeader, AppDialogHeading, SaveButtonContent } from './AppDialogLayout';
+import { translate } from '../localization/runtime';
 
 interface ClipNoteDialogProps {
   clip: ClipItem;
@@ -24,8 +25,8 @@ export function ClipNoteDialog({ clip, text, onTextChange, onCancel, onSave }: C
         <AppDialogHeader onClose={requestClose}>
           <AppDialogHeading
             id="clip-note-title"
-            title={clip.note ? 'Edit Note' : 'Add Note'}
-            description="Attach custom annotations or metadata to this clip."
+            title={clip.note ? translate('action.editNote') : translate('action.addNote')}
+            description={translate('component.clipNoteDialog.attachCustomAnnotationsOrMetadataToThisClip')}
             icon={<StickyNote />}
             tone="warning"
           />
@@ -34,14 +35,14 @@ export function ClipNoteDialog({ clip, text, onTextChange, onCancel, onSave }: C
           <textarea
             value={text}
             onChange={(event) => onTextChange(event.target.value)}
-            placeholder="Type your note here..."
+            placeholder={translate('component.clipNoteDialog.typeYourNoteHere')}
             rows={4}
             autoFocus
             className="app-dialog-input theme-input ui-field-radius w-full border p-3 text-xs focus:outline-none transition-colors resize-none font-sans"
           />
         </AppDialogBody>
         <AppDialogFooter>
-          <AppDialogButton onClick={requestClose}>Cancel</AppDialogButton>
+          <AppDialogButton onClick={requestClose}>{translate('common.cancel')}</AppDialogButton>
           <AppDialogButton variant="warning" onClick={() => onSave(clip, text.trim() || null)}><SaveButtonContent /></AppDialogButton>
         </AppDialogFooter>
       </>}

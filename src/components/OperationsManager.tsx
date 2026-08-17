@@ -10,7 +10,7 @@ import {
   Wrench,
 } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
-import { OperationEditorModal, CATEGORIES } from './OperationEditorModal';
+import { OperationEditorModal, CATEGORIES, operationCategoryLabel } from './OperationEditorModal';
 import { handleWindowDragDoubleClick, startWindowDrag } from '../utils/windowDrag';
 import { TransformLibraryToolbar } from './TransformLibraryToolbar';
 import { TransformCategorySelect } from './TransformCategorySelect';
@@ -22,6 +22,9 @@ import { RegistryDetailHeader } from './RegistryDetailHeader';
 import { RegistryListItem } from './RegistryListItem';
 import { SettingsSwitch } from './SettingsSwitch';
 import { ActionButton } from './AppDialogLayout';
+import { translate } from '../localization/runtime';
+import { localizedBuiltinName } from '../localization/presentation';
+import { useLocalization } from '../localization/LocalizationProvider';
 
 interface OperationsManagerProps {
   isEmbedded?: boolean;
@@ -38,6 +41,7 @@ export const OperationsManager: React.FC<OperationsManagerProps> = ({
   onOpenCreateModal,
   onChooseOperation,
 }) => {
+  const { locale } = useLocalization();
   const [operations, setOperations] = useState<Operation[]>([]);
   const [libraryItems, setLibraryItems] = useState<LibraryItemView[]>([]);
   const [activeCategory, setActiveCategory] = useState('All');
@@ -136,15 +140,15 @@ export const OperationsManager: React.FC<OperationsManagerProps> = ({
     Array.from(new Set([...CATEGORIES, ...operations.map((operation) => operation.category).filter(Boolean)]))
   ), [operations]);
   const categoryOptions = useMemo(() => [
-    { value: 'All', label: 'All Operations', count: operations.length },
+    { value: 'All', get label() { return translate('component.operationsManager.allOperations'); }, count: operations.length },
     ...dynamicCategories
       .map((category) => ({
         value: category,
-        label: category,
+        label: operationCategoryLabel(category),
         count: operations.filter((operation) => operation.category === category).length,
       }))
       .filter((option) => option.count > 0),
-  ], [dynamicCategories, operations]);
+  ], [dynamicCategories, locale, operations]);
 
   const filteredOperations = activeCategory === 'All'
     ? operations
@@ -156,6 +160,7 @@ export const OperationsManager: React.FC<OperationsManagerProps> = ({
     const metadata = libraryItems.find(({ stableRef }) => stableRef === operation.stable_id);
     const builtIn = metadata?.isBuiltin ?? isBuiltInOperation(operation);
     const selected = operation.stable_id === selectedOperationId;
+    const displayName = localizedBuiltinName('operation', operation.stable_id, operation.name, builtIn);
 
     return (
       <RegistryListItem
@@ -165,14 +170,14 @@ export const OperationsManager: React.FC<OperationsManagerProps> = ({
         icon={<span className="theme-badge grid h-8 w-8 place-items-center rounded-lg border">
             <Code2 className="transform-accent operations h-4 w-4" />
           </span>}
-        title={<OverflowText text={operation.name} className="block truncate text-xs" />}
-        subtitle={operation.category}
+        title={<OverflowText text={displayName} className="block truncate text-xs" />}
+        subtitle={operationCategoryLabel(operation.category)}
         trailing={builtIn ? (
-          <LockKeyhole className="mr-2 h-3.5 w-3.5 shrink-0 theme-text-subtle" aria-label="Built-in operation" />
+          <LockKeyhole className="mr-2 h-3.5 w-3.5 shrink-0 theme-text-subtle" aria-label={translate('component.operationsManager.builtInOperation')} />
         ) : metadata?.capabilities.canDisable ? (
           <SettingsSwitch
             checked={metadata.enabled ?? false}
-            label={operation.name}
+            label={displayName}
             busy={togglingOperationId === operation.stable_id}
             onClick={() => void handleToggle(metadata)}
             className="mr-1"
@@ -189,15 +194,15 @@ export const OperationsManager: React.FC<OperationsManagerProps> = ({
           <div>
             <h2 className="theme-title flex items-center space-x-2 text-sm font-bold">
               <Wrench className="transform-accent operations h-4 w-4 opacity-70" />
-              <span>Operations</span>
+              <span>{translate('destination.operations')}</span>
             </h2>
-            <p className="mt-1 text-xs theme-text-muted">Reusable building blocks for Transforms.</p>
+            <p className="mt-1 text-xs theme-text-muted">{translate('component.operationsManager.reusableBuildingBlocksForTransforms')}</p>
           </div>
         </div>
       )}
 
       <TransformLibraryToolbar
-        createLabel="New Operation"
+        createLabel={translate('component.operationEditorModal.newOperation')}
         onCreate={onOpenCreateModal || handleOpenCreate}
       >
         <TransformCategorySelect
@@ -205,7 +210,7 @@ export const OperationsManager: React.FC<OperationsManagerProps> = ({
           value={activeCategory}
           options={categoryOptions}
           onChange={setActiveCategory}
-          label="Filter operations"
+          label={translate('component.operationsManager.filterOperations')}
         />
       </TransformLibraryToolbar>
 
@@ -216,62 +221,62 @@ export const OperationsManager: React.FC<OperationsManagerProps> = ({
       )}
 
       <RegistryEditorShell>
-        <section className="theme-surface overflow-hidden rounded-xl border" aria-label="Operations">
+        <section className="theme-surface overflow-hidden rounded-xl border" aria-label={translate('destination.operations')}>
           <div className="max-h-80 space-y-1 overflow-y-auto p-1.5 @4xl:max-h-[520px]">
             {filteredOperations.length > 0
               ? filteredOperations.map(renderOperationRow)
-              : <p className="theme-text-muted px-2 py-4 text-xs">No Operations match this category.</p>}
+              : <p className="theme-text-muted px-2 py-4 text-xs">{translate('component.operationsManager.noOperationsMatchThisCategory')}</p>}
           </div>
         </section>
 
-        <section className="theme-surface min-w-0 rounded-xl border p-3 @md:p-4" aria-label="Operation details">
+        <section className="theme-surface min-w-0 rounded-xl border p-3 @md:p-4" aria-label={translate('component.operationsManager.operationDetails')}>
           {selectedOperation && selectedMetadata ? (
             <div className="flex h-full min-h-72 flex-col gap-4">
               <RegistryDetailHeader
                 icon={<Code2 className="h-5 w-5" />}
-                title={selectedOperation.name}
-                meta={<>{selectedOperation.category} · {selectedMetadata.isBuiltin ? 'Built-in' : 'Custom'}</>}
-                trailing={selectedMetadata.isBuiltin && <LockKeyhole className="h-4 w-4 theme-text-subtle" aria-label="Built-in operation" />}
+                title={localizedBuiltinName('operation', selectedOperation.stable_id, selectedOperation.name, selectedMetadata.isBuiltin)}
+                meta={<>{operationCategoryLabel(selectedOperation.category)} · {selectedMetadata.isBuiltin ? translate('component.operationsManager.builtIn') : translate('common.custom')}</>}
+                trailing={selectedMetadata.isBuiltin && <LockKeyhole className="h-4 w-4 theme-text-subtle" aria-label={translate('component.operationsManager.builtInOperation')} />}
                 iconClassName="transform-accent operations"
               />
 
               <dl className="theme-subtle-surface divide-y theme-divide overflow-hidden rounded-xl border text-xs">
                 <div className="grid grid-cols-[5rem_minmax(0,1fr)] items-center gap-3 px-3 py-2">
-                  <dt className="theme-text-subtle text-[9px] font-bold uppercase tracking-wider">Input</dt>
+                  <dt className="theme-text-subtle text-[9px] font-bold uppercase tracking-wider">{translate('common.input')}</dt>
                   <dd className="theme-text-main truncate font-mono">{selectedMetadata.inputContract}</dd>
                 </div>
                 <div className="grid grid-cols-[5rem_minmax(0,1fr)] items-center gap-3 px-3 py-2">
-                  <dt className="theme-text-subtle text-[9px] font-bold uppercase tracking-wider">Output</dt>
+                  <dt className="theme-text-subtle text-[9px] font-bold uppercase tracking-wider">{translate('common.output')}</dt>
                   <dd className="theme-text-main truncate font-mono">{selectedMetadata.outputContract}</dd>
                 </div>
                 <div className="grid grid-cols-[5rem_minmax(0,1fr)] items-center gap-3 px-3 py-2">
-                  <dt className="theme-text-subtle text-[9px] font-bold uppercase tracking-wider">Executor</dt>
+                  <dt className="theme-text-subtle text-[9px] font-bold uppercase tracking-wider">{translate('component.operationsManager.executor')}</dt>
                   <dd className="theme-text-main truncate font-mono">{selectedOperation.op_type}</dd>
                 </div>
               </dl>
 
               <p className="theme-text-muted text-xs leading-relaxed">
                 {selectedMetadata.isBuiltin
-                  ? 'This built-in Operation is maintained automatically and can be used directly in Transforms.'
+                  ? translate('component.operationsManager.thisBuiltInOperationIsMaintainedAutomaticallyAndCanBeUsedDirectly')
                   : selectedMetadata.enabled
-                    ? 'This custom Operation is enabled and available to Transforms.'
-                    : 'This custom Operation is disabled and cannot run until it is enabled again.'}
+                    ? translate('component.operationsManager.thisCustomOperationIsEnabledAndAvailableToTransforms')
+                    : translate('component.operationsManager.thisCustomOperationIsDisabledAndCannotRunUntilItIsEnabled')}
               </p>
 
               <RegistryEditorActions
                 leading={<>
                   <ActionButton onClick={() => onChooseOperation?.(selectedOperation)}>
-                    <Play className="h-3.5 w-3.5" /> Test in Playground
+                    <Play className="h-3.5 w-3.5" /> {translate('action.testInPlayground')}
                   </ActionButton>
-                  {selectedMetadata.capabilities.canDuplicate && <ActionButton onClick={() => void handleDuplicate(selectedOperation)}><Copy className="h-3.5 w-3.5" /> Duplicate</ActionButton>}
-                  {selectedMetadata.capabilities.canDelete && <ActionButton variant="danger" onClick={() => setOperationToDelete(selectedOperation)}><Trash2 className="h-3.5 w-3.5" /> Delete</ActionButton>}
+                  {selectedMetadata.capabilities.canDuplicate && <ActionButton onClick={() => void handleDuplicate(selectedOperation)}><Copy className="h-3.5 w-3.5" /> {translate('common.duplicate')}</ActionButton>}
+                  {selectedMetadata.capabilities.canDelete && <ActionButton variant="danger" onClick={() => setOperationToDelete(selectedOperation)}><Trash2 className="h-3.5 w-3.5" /> {translate('common.delete')}</ActionButton>}
                 </>}
-                trailing={selectedMetadata.capabilities.canEdit && <ActionButton variant="primary" onClick={() => handleOpenEdit(selectedOperation)}><Edit3 className="h-3.5 w-3.5" /> Edit</ActionButton>}
+                trailing={selectedMetadata.capabilities.canEdit && <ActionButton variant="primary" onClick={() => handleOpenEdit(selectedOperation)}><Edit3 className="h-3.5 w-3.5" /> {translate('common.edit')}</ActionButton>}
               />
             </div>
           ) : (
             <div className="grid min-h-72 place-items-center text-center">
-              <p className="theme-text-muted text-xs">Select an Operation to see its settings.</p>
+              <p className="theme-text-muted text-xs">{translate('component.operationsManager.selectAnOperationToSeeItsSettings')}</p>
             </div>
           )}
         </section>

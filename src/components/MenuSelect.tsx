@@ -2,6 +2,7 @@ import { useRef, useState, type ReactNode } from 'react';
 import { ChevronDown, Search } from 'lucide-react';
 import { AnchoredMenu, MenuItem } from './AnchoredMenu';
 import { OverflowText } from './OverflowText';
+import { translate } from '../localization/runtime';
 
 export interface MenuSelectOption {
   value: string;
@@ -11,6 +12,7 @@ export interface MenuSelectOption {
   icon?: ReactNode;
   color?: string;
   disabled?: boolean;
+  dividerBefore?: boolean;
 }
 
 interface MenuSelectProps {
@@ -36,7 +38,7 @@ export function MenuSelect({
   compact = false,
   disabled = false,
   searchable = false,
-  searchPlaceholder = 'Search…',
+  searchPlaceholder = translate('component.menuSelect.search'),
 }: MenuSelectProps) {
   const triggerRef = useRef<HTMLButtonElement>(null);
   const [isOpen, setIsOpen] = useState(false);
@@ -45,7 +47,11 @@ export function MenuSelect({
   const visibleOptions = searchable && query.trim()
     ? options.filter((option) => `${option.label} ${option.value}`.toLowerCase().includes(query.trim().toLowerCase()))
     : options;
-  const selectedText = `${selected?.label ?? 'No selection'}${typeof selected?.count === 'number' ? ` (${selected.count})` : ''}`;
+  const selectedText = selected
+    ? typeof selected.count === 'number'
+      ? translate('component.menuSelect.selectionWithCount', { label: selected.label, count: selected.count })
+      : selected.label
+    : translate('component.menuSelect.noSelection');
 
   return (
     <>
@@ -101,6 +107,7 @@ export function MenuSelect({
             const showGroup = option.group && option.group !== visibleOptions[index - 1]?.group;
             return (
               <div key={option.value} role="none">
+                {option.dividerBefore && <div role="separator" className="theme-divider my-1 border-t" />}
                 {showGroup && (
                   <div className={`theme-text-subtle px-2.5 pb-1 pt-2 text-[10px] font-bold uppercase tracking-wider ${index > 0 ? 'theme-divider mt-1 border-t' : ''}`}>
                     {option.group}
@@ -128,7 +135,7 @@ export function MenuSelect({
               </div>
             );
           })}
-          {visibleOptions.length === 0 && <div className="theme-text-subtle px-3 py-4 text-center text-xs">No matches</div>}
+          {visibleOptions.length === 0 && <div className="theme-text-subtle px-3 py-4 text-center text-xs">{translate('component.menuSelect.noMatches')}</div>}
         </AnchoredMenu>
       )}
     </>

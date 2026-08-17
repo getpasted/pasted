@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { QueuePasteTarget, SequentialStatus } from '../types';
 import { Disc, ArrowRightCircle, Layers, AlertTriangle, CornerDownLeft } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
+import { translate } from '../localization/runtime';
 
 interface SequentialQueueBarProps {
   status: SequentialStatus | null;
@@ -69,26 +70,26 @@ export const SequentialQueueBar: React.FC<SequentialQueueBarProps> = ({
           <div className={`queue-controls-icon theme-surface p-1.5 rounded-lg border shrink-0 ${isActive ? 'is-active' : ''}`}>
             <Disc className={`w-3.5 h-3.5 ${isActive ? 'theme-status-info-text animate-spin' : 'theme-text-muted'}`} />
           </div>
-          <h3 className="text-xs font-bold theme-title truncate">Copy Queue</h3>
+          <h3 className="text-xs font-bold theme-title truncate">{translate('component.sequentialQueueBar.copyQueue')}</h3>
         </div>
 
         {isActive && (
           <span className="queue-recording-badge ui-pill text-[9px] px-2 py-0.5 font-mono animate-pulse border font-semibold shrink-0">
-            RECORDING COPIES
+            {translate('component.sequentialQueueBar.recordingCopies')}
           </span>
         )}
       </div>
 
       {/* Helper text */}
       <p className="text-[11px] theme-text-muted leading-normal mt-2">
-        Toggle recording with <kbd className="theme-kbd px-1 py-0.5 rounded font-mono text-[9px] border">⌥⇧C</kbd>, then copy normally. Paste next with <kbd className="theme-kbd px-1 py-0.5 rounded font-mono text-[9px] border">⌥⇧X</kbd>.
+        {translate('component.sequentialQueueBar.shortcutDescription', { toggleShortcut: '⌥⇧C', pasteShortcut: '⌥⇧X' })}
       </p>
 
       {queue.length > 0 && canPasteAutomatically && (
         <div className="theme-text-muted mt-2 flex min-w-0 items-center gap-1.5 text-[10px]">
           <CornerDownLeft className="h-3 w-3 shrink-0" />
           <span className="flex min-w-0 items-baseline gap-1">
-            <span className="shrink-0">Next paste targets</span>
+            <span className="shrink-0">{translate('component.sequentialQueueBar.nextPasteTargets')}</span>
             <strong className="theme-title truncate font-semibold" title={pasteTarget.name}>{pasteTarget.name}</strong>
           </span>
         </div>
@@ -105,28 +106,27 @@ export const SequentialQueueBar: React.FC<SequentialQueueBarProps> = ({
       {queue.length > 0 && (
         <div className="queue-controls-footer mt-2.5 pt-2 border-t flex items-center justify-between flex-wrap gap-2">
           <span className="queue-count-badge text-xs font-mono font-bold px-2 py-0.5 rounded border">
-            {queue.length} in buffer
-          </span>
+            {translate('component.sequentialQueueBar.bufferCount', { count: queue.length })}</span>
           <div className="flex items-center space-x-1.5">
             <button
               type="button"
               onClick={handlePopNext}
               disabled={isPasting || !canPasteAutomatically}
               className="queue-action-secondary ui-control-radius flex items-center space-x-1 px-2 py-1 border text-[11px] font-semibold transition-colors cursor-pointer"
-              title="Paste Next (⌥⇧X)"
+              title={translate('component.sequentialQueueBar.pasteNextX')}
             >
               <ArrowRightCircle className="w-3 h-3" />
-              <span>Paste Next</span>
+              <span>{translate('component.sequentialQueueBar.pasteNext')}</span>
             </button>
             <button
               type="button"
               onClick={handlePasteAll}
               disabled={isPasting || !canPasteAutomatically}
               className="queue-action-primary ui-control-radius flex items-center space-x-1 px-2 py-1 border text-[11px] font-semibold shadow transition-colors cursor-pointer"
-              title="Combine and Paste"
+              title={translate('component.sequentialQueueBar.combineAndPaste')}
             >
               <Layers className="w-3 h-3" />
-              <span>Paste All</span>
+              <span>{translate('component.sequentialQueueBar.pasteAll')}</span>
             </button>
           </div>
         </div>

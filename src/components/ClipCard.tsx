@@ -34,6 +34,9 @@ import {
 } from 'lucide-react';
 import { ClipBinSummary } from './ClipBinSummary';
 import { SafeRasterImage } from './SafeRasterImage';
+import { translate } from '../localization/runtime';
+import { useLocalization } from '../localization/LocalizationProvider';
+import { localizedSourceName } from '../localization/presentation';
 
 const clipImageCache = new Map<string, string | null>();
 interface FileCardPreview {
@@ -129,7 +132,7 @@ function ClipImageThumbnail({
       {source && (
         <SafeRasterImage
           source={source}
-          alt="Clipboard Clip"
+          alt={translate('component.clipCard.clipboardClip')}
           loading="lazy"
           decoding="async"
           className={`${maxHeightClass} object-contain rounded`}
@@ -206,7 +209,7 @@ function ClipFileThumbnail({
         <Files className="theme-status-info-text h-4 w-4 shrink-0" />
         <OverflowText text={getClipFileSummary(clip)} className="truncate" />
         {paths.length > 1 && (
-          <span className="theme-text-muted ml-auto shrink-0 text-[10px]">{paths.length} files</span>
+          <span className="theme-text-muted ml-auto shrink-0 text-[10px]">{translate('format.fileCount', { count: paths.length })}</span>
         )}
       </div>
     );
@@ -223,7 +226,7 @@ function ClipFileThumbnail({
           {preview.dataUrl ? (
             <SafeRasterImage
               source={preview.dataUrl}
-              alt={`Preview of ${previewPath.split(/[\\/]/).pop() || 'file'}`}
+              alt={translate('common.previewOfName', { name: previewPath.split(/[\\/]/).pop() || translate('component.clipCard.file') })}
               loading="lazy"
               decoding="async"
               className={`${maxHeightClass} object-contain rounded`}
@@ -315,6 +318,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
   onPointerDragEnd,
   onPointerDragCancel,
 }) => {
+  useLocalization();
   const relativeTimeNow = useMinuteTick();
   const features = useFeatures();
   const [copied, setCopied] = React.useState(false);
@@ -480,16 +484,16 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
           <div className="clip-type-icon theme-badge p-1 rounded border">
             <ContentTypeIcon type={features.types ? clip.content_type : structuralClipType(clip.content_type)} className="w-3.5 h-3.5 theme-text-muted" />
           </div>
-          {features.sources && <span className="font-medium theme-text-main truncate max-w-[120px]" title={clip.source}>
-            <HighlightedClipText text={clip.source} query={searchQuery} field="source" />
+          {features.sources && <span className="font-medium theme-text-main truncate max-w-[120px]" title={localizedSourceName(clip.source)}>
+            <HighlightedClipText text={localizedSourceName(clip.source)} query={searchQuery} field="source" />
           </span>}
         </div>
         <div className="clip-meta-row theme-text-subtle flex items-center text-[11px] font-mono">
           {features.transformations && isTransforming && (
             <span
               role="status"
-              aria-label="Applying Transform"
-              title="Applying Transform…"
+              aria-label={translate('component.clipCard.applyingTransform')}
+              title={translate('component.clipCard.applyingTransform2')}
               className="clip-meta-item clip-meta-icon-only clip-transform-working"
             >
               <LoaderCircle className="clip-meta-icon animate-spin" />
@@ -498,8 +502,8 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
           {features.transformations && !isTransforming && transformError && (
             <span
               role="status"
-              aria-label="Transform failed"
-              title={`Transform failed: ${transformError}`}
+              aria-label={translate('component.clipCard.transformFailed')}
+              title={translate('component.clipCard.transformFailedTransformerror', { transformError: transformError })}
               className="clip-meta-item clip-meta-icon-only theme-danger-text"
             >
               <AlertTriangle className="clip-meta-icon" />
@@ -509,8 +513,8 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
           {features.protection && clip.is_protected && (
             <span
               role="img"
-              aria-label="Protected clip"
-              title="Protected"
+              aria-label={translate('component.clipCard.protectedClip')}
+              title={translate('component.clipCard.protected')}
               className="clip-meta-item clip-meta-icon-only clip-protected-accent"
             >
               <Shield className="clip-meta-icon" />
@@ -519,8 +523,8 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
           {features.transformations && clip.is_transformed && (
             <span
               role="img"
-              aria-label="Transformed clip"
-              title="Transformed"
+              aria-label={translate('component.clipCard.transformedClip')}
+              title={translate('component.clipCard.transformed')}
               className="clip-meta-item clip-meta-icon-only transform-accent pipelines"
             >
               <Workflow className="clip-meta-icon" />
@@ -529,36 +533,35 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
           {features.queue && queueIndex !== undefined && (
             queueIndex === 1 ? (
               <span className="clip-meta-item clip-queue-next rounded-full font-mono font-extrabold shadow animate-pulse">
-                Next Up (#1)
+                {translate('component.clipCard.nextUp1')}
               </span>
             ) : (
               <span className="clip-meta-item clip-queue-position rounded-full font-mono font-semibold">
-                #{queueIndex} in Queue
-              </span>
+                {translate('component.clipCard.queuePosition', { position: queueIndex })}</span>
             )
           )}
           {clip.content_type === 'image' && clip.text_content && (
             <span
               role="img"
-              aria-label="OCR text available"
-              title="OCR Text"
+              aria-label={translate('component.clipCard.ocrTextAvailable')}
+              title={translate('component.clipCard.ocrText')}
               className="clip-meta-item clip-meta-icon-only clip-ocr-accent"
             >
               <ScanText className="clip-meta-icon" />
             </span>
           )}
           {noteSummary && (
-            <span title={`Notes: ${noteSummary}`} className="clip-meta-item clip-meta-icon-only">
+            <span title={translate('component.clipCard.notesNotesummary', { noteSummary: noteSummary })} className="clip-meta-item clip-meta-icon-only">
               <StickyNote className="clip-meta-icon clip-note-accent" />
             </span>
           )}
           {features.pinning && clip.is_pinned && (
-            <span title="Pinned" className="clip-meta-item clip-meta-icon-only">
+            <span title={translate('component.clipCard.pinned')} className="clip-meta-item clip-meta-icon-only">
               <Pin className="clip-meta-icon pin-icon" />
             </span>
           )}
           {isTrashMode && (
-            <span role="img" aria-label="Clip in Trash" title="In Trash" className="clip-meta-item clip-meta-icon-only theme-status-danger-text">
+            <span role="img" aria-label={translate('component.clipCard.clipInTrash')} title={translate('component.clipCard.inTrash')} className="clip-meta-item clip-meta-icon-only theme-status-danger-text">
               <Trash2 className="clip-meta-icon" />
             </span>
           )}
@@ -610,7 +613,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
                 setShowRevealed(true);
               }}
               className="clip-sensitive-action ml-2 p-1 rounded transition-colors"
-              title="Reveal Sensitive Text"
+              title={translate('component.clipCard.revealSensitiveText')}
             >
               <Eye className="w-3.5 h-3.5" />
             </button>
@@ -618,7 +621,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
         ) : (
           <div className="relative group/sensitive flex items-center justify-between">
             <span>
-              <HighlightedClipText text={clip.text_content || 'Empty item'} query={searchQuery} field="content" />
+              <HighlightedClipText text={clip.text_content || translate('component.clipCard.emptyItem')} query={searchQuery} field="content" />
             </span>
             {isSensitive && showRevealed && (
               <button
@@ -627,7 +630,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
                   setShowRevealed(false);
                 }}
                 className="clip-sensitive-action ml-2 p-1 rounded transition-colors shrink-0"
-                title="Hide Sensitive Text"
+                title={translate('component.clipCard.hideSensitiveText')}
               >
                 <EyeOff className="w-3.5 h-3.5" />
               </button>
@@ -648,7 +651,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
 
       {/* Hover Action Buttons */}
       <FloatingActionStrip
-        label="Clip actions"
+        label={translate('component.clipCard.clipActions')}
         visible={showActions && !isDragInProgress}
       >
         <button
@@ -672,7 +675,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
                   onPasteQueueItem();
                 }}
                 className="floating-action-button is-accent"
-                title="Paste"
+                title={translate('component.clipCard.paste')}
               >
                 <ArrowRightCircle className="w-3.5 h-3.5" />
               </button>
@@ -684,7 +687,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
                   onRemoveFromQueue();
                 }}
                 className="floating-action-button is-danger"
-                title="Remove from Queue"
+                title={translate('component.clipCard.removeFromQueue')}
               >
                 <MinusCircle className="w-3.5 h-3.5" />
               </button>
@@ -761,9 +764,9 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
                   : 'is-danger'
               }`}
               title={clip.is_protected
-                ? 'Clip is Protected. Unprotect first to delete.'
+                ? translate('component.clipCard.clipIsProtectedUnprotectFirstToDelete')
                 : trashEnabled
-                  ? `${UI_COPY.moveToTrash} (Option-click to delete permanently)`
+                  ? translate('component.clipCard.movetotrashOptionClickToDeletePermanently', { moveToTrash: UI_COPY.moveToTrash })
                   : clipDeleteLabel({ trashEnabled })}
             >
               {trashEnabled ? <Trash2 className="w-3.5 h-3.5" /> : <X className="w-3.5 h-3.5" />}

@@ -7,6 +7,8 @@ import { TransformationOutputActions } from './TransformationOutputActions';
 import { TransformationPreviewPanel } from './TransformationPreviewPanel';
 import type { IntelligenceRequestStatus } from '../hooks/useIntelligenceRequestStatus';
 import { ActionButton } from './AppDialogLayout';
+import { translate } from '../localization/runtime';
+import { localizedBuiltinName } from '../localization/presentation';
 
 export type PlaygroundTarget =
   | { kind: 'transform'; item: SavedTransform }
@@ -65,22 +67,22 @@ export function TransformationPlayground({
   const options = targets
     .map((candidate, sourceIndex) => {
       const group = candidate.kind === 'operation'
-        ? `Operations · ${candidate.item.category}`
+        ? translate('component.transformationPlayground.operationsCategory', { category: candidate.item.category })
         : candidate.kind === 'pipeline'
-          ? 'Manually Built Transforms'
+          ? translate('component.transformationPlayground.manuallyBuiltTransforms')
           : candidate.item.plan.steps.some((step) => step.executor.kind === 'semantic')
-            ? 'AI-Assisted Transforms'
-            : 'Planned Local Transforms';
-      const groupOrder = group === 'AI-Assisted Transforms'
-        ? 0
-        : group === 'Planned Local Transforms'
-          ? 1
-          : group === 'Manually Built Transforms'
-            ? 2
-            : 3;
+            ? translate('component.transformationPlayground.aiAssistedTransforms')
+            : translate('component.transformationPlayground.plannedLocalTransforms');
+      const groupOrder = candidate.kind === 'operation'
+        ? 3
+        : candidate.kind === 'pipeline'
+          ? 2
+          : candidate.item.plan.steps.some((step) => step.executor.kind === 'semantic') ? 0 : 1;
       return {
         value: targetValue(candidate),
-        label: candidate.item.name,
+        label: candidate.kind === 'operation'
+          ? localizedBuiltinName('operation', candidate.item.stable_id, candidate.item.name, candidate.item.stable_id.startsWith('builtin:'))
+          : candidate.item.name,
         group,
         groupOrder,
         sourceIndex,
@@ -95,25 +97,25 @@ export function TransformationPlayground({
     <div className="mx-auto w-full max-w-5xl space-y-4">
       <section className="theme-surface @container rounded-xl border p-4">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <p className="theme-text-muted text-[10px]">Run a Transform or Operation without changing a clip.</p>
+          <p className="theme-text-muted text-[10px]">{translate('component.transformationPlayground.runATransformOrOperationWithoutChangingAClip')}</p>
           <TransformCategorySelect
             accent={target?.kind === 'operation' ? 'operations' : 'pipelines'}
             value={target ? targetValue(target) : options[0]?.value ?? ''}
-            options={options.length ? options : [{ value: '', label: 'Nothing available' }]}
+            options={options.length ? options : [{ value: '', get label() { return translate('component.transformationPlayground.nothingAvailable'); } }]}
             onChange={(value) => {
               const nextTarget = targets.find((candidate) => targetValue(candidate) === value);
               if (nextTarget) onTargetChange(nextTarget);
             }}
-            label="Choose what to run"
+            label={translate('component.transformationPlayground.chooseWhatToRun')}
             searchable
-            searchPlaceholder="Search Transforms and Operations…"
+            searchPlaceholder={translate('component.transformationPlayground.searchTransformsAndOperations')}
             leadingIcon={target?.kind === 'operation' ? <Wrench className="h-3.5 w-3.5 shrink-0" /> : <Workflow className="h-3.5 w-3.5 shrink-0" />}
           />
         </div>
 
         <TransformationPreviewPanel
-          title="Preview"
-          description={target ? `Testing ${targetName(target)}` : 'Choose an item to run'}
+          title={translate('component.transformationPlayground.preview')}
+          description={target ? translate('component.transformationPlayground.testingValue', { value: targetName(target) }) : translate('component.transformationPlayground.chooseAnItemToRun')}
           status={<PlaygroundRunStatus
             state={runState}
             label={targetName(target)}
@@ -129,12 +131,12 @@ export function TransformationPlayground({
               className="theme-input ui-field-radius h-48 w-full resize-y border p-3 font-mono text-xs focus:outline-none"
             />}
           output={<div className={`theme-input ui-field-radius h-48 overflow-y-auto whitespace-pre-wrap break-words border p-3 font-mono text-xs ${error ? 'theme-danger-text' : ''}`}>
-              {error || output || 'Run the selected item to preview its output.'}
+              {error || output || translate('component.transformationPlayground.runTheSelectedItemToPreviewItsOutput')}
             </div>}
         />
 
         <div className="theme-divider mt-4 flex flex-wrap items-center justify-end gap-2 border-t pt-3">
-          {output && !error && <span className="theme-text-subtle mr-auto text-[10px]">{output.length} characters</span>}
+          {output && !error && <span className="theme-text-subtle mr-auto text-[10px]">{translate('format.characterCount', { count: output.length })}</span>}
           <TransformationOutputActions output={error ? '' : output} />
           <ActionButton
             variant="primary"
@@ -143,7 +145,7 @@ export function TransformationPlayground({
             className="h-9 min-h-9 px-5"
           >
             <Play className="h-3.5 w-3.5" />
-            <span>{runState === 'running' ? (requestStatus?.phase === 'queued' ? 'Queued…' : 'Running…') : 'Run'}</span>
+            <span>{runState === 'running' ? (requestStatus?.phase === 'queued' ? translate('component.transformationPlayground.queued') : translate('component.transformationPlayground.running')) : translate('component.transformationPlayground.run')}</span>
           </ActionButton>
         </div>
       </section>
