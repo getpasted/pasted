@@ -24,7 +24,7 @@ OCR applies to captured image content, not arbitrary file references. Confirm OC
 
 ## Whisper Transcription is unavailable
 
-Open **Settings → Analysis → Manage Extractors** and select Whisper Transcription. The settings header identifies the missing dependency; hover it for remediation. Install whisper.cpp, then configure an existing local GGML model in the Model field. Pasted does not download models automatically. `pasted extractor get extractor:whisper-transcription --json` reports the saved model path and current availability.
+Open **Settings → Analysis → Manage Extractors** and select Whisper Transcription. The header identifies the first missing command or resource. Install FFmpeg and whisper.cpp, expand Advanced, then select an existing local GGML model under Resources. Pasted does not download models automatically. `pasted extractor get extractor:whisper-transcription --json` reports the complete recipe and readiness.
 
 M4A and AAC transcription also requires FFmpeg. If those formats fail while WAV transcription works, install FFmpeg and try the extraction again.
 

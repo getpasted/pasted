@@ -8,11 +8,64 @@ use std::path::{Path, PathBuf};
 
 use crate::external_import::ExternalTextClip;
 
-const BACKUP_SCHEMA_VERSION: u32 = 11;
+const BACKUP_SCHEMA_VERSION: u32 = 12;
 const FULL_BACKUP_FORMAT_VERSION: i64 = 1;
 const PENDING_CLIENT_STATE_SETTING: &str = "pendingFullBackupClientState";
 const MAX_BACKUP_INTERFACE_STATE_BYTES: usize = 1024 * 1024;
 const MAX_ANALYTICS_FILE_FORMATS: usize = 24;
+
+fn invalid_extractor_input(error: impl Into<String>) -> rusqlite::Error {
+    rusqlite::Error::ToSqlConversionFailure(Box::new(std::io::Error::new(
+        std::io::ErrorKind::InvalidInput,
+        error.into(),
+    )))
+}
+
+fn insert_extractor_authoring_session(
+    transaction: &rusqlite::Transaction<'_>,
+    extractor_id: i64,
+    manifest: Option<&crate::extractor_recipe::ExtractorAuthoringManifest>,
+) -> Result<Option<i64>> {
+    let Some(manifest) = manifest else {
+        return Ok(None);
+    };
+    transaction.execute(
+        "INSERT INTO extractor_authoring_sessions
+            (extractor_id, source, provider, model, original_prompt, manifest_version)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        params![
+            extractor_id,
+            manifest.source.stable_name(),
+            manifest.provider,
+            manifest.model,
+            manifest.original_prompt,
+            manifest.manifest_version,
+        ],
+    )?;
+    let session_id = transaction.last_insert_rowid();
+    for (sequence, message) in manifest.messages.iter().enumerate() {
+        let structured_content_json = message
+            .structured_content
+            .as_ref()
+            .map(serde_json::to_string)
+            .transpose()
+            .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?;
+        transaction.execute(
+            "INSERT INTO extractor_authoring_messages
+                (session_id, sequence, role, content, structured_content_json, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params![
+                session_id,
+                sequence as i64,
+                message.role.stable_name(),
+                message.content,
+                structured_content_json,
+                message.created_at,
+            ],
+        )?;
+    }
+    Ok(Some(session_id))
+}
 
 fn sqlite_count(row: &rusqlite::Row<'_>) -> Result<usize> {
     let count = row.get::<_, i64>(0)?;
@@ -2476,6 +2529,8 @@ impl DbState {
                 revision INTEGER NOT NULL DEFAULT 1,
                 shipped_revision INTEGER,
                 shipped_definition_json TEXT,
+                recipe_json TEXT,
+                shipped_recipe_json TEXT,
                 is_builtin INTEGER NOT NULL DEFAULT 0,
                 is_deleted INTEGER NOT NULL DEFAULT 0,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -2514,6 +2569,57 @@ impl DbState {
                 [],
             )?;
         }
+        if !column_exists(&conn, "content_extractors", "recipe_json")? {
+            conn.execute(
+                "ALTER TABLE content_extractors ADD COLUMN recipe_json TEXT",
+                [],
+            )?;
+        }
+        if !column_exists(&conn, "content_extractors", "shipped_recipe_json")? {
+            conn.execute(
+                "ALTER TABLE content_extractors ADD COLUMN shipped_recipe_json TEXT",
+                [],
+            )?;
+        }
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS extractor_authoring_sessions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                extractor_id INTEGER NOT NULL,
+                source TEXT NOT NULL,
+                provider TEXT,
+                model TEXT,
+                original_prompt TEXT,
+                manifest_version INTEGER NOT NULL DEFAULT 1,
+                created_at DATETIME NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+                updated_at DATETIME NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+                FOREIGN KEY (extractor_id) REFERENCES content_extractors(id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_extractor_authoring_sessions
+                ON extractor_authoring_sessions (extractor_id, created_at, id);
+            CREATE TABLE IF NOT EXISTS extractor_authoring_messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id INTEGER NOT NULL,
+                sequence INTEGER NOT NULL,
+                role TEXT NOT NULL,
+                content TEXT NOT NULL,
+                structured_content_json TEXT,
+                created_at DATETIME NOT NULL,
+                FOREIGN KEY (session_id) REFERENCES extractor_authoring_sessions(id),
+                UNIQUE (session_id, sequence)
+            );
+            CREATE TABLE IF NOT EXISTS extractor_recipe_revisions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                extractor_id INTEGER NOT NULL,
+                revision INTEGER NOT NULL,
+                recipe_json TEXT NOT NULL,
+                recipe_hash TEXT NOT NULL,
+                authoring_session_id INTEGER,
+                created_at DATETIME NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+                FOREIGN KEY (extractor_id) REFERENCES content_extractors(id),
+                FOREIGN KEY (authoring_session_id) REFERENCES extractor_authoring_sessions(id),
+                UNIQUE (extractor_id, revision)
+            );",
+        )?;
         for preset in crate::content_types::CONTENT_TYPE_GROUP_PRESETS {
             conn.execute(
                 "INSERT OR IGNORE INTO content_type_groups
@@ -2633,6 +2739,124 @@ impl DbState {
                         })?,
                         preset.stable_ref,
                     ],
+                )?;
+            }
+            let recipe = preset.recipe();
+            crate::extractor_recipe::validate_recipe(&recipe).map_err(|error| {
+                rusqlite::Error::ToSqlConversionFailure(Box::new(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    error,
+                )))
+            })?;
+            let recipe_json = serde_json::to_string(&recipe)
+                .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?;
+            let (current_recipe, previous_shipped_recipe) = conn.query_row(
+                "SELECT recipe_json, shipped_recipe_json
+                 FROM content_extractors WHERE stable_ref = ?1 AND is_builtin = 1",
+                params![preset.stable_ref],
+                |row| {
+                    Ok((
+                        row.get::<_, Option<String>>(0)?,
+                        row.get::<_, Option<String>>(1)?,
+                    ))
+                },
+            )?;
+            let effective_recipe = match (current_recipe, previous_shipped_recipe) {
+                (Some(current), Some(previous)) if current != previous => current,
+                (Some(current), None) => current,
+                _ => recipe_json.clone(),
+            };
+            conn.execute(
+                "UPDATE content_extractors
+                 SET recipe_json = ?1, shipped_recipe_json = ?2
+                 WHERE stable_ref = ?3 AND is_builtin = 1",
+                params![effective_recipe, recipe_json, preset.stable_ref],
+            )?;
+        }
+        {
+            let legacy = {
+                let mut statement = conn.prepare(
+                    "SELECT id, name, description, engine, executable_path, model_path,
+                            input_contract, output_contract, enabled, priority, revision
+                     FROM content_extractors WHERE recipe_json IS NULL",
+                )?;
+                let rows = statement
+                    .query_map([], |row| {
+                        Ok((
+                            row.get::<_, i64>(0)?,
+                            row.get::<_, i64>(10)?,
+                            crate::content_extraction::ExtractorDefinitionInput {
+                                name: row.get(1)?,
+                                description: row.get(2)?,
+                                engine: row.get(3)?,
+                                executable_path: row.get(4)?,
+                                model_path: row.get(5)?,
+                                input_contract: row.get(6)?,
+                                output_contract: row.get(7)?,
+                                enabled: row.get(8)?,
+                                priority: row.get(9)?,
+                            },
+                        ))
+                    })?
+                    .collect::<Result<Vec<_>>>()?;
+                rows
+            };
+            for (id, revision, definition) in legacy {
+                let recipe = crate::content_extraction::recipe_for_legacy_definition(&definition);
+                crate::extractor_recipe::validate_recipe(&recipe).map_err(|error| {
+                    rusqlite::Error::ToSqlConversionFailure(Box::new(std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        error,
+                    )))
+                })?;
+                let recipe_json = serde_json::to_string(&recipe)
+                    .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?;
+                let recipe_hash = recipe.hash().map_err(|error| {
+                    rusqlite::Error::ToSqlConversionFailure(Box::new(std::io::Error::other(error)))
+                })?;
+                conn.execute(
+                    "UPDATE content_extractors SET recipe_json = ?1 WHERE id = ?2",
+                    params![recipe_json, id],
+                )?;
+                conn.execute(
+                    "INSERT OR IGNORE INTO extractor_recipe_revisions
+                        (extractor_id, revision, recipe_json, recipe_hash)
+                     VALUES (?1, ?2, ?3, ?4)",
+                    params![id, revision, recipe_json, recipe_hash],
+                )?;
+            }
+        }
+        {
+            let recipes = {
+                let mut statement = conn.prepare(
+                    "SELECT id, revision, recipe_json FROM content_extractors
+                     WHERE recipe_json IS NOT NULL",
+                )?;
+                let rows = statement
+                    .query_map([], |row| {
+                        Ok((
+                            row.get::<_, i64>(0)?,
+                            row.get::<_, i64>(1)?,
+                            row.get::<_, String>(2)?,
+                        ))
+                    })?
+                    .collect::<Result<Vec<_>>>()?;
+                rows
+            };
+            for (id, revision, recipe_json) in recipes {
+                let recipe =
+                    serde_json::from_str::<crate::extractor_recipe::ExtractorRecipe>(&recipe_json)
+                        .map_err(|error| {
+                            rusqlite::Error::ToSqlConversionFailure(Box::new(error))
+                        })?;
+                let recipe_hash = recipe.hash().map_err(|error| {
+                    rusqlite::Error::ToSqlConversionFailure(Box::new(std::io::Error::other(error)))
+                })?;
+                conn.execute(
+                    "INSERT OR IGNORE INTO extractor_recipe_revisions
+                        (extractor_id, revision, recipe_json, recipe_hash)
+                     VALUES (?1, ?2, ?3, ?4)",
+                    params![id, revision, recipe_json, recipe_hash],
                 )?;
             }
         }
@@ -3007,6 +3231,9 @@ impl DbState {
              DELETE FROM clips;
              DELETE FROM bins;
              DELETE FROM activity_logs;
+             DELETE FROM extractor_authoring_messages;
+             DELETE FROM extractor_recipe_revisions;
+             DELETE FROM extractor_authoring_sessions;
              DELETE FROM content_extractors;
              DELETE FROM content_classifiers;
              DELETE FROM content_types;
@@ -3016,7 +3243,9 @@ impl DbState {
         transaction.execute(
             "DELETE FROM sqlite_sequence WHERE name IN (
                 'clips', 'bins', 'clip_versions', 'activity_logs', 'custom_operations',
-                'saved_transforms', 'automations', 'intelligence_connections'
+                'saved_transforms', 'automations', 'intelligence_connections',
+                'extractor_authoring_sessions', 'extractor_authoring_messages',
+                'extractor_recipe_revisions'
             )",
             [],
         )?;
@@ -3048,12 +3277,17 @@ impl DbState {
             )?;
         }
         for preset in crate::content_extraction::EXTRACTOR_PRESETS {
+            let recipe = preset.recipe();
+            let recipe_json = serde_json::to_string(&recipe)
+                .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?;
+            let recipe_hash = recipe.hash().map_err(invalid_extractor_input)?;
             transaction.execute(
                 "INSERT INTO content_extractors
                     (stable_ref, name, description, engine, executable_path, model_path,
                      input_contract, output_contract, enabled, priority, revision,
-                     shipped_revision, shipped_definition_json, is_builtin)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 1, ?9, 1, ?10, ?11, 1)",
+                     shipped_revision, shipped_definition_json, recipe_json,
+                     shipped_recipe_json, is_builtin)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 1, ?9, 1, ?10, ?11, ?12, ?12, 1)",
                 params![
                     preset.stable_ref,
                     preset.name,
@@ -3067,8 +3301,16 @@ impl DbState {
                     preset.revision,
                     serde_json::to_string(&preset.definition()).map_err(|error| {
                         rusqlite::Error::ToSqlConversionFailure(Box::new(error))
-                    })?
+                    })?,
+                    recipe_json,
                 ],
+            )?;
+            let extractor_id = transaction.last_insert_rowid();
+            transaction.execute(
+                "INSERT INTO extractor_recipe_revisions
+                    (extractor_id, revision, recipe_json, recipe_hash)
+                 VALUES (?1, 1, ?2, ?3)",
+                params![extractor_id, recipe_json, recipe_hash],
             )?;
         }
         let _ = transaction.execute("INSERT INTO clips_fts(clips_fts) VALUES('rebuild')", []);
@@ -10266,7 +10508,8 @@ impl DbState {
         let conn = self.conn.lock();
         let mut statement = conn.prepare(
             "SELECT id, stable_ref, name, description, engine, executable_path, model_path,
-                    input_contract, output_contract, enabled, priority, revision, is_builtin
+                    input_contract, output_contract, enabled, priority, revision, is_builtin,
+                    recipe_json
              FROM content_extractors WHERE is_deleted = 0 ORDER BY priority, id",
         )?;
         let rows = statement.query_map([], |row| {
@@ -10277,13 +10520,41 @@ impl DbState {
             let preset = crate::content_extraction::EXTRACTOR_PRESETS
                 .iter()
                 .find(|preset| preset.stable_ref == stable_ref);
-            let availability = crate::content_extraction::engine_availability_for(
-                &engine,
-                executable_path.as_deref(),
-                model_path.as_deref(),
-            );
-            let runtime =
-                crate::content_extraction::runtime_status_for(&engine, executable_path.as_deref());
+            let recipe = serde_json::from_str::<crate::extractor_recipe::ExtractorRecipe>(
+                &row.get::<_, String>(13)?,
+            )
+            .map_err(|error| {
+                rusqlite::Error::FromSqlConversionFailure(
+                    13,
+                    rusqlite::types::Type::Text,
+                    Box::new(error),
+                )
+            })?;
+            let recipe_hash = recipe.hash().map_err(|error| {
+                rusqlite::Error::FromSqlConversionFailure(
+                    13,
+                    rusqlite::types::Type::Text,
+                    Box::new(std::io::Error::other(error)),
+                )
+            })?;
+            let (availability, runtime) = if engine == crate::content_extraction::RECIPE_ENGINE {
+                (
+                    crate::extractor_recipe::availability(&recipe),
+                    crate::extractor_recipe::runtime_status(&recipe),
+                )
+            } else {
+                (
+                    crate::content_extraction::engine_availability_for(
+                        &engine,
+                        executable_path.as_deref(),
+                        model_path.as_deref(),
+                    ),
+                    crate::content_extraction::runtime_status_for(
+                        &engine,
+                        executable_path.as_deref(),
+                    ),
+                )
+            };
             Ok(crate::content_extraction::Extractor {
                 id: row.get(0)?,
                 stable_ref,
@@ -10301,6 +10572,9 @@ impl DbState {
                 is_available: availability.is_available,
                 unavailable_reason: availability.unavailable_reason,
                 runtime,
+                recipe,
+                recipe_hash,
+                default_recipe: preset.map(crate::content_extraction::ExtractorPreset::recipe),
                 defaults: preset.map(crate::content_extraction::ExtractorPreset::definition),
             })
         })?;
@@ -10328,6 +10602,18 @@ impl DbState {
                 error,
             )))
         })?;
+        let recipe = crate::content_extraction::recipe_for_legacy_definition(input);
+        crate::extractor_recipe::validate_recipe(&recipe).map_err(|error| {
+            rusqlite::Error::ToSqlConversionFailure(Box::new(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                error,
+            )))
+        })?;
+        let recipe_json = serde_json::to_string(&recipe)
+            .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?;
+        let recipe_hash = recipe.hash().map_err(|error| {
+            rusqlite::Error::ToSqlConversionFailure(Box::new(std::io::Error::other(error)))
+        })?;
         let conn = self.conn.lock();
         let extractor_count: i64 = conn.query_row(
             "SELECT COUNT(*) FROM content_extractors WHERE is_deleted = 0",
@@ -10342,8 +10628,9 @@ impl DbState {
         conn.execute(
             "INSERT INTO content_extractors
                 (stable_ref, name, description, engine, executable_path, model_path,
-                 input_contract, output_contract, enabled, priority, revision, is_builtin)
-             VALUES ('pending', ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 1, 0)",
+                 input_contract, output_contract, enabled, priority, revision, recipe_json,
+                 is_builtin)
+             VALUES ('pending', ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 1, ?10, 0)",
             params![
                 input.name.trim(),
                 input.description.trim(),
@@ -10353,13 +10640,20 @@ impl DbState {
                 input.input_contract,
                 input.output_contract,
                 input.enabled,
-                input.priority
+                input.priority,
+                recipe_json,
             ],
         )?;
         let id = conn.last_insert_rowid();
         conn.execute(
             "UPDATE content_extractors SET stable_ref = ?1 WHERE id = ?2",
             params![format!("extractor:custom:{id}"), id],
+        )?;
+        conn.execute(
+            "INSERT INTO extractor_recipe_revisions
+                (extractor_id, revision, recipe_json, recipe_hash)
+             VALUES (?1, 1, ?2, ?3)",
+            params![id, recipe_json, recipe_hash],
         )?;
         drop(conn);
         let created = self.get_content_extractor(&id.to_string())?;
@@ -10391,13 +10685,29 @@ impl DbState {
                 "Built-in Extractor engine and contracts cannot be changed".into(),
             ));
         }
+        let recipe = if input.engine == crate::content_extraction::RECIPE_ENGINE {
+            current.recipe.clone()
+        } else {
+            crate::content_extraction::recipe_for_legacy_definition(input)
+        };
+        crate::extractor_recipe::validate_recipe(&recipe).map_err(|error| {
+            rusqlite::Error::ToSqlConversionFailure(Box::new(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                error,
+            )))
+        })?;
+        let recipe_json = serde_json::to_string(&recipe)
+            .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?;
+        let recipe_hash = recipe.hash().map_err(|error| {
+            rusqlite::Error::ToSqlConversionFailure(Box::new(std::io::Error::other(error)))
+        })?;
         let conn = self.conn.lock();
         let changed = conn.execute(
             "UPDATE content_extractors SET name = ?1, description = ?2, engine = ?3,
                     executable_path = ?4, model_path = ?5, input_contract = ?6,
-                    output_contract = ?7, enabled = ?8, priority = ?9,
+                    output_contract = ?7, enabled = ?8, priority = ?9, recipe_json = ?10,
                     revision = revision + 1, updated_at = CURRENT_TIMESTAMP
-             WHERE id = ?10 AND is_deleted = 0",
+             WHERE id = ?11 AND is_deleted = 0",
             params![
                 input.name.trim(),
                 input.description.trim(),
@@ -10408,6 +10718,7 @@ impl DbState {
                 input.output_contract,
                 input.enabled,
                 input.priority,
+                recipe_json,
                 id
             ],
         )?;
@@ -10415,6 +10726,186 @@ impl DbState {
         if changed == 0 {
             return Err(rusqlite::Error::QueryReturnedNoRows);
         }
+        let updated = self.get_content_extractor(&id.to_string())?;
+        {
+            let conn = self.conn.lock();
+            conn.execute(
+                "INSERT INTO extractor_recipe_revisions
+                    (extractor_id, revision, recipe_json, recipe_hash)
+                 VALUES (?1, ?2, ?3, ?4)",
+                params![id, updated.revision, recipe_json, recipe_hash],
+            )?;
+        }
+        self.log_analysis_participant_update(
+            "extractor",
+            &updated.stable_ref,
+            &updated.name,
+            current.enabled,
+            updated.enabled,
+        );
+        Ok(updated)
+    }
+
+    pub fn create_content_extractor_recipe(
+        &self,
+        input: &crate::extractor_recipe::ExtractorRecipeDefinitionInput,
+    ) -> Result<crate::content_extraction::Extractor> {
+        crate::extractor_recipe::validate_definition(input).map_err(invalid_extractor_input)?;
+        let authoring = input
+            .authoring
+            .as_ref()
+            .map(crate::extractor_recipe::canonicalize_authoring_manifest)
+            .transpose()
+            .map_err(invalid_extractor_input)?;
+        let recipe_json = serde_json::to_string(&input.recipe)
+            .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?;
+        let recipe_hash = input.recipe.hash().map_err(invalid_extractor_input)?;
+        let input_contract = input
+            .recipe
+            .accepts
+            .first()
+            .map(crate::extractor_recipe::ExtractorInputKind::stable_name)
+            .ok_or_else(|| invalid_extractor_input("Extractor recipes require an input"))?;
+        let executable_path = input
+            .recipe
+            .steps
+            .first()
+            .and_then(|step| step.executable.path.as_deref());
+        let model_path = input
+            .recipe
+            .resources
+            .iter()
+            .find(|resource| resource.id == "model")
+            .and_then(|resource| resource.path.as_deref());
+        let conn = self.conn.lock();
+        let transaction = conn.unchecked_transaction()?;
+        let extractor_count: i64 = transaction.query_row(
+            "SELECT COUNT(*) FROM content_extractors WHERE is_deleted = 0",
+            [],
+            |row| row.get(0),
+        )?;
+        if extractor_count >= 64 {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "Content Extractors are limited to 64 entries".into(),
+            ));
+        }
+        transaction.execute(
+            "INSERT INTO content_extractors
+                (stable_ref, name, description, engine, executable_path, model_path,
+                 input_contract, output_contract, enabled, priority, revision, recipe_json,
+                 is_builtin)
+             VALUES ('pending', ?1, ?2, ?3, ?4, ?5, ?6, 'searchable_text', ?7, ?8, 1, ?9, 0)",
+            params![
+                input.name.trim(),
+                input.description.trim(),
+                crate::content_extraction::RECIPE_ENGINE,
+                executable_path,
+                model_path,
+                input_contract,
+                input.enabled,
+                input.priority,
+                recipe_json,
+            ],
+        )?;
+        let id = transaction.last_insert_rowid();
+        transaction.execute(
+            "UPDATE content_extractors SET stable_ref = ?1 WHERE id = ?2",
+            params![format!("extractor:custom:{id}"), id],
+        )?;
+        let authoring_session_id =
+            insert_extractor_authoring_session(&transaction, id, authoring.as_ref())?;
+        transaction.execute(
+            "INSERT INTO extractor_recipe_revisions
+                (extractor_id, revision, recipe_json, recipe_hash, authoring_session_id)
+             VALUES (?1, 1, ?2, ?3, ?4)",
+            params![id, recipe_json, recipe_hash, authoring_session_id],
+        )?;
+        transaction.commit()?;
+        drop(conn);
+        let created = self.get_content_extractor(&id.to_string())?;
+        let _ = self.log_activity(
+            "content_extractor_created",
+            &format!("Created Extractor \"{}\"", created.name),
+        );
+        Ok(created)
+    }
+
+    pub fn update_content_extractor_recipe(
+        &self,
+        id: i64,
+        input: &crate::extractor_recipe::ExtractorRecipeDefinitionInput,
+    ) -> Result<crate::content_extraction::Extractor> {
+        crate::extractor_recipe::validate_definition(input).map_err(invalid_extractor_input)?;
+        let authoring = input
+            .authoring
+            .as_ref()
+            .map(crate::extractor_recipe::canonicalize_authoring_manifest)
+            .transpose()
+            .map_err(invalid_extractor_input)?;
+        let current = self.get_content_extractor(&id.to_string())?;
+        let recipe_json = serde_json::to_string(&input.recipe)
+            .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?;
+        let recipe_hash = input.recipe.hash().map_err(invalid_extractor_input)?;
+        let input_contract = input
+            .recipe
+            .accepts
+            .first()
+            .map(crate::extractor_recipe::ExtractorInputKind::stable_name)
+            .ok_or_else(|| invalid_extractor_input("Extractor recipes require an input"))?;
+        let executable_path = input
+            .recipe
+            .steps
+            .first()
+            .and_then(|step| step.executable.path.as_deref());
+        let model_path = input
+            .recipe
+            .resources
+            .iter()
+            .find(|resource| resource.id == "model")
+            .and_then(|resource| resource.path.as_deref());
+        let next_revision = current.revision.saturating_add(1);
+        let conn = self.conn.lock();
+        let transaction = conn.unchecked_transaction()?;
+        let changed = transaction.execute(
+            "UPDATE content_extractors
+             SET name = ?1, description = ?2, engine = ?3, executable_path = ?4,
+                 model_path = ?5, input_contract = ?6, output_contract = 'searchable_text',
+                 enabled = ?7, priority = ?8, revision = ?9, recipe_json = ?10,
+                 updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
+             WHERE id = ?11 AND is_deleted = 0",
+            params![
+                input.name.trim(),
+                input.description.trim(),
+                crate::content_extraction::RECIPE_ENGINE,
+                executable_path,
+                model_path,
+                input_contract,
+                input.enabled,
+                input.priority,
+                next_revision,
+                recipe_json,
+                id,
+            ],
+        )?;
+        if changed == 0 {
+            return Err(rusqlite::Error::QueryReturnedNoRows);
+        }
+        let authoring_session_id =
+            insert_extractor_authoring_session(&transaction, id, authoring.as_ref())?;
+        transaction.execute(
+            "INSERT INTO extractor_recipe_revisions
+                (extractor_id, revision, recipe_json, recipe_hash, authoring_session_id)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![
+                id,
+                next_revision,
+                recipe_json,
+                recipe_hash,
+                authoring_session_id
+            ],
+        )?;
+        transaction.commit()?;
+        drop(conn);
         let updated = self.get_content_extractor(&id.to_string())?;
         self.log_analysis_participant_update(
             "extractor",
@@ -10426,25 +10917,102 @@ impl DbState {
         Ok(updated)
     }
 
+    pub fn get_extractor_authoring_sessions(
+        &self,
+        reference: &str,
+    ) -> Result<Vec<crate::extractor_recipe::ExtractorAuthoringSession>> {
+        let extractor = self.get_content_extractor(reference)?;
+        let conn = self.conn.lock();
+        let mut statement = conn.prepare(
+            "SELECT id, source, provider, model, original_prompt, created_at
+             FROM extractor_authoring_sessions
+             WHERE extractor_id = ?1 ORDER BY created_at, id",
+        )?;
+        let sessions = statement
+            .query_map(params![extractor.id], |row| {
+                let id = row.get::<_, i64>(0)?;
+                let source = crate::extractor_recipe::ExtractorAuthoringSource::parse(
+                    &row.get::<_, String>(1)?,
+                )
+                .ok_or_else(|| {
+                    rusqlite::Error::FromSqlConversionFailure(
+                        1,
+                        rusqlite::types::Type::Text,
+                        Box::new(std::io::Error::other("Invalid Extractor authoring source")),
+                    )
+                })?;
+                Ok(crate::extractor_recipe::ExtractorAuthoringSession {
+                    id,
+                    extractor_id: extractor.id,
+                    source,
+                    provider: row.get(2)?,
+                    model: row.get(3)?,
+                    original_prompt: row.get(4)?,
+                    created_at: row.get(5)?,
+                    messages: Vec::new(),
+                })
+            })?
+            .collect::<Result<Vec<_>>>()?;
+        let mut sessions = sessions;
+        for session in &mut sessions {
+            let mut messages = conn.prepare(
+                "SELECT role, content, created_at, structured_content_json
+                 FROM extractor_authoring_messages
+                 WHERE session_id = ?1 ORDER BY sequence",
+            )?;
+            session.messages = messages
+                .query_map(params![session.id], |row| {
+                    let role = crate::extractor_recipe::ExtractorAuthoringRole::parse(
+                        &row.get::<_, String>(0)?,
+                    )
+                    .ok_or_else(|| {
+                        rusqlite::Error::FromSqlConversionFailure(
+                            0,
+                            rusqlite::types::Type::Text,
+                            Box::new(std::io::Error::other("Invalid Extractor authoring role")),
+                        )
+                    })?;
+                    let structured = row
+                        .get::<_, Option<String>>(3)?
+                        .map(|value| serde_json::from_str(&value))
+                        .transpose()
+                        .map_err(|error| {
+                            rusqlite::Error::FromSqlConversionFailure(
+                                3,
+                                rusqlite::types::Type::Text,
+                                Box::new(error),
+                            )
+                        })?;
+                    Ok(crate::extractor_recipe::ExtractorAuthoringMessage {
+                        role,
+                        content: row.get(1)?,
+                        created_at: row.get(2)?,
+                        structured_content: structured,
+                    })
+                })?
+                .collect::<Result<Vec<_>>>()?;
+        }
+        Ok(sessions)
+    }
+
     pub fn duplicate_content_extractor(
         &self,
         reference: &str,
         name: Option<&str>,
     ) -> Result<crate::content_extraction::Extractor> {
         let source = self.get_content_extractor(reference)?;
-        self.create_content_extractor(&crate::content_extraction::ExtractorDefinitionInput {
-            name: name
-                .map(str::to_string)
-                .unwrap_or_else(|| format!("{} Copy", source.name)),
-            description: source.description,
-            engine: source.engine,
-            executable_path: source.executable_path,
-            model_path: source.model_path,
-            input_contract: source.input_contract,
-            output_contract: source.output_contract,
-            enabled: source.enabled,
-            priority: source.priority.saturating_add(1).min(10_000),
-        })
+        self.create_content_extractor_recipe(
+            &crate::extractor_recipe::ExtractorRecipeDefinitionInput {
+                name: name
+                    .map(str::to_string)
+                    .unwrap_or_else(|| format!("{} Copy", source.name)),
+                description: source.description,
+                enabled: source.enabled,
+                priority: source.priority.saturating_add(1).min(10_000),
+                recipe: source.recipe,
+                authoring: None,
+            },
+        )
     }
 
     pub fn delete_content_extractor(&self, id: i64) -> Result<()> {
@@ -10519,14 +11087,20 @@ impl DbState {
     }
 
     pub fn restore_default_content_extractors(&self) -> Result<()> {
-        let conn = self.conn.lock();
+        let mut conn = self.conn.lock();
+        let transaction = conn.transaction()?;
         for preset in crate::content_extraction::EXTRACTOR_PRESETS {
-            conn.execute(
+            let recipe = preset.recipe();
+            let recipe_json = serde_json::to_string(&recipe)
+                .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?;
+            let recipe_hash = recipe.hash().map_err(invalid_extractor_input)?;
+            transaction.execute(
                 "INSERT INTO content_extractors
                     (stable_ref, name, description, engine, executable_path, model_path,
                      input_contract, output_contract, enabled, priority, revision,
-                     shipped_revision, shipped_definition_json, is_builtin, is_deleted)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 1, ?9, 1, ?10, ?11, 1, 0)
+                     shipped_revision, shipped_definition_json, recipe_json,
+                     shipped_recipe_json, is_builtin, is_deleted)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 1, ?9, 1, ?10, ?11, ?12, ?12, 1, 0)
                  ON CONFLICT(stable_ref) DO UPDATE SET
                     name = excluded.name, description = excluded.description,
                     engine = excluded.engine, executable_path = excluded.executable_path,
@@ -10534,8 +11108,10 @@ impl DbState {
                     output_contract = excluded.output_contract, enabled = 1,
                     priority = excluded.priority, revision = content_extractors.revision + 1,
                     shipped_revision = excluded.shipped_revision,
-                    shipped_definition_json = excluded.shipped_definition_json, is_deleted = 0,
-                    updated_at = CURRENT_TIMESTAMP",
+                    shipped_definition_json = excluded.shipped_definition_json,
+                    recipe_json = excluded.recipe_json,
+                    shipped_recipe_json = excluded.shipped_recipe_json, is_deleted = 0,
+                    updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')",
                 params![
                     preset.stable_ref,
                     preset.name,
@@ -10549,10 +11125,33 @@ impl DbState {
                     preset.revision,
                     serde_json::to_string(&preset.definition()).map_err(|error| {
                         rusqlite::Error::ToSqlConversionFailure(Box::new(error))
-                    })?
+                    })?,
+                    recipe_json
                 ],
             )?;
+            let (id, revision) = transaction.query_row(
+                "SELECT id, revision FROM content_extractors WHERE stable_ref = ?1",
+                params![preset.stable_ref],
+                |row| Ok((row.get::<_, i64>(0)?, row.get::<_, i64>(1)?)),
+            )?;
+            let authoring = crate::extractor_recipe::ExtractorAuthoringManifest {
+                manifest_version: crate::extractor_recipe::EXTRACTOR_AUTHORING_VERSION,
+                source: crate::extractor_recipe::ExtractorAuthoringSource::Shipped,
+                original_prompt: None,
+                provider: None,
+                model: None,
+                messages: Vec::new(),
+            };
+            let authoring_session_id =
+                insert_extractor_authoring_session(&transaction, id, Some(&authoring))?;
+            transaction.execute(
+                "INSERT INTO extractor_recipe_revisions
+                    (extractor_id, revision, recipe_json, recipe_hash, authoring_session_id)
+                 VALUES (?1, ?2, ?3, ?4, ?5)",
+                params![id, revision, recipe_json, recipe_hash, authoring_session_id],
+            )?;
         }
+        transaction.commit()?;
         drop(conn);
         let _ = self.log_activity(
             "content_extractors_restored",
@@ -10564,12 +11163,25 @@ impl DbState {
     pub fn active_image_text_extractor(
         &self,
     ) -> Result<Option<crate::content_extraction::Extractor>> {
+        self.active_image_text_extractor_for_features(true)
+    }
+
+    pub fn active_image_text_extractor_for_features(
+        &self,
+        ocr_enabled: bool,
+    ) -> Result<Option<crate::content_extraction::Extractor>> {
         Ok(self
             .get_content_extractors()?
             .into_iter()
             .find(|extractor| {
                 extractor.enabled
                     && extractor.is_available
+                    && (ocr_enabled
+                        || !matches!(
+                            extractor.stable_ref.as_str(),
+                            crate::content_extraction::APPLE_VISION_OCR_REF
+                                | crate::content_extraction::TESSERACT_OCR_REF
+                        ))
                     && extractor.supports_contract(
                         crate::analysis_contract::RepresentationKind::ImageBytes,
                         crate::analysis_contract::RepresentationKind::SearchableText,
@@ -10580,12 +11192,22 @@ impl DbState {
     pub fn active_file_text_extractor(
         &self,
     ) -> Result<Option<crate::content_extraction::Extractor>> {
+        self.active_file_text_extractor_for_features(true)
+    }
+
+    pub fn active_file_text_extractor_for_features(
+        &self,
+        transcriptions_enabled: bool,
+    ) -> Result<Option<crate::content_extraction::Extractor>> {
         Ok(self
             .get_content_extractors()?
             .into_iter()
             .find(|extractor| {
                 extractor.enabled
                     && extractor.is_available
+                    && (transcriptions_enabled
+                        || extractor.stable_ref
+                            != crate::content_extraction::WHISPER_TRANSCRIPTION_REF)
                     && extractor.supports_contract(
                         crate::analysis_contract::RepresentationKind::FileReferences,
                         crate::analysis_contract::RepresentationKind::SearchableText,
@@ -11103,18 +11725,12 @@ mod tests {
             .iter()
             .find(|extractor| extractor.stable_ref == crate::content_extraction::TESSERACT_OCR_REF)
             .unwrap();
-        assert_eq!(
-            tesseract.engine,
-            crate::content_extraction::TESSERACT_ENGINE
-        );
+        assert_eq!(tesseract.engine, crate::content_extraction::RECIPE_ENGINE);
         assert_eq!(tesseract.input_contract, "image");
         assert_eq!(tesseract.output_contract, "searchable_text");
         assert_eq!(
             tesseract.is_available,
-            crate::content_extraction::engine_availability(
-                crate::content_extraction::TESSERACT_ENGINE
-            )
-            .is_available
+            crate::extractor_recipe::availability(&tesseract.recipe).is_available
         );
         let whisper = extractors
             .iter()
@@ -11122,25 +11738,26 @@ mod tests {
                 extractor.stable_ref == crate::content_extraction::WHISPER_TRANSCRIPTION_REF
             })
             .unwrap();
-        assert_eq!(
-            whisper.engine,
-            crate::content_extraction::WHISPER_CPP_ENGINE
-        );
+        assert_eq!(whisper.engine, crate::content_extraction::RECIPE_ENGINE);
         assert_eq!(whisper.input_contract, "file_references");
         assert_eq!(whisper.output_contract, "searchable_text");
         assert_eq!(whisper.model_path, None);
-        db.update_content_extractor_definition(
+        let mut whisper_recipe = whisper.recipe.clone();
+        whisper_recipe
+            .resources
+            .iter_mut()
+            .find(|resource| resource.id == "model")
+            .unwrap()
+            .path = Some("/tmp/pasted-missing-whisper-model.bin".into());
+        db.update_content_extractor_recipe(
             whisper.id,
-            &crate::content_extraction::ExtractorDefinitionInput {
+            &crate::extractor_recipe::ExtractorRecipeDefinitionInput {
                 name: whisper.name.clone(),
                 description: whisper.description.clone(),
-                engine: whisper.engine.clone(),
-                executable_path: whisper.executable_path.clone(),
-                model_path: Some("/tmp/pasted-missing-whisper-model.bin".into()),
-                input_contract: whisper.input_contract.clone(),
-                output_contract: whisper.output_contract.clone(),
                 enabled: whisper.enabled,
                 priority: whisper.priority,
+                recipe: whisper_recipe,
+                authoring: None,
             },
         )
         .unwrap();
@@ -11249,6 +11866,85 @@ mod tests {
                 && extractor.name == "Project OCR Revised"
                 && !extractor.enabled
         }));
+    }
+
+    #[test]
+    fn extractor_recipes_preserve_multi_input_authoring_history() {
+        let db = setup_test_db();
+        let executable = std::env::current_exe().unwrap();
+        let timestamp = "2026-08-17T12:34:56-05:00";
+        let created = db
+            .create_content_extractor_recipe(
+                &crate::extractor_recipe::ExtractorRecipeDefinitionInput {
+                    name: "Portable text reader".into(),
+                    description: "Extracts text from supported local content.".into(),
+                    enabled: false,
+                    priority: 100,
+                    recipe: crate::extractor_recipe::ExtractorRecipe {
+                        definition_version: crate::extractor_recipe::EXTRACTOR_RECIPE_VERSION,
+                        accepts: vec![
+                            crate::extractor_recipe::ExtractorInputKind::Image,
+                            crate::extractor_recipe::ExtractorInputKind::FileReferences,
+                        ],
+                        output: crate::extractor_recipe::ExtractorOutputKind::SearchableText,
+                        steps: vec![crate::extractor_recipe::ExtractorCommandStep {
+                            id: "extract".into(),
+                            executable: crate::extractor_recipe::ExtractorExecutable {
+                                path: Some(executable.to_string_lossy().into_owned()),
+                                discover: Vec::new(),
+                                version_arguments: Vec::new(),
+                            },
+                            arguments: vec!["--pasted-extract-v1".into(), "{request.path}".into()],
+                            mode: crate::extractor_recipe::ExtractorStepMode::Once,
+                            capture: crate::extractor_recipe::ExtractorCapture::PastedJsonV1,
+                            output_extension: None,
+                            timeout_seconds: 60,
+                        }],
+                        resources: Vec::new(),
+                    },
+                    authoring: Some(crate::extractor_recipe::ExtractorAuthoringManifest {
+                        manifest_version: crate::extractor_recipe::EXTRACTOR_AUTHORING_VERSION,
+                        source: crate::extractor_recipe::ExtractorAuthoringSource::Ai,
+                        original_prompt: Some("Read text locally".into()),
+                        provider: Some("Test Provider".into()),
+                        model: Some("test-model".into()),
+                        messages: vec![crate::extractor_recipe::ExtractorAuthoringMessage {
+                            role: crate::extractor_recipe::ExtractorAuthoringRole::User,
+                            content: "Read text locally".into(),
+                            created_at: timestamp.into(),
+                            structured_content: None,
+                        }],
+                    }),
+                },
+            )
+            .unwrap();
+
+        assert_eq!(created.engine, crate::content_extraction::RECIPE_ENGINE);
+        assert!(created
+            .recipe
+            .accepts(crate::extractor_recipe::ExtractorInputKind::Image));
+        assert!(created
+            .recipe
+            .accepts(crate::extractor_recipe::ExtractorInputKind::FileReferences));
+        let history = db
+            .get_extractor_authoring_sessions(&created.stable_ref)
+            .unwrap();
+        assert_eq!(history.len(), 1);
+        assert_eq!(
+            history[0].original_prompt.as_deref(),
+            Some("Read text locally")
+        );
+        assert_eq!(history[0].messages[0].created_at, "2026-08-17T17:34:56Z");
+        let revision_count: i64 = db
+            .conn
+            .lock()
+            .query_row(
+                "SELECT COUNT(*) FROM extractor_recipe_revisions WHERE extractor_id = ?1",
+                params![created.id],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(revision_count, 1);
     }
 
     #[test]

@@ -120,8 +120,10 @@ const CLI_COMMAND_GROUPS = [
       { usage: 'pasted suggestion run [--text TEXT | --clip ID | --stdin] [--json]', get description() { return translate('component.helpView.suggestSavedTransformsWithoutChangingContent'); } },
       { usage: 'pasted extractor list [--json]', get description() { return translate('component.helpView.listExtractorsContractsAndSystemAvailability'); } },
       { usage: 'pasted extractor get <ref> [--json]', get description() { return translate('component.helpView.inspectOneExtractorDefinition'); } },
-      { usage: 'pasted extractor create [options] [--json]', get description() { return translate('component.helpView.createAnExtractor'); } },
+      { usage: 'pasted extractor create (--recipe FILE | --prompt TEXT) [options] [--json]', get description() { return translate('component.helpView.createAnExtractor'); } },
       { usage: 'pasted extractor update <ref> [options] [--json]', get description() { return translate('component.helpView.updateAnExtractorDefinition'); } },
+      { usage: 'pasted extractor propose --prompt TEXT [--connection ID] [--json]', get description() { return translate('component.helpView.draftAnExtractorRecipeWithAConnectedAi'); } },
+      { usage: 'pasted extractor history <ref> [--json]', get description() { return translate('component.helpView.reviewLocalExtractorAuthoringHistory'); } },
       { usage: 'pasted extractor duplicate <ref> [--name NAME] [--json]', get description() { return translate('component.helpView.duplicateAnExtractorWithANewStableReference'); } },
       { usage: 'pasted extractor delete <ref> [--json]', get description() { return translate('component.helpView.deleteAnExtractorShippedDefaultsRemainRecoverable'); } },
       { usage: 'pasted extractor run <ref> (--clip ID | --file PATH) [--apply] [--json]', get description() { return translate('component.helpView.runAnExtractorInPreviewModeOrApplyItsOutputToA'); } },
@@ -557,7 +559,7 @@ export const HelpView: React.FC<HelpViewProps> = ({ activeTopic, onActiveTopicCh
                     <span>{translate('component.helpView.customExtractors')}</span>
                   </div>
                   <p className="theme-text-main text-xs leading-relaxed">
-                    {translate('component.helpView.customExtractorProtocolDescription', { protocol: 'custom-command-v1' })}</p>
+                    {translate('component.helpView.customExtractorRecipeDescription')}</p>
                   <p className="theme-text-muted text-xs leading-relaxed">
                     {translate('component.helpView.newCustomCommandsBeginDisabledReviewTheSelectedExecutableBeforeEnablingAutomatic')}
                   </p>

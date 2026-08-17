@@ -424,6 +424,9 @@ mod tests {
             is_available: true,
             unavailable_reason: None,
             runtime: crate::content_extraction::runtime_status_for("test-engine-v1", None),
+            recipe: crate::content_extraction::test_recipe("image"),
+            recipe_hash: "test".into(),
+            default_recipe: None,
             defaults: None,
         }
     }
@@ -446,6 +449,9 @@ mod tests {
             is_available: true,
             unavailable_reason: None,
             runtime: crate::content_extraction::runtime_status_for("test-file-engine-v1", None),
+            recipe: crate::content_extraction::test_recipe("file_references"),
+            recipe_hash: "test".into(),
+            default_recipe: None,
             defaults: None,
         }
     }

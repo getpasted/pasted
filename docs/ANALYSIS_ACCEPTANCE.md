@@ -56,26 +56,25 @@ With ffprobe installed, inspect a disposable audio or video file clip and confir
 
 ## Native whisper.cpp acceptance
 
-Install whisper.cpp and obtain a local GGML model without placing either inside the repository. Configure the model and confirm availability:
+Install FFmpeg and whisper.cpp, then obtain a local GGML model without placing it inside the repository. Select that model in the Extractor's Advanced resources, save, and confirm availability. Export the resulting recipe for CLI automation, then run:
 
 ```sh
-pasted extractor update extractor:whisper-transcription --model /absolute/path/to/ggml-model.bin --json
 pasted extractor run extractor:whisper-transcription --file /absolute/path/to/test-audio.wav --json
 ```
 
 The preview must return only the explicitly requested bounded transcript, classify from that derived text when Content Classification is enabled, and leave application flags false. Repeat with a disposable file clip and `--clip <id> --apply`; `searchableTextUpdated` and `appliedClipId` must report success, the original file-reference payload must remain unchanged, and searching a unique transcript phrase must find the clip. With `whisper-cli` or the model missing, the shipped Extractor remains visible and reports which dependency is unavailable. No model download may begin.
 
-## Custom command acceptance
+## Custom recipe acceptance
 
-Make `docs/examples/plain-text-file-extractor.py` executable and create a disabled file Extractor with its absolute path:
+With Poppler installed, create a disabled PDF Extractor directly from the example recipe:
 
 ```sh
-pasted extractor create --name "Plain Text Files" --executable /absolute/path/to/docs/examples/plain-text-file-extractor.py --input file_references --disabled --json
+pasted extractor create --name "PDF Text" --recipe /absolute/path/to/docs/examples/poppler-pdf-extractor.json --disabled --json
 ```
 
-The definition must report engine contract `custom-command-v1`, revision 1, the selected and resolved executable location, its detected example version, and available status. Run it explicitly against a disposable UTF-8 file and confirm bounded searchable text is returned. Enable it only after reviewing the executable, then apply it to a copied file clip and confirm search finds a unique phrase without replacing its file references. Invalid JSON, oversized output, a nonzero exit, and a 60-second timeout must fail with stable neutral errors and leave no private workspace behind.
+The definition must report `recipe-v1`, revision 1, the resolved `pdftotext` location, and available status. Test the unsaved recipe from Advanced settings and run it through the CLI against a disposable PDF. Confirm bounded searchable text is returned. Enable it only after review, apply it to a copied file clip, and confirm search finds a unique phrase without replacing its file references. Invalid JSON, missing resources, unsupported placeholders, oversized output, nonzero exit, and timeout must fail with stable neutral errors and leave no private workspace behind.
 
-With Poppler installed, repeat using `docs/examples/pdftotext-extractor.py` and a disposable PDF. The Extractor executable owns the complete integration with `pdftotext`; no new Pasted execution method is registered.
+Repeat with AI authoring enabled. Describe the same PDF Extractor, review the generated recipe and setup guidance, save it, then confirm Authoring History contains the original request, provider/model identity, structured response, and canonical UTC timestamps. Disable every Intelligence connection and repeat through Advanced settings to prove the manual path remains complete. Runtime testing and extraction must make no provider request.
 
 ## GUI acceptance
 

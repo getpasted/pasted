@@ -1,0 +1,29 @@
+{
+  "definitionVersion": 1,
+  "accepts": [
+    "file_references"
+  ],
+  "output": "searchable_text",
+  "steps": [
+    {
+      "id": "extract_pdf_text",
+      "executable": {
+        "path": null,
+        "discover": [
+          "pdftotext"
+        ],
+        "versionArguments": [
+          "-v"
+        ]
+      },
+      "arguments": [
+        "{input.path}",
+        "-"
+      ],
+      "mode": "each_input",
+      "capture": "stdout_text",
+      "timeoutSeconds": 30
+    }
+  ],
+  "resources": []
+}

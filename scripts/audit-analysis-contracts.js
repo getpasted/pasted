@@ -50,8 +50,8 @@ assert.match(settingsModal, /activeTab === 'analysis' && \(\s*<SettingsAnalysisP
   'Analysis Settings must remain available when optional participants are disabled');
 assert.doesNotMatch(settingsModal, /showAnalysis=/,
   'Functionality gates must not hide Analysis configuration');
-assert.match(analysisSettings, /\{\(ocrEnabled \|\| transcriptionsEnabled\) && <AnalysisManagerRow[\s\S]{0,220}translate\('component\.settingsAnalysisPanel\.extract'\)/,
-  'Extractors must remain visible for either OCR or Transcriptions');
+assert.match(analysisSettings, /step=\{3\}[\s\S]{0,220}translate\('component\.settingsAnalysisPanel\.extract'\)/,
+  'Extractor management must remain visible for user-defined recipes');
 assert.match(analysisSettings, /\{\(contentClassificationEnabled \|\| typesEnabled\) && <AnalysisManagerRow[\s\S]{0,220}translate\('component\.settingsAnalysisPanel\.classify'\)/,
   'Classifiers must remain visible for either Content Classification or Types');
 assert.match(settingsModal, /typesEnabled=\{settings\.enableTypes\}/,
@@ -96,10 +96,10 @@ assert.match(analysisExecution, /let run_classifiers = allow_text_participants &
   'Suggestion must not implicitly enable Classifiers');
 assert.match(commands, /include_classifiers: include_classifiers\.unwrap_or\(true\)[\s\S]{0,100}Feature::ContentClassification/,
   'The live Analyzer command must honor the Content Classification feature gate');
-assert.match(extractorManager, /inputContract !== 'image' \|\| ocrEnabled/,
-  'Disabling OCR must hide image Extractors');
-assert.match(extractorManager, /inputContract !== 'file_references' \|\| transcriptionsEnabled/,
-  'Disabling Transcriptions must hide file transcription Extractors');
+assert.match(extractorManager, /extractor:apple-vision-ocr'[\s\S]{0,100}extractor:tesseract-ocr'[\s\S]{0,80}ocrEnabled/,
+  'Disabling OCR must hide only the shipped OCR Extractors');
+assert.match(extractorManager, /extractor:whisper-transcription'[\s\S]{0,80}transcriptionsEnabled/,
+  'Disabling Transcriptions must hide only the shipped transcription Extractor');
 assert.match(extractorManager, /value: 'original_text',[\s\S]{0,100}translate\('component\.contentExtractorManagerDialog\.text'\)[\s\S]{0,40}disabled: true/,
   'Extractor settings must explain that Text clips are already searchable');
 assert.match(extractorManager, /value: 'image',[\s\S]{0,100}translate\('component\.contentExtractorManagerDialog\.image'\)/,
@@ -112,8 +112,8 @@ assert.doesNotMatch(extractorManager, />Pass<|>extract<\/strong>/,
   'Extractor settings must not repeat the enclosing Analysis step');
 assert.match(analysisSettings, /<ContentExtractorManagerDialog[\s\S]{0,220}ocrEnabled=\{ocrEnabled\}[\s\S]{0,100}transcriptionsEnabled=\{transcriptionsEnabled\}/,
   'Analysis Settings must pass both extraction feature gates to Extractor management');
-assert.match(commands, /extract_text_from_file_clip[\s\S]{0,220}Feature::Transcriptions/,
-  'Native file transcription must enforce the Transcriptions feature gate');
+assert.match(commands, /extract_text_from_file_clip[\s\S]{0,400}active_file_text_extractor_for_features\(transcriptions_enabled\)/,
+  'Native file extraction must preserve custom Extractors when Transcriptions is disabled');
 assert.match(clipPreviewContent, /transcriptionsEnabled && <div className="theme-panel space-y-3 rounded-xl border p-4 shadow-lg">/,
   'Clip Preview must hide transcription controls when Transcriptions is disabled');
 for (const command of [

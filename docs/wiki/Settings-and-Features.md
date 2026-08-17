@@ -18,8 +18,8 @@ Changing presets does not erase clips or supporting records. Feature cards with 
 - **Revision History:** disabling it preserves existing revisions, but new edits and Transform replacements do not receive restorable snapshots.
 - **Protection:** disabling the interface does not unprotect previously protected clips. Re-enable Protection to change them.
 - **Content Classification:** disabling it stops classifier-driven classification and rescans. Classifiers remain available while Content Types is enabled. Existing clips and Classifier configuration are preserved.
-- **OCR:** disabling it stops and cancels automatic image OCR and hides image Extractors. File transcription follows the separate Transcriptions feature. Completed extracted text remains with its clips; re-enabling OCR resumes eligible image backfill.
-- **Transcriptions:** disabling it hides audio transcription controls and file-input Extractors. Completed transcripts remain stored; re-enabling restores the controls and Extractor configuration.
+- **OCR:** disabling it stops automatic OCR and hides the shipped Apple Vision and Tesseract recipes. Unrelated custom image Extractors remain manageable. Completed extracted text remains with its clips; re-enabling OCR resumes eligible image backfill.
+- **Transcriptions:** disabling it hides Whisper and audio transcription controls without hiding unrelated custom file Extractors. Completed transcripts remain stored.
 - **Transformations:** disabling it stops text workflows and Smart Action suggestions and hides Suggestions under Analysis.
 - **Content Types:** disabling it hides semantic Content Type labels and calculated collections. Classifiers may still classify clips using the preserved registry. Structural Clip Type remains visible.
 - **Sources:** disabling it hides source metadata and calculated Source collections and stops icon resolution. Attribution remains stored so re-enabling Sources is reversible.
@@ -44,7 +44,7 @@ Appearance schemes use semantic theme tokens across the main app, HUD, menus, mo
 
 ## Content Analysis
 
-**Settings → Analysis** shows the clip lifecycle beginning with Capture, followed by the four Analyzer passes. Capture assigns exactly one structural Clip Type—Text, Image, or Files—and records source attribution before Analysis. Optional surfaces follow Functionality: Source Attribution is hidden when Sources is disabled, Extractors remain for OCR or Transcriptions, Classifiers remain for Content Classification or Content Types, and Suggestions remain for Transformations.
+**Settings → Analysis** shows the clip lifecycle beginning with Capture, followed by the four Analyzer passes. Capture assigns exactly one structural Clip Type—Text, Image, or Files—and records source attribution before Analysis. Source Attribution follows Sources, shipped OCR and transcription recipes follow their Functionality switches, Classifiers follow Content Classification or Content Types, and Suggestions follow Transformations. Extractor management remains available for custom recipes.
 
 Content Types and Sources organize the library rather than running Analyzer participants. Disabling either feature hides its related presentation while preserving metadata. Clip Type remains visible because text, images, and file collections are structural capture representations rather than detected Content Types.
 
