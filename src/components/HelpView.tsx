@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { safeInvoke as invoke } from '../utils/tauri';
 import {
   BookOpen,
@@ -23,162 +23,163 @@ import {
 } from 'lucide-react';
 import { ToolPageHeader } from './ToolPageHeader';
 import { useToast } from './ToastProvider';
+import { translate } from '../localization/runtime';
+import type { HelpTopic } from '../utils/appUiState';
+export type { HelpTopic } from '../utils/appUiState';
 
 const CLI_SYMLINK_COMMAND = 'sudo ln -s /Applications/Pasted.app/Contents/MacOS/pasted /usr/local/bin/pasted';
 const CLI_ALIAS_COMMAND = 'alias pasted="/Applications/Pasted.app/Contents/MacOS/pasted"';
 
 const CLI_COMMAND_GROUPS = [
   {
-    title: 'History',
+    get title() { return translate('component.helpView.history'); },
     commands: [
-      { usage: 'pasted copy "Hello"', description: 'Save a text clip. Omit the argument to read stdin.' },
-      { usage: 'cat server.log | pasted copy', description: 'Pipe bounded text into clipboard history.' },
-      { usage: 'pasted list [--limit N] [--offset N] [--bin ID | --pinned | --trash] [--json]', description: 'List a bounded page from History, Trash, a Bin, or pinned clips.' },
-      { usage: 'pasted search [query] [--type TYPE] [--source APP] [--trash] [--limit N] [--offset N] [--json]', description: 'Search a bounded page of History or Trash with Content Type and Source filters.' },
-      { usage: 'pasted import sources [--json]', description: 'List supported external-history sources and their detected locations.' },
-      { usage: 'pasted import <alfred|pastebot|pasta|paste|copyclip|maccy|flycut> [path] [--json]', description: 'Merge text history from another clipboard manager, skipping duplicates.' },
-      { usage: 'pasted retention [--count N] [--days N] [--trash-count N] [--trash-days N] [--log-count N] [--log-days N] [--revision-count N] [--json]', description: 'Read or update History, Trash, Activity, and revision retention.' },
-      { usage: 'pasted settings list|get|set [arguments] [--json]', description: 'Inspect or change persisted application settings.' },
-      { usage: 'pasted recording status|pause|resume [--json]', description: 'Control clipboard recording in the running app.' },
-      { usage: 'pasted queue status|start|stop|add|remove|order|paste|paste-all [arguments] [--json]', description: 'Manage and run the live Copy Queue.' },
-      { usage: 'pasted clear --yes [--json]', description: 'Permanently remove unpinned, unprotected clips.' },
+      { usage: 'pasted copy "Hello"', get description() { return translate('component.helpView.saveATextClipOmitTheArgumentToReadStdin'); } },
+      { usage: 'cat server.log | pasted copy', get description() { return translate('component.helpView.pipeBoundedTextIntoClipboardHistory'); } },
+      { usage: 'pasted list [--limit N] [--offset N] [--bin ID | --pinned | --trash] [--json]', get description() { return translate('component.helpView.listABoundedPageFromHistoryTrashABinOrPinnedClips'); } },
+      { usage: 'pasted search [query] [--type TYPE] [--source APP] [--trash] [--limit N] [--offset N] [--json]', get description() { return translate('component.helpView.searchABoundedPageOfHistoryOrTrashWithContentTypeAnd'); } },
+      { usage: 'pasted import sources [--json]', get description() { return translate('component.helpView.listSupportedExternalHistorySourcesAndTheirDetectedLocations'); } },
+      { usage: 'pasted import <alfred|pastebot|pasta|paste|copyclip|maccy|flycut> [path] [--json]', get description() { return translate('component.helpView.mergeTextHistoryFromAnotherClipboardManagerSkippingDuplicates'); } },
+      { usage: 'pasted retention [--count N] [--days N] [--trash-count N] [--trash-days N] [--log-count N] [--log-days N] [--revision-count N] [--json]', get description() { return translate('component.helpView.readOrUpdateHistoryTrashActivityAndRevisionRetention'); } },
+      { usage: 'pasted settings list|get|set [arguments] [--json]', get description() { return translate('component.helpView.inspectOrChangePersistedApplicationSettings'); } },
+      { usage: 'pasted recording status|pause|resume [--json]', get description() { return translate('component.helpView.controlClipboardRecordingInTheRunningApp'); } },
+      { usage: 'pasted queue status|start|stop|add|remove|order|paste|paste-all [arguments] [--json]', get description() { return translate('component.helpView.manageAndRunTheLiveCopyQueue'); } },
+      { usage: 'pasted clear --yes [--json]', get description() { return translate('component.helpView.permanentlyRemoveUnpinnedUnprotectedClips'); } },
     ],
   },
   {
-    title: 'Clip actions',
+    get title() { return translate('component.helpView.clipActions'); },
     commands: [
-      { usage: 'pasted clip get <id> [--json]', description: 'Inspect one clip and its metadata.' },
-      { usage: 'pasted clip note <id> [--text TEXT | --clear | --stdin] [--json]', description: 'Set or clear a clip note.' },
-      { usage: 'pasted clip revisions <id> [--limit N] [--offset N] [--json]', description: 'List retained clip revisions.' },
-      { usage: 'pasted clip restore-revision <id> <revision-id> [--json]', description: 'Restore an earlier clip revision and its recorded organization.' },
-      { usage: 'pasted clip provenance <id> [--json]', description: 'Inspect the Transform that produced the current clip content.' },
-      { usage: 'pasted clip copy|paste <id> [--json]', description: 'Copy or paste a saved clip through the running app.' },
-      { usage: 'pasted clip pin|unpin <id>... [--json]', description: 'Set pin state explicitly for one or more clips.' },
-      { usage: 'pasted clip order-pinned <id>... [--json]', description: 'Replace the complete pinned-clip order.' },
-      { usage: 'pasted clip protect|unprotect <id>... [--json]', description: 'Set protection explicitly for one or more clips.' },
-      { usage: 'pasted clip trash|restore <id>... [--json]', description: 'Move clips into or out of Trash.' },
-      { usage: 'pasted clip restore-all [--json]', description: 'Return every trashed clip to History.' },
-      { usage: 'pasted clip purge <id>... --yes [--json]', description: 'Permanently delete unprotected clips.' },
-      { usage: 'pasted clip empty-trash --yes [--json]', description: 'Permanently delete every unprotected clip in Trash.' },
-      { usage: 'pasted clip export [path] [--format json|csv]', description: 'Export clips currently in History for external analysis.' },
-      { usage: 'pasted clip import <path> [--format json|csv] [--json]', description: 'Preflight and merge clip records while skipping duplicates.' },
-      { usage: 'pasted clip assign <bin-id|none> <id>... [--json]', description: 'Assign clips to one manual Bin, or remove their manual Bin.' },
+      { usage: 'pasted clip get <id> [--json]', get description() { return translate('component.helpView.inspectOneClipAndItsMetadata'); } },
+      { usage: 'pasted clip note <id> [--text TEXT | --clear | --stdin] [--json]', get description() { return translate('component.helpView.setOrClearAClipNote'); } },
+      { usage: 'pasted clip revisions <id> [--limit N] [--offset N] [--json]', get description() { return translate('component.helpView.listRetainedClipRevisions'); } },
+      { usage: 'pasted clip restore-revision <id> <revision-id> [--json]', get description() { return translate('component.helpView.restoreAnEarlierClipRevisionAndItsRecordedOrganization'); } },
+      { usage: 'pasted clip provenance <id> [--json]', get description() { return translate('component.helpView.inspectTheTransformThatProducedTheCurrentClipContent'); } },
+      { usage: 'pasted clip copy|paste <id> [--json]', get description() { return translate('component.helpView.copyOrPasteASavedClipThroughTheRunningApp'); } },
+      { usage: 'pasted clip pin|unpin <id>... [--json]', get description() { return translate('component.helpView.setPinStateExplicitlyForOneOrMoreClips'); } },
+      { usage: 'pasted clip order-pinned <id>... [--json]', get description() { return translate('component.helpView.replaceTheCompletePinnedClipOrder'); } },
+      { usage: 'pasted clip protect|unprotect <id>... [--json]', get description() { return translate('component.helpView.setProtectionExplicitlyForOneOrMoreClips'); } },
+      { usage: 'pasted clip trash|restore <id>... [--json]', get description() { return translate('component.helpView.moveClipsIntoOrOutOfTrash'); } },
+      { usage: 'pasted clip restore-all [--json]', get description() { return translate('component.helpView.returnEveryTrashedClipToHistory'); } },
+      { usage: 'pasted clip purge <id>... --yes [--json]', get description() { return translate('component.helpView.permanentlyDeleteUnprotectedClips'); } },
+      { usage: 'pasted clip empty-trash --yes [--json]', get description() { return translate('component.helpView.permanentlyDeleteEveryUnprotectedClipInTrash'); } },
+      { usage: 'pasted clip export [path] [--format json|csv]', get description() { return translate('component.helpView.exportClipsCurrentlyInHistoryForExternalAnalysis'); } },
+      { usage: 'pasted clip import <path> [--format json|csv] [--json]', get description() { return translate('component.helpView.preflightAndMergeClipRecordsWhileSkippingDuplicates'); } },
+      { usage: 'pasted clip assign <bin-id|none> <id>... [--json]', get description() { return translate('component.helpView.assignClipsToOneManualBinOrRemoveTheirManualBin'); } },
     ],
   },
   {
-    title: 'Bins and Transforms',
+    get title() { return translate('component.helpView.binsAndTransforms'); },
     commands: [
-      { usage: 'pasted bin list [--json]', description: 'List Bins, counts, and saved ordering.' },
-      { usage: 'pasted bin get <id> [--json]', description: 'Inspect one Bin and its attached Transform.' },
-      { usage: 'pasted bin create --name NAME [options] [--json]', description: 'Create a manual or Smart Bin.' },
-      { usage: 'pasted bin update <id> [options] [--json]', description: 'Update a Bin definition.' },
-      { usage: 'pasted bin duplicate <id> [--name NAME] [--json]', description: 'Duplicate a Bin and its attached Transform.' },
-      { usage: 'pasted bin delete <id> [--disposition keep|trash|move] [--json]', description: 'Delete a Bin with an explicit clip disposition.' },
-      { usage: 'pasted bin clips <bin-id> [--json]', description: 'List a Bin’s clips in persistent order.' },
-      { usage: 'pasted bin order <bin-id> <clip-id>... [--json]', description: 'Replace a Bin’s complete saved clip order.' },
-      { usage: 'pasted bin transform <id> <transform-ref|none> [--json]', description: 'Set or clear a Bin’s default Transform.' },
-      { usage: 'pasted bin shortcut <id> <shortcut|none> [--json]', description: 'Set or clear a Bin shortcut.' },
-      { usage: 'pasted transform list [--json]', description: 'List saved and manually built Transforms.' },
-      { usage: 'pasted transform get <ref> [--json]', description: 'Inspect one canonical Transform definition.' },
-      { usage: 'pasted transform plan [--intent TEXT | --stdin] [--sample TEXT] [--json]', description: 'Draft a Transform plan from natural-language intent.' },
-      { usage: 'pasted transform test --plan-json JSON [--text TEXT | --stdin] [--json]', description: 'Execute an unsaved Transform plan without changing a clip.' },
-      { usage: 'pasted transform create --name NAME (--intent TEXT | --plan-json JSON | --steps-json JSON) [--json]', description: 'Create an intent-planned or manually built Transform.' },
-      { usage: 'pasted transform update <ref> [options] [--json]', description: 'Update a Transform without changing its stable reference or authoring form.' },
-      { usage: 'pasted transform duplicate <ref> [--name NAME] [--json]', description: 'Duplicate a Transform with a new stable reference.' },
-      { usage: 'pasted transform delete <ref> [--json]', description: 'Delete a Transform; existing clip revisions remain unchanged.' },
-      { usage: 'pasted transform run <ref> [--text TEXT | --clip ID | --stdin] [--apply] [--json]', description: 'Run a Transform in preview mode, or apply it to a clip while preserving a revision.' },
-      { usage: 'pasted operation list [--json]', description: 'Inspect built-in and custom Operations.' },
-      { usage: 'pasted operation get <ref> [--json]', description: 'Inspect one Operation definition.' },
-      { usage: 'pasted operation create --name NAME --type TYPE [options] [--json]', description: 'Create an Operation.' },
-      { usage: 'pasted operation update <ref> [options] [--json]', description: 'Update a custom Operation.' },
-      { usage: 'pasted operation duplicate <ref> [--name NAME] [--json]', description: 'Duplicate an Operation with a new stable reference.' },
-      { usage: 'pasted operation delete <ref> [--json]', description: 'Delete a custom Operation.' },
-      { usage: 'pasted operation run <ref> [--text TEXT | --clip ID | --stdin] [--json]', description: 'Run one Operation through the shared executor.' },
-      { usage: 'pasted connection list [--json]', description: 'List connected-intelligence providers in priority order.' },
-      { usage: 'pasted connection get <id> [--json]', description: 'Inspect one Connection definition.' },
-      { usage: 'pasted connection detect [--json]', description: 'Discover supported local intelligence providers.' },
-      { usage: 'pasted connection create --name NAME --provider KIND [options] [--json]', description: 'Create a Connection using credential references only.' },
-      { usage: 'pasted connection update <id> [options] [--json]', description: 'Update or enable a Connection.' },
-      { usage: 'pasted connection delete <id> [--json]', description: 'Delete a Connection definition.' },
-      { usage: 'pasted connection order <id>... [--json]', description: 'Replace Connection priority order.' },
+      { usage: 'pasted bin list [--json]', get description() { return translate('component.helpView.listBinsCountsAndSavedOrdering'); } },
+      { usage: 'pasted bin get <id> [--json]', get description() { return translate('component.helpView.inspectOneBinAndItsAttachedTransform'); } },
+      { usage: 'pasted bin create --name NAME [options] [--json]', get description() { return translate('component.helpView.createAManualOrSmartBin'); } },
+      { usage: 'pasted bin update <id> [options] [--json]', get description() { return translate('component.helpView.updateABinDefinition'); } },
+      { usage: 'pasted bin duplicate <id> [--name NAME] [--json]', get description() { return translate('component.helpView.duplicateABinAndItsAttachedTransform'); } },
+      { usage: 'pasted bin delete <id> [--disposition keep|trash|move] [--json]', get description() { return translate('component.helpView.deleteABinWithAnExplicitClipDisposition'); } },
+      { usage: 'pasted bin clips <bin-id> [--json]', get description() { return translate('component.helpView.listABinSClipsInPersistentOrder'); } },
+      { usage: 'pasted bin order <bin-id> <clip-id>... [--json]', get description() { return translate('component.helpView.replaceABinSCompleteSavedClipOrder'); } },
+      { usage: 'pasted bin transform <id> <transform-ref|none> [--json]', get description() { return translate('component.helpView.setOrClearABinSDefaultTransform'); } },
+      { usage: 'pasted bin shortcut <id> <shortcut|none> [--json]', get description() { return translate('component.helpView.setOrClearABinShortcut'); } },
+      { usage: 'pasted transform list [--json]', get description() { return translate('component.helpView.listSavedAndManuallyBuiltTransforms'); } },
+      { usage: 'pasted transform get <ref> [--json]', get description() { return translate('component.helpView.inspectOneCanonicalTransformDefinition'); } },
+      { usage: 'pasted transform plan [--intent TEXT | --stdin] [--sample TEXT] [--json]', get description() { return translate('component.helpView.draftATransformPlanFromNaturalLanguageIntent'); } },
+      { usage: 'pasted transform test --plan-json JSON [--text TEXT | --stdin] [--json]', get description() { return translate('component.helpView.executeAnUnsavedTransformPlanWithoutChangingAClip'); } },
+      { usage: 'pasted transform create --name NAME (--intent TEXT | --plan-json JSON | --steps-json JSON) [--json]', get description() { return translate('component.helpView.createAnIntentPlannedOrManuallyBuiltTransform'); } },
+      { usage: 'pasted transform update <ref> [options] [--json]', get description() { return translate('component.helpView.updateATransformWithoutChangingItsStableReferenceOrAuthoringForm'); } },
+      { usage: 'pasted transform duplicate <ref> [--name NAME] [--json]', get description() { return translate('component.helpView.duplicateATransformWithANewStableReference'); } },
+      { usage: 'pasted transform delete <ref> [--json]', get description() { return translate('component.helpView.deleteATransformExistingClipRevisionsRemainUnchanged'); } },
+      { usage: 'pasted transform run <ref> [--text TEXT | --clip ID | --stdin] [--apply] [--json]', get description() { return translate('component.helpView.runATransformInPreviewModeOrApplyItToAClip'); } },
+      { usage: 'pasted operation list [--json]', get description() { return translate('component.helpView.inspectBuiltInAndCustomOperations'); } },
+      { usage: 'pasted operation get <ref> [--json]', get description() { return translate('component.helpView.inspectOneOperationDefinition'); } },
+      { usage: 'pasted operation create --name NAME --type TYPE [options] [--json]', get description() { return translate('component.helpView.createAnOperation'); } },
+      { usage: 'pasted operation update <ref> [options] [--json]', get description() { return translate('component.helpView.updateACustomOperation'); } },
+      { usage: 'pasted operation duplicate <ref> [--name NAME] [--json]', get description() { return translate('component.helpView.duplicateAnOperationWithANewStableReference'); } },
+      { usage: 'pasted operation delete <ref> [--json]', get description() { return translate('component.helpView.deleteACustomOperation'); } },
+      { usage: 'pasted operation run <ref> [--text TEXT | --clip ID | --stdin] [--json]', get description() { return translate('component.helpView.runOneOperationThroughTheSharedExecutor'); } },
+      { usage: 'pasted connection list [--json]', get description() { return translate('component.helpView.listConnectedIntelligenceProvidersInPriorityOrder'); } },
+      { usage: 'pasted connection get <id> [--json]', get description() { return translate('component.helpView.inspectOneConnectionDefinition'); } },
+      { usage: 'pasted connection detect [--json]', get description() { return translate('component.helpView.discoverSupportedLocalIntelligenceProviders'); } },
+      { usage: 'pasted connection create --name NAME --provider KIND [options] [--json]', get description() { return translate('component.helpView.createAConnectionUsingCredentialReferencesOnly'); } },
+      { usage: 'pasted connection update <id> [options] [--json]', get description() { return translate('component.helpView.updateOrEnableAConnection'); } },
+      { usage: 'pasted connection delete <id> [--json]', get description() { return translate('component.helpView.deleteAConnectionDefinition'); } },
+      { usage: 'pasted connection order <id>... [--json]', get description() { return translate('component.helpView.replaceConnectionPriorityOrder'); } },
     ],
   },
   {
-    title: 'Content Analysis',
+    get title() { return translate('component.helpView.contentAnalysis'); },
     commands: [
-      { usage: 'pasted analyzer run [--text TEXT | --clip ID | --stdin] [--policy POLICY] [--extract] [--json]', description: 'Preview one versioned, content-free snapshot across the applicable Analysis passes.' },
-      { usage: 'pasted registry list [--kind capture|inspector|extractor|classifier|suggestion|operation|transform] [--all] [--json]', description: 'Inspect shared lifecycle and input/output contracts for processing assets.' },
-      { usage: 'pasted registry enable|disable --kind extractor|classifier|operation --ref REF [--json]', description: 'Change the shared enabled state using a stable processing-asset reference.' },
-      { usage: 'pasted inspector list [--json]', description: 'List Inspectors, contracts, and system availability.' },
-      { usage: 'pasted inspector get <ref> [--json]', description: 'Inspect one Inspector definition.' },
-      { usage: 'pasted inspector run [--text TEXT | --clip ID | --stdin] [--apply] [--json]', description: 'Inspect content-free structure and live media metadata, or persist clip structure.' },
-      { usage: 'pasted suggestion list [--json]', description: 'List Suggestions and their contracts.' },
-      { usage: 'pasted suggestion get <ref> [--json]', description: 'Inspect one Suggestion definition.' },
-      { usage: 'pasted suggestion run [--text TEXT | --clip ID | --stdin] [--json]', description: 'Suggest saved Transforms without changing content.' },
-      { usage: 'pasted extractor list [--json]', description: 'List Extractors, contracts, and system availability.' },
-      { usage: 'pasted extractor get <ref> [--json]', description: 'Inspect one Extractor definition.' },
-      { usage: 'pasted extractor create [options] [--json]', description: 'Create an Extractor.' },
-      { usage: 'pasted extractor update <ref> [options] [--json]', description: 'Update an Extractor definition.' },
-      { usage: 'pasted extractor duplicate <ref> [--name NAME] [--json]', description: 'Duplicate an Extractor with a new stable reference.' },
-      { usage: 'pasted extractor delete <ref> [--json]', description: 'Delete an Extractor; shipped defaults remain recoverable.' },
-      { usage: 'pasted extractor run <ref> (--clip ID | --file PATH) [--apply] [--json]', description: 'Run an Extractor in preview mode, or apply its output to a clip.' },
-      { usage: 'pasted extractor restore-defaults', description: 'Restore shipped Extractor settings.' },
-      { usage: 'pasted type list [--all] [--json]', description: 'List registered Content Types and their display metadata.' },
-      { usage: 'pasted type create --id ID --name NAME [--icon ICON] [--group GROUP] [--json]', description: 'Create a custom Content Type with a stable ID.' },
-      { usage: 'pasted type update <id> [options] [--json]', description: 'Customize a Content Type’s name, icon, or group without changing its ID.' },
-      { usage: 'pasted type archive|restore <id>', description: 'Archive or restore a custom Content Type while preserving historical clips.' },
-      { usage: 'pasted type restore-defaults', description: 'Restore built-in Content Type names, icons, and groups.' },
-      { usage: 'pasted type group-list [--all] [--json]', description: 'List registered Content Type Groups.' },
-      { usage: 'pasted type group-create --id ID --name NAME [--order NUMBER]', description: 'Create a reusable custom Content Type Group.' },
-      { usage: 'pasted type group-update <id> [options] [--json]', description: 'Rename or reorder a Content Type Group.' },
-      { usage: 'pasted type group-archive|group-restore <id>', description: 'Archive an empty custom Group or restore it.' },
-      { usage: 'pasted type group-delete <id>', description: 'Permanently delete an empty custom Group.' },
-      { usage: 'pasted classifier list [--json]', description: 'List Classifiers in effective priority order.' },
-      { usage: 'pasted classifier get <ref> [--json]', description: 'Inspect one Classifier definition.' },
-      { usage: 'pasted classifier create --name NAME --type TYPE --regex REGEX [--json]', description: 'Create a Classifier.' },
-      { usage: 'pasted classifier update <ref> [options] [--json]', description: 'Update a Classifier definition.' },
-      { usage: 'pasted classifier duplicate <ref> [--name NAME] [--json]', description: 'Duplicate a Classifier with a new stable reference.' },
-      { usage: 'pasted classifier delete <ref> [--json]', description: 'Delete a Classifier; shipped defaults remain recoverable.' },
-      { usage: 'pasted classifier run <ref> [--text TEXT | --clip ID | --stdin] [--apply] [--json]', description: 'Run a Classifier in preview mode, or apply its matching Content Type to a clip.' },
-      { usage: 'pasted classifier restore-defaults', description: 'Restore shipped Classifiers without removing custom entries.' },
-      { usage: 'pasted classifier rescan --yes [--json]', description: 'Explicitly reclassify existing text clips with the current enabled Classifier order.' },
+      { usage: 'pasted analyzer run [--text TEXT | --clip ID | --stdin] [--policy POLICY] [--extract] [--json]', get description() { return translate('component.helpView.previewOneVersionedContentFreeSnapshotAcrossTheApplicableAnalysisPasses'); } },
+      { usage: 'pasted registry list [--kind capture|inspector|extractor|classifier|suggestion|operation|transform] [--all] [--json]', get description() { return translate('component.helpView.inspectSharedLifecycleAndInputOutputContractsForProcessingAssets'); } },
+      { usage: 'pasted registry enable|disable --kind extractor|classifier|operation --ref REF [--json]', get description() { return translate('component.helpView.changeTheSharedEnabledStateUsingAStableProcessingAssetReference'); } },
+      { usage: 'pasted inspector list [--json]', get description() { return translate('component.helpView.listInspectorsContractsAndSystemAvailability'); } },
+      { usage: 'pasted inspector get <ref> [--json]', get description() { return translate('component.helpView.inspectOneInspectorDefinition'); } },
+      { usage: 'pasted inspector run [--text TEXT | --clip ID | --stdin] [--apply] [--json]', get description() { return translate('component.helpView.inspectContentFreeStructureAndLiveMediaMetadataOrPersistClipStructure'); } },
+      { usage: 'pasted suggestion list [--json]', get description() { return translate('component.helpView.listSuggestionsAndTheirContracts'); } },
+      { usage: 'pasted suggestion get <ref> [--json]', get description() { return translate('component.helpView.inspectOneSuggestionDefinition'); } },
+      { usage: 'pasted suggestion run [--text TEXT | --clip ID | --stdin] [--json]', get description() { return translate('component.helpView.suggestSavedTransformsWithoutChangingContent'); } },
+      { usage: 'pasted extractor list [--json]', get description() { return translate('component.helpView.listExtractorsContractsAndSystemAvailability'); } },
+      { usage: 'pasted extractor get <ref> [--json]', get description() { return translate('component.helpView.inspectOneExtractorDefinition'); } },
+      { usage: 'pasted extractor create [options] [--json]', get description() { return translate('component.helpView.createAnExtractor'); } },
+      { usage: 'pasted extractor update <ref> [options] [--json]', get description() { return translate('component.helpView.updateAnExtractorDefinition'); } },
+      { usage: 'pasted extractor duplicate <ref> [--name NAME] [--json]', get description() { return translate('component.helpView.duplicateAnExtractorWithANewStableReference'); } },
+      { usage: 'pasted extractor delete <ref> [--json]', get description() { return translate('component.helpView.deleteAnExtractorShippedDefaultsRemainRecoverable'); } },
+      { usage: 'pasted extractor run <ref> (--clip ID | --file PATH) [--apply] [--json]', get description() { return translate('component.helpView.runAnExtractorInPreviewModeOrApplyItsOutputToA'); } },
+      { usage: 'pasted extractor restore-defaults', get description() { return translate('component.helpView.restoreShippedExtractorSettings'); } },
+      { usage: 'pasted type list [--all] [--json]', get description() { return translate('component.helpView.listRegisteredContentTypesAndTheirDisplayMetadata'); } },
+      { usage: 'pasted type create --id ID --name NAME [--icon ICON] [--group GROUP] [--json]', get description() { return translate('component.helpView.createACustomContentTypeWithAStableId'); } },
+      { usage: 'pasted type update <id> [options] [--json]', get description() { return translate('component.helpView.customizeAContentTypeSNameIconOrGroupWithoutChangingIts'); } },
+      { usage: 'pasted type archive|restore <id>', get description() { return translate('component.helpView.archiveOrRestoreACustomContentTypeWhilePreservingHistoricalClips'); } },
+      { usage: 'pasted type restore-defaults', get description() { return translate('component.helpView.restoreBuiltInContentTypeNamesIconsAndGroups'); } },
+      { usage: 'pasted type group-list [--all] [--json]', get description() { return translate('component.helpView.listRegisteredContentTypeGroups'); } },
+      { usage: 'pasted type group-create --id ID --name NAME [--order NUMBER]', get description() { return translate('component.helpView.createAReusableCustomContentTypeGroup'); } },
+      { usage: 'pasted type group-update <id> [options] [--json]', get description() { return translate('component.helpView.renameOrReorderAContentTypeGroup'); } },
+      { usage: 'pasted type group-archive|group-restore <id>', get description() { return translate('component.helpView.archiveAnEmptyCustomGroupOrRestoreIt'); } },
+      { usage: 'pasted type group-delete <id>', get description() { return translate('component.helpView.permanentlyDeleteAnEmptyCustomGroup'); } },
+      { usage: 'pasted classifier list [--json]', get description() { return translate('component.helpView.listClassifiersInEffectivePriorityOrder'); } },
+      { usage: 'pasted classifier get <ref> [--json]', get description() { return translate('component.helpView.inspectOneClassifierDefinition'); } },
+      { usage: 'pasted classifier create --name NAME --type TYPE --regex REGEX [--json]', get description() { return translate('component.helpView.createAClassifier'); } },
+      { usage: 'pasted classifier update <ref> [options] [--json]', get description() { return translate('component.helpView.updateAClassifierDefinition'); } },
+      { usage: 'pasted classifier duplicate <ref> [--name NAME] [--json]', get description() { return translate('component.helpView.duplicateAClassifierWithANewStableReference'); } },
+      { usage: 'pasted classifier delete <ref> [--json]', get description() { return translate('component.helpView.deleteAClassifierShippedDefaultsRemainRecoverable'); } },
+      { usage: 'pasted classifier run <ref> [--text TEXT | --clip ID | --stdin] [--apply] [--json]', get description() { return translate('component.helpView.runAClassifierInPreviewModeOrApplyItsMatchingContentType'); } },
+      { usage: 'pasted classifier restore-defaults', get description() { return translate('component.helpView.restoreShippedClassifiersWithoutRemovingCustomEntries'); } },
+      { usage: 'pasted classifier rescan --yes [--json]', get description() { return translate('component.helpView.explicitlyReclassifyExistingTextClipsWithTheCurrentEnabledClassifierOrder'); } },
     ],
   },
   {
-    title: 'Maintenance',
+    get title() { return translate('component.helpView.maintenance'); },
     commands: [
-      { usage: 'pasted diagnostics [--json]', description: 'Show installation, signing, paths, and runtime details.' },
-      { usage: 'pasted insights summary [--json]', description: 'Summarize Clip Types, File Formats, Content Types, sources, and daily activity.' },
-      { usage: 'pasted licenses [--json]', description: 'Show the bundled open-source component inventory and legal notices.' },
-      { usage: 'pasted database location [--json]', description: 'Show the active SQLite database location.' },
-      { usage: 'pasted database protection [--json]', description: 'Inspect volume encryption for the active database.' },
-      { usage: 'pasted database move <folder> [--json]', description: 'Move the database safely after quitting.' },
-      { usage: 'pasted database default [--json]', description: 'Return the SQLite database to its native default location.' },
-      { usage: 'pasted transfer export <path.json> [--json]', description: 'Export history and organization as portable JSON.' },
-      { usage: 'pasted transfer inspect <path.json> [--json]', description: 'Validate and summarize portable JSON without changing saved data.' },
-      { usage: 'pasted transfer import <path.json> [--json]', description: 'Preflight and merge history and organization by stable identity and content hash.' },
-      { usage: 'pasted backup create <path.pastedbackup> [--json]', description: 'Create a validated snapshot of every durable state store.' },
-      { usage: 'pasted backup inspect <path.pastedbackup> [--json]', description: 'Validate a Full Backup and inspect its manifest without restoring it.' },
-      { usage: 'pasted backup restore <path.pastedbackup> --yes [--json]', description: 'Replace the current state after creating a complete recovery backup.' },
-      { usage: 'pasted ocr status [--json]', description: 'Inspect OCR backfill progress.' },
-      { usage: 'pasted ocr scan [--clip ID] [--json]', description: 'Process eligible images or rescan one image clip.' },
-      { usage: 'pasted ocr retry [--json]', description: 'Reset failed OCR attempts and process them again.' },
-      { usage: 'pasted ocr cancel [--json]', description: 'Cancel OCR work in the running app.' },
-      { usage: 'pasted reset --yes [--json]', description: 'Reset all data and preferences. This is destructive.' },
+      { usage: 'pasted diagnostics [--json]', get description() { return translate('component.helpView.showInstallationSigningPathsAndRuntimeDetails'); } },
+      { usage: 'pasted insights summary [--json]', get description() { return translate('component.helpView.summarizeClipTypesFileFormatsContentTypesSourcesAndDailyActivity'); } },
+      { usage: 'pasted licenses [--json]', get description() { return translate('component.helpView.showTheBundledOpenSourceComponentInventoryAndLegalNotices'); } },
+      { usage: 'pasted database location [--json]', get description() { return translate('component.helpView.showTheActiveSqliteDatabaseLocation'); } },
+      { usage: 'pasted database protection [--json]', get description() { return translate('component.helpView.inspectVolumeEncryptionForTheActiveDatabase'); } },
+      { usage: 'pasted database move <folder> [--json]', get description() { return translate('component.helpView.moveTheDatabaseSafelyAfterQuitting'); } },
+      { usage: 'pasted database default [--json]', get description() { return translate('component.helpView.returnTheSqliteDatabaseToItsNativeDefaultLocation'); } },
+      { usage: 'pasted transfer export <path.json> [--json]', get description() { return translate('component.helpView.exportHistoryAndOrganizationAsPortableJson'); } },
+      { usage: 'pasted transfer inspect <path.json> [--json]', get description() { return translate('component.helpView.validateAndSummarizePortableJsonWithoutChangingSavedData'); } },
+      { usage: 'pasted transfer import <path.json> [--json]', get description() { return translate('component.helpView.preflightAndMergeHistoryAndOrganizationByStableIdentityAndContentHash'); } },
+      { usage: 'pasted backup create <path.pastedbackup> [--json]', get description() { return translate('component.helpView.createAValidatedSnapshotOfEveryDurableStateStore'); } },
+      { usage: 'pasted backup inspect <path.pastedbackup> [--json]', get description() { return translate('component.helpView.validateAFullBackupAndInspectItsManifestWithoutRestoringIt'); } },
+      { usage: 'pasted backup restore <path.pastedbackup> --yes [--json]', get description() { return translate('component.helpView.replaceTheCurrentStateAfterCreatingACompleteRecoveryBackup'); } },
+      { usage: 'pasted ocr status [--json]', get description() { return translate('component.helpView.inspectOcrBackfillProgress'); } },
+      { usage: 'pasted ocr scan [--clip ID] [--json]', get description() { return translate('component.helpView.processEligibleImagesOrRescanOneImageClip'); } },
+      { usage: 'pasted ocr retry [--json]', get description() { return translate('component.helpView.resetFailedOcrAttemptsAndProcessThemAgain'); } },
+      { usage: 'pasted ocr cancel [--json]', get description() { return translate('component.helpView.cancelOcrWorkInTheRunningApp'); } },
+      { usage: 'pasted reset --yes [--json]', get description() { return translate('component.helpView.resetAllDataAndPreferencesThisIsDestructive'); } },
     ],
   },
   {
-    title: 'Activity',
+    get title() { return translate('destination.activity'); },
     commands: [
-      { usage: 'pasted activity list [--limit N|--all] [--offset N] [--category VALUE] [--severity VALUE] [--event NAME] [--json]', description: 'List or filter a bounded page of retained Activity entries.' },
-      { usage: 'pasted activity export [path] [--format json|csv]', description: 'Export all retained Activity entries for reporting.' },
-      { usage: 'pasted activity import <path> [--format json|csv] [--json]', description: 'Merge inert Activity records without replaying their actions.' },
-      { usage: 'pasted activity clear --yes [--json]', description: 'Permanently remove every retained Activity entry.' },
+      { usage: 'pasted activity list [--limit N|--all] [--offset N] [--category VALUE] [--severity VALUE] [--event NAME] [--json]', get description() { return translate('component.helpView.listOrFilterABoundedPageOfRetainedActivityEntries'); } },
+      { usage: 'pasted activity export [path] [--format json|csv]', get description() { return translate('component.helpView.exportAllRetainedActivityEntriesForReporting'); } },
+      { usage: 'pasted activity import <path> [--format json|csv] [--json]', get description() { return translate('component.helpView.mergeInertActivityRecordsWithoutReplayingTheirActions'); } },
+      { usage: 'pasted activity clear --yes [--json]', get description() { return translate('component.helpView.permanentlyRemoveEveryRetainedActivityEntry'); } },
     ],
   },
 ] as const;
-
-export type HelpTopic = 'getting-started' | 'cli' | 'shortcuts-hud' | 'privacy-capture' | 'deletion-recovery' | 'analysis' | 'transformations';
 
 interface HelpTopicDefinition {
   id: HelpTopic;
@@ -188,28 +189,23 @@ interface HelpTopicDefinition {
 }
 
 const HELP_TOPICS: HelpTopicDefinition[] = [
-  { id: 'getting-started', label: 'Getting Started', icon: BookOpen, iconClassName: 'theme-status-info-text' },
-  { id: 'shortcuts-hud', label: 'Shortcuts and HUD', icon: Keyboard, iconClassName: 'theme-status-success-text' },
-  { id: 'privacy-capture', label: 'Privacy and Capture', icon: Shield, iconClassName: 'theme-status-warning-text' },
-  { id: 'deletion-recovery', label: 'Deletion and Recovery', icon: Trash2, iconClassName: 'theme-status-danger-text' },
-  { id: 'analysis', label: 'Content Analysis', icon: Radar, iconClassName: 'theme-status-info-text' },
-  { id: 'transformations', label: 'Transformations', icon: Workflow, iconClassName: 'theme-status-info-text' },
-  { id: 'cli', label: 'CLI Commands', icon: Terminal, iconClassName: 'theme-status-info-text' },
+  { id: 'getting-started', get label() { return translate('component.helpView.gettingStarted'); }, icon: BookOpen, iconClassName: 'theme-status-info-text' },
+  { id: 'shortcuts-hud', get label() { return translate('component.helpView.shortcutsAndHud'); }, icon: Keyboard, iconClassName: 'theme-status-success-text' },
+  { id: 'privacy-capture', get label() { return translate('component.helpView.privacyAndCapture'); }, icon: Shield, iconClassName: 'theme-status-warning-text' },
+  { id: 'deletion-recovery', get label() { return translate('component.helpView.deletionAndRecovery'); }, icon: Trash2, iconClassName: 'theme-status-danger-text' },
+  { id: 'analysis', get label() { return translate('component.helpView.contentAnalysis'); }, icon: Radar, iconClassName: 'theme-status-info-text' },
+  { id: 'transformations', get label() { return translate('destination.transformations'); }, icon: Workflow, iconClassName: 'theme-status-info-text' },
+  { id: 'cli', get label() { return translate('component.helpView.cliCommands'); }, icon: Terminal, iconClassName: 'theme-status-info-text' },
 ];
 
 interface HelpViewProps {
-  requestedTopic?: HelpTopic;
-  navigationKey?: number;
+  activeTopic: HelpTopic;
+  onActiveTopicChange: (topic: HelpTopic) => void;
 }
 
-export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKey }) => {
+export const HelpView: React.FC<HelpViewProps> = ({ activeTopic, onActiveTopicChange }) => {
   const { showToast } = useToast();
-  const [activeSubTab, setActiveSubTab] = useState<HelpTopic>('getting-started');
   const [copiedCmd, setCopiedCmd] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (requestedTopic) setActiveSubTab(requestedTopic);
-  }, [navigationKey, requestedTopic]);
 
   const handleCopyCode = (code: string) => {
     navigator.clipboard.writeText(code);
@@ -230,7 +226,7 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
     <div className="tools-page help-page flex-1 font-sans h-screen flex flex-col overflow-hidden select-none">
       <ToolPageHeader
         icon={<BookOpen className="w-4 h-4" />}
-        title="Help"
+        title={translate('destination.help')}
       />
 
       {/* Subpage Navigation & Content Container */}
@@ -238,13 +234,13 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
         {/* Left Sub-Tab Sidebar Navigation */}
         <div className="help-topic-nav theme-subtle-surface">
           {HELP_TOPICS.map(({ id, label, icon: Icon, iconClassName }) => {
-            const isSelected = activeSubTab === id;
+            const isSelected = activeTopic === id;
 
             return (
               <button
                 key={id}
                 type="button"
-                onClick={() => setActiveSubTab(id)}
+                onClick={() => onActiveTopicChange(id)}
                 className={`help-topic-button ${isSelected ? 'is-selected' : ''}`}
                 aria-current={isSelected ? 'page' : undefined}
               >
@@ -252,7 +248,7 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
                   <Icon className={iconClassName} />
                   <span>{label}</span>
                 </span>
-                <ChevronRight className="help-topic-button__chevron" aria-hidden="true" />
+                <ChevronRight className="help-topic-button__chevron rtl:-scale-x-100" aria-hidden="true" />
               </button>
             );
           })}
@@ -260,58 +256,56 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
 
         {/* Right Detail Subpage Content */}
         <div className="tools-scroll-region flex-1 p-6 overflow-y-auto space-y-6">
-          {activeSubTab === 'getting-started' && (
+          {activeTopic === 'getting-started' && (
             <div className="space-y-6 animate-in fade-in">
               <div>
                 <h3 className="theme-title flex items-center space-x-2 text-lg font-bold">
                   <BookOpen className="h-5 w-5 theme-status-info-text" />
-                  <span>Getting Started</span>
+                  <span>{translate('component.helpView.gettingStarted')}</span>
                 </h3>
                 <p className="theme-text-muted mt-1 text-xs">
-                  Local history includes copied text, images, screenshots, PDFs, and files captured while clipboard monitoring is active.
+                  {translate('component.helpView.localHistoryIncludesCopiedTextImagesScreenshotsPdfsAndFilesCapturedWhile')}
                 </p>
               </div>
 
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                 <section className="theme-panel space-y-3 rounded-xl border p-4">
-                  <h4 className="theme-title text-xs font-bold">The main window</h4>
+                  <h4 className="theme-title text-xs font-bold">{translate('component.helpView.theMainWindow')}</h4>
                   <ol className="theme-text-main list-inside list-decimal space-y-2 text-xs leading-relaxed">
-                    <li>Choose History, a collection, or a Bin from the left sidebar.</li>
-                    <li>Select a clip from the middle column.</li>
-                    <li>Preview, copy, organize, or transform it in the right column.</li>
+                    <li>{translate('component.helpView.chooseHistoryACollectionOrABinFromTheLeftSidebar')}</li>
+                    <li>{translate('component.helpView.selectAClipFromTheMiddleColumn')}</li>
+                    <li>{translate('component.helpView.previewCopyOrganizeOrTransformItInTheRightColumn')}</li>
                   </ol>
-                  <p className="theme-text-muted text-xs">Drag the column dividers to resize the layout. Window and column sizes are remembered.</p>
+                  <p className="theme-text-muted text-xs">{translate('component.helpView.dragTheColumnDividersToResizeTheLayoutWindowAndColumnSizes')}</p>
                 </section>
 
                 <section className="theme-panel space-y-3 rounded-xl border p-4">
-                  <h4 className="theme-title text-xs font-bold">First useful actions</h4>
+                  <h4 className="theme-title text-xs font-bold">{translate('component.helpView.firstUsefulActions')}</h4>
                   <ul className="theme-text-main list-inside list-disc space-y-2 text-xs leading-relaxed">
-                    <li>Copy normally in another app to add an item to History.</li>
-                    <li>Use Search to find clip content, Content Types, Sources, notes, or status.</li>
-                    <li>Right-click a clip for Queue, Pin, Protect, Note, Bin, Transform, and Trash actions.</li>
-                    <li>Open Settings → Functionality to choose the Simple or Full experience.</li>
+                    <li>{translate('component.helpView.copyNormallyInAnotherAppToAddAnItemToHistory')}</li>
+                    <li>{translate('component.helpView.useSearchToFindClipContentContentTypesSourcesNotesOrStatus')}</li>
+                    <li>{translate('component.helpView.rightClickAClipForQueuePinProtectNoteBinTransformAnd')}</li>
+                    <li>{translate('component.helpView.openSettingsFunctionalityToChooseTheSimpleOrFullExperience')}</li>
                   </ul>
                 </section>
               </div>
 
               <div className="theme-status-warning rounded-xl border p-4">
-                <h4 className="text-xs font-bold">Features normally hide without deleting data</h4>
-                <p className="mt-1 text-xs leading-relaxed">
-                  Disabling a feature usually hides its interface and stops new behavior while preserving existing data. Important exceptions are shown beside the setting: disabling Trash makes new deletions permanent, and disabling Revision History makes new edits and Transform replacements irreversible.
-                </p>
+                <h4 className="text-xs font-bold">{translate('component.helpView.featuresNormallyHideWithoutDeletingData')}</h4>
+                <p className="mt-1 text-xs leading-relaxed">{translate('component.helpView.disablingAFeatureUsuallyHidesItsInterfaceAndStopsNewBehaviorWhile')}</p>
               </div>
             </div>
           )}
 
-          {activeSubTab === 'cli' && (
+          {activeTopic === 'cli' && (
             <div className="space-y-6 animate-in fade-in">
               <div>
                 <h3 className="theme-title text-lg font-bold flex items-center space-x-2">
                   <Terminal className="w-5 h-5 theme-status-info-text" />
-                  <span>Terminal CLI (<code>pasted</code>)</span>
+                  <span>{translate('component.helpView.terminalCliCommand', { command: 'pasted' })}</span>
                 </h3>
                 <p className="theme-text-muted text-xs mt-1">
-                  The standalone native command-line tool can pipe data into clipboard history, list clips, search from a shell, or clear history.
+                  {translate('component.helpView.theStandaloneNativeCommandLineToolCanPipeDataIntoClipboardHistory')}
                 </p>
               </div>
 
@@ -320,28 +314,28 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2 text-xs font-bold">
                     <Download className="w-4 h-4" />
-                    <span>Install CLI to $PATH</span>
+                    <span>{translate('component.helpView.installCliToPath')}</span>
                   </div>
                   <button
                     onClick={handleInstallCli}
                     className="theme-primary-button ui-control-radius flex items-center space-x-1.5 px-3 py-1.5 border text-xs font-bold transition-colors cursor-pointer shadow-sm"
                   >
                     <Download className="w-3.5 h-3.5" />
-                    <span>1-Click Symlink to ~/.local/bin</span>
+                    <span>{translate('component.helpView.value1ClickSymlinkToLocalBin')}</span>
                   </button>
                 </div>
 
                 <div className="theme-text-main space-y-2 text-xs">
-                  <p className="font-semibold theme-title">Manual $PATH setup</p>
+                  <p className="font-semibold theme-title">{translate('component.helpView.manualPathSetup')}</p>
                   <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
                     <div className="theme-code-surface min-w-0 rounded-lg border p-2.5">
                       <div className="mb-2 flex items-center justify-between gap-2">
-                        <span className="theme-status-success-text text-[10px] font-semibold">Symlink in /usr/local/bin</span>
+                        <span className="theme-status-success-text text-[10px] font-semibold">{translate('component.helpView.symlinkInUsrLocalBin')}</span>
                         <button
                           type="button"
                           onClick={() => handleCopyCode(CLI_SYMLINK_COMMAND)}
                           className="theme-icon-button shrink-0 rounded border p-1"
-                          title="Copy command"
+                          title={translate('component.helpView.copyCommand')}
                         >
                           {copiedCmd === CLI_SYMLINK_COMMAND ? <Check className="h-3.5 w-3.5 theme-status-success-text" /> : <Copy className="h-3.5 w-3.5" />}
                         </button>
@@ -351,12 +345,12 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
 
                     <div className="theme-code-surface min-w-0 rounded-lg border p-2.5">
                       <div className="mb-2 flex items-center justify-between gap-2">
-                        <span className="theme-status-success-text text-[10px] font-semibold">Shell alias</span>
+                        <span className="theme-status-success-text text-[10px] font-semibold">{translate('component.helpView.shellAlias')}</span>
                         <button
                           type="button"
                           onClick={() => handleCopyCode(CLI_ALIAS_COMMAND)}
                           className="theme-icon-button shrink-0 rounded border p-1"
-                          title="Copy alias"
+                          title={translate('component.helpView.copyAlias')}
                         >
                           {copiedCmd === CLI_ALIAS_COMMAND ? <Check className="h-3.5 w-3.5 theme-status-success-text" /> : <Copy className="h-3.5 w-3.5" />}
                         </button>
@@ -369,10 +363,9 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
 
               <div className="space-y-3">
                 <div>
-                  <h4 className="theme-title text-sm font-bold">Command reference</h4>
+                  <h4 className="theme-title text-sm font-bold">{translate('component.helpView.commandReference')}</h4>
                   <p className="theme-text-muted mt-1 text-xs">
-                    Commands that return records or mutation details support <code>--json</code> where shown. Disabled Features reject their related commands instead of silently changing data.
-                  </p>
+                    {translate('component.helpView.commandReferenceDescription', { flag: '--json' })}</p>
                 </div>
                 <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
                   {CLI_COMMAND_GROUPS.map((group) => (
@@ -393,7 +386,7 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
                               type="button"
                               onClick={() => handleCopyCode(command.usage)}
                               className="theme-icon-button shrink-0 rounded border p-1.5"
-                              title="Copy command"
+                              title={translate('component.helpView.copyCommand')}
                             >
                               {copiedCmd === command.usage ? <Check className="h-3.5 w-3.5 theme-status-success-text" /> : <Copy className="h-3.5 w-3.5" />}
                             </button>
@@ -407,15 +400,15 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
             </div>
           )}
 
-          {activeSubTab === 'shortcuts-hud' && (
+          {activeTopic === 'shortcuts-hud' && (
             <div className="space-y-6 animate-in fade-in">
               <div>
                 <h3 className="theme-title text-lg font-bold flex items-center space-x-2">
                   <Keyboard className="w-5 h-5 theme-status-success-text" />
-                  <span>Shortcuts and HUD</span>
+                  <span>{translate('component.helpView.shortcutsAndHud')}</span>
                 </h3>
                 <p className="theme-text-muted text-xs mt-1">
-                  Use the default shortcuts below, or change and disable them under Settings → Hotkeys.
+                  {translate('component.helpView.useTheDefaultShortcutsBelowOrChangeAndDisableThemUnderSettings')}
                 </p>
               </div>
 
@@ -423,235 +416,206 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
               <div className="theme-panel p-4 rounded-xl border space-y-2">
                   <div className="theme-status-warning-text flex items-center space-x-2 text-xs font-bold">
                     <Trash2 className="w-4 h-4 theme-status-danger-text" />
-                    <span>Option / Alt Key Permanent Delete</span>
+                    <span>{translate('component.helpView.optionAltKeyPermanentDelete')}</span>
                   </div>
                   <p className="theme-text-muted text-xs">
-                    Holding the <kbd className="theme-kbd px-1.5 py-0.5 rounded border font-mono text-[10px]">Option ⌥</kbd> key changes the Trash icon to a red <span className="theme-status-danger-text font-bold">X</span> button to permanently purge items bypassing Trash.
+                    {translate('component.helpView.permanentDeleteShortcutDescription', { modifier: translate('component.helpView.option'), symbol: 'X' })}
                   </p>
                 </div>
 
               <div className="theme-panel p-4 rounded-xl border space-y-2">
                   <div className="theme-status-info-text flex items-center space-x-2 text-xs font-bold">
                     <Command className="w-4 h-4" />
-                    <span>Open HUD</span>
+                    <span>{translate('component.helpView.openHud')}</span>
                   </div>
                   <p className="theme-text-muted text-xs">
-                    Press <kbd className="theme-kbd px-1.5 py-0.5 rounded border font-mono text-[10px]">⌥ Shift V</kbd> to open the compact clipboard window near the pointer. Use arrow keys to select and Enter to paste.
-                  </p>
+                    {translate('component.helpView.openHudShortcutDescription', { shortcut: '⌥ Shift V' })}</p>
                 </div>
 
               <div className="theme-panel p-4 rounded-xl border space-y-2">
                   <div className="theme-status-info-text flex items-center space-x-2 text-xs font-bold">
                     <Zap className="w-4 h-4" />
-                    <span>HUD Number Keys (1-9)</span>
+                    <span>{translate('component.helpView.hudNumberKeys19')}</span>
                   </div>
                   <p className="theme-text-muted text-xs">
-                    Press numbers <kbd className="theme-kbd px-1.5 py-0.5 rounded border font-mono text-[10px]">1</kbd> through <kbd className="theme-kbd px-1.5 py-0.5 rounded border font-mono text-[10px]">9</kbd> inside the HUD to instantly paste items #1 to #9.
-                  </p>
+                    {translate('component.helpView.hudNumberShortcutDescription', { start: 1, end: 9 })}</p>
                 </div>
 
               <div className="theme-panel p-4 rounded-xl border space-y-2">
                   <div className="theme-status-success-text flex items-center space-x-2 text-xs font-bold">
                     <Info className="w-4 h-4" />
-                    <span>Escape Key Dismiss</span>
+                    <span>{translate('component.helpView.escapeKeyDismiss')}</span>
                   </div>
                   <p className="theme-text-muted text-xs">
-                    Press <kbd className="theme-kbd px-1.5 py-0.5 rounded border font-mono text-[10px]">Esc</kbd> to instantly dismiss the HUD or close an open menu.
-                  </p>
+                    {translate('component.helpView.dismissHudShortcutDescription', { key: translate('component.helpView.esc') })}</p>
                 </div>
               </div>
             </div>
           )}
 
-          {activeSubTab === 'privacy-capture' && (
+          {activeTopic === 'privacy-capture' && (
             <div className="space-y-6 animate-in fade-in">
               <div>
                 <h3 className="theme-title text-lg font-bold flex items-center space-x-2">
                   <Shield className="w-5 h-5 theme-status-warning-text" />
-                  <span>Privacy and Capture</span>
+                  <span>{translate('component.helpView.privacyAndCapture')}</span>
                 </h3>
                 <p className="theme-text-muted text-xs mt-1">
-                  Control which applications are recorded and how captures are confirmed without sending clipboard contents off-device.
+                  {translate('component.helpView.controlWhichApplicationsAreRecordedAndHowCapturesAreConfirmedWithoutSending')}
                 </p>
               </div>
 
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                 <section className="theme-panel space-y-3 rounded-xl border p-4">
-                  <h4 className="theme-status-warning-text text-xs font-bold">Auto-pause and app exclusions</h4>
+                  <h4 className="theme-status-warning-text text-xs font-bold">{translate('component.helpView.autoPauseAndAppExclusions')}</h4>
                   <p className="theme-text-main text-xs leading-relaxed">
-                    Common password managers such as <strong>1Password</strong>, <strong>Keychain Access</strong>, <strong>Passwords</strong>, and <strong>Bitwarden</strong> are excluded by default. Text, images, files, and hotkeys can be blocked independently.
-                  </p>
-                  <p className="theme-text-muted text-xs leading-relaxed">
-                    Blocking every content kind presents as an automatic capture pause; partial rules skip only the selected kinds. Native Wayland sessions cannot identify the globally focused app, so App Exclusions cannot be enforced there.
-                  </p>
+                    {translate('component.helpView.defaultPasswordManagerExclusions', { onePassword: translate('component.helpView.value1password'), keychain: translate('component.helpView.keychainAccess'), passwords: translate('component.helpView.passwords'), bitwarden: translate('component.helpView.bitwarden') })}</p>
+                  <p className="theme-text-muted text-xs leading-relaxed">{translate('component.helpView.blockingEveryContentKindPresentsAsAnAutomaticCapturePausePartialRules')}</p>
                 </section>
 
                 <section className="theme-panel space-y-3 rounded-xl border p-4">
                   <div className="theme-status-info-text flex items-center gap-2 text-xs font-bold">
                     <Bell className="h-4 w-4" />
-                    <span>Capture feedback</span>
+                    <span>{translate('component.helpView.captureFeedback')}</span>
                   </div>
-                  <p className="theme-text-main text-xs leading-relaxed">
-                    Settings → Notifications controls quiet capture confirmations, skipped-capture messages, optional clip previews, dismissal timing, and screen position. Disabling Notifications does not disable clipboard capture.
-                  </p>
-                  <p className="theme-text-muted text-xs leading-relaxed">
-                    Feedback is rendered locally and does not send copied text, images, file names, or paths through system notification services. Optional previews can still be visible on screen, so disable them before screen sharing when appropriate.
-                  </p>
+                  <p className="theme-text-main text-xs leading-relaxed">{translate('component.helpView.settingsNotificationsControlsQuietCaptureConfirmationsSkippedCaptureMessagesOptionalClipPreviews')}</p>
+                  <p className="theme-text-muted text-xs leading-relaxed">{translate('component.helpView.feedbackIsRenderedLocallyAndDoesNotSendCopiedTextImagesFile')}</p>
                 </section>
               </div>
             </div>
           )}
 
-          {activeSubTab === 'deletion-recovery' && (
+          {activeTopic === 'deletion-recovery' && (
             <div className="space-y-6 animate-in fade-in">
               <div>
                 <h3 className="theme-title text-lg font-bold flex items-center space-x-2">
                   <Trash2 className="w-5 h-5 theme-status-danger-text" />
-                  <span>Deletion and Recovery</span>
+                  <span>{translate('component.helpView.deletionAndRecovery')}</span>
                 </h3>
                 <p className="theme-text-muted text-xs mt-1">
-                  Understand which actions are recoverable before removing or changing important clips.
+                  {translate('component.helpView.understandWhichActionsAreRecoverableBeforeRemovingOrChangingImportantClips')}
                 </p>
               </div>
 
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                 <section className="theme-panel space-y-3 rounded-xl border p-4">
-                  <h4 className="theme-status-danger-text text-xs font-bold">Trash and permanent deletion</h4>
+                  <h4 className="theme-status-danger-text text-xs font-bold">{translate('component.helpView.trashAndPermanentDeletion')}</h4>
                   <ul className="theme-text-main list-inside list-disc space-y-2 text-xs">
-                    <li><strong>Normal deletion:</strong> moves an eligible clip to Trash while Trash is enabled.</li>
-                    <li><strong>Restore:</strong> use the <RotateCcwIcon /> action in Trash to return a clip to History.</li>
-                    <li><strong>Restore trashed clips:</strong> use Settings → General → Trash → Restore Trashed Clips to return every trashed clip to History.</li>
-                    <li><strong>Permanent deletion:</strong> hold Option/Alt while deleting, purge from Trash, or disable Trash.</li>
-                    <li><strong>Protection:</strong> protected clips resist deletion and automatic retention until unprotected.</li>
+                    <li>{translate('component.helpView.normalDeletionDescription')}</li>
+                    <li>{translate('component.helpView.restoreDescription')}</li>
+                    <li>{translate('component.helpView.restoreTrashedClipsDescription')}</li>
+                    <li>{translate('component.helpView.permanentDeletionDescription')}</li>
+                    <li>{translate('component.helpView.protectionDescription')}</li>
                   </ul>
                 </section>
 
                 <section className="theme-panel space-y-3 rounded-xl border p-4">
                   <div className="theme-status-info-text flex items-center gap-2 text-xs font-bold">
                     <History className="h-4 w-4" />
-                    <span>Revisions and Full Backups</span>
+                    <span>{translate('component.helpView.revisionsAndFullBackups')}</span>
                   </div>
-                  <p className="theme-text-main text-xs leading-relaxed">
-                    Revision History saves restorable snapshots before content-changing edits and Transform replacements. Disabling it preserves old revisions but makes new changes irreversible.
-                  </p>
-                  <p className="theme-text-muted text-xs leading-relaxed">
-                    Use Settings → Storage to create a Full Backup before major changes or Factory Reset. Full Restore validates the backup and preserves the replaced state as a recovery backup before activation.
-                  </p>
+                  <p className="theme-text-main text-xs leading-relaxed">{translate('component.helpView.revisionHistorySavesRestorableSnapshotsBeforeContentChangingEditsAndTransformReplacements')}</p>
+                  <p className="theme-text-muted text-xs leading-relaxed">{translate('component.helpView.useSettingsStorageToCreateAFullBackupBeforeMajorChangesOr')}</p>
                 </section>
               </div>
             </div>
           )}
 
-          {activeSubTab === 'analysis' && (
+          {activeTopic === 'analysis' && (
             <div className="space-y-6 animate-in fade-in">
               <div>
                 <h3 className="theme-title flex items-center space-x-2 text-lg font-bold">
                   <Radar className="h-5 w-5 theme-status-info-text" />
-                  <span>Content Analysis</span>
+                  <span>{translate('component.helpView.contentAnalysis')}</span>
                 </h3>
-                <p className="theme-text-muted mt-1 text-xs">
-                  Capture assigns a structural Clip Type and records source attribution. Inspectors measure structure, Extractors create searchable representations, Classifiers assign Content Types, and Suggestions offer contextual next steps.
-                </p>
-                <p className="theme-text-muted mt-2 max-w-3xl text-xs leading-relaxed">
-                  Analysis runs in four bounded passes: inspect, extract, classify, and suggest. Each participant runs at most once and only when its declared inputs are available.
-                </p>
+                <p className="theme-text-muted mt-1 text-xs">{translate('component.helpView.captureAssignsAStructuralClipTypeAndRecordsSourceAttributionInspectorsMeasure')}</p>
+                <p className="theme-text-muted mt-2 max-w-3xl text-xs leading-relaxed">{translate('component.helpView.analysisRunsInFourBoundedPassesInspectExtractClassifyAndSuggestEach')}</p>
               </div>
 
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                 <section className="theme-panel space-y-3 rounded-xl border p-4">
-                  <h4 className="theme-status-info-text text-xs font-bold">Content Classification</h4>
-                  <p className="theme-text-main text-xs leading-relaxed">
-                    Enabled Classifiers run locally in priority order; the lowest number runs first. A Classifier uses one or more regular expressions and may add a validator to reduce false positives. Use Settings → Analysis to test samples, manage Content Types, and reset shipped definitions.
-                  </p>
+                  <h4 className="theme-status-info-text text-xs font-bold">{translate('component.helpView.contentClassification')}</h4>
+                  <p className="theme-text-main text-xs leading-relaxed">{translate('component.helpView.enabledClassifiersRunLocallyInPriorityOrderTheLowestNumberRunsFirst')}</p>
                   <p className="theme-text-muted text-xs leading-relaxed">
-                    Editing a Classifier affects new text clips. <strong>Rescan Clips</strong> explicitly reapplies the current Classifier order and can change Content Types, Smart Bin membership, and sensitive-content masking. Images and files are left unchanged.
-                  </p>
+                    {translate('component.helpView.classifierRescanDescription', { action: translate('component.helpView.rescanClips') })}</p>
                 </section>
 
                 <section className="theme-panel space-y-3 rounded-xl border p-4">
-                  <h4 className="theme-status-info-text text-xs font-bold">Structural inspection</h4>
+                  <h4 className="theme-status-info-text text-xs font-bold">{translate('component.helpView.structuralInspection')}</h4>
                   <p className="theme-text-main text-xs leading-relaxed">
-                    Structure records content-free facts such as text counts, image dimensions, file item counts, and origin. Clip Preview and the CLI use the same versioned result.
+                    {translate('component.helpView.structureRecordsContentFreeFactsSuchAsTextCountsImageDimensionsFile')}
                   </p>
                   <p className="theme-text-muted text-xs leading-relaxed">
-                    File availability and total size are live observations. They are checked when displayed and are not stored as durable analysis facts.
+                    {translate('component.helpView.fileAvailabilityAndTotalSizeAreLiveObservationsTheyAreCheckedWhen')}
                   </p>
-                  <p className="theme-text-muted text-xs leading-relaxed">
-                    An installed ffprobe or MediaInfo executable also supplies bounded container, codec, stream-count, and duration facts for copied audio and video files. Media metadata is inspected live without returning file paths.
-                  </p>
+                  <p className="theme-text-muted text-xs leading-relaxed">{translate('component.helpView.anInstalledFfprobeOrMediainfoExecutableAlsoSuppliesBoundedContainerCodecStream')}</p>
                 </section>
 
                 <section className="theme-panel space-y-3 rounded-xl border p-4">
                   <div className="theme-status-success-text flex items-center gap-2 text-xs font-bold">
                     <Terminal className="h-4 w-4" />
-                    <span>Custom Extractors</span>
+                    <span>{translate('component.helpView.customExtractors')}</span>
                   </div>
                   <p className="theme-text-main text-xs leading-relaxed">
-                    A custom command can turn image data or file references into searchable text through the bounded <code>custom-command-v1</code> protocol.
-                  </p>
+                    {translate('component.helpView.customExtractorProtocolDescription', { protocol: 'custom-command-v1' })}</p>
                   <p className="theme-text-muted text-xs leading-relaxed">
-                    New custom commands begin disabled. Review the selected executable before enabling automatic processing for matching clips.
+                    {translate('component.helpView.newCustomCommandsBeginDisabledReviewTheSelectedExecutableBeforeEnablingAutomatic')}
                   </p>
                 </section>
 
                 <section className="theme-panel space-y-3 rounded-xl border p-4">
                   <div className="theme-status-success-text flex items-center gap-2 text-xs font-bold">
                     <AudioLines className="h-4 w-4" />
-                    <span>Audio transcription</span>
+                    <span>{translate('component.helpView.audioTranscription')}</span>
                   </div>
                   <p className="theme-text-main text-xs leading-relaxed">
-                    Whisper Transcription uses an installed whisper.cpp executable and a selected local GGML model. M4A and AAC preparation also requires FFmpeg.
+                    {translate('component.helpView.whisperTranscriptionUsesAnInstalledWhisperCppExecutableAndASelectedLocal')}
                   </p>
                   <p className="theme-text-muted text-xs leading-relaxed">
-                    Stored transcripts are searchable and do not replace file references. Models are never downloaded automatically.
+                    {translate('component.helpView.storedTranscriptsAreSearchableAndDoNotReplaceFileReferencesModelsAre')}
                   </p>
                 </section>
 
                 <section className="theme-panel space-y-3 rounded-xl border p-4">
                   <div className="theme-status-success-text flex items-center gap-2 text-xs font-bold">
                     <ScanText className="h-4 w-4" />
-                    <span>Optical Character Recognition</span>
+                    <span>{translate('component.helpView.opticalCharacterRecognition')}</span>
                   </div>
-                  <p className="theme-text-main text-xs leading-relaxed">
-                    OCR uses Apple Vision on macOS or an installed Tesseract 5 executable to extract searchable text from captured images and screenshots. It does not replace the original image.
-                  </p>
-                  <p className="theme-text-muted text-xs leading-relaxed">
-                    Disabling OCR cancels background work and discards late results while preserving completed text. Re-enabling it resumes eligible backfill when an available image text Extractor is enabled. Check progress under Settings → Analysis or with <code>pasted ocr status --json</code>.
+                  <p className="theme-text-main text-xs leading-relaxed">{translate('component.helpView.ocrUsesAppleVisionOnMacosOrAnInstalledTesseract5Executable')}</p>
+                  <p className="theme-text-muted text-xs leading-relaxed">{translate('component.helpView.ocrStatusDescription', { command: 'pasted ocr status --json' })}
                   </p>
                 </section>
               </div>
             </div>
           )}
 
-          {activeSubTab === 'transformations' && (
+          {activeTopic === 'transformations' && (
             <div className="space-y-6 animate-in fade-in">
               <div>
                 <h3 className="theme-title text-lg font-bold flex items-center space-x-2">
                   <Workflow className="w-5 h-5 theme-status-info-text" />
-                  <span>Transformations</span>
+                  <span>{translate('destination.transformations')}</span>
                 </h3>
                 <p className="theme-text-muted text-xs mt-1">
-                  Describe the result once, save it as a Transform, then reuse it wherever text enters or leaves the clipboard workflow.
+                  {translate('component.helpView.describeTheResultOnceSaveItAsATransformThenReuseIt')}
                 </p>
               </div>
 
               <div className="theme-panel p-4 rounded-xl border space-y-3">
-                <h4 className="theme-status-info-text text-xs font-bold">Available Transformations</h4>
+                <h4 className="theme-status-info-text text-xs font-bold">{translate('component.helpView.availableTransformations')}</h4>
                 <div className="theme-text-main grid grid-cols-2 gap-2 text-xs font-mono">
-                  <div className="theme-code-surface p-2 rounded border">• UPPERCASE / lowercase</div>
-                  <div className="theme-code-surface p-2 rounded border">• Title Case / CamelCase</div>
-                  <div className="theme-code-surface p-2 rounded border">• Trim Whitespace</div>
-                  <div className="theme-code-surface p-2 rounded border">• Smart Punctuation</div>
-                  <div className="theme-code-surface p-2 rounded border">• URL Encode / Decode</div>
-                  <div className="theme-code-surface p-2 rounded border">• JSON Prettify</div>
+                  <div className="theme-code-surface p-2 rounded border">{translate('component.helpView.uppercaseLowercase')}</div>
+                  <div className="theme-code-surface p-2 rounded border">{translate('component.helpView.titleCaseCamelcase')}</div>
+                  <div className="theme-code-surface p-2 rounded border">{translate('component.helpView.trimWhitespace')}</div>
+                  <div className="theme-code-surface p-2 rounded border">{translate('component.helpView.smartPunctuation')}</div>
+                  <div className="theme-code-surface p-2 rounded border">{translate('component.helpView.urlEncodeDecode')}</div>
+                  <div className="theme-code-surface p-2 rounded border">{translate('component.helpView.jsonPrettify')}</div>
                 </div>
               </div>
 
               <div className="theme-subtle-surface rounded-xl border p-4">
-                <h4 className="text-xs font-bold">Advanced Transformation Tools</h4>
-                <p className="theme-text-muted mt-1 text-xs">
-                  Operations are deterministic building blocks for reusable Transforms. Manually built Transforms retain their existing pipeline identifiers for shortcuts, automations, backups, and command-line compatibility.
-                </p>
+                <h4 className="text-xs font-bold">{translate('component.helpView.advancedTransformationTools')}</h4>
+                <p className="theme-text-muted mt-1 text-xs">{translate('component.helpView.operationsAreDeterministicBuildingBlocksForReusableTransformsManuallyBuiltTransformsRetain')}</p>
               </div>
             </div>
           )}
@@ -660,9 +624,3 @@ export const HelpView: React.FC<HelpViewProps> = ({ requestedTopic, navigationKe
     </div>
   );
 };
-
-const RotateCcwIcon = () => (
-  <span className="theme-kbd inline-block px-1 py-0.5 rounded border font-mono text-[10px]">
-    Restore
-  </span>
-);

@@ -5,6 +5,7 @@ import type {
   ReactNode,
 } from 'react';
 import { Check, LoaderCircle, Save, X } from 'lucide-react';
+import { translate } from '../localization/runtime';
 
 function joinClasses(...classes: Array<string | undefined | false>) {
   return classes.filter(Boolean).join(' ');
@@ -13,7 +14,7 @@ function joinClasses(...classes: Array<string | undefined | false>) {
 export function AppDialogHeader({
   children,
   onClose,
-  closeLabel = 'Close dialog',
+  closeLabel = translate('component.appDialogLayout.closeDialog'),
   onMouseDown,
   onDoubleClick,
   className,
@@ -114,7 +115,7 @@ export function SaveButtonContent({
   isSaving?: boolean;
   isSaved?: boolean;
 }) {
-  if (isSaving) return <><LoaderCircle className="h-3.5 w-3.5 animate-spin" /><span>Saving…</span></>;
-  if (isSaved) return <><Check className="h-3.5 w-3.5" /><span>Saved</span></>;
-  return <><Save className="h-3.5 w-3.5" /><span>Save</span></>;
+  if (isSaving) return <><LoaderCircle className="h-3.5 w-3.5 animate-spin" /><span>{translate('common.saving')}</span></>;
+  if (isSaved) return <><Check className="h-3.5 w-3.5" /><span>{translate('common.saved')}</span></>;
+  return <><Save className="h-3.5 w-3.5" /><span>{translate('common.save')}</span></>;
 }

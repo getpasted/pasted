@@ -6,6 +6,7 @@ import { safeInvoke as invoke } from '../utils/tauri';
 import { AppDialog } from './AppDialog';
 import { AppDialogBody, AppDialogButton, AppDialogFooter, AppDialogHeader, AppDialogHeading, SaveButtonContent } from './AppDialogLayout';
 import { MenuSelect } from './MenuSelect';
+import { translate } from '../localization/runtime';
 
 interface ConnectionModalProps {
   onClose: () => void;
@@ -72,45 +73,45 @@ export function ConnectionModal({ onClose, onCreated }: ConnectionModalProps) {
       panelClassName="theme-panel border rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden"
     >
       {({ requestClose }) => <>
-        <AppDialogHeader onClose={requestClose} closeLabel="Close add connection dialog">
-          <AppDialogHeading id="connection-modal-title" title="Add connection" description="Add a provider, local endpoint, or executable that was not detected automatically." icon={<BrainCircuit />} />
+        <AppDialogHeader onClose={requestClose} closeLabel={translate('component.connectionModal.closeAddConnectionDialog')}>
+          <AppDialogHeading id="connection-modal-title" title={translate('component.connectionModal.addConnection')} description={translate('component.connectionModal.addAProviderLocalEndpointOrExecutableThatWasNotDetectedAutomatically')} icon={<BrainCircuit />} />
         </AppDialogHeader>
 
         <form onSubmit={createConnection}>
           <AppDialogBody className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="text-xs theme-text-muted space-y-1.5">
-              <span className="block font-semibold">Engine</span>
+              <span className="block font-semibold">{translate('component.connectionModal.engine')}</span>
               <MenuSelect
                 value={providerKind}
                 options={INTELLIGENCE_PROVIDERS.map((provider) => ({ value: provider.value, label: provider.label }))}
                 onChange={(value) => selectProvider(value as IntelligenceProviderKind)}
-                label="Connection engine"
+                label={translate('component.connectionModal.connectionEngine')}
                 className="w-full"
               />
             </div>
             <label className="text-xs theme-text-muted space-y-1.5">
-              <span className="block font-semibold">Connection name</span>
+              <span className="block font-semibold">{translate('component.connectionModal.connectionName')}</span>
               <input autoFocus value={name} onChange={(event) => setName(event.target.value)} className="theme-input ui-field-radius border px-3 py-2.5 w-full" />
             </label>
             <label className="text-xs theme-text-muted space-y-1.5">
-              <span className="block font-semibold">Endpoint or executable</span>
-              <input value={endpoint} onChange={(event) => setEndpoint(event.target.value)} placeholder={providerKind === 'cli' ? '/usr/local/bin/my-planner' : 'http://127.0.0.1:11434'} className="theme-input ui-field-radius border px-3 py-2.5 w-full font-mono" />
+              <span className="block font-semibold">{translate('component.connectionModal.endpointOrExecutable')}</span>
+              <input value={endpoint} onChange={(event) => setEndpoint(event.target.value)} placeholder={providerKind === 'cli' ? translate('component.connectionModal.usrLocalBinMyPlanner') : translate('component.connectionModal.http12700111434')} className="theme-input ui-field-radius border px-3 py-2.5 w-full font-mono" />
             </label>
             <label className="text-xs theme-text-muted space-y-1.5">
-              <span className="block font-semibold">Preferred model</span>
-              <input value={model} onChange={(event) => setModel(event.target.value)} placeholder="Optional until model discovery" className="theme-input ui-field-radius border px-3 py-2.5 w-full font-mono" />
+              <span className="block font-semibold">{translate('component.connectionModal.preferredModel')}</span>
+              <input value={model} onChange={(event) => setModel(event.target.value)} placeholder={translate('component.connectionModal.optionalUntilModelDiscovery')} className="theme-input ui-field-radius border px-3 py-2.5 w-full font-mono" />
             </label>
             {!['ollama', 'lm_studio', 'cli'].includes(providerKind) && (
               <label className="text-xs theme-text-muted space-y-1.5 md:col-span-2">
-                <span className="block font-semibold">Credential environment variable</span>
-                <input value={credentialEnvironmentVariable} onChange={(event) => setCredentialEnvironmentVariable(event.target.value)} placeholder="OPENAI_API_KEY" className="theme-input ui-field-radius border px-3 py-2.5 w-full font-mono" />
-                <span className="block text-[10px]">Only the variable name is saved. The secret remains with the provider or operating system.</span>
+                <span className="block font-semibold">{translate('component.connectionModal.credentialEnvironmentVariable')}</span>
+                <input value={credentialEnvironmentVariable} onChange={(event) => setCredentialEnvironmentVariable(event.target.value)} placeholder={translate('component.connectionModal.openaiApiKey')} className="theme-input ui-field-radius border px-3 py-2.5 w-full font-mono" />
+                <span className="block text-[10px]">{translate('component.connectionModal.onlyTheVariableNameIsSavedTheSecretRemainsWithTheProvider')}</span>
               </label>
             )}
             {error && <div className="theme-status-danger border rounded-xl px-3 py-2 text-xs md:col-span-2">{error}</div>}
           </AppDialogBody>
           <AppDialogFooter>
-            <AppDialogButton onClick={requestClose}>Cancel</AppDialogButton>
+            <AppDialogButton onClick={requestClose}>{translate('common.cancel')}</AppDialogButton>
             <AppDialogButton type="submit" variant="primary" disabled={!name.trim() || isSaving}>
               <SaveButtonContent isSaving={isSaving} />
             </AppDialogButton>

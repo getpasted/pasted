@@ -8,6 +8,7 @@ import { ConnectionModal } from './ConnectionModal';
 import { SettingsPanelHeader } from './SettingsPanelHeader';
 import { OverflowText } from './OverflowText';
 import { ActionButton } from './AppDialogLayout';
+import { translate } from '../localization/runtime';
 
 let cachedConnections: IntelligenceConnection[] | null = null;
 let cachedDetectedConnections: DetectedIntelligenceConnection[] | null = null;
@@ -114,12 +115,12 @@ export function IntelligenceConnectionsPanel() {
     <div className="space-y-5">
       <SettingsPanelHeader
         icon={BrainCircuit}
-        title="Intelligence"
-        description="Manage local and remote intelligence providers."
+        title={translate('component.intelligenceConnectionsPanel.intelligence')}
+        description={translate('component.intelligenceConnectionsPanel.manageLocalAndRemoteIntelligenceProviders')}
         actions={(
           <ActionButton variant="primary" onClick={() => setIsAddConnectionOpen(true)}>
             <Plus className="w-4 h-4" />
-            <span>Add connection…</span>
+            <span>{translate('component.intelligenceConnectionsPanel.addConnection')}</span>
           </ActionButton>
         )}
       />
@@ -142,7 +143,7 @@ export function IntelligenceConnectionsPanel() {
                     key={connection.id}
                     data-stable-reorder-id={connection.id}
                     onPointerDown={(event) => startConnectionReorder(connection.id, event)}
-                    title="Reorder Connection"
+                    title={translate('component.intelligenceConnectionsPanel.reorderConnection')}
                     style={offset !== 0 || isDragging ? { transform: `translateY(${offset}px)`, zIndex: isDragging ? 'var(--layer-drag)' : 1 } : undefined}
                     className={`connection-priority-card theme-card-idle border p-3 flex items-center justify-between gap-3 relative cursor-grab active:cursor-grabbing touch-none transition-[background-color,border-color,box-shadow,opacity,transform] duration-100 ${isDragging ? 'is-dragging' : ''} ${isOperational ? '' : 'opacity-60'}`}
                   >
@@ -153,16 +154,21 @@ export function IntelligenceConnectionsPanel() {
                         <OverflowText as="div" text={connection.name} className="theme-text-main text-xs font-bold truncate" />
                         <OverflowText
                           as="div"
-                          text={`${detected?.version || intelligenceProviderLabel(connection.providerKind)}${connection.model ? ` · ${connection.model}` : ''}`}
+                          text={connection.model
+                            ? translate('component.intelligenceConnectionsPanel.versionModel', {
+                              version: detected?.version || intelligenceProviderLabel(connection.providerKind),
+                              model: connection.model,
+                            })
+                            : detected?.version || intelligenceProviderLabel(connection.providerKind)}
                           className="theme-text-muted text-[10px] truncate mt-0.5"
                         />
-                        {isInteractiveOnly && <div className="theme-text-muted text-[9px] mt-0.5">Interactive/MCP client · not automatic fallback</div>}
-                        {executionUnavailable && !isInteractiveOnly && <div className="theme-text-muted text-[9px] mt-0.5">Detected · automatic execution unavailable</div>}
-                        <OverflowText as="div" text={connection.endpoint || 'No endpoint configured'} className="theme-text-muted text-[10px] font-mono truncate mt-1" />
+                        {isInteractiveOnly && <div className="theme-text-muted text-[9px] mt-0.5">{translate('component.intelligenceConnectionsPanel.interactiveMcpClientNotAutomaticFallback')}</div>}
+                        {executionUnavailable && !isInteractiveOnly && <div className="theme-text-muted text-[9px] mt-0.5">{translate('component.intelligenceConnectionsPanel.detectedAutomaticExecutionUnavailable')}</div>}
+                        <OverflowText as="div" text={connection.endpoint || translate('component.intelligenceConnectionsPanel.noEndpointConfigured')} className="theme-text-muted text-[10px] font-mono truncate mt-1" />
                       </div>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
-                      <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={() => toggleConnection(connection)} disabled={executionUnavailable} className={`connection-power-button theme-icon-button border rounded-lg p-2 ${isOperational ? 'is-enabled' : ''}`} title={executionUnavailable ? 'Automatic execution unavailable' : connection.enabled ? 'Disable' : 'Enable'}>
+                      <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={() => toggleConnection(connection)} disabled={executionUnavailable} className={`connection-power-button theme-icon-button border rounded-lg p-2 ${isOperational ? 'is-enabled' : ''}`} title={executionUnavailable ? translate('component.intelligenceConnectionsPanel.automaticExecutionUnavailable') : connection.enabled ? translate('component.intelligenceConnectionsPanel.disable') : translate('component.intelligenceConnectionsPanel.enable')}>
                         <Power className="w-4 h-4" />
                       </button>
                       <button
@@ -173,7 +179,7 @@ export function IntelligenceConnectionsPanel() {
                         tabIndex={canDelete ? 0 : -1}
                         aria-hidden={!canDelete}
                         className={`theme-icon-button theme-danger-text border rounded-lg p-2 ${canDelete ? '' : 'invisible pointer-events-none'}`}
-                        title={canDelete ? 'Delete Connection' : undefined}
+                        title={canDelete ? translate('component.intelligenceConnectionsPanel.deleteConnection') : undefined}
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -183,7 +189,7 @@ export function IntelligenceConnectionsPanel() {
               })}
             </div>
           ) : isLoading ? (
-            <div className="connection-loading-list space-y-2" role="status" aria-label="Detecting available intelligence connections" aria-busy="true">
+            <div className="connection-loading-list space-y-2" role="status" aria-label={translate('component.intelligenceConnectionsPanel.detectingAvailableIntelligenceConnections')} aria-busy="true">
               {[0, 1, 2].map((index) => (
                 <div key={index} className="connection-loading-card theme-card-idle border p-3 flex items-center justify-between gap-3" aria-hidden="true">
                   <div className="flex min-w-0 flex-1 items-center gap-3">
@@ -197,11 +203,11 @@ export function IntelligenceConnectionsPanel() {
                   <span className="connection-loading-action rounded-lg" />
                 </div>
               ))}
-              <span className="sr-only">Detecting available intelligence…</span>
+              <span className="sr-only">{translate('component.intelligenceConnectionsPanel.detectingAvailableIntelligence')}</span>
             </div>
           ) : (
             <div className="theme-text-muted border border-dashed rounded-2xl p-6 text-center text-xs">
-              No compatible local tools or added connections yet.
+              {translate('component.intelligenceConnectionsPanel.noCompatibleLocalToolsOrAddedConnectionsYet')}
             </div>
           )}
         </section>

@@ -2,6 +2,7 @@ import { AlertTriangle } from 'lucide-react';
 import { UI_COPY } from '../utils/uiCopy';
 import { AppDialog } from './AppDialog';
 import { AppDialogBody, AppDialogButton, AppDialogFooter, AppDialogHeader, AppDialogHeading } from './AppDialogLayout';
+import { translate } from '../localization/runtime';
 
 export type ClearHistoryMode = 'trash' | 'purge';
 
@@ -23,8 +24,8 @@ export function ClearHistoryDialog({ mode, onCancel, onConfirm }: ClearHistoryDi
         <AppDialogHeader onClose={requestClose}>
           <AppDialogHeading
             id="clear-history-title"
-            title={mode === 'purge' ? 'Delete Clipboard History?' : 'Move Clipboard History to Trash?'}
-            description={mode === 'purge' ? 'This action cannot be undone.' : 'Items can be restored from Trash.'}
+            title={mode === 'purge' ? translate('component.clearHistoryDialog.deleteClipboardHistory') : translate('component.clearHistoryDialog.moveClipboardHistoryToTrash')}
+            description={mode === 'purge' ? translate('common.thisActionCannotBeUndone') : translate('component.clearHistoryDialog.itemsCanBeRestoredFromTrash')}
             icon={<AlertTriangle />}
             tone="danger"
           />
@@ -32,13 +33,13 @@ export function ClearHistoryDialog({ mode, onCancel, onConfirm }: ClearHistoryDi
         <AppDialogBody>
           <p className="app-dialog-message theme-surface text-xs leading-relaxed p-3 rounded-xl border">
             {mode === 'purge'
-              ? 'Permanently delete all unpinned and unprotected clipboard history? Pinned clips, protected clips, and Bin definitions will be preserved.'
-              : 'Move all unpinned and unprotected clipboard history into Trash? Pinned clips, protected clips, and Bin definitions will be preserved.'}
+              ? translate('component.clearHistoryDialog.permanentlyDeleteAllUnpinnedAndUnprotectedClipboardHistoryPinnedClipsProtectedClips')
+              : translate('component.clearHistoryDialog.moveAllUnpinnedAndUnprotectedClipboardHistoryIntoTrashPinnedClipsProtected')}
           </p>
         </AppDialogBody>
         <AppDialogFooter>
-          <AppDialogButton onClick={requestClose} autoFocus>Cancel</AppDialogButton>
-          <AppDialogButton variant="danger" onClick={onConfirm}>{mode === 'purge' ? 'Delete History' : UI_COPY.moveToTrash}</AppDialogButton>
+          <AppDialogButton onClick={requestClose} autoFocus>{translate('common.cancel')}</AppDialogButton>
+          <AppDialogButton variant="danger" onClick={onConfirm}>{mode === 'purge' ? translate('component.clearHistoryDialog.deleteHistory') : UI_COPY.moveToTrash}</AppDialogButton>
         </AppDialogFooter>
       </>}
     </AppDialog>

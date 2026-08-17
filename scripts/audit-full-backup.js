@@ -6,6 +6,13 @@ const database = read('src-tauri/src/db.rs');
 const commands = read('src-tauri/src/commands.rs');
 const cli = read('src-tauri/src/bin/pasted_cli.rs');
 const settings = read('src/components/SettingsSyncPanel.tsx');
+const englishCatalog = JSON.parse(read('src/locales/en.json'));
+const settingsCatalogCopy = [...settings.matchAll(/translate\('([^']+)'/g)]
+  .flatMap((match) => {
+    const value = englishCatalog[match[1]];
+    return typeof value === 'string' ? [value] : Object.values(value ?? {});
+  })
+  .join('\n');
 const reset = read('src/components/SettingsResetPanel.tsx');
 const clientState = read('src/utils/backupClientStateCodec.ts');
 
@@ -35,12 +42,14 @@ assert.match(database, /library_archive_reimport_updates_stable_identities_witho
 assert.match(commands, /pub async fn choose_import_file[\s\S]*?inspect_library_archive_json/, 'The GUI file chooser must preflight portable transfers asynchronously');
 assert.match(commands, /choose_import_file[\s\S]*?spawn_blocking/, 'File validation must not block the app UI thread');
 assert.match(settings, /choose_import_file/, 'The GUI import must inspect a file before presenting an action');
-assert.match(settings, /Updates recognizable matches, adds new data/, 'The GUI must explain merge semantics');
+assert.match(settings, /translate\('component\.settingsSyncPanel\.updatesRecognizableMatchesAddsNewDataAndKeepsUnrelatedData'\)/,
+  'The GUI must explain merge semantics');
 
 for (const phrase of ['Backup', 'Recovery', 'History', 'Trash', 'Activity', 'Settings', 'Credentials', 'Original files']) {
-  assert.ok(settings.includes(phrase), `Full Backup settings copy must disclose ${phrase}`);
+  assert.ok(settingsCatalogCopy.includes(phrase), `Full Backup settings copy must disclose ${phrase}`);
 }
-assert.match(settings, /'History and Organization'/, 'The portable merge workflow must be named History and Organization');
+assert.ok(settingsCatalogCopy.includes('History and Organization'),
+  'The portable merge workflow must be named History and Organization');
 assert.doesNotMatch(commands, /set_title\("Export Pasted Backup"\)/, 'Portable transfer must not masquerade as Full Backup');
 
 console.log('Full Backup and Full Restore contract audit passed.');

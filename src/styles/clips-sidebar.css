@@ -259,8 +259,7 @@
   position: absolute;
   z-index: var(--layer-sticky);
   top: 0.5rem;
-  left: 0.75rem;
-  right: 0.75rem;
+  inset-inline: 0.75rem;
   height: 2.75rem;
   opacity: 0;
   transform: translateY(-0.75rem) scale(0.975);
@@ -288,7 +287,7 @@
   position: absolute;
   z-index: var(--pinned-shelf-depth);
   top: calc(var(--pinned-shelf-index) * 0.25rem);
-  left: calc(var(--pinned-shelf-index) * 0.0125rem);
+  inset-inline-start: calc(var(--pinned-shelf-index) * 0.0125rem);
   width: calc(100% - var(--pinned-shelf-index) * 0.025rem);
   height: 2.25rem;
   display: grid;
@@ -359,7 +358,7 @@
 .pinned-clip-shelf-stack:hover .pinned-clip-shelf-card,
 .pinned-clip-shelf-stack:focus-within .pinned-clip-shelf-card {
   top: calc(var(--pinned-shelf-index) * 2.05rem);
-  left: 0;
+  inset-inline-start: 0;
   width: 100%;
   transform: scale(calc(1 - var(--pinned-shelf-index) * 0.006));
 }
@@ -506,7 +505,7 @@
 }
 
 .clip-meta-time {
-  margin-left: 0.25rem;
+  margin-inline-start: 0.25rem;
   font-size: 0.6875rem;
   line-height: 1.25rem;
 }
@@ -671,7 +670,7 @@ html.is-stable-reordering * {
 .clip-preview-footer-captured {
   flex: 1 1 auto;
   min-width: 0;
-  text-align: right;
+  text-align: end;
 }
 
 .clip-preview-footer-captured time {
@@ -771,7 +770,7 @@ html.is-stable-reordering * {
 
 .clip-revision-history-restore {
   position: absolute;
-  right: 0.625rem;
+  inset-inline-end: 0.625rem;
   bottom: 0.625rem;
   width: 2rem;
   height: 2rem;

@@ -35,6 +35,7 @@ for (const field of [
 }
 
 assert.match(sidebar, /getSystemClipCollections\(features\)/, 'Sidebar navigation must come from the shared collection registry');
+assert.match(sidebar, /useLocalization\(\)/, 'Memoized sidebar navigation must subscribe to locale changes');
 assert.match(sidebar, /getClipCollection\('bin', b\)/, 'Bins must inherit collection capabilities in the sidebar');
 assert.match(sidebar, /clipFacetRoute\('type', value\)/, 'Type navigation must use stable calculated-collection routes');
 assert.match(sidebar, /clipFacetRoute\('source', value\)/, 'Source navigation must use stable calculated-collection routes');
@@ -64,6 +65,7 @@ assert.match(clipViews, /getClipCollection\(currentTab, selectedBin\)/, 'Clip fi
 assert.match(emptyState, /collection\?\.emptyTitle/, 'Empty states must come from the collection descriptor');
 assert.match(viewPolicy, /collection\?\.membership/, 'Interaction policy must use collection membership');
 assert.match(app, /currentCollection\?\.title/, 'The clip-list heading must use the collection descriptor');
+assert.match(app, /\[bins, currentTab, locale, selectedBinId\]/, 'The active collection heading must recompute when the locale changes');
 assert.doesNotMatch(dragHook, /export type ClipDropAction/, 'Drop actions must be owned by the collection contract');
 assert.match(database, /pub fn get_clips_page[\s\S]*LIMIT \? OFFSET \?/, 'Active clips must support bounded server pagination');
 assert.match(database, /pub fn get_trashed_clips_page[\s\S]*LIMIT \? OFFSET \?/, 'Trash must support bounded server pagination');

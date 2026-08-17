@@ -1,8 +1,9 @@
 import type { ReactNode } from 'react';
 import { Play } from 'lucide-react';
+import { translate } from '../localization/runtime';
 
 export function TransformationPreviewPanel({
-  title = 'Live preview',
+  title = translate('component.transformationPreviewPanel.livePreview'),
   description,
   status,
   input,
@@ -26,11 +27,11 @@ export function TransformationPreviewPanel({
       {status}
       <div className="grid grid-cols-1 gap-3 text-xs font-mono @md:grid-cols-2">
         <div>
-          <span className="theme-text-muted mb-1 block font-sans">Input</span>
+          <span className="theme-text-muted mb-1 block font-sans">{translate('common.input')}</span>
           {input}
         </div>
         <div>
-          <span className="theme-text-muted mb-1 block font-sans font-semibold">Output</span>
+          <span className="theme-text-muted mb-1 block font-sans font-semibold">{translate('common.output')}</span>
           {output}
         </div>
       </div>

@@ -3,6 +3,7 @@ import { Check, ClipboardCopy, ClipboardPaste } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { UI_COPY } from '../utils/uiCopy';
 import { ActionButton } from './AppDialogLayout';
+import { translate } from '../localization/runtime';
 
 interface TransformationOutputActionsProps {
   output: string;
@@ -35,7 +36,7 @@ export function TransformationOutputActions({ output }: TransformationOutputActi
         className="h-9 min-h-9 px-3"
       >
         {lastAction === 'copied' ? <Check className="h-3.5 w-3.5" /> : <ClipboardCopy className="h-3.5 w-3.5" />}
-        <span>{lastAction === 'copied' ? UI_COPY.copied : 'Copy Result'}</span>
+        <span>{lastAction === 'copied' ? UI_COPY.copied : translate('component.transformationOutputActions.copyResult')}</span>
       </ActionButton>
       <ActionButton
         onClick={pasteResult}
@@ -43,7 +44,7 @@ export function TransformationOutputActions({ output }: TransformationOutputActi
         className="h-9 min-h-9 px-3"
       >
         {lastAction === 'pasted' ? <Check className="h-3.5 w-3.5" /> : <ClipboardPaste className="h-3.5 w-3.5" />}
-        <span>{lastAction === 'pasted' ? 'Pasted' : 'Paste Result'}</span>
+        <span>{lastAction === 'pasted' ? translate('component.transformationOutputActions.pasted') : translate('component.transformationOutputActions.pasteResult')}</span>
       </ActionButton>
     </div>
   );

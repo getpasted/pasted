@@ -21,14 +21,14 @@ export function ConnectedMenuAction({
 }: ConnectedMenuActionProps) {
   return (
     <div
-      className={`connected-menu-action flex min-w-0 [&>button:last-child]:-ml-px ${className}`}
+      className={`connected-menu-action flex min-w-0 [&>button:last-child]:-ms-px ${className}`}
       role="group"
       aria-label={groupLabel}
     >
       {children}
       <button
         type="button"
-        className={`theme-icon-button theme-focusable flex shrink-0 items-center justify-center gap-1.5 rounded-r-lg border px-2.5 text-xs font-semibold ${danger ? 'theme-danger-text' : ''}`}
+        className={`theme-icon-button theme-focusable flex shrink-0 items-center justify-center gap-1.5 rounded-e-lg border px-2.5 text-xs font-semibold ${danger ? 'theme-danger-text' : ''}`}
         aria-label={actionLabel}
         title={actionLabel}
         onClick={onAction}

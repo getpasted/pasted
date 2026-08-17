@@ -1,3 +1,5 @@
+import { getPresentationLocale } from '../localization/state.ts';
+
 export function parseDbDate(timeStr: string | number): Date {
   if (typeof timeStr === 'number') return new Date(timeStr);
   if (!timeStr) return new Date();
@@ -15,31 +17,39 @@ export function parseDbDate(timeStr: string | number): Date {
   return isNaN(d.getTime()) ? new Date(timeStr) : d;
 }
 
-export function formatRelativeTime(timeStr: string | number, nowMs = Date.now()): string {
+export function formatRelativeTime(
+  timeStr: string | number,
+  nowMs = Date.now(),
+  locale = getPresentationLocale(),
+): string {
   const date = parseDbDate(timeStr);
   const timestampMs = date.getTime();
   if (Number.isNaN(timestampMs)) return String(timeStr);
 
   const elapsedSeconds = Math.max(0, Math.floor((nowMs - timestampMs) / 1000));
-  if (elapsedSeconds < 60) return 'now';
+  const relative = new Intl.RelativeTimeFormat(locale, {
+    numeric: 'auto',
+    style: 'narrow',
+  });
+  if (elapsedSeconds < 60) return relative.format(0, 'second');
 
   const elapsedMinutes = Math.floor(elapsedSeconds / 60);
-  if (elapsedMinutes < 60) return `${elapsedMinutes}m ago`;
+  if (elapsedMinutes < 60) return relative.format(-elapsedMinutes, 'minute');
 
   const elapsedHours = Math.floor(elapsedMinutes / 60);
-  if (elapsedHours < 24) return `${elapsedHours}h ago`;
+  if (elapsedHours < 24) return relative.format(-elapsedHours, 'hour');
 
   const elapsedDays = Math.floor(elapsedHours / 24);
-  if (elapsedDays < 7) return `${elapsedDays}d ago`;
-  if (elapsedDays < 30) return `${Math.floor(elapsedDays / 7)}w ago`;
-  if (elapsedDays < 365) return `${Math.floor(elapsedDays / 30)}mo ago`;
-  return `${Math.floor(elapsedDays / 365)}y ago`;
+  if (elapsedDays < 7) return relative.format(-elapsedDays, 'day');
+  if (elapsedDays < 30) return relative.format(-Math.floor(elapsedDays / 7), 'week');
+  if (elapsedDays < 365) return relative.format(-Math.floor(elapsedDays / 30), 'month');
+  return relative.format(-Math.floor(elapsedDays / 365), 'year');
 }
 
-export function formatFullDateTime(timeStr: string | number): string {
+export function formatFullDateTime(timeStr: string | number, locale = getPresentationLocale()): string {
   try {
     const d = parseDbDate(timeStr);
-    return d.toLocaleString([], {
+    return d.toLocaleString(locale, {
       weekday: 'long',
       year: 'numeric',
       month: 'long',

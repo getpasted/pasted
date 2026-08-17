@@ -9,6 +9,9 @@ import { AppDialogBody, AppDialogButton, AppDialogFooter, AppDialogHeader, AppDi
 import { AnchoredMenu } from './AnchoredMenu';
 import { MenuSelect } from './MenuSelect';
 import { useContentTypes } from './ContentTypeProvider';
+import { translate, type TranslationKey } from '../localization/runtime';
+import { localizedContentTypeGroupLabel } from '../localization/presentation';
+import { contentTypeLabel } from '../utils/contentTypes';
 
 interface BinModalProps {
   isOpen: boolean;
@@ -25,35 +28,37 @@ interface SmartConditionRow {
 }
 
 const COLOR_PALETTE = [
-  { hex: 'default', label: 'Default' },
-  { hex: '#ef4444', label: 'Red' },
-  { hex: '#f97316', label: 'Orange' },
-  { hex: '#eab308', label: 'Yellow' },
-  { hex: '#10b981', label: 'Green' },
-  { hex: '#ec4899', label: 'Pink' },
-  { hex: '#8b5cf6', label: 'Purple' },
-  { hex: '#06b6d4', label: 'Cyan' },
-  { hex: '#3b82f6', label: 'Blue' },
-  { hex: '#6b7280', label: 'Gray' },
-  { hex: '#d97706', label: 'Amber' },
+  { hex: 'default', get label() { return translate('common.default'); } },
+  { hex: '#ef4444', get label() { return translate('component.binModal.red'); } },
+  { hex: '#f97316', get label() { return translate('component.binModal.orange'); } },
+  { hex: '#eab308', get label() { return translate('component.binModal.yellow'); } },
+  { hex: '#10b981', get label() { return translate('component.binModal.green'); } },
+  { hex: '#ec4899', get label() { return translate('component.binModal.pink'); } },
+  { hex: '#8b5cf6', get label() { return translate('component.binModal.purple'); } },
+  { hex: '#06b6d4', get label() { return translate('component.binModal.cyan'); } },
+  { hex: '#3b82f6', get label() { return translate('component.binModal.blue'); } },
+  { hex: '#6b7280', get label() { return translate('component.binModal.gray'); } },
+  { hex: '#d97706', get label() { return translate('component.binModal.amber'); } },
 ];
 
 const BIN_EMOJI_OPTIONS = [
-  ['📂', 'Folder'], ['📁', 'Open folder'], ['🗂️', 'Dividers'], ['🗃️', 'Archive'],
-  ['📋', 'Clipboard'], ['📌', 'Pin'], ['🔖', 'Bookmark'], ['🏷️', 'Label'],
-  ['⭐', 'Star'], ['✨', 'Sparkles'], ['❤️', 'Favorite'], ['🔥', 'Hot'],
-  ['💡', 'Idea'], ['🧠', 'Knowledge'], ['📝', 'Notes'], ['📚', 'Reference'],
-  ['📄', 'Document'], ['📊', 'Data'], ['📸', 'Screenshot'], ['🖼️', 'Image'],
-  ['🎨', 'Design'], ['🎵', 'Audio'], ['🎬', 'Video'], ['🎮', 'Games'],
-  ['🔗', 'Links'], ['🌐', 'Web'], ['💬', 'Messages'], ['📧', 'Email'],
-  ['💻', 'Computer'], ['⌨️', 'Code'], ['🧰', 'Tools'], ['⚙️', 'Settings'],
-  ['🔐', 'Secure'], ['🛡️', 'Protected'], ['🔑', 'Keys'], ['🧪', 'Testing'],
-  ['✅', 'Complete'], ['🚧', 'In progress'], ['⚠️', 'Important'], ['🗑️', 'Trash'],
-  ['🏠', 'Home'], ['💼', 'Work'], ['👤', 'Personal'], ['👥', 'People'],
-  ['🛒', 'Shopping'], ['💰', 'Finance'], ['✈️', 'Travel'], ['📍', 'Places'],
-  ['🍔', 'Food'], ['☕', 'Coffee'], ['🏋️', 'Fitness'], ['💊', 'Health'],
-  ['🌱', 'Growth'], ['🌙', 'Later'], ['🚀', 'Launch'], ['🎯', 'Goals'],
+  ['📂', 'folder'], ['📁', 'openFolder'], ['🗂️', 'dividers'], ['🗃️', 'archive'],
+  ['📋', 'clipboard'], ['📌', 'pin'], ['🔖', 'bookmark'], ['🏷️', 'label'],
+  ['⭐', 'star'], ['✨', 'sparkles'], ['❤️', 'favorite'], ['🔥', 'hot'],
+  ['💡', 'idea'], ['🧠', 'knowledge'], ['📝', 'notes'], ['📚', 'reference'],
+  ['📄', 'document'], ['📊', 'data'], ['📸', 'screenshot'], ['🖼️', 'image'],
+  ['🎨', 'design'], ['🎵', 'audio'], ['🎬', 'video'], ['🎮', 'games'],
+  ['🔗', 'links'], ['🌐', 'web'], ['💬', 'messages'], ['📧', 'email'],
+  ['💻', 'computer'], ['⌨️', 'code'], ['🧰', 'tools'], ['⚙️', 'settings'],
+  ['🔐', 'secure'], ['🛡️', 'protected'], ['🔑', 'keys'], ['🧪', 'testing'],
+  ['✅', 'complete'], ['🚧', 'inProgress'], ['⚠️', 'important'], ['🗑️', 'trash'],
+  ['🏠', 'home'], ['💼', 'work'], ['👤', 'personal'], ['👥', 'people'],
+  ['🛒', 'shopping'], ['💰', 'finance'], ['✈️', 'travel'], ['📍', 'places'],
+  ['🍔', 'food'], ['☕', 'coffee'], ['🏋️', 'fitness'], ['💊', 'health'],
+  ['🌱', 'growth'], ['🌙', 'later'], ['🚀', 'launch'], ['🎯', 'goals'],
 ] as const;
+
+const emojiLabel = (key: string) => translate(`component.binModal.emoji.${key}` as TranslationKey);
 
 function initialBinForm(editingBin?: Bin | null) {
   if (editingBin?.smart_rule) {
@@ -315,7 +320,7 @@ export const BinModal: React.FC<BinModalProps> = ({
     >
       {({ requestClose }) => <>
         <AppDialogHeader onClose={requestClose}>
-          <AppDialogHeading id="bin-modal-title" title={editingBin ? 'Edit Bin' : 'New Bin'} description="Choose how clips enter this Bin and what happens next." icon={<Folder />} />
+          <AppDialogHeading id="bin-modal-title" title={editingBin ? translate('component.binModal.editBin') : translate('component.binModal.newBin')} description={translate('component.binModal.chooseHowClipsEnterThisBinAndWhatHappensNext')} icon={<Folder />} />
         </AppDialogHeader>
         <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
           <AppDialogBody className="space-y-4 text-xs">
@@ -326,23 +331,23 @@ export const BinModal: React.FC<BinModalProps> = ({
                   onClick={() => setModalTab('bin')}
                   className={`settings-tab px-4 py-1.5 rounded-lg text-xs font-semibold transition-none border border-transparent ${modalTab === 'bin' ? 'is-active' : ''}`}
                 >
-                  Manual
+                  {translate('component.binModal.manual')}
                 </button>
                 <button
                   type="button"
                   onClick={() => setModalTab('smart')}
                   className={`settings-tab px-4 py-1.5 rounded-lg text-xs font-semibold transition-none border border-transparent ${modalTab === 'smart' ? 'is-active' : ''}`}
                 >
-                  Smart
+                  {translate('component.binModal.smart')}
                 </button>
               </div>
             </div>
           {/* Name Field */}
           <div className="flex items-center space-x-3">
-            <label className={`w-20 text-right font-semibold flex-shrink-0 ${errors.name ? 'theme-danger-text font-bold' : 'theme-text-muted'}`}>Name</label>
+            <label className={`w-20 text-end font-semibold flex-shrink-0 ${errors.name ? 'theme-danger-text font-bold' : 'theme-text-muted'}`}>{translate('common.name')}</label>
             <input
               type="text"
-              placeholder="e.g. Code Snippets, Safari Clips"
+              placeholder={translate('component.binModal.eGCodeSnippetsSafariClips')}
               value={name}
               onChange={(e) => {
                 setName(e.target.value);
@@ -360,7 +365,7 @@ export const BinModal: React.FC<BinModalProps> = ({
 
           {/* Color Palette Picker Row */}
           <div className="flex items-center space-x-3">
-            <label className={`w-20 text-right font-semibold flex-shrink-0 ${errors.color ? 'theme-danger-text font-bold' : 'theme-text-muted'}`}>Color</label>
+            <label className={`w-20 text-end font-semibold flex-shrink-0 ${errors.color ? 'theme-danger-text font-bold' : 'theme-text-muted'}`}>{translate('component.binModal.color')}</label>
             <div className={`flex items-center space-x-2 p-1 rounded-xl border border-transparent transition-colors ${errors.color ? 'form-field-error' : ''}`}>
               {COLOR_PALETTE.map((c) => (
                 <button
@@ -376,7 +381,7 @@ export const BinModal: React.FC<BinModalProps> = ({
                       ? 'bin-color-selected scale-110'
                       : 'opacity-80 hover:opacity-100'
                   }`}
-                  aria-label={`${c.label} Bin text`}
+                  aria-label={translate('component.binModal.labelBinText', { label: c.label })}
                   title={c.label}
                 />
               ))}
@@ -385,7 +390,7 @@ export const BinModal: React.FC<BinModalProps> = ({
 
           {/* Single Emoji Icon Selector */}
           <div className="flex items-center space-x-3">
-            <label className={`w-20 text-right font-semibold flex-shrink-0 ${errors.icon ? 'theme-danger-text font-bold' : 'theme-text-muted'}`}>Icon</label>
+            <label className={`w-20 text-end font-semibold flex-shrink-0 ${errors.icon ? 'theme-danger-text font-bold' : 'theme-text-muted'}`}>{translate('component.binModal.icon')}</label>
             <div className="flex-1 flex items-center space-x-2.5">
               {desktopPlatform === 'macos' ? (
                 <input
@@ -433,8 +438,8 @@ export const BinModal: React.FC<BinModalProps> = ({
                   placeholder="📂"
                   maxLength={64}
                   className={`w-16 theme-input ui-field-radius emoji-input-picker border py-1.5 text-center font-mono text-lg focus:outline-none shadow-inner cursor-pointer select-none transition-colors ${errors.icon ? 'form-field-error' : 'form-field-valid'}`}
-                  aria-label="Choose Bin icon"
-                  title="Open Emoji picker"
+                  aria-label={translate('component.binModal.chooseBinIcon')}
+                  title={translate('component.binModal.openEmojiPicker')}
                 />
               ) : (
                 <button
@@ -442,28 +447,30 @@ export const BinModal: React.FC<BinModalProps> = ({
                   type="button"
                   onClick={() => setIsEmojiMenuOpen((open) => !open)}
                   className={`w-16 theme-input ui-field-radius emoji-input-picker border py-1.5 text-center font-mono text-lg focus:outline-none shadow-inner cursor-pointer select-none transition-colors ${errors.icon ? 'form-field-error' : 'form-field-valid'}`}
-                  aria-label="Choose Bin icon"
+                  aria-label={translate('component.binModal.chooseBinIcon')}
                   aria-haspopup="menu"
                   aria-expanded={isEmojiMenuOpen}
-                  title="Choose Bin icon"
+                  title={translate('component.binModal.chooseBinIcon')}
                 >
                   {formatEmojiIcon(icon)}
                 </button>
               )}
               <span className="text-[11px] theme-text-muted">
                 {desktopPlatform === 'macos' ? (
-                  <>Click to open the Emoji picker <kbd className="font-mono text-[10px] px-1.5 py-0.5 rounded theme-badge border">Command + Space</kbd></>
-                ) : 'Choose an icon for this Bin.'}
+                  translate('component.binModal.openEmojiPickerShortcut', { shortcut: translate('component.binModal.commandSpace') })
+                ) : translate('component.binModal.chooseAnIconForThisBin')}
               </span>
               {isEmojiMenuOpen && (
                 <AnchoredMenu
                   anchor={{ kind: 'element', ref: emojiTriggerRef, align: 'start' }}
-                  ariaLabel="Choose Bin icon"
+                  ariaLabel={translate('component.binModal.chooseBinIcon')}
                   onClose={() => setIsEmojiMenuOpen(false)}
                   className="w-72"
                 >
-                  <div className="grid grid-cols-8 gap-1" role="group" aria-label="Bin icons">
-                    {BIN_EMOJI_OPTIONS.map(([emoji, label]) => (
+                  <div className="grid grid-cols-8 gap-1" role="group" aria-label={translate('component.binModal.binIcons')}>
+                    {BIN_EMOJI_OPTIONS.map(([emoji, labelKey]) => {
+                      const label = emojiLabel(labelKey);
+                      return (
                       <button
                         key={emoji}
                         type="button"
@@ -481,7 +488,8 @@ export const BinModal: React.FC<BinModalProps> = ({
                       >
                         {emoji}
                       </button>
-                    ))}
+                      );
+                    })}
                   </div>
                 </AnchoredMenu>
               )}
@@ -489,23 +497,21 @@ export const BinModal: React.FC<BinModalProps> = ({
           </div>
 
           <div className="flex items-center gap-3">
-            <span className="w-20 shrink-0 text-right text-xs font-semibold theme-text-muted">Transform</span>
+            <span className="w-20 shrink-0 text-end text-xs font-semibold theme-text-muted">{translate('component.binModal.transform')}</span>
             <MenuSelect
               value={transformRef}
               options={[
-                { value: '', label: 'Do Nothing' },
+                { value: '', get label() { return translate('component.binModal.doNothing'); } },
                 ...transforms
                   .map((transform, sourceIndex) => {
                     const group = transform.authoringKind === 'manual'
-                      ? 'Manually Built Transforms'
+                      ? translate('component.transformationPlayground.manuallyBuiltTransforms')
                       : transform.executionCharacter === 'replayable'
-                        ? 'Planned Local Transforms'
-                        : 'AI-Assisted Transforms';
-                    const groupOrder = group === 'AI-Assisted Transforms'
-                      ? 0
-                      : group === 'Planned Local Transforms'
-                        ? 1
-                        : 2;
+                        ? translate('component.transformationPlayground.plannedLocalTransforms')
+                        : translate('component.transformationPlayground.aiAssistedTransforms');
+                    const groupOrder = transform.authoringKind === 'manual'
+                      ? 2
+                      : transform.executionCharacter === 'replayable' ? 1 : 0;
                     return {
                       value: transform.stableRef,
                       label: transform.name,
@@ -518,17 +524,17 @@ export const BinModal: React.FC<BinModalProps> = ({
                   .map(({ groupOrder: _groupOrder, sourceIndex: _sourceIndex, ...option }) => option),
               ]}
               onChange={setTransformRef}
-              label="Transform"
+              label={translate('component.binModal.transform')}
               className="min-w-0 flex-1"
               searchable
-              searchPlaceholder="Search Transforms…"
+              searchPlaceholder={translate('component.binModal.searchTransforms')}
             />
           </div>
 
           {/* Smart Bin Multi-Condition Builder */}
           {modalTab === 'smart' && (
             <div className="flex items-start gap-3">
-              <span className="w-20 shrink-0 pt-0.5 text-right text-xs font-semibold theme-text-muted">Filter</span>
+              <span className="w-20 shrink-0 pt-0.5 text-end text-xs font-semibold theme-text-muted">{translate('component.binModal.filter')}</span>
               <div className="min-w-0 flex-1 space-y-2">
                 <div className="p-4 theme-surface rounded-2xl border space-y-3">
               {conditions.map((c) => (
@@ -549,14 +555,14 @@ export const BinModal: React.FC<BinModalProps> = ({
                       handleUpdateCondition(c.id, { target: newTarget, value: newDefaultVal });
                     }}
                     options={[
-                      { value: 'source', label: 'Source' },
-                      { value: 'content_type', label: 'Content Type' },
-                      { value: 'origin_kind', label: 'Origin' },
-                      { value: 'contains', label: 'Text Content' },
-                      { value: 'file_extension', label: 'File Extension' },
-                      { value: 'file_path', label: 'File Path' },
+                      { value: 'source', get label() { return translate('component.binModal.source'); } },
+                      { value: 'content_type', get label() { return translate('component.binModal.contentType2'); } },
+                      { value: 'origin_kind', get label() { return translate('component.binModal.origin'); } },
+                      { value: 'contains', get label() { return translate('component.binModal.textContent'); } },
+                      { value: 'file_extension', get label() { return translate('component.binModal.fileExtension'); } },
+                      { value: 'file_path', get label() { return translate('component.binModal.filePath'); } },
                     ]}
-                    label="Condition target"
+                    label={translate('component.binModal.conditionTarget')}
                     className="w-28"
                     compact
                   />
@@ -566,10 +572,10 @@ export const BinModal: React.FC<BinModalProps> = ({
                     value={c.operator}
                     onChange={(value) => handleUpdateCondition(c.id, { operator: value as SmartConditionRow['operator'] })}
                     options={[
-                      { value: 'is', label: 'is' },
-                      { value: 'contains', label: 'contains' },
+                      { value: 'is', get label() { return translate('component.binModal.is'); } },
+                      { value: 'contains', get label() { return translate('component.pipelineEditorModal.contains'); } },
                     ]}
-                    label="Condition operator"
+                    label={translate('component.binModal.conditionOperator')}
                     className="w-24"
                     compact
                   />
@@ -584,8 +590,8 @@ export const BinModal: React.FC<BinModalProps> = ({
                           ...(!installedApps.includes(c.value) && c.value ? [{ value: c.value, label: c.value }] : []),
                           ...installedApps.map((appName) => ({ value: appName, label: appName })),
                         ]
-                        : [{ value: c.value, label: c.value || 'No detected apps', disabled: true }]}
-                      label="Source app"
+                        : [{ value: c.value, label: c.value || translate('component.binModal.noDetectedApps'), disabled: true }]}
+                      label={translate('component.binModal.sourceApp')}
                       className="min-w-0 flex-1"
                       compact
                     />
@@ -595,10 +601,13 @@ export const BinModal: React.FC<BinModalProps> = ({
                       onChange={(value) => handleUpdateCondition(c.id, { value })}
                       options={contentTypes.map((type) => ({
                         value: type.id,
-                        label: type.label,
-                        group: type.isArchived ? 'Archived' : contentTypeGroups.find(({ id }) => id === type.group)?.label ?? type.group,
+                        label: contentTypeLabel(type.id),
+                        group: type.isArchived ? translate('component.binModal.archived') : (() => {
+                          const group = contentTypeGroups.find(({ id }) => id === type.group);
+                          return group ? localizedContentTypeGroupLabel(group.id, group.label, group.isBuiltin, group.defaults?.label) : type.group;
+                        })(),
                       }))}
-                      label="Content type"
+                      label={translate('component.binModal.contentType')}
                       className="min-w-0 flex-1"
                       compact
                     />
@@ -607,19 +616,19 @@ export const BinModal: React.FC<BinModalProps> = ({
                       value={c.value}
                       onChange={(value) => handleUpdateCondition(c.id, { value })}
                       options={[
-                        { value: 'clipboard_content', label: 'Clipboard Content' },
-                        { value: 'file_reference', label: 'File Reference' },
-                        { value: 'screenshot', label: 'Screenshot' },
-                        { value: 'command_line', label: 'Command Line' },
+                        { value: 'clipboard_content', get label() { return translate('component.binModal.clipboardContent'); } },
+                        { value: 'file_reference', get label() { return translate('component.binModal.fileReference'); } },
+                        { value: 'screenshot', get label() { return translate('component.binModal.screenshot'); } },
+                        { value: 'command_line', get label() { return translate('component.binModal.commandLine'); } },
                       ]}
-                      label="Origin"
+                      label={translate('component.binModal.origin')}
                       className="min-w-0 flex-1"
                       compact
                     />
                   ) : c.target === 'file_extension' ? (
                     <input
                       type="text"
-                      placeholder="e.g. pdf, zip, png"
+                      placeholder={translate('component.binModal.eGPdfZipPng')}
                       value={c.value}
                       onChange={(e) => handleUpdateCondition(c.id, { value: e.target.value.replace(/^\./, '') })}
                       className="flex-1 theme-input form-field-valid border rounded-lg px-3 py-1.5 text-xs font-semibold focus:outline-none"
@@ -627,7 +636,7 @@ export const BinModal: React.FC<BinModalProps> = ({
                   ) : c.target === 'file_path' ? (
                     <input
                       type="text"
-                      placeholder="e.g. /Projects/ or Downloads"
+                      placeholder={translate('component.binModal.eGProjectsOrDownloads')}
                       value={c.value}
                       onChange={(e) => handleUpdateCondition(c.id, { value: e.target.value })}
                       className="flex-1 theme-input form-field-valid border rounded-lg px-3 py-1.5 text-xs font-semibold focus:outline-none"
@@ -635,7 +644,7 @@ export const BinModal: React.FC<BinModalProps> = ({
                   ) : (
                     <input
                       type="text"
-                      placeholder="e.g. http, function"
+                      placeholder={translate('component.binModal.eGHttpFunction')}
                       value={c.value}
                       onChange={(e) => handleUpdateCondition(c.id, { value: e.target.value })}
                       className="flex-1 theme-input form-field-valid border rounded-lg px-3 py-1.5 text-xs font-semibold focus:outline-none"
@@ -653,7 +662,7 @@ export const BinModal: React.FC<BinModalProps> = ({
                           ? 'opacity-40 cursor-not-allowed'
                           : 'hover:scale-105 active:scale-95'
                       }`}
-                      title="Remove Condition"
+                      title={translate('component.binModal.removeCondition')}
                     >
                       <Minus className="w-3.5 h-3.5" />
                     </button>
@@ -661,7 +670,7 @@ export const BinModal: React.FC<BinModalProps> = ({
                       type="button"
                       onClick={handleAddCondition}
                       className="theme-icon-button p-1.5 rounded border transition-[background-color,border-color,color,transform] hover:scale-105 active:scale-95"
-                      title="Add Condition"
+                      title={translate('component.binModal.addCondition')}
                     >
                       <Plus className="w-3.5 h-3.5" />
                     </button>
@@ -670,29 +679,29 @@ export const BinModal: React.FC<BinModalProps> = ({
               ))}
 
               <div className="flex items-center space-x-2 pt-1 theme-text-muted">
-                <span>Contain clips that match</span>
+                <span>{translate('component.binModal.containClipsThatMatch')}</span>
                 <MenuSelect
                   value={matchCondition}
                   onChange={(value) => setMatchCondition(value as 'any' | 'all')}
                   options={[
-                    { value: 'any', label: 'any' },
-                    { value: 'all', label: 'all' },
+                    { value: 'any', get label() { return translate('component.binModal.any'); } },
+                    { value: 'all', get label() { return translate('component.binModal.all'); } },
                   ]}
-                  label="Condition matching"
+                  label={translate('component.binModal.conditionMatching')}
                   className="w-24"
                   compact
                 />
-                  <span>conditions</span>
+                  <span>{translate('component.binModal.conditions')}</span>
                 </div>
                 </div>
-                <p className="text-[10px] theme-text-muted">Choose which clips automatically enter this Smart Bin.</p>
+                <p className="text-[10px] theme-text-muted">{translate('component.binModal.chooseWhichClipsAutomaticallyEnterThisSmartBin')}</p>
               </div>
             </div>
           )}
 
           </AppDialogBody>
           <AppDialogFooter>
-            <AppDialogButton onClick={requestClose}>Cancel</AppDialogButton>
+            <AppDialogButton onClick={requestClose}>{translate('common.cancel')}</AppDialogButton>
             <AppDialogButton type="submit" variant="primary"><SaveButtonContent /></AppDialogButton>
           </AppDialogFooter>
         </form>
