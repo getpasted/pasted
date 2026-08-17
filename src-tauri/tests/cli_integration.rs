@@ -109,6 +109,19 @@ fn history_and_settings_commands_have_executable_json_contracts() {
     assert_eq!(insights["clip_types"][0]["clip_type"], "text");
     assert!(insights["clip_types"][0].get("content_type").is_none());
     assert_eq!(insights["content_types"][0]["content_type"], "email");
+    assert_eq!(
+        insights["daily_activity"].as_array().map(Vec::len),
+        Some(14)
+    );
+    let plain_insights = run(&database, &["insights", "summary"]);
+    assert!(plain_insights.status.success());
+    let plain_insights = String::from_utf8_lossy(&plain_insights.stdout);
+    assert!(plain_insights.contains("Daily activity (local time):"));
+    assert!(plain_insights.contains(
+        insights["daily_activity"][0]["date"]
+            .as_str()
+            .expect("daily date")
+    ));
 
     let setting = success_json(
         &database,

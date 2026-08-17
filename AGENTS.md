@@ -21,6 +21,14 @@ Pasted aims to make its meaningful clipboard-management capabilities available t
 - Mechanical utilities such as `divide-y` must be paired with the corresponding semantic class, such as `theme-divide`.
 - Keep the CSS architecture audit budgets ratcheting downward; never increase a debt budget to accommodate new styling.
 
+## Time and timestamp handling
+
+- Store persisted instants as canonical UTC RFC 3339 strings ending in `Z`. Treat legacy SQLite `YYYY-MM-DD HH:MM:SS` values as UTC during a bounded migration; do not silently reinterpret them as local time.
+- Validate and normalize timestamps at every import boundary before they can affect ordering, retention, deduplication, backup data, Activity, or Insights. Reject malformed values transactionally.
+- Use local time only when presenting an instant or grouping records by a user-facing calendar day. Calendar summaries such as Insights must use the machine's local day boundary, including daylight-saving transitions, while their underlying stored timestamps remain UTC.
+- Do not sort timestamp strings unless the data contract guarantees canonical form. Shared domain queries and GUI helpers must compare instants consistently, and GUI and CLI summaries must expose the same day semantics.
+- Add deterministic tests around UTC/local midnight, positive and negative offsets, mixed legacy timestamp formats, imports, retention ordering, and structured plus human-readable CLI output whenever time-sensitive behavior changes.
+
 ## Activity records
 
 - Treat Activity as a versioned, portable audit contract. Keep JSON exports aligned with the OpenTelemetry event shape used by Pasted: timestamp, observed timestamp, event name, severity text, body, attributes, and archive-level resource metadata.

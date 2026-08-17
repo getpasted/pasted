@@ -9,6 +9,7 @@ const clipPreview = read('src/components/ClipPreview.tsx');
 const clipPreviewContent = read('src/components/ClipPreviewContent.tsx');
 const clipCard = read('src/components/ClipCard.tsx');
 const analytics = read('src/components/AnalyticsView.tsx');
+const clipOrder = read('src/utils/clipOrder.ts');
 const database = read('src-tauri/src/db.rs');
 const types = read('src/types.ts');
 const analysisSettings = read('src/components/SettingsAnalysisPanel.tsx');
@@ -74,6 +75,18 @@ assert.match(analytics, /Clips by File Format/,
   'Insights must present file-format summaries separately');
 assert.match(analytics, /features\.types && <div className="theme-panel[\s\S]{0,1000}Clips by Content Type/,
   'Insights must hide semantic Content Type summaries when Content Types is disabled');
+assert.match(database, /get_daily_activity_for_calendar[\s\S]{0,1800}date\(clips\.created_at, \?2\)/,
+  'Insights daily activity must group stored UTC instants through an explicit calendar modifier');
+assert.match(database, /get_daily_activity_for_calendar\([\s\S]{0,180}"localtime"/,
+  'Insights must request the machine-local calendar from the shared domain summary');
+assert.match(analytics, /listen\('clip-added', refresh\)/,
+  'Insights must refresh when History receives a clip');
+assert.match(analytics, /listen\('clip-library-changed', refresh\)/,
+  'Insights must refresh after other History mutations');
+assert.match(analytics, /nextMidnight[\s\S]{0,500}setTimeout/,
+  'Insights must refresh across the local midnight boundary');
+assert.match(clipOrder, /parseDbDate\(left\.created_at\)[\s\S]{0,300}rightTimestamp - leftTimestamp/,
+  'History ordering must compare timestamp instants rather than mixed timestamp strings');
 assert.match(analysisSettings, /\{transformationsEnabled && <AnalysisManagerRow[\s\S]{0,220}title="Suggest"/,
   'Disabling Transformations must hide Smart Action Suggestions');
 assert.match(analysisExecution, /let run_classifiers = allow_text_participants && options\.include_classifiers;/,

@@ -2275,6 +2275,12 @@ fn run_command(command: &str, args: &[String], db_path: PathBuf, conn: Connectio
                         println!("{}\t{}", content_type.count, content_type.content_type);
                     }
                 }
+                if !summary.daily_activity.is_empty() {
+                    println!("Daily activity (local time):");
+                    for day in summary.daily_activity {
+                        println!("{}\t{}", day.count, day.date);
+                    }
+                }
             }
         }
         "ocr" => {
