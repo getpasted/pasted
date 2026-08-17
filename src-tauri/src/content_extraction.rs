@@ -633,7 +633,7 @@ pub const EXTRACTOR_PRESETS: &[ExtractorPreset] = &[
         input_contract: RepresentationKind::ImageBytes.stable_name(),
         output_contract: RepresentationKind::SearchableText.stable_name(),
         priority: 10,
-        revision: 2,
+        revision: 3,
     },
     ExtractorPreset {
         stable_ref: TESSERACT_OCR_REF,
@@ -657,7 +657,7 @@ pub const EXTRACTOR_PRESETS: &[ExtractorPreset] = &[
         input_contract: RepresentationKind::FileReferences.stable_name(),
         output_contract: RepresentationKind::SearchableText.stable_name(),
         priority: 30,
-        revision: 2,
+        revision: 3,
     },
 ];
 
@@ -922,6 +922,70 @@ impl ExtractorPreset {
         .into();
         recipe_for_legacy_definition(&definition)
     }
+}
+
+pub fn migrate_builtin_recipe_compatibility(
+    stable_ref: &str,
+    current: &ExtractorRecipe,
+    legacy_model_path: Option<&str>,
+) -> ExtractorRecipe {
+    let mut migrated = current.clone();
+
+    if stable_ref == APPLE_VISION_OCR_REF {
+        for step in &mut migrated.steps {
+            let uses_bundled_helper = step
+                .arguments
+                .windows(2)
+                .any(|arguments| arguments == ["--pasted-extractor-helper-v1", "apple-vision-ocr"]);
+            if uses_bundled_helper && step.executable.discover == ["pasted"] {
+                step.executable.discover = vec![BUNDLED_EXTRACTOR_EXECUTABLE.into()];
+                step.executable.version_arguments.clear();
+            }
+        }
+    }
+
+    if stable_ref == WHISPER_TRANSCRIPTION_REF {
+        let model_path = migrated
+            .resources
+            .iter()
+            .find(|resource| resource.id == "model")
+            .and_then(|resource| resource.path.clone())
+            .or_else(|| legacy_model_path.map(str::to_string));
+        let interim_recipe = migrated.steps.len() == 1
+            && migrated.steps[0].executable.discover == ["whisper-cli"]
+            && migrated.steps[0].arguments
+                == [
+                    "--model",
+                    "{resource.model.path}",
+                    "--file",
+                    "{input.path}",
+                    "--no-timestamps",
+                ];
+        if interim_recipe {
+            let whisper_path = migrated.steps[0].executable.path.clone();
+            migrated = EXTRACTOR_PRESETS
+                .iter()
+                .find(|preset| preset.stable_ref == WHISPER_TRANSCRIPTION_REF)
+                .expect("shipped Whisper Extractor")
+                .recipe();
+            if let Some(step) = migrated
+                .steps
+                .iter_mut()
+                .find(|step| step.id == "transcribe")
+            {
+                step.executable.path = whisper_path;
+            }
+        }
+        if let Some(resource) = migrated
+            .resources
+            .iter_mut()
+            .find(|resource| resource.id == "model" && resource.path.is_none())
+        {
+            resource.path = model_path;
+        }
+    }
+
+    migrated
 }
 
 pub fn merge_shipped_definition(
@@ -2177,6 +2241,69 @@ mod tests {
         assert_eq!(merged.executable_path.as_deref(), Some("/custom/tesseract"));
         assert_eq!(merged.description, "New shipped description");
         assert_eq!(merged.priority, 15);
+    }
+
+    #[test]
+    fn bundled_recipe_migration_repairs_the_interim_apple_locator() {
+        let mut recipe = EXTRACTOR_PRESETS
+            .iter()
+            .find(|preset| preset.stable_ref == APPLE_VISION_OCR_REF)
+            .unwrap()
+            .recipe();
+        recipe.steps[0].executable.discover = vec!["pasted".into()];
+        recipe.steps[0].executable.version_arguments = vec!["--version".into()];
+
+        let migrated = migrate_builtin_recipe_compatibility(APPLE_VISION_OCR_REF, &recipe, None);
+
+        assert_eq!(
+            migrated.steps[0].executable.discover,
+            [BUNDLED_EXTRACTOR_EXECUTABLE]
+        );
+        assert!(migrated.steps[0].executable.version_arguments.is_empty());
+    }
+
+    #[test]
+    fn bundled_recipe_migration_preserves_the_configured_whisper_model() {
+        let mut recipe = EXTRACTOR_PRESETS
+            .iter()
+            .find(|preset| preset.stable_ref == WHISPER_TRANSCRIPTION_REF)
+            .unwrap()
+            .recipe();
+        recipe.steps = vec![ExtractorCommandStep {
+            id: "extract".into(),
+            executable: ExtractorExecutable {
+                path: Some("/custom/whisper-cli".into()),
+                discover: vec!["whisper-cli".into()],
+                version_arguments: vec!["--version".into()],
+            },
+            arguments: vec![
+                "--model".into(),
+                "{resource.model.path}".into(),
+                "--file".into(),
+                "{input.path}".into(),
+                "--no-timestamps".into(),
+            ],
+            mode: ExtractorStepMode::EachInput,
+            capture: ExtractorCapture::StdoutText,
+            output_extension: None,
+            timeout_seconds: 300,
+        }];
+
+        let migrated = migrate_builtin_recipe_compatibility(
+            WHISPER_TRANSCRIPTION_REF,
+            &recipe,
+            Some("/models/ggml-base.bin"),
+        );
+
+        assert_eq!(migrated.steps.len(), 2);
+        assert_eq!(
+            migrated.steps[1].executable.path.as_deref(),
+            Some("/custom/whisper-cli")
+        );
+        assert_eq!(
+            migrated.resources[0].path.as_deref(),
+            Some("/models/ggml-base.bin")
+        );
     }
 
     #[test]
