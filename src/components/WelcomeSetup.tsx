@@ -4,7 +4,7 @@ import type { AppSettings } from '../types';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { AppDialog } from './AppDialog';
 import { ExternalHistoryImport, type ExternalImportReport } from './ExternalHistoryImport';
-import { CopycatMark } from './CopycatMark';
+import { CopycatHeadMark } from './CopycatMark';
 import { ActionButton } from './AppDialogLayout';
 
 const ONBOARDING_VERSION = 1;
@@ -117,8 +117,8 @@ export function WelcomeSetup({ isOpen, settings, onUpdateSettings, onImported }:
       <div className="welcome-setup-body">
         {step === 'welcome' && (
           <div className="welcome-setup-hero">
-            <div className="welcome-setup-mark is-copycat" aria-hidden="true">
-              <CopycatMark />
+            <div className="welcome-setup-mark is-copycat is-mirrored" aria-hidden="true">
+              <CopycatHeadMark />
             </div>
             <p className="welcome-setup-kicker">The private, local clipboard workspace</p>
             <h1 id="pasted-welcome-title">Welcome, copycat.</h1>
@@ -252,7 +252,7 @@ export function WelcomeSetup({ isOpen, settings, onUpdateSettings, onImported }:
 
         {step === 'ready' && (
           <div className="welcome-setup-hero">
-            <div className="welcome-setup-mark is-copycat is-ready" aria-hidden="true"><CopycatMark /></div>
+            <div className="welcome-setup-mark is-copycat is-ready" aria-hidden="true"><CopycatHeadMark /></div>
             <p className="welcome-setup-kicker">Copycat status: ready</p>
             <h1 id="pasted-welcome-title">Go copy irresponsibly.</h1>
             <p>

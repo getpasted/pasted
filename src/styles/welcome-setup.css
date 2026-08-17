@@ -84,6 +84,10 @@
   height: 4.5rem;
 }
 
+.welcome-setup-mark.is-mirrored > svg {
+  transform: scaleX(-1);
+}
+
 .welcome-setup-mark > span {
   position: absolute;
   top: -0.45rem;
@@ -455,6 +459,11 @@
 .welcome-setup-backing .app-dialog-button {
   flex: 0 0 auto;
   white-space: nowrap;
+}
+
+.welcome-setup-backing .app-dialog-button svg {
+  width: 0.85rem;
+  height: 0.85rem;
 }
 
 .welcome-setup-feature-grid strong {
