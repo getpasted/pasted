@@ -331,7 +331,7 @@ pub fn platform_auth_available(method: SystemAuthMethod) -> bool {
         UserConsentVerifier, UserConsentVerifierAvailability,
     };
     UserConsentVerifier::CheckAvailabilityAsync()
-        .and_then(|operation| operation.get())
+        .and_then(|operation| operation.join())
         .is_ok_and(|availability| availability == UserConsentVerifierAvailability::Available)
 }
 
@@ -373,7 +373,7 @@ pub fn platform_authenticate(
     }
     .map_err(|error| format!("Windows Hello could not start: {error}"))?;
     let result = operation
-        .get()
+        .join()
         .map_err(|error| format!("Windows Hello could not finish: {error}"))?;
     Ok(result == UserConsentVerificationResult::Verified)
 }
