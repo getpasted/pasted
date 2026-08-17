@@ -5,6 +5,7 @@ import { listen } from '@tauri-apps/api/event';
 import { ClipItem, getClipFileSummary } from '../types';
 import { OverflowText } from './OverflowText';
 import { SafeRasterImage } from './SafeRasterImage';
+import { translate } from '../localization/runtime';
 
 export const QuickHudWindow: React.FC = () => {
   const [hudAnchor, setHudAnchor] = useState({ flipped: false, x: 180 });
@@ -173,23 +174,23 @@ export const QuickHudWindow: React.FC = () => {
         {/* Header Bar */}
         <div className="quick-hud-header p-2.5 border-b flex items-center space-x-2 no-drag">
           <div className="relative flex-1">
-            <Search className="theme-text-muted w-3.5 h-3.5 absolute left-2.5 top-2.5" />
+            <Search className="theme-text-muted absolute start-2.5 top-2.5 h-3.5 w-3.5" />
             <input
               ref={inputRef}
               type="text"
-              placeholder="Search clips…"
+              placeholder={translate('component.quickHudWindow.searchClips')}
               value={search}
               onChange={(e) => {
                 setPasteError('');
                 setSearch(e.target.value);
               }}
-              className="theme-input ui-field-radius quick-hud-search w-full border pl-8 pr-3 py-1.5 text-xs font-mono no-drag"
+              className="theme-input ui-field-radius quick-hud-search w-full border ps-8 pe-3 py-1.5 text-xs font-mono no-drag"
             />
           </div>
           <button
             onClick={() => invoke('toggle_hud_window')}
             className="theme-icon-button p-1 rounded-md border border-transparent transition-colors shrink-0 no-drag"
-            title="Hide (Esc)"
+            title={translate('component.quickHudWindow.hideEsc')}
           >
             <X className="w-4 h-4" />
           </button>
@@ -199,20 +200,20 @@ export const QuickHudWindow: React.FC = () => {
         <div
           ref={listRef}
           role="listbox"
-          aria-label="Recent clips"
+          aria-label={translate('component.quickHudWindow.recentClips')}
           aria-busy={isPasting}
           className="custom-scrollbar flex-1 overflow-y-auto p-2 space-y-1.5"
         >
           {clips.length === 0 ? (
             <div className="theme-text-subtle flex flex-col items-center justify-center h-48 text-center space-y-1.5 p-4">
               <Sparkles className="w-6 h-6" />
-              <p className="theme-text-muted text-xs font-semibold">No matching clips</p>
+              <p className="theme-text-muted text-xs font-semibold">{translate('component.quickHudWindow.noMatchingClips')}</p>
             </div>
           ) : (
             clips.map((clip, index) => {
               const isSel = index === selectedIndex;
               const previewText = clip.content_type === 'image' && clip.image_base64
-                ? clip.text_content ? `[OCR] ${clip.text_content}` : 'Screenshot Image'
+                ? clip.text_content ? translate('component.quickHudWindow.ocrText', { text: clip.text_content }) : translate('component.quickHudWindow.screenshotImage')
                 : clip.content_type === 'file'
                   ? getClipFileSummary(clip)
                   : clip.text_content || '';
@@ -238,7 +239,7 @@ export const QuickHudWindow: React.FC = () => {
                         <div className="flex items-center space-x-2">
                           <SafeRasterImage
                             source={clip.image_base64}
-                            alt="Clip Preview"
+                            alt={translate('component.quickHudWindow.clipPreview')}
                             className="theme-divider h-8 w-12 object-cover rounded border"
                           />
                           <OverflowText text={previewText} className="theme-text-muted text-xs font-mono truncate" />
@@ -261,7 +262,7 @@ export const QuickHudWindow: React.FC = () => {
           {isPasting ? (
             <span className="min-w-0 flex flex-1 items-center gap-1.5">
               <LoaderCircle className="h-3 w-3 shrink-0 animate-spin" />
-              <span>Pasting…</span>
+              <span>{translate('component.quickHudWindow.pasting')}</span>
             </span>
           ) : pasteError ? (
             <span className="theme-danger-text min-w-0 flex flex-1 items-center gap-1.5" title={pasteError}>
@@ -270,8 +271,8 @@ export const QuickHudWindow: React.FC = () => {
             </span>
           ) : (
             <>
-              <span>1–9 or Enter to paste</span>
-              <span>Esc to hide</span>
+              <span>{translate('component.quickHudWindow.value19OrEnterToPaste')}</span>
+              <span>{translate('component.quickHudWindow.escToHide')}</span>
             </>
           )}
         </div>

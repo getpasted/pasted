@@ -7,6 +7,7 @@ import { AppDialog } from './AppDialog';
 import { AppDialogBody, AppDialogButton, AppDialogFooter, AppDialogHeader, AppDialogHeading, SaveButtonContent } from './AppDialogLayout';
 import { MenuSelect, type MenuSelectOption } from './MenuSelect';
 import { TransformationPreviewPanel } from './TransformationPreviewPanel';
+import { translate } from '../localization/runtime';
 
 interface OperationEditorModalProps {
   operation: Operation | null;
@@ -22,6 +23,18 @@ export const CATEGORIES = [
   'Data Extraction',
   'Integrations',
 ];
+
+export function operationCategoryLabel(category: string): string {
+  const keys: Record<string, Parameters<typeof translate>[0]> = {
+    'Custom Operations': 'component.operationEditorModal.customOperations',
+    'Text Cleanup': 'component.operationEditorModal.textCleanup',
+    'Developer Tools': 'component.operationEditorModal.developerTools',
+    'Data Extraction': 'component.pipelineEditorModal.dataExtraction',
+    Integrations: 'component.operationEditorModal.integrations',
+  };
+  const key = keys[category];
+  return key ? translate(key) : category;
+}
 
 function operationFormValues(operation: Operation | null) {
   let findPattern = '';
@@ -81,7 +94,7 @@ export const OperationEditorModal: React.FC<OperationEditorModalProps> = ({
         setFindPattern(config.pattern || '');
         setReplacePattern(config.replacement || '');
       } catch {
-        setTestOutput('This operation has an invalid Regex configuration.');
+        setTestOutput(translate('component.operationEditorModal.invalidRegexConfiguration'));
       }
     }
     if (operation?.op_type === 'ai' && operation.config) {
@@ -89,7 +102,7 @@ export const OperationEditorModal: React.FC<OperationEditorModalProps> = ({
         const config = JSON.parse(operation.config);
         setAiInstructions(config.instructions || '');
       } catch {
-        setTestOutput('This operation has invalid connected-intelligence configuration.');
+        setTestOutput(translate('component.operationEditorModal.invalidIntelligenceConfiguration'));
       }
     }
   }, [operation, isOpen]);
@@ -110,7 +123,7 @@ export const OperationEditorModal: React.FC<OperationEditorModalProps> = ({
         });
         setTestOutput(output);
       } catch (error) {
-        setTestOutput(`Error: ${error}`);
+        setTestOutput(translate('common.errorMessage', { error: String(error) }));
       }
     }, 80);
     return () => window.clearTimeout(timer);
@@ -154,22 +167,22 @@ export const OperationEditorModal: React.FC<OperationEditorModalProps> = ({
   if (!isOpen) return null;
   const isEditableKind = opType === 'regex' || opType === 'ai';
   const operationTypeOptions: MenuSelectOption[] = [
-    { value: 'regex', label: 'Regex replacement · local and safe' },
+    { value: 'regex', get label() { return translate('component.operationEditorModal.regexReplacementLocalAndSafe'); } },
     ...(!['regex', 'ai', 'cli', 'http'].includes(opType)
-      ? [{ value: opType, label: `${opType} · legacy custom operation`, disabled: true }]
+      ? [{ value: opType, label: translate('component.operationEditorModal.optypeLegacyCustomOperation', { opType: opType }), disabled: true }]
       : []),
     ...(opType === 'cli'
-      ? [{ value: 'cli', label: 'Command or CLI · legacy and unavailable', disabled: true }]
+      ? [{ value: 'cli', get label() { return translate('component.operationEditorModal.commandOrCliLegacyAndUnavailable'); }, disabled: true }]
       : []),
     ...(opType === 'http'
-      ? [{ value: 'http', label: 'HTTP API · legacy and unavailable', disabled: true }]
+      ? [{ value: 'http', get label() { return translate('component.operationEditorModal.httpApiLegacyAndUnavailable'); }, disabled: true }]
       : []),
-    { value: 'ai', label: 'Connected intelligence · priority and fallback' },
+    { value: 'ai', get label() { return translate('component.operationEditorModal.connectedIntelligencePriorityAndFallback'); } },
   ];
   const categoryOptions: MenuSelectOption[] = Array.from(new Set([
     ...CATEGORIES,
     ...(category && !CATEGORIES.includes(category) ? [category] : []),
-  ])).map((value) => ({ value, label: value }));
+  ])).map((value) => ({ value, label: operationCategoryLabel(value) }));
   const isDirty = JSON.stringify({ name, opType, category, findPattern, replacePattern, aiInstructions })
     !== JSON.stringify(operationFormValues(operation));
 
@@ -184,46 +197,46 @@ export const OperationEditorModal: React.FC<OperationEditorModalProps> = ({
     >
       {({ requestClose }) => <>
         <AppDialogHeader onClose={requestClose} onMouseDown={startWindowDrag} onDoubleClick={handleWindowDragDoubleClick}>
-          <AppDialogHeading id="operation-editor-title" title={operation ? 'Edit Operation' : 'New Operation'} description="Configure a reusable building block for Transforms." icon={<Wrench />} tone="info" />
+          <AppDialogHeading id="operation-editor-title" title={operation ? translate('component.operationEditorModal.editOperation') : translate('component.operationEditorModal.newOperation')} description={translate('component.operationEditorModal.configureAReusableBuildingBlockForTransforms')} icon={<Wrench />} tone="info" />
         </AppDialogHeader>
 
         <AppDialogBody className="space-y-5">
           <div className="grid grid-cols-1 gap-4 text-xs sm:grid-cols-2">
             <div>
-              <label className="block font-semibold mb-1 theme-text-muted">Name</label>
+              <label className="block font-semibold mb-1 theme-text-muted">{translate('common.name')}</label>
               <input
                 value={name}
                 onChange={(event) => setName(event.target.value)}
-                placeholder="e.g. Redact phone numbers"
+                placeholder={translate('component.operationEditorModal.eGRedactPhoneNumbers')}
                 className="theme-input ui-field-radius w-full border px-3 py-2 text-xs font-medium focus:outline-none"
                 autoFocus
               />
             </div>
             <div>
-              <label className="block font-semibold mb-1 theme-text-muted">Category</label>
+              <label className="block font-semibold mb-1 theme-text-muted">{translate('component.operationEditorModal.category')}</label>
               <MenuSelect
                 value={category}
                 options={categoryOptions}
                 onChange={setCategory}
-                label="Operation category"
+                label={translate('component.operationEditorModal.operationCategory')}
                 className="w-full"
                 searchable
-                searchPlaceholder="Search categories…"
+                searchPlaceholder={translate('component.operationEditorModal.searchCategories')}
               />
             </div>
           </div>
 
           <div className="text-xs">
-            <label className="block font-semibold mb-1 theme-text-muted">Runs with</label>
+            <label className="block font-semibold mb-1 theme-text-muted">{translate('component.operationEditorModal.runsWith')}</label>
             <MenuSelect
               value={opType}
               options={operationTypeOptions}
               onChange={setOpType}
-              label="Operation engine type"
+              label={translate('component.operationEditorModal.operationEngineType')}
               className="w-full"
             />
             <p className="theme-text-subtle text-[10px] mt-1.5">
-              This chooses how a custom Operation runs; built-in transformations are maintained automatically and are not duplicated here.
+              {translate('component.operationEditorModal.thisChoosesHowACustomOperationRunsBuiltInTransformationsAreMaintained')}
             </p>
           </div>
 
@@ -231,8 +244,8 @@ export const OperationEditorModal: React.FC<OperationEditorModalProps> = ({
             <>
               <div className="grid grid-cols-1 gap-3 text-xs sm:grid-cols-2">
                 <div>
-                  <label className="block mb-1 theme-text-muted">Find pattern</label>
-                  <textarea
+                  <label className="block mb-1 theme-text-muted">{translate('component.operationEditorModal.findPattern')}</label>
+                  <textarea dir="auto"
                     value={findPattern}
                     onChange={(event) => setFindPattern(event.target.value)}
                     placeholder="e.g. \\b\\d{3}-\\d{3}-\\d{4}\\b"
@@ -240,44 +253,44 @@ export const OperationEditorModal: React.FC<OperationEditorModalProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="block mb-1 theme-text-muted">Replace with</label>
-                  <textarea
+                  <label className="block mb-1 theme-text-muted">{translate('component.operationEditorModal.replaceWith')}</label>
+                  <textarea dir="auto"
                     value={replacePattern}
                     onChange={(event) => setReplacePattern(event.target.value)}
-                    placeholder="e.g. [REDACTED] or $1"
+                    placeholder={translate('component.operationEditorModal.eGRedactedOr1')}
                     className="theme-input ui-field-radius w-full h-20 border p-2.5 font-mono focus:outline-none"
                   />
                 </div>
               </div>
 
               <TransformationPreviewPanel
-                title="Local preview"
-                description="Runs locally during editing."
-                input={<textarea
+                title={translate('component.operationEditorModal.localPreview')}
+                description={translate('component.operationEditorModal.runsLocallyDuringEditing')}
+                input={<textarea dir="auto"
                     value={testInput}
                     onChange={(event) => setTestInput(event.target.value)}
                     className="theme-input ui-field-radius w-full h-20 border p-2.5 focus:outline-none"
                   />}
                 output={<div className="theme-input ui-field-radius overlay-scroll-region w-full h-20 border p-2.5 overflow-y-auto whitespace-pre-wrap">
-                    {testOutput || 'Output will appear here…'}
+                    {testOutput || translate('component.operationEditorModal.outputWillAppearHere')}
                   </div>}
               />
             </>
           ) : opType === 'ai' ? (
             <div className="space-y-3 text-xs">
               <div>
-                <label className="block mb-1 theme-text-muted">Instructions</label>
-                <textarea
+                <label className="block mb-1 theme-text-muted">{translate('component.operationEditorModal.instructions')}</label>
+                <textarea dir="auto"
                   value={aiInstructions}
                   onChange={(event) => setAiInstructions(event.target.value)}
-                  placeholder="For example: Rewrite this as concise, well-structured Markdown while preserving every fact and URL."
+                  placeholder={translate('component.operationEditorModal.forExampleRewriteThisAsConciseWellStructuredMarkdownWhilePreservingEvery')}
                   className="theme-input ui-field-radius min-h-32 w-full resize-y border p-3 focus:outline-none"
                 />
               </div>
               <div className="theme-card-idle flex items-start gap-3 border p-4">
                 <Braces className="mt-0.5 h-4 w-4 theme-text-muted" />
                 <p className="theme-text-muted">
-                  Runs through the first enabled compatible Connection. The Operation stores instructions and routing—not credentials.
+                  {translate('component.operationEditorModal.runsThroughTheFirstEnabledCompatibleConnectionTheOperationStoresInstructionsAnd')}
                 </p>
               </div>
             </div>
@@ -285,7 +298,7 @@ export const OperationEditorModal: React.FC<OperationEditorModalProps> = ({
             <div className="theme-card-idle border p-4 flex items-start gap-3 text-xs">
               <Braces className="w-4 h-4 mt-0.5 theme-text-muted" />
               <p className="theme-text-muted">
-                This legacy executor is preserved, but editing and execution stay disabled until its sandbox, permissions, timeouts, and output limits are available.
+                {translate('component.operationEditorModal.thisLegacyExecutorIsPreservedButEditingAndExecutionStayDisabledUntil')}
               </p>
             </div>
           )}
@@ -293,7 +306,7 @@ export const OperationEditorModal: React.FC<OperationEditorModalProps> = ({
         </AppDialogBody>
 
         <AppDialogFooter>
-          <AppDialogButton onClick={requestClose}>Cancel</AppDialogButton>
+          <AppDialogButton onClick={requestClose}>{translate('common.cancel')}</AppDialogButton>
           <AppDialogButton
             variant="primary"
             onClick={handleSave}

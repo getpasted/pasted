@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
 const read = (path) => fs.readFileSync(path, 'utf8');
+const englishCatalog = JSON.parse(read('src/locales/en.json'));
 const cli = read('src-tauri/src/bin/pasted_cli.rs');
 const help = read('src/components/HelpView.tsx');
 const database = read('src-tauri/src/db.rs');
@@ -452,10 +453,12 @@ for (const method of ['get_content_extractors', 'create_content_extractor', 'upd
   assert.match(commands, new RegExp(`pub fn ${method}`), `${method} must be exposed to the GUI`);
   assert.match(cli, new RegExp(`db\\s*\\.${method}`), `${method} must be reused by the CLI`);
 }
-assert.match(extractorManager, />Method</,
+assert.match(extractorManager, /translate\('component\.contentExtractorManagerDialog\.method'\)/,
   'Extractor management must present a concrete execution Method instead of an editable engine ID');
-assert.match(extractorManager, />Runtime location</,
+assert.equal(englishCatalog['component.contentExtractorManagerDialog.method'], 'Method');
+assert.match(extractorManager, /translate\('component\.contentExtractorManagerDialog\.runtimeLocation'\)/,
   'Extractor management must expose configured and discovered runtime locations');
+assert.equal(englishCatalog['component.contentExtractorManagerDialog.runtimeLocation'], 'Runtime location');
 assert.match(extractorManager, /choose_extractor_executable/,
   'Extractor management must allow executable selection through the native picker');
 assert.doesNotMatch(extractorManager, /<input[^>]+value=\{draft\.engine\}/,

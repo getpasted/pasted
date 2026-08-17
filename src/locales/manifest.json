@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "defaultLocale": "en",
+  "locales": [
+    {
+      "code": "ar",
+      "name": "Arabic",
+      "nativeName": "العربية",
+      "direction": "rtl",
+      "catalog": "ar.json"
+    },
+    {
+      "code": "en",
+      "name": "English",
+      "nativeName": "English",
+      "direction": "ltr",
+      "catalog": "en.json"
+    },
+    {
+      "code": "es",
+      "name": "Spanish",
+      "nativeName": "Español",
+      "direction": "ltr",
+      "catalog": "es.json"
+    },
+    {
+      "code": "de-DE",
+      "name": "German",
+      "nativeName": "Deutsch",
+      "direction": "ltr",
+      "catalog": "de-DE.json"
+    },
+    {
+      "code": "fr-FR",
+      "name": "French",
+      "nativeName": "Français",
+      "direction": "ltr",
+      "catalog": "fr-FR.json"
+    },
+    {
+      "code": "he",
+      "name": "Hebrew",
+      "nativeName": "עברית",
+      "direction": "rtl",
+      "catalog": "he.json"
+    },
+    {
+      "code": "ja-JP",
+      "name": "Japanese",
+      "nativeName": "日本語",
+      "direction": "ltr",
+      "catalog": "ja-JP.json"
+    },
+    {
+      "code": "pt-BR",
+      "name": "Brazilian Portuguese",
+      "nativeName": "Português (Brasil)",
+      "direction": "ltr",
+      "catalog": "pt-BR.json"
+    }
+  ]
+}

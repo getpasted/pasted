@@ -6,9 +6,11 @@ import type { AppSettings, BlacklistApp } from '../types';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { FEATURE_SETTING_KEYS } from '../utils/features';
 import { clampAppZoom } from '../utils/appZoom';
+import { isConfiguredLanguage, setConfiguredLanguage } from '../localization/runtime';
 
 const DEFAULT_SETTINGS: AppSettings = {
   onboardingVersion: 0,
+  language: 'system',
   textSize: 16,
   enableSounds: true,
   captureFeedback: true,
@@ -110,6 +112,7 @@ function parseSavedSettings(saved: Record<string, string>) {
   };
 
   if (saved.onboardingVersion) next.onboardingVersion = Math.max(0, numberValue('onboardingVersion', 0));
+  if (saved.language && isConfiguredLanguage(saved.language)) next.language = saved.language;
   if (saved.textSize) next.textSize = clampAppZoom(numberValue('textSize', next.textSize));
   if (saved.enableSounds !== undefined) next.enableSounds = saved.enableSounds === 'true';
   if (saved.captureFeedback !== undefined) next.captureFeedback = saved.captureFeedback === 'true';
@@ -313,6 +316,10 @@ export function useAppSettings() {
   }, [appSettings.textSize]);
 
   useEffect(() => {
+    setConfiguredLanguage(appSettings.language);
+  }, [appSettings.language]);
+
+  useEffect(() => {
     if (!settingsHydrated || !(window as Window & { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__) return;
     (appSettings.openAtLogin ? enable() : disable()).catch(console.error);
   }, [appSettings.openAtLogin, settingsHydrated]);
@@ -378,6 +385,7 @@ export function useAppSettings() {
         // SQLite remains authoritative when browser storage is unavailable.
       }
     }
+    if (updates.language) setConfiguredLanguage(updates.language);
     const entries = Object.entries(updates);
     if (entries.length > 1 && entries.every(([key]) => FEATURE_SETTING_KEYS.includes(key as typeof FEATURE_SETTING_KEYS[number]))) {
       const values = Object.fromEntries(entries.map(([key, value]) => [key, String(value)]));

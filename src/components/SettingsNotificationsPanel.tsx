@@ -5,6 +5,7 @@ import { MenuSelect } from './MenuSelect';
 import { SettingsPanelHeader } from './SettingsPanelHeader';
 import { SettingsPanelNote } from './SettingsPanelNote';
 import { SettingsSwitch } from './SettingsSwitch';
+import { translate } from '../localization/runtime';
 
 interface SettingsNotificationsPanelProps {
   settings: AppSettings;
@@ -31,20 +32,20 @@ function SettingRow({ disabled = false, label, description, action }: SettingRow
 }
 
 const POSITION_OPTIONS = [
-  { value: 'top-left', label: 'Top left' },
-  { value: 'top-right', label: 'Top right' },
-  { value: 'bottom-left', label: 'Bottom left' },
-  { value: 'bottom-right', label: 'Bottom right' },
+  { value: 'top-left', get label() { return translate('component.settingsNotificationsPanel.topLeft'); } },
+  { value: 'top-right', get label() { return translate('component.settingsNotificationsPanel.topRight'); } },
+  { value: 'bottom-left', get label() { return translate('component.settingsNotificationsPanel.bottomLeft'); } },
+  { value: 'bottom-right', get label() { return translate('component.settingsNotificationsPanel.bottomRight'); } },
 ];
 
 const DISMISS_OPTIONS = [
-  { value: '3', label: '3 seconds' },
-  { value: '5', label: '5 seconds' },
-  { value: '7', label: '7 seconds' },
-  { value: '10', label: '10 seconds' },
-  { value: '15', label: '15 seconds' },
-  { value: '30', label: '30 seconds' },
-  { value: '0', label: 'Never' },
+  { value: '3', get label() { return translate('component.settingsNotificationsPanel.value3Seconds'); } },
+  { value: '5', get label() { return translate('component.settingsNotificationsPanel.value5Seconds'); } },
+  { value: '7', get label() { return translate('component.settingsNotificationsPanel.value7Seconds'); } },
+  { value: '10', get label() { return translate('component.settingsNotificationsPanel.value10Seconds'); } },
+  { value: '15', get label() { return translate('component.settingsNotificationsPanel.value15Seconds'); } },
+  { value: '30', get label() { return translate('component.settingsNotificationsPanel.value30Seconds'); } },
+  { value: '0', get label() { return translate('component.settingsNotificationsPanel.never'); } },
 ];
 
 export function SettingsNotificationsPanel({ settings, onUpdateSettings }: SettingsNotificationsPanelProps) {
@@ -52,71 +53,71 @@ export function SettingsNotificationsPanel({ settings, onUpdateSettings }: Setti
     <div className="space-y-5 text-xs">
       <SettingsPanelHeader
         icon={Bell}
-        title="Notifications"
-        description="Get a quiet confirmation when clipboard capture succeeds or fails."
+        title={translate('component.settingsNotificationsPanel.notifications')}
+        description={translate('component.settingsNotificationsPanel.getAQuietConfirmationWhenClipboardCaptureSucceedsOrFails')}
       />
 
       <div className="space-y-4">
         <SettingRow
-          label="Capture feedback"
-          description="Briefly confirms successful captures without taking focus from the current app."
+          label={translate('component.settingsNotificationsPanel.captureFeedback')}
+          description={translate('component.settingsNotificationsPanel.brieflyConfirmsSuccessfulCapturesWithoutTakingFocusFromTheCurrentApp')}
           action={<SettingsSwitch
             checked={settings.captureFeedback}
-            label="Capture feedback"
+            label={translate('component.settingsNotificationsPanel.captureFeedback')}
             onClick={() => onUpdateSettings({ captureFeedback: !settings.captureFeedback })}
           />}
         />
         <SettingRow
           disabled={!settings.captureFeedback}
-          label="Show skipped captures"
-          description="Also acknowledge clipboard items intentionally left alone."
+          label={translate('component.settingsNotificationsPanel.showSkippedCaptures')}
+          description={translate('component.settingsNotificationsPanel.alsoAcknowledgeClipboardItemsIntentionallyLeftAlone')}
           action={<SettingsSwitch
             checked={settings.captureFeedbackIgnored}
-            label="Show skipped captures"
+            label={translate('component.settingsNotificationsPanel.showSkippedCaptures')}
             disabled={!settings.captureFeedback}
             onClick={() => onUpdateSettings({ captureFeedbackIgnored: !settings.captureFeedbackIgnored })}
           />}
         />
         <SettingRow
           disabled={!settings.captureFeedback}
-          label="Show clip preview"
-          description="Show the captured item with quick actions."
+          label={translate('component.settingsNotificationsPanel.showClipPreview')}
+          description={translate('component.settingsNotificationsPanel.showTheCapturedItemWithQuickActions')}
           action={<SettingsSwitch
             checked={settings.captureFeedbackPreview}
-            label="Show clip preview"
+            label={translate('component.settingsNotificationsPanel.showClipPreview')}
             disabled={!settings.captureFeedback}
             onClick={() => onUpdateSettings({ captureFeedbackPreview: !settings.captureFeedbackPreview })}
           />}
         />
         <SettingRow
           disabled={!settings.captureFeedback || !settings.captureFeedbackPreview}
-          label="Dismiss preview after"
-          description="The countdown pauses while the pointer is over a preview."
+          label={translate('component.settingsNotificationsPanel.dismissPreviewAfter')}
+          description={translate('component.settingsNotificationsPanel.theCountdownPausesWhileThePointerIsOverAPreview')}
           action={<MenuSelect
             value={String(settings.captureFeedbackDismissSeconds)}
             options={DISMISS_OPTIONS}
             disabled={!settings.captureFeedback || !settings.captureFeedbackPreview}
             onChange={(value) => onUpdateSettings({ captureFeedbackDismissSeconds: Number(value) })}
-            label="Preview dismissal delay"
+            label={translate('component.settingsNotificationsPanel.previewDismissalDelay')}
             className="settings-menu-select"
           />}
         />
         <SettingRow
-          label="Screen position"
-          description="Uses this corner on whichever display currently contains the pointer."
+          label={translate('component.settingsNotificationsPanel.screenPosition')}
+          description={translate('component.settingsNotificationsPanel.usesThisCornerOnWhicheverDisplayCurrentlyContainsThePointer')}
           action={<MenuSelect
             value={settings.captureFeedbackPosition}
             options={POSITION_OPTIONS}
             onChange={(value) => onUpdateSettings({
               captureFeedbackPosition: value as AppSettings['captureFeedbackPosition'],
             })}
-            label="Capture feedback position"
+            label={translate('component.settingsNotificationsPanel.captureFeedbackPosition')}
             className="settings-menu-select"
           />}
         />
       </div>
       <SettingsPanelNote>
-        Capture feedback stays on-device and never exposes copied text, images, file names, or paths to system notifications.
+        {translate('component.settingsNotificationsPanel.captureFeedbackStaysOnDeviceAndNeverExposesCopiedTextImagesFile')}
       </SettingsPanelNote>
     </div>
   );

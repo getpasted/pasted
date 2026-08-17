@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { AppDialog } from './AppDialog';
+import { translate } from '../localization/runtime';
 import {
   AppDialogBody,
   AppDialogButton,
@@ -49,7 +50,7 @@ export function FactoryResetDialog({
       await onReset();
     } catch (resetError) {
       console.error('Factory reset failed:', resetError);
-      setError('Pasted could not be reset. Your existing data has not been partially removed.');
+      setError(translate('component.factoryResetDialog.couldNotResetExistingDataUnaffected'));
       setIsResetting(false);
     }
   };
@@ -59,8 +60,8 @@ export function FactoryResetDialog({
       <LibraryTransitionDialog
         isOpen={isOpen}
         variant="reset"
-        title="Resetting Pasted"
-        description="Clearing saved data and restoring defaults…"
+        title={translate('component.factoryResetDialog.resettingPasted')}
+        description={translate('component.factoryResetDialog.clearingSavedDataAndRestoringDefaults')}
       />
     );
   }
@@ -73,24 +74,20 @@ export function FactoryResetDialog({
       panelClassName="app-dialog-danger theme-panel w-full max-w-lg rounded-2xl border overflow-hidden font-sans"
     >
       {({ requestClose }) => <>
-        <AppDialogHeader onClose={requestClose} closeLabel="Close reset dialog">
+        <AppDialogHeader onClose={requestClose} closeLabel={translate('component.factoryResetDialog.closeResetDialog')}>
           <AppDialogHeading
             id="factory-reset-title"
-            title="Reset Pasted?"
-            description="Return this installation to its first-launch state."
+            title={translate('component.factoryResetDialog.resetPasted')}
+            description={translate('component.factoryResetDialog.returnThisInstallationToItsFirstLaunchState')}
             icon={<AlertTriangle />}
             tone="danger"
           />
         </AppDialogHeader>
         <AppDialogBody className="space-y-4">
-          <div className="theme-status-danger rounded-xl border p-3 text-xs leading-relaxed">
-            This permanently deletes clips, Bins, Transforms, connections, activity history, and preferences.
-            Full backup files and the original files referenced by clips are not deleted.
-          </div>
+          <div className="theme-status-danger rounded-xl border p-3 text-xs leading-relaxed">{translate('component.factoryResetDialog.thisPermanentlyDeletesClipsBinsTransformsConnectionsActivityHistoryAndPreferencesFull')}</div>
           <div>
             <label htmlFor="factory-reset-confirmation" className="block text-xs font-semibold theme-title">
-              Type <span className="font-mono">RESET</span> to continue
-            </label>
+              {translate('component.factoryResetDialog.typeValueToContinue', { value: translate('component.factoryResetDialog.reset') })}</label>
             <input
               id="factory-reset-confirmation"
               autoFocus
@@ -105,15 +102,15 @@ export function FactoryResetDialog({
           {error && <div role="alert" className="theme-status-danger rounded-xl border px-3 py-2 text-xs">{error}</div>}
         </AppDialogBody>
         <AppDialogFooter align="between">
-          <AppDialogButton onClick={() => void onExport()} disabled={isResetting}>Create Full Backup…</AppDialogButton>
+          <AppDialogButton onClick={() => void onExport()} disabled={isResetting}>{translate('component.factoryResetDialog.createFullBackup')}</AppDialogButton>
           <div className="flex items-center gap-2">
-            <AppDialogButton onClick={requestClose} disabled={isResetting}>Cancel</AppDialogButton>
+            <AppDialogButton onClick={requestClose} disabled={isResetting}>{translate('common.cancel')}</AppDialogButton>
             <AppDialogButton
               variant="danger"
               onClick={() => void reset()}
               disabled={confirmation !== 'RESET' || isResetting}
             >
-              {isResetting ? 'Resetting…' : 'Reset Pasted'}
+              {isResetting ? translate('component.factoryResetDialog.resetting') : translate('component.factoryResetDialog.resetPasted2')}
             </AppDialogButton>
           </div>
         </AppDialogFooter>

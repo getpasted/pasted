@@ -5,6 +5,7 @@ import { binTextColor } from '../utils/binColor';
 import { formatEmojiIcon } from '../utils/emoji';
 import { AnchoredMenu, MenuDivider, MenuItem } from './AnchoredMenu';
 import { OverflowText } from './OverflowText';
+import { translate } from '../localization/runtime';
 
 interface ClipBinPickerProps {
   bins: Bin[];
@@ -21,7 +22,9 @@ export function ClipBinPicker({ bins, selectedBinIds, viewedBinId, onClear, onTo
   const manualBins = bins.filter((bin) => !bin.smart_rule);
   const smartBins = bins.filter((bin) => Boolean(bin.smart_rule));
   const selectedCount = bins.filter((bin) => selected.has(bin.id)).length;
-  const label = selectedCount === 0 ? 'No Bin' : `${selectedCount} Bin${selectedCount === 1 ? '' : 's'}`;
+  const label = selectedCount === 0
+    ? translate('common.noBin')
+    : translate('component.clipBinPicker.selectedBins', { count: selectedCount });
 
   const renderBin = (bin: Bin, smart: boolean) => {
     const active = selected.has(bin.id);
@@ -32,7 +35,7 @@ export function ClipBinPicker({ bins, selectedBinIds, viewedBinId, onClear, onTo
         aria-checked={active}
         active={active}
         disabled={smart}
-        title={smart ? 'Smart Bin membership is managed automatically' : undefined}
+        title={smart ? translate('component.clipBinPicker.smartBinMembershipIsManagedAutomatically') : undefined}
         className="gap-2 px-2.5 py-2"
         onClick={() => {
           const nextSelected = !active;
@@ -45,7 +48,7 @@ export function ClipBinPicker({ bins, selectedBinIds, viewedBinId, onClear, onTo
         </span>
         <OverflowText
           text={bin.name}
-          className="min-w-0 flex-1 truncate"
+          className="bidi-interface-align min-w-0 flex-1 truncate"
           style={{ color: binTextColor(bin.color) }}
         />
         {smart && <Sparkles className="theme-intelligence-text h-3 w-3 shrink-0" aria-hidden="true" />}
@@ -61,21 +64,21 @@ export function ClipBinPicker({ bins, selectedBinIds, viewedBinId, onClear, onTo
       <button
         ref={triggerRef}
         type="button"
-        className="menu-select-trigger clip-bin-picker theme-focusable flex min-w-0 items-center gap-2 border px-2.5 text-left ui-field-radius"
-        aria-label="Choose Bins"
+        className="menu-select-trigger clip-bin-picker theme-focusable flex min-w-0 items-center gap-2 border px-2.5 text-start ui-field-radius"
+        aria-label={translate('component.clipBinPicker.chooseBins')}
         aria-haspopup="menu"
         aria-expanded={isOpen}
         onClick={() => setIsOpen((open) => !open)}
       >
         <Folder className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-        <span className="min-w-0 flex-1 truncate py-2 text-xs font-semibold">{label}</span>
+        <span className="bidi-interface-align min-w-0 flex-1 truncate py-2 text-xs font-semibold" dir="auto">{label}</span>
         <ChevronDown className={`h-3.5 w-3.5 shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} aria-hidden="true" />
       </button>
 
       {isOpen && (
         <AnchoredMenu
           anchor={{ kind: 'element', ref: triggerRef, align: 'start' }}
-          ariaLabel="Choose Bins"
+          ariaLabel={translate('component.clipBinPicker.chooseBins')}
           onClose={() => setIsOpen(false)}
           className="max-h-80 overflow-y-auto"
           style={{
@@ -98,11 +101,11 @@ export function ClipBinPicker({ bins, selectedBinIds, viewedBinId, onClear, onTo
             }}
           >
             <FolderX className="h-4 w-4 shrink-0" aria-hidden="true" />
-            <span className="min-w-0 flex-1">No Bin</span>
+            <span className="min-w-0 flex-1">{translate('common.noBin')}</span>
           </MenuItem>
           {manualBins.length > 0 && (
             <>
-              <div className="theme-text-subtle px-2.5 pb-1 pt-2 text-[10px] font-bold uppercase tracking-wider">Manual Bins</div>
+              <div className="theme-text-subtle px-2.5 pb-1 pt-2 text-[10px] font-bold uppercase tracking-wider">{translate('component.clipBinPicker.manualBins')}</div>
               {manualBins.map((bin) => renderBin(bin, false))}
             </>
           )}
@@ -111,7 +114,7 @@ export function ClipBinPicker({ bins, selectedBinIds, viewedBinId, onClear, onTo
               <MenuDivider />
               <div className="theme-text-subtle flex items-center gap-1.5 px-2.5 pb-1 pt-1 text-[10px] font-bold uppercase tracking-wider">
                 <Sparkles className="h-3 w-3" aria-hidden="true" />
-                Smart Bins · Automatic
+                {translate('component.clipBinPicker.smartBinsAutomatic')}
               </div>
               {smartBins.map((bin) => renderBin(bin, true))}
             </>

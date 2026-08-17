@@ -204,7 +204,7 @@
   flex: 0 0 14rem;
   padding: 0.75rem;
   overflow-y: auto;
-  border-right: 1px solid var(--border-subtle);
+  border-inline-end: 1px solid var(--border-subtle);
 }
 
 .help-topic-button {

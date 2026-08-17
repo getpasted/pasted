@@ -1,6 +1,7 @@
 import { AlertTriangle } from 'lucide-react';
 import { useId } from 'react';
 import { AppDialog } from './AppDialog';
+import { translate } from '../localization/runtime';
 import {
   AppDialogBody,
   AppDialogButton,
@@ -54,7 +55,7 @@ export function ConfirmationDialog({
           </AppDialogBody>
         )}
         <AppDialogFooter>
-          <AppDialogButton onClick={requestClose} autoFocus>Cancel</AppDialogButton>
+          <AppDialogButton onClick={requestClose} autoFocus>{translate('common.cancel')}</AppDialogButton>
           <AppDialogButton variant={tone} onClick={request.onConfirm}>{request.confirmLabel}</AppDialogButton>
         </AppDialogFooter>
       </>}

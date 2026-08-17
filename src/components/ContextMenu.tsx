@@ -9,6 +9,7 @@ import { selectedClipDeleteLabel, UI_COPY } from '../utils/uiCopy';
 import { useFeatures } from '../hooks/useFeatures';
 import { AnchoredMenu, MenuDivider, MenuItem, MenuSubmenu } from './AnchoredMenu';
 import { OverflowText } from './OverflowText';
+import { translate } from '../localization/runtime';
 import {
   Copy,
   FolderPlus,
@@ -103,7 +104,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   return (
     <AnchoredMenu
       anchor={{ kind: 'point', x, y }}
-      ariaLabel="Clip actions"
+      ariaLabel={translate('component.contextMenu.clipActions')}
       className="context-menu w-52"
       onClose={onClose}
     >
@@ -127,7 +128,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
       {/* Bin */}
       {features.bins && viewPolicy.canAssignBins && (
         <MenuSubmenu
-          label="Bin"
+          label={translate('component.contextMenu.bin')}
           icon={<FolderPlus className="theme-status-warning-text h-3.5 w-3.5" />}
           open={activeSubmenu === 'bins'}
           onOpenChange={(open) => setSubmenuOpen('bins', open)}
@@ -139,7 +140,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
               }}
               className="px-3 py-1.5"
             >
-              No Bin
+              {translate('common.noBin')}
             </MenuItem>
 
             {bins.filter((b) => !b.smart_rule).map((b) => {
@@ -157,8 +158,8 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
                   active={active}
                 >
                   <span>{formatEmojiIcon(b.icon)}</span>
-                  <OverflowText text={b.name} className="truncate" style={{ color: binTextColor(b.color) }} />
-                  {active && <Check className="ml-auto h-3.5 w-3.5" aria-hidden="true" />}
+                  <OverflowText text={b.name} className="bidi-interface-align truncate" style={{ color: binTextColor(b.color) }} />
+                  {active && <Check className="ms-auto h-3.5 w-3.5" aria-hidden="true" />}
                 </MenuItem>
               );
             })}
@@ -166,7 +167,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
               <>
                 <MenuDivider />
                 <div className="theme-text-subtle px-3 pb-1 pt-1 text-[10px] font-bold uppercase tracking-wider">
-                  Smart Bins · Automatic
+                  {translate('component.contextMenu.smartBinsAutomatic')}
                 </div>
               </>
             )}
@@ -177,12 +178,12 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
                 role="menuitemcheckbox"
                 aria-checked={Boolean(clip.bin_ids?.includes(b.id))}
                 active={Boolean(clip.bin_ids?.includes(b.id))}
-                title="Smart Bin membership is managed automatically"
+                title={translate('component.contextMenu.smartBinMembershipIsManagedAutomatically')}
                 className="gap-2 px-3 py-1.5"
               >
                 <span>{formatEmojiIcon(b.icon)}</span>
-                <OverflowText text={b.name} className="truncate" style={{ color: binTextColor(b.color) }} />
-                {clip.bin_ids?.includes(b.id) && <Check className="ml-auto h-3.5 w-3.5" aria-hidden="true" />}
+                <OverflowText text={b.name} className="bidi-interface-align truncate" style={{ color: binTextColor(b.color) }} />
+                {clip.bin_ids?.includes(b.id) && <Check className="ms-auto h-3.5 w-3.5" aria-hidden="true" />}
               </MenuItem>
             ))}
         </MenuSubmenu>
@@ -191,7 +192,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
       {/* Workflow Submenu */}
       {features.transformations && viewPolicy.canRunPipelines && clip.content_type !== 'file' && (
         <MenuSubmenu
-          label="Workflow"
+          label={translate('component.contextMenu.workflow')}
           icon={<Workflow className="theme-workflow-text h-3.5 w-3.5" />}
           open={activeSubmenu === 'workflow'}
           onOpenChange={(open) => setSubmenuOpen('workflow', open)}
@@ -199,7 +200,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
         >
             <div>
               {isLoadingTransforms ? (
-                <p className="theme-text-muted px-2.5 py-2 text-[10px]">Loading Transforms…</p>
+                <p className="theme-text-muted px-2.5 py-2 text-[10px]">{translate('component.contextMenu.loadingTransforms')}</p>
               ) : transforms.length > 0 ? transforms.map((transform) => {
                 const usesIntelligence = transform.plan.steps.some((step) => step.executor.kind === 'semantic');
                 return (
@@ -212,12 +213,12 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
                     className="gap-2 px-2.5 py-1.5"
                   >
                     <Workflow className="theme-workflow-text h-3.5 w-3.5 shrink-0" />
-                    <OverflowText text={transform.name} className="min-w-0 flex-1 truncate" />
+                    <OverflowText text={transform.name} className="bidi-interface-align min-w-0 flex-1 truncate" />
                     {usesIntelligence && <Sparkles className="theme-intelligence-text h-3 w-3 shrink-0" />}
                   </MenuItem>
                 );
               }) : (
-                <p className="theme-text-muted px-2.5 py-2 text-[10px]">No saved Transforms yet.</p>
+                <p className="theme-text-muted px-2.5 py-2 text-[10px]">{translate('component.contextMenu.noSavedTransformsYet')}</p>
               )}
             </div>
             <MenuDivider />
@@ -229,7 +230,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
               className="gap-2 px-2.5 py-1.5"
             >
               <Workflow className="theme-workflow-text h-3.5 w-3.5 shrink-0" />
-              <span>Manage Transforms…</span>
+              <span>{translate('component.contextMenu.manageTransforms')}</span>
             </MenuItem>
         </MenuSubmenu>
       )}
@@ -245,7 +246,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
         className="theme-menu-item w-full flex items-center space-x-2.5 px-3 py-1.5 rounded-md"
       >
         <StickyNote className="theme-note-text w-3.5 h-3.5" />
-        <span>{clip.note ? 'Edit Note' : 'Add Note'}</span>
+        <span>{clip.note ? translate('action.editNote') : translate('action.addNote')}</span>
       </button>}
 
       {/* Remove Note */}
@@ -258,7 +259,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
           className="theme-menu-item theme-danger-text w-full flex items-center space-x-2.5 px-3 py-1.5 rounded-md transition-colors"
         >
           <Trash2 className="w-3.5 h-3.5" />
-          <span>Remove Note</span>
+          <span>{translate('component.contextMenu.removeNote')}</span>
         </button>
       )}
 
@@ -271,7 +272,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
         className="theme-menu-item w-full flex items-center space-x-2.5 px-3 py-1.5 rounded-md"
       >
         <ListPlus className="theme-queue-text w-3.5 h-3.5" />
-        <span>Add to Queue</span>
+        <span>{translate('component.contextMenu.addToQueue')}</span>
       </button>}
 
       {/* Toggle Pin */}
@@ -290,11 +291,11 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
         <span>
           {selectedCount && selectedCount > 1
             ? clip.is_pinned
-              ? `Unpin ${selectedCount}`
-              : `Pin ${selectedCount}`
+              ? translate('component.contextMenu.unpinCount', { count: selectedCount })
+              : translate('component.contextMenu.pinCount', { count: selectedCount })
             : clip.is_pinned
-            ? 'Unpin'
-            : 'Pin'}
+            ? translate('action.unpin')
+            : translate('action.pin')}
         </span>
       </button>}
 
@@ -312,7 +313,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
           ) : (
             <Shield className="theme-status-info-text w-3.5 h-3.5" />
           )}
-          <span>{clip.is_protected ? 'Unprotect' : 'Protect'}</span>
+          <span>{clip.is_protected ? translate('action.unprotect') : translate('action.protect')}</span>
         </button>
       )}
 
@@ -358,7 +359,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
           : <Trash2 className="theme-danger-text w-3.5 h-3.5" />}
         <span>
           {clip.is_protected
-            ? 'Protected'
+            ? translate('component.contextMenu.protected')
             : selectedClipDeleteLabel({
                 count: selectedCount ?? 1,
                 trashEnabled,

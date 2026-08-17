@@ -6,6 +6,7 @@ import { AppDialog } from './AppDialog';
 import { ExternalHistoryImport, type ExternalImportReport } from './ExternalHistoryImport';
 import { CopycatHeadMark } from './CopycatMark';
 import { ActionButton } from './AppDialogLayout';
+import { translate } from '../localization/runtime';
 
 const ONBOARDING_VERSION = 1;
 
@@ -108,7 +109,7 @@ export function WelcomeSetup({ isOpen, settings, onUpdateSettings, onImported }:
       overlayClassName="welcome-setup-overlay p-5"
       panelClassName="welcome-setup-panel theme-panel w-full max-w-3xl overflow-hidden rounded-2xl border shadow-2xl"
     >
-      <div className="welcome-setup-progress" aria-label={`Setup step ${stepIndex + 1} of ${STEPS.length}`}>
+      <div className="welcome-setup-progress" aria-label={translate('component.welcomeSetup.setupStepValueOfLength', { value: stepIndex + 1, length: STEPS.length })}>
         {STEPS.map((candidate, index) => (
           <span key={candidate} className={index <= stepIndex ? 'is-complete' : ''} />
         ))}
@@ -120,15 +121,15 @@ export function WelcomeSetup({ isOpen, settings, onUpdateSettings, onImported }:
             <div className="welcome-setup-mark is-copycat is-mirrored" aria-hidden="true">
               <CopycatHeadMark />
             </div>
-            <p className="welcome-setup-kicker">The private, local clipboard workspace</p>
-            <h1 id="pasted-welcome-title">Welcome, copycat.</h1>
+            <p className="welcome-setup-kicker">{translate('component.welcomeSetup.thePrivateLocalClipboardWorkspace')}</p>
+            <h1 id="pasted-welcome-title">{translate('component.welcomeSetup.welcomeCopycat')}</h1>
             <p>
-              Pasted gives you, your scripts, and your agents one shared place to remember, organize, and reshape everything you copy.
+              {translate('component.welcomeSetup.pastedGivesYouYourScriptsAndYourAgentsOneSharedPlaceTo')}
             </p>
-            <ul className="welcome-setup-highlights" aria-label="Pasted highlights">
-              <li><HardDrive /> <span>No cloud account</span></li>
-              <li><RadioTower /> <span>No off-device telemetry</span></li>
-              <li><HeartHandshake /> <span>No subscription</span></li>
+            <ul className="welcome-setup-highlights" aria-label={translate('component.welcomeSetup.pastedHighlights')}>
+              <li><HardDrive /> <span>{translate('component.welcomeSetup.noCloudAccount')}</span></li>
+              <li><RadioTower /> <span>{translate('component.welcomeSetup.noOffDeviceTelemetry')}</span></li>
+              <li><HeartHandshake /> <span>{translate('component.welcomeSetup.noSubscription')}</span></li>
             </ul>
           </div>
         )}
@@ -138,9 +139,9 @@ export function WelcomeSetup({ isOpen, settings, onUpdateSettings, onImported }:
             <div className="welcome-setup-heading">
               <span className="welcome-setup-heading-icon"><ClipboardCheck /></span>
               <div>
-                <p className="welcome-setup-kicker">Bring your history</p>
-                <h1 id="pasted-welcome-title">Start where you left off</h1>
-                <p>Supported text history from another clipboard manager can be merged into History.</p>
+                <p className="welcome-setup-kicker">{translate('component.welcomeSetup.bringYourHistory')}</p>
+                <h1 id="pasted-welcome-title">{translate('component.welcomeSetup.startWhereYouLeftOff')}</h1>
+                <p>{translate('component.welcomeSetup.supportedTextHistoryFromAnotherClipboardManagerCanBeMergedIntoHistory')}</p>
               </div>
             </div>
             <div className="welcome-setup-content">
@@ -154,28 +155,28 @@ export function WelcomeSetup({ isOpen, settings, onUpdateSettings, onImported }:
             <div className="welcome-setup-heading">
               <span className="welcome-setup-heading-icon"><ShieldCheck /></span>
               <div>
-                <p className="welcome-setup-kicker">The Copycat Covenant</p>
-                <h1 id="pasted-welcome-title">Your clipboard is none of our business</h1>
-                <p>Pasted works for you without turning your work into our data. These are product constraints, not marketing preferences.</p>
+                <p className="welcome-setup-kicker">{translate('component.welcomeSetup.theCopycatCovenant')}</p>
+                <h1 id="pasted-welcome-title">{translate('component.welcomeSetup.yourClipboardIsNoneOfOurBusiness')}</h1>
+                <p>{translate('component.welcomeSetup.pastedWorksForYouWithoutTurningYourWorkIntoOurDataThese')}</p>
               </div>
             </div>
             <div className="welcome-setup-content">
               <div className="welcome-setup-facts">
                 <article>
                   <HardDrive />
-                  <div><strong>Local by default</strong><span>Your clipboard library stays on this computer unless you explicitly export, move, or send something.</span></div>
+                  <div><strong>{translate('component.welcomeSetup.localByDefault')}</strong><span>{translate('component.welcomeSetup.yourClipboardLibraryStaysOnThisComputerUnlessYouExplicitlyExportMove')}</span></div>
                 </article>
                 <article>
                   <RadioTower />
-                  <div><strong>No off-device telemetry</strong><span>Usage insights stay on this computer; Pasted does not report clipboard activity.</span></div>
+                  <div><strong>{translate('component.welcomeSetup.noOffDeviceTelemetry')}</strong><span>{translate('component.welcomeSetup.usageInsightsStayOnThisComputerPastedDoesNotReportClipboardActivity')}</span></div>
                 </article>
                 <article>
                   <HeartHandshake />
-                  <div><strong>No subscription</strong><span>Pasted will not rent your own clipboard back to you or make payment a condition of remembering.</span></div>
+                  <div><strong>{translate('component.welcomeSetup.noSubscription')}</strong><span>{translate('component.welcomeSetup.pastedWillNotRentYourOwnClipboardBackToYouOrMake')}</span></div>
                 </article>
                 <article>
                   <LockKeyhole />
-                  <div><strong>Connections are a choice</strong><span>Outside intelligence runs only through a connection you explicitly enable and use.</span></div>
+                  <div><strong>{translate('component.welcomeSetup.connectionsAreAChoice')}</strong><span>{translate('component.welcomeSetup.outsideIntelligenceRunsOnlyThroughAConnectionYouExplicitlyEnableAndUse')}</span></div>
                 </article>
               </div>
             </div>
@@ -187,47 +188,47 @@ export function WelcomeSetup({ isOpen, settings, onUpdateSettings, onImported }:
             <div className="welcome-setup-heading">
               <span className="welcome-setup-heading-icon"><Command /></span>
               <div>
-                <p className="welcome-setup-kicker">Every copycat welcome</p>
-                <h1 id="pasted-welcome-title">One workspace, more than one way in</h1>
-                <p>Use the interface directly, the CLI from a script, or the shared library as context for an agent.</p>
+                <p className="welcome-setup-kicker">{translate('component.welcomeSetup.everyCopycatWelcome')}</p>
+                <h1 id="pasted-welcome-title">{translate('component.welcomeSetup.oneWorkspaceMoreThanOneWayIn')}</h1>
+                <p>{translate('component.welcomeSetup.useTheInterfaceDirectlyTheCliFromAScriptOrTheShared')}</p>
               </div>
             </div>
             <div className="welcome-setup-content">
               <div className="welcome-setup-shortcut-card">
                 <span className="welcome-setup-keycap">{shortcutLabel}</span>
                 <div>
-                  <strong>HUD</strong>
-                  <span>{permission?.state === 'ready' && permission.is_trusted ? 'Shortcut access is ready.' : 'You can change this shortcut later in Settings → Hotkeys.'}</span>
+                  <strong>{translate('component.welcomeSetup.hud')}</strong>
+                  <span>{permission?.state === 'ready' && permission.is_trusted ? translate('component.welcomeSetup.shortcutAccessIsReady') : translate('component.welcomeSetup.youCanChangeThisShortcutLaterInSettingsHotkeys')}</span>
                 </div>
                 {permission?.platform === 'macos' && !permission.is_trusted && (
                   <ActionButton onClick={() => void requestPermission()}>
-                    Allow Accessibility
+                    {translate('component.welcomeSetup.allowAccessibility')}
                   </ActionButton>
                 )}
                 {permission && (permission.platform !== 'macos' || permission.is_trusted) && (
-                  <span className="welcome-setup-ready-badge"><Check /> Ready</span>
+                  <span className="welcome-setup-ready-badge"><Check /> {translate('component.welcomeSetup.ready')}</span>
                 )}
               </div>
-              <div className="welcome-setup-feature-grid" aria-label="More Pasted features">
+              <div className="welcome-setup-feature-grid" aria-label={translate('component.welcomeSetup.morePastedFeatures')}>
                 <article>
                   <ListOrdered />
                   <div>
-                    <strong>Paste in sequence</strong>
-                    <span>Build a Queue, then paste each item into forms or repetitive workflows in order.</span>
+                    <strong>{translate('component.welcomeSetup.pasteInSequence')}</strong>
+                    <span>{translate('component.welcomeSetup.buildAQueueThenPasteEachItemIntoFormsOrRepetitiveWorkflows')}</span>
                   </div>
                 </article>
                 <article>
                   <TerminalSquare />
                   <div>
-                    <strong>Script the same workspace</strong>
-                    <span>The bundled CLI searches, organizes, transforms, and returns structured output from the same local data.</span>
+                    <strong>{translate('component.welcomeSetup.scriptTheSameWorkspace')}</strong>
+                    <span>{translate('component.welcomeSetup.theBundledCliSearchesOrganizesTransformsAndReturnsStructuredOutputFromThe')}</span>
                   </div>
                 </article>
                 <article>
                   <Bot />
                   <div>
-                    <strong>Bring your own intelligence</strong>
-                    <span>Agents and optional providers can help only when you connect them and ask them to.</span>
+                    <strong>{translate('component.welcomeSetup.bringYourOwnIntelligence')}</strong>
+                    <span>{translate('component.welcomeSetup.agentsAndOptionalProvidersCanHelpOnlyWhenYouConnectThemAnd')}</span>
                   </div>
                 </article>
               </div>
@@ -235,15 +236,15 @@ export function WelcomeSetup({ isOpen, settings, onUpdateSettings, onImported }:
                 <div className="welcome-setup-library-hub">
                   <Database />
                   <div>
-                    <strong>One local library underneath it all</strong>
-                    <span>History, Bins, notes, and workflows stay consistent from every entry point.</span>
+                    <strong>{translate('component.welcomeSetup.oneLocalLibraryUnderneathItAll')}</strong>
+                    <span>{translate('component.welcomeSetup.historyBinsNotesAndWorkflowsStayConsistentFromEveryEntryPoint')}</span>
                   </div>
                 </div>
-                <div className="welcome-setup-library-routes" aria-label="Shared library entry points">
-                  <span><Monitor /> Interface</span>
-                  <span><TerminalSquare /> CLI</span>
-                  <span><Workflow /> Automations</span>
-                  <span><Bot /> Agents</span>
+                <div className="welcome-setup-library-routes" aria-label={translate('component.welcomeSetup.sharedLibraryEntryPoints')}>
+                  <span><Monitor /> {translate('component.welcomeSetup.interface')}</span>
+                  <span><TerminalSquare /> {translate('component.welcomeSetup.cli')}</span>
+                  <span><Workflow /> {translate('component.welcomeSetup.automations')}</span>
+                  <span><Bot /> {translate('component.welcomeSetup.agents')}</span>
                 </div>
               </div>
             </div>
@@ -253,21 +254,21 @@ export function WelcomeSetup({ isOpen, settings, onUpdateSettings, onImported }:
         {step === 'ready' && (
           <div className="welcome-setup-hero">
             <div className="welcome-setup-mark is-copycat is-ready" aria-hidden="true"><CopycatHeadMark /></div>
-            <p className="welcome-setup-kicker">Copycat status: ready</p>
-            <h1 id="pasted-welcome-title">Go copy irresponsibly.</h1>
+            <p className="welcome-setup-kicker">{translate('component.welcomeSetup.copycatStatusReady')}</p>
+            <h1 id="pasted-welcome-title">{translate('component.welcomeSetup.goCopyIrresponsibly')}</h1>
             <p>
               {importedCount > 0
-                ? `${importedCount} clips came with you. Human and machine copycats can find them in the same local workspace.`
-                : 'Copy something new. Pasted will remember it without sending it anywhere.'}
+                ? translate('component.welcomeSetup.countClipsCameWithYouHumanAndMachineCopycatsCanFindThem', { count: importedCount })
+                : translate('component.welcomeSetup.copySomethingNewPastedWillRememberItWithoutSendingItAnywhere')}
             </p>
             <div className="welcome-setup-backing">
               <HeartHandshake />
               <div>
-                <strong>Keep the copycat copying.</strong>
-                <span>Nothing to unlock. Just useful software—and one more reason to keep making it.</span>
+                <strong>{translate('component.welcomeSetup.keepTheCopycatCopying')}</strong>
+                <span>{translate('component.welcomeSetup.nothingToUnlockJustUsefulSoftwareAndOneMoreReasonToKeep')}</span>
               </div>
               <ActionButton onClick={() => void openBackingPage()}>
-                Back Pasted — $9.99 <ExternalLink />
+                {translate('component.welcomeSetup.backPasted999')} <ExternalLink />
               </ActionButton>
             </div>
             {backingError && <div role="alert" className="theme-status-danger mt-3 rounded-xl border px-3 py-2 text-xs">{backingError}</div>}
@@ -279,16 +280,16 @@ export function WelcomeSetup({ isOpen, settings, onUpdateSettings, onImported }:
         <div>
           {stepIndex > 0 && (
             <ActionButton onClick={goBack}>
-              <ArrowLeft /> Back
+              <ArrowLeft className="rtl:-scale-x-100" /> {translate('common.back')}
             </ActionButton>
           )}
           {step !== 'ready' && (
-            <button type="button" className="welcome-setup-skip" onClick={complete}>Skip setup</button>
+            <button type="button" className="welcome-setup-skip" onClick={complete}>{translate('component.welcomeSetup.skipSetup')}</button>
           )}
         </div>
         <ActionButton autoFocus={step === 'welcome'} variant="primary" onClick={advance}>
-          {step === 'welcome' ? 'Set Up Pasted' : step === 'ready' ? 'Open Pasted' : 'Continue'}
-          {step !== 'ready' && <ArrowRight />}
+          {step === 'welcome' ? translate('component.welcomeSetup.setUpPasted') : step === 'ready' ? translate('component.welcomeSetup.openPasted') : translate('component.welcomeSetup.continue')}
+          {step !== 'ready' && <ArrowRight className="rtl:-scale-x-100" />}
         </ActionButton>
       </footer>
     </AppDialog>

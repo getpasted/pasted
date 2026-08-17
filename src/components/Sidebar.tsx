@@ -1,4 +1,5 @@
 import React from 'react';
+import { localizedSourceName } from '../localization/presentation';
 import { formatEmojiIcon } from '../utils/emoji';
 import { binTextColor } from '../utils/binColor';
 import { handleWindowDragDoubleClick, startWindowDrag } from '../utils/windowDrag';
@@ -36,18 +37,21 @@ import type { FeatureId } from '../utils/features';
 import { OverflowText } from './OverflowText';
 import { ContentTypeIcon } from './ContentTypeIcon';
 import { useContentTypes } from './ContentTypeProvider';
+import { contentTypeLabel } from '../utils/contentTypes';
 import { safeInvoke as invoke } from '../utils/tauri';
 import type { SidebarSectionId, SidebarSectionState } from '../utils/appUiState';
 import { SafeRasterImage } from './SafeRasterImage';
+import { translate } from '../localization/runtime';
+import { useLocalization } from '../localization/LocalizationProvider';
 
 const SEARCH_HELPERS = [
-  { prefix: 'regex:', desc: 'Regex' },
-  { prefix: 'source:', desc: 'Source' },
-  { prefix: 'type:', desc: 'Type' },
-  { prefix: 'has:note', desc: 'Notes' },
-  { prefix: 'is:pinned', desc: 'Pinned' },
-  { prefix: 'is:protected', desc: 'Protected' },
-  { prefix: 'is:trashed', desc: 'Trashed' },
+  { prefix: 'regex:', get desc() { return translate('component.sidebar.regex'); } },
+  { prefix: 'source:', get desc() { return translate('component.sidebar.sources'); } },
+  { prefix: 'type:', get desc() { return translate('component.sidebar.contentTypes'); } },
+  { prefix: 'has:note', get desc() { return translate('feature.notes.label'); } },
+  { prefix: 'is:pinned', get desc() { return translate('collection.pinned'); } },
+  { prefix: 'is:protected', get desc() { return translate('collection.protected'); } },
+  { prefix: 'is:trashed', get desc() { return translate('collection.trashed'); } },
 ] as const;
 
 interface SidebarProps {
@@ -121,6 +125,7 @@ const SidebarComponent: React.FC<SidebarProps> = ({
   sectionState,
   onSectionStateChange,
 }) => {
+  const { locale } = useLocalization();
   const { definitions: contentTypes } = useContentTypes();
 
   // Section Collapse State
@@ -320,30 +325,30 @@ const SidebarComponent: React.FC<SidebarProps> = ({
     dropAction: collection.capabilities.dropAction,
   }));
   const allToolNavItems: Array<{ tab: string; label: string; title: string; icon: React.ReactElement<{ className: string; strokeWidth?: number }>; feature?: FeatureId }> = [
-    { tab: 'transformations', label: 'Transformations', title: 'Transformations', icon: <Workflow className="sidebar-icon-primary w-5 h-5" />, feature: 'transformations' },
-    { tab: 'analytics', label: 'Insights', title: 'Insights', icon: <BarChart3 className="sidebar-icon-primary w-5 h-5" />, feature: 'analytics' },
-    { tab: 'activity', label: 'Activity', title: 'Activity', icon: <Activity className="sidebar-icon-info w-5 h-5" />, feature: 'activityLog' },
-    { tab: 'help', label: 'Help', title: 'Help', icon: <HelpCircle className="sidebar-icon-info w-5 h-5" />, feature: 'help' },
-    { tab: 'settings', label: 'Settings', title: 'Settings', icon: <Settings className="sidebar-icon-primary w-5 h-5" /> },
+    { tab: 'transformations', get label() { return translate('destination.transformations'); }, get title() { return translate('destination.transformations'); }, icon: <Workflow className="sidebar-icon-primary w-5 h-5" />, feature: 'transformations' },
+    { tab: 'analytics', get label() { return translate('destination.insights'); }, get title() { return translate('destination.insights'); }, icon: <BarChart3 className="sidebar-icon-primary w-5 h-5" />, feature: 'analytics' },
+    { tab: 'activity', get label() { return translate('destination.activity'); }, get title() { return translate('destination.activity'); }, icon: <Activity className="sidebar-icon-info w-5 h-5" />, feature: 'activityLog' },
+    { tab: 'help', get label() { return translate('destination.help'); }, get title() { return translate('destination.help'); }, icon: <HelpCircle className="sidebar-icon-info w-5 h-5" />, feature: 'help' },
+    { tab: 'settings', get label() { return translate('destination.settings'); }, get title() { return translate('destination.settings'); }, icon: <Settings className="sidebar-icon-primary w-5 h-5" /> },
   ];
   const toolNavItems = allToolNavItems.filter(({ feature }) => !feature || features[feature]);
 
   const typeItems = React.useMemo(() => {
     const order = new Map(contentTypes.map(({ id }, index) => [id, index]));
-    const labels = new Map(contentTypes.map(({ id, label }) => [id, label]));
+    const labels = new Map(contentTypes.map(({ id }) => [id, contentTypeLabel(id)]));
     return clipCollectionSummary.typeCounts.map(({ content_type: value, count }) => ({
       value,
       count,
       route: clipFacetRoute('type', value),
       label: labels.get(value) ?? value.split('_').map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(' '),
     })).sort((left, right) => (order.get(left.value) ?? Number.MAX_SAFE_INTEGER) - (order.get(right.value) ?? Number.MAX_SAFE_INTEGER));
-  }, [clipCollectionSummary.typeCounts, contentTypes]);
+  }, [clipCollectionSummary.typeCounts, contentTypes, locale]);
   const sourceItems = React.useMemo(() => {
     return clipCollectionSummary.sourceCounts.map(({ name: value, count }) => ({
       value,
       count,
       route: clipFacetRoute('source', value),
-      label: value || 'Unknown Source',
+      label: localizedSourceName(value),
     })).sort((left, right) => right.count - left.count || left.label.localeCompare(right.label));
   }, [clipCollectionSummary.sourceCounts]);
   const [sourceIcons, setSourceIcons] = React.useState<Record<string, string>>({});
@@ -402,7 +407,7 @@ const SidebarComponent: React.FC<SidebarProps> = ({
         onPointerEnter={handleSidebarPointerEnter}
         onPointerMove={handleSidebarPointerMove}
         onPointerLeave={handleSidebarPointerLeave}
-        className={`w-[100px] col-sidebar h-screen flex flex-col items-center border-r backdrop-blur-xl select-none ${isSidebarHoverMuted ? 'suppress-sidebar-hover' : ''}`}
+        className={`w-[100px] col-sidebar h-screen flex flex-col items-center border-e backdrop-blur-xl select-none ${isSidebarHoverMuted ? 'suppress-sidebar-hover' : ''}`}
       >
         {/* macOS reserves this header for overlaid traffic lights. Native framed
             platforms can use it for the sidebar control immediately. */}
@@ -416,9 +421,9 @@ const SidebarComponent: React.FC<SidebarProps> = ({
             onClick={() => setIsCollapsed(false)}
             disabled={isClipDragging}
             className={`platform-framed-only sidebar-control-muted ui-control-radius w-9 h-9 items-center justify-center p-0 transition-colors duration-75 border titlebar-no-drag ${isClipDragging ? 'border-transparent cursor-default' : `cursor-pointer ${hoveredSidebarControl === 'expand-header' ? 'sidebar-item-hovered' : 'border-transparent'}`}`}
-            title="Expand Sidebar"
+            title={translate('component.sidebar.expandSidebar')}
           >
-            <PanelLeftOpen className="w-5 h-5" />
+            <PanelLeftOpen className="h-5 w-5 rtl:-scale-x-100" />
           </button>
         </div>
 
@@ -430,9 +435,9 @@ const SidebarComponent: React.FC<SidebarProps> = ({
             onClick={() => setIsCollapsed(false)}
             disabled={isClipDragging}
             className={`platform-macos-only sidebar-control-muted ui-control-radius w-9 h-9 items-center justify-center p-0 transition-colors duration-75 border shrink-0 ${isClipDragging ? 'border-transparent cursor-default' : `cursor-pointer ${hoveredSidebarControl === 'expand' ? 'sidebar-item-hovered' : 'border-transparent'}`}`}
-            title="Expand Sidebar"
+            title={translate('component.sidebar.expandSidebar')}
           >
-            <PanelLeftOpen className="w-5 h-5" />
+            <PanelLeftOpen className="h-5 w-5 rtl:-scale-x-100" />
           </button>
 
           <div className="w-full flex items-center justify-center py-1 shrink-0">
@@ -546,9 +551,9 @@ const SidebarComponent: React.FC<SidebarProps> = ({
           onClick={() => setIsCollapsed(true)}
           disabled={isClipDragging}
           className={`sidebar-control-muted p-1.5 rounded-lg transition-colors titlebar-no-drag ${isClipDragging ? 'cursor-default' : `cursor-pointer ${hoveredSidebarControl === 'collapse' ? 'sidebar-item-hovered' : ''}`}`}
-          title="Collapse Sidebar"
+          title={translate('component.sidebar.collapseSidebar')}
         >
-          <PanelLeftClose className="w-4 h-4" />
+          <PanelLeftClose className="h-4 w-4 rtl:-scale-x-100" />
         </button>
       </div>
 
@@ -560,10 +565,10 @@ const SidebarComponent: React.FC<SidebarProps> = ({
             data-sidebar-hover-key="section:clips"
             onClick={isClipDragging ? undefined : () => setIsClipsOpen(!isClipsOpen)}
             className={`px-2.5 pb-1 flex items-center justify-between select-none ${isClipDragging ? 'cursor-default' : 'cursor-pointer'}`}
-            title="Toggle Clips"
+            title={translate('component.sidebar.toggleClips')}
           >
             <span className={`sidebar-section-label text-[11px] font-semibold transition-colors tracking-tight ${hoveredSidebarControl === 'section:clips' ? 'is-hovered' : ''}`}>
-              Clips
+              {translate('component.sidebar.clips')}
             </span>
             <button
               data-sidebar-hover-key="collapse-framed"
@@ -573,9 +578,9 @@ const SidebarComponent: React.FC<SidebarProps> = ({
               }}
               disabled={isClipDragging}
               className={`platform-framed-only sidebar-control-muted h-7 w-7 items-center justify-center rounded-lg transition-colors titlebar-no-drag ${isClipDragging ? 'cursor-default' : `cursor-pointer ${hoveredSidebarControl === 'collapse-framed' ? 'sidebar-item-hovered' : ''}`}`}
-              title="Collapse Sidebar"
+              title={translate('component.sidebar.collapseSidebar')}
             >
-              <PanelLeftClose className="h-4 w-4" />
+              <PanelLeftClose className="h-4 w-4 rtl:-scale-x-100" />
             </button>
           </div>
           <div
@@ -639,10 +644,10 @@ const SidebarComponent: React.FC<SidebarProps> = ({
             data-sidebar-hover-key="section:bins"
             onClick={isClipDragging ? undefined : () => setIsBinsOpen(!isBinsOpen)}
             className={`px-2.5 pb-1 flex items-center justify-between select-none ${isClipDragging ? 'cursor-default' : 'cursor-pointer'}`}
-            title="Toggle Bins"
+            title={translate('component.sidebar.toggleBins')}
           >
             <span className={`sidebar-section-label text-[11px] font-semibold transition-colors tracking-tight ${hoveredSidebarControl === 'section:bins' ? 'is-hovered' : ''}`}>
-              Bins
+              {translate('component.sidebar.bins')}
             </span>
             <button
               data-sidebar-hover-key="create-bin"
@@ -652,7 +657,7 @@ const SidebarComponent: React.FC<SidebarProps> = ({
               }}
               disabled={isClipDragging}
               className={`sidebar-add-btn p-0.5 rounded transition-colors ${isClipDragging ? 'cursor-default' : `cursor-pointer ${hoveredSidebarControl === 'create-bin' ? 'is-hovered' : ''}`}`}
-              title="New Bin"
+              title={translate('component.sidebar.newBin')}
             >
               <Plus className="w-3.5 h-3.5" strokeWidth={2} />
             </button>
@@ -693,9 +698,9 @@ const SidebarComponent: React.FC<SidebarProps> = ({
                     tabIndex={0}
                     title={
                       isDisabledDropTarget
-                        ? 'Already in This Bin'
+                        ? translate('component.sidebar.alreadyInThisBin')
                         : isIneligibleSmartBin
-                        ? 'Smart Bin — Automatic'
+                        ? translate('component.sidebar.smartBinAutomatic')
                         : undefined
                     }
                     onPointerDown={(event) => handlePointerDownBin(String(b.id), event)}
@@ -786,17 +791,17 @@ const SidebarComponent: React.FC<SidebarProps> = ({
                         : 'sidebar-item-idle font-normal'
                     }`}
                   >
-                    <div className="flex items-center gap-3 truncate pr-1 min-w-0">
+                    <div className="flex items-center gap-3 truncate pe-1 min-w-0">
                       <span className="sidebar-nav-icon sidebar-nav-icon-emoji sidebar-icon-primary">{getBinIcon(b.icon)}</span>
                       <OverflowText text={b.name} className="truncate" style={{ color: binTextColor(b.color) }} />
                     </div>
 
                     {/* Right side container */}
-                    <div className="flex items-center justify-end shrink-0 pl-1">
+                    <div className="flex items-center justify-end shrink-0 ps-1">
                       <div className={`flex items-center space-x-1.5 ${isBinHovered && !isDragging ? 'hidden' : ''}`}>
                         {b.smart_rule && (b.clip_count ?? 0) > 0 ? (
                           <span
-                            title={`Smart Bin · ${b.clip_count} Matches`}
+                            title={translate('component.sidebar.smartBinCountMatches', { count: b.clip_count ?? 0 })}
                             className="sidebar-badge text-[11px] px-1.5 py-0.5 rounded-md font-mono flex items-center space-x-1"
                           >
                             <Sparkles className="theme-note-text w-3 h-3 shrink-0" />
@@ -822,7 +827,7 @@ const SidebarComponent: React.FC<SidebarProps> = ({
                             if (onEditBin) onEditBin(b);
                           }}
                           className="sidebar-row-action is-edit p-1 rounded transition-colors cursor-pointer"
-                          title="Edit Bin"
+                          title={translate('component.sidebar.editBin')}
                         >
                           <Edit3 className="w-3.5 h-3.5" />
                         </button>
@@ -835,7 +840,7 @@ const SidebarComponent: React.FC<SidebarProps> = ({
                             if (onDeleteBin) onDeleteBin(b);
                           }}
                           className="sidebar-row-action is-danger p-1 rounded transition-colors cursor-pointer"
-                          title="Delete Bin"
+                          title={translate('component.sidebar.deleteBin')}
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -849,15 +854,15 @@ const SidebarComponent: React.FC<SidebarProps> = ({
         </div>}
 
         {([
-          { id: 'types', label: 'Content Types', enabled: features.types, open: isTypesOpen, setOpen: setIsTypesOpen, items: typeItems },
-          { id: 'sources', label: 'Sources', enabled: features.sources, open: isSourcesOpen, setOpen: setIsSourcesOpen, items: sourceItems },
+          { id: 'types', get label() { return translate('component.sidebar.contentTypes'); }, enabled: features.types, open: isTypesOpen, setOpen: setIsTypesOpen, items: typeItems },
+          { id: 'sources', get label() { return translate('component.sidebar.sources'); }, enabled: features.sources, open: isSourcesOpen, setOpen: setIsSourcesOpen, items: sourceItems },
         ] as const).map((section) => section.enabled && section.items.length > 0 && (
           <div key={section.id}>
             <div
               data-sidebar-hover-key={`section:${section.id}`}
               onClick={isClipDragging ? undefined : () => section.setOpen(!section.open)}
               className={`px-2.5 pb-1 flex items-center justify-between select-none ${isClipDragging ? 'cursor-default' : 'cursor-pointer'}`}
-              title={`Toggle ${section.label}`}
+              title={translate('component.sidebar.toggleLabel', { label: section.label })}
             >
               <span className={`sidebar-section-label text-[11px] font-semibold transition-colors tracking-tight ${hoveredSidebarControl === `section:${section.id}` ? 'is-hovered' : ''}`}>
                 {section.label}
@@ -868,7 +873,7 @@ const SidebarComponent: React.FC<SidebarProps> = ({
                 {section.items.map((item) => (
                   <button
                     key={item.route}
-                    data-sidebar-hover-key={`${section.id}:${item.route}`}
+                    data-sidebar-hover-key={translate('component.sidebar.idRoute', { id: section.id, route: item.route })}
                     onClick={() => navigateTo(item.route)}
                     disabled={isClipDragging}
                     className={`sidebar-nav-row justify-between gap-3 transition-colors duration-100 ${isClipDragging ? 'cursor-default opacity-50' : currentTab === item.route ? 'sidebar-item-active font-medium cursor-pointer' : hoveredSidebarControl === `${section.id}:${item.route}` ? 'sidebar-item-hovered font-normal cursor-pointer' : 'sidebar-item-idle font-normal cursor-pointer'}`}
@@ -897,10 +902,10 @@ const SidebarComponent: React.FC<SidebarProps> = ({
             data-sidebar-hover-key="section:tools"
             onClick={isClipDragging ? undefined : () => setIsToolsOpen(!isToolsOpen)}
             className={`px-2.5 pb-1 flex items-center justify-between select-none ${isClipDragging ? 'cursor-default' : 'cursor-pointer'}`}
-            title="Toggle Tools"
+            title={translate('component.sidebar.toggleTools')}
           >
             <span className={`sidebar-section-label text-[11px] font-semibold transition-colors tracking-tight ${hoveredSidebarControl === 'section:tools' ? 'is-hovered' : ''}`}>
-              Tools
+              {translate('component.sidebar.tools')}
             </span>
           </div>
           <div
@@ -940,8 +945,8 @@ const SidebarComponent: React.FC<SidebarProps> = ({
           <div
             id="sidebar-search-filters"
             role="menu"
-            aria-label="Search filters"
-            className="theme-menu absolute bottom-11 left-2.5 right-2.5 rounded-xl border p-1.5 text-xs font-medium select-none"
+            aria-label={translate('component.sidebar.searchFilters')}
+            className="theme-menu absolute inset-x-2.5 bottom-11 rounded-xl border p-1.5 text-xs font-medium select-none"
           >
               {searchHelpers.map((s, index) => (
               <button
@@ -982,7 +987,7 @@ const SidebarComponent: React.FC<SidebarProps> = ({
                     closeSearchMenu(true);
                   }
                 }}
-                className={`theme-menu-item w-full px-2.5 py-1.5 rounded-lg cursor-pointer flex items-center justify-between gap-3 text-left ${activeSearchMenuIndex === index ? 'is-selected' : ''}`}
+                className={`theme-menu-item w-full px-2.5 py-1.5 rounded-lg cursor-pointer flex items-center justify-between gap-3 text-start ${activeSearchMenuIndex === index ? 'is-selected' : ''}`}
               >
                 <span className="font-mono text-[11px] font-semibold">{s.prefix}</span>
                 <span className="theme-text-subtle text-[10px]">{s.desc}</span>
@@ -1001,7 +1006,7 @@ const SidebarComponent: React.FC<SidebarProps> = ({
             autoCorrect="off"
             autoCapitalize="off"
             spellCheck={false}
-            placeholder="Search all clips"
+            placeholder={translate('component.sidebar.searchAllClips')}
             value={searchQuery}
             onFocus={() => {
               onSearchFocus();
@@ -1021,14 +1026,14 @@ const SidebarComponent: React.FC<SidebarProps> = ({
               }
             }}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className={`sidebar-search-input theme-input w-full h-7 border rounded-md pl-2.5 ${searchQuery ? 'pr-14' : 'pr-8'} text-[12px] focus:outline-none transition-colors titlebar-no-drag`}
+            className={`sidebar-search-input theme-input w-full h-7 border rounded-md ps-2.5 ${searchQuery ? 'pe-14' : 'pe-8'} text-[12px] focus:outline-none transition-colors titlebar-no-drag`}
           />
           {searchQuery && (
             <button
               type="button"
               disabled={isClipDragging}
-              aria-label="Clear search"
-              title="Clear Search"
+              aria-label={translate('component.sidebar.clearSearch')}
+              title={translate('component.sidebar.clearSearch2')}
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => {
                 setSearchQuery('');
@@ -1036,7 +1041,7 @@ const SidebarComponent: React.FC<SidebarProps> = ({
                 onSearchFocus();
                 requestAnimationFrame(() => searchInputRef.current?.focus());
               }}
-              className="sidebar-search-clear theme-menu-item absolute right-6 top-1 grid h-5 w-5 place-items-center rounded"
+              className="sidebar-search-clear theme-menu-item absolute end-6 top-1 grid h-5 w-5 place-items-center rounded"
             >
               <X className="h-3 w-3" aria-hidden="true" />
             </button>
@@ -1044,11 +1049,11 @@ const SidebarComponent: React.FC<SidebarProps> = ({
           <button
             type="button"
             disabled={isClipDragging}
-            aria-label="Search filters"
+            aria-label={translate('component.sidebar.searchFilters')}
             aria-haspopup="menu"
             aria-expanded={isSearchMenuOpen}
             aria-controls="sidebar-search-filters"
-            title="Search Filters"
+            title={translate('component.sidebar.searchFilters2')}
             onClick={() => {
               onSearchFocus();
               setIsSearchMenuOpen((open) => {
@@ -1067,7 +1072,7 @@ const SidebarComponent: React.FC<SidebarProps> = ({
                 closeSearchMenu();
               }
             }}
-            className={`theme-menu-item absolute right-1 top-1 grid h-5 w-5 place-items-center rounded ${isSearchMenuOpen ? 'is-selected' : ''}`}
+            className={`theme-menu-item absolute end-1 top-1 grid h-5 w-5 place-items-center rounded ${isSearchMenuOpen ? 'is-selected' : ''}`}
           >
             <ChevronUp className={`h-3.5 w-3.5 transition-transform ${isSearchMenuOpen ? 'rotate-180' : ''}`} aria-hidden="true" />
           </button>

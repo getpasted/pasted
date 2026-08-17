@@ -3,6 +3,8 @@ import { FileText, Image as ImageIcon, Pin } from 'lucide-react';
 import type { ClipItem } from '../types';
 import { getClipFileSummary } from '../types';
 import { useFeatures } from '../hooks/useFeatures';
+import { translate } from '../localization/runtime';
+import { localizedSourceName } from '../localization/presentation';
 
 interface PinnedClipShelfProps {
   clips: ClipItem[];
@@ -97,7 +99,7 @@ export function PinnedClipShelf({
     >
       <div
         className="pinned-clip-shelf-stack"
-        aria-label={`${stackedClips.length} stacked pinned ${stackedClips.length === 1 ? 'clip' : 'clips'}`}
+        aria-label={translate('component.pinnedClipShelf.stackedPinnedClips', { count: stackedClips.length })}
       >
         {shownClips.map((clip, index) => (
           <button
@@ -117,7 +119,7 @@ export function PinnedClipShelf({
             <span className="pinned-clip-shelf-icon" aria-hidden="true">
               {clip.content_type === 'image' ? <ImageIcon /> : clip.content_type === 'file' ? <FileText /> : <Pin />}
             </span>
-            {features.sources && <span className="pinned-clip-shelf-source">{clip.source}</span>}
+            {features.sources && <span className="pinned-clip-shelf-source">{localizedSourceName(clip.source)}</span>}
             <span className="pinned-clip-shelf-summary">{clipSummary(clip)}</span>
             {index === 0 && (
               <span className="pinned-clip-shelf-count">{stackedClips.length}</span>
@@ -136,7 +138,7 @@ export function PinnedClipShelf({
             onClick={onRevealAll}
           >
             <Pin aria-hidden="true" />
-            <span>+{remainingClips} more pinned</span>
+            <span>{translate('component.pinnedClipShelf.morePinnedCount', { count: remainingClips })}</span>
           </button>
         )}
       </div>

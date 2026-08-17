@@ -3,6 +3,7 @@ import { Edit3, Eye, Trash2 } from 'lucide-react';
 import type { ClipNote } from '../types';
 import { FloatingActionStrip } from './FloatingActionStrip';
 import { OverflowText } from './OverflowText';
+import { translate } from '../localization/runtime';
 
 interface NoteRowItemProps {
   noteItem: ClipNote;
@@ -53,7 +54,7 @@ export const NoteRowItem: React.FC<NoteRowItemProps> = ({
     >
       {editingNoteId === noteItem.id && !readOnly ? (
         <div className="flex-1 flex flex-col space-y-2 py-1 min-w-0">
-          <textarea
+          <textarea dir="auto"
             rows={3}
             value={editingNoteText}
             onChange={(e) => setEditingNoteText(e.target.value)}
@@ -69,14 +70,14 @@ export const NoteRowItem: React.FC<NoteRowItemProps> = ({
               onClick={() => setEditingNoteId(null)}
               className="note-cancel-button px-2.5 py-1 rounded text-xs font-medium transition-colors cursor-pointer"
             >
-              Cancel
+              {translate('common.cancel')}
             </button>
             <button
               type="button"
               onClick={() => handleUpdateNoteItem(noteItem.id, editingNoteText)}
               className="note-save-button px-2.5 py-1 rounded text-xs font-semibold shadow cursor-pointer"
             >
-              Save
+              {translate('common.save')}
             </button>
           </div>
         </div>
@@ -89,7 +90,7 @@ export const NoteRowItem: React.FC<NoteRowItemProps> = ({
           />
 
           {!isDragging && (
-            <FloatingActionStrip label="Note actions" revealOnGroupInteraction>
+            <FloatingActionStrip label={translate('component.clipNoteRow.noteActions')} revealOnGroupInteraction>
               <button
                 type="button"
                 onClick={(event) => {
@@ -97,7 +98,7 @@ export const NoteRowItem: React.FC<NoteRowItemProps> = ({
                   setViewingNote(noteItem);
                 }}
                 className="floating-action-button"
-                title="View Note"
+                title={translate('component.clipNoteRow.viewNote')}
               >
                 <Eye />
               </button>
@@ -110,7 +111,7 @@ export const NoteRowItem: React.FC<NoteRowItemProps> = ({
                     setEditingNoteText(noteItem.text);
                   }}
                   className="floating-action-button is-warning"
-                  title="Edit Note"
+                  title={translate('action.editNote')}
                 >
                   <Edit3 />
                 </button>
@@ -123,7 +124,7 @@ export const NoteRowItem: React.FC<NoteRowItemProps> = ({
                     handleDeleteNoteItem(noteItem.id);
                   }}
                   className="floating-action-button is-danger"
-                  title="Delete Note"
+                  title={translate('component.clipNoteRow.deleteNote')}
                 >
                   <Trash2 />
                 </button>

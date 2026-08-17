@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { safeInvoke as invoke } from '../utils/tauri';
+import { translate } from '../localization/runtime';
 
 export interface AppLockStatus {
   enabled: boolean;
@@ -16,21 +17,21 @@ export interface AppLockStatus {
   captureWhileLocked: boolean;
 }
 
-const DEFAULT_STATUS: AppLockStatus = {
+const defaultStatus = (): AppLockStatus => ({
   enabled: false,
   locked: false,
   systemAuthEnabled: false,
   systemAuthAvailable: false,
-  systemAuthLabel: 'System authentication',
+  systemAuthLabel: translate('component.appLockScreen.systemAuthentication'),
   appleWatchEnabled: false,
   appleWatchAvailable: false,
   idleMinutes: 5,
   lockOnSleep: true,
   lockOnRestart: true,
   captureWhileLocked: true,
-};
+});
 
-let cachedStatus = DEFAULT_STATUS;
+let cachedStatus = defaultStatus();
 let cachedHydrated = false;
 const statusSubscribers = new Set<(status: AppLockStatus) => void>();
 

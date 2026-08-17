@@ -11,6 +11,8 @@ import {
 import type { Bin } from '../types';
 import { formatEmojiIcon } from '../utils/emoji';
 import { getClipCollection } from '../utils/clipCollections';
+import { translate } from '../localization/runtime';
+import { useLocalization } from '../localization/LocalizationProvider';
 
 interface EmptyClipListProps {
   currentTab: string;
@@ -19,17 +21,18 @@ interface EmptyClipListProps {
 }
 
 export function EmptyClipList({ currentTab, searchQuery, selectedBin }: EmptyClipListProps) {
+  useLocalization();
   const trimmedSearch = searchQuery.trim();
   const collection = getClipCollection(currentTab, selectedBin);
   let icon = <Clipboard className="sidebar-icon-primary w-10 h-10 stroke-1" />;
-  let title = collection?.emptyTitle ?? 'No clips yet';
-  let description = collection?.emptyDescription ?? 'Your copied items will appear here automatically.';
+  let title = collection?.emptyTitle ?? translate('component.emptyClipList.noClipsYet');
+  let description = collection?.emptyDescription ?? translate('component.emptyClipList.yourCopiedItemsWillAppearHereAutomatically');
 
   if (currentTab === 'search') {
     icon = <Search className="sidebar-icon-primary w-10 h-10 stroke-1" />;
-    title = trimmedSearch ? 'No matching clips' : 'Search your clips';
+    title = trimmedSearch ? translate('collection.noMatchingClips') : translate('collection.searchYourClips');
     description = trimmedSearch
-      ? 'Try another search or filter.'
+      ? translate('collection.tryAnotherSearchOrFilter')
       : description;
   } else if (currentTab === 'sequential') {
     icon = <ListOrdered className="sidebar-icon-secondary w-10 h-10 stroke-1" />;

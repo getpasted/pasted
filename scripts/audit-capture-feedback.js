@@ -15,6 +15,7 @@ const panelNoteSource = fs.readFileSync('src/components/SettingsPanelNote.tsx', 
 const overlaySource = fs.readFileSync('src/components/CaptureFeedbackWindow.tsx', 'utf8');
 const tabsSource = fs.readFileSync('src/components/SettingsTabs.tsx', 'utf8');
 const capabilitiesSource = fs.readFileSync('src-tauri/capabilities/default.json', 'utf8');
+const englishCatalog = JSON.parse(fs.readFileSync('src/locales/en.json', 'utf8'));
 
 const feedbackWindow = config.app.windows.find(({ label }) => label === 'capture-feedback');
 assert.ok(feedbackWindow, 'Capture feedback needs a dedicated window');
@@ -56,7 +57,9 @@ assert.match(tabsSource, /id:\s*'notifications'/);
 assert.doesNotMatch(appSource, /CaptureFeedbackWindow/);
 assert.match(rootSource, /rootView === "capture-feedback"/);
 assert.match(rootSource, /<CaptureFeedbackRoot/);
-assert.match(panelSource, /never exposes copied text, images, file names, or paths to system notifications\./);
+const notificationPrivacyKey = 'component.settingsNotificationsPanel.captureFeedbackStaysOnDeviceAndNeverExposesCopiedTextImagesFile';
+assert.match(panelSource, new RegExp(`translate\\('${notificationPrivacyKey.replaceAll('.', '\\.')}\\'\\)`));
+assert.match(englishCatalog[notificationPrivacyKey], /never exposes copied text, images, file names, or paths to system notifications\./);
 assert.match(panelSource, /<SettingsPanelNote>/, 'Notifications must use the shared Settings note well');
 assert.match(exclusionsSource, /<SettingsPanelNote>/, 'App Exclusions must use the shared Settings note well');
 assert.match(panelNoteSource, /theme-surface theme-text-muted rounded-xl border p-4 text-\[11px\] leading-relaxed/,

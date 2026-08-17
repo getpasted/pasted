@@ -13,22 +13,22 @@ import { useIntelligenceRequestStatus } from '../hooks/useIntelligenceRequestSta
 import { DeleteTransformationAssetDialog } from './DeleteTransformationAssetDialog';
 import { useToast } from './ToastProvider';
 import { TransformationLibrary } from './TransformationLibrary';
+import { translate } from '../localization/runtime';
 
 interface TransformationsViewProps {
   pipelines: Pipeline[];
   onRefreshPipelines: () => void;
-  requestedWorkspace?: TransformWorkspace;
-  navigationKey?: number;
+  activeWorkspace: TransformWorkspace;
+  onActiveWorkspaceChange: (workspace: TransformWorkspace) => void;
 }
 
 export const TransformationsView: React.FC<TransformationsViewProps> = ({
   pipelines: externalPipelines,
   onRefreshPipelines,
-  requestedWorkspace,
-  navigationKey,
+  activeWorkspace,
+  onActiveWorkspaceChange,
 }) => {
   const { showToast } = useToast();
-  const [activeSubTab, setActiveSubTab] = useState<TransformWorkspace>('transforms');
   const [activeLibraryFilter, setActiveLibraryFilter] = useState('all');
 
   const [selectedPipelineForEdit, setSelectedPipelineForEdit] = useState<Pipeline | null>(null);
@@ -57,10 +57,6 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
     message: error instanceof Error ? error.message : String(error),
     durationMs: 8000,
   });
-
-  useEffect(() => {
-    if (requestedWorkspace) setActiveSubTab(requestedWorkspace);
-  }, [navigationKey, requestedWorkspace]);
 
   const handleOpenCreateModal = () => {
     setSelectedPipelineForEdit(null);
@@ -110,7 +106,7 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
     setPlaygroundTarget(target);
     setPlaygroundRunState('idle');
     setTestError('');
-    setActiveSubTab('playground');
+    onActiveWorkspaceChange('playground');
   };
 
   const runPlayground = async () => {
@@ -218,15 +214,15 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
   const [operations, setOperations] = useState<Operation[]>([]);
 
   const libraryFilterOptions = [
-    { value: 'all', label: 'All Transforms', count: transforms.length + pipelines.length },
+    { value: 'all', get label() { return translate('component.transformationsView.allTransforms'); }, count: transforms.length + pipelines.length },
     {
       value: 'local',
-      label: 'Local · Replayable',
+      get label() { return translate('component.transformationsView.localReplayable'); },
       count: pipelines.length + transforms.filter((transform) => transform.plan.steps.every((step) => step.executor.kind === 'deterministic')).length,
     },
     {
       value: 'assisted',
-      label: 'AI-assisted',
+      get label() { return translate('component.transformationsView.aiAssisted'); },
       count: transforms.filter((transform) => transform.plan.steps.some((step) => step.executor.kind === 'semantic')).length,
     },
   ].filter((option) => option.value === 'all' || option.count > 0);
@@ -255,20 +251,20 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
   return (
     <div className="tools-page filters-page flex-1 h-screen flex flex-col overflow-hidden select-none filter-manager-wrapper">
       <TransformWorkspaceHeader
-        activeWorkspace={activeSubTab}
+        activeWorkspace={activeWorkspace}
         transformCount={transforms.length + pipelines.length}
         operationCount={operations.length}
-        onChange={setActiveSubTab}
+        onChange={onActiveWorkspaceChange}
       />
 
       {/* Main Scrollable Content */}
       <div className="tools-scroll-region flex-1 overflow-y-auto p-6 space-y-6">
-      {activeSubTab === 'advanced' ? (
+      {activeWorkspace === 'advanced' ? (
         <OperationsManager
           isEmbedded={true}
           onChooseOperation={(operation) => choosePlaygroundTarget({ kind: 'operation', item: operation })}
         />
-      ) : activeSubTab === 'playground' ? (
+      ) : activeWorkspace === 'playground' ? (
         <TransformationPlayground
           transforms={transforms}
           operations={operations}

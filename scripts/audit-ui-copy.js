@@ -37,32 +37,8 @@ const TOOL_COPY_FILES = [
 const ALLOWED_COPY = [
   // Literal packaged-app paths used by CLI installation instructions.
   ['src/components/HelpView.tsx', '/Applications/Pasted.app/Contents/MacOS/pasted'],
-  // “Pasted” is the action verb in these Activity labels, not the product name.
-  ['src/components/ActivityLogView.tsx', '<span>Queue Pasted</span>'],
-  ['src/components/ActivityLogView.tsx', '<span>HUD Pasted</span>'],
   // About and installation diagnostics intentionally identify the product.
   ['src/components/SettingsAboutPanel.tsx', '`Pasted ${details.appVersion} (${details.buildKind})`'],
-  ['src/components/SettingsAboutPanel.tsx', "'Not installed beside Pasted'"],
-  ['src/components/SettingsAboutPanel.tsx', 'title="About Pasted"'],
-  ['src/components/SettingsAboutPanel.tsx', '>Pasted</h3>'],
-  // About intentionally carries the public Copycat Covenant into the product.
-  ['src/components/SettingsAboutPanel.tsx', 'The cat captures clips. We don’t capture copycats.'],
-  ['src/components/SettingsAboutPanel.tsx', 'Nobody else gets a copy—and certainly not us.'],
-  ['src/components/SettingsAboutPanel.tsx', 'Pasted works without an identity, a sync account, or a hosted copy of your clipboard history. The core workspace lives where you do.'],
-  ['src/components/SettingsAboutPanel.tsx', 'We do not measure engagement, inspect clipboard activity, or teach a dashboard how copycats behave. Your work is not our dataset.'],
-  ['src/components/SettingsAboutPanel.tsx', 'Pasted will not rent your own clipboard back to you. If it earns a place in your workflow, support is an endorsement—not an unlock.'],
-  ['src/components/SettingsAboutPanel.tsx', 'Humans use the app. Scripts use the CLI. Automations and agents use the tools you explicitly give them. Everyone shares the same local library.'],
-  // The backing CTA names the product and intentionally matches the public site.
-  ['src/components/SettingsAboutPanel.tsx', 'If Pasted earns a permanent place in your workflow'],
-  ['src/components/SettingsAboutPanel.tsx', 'Back Pasted — $9.99'],
-  // macOS requires approval under the literal application name shown by the OS.
-  ['src/components/SettingsHotkeysPanel.tsx', 'Allow <strong>Pasted</strong> under <strong>System Settings'],
-  // Example executable name, not first-person interface narration.
-  ['src/components/ConnectionModal.tsx', '/usr/local/bin/my-planner'],
-  // Destructive actions name their scope explicitly.
-  ['src/components/SettingsResetPanel.tsx', "message: 'Pasted was reset to its first-launch state.'"],
-  ['src/components/SettingsResetPanel.tsx', '>Reset Pasted</h3>'],
-  ['src/components/SettingsResetPanel.tsx', 'Reset Pasted…'],
 ];
 
 const allowedByFile = new Map();
@@ -88,6 +64,7 @@ for (const file of TOOL_COPY_FILES) {
     for (const snippet of allowedSnippets) {
       auditedLine = auditedLine.split(snippet).join('');
     }
+    auditedLine = auditedLine.replace(/\bclassName\s*=\s*(?:"[^"]*"|'[^']*')/g, '');
     const hasProductName = /\bPasted\b/.test(auditedLine);
     const hasPronoun = /\b(?:i|me|my|mine|we|our|ours|us|you|your|yours)\b/.test(auditedLine.toLowerCase());
     const hasOutsideNarratorPhrase = /\bthe app\b/i.test(auditedLine);
@@ -109,6 +86,9 @@ const settingsFeatures = fs.readFileSync('src/components/SettingsFeaturesPanel.t
 const helpView = fs.readFileSync('src/components/HelpView.tsx', 'utf8');
 const app = fs.readFileSync('src/App.tsx', 'utf8');
 const nativeMenu = fs.readFileSync('src-tauri/src/app_menu.rs', 'utf8');
+const englishCatalog = JSON.parse(fs.readFileSync('src/locales/en.json', 'utf8'));
+const localizedValueIsUsed = (source, expected) => Object.entries(englishCatalog)
+  .some(([key, value]) => value === expected && source.includes(`'${key}'`));
 const canonicalAnalysisCopyFiles = [
   'src/components/ContentExtractorManagerDialog.tsx',
   'src/components/ContentTypeManagerDialog.tsx',
@@ -127,36 +107,39 @@ for (const file of canonicalAnalysisCopyFiles) {
     assert.ok(!source.includes(stale), `${file} must not use stale Analysis wording: ${stale}`);
   }
 }
-assert.match(settingsHotkeys, />Reset<\/span>/, 'Hotkeys must use the shared Reset label');
-assert.match(settingsFeatures, /description="Choose which features are available\."/,
+assert.match(settingsHotkeys, /translate\('common\.reset'\)/, 'Hotkeys must use the shared Reset label');
+assert.match(settingsFeatures, /translate\('component\.settingsFeaturesPanel\.chooseWhichFeaturesAreAvailable'\)/,
   'Functionality must keep its header description concise');
-assert.match(settingsFeatures, /<SettingsPanelNote>[\s\S]*preserving existing data unless noted\.[\s\S]*<\/SettingsPanelNote>/,
+assert.match(settingsFeatures, /<SettingsPanelNote>[\s\S]*translate\('component\.settingsFeaturesPanel\.simpleEnablesEssentialClipboardToolsFullEnablesEveryFeatureDisablingAFeature'\)[\s\S]*<\/SettingsPanelNote>/,
   'Functionality must move preset and preservation guidance into the shared Settings note well');
-for (const [menuId, topic, label] of [
-  ['help.getting_started', 'getting-started', 'Getting Started'],
-  ['help.shortcuts', 'shortcuts-hud', 'Shortcuts and HUD'],
-  ['help.privacy', 'privacy-capture', 'Privacy and Capture'],
-  ['help.deletion', 'deletion-recovery', 'Deletion and Recovery'],
-  ['help.analysis', 'analysis', 'Content Analysis'],
-  ['help.transformations', 'transformations', 'Transformations'],
-  ['help.cli', 'cli', 'CLI Commands'],
+for (const [menuId, topic, catalogKey, label] of [
+  ['help.getting_started', 'getting-started', 'native.help.gettingStarted', 'Getting Started'],
+  ['help.shortcuts', 'shortcuts-hud', 'native.help.shortcuts', 'Shortcuts and HUD'],
+  ['help.privacy', 'privacy-capture', 'native.help.privacy', 'Privacy and Capture'],
+  ['help.deletion', 'deletion-recovery', 'native.help.deletion', 'Deletion and Recovery'],
+  ['help.analysis', 'analysis', 'native.help.analysis', 'Content Analysis'],
+  ['help.transformations', 'transformations', 'native.help.transformations', 'Transformations'],
+  ['help.cli', 'cli', 'native.help.cli', 'CLI Commands'],
 ]) {
   assert.ok(nativeMenu.includes(`"${menuId}" => MenuDispatch::Navigate("help:${topic}")`),
     `Native Help menu must route ${label} to its matching Help topic`);
-  assert.ok(nativeMenu.includes(`.text("${menuId}", "${label}")`),
+  assert.ok(nativeMenu.includes(`.text("${menuId}", t("${catalogKey}"))`),
     `Native Help menu must use the Help topic label ${label}`);
-  assert.ok(helpView.includes(`id: '${topic}', label: '${label}'`),
-    `Help must register the ${label} topic with its canonical ID`);
+  assert.equal(englishCatalog[catalogKey], label,
+    `The English native catalog must match the canonical Help label ${label}`);
+  const helpCatalogKey = Object.entries(englishCatalog).find(([, value]) => value === label)?.[0];
+  assert.ok(helpCatalogKey && helpView.includes(`id: '${topic}', get label() { return translate('${helpCatalogKey}'); }`),
+    `Help must register the localized ${label} topic with its canonical ID`);
   assert.ok(app.includes(`'${topic}'`), `App navigation must accept the ${label} Help topic`);
 }
 for (const [file, labels] of Object.entries({
-  'src/components/SettingsBlacklistPanel.tsx': ['Add app…', "label: 'Hotkeys'", 'checked hotkeys'],
+  'src/components/SettingsBlacklistPanel.tsx': ['Add app…', 'Hotkeys', 'checked hotkeys'],
   'src/components/IntelligenceConnectionsPanel.tsx': ['Add connection…'],
   'src/components/SettingsWelcomePanel.tsx': ['Open Copycat Welcome…'],
   'src/components/SettingsAboutPanel.tsx': ['Open Source Licenses…'],
-  'src/components/SettingsAnalysisPanel.tsx': ['Manage ${title}…', 'Rescan Clips…', 'Delete…', 'actionLabel="Manage Content Types"', '<span>Manage…</span>', 'Reset…'],
+  'src/components/SettingsAnalysisPanel.tsx': ['Manage {title}…', 'Rescan Clips…', 'Delete…', 'Manage Content Types', 'Manage…', 'Reset…'],
   'src/components/ContentExtractorManagerDialog.tsx': ['Delete…', 'Choose…', 'Reset…'],
-  'src/components/ContentTypeManagerDialog.tsx': ['actionLabel="Manage Content Type Groups"', '<span>Manage…</span>'],
+  'src/components/ContentTypeManagerDialog.tsx': ['Manage Content Type Groups', 'Manage…'],
   'src/components/SettingsGeneralPanel.tsx': ['Delete All Clips…', 'Trash All Clips…'],
   'src/components/SettingsSyncPanel.tsx': ['Move…', 'Export…', 'Choose File…', 'Recover…'],
   'src/components/SettingsResetPanel.tsx': ['Reset Pasted…'],
@@ -164,11 +147,16 @@ for (const [file, labels] of Object.entries({
 })) {
   const source = fs.readFileSync(file, 'utf8');
   for (const label of labels) {
-    assert.ok(source.includes(label), `${file} must show “${label}” before opening follow-up UI`);
+    const matchingKeys = Object.entries(englishCatalog)
+      .filter(([, value]) => typeof value === 'string' && (value === label || value.includes(label)))
+      .map(([key]) => key);
+    assert.ok(matchingKeys.some((key) => source.includes(`'${key}'`)),
+      `${file} must show localized “${label}” before opening follow-up UI`);
   }
 }
 const settingsDestinations = [
   ['general', 'General'],
+  ['security', 'Security'],
   ['functionality', 'Functionality'],
   ['hotkeys', 'Hotkeys'],
   ['notifications', 'Notifications'],
@@ -180,9 +168,11 @@ const settingsDestinations = [
 ];
 let previousSettingsTab = -1;
 for (const [id, label] of settingsDestinations) {
-  const entry = `{ id: '${id}', label: '${label}'`;
+  const entry = `{ id: '${id}', get label()`;
   const index = settingsTabs.indexOf(entry);
   assert.ok(index > previousSettingsTab, `Settings destination ${label} must retain its requested order`);
+  assert.ok(settingsTabs.includes(`translate('component.settingsTabs.${id === 'app-exclusions' ? 'appExclusions' : id}')`),
+    `Settings destination ${label} must use its catalog entry`);
   previousSettingsTab = index;
 }
 assert.doesNotMatch(settingsTabs, /id: '(?:features|connections|blacklist)'/,
@@ -221,14 +211,12 @@ for (const file of destinationCopyFiles) {
   );
 }
 for (const title of ['Database Location', 'Export', 'Import']) {
-  assert.ok(
-    settingsImportExport.includes(`>${title}<`) || settingsImportExport.includes(`title="${title}"`),
+  assert.ok(localizedValueIsUsed(settingsImportExport, title),
     `Storage titles must retain title case: ${title}`,
   );
 }
 for (const dataLabel of ['Clips', 'Organization', 'Activity', 'Settings and Application Data', 'Revisions and Automation History', 'Interface and Window State']) {
-  assert.ok(
-    settingsImportExport.includes(`label: '${dataLabel}'`),
+  assert.ok(localizedValueIsUsed(settingsImportExport, dataLabel),
     `Storage must retain the ${dataLabel} data selection`,
   );
 }
@@ -295,12 +283,11 @@ const navigationSources = [
 
 const transformationTabs = fs.readFileSync('src/components/TransformWorkspaceHeader.tsx', 'utf8');
 for (const title of ['Library', 'Operations', 'Playground']) {
-  assert.match(
-    transformationTabs,
-    new RegExp(`role="tab"[\\s\\S]{0,80}title="${title}"`),
-    `The Transformations ${title} tab must retain its title when labels collapse to icons`,
-  );
+  assert.ok(localizedValueIsUsed(transformationTabs, title),
+    `The Transformations ${title} tab must retain its localized title when labels collapse to icons`);
 }
+assert.equal((transformationTabs.match(/role="tab"/g) ?? []).length, 3,
+  'Each Transformations workspace must remain a labeled tab');
 
 for (const { file, source, pattern } of navigationSources) {
   assert.ok(source, `Navigation copy source could not be located in ${file}`);

@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { AlertTriangle, CheckCircle2, Info, X } from 'lucide-react';
+import { translate } from '../localization/runtime';
 
 export type ToastTone = 'success' | 'error' | 'info';
 
@@ -74,7 +75,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             <div key={toast.id} className={`app-toast theme-status-${toast.tone === 'error' ? 'danger' : toast.tone}`} role={toast.tone === 'error' ? 'alert' : 'status'}>
               <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
               <span className="min-w-0 flex-1 text-xs font-semibold leading-relaxed">{toast.message}</span>
-              <button type="button" onClick={() => dismissToast(toast.id)} className="app-toast-close" aria-label="Dismiss notification">
+              <button type="button" onClick={() => dismissToast(toast.id)} className="app-toast-close" aria-label={translate('component.toastProvider.dismissNotification')}>
                 <X className="h-3.5 w-3.5" />
               </button>
             </div>

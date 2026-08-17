@@ -44,7 +44,57 @@ html:not([data-platform="macos"]) .platform-framed-only {
 }
 
 html[data-platform="macos"] .sidebar-titlebar-leading {
-  padding-left: 5rem;
+  padding-inline-start: 5rem;
+}
+
+.mac-rtl-window-controls {
+  position: fixed;
+  z-index: 1000;
+  inset-block-start: 23px;
+  inset-inline-start: 20px;
+  gap: 9px;
+}
+
+.mac-window-control {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  appearance: none;
+  color: var(--mac-traffic-glyph);
+  box-shadow: inset 0 0 0 0.5px var(--mac-traffic-border);
+}
+
+.mac-window-control.is-close {
+  background: var(--mac-traffic-close);
+}
+
+.mac-window-control.is-minimize {
+  background: var(--mac-traffic-minimize);
+}
+
+.mac-window-control.is-zoom {
+  background: var(--mac-traffic-zoom);
+}
+
+.mac-window-control-glyph {
+  width: 8px;
+  height: 8px;
+  opacity: 0;
+}
+
+.mac-rtl-window-controls:hover .mac-window-control-glyph,
+.mac-window-control:focus-visible .mac-window-control-glyph {
+  opacity: 1;
+}
+
+.mac-window-control:active {
+  filter: brightness(0.82);
 }
 
 html:not([data-platform="macos"]) .platform-sidebar-header {
@@ -79,9 +129,9 @@ html:not([data-platform="macos"]) .platform-sidebar-header {
 .col-preview-header::after {
   content: "";
   position: absolute;
-  right: 0;
+  inset-inline-end: 0;
   bottom: 0;
-  left: 0;
+  inset-inline-start: 0;
   height: 1px;
   background-color: var(--border-subtle);
   pointer-events: none;

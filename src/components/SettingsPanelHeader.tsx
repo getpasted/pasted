@@ -26,7 +26,7 @@ export function SettingsPanelHeader({
           <p className="theme-text-muted mt-1 text-xs leading-relaxed">{description}</p>
         </div>
       </div>
-      {actions && <div className="ml-auto flex max-w-full flex-wrap items-center justify-end gap-2">{actions}</div>}
+      {actions && <div className="ms-auto flex max-w-full flex-wrap items-center justify-end gap-2">{actions}</div>}
     </div>
   );
 }
