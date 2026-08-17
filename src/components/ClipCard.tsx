@@ -56,19 +56,19 @@ function HighlightedClipText({
   query?: string;
   field: ClipSearchHighlightField;
 }) {
-  if (!query) return <>{text}</>;
+  if (!query) return <bdi>{text}</bdi>;
   const terms = getClipSearchHighlightTerms(query, field);
-  if (terms.length === 0) return <>{text}</>;
+  if (terms.length === 0) return <bdi>{text}</bdi>;
   const escaped = terms.map((term) => term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
   const expression = new RegExp(`(${escaped.join('|')})`, 'gi');
   return (
-    <>
+    <bdi>
       {text.split(expression).map((part, index) => (
         terms.some((term) => term.toLowerCase() === part.toLowerCase())
           ? <mark className="clip-search-match" key={`${part}:${index}`}>{part}</mark>
           : <React.Fragment key={`${part}:${index}`}>{part}</React.Fragment>
       ))}
-    </>
+    </bdi>
   );
 }
 
@@ -209,7 +209,7 @@ function ClipFileThumbnail({
         <Files className="theme-status-info-text h-4 w-4 shrink-0" />
         <OverflowText text={getClipFileSummary(clip)} className="truncate" />
         {paths.length > 1 && (
-          <span className="theme-text-muted ml-auto shrink-0 text-[10px]">{translate('format.fileCount', { count: paths.length })}</span>
+          <span className="theme-text-muted ms-auto shrink-0 text-[10px]">{translate('format.fileCount', { count: paths.length })}</span>
         )}
       </div>
     );
@@ -236,7 +236,7 @@ function ClipFileThumbnail({
               {preview.textContent}
             </pre>
           )}
-          <OverflowText text={getClipFileSummary(clip)} className="theme-surface theme-text-muted absolute bottom-1 left-1 max-w-[calc(100%-0.5rem)] truncate rounded-md px-1.5 py-0.5 text-[9px] shadow-sm" />
+          <OverflowText text={getClipFileSummary(clip)} className="theme-surface theme-text-muted absolute bottom-1 start-1 max-w-[calc(100%-0.5rem)] truncate rounded-md px-1.5 py-0.5 text-[9px] shadow-sm" />
         </>
       )}
     </div>
@@ -612,7 +612,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
                 e.stopPropagation();
                 setShowRevealed(true);
               }}
-              className="clip-sensitive-action ml-2 p-1 rounded transition-colors"
+              className="clip-sensitive-action ms-2 p-1 rounded transition-colors"
               title={translate('component.clipCard.revealSensitiveText')}
             >
               <Eye className="w-3.5 h-3.5" />
@@ -629,7 +629,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
                   e.stopPropagation();
                   setShowRevealed(false);
                 }}
-                className="clip-sensitive-action ml-2 p-1 rounded transition-colors shrink-0"
+                className="clip-sensitive-action ms-2 p-1 rounded transition-colors shrink-0"
                 title={translate('component.clipCard.hideSensitiveText')}
               >
                 <EyeOff className="w-3.5 h-3.5" />
@@ -677,7 +677,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
                 className="floating-action-button is-accent"
                 title={translate('component.clipCard.paste')}
               >
-                <ArrowRightCircle className="w-3.5 h-3.5" />
+                <ArrowRightCircle className="h-3.5 w-3.5 rtl:-scale-x-100" />
               </button>
             )}
             {onRemoveFromQueue && (

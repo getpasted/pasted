@@ -579,13 +579,13 @@ export const ActivityLogView: React.FC = () => {
           />
 
           <div className="relative">
-            <Search className="theme-text-muted w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2" />
+            <Search className="theme-text-muted absolute start-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2" />
             <input
               type="text"
               placeholder={translate('component.activityLogView.searchActivity')}
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
-              className="theme-input ui-field-radius border pl-8 pr-3 py-1.5 text-xs focus:outline-none w-44"
+              className="theme-input ui-field-radius border ps-8 pe-3 py-1.5 text-xs focus:outline-none w-44"
             />
           </div>
 
@@ -614,7 +614,7 @@ export const ActivityLogView: React.FC = () => {
               key={log.id}
               className="theme-panel border rounded-xl p-3.5 flex items-center justify-between transition-colors"
             >
-              <div className="flex items-center space-x-3.5 min-w-0 flex-1 pr-4">
+              <div className="flex items-center space-x-3.5 min-w-0 flex-1 pe-4">
                 {getEventBadge(log.event_type, log.description)}
                 <OverflowText text={log.description} className="theme-text-main text-xs truncate font-medium" />
               </div>

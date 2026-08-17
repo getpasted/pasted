@@ -32,7 +32,7 @@ export function ClipNoteDialog({ clip, text, onTextChange, onCancel, onSave }: C
           />
         </AppDialogHeader>
         <AppDialogBody>
-          <textarea
+          <textarea dir="auto"
             value={text}
             onChange={(event) => onTextChange(event.target.value)}
             placeholder={translate('component.clipNoteDialog.typeYourNoteHere')}

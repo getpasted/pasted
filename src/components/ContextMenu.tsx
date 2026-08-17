@@ -158,8 +158,8 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
                   active={active}
                 >
                   <span>{formatEmojiIcon(b.icon)}</span>
-                  <OverflowText text={b.name} className="truncate" style={{ color: binTextColor(b.color) }} />
-                  {active && <Check className="ml-auto h-3.5 w-3.5" aria-hidden="true" />}
+                  <OverflowText text={b.name} className="bidi-interface-align truncate" style={{ color: binTextColor(b.color) }} />
+                  {active && <Check className="ms-auto h-3.5 w-3.5" aria-hidden="true" />}
                 </MenuItem>
               );
             })}
@@ -182,8 +182,8 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
                 className="gap-2 px-3 py-1.5"
               >
                 <span>{formatEmojiIcon(b.icon)}</span>
-                <OverflowText text={b.name} className="truncate" style={{ color: binTextColor(b.color) }} />
-                {clip.bin_ids?.includes(b.id) && <Check className="ml-auto h-3.5 w-3.5" aria-hidden="true" />}
+                <OverflowText text={b.name} className="bidi-interface-align truncate" style={{ color: binTextColor(b.color) }} />
+                {clip.bin_ids?.includes(b.id) && <Check className="ms-auto h-3.5 w-3.5" aria-hidden="true" />}
               </MenuItem>
             ))}
         </MenuSubmenu>
@@ -213,7 +213,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
                     className="gap-2 px-2.5 py-1.5"
                   >
                     <Workflow className="theme-workflow-text h-3.5 w-3.5 shrink-0" />
-                    <OverflowText text={transform.name} className="min-w-0 flex-1 truncate" />
+                    <OverflowText text={transform.name} className="bidi-interface-align min-w-0 flex-1 truncate" />
                     {usesIntelligence && <Sparkles className="theme-intelligence-text h-3 w-3 shrink-0" />}
                   </MenuItem>
                 );

@@ -58,7 +58,7 @@ export function MenuSelect({
       <button
         ref={triggerRef}
         type="button"
-        className={`menu-select-trigger flex min-w-0 items-center gap-2 border text-left ${compact ? 'rounded-lg px-2' : 'ui-field-radius px-2.5'} ${className}`}
+        className={`menu-select-trigger flex min-w-0 items-center gap-2 border text-start ${compact ? 'rounded-lg px-2' : 'ui-field-radius px-2.5'} ${className}`}
         aria-label={label}
         aria-haspopup="menu"
         aria-expanded={isOpen}
@@ -71,7 +71,7 @@ export function MenuSelect({
         {leadingIcon}
         <OverflowText
           text={selectedText}
-          className={`min-w-0 flex-1 truncate text-xs font-semibold ${compact ? 'py-1.5' : 'py-2'}`}
+          className={`bidi-interface-align min-w-0 flex-1 truncate text-xs font-semibold ${compact ? 'py-1.5' : 'py-2'}`}
           style={selected?.color ? { color: selected.color } : undefined}
         />
         <ChevronDown className={`h-3.5 w-3.5 shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} aria-hidden="true" />
@@ -129,7 +129,7 @@ export function MenuSelect({
                   }}
                 >
                   {option.icon && <span className="grid h-4 w-4 shrink-0 place-items-center">{option.icon}</span>}
-                  <OverflowText text={option.label} className="min-w-0 flex-1 truncate" />
+                  <OverflowText text={option.label} className="bidi-interface-align min-w-0 flex-1 truncate" />
                   {typeof option.count === 'number' && <span className="theme-text-subtle tabular-nums">{option.count}</span>}
                 </MenuItem>
               </div>

@@ -334,7 +334,7 @@ export const AnalyticsView: React.FC = () => {
                       style={{ width: `${pct}%` }}
                     />
                   </div>
-                  <span className="theme-text-main font-bold w-12 text-right">{day.count}</span>
+                  <span className="theme-text-main font-bold w-12 text-end">{day.count}</span>
                 </div>
               );
             })

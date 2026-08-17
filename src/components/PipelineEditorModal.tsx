@@ -194,7 +194,7 @@ const PipelineStepEditor: React.FC<{
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <label className="block mb-1 theme-text-muted">{translate('component.pipelineEditorModal.find')}</label>
-                <textarea
+                <textarea dir="auto"
                   placeholder={translate('component.pipelineEditorModal.textPatternOrRegexPattern')}
                   value={step.findPattern || ''}
                   onChange={(e) => onUpdate({ findPattern: e.target.value })}
@@ -203,7 +203,7 @@ const PipelineStepEditor: React.FC<{
               </div>
               <div>
                 <label className="block mb-1 theme-text-muted">{translate('component.pipelineEditorModal.replaceWith')}</label>
-                <textarea
+                <textarea dir="auto"
                   placeholder={translate('component.pipelineEditorModal.replacementString')}
                   value={step.replacePattern || ''}
                   onChange={(e) => onUpdate({ replacePattern: e.target.value })}
@@ -245,7 +245,7 @@ const PipelineStepEditor: React.FC<{
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <label className="block mb-1 theme-text-muted">{translate('component.pipelineEditorModal.beforeContent')}</label>
-                <textarea
+                <textarea dir="auto"
                   value={step.quoteBefore ?? '> '}
                   onChange={(e) => onUpdate({ quoteBefore: e.target.value })}
                   className="w-full h-16 border rounded-lg p-2 font-mono text-xs focus:outline-none theme-input"
@@ -253,7 +253,7 @@ const PipelineStepEditor: React.FC<{
               </div>
               <div>
                 <label className="block mb-1 theme-text-muted">{translate('component.pipelineEditorModal.afterContent')}</label>
-                <textarea
+                <textarea dir="auto"
                   value={step.quoteAfter ?? ''}
                   onChange={(e) => onUpdate({ quoteAfter: e.target.value })}
                   className="w-full h-16 border rounded-lg p-2 font-mono text-xs focus:outline-none theme-input"
@@ -542,7 +542,7 @@ export const PipelineEditorModal: React.FC<PipelineEditorModalProps> = ({
               onRetry={() => void runLiveTest()}
               onStop={cancelLiveTest}
             />}
-            input={<textarea
+            input={<textarea dir="auto"
                   value={testInput}
                   onChange={(e) => setTestInput(e.target.value)}
                   className="theme-input ui-field-radius w-full h-24 border p-2.5 focus:outline-none"

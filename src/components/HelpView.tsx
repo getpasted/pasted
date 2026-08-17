@@ -248,7 +248,7 @@ export const HelpView: React.FC<HelpViewProps> = ({ activeTopic, onActiveTopicCh
                   <Icon className={iconClassName} />
                   <span>{label}</span>
                 </span>
-                <ChevronRight className="help-topic-button__chevron" aria-hidden="true" />
+                <ChevronRight className="help-topic-button__chevron rtl:-scale-x-100" aria-hidden="true" />
               </button>
             );
           })}

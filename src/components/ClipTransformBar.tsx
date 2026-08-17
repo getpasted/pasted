@@ -40,7 +40,7 @@ export function ClipTransformBar({
           <Workflow className="preview-filter-accent w-4 h-4" />
           <OverflowText text={statusText} className="theme-text-main truncate text-xs font-semibold" />
         </div>
-        <div className="ml-auto flex items-center gap-1.5 shrink-0">
+        <div className="ms-auto flex items-center gap-1.5 shrink-0">
           <button
             type="button"
             onClick={onApply}

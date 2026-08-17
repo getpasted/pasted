@@ -245,7 +245,7 @@ export const OperationEditorModal: React.FC<OperationEditorModalProps> = ({
               <div className="grid grid-cols-1 gap-3 text-xs sm:grid-cols-2">
                 <div>
                   <label className="block mb-1 theme-text-muted">{translate('component.operationEditorModal.findPattern')}</label>
-                  <textarea
+                  <textarea dir="auto"
                     value={findPattern}
                     onChange={(event) => setFindPattern(event.target.value)}
                     placeholder="e.g. \\b\\d{3}-\\d{3}-\\d{4}\\b"
@@ -254,7 +254,7 @@ export const OperationEditorModal: React.FC<OperationEditorModalProps> = ({
                 </div>
                 <div>
                   <label className="block mb-1 theme-text-muted">{translate('component.operationEditorModal.replaceWith')}</label>
-                  <textarea
+                  <textarea dir="auto"
                     value={replacePattern}
                     onChange={(event) => setReplacePattern(event.target.value)}
                     placeholder={translate('component.operationEditorModal.eGRedactedOr1')}
@@ -266,7 +266,7 @@ export const OperationEditorModal: React.FC<OperationEditorModalProps> = ({
               <TransformationPreviewPanel
                 title={translate('component.operationEditorModal.localPreview')}
                 description={translate('component.operationEditorModal.runsLocallyDuringEditing')}
-                input={<textarea
+                input={<textarea dir="auto"
                     value={testInput}
                     onChange={(event) => setTestInput(event.target.value)}
                     className="theme-input ui-field-radius w-full h-20 border p-2.5 focus:outline-none"
@@ -280,7 +280,7 @@ export const OperationEditorModal: React.FC<OperationEditorModalProps> = ({
             <div className="space-y-3 text-xs">
               <div>
                 <label className="block mb-1 theme-text-muted">{translate('component.operationEditorModal.instructions')}</label>
-                <textarea
+                <textarea dir="auto"
                   value={aiInstructions}
                   onChange={(event) => setAiInstructions(event.target.value)}
                   placeholder={translate('component.operationEditorModal.forExampleRewriteThisAsConciseWellStructuredMarkdownWhilePreservingEvery')}

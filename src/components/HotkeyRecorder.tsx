@@ -114,7 +114,7 @@ export const HotkeyRecorder: React.FC<HotkeyRecorderProps> = ({
           isRecording
             ? 'is-recording px-2.5 animate-pulse'
             : value
-            ? 'has-value pl-2.5 pr-1.5 shadow-sm'
+            ? 'has-value ps-2.5 pe-1.5 shadow-sm'
             : 'is-empty px-2'
         }`}
       >
@@ -143,7 +143,7 @@ export const HotkeyRecorder: React.FC<HotkeyRecorderProps> = ({
               e.stopPropagation();
               onChange(null);
             }}
-            className="hotkey-recorder-clear ml-1.5 p-0.5 rounded transition-colors"
+            className="hotkey-recorder-clear ms-1.5 p-0.5 rounded transition-colors"
             title={translate('component.hotkeyRecorder.clearShortcut')}
           >
             <X className="w-3 h-3" />

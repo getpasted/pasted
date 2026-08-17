@@ -33,7 +33,7 @@ export function SettingsSwitch({
       className={`settings-switch relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent ${tone === 'danger' ? 'is-danger' : ''} ${checked ? 'is-on' : ''} ${busy ? 'disabled:cursor-wait disabled:opacity-50' : 'disabled:cursor-not-allowed'} ${className}`.trim()}
       {...props}
     >
-      <span className={`settings-switch-thumb pointer-events-none inline-block h-4 w-4 rounded-full shadow transition-transform ${checked ? 'translate-x-4' : 'translate-x-0'}`} />
+      <span className={`settings-switch-thumb pointer-events-none inline-block h-4 w-4 rounded-full shadow transition-transform ${checked ? 'ltr:translate-x-4 rtl:-translate-x-4' : 'translate-x-0'}`} />
     </button>
   );
 }

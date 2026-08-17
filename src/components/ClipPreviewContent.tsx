@@ -126,9 +126,10 @@ function FileCopyField({
       className={`file-copy-field flex min-h-10 min-w-0 items-center gap-1 px-1.5 py-0.5 ${emphasized ? 'theme-subtle-surface' : ''}`}
       onPointerDown={handleFieldPointerDown}
     >
-      <span className="theme-text-subtle w-9 shrink-0 pl-1 text-[9px] font-semibold uppercase tracking-wide">{label}</span>
+      <span className="theme-text-subtle w-9 shrink-0 ps-1 text-[9px] font-semibold uppercase tracking-wide">{label}</span>
       <div
         ref={viewportRef}
+        dir="ltr"
         tabIndex={0}
         className={`file-attribute-scroll theme-text-main min-w-0 flex-1 cursor-text overflow-x-auto whitespace-nowrap rounded-md px-2 py-1.5 font-mono outline-none select-text ${emphasized ? 'text-xs' : 'text-[11px]'}`}
         title={value}
@@ -274,7 +275,7 @@ export function ClipPreviewContent({
               </div>
               {fileSearchableText ? <>
                 <p className="theme-text-muted text-xs">{translate('component.clipPreviewContent.extractedByName', { name: fileSearchableText.extractorName })}</p>
-                <div className="theme-code-surface overlay-scroll-region max-h-60 overflow-y-auto whitespace-pre-wrap rounded-xl border p-3.5 font-mono text-xs leading-relaxed shadow-inner select-text">
+                <div dir="auto" className="theme-code-surface overlay-scroll-region max-h-60 overflow-y-auto whitespace-pre-wrap rounded-xl border p-3.5 font-mono text-xs leading-relaxed shadow-inner select-text">
                   {fileSearchableText.searchableText}
                 </div>
               </> : (
@@ -335,7 +336,7 @@ export function ClipPreviewContent({
                   onClick={() => onCopyFormat(fmt.label, fmt.val)}
                   className="clip-format-button theme-surface flex items-center justify-between px-3 py-2 rounded-xl border text-xs group"
                 >
-                  <div className="flex flex-col text-left truncate pr-2">
+                  <div className="flex flex-col text-start truncate pe-2">
                     <span className="theme-text-muted text-[10px] uppercase font-semibold">{fmt.label}</span>
                     <OverflowText text={fmt.val} className="theme-text-main font-mono truncate text-[11px]" />
                   </div>
@@ -423,7 +424,7 @@ export function ClipPreviewContent({
               )}
 
               {clip.text_content ? (
-                <div className="theme-code-surface overlay-scroll-region p-3.5 border rounded-xl font-mono text-xs whitespace-pre-wrap leading-relaxed select-text shadow-inner max-h-60 overflow-y-auto">
+                <div dir="auto" className="theme-code-surface overlay-scroll-region p-3.5 border rounded-xl font-mono text-xs whitespace-pre-wrap leading-relaxed select-text shadow-inner max-h-60 overflow-y-auto">
                   {clip.text_content}
                 </div>
               ) : (
@@ -434,7 +435,7 @@ export function ClipPreviewContent({
             </div>
           </div>
         ) : (
-          <div className="clip-text-content theme-surface p-4 rounded-xl border leading-relaxed overflow-x-auto whitespace-pre-wrap shadow-inner">
+          <div dir="auto" className="clip-text-content theme-surface p-4 rounded-xl border leading-relaxed overflow-x-auto whitespace-pre-wrap shadow-inner">
             {displayText}
           </div>
         )}

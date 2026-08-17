@@ -1,3 +1,35 @@
+code,
+kbd,
+samp {
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
+/* Keep a dynamic value's own bidi shaping while aligning its box to the
+   surrounding interface direction, especially inside flex-based menu rows. */
+.bidi-interface-align {
+  text-align: match-parent;
+}
+
+bdi {
+  unicode-bidi: isolate;
+}
+
+:root {
+  --mac-traffic-close: #ff5f57;
+  --mac-traffic-minimize: #febc2e;
+  --mac-traffic-zoom: #28c840;
+  --mac-traffic-border: rgb(0 0 0 / 18%);
+  --mac-traffic-glyph: rgb(0 0 0 / 55%);
+}
+
+html[dir="rtl"] .tracking-tight,
+html[dir="rtl"] .tracking-wide,
+html[dir="rtl"] .tracking-wider,
+html[dir="rtl"] .tracking-widest {
+  letter-spacing: normal;
+}
+
 .clip-card {
   contain: content;
   content-visibility: auto;
@@ -584,16 +616,21 @@
     background-repeat: no-repeat;
     background-position: right 0.6rem center;
     background-size: 0.85rem 0.85rem;
-    padding-right: 1.75rem;
+    padding-inline-end: 1.75rem;
+  }
+
+  html[dir="rtl"] select,
+  html[dir="rtl"] .theme-select {
+    background-position: left 0.6rem center;
   }
 }
 /* Connected menu/action controls keep only their outer corners rounded. */
 .connected-menu-action > button:first-child {
-  border-top-right-radius: 0;
-  border-bottom-right-radius: 0;
+  border-start-end-radius: 0;
+  border-end-end-radius: 0;
 }
 
 .connected-menu-action > button:last-child {
-  border-top-left-radius: 0;
-  border-bottom-left-radius: 0;
+  border-start-start-radius: 0;
+  border-end-start-radius: 0;
 }

@@ -64,6 +64,7 @@ for (const file of TOOL_COPY_FILES) {
     for (const snippet of allowedSnippets) {
       auditedLine = auditedLine.split(snippet).join('');
     }
+    auditedLine = auditedLine.replace(/\bclassName\s*=\s*(?:"[^"]*"|'[^']*')/g, '');
     const hasProductName = /\bPasted\b/.test(auditedLine);
     const hasPronoun = /\b(?:i|me|my|mine|we|our|ours|us|you|your|yours)\b/.test(auditedLine.toLowerCase());
     const hasOutsideNarratorPhrase = /\bthe app\b/i.test(auditedLine);

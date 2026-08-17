@@ -3,6 +3,13 @@
   "defaultLocale": "en",
   "locales": [
     {
+      "code": "ar",
+      "name": "Arabic",
+      "nativeName": "العربية",
+      "direction": "rtl",
+      "catalog": "ar.json"
+    },
+    {
       "code": "en",
       "name": "English",
       "nativeName": "English",

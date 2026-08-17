@@ -1,6 +1,7 @@
 import manifestData from '../locales/manifest.json';
 import englishCatalogData from '../locales/en.json';
 import { setPresentationLocale } from './state';
+import { isolateBidi, isRtlLocale } from './bidi';
 
 type MessageVariables = Record<string, string | number>;
 type PluralMessage = Partial<Record<Intl.LDMLPluralRule, string>> & { other: string };
@@ -28,6 +29,7 @@ export function hasTranslationKey(key: string): key is TranslationKey {
 }
 
 const manifest = manifestData as LocaleManifest;
+const rtlLocales = manifest.locales.filter(({ direction }) => direction === 'rtl').map(({ code }) => code);
 const localeNameCollator = new Intl.Collator('en', { sensitivity: 'base' });
 const sortedLocales = [...manifest.locales].sort((left, right) => (
   localeNameCollator.compare(left.nativeName, right.nativeName)
@@ -138,9 +140,14 @@ export function getLocalizationSnapshot(): LocalizationSnapshot {
 }
 
 function interpolate(template: string, variables: MessageVariables, locale: string): string {
+  const rtl = isRtlLocale(locale, rtlLocales);
   return template.replace(/\{([A-Za-z][A-Za-z0-9_]*)\}/g, (placeholder, name: string) => (
     Object.prototype.hasOwnProperty.call(variables, name)
-      ? typeof variables[name] === 'number'
+      ? rtl
+        ? isolateBidi(typeof variables[name] === 'number'
+          ? new Intl.NumberFormat(locale).format(variables[name])
+          : String(variables[name]))
+        : typeof variables[name] === 'number'
         ? new Intl.NumberFormat(locale).format(variables[name])
         : String(variables[name])
       : placeholder

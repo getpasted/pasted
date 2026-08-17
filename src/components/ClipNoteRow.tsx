@@ -54,7 +54,7 @@ export const NoteRowItem: React.FC<NoteRowItemProps> = ({
     >
       {editingNoteId === noteItem.id && !readOnly ? (
         <div className="flex-1 flex flex-col space-y-2 py-1 min-w-0">
-          <textarea
+          <textarea dir="auto"
             rows={3}
             value={editingNoteText}
             onChange={(e) => setEditingNoteText(e.target.value)}

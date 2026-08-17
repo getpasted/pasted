@@ -12,7 +12,7 @@ export function SettingsSectionHeading({
   className = '',
 }: SettingsSectionHeadingProps) {
   return (
-    <div className={`${align === 'center' ? 'text-center' : 'text-left'} ${className}`.trim()}>
+    <div className={`${align === 'center' ? 'text-center' : 'text-start'} ${className}`.trim()}>
       <h3 className="theme-text-muted text-[10px] font-semibold uppercase tracking-wider">
         {title}
       </h3>

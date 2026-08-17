@@ -53,6 +53,7 @@ import { consumePendingBackupClientState } from './utils/backupClientState';
 import { useLocalization } from './localization/LocalizationProvider';
 import { translate } from './localization/runtime';
 import { localizedSourceName } from './localization/presentation';
+import { MacRtlWindowControls } from './components/MacRtlWindowControls';
 
 const TRANSIENT_SCROLL_SURFACE_SELECTOR = [
   '.surface-scroll-region',
@@ -69,7 +70,8 @@ const TRANSIENT_SCROLL_SURFACE_SELECTOR = [
 ].join(', ');
 
 export default function App() {
-  const { locale } = useLocalization();
+  const { direction, locale } = useLocalization();
+  const previousTitlebarDirectionRef = useRef(direction);
   const [restoredUiState] = useState(readAppUiState);
   const [isHudView, setIsHudView] = useState<boolean>(false);
 
@@ -80,6 +82,16 @@ export default function App() {
       })
       .catch((error) => console.error('Failed to restore backed-up interface state:', error));
   }, []);
+
+  useEffect(() => {
+    if (document.documentElement.dataset.platform !== 'macos') return undefined;
+    const previousDirection = previousTitlebarDirectionRef.current;
+    previousTitlebarDirectionRef.current = direction;
+    if (direction === 'ltr' && previousDirection !== 'rtl') return undefined;
+    void invoke('set_titlebar_direction', { rtl: direction === 'rtl' })
+      .catch((error) => console.error('Failed to update titlebar direction:', error));
+    return undefined;
+  }, [direction]);
 
   useEffect(() => {
     const hideTimers = new Map<HTMLElement, number>();
@@ -1184,6 +1196,7 @@ export default function App() {
     } ${
       isResizingSidebar || isResizingList ? 'is-resizing-columns' : ''
     }`}>
+      {direction === 'rtl' && <MacRtlWindowControls />}
       {clipDragPreview && (() => {
         const previewClip = displayedClips.find((clip) => clip.id === clipDragPreview.clipId)
           ?? allClips.find((clip) => clip.id === clipDragPreview.clipId);
@@ -1216,7 +1229,7 @@ export default function App() {
           </div>
         );
       })()}
-      {/* Left application sidebar; platform CSS reserves macOS traffic lights only. */}
+      {/* Inline-start application sidebar; platform CSS reserves mirrored macOS traffic lights. */}
       <Sidebar
         currentTab={currentTab}
         setCurrentTab={handleSidebarNavigate}
@@ -1262,7 +1275,7 @@ export default function App() {
           title={translate('app.resizeSidebar')}
         >
           <div className={`column-resizer-line w-[1px] h-full transition-colors ${isResizingSidebar ? 'is-active' : ''}`} />
-          <div className="absolute inset-y-0 -left-1 -right-1 z-40 cursor-col-resize" />
+          <div className="absolute -inset-x-1 inset-y-0 z-40 cursor-col-resize" />
         </div>
       )}
 
@@ -1317,7 +1330,7 @@ export default function App() {
               onDoubleClick={handleWindowDragDoubleClick}
               className="h-[60px] border-b px-3 flex items-center justify-between col-list-header cursor-default titlebar-drag-handle shrink-0"
             >
-              <div className="flex items-center space-x-2 titlebar-drag-handle min-w-0 flex-1 mr-2">
+              <div className="flex items-center space-x-2 titlebar-drag-handle min-w-0 flex-1 me-2">
                 {currentCollection?.icon === 'search' ? (
                   <Search className="theme-text-main w-4 h-4 titlebar-drag-handle shrink-0" />
                 ) : (
@@ -1416,7 +1429,7 @@ export default function App() {
               <div
                 ref={clipListRef}
                 data-clip-list
-                className="h-full overflow-y-auto pl-3 pr-3 py-3 space-y-2.5 custom-scrollbar"
+                className="h-full overflow-y-auto ps-3 pe-3 py-3 space-y-2.5 custom-scrollbar"
                 onScroll={(event) => handleClipListScroll(event.currentTarget)}
                 onClick={(event) => {
                   if (event.target === event.currentTarget) clearClipSelection();
@@ -1638,7 +1651,7 @@ export default function App() {
                 </button>
                 <button
                   onClick={clearClipSelection}
-                  className="batch-action-button p-0.5 rounded-full transition-colors cursor-pointer shrink-0 ml-0.5"
+                  className="batch-action-button p-0.5 rounded-full transition-colors cursor-pointer shrink-0 ms-0.5"
                   title={translate('app.deselect')}
                 >
                   <X className="w-3.5 h-3.5 shrink-0" />
@@ -1647,17 +1660,17 @@ export default function App() {
             )}
           </div>
 
-          {/* List Resizer Handle (Exact 1px visual border line with grab target extending to right) */}
+          {/* List resizer with a 1px visual line and an inline-end grab target. */}
           <div
             onPointerDown={handleListPointerDown}
             className="column-resizer relative w-[1px] h-screen cursor-col-resize z-20 shrink-0 select-none touch-none"
             title={translate('app.resizeClipList')}
           >
             <div className={`column-resizer-line w-[1px] h-full transition-colors ${isResizingList ? 'is-active' : ''}`} />
-            <div className="absolute inset-y-0 left-0 -right-2 z-20 cursor-col-resize" />
+            <div className="absolute inset-y-0 start-0 -end-2 z-20 cursor-col-resize" />
           </div>
 
-          {/* Right Detail Preview Panel */}
+          {/* Inline-end detail preview panel. */}
           <ClipPreview
             clip={selectedClip}
             viewPolicy={selectedClipViewPolicy}

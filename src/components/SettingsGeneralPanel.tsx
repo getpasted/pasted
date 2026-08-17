@@ -213,7 +213,7 @@ export function SettingsGeneralPanel({
               {/* Appearance Mode Switcher */}
               <div className="flex items-center justify-between pb-1">
                 <span className="font-medium">
-                  {translate('component.settingsGeneralPanel.colorScheme')} <strong className="theme-text-muted ml-1">{appearanceModes.find(({ value }) => value === (settings.themeMode || 'system'))?.label}</strong>
+                  {translate('component.settingsGeneralPanel.colorScheme')} <strong className="theme-text-muted ms-1">{appearanceModes.find(({ value }) => value === (settings.themeMode || 'system'))?.label}</strong>
                 </span>
                 <div className="theme-surface appearance-picker flex items-center p-1 rounded-xl border gap-1" role="group" aria-label={translate('component.settingsGeneralPanel.appearanceScheme')}>
                   {appearanceGroups.map((group) => (
@@ -241,7 +241,7 @@ export function SettingsGeneralPanel({
               </div>
 
               <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0 flex-1 pr-4">
+                <div className="min-w-0 flex-1 pe-4">
                   <span className="font-semibold theme-text-main block">{t('settings.general.language.label')}</span>
                   <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
                     {t('settings.general.language.description')}
@@ -282,7 +282,7 @@ export function SettingsGeneralPanel({
                     title={translate('component.settingsGeneralPanel.zoomOut2')}
                     disabled={settings.textSize <= APP_ZOOM_STEPS[0]}
                     onClick={() => onUpdateSettings({ textSize: stepAppZoom(settings.textSize, -1) })}
-                    className="theme-secondary-button flex h-8 w-8 items-center justify-center border-0 border-r disabled:cursor-not-allowed disabled:opacity-35"
+                    className="theme-secondary-button flex h-8 w-8 items-center justify-center border-0 border-e disabled:cursor-not-allowed disabled:opacity-35"
                   >
                     <Minus className="h-3.5 w-3.5" />
                   </button>
@@ -301,7 +301,7 @@ export function SettingsGeneralPanel({
                     title={translate('component.settingsGeneralPanel.zoomIn2')}
                     disabled={settings.textSize >= APP_ZOOM_STEPS[APP_ZOOM_STEPS.length - 1]}
                     onClick={() => onUpdateSettings({ textSize: stepAppZoom(settings.textSize, 1) })}
-                    className="theme-secondary-button flex h-8 w-8 items-center justify-center border-0 border-l disabled:cursor-not-allowed disabled:opacity-35"
+                    className="theme-secondary-button flex h-8 w-8 items-center justify-center border-0 border-s disabled:cursor-not-allowed disabled:opacity-35"
                   >
                     <Plus className="h-3.5 w-3.5" />
                   </button>
@@ -309,7 +309,7 @@ export function SettingsGeneralPanel({
               </div>
 
               <div className="flex items-start justify-between">
-                <div className="pr-4 flex-1 min-w-0">
+                <div className="pe-4 flex-1 min-w-0">
                   <span className="font-semibold theme-text-main block">{translate('component.settingsGeneralPanel.clipDensity')}</span>
                   <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
                     {translate('component.settingsGeneralPanel.adjustsClipSpacingTextDepthAndPreviewSizeThroughoutTheHistoryList')}
@@ -341,7 +341,7 @@ export function SettingsGeneralPanel({
               </div>
 
               <div className="flex items-start justify-between">
-                <div className="pr-4 flex-1 min-w-0">
+                <div className="pe-4 flex-1 min-w-0">
                   <span className="font-semibold theme-text-main block">{translate('component.settingsGeneralPanel.columnWidths')}</span>
                   <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
                     {translate('component.settingsGeneralPanel.resetsTheLeftSidebarAndMiddleHistoryListPanelWidthsToTheir')}
@@ -391,7 +391,7 @@ export function SettingsGeneralPanel({
 
               {isMac && (
                 <div className="flex items-start justify-between gap-4 pt-1">
-                  <div className="min-w-0 flex-1 pr-4">
+                  <div className="min-w-0 flex-1 pe-4">
                     <span className="font-semibold theme-text-main block">{translate('component.settingsGeneralPanel.menuBarIcon')}</span>
                     <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
                       {translate('component.settingsGeneralPanel.chooseTheClassicClipboardOrTheResidentCopycat')}
@@ -408,7 +408,7 @@ export function SettingsGeneralPanel({
               )}
 
               <div className="flex items-start justify-between pt-1">
-                <div className="pr-4 flex-1 min-w-0">
+                <div className="pe-4 flex-1 min-w-0">
                   <span className="font-semibold theme-text-main block">{translate('component.settingsGeneralPanel.interactionSounds')}</span>
                   <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
                     {translate('component.settingsGeneralPanel.playSubtleAudioCuesForCopyPasteAndNavigationActions')}
@@ -426,7 +426,7 @@ export function SettingsGeneralPanel({
               </div>
 
               <div className="flex items-start justify-between">
-                <div className="pr-4 flex-1 min-w-0">
+                <div className="pe-4 flex-1 min-w-0">
                   <span className="font-semibold theme-text-main block">{translate('component.settingsGeneralPanel.startupBehavior')}</span>
                   <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
                     {translate('component.settingsGeneralPanel.launchAutomaticallyAfterLoggingIntoMacos')}
@@ -490,7 +490,7 @@ export function SettingsGeneralPanel({
               </div>
 
               <div className="flex items-start justify-between pt-1">
-                <div className="pr-4 flex-1 min-w-0">
+                <div className="pe-4 flex-1 min-w-0">
                   <span className="font-semibold theme-text-main block">{translate('component.settingsGeneralPanel.defaultPasteBehavior')}</span>
                   <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
                     {translate('component.settingsGeneralPanel.setsTheTextFormattingOutputType')}
@@ -506,7 +506,7 @@ export function SettingsGeneralPanel({
               </div>
 
               <div className="flex items-start justify-between">
-                <div className="pr-4 flex-1 min-w-0">
+                <div className="pe-4 flex-1 min-w-0">
                   <span className="font-semibold theme-text-main block">{translate('component.settingsGeneralPanel.maximumClipSizeMb')}</span>
                   <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
                     {translate('component.settingsGeneralPanel.ignoreCopiedClipsLargerThanTheSpecifiedLimit')}
@@ -542,7 +542,7 @@ export function SettingsGeneralPanel({
 
               {settings.filePreviewMode !== 'off' && (
                 <div className="flex items-start justify-between">
-                  <div className="pr-4 flex-1 min-w-0">
+                  <div className="pe-4 flex-1 min-w-0">
                     <span className="font-semibold theme-text-main block">{translate('component.settingsGeneralPanel.maximumPreviewFileSizeMb')}</span>
                     <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
                       {translate('component.settingsGeneralPanel.filesAboveThisSizeStayAsReferences')}
@@ -562,7 +562,7 @@ export function SettingsGeneralPanel({
               )}
 
               {settings.enableRevisions && <div className="flex items-start justify-between">
-                <div className="pr-4 flex-1 min-w-0">
+                <div className="pe-4 flex-1 min-w-0">
                   <span className="font-semibold theme-text-main block">{translate('component.settingsGeneralPanel.revisionsPerClip')}</span>
                   <p className="text-[11px] theme-text-muted leading-normal mt-0.5">{settings.revisionHistoryLimit === 0
                     ? translate('component.settingsGeneralPanel.unlimitedRevisionHistoryDescription')

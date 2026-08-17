@@ -165,10 +165,10 @@ function ExportDataRow({
   disabled: boolean;
   onToggle: () => void;
 }) {
-  return <div className={`relative flex items-start justify-between gap-4 py-3 pr-4 ${item.nested ? 'pl-10' : 'pl-4'} ${disabled ? 'settings-disabled-row' : ''}`}>
+  return <div className={`relative flex items-start justify-between gap-4 py-3 pe-4 ${item.nested ? 'ps-10' : 'ps-4'} ${disabled ? 'settings-disabled-row' : ''}`}>
     {item.nested && <span
       aria-hidden="true"
-      className="theme-divider absolute left-4 top-0 h-1/2 w-3 rounded-bl-md border-b border-l"
+      className="theme-divider absolute start-4 top-0 h-1/2 w-3 rounded-es-md border-b border-s"
     />}
     <div className="min-w-0">
       <div className="flex flex-wrap items-center gap-2">
@@ -742,13 +742,13 @@ export function SettingsSyncPanel({
         <button
           type="button"
           onClick={onOpenAnalytics}
-          className="theme-secondary-button flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left"
+          className="theme-secondary-button flex w-full items-center justify-between rounded-xl border px-4 py-3 text-start"
         >
           <span>
             <strong className="theme-title block text-xs">{translate('component.settingsSyncPanel.curiousWhatSTakingUpSpace')}</strong>
             <span className="theme-text-muted mt-0.5 block text-[11px]">{translate('component.settingsSyncPanel.openInsights')}</span>
           </span>
-          <ArrowRight className="h-4 w-4 shrink-0" />
+          <ArrowRight className="h-4 w-4 shrink-0 rtl:-scale-x-100" />
         </button>
       )}
 

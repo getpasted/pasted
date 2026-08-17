@@ -21,6 +21,9 @@ Pasted aims to make its meaningful clipboard-management capabilities available t
 - Machine or local-model translations are drafts. Run the locale-specific editorial review scripts after draft generation, review new strings in their interface context, and preserve established product terminology—especially for destructive actions, privacy, security, backup and restore, platform instructions, Clips, Bins, and named destinations.
 - Keep React, Rust-native menus, shipped registry metadata, and the locale manifest synchronized. When adding or renaming a localization key, update every consumer and catalog atomically and remove stale keys or audit exceptions rather than leaving hidden compatibility debt.
 - Before treating user-facing copy work as complete, run `npm run test:i18n` and `npm run test:copy`; run `npm run build` and relevant Rust tests when runtime, native-menu, registry, formatter, or locale-selection behavior changes. Never weaken completeness checks or increase hardcoded-copy debt to make a change pass.
+- Use logical inline-start and inline-end layout utilities and CSS properties for direction-sensitive spacing, alignment, borders, corners, and positioning. Physical left/right styling requires a documented operating-system or geometry exception in the RTL audit.
+- Keep interface direction separate from user content. Clipboard text and user-defined labels use automatic direction; file paths, commands, code, and stable identifiers remain isolated or explicitly LTR as appropriate.
+- Mirror navigation, disclosure, and directional-flow icons in RTL. Do not mirror semantic symbols whose meaning is direction-independent.
 
 ## Theme-safe styling
 

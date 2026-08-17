@@ -57,7 +57,7 @@ export function ClipRevisionHistory({
       ) : versions.length === 0 ? (
         <p className="clip-revision-history-empty text-xs py-2">{translate('component.clipRevisionHistory.noRevisionsYet')}</p>
       ) : (
-        <div className="max-h-48 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+        <div className="max-h-48 overflow-y-auto space-y-2 pe-1 custom-scrollbar">
           {versions.map((version, index) => {
             const isRestoring = restoringVersionId === version.id;
             const restoreInProgress = restoringVersionId !== null;

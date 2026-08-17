@@ -344,7 +344,7 @@ export const BinModal: React.FC<BinModalProps> = ({
             </div>
           {/* Name Field */}
           <div className="flex items-center space-x-3">
-            <label className={`w-20 text-right font-semibold flex-shrink-0 ${errors.name ? 'theme-danger-text font-bold' : 'theme-text-muted'}`}>{translate('common.name')}</label>
+            <label className={`w-20 text-end font-semibold flex-shrink-0 ${errors.name ? 'theme-danger-text font-bold' : 'theme-text-muted'}`}>{translate('common.name')}</label>
             <input
               type="text"
               placeholder={translate('component.binModal.eGCodeSnippetsSafariClips')}
@@ -365,7 +365,7 @@ export const BinModal: React.FC<BinModalProps> = ({
 
           {/* Color Palette Picker Row */}
           <div className="flex items-center space-x-3">
-            <label className={`w-20 text-right font-semibold flex-shrink-0 ${errors.color ? 'theme-danger-text font-bold' : 'theme-text-muted'}`}>{translate('component.binModal.color')}</label>
+            <label className={`w-20 text-end font-semibold flex-shrink-0 ${errors.color ? 'theme-danger-text font-bold' : 'theme-text-muted'}`}>{translate('component.binModal.color')}</label>
             <div className={`flex items-center space-x-2 p-1 rounded-xl border border-transparent transition-colors ${errors.color ? 'form-field-error' : ''}`}>
               {COLOR_PALETTE.map((c) => (
                 <button
@@ -390,7 +390,7 @@ export const BinModal: React.FC<BinModalProps> = ({
 
           {/* Single Emoji Icon Selector */}
           <div className="flex items-center space-x-3">
-            <label className={`w-20 text-right font-semibold flex-shrink-0 ${errors.icon ? 'theme-danger-text font-bold' : 'theme-text-muted'}`}>{translate('component.binModal.icon')}</label>
+            <label className={`w-20 text-end font-semibold flex-shrink-0 ${errors.icon ? 'theme-danger-text font-bold' : 'theme-text-muted'}`}>{translate('component.binModal.icon')}</label>
             <div className="flex-1 flex items-center space-x-2.5">
               {desktopPlatform === 'macos' ? (
                 <input
@@ -497,7 +497,7 @@ export const BinModal: React.FC<BinModalProps> = ({
           </div>
 
           <div className="flex items-center gap-3">
-            <span className="w-20 shrink-0 text-right text-xs font-semibold theme-text-muted">{translate('component.binModal.transform')}</span>
+            <span className="w-20 shrink-0 text-end text-xs font-semibold theme-text-muted">{translate('component.binModal.transform')}</span>
             <MenuSelect
               value={transformRef}
               options={[
@@ -534,7 +534,7 @@ export const BinModal: React.FC<BinModalProps> = ({
           {/* Smart Bin Multi-Condition Builder */}
           {modalTab === 'smart' && (
             <div className="flex items-start gap-3">
-              <span className="w-20 shrink-0 pt-0.5 text-right text-xs font-semibold theme-text-muted">{translate('component.binModal.filter')}</span>
+              <span className="w-20 shrink-0 pt-0.5 text-end text-xs font-semibold theme-text-muted">{translate('component.binModal.filter')}</span>
               <div className="min-w-0 flex-1 space-y-2">
                 <div className="p-4 theme-surface rounded-2xl border space-y-3">
               {conditions.map((c) => (

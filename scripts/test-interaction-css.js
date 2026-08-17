@@ -52,8 +52,8 @@ assert.match(settingsPanelHeader, /max-w-full flex-wrap/);
 // Connected menu/action controls use shared square mating edges, and selected
 // menu items use an inset ring so neither treatment changes layout geometry.
 assert.match(connectedMenuAction, /connected-menu-action/);
-assert.match(ruleBody(foundation, '.connected-menu-action > button:first-child {'), /border-top-right-radius:\s*0;/);
-assert.match(ruleBody(foundation, '.connected-menu-action > button:last-child {'), /border-top-left-radius:\s*0;/);
+assert.match(ruleBody(foundation, '.connected-menu-action > button:first-child {'), /border-start-end-radius:\s*0;/);
+assert.match(ruleBody(foundation, '.connected-menu-action > button:last-child {'), /border-start-start-radius:\s*0;/);
 assert.match(ruleBody(theme, '.theme-menu-item.is-selected {'), /box-shadow:\s*inset 0 0 0 1px/);
 
 // Resize mode disables the whole app except the captured divider.

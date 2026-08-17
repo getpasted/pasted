@@ -124,19 +124,19 @@ export function TransformationPlayground({
             onStop={onStop}
             requestStatus={requestStatus}
           />}
-          input={<textarea
+          input={<textarea dir="auto"
               id="shared-playground-input"
               value={input}
               onChange={(event) => onInputChange(event.target.value)}
               className="theme-input ui-field-radius h-48 w-full resize-y border p-3 font-mono text-xs focus:outline-none"
             />}
-          output={<div className={`theme-input ui-field-radius h-48 overflow-y-auto whitespace-pre-wrap break-words border p-3 font-mono text-xs ${error ? 'theme-danger-text' : ''}`}>
+          output={<div dir="auto" className={`theme-input ui-field-radius h-48 overflow-y-auto whitespace-pre-wrap break-words border p-3 font-mono text-xs ${error ? 'theme-danger-text' : ''}`}>
               {error || output || translate('component.transformationPlayground.runTheSelectedItemToPreviewItsOutput')}
             </div>}
         />
 
         <div className="theme-divider mt-4 flex flex-wrap items-center justify-end gap-2 border-t pt-3">
-          {output && !error && <span className="theme-text-subtle mr-auto text-[10px]">{translate('format.characterCount', { count: output.length })}</span>}
+          {output && !error && <span className="theme-text-subtle me-auto text-[10px]">{translate('format.characterCount', { count: output.length })}</span>}
           <TransformationOutputActions output={error ? '' : output} />
           <ActionButton
             variant="primary"

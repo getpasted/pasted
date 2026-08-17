@@ -50,7 +50,7 @@ export function ClipWorkflowMenu({
               {isRunning && isActive
                 ? <LoaderCircle className="theme-workflow-text h-4 w-4 shrink-0 animate-spin" />
                 : <Workflow className="theme-workflow-text h-4 w-4 shrink-0" />}
-              <OverflowText text={transform.name} className="min-w-0 flex-1 truncate" />
+              <OverflowText text={transform.name} className="bidi-interface-align min-w-0 flex-1 truncate" />
               {usesIntelligence && (
                 <Sparkles className="theme-intelligence-text h-3.5 w-3.5 shrink-0" aria-label={translate('component.clipWorkflowMenu.usesConnectedIntelligence')} />
               )}

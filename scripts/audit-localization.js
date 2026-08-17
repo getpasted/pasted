@@ -73,6 +73,8 @@ for (const [locale, catalog] of catalogs) {
       `${locale} leaves ${unchanged.length} of ${sourceMessages.length} translatable messages unchanged.`);
     assert.doesNotMatch(JSON.stringify(catalog), /Your goal is to accurately convey|Produce only the .* translation/,
       `${locale} contains translation-prompt leakage.`);
+    assert.doesNotMatch(JSON.stringify(catalog), /ZXQPH\d+QXZ/,
+      `${locale} contains an unrestored draft-generation placeholder token.`);
   }
 }
 

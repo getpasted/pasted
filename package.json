@@ -19,7 +19,7 @@
     "sbom:check": "node scripts/generate-source-sbom.js --check",
     "test:features": "node scripts/audit-features.js",
     "test:copy": "node scripts/audit-ui-copy.js",
-    "test:i18n": "node scripts/sync-localized-registry-catalog.js --check && node scripts/audit-localization.js && node scripts/audit-localization-literals.js && node scripts/audit-localization-composition.js",
+    "test:i18n": "node scripts/sync-localized-registry-catalog.js --check && node scripts/audit-localization.js && node scripts/audit-localization-literals.js && node scripts/audit-localization-composition.js && node --experimental-strip-types scripts/test-bidi.ts && node scripts/audit-rtl.js",
     "test:dates": "node --experimental-strip-types scripts/test-date-format.js",
     "test:docs": "node scripts/audit-documentation.js",
     "test:collections": "node scripts/audit-clip-collections.js",

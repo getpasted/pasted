@@ -551,7 +551,7 @@ export function ContentExtractorManagerDialog({
               </label>}
               {selected?.engine === draft.engine && selected.runtime.dependencies.map((dependency) => <div key={dependency.name} className="flex min-w-0 items-start justify-between gap-3 text-[10px]">
                 <span className="theme-text-muted font-semibold">{dependency.name}</span>
-                <span className={`${dependency.isAvailable ? 'theme-status-success-text' : 'theme-status-warning-text'} min-w-0 truncate text-right`} title={dependency.unavailableReason ?? dependency.location ?? undefined}>
+                <span className={`${dependency.isAvailable ? 'theme-status-success-text' : 'theme-status-warning-text'} min-w-0 truncate text-end`} title={dependency.unavailableReason ?? dependency.location ?? undefined}>
                   {dependency.isAvailable ? dependency.version ?? dependency.location ?? translate('component.contentExtractorManagerDialog.available') : dependency.unavailableReason}
                 </span>
               </div>)}

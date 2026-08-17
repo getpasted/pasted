@@ -161,7 +161,7 @@ export function BuiltinLifecycleManagerDialog({
                   title={displayName}
                   meta={displayDescription}
                   trailing={availabilityText ? <span
-                    className={`max-w-56 rounded border px-2 py-1 text-right text-[9px] font-semibold ${runtime?.isAvailable ? 'theme-status-success' : 'theme-status-warning'}`}
+                    className={`max-w-56 rounded border px-2 py-1 text-end text-[9px] font-semibold ${runtime?.isAvailable ? 'theme-status-success' : 'theme-status-warning'}`}
                     title={runtime?.unavailableReason ?? translate('component.builtinLifecycleManagerDialog.theValueEngineIsReady', { value: engineLabel(runtime?.engine ?? '') })}
                   >{availabilityText}</span> : undefined}
                 />

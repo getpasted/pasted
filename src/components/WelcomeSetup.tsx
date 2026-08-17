@@ -280,7 +280,7 @@ export function WelcomeSetup({ isOpen, settings, onUpdateSettings, onImported }:
         <div>
           {stepIndex > 0 && (
             <ActionButton onClick={goBack}>
-              <ArrowLeft /> {translate('common.back')}
+              <ArrowLeft className="rtl:-scale-x-100" /> {translate('common.back')}
             </ActionButton>
           )}
           {step !== 'ready' && (
@@ -289,7 +289,7 @@ export function WelcomeSetup({ isOpen, settings, onUpdateSettings, onImported }:
         </div>
         <ActionButton autoFocus={step === 'welcome'} variant="primary" onClick={advance}>
           {step === 'welcome' ? translate('component.welcomeSetup.setUpPasted') : step === 'ready' ? translate('component.welcomeSetup.openPasted') : translate('component.welcomeSetup.continue')}
-          {step !== 'ready' && <ArrowRight />}
+          {step !== 'ready' && <ArrowRight className="rtl:-scale-x-100" />}
         </ActionButton>
       </footer>
     </AppDialog>

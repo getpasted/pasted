@@ -29,5 +29,5 @@ export function OverflowText({ as = 'span', text, onMouseEnter, onFocus, ...prop
     onFocus?.(event);
   };
 
-  return createElement(as, { ...props, onMouseEnter: handleMouseEnter, onFocus: handleFocus }, text);
+  return createElement(as, { ...props, dir: props.dir ?? 'auto', onMouseEnter: handleMouseEnter, onFocus: handleFocus }, text);
 }

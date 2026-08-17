@@ -179,7 +179,7 @@ export function SettingsAboutPanel() {
         <button
           type="button"
           onClick={() => setLicensesOpen(true)}
-          className="theme-card-idle flex w-full items-center gap-3 border px-3 py-3 text-left"
+          className="theme-card-idle flex w-full items-center gap-3 border px-3 py-3 text-start"
         >
           <SettingsAccentTile>
             <Scale className="h-4 w-4" />
@@ -190,7 +190,7 @@ export function SettingsAboutPanel() {
               {translate('component.settingsAboutPanel.licensesAndAcknowledgementsForBundledSoftware')}
             </span>
           </span>
-          <ChevronRight className="theme-text-muted h-4 w-4 shrink-0" />
+          <ChevronRight className="theme-text-muted h-4 w-4 shrink-0 rtl:-scale-x-100" />
         </button>
       </section>
 

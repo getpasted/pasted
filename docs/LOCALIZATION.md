@@ -68,6 +68,12 @@ and review destructive, security, privacy, backup, and platform-specific copy in
 
 The browser cache prevents a language flash during startup; SQLite remains authoritative after settings hydrate. Full Backup includes the durable setting through the existing complete-settings snapshot. History and Organization transfer intentionally does not treat interface preferences as portable library content.
 
+### Right-to-left languages
+
+The effective locale sets the document `dir` attribute. Direction-sensitive layout uses logical inline-start and inline-end utilities and CSS properties, while directional navigation and disclosure icons mirror under RTL.
+
+Interface direction does not force clipboard content into the same direction. User content and user-defined labels use automatic direction, technical values such as paths remain explicitly LTR where needed, and values interpolated into RTL messages are wrapped in Unicode bidirectional isolates. Run the RTL audit whenever layout or mixed-content presentation changes.
+
 ## Quality gates
 
 `scripts/audit-localization.js` checks:

@@ -174,7 +174,7 @@ export const QuickHudWindow: React.FC = () => {
         {/* Header Bar */}
         <div className="quick-hud-header p-2.5 border-b flex items-center space-x-2 no-drag">
           <div className="relative flex-1">
-            <Search className="theme-text-muted w-3.5 h-3.5 absolute left-2.5 top-2.5" />
+            <Search className="theme-text-muted absolute start-2.5 top-2.5 h-3.5 w-3.5" />
             <input
               ref={inputRef}
               type="text"
@@ -184,7 +184,7 @@ export const QuickHudWindow: React.FC = () => {
                 setPasteError('');
                 setSearch(e.target.value);
               }}
-              className="theme-input ui-field-radius quick-hud-search w-full border pl-8 pr-3 py-1.5 text-xs font-mono no-drag"
+              className="theme-input ui-field-radius quick-hud-search w-full border ps-8 pe-3 py-1.5 text-xs font-mono no-drag"
             />
           </div>
           <button

@@ -106,6 +106,11 @@ pub fn perform_titlebar_double_click(window: tauri::WebviewWindow) -> Result<(),
 }
 
 #[tauri::command]
+pub fn set_titlebar_direction(window: tauri::WebviewWindow, rtl: bool) -> Result<(), String> {
+    crate::titlebar::set_titlebar_direction(window, rtl)
+}
+
+#[tauri::command]
 pub fn get_installation_diagnostics(
     app: AppHandle,
     db: State<'_, Arc<DbState>>,

@@ -682,7 +682,8 @@ pub fn run() {
             commands::get_hotkey_capability_status,
             commands::request_accessibility_permission,
             commands::open_backing_page,
-            commands::perform_titlebar_double_click
+            commands::perform_titlebar_double_click,
+            commands::set_titlebar_direction
         ])
         .build(tauri::generate_context!())
         .expect("error while building Pasted application")

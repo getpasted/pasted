@@ -173,14 +173,14 @@ export const OperationsManager: React.FC<OperationsManagerProps> = ({
         title={<OverflowText text={displayName} className="block truncate text-xs" />}
         subtitle={operationCategoryLabel(operation.category)}
         trailing={builtIn ? (
-          <LockKeyhole className="mr-2 h-3.5 w-3.5 shrink-0 theme-text-subtle" aria-label={translate('component.operationsManager.builtInOperation')} />
+          <LockKeyhole className="me-2 h-3.5 w-3.5 shrink-0 theme-text-subtle" aria-label={translate('component.operationsManager.builtInOperation')} />
         ) : metadata?.capabilities.canDisable ? (
           <SettingsSwitch
             checked={metadata.enabled ?? false}
             label={displayName}
             busy={togglingOperationId === operation.stable_id}
             onClick={() => void handleToggle(metadata)}
-            className="mr-1"
+            className="me-1"
           />
         ) : null}
       />

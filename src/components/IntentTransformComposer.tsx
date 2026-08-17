@@ -163,7 +163,7 @@ export function IntentTransformComposer({ sampleInput, onTestResult, onTransform
         </div>
       </div>
       <div className="flex flex-col items-stretch gap-2 @md:flex-row">
-        <textarea
+        <textarea dir="auto"
           id="transformation-intent"
           value={intent}
           onChange={(event) => {

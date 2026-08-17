@@ -1122,7 +1122,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
             {/* Inline New Note Card */}
             {isAddingNote && (
               <div className="note-input-row p-3 rounded-lg border flex flex-col space-y-2 animate-in fade-in duration-100">
-                <textarea
+                <textarea dir="auto"
                   rows={3}
                   placeholder={placeholderText}
                   value={newNoteText}

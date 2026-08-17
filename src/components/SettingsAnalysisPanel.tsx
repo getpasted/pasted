@@ -499,7 +499,7 @@ export function SettingsAnalysisPanel({
           <ActionButton onClick={restoreAnalysis} disabled={restoring}>
             <RotateCcw className="h-3.5 w-3.5" /> {restoring ? translate('component.settingsAnalysisPanel.resetting') : translate('component.settingsAnalysisPanel.reset')}
           </ActionButton>
-          <p className="theme-text-muted text-right text-[10px]">
+          <p className="theme-text-muted text-end text-[10px]">
             {translate('component.settingsAnalysisPanel.notAllStepsRunForAllClipsSomeStepsMayBeLong')}
           </p>
         </div>
@@ -634,7 +634,7 @@ export function SettingsAnalysisPanel({
                 </div>
                 <label className={`block space-y-1 ${modified.patterns ? 'settings-field-modified' : ''}`}>
                   <ModifiedFieldLabel modified={modified.patterns}>{translate('component.settingsAnalysisPanel.regularExpressions')} <span className="font-normal">{translate('component.settingsAnalysisPanel.onePerLineAnyMayMatch')}</span></ModifiedFieldLabel>
-                  <textarea value={patternsText} onChange={(event) => setPatternsText(event.target.value)} spellCheck={false} className="theme-input ui-field-radius min-h-32 w-full resize-y border px-3 py-2 font-mono text-[11px] leading-relaxed" />
+                  <textarea dir="auto" value={patternsText} onChange={(event) => setPatternsText(event.target.value)} spellCheck={false} className="theme-input ui-field-radius min-h-32 w-full resize-y border px-3 py-2 font-mono text-[11px] leading-relaxed" />
                 </label>
                 {draft.validator && (
                   <div className="theme-status-info rounded-lg border px-3 py-2 text-[10px]">

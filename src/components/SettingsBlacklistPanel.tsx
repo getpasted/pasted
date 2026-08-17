@@ -101,7 +101,7 @@ function AppExclusionMenu({
         <button
           ref={triggerRef}
           type="button"
-          className="menu-select-trigger theme-focusable flex min-w-0 flex-1 items-center gap-2 rounded-l-lg border px-2.5 text-left"
+          className="menu-select-trigger theme-focusable flex min-w-0 flex-1 items-center gap-2 rounded-s-lg border px-2.5 text-start"
           aria-label={translate('component.settingsBlacklistPanel.chooseExclusionsForName', { name: app.name })}
           aria-haspopup="menu"
           aria-expanded={isOpen}

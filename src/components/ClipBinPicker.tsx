@@ -48,7 +48,7 @@ export function ClipBinPicker({ bins, selectedBinIds, viewedBinId, onClear, onTo
         </span>
         <OverflowText
           text={bin.name}
-          className="min-w-0 flex-1 truncate"
+          className="bidi-interface-align min-w-0 flex-1 truncate"
           style={{ color: binTextColor(bin.color) }}
         />
         {smart && <Sparkles className="theme-intelligence-text h-3 w-3 shrink-0" aria-hidden="true" />}
@@ -64,14 +64,14 @@ export function ClipBinPicker({ bins, selectedBinIds, viewedBinId, onClear, onTo
       <button
         ref={triggerRef}
         type="button"
-        className="menu-select-trigger clip-bin-picker theme-focusable flex min-w-0 items-center gap-2 border px-2.5 text-left ui-field-radius"
+        className="menu-select-trigger clip-bin-picker theme-focusable flex min-w-0 items-center gap-2 border px-2.5 text-start ui-field-radius"
         aria-label={translate('component.clipBinPicker.chooseBins')}
         aria-haspopup="menu"
         aria-expanded={isOpen}
         onClick={() => setIsOpen((open) => !open)}
       >
         <Folder className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-        <span className="min-w-0 flex-1 truncate py-2 text-xs font-semibold">{label}</span>
+        <span className="bidi-interface-align min-w-0 flex-1 truncate py-2 text-xs font-semibold" dir="auto">{label}</span>
         <ChevronDown className={`h-3.5 w-3.5 shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} aria-hidden="true" />
       </button>
 

@@ -115,7 +115,7 @@ export const SequentialQueueBar: React.FC<SequentialQueueBarProps> = ({
               className="queue-action-secondary ui-control-radius flex items-center space-x-1 px-2 py-1 border text-[11px] font-semibold transition-colors cursor-pointer"
               title={translate('component.sequentialQueueBar.pasteNextX')}
             >
-              <ArrowRightCircle className="w-3 h-3" />
+              <ArrowRightCircle className="h-3 w-3 rtl:-scale-x-100" />
               <span>{translate('component.sequentialQueueBar.pasteNext')}</span>
             </button>
             <button

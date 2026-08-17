@@ -32,6 +32,8 @@ fn catalogs() -> &'static Catalogs {
             .expect("the bundled locale manifest must be valid");
         let english = serde_json::from_str(include_str!("../../src/locales/en.json"))
             .expect("the bundled English catalog must be valid");
+        let ar = serde_json::from_str(include_str!("../../src/locales/ar.json"))
+            .expect("the bundled Arabic catalog must be valid");
         let de_de = serde_json::from_str(include_str!("../../src/locales/de-DE.json"))
             .expect("the bundled German catalog must be valid");
         let fr_fr = serde_json::from_str(include_str!("../../src/locales/fr-FR.json"))
@@ -41,6 +43,7 @@ fn catalogs() -> &'static Catalogs {
         Catalogs {
             manifest,
             messages: HashMap::from([
+                ("ar", ar),
                 ("en", english),
                 ("de-DE", de_de),
                 ("fr-FR", fr_fr),
@@ -116,6 +119,7 @@ mod tests {
     #[test]
     fn accepts_only_system_and_manifest_locales() {
         assert!(validate_configured_language("system").is_ok());
+        assert!(validate_configured_language("ar").is_ok());
         assert!(validate_configured_language("en").is_ok());
         assert!(validate_configured_language("de-DE").is_ok());
         assert!(validate_configured_language("fr-FR").is_ok());
@@ -126,6 +130,7 @@ mod tests {
     #[test]
     fn catalog_uses_keys_only_as_a_last_resort() {
         assert_eq!(text_for_locale("en", "native.file.title"), "File");
+        assert_eq!(text_for_locale("ar", "native.file.title"), "ملف");
         assert_eq!(text_for_locale("de-DE", "native.file.title"), "Datei");
         assert_eq!(text_for_locale("fr-FR", "native.file.title"), "Fichier");
         assert_eq!(text_for_locale("ja-JP", "native.file.title"), "ファイル");

@@ -407,7 +407,7 @@ const SidebarComponent: React.FC<SidebarProps> = ({
         onPointerEnter={handleSidebarPointerEnter}
         onPointerMove={handleSidebarPointerMove}
         onPointerLeave={handleSidebarPointerLeave}
-        className={`w-[100px] col-sidebar h-screen flex flex-col items-center border-r backdrop-blur-xl select-none ${isSidebarHoverMuted ? 'suppress-sidebar-hover' : ''}`}
+        className={`w-[100px] col-sidebar h-screen flex flex-col items-center border-e backdrop-blur-xl select-none ${isSidebarHoverMuted ? 'suppress-sidebar-hover' : ''}`}
       >
         {/* macOS reserves this header for overlaid traffic lights. Native framed
             platforms can use it for the sidebar control immediately. */}
@@ -423,7 +423,7 @@ const SidebarComponent: React.FC<SidebarProps> = ({
             className={`platform-framed-only sidebar-control-muted ui-control-radius w-9 h-9 items-center justify-center p-0 transition-colors duration-75 border titlebar-no-drag ${isClipDragging ? 'border-transparent cursor-default' : `cursor-pointer ${hoveredSidebarControl === 'expand-header' ? 'sidebar-item-hovered' : 'border-transparent'}`}`}
             title={translate('component.sidebar.expandSidebar')}
           >
-            <PanelLeftOpen className="w-5 h-5" />
+            <PanelLeftOpen className="h-5 w-5 rtl:-scale-x-100" />
           </button>
         </div>
 
@@ -437,7 +437,7 @@ const SidebarComponent: React.FC<SidebarProps> = ({
             className={`platform-macos-only sidebar-control-muted ui-control-radius w-9 h-9 items-center justify-center p-0 transition-colors duration-75 border shrink-0 ${isClipDragging ? 'border-transparent cursor-default' : `cursor-pointer ${hoveredSidebarControl === 'expand' ? 'sidebar-item-hovered' : 'border-transparent'}`}`}
             title={translate('component.sidebar.expandSidebar')}
           >
-            <PanelLeftOpen className="w-5 h-5" />
+            <PanelLeftOpen className="h-5 w-5 rtl:-scale-x-100" />
           </button>
 
           <div className="w-full flex items-center justify-center py-1 shrink-0">
@@ -553,7 +553,7 @@ const SidebarComponent: React.FC<SidebarProps> = ({
           className={`sidebar-control-muted p-1.5 rounded-lg transition-colors titlebar-no-drag ${isClipDragging ? 'cursor-default' : `cursor-pointer ${hoveredSidebarControl === 'collapse' ? 'sidebar-item-hovered' : ''}`}`}
           title={translate('component.sidebar.collapseSidebar')}
         >
-          <PanelLeftClose className="w-4 h-4" />
+          <PanelLeftClose className="h-4 w-4 rtl:-scale-x-100" />
         </button>
       </div>
 
@@ -580,7 +580,7 @@ const SidebarComponent: React.FC<SidebarProps> = ({
               className={`platform-framed-only sidebar-control-muted h-7 w-7 items-center justify-center rounded-lg transition-colors titlebar-no-drag ${isClipDragging ? 'cursor-default' : `cursor-pointer ${hoveredSidebarControl === 'collapse-framed' ? 'sidebar-item-hovered' : ''}`}`}
               title={translate('component.sidebar.collapseSidebar')}
             >
-              <PanelLeftClose className="h-4 w-4" />
+              <PanelLeftClose className="h-4 w-4 rtl:-scale-x-100" />
             </button>
           </div>
           <div
@@ -791,13 +791,13 @@ const SidebarComponent: React.FC<SidebarProps> = ({
                         : 'sidebar-item-idle font-normal'
                     }`}
                   >
-                    <div className="flex items-center gap-3 truncate pr-1 min-w-0">
+                    <div className="flex items-center gap-3 truncate pe-1 min-w-0">
                       <span className="sidebar-nav-icon sidebar-nav-icon-emoji sidebar-icon-primary">{getBinIcon(b.icon)}</span>
                       <OverflowText text={b.name} className="truncate" style={{ color: binTextColor(b.color) }} />
                     </div>
 
                     {/* Right side container */}
-                    <div className="flex items-center justify-end shrink-0 pl-1">
+                    <div className="flex items-center justify-end shrink-0 ps-1">
                       <div className={`flex items-center space-x-1.5 ${isBinHovered && !isDragging ? 'hidden' : ''}`}>
                         {b.smart_rule && (b.clip_count ?? 0) > 0 ? (
                           <span
@@ -946,7 +946,7 @@ const SidebarComponent: React.FC<SidebarProps> = ({
             id="sidebar-search-filters"
             role="menu"
             aria-label={translate('component.sidebar.searchFilters')}
-            className="theme-menu absolute bottom-11 left-2.5 right-2.5 rounded-xl border p-1.5 text-xs font-medium select-none"
+            className="theme-menu absolute inset-x-2.5 bottom-11 rounded-xl border p-1.5 text-xs font-medium select-none"
           >
               {searchHelpers.map((s, index) => (
               <button
@@ -987,7 +987,7 @@ const SidebarComponent: React.FC<SidebarProps> = ({
                     closeSearchMenu(true);
                   }
                 }}
-                className={`theme-menu-item w-full px-2.5 py-1.5 rounded-lg cursor-pointer flex items-center justify-between gap-3 text-left ${activeSearchMenuIndex === index ? 'is-selected' : ''}`}
+                className={`theme-menu-item w-full px-2.5 py-1.5 rounded-lg cursor-pointer flex items-center justify-between gap-3 text-start ${activeSearchMenuIndex === index ? 'is-selected' : ''}`}
               >
                 <span className="font-mono text-[11px] font-semibold">{s.prefix}</span>
                 <span className="theme-text-subtle text-[10px]">{s.desc}</span>
@@ -1026,7 +1026,7 @@ const SidebarComponent: React.FC<SidebarProps> = ({
               }
             }}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className={`sidebar-search-input theme-input w-full h-7 border rounded-md pl-2.5 ${searchQuery ? 'pr-14' : 'pr-8'} text-[12px] focus:outline-none transition-colors titlebar-no-drag`}
+            className={`sidebar-search-input theme-input w-full h-7 border rounded-md ps-2.5 ${searchQuery ? 'pe-14' : 'pe-8'} text-[12px] focus:outline-none transition-colors titlebar-no-drag`}
           />
           {searchQuery && (
             <button
@@ -1041,7 +1041,7 @@ const SidebarComponent: React.FC<SidebarProps> = ({
                 onSearchFocus();
                 requestAnimationFrame(() => searchInputRef.current?.focus());
               }}
-              className="sidebar-search-clear theme-menu-item absolute right-6 top-1 grid h-5 w-5 place-items-center rounded"
+              className="sidebar-search-clear theme-menu-item absolute end-6 top-1 grid h-5 w-5 place-items-center rounded"
             >
               <X className="h-3 w-3" aria-hidden="true" />
             </button>
@@ -1072,7 +1072,7 @@ const SidebarComponent: React.FC<SidebarProps> = ({
                 closeSearchMenu();
               }
             }}
-            className={`theme-menu-item absolute right-1 top-1 grid h-5 w-5 place-items-center rounded ${isSearchMenuOpen ? 'is-selected' : ''}`}
+            className={`theme-menu-item absolute end-1 top-1 grid h-5 w-5 place-items-center rounded ${isSearchMenuOpen ? 'is-selected' : ''}`}
           >
             <ChevronUp className={`h-3.5 w-3.5 transition-transform ${isSearchMenuOpen ? 'rotate-180' : ''}`} aria-hidden="true" />
           </button>
