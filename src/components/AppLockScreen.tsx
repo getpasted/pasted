@@ -1,9 +1,8 @@
-import { FormEvent, useEffect, useRef, useState } from 'react';
+import { FormEvent, useRef, useState } from 'react';
 import { Fingerprint, LockKeyhole, Watch } from 'lucide-react';
 import type { AppLockStatus } from '../hooks/useAppLock';
 import { ActionButton } from './AppDialogLayout';
 import { safeInvoke as invoke } from '../utils/tauri';
-import { listen } from '@tauri-apps/api/event';
 
 export function AppLockScreen({
   status,
@@ -44,28 +43,6 @@ export function AppLockScreen({
       setPending(false);
     }
   };
-
-  useEffect(() => {
-    let disposed = false;
-    let unlisten: (() => void) | undefined;
-    void listen('app-lock-unlock-requested', () => {
-      if (disposed || pending) return;
-      const action = status.systemAuthEnabled && status.systemAuthAvailable
-        ? onUnlockWithSystemAuth
-        : status.appleWatchEnabled && status.appleWatchAvailable
-          ? onUnlockWithAppleWatch
-          : null;
-      if (action) void run(action);
-      else passphraseInput.current?.focus();
-    }).then((dispose) => {
-      if (disposed) dispose();
-      else unlisten = dispose;
-    }).catch(console.error);
-    return () => {
-      disposed = true;
-      unlisten?.();
-    };
-  }, [onUnlockWithAppleWatch, onUnlockWithSystemAuth, pending, status.appleWatchAvailable, status.appleWatchEnabled, status.systemAuthAvailable, status.systemAuthEnabled]);
 
   const submit = (event: FormEvent) => {
     event.preventDefault();

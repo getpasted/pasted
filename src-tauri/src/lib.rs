@@ -27,6 +27,7 @@ pub mod intelligence_connections;
 pub mod intelligence_executor;
 mod intelligence_provider;
 mod intelligence_scheduler;
+mod keyboard_layout;
 pub mod library_items;
 pub mod library_storage;
 #[cfg(target_os = "linux")]
@@ -398,6 +399,7 @@ pub fn run() {
             }
 
             // Register all saved HUD, Pipeline, and Bin shortcuts
+            keyboard_layout::start_layout_monitor(app.handle().clone());
             let _ = commands::register_all_app_shortcuts(app.handle());
 
             // Create Menu Bar / System Tray Icon
@@ -652,6 +654,8 @@ pub fn run() {
             commands::get_bin_transform_ref,
             commands::set_bin_transform_ref,
             commands::register_app_setting_hotkey,
+            commands::register_app_setting_hotkeys,
+            commands::resolve_logical_shortcut_key,
             commands::toggle_clipboard_pause,
             commands::is_clipboard_paused,
             commands::export_clips_json,

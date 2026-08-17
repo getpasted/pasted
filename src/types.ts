@@ -516,7 +516,6 @@ export interface AppSettings {
   openTransformationsHotkey?: string;
   openMainWindowHotkey?: string;
   lockAppHotkey?: string;
-  unlockAppHotkey?: string;
   pasteClip1Hotkey?: string;
   pasteClip2Hotkey?: string;
   pasteClip3Hotkey?: string;

@@ -17,7 +17,6 @@ pub enum AppHotkeyAction {
     ToggleHud,
     ToggleMainWindow,
     LockApp,
-    UnlockApp,
     OpenTransformations,
     ToggleCopyQueue,
     PopCopyQueue,
@@ -51,6 +50,14 @@ pub struct HotkeyRegistrationStatus {
     pub configured_count: usize,
     pub registered_count: usize,
     pub issues: Vec<HotkeyRegistrationIssue>,
+    pub bindings: Vec<HotkeyRegisteredBinding>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, PartialEq, Eq)]
+pub struct HotkeyRegisteredBinding {
+    pub id: String,
+    pub description: String,
+    pub trigger: String,
 }
 
 impl Default for HotkeyRegistrationStatus {
@@ -61,6 +68,7 @@ impl Default for HotkeyRegistrationStatus {
             configured_count: 0,
             registered_count: 0,
             issues: Vec::new(),
+            bindings: Vec::new(),
         }
     }
 }
@@ -68,8 +76,17 @@ impl Default for HotkeyRegistrationStatus {
 pub struct HotkeyManager {
     action_map: RwLock<HashMap<Shortcut, AppHotkeyAction>>,
     registration_status: RwLock<HotkeyRegistrationStatus>,
+    registration_guard: parking_lot::Mutex<()>,
     #[cfg(target_os = "linux")]
     portal_task: parking_lot::Mutex<Option<tauri::async_runtime::JoinHandle<()>>>,
+    #[cfg(target_os = "linux")]
+    x11_task: parking_lot::Mutex<Option<X11ShortcutTask>>,
+}
+
+#[cfg(target_os = "linux")]
+struct X11ShortcutTask {
+    stop: std::sync::mpsc::Sender<()>,
+    thread: std::thread::JoinHandle<()>,
 }
 
 impl HotkeyManager {
@@ -77,8 +94,11 @@ impl HotkeyManager {
         Self {
             action_map: RwLock::new(HashMap::new()),
             registration_status: RwLock::new(HotkeyRegistrationStatus::default()),
+            registration_guard: parking_lot::Mutex::new(()),
             #[cfg(target_os = "linux")]
             portal_task: parking_lot::Mutex::new(None),
+            #[cfg(target_os = "linux")]
+            x11_task: parking_lot::Mutex::new(None),
         }
     }
 
@@ -87,12 +107,18 @@ impl HotkeyManager {
     }
 
     pub fn register_all(self: &Arc<Self>, app: &AppHandle) -> Result<(), String> {
+        let _registration = self.registration_guard.lock();
         let _ = app.global_shortcut().unregister_all();
         self.action_map.write().clear();
 
         #[cfg(target_os = "linux")]
         if let Some(task) = self.portal_task.lock().take() {
             task.abort();
+        }
+        #[cfg(target_os = "linux")]
+        if let Some(task) = self.x11_task.lock().take() {
+            let _ = task.stop.send(());
+            let _ = task.thread.join();
         }
 
         let db_opt = app.try_state::<Arc<DbState>>();
@@ -162,12 +188,6 @@ impl HotkeyManager {
                 "Lock Pasted".into(),
                 get_setting("lockAppHotkey", "Alt+Shift+L"),
                 AppHotkeyAction::LockApp,
-            );
-            add_shortcut(
-                "app-unlock".into(),
-                "Unlock Pasted".into(),
-                get_setting("unlockAppHotkey", "Alt+Shift+U"),
-                AppHotkeyAction::UnlockApp,
             );
         }
 
@@ -270,9 +290,14 @@ impl HotkeyManager {
             return self.register_wayland_portal(app.clone(), specs);
         }
 
+        #[cfg(target_os = "linux")]
+        return self.register_x11(app.clone(), specs);
+
+        #[cfg(not(target_os = "linux"))]
         self.register_native(app, specs)
     }
 
+    #[cfg_attr(target_os = "linux", allow(dead_code))]
     fn register_native(&self, app: &AppHandle, specs: Vec<HotkeySpec>) -> Result<(), String> {
         let configured_count = specs.len();
         let mut registered_count = 0;
@@ -280,7 +305,8 @@ impl HotkeyManager {
         let mut map = self.action_map.write();
 
         for spec in specs {
-            let Some(shortcuts) = commands::parse_shortcut_str_all_layouts(&spec.shortcut) else {
+            let Some(shortcuts) = commands::parse_shortcut_str_for_current_layout(&spec.shortcut)
+            else {
                 issues.push(HotkeyRegistrationIssue {
                     shortcut: spec.shortcut,
                     description: spec.description,
@@ -297,7 +323,9 @@ impl HotkeyManager {
                         registered_any = true;
                         map.insert(shortcut, spec.action.clone());
                     }
-                    Err(error) => last_error = Some(error.to_string()),
+                    Err(error) => {
+                        last_error = Some(error.to_string());
+                    }
                 }
             }
 
@@ -328,7 +356,9 @@ impl HotkeyManager {
             configured_count,
             registered_count,
             issues: issues.clone(),
+            bindings: Vec::new(),
         };
+        let _ = app.emit("hotkey-registration-changed", ());
 
         if issues.is_empty() {
             Ok(())
@@ -339,6 +369,42 @@ impl HotkeyManager {
                 if issues.len() == 1 { "" } else { "s" }
             ))
         }
+    }
+
+    #[cfg(target_os = "linux")]
+    fn register_x11(
+        self: &Arc<Self>,
+        app: AppHandle,
+        specs: Vec<HotkeySpec>,
+    ) -> Result<(), String> {
+        let (stop_sender, stop_receiver) = std::sync::mpsc::channel();
+        let (ready_sender, ready_receiver) = std::sync::mpsc::sync_channel(1);
+        let manager = Arc::clone(self);
+        let thread = std::thread::spawn(move || {
+            let result = run_x11_shortcuts(&manager, &app, &specs, &stop_receiver, &ready_sender);
+            if let Err(error) = result {
+                let _ = ready_sender.try_send(Err(error.clone()));
+                eprintln!("[Pasted Hotkeys] X11 shortcut backend stopped: {error}");
+            }
+        });
+        let result = match ready_receiver.recv_timeout(std::time::Duration::from_secs(5)) {
+            Ok(result) => result,
+            Err(_) => {
+                let _ = stop_sender.send(());
+                let _ = thread.join();
+                return Err("Timed out while registering X11 shortcuts.".to_string());
+            }
+        };
+        if result.is_ok() {
+            *self.x11_task.lock() = Some(X11ShortcutTask {
+                stop: stop_sender,
+                thread,
+            });
+        } else {
+            let _ = stop_sender.send(());
+            let _ = thread.join();
+        }
+        result
     }
 
     #[cfg(target_os = "linux")]
@@ -354,6 +420,7 @@ impl HotkeyManager {
             configured_count,
             registered_count: 0,
             issues: Vec::new(),
+            bindings: Vec::new(),
         };
 
         if specs.is_empty() {
@@ -362,17 +429,21 @@ impl HotkeyManager {
         }
 
         let manager = Arc::clone(self);
+        let failure_app = app.clone();
         let task = tauri::async_runtime::spawn(async move {
             if let Err(error) = manager.run_wayland_portal(app, specs).await {
                 eprintln!("[Pasted Hotkeys] Wayland portal unavailable: {error}");
                 let mut status = manager.registration_status.write();
                 status.state = "unavailable".into();
                 status.registered_count = 0;
+                status.bindings.clear();
                 status.issues = vec![HotkeyRegistrationIssue {
                     shortcut: String::new(),
                     description: "Wayland global hotkeys".into(),
                     message: error,
                 }];
+                drop(status);
+                let _ = failure_app.emit("hotkey-registration-changed", ());
             }
         });
         *self.portal_task.lock() = Some(task);
@@ -397,6 +468,10 @@ impl HotkeyManager {
             .receive_activated()
             .await
             .map_err(|error| format!("Could not listen for portal shortcuts: {error}"))?;
+        let mut shortcuts_changed = portal
+            .receive_shortcuts_changed()
+            .await
+            .map_err(|error| format!("Could not listen for portal shortcut changes: {error}"))?;
         let session = portal
             .create_session(CreateSessionOptions::default())
             .await
@@ -441,6 +516,15 @@ impl HotkeyManager {
                 message: "The desktop did not enable this shortcut.".into(),
             })
             .collect();
+        let bindings: Vec<HotkeyRegisteredBinding> = response
+            .shortcuts()
+            .iter()
+            .map(|shortcut| HotkeyRegisteredBinding {
+                id: shortcut.id().to_string(),
+                description: shortcut.description().to_string(),
+                trigger: shortcut.trigger_description().to_string(),
+            })
+            .collect();
 
         *self.registration_status.write() = HotkeyRegistrationStatus {
             backend: "wayland-portal".into(),
@@ -453,15 +537,43 @@ impl HotkeyManager {
             configured_count: specs.len(),
             registered_count: actions.len(),
             issues,
+            bindings,
         };
+        let _ = app.emit("hotkey-registration-changed", ());
 
-        while let Some(event) = activated.next().await {
-            if let Some(action) = actions.get(event.shortcut_id()).cloned() {
-                self.dispatch_action(&app, action);
+        loop {
+            use futures_util::FutureExt as _;
+            futures_util::select! {
+                event = activated.next().fuse() => {
+                    let Some(event) = event else {
+                        return Err("The desktop closed the Global Shortcuts activation stream.".into());
+                    };
+                    if let Some(action) = actions.get(event.shortcut_id()).cloned() {
+                        self.dispatch_action(&app, action);
+                    }
+                },
+                changed = shortcuts_changed.next().fuse() => {
+                    let Some(changed) = changed else {
+                        return Err("The desktop closed the Global Shortcuts update stream.".into());
+                    };
+                    let bindings: Vec<HotkeyRegisteredBinding> = changed
+                        .shortcuts()
+                        .iter()
+                        .filter(|shortcut| actions.contains_key(shortcut.id()))
+                        .map(|shortcut| HotkeyRegisteredBinding {
+                            id: shortcut.id().to_string(),
+                            description: shortcut.description().to_string(),
+                            trigger: shortcut.trigger_description().to_string(),
+                        })
+                        .collect();
+                    let mut status = self.registration_status.write();
+                    status.registered_count = bindings.len();
+                    status.bindings = bindings;
+                    drop(status);
+                    let _ = app.emit("hotkey-registration-changed", ());
+                },
             }
         }
-
-        Err("The desktop closed the Global Shortcuts session.".into())
     }
 
     pub fn dispatch(&self, app: &AppHandle, shortcut: &Shortcut) {
@@ -484,44 +596,30 @@ impl HotkeyManager {
     fn dispatch_action(&self, app: &AppHandle, action: AppHotkeyAction) {
         let lock_state = app.try_state::<Arc<crate::app_lock::AppLockState>>();
         let locked = lock_state.as_ref().is_some_and(|state| state.is_locked());
-        if locked && !matches!(&action, AppHotkeyAction::UnlockApp) {
+        if locked {
             return;
         }
-        if matches!(
-            &action,
-            AppHotkeyAction::LockApp | AppHotkeyAction::UnlockApp
-        ) {
+        if matches!(&action, AppHotkeyAction::LockApp) {
+            let db = app.state::<Arc<DbState>>();
+            let state = app.state::<Arc<crate::app_lock::AppLockState>>();
+            let status = match commands::lock_app_state(&db, &state) {
+                Ok(status) => status,
+                Err(error) => {
+                    eprintln!("[Pasted Hotkeys] Could not lock Pasted: {error}");
+                    return;
+                }
+            };
+            let _ = app.emit("app-lock-changed", &status);
             let app_handle = app.clone();
-            if let Err(error) = app.run_on_main_thread(move || match action {
-                AppHotkeyAction::LockApp => {
-                    let db = app_handle.state::<Arc<DbState>>();
-                    let state = app_handle.state::<Arc<crate::app_lock::AppLockState>>();
-                    if features::is_enabled(&db, Feature::AppLock)
-                        && db
-                            .get_setting(crate::app_lock::ENABLED_SETTING)
-                            .ok()
-                            .flatten()
-                            .as_deref()
-                            == Some("true")
-                    {
-                        state.lock();
-                        let _ = crate::app_menu::install(&app_handle, &db);
-                        let _ = app_handle
-                            .emit("app-lock-changed", crate::app_lock::status(&db, &state));
-                        if let Some(window) = app_handle.get_webview_window("main") {
-                            let _ = window.show();
-                            let _ = window.set_focus();
-                        }
-                    }
+            if let Err(error) = app.run_on_main_thread(move || {
+                let db = app_handle.state::<Arc<DbState>>();
+                if let Err(error) = crate::app_menu::install(&app_handle, &db) {
+                    eprintln!("[Pasted Hotkeys] Could not refresh the locked menu: {error}");
                 }
-                AppHotkeyAction::UnlockApp => {
-                    if let Some(window) = app_handle.get_webview_window("main") {
-                        let _ = window.show();
-                        let _ = window.set_focus();
-                    }
-                    let _ = app_handle.emit("app-lock-unlock-requested", ());
+                if let Some(window) = app_handle.get_webview_window("main") {
+                    let _ = window.show();
+                    let _ = window.set_focus();
                 }
-                _ => {}
             }) {
                 eprintln!("[Pasted Hotkeys] Could not dispatch app-lock shortcut: {error}");
             }
@@ -548,7 +646,7 @@ impl HotkeyManager {
                     }
                 }
             }
-            AppHotkeyAction::LockApp | AppHotkeyAction::UnlockApp => {}
+            AppHotkeyAction::LockApp => {}
             AppHotkeyAction::OpenTransformations => {
                 if let Some(w) = app_handle.get_webview_window("main") {
                     let _ = w.show();
@@ -644,6 +742,365 @@ impl HotkeyManager {
             eprintln!("[Pasted Hotkeys] Could not dispatch shortcut action: {error}");
         }
     }
+}
+
+#[cfg(target_os = "linux")]
+#[derive(Clone)]
+struct X11RegisteredShortcut {
+    keycode: u8,
+    modifiers: x11rb::protocol::xproto::ModMask,
+    action: AppHotkeyAction,
+    pressed: bool,
+}
+
+#[cfg(target_os = "linux")]
+fn run_x11_shortcuts(
+    manager: &Arc<HotkeyManager>,
+    app: &AppHandle,
+    specs: &[HotkeySpec],
+    stop: &std::sync::mpsc::Receiver<()>,
+    ready: &std::sync::mpsc::SyncSender<Result<(), String>>,
+) -> Result<(), String> {
+    use x11rb::connection::Connection as _;
+    use x11rb::protocol::xkb::ConnectionExt as _;
+    use x11rb::protocol::{xkb, Event};
+
+    let (connection, screen) = x11rb::connect(None).map_err(|error| error.to_string())?;
+    connection
+        .xkb_use_extension(1, 0)
+        .map_err(|error| error.to_string())?
+        .reply()
+        .map_err(|error| error.to_string())?;
+    connection
+        .xkb_select_events(
+            xkb::ID::USE_CORE_KBD.into(),
+            xkb::EventType::default(),
+            xkb::EventType::MAP_NOTIFY | xkb::EventType::STATE_NOTIFY,
+            xkb::MapPart::KEY_SYMS,
+            xkb::MapPart::KEY_SYMS,
+            &xkb::SelectEventsAux::new(),
+        )
+        .map_err(|error| error.to_string())?
+        .check()
+        .map_err(|error| error.to_string())?;
+    let root = connection.setup().roots[screen].root;
+    let mut registered = Vec::new();
+    let initial = rebuild_x11_shortcuts(manager, app, &connection, root, specs, &mut registered);
+    let _ = ready.send(initial.clone());
+    initial?;
+
+    let full_mask = x11rb::protocol::xproto::KeyButMask::CONTROL
+        | x11rb::protocol::xproto::KeyButMask::SHIFT
+        | x11rb::protocol::xproto::KeyButMask::MOD4
+        | x11rb::protocol::xproto::KeyButMask::MOD1;
+    loop {
+        if stop.try_recv().is_ok() {
+            unregister_x11_shortcuts(&connection, root, &registered);
+            return Ok(());
+        }
+        while let Some(event) = connection
+            .poll_for_event()
+            .map_err(|error| error.to_string())?
+        {
+            match event {
+                Event::KeyPress(event) => {
+                    let modifiers =
+                        x11rb::protocol::xproto::ModMask::from((event.state & full_mask).bits());
+                    for shortcut in registered.iter_mut().filter(|shortcut| {
+                        shortcut.keycode == event.detail && shortcut.modifiers == modifiers
+                    }) {
+                        if !shortcut.pressed {
+                            shortcut.pressed = true;
+                            manager.dispatch_action(app, shortcut.action.clone());
+                        }
+                    }
+                }
+                Event::KeyRelease(event) => {
+                    for shortcut in registered
+                        .iter_mut()
+                        .filter(|shortcut| shortcut.keycode == event.detail)
+                    {
+                        shortcut.pressed = false;
+                    }
+                }
+                Event::XkbMapNotify(_) | Event::XkbNewKeyboardNotify(_) => {
+                    if let Err(error) = rebuild_x11_shortcuts(
+                        manager,
+                        app,
+                        &connection,
+                        root,
+                        specs,
+                        &mut registered,
+                    ) {
+                        eprintln!(
+                            "[Pasted Hotkeys] Could not refresh shortcuts after an X11 map change: {error}"
+                        );
+                    }
+                }
+                Event::XkbStateNotify(event)
+                    if event.changed.contains(
+                        xkb::StatePart::GROUP_STATE
+                            | xkb::StatePart::GROUP_BASE
+                            | xkb::StatePart::GROUP_LATCH
+                            | xkb::StatePart::GROUP_LOCK,
+                    ) =>
+                {
+                    if let Err(error) = rebuild_x11_shortcuts(
+                        manager,
+                        app,
+                        &connection,
+                        root,
+                        specs,
+                        &mut registered,
+                    ) {
+                        eprintln!(
+                            "[Pasted Hotkeys] Could not refresh shortcuts after an X11 group change: {error}"
+                        );
+                    }
+                }
+                _ => {}
+            }
+        }
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn rebuild_x11_shortcuts<C: x11rb::connection::Connection>(
+    manager: &HotkeyManager,
+    app: &AppHandle,
+    connection: &C,
+    root: u32,
+    specs: &[HotkeySpec],
+    registered: &mut Vec<X11RegisteredShortcut>,
+) -> Result<(), String> {
+    use x11rb::protocol::xproto::ConnectionExt as _;
+
+    unregister_x11_shortcuts(connection, root, registered);
+    registered.clear();
+    let mut issues = Vec::new();
+    for spec in specs {
+        let parsed = parse_x11_shortcut(&spec.shortcut).and_then(|(modifiers, keysym)| {
+            resolve_x11_keycode(connection, keysym).map(|keycode| (modifiers, keycode))
+        });
+        let (modifiers, keycode) = match parsed {
+            Ok(parsed) => parsed,
+            Err(message) => {
+                issues.push(HotkeyRegistrationIssue {
+                    shortcut: spec.shortcut.clone(),
+                    description: spec.description.clone(),
+                    message,
+                });
+                continue;
+            }
+        };
+        let mut failure = None;
+        for ignored in x11_ignored_modifiers() {
+            match connection.grab_key(
+                false,
+                root,
+                modifiers | ignored,
+                keycode,
+                x11rb::protocol::xproto::GrabMode::ASYNC,
+                x11rb::protocol::xproto::GrabMode::ASYNC,
+            ) {
+                Ok(cookie) => {
+                    if let Err(error) = cookie.check() {
+                        failure = Some(error.to_string());
+                        break;
+                    }
+                }
+                Err(error) => {
+                    failure = Some(error.to_string());
+                    break;
+                }
+            }
+        }
+        if let Some(message) = failure {
+            for ignored in x11_ignored_modifiers() {
+                let _ = connection.ungrab_key(keycode, root, modifiers | ignored);
+            }
+            issues.push(HotkeyRegistrationIssue {
+                shortcut: spec.shortcut.clone(),
+                description: spec.description.clone(),
+                message,
+            });
+        } else {
+            registered.push(X11RegisteredShortcut {
+                keycode,
+                modifiers,
+                action: spec.action.clone(),
+                pressed: false,
+            });
+        }
+    }
+    connection.flush().map_err(|error| error.to_string())?;
+    *manager.registration_status.write() = HotkeyRegistrationStatus {
+        backend: "x11".into(),
+        state: if issues.is_empty() {
+            "ready"
+        } else {
+            "conflict"
+        }
+        .into(),
+        configured_count: specs.len(),
+        registered_count: registered.len(),
+        issues: issues.clone(),
+        bindings: Vec::new(),
+    };
+    let _ = app.emit("hotkey-registration-changed", ());
+    if issues.is_empty() {
+        Ok(())
+    } else {
+        Err(format!(
+            "{} shortcut{} could not be registered",
+            issues.len(),
+            if issues.len() == 1 { "" } else { "s" }
+        ))
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn unregister_x11_shortcuts<C: x11rb::connection::Connection>(
+    connection: &C,
+    root: u32,
+    registered: &[X11RegisteredShortcut],
+) {
+    use x11rb::protocol::xproto::ConnectionExt as _;
+    for shortcut in registered {
+        for ignored in x11_ignored_modifiers() {
+            let _ = connection.ungrab_key(shortcut.keycode, root, shortcut.modifiers | ignored);
+        }
+    }
+    let _ = connection.flush();
+}
+
+#[cfg(target_os = "linux")]
+fn x11_ignored_modifiers() -> [x11rb::protocol::xproto::ModMask; 4] {
+    use x11rb::protocol::xproto::ModMask;
+    [
+        ModMask::default(),
+        ModMask::LOCK,
+        ModMask::M2,
+        ModMask::LOCK | ModMask::M2,
+    ]
+}
+
+#[cfg(target_os = "linux")]
+fn parse_x11_shortcut(shortcut: &str) -> Result<(x11rb::protocol::xproto::ModMask, u32), String> {
+    use x11rb::protocol::xproto::ModMask;
+
+    let mut parts: Vec<&str> = shortcut.split('+').map(str::trim).collect();
+    let key = parts
+        .pop()
+        .filter(|key| !key.is_empty())
+        .ok_or_else(|| "The shortcut has no key.".to_string())?;
+    let mut modifiers = ModMask::default();
+    for modifier in parts {
+        match modifier.to_ascii_lowercase().as_str() {
+            "ctrl" | "control" | "cmdorctrl" | "commandorcontrol" => {
+                modifiers |= ModMask::CONTROL;
+            }
+            "alt" | "option" => modifiers |= ModMask::M1,
+            "shift" => modifiers |= ModMask::SHIFT,
+            "cmd" | "command" | "meta" | "super" | "logo" => modifiers |= ModMask::M4,
+            _ => return Err(format!("Unknown shortcut modifier: {modifier}")),
+        }
+    }
+    let normalized = key.to_ascii_lowercase();
+    let keysym = match normalized.as_str() {
+        value if value.chars().count() == 1 => value.chars().next().unwrap() as u32,
+        "space" | "spacebar" => 0x20,
+        "tab" => 0xff09,
+        "enter" | "return" => 0xff0d,
+        "escape" | "esc" => 0xff1b,
+        "backspace" => 0xff08,
+        "delete" => 0xffff,
+        "home" => 0xff50,
+        "arrowleft" | "left" => 0xff51,
+        "arrowup" | "up" => 0xff52,
+        "arrowright" | "right" => 0xff53,
+        "arrowdown" | "down" => 0xff54,
+        "pageup" => 0xff55,
+        "pagedown" => 0xff56,
+        "end" => 0xff57,
+        value if value.starts_with('f') => {
+            let number = value[1..]
+                .parse::<u32>()
+                .map_err(|_| format!("Unknown shortcut key: {key}"))?;
+            if !(1..=35).contains(&number) {
+                return Err(format!("Unknown shortcut key: {key}"));
+            }
+            0xffbd + number
+        }
+        _ => return Err(format!("Unknown shortcut key: {key}")),
+    };
+    Ok((modifiers, keysym))
+}
+
+#[cfg(target_os = "linux")]
+fn resolve_x11_keycode<C: x11rb::connection::Connection>(
+    connection: &C,
+    target_keysym: u32,
+) -> Result<u8, String> {
+    use x11rb::protocol::xkb;
+    use x11rb::protocol::xkb::ConnectionExt as _;
+
+    let device: xkb::DeviceSpec = xkb::ID::USE_CORE_KBD.into();
+    let state = connection
+        .xkb_get_state(device)
+        .map_err(|error| error.to_string())?
+        .reply()
+        .map_err(|error| error.to_string())?;
+    let map = connection
+        .xkb_get_map(
+            device,
+            xkb::MapPart::KEY_SYMS,
+            xkb::MapPart::default(),
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            xkb::VMod::default(),
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+        )
+        .map_err(|error| error.to_string())?
+        .reply()
+        .map_err(|error| error.to_string())?;
+    let group = u8::from(state.group) as usize;
+    let keymaps = map
+        .map
+        .syms_rtrn
+        .ok_or_else(|| "X11 did not return a keyboard symbol map.".to_string())?;
+    for (offset, keymap) in keymaps.iter().enumerate() {
+        let width = keymap.width as usize;
+        if width == 0 {
+            continue;
+        }
+        let group_count = keymap.syms.len() / width;
+        if group_count == 0 {
+            continue;
+        }
+        let active_group = group.min(group_count - 1);
+        if keymap.syms.get(active_group * width).copied() == Some(target_keysym) {
+            return map
+                .first_key_sym
+                .checked_add(offset as u8)
+                .ok_or_else(|| "The X11 keycode is out of range.".to_string());
+        }
+    }
+    Err(format!(
+        "The active X11 layout does not provide keysym 0x{target_keysym:x}."
+    ))
 }
 
 fn native_backend_name() -> &'static str {
