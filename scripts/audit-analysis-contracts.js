@@ -62,20 +62,20 @@ assert.match(analysisSettings, /step=\{1\}[\s\S]{0,220}translate\('component\.se
   'Capture must remain visible independently of optional presentation features');
 assert.match(builtinLifecycleManager, /stableRef !== 'capture:source-attribution-v1'/,
   'Disabling Sources must hide Source Attribution without hiding Clip Type');
-assert.match(clipCard, /features\.types[\s\S]{0,100}structuralClipType/,
-  'Clip cards must fall back to structural Clip Type when Content Types is disabled');
+assert.match(clipCard, /features\.clipTypes \|\| \(features\.types[\s\S]{0,260}structuralClipType/,
+  'Clip cards must independently gate structural and detected type chrome');
 assert.match(clipCard, /features\.sources && <span className="font-medium theme-text-main/,
   'Clip cards must hide Source chrome when Sources is disabled');
-assert.match(clipPreview, /contentTypeLabel\(structuralClipType\(clip\.content_type\)\)/,
-  'Clip Preview must always show structural Clip Type');
+assert.match(clipPreview, /features\.clipTypes && <span[\s\S]{0,300}contentTypeLabel\(structuralClipType\(clip\.content_type\)\)/,
+  'Clip Preview must hide structural Clip Type chrome when disabled');
 assert.match(clipPreview, /features\.types && visibleContentTypes\.map/,
   'Clip Preview must hide detected Content Types when Content Types is disabled');
 assert.match(clipPreview, /features\.sources && <OverflowText text=\{localizedSourceName\(clip\.source\)\}/,
   'Clip Preview must hide its Source label when Sources is disabled');
 assert.match(analytics, /features\.sources && <div className="theme-panel[\s\S]{0,1000}translate\('component\.analyticsView\.topSourceInHistory'\)/,
   'Insights must hide Source summaries when Sources is disabled');
-assert.match(analytics, /translate\('component\.analyticsView\.clipsByClipType'\)/,
-  'Insights must always present structural Clip Type summaries');
+assert.match(analytics, /features\.clipTypes && <div className="theme-panel[\s\S]{0,1000}translate\('component\.analyticsView\.clipsByClipType'\)/,
+  'Insights must hide structural Clip Type summaries when Clip Types is disabled');
 assert.match(analytics, /translate\('component\.analyticsView\.clipsByFileFormat'\)/,
   'Insights must present file-format summaries separately');
 assert.match(analytics, /features\.types && <div className="theme-panel[\s\S]{0,1000}translate\('component\.analyticsView\.clipsByContentType'\)/,

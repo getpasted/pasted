@@ -20,6 +20,7 @@ import {
   AppWindow,
   AudioLines,
   LockKeyhole,
+  Layers3,
 } from 'lucide-react';
 import type { AppSettings } from '../types';
 import {
@@ -49,6 +50,7 @@ const FEATURE_GROUP_KEYS: Record<FeatureGroupId, { label: TranslationKey; descri
 const FEATURE_KEYS: Record<FeatureId, { label: TranslationKey; description: TranslationKey; caution?: TranslationKey }> = {
   analytics: { label: 'feature.analytics.label', description: 'feature.analytics.description' },
   bins: { label: 'feature.bins.label', description: 'feature.bins.description' },
+  clipTypes: { label: 'feature.clipTypes.label', description: 'feature.clipTypes.description' },
   contentClassification: { label: 'feature.contentClassification.label', description: 'feature.contentClassification.description' },
   notes: { label: 'feature.notes.label', description: 'feature.notes.description' },
   notifications: { label: 'feature.notifications.label', description: 'feature.notifications.description' },
@@ -78,6 +80,7 @@ const FEATURE_PRESET_KEYS: Record<FeaturePreset, TranslationKey> = {
 const FEATURE_ICONS = {
   analytics: BarChart3,
   bins: Folder,
+  clipTypes: Layers3,
   contentClassification: ScanSearch,
   notes: StickyNote,
   notifications: Bell,

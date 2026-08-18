@@ -252,7 +252,7 @@ export const AnalyticsView: React.FC = () => {
           </div>
         </div>}
 
-        <div className="theme-panel p-5 rounded-xl border flex flex-col">
+        {features.clipTypes && <div className="theme-panel p-5 rounded-xl border flex flex-col">
           <h2 className="theme-title text-sm font-bold mb-4 flex items-center space-x-2">
             <Layers className="w-4 h-4 theme-status-info-text" />
             <span>{translate('component.analyticsView.clipsByClipType')}</span>
@@ -268,7 +268,7 @@ export const AnalyticsView: React.FC = () => {
               </div>
             ))}
           </div>
-        </div>
+        </div>}
 
         <div className="theme-panel p-5 rounded-xl border flex flex-col">
           <h2 className="theme-title text-sm font-bold mb-4 flex items-center space-x-2">

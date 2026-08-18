@@ -483,9 +483,11 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
       {/* Header Info */}
       <div className={`clip-card-header flex items-center justify-between ${headerTextClass} ${headerSpacingClass}`}>
         <div className="flex items-center space-x-2">
-          <div className="clip-type-icon theme-badge p-1 rounded border">
-            <ContentTypeIcon type={features.types ? primaryContentType : structuralClipType(clip.content_type)} className="w-3.5 h-3.5 theme-text-muted" />
-          </div>
+          {(features.clipTypes || (features.types && (clip.content_types?.length ?? 0) > 0)) && (
+            <div className="clip-type-icon theme-badge p-1 rounded border">
+              <ContentTypeIcon type={features.types && (clip.content_types?.length ?? 0) > 0 ? primaryContentType : structuralClipType(clip.content_type)} className="w-3.5 h-3.5 theme-text-muted" />
+            </div>
+          )}
           {features.sources && <span className="font-medium theme-text-main truncate max-w-[120px]" title={localizedSourceName(clip.source)}>
             <HighlightedClipText text={localizedSourceName(clip.source)} query={searchQuery} field="source" />
           </span>}

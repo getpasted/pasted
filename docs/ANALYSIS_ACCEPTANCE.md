@@ -83,7 +83,7 @@ Repeat with AI authoring enabled. Describe the same PDF Extractor, review the ge
 3. Save a Transform whose name or Operations match a bounded Smart Action signal such as URL or JSON. Select a matching text clip and confirm the suggestion appears without executing automatically.
 4. Select an image clip and run OCR explicitly. Confirm progress, success, no-text, failure, retry, and cancellation states settle rather than remaining indefinitely active.
 5. Select a multi-file clip. Confirm item count, extensions, live availability, and total file size appear while file paths remain absent from Analysis JSON and Activity.
-6. Disable Sources, OCR, Transcriptions, Content Classification, Content Types, and Transformations one at a time under Settings → Functionality. Confirm each related surface hides without data loss, Capture and structural Clip Type remain visible, and unrelated Analysis behavior remains usable.
+6. Disable Clip Types, Sources, OCR, Transcriptions, Content Classification, Content Types, and Transformations one at a time under Settings → Functionality. Confirm each related surface hides without data loss, Capture continues retaining structural identity, and unrelated Analysis behavior remains usable.
 7. Open Insights with representative text, image, and multi-file clips. Confirm Clip Types, the top 24 File Formats, and Content Types use separate cards. Disabling Content Types hides only its semantic card; disabling Sources hides only source summaries.
 
 ## Freeze rule

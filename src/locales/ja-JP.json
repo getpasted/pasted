@@ -1866,6 +1866,8 @@
   "feature.appLock.label": "アプリケーションロック",
   "feature.bins.description": "スマートコレクションを使って、クリップを手動または自動で整理します。",
   "feature.bins.label": "コレクション",
+  "feature.clipTypes.description": "構造的なクリップの種類とそのコレクションを表示する。",
+  "feature.clipTypes.label": "クリップの種類",
   "feature.cli.description": "Pasted CLIでクリップボードのワークフローを自動化します。",
   "feature.cli.label": "コマンドラインインターフェース",
   "feature.contentClassification.description": "分析可能なテキストに登録されたコンテンツタイプを割り当てます。",

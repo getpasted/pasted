@@ -1866,6 +1866,8 @@
   "feature.appLock.label": "App-Sperre",
   "feature.bins.description": "Ordnet Clips manuell oder automatisch in intelligenten Sammlungen.",
   "feature.bins.label": "Sammlungen",
+  "feature.clipTypes.description": "Strukturelle Clip-Typen und ihre Sammlungen anzeigen.",
+  "feature.clipTypes.label": "Clip-Typen",
   "feature.cli.description": "Automatisiert Zwischenablage-Workflows mit pasted über die Befehlszeile.",
   "feature.cli.label": "Befehlszeile",
   "feature.contentClassification.description": "Ordnet analysierbarem Text registrierte Inhaltstypen zu.",

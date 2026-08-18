@@ -1875,6 +1875,8 @@
   "feature.appLock.label": "נעילת אפליקציה",
   "feature.bins.description": "ארגן את הקליפים באופן ידני או אוטומטי באמצעות אוספים חכמים.",
   "feature.bins.label": "אוספים",
+  "feature.clipTypes.description": "הצג סוגי קליפים מבניים ואת האוספים שלהם.",
+  "feature.clipTypes.label": "סוגי קליפים",
   "feature.cli.description": "השתמש ב\"העתקה\" כדי לאוטומטית את זרימת העבודה של הלוח.",
   "feature.cli.label": "ממשק שורת הפקודה",
   "feature.contentClassification.description": "הקצה סוגי תוכן ניתנים לניתוח לטקסט.",

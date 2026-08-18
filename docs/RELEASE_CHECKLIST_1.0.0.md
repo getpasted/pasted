@@ -31,7 +31,7 @@ Use the exact notarized DMG intended for publication. Do not substitute a develo
 ## Content Analysis
 
 - [ ] Settings → Analysis begins with read-only Capture, followed by Inspectors, Extractors, Classifiers, and Suggestions. Read-only managers lead with practical input/output relationships and keep technical contracts secondary. Extractor Settings keeps concise runtime availability visible in its header. Structure Inspection remains always-on; Media Metadata reports the selected ffprobe or MediaInfo runtime; and Smart Actions follows Transformations.
-- [ ] Capture and Insights keep Clip Type, File Format, and Content Type distinct. Sources controls source presentation without deleting attribution; Content Types controls semantic presentation without hiding structural Clip Type.
+- [ ] Capture and Insights keep Clip Type, File Format, and Content Type distinct. Clip Types, Sources, and Content Types independently control their presentation without deleting structural identity, attribution, or classifications.
 - [ ] A text clip shows content-free character, word, and line statistics; a matching saved Transform appears under Smart Actions and is not executed until explicitly selected.
 - [ ] New text capture and `pasted classifier run` choose the same Content Type and Classifier. Preview does not mutate; apply and confirmed rescan report the clip mutations they actually commit.
 - [ ] Apple Vision OCR recognizes a high-contrast text image on macOS, returns the same Extractor contract through the GUI and CLI, and makes the stored result searchable after relaunch.
@@ -40,7 +40,7 @@ Use the exact notarized DMG intended for publication. Do not substitute a develo
 - [ ] Image or file extraction can feed later classification in one bounded run. An unavailable or disabled Extractor fails or skips explicitly without leaving work stuck as running.
 - [ ] File clips report bounded item, extension, availability, size, and optional media facts but never pass file-reference metadata to text Classifiers or Suggestions.
 - [ ] `pasted analyzer`, `inspector`, `extractor`, `classifier`, `suggestion`, and `registry` return version 1 JSON without original text, OCR text, image bytes, credentials, or file paths in participant summaries.
-- [ ] Disabling Sources, OCR, Transcriptions, Content Classification, Content Types, or Transformations hides only its related surfaces, preserves existing data, and leaves unrelated Analysis behavior usable.
+- [ ] Disabling Clip Types, Sources, OCR, Transcriptions, Content Classification, Content Types, or Transformations hides only its related surfaces, preserves existing data, and leaves unrelated Analysis behavior usable.
 
 ## Existing library and recovery
 
