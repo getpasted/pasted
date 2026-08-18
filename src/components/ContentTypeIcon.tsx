@@ -23,7 +23,8 @@ const CONTENT_TYPE_ICONS: Record<string, LucideIcon> = {
 
 export function ContentTypeIcon({ type, className = 'w-4 h-4' }: { type: ClipContentType; className?: string }) {
   const { definitions } = useContentTypes();
-  const iconName = definitions.find(({ id }) => id === type)?.icon ?? 'FileText';
+  const structuralIcon = type === 'text' ? 'Type' : type === 'image' ? 'Image' : type === 'file' ? 'Files' : 'FileText';
+  const iconName = definitions.find(({ id }) => id === type)?.icon ?? structuralIcon;
   return <ContentTypeGlyph icon={iconName} className={className} />;
 }
 

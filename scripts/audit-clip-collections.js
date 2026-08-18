@@ -37,6 +37,8 @@ for (const field of [
 assert.match(sidebar, /getSystemClipCollections\(features\)/, 'Sidebar navigation must come from the shared collection registry');
 assert.match(sidebar, /useLocalization\(\)/, 'Memoized sidebar navigation must subscribe to locale changes');
 assert.match(sidebar, /getClipCollection\('bin', b\)/, 'Bins must inherit collection capabilities in the sidebar');
+assert.match(sidebar, /id: 'clipTypes'[\s\S]{0,500}id: 'types'/, 'Clip Types must appear before semantic Content Types');
+assert.match(sidebar, /clipFacetRoute\('clip_type', value\)/, 'Clip Type navigation must use stable structural routes');
 assert.match(sidebar, /clipFacetRoute\('type', value\)/, 'Type navigation must use stable calculated-collection routes');
 assert.match(sidebar, /clipFacetRoute\('source', value\)/, 'Source navigation must use stable calculated-collection routes');
 assert.match(read('src/hooks/useClipViews.ts'), /parseClipFacetRoute\(currentTab\)/, 'Type and Source views must share calculated collection filtering');
@@ -62,6 +64,8 @@ assert.match(database, /id,content_type,source,is_pinned/, 'CSV exports must exp
 assert.match(appData, /record\.source_app[\s\S]*source_app:\s*_legacySource/, 'Pre-1.0 cached and IPC clip summaries must migrate source_app without retaining it');
 assert.match(sidebar, /source\?\.trim\(\)\.toLowerCase\(\)\s*\?\?\s*''/, 'Source icon rendering must tolerate stale or incomplete cached metadata');
 assert.match(clipViews, /getClipCollection\(currentTab, selectedBin\)/, 'Clip filtering must resolve the active collection');
+assert.match(clipViews, /facet\?\.kind === 'clip_type'[\s\S]{0,160}clip\.content_type === facet\.value/, 'Clip Type routes must filter structural identity only');
+assert.match(clipViews, /facet\?\.kind === 'type'[\s\S]{0,180}clip\.content_types/, 'Content Type routes must filter Classifier results only');
 assert.match(emptyState, /collection\?\.emptyTitle/, 'Empty states must come from the collection descriptor');
 assert.match(viewPolicy, /collection\?\.membership/, 'Interaction policy must use collection membership');
 assert.match(app, /currentCollection\?\.title/, 'The clip-list heading must use the collection descriptor');
@@ -72,7 +76,9 @@ assert.match(database, /pub fn get_trashed_clips_page[\s\S]*LIMIT \? OFFSET \?/,
 assert.match(database, /pub fn get_clip_collection_summary/, 'Sidebar collection counts must come from an exact server summary');
 assert.match(appData, /const CLIP_PAGE_SIZE = 250;/, 'The GUI must fetch clip collections in bounded pages');
 assert.match(appData, /loadMoreClips[\s\S]*loadMoreTrashedClips/, 'Active clips and Trash must both support incremental loading');
-assert.match(sidebar, /clipCollectionSummary\.typeCounts[\s\S]*clipCollectionSummary\.sourceCounts/, 'Facet badges must not be derived from only the loaded page');
+for (const field of ['clipTypeCounts', 'typeCounts', 'sourceCounts']) {
+  assert.match(sidebar, new RegExp(`clipCollectionSummary\\.${field}`), `${field} badges must come from the exact server summary`);
+}
 assert.match(foundationCss, /\.clip-card[\s\S]*content-visibility:\s*auto/, 'Offscreen clip cards must retain browser-native rendering virtualization');
 
 console.log('Clip collection contract audit passed.');

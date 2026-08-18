@@ -962,6 +962,7 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
         pinnedCount: active.filter((clip) => clip.is_pinned).length,
         protectedCount: active.filter((clip) => clip.is_protected).length,
         notedCount: active.filter((clip) => Boolean(clip.note?.trim())).length,
+        clipTypeCounts: countBy('content_type').map(([clip_type, count]) => ({ clip_type, count })),
         typeCounts: contentTypeCounts.map(([content_type, count]) => ({ content_type, count })),
         sourceCounts: countBy('source').map(([name, count]) => ({ name, count })),
       } as unknown as T;

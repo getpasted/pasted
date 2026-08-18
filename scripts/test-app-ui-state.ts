@@ -18,6 +18,7 @@ assert.equal(restored.transformWorkspace, 'playground');
 assert.equal(restored.selectedClipId, 42);
 assert.equal(restored.isSidebarCollapsed, true);
 assert.equal(restored.sidebarSections.types, false);
+assert.equal(restored.sidebarSections.clipTypes, true);
 
 const legacy = parseAppUiState({ version: 1, currentTab: 'help' });
 assert.equal(legacy.currentTab, 'help');

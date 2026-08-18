@@ -77,7 +77,7 @@ function toInput(classifier?: ContentClassifier): ClassifierInput {
     priority: classifier.priority,
   } : {
     name: 'Custom Classifier',
-    content_type: 'text',
+    content_type: 'prose',
     description: '',
     patterns: ['^.+$'],
     validator: null,

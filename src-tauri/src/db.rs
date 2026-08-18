@@ -899,6 +899,7 @@ pub struct ClipCollectionSummary {
     pub pinned_count: i64,
     pub protected_count: i64,
     pub noted_count: i64,
+    pub clip_type_counts: Vec<ClipTypeStat>,
     pub type_counts: Vec<TypeStat>,
     pub source_counts: Vec<SourceStat>,
 }
@@ -1512,6 +1513,21 @@ fn migrate_legacy_semantic_clip_types(conn: &Connection) -> Result<()> {
         [],
     )?;
     transaction.commit()
+}
+
+fn retire_structural_content_type_entries(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "DELETE FROM content_types
+         WHERE id IN ('text', 'image', 'file')
+           AND is_builtin = 1
+           AND NOT EXISTS (
+                SELECT 1 FROM content_classifiers
+                WHERE content_classifiers.content_type = content_types.id
+                  AND content_classifiers.is_deleted = 0
+           )",
+        [],
+    )?;
+    Ok(())
 }
 
 fn migrate_analysis_terminology_schema(conn: &Connection) -> Result<()> {
@@ -2943,6 +2959,7 @@ impl DbState {
             )?;
         }
         migrate_legacy_semantic_clip_types(&conn)?;
+        retire_structural_content_type_entries(&conn)?;
         for preset in crate::content_extraction::EXTRACTOR_PRESETS {
             conn.execute(
                 "INSERT OR IGNORE INTO content_extractors
@@ -6927,6 +6944,24 @@ impl DbState {
                 })
             })?
             .collect::<Result<Vec<_>>>()?;
+        let clip_type_counts = conn
+            .prepare(
+                "SELECT CASE
+                    WHEN content_type IN ('image', 'file') THEN content_type
+                    ELSE 'text'
+                 END AS clip_type, COUNT(*)
+                 FROM clips
+                 WHERE COALESCE(is_trashed, 0) = 0
+                 GROUP BY clip_type
+                 ORDER BY CASE clip_type WHEN 'text' THEN 1 WHEN 'image' THEN 2 ELSE 3 END",
+            )?
+            .query_map([], |row| {
+                Ok(ClipTypeStat {
+                    clip_type: row.get(0)?,
+                    count: row.get(1)?,
+                })
+            })?
+            .collect::<Result<Vec<_>>>()?;
         let source_counts = conn
             .prepare(
                 "SELECT source, COUNT(*) FROM clips
@@ -6946,6 +6981,7 @@ impl DbState {
             pinned_count,
             protected_count,
             noted_count,
+            clip_type_counts,
             type_counts,
             source_counts,
         })
@@ -8203,6 +8239,9 @@ impl DbState {
             rusqlite::Error::InvalidParameterName(format!("invalid transfer JSON: {error}"))
         })?;
         normalize_library_archive_timestamps(&mut payload)?;
+        payload.content_types.retain(|content_type| {
+            !crate::content_types::is_structural_clip_type_id(&content_type.id)
+        });
         for clip in &mut payload.clips {
             normalize_imported_clip_types(clip)?;
         }
@@ -9051,6 +9090,7 @@ impl DbState {
             }
         }
 
+        retire_structural_content_type_entries(&tx)?;
         tx.commit()?;
         Ok(imported)
     }
@@ -13198,6 +13238,18 @@ mod tests {
     #[test]
     fn content_type_registry_protects_builtin_ids_and_archives_custom_types_safely() {
         let db = setup_test_db();
+        let registered = db.get_content_types(false).unwrap();
+        assert!(registered.iter().all(|content_type| {
+            !crate::content_types::is_structural_clip_type_id(&content_type.id)
+        }));
+        assert!(db
+            .create_content_type(&crate::content_types::ContentTypeInput {
+                id: "text".into(),
+                label: "Text".into(),
+                icon: "Type".into(),
+                group: "general".into(),
+            })
+            .is_err());
         let mut payment = db
             .get_content_types(false)
             .unwrap()
@@ -18014,6 +18066,7 @@ mod tests {
         let empty = db.get_clip_collection_summary().unwrap();
         assert_eq!(empty.active_count, 0);
         assert_eq!(empty.trash_count, 0);
+        assert!(empty.clip_type_counts.is_empty());
 
         let clips = (0..6)
             .map(|index| {
@@ -18061,6 +18114,9 @@ mod tests {
         assert_eq!(summary.pinned_count, 1);
         assert_eq!(summary.protected_count, 1);
         assert_eq!(summary.noted_count, 1);
+        assert_eq!(summary.clip_type_counts.len(), 1);
+        assert_eq!(summary.clip_type_counts[0].clip_type, "text");
+        assert_eq!(summary.clip_type_counts[0].count, 4);
         assert_eq!(summary.type_counts.len(), 1);
         assert_eq!(summary.type_counts[0].content_type, "link");
         assert_eq!(summary.type_counts[0].count, 2);

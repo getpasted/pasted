@@ -98,13 +98,11 @@ pub struct ContentTypePreset {
     pub group: &'static str,
 }
 
+pub fn is_structural_clip_type_id(id: &str) -> bool {
+    matches!(id, "text" | "image" | "file")
+}
+
 pub const CONTENT_TYPE_PRESETS: &[ContentTypePreset] = &[
-    ContentTypePreset {
-        id: "text",
-        label: "Plain Text",
-        icon: "Type",
-        group: "general",
-    },
     ContentTypePreset {
         id: "prose",
         label: "Prose",
@@ -127,18 +125,6 @@ pub const CONTENT_TYPE_PRESETS: &[ContentTypePreset] = &[
         id: "phone",
         label: "Phone Number",
         icon: "Phone",
-        group: "general",
-    },
-    ContentTypePreset {
-        id: "image",
-        label: "Image",
-        icon: "Image",
-        group: "general",
-    },
-    ContentTypePreset {
-        id: "file",
-        label: "File",
-        icon: "Files",
         group: "general",
     },
     ContentTypePreset {
@@ -318,6 +304,9 @@ pub fn fallback_label(id: &str) -> String {
 }
 
 pub fn validate_content_type_input(input: &ContentTypeInput) -> Result<(), String> {
+    if is_structural_clip_type_id(&input.id) {
+        return Err("Text, Image, and File are reserved Clip Types".into());
+    }
     if !valid_registry_id(&input.id) {
         return Err("Type IDs must use 1–80 lowercase letters, numbers, and underscores".into());
     }
