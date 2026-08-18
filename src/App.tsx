@@ -1750,9 +1750,11 @@ export default function App() {
         editingBin={editingBin}
         features={{
           clipTypes: enabledFeatures.clipTypes,
+          fileFormats: enabledFeatures.fileFormats,
           sources: enabledFeatures.sources,
           types: enabledFeatures.types,
         }}
+        fileFormats={clipCollectionSummary.fileFormatCounts.map(({ file_format }) => file_format)}
         onClose={() => {
           setIsBinModalOpen(false);
           setEditingBin(null);

@@ -13,9 +13,9 @@ use tauri_plugin_window_state::{AppHandleExt, StateFlags};
 use crate::bin_assignment::BinAssignmentOutcome;
 use crate::db::{
     Bin, ClipItem, ClipMutationSummary, ContentClassificationRescanReport, DbState,
-    FactoryResetReport, FullBackupInspection, IntelligenceConnection, IntelligenceConnectionUpdate,
-    LibraryArchiveInspection, Pipeline, PipelineStepInput, SavedTransform,
-    TransformClipApplication, TransformDefinition,
+    FactoryResetReport, FileFormatRescanReport, FullBackupInspection, IntelligenceConnection,
+    IntelligenceConnectionUpdate, LibraryArchiveInspection, Pipeline, PipelineStepInput,
+    SavedTransform, TransformClipApplication, TransformDefinition,
 };
 use crate::features::{self, Feature};
 use crate::installation_diagnostics::InstallationDiagnostics;
@@ -1376,6 +1376,25 @@ pub async fn rescan_content_classification_history(
     }
     let db = Arc::clone(&db);
     let report = tauri::async_runtime::spawn_blocking(move || db.rescan_content_classification())
+        .await
+        .map_err(|error| error.to_string())?
+        .map_err(|error| error.to_string())?;
+    let _ = app.emit("app-menu-action", "refresh-data");
+    Ok(report)
+}
+
+#[tauri::command]
+pub async fn rescan_file_format_history(
+    confirmed: bool,
+    app: AppHandle,
+    db: State<'_, Arc<DbState>>,
+) -> Result<FileFormatRescanReport, String> {
+    features::require(&db, Feature::FileFormats)?;
+    if !confirmed {
+        return Err("History rescans require explicit confirmation.".to_string());
+    }
+    let db = Arc::clone(&db);
+    let report = tauri::async_runtime::spawn_blocking(move || db.rescan_file_formats())
         .await
         .map_err(|error| error.to_string())?
         .map_err(|error| error.to_string())?;
@@ -5171,6 +5190,7 @@ mod tests {
             id: 1,
             content_type: "image".to_string(),
             content_types: Vec::new(),
+            file_formats: Vec::new(),
             text_content: Some("recognized OCR text".to_string()),
             html_content: None,
             image_base64: Some(image_base64),

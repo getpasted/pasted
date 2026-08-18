@@ -44,6 +44,7 @@ pub fn suggest_text(
         },
         policy: AnalysisPolicy::Interactive,
         inspector: true,
+        file_format_inspector: false,
         extractors: Vec::new(),
         classifiers: Some(&classifiers),
         suggestion: Some(SuggestionParticipantSource {

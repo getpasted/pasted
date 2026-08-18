@@ -90,6 +90,12 @@ interface StructuralInspection {
     containers: string[];
     codecs: string[];
   };
+  fileFormats?: {
+    formats: Array<{ format: string; mimeType: string; count: number }>;
+    inspectedCount: number;
+    unknownCount: number;
+    unavailableCount: number;
+  };
   liveFileObservations?: {
     availableCount: number;
     fileCount: number;
@@ -1539,9 +1545,15 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
                 <strong>{inspection?.result.files?.itemCount ?? getClipFilePaths(clip).length}</strong>
               </span>
               <span className="clip-preview-footer-stat" title={inspection?.result.files?.extensions.join(', ') || translate('component.clipPreview.noFileExtensions')}>
-                <span>{translate('component.clipPreview.fileFormats')}</span>
+                <span>{translate('component.clipPreview.fileExtensions')}</span>
                 <strong>{inspection?.result.files ? (inspection.result.files.extensions.length > 2 ? translate('component.clipPreview.valueValue2', { value: inspection.result.files.extensions.slice(0, 2).join(', '), value2: inspection.result.files.extensions.length - 2 }) : inspection.result.files.extensions.join(', ') || '—') : '…'}</strong>
               </span>
+              {features.fileFormats && <span className="clip-preview-footer-stat" title={inspection?.fileFormats?.formats.map(({ mimeType }) => mimeType).join(', ')}>
+                <span>{translate('component.clipPreview.fileFormats')}</span>
+                <strong>{inspection?.fileFormats
+                  ? inspection.fileFormats.formats.map(({ format }) => format.toUpperCase()).join(', ') || '—'
+                  : '…'}</strong>
+              </span>}
               <span className="clip-preview-footer-stat">
                 <span>{translate('component.clipPreview.size')}</span>
                 <strong>{inspection?.liveFileObservations ? (inspection.liveFileObservations.fileCount > 0 ? formatFileSize(inspection.liveFileObservations.totalSizeBytes) : '—') : '…'}</strong>

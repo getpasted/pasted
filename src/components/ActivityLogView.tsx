@@ -223,6 +223,7 @@ export const ActivityLogView: React.FC = () => {
       case 'content_extractors_restored':
       case 'content_classification_history_rescanned':
       case 'content_detection_history_rescanned':
+      case 'file_format_history_rescanned':
       case 'content_type_created':
       case 'content_type_updated':
       case 'content_type_archived':
@@ -533,7 +534,8 @@ export const ActivityLogView: React.FC = () => {
       || l.event_type.startsWith('content_detector')
       || l.event_type.startsWith('content_detection')
       || l.event_type.startsWith('content_extractor')
-      || l.event_type.startsWith('content_type');
+      || l.event_type.startsWith('content_type')
+      || l.event_type.startsWith('file_format');
     if (selectedTypeFilter === 'storage') return l.event_type.startsWith('library_')
       || l.event_type.startsWith('backup_')
       || l.event_type.startsWith('data_export_')

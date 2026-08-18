@@ -71,13 +71,14 @@ The GUI and CLI use the same local library and shared domain services. The compl
 pasted list --limit 20 --json
 pasted search --type link --json
 pasted analyzer run --stdin --json
+pasted inspector rescan --yes --json
 pasted extractor create --name "PDF Text" --recipe docs/examples/poppler-pdf-extractor.json --disabled --json
 pasted insights summary --json
 pasted backup create Pasted.pastedbackup --json
 pasted transfer export Pasted-history.json --json
 ```
 
-The Analyzer command returns one versioned, privacy-safe preview across the applicable Inspector, Extractor, Classifier, and Suggestion participants. Focused commands such as `pasted inspector`, `pasted extractor`, `pasted classifier`, and `pasted suggestion` expose the same contracts for automation and diagnostics.
+The Analyzer command returns one versioned, privacy-safe preview across the applicable Inspector, Extractor, Classifier, and Suggestion participants. File Format inspection identifies formats from bounded byte signatures rather than filename extensions. Focused commands such as `pasted inspector`, `pasted extractor`, `pasted classifier`, and `pasted suggestion` expose the same contracts for automation and diagnostics.
 
 Managed or scripted installs can bypass the first-run walkthrough by launching the graphical app with `--skip-welcome`. On macOS:
 

@@ -7,7 +7,7 @@ This matrix is the acceptance boundary for the frozen Pasted 1.0 Analysis contra
 | Participant | GUI surface | CLI and API surface | 1.0 configuration boundary |
 | --- | --- | --- | --- |
 | Capture | Settings → Analysis → read-only Manage Capture dialog | `pasted registry --kind capture` | Assigns one structural Clip Type and records source attribution before Analysis. Sources controls attribution presentation, not retained data. |
-| Structure and Media Metadata Inspectors | Read-only Manage Inspectors dialog plus content-free facts in Clip Preview | `pasted inspector` and `pasted registry --kind inspector` | Immutable; no separate switches. Runtime availability is reported for Media Metadata. |
+| Structure, File Format, and Media Metadata Inspectors | Read-only Manage Inspectors dialog plus content-free facts in Clip Preview | `pasted inspector` and `pasted registry --kind inspector` | Immutable. File Format follows its Functionality switch; runtime availability is reported for Media Metadata. |
 | Image Text Extractor | Settings → Analysis → Extractors and OCR controls | `pasted extractor`, `pasted ocr`, and `pasted registry --kind extractor` | Runtime locations, resources, revisions, and availability are manageable. |
 | File Text Extractor | Settings → Analysis → Extractors and persistent availability status | `pasted extractor`, the file-extraction API, and `pasted registry --kind extractor` | Shipped and custom commands share the same runtime contract; expensive extraction remains explicit. |
 | Classifiers | Settings → Analysis → Classifiers, Content Types, testing, and Rescan Clips | `pasted classifier`, `pasted type`, and `pasted registry --kind classifier` | Definitions, priority, enabled state, validators, multiple Content Types, and occurrence matches are manageable. |
@@ -84,7 +84,7 @@ Repeat with AI authoring enabled. Describe the same PDF Extractor, review the ge
 4. Select an image clip and run OCR explicitly. Confirm progress, success, no-text, failure, retry, and cancellation states settle rather than remaining indefinitely active.
 5. Select a multi-file clip. Confirm item count, extensions, live availability, and total file size appear while file paths remain absent from Analysis JSON and Activity.
 6. Disable Clip Types, Sources, OCR, Transcriptions, Content Classification, Content Types, and Transformations one at a time under Settings → Functionality. Confirm each related surface hides without data loss, Capture continues retaining structural identity, and unrelated Analysis behavior remains usable.
-7. Open Insights with representative text, image, and multi-file clips. Confirm Clip Types, the top 24 File Formats, and Content Types use separate cards. Disabling Content Types hides only its semantic card; disabling Sources hides only source summaries.
+7. Open Insights with representative text, image, and multi-file clips. Confirm Clip Types, the top 24 byte-verified File Formats, and Content Types use separate cards. Disabling File Formats hides its scanner-derived navigation and summaries; disabling Content Types hides only its semantic card; disabling Sources hides only source summaries.
 
 ## Freeze rule
 

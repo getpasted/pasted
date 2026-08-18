@@ -1453,6 +1453,7 @@ fn run_command(command: &str, args: &[String], db_path: PathBuf, conn: Connectio
                             analysis,
                             application: pasted_lib::analysis_contract::ClipApplication::preview(),
                             live_file_observations: None,
+                            file_formats: None,
                             media_metadata: None,
                         }
                     };
@@ -1476,9 +1477,20 @@ fn run_command(command: &str, args: &[String], db_path: PathBuf, conn: Connectio
                         }
                         if let Some(files) = metadata.files.as_ref() {
                             println!(
-                                "Items: {}; types: {}",
+                                "Items: {}; extensions: {}",
                                 files.item_count,
                                 files.extensions.join(", ")
+                            );
+                        }
+                        if let Some(file_formats) = result.file_formats.as_ref() {
+                            println!(
+                                "File formats: {}",
+                                file_formats
+                                    .formats
+                                    .iter()
+                                    .map(|detected| detected.format.to_uppercase())
+                                    .collect::<Vec<_>>()
+                                    .join(", ")
                             );
                         }
                         if let Some(media) = result.media_metadata.as_ref() {
@@ -1495,8 +1507,30 @@ fn run_command(command: &str, args: &[String], db_path: PathBuf, conn: Connectio
                         }
                     }
                 }
+                "rescan" => {
+                    require_feature(&db, Feature::FileFormats);
+                    if !args.iter().any(|argument| argument == "--yes") {
+                        eprintln!("File Format rescans refresh derived metadata and Smart Bin membership. Re-run with --yes to continue.");
+                        std::process::exit(2);
+                    }
+                    let report = db.rescan_file_formats()?;
+                    if args.iter().any(|argument| argument == "--json") {
+                        println!(
+                            "{}",
+                            serde_json::to_string_pretty(&report).map_err(json_error)?
+                        );
+                    } else {
+                        println!(
+                            "Rescanned {} file clips; {} updated, {} unchanged, and {} failed.",
+                            report.scanned_count,
+                            report.changed_count,
+                            report.unchanged_count,
+                            report.failed_count
+                        );
+                    }
+                }
                 _ => {
-                    eprintln!("Usage: pasted inspector list|get|run [options] [--json]");
+                    eprintln!("Usage: pasted inspector list|get|run|rescan [options] [--json]");
                     std::process::exit(2);
                 }
             }

@@ -34,6 +34,7 @@ pub(crate) struct AnalysisContext {
     pub classification_matches: Vec<crate::content_classification::ClassificationMatch>,
     pub classification_complete: bool,
     pub structural_metadata: Option<crate::content_inspection::StructuralMetadata>,
+    pub file_formats: Option<crate::content_inspection::FileFormatInspection>,
     pub media_metadata: Option<crate::content_inspection::MediaMetadata>,
     pub suggestions: Option<crate::content_suggestions::SmartActionSuggestions>,
 }
@@ -51,6 +52,7 @@ impl AnalysisContext {
             classification_matches: Vec::new(),
             classification_complete: false,
             structural_metadata: None,
+            file_formats: None,
             media_metadata: None,
             suggestions: None,
         }
@@ -68,6 +70,7 @@ impl AnalysisContext {
             classification_matches: Vec::new(),
             classification_complete: false,
             structural_metadata: None,
+            file_formats: None,
             media_metadata: None,
             suggestions: None,
         }
@@ -94,6 +97,7 @@ impl AnalysisContext {
             RepresentationKind::AnalyzableText => self.analysis_text().is_some(),
             RepresentationKind::Classification => self.classification_complete,
             RepresentationKind::StructuralMetadata => self.structural_metadata.is_some(),
+            RepresentationKind::FileFormats => self.file_formats.is_some(),
             RepresentationKind::MediaMetadata => self.media_metadata.is_some(),
             RepresentationKind::Suggestions => self.suggestions.is_some(),
         }
@@ -147,6 +151,7 @@ impl AnalysisInput {
                 classification_matches: Vec::new(),
                 classification_complete: false,
                 structural_metadata: None,
+                file_formats: None,
                 media_metadata: None,
                 suggestions: None,
             },
@@ -167,9 +172,33 @@ pub(crate) struct AnalysisRequest<'a> {
     pub input: AnalysisInput,
     pub policy: AnalysisPolicy,
     pub inspector: bool,
+    pub file_format_inspector: bool,
     pub extractors: Vec<ExtractorParticipantSource<'a>>,
     pub classifiers: Option<&'a [Classifier]>,
     pub suggestion: Option<SuggestionParticipantSource<'a>>,
+}
+
+fn file_format_inspector_participant(paths: Vec<String>) -> AnalysisParticipant<'static> {
+    AnalysisParticipant::new(
+        ParticipantContract {
+            stable_ref: crate::content_inspection::FILE_FORMAT_INSPECTOR_REF.into(),
+            name: "File Format".into(),
+            pass: AnalysisPass::Inspect,
+            priority: 10,
+            requires: vec![RepresentationKind::FileReferences],
+            provides: vec![RepresentationKind::FileFormats],
+        },
+        move |context| {
+            let inspection = crate::content_inspection::inspect_file_formats(&paths);
+            let outcome = if inspection.formats.is_empty() {
+                ParticipantOutcome::NoOutput
+            } else {
+                ParticipantOutcome::Produced
+            };
+            context.file_formats = Some(inspection);
+            Ok(outcome)
+        },
+    )
 }
 
 fn inspector_participant(input: AnalysisInput) -> AnalysisParticipant<'static> {
@@ -198,7 +227,7 @@ fn media_inspector_participant(paths: Vec<String>) -> AnalysisParticipant<'stati
             stable_ref: crate::content_inspection::MEDIA_INSPECTOR_REF.into(),
             name: "Media Metadata".into(),
             pass: AnalysisPass::Inspect,
-            priority: 10,
+            priority: 20,
             requires: vec![RepresentationKind::FileReferences],
             provides: vec![RepresentationKind::MediaMetadata],
         },
@@ -529,6 +558,11 @@ pub(crate) fn analyze(request: AnalysisRequest<'_>) -> AnalysisReport {
     let mut participants = Vec::new();
     if request.inspector {
         participants.push(inspector_participant(request.input.clone()));
+        if request.file_format_inspector {
+            if let AnalysisInput::Files { paths, .. } = &request.input {
+                participants.push(file_format_inspector_participant(paths.clone()));
+            }
+        }
         if request.policy == AnalysisPolicy::Interactive {
             if let AnalysisInput::Files { paths, .. } = &request.input {
                 let probe_paths = paths
@@ -683,6 +717,7 @@ mod tests {
             },
             policy: AnalysisPolicy::Interactive,
             inspector: false,
+            file_format_inspector: false,
             extractors: vec![ExtractorParticipantSource {
                 extractor,
                 registry,
@@ -700,6 +735,7 @@ mod tests {
             },
             policy: AnalysisPolicy::Capture,
             inspector: false,
+            file_format_inspector: false,
             extractors: Vec::new(),
             classifiers: Some(classifiers),
             suggestion: None,
@@ -715,6 +751,7 @@ mod tests {
             },
             policy,
             inspector: true,
+            file_format_inspector: false,
             extractors: Vec::new(),
             classifiers: None,
             suggestion: None,
@@ -808,6 +845,7 @@ mod tests {
             },
             policy: AnalysisPolicy::Capture,
             inspector: false,
+            file_format_inspector: false,
             extractors: Vec::new(),
             classifiers: None,
             suggestion: None,
@@ -1008,6 +1046,7 @@ mod tests {
             },
             policy: AnalysisPolicy::Interactive,
             inspector: false,
+            file_format_inspector: false,
             extractors: vec![
                 ExtractorParticipantSource {
                     extractor: &third,

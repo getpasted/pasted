@@ -121,6 +121,7 @@ function AnalysisManagerRow({
 
 export function SettingsAnalysisPanel({
   contentClassificationEnabled,
+  fileFormatsEnabled,
   ocrEnabled,
   transcriptionsEnabled,
   transformationsEnabled,
@@ -129,6 +130,7 @@ export function SettingsAnalysisPanel({
   onOpenIntelligence,
 }: {
   contentClassificationEnabled: boolean;
+  fileFormatsEnabled: boolean;
   ocrEnabled: boolean;
   transcriptionsEnabled: boolean;
   transformationsEnabled: boolean;
@@ -412,12 +414,24 @@ export function SettingsAnalysisPanel({
   const rescanHistoryConfirmed = async () => {
     setRescanning(true);
     try {
-      const report = await invoke<ClassificationRescanReport>('rescan_content_classification_history', { confirmed: true });
+      const reports = await Promise.all([
+        contentClassificationEnabled
+          ? invoke<ClassificationRescanReport>('rescan_content_classification_history', { confirmed: true })
+          : Promise.resolve(null),
+        fileFormatsEnabled
+          ? invoke<ClassificationRescanReport>('rescan_file_format_history', { confirmed: true })
+          : Promise.resolve(null),
+      ]);
+      const scannedCount = reports.reduce((total, report) => total + (report?.scannedCount ?? 0), 0);
+      const changedCount = reports.reduce((total, report) => total + (report?.changedCount ?? 0), 0);
+      const failedCount = reports.reduce((total, report) => total + (report?.failedCount ?? 0), 0);
       showToast({
-        tone: report.failedCount > 0 ? 'info' : 'success',
-        message: report.failedCount > 0
-          ? translate('component.settingsAnalysisPanel.rescannedCountTextClipsCount2ReclassifiedAndCount3Failed', { count: report.scannedCount, count2: report.changedCount, count3: report.failedCount })
-          : translate('component.settingsAnalysisPanel.rescannedCountTextClipsCount2Reclassified', { count: report.scannedCount, count2: report.changedCount }),
+        tone: failedCount > 0 ? 'info' : 'success',
+        message: translate('component.settingsAnalysisPanel.rescannedCountClipsCount2UpdatedCount3Failed', {
+          count: scannedCount,
+          count2: changedCount,
+          count3: failedCount,
+        }),
       });
     } catch (error) {
       showToast({ tone: 'error', message: String(error) });
@@ -428,8 +442,8 @@ export function SettingsAnalysisPanel({
 
   const rescanHistory = () => {
     requestConfirmation({
-      get title() { return translate('component.settingsAnalysisPanel.rescanExistingTextClips'); },
-      get description() { return translate('component.settingsAnalysisPanel.currentEnabledClassifiersWillReclassifyTheTextClipHistory'); },
+      get title() { return translate('component.settingsAnalysisPanel.rescanExistingClips'); },
+      get description() { return translate('component.settingsAnalysisPanel.enabledScannersWillRefreshDerivedClipData'); },
       details: translate('component.settingsAnalysisPanel.rescanCanChangeDerivedOrganization'),
       confirmLabel: translate('component.settingsAnalysisPanel.rescanClips'),
       onConfirm: rescanHistoryConfirmed,
@@ -453,7 +467,7 @@ export function SettingsAnalysisPanel({
         icon={ScanSearch}
         title={translate('component.settingsAnalysisPanel.analysis')}
         description={translate('component.settingsAnalysisPanel.automaticallyScanClipsAndIndexTheirContents')}
-        actions={contentClassificationEnabled ? (
+        actions={(contentClassificationEnabled || fileFormatsEnabled) ? (
           <ActionButton onClick={rescanHistory} disabled={rescanning}>
             <ScanSearch className="h-3.5 w-3.5" /> {rescanning ? translate('component.settingsAnalysisPanel.rescanning') : translate('component.settingsAnalysisPanel.rescanClips')}
           </ActionButton>
@@ -689,6 +703,7 @@ export function SettingsAnalysisPanel({
         title={translate('component.settingsAnalysisPanel.inspectors')}
         description={translate('component.settingsAnalysisPanel.reviewClipInspectionBehaviorAndMediaAvailability')}
         icon={ScanSearch}
+        fileFormatsEnabled={fileFormatsEnabled}
       />
       <ContentExtractorManagerDialog
         isOpen={isExtractorManagerOpen}

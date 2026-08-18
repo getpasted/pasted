@@ -5,6 +5,7 @@ pub enum Feature {
     Insights,
     Bins,
     ClipTypes,
+    FileFormats,
     ContentClassification,
     Notes,
     Notifications,
@@ -26,10 +27,11 @@ pub enum Feature {
 }
 
 impl Feature {
-    pub const ALL: [Feature; 21] = [
+    pub const ALL: [Feature; 22] = [
         Feature::Insights,
         Feature::Bins,
         Feature::ClipTypes,
+        Feature::FileFormats,
         Feature::ContentClassification,
         Feature::Notes,
         Feature::Notifications,
@@ -55,6 +57,7 @@ impl Feature {
             Feature::Insights => "enableAnalytics",
             Feature::Bins => "enableBins",
             Feature::ClipTypes => "enableClipTypes",
+            Feature::FileFormats => "enableFileFormats",
             Feature::ContentClassification => "enableContentClassification",
             Feature::Notes => "enableNotes",
             Feature::Notifications => "enableNotifications",
@@ -87,6 +90,7 @@ impl Feature {
             Feature::Insights => "Insights",
             Feature::Bins => "Bins",
             Feature::ClipTypes => "Clip Types",
+            Feature::FileFormats => "File Formats",
             Feature::ContentClassification => "Content Classification",
             Feature::Notes => "Notes",
             Feature::Notifications => "Notifications",
@@ -151,7 +155,7 @@ mod tests {
 
     #[test]
     fn frontend_and_native_setting_keys_are_stable() {
-        assert_eq!(Feature::ALL.len(), 21);
+        assert_eq!(Feature::ALL.len(), 22);
         for feature in Feature::ALL {
             assert_eq!(
                 Feature::from_setting_key(feature.setting_key()),

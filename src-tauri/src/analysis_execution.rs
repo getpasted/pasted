@@ -2,7 +2,7 @@ use crate::analysis_contract::{AnalysisEnvelope, AnalysisPolicy, ClipApplication
 use crate::content_analysis::{
     AnalysisInput, AnalysisRequest, ExtractorParticipantSource, SuggestionParticipantSource,
 };
-use crate::content_inspection::{FileObservations, StructuralMetadata};
+use crate::content_inspection::{FileFormatInspection, FileObservations, StructuralMetadata};
 use crate::content_suggestions::SmartActionSuggestions;
 use crate::db::DbState;
 use serde::Serialize;
@@ -32,6 +32,8 @@ pub struct AnalyzerSnapshot {
     pub clip_kind: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub structure: Option<StructuralMetadata>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub file_formats: Option<FileFormatInspection>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub media_metadata: Option<crate::content_inspection::MediaMetadata>,
     pub classification_matches: Vec<crate::content_classification::ClassificationMatch>,
@@ -118,6 +120,8 @@ fn execute(
         input,
         policy: options.policy,
         inspector: true,
+        file_format_inspector: clip_kind == "file"
+            && crate::features::is_enabled(db, crate::features::Feature::FileFormats),
         extractors: extractor_sources,
         classifiers: run_classifiers.then_some(classifiers.as_slice()),
         suggestion: (allow_text_participants && options.include_suggestions).then_some(
@@ -129,6 +133,7 @@ fn execute(
     let snapshot = AnalyzerSnapshot {
         clip_kind: report.context.clip_kind.clone(),
         structure: report.context.structural_metadata,
+        file_formats: report.context.file_formats,
         media_metadata: report.context.media_metadata,
         classification_matches: report.context.classification_matches,
         searchable_text_available: report.context.searchable_text.is_some(),
@@ -372,7 +377,12 @@ mod tests {
             )
             .unwrap();
         let result = analyze_clip(&db, clip.id, AnalyzerOptions::default()).unwrap();
-        assert_eq!(result.analysis.participants.len(), 2);
+        assert_eq!(result.analysis.participants.len(), 3);
+        assert!(result
+            .analysis
+            .participants
+            .iter()
+            .any(|run| { run.stable_ref == crate::content_inspection::FILE_FORMAT_INSPECTOR_REF }));
         assert!(result
             .analysis
             .participants

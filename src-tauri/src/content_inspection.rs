@@ -2,19 +2,22 @@ use crate::analysis_contract::{AnalysisEnvelope, AnalysisFailure};
 use crate::content_analysis::AnalysisInput;
 use image::ImageReader;
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use std::fs;
-use std::io::Cursor;
+use std::io::{Cursor, Read};
 use std::path::Path;
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
 pub const STRUCTURE_INSPECTOR_REF: &str = "inspector:structure-v1";
+pub const FILE_FORMAT_INSPECTOR_REF: &str = "inspector:file-format-v1";
 pub const MEDIA_INSPECTOR_REF: &str = "inspector:media-metadata-v1";
 pub const LEGACY_FFPROBE_INSPECTOR_REF: &str = "inspector:ffprobe-media-v1";
 pub const FFPROBE_ENGINE: &str = "ffprobe-cli-v1";
 pub const MEDIAINFO_ENGINE: &str = "mediainfo-cli-v1";
 
 const MEDIA_INSPECTION_TIMEOUT: Duration = Duration::from_secs(5);
+const MAX_FILE_FORMAT_SIGNATURE_BYTES: u64 = 64 * 1024;
 
 trait MediaMetadataEngine: Sync {
     fn id(&self) -> &'static str;
@@ -154,13 +157,28 @@ pub fn media_inspector_definition() -> InspectorDefinition {
         description: "Reads bounded audio and video metadata locally.".into(),
         input_contract: "file_references".into(),
         output_contract: "media_metadata".into(),
-        priority: 10,
+        priority: 20,
         is_builtin: true,
         engine: Some(engine.id().into()),
         is_available: any_available,
         unavailable_reason: (!any_available).then(|| {
             "ffprobe or MediaInfo is not installed. Install either engine, then check again.".into()
         }),
+    }
+}
+
+pub fn file_format_inspector_definition() -> InspectorDefinition {
+    InspectorDefinition {
+        stable_ref: FILE_FORMAT_INSPECTOR_REF.into(),
+        name: "File Format".into(),
+        description: "Identifies referenced file formats from bounded byte signatures.".into(),
+        input_contract: "file_references".into(),
+        output_contract: "file_formats".into(),
+        priority: 10,
+        is_builtin: true,
+        engine: Some("infer-signatures-v1".into()),
+        is_available: true,
+        unavailable_reason: None,
     }
 }
 
@@ -175,6 +193,7 @@ pub fn canonical_inspector_ref(reference: &str) -> &str {
 pub fn inspector_definitions() -> Vec<InspectorDefinition> {
     vec![
         structure_inspector_definition(),
+        file_format_inspector_definition(),
         media_inspector_definition(),
     ]
 }
@@ -221,6 +240,74 @@ pub struct FileObservations {
     pub file_count: usize,
     pub directory_count: usize,
     pub total_size_bytes: u64,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DetectedFileFormat {
+    pub format: String,
+    pub mime_type: String,
+    pub count: usize,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FileFormatInspection {
+    pub formats: Vec<DetectedFileFormat>,
+    pub inspected_count: usize,
+    pub unknown_count: usize,
+    pub unavailable_count: usize,
+}
+
+pub fn inspect_file_formats(paths: &[String]) -> FileFormatInspection {
+    let mut inspection = FileFormatInspection::default();
+    let mut formats = BTreeMap::<(String, String), usize>::new();
+    for path in paths
+        .iter()
+        .take(crate::resource_limits::MAX_MEDIA_PROBE_FILES)
+    {
+        let Ok(metadata) = fs::metadata(path) else {
+            inspection.unavailable_count += 1;
+            continue;
+        };
+        if !metadata.is_file() {
+            inspection.unknown_count += 1;
+            continue;
+        }
+        let Ok(file) = fs::File::open(path) else {
+            inspection.unavailable_count += 1;
+            continue;
+        };
+        let mut bytes = Vec::new();
+        if file
+            .take(MAX_FILE_FORMAT_SIGNATURE_BYTES)
+            .read_to_end(&mut bytes)
+            .is_err()
+        {
+            inspection.unavailable_count += 1;
+            continue;
+        }
+        inspection.inspected_count += 1;
+        let Some(kind) = infer::get(&bytes) else {
+            inspection.unknown_count += 1;
+            continue;
+        };
+        *formats
+            .entry((
+                kind.extension().to_ascii_lowercase(),
+                kind.mime_type().into(),
+            ))
+            .or_default() += 1;
+    }
+    inspection.formats = formats
+        .into_iter()
+        .map(|((format, mime_type), count)| DetectedFileFormat {
+            format,
+            mime_type,
+            count,
+        })
+        .collect();
+    inspection
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -789,6 +876,28 @@ mod tests {
         assert_eq!(result.result.origin, OriginKind::FileReference);
         assert_eq!(result.result.files.unwrap().extensions, vec!["TXT"]);
         assert_eq!(observe_files(&paths), FileObservations::default());
+    }
+
+    #[test]
+    fn file_format_inspection_uses_bytes_instead_of_the_extension() {
+        let workspace =
+            crate::external_tools::PrivateWorkspace::create("file-format-test").unwrap();
+        let path = workspace.join("misleading.txt");
+        fs::write(
+            &path,
+            [
+                0x89, b'P', b'N', b'G', 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, b'I', b'H',
+                b'D', b'R',
+            ],
+        )
+        .unwrap();
+
+        let result = inspect_file_formats(&[path.to_string_lossy().into_owned()]);
+        assert_eq!(result.inspected_count, 1);
+        assert_eq!(result.unknown_count, 0);
+        assert_eq!(result.formats.len(), 1);
+        assert_eq!(result.formats[0].format, "png");
+        assert_eq!(result.formats[0].mime_type, "image/png");
     }
 
     #[test]

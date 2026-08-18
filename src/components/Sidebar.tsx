@@ -31,6 +31,7 @@ import {
   FileText,
   Image as ImageIcon,
   Files,
+  FileType2,
   X,
 } from 'lucide-react';
 import { Bin, ClipCollectionSummary, type ClipContentType, SequentialStatus } from '../types';
@@ -135,12 +136,14 @@ const SidebarComponent: React.FC<SidebarProps> = ({
   const isClipsOpen = sectionState.clips;
   const isBinsOpen = sectionState.bins;
   const isClipTypesOpen = sectionState.clipTypes;
+  const isFileFormatsOpen = sectionState.fileFormats;
   const isTypesOpen = sectionState.types;
   const isSourcesOpen = sectionState.sources;
   const isToolsOpen = sectionState.tools;
   const setIsClipsOpen = (open: boolean) => onSectionStateChange('clips', open);
   const setIsBinsOpen = (open: boolean) => onSectionStateChange('bins', open);
   const setIsClipTypesOpen = (open: boolean) => onSectionStateChange('clipTypes', open);
+  const setIsFileFormatsOpen = (open: boolean) => onSectionStateChange('fileFormats', open);
   const setIsTypesOpen = (open: boolean) => onSectionStateChange('types', open);
   const setIsSourcesOpen = (open: boolean) => onSectionStateChange('sources', open);
   const setIsToolsOpen = (open: boolean) => onSectionStateChange('tools', open);
@@ -359,6 +362,14 @@ const SidebarComponent: React.FC<SidebarProps> = ({
       .map(({ value, label }) => ({ value, label, count: counts.get(value as 'text' | 'image' | 'file') ?? 0, route: clipFacetRoute('clip_type', value) }))
       .filter(({ count }) => count > 0);
   }, [clipCollectionSummary.clipTypeCounts, locale]);
+  const fileFormatItems = React.useMemo(() => (
+    clipCollectionSummary.fileFormatCounts.map(({ file_format: value, count }) => ({
+      value,
+      count,
+      route: clipFacetRoute('file_format', value),
+      label: value.toUpperCase(),
+    }))
+  ), [clipCollectionSummary.fileFormatCounts]);
   const sourceItems = React.useMemo(() => {
     return clipCollectionSummary.sourceCounts.map(({ name: value, count }) => ({
       value,
@@ -871,6 +882,7 @@ const SidebarComponent: React.FC<SidebarProps> = ({
 
         {([
           { id: 'clipTypes', get label() { return translate('component.sidebar.clipTypes'); }, enabled: features.clipTypes, open: isClipTypesOpen, setOpen: setIsClipTypesOpen, items: clipTypeItems },
+          { id: 'fileFormats', get label() { return translate('component.sidebar.fileFormats'); }, enabled: features.fileFormats, open: isFileFormatsOpen, setOpen: setIsFileFormatsOpen, items: fileFormatItems },
           { id: 'types', get label() { return translate('component.sidebar.contentTypes'); }, enabled: features.types, open: isTypesOpen, setOpen: setIsTypesOpen, items: typeItems },
           { id: 'sources', get label() { return translate('component.sidebar.sources'); }, enabled: features.sources, open: isSourcesOpen, setOpen: setIsSourcesOpen, items: sourceItems },
         ] as const).map((section) => section.enabled && section.items.length > 0 && (
@@ -903,6 +915,8 @@ const SidebarComponent: React.FC<SidebarProps> = ({
                             : item.value === 'image'
                             ? <ImageIcon className="sidebar-icon-primary h-4 w-4 shrink-0" />
                             : <Files className="sidebar-icon-primary h-4 w-4 shrink-0" />
+                          : section.id === 'fileFormats'
+                          ? <FileType2 className="sidebar-icon-primary h-4 w-4 shrink-0" />
                           : section.id === 'types'
                           ? <ContentTypeIcon type={item.value as ClipContentType} className="sidebar-icon-primary h-4 w-4 shrink-0" />
                           : sourceIcons[item.value]

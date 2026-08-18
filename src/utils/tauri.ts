@@ -7,6 +7,7 @@ type MockClip = {
   text_content: string;
   content_type: string;
   content_types?: string[];
+  file_formats?: string[];
   source: string;
   created_at: string;
   char_count: number;
@@ -597,6 +598,10 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       return mockClassifiers as unknown as T;
     case 'rescan_content_classification_history':
       return { scannedCount: mockClips.length, changedCount: 0, unchangedCount: mockClips.length, failedCount: 0 } as unknown as T;
+    case 'rescan_file_format_history': {
+      const fileCount = mockClips.filter(({ content_type }) => content_type === 'file').length;
+      return { scannedCount: fileCount, changedCount: 0, unchangedCount: fileCount, failedCount: 0 } as unknown as T;
+    }
     case 'test_content_classifier': {
       const input = args?.input as { patterns?: string[] };
       const sample = String(args?.sample ?? '');
@@ -956,6 +961,12 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
         });
         return counts;
       }, new Map<string, number>())];
+      const fileFormatCounts = [...active.reduce((counts, clip) => {
+        [...new Set(clip.file_formats ?? [])].forEach((fileFormat) => {
+          counts.set(fileFormat, (counts.get(fileFormat) ?? 0) + 1);
+        });
+        return counts;
+      }, new Map<string, number>())];
       return {
         activeCount: active.length,
         trashCount: mockClips.length - active.length,
@@ -963,6 +974,7 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
         protectedCount: active.filter((clip) => clip.is_protected).length,
         notedCount: active.filter((clip) => Boolean(clip.note?.trim())).length,
         clipTypeCounts: countBy('content_type').map(([clip_type, count]) => ({ clip_type, count })),
+        fileFormatCounts: fileFormatCounts.map(([file_format, count]) => ({ file_format, count })),
         typeCounts: contentTypeCounts.map(([content_type, count]) => ({ content_type, count })),
         sourceCounts: countBy('source').map(([name, count]) => ({ name, count })),
       } as unknown as T;
