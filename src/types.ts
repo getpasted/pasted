@@ -108,6 +108,7 @@ export interface ClipCollectionSummary {
   pinnedCount: number;
   protectedCount: number;
   notedCount: number;
+  clipTypeCounts: Array<{ clip_type: 'text' | 'image' | 'file'; count: number }>;
   typeCounts: Array<{ content_type: ClipContentType; count: number }>;
   sourceCounts: Array<{ name: string; count: number }>;
 }
@@ -145,7 +146,7 @@ export function getClipFilePaths(clip: Pick<ClipItem, 'content_type' | 'text_con
 
 export function getClipFileSummary(clip: Pick<ClipItem, 'content_type' | 'text_content'>): string {
   const paths = getClipFilePaths(clip);
-  if (paths.length === 0) return translate('registry.contentType.file.label');
+  if (paths.length === 0) return translate('component.analyticsView.files');
   const name = paths[0].split(/[\\/]/).filter(Boolean).pop() || paths[0];
   return paths.length === 1 ? name : translate('format.fileSummaryMore', { name, count: paths.length - 1 });
 }

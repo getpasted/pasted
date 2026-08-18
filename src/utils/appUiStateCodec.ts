@@ -1,4 +1,4 @@
-export const SIDEBAR_SECTION_IDS = ['clips', 'bins', 'types', 'sources', 'tools'] as const;
+export const SIDEBAR_SECTION_IDS = ['clips', 'bins', 'clipTypes', 'types', 'sources', 'tools'] as const;
 
 export type SidebarSectionId = typeof SIDEBAR_SECTION_IDS[number];
 export type SidebarSectionState = Record<SidebarSectionId, boolean>;
@@ -26,6 +26,7 @@ export interface AppUiState {
 export const DEFAULT_SIDEBAR_SECTIONS: SidebarSectionState = {
   clips: true,
   bins: true,
+  clipTypes: true,
   types: true,
   sources: true,
   tools: true,
@@ -59,7 +60,7 @@ function clipIdentifier(value: unknown): number | null {
 function validTab(value: unknown): value is string {
   if (typeof value !== 'string' || value.length > 512) return false;
   if (STANDARD_TABS.has(value)) return true;
-  if (!value.startsWith('type-') && !value.startsWith('source-')) return false;
+  if (!value.startsWith('clip_type-') && !value.startsWith('type-') && !value.startsWith('source-')) return false;
   const encodedValue = value.slice(value.indexOf('-') + 1);
   if (!encodedValue) return false;
   try {

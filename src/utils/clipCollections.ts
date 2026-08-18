@@ -140,7 +140,7 @@ function localizeCollection(collection: ClipCollectionDefinition): ClipCollectio
   };
 }
 
-export type ClipFacetKind = 'type' | 'source';
+export type ClipFacetKind = 'clip_type' | 'type' | 'source';
 
 export function clipFacetRoute(kind: ClipFacetKind, value: string): string {
   return `${kind}-${encodeURIComponent(value)}`;
@@ -150,7 +150,7 @@ export function parseClipFacetRoute(route: string): { kind: ClipFacetKind; value
   const separator = route.indexOf('-');
   if (separator < 1) return null;
   const kind = route.slice(0, separator);
-  if (kind !== 'type' && kind !== 'source') return null;
+  if (kind !== 'clip_type' && kind !== 'type' && kind !== 'source') return null;
   try {
     return { kind, value: decodeURIComponent(route.slice(separator + 1)) };
   } catch {
@@ -160,6 +160,11 @@ export function parseClipFacetRoute(route: string): { kind: ClipFacetKind; value
 
 function facetLabel(kind: ClipFacetKind, value: string) {
   if (kind === 'source') return value || translate('common.unknownSource');
+  if (kind === 'clip_type') {
+    if (value === 'text') return translate('component.analyticsView.text');
+    if (value === 'image') return translate('component.analyticsView.image');
+    if (value === 'file') return translate('component.analyticsView.files');
+  }
   return contentTypeLabel(value);
 }
 
@@ -183,8 +188,8 @@ export function getClipCollection(tab: string, bin?: Bin | null): ClipCollection
       membership: 'facet',
       ordering: 'chronological',
       capabilities: calculated(),
-      emptyTitle: translate('collection.noFacetClips', { label: facet.kind === 'type' ? label.toLowerCase() : label }),
-      emptyDescription: facet.kind === 'type'
+      emptyTitle: translate('collection.noFacetClips', { label: facet.kind === 'source' ? label : label.toLowerCase() }),
+      emptyDescription: facet.kind !== 'source'
         ? translate('collection.typeClipsAppearAutomatically', { label: label.toLowerCase() })
         : translate('collection.sourceClipsAppearAutomatically', { label }),
     };

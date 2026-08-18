@@ -220,8 +220,11 @@ export function useClipViews({
     let clips = collection?.membership === 'trash' ? trashedClips : allClips;
     if (collection?.membership === 'trash') return clips;
     const facet = parseClipFacetRoute(currentTab);
+    if (facet?.kind === 'clip_type') {
+      clips = clips.filter((clip) => clip.content_type === facet.value);
+    }
     if (facet?.kind === 'type') {
-      clips = clips.filter((clip) => (clip.content_types ?? []).includes(facet.value as ClipItem['content_type']) || clip.content_type === facet.value);
+      clips = clips.filter((clip) => (clip.content_types ?? []).includes(facet.value as ClipItem['content_type']));
     }
     if (facet?.kind === 'source') clips = clips.filter((clip) => clip.source === facet.value);
     if (collection?.membership === 'bin' && selectedBinId !== null) clips = filterByBin(clips, bins, selectedBinId);

@@ -9,13 +9,10 @@ export interface ContentTypeDescriptor {
 }
 
 export const CONTENT_TYPES: readonly ContentTypeDescriptor[] = [
-  { value: 'text', label: 'Plain Text', icon: 'Type', group: 'General' },
   { value: 'prose', label: 'Prose', icon: 'ScrollText', group: 'General' },
   { value: 'link', label: 'Web Link', icon: 'Link', group: 'General' },
   { value: 'email', label: 'Email Address', icon: 'Mail', group: 'General' },
   { value: 'phone', label: 'Phone Number', icon: 'Phone', group: 'General' },
-  { value: 'image', label: 'Image', icon: 'Image', group: 'General' },
-  { value: 'file', label: 'File', icon: 'Files', group: 'General' },
   { value: 'file_path', label: 'File Path', icon: 'MapPin', group: 'General' },
   { value: 'color', label: 'Color', icon: 'Palette', group: 'General' },
   { value: 'code', label: 'Code', icon: 'Code', group: 'Developer' },

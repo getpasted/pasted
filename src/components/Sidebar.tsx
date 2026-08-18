@@ -28,6 +28,9 @@ import {
   MonitorCog,
   Smartphone,
   TerminalSquare,
+  FileText,
+  Image as ImageIcon,
+  Files,
   X,
 } from 'lucide-react';
 import { Bin, ClipCollectionSummary, type ClipContentType, SequentialStatus } from '../types';
@@ -131,11 +134,13 @@ const SidebarComponent: React.FC<SidebarProps> = ({
   // Section Collapse State
   const isClipsOpen = sectionState.clips;
   const isBinsOpen = sectionState.bins;
+  const isClipTypesOpen = sectionState.clipTypes;
   const isTypesOpen = sectionState.types;
   const isSourcesOpen = sectionState.sources;
   const isToolsOpen = sectionState.tools;
   const setIsClipsOpen = (open: boolean) => onSectionStateChange('clips', open);
   const setIsBinsOpen = (open: boolean) => onSectionStateChange('bins', open);
+  const setIsClipTypesOpen = (open: boolean) => onSectionStateChange('clipTypes', open);
   const setIsTypesOpen = (open: boolean) => onSectionStateChange('types', open);
   const setIsSourcesOpen = (open: boolean) => onSectionStateChange('sources', open);
   const setIsToolsOpen = (open: boolean) => onSectionStateChange('tools', open);
@@ -343,6 +348,17 @@ const SidebarComponent: React.FC<SidebarProps> = ({
       label: labels.get(value) ?? value.split('_').map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(' '),
     })).sort((left, right) => (order.get(left.value) ?? Number.MAX_SAFE_INTEGER) - (order.get(right.value) ?? Number.MAX_SAFE_INTEGER));
   }, [clipCollectionSummary.typeCounts, contentTypes, locale]);
+  const clipTypeItems = React.useMemo(() => {
+    const definitions = [
+      { value: 'text', label: translate('component.analyticsView.text') },
+      { value: 'image', label: translate('component.analyticsView.image') },
+      { value: 'file', label: translate('component.analyticsView.files') },
+    ];
+    const counts = new Map(clipCollectionSummary.clipTypeCounts.map(({ clip_type, count }) => [clip_type, count]));
+    return definitions
+      .map(({ value, label }) => ({ value, label, count: counts.get(value as 'text' | 'image' | 'file') ?? 0, route: clipFacetRoute('clip_type', value) }))
+      .filter(({ count }) => count > 0);
+  }, [clipCollectionSummary.clipTypeCounts, locale]);
   const sourceItems = React.useMemo(() => {
     return clipCollectionSummary.sourceCounts.map(({ name: value, count }) => ({
       value,
@@ -854,6 +870,7 @@ const SidebarComponent: React.FC<SidebarProps> = ({
         </div>}
 
         {([
+          { id: 'clipTypes', get label() { return translate('component.sidebar.clipTypes'); }, enabled: true, open: isClipTypesOpen, setOpen: setIsClipTypesOpen, items: clipTypeItems },
           { id: 'types', get label() { return translate('component.sidebar.contentTypes'); }, enabled: features.types, open: isTypesOpen, setOpen: setIsTypesOpen, items: typeItems },
           { id: 'sources', get label() { return translate('component.sidebar.sources'); }, enabled: features.sources, open: isSourcesOpen, setOpen: setIsSourcesOpen, items: sourceItems },
         ] as const).map((section) => section.enabled && section.items.length > 0 && (
@@ -880,7 +897,13 @@ const SidebarComponent: React.FC<SidebarProps> = ({
                   >
                     <div className="flex min-w-0 items-center gap-3">
                       <span className="sidebar-nav-icon">
-                        {section.id === 'types'
+                        {section.id === 'clipTypes'
+                          ? item.value === 'text'
+                            ? <FileText className="sidebar-icon-primary h-4 w-4 shrink-0" />
+                            : item.value === 'image'
+                            ? <ImageIcon className="sidebar-icon-primary h-4 w-4 shrink-0" />
+                            : <Files className="sidebar-icon-primary h-4 w-4 shrink-0" />
+                          : section.id === 'types'
                           ? <ContentTypeIcon type={item.value as ClipContentType} className="sidebar-icon-primary h-4 w-4 shrink-0" />
                           : sourceIcons[item.value]
                           ? <SafeRasterImage source={sourceIcons[item.value]} alt="" className="h-4 w-4 shrink-0 object-contain" />
