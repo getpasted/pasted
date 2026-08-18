@@ -139,12 +139,16 @@ pub type SuggestionResult = AnalysisEnvelope<SmartActionSuggestions>;
 
 fn detect_signals(
     text: &str,
-    classification: Option<&str>,
+    classifications: &[String],
     structure: &StructuralMetadata,
 ) -> Vec<SmartActionSignal> {
     let trimmed = text.trim();
     let mut signals = BTreeSet::new();
-    if URL_PATTERN.is_match(text) || classification == Some("url") {
+    if URL_PATTERN.is_match(text)
+        || classifications
+            .iter()
+            .any(|value| matches!(value.as_str(), "link" | "url"))
+    {
         signals.insert(SmartActionSignal::Url);
     }
     let is_json = ((trimmed.starts_with('{') && trimmed.ends_with('}'))
@@ -167,10 +171,10 @@ fn detect_signals(
     {
         signals.insert(SmartActionSignal::MultiLine);
     }
-    if EMAIL_PATTERN.is_match(text) || classification == Some("email") {
+    if EMAIL_PATTERN.is_match(text) || classifications.iter().any(|value| value == "email") {
         signals.insert(SmartActionSignal::Email);
     }
-    if PHONE_PATTERN.is_match(text) || classification == Some("phone") {
+    if PHONE_PATTERN.is_match(text) || classifications.iter().any(|value| value == "phone") {
         signals.insert(SmartActionSignal::Phone);
     }
     signals.into_iter().collect()
@@ -211,11 +215,11 @@ fn searchable_transform(transform: &TransformDefinition) -> String {
 
 pub fn suggest_smart_actions(
     text: &str,
-    classification: Option<&str>,
+    classifications: &[String],
     structure: &StructuralMetadata,
     transforms: &[TransformDefinition],
 ) -> SmartActionSuggestions {
-    let signals = detect_signals(text, classification, structure);
+    let signals = detect_signals(text, classifications, structure);
     let signal_labels = signals
         .iter()
         .map(|signal| signal.label().to_string())
@@ -304,7 +308,7 @@ mod tests {
     fn suggests_stable_transform_references_from_shared_signals() {
         let result = suggest_smart_actions(
             "https://example.com?a=1\nhttps://example.com?a=2",
-            Some("url"),
+            &["link".into()],
             &structure(2),
             &[transform("Clean links", "builtin:clean_url_tracking")],
         );
@@ -321,7 +325,7 @@ mod tests {
         let secret = "private-token-0123456789";
         let result = suggest_smart_actions(
             &format!("{{\"value\":\"{secret}\"}}"),
-            Some("code"),
+            &["code".into()],
             &structure(1),
             &[transform("Format JSON", "builtin:json_format")],
         );
@@ -338,7 +342,7 @@ mod tests {
         transforms.push(transform("Format JSON", "builtin:json_format"));
         let result = suggest_smart_actions(
             "{\"hello\":\"world\"}",
-            Some("code"),
+            &["code".into()],
             &structure(1),
             &transforms,
         );

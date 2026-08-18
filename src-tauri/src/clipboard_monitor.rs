@@ -580,6 +580,7 @@ pub fn start_clipboard_monitor(
                                 let automation_db = db_state.clone();
                                 let automation_app = app.clone();
                                 let automation_type = clip.content_type.clone();
+                                let automation_content_types = clip.content_types.clone();
                                 let automation_text = text.clone();
                                 let automation_source = source.to_string();
                                 thread::spawn(move || {
@@ -594,6 +595,7 @@ pub fn start_clipboard_monitor(
                                             &automation_db,
                                             clip.id,
                                             &automation_type,
+                                            &automation_content_types,
                                             &automation_text,
                                             &automation_source,
                                         );

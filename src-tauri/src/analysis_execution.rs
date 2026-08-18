@@ -34,10 +34,7 @@ pub struct AnalyzerSnapshot {
     pub structure: Option<StructuralMetadata>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub media_metadata: Option<crate::content_inspection::MediaMetadata>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub classified_type: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub matched_classifier_ref: Option<String>,
+    pub classification_matches: Vec<crate::content_classification::ClassificationMatch>,
     pub searchable_text_available: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub suggestions: Option<SmartActionSuggestions>,
@@ -133,8 +130,7 @@ fn execute(
         clip_kind: report.context.clip_kind.clone(),
         structure: report.context.structural_metadata,
         media_metadata: report.context.media_metadata,
-        classified_type: report.context.classified_type,
-        matched_classifier_ref: report.context.matched_classifier_ref,
+        classification_matches: report.context.classification_matches,
         searchable_text_available: report.context.searchable_text.is_some(),
         suggestions: report.context.suggestions,
     };
@@ -259,8 +255,8 @@ mod tests {
         )
         .unwrap();
         assert_eq!(
-            result.analysis.result.classified_type.as_deref(),
-            Some("email")
+            result.analysis.result.classification_matches[0].content_type,
+            "email"
         );
         assert!(result.analysis.result.structure.is_some());
         assert!(result.analysis.result.suggestions.is_some());
@@ -329,7 +325,7 @@ mod tests {
             },
         )
         .unwrap();
-        assert!(result.analysis.result.classified_type.is_none());
+        assert!(result.analysis.result.classification_matches.is_empty());
         assert!(result.analysis.result.suggestions.is_none());
         assert_eq!(result.analysis.participants.len(), 1);
         assert_eq!(
@@ -351,7 +347,7 @@ mod tests {
             },
         )
         .unwrap();
-        assert!(result.analysis.result.classified_type.is_none());
+        assert!(result.analysis.result.classification_matches.is_empty());
         assert!(result.analysis.result.suggestions.is_some());
         assert_eq!(result.analysis.participants.len(), 2);
         assert!(result
@@ -382,7 +378,7 @@ mod tests {
             .participants
             .iter()
             .any(|run| run.stable_ref == crate::content_inspection::MEDIA_INSPECTOR_REF));
-        assert!(result.analysis.result.classified_type.is_none());
+        assert!(result.analysis.result.classification_matches.is_empty());
         assert!(result.analysis.result.suggestions.is_none());
         assert!(!serde_json::to_string(&result)
             .unwrap()

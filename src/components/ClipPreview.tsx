@@ -123,8 +123,14 @@ interface AnalyzerPreview {
     clipKind: string;
     structure?: StructuralInspection['result'];
     mediaMetadata?: StructuralInspection['mediaMetadata'];
-    classifiedType?: string;
-    matchedClassifierRef?: string;
+    classificationMatches?: Array<{
+      classifierRef: string;
+      classifierName: string;
+      contentType: string;
+      priority: number;
+      startOffset: number;
+      endOffset: number;
+    }>;
     searchableTextAvailable: boolean;
     suggestions?: SmartActionSuggestion['result'];
   };
@@ -146,6 +152,7 @@ interface ExtractionApplicationResult {
   through: 'inspect' | 'extract' | 'classify' | 'suggest';
   outcome: 'produced' | 'no_output' | 'failed';
   output: string | null;
+  classificationMatches: AnalyzerPreview['result']['classificationMatches'];
   failure: { code: string; message: string } | null;
   appliedClipId: number | null;
   ocrUpdated: boolean;
@@ -160,6 +167,20 @@ interface ClipSearchableText {
   engine: string;
   inputHash: string;
   searchableText: string;
+  updatedAt: string;
+}
+
+interface ClipContentMatch {
+  id: number;
+  clipId: number;
+  contentType: string;
+  classifierRef: string;
+  classifierName: string;
+  priority: number;
+  sourceRepresentation: 'original_text' | 'searchable_text';
+  inputHash: string;
+  startOffset: number | null;
+  endOffset: number | null;
   updatedAt: string;
 }
 
@@ -207,6 +228,17 @@ function formatMediaDuration(milliseconds: number): string {
     : `${minutes}:${String(seconds).padStart(2, '0')}`;
 }
 
+function contentMatchTitle(contentType: string, matches: ClipContentMatch[]): string | undefined {
+  const counts = matches
+    .filter((match) => match.contentType === contentType)
+    .reduce((result, match) => {
+      result.set(match.classifierName, (result.get(match.classifierName) ?? 0) + 1);
+      return result;
+    }, new Map<string, number>());
+  if (counts.size === 0) return undefined;
+  return [...counts].map(([name, count]) => count > 1 ? `${name} ×${count}` : name).join(', ');
+}
+
 const CLEVER_PLACEHOLDERS = [
   "Add a note before future-you forgets why you copied this...",
   "Jot down your secret brilliance...",
@@ -240,6 +272,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   const { showToast } = useToast();
   const relativeTimeNow = useMinuteTick();
   const [copied, setCopied] = useState(false);
+  const [contentMatches, setContentMatches] = useState<ClipContentMatch[]>([]);
   const [copiedFormat, setCopiedFormat] = useState<string | null>(null);
   const [transformedText, setTransformedText] = useState<string | null>(null);
   const [activePipelineRef, setActivePipelineRef] = useState<string | null>(null);
@@ -296,6 +329,22 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
   const [isLoadingOlderVersions, setIsLoadingOlderVersions] = useState(false);
   const [hasMoreVersions, setHasMoreVersions] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!clip || !features.types) {
+      setContentMatches([]);
+      return () => { cancelled = true; };
+    }
+    invoke<ClipContentMatch[]>('get_clip_content_matches', { clipId: clip.id })
+      .then((matches) => {
+        if (!cancelled) setContentMatches(Array.isArray(matches) ? matches : []);
+      })
+      .catch(() => {
+        if (!cancelled) setContentMatches([]);
+      });
+    return () => { cancelled = true; };
+  }, [clip?.content_hash, clip?.id, features.types]);
 
   useEffect(() => {
     let cancelled = false;
@@ -763,9 +812,13 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   }
 
   const displayText = previewedVersion?.text_content ?? transformedText ?? clip.text_content ?? '';
+  const detectedContentTypes = clip.content_types ?? [];
+  const visibleContentTypes = detectedContentTypes.slice(0, 3);
+  const hiddenContentTypes = detectedContentTypes.slice(3);
+  const isColorContent = (clip.content_types ?? [clip.content_type]).includes('color');
   const colorData: ColorFormats | null =
-    clip.content_type === 'color' || (displayText && displayText.length < 30)
-      ? parseColor(displayText, clip.content_type === 'color')
+    isColorContent || (displayText && displayText.length < 30)
+      ? parseColor(displayText, isColorContent)
       : null;
   const canTransformContent = clip.content_type !== 'image' && clip.content_type !== 'file';
 
@@ -1027,8 +1080,25 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
           <span className="clip-type-badge theme-badge text-xs font-semibold px-2.5 py-1 rounded-md border capitalize titlebar-drag-handle">
             {clip.content_type === 'file' && getClipFilePaths(clip).length > 1
               ? translate('component.clipPreview.files')
-              : contentTypeLabel(features.types ? clip.content_type : structuralClipType(clip.content_type))}
+              : contentTypeLabel(structuralClipType(clip.content_type))}
           </span>
+          {features.types && visibleContentTypes.map((contentType) => (
+            <span
+              key={contentType}
+              title={contentMatchTitle(contentType, contentMatches)}
+              className="clip-type-badge theme-badge text-xs font-semibold px-2.5 py-1 rounded-md border titlebar-drag-handle"
+            >
+              {contentTypeLabel(contentType)}
+            </span>
+          ))}
+          {features.types && hiddenContentTypes.length > 0 && (
+            <span
+              title={hiddenContentTypes.map(contentTypeLabel).join(', ')}
+              className="clip-type-badge theme-badge text-xs font-semibold px-2.5 py-1 rounded-md border titlebar-drag-handle"
+            >
+              +{hiddenContentTypes.length}
+            </span>
+          )}
           {features.sources && <OverflowText text={localizedSourceName(clip.source)} className="theme-text-main min-w-0 max-w-[200px] truncate text-xs font-medium titlebar-drag-handle" />}
           {isTransforming && (
             <LoaderCircle

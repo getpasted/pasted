@@ -72,6 +72,7 @@ export function maskSensitiveText(text: string | null): string {
 export interface ClipItem {
   id: number;
   content_type: ClipContentType;
+  content_types?: ClipContentType[];
   text_content: string | null;
   html_content: string | null;
   image_base64: string | null;

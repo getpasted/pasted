@@ -24,8 +24,7 @@ pub struct ExtractionResult {
     pub target_ref: String,
     pub outcome: ExtractionResultOutcome,
     pub output: Option<String>,
-    pub classified_type: Option<String>,
-    pub matched_classifier_ref: Option<String>,
+    pub classification_matches: Vec<crate::content_classification::ClassificationMatch>,
     pub failure: Option<AnalysisFailure>,
     pub participants: Vec<ParticipantRun>,
     #[serde(skip)]
@@ -57,12 +56,11 @@ impl ExtractionResult {
             output: produced
                 .then_some(analysis.context.searchable_text)
                 .flatten(),
-            classified_type: produced
-                .then_some(analysis.context.classified_type)
-                .flatten(),
-            matched_classifier_ref: produced
-                .then_some(analysis.context.matched_classifier_ref)
-                .flatten(),
+            classification_matches: if produced {
+                analysis.context.classification_matches
+            } else {
+                Vec::new()
+            },
             failure: resolution.failure,
             participants: analysis.runs,
             observations,
@@ -310,11 +308,10 @@ fn persist_image_analysis(
     db.record_extraction_observations(clip_id, content_hash, &analysis.observations)?;
 
     let classification_updated = if classification_enabled && analysis.output.is_some() {
-        db.record_analysis_classification(
+        db.replace_analysis_classifications(
             clip_id,
             content_hash,
-            analysis.classified_type.as_deref(),
-            analysis.matched_classifier_ref.as_deref(),
+            &analysis.classification_matches,
             "searchable_text",
         )
         .unwrap_or(false)
@@ -388,11 +385,10 @@ pub fn apply_file_analysis(
         ));
     }
     let classification_updated = if classification_enabled {
-        db.record_analysis_classification(
+        db.replace_analysis_classifications(
             clip_id,
             content_hash,
-            analysis.classified_type.as_deref(),
-            analysis.matched_classifier_ref.as_deref(),
+            &analysis.classification_matches,
             "searchable_text",
         )
         .unwrap_or(false)
@@ -568,8 +564,19 @@ mod tests {
                 ExtractionResultOutcome::NoOutput
             },
             output: output.map(str::to_string),
-            classified_type: classified_type.map(str::to_string),
-            matched_classifier_ref: matched_classifier_ref.map(str::to_string),
+            classification_matches: classified_type
+                .zip(matched_classifier_ref)
+                .map(|(content_type, classifier_ref)| {
+                    vec![crate::content_classification::ClassificationMatch {
+                        classifier_ref: classifier_ref.into(),
+                        classifier_name: "Test Classifier".into(),
+                        content_type: content_type.into(),
+                        priority: 10,
+                        start_offset: 0,
+                        end_offset: output.map(str::len).unwrap_or(1).max(1),
+                    }]
+                })
+                .unwrap_or_default(),
             failure: None,
             participants: Vec::new(),
             observations: Vec::new(),
@@ -600,8 +607,7 @@ mod tests {
                 "targetRef": "extractor:test",
                 "outcome": "produced",
                 "output": "recognized text",
-                "classifiedType": null,
-                "matchedClassifierRef": null,
+                "classificationMatches": [],
                 "failure": null,
                 "participants": [{
                     "stableRef": "extractor:test",
@@ -669,8 +675,7 @@ mod tests {
                 "targetRef": "extractor:test",
                 "outcome": "failed",
                 "output": null,
-                "classifiedType": null,
-                "matchedClassifierRef": null,
+                "classificationMatches": [],
                 "failure": {
                     "code": "test_failure",
                     "message": "The test engine failed.",
@@ -700,8 +705,7 @@ mod tests {
             target_ref: "extractor:test".into(),
             outcome: ExtractionResultOutcome::Failed,
             output: None,
-            classified_type: None,
-            matched_classifier_ref: None,
+            classification_matches: Vec::new(),
             failure: Some(failure.clone()),
             participants: vec![
                 ParticipantRun {
@@ -752,8 +756,15 @@ mod tests {
                 image_bytes: None,
                 searchable_text: Some("partial output".into()),
                 extraction_observations: Vec::new(),
-                classified_type: Some("email".into()),
-                matched_classifier_ref: Some("classifier:email".into()),
+                classification_matches: vec![crate::content_classification::ClassificationMatch {
+                    classifier_ref: "classifier:email".into(),
+                    classifier_name: "Email".into(),
+                    content_type: "email".into(),
+                    priority: 10,
+                    start_offset: 0,
+                    end_offset: 10,
+                }],
+                classification_complete: true,
                 structural_metadata: None,
                 media_metadata: None,
                 suggestions: None,
@@ -774,8 +785,7 @@ mod tests {
 
         assert!(result.failed());
         assert_eq!(result.output, None);
-        assert_eq!(result.classified_type, None);
-        assert_eq!(result.matched_classifier_ref, None);
+        assert!(result.classification_matches.is_empty());
         assert_eq!(result.failure.unwrap().code, "contract_violation");
     }
 
@@ -816,7 +826,7 @@ mod tests {
             db.get_clip_by_id(clip.id).unwrap().text_content.as_deref(),
             Some("agent@example.com")
         );
-        let classification = db.get_analysis_classification(clip.id).unwrap().unwrap();
+        let classification = db.get_analysis_classifications(clip.id).unwrap().remove(0);
         assert_eq!(classification.content_type, "email");
         assert_eq!(classification.classifier_ref, "classifier:email");
         assert_eq!(classification.source_representation, "searchable_text");
@@ -997,6 +1007,6 @@ mod tests {
             db.get_clip_by_id(clip.id).unwrap().text_content.as_deref(),
             Some("recognized text")
         );
-        assert!(db.get_analysis_classification(clip.id).unwrap().is_none());
+        assert!(db.get_analysis_classifications(clip.id).unwrap().is_empty());
     }
 }

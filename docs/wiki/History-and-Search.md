@@ -16,7 +16,7 @@ Search is its own persistent collection. Leaving Search does not erase the query
 Supported helpers include:
 
 - `source:` — capture source;
-- `type:` — Clip Type or current Content Type;
+- `type:` — Clip Type or any current Content Type;
 - `has:note` — clips with notes;
 - `is:pinned` — pinned clips;
 - `is:protected` — protected clips;

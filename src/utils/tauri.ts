@@ -6,6 +6,7 @@ type MockClip = {
   id: number;
   text_content: string;
   content_type: string;
+  content_types?: string[];
   source: string;
   created_at: string;
   char_count: number;
@@ -328,7 +329,7 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
             && (!Number.isInteger(binId) || binId <= 0 || clip.bin_ids.includes(binId));
         })
         .slice(offset, offset + limit)
-        .map((clip) => ({ ...clip, bin_ids: [...clip.bin_ids] })) as unknown as T;
+        .map((clip) => ({ ...clip, content_types: [...(clip.content_types ?? [])], bin_ids: [...clip.bin_ids] })) as unknown as T;
     }
     case 'get_bins':
       return mockBins.map((bin) => ({
@@ -348,7 +349,7 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
         clip_types: countBy(active.map((clip) => clip.content_type === 'image' || clip.content_type === 'file' ? clip.content_type : 'text'))
           .map(([clip_type, count]) => ({ clip_type, count })),
         file_formats: [],
-        content_types: countBy(active.map((clip) => clip.content_type).filter((type) => !['text', 'image', 'file'].includes(type)))
+        content_types: countBy(active.flatMap((clip) => [...new Set(clip.content_types ?? [])]))
           .map(([content_type, count]) => ({ content_type, count })),
         daily_activity: [],
       } as unknown as T;
@@ -381,8 +382,7 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
         targetRef: 'extractor:apple-vision-ocr',
         outcome: 'produced',
         output: 'Recognized text',
-        classifiedType: 'text',
-        matchedClassifierRef: null,
+        classificationMatches: [],
         failure: null,
         participants: [{ stableRef: 'extractor:apple-vision-ocr', pass: 'extract', outcome: 'produced' }],
         appliedClipId: clipId,
@@ -393,6 +393,8 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
     }
     case 'get_clip_searchable_text':
       return (mockFileSearchableText.get(Number(args?.clipId)) ?? null) as unknown as T;
+    case 'get_clip_content_matches':
+      return [] as unknown as T;
     case 'search_clip_searchable_text_ids': {
       const terms = Array.isArray(args?.terms)
         ? args.terms.filter((term): term is string => typeof term === 'string').map((term) => term.toLowerCase())
@@ -425,8 +427,14 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
         targetRef: 'extractor:whisper-transcription',
         outcome: 'produced',
         output: searchableText,
-        classifiedType: 'prose',
-        matchedClassifierRef: 'classifier:prose',
+        classificationMatches: [{
+          classifierRef: 'classifier:prose',
+          classifierName: 'Prose',
+          contentType: 'prose',
+          priority: 200,
+          startOffset: 0,
+          endOffset: searchableText.length,
+        }],
         failure: null,
         participants: [{ stableRef: 'extractor:whisper-transcription', pass: 'extract', outcome: 'produced' }],
         appliedClipId: clipId,
@@ -603,8 +611,15 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
         targetRef: 'preview',
         outcome: matched ? 'matched' : 'no_match',
         matched,
-        classifiedType: matched ? String((args?.input as { content_type?: string })?.content_type ?? 'text') : null,
-        matchedClassifierRef: matched ? 'preview' : null,
+        contentTypes: matched ? [String((args?.input as { content_type?: string })?.content_type ?? 'text')] : [],
+        matches: matched ? [{
+          classifierRef: 'preview',
+          classifierName: String((args?.input as { name?: string })?.name ?? 'Preview'),
+          contentType: String((args?.input as { content_type?: string })?.content_type ?? 'text'),
+          priority: Number((args?.input as { priority?: number })?.priority ?? 100),
+          startOffset: 0,
+          endOffset: sample.length,
+        }] : [],
         failure: null,
         participants: [{ stableRef: 'analysis:content-classifiers', pass: 'classify', outcome: 'produced' }],
       } as unknown as T;
@@ -935,13 +950,19 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
     case 'get_clip_collection_summary': {
       const active = mockClips.filter((clip) => clip.is_trashed === 0);
       const countBy = (key: 'content_type' | 'source') => [...active.reduce((counts, clip) => counts.set(String(clip[key]), (counts.get(String(clip[key])) ?? 0) + 1), new Map<string, number>())];
+      const contentTypeCounts = [...active.reduce((counts, clip) => {
+        [...new Set(clip.content_types ?? [])].forEach((contentType) => {
+          counts.set(contentType, (counts.get(contentType) ?? 0) + 1);
+        });
+        return counts;
+      }, new Map<string, number>())];
       return {
         activeCount: active.length,
         trashCount: mockClips.length - active.length,
         pinnedCount: active.filter((clip) => clip.is_pinned).length,
         protectedCount: active.filter((clip) => clip.is_protected).length,
         notedCount: active.filter((clip) => Boolean(clip.note?.trim())).length,
-        typeCounts: countBy('content_type').map(([content_type, count]) => ({ content_type, count })),
+        typeCounts: contentTypeCounts.map(([content_type, count]) => ({ content_type, count })),
         sourceCounts: countBy('source').map(([name, count]) => ({ name, count })),
       } as unknown as T;
     }
@@ -1142,7 +1163,7 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
         result: {
           clipKind,
           structure,
-          ...(includeClassifiers ? { classifiedType: clip?.content_type ?? 'text' } : {}),
+          ...(includeClassifiers ? { classificationMatches: [] } : {}),
           searchableTextAvailable: false,
           ...(suggestions ? { suggestions } : {}),
         },

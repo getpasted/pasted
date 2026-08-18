@@ -551,6 +551,7 @@ pub fn run() {
             commands::duplicate_content_classifier,
             commands::delete_content_classifier,
             commands::restore_default_content_classifiers,
+            commands::get_clip_content_matches,
             commands::rescan_content_classification_history,
             commands::test_content_classifier,
             commands::play_system_sound,

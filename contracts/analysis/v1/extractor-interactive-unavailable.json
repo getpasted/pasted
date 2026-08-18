@@ -6,8 +6,7 @@
   "targetRef": "extractor:test",
   "outcome": "failed",
   "output": null,
-  "classifiedType": null,
-  "matchedClassifierRef": null,
+  "classificationMatches": [],
   "failure": {
     "code": "engine_not_installed",
     "message": "This extraction engine is not installed."

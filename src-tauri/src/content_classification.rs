@@ -1,12 +1,14 @@
 use once_cell::sync::Lazy;
 use parking_lot::Mutex;
 use regex::Regex;
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::net::IpAddr;
 
 // Definitions recur across clips, so retain both successful and failed compilations without
 // allowing an arbitrarily large custom registry to create an unbounded process cache.
 const CLASSIFIER_REGEX_CACHE_CAPACITY: usize = 1_024;
+pub const MAX_CLASSIFICATION_MATCHES_PER_CLASSIFIER: usize = 64;
+pub const MAX_CLASSIFICATION_MATCHES_PER_CLIP: usize = 256;
 
 #[derive(Default)]
 struct ClassifierRegexCache {
@@ -105,8 +107,8 @@ pub const CLASSIFIER_PRESETS: &[ClassifierPreset] = &[
         content_type: "color",
         description: "Hex, RGB, and HSL color values",
         patterns: &[
-            r"(?i)^#(?:[0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$",
-            r"(?i)^(?:rgb|rgba|hsl|hsla)\(.+\)$",
+            r"(?i)#(?:[0-9a-f]{8}|[0-9a-f]{6}|[0-9a-f]{4}|[0-9a-f]{3})\b",
+            r"(?i)\b(?:rgb|rgba|hsl|hsla)\([^)\r\n]+\)",
         ],
         validator: None,
         priority: 10,
@@ -116,7 +118,7 @@ pub const CLASSIFIER_PRESETS: &[ClassifierPreset] = &[
         name: "Web Links",
         content_type: "link",
         description: "Web, file, and email URLs",
-        patterns: &[r"(?i)^(?:(?:https?|file)://|mailto:).+$"],
+        patterns: &[r#"(?i)(?:(?:https?|file)://|mailto:)[^\s<>\"']+"#],
         validator: None,
         priority: 20,
     },
@@ -126,7 +128,7 @@ pub const CLASSIFIER_PRESETS: &[ClassifierPreset] = &[
         content_type: "email",
         description: "Individual email addresses",
         patterns: &[
-            r"(?i)^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$",
+            r"(?i)\b[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+\b",
         ],
         validator: None,
         priority: 30,
@@ -137,8 +139,8 @@ pub const CLASSIFIER_PRESETS: &[ClassifierPreset] = &[
         content_type: "credential",
         description: "Known API-key formats and secret assignments",
         patterns: &[
-            r"(?i)^(?:(?:sk_(?:live|test|proj)_|gh[opusr]_|github_pat_|xox[baprs]-|sk-ant-)[A-Za-z0-9_.=-]+|AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z_-]{20,})$",
-            r"(?i)^(?:export\s+)?(?:api[_-]?key|access[_-]?token|auth[_-]?token|client[_-]?secret|secret[_-]?key|password|passwd)\s*[:=]\s*\S+$",
+            r"(?i)\b(?:(?:sk_(?:live|test|proj)_|gh[opusr]_|github_pat_|xox[baprs]-|sk-ant-)[A-Za-z0-9_.=-]+|AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z_-]{20,})\b",
+            r"(?im)^(?:export\s+)?(?:api[_-]?key|access[_-]?token|auth[_-]?token|client[_-]?secret|secret[_-]?key|password|passwd)\s*[:=]\s*\S+\s*$",
         ],
         validator: None,
         priority: 40,
@@ -157,7 +159,7 @@ pub const CLASSIFIER_PRESETS: &[ClassifierPreset] = &[
         name: "Environment Variables",
         content_type: "env_variable",
         description: "Single shell-style environment assignments",
-        patterns: &[r"^(?:export\s+)?[A-Za-z_][A-Za-z0-9_]*\s*=.*$"],
+        patterns: &[r"(?m)^(?:export\s+)?[A-Za-z_][A-Za-z0-9_]*\s*=.*$"],
         validator: None,
         priority: 60,
     },
@@ -166,7 +168,7 @@ pub const CLASSIFIER_PRESETS: &[ClassifierPreset] = &[
         name: "JSON Web Tokens",
         content_type: "jwt",
         description: "Three-part JSON Web Tokens",
-        patterns: &[r"^eyJ[A-Za-z0-9_-]{2,}\.[A-Za-z0-9_-]{2,}\.[A-Za-z0-9_-]*$"],
+        patterns: &[r"\beyJ[A-Za-z0-9_-]{2,}\.[A-Za-z0-9_-]{2,}\.[A-Za-z0-9_-]*\b"],
         validator: None,
         priority: 70,
     },
@@ -175,7 +177,7 @@ pub const CLASSIFIER_PRESETS: &[ClassifierPreset] = &[
         name: "Payment Cards",
         content_type: "payment_card",
         description: "Card-number candidates with checksum validation",
-        patterns: &[r"^[0-9][0-9 -]{11,21}[0-9]$"],
+        patterns: &[r"\b[0-9][0-9 -]{11,21}[0-9]\b"],
         validator: Some("luhn"),
         priority: 80,
     },
@@ -184,7 +186,7 @@ pub const CLASSIFIER_PRESETS: &[ClassifierPreset] = &[
         name: "IBANs",
         content_type: "iban",
         description: "International bank account numbers",
-        patterns: &[r"(?i)^[A-Z]{2}[0-9]{2}(?:[ ]?[A-Z0-9]){11,30}$"],
+        patterns: &[r"(?i)\b[A-Z]{2}[0-9]{2}(?:[ ]?[A-Z0-9]){11,30}\b"],
         validator: Some("iban"),
         priority: 90,
     },
@@ -193,7 +195,10 @@ pub const CLASSIFIER_PRESETS: &[ClassifierPreset] = &[
         name: "IP Addresses",
         content_type: "ip_address",
         description: "IPv4 and IPv6 addresses",
-        patterns: &[r"^[0-9A-Fa-f:.]+$"],
+        patterns: &[
+            r"\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b",
+            r"(?i)[0-9a-f:]*:[0-9a-f:.]*[0-9a-f]",
+        ],
         validator: Some("ip"),
         priority: 100,
     },
@@ -203,8 +208,8 @@ pub const CLASSIFIER_PRESETS: &[ClassifierPreset] = &[
         content_type: "mac_address",
         description: "Colon, dash, or dotted hardware addresses",
         patterns: &[
-            r"(?i)^(?:[0-9a-f]{2}[:-]){5}[0-9a-f]{2}$",
-            r"(?i)^(?:[0-9a-f]{4}\.){2}[0-9a-f]{4}$",
+            r"(?i)\b(?:[0-9a-f]{2}[:-]){5}[0-9a-f]{2}\b",
+            r"(?i)\b(?:[0-9a-f]{4}\.){2}[0-9a-f]{4}\b",
         ],
         validator: None,
         priority: 110,
@@ -215,7 +220,7 @@ pub const CLASSIFIER_PRESETS: &[ClassifierPreset] = &[
         content_type: "uuid",
         description: "Standard versioned UUID values",
         patterns: &[
-            r"(?i)^(?:urn:uuid:)?\{?[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\}?$",
+            r"(?i)\b(?:urn:uuid:)?\{?[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\}?\b",
         ],
         validator: None,
         priority: 120,
@@ -225,7 +230,9 @@ pub const CLASSIFIER_PRESETS: &[ClassifierPreset] = &[
         name: "Hashes",
         content_type: "hash",
         description: "Common hexadecimal digest lengths",
-        patterns: &[r"(?i)^(?:[0-9a-f]{32}|[0-9a-f]{40}|[0-9a-f]{64}|[0-9a-f]{96}|[0-9a-f]{128})$"],
+        patterns: &[
+            r"(?i)\b(?:[0-9a-f]{32}|[0-9a-f]{40}|[0-9a-f]{64}|[0-9a-f]{96}|[0-9a-f]{128})\b",
+        ],
         validator: None,
         priority: 130,
     },
@@ -234,7 +241,10 @@ pub const CLASSIFIER_PRESETS: &[ClassifierPreset] = &[
         name: "File Paths",
         content_type: "file_path",
         description: "Unix, home-relative, UNC, and drive-letter paths",
-        patterns: &[r"^(?:/|~/|\./|\.\./|\\\\).+$", r"(?i)^[a-z]:[\\/].+$"],
+        patterns: &[
+            r"(?m)^(?:/|~/|\./|\.\./|\\\\)[^\r\n]+$",
+            r"(?im)^[a-z]:[\\/][^\r\n]+$",
+        ],
         validator: None,
         priority: 140,
     },
@@ -244,7 +254,7 @@ pub const CLASSIFIER_PRESETS: &[ClassifierPreset] = &[
         content_type: "shell_command",
         description: "Common terminal commands",
         patterns: &[
-            r"^(?:\$\s*)?(?:sudo\s+)?(?:cd|ls|pwd|mkdir|touch|cp|mv|rm|cat|grep|rg|find|curl|wget|ssh|scp|git|docker|podman|kubectl|npm|pnpm|yarn|cargo|python3?|node|brew|apt|dnf|systemctl|chmod|chown)(?:\s|$)",
+            r"(?m)^(?:\$\s*)?(?:sudo\s+)?(?:cd|ls|pwd|mkdir|touch|cp|mv|rm|cat|grep|rg|find|curl|wget|ssh|scp|git|docker|podman|kubectl|npm|pnpm|yarn|cargo|python3?|node|brew|apt|dnf|systemctl|chmod|chown)(?:\s.*)?$",
         ],
         validator: None,
         priority: 150,
@@ -254,7 +264,7 @@ pub const CLASSIFIER_PRESETS: &[ClassifierPreset] = &[
         name: "Phone Numbers",
         content_type: "phone",
         description: "Formatted international and local phone numbers",
-        patterns: &[r"^\+?[0-9][0-9 ().-]{5,}[0-9](?:\s*(?:x|ext\.?)[ ]?\d{1,6})?$"],
+        patterns: &[r"\+?[0-9][0-9 ().-]{5,}[0-9](?:\s*(?:x|ext\.?)[ ]?\d{1,6})?"],
         validator: Some("phone"),
         priority: 160,
     },
@@ -336,40 +346,92 @@ pub fn validate_classifier_input(input: &ClassifierInput) -> Result<(), String> 
     Ok(())
 }
 
-pub fn classify_text(text: &str, classifiers: &[Classifier]) -> String {
-    classify_with_classifiers(text, classifiers)
-        .map(|matched| matched.content_type)
-        .unwrap_or_else(|| "text".into())
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ClassificationMatch {
     pub classifier_ref: String,
+    pub classifier_name: String,
     pub content_type: String,
+    pub priority: i64,
+    pub start_offset: usize,
+    pub end_offset: usize,
 }
 
 pub fn classify_with_classifiers(
     text: &str,
     classifiers: &[Classifier],
-) -> Option<ClassificationMatch> {
+) -> Vec<ClassificationMatch> {
     let trimmed = text.trim();
     if trimmed.is_empty() {
-        return None;
+        return Vec::new();
     }
-    classifiers
+    let trimmed_start = text.len().saturating_sub(text.trim_start().len());
+    let mut ordered = classifiers
         .iter()
         .filter(|classifier| classifier.enabled)
-        .find_map(|classifier| {
-            let candidate = classifier.patterns.iter().any(|pattern| {
-                compiled_classifier_pattern(pattern).is_some_and(|regex| regex.is_match(trimmed))
-            });
-            (candidate && passes_validator(trimmed, classifier.validator.as_deref())).then(|| {
-                ClassificationMatch {
-                    classifier_ref: classifier.stable_ref.clone(),
-                    content_type: classifier.content_type.clone(),
+        .collect::<Vec<_>>();
+    ordered.sort_by(|left, right| {
+        left.priority
+            .cmp(&right.priority)
+            .then_with(|| left.id.cmp(&right.id))
+    });
+
+    let mut matches = Vec::new();
+    let mut seen = HashSet::new();
+    for classifier in ordered {
+        let mut candidates = Vec::new();
+        for pattern in &classifier.patterns {
+            let Some(regex) = compiled_classifier_pattern(pattern) else {
+                continue;
+            };
+            let pattern_candidate_start = candidates.len();
+            for candidate in regex.find_iter(trimmed) {
+                if candidate.is_empty()
+                    || !passes_validator(candidate.as_str(), classifier.validator.as_deref())
+                {
+                    continue;
                 }
-            })
-        })
+                candidates.push((candidate.start(), candidate.end()));
+                if candidates.len().saturating_sub(pattern_candidate_start)
+                    >= MAX_CLASSIFICATION_MATCHES_PER_CLASSIFIER
+                {
+                    break;
+                }
+            }
+            if matches.len() >= MAX_CLASSIFICATION_MATCHES_PER_CLIP {
+                break;
+            }
+        }
+        candidates.sort_unstable();
+        candidates.dedup();
+        for (candidate_start, candidate_end) in candidates
+            .into_iter()
+            .take(MAX_CLASSIFICATION_MATCHES_PER_CLASSIFIER)
+        {
+            let start_byte = trimmed_start + candidate_start;
+            let end_byte = trimmed_start + candidate_end;
+            let start_offset = text[..start_byte].chars().count();
+            let end_offset = start_offset + text[start_byte..end_byte].chars().count();
+            if !seen.insert((classifier.stable_ref.clone(), start_offset, end_offset)) {
+                continue;
+            }
+            matches.push(ClassificationMatch {
+                classifier_ref: classifier.stable_ref.clone(),
+                classifier_name: classifier.name.clone(),
+                content_type: classifier.content_type.clone(),
+                priority: classifier.priority,
+                start_offset,
+                end_offset,
+            });
+            if matches.len() >= MAX_CLASSIFICATION_MATCHES_PER_CLIP {
+                break;
+            }
+        }
+        if matches.len() >= MAX_CLASSIFICATION_MATCHES_PER_CLIP {
+            break;
+        }
+    }
+    matches
 }
 
 fn passes_validator(value: &str, validator: Option<&str>) -> bool {
@@ -392,6 +454,9 @@ static PHONE: Lazy<Regex> = Lazy::new(|| {
     Regex::new(r"^\+?[0-9][0-9 ().-]{5,}[0-9](?:\s*(?:x|ext\.?)[ ]?\d{1,6})?$")
         .expect("phone regex")
 });
+static DATE_TIME_PREFIX: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"^\d{4}[-./]\d{2}[-./]\d{2}(?:\s|$)").expect("date-time prefix regex")
+});
 static IBAN: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"^[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}$").expect("IBAN regex"));
 
@@ -405,7 +470,11 @@ fn is_env_block(value: &str) -> bool {
 }
 
 fn is_phone(value: &str) -> bool {
-    if !PHONE.is_match(value) {
+    if !PHONE.is_match(value)
+        || value.parse::<IpAddr>().is_ok()
+        || is_payment_card(value)
+        || DATE_TIME_PREFIX.is_match(value)
+    {
         return false;
     }
     let digit_count = value.chars().filter(char::is_ascii_digit).count();
@@ -414,7 +483,7 @@ fn is_phone(value: &str) -> bool {
         || value.contains('-')
         || value.contains('(')
         || value.contains('.');
-    (7..=15).contains(&digit_count) && has_phone_punctuation
+    (10..=15).contains(&digit_count) && has_phone_punctuation
 }
 
 fn is_payment_card(value: &str) -> bool {
@@ -485,7 +554,7 @@ fn is_prose(value: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::{
-        classify_text, compiled_classifier_pattern, Classifier, CLASSIFIER_PRESETS,
+        classify_with_classifiers, compiled_classifier_pattern, Classifier, CLASSIFIER_PRESETS,
         CLASSIFIER_REGEX_CACHE_CAPACITY,
     };
 
@@ -512,7 +581,11 @@ mod tests {
                 is_deleted: false,
             })
             .collect::<Vec<_>>();
-        classify_text(value, &classifiers)
+        classify_with_classifiers(value, &classifiers)
+            .into_iter()
+            .next()
+            .map(|matched| matched.content_type)
+            .unwrap_or_else(|| "text".into())
     }
 
     #[test]
@@ -544,7 +617,7 @@ mod tests {
             classify("# Database settings\nHOST=localhost\n\nPORT=5432"),
             "env_block"
         );
-        assert_eq!(classify("HOST=localhost\nnot-a-name=value"), "text");
+        assert_eq!(classify("HOST=localhost\nnot-a-name=value"), "env_variable");
         assert_eq!(
             classify("eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.signature"),
             "jwt"
@@ -552,6 +625,72 @@ mod tests {
         assert_eq!(
             classify("This is a complete sentence with enough words to be recognized as prose."),
             "prose"
+        );
+    }
+
+    #[test]
+    fn finds_multiple_types_and_occurrences_inside_one_clip() {
+        let classifiers = CLASSIFIER_PRESETS
+            .iter()
+            .enumerate()
+            .map(|(index, preset)| Classifier {
+                id: index as i64,
+                stable_ref: preset.stable_ref.into(),
+                name: preset.name.into(),
+                content_type: preset.content_type.into(),
+                description: preset.description.into(),
+                patterns: preset
+                    .patterns
+                    .iter()
+                    .map(|pattern| (*pattern).into())
+                    .collect(),
+                validator: preset.validator.map(str::to_string),
+                enabled: true,
+                priority: preset.priority,
+                is_builtin: true,
+                defaults: super::classifier_defaults(preset.stable_ref),
+                is_deleted: false,
+            })
+            .collect::<Vec<_>>();
+        let text = "Email agent@example.com or visit https://example.com and cc ops@example.com.";
+        let matches = classify_with_classifiers(text, &classifiers);
+        let content_types = matches
+            .iter()
+            .map(|matched| matched.content_type.as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(content_types, vec!["link", "email", "email", "prose"]);
+        assert_eq!(
+            &text[matches[0].start_offset..matches[0].end_offset],
+            "https://example.com"
+        );
+
+        let address_matches = classify_with_classifiers("Server: 192.168.1.10", &classifiers);
+        assert!(address_matches
+            .iter()
+            .any(|matched| matched.content_type == "ip_address"));
+        assert!(!address_matches
+            .iter()
+            .any(|matched| matched.content_type == "phone"));
+        assert!(classify_with_classifiers("IP 192.168.1.10.", &classifiers)
+            .iter()
+            .any(|matched| matched.content_type == "ip_address"));
+
+        for value in [
+            "Paid with 4242 4242 4242 4242",
+            "Released 2026-08-18",
+            "Captured 2026-08-18 02:49:10",
+        ] {
+            assert!(!classify_with_classifiers(value, &classifiers)
+                .iter()
+                .any(|matched| matched.content_type == "phone"));
+        }
+
+        assert_eq!(
+            classify_with_classifiers("Palette: #fff and rgb(10, 20, 30)", &classifiers)
+                .iter()
+                .filter(|matched| matched.content_type == "color")
+                .count(),
+            2
         );
     }
 

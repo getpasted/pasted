@@ -6,8 +6,8 @@
   "targetRef": "classifier:email",
   "outcome": "no_match",
   "matched": false,
-  "classifiedType": null,
-  "matchedClassifierRef": null,
+  "contentTypes": [],
+  "matches": [],
   "failure": null,
   "participants": [
     {

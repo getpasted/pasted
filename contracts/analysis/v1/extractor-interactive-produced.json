@@ -6,8 +6,7 @@
   "targetRef": "extractor:test",
   "outcome": "produced",
   "output": "recognized text",
-  "classifiedType": null,
-  "matchedClassifierRef": null,
+  "classificationMatches": [],
   "failure": null,
   "participants": [
     {
