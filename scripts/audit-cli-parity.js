@@ -35,6 +35,10 @@ for (const command of ['get_content_extractors', 'create_content_extractor_recip
   assert.match(commands, new RegExp(`pub async fn ${command}`),
     `${command} must keep executable readiness probes off the app command thread`);
 }
+assert.match(extractorManager, /errorMessage\(error\)/,
+  'Extractor authoring must present structured backend error messages');
+assert.doesNotMatch(extractorManager, /String\(error\)/,
+  'Extractor authoring must not collapse structured backend errors to [object Object]');
 
 const documentedCommands = [
   'pasted copy',

@@ -9,6 +9,7 @@ import {
 } from '../utils/transformExecution';
 import { ActionButton, SaveButtonContent } from './AppDialogLayout';
 import { translate } from '../localization/runtime';
+import { errorMessage } from '../utils/errors';
 
 interface IntentTransformComposerProps {
   sampleInput: string;
@@ -18,11 +19,6 @@ interface IntentTransformComposerProps {
   initialTransform?: SavedTransform | null;
   onDirtyChange?: (isDirty: boolean) => void;
   embedded?: boolean;
-}
-
-function errorMessage(reason: unknown) {
-  if (reason && typeof reason === 'object' && 'message' in reason) return String(reason.message);
-  return String(reason);
 }
 
 export function IntentTransformComposer({ sampleInput, onTestResult, onTransformSaved, onCancel, initialTransform, onDirtyChange, embedded = false }: IntentTransformComposerProps) {

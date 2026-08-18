@@ -7,15 +7,11 @@ import { AppDialog } from './AppDialog';
 import { AppDialogBody, AppDialogButton, AppDialogFooter, AppDialogHeader, AppDialogHeading, SaveButtonContent } from './AppDialogLayout';
 import { MenuSelect } from './MenuSelect';
 import { translate } from '../localization/runtime';
+import { errorMessage } from '../utils/errors';
 
 interface ConnectionModalProps {
   onClose: () => void;
   onCreated: () => void | Promise<void>;
-}
-
-function errorMessage(reason: unknown) {
-  if (reason && typeof reason === 'object' && 'message' in reason) return String(reason.message);
-  return String(reason);
 }
 
 export function ConnectionModal({ onClose, onCreated }: ConnectionModalProps) {

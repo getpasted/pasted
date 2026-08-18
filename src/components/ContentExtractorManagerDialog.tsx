@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { CircleAlert, CircleCheck, Copy, FolderOpen, Plus, RotateCcw, ScanText, Sparkles, Trash2 } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
+import { errorMessage } from '../utils/errors';
 import { AppDialog } from './AppDialog';
 import { AppDialogBody, AppDialogButton, AppDialogFooter, AppDialogHeader, AppDialogHeading, SaveButtonContent } from './AppDialogLayout';
 import { ConfirmationDialog, type ConfirmationDialogRequest } from './ConfirmationDialog';
@@ -393,7 +394,7 @@ export function ContentExtractorManagerDialog({
       onChanged?.();
       showToast({ tone: 'success', message: translate('component.contentExtractorManagerDialog.nameSaved', { name: saved.name }) });
     } catch (error) {
-      showToast({ tone: 'error', message: String(error) });
+      showToast({ tone: 'error', message: errorMessage(error) });
     } finally {
       setSaving(false);
     }
@@ -420,7 +421,7 @@ export function ContentExtractorManagerDialog({
       setAuthoring(proposal.authoring);
       setSetupGuidance(proposal.setupGuidance);
     } catch (error) {
-      showToast({ tone: 'error', message: String(error) });
+      showToast({ tone: 'error', message: errorMessage(error) });
     } finally {
       setGenerating(false);
     }
@@ -433,7 +434,7 @@ export function ContentExtractorManagerDialog({
         reference: selected.stableRef,
       }));
     } catch (error) {
-      showToast({ tone: 'error', message: String(error) });
+      showToast({ tone: 'error', message: errorMessage(error) });
     }
   };
 
@@ -448,7 +449,7 @@ export function ContentExtractorManagerDialog({
           : step),
       }));
     } catch (error) {
-      showToast({ tone: 'error', message: String(error) });
+      showToast({ tone: 'error', message: errorMessage(error) });
     }
   };
 
@@ -463,7 +464,7 @@ export function ContentExtractorManagerDialog({
           : resource),
       }));
     } catch (error) {
-      showToast({ tone: 'error', message: String(error) });
+      showToast({ tone: 'error', message: errorMessage(error) });
     }
   };
 
@@ -477,7 +478,7 @@ export function ContentExtractorManagerDialog({
         path,
       }));
     } catch (error) {
-      showToast({ tone: 'error', message: String(error) });
+      showToast({ tone: 'error', message: errorMessage(error) });
     } finally {
       setTesting(false);
     }
@@ -515,7 +516,7 @@ export function ContentExtractorManagerDialog({
       onChanged?.();
       showToast({ tone: 'success', get message() { return translate('component.contentExtractorManagerDialog.builtInExtractorsRestored'); } });
     } catch (error) {
-      showToast({ tone: 'error', message: String(error) });
+      showToast({ tone: 'error', message: errorMessage(error) });
     }
   };
 
@@ -549,7 +550,7 @@ export function ContentExtractorManagerDialog({
       )));
       onChanged?.();
     } catch (error) {
-      showToast({ tone: 'error', message: String(error) });
+      showToast({ tone: 'error', message: errorMessage(error) });
     }
   };
 
@@ -573,7 +574,7 @@ export function ContentExtractorManagerDialog({
       onChanged?.();
       showToast({ tone: 'success', message: translate('component.contentExtractorManagerDialog.nameCreated', { name: created.name }) });
     } catch (error) {
-      showToast({ tone: 'error', message: String(error) });
+      showToast({ tone: 'error', message: errorMessage(error) });
     }
   };
 
@@ -585,7 +586,7 @@ export function ContentExtractorManagerDialog({
       onChanged?.();
       showToast({ tone: 'success', message: translate('component.contentExtractorManagerDialog.nameDeleted', { name: selected.name }) });
     } catch (error) {
-      showToast({ tone: 'error', message: String(error) });
+      showToast({ tone: 'error', message: errorMessage(error) });
     }
   };
 
