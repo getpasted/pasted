@@ -870,7 +870,7 @@ const SidebarComponent: React.FC<SidebarProps> = ({
         </div>}
 
         {([
-          { id: 'clipTypes', get label() { return translate('component.sidebar.clipTypes'); }, enabled: true, open: isClipTypesOpen, setOpen: setIsClipTypesOpen, items: clipTypeItems },
+          { id: 'clipTypes', get label() { return translate('component.sidebar.clipTypes'); }, enabled: features.clipTypes, open: isClipTypesOpen, setOpen: setIsClipTypesOpen, items: clipTypeItems },
           { id: 'types', get label() { return translate('component.sidebar.contentTypes'); }, enabled: features.types, open: isTypesOpen, setOpen: setIsTypesOpen, items: typeItems },
           { id: 'sources', get label() { return translate('component.sidebar.sources'); }, enabled: features.sources, open: isSourcesOpen, setOpen: setIsSourcesOpen, items: sourceItems },
         ] as const).map((section) => section.enabled && section.items.length > 0 && (

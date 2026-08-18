@@ -1866,6 +1866,8 @@
   "feature.appLock.label": "Bloqueio de Aplicativos",
   "feature.bins.description": "Organizar clipes manualmente ou automaticamente com coleções inteligentes.",
   "feature.bins.label": "Coleções",
+  "feature.clipTypes.description": "Mostrar os tipos estruturais de clipe e suas coleções.",
+  "feature.clipTypes.label": "Tipos de clipe",
   "feature.cli.description": "Utilize a função \"colar\" para automatizar fluxos de trabalho da área de transferência.",
   "feature.cli.label": "Interface de Linha de Comando",
   "feature.contentClassification.description": "Atribua tipos de conteúdo registrados ao texto analisável.",

@@ -1902,6 +1902,8 @@
   "feature.appLock.label": "قفل التطبيق",
   "feature.bins.description": "قم بتنظيم المقاطع يدويًا أو تلقائيًا باستخدام صناديق ذكية.",
   "feature.bins.label": "المجموعات",
+  "feature.clipTypes.description": "عرض أنواع المقاطع الهيكلية ومجموعاتها.",
+  "feature.clipTypes.label": "أنواع المقاطع",
   "feature.cli.description": "استخدم \"اللصق\" لأتمتة سير عمل النسخ واللصق.",
   "feature.cli.label": "واجهة سطر الأوامر",
   "feature.contentClassification.description": "قم بتعيين أنواع المحتوى القابلة للتحليل للنصوص.",

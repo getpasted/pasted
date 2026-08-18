@@ -1866,6 +1866,8 @@
   "feature.appLock.label": "App Lock",
   "feature.bins.description": "Organize clips manually or automatically with Smart Bins.",
   "feature.bins.label": "Bins",
+  "feature.clipTypes.description": "Show structural Clip Types and their collections.",
+  "feature.clipTypes.label": "Clip Types",
   "feature.cli.description": "Use pasted to automate clipboard workflows.",
   "feature.cli.label": "Command-Line Interface",
   "feature.contentClassification.description": "Assign registered Content Types to analyzable text.",

@@ -4,6 +4,7 @@ use crate::db::DbState;
 pub enum Feature {
     Insights,
     Bins,
+    ClipTypes,
     ContentClassification,
     Notes,
     Notifications,
@@ -25,9 +26,10 @@ pub enum Feature {
 }
 
 impl Feature {
-    pub const ALL: [Feature; 20] = [
+    pub const ALL: [Feature; 21] = [
         Feature::Insights,
         Feature::Bins,
+        Feature::ClipTypes,
         Feature::ContentClassification,
         Feature::Notes,
         Feature::Notifications,
@@ -52,6 +54,7 @@ impl Feature {
         match self {
             Feature::Insights => "enableAnalytics",
             Feature::Bins => "enableBins",
+            Feature::ClipTypes => "enableClipTypes",
             Feature::ContentClassification => "enableContentClassification",
             Feature::Notes => "enableNotes",
             Feature::Notifications => "enableNotifications",
@@ -83,6 +86,7 @@ impl Feature {
         match self {
             Feature::Insights => "Insights",
             Feature::Bins => "Bins",
+            Feature::ClipTypes => "Clip Types",
             Feature::ContentClassification => "Content Classification",
             Feature::Notes => "Notes",
             Feature::Notifications => "Notifications",
@@ -147,7 +151,7 @@ mod tests {
 
     #[test]
     fn frontend_and_native_setting_keys_are_stable() {
-        assert_eq!(Feature::ALL.len(), 20);
+        assert_eq!(Feature::ALL.len(), 21);
         for feature in Feature::ALL {
             assert_eq!(
                 Feature::from_setting_key(feature.setting_key()),

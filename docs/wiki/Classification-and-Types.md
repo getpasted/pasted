@@ -94,7 +94,7 @@ pasted classifier rescan --yes --json
 
 Clip Type, File Format, and Content Type are separate concepts. Every clip has exactly one structural Clip Type: Text, Image, or Files. A Files clip may contain several referenced files and therefore several File Formats. Classifiers can associate several semantic Content Types—and several occurrences of each type—with one clip. Insights counts each clip once per detected Content Type and presents the three categories separately.
 
-The sidebar lists Clip Types separately between Bins and Content Types. Clip Type filters are always structural; Content Type filters include only current Classifier results.
+The sidebar lists Clip Types separately between Bins and Content Types. Clip Type filters are always structural; Content Type filters include only current Classifier results. Disabling Clip Types under Functionality hides its labels, collections, and Insights summary without changing capture identity or runtime behavior.
 
 **Manage Content Types…** opens the shared Content Type and Group registry. Content Type IDs are stable so saved searches, Smart Bins, CLI output, and historical clips can keep referring to the same concept even when its name, icon, or group changes.
 

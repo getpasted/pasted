@@ -495,6 +495,7 @@ export interface AppSettings {
   trashAgeDays: number;
   enableAnalytics: boolean;
   enableBins: boolean;
+  enableClipTypes: boolean;
   enableContentClassification: boolean;
   enableNotes: boolean;
   enableNotifications: boolean;

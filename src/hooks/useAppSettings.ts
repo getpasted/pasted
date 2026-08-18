@@ -39,6 +39,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   trashAgeDays: 0,
   enableAnalytics: true,
   enableBins: true,
+  enableClipTypes: true,
   enableContentClassification: true,
   enableNotes: true,
   enableNotifications: true,
@@ -147,6 +148,7 @@ function parseSavedSettings(saved: Record<string, string>) {
   for (const key of [
     'enableAnalytics',
     'enableBins',
+    'enableClipTypes',
     'enableContentClassification',
     'enableNotes',
     'enableNotifications',

@@ -21,7 +21,7 @@ const frontendKeys = [...frontendRegistry.matchAll(/settingKey:\s*'(enable[A-Za-
 const nativeKeys = [...nativePolicy.matchAll(/=>\s*"(enable[A-Za-z]+)"/g)]
   .map((match) => match[1]);
 
-assert.equal(frontendKeys.length, 20, 'The frontend feature registry must include every supported capability');
+assert.equal(frontendKeys.length, 21, 'The frontend feature registry must include every supported capability');
 const frontendGroups = [...frontendRegistry.matchAll(/group:\s*'([A-Za-z]+)'/g)]
   .map((match) => match[1]);
 assert.equal(frontendGroups.length, frontendKeys.length, 'Every feature must belong to a Functionality group');
@@ -98,6 +98,8 @@ assert.match(
   /settings\.enableNotifications && activeTab === 'notifications'/,
   'The Notifications feature must own its Settings surface',
 );
+assert.match(sidebar, /id: 'clipTypes'[\s\S]{0,180}enabled: features\.clipTypes/,
+  'Clip Types must own their sidebar collection surface');
 assert.match(
   captureFeedbackWindow,
   /currentSettings\.enableNotifications/,

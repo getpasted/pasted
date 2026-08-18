@@ -1866,6 +1866,8 @@
   "feature.appLock.label": "Verrouillage de l’app",
   "feature.bins.description": "Organiser les clips manuellement ou automatiquement avec des collections intelligentes.",
   "feature.bins.label": "Collections",
+  "feature.clipTypes.description": "Afficher les types de clips structurels et leurs collections.",
+  "feature.clipTypes.label": "Types de clips",
   "feature.cli.description": "Automatiser les flux de travail du presse-papiers avec Pasted CLI.",
   "feature.cli.label": "Interface en ligne de commande",
   "feature.contentClassification.description": "Attribuez les types de contenu enregistrés au texte analysable.",

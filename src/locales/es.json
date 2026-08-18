@@ -1866,6 +1866,8 @@
   "feature.appLock.label": "Bloqueo de la aplicación",
   "feature.bins.description": "Organizar clips manualmente o automáticamente con colecciones inteligentes.",
   "feature.bins.label": "Colecciones",
+  "feature.clipTypes.description": "Mostrar los tipos de clip estructurales y sus colecciones.",
+  "feature.clipTypes.label": "Tipos de clip",
   "feature.cli.description": "Utilice \"pegar\" para automatizar los flujos de trabajo del portapapeles.",
   "feature.cli.label": "Interfaz de línea de comandos",
   "feature.contentClassification.description": "Asigne tipos de contenido analizable al texto.",
