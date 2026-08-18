@@ -402,6 +402,14 @@ pub struct ClipSearchableText {
     pub updated_at: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct StoredExtractionObservation {
+    #[serde(flatten)]
+    pub observation: crate::content_analysis::ExtractionObservation,
+    pub updated_at: String,
+}
+
 fn content_classifier_from_row(
     row: &rusqlite::Row<'_>,
 ) -> rusqlite::Result<crate::content_classification::Classifier> {
@@ -4330,6 +4338,108 @@ impl DbState {
             )
             .optional()?;
         Ok(result_json.and_then(|json| serde_json::from_str(&json).ok()))
+    }
+
+    pub fn record_extraction_observations(
+        &self,
+        clip_id: i64,
+        content_hash: &str,
+        observations: &[crate::content_analysis::ExtractionObservation],
+    ) -> Result<bool> {
+        if observations.len() > crate::content_extraction::MAX_ACTIVE_EXTRACTORS_PER_INPUT {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "Too many Extractor results".into(),
+            ));
+        }
+        let serialized = observations
+            .iter()
+            .map(|observation| {
+                let json = serde_json::to_string(observation)
+                    .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?;
+                if json.len() > crate::resource_limits::MAX_OCR_TEXT_BYTES.saturating_add(8 * 1024)
+                {
+                    return Err(rusqlite::Error::InvalidParameterName(
+                        "Extractor result exceeds its safety limit".into(),
+                    ));
+                }
+                Ok((observation.extractor_ref.as_str(), json))
+            })
+            .collect::<Result<Vec<_>>>()?;
+        let mut conn = self.conn.lock();
+        let transaction = conn.transaction()?;
+        let clip_matches: bool = transaction.query_row(
+            "SELECT EXISTS(
+                SELECT 1 FROM clips
+                WHERE id = ?1 AND content_hash = ?2 AND COALESCE(is_trashed, 0) = 0
+            )",
+            params![clip_id, content_hash],
+            |row| row.get(0),
+        )?;
+        if !clip_matches {
+            transaction.rollback()?;
+            return Ok(false);
+        }
+        transaction.execute(
+            "DELETE FROM clip_analysis_results
+             WHERE clip_id = ?1 AND participant_ref LIKE 'extractor:%'",
+            [clip_id],
+        )?;
+        for (participant_ref, result_json) in serialized {
+            transaction.execute(
+                "INSERT INTO clip_analysis_results
+                    (clip_id, participant_ref, content_hash, input_hash, format_version, result_json)
+                 VALUES (?1, ?2, ?3, ?3, ?4, ?5)",
+                params![
+                    clip_id,
+                    participant_ref,
+                    content_hash,
+                    crate::analysis_contract::ANALYSIS_CONTRACT_VERSION,
+                    result_json,
+                ],
+            )?;
+        }
+        transaction.commit()?;
+        Ok(true)
+    }
+
+    pub fn get_extraction_observations(
+        &self,
+        clip_id: i64,
+    ) -> Result<Vec<StoredExtractionObservation>> {
+        let conn = self.conn.lock();
+        let mut statement = conn.prepare(
+            "SELECT results.result_json, results.updated_at
+             FROM clip_analysis_results AS results
+             JOIN clips ON clips.id = results.clip_id
+             WHERE results.clip_id = ?1
+               AND results.participant_ref LIKE 'extractor:%'
+               AND results.content_hash = clips.content_hash
+               AND results.input_hash = clips.content_hash
+               AND results.format_version = ?2
+               AND COALESCE(clips.is_trashed, 0) = 0
+             ORDER BY CAST(json_extract(results.result_json, '$.priority') AS INTEGER),
+                      results.participant_ref",
+        )?;
+        let observations = statement
+            .query_map(
+                params![clip_id, crate::analysis_contract::ANALYSIS_CONTRACT_VERSION],
+                |row| {
+                    let result_json: String = row.get(0)?;
+                    let observation = serde_json::from_str(&result_json).map_err(|error| {
+                        rusqlite::Error::FromSqlConversionFailure(
+                            0,
+                            rusqlite::types::Type::Text,
+                            Box::new(error),
+                        )
+                    })?;
+                    Ok(StoredExtractionObservation {
+                        observation,
+                        updated_at: row.get(1)?,
+                    })
+                },
+            )?
+            .collect();
+        observations
     }
 
     pub fn save_clip(
@@ -11192,7 +11302,10 @@ impl DbState {
     pub fn active_image_text_extractor(
         &self,
     ) -> Result<Option<crate::content_extraction::Extractor>> {
-        self.active_image_text_extractor_for_features(true)
+        Ok(self
+            .active_image_text_extractors_for_features(true)?
+            .into_iter()
+            .next())
     }
 
     pub fn active_image_text_extractor_for_features(
@@ -11200,9 +11313,19 @@ impl DbState {
         ocr_enabled: bool,
     ) -> Result<Option<crate::content_extraction::Extractor>> {
         Ok(self
+            .active_image_text_extractors_for_features(ocr_enabled)?
+            .into_iter()
+            .next())
+    }
+
+    pub fn active_image_text_extractors_for_features(
+        &self,
+        ocr_enabled: bool,
+    ) -> Result<Vec<crate::content_extraction::Extractor>> {
+        Ok(self
             .get_content_extractors()?
             .into_iter()
-            .find(|extractor| {
+            .filter(|extractor| {
                 extractor.enabled
                     && extractor.is_available
                     && (ocr_enabled
@@ -11215,13 +11338,18 @@ impl DbState {
                         crate::analysis_contract::RepresentationKind::ImageBytes,
                         crate::analysis_contract::RepresentationKind::SearchableText,
                     )
-            }))
+            })
+            .take(crate::content_extraction::MAX_ACTIVE_EXTRACTORS_PER_INPUT)
+            .collect())
     }
 
     pub fn active_file_text_extractor(
         &self,
     ) -> Result<Option<crate::content_extraction::Extractor>> {
-        self.active_file_text_extractor_for_features(true)
+        Ok(self
+            .active_file_text_extractors_for_features(true)?
+            .into_iter()
+            .next())
     }
 
     pub fn active_file_text_extractor_for_features(
@@ -11229,9 +11357,19 @@ impl DbState {
         transcriptions_enabled: bool,
     ) -> Result<Option<crate::content_extraction::Extractor>> {
         Ok(self
+            .active_file_text_extractors_for_features(transcriptions_enabled)?
+            .into_iter()
+            .next())
+    }
+
+    pub fn active_file_text_extractors_for_features(
+        &self,
+        transcriptions_enabled: bool,
+    ) -> Result<Vec<crate::content_extraction::Extractor>> {
+        Ok(self
             .get_content_extractors()?
             .into_iter()
-            .find(|extractor| {
+            .filter(|extractor| {
                 extractor.enabled
                     && extractor.is_available
                     && (transcriptions_enabled
@@ -11241,7 +11379,9 @@ impl DbState {
                         crate::analysis_contract::RepresentationKind::FileReferences,
                         crate::analysis_contract::RepresentationKind::SearchableText,
                     )
-            }))
+            })
+            .take(crate::content_extraction::MAX_ACTIVE_EXTRACTORS_PER_INPUT)
+            .collect())
     }
 
     pub fn get_content_classifiers(
@@ -11964,6 +12104,18 @@ mod tests {
             Some("Read text locally")
         );
         assert_eq!(history[0].messages[0].created_at, "2026-08-17T17:34:56Z");
+        db.set_library_item_enabled("extractor", &created.stable_ref, true)
+            .unwrap();
+        assert!(db
+            .active_image_text_extractors_for_features(true)
+            .unwrap()
+            .iter()
+            .any(|extractor| extractor.stable_ref == created.stable_ref));
+        assert!(db
+            .active_file_text_extractors_for_features(true)
+            .unwrap()
+            .iter()
+            .any(|extractor| extractor.stable_ref == created.stable_ref));
         let revision_count: i64 = db
             .conn
             .lock()
@@ -12331,6 +12483,54 @@ mod tests {
             .unwrap();
         assert_eq!(duplicate.id, first.id);
         assert_eq!(db.get_clips(None, None, false).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn extractor_observations_round_trip_per_clip_in_priority_order() {
+        let db = setup_test_db();
+        let clip = db
+            .save_clip(
+                "image",
+                None,
+                Some("test-image"),
+                None,
+                "extractor-observations",
+                "Tests",
+            )
+            .unwrap();
+        let observations = vec![
+            crate::content_analysis::ExtractionObservation {
+                extractor_ref: "extractor:second".into(),
+                extractor_name: "Second".into(),
+                engine: "second-v1".into(),
+                priority: 20,
+                duplicate_of: None,
+                outcome: crate::content_extraction::ExtractionOutcome::Produced {
+                    text: "Hello World!".into(),
+                },
+            },
+            crate::content_analysis::ExtractionObservation {
+                extractor_ref: "extractor:first".into(),
+                extractor_name: "First".into(),
+                engine: "first-v1".into(),
+                priority: 10,
+                duplicate_of: None,
+                outcome: crate::content_extraction::ExtractionOutcome::NoOutput,
+            },
+        ];
+
+        assert!(db
+            .record_extraction_observations(clip.id, &clip.content_hash, &observations)
+            .unwrap());
+        let stored = db.get_extraction_observations(clip.id).unwrap();
+        assert_eq!(stored.len(), 2);
+        assert_eq!(stored[0].observation.extractor_ref, "extractor:first");
+        assert_eq!(stored[1].observation.extractor_ref, "extractor:second");
+        assert!(matches!(
+            stored[1].observation.outcome,
+            crate::content_extraction::ExtractionOutcome::Produced { ref text }
+                if text == "Hello World!"
+        ));
     }
 
     #[test]

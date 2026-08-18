@@ -402,11 +402,11 @@ assert.match(extractionExecution, /analysis\s*\.failure\s*\.as_ref\(\)/,
   'Shared Image Analysis persistence must preserve Extractor failure codes');
 assert.match(extractionExecution, /complete_or_reset_ocr_attempt/,
   'Shared Image Analysis persistence must reset claimed work on failure');
-assert.match(ocr, /extraction_execution::analyze_image_with_registry/,
+assert.match(ocr, /extraction_execution::analyze_images_with_registry_and_policy/,
   'Background OCR must use the shared Image Analysis execution result');
-assert.match(cli, /extraction_execution::analyze_image/,
+assert.match(cli, /extraction_execution::analyze_images_with_registry/,
   'CLI OCR must use the shared Image Analysis execution result');
-assert.match(commands, /extraction_execution::analyze_image/,
+assert.match(commands, /extraction_execution::analyze_images_with_registry/,
   'GUI OCR must use the shared Image Analysis execution result');
 assert.doesNotMatch(ocr, /record_analysis_classification/,
   'Background OCR must not persist derived classifications independently');

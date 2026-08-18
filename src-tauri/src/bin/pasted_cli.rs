@@ -4620,10 +4620,11 @@ fn print_live_result(result: &serde_json::Value, json: bool) -> Result<()> {
 }
 
 fn scan_existing_images(db: &DbState, clip_id: Option<i64>) -> Result<usize> {
-    let extractor = db.active_image_text_extractor()?.unwrap_or_else(|| {
+    let extractors = db.active_image_text_extractors_for_features(true)?;
+    if extractors.is_empty() {
         eprintln!("No available image text Extractor is enabled.");
         std::process::exit(1);
-    });
+    }
     let classifiers = setting_value_is_enabled(
         db.get_setting(Feature::ContentClassification.setting_key())?
             .as_deref(),
@@ -4666,25 +4667,31 @@ fn scan_existing_images(db: &DbState, clip_id: Option<i64>) -> Result<usize> {
                 &candidate.content_hash,
                 None,
                 pasted_lib::db::OcrExtractorProvenance::identified(
-                    &extractor.engine,
-                    &extractor.stable_ref,
-                    &extractor.name,
+                    &extractors[0].engine,
+                    &extractors[0].stable_ref,
+                    &extractors[0].name,
                 ),
                 Some("invalid_image_data"),
             )?;
             scanned += 1;
             continue;
         };
-        let analysis = pasted_lib::extraction_execution::analyze_image(
+        let registry = pasted_lib::content_extraction::system_engine_registry();
+        let analysis = pasted_lib::extraction_execution::analyze_images_with_registry(
             bytes,
-            &extractor,
+            &extractors,
             classifiers.as_deref(),
+            &registry,
         );
+        let extractor = extractors
+            .iter()
+            .find(|extractor| extractor.stable_ref == analysis.target_ref)
+            .expect("analysis target must identify an active Extractor");
         pasted_lib::extraction_execution::persist_claimed_image_analysis(
             db,
             candidate.clip_id,
             &candidate.content_hash,
-            &extractor,
+            extractor,
             classifiers.is_some(),
             analysis,
         )?;

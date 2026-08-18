@@ -44,7 +44,7 @@ pub fn suggest_text(
         },
         policy: AnalysisPolicy::Interactive,
         inspector: true,
-        extractor: None,
+        extractors: Vec::new(),
         classifiers: Some(&classifiers),
         suggestion: Some(SuggestionParticipantSource {
             transforms: &transforms,

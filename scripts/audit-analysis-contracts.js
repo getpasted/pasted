@@ -112,9 +112,9 @@ assert.doesNotMatch(extractorManager, />Pass<|>extract<\/strong>/,
   'Extractor settings must not repeat the enclosing Analysis step');
 assert.match(analysisSettings, /<ContentExtractorManagerDialog[\s\S]{0,220}ocrEnabled=\{ocrEnabled\}[\s\S]{0,100}transcriptionsEnabled=\{transcriptionsEnabled\}/,
   'Analysis Settings must pass both extraction feature gates to Extractor management');
-assert.match(commands, /extract_text_from_file_clip[\s\S]{0,400}active_file_text_extractor_for_features\(transcriptions_enabled\)/,
+assert.match(commands, /extract_text_from_file_clip[\s\S]{0,400}active_file_text_extractors_for_features\(transcriptions_enabled\)/,
   'Native file extraction must preserve custom Extractors when Transcriptions is disabled');
-assert.match(clipPreviewContent, /transcriptionsEnabled && <div className="theme-panel space-y-3 rounded-xl border p-4 shadow-lg">/,
+assert.match(clipPreviewContent, /transcriptionsEnabled && <section className="theme-panel overflow-hidden rounded-xl border shadow-lg">/,
   'Clip Preview must hide transcription controls when Transcriptions is disabled');
 for (const command of [
   'restore_default_content_extractors',

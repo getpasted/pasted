@@ -98,7 +98,7 @@ fn inspect_with_media(
         input,
         policy,
         inspector: true,
-        extractor: None,
+        extractors: Vec::new(),
         classifiers: None,
         suggestion: None,
     });

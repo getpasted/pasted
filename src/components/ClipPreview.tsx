@@ -8,7 +8,7 @@ import { parseColor, ColorFormats } from '../utils/color';
 import { soundManager } from '../utils/sound';
 import { handleWindowDragDoubleClick, startWindowDrag } from '../utils/windowDrag';
 import { ClipRevisionHistory } from './ClipRevisionHistory';
-import { ClipPreviewContent } from './ClipPreviewContent';
+import { ClipPreviewContent, type ExtractionResult } from './ClipPreviewContent';
 import { ClipTransformBar } from './ClipTransformBar';
 import { ClipWorkflowMenu } from './ClipWorkflowMenu';
 import { MenuSelect } from './MenuSelect';
@@ -285,6 +285,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   const [inspection, setInspection] = useState<StructuralInspection | null>(null);
   const [smartActions, setSmartActions] = useState<SmartActionSuggestion | null>(null);
   const [fileSearchableText, setFileSearchableText] = useState<ClipSearchableText | null>(null);
+  const [extractionResults, setExtractionResults] = useState<ExtractionResult[]>([]);
   const [isFileExtractionLoading, setIsFileExtractionLoading] = useState(false);
   const [filePreviews, setFilePreviews] = useState<FileClipPreview[]>([]);
   const [isFilePreviewLoading, setIsFilePreviewLoading] = useState(false);
@@ -368,6 +369,28 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
       });
     return () => { cancelled = true; };
   }, [clip?.content_hash, clip?.content_type, clip?.id, features.transcriptions]);
+
+  const loadExtractionResults = React.useCallback(async (clipId: number) => {
+    const results = await invoke<ExtractionResult[]>('get_clip_extraction_results', { clipId });
+    setExtractionResults(Array.isArray(results) ? results : []);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!clip || (clip.content_type !== 'image' && clip.content_type !== 'file')) {
+      setExtractionResults([]);
+      return () => { cancelled = true; };
+    }
+    setExtractionResults([]);
+    invoke<ExtractionResult[]>('get_clip_extraction_results', { clipId: clip.id })
+      .then((results) => {
+        if (!cancelled) setExtractionResults(Array.isArray(results) ? results : []);
+      })
+      .catch((error) => {
+        if (!cancelled) console.error('Failed to load Extractor results:', error);
+      });
+    return () => { cancelled = true; };
+  }, [clip?.content_hash, clip?.content_type, clip?.id, clip?.ocr_extractor_ref, clip?.text_content]);
 
   useEffect(() => {
     let cancelled = false;
@@ -621,7 +644,8 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
         throw new Error(result.failure?.message ?? 'The Extractor failed.');
       }
       if (result.outcome === 'no_output') {
-        throw new Error('No text recognized in image.');
+        await loadExtractionResults(clip.id);
+        return;
       }
       if (features.revisions) {
         invoke<number>('get_clip_version_count', { clipId: clip.id })
@@ -629,6 +653,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
           .catch((error) => console.error('Failed to refresh clip revision count:', error));
       }
       soundManager.playCopySound();
+      await loadExtractionResults(clip.id);
       onUpdateClip();
     } catch (e) {
       console.error('OCR Extraction Failed:', e);
@@ -649,11 +674,13 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
         throw new Error(result.failure?.message ?? 'The Extractor failed.');
       }
       if (result.outcome === 'no_output') {
-        throw new Error('No speech was transcribed from the selected file references.');
+        await loadExtractionResults(requestedClipId);
+        return;
       }
       const stored = await invoke<ClipSearchableText | null>('get_clip_searchable_text', { clipId: requestedClipId });
       if (requestId !== fileExtractionRequestIdRef.current) return;
       setFileSearchableText(stored);
+      await loadExtractionResults(requestedClipId);
       soundManager.playCopySound();
       onUpdateClip();
     } catch (error) {
@@ -1226,6 +1253,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
           filePreviews={filePreviews}
           isFilePreviewLoading={isFilePreviewLoading}
           fileSearchableText={fileSearchableText}
+          extractionResults={extractionResults}
           isFileExtractionLoading={isFileExtractionLoading}
           copiedFormat={copiedFormat}
           isOcrLoading={isOcrLoading}

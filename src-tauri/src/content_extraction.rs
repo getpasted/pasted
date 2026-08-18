@@ -25,6 +25,7 @@ pub const WHISPER_CPP_ENGINE: &str = "whisper-cpp-cli-v1";
 pub const CUSTOM_COMMAND_ENGINE: &str = "custom-command-v1";
 pub const RECIPE_ENGINE: &str = "recipe-v1";
 pub const BUNDLED_EXTRACTOR_EXECUTABLE: &str = "pasted-bundled-extractor";
+pub const MAX_ACTIVE_EXTRACTORS_PER_INPUT: usize = 32;
 
 const TESSERACT_TIMEOUT: Duration = Duration::from_secs(15);
 const WHISPER_TIMEOUT: Duration = Duration::from_secs(5 * 60);
