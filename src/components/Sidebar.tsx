@@ -882,8 +882,8 @@ const SidebarComponent: React.FC<SidebarProps> = ({
 
         {([
           { id: 'clipTypes', get label() { return translate('component.sidebar.clipTypes'); }, enabled: features.clipTypes, open: isClipTypesOpen, setOpen: setIsClipTypesOpen, items: clipTypeItems },
-          { id: 'fileFormats', get label() { return translate('component.sidebar.fileFormats'); }, enabled: features.fileFormats, open: isFileFormatsOpen, setOpen: setIsFileFormatsOpen, items: fileFormatItems },
           { id: 'types', get label() { return translate('component.sidebar.contentTypes'); }, enabled: features.types, open: isTypesOpen, setOpen: setIsTypesOpen, items: typeItems },
+          { id: 'fileFormats', get label() { return translate('component.sidebar.fileFormats'); }, enabled: features.fileFormats, open: isFileFormatsOpen, setOpen: setIsFileFormatsOpen, items: fileFormatItems },
           { id: 'sources', get label() { return translate('component.sidebar.sources'); }, enabled: features.sources, open: isSourcesOpen, setOpen: setIsSourcesOpen, items: sourceItems },
         ] as const).map((section) => section.enabled && section.items.length > 0 && (
           <div key={section.id}>

@@ -86,9 +86,9 @@ const emojiLabel = (key: string) => translate(`component.binModal.emoji.${key}` 
 
 function defaultSmartCondition(features: SmartBinFeatures): SmartConditionRow {
   if (features.clipTypes) return { id: '1', target: 'clip_type', operator: 'is', value: 'text' };
+  if (features.types) return { id: '1', target: 'content_type', operator: 'is', value: 'code' };
   if (features.fileFormats) return { id: '1', target: 'file_format', operator: 'is', value: '' };
   if (features.sources) return { id: '1', target: 'source', operator: 'is', value: '1Password' };
-  if (features.types) return { id: '1', target: 'content_type', operator: 'is', value: 'code' };
   return { id: '1', target: 'contains', operator: 'contains', value: '' };
 }
 
@@ -236,10 +236,10 @@ export const BinModal: React.FC<BinModalProps> = ({
   const handleAddCondition = () => {
     const target: SmartConditionTarget = features.clipTypes
       ? 'clip_type'
-      : features.fileFormats
-        ? 'file_format'
-        : features.types
-          ? 'content_type'
+      : features.types
+        ? 'content_type'
+        : features.fileFormats
+          ? 'file_format'
           : features.sources
             ? 'source'
           : 'contains';
@@ -345,8 +345,8 @@ export const BinModal: React.FC<BinModalProps> = ({
   };
   const targetOptions = [
     ...(features.clipTypes ? [{ value: 'clip_type', label: targetLabels.clip_type }] : []),
-    ...(features.fileFormats ? [{ value: 'file_format', label: targetLabels.file_format }] : []),
     ...(features.types ? [{ value: 'content_type', label: targetLabels.content_type }] : []),
+    ...(features.fileFormats ? [{ value: 'file_format', label: targetLabels.file_format }] : []),
     ...(features.sources ? [{ value: 'source', label: targetLabels.source }] : []),
     { value: 'origin_kind', label: targetLabels.origin_kind },
     { value: 'contains', label: targetLabels.contains },

@@ -1,4 +1,4 @@
-export const SIDEBAR_SECTION_IDS = ['clips', 'bins', 'clipTypes', 'fileFormats', 'types', 'sources', 'tools'] as const;
+export const SIDEBAR_SECTION_IDS = ['clips', 'bins', 'clipTypes', 'types', 'fileFormats', 'sources', 'tools'] as const;
 
 export type SidebarSectionId = typeof SIDEBAR_SECTION_IDS[number];
 export type SidebarSectionState = Record<SidebarSectionId, boolean>;
