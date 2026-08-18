@@ -336,8 +336,8 @@ export const BinModal: React.FC<BinModalProps> = ({
   };
   const targetOptions = [
     ...(features.clipTypes ? [{ value: 'clip_type', label: targetLabels.clip_type }] : []),
-    ...(features.sources ? [{ value: 'source', label: targetLabels.source }] : []),
     ...(features.types ? [{ value: 'content_type', label: targetLabels.content_type }] : []),
+    ...(features.sources ? [{ value: 'source', label: targetLabels.source }] : []),
     { value: 'origin_kind', label: targetLabels.origin_kind },
     { value: 'contains', label: targetLabels.contains },
     { value: 'file_extension', label: targetLabels.file_extension, dividerBefore: true },

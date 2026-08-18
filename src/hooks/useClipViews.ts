@@ -72,9 +72,11 @@ function matchesCondition(clip: ClipItem, condition: SmartCondition) {
   if (condition.type === 'file_path') {
     return getClipFilePaths(clip).some((path) => path.toLowerCase().includes(expected));
   }
+  if (condition.type === 'clip_type') {
+    return clip.content_type.toLowerCase() === expected;
+  }
   if (condition.type === 'content_type') {
-    return (clip.content_types ?? []).some((contentType) => contentType.toLowerCase() === expected)
-      || clip.content_type.toLowerCase() === expected;
+    return (clip.content_types ?? []).some((contentType) => contentType.toLowerCase() === expected);
   }
   const actual = condition.type === 'source'
     ? clip.source
