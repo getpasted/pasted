@@ -1022,11 +1022,16 @@ pub fn get_content_classifiers(
 }
 
 #[tauri::command]
-pub fn get_content_extractors(
+pub async fn get_content_extractors(
     db: State<'_, Arc<DbState>>,
 ) -> Result<Vec<crate::content_extraction::Extractor>, String> {
-    db.get_content_extractors()
-        .map_err(|error| error.to_string())
+    let db = Arc::clone(&db);
+    tauri::async_runtime::spawn_blocking(move || {
+        db.get_content_extractors()
+            .map_err(|error| error.to_string())
+    })
+    .await
+    .map_err(|error| error.to_string())?
 }
 
 #[tauri::command]
@@ -1106,22 +1111,32 @@ pub async fn test_content_extractor_recipe(
 }
 
 #[tauri::command]
-pub fn create_content_extractor_recipe(
+pub async fn create_content_extractor_recipe(
     input: crate::extractor_recipe::ExtractorRecipeDefinitionInput,
     db: State<'_, Arc<DbState>>,
 ) -> Result<crate::content_extraction::Extractor, String> {
-    db.create_content_extractor_recipe(&input)
-        .map_err(|error| error.to_string())
+    let db = Arc::clone(&db);
+    tauri::async_runtime::spawn_blocking(move || {
+        db.create_content_extractor_recipe(&input)
+            .map_err(|error| error.to_string())
+    })
+    .await
+    .map_err(|error| error.to_string())?
 }
 
 #[tauri::command]
-pub fn update_content_extractor_recipe(
+pub async fn update_content_extractor_recipe(
     id: i64,
     input: crate::extractor_recipe::ExtractorRecipeDefinitionInput,
     db: State<'_, Arc<DbState>>,
 ) -> Result<crate::content_extraction::Extractor, String> {
-    db.update_content_extractor_recipe(id, &input)
-        .map_err(|error| error.to_string())
+    let db = Arc::clone(&db);
+    tauri::async_runtime::spawn_blocking(move || {
+        db.update_content_extractor_recipe(id, &input)
+            .map_err(|error| error.to_string())
+    })
+    .await
+    .map_err(|error| error.to_string())?
 }
 
 #[tauri::command]
@@ -1134,13 +1149,18 @@ pub fn get_extractor_authoring_sessions(
 }
 
 #[tauri::command]
-pub fn duplicate_content_extractor(
+pub async fn duplicate_content_extractor(
     reference: String,
     name: Option<String>,
     db: State<'_, Arc<DbState>>,
 ) -> Result<crate::content_extraction::Extractor, String> {
-    db.duplicate_content_extractor(&reference, name.as_deref())
-        .map_err(|error| error.to_string())
+    let db = Arc::clone(&db);
+    tauri::async_runtime::spawn_blocking(move || {
+        db.duplicate_content_extractor(&reference, name.as_deref())
+            .map_err(|error| error.to_string())
+    })
+    .await
+    .map_err(|error| error.to_string())?
 }
 
 #[tauri::command]
@@ -1150,13 +1170,18 @@ pub fn delete_content_extractor(id: i64, db: State<'_, Arc<DbState>>) -> Result<
 }
 
 #[tauri::command]
-pub fn restore_default_content_extractors(
+pub async fn restore_default_content_extractors(
     db: State<'_, Arc<DbState>>,
 ) -> Result<Vec<crate::content_extraction::Extractor>, String> {
-    db.restore_default_content_extractors()
-        .map_err(|error| error.to_string())?;
-    db.get_content_extractors()
-        .map_err(|error| error.to_string())
+    let db = Arc::clone(&db);
+    tauri::async_runtime::spawn_blocking(move || {
+        db.restore_default_content_extractors()
+            .map_err(|error| error.to_string())?;
+        db.get_content_extractors()
+            .map_err(|error| error.to_string())
+    })
+    .await
+    .map_err(|error| error.to_string())?
 }
 
 #[tauri::command]

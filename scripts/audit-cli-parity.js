@@ -31,6 +31,10 @@ const classifierManager = read('src/components/SettingsAnalysisPanel.tsx');
 
 assert.match(commands, /pub async fn choose_extractor_executable/,
   'The native Extractor executable picker must not block the app command thread');
+for (const command of ['get_content_extractors', 'create_content_extractor_recipe', 'update_content_extractor_recipe', 'duplicate_content_extractor', 'restore_default_content_extractors']) {
+  assert.match(commands, new RegExp(`pub async fn ${command}`),
+    `${command} must keep executable readiness probes off the app command thread`);
+}
 
 const documentedCommands = [
   'pasted copy',
@@ -448,7 +452,7 @@ assert.doesNotMatch(cli, /content_analysis::analyze_image/, 'CLI OCR must not in
 assert.doesNotMatch(commands, /content_analysis::analyze_image/, 'GUI OCR must not infer results directly from Analyzer reports');
 for (const method of ['get_content_extractors', 'duplicate_content_extractor', 'delete_content_extractor', 'restore_default_content_extractors']) {
   assert.match(database, new RegExp(`pub fn ${method}`), `${method} must live in the shared database domain layer`);
-  assert.match(commands, new RegExp(`pub fn ${method}`), `${method} must be exposed to the GUI`);
+  assert.match(commands, new RegExp(`pub (?:async )?fn ${method}`), `${method} must be exposed to the GUI`);
   assert.match(cli, new RegExp(`db\\s*\\.${method}`), `${method} must be reused by the CLI`);
 }
 assert.doesNotMatch(extractorManager, /translate\('component\.contentExtractorManagerDialog\.method'\)/,
@@ -466,7 +470,7 @@ assert.match(cli, /"--executable"/,
   'CLI Extractor authoring must expose executable location parity');
 for (const command of ['create_content_extractor_recipe', 'update_content_extractor_recipe', 'get_extractor_authoring_sessions']) {
   assert.match(database, new RegExp(`pub fn ${command}`), `${command} must live in the shared database domain layer`);
-  assert.match(commands, new RegExp(`pub fn ${command}`), `${command} must be exposed to the GUI`);
+  assert.match(commands, new RegExp(`pub (?:async )?fn ${command}`), `${command} must be exposed to the GUI`);
 }
 assert.match(cli, /"--recipe"/, 'CLI Extractor authoring must accept the shared recipe document');
 assert.match(cli, /"propose" \| "draft"/, 'CLI Extractor authoring must expose AI recipe drafting');
