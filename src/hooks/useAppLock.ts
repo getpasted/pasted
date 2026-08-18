@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { translate } from '../localization/runtime';
+import { APP_LOCK_ACTIVITY_EVENTS, createIdleDeadline } from '../utils/idleDeadline';
 
 export interface AppLockStatus {
   enabled: boolean;
@@ -168,17 +169,14 @@ export function useAppLock() {
 
   useEffect(() => {
     if (!hydrated || !status.enabled || status.locked || status.idleMinutes === 0) return undefined;
-    let timer = 0;
-    const reset = () => {
-      window.clearTimeout(timer);
-      timer = window.setTimeout(() => void lock().catch(console.error), status.idleMinutes * 60_000);
-    };
-    const events: Array<keyof WindowEventMap> = ['pointerdown', 'keydown', 'wheel', 'touchstart'];
-    events.forEach((event) => window.addEventListener(event, reset, { passive: true, capture: true }));
-    reset();
+    const deadline = createIdleDeadline({
+      delayMs: status.idleMinutes * 60_000,
+      onElapsed: () => void lock().catch(console.error),
+    });
+    APP_LOCK_ACTIVITY_EVENTS.forEach((event) => window.addEventListener(event, deadline.markActivity, { passive: true, capture: true }));
     return () => {
-      window.clearTimeout(timer);
-      events.forEach((event) => window.removeEventListener(event, reset, true));
+      deadline.dispose();
+      APP_LOCK_ACTIVITY_EVENTS.forEach((event) => window.removeEventListener(event, deadline.markActivity, true));
     };
   }, [hydrated, lock, status.enabled, status.idleMinutes, status.locked]);
 

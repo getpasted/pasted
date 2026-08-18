@@ -31,6 +31,7 @@
     "test:backup": "node --experimental-strip-types scripts/test-backup-client-state.js && node --experimental-strip-types scripts/test-app-ui-state.ts && node scripts/audit-full-backup.js",
     "test:platform": "node scripts/audit-platform-chrome.js",
     "test:feedback": "node scripts/audit-capture-feedback.js",
+    "test:app-lock": "node --experimental-strip-types scripts/test-app-lock-idle.ts",
     "bench:analysis": "cargo run --release --manifest-path src-tauri/Cargo.toml --example analysis_baseline --",
     "test:ipc": "node scripts/audit-ipc.js",
     "release:macos:local": "bash scripts/release-macos.sh --local",
@@ -38,7 +39,7 @@
     "release:macos:verify": "bash scripts/verify-macos-release.sh",
     "release:linux": "bash scripts/release-linux-appimage.sh",
     "icons:generate": "bash scripts/generate-icons.sh",
-    "test:all": "cargo fmt --manifest-path src-tauri/Cargo.toml -- --check && cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings && npm run build && npm test && npm run test:css && npm run test:wcag && npm run test:ipc && npm run test:security && npm run test:release && npm run licenses:check && npm run dependencies:check && npm run sbom:check && npm run test:features && npm run test:copy && npm run test:i18n && npm run test:dates && npm run test:errors && npm run test:docs && npm run test:collections && npm run test:menus && npm run test:cli && npm run test:transformations && npm run test:activity && npm run test:backup && npm run test:platform && npm run test:feedback",
+    "test:all": "cargo fmt --manifest-path src-tauri/Cargo.toml -- --check && cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings && npm run build && npm test && npm run test:css && npm run test:wcag && npm run test:ipc && npm run test:security && npm run test:release && npm run licenses:check && npm run dependencies:check && npm run sbom:check && npm run test:features && npm run test:copy && npm run test:i18n && npm run test:dates && npm run test:errors && npm run test:docs && npm run test:collections && npm run test:menus && npm run test:cli && npm run test:transformations && npm run test:activity && npm run test:backup && npm run test:platform && npm run test:feedback && npm run test:app-lock",
     "tauri": "tauri"
   },
   "dependencies": {
