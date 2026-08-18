@@ -16171,7 +16171,7 @@ mod tests {
                 "Smart Order",
                 "Sparkles",
                 "default",
-                Some(r#"{"type":"content_type","value":"text"}"#),
+                Some(r#"{"type":"clip_type","value":"text"}"#),
             )
             .unwrap();
 
