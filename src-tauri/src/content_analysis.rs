@@ -1,5 +1,6 @@
 use crate::content_classification::{classify_with_classifiers, Classifier};
 use crate::content_extraction::{ExtractionOutcome, Extractor, ExtractorEngineRegistry};
+use serde::{Deserialize, Serialize};
 
 pub use crate::analysis_contract::{
     AnalysisFailure, AnalysisPass, AnalysisPolicy, AnalysisTargetKind, ParticipantContract,
@@ -7,6 +8,19 @@ pub use crate::analysis_contract::{
     MAX_ANALYSIS_PASSES,
 };
 pub const CLASSIFIER_PARTICIPANT_REF: &str = "analysis:content-classifiers";
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExtractionObservation {
+    pub extractor_ref: String,
+    pub extractor_name: String,
+    pub engine: String,
+    pub priority: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub duplicate_of: Option<String>,
+    #[serde(flatten)]
+    pub outcome: ExtractionOutcome,
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct AnalysisContext {
@@ -16,6 +30,7 @@ pub(crate) struct AnalysisContext {
     pub file_references: Option<Vec<String>>,
     pub image_bytes: Option<Vec<u8>>,
     pub searchable_text: Option<String>,
+    pub extraction_observations: Vec<ExtractionObservation>,
     pub classified_type: Option<String>,
     pub matched_classifier_ref: Option<String>,
     pub structural_metadata: Option<crate::content_inspection::StructuralMetadata>,
@@ -32,6 +47,7 @@ impl AnalysisContext {
             file_references: None,
             image_bytes: None,
             searchable_text: None,
+            extraction_observations: Vec::new(),
             classified_type: None,
             matched_classifier_ref: None,
             structural_metadata: None,
@@ -48,6 +64,7 @@ impl AnalysisContext {
             file_references: None,
             image_bytes: Some(image_bytes),
             searchable_text: None,
+            extraction_observations: Vec::new(),
             classified_type: None,
             matched_classifier_ref: None,
             structural_metadata: None,
@@ -126,6 +143,7 @@ impl AnalysisInput {
                 file_references: Some(paths),
                 image_bytes: None,
                 searchable_text: None,
+                extraction_observations: Vec::new(),
                 classified_type: None,
                 matched_classifier_ref: None,
                 structural_metadata: None,
@@ -149,7 +167,7 @@ pub(crate) struct AnalysisRequest<'a> {
     pub input: AnalysisInput,
     pub policy: AnalysisPolicy,
     pub inspector: bool,
-    pub extractor: Option<ExtractorParticipantSource<'a>>,
+    pub extractors: Vec<ExtractorParticipantSource<'a>>,
     pub classifiers: Option<&'a [Classifier]>,
     pub suggestion: Option<SuggestionParticipantSource<'a>>,
 }
@@ -420,9 +438,57 @@ fn extractor_participant<'a>(
                     },
                 },
             };
+            let duplicate_of = match &outcome {
+                ExtractionOutcome::Produced { text } => context
+                    .extraction_observations
+                    .iter()
+                    .find_map(|observation| {
+                        matches!(
+                            &observation.outcome,
+                            ExtractionOutcome::Produced { text: existing } if existing == text
+                        )
+                        .then(|| observation.extractor_ref.clone())
+                    }),
+                _ => None,
+            };
+            let outcome = match outcome {
+                ExtractionOutcome::Produced { text }
+                    if duplicate_of.is_none()
+                        && context.searchable_text.as_ref().is_some_and(|current| {
+                            current.len().saturating_add(text.len()).saturating_add(1)
+                                > crate::resource_limits::MAX_OCR_TEXT_BYTES
+                        }) =>
+                {
+                    ExtractionOutcome::Failed {
+                        failure: crate::content_extraction::ExtractionFailure {
+                            code: "combined_output_too_large".into(),
+                            message: "Combined Extractor output exceeds the supported size limit."
+                                .into(),
+                        },
+                    }
+                }
+                outcome => outcome,
+            };
+            context.extraction_observations.push(ExtractionObservation {
+                extractor_ref: extractor.stable_ref.clone(),
+                extractor_name: extractor.name.clone(),
+                engine: extractor.engine.clone(),
+                priority: extractor.priority,
+                duplicate_of: duplicate_of.clone(),
+                outcome: outcome.clone(),
+            });
             match outcome {
                 ExtractionOutcome::Produced { text } => {
-                    context.searchable_text = Some(text);
+                    if duplicate_of.is_none() {
+                        if let Some(current) = context.searchable_text.as_mut() {
+                            if !current.is_empty() {
+                                current.push('\n');
+                            }
+                            current.push_str(&text);
+                        } else {
+                            context.searchable_text = Some(text);
+                        }
+                    }
                     Ok(ParticipantOutcome::Produced)
                 }
                 ExtractionOutcome::NoOutput => Ok(ParticipantOutcome::NoOutput),
@@ -474,7 +540,7 @@ pub(crate) fn analyze(request: AnalysisRequest<'_>) -> AnalysisReport {
             }
         }
     }
-    if let Some(source) = request.extractor {
+    for source in request.extractors {
         participants.push(extractor_participant(source.extractor, source.registry));
     }
     if let Some(classifiers) = request.classifiers {
@@ -497,6 +563,11 @@ mod tests {
     struct TestEngine;
 
     struct FailingEngine;
+
+    struct StaticEngine {
+        id: &'static str,
+        outcome: ExtractionOutcome,
+    }
 
     impl crate::content_extraction::ExtractorEngine for TestEngine {
         fn id(&self) -> &'static str {
@@ -536,6 +607,23 @@ mod tests {
                     message: "The test engine failed.".into(),
                 },
             }
+        }
+    }
+
+    impl crate::content_extraction::ExtractorEngine for StaticEngine {
+        fn id(&self) -> &'static str {
+            self.id
+        }
+
+        fn availability(&self) -> crate::content_extraction::EngineAvailability {
+            crate::content_extraction::EngineAvailability {
+                is_available: true,
+                unavailable_reason: None,
+            }
+        }
+
+        fn extract(&self, _image_bytes: &[u8]) -> ExtractionOutcome {
+            self.outcome.clone()
         }
     }
 
@@ -595,10 +683,10 @@ mod tests {
             },
             policy: AnalysisPolicy::Interactive,
             inspector: false,
-            extractor: Some(ExtractorParticipantSource {
+            extractors: vec![ExtractorParticipantSource {
                 extractor,
                 registry,
-            }),
+            }],
             classifiers,
             suggestion: None,
         })
@@ -612,7 +700,7 @@ mod tests {
             },
             policy: AnalysisPolicy::Capture,
             inspector: false,
-            extractor: None,
+            extractors: Vec::new(),
             classifiers: Some(classifiers),
             suggestion: None,
         })
@@ -627,7 +715,7 @@ mod tests {
             },
             policy,
             inspector: true,
-            extractor: None,
+            extractors: Vec::new(),
             classifiers: None,
             suggestion: None,
         };
@@ -717,7 +805,7 @@ mod tests {
             },
             policy: AnalysisPolicy::Capture,
             inspector: false,
-            extractor: None,
+            extractors: Vec::new(),
             classifiers: None,
             suggestion: None,
         });
@@ -840,6 +928,133 @@ mod tests {
                 message: "The test engine failed.".into(),
             })
         );
+    }
+
+    #[test]
+    fn compatible_extractors_all_run_in_priority_order_and_keep_observations() {
+        let first_engine = StaticEngine {
+            id: "first-v1",
+            outcome: ExtractionOutcome::NoOutput,
+        };
+        let second_engine = StaticEngine {
+            id: "second-v1",
+            outcome: ExtractionOutcome::Produced {
+                text: "Hello World!".into(),
+            },
+        };
+        let third_engine = StaticEngine {
+            id: "third-v1",
+            outcome: ExtractionOutcome::Failed {
+                failure: crate::content_extraction::ExtractionFailure {
+                    code: "test_failure".into(),
+                    message: "Could not inspect the image.".into(),
+                },
+            },
+        };
+        let duplicate_engine = StaticEngine {
+            id: "duplicate-v1",
+            outcome: ExtractionOutcome::Produced {
+                text: "Hello World!".into(),
+            },
+        };
+        let engines: [&dyn crate::content_extraction::ExtractorEngine; 4] = [
+            &first_engine,
+            &second_engine,
+            &third_engine,
+            &duplicate_engine,
+        ];
+        let registry = ExtractorEngineRegistry::new(&engines);
+        let mut first = extractor();
+        first.stable_ref = "extractor:first".into();
+        first.name = "First".into();
+        first.engine = "first-v1".into();
+        first.priority = 10;
+        let mut second = extractor();
+        second.stable_ref = "extractor:second".into();
+        second.name = "Second".into();
+        second.engine = "second-v1".into();
+        second.priority = 20;
+        let mut third = extractor();
+        third.stable_ref = "extractor:third".into();
+        third.name = "Third".into();
+        third.engine = "third-v1".into();
+        third.priority = 30;
+        let mut duplicate = extractor();
+        duplicate.stable_ref = "extractor:duplicate".into();
+        duplicate.name = "Duplicate".into();
+        duplicate.engine = "duplicate-v1".into();
+        duplicate.priority = 25;
+
+        let report = analyze(AnalysisRequest {
+            input: AnalysisInput::Image {
+                image_bytes: vec![1],
+                searchable_text: None,
+                source: None,
+            },
+            policy: AnalysisPolicy::Interactive,
+            inspector: false,
+            extractors: vec![
+                ExtractorParticipantSource {
+                    extractor: &third,
+                    registry: &registry,
+                },
+                ExtractorParticipantSource {
+                    extractor: &first,
+                    registry: &registry,
+                },
+                ExtractorParticipantSource {
+                    extractor: &second,
+                    registry: &registry,
+                },
+                ExtractorParticipantSource {
+                    extractor: &duplicate,
+                    registry: &registry,
+                },
+            ],
+            classifiers: None,
+            suggestion: None,
+        });
+
+        assert_eq!(
+            report.context.searchable_text.as_deref(),
+            Some("Hello World!")
+        );
+        assert_eq!(
+            report
+                .runs
+                .iter()
+                .map(|run| run.stable_ref.as_str())
+                .collect::<Vec<_>>(),
+            vec![
+                "extractor:first",
+                "extractor:second",
+                "extractor:duplicate",
+                "extractor:third"
+            ]
+        );
+        assert_eq!(report.context.extraction_observations.len(), 4);
+        assert!(matches!(
+            report.context.extraction_observations[0].outcome,
+            ExtractionOutcome::NoOutput
+        ));
+        assert!(matches!(
+            report.context.extraction_observations[1].outcome,
+            ExtractionOutcome::Produced { .. }
+        ));
+        assert!(matches!(
+            report.context.extraction_observations[2].outcome,
+            ExtractionOutcome::Produced { .. }
+        ));
+        assert_eq!(
+            report.context.extraction_observations[2]
+                .duplicate_of
+                .as_deref(),
+            Some("extractor:second")
+        );
+        assert!(matches!(
+            report.context.extraction_observations[3].outcome,
+            ExtractionOutcome::Failed { .. }
+        ));
     }
 
     #[test]

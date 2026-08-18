@@ -132,24 +132,6 @@ pub const CLASSIFIER_PRESETS: &[ClassifierPreset] = &[
         priority: 30,
     },
     ClassifierPreset {
-        stable_ref: "env_block",
-        name: "Environment Blocks",
-        content_type: "env_block",
-        description: "Two or more environment assignments",
-        patterns: &[r"(?m)^(?:(?:export\s+)?[A-Za-z_][A-Za-z0-9_]*\s*=.*\s*){2,}$"],
-        validator: Some("env_block"),
-        priority: 40,
-    },
-    ClassifierPreset {
-        stable_ref: "jwt",
-        name: "JSON Web Tokens",
-        content_type: "jwt",
-        description: "Three-part JSON Web Tokens",
-        patterns: &[r"^eyJ[A-Za-z0-9_-]{2,}\.[A-Za-z0-9_-]{2,}\.[A-Za-z0-9_-]*$"],
-        validator: None,
-        priority: 50,
-    },
-    ClassifierPreset {
         stable_ref: "credential",
         name: "Credentials",
         content_type: "credential",
@@ -159,7 +141,34 @@ pub const CLASSIFIER_PRESETS: &[ClassifierPreset] = &[
             r"(?i)^(?:export\s+)?(?:api[_-]?key|access[_-]?token|auth[_-]?token|client[_-]?secret|secret[_-]?key|password|passwd)\s*[:=]\s*\S+$",
         ],
         validator: None,
+        priority: 40,
+    },
+    ClassifierPreset {
+        stable_ref: "env_block",
+        name: "Environment Blocks",
+        content_type: "env_block",
+        description: "Two or more environment assignments",
+        patterns: &[r"(?s)^.*=.*(?:\r?\n)+.*=.*$"],
+        validator: Some("env_block"),
+        priority: 50,
+    },
+    ClassifierPreset {
+        stable_ref: "env_variable",
+        name: "Environment Variables",
+        content_type: "env_variable",
+        description: "Single shell-style environment assignments",
+        patterns: &[r"^(?:export\s+)?[A-Za-z_][A-Za-z0-9_]*\s*=.*$"],
+        validator: None,
         priority: 60,
+    },
+    ClassifierPreset {
+        stable_ref: "jwt",
+        name: "JSON Web Tokens",
+        content_type: "jwt",
+        description: "Three-part JSON Web Tokens",
+        patterns: &[r"^eyJ[A-Za-z0-9_-]{2,}\.[A-Za-z0-9_-]{2,}\.[A-Za-z0-9_-]*$"],
+        validator: None,
+        priority: 70,
     },
     ClassifierPreset {
         stable_ref: "payment_card",
@@ -168,7 +177,7 @@ pub const CLASSIFIER_PRESETS: &[ClassifierPreset] = &[
         description: "Card-number candidates with checksum validation",
         patterns: &[r"^[0-9][0-9 -]{11,21}[0-9]$"],
         validator: Some("luhn"),
-        priority: 70,
+        priority: 80,
     },
     ClassifierPreset {
         stable_ref: "iban",
@@ -177,7 +186,7 @@ pub const CLASSIFIER_PRESETS: &[ClassifierPreset] = &[
         description: "International bank account numbers",
         patterns: &[r"(?i)^[A-Z]{2}[0-9]{2}(?:[ ]?[A-Z0-9]){11,30}$"],
         validator: Some("iban"),
-        priority: 80,
+        priority: 90,
     },
     ClassifierPreset {
         stable_ref: "ip_address",
@@ -186,7 +195,7 @@ pub const CLASSIFIER_PRESETS: &[ClassifierPreset] = &[
         description: "IPv4 and IPv6 addresses",
         patterns: &[r"^[0-9A-Fa-f:.]+$"],
         validator: Some("ip"),
-        priority: 90,
+        priority: 100,
     },
     ClassifierPreset {
         stable_ref: "mac_address",
@@ -198,7 +207,7 @@ pub const CLASSIFIER_PRESETS: &[ClassifierPreset] = &[
             r"(?i)^(?:[0-9a-f]{4}\.){2}[0-9a-f]{4}$",
         ],
         validator: None,
-        priority: 100,
+        priority: 110,
     },
     ClassifierPreset {
         stable_ref: "uuid",
@@ -209,7 +218,7 @@ pub const CLASSIFIER_PRESETS: &[ClassifierPreset] = &[
             r"(?i)^(?:urn:uuid:)?\{?[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\}?$",
         ],
         validator: None,
-        priority: 110,
+        priority: 120,
     },
     ClassifierPreset {
         stable_ref: "hash",
@@ -218,7 +227,7 @@ pub const CLASSIFIER_PRESETS: &[ClassifierPreset] = &[
         description: "Common hexadecimal digest lengths",
         patterns: &[r"(?i)^(?:[0-9a-f]{32}|[0-9a-f]{40}|[0-9a-f]{64}|[0-9a-f]{96}|[0-9a-f]{128})$"],
         validator: None,
-        priority: 120,
+        priority: 130,
     },
     ClassifierPreset {
         stable_ref: "file_path",
@@ -226,15 +235,6 @@ pub const CLASSIFIER_PRESETS: &[ClassifierPreset] = &[
         content_type: "file_path",
         description: "Unix, home-relative, UNC, and drive-letter paths",
         patterns: &[r"^(?:/|~/|\./|\.\./|\\\\).+$", r"(?i)^[a-z]:[\\/].+$"],
-        validator: None,
-        priority: 130,
-    },
-    ClassifierPreset {
-        stable_ref: "env_variable",
-        name: "Environment Variables",
-        content_type: "env_variable",
-        description: "Single shell-style environment assignments",
-        patterns: &[r"^(?:export\s+)?[A-Za-z_][A-Za-z0-9_]*\s*=.*$"],
         validator: None,
         priority: 140,
     },
@@ -541,12 +541,30 @@ mod tests {
     fn recognizes_blocks_tokens_and_prose() {
         assert_eq!(classify("HOST=localhost\nPORT=5432"), "env_block");
         assert_eq!(
+            classify("# Database settings\nHOST=localhost\n\nPORT=5432"),
+            "env_block"
+        );
+        assert_eq!(classify("HOST=localhost\nnot-a-name=value"), "text");
+        assert_eq!(
             classify("eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.signature"),
             "jwt"
         );
         assert_eq!(
             classify("This is a complete sentence with enough words to be recognized as prose."),
             "prose"
+        );
+    }
+
+    #[test]
+    fn keeps_environment_defaults_together_after_credentials() {
+        let ordered = CLASSIFIER_PRESETS
+            .iter()
+            .map(|preset| (preset.stable_ref, preset.priority))
+            .collect::<Vec<_>>();
+        assert!(ordered.windows(2).all(|pair| pair[0].1 < pair[1].1));
+        assert_eq!(
+            &ordered[3..6],
+            &[("credential", 40), ("env_block", 50), ("env_variable", 60)]
         );
     }
 

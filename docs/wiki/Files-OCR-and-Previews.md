@@ -44,6 +44,6 @@ Apple Vision extracts searchable text from clipboard images and screenshots thro
 - The clip Inspector identifies the Extractor that produced the displayed OCR text. This provenance is also available in clip JSON as `ocr_extractor_ref`, `ocr_extractor_name`, and `ocr_engine_version`.
 - Full Backup and History and Organization transfer round trips preserve completed OCR state.
 
-Use **Settings → Analysis** or `pasted ocr status --json` to inspect background progress. OCR runs only when an available `image → searchable_text` Extractor is enabled.
+Use **Settings → Analysis** or `pasted ocr status --json` to inspect background progress. Image extraction runs enabled, available `image → searchable_text` Extractors in priority order.
 
 Manual extraction APIs and `pasted extractor run --apply` use the same hash-safe application result as background OCR. A result reports whether OCR text, file-backed searchable text, and derived classification were actually updated; stale or removed clips are rejected instead of being reported as applied.

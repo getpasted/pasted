@@ -631,7 +631,7 @@ export function SettingsAnalysisPanel({
                   </label>
                   <label className={`flex min-h-9 items-center gap-2 ${modified.enabled ? 'settings-field-modified' : ''}`}>
                     <input type="checkbox" checked={draft.enabled} onChange={(event) => setDraft({ ...draft, enabled: event.target.checked })} className="theme-checkbox h-4 w-4 rounded" />
-                    <ModifiedFieldLabel modified={modified.enabled}>{translate('component.settingsAnalysisPanel.enabledForNewClips')}</ModifiedFieldLabel>
+                    <ModifiedFieldLabel modified={modified.enabled}>{translate('common.enabled')}</ModifiedFieldLabel>
                   </label>
                 </div>
                 <label className={`block space-y-1 ${modified.patterns ? 'settings-field-modified' : ''}`}>

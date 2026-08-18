@@ -52,7 +52,7 @@ pub fn decode_stored_image(value: &str) -> Option<Vec<u8>> {
 fn execute_task<Notify>(
     db_state: &crate::db::DbState,
     task: OcrTask,
-    extractor: &crate::content_extraction::Extractor,
+    extractors: &[crate::content_extraction::Extractor],
     registry: &crate::content_extraction::ExtractorEngineRegistry<'_>,
     notify: Notify,
 ) where
@@ -69,9 +69,9 @@ fn execute_task<Notify>(
         crate::features::is_enabled(db_state, crate::features::Feature::ContentClassification)
             .then(|| db_state.get_content_classifiers().ok())
             .flatten();
-    let analysis = crate::extraction_execution::analyze_image_with_registry_and_policy(
+    let analysis = crate::extraction_execution::analyze_images_with_registry_and_policy(
         task.image_bytes,
-        extractor,
+        extractors,
         classifiers.as_deref(),
         registry,
         crate::analysis_contract::AnalysisPolicy::Background,
@@ -80,6 +80,13 @@ fn execute_task<Notify>(
         let _ = db_state.reset_ocr_work(Some(task.clip_id), Some(&task.content_hash));
         return;
     }
+    let Some(extractor) = extractors
+        .iter()
+        .find(|extractor| extractor.stable_ref == analysis.target_ref)
+    else {
+        let _ = db_state.reset_ocr_work(Some(task.clip_id), Some(&task.content_hash));
+        return;
+    };
     let completed = crate::extraction_execution::persist_claimed_image_analysis(
         db_state,
         task.clip_id,
@@ -97,12 +104,16 @@ fn execute_task<Notify>(
 
 fn perform_task(app: &tauri::AppHandle, db_state: &crate::db::DbState, task: OcrTask) {
     use tauri::Emitter;
-    let Ok(Some(extractor)) = db_state.active_image_text_extractor() else {
+    let Ok(extractors) = db_state.active_image_text_extractors_for_features(true) else {
         let _ = db_state.reset_ocr_work(Some(task.clip_id), Some(&task.content_hash));
         return;
     };
+    if extractors.is_empty() {
+        let _ = db_state.reset_ocr_work(Some(task.clip_id), Some(&task.content_hash));
+        return;
+    }
     let registry = crate::content_extraction::system_engine_registry();
-    execute_task(db_state, task, &extractor, &registry, |clip_id| {
+    execute_task(db_state, task, &extractors, &registry, |clip_id| {
         let _ = app.emit("clip-added", serde_json::json!({ "id": clip_id }));
         let _ = app.emit(
             "ocr-status-changed",
@@ -152,14 +163,22 @@ pub fn spawn_ocr_worker(
                     |db_state| {
                         crate::features::is_enabled(db_state, crate::features::Feature::Ocr)
                             && db_state
-                                .active_image_text_extractor()
+                                .active_image_text_extractors_for_features(true)
                                 .ok()
-                                .flatten()
-                                .is_some()
+                                .is_some_and(|extractors| !extractors.is_empty())
                     },
                     |candidate| {
                         let Some(image_bytes) = decode_stored_image(&candidate.image_base64) else {
-                            if let Ok(Some(extractor)) = db_state.active_image_text_extractor() {
+                            if let Ok(extractors) =
+                                db_state.active_image_text_extractors_for_features(true)
+                            {
+                                let Some(extractor) = extractors.first() else {
+                                    let _ = db_state.reset_ocr_work(
+                                        Some(candidate.clip_id),
+                                        Some(&candidate.content_hash),
+                                    );
+                                    return;
+                                };
                                 let _ = db_state.complete_or_reset_ocr_attempt_with_extractor(
                                     candidate.clip_id,
                                     &candidate.content_hash,
@@ -364,7 +383,7 @@ mod tests {
                 content_hash: clip.content_hash.clone(),
                 image_bytes: b"image".to_vec(),
             },
-            &extractor,
+            std::slice::from_ref(&extractor),
             &registry,
             |_| notified.store(true, Ordering::Release),
         );
@@ -451,7 +470,7 @@ mod tests {
                 content_hash: clip.content_hash,
                 image_bytes: b"image".to_vec(),
             },
-            &extractor,
+            std::slice::from_ref(&extractor),
             &registry,
             |_| {},
         );
@@ -459,6 +478,12 @@ mod tests {
         let status = db.get_ocr_backfill_status().unwrap();
         assert_eq!(status.failed_count, 1);
         assert_eq!(status.no_text_count, 0);
+        let observations = db.get_extraction_observations(clip.id).unwrap();
+        assert_eq!(observations.len(), 1);
+        assert!(matches!(
+            observations[0].observation.outcome,
+            crate::content_extraction::ExtractionOutcome::Failed { .. }
+        ));
     }
 
     #[test]
@@ -531,7 +556,7 @@ mod tests {
                 content_hash: clip.content_hash,
                 image_bytes: b"image".to_vec(),
             },
-            &extractor,
+            std::slice::from_ref(&extractor),
             &registry,
             |_| {},
         );

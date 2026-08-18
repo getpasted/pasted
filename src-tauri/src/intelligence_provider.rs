@@ -220,7 +220,7 @@ impl IntelligenceProviderAdapter for CodexCliAdapter {
             let error = fs::read_to_string(&stderr_path).unwrap_or_default();
             return Err(IntelligenceExecutionError::new(
                 "provider_failed",
-                diagnostic_tail(&error, 1_600),
+                provider_diagnostic(&error),
             ));
         }
         let output = fs::read_to_string(&result_path).map_err(|error| {
@@ -314,6 +314,28 @@ fn diagnostic_tail(value: &str, max_chars: usize) -> String {
         .chars()
         .skip(length.saturating_sub(max_chars))
         .collect()
+}
+
+fn provider_diagnostic(value: &str) -> String {
+    for line in value.lines().rev() {
+        let Some(payload) = line.trim().strip_prefix("ERROR:") else {
+            continue;
+        };
+        if let Ok(error) = serde_json::from_str::<serde_json::Value>(payload.trim()) {
+            if let Some(message) = error
+                .pointer("/error/message")
+                .and_then(|value| value.as_str())
+            {
+                return diagnostic_tail(message, 600);
+            }
+        }
+    }
+    let diagnostic = diagnostic_tail(value.trim(), 600);
+    if diagnostic.is_empty() {
+        "The provider failed without diagnostic output.".to_string()
+    } else {
+        diagnostic
+    }
 }
 
 #[cfg(test)]
@@ -552,5 +574,20 @@ mod tests {
 
         assert_eq!(error.code, "provider_output_too_large");
         let _ = fs::remove_dir_all(directory);
+    }
+
+    #[test]
+    fn provider_diagnostics_extract_bounded_api_messages() {
+        let stderr = concat!(
+            "prompt contents that must not be shown\n",
+            "ERROR: {\"type\":\"error\",\"error\":{\"code\":\"invalid_json_schema\",",
+            "\"message\":\"uniqueItems is not permitted.\"},\"status\":400}\n",
+        );
+        assert_eq!(provider_diagnostic(stderr), "uniqueItems is not permitted.");
+
+        let long_message = "x".repeat(800);
+        let payload = serde_json::json!({ "error": { "message": long_message } });
+        let diagnostic = provider_diagnostic(&format!("ERROR: {payload}"));
+        assert_eq!(diagnostic.chars().count(), 600);
     }
 }

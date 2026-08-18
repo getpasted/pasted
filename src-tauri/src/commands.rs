@@ -1022,11 +1022,16 @@ pub fn get_content_classifiers(
 }
 
 #[tauri::command]
-pub fn get_content_extractors(
+pub async fn get_content_extractors(
     db: State<'_, Arc<DbState>>,
 ) -> Result<Vec<crate::content_extraction::Extractor>, String> {
-    db.get_content_extractors()
-        .map_err(|error| error.to_string())
+    let db = Arc::clone(&db);
+    tauri::async_runtime::spawn_blocking(move || {
+        db.get_content_extractors()
+            .map_err(|error| error.to_string())
+    })
+    .await
+    .map_err(|error| error.to_string())?
 }
 
 #[tauri::command]
@@ -1106,22 +1111,32 @@ pub async fn test_content_extractor_recipe(
 }
 
 #[tauri::command]
-pub fn create_content_extractor_recipe(
+pub async fn create_content_extractor_recipe(
     input: crate::extractor_recipe::ExtractorRecipeDefinitionInput,
     db: State<'_, Arc<DbState>>,
 ) -> Result<crate::content_extraction::Extractor, String> {
-    db.create_content_extractor_recipe(&input)
-        .map_err(|error| error.to_string())
+    let db = Arc::clone(&db);
+    tauri::async_runtime::spawn_blocking(move || {
+        db.create_content_extractor_recipe(&input)
+            .map_err(|error| error.to_string())
+    })
+    .await
+    .map_err(|error| error.to_string())?
 }
 
 #[tauri::command]
-pub fn update_content_extractor_recipe(
+pub async fn update_content_extractor_recipe(
     id: i64,
     input: crate::extractor_recipe::ExtractorRecipeDefinitionInput,
     db: State<'_, Arc<DbState>>,
 ) -> Result<crate::content_extraction::Extractor, String> {
-    db.update_content_extractor_recipe(id, &input)
-        .map_err(|error| error.to_string())
+    let db = Arc::clone(&db);
+    tauri::async_runtime::spawn_blocking(move || {
+        db.update_content_extractor_recipe(id, &input)
+            .map_err(|error| error.to_string())
+    })
+    .await
+    .map_err(|error| error.to_string())?
 }
 
 #[tauri::command]
@@ -1134,13 +1149,18 @@ pub fn get_extractor_authoring_sessions(
 }
 
 #[tauri::command]
-pub fn duplicate_content_extractor(
+pub async fn duplicate_content_extractor(
     reference: String,
     name: Option<String>,
     db: State<'_, Arc<DbState>>,
 ) -> Result<crate::content_extraction::Extractor, String> {
-    db.duplicate_content_extractor(&reference, name.as_deref())
-        .map_err(|error| error.to_string())
+    let db = Arc::clone(&db);
+    tauri::async_runtime::spawn_blocking(move || {
+        db.duplicate_content_extractor(&reference, name.as_deref())
+            .map_err(|error| error.to_string())
+    })
+    .await
+    .map_err(|error| error.to_string())?
 }
 
 #[tauri::command]
@@ -1150,13 +1170,18 @@ pub fn delete_content_extractor(id: i64, db: State<'_, Arc<DbState>>) -> Result<
 }
 
 #[tauri::command]
-pub fn restore_default_content_extractors(
+pub async fn restore_default_content_extractors(
     db: State<'_, Arc<DbState>>,
 ) -> Result<Vec<crate::content_extraction::Extractor>, String> {
-    db.restore_default_content_extractors()
-        .map_err(|error| error.to_string())?;
-    db.get_content_extractors()
-        .map_err(|error| error.to_string())
+    let db = Arc::clone(&db);
+    tauri::async_runtime::spawn_blocking(move || {
+        db.restore_default_content_extractors()
+            .map_err(|error| error.to_string())?;
+        db.get_content_extractors()
+            .map_err(|error| error.to_string())
+    })
+    .await
+    .map_err(|error| error.to_string())?
 }
 
 #[tauri::command]
@@ -4776,10 +4801,12 @@ pub fn extract_ocr_from_clip(
     db: State<'_, Arc<DbState>>,
 ) -> Result<crate::extraction_execution::ExtractionApplicationResult, String> {
     features::require(&db, Feature::Ocr)?;
-    let extractor = db
-        .active_image_text_extractor()
-        .map_err(|error| error.to_string())?
-        .ok_or_else(|| "No available image text Extractor is enabled".to_string())?;
+    let extractors = db
+        .active_image_text_extractors_for_features(true)
+        .map_err(|error| error.to_string())?;
+    if extractors.is_empty() {
+        return Err("No available image text Extractor is enabled".to_string());
+    }
     let clip = db.get_clip_by_id(clip_id).map_err(|e| e.to_string())?;
 
     let image = clip
@@ -4791,13 +4818,22 @@ pub fn extract_ocr_from_clip(
     let classifiers = features::is_enabled(&db, Feature::ContentClassification)
         .then(|| db.get_content_classifiers().ok())
         .flatten();
-    let analysis =
-        crate::extraction_execution::analyze_image(bytes, &extractor, classifiers.as_deref());
+    let registry = crate::content_extraction::system_engine_registry();
+    let analysis = crate::extraction_execution::analyze_images_with_registry(
+        bytes,
+        &extractors,
+        classifiers.as_deref(),
+        &registry,
+    );
+    let extractor = extractors
+        .iter()
+        .find(|extractor| extractor.stable_ref == analysis.target_ref)
+        .ok_or_else(|| "No Extractor completed the image analysis".to_string())?;
     crate::extraction_execution::apply_image_analysis(
         &db,
         clip_id,
         &clip.content_hash,
-        &extractor,
+        extractor,
         classifiers.is_some(),
         analysis,
     )
@@ -4813,6 +4849,26 @@ pub fn get_clip_searchable_text(
     db: State<'_, Arc<DbState>>,
 ) -> Result<Option<crate::db::ClipSearchableText>, String> {
     db.get_clip_searchable_text(clip_id)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn get_clip_extraction_results(
+    clip_id: i64,
+    db: State<'_, Arc<DbState>>,
+) -> Result<Vec<crate::db::StoredExtractionObservation>, String> {
+    db.get_extraction_observations(clip_id)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn get_clip_extraction_history(
+    clip_id: i64,
+    limit: usize,
+    offset: usize,
+    db: State<'_, Arc<DbState>>,
+) -> Result<Vec<crate::db::StoredExtractionAttempt>, String> {
+    db.get_extraction_history(clip_id, limit, offset)
         .map_err(|error| error.to_string())
 }
 
@@ -4833,10 +4889,12 @@ pub async fn extract_text_from_file_clip(
     let transcriptions_enabled = features::is_enabled(&db, Feature::Transcriptions);
     let db = db.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
-        let extractor = db
-            .active_file_text_extractor_for_features(transcriptions_enabled)
-            .map_err(|error| error.to_string())?
-            .ok_or_else(|| "No available file text Extractor is enabled".to_string())?;
+        let extractors = db
+            .active_file_text_extractors_for_features(transcriptions_enabled)
+            .map_err(|error| error.to_string())?;
+        if extractors.is_empty() {
+            return Err("No available file text Extractor is enabled".to_string());
+        }
         let clip = db
             .get_clip_by_id(clip_id)
             .map_err(|error| error.to_string())?;
@@ -4852,13 +4910,22 @@ pub async fn extract_text_from_file_clip(
         let classifiers = features::is_enabled(&db, Feature::ContentClassification)
             .then(|| db.get_content_classifiers().ok())
             .flatten();
-        let analysis =
-            crate::extraction_execution::analyze_files(paths, &extractor, classifiers.as_deref());
+        let registry = crate::content_extraction::system_engine_registry();
+        let analysis = crate::extraction_execution::analyze_files_with_extractors_and_registry(
+            paths,
+            &extractors,
+            classifiers.as_deref(),
+            &registry,
+        );
+        let extractor = extractors
+            .iter()
+            .find(|extractor| extractor.stable_ref == analysis.target_ref)
+            .ok_or_else(|| "No Extractor completed the file analysis".to_string())?;
         crate::extraction_execution::apply_file_analysis(
             &db,
             clip_id,
             &clip.content_hash,
-            &extractor,
+            extractor,
             classifiers.is_some(),
             analysis,
         )
@@ -4886,9 +4953,9 @@ pub fn start_ocr_backfill(
 ) -> Result<(), String> {
     features::require(&db, Feature::Ocr)?;
     if db
-        .active_image_text_extractor()
+        .active_image_text_extractors_for_features(true)
         .map_err(|error| error.to_string())?
-        .is_none()
+        .is_empty()
     {
         return Err("No available image text Extractor is enabled".to_string());
     }

@@ -659,6 +659,8 @@ pub fn run() {
             commands::open_emoji_picker,
             commands::extract_ocr_from_clip,
             commands::get_clip_searchable_text,
+            commands::get_clip_extraction_results,
+            commands::get_clip_extraction_history,
             commands::search_clip_searchable_text_ids,
             commands::extract_text_from_file_clip,
             commands::register_hud_shortcut,

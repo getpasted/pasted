@@ -28,6 +28,8 @@ pub struct ExtractionResult {
     pub matched_classifier_ref: Option<String>,
     pub failure: Option<AnalysisFailure>,
     pub participants: Vec<ParticipantRun>,
+    #[serde(skip)]
+    pub(crate) observations: Vec<crate::content_analysis::ExtractionObservation>,
 }
 
 impl ExtractionResult {
@@ -46,6 +48,7 @@ impl ExtractionResult {
             ExtractionResultOutcome::NoOutput
         };
         let produced = outcome == ExtractionResultOutcome::Produced;
+        let observations = analysis.context.extraction_observations.clone();
         Self {
             metadata: AnalysisMetadata::new(policy),
             target_kind: AnalysisTargetKind::Extractor,
@@ -62,6 +65,7 @@ impl ExtractionResult {
                 .flatten(),
             failure: resolution.failure,
             participants: analysis.runs,
+            observations,
         }
     }
 
@@ -76,7 +80,12 @@ pub fn analyze_image(
     classifiers: Option<&[crate::content_classification::Classifier]>,
 ) -> ExtractionResult {
     let registry = crate::content_extraction::system_engine_registry();
-    analyze_image_with_registry(image_bytes, extractor, classifiers, &registry)
+    analyze_images_with_registry(
+        image_bytes,
+        std::slice::from_ref(extractor),
+        classifiers,
+        &registry,
+    )
 }
 
 pub fn analyze_image_with_registry(
@@ -85,12 +94,27 @@ pub fn analyze_image_with_registry(
     classifiers: Option<&[crate::content_classification::Classifier]>,
     registry: &ExtractorEngineRegistry<'_>,
 ) -> ExtractionResult {
-    analyze_image_with_registry_and_policy(
+    analyze_images_with_registry_and_policy(
         image_bytes,
-        extractor,
+        std::slice::from_ref(extractor),
         classifiers,
         registry,
         crate::analysis_contract::AnalysisPolicy::Interactive,
+    )
+}
+
+pub fn analyze_images_with_registry(
+    image_bytes: Vec<u8>,
+    extractors: &[Extractor],
+    classifiers: Option<&[crate::content_classification::Classifier]>,
+    registry: &ExtractorEngineRegistry<'_>,
+) -> ExtractionResult {
+    analyze_images_with_registry_and_policy(
+        image_bytes,
+        extractors,
+        classifiers,
+        registry,
+        AnalysisPolicy::Interactive,
     )
 }
 
@@ -109,51 +133,116 @@ pub fn analyze_files_with_registry(
     classifiers: Option<&[crate::content_classification::Classifier]>,
     registry: &ExtractorEngineRegistry<'_>,
 ) -> ExtractionResult {
-    ExtractionResult::from_report(
-        extractor,
-        AnalysisPolicy::Interactive,
-        crate::content_analysis::analyze(crate::content_analysis::AnalysisRequest {
-            input: crate::content_analysis::AnalysisInput::Files {
-                paths,
-                source: None,
-            },
-            policy: AnalysisPolicy::Interactive,
-            inspector: false,
-            extractor: Some(crate::content_analysis::ExtractorParticipantSource {
-                extractor,
-                registry,
-            }),
-            classifiers,
-            suggestion: None,
-        }),
+    analyze_files_with_extractors_and_registry(
+        paths,
+        std::slice::from_ref(extractor),
+        classifiers,
+        registry,
     )
 }
 
+pub fn analyze_files_with_extractors_and_registry(
+    paths: Vec<String>,
+    extractors: &[Extractor],
+    classifiers: Option<&[crate::content_classification::Classifier]>,
+    registry: &ExtractorEngineRegistry<'_>,
+) -> ExtractionResult {
+    let report = crate::content_analysis::analyze(crate::content_analysis::AnalysisRequest {
+        input: crate::content_analysis::AnalysisInput::Files {
+            paths,
+            source: None,
+        },
+        policy: AnalysisPolicy::Interactive,
+        inspector: false,
+        extractors: extractor_sources(extractors, registry),
+        classifiers,
+        suggestion: None,
+    });
+    ExtractionResult::from_report(
+        selected_extractor(extractors, &report),
+        AnalysisPolicy::Interactive,
+        report,
+    )
+}
+
+fn extractor_sources<'a>(
+    extractors: &'a [Extractor],
+    registry: &'a ExtractorEngineRegistry<'a>,
+) -> Vec<crate::content_analysis::ExtractorParticipantSource<'a>> {
+    extractors
+        .iter()
+        .map(
+            |extractor| crate::content_analysis::ExtractorParticipantSource {
+                extractor,
+                registry,
+            },
+        )
+        .collect()
+}
+
+fn selected_extractor<'a>(extractors: &'a [Extractor], report: &AnalysisReport) -> &'a Extractor {
+    let selected_ref = report
+        .context
+        .extraction_observations
+        .iter()
+        .rev()
+        .find(|observation| {
+            matches!(
+                observation.outcome,
+                crate::content_extraction::ExtractionOutcome::Produced { .. }
+            )
+        })
+        .or_else(|| report.context.extraction_observations.last())
+        .map(|observation| observation.extractor_ref.as_str());
+    selected_ref
+        .and_then(|stable_ref| {
+            extractors
+                .iter()
+                .find(|extractor| extractor.stable_ref == stable_ref)
+        })
+        .unwrap_or_else(|| {
+            extractors
+                .first()
+                .expect("extraction requires at least one Extractor")
+        })
+}
+
+pub(crate) fn analyze_images_with_registry_and_policy(
+    image_bytes: Vec<u8>,
+    extractors: &[Extractor],
+    classifiers: Option<&[crate::content_classification::Classifier]>,
+    registry: &ExtractorEngineRegistry<'_>,
+    policy: crate::analysis_contract::AnalysisPolicy,
+) -> ExtractionResult {
+    let report = crate::content_analysis::analyze(crate::content_analysis::AnalysisRequest {
+        input: crate::content_analysis::AnalysisInput::Image {
+            image_bytes,
+            searchable_text: None,
+            source: None,
+        },
+        policy,
+        inspector: false,
+        extractors: extractor_sources(extractors, registry),
+        classifiers,
+        suggestion: None,
+    });
+    ExtractionResult::from_report(selected_extractor(extractors, &report), policy, report)
+}
+
+#[cfg(test)]
 pub(crate) fn analyze_image_with_registry_and_policy(
     image_bytes: Vec<u8>,
     extractor: &Extractor,
     classifiers: Option<&[crate::content_classification::Classifier]>,
     registry: &ExtractorEngineRegistry<'_>,
-    policy: crate::analysis_contract::AnalysisPolicy,
+    policy: AnalysisPolicy,
 ) -> ExtractionResult {
-    ExtractionResult::from_report(
-        extractor,
+    analyze_images_with_registry_and_policy(
+        image_bytes,
+        std::slice::from_ref(extractor),
+        classifiers,
+        registry,
         policy,
-        crate::content_analysis::analyze(crate::content_analysis::AnalysisRequest {
-            input: crate::content_analysis::AnalysisInput::Image {
-                image_bytes,
-                searchable_text: None,
-                source: None,
-            },
-            policy,
-            inspector: false,
-            extractor: Some(crate::content_analysis::ExtractorParticipantSource {
-                extractor,
-                registry,
-            }),
-            classifiers,
-            suggestion: None,
-        }),
     )
 }
 
@@ -218,6 +307,7 @@ fn persist_image_analysis(
             classification_updated: false,
         });
     }
+    db.record_extraction_observations(clip_id, content_hash, &analysis.observations)?;
 
     let classification_updated = if classification_enabled && analysis.output.is_some() {
         db.record_analysis_classification(
@@ -276,8 +366,15 @@ pub fn apply_file_analysis(
     classification_enabled: bool,
     analysis: ExtractionResult,
 ) -> rusqlite::Result<ExtractionApplicationResult> {
+    let observations_updated =
+        db.record_extraction_observations(clip_id, content_hash, &analysis.observations)?;
     if analysis.outcome != ExtractionResultOutcome::Produced {
         return Ok(ExtractionApplicationResult::preview(analysis));
+    }
+    if !observations_updated {
+        return Err(rusqlite::Error::InvalidParameterName(
+            "The selected clip changed before extraction could be applied".into(),
+        ));
     }
     let searchable_text_updated = db.replace_clip_searchable_text(
         clip_id,
@@ -475,6 +572,7 @@ mod tests {
             matched_classifier_ref: matched_classifier_ref.map(str::to_string),
             failure: None,
             participants: Vec::new(),
+            observations: Vec::new(),
         }
     }
 
@@ -619,6 +717,7 @@ mod tests {
                     failure: None,
                 },
             ],
+            observations: Vec::new(),
         });
         let expected = serde_json::from_str::<serde_json::Value>(include_str!(
             "../../contracts/analysis/v1/extractor-interactive-unavailable.json"
@@ -652,6 +751,7 @@ mod tests {
                 file_references: None,
                 image_bytes: None,
                 searchable_text: Some("partial output".into()),
+                extraction_observations: Vec::new(),
                 classified_type: Some("email".into()),
                 matched_classifier_ref: Some("classifier:email".into()),
                 structural_metadata: None,

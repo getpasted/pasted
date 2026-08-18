@@ -104,7 +104,6 @@ fn extractor_recipe_schema() -> serde_json::Value {
                         "type": "array",
                         "minItems": 1,
                         "maxItems": 2,
-                        "uniqueItems": true,
                         "items": { "type": "string", "enum": ["image", "file_references"] }
                     },
                     "output": { "type": "string", "enum": ["searchable_text"] },
@@ -1334,6 +1333,42 @@ mod tests {
         assert!(outcome.output.contains("Jane"));
         assert!(outcome.output.contains("Friday"));
         assert_eq!(outcome.connection_name.as_deref(), Some("Codex CLI"));
+        drop(db);
+        let _ = fs::remove_file(database_path);
+    }
+
+    #[test]
+    fn extractor_proposal_schema_uses_the_structured_outputs_subset() {
+        let schema = extractor_recipe_schema();
+        assert!(schema
+            .pointer("/properties/recipe/properties/accepts/uniqueItems")
+            .is_none());
+        assert_eq!(
+            schema.pointer("/properties/recipe/properties/accepts/items/enum"),
+            Some(&serde_json::json!(["image", "file_references"]))
+        );
+    }
+
+    #[test]
+    #[ignore = "requires an explicitly configured, authenticated Codex CLI"]
+    fn live_codex_connection_returns_a_validated_extractor_recipe() {
+        let executable = std::env::var("PASTED_LIVE_CODEX_PATH")
+            .expect("set PASTED_LIVE_CODEX_PATH to an authenticated Codex executable");
+        let (db, database_path) = test_db();
+        db.create_intelligence_connection("Codex CLI", "cli", Some(&executable), None, None)
+            .unwrap();
+        let proposal = propose_extractor_recipe(
+            &db,
+            ProposeExtractorRecipeRequest {
+                prompt: "Recognize and read QR codes from images or files and turn them into searchable text".to_string(),
+                connection_id: None,
+            },
+            None,
+        )
+        .unwrap();
+        crate::extractor_recipe::validate_recipe(&proposal.recipe).unwrap();
+        assert!(!proposal.recipe.accepts.is_empty());
+        assert!(!proposal.recipe.steps.is_empty());
         drop(db);
         let _ = fs::remove_file(database_path);
     }

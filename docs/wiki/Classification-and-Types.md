@@ -37,7 +37,7 @@ Disabling **OCR** hides the shipped Apple Vision and Tesseract recipes. Disablin
 
 Extractor input and output names are parsed through the same typed representation contract used by the Analysis scheduler. Unknown methods and unsupported contracts fail closed before execution, and active Extractor selection uses that shared contract rather than matching unrelated metadata strings.
 
-OCR scans use the first enabled, available Extractor with an `image` input and `searchable_text` output contract. Apple Vision has priority 10 and Tesseract has priority 20, so Apple Vision remains the macOS default while Tesseract becomes the automatic fallback when available. Explicit file extraction uses the first enabled, available file-text Extractor. Whisper has priority 30 and requires both `whisper-cli` and a configured local GGML model file. No model is downloaded automatically. Extracted text becomes available to the later classify pass during the same bounded run.
+Extraction runs every enabled, available Extractor that accepts the clip input, ordered by priority. Successful outputs are deduplicated and combined for search and later classification. Clip Preview shows each current successful result separately. Its Details footer keeps the complete per-clip scan history, including timestamps, successes, duplicate output, no-output attempts, and failures. Whisper requires both `whisper-cli` and a configured local GGML model file; no model is downloaded automatically.
 
 Availability and execution are shared by app-driven extraction, manual runs, and the CLI. Every definition exposes its configured or automatically resolved runtime location, detected runtime version, dependencies, and revision. Internal execution-contract IDs remain read-only technical details. Tesseract and whisper.cpp executable paths can override automatic discovery; Apple Vision reports the macOS framework instead of inventing a path. Reset restores the current release's shipped definition, while upgrades preserve fields changed by the user.
 
@@ -57,7 +57,7 @@ Enabled classifiers are evaluated in priority order; the lowest priority number 
 - the Content Type assigned to a match;
 - one or more regular expressions, where any expression may produce a candidate;
 - an optional validator that rejects likely false positives;
-- an enabled state for new clips.
+- an enabled state.
 
 Available validators include card and IBAN checksums, IP parsing, phone guardrails, environment-block recognition, and prose guardrails. A validator supplements the regular expression; it does not replace it.
 

@@ -93,33 +93,35 @@ fn execute(
     } else {
         Vec::new()
     };
-    let extractor = if options.include_extractor {
+    let extractors = if options.include_extractor {
         match clip_kind {
-            "image" => db.active_image_text_extractor_for_features(crate::features::is_enabled(
+            "image" => db.active_image_text_extractors_for_features(crate::features::is_enabled(
                 db,
                 crate::features::Feature::Ocr,
             )),
-            "file" => db.active_file_text_extractor_for_features(crate::features::is_enabled(
+            "file" => db.active_file_text_extractors_for_features(crate::features::is_enabled(
                 db,
                 crate::features::Feature::Transcriptions,
             )),
-            _ => Ok(None),
+            _ => Ok(Vec::new()),
         }
         .map_err(|error| error.to_string())?
     } else {
-        None
+        Vec::new()
     };
     let registry = crate::content_extraction::system_engine_registry();
+    let extractor_sources = extractors
+        .iter()
+        .map(|extractor| ExtractorParticipantSource {
+            extractor,
+            registry: &registry,
+        })
+        .collect();
     let report = crate::content_analysis::analyze(AnalysisRequest {
         input,
         policy: options.policy,
         inspector: true,
-        extractor: extractor
-            .as_ref()
-            .map(|extractor| ExtractorParticipantSource {
-                extractor,
-                registry: &registry,
-            }),
+        extractors: extractor_sources,
         classifiers: run_classifiers.then_some(classifiers.as_slice()),
         suggestion: (allow_text_participants && options.include_suggestions).then_some(
             SuggestionParticipantSource {
