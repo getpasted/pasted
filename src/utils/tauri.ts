@@ -452,6 +452,8 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       return [] as unknown as T;
     case 'get_clip_extraction_results':
       return [] as unknown as T;
+    case 'get_clip_extraction_history':
+      return [] as unknown as T;
     case 'propose_extractor_recipe': {
       const recipe = mockExtractorRecipe('file_references', 'pdftotext');
       return { name: 'PDF Text', description: 'Extracts searchable text from PDF files.', recipe, setupGuidance: ['Install Poppler.'], authoring: { manifestVersion: 1, source: 'ai', originalPrompt: String((args?.request as { prompt?: unknown } | undefined)?.prompt ?? ''), provider: 'Mock AI', model: 'mock', messages: [] }, connectionId: 'mock', connectionName: 'Mock AI', durationMs: 1 } as unknown as T;

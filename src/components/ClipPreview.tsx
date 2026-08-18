@@ -8,7 +8,7 @@ import { parseColor, ColorFormats } from '../utils/color';
 import { soundManager } from '../utils/sound';
 import { handleWindowDragDoubleClick, startWindowDrag } from '../utils/windowDrag';
 import { ClipRevisionHistory } from './ClipRevisionHistory';
-import { ClipPreviewContent, type ExtractionResult } from './ClipPreviewContent';
+import { ClipPreviewContent, type ExtractionAttempt, type ExtractionResult } from './ClipPreviewContent';
 import { ClipTransformBar } from './ClipTransformBar';
 import { ClipWorkflowMenu } from './ClipWorkflowMenu';
 import { MenuSelect } from './MenuSelect';
@@ -261,6 +261,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   const copiedFormatTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pipelineRequestIdRef = useRef(0);
   const fileExtractionRequestIdRef = useRef(0);
+  const extractionHistoryRequestIdRef = useRef(0);
   const activeTransformExecutionRef = useRef<TransformationExecutionHandle | null>(null);
   const [transformClientRequestId, setTransformClientRequestId] = useState<string | null>(null);
   const transformRequestStatus = useIntelligenceRequestStatus(transformClientRequestId);
@@ -286,6 +287,9 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   const [smartActions, setSmartActions] = useState<SmartActionSuggestion | null>(null);
   const [fileSearchableText, setFileSearchableText] = useState<ClipSearchableText | null>(null);
   const [extractionResults, setExtractionResults] = useState<ExtractionResult[]>([]);
+  const [extractionHistory, setExtractionHistory] = useState<ExtractionAttempt[]>([]);
+  const [extractionHistoryHasMore, setExtractionHistoryHasMore] = useState(false);
+  const [isExtractionHistoryLoading, setIsExtractionHistoryLoading] = useState(false);
   const [isFileExtractionLoading, setIsFileExtractionLoading] = useState(false);
   const [filePreviews, setFilePreviews] = useState<FileClipPreview[]>([]);
   const [isFilePreviewLoading, setIsFilePreviewLoading] = useState(false);
@@ -373,15 +377,63 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   const loadExtractionResults = React.useCallback(async (clipId: number) => {
     const results = await invoke<ExtractionResult[]>('get_clip_extraction_results', { clipId });
     setExtractionResults(Array.isArray(results) ? results : []);
+    const requestId = ++extractionHistoryRequestIdRef.current;
+    setIsExtractionHistoryLoading(true);
+    try {
+      const attempts = await invoke<ExtractionAttempt[]>('get_clip_extraction_history', {
+        clipId,
+        limit: 101,
+        offset: 0,
+      });
+      if (requestId !== extractionHistoryRequestIdRef.current) return;
+      const page = Array.isArray(attempts) ? attempts : [];
+      setExtractionHistory(page.slice(0, 100));
+      setExtractionHistoryHasMore(page.length > 100);
+    } catch (error) {
+      console.error('Failed to refresh Extractor history:', error);
+    } finally {
+      if (requestId === extractionHistoryRequestIdRef.current) setIsExtractionHistoryLoading(false);
+    }
   }, []);
+
+  const loadExtractionHistory = React.useCallback(async (reset: boolean) => {
+    if (!clip || (clip.content_type !== 'image' && clip.content_type !== 'file')) return;
+    const requestedClipId = clip.id;
+    const offset = reset ? 0 : extractionHistory.length;
+    const requestId = ++extractionHistoryRequestIdRef.current;
+    setIsExtractionHistoryLoading(true);
+    try {
+      const attempts = await invoke<ExtractionAttempt[]>('get_clip_extraction_history', {
+        clipId: requestedClipId,
+        limit: 101,
+        offset,
+      });
+      if (requestId !== extractionHistoryRequestIdRef.current) return;
+      const page = Array.isArray(attempts) ? attempts : [];
+      setExtractionHistory((current) => reset ? page.slice(0, 100) : [...current, ...page.slice(0, 100)]);
+      setExtractionHistoryHasMore(page.length > 100);
+    } catch (error) {
+      console.error('Failed to load Extractor history:', error);
+    } finally {
+      if (requestId === extractionHistoryRequestIdRef.current) setIsExtractionHistoryLoading(false);
+    }
+  }, [clip, extractionHistory.length]);
 
   useEffect(() => {
     let cancelled = false;
     if (!clip || (clip.content_type !== 'image' && clip.content_type !== 'file')) {
+      extractionHistoryRequestIdRef.current += 1;
       setExtractionResults([]);
+      setExtractionHistory([]);
+      setExtractionHistoryHasMore(false);
+      setIsExtractionHistoryLoading(false);
       return () => { cancelled = true; };
     }
     setExtractionResults([]);
+    extractionHistoryRequestIdRef.current += 1;
+    setExtractionHistory([]);
+    setExtractionHistoryHasMore(false);
+    setIsExtractionHistoryLoading(false);
     invoke<ExtractionResult[]>('get_clip_extraction_results', { clipId: clip.id })
       .then((results) => {
         if (!cancelled) setExtractionResults(Array.isArray(results) ? results : []);
@@ -641,6 +693,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
     try {
       const result = await invoke<ExtractionApplicationResult>('extract_ocr_from_clip', { clipId: clip.id });
       if (result.outcome === 'failed') {
+        await loadExtractionResults(clip.id);
         throw new Error(result.failure?.message ?? 'The Extractor failed.');
       }
       if (result.outcome === 'no_output') {
@@ -671,6 +724,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
       const result = await invoke<ExtractionApplicationResult>('extract_text_from_file_clip', { clipId: requestedClipId });
       if (requestId !== fileExtractionRequestIdRef.current) return;
       if (result.outcome === 'failed') {
+        await loadExtractionResults(requestedClipId);
         throw new Error(result.failure?.message ?? 'The Extractor failed.');
       }
       if (result.outcome === 'no_output') {
@@ -1254,6 +1308,9 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
           isFilePreviewLoading={isFilePreviewLoading}
           fileSearchableText={fileSearchableText}
           extractionResults={extractionResults}
+          extractionHistory={extractionHistory}
+          extractionHistoryHasMore={extractionHistoryHasMore}
+          isExtractionHistoryLoading={isExtractionHistoryLoading}
           isFileExtractionLoading={isFileExtractionLoading}
           copiedFormat={copiedFormat}
           isOcrLoading={isOcrLoading}
@@ -1264,6 +1321,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
           onCopyFormat={(label, value) => void handleCopySpecificFormat(label, value)}
           onRunOCR={() => void handleRunOCR()}
           onRunFileExtraction={() => void handleRunFileExtraction()}
+          onLoadExtractionHistory={(reset) => void loadExtractionHistory(reset)}
         />
 
       </div>

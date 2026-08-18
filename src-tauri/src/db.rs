@@ -410,6 +410,15 @@ pub struct StoredExtractionObservation {
     pub updated_at: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct StoredExtractionAttempt {
+    #[serde(flatten)]
+    pub observation: crate::content_analysis::ExtractionObservation,
+    pub run_id: String,
+    pub run_at: String,
+}
+
 fn content_classifier_from_row(
     row: &rusqlite::Row<'_>,
 ) -> rusqlite::Result<crate::content_classification::Classifier> {
@@ -2241,6 +2250,41 @@ impl DbState {
                 updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 PRIMARY KEY (clip_id, participant_ref)
             )",
+            [],
+        )?;
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS clip_extraction_attempts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                clip_id INTEGER NOT NULL REFERENCES clips(id) ON DELETE CASCADE,
+                run_id TEXT NOT NULL,
+                participant_ref TEXT NOT NULL,
+                content_hash TEXT NOT NULL,
+                priority INTEGER NOT NULL,
+                result_json TEXT NOT NULL,
+                run_at TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_clip_extraction_attempts_history
+                ON clip_extraction_attempts (clip_id, run_at DESC, id DESC, priority, participant_ref);",
+        )?;
+        conn.execute(
+            "INSERT INTO clip_extraction_attempts
+                (clip_id, run_id, participant_ref, content_hash, priority, result_json, run_at)
+             SELECT results.clip_id,
+                    'migrated-' || results.clip_id,
+                    results.participant_ref,
+                    results.content_hash,
+                    CAST(json_extract(results.result_json, '$.priority') AS INTEGER),
+                    results.result_json,
+                    COALESCE(
+                        strftime('%Y-%m-%dT%H:%M:%SZ', results.updated_at),
+                        strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
+                    )
+             FROM clip_analysis_results AS results
+             WHERE results.participant_ref LIKE 'extractor:%'
+               AND NOT EXISTS (
+                    SELECT 1 FROM clip_extraction_attempts AS attempts
+                    WHERE attempts.clip_id = results.clip_id
+               )",
             [],
         )?;
         conn.execute(
@@ -4362,7 +4406,11 @@ impl DbState {
                         "Extractor result exceeds its safety limit".into(),
                     ));
                 }
-                Ok((observation.extractor_ref.as_str(), json))
+                Ok((
+                    observation.extractor_ref.as_str(),
+                    observation.priority,
+                    json,
+                ))
             })
             .collect::<Result<Vec<_>>>()?;
         let mut conn = self.conn.lock();
@@ -4384,7 +4432,12 @@ impl DbState {
              WHERE clip_id = ?1 AND participant_ref LIKE 'extractor:%'",
             [clip_id],
         )?;
-        for (participant_ref, result_json) in serialized {
+        let (run_id, run_at): (String, String) = transaction.query_row(
+            "SELECT lower(hex(randomblob(16))), strftime('%Y-%m-%dT%H:%M:%SZ', 'now')",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )?;
+        for (participant_ref, priority, result_json) in serialized {
             transaction.execute(
                 "INSERT INTO clip_analysis_results
                     (clip_id, participant_ref, content_hash, input_hash, format_version, result_json)
@@ -4395,6 +4448,20 @@ impl DbState {
                     content_hash,
                     crate::analysis_contract::ANALYSIS_CONTRACT_VERSION,
                     result_json,
+                ],
+            )?;
+            transaction.execute(
+                "INSERT INTO clip_extraction_attempts
+                    (clip_id, run_id, participant_ref, content_hash, priority, result_json, run_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                params![
+                    clip_id,
+                    run_id,
+                    participant_ref,
+                    content_hash,
+                    priority,
+                    result_json,
+                    run_at,
                 ],
             )?;
         }
@@ -4440,6 +4507,48 @@ impl DbState {
             )?
             .collect();
         observations
+    }
+
+    pub fn get_extraction_history(
+        &self,
+        clip_id: i64,
+        limit: usize,
+        offset: usize,
+    ) -> Result<Vec<StoredExtractionAttempt>> {
+        let limit = limit.clamp(1, 101);
+        let conn = self.conn.lock();
+        let mut statement = conn.prepare(
+            "SELECT attempts.result_json, attempts.run_id, attempts.run_at
+             FROM clip_extraction_attempts AS attempts
+             WHERE attempts.clip_id = ?1
+             ORDER BY (
+                        SELECT MAX(run_order.id)
+                        FROM clip_extraction_attempts AS run_order
+                        WHERE run_order.clip_id = attempts.clip_id
+                          AND run_order.run_id = attempts.run_id
+                      ) DESC,
+                      attempts.priority,
+                      attempts.participant_ref
+             LIMIT ?2 OFFSET ?3",
+        )?;
+        let attempts = statement
+            .query_map(params![clip_id, limit as i64, offset as i64], |row| {
+                let result_json: String = row.get(0)?;
+                let observation = serde_json::from_str(&result_json).map_err(|error| {
+                    rusqlite::Error::FromSqlConversionFailure(
+                        0,
+                        rusqlite::types::Type::Text,
+                        Box::new(error),
+                    )
+                })?;
+                Ok(StoredExtractionAttempt {
+                    observation,
+                    run_id: row.get(1)?,
+                    run_at: row.get(2)?,
+                })
+            })?
+            .collect();
+        attempts
     }
 
     pub fn save_clip(
@@ -12531,6 +12640,26 @@ mod tests {
             crate::content_extraction::ExtractionOutcome::Produced { ref text }
                 if text == "Hello World!"
         ));
+        let second_run = vec![crate::content_analysis::ExtractionObservation {
+            extractor_ref: "extractor:first".into(),
+            extractor_name: "First".into(),
+            engine: "first-v1".into(),
+            priority: 10,
+            duplicate_of: None,
+            outcome: crate::content_extraction::ExtractionOutcome::Failed {
+                failure: crate::content_extraction::ExtractionFailure {
+                    code: "test_failure".into(),
+                    message: "The Extractor failed.".into(),
+                },
+            },
+        }];
+        assert!(db
+            .record_extraction_observations(clip.id, &clip.content_hash, &second_run)
+            .unwrap());
+        let history = db.get_extraction_history(clip.id, 101, 0).unwrap();
+        assert_eq!(history.len(), 3);
+        assert_eq!(history[0].observation.extractor_ref, "extractor:first");
+        assert_ne!(history[0].run_id, history[1].run_id);
     }
 
     #[test]
@@ -15229,7 +15358,6 @@ mod tests {
                 Some("quasar transcript marker"),
             )
             .unwrap());
-
         let stored = db.get_clip_searchable_text(clip.id).unwrap().unwrap();
         assert_eq!(stored.searchable_text, "quasar transcript marker");
         assert_eq!(stored.extractor_ref, extractor.stable_ref);
@@ -17436,6 +17564,21 @@ mod tests {
                 Some("complete transcription backup marker"),
             )
             .unwrap());
+        db.record_extraction_observations(
+            file_clip.id,
+            &file_clip.content_hash,
+            &[crate::content_analysis::ExtractionObservation {
+                extractor_ref: transcription_extractor.stable_ref.clone(),
+                extractor_name: transcription_extractor.name.clone(),
+                engine: transcription_extractor.engine.clone(),
+                priority: transcription_extractor.priority,
+                duplicate_of: None,
+                outcome: crate::content_extraction::ExtractionOutcome::Produced {
+                    text: "complete transcription backup marker".into(),
+                },
+            }],
+        )
+        .unwrap();
         db.save_setting("fullBackupSetting", "preserved").unwrap();
         db.log_activity("app_started", "Complete backup test")
             .unwrap();
@@ -17537,6 +17680,12 @@ mod tests {
                 .unwrap()
                 .searchable_text,
             "complete transcription backup marker"
+        );
+        assert_eq!(
+            db.get_extraction_history(file_clip.id, 101, 0)
+                .unwrap()
+                .len(),
+            1
         );
         let restored_extractor = db.get_content_extractor(&extractor.stable_ref).unwrap();
         assert_eq!(restored_extractor.name, "Backup Extractor Marker");

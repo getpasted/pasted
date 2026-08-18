@@ -1,11 +1,12 @@
 import React from 'react';
-import { AlertTriangle, Check, Copy, Files, Palette, Sparkles } from 'lucide-react';
+import { AlertTriangle, Check, ChevronDown, Copy, Files, Palette, Sparkles } from 'lucide-react';
 import { getClipFilePaths, type ClipItem } from '../types';
 import type { ColorFormats } from '../utils/color';
 import { UI_COPY } from '../utils/uiCopy';
 import { OverflowText } from './OverflowText';
 import { SafeRasterImage } from './SafeRasterImage';
 import { translate } from '../localization/runtime';
+import { dateTimeAttribute, formatFullDateTime, formatRelativeTime } from '../utils/date';
 
 interface ClipPreviewContentProps {
   clip: ClipItem;
@@ -25,6 +26,9 @@ interface ClipPreviewContentProps {
     searchableText: string;
   } | null;
   extractionResults: ExtractionResult[];
+  extractionHistory: ExtractionAttempt[];
+  extractionHistoryHasMore: boolean;
+  isExtractionHistoryLoading: boolean;
   isFileExtractionLoading: boolean;
   copiedFormat: string | null;
   isOcrLoading: boolean;
@@ -35,6 +39,12 @@ interface ClipPreviewContentProps {
   onCopyFormat: (label: string, value: string) => void;
   onRunOCR: () => void;
   onRunFileExtraction: () => void;
+  onLoadExtractionHistory: (reset: boolean) => void;
+}
+
+export interface ExtractionAttempt extends ExtractionResult {
+  runId: string;
+  runAt: string;
 }
 
 export interface ExtractionResult {
@@ -89,40 +99,84 @@ function ExtractionCards({
   );
 }
 
-function ExtractionActivity({ results }: { results: ExtractionResult[] }) {
+function ExtractionActivity({
+  history,
+  hasMore,
+  loading,
+  onLoad,
+}: {
+  history: ExtractionAttempt[];
+  hasMore: boolean;
+  loading: boolean;
+  onLoad: (reset: boolean) => void;
+}) {
   const [expanded, setExpanded] = React.useState(false);
-  const other = results.filter((result) => result.outcome !== 'produced' || result.duplicateOf);
-  if (other.length === 0) return null;
+  const runs = history.reduce<Array<{ runId: string; runAt: string; attempts: ExtractionAttempt[] }>>((groups, attempt) => {
+    const current = groups[groups.length - 1];
+    if (current?.runId === attempt.runId) current.attempts.push(attempt);
+    else groups.push({ runId: attempt.runId, runAt: attempt.runAt, attempts: [attempt] });
+    return groups;
+  }, []);
+
+  const toggle = () => {
+    const next = !expanded;
+    setExpanded(next);
+    if (next && history.length === 0) onLoad(true);
+  };
 
   return (
-    <footer className="theme-divider border-t px-3 py-2 text-xs">
-      <button
-        type="button"
-        className="theme-text-main theme-focusable rounded-md underline underline-offset-2"
-        onClick={() => setExpanded((value) => !value)}
-      >
-        {translate(expanded ? 'component.clipPreviewContent.hideExtractorActivity' : 'component.clipPreviewContent.showExtractorActivity')}
-      </button>
+    <footer className="theme-divider border-t text-xs">
+      <div className="flex min-h-12 items-center justify-end p-2">
+        <button
+          type="button"
+          className="theme-secondary-button theme-focusable flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 font-semibold transition-colors"
+          onClick={toggle}
+          aria-expanded={expanded}
+        >
+          <span>{translate('component.clipPreviewContent.details')}</span>
+          <ChevronDown className={`h-3.5 w-3.5 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+        </button>
+      </div>
       {expanded && (
-        <div className="theme-text-muted mt-2 space-y-1.5">
-          {other.map((result) => {
-            const duplicateName = results.find((candidate) => candidate.extractorRef === result.duplicateOf)?.extractorName;
-            return (
-              <div key={result.extractorRef} className="flex items-start gap-2 py-1">
-                {result.outcome === 'failed' && <AlertTriangle className="theme-status-warning-text mt-0.5 h-3.5 w-3.5 shrink-0" />}
-                <div>
-                  <p className="theme-text-main font-medium">{result.extractorName}</p>
-                  <p>{result.duplicateOf
-                    ? duplicateName
-                      ? translate('component.clipPreviewContent.sameTextAsName', { name: duplicateName })
-                      : translate('component.clipPreviewContent.sameTextAsEarlierExtractor')
-                    : result.outcome === 'failed'
-                      ? result.failure?.message || translate('component.clipPreviewContent.extractorFailed')
-                      : translate('component.clipPreviewContent.noTextFound')}</p>
-                </div>
-              </div>
-            );
-          })}
+        <div className="theme-text-muted theme-divider space-y-3 border-t px-4 py-3">
+          {runs.map((run) => (
+            <section key={run.runId} className="space-y-1.5">
+              <time className="theme-text-subtle text-[10px]" dateTime={dateTimeAttribute(run.runAt)} title={formatFullDateTime(run.runAt)}>{formatRelativeTime(run.runAt)}</time>
+              {run.attempts.map((result) => {
+                const duplicateName = run.attempts.find((candidate) => candidate.extractorRef === result.duplicateOf)?.extractorName;
+                return (
+                  <div key={`${run.runId}:${result.extractorRef}`} className="flex items-start gap-2 py-1">
+                    {result.outcome === 'failed' && <AlertTriangle className="theme-status-warning-text mt-0.5 h-3.5 w-3.5 shrink-0" />}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+                        <p className="theme-text-main font-medium">{result.extractorName}</p>
+                        <dl className="theme-text-subtle flex items-center gap-2 text-[10px]">
+                          <div className="flex gap-1"><dt>{translate('common.priority')}</dt><dd>{result.priority}</dd></div>
+                          <div className="flex gap-1"><dt>{translate('component.clipPreviewContent.engine')}</dt><dd dir="ltr">{result.engine}</dd></div>
+                        </dl>
+                      </div>
+                      <p>{result.duplicateOf
+                        ? duplicateName
+                          ? translate('component.clipPreviewContent.sameTextAsName', { name: duplicateName })
+                          : translate('component.clipPreviewContent.sameTextAsEarlierExtractor')
+                        : result.outcome === 'failed'
+                          ? result.failure?.message || translate('component.clipPreviewContent.extractorFailed')
+                          : result.outcome === 'produced'
+                            ? translate('component.clipPreviewContent.extractedTextSuccessfully')
+                            : translate('component.clipPreviewContent.noTextFound')}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </section>
+          ))}
+          {loading && <p>{translate('component.clipPreviewContent.loadingDetails')}</p>}
+          {!loading && runs.length === 0 && <p>{translate('component.clipPreviewContent.noScanHistory')}</p>}
+          {hasMore && !loading && (
+            <button type="button" className="theme-text-main theme-focusable rounded-md" onClick={() => onLoad(false)}>
+              {translate('component.clipPreviewContent.loadOlder')}
+            </button>
+          )}
         </div>
       )}
     </footer>
@@ -251,6 +305,9 @@ export function ClipPreviewContent({
   isFilePreviewLoading,
   fileSearchableText,
   extractionResults,
+  extractionHistory,
+  extractionHistoryHasMore,
+  isExtractionHistoryLoading,
   isFileExtractionLoading,
   copiedFormat,
   isOcrLoading,
@@ -261,6 +318,7 @@ export function ClipPreviewContent({
   onCopyFormat,
   onRunOCR,
   onRunFileExtraction,
+  onLoadExtractionHistory,
 }: ClipPreviewContentProps) {
   const ocrExtractorLabel = getOcrExtractorLabel(clip);
   const filePaths = getClipFilePaths(clip);
@@ -379,7 +437,7 @@ export function ClipPreviewContent({
                   <p className="theme-text-muted text-xs italic">{translate('component.clipPreviewContent.runAnAvailableFileTextExtractorToCreateSearchableText')}</p>
                 )}
               </div>}
-              <ExtractionActivity key={clip.id} results={extractionResults} />
+              <ExtractionActivity key={clip.id} history={extractionHistory} hasMore={extractionHistoryHasMore} loading={isExtractionHistoryLoading} onLoad={onLoadExtractionHistory} />
             </section>}
           </div>
         ) : colorData ? (
@@ -527,7 +585,7 @@ export function ClipPreviewContent({
                   </p>
                 )}
               </div>}
-              <ExtractionActivity key={clip.id} results={extractionResults} />
+              <ExtractionActivity key={clip.id} history={extractionHistory} hasMore={extractionHistoryHasMore} loading={isExtractionHistoryLoading} onLoad={onLoadExtractionHistory} />
             </section>
           </div>
         ) : (

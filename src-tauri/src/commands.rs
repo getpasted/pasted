@@ -4862,6 +4862,17 @@ pub fn get_clip_extraction_results(
 }
 
 #[tauri::command]
+pub fn get_clip_extraction_history(
+    clip_id: i64,
+    limit: usize,
+    offset: usize,
+    db: State<'_, Arc<DbState>>,
+) -> Result<Vec<crate::db::StoredExtractionAttempt>, String> {
+    db.get_extraction_history(clip_id, limit, offset)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
 pub fn search_clip_searchable_text_ids(
     terms: Vec<String>,
     db: State<'_, Arc<DbState>>,
