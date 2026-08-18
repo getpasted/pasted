@@ -1267,7 +1267,6 @@
   "component.settingsAnalysisPanel.deleteClassifier": "حذف التصنيف؟",
   "component.settingsAnalysisPanel.discardClassifierChanges": "إلغاء التغييرات في هذا التصنيف؟",
   "component.settingsAnalysisPanel.doesNotMatchThisClassifier": "لا يتطابق مع هذا التصنيف",
-  "component.settingsAnalysisPanel.enabledForNewClips": "مفعّل للتصنيفات الجديدة",
   "component.settingsAnalysisPanel.environmentBlock": "كتلة البيئة",
   "component.settingsAnalysisPanel.extract": "استخراج",
   "component.settingsAnalysisPanel.ibanChecksum": "فحص رقم التحقق من IBAN",

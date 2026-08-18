@@ -57,7 +57,7 @@ Enabled classifiers are evaluated in priority order; the lowest priority number 
 - the Content Type assigned to a match;
 - one or more regular expressions, where any expression may produce a candidate;
 - an optional validator that rejects likely false positives;
-- an enabled state for new clips.
+- an enabled state.
 
 Available validators include card and IBAN checksums, IP parsing, phone guardrails, environment-block recognition, and prose guardrails. A validator supplements the regular expression; it does not replace it.
 

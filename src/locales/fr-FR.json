@@ -1239,7 +1239,6 @@
   "component.settingsAnalysisPanel.deleteClassifier": "Supprimer le classificateur ?",
   "component.settingsAnalysisPanel.discardClassifierChanges": "Voulez-vous annuler les modifications apportées à ce classificateur ?",
   "component.settingsAnalysisPanel.doesNotMatchThisClassifier": "Ne correspond pas à ce classificateur",
-  "component.settingsAnalysisPanel.enabledForNewClips": "Activé pour les nouveaux extraits",
   "component.settingsAnalysisPanel.environmentBlock": "Bloc d'environnement",
   "component.settingsAnalysisPanel.extract": "Extraire",
   "component.settingsAnalysisPanel.ibanChecksum": "Vérification du code IBAN",

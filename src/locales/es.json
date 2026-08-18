@@ -1239,7 +1239,6 @@
   "component.settingsAnalysisPanel.deleteClassifier": "Eliminar clasificador?",
   "component.settingsAnalysisPanel.discardClassifierChanges": "Descartar los cambios en este clasificador?",
   "component.settingsAnalysisPanel.doesNotMatchThisClassifier": "No coincide con este clasificador",
-  "component.settingsAnalysisPanel.enabledForNewClips": "Habilitado para nuevos clips",
   "component.settingsAnalysisPanel.environmentBlock": "Bloque de entorno",
   "component.settingsAnalysisPanel.extract": "Extraer",
   "component.settingsAnalysisPanel.ibanChecksum": "Verificación del IBAN",

@@ -1239,7 +1239,6 @@
   "component.settingsAnalysisPanel.deleteClassifier": "分類器を削除？",
   "component.settingsAnalysisPanel.discardClassifierChanges": "この分類器の変更を破棄しますか？",
   "component.settingsAnalysisPanel.doesNotMatchThisClassifier": "この分類器には一致しない",
-  "component.settingsAnalysisPanel.enabledForNewClips": "新しいクリップに対して有効",
   "component.settingsAnalysisPanel.environmentBlock": "環境ブロック",
   "component.settingsAnalysisPanel.extract": "抽出",
   "component.settingsAnalysisPanel.ibanChecksum": "IBANチェックサム",

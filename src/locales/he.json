@@ -1246,7 +1246,6 @@
   "component.settingsAnalysisPanel.deleteClassifier": "מחיקת סיווג?",
   "component.settingsAnalysisPanel.discardClassifierChanges": "ביטול שינויים בסיווג זה?",
   "component.settingsAnalysisPanel.doesNotMatchThisClassifier": "לא תואם לסיווג זה",
-  "component.settingsAnalysisPanel.enabledForNewClips": "פעיל עבור קליפים חדשים",
   "component.settingsAnalysisPanel.environmentBlock": "חסימה של סביבה",
   "component.settingsAnalysisPanel.extract": "חילוץ",
   "component.settingsAnalysisPanel.ibanChecksum": "בדיקת IBAN",
