@@ -1275,7 +1275,7 @@
   "component.settingsAnalysisPanel.rescannedCountTextClipsCount2Reclassified": "{count} のテキストクリップを再スキャンしました。{count2} を再分類しました。",
   "component.settingsAnalysisPanel.rescannedCountTextClipsCount2ReclassifiedAndCount3Failed": "{count} のテキストクリップを再スキャンしました。{count2} を再分類し、{count3} は失敗しました。",
   "component.settingsAnalysisPanel.rescannedCountClipsCount2UpdatedCount3Failed": "{count} 件のクリップを再スキャンしました。{count2} 件を更新し、{count3} 件が失敗しました。",
-  "component.settingsAnalysisPanel.rescannedCountClipsCount2UpdatedCount3UnavailableCount4Failed": "{count} 件のクリップを再スキャンしました。{count2} 件を更新し、{count3} 件は利用できず、{count4} 件が失敗しました。",
+  "component.settingsAnalysisPanel.rescannedCountClipsCount2UpdatedCount3MissingCount4Failed": "{count} 件のクリップを再スキャンしました。{count2} 件を更新し、{count3} 件が見つからず、{count4} 件が失敗しました。",
   "component.settingsAnalysisPanel.rescanning": "スキャン中…",
   "component.settingsAnalysisPanel.reset": "リセット…",
   "component.settingsAnalysisPanel.resetShippedAnalysisDefinitions": "同梱の分析定義をリセットしますか？",

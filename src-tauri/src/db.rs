@@ -577,7 +577,7 @@ pub struct FileFormatRescanReport {
     pub scanned_count: usize,
     pub changed_count: usize,
     pub unchanged_count: usize,
-    pub unavailable_count: usize,
+    pub missing_count: usize,
     pub failed_count: usize,
 }
 
@@ -12707,7 +12707,7 @@ impl DbState {
             rows
         };
         let mut changed_count = 0usize;
-        let mut unavailable_count = 0usize;
+        let mut missing_count = 0usize;
         let mut failed_count = 0usize;
         for (clip_id, content_hash, payload) in &clips {
             let paths = payload
@@ -12720,7 +12720,7 @@ impl DbState {
             }
             let inspection = crate::content_inspection::inspect_file_formats(&paths);
             if inspection.unavailable_count == paths.len() {
-                unavailable_count += 1;
+                missing_count += 1;
                 continue;
             }
             let existing = self.get_file_format_inspection(*clip_id, content_hash)?;
@@ -12736,18 +12736,18 @@ impl DbState {
             unchanged_count: clips
                 .len()
                 .saturating_sub(changed_count)
-                .saturating_sub(unavailable_count)
+                .saturating_sub(missing_count)
                 .saturating_sub(failed_count),
-            unavailable_count,
+            missing_count,
             failed_count,
         };
         let _ = self.log_activity(
             "file_format_history_rescanned",
             &format!(
-                "Rescanned {} file clips; updated {}; unavailable {}; failed {}",
+                "Rescanned {} file clips; updated {}; missing {}; failed {}",
                 report.scanned_count,
                 report.changed_count,
-                report.unavailable_count,
+                report.missing_count,
                 report.failed_count
             ),
         );
@@ -13793,7 +13793,7 @@ mod tests {
     }
 
     #[test]
-    fn file_format_rescan_reports_missing_external_references_as_unavailable() {
+    fn file_format_rescan_reports_missing_external_references() {
         let db = setup_test_db();
         let workspace = crate::external_tools::PrivateWorkspace::create("missing-format").unwrap();
         let missing_path = workspace.join("moved.png");
@@ -13813,7 +13813,7 @@ mod tests {
         assert_eq!(report.scanned_count, 1);
         assert_eq!(report.changed_count, 0);
         assert_eq!(report.unchanged_count, 0);
-        assert_eq!(report.unavailable_count, 1);
+        assert_eq!(report.missing_count, 1);
         assert_eq!(report.failed_count, 0);
     }
 

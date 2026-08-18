@@ -600,7 +600,7 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       return { scannedCount: mockClips.length, changedCount: 0, unchangedCount: mockClips.length, failedCount: 0 } as unknown as T;
     case 'rescan_file_format_history': {
       const fileCount = mockClips.filter(({ content_type }) => content_type === 'file').length;
-      return { scannedCount: fileCount, changedCount: 0, unchangedCount: fileCount, unavailableCount: 0, failedCount: 0 } as unknown as T;
+      return { scannedCount: fileCount, changedCount: 0, unchangedCount: fileCount, missingCount: 0, failedCount: 0 } as unknown as T;
     }
     case 'test_content_classifier': {
       const input = args?.input as { patterns?: string[] };

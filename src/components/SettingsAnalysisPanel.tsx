@@ -54,7 +54,7 @@ interface ClassificationRescanReport {
   scannedCount: number;
   changedCount: number;
   unchangedCount: number;
-  unavailableCount?: number;
+  missingCount?: number;
   failedCount: number;
 }
 
@@ -425,15 +425,15 @@ export function SettingsAnalysisPanel({
       ]);
       const scannedCount = reports.reduce((total, report) => total + (report?.scannedCount ?? 0), 0);
       const changedCount = reports.reduce((total, report) => total + (report?.changedCount ?? 0), 0);
-      const unavailableCount = reports.reduce((total, report) => total + (report?.unavailableCount ?? 0), 0);
+      const missingCount = reports.reduce((total, report) => total + (report?.missingCount ?? 0), 0);
       const failedCount = reports.reduce((total, report) => total + (report?.failedCount ?? 0), 0);
       showToast({
         tone: failedCount > 0 ? 'info' : 'success',
-        message: unavailableCount > 0
-          ? translate('component.settingsAnalysisPanel.rescannedCountClipsCount2UpdatedCount3UnavailableCount4Failed', {
+        message: missingCount > 0
+          ? translate('component.settingsAnalysisPanel.rescannedCountClipsCount2UpdatedCount3MissingCount4Failed', {
             count: scannedCount,
             count2: changedCount,
-            count3: unavailableCount,
+            count3: missingCount,
             count4: failedCount,
           })
           : translate('component.settingsAnalysisPanel.rescannedCountClipsCount2UpdatedCount3Failed', {

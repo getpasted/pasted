@@ -1521,11 +1521,11 @@ fn run_command(command: &str, args: &[String], db_path: PathBuf, conn: Connectio
                         );
                     } else {
                         println!(
-                            "Rescanned {} file clips; {} updated, {} unchanged, {} unavailable, and {} failed.",
+                            "Rescanned {} file clips; {} updated, {} unchanged, {} missing, and {} failed.",
                             report.scanned_count,
                             report.changed_count,
                             report.unchanged_count,
-                            report.unavailable_count,
+                            report.missing_count,
                             report.failed_count
                         );
                     }
