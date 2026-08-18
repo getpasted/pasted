@@ -1282,6 +1282,7 @@
   "component.settingsAnalysisPanel.rescannedCountTextClipsCount2Reclassified": "סרוקו מחדש את קליפי הטקסט {count}; {count2} מסווג מחדש.",
   "component.settingsAnalysisPanel.rescannedCountTextClipsCount2ReclassifiedAndCount3Failed": "סרוקו מחדש את קליפי הטקסט {count}; {count2} מסווג מחדש ו-{count3} נכשל.",
   "component.settingsAnalysisPanel.rescannedCountClipsCount2UpdatedCount3Failed": "נסרקו מחדש {count} קליפים; {count2} עודכנו ו-{count3} נכשלו.",
+  "component.settingsAnalysisPanel.rescannedCountClipsCount2UpdatedCount3UnavailableCount4Failed": "נסרקו מחדש {count} קליפים; {count2} עודכנו, {count3} אינם זמינים ו-{count4} נכשלו.",
   "component.settingsAnalysisPanel.rescanning": "סריקה חוזרת…",
   "component.settingsAnalysisPanel.reset": "איפוס…",
   "component.settingsAnalysisPanel.resetShippedAnalysisDefinitions": "איפוס הגדרות ניתוח שנשלחו?",

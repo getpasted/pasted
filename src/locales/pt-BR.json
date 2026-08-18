@@ -1275,6 +1275,7 @@
   "component.settingsAnalysisPanel.rescannedCountTextClipsCount2Reclassified": "Clipes de texto rescantados {count}; {count2} reclassificado.",
   "component.settingsAnalysisPanel.rescannedCountTextClipsCount2ReclassifiedAndCount3Failed": "Clipes de texto rescantados {count}; {count2} reclassificado e {count3} falhou.",
   "component.settingsAnalysisPanel.rescannedCountClipsCount2UpdatedCount3Failed": "{count} clipes reanalisados; {count2} atualizados e {count3} com falha.",
+  "component.settingsAnalysisPanel.rescannedCountClipsCount2UpdatedCount3UnavailableCount4Failed": "{count} clipes reanalisados; {count2} atualizados, {count3} indisponíveis e {count4} com falha.",
   "component.settingsAnalysisPanel.rescanning": "Rescando…",
   "component.settingsAnalysisPanel.reset": "Resetar…",
   "component.settingsAnalysisPanel.resetShippedAnalysisDefinitions": "Resetar definições de análise enviadas?",

@@ -1303,6 +1303,7 @@
   "component.settingsAnalysisPanel.rescannedCountTextClipsCount2Reclassified": "تم إعادة فحص تصنيفات النصوص {count}؛ تم إعادة تصنيف {count2}.",
   "component.settingsAnalysisPanel.rescannedCountTextClipsCount2ReclassifiedAndCount3Failed": "تم إعادة فحص تصنيفات النصوص {count}؛ تم إعادة تصنيف {count2} وفشل {count3}.",
   "component.settingsAnalysisPanel.rescannedCountClipsCount2UpdatedCount3Failed": "أُعيد فحص {count} من المقاطع؛ حُدّث {count2} وفشل {count3}.",
+  "component.settingsAnalysisPanel.rescannedCountClipsCount2UpdatedCount3UnavailableCount4Failed": "أُعيد فحص {count} من المقاطع؛ حُدّث {count2}، وتعذّر الوصول إلى {count3}، وفشل {count4}.",
   "component.settingsAnalysisPanel.rescanning": "إعادة الفحص…",
   "component.settingsAnalysisPanel.reset": "إعادة الضبط…",
   "component.settingsAnalysisPanel.resetShippedAnalysisDefinitions": "إعادة ضبط تعريفات التحليل المرسلة؟",

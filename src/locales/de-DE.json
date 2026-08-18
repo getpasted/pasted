@@ -1275,6 +1275,7 @@
   "component.settingsAnalysisPanel.rescannedCountTextClipsCount2Reclassified": "{count} Textclips erneut analysiert; {count2} neu klassifiziert.",
   "component.settingsAnalysisPanel.rescannedCountTextClipsCount2ReclassifiedAndCount3Failed": "{count} Textclips erneut analysiert; {count2} neu klassifiziert und {count3} fehlgeschlagen.",
   "component.settingsAnalysisPanel.rescannedCountClipsCount2UpdatedCount3Failed": "{count} Clips erneut analysiert; {count2} aktualisiert und {count3} fehlgeschlagen.",
+  "component.settingsAnalysisPanel.rescannedCountClipsCount2UpdatedCount3UnavailableCount4Failed": "{count} Clips erneut analysiert; {count2} aktualisiert, {count3} nicht verfügbar und {count4} fehlgeschlagen.",
   "component.settingsAnalysisPanel.rescanning": "Erneute Analyse läuft…",
   "component.settingsAnalysisPanel.reset": "Zurücksetzen…",
   "component.settingsAnalysisPanel.resetShippedAnalysisDefinitions": "Mitgelieferte Analysedefinitionen zurücksetzen?",
