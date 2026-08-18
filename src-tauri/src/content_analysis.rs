@@ -31,8 +31,8 @@ pub(crate) struct AnalysisContext {
     pub image_bytes: Option<Vec<u8>>,
     pub searchable_text: Option<String>,
     pub extraction_observations: Vec<ExtractionObservation>,
-    pub classified_type: Option<String>,
-    pub matched_classifier_ref: Option<String>,
+    pub classification_matches: Vec<crate::content_classification::ClassificationMatch>,
+    pub classification_complete: bool,
     pub structural_metadata: Option<crate::content_inspection::StructuralMetadata>,
     pub media_metadata: Option<crate::content_inspection::MediaMetadata>,
     pub suggestions: Option<crate::content_suggestions::SmartActionSuggestions>,
@@ -48,8 +48,8 @@ impl AnalysisContext {
             image_bytes: None,
             searchable_text: None,
             extraction_observations: Vec::new(),
-            classified_type: None,
-            matched_classifier_ref: None,
+            classification_matches: Vec::new(),
+            classification_complete: false,
             structural_metadata: None,
             media_metadata: None,
             suggestions: None,
@@ -65,8 +65,8 @@ impl AnalysisContext {
             image_bytes: Some(image_bytes),
             searchable_text: None,
             extraction_observations: Vec::new(),
-            classified_type: None,
-            matched_classifier_ref: None,
+            classification_matches: Vec::new(),
+            classification_complete: false,
             structural_metadata: None,
             media_metadata: None,
             suggestions: None,
@@ -92,7 +92,7 @@ impl AnalysisContext {
             RepresentationKind::ImageBytes => self.image_bytes.is_some(),
             RepresentationKind::SearchableText => self.searchable_text.is_some(),
             RepresentationKind::AnalyzableText => self.analysis_text().is_some(),
-            RepresentationKind::Classification => self.classified_type.is_some(),
+            RepresentationKind::Classification => self.classification_complete,
             RepresentationKind::StructuralMetadata => self.structural_metadata.is_some(),
             RepresentationKind::MediaMetadata => self.media_metadata.is_some(),
             RepresentationKind::Suggestions => self.suggestions.is_some(),
@@ -144,8 +144,8 @@ impl AnalysisInput {
                 image_bytes: None,
                 searchable_text: None,
                 extraction_observations: Vec::new(),
-                classified_type: None,
-                matched_classifier_ref: None,
+                classification_matches: Vec::new(),
+                classification_complete: false,
                 structural_metadata: None,
                 media_metadata: None,
                 suggestions: None,
@@ -380,12 +380,8 @@ fn classifier_participant<'a>(classifiers: &'a [Classifier]) -> AnalysisParticip
             let Some(text) = context.analysis_text() else {
                 return Ok(ParticipantOutcome::NoOutput);
             };
-            let classification = classify_with_classifiers(text, classifiers);
-            context.classified_type = Some(classification.as_ref().map_or_else(
-                || "text".to_string(),
-                |matched| matched.content_type.clone(),
-            ));
-            context.matched_classifier_ref = classification.map(|matched| matched.classifier_ref);
+            context.classification_matches = classify_with_classifiers(text, classifiers);
+            context.classification_complete = true;
             Ok(ParticipantOutcome::Produced)
         },
     )
@@ -515,7 +511,11 @@ fn suggestion_participant<'a>(
             };
             let suggestions = crate::content_suggestions::suggest_smart_actions(
                 text,
-                context.classified_type.as_deref(),
+                &context
+                    .classification_matches
+                    .iter()
+                    .map(|matched| matched.content_type.clone())
+                    .collect::<Vec<_>>(),
                 structure,
                 transforms,
             );
@@ -746,7 +746,10 @@ mod tests {
             report.context.searchable_text.as_deref(),
             Some("agent@example.com")
         );
-        assert_eq!(report.context.classified_type.as_deref(), Some("email"));
+        assert_eq!(
+            report.context.classification_matches[0].content_type,
+            "email"
+        );
         assert_eq!(report.runs.len(), 2);
         assert_eq!(report.runs[0].pass, AnalysisPass::Extract);
         assert_eq!(report.runs[1].pass, AnalysisPass::Classify);
@@ -868,7 +871,16 @@ mod tests {
                         provides: vec![RepresentationKind::Classification],
                     },
                     |context| {
-                        context.classified_type = Some("derived".into());
+                        context.classification_matches =
+                            vec![crate::content_classification::ClassificationMatch {
+                                classifier_ref: "test:derived".into(),
+                                classifier_name: "Derived".into(),
+                                content_type: "derived".into(),
+                                priority: 1,
+                                start_offset: 0,
+                                end_offset: 7,
+                            }];
+                        context.classification_complete = true;
                         Ok(ParticipantOutcome::Produced)
                     },
                 ),
@@ -901,7 +913,10 @@ mod tests {
             AnalysisPass::Suggest,
         );
 
-        assert_eq!(report.context.classified_type.as_deref(), Some("derived"));
+        assert_eq!(
+            report.context.classification_matches[0].content_type,
+            "derived"
+        );
         assert_eq!(report.runs.len(), 3);
         assert_eq!(report.runs[0].stable_ref, "producer");
         assert_eq!(report.runs[1].stable_ref, "consumer");
@@ -1090,7 +1105,10 @@ mod tests {
     fn text_classification_uses_the_same_scheduler_contract() {
         let classifiers = vec![classifier(r"^#[0-9a-fA-F]{6}$", "color")];
         let report = analyze_test_text("#112233", &classifiers);
-        assert_eq!(report.context.classified_type.as_deref(), Some("color"));
+        assert_eq!(
+            report.context.classification_matches[0].content_type,
+            "color"
+        );
         assert_eq!(report.runs[0].stable_ref, "analysis:content-classifiers");
     }
 }

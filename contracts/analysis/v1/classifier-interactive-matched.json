@@ -6,8 +6,19 @@
   "targetRef": "classifier:email",
   "outcome": "matched",
   "matched": true,
-  "classifiedType": "email",
-  "matchedClassifierRef": "classifier:email",
+  "contentTypes": [
+    "email"
+  ],
+  "matches": [
+    {
+      "classifierRef": "classifier:email",
+      "classifierName": "Email",
+      "contentType": "email",
+      "priority": 10,
+      "startOffset": 0,
+      "endOffset": 17
+    }
+  ],
   "failure": null,
   "participants": [
     {

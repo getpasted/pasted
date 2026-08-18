@@ -66,8 +66,10 @@ assert.match(clipCard, /features\.types[\s\S]{0,100}structuralClipType/,
   'Clip cards must fall back to structural Clip Type when Content Types is disabled');
 assert.match(clipCard, /features\.sources && <span className="font-medium theme-text-main/,
   'Clip cards must hide Source chrome when Sources is disabled');
-assert.match(clipPreview, /features\.types[\s\S]{0,180}structuralClipType/,
-  'Clip Preview must fall back to structural Clip Type when Content Types is disabled');
+assert.match(clipPreview, /contentTypeLabel\(structuralClipType\(clip\.content_type\)\)/,
+  'Clip Preview must always show structural Clip Type');
+assert.match(clipPreview, /features\.types && visibleContentTypes\.map/,
+  'Clip Preview must hide detected Content Types when Content Types is disabled');
 assert.match(clipPreview, /features\.sources && <OverflowText text=\{localizedSourceName\(clip\.source\)\}/,
   'Clip Preview must hide its Source label when Sources is disabled');
 assert.match(analytics, /features\.sources && <div className="theme-panel[\s\S]{0,1000}translate\('component\.analyticsView\.topSourceInHistory'\)/,
@@ -257,7 +259,7 @@ for (const [label, panelEdge] of [['header', registryPanelHeader], ['footer', re
 }
 assert.match(registryPanelFooter, /min-h-12/,
   'Registry panel footers must retain their aligned minimum height with and without actions');
-assert.match(architecture, /## Version 1 freeze/, 'Analysis architecture must declare the v1 freeze');
+assert.match(architecture, /## Version 1 contract/, 'Analysis architecture must declare the version 1 contract');
 assert.match(releaseChecklist, /## Content Analysis/, 'The release checklist must retain Analysis acceptance');
 
 console.log('Analysis JSON contract audit passed.');

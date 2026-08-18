@@ -103,6 +103,7 @@ function searchableValues(clip: ClipItem) {
     clip.source,
     getClipNoteSummary(clip.note),
     clip.content_type,
+    ...(clip.content_types ?? []),
     ...getClipFilePaths(clip),
   ].filter((value): value is string => Boolean(value));
 }
@@ -116,9 +117,9 @@ export function clipMatchesSearch(clip: ClipItem, plan: ClipSearchPlan) {
   }
 
   const source = clip.source.toLowerCase();
-  const type = clip.content_type.toLowerCase();
+  const types = [clip.content_type, ...(clip.content_types ?? [])].map((value) => value.toLowerCase());
   if (!plan.sources.every((value) => source.includes(value))) return false;
-  if (!plan.types.every((value) => type.includes(value))) return false;
+  if (!plan.types.every((value) => types.some((type) => type.includes(value)))) return false;
   if (plan.requiresNote && !clip.note?.trim()) return false;
   if (plan.requiresPinned && !clip.is_pinned) return false;
   if (plan.requiresProtected && !clip.is_protected) return false;

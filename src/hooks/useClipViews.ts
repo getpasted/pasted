@@ -72,11 +72,13 @@ function matchesCondition(clip: ClipItem, condition: SmartCondition) {
   if (condition.type === 'file_path') {
     return getClipFilePaths(clip).some((path) => path.toLowerCase().includes(expected));
   }
+  if (condition.type === 'content_type') {
+    return (clip.content_types ?? []).some((contentType) => contentType.toLowerCase() === expected)
+      || clip.content_type.toLowerCase() === expected;
+  }
   const actual = condition.type === 'source'
     ? clip.source
-    : condition.type === 'content_type'
-      ? clip.content_type
-      : condition.type === 'origin_kind'
+    : condition.type === 'origin_kind'
         ? getClipOriginKind(clip)
       : condition.type === 'contains'
         ? clip.text_content
@@ -218,7 +220,9 @@ export function useClipViews({
     let clips = collection?.membership === 'trash' ? trashedClips : allClips;
     if (collection?.membership === 'trash') return clips;
     const facet = parseClipFacetRoute(currentTab);
-    if (facet?.kind === 'type') clips = clips.filter((clip) => clip.content_type === facet.value);
+    if (facet?.kind === 'type') {
+      clips = clips.filter((clip) => (clip.content_types ?? []).includes(facet.value as ClipItem['content_type']) || clip.content_type === facet.value);
+    }
     if (facet?.kind === 'source') clips = clips.filter((clip) => clip.source === facet.value);
     if (collection?.membership === 'bin' && selectedBinId !== null) clips = filterByBin(clips, bins, selectedBinId);
     if (collection?.membership === 'pinned') clips = clips.filter((clip) => clip.is_pinned);

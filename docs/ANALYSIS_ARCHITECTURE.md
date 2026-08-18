@@ -2,9 +2,9 @@
 
 Pasted runs derived-content work through one bounded Analyzer and exposes participant-specific results through parallel execution modules.
 
-## Version 1 freeze
+## Version 1 contract
 
-The serialized contracts under `contracts/analysis/v1`, their outcome and failure semantics, the four ordered passes, and the privacy boundary described here are frozen for Pasted 1.0. Internal implementation and performance changes may continue without changing observable behavior. Any incompatible field, outcome, pass, mutation, or privacy change requires a new contract version; additive changes require explicit GUI, CLI, fixture, and documentation review.
+The serialized contracts under `contracts/analysis/v1`, their outcome and failure semantics, the four ordered passes, and the privacy boundary described here define Pasted 1.0. Before the stable release, contract changes must update GUI, CLI, fixtures, tests, and documentation atomically. After release, incompatible field, outcome, pass, mutation, or privacy changes require a new contract version; additive changes still require explicit cross-surface review.
 
 Structure Inspection, Media Metadata, and Smart Actions are immutable built-in participants in 1.0. Structure Inspection is always available because Clip Preview depends on its bounded structural facts. The locally powered Media Metadata Inspector and Smart Actions run only under the interactive policy. Smart Actions also follows the user-facing Transformations feature state. These participants do not have redundant Settings switches. Their definitions and contracts remain inspectable through `pasted inspector`, `pasted suggestion`, and `pasted registry`.
 
@@ -17,7 +17,7 @@ Structure Inspection, Media Metadata, and Smart Actions are immutable built-in p
 
 Capture, background, and rescan policies stop after Classify. Interactive work may continue through Suggest, so optional expensive participants never run implicitly during capture. Callers choose a policy and available participants; they do not invoke scheduler passes directly.
 
-Text capture submits one Capture-policy Analyzer request and reuses its classification and structural metadata during insertion. Persistence falls back to focused structural inspection only when the precomputed snapshot is unavailable or cannot be safely activated. Focused rescans and OCR application remain participant-specific because their mutation contracts intentionally target only classification or extracted text.
+Text capture submits one Capture-policy Analyzer request and reuses its classification matches and structural metadata during insertion. Persistence falls back to focused structural inspection only when the precomputed snapshot is unavailable or cannot be safely activated. Focused rescans and Extractor application remain participant-specific because their mutation contracts intentionally target only classification or extracted text.
 
 The shipped `inspector:structure-v1` participant produces `structural_metadata` during the inspect pass. Stable, content-free facts are persisted against the clip content hash and a structural input fingerprint. Filesystem availability and size are live observations kept outside durable Analysis results. Full Backup includes the durable result table automatically; portable History and Organization transfer omits recomputable derived results.
 
@@ -25,11 +25,11 @@ The shipped `inspector:media-metadata-v1` participant consumes file references o
 
 The shipped `suggestion:smart-actions-v1` participant consumes analyzable text, classification, and structural metadata only for interactive requests. It returns bounded signals and stable saved-Transform references; it never returns input content, executes a Transform, or writes a clip. Clip Preview and `pasted suggestion run` use the same execution result.
 
-Clip Preview and `pasted analyzer run` consume the whole-Analyzer snapshot. The snapshot reports clip kind, structural metadata, classification, content-free suggestions, participant outcomes, and only a boolean indicating whether searchable text became available. It never returns original text, extracted text, image bytes, or file paths. File references cannot be reinterpreted as analyzable text; only a successful Extractor may produce the searchable-text representation consumed by later passes. Automatic Clip Preview requests do not enable extraction; explicit GUI extraction or `pasted analyzer run --clip ID --extract` opts into potentially expensive OCR or transcription.
+Clip Preview and `pasted analyzer run` consume the whole-Analyzer snapshot. The snapshot reports clip kind, structural metadata, occurrence-level classification matches, content-free suggestions, participant outcomes, and only a boolean indicating whether searchable text became available. It never returns original text, extracted text, image bytes, file paths, or matched substrings. File references cannot be reinterpreted as analyzable text; only a successful Extractor may produce the searchable-text representation consumed by later passes. Automatic Clip Preview requests do not enable extraction; explicit GUI extraction or `pasted analyzer run --clip ID --extract` opts into potentially expensive OCR or transcription.
 
 ## Type applicability
 
-Capture establishes three distinct axes. Every clip has one structural Clip Type—Text, Image, or Files. A Files clip may expose several File Formats because it can reference several files. Analysis may add a semantic Content Type without rewriting either structural identity or original content. Version 1 persistence retains one winning Content Type; a future multi-match schema may associate several Content Types with one clip.
+Capture establishes three distinct axes. Every clip has one structural Clip Type—Text, Image, or Files. A Files clip may expose several File Formats because it can reference several files. Analysis may add several semantic Content Types and occurrences without rewriting either structural identity or original content. Version 1 persistence binds those matches to the analyzed content hash, representation, Classifier, and character offsets.
 
 The shared registry models applicability as typed edges. Every Analyzer item exposes a `participantContract` containing accepted and produced representations. Its `typeRelations` identify direct edges: `accepts` currently uses the legacy `image` and `file` registry IDs to describe Clip Type applicability, while `classifies_as` connects each Classifier to the semantic Content Type it produces. GUI and CLI consumers can visualize participant → representation → classification relationships without interpreting display names or engine IDs. This legacy wire naming is frozen for the version 1 contract; user-facing surfaces must keep Clip Type and Content Type distinct.
 

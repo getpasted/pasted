@@ -176,11 +176,13 @@ fn extractor_recipes_have_cli_authoring_and_execution_parity() {
 fn history_and_settings_commands_have_executable_json_contracts() {
     let database = temporary_path("history", "db");
     let saved = success_json(&database, &["copy", "person@example.com", "--json"]);
-    assert_eq!(saved["contentType"], "email");
+    assert_eq!(saved["contentType"], "text");
+    assert_eq!(saved["contentTypes"][0], "email");
 
     let listed = success_json(&database, &["list", "--limit", "5", "--json"]);
     assert_eq!(listed.as_array().map(Vec::len), Some(1));
-    assert_eq!(listed[0]["content_type"], "email");
+    assert_eq!(listed[0]["content_type"], "text");
+    assert_eq!(listed[0]["content_types"][0], "email");
 
     let insights = success_json(&database, &["insights", "summary", "--json"]);
     assert_eq!(insights["clip_types"][0]["clip_type"], "text");
@@ -483,7 +485,10 @@ fn whole_analyzer_has_one_versioned_privacy_safe_cli_contract() {
     assert_eq!(interactive["policy"], "interactive");
     assert_eq!(interactive["through"], "suggest");
     assert_eq!(interactive["result"]["clipKind"], "text");
-    assert_eq!(interactive["result"]["classifiedType"], "text");
+    assert_eq!(
+        interactive["result"]["classificationMatches"][0]["contentType"],
+        "email"
+    );
     assert!(interactive["result"]["structure"].is_object());
     assert!(interactive["result"]["suggestions"].is_object());
     assert_eq!(interactive["participants"][0]["pass"], "inspect");
@@ -890,7 +895,8 @@ fn classifier_preview_and_apply_share_the_safe_execution_contract() {
     assert_eq!(preview["targetRef"], stable_ref);
     assert_eq!(preview["outcome"], "matched");
     assert_eq!(preview["matched"], true);
-    assert_eq!(preview["classifiedType"], "code");
+    assert_eq!(preview["contentTypes"][0], "code");
+    assert_eq!(preview["matches"][0]["classifierRef"], stable_ref);
     assert_eq!(preview["appliedClipId"], Value::Null);
     assert_eq!(preview["participants"][0]["pass"], "classify");
     assert!(!preview.to_string().contains("ticket-123"));
@@ -915,7 +921,8 @@ fn classifier_preview_and_apply_share_the_safe_execution_contract() {
         .as_array()
         .and_then(|items| items.iter().find(|item| item["id"] == clip_id))
         .expect("updated clip");
-    assert_eq!(updated["content_type"], "code");
+    assert_eq!(updated["content_type"], "text");
+    assert_eq!(updated["content_types"][0], "code");
 
     let deleted = success_json(&database, &["classifier", "delete", stable_ref, "--json"]);
     assert_eq!(deleted["deleted"], true);

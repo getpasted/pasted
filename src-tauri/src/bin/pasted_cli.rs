@@ -1339,13 +1339,21 @@ fn run_command(command: &str, args: &[String], db_path: PathBuf, conn: Connectio
             } else {
                 println!("Kind: {}", result.analysis.result.clip_kind);
                 println!(
-                    "Classified as: {}",
-                    result
-                        .analysis
-                        .result
-                        .classified_type
-                        .as_deref()
-                        .unwrap_or("—")
+                    "Content types: {}",
+                    if result.analysis.result.classification_matches.is_empty() {
+                        "—".to_string()
+                    } else {
+                        result
+                            .analysis
+                            .result
+                            .classification_matches
+                            .iter()
+                            .map(|matched| matched.content_type.as_str())
+                            .collect::<std::collections::BTreeSet<_>>()
+                            .into_iter()
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    }
                 );
                 println!("Participants: {}", result.analysis.participants.len());
                 if let Some(suggestions) = result.analysis.result.suggestions.as_ref() {
@@ -2077,7 +2085,7 @@ fn run_command(command: &str, args: &[String], db_path: PathBuf, conn: Connectio
                     } else if let Some(failure) = result.analysis.failure.as_ref() {
                         eprintln!("Classifier failed ({}): {}", failure.code, failure.message);
                     } else if result.analysis.matched {
-                        println!("Matches {}.", result.analysis.classification());
+                        println!("Matches {}.", result.analysis.content_types.join(", "));
                     } else {
                         println!("Does not match.");
                     }
@@ -3771,6 +3779,7 @@ fn run_command(command: &str, args: &[String], db_path: PathBuf, conn: Connectio
                     &db,
                     clip.id,
                     &clip.content_type,
+                    &clip.content_types,
                     &trimmed,
                     "CLI Terminal",
                 );
@@ -3780,7 +3789,11 @@ fn run_command(command: &str, args: &[String], db_path: PathBuf, conn: Connectio
             if args.iter().any(|argument| argument == "--json") {
                 println!(
                     "{}",
-                    serde_json::json!({ "id": clip.id, "contentType": clip.content_type })
+                    serde_json::json!({
+                        "id": clip.id,
+                        "contentType": clip.content_type,
+                        "contentTypes": clip.content_types,
+                    })
                 );
             } else {
                 println!("Saved {} clip #{} to History.", clip.content_type, clip.id);
@@ -3871,12 +3884,33 @@ fn run_command(command: &str, args: &[String], db_path: PathBuf, conn: Connectio
                 .join(" ");
             let pattern = format!("%{}%", query);
             let mut stmt = conn.prepare(
-                "SELECT id, content_type, text_content, source, created_at
+                "SELECT clips.id, clips.content_type, clips.text_content, clips.source, clips.created_at,
+                        COALESCE((
+                            SELECT json_group_array(content_type)
+                            FROM (
+                                SELECT classified.content_type
+                                FROM clip_analysis_classifications AS classified
+                                WHERE classified.clip_id = clips.id
+                                  AND classified.input_hash = clips.content_hash
+                                GROUP BY classified.content_type
+                                ORDER BY MIN(classified.id)
+                            )
+                        ), '[]')
                  FROM clips
                  WHERE is_trashed = ?5
-                   AND (?1 = '' OR text_content LIKE ?2)
-                   AND (?3 IS NULL OR content_type = ?3)
-                   AND (?4 IS NULL OR source = ?4)
+                   AND (?1 = '' OR clips.text_content LIKE ?2 OR EXISTS (
+                        SELECT 1 FROM clip_searchable_text AS extracted
+                        WHERE extracted.clip_id = clips.id
+                          AND extracted.input_hash = clips.content_hash
+                          AND extracted.searchable_text LIKE ?2
+                   ))
+                   AND (?3 IS NULL OR clips.content_type = ?3 OR EXISTS (
+                        SELECT 1 FROM clip_analysis_classifications AS classified
+                        WHERE classified.clip_id = clips.id
+                          AND classified.input_hash = clips.content_hash
+                          AND classified.content_type = ?3
+                   ))
+                   AND (?4 IS NULL OR clips.source = ?4)
                  ORDER BY created_at DESC
                  LIMIT ?6 OFFSET ?7",
             )?;
@@ -3890,6 +3924,8 @@ fn run_command(command: &str, args: &[String], db_path: PathBuf, conn: Connectio
                             row.get::<_, Option<String>>(2)?.unwrap_or_default(),
                             row.get::<_, String>(3)?,
                             row.get::<_, String>(4)?,
+                            serde_json::from_str::<Vec<String>>(&row.get::<_, String>(5)?)
+                                .unwrap_or_default(),
                         ))
                     },
                 )?
@@ -3898,23 +3934,33 @@ fn run_command(command: &str, args: &[String], db_path: PathBuf, conn: Connectio
             if json {
                 let payload = rows
                     .into_iter()
-                    .map(|(id, content_type, content, source, created_at)| {
-                        serde_json::json!({
-                            "id": id,
-                            "content_type": content_type,
-                            "text_content": content,
-                            "source": source,
-                            "created_at": created_at,
-                        })
-                    })
+                    .map(
+                        |(id, content_type, content, source, created_at, content_types)| {
+                            serde_json::json!({
+                                "id": id,
+                                "content_type": content_type,
+                                "content_types": content_types,
+                                "text_content": content,
+                                "source": source,
+                                "created_at": created_at,
+                            })
+                        },
+                    )
                     .collect::<Vec<_>>();
                 println!(
                     "{}",
                     serde_json::to_string_pretty(&payload).map_err(json_error)?
                 );
             } else {
-                for (id, c_type, content, source, date) in rows {
-                    println!("[#{id}] ({c_type} from {source} @ {date}):\n{content}\n---");
+                for (id, c_type, content, source, date, content_types) in rows {
+                    let detected = if content_types.is_empty() {
+                        String::new()
+                    } else {
+                        format!("; {}", content_types.join(", "))
+                    };
+                    println!(
+                        "[#{id}] ({c_type}{detected} from {source} @ {date}):\n{content}\n---"
+                    );
                 }
             }
         }

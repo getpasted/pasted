@@ -148,7 +148,7 @@ fn main() {
 
     assert!((60_000..=66_000).contains(&text.len()));
     assert!(!analyze_classifiers("ordinary benchmark text", &classifiers).matched);
-    let suggestion = suggest_smart_actions(&text, Some("link"), &inspection, &transforms);
+    let suggestion = suggest_smart_actions(&text, &["link".into()], &inspection, &transforms);
     assert_eq!(suggestion.actions.len(), 1);
     assert_eq!(
         suggestion.actions[0].transform_ref,
@@ -190,7 +190,7 @@ fn main() {
             || {
                 black_box(suggest_smart_actions(
                     black_box(&text),
-                    Some("link"),
+                    &["link".into()],
                     black_box(&inspection),
                     black_box(&transforms),
                 ));

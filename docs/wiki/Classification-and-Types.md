@@ -1,6 +1,6 @@
 # Content Analysis and Content Types
 
-Content Classification assigns semantic Content Types to new text clips for search, calculated collections, and Smart Bins. It runs locally through an ordered registry of regular expressions and optional built-in validators; no intelligence provider is involved.
+Content Classification finds semantic Content Types in original and extracted searchable text for search, calculated collections, and Smart Bins. It runs locally through an ordered registry of regular expressions and optional built-in validators; no intelligence provider is involved.
 
 Open **Settings → Analysis** to configure Analyzer participants. **Content Classification** controls whether Classifiers run; **Content Types** controls semantic labels, collections, and related library presentation without stopping classification.
 
@@ -19,7 +19,7 @@ Within each pass, ready participants run in priority order. A participant blocke
 
 The four passes share one versioned participant contract for target identity, requirements, outputs, outcomes, failures, and clip-application state. Capture, background work, and rescans stop after classification. Interactive requests may continue through suggestion, so optional expensive participants do not run implicitly when content is captured. Inspector, Extractor, and Classifier execution modules submit typed requests and translate the internal scheduler report into their domain-specific result without redefining those fields. Suggestion implementations follow the same boundary, so adding a pass participant does not require GUI or CLI code to interpret raw Analyzer state.
 
-Text capture runs inspection and enabled classification in one Capture-policy request, then reuses that snapshot for the stored Content Type and content-hash-bound structural metadata. Focused history rescans and OCR application keep their narrower participant-specific mutation contracts.
+Text capture runs inspection and enabled classification in one Capture-policy request, then reuses that snapshot for content-hash-bound Content Type matches and structural metadata. Focused history rescans and Extractor application keep their narrower participant-specific mutation contracts.
 
 The built-in Structure Inspector records content-free text counts, image dimensions, file item counts and extensions, and the derived clip origin. Stable results are fingerprinted and persisted; filesystem availability and total file size remain live observations. Clip Preview and `pasted inspector run` consume the same versioned result.
 
@@ -27,7 +27,7 @@ The built-in Smart Actions participant uses classification, structural metadata,
 
 The Structure Inspector and Smart Actions do not have individual Settings switches. Structure is immutable and always available because Clip Preview depends on its bounded facts. Smart Actions is immutable and follows the Transformations feature under **Settings → Functionality**. Their read-only managers under **Settings → Analysis** show practical input/output relationships and runtime status, with stable references and contracts under Technical details for CLI and API use. Extractors and Classifiers remain authorable.
 
-Every public Analysis result carries the same explicit `formatVersion`, policy, final pass, and privacy-safe participant summaries. Extractor and Classifier results retain their participant-specific outcome and application fields at the top level for stable GUI and CLI consumption.
+Every public Analysis result carries the same explicit `formatVersion`, policy, final pass, and privacy-safe participant summaries. Classifier results include distinct Content Types and occurrence-level matches with Classifier identity and character offsets, but never the matched text. Extractor results carry the same derived classification matches alongside their participant-specific outcome and application fields.
 
 ## Extractors
 
@@ -51,7 +51,7 @@ Background OCR, manual GUI extraction, CLI Extractor application, and CLI rescan
 
 ## How classifier matching works
 
-Enabled classifiers are evaluated in priority order; the lowest priority number runs first. Each classifier defines:
+Enabled classifiers are evaluated in priority order; the lowest priority number runs first. Priority orders the results rather than selecting one winner. Each classifier defines:
 
 - a display name and description;
 - the Content Type assigned to a match;
@@ -59,30 +59,30 @@ Enabled classifiers are evaluated in priority order; the lowest priority number 
 - an optional validator that rejects likely false positives;
 - an enabled state.
 
-Available validators include card and IBAN checksums, IP parsing, phone guardrails, environment-block recognition, and prose guardrails. A validator supplements the regular expression; it does not replace it.
+Every valid regex occurrence is retained, subject to per-Classifier and per-clip safety limits. A clip can therefore contain several Content Types and several occurrences of the same type. Available validators include card and IBAN checksums, IP parsing, phone guardrails, environment-block recognition, and prose guardrails. A validator supplements the regular expression; it does not replace it.
 
 Use the sample field and **Test** before saving a classifier. Testing reports whether the current draft matches the sample without reclassifying history.
 
-Classifier previews, new text capture, explicit application, and history rescans consume the same typed Analysis result. It distinguishes `matched`, `no_match`, and `failed`, carries the matched Content Type and Classifier reference, and includes bounded participant summaries without including analyzed text. Applying a Classifier runs inside the clip mutation transaction, so the returned result describes the content and Classifier definition that were actually applied.
+Classifier previews, new text capture, Extractor output, explicit application, and history rescans consume the same typed Analysis result. It distinguishes `matched`, `no_match`, and `failed`; carries ordered Content Types and occurrence matches; and includes bounded participant summaries without including analyzed text. Applying a Classifier replaces only that Classifier's current matches inside the clip mutation transaction, so the returned result describes the content and definition that were actually applied.
 
 ## Editing and recovering classifiers
 
 Built-in and custom classifiers can be enabled, disabled, reordered by priority, duplicated, and edited. Deleting a shipped classifier does not make it unrecoverable. **Reset to Default** restores the selected built-in draft. **Reset…** restores shipped Content Types and Classifiers while preserving custom entries.
 
-Classifier changes affect newly captured text. Existing clips keep their current Content Type until an explicit rescan.
+Classifier changes affect newly analyzable content. Existing matches remain unchanged until an explicit rescan.
 
 ## Rescan Clips
 
-**Rescan Clips** reapplies the current enabled classifier order to existing text clips. Confirm it only when you intend to reinterpret existing data because it can change:
+**Rescan Clips** reapplies every enabled Classifier to current original and extracted searchable text. Confirm it only when you intend to reinterpret existing data because it can change:
 
-- clip Content Types;
+- Content Type matches and occurrence counts;
 - Content Type collection results;
 - Smart Bin membership;
 - sensitive-content masking driven by classification.
 
-Images and file clips are not reclassified. The completed operation reports how many text clips changed, remained unchanged, or failed Analysis. Classifier and Content Type registry edits are recorded in Activity when that feature is enabled, but registry metadata does not use clip Revision History.
+Image and Files clips participate when an Extractor has produced current searchable text; their structural Clip Type remains unchanged. The completed operation reports how many analyzable clips changed, remained unchanged, or failed Analysis. Classifier and Content Type registry edits are recorded in Activity when that feature is enabled, but registry metadata does not use clip Revision History.
 
-If Analysis itself fails for a clip, the rescan leaves that clip's existing Content Type unchanged instead of silently reclassifying it as plain text.
+If Analysis itself fails for a clip, the rescan leaves its existing matches unchanged.
 
 The CLI equivalent requires explicit confirmation:
 
@@ -92,7 +92,7 @@ pasted classifier rescan --yes --json
 
 ## Content Types and Groups
 
-Clip Type, File Format, and Content Type are separate concepts. Every clip has exactly one structural Clip Type: Text, Image, or Files. A Files clip may contain several referenced files and therefore several File Formats. Classifiers may eventually associate several semantic Content Types with one clip; the current persistence contract retains one winning classification until the multi-match schema migration is complete. Insights presents these categories separately rather than combining them.
+Clip Type, File Format, and Content Type are separate concepts. Every clip has exactly one structural Clip Type: Text, Image, or Files. A Files clip may contain several referenced files and therefore several File Formats. Classifiers can associate several semantic Content Types—and several occurrences of each type—with one clip. Insights counts each clip once per detected Content Type and presents the three categories separately.
 
 **Manage Content Types…** opens the shared Content Type and Group registry. Content Type IDs are stable so saved searches, Smart Bins, CLI output, and historical clips can keep referring to the same concept even when its name, icon, or group changes.
 

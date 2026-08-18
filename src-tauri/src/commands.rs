@@ -1356,6 +1356,15 @@ pub fn restore_default_content_classifiers(
 }
 
 #[tauri::command]
+pub fn get_clip_content_matches(
+    clip_id: i64,
+    db: State<'_, Arc<DbState>>,
+) -> Result<Vec<crate::db::AnalysisClassification>, String> {
+    db.get_analysis_classifications(clip_id)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
 pub async fn rescan_content_classification_history(
     confirmed: bool,
     app: AppHandle,
@@ -5161,6 +5170,7 @@ mod tests {
         let clip = ClipItem {
             id: 1,
             content_type: "image".to_string(),
+            content_types: Vec::new(),
             text_content: Some("recognized OCR text".to_string()),
             html_content: None,
             image_base64: Some(image_base64),

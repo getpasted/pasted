@@ -23,8 +23,8 @@ pub struct ClassificationResult {
     pub target_ref: String,
     pub outcome: ClassificationOutcome,
     pub matched: bool,
-    pub classified_type: Option<String>,
-    pub matched_classifier_ref: Option<String>,
+    pub content_types: Vec<String>,
+    pub matches: Vec<crate::content_classification::ClassificationMatch>,
     pub failure: Option<AnalysisFailure>,
     pub participants: Vec<ParticipantRun>,
 }
@@ -38,9 +38,11 @@ impl ClassificationResult {
     ) -> Self {
         let resolution = analysis.resolve_participant(CLASSIFIER_PARTICIPANT_REF, target_kind);
         let failure = resolution.failure;
-        let matched = failure.is_none()
-            && analysis.context.matched_classifier_ref.is_some()
-            && analysis.context.classified_type.is_some();
+        let mut matches = analysis.context.classification_matches;
+        if failure.is_some() {
+            matches.clear();
+        }
+        let matched = failure.is_none() && !matches.is_empty();
         let outcome = if failure.is_some() {
             ClassificationOutcome::Failed
         } else if matched {
@@ -54,19 +56,16 @@ impl ClassificationResult {
             target_ref,
             outcome,
             matched,
-            classified_type: matched
-                .then_some(analysis.context.classified_type)
-                .flatten(),
-            matched_classifier_ref: matched
-                .then_some(analysis.context.matched_classifier_ref)
-                .flatten(),
+            content_types: matches.iter().fold(Vec::new(), |mut types, matched| {
+                if !types.contains(&matched.content_type) {
+                    types.push(matched.content_type.clone());
+                }
+                types
+            }),
+            matches,
             failure,
             participants: analysis.runs,
         }
-    }
-
-    pub fn classification(&self) -> &str {
-        self.classified_type.as_deref().unwrap_or("text")
     }
 
     pub fn failed(&self) -> bool {
@@ -178,7 +177,7 @@ mod tests {
         let result = analyze_classifier("agent@example.com", &classifier());
 
         assert!(result.matched);
-        assert_eq!(result.classification(), "email");
+        assert_eq!(result.content_types, vec!["email"]);
         assert_eq!(result.participants.len(), 1);
         assert_eq!(
             serde_json::to_value(ClassificationApplicationResult::preview(result)).unwrap(),
@@ -190,13 +189,13 @@ mod tests {
     }
 
     #[test]
-    fn no_match_is_distinct_and_classifies_as_plain_text() {
+    fn no_match_is_distinct_and_has_no_content_type() {
         let result = analyze_classifier("ordinary prose", &classifier());
 
         assert_eq!(result.outcome, ClassificationOutcome::NoMatch);
         assert!(!result.matched);
-        assert_eq!(result.classification(), "text");
-        assert_eq!(result.classified_type, None);
+        assert!(result.content_types.is_empty());
+        assert!(result.matches.is_empty());
         assert_eq!(result.failure, None);
         let expected = serde_json::from_str::<serde_json::Value>(include_str!(
             "../../contracts/analysis/v1/classifier-interactive-no-match.json"
@@ -234,8 +233,15 @@ mod tests {
                 image_bytes: None,
                 searchable_text: None,
                 extraction_observations: Vec::new(),
-                classified_type: Some("credential".into()),
-                matched_classifier_ref: Some("classifier:credential".into()),
+                classification_matches: vec![crate::content_classification::ClassificationMatch {
+                    classifier_ref: "classifier:credential".into(),
+                    classifier_name: "Credential".into(),
+                    content_type: "credential".into(),
+                    priority: 10,
+                    start_offset: 0,
+                    end_offset: 10,
+                }],
+                classification_complete: true,
                 structural_metadata: None,
                 media_metadata: None,
                 suggestions: None,
@@ -260,8 +266,7 @@ mod tests {
 
         assert!(result.failed());
         assert!(!result.matched);
-        assert_eq!(result.classified_type, None);
-        assert_eq!(result.matched_classifier_ref, None);
-        assert_eq!(result.classification(), "text");
+        assert!(result.content_types.is_empty());
+        assert!(result.matches.is_empty());
     }
 }

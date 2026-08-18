@@ -159,7 +159,14 @@ fn push_smart_condition(
     let condition = match kind {
         "content_type" => {
             parameters.push(Box::new(value.to_string()));
-            "content_type = ?".to_string()
+            parameters.push(Box::new(value.to_string()));
+            "(content_type = ? OR EXISTS (
+                SELECT 1 FROM clip_analysis_classifications AS classified
+                WHERE classified.clip_id = clips.id
+                  AND classified.input_hash = clips.content_hash
+                  AND classified.content_type = ?
+            ))"
+            .to_string()
         }
         "origin_kind" => {
             parameters.push(Box::new(value.to_lowercase()));
@@ -277,7 +284,7 @@ fn append_smart_bin_memberships(conn: &Connection, clips: &mut [ClipItem]) -> Re
         }
     }
 
-    for clip in clips {
+    for clip in clips.iter_mut() {
         let bin_ids = clip.bin_ids.get_or_insert_with(Vec::new);
         for bin_id in memberships.remove(&clip.id).unwrap_or_default() {
             if !bin_ids.contains(&bin_id) {
@@ -285,13 +292,51 @@ fn append_smart_bin_memberships(conn: &Connection, clips: &mut [ClipItem]) -> Re
             }
         }
     }
+    append_clip_content_types(conn, clips)?;
+    Ok(())
+}
+
+fn append_clip_content_types(conn: &Connection, clips: &mut [ClipItem]) -> Result<()> {
+    if clips.is_empty() {
+        return Ok(());
+    }
+    let requested_ids = clips.iter().map(|clip| clip.id).collect::<HashSet<_>>();
+    let ids_json = serde_json::to_string(&requested_ids.iter().copied().collect::<Vec<_>>())
+        .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?;
+    let mut by_clip = HashMap::<i64, Vec<String>>::new();
+    let mut statement = conn.prepare(
+        "SELECT classifications.clip_id, classifications.content_type
+         FROM clip_analysis_classifications AS classifications
+         LEFT JOIN content_classifiers AS classifiers
+           ON classifiers.stable_ref = classifications.classifier_ref
+         JOIN clips ON clips.id = classifications.clip_id
+         WHERE classifications.clip_id IN (
+             SELECT CAST(value AS INTEGER) FROM json_each(?1)
+         ) AND classifications.input_hash = clips.content_hash
+         GROUP BY classifications.clip_id, classifications.content_type
+         ORDER BY classifications.clip_id, MIN(COALESCE(classifiers.priority, 10000)),
+                  classifications.content_type COLLATE NOCASE",
+    )?;
+    for row in statement.query_map(params![ids_json], |row| {
+        Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
+    })? {
+        let (clip_id, content_type) = row?;
+        if requested_ids.contains(&clip_id) {
+            by_clip.entry(clip_id).or_default().push(content_type);
+        }
+    }
+    for clip in clips {
+        clip.content_types = by_clip.remove(&clip.id).unwrap_or_default();
+    }
     Ok(())
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ClipItem {
     pub id: i64,
-    pub content_type: String, // "text", "image", "color", "link", "code"
+    pub content_type: String, // Physical Clip Type: "text", "image", or "file".
+    #[serde(default)]
+    pub content_types: Vec<String>,
     pub text_content: Option<String>,
     pub html_content: Option<String>,
     pub image_base64: Option<String>,
@@ -315,6 +360,73 @@ pub struct ClipItem {
     pub ocr_extractor_name: Option<String>,
     #[serde(default)]
     pub ocr_engine_version: Option<String>,
+}
+
+fn normalize_imported_clip_types(clip: &mut ClipItem) -> Result<()> {
+    if !matches!(clip.content_type.as_str(), "text" | "image" | "file") {
+        clip.content_types.push(clip.content_type.clone());
+        clip.content_type = "text".into();
+    }
+    clip.content_types.sort();
+    clip.content_types.dedup();
+    if clip.content_types.len() > crate::content_classification::MAX_CLASSIFICATION_MATCHES_PER_CLIP
+        || clip.content_types.iter().any(|content_type| {
+            content_type.is_empty()
+                || content_type.len() > 80
+                || !content_type.chars().all(|character| {
+                    character.is_ascii_lowercase() || character.is_ascii_digit() || character == '_'
+                })
+        })
+    {
+        return Err(rusqlite::Error::InvalidParameterName(
+            "Imported Content Types exceed their safety limit".into(),
+        ));
+    }
+    Ok(())
+}
+
+fn replace_imported_content_types(
+    conn: &Connection,
+    clip_id: i64,
+    content_hash: &str,
+    clip_type: &str,
+    content_types: &[String],
+) -> Result<()> {
+    conn.execute(
+        "DELETE FROM clip_analysis_classifications WHERE clip_id = ?1",
+        [clip_id],
+    )?;
+    let source_representation = if matches!(clip_type, "image" | "file") {
+        "searchable_text"
+    } else {
+        "original_text"
+    };
+    for content_type in content_types {
+        let classifier_ref = conn
+            .query_row(
+                "SELECT stable_ref FROM content_classifiers
+                 WHERE content_type = ?1 AND is_deleted = 0
+                 ORDER BY priority, id LIMIT 1",
+                [content_type],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()?
+            .unwrap_or_else(|| format!("transfer:{content_type}"));
+        conn.execute(
+            "INSERT INTO clip_analysis_classifications
+                (clip_id, content_type, classifier_ref, source_representation, input_hash,
+                 start_offset, end_offset)
+             VALUES (?1, ?2, ?3, ?4, ?5, NULL, NULL)",
+            params![
+                clip_id,
+                content_type,
+                classifier_ref,
+                source_representation,
+                content_hash
+            ],
+        )?;
+    }
+    Ok(())
 }
 
 struct ClipSaveInput<'a> {
@@ -382,11 +494,16 @@ pub struct ContentClassificationRescanReport {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct AnalysisClassification {
+    pub id: i64,
     pub clip_id: i64,
     pub content_type: String,
     pub classifier_ref: String,
+    pub classifier_name: String,
+    pub priority: i64,
     pub source_representation: String,
     pub input_hash: String,
+    pub start_offset: Option<usize>,
+    pub end_offset: Option<usize>,
     pub updated_at: String,
 }
 
@@ -642,6 +759,34 @@ fn migrate_canonical_timestamps(conn: &Connection) -> Result<()> {
          VALUES (?1, strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))",
         [MIGRATION_KEY],
     )?;
+    transaction.commit()
+}
+
+fn migrate_analysis_classification_timestamps(conn: &Connection) -> Result<()> {
+    if !table_exists(conn, "clip_analysis_classifications")? {
+        return Ok(());
+    }
+    let transaction = conn.unchecked_transaction()?;
+    transaction.execute(
+        "UPDATE clip_analysis_classifications
+         SET updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', updated_at)
+         WHERE updated_at NOT GLOB '????-??-??T??:??:??Z'
+           AND datetime(updated_at) IS NOT NULL",
+        [],
+    )?;
+    let invalid: bool = transaction.query_row(
+        "SELECT EXISTS(
+            SELECT 1 FROM clip_analysis_classifications
+            WHERE updated_at NOT GLOB '????-??-??T??:??:??Z'
+        )",
+        [],
+        |row| row.get(0),
+    )?;
+    if invalid {
+        return Err(rusqlite::Error::InvalidParameterName(
+            "Analysis classification contains an invalid timestamp".into(),
+        ));
+    }
     transaction.commit()
 }
 
@@ -1281,6 +1426,92 @@ fn migrate_clip_source_schema(conn: &Connection) -> Result<()> {
     }
     transaction.commit()?;
     Ok(())
+}
+
+fn migrate_multi_type_classifications(conn: &Connection) -> Result<()> {
+    if !table_exists(conn, "clip_analysis_classifications")?
+        || column_exists(conn, "clip_analysis_classifications", "start_offset")?
+    {
+        return Ok(());
+    }
+    let reference_column =
+        if column_exists(conn, "clip_analysis_classifications", "classifier_ref")? {
+            "classifier_ref"
+        } else if column_exists(conn, "clip_analysis_classifications", "detector_ref")? {
+            "detector_ref"
+        } else {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "Legacy classifications have no participant reference".into(),
+            ));
+        };
+    let transaction = conn.unchecked_transaction()?;
+    transaction.execute_batch(&format!(
+        "DROP TABLE IF EXISTS clip_analysis_classifications_multi;
+         CREATE TABLE clip_analysis_classifications_multi (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            clip_id INTEGER NOT NULL REFERENCES clips(id) ON DELETE CASCADE,
+            content_type TEXT NOT NULL,
+            classifier_ref TEXT NOT NULL,
+            source_representation TEXT NOT NULL
+                CHECK (source_representation IN ('original_text', 'searchable_text')),
+            input_hash TEXT NOT NULL,
+            start_offset INTEGER,
+            end_offset INTEGER,
+            updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+            CHECK (
+                (start_offset IS NULL AND end_offset IS NULL)
+                OR (start_offset >= 0 AND end_offset > start_offset)
+            )
+         );
+         INSERT INTO clip_analysis_classifications_multi
+            (clip_id, content_type, classifier_ref, source_representation, input_hash,
+             start_offset, end_offset, updated_at)
+         SELECT clip_id, content_type, {reference_column}, source_representation, input_hash,
+                NULL, NULL, updated_at
+         FROM clip_analysis_classifications;
+         DROP TABLE clip_analysis_classifications;
+         ALTER TABLE clip_analysis_classifications_multi
+            RENAME TO clip_analysis_classifications;"
+    ))?;
+    transaction.commit()
+}
+
+fn migrate_legacy_semantic_clip_types(conn: &Connection) -> Result<()> {
+    let transaction = conn.unchecked_transaction()?;
+    transaction.execute(
+        "INSERT INTO clip_analysis_classifications
+            (clip_id, content_type, classifier_ref, source_representation, input_hash,
+             start_offset, end_offset)
+         SELECT clips.id, clips.content_type,
+                COALESCE(
+                    (SELECT classifiers.stable_ref
+                     FROM content_classifiers AS classifiers
+                     WHERE classifiers.content_type = clips.content_type
+                       AND classifiers.is_deleted = 0
+                     ORDER BY classifiers.priority, classifiers.id
+                     LIMIT 1),
+                    'legacy:' || clips.content_type
+                ),
+                'original_text', clips.content_hash, NULL, NULL
+         FROM clips
+         WHERE clips.content_type NOT IN ('text', 'image', 'file')
+           AND TRIM(clips.content_type) != ''
+           AND NOT EXISTS (
+                SELECT 1 FROM clip_analysis_classifications AS existing
+                WHERE existing.clip_id = clips.id
+                  AND existing.input_hash = clips.content_hash
+                  AND existing.content_type = clips.content_type
+           )",
+        [],
+    )?;
+    transaction.execute(
+        "UPDATE clips
+         SET content_type = 'text'
+         WHERE content_type NOT IN ('text', 'image', 'file')
+           AND TRIM(content_type) != ''",
+        [],
+    )?;
+    transaction.commit()
 }
 
 fn migrate_analysis_terminology_schema(conn: &Connection) -> Result<()> {
@@ -2224,19 +2455,32 @@ impl DbState {
 
         conn.execute(
             "CREATE TABLE IF NOT EXISTS clip_analysis_classifications (
-                clip_id INTEGER PRIMARY KEY REFERENCES clips(id) ON DELETE CASCADE,
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                clip_id INTEGER NOT NULL REFERENCES clips(id) ON DELETE CASCADE,
                 content_type TEXT NOT NULL,
                 classifier_ref TEXT NOT NULL,
                 source_representation TEXT NOT NULL
                     CHECK (source_representation IN ('original_text', 'searchable_text')),
                 input_hash TEXT NOT NULL,
-                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+                start_offset INTEGER,
+                end_offset INTEGER,
+                updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+                CHECK (
+                    (start_offset IS NULL AND end_offset IS NULL)
+                    OR (start_offset >= 0 AND end_offset > start_offset)
+                )
             )",
             [],
         )?;
+        migrate_multi_type_classifications(&conn)?;
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_clip_analysis_classification_type
              ON clip_analysis_classifications(content_type, clip_id)",
+            [],
+        )?;
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_clip_analysis_classification_clip
+             ON clip_analysis_classifications(clip_id, input_hash, classifier_ref, start_offset)",
             [],
         )?;
         conn.execute(
@@ -2698,6 +2942,7 @@ impl DbState {
                 params![preset.stable_ref, preset.name, preset.content_type, preset.description, patterns_json, preset.validator, preset.priority],
             )?;
         }
+        migrate_legacy_semantic_clip_types(&conn)?;
         for preset in crate::content_extraction::EXTRACTOR_PRESETS {
             conn.execute(
                 "INSERT OR IGNORE INTO content_extractors
@@ -2990,6 +3235,7 @@ impl DbState {
         }
         Self::init_library_items(&conn)?;
         migrate_canonical_timestamps(&conn)?;
+        migrate_analysis_classification_timestamps(&conn)?;
 
         // Insert default bins if empty
         let count: i64 = conn
@@ -4097,12 +4343,11 @@ impl DbState {
         result
     }
 
-    pub fn record_analysis_classification(
+    pub fn replace_analysis_classifications(
         &self,
         clip_id: i64,
         input_hash: &str,
-        content_type: Option<&str>,
-        classifier_ref: Option<&str>,
+        matches: &[crate::content_classification::ClassificationMatch],
         source_representation: &str,
     ) -> Result<bool> {
         if !matches!(source_representation, "original_text" | "searchable_text") {
@@ -4110,15 +4355,22 @@ impl DbState {
                 "Unknown analysis source representation".into(),
             ));
         }
-        if content_type.is_some_and(|value| value.len() > 80)
-            || classifier_ref.is_some_and(|value| value.len() > 160)
+        if matches.len() > crate::content_classification::MAX_CLASSIFICATION_MATCHES_PER_CLIP
+            || matches.iter().any(|matched| {
+                matched.content_type.len() > 80
+                    || matched.classifier_ref.len() > 160
+                    || matched.end_offset <= matched.start_offset
+                    || i64::try_from(matched.start_offset).is_err()
+                    || i64::try_from(matched.end_offset).is_err()
+            })
         {
             return Err(rusqlite::Error::InvalidParameterName(
                 "Analysis classification metadata exceeds its safety limit".into(),
             ));
         }
-        let conn = self.conn.lock();
-        let clip_matches: bool = conn.query_row(
+        let mut conn = self.conn.lock();
+        let transaction = conn.transaction()?;
+        let clip_matches: bool = transaction.query_row(
             "SELECT EXISTS(
                 SELECT 1 FROM clips
                 WHERE id = ?1 AND content_hash = ?2 AND COALESCE(is_trashed, 0) = 0
@@ -4129,57 +4381,77 @@ impl DbState {
         if !clip_matches {
             return Ok(false);
         }
-        let (Some(content_type), Some(classifier_ref)) = (content_type, classifier_ref) else {
-            conn.execute(
-                "DELETE FROM clip_analysis_classifications
-                 WHERE clip_id = ?1 AND input_hash = ?2",
-                params![clip_id, input_hash],
-            )?;
-            return Ok(true);
-        };
-        conn.execute(
-            "INSERT INTO clip_analysis_classifications
-                (clip_id, content_type, classifier_ref, source_representation, input_hash)
-             VALUES (?1, ?2, ?3, ?4, ?5)
-             ON CONFLICT(clip_id) DO UPDATE SET
-                content_type = excluded.content_type,
-                classifier_ref = excluded.classifier_ref,
-                source_representation = excluded.source_representation,
-                input_hash = excluded.input_hash,
-                updated_at = CURRENT_TIMESTAMP",
-            params![
-                clip_id,
-                content_type,
-                classifier_ref,
-                source_representation,
-                input_hash
-            ],
+        transaction.execute(
+            "DELETE FROM clip_analysis_classifications WHERE clip_id = ?1",
+            params![clip_id],
         )?;
+        for matched in matches {
+            transaction.execute(
+                "INSERT INTO clip_analysis_classifications
+                    (clip_id, content_type, classifier_ref, source_representation, input_hash,
+                     start_offset, end_offset)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                params![
+                    clip_id,
+                    matched.content_type,
+                    matched.classifier_ref,
+                    source_representation,
+                    input_hash,
+                    i64::try_from(matched.start_offset).expect("validated classification offset"),
+                    i64::try_from(matched.end_offset).expect("validated classification offset")
+                ],
+            )?;
+        }
+        transaction.commit()?;
         Ok(true)
     }
 
-    pub fn get_analysis_classification(
+    pub fn get_analysis_classifications(
         &self,
         clip_id: i64,
-    ) -> Result<Option<AnalysisClassification>> {
+    ) -> Result<Vec<AnalysisClassification>> {
         let conn = self.conn.lock();
-        conn.query_row(
-            "SELECT clip_id, content_type, classifier_ref, source_representation,
-                    input_hash, updated_at
-             FROM clip_analysis_classifications WHERE clip_id = ?1",
-            params![clip_id],
-            |row| {
+        let mut statement = conn.prepare(
+            "SELECT classifications.id, classifications.clip_id,
+                    classifications.content_type, classifications.classifier_ref,
+                    COALESCE(classifiers.name, classifications.classifier_ref),
+                    COALESCE(classifiers.priority, 10000),
+                    classifications.source_representation, classifications.input_hash,
+                    classifications.start_offset, classifications.end_offset,
+                    classifications.updated_at
+             FROM clip_analysis_classifications AS classifications
+             JOIN clips ON clips.id = classifications.clip_id
+             LEFT JOIN content_classifiers AS classifiers
+               ON classifiers.stable_ref = classifications.classifier_ref
+             WHERE classifications.clip_id = ?1
+               AND classifications.input_hash = clips.content_hash
+             ORDER BY COALESCE(classifiers.priority, 10000), classifications.start_offset,
+                      classifications.id",
+        )?;
+        let rows = statement
+            .query_map(params![clip_id], |row| {
+                let start_offset = row
+                    .get::<_, Option<i64>>(8)?
+                    .and_then(|value| usize::try_from(value).ok());
+                let end_offset = row
+                    .get::<_, Option<i64>>(9)?
+                    .and_then(|value| usize::try_from(value).ok());
                 Ok(AnalysisClassification {
-                    clip_id: row.get(0)?,
-                    content_type: row.get(1)?,
-                    classifier_ref: row.get(2)?,
-                    source_representation: row.get(3)?,
-                    input_hash: row.get(4)?,
-                    updated_at: row.get(5)?,
+                    id: row.get(0)?,
+                    clip_id: row.get(1)?,
+                    content_type: row.get(2)?,
+                    classifier_ref: row.get(3)?,
+                    classifier_name: row.get(4)?,
+                    priority: row.get(5)?,
+                    source_representation: row.get(6)?,
+                    input_hash: row.get(7)?,
+                    start_offset,
+                    end_offset,
+                    updated_at: row.get(10)?,
                 })
-            },
-        )
-        .optional()
+            })?
+            .collect();
+        rows
     }
 
     pub fn replace_clip_searchable_text(
@@ -4694,17 +4966,17 @@ impl DbState {
             },
         )
         .ok();
-        let content_type = analysis
+        let classification_matches = analysis
             .as_ref()
-            .and_then(|result| result.analysis.result.classified_type.as_deref())
-            .unwrap_or("text");
+            .map(|result| result.analysis.result.classification_matches.clone())
+            .unwrap_or_default();
         let structure = analysis
             .as_ref()
             .and_then(|result| result.analysis.result.structure.as_ref());
         let content_hash = crate::clipboard_fingerprint::text(text);
-        self.save_clip_with_structure(
+        let clip = self.save_clip_with_structure(
             ClipSaveInput {
-                content_type,
+                content_type: "text",
                 text_content: Some(text),
                 html_content: None,
                 image_base64: None,
@@ -4712,7 +4984,17 @@ impl DbState {
                 source,
             },
             structure,
-        )
+        )?;
+        if include_classifiers {
+            self.replace_analysis_classifications(
+                clip.id,
+                &clip.content_hash,
+                &classification_matches,
+                "original_text",
+            )?;
+            return self.get_clip_by_id(clip.id);
+        }
+        Ok(clip)
     }
 
     pub(crate) fn merge_external_text_clips(
@@ -5030,6 +5312,7 @@ impl DbState {
                 Ok(ClipItem {
                     id: row.get(0)?,
                     content_type: row.get(1)?,
+                    content_types: Vec::new(),
                     text_content: row.get(2)?,
                     html_content: row.get(3)?,
                     image_base64: row.get(4)?,
@@ -5164,13 +5447,25 @@ impl DbState {
                         JOIN clips AS source_clip ON source_clip.id = extracted.clip_id
                         WHERE clip_searchable_text_fts MATCH ?
                           AND extracted.input_hash = source_clip.content_hash
-                    ) OR content_type LIKE ?)");
+                    ) OR content_type LIKE ? OR EXISTS (
+                        SELECT 1 FROM clip_analysis_classifications AS classified
+                        WHERE classified.clip_id = clips.id
+                          AND classified.input_hash = clips.content_hash
+                          AND classified.content_type LIKE ?
+                    ))");
                     query_params.push(Box::new(format!("\"{}\"*", fts_query)));
                     query_params.push(Box::new(format!("\"{}\"*", fts_query)));
                     query_params.push(Box::new(format!("%{}%", cleaned)));
+                    query_params.push(Box::new(format!("%{}%", cleaned)));
                 } else {
-                    sql.push_str(" AND (text_content LIKE ? OR source LIKE ? OR content_type LIKE ? OR note LIKE ?)");
+                    sql.push_str(" AND (text_content LIKE ? OR source LIKE ? OR content_type LIKE ? OR note LIKE ? OR EXISTS (
+                        SELECT 1 FROM clip_analysis_classifications AS classified
+                        WHERE classified.clip_id = clips.id
+                          AND classified.input_hash = clips.content_hash
+                          AND classified.content_type LIKE ?
+                    ))");
                     let pattern = format!("%{}%", cleaned);
+                    query_params.push(Box::new(pattern.clone()));
                     query_params.push(Box::new(pattern.clone()));
                     query_params.push(Box::new(pattern.clone()));
                     query_params.push(Box::new(pattern.clone()));
@@ -5227,6 +5522,7 @@ impl DbState {
             Ok(ClipItem {
                 id: row.get(0)?,
                 content_type: row.get(1)?,
+                content_types: Vec::new(),
                 text_content: row.get(2)?,
                 html_content: row.get(3)?,
                 image_base64: row.get(4)?,
@@ -5296,6 +5592,7 @@ impl DbState {
             Ok(ClipItem {
                 id: row.get(0)?,
                 content_type: row.get(1)?,
+                content_types: Vec::new(),
                 text_content: row.get(2)?,
                 html_content: row.get(3)?,
                 image_base64: row.get(4)?,
@@ -5338,6 +5635,7 @@ impl DbState {
             Ok(ClipItem {
                 id: row.get(0)?,
                 content_type: row.get(1)?,
+                content_types: Vec::new(),
                 text_content: row.get(2)?,
                 html_content: row.get(3)?,
                 image_base64: row.get(4)?,
@@ -6518,16 +6816,21 @@ impl DbState {
         file_formats.truncate(MAX_ANALYTICS_FILE_FORMATS);
 
         let mut content_type_stmt = conn.prepare(
-            "SELECT COALESCE(classifications.content_type, clips.content_type) AS content_type,
-                    COUNT(*)
-             FROM clips
-             LEFT JOIN clip_analysis_classifications AS classifications
-               ON classifications.clip_id = clips.id
-              AND classifications.input_hash = clips.content_hash
-             WHERE (clips.is_trashed IS NULL OR clips.is_trashed = 0)
-               AND COALESCE(classifications.content_type, clips.content_type) NOT IN ('text', 'image', 'file')
-             GROUP BY COALESCE(classifications.content_type, clips.content_type)
-             ORDER BY COUNT(*) DESC, content_type COLLATE NOCASE ASC"
+            "SELECT content_type, COUNT(DISTINCT clip_id)
+             FROM (
+                SELECT classifications.clip_id, classifications.content_type
+                FROM clip_analysis_classifications AS classifications
+                JOIN clips ON clips.id = classifications.clip_id
+                WHERE classifications.input_hash = clips.content_hash
+                  AND (clips.is_trashed IS NULL OR clips.is_trashed = 0)
+                UNION
+                SELECT id AS clip_id, content_type
+                FROM clips
+                WHERE (is_trashed IS NULL OR is_trashed = 0)
+                  AND content_type NOT IN ('text', 'image', 'file')
+             )
+             GROUP BY content_type
+             ORDER BY COUNT(DISTINCT clip_id) DESC, content_type COLLATE NOCASE ASC",
         )?;
         let content_types = content_type_stmt
             .query_map([], |r| {
@@ -6602,8 +6905,19 @@ impl DbState {
         )?;
         let type_counts = conn
             .prepare(
-                "SELECT content_type, COUNT(*) FROM clips
-                 WHERE COALESCE(is_trashed, 0) = 0
+                "SELECT content_type, COUNT(DISTINCT clip_id)
+                 FROM (
+                    SELECT classifications.clip_id, classifications.content_type
+                    FROM clip_analysis_classifications AS classifications
+                    JOIN clips ON clips.id = classifications.clip_id
+                    WHERE classifications.input_hash = clips.content_hash
+                      AND COALESCE(clips.is_trashed, 0) = 0
+                    UNION
+                    SELECT id AS clip_id, content_type
+                    FROM clips
+                    WHERE COALESCE(is_trashed, 0) = 0
+                      AND content_type NOT IN ('text', 'image', 'file')
+                 )
                  GROUP BY content_type ORDER BY content_type",
             )?
             .query_map([], |row| {
@@ -6946,11 +7260,12 @@ impl DbState {
 
     pub fn matching_smart_bin_transforms(
         &self,
-        content_type: &str,
+        clip_type: &str,
+        content_types: &[String],
         text: &str,
         source: &str,
     ) -> Result<Vec<(i64, String)>> {
-        let file_paths = if content_type.eq_ignore_ascii_case("file") {
+        let file_paths = if clip_type.eq_ignore_ascii_case("file") {
             serde_json::from_str::<Vec<String>>(text).unwrap_or_default()
         } else {
             Vec::new()
@@ -6974,11 +7289,16 @@ impl DbState {
                 continue;
             };
             let condition_matches = |kind: &str, value: &str| match kind {
-                "content_type" => content_type.eq_ignore_ascii_case(value),
+                "content_type" => {
+                    clip_type.eq_ignore_ascii_case(value)
+                        || content_types
+                            .iter()
+                            .any(|content_type| content_type.eq_ignore_ascii_case(value))
+                }
                 "source" => source.to_lowercase().contains(&value.to_lowercase()),
                 "contains" => text.to_lowercase().contains(&value.to_lowercase()),
                 "origin_kind" => {
-                    derived_origin_kind(content_type, source).eq_ignore_ascii_case(value.trim())
+                    derived_origin_kind(clip_type, source).eq_ignore_ascii_case(value.trim())
                 }
                 "file_extension" => {
                     let extension = value.trim().trim_start_matches('.').to_lowercase();
@@ -7677,6 +7997,7 @@ impl DbState {
             clips.push(ClipItem {
                 id: 0,
                 content_type: row[1].clone(),
+                content_types: Vec::new(),
                 text_content: Some(text),
                 html_content: None,
                 image_base64: None,
@@ -7766,6 +8087,7 @@ impl DbState {
         use crate::resource_limits::{MAX_CLIP_NOTE_BYTES, MAX_CLIP_TEXT_BYTES};
         let mut input_hashes = HashSet::new();
         for clip in &mut clips {
+            normalize_imported_clip_types(clip)?;
             if clip.content_hash.trim().is_empty()
                 || !input_hashes.insert(clip.content_hash.clone())
             {
@@ -7803,7 +8125,7 @@ impl DbState {
         )?;
         let mut imported_count = 0usize;
         for clip in clips {
-            imported_count += tx.execute(
+            let inserted = tx.execute(
                 "INSERT OR IGNORE INTO clips (
                     content_type, text_content, html_content, image_base64, image_path,
                     content_hash, source, is_pinned, is_protected, pin_order, note,
@@ -7825,6 +8147,16 @@ impl DbState {
                     clip.created_at,
                 ],
             )?;
+            imported_count += inserted;
+            if inserted > 0 && !clip.content_types.is_empty() {
+                replace_imported_content_types(
+                    &tx,
+                    tx.last_insert_rowid(),
+                    &clip.content_hash,
+                    &clip.content_type,
+                    &clip.content_types,
+                )?;
+            }
         }
         let current_capacity = tx
             .query_row(
@@ -7871,6 +8203,9 @@ impl DbState {
             rusqlite::Error::InvalidParameterName(format!("invalid transfer JSON: {error}"))
         })?;
         normalize_library_archive_timestamps(&mut payload)?;
+        for clip in &mut payload.clips {
+            normalize_imported_clip_types(clip)?;
+        }
         let inspection = Self::preflight_library_archive(&payload)?;
         Ok((payload, inspection))
     }
@@ -8641,6 +8976,15 @@ impl DbState {
                 |row| row.get::<_, i64>(0),
             )?;
             clip_id_map.insert(old_clip_id, new_clip_id);
+            if !clip.content_types.is_empty() {
+                replace_imported_content_types(
+                    &tx,
+                    new_clip_id,
+                    &clip.content_hash,
+                    &clip.content_type,
+                    &clip.content_types,
+                )?;
+            }
             if clip.content_type == "image" {
                 if let Some(metadata) = ocr_metadata.get(&clip.content_hash) {
                     let status = match metadata.status.as_str() {
@@ -8761,6 +9105,7 @@ impl DbState {
             Ok(ClipItem {
                 id: row.get(0)?,
                 content_type: row.get(1)?,
+                content_types: Vec::new(),
                 text_content: row.get(2)?,
                 html_content: row.get(3)?,
                 image_base64: row.get(4)?,
@@ -8782,7 +9127,9 @@ impl DbState {
                 ocr_engine_version: row.get(20)?,
             })
         })?;
-        rows.collect()
+        let mut clips = rows.collect::<Result<Vec<_>>>()?;
+        append_clip_content_types(&conn, &mut clips)?;
+        Ok(clips)
     }
 
     fn normalize_json_config(config: Option<&str>) -> String {
@@ -11560,38 +11907,66 @@ impl DbState {
         )?;
         let clip = transaction
             .query_row(
-                "SELECT content_type, text_content FROM clips
+                "SELECT clips.content_type,
+                        CASE
+                          WHEN clips.content_type = 'file' THEN extracted.searchable_text
+                          ELSE clips.text_content
+                        END,
+                        clips.content_hash,
+                        CASE WHEN clips.content_type IN ('image', 'file')
+                             THEN 'searchable_text' ELSE 'original_text' END
+                 FROM clips
+                 LEFT JOIN clip_searchable_text AS extracted
+                   ON extracted.clip_id = clips.id
+                  AND extracted.input_hash = clips.content_hash
                  WHERE id = ?1 AND COALESCE(is_trashed, 0) = 0",
                 params![clip_id],
-                |row| Ok((row.get::<_, String>(0)?, row.get::<_, Option<String>>(1)?)),
+                |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, Option<String>>(1)?,
+                        row.get::<_, String>(2)?,
+                        row.get::<_, String>(3)?,
+                    ))
+                },
             )
             .optional()?;
-        let Some((current_type, Some(text))) = clip else {
+        let Some((_clip_type, Some(text), content_hash, source_representation)) = clip else {
             return Err(no_analyzable_text());
         };
         if text.trim().is_empty() {
             return Err(no_analyzable_text());
         }
-        if matches!(current_type.as_str(), "image" | "file") {
-            return Err(rusqlite::Error::InvalidParameterName(
-                "Applying a Classifier cannot replace a structural image or file type".into(),
-            ));
-        }
         let analysis = crate::classification_execution::analyze_classifier(&text, &classifier);
-        if !analysis.matched {
-            transaction.commit()?;
-            return Ok(
-                crate::classification_execution::ClassificationApplicationResult::preview(analysis),
-            );
-        }
-        let classified_type = analysis.classification();
-        let changed = current_type != classified_type;
-        if changed {
+        let existing_count: i64 = transaction.query_row(
+            "SELECT COUNT(*) FROM clip_analysis_classifications
+             WHERE clip_id = ?1 AND classifier_ref = ?2 AND input_hash = ?3",
+            params![clip_id, classifier.stable_ref, content_hash],
+            |row| row.get(0),
+        )?;
+        transaction.execute(
+            "DELETE FROM clip_analysis_classifications
+             WHERE clip_id = ?1 AND classifier_ref = ?2",
+            params![clip_id, classifier.stable_ref],
+        )?;
+        for matched in &analysis.matches {
             transaction.execute(
-                "UPDATE clips SET content_type = ?1 WHERE id = ?2",
-                params![classified_type, clip_id],
+                "INSERT INTO clip_analysis_classifications
+                    (clip_id, content_type, classifier_ref, source_representation, input_hash,
+                     start_offset, end_offset)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                params![
+                    clip_id,
+                    matched.content_type,
+                    matched.classifier_ref,
+                    source_representation,
+                    content_hash,
+                    i64::try_from(matched.start_offset).map_err(|_| no_analyzable_text())?,
+                    i64::try_from(matched.end_offset).map_err(|_| no_analyzable_text())?
+                ],
             )?;
         }
+        let changed = analysis.matched || existing_count > 0;
         transaction.commit()?;
         drop(conn);
         if changed {
@@ -11600,11 +11975,13 @@ impl DbState {
                 &format!("Applied a Classifier to clip #{clip_id}"),
             );
         }
-        Ok(
+        Ok(if analysis.matched || existing_count > 0 {
             crate::classification_execution::ClassificationApplicationResult::applied(
                 analysis, clip_id,
-            ),
-        )
+            )
+        } else {
+            crate::classification_execution::ClassificationApplicationResult::preview(analysis)
+        })
     }
 
     fn get_all_content_classifiers_for_backup(
@@ -11822,9 +12199,8 @@ impl DbState {
         Ok(())
     }
 
-    /// Reclassify existing text-backed clips with the current enabled classifier order.
-    /// Image and file records are intentionally excluded because their types describe
-    /// their storage representation rather than detected text semantics.
+    /// Reclassify every current original-text or searchable-text representation while
+    /// preserving each clip's physical Text, Image, or File type.
     pub fn rescan_content_classification(&self) -> Result<ContentClassificationRescanReport> {
         const BATCH_SIZE: i64 = 128;
 
@@ -11839,11 +12215,23 @@ impl DbState {
         loop {
             let clips = {
                 let mut statement = transaction.prepare(
-                    "SELECT id, content_type, text_content
+                    "SELECT clips.id, clips.content_hash, clips.content_type,
+                            CASE
+                              WHEN clips.content_type = 'file' THEN extracted.searchable_text
+                              ELSE clips.text_content
+                            END,
+                            CASE WHEN clips.content_type IN ('image', 'file')
+                                 THEN 'searchable_text' ELSE 'original_text' END
                      FROM clips
-                     WHERE id > ?1 AND text_content IS NOT NULL
-                       AND content_type NOT IN ('image', 'file')
-                     ORDER BY id ASC
+                     LEFT JOIN clip_searchable_text AS extracted
+                       ON extracted.clip_id = clips.id
+                      AND extracted.input_hash = clips.content_hash
+                     WHERE clips.id > ?1
+                       AND CASE
+                             WHEN clips.content_type = 'file' THEN extracted.searchable_text
+                             ELSE clips.text_content
+                           END IS NOT NULL
+                     ORDER BY clips.id ASC
                      LIMIT ?2",
                 )?;
                 let rows = statement
@@ -11852,6 +12240,8 @@ impl DbState {
                             row.get::<_, i64>(0)?,
                             row.get::<_, String>(1)?,
                             row.get::<_, String>(2)?,
+                            row.get::<_, String>(3)?,
+                            row.get::<_, String>(4)?,
                         ))
                     })?
                     .collect::<Result<Vec<_>>>()?;
@@ -11860,9 +12250,15 @@ impl DbState {
             if clips.is_empty() {
                 break;
             }
-            for (id, current_type, text) in clips {
+            for (id, content_hash, content_type, text, source_representation) in clips {
                 last_id = id;
                 scanned_count += 1;
+                if !matches!(content_type.as_str(), "text" | "image" | "file") {
+                    transaction.execute(
+                        "UPDATE clips SET content_type = 'text' WHERE id = ?1",
+                        params![id],
+                    )?;
+                }
                 if text.trim().is_empty() {
                     failed_count += 1;
                     continue;
@@ -11877,12 +12273,74 @@ impl DbState {
                     failed_count += 1;
                     continue;
                 }
-                let classified_type = analysis.classification();
-                if classified_type != current_type {
-                    transaction.execute(
-                        "UPDATE clips SET content_type = ?1 WHERE id = ?2",
-                        params![classified_type, id],
+                let existing = {
+                    let mut statement = transaction.prepare(
+                        "SELECT classifier_ref, content_type, start_offset, end_offset
+                         FROM clip_analysis_classifications
+                         WHERE clip_id = ?1 AND input_hash = ?2",
                     )?;
+                    let rows = statement
+                        .query_map(params![id, content_hash], |row| {
+                            Ok((
+                                row.get::<_, String>(0)?,
+                                row.get::<_, String>(1)?,
+                                row.get::<_, Option<i64>>(2)?,
+                                row.get::<_, Option<i64>>(3)?,
+                            ))
+                        })?
+                        .collect::<Result<HashSet<_>>>()?;
+                    rows
+                };
+                let has_stale_matches: bool = transaction.query_row(
+                    "SELECT EXISTS(
+                        SELECT 1 FROM clip_analysis_classifications
+                        WHERE clip_id = ?1 AND input_hash != ?2
+                    )",
+                    params![id, content_hash],
+                    |row| row.get(0),
+                )?;
+                let incoming = analysis
+                    .matches
+                    .iter()
+                    .map(|matched| {
+                        (
+                            matched.classifier_ref.clone(),
+                            matched.content_type.clone(),
+                            i64::try_from(matched.start_offset).ok(),
+                            i64::try_from(matched.end_offset).ok(),
+                        )
+                    })
+                    .collect::<HashSet<_>>();
+                if incoming != existing || has_stale_matches {
+                    transaction.execute(
+                        "DELETE FROM clip_analysis_classifications WHERE clip_id = ?1",
+                        params![id],
+                    )?;
+                    for matched in &analysis.matches {
+                        transaction.execute(
+                            "INSERT INTO clip_analysis_classifications
+                                (clip_id, content_type, classifier_ref, source_representation,
+                                 input_hash, start_offset, end_offset)
+                             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                            params![
+                                id,
+                                matched.content_type,
+                                matched.classifier_ref,
+                                source_representation,
+                                content_hash,
+                                i64::try_from(matched.start_offset).map_err(|_| {
+                                    rusqlite::Error::InvalidParameterName(
+                                        "Classification offset exceeds its safety limit".into(),
+                                    )
+                                })?,
+                                i64::try_from(matched.end_offset).map_err(|_| {
+                                    rusqlite::Error::InvalidParameterName(
+                                        "Classification offset exceeds its safety limit".into(),
+                                    )
+                                })?
+                            ],
+                        )?;
+                    }
                     changed_count += 1;
                 }
             }
@@ -11901,7 +12359,7 @@ impl DbState {
         let _ = self.log_activity(
             "content_classification_history_rescanned",
             &format!(
-                "Rescanned {} text clips; reclassified {}; failed {}",
+                "Rescanned {} clips; updated matches for {}; failed {}",
                 report.scanned_count, report.changed_count, report.failed_count
             ),
         );
@@ -12341,45 +12799,48 @@ mod tests {
             .unwrap();
 
         assert!(db
-            .record_analysis_classification(
+            .replace_analysis_classifications(
                 clip.id,
                 &clip.content_hash,
-                Some("email"),
-                Some("email"),
+                &[crate::content_classification::ClassificationMatch {
+                    classifier_ref: "email".into(),
+                    classifier_name: "Email".into(),
+                    content_type: "email".into(),
+                    priority: 10,
+                    start_offset: 0,
+                    end_offset: 5,
+                }],
                 "searchable_text",
             )
             .unwrap());
-        let classification = db.get_analysis_classification(clip.id).unwrap().unwrap();
+        let classification = db.get_analysis_classifications(clip.id).unwrap().remove(0);
         assert_eq!(classification.content_type, "email");
         assert_eq!(classification.source_representation, "searchable_text");
         assert_eq!(db.get_clip_by_id(clip.id).unwrap().content_type, "image");
 
         assert!(!db
-            .record_analysis_classification(
+            .replace_analysis_classifications(
                 clip.id,
                 "stale-hash",
-                Some("credential"),
-                Some("credential"),
+                &[crate::content_classification::ClassificationMatch {
+                    classifier_ref: "credential".into(),
+                    classifier_name: "Credential".into(),
+                    content_type: "credential".into(),
+                    priority: 10,
+                    start_offset: 0,
+                    end_offset: 5,
+                }],
                 "searchable_text",
             )
             .unwrap());
         assert_eq!(
-            db.get_analysis_classification(clip.id)
-                .unwrap()
-                .unwrap()
-                .content_type,
+            db.get_analysis_classifications(clip.id).unwrap()[0].content_type,
             "email"
         );
 
-        db.record_analysis_classification(
-            clip.id,
-            &clip.content_hash,
-            Some("text"),
-            None,
-            "searchable_text",
-        )
-        .unwrap();
-        assert!(db.get_analysis_classification(clip.id).unwrap().is_none());
+        db.replace_analysis_classifications(clip.id, &clip.content_hash, &[], "searchable_text")
+            .unwrap();
+        assert!(db.get_analysis_classifications(clip.id).unwrap().is_empty());
     }
 
     #[test]
@@ -12509,9 +12970,10 @@ mod tests {
         let applied = db.apply_content_classifier(matching.id, "email").unwrap();
         assert!(applied.analysis.matched);
         assert_eq!(applied.application.applied_clip_id, Some(matching.id));
+        assert_eq!(db.get_clip_by_id(matching.id).unwrap().content_type, "text");
         assert_eq!(
-            db.get_clip_by_id(matching.id).unwrap().content_type,
-            "email"
+            db.get_clip_by_id(matching.id).unwrap().content_types,
+            vec!["email"]
         );
 
         let nonmatching = db
@@ -12575,7 +13037,32 @@ mod tests {
         let first = db
             .save_text_clip("person@example.com", "CLI Terminal")
             .unwrap();
-        assert_eq!(first.content_type, "email");
+        assert_eq!(first.content_type, "text");
+        assert_eq!(first.content_types, vec!["email"]);
+        let email_bin = db
+            .create_bin(
+                "Email",
+                "Mail",
+                "default",
+                Some(r#"{"type":"content_type","value":"email"}"#),
+            )
+            .unwrap();
+        assert_eq!(
+            db.get_clips(None, Some(email_bin.id), false).unwrap()[0].id,
+            first.id
+        );
+        db.set_bin_transform_ref(email_bin.id, Some("transform:test-email"))
+            .unwrap();
+        assert_eq!(
+            db.matching_smart_bin_transforms(
+                &first.content_type,
+                &first.content_types,
+                first.text_content.as_deref().unwrap(),
+                &first.source,
+            )
+            .unwrap(),
+            vec![(email_bin.id, "transform:test-email".to_string())]
+        );
         assert_eq!(first.source, "CLI Terminal");
         assert!(!first.content_hash.is_empty());
         let structure = db
@@ -12883,20 +13370,52 @@ mod tests {
             .unwrap();
 
         let report = db.rescan_content_classification().unwrap();
-        assert_eq!(report.scanned_count, 3);
-        assert_eq!(report.changed_count, 1);
+        assert_eq!(report.scanned_count, 4);
+        assert_eq!(report.changed_count, 2);
         assert_eq!(report.unchanged_count, 0);
         assert_eq!(report.failed_count, 2);
+        assert_eq!(db.get_clip_by_id(card.id).unwrap().content_type, "text");
         assert_eq!(
-            db.get_clip_by_id(card.id).unwrap().content_type,
-            "payment_card"
+            db.get_clip_by_id(card.id).unwrap().content_types,
+            vec!["payment_card"]
         );
         assert_eq!(db.get_clip_by_id(image.id).unwrap().content_type, "image");
-        assert_eq!(db.get_clip_by_id(empty.id).unwrap().content_type, "code");
+        assert_eq!(
+            db.get_clip_by_id(image.id).unwrap().content_types,
+            vec!["payment_card"]
+        );
+        assert_eq!(db.get_clip_by_id(empty.id).unwrap().content_type, "text");
         assert_eq!(
             db.get_clip_by_id(whitespace.id).unwrap().content_type,
-            "code"
+            "text"
         );
+    }
+
+    #[test]
+    fn legacy_semantic_clip_types_become_preserved_content_type_matches() {
+        let db = setup_test_db();
+        let clip = db
+            .save_clip(
+                "link",
+                Some("https://example.com"),
+                None,
+                None,
+                "legacy-link-hash",
+                "Test",
+            )
+            .unwrap();
+        {
+            let conn = db.conn.lock();
+            migrate_legacy_semantic_clip_types(&conn).unwrap();
+        }
+
+        let migrated = db.get_clip_by_id(clip.id).unwrap();
+        assert_eq!(migrated.content_type, "text");
+        assert_eq!(migrated.content_types, vec!["link"]);
+        let matches = db.get_analysis_classifications(clip.id).unwrap();
+        assert_eq!(matches.len(), 1);
+        assert_eq!(matches[0].classifier_ref, "url");
+        assert_eq!(matches[0].start_offset, None);
     }
 
     #[test]
@@ -13558,17 +14077,17 @@ mod tests {
         db.set_bin_transform_ref(screenshot_bin.id, Some("transform:test-origin"))
             .unwrap();
         assert_eq!(
-            db.matching_smart_bin_transforms("image", "", "Screenshot")
+            db.matching_smart_bin_transforms("image", &[], "", "Screenshot")
                 .unwrap(),
             vec![(screenshot_bin.id, "transform:test-origin".to_string())]
         );
         assert_eq!(
-            db.matching_smart_bin_transforms("file", &cleanshot_paths, "CleanShot X")
+            db.matching_smart_bin_transforms("file", &[], &cleanshot_paths, "CleanShot X")
                 .unwrap(),
             vec![(screenshot_bin.id, "transform:test-origin".to_string())]
         );
         assert!(db
-            .matching_smart_bin_transforms("image", "", "Preview")
+            .matching_smart_bin_transforms("image", &[], "", "Preview")
             .unwrap()
             .is_empty());
     }
@@ -14683,6 +15202,7 @@ mod tests {
         let _clip2 = db
             .save_clip("text", Some("Unrelated text"), None, None, "h2", "Finder")
             .unwrap();
+        let classified = db.save_text_clip("person@example.com", "Mail").unwrap();
 
         // Search by query
         let search_results = db.get_clips(Some("Secret"), None, false).unwrap();
@@ -14691,6 +15211,10 @@ mod tests {
             search_results[0].text_content.as_deref(),
             Some("Unique Search Secret")
         );
+        let type_results = db.get_clips(Some("email"), None, false).unwrap();
+        assert_eq!(type_results.len(), 1);
+        assert_eq!(type_results[0].id, classified.id);
+        assert_eq!(type_results[0].content_types, vec!["email"]);
 
         // Test distinct apps
         let apps = db.get_distinct_sources().unwrap();
@@ -14700,18 +15224,18 @@ mod tests {
         // Delete single clip (moves to trash)
         db.delete_clip(clip1.id).unwrap();
         let after_delete = db.get_clips(None, None, false).unwrap();
-        assert_eq!(after_delete.len(), 1);
+        assert_eq!(after_delete.len(), 2);
 
         // Verify clip is in Trash
         let trashed = db.get_trashed_clips().unwrap();
         assert_eq!(trashed.len(), 1);
         assert_eq!(trashed[0].id, clip1.id);
-        assert_eq!(db.get_total_clip_count().unwrap(), 1);
+        assert_eq!(db.get_total_clip_count().unwrap(), 2);
 
         // Restore clip
         db.restore_clip(clip1.id).unwrap();
         let after_restore = db.get_clips(None, None, false).unwrap();
-        assert_eq!(after_restore.len(), 2);
+        assert_eq!(after_restore.len(), 3);
     }
 
     #[test]
@@ -16073,6 +16597,30 @@ mod tests {
         let trashed = db
             .save_clip("text", Some("In Trash"), None, None, "HashBK2", "Notes")
             .unwrap();
+        db.replace_analysis_classifications(
+            clip.id,
+            &clip.content_hash,
+            &[
+                crate::content_classification::ClassificationMatch {
+                    classifier_ref: "email".into(),
+                    classifier_name: "Email Addresses".into(),
+                    content_type: "email".into(),
+                    priority: 20,
+                    start_offset: 0,
+                    end_offset: 6,
+                },
+                crate::content_classification::ClassificationMatch {
+                    classifier_ref: "url".into(),
+                    classifier_name: "Web Links".into(),
+                    content_type: "link".into(),
+                    priority: 30,
+                    start_offset: 7,
+                    end_offset: 11,
+                },
+            ],
+            "original_text",
+        )
+        .unwrap();
         let bin = db.create_bin("DevBin", "Code", "#3b82f6", None).unwrap();
         let tag = db
             .create_bin_with_type("BackupTag", "Tag", "#f59e0b", None, "tag")
@@ -16158,6 +16706,8 @@ mod tests {
         assert!(restored_clip.is_pinned);
         assert!(restored_clip.is_protected);
         assert!(!restored_clip.is_trashed);
+        assert_eq!(restored_clip.content_type, "text");
+        assert_eq!(restored_clip.content_types, vec!["link", "email"]);
 
         let restored_trashed = restored
             .iter()
@@ -16771,6 +17321,7 @@ mod tests {
             .unwrap();
         db.log_activity("app_started", "Tested legacy timestamp")
             .unwrap();
+        let classified = db.save_text_clip("person@example.com", "Tests").unwrap();
         let conn = db.conn.lock();
         conn.execute(
             "UPDATE clips SET created_at = '2026-08-16 23:45:00' WHERE id = ?1",
@@ -16783,12 +17334,19 @@ mod tests {
         )
         .unwrap();
         conn.execute(
+            "UPDATE clip_analysis_classifications
+             SET updated_at = '2026-08-16 23:47:00' WHERE clip_id = ?1",
+            [classified.id],
+        )
+        .unwrap();
+        conn.execute(
             "DELETE FROM schema_migrations WHERE key = 'canonicalUtcTimestampsV1'",
             [],
         )
         .unwrap();
 
         migrate_canonical_timestamps(&conn).unwrap();
+        migrate_analysis_classification_timestamps(&conn).unwrap();
         let clip_timestamp: String = conn
             .query_row(
                 "SELECT created_at FROM clips WHERE id = ?1",
@@ -16801,8 +17359,16 @@ mod tests {
                 row.get(0)
             })
             .unwrap();
+        let classification_timestamp: String = conn
+            .query_row(
+                "SELECT updated_at FROM clip_analysis_classifications WHERE clip_id = ?1",
+                [classified.id],
+                |row| row.get(0),
+            )
+            .unwrap();
         assert_eq!(clip_timestamp, "2026-08-16T23:45:00Z");
         assert_eq!(activity_timestamp, "2026-08-16T23:46:00Z");
+        assert_eq!(classification_timestamp, "2026-08-16T23:47:00Z");
     }
 
     #[test]
@@ -17495,14 +18061,9 @@ mod tests {
         assert_eq!(summary.pinned_count, 1);
         assert_eq!(summary.protected_count, 1);
         assert_eq!(summary.noted_count, 1);
-        assert_eq!(
-            summary
-                .type_counts
-                .iter()
-                .map(|item| item.count)
-                .sum::<i64>(),
-            4
-        );
+        assert_eq!(summary.type_counts.len(), 1);
+        assert_eq!(summary.type_counts[0].content_type, "link");
+        assert_eq!(summary.type_counts[0].count, 2);
         assert_eq!(
             summary
                 .source_counts
@@ -17530,11 +18091,17 @@ mod tests {
             .unwrap();
         db.update_clip_text(clip.id, "updated backup marker")
             .unwrap();
-        db.record_analysis_classification(
+        db.replace_analysis_classifications(
             clip.id,
             &clip.content_hash,
-            Some("prose"),
-            Some("prose"),
+            &[crate::content_classification::ClassificationMatch {
+                classifier_ref: "prose".into(),
+                classifier_name: "Prose".into(),
+                content_type: "prose".into(),
+                priority: 180,
+                start_offset: 0,
+                end_offset: 10,
+            }],
             "original_text",
         )
         .unwrap();
@@ -17662,10 +18229,7 @@ mod tests {
         assert_eq!(db.get_all_clips_for_backup().unwrap().len(), 2);
         assert!(!db.get_clip_versions(clip.id).unwrap().is_empty());
         assert_eq!(
-            db.get_analysis_classification(clip.id)
-                .unwrap()
-                .unwrap()
-                .content_type,
+            db.get_analysis_classifications(clip.id).unwrap()[0].content_type,
             "prose"
         );
         assert!(db

@@ -331,7 +331,9 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
   } | null>(null);
   const removePointerListenersRef = React.useRef<(() => void) | null>(null);
   const suppressClickRef = React.useRef(false);
-  const isSensitive = isSensitiveContentType(clip.content_type) || isSensitiveText(clip.text_content);
+  const primaryContentType = clip.content_types?.[0] ?? clip.content_type;
+  const isSensitive = (clip.content_types ?? [clip.content_type]).some(isSensitiveContentType)
+    || isSensitiveText(clip.text_content);
 
   React.useEffect(() => () => removePointerListenersRef.current?.(), []);
 
@@ -482,7 +484,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
       <div className={`clip-card-header flex items-center justify-between ${headerTextClass} ${headerSpacingClass}`}>
         <div className="flex items-center space-x-2">
           <div className="clip-type-icon theme-badge p-1 rounded border">
-            <ContentTypeIcon type={features.types ? clip.content_type : structuralClipType(clip.content_type)} className="w-3.5 h-3.5 theme-text-muted" />
+            <ContentTypeIcon type={features.types ? primaryContentType : structuralClipType(clip.content_type)} className="w-3.5 h-3.5 theme-text-muted" />
           </div>
           {features.sources && <span className="font-medium theme-text-main truncate max-w-[120px]" title={localizedSourceName(clip.source)}>
             <HighlightedClipText text={localizedSourceName(clip.source)} query={searchQuery} field="source" />
@@ -594,7 +596,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
             maxHeightClass={imgMaxHeightClass}
             placeholderHeightClass={imgPlaceholderHeightClass}
           />
-        ) : clip.content_type === 'color' ? (
+        ) : (clip.content_types ?? [clip.content_type]).includes('color') ? (
           <div className="clip-thumbnail-stage flex items-center space-x-3 p-2 rounded border">
             <div
               className="theme-divider w-8 h-8 rounded border shadow"
@@ -782,10 +784,14 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
 export const ClipCard = React.memo(ClipCardComponent, (prevProps, nextProps) => {
   const previousBinIds = prevProps.clip.bin_ids ?? [];
   const nextBinIds = nextProps.clip.bin_ids ?? [];
+  const previousContentTypes = prevProps.clip.content_types ?? [];
+  const nextContentTypes = nextProps.clip.content_types ?? [];
   return (
     prevProps.clip.id === nextProps.clip.id &&
     prevProps.clip.content_hash === nextProps.clip.content_hash &&
     prevProps.clip.content_type === nextProps.clip.content_type &&
+    previousContentTypes.length === nextContentTypes.length &&
+    previousContentTypes.every((type, index) => type === nextContentTypes[index]) &&
     prevProps.clip.text_content === nextProps.clip.text_content &&
     prevProps.clip.image_base64 === nextProps.clip.image_base64 &&
     prevProps.clip.source === nextProps.clip.source &&
