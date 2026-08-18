@@ -108,6 +108,8 @@ pasted bin shortcut <id> <shortcut|none> [--json]
 
 `bin order` replaces the complete saved order and rejects invalid/duplicate membership atomically.
 
+Smart Bin rules use `clip_type`, `source`, `content_type`, `origin_kind`, `contains`, `file_extension`, or `file_path` conditions. Clip Type is structural (`text`, `image`, or `file`); Content Type refers to the semantic classifier registry.
+
 ## Transforms
 
 ```text

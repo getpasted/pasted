@@ -13,18 +13,40 @@ import { translate, type TranslationKey } from '../localization/runtime';
 import { localizedContentTypeGroupLabel } from '../localization/presentation';
 import { contentTypeLabel } from '../utils/contentTypes';
 
+interface SmartBinFeatures {
+  clipTypes: boolean;
+  sources: boolean;
+  types: boolean;
+}
+
 interface BinModalProps {
   isOpen: boolean;
   editingBin?: Bin | null;
+  features: SmartBinFeatures;
   onClose: () => void;
   onRefreshBins: () => void;
 }
 
+type SmartConditionTarget = 'clip_type' | 'source' | 'content_type' | 'origin_kind' | 'contains' | 'file_extension' | 'file_path';
+
 interface SmartConditionRow {
   id: string;
-  target: 'source' | 'content_type' | 'origin_kind' | 'contains' | 'file_extension' | 'file_path';
+  target: SmartConditionTarget;
   operator: 'is' | 'contains';
   value: string;
+}
+
+const STRUCTURAL_CLIP_TYPES = new Set(['text', 'image', 'file']);
+
+function normalizeSmartCondition(condition: any, index: number): SmartConditionRow {
+  const value = typeof condition?.value === 'string' ? condition.value : '';
+  const legacyStructuralType = condition?.type === 'content_type' && STRUCTURAL_CLIP_TYPES.has(value);
+  return {
+    id: String(index + 1),
+    target: legacyStructuralType ? 'clip_type' : condition?.type || 'source',
+    operator: condition?.operator || 'is',
+    value,
+  };
 }
 
 const COLOR_PALETTE = [
@@ -60,20 +82,22 @@ const BIN_EMOJI_OPTIONS = [
 
 const emojiLabel = (key: string) => translate(`component.binModal.emoji.${key}` as TranslationKey);
 
-function initialBinForm(editingBin?: Bin | null) {
+function defaultSmartCondition(features: SmartBinFeatures): SmartConditionRow {
+  if (features.clipTypes) return { id: '1', target: 'clip_type', operator: 'is', value: 'text' };
+  if (features.sources) return { id: '1', target: 'source', operator: 'is', value: '1Password' };
+  if (features.types) return { id: '1', target: 'content_type', operator: 'is', value: 'code' };
+  return { id: '1', target: 'contains', operator: 'contains', value: '' };
+}
+
+function initialBinForm(editingBin: Bin | null | undefined, features: SmartBinFeatures) {
   if (editingBin?.smart_rule) {
     try {
       const parsed = JSON.parse(editingBin.smart_rule);
       return {
         modalTab: 'smart',
         conditions: parsed.conditions?.length > 0
-          ? parsed.conditions.map((condition: any, index: number) => ({
-            id: String(index + 1),
-            target: condition.type || 'source',
-            operator: condition.operator || 'is',
-            value: condition.value || '',
-          }))
-          : [{ id: '1', target: 'source', operator: 'is', value: '' }],
+          ? parsed.conditions.map(normalizeSmartCondition)
+          : [defaultSmartCondition(features)],
         matchCondition: parsed.match || 'any',
       };
     } catch {
@@ -82,7 +106,9 @@ function initialBinForm(editingBin?: Bin | null) {
   }
   return {
     modalTab: 'bin',
-    conditions: [{ id: '1', target: 'source', operator: 'is', value: editingBin ? '' : '1Password' }],
+    conditions: [editingBin
+      ? { ...defaultSmartCondition(features), value: '' }
+      : defaultSmartCondition(features)],
     matchCondition: 'any',
   };
 }
@@ -90,6 +116,7 @@ function initialBinForm(editingBin?: Bin | null) {
 export const BinModal: React.FC<BinModalProps> = ({
   isOpen,
   editingBin,
+  features,
   onClose,
   onRefreshBins,
 }) => {
@@ -119,18 +146,13 @@ export const BinModal: React.FC<BinModalProps> = ({
       try {
         const parsed = JSON.parse(editingBin.smart_rule);
         if (parsed.conditions && parsed.conditions.length > 0) {
-          return parsed.conditions.map((c: any, i: number) => ({
-            id: String(i + 1),
-            target: c.type || 'source',
-            operator: c.operator || 'is',
-            value: c.value || '',
-          }));
+          return parsed.conditions.map(normalizeSmartCondition);
         }
       } catch (e) {
         console.error(e);
       }
     }
-    return [{ id: '1', target: 'source', operator: 'is', value: '1Password' }];
+    return [defaultSmartCondition(features)];
   });
   const [matchCondition, setMatchCondition] = useState<'any' | 'all'>(() => {
     if (editingBin?.smart_rule) {
@@ -161,31 +183,26 @@ export const BinModal: React.FC<BinModalProps> = ({
             const parsed = JSON.parse(editingBin.smart_rule);
             if (parsed.conditions && parsed.conditions.length > 0) {
               setConditions(
-                parsed.conditions.map((c: any, i: number) => ({
-                  id: String(i + 1),
-                  target: c.type || 'source',
-                  operator: c.operator || 'is',
-                  value: c.value || '',
-                }))
+                parsed.conditions.map(normalizeSmartCondition)
               );
             } else {
-              setConditions([{ id: '1', target: 'source', operator: 'is', value: '' }]);
+              setConditions([{ ...defaultSmartCondition(features), value: '' }]);
             }
             setMatchCondition(parsed.match || 'any');
           } catch (e) {
             console.error(e);
-            setConditions([{ id: '1', target: 'source', operator: 'is', value: '' }]);
+            setConditions([{ ...defaultSmartCondition(features), value: '' }]);
           }
         } else {
           setModalTab('bin');
-          setConditions([{ id: '1', target: 'source', operator: 'is', value: '' }]);
+          setConditions([{ ...defaultSmartCondition(features), value: '' }]);
         }
       } else {
         setName('');
         setSelectedColor('default');
         setIcon('📂');
         setModalTab('bin');
-        setConditions([{ id: '1', target: 'source', operator: 'is', value: '1Password' }]);
+        setConditions([defaultSmartCondition(features)]);
       }
 
       invoke<string[]>('get_installed_applications')
@@ -213,12 +230,25 @@ export const BinModal: React.FC<BinModalProps> = ({
   if (!isOpen) return null;
 
   const handleAddCondition = () => {
-    const defaultVal = installedApps[0] || 'Safari';
+    const target: SmartConditionTarget = features.clipTypes
+      ? 'clip_type'
+      : features.sources
+        ? 'source'
+        : features.types
+          ? 'content_type'
+          : 'contains';
+    const defaultVal = target === 'clip_type'
+      ? 'text'
+      : target === 'source'
+        ? installedApps[0] || 'Safari'
+        : target === 'content_type'
+          ? contentTypes.find((type) => !type.isArchived && !STRUCTURAL_CLIP_TYPES.has(type.id))?.id || ''
+          : '';
     setConditions((prev) => [
       ...prev,
       {
         id: String(Date.now() + Math.random()),
-        target: 'source',
+        target,
         operator: 'is',
         value: defaultVal,
       },
@@ -291,7 +321,28 @@ export const BinModal: React.FC<BinModalProps> = ({
     }
   };
 
-  const initial = initialBinForm(editingBin);
+  const initial = initialBinForm(editingBin, features);
+  const activeContentTypes = contentTypes.filter((type) => (
+    !type.isArchived && !STRUCTURAL_CLIP_TYPES.has(type.id)
+  ));
+  const targetLabels: Record<SmartConditionTarget, string> = {
+    clip_type: translate('component.binModal.clipType'),
+    source: translate('component.binModal.source'),
+    content_type: translate('component.binModal.contentType2'),
+    origin_kind: translate('component.binModal.captureMethod'),
+    contains: translate('component.binModal.textContent'),
+    file_extension: translate('component.binModal.fileExtension'),
+    file_path: translate('component.binModal.filePath'),
+  };
+  const targetOptions = [
+    ...(features.clipTypes ? [{ value: 'clip_type', label: targetLabels.clip_type }] : []),
+    ...(features.sources ? [{ value: 'source', label: targetLabels.source }] : []),
+    ...(features.types ? [{ value: 'content_type', label: targetLabels.content_type }] : []),
+    { value: 'origin_kind', label: targetLabels.origin_kind },
+    { value: 'contains', label: targetLabels.contains },
+    { value: 'file_extension', label: targetLabels.file_extension, dividerBefore: true },
+    { value: 'file_path', label: targetLabels.file_path },
+  ];
   const isDirty = JSON.stringify({
     modalTab,
     name,
@@ -545,23 +596,20 @@ export const BinModal: React.FC<BinModalProps> = ({
                     onChange={(value) => {
                       const newTarget = value as SmartConditionRow['target'];
                       const newDefaultVal =
-                        newTarget === 'source'
+                        newTarget === 'clip_type'
+                          ? 'text'
+                          : newTarget === 'source'
                           ? installedApps[0] || 'Safari'
                           : newTarget === 'content_type'
-                          ? 'code'
+                          ? activeContentTypes[0]?.id || ''
                           : newTarget === 'origin_kind'
                           ? 'clipboard_content'
                           : '';
                       handleUpdateCondition(c.id, { target: newTarget, value: newDefaultVal });
                     }}
-                    options={[
-                      { value: 'source', get label() { return translate('component.binModal.source'); } },
-                      { value: 'content_type', get label() { return translate('component.binModal.contentType2'); } },
-                      { value: 'origin_kind', get label() { return translate('component.binModal.origin'); } },
-                      { value: 'contains', get label() { return translate('component.binModal.textContent'); } },
-                      { value: 'file_extension', get label() { return translate('component.binModal.fileExtension'); } },
-                      { value: 'file_path', get label() { return translate('component.binModal.filePath'); } },
-                    ]}
+                    options={targetOptions.some(({ value }) => value === c.target)
+                      ? targetOptions
+                      : [{ value: c.target, label: targetLabels[c.target], disabled: true }, ...targetOptions]}
                     label={translate('component.binModal.conditionTarget')}
                     className="w-28"
                     compact
@@ -581,7 +629,20 @@ export const BinModal: React.FC<BinModalProps> = ({
                   />
 
                   {/* Dynamic Value Dropdown / Input */}
-                  {c.target === 'source' ? (
+                  {c.target === 'clip_type' ? (
+                    <MenuSelect
+                      value={c.value}
+                      onChange={(value) => handleUpdateCondition(c.id, { value })}
+                      options={[
+                        { value: 'text', get label() { return translate('component.analyticsView.text'); } },
+                        { value: 'image', get label() { return translate('component.analyticsView.image'); } },
+                        { value: 'file', get label() { return translate('component.analyticsView.files'); } },
+                      ]}
+                      label={translate('component.binModal.clipType')}
+                      className="min-w-0 flex-1"
+                      compact
+                    />
+                  ) : c.target === 'source' ? (
                     <MenuSelect
                       value={c.value}
                       onChange={(value) => handleUpdateCondition(c.id, { value })}
@@ -599,14 +660,18 @@ export const BinModal: React.FC<BinModalProps> = ({
                     <MenuSelect
                       value={c.value}
                       onChange={(value) => handleUpdateCondition(c.id, { value })}
-                      options={contentTypes.map((type) => ({
+                      options={[
+                        ...(!activeContentTypes.some(({ id }) => id === c.value) && c.value
+                          ? [{ value: c.value, label: contentTypeLabel(c.value), disabled: true }]
+                          : []),
+                        ...activeContentTypes.map((type) => ({
                         value: type.id,
                         label: contentTypeLabel(type.id),
-                        group: type.isArchived ? translate('component.binModal.archived') : (() => {
+                        group: (() => {
                           const group = contentTypeGroups.find(({ id }) => id === type.group);
                           return group ? localizedContentTypeGroupLabel(group.id, group.label, group.isBuiltin, group.defaults?.label) : type.group;
                         })(),
-                      }))}
+                      }))]}
                       label={translate('component.binModal.contentType')}
                       className="min-w-0 flex-1"
                       compact
@@ -621,7 +686,7 @@ export const BinModal: React.FC<BinModalProps> = ({
                         { value: 'screenshot', get label() { return translate('component.binModal.screenshot'); } },
                         { value: 'command_line', get label() { return translate('component.binModal.commandLine'); } },
                       ]}
-                      label={translate('component.binModal.origin')}
+                      label={translate('component.binModal.captureMethod')}
                       className="min-w-0 flex-1"
                       compact
                     />

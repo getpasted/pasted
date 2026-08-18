@@ -157,15 +157,18 @@ fn push_smart_condition(
         return;
     }
     let condition = match kind {
+        "clip_type" => {
+            parameters.push(Box::new(value.to_lowercase()));
+            "LOWER(content_type) = ?".to_string()
+        }
         "content_type" => {
             parameters.push(Box::new(value.to_string()));
-            parameters.push(Box::new(value.to_string()));
-            "(content_type = ? OR EXISTS (
+            "EXISTS (
                 SELECT 1 FROM clip_analysis_classifications AS classified
                 WHERE classified.clip_id = clips.id
                   AND classified.input_hash = clips.content_hash
                   AND classified.content_type = ?
-            ))"
+            )"
             .to_string()
         }
         "origin_kind" => {
@@ -1516,10 +1519,55 @@ fn migrate_legacy_semantic_clip_types(conn: &Connection) -> Result<()> {
 }
 
 fn retire_structural_content_type_entries(conn: &Connection) -> Result<()> {
+    if table_exists(conn, "bins")? && column_exists(conn, "bins", "smart_rule")? {
+        let rules = {
+            let mut statement =
+                conn.prepare("SELECT id, smart_rule FROM bins WHERE smart_rule IS NOT NULL")?;
+            let rules = statement
+                .query_map([], |row| {
+                    Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
+                })?
+                .collect::<Result<Vec<_>>>()?;
+            rules
+        };
+        for (id, rule_json) in rules {
+            let Ok(mut rule) = serde_json::from_str::<serde_json::Value>(&rule_json) else {
+                continue;
+            };
+            let mut changed = false;
+            let mut migrate_condition = |condition: &mut serde_json::Value| {
+                let is_legacy_structural = condition["type"].as_str() == Some("content_type")
+                    && condition["value"]
+                        .as_str()
+                        .is_some_and(crate::content_types::is_structural_clip_type_id);
+                if is_legacy_structural {
+                    condition["type"] = serde_json::Value::String("clip_type".into());
+                    changed = true;
+                }
+            };
+            if let Some(conditions) = rule["conditions"].as_array_mut() {
+                for condition in conditions {
+                    migrate_condition(condition);
+                }
+            } else {
+                migrate_condition(&mut rule);
+            }
+            if changed {
+                conn.execute(
+                    "UPDATE bins SET smart_rule = ?1 WHERE id = ?2",
+                    params![
+                        serde_json::to_string(&rule).map_err(|error| {
+                            rusqlite::Error::ToSqlConversionFailure(Box::new(error))
+                        })?,
+                        id
+                    ],
+                )?;
+            }
+        }
+    }
     conn.execute(
         "DELETE FROM content_types
          WHERE id IN ('text', 'image', 'file')
-           AND is_builtin = 1
            AND NOT EXISTS (
                 SELECT 1 FROM content_classifiers
                 WHERE content_classifiers.content_type = content_types.id
@@ -3215,6 +3263,9 @@ impl DbState {
             ids
         };
         for id in legacy_type_ids {
+            if crate::content_types::is_structural_clip_type_id(&id) {
+                continue;
+            }
             conn.execute(
                 "INSERT OR IGNORE INTO content_types
                     (id, label, icon, group_name, is_builtin, is_archived)
@@ -7325,12 +7376,10 @@ impl DbState {
                 continue;
             };
             let condition_matches = |kind: &str, value: &str| match kind {
-                "content_type" => {
-                    clip_type.eq_ignore_ascii_case(value)
-                        || content_types
-                            .iter()
-                            .any(|content_type| content_type.eq_ignore_ascii_case(value))
-                }
+                "clip_type" => clip_type.eq_ignore_ascii_case(value),
+                "content_type" => content_types
+                    .iter()
+                    .any(|content_type| content_type.eq_ignore_ascii_case(value)),
                 "source" => source.to_lowercase().contains(&value.to_lowercase()),
                 "contains" => text.to_lowercase().contains(&value.to_lowercase()),
                 "origin_kind" => {
@@ -10964,7 +11013,8 @@ impl DbState {
             "SELECT types.id, types.label, types.icon, types.group_name, types.is_builtin, types.is_archived
              FROM content_types AS types
              LEFT JOIN content_type_groups AS groups ON groups.id = types.group_name
-             WHERE ?1 OR types.is_archived = 0
+             WHERE types.id NOT IN ('text', 'image', 'file')
+               AND (?1 OR types.is_archived = 0)
              ORDER BY types.is_archived, COALESCE(groups.sort_order, 10000), types.is_builtin DESC, types.label COLLATE NOCASE",
         )?;
         let definitions: Result<Vec<_>> = statement
@@ -13971,6 +14021,56 @@ mod tests {
         assert_eq!(derived_origin_kind("image", "Preview"), "clipboard_content");
         assert_eq!(derived_origin_kind("text", "Safari"), "clipboard_content");
         assert_eq!(derived_origin_kind("text", "CLI Terminal"), "command_line");
+    }
+
+    #[test]
+    fn structural_smart_bin_rules_migrate_to_clip_types() {
+        let db = setup_test_db();
+        let legacy_rule = serde_json::json!({
+            "conditions": [{"type": "content_type", "operator": "is", "value": "image"}],
+            "match": "all"
+        })
+        .to_string();
+        let bin = db
+            .create_bin("Images", "🖼️", "default", Some(&legacy_rule))
+            .unwrap();
+        {
+            let conn = db.conn.lock();
+            conn.execute(
+                "INSERT OR REPLACE INTO content_types
+                    (id, label, icon, group_name, is_builtin, is_archived)
+                 VALUES ('image', 'Image', 'Image', 'custom', 0, 0)",
+                [],
+            )
+            .unwrap();
+            retire_structural_content_type_entries(&conn).unwrap();
+        }
+
+        assert!(db
+            .get_content_types(true)
+            .unwrap()
+            .iter()
+            .all(|content_type| content_type.id != "image"));
+        let migrated = db.get_bin(bin.id).unwrap().smart_rule.unwrap();
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(&migrated).unwrap()["conditions"][0]["type"],
+            "clip_type"
+        );
+
+        let clip = db
+            .save_clip(
+                "image",
+                None,
+                None,
+                Some(crate::resource_limits::TEST_PNG_DATA_URL),
+                "clip-type-smart-bin-hash",
+                "Preview",
+            )
+            .unwrap();
+        assert_eq!(
+            db.get_clips(None, Some(bin.id), false).unwrap()[0].id,
+            clip.id
+        );
     }
 
     #[test]

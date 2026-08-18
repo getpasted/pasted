@@ -1748,6 +1748,11 @@ export default function App() {
         key={editingBin ? `edit-${editingBin.id}` : 'new-bin'}
         isOpen={isBinModalOpen}
         editingBin={editingBin}
+        features={{
+          clipTypes: enabledFeatures.clipTypes,
+          sources: enabledFeatures.sources,
+          types: enabledFeatures.types,
+        }}
         onClose={() => {
           setIsBinModalOpen(false);
           setEditingBin(null);
