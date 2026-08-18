@@ -1520,14 +1520,28 @@ fn run_command(command: &str, args: &[String], db_path: PathBuf, conn: Connectio
                             serde_json::to_string_pretty(&report).map_err(json_error)?
                         );
                     } else {
-                        println!(
-                            "Rescanned {} file clips; {} updated, {} unchanged, {} missing, and {} failed.",
-                            report.scanned_count,
-                            report.changed_count,
-                            report.unchanged_count,
-                            report.missing_count,
-                            report.failed_count
-                        );
+                        let mut details = Vec::new();
+                        if report.changed_count > 0 {
+                            details.push(format!("{} updated", report.changed_count));
+                        }
+                        if report.unchanged_count > 0 {
+                            details.push(format!("{} unchanged", report.unchanged_count));
+                        }
+                        if report.missing_count > 0 {
+                            details.push(format!("{} missing", report.missing_count));
+                        }
+                        if report.failed_count > 0 {
+                            details.push(format!("{} failed", report.failed_count));
+                        }
+                        if details.is_empty() {
+                            println!("Rescanned {} file clips.", report.scanned_count);
+                        } else {
+                            println!(
+                                "Rescanned {} file clips: {}.",
+                                report.scanned_count,
+                                details.join(", ")
+                            );
+                        }
                     }
                 }
                 _ => {

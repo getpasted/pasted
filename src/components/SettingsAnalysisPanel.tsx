@@ -23,6 +23,7 @@ import { useNewItemSelection } from '../hooks/useNewItemSelection';
 import { BuiltinLifecycleManagerDialog } from './BuiltinLifecycleManagerDialog';
 import { ConnectedMenuAction } from './ConnectedMenuAction';
 import { translate } from '../localization/runtime';
+import { useLocalization } from '../localization/LocalizationProvider';
 import { localizedBuiltinDescription, localizedBuiltinName, localizedContentTypeGroupLabel } from '../localization/presentation';
 import { contentTypeLabel } from '../utils/contentTypes';
 
@@ -140,6 +141,7 @@ export function SettingsAnalysisPanel({
   onOpenIntelligence?: () => void;
 }) {
   const { showToast } = useToast();
+  const { locale } = useLocalization();
   const { definitions: contentTypes, groups: contentTypeGroups, refresh: refreshContentTypes, refreshGroups } = useContentTypes();
   const [classifiers, setClassifiers] = useState<ContentClassifier[]>([]);
   const [selectedId, setSelectedId] = useState<number | 'new' | null>(null);
@@ -425,22 +427,23 @@ export function SettingsAnalysisPanel({
       ]);
       const scannedCount = reports.reduce((total, report) => total + (report?.scannedCount ?? 0), 0);
       const changedCount = reports.reduce((total, report) => total + (report?.changedCount ?? 0), 0);
+      const unchangedCount = reports.reduce((total, report) => total + (report?.unchangedCount ?? 0), 0);
       const missingCount = reports.reduce((total, report) => total + (report?.missingCount ?? 0), 0);
       const failedCount = reports.reduce((total, report) => total + (report?.failedCount ?? 0), 0);
+      const details = [
+        changedCount > 0 ? translate('component.settingsAnalysisPanel.rescanUpdated', { count: changedCount }) : null,
+        unchangedCount > 0 ? translate('component.settingsAnalysisPanel.rescanUnchanged', { count: unchangedCount }) : null,
+        missingCount > 0 ? translate('component.settingsAnalysisPanel.rescanMissing', { count: missingCount }) : null,
+        failedCount > 0 ? translate('component.settingsAnalysisPanel.rescanFailed', { count: failedCount }) : null,
+      ].filter((detail): detail is string => detail !== null);
       showToast({
         tone: failedCount > 0 ? 'info' : 'success',
-        message: missingCount > 0
-          ? translate('component.settingsAnalysisPanel.rescannedCountClipsCount2UpdatedCount3MissingCount4Failed', {
+        message: details.length > 0
+          ? translate('component.settingsAnalysisPanel.rescanSummary', {
             count: scannedCount,
-            count2: changedCount,
-            count3: missingCount,
-            count4: failedCount,
+            details: new Intl.ListFormat(locale, { style: 'short', type: 'conjunction' }).format(details),
           })
-          : translate('component.settingsAnalysisPanel.rescannedCountClipsCount2UpdatedCount3Failed', {
-            count: scannedCount,
-            count2: changedCount,
-            count3: failedCount,
-          }),
+          : translate('component.settingsAnalysisPanel.rescanSummaryEmpty', { count: scannedCount }),
       });
     } catch (error) {
       showToast({ tone: 'error', message: String(error) });
