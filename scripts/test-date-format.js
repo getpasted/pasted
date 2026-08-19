@@ -18,6 +18,21 @@ assert.equal(dateTimeAttribute('2026-08-17 12:34:56'), canonicalInstant,
 const now = Date.parse('2026-08-17T12:40:56Z');
 assert.equal(formatRelativeTime(instant, now, 'en-US'), '6m ago');
 assert.equal(formatRelativeTime(now, now, 'en-US'), 'now');
+assert.equal(
+  formatRelativeTime('2026-08-16T10:40:56Z', now, 'en-US'),
+  '1d ago',
+  'Elapsed days must not use calendar terms such as "yesterday".',
+);
+assert.equal(
+  formatRelativeTime('2026-08-09T12:40:56Z', now, 'en-US'),
+  '8d ago',
+  'Elapsed days must not be rounded to calendar terms such as "last week".',
+);
+assert.equal(
+  formatRelativeTime('2026-07-18T12:40:56Z', now, 'en-US'),
+  '1mo ago',
+  'Older units must remain numeric rather than using calendar terms.',
+);
 assert.notEqual(formatRelativeTime(instant, now, 'de-DE'), formatRelativeTime(instant, now, 'en-US'),
   'Relative-time presentation must honor the selected locale.');
 
