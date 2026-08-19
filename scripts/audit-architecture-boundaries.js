@@ -77,7 +77,7 @@ assert.match(read('src/App.tsx'), /!catalogReady \|\| !settingsHydrated \|\| !in
   'Application readiness must wait for the selected locale catalog');
 
 const sizeRatchets = new Map([
-  ['src-tauri/src/db.rs', 20_341],
+  ['src-tauri/src/db.rs', 20_111],
   ['src-tauri/src/commands.rs', 5_287],
   ['src-tauri/src/bin/pasted_cli.rs', 5_040],
   ['src/App.tsx', 1_814],
@@ -110,5 +110,12 @@ for (const handler of ['activity', 'analytics', 'analysis', 'backup', 'bins', 'c
   assert.ok(fs.existsSync(`src/mocks/browser/${handler}.ts`),
     `${handler} browser behavior must remain in a domain handler`);
 }
+
+for (const domain of ['clip_protection', 'retention', 'settings']) {
+  assert.ok(fs.existsSync(`src-tauri/src/db/${domain}.rs`),
+    `${domain} persistence must remain outside the database integration root`);
+}
+assert.doesNotMatch(commands, /pub fn (?:save_setting|configure_clip_retention)/,
+  'Database domain persistence must not move into the GUI command adapter');
 
 console.log('Application architecture boundary audit passed.');

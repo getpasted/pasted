@@ -46,6 +46,11 @@ Database changes use ordered `NamedMigration` entries. Each entry and its
 schema marker commit in one transaction. Additive column helpers propagate
 SQLite failures and are safe to run repeatedly.
 
+The database integration root delegates cohesive persistence behavior to
+submodules under `src-tauri/src/db`. Clip protection, retention policies, and
+Settings persistence are the first extracted domains. New work in those areas
+belongs in their domain module rather than returning to the integration root.
+
 ## Testing boundaries
 
 Application workflows that touch the system clipboard or paste destination
