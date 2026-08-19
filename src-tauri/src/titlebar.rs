@@ -213,11 +213,6 @@ pub fn install_focus_observers(window: &tauri::WebviewWindow) -> Result<(), Stri
         .map_err(|error| error.to_string())
 }
 
-#[cfg(not(target_os = "macos"))]
-pub fn install_focus_observers(_window: &tauri::WebviewWindow) -> Result<(), String> {
-    Ok(())
-}
-
 #[cfg(target_os = "macos")]
 fn configured_titlebar_double_click_action() -> TitlebarDoubleClickAction {
     use objc::runtime::Object;
