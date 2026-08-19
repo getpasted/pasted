@@ -437,7 +437,7 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
         daily_activity: [],
       } as unknown as T;
     }
-    case 'get_pipelines':
+    case 'get_manual_transforms':
       return mockPipelines as unknown as T;
     case 'get_content_classifiers':
       return mockClassifiers.map((classifier) => ({ ...classifier, patterns: [...classifier.patterns] })) as unknown as T;
@@ -791,9 +791,9 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       return null as unknown as T;
     }
     case 'execute_transformation': {
-      const request = args?.request as { input?: string; target?: { kind?: string; transformRef?: string; pipelineRef?: string; operationRef?: string } } | undefined;
+      const request = args?.request as { input?: string; target?: { kind?: string; transformRef?: string; operationRef?: string } } | undefined;
       const input = request?.input || '';
-      const targetRef = request?.target?.transformRef || request?.target?.pipelineRef || request?.target?.operationRef || '';
+      const targetRef = request?.target?.transformRef || request?.target?.operationRef || '';
       const output = request?.target?.kind === 'transform'
         ? `# ${input}`
         : targetRef.includes('uppercase') ? input.toUpperCase() : input;
@@ -805,7 +805,7 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
         durationMs: request?.target?.kind === 'transform' ? 260 : 1,
       } as unknown as T;
     }
-    case 'preview_pipeline_steps': {
+    case 'preview_manual_transform_steps': {
       const input = typeof args?.input === 'string' ? args.input : '';
       const steps = Array.isArray(args?.steps) ? args.steps : [];
       const output = steps.reduce((current: string, step: { operationRef?: string }) => (
@@ -1523,7 +1523,7 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
     case 'delete_operation':
       mockOperations = mockOperations.filter(({ id }) => id !== Number(args?.id));
       return undefined as unknown as T;
-    case 'create_pipeline': {
+    case 'create_manual_transform': {
       const id = Math.max(0, ...mockPipelines.map((pipeline) => pipeline.id)) + 1;
       const now = new Date().toISOString();
       const pipeline = {
@@ -1539,8 +1539,8 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       mockPipelines.push(pipeline);
       return pipeline as unknown as T;
     }
-    case 'update_pipeline': {
-      const pipeline = mockPipelines.find(({ stableRef }) => stableRef === String(args?.pipelineRef));
+    case 'update_manual_transform': {
+      const pipeline = mockPipelines.find(({ stableRef }) => stableRef === String(args?.transformRef));
       if (!pipeline) throw new Error('Transform was not found');
       pipeline.name = String(args?.name ?? pipeline.name);
       pipeline.steps = Array.isArray(args?.steps) ? args.steps as typeof pipeline.steps : pipeline.steps;
@@ -1549,13 +1549,13 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       pipeline.updatedAt = new Date().toISOString();
       return pipeline as unknown as T;
     }
-    case 'update_pipeline_hotkey': {
-      const pipeline = mockPipelines.find(({ stableRef }) => stableRef === String(args?.pipelineRef));
+    case 'update_manual_transform_hotkey': {
+      const pipeline = mockPipelines.find(({ stableRef }) => stableRef === String(args?.transformRef));
       if (pipeline) pipeline.hotkey = typeof args?.hotkey === 'string' ? args.hotkey : null;
       return undefined as unknown as T;
     }
-    case 'delete_pipeline':
-      mockPipelines = mockPipelines.filter(({ stableRef }) => stableRef !== String(args?.pipelineRef));
+    case 'delete_manual_transform':
+      mockPipelines = mockPipelines.filter(({ stableRef }) => stableRef !== String(args?.transformRef));
       return undefined as unknown as T;
     case 'get_transforms':
       return [

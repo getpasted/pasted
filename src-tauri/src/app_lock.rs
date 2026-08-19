@@ -126,6 +126,20 @@ impl AppLockState {
     }
 }
 
+pub fn lock_enabled(db: &DbState, state: &AppLockState) -> Result<AppLockStatus, String> {
+    crate::features::require(db, crate::features::Feature::AppLock)?;
+    if db
+        .get_setting(ENABLED_SETTING)
+        .map_err(|error| error.to_string())?
+        .as_deref()
+        != Some("true")
+    {
+        return Err("App lock is not enabled.".to_string());
+    }
+    state.lock();
+    Ok(status(db, state))
+}
+
 pub fn status(db: &DbState, state: &AppLockState) -> AppLockStatus {
     let feature_enabled = crate::features::is_enabled(db, crate::features::Feature::AppLock);
     AppLockStatus {

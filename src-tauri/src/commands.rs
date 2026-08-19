@@ -1434,7 +1434,7 @@ pub fn save_app_setting(
     value: String,
     app: AppHandle,
     db: State<'_, Arc<DbState>>,
-) -> Result<(), String> {
+) -> Result<(), crate::application_error::ApplicationError> {
     let outcome = crate::settings_service::update_setting(&db, key, value)?;
     apply_settings_runtime_changes(&app, &db, outcome);
     Ok(())
@@ -1445,7 +1445,7 @@ pub fn save_app_settings(
     values: std::collections::HashMap<String, String>,
     app: AppHandle,
     db: State<'_, Arc<DbState>>,
-) -> Result<(), String> {
+) -> Result<(), crate::application_error::ApplicationError> {
     let outcome = crate::settings_service::update_settings(&db, values)?;
     apply_settings_runtime_changes(&app, &db, outcome);
     Ok(())
@@ -1586,17 +1586,7 @@ pub(crate) fn lock_app_state(
     db: &DbState,
     state: &crate::app_lock::AppLockState,
 ) -> Result<crate::app_lock::AppLockStatus, String> {
-    features::require(db, Feature::AppLock)?;
-    if db
-        .get_setting(crate::app_lock::ENABLED_SETTING)
-        .map_err(|error| error.to_string())?
-        .as_deref()
-        != Some("true")
-    {
-        return Err("App lock is not enabled.".to_string());
-    }
-    state.lock();
-    Ok(crate::app_lock::status(db, state))
+    crate::app_lock::lock_enabled(db, state)
 }
 
 #[tauri::command]
@@ -2504,34 +2494,10 @@ pub fn paste_text_to_frontmost(text: String, app: AppHandle) -> Result<(), Strin
 
     std::thread::spawn(|| {
         std::thread::sleep(std::time::Duration::from_millis(50));
-        let _ = simulate_cmd_v_paste();
+        let _ = crate::paste_automation::paste();
     });
 
     Ok(())
-}
-
-pub(crate) fn execute_clipboard_pipeline(
-    db: &DbState,
-    pipeline_ref: Option<&str>,
-    paste_result: bool,
-) -> Result<crate::transformation_service::ExecutionOutcome, String> {
-    features::require(db, Feature::Transformations)?;
-    let mut clipboard = Clipboard::new().map_err(|error| error.to_string())?;
-    let input = clipboard.get_text().map_err(|error| error.to_string())?;
-    let outcome = crate::transformation_service::execute_shortcut_pipeline(db, input, pipeline_ref)
-        .map_err(|error| error.to_string())?;
-    clipboard
-        .set_text(&outcome.output)
-        .map_err(|error| error.to_string())?;
-    if paste_result {
-        // Hotkey callers run this function on a worker while holding the
-        // clipboard-action guard. Keep that guard until the synthetic paste
-        // has fired so another hotkey cannot replace the transformed output
-        // during this short focus-settling delay.
-        thread::sleep(Duration::from_millis(50));
-        let _ = simulate_cmd_v_paste();
-    }
-    Ok(outcome)
 }
 
 #[tauri::command]
@@ -2593,12 +2559,12 @@ pub fn update_bin(
 }
 
 #[tauri::command]
-pub fn get_pipelines(db: State<'_, Arc<DbState>>) -> Result<Vec<Pipeline>, String> {
+pub fn get_manual_transforms(db: State<'_, Arc<DbState>>) -> Result<Vec<Pipeline>, String> {
     crate::manual_transform_service::list(&db).map_err(|error| error.to_string())
 }
 
 #[tauri::command]
-pub fn create_pipeline(
+pub fn create_manual_transform(
     name: String,
     steps: Vec<PipelineStepInput>,
     hotkey: Option<String>,
@@ -2621,8 +2587,8 @@ pub fn create_pipeline(
 }
 
 #[tauri::command]
-pub fn update_pipeline(
-    pipeline_ref: String,
+pub fn update_manual_transform(
+    transform_ref: String,
     name: String,
     steps: Vec<PipelineStepInput>,
     hotkey: Option<String>,
@@ -2631,7 +2597,7 @@ pub fn update_pipeline(
 ) -> Result<Pipeline, String> {
     features::require(&db, Feature::Transformations)?;
     let previous_shortcut = db
-        .resolve_transform_definition(&pipeline_ref)
+        .resolve_transform_definition(&transform_ref)
         .map_err(|error| error.to_string())?
         .and_then(|definition| definition.shortcut);
     let hotkey_changed =
@@ -2641,7 +2607,7 @@ pub fn update_pipeline(
     }
     let pipeline = crate::manual_transform_service::update(
         &db,
-        &pipeline_ref,
+        &transform_ref,
         &name,
         &steps,
         hotkey.as_deref(),
@@ -2654,8 +2620,8 @@ pub fn update_pipeline(
 }
 
 #[tauri::command]
-pub fn update_pipeline_hotkey(
-    pipeline_ref: String,
+pub fn update_manual_transform_hotkey(
+    transform_ref: String,
     hotkey: Option<String>,
     db: State<'_, Arc<DbState>>,
     app: AppHandle,
@@ -2666,22 +2632,22 @@ pub fn update_pipeline_hotkey(
         .map_err(|error| error.to_string())?
         .into_iter()
         .find(|pipeline| {
-            pipeline.stable_ref == pipeline_ref
+            pipeline.stable_ref == transform_ref
                 || pipeline.stable_ref.strip_prefix("transform:")
-                    == pipeline_ref
+                    == transform_ref
                         .strip_prefix("pipeline:")
-                        .or_else(|| pipeline_ref.strip_prefix("transform:"))
+                        .or_else(|| transform_ref.strip_prefix("transform:"))
         })
         .ok_or_else(|| "Transform not found.".to_string())?
         .shortcut;
-    crate::manual_transform_service::update_shortcut(&db, &pipeline_ref, hotkey.as_deref())
+    crate::manual_transform_service::update_shortcut(&db, &transform_ref, hotkey.as_deref())
         .map_err(|error| error.to_string())?;
     let changed_hotkeys: Vec<String> = hotkey.clone().into_iter().collect();
     if let Err(error) = register_changed_hotkeys(&app, &changed_hotkeys) {
-        crate::manual_transform_service::update_shortcut(&db, &pipeline_ref, previous.as_deref())
+        crate::manual_transform_service::update_shortcut(&db, &transform_ref, previous.as_deref())
             .map_err(|rollback| {
-            format!("{error}; restoring the previous Transform hotkey failed: {rollback}")
-        })?;
+                format!("{error}; restoring the previous Transform hotkey failed: {rollback}")
+            })?;
         let _ = register_all_app_shortcuts(&app);
         return Err(error);
     }
@@ -2689,18 +2655,18 @@ pub fn update_pipeline_hotkey(
 }
 
 #[tauri::command]
-pub fn delete_pipeline(
-    pipeline_ref: String,
+pub fn delete_manual_transform(
+    transform_ref: String,
     db: State<'_, Arc<DbState>>,
     app: AppHandle,
 ) -> Result<(), String> {
     features::require(&db, Feature::Transformations)?;
     let had_hotkey = db
-        .resolve_transform_definition(&pipeline_ref)
+        .resolve_transform_definition(&transform_ref)
         .map_err(|error| error.to_string())?
         .and_then(|definition| definition.shortcut)
         .is_some_and(|value| !value.trim().is_empty());
-    crate::manual_transform_service::delete(&db, &pipeline_ref)
+    crate::manual_transform_service::delete(&db, &transform_ref)
         .map_err(|error| error.to_string())?;
     if had_hotkey {
         let _ = register_all_app_shortcuts(&app);
@@ -2709,7 +2675,7 @@ pub fn delete_pipeline(
 }
 
 #[tauri::command]
-pub async fn preview_pipeline_steps(
+pub async fn preview_manual_transform_steps(
     input: String,
     steps: Vec<PipelineStepInput>,
     client_request_id: Option<String>,
@@ -2728,7 +2694,7 @@ pub async fn preview_pipeline_steps(
         .map(crate::transformation_service::CancellationRegistration::register);
     let db = Arc::clone(&db);
     tauri::async_runtime::spawn_blocking(move || {
-        crate::transformation_service::preview_pipeline_steps(
+        crate::transformation_service::preview_manual_transform_steps(
             &db,
             &input,
             &steps,
@@ -3392,64 +3358,6 @@ pub fn push_sequential_item(
     Ok(status)
 }
 
-#[cfg(target_os = "macos")]
-pub fn simulate_cmd_v_paste() -> Result<(), String> {
-    use std::process::Command;
-    let output = Command::new("osascript")
-        .arg("-e")
-        .arg("tell application \"System Events\" to keystroke \"v\" using command down")
-        .output()
-        .map_err(|error| format!("Could not start macOS paste automation: {error}"))?;
-    if output.status.success() {
-        Ok(())
-    } else {
-        let detail = String::from_utf8_lossy(&output.stderr).trim().to_string();
-        Err(
-            if detail.contains("not authorized") || detail.contains("-1743") {
-                "macOS blocked Paste Next. Allow Accessibility access for Pasted (or the terminal/IDE running this development build), then try again.".to_string()
-            } else if detail.is_empty() {
-                "macOS rejected the simulated paste. Check Pasted's Accessibility permission."
-                    .to_string()
-            } else {
-                format!("macOS rejected the simulated paste: {detail}")
-            },
-        )
-    }
-}
-
-#[cfg(target_os = "windows")]
-pub fn simulate_cmd_v_paste() -> Result<(), String> {
-    use std::process::Command;
-    let status = Command::new("powershell")
-        .arg("-Command")
-        .arg("$wshell = New-Object -ComObject wscript.shell; $wshell.SendKeys('^v')")
-        .status()
-        .map_err(|error| format!("Could not start Windows paste automation: {error}"))?;
-    status
-        .success()
-        .then_some(())
-        .ok_or_else(|| "Windows rejected the simulated paste".to_string())
-}
-
-#[cfg(target_os = "linux")]
-pub fn simulate_cmd_v_paste() -> Result<(), String> {
-    use std::process::Command;
-    let status = Command::new("xdotool")
-        .arg("key")
-        .arg("ctrl+v")
-        .status()
-        .map_err(|error| format!("Could not start Linux paste automation: {error}"))?;
-    status
-        .success()
-        .then_some(())
-        .ok_or_else(|| "Linux rejected the simulated paste".to_string())
-}
-
-#[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
-pub fn simulate_cmd_v_paste() -> Result<(), String> {
-    Err("Paste automation is unavailable on this platform".to_string())
-}
-
 pub(crate) fn paste_queue_item(
     seq: &SequentialQueueState,
     db: &DbState,
@@ -3737,21 +3645,7 @@ pub(crate) fn paste_clip_from_hud(
     app: &AppHandle,
     clip_id: i64,
 ) -> Result<(), String> {
-    features::require(db, Feature::Hud)?;
-    paste_clip_to_last_external(db, app, clip_id)
-}
-
-pub(crate) fn paste_clip_to_last_external(
-    db: &DbState,
-    app: &AppHandle,
-    clip_id: i64,
-) -> Result<(), String> {
-    crate::clipboard_actions::paste_clip(
-        db,
-        app,
-        clip_id,
-        crate::clipboard_actions::PasteOrigin::Hud,
-    )
+    crate::clipboard_actions::paste_hud_clip(db, app, clip_id)
 }
 
 #[tauri::command]
@@ -3779,113 +3673,6 @@ pub fn trash_unpinned_clips(db: State<'_, Arc<DbState>>) -> Result<(), String> {
 #[tauri::command]
 pub fn purge_unpinned_clips(db: State<'_, Arc<DbState>>) -> Result<(), String> {
     db.purge_unpinned_clips().map_err(|e| e.to_string())
-}
-
-#[cfg_attr(target_os = "linux", allow(dead_code))]
-fn normalize_shortcut_aliases(shortcut: &str) -> String {
-    shortcut
-        .replace("CmdOrCtrl", "Super")
-        .replace("Command", "Super")
-        .replace("Cmd", "Super")
-        .replace("Option", "Alt")
-        .replace("Control", "Ctrl")
-}
-
-#[cfg_attr(target_os = "linux", allow(dead_code))]
-pub fn parse_shortcut_str(sc_str: &str) -> Option<tauri_plugin_global_shortcut::Shortcut> {
-    use std::str::FromStr;
-    use tauri_plugin_global_shortcut::Shortcut;
-
-    let s = sc_str.trim();
-    if s.is_empty() {
-        return None;
-    }
-
-    if let Ok(sc) = Shortcut::from_str(s) {
-        return Some(sc);
-    }
-
-    let clean = normalize_shortcut_aliases(s);
-
-    if let Ok(sc) = Shortcut::from_str(&clean) {
-        return Some(sc);
-    }
-
-    let parts: Vec<&str> = clean.split('+').collect();
-    if let Some(last) = parts.last() {
-        let last_trim = last.trim();
-        if last_trim.len() == 1 && last_trim.chars().next().unwrap().is_ascii_alphabetic() {
-            let key_str = format!("Key{}", last_trim.to_ascii_uppercase());
-            let converted = format!("{}+{}", parts[..parts.len() - 1].join("+"), key_str);
-            if let Ok(sc) = Shortcut::from_str(&converted) {
-                return Some(sc);
-            }
-        }
-        if last_trim.len() == 1 && last_trim.chars().next().unwrap().is_ascii_digit() {
-            let key_str = format!("Digit{}", last_trim);
-            let converted = format!("{}+{}", parts[..parts.len() - 1].join("+"), key_str);
-            if let Ok(sc) = Shortcut::from_str(&converted) {
-                return Some(sc);
-            }
-        }
-    }
-
-    None
-}
-
-#[cfg_attr(target_os = "linux", allow(dead_code))]
-pub fn parse_shortcut_str_for_current_layout(
-    sc_str: &str,
-) -> Option<Vec<tauri_plugin_global_shortcut::Shortcut>> {
-    use tauri_plugin_global_shortcut::{Modifiers, Shortcut};
-
-    let s = sc_str.trim();
-    if s.is_empty() {
-        return None;
-    }
-
-    let clean = normalize_shortcut_aliases(s);
-
-    let mut shortcuts = Vec::new();
-
-    if let Some(sc) = parse_shortcut_str(&clean) {
-        shortcuts.push(sc);
-    }
-
-    let parts: Vec<&str> = clean.split('+').collect();
-    if let Some(last) = parts.last() {
-        let last_trim = last.trim();
-        if last_trim.len() == 1 {
-            let ch = last_trim.chars().next().unwrap();
-            let mut mods = Modifiers::empty();
-            for m in &parts[..parts.len() - 1] {
-                match m.trim() {
-                    "Super" => mods |= Modifiers::SUPER,
-                    "Alt" => mods |= Modifiers::ALT,
-                    "Ctrl" => mods |= Modifiers::CONTROL,
-                    "Shift" => mods |= Modifiers::SHIFT,
-                    _ => {}
-                }
-            }
-
-            let command_modifier = mods.intersects(Modifiers::SUPER | Modifiers::META);
-            if let Some(layout_code) =
-                crate::keyboard_layout::code_for_character(ch, command_modifier)
-            {
-                // On platforms whose global-hotkey backend consumes physical
-                // codes, replace the parser's ANSI position with the physical
-                // key that the active OS layout says produces this letter.
-                shortcuts.clear();
-                shortcuts.push(Shortcut::new(Some(mods), layout_code));
-            }
-        }
-    }
-
-    if shortcuts.is_empty() {
-        None
-    } else {
-        Some(shortcuts)
-    }
 }
 
 pub fn register_all_app_shortcuts(app: &AppHandle) -> Result<(), String> {
@@ -5119,21 +4906,21 @@ mod tests {
 
     #[test]
     fn test_parse_shortcut_str_variations() {
-        assert!(parse_shortcut_str("CmdOrCtrl+Shift+V").is_some());
-        assert!(parse_shortcut_str("Control+Alt+C").is_some());
-        assert!(parse_shortcut_str("Ctrl+Alt+KeyC").is_some());
-        assert!(parse_shortcut_str("Alt+Super+KeyV").is_some());
-        assert!(parse_shortcut_str("Option+Cmd+C").is_some());
-        assert!(parse_shortcut_str("Command+Shift+V").is_some());
-        assert!(parse_shortcut_str("Control+Option+C").is_some());
-        assert!(parse_shortcut_str("Control+Option+V").is_some());
-        assert!(parse_shortcut_str("Super+Alt+KeyC").is_some());
-        assert!(parse_shortcut_str("").is_none());
-        assert!(parse_shortcut_str("   ").is_none());
+        assert!(crate::keyboard_shortcuts::parse("CmdOrCtrl+Shift+V").is_some());
+        assert!(crate::keyboard_shortcuts::parse("Control+Alt+C").is_some());
+        assert!(crate::keyboard_shortcuts::parse("Ctrl+Alt+KeyC").is_some());
+        assert!(crate::keyboard_shortcuts::parse("Alt+Super+KeyV").is_some());
+        assert!(crate::keyboard_shortcuts::parse("Option+Cmd+C").is_some());
+        assert!(crate::keyboard_shortcuts::parse("Command+Shift+V").is_some());
+        assert!(crate::keyboard_shortcuts::parse("Control+Option+C").is_some());
+        assert!(crate::keyboard_shortcuts::parse("Control+Option+V").is_some());
+        assert!(crate::keyboard_shortcuts::parse("Super+Alt+KeyC").is_some());
+        assert!(crate::keyboard_shortcuts::parse("").is_none());
+        assert!(crate::keyboard_shortcuts::parse("   ").is_none());
 
         // Equivalence checks for key representations
-        let sc1 = parse_shortcut_str("Option+Command+C").unwrap();
-        let sc2 = parse_shortcut_str("Alt+Super+KeyC").unwrap();
+        let sc1 = crate::keyboard_shortcuts::parse("Option+Command+C").unwrap();
+        let sc2 = crate::keyboard_shortcuts::parse("Alt+Super+KeyC").unwrap();
         assert_eq!(
             sc1, sc2,
             "Option+Command+C should resolve to identical Shortcut struct as Alt+Super+KeyC"
@@ -5243,7 +5030,7 @@ mod tests {
             "Control+Alt+KeyC",
         ];
         for s in strings {
-            let parsed = parse_shortcut_str(s);
+            let parsed = crate::keyboard_shortcuts::parse(s);
             println!("parse_shortcut_str('{s}') = {:?}", parsed);
         }
     }

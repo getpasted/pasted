@@ -207,7 +207,7 @@ export interface ClipMutationSummary {
   clipIds: number[];
 }
 
-export interface Pipeline {
+export interface ManualTransform {
   id: number;
   stableRef: string;
   name: string;

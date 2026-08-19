@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { Settings } from 'lucide-react';
-import { AppSettings, BlacklistApp, Pipeline, Bin } from '../types';
+import { AppSettings, BlacklistApp, ManualTransform, Bin } from '../types';
 import { SettingsTabs, type SettingsTab } from './SettingsTabs';
 import { SettingsBlacklistPanel } from './SettingsBlacklistPanel';
 import { SettingsGeneralPanel } from './SettingsGeneralPanel';
@@ -24,7 +24,7 @@ interface SettingsModalProps {
   onAddBlacklistApp: (appName: string) => void;
   onRemoveBlacklistApp: (appId: string) => void;
   onToggleBlacklistRule: (appId: string, rule: 'ignoreText' | 'ignoreImages' | 'ignoreFiles' | 'ignoreHotkeys') => void;
-  pipelines?: Pipeline[];
+  pipelines?: ManualTransform[];
   onRefreshPipelines?: () => void;
   bins?: Bin[];
   onRefreshBins?: () => void;

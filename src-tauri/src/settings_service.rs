@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use serde::Serialize;
 
+use crate::application_error::ApplicationError;
 use crate::{db::DbState, features::Feature};
 
 pub const MAX_SETTING_KEY_BYTES: usize = 128;
@@ -40,49 +41,63 @@ impl SettingsUpdateOutcome {
     }
 }
 
-fn validate_boolean(key: &str, value: &str) -> Result<(), String> {
+fn validate_boolean(key: &str, value: &str) -> Result<(), ApplicationError> {
     if matches!(value, "true" | "false") {
         Ok(())
     } else {
-        Err(format!("{key} must be true or false"))
+        Err(ApplicationError::invalid(format!(
+            "{key} must be true or false"
+        )))
     }
 }
 
-fn validate_integer(key: &str, value: &str, minimum: i64, maximum: i64) -> Result<(), String> {
+fn validate_integer(
+    key: &str,
+    value: &str,
+    minimum: i64,
+    maximum: i64,
+) -> Result<(), ApplicationError> {
     let parsed = value
         .parse::<i64>()
-        .map_err(|_| format!("{key} must be a whole number"))?;
+        .map_err(|_| ApplicationError::invalid(format!("{key} must be a whole number")))?;
     if (minimum..=maximum).contains(&parsed) {
         Ok(())
     } else {
-        Err(format!("{key} must be between {minimum} and {maximum}"))
+        Err(ApplicationError::invalid(format!(
+            "{key} must be between {minimum} and {maximum}"
+        )))
     }
 }
 
-fn validate_choice(key: &str, value: &str, choices: &[&str]) -> Result<(), String> {
+fn validate_choice(key: &str, value: &str, choices: &[&str]) -> Result<(), ApplicationError> {
     if choices.contains(&value) {
         Ok(())
     } else {
-        Err(format!("{key} has an unsupported value"))
+        Err(ApplicationError::invalid(format!(
+            "{key} has an unsupported value"
+        )))
     }
 }
 
-pub fn validate_setting(key: &str, value: &str) -> Result<(), String> {
+pub fn validate_setting(key: &str, value: &str) -> Result<(), ApplicationError> {
     if key.trim().is_empty() || key.len() > MAX_SETTING_KEY_BYTES {
-        return Err(format!(
+        return Err(ApplicationError::invalid(format!(
             "Setting keys must contain 1–{MAX_SETTING_KEY_BYTES} bytes"
-        ));
+        )));
     }
     if value.len() > MAX_SETTING_VALUE_BYTES {
-        return Err(format!(
+        return Err(ApplicationError::invalid(format!(
             "Setting values cannot exceed {MAX_SETTING_VALUE_BYTES} bytes"
-        ));
+        )));
     }
     if key == "pendingFullBackupClientState" || crate::app_lock::is_managed_setting(key) {
-        return Err("That setting must be changed through its dedicated controls".into());
+        return Err(ApplicationError::invalid(
+            "That setting must be changed through its dedicated controls",
+        ));
     }
     if key == crate::localization::LANGUAGE_SETTING_KEY {
-        return crate::localization::validate_configured_language(value);
+        return crate::localization::validate_configured_language(value)
+            .map_err(ApplicationError::invalid);
     }
     if Feature::from_setting_key(key).is_some() || BOOLEAN_SETTINGS.contains(&key) {
         return validate_boolean(key, value);
@@ -125,7 +140,7 @@ pub fn validate_setting(key: &str, value: &str) -> Result<(), String> {
 pub fn update_settings(
     db: &DbState,
     values: HashMap<String, String>,
-) -> Result<SettingsUpdateOutcome, String> {
+) -> Result<SettingsUpdateOutcome, ApplicationError> {
     if values.is_empty() {
         return Ok(SettingsUpdateOutcome {
             changes: Vec::new(),
@@ -138,7 +153,7 @@ pub fn update_settings(
 
     let mut changes = Vec::new();
     for (key, value) in &values {
-        let previous_value = db.get_setting(key).map_err(|error| error.to_string())?;
+        let previous_value = db.get_setting(key).map_err(ApplicationError::persistence)?;
         if previous_value.as_deref() != Some(value.as_str()) {
             changes.push(SettingChange {
                 key: key.clone(),
@@ -149,7 +164,7 @@ pub fn update_settings(
     }
     changes.sort_by(|left, right| left.key.cmp(&right.key));
     db.save_settings(&values)
-        .map_err(|error| error.to_string())?;
+        .map_err(ApplicationError::persistence)?;
 
     let mut activities = changes
         .iter()
@@ -189,7 +204,7 @@ pub fn update_setting(
     db: &DbState,
     key: String,
     value: String,
-) -> Result<SettingsUpdateOutcome, String> {
+) -> Result<SettingsUpdateOutcome, ApplicationError> {
     update_settings(db, HashMap::from([(key, value)]))
 }
 

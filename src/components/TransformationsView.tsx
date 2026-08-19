@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import type { Operation, Pipeline, SavedTransform, TransformDefinition } from '../types';
+import type { Operation, ManualTransform, SavedTransform, TransformDefinition } from '../types';
+import { transformsApi } from '../api/transforms';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { PipelineEditorModal } from './PipelineEditorModal';
 import { OperationsManager } from './OperationsManager';
@@ -16,7 +17,7 @@ import { TransformationLibrary } from './TransformationLibrary';
 import { translate } from '../localization/runtime';
 
 interface TransformationsViewProps {
-  pipelines: Pipeline[];
+  pipelines: ManualTransform[];
   onRefreshPipelines: () => void;
   activeWorkspace: TransformWorkspace;
   onActiveWorkspaceChange: (workspace: TransformWorkspace) => void;
@@ -31,7 +32,7 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
   const { showToast } = useToast();
   const [activeLibraryFilter, setActiveLibraryFilter] = useState('all');
 
-  const [selectedPipelineForEdit, setSelectedPipelineForEdit] = useState<Pipeline | null>(null);
+  const [selectedPipelineForEdit, setSelectedPipelineForEdit] = useState<ManualTransform | null>(null);
   const [selectedTransformForEdit, setSelectedTransformForEdit] = useState<SavedTransform | null>(null);
   const [isEditorModalOpen, setIsEditorModalOpen] = useState(false);
   const [isComposerModalOpen, setIsComposerModalOpen] = useState(false);
@@ -39,7 +40,7 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
   const [testResult, setTestResult] = useState('');
   const [testError, setTestError] = useState('');
   const [transforms, setTransforms] = useState<SavedTransform[]>([]);
-  const [pipelines, setPipelines] = useState<Pipeline[]>(externalPipelines);
+  const [pipelines, setPipelines] = useState<ManualTransform[]>(externalPipelines);
   const [playgroundTarget, setPlaygroundTarget] = useState<PlaygroundTarget | null>(null);
   const [playgroundRunState, setPlaygroundRunState] = useState<PlaygroundRunState>('idle');
   const [playgroundDurationMs, setPlaygroundDurationMs] = useState<number>();
@@ -68,14 +69,14 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
     setIsComposerModalOpen(true);
   };
 
-  const handleOpenEditModal = (pipeline: Pipeline) => {
+  const handleOpenEditModal = (pipeline: ManualTransform) => {
     setSelectedPipelineForEdit(pipeline);
     setIsEditorModalOpen(true);
   };
 
-  const handleDuplicatePipeline = async (pipeline: Pipeline) => {
+  const handleDuplicatePipeline = async (pipeline: ManualTransform) => {
     try {
-      await invoke('create_pipeline', {
+      await transformsApi.createManual({
         name: `${pipeline.name} (Copy)`,
         steps: pipeline.steps,
         hotkey: null,
@@ -91,7 +92,7 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
   const handleDeletePipeline = async (pipelineRef: string) => {
     setIsDeleting(true);
     try {
-      await invoke('delete_pipeline', { pipelineRef });
+      await transformsApi.deleteManual(pipelineRef);
       onRefreshPipelines();
       fetchTransforms();
       setDeleteTarget(null);
@@ -305,7 +306,7 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
           onDeleteTransform={(transform) => setDeleteTarget({ kind: 'Transform', storage: 'saved', name: transform.name, ref: transform.stableRef })}
           onDeletePipeline={(pipeline) => setDeleteTarget({ kind: 'Transform', storage: 'manual', name: pipeline.name, ref: pipeline.stableRef })}
           onPipelineHotkeyChange={(pipeline, hotkey) => {
-            void invoke('update_pipeline_hotkey', { pipelineRef: pipeline.stableRef, hotkey })
+            void transformsApi.updateManualHotkey(pipeline.stableRef, hotkey)
               .then(onRefreshPipelines)
               .then(fetchTransforms)
               .catch(showActionError);

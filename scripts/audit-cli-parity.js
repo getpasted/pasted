@@ -233,6 +233,8 @@ assert.match(cli, /db\.configure_clip_retention/, 'CLI retention must use the sh
 assert.match(commands, /settings_service::update_setting/, 'GUI setting writes must use the shared Settings service');
 assert.match(commands, /settings_service::update_settings/, 'GUI setting batches must use the shared Settings service');
 assert.match(cli, /settings_service::update_setting/, 'CLI setting writes must use the shared Settings service');
+assert.match(cli, /serde_json::json!\(\{ "error": error \}\)/,
+  'CLI JSON Settings failures must preserve the shared structured error contract');
 for (const method of ['create', 'update']) {
   assert.match(commands, new RegExp(`manual_transform_service::${method}`),
     `GUI manual Transform ${method} must use the shared service`);

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Keyboard, MonitorCog, RotateCcw, ShieldCheck, TriangleAlert } from 'lucide-react';
-import type { AppSettings, Bin, Pipeline } from '../types';
+import type { AppSettings, Bin, ManualTransform } from '../types';
+import { transformsApi } from '../api/transforms';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { HotkeyRecorder } from './HotkeyRecorder';
 import { SettingsPanelHeader } from './SettingsPanelHeader';
@@ -13,7 +14,7 @@ import { translate } from '../localization/runtime';
 interface SettingsHotkeysPanelProps {
   settings: AppSettings;
   bins: Bin[];
-  pipelines: Pipeline[];
+  pipelines: ManualTransform[];
   onUpdateSettings: (newSettings: Partial<AppSettings>) => void;
   onRefreshBins?: () => void;
   onRefreshPipelines?: () => void;
@@ -360,7 +361,7 @@ export function SettingsHotkeysPanel({
         <div className="theme-surface overlay-scroll-region max-h-60 overflow-y-auto rounded-xl border">
           {pipelines.map((pipeline) => <HotkeyRow key={pipeline.id} label={pipeline.name} value={pipeline.hotkey ?? null} onChange={async (hotkey) => {
               try {
-                await invoke('update_pipeline_hotkey', { pipelineRef: pipeline.stableRef, hotkey });
+                await transformsApi.updateManualHotkey(pipeline.stableRef, hotkey);
                 onRefreshPipelines?.();
               } catch (error) {
                 console.error('Failed to update Advanced Transform hotkey:', error);

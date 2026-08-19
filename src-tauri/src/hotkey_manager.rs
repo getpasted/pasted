@@ -7,7 +7,6 @@ use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut};
 #[cfg(target_os = "linux")]
 use futures_util::StreamExt;
 
-use crate::commands;
 use crate::db::DbState;
 use crate::features::{self, Feature};
 use crate::sequential_paste::SequentialQueueState;
@@ -336,7 +335,7 @@ impl HotkeyManager {
         let mut hotkey_counts = HashMap::<Shortcut, usize>::new();
 
         for spec in specs {
-            let Some(shortcuts) = commands::parse_shortcut_str_for_current_layout(&spec.hotkey)
+            let Some(shortcuts) = crate::keyboard_shortcuts::parse_for_current_layout(&spec.hotkey)
             else {
                 issues.push(HotkeyRegistrationIssue {
                     hotkey: spec.hotkey,
@@ -667,7 +666,7 @@ impl HotkeyManager {
         if matches!(&action, AppHotkeyAction::LockApp) {
             let db = app.state::<Arc<DbState>>();
             let state = app.state::<Arc<crate::app_lock::AppLockState>>();
-            let status = match commands::lock_app_state(&db, &state) {
+            let status = match crate::app_lock::lock_enabled(&db, &state) {
                 Ok(status) => status,
                 Err(error) => {
                     eprintln!("[Pasted Hotkeys] Could not lock Pasted: {error}");
@@ -700,7 +699,7 @@ impl HotkeyManager {
         let clipboard_action_guard = Arc::clone(&self.clipboard_action_guard);
         if let Err(error) = app.run_on_main_thread(move || match action {
             AppHotkeyAction::ToggleHud => {
-                let _ = commands::toggle_hud_window(app_handle.clone());
+                let _ = crate::hud_window::toggle(&app_handle);
             }
             AppHotkeyAction::ToggleMainWindow => {
                 if let Some(w) = app_handle.get_webview_window("main") {
@@ -773,7 +772,9 @@ impl HotkeyManager {
                     let Some(clip) = clips.first() else {
                         return;
                     };
-                    if let Err(error) = commands::paste_clip_from_hud(&db, &paste_app, clip.id) {
+                    if let Err(error) =
+                        crate::clipboard_actions::paste_hud_clip(&db, &paste_app, clip.id)
+                    {
                         eprintln!("[Pasted HUD] {error}");
                     }
                 });
@@ -809,7 +810,7 @@ impl HotkeyManager {
                         return;
                     };
                     if let Err(error) =
-                        commands::execute_clipboard_pipeline(&db, Some(&pipeline_ref), true)
+                        crate::clipboard_actions::execute_transform(&db, Some(&pipeline_ref), true)
                     {
                         eprintln!("[Pasted Transform Hotkey] {error}");
                     }
@@ -825,7 +826,9 @@ impl HotkeyManager {
                     let Some(db) = transform_app.try_state::<Arc<DbState>>() else {
                         return;
                     };
-                    if let Err(error) = commands::execute_clipboard_pipeline(&db, None, false) {
+                    if let Err(error) =
+                        crate::clipboard_actions::execute_transform(&db, None, false)
+                    {
                         eprintln!("[Pasted Last Pipeline Copy] {error}");
                     }
                 });
@@ -840,7 +843,8 @@ impl HotkeyManager {
                     let Some(db) = transform_app.try_state::<Arc<DbState>>() else {
                         return;
                     };
-                    if let Err(error) = commands::execute_clipboard_pipeline(&db, None, true) {
+                    if let Err(error) = crate::clipboard_actions::execute_transform(&db, None, true)
+                    {
                         eprintln!("[Pasted Last Pipeline Paste] {error}");
                     }
                 });
@@ -1357,7 +1361,7 @@ mod tests {
     #[test]
     fn test_hotkey_manager_maps_actions() {
         let mgr = HotkeyManager::new();
-        let sc = commands::parse_shortcut_str("CmdOrCtrl+Shift+V").unwrap();
+        let sc = crate::keyboard_shortcuts::parse("CmdOrCtrl+Shift+V").unwrap();
 
         {
             let mut map = mgr.action_map.write();

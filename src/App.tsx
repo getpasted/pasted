@@ -1,7 +1,6 @@
-import { useEffect, useLayoutEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { lazy, Suspense, useEffect, useLayoutEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { safeInvoke as invoke } from './utils/tauri';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { listen } from '@tauri-apps/api/event';
 import { APP_EVENTS } from './utils/appEvents';
 import { ClipItem, Bin, getClipFileSummary, type ClipMutationSummary } from './types';
 import { Sidebar } from './components/Sidebar';
@@ -10,16 +9,12 @@ import { EmptyClipList } from './components/EmptyClipList';
 import { PinnedClipShelf } from './components/PinnedClipShelf';
 import { ClipPreview } from './components/ClipPreview';
 import { SequentialQueueBar } from './components/SequentialQueueBar';
-import { TransformationsView } from './components/TransformationsView';
 import type { TransformWorkspace } from './components/TransformWorkspaceHeader';
-import { SettingsModal } from './components/SettingsModal';
 import type { SettingsTab } from './components/SettingsTabs';
 import { BinModal } from './components/BinModal';
 import { ContextMenu } from './components/ContextMenu';
 import { QuickHudWindow } from './components/QuickHudWindow';
-import { ActivityLogView } from './components/ActivityLogView';
-import { AnalyticsView } from './components/AnalyticsView';
-import { HelpView, type HelpTopic } from './components/HelpView';
+import type { HelpTopic } from './components/HelpView';
 import { BinContextMenu } from './components/BinContextMenu';
 import { DeleteBinDialog } from './components/DeleteBinDialog';
 import { ClipNoteDialog } from './components/ClipNoteDialog';
@@ -56,6 +51,18 @@ import { translate } from './localization/runtime';
 import { localizedSourceName } from './localization/presentation';
 import { MacRtlWindowControls } from './components/MacRtlWindowControls';
 import { SearchErrorNotice } from './components/SearchErrorNotice';
+import { useAppEvent } from './hooks/useAppEvent';
+
+const TransformationsView = lazy(() => import('./components/TransformationsView')
+  .then(({ TransformationsView: component }) => ({ default: component })));
+const SettingsModal = lazy(() => import('./components/SettingsModal')
+  .then(({ SettingsModal: component }) => ({ default: component })));
+const ActivityLogView = lazy(() => import('./components/ActivityLogView')
+  .then(({ ActivityLogView: component }) => ({ default: component })));
+const AnalyticsView = lazy(() => import('./components/AnalyticsView')
+  .then(({ AnalyticsView: component }) => ({ default: component })));
+const HelpView = lazy(() => import('./components/HelpView')
+  .then(({ HelpView: component }) => ({ default: component })));
 
 const TRANSIENT_SCROLL_SURFACE_SELECTOR = [
   '.surface-scroll-region',
@@ -307,27 +314,12 @@ export default function App() {
     }
   }, [bins, currentTab, initialDataLoaded, selectedBinId, settingsHydrated]);
 
-  useEffect(() => {
-    if (isHudView) return undefined;
-    const unlisteners: Array<() => void> = [];
-    let disposed = false;
-    void listen<string>(APP_EVENTS.navigateTab, (event) => navigateToTab(event.payload)).then((unlisten) => {
-      if (disposed) unlisten();
-      else unlisteners.push(unlisten);
-    });
-    void listen<number>(APP_EVENTS.navigateBin, (event) => {
+  useAppEvent<string>(APP_EVENTS.navigateTab, navigateToTab, !isHudView);
+  useAppEvent<number>(APP_EVENTS.navigateBin, (binId) => {
       if (document.querySelector('[role="dialog"][aria-modal="true"]')) return;
-      setSelectedBinId(event.payload);
+      setSelectedBinId(binId);
       setCurrentTab('bin');
-    }).then((unlisten) => {
-      if (disposed) unlisten();
-      else unlisteners.push(unlisten);
-    });
-    return () => {
-      disposed = true;
-      unlisteners.forEach((unlisten) => unlisten());
-    };
-  }, [isHudView, navigateToTab]);
+  }, !isHudView);
 
   const enterSearchView = useCallback(() => {
     if (currentTab !== 'search') setCurrentTab('search');
@@ -1100,14 +1092,9 @@ export default function App() {
     return summary.changedCount;
   };
 
-  useEffect(() => {
-    if (isHudView) return undefined;
-    let disposed = false;
-    let unlistenMenuAction: (() => void) | undefined;
-
-    void listen<string>(APP_EVENTS.appMenuAction, (event) => {
+  useAppEvent<string>(APP_EVENTS.appMenuAction, (action) => {
       if (document.querySelector('[role="dialog"][aria-modal="true"]')) return;
-      switch (event.payload) {
+      switch (action) {
         case 'new-bin':
           if (!enabledFeatures.bins) break;
           setEditingBin(null);
@@ -1168,37 +1155,7 @@ export default function App() {
         default:
           break;
       }
-    }).then((unlisten) => {
-      if (disposed) unlisten();
-      else unlistenMenuAction = unlisten;
-    });
-
-    return () => {
-      disposed = true;
-      unlistenMenuAction?.();
-    };
-  }, [
-    fetchBins,
-    fetchClips,
-    fetchPipelines,
-    fetchSequentialStatus,
-    fetchTrashedClips,
-    appSettings.textSize,
-    enabledFeatures,
-    handleBatchTrash,
-    handleCopyClip,
-    handleDeleteClip,
-    handlePurgeClipPermanently,
-    handleToggleClipboardPause,
-    handleTogglePin,
-    handleToggleProtected,
-    handleUpdateSettings,
-    isHudView,
-    resetColumnWidths,
-    selectedClip,
-    selectedClipIds,
-    selectedClipViewPolicy,
-  ]);
+  }, !isHudView);
 
   if (isHudView) {
     return <FeatureProvider features={enabledFeatures}><QuickHudWindow /></FeatureProvider>;
@@ -1299,7 +1256,7 @@ export default function App() {
       )}
 
       {/* Main Content Area */}
-      {currentTab === 'transformations' ? (
+      <Suspense fallback={null}>{currentTab === 'transformations' ? (
         <TransformationsView
           pipelines={pipelines}
           onRefreshPipelines={fetchPipelines}
@@ -1719,7 +1676,7 @@ export default function App() {
             filePreviewMaxMb={appSettings.filePreviewMaxMb}
           />
         </div>
-      )}
+      )}</Suspense>
 
       {/* Right Click Context Menu */}
       {contextMenu && (

@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { listen } from '@tauri-apps/api/event';
-import type { Bin, ClipCollectionSummary, ClipItem, Pipeline, SequentialStatus } from '../types';
+import type { Bin, ClipCollectionSummary, ClipItem, ManualTransform, SequentialStatus } from '../types';
 import { sortClipsForTimeline } from '../utils/clipOrder';
 import { soundManager } from '../utils/sound';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { APP_EVENTS, type ClipboardPauseChangedEvent } from '../utils/appEvents';
+import { transformsApi } from '../api/transforms';
 
 function readCachedArray<T>(key: string): T[] {
   try {
@@ -80,7 +81,7 @@ export function useAppData() {
   const [allClips, setAllClips] = useState<ClipItem[]>(() => normalizeClipItems(readCachedArray('pasted_cache_clips')));
   const [trashedClips, setTrashedClips] = useState<ClipItem[]>([]);
   const [bins, setBins] = useState<Bin[]>(() => readCachedArray('pasted_cache_bins'));
-  const [pipelines, setPipelines] = useState<Pipeline[]>([]);
+  const [pipelines, setPipelines] = useState<ManualTransform[]>([]);
   const [sequentialStatus, setSequentialStatus] = useState<SequentialStatus | null>(null);
   const [totalClipCount, setTotalClipCount] = useState(0);
   const [totalTrashCount, setTotalTrashCount] = useState(0);
@@ -195,7 +196,7 @@ export function useAppData() {
 
   const fetchPipelines = useCallback(async () => {
     try {
-      setPipelines(await invoke<Pipeline[]>('get_pipelines'));
+      setPipelines(await transformsApi.listManual());
     } catch (error) {
       console.error('Failed to fetch manual Transforms:', error);
     }

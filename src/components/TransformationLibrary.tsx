@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Copy, Edit3, Play, Sparkles, Trash2, Workflow } from 'lucide-react';
-import type { Operation, Pipeline, SavedTransform } from '../types';
+import type { Operation, ManualTransform, SavedTransform } from '../types';
 import { HotkeyRecorder } from './HotkeyRecorder';
 import { RegistryEditorActions } from './RegistryEditorActions';
 import { RegistryDetailHeader } from './RegistryDetailHeader';
@@ -16,11 +16,11 @@ import { useFeatures } from '../hooks/useFeatures';
 type LibrarySelection = { stableRef: string };
 type TransformLibraryItem =
   | { storage: 'saved'; stableRef: string; updatedAt: string; item: SavedTransform }
-  | { storage: 'manual'; stableRef: string; updatedAt: string; item: Pipeline };
+  | { storage: 'manual'; stableRef: string; updatedAt: string; item: ManualTransform };
 
 interface TransformationLibraryProps {
   transforms: SavedTransform[];
-  pipelines: Pipeline[];
+  pipelines: ManualTransform[];
   operations: Operation[];
   filter: string;
   filterOptions: TransformCategoryOption[];
@@ -28,14 +28,14 @@ interface TransformationLibraryProps {
   onCreateTransform: () => void;
   onCreatePipeline: () => void;
   onTestTransform: (transform: SavedTransform) => void;
-  onTestPipeline: (pipeline: Pipeline) => void;
+  onTestPipeline: (pipeline: ManualTransform) => void;
   onEditTransform: (transform: SavedTransform) => void;
-  onEditPipeline: (pipeline: Pipeline) => void;
+  onEditPipeline: (pipeline: ManualTransform) => void;
   onDuplicateTransform: (transform: SavedTransform) => void;
-  onDuplicatePipeline: (pipeline: Pipeline) => void;
+  onDuplicatePipeline: (pipeline: ManualTransform) => void;
   onDeleteTransform: (transform: SavedTransform) => void;
-  onDeletePipeline: (pipeline: Pipeline) => void;
-  onPipelineHotkeyChange: (pipeline: Pipeline, hotkey: string | null) => void;
+  onDeletePipeline: (pipeline: ManualTransform) => void;
+  onPipelineHotkeyChange: (pipeline: ManualTransform, hotkey: string | null) => void;
 }
 
 export function TransformationLibrary({
@@ -219,7 +219,7 @@ function PipelineDetails({
   onDelete,
   onHotkeyChange,
 }: {
-  pipeline: Pipeline;
+  pipeline: ManualTransform;
   operations: Operation[];
   onTest: () => void;
   onEdit: () => void;

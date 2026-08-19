@@ -66,9 +66,17 @@ impl ExecutionTrigger {
     rename_all_fields = "camelCase"
 )]
 pub enum ExecutionTarget {
-    Transform { transform_ref: String },
-    Operation { operation_ref: String },
-    Pipeline { pipeline_ref: String },
+    Transform {
+        transform_ref: String,
+    },
+    Operation {
+        operation_ref: String,
+    },
+    #[serde(alias = "pipeline")]
+    ManualTransform {
+        #[serde(alias = "pipelineRef")]
+        transform_ref: String,
+    },
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -371,7 +379,7 @@ pub(crate) fn execute_operation_inline(
 /// Preview unsaved manual Transform steps through the same Operation executor
 /// used by persisted Transforms. This keeps the editor honest without creating
 /// a temporary database record or updating last-used Transform state.
-pub fn preview_pipeline_steps(
+pub fn preview_manual_transform_steps(
     db: &DbState,
     input: &str,
     steps: &[PipelineStepInput],
@@ -429,13 +437,13 @@ pub fn execute_with_cancellation(
 ) -> Result<ExecutionOutcome, ExecutionError> {
     let mut request = request;
     request.target = match request.target {
-        ExecutionTarget::Pipeline { pipeline_ref } => ExecutionTarget::Transform {
+        ExecutionTarget::ManualTransform { transform_ref } => ExecutionTarget::Transform {
             transform_ref: format!(
                 "transform:{}",
-                pipeline_ref
+                transform_ref
                     .strip_prefix("pipeline:")
-                    .or_else(|| pipeline_ref.strip_prefix("transform:"))
-                    .unwrap_or(&pipeline_ref)
+                    .or_else(|| transform_ref.strip_prefix("transform:"))
+                    .unwrap_or(&transform_ref)
             ),
         },
         ExecutionTarget::Transform { transform_ref } if transform_ref.starts_with("pipeline:") => {
@@ -518,8 +526,8 @@ pub fn execute_with_cancellation(
     let (target_kind, target_ref) = match &request.target {
         ExecutionTarget::Transform { .. } => unreachable!("Transforms return above"),
         ExecutionTarget::Operation { operation_ref } => ("operation", operation_ref.clone()),
-        ExecutionTarget::Pipeline { .. } => {
-            unreachable!("Pipeline targets normalize to Transforms before execution")
+        ExecutionTarget::ManualTransform { .. } => {
+            unreachable!("Manual Transform targets normalize before execution")
         }
     };
 
@@ -527,8 +535,8 @@ pub fn execute_with_cancellation(
     // actual work through the same operation path in both direct and pipeline runs.
     let target_revision = match &request.target {
         ExecutionTarget::Transform { .. } => unreachable!("Transforms return above"),
-        ExecutionTarget::Pipeline { .. } => {
-            unreachable!("Pipeline targets normalize to Transforms before execution")
+        ExecutionTarget::ManualTransform { .. } => {
+            unreachable!("Manual Transform targets normalize before execution")
         }
         ExecutionTarget::Operation { .. } => None,
     };
@@ -556,8 +564,8 @@ pub fn execute_with_cancellation(
             request.client_request_id.as_deref(),
             cancellation,
         ),
-        ExecutionTarget::Pipeline { .. } => {
-            unreachable!("Pipeline targets normalize to Transforms before execution")
+        ExecutionTarget::ManualTransform { .. } => {
+            unreachable!("Manual Transform targets normalize before execution")
         }
     }
     .and_then(|output| {
@@ -787,7 +795,12 @@ mod tests {
         );
         let pipeline = execute(
             &db,
-            request(ExecutionTarget::Pipeline { pipeline_ref }, "hello\nworld"),
+            request(
+                ExecutionTarget::ManualTransform {
+                    transform_ref: pipeline_ref,
+                },
+                "hello\nworld",
+            ),
         )
         .unwrap();
         assert_eq!(pipeline.output, "> HELLO\n> WORLD");
@@ -821,10 +834,11 @@ mod tests {
             },
         ];
 
-        let output = preview_pipeline_steps(&db, "hello\nworld", &steps, None, None).unwrap();
+        let output =
+            preview_manual_transform_steps(&db, "hello\nworld", &steps, None, None).unwrap();
         assert_eq!(output, "> HELLO\n> WORLD");
 
-        let error = preview_pipeline_steps(
+        let error = preview_manual_transform_steps(
             &db,
             "hello",
             &[PipelineStepInput {
@@ -974,7 +988,12 @@ mod tests {
 
         let error = execute(
             &db,
-            request(ExecutionTarget::Pipeline { pipeline_ref }, "hello"),
+            request(
+                ExecutionTarget::ManualTransform {
+                    transform_ref: pipeline_ref,
+                },
+                "hello",
+            ),
         )
         .unwrap_err();
         assert_eq!(error.code, "invalid_plan");

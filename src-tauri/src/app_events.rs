@@ -1,16 +1,7 @@
 use serde::Serialize;
 use tauri::{AppHandle, Emitter};
 
-pub const APP_LOCK_CHANGED: &str = "app-lock-changed";
-pub const APP_MENU_ACTION: &str = "app-menu-action";
-pub const APP_SETTING_CHANGED: &str = "app-setting-changed";
-pub const CLIP_ADDED: &str = "clip-added";
-pub const CLIP_LIBRARY_CHANGED: &str = "clip-library-changed";
-pub const CLIPBOARD_PAUSE_CHANGED: &str = "clipboard-pause-changed";
-pub const HOTKEY_REGISTRATION_CHANGED: &str = "hotkey-registration-changed";
-pub const NAVIGATE_BIN: &str = "navigate-bin";
-pub const NAVIGATE_TAB: &str = "navigate-tab";
-pub const SEQUENTIAL_UPDATED: &str = "sequential-updated";
+pub use crate::app_event_names::*;
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]

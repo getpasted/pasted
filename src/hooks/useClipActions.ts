@@ -1,5 +1,5 @@
 import { useCallback, useState, type Dispatch, type SetStateAction } from 'react';
-import { type AppSettings, type Bin, type ClipItem, type Pipeline, type SavedTransform } from '../types';
+import { type AppSettings, type Bin, type ClipItem, type ManualTransform, type SavedTransform } from '../types';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { sortClipsForTimeline } from '../utils/clipOrder';
 import { soundManager } from '../utils/sound';
@@ -469,7 +469,7 @@ export function useClipActions({
 
   const runPipelineForClip = useCallback(async (
     clip: ClipItem,
-    pipeline: Pipeline,
+    pipeline: ManualTransform,
     destination: 'copy' | 'paste' = 'copy',
   ) => {
     if (!clip.text_content) return;
@@ -477,7 +477,7 @@ export function useClipActions({
       await runClipTransformationJob(clip.id, async () => {
         const transformed = await runTransformation(
           clip.text_content!,
-          { kind: 'pipeline', pipelineRef: pipeline.stableRef },
+          { kind: 'manual_transform', transformRef: pipeline.stableRef },
           { sourceClipId: clip.id, destination },
         );
         if (destination === 'paste') {

@@ -106,6 +106,29 @@ pub fn copy_clip(
     Ok(())
 }
 
+pub fn execute_transform(
+    db: &DbState,
+    transform_ref: Option<&str>,
+    paste_result: bool,
+) -> Result<crate::transformation_service::ExecutionOutcome, String> {
+    crate::features::require(db, crate::features::Feature::Transformations)?;
+    let mut clipboard = Clipboard::new().map_err(|error| error.to_string())?;
+    let input = clipboard.get_text().map_err(|error| error.to_string())?;
+    let outcome =
+        crate::transformation_service::execute_shortcut_pipeline(db, input, transform_ref)
+            .map_err(|error| error.to_string())?;
+    clipboard
+        .set_text(&outcome.output)
+        .map_err(|error| error.to_string())?;
+    if paste_result {
+        // Keep the caller's clipboard-action guard until the synthetic paste
+        // fires so another hotkey cannot replace the transformed output.
+        std::thread::sleep(std::time::Duration::from_millis(50));
+        let _ = crate::paste_automation::paste();
+    }
+    Ok(outcome)
+}
+
 pub fn paste_clip(
     db: &DbState,
     app: &AppHandle,
@@ -174,4 +197,9 @@ pub fn paste_clip(
         &format!("Pasted clip {} into {} from {source}", clip.id, target.name),
     );
     Ok(())
+}
+
+pub fn paste_hud_clip(db: &DbState, app: &AppHandle, clip_id: i64) -> Result<(), String> {
+    crate::features::require(db, crate::features::Feature::Hud)?;
+    paste_clip(db, app, clip_id, PasteOrigin::Hud)
 }

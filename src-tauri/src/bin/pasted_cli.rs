@@ -594,7 +594,11 @@ fn run_command(command: &str, args: &[String], db_path: PathBuf, conn: Connectio
                         key.clone(),
                         value.clone(),
                     ) {
-                        eprintln!("{error}");
+                        if json {
+                            eprintln!("{}", serde_json::json!({ "error": error }));
+                        } else {
+                            eprintln!("{error}");
+                        }
                         std::process::exit(2);
                     }
                     if json {

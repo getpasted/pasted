@@ -1787,6 +1787,64 @@ fn migrate_app_exclusion_hotkey_setting(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
+struct NamedMigration {
+    key: &'static str,
+    apply: fn(&Connection) -> Result<()>,
+}
+
+fn run_named_migrations(conn: &Connection, migrations: &[NamedMigration]) -> Result<()> {
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS schema_migrations (
+            key TEXT PRIMARY KEY,
+            applied_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )",
+        [],
+    )?;
+    for migration in migrations {
+        let applied: bool = conn.query_row(
+            "SELECT EXISTS(SELECT 1 FROM schema_migrations WHERE key = ?1)",
+            [migration.key],
+            |row| row.get(0),
+        )?;
+        if applied {
+            continue;
+        }
+        let transaction = conn.unchecked_transaction()?;
+        (migration.apply)(&transaction)?;
+        transaction.execute(
+            "INSERT INTO schema_migrations (key) VALUES (?1)",
+            [migration.key],
+        )?;
+        transaction.commit()?;
+    }
+    Ok(())
+}
+
+fn migrate_transform_activity_terminology(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "UPDATE activity_logs
+         SET event_type = replace(event_type, 'recipe_', 'transform_'),
+             description = replace(replace(description, 'Recipes', 'Transforms'), 'Recipe', 'Transform')
+         WHERE event_type LIKE '%recipe%' OR description LIKE '%Recipe%'",
+        [],
+    )?;
+    Ok(())
+}
+
+fn backfill_current_transformation(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "UPDATE clips SET current_transformation_id = (
+            SELECT id FROM clip_transformations
+            WHERE clip_id = clips.id
+            ORDER BY created_at DESC, rowid DESC LIMIT 1
+         )
+         WHERE current_transformation_id IS NULL
+           AND EXISTS (SELECT 1 FROM clip_transformations WHERE clip_id = clips.id)",
+        [],
+    )?;
+    Ok(())
+}
+
 fn migrate_legacy_container_schema(conn: &Connection) -> Result<()> {
     // Pre-release databases used "board" for the same concept now consistently named "bin".
     if table_exists(conn, "boards")? && !table_exists(conn, "bins")? {
@@ -4486,64 +4544,23 @@ impl DbState {
                 [],
             )?;
         }
-        conn.execute(
-            "CREATE TABLE IF NOT EXISTS schema_migrations (
-                key TEXT PRIMARY KEY,
-                applied_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-            )",
-            [],
+        run_named_migrations(
+            conn,
+            &[
+                NamedMigration {
+                    key: "appExclusionHotkeysV1",
+                    apply: migrate_app_exclusion_hotkey_setting,
+                },
+                NamedMigration {
+                    key: "transformTerminologyV1",
+                    apply: migrate_transform_activity_terminology,
+                },
+                NamedMigration {
+                    key: "currentTransformationBackfillV1",
+                    apply: backfill_current_transformation,
+                },
+            ],
         )?;
-        let app_exclusion_hotkeys_migrated: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM schema_migrations WHERE key = 'appExclusionHotkeysV1'",
-            [],
-            |row| row.get(0),
-        )?;
-        if app_exclusion_hotkeys_migrated == 0 {
-            migrate_app_exclusion_hotkey_setting(conn)?;
-            conn.execute(
-                "INSERT INTO schema_migrations (key) VALUES ('appExclusionHotkeysV1')",
-                [],
-            )?;
-        }
-        let transform_terms_migrated: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM schema_migrations WHERE key = 'transformTerminologyV1'",
-            [],
-            |row| row.get(0),
-        )?;
-        if transform_terms_migrated == 0 {
-            conn.execute(
-                "UPDATE activity_logs
-                 SET event_type = replace(event_type, 'recipe_', 'transform_'),
-                     description = replace(replace(description, 'Recipes', 'Transforms'), 'Recipe', 'Transform')
-                 WHERE event_type LIKE '%recipe%' OR description LIKE '%Recipe%'",
-                [],
-            )?;
-            conn.execute(
-                "INSERT INTO schema_migrations (key) VALUES ('transformTerminologyV1')",
-                [],
-            )?;
-        }
-        let provenance_backfilled: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM schema_migrations WHERE key = 'currentTransformationBackfillV1'",
-            [],
-            |row| row.get(0),
-        )?;
-        if provenance_backfilled == 0 {
-            conn.execute(
-                "UPDATE clips SET current_transformation_id = (
-                    SELECT id FROM clip_transformations
-                    WHERE clip_id = clips.id
-                    ORDER BY created_at DESC, rowid DESC LIMIT 1
-                 )
-                 WHERE current_transformation_id IS NULL
-                   AND EXISTS (SELECT 1 FROM clip_transformations WHERE clip_id = clips.id)",
-                [],
-            )?;
-            conn.execute(
-                "INSERT INTO schema_migrations (key) VALUES ('currentTransformationBackfillV1')",
-                [],
-            )?;
-        }
 
         Ok(())
     }
@@ -13617,6 +13634,55 @@ mod tests {
         let error = add_column_if_missing(&connection, "missing_table", "label", "TEXT")
             .expect_err("a missing migration target must fail startup");
         assert!(error.to_string().contains("no such table"));
+    }
+
+    #[test]
+    fn named_migrations_mark_only_successful_atomic_steps() {
+        fn fail_after_write(conn: &Connection) -> Result<()> {
+            conn.execute("CREATE TABLE should_roll_back (id INTEGER)", [])?;
+            Err(rusqlite::Error::InvalidQuery)
+        }
+        fn succeed(conn: &Connection) -> Result<()> {
+            conn.execute("CREATE TABLE migrated_table (id INTEGER)", [])?;
+            Ok(())
+        }
+
+        let conn = Connection::open_in_memory().unwrap();
+        let failure = run_named_migrations(
+            &conn,
+            &[NamedMigration {
+                key: "failingV1",
+                apply: fail_after_write,
+            }],
+        );
+        assert!(failure.is_err());
+        assert!(!table_exists(&conn, "should_roll_back").unwrap());
+        let marked: bool = conn
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM schema_migrations WHERE key = 'failingV1')",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert!(!marked);
+
+        run_named_migrations(
+            &conn,
+            &[NamedMigration {
+                key: "successfulV1",
+                apply: succeed,
+            }],
+        )
+        .unwrap();
+        run_named_migrations(
+            &conn,
+            &[NamedMigration {
+                key: "successfulV1",
+                apply: succeed,
+            }],
+        )
+        .unwrap();
+        assert!(table_exists(&conn, "migrated_table").unwrap());
     }
 
     fn search_test_clips(db: &DbState, query: &str) -> Vec<ClipItem> {

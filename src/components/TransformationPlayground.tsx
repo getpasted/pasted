@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Play, Workflow, Wrench } from 'lucide-react';
-import type { Operation, Pipeline, SavedTransform } from '../types';
+import type { Operation, ManualTransform, SavedTransform } from '../types';
 import { PlaygroundRunStatus, type PlaygroundRunState } from './PlaygroundRunStatus';
 import { TransformCategorySelect } from './TransformCategorySelect';
 import { TransformationOutputActions } from './TransformationOutputActions';
@@ -13,12 +13,12 @@ import { localizedBuiltinName } from '../localization/presentation';
 export type PlaygroundTarget =
   | { kind: 'transform'; item: SavedTransform }
   | { kind: 'operation'; item: Operation }
-  | { kind: 'pipeline'; item: Pipeline };
+  | { kind: 'pipeline'; item: ManualTransform };
 
 interface TransformationPlaygroundProps {
   transforms: SavedTransform[];
   operations: Operation[];
-  pipelines: Pipeline[];
+  pipelines: ManualTransform[];
   target: PlaygroundTarget | null;
   input: string;
   output: string;

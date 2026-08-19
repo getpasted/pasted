@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Pipeline, PipelineStep, Operation } from '../types';
+import { ManualTransform, PipelineStep, Operation } from '../types';
+import { transformsApi } from '../api/transforms';
 import { ArrowDown, ArrowUp, Sliders, Plus, Trash2, RotateCcw } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { HotkeyRecorder } from './HotkeyRecorder';
@@ -31,7 +32,7 @@ export interface PipelineEditorStep {
 }
 
 interface PipelineEditorModalProps {
-  pipeline: Pipeline | null; // null if creating new
+  pipeline: ManualTransform | null; // null if creating new
   isOpen: boolean;
   onClose: () => void;
   onSaveSuccess: () => void;
@@ -467,14 +468,13 @@ export const PipelineEditorModal: React.FC<PipelineEditorModalProps> = ({
       const compiledSteps = steps.map(compilePipelineStep);
 
       if (pipeline) {
-        await invoke('update_pipeline', {
-          pipelineRef: pipeline.stableRef,
+        await transformsApi.updateManual(pipeline.stableRef, {
           name: pipelineName.trim(),
           steps: compiledSteps,
           hotkey: hotkey,
         });
       } else {
-        await invoke('create_pipeline', {
+        await transformsApi.createManual({
           name: pipelineName.trim(),
           steps: compiledSteps,
           hotkey: hotkey,

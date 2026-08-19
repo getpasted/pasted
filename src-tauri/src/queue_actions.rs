@@ -31,6 +31,69 @@ fn restore_after_ui_paste(app: &AppHandle) {
     }
 }
 
+fn commit_item_with_ports<Write, Paste>(
+    queue: &SequentialQueueState,
+    index: usize,
+    mut write_clipboard: Write,
+    mut paste_to_target: Paste,
+) -> Result<Option<String>, String>
+where
+    Write: FnMut(&str) -> Result<(), String>,
+    Paste: FnMut() -> Result<(), String>,
+{
+    let Some((item_id, text)) = queue.peek_item(index) else {
+        return Ok(None);
+    };
+    queue.mark_internal_clipboard_write(&text);
+    if let Err(error) = write_clipboard(&text) {
+        queue.clear_internal_clipboard_write();
+        return Err(error);
+    }
+    if let Err(error) = paste_to_target() {
+        queue.clear_internal_clipboard_write();
+        return Err(error);
+    }
+    if let Err(error) = queue.consume_item(item_id) {
+        queue.clear_internal_clipboard_write();
+        return Err(format!(
+            "The Queue item was copied but could not be committed as pasted: {error}"
+        ));
+    }
+    Ok(Some(text))
+}
+
+fn commit_all_with_ports<Write, Paste>(
+    queue: &SequentialQueueState,
+    mut write_clipboard: Write,
+    mut paste_to_target: Paste,
+) -> Result<Option<String>, String>
+where
+    Write: FnMut(&str) -> Result<(), String>,
+    Paste: FnMut() -> Result<(), String>,
+{
+    let status = queue.get_status();
+    if status.queue.is_empty() {
+        return Ok(None);
+    }
+    let combined = status.queue.join("\n\n");
+    queue.mark_internal_clipboard_write(&combined);
+    if let Err(error) = write_clipboard(&combined) {
+        queue.clear_internal_clipboard_write();
+        return Err(error);
+    }
+    if let Err(error) = paste_to_target() {
+        queue.clear_internal_clipboard_write();
+        return Err(error);
+    }
+    if let Err(error) = queue.consume_prefix(&status.item_ids) {
+        queue.clear_internal_clipboard_write();
+        return Err(format!(
+            "The Queue pasted but could not be cleared: {error}"
+        ));
+    }
+    Ok(Some(combined))
+}
+
 pub fn paste_item(
     queue: &SequentialQueueState,
     db: &DbState,
@@ -38,9 +101,9 @@ pub fn paste_item(
     index: usize,
     restore_after_success: bool,
 ) -> Result<Option<String>, String> {
-    let Some((item_id, text)) = queue.peek_item(index) else {
+    if queue.peek_item(index).is_none() {
         return Ok(None);
-    };
+    }
     if let Err(error) = ensure_paste_available() {
         let _ = db.log_activity("queue_paste_failed", &error);
         return Err(error);
@@ -53,7 +116,6 @@ pub fn paste_item(
             return Err(error);
         }
     };
-    queue.mark_internal_clipboard_write(&text);
     let mut clipboard = match Clipboard::new() {
         Ok(clipboard) => clipboard,
         Err(error) => {
@@ -63,26 +125,25 @@ pub fn paste_item(
             return Err(message);
         }
     };
-    if let Err(error) = clipboard.set_text(&text) {
-        queue.clear_internal_clipboard_write();
-        let message = format!("Could not place the next Queue item on the clipboard: {error}");
-        let _ = db.log_activity("queue_paste_failed", &message);
-        return Err(message);
-    }
-    if let Err(error) = paste_target.paste_to(&target) {
-        queue.clear_internal_clipboard_write();
-        restore_after_failure(app);
-        let _ = db.log_activity("queue_paste_failed", &error);
-        return Err(error);
-    }
-    if let Err(error) = queue.consume_item(item_id) {
-        queue.clear_internal_clipboard_write();
-        restore_after_failure(app);
-        let message =
-            format!("The Queue item was copied but could not be committed as pasted: {error}");
-        let _ = db.log_activity("queue_paste_failed", &message);
-        return Err(message);
-    }
+    let pasted = commit_item_with_ports(
+        queue,
+        index,
+        |text| {
+            clipboard.set_text(text).map_err(|error| {
+                format!("Could not place the next Queue item on the clipboard: {error}")
+            })
+        },
+        || paste_target.paste_to(&target),
+    );
+    let text = match pasted {
+        Ok(Some(text)) => text,
+        Ok(None) => return Ok(None),
+        Err(error) => {
+            restore_after_failure(app);
+            let _ = db.log_activity("queue_paste_failed", &error);
+            return Err(error);
+        }
+    };
     let status = queue.get_status();
     let _ = app.emit("sequential-updated", status.clone());
     let _ = db.log_activity(
@@ -119,8 +180,6 @@ pub fn paste_all(
             return Err(error);
         }
     };
-    let combined = status.queue.join("\n\n");
-    queue.mark_internal_clipboard_write(&combined);
     let mut clipboard = match Clipboard::new() {
         Ok(clipboard) => clipboard,
         Err(error) => {
@@ -130,25 +189,23 @@ pub fn paste_all(
             return Err(message);
         }
     };
-    if let Err(error) = clipboard.set_text(&combined) {
-        queue.clear_internal_clipboard_write();
-        let message = format!("Could not place the Queue on the clipboard: {error}");
-        let _ = db.log_activity("queue_paste_failed", &message);
-        return Err(message);
-    }
-    if let Err(error) = paste_target.paste_to(&target) {
-        queue.clear_internal_clipboard_write();
-        restore_after_failure(app);
-        let _ = db.log_activity("queue_paste_failed", &error);
-        return Err(error);
-    }
-    if let Err(error) = queue.consume_prefix(&status.item_ids) {
-        queue.clear_internal_clipboard_write();
-        restore_after_failure(app);
-        let message = format!("The Queue pasted but could not be cleared: {error}");
-        let _ = db.log_activity("queue_paste_failed", &message);
-        return Err(message);
-    }
+    let combined = match commit_all_with_ports(
+        queue,
+        |text| {
+            clipboard
+                .set_text(text)
+                .map_err(|error| format!("Could not place the Queue on the clipboard: {error}"))
+        },
+        || paste_target.paste_to(&target),
+    ) {
+        Ok(Some(combined)) => combined,
+        Ok(None) => return Ok(None),
+        Err(error) => {
+            restore_after_failure(app);
+            let _ = db.log_activity("queue_paste_failed", &error);
+            return Err(error);
+        }
+    };
     let _ = app.emit("sequential-updated", queue.get_status());
     let _ = db.log_activity(
         "queue_all_pasted",
@@ -156,4 +213,61 @@ pub fn paste_all(
     );
     restore_after_ui_paste(app);
     Ok(Some(combined))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn queue_with(items: &[&str]) -> SequentialQueueState {
+        let queue = SequentialQueueState::new();
+        for item in items {
+            queue.push_item((*item).to_string()).unwrap();
+        }
+        queue
+    }
+
+    #[test]
+    fn failed_target_does_not_consume_an_item() {
+        let queue = queue_with(&["first", "second"]);
+        let error = commit_item_with_ports(
+            &queue,
+            0,
+            |_| Ok(()),
+            || Err("target unavailable".to_string()),
+        )
+        .unwrap_err();
+        assert_eq!(error, "target unavailable");
+        assert_eq!(queue.get_status().queue, vec!["first", "second"]);
+        assert!(!queue.consume_internal_clipboard_write("first"));
+    }
+
+    #[test]
+    fn successful_target_consumes_only_the_committed_item() {
+        let queue = queue_with(&["first", "second"]);
+        let mut written = String::new();
+        let pasted = commit_item_with_ports(
+            &queue,
+            0,
+            |text| {
+                written = text.to_string();
+                Ok(())
+            },
+            || Ok(()),
+        )
+        .unwrap();
+        assert_eq!(pasted.as_deref(), Some("first"));
+        assert_eq!(written, "first");
+        assert_eq!(queue.get_status().queue, vec!["second"]);
+    }
+
+    #[test]
+    fn paste_all_is_atomic_at_the_target_boundary() {
+        let queue = queue_with(&["one", "two"]);
+        assert!(commit_all_with_ports(&queue, |_| Ok(()), || Err("blocked".into())).is_err());
+        assert_eq!(queue.get_status().queue, vec!["one", "two"]);
+        let result = commit_all_with_ports(&queue, |_| Ok(()), || Ok(())).unwrap();
+        assert_eq!(result.as_deref(), Some("one\n\ntwo"));
+        assert!(queue.get_status().queue.is_empty());
+    }
 }

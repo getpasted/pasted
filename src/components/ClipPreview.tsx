@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { dateTimeAttribute, formatFullDateTime, formatRelativeTime } from '../utils/date';
 import { useMinuteTick } from '../hooks/useMinuteTick';
-import { ClipItem, Bin, Pipeline, ClipNote, parseClipNotes, serializeClipNotes, ClipVersion, getClipFilePaths } from '../types';
+import { ClipItem, Bin, ManualTransform, ClipNote, parseClipNotes, serializeClipNotes, ClipVersion, getClipFilePaths } from '../types';
 import type { AppSettings } from '../types';
 import type { ClipTransformationProvenance, TransformationExecutionOutcome, SavedTransform } from '../types';
 import { parseColor, ColorFormats } from '../utils/color';
@@ -53,7 +53,7 @@ interface ClipPreviewProps {
   viewPolicy: ClipViewPolicy;
   bins: Bin[];
   viewedBinId?: number | null;
-  pipelines: Pipeline[];
+  pipelines: ManualTransform[];
   onUpdateClip: (updatedClip?: ClipItem) => void;
   onAssignBin: (clipId: number, binId: number | null) => void | Promise<void>;
   onRemoveBin: (clipId: number, binId: number) => void | Promise<void>;
@@ -885,7 +885,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
     }
   };
 
-  const handlePreviewPipeline = async (pipeline: Pipeline) => {
+  const handlePreviewPipeline = async (pipeline: ManualTransform) => {
     if (!clip.text_content) return;
     setPreviewedVersion(null);
     const requestId = ++pipelineRequestIdRef.current;
@@ -901,7 +901,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
     try {
       const execution = startTransformation(
         clip.text_content,
-        { kind: 'pipeline', pipelineRef: pipeline.stableRef },
+        { kind: 'manual_transform', transformRef: pipeline.stableRef },
         { sourceClipId: clip.id },
       );
       activeTransformExecutionRef.current = execution;
