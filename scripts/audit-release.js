@@ -29,13 +29,28 @@ assert.match(
 );
 assert.match(
   desktopBuildWorkflow,
-  /validate:[\s\S]*?if: github\.event_name != 'pull_request' \|\| github\.event\.pull_request\.draft == false/,
-  'Full validation must remain deferred while a pull request is a draft',
+  /validation-scope:[\s\S]*?src-tauri\/\*[\s\S]*?package\.json[\s\S]*?desktop-builds\.yml[\s\S]*?git diff --name-only/,
+  'Desktop builds must detect native-impacting changes without trusting a client-supplied label',
 );
 assert.match(
   desktopBuildWorkflow,
-  /smoke:[\s\S]*?github\.event\.pull_request\.draft == false[\s\S]*?needs: \[dependency-review, dependency-policy, validate\]/,
-  'Native smoke builds must wait for a ready PR and successful primary gates',
+  /validate-frontend:[\s\S]*?github\.event\.pull_request\.draft == false[\s\S]*?npm run test:frontend/,
+  'Frontend validation must remain deferred while a pull request is a draft',
+);
+assert.match(
+  desktopBuildWorkflow,
+  /validate-native:[\s\S]*?github\.event_name != 'pull_request'[\s\S]*?timeout-minutes: 8[\s\S]*?npm run test:native/,
+  'Main-branch native validation must remain independent and bound Linux dependency setup time',
+);
+assert.match(
+  desktopBuildWorkflow,
+  /validate:\s*\n\s*name: Validate[\s\S]*?needs: \[validation-scope, validate-frontend, validate-native, smoke\]/,
+  'The protected Validate check must aggregate frontend validation and the applicable native path',
+);
+assert.match(
+  desktopBuildWorkflow,
+  /smoke:[\s\S]*?needs\.validation-scope\.outputs\.native == 'true'[\s\S]*?needs: \[validation-scope, dependency-review, dependency-policy\][\s\S]*?runner\.os == 'Linux'[\s\S]*?npm run test:native/,
+  'Native smoke builds must run complete Linux validation in parallel for native-impacting ready PRs',
 );
 
 assert.equal(packageJson.name, 'pasted', 'Frontend package must use the Pasted product name');

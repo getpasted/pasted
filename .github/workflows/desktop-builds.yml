@@ -51,8 +51,40 @@ jobs:
           command: check
           command-arguments: advisories bans licenses sources --hide-inclusion-graph
 
-  validate:
-    name: Validate
+  validation-scope:
+    name: Detect validation scope
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-22.04
+    outputs:
+      native: ${{ steps.scope.outputs.native }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Detect native-impacting changes
+        id: scope
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          native=true
+          if [[ "$EVENT_NAME" == "pull_request" ]]; then
+            native=false
+            while IFS= read -r path; do
+              case "$path" in
+                src-tauri/*|.cargo/*|rust-toolchain*|deny.toml|package.json|package-lock.json|.github/workflows/desktop-builds.yml)
+                  native=true
+                  break
+                  ;;
+              esac
+            done < <(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
+          fi
+          echo "native=$native" >> "$GITHUB_OUTPUT"
+
+  validate-frontend:
+    name: Validate frontend
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-22.04
     steps:
@@ -61,6 +93,18 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - run: npm ci
+      - run: npm run test:frontend
+
+  validate-native:
+    name: Validate native
+    if: >-
+      github.event_name != 'pull_request' &&
+      needs.validation-scope.outputs.native == 'true'
+    needs: [validation-scope]
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
@@ -68,16 +112,58 @@ jobs:
         with:
           workspaces: src-tauri
       - name: Install Linux test dependencies
+        timeout-minutes: 8
+        env:
+          DEBIAN_FRONTEND: noninteractive
         run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev tesseract-ocr
-      - run: npm ci
-      - run: npm run test:all
+          if test -f /etc/apt/apt-mirrors.txt; then
+            sudo sed -i '/azure\.archive\.ubuntu\.com/d' /etc/apt/apt-mirrors.txt
+          fi
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            tesseract-ocr
+      - run: npm run test:native
+
+  validate:
+    name: Validate
+    if: >-
+      always() &&
+      (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
+    needs: [validation-scope, validate-frontend, validate-native, smoke]
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Confirm validation results
+        env:
+          SCOPE_RESULT: ${{ needs.validation-scope.result }}
+          FRONTEND_RESULT: ${{ needs.validate-frontend.result }}
+          NATIVE_REQUIRED: ${{ needs.validation-scope.outputs.native }}
+          NATIVE_RESULT: ${{ needs.validate-native.result }}
+          SMOKE_RESULT: ${{ needs.smoke.result }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          test "$SCOPE_RESULT" = "success"
+          test "$FRONTEND_RESULT" = "success"
+          if test "$EVENT_NAME" = "pull_request" && test "$NATIVE_REQUIRED" = "true"; then
+            test "$NATIVE_RESULT" = "skipped"
+            test "$SMOKE_RESULT" = "success"
+          elif test "$NATIVE_REQUIRED" = "true"; then
+            test "$NATIVE_RESULT" = "success"
+            test "$SMOKE_RESULT" = "skipped"
+          else
+            test "$NATIVE_RESULT" = "skipped"
+            test "$SMOKE_RESULT" = "skipped"
+          fi
 
   smoke:
     name: Smoke ${{ matrix.name }}
-    if: github.event_name == 'pull_request' && github.event.pull_request.draft == false
-    needs: [dependency-review, dependency-policy, validate]
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.draft == false &&
+      needs.validation-scope.outputs.native == 'true'
+    needs: [validation-scope, dependency-review, dependency-policy]
     strategy:
       fail-fast: false
       matrix:
@@ -97,13 +183,24 @@ jobs:
           workspaces: src-tauri
       - name: Install Linux build dependencies
         if: runner.os == 'Linux'
+        timeout-minutes: 8
+        env:
+          DEBIAN_FRONTEND: noninteractive
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
+          if test -f /etc/apt/apt-mirrors.txt; then
+            sudo sed -i '/azure\.archive\.ubuntu\.com/d' /etc/apt/apt-mirrors.txt
+          fi
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 install -y --no-install-recommends \
             libwebkit2gtk-4.1-dev \
             libayatana-appindicator3-dev \
-            librsvg2-dev
+            librsvg2-dev \
+            tesseract-ocr
+      - name: Run native validation
+        if: runner.os == 'Linux'
+        run: npm run test:native
       - name: Compile native tests and binaries
+        if: runner.os != 'Linux'
         run: cargo test --manifest-path src-tauri/Cargo.toml --no-run --locked
 
   package:
