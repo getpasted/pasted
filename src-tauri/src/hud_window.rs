@@ -1,5 +1,8 @@
 use std::sync::Arc;
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Manager};
+
+#[cfg(target_os = "macos")]
+use tauri::Emitter;
 
 use crate::db::DbState;
 
