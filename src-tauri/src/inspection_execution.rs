@@ -4,13 +4,19 @@ use crate::analysis_contract::{
 };
 use crate::content_analysis::{AnalysisInput, AnalysisRequest};
 use crate::content_inspection::{
-    FileObservations, InspectionResult, MediaMetadata, StructuralMetadata, STRUCTURE_INSPECTOR_REF,
+    FileFormatInspection, FileObservations, InspectionResult, MediaMetadata, StructuralMetadata,
+    FILE_FORMAT_INSPECTOR_REF, STRUCTURE_INSPECTOR_REF,
 };
 use crate::db::{ClipItem, DbState};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 
-type ClipAnalysis = (InspectionResult, Option<Vec<String>>, Option<MediaMetadata>);
+type ClipAnalysis = (
+    InspectionResult,
+    Option<Vec<String>>,
+    Option<FileFormatInspection>,
+    Option<MediaMetadata>,
+);
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -21,6 +27,8 @@ pub struct ClipInspectionResult {
     pub application: ClipApplication,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub live_file_observations: Option<FileObservations>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub file_formats: Option<FileFormatInspection>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub media_metadata: Option<MediaMetadata>,
 }
@@ -42,8 +50,21 @@ fn completed_file_envelope(
     metadata: StructuralMetadata,
     policy: AnalysisPolicy,
     paths: &[String],
+    file_formats: Option<FileFormatInspection>,
 ) -> (InspectionResult, Option<MediaMetadata>) {
     let mut result = completed_envelope(metadata, policy);
+    if let Some(inspection) = &file_formats {
+        result.participants.push(ParticipantRun {
+            stable_ref: FILE_FORMAT_INSPECTOR_REF.into(),
+            pass: AnalysisPass::Inspect,
+            outcome: if inspection.formats.is_empty() {
+                ParticipantOutcome::NoOutput
+            } else {
+                ParticipantOutcome::Produced
+            },
+            failure: None,
+        });
+    }
     if policy != AnalysisPolicy::Interactive {
         return (result, None);
     }
@@ -65,7 +86,15 @@ fn completed_file_envelope(
 fn inspect_with_media(
     input: AnalysisInput,
     policy: AnalysisPolicy,
-) -> Result<(InspectionResult, Option<MediaMetadata>), AnalysisFailure> {
+    file_format_inspector: bool,
+) -> Result<
+    (
+        InspectionResult,
+        Option<FileFormatInspection>,
+        Option<MediaMetadata>,
+    ),
+    AnalysisFailure,
+> {
     let source_within_limit = match &input {
         AnalysisInput::Text { source, .. }
         | AnalysisInput::Image { source, .. }
@@ -98,6 +127,7 @@ fn inspect_with_media(
         input,
         policy,
         inspector: true,
+        file_format_inspector,
         extractors: Vec::new(),
         classifiers: None,
         suggestion: None,
@@ -116,6 +146,7 @@ fn inspect_with_media(
         })?;
     Ok((
         AnalysisEnvelope::new(policy, metadata, report.runs),
+        report.context.file_formats,
         report.context.media_metadata,
     ))
 }
@@ -124,7 +155,8 @@ fn inspect(
     input: AnalysisInput,
     policy: AnalysisPolicy,
 ) -> Result<InspectionResult, AnalysisFailure> {
-    inspect_with_media(input, policy).map(|(analysis, _)| analysis)
+    let file_format_inspector = matches!(&input, AnalysisInput::Files { .. });
+    inspect_with_media(input, policy, file_format_inspector).map(|(analysis, _, _)| analysis)
 }
 
 pub fn inspect_text(text: &str, source: Option<&str>) -> Result<InspectionResult, AnalysisFailure> {
@@ -203,7 +235,11 @@ pub(crate) fn inspection_input_hash(clip: &ClipItem) -> String {
     format!("{:x}", hasher.finalize())
 }
 
-fn analyze_clip(clip: &ClipItem, policy: AnalysisPolicy) -> Result<ClipAnalysis, String> {
+fn analyze_clip(
+    clip: &ClipItem,
+    policy: AnalysisPolicy,
+    file_format_inspector: bool,
+) -> Result<ClipAnalysis, String> {
     match clip.content_type.as_str() {
         "image" => {
             let bytes = clip
@@ -212,7 +248,7 @@ fn analyze_clip(clip: &ClipItem, policy: AnalysisPolicy) -> Result<ClipAnalysis,
                 .and_then(crate::ocr::decode_stored_image)
                 .ok_or_else(|| "Clip has no inspectable image data".to_string())?;
             inspect_image_with_policy(bytes, Some(&clip.source), policy)
-                .map(|analysis| (analysis, None, None))
+                .map(|analysis| (analysis, None, None, None))
                 .map_err(|failure| failure.message)
         }
         "file" => {
@@ -231,8 +267,9 @@ fn analyze_clip(clip: &ClipItem, policy: AnalysisPolicy) -> Result<ClipAnalysis,
                     source: Some(clip.source.clone()),
                 },
                 policy,
+                file_format_inspector,
             )
-            .map(|(analysis, media)| (analysis, Some(paths), media))
+            .map(|(analysis, formats, media)| (analysis, Some(paths), formats, media))
             .map_err(|failure| failure.message)
         }
         _ => {
@@ -241,7 +278,7 @@ fn analyze_clip(clip: &ClipItem, policy: AnalysisPolicy) -> Result<ClipAnalysis,
                 .as_deref()
                 .ok_or_else(|| "Clip has no inspectable text".to_string())?;
             inspect_text_with_policy(text, Some(&clip.source), policy)
-                .map(|analysis| (analysis, None, None))
+                .map(|analysis| (analysis, None, None, None))
                 .map_err(|failure| failure.message)
         }
     }
@@ -264,24 +301,52 @@ pub(crate) fn inspect_clip_with_policy(
     let clip = db.get_clip_by_id(clip_id)?;
     let input_hash = inspection_input_hash(&clip);
     let cached = db.get_structural_inspection(clip_id, &input_hash)?;
-    let (analysis, file_paths, media_metadata) = if let Some(metadata) = cached {
+    let file_formats_enabled =
+        crate::features::is_enabled(db, crate::features::Feature::FileFormats);
+    let cached_file_formats = if file_formats_enabled && clip.content_type == "file" {
+        db.get_file_format_inspection(clip_id, &clip.content_hash)?
+    } else {
+        None
+    };
+    let (analysis, file_paths, file_formats, media_metadata) = if let Some(metadata) = cached {
         let paths = (clip.content_type == "file").then(|| {
             clip.text_content
                 .as_deref()
                 .map(crate::content_inspection::parse_file_paths)
                 .unwrap_or_default()
         });
+        let file_formats = if file_formats_enabled {
+            cached_file_formats.or_else(|| {
+                paths
+                    .as_deref()
+                    .map(crate::content_inspection::inspect_file_formats)
+            })
+        } else {
+            None
+        };
         let (analysis, media_metadata) = match paths.as_deref() {
-            Some(paths) => completed_file_envelope(metadata, policy, paths),
+            Some(paths) => completed_file_envelope(metadata, policy, paths, file_formats.clone()),
             None => (completed_envelope(metadata, policy), None),
         };
-        (analysis, paths, media_metadata)
+        (analysis, paths, file_formats, media_metadata)
     } else {
-        analyze_clip(&clip, policy).map_err(rusqlite::Error::InvalidParameterName)?
+        analyze_clip(&clip, policy, file_formats_enabled)
+            .map_err(rusqlite::Error::InvalidParameterName)?
     };
     debug_assert_eq!(analysis.metadata.format_version, ANALYSIS_CONTRACT_VERSION);
     let applied = if apply {
-        db.record_structural_inspection(clip.id, &clip.content_hash, &input_hash, &analysis.result)?
+        let structure_applied = db.record_structural_inspection(
+            clip.id,
+            &clip.content_hash,
+            &input_hash,
+            &analysis.result,
+        )?;
+        let formats_applied = if let Some(inspection) = &file_formats {
+            db.record_file_format_inspection(clip.id, &clip.content_hash, inspection)?
+        } else {
+            false
+        };
+        structure_applied || formats_applied
     } else {
         false
     };
@@ -296,6 +361,7 @@ pub(crate) fn inspect_clip_with_policy(
             ClipApplication::preview()
         },
         live_file_observations,
+        file_formats,
         media_metadata,
     })
 }
@@ -328,6 +394,7 @@ mod tests {
             analysis,
             application: ClipApplication::preview(),
             live_file_observations: None,
+            file_formats: None,
             media_metadata: None,
         };
         let expected = serde_json::from_str::<serde_json::Value>(include_str!(

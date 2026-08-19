@@ -139,6 +139,7 @@ pub enum RepresentationKind {
     AnalyzableText,
     Classification,
     StructuralMetadata,
+    FileFormats,
     MediaMetadata,
     Suggestions,
 }
@@ -155,6 +156,7 @@ impl RepresentationKind {
             Self::AnalyzableText => "analyzable_text",
             Self::Classification => "classification",
             Self::StructuralMetadata => "structural_metadata",
+            Self::FileFormats => "file_formats",
             Self::MediaMetadata => "media_metadata",
             Self::Suggestions => "suggestions",
         }
@@ -181,6 +183,7 @@ impl FromStr for RepresentationKind {
             "analyzable_text" => Ok(Self::AnalyzableText),
             "classification" => Ok(Self::Classification),
             "structural_metadata" => Ok(Self::StructuralMetadata),
+            "file_formats" => Ok(Self::FileFormats),
             "media_metadata" => Ok(Self::MediaMetadata),
             "suggestions" => Ok(Self::Suggestions),
             _ => Err(format!("Unknown analysis representation \"{value}\"")),

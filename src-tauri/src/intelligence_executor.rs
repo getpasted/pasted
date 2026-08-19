@@ -786,9 +786,17 @@ pub fn apply_smart_bin_transforms_for_clip(
     initial_text: &str,
     source: &str,
 ) {
-    let Ok(matches) =
-        db.matching_smart_bin_transforms(clip_type, content_types, initial_text, source)
-    else {
+    let file_formats = db
+        .get_clip_by_id(clip_id)
+        .map(|clip| clip.file_formats)
+        .unwrap_or_default();
+    let Ok(matches) = db.matching_smart_bin_transforms(
+        clip_type,
+        &file_formats,
+        content_types,
+        initial_text,
+        source,
+    ) else {
         return;
     };
     let mut current = initial_text.to_string();

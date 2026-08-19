@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ComponentType } from 'react';
-import { AppWindow, FileAudio, Lightbulb, ScanSearch, Shapes } from 'lucide-react';
+import { AppWindow, FileAudio, FileType2, Lightbulb, ScanSearch, Shapes } from 'lucide-react';
 import type { LibraryItemView } from '../types';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { AppDialog } from './AppDialog';
@@ -33,6 +33,7 @@ export function BuiltinLifecycleManagerDialog({
   description,
   icon: HeadingIcon,
   sourcesEnabled = true,
+  fileFormatsEnabled = true,
 }: {
   isOpen: boolean;
   onClose: () => void;
@@ -41,6 +42,7 @@ export function BuiltinLifecycleManagerDialog({
   description: string;
   icon: ComponentType<{ className?: string }>;
   sourcesEnabled?: boolean;
+  fileFormatsEnabled?: boolean;
 }) {
   const [items, setItems] = useState<LibraryItemView[]>([]);
   const [inspectors, setInspectors] = useState<InspectorDefinition[]>([]);
@@ -57,9 +59,14 @@ export function BuiltinLifecycleManagerDialog({
             ? invoke<InspectorDefinition[]>('get_content_inspectors')
             : Promise.resolve([]),
         ]);
-        const visibleItems = kind === 'capture' && !sourcesEnabled
+        let visibleItems = kind === 'capture' && !sourcesEnabled
           ? loaded.filter(({ stableRef }) => stableRef !== 'capture:source-attribution-v1')
           : loaded;
+        if (kind === 'inspector' && !fileFormatsEnabled) {
+          visibleItems = visibleItems.filter(
+            ({ stableRef }) => stableRef !== 'inspector:file-format-v1',
+          );
+        }
         setItems(visibleItems);
         setInspectors(loadedInspectors);
         setSelectedRef((current) => visibleItems.some(({ stableRef }) => stableRef === current) ? current : visibleItems[0]?.stableRef ?? null);
@@ -69,7 +76,7 @@ export function BuiltinLifecycleManagerDialog({
       }
     };
     void load();
-  }, [isOpen, kind, sourcesEnabled]);
+  }, [fileFormatsEnabled, isOpen, kind, sourcesEnabled]);
 
   const selected = useMemo(
     () => items.find(({ stableRef }) => stableRef === selectedRef),
@@ -95,6 +102,8 @@ export function BuiltinLifecycleManagerDialog({
     ? translate('component.builtinLifecycleManagerDialog.smartActionSuggestions')
     : selected?.stableRef.includes('media')
       ? translate('component.builtinLifecycleManagerDialog.mediaMetadata')
+      : selected?.stableRef === 'inspector:file-format-v1'
+        ? translate('component.builtinLifecycleManagerDialog.fileFormats')
       : translate('component.builtinLifecycleManagerDialog.structuralDetails');
   const availabilityText = runtime?.engine
     ? runtime.isAvailable
@@ -107,6 +116,8 @@ export function BuiltinLifecycleManagerDialog({
     ? AppWindow
     : kind === 'inspector' && selected?.stableRef.includes('media')
     ? FileAudio
+    : kind === 'inspector' && selected?.stableRef === 'inspector:file-format-v1'
+    ? FileType2
     : kind === 'suggestion' ? Lightbulb : ScanSearch;
 
   return (

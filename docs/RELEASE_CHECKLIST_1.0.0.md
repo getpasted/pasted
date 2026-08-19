@@ -31,7 +31,7 @@ Use the exact notarized DMG intended for publication. Do not substitute a develo
 ## Content Analysis
 
 - [ ] Settings → Analysis begins with read-only Capture, followed by Inspectors, Extractors, Classifiers, and Suggestions. Read-only managers lead with practical input/output relationships and keep technical contracts secondary. Extractor Settings keeps concise runtime availability visible in its header. Structure Inspection remains always-on; Media Metadata reports the selected ffprobe or MediaInfo runtime; and Smart Actions follows Transformations.
-- [ ] Capture and Insights keep Clip Type, File Format, and Content Type distinct. Clip Types, Sources, and Content Types independently control their presentation without deleting structural identity, attribution, or classifications.
+- [ ] Capture and Insights keep Clip Type, File Format, and Content Type distinct. File Format uses bounded byte signatures rather than filename extensions. Clip Types, File Formats, Sources, and Content Types independently control scanning or presentation without deleting original clip data.
 - [ ] A text clip shows content-free character, word, and line statistics; a matching saved Transform appears under Smart Actions and is not executed until explicitly selected.
 - [ ] New text capture and `pasted classifier run` choose the same Content Type and Classifier. Preview does not mutate; apply and confirmed rescan report the clip mutations they actually commit.
 - [ ] Apple Vision OCR recognizes a high-contrast text image on macOS, returns the same Extractor contract through the GUI and CLI, and makes the stored result searchable after relaunch.

@@ -270,7 +270,7 @@ export const AnalyticsView: React.FC = () => {
           </div>
         </div>}
 
-        <div className="theme-panel p-5 rounded-xl border flex flex-col">
+        {features.fileFormats && <div className="theme-panel p-5 rounded-xl border flex flex-col">
           <h2 className="theme-title text-sm font-bold mb-4 flex items-center space-x-2">
             <Files className="w-4 h-4 theme-status-info-text" />
             <span>{translate('component.analyticsView.clipsByFileFormat')}</span>
@@ -283,12 +283,12 @@ export const AnalyticsView: React.FC = () => {
                 <FileText className="w-4 h-4 theme-text-muted shrink-0" />
                 <div className="min-w-0">
                   <div className="theme-title text-sm font-bold font-mono">{count}</div>
-                  <div className="theme-text-muted truncate text-[11px]">{format === 'No extension' ? translate('component.analyticsView.noExtension') : format.toUpperCase()}</div>
+                  <div className="theme-text-muted truncate text-[11px]">{format.toUpperCase()}</div>
                 </div>
               </div>
             ))}
           </div>
-        </div>
+        </div>}
 
         {/* Content Type Breakdown */}
         {features.types && <div className="theme-panel p-5 rounded-xl border flex flex-col">

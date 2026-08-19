@@ -62,7 +62,7 @@ export function applyClipSearch(
   return items.filter((clip) => clipMatchesSearch(clipWithFeaturePolicy(clip, features), plan));
 }
 
-function matchesCondition(clip: ClipItem, condition: SmartCondition) {
+function matchesCondition(clip: ClipItem, condition: SmartCondition, features?: Record<FeatureId, boolean>) {
   const expected = condition.value.toLowerCase().trim();
   if (!expected) return false;
   if (condition.type === 'file_extension') {
@@ -74,6 +74,10 @@ function matchesCondition(clip: ClipItem, condition: SmartCondition) {
   }
   if (condition.type === 'clip_type') {
     return clip.content_type.toLowerCase() === expected;
+  }
+  if (condition.type === 'file_format') {
+    return Boolean(features?.fileFormats)
+      && (clip.file_formats ?? []).some((fileFormat) => fileFormat.toLowerCase() === expected);
   }
   if (condition.type === 'content_type') {
     return (clip.content_types ?? []).some((contentType) => contentType.toLowerCase() === expected);
@@ -91,7 +95,7 @@ function matchesCondition(clip: ClipItem, condition: SmartCondition) {
   return exactMatch ? normalized === expected : normalized.includes(expected);
 }
 
-function filterByBin(clips: ClipItem[], bins: Bin[], binId: number) {
+function filterByBin(clips: ClipItem[], bins: Bin[], binId: number, features: Record<FeatureId, boolean>) {
   const assigned = (clip: ClipItem) => clip.bin_id === binId || Boolean(clip.bin_ids?.includes(binId));
   const bin = bins.find((item) => item.id === binId);
   let matchingClips: ClipItem[];
@@ -113,8 +117,8 @@ function filterByBin(clips: ClipItem[], bins: Bin[], binId: number) {
       matchingClips = conditions.length === 0
         ? clips.filter(assigned)
         : clips.filter((clip) => assigned(clip) || (rule.match === 'all'
-          ? conditions.every((condition) => matchesCondition(clip, condition))
-          : conditions.some((condition) => matchesCondition(clip, condition))));
+          ? conditions.every((condition) => matchesCondition(clip, condition, features))
+          : conditions.some((condition) => matchesCondition(clip, condition, features))));
     } catch {
       matchingClips = clips.filter(assigned);
     }
@@ -228,8 +232,11 @@ export function useClipViews({
     if (facet?.kind === 'type') {
       clips = clips.filter((clip) => (clip.content_types ?? []).includes(facet.value as ClipItem['content_type']));
     }
+    if (facet?.kind === 'file_format') {
+      clips = clips.filter((clip) => (clip.file_formats ?? []).includes(facet.value));
+    }
     if (facet?.kind === 'source') clips = clips.filter((clip) => clip.source === facet.value);
-    if (collection?.membership === 'bin' && selectedBinId !== null) clips = filterByBin(clips, bins, selectedBinId);
+    if (collection?.membership === 'bin' && selectedBinId !== null) clips = filterByBin(clips, bins, selectedBinId, features);
     if (collection?.membership === 'pinned') clips = clips.filter((clip) => clip.is_pinned);
     if (collection?.membership === 'protected') clips = clips.filter((clip) => clip.is_protected);
     if (collection?.membership === 'noted') clips = clips.filter((clip) => Boolean(clip.note?.trim()));

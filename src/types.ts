@@ -73,6 +73,7 @@ export interface ClipItem {
   id: number;
   content_type: ClipContentType;
   content_types?: ClipContentType[];
+  file_formats?: string[];
   text_content: string | null;
   html_content: string | null;
   image_base64: string | null;
@@ -109,6 +110,7 @@ export interface ClipCollectionSummary {
   protectedCount: number;
   notedCount: number;
   clipTypeCounts: Array<{ clip_type: 'text' | 'image' | 'file'; count: number }>;
+  fileFormatCounts: Array<{ file_format: string; count: number }>;
   typeCounts: Array<{ content_type: ClipContentType; count: number }>;
   sourceCounts: Array<{ name: string; count: number }>;
 }
@@ -496,6 +498,7 @@ export interface AppSettings {
   enableAnalytics: boolean;
   enableBins: boolean;
   enableClipTypes: boolean;
+  enableFileFormats: boolean;
   enableContentClassification: boolean;
   enableNotes: boolean;
   enableNotifications: boolean;

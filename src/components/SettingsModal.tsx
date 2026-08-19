@@ -107,6 +107,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         {activeTab === 'analysis' && (
           <SettingsAnalysisPanel
             contentClassificationEnabled={settings.enableContentClassification}
+            fileFormatsEnabled={settings.enableFileFormats}
             ocrEnabled={settings.enableOcr}
             transcriptionsEnabled={settings.enableTranscriptions}
             transformationsEnabled={settings.enableTransformations}

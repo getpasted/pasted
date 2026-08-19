@@ -15,6 +15,7 @@ import { contentTypeLabel } from '../utils/contentTypes';
 
 interface SmartBinFeatures {
   clipTypes: boolean;
+  fileFormats: boolean;
   sources: boolean;
   types: boolean;
 }
@@ -23,11 +24,12 @@ interface BinModalProps {
   isOpen: boolean;
   editingBin?: Bin | null;
   features: SmartBinFeatures;
+  fileFormats: string[];
   onClose: () => void;
   onRefreshBins: () => void;
 }
 
-type SmartConditionTarget = 'clip_type' | 'source' | 'content_type' | 'origin_kind' | 'contains' | 'file_extension' | 'file_path';
+type SmartConditionTarget = 'clip_type' | 'file_format' | 'source' | 'content_type' | 'origin_kind' | 'contains' | 'file_extension' | 'file_path';
 
 interface SmartConditionRow {
   id: string;
@@ -84,8 +86,9 @@ const emojiLabel = (key: string) => translate(`component.binModal.emoji.${key}` 
 
 function defaultSmartCondition(features: SmartBinFeatures): SmartConditionRow {
   if (features.clipTypes) return { id: '1', target: 'clip_type', operator: 'is', value: 'text' };
-  if (features.sources) return { id: '1', target: 'source', operator: 'is', value: '1Password' };
   if (features.types) return { id: '1', target: 'content_type', operator: 'is', value: 'code' };
+  if (features.fileFormats) return { id: '1', target: 'file_format', operator: 'is', value: '' };
+  if (features.sources) return { id: '1', target: 'source', operator: 'is', value: '1Password' };
   return { id: '1', target: 'contains', operator: 'contains', value: '' };
 }
 
@@ -117,6 +120,7 @@ export const BinModal: React.FC<BinModalProps> = ({
   isOpen,
   editingBin,
   features,
+  fileFormats,
   onClose,
   onRefreshBins,
 }) => {
@@ -232,13 +236,17 @@ export const BinModal: React.FC<BinModalProps> = ({
   const handleAddCondition = () => {
     const target: SmartConditionTarget = features.clipTypes
       ? 'clip_type'
-      : features.sources
-        ? 'source'
-        : features.types
-          ? 'content_type'
+      : features.types
+        ? 'content_type'
+        : features.fileFormats
+          ? 'file_format'
+          : features.sources
+            ? 'source'
           : 'contains';
     const defaultVal = target === 'clip_type'
       ? 'text'
+      : target === 'file_format'
+        ? fileFormats[0] || ''
       : target === 'source'
         ? installedApps[0] || 'Safari'
         : target === 'content_type'
@@ -327,6 +335,7 @@ export const BinModal: React.FC<BinModalProps> = ({
   ));
   const targetLabels: Record<SmartConditionTarget, string> = {
     clip_type: translate('component.binModal.clipType'),
+    file_format: translate('component.binModal.fileFormat'),
     source: translate('component.binModal.source'),
     content_type: translate('component.binModal.contentType2'),
     origin_kind: translate('component.binModal.captureMethod'),
@@ -337,6 +346,7 @@ export const BinModal: React.FC<BinModalProps> = ({
   const targetOptions = [
     ...(features.clipTypes ? [{ value: 'clip_type', label: targetLabels.clip_type }] : []),
     ...(features.types ? [{ value: 'content_type', label: targetLabels.content_type }] : []),
+    ...(features.fileFormats ? [{ value: 'file_format', label: targetLabels.file_format }] : []),
     ...(features.sources ? [{ value: 'source', label: targetLabels.source }] : []),
     { value: 'origin_kind', label: targetLabels.origin_kind },
     { value: 'contains', label: targetLabels.contains },
@@ -598,6 +608,8 @@ export const BinModal: React.FC<BinModalProps> = ({
                       const newDefaultVal =
                         newTarget === 'clip_type'
                           ? 'text'
+                          : newTarget === 'file_format'
+                          ? fileFormats[0] || ''
                           : newTarget === 'source'
                           ? installedApps[0] || 'Safari'
                           : newTarget === 'content_type'
@@ -639,6 +651,22 @@ export const BinModal: React.FC<BinModalProps> = ({
                         { value: 'file', get label() { return translate('component.analyticsView.files'); } },
                       ]}
                       label={translate('component.binModal.clipType')}
+                      className="min-w-0 flex-1"
+                      compact
+                    />
+                  ) : c.target === 'file_format' ? (
+                    <MenuSelect
+                      value={c.value}
+                      onChange={(value) => handleUpdateCondition(c.id, { value })}
+                      options={fileFormats.length > 0
+                        ? [
+                          ...(!fileFormats.includes(c.value) && c.value
+                            ? [{ value: c.value, label: c.value.toUpperCase(), disabled: true }]
+                            : []),
+                          ...fileFormats.map((format) => ({ value: format, label: format.toUpperCase() })),
+                        ]
+                        : [{ value: c.value, label: c.value || translate('component.binModal.noDetectedFileFormats'), disabled: true }]}
+                      label={translate('component.binModal.fileFormat')}
                       className="min-w-0 flex-1"
                       compact
                     />

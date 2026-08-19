@@ -553,6 +553,7 @@ pub fn run() {
             commands::restore_default_content_classifiers,
             commands::get_clip_content_matches,
             commands::rescan_content_classification_history,
+            commands::rescan_file_format_history,
             commands::test_content_classifier,
             commands::play_system_sound,
             commands::quit_app,

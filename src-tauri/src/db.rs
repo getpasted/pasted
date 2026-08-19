@@ -149,6 +149,7 @@ fn analysis_toggle_activity(
 fn push_smart_condition(
     kind: &str,
     value: &str,
+    file_formats_enabled: bool,
     conditions: &mut Vec<String>,
     parameters: &mut Vec<Box<dyn ToSql>>,
 ) {
@@ -168,6 +169,31 @@ fn push_smart_condition(
                 WHERE classified.clip_id = clips.id
                   AND classified.input_hash = clips.content_hash
                   AND classified.content_type = ?
+            )"
+            .to_string()
+        }
+        "file_format" => {
+            if !file_formats_enabled {
+                conditions.push("0".into());
+                return;
+            }
+            parameters.push(Box::new(
+                crate::content_inspection::FILE_FORMAT_INSPECTOR_REF.to_string(),
+            ));
+            parameters.push(Box::new(
+                crate::analysis_contract::ANALYSIS_CONTRACT_VERSION,
+            ));
+            parameters.push(Box::new(value.to_lowercase()));
+            "EXISTS (
+                SELECT 1
+                FROM clip_analysis_results AS formats,
+                     json_each(formats.result_json, '$.formats') AS detected
+                WHERE formats.clip_id = clips.id
+                  AND formats.participant_ref = ?
+                  AND formats.content_hash = clips.content_hash
+                  AND formats.input_hash = clips.content_hash
+                  AND formats.format_version = ?
+                  AND LOWER(json_extract(detected.value, '$.format')) = ?
             )"
             .to_string()
         }
@@ -217,6 +243,13 @@ fn append_smart_bin_memberships(conn: &Connection, clips: &mut [ClipItem]) -> Re
         return Ok(());
     }
     let requested_ids = clips.iter().map(|clip| clip.id).collect::<HashSet<_>>();
+    let file_formats_enabled: bool = conn.query_row(
+        "SELECT NOT EXISTS(
+            SELECT 1 FROM settings WHERE key = 'enableFileFormats' AND value IN ('false', '0')
+         )",
+        [],
+        |row| row.get(0),
+    )?;
     let mut memberships = HashMap::<i64, Vec<i64>>::new();
     let mut bins_statement = conn
         .prepare("SELECT id, smart_rule FROM bins WHERE smart_rule IS NOT NULL ORDER BY id ASC")?;
@@ -235,6 +268,7 @@ fn append_smart_bin_memberships(conn: &Connection, clips: &mut [ClipItem]) -> Re
                     push_smart_condition(
                         condition["type"].as_str().unwrap_or(""),
                         condition["value"].as_str().unwrap_or(""),
+                        file_formats_enabled,
                         &mut conditions,
                         &mut parameters,
                     );
@@ -243,6 +277,7 @@ fn append_smart_bin_memberships(conn: &Connection, clips: &mut [ClipItem]) -> Re
                 push_smart_condition(
                     parsed["type"].as_str().unwrap_or(""),
                     parsed["value"].as_str().unwrap_or(""),
+                    file_formats_enabled,
                     &mut conditions,
                     &mut parameters,
                 );
@@ -296,6 +331,7 @@ fn append_smart_bin_memberships(conn: &Connection, clips: &mut [ClipItem]) -> Re
         }
     }
     append_clip_content_types(conn, clips)?;
+    append_clip_file_formats(conn, clips)?;
     Ok(())
 }
 
@@ -334,12 +370,53 @@ fn append_clip_content_types(conn: &Connection, clips: &mut [ClipItem]) -> Resul
     Ok(())
 }
 
+fn append_clip_file_formats(conn: &Connection, clips: &mut [ClipItem]) -> Result<()> {
+    if clips.is_empty() {
+        return Ok(());
+    }
+    let requested_ids = clips.iter().map(|clip| clip.id).collect::<HashSet<_>>();
+    let ids_json = serde_json::to_string(&requested_ids.iter().copied().collect::<Vec<_>>())
+        .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?;
+    let mut by_clip = HashMap::<i64, Vec<String>>::new();
+    let mut statement = conn.prepare(
+        "SELECT results.clip_id, LOWER(json_extract(detected.value, '$.format'))
+         FROM clip_analysis_results AS results
+         JOIN clips ON clips.id = results.clip_id,
+              json_each(results.result_json, '$.formats') AS detected
+         WHERE results.clip_id IN (SELECT CAST(value AS INTEGER) FROM json_each(?1))
+           AND results.participant_ref = ?2
+           AND results.content_hash = clips.content_hash
+           AND results.input_hash = clips.content_hash
+           AND results.format_version = ?3
+         ORDER BY results.clip_id, CAST(json_extract(detected.value, '$.format') AS TEXT) COLLATE NOCASE",
+    )?;
+    for row in statement.query_map(
+        params![
+            ids_json,
+            crate::content_inspection::FILE_FORMAT_INSPECTOR_REF,
+            crate::analysis_contract::ANALYSIS_CONTRACT_VERSION,
+        ],
+        |row| Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?)),
+    )? {
+        let (clip_id, format) = row?;
+        if requested_ids.contains(&clip_id) {
+            by_clip.entry(clip_id).or_default().push(format);
+        }
+    }
+    for clip in clips {
+        clip.file_formats = by_clip.remove(&clip.id).unwrap_or_default();
+    }
+    Ok(())
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ClipItem {
     pub id: i64,
     pub content_type: String, // Physical Clip Type: "text", "image", or "file".
     #[serde(default)]
     pub content_types: Vec<String>,
+    #[serde(default)]
+    pub file_formats: Vec<String>,
     pub text_content: Option<String>,
     pub html_content: Option<String>,
     pub image_base64: Option<String>,
@@ -491,6 +568,16 @@ pub struct ContentClassificationRescanReport {
     pub scanned_count: usize,
     pub changed_count: usize,
     pub unchanged_count: usize,
+    pub failed_count: usize,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct FileFormatRescanReport {
+    pub scanned_count: usize,
+    pub changed_count: usize,
+    pub unchanged_count: usize,
+    pub missing_count: usize,
     pub failed_count: usize,
 }
 
@@ -903,6 +990,7 @@ pub struct ClipCollectionSummary {
     pub protected_count: i64,
     pub noted_count: i64,
     pub clip_type_counts: Vec<ClipTypeStat>,
+    pub file_format_counts: Vec<FileFormatStat>,
     pub type_counts: Vec<TypeStat>,
     pub source_counts: Vec<SourceStat>,
 }
@@ -3387,9 +3475,18 @@ impl DbState {
                 (stable_ref, kind, name, description, group_label, icon, enabled,
                  is_builtin, is_archived, sort_order, revision, input_contract,
                  output_contract, created_at, updated_at)
+            VALUES ('inspector:file-format-v1', 'inspector', 'File Format',
+                    'Identifies referenced file formats from bounded byte signatures.',
+                    'Content Analysis', 'FileType2', NULL, 1, 0, 10, 1,
+                    'file_references', 'file_formats', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+
+            INSERT INTO library_items
+                (stable_ref, kind, name, description, group_label, icon, enabled,
+                 is_builtin, is_archived, sort_order, revision, input_contract,
+                 output_contract, created_at, updated_at)
             VALUES ('inspector:media-metadata-v1', 'inspector', 'Media Metadata',
                     'Reads bounded audio and video metadata locally.',
-                    'Content Analysis', 'FileAudio', NULL, 1, 0, 10, 1,
+                    'Content Analysis', 'FileAudio', NULL, 1, 0, 20, 1,
                     'file_references', 'media_metadata', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
             INSERT INTO library_items
@@ -4724,6 +4821,69 @@ impl DbState {
         Ok(result_json.and_then(|json| serde_json::from_str(&json).ok()))
     }
 
+    pub fn record_file_format_inspection(
+        &self,
+        clip_id: i64,
+        content_hash: &str,
+        inspection: &crate::content_inspection::FileFormatInspection,
+    ) -> Result<bool> {
+        let result_json = serde_json::to_string(inspection)
+            .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?;
+        if result_json.len() > 64 * 1024 {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "File Format inspection metadata exceeds its safety limit".into(),
+            ));
+        }
+        let conn = self.conn.lock();
+        let changed = conn.execute(
+            "INSERT INTO clip_analysis_results
+                (clip_id, participant_ref, content_hash, input_hash, format_version, result_json)
+             SELECT id, ?1, content_hash, content_hash, ?2, ?3 FROM clips
+             WHERE id = ?4 AND content_hash = ?5 AND COALESCE(is_trashed, 0) = 0
+             ON CONFLICT(clip_id, participant_ref) DO UPDATE SET
+                content_hash = excluded.content_hash,
+                input_hash = excluded.input_hash,
+                format_version = excluded.format_version,
+                result_json = excluded.result_json,
+                updated_at = CURRENT_TIMESTAMP",
+            params![
+                crate::content_inspection::FILE_FORMAT_INSPECTOR_REF,
+                crate::analysis_contract::ANALYSIS_CONTRACT_VERSION,
+                result_json,
+                clip_id,
+                content_hash,
+            ],
+        )?;
+        Ok(changed == 1)
+    }
+
+    pub fn get_file_format_inspection(
+        &self,
+        clip_id: i64,
+        content_hash: &str,
+    ) -> Result<Option<crate::content_inspection::FileFormatInspection>> {
+        let conn = self.conn.lock();
+        let result_json = conn
+            .query_row(
+                "SELECT results.result_json FROM clip_analysis_results AS results
+                 JOIN clips ON clips.id = results.clip_id
+                 WHERE results.clip_id = ?1 AND results.participant_ref = ?2
+                   AND results.input_hash = ?3
+                   AND results.content_hash = clips.content_hash
+                   AND results.format_version = ?4
+                   AND COALESCE(clips.is_trashed, 0) = 0",
+                params![
+                    clip_id,
+                    crate::content_inspection::FILE_FORMAT_INSPECTOR_REF,
+                    content_hash,
+                    crate::analysis_contract::ANALYSIS_CONTRACT_VERSION,
+                ],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()?;
+        Ok(result_json.and_then(|json| serde_json::from_str(&json).ok()))
+    }
+
     pub fn record_extraction_observations(
         &self,
         clip_id: i64,
@@ -5381,6 +5541,7 @@ impl DbState {
                     id: row.get(0)?,
                     content_type: row.get(1)?,
                     content_types: Vec::new(),
+                    file_formats: Vec::new(),
                     text_content: row.get(2)?,
                     html_content: row.get(3)?,
                     image_base64: row.get(4)?,
@@ -5425,6 +5586,13 @@ impl DbState {
         offset: Option<i64>,
     ) -> Result<Vec<ClipItem>> {
         let conn = self.conn.lock();
+        let file_formats_enabled: bool = conn.query_row(
+            "SELECT NOT EXISTS(
+                SELECT 1 FROM settings WHERE key = 'enableFileFormats' AND value IN ('false', '0')
+             )",
+            [],
+            |row| row.get(0),
+        )?;
 
         // Check if target bin has smart_rule
         let mut smart_rule_str: Option<String> = None;
@@ -5465,12 +5633,24 @@ impl DbState {
                     for cond in conds {
                         let c_type = cond["type"].as_str().unwrap_or("");
                         let c_val = cond["value"].as_str().unwrap_or("");
-                        push_smart_condition(c_type, c_val, &mut cond_sqls, &mut query_params);
+                        push_smart_condition(
+                            c_type,
+                            c_val,
+                            file_formats_enabled,
+                            &mut cond_sqls,
+                            &mut query_params,
+                        );
                     }
                 } else {
                     let rule_type = parsed["type"].as_str().unwrap_or("");
                     let rule_val = parsed["value"].as_str().unwrap_or("");
-                    push_smart_condition(rule_type, rule_val, &mut cond_sqls, &mut query_params);
+                    push_smart_condition(
+                        rule_type,
+                        rule_val,
+                        file_formats_enabled,
+                        &mut cond_sqls,
+                        &mut query_params,
+                    );
                 }
 
                 if !cond_sqls.is_empty() {
@@ -5591,6 +5771,7 @@ impl DbState {
                 id: row.get(0)?,
                 content_type: row.get(1)?,
                 content_types: Vec::new(),
+                file_formats: Vec::new(),
                 text_content: row.get(2)?,
                 html_content: row.get(3)?,
                 image_base64: row.get(4)?,
@@ -5661,6 +5842,7 @@ impl DbState {
                 id: row.get(0)?,
                 content_type: row.get(1)?,
                 content_types: Vec::new(),
+                file_formats: Vec::new(),
                 text_content: row.get(2)?,
                 html_content: row.get(3)?,
                 image_base64: row.get(4)?,
@@ -5704,6 +5886,7 @@ impl DbState {
                 id: row.get(0)?,
                 content_type: row.get(1)?,
                 content_types: Vec::new(),
+                file_formats: Vec::new(),
                 text_content: row.get(2)?,
                 html_content: row.get(3)?,
                 image_base64: row.get(4)?,
@@ -6846,42 +7029,36 @@ impl DbState {
             .filter_map(|r| r.ok())
             .collect();
 
-        let mut file_formats_by_clip = HashMap::<String, i64>::new();
-        let mut file_stmt = conn.prepare(
-            "SELECT text_content FROM clips
-             WHERE content_type = 'file'
-               AND (is_trashed IS NULL OR is_trashed = 0)",
+        let mut file_format_stmt = conn.prepare(
+            "SELECT LOWER(json_extract(detected.value, '$.format')) AS file_format,
+                    COUNT(DISTINCT results.clip_id)
+             FROM clip_analysis_results AS results
+             JOIN clips ON clips.id = results.clip_id,
+                  json_each(results.result_json, '$.formats') AS detected
+             WHERE results.participant_ref = ?1
+               AND results.content_hash = clips.content_hash
+               AND results.input_hash = clips.content_hash
+               AND results.format_version = ?2
+               AND COALESCE(clips.is_trashed, 0) = 0
+             GROUP BY file_format
+             ORDER BY COUNT(DISTINCT results.clip_id) DESC, file_format COLLATE NOCASE ASC
+             LIMIT ?3",
         )?;
-        let file_payloads = file_stmt
-            .query_map([], |row| row.get::<_, Option<String>>(0))?
+        let file_formats = file_format_stmt
+            .query_map(
+                params![
+                    crate::content_inspection::FILE_FORMAT_INSPECTOR_REF,
+                    crate::analysis_contract::ANALYSIS_CONTRACT_VERSION,
+                    MAX_ANALYTICS_FILE_FORMATS as i64,
+                ],
+                |row| {
+                    Ok(FileFormatStat {
+                        file_format: row.get(0)?,
+                        count: row.get(1)?,
+                    })
+                },
+            )?
             .collect::<Result<Vec<_>>>()?;
-        for payload in file_payloads.into_iter().flatten() {
-            let formats = crate::content_inspection::parse_file_paths(&payload)
-                .into_iter()
-                .map(|path| {
-                    Path::new(&path)
-                        .extension()
-                        .and_then(|extension| extension.to_str())
-                        .map(|extension| extension.to_lowercase())
-                        .filter(|extension| !extension.is_empty())
-                        .unwrap_or_else(|| "No extension".into())
-                })
-                .collect::<HashSet<_>>();
-            for format in formats {
-                *file_formats_by_clip.entry(format).or_default() += 1;
-            }
-        }
-        let mut file_formats = file_formats_by_clip
-            .into_iter()
-            .map(|(file_format, count)| FileFormatStat { file_format, count })
-            .collect::<Vec<_>>();
-        file_formats.sort_by(|left, right| {
-            right
-                .count
-                .cmp(&left.count)
-                .then_with(|| left.file_format.cmp(&right.file_format))
-        });
-        file_formats.truncate(MAX_ANALYTICS_FILE_FORMATS);
 
         let mut content_type_stmt = conn.prepare(
             "SELECT content_type, COUNT(DISTINCT clip_id)
@@ -7013,6 +7190,33 @@ impl DbState {
                 })
             })?
             .collect::<Result<Vec<_>>>()?;
+        let file_format_counts = conn
+            .prepare(
+                "SELECT LOWER(json_extract(detected.value, '$.format')) AS file_format,
+                        COUNT(DISTINCT results.clip_id)
+                 FROM clip_analysis_results AS results
+                 JOIN clips ON clips.id = results.clip_id,
+                      json_each(results.result_json, '$.formats') AS detected
+                 WHERE results.participant_ref = ?1
+                   AND results.content_hash = clips.content_hash
+                   AND results.input_hash = clips.content_hash
+                   AND results.format_version = ?2
+                   AND COALESCE(clips.is_trashed, 0) = 0
+                 GROUP BY file_format ORDER BY file_format COLLATE NOCASE",
+            )?
+            .query_map(
+                params![
+                    crate::content_inspection::FILE_FORMAT_INSPECTOR_REF,
+                    crate::analysis_contract::ANALYSIS_CONTRACT_VERSION,
+                ],
+                |row| {
+                    Ok(FileFormatStat {
+                        file_format: row.get(0)?,
+                        count: row.get(1)?,
+                    })
+                },
+            )?
+            .collect::<Result<Vec<_>>>()?;
         let source_counts = conn
             .prepare(
                 "SELECT source, COUNT(*) FROM clips
@@ -7033,6 +7237,7 @@ impl DbState {
             protected_count,
             noted_count,
             clip_type_counts,
+            file_format_counts,
             type_counts,
             source_counts,
         })
@@ -7210,6 +7415,13 @@ impl DbState {
     #[allow(clippy::type_complexity)]
     pub fn get_bins(&self) -> Result<Vec<Bin>> {
         let conn = self.conn.lock();
+        let file_formats_enabled: bool = conn.query_row(
+            "SELECT NOT EXISTS(
+                SELECT 1 FROM settings WHERE key = 'enableFileFormats' AND value IN ('false', '0')
+             )",
+            [],
+            |row| row.get(0),
+        )?;
         let mut stmt = conn.prepare("SELECT id, name, icon, color, smart_rule, COALESCE(bin_type, 'category'), shortcut, created_at FROM bins ORDER BY id ASC")?;
         let bin_rows: Vec<(
             i64,
@@ -7250,7 +7462,13 @@ impl DbState {
                         for cond in conds {
                             let c_type = cond["type"].as_str().unwrap_or("");
                             let c_val = cond["value"].as_str().unwrap_or("");
-                            push_smart_condition(c_type, c_val, &mut cond_sqls, &mut query_params);
+                            push_smart_condition(
+                                c_type,
+                                c_val,
+                                file_formats_enabled,
+                                &mut cond_sqls,
+                                &mut query_params,
+                            );
                         }
                     } else {
                         let rule_type = parsed["type"].as_str().unwrap_or("");
@@ -7258,6 +7476,7 @@ impl DbState {
                         push_smart_condition(
                             rule_type,
                             rule_val,
+                            file_formats_enabled,
                             &mut cond_sqls,
                             &mut query_params,
                         );
@@ -7348,10 +7567,13 @@ impl DbState {
     pub fn matching_smart_bin_transforms(
         &self,
         clip_type: &str,
+        file_formats: &[String],
         content_types: &[String],
         text: &str,
         source: &str,
     ) -> Result<Vec<(i64, String)>> {
+        let file_formats_enabled =
+            crate::features::is_enabled(self, crate::features::Feature::FileFormats);
         let file_paths = if clip_type.eq_ignore_ascii_case("file") {
             serde_json::from_str::<Vec<String>>(text).unwrap_or_default()
         } else {
@@ -7380,6 +7602,12 @@ impl DbState {
                 "content_type" => content_types
                     .iter()
                     .any(|content_type| content_type.eq_ignore_ascii_case(value)),
+                "file_format" => {
+                    file_formats_enabled
+                        && file_formats
+                            .iter()
+                            .any(|file_format| file_format.eq_ignore_ascii_case(value))
+                }
                 "source" => source.to_lowercase().contains(&value.to_lowercase()),
                 "contains" => text.to_lowercase().contains(&value.to_lowercase()),
                 "origin_kind" => {
@@ -8083,6 +8311,7 @@ impl DbState {
                 id: 0,
                 content_type: row[1].clone(),
                 content_types: Vec::new(),
+                file_formats: Vec::new(),
                 text_content: Some(text),
                 html_content: None,
                 image_base64: None,
@@ -9195,6 +9424,7 @@ impl DbState {
                 id: row.get(0)?,
                 content_type: row.get(1)?,
                 content_types: Vec::new(),
+                file_formats: Vec::new(),
                 text_content: row.get(2)?,
                 html_content: row.get(3)?,
                 image_base64: row.get(4)?,
@@ -12456,6 +12686,74 @@ impl DbState {
         Ok(report)
     }
 
+    pub fn rescan_file_formats(&self) -> Result<FileFormatRescanReport> {
+        let clips = {
+            let conn = self.conn.lock();
+            let mut statement = conn.prepare(
+                "SELECT id, content_hash, text_content
+                 FROM clips
+                 WHERE content_type = 'file' AND COALESCE(is_trashed, 0) = 0
+                 ORDER BY id ASC",
+            )?;
+            let rows = statement
+                .query_map([], |row| {
+                    Ok((
+                        row.get::<_, i64>(0)?,
+                        row.get::<_, String>(1)?,
+                        row.get::<_, Option<String>>(2)?,
+                    ))
+                })?
+                .collect::<Result<Vec<_>>>()?;
+            rows
+        };
+        let mut changed_count = 0usize;
+        let mut missing_count = 0usize;
+        let mut failed_count = 0usize;
+        for (clip_id, content_hash, payload) in &clips {
+            let paths = payload
+                .as_deref()
+                .map(crate::content_inspection::parse_file_paths)
+                .unwrap_or_default();
+            if paths.is_empty() || !crate::resource_limits::file_list_within_limit(&paths) {
+                failed_count += 1;
+                continue;
+            }
+            let inspection = crate::content_inspection::inspect_file_formats(&paths);
+            if inspection.unavailable_count == paths.len() {
+                missing_count += 1;
+                continue;
+            }
+            let existing = self.get_file_format_inspection(*clip_id, content_hash)?;
+            if existing.as_ref() != Some(&inspection)
+                && self.record_file_format_inspection(*clip_id, content_hash, &inspection)?
+            {
+                changed_count += 1;
+            }
+        }
+        let report = FileFormatRescanReport {
+            scanned_count: clips.len(),
+            changed_count,
+            unchanged_count: clips
+                .len()
+                .saturating_sub(changed_count)
+                .saturating_sub(missing_count)
+                .saturating_sub(failed_count),
+            missing_count,
+            failed_count,
+        };
+        let _ = self.log_activity(
+            "file_format_history_rescanned",
+            &format!(
+                "Rescanned {} file clips; updated {}; missing {}; failed {}",
+                report.scanned_count,
+                report.changed_count,
+                report.missing_count,
+                report.failed_count
+            ),
+        );
+        Ok(report)
+    }
+
     pub fn get_distinct_sources(&self) -> Result<Vec<String>> {
         let conn = self.conn.lock();
         let mut stmt = conn.prepare(
@@ -13146,6 +13444,7 @@ mod tests {
         assert_eq!(
             db.matching_smart_bin_transforms(
                 &first.content_type,
+                &first.file_formats,
                 &first.content_types,
                 first.text_content.as_deref().unwrap(),
                 &first.source,
@@ -13491,6 +13790,31 @@ mod tests {
             db.get_clip_by_id(whitespace.id).unwrap().content_type,
             "text"
         );
+    }
+
+    #[test]
+    fn file_format_rescan_reports_missing_external_references() {
+        let db = setup_test_db();
+        let workspace = crate::external_tools::PrivateWorkspace::create("missing-format").unwrap();
+        let missing_path = workspace.join("moved.png");
+        let payload =
+            serde_json::to_string(&vec![missing_path.to_string_lossy().into_owned()]).unwrap();
+        db.save_clip(
+            "file",
+            Some(&payload),
+            None,
+            None,
+            "missing-format-hash",
+            "Finder",
+        )
+        .unwrap();
+
+        let report = db.rescan_file_formats().unwrap();
+        assert_eq!(report.scanned_count, 1);
+        assert_eq!(report.changed_count, 0);
+        assert_eq!(report.unchanged_count, 0);
+        assert_eq!(report.missing_count, 1);
+        assert_eq!(report.failed_count, 0);
     }
 
     #[test]
@@ -14229,17 +14553,17 @@ mod tests {
         db.set_bin_transform_ref(screenshot_bin.id, Some("transform:test-origin"))
             .unwrap();
         assert_eq!(
-            db.matching_smart_bin_transforms("image", &[], "", "Screenshot")
+            db.matching_smart_bin_transforms("image", &[], &[], "", "Screenshot")
                 .unwrap(),
             vec![(screenshot_bin.id, "transform:test-origin".to_string())]
         );
         assert_eq!(
-            db.matching_smart_bin_transforms("file", &[], &cleanshot_paths, "CleanShot X")
+            db.matching_smart_bin_transforms("file", &[], &[], &cleanshot_paths, "CleanShot X")
                 .unwrap(),
             vec![(screenshot_bin.id, "transform:test-origin".to_string())]
         );
         assert!(db
-            .matching_smart_bin_transforms("image", &[], "", "Preview")
+            .matching_smart_bin_transforms("image", &[], &[], "", "Preview")
             .unwrap()
             .is_empty());
     }
@@ -14292,6 +14616,47 @@ mod tests {
                 .clip_count,
             Some(1)
         );
+    }
+
+    #[test]
+    fn file_format_smart_bins_match_verified_bytes_not_filename_extensions() {
+        let db = setup_test_db();
+        let workspace = crate::external_tools::PrivateWorkspace::create("smart-format").unwrap();
+        let path = workspace.join("actually-png.txt");
+        std::fs::write(
+            &path,
+            [0x89, b'P', b'N', b'G', 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0],
+        )
+        .unwrap();
+        let payload = serde_json::to_string(&vec![path.to_string_lossy().into_owned()]).unwrap();
+        let clip = db
+            .save_clip(
+                "file",
+                Some(&payload),
+                None,
+                None,
+                "verified-format",
+                "Finder",
+            )
+            .unwrap();
+        let bin = db
+            .create_bin(
+                "PNG Files",
+                "📄",
+                "default",
+                Some(r#"{"conditions":[{"type":"file_format","operator":"is","value":"png"}],"match":"any"}"#),
+            )
+            .unwrap();
+
+        let refreshed = db.get_clip_by_id(clip.id).unwrap();
+        assert_eq!(refreshed.file_formats, vec!["png"]);
+        assert_eq!(
+            db.get_clips(None, Some(bin.id), false).unwrap()[0].id,
+            clip.id
+        );
+
+        db.save_setting("enableFileFormats", "false").unwrap();
+        assert!(db.get_clips(None, Some(bin.id), false).unwrap().is_empty());
     }
 
     #[test]
@@ -17561,6 +17926,14 @@ mod tests {
     #[test]
     fn insights_separates_clip_types_file_formats_and_content_types() {
         let db = setup_test_db();
+        let workspace =
+            crate::external_tools::PrivateWorkspace::create("insights-formats").unwrap();
+        let png_path = workspace.join("misleading.txt");
+        std::fs::write(
+            &png_path,
+            [0x89, b'P', b'N', b'G', 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0],
+        )
+        .unwrap();
         db.save_clip("text", Some("Plain text"), None, None, "plain", "Tests")
             .unwrap();
         db.save_clip(
@@ -17574,15 +17947,10 @@ mod tests {
         .unwrap();
         db.save_clip("image", None, None, None, "image", "Tests")
             .unwrap();
-        db.save_clip(
-            "file",
-            Some(r#"["/tmp/recording.m4a","/tmp/artwork.png","/tmp/alternate.M4A"]"#),
-            None,
-            None,
-            "files",
-            "Tests",
-        )
-        .unwrap();
+        let file_payload =
+            serde_json::to_string(&vec![png_path.to_string_lossy().into_owned()]).unwrap();
+        db.save_clip("file", Some(&file_payload), None, None, "files", "Tests")
+            .unwrap();
 
         let summary = db.get_analytics_summary().unwrap();
         let clip_type_count = |name: &str| {
@@ -17604,7 +17972,6 @@ mod tests {
         assert_eq!(clip_type_count("text"), 2);
         assert_eq!(clip_type_count("image"), 1);
         assert_eq!(clip_type_count("file"), 1);
-        assert_eq!(format_count("m4a"), 1);
         assert_eq!(format_count("png"), 1);
         assert_eq!(summary.content_types[0].content_type, "email");
         assert_eq!(summary.content_types[0].count, 1);
@@ -17616,11 +17983,29 @@ mod tests {
     #[test]
     fn insights_bounds_file_format_breakdowns() {
         let db = setup_test_db();
-        let paths = (0..MAX_ANALYTICS_FILE_FORMATS + 5)
-            .map(|index| format!("/tmp/file.{index:02}"))
-            .collect::<Vec<_>>();
-        let payload = serde_json::to_string(&paths).unwrap();
-        db.save_clip("file", Some(&payload), None, None, "many-formats", "Tests")
+        let clip = db
+            .save_clip(
+                "file",
+                Some(r#"["/tmp/file.bin"]"#),
+                None,
+                None,
+                "many-formats",
+                "Tests",
+            )
+            .unwrap();
+        let inspection = crate::content_inspection::FileFormatInspection {
+            formats: (0..MAX_ANALYTICS_FILE_FORMATS + 5)
+                .map(|index| crate::content_inspection::DetectedFileFormat {
+                    format: format!("format-{index:02}"),
+                    mime_type: format!("application/x-format-{index:02}"),
+                    count: 1,
+                })
+                .collect(),
+            inspected_count: 1,
+            unknown_count: 0,
+            unavailable_count: 0,
+        };
+        db.record_file_format_inspection(clip.id, &clip.content_hash, &inspection)
             .unwrap();
 
         let summary = db.get_analytics_summary().unwrap();

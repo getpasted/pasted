@@ -2661,6 +2661,7 @@ dependencies = [
  "futures-util",
  "gtk",
  "image",
+ "infer",
  "objc",
  "objc2",
  "once_cell",

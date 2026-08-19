@@ -149,6 +149,7 @@ pasted registry enable|disable --kind extractor|classifier|operation --ref <stab
 pasted inspector list [--json]
 pasted inspector get <ref> [--json]
 pasted inspector run [--text <text> | --clip <id> | --stdin] [--apply] [--json]
+pasted inspector rescan --yes [--json]
 pasted suggestion list [--json]
 pasted suggestion get <ref> [--json]
 pasted suggestion run [--text <text> | --clip <id> | --stdin] [--json]
@@ -186,7 +187,7 @@ pasted classifier restore-defaults [--json]
 pasted classifier rescan --yes [--json]
 ```
 
-Registry JSON includes Capture definitions and each Analysis participant’s `analysisPass`, legacy `inputContract` and `outputContract` strings, typed `participantContract`, and `typeRelations`. The typed contract lists required and produced representations. The current `accepts` relations use the legacy `image` and `file` registry IDs to describe Clip Type applicability; `classifies_as` names the semantic Content Type produced by a Classifier. Structure and Media Metadata Inspectors run in the inspect pass, Extractors run in the extract pass, Classifiers run in the classify pass, and Smart Actions runs in the suggest pass. Every participant runs at most once after its declared inputs become available. Inspector runs preview by default; `--apply` persists content-hash-bound structural metadata for a clip. Built-in Inspectors and Suggestions are immutable. Extractor, Classifier, and Transform management uses the lifecycle verbs appropriate to each asset.
+Registry JSON includes Capture definitions and each Analysis participant’s `analysisPass`, legacy `inputContract` and `outputContract` strings, typed `participantContract`, and `typeRelations`. The typed contract lists required and produced representations. The current `accepts` relations use the legacy `image` and `file` registry IDs to describe Clip Type applicability; `classifies_as` names the semantic Content Type produced by a Classifier. Structure, File Format, and Media Metadata Inspectors run in the inspect pass, Extractors run in the extract pass, Classifiers run in the classify pass, and Smart Actions runs in the suggest pass. Every participant runs at most once after its declared inputs become available. Inspector runs preview by default; `--apply` persists content-hash-bound results for a clip. Built-in Inspectors and Suggestions are immutable. Extractor, Classifier, and Transform management uses the lifecycle verbs appropriate to each asset.
 
 `pasted analyzer run` returns one versioned preview of the applicable passes. Its JSON includes content-free structure, classification, Smart Action suggestions, and participant outcomes, but never original text, extracted text, image bytes, or file paths. Interactive policy includes suggestion when Transformations is enabled; capture, background, and rescan stop after classification. Image and file extraction are opt-in with `--extract` because OCR and transcription can be comparatively expensive. File references never enter text Classifiers or Suggestions; only a produced searchable-text representation can feed later passes.
 
@@ -198,7 +199,7 @@ Automatic scans, rescans, and whole-Analyzer extraction run every enabled, avail
 
 The shipped Apple Vision, Tesseract, and Whisper definitions use the same recipe runner. Apple Vision invokes the explicit bundled Pasted bridge, Tesseract invokes `tesseract`, and Whisper declares an FFmpeg preparation step followed by `whisper-cli` plus a required local GGML model resource. Installing commands or selecting resources never occurs implicitly. `pasted extractor run extractor:whisper-transcription --clip <id> --apply` stores hash-bound searchable text and provenance without replacing file references.
 
-Inspector run JSON uses the versioned Analysis envelope. Structure reports origin, byte count, text counts, image dimensions, or file item count and extensions without returning the inspected clipboard content or paths. File availability, file/directory counts, and total size are returned separately as live observations and are not persisted. When ffprobe or MediaInfo is installed, file runs can also return live aggregate `mediaMetadata` containing container, codec, stream-count, and duration facts. Up to eight files are inspected with bounded execution and output; paths never appear in results.
+Inspector run JSON uses the versioned Analysis envelope. Structure reports origin, byte count, text counts, image dimensions, or file item count and filename extensions without returning the inspected clipboard content or paths. The File Format Inspector reads bounded file signatures, persists verified `fileFormats`, and never guesses from an extension. `inspector rescan --yes` backfills current file clips and reports missing external references as `missingCount`, not failures. File availability, file/directory counts, and total size are returned separately as live observations and are not persisted. When ffprobe or MediaInfo is installed, file runs can also return live aggregate `mediaMetadata` containing container, codec, stream-count, and duration facts. Up to eight files are inspected with bounded execution and output; paths never appear in results.
 
 Suggestion run JSON uses the same versioned envelope and is always non-mutating. Smart Actions reports bounded content signals plus stable Transform references, names, revisions, and reasons. It does not return the analyzed text or execute a suggestion. Capture, background, and rescan policies stop before suggestion.
 
@@ -223,7 +224,7 @@ pasted reset --yes [--json]
 
 `licenses` remains available without a database and even when the optional clipboard-management CLI feature is disabled. `reset` is intentionally gated by `--yes`. Other commands respect feature settings and exit with an explicit explanation when a capability is disabled or unavailable.
 
-`insights summary --json` keeps structural `clip_types`, bounded `file_formats`, and semantic `content_types` separate. Clip Type entries use `clip_type`; Content Type entries use `content_type`. File Formats are ordered by clip count and limited to the top 24 distinct extensions.
+`insights summary --json` keeps structural `clip_types`, verified `file_formats`, and semantic `content_types` separate. Clip Type entries use `clip_type`; Content Type entries use `content_type`. File Formats come from bounded byte-signature inspection, are ordered by clip count, and are limited to the top 24 values.
 
 ## Intentional app-only boundaries
 

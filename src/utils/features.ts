@@ -4,6 +4,7 @@ export type FeatureId =
   | 'analytics'
   | 'bins'
   | 'clipTypes'
+  | 'fileFormats'
   | 'contentClassification'
   | 'notes'
   | 'notifications'
@@ -27,6 +28,7 @@ export type FeatureSettingKey =
   | 'enableAnalytics'
   | 'enableBins'
   | 'enableClipTypes'
+  | 'enableFileFormats'
   | 'enableContentClassification'
   | 'enableNotes'
   | 'enableNotifications'
@@ -74,6 +76,7 @@ export interface FeatureDefinition {
 export const FEATURE_DEFINITIONS: readonly FeatureDefinition[] = [
   { id: 'bins', group: 'library', settingKey: 'enableBins', label: 'Bins', description: 'Organize clips manually or automatically with Smart Bins.', simple: false },
   { id: 'clipTypes', group: 'library', settingKey: 'enableClipTypes', label: 'Clip Types', description: 'Show structural Clip Types and their collections.', simple: false },
+  { id: 'fileFormats', group: 'discovery', settingKey: 'enableFileFormats', label: 'File Formats', description: 'Identify file formats from their contents.', simple: false },
   { id: 'contentClassification', group: 'discovery', settingKey: 'enableContentClassification', label: 'Content Classification', description: 'Assign registered Content Types to analyzable text.', simple: true },
   { id: 'notes', group: 'library', settingKey: 'enableNotes', label: 'Notes', description: 'Annotate clips and browse the Noted collection.', simple: false },
   { id: 'notifications', group: 'app', settingKey: 'enableNotifications', label: 'Notifications', description: 'Show interactive capture feedback without interrupting the current workflow.', simple: false },
@@ -157,6 +160,7 @@ export function enabledFeatureRecord(settings: AppSettings): Record<FeatureId, b
 
 export function featureForRoute(route: string): FeatureId | null {
   if (route.startsWith('clip_type-')) return 'clipTypes';
+  if (route.startsWith('file_format-')) return 'fileFormats';
   if (route.startsWith('type-')) return 'types';
   if (route.startsWith('source-')) return 'sources';
   const tab = route.split(':', 1)[0];
