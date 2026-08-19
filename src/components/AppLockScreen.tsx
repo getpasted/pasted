@@ -5,6 +5,7 @@ import { ActionButton } from './AppDialogLayout';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { translate } from '../localization/runtime';
 import { appLockAuthErrorMessage } from '../utils/appLockAuth';
+import { handleWindowDragDoubleClick, startWindowDrag } from '../utils/windowDrag';
 
 export function AppLockScreen({
   status,
@@ -54,7 +55,11 @@ export function AppLockScreen({
   };
 
   return (
-    <main className={`app-lock-screen theme-app fixed inset-0 z-[10000] flex items-center justify-center p-6 font-sans select-none ${unlocking ? 'is-unlocking' : ''}`}>
+    <main
+      onMouseDown={startWindowDrag}
+      onDoubleClick={handleWindowDragDoubleClick}
+      className={`app-lock-screen theme-app fixed inset-0 z-[10000] flex items-center justify-center p-6 font-sans select-none ${unlocking ? 'is-unlocking' : ''}`}
+    >
       <form onSubmit={submit} aria-busy={pending} className="theme-panel w-full max-w-sm space-y-5 rounded-2xl border p-6 shadow-2xl">
         <div className="space-y-2 text-center">
           <span className={`app-lock-mark theme-surface mx-auto flex h-12 w-12 items-center justify-center rounded-xl border ${pending ? 'is-authenticating' : ''}`}>
