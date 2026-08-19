@@ -39,18 +39,48 @@ assert.match(
 );
 assert.match(
   desktopBuildWorkflow,
-  /validate-native:[\s\S]*?github\.event_name != 'pull_request'[\s\S]*?timeout-minutes: 8[\s\S]*?npm run test:native/,
-  'Main-branch native validation must remain independent and bound Linux dependency setup time',
+  /validate-native:[\s\S]*?github\.event_name != 'pull_request'[\s\S]*?shared-key: native-debug-linux[\s\S]*?timeout-minutes: 8[\s\S]*?npm run test:native/,
+  'Main-branch native validation must warm the shared Linux cache and bound dependency setup time',
 );
 assert.match(
   desktopBuildWorkflow,
-  /validate:\s*\n\s*name: Validate[\s\S]*?needs: \[validation-scope, validate-frontend, validate-native, smoke\]/,
+  /validate:\s*\n\s*name: Validate[\s\S]*?needs: \[validation-scope, validate-frontend, validate-native, smoke-macos, smoke-linux, smoke-windows\]/,
   'The protected Validate check must aggregate frontend validation and the applicable native path',
 );
 assert.match(
   desktopBuildWorkflow,
-  /smoke:[\s\S]*?github\.event\.pull_request\.draft == false[\s\S]*?needs: \[validation-scope, dependency-review, dependency-policy\][\s\S]*?if: needs\.validation-scope\.outputs\.native == 'true'[\s\S]*?runner\.os == 'Linux'[\s\S]*?npm run test:native/,
-  'Named smoke checks must always expand for ready PRs while native work remains change-aware',
+  /smoke-macos:\s*\n\s*name: Smoke macOS native[\s\S]*?needs\.validation-scope\.outputs\.native == 'true'[\s\S]*?shared-key: native-debug-macos[\s\S]*?cargo test/,
+  'The statically named macOS smoke check must skip before runner allocation for frontend-only PRs',
+);
+assert.match(
+  desktopBuildWorkflow,
+  /smoke-linux:\s*\n\s*name: Smoke Linux x86_64[\s\S]*?needs\.validation-scope\.outputs\.native == 'true'[\s\S]*?shared-key: native-debug-linux[\s\S]*?timeout-minutes: 8[\s\S]*?npm run test:native/,
+  'The Linux smoke check must reuse the default-branch native cache and run complete validation',
+);
+assert.match(
+  desktopBuildWorkflow,
+  /smoke-windows:\s*\n\s*name: Smoke Windows x86_64[\s\S]*?needs\.validation-scope\.outputs\.native == 'true'[\s\S]*?shared-key: native-debug-windows[\s\S]*?cargo test/,
+  'The statically named Windows smoke check must skip before runner allocation for frontend-only PRs',
+);
+assert.match(
+  desktopBuildWorkflow,
+  /package:\s*\n\s*name: Package \$\{\{ matrix\.name \}\}[\s\S]*?always\(\)[\s\S]*?needs\.validate\.result == 'success'[\s\S]*?needs\.dependency-policy\.result == 'success'/,
+  'Main packaging must explicitly run after successful validation even when PR-only smoke jobs were skipped',
+);
+assert.match(
+  desktopBuildWorkflow,
+  /package-macos-cli:\s*\n\s*name: Package macOS universal CLI[\s\S]*?always\(\)[\s\S]*?needs\.validate\.result == 'success'[\s\S]*?needs\.dependency-policy\.result == 'success'/,
+  'Main macOS packaging must explicitly run after successful validation despite skipped PR-only ancestors',
+);
+assert.match(
+  desktopBuildWorkflow,
+  /package-macos-dmg:\s*\n\s*name: Package macOS universal DMG[\s\S]*?always\(\)[\s\S]*?needs\.package-macos-cli\.result == 'success'/,
+  'The macOS DMG must run only after the universal CLI package succeeds',
+);
+assert.match(
+  desktopBuildWorkflow,
+  /package-macos-artifact:\s*\n\s*name: Audit macOS packaged artifact[\s\S]*?always\(\)[\s\S]*?needs\.package-macos-cli\.result == 'success'[\s\S]*?needs\.package-macos-dmg\.result == 'success'/,
+  'The macOS artifact audit must run after both package inputs succeed',
 );
 
 assert.equal(packageJson.name, 'pasted', 'Frontend package must use the Pasted product name');
