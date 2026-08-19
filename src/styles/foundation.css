@@ -21,6 +21,10 @@ bdi {
   --mac-traffic-zoom: #28c840;
   --mac-traffic-border: rgb(0 0 0 / 18%);
   --mac-traffic-glyph: rgb(0 0 0 / 55%);
+  --mac-traffic-glyph-highlight: rgb(255 255 255 / 18%);
+  --mac-traffic-shine: rgb(255 255 255 / 58%);
+  --mac-traffic-shine-edge: rgb(255 255 255 / 42%);
+  --mac-traffic-shadow: rgb(0 0 0 / 24%);
 }
 
 html[dir="rtl"] .tracking-tight,
