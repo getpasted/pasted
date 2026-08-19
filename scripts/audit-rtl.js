@@ -53,6 +53,7 @@ const titlebar = fs.readFileSync('src-tauri/src/titlebar.rs', 'utf8');
 const binPicker = fs.readFileSync('src/components/ClipBinPicker.tsx', 'utf8');
 const menuSelect = fs.readFileSync('src/components/MenuSelect.tsx', 'utf8');
 const macWindowControls = fs.readFileSync('src/components/MacRtlWindowControls.tsx', 'utf8');
+const layoutChrome = fs.readFileSync('src/styles/layout-chrome.css', 'utf8');
 const desktopCapability = fs.readFileSync('src-tauri/capabilities/default.json', 'utf8');
 const directionalSources = [
   'src/components/AnchoredMenu.tsx',
@@ -86,6 +87,8 @@ assert.match(titlebar, /TRAFFIC_LIGHT_Y[\s\S]*titlebar_height[\s\S]*titlebar_con
   'Returning to LTR must immediately restore Tauri’s configured titlebar container inset.');
 assert.match(macWindowControls, /getCurrentWindow[\s\S]*toggleMaximize/,
   'Stable RTL window controls must retain close, minimize, and zoom behavior.');
+assert.match(layoutChrome, /\.mac-window-control \{[\s\S]*radial-gradient[\s\S]*linear-gradient[\s\S]*var\(--mac-traffic-shine-edge\)/,
+  'Stable RTL window controls must retain their layered macOS glass treatment.');
 for (const permission of ['allow-close', 'allow-minimize', 'allow-toggle-maximize']) {
   assert.ok(desktopCapability.includes(`core:window:${permission}`),
     `Stable RTL window controls require the core:window:${permission} capability.`);
