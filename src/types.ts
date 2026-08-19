@@ -95,6 +95,25 @@ export interface ClipItem {
   ocr_engine_version?: string | null;
 }
 
+export interface ClipSearchRequest {
+  query: string;
+  clipTypes?: string[];
+  contentTypes?: string[];
+  fileFormats?: string[];
+  sources?: string[];
+  trash?: boolean;
+  limit?: number;
+  offset?: number;
+}
+
+export interface ClipSearchResult {
+  schemaVersion: 1;
+  items: ClipItem[];
+  totalCount: number;
+  limit: number;
+  offset: number;
+}
+
 export type ClipContentType =
   | 'text' | 'prose' | 'image' | 'file' | 'file_path'
   | 'color' | 'link' | 'code' | 'shell_command'

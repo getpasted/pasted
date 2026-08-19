@@ -108,7 +108,6 @@ export function useAppData() {
   const fetchClips = useCallback(async () => {
     try {
       const clips = normalizeClipItems(await invoke<unknown[]>('get_clips', {
-        searchQuery: null,
         binId: null,
         onlyPinned: false,
         limit: Math.max(CLIP_PAGE_SIZE, activeOffsetRef.current),
@@ -143,7 +142,6 @@ export function useAppData() {
     setIsLoadingMoreClips(true);
     try {
       const page = normalizeClipItems(await invoke<unknown[]>('get_clips', {
-        searchQuery: null,
         binId: null,
         onlyPinned: false,
         limit: CLIP_PAGE_SIZE,

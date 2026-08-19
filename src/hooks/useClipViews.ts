@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
-import type { Bin, ClipItem, SequentialStatus } from '../types';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { Bin, ClipItem, ClipSearchResult, SequentialStatus } from '../types';
 import { getClipFilePaths, getClipOriginKind } from '../types';
 import { sortClipsChronologically } from '../utils/clipOrder';
 import { clipMatchesSearch, parseClipSearch, type ClipSearchFeaturePolicy } from '../utils/clipSearch';
 import { getClipCollection, parseClipFacetRoute } from '../utils/clipCollections';
 import type { FeatureId } from '../utils/features';
+import { appendUniqueSearchPage } from '../utils/searchPagination';
 import { safeInvoke as invoke } from '../utils/tauri';
 
 interface ClipViewsInput {
@@ -24,20 +25,15 @@ interface SmartCondition {
   value: string;
 }
 
-interface IndexedSearchResult {
+interface AuthoritativeSearchResult {
   query: string;
-  clipIds: number[];
+  items: ClipItem[];
+  totalCount: number;
+  loading: boolean;
+  failed: boolean;
 }
 
-function canUseIndexedSearch(rawQuery: string) {
-  const plan = parseClipSearch(rawQuery);
-  return plan.terms.length > 0
-    && plan.terms.length <= 8
-    && !plan.regex
-    && plan.regexFallback === null
-    && !plan.requiresTrashed
-    && !plan.hasIncompleteFilter;
-}
+const SEARCH_PAGE_SIZE = 100;
 
 function clipWithFeaturePolicy(
   clip: ClipItem,
@@ -157,30 +153,49 @@ export function useClipViews({
   features,
 }: ClipViewsInput) {
   const normalizedSearchQuery = searchQuery.trim();
-  const [indexedSearchResult, setIndexedSearchResult] = useState<IndexedSearchResult>({
+  const [searchResult, setSearchResult] = useState<AuthoritativeSearchResult>({
     query: '',
-    clipIds: [],
+    items: [],
+    totalCount: 0,
+    loading: false,
+    failed: false,
   });
+  const [searchRevision, setSearchRevision] = useState(0);
+  const searchLoadingRef = useRef(false);
 
   useEffect(() => {
-    if (currentTab !== 'search' || !canUseIndexedSearch(normalizedSearchQuery)) {
-      setIndexedSearchResult((current) => (
-        current.query === '' && current.clipIds.length === 0
+    if (currentTab !== 'search' || !normalizedSearchQuery) {
+      searchLoadingRef.current = false;
+      setSearchResult((current) => (
+        current.query === '' && current.items.length === 0 && current.totalCount === 0
           ? current
-          : { query: '', clipIds: [] }
+          : { query: '', items: [], totalCount: 0, loading: false, failed: false }
       ));
       return;
     }
     let active = true;
+    setSearchResult({ query: normalizedSearchQuery, items: [], totalCount: 0, loading: true, failed: false });
+    searchLoadingRef.current = true;
     const timer = window.setTimeout(() => {
-      const plan = parseClipSearch(normalizedSearchQuery);
-      invoke<number[]>('search_clip_searchable_text_ids', {
-        terms: plan.terms,
-      }).then((clipIds) => {
-        if (active) setIndexedSearchResult({ query: normalizedSearchQuery, clipIds });
+      invoke<ClipSearchResult>('search_clips', {
+        request: { query: normalizedSearchQuery, limit: SEARCH_PAGE_SIZE, offset: 0 },
+      }).then((result) => {
+        if (active) {
+          setSearchResult({
+            query: normalizedSearchQuery,
+            items: result.items,
+            totalCount: result.totalCount,
+            loading: false,
+            failed: false,
+          });
+        }
       }).catch((error) => {
-        console.error('Failed to search the native clip index:', error);
-        if (active) setIndexedSearchResult({ query: normalizedSearchQuery, clipIds: [] });
+        console.error('Failed to search clips:', error);
+        if (active) {
+          setSearchResult({ query: normalizedSearchQuery, items: [], totalCount: 0, loading: false, failed: true });
+        }
+      }).finally(() => {
+        if (active) searchLoadingRef.current = false;
       });
     }, 120);
     return () => {
@@ -188,7 +203,41 @@ export function useClipViews({
       window.clearTimeout(timer);
     };
   // Refresh after clip updates so newly persisted OCR or transcription joins an active search.
-  }, [allClips, currentTab, normalizedSearchQuery]);
+  }, [allClips, currentTab, features, normalizedSearchQuery, searchRevision, trashedClips]);
+
+  const loadMoreSearchResults = useCallback(async () => {
+    if (currentTab !== 'search'
+      || !normalizedSearchQuery
+      || searchLoadingRef.current
+      || searchResult.query !== normalizedSearchQuery
+      || searchResult.items.length >= searchResult.totalCount) return;
+    searchLoadingRef.current = true;
+    setSearchResult((current) => ({ ...current, loading: true }));
+    try {
+      const result = await invoke<ClipSearchResult>('search_clips', {
+        request: {
+          query: normalizedSearchQuery,
+          limit: SEARCH_PAGE_SIZE,
+          offset: searchResult.items.length,
+        },
+      });
+      setSearchResult((current) => {
+        if (current.query !== normalizedSearchQuery) return current;
+        return {
+          query: current.query,
+          items: appendUniqueSearchPage(current.items, result.items),
+          totalCount: result.totalCount,
+          loading: false,
+          failed: false,
+        };
+      });
+    } catch (error) {
+      console.error('Failed to load more Search results:', error);
+      setSearchResult((current) => ({ ...current, loading: false, failed: true }));
+    } finally {
+      searchLoadingRef.current = false;
+    }
+  }, [currentTab, normalizedSearchQuery, searchResult]);
 
   const displayedClips = useMemo(() => {
     const selectedBin = selectedBinId === null ? undefined : bins.find((bin) => bin.id === selectedBinId);
@@ -212,22 +261,7 @@ export function useClipViews({
 
     if (collection?.membership === 'search') {
       if (!normalizedSearchQuery) return [];
-      const localMatches = applyClipSearch(
-        sortClipsChronologically([...allClips, ...trashedClips]),
-        normalizedSearchQuery,
-        features,
-      );
-      if (indexedSearchResult.query !== normalizedSearchQuery) return localMatches;
-      const matchesById = new Map(localMatches.map((clip) => [clip.id, clip]));
-      const availableById = new Map([...allClips, ...trashedClips].map((clip) => [clip.id, clip]));
-      const metadataPlan = { ...parseClipSearch(normalizedSearchQuery), terms: [] };
-      indexedSearchResult.clipIds.forEach((clipId) => {
-        const clip = availableById.get(clipId);
-        if (clip && clipMatchesSearch(clipWithFeaturePolicy(clip, features), metadataPlan, features)) {
-          matchesById.set(clipId, clip);
-        }
-      });
-      return sortClipsChronologically([...matchesById.values()]);
+      return searchResult.query === normalizedSearchQuery ? searchResult.items : [];
     }
 
     let clips = collection?.membership === 'trash' ? trashedClips : allClips;
@@ -249,7 +283,7 @@ export function useClipViews({
     if (collection?.membership === 'noted') clips = clips.filter((clip) => Boolean(clip.note?.trim()));
     if (!features.pinning) clips = sortClipsChronologically(clips);
     return clips;
-  }, [allClips, trashedClips, normalizedSearchQuery, currentTab, selectedBinId, sequentialStatus, bins, features, indexedSearchResult]);
+  }, [allClips, trashedClips, normalizedSearchQuery, currentTab, selectedBinId, sequentialStatus, bins, features, searchResult]);
 
   const counts = useMemo(() => allClips.reduce((result, clip) => ({
     pinnedCount: result.pinnedCount + Number(features.pinning && Boolean(clip.is_pinned)),
@@ -265,5 +299,14 @@ export function useClipViews({
     return indexes;
   }, [sequentialStatus?.queue]);
 
-  return { displayedClips, queuedIndexMap, ...counts };
+  return {
+    displayedClips,
+    queuedIndexMap,
+    searchTotalCount: searchResult.query === normalizedSearchQuery ? searchResult.totalCount : 0,
+    isSearching: searchResult.loading,
+    searchFailed: searchResult.failed,
+    retrySearch: () => setSearchRevision((revision) => revision + 1),
+    loadMoreSearchResults,
+    ...counts,
+  };
 }

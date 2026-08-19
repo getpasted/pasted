@@ -1,5 +1,6 @@
 use parking_lot::Mutex;
-use rusqlite::{params, Connection, OpenFlags, OptionalExtension, Result, ToSql};
+use regex::RegexBuilder;
+use rusqlite::{params, Connection, OpenFlags, OptionalExtension, Result, Row, ToSql};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
@@ -494,6 +495,216 @@ pub struct ClipItem {
     pub ocr_extractor_name: Option<String>,
     #[serde(default)]
     pub ocr_engine_version: Option<String>,
+}
+
+fn clip_item_from_row(row: &Row<'_>) -> Result<ClipItem> {
+    let primary_bin_id: Option<i64> = row.get(11)?;
+    let bin_ids_csv: Option<String> = row.get(16)?;
+    let mut bin_ids = primary_bin_id.into_iter().collect::<Vec<_>>();
+    for value in bin_ids_csv.unwrap_or_default().split(',') {
+        if let Ok(id) = value.parse::<i64>() {
+            if !bin_ids.contains(&id) {
+                bin_ids.push(id);
+            }
+        }
+    }
+    Ok(ClipItem {
+        id: row.get(0)?,
+        content_type: row.get(1)?,
+        content_types: Vec::new(),
+        file_formats: Vec::new(),
+        text_content: row.get(2)?,
+        html_content: row.get(3)?,
+        image_base64: row.get(4)?,
+        image_path: row.get(5)?,
+        content_hash: row.get(6)?,
+        source: row.get(7)?,
+        is_pinned: row.get::<_, i32>(8)? != 0,
+        is_protected: row.get::<_, i32>(9)? != 0,
+        is_transformed: row.get::<_, i32>(17)? != 0,
+        pin_order: row.get(10)?,
+        bin_id: primary_bin_id,
+        bin_ids: Some(bin_ids),
+        note: row.get(12)?,
+        is_trashed: row.get::<_, i32>(13)? != 0,
+        trashed_at: row.get(14)?,
+        created_at: row.get(15)?,
+        ocr_extractor_ref: row.get(18)?,
+        ocr_extractor_name: row.get(19)?,
+        ocr_engine_version: row.get(20)?,
+    })
+}
+
+pub const DEFAULT_CLIP_SEARCH_PAGE_SIZE: usize = 100;
+pub const MAX_CLIP_SEARCH_PAGE_SIZE: usize = 500;
+const MAX_CLIP_SEARCH_QUERY_BYTES: usize = 4 * 1024;
+const MAX_CLIP_SEARCH_FILTERS: usize = 32;
+const MAX_CLIP_SEARCH_TERMS: usize = 32;
+const MAX_CLIP_SEARCH_OFFSET: usize = 10_000_000;
+
+/// Authoritative Search request shared by the app, Quick HUD, and CLI.
+#[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", default, deny_unknown_fields)]
+pub struct ClipSearchRequest {
+    pub query: String,
+    pub clip_types: Vec<String>,
+    pub content_types: Vec<String>,
+    pub file_formats: Vec<String>,
+    pub sources: Vec<String>,
+    pub trash: bool,
+    pub limit: usize,
+    pub offset: usize,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ClipSearchResult {
+    pub schema_version: u32,
+    pub items: Vec<ClipItem>,
+    pub total_count: usize,
+    pub limit: usize,
+    pub offset: usize,
+}
+
+#[derive(Debug, Default)]
+struct ParsedClipSearch {
+    sources: Vec<String>,
+    clip_types: Vec<String>,
+    content_types: Vec<String>,
+    file_formats: Vec<String>,
+    terms: Vec<String>,
+    requires_note: bool,
+    requires_pinned: bool,
+    requires_protected: bool,
+    requires_trashed: bool,
+    incomplete: bool,
+    regex: Option<String>,
+    regex_fallback: Option<String>,
+}
+
+#[derive(Clone, Copy)]
+struct ClipSearchFeaturePolicy {
+    clip_types: bool,
+    content_types: bool,
+    file_formats: bool,
+    sources: bool,
+    notes: bool,
+    pinning: bool,
+    protection: bool,
+    trash: bool,
+}
+
+fn tokenize_clip_search(query: &str) -> Vec<String> {
+    let mut tokens = Vec::new();
+    let mut token = String::new();
+    let mut quote = None;
+    for character in query.chars() {
+        if let Some(expected) = quote {
+            if character == expected {
+                quote = None;
+            } else {
+                token.push(character);
+            }
+        } else if matches!(character, '\'' | '"') {
+            quote = Some(character);
+        } else if character.is_whitespace() {
+            if !token.is_empty() {
+                tokens.push(std::mem::take(&mut token));
+            }
+        } else {
+            token.push(character);
+        }
+    }
+    if !token.is_empty() {
+        tokens.push(token);
+    }
+    tokens
+}
+
+fn parse_clip_search(query: &str) -> ParsedClipSearch {
+    let trimmed = query.trim();
+    let mut parsed = ParsedClipSearch::default();
+    if trimmed
+        .get(..6)
+        .is_some_and(|prefix| prefix.eq_ignore_ascii_case("regex:"))
+    {
+        let pattern = &trimmed[6..];
+        if pattern.trim().is_empty() {
+            parsed.incomplete = true;
+        } else if RegexBuilder::new(pattern)
+            .case_insensitive(true)
+            .build()
+            .is_ok()
+        {
+            parsed.regex = Some(pattern.to_string());
+        } else {
+            parsed.regex_fallback = Some(pattern.to_lowercase());
+        }
+        return parsed;
+    }
+    for token in tokenize_clip_search(trimmed) {
+        let lower = token.to_lowercase();
+        let push_filter = |values: &mut Vec<String>, value: &str, incomplete: &mut bool| {
+            if value.is_empty() {
+                *incomplete = true;
+            } else {
+                values.push(value.to_string());
+            }
+        };
+        if let Some(value) = lower.strip_prefix("source:") {
+            push_filter(&mut parsed.sources, value.trim(), &mut parsed.incomplete);
+        } else if let Some(value) = lower.strip_prefix("clip:") {
+            push_filter(&mut parsed.clip_types, value.trim(), &mut parsed.incomplete);
+        } else if let Some(value) = lower.strip_prefix("content:") {
+            push_filter(
+                &mut parsed.content_types,
+                value.trim(),
+                &mut parsed.incomplete,
+            );
+        } else if let Some(value) = lower.strip_prefix("format:") {
+            push_filter(
+                &mut parsed.file_formats,
+                value.trim(),
+                &mut parsed.incomplete,
+            );
+        } else if lower == "has:note" {
+            parsed.requires_note = true;
+        } else if lower == "is:pinned" {
+            parsed.requires_pinned = true;
+        } else if lower == "is:protected" {
+            parsed.requires_protected = true;
+        } else if lower == "is:trashed" {
+            parsed.requires_trashed = true;
+        } else if !lower.is_empty() {
+            parsed.terms.push(lower);
+        }
+    }
+    parsed
+}
+
+fn clip_search_feature_policy(conn: &Connection) -> Result<ClipSearchFeaturePolicy> {
+    conn.query_row(
+        "SELECT
+            NOT EXISTS(SELECT 1 FROM settings WHERE key = 'enableClipTypes' AND LOWER(TRIM(value)) IN ('false', '0')),
+            NOT EXISTS(SELECT 1 FROM settings WHERE key = 'enableTypes' AND LOWER(TRIM(value)) IN ('false', '0')),
+            NOT EXISTS(SELECT 1 FROM settings WHERE key = 'enableFileFormats' AND LOWER(TRIM(value)) IN ('false', '0')),
+            NOT EXISTS(SELECT 1 FROM settings WHERE key = 'enableSources' AND LOWER(TRIM(value)) IN ('false', '0')),
+            NOT EXISTS(SELECT 1 FROM settings WHERE key = 'enableNotes' AND LOWER(TRIM(value)) IN ('false', '0')),
+            NOT EXISTS(SELECT 1 FROM settings WHERE key = 'enablePinning' AND LOWER(TRIM(value)) IN ('false', '0')),
+            NOT EXISTS(SELECT 1 FROM settings WHERE key = 'enableProtection' AND LOWER(TRIM(value)) IN ('false', '0')),
+            NOT EXISTS(SELECT 1 FROM settings WHERE key = 'enableTrash' AND LOWER(TRIM(value)) IN ('false', '0'))",
+        [],
+        |row| Ok(ClipSearchFeaturePolicy {
+            clip_types: row.get(0)?,
+            content_types: row.get(1)?,
+            file_formats: row.get(2)?,
+            sources: row.get(3)?,
+            notes: row.get(4)?,
+            pinning: row.get(5)?,
+            protection: row.get(6)?,
+            trash: row.get(7)?,
+        }),
+    )
 }
 
 fn normalize_imported_clip_types(clip: &mut ClipItem) -> Result<()> {
@@ -4765,49 +4976,349 @@ impl DbState {
         .optional()
     }
 
-    pub fn search_clip_searchable_text_ids(&self, terms: &[String]) -> Result<Vec<i64>> {
-        if terms.is_empty()
-            || terms.len() > crate::resource_limits::MAX_SEARCHABLE_TEXT_QUERY_TERMS
-            || terms.iter().any(|term| term.is_empty() || term.len() > 256)
+    pub fn search_clips(&self, request: &ClipSearchRequest) -> Result<ClipSearchResult> {
+        if request.query.len() > MAX_CLIP_SEARCH_QUERY_BYTES {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "Search query exceeds its safety limit".into(),
+            ));
+        }
+        if request.offset > MAX_CLIP_SEARCH_OFFSET {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "Search offset exceeds its safety limit".into(),
+            ));
+        }
+        if request.limit > MAX_CLIP_SEARCH_PAGE_SIZE {
+            return Err(rusqlite::Error::InvalidParameterName(format!(
+                "Search limit must not exceed {MAX_CLIP_SEARCH_PAGE_SIZE}"
+            )));
+        }
+        let requested_filter_count = request.clip_types.len()
+            + request.content_types.len()
+            + request.file_formats.len()
+            + request.sources.len();
+        if requested_filter_count > MAX_CLIP_SEARCH_FILTERS {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "Search filters exceed their safety limit".into(),
+            ));
+        }
+        let validate_filter = |value: &String| {
+            !value.trim().is_empty() && value.len() <= 256 && !value.contains('\0')
+        };
+        if request
+            .clip_types
+            .iter()
+            .chain(&request.content_types)
+            .chain(&request.file_formats)
+            .chain(&request.sources)
+            .any(|value| !validate_filter(value))
         {
             return Err(rusqlite::Error::InvalidParameterName(
-                "Searchable text query exceeds its safety limit".into(),
+                "Search filter is empty or exceeds its safety limit".into(),
             ));
         }
-        let query = terms
-            .iter()
-            .map(|term| term.replace('"', "\"\"").replace('*', ""))
-            .filter(|term| !term.trim().is_empty())
-            .map(|term| format!("\"{term}\"*"))
-            .collect::<Vec<_>>();
-        if query.len() != terms.len() {
+
+        let limit = if request.limit == 0 {
+            DEFAULT_CLIP_SEARCH_PAGE_SIZE
+        } else {
+            request.limit
+        };
+        let offset = request.offset;
+        let mut parsed = parse_clip_search(&request.query);
+        parsed.clip_types.extend(
+            request
+                .clip_types
+                .iter()
+                .map(|value| value.trim().to_lowercase()),
+        );
+        parsed.content_types.extend(
+            request
+                .content_types
+                .iter()
+                .map(|value| value.trim().to_lowercase()),
+        );
+        parsed.file_formats.extend(
+            request
+                .file_formats
+                .iter()
+                .map(|value| value.trim().to_lowercase()),
+        );
+        parsed.sources.extend(
+            request
+                .sources
+                .iter()
+                .map(|value| value.trim().to_lowercase()),
+        );
+        parsed.requires_trashed |= request.trash;
+        let parsed_filter_count = parsed.clip_types.len()
+            + parsed.content_types.len()
+            + parsed.file_formats.len()
+            + parsed.sources.len();
+        if parsed_filter_count > MAX_CLIP_SEARCH_FILTERS
+            || parsed.terms.len() > MAX_CLIP_SEARCH_TERMS
+            || parsed.terms.iter().any(|term| term.len() > 256)
+            || parsed
+                .clip_types
+                .iter()
+                .chain(&parsed.content_types)
+                .chain(&parsed.file_formats)
+                .chain(&parsed.sources)
+                .any(|value| value.len() > 256 || value.contains('\0'))
+        {
             return Err(rusqlite::Error::InvalidParameterName(
-                "Searchable text query is empty".into(),
+                "Search terms or filters exceed their safety limit".into(),
             ));
         }
+
         let conn = self.conn.lock();
-        let mut statement = conn.prepare(
-            "SELECT extracted.clip_id
-             FROM clip_searchable_text_fts
-             JOIN clip_searchable_text AS extracted
-               ON extracted.clip_id = clip_searchable_text_fts.rowid
-             JOIN clips AS source_clip ON source_clip.id = extracted.clip_id
-             WHERE clip_searchable_text_fts MATCH ?1
-               AND extracted.input_hash = source_clip.content_hash
-               AND COALESCE(source_clip.is_trashed, 0) = 0
-             ORDER BY source_clip.created_at DESC, source_clip.id DESC
-             LIMIT ?2",
-        )?;
-        let matches = statement
-            .query_map(
-                params![
-                    query.join(" AND "),
-                    crate::resource_limits::MAX_SEARCHABLE_TEXT_MATCHES
-                ],
-                |row| row.get(0),
-            )?
-            .collect();
-        matches
+        let features = clip_search_feature_policy(&conn)?;
+        let gated_filter = (!features.clip_types && !parsed.clip_types.is_empty())
+            || (!features.content_types && !parsed.content_types.is_empty())
+            || (!features.file_formats && !parsed.file_formats.is_empty())
+            || (!features.sources && !parsed.sources.is_empty())
+            || (!features.notes && parsed.requires_note)
+            || (!features.pinning && parsed.requires_pinned)
+            || (!features.protection && parsed.requires_protected)
+            || (!features.trash && parsed.requires_trashed);
+        if parsed.incomplete || gated_filter {
+            return Ok(ClipSearchResult {
+                schema_version: 1,
+                items: Vec::new(),
+                total_count: 0,
+                limit,
+                offset,
+            });
+        }
+
+        let mut clauses = vec![if parsed.requires_trashed {
+            "COALESCE(clips.is_trashed, 0) = 1".to_string()
+        } else {
+            "COALESCE(clips.is_trashed, 0) = 0".to_string()
+        }];
+        let mut parameters: Vec<Box<dyn ToSql>> = Vec::new();
+        if parsed.requires_note {
+            clauses.push("TRIM(COALESCE(clips.note, '')) <> ''".into());
+        }
+        if parsed.requires_pinned {
+            clauses.push("COALESCE(clips.is_pinned, 0) = 1".into());
+        }
+        if parsed.requires_protected {
+            clauses.push("COALESCE(clips.is_protected, 0) = 1".into());
+        }
+        for value in &parsed.clip_types {
+            clauses.push("clips.content_type = ? COLLATE NOCASE".into());
+            parameters.push(Box::new(value.clone()));
+        }
+        for value in &parsed.sources {
+            clauses.push("clips.source = ? COLLATE NOCASE".into());
+            parameters.push(Box::new(value.clone()));
+        }
+        for value in &parsed.content_types {
+            clauses.push(
+                "EXISTS (SELECT 1 FROM clip_analysis_classifications AS classified
+                         WHERE classified.clip_id = clips.id
+                           AND classified.input_hash = clips.content_hash
+                           AND classified.content_type = ? COLLATE NOCASE)"
+                    .into(),
+            );
+            parameters.push(Box::new(value.clone()));
+        }
+        for value in &parsed.file_formats {
+            clauses.push(
+                "EXISTS (SELECT 1 FROM clip_analysis_results AS formats,
+                                      json_each(formats.result_json, '$.formats') AS detected
+                         WHERE formats.clip_id = clips.id
+                           AND formats.participant_ref = ?
+                           AND formats.content_hash = clips.content_hash
+                           AND formats.input_hash = clips.content_hash
+                           AND formats.format_version = ?
+                           AND CAST(json_extract(detected.value, '$.format') AS TEXT) = ? COLLATE NOCASE)"
+                    .into(),
+            );
+            parameters.push(Box::new(
+                crate::content_inspection::FILE_FORMAT_INSPECTOR_REF.to_string(),
+            ));
+            parameters.push(Box::new(
+                crate::analysis_contract::ANALYSIS_CONTRACT_VERSION,
+            ));
+            parameters.push(Box::new(value.clone()));
+        }
+        if parsed.regex.is_none() && parsed.regex_fallback.is_none() {
+            for term in &parsed.terms {
+                let mut fields = vec![
+                    "LOWER(COALESCE(clips.text_content, '')) LIKE ? ESCAPE '\\'".to_string(),
+                    "EXISTS (SELECT 1 FROM clip_searchable_text AS extracted
+                             WHERE extracted.clip_id = clips.id
+                               AND extracted.input_hash = clips.content_hash
+                               AND LOWER(extracted.searchable_text) LIKE ? ESCAPE '\\')"
+                        .to_string(),
+                ];
+                if features.sources {
+                    fields.push("LOWER(clips.source) LIKE ? ESCAPE '\\'".into());
+                }
+                if features.notes {
+                    fields.push("LOWER(COALESCE(clips.note, '')) LIKE ? ESCAPE '\\'".into());
+                }
+                if features.clip_types {
+                    fields.push("LOWER(clips.content_type) LIKE ? ESCAPE '\\'".into());
+                }
+                if features.content_types {
+                    fields.push(
+                        "EXISTS (SELECT 1 FROM clip_analysis_classifications AS classified
+                                 WHERE classified.clip_id = clips.id
+                                   AND classified.input_hash = clips.content_hash
+                                   AND LOWER(classified.content_type) LIKE ? ESCAPE '\\')"
+                            .into(),
+                    );
+                }
+                if features.file_formats {
+                    fields.push(
+                        "EXISTS (SELECT 1 FROM clip_analysis_results AS formats,
+                                              json_each(formats.result_json, '$.formats') AS detected
+                                 WHERE formats.clip_id = clips.id
+                                   AND formats.participant_ref = ?
+                                   AND formats.content_hash = clips.content_hash
+                                   AND formats.input_hash = clips.content_hash
+                                   AND formats.format_version = ?
+                                   AND LOWER(CAST(json_extract(detected.value, '$.format') AS TEXT)) LIKE ? ESCAPE '\\')"
+                            .into(),
+                    );
+                }
+                clauses.push(format!("({})", fields.join(" OR ")));
+                let pattern = format!("%{}%", escape_like_literal(term));
+                parameters.push(Box::new(pattern.clone()));
+                parameters.push(Box::new(pattern.clone()));
+                if features.sources {
+                    parameters.push(Box::new(pattern.clone()));
+                }
+                if features.notes {
+                    parameters.push(Box::new(pattern.clone()));
+                }
+                if features.clip_types {
+                    parameters.push(Box::new(pattern.clone()));
+                }
+                if features.content_types {
+                    parameters.push(Box::new(pattern.clone()));
+                }
+                if features.file_formats {
+                    parameters.push(Box::new(
+                        crate::content_inspection::FILE_FORMAT_INSPECTOR_REF.to_string(),
+                    ));
+                    parameters.push(Box::new(
+                        crate::analysis_contract::ANALYSIS_CONTRACT_VERSION,
+                    ));
+                    parameters.push(Box::new(pattern));
+                }
+            }
+        }
+
+        let where_clause = clauses.join(" AND ");
+        let parameter_refs = parameters
+            .iter()
+            .map(|parameter| parameter.as_ref())
+            .collect::<Vec<&dyn ToSql>>();
+        let regex_pattern = parsed.regex.as_ref().or(parsed.regex_fallback.as_ref());
+
+        let (matching_ids, total_count) = if let Some(pattern) = regex_pattern {
+            let regex = parsed.regex.as_ref().map(|_| {
+                RegexBuilder::new(pattern)
+                    .case_insensitive(true)
+                    .build()
+                    .expect("validated Search regular expression")
+            });
+            let mut statement = conn.prepare(&format!(
+                "SELECT clips.id, clips.content_type, clips.text_content, clips.html_content,
+                        clips.image_base64, clips.image_path, clips.content_hash, clips.source,
+                        clips.is_pinned, clips.is_protected, COALESCE(clips.pin_order, 0),
+                        clips.bin_id, clips.note, COALESCE(clips.is_trashed, 0), clips.trashed_at,
+                        clips.created_at,
+                        (SELECT GROUP_CONCAT(bin_id) FROM clip_bins WHERE clip_id = clips.id),
+                        clips.current_transformation_id IS NOT NULL,
+                        clips.ocr_extractor_ref, clips.ocr_extractor_name, clips.ocr_engine_version,
+                        COALESCE((SELECT extracted.searchable_text
+                                  FROM clip_searchable_text AS extracted
+                                  WHERE extracted.clip_id = clips.id
+                                    AND extracted.input_hash = clips.content_hash), '')
+                 FROM clips WHERE {where_clause}
+                 ORDER BY clips.created_at DESC, clips.id DESC"
+            ))?;
+            let candidates = statement
+                .query_map(parameter_refs.as_slice(), |row| {
+                    Ok((clip_item_from_row(row)?, row.get::<_, String>(21)?))
+                })?
+                .collect::<Result<Vec<_>>>()?;
+            let (mut candidate_clips, extracted_texts): (Vec<_>, Vec<_>) =
+                candidates.into_iter().unzip();
+            append_clip_content_types(&conn, &mut candidate_clips)?;
+            append_clip_file_formats(&conn, &mut candidate_clips)?;
+            let mut matching = Vec::new();
+            for (clip, extracted_text) in candidate_clips.into_iter().zip(extracted_texts) {
+                let mut values = vec![clip.text_content.as_deref().unwrap_or(""), &extracted_text];
+                if features.sources {
+                    values.push(&clip.source);
+                }
+                if features.notes {
+                    values.push(clip.note.as_deref().unwrap_or(""));
+                }
+                if features.clip_types {
+                    values.push(&clip.content_type);
+                }
+                if features.content_types {
+                    values.extend(clip.content_types.iter().map(String::as_str));
+                }
+                if features.file_formats {
+                    values.extend(clip.file_formats.iter().map(String::as_str));
+                }
+                let matches = if let Some(regex) = &regex {
+                    values.iter().any(|value| regex.is_match(value))
+                } else {
+                    values
+                        .iter()
+                        .any(|value| value.to_lowercase().contains(pattern))
+                };
+                if matches {
+                    matching.push(clip.id);
+                }
+            }
+            let total = matching.len();
+            (
+                matching.into_iter().skip(offset).take(limit).collect(),
+                total,
+            )
+        } else {
+            let total = conn.query_row(
+                &format!("SELECT COUNT(*) FROM clips WHERE {where_clause}"),
+                parameter_refs.as_slice(),
+                sqlite_count,
+            )?;
+            let mut paged_parameters = parameters;
+            paged_parameters.push(Box::new(limit as i64));
+            paged_parameters.push(Box::new(offset as i64));
+            let paged_refs = paged_parameters
+                .iter()
+                .map(|parameter| parameter.as_ref())
+                .collect::<Vec<&dyn ToSql>>();
+            let mut statement = conn.prepare(&format!(
+                "SELECT clips.id FROM clips WHERE {where_clause}
+                 ORDER BY clips.created_at DESC, clips.id DESC LIMIT ? OFFSET ?"
+            ))?;
+            let ids = statement
+                .query_map(paged_refs.as_slice(), |row| row.get(0))?
+                .collect::<Result<Vec<_>>>()?;
+            (ids, total)
+        };
+
+        let mut items = Self::get_clips_by_ids_internal(&conn, &matching_ids)?;
+        for item in &mut items {
+            item.html_content = None;
+            item.image_base64 = None;
+        }
+        Ok(ClipSearchResult {
+            schema_version: 1,
+            items,
+            total_count,
+            limit,
+            offset,
+        })
     }
 
     pub fn record_structural_inspection(
@@ -5622,18 +6133,43 @@ impl DbState {
         Ok(clip)
     }
 
-    pub fn get_clips(
-        &self,
-        search_query: Option<&str>,
-        bin_id: Option<i64>,
-        only_pinned: bool,
-    ) -> Result<Vec<ClipItem>> {
-        self.get_clips_page(search_query, bin_id, only_pinned, None, None)
+    fn get_clips_by_ids_internal(conn: &Connection, ids: &[i64]) -> Result<Vec<ClipItem>> {
+        if ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        let ids_json = serde_json::to_string(ids)
+            .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?;
+        let mut statement = conn.prepare(
+            "SELECT id, content_type, text_content, html_content, image_base64, image_path,
+                    content_hash, source, is_pinned, is_protected, COALESCE(pin_order, 0),
+                    bin_id, note, COALESCE(is_trashed, 0), trashed_at, created_at,
+                    (SELECT GROUP_CONCAT(bin_id) FROM clip_bins WHERE clip_id = clips.id),
+                    current_transformation_id IS NOT NULL,
+                    ocr_extractor_ref, ocr_extractor_name, ocr_engine_version
+             FROM clips
+             WHERE id IN (SELECT CAST(value AS INTEGER) FROM json_each(?1))",
+        )?;
+        let clips = statement
+            .query_map(params![ids_json], clip_item_from_row)?
+            .collect::<Result<Vec<_>>>()?;
+        let mut by_id = clips
+            .into_iter()
+            .map(|clip| (clip.id, clip))
+            .collect::<HashMap<_, _>>();
+        let mut ordered = ids
+            .iter()
+            .filter_map(|id| by_id.remove(id))
+            .collect::<Vec<_>>();
+        append_smart_bin_memberships(conn, &mut ordered)?;
+        Ok(ordered)
+    }
+
+    pub fn get_clips(&self, bin_id: Option<i64>, only_pinned: bool) -> Result<Vec<ClipItem>> {
+        self.get_clips_page(bin_id, only_pinned, None, None)
     }
 
     pub fn get_clips_page(
         &self,
-        search_query: Option<&str>,
         bin_id: Option<i64>,
         only_pinned: bool,
         limit: Option<i64>,
@@ -5717,46 +6253,6 @@ impl DbState {
             );
             query_params.push(Box::new(bid));
             query_params.push(Box::new(bid));
-        }
-
-        if let Some(q) = search_query {
-            let cleaned = q.trim();
-            if !cleaned.is_empty() {
-                let fts_query = cleaned.replace('"', "\"\"").replace('*', "");
-                if !fts_query.trim().is_empty() {
-                    sql.push_str(" AND (id IN (SELECT rowid FROM clips_fts WHERE clips_fts MATCH ?) OR id IN (
-                        SELECT extracted.clip_id
-                        FROM clip_searchable_text_fts
-                        JOIN clip_searchable_text AS extracted
-                          ON extracted.clip_id = clip_searchable_text_fts.rowid
-                        JOIN clips AS source_clip ON source_clip.id = extracted.clip_id
-                        WHERE clip_searchable_text_fts MATCH ?
-                          AND extracted.input_hash = source_clip.content_hash
-                    ) OR content_type LIKE ? OR EXISTS (
-                        SELECT 1 FROM clip_analysis_classifications AS classified
-                        WHERE classified.clip_id = clips.id
-                          AND classified.input_hash = clips.content_hash
-                          AND classified.content_type LIKE ?
-                    ))");
-                    query_params.push(Box::new(format!("\"{}\"*", fts_query)));
-                    query_params.push(Box::new(format!("\"{}\"*", fts_query)));
-                    query_params.push(Box::new(format!("%{}%", cleaned)));
-                    query_params.push(Box::new(format!("%{}%", cleaned)));
-                } else {
-                    sql.push_str(" AND (text_content LIKE ? OR source LIKE ? OR content_type LIKE ? OR note LIKE ? OR EXISTS (
-                        SELECT 1 FROM clip_analysis_classifications AS classified
-                        WHERE classified.clip_id = clips.id
-                          AND classified.input_hash = clips.content_hash
-                          AND classified.content_type LIKE ?
-                    ))");
-                    let pattern = format!("%{}%", cleaned);
-                    query_params.push(Box::new(pattern.clone()));
-                    query_params.push(Box::new(pattern.clone()));
-                    query_params.push(Box::new(pattern.clone()));
-                    query_params.push(Box::new(pattern.clone()));
-                    query_params.push(Box::new(pattern));
-                }
-            }
         }
 
         if let Some(bid) = bin_id {
@@ -7794,7 +8290,7 @@ impl DbState {
             ));
         }
         let current = self
-            .get_clips(None, None, true)?
+            .get_clips(None, true)?
             .into_iter()
             .map(|clip| clip.id)
             .collect::<std::collections::HashSet<_>>();
@@ -7830,7 +8326,7 @@ impl DbState {
             ));
         }
         let current_ids = self
-            .get_clips(None, Some(bin_id), false)?
+            .get_clips(Some(bin_id), false)?
             .into_iter()
             .map(|clip| clip.id)
             .collect::<std::collections::HashSet<_>>();
@@ -8247,7 +8743,7 @@ impl DbState {
         }
 
         let clips = self
-            .get_clips(None, None, false)?
+            .get_clips(None, false)?
             .into_iter()
             .filter(|clip| clip.text_content.is_some() && clip.content_type != "image")
             .collect::<Vec<_>>();
@@ -12829,6 +13325,83 @@ mod tests {
         DbState::new(db_file).expect("Failed to create test DB")
     }
 
+    fn search_test_clips(db: &DbState, query: &str) -> Vec<ClipItem> {
+        db.search_clips(&ClipSearchRequest {
+            query: query.into(),
+            limit: MAX_CLIP_SEARCH_PAGE_SIZE,
+            ..Default::default()
+        })
+        .unwrap()
+        .items
+    }
+
+    #[derive(Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct SearchGrammarFixture {
+        query: String,
+        sources: Vec<String>,
+        clip_types: Vec<String>,
+        content_types: Vec<String>,
+        file_formats: Vec<String>,
+        terms: Vec<String>,
+        requires_note: bool,
+        requires_pinned: bool,
+        requires_protected: bool,
+        requires_trashed: bool,
+        incomplete: bool,
+        regex: Option<String>,
+        regex_fallback: Option<String>,
+    }
+
+    #[test]
+    fn native_and_frontend_search_grammar_share_public_fixtures() {
+        let fixtures: Vec<SearchGrammarFixture> =
+            serde_json::from_str(include_str!("../../contracts/search/v1/grammar.json")).unwrap();
+        for fixture in fixtures {
+            let parsed = parse_clip_search(&fixture.query);
+            assert_eq!(parsed.sources, fixture.sources, "{}", fixture.query);
+            assert_eq!(parsed.clip_types, fixture.clip_types, "{}", fixture.query);
+            assert_eq!(
+                parsed.content_types, fixture.content_types,
+                "{}",
+                fixture.query
+            );
+            assert_eq!(
+                parsed.file_formats, fixture.file_formats,
+                "{}",
+                fixture.query
+            );
+            assert_eq!(parsed.terms, fixture.terms, "{}", fixture.query);
+            assert_eq!(
+                parsed.requires_note, fixture.requires_note,
+                "{}",
+                fixture.query
+            );
+            assert_eq!(
+                parsed.requires_pinned, fixture.requires_pinned,
+                "{}",
+                fixture.query
+            );
+            assert_eq!(
+                parsed.requires_protected, fixture.requires_protected,
+                "{}",
+                fixture.query
+            );
+            assert_eq!(
+                parsed.requires_trashed, fixture.requires_trashed,
+                "{}",
+                fixture.query
+            );
+            assert_eq!(parsed.incomplete, fixture.incomplete, "{}", fixture.query);
+            assert_eq!(parsed.regex, fixture.regex, "{}", fixture.query);
+            assert_eq!(
+                parsed.regex_fallback, fixture.regex_fallback,
+                "{}",
+                fixture.query
+            );
+        }
+    }
+
     #[test]
     #[ignore = "run explicitly against a disposable copy of a real Pasted database"]
     fn real_database_library_item_migration_smoke_test() {
@@ -13478,7 +14051,7 @@ mod tests {
             )
             .unwrap();
         assert_eq!(
-            db.get_clips(None, Some(email_bin.id), false).unwrap()[0].id,
+            db.get_clips(Some(email_bin.id), false).unwrap()[0].id,
             first.id
         );
         db.set_bin_transform_ref(email_bin.id, Some("transform:test-email"))
@@ -13509,7 +14082,7 @@ mod tests {
             .save_text_clip("person@example.com", "CLI Terminal")
             .unwrap();
         assert_eq!(duplicate.id, first.id);
-        assert_eq!(db.get_clips(None, None, false).unwrap().len(), 1);
+        assert_eq!(db.get_clips(None, false).unwrap().len(), 1);
     }
 
     #[test]
@@ -13940,12 +14513,10 @@ mod tests {
         assert_eq!(migrated_rule, r#"{"type":"source","value":"Safari"}"#);
         drop(conn);
 
-        let clips = db
-            .get_clips(Some("migration-search-token"), None, false)
-            .unwrap();
+        let clips = search_test_clips(&db, "migration-search-token");
         assert_eq!(clips.len(), 1);
         assert_eq!(clips[0].source, "Safari");
-        assert_eq!(db.get_clips(None, Some(1), false).unwrap().len(), 1);
+        assert_eq!(db.get_clips(Some(1), false).unwrap().len(), 1);
 
         let backup = db.export_backup_json().unwrap();
         assert!(backup.contains("\"source\": \"Safari\""));
@@ -13962,7 +14533,7 @@ mod tests {
             .import_backup_json(&serde_json::to_string(&legacy_backup).unwrap())
             .unwrap();
         assert!(destination
-            .get_clips(None, None, false)
+            .get_clips(None, false)
             .unwrap()
             .iter()
             .any(|clip| clip.source == "Safari"));
@@ -14146,13 +14717,13 @@ mod tests {
         assert_eq!(db.database_path(), destination);
         assert!(retained.is_file());
         assert_eq!(
-            db.get_clips(None, None, false).unwrap()[0]
+            db.get_clips(None, false).unwrap()[0]
                 .text_content
                 .as_deref(),
             Some("Move me without losing me")
         );
         let reopened = DbState::new(db.database_path()).unwrap();
-        assert_eq!(reopened.get_clips(None, None, false).unwrap().len(), 1);
+        assert_eq!(reopened.get_clips(None, false).unwrap().len(), 1);
         let _ = fs::remove_file(retained);
         let _ = fs::remove_dir_all(destination_directory);
     }
@@ -14238,11 +14809,8 @@ mod tests {
         assert_eq!(report.connections_deleted, 1);
         assert_eq!(report.activity_entries_deleted, 3);
 
-        assert!(db.get_clips(None, None, false).unwrap().is_empty());
-        assert!(db
-            .get_clips(Some("Reset me"), None, false)
-            .unwrap()
-            .is_empty());
+        assert!(db.get_clips(None, false).unwrap().is_empty());
+        assert!(search_test_clips(&db, "Reset me").is_empty());
         let default_bins = db.get_bins().unwrap();
         assert_eq!(default_bins.len(), 3);
         assert_eq!(
@@ -14370,7 +14938,7 @@ mod tests {
             .unwrap();
         assert!(clip.id > 0);
 
-        let clips = db.get_clips(None, None, false).unwrap();
+        let clips = db.get_clips(None, false).unwrap();
         assert_eq!(clips.len(), 1);
         assert_eq!(clips[0].text_content.as_deref(), Some("Hello Rust"));
         assert_eq!(clips[0].source, "Safari");
@@ -14433,10 +15001,7 @@ mod tests {
                 "Preview",
             )
             .unwrap();
-        assert_eq!(
-            db.get_clips(None, Some(bin.id), false).unwrap()[0].id,
-            clip.id
-        );
+        assert_eq!(db.get_clips(Some(bin.id), false).unwrap()[0].id, clip.id);
     }
 
     #[test]
@@ -14554,7 +15119,7 @@ mod tests {
             .create_bin("Clipboard Content", "📋", "default", Some(&clipboard_rule))
             .unwrap();
 
-        let screenshot_clips = db.get_clips(None, Some(screenshot_bin.id), false).unwrap();
+        let screenshot_clips = db.get_clips(Some(screenshot_bin.id), false).unwrap();
         assert_eq!(screenshot_clips.len(), 2);
         assert!(screenshot_clips.iter().any(|clip| clip.id == screenshot.id));
         assert!(screenshot_clips
@@ -14570,11 +15135,11 @@ mod tests {
             .assign_to_bin(screenshot.id, Some(screenshot_bin.id))
             .is_err());
         assert_eq!(
-            db.get_clips(None, Some(file_bin.id), false).unwrap()[0].id,
+            db.get_clips(Some(file_bin.id), false).unwrap()[0].id,
             file.id
         );
         assert_eq!(
-            db.get_clips(None, Some(clipboard_bin.id), false).unwrap()[0].id,
+            db.get_clips(Some(clipboard_bin.id), false).unwrap()[0].id,
             clipboard.id
         );
         let bins = db.get_bins().unwrap();
@@ -14688,7 +15253,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(
-            db.get_clips(None, Some(exact_bin.id), false)
+            db.get_clips(Some(exact_bin.id), false)
                 .unwrap()
                 .iter()
                 .map(|clip| clip.id)
@@ -14696,16 +15261,14 @@ mod tests {
             vec![safari.id]
         );
         let partial_ids = db
-            .get_clips(None, Some(contains_bin.id), false)
+            .get_clips(Some(contains_bin.id), false)
             .unwrap()
             .iter()
             .map(|clip| clip.id)
             .collect::<HashSet<_>>();
         assert_eq!(partial_ids, HashSet::from([safari.id, preview.id]));
         assert_eq!(
-            db.get_clips(None, Some(content_type_bin.id), false)
-                .unwrap()[0]
-                .id,
+            db.get_clips(Some(content_type_bin.id), false).unwrap()[0].id,
             email.id
         );
 
@@ -14718,9 +15281,7 @@ mod tests {
             .create_bin("Text Clips", "📂", "default", Some(&clip_type_rule))
             .unwrap();
         assert_eq!(
-            db.get_clips(None, Some(clip_type_bin.id), false)
-                .unwrap()
-                .len(),
+            db.get_clips(Some(clip_type_bin.id), false).unwrap().len(),
             3
         );
 
@@ -14732,10 +15293,7 @@ mod tests {
             vec![(exact_bin.id, "transform:source-test".into())]
         );
         db.save_setting("enableSources", "false").unwrap();
-        assert!(db
-            .get_clips(None, Some(exact_bin.id), false)
-            .unwrap()
-            .is_empty());
+        assert!(db.get_clips(Some(exact_bin.id), false).unwrap().is_empty());
         assert!(db
             .matching_smart_bin_transforms("text", &[], &[], "", "Safari")
             .unwrap()
@@ -14743,13 +15301,13 @@ mod tests {
         db.save_setting("enableSources", "true").unwrap();
         db.save_setting("enableTypes", "false").unwrap();
         assert!(db
-            .get_clips(None, Some(content_type_bin.id), false)
+            .get_clips(Some(content_type_bin.id), false)
             .unwrap()
             .is_empty());
         db.save_setting("enableTypes", "true").unwrap();
         db.save_setting("enableClipTypes", "false").unwrap();
         assert!(db
-            .get_clips(None, Some(clip_type_bin.id), false)
+            .get_clips(Some(clip_type_bin.id), false)
             .unwrap()
             .is_empty());
     }
@@ -14783,11 +15341,11 @@ mod tests {
             .unwrap();
 
         assert_eq!(
-            db.get_clips(None, Some(pdf_bin.id), false).unwrap()[0].id,
+            db.get_clips(Some(pdf_bin.id), false).unwrap()[0].id,
             clip.id
         );
         assert_eq!(
-            db.get_clips(None, Some(project_bin.id), false).unwrap()[0].id,
+            db.get_clips(Some(project_bin.id), false).unwrap()[0].id,
             clip.id
         );
         assert_eq!(
@@ -14844,17 +15402,14 @@ mod tests {
 
         let refreshed = db.get_clip_by_id(clip.id).unwrap();
         assert_eq!(refreshed.file_formats, vec!["png"]);
+        assert_eq!(db.get_clips(Some(bin.id), false).unwrap()[0].id, clip.id);
         assert_eq!(
-            db.get_clips(None, Some(bin.id), false).unwrap()[0].id,
-            clip.id
-        );
-        assert_eq!(
-            db.get_clips(None, Some(partial_bin.id), false).unwrap()[0].id,
+            db.get_clips(Some(partial_bin.id), false).unwrap()[0].id,
             clip.id
         );
 
         db.save_setting("enableFileFormats", "false").unwrap();
-        assert!(db.get_clips(None, Some(bin.id), false).unwrap().is_empty());
+        assert!(db.get_clips(Some(bin.id), false).unwrap().is_empty());
     }
 
     #[test]
@@ -14872,7 +15427,7 @@ mod tests {
             )
             .unwrap();
 
-        let clips = db.get_clips(None, None, false).unwrap();
+        let clips = db.get_clips(None, false).unwrap();
         assert_eq!(clips.len(), 1);
         assert_eq!(clips[0].id, clip.id);
         assert!(clips[0].image_base64.is_none());
@@ -14902,31 +15457,31 @@ mod tests {
 
         // Attempt delete_clip (should be blocked)
         db.delete_clip(clip.id).unwrap();
-        let active = db.get_clips(None, None, false).unwrap();
+        let active = db.get_clips(None, false).unwrap();
         assert_eq!(active.len(), 1);
         assert!(active[0].is_protected);
 
         // Attempt trash_unpinned_clips (should be blocked)
         db.trash_unpinned_clips().unwrap();
-        let active_after_trash = db.get_clips(None, None, false).unwrap();
+        let active_after_trash = db.get_clips(None, false).unwrap();
         assert_eq!(active_after_trash.len(), 1);
 
         // Attempt purge_unpinned_clips (should be blocked)
         db.purge_unpinned_clips().unwrap();
-        let active_after_purge = db.get_clips(None, None, false).unwrap();
+        let active_after_purge = db.get_clips(None, false).unwrap();
         assert_eq!(active_after_purge.len(), 1);
 
         // Every bulk and retention path must preserve protected clips.
         db.clear_history().unwrap();
         db.purge_old_clips(0).unwrap();
-        let active_after_clear = db.get_clips(None, None, false).unwrap();
+        let active_after_clear = db.get_clips(None, false).unwrap();
         assert_eq!(active_after_clear.len(), 1);
         assert!(active_after_clear[0].is_protected);
 
         // Unprotect and verify delete works
         db.toggle_protected(clip.id).unwrap();
         db.delete_clip(clip.id).unwrap();
-        assert_eq!(db.get_clips(None, None, false).unwrap().len(), 0);
+        assert_eq!(db.get_clips(None, false).unwrap().len(), 0);
     }
 
     #[test]
@@ -14955,7 +15510,7 @@ mod tests {
 
         db.purge_old_clips(1).unwrap();
 
-        let active = db.get_clips(None, None, false).unwrap();
+        let active = db.get_clips(None, false).unwrap();
         assert_eq!(
             active
                 .iter()
@@ -14990,7 +15545,7 @@ mod tests {
 
         db.purge_old_clips(2).unwrap();
 
-        let active = db.get_clips(None, None, false).unwrap();
+        let active = db.get_clips(None, false).unwrap();
         assert_eq!(active.iter().filter(|clip| !clip.is_pinned).count(), 2);
         assert!(active.iter().any(|clip| clip.id == pinned.id));
         assert!(db.get_trashed_clips().unwrap().is_empty());
@@ -15024,7 +15579,7 @@ mod tests {
 
         db.configure_clip_retention(0, 30).unwrap();
 
-        let active = db.get_clips(None, None, false).unwrap();
+        let active = db.get_clips(None, false).unwrap();
         assert!(!active.iter().any(|clip| clip.id == old.id));
         assert!(active.iter().any(|clip| clip.id == recent.id));
         assert!(active.iter().any(|clip| clip.id == pinned.id));
@@ -15049,7 +15604,7 @@ mod tests {
 
         db.configure_clip_retention(0, 0).unwrap();
 
-        assert_eq!(db.get_clips(None, None, false).unwrap().len(), 1);
+        assert_eq!(db.get_clips(None, false).unwrap().len(), 1);
         assert!(db.get_trashed_clips().unwrap().is_empty());
     }
 
@@ -15317,7 +15872,7 @@ mod tests {
         db.update_clip_note(clip.id, Some("Important note"))
             .unwrap();
 
-        let clips = db.get_clips(None, None, false).unwrap();
+        let clips = db.get_clips(None, false).unwrap();
         assert!(clips[0].is_pinned);
         assert_eq!(clips[0].note.as_deref(), Some("Important note"));
     }
@@ -15463,7 +16018,7 @@ mod tests {
 
         let db = DbState::new(db_path).unwrap();
         let bins = db.get_bins().unwrap();
-        let clips = db.get_clips(None, None, false).unwrap();
+        let clips = db.get_clips(None, false).unwrap();
         assert_eq!(bins.len(), 1);
         assert_eq!(bins[0].name, "Migrated Bin");
         assert_eq!(clips.len(), 1);
@@ -15920,13 +16475,13 @@ mod tests {
         let classified = db.save_text_clip("person@example.com", "Mail").unwrap();
 
         // Search by query
-        let search_results = db.get_clips(Some("Secret"), None, false).unwrap();
+        let search_results = search_test_clips(&db, "Secret");
         assert_eq!(search_results.len(), 1);
         assert_eq!(
             search_results[0].text_content.as_deref(),
             Some("Unique Search Secret")
         );
-        let type_results = db.get_clips(Some("email"), None, false).unwrap();
+        let type_results = search_test_clips(&db, "email");
         assert_eq!(type_results.len(), 1);
         assert_eq!(type_results[0].id, classified.id);
         assert_eq!(type_results[0].content_types, vec!["email"]);
@@ -15938,7 +16493,7 @@ mod tests {
 
         // Delete single clip (moves to trash)
         db.delete_clip(clip1.id).unwrap();
-        let after_delete = db.get_clips(None, None, false).unwrap();
+        let after_delete = db.get_clips(None, false).unwrap();
         assert_eq!(after_delete.len(), 2);
 
         // Verify clip is in Trash
@@ -15949,7 +16504,7 @@ mod tests {
 
         // Restore clip
         db.restore_clip(clip1.id).unwrap();
-        let after_restore = db.get_clips(None, None, false).unwrap();
+        let after_restore = db.get_clips(None, false).unwrap();
         assert_eq!(after_restore.len(), 3);
     }
 
@@ -15975,7 +16530,7 @@ mod tests {
 
         // Search input is also untrusted. It may use FTS syntax internally, but it must
         // remain a bound value and must never alter the surrounding SQL statement.
-        let _ = db.get_clips(Some(hostile), None, false).unwrap();
+        let _ = search_test_clips(&db, hostile);
 
         let conn = db.conn.lock();
         let clip_count: i64 = conn
@@ -16015,7 +16570,7 @@ mod tests {
 
         assert!(db.update_clip_note(clip.id, Some(&oversized)).is_err());
         let stored = db
-            .get_clips(None, None, false)
+            .get_clips(None, false)
             .unwrap()
             .into_iter()
             .find(|item| item.id == clip.id)
@@ -16123,13 +16678,13 @@ mod tests {
         );
 
         db.restore_clip(clip.id).unwrap();
-        let restored = db.get_clips(None, None, false).unwrap();
+        let restored = db.get_clips(None, false).unwrap();
         assert_eq!(restored[0].bin_id, None);
         assert!(restored[0].bin_ids.as_ref().unwrap().contains(&tag.id));
         db.assign_to_bin(clip.id, Some(category.id)).unwrap();
         db.update_clip_note(clip.id, Some("Editable after restore"))
             .unwrap();
-        let edited = db.get_clips(None, Some(category.id), false).unwrap();
+        let edited = db.get_clips(Some(category.id), false).unwrap();
         assert_eq!(edited[0].note.as_deref(), Some("Editable after restore"));
     }
 
@@ -16546,16 +17101,12 @@ mod tests {
             )
             .unwrap();
 
-        let search_res = db
-            .get_clips(Some("Supercalifragilisticexpialidocious"), None, false)
-            .unwrap();
+        let search_res = search_test_clips(&db, "Supercalifragilisticexpialidocious");
         assert_eq!(search_res.len(), 1);
         assert_eq!(search_res[0].id, clip1.id);
 
         db.delete_clip(clip1.id).unwrap();
-        let search_after_delete = db
-            .get_clips(Some("Supercalifragilisticexpialidocious"), None, false)
-            .unwrap();
+        let search_after_delete = search_test_clips(&db, "Supercalifragilisticexpialidocious");
         assert_eq!(search_after_delete.len(), 0);
     }
 
@@ -16604,27 +17155,36 @@ mod tests {
             db.get_clip_by_id(clip.id).unwrap().text_content.as_deref(),
             Some(r#"["/tmp/interview.wav"]"#)
         );
-        let matches = db.get_clips(Some("quasar"), None, false).unwrap();
+        let matches = search_test_clips(&db, "quasar");
         assert_eq!(matches.len(), 1);
         assert_eq!(matches[0].id, clip.id);
         assert_eq!(
-            db.search_clip_searchable_text_ids(&["quasar".into(), "marker".into()])
-                .unwrap(),
-            vec![clip.id]
-        );
-        assert!(db
-            .search_clip_searchable_text_ids(&["quasar".into(), "missing".into()])
+            db.search_clips(&ClipSearchRequest {
+                query: "quasar marker".into(),
+                limit: 10,
+                ..Default::default()
+            })
             .unwrap()
-            .is_empty());
+            .items[0]
+                .id,
+            clip.id
+        );
+        assert_eq!(
+            db.search_clips(&ClipSearchRequest {
+                query: "quasar missing".into(),
+                limit: 10,
+                ..Default::default()
+            })
+            .unwrap()
+            .total_count,
+            0
+        );
 
         assert!(db
             .replace_clip_searchable_text(clip.id, &clip.content_hash, &extractor, None)
             .unwrap());
         assert!(db.get_clip_searchable_text(clip.id).unwrap().is_none());
-        assert!(db
-            .get_clips(Some("quasar"), None, false)
-            .unwrap()
-            .is_empty());
+        assert!(search_test_clips(&db, "quasar").is_empty());
 
         assert!(db
             .replace_clip_searchable_text(
@@ -16642,10 +17202,160 @@ mod tests {
             )
             .unwrap();
         assert!(db.get_clip_searchable_text(clip.id).unwrap().is_none());
+        assert!(search_test_clips(&db, "quasar").is_empty());
+    }
+
+    #[test]
+    fn authoritative_search_combines_axes_pagination_trash_extraction_and_feature_gates() {
+        let db = setup_test_db();
         assert!(db
-            .get_clips(Some("quasar"), None, false)
+            .search_clips(&ClipSearchRequest {
+                limit: MAX_CLIP_SEARCH_PAGE_SIZE + 1,
+                ..Default::default()
+            })
+            .is_err());
+        let matching = db
+            .save_clip(
+                "file",
+                Some(r#"["/tmp/report.pdf"]"#),
+                None,
+                None,
+                "authoritative-search-match",
+                "Finder",
+            )
+            .unwrap();
+        let other = db
+            .save_clip(
+                "text",
+                Some("ordinary shared marker"),
+                None,
+                None,
+                "authoritative-search-other",
+                "Terminal",
+            )
+            .unwrap();
+        let extractor = db
+            .get_content_extractors()
             .unwrap()
-            .is_empty());
+            .into_iter()
+            .find(|extractor| {
+                extractor.stable_ref == crate::content_extraction::WHISPER_TRANSCRIPTION_REF
+            })
+            .unwrap();
+        db.replace_clip_searchable_text(
+            matching.id,
+            &matching.content_hash,
+            &extractor,
+            Some("extracted shared marker"),
+        )
+        .unwrap();
+        {
+            let conn = db.conn.lock();
+            conn.execute(
+                "INSERT INTO clip_analysis_classifications
+                    (clip_id, content_type, classifier_ref, source_representation, input_hash,
+                     start_offset, end_offset)
+                 VALUES (?1, 'document', 'test:document', 'searchable_text', ?2, 0, 9)",
+                params![matching.id, matching.content_hash],
+            )
+            .unwrap();
+            conn.execute(
+                "UPDATE clip_analysis_results
+                 SET content_hash = ?3, input_hash = ?3, format_version = ?4,
+                     result_json = '{\"formats\":[{\"format\":\"pdf\"}]}'
+                 WHERE clip_id = ?1 AND participant_ref = ?2",
+                params![
+                    matching.id,
+                    crate::content_inspection::FILE_FORMAT_INSPECTOR_REF,
+                    matching.content_hash,
+                    crate::analysis_contract::ANALYSIS_CONTRACT_VERSION,
+                ],
+            )
+            .unwrap();
+        }
+
+        let combined = db
+            .search_clips(&ClipSearchRequest {
+                query: "extracted clip:file content:document format:pdf source:finder".into(),
+                limit: 10,
+                ..Default::default()
+            })
+            .unwrap();
+        assert_eq!(combined.schema_version, 1);
+        assert_eq!(combined.total_count, 1);
+        assert_eq!(combined.items[0].id, matching.id);
+        assert_eq!(combined.items[0].content_types, vec!["document"]);
+        assert_eq!(combined.items[0].file_formats, vec!["pdf"]);
+        assert_eq!(combined.items[0].html_content, None);
+        assert_eq!(combined.items[0].image_base64, None);
+
+        let first_page = db
+            .search_clips(&ClipSearchRequest {
+                query: "shared marker".into(),
+                limit: 1,
+                ..Default::default()
+            })
+            .unwrap();
+        let second_page = db
+            .search_clips(&ClipSearchRequest {
+                query: "shared marker".into(),
+                limit: 1,
+                offset: 1,
+                ..Default::default()
+            })
+            .unwrap();
+        assert_eq!(first_page.total_count, 2);
+        assert_eq!(second_page.total_count, 2);
+        assert_ne!(first_page.items[0].id, second_page.items[0].id);
+        assert!(first_page
+            .items
+            .iter()
+            .chain(&second_page.items)
+            .any(|clip| clip.id == other.id));
+
+        db.delete_clip(matching.id).unwrap();
+        let trashed = db
+            .search_clips(&ClipSearchRequest {
+                query: "extracted is:trashed".into(),
+                limit: 10,
+                ..Default::default()
+            })
+            .unwrap();
+        assert_eq!(trashed.total_count, 1);
+        assert_eq!(trashed.items[0].id, matching.id);
+        assert!(trashed.items[0].is_trashed);
+
+        for (setting, filter) in [
+            ("enableClipTypes", "clip:file"),
+            ("enableTypes", "content:document"),
+            ("enableFileFormats", "format:pdf"),
+            ("enableSources", "source:finder"),
+        ] {
+            db.save_setting(setting, "false").unwrap();
+            assert_eq!(
+                db.search_clips(&ClipSearchRequest {
+                    query: format!("{filter} is:trashed"),
+                    limit: 10,
+                    ..Default::default()
+                })
+                .unwrap()
+                .total_count,
+                0,
+                "{setting} must suspend its Search filter"
+            );
+            db.save_setting(setting, "true").unwrap();
+        }
+        assert_eq!(
+            db.search_clips(&ClipSearchRequest {
+                query: "format:pd is:trashed".into(),
+                limit: 10,
+                ..Default::default()
+            })
+            .unwrap()
+            .total_count,
+            0,
+            "collection-axis filters use exact matching"
+        );
     }
 
     #[test]
@@ -16671,14 +17381,14 @@ mod tests {
         }
 
         db.init_tables().unwrap();
-        let search_results = db.get_clips(Some("Recoverable"), None, false).unwrap();
+        let search_results = search_test_clips(&db, "Recoverable");
         assert_eq!(search_results.len(), 1);
         assert_eq!(search_results[0].id, clip.id);
 
         assert!(db.toggle_pin(clip.id).unwrap());
         db.update_clip_note(clip.id, Some("Updated note")).unwrap();
         db.delete_clip(clip.id).unwrap();
-        assert!(db.get_clips(None, None, false).unwrap().is_empty());
+        assert!(db.get_clips(None, false).unwrap().is_empty());
     }
 
     #[test]
@@ -16705,14 +17415,14 @@ mod tests {
         db.toggle_pin(clip1.id).unwrap();
         db.toggle_pin(clip2.id).unwrap();
 
-        let newly_pinned_first = db.get_clips(None, None, true).unwrap();
+        let newly_pinned_first = db.get_clips(None, true).unwrap();
         assert_eq!(newly_pinned_first[0].id, clip2.id);
         assert_eq!(newly_pinned_first[1].id, clip1.id);
 
         assert!(db.reorder_pinned_clips(vec![clip1.id]).is_err());
         assert!(db.reorder_pinned_clips(vec![clip1.id, clip1.id]).is_err());
         db.reorder_pinned_clips(vec![clip1.id, clip2.id]).unwrap();
-        let clips = db.get_clips(None, None, true).unwrap();
+        let clips = db.get_clips(None, true).unwrap();
         assert_eq!(clips[0].id, clip1.id);
         assert_eq!(clips[1].id, clip2.id);
     }
@@ -16745,8 +17455,8 @@ mod tests {
         db.reorder_bin_clips(smart.id, vec![second.id, first.id])
             .unwrap();
 
-        let manual_clips = db.get_clips(None, Some(manual.id), false).unwrap();
-        let smart_clips = db.get_clips(None, Some(smart.id), false).unwrap();
+        let manual_clips = db.get_clips(Some(manual.id), false).unwrap();
+        let smart_clips = db.get_clips(Some(smart.id), false).unwrap();
         assert_eq!(
             manual_clips.iter().map(|clip| clip.id).collect::<Vec<_>>(),
             vec![first.id, second.id]
@@ -16813,7 +17523,7 @@ mod tests {
         assert_eq!(versions[0].text_content, "Transformed Uppercase Content");
         assert_eq!(versions[1].text_content, "Original Content");
 
-        let updated = db.get_clips(None, None, false).unwrap();
+        let updated = db.get_clips(None, false).unwrap();
         assert_eq!(updated[0].text_content.as_deref(), Some("Final Content"));
 
         for index in 0..55 {
@@ -17103,7 +17813,7 @@ mod tests {
             .unwrap();
 
         db.batch_pin_clips(vec![clip1.id, clip2.id], true).unwrap();
-        let pinned = db.get_clips(None, None, true).unwrap();
+        let pinned = db.get_clips(None, true).unwrap();
         assert_eq!(pinned.len(), 2);
 
         db.batch_trash_clips(vec![clip1.id]).unwrap();
@@ -17135,7 +17845,7 @@ mod tests {
         assert_eq!(restored.clip_ids, vec![first.id, second.id]);
         assert!(db.get_trashed_clips().unwrap().is_empty());
         let active_ids = db
-            .get_clips(None, None, false)
+            .get_clips(None, false)
             .unwrap()
             .into_iter()
             .map(|clip| clip.id)
@@ -17239,11 +17949,8 @@ mod tests {
         db.add_clip_to_bin(clip1.id, tag.id).unwrap();
         db.assign_to_bin(clip1.id, Some(second_bin.id)).unwrap();
 
-        assert_eq!(
-            db.get_clips(None, Some(first_bin.id), false).unwrap().len(),
-            1
-        );
-        let second_bin_clips = db.get_clips(None, Some(second_bin.id), false).unwrap();
+        assert_eq!(db.get_clips(Some(first_bin.id), false).unwrap().len(), 1);
+        let second_bin_clips = db.get_clips(Some(second_bin.id), false).unwrap();
         assert_eq!(second_bin_clips.len(), 1);
         assert_eq!(second_bin_clips[0].id, clip1.id);
         assert!(second_bin_clips[0].is_pinned);
@@ -17255,7 +17962,7 @@ mod tests {
             .contains(&tag.id));
 
         db.assign_to_bin(clip1.id, None).unwrap();
-        let unassigned = db.get_clips(None, None, false).unwrap();
+        let unassigned = db.get_clips(None, false).unwrap();
         let clip1_after_unassign = unassigned.iter().find(|clip| clip.id == clip1.id).unwrap();
         assert_eq!(clip1_after_unassign.bin_id, None);
         assert!(clip1_after_unassign.is_pinned);
@@ -17266,11 +17973,8 @@ mod tests {
             .unwrap();
         db.batch_assign_bin_clips(vec![clip1.id, clip2.id], Some(second_bin.id))
             .unwrap();
-        assert_eq!(
-            db.get_clips(None, Some(first_bin.id), false).unwrap().len(),
-            2
-        );
-        let batch_assigned = db.get_clips(None, Some(second_bin.id), false).unwrap();
+        assert_eq!(db.get_clips(Some(first_bin.id), false).unwrap().len(), 2);
+        let batch_assigned = db.get_clips(Some(second_bin.id), false).unwrap();
         assert_eq!(batch_assigned.len(), 2);
         let protected_pinned = batch_assigned
             .iter()
@@ -17557,9 +18261,7 @@ mod tests {
             .into_iter()
             .find(|candidate| candidate.name == "Ordered")
             .unwrap();
-        let restored = destination
-            .get_clips(None, Some(restored_bin.id), false)
-            .unwrap();
+        let restored = destination.get_clips(Some(restored_bin.id), false).unwrap();
         assert_eq!(
             restored
                 .iter()
@@ -17588,7 +18290,7 @@ mod tests {
         let payload: BackupPayload = serde_json::from_str(&json).unwrap();
         assert_eq!(payload.version, BACKUP_SCHEMA_VERSION);
         assert_eq!(payload.clips.len(), 501);
-        assert_eq!(db.get_clips(None, None, false).unwrap().len(), 501);
+        assert_eq!(db.get_clips(None, false).unwrap().len(), 501);
     }
 
     #[test]
@@ -17814,14 +18516,14 @@ mod tests {
         let csv_target = setup_test_db();
         let csv_preview = csv_target.inspect_clips_csv(&csv).unwrap();
         assert_eq!(csv_preview.imported_count, 1);
-        assert!(csv_target.get_clips(None, None, false).unwrap().is_empty());
+        assert!(csv_target.get_clips(None, false).unwrap().is_empty());
         let first_csv_import = csv_target.import_clips_csv(&csv).unwrap();
         assert_eq!(first_csv_import.imported_count, 1);
         assert_eq!(first_csv_import.duplicate_count, 0);
         let second_csv_import = csv_target.import_clips_csv(&csv).unwrap();
         assert_eq!(second_csv_import.imported_count, 0);
         assert_eq!(second_csv_import.duplicate_count, 1);
-        let imported_csv_clip = csv_target.get_clips(None, None, false).unwrap().remove(0);
+        let imported_csv_clip = csv_target.get_clips(None, false).unwrap().remove(0);
         assert_eq!(
             imported_csv_clip.text_content.as_deref(),
             Some("=SUM(A1:A2), \"quoted\"")
@@ -17831,10 +18533,7 @@ mod tests {
         let invalid_target = setup_test_db();
         let invalid_csv = format!("{csv}\n\"broken\",\"row\"");
         assert!(invalid_target.import_clips_csv(&invalid_csv).is_err());
-        assert!(invalid_target
-            .get_clips(None, None, false)
-            .unwrap()
-            .is_empty());
+        assert!(invalid_target.get_clips(None, false).unwrap().is_empty());
     }
 
     #[test]
@@ -17978,7 +18677,7 @@ mod tests {
             .import_clips_json(&serde_json::to_string(&payload).unwrap())
             .unwrap();
         assert_eq!(
-            target.get_clips(None, None, false).unwrap()[0].created_at,
+            target.get_clips(None, false).unwrap()[0].created_at,
             "2026-08-16T23:45:00Z"
         );
 
@@ -17987,10 +18686,7 @@ mod tests {
         assert!(invalid_target
             .inspect_clips_json(&serde_json::to_string(&payload).unwrap())
             .is_err());
-        assert!(invalid_target
-            .get_clips(None, None, false)
-            .unwrap()
-            .is_empty());
+        assert!(invalid_target.get_clips(None, false).unwrap().is_empty());
 
         let mut archive: serde_json::Value =
             serde_json::from_str(&source.export_backup_json().unwrap()).unwrap();
@@ -18288,7 +18984,7 @@ mod tests {
         assert!(error
             .to_string()
             .contains("unsupported transfer schema version"));
-        assert!(destination.get_clips(None, None, false).unwrap().is_empty());
+        assert!(destination.get_clips(None, false).unwrap().is_empty());
     }
 
     #[test]
@@ -18484,7 +19180,7 @@ mod tests {
             transform.stable_ref
         );
         let current = db
-            .get_clips(None, None, false)
+            .get_clips(None, false)
             .unwrap()
             .into_iter()
             .find(|item| item.id == clip.id)
@@ -18771,12 +19467,8 @@ mod tests {
         db.delete_clip(clips[5].id).unwrap();
         db.delete_clip(clips[4].id).unwrap();
 
-        let first = db
-            .get_clips_page(None, None, false, Some(2), Some(0))
-            .unwrap();
-        let second = db
-            .get_clips_page(None, None, false, Some(2), Some(2))
-            .unwrap();
+        let first = db.get_clips_page(None, false, Some(2), Some(0)).unwrap();
+        let second = db.get_clips_page(None, false, Some(2), Some(2)).unwrap();
         assert_eq!(first.len(), 2);
         assert_eq!(second.len(), 2);
         assert!(first

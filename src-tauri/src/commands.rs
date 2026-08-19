@@ -12,10 +12,11 @@ use tauri_plugin_window_state::{AppHandleExt, StateFlags};
 
 use crate::bin_assignment::BinAssignmentOutcome;
 use crate::db::{
-    Bin, ClipItem, ClipMutationSummary, ContentClassificationRescanReport, DbState,
-    FactoryResetReport, FileFormatRescanReport, FullBackupInspection, IntelligenceConnection,
-    IntelligenceConnectionUpdate, LibraryArchiveInspection, Pipeline, PipelineStepInput,
-    SavedTransform, TransformClipApplication, TransformDefinition,
+    Bin, ClipItem, ClipMutationSummary, ClipSearchRequest, ClipSearchResult,
+    ContentClassificationRescanReport, DbState, FactoryResetReport, FileFormatRescanReport,
+    FullBackupInspection, IntelligenceConnection, IntelligenceConnectionUpdate,
+    LibraryArchiveInspection, Pipeline, PipelineStepInput, SavedTransform,
+    TransformClipApplication, TransformDefinition,
 };
 use crate::features::{self, Feature};
 use crate::installation_diagnostics::InstallationDiagnostics;
@@ -867,14 +868,13 @@ pub async fn get_file_clip_previews(
 
 #[tauri::command]
 pub fn get_clips(
-    search_query: Option<String>,
     bin_id: Option<i64>,
     only_pinned: bool,
     limit: Option<i64>,
     offset: Option<i64>,
     db: State<'_, Arc<DbState>>,
 ) -> Result<Vec<ClipItem>, String> {
-    db.get_clips_page(search_query.as_deref(), bin_id, only_pinned, limit, offset)
+    db.get_clips_page(bin_id, only_pinned, limit, offset)
         .map_err(|e| e.to_string())
 }
 
@@ -4901,12 +4901,16 @@ pub fn get_clip_extraction_history(
 }
 
 #[tauri::command]
-pub fn search_clip_searchable_text_ids(
-    terms: Vec<String>,
+pub async fn search_clips(
+    request: ClipSearchRequest,
     db: State<'_, Arc<DbState>>,
-) -> Result<Vec<i64>, String> {
-    db.search_clip_searchable_text_ids(&terms)
-        .map_err(|error| error.to_string())
+) -> Result<ClipSearchResult, String> {
+    let db = db.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        db.search_clips(&request).map_err(|error| error.to_string())
+    })
+    .await
+    .map_err(|error| error.to_string())?
 }
 
 #[tauri::command]

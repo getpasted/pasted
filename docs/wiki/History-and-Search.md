@@ -25,9 +25,9 @@ Supported helpers include:
 - `is:trashed` — clips in Trash;
 - `regex:` — regular expression search.
 
-The Clip Type, Content Type, File Format, and Source helpers follow their corresponding Functionality settings. An incomplete helper such as `source:` is treated as incomplete rather than “match everything.” Arrow keys navigate results. `Esc` closes the helper menu; on an empty search it returns to the previous collection.
+Clip Type, Content Type, File Format, and Source filters match complete values case-insensitively; ordinary search terms remain partial matches. The helpers follow their corresponding Functionality settings, and a disabled axis suspends its filters. An incomplete helper such as `source:` is treated as incomplete rather than “match everything.” Arrow keys navigate authoritative, paginated results from the local library, including clips older than the History page currently loaded in the app. `Esc` closes the helper menu; on an empty search it returns to the previous collection.
 
-OCR text and stored transcripts participate in ordinary text search without replacing the original image or file references.
+OCR text and stored transcripts participate in ordinary text search without replacing the original image or file references, including when `is:trashed` searches Trash. Extracted text is used for matching but is never added to Search result payloads.
 
 Trashed search results are marked and remain chronologically commingled with active results so a Trash action does not reorder the whole result set.
 

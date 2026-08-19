@@ -970,7 +970,7 @@ mod tests {
         assert_eq!(first.duplicate_count, 0);
         assert_eq!(second.imported_count, 0);
         assert_eq!(second.duplicate_count, 1);
-        assert_eq!(destination.get_clips(None, None, false).unwrap().len(), 1);
+        assert_eq!(destination.get_clips(None, false).unwrap().len(), 1);
 
         drop(destination);
         let _ = fs::remove_file(source_path);

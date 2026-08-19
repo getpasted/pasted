@@ -690,7 +690,6 @@ impl HotkeyManager {
                     };
                     let Ok(clips) = db.get_clips_page(
                         None,
-                        None,
                         false,
                         Some(1),
                         Some(index.saturating_sub(1) as i64),

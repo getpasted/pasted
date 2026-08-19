@@ -71,11 +71,14 @@ assert.match(database, /pub source: String/, 'The shared clip contract must expo
 assert.match(database, /ALTER TABLE clips RENAME COLUMN source_app TO source/, 'Existing RC libraries must migrate source_app invisibly');
 assert.match(clipTypes, /source:\s*string;/, 'Frontend clip contracts must expose the canonical source field');
 assert.doesNotMatch(clipTypes, /source_app/, 'Frontend clip contracts must not retain the pre-1.0 source_app field');
-assert.match(cli, /"source": source/, 'CLI structured search output must expose the canonical source field');
+assert.match(database, /pub struct ClipItem[\s\S]{0,700}pub source: String/, 'Shared structured Search output must expose the canonical source field');
 assert.match(database, /id,content_type,source,is_pinned/, 'CSV exports must expose the canonical source header');
 assert.match(appData, /record\.source_app[\s\S]*source_app:\s*_legacySource/, 'Pre-1.0 cached and IPC clip summaries must migrate source_app without retaining it');
 assert.match(sidebar, /source\?\.trim\(\)\.toLowerCase\(\)\s*\?\?\s*''/, 'Source icon rendering must tolerate stale or incomplete cached metadata');
 assert.match(clipViews, /getClipCollection\(currentTab, selectedBin\)/, 'Clip filtering must resolve the active collection');
+assert.match(clipViews, /invoke<ClipSearchResult>\('search_clips'/, 'GUI Search must use the authoritative shared Search service');
+assert.doesNotMatch(clipViews, /search_clip_searchable_text_ids/, 'GUI Search must not intersect extracted-text IDs with loaded pages');
+assert.match(database, /clips\.content_type = \? COLLATE NOCASE/, 'Collection-axis Search filters must use exact case-insensitive matching');
 assert.match(clipViews, /facet\?\.kind === 'clip_type'[\s\S]{0,160}clip\.content_type === facet\.value/, 'Clip Type routes must filter structural identity only');
 assert.match(clipViews, /facet\?\.kind === 'content_type'[\s\S]{0,180}clip\.content_types/, 'Content Type routes must filter Classifier results only');
 assert.match(emptyState, /collection\?\.emptyTitle/, 'Empty states must come from the collection descriptor');
