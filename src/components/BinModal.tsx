@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Folder, Plus, Minus } from 'lucide-react';
+import { ChevronDown, Folder, Plus, Minus } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { Bin, TransformDefinition } from '../types';
 import { formatEmojiIcon } from '../utils/emoji';
 import { detectDesktopPlatform } from '../utils/platform';
 import { AppDialog } from './AppDialog';
 import { AppDialogBody, AppDialogButton, AppDialogFooter, AppDialogHeader, AppDialogHeading, SaveButtonContent } from './AppDialogLayout';
-import { AnchoredMenu } from './AnchoredMenu';
+import { AnchoredMenu, MenuDivider, MenuItem, MenuSubmenu } from './AnchoredMenu';
 import { MenuSelect } from './MenuSelect';
 import { useContentTypes } from './ContentTypeProvider';
 import { translate, type TranslationKey } from '../localization/runtime';
@@ -36,6 +36,113 @@ interface SmartConditionRow {
   target: SmartConditionTarget;
   operator: 'is' | 'contains';
   value: string;
+}
+
+interface SmartTargetChoice {
+  value: string;
+  label: string;
+  group?: string;
+  disabled?: boolean;
+}
+
+interface SmartTargetSection {
+  target: SmartConditionTarget;
+  label: string;
+  choices?: SmartTargetChoice[];
+  dividerBefore?: boolean;
+}
+
+function SmartConditionTargetSelect({
+  condition,
+  sections,
+  onSelect,
+}: {
+  condition: SmartConditionRow;
+  sections: SmartTargetSection[];
+  onSelect: (target: SmartConditionTarget, value: string) => void;
+}) {
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const [isOpen, setIsOpen] = useState(false);
+  const [activeSubmenu, setActiveSubmenu] = useState<SmartConditionTarget | null>(null);
+  const selectedSection = sections.find(({ target }) => target === condition.target);
+
+  const close = () => {
+    setIsOpen(false);
+    setActiveSubmenu(null);
+    triggerRef.current?.focus();
+  };
+
+  return <>
+    <button
+      ref={triggerRef}
+      type="button"
+      className="menu-select-trigger flex w-28 min-w-0 items-center gap-2 rounded-lg border px-2 text-start"
+      aria-label={translate('component.binModal.conditionTarget')}
+      aria-haspopup="menu"
+      aria-expanded={isOpen}
+      onClick={() => setIsOpen((open) => !open)}
+    >
+      <span className="bidi-interface-align min-w-0 flex-1 truncate py-1.5 text-xs font-semibold">
+        {selectedSection?.label ?? condition.target}
+      </span>
+      <ChevronDown className={`h-3.5 w-3.5 shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} aria-hidden="true" />
+    </button>
+    {isOpen && (
+      <AnchoredMenu
+        anchor={{ kind: 'element', ref: triggerRef, align: 'start' }}
+        ariaLabel={translate('component.binModal.conditionTarget')}
+        onClose={close}
+        className="w-56"
+      >
+        {sections.map((section) => <React.Fragment key={section.target}>
+          {section.dividerBefore && <MenuDivider />}
+          {section.choices ? (
+            <MenuSubmenu
+              label={section.label}
+              open={activeSubmenu === section.target}
+              onOpenChange={(open) => setActiveSubmenu(open ? section.target : null)}
+              panelClassName="w-64 max-h-72 overflow-y-auto"
+            >
+              {section.choices.map((choice, index) => <React.Fragment key={`${section.target}:${choice.value}`}>
+                {choice.group && choice.group !== section.choices?.[index - 1]?.group && (
+                  <div className={`theme-text-subtle px-2.5 pb-1 pt-2 text-[10px] font-bold uppercase tracking-wider ${index > 0 ? 'theme-divider mt-1 border-t' : ''}`}>
+                    {choice.group}
+                  </div>
+                )}
+                <MenuItem
+                  active={condition.target === section.target && condition.value === choice.value}
+                  disabled={choice.disabled}
+                  role="menuitemradio"
+                  aria-checked={condition.target === section.target && condition.value === choice.value}
+                  className="px-2.5 py-1.5"
+                  onClick={() => {
+                    if (choice.disabled) return;
+                    onSelect(section.target, choice.value);
+                    close();
+                  }}
+                >
+                  {choice.label}
+                </MenuItem>
+              </React.Fragment>)}
+            </MenuSubmenu>
+          ) : (
+            <MenuItem
+              active={condition.target === section.target}
+              role="menuitemradio"
+              aria-checked={condition.target === section.target}
+              className="px-3 py-1.5"
+              onClick={() => {
+                onSelect(section.target, '');
+                close();
+              }}
+            >
+              {section.label}
+            </MenuItem>
+          )}
+        </React.Fragment>)}
+      </AnchoredMenu>
+    )}
+  </>;
 }
 
 const STRUCTURAL_CLIP_TYPES = new Set(['text', 'image', 'file']);
@@ -343,16 +450,66 @@ export const BinModal: React.FC<BinModalProps> = ({
     file_extension: translate('component.binModal.fileExtension'),
     file_path: translate('component.binModal.filePath'),
   };
-  const targetOptions = [
-    ...(features.clipTypes ? [{ value: 'clip_type', label: targetLabels.clip_type }] : []),
-    ...(features.types ? [{ value: 'content_type', label: targetLabels.content_type }] : []),
-    ...(features.fileFormats ? [{ value: 'file_format', label: targetLabels.file_format }] : []),
-    ...(features.sources ? [{ value: 'source', label: targetLabels.source }] : []),
-    { value: 'origin_kind', label: targetLabels.origin_kind },
-    { value: 'contains', label: targetLabels.contains },
-    { value: 'file_extension', label: targetLabels.file_extension, dividerBefore: true },
-    { value: 'file_path', label: targetLabels.file_path },
-  ];
+  const targetSectionsFor = (condition: SmartConditionRow): SmartTargetSection[] => {
+    const contentTypeChoices = activeContentTypes.map((type) => ({
+      value: type.id,
+      label: contentTypeLabel(type.id),
+      group: (() => {
+        const group = contentTypeGroups.find(({ id }) => id === type.group);
+        return group ? localizedContentTypeGroupLabel(group.id, group.label, group.isBuiltin, group.defaults?.label) : type.group;
+      })(),
+    }));
+    const formatChoices = fileFormats.map((format) => ({ value: format, label: format.toUpperCase() }));
+    const sourceChoices = [...new Set([
+      ...(condition.target === 'source' && condition.value ? [condition.value] : []),
+      ...installedApps,
+    ])].map((source) => ({ value: source, label: source }));
+    return [
+      ...(features.clipTypes || condition.target === 'clip_type' ? [{
+        target: 'clip_type' as const,
+        label: targetLabels.clip_type,
+        choices: [
+          { value: 'text', label: translate('component.analyticsView.text'), disabled: !features.clipTypes },
+          { value: 'image', label: translate('component.analyticsView.image'), disabled: !features.clipTypes },
+          { value: 'file', label: translate('component.analyticsView.files'), disabled: !features.clipTypes },
+        ],
+      }] : []),
+      ...(features.types || condition.target === 'content_type' ? [{
+        target: 'content_type' as const,
+        label: targetLabels.content_type,
+        choices: contentTypeChoices.length > 0
+          ? contentTypeChoices.map((choice) => ({ ...choice, disabled: !features.types }))
+          : [{ value: condition.value, label: contentTypeLabel(condition.value), disabled: true }],
+      }] : []),
+      ...(features.fileFormats || condition.target === 'file_format' ? [{
+        target: 'file_format' as const,
+        label: targetLabels.file_format,
+        choices: formatChoices.length > 0
+          ? formatChoices.map((choice) => ({ ...choice, disabled: !features.fileFormats }))
+          : [{ value: condition.value, label: condition.value.toUpperCase() || translate('component.binModal.noDetectedFileFormats'), disabled: true }],
+      }] : []),
+      ...(features.sources || condition.target === 'source' ? [{
+        target: 'source' as const,
+        label: targetLabels.source,
+        choices: sourceChoices.length > 0
+          ? sourceChoices.map((choice) => ({ ...choice, disabled: !features.sources }))
+          : [{ value: condition.value, label: condition.value || translate('component.binModal.noDetectedApps'), disabled: true }],
+      }] : []),
+      {
+        target: 'origin_kind',
+        label: targetLabels.origin_kind,
+        choices: [
+          { value: 'clipboard_content', label: translate('component.binModal.clipboardContent') },
+          { value: 'file_reference', label: translate('component.binModal.fileReference') },
+          { value: 'screenshot', label: translate('component.binModal.screenshot') },
+          { value: 'command_line', label: translate('component.binModal.commandLine') },
+        ],
+      },
+      { target: 'contains', label: targetLabels.contains },
+      { target: 'file_extension', label: targetLabels.file_extension, dividerBefore: true },
+      { target: 'file_path', label: targetLabels.file_path },
+    ];
+  };
   const isDirty = JSON.stringify({
     modalTab,
     name,
@@ -600,31 +757,16 @@ export const BinModal: React.FC<BinModalProps> = ({
                 <div className="p-4 theme-surface rounded-2xl border space-y-3">
               {conditions.map((c) => (
                 <div key={c.id} className="flex items-center space-x-2">
-                  {/* Condition Target Dropdown */}
-                  <MenuSelect
-                    value={c.target}
-                    onChange={(value) => {
-                      const newTarget = value as SmartConditionRow['target'];
-                      const newDefaultVal =
-                        newTarget === 'clip_type'
-                          ? 'text'
-                          : newTarget === 'file_format'
-                          ? fileFormats[0] || ''
-                          : newTarget === 'source'
-                          ? installedApps[0] || 'Safari'
-                          : newTarget === 'content_type'
-                          ? activeContentTypes[0]?.id || ''
-                          : newTarget === 'origin_kind'
-                          ? 'clipboard_content'
-                          : '';
-                      handleUpdateCondition(c.id, { target: newTarget, value: newDefaultVal });
-                    }}
-                    options={targetOptions.some(({ value }) => value === c.target)
-                      ? targetOptions
-                      : [{ value: c.target, label: targetLabels[c.target], disabled: true }, ...targetOptions]}
-                    label={translate('component.binModal.conditionTarget')}
-                    className="w-28"
-                    compact
+                  <SmartConditionTargetSelect
+                    condition={c}
+                    sections={targetSectionsFor(c)}
+                    onSelect={(target, value) => handleUpdateCondition(c.id, {
+                      target,
+                      value,
+                      operator: target === 'contains' || target === 'file_extension' || target === 'file_path'
+                        ? 'contains'
+                        : 'is',
+                    })}
                   />
 
                   {/* Operator Dropdown */}
