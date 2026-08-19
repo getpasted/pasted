@@ -148,6 +148,7 @@ fn analysis_toggle_activity(
 
 fn push_smart_condition(
     kind: &str,
+    operator: &str,
     value: &str,
     file_formats_enabled: bool,
     conditions: &mut Vec<String>,
@@ -157,20 +158,40 @@ fn push_smart_condition(
     if value.is_empty() {
         return;
     }
+    let contains = operator == "contains"
+        || (operator.is_empty() && matches!(kind, "source" | "contains" | "file_path"));
     let condition = match kind {
         "clip_type" => {
-            parameters.push(Box::new(value.to_lowercase()));
-            "LOWER(content_type) = ?".to_string()
+            if contains {
+                parameters.push(Box::new(format!(
+                    "%{}%",
+                    escape_like_literal(&value.to_lowercase())
+                )));
+                "LOWER(content_type) LIKE ? ESCAPE '\\'".to_string()
+            } else {
+                parameters.push(Box::new(value.to_lowercase()));
+                "LOWER(content_type) = ?".to_string()
+            }
         }
         "content_type" => {
-            parameters.push(Box::new(value.to_string()));
+            parameters.push(Box::new(if contains {
+                format!("%{}%", escape_like_literal(&value.to_lowercase()))
+            } else {
+                value.to_lowercase()
+            }));
             "EXISTS (
                 SELECT 1 FROM clip_analysis_classifications AS classified
                 WHERE classified.clip_id = clips.id
                   AND classified.input_hash = clips.content_hash
-                  AND classified.content_type = ?
+                  AND LOWER(classified.content_type) "
+                .to_string()
+                + if contains {
+                    "LIKE ? ESCAPE '\\'"
+                } else {
+                    "= ?"
+                }
+                + "
             )"
-            .to_string()
         }
         "file_format" => {
             if !file_formats_enabled {
@@ -183,7 +204,11 @@ fn push_smart_condition(
             parameters.push(Box::new(
                 crate::analysis_contract::ANALYSIS_CONTRACT_VERSION,
             ));
-            parameters.push(Box::new(value.to_lowercase()));
+            parameters.push(Box::new(if contains {
+                format!("%{}%", escape_like_literal(&value.to_lowercase()))
+            } else {
+                value.to_lowercase()
+            }));
             "EXISTS (
                 SELECT 1
                 FROM clip_analysis_results AS formats,
@@ -193,17 +218,31 @@ fn push_smart_condition(
                   AND formats.content_hash = clips.content_hash
                   AND formats.input_hash = clips.content_hash
                   AND formats.format_version = ?
-                  AND LOWER(json_extract(detected.value, '$.format')) = ?
+                  AND LOWER(json_extract(detected.value, '$.format')) "
+                .to_string()
+                + if contains {
+                    "LIKE ? ESCAPE '\\'"
+                } else {
+                    "= ?"
+                }
+                + "
             )"
-            .to_string()
         }
         "origin_kind" => {
             parameters.push(Box::new(value.to_lowercase()));
             "CASE WHEN content_type IN ('image', 'file') AND (LOWER(source) LIKE '%screenshot%' OR LOWER(source) LIKE '%screencapture%' OR LOWER(source) LIKE '%cleanshot%') THEN 'screenshot' WHEN content_type = 'file' THEN 'file_reference' WHEN LOWER(source) IN ('cli terminal', 'pasted cli') THEN 'command_line' ELSE 'clipboard_content' END = ?".to_string()
         }
         "source" => {
-            parameters.push(Box::new(format!("%{}%", value)));
-            "source LIKE ?".to_string()
+            if contains {
+                parameters.push(Box::new(format!(
+                    "%{}%",
+                    escape_like_literal(&value.to_lowercase())
+                )));
+                "LOWER(source) LIKE ? ESCAPE '\\'".to_string()
+            } else {
+                parameters.push(Box::new(value.to_lowercase()));
+                "LOWER(source) = ?".to_string()
+            }
         }
         "contains" => {
             let pattern = format!("%{}%", value);
@@ -267,6 +306,7 @@ fn append_smart_bin_memberships(conn: &Connection, clips: &mut [ClipItem]) -> Re
                 for condition in items {
                     push_smart_condition(
                         condition["type"].as_str().unwrap_or(""),
+                        condition["operator"].as_str().unwrap_or(""),
                         condition["value"].as_str().unwrap_or(""),
                         file_formats_enabled,
                         &mut conditions,
@@ -276,6 +316,7 @@ fn append_smart_bin_memberships(conn: &Connection, clips: &mut [ClipItem]) -> Re
             } else {
                 push_smart_condition(
                     parsed["type"].as_str().unwrap_or(""),
+                    parsed["operator"].as_str().unwrap_or(""),
                     parsed["value"].as_str().unwrap_or(""),
                     file_formats_enabled,
                     &mut conditions,
@@ -5635,6 +5676,7 @@ impl DbState {
                         let c_val = cond["value"].as_str().unwrap_or("");
                         push_smart_condition(
                             c_type,
+                            cond["operator"].as_str().unwrap_or(""),
                             c_val,
                             file_formats_enabled,
                             &mut cond_sqls,
@@ -5646,6 +5688,7 @@ impl DbState {
                     let rule_val = parsed["value"].as_str().unwrap_or("");
                     push_smart_condition(
                         rule_type,
+                        parsed["operator"].as_str().unwrap_or(""),
                         rule_val,
                         file_formats_enabled,
                         &mut cond_sqls,
@@ -7464,6 +7507,7 @@ impl DbState {
                             let c_val = cond["value"].as_str().unwrap_or("");
                             push_smart_condition(
                                 c_type,
+                                cond["operator"].as_str().unwrap_or(""),
                                 c_val,
                                 file_formats_enabled,
                                 &mut cond_sqls,
@@ -7475,6 +7519,7 @@ impl DbState {
                         let rule_val = parsed["value"].as_str().unwrap_or("");
                         push_smart_condition(
                             rule_type,
+                            parsed["operator"].as_str().unwrap_or(""),
                             rule_val,
                             file_formats_enabled,
                             &mut cond_sqls,
@@ -7597,37 +7642,48 @@ impl DbState {
             let Ok(rule) = serde_json::from_str::<serde_json::Value>(&rule_json) else {
                 continue;
             };
-            let condition_matches = |kind: &str, value: &str| match kind {
-                "clip_type" => clip_type.eq_ignore_ascii_case(value),
-                "content_type" => content_types
-                    .iter()
-                    .any(|content_type| content_type.eq_ignore_ascii_case(value)),
-                "file_format" => {
-                    file_formats_enabled
-                        && file_formats
-                            .iter()
-                            .any(|file_format| file_format.eq_ignore_ascii_case(value))
+            let condition_matches = |kind: &str, operator: &str, value: &str| {
+                let contains = operator == "contains"
+                    || (operator.is_empty() && matches!(kind, "source" | "contains" | "file_path"));
+                let text_matches = |actual: &str| {
+                    if contains {
+                        actual.to_lowercase().contains(&value.to_lowercase())
+                    } else {
+                        actual.eq_ignore_ascii_case(value)
+                    }
+                };
+                match kind {
+                    "clip_type" => text_matches(clip_type),
+                    "content_type" => content_types
+                        .iter()
+                        .any(|content_type| text_matches(content_type)),
+                    "file_format" => {
+                        file_formats_enabled
+                            && file_formats
+                                .iter()
+                                .any(|file_format| text_matches(file_format))
+                    }
+                    "source" => text_matches(source),
+                    "contains" => text.to_lowercase().contains(&value.to_lowercase()),
+                    "origin_kind" => {
+                        derived_origin_kind(clip_type, source).eq_ignore_ascii_case(value.trim())
+                    }
+                    "file_extension" => {
+                        let extension = value.trim().trim_start_matches('.').to_lowercase();
+                        !extension.is_empty()
+                            && file_paths
+                                .iter()
+                                .any(|path| path.to_lowercase().ends_with(&format!(".{extension}")))
+                    }
+                    "file_path" => {
+                        let value = value.trim().to_lowercase();
+                        !value.is_empty()
+                            && file_paths
+                                .iter()
+                                .any(|path| path.to_lowercase().contains(&value))
+                    }
+                    _ => false,
                 }
-                "source" => source.to_lowercase().contains(&value.to_lowercase()),
-                "contains" => text.to_lowercase().contains(&value.to_lowercase()),
-                "origin_kind" => {
-                    derived_origin_kind(clip_type, source).eq_ignore_ascii_case(value.trim())
-                }
-                "file_extension" => {
-                    let extension = value.trim().trim_start_matches('.').to_lowercase();
-                    !extension.is_empty()
-                        && file_paths
-                            .iter()
-                            .any(|path| path.to_lowercase().ends_with(&format!(".{extension}")))
-                }
-                "file_path" => {
-                    let value = value.trim().to_lowercase();
-                    !value.is_empty()
-                        && file_paths
-                            .iter()
-                            .any(|path| path.to_lowercase().contains(&value))
-                }
-                _ => false,
             };
             let matched = if let Some(conditions) = rule["conditions"].as_array() {
                 let values = conditions
@@ -7635,6 +7691,7 @@ impl DbState {
                     .map(|condition| {
                         condition_matches(
                             condition["type"].as_str().unwrap_or(""),
+                            condition["operator"].as_str().unwrap_or(""),
                             condition["value"].as_str().unwrap_or(""),
                         )
                     })
@@ -7647,6 +7704,7 @@ impl DbState {
             } else {
                 condition_matches(
                     rule["type"].as_str().unwrap_or(""),
+                    rule["operator"].as_str().unwrap_or(""),
                     rule["value"].as_str().unwrap_or(""),
                 )
             };
@@ -14569,6 +14627,106 @@ mod tests {
     }
 
     #[test]
+    fn smart_bin_text_operators_distinguish_exact_and_partial_axis_values() {
+        let db = setup_test_db();
+        let safari = db
+            .save_clip(
+                "text",
+                Some("first"),
+                None,
+                None,
+                "source-exact-hash",
+                "Safari",
+            )
+            .unwrap();
+        let preview = db
+            .save_clip(
+                "text",
+                Some("second"),
+                None,
+                None,
+                "source-contains-hash",
+                "Safari Technology Preview",
+            )
+            .unwrap();
+        let email = db
+            .save_clip(
+                "text",
+                Some("person@example.com"),
+                None,
+                None,
+                "content-type-contains-hash",
+                "Mail",
+            )
+            .unwrap();
+        db.replace_analysis_classifications(
+            email.id,
+            &email.content_hash,
+            &[crate::content_classification::ClassificationMatch {
+                classifier_ref: "email".into(),
+                classifier_name: "Email".into(),
+                content_type: "email".into(),
+                priority: 10,
+                start_offset: 0,
+                end_offset: 5,
+            }],
+            "original_text",
+        )
+        .unwrap();
+        let exact_rule = serde_json::json!({
+            "conditions": [{"type": "source", "operator": "is", "value": "Safari"}],
+            "match": "all"
+        })
+        .to_string();
+        let contains_rule = serde_json::json!({
+            "conditions": [{"type": "source", "operator": "contains", "value": "Safari"}],
+            "match": "all"
+        })
+        .to_string();
+        let exact_bin = db
+            .create_bin("Exact Source", "📂", "default", Some(&exact_rule))
+            .unwrap();
+        let contains_bin = db
+            .create_bin("Partial Source", "📂", "default", Some(&contains_rule))
+            .unwrap();
+        let content_type_rule = serde_json::json!({
+            "conditions": [{"type": "content_type", "operator": "contains", "value": "mail"}],
+            "match": "all"
+        })
+        .to_string();
+        let content_type_bin = db
+            .create_bin(
+                "Partial Content Type",
+                "📂",
+                "default",
+                Some(&content_type_rule),
+            )
+            .unwrap();
+
+        assert_eq!(
+            db.get_clips(None, Some(exact_bin.id), false)
+                .unwrap()
+                .iter()
+                .map(|clip| clip.id)
+                .collect::<Vec<_>>(),
+            vec![safari.id]
+        );
+        let partial_ids = db
+            .get_clips(None, Some(contains_bin.id), false)
+            .unwrap()
+            .iter()
+            .map(|clip| clip.id)
+            .collect::<HashSet<_>>();
+        assert_eq!(partial_ids, HashSet::from([safari.id, preview.id]));
+        assert_eq!(
+            db.get_clips(None, Some(content_type_bin.id), false)
+                .unwrap()[0]
+                .id,
+            email.id
+        );
+    }
+
+    #[test]
     fn file_smart_bins_match_any_selected_path_without_reordering_the_clip() {
         let db = setup_test_db();
         let paths = serde_json::json!([
@@ -14647,11 +14805,23 @@ mod tests {
                 Some(r#"{"conditions":[{"type":"file_format","operator":"is","value":"png"}],"match":"any"}"#),
             )
             .unwrap();
+        let partial_bin = db
+            .create_bin(
+                "Partial Format",
+                "📄",
+                "default",
+                Some(r#"{"conditions":[{"type":"file_format","operator":"contains","value":"pn"}],"match":"any"}"#),
+            )
+            .unwrap();
 
         let refreshed = db.get_clip_by_id(clip.id).unwrap();
         assert_eq!(refreshed.file_formats, vec!["png"]);
         assert_eq!(
             db.get_clips(None, Some(bin.id), false).unwrap()[0].id,
+            clip.id
+        );
+        assert_eq!(
+            db.get_clips(None, Some(partial_bin.id), false).unwrap()[0].id,
             clip.id
         );
 

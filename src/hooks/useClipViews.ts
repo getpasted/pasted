@@ -73,14 +73,20 @@ function matchesCondition(clip: ClipItem, condition: SmartCondition, features?: 
     return getClipFilePaths(clip).some((path) => path.toLowerCase().includes(expected));
   }
   if (condition.type === 'clip_type') {
-    return clip.content_type.toLowerCase() === expected;
+    return condition.operator === 'contains'
+      ? clip.content_type.toLowerCase().includes(expected)
+      : clip.content_type.toLowerCase() === expected;
   }
   if (condition.type === 'file_format') {
     return Boolean(features?.fileFormats)
-      && (clip.file_formats ?? []).some((fileFormat) => fileFormat.toLowerCase() === expected);
+      && (clip.file_formats ?? []).some((fileFormat) => condition.operator === 'contains'
+        ? fileFormat.toLowerCase().includes(expected)
+        : fileFormat.toLowerCase() === expected);
   }
   if (condition.type === 'content_type') {
-    return (clip.content_types ?? []).some((contentType) => contentType.toLowerCase() === expected);
+    return (clip.content_types ?? []).some((contentType) => condition.operator === 'contains'
+      ? contentType.toLowerCase().includes(expected)
+      : contentType.toLowerCase() === expected);
   }
   const actual = condition.type === 'source'
     ? clip.source
