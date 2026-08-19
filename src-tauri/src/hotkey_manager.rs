@@ -21,6 +21,7 @@ pub enum AppHotkeyAction {
     ToggleCopyQueue,
     PopCopyQueue,
     PasteClip(usize),
+    PasteClipById(i64),
     PasteWithPipeline(String),
     CopyWithLastPipeline,
     PasteWithLastPipeline,
@@ -231,6 +232,17 @@ impl HotkeyManager {
                 sc,
                 AppHotkeyAction::PasteClip(i),
             );
+        }
+
+        if let Ok(clips) = db.get_clip_hotkeys() {
+            for (clip_id, shortcut) in clips {
+                add_shortcut(
+                    format!("clip-{clip_id}"),
+                    format!("Paste assigned clip #{clip_id}"),
+                    Some(shortcut),
+                    AppHotkeyAction::PasteClipById(clip_id),
+                );
+            }
         }
 
         if features::is_enabled(&db, Feature::Transformations) {
@@ -701,6 +713,17 @@ impl HotkeyManager {
                     };
                     if let Err(error) = commands::paste_clip_from_hud(&db, &paste_app, clip.id) {
                         eprintln!("[Pasted HUD] {error}");
+                    }
+                });
+            }
+            AppHotkeyAction::PasteClipById(clip_id) => {
+                let paste_app = app_handle.clone();
+                std::thread::spawn(move || {
+                    let Some(db) = paste_app.try_state::<Arc<DbState>>() else {
+                        return;
+                    };
+                    if let Err(error) = commands::paste_clip_from_hud(&db, &paste_app, clip_id) {
+                        eprintln!("[Pasted Clip Shortcut] {error}");
                     }
                 });
             }
@@ -1207,6 +1230,13 @@ mod tests {
             map.clear();
             assert_eq!(map.get(&sc), None);
         }
+    }
+
+    #[test]
+    fn clip_hotkeys_keep_their_stable_clip_id() {
+        let action = AppHotkeyAction::PasteClipById(42);
+        assert_eq!(action, AppHotkeyAction::PasteClipById(42));
+        assert_ne!(action, AppHotkeyAction::PasteClip(1));
     }
 
     #[test]

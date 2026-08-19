@@ -38,7 +38,7 @@ const filterFamilies = [
   ['restored', (event) => event === 'clip_restored' || event === 'clips_restored_all', "event_type === 'clip_restored'"],
   ['revisions', (event) => event === 'clip_revision_restored', "event_type === 'clip_revision_restored'"],
   ['purged', (event) => ['clip_deleted', 'trash_emptied', 'clips_purged_all'].includes(event), "event_type === 'clip_deleted'"],
-  ['protection', (event) => event === 'clip_protected_toggled' || event === 'clips_protected_toggled', "event_type === 'clip_protected_toggled'"],
+  ['protection', (event) => ['clip_protected_toggled', 'clips_protected_toggled', 'clip_shortcut_changed', 'bin_protection_changed'].includes(event), "event_type === 'clip_protected_toggled'"],
   ['pinning', (event) => event.includes('pinned'), "event_type.includes('pinned')"],
   ['notes', (event) => event === 'note_updated', "event_type === 'note_updated'"],
   ['bins', (event) => event.startsWith('bin_') || event.includes('_bin_'), "event_type.startsWith('bin_')"],

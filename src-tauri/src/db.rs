@@ -387,6 +387,7 @@ fn append_smart_bin_memberships(conn: &Connection, clips: &mut [ClipItem]) -> Re
     }
     append_clip_content_types(conn, clips)?;
     append_clip_file_formats(conn, clips)?;
+    append_clip_protection(conn, clips)?;
     Ok(())
 }
 
@@ -464,6 +465,44 @@ fn append_clip_file_formats(conn: &Connection, clips: &mut [ClipItem]) -> Result
     Ok(())
 }
 
+fn append_clip_protection(conn: &Connection, clips: &mut [ClipItem]) -> Result<()> {
+    if clips.is_empty() {
+        return Ok(());
+    }
+    let ids = clips.iter().map(|clip| clip.id).collect::<Vec<_>>();
+    let ids_json = serde_json::to_string(&ids)
+        .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?;
+    let mut protection = HashMap::<i64, (bool, Vec<i64>)>::new();
+    let mut statement = conn.prepare(
+        "SELECT clip_id, is_protected, protecting_bin_ids
+         FROM effective_clip_protection
+         WHERE clip_id IN (SELECT CAST(value AS INTEGER) FROM json_each(?1))",
+    )?;
+    for row in statement.query_map(params![ids_json], |row| {
+        Ok((
+            row.get::<_, i64>(0)?,
+            row.get::<_, i32>(1)? != 0,
+            row.get::<_, Option<String>>(2)?,
+        ))
+    })? {
+        let (clip_id, is_protected, bin_ids) = row?;
+        let bin_ids = bin_ids
+            .unwrap_or_default()
+            .split(',')
+            .filter_map(|value| value.parse::<i64>().ok())
+            .collect();
+        protection.insert(clip_id, (is_protected, bin_ids));
+    }
+    for clip in clips {
+        clip.is_explicitly_protected = Some(clip.is_protected);
+        if let Some((is_protected, bin_ids)) = protection.remove(&clip.id) {
+            clip.is_protected = is_protected;
+            clip.protecting_bin_ids = bin_ids;
+        }
+    }
+    Ok(())
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ClipItem {
     pub id: i64,
@@ -480,7 +519,15 @@ pub struct ClipItem {
     #[serde(alias = "source_app")]
     pub source: String,
     pub is_pinned: bool,
+    /// Effective protection, including explicit, shortcut, and inherited Bin protection.
     pub is_protected: bool,
+    /// The durable per-clip protection bit. Absent in legacy transfer archives.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub is_explicitly_protected: Option<bool>,
+    #[serde(default)]
+    pub protecting_bin_ids: Vec<i64>,
+    #[serde(default)]
+    pub shortcut: Option<String>,
     pub is_transformed: bool,
     pub pin_order: i32,
     pub bin_id: Option<i64>,
@@ -521,6 +568,9 @@ fn clip_item_from_row(row: &Row<'_>) -> Result<ClipItem> {
         source: row.get(7)?,
         is_pinned: row.get::<_, i32>(8)? != 0,
         is_protected: row.get::<_, i32>(9)? != 0,
+        is_explicitly_protected: Some(row.get::<_, i32>(9)? != 0),
+        protecting_bin_ids: Vec::new(),
+        shortcut: row.get(21).unwrap_or(None),
         is_transformed: row.get::<_, i32>(17)? != 0,
         pin_order: row.get(10)?,
         bin_id: primary_bin_id,
@@ -1173,6 +1223,8 @@ pub struct Bin {
     pub smart_rule: Option<String>, // JSON string for auto-smart rules
     pub bin_type: String,           // "category" or "tag"
     pub shortcut: Option<String>,
+    #[serde(default)]
+    pub protect_clips: bool,
     pub clip_count: Option<i64>,
     #[serde(default)]
     pub clip_order: Vec<i64>,
@@ -2788,6 +2840,7 @@ impl DbState {
             "ALTER TABLE clips ADD COLUMN is_protected INTEGER DEFAULT 0",
             [],
         );
+        let _ = conn.execute("ALTER TABLE clips ADD COLUMN shortcut TEXT", []);
         let _ = conn.execute("ALTER TABLE clips ADD COLUMN image_path TEXT", []);
         let _ = conn.execute(
             "ALTER TABLE clips ADD COLUMN pin_order INTEGER DEFAULT 0",
@@ -2852,6 +2905,10 @@ impl DbState {
             [],
         );
         let _ = conn.execute("ALTER TABLE bins ADD COLUMN shortcut TEXT", []);
+        let _ = conn.execute(
+            "ALTER TABLE bins ADD COLUMN protect_clips INTEGER NOT NULL DEFAULT 0",
+            [],
+        );
 
         migrate_clip_source_schema(&conn)?;
 
@@ -2970,6 +3027,10 @@ impl DbState {
             [],
         );
         let _ = conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_clips_shortcut ON clips (shortcut)",
+            [],
+        );
+        let _ = conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_clips_active_timeline ON clips (is_trashed, is_pinned DESC, created_at DESC)",
             [],
         );
@@ -3069,6 +3130,36 @@ impl DbState {
             "CREATE INDEX IF NOT EXISTS idx_clip_bins_clip_id ON clip_bins (clip_id)",
             [],
         );
+
+        // One shared contract protects clips from every cleanup and destructive path.
+        // Smart-rule matches are intentionally excluded: only durable manual membership
+        // can confer inherited protection.
+        conn.execute_batch(
+            "DROP VIEW IF EXISTS effective_clip_protection;
+             CREATE VIEW effective_clip_protection AS
+             SELECT clips.id AS clip_id,
+                    CASE WHEN COALESCE(clips.is_protected, 0) = 1
+                              OR NULLIF(TRIM(clips.shortcut), '') IS NOT NULL
+                              OR EXISTS (
+                                  SELECT 1 FROM bins
+                                  WHERE COALESCE(bins.protect_clips, 0) = 1
+                                    AND (bins.id = clips.bin_id OR EXISTS (
+                                        SELECT 1 FROM clip_bins
+                                        WHERE clip_bins.clip_id = clips.id
+                                          AND clip_bins.bin_id = bins.id
+                                    ))
+                              )
+                         THEN 1 ELSE 0 END AS is_protected,
+                    (SELECT GROUP_CONCAT(protecting.id)
+                     FROM bins AS protecting
+                     WHERE COALESCE(protecting.protect_clips, 0) = 1
+                       AND (protecting.id = clips.bin_id OR EXISTS (
+                           SELECT 1 FROM clip_bins
+                           WHERE clip_bins.clip_id = clips.id
+                             AND clip_bins.bin_id = protecting.id
+                       ))) AS protecting_bin_ids
+             FROM clips;",
+        )?;
 
         conn.execute(
             "CREATE TABLE IF NOT EXISTS bin_clip_order (
@@ -5102,7 +5193,7 @@ impl DbState {
             clauses.push("COALESCE(clips.is_pinned, 0) = 1".into());
         }
         if parsed.requires_protected {
-            clauses.push("COALESCE(clips.is_protected, 0) = 1".into());
+            clauses.push("clips.id IN (SELECT clip_id FROM effective_clip_protection WHERE is_protected = 1)".into());
         }
         for value in &parsed.clip_types {
             clauses.push("clips.content_type = ? COLLATE NOCASE".into());
@@ -5234,6 +5325,7 @@ impl DbState {
                         (SELECT GROUP_CONCAT(bin_id) FROM clip_bins WHERE clip_id = clips.id),
                         clips.current_transformation_id IS NOT NULL,
                         clips.ocr_extractor_ref, clips.ocr_extractor_name, clips.ocr_engine_version,
+                        clips.shortcut,
                         COALESCE((SELECT extracted.searchable_text
                                   FROM clip_searchable_text AS extracted
                                   WHERE extracted.clip_id = clips.id
@@ -5243,13 +5335,14 @@ impl DbState {
             ))?;
             let candidates = statement
                 .query_map(parameter_refs.as_slice(), |row| {
-                    Ok((clip_item_from_row(row)?, row.get::<_, String>(21)?))
+                    Ok((clip_item_from_row(row)?, row.get::<_, String>(22)?))
                 })?
                 .collect::<Result<Vec<_>>>()?;
             let (mut candidate_clips, extracted_texts): (Vec<_>, Vec<_>) =
                 candidates.into_iter().unzip();
             append_clip_content_types(&conn, &mut candidate_clips)?;
             append_clip_file_formats(&conn, &mut candidate_clips)?;
+            append_clip_protection(&conn, &mut candidate_clips)?;
             let mut matching = Vec::new();
             for (clip, extracted_text) in candidate_clips.into_iter().zip(extracted_texts) {
                 let mut values = vec![clip.text_content.as_deref().unwrap_or(""), &extracted_text];
@@ -5927,7 +6020,7 @@ impl DbState {
             let mut stmt = conn.prepare(
                 "SELECT id FROM clips
                  WHERE is_pinned = 0
-                   AND (is_protected IS NULL OR is_protected = 0)
+                   AND clips.id NOT IN (SELECT clip_id FROM effective_clip_protection WHERE is_protected = 1)
                    AND (is_trashed IS NULL OR is_trashed = 0)
                    AND datetime(created_at) < datetime('now', ?1)
                  ORDER BY created_at ASC, id ASC",
@@ -5943,7 +6036,7 @@ impl DbState {
                 .query_row(
                     "SELECT COUNT(*) FROM clips
                      WHERE is_pinned = 0
-                       AND (is_protected IS NULL OR is_protected = 0)
+                       AND clips.id NOT IN (SELECT clip_id FROM effective_clip_protection WHERE is_protected = 1)
                        AND (is_trashed IS NULL OR is_trashed = 0)",
                     [],
                     |r| r.get(0),
@@ -5954,7 +6047,7 @@ impl DbState {
                 let mut stmt = conn.prepare(
                     "SELECT id FROM clips
                      WHERE is_pinned = 0
-                       AND (is_protected IS NULL OR is_protected = 0)
+                       AND clips.id NOT IN (SELECT clip_id FROM effective_clip_protection WHERE is_protected = 1)
                        AND (is_trashed IS NULL OR is_trashed = 0)
                      ORDER BY created_at ASC, id ASC LIMIT ?1",
                 )?;
@@ -6036,7 +6129,7 @@ impl DbState {
             conn.execute(
                 "DELETE FROM clips
                  WHERE is_trashed = 1
-                   AND (is_protected IS NULL OR is_protected = 0)
+                   AND clips.id NOT IN (SELECT clip_id FROM effective_clip_protection WHERE is_protected = 1)
                    AND datetime(COALESCE(trashed_at, created_at)) < datetime('now', ?1)",
                 [age_modifier],
             )?;
@@ -6046,10 +6139,10 @@ impl DbState {
             conn.execute(
                 "DELETE FROM clips
                  WHERE is_trashed = 1
-                   AND (is_protected IS NULL OR is_protected = 0)
+                   AND clips.id NOT IN (SELECT clip_id FROM effective_clip_protection WHERE is_protected = 1)
                    AND id NOT IN (
                        SELECT id FROM clips
-                       WHERE is_trashed = 1 AND (is_protected IS NULL OR is_protected = 0)
+                       WHERE is_trashed = 1 AND clips.id NOT IN (SELECT clip_id FROM effective_clip_protection WHERE is_protected = 1)
                        ORDER BY COALESCE(trashed_at, created_at) DESC, id DESC LIMIT ?1
                    )",
                 params![keep_count],
@@ -6088,7 +6181,7 @@ impl DbState {
             "SELECT id, content_type, text_content, html_content, image_base64, image_path, content_hash, source, is_pinned, is_protected, COALESCE(pin_order, 0), bin_id, note, is_trashed, trashed_at, created_at,
                     (SELECT GROUP_CONCAT(bin_id) FROM clip_bins WHERE clip_id = clips.id),
                     current_transformation_id IS NOT NULL,
-                    ocr_extractor_ref, ocr_extractor_name, ocr_engine_version
+                    ocr_extractor_ref, ocr_extractor_name, ocr_engine_version, shortcut
              FROM clips WHERE id = ?1",
             params![id],
             |row| {
@@ -6115,6 +6208,9 @@ impl DbState {
                     source: row.get(7)?,
                     is_pinned: row.get::<_, i32>(8)? != 0,
                     is_protected: row.get::<_, i32>(9)? != 0,
+                    is_explicitly_protected: Some(row.get::<_, i32>(9)? != 0),
+                    protecting_bin_ids: Vec::new(),
+                    shortcut: row.get(21)?,
                     is_transformed: row.get::<_, i32>(17)? != 0,
                     pin_order: row.get(10)?,
                     bin_id: bid,
@@ -6145,7 +6241,7 @@ impl DbState {
                     bin_id, note, COALESCE(is_trashed, 0), trashed_at, created_at,
                     (SELECT GROUP_CONCAT(bin_id) FROM clip_bins WHERE clip_id = clips.id),
                     current_transformation_id IS NOT NULL,
-                    ocr_extractor_ref, ocr_extractor_name, ocr_engine_version
+                    ocr_extractor_ref, ocr_extractor_name, ocr_engine_version, shortcut
              FROM clips
              WHERE id IN (SELECT CAST(value AS INTEGER) FROM json_each(?1))",
         )?;
@@ -6195,7 +6291,7 @@ impl DbState {
             "SELECT id, content_type, text_content, NULL as html_content, NULL as image_base64, image_path, content_hash, source, is_pinned, is_protected, COALESCE(pin_order, 0), bin_id, note, is_trashed, trashed_at, created_at,
              (SELECT GROUP_CONCAT(bin_id) FROM clip_bins WHERE clip_id = clips.id) as bin_ids_str,
              current_transformation_id IS NOT NULL,
-             ocr_extractor_ref, ocr_extractor_name, ocr_engine_version
+             ocr_extractor_ref, ocr_extractor_name, ocr_engine_version, shortcut
              FROM clips WHERE (is_trashed IS NULL OR is_trashed = 0)"
         );
 
@@ -6313,6 +6409,9 @@ impl DbState {
                 source: row.get(7)?,
                 is_pinned: row.get::<_, i32>(8)? != 0,
                 is_protected: row.get::<_, i32>(9)? != 0,
+                is_explicitly_protected: Some(row.get::<_, i32>(9)? != 0),
+                protecting_bin_ids: Vec::new(),
+                shortcut: row.get(21)?,
                 is_transformed: row.get::<_, i32>(17)? != 0,
                 pin_order: row.get(10)?,
                 bin_id: primary_bid,
@@ -6357,7 +6456,7 @@ impl DbState {
         let mut sql = String::from(
             "SELECT id, content_type, text_content, NULL as html_content, NULL as image_base64, image_path, content_hash, source, is_pinned, is_protected, COALESCE(pin_order, 0), bin_id, note, is_trashed, trashed_at, created_at,
                     current_transformation_id IS NOT NULL,
-                    ocr_extractor_ref, ocr_extractor_name, ocr_engine_version
+                    ocr_extractor_ref, ocr_extractor_name, ocr_engine_version, shortcut
              FROM clips WHERE is_trashed = 1 ORDER BY COALESCE(trashed_at, created_at) DESC, id DESC"
         );
         let mut query_params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
@@ -6384,6 +6483,9 @@ impl DbState {
                 source: row.get(7)?,
                 is_pinned: row.get::<_, i32>(8)? != 0,
                 is_protected: row.get::<_, i32>(9)? != 0,
+                is_explicitly_protected: Some(row.get::<_, i32>(9)? != 0),
+                protecting_bin_ids: Vec::new(),
+                shortcut: row.get(20)?,
                 is_transformed: row.get::<_, i32>(16)? != 0,
                 pin_order: row.get(10)?,
                 bin_id: bid,
@@ -6410,8 +6512,10 @@ impl DbState {
         let mut stmt = conn.prepare_cached(
             "SELECT id, content_type, text_content, NULL as html_content, NULL as image_base64, image_path, content_hash, source, is_pinned, is_protected, COALESCE(pin_order, 0), bin_id, note, is_trashed, trashed_at, created_at,
                     current_transformation_id IS NOT NULL,
-                    ocr_extractor_ref, ocr_extractor_name, ocr_engine_version
-             FROM clips WHERE is_protected = 1 AND (is_trashed IS NULL OR is_trashed = 0) ORDER BY created_at DESC"
+                    ocr_extractor_ref, ocr_extractor_name, ocr_engine_version, shortcut
+             FROM clips WHERE id IN (
+                 SELECT clip_id FROM effective_clip_protection WHERE is_protected = 1
+             ) AND (is_trashed IS NULL OR is_trashed = 0) ORDER BY created_at DESC"
         )?;
         let clip_iter = stmt.query_map([], |row| {
             let bid: Option<i64> = row.get(11)?;
@@ -6428,6 +6532,9 @@ impl DbState {
                 source: row.get(7)?,
                 is_pinned: row.get::<_, i32>(8)? != 0,
                 is_protected: row.get::<_, i32>(9)? != 0,
+                is_explicitly_protected: Some(row.get::<_, i32>(9)? != 0),
+                protecting_bin_ids: Vec::new(),
+                shortcut: row.get(20)?,
                 is_transformed: row.get::<_, i32>(16)? != 0,
                 pin_order: row.get(10)?,
                 bin_id: bid,
@@ -6445,6 +6552,7 @@ impl DbState {
         for clip in clip_iter {
             clips.push(clip?);
         }
+        append_smart_bin_memberships(&conn, &mut clips)?;
         Ok(clips)
     }
 
@@ -6604,7 +6712,7 @@ impl DbState {
             let changed = tx.execute(
                 "UPDATE clips SET is_trashed = 1, trashed_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
                  WHERE id = ?1
-                   AND (is_protected IS NULL OR is_protected = 0)
+                   AND clips.id NOT IN (SELECT clip_id FROM effective_clip_protection WHERE is_protected = 1)
                    AND (is_trashed IS NULL OR is_trashed = 0)",
                 params![id],
             )?;
@@ -6693,7 +6801,7 @@ impl DbState {
         let conn = self.conn.lock();
         let is_protected: i32 = conn
             .query_row(
-                "SELECT is_protected FROM clips WHERE id = ?1",
+                "SELECT is_protected FROM effective_clip_protection WHERE clip_id = ?1",
                 params![id],
                 |r| r.get(0),
             )
@@ -6702,7 +6810,7 @@ impl DbState {
             return Ok(());
         }
         let mut stmt = conn.prepare_cached(
-            "DELETE FROM clips WHERE id = ?1 AND (is_protected IS NULL OR is_protected = 0)",
+            "DELETE FROM clips WHERE id = ?1 AND clips.id NOT IN (SELECT clip_id FROM effective_clip_protection WHERE is_protected = 1)",
         )?;
         stmt.execute(params![id])?;
         let _ = self.log_activity_internal(
@@ -6716,12 +6824,12 @@ impl DbState {
     pub fn empty_trash(&self) -> Result<()> {
         let conn = self.conn.lock();
         let count: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM clips WHERE is_trashed = 1 AND (is_protected IS NULL OR is_protected = 0)",
+            "SELECT COUNT(*) FROM clips WHERE is_trashed = 1 AND clips.id NOT IN (SELECT clip_id FROM effective_clip_protection WHERE is_protected = 1)",
             [],
             |r| r.get(0),
         ).unwrap_or(0);
         let mut stmt = conn.prepare_cached(
-            "DELETE FROM clips WHERE is_trashed = 1 AND (is_protected IS NULL OR is_protected = 0)",
+            "DELETE FROM clips WHERE is_trashed = 1 AND clips.id NOT IN (SELECT clip_id FROM effective_clip_protection WHERE is_protected = 1)",
         )?;
         stmt.execute([])?;
         let _ = self.log_activity_internal(
@@ -7675,7 +7783,9 @@ impl DbState {
                 COALESCE(SUM(CASE WHEN COALESCE(is_trashed, 0) = 0 THEN 1 ELSE 0 END), 0),
                 COALESCE(SUM(CASE WHEN is_trashed = 1 THEN 1 ELSE 0 END), 0),
                 COALESCE(SUM(CASE WHEN COALESCE(is_trashed, 0) = 0 AND is_pinned = 1 THEN 1 ELSE 0 END), 0),
-                COALESCE(SUM(CASE WHEN COALESCE(is_trashed, 0) = 0 AND COALESCE(is_protected, 0) = 1 THEN 1 ELSE 0 END), 0),
+                COALESCE(SUM(CASE WHEN COALESCE(is_trashed, 0) = 0 AND id IN (
+                    SELECT clip_id FROM effective_clip_protection WHERE is_protected = 1
+                ) THEN 1 ELSE 0 END), 0),
                 COALESCE(SUM(CASE WHEN COALESCE(is_trashed, 0) = 0 AND TRIM(COALESCE(note, '')) != '' THEN 1 ELSE 0 END), 0)
              FROM clips",
             [],
@@ -7778,9 +7888,9 @@ impl DbState {
 
     pub fn trash_unpinned_clips(&self) -> Result<()> {
         let conn = self.conn.lock();
-        let count: i64 = conn.query_row("SELECT COUNT(*) FROM clips WHERE is_pinned = 0 AND (is_protected IS NULL OR is_protected = 0) AND (is_trashed IS NULL OR is_trashed = 0)", [], |r| r.get(0)).unwrap_or(0);
+        let count: i64 = conn.query_row("SELECT COUNT(*) FROM clips WHERE is_pinned = 0 AND clips.id NOT IN (SELECT clip_id FROM effective_clip_protection WHERE is_protected = 1) AND (is_trashed IS NULL OR is_trashed = 0)", [], |r| r.get(0)).unwrap_or(0);
         conn.execute(
-            "UPDATE clips SET is_trashed = 1, trashed_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE is_pinned = 0 AND (is_protected IS NULL OR is_protected = 0) AND (is_trashed IS NULL OR is_trashed = 0)",
+            "UPDATE clips SET is_trashed = 1, trashed_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE is_pinned = 0 AND clips.id NOT IN (SELECT clip_id FROM effective_clip_protection WHERE is_protected = 1) AND (is_trashed IS NULL OR is_trashed = 0)",
             [],
         )?;
         conn.execute(
@@ -7806,9 +7916,9 @@ impl DbState {
 
     pub fn purge_unpinned_clips(&self) -> Result<()> {
         let conn = self.conn.lock();
-        let count: i64 = conn.query_row("SELECT COUNT(*) FROM clips WHERE is_pinned = 0 AND (is_protected IS NULL OR is_protected = 0)", [], |r| r.get(0)).unwrap_or(0);
+        let count: i64 = conn.query_row("SELECT COUNT(*) FROM clips WHERE is_pinned = 0 AND clips.id NOT IN (SELECT clip_id FROM effective_clip_protection WHERE is_protected = 1)", [], |r| r.get(0)).unwrap_or(0);
         conn.execute(
-            "DELETE FROM clips WHERE is_pinned = 0 AND (is_protected IS NULL OR is_protected = 0)",
+            "DELETE FROM clips WHERE is_pinned = 0 AND clips.id NOT IN (SELECT clip_id FROM effective_clip_protection WHERE is_protected = 1)",
             [],
         )?;
         let _ = self.log_activity_internal(
@@ -7825,7 +7935,7 @@ impl DbState {
     pub fn clear_all_clips(&self) -> Result<()> {
         let conn = self.conn.lock();
         conn.execute(
-            "DELETE FROM clips WHERE (is_protected IS NULL OR is_protected = 0)",
+            "DELETE FROM clips WHERE clips.id NOT IN (SELECT clip_id FROM effective_clip_protection WHERE is_protected = 1)",
             [],
         )?;
         Ok(())
@@ -7854,6 +7964,22 @@ impl DbState {
         let requested_count = ids.len();
         let mut conn = self.conn.lock();
         let tx = conn.transaction()?;
+        if !protected_state && !ids.is_empty() {
+            let ids_json = serde_json::to_string(&ids)
+                .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?;
+            let shortcut_count: i64 = tx.query_row(
+                "SELECT COUNT(*) FROM clips
+                 WHERE id IN (SELECT CAST(value AS INTEGER) FROM json_each(?1))
+                   AND NULLIF(TRIM(shortcut), '') IS NOT NULL",
+                params![ids_json],
+                |row| row.get(0),
+            )?;
+            if shortcut_count > 0 {
+                return Err(rusqlite::Error::InvalidParameterName(
+                    "Remove the clip shortcut before removing explicit protection".into(),
+                ));
+            }
+        }
         let mut changed_ids = Vec::new();
         for id in ids {
             let changed = tx.execute(
@@ -7949,7 +8075,7 @@ impl DbState {
     pub fn get_bins(&self) -> Result<Vec<Bin>> {
         let conn = self.conn.lock();
         let features = smart_bin_feature_policy(&conn)?;
-        let mut stmt = conn.prepare("SELECT id, name, icon, color, smart_rule, COALESCE(bin_type, 'category'), shortcut, created_at FROM bins ORDER BY id ASC")?;
+        let mut stmt = conn.prepare("SELECT id, name, icon, color, smart_rule, COALESCE(bin_type, 'category'), shortcut, COALESCE(protect_clips, 0), created_at FROM bins ORDER BY id ASC")?;
         let bin_rows: Vec<(
             i64,
             String,
@@ -7958,6 +8084,7 @@ impl DbState {
             Option<String>,
             String,
             Option<String>,
+            bool,
             String,
         )> = stmt
             .query_map([], |row| {
@@ -7970,12 +8097,15 @@ impl DbState {
                     row.get(5)?,
                     row.get(6)?,
                     row.get(7)?,
+                    row.get(8)?,
                 ))
             })?
             .collect::<Result<Vec<_>, _>>()?;
 
         let mut bins = Vec::new();
-        for (id, name, icon, color, smart_rule, bin_type, shortcut, created_at) in bin_rows {
+        for (id, name, icon, color, smart_rule, bin_type, shortcut, protect_clips, created_at) in
+            bin_rows
+        {
             let count: i64 = if let Some(ref sr_json) = smart_rule {
                 if let Ok(parsed) = crate::smart_bins::parse_rule_json(sr_json) {
                     let join_op = if parsed.match_mode == "all" {
@@ -8035,6 +8165,7 @@ impl DbState {
                 smart_rule,
                 bin_type,
                 shortcut,
+                protect_clips,
                 clip_count: Some(count),
                 clip_order,
                 created_at,
@@ -8055,6 +8186,81 @@ impl DbState {
         conn.execute(
             "UPDATE bins SET shortcut = ?1 WHERE id = ?2",
             params![shortcut, id],
+        )?;
+        Ok(())
+    }
+
+    pub fn update_bin_protection(&self, id: i64, protect_clips: bool) -> Result<()> {
+        let conn = self.conn.lock();
+        let is_smart: bool = conn.query_row(
+            "SELECT smart_rule IS NOT NULL AND TRIM(smart_rule) <> '' FROM bins WHERE id = ?1",
+            params![id],
+            |row| row.get(0),
+        )?;
+        if protect_clips && is_smart {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "Smart Bins cannot confer inherited protection".into(),
+            ));
+        }
+        conn.execute(
+            "UPDATE bins SET protect_clips = ?1 WHERE id = ?2",
+            params![protect_clips, id],
+        )?;
+        drop(conn);
+        let activity_description = if protect_clips {
+            format!("Enabled inherited protection for Bin #{id}")
+        } else {
+            format!("Disabled inherited protection for Bin #{id}")
+        };
+        let _ = self.log_activity("bin_protection_changed", &activity_description);
+        Ok(())
+    }
+
+    pub fn get_clip_hotkeys(&self) -> Result<Vec<(i64, String)>> {
+        let conn = self.conn.lock();
+        let mut statement = conn.prepare(
+            "SELECT id, shortcut FROM clips
+             WHERE COALESCE(is_trashed, 0) = 0
+               AND NULLIF(TRIM(shortcut), '') IS NOT NULL
+             ORDER BY id ASC",
+        )?;
+        let rows = statement
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
+            .collect();
+        rows
+    }
+
+    pub fn update_clip_shortcut(&self, clip_id: i64, shortcut: Option<&str>) -> Result<()> {
+        let shortcut = shortcut.map(str::trim).filter(|value| !value.is_empty());
+        if shortcut.is_some_and(|value| value.len() > 256) {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "Clip shortcut is too long".into(),
+            ));
+        }
+        let conn = self.conn.lock();
+        let changed = conn.execute(
+            "UPDATE clips
+             SET shortcut = ?1,
+                 is_protected = CASE WHEN ?1 IS NOT NULL THEN 1 ELSE is_protected END
+             WHERE id = ?2 AND COALESCE(is_trashed, 0) = 0",
+            params![shortcut, clip_id],
+        )?;
+        if changed == 0 {
+            return Err(rusqlite::Error::QueryReturnedNoRows);
+        }
+        Ok(())
+    }
+
+    pub fn restore_clip_shortcut_state(
+        &self,
+        clip_id: i64,
+        shortcut: Option<&str>,
+        explicitly_protected: bool,
+    ) -> Result<()> {
+        let conn = self.conn.lock();
+        conn.execute(
+            "UPDATE clips SET shortcut = ?1, is_protected = ?2 WHERE id = ?3",
+            params![shortcut, explicitly_protected, clip_id],
         )?;
         Ok(())
     }
@@ -8204,7 +8410,7 @@ impl DbState {
         )?;
         let id = conn.last_insert_rowid();
         conn.query_row(
-            "SELECT id, name, icon, color, smart_rule, COALESCE(bin_type, 'category'), shortcut, created_at FROM bins WHERE id = ?1",
+            "SELECT id, name, icon, color, smart_rule, COALESCE(bin_type, 'category'), shortcut, COALESCE(protect_clips, 0), created_at FROM bins WHERE id = ?1",
             params![id],
             |row| {
                 Ok(Bin {
@@ -8215,9 +8421,10 @@ impl DbState {
                     smart_rule: row.get(4)?,
                     bin_type: row.get(5)?,
                     shortcut: row.get(6)?,
+                    protect_clips: row.get(7)?,
                     clip_count: Some(0),
                     clip_order: Vec::new(),
-                    created_at: row.get(7)?,
+                    created_at: row.get(8)?,
                 })
             },
         )
@@ -8542,7 +8749,10 @@ impl DbState {
             .map_err(rusqlite::Error::InvalidParameterName)?;
         let conn = self.conn.lock();
         conn.execute(
-            "UPDATE bins SET name = ?1, icon = ?2, color = ?3, smart_rule = ?4 WHERE id = ?5",
+            "UPDATE bins
+             SET name = ?1, icon = ?2, color = ?3, smart_rule = ?4,
+                 protect_clips = CASE WHEN ?4 IS NOT NULL THEN 0 ELSE protect_clips END
+             WHERE id = ?5",
             params![name, icon, color, smart_rule, id],
         )?;
         Ok(())
@@ -8588,7 +8798,7 @@ impl DbState {
                         "UPDATE clips
                          SET is_trashed = 1,
                              trashed_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
-                         WHERE id = ?1 AND (is_protected IS NULL OR is_protected = 0)",
+                         WHERE id = ?1 AND clips.id NOT IN (SELECT clip_id FROM effective_clip_protection WHERE is_protected = 1)",
                         params![clip_id],
                     )?;
                     if changed > 0 {
@@ -8670,7 +8880,7 @@ impl DbState {
     pub fn clear_history(&self) -> Result<()> {
         let conn = self.conn.lock();
         conn.execute(
-            "DELETE FROM clips WHERE is_pinned = 0 AND (is_protected IS NULL OR is_protected = 0)",
+            "DELETE FROM clips WHERE is_pinned = 0 AND clips.id NOT IN (SELECT clip_id FROM effective_clip_protection WHERE is_protected = 1)",
             [],
         )?;
         Ok(())
@@ -8861,6 +9071,9 @@ impl DbState {
                     ))
                 })?,
                 is_protected: false,
+                is_explicitly_protected: Some(false),
+                protecting_bin_ids: Vec::new(),
+                shortcut: None,
                 is_transformed: false,
                 pin_order: 0,
                 bin_id: None,
@@ -9058,6 +9271,24 @@ impl DbState {
         });
         for clip in &mut payload.clips {
             normalize_imported_clip_types(clip)?;
+            clip.shortcut = clip
+                .shortcut
+                .take()
+                .map(|value| value.trim().to_string())
+                .filter(|value| !value.is_empty());
+            if clip
+                .shortcut
+                .as_ref()
+                .is_some_and(|value| value.len() > 256)
+            {
+                return Err(rusqlite::Error::InvalidParameterName(
+                    "Transfer clip contains an invalid shortcut".into(),
+                ));
+            }
+            if clip.shortcut.is_some() {
+                clip.is_protected = true;
+                clip.is_explicitly_protected = Some(true);
+            }
         }
         let inspection = Self::preflight_library_archive(&payload)?;
         Ok((payload, inspection))
@@ -9230,6 +9461,12 @@ impl DbState {
                         bin.id
                     ))
                 })?;
+                if bin.protect_clips {
+                    return Err(rusqlite::Error::InvalidParameterName(format!(
+                        "Transfer Smart Bin {} cannot confer inherited protection",
+                        bin.id
+                    )));
+                }
             }
         }
 
@@ -9601,15 +9838,23 @@ impl DbState {
             ).ok();
             let new_id = if let Some(id) = existing_id {
                 tx.execute(
-                    "UPDATE bins SET icon = ?1, color = ?2, smart_rule = ?3, shortcut = ?4 WHERE id = ?5",
-                    params![bin.icon, bin.color, bin.smart_rule, bin.shortcut, id],
+                    "UPDATE bins SET icon = ?1, color = ?2, smart_rule = ?3, shortcut = ?4,
+                                     protect_clips = ?5 WHERE id = ?6",
+                    params![
+                        bin.icon,
+                        bin.color,
+                        bin.smart_rule,
+                        bin.shortcut,
+                        bin.protect_clips,
+                        id
+                    ],
                 )?;
                 id
             } else {
                 tx.execute(
-                    "INSERT INTO bins (name, icon, color, smart_rule, bin_type, shortcut, created_at)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-                    params![bin.name, bin.icon, bin.color, bin.smart_rule, bin.bin_type, bin.shortcut, bin.created_at],
+                    "INSERT INTO bins (name, icon, color, smart_rule, bin_type, shortcut, protect_clips, created_at)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                    params![bin.name, bin.icon, bin.color, bin.smart_rule, bin.bin_type, bin.shortcut, bin.protect_clips, bin.created_at],
                 )?;
                 tx.last_insert_rowid()
             };
@@ -9802,8 +10047,8 @@ impl DbState {
                 "INSERT INTO clips (
                     content_type, text_content, html_content, image_base64, image_path, content_hash,
                     source, is_pinned, is_protected, pin_order, bin_id, note,
-                    is_trashed, trashed_at, created_at
-                 ) VALUES (?1, ?2, ?3, ?4, NULL, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)
+                    is_trashed, trashed_at, created_at, shortcut
+                 ) VALUES (?1, ?2, ?3, ?4, NULL, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)
                  ON CONFLICT(content_hash) DO UPDATE SET
                     content_type = excluded.content_type,
                     text_content = excluded.text_content,
@@ -9817,12 +10062,14 @@ impl DbState {
                     note = excluded.note,
                     is_trashed = excluded.is_trashed,
                     trashed_at = excluded.trashed_at,
-                    created_at = excluded.created_at",
+                    created_at = excluded.created_at,
+                    shortcut = excluded.shortcut",
                 params![
                     clip.content_type, clip.text_content, clip.html_content, clip.image_base64,
-                    clip.content_hash, clip.source, clip.is_pinned, clip.is_protected,
+                    clip.content_hash, clip.source, clip.is_pinned,
+                    clip.is_explicitly_protected.unwrap_or(clip.is_protected),
                     clip.pin_order, mapped_primary_bin, clip.note, clip.is_trashed,
-                    clip.trashed_at, clip.created_at,
+                    clip.trashed_at, clip.created_at, clip.shortcut,
                 ],
             )?;
             let new_clip_id = tx.query_row(
@@ -9944,7 +10191,7 @@ impl DbState {
                     bin_id, note, COALESCE(is_trashed, 0), trashed_at, created_at,
                     (SELECT GROUP_CONCAT(bin_id) FROM clip_bins WHERE clip_id = clips.id),
                     current_transformation_id IS NOT NULL,
-                    ocr_extractor_ref, ocr_extractor_name, ocr_engine_version
+                    ocr_extractor_ref, ocr_extractor_name, ocr_engine_version, shortcut
              FROM clips ORDER BY created_at DESC, id DESC",
         )?;
         let rows = stmt.query_map([], |row| {
@@ -9971,6 +10218,9 @@ impl DbState {
                 source: row.get(7)?,
                 is_pinned: row.get::<_, i32>(8)? != 0,
                 is_protected: row.get::<_, i32>(9)? != 0,
+                is_explicitly_protected: Some(row.get::<_, i32>(9)? != 0),
+                protecting_bin_ids: Vec::new(),
+                shortcut: row.get(21)?,
                 is_transformed: row.get::<_, i32>(17)? != 0,
                 pin_order: row.get(10)?,
                 bin_id: primary_bin_id,
@@ -19546,6 +19796,13 @@ mod tests {
                 "Tests",
             )
             .unwrap();
+        let protected_bin = db
+            .create_bin("Backup Protection", "🔐", "default", None)
+            .unwrap();
+        db.update_bin_protection(protected_bin.id, true).unwrap();
+        db.assign_to_bin(clip.id, Some(protected_bin.id)).unwrap();
+        db.update_clip_shortcut(clip.id, Some("Alt+Shift+9"))
+            .unwrap();
         let transcription_extractor = db
             .get_content_extractors()
             .unwrap()
@@ -19658,6 +19915,10 @@ mod tests {
             Some("preserved")
         );
         assert_eq!(db.get_all_clips_for_backup().unwrap().len(), 2);
+        let restored_clip = db.get_clip_by_id(clip.id).unwrap();
+        assert_eq!(restored_clip.shortcut.as_deref(), Some("Alt+Shift+9"));
+        assert!(restored_clip.is_protected);
+        assert!(db.get_bin(protected_bin.id).unwrap().protect_clips);
         assert!(!db.get_clip_versions(clip.id).unwrap().is_empty());
         assert_eq!(
             db.get_analysis_classifications(clip.id).unwrap()[0].content_type,
@@ -19747,5 +20008,209 @@ mod tests {
         let _ = fs::remove_file(backup_path);
         drop(db);
         let _ = fs::remove_dir_all(directory);
+    }
+
+    #[test]
+    fn clip_shortcuts_protect_assignments_and_keep_protection_when_cleared() {
+        let db = setup_test_db();
+        let clip = db
+            .save_clip(
+                "text",
+                Some("durable shortcut"),
+                None,
+                None,
+                "clip-shortcut-protection",
+                "Tests",
+            )
+            .unwrap();
+
+        db.update_clip_shortcut(clip.id, Some("Alt+Shift+7"))
+            .unwrap();
+        let assigned = db.get_clip_by_id(clip.id).unwrap();
+        assert_eq!(assigned.shortcut.as_deref(), Some("Alt+Shift+7"));
+        assert!(assigned.is_protected);
+        assert_eq!(assigned.is_explicitly_protected, Some(true));
+        assert_eq!(
+            db.get_clip_hotkeys().unwrap(),
+            vec![(clip.id, "Alt+Shift+7".to_string())]
+        );
+        assert!(db.batch_protect_clips(vec![clip.id], false).is_err());
+
+        db.update_clip_shortcut(clip.id, None).unwrap();
+        let cleared = db.get_clip_by_id(clip.id).unwrap();
+        assert_eq!(cleared.shortcut, None);
+        assert!(cleared.is_protected);
+        assert_eq!(cleared.is_explicitly_protected, Some(true));
+        assert!(db.get_clip_hotkeys().unwrap().is_empty());
+
+        db.batch_protect_clips(vec![clip.id], false).unwrap();
+        assert!(!db.get_clip_by_id(clip.id).unwrap().is_protected);
+    }
+
+    #[test]
+    fn manual_bin_protection_is_inherited_without_mutating_clips() {
+        let db = setup_test_db();
+        let bin = db
+            .create_bin("Protected Bin", "🛡️", "default", None)
+            .unwrap();
+        let clip = db
+            .save_clip(
+                "text",
+                Some("inherited"),
+                None,
+                None,
+                "bin-inherited-protection",
+                "Tests",
+            )
+            .unwrap();
+        db.update_bin_protection(bin.id, true).unwrap();
+        db.assign_to_bin(clip.id, Some(bin.id)).unwrap();
+
+        let protected = db.get_clip_by_id(clip.id).unwrap();
+        assert!(protected.is_protected);
+        assert_eq!(protected.is_explicitly_protected, Some(false));
+        assert_eq!(protected.protecting_bin_ids, vec![bin.id]);
+        let raw: i32 = db
+            .conn
+            .lock()
+            .query_row(
+                "SELECT is_protected FROM clips WHERE id = ?1",
+                params![clip.id],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(raw, 0, "inherited protection must not mutate the clip flag");
+
+        let trash = db.batch_trash_clips(vec![clip.id]).unwrap();
+        assert_eq!(trash.changed_count, 0);
+        db.purge_clip_permanently(clip.id).unwrap();
+        assert!(db.get_clip_by_id(clip.id).is_ok());
+        db.clear_history().unwrap();
+        assert!(db.get_clip_by_id(clip.id).is_ok());
+
+        db.assign_to_bin(clip.id, None).unwrap();
+        assert!(!db.get_clip_by_id(clip.id).unwrap().is_protected);
+        assert_eq!(
+            db.batch_trash_clips(vec![clip.id]).unwrap().changed_count,
+            1
+        );
+    }
+
+    #[test]
+    fn smart_bins_cannot_confer_inherited_protection() {
+        let db = setup_test_db();
+        let rule = serde_json::json!({
+            "version": 1,
+            "conditions": [{"type": "clip_type", "operator": "is", "value": "text"}],
+            "match": "all"
+        })
+        .to_string();
+        let bin = db
+            .create_bin("Smart", "🧠", "default", Some(&rule))
+            .unwrap();
+        assert!(db.update_bin_protection(bin.id, true).is_err());
+        assert!(!db.get_bin(bin.id).unwrap().protect_clips);
+    }
+
+    #[test]
+    fn transfer_round_trip_preserves_clip_shortcuts_and_bin_protection() {
+        let source = setup_test_db();
+        let bin = source.create_bin("Durable", "🔐", "default", None).unwrap();
+        source.update_bin_protection(bin.id, true).unwrap();
+        let clip = source
+            .save_clip(
+                "text",
+                Some("portable shortcut"),
+                None,
+                None,
+                "portable-clip-shortcut",
+                "Tests",
+            )
+            .unwrap();
+        source.assign_to_bin(clip.id, Some(bin.id)).unwrap();
+        source
+            .update_clip_shortcut(clip.id, Some("CmdOrCtrl+Shift+8"))
+            .unwrap();
+
+        let destination = setup_test_db();
+        destination
+            .import_backup_json(&source.export_backup_json().unwrap())
+            .unwrap();
+        let restored_bin = destination
+            .get_bins()
+            .unwrap()
+            .into_iter()
+            .find(|candidate| candidate.name == "Durable")
+            .unwrap();
+        assert!(restored_bin.protect_clips);
+        let restored = destination
+            .get_all_clips_for_backup()
+            .unwrap()
+            .into_iter()
+            .find(|candidate| candidate.content_hash == "portable-clip-shortcut")
+            .unwrap();
+        assert_eq!(restored.shortcut.as_deref(), Some("CmdOrCtrl+Shift+8"));
+        assert_eq!(restored.is_explicitly_protected, Some(true));
+        assert!(
+            destination
+                .get_clip_by_id(restored.id)
+                .unwrap()
+                .is_protected
+        );
+    }
+
+    #[test]
+    fn legacy_databases_migrate_clip_shortcuts_and_bin_protection() {
+        let path = std::env::temp_dir().join(format!(
+            "pasted-shortcut-protection-migration-{}.db",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let connection = Connection::open(&path).unwrap();
+        connection
+            .execute_batch(
+                "CREATE TABLE clips (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    content_type TEXT NOT NULL,
+                    text_content TEXT,
+                    html_content TEXT,
+                    image_base64 TEXT,
+                    content_hash TEXT UNIQUE NOT NULL,
+                    source TEXT DEFAULT 'Unknown',
+                    is_pinned INTEGER DEFAULT 0,
+                    bin_id INTEGER,
+                    note TEXT,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                 );
+                 CREATE TABLE bins (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    icon TEXT DEFAULT 'Folder',
+                    color TEXT DEFAULT 'default',
+                    smart_rule TEXT,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                 );",
+            )
+            .unwrap();
+        drop(connection);
+
+        let db = DbState::new(path.clone()).unwrap();
+        assert!(column_exists(&db.conn.lock(), "clips", "shortcut").unwrap());
+        assert!(column_exists(&db.conn.lock(), "bins", "protect_clips").unwrap());
+        let view_exists: bool = db
+            .conn
+            .lock()
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM sqlite_master
+                 WHERE type = 'view' AND name = 'effective_clip_protection')",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert!(view_exists);
+        drop(db);
+        let _ = fs::remove_file(path);
     }
 }

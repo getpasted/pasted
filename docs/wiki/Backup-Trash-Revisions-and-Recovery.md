@@ -29,7 +29,7 @@ Copied screenshots and bitmap clips are stored in the database and are included.
 
 Activity can be selected under **Settings → Storage → Export**. JSON and CSV both support a bounded, deduplicating round trip of inert audit records; CSV is also suitable for spreadsheet reporting. **Import** recognizes Activity exports automatically. Activity files do not contain clipboard contents, and importing one never replays the recorded actions. The current Activity retention limits still apply after import.
 
-Transfer files include clips in History and Trash, notes, pins, protection, Bins and ordering, custom Operations, manual and assisted Transforms, Bin bindings, and OCR lifecycle metadata.
+Transfer files include clips in History and Trash, notes, pins, explicit protection, clip shortcuts, Bins and ordering, inherited Bin-protection settings, custom Operations, manual and assisted Transforms, Bin bindings, and OCR lifecycle metadata.
 
 Imports are bounded and transactional. Unsupported or malformed data is rejected; a failure partway through leaves the destination unchanged.
 

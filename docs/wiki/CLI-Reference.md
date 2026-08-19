@@ -81,6 +81,7 @@ pasted clip revisions <id> [--limit <n>] [--offset <n>] [--json]
 pasted clip restore-revision <id> <revision-id> [--json]
 pasted clip provenance <id> [--json]
 pasted clip copy|paste <id> [--json]
+pasted clip shortcut <id> <shortcut|none> [--json]
 pasted clip pin|unpin <id>... [--json]
 pasted clip order-pinned <id>... [--json]
 pasted clip protect|unprotect <id>... [--json]
@@ -106,9 +107,10 @@ pasted bin clips <bin-id> [--json]
 pasted bin order <bin-id> <clip-id>... [--json]
 pasted bin transform <id> <transform-ref|none> [--json]
 pasted bin shortcut <id> <shortcut|none> [--json]
+pasted bin protect <id> <on|off> [--json]
 ```
 
-`bin order` replaces the complete saved order and rejects invalid/duplicate membership atomically.
+`bin order` replaces the complete saved order and rejects invalid/duplicate membership atomically. `bin protect` controls inherited protection for manual Bins and Tags; Smart Bins cannot confer protection. `clip shortcut` assigns a paste-by-ID global shortcut and explicitly protects the clip. Clearing the shortcut does not remove that protection.
 
 Smart Bin rules use the version 1 `clip_type`, `content_type`, `file_format`, and `source` collection axes. Conditions support case-insensitive `is` and `contains` operators and combine with `match: "any"` or `match: "all"`.
 

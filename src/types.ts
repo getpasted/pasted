@@ -82,6 +82,9 @@ export interface ClipItem {
   source: string;
   is_pinned: boolean;
   is_protected?: boolean;
+  is_explicitly_protected?: boolean | null;
+  protecting_bin_ids?: number[];
+  shortcut?: string | null;
   is_transformed?: boolean;
   pin_order?: number;
   bin_id: number | null;
@@ -180,6 +183,7 @@ export interface Bin {
   smart_rule?: string | null;
   bin_type?: 'category' | 'tag';
   shortcut?: string | null;
+  protect_clips?: boolean;
   clip_count?: number | null;
   clip_order?: number[];
   created_at: string;

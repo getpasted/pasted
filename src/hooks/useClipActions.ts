@@ -128,11 +128,20 @@ export function useClipActions({
   }, [allClips, fetchClips, onClipsRepositioned, onCollectionChanged, selectedClipIds, setAllClips, setSelectedClip]);
 
   const toggleProtected = useCallback((id: number) => {
+    const current = allClips.find((clip) => clip.id === id);
+    const explicit = current?.is_explicitly_protected ?? current?.is_protected ?? false;
+    if (!current || current.shortcut || (current.is_protected && !explicit)) return;
+    const nextExplicit = !explicit;
+    const update = (clip: ClipItem) => clip.id === id ? {
+      ...clip,
+      is_explicitly_protected: nextExplicit,
+      is_protected: nextExplicit || Boolean(clip.protecting_bin_ids?.length),
+    } : clip;
     setAllClips((previous) => previous.map((clip) => (
-      clip.id === id ? { ...clip, is_protected: !clip.is_protected } : clip
+      update(clip)
     )));
     setSelectedClip((previous) => previous?.id === id
-      ? { ...previous, is_protected: !previous.is_protected }
+      ? update(previous)
       : previous);
 
     void invoke('toggle_clip_protected', { clipId: id })
@@ -141,7 +150,7 @@ export function useClipActions({
         console.error('Failed to toggle protected state:', error);
         void fetchClips();
       });
-  }, [fetchClips, onCollectionChanged, setAllClips, setSelectedClip]);
+  }, [allClips, fetchClips, onCollectionChanged, setAllClips, setSelectedClip]);
 
   const setPinned = useCallback((id: number, pinState: boolean) => {
     const targetIds = selectedClipIds.size > 1 && selectedClipIds.has(id)
@@ -191,16 +200,26 @@ export function useClipActions({
       ? Array.from(selectedClipIds)
       : [id];
     const idsToChange = allClips
-      .filter((clip) => targetIds.includes(clip.id) && Boolean(clip.is_protected) !== protectedState)
+      .filter((clip) => targetIds.includes(clip.id)
+        && !clip.shortcut
+        && Boolean(clip.is_explicitly_protected ?? clip.is_protected) !== protectedState)
       .map((clip) => clip.id);
     if (idsToChange.length === 0) return;
     const changedIdSet = new Set(idsToChange);
 
     setAllClips((previous) => previous.map((clip) => (
-      changedIdSet.has(clip.id) ? { ...clip, is_protected: protectedState } : clip
+      changedIdSet.has(clip.id) ? {
+        ...clip,
+        is_explicitly_protected: protectedState,
+        is_protected: protectedState || Boolean(clip.protecting_bin_ids?.length),
+      } : clip
     )));
     setSelectedClip((previous) => previous && changedIdSet.has(previous.id)
-      ? { ...previous, is_protected: protectedState }
+      ? {
+        ...previous,
+        is_explicitly_protected: protectedState,
+        is_protected: protectedState || Boolean(previous.protecting_bin_ids?.length),
+      }
       : previous);
 
     void invoke('batch_protect_clips', { ids: idsToChange, protectedState })

@@ -668,6 +668,8 @@ pub fn run() {
             commands::extract_text_from_file_clip,
             commands::register_hud_shortcut,
             commands::update_bin_shortcut,
+            commands::update_bin_protection,
+            commands::update_clip_shortcut,
             commands::get_bin_transform_ref,
             commands::set_bin_transform_ref,
             commands::register_app_setting_hotkey,

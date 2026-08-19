@@ -4,6 +4,7 @@ Notable user-facing changes to Pasted are recorded here. The project follows sem
 
 ## Unreleased
 
+- added paste-by-ID global shortcuts for clips, automatic explicit protection for shortcut assignments, and inherited protection for every clip assigned to a manual Bin or Tag, with GUI, CLI, Activity, transfer, backup, Help, and localization parity.
 - added validated Full Backup and Full Restore across Settings and the CLI, covering every durable database table plus saved interface/window state and creating a pre-restore recovery snapshot automatically.
 - consolidated reporting exports under Storage and added History and Organization preflight summaries in the GUI and `pasted transfer` CLI workflow.
 - added one-step recovery for every trashed clip through Settings and `pasted clip restore-all`, with shared mutation summaries and Activity logging.

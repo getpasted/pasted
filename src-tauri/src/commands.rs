@@ -2869,6 +2869,62 @@ pub fn update_bin_shortcut(
 }
 
 #[tauri::command]
+pub fn update_bin_protection(
+    id: i64,
+    protect_clips: bool,
+    db: State<'_, Arc<DbState>>,
+    app: AppHandle,
+) -> Result<(), String> {
+    features::require(&db, Feature::Protection)?;
+    features::require(&db, Feature::Bins)?;
+    db.update_bin_protection(id, protect_clips)
+        .map_err(|error| error.to_string())?;
+    let _ = app.emit("clips-updated", ());
+    Ok(())
+}
+
+#[tauri::command]
+pub fn update_clip_shortcut(
+    clip_id: i64,
+    shortcut: Option<String>,
+    db: State<'_, Arc<DbState>>,
+    app: AppHandle,
+) -> Result<crate::db::ClipItem, String> {
+    features::require(&db, Feature::Protection)?;
+    let previous = db
+        .get_clip_by_id(clip_id)
+        .map_err(|error| error.to_string())?;
+    let previous_shortcut = previous.shortcut.clone();
+    let previous_explicit = previous
+        .is_explicitly_protected
+        .unwrap_or(previous.is_protected);
+    db.update_clip_shortcut(clip_id, shortcut.as_deref())
+        .map_err(|error| error.to_string())?;
+    if let Err(error) = register_all_app_shortcuts(&app) {
+        db.restore_clip_shortcut_state(clip_id, previous_shortcut.as_deref(), previous_explicit)
+            .map_err(|rollback| {
+                format!("{error}; restoring the previous clip shortcut failed: {rollback}")
+            })?;
+        let _ = register_all_app_shortcuts(&app);
+        return Err(error);
+    }
+    let assigned = shortcut
+        .as_deref()
+        .is_some_and(|value| !value.trim().is_empty());
+    let activity_description = if assigned {
+        format!("Assigned a shortcut to clip #{clip_id}")
+    } else {
+        format!("Removed the shortcut from clip #{clip_id}")
+    };
+    let _ = db.log_activity("clip_shortcut_changed", &activity_description);
+    let clip = db
+        .get_clip_by_id(clip_id)
+        .map_err(|error| error.to_string())?;
+    let _ = app.emit("clip-updated", serde_json::json!({ "id": clip_id }));
+    Ok(clip)
+}
+
+#[tauri::command]
 pub fn get_bin_transform_ref(
     bin_id: i64,
     db: State<'_, Arc<DbState>>,
@@ -5203,6 +5259,9 @@ mod tests {
             source: "Screenshot".to_string(),
             is_pinned: false,
             is_protected: false,
+            is_explicitly_protected: Some(false),
+            protecting_bin_ids: Vec::new(),
+            shortcut: None,
             is_transformed: false,
             pin_order: 0,
             bin_id: None,

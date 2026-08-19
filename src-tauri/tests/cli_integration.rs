@@ -626,6 +626,41 @@ fn bin_lifecycle_and_full_backup_inspection_run_end_to_end() {
 }
 
 #[test]
+fn clip_shortcuts_and_bin_protection_have_structured_cli_parity() {
+    let database = temporary_path("clip-shortcuts-bin-protection", "db");
+    let clip = success_json(&database, &["copy", "durable CLI clip", "--json"]);
+    let clip_id = clip["id"].as_i64().expect("clip ID").to_string();
+    let bin = success_json(
+        &database,
+        &["bin", "create", "--name", "Protected CLI Bin", "--json"],
+    );
+    let bin_id = bin["id"].as_i64().expect("Bin ID").to_string();
+
+    let shortcut = success_json(
+        &database,
+        &["clip", "shortcut", &clip_id, "Alt+Shift+7", "--json"],
+    );
+    assert_eq!(shortcut["clipId"].to_string(), clip_id);
+    assert_eq!(shortcut["shortcut"], "Alt+Shift+7");
+    assert_eq!(shortcut["protected"], true);
+
+    let protection = success_json(&database, &["bin", "protect", &bin_id, "on", "--json"]);
+    assert_eq!(protection["protectClips"], true);
+    success_json(&database, &["clip", "assign", &bin_id, &clip_id, "--json"]);
+
+    let fetched = success_json(&database, &["clip", "get", &clip_id, "--json"]);
+    assert_eq!(fetched["shortcut"], "Alt+Shift+7");
+    assert_eq!(fetched["is_protected"], true);
+    assert_eq!(fetched["is_explicitly_protected"], true);
+
+    let cleared = success_json(&database, &["clip", "shortcut", &clip_id, "none", "--json"]);
+    assert_eq!(cleared["shortcut"], Value::Null);
+    let fetched = success_json(&database, &["clip", "get", &clip_id, "--json"]);
+    assert_eq!(fetched["is_protected"], true);
+    clean_database(&database);
+}
+
+#[test]
 fn help_advertises_database_and_live_app_surfaces() {
     let database = temporary_path("help", "db");
     let output = run(&database, &["help"]);

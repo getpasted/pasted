@@ -12,12 +12,14 @@ import { useContentTypes } from './ContentTypeProvider';
 import { translate, type TranslationKey } from '../localization/runtime';
 import { localizedContentTypeGroupLabel } from '../localization/presentation';
 import { contentTypeLabel } from '../utils/contentTypes';
+import { SettingsSwitch } from './SettingsSwitch';
 
 interface SmartBinFeatures {
   clipTypes: boolean;
   fileFormats: boolean;
   sources: boolean;
   types: boolean;
+  protection: boolean;
 }
 
 interface BinModalProps {
@@ -372,6 +374,7 @@ export const BinModal: React.FC<BinModalProps> = ({
   const [installedApps, setInstalledApps] = useState<string[]>([]);
   const [transforms, setTransforms] = useState<TransformDefinition[]>([]);
   const [transformRef, setTransformRef] = useState('');
+  const [protectClips, setProtectClips] = useState(() => Boolean(editingBin?.protect_clips));
 
   // Multi-condition Smart Rules state
   const [conditions, setConditions] = useState<SmartConditionRow[]>(() => {
@@ -410,6 +413,7 @@ export const BinModal: React.FC<BinModalProps> = ({
         setName(editingBin.name);
         setSelectedColor(editingBin.color || 'default');
         setIcon(formatEmojiIcon(editingBin.icon));
+        setProtectClips(Boolean(editingBin.protect_clips));
         if (editingBin.smart_rule) {
           setModalTab('smart');
           try {
@@ -434,6 +438,7 @@ export const BinModal: React.FC<BinModalProps> = ({
         setName('');
         setSelectedColor('default');
         setIcon('📂');
+        setProtectClips(false);
         setModalTab('bin');
         setConditions([defaultSmartCondition(features)]);
       }
@@ -542,6 +547,9 @@ export const BinModal: React.FC<BinModalProps> = ({
           smartRule: smartRuleJson,
         });
         await invoke('set_bin_transform_ref', { binId: editingBin.id, transformRef: transformRef || null });
+        if (modalTab === 'bin' && features.protection) {
+          await invoke('update_bin_protection', { id: editingBin.id, protectClips });
+        }
       } else {
         const created = await invoke<Bin>('create_bin', {
           name: name.trim(),
@@ -550,6 +558,9 @@ export const BinModal: React.FC<BinModalProps> = ({
           smartRule: smartRuleJson,
         });
         await invoke('set_bin_transform_ref', { binId: created.id, transformRef: transformRef || null });
+        if (modalTab === 'bin' && features.protection && protectClips) {
+          await invoke('update_bin_protection', { id: created.id, protectClips: true });
+        }
       }
       setName('');
       onRefreshBins();
@@ -629,6 +640,7 @@ export const BinModal: React.FC<BinModalProps> = ({
     conditions,
     matchCondition,
     transformRef,
+    protectClips: modalTab === 'bin' && protectClips,
   }) !== JSON.stringify({
     modalTab: initial.modalTab,
     name: editingBin?.name || '',
@@ -637,6 +649,7 @@ export const BinModal: React.FC<BinModalProps> = ({
     conditions: initial.conditions,
     matchCondition: initial.matchCondition,
     transformRef: initialTransformRef.current,
+    protectClips: initial.modalTab === 'bin' && Boolean(editingBin?.protect_clips),
   });
 
   return (
@@ -859,6 +872,32 @@ export const BinModal: React.FC<BinModalProps> = ({
               searchPlaceholder={translate('component.binModal.searchTransforms')}
             />
           </div>
+
+          {features.protection && (
+            <div className="flex items-center gap-3">
+              <span className="w-20 shrink-0 text-end text-xs font-semibold theme-text-muted">
+                {translate('component.binModal.protection')}
+              </span>
+              <div className="theme-surface flex min-w-0 flex-1 items-center justify-between gap-3 rounded-xl border p-3">
+                <div className="min-w-0">
+                  <div className="text-xs font-semibold theme-text-main">
+                    {translate('component.binModal.protectClipsInThisBin')}
+                  </div>
+                  <p className="mt-0.5 text-[11px] theme-text-muted">
+                    {modalTab === 'smart'
+                      ? translate('component.binModal.smartBinsCannotProtectClips')
+                      : translate('component.binModal.binProtectionDoesNotChangeClipProtection')}
+                  </p>
+                </div>
+                <SettingsSwitch
+                  checked={modalTab === 'bin' && protectClips}
+                  disabled={modalTab === 'smart'}
+                  label={translate('component.binModal.protectClipsInThisBin')}
+                  onClick={() => setProtectClips((value) => !value)}
+                />
+              </div>
+            </div>
+          )}
 
           {/* Smart Bin Multi-Condition Builder */}
           {modalTab === 'smart' && (

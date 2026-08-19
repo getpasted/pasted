@@ -209,7 +209,7 @@ fn run_command(command: &str, args: &[String], db_path: PathBuf, conn: Connectio
                         .get_setting(pasted_lib::app_lock::LOCK_ON_SLEEP_SETTING)?
                         .as_deref()
                         != Some("false");
-                    if json {
+                    if args.iter().any(|argument| argument == "--json") {
                         println!(
                             "{}",
                             serde_json::json!({ "enabled": enabled, "systemAuthEnabled": lock_status.system_auth_enabled, "systemAuthAvailable": lock_status.system_auth_available, "systemAuthLabel": lock_status.system_auth_label, "appleWatchEnabled": lock_status.apple_watch_enabled, "appleWatchAvailable": lock_status.apple_watch_available, "idleMinutes": idle_minutes, "lockOnSleep": lock_on_sleep, "lockOnRestart": lock_status.lock_on_restart, "captureWhileLocked": lock_status.capture_while_locked })
@@ -3343,6 +3343,9 @@ fn run_command(command: &str, args: &[String], db_path: PathBuf, conn: Connectio
                     if let Some(transform_ref) = db.get_bin_transform_ref(source.id)? {
                         db.set_bin_transform_ref(duplicate.id, Some(&transform_ref))?;
                     }
+                    if source.protect_clips {
+                        db.update_bin_protection(duplicate.id, true)?;
+                    }
                     print_bin(
                         &db.get_bin(duplicate.id)?,
                         args.iter().any(|argument| argument == "--json"),
@@ -3462,8 +3465,42 @@ fn run_command(command: &str, args: &[String], db_path: PathBuf, conn: Connectio
                         println!("Updated the shortcut for Bin #{bin_id}.");
                     }
                 }
+                "protect" | "protection" => {
+                    require_feature(&db, Feature::Protection);
+                    let bin_id = parse_i64_argument(
+                        &args,
+                        3,
+                        "Usage: pasted bin protect <bin-id> <on|off> [--json]",
+                    );
+                    let value = args.get(4).map(String::as_str).unwrap_or_else(|| {
+                        eprintln!("Usage: pasted bin protect <bin-id> <on|off> [--json]");
+                        std::process::exit(2);
+                    });
+                    let protect_clips = match value {
+                        "on" | "true" | "yes" => true,
+                        "off" | "false" | "no" => false,
+                        _ => {
+                            eprintln!("Bin protection must be on or off.");
+                            std::process::exit(2);
+                        }
+                    };
+                    db.update_bin_protection(bin_id, protect_clips)?;
+                    if args.iter().any(|argument| argument == "--json") {
+                        println!(
+                            "{}",
+                            serde_json::json!({
+                                "binId": bin_id,
+                                "protectClips": protect_clips
+                            })
+                        );
+                    } else if protect_clips {
+                        println!("Enabled inherited protection for Bin #{bin_id}.");
+                    } else {
+                        println!("Disabled inherited protection for Bin #{bin_id}.");
+                    }
+                }
                 _ => {
-                    eprintln!("Usage: pasted bin list|get|create|update|duplicate|delete|clips|order|transform|shortcut [options] [--json]");
+                    eprintln!("Usage: pasted bin list|get|create|update|duplicate|delete|clips|order|transform|shortcut|protect [options] [--json]");
                     std::process::exit(2);
                 }
             }
@@ -3673,6 +3710,42 @@ fn run_command(command: &str, args: &[String], db_path: PathBuf, conn: Connectio
                     let result = send_live_or_exit(action);
                     print_live_result(&result, json)?;
                 }
+                "shortcut" => {
+                    require_feature(&db, Feature::Protection);
+                    let clip_id = parse_i64_argument(
+                        &args,
+                        3,
+                        "Usage: pasted clip shortcut <clip-id> <shortcut|none> [--json]",
+                    );
+                    let value = args.get(4).unwrap_or_else(|| {
+                        eprintln!("Usage: pasted clip shortcut <clip-id> <shortcut|none> [--json]");
+                        std::process::exit(2);
+                    });
+                    let shortcut = (!matches!(value.as_str(), "none" | "null" | "-"))
+                        .then_some(value.as_str());
+                    db.update_clip_shortcut(clip_id, shortcut)?;
+                    let description = if shortcut.is_some() {
+                        format!("Assigned a shortcut to clip #{clip_id}")
+                    } else {
+                        format!("Removed the shortcut from clip #{clip_id}")
+                    };
+                    db.log_activity("clip_shortcut_changed", &description)?;
+                    let updated = db.get_clip_by_id(clip_id)?;
+                    if json {
+                        println!(
+                            "{}",
+                            serde_json::json!({
+                                "clipId": clip_id,
+                                "shortcut": shortcut,
+                                "protected": updated.is_protected
+                            })
+                        );
+                    } else if shortcut.is_some() {
+                        println!("Assigned a shortcut to protected clip #{clip_id}.");
+                    } else {
+                        println!("Removed the shortcut from clip #{clip_id}; existing protection was unchanged.");
+                    }
+                }
                 "pin" | "unpin" => {
                     require_feature(&db, Feature::Pinning);
                     let ids = parse_clip_ids(&args, 3);
@@ -3789,7 +3862,7 @@ fn run_command(command: &str, args: &[String], db_path: PathBuf, conn: Connectio
                     print_mutation_summary(&outcome.mutation, json)?;
                 }
                 _ => {
-                    eprintln!("Usage: pasted clip get|note|revisions|restore-revision|provenance|copy|paste|pin|unpin|order-pinned|protect|unprotect|trash|restore|restore-all|purge|empty-trash|assign|remove-bin|export|import [options] [--json]");
+                    eprintln!("Usage: pasted clip get|note|revisions|restore-revision|provenance|copy|paste|shortcut|pin|unpin|order-pinned|protect|unprotect|trash|restore|restore-all|purge|empty-trash|assign|remove-bin|export|import [options] [--json]");
                     std::process::exit(2);
                 }
             }
@@ -4105,10 +4178,12 @@ fn run_command(command: &str, args: &[String], db_path: PathBuf, conn: Connectio
             println!("  pasted bin list|get|create|update|duplicate|delete [--json]");
             println!("  pasted bin clips <id> --json List clips in persistent Bin order");
             println!("  pasted bin order <id> <clip-id>... Persist a complete Bin order");
+            println!("  pasted bin protect <id> <on|off> [--json]");
             println!("  pasted clip get <id> --json Inspect one clip");
             println!(
                 "  pasted clip copy|paste <id> [--json] Use the running app and system clipboard"
             );
+            println!("  pasted clip shortcut <id> <shortcut|none> [--json]");
             println!("  pasted clip pin|unpin <id>... [--json]");
             println!("  pasted clip order-pinned <id>... [--json]");
             println!("  pasted clip protect|unprotect <id>... [--json]");
