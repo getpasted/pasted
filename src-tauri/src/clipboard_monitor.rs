@@ -176,6 +176,30 @@ fn is_recent_capture(capture: &RecentImageCapture) -> bool {
     capture.captured_at.elapsed() <= COMPOSITE_CAPTURE_WINDOW
 }
 
+#[cfg(target_os = "macos")]
+fn clipboard_change_marker() -> Option<i64> {
+    use objc::runtime::Object;
+    use objc::{msg_send, sel, sel_impl};
+
+    unsafe {
+        let pasteboard: *mut Object = msg_send![objc::class!(NSPasteboard), generalPasteboard];
+        if pasteboard.is_null() {
+            return None;
+        }
+        let change_count: isize = msg_send![pasteboard, changeCount];
+        i64::try_from(change_count).ok()
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+fn clipboard_change_marker() -> Option<i64> {
+    None
+}
+
+fn already_processed_change(marker: Option<i64>, processed: Option<i64>) -> bool {
+    marker.is_some() && marker == processed
+}
+
 fn image_file_rgba_fingerprint(path: &Path) -> Option<String> {
     use std::io::Read;
 
@@ -265,6 +289,7 @@ pub fn start_clipboard_monitor(
         };
 
         let mut last_hash = String::new();
+        let mut last_processed_change_marker = None;
         let mut auto_paused_app: Option<String> = None;
         let mut recent_image_capture: Option<RecentImageCapture> = None;
 
@@ -323,6 +348,11 @@ pub fn start_clipboard_monitor(
             let capture_suppressed = app
                 .try_state::<Arc<crate::app_lock::AppLockState>>()
                 .is_some_and(|state| !crate::app_lock::capture_allowed(&db_state, &state));
+
+            let change_marker = clipboard_change_marker();
+            if already_processed_change(change_marker, last_processed_change_marker) {
+                continue;
+            }
 
             let clipboard_files = clipboard.get().file_list().unwrap_or_default();
 
@@ -402,6 +432,7 @@ pub fn start_clipboard_monitor(
             // A single image file accompanied by bitmap bytes is resolved above so screenshot
             // tools retain image/OCR behavior while explicit file-manager copies remain files.
             if !prefer_composite_image && !clipboard_files.is_empty() {
+                last_processed_change_marker = change_marker;
                 let files = &clipboard_files;
                 let paths: Vec<String> = files
                     .iter()
@@ -516,6 +547,7 @@ pub fn start_clipboard_monitor(
             };
             if let Some(text) = clipboard_text {
                 if !text.is_empty() {
+                    last_processed_change_marker = change_marker;
                     let hash = crate::clipboard_fingerprint::text(&text);
 
                     if hash != last_hash {
@@ -617,6 +649,7 @@ pub fn start_clipboard_monitor(
 
             // Attempt to read image
             if let Some(img) = composite_image.or_else(|| clipboard.get_image().ok()) {
+                last_processed_change_marker = change_marker;
                 let (Ok(width), Ok(height)) = (u32::try_from(img.width), u32::try_from(img.height))
                 else {
                     report_ignored_capture(
@@ -766,9 +799,9 @@ fn rgba_to_png(width: u32, height: u32, rgba_data: &[u8]) -> Option<Vec<u8>> {
 #[cfg(test)]
 mod tests {
     use super::{
-        capture_feedback_payload, composite_image_source, image_file_rgba_fingerprint,
-        inferred_screenshot_source, is_pasted_source, prefer_bitmap_for_image_file,
-        resolved_capture_source, CaptureFeedbackKind,
+        already_processed_change, capture_feedback_payload, composite_image_source,
+        image_file_rgba_fingerprint, inferred_screenshot_source, is_pasted_source,
+        prefer_bitmap_for_image_file, resolved_capture_source, CaptureFeedbackKind,
     };
     use std::path::Path;
 
@@ -818,6 +851,14 @@ mod tests {
             resolved_capture_source(Some("Finder"), Some("CleanShot X")),
             Some("Finder")
         );
+    }
+
+    #[test]
+    fn unchanged_macos_pasteboard_generation_is_not_reprocessed() {
+        assert!(!already_processed_change(Some(42), None));
+        assert!(!already_processed_change(Some(43), Some(42)));
+        assert!(already_processed_change(Some(42), Some(42)));
+        assert!(!already_processed_change(None, None));
     }
 
     #[test]

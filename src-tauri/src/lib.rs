@@ -328,6 +328,7 @@ pub fn run() {
                 #[cfg(target_os = "macos")]
                 {
                     setup_window_vibrancy(&main_win);
+                    titlebar::install_focus_observers(&main_win)?;
                 }
             }
 
@@ -500,6 +501,12 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| {
+            if let tauri::WindowEvent::Focused(true) = event {
+                if let Some(webview) = window.app_handle().get_webview_window(window.label()) {
+                    let _ = webview
+                        .eval("document.documentElement.removeAttribute('data-window-inactive');");
+                }
+            }
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 let _ = window.hide();
                 api.prevent_close();

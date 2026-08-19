@@ -20,6 +20,19 @@ const initialLocalization = getLocalizationSnapshot();
 document.documentElement.lang = initialLocalization.locale;
 document.documentElement.dir = initialLocalization.direction;
 
+const markWindowActive = () => {
+  document.documentElement.removeAttribute('data-window-inactive');
+};
+
+// WebKit can defer cross-process focus delivery during app activation. Keep
+// inactive writes local to the page so a queued native blur cannot arrive
+// after focus and turn the traffic lights gray again.
+window.addEventListener('blur', () => {
+  document.documentElement.setAttribute('data-window-inactive', '');
+});
+window.addEventListener('focus', markWindowActive);
+window.addEventListener('pointerdown', markWindowActive, { capture: true });
+
 const rootView = new URLSearchParams(window.location.search).get("view");
 if (rootView === "capture-feedback") {
   document.documentElement.classList.add("capture-feedback-mode");

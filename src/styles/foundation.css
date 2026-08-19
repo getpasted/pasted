@@ -19,6 +19,7 @@ bdi {
   --mac-traffic-close: #ff5f57;
   --mac-traffic-minimize: #febc2e;
   --mac-traffic-zoom: #28c840;
+  --mac-traffic-inactive: #3f3f3f;
   --mac-traffic-border: rgb(0 0 0 / 18%);
   --mac-traffic-glyph: rgb(0 0 0 / 55%);
   --mac-traffic-glyph-highlight: rgb(255 255 255 / 18%);
