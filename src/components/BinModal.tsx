@@ -172,7 +172,9 @@ function SmartConditionValueInput({
   const inputRef = useRef<HTMLInputElement>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [showAll, setShowAll] = useState(true);
-  const normalizedValue = value.trim().toLowerCase();
+  const selectedChoice = choices.find((choice) => choice.value === value);
+  const displayedValue = selectedChoice?.label ?? value;
+  const normalizedValue = displayedValue.trim().toLowerCase();
   const visibleChoices = showAll || !normalizedValue
     ? choices
     : choices.filter((choice) => (
@@ -188,7 +190,7 @@ function SmartConditionValueInput({
       aria-autocomplete="list"
       aria-expanded={isOpen}
       placeholder={label}
-      value={value}
+      value={displayedValue}
       onFocus={() => {
         setShowAll(true);
         setIsOpen(true);
