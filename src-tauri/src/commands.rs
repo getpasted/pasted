@@ -2656,10 +2656,12 @@ pub(crate) fn execute_clipboard_pipeline(
         .set_text(&outcome.output)
         .map_err(|error| error.to_string())?;
     if paste_result {
-        thread::spawn(|| {
-            thread::sleep(Duration::from_millis(50));
-            let _ = simulate_cmd_v_paste();
-        });
+        // Hotkey callers run this function on a worker while holding the
+        // clipboard-action guard. Keep that guard until the synthetic paste
+        // has fired so another hotkey cannot replace the transformed output
+        // during this short focus-settling delay.
+        thread::sleep(Duration::from_millis(50));
+        let _ = simulate_cmd_v_paste();
     }
     Ok(outcome)
 }

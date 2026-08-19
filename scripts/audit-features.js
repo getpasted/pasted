@@ -130,6 +130,11 @@ assert.match(hotkeyManager, /get_bin_hotkeys\(\)/,
   'Hotkey rebuilds must not load full Bin records');
 assert.match(hotkeyManager, /get_pipeline_hotkeys\(\)/,
   'Hotkey rebuilds must not load full Transform plans');
+assert.doesNotMatch(
+  nativeCommands.match(/pub\(crate\) fn execute_clipboard_pipeline[\s\S]*?\n\}/)?.[0] ?? '',
+  /thread::spawn/,
+  'Transform hotkeys must retain clipboard serialization until the synthetic paste fires',
+);
 assert.doesNotMatch(settingsHotkeys, /setInterval\(/,
   'Hotkey Settings status must remain event-driven instead of polling');
 assert.match(
