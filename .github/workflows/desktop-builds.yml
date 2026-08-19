@@ -111,6 +111,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
+          shared-key: native-debug-linux
       - name: Install Linux test dependencies
         timeout-minutes: 8
         env:
@@ -132,7 +133,7 @@ jobs:
     if: >-
       always() &&
       (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
-    needs: [validation-scope, validate-frontend, validate-native, smoke]
+    needs: [validation-scope, validate-frontend, validate-native, smoke-macos, smoke-linux, smoke-windows]
     runs-on: ubuntu-22.04
     steps:
       - name: Confirm validation results
@@ -141,50 +142,71 @@ jobs:
           FRONTEND_RESULT: ${{ needs.validate-frontend.result }}
           NATIVE_REQUIRED: ${{ needs.validation-scope.outputs.native }}
           NATIVE_RESULT: ${{ needs.validate-native.result }}
-          SMOKE_RESULT: ${{ needs.smoke.result }}
+          MACOS_RESULT: ${{ needs.smoke-macos.result }}
+          LINUX_RESULT: ${{ needs.smoke-linux.result }}
+          WINDOWS_RESULT: ${{ needs.smoke-windows.result }}
           EVENT_NAME: ${{ github.event_name }}
         run: |
           test "$SCOPE_RESULT" = "success"
           test "$FRONTEND_RESULT" = "success"
-          if test "$EVENT_NAME" = "pull_request"; then
+          if test "$EVENT_NAME" = "pull_request" && test "$NATIVE_REQUIRED" = "true"; then
             test "$NATIVE_RESULT" = "skipped"
-            test "$SMOKE_RESULT" = "success"
+            test "$MACOS_RESULT" = "success"
+            test "$LINUX_RESULT" = "success"
+            test "$WINDOWS_RESULT" = "success"
+          elif test "$EVENT_NAME" = "pull_request"; then
+            test "$NATIVE_RESULT" = "skipped"
+            test "$MACOS_RESULT" = "skipped"
+            test "$LINUX_RESULT" = "skipped"
+            test "$WINDOWS_RESULT" = "skipped"
           elif test "$NATIVE_REQUIRED" = "true"; then
             test "$NATIVE_RESULT" = "success"
-            test "$SMOKE_RESULT" = "skipped"
+            test "$MACOS_RESULT" = "skipped"
+            test "$LINUX_RESULT" = "skipped"
+            test "$WINDOWS_RESULT" = "skipped"
           else
             test "$NATIVE_RESULT" = "skipped"
-            test "$SMOKE_RESULT" = "skipped"
+            test "$MACOS_RESULT" = "skipped"
+            test "$LINUX_RESULT" = "skipped"
+            test "$WINDOWS_RESULT" = "skipped"
           fi
 
-  smoke:
-    name: Smoke ${{ matrix.name }}
+  smoke-macos:
+    name: Smoke macOS native
     if: >-
       github.event_name == 'pull_request' &&
-      github.event.pull_request.draft == false
+      github.event.pull_request.draft == false &&
+      needs.validation-scope.outputs.native == 'true'
     needs: [validation-scope, dependency-review, dependency-policy]
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: macOS native
-            os: macos-latest
-          - name: Linux x86_64
-            os: ubuntu-22.04
-          - name: Windows x86_64
-            os: windows-latest
-    runs-on: ${{ matrix.os }}
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v7
-        if: needs.validation-scope.outputs.native == 'true'
       - uses: dtolnay/rust-toolchain@stable
-        if: needs.validation-scope.outputs.native == 'true'
       - uses: Swatinem/rust-cache@v2
-        if: needs.validation-scope.outputs.native == 'true'
         with:
           workspaces: src-tauri
+          shared-key: native-debug-macos
+      - name: Compile native tests and binaries
+        run: cargo test --manifest-path src-tauri/Cargo.toml --no-run --locked
+
+  smoke-linux:
+    name: Smoke Linux x86_64
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.draft == false &&
+      needs.validation-scope.outputs.native == 'true'
+    needs: [validation-scope, dependency-review, dependency-policy]
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          shared-key: native-debug-linux
       - name: Install Linux build dependencies
-        if: needs.validation-scope.outputs.native == 'true' && runner.os == 'Linux'
         timeout-minutes: 8
         env:
           DEBIAN_FRONTEND: noninteractive
@@ -199,15 +221,33 @@ jobs:
             librsvg2-dev \
             tesseract-ocr
       - name: Run native validation
-        if: needs.validation-scope.outputs.native == 'true' && runner.os == 'Linux'
         run: npm run test:native
+
+  smoke-windows:
+    name: Smoke Windows x86_64
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.draft == false &&
+      needs.validation-scope.outputs.native == 'true'
+    needs: [validation-scope, dependency-review, dependency-policy]
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          shared-key: native-debug-windows
       - name: Compile native tests and binaries
-        if: needs.validation-scope.outputs.native == 'true' && runner.os != 'Linux'
         run: cargo test --manifest-path src-tauri/Cargo.toml --no-run --locked
 
   package:
     name: Package ${{ matrix.name }}
-    if: github.event_name != 'pull_request'
+    if: >-
+      always() &&
+      github.event_name != 'pull_request' &&
+      needs.validate.result == 'success' &&
+      needs.dependency-policy.result == 'success'
     needs: [validate, dependency-policy]
     strategy:
       fail-fast: false
@@ -315,7 +355,11 @@ jobs:
 
   package-macos-cli:
     name: Package macOS universal CLI
-    if: github.event_name != 'pull_request'
+    if: >-
+      always() &&
+      github.event_name != 'pull_request' &&
+      needs.validate.result == 'success' &&
+      needs.dependency-policy.result == 'success'
     needs: [validate, dependency-policy]
     runs-on: macos-latest
     steps:
@@ -348,7 +392,10 @@ jobs:
 
   package-macos-dmg:
     name: Package macOS universal DMG
-    if: github.event_name != 'pull_request'
+    if: >-
+      always() &&
+      github.event_name != 'pull_request' &&
+      needs.package-macos-cli.result == 'success'
     needs: [package-macos-cli]
     runs-on: macos-latest
     env:
@@ -400,7 +447,11 @@ jobs:
 
   package-macos-artifact:
     name: Audit macOS packaged artifact
-    if: github.event_name != 'pull_request'
+    if: >-
+      always() &&
+      github.event_name != 'pull_request' &&
+      needs.package-macos-cli.result == 'success' &&
+      needs.package-macos-dmg.result == 'success'
     needs: [package-macos-cli, package-macos-dmg]
     runs-on: macos-latest
     steps:
