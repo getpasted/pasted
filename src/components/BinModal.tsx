@@ -157,6 +157,113 @@ function SmartConditionTargetSelect({
   </>;
 }
 
+function SmartConditionValueInput({
+  value,
+  choices,
+  label,
+  onChange,
+}: {
+  value: string;
+  choices: SmartTargetChoice[];
+  label: string;
+  onChange: (value: string) => void;
+}) {
+  const anchorRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [isOpen, setIsOpen] = useState(false);
+  const [showAll, setShowAll] = useState(true);
+  const normalizedValue = value.trim().toLowerCase();
+  const visibleChoices = showAll || !normalizedValue
+    ? choices
+    : choices.filter((choice) => (
+      `${choice.label} ${choice.value}`.toLowerCase().includes(normalizedValue)
+    ));
+
+  return <div ref={anchorRef} className="theme-input form-field-valid flex min-w-0 flex-1 items-center rounded-lg border">
+    <input
+      ref={inputRef}
+      type="text"
+      role="combobox"
+      aria-label={label}
+      aria-autocomplete="list"
+      aria-expanded={isOpen}
+      placeholder={label}
+      value={value}
+      onFocus={() => {
+        setShowAll(true);
+        setIsOpen(true);
+      }}
+      onChange={(event) => {
+        setShowAll(false);
+        setIsOpen(true);
+        onChange(event.target.value);
+      }}
+      onKeyDown={(event) => {
+        if (event.key !== 'ArrowDown') return;
+        event.preventDefault();
+        setShowAll(true);
+        setIsOpen(true);
+      }}
+      className="bidi-content min-w-0 flex-1 bg-transparent px-3 py-1.5 text-xs font-semibold focus:outline-none"
+    />
+    <button
+      type="button"
+      className="theme-text-muted grid self-stretch shrink-0 place-items-center px-2"
+      aria-label={label}
+      aria-haspopup="menu"
+      aria-expanded={isOpen}
+      onClick={() => {
+        if (isOpen) {
+          setIsOpen(false);
+          return;
+        }
+        setShowAll(true);
+        setIsOpen(true);
+        inputRef.current?.focus({ preventScroll: true });
+      }}
+    >
+      <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isOpen ? 'rotate-180' : ''}`} aria-hidden="true" />
+    </button>
+    {isOpen && (
+      <AnchoredMenu
+        anchor={{ kind: 'element', ref: anchorRef, align: 'start', gap: 4 }}
+        ariaLabel={label}
+        onClose={() => setIsOpen(false)}
+        restoreFocus={false}
+        className="max-h-72 overflow-y-auto"
+        style={{ width: anchorRef.current?.getBoundingClientRect().width ?? 220 }}
+      >
+        {visibleChoices.map((choice, index) => <React.Fragment key={choice.value}>
+          {choice.group && choice.group !== visibleChoices[index - 1]?.group && (
+            <div className={`theme-text-subtle px-2.5 pb-1 pt-2 text-[10px] font-bold uppercase tracking-wider ${index > 0 ? 'theme-divider mt-1 border-t' : ''}`}>
+              {choice.group}
+            </div>
+          )}
+          <MenuItem
+            active={value === choice.value}
+            disabled={choice.disabled}
+            role="menuitemradio"
+            aria-checked={value === choice.value}
+            className="px-2.5 py-1.5"
+            onClick={() => {
+              if (choice.disabled) return;
+              onChange(choice.value);
+              setIsOpen(false);
+            }}
+          >
+            {choice.label}
+          </MenuItem>
+        </React.Fragment>)}
+        {visibleChoices.length === 0 && (
+          <div className="theme-text-subtle px-3 py-4 text-center text-xs">
+            {translate('component.menuSelect.noMatches')}
+          </div>
+        )}
+      </AnchoredMenu>
+    )}
+  </div>;
+}
+
 const STRUCTURAL_CLIP_TYPES = new Set(['text', 'image', 'file']);
 
 function normalizeSmartCondition(condition: any, index: number): SmartConditionRow {
@@ -535,7 +642,7 @@ export const BinModal: React.FC<BinModalProps> = ({
       onClose={onClose}
       labelledBy="bin-modal-title"
       isDirty={isDirty}
-      panelClassName="bin-modal-card theme-panel w-full max-w-xl max-h-[90vh] border shadow-2xl overflow-hidden flex flex-col font-sans"
+      panelClassName="bin-modal-card theme-panel w-full max-w-2xl max-h-[90vh] border shadow-2xl overflow-hidden flex flex-col font-sans"
     >
       {({ requestClose }) => <>
         <AppDialogHeader onClose={requestClose}>
@@ -798,12 +905,11 @@ export const BinModal: React.FC<BinModalProps> = ({
                       compact
                     />
                   ) : c.target === 'file_format' || c.target === 'source' || c.target === 'content_type' ? (
-                    <input
-                      type="text"
-                      placeholder={targetLabels[c.target]}
+                    <SmartConditionValueInput
+                      label={targetLabels[c.target]}
                       value={c.value}
-                      onChange={(event) => handleUpdateCondition(c.id, { value: event.target.value })}
-                      className="min-w-0 flex-1 theme-input form-field-valid rounded-lg border px-3 py-1.5 text-xs font-semibold focus:outline-none"
+                      choices={targetSectionsFor(c).find((section) => section.target === c.target)?.choices ?? []}
+                      onChange={(value) => handleUpdateCondition(c.id, { value })}
                     />
                   ) : c.target === 'origin_kind' ? (
                     <MenuSelect
