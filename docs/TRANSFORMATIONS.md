@@ -42,8 +42,8 @@ The pre-1.0 storage decision and migration boundary are documented in
 
 Structured lifecycle output is available with `--json`.
 
-The standalone CLI persists shortcut changes through the shared database. If
-the GUI is already running, its native global-shortcut registration is refreshed
+The standalone CLI persists hotkey changes through the shared database. If
+the GUI is already running, its native global-hotkey registration is refreshed
 on the next app launch; other lifecycle changes are visible after the normal
 library refresh.
 
@@ -76,7 +76,7 @@ Input is immutable for an execution. Pasted should retain enough provenance to e
 ### Paste
 
 - Transform and paste into the frontmost application without first mutating stored history.
-- Support “Paste with last Transform” and a direct shortcut for any favorite manually built Transform.
+- Support “Paste with last Transform” and a direct hotkey for any favorite manually built Transform.
 
 ### Capture
 
@@ -115,13 +115,13 @@ Destinations may be composed only when the UI states each side effect clearly. �
 6. Every execution records its Transform or Operation version, trigger, destination, duration, and outcome.
 7. A failed automatic transformation never destroys or hides the captured source.
 
-## Shortcut and last-used contract
+## Hotkey and last-used contract
 
 - A manually built Transform becomes the last-used Transform only after a successful execution.
 - Failed Operation or Transform execution never replaces that reference.
 - Deleting the referenced Transform makes the next last-Transform action fail
   explicitly and clears the stale reference.
-- Per-Transform shortcuts transform the current clipboard and paste the result.
+- Per-Transform hotkeys transform the current clipboard and paste the result.
 - `copyLastPipelineHotkey` transforms the current clipboard and leaves the
   result on the clipboard.
 - `pasteLastPipelineHotkey` transforms the current clipboard, updates it, and
@@ -130,7 +130,7 @@ Destinations may be composed only when the UI states each side effect clearly. �
 
 ## Competitor lessons
 
-- Pastebot makes filtering a late-bound choice before copy or paste, with shortcuts for the last or a specific filter.
+- Pastebot makes filtering a late-bound choice before copy or paste, with hotkeys for the last or a specific filter.
 - Alfred models work as explicit triggers, inputs, actions, utilities, and outputs, including clipboard-history placeholders.
 - Raycast treats clipboard entries and selected text as inputs, supports alternate paste formats, dynamic placeholders, scripts, and AI commands.
 - TextExpander runs at expansion time and combines stored text with clipboard variables, fill-ins, cursor placement, nesting, and scripts.

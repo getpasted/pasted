@@ -18,7 +18,7 @@ type MockClip = {
   is_protected: number;
   is_explicitly_protected?: boolean;
   protecting_bin_ids?: number[];
-  shortcut?: string | null;
+  hotkey?: string | null;
   is_transformed?: number;
   pin_order: number;
   is_trashed: number;
@@ -37,6 +37,7 @@ type MockBin = {
   bin_type: string;
   clip_order?: number[];
   protect_clips?: boolean;
+  hotkey?: string | null;
 };
 
 let mockClips: MockClip[] = [
@@ -110,7 +111,7 @@ function withMockProtection(clip: MockClip) {
   return {
     ...clip,
     is_explicitly_protected: explicitlyProtected,
-    is_protected: explicitlyProtected || Boolean(clip.shortcut) || protectingBinIds.length > 0,
+    is_protected: explicitlyProtected || Boolean(clip.hotkey) || protectingBinIds.length > 0,
     protecting_bin_ids: protectingBinIds,
   };
 }
@@ -223,7 +224,7 @@ const mockPipelines = [
     id: 1,
     stableRef: 'transform:mock-uppercase',
     name: 'Uppercase',
-    shortcut: null,
+    hotkey: null,
     revision: 1,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -233,7 +234,7 @@ const mockPipelines = [
     id: 2,
     stableRef: 'transform:mock-clean-url',
     name: 'Clean URL',
-    shortcut: null,
+    hotkey: null,
     revision: 1,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -1333,13 +1334,17 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       if (bin && !bin.smart_rule) bin.protect_clips = Boolean(args?.protectClips);
       return null as unknown as T;
     }
-    case 'update_clip_shortcut': {
+    case 'get_clip_hotkey_assignments':
+      return mockClips
+        .filter((clip) => Boolean(clip.hotkey))
+        .map((clip) => ({ clipId: clip.id, hotkey: clip.hotkey })) as unknown as T;
+    case 'update_clip_hotkey': {
       const clip = mockClips.find((item) => item.id === Number(args?.clipId));
       if (clip) {
-        clip.shortcut = typeof args?.shortcut === 'string' && args.shortcut.trim()
-          ? args.shortcut.trim()
+        clip.hotkey = typeof args?.hotkey === 'string' && args.hotkey.trim()
+          ? args.hotkey.trim()
           : null;
-        if (clip.shortcut) {
+        if (clip.hotkey) {
           clip.is_protected = 1;
           clip.is_explicitly_protected = true;
         }

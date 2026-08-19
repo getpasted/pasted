@@ -82,7 +82,7 @@ export const SequentialQueueBar: React.FC<SequentialQueueBarProps> = ({
 
       {/* Helper text */}
       <p className="text-[11px] theme-text-muted leading-normal mt-2">
-        {translate('component.sequentialQueueBar.shortcutDescription', { toggleShortcut: '⌥⇧C', pasteShortcut: '⌥⇧X' })}
+        {translate('component.sequentialQueueBar.hotkeyDescription', { toggleHotkey: '⌥⇧C', pasteHotkey: '⌥⇧X' })}
       </p>
 
       {queue.length > 0 && canPasteAutomatically && (

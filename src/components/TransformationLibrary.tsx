@@ -11,6 +11,7 @@ import { TransformLibraryToolbar } from './TransformLibraryToolbar';
 import { ActionButton } from './AppDialogLayout';
 import { translate } from '../localization/runtime';
 import { localizedBuiltinName } from '../localization/presentation';
+import { useFeatures } from '../hooks/useFeatures';
 
 type LibrarySelection = { stableRef: string };
 type TransformLibraryItem =
@@ -34,7 +35,7 @@ interface TransformationLibraryProps {
   onDuplicatePipeline: (pipeline: Pipeline) => void;
   onDeleteTransform: (transform: SavedTransform) => void;
   onDeletePipeline: (pipeline: Pipeline) => void;
-  onPipelineShortcutChange: (pipeline: Pipeline, shortcut: string | null) => void;
+  onPipelineHotkeyChange: (pipeline: Pipeline, hotkey: string | null) => void;
 }
 
 export function TransformationLibrary({
@@ -54,8 +55,9 @@ export function TransformationLibrary({
   onDuplicatePipeline,
   onDeleteTransform,
   onDeletePipeline,
-  onPipelineShortcutChange,
+  onPipelineHotkeyChange,
 }: TransformationLibraryProps) {
+  const features = useFeatures();
   const [selection, setSelection] = useState<LibrarySelection | null>(null);
   const visibleItems = useMemo<TransformLibraryItem[]>(() => {
     const items: TransformLibraryItem[] = [
@@ -145,7 +147,7 @@ export function TransformationLibrary({
               onEdit={() => onEditPipeline(effectiveItem.item)}
               onDuplicate={() => onDuplicatePipeline(effectiveItem.item)}
               onDelete={() => onDeletePipeline(effectiveItem.item)}
-              onShortcutChange={(shortcut) => onPipelineShortcutChange(effectiveItem.item, shortcut)}
+              onHotkeyChange={features.hotkeys ? (hotkey) => onPipelineHotkeyChange(effectiveItem.item, hotkey) : undefined}
             />
           ) : (
             <div className="grid min-h-72 place-items-center text-center"><p className="theme-text-muted text-xs">{translate('component.transformationLibrary.selectOrCreateALibraryItem')}</p></div>
@@ -215,7 +217,7 @@ function PipelineDetails({
   onEdit,
   onDuplicate,
   onDelete,
-  onShortcutChange,
+  onHotkeyChange,
 }: {
   pipeline: Pipeline;
   operations: Operation[];
@@ -223,7 +225,7 @@ function PipelineDetails({
   onEdit: () => void;
   onDuplicate: () => void;
   onDelete: () => void;
-  onShortcutChange: (shortcut: string | null) => void;
+  onHotkeyChange?: (hotkey: string | null) => void;
 }) {
   return (
     <div className="flex h-full flex-col gap-4">
@@ -231,7 +233,7 @@ function PipelineDetails({
         icon={<Workflow className="h-5 w-5" />}
         title={pipeline.name}
         meta={translate('component.transformationLibrary.transformLocalBuilderRevisionRevision', { revision: pipeline.revision })}
-        trailing={<HotkeyRecorder value={pipeline.shortcut} onChange={onShortcutChange} />}
+        trailing={onHotkeyChange ? <HotkeyRecorder value={pipeline.hotkey} onChange={onHotkeyChange} /> : undefined}
         iconClassName="transform-accent pipelines"
       />
       <ol className="space-y-2">

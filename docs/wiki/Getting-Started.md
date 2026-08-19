@@ -9,7 +9,7 @@
 
 Pasted begins listening while it is running. Copy text, an image, a screenshot, a PDF, or files and they appear in **History**.
 
-The first-run setup explains local storage, offers to merge supported Alfred, Pastebot, Pasta, Paste, CopyClip 2, Maccy, or Flycut text history, and checks shortcut access. Every step can be skipped, and the setup can be reopened from **Settings → General**.
+The first-run setup explains local storage, offers to merge supported Alfred, Pastebot, Pasta, Paste, CopyClip 2, Maccy, or Flycut text history, and checks hotkey access. Every step can be skipped, and the setup can be reopened from **Settings → General**.
 
 Scripted and managed installations can persistently mark the current setup walkthrough complete:
 
@@ -35,9 +35,9 @@ Drag the column dividers to resize them. Pasted remembers the window position an
 
 The **Simple** Functionality preset keeps the core clipboard experience visible. **Full** enables every feature, and changing individual features creates a **Custom** setup. Hiding a feature normally preserves its existing data. Review [Settings and Features](Settings-and-Features) before disabling Trash or Revision History, because those choices affect whether future actions are reversible.
 
-## Default shortcuts
+## Default hotkeys
 
-| Shortcut | Action |
+| Hotkey | Action |
 | --- | --- |
 | `⌥⇧V` | Open HUD |
 | `⌥⇧C` | Start or stop Queue recording |
@@ -45,4 +45,4 @@ The **Simple** Functionality preset keeps the core clipboard experience visible.
 | `1`–`9` | Paste that HUD result |
 | `Esc` | Close HUD, a menu, or a modal |
 
-Change or disable shortcuts in **Settings → Hotkeys**.
+Change or disable hotkeys in **Settings → Hotkeys**.

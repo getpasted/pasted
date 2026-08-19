@@ -2731,13 +2731,19 @@ pub fn get_pipelines(db: State<'_, Arc<DbState>>) -> Result<Vec<Pipeline>, Strin
 pub fn create_pipeline(
     name: String,
     steps: Vec<PipelineStepInput>,
-    shortcut: Option<String>,
+    hotkey: Option<String>,
     db: State<'_, Arc<DbState>>,
     app: AppHandle,
 ) -> Result<Pipeline, String> {
     features::require(&db, Feature::Transformations)?;
+    if hotkey
+        .as_deref()
+        .is_some_and(|value| !value.trim().is_empty())
+    {
+        features::require(&db, Feature::Hotkeys)?;
+    }
     let pipeline = db
-        .create_pipeline(&name, &steps, shortcut.as_deref())
+        .create_pipeline(&name, &steps, hotkey.as_deref())
         .map_err(|error| error.to_string())?;
     let _ = register_all_app_shortcuts(&app);
     Ok(pipeline)
@@ -2748,26 +2754,34 @@ pub fn update_pipeline(
     pipeline_ref: String,
     name: String,
     steps: Vec<PipelineStepInput>,
-    shortcut: Option<String>,
+    hotkey: Option<String>,
     db: State<'_, Arc<DbState>>,
     app: AppHandle,
 ) -> Result<Pipeline, String> {
     features::require(&db, Feature::Transformations)?;
+    let previous_shortcut = db
+        .resolve_transform_definition(&pipeline_ref)
+        .map_err(|error| error.to_string())?
+        .and_then(|definition| definition.shortcut);
+    if hotkey.as_deref().map(str::trim) != previous_shortcut.as_deref().map(str::trim) {
+        features::require(&db, Feature::Hotkeys)?;
+    }
     let pipeline = db
-        .update_pipeline(&pipeline_ref, &name, &steps, shortcut.as_deref())
+        .update_pipeline(&pipeline_ref, &name, &steps, hotkey.as_deref())
         .map_err(|error| error.to_string())?;
     let _ = register_all_app_shortcuts(&app);
     Ok(pipeline)
 }
 
 #[tauri::command]
-pub fn update_pipeline_shortcut(
+pub fn update_pipeline_hotkey(
     pipeline_ref: String,
-    shortcut: Option<String>,
+    hotkey: Option<String>,
     db: State<'_, Arc<DbState>>,
     app: AppHandle,
 ) -> Result<(), String> {
     features::require(&db, Feature::Transformations)?;
+    features::require(&db, Feature::Hotkeys)?;
     let previous = db
         .get_pipelines()
         .map_err(|error| error.to_string())?
@@ -2781,12 +2795,12 @@ pub fn update_pipeline_shortcut(
         })
         .ok_or_else(|| "Transform not found.".to_string())?
         .shortcut;
-    db.update_pipeline_shortcut(&pipeline_ref, shortcut.as_deref())
+    db.update_pipeline_hotkey(&pipeline_ref, hotkey.as_deref())
         .map_err(|error| error.to_string())?;
     if let Err(error) = register_all_app_shortcuts(&app) {
-        db.update_pipeline_shortcut(&pipeline_ref, previous.as_deref())
+        db.update_pipeline_hotkey(&pipeline_ref, previous.as_deref())
             .map_err(|rollback| {
-                format!("{error}; restoring the previous Transform shortcut failed: {rollback}")
+                format!("{error}; restoring the previous Transform hotkey failed: {rollback}")
             })?;
         let _ = register_all_app_shortcuts(&app);
         return Err(error);
@@ -2847,20 +2861,21 @@ pub async fn preview_pipeline_steps(
 }
 
 #[tauri::command]
-pub fn update_bin_shortcut(
+pub fn update_bin_hotkey(
     id: i64,
-    shortcut: Option<String>,
+    hotkey: Option<String>,
     db: State<'_, Arc<DbState>>,
     app: AppHandle,
 ) -> Result<(), String> {
     features::require(&db, Feature::Bins)?;
+    features::require(&db, Feature::Hotkeys)?;
     let previous = db.get_bin(id).map_err(|error| error.to_string())?.shortcut;
-    db.update_bin_shortcut(id, shortcut.as_deref())
+    db.update_bin_hotkey(id, hotkey.as_deref())
         .map_err(|e| e.to_string())?;
     if let Err(error) = register_all_app_shortcuts(&app) {
-        db.update_bin_shortcut(id, previous.as_deref())
+        db.update_bin_hotkey(id, previous.as_deref())
             .map_err(|rollback| {
-                format!("{error}; restoring the previous Bin shortcut failed: {rollback}")
+                format!("{error}; restoring the previous Bin hotkey failed: {rollback}")
             })?;
         let _ = register_all_app_shortcuts(&app);
         return Err(error);
@@ -2884,13 +2899,36 @@ pub fn update_bin_protection(
 }
 
 #[tauri::command]
-pub fn update_clip_shortcut(
+pub fn get_clip_hotkey_assignments(
+    db: State<'_, Arc<DbState>>,
+) -> Result<Vec<ClipHotkeyAssignment>, String> {
+    features::require(&db, Feature::Hotkeys)?;
+    db.get_clip_hotkeys()
+        .map(|assignments| {
+            assignments
+                .into_iter()
+                .map(|(clip_id, hotkey)| ClipHotkeyAssignment { clip_id, hotkey })
+                .collect()
+        })
+        .map_err(|error| error.to_string())
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClipHotkeyAssignment {
     clip_id: i64,
-    shortcut: Option<String>,
+    hotkey: String,
+}
+
+#[tauri::command]
+pub fn update_clip_hotkey(
+    clip_id: i64,
+    hotkey: Option<String>,
     db: State<'_, Arc<DbState>>,
     app: AppHandle,
 ) -> Result<crate::db::ClipItem, String> {
     features::require(&db, Feature::Protection)?;
+    features::require(&db, Feature::Hotkeys)?;
     let previous = db
         .get_clip_by_id(clip_id)
         .map_err(|error| error.to_string())?;
@@ -2898,25 +2936,25 @@ pub fn update_clip_shortcut(
     let previous_explicit = previous
         .is_explicitly_protected
         .unwrap_or(previous.is_protected);
-    db.update_clip_shortcut(clip_id, shortcut.as_deref())
+    db.update_clip_hotkey(clip_id, hotkey.as_deref())
         .map_err(|error| error.to_string())?;
     if let Err(error) = register_all_app_shortcuts(&app) {
-        db.restore_clip_shortcut_state(clip_id, previous_shortcut.as_deref(), previous_explicit)
+        db.restore_clip_hotkey_state(clip_id, previous_shortcut.as_deref(), previous_explicit)
             .map_err(|rollback| {
-                format!("{error}; restoring the previous clip shortcut failed: {rollback}")
+                format!("{error}; restoring the previous clip hotkey failed: {rollback}")
             })?;
         let _ = register_all_app_shortcuts(&app);
         return Err(error);
     }
-    let assigned = shortcut
+    let assigned = hotkey
         .as_deref()
         .is_some_and(|value| !value.trim().is_empty());
     let activity_description = if assigned {
-        format!("Assigned a shortcut to clip #{clip_id}")
+        format!("Assigned a hotkey to clip #{clip_id}")
     } else {
-        format!("Removed the shortcut from clip #{clip_id}")
+        format!("Removed the hotkey from clip #{clip_id}")
     };
-    let _ = db.log_activity("clip_shortcut_changed", &activity_description);
+    let _ = db.log_activity("clip_hotkey_changed", &activity_description);
     let clip = db
         .get_clip_by_id(clip_id)
         .map_err(|error| error.to_string())?;
@@ -4341,6 +4379,7 @@ fn persist_hotkey_settings_and_register(
     app: &AppHandle,
 ) -> Result<(), String> {
     let db = app.state::<Arc<DbState>>();
+    features::require(&db, Feature::Hotkeys)?;
     let previous: std::collections::HashMap<String, Option<String>> = values
         .keys()
         .map(|key| {
@@ -4387,9 +4426,9 @@ pub fn resolve_logical_shortcut_key(code: String, fallback: String) -> String {
 }
 
 #[tauri::command]
-pub fn register_hud_shortcut(shortcut_str: String, app: AppHandle) -> Result<(), String> {
+pub fn register_hud_hotkey(hotkey: String, app: AppHandle) -> Result<(), String> {
     persist_hotkey_settings_and_register(
-        std::iter::once(("hudHotkey".to_string(), shortcut_str)).collect(),
+        std::iter::once(("hudHotkey".to_string(), hotkey)).collect(),
         &app,
     )
 }

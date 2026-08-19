@@ -6,12 +6,12 @@ Pasted 1.0 is the first direct-download release of the local, privacy-first clip
 
 - Searchable history for text, images, screenshots, PDFs, and copied files
 - Manual and Smart Bins with drag-and-drop assignment and ordering
-- Pinning, explicit and inherited Bin protection, per-clip paste shortcuts, notes, Trash, revisions, Activity, Full Backup and Restore, and portable History and Organization import
+- Pinning, explicit and inherited Bin protection, per-clip paste hotkeys, notes, Trash, revisions, Activity, Full Backup and Restore, and portable History and Organization import
 - Local Analysis with structural and media inspection, Apple Vision or Tesseract OCR, whisper.cpp transcription, editable Classifiers, and Smart Action suggestions
 - Separate Clip Type, byte-verified File Format, and Content Type summaries in Insights
 - Persistent Copy Queue with target-aware Paste Next and Paste All
 - Reusable deterministic and intelligence-assisted Transforms
-- Configurable feature gates, hotkeys, retention, previews, content classification, and appearance
+- Configurable feature gates—including a reversible global Hotkeys switch—plus retention, previews, content classification, and appearance
 - Bundled `pasted` with shared native data and mutation contracts
 - Signed, notarized, stapled, and Gatekeeper-verified DMG
 - Release-blocking dependency license, advisory, mission-policy, and SPDX SBOM verification

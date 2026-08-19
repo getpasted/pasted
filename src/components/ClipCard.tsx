@@ -357,7 +357,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
   const isTrashMode = viewPolicy.state === 'trash';
   const isExplicitlyProtected = clip.is_explicitly_protected ?? clip.is_protected ?? false;
   const inheritedProtectionOnly = Boolean(clip.is_protected) && !isExplicitlyProtected;
-  const protectionToggleDisabled = Boolean(clip.shortcut) || inheritedProtectionOnly;
+  const protectionToggleDisabled = Boolean(clip.hotkey) || inheritedProtectionOnly;
   const attributeTintClass = isTrashMode
     ? 'clip-card-trashed'
     : features.protection && clip.is_protected
@@ -521,8 +521,8 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
             <span
               role="img"
               aria-label={translate('component.clipCard.protectedClip')}
-              title={clip.shortcut
-                ? translate('component.clipCard.protectedByShortcut')
+              title={clip.hotkey
+                ? translate('component.clipCard.protectedByHotkey')
                 : inheritedProtectionOnly
                   ? translate('component.clipCard.protectedByBin')
                   : translate('component.clipCard.protected')}
@@ -752,8 +752,8 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
                 className={`floating-action-button ${
                   clip.is_protected ? 'is-accent' : ''
                 }`}
-                title={clip.shortcut
-                  ? translate('component.clipPreview.removeShortcutBeforeUnprotecting')
+                title={clip.hotkey
+                  ? translate('component.clipPreview.removeHotkeyBeforeUnprotecting')
                   : inheritedProtectionOnly
                     ? translate('component.clipPreview.protectedByBin')
                     : clip.is_protected ? UI_COPY.unprotect : UI_COPY.protect}
@@ -816,7 +816,7 @@ export const ClipCard = React.memo(ClipCardComponent, (prevProps, nextProps) => 
     prevProps.clip.pin_order === nextProps.clip.pin_order &&
     prevProps.clip.is_protected === nextProps.clip.is_protected &&
     prevProps.clip.is_explicitly_protected === nextProps.clip.is_explicitly_protected &&
-    prevProps.clip.shortcut === nextProps.clip.shortcut &&
+    prevProps.clip.hotkey === nextProps.clip.hotkey &&
     previousProtectingBinIds.length === nextProtectingBinIds.length &&
     previousProtectingBinIds.every((id, index) => id === nextProtectingBinIds[index]) &&
     prevProps.clip.is_transformed === nextProps.clip.is_transformed &&

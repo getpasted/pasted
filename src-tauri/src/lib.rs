@@ -408,7 +408,7 @@ pub fn run() {
                 }
             }
 
-            // Register all saved HUD, Pipeline, and Bin shortcuts
+            // Register all saved HUD, Pipeline, Bin, and clip hotkeys.
             keyboard_layout::start_layout_monitor(app.handle().clone());
             let _ = commands::register_all_app_shortcuts(app.handle());
 
@@ -607,7 +607,7 @@ pub fn run() {
             commands::get_pipelines,
             commands::create_pipeline,
             commands::update_pipeline,
-            commands::update_pipeline_shortcut,
+            commands::update_pipeline_hotkey,
             commands::delete_pipeline,
             commands::preview_pipeline_steps,
             commands::get_operations,
@@ -666,10 +666,11 @@ pub fn run() {
             commands::get_clip_extraction_history,
             commands::search_clips,
             commands::extract_text_from_file_clip,
-            commands::register_hud_shortcut,
-            commands::update_bin_shortcut,
+            commands::register_hud_hotkey,
+            commands::update_bin_hotkey,
             commands::update_bin_protection,
-            commands::update_clip_shortcut,
+            commands::get_clip_hotkey_assignments,
+            commands::update_clip_hotkey,
             commands::get_bin_transform_ref,
             commands::set_bin_transform_ref,
             commands::register_app_setting_hotkey,

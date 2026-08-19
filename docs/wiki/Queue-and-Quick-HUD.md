@@ -26,4 +26,4 @@ Internal clipboard writes made for HUD and Queue paste are marked and excluded f
 
 ## Platform limits
 
-macOS automatic paste requires Accessibility permission. Windows and X11 use platform-specific focus/paste integrations. Constrained Wayland sessions may decline system-wide shortcuts or automatic paste; Pasted reports that capability failure and does not consume queued data.
+macOS automatic paste requires Accessibility permission. Windows and X11 use platform-specific focus/paste integrations. Constrained Wayland sessions may decline system-wide hotkeys or automatic paste; Pasted reports that capability failure and does not consume queued data.

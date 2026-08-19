@@ -830,26 +830,26 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   const canTransformContent = clip.content_type !== 'image' && clip.content_type !== 'file';
   const isExplicitlyProtected = clip.is_explicitly_protected ?? clip.is_protected ?? false;
   const protectionIsInheritedOnly = Boolean(clip.is_protected) && !isExplicitlyProtected;
-  const protectionToggleDisabled = Boolean(clip.shortcut) || protectionIsInheritedOnly;
+  const protectionToggleDisabled = Boolean(clip.hotkey) || protectionIsInheritedOnly;
 
-  const handleShortcutChange = async (shortcut: string | null) => {
+  const handleHotkeyChange = async (hotkey: string | null) => {
     try {
-      const updated = await invoke<ClipItem>('update_clip_shortcut', {
+      const updated = await invoke<ClipItem>('update_clip_hotkey', {
         clipId: clip.id,
-        shortcut,
+        hotkey,
       });
       onUpdateClip(updated);
       showToast({
         tone: 'success',
-        message: shortcut
-          ? translate('component.clipPreview.shortcutAssignedAndClipProtected')
-          : translate('component.clipPreview.shortcutRemovedProtectionKept'),
+        message: hotkey
+          ? translate('component.clipPreview.hotkeyAssignedAndClipProtected')
+          : translate('component.clipPreview.hotkeyRemovedProtectionKept'),
       });
     } catch (error) {
-      console.error('Failed to update clip shortcut:', error);
+      console.error('Failed to update clip hotkey:', error);
       showToast({
         tone: 'error',
-        message: translate('component.clipPreview.clipShortcutCouldNotBeRegistered'),
+        message: translate('component.clipPreview.clipHotkeyCouldNotBeRegistered'),
       });
     }
   };
@@ -1209,13 +1209,13 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
                 onClick={() => onToggleProtected(clip.id)}
                 disabled={protectionToggleDisabled}
                 className={`clip-preview-action preview-protect-btn theme-focusable transition-colors ${clip.is_protected ? 'is-active' : ''}`}
-                title={clip.shortcut
-                  ? translate('component.clipPreview.removeShortcutBeforeUnprotecting')
+                title={clip.hotkey
+                  ? translate('component.clipPreview.removeHotkeyBeforeUnprotecting')
                   : protectionIsInheritedOnly
                     ? translate('component.clipPreview.protectedByBin')
                     : clip.is_protected ? UI_COPY.unprotect : UI_COPY.protect}
-                aria-label={clip.shortcut
-                  ? translate('component.clipPreview.removeShortcutBeforeUnprotecting')
+                aria-label={clip.hotkey
+                  ? translate('component.clipPreview.removeHotkeyBeforeUnprotecting')
                   : protectionIsInheritedOnly
                     ? translate('component.clipPreview.protectedByBin')
                     : clip.is_protected ? UI_COPY.unprotect : UI_COPY.protect}
@@ -1270,12 +1270,11 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
           />
         </div>
 
-        {features.protection && (
-          <div className="ms-auto flex items-center gap-2 ps-3">
-            <span className="theme-text-muted">{translate('component.clipPreview.clipShortcut')}</span>
+        {features.protection && features.hotkeys && (
+          <div className="ms-auto flex items-center ps-3">
             <HotkeyRecorder
-              value={clip.shortcut ?? null}
-              onChange={(shortcut) => void handleShortcutChange(shortcut)}
+              value={clip.hotkey ?? null}
+              onChange={(hotkey) => void handleHotkeyChange(hotkey)}
             />
           </div>
         )}
@@ -1290,12 +1289,11 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
         </div>
       ))}
 
-      {features.protection && !features.bins && viewPolicy.canOrganize && (
-        <div className="preview-bin-bar px-4 py-2 flex items-center justify-between text-xs border-b">
-          <span className="theme-text-muted">{translate('component.clipPreview.clipShortcut')}</span>
+      {features.protection && features.hotkeys && !features.bins && viewPolicy.canOrganize && (
+        <div className="preview-bin-bar flex items-center justify-end border-b px-4 py-2 text-xs">
           <HotkeyRecorder
-            value={clip.shortcut ?? null}
-            onChange={(shortcut) => void handleShortcutChange(shortcut)}
+            value={clip.hotkey ?? null}
+            onChange={(hotkey) => void handleHotkeyChange(hotkey)}
           />
         </div>
       )}

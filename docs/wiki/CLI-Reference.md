@@ -81,7 +81,7 @@ pasted clip revisions <id> [--limit <n>] [--offset <n>] [--json]
 pasted clip restore-revision <id> <revision-id> [--json]
 pasted clip provenance <id> [--json]
 pasted clip copy|paste <id> [--json]
-pasted clip shortcut <id> <shortcut|none> [--json]
+pasted clip hotkey <id> <hotkey|none> [--json]
 pasted clip pin|unpin <id>... [--json]
 pasted clip order-pinned <id>... [--json]
 pasted clip protect|unprotect <id>... [--json]
@@ -106,11 +106,11 @@ pasted bin delete <id> [--disposition keep|trash|move] [--move-to <bin-id>] [--j
 pasted bin clips <bin-id> [--json]
 pasted bin order <bin-id> <clip-id>... [--json]
 pasted bin transform <id> <transform-ref|none> [--json]
-pasted bin shortcut <id> <shortcut|none> [--json]
+pasted bin hotkey <id> <hotkey|none> [--json]
 pasted bin protect <id> <on|off> [--json]
 ```
 
-`bin order` replaces the complete saved order and rejects invalid/duplicate membership atomically. `bin protect` controls inherited protection for manual Bins and Tags; Smart Bins cannot confer protection. `clip shortcut` assigns a paste-by-ID global shortcut and explicitly protects the clip. Clearing the shortcut does not remove that protection.
+`bin order` replaces the complete saved order and rejects invalid/duplicate membership atomically. `bin protect` controls inherited protection for manual Bins and Tags; Smart Bins cannot confer protection. `clip hotkey` assigns a paste-by-ID hotkey and explicitly protects the clip. Clearing the hotkey does not remove that protection. Hotkey mutations require Hotkeys under Functionality; use `pasted settings set enableHotkeys true` to re-enable them. Disabling Hotkeys preserves assignments. A running app stops dispatching them immediately and releases their system registrations when its settings refresh or the app next launches.
 
 Smart Bin rules use the version 1 `clip_type`, `content_type`, `file_format`, and `source` collection axes. Conditions support case-insensitive `is` and `contains` operators and combine with `match: "any"` or `match: "all"`.
 
@@ -240,4 +240,4 @@ pasted reset --yes [--json]
 
 ## Intentional app-only boundaries
 
-Window, title-bar, dock, tray, cursor, emoji-picker, native-menu, preview-rendering, and operating-system permission-prompt commands remain graphical presentation behavior. Shortcut registration is owned by the running app; the CLI can persist shortcut settings and the app applies them when active or at launch. Provider scheduler cancellation remains process-local: a CLI Transform exits with its CLI process, while the app manages and cancels its own active jobs. Installation diagnostics remain available through `pasted diagnostics` without exposing internal presentation helpers.
+Window, title-bar, dock, tray, cursor, emoji-picker, native-menu, preview-rendering, and operating-system permission-prompt commands remain graphical presentation behavior. Hotkey registration is owned by the running app; the CLI can persist hotkey settings and the app applies them when active or at launch. Provider scheduler cancellation remains process-local: a CLI Transform exits with its CLI process, while the app manages and cancels its own active jobs. Installation diagnostics remain available through `pasted diagnostics` without exposing internal presentation helpers.

@@ -527,6 +527,7 @@ pub struct ClipItem {
     #[serde(default)]
     pub protecting_bin_ids: Vec<i64>,
     #[serde(default)]
+    #[serde(rename = "hotkey", alias = "shortcut")]
     pub shortcut: Option<String>,
     pub is_transformed: bool,
     pub pin_order: i32,
@@ -1222,6 +1223,7 @@ pub struct Bin {
     pub color: String,
     pub smart_rule: Option<String>, // JSON string for auto-smart rules
     pub bin_type: String,           // "category" or "tag"
+    #[serde(rename = "hotkey", alias = "shortcut")]
     pub shortcut: Option<String>,
     #[serde(default)]
     pub protect_clips: bool,
@@ -1433,6 +1435,7 @@ pub struct Pipeline {
     pub id: i64,
     pub stable_ref: String,
     pub name: String,
+    #[serde(rename = "hotkey", alias = "shortcut")]
     pub shortcut: Option<String>,
     pub revision: i64,
     pub created_at: String,
@@ -1449,6 +1452,7 @@ pub struct SavedTransform {
     pub plan: crate::transformation_intent::TransformationPlan,
     pub connection_id: Option<String>,
     #[serde(default)]
+    #[serde(rename = "hotkey", alias = "shortcut")]
     pub shortcut: Option<String>,
     #[serde(default = "default_transform_authoring_kind")]
     pub authoring_kind: String,
@@ -1477,6 +1481,7 @@ pub struct TransformDefinition {
     pub authoring_kind: TransformAuthoringKind,
     pub execution_character: String,
     pub connection_id: Option<String>,
+    #[serde(rename = "hotkey", alias = "shortcut")]
     pub shortcut: Option<String>,
     pub revision: i64,
     pub created_at: String,
@@ -7976,7 +7981,7 @@ impl DbState {
             )?;
             if shortcut_count > 0 {
                 return Err(rusqlite::Error::InvalidParameterName(
-                    "Remove the clip shortcut before removing explicit protection".into(),
+                    "Remove the clip hotkey before removing explicit protection".into(),
                 ));
             }
         }
@@ -8181,11 +8186,11 @@ impl DbState {
             .ok_or(rusqlite::Error::QueryReturnedNoRows)
     }
 
-    pub fn update_bin_shortcut(&self, id: i64, shortcut: Option<&str>) -> Result<()> {
+    pub fn update_bin_hotkey(&self, id: i64, hotkey: Option<&str>) -> Result<()> {
         let conn = self.conn.lock();
         conn.execute(
             "UPDATE bins SET shortcut = ?1 WHERE id = ?2",
-            params![shortcut, id],
+            params![hotkey, id],
         )?;
         Ok(())
     }
@@ -8230,11 +8235,11 @@ impl DbState {
         rows
     }
 
-    pub fn update_clip_shortcut(&self, clip_id: i64, shortcut: Option<&str>) -> Result<()> {
-        let shortcut = shortcut.map(str::trim).filter(|value| !value.is_empty());
-        if shortcut.is_some_and(|value| value.len() > 256) {
+    pub fn update_clip_hotkey(&self, clip_id: i64, hotkey: Option<&str>) -> Result<()> {
+        let hotkey = hotkey.map(str::trim).filter(|value| !value.is_empty());
+        if hotkey.is_some_and(|value| value.len() > 256) {
             return Err(rusqlite::Error::InvalidParameterName(
-                "Clip shortcut is too long".into(),
+                "Clip hotkey is too long".into(),
             ));
         }
         let conn = self.conn.lock();
@@ -8243,7 +8248,7 @@ impl DbState {
              SET shortcut = ?1,
                  is_protected = CASE WHEN ?1 IS NOT NULL THEN 1 ELSE is_protected END
              WHERE id = ?2 AND COALESCE(is_trashed, 0) = 0",
-            params![shortcut, clip_id],
+            params![hotkey, clip_id],
         )?;
         if changed == 0 {
             return Err(rusqlite::Error::QueryReturnedNoRows);
@@ -8251,16 +8256,16 @@ impl DbState {
         Ok(())
     }
 
-    pub fn restore_clip_shortcut_state(
+    pub fn restore_clip_hotkey_state(
         &self,
         clip_id: i64,
-        shortcut: Option<&str>,
+        hotkey: Option<&str>,
         explicitly_protected: bool,
     ) -> Result<()> {
         let conn = self.conn.lock();
         conn.execute(
             "UPDATE clips SET shortcut = ?1, is_protected = ?2 WHERE id = ?3",
-            params![shortcut, explicitly_protected, clip_id],
+            params![hotkey, explicitly_protected, clip_id],
         )?;
         Ok(())
     }
@@ -10989,7 +10994,7 @@ impl DbState {
         &self,
         name: &str,
         steps: &[PipelineStepInput],
-        shortcut: Option<&str>,
+        hotkey: Option<&str>,
     ) -> Result<Pipeline> {
         let conn = self.conn.lock();
         Self::validate_pipeline_steps(&conn, steps)?;
@@ -11001,7 +11006,7 @@ impl DbState {
             "INSERT INTO saved_transforms
                 (name, plan_json, connection_id, shortcut, authoring_kind)
              VALUES (?1, ?2, NULL, ?3, 'manual')",
-            params![name.trim(), plan_json, shortcut],
+            params![name.trim(), plan_json, hotkey],
         )?;
         let stable_id: String = conn.query_row(
             "SELECT id FROM saved_transforms WHERE row_id = last_insert_rowid()",
@@ -11023,7 +11028,7 @@ impl DbState {
         pipeline_ref: &str,
         name: &str,
         steps: &[PipelineStepInput],
-        shortcut: Option<&str>,
+        hotkey: Option<&str>,
     ) -> Result<Pipeline> {
         let transform_id = pipeline_ref
             .strip_prefix("transform:")
@@ -11040,7 +11045,7 @@ impl DbState {
              SET name = ?1, plan_json = ?2, shortcut = ?3, revision = revision + 1,
                  updated_at = CURRENT_TIMESTAMP
              WHERE id = ?4 AND authoring_kind = 'manual'",
-            params![name.trim(), plan_json, shortcut, transform_id],
+            params![name.trim(), plan_json, hotkey, transform_id],
         )?;
         if changed == 0 {
             return Err(rusqlite::Error::QueryReturnedNoRows);
@@ -11055,11 +11060,7 @@ impl DbState {
         Ok(pipeline)
     }
 
-    pub fn update_pipeline_shortcut(
-        &self,
-        pipeline_ref: &str,
-        shortcut: Option<&str>,
-    ) -> Result<()> {
+    pub fn update_pipeline_hotkey(&self, pipeline_ref: &str, hotkey: Option<&str>) -> Result<()> {
         let pipeline_id = pipeline_ref
             .strip_prefix("transform:")
             .or_else(|| pipeline_ref.strip_prefix("pipeline:"))
@@ -11069,7 +11070,7 @@ impl DbState {
             "UPDATE saved_transforms
              SET shortcut = ?1, revision = revision + 1, updated_at = CURRENT_TIMESTAMP
              WHERE id = ?2 AND authoring_kind = 'manual'",
-            params![shortcut, pipeline_id],
+            params![hotkey, pipeline_id],
         )?;
         if changed == 0 {
             return Err(rusqlite::Error::QueryReturnedNoRows);
@@ -17291,7 +17292,7 @@ mod tests {
             .is_err());
         assert!(db.delete_pipeline("pipeline:missing").is_err());
         assert!(db
-            .update_pipeline_shortcut("pipeline:missing", Some("Alt+M"))
+            .update_pipeline_hotkey("pipeline:missing", Some("Alt+M"))
             .is_err());
     }
 
@@ -19801,8 +19802,7 @@ mod tests {
             .unwrap();
         db.update_bin_protection(protected_bin.id, true).unwrap();
         db.assign_to_bin(clip.id, Some(protected_bin.id)).unwrap();
-        db.update_clip_shortcut(clip.id, Some("Alt+Shift+9"))
-            .unwrap();
+        db.update_clip_hotkey(clip.id, Some("Alt+Shift+9")).unwrap();
         let transcription_extractor = db
             .get_content_extractors()
             .unwrap()
@@ -20024,8 +20024,7 @@ mod tests {
             )
             .unwrap();
 
-        db.update_clip_shortcut(clip.id, Some("Alt+Shift+7"))
-            .unwrap();
+        db.update_clip_hotkey(clip.id, Some("Alt+Shift+7")).unwrap();
         let assigned = db.get_clip_by_id(clip.id).unwrap();
         assert_eq!(assigned.shortcut.as_deref(), Some("Alt+Shift+7"));
         assert!(assigned.is_protected);
@@ -20036,7 +20035,7 @@ mod tests {
         );
         assert!(db.batch_protect_clips(vec![clip.id], false).is_err());
 
-        db.update_clip_shortcut(clip.id, None).unwrap();
+        db.update_clip_hotkey(clip.id, None).unwrap();
         let cleared = db.get_clip_by_id(clip.id).unwrap();
         assert_eq!(cleared.shortcut, None);
         assert!(cleared.is_protected);
@@ -20129,7 +20128,7 @@ mod tests {
             .unwrap();
         source.assign_to_bin(clip.id, Some(bin.id)).unwrap();
         source
-            .update_clip_shortcut(clip.id, Some("CmdOrCtrl+Shift+8"))
+            .update_clip_hotkey(clip.id, Some("CmdOrCtrl+Shift+8"))
             .unwrap();
 
         let destination = setup_test_db();

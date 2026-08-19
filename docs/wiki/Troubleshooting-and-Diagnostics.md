@@ -12,7 +12,7 @@ pasted diagnostics --json
 
 - macOS: grant Accessibility to the installed Pasted app (or the active IDE/terminal during development).
 - Wayland: the desktop may decline the global-shortcut portal request.
-- Browser preview: system-wide shortcuts are unavailable by design.
+- Browser preview: system-wide hotkeys are unavailable by design.
 
 ## Paste Next or HUD targets the wrong app
 

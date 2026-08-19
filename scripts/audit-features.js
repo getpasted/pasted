@@ -14,6 +14,9 @@ const sidebar = read('src/components/Sidebar.tsx');
 const nativeMenu = read('src-tauri/src/app_menu.rs');
 const captureFeedbackWindow = read('src/components/CaptureFeedbackWindow.tsx');
 const clipboardMonitor = read('src-tauri/src/clipboard_monitor.rs');
+const hotkeyManager = read('src-tauri/src/hotkey_manager.rs');
+const clipPreview = read('src/components/ClipPreview.tsx');
+const cli = read('src-tauri/src/bin/pasted_cli.rs');
 const frontendDefinitions = frontendRegistry.match(/export const FEATURE_DEFINITIONS[\s\S]*?\n\] as const;/)?.[0] ?? '';
 
 const frontendKeys = [...frontendRegistry.matchAll(/settingKey:\s*'(enable[A-Za-z]+)'/g)]
@@ -21,7 +24,7 @@ const frontendKeys = [...frontendRegistry.matchAll(/settingKey:\s*'(enable[A-Za-
 const nativeKeys = [...nativePolicy.matchAll(/=>\s*"(enable[A-Za-z]+)"/g)]
   .map((match) => match[1]);
 
-assert.equal(frontendKeys.length, 22, 'The frontend feature registry must include every supported capability');
+assert.equal(frontendKeys.length, 23, 'The frontend feature registry must include every supported capability');
 const frontendGroups = [...frontendRegistry.matchAll(/group:\s*'([A-Za-z]+)'/g)]
   .map((match) => match[1]);
 assert.equal(frontendGroups.length, frontendKeys.length, 'Every feature must belong to a Functionality group');
@@ -109,6 +112,26 @@ assert.match(
   clipboardMonitor,
   /Feature::Notifications/,
   'Clipboard capture must suppress notification events at the native policy boundary',
+);
+assert.match(
+  hotkeyManager,
+  /Feature::Hotkeys[\s\S]{0,500}state:\s*"disabled"/,
+  'The native hotkey boundary must unregister and report disabled state when Hotkeys is off',
+);
+assert.match(
+  settingsModal,
+  /settings\.enableHotkeys && activeTab === 'hotkeys'/,
+  'The Hotkeys feature must own its Settings surface',
+);
+assert.match(
+  clipPreview,
+  /features\.protection && features\.hotkeys/,
+  'Clip hotkey assignment must honor both Protection and Hotkeys',
+);
+assert.match(
+  cli,
+  /"hotkey" => \{[\s\S]{0,160}Feature::Hotkeys/,
+  'CLI hotkey mutations must honor the Hotkeys feature gate',
 );
 assert.match(
   settingsHook,

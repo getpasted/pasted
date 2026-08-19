@@ -2864,12 +2864,15 @@ fn run_command(command: &str, args: &[String], db_path: PathBuf, conn: Connectio
                             )?)
                         }
                         (None, None, Some(steps_json)) => {
+                            if argument_value(&args, "--hotkey").is_some() {
+                                require_feature(&db, Feature::Hotkeys);
+                            }
                             let steps: Vec<PipelineStepInput> =
                                 serde_json::from_str(&steps_json).map_err(json_error)?;
                             TransformDefinition::from(db.create_pipeline(
                                 &name,
                                 &steps,
-                                argument_value(&args, "--shortcut").as_deref(),
+                                argument_value(&args, "--hotkey").as_deref(),
                             )?)
                         }
                         _ => {
@@ -2886,7 +2889,7 @@ fn run_command(command: &str, args: &[String], db_path: PathBuf, conn: Connectio
                 }
                 "update" | "edit" => {
                     let transform_ref = args.get(3).unwrap_or_else(|| {
-                        eprintln!("Usage: pasted transform update <transform-ref> [--name NAME] [--plan-json JSON | --steps-json JSON] [--connection ID | --clear-connection] [--shortcut HOTKEY | --clear-shortcut] [--json]");
+                        eprintln!("Usage: pasted transform update <transform-ref> [--name NAME] [--plan-json JSON | --steps-json JSON] [--connection ID | --clear-connection] [--hotkey HOTKEY | --clear-hotkey] [--json]");
                         std::process::exit(2);
                     });
                     let current = db
@@ -2904,8 +2907,8 @@ fn run_command(command: &str, args: &[String], db_path: PathBuf, conn: Connectio
                     let updated = match current.authoring_kind {
                         TransformAuthoringKind::Intent => {
                             if argument_value(&args, "--steps-json").is_some()
-                                || argument_value(&args, "--shortcut").is_some()
-                                || args.iter().any(|arg| arg == "--clear-shortcut")
+                                || argument_value(&args, "--hotkey").is_some()
+                                || args.iter().any(|arg| arg == "--clear-hotkey")
                             {
                                 eprintln!("Intent-authored Transforms accept --plan-json and connection options; use duplicate/create to change authoring form.");
                                 std::process::exit(2);
@@ -2936,7 +2939,7 @@ fn run_command(command: &str, args: &[String], db_path: PathBuf, conn: Connectio
                                 || argument_value(&args, "--connection").is_some()
                                 || args.iter().any(|arg| arg == "--clear-connection")
                             {
-                                eprintln!("Manually built Transforms accept --steps-json and shortcut options; use duplicate/create to change authoring form.");
+                                eprintln!("Manually built Transforms accept --steps-json and hotkey options; use duplicate/create to change authoring form.");
                                 std::process::exit(2);
                             }
                             let steps = match argument_value(&args, "--steps-json") {
@@ -2954,16 +2957,21 @@ fn run_command(command: &str, args: &[String], db_path: PathBuf, conn: Connectio
                                     })
                                     .collect(),
                             };
-                            let shortcut = if args.iter().any(|arg| arg == "--clear-shortcut") {
+                            if argument_value(&args, "--hotkey").is_some()
+                                || args.iter().any(|arg| arg == "--clear-hotkey")
+                            {
+                                require_feature(&db, Feature::Hotkeys);
+                            }
+                            let hotkey = if args.iter().any(|arg| arg == "--clear-hotkey") {
                                 None
                             } else {
-                                argument_value(&args, "--shortcut").or(current.shortcut.clone())
+                                argument_value(&args, "--hotkey").or(current.shortcut.clone())
                             };
                             TransformDefinition::from(db.update_pipeline(
                                 transform_ref,
                                 &name,
                                 &steps,
-                                shortcut.as_deref(),
+                                hotkey.as_deref(),
                             )?)
                         }
                     };
@@ -3443,26 +3451,27 @@ fn run_command(command: &str, args: &[String], db_path: PathBuf, conn: Connectio
                         println!("Updated the default Transform for Bin #{bin_id}.");
                     }
                 }
-                "shortcut" => {
+                "hotkey" => {
+                    require_feature(&db, Feature::Hotkeys);
                     let bin_id = parse_i64_argument(
                         &args,
                         3,
-                        "Usage: pasted bin shortcut <bin-id> <shortcut|none> [--json]",
+                        "Usage: pasted bin hotkey <bin-id> <hotkey|none> [--json]",
                     );
                     let value = args.get(4).unwrap_or_else(|| {
-                        eprintln!("Usage: pasted bin shortcut <bin-id> <shortcut|none> [--json]");
+                        eprintln!("Usage: pasted bin hotkey <bin-id> <hotkey|none> [--json]");
                         std::process::exit(2);
                     });
-                    let shortcut = (!matches!(value.as_str(), "none" | "null" | "-"))
+                    let hotkey = (!matches!(value.as_str(), "none" | "null" | "-"))
                         .then_some(value.as_str());
-                    db.update_bin_shortcut(bin_id, shortcut)?;
+                    db.update_bin_hotkey(bin_id, hotkey)?;
                     if args.iter().any(|argument| argument == "--json") {
                         println!(
                             "{}",
-                            serde_json::json!({ "binId": bin_id, "shortcut": shortcut })
+                            serde_json::json!({ "binId": bin_id, "hotkey": hotkey })
                         );
                     } else {
-                        println!("Updated the shortcut for Bin #{bin_id}.");
+                        println!("Updated the hotkey for Bin #{bin_id}.");
                     }
                 }
                 "protect" | "protection" => {
@@ -3500,7 +3509,7 @@ fn run_command(command: &str, args: &[String], db_path: PathBuf, conn: Connectio
                     }
                 }
                 _ => {
-                    eprintln!("Usage: pasted bin list|get|create|update|duplicate|delete|clips|order|transform|shortcut|protect [options] [--json]");
+                    eprintln!("Usage: pasted bin list|get|create|update|duplicate|delete|clips|order|transform|hotkey|protect [options] [--json]");
                     std::process::exit(2);
                 }
             }
@@ -3710,40 +3719,41 @@ fn run_command(command: &str, args: &[String], db_path: PathBuf, conn: Connectio
                     let result = send_live_or_exit(action);
                     print_live_result(&result, json)?;
                 }
-                "shortcut" => {
+                "hotkey" => {
                     require_feature(&db, Feature::Protection);
+                    require_feature(&db, Feature::Hotkeys);
                     let clip_id = parse_i64_argument(
                         &args,
                         3,
-                        "Usage: pasted clip shortcut <clip-id> <shortcut|none> [--json]",
+                        "Usage: pasted clip hotkey <clip-id> <hotkey|none> [--json]",
                     );
                     let value = args.get(4).unwrap_or_else(|| {
-                        eprintln!("Usage: pasted clip shortcut <clip-id> <shortcut|none> [--json]");
+                        eprintln!("Usage: pasted clip hotkey <clip-id> <hotkey|none> [--json]");
                         std::process::exit(2);
                     });
-                    let shortcut = (!matches!(value.as_str(), "none" | "null" | "-"))
+                    let hotkey = (!matches!(value.as_str(), "none" | "null" | "-"))
                         .then_some(value.as_str());
-                    db.update_clip_shortcut(clip_id, shortcut)?;
-                    let description = if shortcut.is_some() {
-                        format!("Assigned a shortcut to clip #{clip_id}")
+                    db.update_clip_hotkey(clip_id, hotkey)?;
+                    let description = if hotkey.is_some() {
+                        format!("Assigned a hotkey to clip #{clip_id}")
                     } else {
-                        format!("Removed the shortcut from clip #{clip_id}")
+                        format!("Removed the hotkey from clip #{clip_id}")
                     };
-                    db.log_activity("clip_shortcut_changed", &description)?;
+                    db.log_activity("clip_hotkey_changed", &description)?;
                     let updated = db.get_clip_by_id(clip_id)?;
                     if json {
                         println!(
                             "{}",
                             serde_json::json!({
                                 "clipId": clip_id,
-                                "shortcut": shortcut,
+                                "hotkey": hotkey,
                                 "protected": updated.is_protected
                             })
                         );
-                    } else if shortcut.is_some() {
-                        println!("Assigned a shortcut to protected clip #{clip_id}.");
+                    } else if hotkey.is_some() {
+                        println!("Assigned a hotkey to protected clip #{clip_id}.");
                     } else {
-                        println!("Removed the shortcut from clip #{clip_id}; existing protection was unchanged.");
+                        println!("Removed the hotkey from clip #{clip_id}; existing protection was unchanged.");
                     }
                 }
                 "pin" | "unpin" => {
@@ -3862,7 +3872,7 @@ fn run_command(command: &str, args: &[String], db_path: PathBuf, conn: Connectio
                     print_mutation_summary(&outcome.mutation, json)?;
                 }
                 _ => {
-                    eprintln!("Usage: pasted clip get|note|revisions|restore-revision|provenance|copy|paste|shortcut|pin|unpin|order-pinned|protect|unprotect|trash|restore|restore-all|purge|empty-trash|assign|remove-bin|export|import [options] [--json]");
+                    eprintln!("Usage: pasted clip get|note|revisions|restore-revision|provenance|copy|paste|hotkey|pin|unpin|order-pinned|protect|unprotect|trash|restore|restore-all|purge|empty-trash|assign|remove-bin|export|import [options] [--json]");
                     std::process::exit(2);
                 }
             }
@@ -4183,7 +4193,7 @@ fn run_command(command: &str, args: &[String], db_path: PathBuf, conn: Connectio
             println!(
                 "  pasted clip copy|paste <id> [--json] Use the running app and system clipboard"
             );
-            println!("  pasted clip shortcut <id> <shortcut|none> [--json]");
+            println!("  pasted clip hotkey <id> <hotkey|none> [--json]");
             println!("  pasted clip pin|unpin <id>... [--json]");
             println!("  pasted clip order-pinned <id>... [--json]");
             println!("  pasted clip protect|unprotect <id>... [--json]");

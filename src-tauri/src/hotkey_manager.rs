@@ -39,6 +39,7 @@ struct HotkeySpec {
 
 #[derive(Debug, Clone, serde::Serialize, PartialEq, Eq)]
 pub struct HotkeyRegistrationIssue {
+    #[serde(rename = "hotkey")]
     pub shortcut: String,
     pub description: String,
     pub message: String,
@@ -126,6 +127,19 @@ impl HotkeyManager {
         let Some(db) = db_opt else {
             return Err("Database state not initialized".to_string());
         };
+
+        if !features::is_enabled(&db, Feature::Hotkeys) {
+            *self.registration_status.write() = HotkeyRegistrationStatus {
+                backend: native_backend_name().to_string(),
+                state: "disabled".to_string(),
+                configured_count: 0,
+                registered_count: 0,
+                issues: Vec::new(),
+                bindings: Vec::new(),
+            };
+            let _ = app.emit("hotkey-registration-changed", ());
+            return Ok(());
+        }
 
         let get_setting = |key: &str, default_val: &str| -> Option<String> {
             match db.get_setting(key) {
@@ -222,7 +236,7 @@ impl HotkeyManager {
             );
         }
 
-        // Recent clip shortcuts
+        // Recent clip hotkeys
         for i in 1..=9 {
             let key = format!("pasteClip{}Hotkey", i);
             let sc = get_setting(&key, "");
@@ -606,6 +620,11 @@ impl HotkeyManager {
     }
 
     fn dispatch_action(&self, app: &AppHandle, action: AppHotkeyAction) {
+        if let Some(db) = app.try_state::<Arc<DbState>>() {
+            if !features::is_enabled(&db, Feature::Hotkeys) {
+                return;
+            }
+        }
         let lock_state = app.try_state::<Arc<crate::app_lock::AppLockState>>();
         let locked = lock_state.as_ref().is_some_and(|state| state.is_locked());
         if locked {
@@ -723,7 +742,7 @@ impl HotkeyManager {
                         return;
                     };
                     if let Err(error) = commands::paste_clip_from_hud(&db, &paste_app, clip_id) {
-                        eprintln!("[Pasted Clip Shortcut] {error}");
+                        eprintln!("[Pasted Clip Hotkey] {error}");
                     }
                 });
             }

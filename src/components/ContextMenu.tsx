@@ -81,7 +81,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   const isAltPressed = useAltKeyPressed();
   const isExplicitlyProtected = clip.is_explicitly_protected ?? clip.is_protected ?? false;
   const inheritedProtectionOnly = Boolean(clip.is_protected) && !isExplicitlyProtected;
-  const protectionToggleDisabled = Boolean(clip.shortcut) || inheritedProtectionOnly;
+  const protectionToggleDisabled = Boolean(clip.hotkey) || inheritedProtectionOnly;
 
   useEffect(() => {
     if (!features.transformations || !viewPolicy.canRunPipelines || clip.content_type === 'file') return;
@@ -310,8 +310,8 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
             onClose();
           }}
           disabled={protectionToggleDisabled}
-          title={clip.shortcut
-            ? translate('component.clipPreview.removeShortcutBeforeUnprotecting')
+          title={clip.hotkey
+            ? translate('component.clipPreview.removeHotkeyBeforeUnprotecting')
             : inheritedProtectionOnly
               ? translate('component.clipPreview.protectedByBin')
               : undefined}

@@ -527,7 +527,7 @@ for (const method of ['get_intelligence_connections', 'get_intelligence_connecti
   assert.match(database, new RegExp(`pub fn ${method}`), `${method} must live in the shared database domain layer`);
   assert.match(cli, new RegExp(`db\\s*\\.${method}`), `${method} must be reused by the CLI`);
 }
-for (const method of ['get_bin', 'create_bin', 'update_bin', 'delete_bin', 'update_bin_shortcut', 'set_bin_transform_ref']) {
+for (const method of ['get_bin', 'create_bin', 'update_bin', 'delete_bin', 'update_bin_hotkey', 'set_bin_transform_ref']) {
   assert.match(database, new RegExp(`pub fn ${method}`), `${method} must live in the shared database domain layer`);
   assert.match(cli, new RegExp(`db\\s*\\.${method}`), `${method} must be reused by the CLI`);
 }

@@ -626,8 +626,8 @@ fn bin_lifecycle_and_full_backup_inspection_run_end_to_end() {
 }
 
 #[test]
-fn clip_shortcuts_and_bin_protection_have_structured_cli_parity() {
-    let database = temporary_path("clip-shortcuts-bin-protection", "db");
+fn clip_hotkeys_and_bin_protection_have_structured_cli_parity() {
+    let database = temporary_path("clip-hotkeys-bin-protection", "db");
     let clip = success_json(&database, &["copy", "durable CLI clip", "--json"]);
     let clip_id = clip["id"].as_i64().expect("clip ID").to_string();
     let bin = success_json(
@@ -636,25 +636,45 @@ fn clip_shortcuts_and_bin_protection_have_structured_cli_parity() {
     );
     let bin_id = bin["id"].as_i64().expect("Bin ID").to_string();
 
-    let shortcut = success_json(
+    let hotkey = success_json(
         &database,
-        &["clip", "shortcut", &clip_id, "Alt+Shift+7", "--json"],
+        &["clip", "hotkey", &clip_id, "Alt+Shift+7", "--json"],
     );
-    assert_eq!(shortcut["clipId"].to_string(), clip_id);
-    assert_eq!(shortcut["shortcut"], "Alt+Shift+7");
-    assert_eq!(shortcut["protected"], true);
+    assert_eq!(hotkey["clipId"].to_string(), clip_id);
+    assert_eq!(hotkey["hotkey"], "Alt+Shift+7");
+    assert_eq!(hotkey["protected"], true);
 
     let protection = success_json(&database, &["bin", "protect", &bin_id, "on", "--json"]);
     assert_eq!(protection["protectClips"], true);
     success_json(&database, &["clip", "assign", &bin_id, &clip_id, "--json"]);
 
     let fetched = success_json(&database, &["clip", "get", &clip_id, "--json"]);
-    assert_eq!(fetched["shortcut"], "Alt+Shift+7");
+    assert_eq!(fetched["hotkey"], "Alt+Shift+7");
     assert_eq!(fetched["is_protected"], true);
     assert_eq!(fetched["is_explicitly_protected"], true);
 
-    let cleared = success_json(&database, &["clip", "shortcut", &clip_id, "none", "--json"]);
-    assert_eq!(cleared["shortcut"], Value::Null);
+    success_json(
+        &database,
+        &["settings", "set", "enableHotkeys", "false", "--json"],
+    );
+    for arguments in [
+        vec!["clip", "hotkey", clip_id.as_str(), "none", "--json"],
+        vec!["bin", "hotkey", bin_id.as_str(), "Alt+Shift+8", "--json"],
+    ] {
+        let disabled = run(&database, &arguments);
+        assert!(!disabled.status.success());
+        assert!(String::from_utf8_lossy(&disabled.stderr)
+            .contains("Hotkeys is disabled in Settings → Functionality"));
+    }
+    let preserved = success_json(&database, &["clip", "get", &clip_id, "--json"]);
+    assert_eq!(preserved["hotkey"], "Alt+Shift+7");
+    success_json(
+        &database,
+        &["settings", "set", "enableHotkeys", "true", "--json"],
+    );
+
+    let cleared = success_json(&database, &["clip", "hotkey", &clip_id, "none", "--json"]);
+    assert_eq!(cleared["hotkey"], Value::Null);
     let fetched = success_json(&database, &["clip", "get", &clip_id, "--json"]);
     assert_eq!(fetched["is_protected"], true);
     clean_database(&database);

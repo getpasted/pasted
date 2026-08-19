@@ -158,14 +158,14 @@ fn setting_label(key: &str) -> Option<&'static str> {
         "appLockOnSleep" => Some("Lock when device locks or sleeps"),
         "appLockOnRestart" => Some("Lock after restart"),
         "appLockCaptureWhileLocked" => Some("Capture while locked"),
-        "hudHotkey" => Some("HUD shortcut"),
-        "seqToggleHotkey" => Some("Copy Queue shortcut"),
-        "seqPopHotkey" => Some("Paste Next shortcut"),
-        "copyLastPipelineHotkey" => Some("Copy with Transform shortcut"),
-        "pasteLastPipelineHotkey" => Some("Paste with Transform shortcut"),
-        "openTransformationsHotkey" => Some("Transformations shortcut"),
-        "openMainWindowHotkey" => Some("Main window shortcut"),
-        _ if key.starts_with("pasteClip") && key.ends_with("Hotkey") => Some("Clip shortcut"),
+        "hudHotkey" => Some("HUD hotkey"),
+        "seqToggleHotkey" => Some("Copy Queue hotkey"),
+        "seqPopHotkey" => Some("Paste Next hotkey"),
+        "copyLastPipelineHotkey" => Some("Copy with Transform hotkey"),
+        "pasteLastPipelineHotkey" => Some("Paste with Transform hotkey"),
+        "openTransformationsHotkey" => Some("Transformations hotkey"),
+        "openMainWindowHotkey" => Some("Main window hotkey"),
+        _ if key.starts_with("pasteClip") && key.ends_with("Hotkey") => Some("Clip hotkey"),
         _ => None,
     }
 }
@@ -307,12 +307,12 @@ mod tests {
     }
 
     #[test]
-    fn reports_shortcut_changes_without_exposing_unrelated_settings() {
+    fn reports_hotkey_changes_without_exposing_unrelated_settings() {
         assert_eq!(
             describe_setting_change("hudHotkey", Some("Alt+Shift+V"), "Command+Space")
                 .unwrap()
                 .description,
-            "Changed HUD shortcut: Alt+Shift+V → Command+Space"
+            "Changed HUD hotkey: Alt+Shift+V → Command+Space"
         );
     }
 

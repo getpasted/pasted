@@ -72,12 +72,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   }, [activeTab, onActiveTabChange, settings.enableAppLock]);
 
+  useEffect(() => {
+    if (!settings.enableHotkeys && activeTab === 'hotkeys') {
+      onActiveTabChange('functionality');
+    }
+  }, [activeTab, onActiveTabChange, settings.enableHotkeys]);
+
   return (
     <div className="tools-page settings-page flex-1 settings-modal-bg h-screen overflow-hidden font-sans select-none flex flex-col">
       <ToolPageHeader
         icon={<Settings className="w-4 h-4" />}
         title={translate('destination.settings')}
-        actions={<SettingsTabs activeTab={activeTab} onChange={onActiveTabChange} showNotifications={settings.enableNotifications} showSecurity={settings.enableAppLock} />}
+        actions={<SettingsTabs activeTab={activeTab} onChange={onActiveTabChange} showNotifications={settings.enableNotifications} showSecurity={settings.enableAppLock} showHotkeys={settings.enableHotkeys} />}
       />
 
       <div className="tools-scroll-region flex-1 overflow-y-auto p-6">
@@ -124,7 +130,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         {settings.enableAppLock && activeTab === 'security' && <SettingsSecurityPanel />}
 
         {/* HOTKEYS */}
-        {activeTab === 'hotkeys' && (
+        {settings.enableHotkeys && activeTab === 'hotkeys' && (
           <SettingsHotkeysPanel
             settings={settings}
             bins={bins}

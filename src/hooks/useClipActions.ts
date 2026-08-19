@@ -130,7 +130,7 @@ export function useClipActions({
   const toggleProtected = useCallback((id: number) => {
     const current = allClips.find((clip) => clip.id === id);
     const explicit = current?.is_explicitly_protected ?? current?.is_protected ?? false;
-    if (!current || current.shortcut || (current.is_protected && !explicit)) return;
+    if (!current || current.hotkey || (current.is_protected && !explicit)) return;
     const nextExplicit = !explicit;
     const update = (clip: ClipItem) => clip.id === id ? {
       ...clip,
@@ -201,7 +201,7 @@ export function useClipActions({
       : [id];
     const idsToChange = allClips
       .filter((clip) => targetIds.includes(clip.id)
-        && !clip.shortcut
+        && !clip.hotkey
         && Boolean(clip.is_explicitly_protected ?? clip.is_protected) !== protectedState)
       .map((clip) => clip.id);
     if (idsToChange.length === 0) return;
