@@ -8001,6 +8001,19 @@ impl DbState {
                     "Remove the clip hotkey before removing explicit protection".into(),
                 ));
             }
+            let protecting_bin_count: i64 = tx.query_row(
+                "SELECT COUNT(*) FROM effective_clip_protection
+                 WHERE clip_id IN (SELECT CAST(value AS INTEGER) FROM json_each(?1))
+                   AND NULLIF(TRIM(protecting_bin_ids), '') IS NOT NULL",
+                params![ids_json],
+                |row| row.get(0),
+            )?;
+            if protecting_bin_count > 0 {
+                return Err(rusqlite::Error::InvalidParameterName(
+                    "Remove the clip from protecting Bins before removing explicit protection"
+                        .into(),
+                ));
+            }
         }
         let mut changed_ids = Vec::new();
         for id in ids {
@@ -20168,6 +20181,44 @@ mod tests {
         assert_eq!(cleared.is_explicitly_protected, Some(true));
         assert!(db.get_clip_hotkeys().unwrap().is_empty());
 
+        db.batch_protect_clips(vec![clip.id], false).unwrap();
+        assert!(!db.get_clip_by_id(clip.id).unwrap().is_protected);
+    }
+
+    #[test]
+    fn protecting_bin_blocks_unprotect_after_clip_hotkey_is_removed() {
+        let db = setup_test_db();
+        let bin = db
+            .create_bin("Protected Bin", "🛡️", "default", None)
+            .unwrap();
+        let clip = db
+            .save_clip(
+                "text",
+                Some("hotkey and bin protection"),
+                None,
+                None,
+                "hotkey-bin-protection-precedence",
+                "Tests",
+            )
+            .unwrap();
+
+        db.update_bin_protection(bin.id, true).unwrap();
+        db.update_clip_hotkey(clip.id, Some("Alt+Shift+8")).unwrap();
+        db.assign_to_bin(clip.id, Some(bin.id)).unwrap();
+        db.update_clip_hotkey(clip.id, None).unwrap();
+
+        let protected = db.get_clip_by_id(clip.id).unwrap();
+        assert!(protected.is_protected);
+        assert_eq!(protected.is_explicitly_protected, Some(true));
+        assert_eq!(protected.protecting_bin_ids, vec![bin.id]);
+        assert!(db.batch_protect_clips(vec![clip.id], false).is_err());
+        assert!(db
+            .get_clip_by_id(clip.id)
+            .unwrap()
+            .is_explicitly_protected
+            .unwrap());
+
+        db.assign_to_bin(clip.id, None).unwrap();
         db.batch_protect_clips(vec![clip.id], false).unwrap();
         assert!(!db.get_clip_by_id(clip.id).unwrap().is_protected);
     }

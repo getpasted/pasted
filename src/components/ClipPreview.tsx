@@ -827,9 +827,8 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
       ? parseColor(displayText, isColorContent)
       : null;
   const canTransformContent = clip.content_type !== 'image' && clip.content_type !== 'file';
-  const isExplicitlyProtected = clip.is_explicitly_protected ?? clip.is_protected ?? false;
-  const protectionIsInheritedOnly = Boolean(clip.is_protected) && !isExplicitlyProtected;
-  const protectionToggleDisabled = Boolean(clip.hotkey) || protectionIsInheritedOnly;
+  const protectedByBin = Boolean(clip.protecting_bin_ids?.length);
+  const protectionToggleDisabled = Boolean(clip.hotkey) || protectedByBin;
 
   const handleHotkeyChange = async (hotkey: string | null) => {
     try {
@@ -1210,12 +1209,12 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
                 className={`clip-preview-action preview-protect-btn theme-focusable transition-colors ${clip.is_protected ? 'is-active' : ''}`}
                 title={clip.hotkey
                   ? translate('component.clipPreview.removeHotkeyBeforeUnprotecting')
-                  : protectionIsInheritedOnly
+                  : protectedByBin
                     ? translate('component.clipPreview.protectedByBin')
                     : clip.is_protected ? UI_COPY.unprotect : UI_COPY.protect}
                 aria-label={clip.hotkey
                   ? translate('component.clipPreview.removeHotkeyBeforeUnprotecting')
-                  : protectionIsInheritedOnly
+                  : protectedByBin
                     ? translate('component.clipPreview.protectedByBin')
                     : clip.is_protected ? UI_COPY.unprotect : UI_COPY.protect}
                 aria-pressed={Boolean(clip.is_protected)}

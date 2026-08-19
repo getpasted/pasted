@@ -127,7 +127,7 @@ export function useClipActions({
   const toggleProtected = useCallback((id: number) => {
     const current = allClips.find((clip) => clip.id === id);
     const explicit = current?.is_explicitly_protected ?? current?.is_protected ?? false;
-    if (!current || current.hotkey || (current.is_protected && !explicit)) return;
+    if (!current || current.hotkey || current.protecting_bin_ids?.length) return;
     const nextExplicit = !explicit;
     const update = (clip: ClipItem) => clip.id === id ? {
       ...clip,
@@ -199,6 +199,7 @@ export function useClipActions({
     const idsToChange = allClips
       .filter((clip) => targetIds.includes(clip.id)
         && !clip.hotkey
+        && (protectedState || !clip.protecting_bin_ids?.length)
         && Boolean(clip.is_explicitly_protected ?? clip.is_protected) !== protectedState)
       .map((clip) => clip.id);
     if (idsToChange.length === 0) return;
@@ -327,21 +328,34 @@ export function useClipActions({
       : [clipId];
     const targetClips = allClips.filter((clip) => targetIds.includes(clip.id));
     const manualBinIds = new Set(bins.filter((bin) => !bin.smart_rule).map((bin) => bin.id));
+    const targetBinProtects = binId !== null
+      && Boolean(bins.find((bin) => bin.id === binId)?.protect_clips);
 
     const updateClip = (clip: ClipItem) => {
       if (!targetIds.includes(clip.id)) return clip;
       const currentBinIds = clip.bin_ids || [];
+      const currentProtectingBinIds = clip.protecting_bin_ids || [];
+      const explicitlyProtected = clip.is_explicitly_protected
+        ?? (Boolean(clip.is_protected) && !clip.hotkey && currentProtectingBinIds.length === 0);
       if (binId === null) {
+        const nextProtectingBinIds = currentProtectingBinIds.filter((id) => !manualBinIds.has(id));
         return {
           ...clip,
           bin_id: null,
           bin_ids: currentBinIds.filter((id) => !manualBinIds.has(id)),
+          protecting_bin_ids: nextProtectingBinIds,
+          is_protected: explicitlyProtected || Boolean(clip.hotkey) || nextProtectingBinIds.length > 0,
         };
       }
+      const nextProtectingBinIds = targetBinProtects && !currentProtectingBinIds.includes(binId)
+        ? [...currentProtectingBinIds, binId]
+        : currentProtectingBinIds;
       return {
         ...clip,
         bin_id: binId,
         bin_ids: currentBinIds.includes(binId) ? currentBinIds : [...currentBinIds, binId],
+        protecting_bin_ids: nextProtectingBinIds,
+        is_protected: explicitlyProtected || Boolean(clip.hotkey) || nextProtectingBinIds.length > 0,
       };
     };
     setAllClips((previous) => previous.map(updateClip));
@@ -430,10 +444,19 @@ export function useClipActions({
     const updateClip = (clip: ClipItem) => {
       if (clip.id !== clipId) return clip;
       const nextBinIds = (clip.bin_ids || []).filter((id) => id !== binId);
+      const nextProtectingBinIds = (clip.protecting_bin_ids || []).filter((id) => id !== binId);
       const nextPrimary = clip.bin_id === binId
         ? nextBinIds.find((id) => manualBinIds.has(id)) ?? null
         : clip.bin_id;
-      return { ...clip, bin_id: nextPrimary, bin_ids: nextBinIds };
+      const explicitlyProtected = clip.is_explicitly_protected
+        ?? (Boolean(clip.is_protected) && !clip.hotkey && (clip.protecting_bin_ids?.length ?? 0) === 0);
+      return {
+        ...clip,
+        bin_id: nextPrimary,
+        bin_ids: nextBinIds,
+        protecting_bin_ids: nextProtectingBinIds,
+        is_protected: explicitlyProtected || Boolean(clip.hotkey) || nextProtectingBinIds.length > 0,
+      };
     };
     setAllClips((previous) => previous.map(updateClip));
     setSelectedClip((previous) => previous ? updateClip(previous) : previous);

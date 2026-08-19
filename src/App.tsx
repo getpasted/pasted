@@ -904,6 +904,12 @@ export default function App() {
   }, [clearClipSelection]);
 
   const binsById = useMemo(() => new Map(bins.map((bin) => [bin.id, bin])), [bins]);
+  const currentContextMenuClip = useMemo(() => {
+    if (!contextMenu) return null;
+    return allClips.find((clip) => clip.id === contextMenu.clip.id)
+      ?? trashedClips.find((clip) => clip.id === contextMenu.clip.id)
+      ?? contextMenu.clip;
+  }, [allClips, contextMenu, trashedClips]);
   const selectedClipViewPolicy = getClipViewPolicy(currentTab, selectedClip);
   const hasRestrictedSelection = Array.from(selectedClipIds).some((id) => {
     const selected = displayedClips.find((clip) => clip.id === id);
@@ -1675,32 +1681,43 @@ export default function App() {
       )}</Suspense>
 
       {/* Right Click Context Menu */}
-      {contextMenu && (
+      {contextMenu && currentContextMenuClip && (
         <ContextMenu
           x={contextMenu.x}
           y={contextMenu.y}
-          clip={contextMenu.clip}
-          viewPolicy={getClipViewPolicy(currentTab, contextMenu.clip)}
-          selectedCount={selectedClipIds.has(contextMenu.clip.id) ? selectedClipIds.size : 1}
+          clip={currentContextMenuClip}
+          viewPolicy={getClipViewPolicy(currentTab, currentContextMenuClip)}
+          selectedCount={selectedClipIds.has(currentContextMenuClip.id) ? selectedClipIds.size : 1}
           bins={bins}
           onClose={() => setContextMenu(null)}
-          onCopy={() => handleCopyClip(contextMenu.clip)}
+          onCopy={() => handleCopyClip(currentContextMenuClip)}
           onAssignBin={(binId) => assignClipToBin(
-            contextMenu.clip.id,
+            currentContextMenuClip.id,
             binId,
             { includeSelection: true },
           )}
-          onRemoveBin={(binId) => removeClipFromBin(contextMenu.clip.id, binId)}
-          onRunTransform={(transform) => handleRunTransformForClip(contextMenu.clip, transform)}
+          onRemoveBin={(binId) => removeClipFromBin(currentContextMenuClip.id, binId)}
+          onRunTransform={(transform) => handleRunTransformForClip(currentContextMenuClip, transform)}
           onOpenTransformations={() => navigateToTab('transformations')}
-          onAddNote={() => handlePromptAddNote(contextMenu.clip)}
-          onDeleteNote={() => handleDeleteNoteFromClip(contextMenu.clip.id)}
-          onAddToStack={() => handleAddToSequentialStack(contextMenu.clip)}
-          onTogglePin={() => handleTogglePin(contextMenu.clip.id)}
-          onToggleProtected={() => handleToggleProtected(contextMenu.clip.id)}
-          onDelete={(e) => handleDeleteClip(contextMenu.clip.id, e?.altKey)}
-          onRestore={() => handleRestoreClip(contextMenu.clip.id)}
-          onPurge={() => handlePurgeClipPermanently(contextMenu.clip.id)}
+          onAddNote={() => handlePromptAddNote(currentContextMenuClip)}
+          onDeleteNote={() => handleDeleteNoteFromClip(currentContextMenuClip.id)}
+          isQueued={Boolean(currentContextMenuClip.text_content && queuedIndexMap.has(currentContextMenuClip.text_content))}
+          onToggleQueue={() => {
+            const queueIndex = currentContextMenuClip.text_content
+              ? queuedIndexMap.get(currentContextMenuClip.text_content)
+              : undefined;
+            if (queueIndex !== undefined) {
+              void invoke('remove_sequential_item_by_index', { index: queueIndex - 1 })
+                .then(fetchSequentialStatus);
+            } else {
+              void handleAddToSequentialStack(currentContextMenuClip);
+            }
+          }}
+          onTogglePin={() => handleTogglePin(currentContextMenuClip.id)}
+          onToggleProtected={() => handleToggleProtected(currentContextMenuClip.id)}
+          onDelete={(e) => handleDeleteClip(currentContextMenuClip.id, e?.altKey)}
+          onRestore={() => handleRestoreClip(currentContextMenuClip.id)}
+          onPurge={() => handlePurgeClipPermanently(currentContextMenuClip.id)}
           trashEnabled={appSettings.enableTrash}
         />
       )}
