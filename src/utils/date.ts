@@ -27,11 +27,17 @@ export function formatRelativeTime(
   if (Number.isNaN(timestampMs)) return String(timeStr);
 
   const elapsedSeconds = Math.max(0, Math.floor((nowMs - timestampMs) / 1000));
+  if (elapsedSeconds < 60) {
+    return new Intl.RelativeTimeFormat(locale, {
+      numeric: 'auto',
+      style: 'narrow',
+    }).format(0, 'second');
+  }
+
   const relative = new Intl.RelativeTimeFormat(locale, {
-    numeric: 'auto',
+    numeric: 'always',
     style: 'narrow',
   });
-  if (elapsedSeconds < 60) return relative.format(0, 'second');
 
   const elapsedMinutes = Math.floor(elapsedSeconds / 60);
   if (elapsedMinutes < 60) return relative.format(-elapsedMinutes, 'minute');
@@ -40,8 +46,7 @@ export function formatRelativeTime(
   if (elapsedHours < 24) return relative.format(-elapsedHours, 'hour');
 
   const elapsedDays = Math.floor(elapsedHours / 24);
-  if (elapsedDays < 7) return relative.format(-elapsedDays, 'day');
-  if (elapsedDays < 30) return relative.format(-Math.floor(elapsedDays / 7), 'week');
+  if (elapsedDays < 30) return relative.format(-elapsedDays, 'day');
   if (elapsedDays < 365) return relative.format(-Math.floor(elapsedDays / 30), 'month');
   return relative.format(-Math.floor(elapsedDays / 365), 'year');
 }
