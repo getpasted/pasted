@@ -108,7 +108,15 @@ pasted bin shortcut <id> <shortcut|none> [--json]
 
 `bin order` replaces the complete saved order and rejects invalid/duplicate membership atomically.
 
-Smart Bin rules use `clip_type`, `source`, `content_type`, `origin_kind`, `contains`, `file_extension`, or `file_path` conditions. Clip Type is structural (`text`, `image`, or `file`); Content Type refers to the semantic classifier registry.
+Smart Bin rules use the version 1 `clip_type`, `content_type`, `file_format`, and `source` collection axes. Conditions support case-insensitive `is` and `contains` operators and combine with `match: "any"` or `match: "all"`.
+
+```sh
+pasted bin create --name "Safari Links" \
+  --smart-rule-json '{"version":1,"conditions":[{"type":"content_type","operator":"is","value":"link"},{"type":"source","operator":"contains","value":"Safari"}],"match":"all"}' \
+  --json
+```
+
+Use `pasted type list --json` for registered Content Type IDs and `pasted insights summary --json` for observed Clip Types, File Formats, and Sources. The corresponding Functionality setting must be enabled for an axis to match. Invalid rule shapes are rejected. See [Smart Bin Rule Contract](Smart-Bin-Rule-Contract.md) for bounds and compatibility behavior.
 
 ## Transforms
 

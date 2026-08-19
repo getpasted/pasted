@@ -15,6 +15,7 @@ Notable user-facing changes to Pasted are recorded here. The project follows sem
 - added Tesseract OCR, ffprobe and MediaInfo inspection, and whisper.cpp transcription with explicit local dependency and model configuration.
 - unified shipped and custom Extractors under editable, revisioned local recipes, with AI-assisted authoring, a complete Advanced form, local authoring history, testing, and GUI/CLI parity.
 - separated structural Clip Type, referenced File Format, and semantic Content Type throughout Analysis, Insights, Functionality, Help, and documentation.
+- unified Smart Bins around Clip Type, Content Type, File Format, and Source with validated versioned rules, shared GUI/CLI behavior, and Functionality-aware matching.
 - aligned Reset, Content Type, Insights, and Help navigation language across dialogs, native menus, CLI messages, and architecture documentation.
 - made App Exclusions enforce independent text, image, file, and hotkey rules, with reliable focused-app identity on macOS, Windows, and X11.
 - unified Settings footer guidance, connected registry controls, and selected-menu styling while tightening copy and row layout.

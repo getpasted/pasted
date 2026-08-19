@@ -16,13 +16,19 @@ If the operation cannot finish, the Bin and clip relationships remain unchanged.
 
 ## Smart Bins
 
-Smart Bins match Clip Type, Source, Content Type, Capture Method, text content, or file details. Clip Type, Source, and Content Type choices follow their Functionality settings. They are computed views, so clips are not manually dropped into them.
+Smart Bins match Clip Type, Content Type, File Format, or Source. Choose a known value or enter a custom stable ID or name, then match it exactly with **is** or partially with **contains**. Multiple conditions can match any or all.
+
+Each axis follows its Functionality setting. Disabling Clip Types, Content Types, File Formats, or Sources makes related conditions inactive without deleting the Smart Bin. Re-enable the feature to restore matching; rescan History to backfill derived Content Types and File Formats.
+
+Smart Bins are computed views, so clips are not manually dropped into them. Older rules that used Capture Method, raw text, extensions, or file locations remain compatible but are no longer offered for new rules.
 
 Default first-launch Smart Bins are:
 
-- Screenshots;
-- Links & Web;
+- Images;
+- Links and Web;
 - Code Snippets.
+
+The versioned rule shape used by the GUI, CLI, and portable transfer files is documented in [Smart Bin Rule Contract](Smart-Bin-Rule-Contract.md).
 
 ## Ordering
 

@@ -522,6 +522,7 @@ export const BinModal: React.FC<BinModalProps> = ({
     let smartRuleJson: string | null = null;
     if (modalTab === 'smart') {
       smartRuleJson = JSON.stringify({
+        version: 1,
         conditions: conditions.map((c) => ({
           type: c.target,
           operator: c.operator,

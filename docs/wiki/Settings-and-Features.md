@@ -17,13 +17,15 @@ Changing presets does not erase clips or supporting records. Feature cards with 
 - **Trash:** when enabled, ordinary deletion moves clips to recoverable Trash. Restore clips individually from Trash or restore every trashed clip from Settings → General. When disabled, new deletions are permanent. Existing trashed clips remain stored and become available again when Trash is re-enabled.
 - **Revision History:** disabling it preserves existing revisions, but new edits and Transform replacements do not receive restorable snapshots.
 - **Protection:** disabling the interface does not unprotect previously protected clips. Re-enable Protection to change them.
-- **Clip Types:** disabling it hides structural Clip Type labels, sidebar collections, and Insights summaries. Capture continues assigning Text, Image, or Files internally so previews, copy behavior, Extractors, backups, and APIs remain correct.
+- **Bins:** disabling it hides manual and Smart Bin interfaces without deleting definitions, membership, ordering, or connected Transforms.
+- **Clip Types:** disabling it hides structural Clip Type labels, sidebar collections, Insights summaries, and Clip Type Smart Bin matches. Capture continues assigning Text, Image, or Files internally so previews, copy behavior, Extractors, backups, and APIs remain correct.
+- **File Formats:** disabling it stops format inspection, hides File Format collections and summaries, and suspends File Format Smart Bin matches. Existing results and rules remain stored.
 - **Content Classification:** disabling it stops classifier-driven classification and rescans. Classifiers remain available while Content Types is enabled. Existing clips and Classifier configuration are preserved.
 - **OCR:** disabling it stops automatic OCR and hides the shipped Apple Vision and Tesseract recipes. Unrelated custom image Extractors remain manageable. Completed extracted text remains with its clips; re-enabling OCR resumes eligible image backfill.
 - **Transcriptions:** disabling it hides Whisper and audio transcription controls without hiding unrelated custom file Extractors. Completed transcripts remain stored.
 - **Transformations:** disabling it stops text workflows and Smart Action suggestions and hides Suggestions under Analysis.
-- **Content Types:** disabling it hides semantic Content Type labels and calculated collections. Classifiers may still classify clips using the preserved registry. Structural presentation follows the separate Clip Types setting.
-- **Sources:** disabling it hides source metadata and calculated Source collections and stops icon resolution. Attribution remains stored so re-enabling Sources is reversible.
+- **Content Types:** disabling it hides semantic Content Type labels and calculated collections and suspends Content Type Smart Bin matches. Classifiers may still classify clips using the preserved registry. Structural presentation follows the separate Clip Types setting.
+- **Sources:** disabling it hides source metadata and calculated Source collections, stops icon resolution, and suspends Source Smart Bin matches. Attribution remains stored so re-enabling Sources is reversible.
 - **Insights:** disabling it hides library statistics. It does not change Analyzer execution or stored analysis results.
 - **Notifications:** disabling the feature removes capture feedback. Clipboard capture itself continues.
 - **App Lock:** disabling it immediately removes lock enforcement, hides Security, and clears the saved passphrase and authentication preferences. Timing and capture policies remain available when App Lock is enabled again.
