@@ -49,8 +49,8 @@ assert.match(
 );
 assert.match(
   desktopBuildWorkflow,
-  /smoke:[\s\S]*?needs\.validation-scope\.outputs\.native == 'true'[\s\S]*?needs: \[validation-scope, dependency-review, dependency-policy\][\s\S]*?runner\.os == 'Linux'[\s\S]*?npm run test:native/,
-  'Native smoke builds must run complete Linux validation in parallel for native-impacting ready PRs',
+  /smoke:[\s\S]*?github\.event\.pull_request\.draft == false[\s\S]*?needs: \[validation-scope, dependency-review, dependency-policy\][\s\S]*?if: needs\.validation-scope\.outputs\.native == 'true'[\s\S]*?runner\.os == 'Linux'[\s\S]*?npm run test:native/,
+  'Named smoke checks must always expand for ready PRs while native work remains change-aware',
 );
 
 assert.equal(packageJson.name, 'pasted', 'Frontend package must use the Pasted product name');
