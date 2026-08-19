@@ -305,11 +305,7 @@ fn apply_feature_policy_changes(app: &AppHandle, db: &Arc<DbState>, changed: &[F
             continue;
         }
         match feature {
-            Feature::Hud => {
-                if let Some(window) = app.get_webview_window("hud") {
-                    let _ = window.hide();
-                }
-            }
+            Feature::Hud => crate::hud_window::hide(app),
             Feature::Queue => {
                 if let Some(queue) = app.try_state::<Arc<SequentialQueueState>>() {
                     queue.stop_queue();
@@ -1546,6 +1542,7 @@ pub(crate) fn lock_app_with_state(
     state: &crate::app_lock::AppLockState,
 ) -> Result<crate::app_lock::AppLockStatus, String> {
     let status = lock_app_state(db, state)?;
+    crate::hud_window::hide(app);
     refresh_native_app_menu(app, db);
     let _ = app.emit("app-lock-changed", &status);
     Ok(status)
@@ -3404,6 +3401,7 @@ pub fn get_queue_paste_target(app: AppHandle) -> crate::paste_target::PasteTarge
 // Window & Activation Policy Commands
 #[tauri::command]
 pub fn toggle_hud_window(app: AppHandle) -> Result<(), String> {
+    crate::hud_window::require_unlocked(&app)?;
     let db = app.state::<Arc<DbState>>();
     features::require(&db, Feature::Hud)?;
     if let Some(window) = app.get_webview_window("hud") {
@@ -3541,8 +3539,7 @@ pub fn toggle_hud_window(app: AppHandle) -> Result<(), String> {
                 }
             }
 
-            let _ = window.show();
-            let _ = window.set_focus();
+            crate::hud_window::reveal(&app)?;
             #[cfg(target_os = "macos")]
             {
                 if let Ok(ns_win_ptr) = window.ns_window() {

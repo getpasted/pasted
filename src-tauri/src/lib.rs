@@ -736,6 +736,7 @@ pub fn run() {
                 if features::is_enabled(&db, features::Feature::AppLock) && enabled && lock_on_sleep
                 {
                     state.lock();
+                    hud_window::hide(app);
                     let _ = app_menu::install(app, &db);
                     let status = app_lock::status(&db, &state);
                     let _ = app.emit("app-lock-changed", status);

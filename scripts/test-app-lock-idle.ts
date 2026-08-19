@@ -1,6 +1,33 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import { APP_LOCK_ACTIVITY_EVENTS, createIdleDeadline } from '../src/utils/idleDeadline.ts';
 import { appLockAuthErrorKey, authToggleDisabled } from '../src/utils/appLockPolicy.ts';
+
+const rootSource = fs.readFileSync('src/main.tsx', 'utf8');
+const hudWindowSource = fs.readFileSync('src-tauri/src/hud_window.rs', 'utf8');
+const commandsSource = fs.readFileSync('src-tauri/src/commands.rs', 'utf8');
+const hotkeySource = fs.readFileSync('src-tauri/src/hotkey_manager.rs', 'utf8');
+const liveAppSource = fs.readFileSync('src-tauri/src/live_app.rs', 'utf8');
+const nativeRootSource = fs.readFileSync('src-tauri/src/lib.rs', 'utf8');
+
+assert.match(rootSource, /rootView === "hud" && appLock\.status\.locked\) return null/,
+  'the HUD webview must never render the app-lock modal');
+assert.match(rootSource, /useAppLock\(\{ animateUnlock: rootView !== "hud" \}\)/,
+  'the HUD must accept unlock state immediately instead of waiting for the main-window animation');
+assert.match(rootSource, /useAppLock\(\{ animateUnlock: false \}\)/,
+  'capture feedback must not wait for a lock-screen animation that its window never renders');
+assert.match(hudWindowSource, /pub fn require_unlocked[\s\S]*?state\.is_locked\(\)[\s\S]*?hide\(app\)[\s\S]*?Pasted is locked\./,
+  'the shared HUD window boundary must reject and hide locked invocations');
+assert.match(hudWindowSource, /pub fn reveal[\s\S]*?app_lock::status[\s\S]*?emit\("app-lock-changed", &lock_status\)[\s\S]*?window\.show\(\)/,
+  'every HUD reveal must synchronize current lock state before showing the hidden webview');
+assert.match(commandsSource, /lock_app_with_state[\s\S]*?hud_window::hide\(app\)/,
+  'locking from the GUI must hide the HUD');
+assert.match(hotkeySource, /app_lock::lock_enabled[\s\S]*?hud_window::hide\(app\)/,
+  'locking from a hotkey must hide the HUD');
+assert.match(liveAppSource, /LiveAppAction::AppLockLock[\s\S]*?hud_window::hide\(app\)/,
+  'locking from the CLI live-app path must hide the HUD');
+assert.match(nativeRootSource, /RunEvent::Resumed[\s\S]*?state\.lock\(\);[\s\S]*?hud_window::hide\(app\)/,
+  'locking after system sleep must hide the HUD');
 
 let now = 0;
 let nextTimer = 1;

@@ -183,10 +183,7 @@ pub fn paste_clip(
     }
     if let Err(error) = paste_target.paste_clip_to(&target) {
         if origin == PasteOrigin::Hud {
-            if let Some(hud) = app.get_webview_window("hud") {
-                let _ = hud.show();
-                let _ = hud.set_focus();
-            }
+            let _ = crate::hud_window::reveal(app);
         }
         let _ = db.log_activity(failed_event, &error);
         return Err(error);
@@ -200,6 +197,7 @@ pub fn paste_clip(
 }
 
 pub fn paste_hud_clip(db: &DbState, app: &AppHandle, clip_id: i64) -> Result<(), String> {
+    crate::hud_window::require_unlocked(app)?;
     crate::features::require(db, crate::features::Feature::Hud)?;
     paste_clip(db, app, clip_id, PasteOrigin::Hud)
 }
