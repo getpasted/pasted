@@ -20,6 +20,7 @@ const cargoToml = fs.readFileSync('src-tauri/Cargo.toml', 'utf8');
 const clipActions = fs.readFileSync('src/hooks/useClipActions.ts', 'utf8');
 const plainText = fs.readFileSync('src/utils/plainText.ts', 'utf8');
 const safeRasterImage = fs.readFileSync('src/components/SafeRasterImage.tsx', 'utf8');
+const codeqlWorkflow = fs.readFileSync('.github/workflows/codeql.yml', 'utf8');
 const safeRasterConsumers = [
   'src/components/CaptureFeedbackWindow.tsx',
   'src/components/ClipCard.tsx',
@@ -28,6 +29,26 @@ const safeRasterConsumers = [
   'src/components/Sidebar.tsx',
 ].map((path) => fs.readFileSync(path, 'utf8'));
 const security = tauriConfig.app?.security;
+
+assert.match(codeqlWorkflow, /schedule:\s*\n\s*- cron:/, 'CodeQL must retain a scheduled full scan');
+assert.match(
+  codeqlWorkflow,
+  /\.github\/workflows\/codeql\.yml\|\.github\/codeql\/\*[\s\S]*?actions=true[\s\S]*?javascript=true[\s\S]*?rust=true/,
+  'CodeQL configuration changes must exercise every language analyzer',
+);
+for (const language of ['actions', 'javascript-typescript', 'rust']) {
+  assert.match(
+    codeqlWorkflow,
+    new RegExp(`name: Analyze \\(${language}\\)[\\s\\S]*?languages: ${language}`),
+    `CodeQL must retain the ${language} analyzer`,
+  );
+}
+assert.match(codeqlWorkflow, /languages: rust\s*\n\s*build-mode: none/, 'Rust CodeQL must use its supported buildless mode');
+assert.match(
+  codeqlWorkflow,
+  /codeql:\s*\n\s*name: CodeQL[\s\S]*?needs: \[scope, analyze-actions, analyze-javascript, analyze-rust\]/,
+  'The CodeQL summary check must aggregate every scoped analyzer',
+);
 
 assert.ok(security?.csp, 'Production Tauri CSP must remain enabled');
 assert.equal(security.freezePrototype, true, 'Tauri must freeze Object.prototype in packaged webviews');
