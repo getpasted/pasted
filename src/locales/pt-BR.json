@@ -957,7 +957,7 @@
   "component.helpView.runATransformInPreviewModeOrApplyItToAClip": "Execute uma Transform no modo de visualização ou aplique-a a um clipe, preservando uma versão.",
   "component.helpView.runOneOperationThroughTheSharedExecutor": "Execute uma operação através do executor compartilhado.",
   "component.helpView.saveATextClipOmitTheArgumentToReadStdin": "Salve um clipe de texto. Omita o argumento para ler stdin.",
-  "component.helpView.searchABoundedPageOfHistoryOrTrashWithCollectionFilters": "Pesquise uma página limitada do Histórico ou da Lixeira com filtros de coleção.",
+  "component.helpView.searchABoundedPageOfHistoryOrTrashWithCollectionFilters": "Pesquise resultados paginados e completos do Histórico ou da Lixeira. Os filtros de coleção correspondem a valores exatos.",
   "component.helpView.selectAClipFromTheMiddleColumn": "Selecione um clipe da coluna central.",
   "component.helpView.setOrClearABinSDefaultTransform": "Defina ou limpe a Transform padrão de uma coleção.",
   "component.helpView.setOrClearABinShortcut": "Defina ou limpe um atalho para uma coleção.",

@@ -1,4 +1,4 @@
-use rusqlite::{params, Connection, OptionalExtension, Result};
+use rusqlite::{Connection, OptionalExtension, Result};
 use std::env;
 use std::fs;
 use std::io::{self, Read, Write};
@@ -3926,25 +3926,6 @@ fn run_command(command: &str, args: &[String], db_path: PathBuf, conn: Connectio
                 .and_then(|value| value.parse::<i64>().ok())
                 .unwrap_or(0)
                 .max(0);
-            if clip_type.is_some()
-                || content_type.is_some()
-                || file_format.is_some()
-                || source.is_some()
-            {
-                let db = DbState::new(db_path.clone())?;
-                if clip_type.is_some() {
-                    require_feature(&db, Feature::ClipTypes);
-                }
-                if content_type.is_some() {
-                    require_feature(&db, Feature::ContentTypes);
-                }
-                if file_format.is_some() {
-                    require_feature(&db, Feature::FileFormats);
-                }
-                if source.is_some() {
-                    require_feature(&db, Feature::Sources);
-                }
-            }
             let query = args
                 .iter()
                 .skip(2)
@@ -3952,139 +3933,42 @@ fn run_command(command: &str, args: &[String], db_path: PathBuf, conn: Connectio
                 .cloned()
                 .collect::<Vec<_>>()
                 .join(" ");
-            let pattern = format!("%{}%", query);
-            let mut stmt = conn.prepare(
-                "SELECT clips.id, clips.content_type, clips.text_content, clips.source, clips.created_at,
-                        COALESCE((
-                            SELECT json_group_array(content_type)
-                            FROM (
-                                SELECT classified.content_type
-                                FROM clip_analysis_classifications AS classified
-                                WHERE classified.clip_id = clips.id
-                                  AND classified.input_hash = clips.content_hash
-                                GROUP BY classified.content_type
-                                ORDER BY MIN(classified.id)
-                            )
-                        ), '[]'),
-                        COALESCE((
-                            SELECT json_group_array(file_format)
-                            FROM (
-                                SELECT LOWER(json_extract(detected.value, '$.format')) AS file_format
-                                FROM clip_analysis_results AS formats,
-                                     json_each(formats.result_json, '$.formats') AS detected
-                                WHERE formats.clip_id = clips.id
-                                  AND formats.participant_ref = ?8
-                                  AND formats.content_hash = clips.content_hash
-                                  AND formats.input_hash = clips.content_hash
-                                  AND formats.format_version = ?9
-                                GROUP BY file_format
-                                ORDER BY file_format COLLATE NOCASE
-                            )
-                        ), '[]')
-                 FROM clips
-                 WHERE is_trashed = ?7
-                   AND (?1 = '' OR clips.text_content LIKE ?2 OR EXISTS (
-                        SELECT 1 FROM clip_searchable_text AS extracted
-                        WHERE extracted.clip_id = clips.id
-                          AND extracted.input_hash = clips.content_hash
-                          AND extracted.searchable_text LIKE ?2
-                   ))
-                   AND (?3 IS NULL OR clips.content_type = ?3)
-                   AND (?4 IS NULL OR EXISTS (
-                        SELECT 1 FROM clip_analysis_classifications AS classified
-                        WHERE classified.clip_id = clips.id
-                          AND classified.input_hash = clips.content_hash
-                          AND classified.content_type = ?4
-                   ))
-                   AND (?5 IS NULL OR EXISTS (
-                        SELECT 1
-                        FROM clip_analysis_results AS formats,
-                             json_each(formats.result_json, '$.formats') AS detected
-                        WHERE formats.clip_id = clips.id
-                          AND formats.participant_ref = ?8
-                          AND formats.content_hash = clips.content_hash
-                          AND formats.input_hash = clips.content_hash
-                          AND formats.format_version = ?9
-                          AND LOWER(json_extract(detected.value, '$.format')) = LOWER(?5)
-                   ))
-                   AND (?6 IS NULL OR clips.source = ?6)
-                 ORDER BY created_at DESC
-                 LIMIT ?10 OFFSET ?11",
-            )?;
-            let rows = stmt
-                .query_map(
-                    params![
-                        query,
-                        pattern,
-                        clip_type,
-                        content_type,
-                        file_format,
-                        source,
-                        trash,
-                        pasted_lib::content_inspection::FILE_FORMAT_INSPECTOR_REF,
-                        pasted_lib::analysis_contract::ANALYSIS_CONTRACT_VERSION,
-                        limit,
-                        offset,
-                    ],
-                    |row| {
-                        Ok((
-                            row.get::<_, i64>(0)?,
-                            row.get::<_, String>(1)?,
-                            row.get::<_, Option<String>>(2)?.unwrap_or_default(),
-                            row.get::<_, String>(3)?,
-                            row.get::<_, String>(4)?,
-                            serde_json::from_str::<Vec<String>>(&row.get::<_, String>(5)?)
-                                .unwrap_or_default(),
-                            serde_json::from_str::<Vec<String>>(&row.get::<_, String>(6)?)
-                                .unwrap_or_default(),
-                        ))
-                    },
-                )?
-                .collect::<Result<Vec<_>, _>>()?;
+            let db = DbState::new(db_path.clone())?;
+            let result = db.search_clips(&pasted_lib::db::ClipSearchRequest {
+                query,
+                clip_types: clip_type.into_iter().collect(),
+                content_types: content_type.into_iter().collect(),
+                file_formats: file_format.into_iter().collect(),
+                sources: source.into_iter().collect(),
+                trash,
+                limit: usize::try_from(limit).unwrap_or(20),
+                offset: usize::try_from(offset).unwrap_or(0),
+            })?;
 
             if json {
-                let payload = rows
-                    .into_iter()
-                    .map(
-                        |(
-                            id,
-                            content_type,
-                            content,
-                            source,
-                            created_at,
-                            content_types,
-                            file_formats,
-                        )| {
-                            serde_json::json!({
-                                "id": id,
-                                "content_type": content_type,
-                                "content_types": content_types,
-                                "file_formats": file_formats,
-                                "text_content": content,
-                                "source": source,
-                                "created_at": created_at,
-                            })
-                        },
-                    )
-                    .collect::<Vec<_>>();
                 println!(
                     "{}",
-                    serde_json::to_string_pretty(&payload).map_err(json_error)?
+                    serde_json::to_string_pretty(&result).map_err(json_error)?
                 );
             } else {
-                for (id, c_type, content, source, date, content_types, file_formats) in rows {
-                    let detected = if content_types.is_empty() {
+                for clip in result.items {
+                    let detected = if clip.content_types.is_empty() {
                         String::new()
                     } else {
-                        format!("; {}", content_types.join(", "))
+                        format!("; {}", clip.content_types.join(", "))
                     };
-                    let formats = if file_formats.is_empty() {
+                    let formats = if clip.file_formats.is_empty() {
                         String::new()
                     } else {
-                        format!("; {}", file_formats.join(", "))
+                        format!("; {}", clip.file_formats.join(", "))
                     };
+                    let content = clip.text_content.unwrap_or_default();
                     println!(
-                        "[#{id}] ({c_type}{detected}{formats} from {source} @ {date}):\n{content}\n---"
+                        "[#{id}] ({clip_type}{detected}{formats} from {source} @ {date}):\n{content}\n---",
+                        id = clip.id,
+                        clip_type = clip.content_type,
+                        source = clip.source,
+                        date = clip.created_at,
                     );
                 }
             }

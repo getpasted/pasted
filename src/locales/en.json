@@ -957,7 +957,7 @@
   "component.helpView.runATransformInPreviewModeOrApplyItToAClip": "Run a Transform in preview mode, or apply it to a clip while preserving a revision.",
   "component.helpView.runOneOperationThroughTheSharedExecutor": "Run one Operation through the shared executor.",
   "component.helpView.saveATextClipOmitTheArgumentToReadStdin": "Save a text clip. Omit the argument to read stdin.",
-  "component.helpView.searchABoundedPageOfHistoryOrTrashWithCollectionFilters": "Search a bounded page of History or Trash with collection filters.",
+  "component.helpView.searchABoundedPageOfHistoryOrTrashWithCollectionFilters": "Search authoritative, paginated History or Trash results. Collection filters match exact values.",
   "component.helpView.selectAClipFromTheMiddleColumn": "Select a clip from the middle column.",
   "component.helpView.setOrClearABinSDefaultTransform": "Set or clear a Bin’s default Transform.",
   "component.helpView.setOrClearABinShortcut": "Set or clear a Bin shortcut.",

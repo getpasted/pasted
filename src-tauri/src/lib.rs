@@ -664,7 +664,7 @@ pub fn run() {
             commands::get_clip_searchable_text,
             commands::get_clip_extraction_results,
             commands::get_clip_extraction_history,
-            commands::search_clip_searchable_text_ids,
+            commands::search_clips,
             commands::extract_text_from_file_clip,
             commands::register_hud_shortcut,
             commands::update_bin_shortcut,

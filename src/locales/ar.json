@@ -981,7 +981,7 @@
   "component.helpView.runATransformInPreviewModeOrApplyItToAClip": "تشغيل تحويل في وضع المعاينة، أو تطبيقه على مقطع مع الحفاظ على نسخة.",
   "component.helpView.runOneOperationThroughTheSharedExecutor": "تشغيل عملية واحدة من خلال المُنفذ المشترك.",
   "component.helpView.saveATextClipOmitTheArgumentToReadStdin": "حفظ مقطع نصي. تجاهل الوسيطة لقراءة stdin.",
-  "component.helpView.searchABoundedPageOfHistoryOrTrashWithCollectionFilters": "ابحث في صفحة محدودة من السجل أو سلة المهملات باستخدام عوامل تصفية المجموعات.",
+  "component.helpView.searchABoundedPageOfHistoryOrTrashWithCollectionFilters": "ابحث في نتائج موثوقة ومقسّمة إلى صفحات من السجل أو سلة المهملات. تطابق عوامل تصفية المجموعات القيم التامة.",
   "component.helpView.selectAClipFromTheMiddleColumn": "حدد مقطعًا من العمود الأوسط.",
   "component.helpView.setOrClearABinSDefaultTransform": "اضبط أو احذف الإعدادات الافتراضية للملف.",
   "component.helpView.setOrClearABinShortcut": "اضبط أو احذف اختصار الملف.",

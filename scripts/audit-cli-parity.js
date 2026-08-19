@@ -34,8 +34,10 @@ assert.match(cli, /pasted search \[query\] \[--clip TYPE\] \[--content TYPE\] \[
   'CLI search help must expose all four collection axes');
 assert.doesNotMatch(help, /pasted search[^\n]*--type TYPE/,
   'GUI CLI help must not retain the ambiguous search --type flag');
-assert.match(cli, /"file_formats": file_formats/,
-  'CLI structured search output must expose verified File Formats');
+assert.match(cli, /db\.search_clips\(&pasted_lib::db::ClipSearchRequest/,
+  'CLI Search must execute the shared native Search service');
+assert.match(database, /pub struct ClipSearchResult[\s\S]{0,300}pub items: Vec<ClipItem>[\s\S]{0,300}pub total_count: usize/,
+  'Shared structured Search output must expose ClipItems and an authoritative total');
 
 assert.match(commands, /pub async fn choose_extractor_executable/,
   'The native Extractor executable picker must not block the app command thread');
@@ -299,12 +301,12 @@ assert.match(suggestionExecution, /pub struct SmartActionSuggestionResult/,
   'Focused suggestion must expose one stable application result');
 assert.match(cli, /suggestion_execution::suggest_(?:text|clip)/,
   'CLI Smart Actions must use the shared Suggestion execution service');
-assert.match(clipViews, /invoke<number\[]>\('search_clip_searchable_text_ids',[\s\S]*?terms:\s*plan\.terms/,
-  'GUI search must consult the native index so extracted searchable text can match');
-assert.match(clipViews, /indexedSearchResult\.clipIds\.forEach/,
-  'GUI search must merge native-index matches without adding extracted text to clip-list payloads');
-assert.match(database, /search_clip_searchable_text_ids[\s\S]*?query\.join\(" AND "\)/,
-  'Extracted-text search must evaluate bounded multi-term queries atomically in FTS');
+assert.match(clipViews, /invoke<ClipSearchResult>\('search_clips'/,
+  'GUI Search must request authoritative ClipItems and totals from the native service');
+assert.match(database, /pub fn search_clips\([\s\S]*?clip_searchable_text AS extracted/,
+  'Shared Search must include hash-current extracted text without exposing it in ClipItems');
+assert.match(database, /pub const MAX_CLIP_SEARCH_PAGE_SIZE/,
+  'Shared Search responses must enforce a native page bound');
 assert.doesNotMatch(tauriMock, /reasons:\s*signals/,
   'Mock Smart Actions must preserve per-suggestion reasons');
 assert.match(tauriMock, /hasText === hasClipId/,

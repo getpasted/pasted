@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { AlertCircle, LoaderCircle, Search, Sparkles, X } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { listen } from '@tauri-apps/api/event';
-import { ClipItem, getClipFileSummary } from '../types';
+import { ClipItem, ClipSearchResult, getClipFileSummary } from '../types';
 import { OverflowText } from './OverflowText';
 import { SafeRasterImage } from './SafeRasterImage';
 import { translate } from '../localization/runtime';
@@ -31,18 +31,14 @@ export const QuickHudWindow: React.FC = () => {
 
   const fetchClips = async () => {
     try {
-      const result = await invoke<ClipItem[]>('get_clips', {
-        searchQuery: search || null,
-        binId: null,
-        onlyPinned: false,
-        limit: 9,
-        offset: 0,
+      const result = await invoke<ClipSearchResult>('search_clips', {
+        request: { query: search, limit: 9, offset: 0 },
       });
-      setClips(result);
+      setClips(result.items);
       setSelectedIndex(0);
       if (!search) {
         try {
-          localStorage.setItem('pasted_cache_hud_clips', JSON.stringify(result));
+          localStorage.setItem('pasted_cache_hud_clips', JSON.stringify(result.items));
         } catch {
           // Ignore
         }

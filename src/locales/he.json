@@ -963,7 +963,7 @@
   "component.helpView.runATransformInPreviewModeOrApplyItToAClip": "הפעילו המרה במצב התצוגה המקדימה, או השתמשו בה עבור קליפ תוך שמירה על גרסה.",
   "component.helpView.runOneOperationThroughTheSharedExecutor": "הפעילו פעולה דרך מפעיל משותף.",
   "component.helpView.saveATextClipOmitTheArgumentToReadStdin": "שמרו קליפ טקסט. הסירו את הארגומנט כדי לקרוא מ-stdin.",
-  "component.helpView.searchABoundedPageOfHistoryOrTrashWithCollectionFilters": "חפשו בדף מוגבל של ההיסטוריה או סל המחזור באמצעות מסנני אוספים.",
+  "component.helpView.searchABoundedPageOfHistoryOrTrashWithCollectionFilters": "חפשו בתוצאות מוסמכות ומחולקות לעמודים בהיסטוריה או בסל המחזור. מסנני אוספים תואמים לערכים מדויקים.",
   "component.helpView.selectAClipFromTheMiddleColumn": "בחרו קליפ מהעמוד האמצעי.",
   "component.helpView.setOrClearABinSDefaultTransform": "הגדירו או הסתירו את ההמרה המוגדרת כברירת מחדל עבור אוסף.",
   "component.helpView.setOrClearABinShortcut": "הגדירו או הסתירו קיצור לאוסף.",

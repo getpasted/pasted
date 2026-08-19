@@ -524,6 +524,57 @@ fn whole_analyzer_has_one_versioned_privacy_safe_cli_contract() {
 }
 
 #[test]
+fn search_uses_the_shared_paginated_contract_and_exact_collection_filters() {
+    let database = temporary_path("search", "db");
+    success_json(&database, &["copy", "first@example.com", "--json"]);
+    success_json(&database, &["copy", "second@example.com", "--json"]);
+
+    let first_page = success_json(
+        &database,
+        &[
+            "search",
+            "example.com",
+            "--clip",
+            "text",
+            "--content",
+            "email",
+            "--source",
+            "CLI Terminal",
+            "--limit",
+            "1",
+            "--json",
+        ],
+    );
+    assert_eq!(first_page["totalCount"], 2);
+    assert_eq!(first_page["limit"], 1);
+    assert_eq!(first_page["offset"], 0);
+    assert_eq!(first_page["items"].as_array().map(Vec::len), Some(1));
+    assert_eq!(first_page["items"][0]["content_type"], "text");
+    assert_eq!(first_page["items"][0]["content_types"][0], "email");
+    assert!(first_page["items"][0].get("file_formats").is_some());
+    assert!(first_page["items"][0].get("source").is_some());
+
+    let second_page = success_json(
+        &database,
+        &[
+            "search",
+            "example.com",
+            "--limit",
+            "1",
+            "--offset",
+            "1",
+            "--json",
+        ],
+    );
+    assert_eq!(second_page["totalCount"], 2);
+    assert_ne!(first_page["items"][0]["id"], second_page["items"][0]["id"]);
+
+    let partial_source = success_json(&database, &["search", "--source", "CLI", "--json"]);
+    assert_eq!(partial_source["totalCount"], 0);
+    clean_database(&database);
+}
+
+#[test]
 fn bin_lifecycle_and_full_backup_inspection_run_end_to_end() {
     let database = temporary_path("management", "db");
     let created = success_json(&database, &["bin", "create", "--name", "CLI Bin", "--json"]);

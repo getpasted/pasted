@@ -46,10 +46,10 @@ export function clipMatchesSearch(
   if (plan.clipTypes.length > 0 && features && !features.clipTypes) return false;
   if (plan.contentTypes.length > 0 && features && !features.types) return false;
   if (plan.formats.length > 0 && features && !features.fileFormats) return false;
-  if (!plan.sources.every((value) => source.includes(value))) return false;
-  if (!plan.clipTypes.every((value) => clipType.includes(value))) return false;
-  if (!plan.contentTypes.every((value) => contentTypes.some((type) => type.includes(value)))) return false;
-  if (!plan.formats.every((value) => formats.some((format) => format.includes(value)))) return false;
+  if (!plan.sources.every((value) => source === value)) return false;
+  if (!plan.clipTypes.every((value) => clipType === value)) return false;
+  if (!plan.contentTypes.every((value) => contentTypes.some((type) => type === value))) return false;
+  if (!plan.formats.every((value) => formats.some((format) => format === value))) return false;
   if (plan.requiresNote && !clip.note?.trim()) return false;
   if (plan.requiresPinned && !clip.is_pinned) return false;
   if (plan.requiresProtected && !clip.is_protected) return false;

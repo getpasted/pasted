@@ -12,10 +12,11 @@ use tauri_plugin_window_state::{AppHandleExt, StateFlags};
 
 use crate::bin_assignment::BinAssignmentOutcome;
 use crate::db::{
-    Bin, ClipItem, ClipMutationSummary, ContentClassificationRescanReport, DbState,
-    FactoryResetReport, FileFormatRescanReport, FullBackupInspection, IntelligenceConnection,
-    IntelligenceConnectionUpdate, LibraryArchiveInspection, Pipeline, PipelineStepInput,
-    SavedTransform, TransformClipApplication, TransformDefinition,
+    Bin, ClipItem, ClipMutationSummary, ClipSearchRequest, ClipSearchResult,
+    ContentClassificationRescanReport, DbState, FactoryResetReport, FileFormatRescanReport,
+    FullBackupInspection, IntelligenceConnection, IntelligenceConnectionUpdate,
+    LibraryArchiveInspection, Pipeline, PipelineStepInput, SavedTransform,
+    TransformClipApplication, TransformDefinition,
 };
 use crate::features::{self, Feature};
 use crate::installation_diagnostics::InstallationDiagnostics;
@@ -4901,12 +4902,16 @@ pub fn get_clip_extraction_history(
 }
 
 #[tauri::command]
-pub fn search_clip_searchable_text_ids(
-    terms: Vec<String>,
+pub async fn search_clips(
+    request: ClipSearchRequest,
     db: State<'_, Arc<DbState>>,
-) -> Result<Vec<i64>, String> {
-    db.search_clip_searchable_text_ids(&terms)
-        .map_err(|error| error.to_string())
+) -> Result<ClipSearchResult, String> {
+    let db = db.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        db.search_clips(&request).map_err(|error| error.to_string())
+    })
+    .await
+    .map_err(|error| error.to_string())?
 }
 
 #[tauri::command]

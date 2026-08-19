@@ -1,6 +1,7 @@
 import { invoke as tauriInvoke } from '@tauri-apps/api/core';
 import { CONTENT_TYPES } from './contentTypes';
 import { getClipFilePaths, getClipOriginKind } from '../types';
+import { clipMatchesSearch, parseClipSearch } from './clipSearch';
 
 type MockClip = {
   id: number;
@@ -332,6 +333,40 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
         .slice(offset, offset + limit)
         .map((clip) => ({ ...clip, content_types: [...(clip.content_types ?? [])], bin_ids: [...clip.bin_ids] })) as unknown as T;
     }
+    case 'search_clips': {
+      const request = (args?.request ?? {}) as Record<string, unknown>;
+      const query = String(request.query ?? '');
+      const plan = parseClipSearch(query);
+      const appendFilters = (target: string[], value: unknown) => {
+        if (Array.isArray(value)) target.push(...value.filter((item): item is string => typeof item === 'string').map((item) => item.toLowerCase()));
+      };
+      appendFilters(plan.clipTypes, request.clipTypes);
+      appendFilters(plan.contentTypes, request.contentTypes);
+      appendFilters(plan.formats, request.fileFormats);
+      appendFilters(plan.sources, request.sources);
+      if (request.trash === true) plan.requiresTrashed = true;
+      const offset = Math.max(0, Number(request.offset ?? 0));
+      const limit = Math.min(500, Math.max(1, Number(request.limit ?? 100)));
+      const items = mockClips.filter((clip) => {
+        if (Boolean(clip.is_trashed) !== plan.requiresTrashed) return false;
+        const searchableText = mockFileSearchableText.get(clip.id)?.searchableText;
+        const candidate = searchableText
+          ? { ...clip, text_content: `${clip.text_content}\n${searchableText}` }
+          : clip;
+        return clipMatchesSearch(candidate as unknown as import('../types').ClipItem, plan);
+      });
+      return {
+        items: items.slice(offset, offset + limit).map((clip) => ({
+          ...clip,
+          content_types: [...(clip.content_types ?? [])],
+          file_formats: [...(clip.file_formats ?? [])],
+          bin_ids: [...clip.bin_ids],
+        })),
+        totalCount: items.length,
+        limit,
+        offset,
+      } as unknown as T;
+    }
     case 'get_bins':
       return mockBins.map((bin) => ({
         ...bin,
@@ -396,17 +431,6 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       return (mockFileSearchableText.get(Number(args?.clipId)) ?? null) as unknown as T;
     case 'get_clip_content_matches':
       return [] as unknown as T;
-    case 'search_clip_searchable_text_ids': {
-      const terms = Array.isArray(args?.terms)
-        ? args.terms.filter((term): term is string => typeof term === 'string').map((term) => term.toLowerCase())
-        : [];
-      if (terms.length === 0 || terms.length > 8 || terms.some((term) => term.length === 0 || term.length > 256)) {
-        throw new Error('Searchable text query exceeds its safety limit');
-      }
-      return [...mockFileSearchableText.entries()]
-        .filter(([, value]) => terms.every((term) => value.searchableText.toLowerCase().includes(term)))
-        .map(([clipId]) => clipId) as unknown as T;
-    }
     case 'extract_text_from_file_clip': {
       const clipId = Number(args?.clipId);
       if (!Number.isInteger(clipId) || clipId <= 0) throw new Error('A valid clip ID is required.');

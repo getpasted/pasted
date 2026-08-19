@@ -472,6 +472,9 @@ export default function App() {
   const {
     displayedClips,
     queuedIndexMap,
+    searchTotalCount,
+    isSearching,
+    loadMoreSearchResults,
   } = useClipViews({
     allClips,
     trashedClips,
@@ -557,6 +560,7 @@ export default function App() {
     const distanceFromEnd = element.scrollHeight - element.scrollTop - element.clientHeight;
     if (distanceFromEnd < 800) {
       if (currentCollection?.membership === 'trash') void loadMoreTrashedClips();
+      else if (currentCollection?.membership === 'search') void loadMoreSearchResults();
       else if (currentCollection?.membership !== 'queue') void loadMoreClips();
     }
     if (pinnedShelfClips.length === 0 || (currentCollection?.membership !== 'all' && !isPinnedCollection)) {
@@ -584,7 +588,7 @@ export default function App() {
         ? previous
         : next;
     });
-  }, [currentCollection?.membership, isPinnedCollection, loadMoreClips, loadMoreTrashedClips, pinnedShelfClips.length]);
+  }, [currentCollection?.membership, isPinnedCollection, loadMoreClips, loadMoreSearchResults, loadMoreTrashedClips, pinnedShelfClips.length]);
 
   useLayoutEffect(() => {
     const element = clipListRef.current;
@@ -595,6 +599,8 @@ export default function App() {
     if (!needsAnotherBatch) return;
     if (currentCollection?.membership === 'trash') {
       if (!isLoadingMoreTrash && trashedClips.length < totalTrashCount) void loadMoreTrashedClips();
+    } else if (currentCollection?.membership === 'search') {
+      if (!isSearching && displayedClips.length < searchTotalCount) void loadMoreSearchResults();
     } else if (currentCollection?.membership !== 'queue') {
       if (!isLoadingMoreClips && allClips.length < totalClipCount) void loadMoreClips();
     }
@@ -604,17 +610,22 @@ export default function App() {
     displayedClips.length,
     isLoadingMoreClips,
     isLoadingMoreTrash,
+    isSearching,
     isBinCollection,
     loadMoreClips,
+    loadMoreSearchResults,
     loadMoreTrashedClips,
     totalClipCount,
     totalTrashCount,
+    searchTotalCount,
     trashedClips.length,
   ]);
 
   const isLoadingCurrentCollection = currentCollection?.membership === 'trash'
     ? isLoadingMoreTrash
-    : currentCollection?.membership !== 'queue' && isLoadingMoreClips;
+    : currentCollection?.membership === 'search'
+      ? isSearching
+      : currentCollection?.membership !== 'queue' && isLoadingMoreClips;
 
   useLayoutEffect(() => {
     const element = clipListRef.current;
@@ -1342,10 +1353,10 @@ export default function App() {
                 {currentTab === 'search' && (
                   <span
                     className="theme-badge min-w-5 rounded-md border px-1.5 py-0.5 text-center font-mono text-[10px] font-semibold"
-                    aria-label={translate('app.searchResultCount', { count: displayedClips.length })}
-                    title={translate('app.resultCount', { count: displayedClips.length })}
+                    aria-label={translate('app.searchResultCount', { count: searchTotalCount })}
+                    title={translate('app.resultCount', { count: searchTotalCount })}
                   >
-                    {displayedClips.length}
+                    {searchTotalCount}
                   </span>
                 )}
               </div>
