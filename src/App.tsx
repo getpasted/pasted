@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useState, useCallback, useMemo, useRef } fr
 import { safeInvoke as invoke } from './utils/tauri';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { listen } from '@tauri-apps/api/event';
+import { APP_EVENTS } from './utils/appEvents';
 import { ClipItem, Bin, getClipFileSummary, type ClipMutationSummary } from './types';
 import { Sidebar } from './components/Sidebar';
 import { ClipCard } from './components/ClipCard';
@@ -310,11 +311,11 @@ export default function App() {
     if (isHudView) return undefined;
     const unlisteners: Array<() => void> = [];
     let disposed = false;
-    void listen<string>('navigate-tab', (event) => navigateToTab(event.payload)).then((unlisten) => {
+    void listen<string>(APP_EVENTS.navigateTab, (event) => navigateToTab(event.payload)).then((unlisten) => {
       if (disposed) unlisten();
       else unlisteners.push(unlisten);
     });
-    void listen<number>('navigate-bin', (event) => {
+    void listen<number>(APP_EVENTS.navigateBin, (event) => {
       if (document.querySelector('[role="dialog"][aria-modal="true"]')) return;
       setSelectedBinId(event.payload);
       setCurrentTab('bin');
@@ -1104,7 +1105,7 @@ export default function App() {
     let disposed = false;
     let unlistenMenuAction: (() => void) | undefined;
 
-    void listen<string>('app-menu-action', (event) => {
+    void listen<string>(APP_EVENTS.appMenuAction, (event) => {
       if (document.querySelector('[role="dialog"][aria-modal="true"]')) return;
       switch (event.payload) {
         case 'new-bin':

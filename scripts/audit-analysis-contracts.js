@@ -84,9 +84,9 @@ assert.match(database, /get_daily_activity_for_calendar[\s\S]{0,1800}date\(clips
   'Insights daily activity must group stored UTC instants through an explicit calendar modifier');
 assert.match(database, /get_daily_activity_for_calendar\([\s\S]{0,180}"localtime"/,
   'Insights must request the machine-local calendar from the shared domain summary');
-assert.match(analytics, /listen\('clip-added', refresh\)/,
+assert.match(analytics, /listen\(APP_EVENTS\.clipAdded, refresh\)/,
   'Insights must refresh when History receives a clip');
-assert.match(analytics, /listen\('clip-library-changed', refresh\)/,
+assert.match(analytics, /listen\(APP_EVENTS\.clipLibraryChanged, refresh\)/,
   'Insights must refresh after other History mutations');
 assert.match(analytics, /nextMidnight[\s\S]{0,500}setTimeout/,
   'Insights must refresh across the local midnight boundary');

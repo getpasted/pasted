@@ -1435,30 +1435,8 @@ pub fn save_app_setting(
     app: AppHandle,
     db: State<'_, Arc<DbState>>,
 ) -> Result<(), String> {
-    if crate::app_lock::is_managed_setting(&key) {
-        return Err("Use the app-lock controls to change this setting.".to_string());
-    }
-    if key == crate::localization::LANGUAGE_SETTING_KEY {
-        crate::localization::validate_configured_language(&value)?;
-    }
-    let previous = db.get_setting(&key).map_err(|e| e.to_string())?;
-    db.save_setting(&key, &value).map_err(|e| e.to_string())?;
-    if let Some(activity) =
-        crate::settings_activity::describe_setting_change(&key, previous.as_deref(), &value)
-    {
-        let _ = db.log_activity(activity.event_type, &activity.description);
-    }
-    if let Some(feature) = Feature::from_setting_key(&key) {
-        apply_feature_policy_changes(&app, &db, &[feature]);
-    }
-    if key == "menubarIconStyle" {
-        crate::refresh_tray_icon(&app, &value);
-    }
-    if key == crate::localization::LANGUAGE_SETTING_KEY {
-        refresh_native_app_menu(&app, &db);
-        crate::refresh_tray_menu(&app, &db);
-    }
-    emit_window_appearance_change(&app, &key, &value);
+    let outcome = crate::settings_service::update_setting(&db, key, value)?;
+    apply_settings_runtime_changes(&app, &db, outcome);
     Ok(())
 }
 
@@ -1468,55 +1446,34 @@ pub fn save_app_settings(
     app: AppHandle,
     db: State<'_, Arc<DbState>>,
 ) -> Result<(), String> {
-    if values
-        .keys()
-        .any(|key| crate::app_lock::is_managed_setting(key))
-    {
-        return Err("Use the app-lock controls to change app-lock settings.".to_string());
+    let outcome = crate::settings_service::update_settings(&db, values)?;
+    apply_settings_runtime_changes(&app, &db, outcome);
+    Ok(())
+}
+
+fn apply_settings_runtime_changes(
+    app: &AppHandle,
+    db: &Arc<DbState>,
+    outcome: crate::settings_service::SettingsUpdateOutcome,
+) {
+    let changed_features = outcome.changed_features();
+    if !changed_features.is_empty() {
+        apply_feature_policy_changes(app, db, &changed_features);
     }
-    if let Some(language) = values.get(crate::localization::LANGUAGE_SETTING_KEY) {
-        crate::localization::validate_configured_language(language)?;
-    }
-    let mut activities = values
-        .iter()
-        .filter_map(|(key, value)| {
-            let previous = db.get_setting(key).ok().flatten();
-            crate::settings_activity::describe_setting_change(key, previous.as_deref(), value)
-        })
-        .collect::<Vec<_>>();
-    activities.sort_by(|left, right| left.description.cmp(&right.description));
-    db.save_settings(&values)
-        .map_err(|error| error.to_string())?;
-    if activities.len() == 1 {
-        let activity = &activities[0];
-        let _ = db.log_activity(activity.event_type, &activity.description);
-    } else if !activities.is_empty() {
-        let description = activities
-            .iter()
-            .map(|activity| activity.description.as_str())
-            .collect::<Vec<_>>()
-            .join("; ");
-        let _ = db.log_activity("settings_changed", &description);
-    }
-    let changed = values
-        .keys()
-        .filter_map(|key| Feature::from_setting_key(key))
-        .collect::<Vec<_>>();
-    if !changed.is_empty() {
-        apply_feature_policy_changes(&app, &db, &changed);
-    }
-    let language_changed = values.contains_key(crate::localization::LANGUAGE_SETTING_KEY);
-    for (key, value) in values {
-        if key == "menubarIconStyle" {
-            crate::refresh_tray_icon(&app, &value);
+    let mut language_changed = false;
+    for change in outcome.changes {
+        if change.key == "menubarIconStyle" {
+            crate::refresh_tray_icon(app, &change.value);
         }
-        emit_window_appearance_change(&app, &key, &value);
+        if change.key == crate::localization::LANGUAGE_SETTING_KEY {
+            language_changed = true;
+        }
+        emit_window_appearance_change(app, &change.key, &change.value);
     }
     if language_changed {
-        refresh_native_app_menu(&app, &db);
-        crate::refresh_tray_menu(&app, &db);
+        refresh_native_app_menu(app, db);
+        crate::refresh_tray_menu(app, db);
     }
-    Ok(())
 }
 
 #[cfg(target_os = "macos")]
@@ -2511,85 +2468,6 @@ pub fn copy_clip_to_system(
     Ok(())
 }
 
-pub(crate) fn write_clip_to_clipboard(
-    clipboard: &mut Clipboard,
-    clip: &ClipItem,
-) -> Result<(), String> {
-    if clip.content_type == "file" {
-        let paths = clip
-            .text_content
-            .as_deref()
-            .ok_or_else(|| "File clip has no path metadata".to_string())
-            .and_then(|value| {
-                serde_json::from_str::<Vec<String>>(value)
-                    .map_err(|_| "File clip has invalid path metadata".to_string())
-            })?;
-        if paths.is_empty() || !crate::resource_limits::file_list_within_limit(&paths) {
-            return Err("File list exceeds Pasted's safety limit".to_string());
-        }
-        return clipboard
-            .set()
-            .file_list(&paths)
-            .map_err(|error| error.to_string());
-    }
-    if clip.content_type == "image" {
-        let image_base64 = clip
-            .image_base64
-            .as_deref()
-            .ok_or_else(|| "Image clip has no stored image data".to_string())?;
-        let clean = image_base64.split(',').next_back().unwrap_or(image_base64);
-        if clean.len() > crate::resource_limits::MAX_STORED_IMAGE_BASE64_BYTES {
-            return Err("Clip image exceeds Pasted's safety limit".to_string());
-        }
-        let bytes = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, clean)
-            .map_err(|error| error.to_string())?;
-        let image = image::load_from_memory(&bytes).map_err(|error| error.to_string())?;
-        let rgba = image.to_rgba8();
-        return clipboard
-            .set_image(arboard::ImageData {
-                width: rgba.width() as usize,
-                height: rgba.height() as usize,
-                bytes: std::borrow::Cow::Owned(rgba.into_raw()),
-            })
-            .map_err(|error| error.to_string());
-    }
-    if let Some(text) = clip.text_content.as_deref() {
-        return clipboard.set_text(text).map_err(|error| error.to_string());
-    }
-    Err("Clip has no copyable content".to_string())
-}
-
-fn clip_internal_clipboard_fingerprint(clip: &ClipItem) -> Result<String, String> {
-    if clip.content_type == "file" {
-        let paths = clip
-            .text_content
-            .as_deref()
-            .ok_or_else(|| "File clip has no path metadata".to_string())
-            .and_then(|value| {
-                serde_json::from_str::<Vec<String>>(value)
-                    .map_err(|_| "File clip has invalid path metadata".to_string())
-            })?;
-        return Ok(crate::clipboard_fingerprint::file_list(&paths));
-    }
-    if clip.content_type == "image" {
-        let image_base64 = clip
-            .image_base64
-            .as_deref()
-            .ok_or_else(|| "Image clip has no stored image data".to_string())?;
-        let clean = image_base64.split(',').next_back().unwrap_or(image_base64);
-        let bytes = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, clean)
-            .map_err(|error| error.to_string())?;
-        let image = image::load_from_memory(&bytes).map_err(|error| error.to_string())?;
-        return Ok(crate::clipboard_fingerprint::image_rgba(
-            image.to_rgba8().as_raw(),
-        ));
-    }
-    if let Some(text) = clip.text_content.as_deref() {
-        return Ok(text.to_string());
-    }
-    Err("Clip has no copyable content".to_string())
-}
-
 #[tauri::command]
 pub fn copy_clip_by_id(
     clip_id: i64,
@@ -2604,17 +2482,7 @@ pub(crate) fn copy_clip_by_id_shared(
     sequential: &SequentialQueueState,
     clip_id: i64,
 ) -> Result<(), String> {
-    let clip = db
-        .get_clip_by_id(clip_id)
-        .map_err(|error| error.to_string())?;
-    let fingerprint = clip_internal_clipboard_fingerprint(&clip)?;
-    let mut clipboard = Clipboard::new().map_err(|error| error.to_string())?;
-    sequential.mark_internal_clipboard_write(&fingerprint);
-    if let Err(error) = write_clip_to_clipboard(&mut clipboard, &clip) {
-        sequential.clear_internal_clipboard_write();
-        return Err(error);
-    }
-    Ok(())
+    crate::clipboard_actions::copy_clip(db, sequential, clip_id)
 }
 
 #[tauri::command]
@@ -2726,7 +2594,7 @@ pub fn update_bin(
 
 #[tauri::command]
 pub fn get_pipelines(db: State<'_, Arc<DbState>>) -> Result<Vec<Pipeline>, String> {
-    db.get_pipelines().map_err(|error| error.to_string())
+    crate::manual_transform_service::list(&db).map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -2744,8 +2612,7 @@ pub fn create_pipeline(
     if has_hotkey {
         features::require(&db, Feature::Hotkeys)?;
     }
-    let pipeline = db
-        .create_pipeline(&name, &steps, hotkey.as_deref())
+    let pipeline = crate::manual_transform_service::create(&db, &name, &steps, hotkey.as_deref())
         .map_err(|error| error.to_string())?;
     if has_hotkey {
         let _ = register_all_app_shortcuts(&app);
@@ -2772,9 +2639,14 @@ pub fn update_pipeline(
     if hotkey_changed {
         features::require(&db, Feature::Hotkeys)?;
     }
-    let pipeline = db
-        .update_pipeline(&pipeline_ref, &name, &steps, hotkey.as_deref())
-        .map_err(|error| error.to_string())?;
+    let pipeline = crate::manual_transform_service::update(
+        &db,
+        &pipeline_ref,
+        &name,
+        &steps,
+        hotkey.as_deref(),
+    )
+    .map_err(|error| error.to_string())?;
     if hotkey_changed {
         let _ = register_all_app_shortcuts(&app);
     }
@@ -2790,8 +2662,7 @@ pub fn update_pipeline_hotkey(
 ) -> Result<(), String> {
     features::require(&db, Feature::Transformations)?;
     features::require(&db, Feature::Hotkeys)?;
-    let previous = db
-        .get_pipelines()
+    let previous = crate::manual_transform_service::list(&db)
         .map_err(|error| error.to_string())?
         .into_iter()
         .find(|pipeline| {
@@ -2803,14 +2674,14 @@ pub fn update_pipeline_hotkey(
         })
         .ok_or_else(|| "Transform not found.".to_string())?
         .shortcut;
-    db.update_pipeline_hotkey(&pipeline_ref, hotkey.as_deref())
+    crate::manual_transform_service::update_shortcut(&db, &pipeline_ref, hotkey.as_deref())
         .map_err(|error| error.to_string())?;
     let changed_hotkeys: Vec<String> = hotkey.clone().into_iter().collect();
     if let Err(error) = register_changed_hotkeys(&app, &changed_hotkeys) {
-        db.update_pipeline_hotkey(&pipeline_ref, previous.as_deref())
+        crate::manual_transform_service::update_shortcut(&db, &pipeline_ref, previous.as_deref())
             .map_err(|rollback| {
-                format!("{error}; restoring the previous Transform hotkey failed: {rollback}")
-            })?;
+            format!("{error}; restoring the previous Transform hotkey failed: {rollback}")
+        })?;
         let _ = register_all_app_shortcuts(&app);
         return Err(error);
     }
@@ -2829,7 +2700,7 @@ pub fn delete_pipeline(
         .map_err(|error| error.to_string())?
         .and_then(|definition| definition.shortcut)
         .is_some_and(|value| !value.trim().is_empty());
-    db.delete_pipeline(&pipeline_ref)
+    crate::manual_transform_service::delete(&db, &pipeline_ref)
         .map_err(|error| error.to_string())?;
     if had_hotkey {
         let _ = register_all_app_shortcuts(&app);
@@ -2911,7 +2782,7 @@ pub fn update_bin_protection(
     features::require(&db, Feature::Bins)?;
     db.update_bin_protection(id, protect_clips)
         .map_err(|error| error.to_string())?;
-    let _ = app.emit("clips-updated", ());
+    crate::app_events::emit_clip_library_changed(&app, Vec::new());
     Ok(())
 }
 
@@ -2976,7 +2847,7 @@ pub fn update_clip_hotkey(
     let clip = db
         .get_clip_by_id(clip_id)
         .map_err(|error| error.to_string())?;
-    let _ = app.emit("clip-updated", serde_json::json!({ "id": clip_id }));
+    crate::app_events::emit_clip_library_changed(&app, vec![clip_id]);
     Ok(clip)
 }
 
@@ -3579,30 +3450,6 @@ pub fn simulate_cmd_v_paste() -> Result<(), String> {
     Err("Paste automation is unavailable on this platform".to_string())
 }
 
-fn ensure_paste_automation_available() -> Result<(), String> {
-    #[cfg(target_os = "macos")]
-    if !check_accessibility_permission().is_trusted {
-        return Err("Paste Next needs Accessibility access. Allow Pasted (or the terminal/IDE running this development build) in System Settings, then try again.".to_string());
-    }
-    Ok(())
-}
-
-fn restore_main_window_after_queue_failure(app: &AppHandle) {
-    if let Some(main) = app.get_webview_window("main") {
-        let _ = main.show();
-        let _ = main.set_focus();
-    }
-}
-
-fn restore_main_window_after_ui_paste(app: &AppHandle) {
-    // Give the destination control time to process Command/Ctrl+V before
-    // Pasted takes focus back for continued Queue management.
-    thread::sleep(Duration::from_millis(220));
-    if let Some(main) = app.get_webview_window("main") {
-        let _ = main.set_focus();
-    }
-}
-
 pub(crate) fn paste_queue_item(
     seq: &SequentialQueueState,
     db: &DbState,
@@ -3610,74 +3457,7 @@ pub(crate) fn paste_queue_item(
     index: usize,
     restore_after_success: bool,
 ) -> Result<Option<String>, String> {
-    let Some((item_id, text)) = seq.peek_item(index) else {
-        return Ok(None);
-    };
-    if let Err(error) = ensure_paste_automation_available() {
-        let _ = db.log_activity("queue_paste_failed", &error);
-        return Err(error);
-    }
-    let paste_target = app.state::<Arc<crate::paste_target::PasteTargetState>>();
-    let target = match paste_target.prepare_last_external() {
-        Ok(target) => target,
-        Err(error) => {
-            let _ = db.log_activity("queue_paste_failed", &error);
-            return Err(error);
-        }
-    };
-    seq.mark_internal_clipboard_write(&text);
-    let mut clipboard = match Clipboard::new() {
-        Ok(clipboard) => clipboard,
-        Err(error) => {
-            seq.clear_internal_clipboard_write();
-            let message = format!("Could not access the clipboard for Queue paste: {error}");
-            let _ = db.log_activity("queue_paste_failed", &message);
-            return Err(message);
-        }
-    };
-    if let Err(error) = clipboard.set_text(&text) {
-        seq.clear_internal_clipboard_write();
-        let message = format!("Could not place the next Queue item on the clipboard: {error}");
-        let _ = db.log_activity("queue_paste_failed", &message);
-        return Err(message);
-    }
-
-    if let Err(error) = paste_target.paste_to(&target) {
-        seq.clear_internal_clipboard_write();
-        restore_main_window_after_queue_failure(app);
-        let _ = db.log_activity("queue_paste_failed", &error);
-        return Err(error);
-    }
-
-    if let Err(error) = seq.consume_item(item_id) {
-        seq.clear_internal_clipboard_write();
-        restore_main_window_after_queue_failure(app);
-        let message =
-            format!("The Queue item was copied but could not be committed as pasted: {error}");
-        let _ = db.log_activity("queue_paste_failed", &message);
-        return Err(message);
-    }
-    let status = seq.get_status();
-    let _ = app.emit("sequential-updated", status.clone());
-    let _ = db.log_activity(
-        "queue_item_pasted",
-        &format!(
-            "Pasted the next Queue item ({} remaining)",
-            status.total_count
-        ),
-    );
-    if restore_after_success {
-        restore_main_window_after_ui_paste(app);
-    }
-    Ok(Some(text))
-}
-
-pub(crate) fn paste_next_queue_item(
-    seq: &SequentialQueueState,
-    db: &DbState,
-    app: &AppHandle,
-) -> Result<Option<String>, String> {
-    paste_queue_item(seq, db, app, 0, false)
+    crate::queue_actions::paste_item(seq, db, app, index, restore_after_success)
 }
 
 #[tauri::command]
@@ -3764,61 +3544,7 @@ pub(crate) fn paste_all_queue_items(
     db: &DbState,
     app: &AppHandle,
 ) -> Result<Option<String>, String> {
-    let status = seq.get_status();
-    if status.queue.is_empty() {
-        return Ok(None);
-    }
-    if let Err(error) = ensure_paste_automation_available() {
-        let _ = db.log_activity("queue_paste_failed", &error);
-        return Err(error);
-    }
-    let paste_target = app.state::<Arc<crate::paste_target::PasteTargetState>>();
-    let target = match paste_target.prepare_last_external() {
-        Ok(target) => target,
-        Err(error) => {
-            let _ = db.log_activity("queue_paste_failed", &error);
-            return Err(error);
-        }
-    };
-    let combined = status.queue.join("\n\n");
-    seq.mark_internal_clipboard_write(&combined);
-    let mut cb = match Clipboard::new() {
-        Ok(clipboard) => clipboard,
-        Err(error) => {
-            seq.clear_internal_clipboard_write();
-            let message = format!("Could not access the clipboard for Queue paste: {error}");
-            let _ = db.log_activity("queue_paste_failed", &message);
-            return Err(message);
-        }
-    };
-    if let Err(error) = cb.set_text(&combined) {
-        seq.clear_internal_clipboard_write();
-        let message = format!("Could not place the Queue on the clipboard: {error}");
-        let _ = db.log_activity("queue_paste_failed", &message);
-        return Err(message);
-    }
-    if let Err(error) = paste_target.paste_to(&target) {
-        seq.clear_internal_clipboard_write();
-        restore_main_window_after_queue_failure(app);
-        let _ = db.log_activity("queue_paste_failed", &error);
-        return Err(error);
-    }
-    if let Err(error) = seq.consume_prefix(&status.item_ids) {
-        seq.clear_internal_clipboard_write();
-        restore_main_window_after_queue_failure(app);
-        let message = format!("The Queue pasted but could not be cleared: {error}");
-        let _ = db.log_activity("queue_paste_failed", &message);
-        return Err(message);
-    }
-    let updated = seq.get_status();
-    let _ = app.emit("sequential-updated", updated);
-    let _ = db.log_activity(
-        "queue_all_pasted",
-        &format!("Pasted {} Queue items together", status.total_count),
-    );
-    restore_main_window_after_ui_paste(app);
-
-    Ok(Some(combined))
+    crate::queue_actions::paste_all(seq, db, app)
 }
 
 #[tauri::command]
@@ -4020,90 +3746,12 @@ pub(crate) fn paste_clip_to_last_external(
     app: &AppHandle,
     clip_id: i64,
 ) -> Result<(), String> {
-    paste_clip_to_last_external_with_activity(db, app, clip_id, "hud")
-}
-
-pub(crate) fn paste_clip_from_hotkey(
-    db: &DbState,
-    app: &AppHandle,
-    clip_id: i64,
-) -> Result<(), String> {
-    paste_clip_to_last_external_with_activity(db, app, clip_id, "clip_hotkey")
-}
-
-fn paste_clip_to_last_external_with_activity(
-    db: &DbState,
-    app: &AppHandle,
-    clip_id: i64,
-    activity_origin: &str,
-) -> Result<(), String> {
-    let (paste_failed_event, pasted_event, paste_source) = if activity_origin == "hud" {
-        ("hud_paste_failed", "hud_clip_pasted", "HUD")
-    } else {
-        (
-            "app_hotkey_clip_paste_failed",
-            "app_hotkey_clip_pasted",
-            "a clip hotkey",
-        )
-    };
-    let clip = db
-        .get_clip_by_id(clip_id)
-        .map_err(|error| error.to_string())?;
-    #[cfg(target_os = "macos")]
-    if !check_accessibility_permission().is_trusted {
-        let message = if activity_origin == "hud" {
-            "HUD paste needs Accessibility access. Allow Pasted (or the terminal/IDE running this development build) in System Settings, then try again."
-        } else {
-            "Clip hotkey paste needs Accessibility access. Allow Pasted (or the terminal/IDE running this development build) in System Settings, then try again."
-        };
-        return Err(message.to_string());
-    }
-
-    let paste_target = app.state::<Arc<crate::paste_target::PasteTargetState>>();
-    let target = paste_target.prepare_last_external_for_hud()?;
-    let internal_fingerprint = clip_internal_clipboard_fingerprint(&clip)?;
-    let mut clipboard = Clipboard::new()
-        .map_err(|_| "The system clipboard is unavailable right now.".to_string())?;
-    let sequential = app.state::<Arc<SequentialQueueState>>();
-    sequential.mark_internal_clipboard_write(&internal_fingerprint);
-    if let Err(error) = write_clip_to_clipboard(&mut clipboard, &clip) {
-        sequential.clear_internal_clipboard_write();
-        let explanation = match clip.content_type.as_str() {
-            "file" => "This clip contains unavailable files.",
-            "image" => "This clip's image cannot be prepared for pasting.",
-            _ => "This clip's text cannot be prepared for pasting.",
-        };
-        let _ = db.log_activity(
-            paste_failed_event,
-            &format!("{explanation} System detail: {error}"),
-        );
-        return Err(explanation.to_string());
-    }
-
-    if activity_origin == "hud" {
-        if let Some(hud) = app.get_webview_window("hud") {
-            let _ = hud.hide();
-        }
-    }
-    if let Err(error) = paste_target.paste_clip_to(&target) {
-        if activity_origin == "hud" {
-            if let Some(hud) = app.get_webview_window("hud") {
-                let _ = hud.show();
-                let _ = hud.set_focus();
-            }
-        }
-        let _ = db.log_activity(paste_failed_event, &error);
-        return Err(error);
-    }
-
-    let _ = db.log_activity(
-        pasted_event,
-        &format!(
-            "Pasted clip {} into {} from {paste_source}",
-            clip.id, target.name
-        ),
-    );
-    Ok(())
+    crate::clipboard_actions::paste_clip(
+        db,
+        app,
+        clip_id,
+        crate::clipboard_actions::PasteOrigin::Hud,
+    )
 }
 
 #[tauri::command]
@@ -4276,33 +3924,10 @@ fn changed_hotkeys_have_registration_issue(
     })
 }
 
-#[derive(serde::Serialize, Clone)]
-pub struct AccessibilityStatus {
-    pub is_trusted: bool,
-    pub is_dev_mode: bool,
-}
+pub type AccessibilityStatus = crate::platform_capabilities::AccessibilityStatus;
 
 pub fn check_accessibility_permission() -> AccessibilityStatus {
-    let is_trusted = {
-        #[cfg(target_os = "macos")]
-        {
-            use std::ptr;
-            #[link(name = "ApplicationServices", kind = "framework")]
-            extern "C" {
-                fn AXIsProcessTrustedWithOptions(options: *const std::ffi::c_void) -> bool;
-            }
-            unsafe { AXIsProcessTrustedWithOptions(ptr::null()) }
-        }
-        #[cfg(not(target_os = "macos"))]
-        true
-    };
-
-    let is_dev_mode = cfg!(debug_assertions);
-
-    AccessibilityStatus {
-        is_trusted,
-        is_dev_mode,
-    }
+    crate::platform_capabilities::accessibility_status()
 }
 
 #[derive(serde::Serialize)]
@@ -5218,6 +4843,7 @@ pub fn retry_failed_ocr(
 pub fn toggle_clipboard_pause(
     monitor_state: State<'_, Arc<crate::clipboard_monitor::ClipboardMonitorState>>,
     db: State<'_, Arc<DbState>>,
+    app: AppHandle,
 ) -> Result<bool, String> {
     let current = monitor_state
         .is_manually_paused
@@ -5239,7 +4865,9 @@ pub fn toggle_clipboard_pause(
         );
     }
 
-    Ok(monitor_state.is_paused())
+    let effective = monitor_state.is_paused();
+    crate::app_events::emit_clipboard_pause_changed(&app, effective, None);
+    Ok(effective)
 }
 
 #[tauri::command]
@@ -5417,7 +5045,7 @@ mod tests {
         };
 
         assert_eq!(
-            clip_internal_clipboard_fingerprint(&clip).unwrap(),
+            crate::clipboard_actions::internal_fingerprint(&clip).unwrap(),
             crate::clipboard_fingerprint::image_rgba(&rgba)
         );
     }

@@ -315,12 +315,10 @@ pub fn start_clipboard_monitor(
                         "recording_auto_paused",
                         &format!("Auto-paused recording for excluded app: {}", active_app),
                     );
-                    let _ = app.emit(
-                        "clipboard-pause-changed",
-                        serde_json::json!({
-                            "is_paused": true,
-                            "auto_paused_by": active_app
-                        }),
+                    crate::app_events::emit_clipboard_pause_changed(
+                        &app,
+                        true,
+                        Some(active_app.clone()),
                     );
                 }
             } else if let Some(prev_app) = auto_paused_app.take() {
@@ -330,13 +328,7 @@ pub fn start_clipboard_monitor(
                     &format!("Auto-resumed recording after leaving {}", prev_app),
                 );
                 let is_still_paused = is_manually_paused_clone.load(Ordering::Relaxed);
-                let _ = app.emit(
-                    "clipboard-pause-changed",
-                    serde_json::json!({
-                        "is_paused": is_still_paused,
-                        "auto_paused_by": serde_json::Value::Null
-                    }),
-                );
+                crate::app_events::emit_clipboard_pause_changed(&app, is_still_paused, None);
             }
 
             if is_manually_paused_clone.load(Ordering::Relaxed)

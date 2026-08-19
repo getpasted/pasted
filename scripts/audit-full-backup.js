@@ -28,6 +28,10 @@ assert.match(
 );
 assert.match(database, /full_backup_round_trip_covers_every_durable_table_and_interface_state/, 'Full Backup must have a table-coverage round-trip test');
 assert.match(database, /full_restore_rejects_invalid_embedded_state_before_replacing_library/, 'Full Restore must test pre-activation rejection');
+assert.doesNotMatch(database, /let _ = conn\.execute\("ALTER TABLE/,
+  'Schema migrations must not swallow ALTER TABLE failures');
+assert.match(database, /fn add_column_if_missing/,
+  'Additive schema migrations must explicitly distinguish existing columns from failures');
 
 for (const command of ['export_full_backup_file', 'restore_full_backup_file']) {
   assert.match(commands, new RegExp(`pub async fn ${command}`), `GUI must expose ${command}`);

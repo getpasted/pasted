@@ -589,35 +589,13 @@ fn run_command(command: &str, args: &[String], db_path: PathBuf, conn: Connectio
                         eprintln!("Usage: pasted settings set <key> <value> [--json]");
                         std::process::exit(2);
                     });
-                    if key == "pendingFullBackupClientState"
-                        || pasted_lib::app_lock::is_managed_setting(key)
-                        || key.trim().is_empty()
-                    {
-                        eprintln!("That setting cannot be changed through the CLI.");
-                        std::process::exit(2);
-                    }
-                    if key == pasted_lib::localization::LANGUAGE_SETTING_KEY {
-                        if let Err(error) =
-                            pasted_lib::localization::validate_configured_language(value)
-                        {
-                            eprintln!("{error}");
-                            std::process::exit(2);
-                        }
-                    }
-                    if key.len() > 128 || value.len() > 1_048_576 {
-                        eprintln!(
-                            "Setting keys and values must remain within their safety limits."
-                        );
-                        std::process::exit(2);
-                    }
-                    let previous = db.get_setting(key)?;
-                    db.save_setting(key, value)?;
-                    if let Some(activity) = pasted_lib::settings_activity::describe_setting_change(
-                        key,
-                        previous.as_deref(),
-                        value,
+                    if let Err(error) = pasted_lib::settings_service::update_setting(
+                        &db,
+                        key.clone(),
+                        value.clone(),
                     ) {
-                        let _ = db.log_activity(activity.event_type, &activity.description);
+                        eprintln!("{error}");
+                        std::process::exit(2);
                     }
                     if json {
                         println!("{}", serde_json::json!({ "key": key, "value": value }));
@@ -2869,7 +2847,8 @@ fn run_command(command: &str, args: &[String], db_path: PathBuf, conn: Connectio
                             }
                             let steps: Vec<PipelineStepInput> =
                                 serde_json::from_str(&steps_json).map_err(json_error)?;
-                            TransformDefinition::from(db.create_pipeline(
+                            TransformDefinition::from(pasted_lib::manual_transform_service::create(
+                                &db,
                                 &name,
                                 &steps,
                                 argument_value(&args, "--hotkey").as_deref(),
@@ -2967,7 +2946,8 @@ fn run_command(command: &str, args: &[String], db_path: PathBuf, conn: Connectio
                             } else {
                                 argument_value(&args, "--hotkey").or(current.shortcut.clone())
                             };
-                            TransformDefinition::from(db.update_pipeline(
+                            TransformDefinition::from(pasted_lib::manual_transform_service::update(
+                                &db,
                                 transform_ref,
                                 &name,
                                 &steps,

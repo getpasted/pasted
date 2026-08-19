@@ -749,7 +749,7 @@ impl HotkeyManager {
                     };
                     let seq = queue_app.state::<Arc<SequentialQueueState>>();
                     let db = queue_app.state::<Arc<DbState>>();
-                    let _ = commands::paste_next_queue_item(&seq, &db, &queue_app);
+                    let _ = crate::queue_actions::paste_item(&seq, &db, &queue_app, 0, false);
                 });
             }
             AppHotkeyAction::PasteClip(index) => {
@@ -788,7 +788,12 @@ impl HotkeyManager {
                     let Some(db) = paste_app.try_state::<Arc<DbState>>() else {
                         return;
                     };
-                    if let Err(error) = commands::paste_clip_from_hotkey(&db, &paste_app, clip_id) {
+                    if let Err(error) = crate::clipboard_actions::paste_clip(
+                        &db,
+                        &paste_app,
+                        clip_id,
+                        crate::clipboard_actions::PasteOrigin::ClipHotkey,
+                    ) {
                         eprintln!("[Pasted Clip Hotkey] {error}");
                     }
                 });

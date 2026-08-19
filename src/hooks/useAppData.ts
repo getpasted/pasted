@@ -4,6 +4,7 @@ import type { Bin, ClipCollectionSummary, ClipItem, Pipeline, SequentialStatus }
 import { sortClipsForTimeline } from '../utils/clipOrder';
 import { soundManager } from '../utils/sound';
 import { safeInvoke as invoke } from '../utils/tauri';
+import { APP_EVENTS, type ClipboardPauseChangedEvent } from '../utils/appEvents';
 
 function readCachedArray<T>(key: string): T[] {
   try {
@@ -291,7 +292,7 @@ export function useAppData() {
     if (typeof window === 'undefined' || !(window as any).__TAURI_INTERNALS__) return;
 
     let ignoredStatusTimer: ReturnType<typeof setTimeout> | undefined;
-    const unlistenClip = listen<ClipItem | { id: number }>('clip-added', (event) => {
+    const unlistenClip = listen<ClipItem | { id: number }>(APP_EVENTS.clipAdded, (event) => {
       const payload = normalizeClipItem(event.payload);
       if (payload && isCompleteClipEvent(payload)) {
         setAllClips((previous) => {
@@ -306,18 +307,18 @@ export function useAppData() {
       }
       soundManager.playCopySound();
     });
-    const unlistenSequential = listen<SequentialStatus>('sequential-updated', (event) => {
+    const unlistenSequential = listen<SequentialStatus>(APP_EVENTS.sequentialUpdated, (event) => {
       setSequentialStatus(event.payload);
     });
-    const unlistenBlacklist = listen<{ app_name: string }>('blacklist-clip-ignored', (event) => {
+    const unlistenBlacklist = listen<{ app_name: string }>(APP_EVENTS.blacklistClipIgnored, (event) => {
       setIgnoredAppStatus({ app_name: event.payload.app_name, timestamp: Date.now() });
       if (ignoredStatusTimer) clearTimeout(ignoredStatusTimer);
       ignoredStatusTimer = setTimeout(() => setIgnoredAppStatus(null), 4000);
     });
-    const unlistenPause = listen<{ is_paused: boolean }>('clipboard-pause-changed', (event) => {
-      setIsClipboardPaused(event.payload.is_paused);
+    const unlistenPause = listen<ClipboardPauseChangedEvent>(APP_EVENTS.clipboardPauseChanged, (event) => {
+      setIsClipboardPaused(event.payload.isPaused);
     });
-    const unlistenLibraryChanged = listen('clip-library-changed', () => {
+    const unlistenLibraryChanged = listen(APP_EVENTS.clipLibraryChanged, () => {
       void Promise.all([fetchClips(), fetchTrashedClips()]);
     });
     // Native backends should deliver every clip-added event while Pasted is in

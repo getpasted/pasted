@@ -7,6 +7,7 @@ import { safeInvoke as invoke } from '../utils/tauri';
 import { FEATURE_SETTING_KEYS } from '../utils/features';
 import { clampAppZoom } from '../utils/appZoom';
 import { isConfiguredLanguage, setConfiguredLanguage } from '../localization/runtime';
+import { APP_EVENTS, type AppSettingChangedEvent } from '../utils/appEvents';
 
 const DEFAULT_SETTINGS: AppSettings = {
   onboardingVersion: 0,
@@ -205,11 +206,6 @@ function readCachedTheme(): AppSettings['themeMode'] {
   }
 }
 
-interface AppSettingChanged {
-  key: string;
-  value: string;
-}
-
 export function useAppSettings() {
   const [appSettings, setAppSettings] = useState<AppSettings>(() => ({
     ...DEFAULT_SETTINGS,
@@ -257,7 +253,7 @@ export function useAppSettings() {
     let disposed = false;
     let unlistenSetting: (() => void) | undefined;
 
-    void listen<AppSettingChanged>('app-setting-changed', ({ payload }) => {
+    void listen<AppSettingChangedEvent>(APP_EVENTS.appSettingChanged, ({ payload }) => {
       if (!payload || disposed) return;
       if (!(payload.key in DEFAULT_SETTINGS)) return;
       const parsed = parseSavedSettings({ [payload.key]: payload.value });

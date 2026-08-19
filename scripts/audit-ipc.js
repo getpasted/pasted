@@ -47,6 +47,9 @@ const unregisteredInvocations = [...invokedCommands]
 const staleMocks = [...mockedCommands]
   .filter((command) => !registeredCommands.has(command))
   .sort();
+const missingMocks = [...invokedCommands]
+  .filter((command) => !mockedCommands.has(command))
+  .sort();
 const unusedRegistrations = [...registeredCommands]
   .filter((command) => !invokedCommands.has(command))
   .sort();
@@ -62,6 +65,11 @@ assert.deepEqual(
   `Browser mocks contain stale or misspelled Tauri commands: ${staleMocks.join(', ')}`,
 );
 assert.deepEqual(
+  missingMocks,
+  [],
+  `Browser mocks do not implement frontend Tauri commands: ${missingMocks.join(', ')}`,
+);
+assert.deepEqual(
   unusedRegistrations,
   [],
   `Tauri exposes commands with no frontend consumer: ${unusedRegistrations.join(', ')}`,
@@ -70,6 +78,11 @@ assert.equal(
   dynamicInvocations.length,
   0,
   'Tauri command names must be string literals so the IPC contract remains auditable',
+);
+assert.match(
+  tauriBridge,
+  /default:\s*throw new Error\(`Unsupported browser IPC command:/,
+  'Unknown browser IPC commands must fail closed instead of silently returning null',
 );
 assert.equal(
   transformationExecutionInvocations.length,

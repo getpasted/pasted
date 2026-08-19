@@ -94,7 +94,7 @@ assert.match(
 );
 assert.match(
   settingsHook,
-  /listen<AppSettingChanged>\('app-setting-changed'/,
+  /listen<AppSettingChangedEvent>\(APP_EVENTS\.appSettingChanged/,
   'Each window must synchronize settings changed elsewhere',
 );
 assert.match(
@@ -121,7 +121,7 @@ assert.match(
 );
 assert.match(
   hotkeyManager,
-  /PasteClipById\(clip_id\) =>[\s\S]{0,900}paste_clip_from_hotkey/,
+  /PasteClipById\(clip_id\) =>[\s\S]{0,900}PasteOrigin::ClipHotkey/,
   'Direct clip hotkeys must not depend on the HUD feature gate',
 );
 assert.match(hotkeyManager, /get_all_settings\(\)/,

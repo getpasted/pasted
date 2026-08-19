@@ -216,7 +216,7 @@ fn execute(
                 },
             );
             let effective = monitor.is_paused();
-            let _ = app.emit("clipboard-pause-changed", effective);
+            crate::app_events::emit_clipboard_pause_changed(app, effective, None);
             Ok(serde_json::json!({ "paused": effective }))
         }
         LiveAppAction::QueueStatus => {
@@ -271,19 +271,24 @@ fn execute(
             serde_json::to_value(status).map_err(|error| error.to_string())
         }
         LiveAppAction::QueuePaste { index } => {
-            let pasted = crate::commands::paste_queue_item(&queue, &db, app, index, false)?;
+            let pasted = crate::queue_actions::paste_item(&queue, &db, app, index, false)?;
             Ok(serde_json::json!({ "pasted": pasted.is_some(), "status": queue.get_status() }))
         }
         LiveAppAction::QueuePasteAll => {
-            let pasted = crate::commands::paste_all_queue_items(&queue, &db, app)?;
+            let pasted = crate::queue_actions::paste_all(&queue, &db, app)?;
             Ok(serde_json::json!({ "pasted": pasted.is_some(), "status": queue.get_status() }))
         }
         LiveAppAction::CopyClip { clip_id } => {
-            crate::commands::copy_clip_by_id_shared(&db, &queue, clip_id)?;
+            crate::clipboard_actions::copy_clip(&db, &queue, clip_id)?;
             Ok(serde_json::json!({ "copied": true, "clipId": clip_id }))
         }
         LiveAppAction::PasteClip { clip_id } => {
-            crate::commands::paste_clip_to_last_external(&db, app, clip_id)?;
+            crate::clipboard_actions::paste_clip(
+                &db,
+                app,
+                clip_id,
+                crate::clipboard_actions::PasteOrigin::Hud,
+            )?;
             Ok(serde_json::json!({ "pasted": true, "clipId": clip_id }))
         }
         LiveAppAction::OcrCancel => {

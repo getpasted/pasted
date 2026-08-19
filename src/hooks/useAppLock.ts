@@ -3,6 +3,7 @@ import { listen } from '@tauri-apps/api/event';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { translate } from '../localization/runtime';
 import { APP_LOCK_ACTIVITY_EVENTS, createIdleDeadline } from '../utils/idleDeadline';
+import { APP_EVENTS } from '../utils/appEvents';
 
 export interface AppLockStatus {
   enabled: boolean;
@@ -146,7 +147,7 @@ export function useAppLock() {
     window.addEventListener('focus', refreshOnFocus);
     let disposed = false;
     let unlisten: (() => void) | undefined;
-    void listen<AppLockStatus>('app-lock-changed', ({ payload }) => {
+    void listen<AppLockStatus>(APP_EVENTS.appLockChanged, ({ payload }) => {
       if (!disposed && payload) {
         if (statusRef.current.locked && !payload.locked) void transitionToUnlocked(payload);
         else acceptStatus(payload);

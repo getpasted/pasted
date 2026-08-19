@@ -1730,6 +1730,21 @@ fn column_exists(conn: &Connection, table: &str, column: &str) -> Result<bool> {
     Ok(false)
 }
 
+fn add_column_if_missing(
+    conn: &Connection,
+    table: &str,
+    column: &str,
+    definition: &str,
+) -> Result<()> {
+    if !column_exists(conn, table, column)? {
+        conn.execute(
+            &format!("ALTER TABLE {table} ADD COLUMN {column} {definition}"),
+            [],
+        )?;
+    }
+    Ok(())
+}
+
 fn migrate_app_exclusion_hotkey_setting(conn: &Connection) -> Result<()> {
     if !table_exists(conn, "settings")? {
         return Ok(());
@@ -2834,37 +2849,28 @@ impl DbState {
             [],
         )?;
 
-        // Migrations if existing tables don't have new columns
-        let _ = conn.execute("ALTER TABLE clips ADD COLUMN note TEXT", []);
-        let _ = conn.execute(
-            "ALTER TABLE clips ADD COLUMN is_trashed INTEGER DEFAULT 0",
-            [],
-        );
-        let _ = conn.execute("ALTER TABLE clips ADD COLUMN trashed_at DATETIME", []);
-        let _ = conn.execute(
-            "ALTER TABLE clips ADD COLUMN is_protected INTEGER DEFAULT 0",
-            [],
-        );
-        let _ = conn.execute("ALTER TABLE clips ADD COLUMN shortcut TEXT", []);
-        let _ = conn.execute("ALTER TABLE clips ADD COLUMN image_path TEXT", []);
-        let _ = conn.execute(
-            "ALTER TABLE clips ADD COLUMN pin_order INTEGER DEFAULT 0",
-            [],
-        );
-        let _ = conn.execute(
-            "ALTER TABLE clips ADD COLUMN current_transformation_id TEXT",
-            [],
-        );
-        let _ = conn.execute(
-            "ALTER TABLE clips ADD COLUMN ocr_status TEXT NOT NULL DEFAULT 'not_applicable'",
-            [],
-        );
-        let _ = conn.execute("ALTER TABLE clips ADD COLUMN ocr_input_hash TEXT", []);
-        let _ = conn.execute("ALTER TABLE clips ADD COLUMN ocr_engine_version TEXT", []);
-        let _ = conn.execute("ALTER TABLE clips ADD COLUMN ocr_extractor_ref TEXT", []);
-        let _ = conn.execute("ALTER TABLE clips ADD COLUMN ocr_extractor_name TEXT", []);
-        let _ = conn.execute("ALTER TABLE clips ADD COLUMN ocr_attempted_at DATETIME", []);
-        let _ = conn.execute("ALTER TABLE clips ADD COLUMN ocr_error TEXT", []);
+        // Every additive migration distinguishes an existing column from a real
+        // SQLite failure. Never discard ALTER TABLE errors during startup.
+        add_column_if_missing(&conn, "clips", "note", "TEXT")?;
+        add_column_if_missing(&conn, "clips", "is_trashed", "INTEGER DEFAULT 0")?;
+        add_column_if_missing(&conn, "clips", "trashed_at", "DATETIME")?;
+        add_column_if_missing(&conn, "clips", "is_protected", "INTEGER DEFAULT 0")?;
+        add_column_if_missing(&conn, "clips", "shortcut", "TEXT")?;
+        add_column_if_missing(&conn, "clips", "image_path", "TEXT")?;
+        add_column_if_missing(&conn, "clips", "pin_order", "INTEGER DEFAULT 0")?;
+        add_column_if_missing(&conn, "clips", "current_transformation_id", "TEXT")?;
+        add_column_if_missing(
+            &conn,
+            "clips",
+            "ocr_status",
+            "TEXT NOT NULL DEFAULT 'not_applicable'",
+        )?;
+        add_column_if_missing(&conn, "clips", "ocr_input_hash", "TEXT")?;
+        add_column_if_missing(&conn, "clips", "ocr_engine_version", "TEXT")?;
+        add_column_if_missing(&conn, "clips", "ocr_extractor_ref", "TEXT")?;
+        add_column_if_missing(&conn, "clips", "ocr_extractor_name", "TEXT")?;
+        add_column_if_missing(&conn, "clips", "ocr_attempted_at", "DATETIME")?;
+        add_column_if_missing(&conn, "clips", "ocr_error", "TEXT")?;
         conn.execute(
             "UPDATE clips
              SET ocr_status = CASE
@@ -2904,20 +2910,14 @@ impl DbState {
              ON clips (content_type, ocr_status, is_trashed, id)",
             [],
         )?;
-        let _ = conn.execute("ALTER TABLE bins ADD COLUMN smart_rule TEXT", []);
-        let _ = conn.execute(
-            "ALTER TABLE bins ADD COLUMN bin_type TEXT DEFAULT 'category'",
-            [],
-        );
-        let _ = conn.execute("ALTER TABLE bins ADD COLUMN shortcut TEXT", []);
-        let _ = conn.execute(
-            "ALTER TABLE bins ADD COLUMN protect_clips INTEGER NOT NULL DEFAULT 0",
-            [],
-        );
+        add_column_if_missing(&conn, "bins", "smart_rule", "TEXT")?;
+        add_column_if_missing(&conn, "bins", "bin_type", "TEXT DEFAULT 'category'")?;
+        add_column_if_missing(&conn, "bins", "shortcut", "TEXT")?;
+        add_column_if_missing(&conn, "bins", "protect_clips", "INTEGER NOT NULL DEFAULT 0")?;
 
         migrate_clip_source_schema(&conn)?;
 
-        let _ = conn.execute(
+        conn.execute(
             "CREATE TABLE IF NOT EXISTS clip_versions (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 clip_id INTEGER NOT NULL REFERENCES clips(id) ON DELETE CASCADE,
@@ -2925,12 +2925,12 @@ impl DbState {
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )",
             [],
-        );
-        let _ = conn.execute(
+        )?;
+        conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_clip_versions_clip_id ON clip_versions(clip_id, created_at DESC)",
             [],
-        );
-        let _ = conn.execute("ALTER TABLE clip_versions ADD COLUMN context_json TEXT", []);
+        )?;
+        add_column_if_missing(&conn, "clip_versions", "context_json", "TEXT")?;
 
         conn.execute(
             "CREATE TABLE IF NOT EXISTS clip_analysis_classifications (
@@ -13601,6 +13601,22 @@ mod tests {
             std::thread::current().id()
         ));
         DbState::new(db_file).expect("Failed to create test DB")
+    }
+
+    #[test]
+    fn additive_migrations_are_idempotent_without_swallowing_sqlite_failures() {
+        let connection = Connection::open_in_memory().unwrap();
+        connection
+            .execute("CREATE TABLE example (id INTEGER)", [])
+            .unwrap();
+
+        add_column_if_missing(&connection, "example", "label", "TEXT").unwrap();
+        add_column_if_missing(&connection, "example", "label", "TEXT").unwrap();
+        assert!(column_exists(&connection, "example", "label").unwrap());
+
+        let error = add_column_if_missing(&connection, "missing_table", "label", "TEXT")
+            .expect_err("a missing migration target must fail startup");
+        assert!(error.to_string().contains("no such table"));
     }
 
     fn search_test_clips(db: &DbState, query: &str) -> Vec<ClipItem> {

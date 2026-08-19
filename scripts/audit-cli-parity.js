@@ -29,6 +29,7 @@ const tauriMock = read('src/utils/tauri.ts');
 const extractorManager = read('src/components/ContentExtractorManagerDialog.tsx');
 const classifierManager = read('src/components/SettingsAnalysisPanel.tsx');
 const smartBins = read('src-tauri/src/smart_bins.rs');
+const manualTransforms = read('src-tauri/src/manual_transform_service.rs');
 
 assert.match(cli, /pasted search \[query\] \[--clip TYPE\] \[--content TYPE\] \[--format FORMAT\] \[--source APP\]/,
   'CLI search help must expose all four collection axes');
@@ -229,6 +230,17 @@ assert.match(cli, /external_import::import_history/, 'CLI migration must use the
 assert.match(database, /pub fn configure_clip_retention/, 'Retention policy must live in the shared database domain layer');
 assert.match(commands, /db\.enforce_clip_retention/, 'GUI retention must use the shared domain policy');
 assert.match(cli, /db\.configure_clip_retention/, 'CLI retention must use the shared domain policy');
+assert.match(commands, /settings_service::update_setting/, 'GUI setting writes must use the shared Settings service');
+assert.match(commands, /settings_service::update_settings/, 'GUI setting batches must use the shared Settings service');
+assert.match(cli, /settings_service::update_setting/, 'CLI setting writes must use the shared Settings service');
+for (const method of ['create', 'update']) {
+  assert.match(commands, new RegExp(`manual_transform_service::${method}`),
+    `GUI manual Transform ${method} must use the shared service`);
+  assert.match(cli, new RegExp(`manual_transform_service::${method}`),
+    `CLI manual Transform ${method} must use the shared service`);
+}
+assert.match(manualTransforms, /historical `Pipeline` storage vocabulary/,
+  'Legacy Pipeline terminology must remain documented at the persistence compatibility boundary');
 for (const scope of ['trash', 'activity']) {
   assert.match(database, new RegExp(`pub fn configure_${scope}_retention`), `${scope} retention must live in the shared database domain layer`);
   assert.match(commands, new RegExp(`db\\.enforce_${scope}_retention`), `GUI ${scope} retention must use the shared domain policy`);
