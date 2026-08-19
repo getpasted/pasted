@@ -133,16 +133,17 @@ export function SettingsHotkeysPanel({
     void refreshClipHotkeys();
     let disposed = false;
     let unlisten: (() => void) | undefined;
-    void listen('hotkey-registration-changed', () => void refreshHotkeyStatus()).then((dispose) => {
+    void listen('hotkey-registration-changed', () => {
+      void refreshHotkeyStatus();
+      void refreshClipHotkeys();
+    }).then((dispose) => {
       if (disposed) dispose();
       else unlisten = dispose;
     }).catch(console.error);
-    const interval = window.setInterval(() => void refreshHotkeyStatus(), 10000);
     window.addEventListener('focus', refreshHotkeyStatus);
     return () => {
       disposed = true;
       unlisten?.();
-      window.clearInterval(interval);
       window.removeEventListener('focus', refreshHotkeyStatus);
       if (permissionRefreshTimer.current) clearTimeout(permissionRefreshTimer.current);
     };
@@ -345,8 +346,6 @@ export function SettingsHotkeysPanel({
                 onChange={async (nextHotkey) => {
                   try {
                     await invoke('update_clip_hotkey', { clipId, hotkey: nextHotkey });
-                    await refreshClipHotkeys();
-                    await refreshHotkeyStatus();
                   } catch (error) {
                     console.error('Failed to update clip hotkey:', error);
                     showToast({ tone: 'error', get message() { return translate('component.settingsHotkeysPanel.thatClipHotkeyCouldNotBeRegistered'); } });

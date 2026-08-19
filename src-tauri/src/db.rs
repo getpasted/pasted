@@ -8235,6 +8235,33 @@ impl DbState {
         rows
     }
 
+    pub fn get_bin_hotkeys(&self) -> Result<Vec<(i64, String, String)>> {
+        let conn = self.conn.lock();
+        let mut statement = conn.prepare(
+            "SELECT id, name, shortcut FROM bins
+             WHERE NULLIF(TRIM(shortcut), '') IS NOT NULL
+             ORDER BY id ASC",
+        )?;
+        let rows = statement
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))?
+            .collect();
+        rows
+    }
+
+    pub fn get_pipeline_hotkeys(&self) -> Result<Vec<(String, String, String)>> {
+        let conn = self.conn.lock();
+        let mut statement = conn.prepare(
+            "SELECT id, name, shortcut FROM saved_transforms
+             WHERE authoring_kind = 'manual'
+               AND NULLIF(TRIM(shortcut), '') IS NOT NULL
+             ORDER BY row_id ASC",
+        )?;
+        let rows = statement
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))?
+            .collect();
+        rows
+    }
+
     pub fn update_clip_hotkey(&self, clip_id: i64, hotkey: Option<&str>) -> Result<()> {
         let hotkey = hotkey.map(str::trim).filter(|value| !value.is_empty());
         if hotkey.is_some_and(|value| value.len() > 256) {
@@ -16135,6 +16162,11 @@ mod tests {
 
         let bin = db.create_bin("Work", "💼", "#3b82f6", None).unwrap();
         assert!(bin.id > 0);
+        db.update_bin_hotkey(bin.id, Some("Alt+W")).unwrap();
+        assert_eq!(
+            db.get_bin_hotkeys().unwrap(),
+            vec![(bin.id, "Work".into(), "Alt+W".into())]
+        );
 
         let bins = db.get_bins().unwrap();
         assert_eq!(bins.len(), initial_count + 1);
@@ -17205,6 +17237,18 @@ mod tests {
         assert_eq!(created.steps[0].operation_ref, "builtin:trim");
         assert_eq!(created.steps[1].position, 1);
         assert_eq!(created.steps[1].config_json.as_deref(), Some(r#""strong""#));
+        assert_eq!(
+            db.get_pipeline_hotkeys().unwrap(),
+            vec![(
+                created
+                    .stable_ref
+                    .strip_prefix("transform:")
+                    .unwrap()
+                    .to_string(),
+                "Normalize".into(),
+                "Alt+N".into()
+            )]
+        );
 
         let updated = db
             .update_pipeline(

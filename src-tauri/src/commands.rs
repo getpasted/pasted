@@ -2736,16 +2736,18 @@ pub fn create_pipeline(
     app: AppHandle,
 ) -> Result<Pipeline, String> {
     features::require(&db, Feature::Transformations)?;
-    if hotkey
+    let has_hotkey = hotkey
         .as_deref()
-        .is_some_and(|value| !value.trim().is_empty())
-    {
+        .is_some_and(|value| !value.trim().is_empty());
+    if has_hotkey {
         features::require(&db, Feature::Hotkeys)?;
     }
     let pipeline = db
         .create_pipeline(&name, &steps, hotkey.as_deref())
         .map_err(|error| error.to_string())?;
-    let _ = register_all_app_shortcuts(&app);
+    if has_hotkey {
+        let _ = register_all_app_shortcuts(&app);
+    }
     Ok(pipeline)
 }
 
@@ -2763,13 +2765,17 @@ pub fn update_pipeline(
         .resolve_transform_definition(&pipeline_ref)
         .map_err(|error| error.to_string())?
         .and_then(|definition| definition.shortcut);
-    if hotkey.as_deref().map(str::trim) != previous_shortcut.as_deref().map(str::trim) {
+    let hotkey_changed =
+        hotkey.as_deref().map(str::trim) != previous_shortcut.as_deref().map(str::trim);
+    if hotkey_changed {
         features::require(&db, Feature::Hotkeys)?;
     }
     let pipeline = db
         .update_pipeline(&pipeline_ref, &name, &steps, hotkey.as_deref())
         .map_err(|error| error.to_string())?;
-    let _ = register_all_app_shortcuts(&app);
+    if hotkey_changed {
+        let _ = register_all_app_shortcuts(&app);
+    }
     Ok(pipeline)
 }
 
@@ -2797,7 +2803,8 @@ pub fn update_pipeline_hotkey(
         .shortcut;
     db.update_pipeline_hotkey(&pipeline_ref, hotkey.as_deref())
         .map_err(|error| error.to_string())?;
-    if let Err(error) = register_all_app_shortcuts(&app) {
+    let changed_hotkeys: Vec<String> = hotkey.clone().into_iter().collect();
+    if let Err(error) = register_changed_hotkeys(&app, &changed_hotkeys) {
         db.update_pipeline_hotkey(&pipeline_ref, previous.as_deref())
             .map_err(|rollback| {
                 format!("{error}; restoring the previous Transform hotkey failed: {rollback}")
@@ -2815,9 +2822,16 @@ pub fn delete_pipeline(
     app: AppHandle,
 ) -> Result<(), String> {
     features::require(&db, Feature::Transformations)?;
+    let had_hotkey = db
+        .resolve_transform_definition(&pipeline_ref)
+        .map_err(|error| error.to_string())?
+        .and_then(|definition| definition.shortcut)
+        .is_some_and(|value| !value.trim().is_empty());
     db.delete_pipeline(&pipeline_ref)
         .map_err(|error| error.to_string())?;
-    let _ = register_all_app_shortcuts(&app);
+    if had_hotkey {
+        let _ = register_all_app_shortcuts(&app);
+    }
     Ok(())
 }
 
@@ -2872,7 +2886,8 @@ pub fn update_bin_hotkey(
     let previous = db.get_bin(id).map_err(|error| error.to_string())?.shortcut;
     db.update_bin_hotkey(id, hotkey.as_deref())
         .map_err(|e| e.to_string())?;
-    if let Err(error) = register_all_app_shortcuts(&app) {
+    let changed_hotkeys: Vec<String> = hotkey.clone().into_iter().collect();
+    if let Err(error) = register_changed_hotkeys(&app, &changed_hotkeys) {
         db.update_bin_hotkey(id, previous.as_deref())
             .map_err(|rollback| {
                 format!("{error}; restoring the previous Bin hotkey failed: {rollback}")
@@ -2938,7 +2953,8 @@ pub fn update_clip_hotkey(
         .unwrap_or(previous.is_protected);
     db.update_clip_hotkey(clip_id, hotkey.as_deref())
         .map_err(|error| error.to_string())?;
-    if let Err(error) = register_all_app_shortcuts(&app) {
+    let changed_hotkeys: Vec<String> = hotkey.clone().into_iter().collect();
+    if let Err(error) = register_changed_hotkeys(&app, &changed_hotkeys) {
         db.restore_clip_hotkey_state(clip_id, previous_shortcut.as_deref(), previous_explicit)
             .map_err(|rollback| {
                 format!("{error}; restoring the previous clip hotkey failed: {rollback}")
@@ -4002,12 +4018,43 @@ pub(crate) fn paste_clip_to_last_external(
     app: &AppHandle,
     clip_id: i64,
 ) -> Result<(), String> {
+    paste_clip_to_last_external_with_activity(db, app, clip_id, "hud")
+}
+
+pub(crate) fn paste_clip_from_hotkey(
+    db: &DbState,
+    app: &AppHandle,
+    clip_id: i64,
+) -> Result<(), String> {
+    paste_clip_to_last_external_with_activity(db, app, clip_id, "clip_hotkey")
+}
+
+fn paste_clip_to_last_external_with_activity(
+    db: &DbState,
+    app: &AppHandle,
+    clip_id: i64,
+    activity_origin: &str,
+) -> Result<(), String> {
+    let (paste_failed_event, pasted_event, paste_source) = if activity_origin == "hud" {
+        ("hud_paste_failed", "hud_clip_pasted", "HUD")
+    } else {
+        (
+            "app_hotkey_clip_paste_failed",
+            "app_hotkey_clip_pasted",
+            "a clip hotkey",
+        )
+    };
     let clip = db
         .get_clip_by_id(clip_id)
         .map_err(|error| error.to_string())?;
     #[cfg(target_os = "macos")]
     if !check_accessibility_permission().is_trusted {
-        return Err("HUD paste needs Accessibility access. Allow Pasted (or the terminal/IDE running this development build) in System Settings, then try again.".to_string());
+        let message = if activity_origin == "hud" {
+            "HUD paste needs Accessibility access. Allow Pasted (or the terminal/IDE running this development build) in System Settings, then try again."
+        } else {
+            "Clip hotkey paste needs Accessibility access. Allow Pasted (or the terminal/IDE running this development build) in System Settings, then try again."
+        };
+        return Err(message.to_string());
     }
 
     let paste_target = app.state::<Arc<crate::paste_target::PasteTargetState>>();
@@ -4025,27 +4072,34 @@ pub(crate) fn paste_clip_to_last_external(
             _ => "This clip's text cannot be prepared for pasting.",
         };
         let _ = db.log_activity(
-            "hud_paste_failed",
+            paste_failed_event,
             &format!("{explanation} System detail: {error}"),
         );
         return Err(explanation.to_string());
     }
 
-    if let Some(hud) = app.get_webview_window("hud") {
-        let _ = hud.hide();
+    if activity_origin == "hud" {
+        if let Some(hud) = app.get_webview_window("hud") {
+            let _ = hud.hide();
+        }
     }
     if let Err(error) = paste_target.paste_clip_to(&target) {
-        if let Some(hud) = app.get_webview_window("hud") {
-            let _ = hud.show();
-            let _ = hud.set_focus();
+        if activity_origin == "hud" {
+            if let Some(hud) = app.get_webview_window("hud") {
+                let _ = hud.show();
+                let _ = hud.set_focus();
+            }
         }
-        let _ = db.log_activity("hud_paste_failed", &error);
+        let _ = db.log_activity(paste_failed_event, &error);
         return Err(error);
     }
 
     let _ = db.log_activity(
-        "hud_clip_pasted",
-        &format!("Pasted clip {} into {} from HUD", clip.id, target.name),
+        pasted_event,
+        &format!(
+            "Pasted clip {} into {} from {paste_source}",
+            clip.id, target.name
+        ),
     );
     Ok(())
 }
@@ -4190,6 +4244,34 @@ pub fn register_all_app_shortcuts(app: &AppHandle) -> Result<(), String> {
     } else {
         Err("HotkeyManager state not initialized".to_string())
     }
+}
+
+fn register_changed_hotkeys(app: &AppHandle, changed_hotkeys: &[String]) -> Result<(), String> {
+    let Err(error) = register_all_app_shortcuts(app) else {
+        return Ok(());
+    };
+    let Some(manager) = app.try_state::<Arc<crate::hotkey_manager::HotkeyManager>>() else {
+        return Err(error);
+    };
+    let status = manager.registration_status();
+    if status.state != "conflict" {
+        return Err(error);
+    }
+    if changed_hotkeys_have_registration_issue(changed_hotkeys, &status.issues) {
+        Err(error)
+    } else {
+        Ok(())
+    }
+}
+
+fn changed_hotkeys_have_registration_issue(
+    changed_hotkeys: &[String],
+    issues: &[crate::hotkey_manager::HotkeyRegistrationIssue],
+) -> bool {
+    changed_hotkeys.iter().any(|changed| {
+        let changed = changed.trim();
+        !changed.is_empty() && issues.iter().any(|issue| issue.hotkey.trim() == changed)
+    })
 }
 
 #[derive(serde::Serialize, Clone)]
@@ -4388,9 +4470,27 @@ fn persist_hotkey_settings_and_register(
                 .map_err(|error| error.to_string())
         })
         .collect::<Result<_, _>>()?;
+    if values.iter().all(|(key, value)| {
+        previous
+            .get(key)
+            .and_then(|previous_value| previous_value.as_deref())
+            == Some(value.as_str())
+    }) {
+        return Ok(());
+    }
+    let changed_hotkeys: Vec<String> = values
+        .iter()
+        .filter(|(key, value)| {
+            previous
+                .get(*key)
+                .and_then(|previous_value| previous_value.as_deref())
+                != Some(value.as_str())
+        })
+        .map(|(_, value)| value.clone())
+        .collect();
     db.save_settings(&values)
         .map_err(|error| error.to_string())?;
-    if let Err(registration_error) = register_all_app_shortcuts(app) {
+    if let Err(registration_error) = register_changed_hotkeys(app, &changed_hotkeys) {
         let restored: std::collections::HashMap<String, String> = previous
             .iter()
             .filter_map(|(key, value)| value.clone().map(|value| (key.clone(), value)))
@@ -5446,6 +5546,27 @@ mod tests {
         assert!(!is_app_setting_hotkey_key("pasteClip0Hotkey"));
         assert!(!is_app_setting_hotkey_key("pasteClip10Hotkey"));
         assert!(!is_app_setting_hotkey_key("enableAppLock"));
+    }
+
+    #[test]
+    fn unrelated_hotkey_conflicts_do_not_reject_a_change() {
+        let issues = vec![crate::hotkey_manager::HotkeyRegistrationIssue {
+            hotkey: "Alt+Shift+V".into(),
+            description: "HUD".into(),
+            message: "Unavailable".into(),
+        }];
+        assert!(!changed_hotkeys_have_registration_issue(
+            &["Alt+Shift+L".into()],
+            &issues
+        ));
+        assert!(changed_hotkeys_have_registration_issue(
+            &[" Alt+Shift+V ".into()],
+            &issues
+        ));
+        assert!(!changed_hotkeys_have_registration_issue(
+            &[String::new()],
+            &issues
+        ));
     }
 
     #[test]

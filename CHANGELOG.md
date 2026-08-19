@@ -5,6 +5,7 @@ Notable user-facing changes to Pasted are recorded here. The project follows sem
 ## Unreleased
 
 - added a Hotkeys Functionality gate that unregisters all system-wide hotkeys while preserving configured app, clip, Bin, and Transform assignments.
+- hardened hotkey registration with duplicate and invalid-binding preflight, targeted conflict rollback, lean assignment queries, nonblocking serialized clipboard actions, and event-driven Settings status updates.
 - added paste-by-ID hotkeys for clips, automatic explicit protection for hotkey assignments, and inherited protection for every clip assigned to a manual Bin or Tag, with GUI, CLI, Activity, transfer, backup, Help, and localization parity.
 - added validated Full Backup and Full Restore across Settings and the CLI, covering every durable database table plus saved interface/window state and creating a pre-restore recovery snapshot automatically.
 - consolidated reporting exports under Storage and added History and Organization preflight summaries in the GUI and `pasted transfer` CLI workflow.

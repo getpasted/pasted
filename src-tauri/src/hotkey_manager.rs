@@ -33,14 +33,13 @@ struct HotkeySpec {
     #[cfg_attr(not(target_os = "linux"), allow(dead_code))]
     id: String,
     description: String,
-    shortcut: String,
+    hotkey: String,
     action: AppHotkeyAction,
 }
 
 #[derive(Debug, Clone, serde::Serialize, PartialEq, Eq)]
 pub struct HotkeyRegistrationIssue {
-    #[serde(rename = "hotkey")]
-    pub shortcut: String,
+    pub hotkey: String,
     pub description: String,
     pub message: String,
 }
@@ -79,6 +78,7 @@ pub struct HotkeyManager {
     action_map: RwLock<HashMap<Shortcut, AppHotkeyAction>>,
     registration_status: RwLock<HotkeyRegistrationStatus>,
     registration_guard: parking_lot::Mutex<()>,
+    clipboard_action_guard: Arc<parking_lot::Mutex<()>>,
     #[cfg(target_os = "linux")]
     portal_task: parking_lot::Mutex<Option<tauri::async_runtime::JoinHandle<()>>>,
     #[cfg(target_os = "linux")]
@@ -97,6 +97,7 @@ impl HotkeyManager {
             action_map: RwLock::new(HashMap::new()),
             registration_status: RwLock::new(HotkeyRegistrationStatus::default()),
             registration_guard: parking_lot::Mutex::new(()),
+            clipboard_action_guard: Arc::new(parking_lot::Mutex::new(())),
             #[cfg(target_os = "linux")]
             portal_task: parking_lot::Mutex::new(None),
             #[cfg(target_os = "linux")]
@@ -110,25 +111,19 @@ impl HotkeyManager {
 
     pub fn register_all(self: &Arc<Self>, app: &AppHandle) -> Result<(), String> {
         let _registration = self.registration_guard.lock();
-        let _ = app.global_shortcut().unregister_all();
-        self.action_map.write().clear();
-
-        #[cfg(target_os = "linux")]
-        if let Some(task) = self.portal_task.lock().take() {
-            task.abort();
-        }
-        #[cfg(target_os = "linux")]
-        if let Some(task) = self.x11_task.lock().take() {
-            let _ = task.stop.send(());
-            let _ = task.thread.join();
-        }
-
         let db_opt = app.try_state::<Arc<DbState>>();
         let Some(db) = db_opt else {
             return Err("Database state not initialized".to_string());
         };
+        let settings = db.get_all_settings().map_err(|error| error.to_string())?;
+        let feature_enabled = |feature: Feature| {
+            features::setting_value_is_enabled(
+                settings.get(feature.setting_key()).map(String::as_str),
+            )
+        };
 
-        if !features::is_enabled(&db, Feature::Hotkeys) {
+        if !feature_enabled(Feature::Hotkeys) {
+            self.clear_registrations(app);
             *self.registration_status.write() = HotkeyRegistrationStatus {
                 backend: native_backend_name().to_string(),
                 state: "disabled".to_string(),
@@ -142,8 +137,8 @@ impl HotkeyManager {
         }
 
         let get_setting = |key: &str, default_val: &str| -> Option<String> {
-            match db.get_setting(key) {
-                Ok(Some(s)) => {
+            match settings.get(key) {
+                Some(s) => {
                     let trimmed = s.trim().to_string();
                     if trimmed.is_empty() {
                         None
@@ -151,7 +146,7 @@ impl HotkeyManager {
                         Some(trimmed)
                     }
                 }
-                _ => {
+                None => {
                     if default_val.trim().is_empty() {
                         None
                     } else {
@@ -162,25 +157,25 @@ impl HotkeyManager {
         };
 
         let mut specs = Vec::new();
-        let mut add_shortcut = |id: String,
-                                description: String,
-                                setting_str_opt: Option<String>,
-                                action: AppHotkeyAction| {
+        let mut add_hotkey = |id: String,
+                              description: String,
+                              setting_str_opt: Option<String>,
+                              action: AppHotkeyAction| {
             let Some(setting_str) = setting_str_opt else {
                 return;
             };
             specs.push(HotkeySpec {
                 id,
                 description,
-                shortcut: setting_str,
+                hotkey: setting_str,
                 action,
             });
         };
 
-        if features::is_enabled(&db, Feature::Hud) {
-            // HUD shortcut (default Option+Shift+V)
+        if feature_enabled(Feature::Hud) {
+            // HUD hotkey (default Option+Shift+V)
             let hud_sc = get_setting("hudHotkey", "Alt+Shift+V");
-            add_shortcut(
+            add_hotkey(
                 "hud".into(),
                 "Show or hide the HUD".into(),
                 hud_sc,
@@ -188,17 +183,17 @@ impl HotkeyManager {
             );
         }
 
-        // Main window shortcut
+        // Main window hotkey
         let main_sc = get_setting("openMainWindowHotkey", "");
-        add_shortcut(
+        add_hotkey(
             "main-window".into(),
             "Show or hide Pasted".into(),
             main_sc,
             AppHotkeyAction::ToggleMainWindow,
         );
 
-        if features::is_enabled(&db, Feature::AppLock) {
-            add_shortcut(
+        if feature_enabled(Feature::AppLock) {
+            add_hotkey(
                 "app-lock".into(),
                 "Lock Pasted".into(),
                 get_setting("lockAppHotkey", "Alt+Shift+L"),
@@ -206,9 +201,9 @@ impl HotkeyManager {
             );
         }
 
-        if features::is_enabled(&db, Feature::Transformations) {
+        if feature_enabled(Feature::Transformations) {
             let transformations_sc = get_setting("openTransformationsHotkey", "");
-            add_shortcut(
+            add_hotkey(
                 "transformations".into(),
                 "Open Transformations".into(),
                 transformations_sc,
@@ -216,10 +211,10 @@ impl HotkeyManager {
             );
         }
 
-        if features::is_enabled(&db, Feature::Queue) {
+        if feature_enabled(Feature::Queue) {
             // Sequential Stack toggle (default Option+Shift+C)
             let seq_toggle_sc = get_setting("seqToggleHotkey", "Alt+Shift+C");
-            add_shortcut(
+            add_hotkey(
                 "queue-toggle".into(),
                 "Enable or disable the Queue".into(),
                 seq_toggle_sc,
@@ -228,7 +223,7 @@ impl HotkeyManager {
 
             // Sequential Stack pop (default Option+Shift+X)
             let seq_pop_sc = get_setting("seqPopHotkey", "Alt+Shift+X");
-            add_shortcut(
+            add_hotkey(
                 "queue-paste-next".into(),
                 "Paste the next Queue item".into(),
                 seq_pop_sc,
@@ -240,7 +235,7 @@ impl HotkeyManager {
         for i in 1..=9 {
             let key = format!("pasteClip{}Hotkey", i);
             let sc = get_setting(&key, "");
-            add_shortcut(
+            add_hotkey(
                 format!("paste-clip-{i}"),
                 format!("Paste clip {i}"),
                 sc,
@@ -248,68 +243,61 @@ impl HotkeyManager {
             );
         }
 
-        if let Ok(clips) = db.get_clip_hotkeys() {
-            for (clip_id, shortcut) in clips {
-                add_shortcut(
-                    format!("clip-{clip_id}"),
-                    format!("Paste assigned clip #{clip_id}"),
-                    Some(shortcut),
-                    AppHotkeyAction::PasteClipById(clip_id),
-                );
-            }
+        for (clip_id, shortcut) in db.get_clip_hotkeys().map_err(|error| error.to_string())? {
+            add_hotkey(
+                format!("clip-{clip_id}"),
+                format!("Paste assigned clip #{clip_id}"),
+                Some(shortcut),
+                AppHotkeyAction::PasteClipById(clip_id),
+            );
         }
 
-        if features::is_enabled(&db, Feature::Transformations) {
-            // Last-Pipeline shortcuts
+        if feature_enabled(Feature::Transformations) {
+            // Last-Transform hotkeys
             let copy_last_pipeline_sc = get_setting("copyLastPipelineHotkey", "");
-            add_shortcut(
+            add_hotkey(
                 "copy-last-transform".into(),
                 "Copy with the last Advanced Transform".into(),
                 copy_last_pipeline_sc,
                 AppHotkeyAction::CopyWithLastPipeline,
             );
             let paste_last_pipeline_sc = get_setting("pasteLastPipelineHotkey", "");
-            add_shortcut(
+            add_hotkey(
                 "paste-last-transform".into(),
                 "Paste with the last Advanced Transform".into(),
                 paste_last_pipeline_sc,
                 AppHotkeyAction::PasteWithLastPipeline,
             );
 
-            // Per-Pipeline shortcuts
-            if let Ok(pipelines) = db.get_pipelines() {
-                for pipeline in pipelines {
-                    if let Some(sc) = pipeline.shortcut {
-                        if !sc.trim().is_empty() {
-                            add_shortcut(
-                                format!("transform-{}", pipeline.id),
-                                format!("Run {}", pipeline.name),
-                                Some(sc),
-                                AppHotkeyAction::PasteWithPipeline(pipeline.stable_ref),
-                            );
-                        }
-                    }
-                }
+            // Per-Transform hotkeys
+            for (id, name, hotkey) in db
+                .get_pipeline_hotkeys()
+                .map_err(|error| error.to_string())?
+            {
+                add_hotkey(
+                    format!("transform-{id}"),
+                    format!("Run {name}"),
+                    Some(hotkey),
+                    AppHotkeyAction::PasteWithPipeline(format!("transform:{id}")),
+                );
             }
         }
 
-        if features::is_enabled(&db, Feature::Bins) {
-            // Bin shortcuts
-            if let Ok(bins) = db.get_bins() {
-                for b in bins {
-                    if let Some(sc) = b.shortcut {
-                        if !sc.trim().is_empty() {
-                            add_shortcut(
-                                format!("bin-{}", b.id),
-                                format!("Open {}", b.name),
-                                Some(sc),
-                                AppHotkeyAction::OpenBin(b.id),
-                            );
-                        }
-                    }
-                }
+        if feature_enabled(Feature::Bins) {
+            // Bin hotkeys
+            for (id, name, hotkey) in db.get_bin_hotkeys().map_err(|error| error.to_string())? {
+                add_hotkey(
+                    format!("bin-{id}"),
+                    format!("Open {name}"),
+                    Some(hotkey),
+                    AppHotkeyAction::OpenBin(id),
+                );
             }
         }
+
+        // Keep the currently working registrations active until the complete
+        // replacement snapshot has been read successfully.
+        self.clear_registrations(app);
 
         #[cfg(target_os = "linux")]
         if is_wayland_session() {
@@ -323,23 +311,58 @@ impl HotkeyManager {
         self.register_native(app, specs)
     }
 
+    fn clear_registrations(&self, app: &AppHandle) {
+        let _ = app.global_shortcut().unregister_all();
+        self.action_map.write().clear();
+
+        #[cfg(target_os = "linux")]
+        if let Some(task) = self.portal_task.lock().take() {
+            task.abort();
+        }
+        #[cfg(target_os = "linux")]
+        if let Some(task) = self.x11_task.lock().take() {
+            let _ = task.stop.send(());
+            let _ = task.thread.join();
+        }
+    }
+
     #[cfg_attr(target_os = "linux", allow(dead_code))]
     fn register_native(&self, app: &AppHandle, specs: Vec<HotkeySpec>) -> Result<(), String> {
         let configured_count = specs.len();
         let mut registered_count = 0;
         let mut issues = Vec::new();
         let mut map = self.action_map.write();
+        let mut parsed_specs = Vec::new();
+        let mut hotkey_counts = HashMap::<Shortcut, usize>::new();
 
         for spec in specs {
-            let Some(shortcuts) = commands::parse_shortcut_str_for_current_layout(&spec.shortcut)
+            let Some(shortcuts) = commands::parse_shortcut_str_for_current_layout(&spec.hotkey)
             else {
                 issues.push(HotkeyRegistrationIssue {
-                    shortcut: spec.shortcut,
+                    hotkey: spec.hotkey,
                     description: spec.description,
-                    message: "Pasted could not understand this shortcut.".into(),
+                    message: "Pasted could not understand this hotkey.".into(),
                 });
                 continue;
             };
+            for shortcut in &shortcuts {
+                *hotkey_counts.entry(*shortcut).or_default() += 1;
+            }
+            parsed_specs.push((spec, shortcuts));
+        }
+
+        for (spec, shortcuts) in parsed_specs {
+            if shortcuts
+                .iter()
+                .any(|shortcut| hotkey_counts.get(shortcut).copied().unwrap_or_default() > 1)
+            {
+                issues.push(HotkeyRegistrationIssue {
+                    hotkey: spec.hotkey,
+                    description: spec.description,
+                    message: "This hotkey is assigned to more than one action.".into(),
+                });
+                continue;
+            }
 
             let mut registered_any = false;
             let mut last_error = None;
@@ -358,13 +381,13 @@ impl HotkeyManager {
             if registered_any {
                 registered_count += 1;
             } else {
-                let message = last_error.unwrap_or_else(|| "The shortcut is unavailable.".into());
+                let message = last_error.unwrap_or_else(|| "The hotkey is unavailable.".into());
                 eprintln!(
                     "[Pasted Hotkeys] Could not register '{}' for {}: {message}",
-                    spec.shortcut, spec.description
+                    spec.hotkey, spec.description
                 );
                 issues.push(HotkeyRegistrationIssue {
-                    shortcut: spec.shortcut,
+                    hotkey: spec.hotkey,
                     description: spec.description,
                     message,
                 });
@@ -390,7 +413,7 @@ impl HotkeyManager {
             Ok(())
         } else {
             Err(format!(
-                "{} shortcut{} could not be registered",
+                "{} hotkey{} could not be registered",
                 issues.len(),
                 if issues.len() == 1 { "" } else { "s" }
             ))
@@ -410,7 +433,7 @@ impl HotkeyManager {
             let result = run_x11_shortcuts(&manager, &app, &specs, &stop_receiver, &ready_sender);
             if let Err(error) = result {
                 let _ = ready_sender.try_send(Err(error.clone()));
-                eprintln!("[Pasted Hotkeys] X11 shortcut backend stopped: {error}");
+                eprintln!("[Pasted Hotkeys] X11 hotkey backend stopped: {error}");
             }
         });
         let result = match ready_receiver.recv_timeout(std::time::Duration::from_secs(5)) {
@@ -418,7 +441,7 @@ impl HotkeyManager {
             Err(_) => {
                 let _ = stop_sender.send(());
                 let _ = thread.join();
-                return Err("Timed out while registering X11 shortcuts.".to_string());
+                return Err("Timed out while registering X11 hotkeys.".to_string());
             }
         };
         if result.is_ok() {
@@ -440,31 +463,43 @@ impl HotkeyManager {
         specs: Vec<HotkeySpec>,
     ) -> Result<(), String> {
         let configured_count = specs.len();
+        let (prepared, issues) = prepare_xdg_hotkeys(specs);
         *self.registration_status.write() = HotkeyRegistrationStatus {
             backend: "wayland-portal".into(),
             state: "checking".into(),
             configured_count,
             registered_count: 0,
-            issues: Vec::new(),
+            issues: issues.clone(),
             bindings: Vec::new(),
         };
 
-        if specs.is_empty() {
+        if !issues.is_empty() {
+            self.registration_status.write().state = "conflict".into();
+            let _ = app.emit("hotkey-registration-changed", ());
+            return Err(format!(
+                "{} hotkey{} could not be prepared for the desktop portal",
+                issues.len(),
+                if issues.len() == 1 { "" } else { "s" }
+            ));
+        }
+
+        if prepared.is_empty() {
             self.registration_status.write().state = "ready".into();
+            let _ = app.emit("hotkey-registration-changed", ());
             return Ok(());
         }
 
         let manager = Arc::clone(self);
         let failure_app = app.clone();
         let task = tauri::async_runtime::spawn(async move {
-            if let Err(error) = manager.run_wayland_portal(app, specs).await {
+            if let Err(error) = manager.run_wayland_portal(app, prepared).await {
                 eprintln!("[Pasted Hotkeys] Wayland portal unavailable: {error}");
                 let mut status = manager.registration_status.write();
                 status.state = "unavailable".into();
                 status.registered_count = 0;
                 status.bindings.clear();
                 status.issues = vec![HotkeyRegistrationIssue {
-                    shortcut: String::new(),
+                    hotkey: String::new(),
                     description: "Wayland global hotkeys".into(),
                     message: error,
                 }];
@@ -480,7 +515,7 @@ impl HotkeyManager {
     async fn run_wayland_portal(
         &self,
         app: AppHandle,
-        specs: Vec<HotkeySpec>,
+        specs: Vec<(HotkeySpec, String)>,
     ) -> Result<(), String> {
         use ashpd::desktop::{
             global_shortcuts::{BindShortcutsOptions, GlobalShortcuts, NewShortcut},
@@ -493,22 +528,21 @@ impl HotkeyManager {
         let mut activated = portal
             .receive_activated()
             .await
-            .map_err(|error| format!("Could not listen for portal shortcuts: {error}"))?;
+            .map_err(|error| format!("Could not listen for portal hotkeys: {error}"))?;
         let mut shortcuts_changed = portal
             .receive_shortcuts_changed()
             .await
-            .map_err(|error| format!("Could not listen for portal shortcut changes: {error}"))?;
+            .map_err(|error| format!("Could not listen for portal hotkey changes: {error}"))?;
         let session = portal
             .create_session(CreateSessionOptions::default())
             .await
-            .map_err(|error| format!("Could not create a portal shortcut session: {error}"))?;
+            .map_err(|error| format!("Could not create a portal hotkey session: {error}"))?;
 
         let portal_shortcuts: Vec<NewShortcut> = specs
             .iter()
-            .map(|spec| {
-                let trigger = shortcut_to_xdg_trigger(&spec.shortcut);
+            .map(|(spec, trigger)| {
                 NewShortcut::new(spec.id.clone(), spec.description.clone())
-                    .preferred_trigger(trigger.as_deref())
+                    .preferred_trigger(Some(trigger.as_str()))
             })
             .collect();
         let request = portal
@@ -519,10 +553,10 @@ impl HotkeyManager {
                 BindShortcutsOptions::default(),
             )
             .await
-            .map_err(|error| format!("Could not ask the desktop to bind shortcuts: {error}"))?;
+            .map_err(|error| format!("Could not ask the desktop to bind hotkeys: {error}"))?;
         let response = request
             .response()
-            .map_err(|error| format!("The desktop declined the shortcut request: {error}"))?;
+            .map_err(|error| format!("The desktop declined the hotkey request: {error}"))?;
         let bound_ids: std::collections::HashSet<&str> = response
             .shortcuts()
             .iter()
@@ -530,16 +564,16 @@ impl HotkeyManager {
             .collect();
         let actions: HashMap<String, AppHotkeyAction> = specs
             .iter()
-            .filter(|spec| bound_ids.contains(spec.id.as_str()))
-            .map(|spec| (spec.id.clone(), spec.action.clone()))
+            .filter(|(spec, _)| bound_ids.contains(spec.id.as_str()))
+            .map(|(spec, _)| (spec.id.clone(), spec.action.clone()))
             .collect();
         let issues: Vec<HotkeyRegistrationIssue> = specs
             .iter()
-            .filter(|spec| !bound_ids.contains(spec.id.as_str()))
-            .map(|spec| HotkeyRegistrationIssue {
-                shortcut: spec.shortcut.clone(),
+            .filter(|(spec, _)| !bound_ids.contains(spec.id.as_str()))
+            .map(|(spec, _)| HotkeyRegistrationIssue {
+                hotkey: spec.hotkey.clone(),
                 description: spec.description.clone(),
-                message: "The desktop did not enable this shortcut.".into(),
+                message: "The desktop did not enable this hotkey.".into(),
             })
             .collect();
         let bindings: Vec<HotkeyRegisteredBinding> = response
@@ -610,7 +644,7 @@ impl HotkeyManager {
 
         let Some(action) = action_opt else {
             eprintln!(
-                "[Pasted Hotkeys] Ignoring unmapped shortcut: key={:?}, modifiers={:?}",
+                "[Pasted Hotkeys] Ignoring unmapped hotkey: key={:?}, modifiers={:?}",
                 shortcut.key, shortcut.mods
             );
             return;
@@ -652,7 +686,7 @@ impl HotkeyManager {
                     let _ = window.set_focus();
                 }
             }) {
-                eprintln!("[Pasted Hotkeys] Could not dispatch app-lock shortcut: {error}");
+                eprintln!("[Pasted Hotkeys] Could not dispatch app-lock hotkey: {error}");
             }
             return;
         }
@@ -663,6 +697,7 @@ impl HotkeyManager {
             }
         }
         let app_handle = app.clone();
+        let clipboard_action_guard = Arc::clone(&self.clipboard_action_guard);
         if let Err(error) = app.run_on_main_thread(move || match action {
             AppHotkeyAction::ToggleHud => {
                 let _ = commands::toggle_hud_window(app_handle.clone());
@@ -707,7 +742,11 @@ impl HotkeyManager {
             }
             AppHotkeyAction::PopCopyQueue => {
                 let queue_app = app_handle.clone();
+                let action_guard = Arc::clone(&clipboard_action_guard);
                 std::thread::spawn(move || {
+                    let Some(_execution) = action_guard.try_lock() else {
+                        return;
+                    };
                     let seq = queue_app.state::<Arc<SequentialQueueState>>();
                     let db = queue_app.state::<Arc<DbState>>();
                     let _ = commands::paste_next_queue_item(&seq, &db, &queue_app);
@@ -715,7 +754,11 @@ impl HotkeyManager {
             }
             AppHotkeyAction::PasteClip(index) => {
                 let paste_app = app_handle.clone();
+                let action_guard = Arc::clone(&clipboard_action_guard);
                 std::thread::spawn(move || {
+                    let Some(_execution) = action_guard.try_lock() else {
+                        return;
+                    };
                     let Some(db) = paste_app.try_state::<Arc<DbState>>() else {
                         return;
                     };
@@ -737,40 +780,65 @@ impl HotkeyManager {
             }
             AppHotkeyAction::PasteClipById(clip_id) => {
                 let paste_app = app_handle.clone();
+                let action_guard = Arc::clone(&clipboard_action_guard);
                 std::thread::spawn(move || {
+                    let Some(_execution) = action_guard.try_lock() else {
+                        return;
+                    };
                     let Some(db) = paste_app.try_state::<Arc<DbState>>() else {
                         return;
                     };
-                    if let Err(error) = commands::paste_clip_from_hud(&db, &paste_app, clip_id) {
+                    if let Err(error) = commands::paste_clip_from_hotkey(&db, &paste_app, clip_id) {
                         eprintln!("[Pasted Clip Hotkey] {error}");
                     }
                 });
             }
             AppHotkeyAction::PasteWithPipeline(pipeline_ref) => {
-                let db_opt = app_handle.try_state::<Arc<DbState>>();
-                if let Some(db) = db_opt {
+                let transform_app = app_handle.clone();
+                let action_guard = Arc::clone(&clipboard_action_guard);
+                std::thread::spawn(move || {
+                    let Some(_execution) = action_guard.try_lock() else {
+                        return;
+                    };
+                    let Some(db) = transform_app.try_state::<Arc<DbState>>() else {
+                        return;
+                    };
                     if let Err(error) =
                         commands::execute_clipboard_pipeline(&db, Some(&pipeline_ref), true)
                     {
-                        eprintln!("[Pasted Pipeline Shortcut] {error}");
+                        eprintln!("[Pasted Transform Hotkey] {error}");
                     }
-                }
+                });
             }
             AppHotkeyAction::CopyWithLastPipeline => {
-                let db_opt = app_handle.try_state::<Arc<DbState>>();
-                if let Some(db) = db_opt {
+                let transform_app = app_handle.clone();
+                let action_guard = Arc::clone(&clipboard_action_guard);
+                std::thread::spawn(move || {
+                    let Some(_execution) = action_guard.try_lock() else {
+                        return;
+                    };
+                    let Some(db) = transform_app.try_state::<Arc<DbState>>() else {
+                        return;
+                    };
                     if let Err(error) = commands::execute_clipboard_pipeline(&db, None, false) {
                         eprintln!("[Pasted Last Pipeline Copy] {error}");
                     }
-                }
+                });
             }
             AppHotkeyAction::PasteWithLastPipeline => {
-                let db_opt = app_handle.try_state::<Arc<DbState>>();
-                if let Some(db) = db_opt {
+                let transform_app = app_handle.clone();
+                let action_guard = Arc::clone(&clipboard_action_guard);
+                std::thread::spawn(move || {
+                    let Some(_execution) = action_guard.try_lock() else {
+                        return;
+                    };
+                    let Some(db) = transform_app.try_state::<Arc<DbState>>() else {
+                        return;
+                    };
                     if let Err(error) = commands::execute_clipboard_pipeline(&db, None, true) {
                         eprintln!("[Pasted Last Pipeline Paste] {error}");
                     }
-                }
+                });
             }
             AppHotkeyAction::OpenBin(bin_id) => {
                 if let Some(w) = app_handle.get_webview_window("main") {
@@ -780,7 +848,7 @@ impl HotkeyManager {
                 }
             }
         }) {
-            eprintln!("[Pasted Hotkeys] Could not dispatch shortcut action: {error}");
+            eprintln!("[Pasted Hotkeys] Could not dispatch hotkey action: {error}");
         }
     }
 }
@@ -874,7 +942,7 @@ fn run_x11_shortcuts(
                         &mut registered,
                     ) {
                         eprintln!(
-                            "[Pasted Hotkeys] Could not refresh shortcuts after an X11 map change: {error}"
+                            "[Pasted Hotkeys] Could not refresh hotkeys after an X11 map change: {error}"
                         );
                     }
                 }
@@ -895,7 +963,7 @@ fn run_x11_shortcuts(
                         &mut registered,
                     ) {
                         eprintln!(
-                            "[Pasted Hotkeys] Could not refresh shortcuts after an X11 group change: {error}"
+                            "[Pasted Hotkeys] Could not refresh hotkeys after an X11 group change: {error}"
                         );
                     }
                 }
@@ -920,21 +988,37 @@ fn rebuild_x11_shortcuts<C: x11rb::connection::Connection>(
     unregister_x11_shortcuts(connection, root, registered);
     registered.clear();
     let mut issues = Vec::new();
+    let mut parsed_specs = Vec::new();
+    let mut hotkey_counts = HashMap::<String, usize>::new();
     for spec in specs {
-        let parsed = parse_x11_shortcut(&spec.shortcut).and_then(|(modifiers, keysym)| {
+        let parsed = parse_x11_shortcut(&spec.hotkey).and_then(|(modifiers, keysym)| {
             resolve_x11_keycode(connection, keysym).map(|keycode| (modifiers, keycode))
         });
         let (modifiers, keycode) = match parsed {
             Ok(parsed) => parsed,
             Err(message) => {
                 issues.push(HotkeyRegistrationIssue {
-                    shortcut: spec.shortcut.clone(),
+                    hotkey: spec.hotkey.clone(),
                     description: spec.description.clone(),
                     message,
                 });
                 continue;
             }
         };
+        let identity = format!("{:?}:{keycode}", modifiers);
+        *hotkey_counts.entry(identity.clone()).or_default() += 1;
+        parsed_specs.push((spec, modifiers, keycode, identity));
+    }
+
+    for (spec, modifiers, keycode, identity) in parsed_specs {
+        if hotkey_counts.get(&identity).copied().unwrap_or_default() > 1 {
+            issues.push(HotkeyRegistrationIssue {
+                hotkey: spec.hotkey.clone(),
+                description: spec.description.clone(),
+                message: "This hotkey is assigned to more than one action.".into(),
+            });
+            continue;
+        }
         let mut failure = None;
         for ignored in x11_ignored_modifiers() {
             match connection.grab_key(
@@ -962,7 +1046,7 @@ fn rebuild_x11_shortcuts<C: x11rb::connection::Connection>(
                 let _ = connection.ungrab_key(keycode, root, modifiers | ignored);
             }
             issues.push(HotkeyRegistrationIssue {
-                shortcut: spec.shortcut.clone(),
+                hotkey: spec.hotkey.clone(),
                 description: spec.description.clone(),
                 message,
             });
@@ -994,7 +1078,7 @@ fn rebuild_x11_shortcuts<C: x11rb::connection::Connection>(
         Ok(())
     } else {
         Err(format!(
-            "{} shortcut{} could not be registered",
+            "{} hotkey{} could not be registered",
             issues.len(),
             if issues.len() == 1 { "" } else { "s" }
         ))
@@ -1035,7 +1119,7 @@ fn parse_x11_shortcut(shortcut: &str) -> Result<(x11rb::protocol::xproto::ModMas
     let key = parts
         .pop()
         .filter(|key| !key.is_empty())
-        .ok_or_else(|| "The shortcut has no key.".to_string())?;
+        .ok_or_else(|| "The hotkey has no key.".to_string())?;
     let mut modifiers = ModMask::default();
     for modifier in parts {
         match modifier.to_ascii_lowercase().as_str() {
@@ -1045,7 +1129,7 @@ fn parse_x11_shortcut(shortcut: &str) -> Result<(x11rb::protocol::xproto::ModMas
             "alt" | "option" => modifiers |= ModMask::M1,
             "shift" => modifiers |= ModMask::SHIFT,
             "cmd" | "command" | "meta" | "super" | "logo" => modifiers |= ModMask::M4,
-            _ => return Err(format!("Unknown shortcut modifier: {modifier}")),
+            _ => return Err(format!("Unknown hotkey modifier: {modifier}")),
         }
     }
     let normalized = key.to_ascii_lowercase();
@@ -1068,13 +1152,13 @@ fn parse_x11_shortcut(shortcut: &str) -> Result<(x11rb::protocol::xproto::ModMas
         value if value.starts_with('f') => {
             let number = value[1..]
                 .parse::<u32>()
-                .map_err(|_| format!("Unknown shortcut key: {key}"))?;
+                .map_err(|_| format!("Unknown hotkey key: {key}"))?;
             if !(1..=35).contains(&number) {
-                return Err(format!("Unknown shortcut key: {key}"));
+                return Err(format!("Unknown hotkey key: {key}"));
             }
             0xffbd + number
         }
-        _ => return Err(format!("Unknown shortcut key: {key}")),
+        _ => return Err(format!("Unknown hotkey key: {key}")),
     };
     Ok((modifiers, keysym))
 }
@@ -1225,6 +1309,42 @@ fn shortcut_to_xdg_trigger(shortcut: &str) -> Option<String> {
     Some(modifiers.join("+"))
 }
 
+#[cfg_attr(not(any(target_os = "linux", test)), allow(dead_code))]
+fn prepare_xdg_hotkeys(
+    specs: Vec<HotkeySpec>,
+) -> (Vec<(HotkeySpec, String)>, Vec<HotkeyRegistrationIssue>) {
+    let mut parsed = Vec::new();
+    let mut issues = Vec::new();
+    let mut trigger_counts = HashMap::<String, usize>::new();
+
+    for spec in specs {
+        let Some(trigger) = shortcut_to_xdg_trigger(&spec.hotkey) else {
+            issues.push(HotkeyRegistrationIssue {
+                hotkey: spec.hotkey,
+                description: spec.description,
+                message: "Pasted could not understand this hotkey.".into(),
+            });
+            continue;
+        };
+        *trigger_counts.entry(trigger.clone()).or_default() += 1;
+        parsed.push((spec, trigger));
+    }
+
+    let mut prepared = Vec::new();
+    for (spec, trigger) in parsed {
+        if trigger_counts.get(&trigger).copied().unwrap_or_default() > 1 {
+            issues.push(HotkeyRegistrationIssue {
+                hotkey: spec.hotkey,
+                description: spec.description,
+                message: "This hotkey is assigned to more than one action.".into(),
+            });
+        } else {
+            prepared.push((spec, trigger));
+        }
+    }
+    (prepared, issues)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1259,7 +1379,7 @@ mod tests {
     }
 
     #[test]
-    fn converts_pasted_shortcuts_to_xdg_triggers() {
+    fn converts_pasted_hotkeys_to_xdg_triggers() {
         assert_eq!(
             shortcut_to_xdg_trigger("CmdOrCtrl+Shift+V"),
             Some("CTRL+SHIFT+v".into())
@@ -1270,5 +1390,57 @@ mod tests {
         );
         assert_eq!(shortcut_to_xdg_trigger("Super+F8"), Some("LOGO+F8".into()));
         assert_eq!(shortcut_to_xdg_trigger("Ctrl+NoSuchKey"), None);
+    }
+
+    #[test]
+    fn xdg_preflight_rejects_invalid_and_duplicate_hotkeys() {
+        let specs = vec![
+            HotkeySpec {
+                id: "first".into(),
+                description: "First".into(),
+                hotkey: "Alt+Shift+V".into(),
+                action: AppHotkeyAction::ToggleHud,
+            },
+            HotkeySpec {
+                id: "duplicate".into(),
+                description: "Duplicate".into(),
+                hotkey: "Option+Shift+V".into(),
+                action: AppHotkeyAction::ToggleMainWindow,
+            },
+            HotkeySpec {
+                id: "invalid".into(),
+                description: "Invalid".into(),
+                hotkey: "Alt+NoSuchKey".into(),
+                action: AppHotkeyAction::OpenTransformations,
+            },
+            HotkeySpec {
+                id: "valid".into(),
+                description: "Valid".into(),
+                hotkey: "Control+F8".into(),
+                action: AppHotkeyAction::ToggleCopyQueue,
+            },
+        ];
+
+        let (prepared, issues) = prepare_xdg_hotkeys(specs);
+        assert_eq!(prepared.len(), 1);
+        assert_eq!(prepared[0].0.id, "valid");
+        assert_eq!(prepared[0].1, "CTRL+F8");
+        assert_eq!(issues.len(), 3);
+        assert!(issues
+            .iter()
+            .any(|issue| issue.message.contains("more than one action")));
+        assert!(issues
+            .iter()
+            .any(|issue| issue.message.contains("could not understand")));
+    }
+
+    #[test]
+    fn clipboard_hotkey_actions_do_not_overlap() {
+        let manager = HotkeyManager::new();
+        let first = manager.clipboard_action_guard.try_lock();
+        assert!(first.is_some());
+        assert!(manager.clipboard_action_guard.try_lock().is_none());
+        drop(first);
+        assert!(manager.clipboard_action_guard.try_lock().is_some());
     }
 }

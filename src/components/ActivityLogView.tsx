@@ -397,11 +397,25 @@ export const ActivityLogView: React.FC = () => {
             <span>{translate('component.activityLogView.hudPasted')}</span>
           </div>
         );
+      case 'app_hotkey_clip_pasted':
+        return (
+          <div className="theme-status-success flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold">
+            <Keyboard className="w-3.5 h-3.5" />
+            <span>{translate('component.activityLogView.clipHotkey')}</span>
+          </div>
+        );
       case 'hud_paste_failed':
         return (
           <div className="theme-status-danger flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold">
             <ClipboardPaste className="w-3.5 h-3.5" />
             <span>{translate('component.activityLogView.hudFailed')}</span>
+          </div>
+        );
+      case 'app_hotkey_clip_paste_failed':
+        return (
+          <div className="theme-status-danger flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold">
+            <Keyboard className="w-3.5 h-3.5" />
+            <span>{translate('component.activityLogView.clipHotkey')}</span>
           </div>
         );
       case 'trash_emptied':
