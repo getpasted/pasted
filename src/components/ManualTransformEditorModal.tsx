@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ManualTransform, PipelineStep, Operation } from '../types';
+import { ManualTransform, ManualTransformStep, Operation } from '../types';
 import { transformsApi } from '../api/transforms';
 import { ArrowDown, ArrowUp, Sliders, Plus, Trash2, RotateCcw } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
@@ -8,7 +8,7 @@ import { handleWindowDragDoubleClick, startWindowDrag } from '../utils/windowDra
 import { AppDialog } from './AppDialog';
 import { AppDialogBody, AppDialogButton, AppDialogFooter, AppDialogHeader, AppDialogHeading, SaveButtonContent } from './AppDialogLayout';
 import { MenuSelect, type MenuSelectOption } from './MenuSelect';
-import { startPipelinePreview, type CancellableTransformRequest } from '../utils/transformExecution';
+import { startManualTransformPreview, type CancellableTransformRequest } from '../utils/transformExecution';
 import { PlaygroundRunStatus, type PlaygroundRunState } from './PlaygroundRunStatus';
 import { TransformationPreviewPanel } from './TransformationPreviewPanel';
 import { RegistryPanelHeader } from './RegistryPanelHeader';
@@ -16,7 +16,7 @@ import { translate } from '../localization/runtime';
 import { localizedBuiltinName } from '../localization/presentation';
 import { useFeatures } from '../hooks/useFeatures';
 
-export interface PipelineEditorStep {
+export interface ManualTransformEditorStep {
   id: string;
   operation_ref: string;
   config?: string | null;
@@ -31,8 +31,8 @@ export interface PipelineEditorStep {
   applyToEachLine?: boolean;
 }
 
-interface PipelineEditorModalProps {
-  pipeline: ManualTransform | null; // null if creating new
+interface ManualTransformEditorModalProps {
+  manualTransform: ManualTransform | null; // null if creating new
   isOpen: boolean;
   onClose: () => void;
   onSaveSuccess: () => void;
@@ -58,7 +58,7 @@ function operationTypeForRef(operationRef: string) {
   return operationRef.startsWith('builtin:') ? operationRef.slice('builtin:'.length) : null;
 }
 
-function pipelineStepToEditorStep(step: PipelineStep, index: number): PipelineEditorStep {
+function pipelineStepToEditorStep(step: ManualTransformStep, index: number): ManualTransformEditorStep {
   const operationType = operationTypeForRef(step.operationRef);
   let parsedConfig: Record<string, unknown> = {};
   if (operationType === 'regex' && step.configJson) {
@@ -90,7 +90,7 @@ function pipelineStepToEditorStep(step: PipelineStep, index: number): PipelineEd
   };
 }
 
-function compilePipelineStep(step: PipelineEditorStep) {
+function compileManualTransformStep(step: ManualTransformEditorStep) {
   const operationType = operationTypeForRef(step.operation_ref);
   let configJson: string | null = step.config || null;
   if (operationType === 'regex') {
@@ -118,12 +118,12 @@ function compilePipelineStep(step: PipelineEditorStep) {
   };
 }
 
-const PipelineStepEditor: React.FC<{
-  step: PipelineEditorStep;
+const ManualTransformStepEditor: React.FC<{
+  step: ManualTransformEditorStep;
   idx: number;
   totalSteps: number;
   onRemove: () => void;
-  onUpdate: (updates: Partial<PipelineEditorStep>) => void;
+  onUpdate: (updates: Partial<ManualTransformEditorStep>) => void;
   operationsList: Operation[];
   onMoveUp: () => void;
   onMoveDown: () => void;
@@ -218,7 +218,7 @@ const PipelineStepEditor: React.FC<{
                 <span>{translate('component.pipelineEditorModal.match')}</span>
                 <MenuSelect
                   value={step.matchMode || 'regex'}
-                  onChange={(value) => onUpdate({ matchMode: value as PipelineEditorStep['matchMode'] })}
+                  onChange={(value) => onUpdate({ matchMode: value as ManualTransformEditorStep['matchMode'] })}
                   options={[
                     { value: 'literal', get label() { return translate('component.pipelineEditorModal.contains'); } },
                     { value: 'wildcard', get label() { return translate('component.pipelineEditorModal.wildcard'); } },
@@ -304,16 +304,16 @@ const PipelineStepEditor: React.FC<{
   );
 };
 
-export const PipelineEditorModal: React.FC<PipelineEditorModalProps> = ({
-  pipeline,
+export const ManualTransformEditorModal: React.FC<ManualTransformEditorModalProps> = ({
+  manualTransform,
   isOpen,
   onClose,
   onSaveSuccess,
 }) => {
   const features = useFeatures();
-  const [pipelineName, setPipelineName] = useState('');
+  const [pipelineName, setManualTransformName] = useState('');
   const [hotkey, setHotkey] = useState<string | null>(null);
-  const [steps, setSteps] = useState<PipelineEditorStep[]>([]);
+  const [steps, setSteps] = useState<ManualTransformEditorStep[]>([]);
   const [testInput, setTestInput] = useState('Hello there! :) https://example.com?utm_source=test');
   const [testOutput, setTestOutput] = useState('');
   const [testRunState, setTestRunState] = useState<PlaygroundRunState>('idle');
@@ -337,33 +337,33 @@ export const PipelineEditorModal: React.FC<PipelineEditorModalProps> = ({
     // Fetch operations from SQLite database
     refreshOps();
 
-    if (pipeline) {
-      const nextSteps = pipeline.steps.map(pipelineStepToEditorStep);
-      setPipelineName(pipeline.name);
-      setHotkey(pipeline.hotkey || null);
+    if (manualTransform) {
+      const nextSteps = manualTransform.steps.map(pipelineStepToEditorStep);
+      setManualTransformName(manualTransform.name);
+      setHotkey(manualTransform.hotkey || null);
       setSteps(nextSteps);
       initialSnapshotRef.current = JSON.stringify({
-        pipelineName: pipeline.name,
-        hotkey: pipeline.hotkey || null,
+        pipelineName: manualTransform.name,
+        hotkey: manualTransform.hotkey || null,
         steps: nextSteps,
       });
     } else {
       const nextSteps = [createDefaultStep('builtin:smart_punctuation', null)];
-      setPipelineName('');
+      setManualTransformName('');
       setHotkey(null);
       setSteps(nextSteps);
       initialSnapshotRef.current = JSON.stringify({ pipelineName: '', hotkey: null, steps: nextSteps });
     }
     setSaveError('');
-  }, [isOpen, pipeline]);
+  }, [isOpen, manualTransform]);
 
   const handleReset = () => {
-    if (pipeline) {
-      setPipelineName(pipeline.name);
-      setHotkey(pipeline.hotkey || null);
-      setSteps(pipeline.steps.map(pipelineStepToEditorStep));
+    if (manualTransform) {
+      setManualTransformName(manualTransform.name);
+      setHotkey(manualTransform.hotkey || null);
+      setSteps(manualTransform.steps.map(pipelineStepToEditorStep));
     } else {
-      setPipelineName('');
+      setManualTransformName('');
       setHotkey(null);
       setSteps([createDefaultStep('builtin:smart_punctuation', null)]);
       setTestInput('Hello there! :) https://example.com?utm_source=test');
@@ -383,7 +383,7 @@ export const PipelineEditorModal: React.FC<PipelineEditorModalProps> = ({
     };
   }, [steps, testInput, isOpen]);
 
-  const createDefaultStep = (operationRef: string, config: string | null): PipelineEditorStep => {
+  const createDefaultStep = (operationRef: string, config: string | null): ManualTransformEditorStep => {
     return {
       id: `step-${Date.now()}-${Math.random()}`,
       operation_ref: operationRef,
@@ -409,7 +409,7 @@ export const PipelineEditorModal: React.FC<PipelineEditorModalProps> = ({
     setSteps((prev) => prev.filter((s) => s.id !== id));
   };
 
-  const handleUpdateStep = (id: string, updates: Partial<PipelineEditorStep>) => {
+  const handleUpdateStep = (id: string, updates: Partial<ManualTransformEditorStep>) => {
     setSteps((prev) =>
       prev.map((s) => (s.id === id ? { ...s, ...updates } : s))
     );
@@ -435,7 +435,7 @@ export const PipelineEditorModal: React.FC<PipelineEditorModalProps> = ({
     setTestRunState('running');
     setTestDurationMs(undefined);
     try {
-      const execution = startPipelinePreview(testInput, steps.map(compilePipelineStep));
+      const execution = startManualTransformPreview(testInput, steps.map(compileManualTransformStep));
       activeTestExecutionRef.current = execution;
       const current = await execution.promise;
       if (requestId !== testRequestIdRef.current) return;
@@ -458,17 +458,17 @@ export const PipelineEditorModal: React.FC<PipelineEditorModalProps> = ({
     setTestRunState('cancelled');
   };
 
-  const handleSavePipeline = async (e: React.FormEvent) => {
+  const handleSaveManualTransform = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!pipelineName.trim()) return;
 
     setSaveError('');
     setIsSaving(true);
     try {
-      const compiledSteps = steps.map(compilePipelineStep);
+      const compiledSteps = steps.map(compileManualTransformStep);
 
-      if (pipeline) {
-        await transformsApi.updateManual(pipeline.stableRef, {
+      if (manualTransform) {
+        await transformsApi.updateManual(manualTransform.stableRef, {
           name: pipelineName.trim(),
           steps: compiledSteps,
           hotkey: hotkey,
@@ -497,14 +497,14 @@ export const PipelineEditorModal: React.FC<PipelineEditorModalProps> = ({
     <AppDialog
       isOpen={isOpen}
       onClose={onClose}
-      labelledBy="pipeline-editor-title"
+      labelledBy="manualTransform-editor-title"
       isDirty={isDirty}
       overlayClassName="p-6"
       panelClassName="theme-panel flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden border"
     >
       {({ requestClose }) => <>
         <AppDialogHeader onClose={requestClose} onMouseDown={startWindowDrag} onDoubleClick={handleWindowDragDoubleClick}>
-          <AppDialogHeading id="pipeline-editor-title" title={pipeline ? translate('component.pipelineEditorModal.editTransform') : translate('component.pipelineEditorModal.buildTransformManually')} description={translate('component.pipelineEditorModal.chainReusableOperationsIntoALocalReplayableTransform')} icon={<Sliders />} tone="info" />
+          <AppDialogHeading id="manualTransform-editor-title" title={manualTransform ? translate('component.pipelineEditorModal.editTransform') : translate('component.pipelineEditorModal.buildTransformManually')} description={translate('component.pipelineEditorModal.chainReusableOperationsIntoALocalReplayableTransform')} icon={<Sliders />} tone="info" />
         </AppDialogHeader>
 
         <AppDialogBody className="space-y-6 relative">
@@ -518,7 +518,7 @@ export const PipelineEditorModal: React.FC<PipelineEditorModalProps> = ({
                 type="text"
                 placeholder={translate('component.pipelineEditorModal.eGSanitizeHtmlAndConvertSmileys')}
                 value={pipelineName}
-                onChange={(e) => setPipelineName(e.target.value)}
+                onChange={(e) => setManualTransformName(e.target.value)}
                 className="theme-input ui-field-radius w-full border px-3 py-2 text-xs font-medium focus:outline-none"
                 autoFocus
               />
@@ -569,7 +569,7 @@ export const PipelineEditorModal: React.FC<PipelineEditorModalProps> = ({
 
             <div className="theme-subtle-surface space-y-1 p-1.5">
                 {steps.map((step, idx) => (
-                  <PipelineStepEditor
+                  <ManualTransformStepEditor
                     key={step.id}
                     step={step}
                     idx={idx}
@@ -597,7 +597,7 @@ export const PipelineEditorModal: React.FC<PipelineEditorModalProps> = ({
 
           <div className="flex items-center space-x-3">
             <AppDialogButton onClick={requestClose}>{translate('common.cancel')}</AppDialogButton>
-            <AppDialogButton variant="primary" onClick={handleSavePipeline} disabled={isSaving}>
+            <AppDialogButton variant="primary" onClick={handleSaveManualTransform} disabled={isSaving}>
               <SaveButtonContent isSaving={isSaving} />
             </AppDialogButton>
           </div>

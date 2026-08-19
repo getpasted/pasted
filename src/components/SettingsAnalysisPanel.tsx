@@ -26,6 +26,7 @@ import { translate } from '../localization/runtime';
 import { useLocalization } from '../localization/LocalizationProvider';
 import { localizedBuiltinDescription, localizedBuiltinName, localizedContentTypeGroupLabel } from '../localization/presentation';
 import { contentTypeLabel } from '../utils/contentTypes';
+import { analysisApi } from '../api/analysis';
 
 interface ContentClassifier {
   id: number;
@@ -173,7 +174,7 @@ export function SettingsAnalysisPanel({
   });
 
   const load = async () => {
-    const loaded = await invoke<ContentClassifier[]>('get_content_classifiers');
+    const loaded = await analysisApi.listClassifiers<ContentClassifier>();
     setClassifiers(loaded);
     return loaded;
   };
@@ -419,10 +420,10 @@ export function SettingsAnalysisPanel({
     try {
       const reports = await Promise.all([
         contentClassificationEnabled
-          ? invoke<ClassificationRescanReport>('rescan_content_classification_history', { confirmed: true })
+          ? analysisApi.rescanClassifications<ClassificationRescanReport>()
           : Promise.resolve(null),
         fileFormatsEnabled
-          ? invoke<ClassificationRescanReport>('rescan_file_format_history', { confirmed: true })
+          ? analysisApi.rescanFileFormats<ClassificationRescanReport>()
           : Promise.resolve(null),
       ]);
       const scannedCount = reports.reduce((total, report) => total + (report?.scannedCount ?? 0), 0);
@@ -464,7 +465,7 @@ export function SettingsAnalysisPanel({
 
   const test = async () => {
     try {
-      const result = await invoke<ClassificationResult>('test_content_classifier', { input: currentInput(), sample });
+      const result = await analysisApi.testClassifier<ClassificationResult>(currentInput(), sample);
       if (result.outcome === 'failed') throw new Error(result.failure?.message ?? translate('component.settingsAnalysisPanel.classificationFailed'));
       setSampleMatched(result.matched);
     } catch (error) {

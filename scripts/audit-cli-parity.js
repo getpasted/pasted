@@ -20,6 +20,9 @@ const suggestion = read('src-tauri/src/content_suggestions.rs');
 const suggestionExecution = read('src-tauri/src/suggestion_execution.rs');
 const clipPreview = read('src/components/ClipPreview.tsx');
 const clipViews = read('src/hooks/useClipViews.ts');
+const clipsApi = read('src/api/clips.ts');
+const activityApi = read('src/api/activity.ts');
+const backupApi = read('src/api/backup.ts');
 const extraction = read('src-tauri/src/content_extraction.rs');
 const clipboardMonitor = read('src-tauri/src/clipboard_monitor.rs');
 const ocr = read('src-tauri/src/ocr.rs');
@@ -193,7 +196,9 @@ for (const method of ['export_activity_json', 'export_activity_csv', 'import_act
   assert.match(cli, new RegExp(`db\\.${method}`), `${method} must be reused by the CLI`);
   if (method.startsWith('export_')) {
     assert.match(commands, new RegExp(`pub fn ${method}`), `${method} must be exposed to the GUI`);
-    assert.match(storageSettings, new RegExp(`['"]${method}['"]`), `${method} must be reachable from Storage`);
+    assert.match(activityApi, new RegExp(`['"]${method}['"]`), `${method} must be exposed by the Activity client`);
+    const clientMethod = method.endsWith('_json') ? 'exportJson' : 'exportCsv';
+    assert.match(storageSettings, new RegExp(`activityApi\\.${clientMethod}\\(`), `${method} must be reachable from Storage`);
   }
 }
 for (const method of ['export_clips_json', 'export_clips_csv', 'import_clips_json', 'import_clips_csv']) {
@@ -203,7 +208,8 @@ for (const method of ['export_clips_json', 'export_clips_csv', 'import_clips_jso
     assert.match(commands, new RegExp(`pub fn ${method}`), `${method} must be exposed to the GUI`);
   }
 }
-assert.match(storageSettings, /['"]import_inspected_file['"]/, 'Validated clip and Activity imports must be reachable from Storage');
+assert.match(backupApi, /['"]import_inspected_file['"]/, 'The Backup client must expose validated clip and Activity imports');
+assert.match(storageSettings, /backupApi\.importInspected/, 'Validated clip and Activity imports must be reachable from Storage');
 for (const method of ['import_activity_json', 'import_activity_csv', 'import_clips_json', 'import_clips_csv']) {
   assert.match(commands, new RegExp(`\\w+\\s*\\.\\s*${method}`), `${method} must be reused by the inspected-import GUI command`);
 }
@@ -220,9 +226,12 @@ for (const mutation of ['batch_pin_clips', 'batch_protect_clips', 'batch_trash_c
 assert.match(commands, /bin_assignment::assign_clips_to_bin/, 'GUI Bin assignment must use the shared workflow');
 assert.match(cli, /assign_clips_to_bin/, 'CLI Bin assignment must use the shared workflow, including attached Transforms');
 
-assert.match(actions, /invoke\('batch_protect_clips'/, 'GUI batch protection must be one explicit mutation, not a loop of toggles');
-assert.match(read('src/App.tsx'), /invoke<ClipMutationSummary>\('restore_all_trashed_clips'\)/,
-  'GUI bulk recovery must use the shared restore-all mutation');
+assert.match(actions, /clipsApi\.setProtected\(/, 'GUI batch protection must use the centralized Clips client');
+assert.match(clipsApi, /invoke<void>\('batch_protect_clips'/, 'The Clips client must expose one explicit batch-protection mutation');
+assert.match(read('src/App.tsx'), /clipsApi\.restoreAll\(\)/,
+  'GUI bulk recovery must use the centralized Clips client');
+assert.match(clipsApi, /invoke<ClipMutationSummary>\('restore_all_trashed_clips'\)/,
+  'The Clips client must expose the shared restore-all mutation');
 assert.doesNotMatch(actions, /Promise\.all\(idsToChange\.map\(\(clipId\) => invoke\('toggle_clip_protected'/, 'GUI batch protection must not race toggle calls');
 assert.match(database, /pub struct ClipMutationSummary/, 'GUI and CLI mutations must share a stable result contract');
 assert.match(commands, /pub async fn import_external_history/, 'GUI migration must use the shared external import service');
@@ -315,8 +324,10 @@ assert.match(suggestionExecution, /pub struct SmartActionSuggestionResult/,
   'Focused suggestion must expose one stable application result');
 assert.match(cli, /suggestion_execution::suggest_(?:text|clip)/,
   'CLI Smart Actions must use the shared Suggestion execution service');
-assert.match(clipViews, /invoke<ClipSearchResult>\('search_clips'/,
-  'GUI Search must request authoritative ClipItems and totals from the native service');
+assert.match(clipViews, /clipsApi\.search\(/,
+  'GUI Search must request authoritative ClipItems and totals through the centralized Clips client');
+assert.match(clipsApi, /invoke<ClipSearchResult>\('search_clips'/,
+  'The Clips client must request authoritative ClipItems and totals from the native service');
 assert.match(database, /pub fn search_clips\([\s\S]*?clip_searchable_text AS extracted/,
   'Shared Search must include hash-current extracted text without exposing it in ClipItems');
 assert.match(database, /pub const MAX_CLIP_SEARCH_PAGE_SIZE/,
@@ -357,11 +368,13 @@ assert.match(cli, /analysis_execution::analyze_(?:text|clip)/,
   'CLI whole-Analyzer previews must use the shared execution service');
 assert.match(tauriMock, /case 'analyze_content'/,
   'The frontend mock must preserve the whole-Analyzer contract');
-assert.match(clipPreview, /invoke<AnalyzerPreview>\('analyze_content'/,
-  'Clip Preview must request structure and suggestions through one Analyzer call');
+assert.match(clipPreview, /analysisApi\.analyze<AnalyzerPreview>\(/,
+  'Clip Preview must request structure and suggestions through the centralized Analysis client');
+assert.match(read('src/api/analysis.ts'), /invoke<T>\('analyze_content'/,
+  'The Analysis client must expose the whole-Analyzer call');
 assert.match(clipPreview, /includeClassifiers: includeSuggestions/,
   'Clip Preview must skip classification when its Suggestion consumer is disabled');
-assert.doesNotMatch(clipPreview, /invoke<StructuralInspection>\('inspect_clip_structure'|invoke<SmartActionSuggestion>\('enrich_smart_actions'/,
+assert.doesNotMatch(clipPreview, /inspectClipStructure|enrichSmartActions|inspect_clip_structure|enrich_smart_actions/,
   'Clip Preview must not schedule Analyzer participants through parallel IPC calls');
 assert.doesNotMatch(analysisExecution, /pub struct AnalyzerSnapshot[\s\S]*?pub (?:text|content|paths|image_bytes):/,
   'Whole-Analyzer snapshots must not expose clipboard contents, OCR text, paths, or image bytes');

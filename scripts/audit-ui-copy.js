@@ -16,7 +16,7 @@ const TOOL_COPY_FILES = [
   'src/components/OpenSourceLicensesDialog.tsx',
   'src/components/OperationEditorModal.tsx',
   'src/components/OperationsManager.tsx',
-  'src/components/PipelineEditorModal.tsx',
+  'src/components/ManualTransformEditorModal.tsx',
   'src/components/SettingsAboutPanel.tsx',
   'src/components/SettingsBlacklistPanel.tsx',
   'src/components/SettingsAnalysisPanel.tsx',

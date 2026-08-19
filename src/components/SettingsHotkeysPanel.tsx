@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Keyboard, MonitorCog, RotateCcw, ShieldCheck, TriangleAlert } from 'lucide-react';
 import type { AppSettings, Bin, ManualTransform } from '../types';
 import { transformsApi } from '../api/transforms';
+import { binsApi } from '../api/bins';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { HotkeyRecorder } from './HotkeyRecorder';
 import { SettingsPanelHeader } from './SettingsPanelHeader';
@@ -14,10 +15,10 @@ import { translate } from '../localization/runtime';
 interface SettingsHotkeysPanelProps {
   settings: AppSettings;
   bins: Bin[];
-  pipelines: ManualTransform[];
+  manualTransforms: ManualTransform[];
   onUpdateSettings: (newSettings: Partial<AppSettings>) => void;
   onRefreshBins?: () => void;
-  onRefreshPipelines?: () => void;
+  onRefreshManualTransforms?: () => void;
 }
 
 type HotkeyCapabilityStatus = {
@@ -95,10 +96,10 @@ function HotkeyRow({ label, value, onChange }: { label: string; value: string | 
 export function SettingsHotkeysPanel({
   settings,
   bins,
-  pipelines,
+  manualTransforms,
   onUpdateSettings,
   onRefreshBins,
-  onRefreshPipelines,
+  onRefreshManualTransforms,
 }: SettingsHotkeysPanelProps) {
   const { showToast } = useToast();
   const [hotkeyStatus, setHotkeyStatus] = useState<HotkeyCapabilityStatus | null>(cachedHotkeyStatus);
@@ -325,7 +326,7 @@ export function SettingsHotkeysPanel({
             ? <p className="theme-text-subtle p-2.5 text-[11px] italic">{translate('component.settingsHotkeysPanel.noCustomBinsCreatedYetCreateBinsInTheSidebarToAssign')}</p>
             : bins.map((bin) => <HotkeyRow key={bin.id} label={bin.name} value={bin.hotkey ?? null} onChange={async (hotkey) => {
               try {
-                await invoke('update_bin_hotkey', { id: bin.id, hotkey });
+                await binsApi.updateHotkey(bin.id, hotkey);
                 onRefreshBins?.();
               } catch (error) {
                 console.error('Failed to update Bin hotkey:', error);
@@ -356,13 +357,13 @@ export function SettingsHotkeysPanel({
         </div>
       </section>}
 
-      {settings.enableTransformations && pipelines.length > 0 && <section className="space-y-2">
-        <h4 className="font-bold theme-text-muted uppercase tracking-wider text-[10px]">{translate('component.settingsHotkeysPanel.savedTransformHotkeys')}{pipelines.length})</h4>
+      {settings.enableTransformations && manualTransforms.length > 0 && <section className="space-y-2">
+        <h4 className="font-bold theme-text-muted uppercase tracking-wider text-[10px]">{translate('component.settingsHotkeysPanel.savedTransformHotkeys')}{manualTransforms.length})</h4>
         <div className="theme-surface overlay-scroll-region max-h-60 overflow-y-auto rounded-xl border">
-          {pipelines.map((pipeline) => <HotkeyRow key={pipeline.id} label={pipeline.name} value={pipeline.hotkey ?? null} onChange={async (hotkey) => {
+          {manualTransforms.map((manualTransform) => <HotkeyRow key={manualTransform.id} label={manualTransform.name} value={manualTransform.hotkey ?? null} onChange={async (hotkey) => {
               try {
-                await transformsApi.updateManualHotkey(pipeline.stableRef, hotkey);
-                onRefreshPipelines?.();
+                await transformsApi.updateManualHotkey(manualTransform.stableRef, hotkey);
+                onRefreshManualTransforms?.();
               } catch (error) {
                 console.error('Failed to update Advanced Transform hotkey:', error);
                 showToast({ tone: 'error', get message() { return translate('component.settingsHotkeysPanel.thatAdvancedTransformHotkeyCouldNotBeRegistered'); } });

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { safeInvoke as invoke } from '../utils/tauri';
+import { activityApi, type ActivityLog } from '../api/activity';
 import {
   Activity,
   Trash2,
@@ -39,18 +39,6 @@ import { AppDialog } from './AppDialog';
 import { AppDialogBody, AppDialogButton, AppDialogFooter, AppDialogHeader, AppDialogHeading } from './AppDialogLayout';
 import { translate } from '../localization/runtime';
 
-export interface ActivityLog {
-  id: number;
-  event_type: string;
-  description: string;
-  created_at: string;
-  observed_at: string;
-  severity_text: 'info' | 'warn' | 'error';
-  category: string;
-  outcome: 'success' | 'failure' | 'unknown';
-  attributes: Record<string, unknown>;
-}
-
 const ACTIVITY_BATCH_SIZE = 200;
 
 export const ActivityLogView: React.FC = () => {
@@ -71,7 +59,7 @@ export const ActivityLogView: React.FC = () => {
 
   const fetchInitialLogs = useCallback(async () => {
     try {
-      const res = await invoke<ActivityLog[]>('get_activity_logs', { limit: ACTIVITY_BATCH_SIZE, offset: 0 });
+      const res = await activityApi.list(ACTIVITY_BATCH_SIZE, 0);
       replaceLogs(res);
       setHasMore(res.length === ACTIVITY_BATCH_SIZE);
     } catch (e) {
@@ -81,7 +69,7 @@ export const ActivityLogView: React.FC = () => {
 
   const refreshNewestLogs = useCallback(async () => {
     try {
-      const newest = await invoke<ActivityLog[]>('get_activity_logs', { limit: ACTIVITY_BATCH_SIZE, offset: 0 });
+      const newest = await activityApi.list(ACTIVITY_BATCH_SIZE, 0);
       const newestIds = new Set(newest.map(({ id }) => id));
       replaceLogs([...newest, ...logsRef.current.filter(({ id }) => !newestIds.has(id))]);
       if (newest.length < ACTIVITY_BATCH_SIZE) setHasMore(false);
@@ -95,10 +83,7 @@ export const ActivityLogView: React.FC = () => {
     loadingMoreRef.current = true;
     setIsLoadingMore(true);
     try {
-      const older = await invoke<ActivityLog[]>('get_activity_logs', {
-        limit: ACTIVITY_BATCH_SIZE,
-        offset: logsRef.current.length,
-      });
+      const older = await activityApi.list(ACTIVITY_BATCH_SIZE, logsRef.current.length);
       const knownIds = new Set(logsRef.current.map(({ id }) => id));
       replaceLogs([...logsRef.current, ...older.filter(({ id }) => !knownIds.has(id))]);
       setHasMore(older.length === ACTIVITY_BATCH_SIZE);
@@ -137,7 +122,7 @@ export const ActivityLogView: React.FC = () => {
 
   const handleClearLogs = async () => {
     try {
-      await invoke('clear_activity_logs');
+      await activityApi.clear();
       replaceLogs([]);
       setHasMore(false);
       setIsClearConfirmOpen(false);

@@ -71,7 +71,7 @@ export function runTransformation(
   return startTransformation(input, target, options).promise;
 }
 
-export function startPipelinePreview(
+export function startManualTransformPreview(
   input: string,
   steps: Array<{
     operationRef: string;

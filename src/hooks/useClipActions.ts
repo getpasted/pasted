@@ -1,6 +1,7 @@
 import { useCallback, useState, type Dispatch, type SetStateAction } from 'react';
 import { type AppSettings, type Bin, type ClipItem, type ManualTransform, type SavedTransform } from '../types';
 import { safeInvoke as invoke } from '../utils/tauri';
+import { clipsApi } from '../api/clips';
 import { sortClipsForTimeline } from '../utils/clipOrder';
 import { soundManager } from '../utils/sound';
 import { runTransformation } from '../utils/transformExecution';
@@ -9,10 +10,6 @@ import { htmlToPlainText } from '../utils/plainText';
 interface AssignOptions {
   includeSelection?: boolean;
   playSound?: boolean;
-}
-
-interface BinAssignmentOutcome {
-  updatedClips: ClipItem[];
 }
 
 interface ClipActionsInput {
@@ -117,8 +114,8 @@ export function useClipActions({
       : previous);
 
     const request = isBatch
-      ? invoke('batch_pin_clips', { ids: targetIds, pinState: nextPinState })
-      : invoke('toggle_pin_clip', { id });
+      ? clipsApi.setPinned(targetIds, nextPinState)
+      : clipsApi.togglePin(id);
     void request
       .then(onCollectionChanged)
       .catch((error) => {
@@ -187,7 +184,7 @@ export function useClipActions({
       ? { ...previous, is_pinned: pinState, pin_order: pinState ? 0 : previous.pin_order }
       : previous);
 
-    void invoke('batch_pin_clips', { ids: idsToChange, pinState })
+    void clipsApi.setPinned(idsToChange, pinState)
       .then(onCollectionChanged)
       .catch((error) => {
         console.error('Failed to set pinned state:', error);
@@ -222,7 +219,7 @@ export function useClipActions({
       }
       : previous);
 
-    void invoke('batch_protect_clips', { ids: idsToChange, protectedState })
+    void clipsApi.setProtected(idsToChange, protectedState)
       .then(onCollectionChanged)
       .catch((error) => {
         console.error('Failed to set protected state:', error);
@@ -269,10 +266,10 @@ export function useClipActions({
     setTotalClipCount((previous) => Math.max(0, previous - ids.length));
 
     const request = permanently
-      ? Promise.all(ids.map((id) => invoke('purge_clip_permanently', { id })))
+      ? Promise.all(ids.map((id) => clipsApi.purge(id)))
       : ids.length > 1
-        ? invoke('batch_trash_clips', { ids })
-        : invoke('delete_clip', { id: ids[0] });
+        ? clipsApi.trashMany(ids)
+        : clipsApi.trash(ids[0]);
     void request
       // Moving a clip to Trash is already fully represented in local clip,
       // selection, Bin-count, Trash-count, and total-count state. Refetching
@@ -304,18 +301,14 @@ export function useClipActions({
   const copyClip = useCallback(async (clip: ClipItem) => {
     try {
       if (clip.content_type === 'image' || clip.content_type === 'file') {
-        await invoke('copy_clip_by_id', { clipId: clip.id });
+        await clipsApi.copyById(clip.id);
         soundManager.playCopySound();
         return;
       }
       const text = settings.alwaysPastePlainText && clip.text_content
         ? htmlToPlainText(clip.text_content)
         : clip.text_content;
-      await invoke('copy_clip_to_system', {
-        text,
-        imageBase64: null,
-        filePaths: null,
-      });
+      await clipsApi.copyContent(text, null);
       soundManager.playCopySound();
     } catch (error) {
       console.error('Failed to copy clip:', error);
@@ -385,10 +378,7 @@ export function useClipActions({
 
     try {
       if (targetIds.length > 1) {
-        const outcome = await invoke<BinAssignmentOutcome>('batch_assign_bin_clips', {
-          ids: targetIds,
-          binId,
-        });
+        const outcome = await clipsApi.assignManyToBin(targetIds, binId);
         if (outcome.updatedClips.length > 0) {
           const updatedById = new Map(outcome.updatedClips.map((clip) => [clip.id, clip]));
           setAllClips((previous) => previous.map((clip) => updatedById.get(clip.id) ?? clip));
@@ -397,7 +387,7 @@ export function useClipActions({
             : previous);
         }
       } else {
-        const transformedClip = await invoke<ClipItem | null>('assign_clip_bin', { clipId, binId });
+        const transformedClip = await clipsApi.assignBin(clipId, binId);
         if (transformedClip) {
           // Replace the optimistic snapshot immediately so the selected
           // inspector and its metadata update in the same frame as the card.
@@ -454,7 +444,7 @@ export function useClipActions({
     )));
 
     try {
-      const outcome = await invoke<BinAssignmentOutcome>('remove_clip_bin', { clipId, binId });
+      const outcome = await clipsApi.removeBin(clipId, binId);
       const updatedClip = outcome.updatedClips[0];
       if (updatedClip) {
         setAllClips((previous) => previous.map((clip) => clip.id === clipId ? updatedClip : clip));
@@ -467,9 +457,9 @@ export function useClipActions({
     }
   }, [bins, fetchBins, fetchClips, setAllClips, setBins, setSelectedClip]);
 
-  const runPipelineForClip = useCallback(async (
+  const runManualTransformForClip = useCallback(async (
     clip: ClipItem,
-    pipeline: ManualTransform,
+    manualTransform: ManualTransform,
     destination: 'copy' | 'paste' = 'copy',
   ) => {
     if (!clip.text_content) return;
@@ -477,14 +467,14 @@ export function useClipActions({
       await runClipTransformationJob(clip.id, async () => {
         const transformed = await runTransformation(
           clip.text_content!,
-          { kind: 'manual_transform', transformRef: pipeline.stableRef },
+          { kind: 'manual_transform', transformRef: manualTransform.stableRef },
           { sourceClipId: clip.id, destination },
         );
         if (destination === 'paste') {
           await invoke('paste_text_to_frontmost', { text: transformed.output });
           soundManager.playPasteSound();
         } else {
-          await invoke('copy_clip_to_system', { text: transformed.output, imageBase64: null });
+          await clipsApi.copyContent(transformed.output, null);
           soundManager.playCopySound();
         }
       });
@@ -502,7 +492,7 @@ export function useClipActions({
           { kind: 'transform', transformRef: transform.stableRef },
           { sourceClipId: clip.id, destination: 'copy' },
         );
-        await invoke('copy_clip_to_system', { text: transformed.output, imageBase64: null });
+        await clipsApi.copyContent(transformed.output, null);
         soundManager.playCopySound();
       });
     } catch (error) {
@@ -533,7 +523,7 @@ export function useClipActions({
   const deleteNoteFromClip = useCallback(async (clipId: number) => {
     updateClipNoteLocally(clipId, null);
     try {
-      await invoke('update_clip_note', { clipId, note: null });
+      await clipsApi.updateNote(clipId, null);
       await onCollectionChanged();
     } catch (error) {
       console.error('Failed to delete clip note:', error);
@@ -551,7 +541,7 @@ export function useClipActions({
     copyClip,
     assignClipToBin,
     removeClipFromBin,
-    runPipelineForClip,
+    runManualTransformForClip,
     runTransformForClip,
     addToSequentialStack,
     updateClipNoteLocally,

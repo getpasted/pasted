@@ -11,7 +11,7 @@ const sidebar = read('src/styles/clips-sidebar.css');
 const theme = read('src/styles/theme-primitives.css');
 const foundation = read('src/styles/foundation.css');
 const utilities = read('src/styles/utilities.css');
-const pipelineEditor = read('src/components/PipelineEditorModal.tsx');
+const manualTransformEditor = read('src/components/ManualTransformEditorModal.tsx');
 const reorderHook = read('src/hooks/useStableVerticalReorder.ts');
 const sidebarComponent = read('src/components/Sidebar.tsx');
 const app = read('src/App.tsx');
@@ -35,13 +35,13 @@ assert.match(accessibility, /html:not\(\.is-stable-reordering\) input:not\(\[typ
 assert.match(accessibility, /html:not\(\.is-stable-reordering\) \.clip-text-content/);
 assert.doesNotMatch(accessibility, /!important/);
 
-// Pipeline steps expose explicit keyboard-accessible ordering controls instead
+// Manual Transform steps expose explicit keyboard-accessible ordering controls instead
 // of making the entire editor card a pointer-only drag target.
-assert.match(pipelineEditor, /aria-label=\{translate\('component\.pipelineEditorModal\.moveStepUp'\)\}/);
-assert.match(pipelineEditor, /aria-label=\{translate\('component\.pipelineEditorModal\.moveStepDown'\)\}/);
-assert.match(pipelineEditor, /handleMoveStep\(idx, -1\)/);
-assert.match(pipelineEditor, /handleMoveStep\(idx, 1\)/);
-assert.doesNotMatch(pipelineEditor, /data-stable-reorder-id|onReorderPointerDown|cursor-grab|GripVertical/);
+assert.match(manualTransformEditor, /aria-label=\{translate\('component\.pipelineEditorModal\.moveStepUp'\)\}/);
+assert.match(manualTransformEditor, /aria-label=\{translate\('component\.pipelineEditorModal\.moveStepDown'\)\}/);
+assert.match(manualTransformEditor, /handleMoveStep\(idx, -1\)/);
+assert.match(manualTransformEditor, /handleMoveStep\(idx, 1\)/);
+assert.doesNotMatch(manualTransformEditor, /data-stable-reorder-id|onReorderPointerDown|cursor-grab|GripVertical/);
 
 // Settings action clusters wrap before they can collapse headings or
 // descriptions at narrow widths and larger user-selected text sizes.

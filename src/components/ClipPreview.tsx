@@ -37,6 +37,7 @@ import {
   X,
 } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
+import { analysisApi } from '../api/analysis';
 import { useStableVerticalReorder } from '../hooks/useStableVerticalReorder';
 import type { ClipViewPolicy } from '../utils/clipViewPolicy';
 import { clipDeleteLabel, UI_COPY } from '../utils/uiCopy';
@@ -53,7 +54,7 @@ interface ClipPreviewProps {
   viewPolicy: ClipViewPolicy;
   bins: Bin[];
   viewedBinId?: number | null;
-  pipelines: ManualTransform[];
+  manualTransforms: ManualTransform[];
   onUpdateClip: (updatedClip?: ClipItem) => void;
   onAssignBin: (clipId: number, binId: number | null) => void | Promise<void>;
   onRemoveBin: (clipId: number, binId: number) => void | Promise<void>;
@@ -259,7 +260,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   viewPolicy,
   bins,
   viewedBinId,
-  pipelines,
+  manualTransforms,
   onUpdateClip,
   onAssignBin,
   onRemoveBin,
@@ -282,17 +283,17 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   const [contentMatches, setContentMatches] = useState<ClipContentMatch[]>([]);
   const [copiedFormat, setCopiedFormat] = useState<string | null>(null);
   const [transformedText, setTransformedText] = useState<string | null>(null);
-  const [activePipelineRef, setActivePipelineRef] = useState<string | null>(null);
-  const [activePipelineName, setActivePipelineName] = useState<string | null>(null);
+  const [activeManualTransformRef, setActiveManualTransformRef] = useState<string | null>(null);
+  const [activeManualTransformName, setActiveManualTransformName] = useState<string | null>(null);
   const [transforms, setTransforms] = useState<SavedTransform[]>([]);
   const [activeTransformRef, setActiveTransformRef] = useState<string | null>(null);
   const [activeTransformName, setActiveTransformName] = useState<string | null>(null);
   const [isWorkflowMenuOpen, setIsWorkflowMenuOpen] = useState(false);
   const [transformPreviewOutcome, setTransformPreviewOutcome] = useState<TransformationExecutionOutcome | null>(null);
   const [provenance, setProvenance] = useState<ClipTransformationProvenance | null>(null);
-  const [isPipelineRunning, setIsPipelineRunning] = useState(false);
-  const [pipelineAction, setPipelineAction] = useState<'copied' | 'pasted' | null>(null);
-  const [pipelineError, setPipelineError] = useState<string | null>(null);
+  const [isManualTransformRunning, setIsManualTransformRunning] = useState(false);
+  const [pipelineAction, setManualTransformAction] = useState<'copied' | 'pasted' | null>(null);
+  const [pipelineError, setManualTransformError] = useState<string | null>(null);
   const [notes, setNotes] = useState<ClipNote[]>(() => parseClipNotes(clip?.note));
   const notesRef = useRef(notes);
   const noteBoxRef = useRef<HTMLDivElement>(null);
@@ -370,17 +371,15 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
       ? { clipId: clip.id, includeExtractor: false }
       : { text, source: clip.source, includeExtractor: false };
     const includeSuggestions = features.transformations
-      && viewPolicy.canRunPipelines
+      && viewPolicy.canRunManualTransforms
       && clip.content_type !== 'image'
       && clip.content_type !== 'file';
     setInspection(null);
     setSmartActions(null);
-    invoke<AnalyzerPreview>('analyze_content', {
-      request: {
-        ...input,
-        includeClassifiers: includeSuggestions,
-        includeSuggestions,
-      },
+    analysisApi.analyze<AnalyzerPreview>({
+      ...input,
+      includeClassifiers: includeSuggestions,
+      includeSuggestions,
     })
       .then((result) => {
         if (cancelled) return;
@@ -409,7 +408,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
         }
       });
     return () => { cancelled = true; };
-  }, [clip?.content_hash, clip?.content_type, clip?.id, clip?.source, clip?.text_content, features.transformations, transformedText, viewPolicy.canRunPipelines]);
+  }, [clip?.content_hash, clip?.content_type, clip?.id, clip?.source, clip?.text_content, features.transformations, transformedText, viewPolicy.canRunManualTransforms]);
 
   useEffect(() => {
     let cancelled = false;
@@ -630,15 +629,15 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
     setTransformClientRequestId(null);
     pipelineRequestIdRef.current += 1;
     setTransformedText(null);
-    setActivePipelineRef(null);
-    setActivePipelineName(null);
+    setActiveManualTransformRef(null);
+    setActiveManualTransformName(null);
     setActiveTransformRef(null);
     setActiveTransformName(null);
     setIsWorkflowMenuOpen(false);
     setTransformPreviewOutcome(null);
-    setIsPipelineRunning(false);
-    setPipelineAction(null);
-    setPipelineError(null);
+    setIsManualTransformRunning(false);
+    setManualTransformAction(null);
+    setManualTransformError(null);
     setShowHistory(false);
     const parsed = parseClipNotes(clip?.note);
     setNotes(parsed);
@@ -670,13 +669,13 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   }, [viewPolicy.canEditNotes]);
 
   useEffect(() => {
-    if (viewPolicy.canRunPipelines) return;
+    if (viewPolicy.canRunManualTransforms) return;
     setTransformedText(null);
-    setActivePipelineRef(null);
-    setActivePipelineName(null);
-    setPipelineAction(null);
-    setPipelineError(null);
-  }, [viewPolicy.canRunPipelines]);
+    setActiveManualTransformRef(null);
+    setActiveManualTransformName(null);
+    setManualTransformAction(null);
+    setManualTransformError(null);
+  }, [viewPolicy.canRunManualTransforms]);
 
   useEffect(() => () => {
     if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
@@ -885,23 +884,23 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
     }
   };
 
-  const handlePreviewPipeline = async (pipeline: ManualTransform) => {
+  const handlePreviewManualTransform = async (manualTransform: ManualTransform) => {
     if (!clip.text_content) return;
     setPreviewedVersion(null);
     const requestId = ++pipelineRequestIdRef.current;
-    setActivePipelineRef(pipeline.stableRef);
-    setActivePipelineName(pipeline.name);
+    setActiveManualTransformRef(manualTransform.stableRef);
+    setActiveManualTransformName(manualTransform.name);
     setActiveTransformRef(null);
     setActiveTransformName(null);
     setTransformPreviewOutcome(null);
     setTransformedText(null);
-    setIsPipelineRunning(true);
-    setPipelineAction(null);
-    setPipelineError(null);
+    setIsManualTransformRunning(true);
+    setManualTransformAction(null);
+    setManualTransformError(null);
     try {
       const execution = startTransformation(
         clip.text_content,
-        { kind: 'manual_transform', transformRef: pipeline.stableRef },
+        { kind: 'manual_transform', transformRef: manualTransform.stableRef },
         { sourceClipId: clip.id },
       );
       activeTransformExecutionRef.current = execution;
@@ -912,12 +911,12 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
     } catch (e) {
       if (requestId !== pipelineRequestIdRef.current) return;
       console.error(e);
-      setPipelineError(e instanceof Error ? e.message : translate('component.clipPreview.advancedTransformFailedToRun'));
+      setManualTransformError(e instanceof Error ? e.message : translate('component.clipPreview.advancedTransformFailedToRun'));
     } finally {
       if (requestId === pipelineRequestIdRef.current) {
         activeTransformExecutionRef.current = null;
         setTransformClientRequestId(null);
-        setIsPipelineRunning(false);
+        setIsManualTransformRunning(false);
       }
     }
   };
@@ -928,13 +927,13 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
     const requestId = ++pipelineRequestIdRef.current;
     setActiveTransformRef(transform.stableRef);
     setActiveTransformName(transform.name);
-    setActivePipelineRef(null);
-    setActivePipelineName(null);
+    setActiveManualTransformRef(null);
+    setActiveManualTransformName(null);
     setTransformedText(null);
     setTransformPreviewOutcome(null);
-    setIsPipelineRunning(true);
-    setPipelineAction(null);
-    setPipelineError(null);
+    setIsManualTransformRunning(true);
+    setManualTransformAction(null);
+    setManualTransformError(null);
     setPreviewedVersion(null);
     try {
       const execution = startTransformation(
@@ -950,20 +949,20 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
       setTransformedText(result.output);
     } catch (error) {
       if (requestId !== pipelineRequestIdRef.current) return;
-      setPipelineError(error instanceof Error ? error.message : translate('component.clipPreview.transformFailedToRun'));
+      setManualTransformError(error instanceof Error ? error.message : translate('component.clipPreview.transformFailedToRun'));
     } finally {
       if (requestId === pipelineRequestIdRef.current) {
         activeTransformExecutionRef.current = null;
         setTransformClientRequestId(null);
-        setIsPipelineRunning(false);
+        setIsManualTransformRunning(false);
       }
     }
   };
 
   const handleApplyTransform = async () => {
     if (!activeTransformRef || !transformPreviewOutcome || transformedText === null || !clip.text_content) return;
-    setIsPipelineRunning(true);
-    setPipelineError(null);
+    setIsManualTransformRunning(true);
+    setManualTransformError(null);
     try {
       const saved = await invoke<ClipTransformationProvenance>('apply_transform_preview_to_clip', {
         clipId: clip.id,
@@ -979,9 +978,9 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
       handleResetTransform();
       onUpdateClip();
     } catch (error) {
-      setPipelineError(error instanceof Error ? error.message : String(error));
+      setManualTransformError(error instanceof Error ? error.message : String(error));
     } finally {
-      setIsPipelineRunning(false);
+      setIsManualTransformRunning(false);
     }
   };
 
@@ -991,13 +990,13 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
     setTransformClientRequestId(null);
     pipelineRequestIdRef.current += 1;
     setTransformedText(null);
-    setActivePipelineRef(null);
-    setActivePipelineName(null);
+    setActiveManualTransformRef(null);
+    setActiveManualTransformName(null);
     setActiveTransformRef(null);
     setActiveTransformName(null);
     setTransformPreviewOutcome(null);
-    setPipelineAction(null);
-    setPipelineError(null);
+    setManualTransformAction(null);
+    setManualTransformError(null);
     setPreviewedVersion(null);
   };
 
@@ -1007,28 +1006,28 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
       if (transform) void handlePreviewTransform(transform);
       return;
     }
-    if (activePipelineRef) {
-      const pipeline = pipelines.find((candidate) => candidate.stableRef === activePipelineRef);
-      if (pipeline) void handlePreviewPipeline(pipeline);
+    if (activeManualTransformRef) {
+      const manualTransform = manualTransforms.find((candidate) => candidate.stableRef === activeManualTransformRef);
+      if (manualTransform) void handlePreviewManualTransform(manualTransform);
     }
   };
 
-  const handlePipelineOutput = async (destination: 'copy' | 'paste') => {
+  const handleManualTransformOutput = async (destination: 'copy' | 'paste') => {
     if (transformedText === null) return;
     try {
       if (destination === 'copy') {
         await invoke('copy_clip_to_system', { text: transformedText, imageBase64: null });
-        setPipelineAction('copied');
+        setManualTransformAction('copied');
         soundManager.playCopySound();
       } else {
         await invoke('paste_text_to_frontmost', { text: transformedText });
-        setPipelineAction('pasted');
+        setManualTransformAction('pasted');
         soundManager.playPasteSound();
       }
-      setPipelineError(null);
+      setManualTransformError(null);
     } catch (error) {
       console.error(`Failed to ${destination} Advanced Transform output:`, error);
-      setPipelineError(translate('component.clipPreview.couldNotDestinationTheAdvancedTransformResult', { destination: destination }));
+      setManualTransformError(translate('component.clipPreview.couldNotDestinationTheAdvancedTransformResult', { destination: destination }));
     }
   };
 
@@ -1053,10 +1052,10 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
         .then(setRevisionCount)
         .catch((error) => console.error('Failed to refresh clip revision count:', error));
       setTransformedText(null);
-      setActivePipelineRef(null);
-      setActivePipelineName(null);
-      setPipelineAction(null);
-      setPipelineError(null);
+      setActiveManualTransformRef(null);
+      setActiveManualTransformName(null);
+      setManualTransformAction(null);
+      setManualTransformError(null);
       setShowHistory(false);
       setPreviewedVersion(null);
       soundManager.playCopySound();
@@ -1140,20 +1139,20 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
           )}
           {features.transformations && !isTransforming && provenance && (
             <Workflow
-              className="transform-accent pipelines h-4 w-4 shrink-0"
+              className="transform-accent manual-transforms h-4 w-4 shrink-0"
               aria-label={translate('component.clipPreview.transformedWithTransformname', { transformName: provenance.transformName })}
             />
           )}
           {features.transformations && !isTransforming && provenance?.connectionId && (
             <Sparkles
-              className="transform-accent pipelines h-3.5 w-3.5 shrink-0"
+              className="transform-accent manual-transforms h-3.5 w-3.5 shrink-0"
               aria-label={translate('component.clipPreview.transformUsedConnectedIntelligence')}
             />
           )}
         </div>
 
         <div className="clip-preview-actions relative flex shrink-0 items-center titlebar-no-drag">
-          {features.transformations && viewPolicy.canRunPipelines && canTransformContent && (
+          {features.transformations && viewPolicy.canRunManualTransforms && canTransformContent && (
             <div className="clip-workflow-shell relative">
               <button
                 ref={workflowTriggerRef}
@@ -1165,7 +1164,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
                 aria-haspopup="menu"
                 aria-expanded={isWorkflowMenuOpen}
               >
-                {isPipelineRunning && activeTransformRef
+                {isManualTransformRunning && activeTransformRef
                   ? <LoaderCircle className="h-4 w-4 animate-spin" />
                   : <Workflow className="h-4 w-4" />}
               </button>
@@ -1173,7 +1172,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
                 <ClipWorkflowMenu
                   transforms={transforms}
                   activeTransformRef={activeTransformRef}
-                  isRunning={isPipelineRunning}
+                  isRunning={isManualTransformRunning}
                   anchorRef={workflowTriggerRef}
                   onClose={() => setIsWorkflowMenuOpen(false)}
                   onPreview={(transform) => void handlePreviewTransform(transform)}
@@ -1393,7 +1392,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
             </div>
           </div>
         )}
-        {(activePipelineName || previewedVersion) && (
+        {(activeManualTransformName || previewedVersion) && (
           <div className="active-filter-banner flex items-center justify-between px-3 py-2 border rounded-lg">
             <div className="flex items-center space-x-2">
               <Sliders className="w-4 h-4" />
@@ -1401,7 +1400,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
                 <span>
                 {previewedVersion
                   ? translate('component.clipPreview.previewingRevision')
-                  : isPipelineRunning
+                  : isManualTransformRunning
                     ? formatTransformRequestPhase(transformRequestStatus)
                     : translate('component.clipPreview.previewing')}
                 </span>
@@ -1414,10 +1413,10 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
                       {formatRelativeTime(previewedVersion.created_at, relativeTimeNow)}
                     </time>
                   )
-                  : activePipelineName}</strong>
+                  : activeManualTransformName}</strong>
               </span>
             </div>
-            {(activePipelineName || previewedVersion) && (
+            {(activeManualTransformName || previewedVersion) && (
               <button
                 onClick={handleResetTransform}
                 className="active-filter-reset text-xs underline"
@@ -1456,7 +1455,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
       </div>
 
       {/* Contextual Transform suggestions live beside the controls they affect. */}
-      {features.transformations && viewPolicy.canRunPipelines && canTransformContent && smartActions && smartActions.result.actions.length > 0 && (
+      {features.transformations && viewPolicy.canRunManualTransforms && canTransformContent && smartActions && smartActions.result.actions.length > 0 && (
           <div className="smart-actions-bar px-4 py-2 flex items-center justify-between text-xs space-x-2 overflow-x-auto">
             <div className="smart-actions-heading flex items-center space-x-1.5 shrink-0 font-semibold text-[11px]">
               <Lightbulb className="w-3.5 h-3.5" />
@@ -1465,12 +1464,12 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
             <div className="flex items-center space-x-1.5 overflow-x-auto scrollbar-none py-0.5">
               {smartActions.result.actions.map((action) => {
                 const transform = transforms.find((candidate) => candidate.stableRef === action.transformRef);
-                const pipeline = pipelines.find((candidate) => candidate.stableRef === action.transformRef);
-                if (!transform && !pipeline) return null;
+                const manualTransform = manualTransforms.find((candidate) => candidate.stableRef === action.transformRef);
+                if (!transform && !manualTransform) return null;
                 return (
                   <button
                     key={action.transformRef}
-                    onClick={() => transform ? handlePreviewTransform(transform) : void handlePreviewPipeline(pipeline!)}
+                    onClick={() => transform ? handlePreviewTransform(transform) : void handlePreviewManualTransform(manualTransform!)}
                     className="smart-action-button px-2 py-0.5 rounded-md border text-[11px] font-medium flex items-center space-x-1 whitespace-nowrap shadow-sm"
                     title={translate('component.clipPreview.previewTransformname', { transformName: action.transformName })}
                   >
@@ -1482,10 +1481,10 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
           </div>
       )}
 
-      {viewPolicy.canRunPipelines && canTransformContent && activeTransformRef && activeTransformName && (
+      {viewPolicy.canRunManualTransforms && canTransformContent && activeTransformRef && activeTransformName && (
         <ClipTransformBar
           activeTransformName={activeTransformName}
-          isRunning={isPipelineRunning}
+          isRunning={isManualTransformRunning}
           hasPreview={transformedText !== null && transformedText !== (clip.text_content || '') && Boolean(transformPreviewOutcome)}
           error={pipelineError}
           onApply={() => void handleApplyTransform()}
@@ -1496,7 +1495,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
       )}
 
       {/* Advanced Transform selector */}
-      {viewPolicy.canRunPipelines && canTransformContent && pipelines.length > 0 && (
+      {viewPolicy.canRunManualTransforms && canTransformContent && manualTransforms.length > 0 && (
         <div className="preview-filter-bar px-4 py-2.5 border-t select-none">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center space-x-2 shrink-0">
@@ -1506,33 +1505,33 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
 
             <div className="max-w-xs flex-1">
               <MenuSelect
-                value={activePipelineRef || ''}
+                value={activeManualTransformRef || ''}
                 onChange={(selectedRef) => {
                   if (!selectedRef) {
                     handleResetTransform();
                   } else {
-                    const found = pipelines.find((pipeline) => pipeline.stableRef === selectedRef);
-                    if (found) void handlePreviewPipeline(found);
+                    const found = manualTransforms.find((manualTransform) => manualTransform.stableRef === selectedRef);
+                    if (found) void handlePreviewManualTransform(found);
                   }
                 }}
                 label={translate('component.clipPreview.chooseAdvancedTransform')}
-                className={`w-full ${activePipelineRef ? 'preview-filter-select-active' : 'form-field-valid'}`}
+                className={`w-full ${activeManualTransformRef ? 'preview-filter-select-active' : 'form-field-valid'}`}
                 searchable
                 searchPlaceholder={translate('component.clipPreview.searchManualTransforms')}
                 options={[
                   { value: '', get label() { return translate('component.clipPreview.originalClip'); } },
-                  ...pipelines.map((pipeline) => ({ value: pipeline.stableRef, label: pipeline.name })),
+                  ...manualTransforms.map((manualTransform) => ({ value: manualTransform.stableRef, label: manualTransform.name })),
                 ]}
               />
             </div>
 
             {/* Reset Action */}
-            {activePipelineRef && (
+            {activeManualTransformRef && (
               <div className="flex items-center gap-1.5 shrink-0">
                 <button
                   type="button"
-                  onClick={() => void handlePipelineOutput('copy')}
-                  disabled={isPipelineRunning || transformedText === null}
+                  onClick={() => void handleManualTransformOutput('copy')}
+                  disabled={isManualTransformRunning || transformedText === null}
                   className="theme-secondary-button flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40"
                   title={translate('component.clipPreview.copyResult')}
                 >
@@ -1541,9 +1540,9 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
                 </button>
                 <button
                   type="button"
-                  onClick={() => void handlePipelineOutput('paste')}
-                  disabled={isPipelineRunning || transformedText === null}
-                  className="transform-workspace-action pipelines flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+                  onClick={() => void handleManualTransformOutput('paste')}
+                  disabled={isManualTransformRunning || transformedText === null}
+                  className="transform-workspace-action manual-transforms flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-40"
                   title={translate('component.clipPreview.pasteResult')}
                 >
                   <ClipboardPaste className="h-3.5 w-3.5" />

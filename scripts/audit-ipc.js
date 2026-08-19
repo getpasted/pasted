@@ -16,7 +16,10 @@ function matches(source, pattern) {
 }
 
 const frontendSource = readFilesRecursively('src', ['.ts', '.tsx']).join('\n');
-const tauriBridge = fs.readFileSync('src/utils/tauri.ts', 'utf8');
+const tauriBridge = [
+  fs.readFileSync('src/utils/tauri.ts', 'utf8'),
+  ...readFilesRecursively('src/mocks/browser', ['.ts']),
+].join('\n');
 const rustRegistration = fs.readFileSync('src-tauri/src/lib.rs', 'utf8');
 const handlerBlock = rustRegistration.match(/generate_handler!\[([\s\S]*?)\]\)/)?.[1];
 assert.ok(handlerBlock, 'Could not locate the Tauri generate_handler registration');
@@ -26,7 +29,10 @@ const invokedCommands = matches(
   /invoke(?:<[^;\n]*?>)?\(\s*['"]([a-zA-Z0-9_]+)['"]/g,
 );
 const registeredCommands = matches(handlerBlock, /commands::([a-zA-Z0-9_]+)/g);
-const mockedCommands = matches(tauriBridge, /case ['"]([a-zA-Z0-9_]+)['"]:/g);
+const mockedCommands = new Set([
+  ...matches(tauriBridge, /case ['"]([a-zA-Z0-9_]+)['"]:/g),
+  ...matches(tauriBridge, /command\s*(?:===|!==)\s*['"]([a-zA-Z0-9_]+)['"]/g),
+]);
 const dynamicInvocations = [...frontendSource.matchAll(/\binvoke(?:<[^;\n]*>)?\((?!\s*['"])/g)];
 const transformationExecutionInvocations = [
   ...frontendSource.matchAll(/\binvoke(?:<[^;\n]*>)?\(\s*['"]execute_transformation['"]/g),

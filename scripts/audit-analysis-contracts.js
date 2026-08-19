@@ -18,6 +18,7 @@ const settingsModal = read('src/components/SettingsModal.tsx');
 const analysisExecution = read('src-tauri/src/analysis_execution.rs');
 const commands = read('src-tauri/src/commands.rs');
 const builtinLifecycleManager = read('src/components/BuiltinLifecycleManagerDialog.tsx');
+const analysisApi = read('src/api/analysis.ts');
 const extractorManager = read('src/components/ContentExtractorManagerDialog.tsx');
 const contentTypeManager = read('src/components/ContentTypeManagerDialog.tsx');
 const contentTypeGroupManager = read('src/components/ContentTypeGroupManagerDialog.tsx');
@@ -226,8 +227,10 @@ assert.match(builtinLifecycleManager, /participantContract/,
   'Inspector and Suggestion managers must render typed participant contracts');
 assert.match(builtinLifecycleManager, /typeRelations/,
   'Inspector and Suggestion managers must render registered Type relations');
-assert.match(builtinLifecycleManager, /get_content_inspectors/,
-  'Inspector management must load shared engine availability');
+assert.match(builtinLifecycleManager, /analysisApi\.listInspectors/,
+  'Inspector management must load engine availability through the centralized Analysis client');
+assert.match(analysisApi, /get_content_inspectors/,
+  'The Analysis client must load shared Inspector engine availability');
 assert.match(builtinLifecycleManager, /translate\('common\.technicalDetails'\)/,
   'Internal participant contracts must remain behind contextual technical details');
 assert.match(builtinLifecycleManager, /captureStableReferenceUsage[\s\S]{0,200}pasted registry list --kind capture --json[\s\S]{0,300}stableReferenceUsage[\s\S]{0,200}get <ref> --json/,

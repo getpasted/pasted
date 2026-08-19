@@ -8,10 +8,9 @@ use std::sync::{
 };
 use std::time::Instant;
 
-use crate::db::{
-    DbState, PipelineStepInput, ResolvedCustomOperation, TransformationExecutionStart,
-};
+use crate::db::{DbState, ResolvedCustomOperation, TransformationExecutionStart};
 use crate::filter_engine::apply_filter;
+use crate::manual_transform_service::ManualTransformStepInput;
 use crate::operation_registry::is_builtin_operation;
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]
@@ -132,7 +131,7 @@ impl ExecutionError {
     fn safe_summary(&self) -> String {
         let summary = match (self.step, self.operation_ref.as_deref()) {
             (Some(step), Some(operation_ref)) => format!(
-                "{} at pipeline step {} ({}): {}",
+                "{} at manual Transform step {} ({}): {}",
                 self.code, step, operation_ref, self.message
             ),
             _ => format!("{}: {}", self.code, self.message),
@@ -382,7 +381,7 @@ pub(crate) fn execute_operation_inline(
 pub fn preview_manual_transform_steps(
     db: &DbState,
     input: &str,
-    steps: &[PipelineStepInput],
+    steps: &[ManualTransformStepInput],
     client_request_id: Option<&str>,
     cancellation: Option<&AtomicBool>,
 ) -> Result<String, ExecutionError> {
@@ -532,7 +531,7 @@ pub fn execute_with_cancellation(
     };
 
     // Resolve the revision before opening the execution record, but perform the
-    // actual work through the same operation path in both direct and pipeline runs.
+    // actual work through the same operation path in direct and manual Transform runs.
     let target_revision = match &request.target {
         ExecutionTarget::Transform { .. } => unreachable!("Transforms return above"),
         ExecutionTarget::ManualTransform { .. } => {
@@ -634,18 +633,18 @@ fn ensure_transform_text_size(value: &str) -> Result<(), ExecutionError> {
     }
 }
 
-pub fn get_last_pipeline_ref(db: &DbState) -> Result<Option<String>, ExecutionError> {
+pub fn get_last_manual_transform_ref(db: &DbState) -> Result<Option<String>, ExecutionError> {
     db.get_setting(LAST_TRANSFORM_SETTING)
         .map_err(database_error)
 }
 
-pub fn execute_last_pipeline(
+pub fn execute_last_manual_transform(
     db: &DbState,
     input: String,
     source_clip_id: Option<i64>,
     trigger: ExecutionTrigger,
 ) -> Result<ExecutionOutcome, ExecutionError> {
-    let pipeline_ref = get_last_pipeline_ref(db)?.ok_or_else(|| {
+    let manual_transform_ref = get_last_manual_transform_ref(db)?.ok_or_else(|| {
         ExecutionError::new(
             "no_last_pipeline",
             "No manually built Transform has completed successfully yet",
@@ -656,7 +655,7 @@ pub fn execute_last_pipeline(
         ExecutionRequest {
             input,
             target: ExecutionTarget::Transform {
-                transform_ref: pipeline_ref.clone(),
+                transform_ref: manual_transform_ref.clone(),
             },
             source_clip_id,
             trigger,
@@ -671,18 +670,18 @@ pub fn execute_last_pipeline(
     result
 }
 
-pub fn execute_shortcut_pipeline(
+pub fn execute_shortcut_manual_transform(
     db: &DbState,
     input: String,
-    pipeline_ref: Option<&str>,
+    manual_transform_ref: Option<&str>,
 ) -> Result<ExecutionOutcome, ExecutionError> {
-    match pipeline_ref {
-        Some(pipeline_ref) => execute(
+    match manual_transform_ref {
+        Some(manual_transform_ref) => execute(
             db,
             ExecutionRequest {
                 input,
                 target: ExecutionTarget::Transform {
-                    transform_ref: pipeline_ref.to_string(),
+                    transform_ref: manual_transform_ref.to_string(),
                 },
                 source_clip_id: None,
                 trigger: ExecutionTrigger::Shortcut,
@@ -690,7 +689,7 @@ pub fn execute_shortcut_pipeline(
                 client_request_id: None,
             },
         ),
-        None => execute_last_pipeline(db, input, None, ExecutionTrigger::Shortcut),
+        None => execute_last_manual_transform(db, input, None, ExecutionTrigger::Shortcut),
     }
 }
 
@@ -761,7 +760,7 @@ mod tests {
             name,
             &operation_refs
                 .iter()
-                .map(|operation_ref| PipelineStepInput {
+                .map(|operation_ref| ManualTransformStepInput {
                     operation_ref: (*operation_ref).to_string(),
                     config_json: None,
                     failure_policy: "stop".to_string(),
@@ -788,7 +787,7 @@ mod tests {
         .unwrap();
         assert_eq!(direct.output, "HELLO");
 
-        let pipeline_ref = pipeline(
+        let manual_transform_ref = pipeline(
             &db,
             "Loud Quote",
             &["builtin:uppercase", "builtin:quote_text"],
@@ -797,7 +796,7 @@ mod tests {
             &db,
             request(
                 ExecutionTarget::ManualTransform {
-                    transform_ref: pipeline_ref,
+                    transform_ref: manual_transform_ref,
                 },
                 "hello\nworld",
             ),
@@ -822,12 +821,12 @@ mod tests {
     fn unsaved_pipeline_preview_uses_the_canonical_operation_executor() {
         let db = test_db();
         let steps = vec![
-            PipelineStepInput {
+            ManualTransformStepInput {
                 operation_ref: "builtin:uppercase".to_string(),
                 config_json: None,
                 failure_policy: "stop".to_string(),
             },
-            PipelineStepInput {
+            ManualTransformStepInput {
                 operation_ref: "builtin:quote_text".to_string(),
                 config_json: None,
                 failure_policy: "stop".to_string(),
@@ -841,7 +840,7 @@ mod tests {
         let error = preview_manual_transform_steps(
             &db,
             "hello",
-            &[PipelineStepInput {
+            &[ManualTransformStepInput {
                 operation_ref: "builtin:not_real".to_string(),
                 config_json: None,
                 failure_policy: "stop".to_string(),
@@ -939,7 +938,7 @@ mod tests {
         let pipeline = db
             .create_pipeline(
                 "Uppercase Locally",
-                &[PipelineStepInput {
+                &[ManualTransformStepInput {
                     operation_ref: "builtin:uppercase".to_string(),
                     config_json: None,
                     failure_policy: "stop".to_string(),
@@ -974,14 +973,14 @@ mod tests {
     #[test]
     fn pipeline_errors_identify_the_step_and_operation() {
         let db = test_db();
-        let pipeline_ref = pipeline(&db, "Broken", &["builtin:uppercase", "builtin:trim"]);
+        let manual_transform_ref = pipeline(&db, "Broken", &["builtin:uppercase", "builtin:trim"]);
         {
             let conn = db.conn.lock();
             conn.execute(
                 "UPDATE saved_transforms
                  SET plan_json = replace(plan_json, 'builtin:trim', 'builtin:missing')
                  WHERE id = ?1",
-                params![pipeline_ref.trim_start_matches("transform:")],
+                params![manual_transform_ref.trim_start_matches("transform:")],
             )
             .unwrap();
         }
@@ -990,7 +989,7 @@ mod tests {
             &db,
             request(
                 ExecutionTarget::ManualTransform {
-                    transform_ref: pipeline_ref,
+                    transform_ref: manual_transform_ref,
                 },
                 "hello",
             ),
@@ -1088,12 +1087,12 @@ mod tests {
             ),
         )
         .unwrap();
-        assert_eq!(get_last_pipeline_ref(&db).unwrap(), None);
+        assert_eq!(get_last_manual_transform_ref(&db).unwrap(), None);
 
         let successful = pipeline(&db, "Successful", &["builtin:uppercase"]);
-        execute_shortcut_pipeline(&db, "hello".to_string(), Some(&successful)).unwrap();
+        execute_shortcut_manual_transform(&db, "hello".to_string(), Some(&successful)).unwrap();
         assert_eq!(
-            get_last_pipeline_ref(&db).unwrap().as_deref(),
+            get_last_manual_transform_ref(&db).unwrap().as_deref(),
             Some(successful.as_str())
         );
 
@@ -1108,11 +1107,11 @@ mod tests {
             )
             .unwrap();
         }
-        let error =
-            execute_shortcut_pipeline(&db, "hello".to_string(), Some(&failing)).unwrap_err();
+        let error = execute_shortcut_manual_transform(&db, "hello".to_string(), Some(&failing))
+            .unwrap_err();
         assert_eq!(error.code, "invalid_plan");
         assert_eq!(
-            get_last_pipeline_ref(&db).unwrap().as_deref(),
+            get_last_manual_transform_ref(&db).unwrap().as_deref(),
             Some(successful.as_str())
         );
     }
@@ -1120,27 +1119,36 @@ mod tests {
     #[test]
     fn missing_and_deleted_last_pipeline_are_explicit() {
         let db = test_db();
-        let missing = execute_shortcut_pipeline(&db, "hello".to_string(), None).unwrap_err();
+        let missing =
+            execute_shortcut_manual_transform(&db, "hello".to_string(), None).unwrap_err();
         assert_eq!(missing.code, "no_last_pipeline");
 
-        let pipeline_ref = pipeline(&db, "Temporary", &["builtin:uppercase"]);
-        execute_shortcut_pipeline(&db, "hello".to_string(), Some(&pipeline_ref)).unwrap();
-        db.delete_pipeline(&pipeline_ref).unwrap();
+        let manual_transform_ref = pipeline(&db, "Temporary", &["builtin:uppercase"]);
+        execute_shortcut_manual_transform(&db, "hello".to_string(), Some(&manual_transform_ref))
+            .unwrap();
+        db.delete_pipeline(&manual_transform_ref).unwrap();
 
-        let deleted = execute_shortcut_pipeline(&db, "hello".to_string(), None).unwrap_err();
+        let deleted =
+            execute_shortcut_manual_transform(&db, "hello".to_string(), None).unwrap_err();
         assert_eq!(deleted.code, "unknown_transform");
-        assert_eq!(get_last_pipeline_ref(&db).unwrap(), None);
-        let cleared = execute_shortcut_pipeline(&db, "hello".to_string(), None).unwrap_err();
+        assert_eq!(get_last_manual_transform_ref(&db).unwrap(), None);
+        let cleared =
+            execute_shortcut_manual_transform(&db, "hello".to_string(), None).unwrap_err();
         assert_eq!(cleared.code, "no_last_pipeline");
     }
 
     #[test]
     fn shortcut_helper_pastes_named_or_last_pipeline_with_same_result() {
         let db = test_db();
-        let pipeline_ref = pipeline(&db, "Normalize", &["builtin:trim", "builtin:uppercase"]);
-        let named =
-            execute_shortcut_pipeline(&db, "  hello  ".to_string(), Some(&pipeline_ref)).unwrap();
-        let last = execute_shortcut_pipeline(&db, "  hello  ".to_string(), None).unwrap();
+        let manual_transform_ref =
+            pipeline(&db, "Normalize", &["builtin:trim", "builtin:uppercase"]);
+        let named = execute_shortcut_manual_transform(
+            &db,
+            "  hello  ".to_string(),
+            Some(&manual_transform_ref),
+        )
+        .unwrap();
+        let last = execute_shortcut_manual_transform(&db, "  hello  ".to_string(), None).unwrap();
         assert_eq!(named.output, "HELLO");
         assert_eq!(last.output, named.output);
 
@@ -1149,7 +1157,7 @@ mod tests {
             .query_row(
                 "SELECT COUNT(*) FROM transformation_executions
                  WHERE trigger_kind = 'shortcut' AND target_ref = ?1 AND status = 'succeeded'",
-                params![pipeline_ref],
+                params![manual_transform_ref],
                 |row| row.get(0),
             )
             .unwrap();

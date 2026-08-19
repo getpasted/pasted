@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { Bin, ClipItem, ClipSearchResult, SequentialStatus } from '../types';
+import type { Bin, ClipItem, SequentialStatus } from '../types';
 import { getClipFilePaths, getClipOriginKind } from '../types';
 import { sortClipsChronologically } from '../utils/clipOrder';
 import { clipMatchesSearch, parseClipSearch, type ClipSearchFeaturePolicy } from '../utils/clipSearch';
 import { getClipCollection, parseClipFacetRoute } from '../utils/clipCollections';
 import type { FeatureId } from '../utils/features';
 import { appendUniqueSearchPage } from '../utils/searchPagination';
-import { safeInvoke as invoke } from '../utils/tauri';
+import { clipsApi } from '../api/clips';
 
 interface ClipViewsInput {
   allClips: ClipItem[];
@@ -177,9 +177,7 @@ export function useClipViews({
     setSearchResult({ query: normalizedSearchQuery, items: [], totalCount: 0, loading: true, failed: false });
     searchLoadingRef.current = true;
     const timer = window.setTimeout(() => {
-      invoke<ClipSearchResult>('search_clips', {
-        request: { query: normalizedSearchQuery, limit: SEARCH_PAGE_SIZE, offset: 0 },
-      }).then((result) => {
+      clipsApi.search({ query: normalizedSearchQuery, limit: SEARCH_PAGE_SIZE, offset: 0 }).then((result) => {
         if (active) {
           setSearchResult({
             query: normalizedSearchQuery,
@@ -214,12 +212,10 @@ export function useClipViews({
     searchLoadingRef.current = true;
     setSearchResult((current) => ({ ...current, loading: true }));
     try {
-      const result = await invoke<ClipSearchResult>('search_clips', {
-        request: {
-          query: normalizedSearchQuery,
-          limit: SEARCH_PAGE_SIZE,
-          offset: searchResult.items.length,
-        },
+      const result = await clipsApi.search({
+        query: normalizedSearchQuery,
+        limit: SEARCH_PAGE_SIZE,
+        offset: searchResult.items.length,
       });
       setSearchResult((current) => {
         if (current.query !== normalizedSearchQuery) return current;

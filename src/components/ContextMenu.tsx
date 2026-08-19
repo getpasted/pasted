@@ -84,7 +84,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   const protectionToggleDisabled = Boolean(clip.hotkey) || inheritedProtectionOnly;
 
   useEffect(() => {
-    if (!features.transformations || !viewPolicy.canRunPipelines || clip.content_type === 'file') return;
+    if (!features.transformations || !viewPolicy.canRunManualTransforms || clip.content_type === 'file') return;
     let cancelled = false;
     setIsLoadingTransforms(true);
     invoke<SavedTransform[]>('get_intent_transforms')
@@ -98,7 +98,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [clip.content_type, features.transformations, viewPolicy.canRunPipelines]);
+  }, [clip.content_type, features.transformations, viewPolicy.canRunManualTransforms]);
 
   const setSubmenuOpen = (submenu: 'bins' | 'workflow', open: boolean) => {
     setActiveSubmenu((current) => open ? submenu : current === submenu ? null : current);
@@ -193,7 +193,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
       )}
 
       {/* Workflow Submenu */}
-      {features.transformations && viewPolicy.canRunPipelines && clip.content_type !== 'file' && (
+      {features.transformations && viewPolicy.canRunManualTransforms && clip.content_type !== 'file' && (
         <MenuSubmenu
           label={translate('component.contextMenu.workflow')}
           icon={<Workflow className="theme-workflow-text h-3.5 w-3.5" />}
@@ -322,9 +322,11 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
           ) : (
             <Shield className="theme-status-info-text w-3.5 h-3.5" />
           )}
-          <span>{protectionToggleDisabled
-            ? translate('component.contextMenu.protectedAutomatically')
-            : clip.is_protected ? translate('action.unprotect') : translate('action.protect')}</span>
+          <span>{clip.hotkey
+            ? translate('component.contextMenu.protectedByHotkey')
+            : inheritedProtectionOnly
+              ? translate('component.contextMenu.protectedByBin')
+              : clip.is_protected ? translate('action.unprotect') : translate('action.protect')}</span>
         </button>
       )}
 

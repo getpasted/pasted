@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { listen } from '@tauri-apps/api/event';
-import { safeInvoke as invoke } from '../utils/tauri';
+import { analysisApi } from '../api/analysis';
 import {
   BarChart3,
   PieChart,
@@ -72,7 +72,7 @@ export const AnalyticsView: React.FC = () => {
   const loadStats = async () => {
     setLoadError(null);
     try {
-      const data = await invoke<AnalyticsSummary>('get_analytics_summary');
+      const data = await analysisApi.analyticsSummary<AnalyticsSummary>();
       setSummary(data);
     } catch (e) {
       console.error('Failed to fetch analytics summary:', e);

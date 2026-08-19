@@ -95,6 +95,7 @@ export interface LocalizationSnapshot {
   configuredLanguage: string;
   locale: string;
   direction: 'ltr' | 'rtl';
+  catalogReady: boolean;
 }
 
 let snapshot: LocalizationSnapshot;
@@ -105,6 +106,7 @@ function createSnapshot(): LocalizationSnapshot {
     configuredLanguage,
     locale,
     direction: manifest.locales.find(({ code }) => code === locale)?.direction ?? 'ltr',
+    catalogReady: Boolean(catalogs[locale]),
   };
 }
 
@@ -140,7 +142,7 @@ function loadCatalog(locale: string): Promise<void> {
 function loadCurrentCatalog() {
   const locale = snapshot.locale;
   void loadCatalog(locale).then(() => {
-    if (snapshot.locale === locale) listeners.forEach((listener) => listener());
+    if (snapshot.locale === locale) publish();
   });
 }
 

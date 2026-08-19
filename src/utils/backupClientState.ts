@@ -1,4 +1,5 @@
-import { safeInvoke as invoke } from './tauri';
+import { backupApi } from '../api/backup';
+import { settingsApi } from '../api/settings';
 import {
   applyBackupClientStateTo,
   collectBackupClientStateFrom,
@@ -18,16 +19,13 @@ export function scheduleBackupClientStatePersistence() {
   if (persistenceTimer) clearTimeout(persistenceTimer);
   persistenceTimer = setTimeout(() => {
     persistenceTimer = undefined;
-    void invoke('save_app_setting', {
-      key: 'backedUpClientState',
-      value: collectBackupClientState(),
-    }).catch(() => {
+    void settingsApi.save('backedUpClientState', collectBackupClientState()).catch(() => {
       // UI state remains available locally if the native library is unavailable.
     });
   }, 300);
 }
 
 export async function consumePendingBackupClientState(): Promise<boolean> {
-  const state = await invoke<string | null>('consume_pending_full_restore_client_state');
+  const state = await backupApi.consumePendingClientState();
   return state ? applyBackupClientState(state) : false;
 }

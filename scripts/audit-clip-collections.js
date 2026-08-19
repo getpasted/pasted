@@ -5,6 +5,7 @@ const read = (path) => fs.readFileSync(path, 'utf8');
 const registry = read('src/utils/clipCollections.ts');
 const sidebar = read('src/components/Sidebar.tsx');
 const clipViews = read('src/hooks/useClipViews.ts');
+const clipsApi = read('src/api/clips.ts');
 const emptyState = read('src/components/EmptyClipList.tsx');
 const viewPolicy = read('src/utils/clipViewPolicy.ts');
 const app = read('src/App.tsx');
@@ -76,7 +77,8 @@ assert.match(database, /id,content_type,source,is_pinned/, 'CSV exports must exp
 assert.match(appData, /record\.source_app[\s\S]*source_app:\s*_legacySource/, 'Pre-1.0 cached and IPC clip summaries must migrate source_app without retaining it');
 assert.match(sidebar, /source\?\.trim\(\)\.toLowerCase\(\)\s*\?\?\s*''/, 'Source icon rendering must tolerate stale or incomplete cached metadata');
 assert.match(clipViews, /getClipCollection\(currentTab, selectedBin\)/, 'Clip filtering must resolve the active collection');
-assert.match(clipViews, /invoke<ClipSearchResult>\('search_clips'/, 'GUI Search must use the authoritative shared Search service');
+assert.match(clipViews, /clipsApi\.search\(/, 'GUI Search must use the centralized Clips client');
+assert.match(clipsApi, /invoke<ClipSearchResult>\('search_clips'/, 'The Clips client must use the authoritative shared Search service');
 assert.doesNotMatch(clipViews, /search_clip_searchable_text_ids/, 'GUI Search must not intersect extracted-text IDs with loaded pages');
 assert.match(database, /clips\.content_type = \? COLLATE NOCASE/, 'Collection-axis Search filters must use exact case-insensitive matching');
 assert.match(clipViews, /facet\?\.kind === 'clip_type'[\s\S]{0,160}clip\.content_type === facet\.value/, 'Clip Type routes must filter structural identity only');

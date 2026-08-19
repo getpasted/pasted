@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import type { Operation, ManualTransform, SavedTransform, TransformDefinition } from '../types';
 import { transformsApi } from '../api/transforms';
 import { safeInvoke as invoke } from '../utils/tauri';
-import { PipelineEditorModal } from './PipelineEditorModal';
+import { ManualTransformEditorModal } from './ManualTransformEditorModal';
 import { OperationsManager } from './OperationsManager';
 import { soundManager } from '../utils/sound';
 import { TransformWorkspaceHeader, type TransformWorkspace } from './TransformWorkspaceHeader';
@@ -17,22 +17,22 @@ import { TransformationLibrary } from './TransformationLibrary';
 import { translate } from '../localization/runtime';
 
 interface TransformationsViewProps {
-  pipelines: ManualTransform[];
-  onRefreshPipelines: () => void;
+  manualTransforms: ManualTransform[];
+  onRefreshManualTransforms: () => void;
   activeWorkspace: TransformWorkspace;
   onActiveWorkspaceChange: (workspace: TransformWorkspace) => void;
 }
 
 export const TransformationsView: React.FC<TransformationsViewProps> = ({
-  pipelines: externalPipelines,
-  onRefreshPipelines,
+  manualTransforms: externalManualTransforms,
+  onRefreshManualTransforms,
   activeWorkspace,
   onActiveWorkspaceChange,
 }) => {
   const { showToast } = useToast();
   const [activeLibraryFilter, setActiveLibraryFilter] = useState('all');
 
-  const [selectedPipelineForEdit, setSelectedPipelineForEdit] = useState<ManualTransform | null>(null);
+  const [selectedManualTransformForEdit, setSelectedManualTransformForEdit] = useState<ManualTransform | null>(null);
   const [selectedTransformForEdit, setSelectedTransformForEdit] = useState<SavedTransform | null>(null);
   const [isEditorModalOpen, setIsEditorModalOpen] = useState(false);
   const [isComposerModalOpen, setIsComposerModalOpen] = useState(false);
@@ -40,7 +40,7 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
   const [testResult, setTestResult] = useState('');
   const [testError, setTestError] = useState('');
   const [transforms, setTransforms] = useState<SavedTransform[]>([]);
-  const [pipelines, setPipelines] = useState<ManualTransform[]>(externalPipelines);
+  const [manualTransforms, setManualTransforms] = useState<ManualTransform[]>(externalManualTransforms);
   const [playgroundTarget, setPlaygroundTarget] = useState<PlaygroundTarget | null>(null);
   const [playgroundRunState, setPlaygroundRunState] = useState<PlaygroundRunState>('idle');
   const [playgroundDurationMs, setPlaygroundDurationMs] = useState<number>();
@@ -60,7 +60,7 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
   });
 
   const handleOpenCreateModal = () => {
-    setSelectedPipelineForEdit(null);
+    setSelectedManualTransformForEdit(null);
     setIsEditorModalOpen(true);
   };
 
@@ -69,31 +69,31 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
     setIsComposerModalOpen(true);
   };
 
-  const handleOpenEditModal = (pipeline: ManualTransform) => {
-    setSelectedPipelineForEdit(pipeline);
+  const handleOpenEditModal = (manualTransform: ManualTransform) => {
+    setSelectedManualTransformForEdit(manualTransform);
     setIsEditorModalOpen(true);
   };
 
-  const handleDuplicatePipeline = async (pipeline: ManualTransform) => {
+  const handleDuplicateManualTransform = async (manualTransform: ManualTransform) => {
     try {
       await transformsApi.createManual({
-        name: `${pipeline.name} (Copy)`,
-        steps: pipeline.steps,
+        name: `${manualTransform.name} (Copy)`,
+        steps: manualTransform.steps,
         hotkey: null,
       });
       soundManager.playCopySound();
-      onRefreshPipelines();
+      onRefreshManualTransforms();
       fetchTransforms();
     } catch (e) {
       showActionError(e);
     }
   };
 
-  const handleDeletePipeline = async (pipelineRef: string) => {
+  const handleDeleteManualTransform = async (pipelineRef: string) => {
     setIsDeleting(true);
     try {
       await transformsApi.deleteManual(pipelineRef);
-      onRefreshPipelines();
+      onRefreshManualTransforms();
       fetchTransforms();
       setDeleteTarget(null);
     } catch (e) {
@@ -162,7 +162,7 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
               updatedAt: definition.updatedAt,
             }]
           : []));
-        setPipelines(definitions.flatMap((definition) => definition.authoringKind === 'manual'
+        setManualTransforms(definitions.flatMap((definition) => definition.authoringKind === 'manual'
           ? [{
               id: definition.id,
               stableRef: definition.stableRef,
@@ -215,11 +215,11 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
   const [operations, setOperations] = useState<Operation[]>([]);
 
   const libraryFilterOptions = [
-    { value: 'all', get label() { return translate('component.transformationsView.allTransforms'); }, count: transforms.length + pipelines.length },
+    { value: 'all', get label() { return translate('component.transformationsView.allTransforms'); }, count: transforms.length + manualTransforms.length },
     {
       value: 'local',
       get label() { return translate('component.transformationsView.localReplayable'); },
-      count: pipelines.length + transforms.filter((transform) => transform.plan.steps.every((step) => step.executor.kind === 'deterministic')).length,
+      count: manualTransforms.length + transforms.filter((transform) => transform.plan.steps.every((step) => step.executor.kind === 'deterministic')).length,
     },
     {
       value: 'assisted',
@@ -240,20 +240,20 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
 
   useEffect(() => {
     fetchTransforms();
-  }, [externalPipelines]);
+  }, [externalManualTransforms]);
 
   useEffect(() => {
     if (playgroundTarget) return;
     if (transforms[0]) setPlaygroundTarget({ kind: 'transform', item: transforms[0] });
     else if (operations[0]) setPlaygroundTarget({ kind: 'operation', item: operations[0] });
-    else if (pipelines[0]) setPlaygroundTarget({ kind: 'pipeline', item: pipelines[0] });
-  }, [operations, pipelines, playgroundTarget, transforms]);
+    else if (manualTransforms[0]) setPlaygroundTarget({ kind: 'manual_transform', item: manualTransforms[0] });
+  }, [operations, manualTransforms, playgroundTarget, transforms]);
 
   return (
     <div className="tools-page filters-page flex-1 h-screen flex flex-col overflow-hidden select-none filter-manager-wrapper">
       <TransformWorkspaceHeader
         activeWorkspace={activeWorkspace}
-        transformCount={transforms.length + pipelines.length}
+        transformCount={transforms.length + manualTransforms.length}
         operationCount={operations.length}
         onChange={onActiveWorkspaceChange}
       />
@@ -269,7 +269,7 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
         <TransformationPlayground
           transforms={transforms}
           operations={operations}
-          pipelines={pipelines}
+          manualTransforms={manualTransforms}
           target={playgroundTarget}
           input={testText}
           output={testResult}
@@ -290,24 +290,24 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
       ) : (
         <TransformationLibrary
           transforms={transforms}
-          pipelines={pipelines}
+          manualTransforms={manualTransforms}
           operations={operations}
           filter={activeLibraryFilter}
           filterOptions={libraryFilterOptions}
           onFilterChange={setActiveLibraryFilter}
           onCreateTransform={() => handleOpenTransformComposer()}
-          onCreatePipeline={handleOpenCreateModal}
+          onCreateManualTransform={handleOpenCreateModal}
           onTestTransform={(transform) => choosePlaygroundTarget({ kind: 'transform', item: transform })}
-          onTestPipeline={(pipeline) => choosePlaygroundTarget({ kind: 'pipeline', item: pipeline })}
+          onTestManualTransform={(manualTransform) => choosePlaygroundTarget({ kind: 'manual_transform', item: manualTransform })}
           onEditTransform={handleOpenTransformComposer}
-          onEditPipeline={handleOpenEditModal}
+          onEditManualTransform={handleOpenEditModal}
           onDuplicateTransform={(transform) => void handleDuplicateTransform(transform)}
-          onDuplicatePipeline={(pipeline) => void handleDuplicatePipeline(pipeline)}
+          onDuplicateManualTransform={(manualTransform) => void handleDuplicateManualTransform(manualTransform)}
           onDeleteTransform={(transform) => setDeleteTarget({ kind: 'Transform', storage: 'saved', name: transform.name, ref: transform.stableRef })}
-          onDeletePipeline={(pipeline) => setDeleteTarget({ kind: 'Transform', storage: 'manual', name: pipeline.name, ref: pipeline.stableRef })}
-          onPipelineHotkeyChange={(pipeline, hotkey) => {
-            void transformsApi.updateManualHotkey(pipeline.stableRef, hotkey)
-              .then(onRefreshPipelines)
+          onDeleteManualTransform={(manualTransform) => setDeleteTarget({ kind: 'Transform', storage: 'manual', name: manualTransform.name, ref: manualTransform.stableRef })}
+          onManualTransformHotkeyChange={(manualTransform, hotkey) => {
+            void transformsApi.updateManualHotkey(manualTransform.stableRef, hotkey)
+              .then(onRefreshManualTransforms)
               .then(fetchTransforms)
               .catch(showActionError);
           }}
@@ -317,12 +317,12 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
       </div>
 
       {/* Editor Modal */}
-      <PipelineEditorModal
-        pipeline={selectedPipelineForEdit}
+      <ManualTransformEditorModal
+        manualTransform={selectedManualTransformForEdit}
         isOpen={isEditorModalOpen}
         onClose={() => setIsEditorModalOpen(false)}
         onSaveSuccess={() => {
-          onRefreshPipelines();
+          onRefreshManualTransforms();
           fetchTransforms();
         }}
       />
@@ -348,7 +348,7 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
         isDeleting={isDeleting}
         onCancel={() => setDeleteTarget(null)}
         onConfirm={() => deleteTarget?.storage === 'manual'
-          ? handleDeletePipeline(deleteTarget.ref)
+          ? handleDeleteManualTransform(deleteTarget.ref)
           : deleteTarget
             ? handleDeleteTransform(deleteTarget.ref)
             : undefined}

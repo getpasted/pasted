@@ -77,7 +77,12 @@ for (const advisory of new Set(denyAdvisories)) {
 
 assert.match(
   fs.readFileSync('src/components/AnalyticsView.tsx', 'utf8'),
-  /invoke<AnalyticsSummary>\('get_analytics_summary'\)/,
+  /analysisApi\.analyticsSummary<AnalyticsSummary>\(\)/,
+  'Insights must use the shared on-device Analysis capability client',
+);
+assert.match(
+  fs.readFileSync('src/api/analysis.ts', 'utf8'),
+  /invoke<T>\('get_analytics_summary'\)/,
   'Insights must remain an on-device database query',
 );
 

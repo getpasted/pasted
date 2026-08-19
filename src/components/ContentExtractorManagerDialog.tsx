@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { CircleAlert, CircleCheck, Copy, FolderOpen, Plus, RotateCcw, ScanText, Sparkles, Trash2 } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
+import { analysisApi } from '../api/analysis';
 import { errorMessage } from '../utils/errors';
 import { AppDialog } from './AppDialog';
 import { AppDialogBody, AppDialogButton, AppDialogFooter, AppDialogHeader, AppDialogHeading, SaveButtonContent } from './AppDialogLayout';
@@ -242,7 +243,7 @@ export function ContentExtractorManagerDialog({
   });
 
   const load = async () => {
-    const loaded = await invoke<ContentExtractor[]>('get_content_extractors');
+    const loaded = await analysisApi.listExtractors<ContentExtractor>();
     setExtractors(loaded);
     const visible = loaded.filter((extractor) => (
       extractor.stableRef === 'extractor:apple-vision-ocr'

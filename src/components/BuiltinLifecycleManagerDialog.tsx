@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ComponentType } from 'react';
 import { AppWindow, FileAudio, FileType2, Lightbulb, ScanSearch, Shapes } from 'lucide-react';
 import type { LibraryItemView } from '../types';
 import { safeInvoke as invoke } from '../utils/tauri';
+import { analysisApi } from '../api/analysis';
 import { AppDialog } from './AppDialog';
 import { AppDialogBody, AppDialogButton, AppDialogFooter, AppDialogHeader, AppDialogHeading } from './AppDialogLayout';
 import { RegistryDetailHeader } from './RegistryDetailHeader';
@@ -56,7 +57,7 @@ export function BuiltinLifecycleManagerDialog({
         const [loaded, loadedInspectors] = await Promise.all([
           invoke<LibraryItemView[]>('get_library_items', { kind, includeArchived: false }),
           kind === 'inspector'
-            ? invoke<InspectorDefinition[]>('get_content_inspectors')
+            ? analysisApi.listInspectors<InspectorDefinition>()
             : Promise.resolve([]),
         ]);
         let visibleItems = kind === 'capture' && !sourcesEnabled

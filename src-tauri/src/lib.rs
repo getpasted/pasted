@@ -420,7 +420,7 @@ pub fn run() {
                 }
             }
 
-            // Register all saved HUD, Pipeline, Bin, and clip hotkeys.
+            // Register all saved HUD, Manual Transform, Bin, and clip hotkeys.
             keyboard_layout::start_layout_monitor(app.handle().clone());
             let _ = commands::register_all_app_shortcuts(app.handle());
 

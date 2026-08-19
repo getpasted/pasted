@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
 const activityView = fs.readFileSync('src/components/ActivityLogView.tsx', 'utf8');
+const activityApi = fs.readFileSync('src/api/activity.ts', 'utf8');
 const englishCatalog = JSON.parse(fs.readFileSync('src/locales/en.json', 'utf8'));
 const rustSources = fs.readdirSync('src-tauri/src')
   .filter((name) => name.endsWith('.rs'))
@@ -69,8 +70,9 @@ assert.match(activityView, /get group\(\) \{ return translate\('component\.activ
 assert.equal(englishCatalog['component.activityLogView.automation'], 'Automation');
 assert.match(activityView, /const ACTIVITY_BATCH_SIZE = 200/, 'Activity must load retained entries in bounded batches');
 assert.match(activityView, /new IntersectionObserver/, 'Activity must load older entries seamlessly while scrolling');
-assert.match(activityView, /limit: ACTIVITY_BATCH_SIZE,\s+offset: logsRef\.current\.length/, 'Activity scrolling must request only the next bounded page');
-assert.match(activityView, /limit: ACTIVITY_BATCH_SIZE, offset: 0/, 'Activity polling must refresh only the newest bounded page');
+assert.match(activityView, /activityApi\.list\(ACTIVITY_BATCH_SIZE, logsRef\.current\.length\)/, 'Activity scrolling must request only the next bounded page');
+assert.match(activityView, /activityApi\.list\(ACTIVITY_BATCH_SIZE, 0\)/, 'Activity polling must refresh only the newest bounded page');
+assert.match(activityApi, /limit, offset/, 'The Activity client must preserve bounded paging arguments');
 assert.doesNotMatch(activityView, /limit:\s*logsRef\.current\.length|loadedLimitRef/, 'Activity polling must not refetch the entire loaded prefix');
 assert.match(activityView, /setIsClearConfirmOpen\(true\)/, 'Permanent Activity clearing must require GUI confirmation');
 assert.match(activityView, /title=\{translate\('component\.activityLogView\.clearActivity2'\)\}/,

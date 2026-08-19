@@ -836,8 +836,8 @@ html:not(.is-stable-reordering) .connection-priority-card:hover {
   box-shadow: var(--shadow-card);
 }
 
-.transform-workspace-tab.pipelines.is-active svg {
-  color: var(--pipeline-accent-bright);
+.transform-workspace-tab.manual-transforms.is-active svg {
+  color: var(--manual-transform-accent-bright);
 }
 
 .transform-workspace-tab.operations.is-active svg {
@@ -859,12 +859,12 @@ html:not(.is-stable-reordering) .connection-priority-card:hover {
   color: var(--status-danger-contrast);
 }
 
-.transform-workspace-action.pipelines {
-  background-color: var(--pipeline-action);
+.transform-workspace-action.manual-transforms {
+  background-color: var(--manual-transform-action);
 }
 
-.transform-workspace-action.pipelines:hover {
-  background-color: var(--pipeline-action-hover);
+.transform-workspace-action.manual-transforms:hover {
+  background-color: var(--manual-transform-action-hover);
 }
 
 .transform-workspace-action.operations {
@@ -945,16 +945,16 @@ html:not(.is-stable-reordering) .connection-priority-card:hover {
   box-shadow: 0 0 0 1px color-mix(in srgb, currentColor 16%, transparent), var(--shadow-card);
 }
 
-.transform-category-select.pipelines > svg {
-  color: var(--pipeline-accent);
+.transform-category-select.manual-transforms > svg {
+  color: var(--manual-transform-accent);
 }
 
 .transform-category-select.operations > svg {
   color: var(--operation-accent);
 }
 
-.transform-accent.pipelines {
-  color: var(--pipeline-accent-bright);
+.transform-accent.manual-transforms {
+  color: var(--manual-transform-accent-bright);
 }
 
 .transform-accent.operations {

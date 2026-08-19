@@ -13,12 +13,12 @@ import { localizedBuiltinName } from '../localization/presentation';
 export type PlaygroundTarget =
   | { kind: 'transform'; item: SavedTransform }
   | { kind: 'operation'; item: Operation }
-  | { kind: 'pipeline'; item: ManualTransform };
+  | { kind: 'manual_transform'; item: ManualTransform };
 
 interface TransformationPlaygroundProps {
   transforms: SavedTransform[];
   operations: Operation[];
-  pipelines: ManualTransform[];
+  manualTransforms: ManualTransform[];
   target: PlaygroundTarget | null;
   input: string;
   output: string;
@@ -45,7 +45,7 @@ function targetName(target: PlaygroundTarget | null) {
 export function TransformationPlayground({
   transforms,
   operations,
-  pipelines,
+  manualTransforms,
   target,
   input,
   output,
@@ -62,20 +62,20 @@ export function TransformationPlayground({
   const targets = useMemo<PlaygroundTarget[]>(() => [
     ...transforms.map((item) => ({ kind: 'transform' as const, item })),
     ...operations.map((item) => ({ kind: 'operation' as const, item })),
-    ...pipelines.map((item) => ({ kind: 'pipeline' as const, item })),
-  ], [operations, pipelines, transforms]);
+    ...manualTransforms.map((item) => ({ kind: 'manual_transform' as const, item })),
+  ], [operations, manualTransforms, transforms]);
   const options = targets
     .map((candidate, sourceIndex) => {
       const group = candidate.kind === 'operation'
         ? translate('component.transformationPlayground.operationsCategory', { category: candidate.item.category })
-        : candidate.kind === 'pipeline'
+        : candidate.kind === 'manual_transform'
           ? translate('component.transformationPlayground.manuallyBuiltTransforms')
           : candidate.item.plan.steps.some((step) => step.executor.kind === 'semantic')
             ? translate('component.transformationPlayground.aiAssistedTransforms')
             : translate('component.transformationPlayground.plannedLocalTransforms');
       const groupOrder = candidate.kind === 'operation'
         ? 3
-        : candidate.kind === 'pipeline'
+        : candidate.kind === 'manual_transform'
           ? 2
           : candidate.item.plan.steps.some((step) => step.executor.kind === 'semantic') ? 0 : 1;
       return {
@@ -99,7 +99,7 @@ export function TransformationPlayground({
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <p className="theme-text-muted text-[10px]">{translate('component.transformationPlayground.runATransformOrOperationWithoutChangingAClip')}</p>
           <TransformCategorySelect
-            accent={target?.kind === 'operation' ? 'operations' : 'pipelines'}
+            accent={target?.kind === 'operation' ? 'operations' : 'manual-transforms'}
             value={target ? targetValue(target) : options[0]?.value ?? ''}
             options={options.length ? options : [{ value: '', get label() { return translate('component.transformationPlayground.nothingAvailable'); } }]}
             onChange={(value) => {

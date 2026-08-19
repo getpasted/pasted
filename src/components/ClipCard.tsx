@@ -536,7 +536,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
               role="img"
               aria-label={translate('component.clipCard.transformedClip')}
               title={translate('component.clipCard.transformed')}
-              className="clip-meta-item clip-meta-icon-only transform-accent pipelines"
+              className="clip-meta-item clip-meta-icon-only transform-accent manual-transforms"
             >
               <Workflow className="clip-meta-icon" />
             </span>

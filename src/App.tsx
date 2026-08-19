@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, useLayoutEffect, useState, useCallback, useM
 import { safeInvoke as invoke } from './utils/tauri';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { APP_EVENTS } from './utils/appEvents';
-import { ClipItem, Bin, getClipFileSummary, type ClipMutationSummary } from './types';
+import { ClipItem, Bin, getClipFileSummary } from './types';
 import { Sidebar } from './components/Sidebar';
 import { ClipCard } from './components/ClipCard';
 import { EmptyClipList } from './components/EmptyClipList';
@@ -52,17 +52,13 @@ import { localizedSourceName } from './localization/presentation';
 import { MacRtlWindowControls } from './components/MacRtlWindowControls';
 import { SearchErrorNotice } from './components/SearchErrorNotice';
 import { useAppEvent } from './hooks/useAppEvent';
-
-const TransformationsView = lazy(() => import('./components/TransformationsView')
-  .then(({ TransformationsView: component }) => ({ default: component })));
-const SettingsModal = lazy(() => import('./components/SettingsModal')
-  .then(({ SettingsModal: component }) => ({ default: component })));
-const ActivityLogView = lazy(() => import('./components/ActivityLogView')
-  .then(({ ActivityLogView: component }) => ({ default: component })));
-const AnalyticsView = lazy(() => import('./components/AnalyticsView')
-  .then(({ AnalyticsView: component }) => ({ default: component })));
-const HelpView = lazy(() => import('./components/HelpView')
-  .then(({ HelpView: component }) => ({ default: component })));
+import { clipsApi } from './api/clips';
+import { binsApi } from './api/bins';
+const TransformationsView = lazy(() => import('./components/TransformationsView').then(({ TransformationsView: component }) => ({ default: component })));
+const SettingsModal = lazy(() => import('./components/SettingsModal').then(({ SettingsModal: component }) => ({ default: component })));
+const ActivityLogView = lazy(() => import('./components/ActivityLogView').then(({ ActivityLogView: component }) => ({ default: component })));
+const AnalyticsView = lazy(() => import('./components/AnalyticsView').then(({ AnalyticsView: component }) => ({ default: component })));
+const HelpView = lazy(() => import('./components/HelpView').then(({ HelpView: component }) => ({ default: component })));
 
 const TRANSIENT_SCROLL_SURFACE_SELECTOR = [
   '.surface-scroll-region',
@@ -79,7 +75,7 @@ const TRANSIENT_SCROLL_SURFACE_SELECTOR = [
 ].join(', ');
 
 export default function App() {
-  const { direction, locale } = useLocalization();
+  const { catalogReady, direction, locale } = useLocalization();
   const previousTitlebarDirectionRef = useRef(direction);
   const [restoredUiState] = useState(readAppUiState);
   const [isHudView, setIsHudView] = useState<boolean>(false);
@@ -178,7 +174,7 @@ export default function App() {
     setTrashedClips,
     bins,
     setBins,
-    pipelines,
+    manualTransforms,
     sequentialStatus: seqStatus,
     totalClipCount,
     totalTrashCount,
@@ -195,7 +191,7 @@ export default function App() {
     isLoadingMoreClips,
     isLoadingMoreTrash,
     fetchBins,
-    fetchPipelines,
+    fetchManualTransforms,
     fetchSequentialStatus,
     toggleClipboardPause: handleToggleClipboardPause,
     restoreClip: handleRestoreClip,
@@ -206,23 +202,23 @@ export default function App() {
   useEffect(() => {
     const splash = document.getElementById('startup-splash');
     if (!splash) return;
-    if (isHudView) {
+    if (isHudView && catalogReady) {
       splash.remove();
       return;
     }
-    if (!settingsHydrated || !initialDataLoaded) return;
+    if (!catalogReady || !settingsHydrated || !initialDataLoaded) return;
 
     return dismissStartupSplash(splash);
-  }, [initialDataLoaded, isHudView, settingsHydrated]);
+  }, [catalogReady, initialDataLoaded, isHudView, settingsHydrated]);
 
   useEffect(() => {
-    if (!settingsHydrated || !initialDataLoaded) return undefined;
+    if (!catalogReady || !settingsHydrated || !initialDataLoaded) return undefined;
     document.documentElement.dataset.pastedContentReady = 'true';
     window.dispatchEvent(new Event('pasted-app-content-ready'));
     return () => {
       delete document.documentElement.dataset.pastedContentReady;
     };
-  }, [initialDataLoaded, settingsHydrated]);
+  }, [catalogReady, initialDataLoaded, settingsHydrated]);
 
   const [selectedClip, setSelectedClip] = useState<ClipItem | null>(null);
   const [selectedClipIds, setSelectedClipIds] = useState<Set<number>>(new Set());
@@ -1087,7 +1083,7 @@ export default function App() {
   };
 
   const handleRestoreAllTrashedClips = async () => {
-    const summary = await invoke<ClipMutationSummary>('restore_all_trashed_clips');
+    const summary = await clipsApi.restoreAll();
     await Promise.all([fetchClips(), fetchTrashedClips(), fetchBins(), fetchClipCollectionSummary()]);
     return summary.changedCount;
   };
@@ -1147,7 +1143,7 @@ export default function App() {
             fetchClips(),
             fetchTrashedClips(),
             fetchBins(),
-            fetchPipelines(),
+            fetchManualTransforms(),
             fetchSequentialStatus(),
             fetchClipCollectionSummary(),
           ]);
@@ -1258,8 +1254,8 @@ export default function App() {
       {/* Main Content Area */}
       <Suspense fallback={null}>{currentTab === 'transformations' ? (
         <TransformationsView
-          pipelines={pipelines}
-          onRefreshPipelines={fetchPipelines}
+          manualTransforms={manualTransforms}
+          onRefreshManualTransforms={fetchManualTransforms}
           activeWorkspace={activeTransformWorkspace}
           onActiveWorkspaceChange={setActiveTransformWorkspace}
         />
@@ -1280,7 +1276,7 @@ export default function App() {
           onAddBlacklistApp={handleAddBlacklistApp}
           onRemoveBlacklistApp={handleRemoveBlacklistApp}
           onToggleBlacklistRule={handleToggleBlacklistRule}
-          onRefreshPipelines={fetchPipelines}
+          onRefreshManualTransforms={fetchManualTransforms}
           bins={bins}
           onRefreshBins={fetchBins}
           onRefreshClips={fetchClips}
@@ -1587,7 +1583,7 @@ export default function App() {
                         ...previous.filter((clip) => !clip.is_pinned && !idSet.has(clip.id)),
                       ]);
                     });
-                    invoke('batch_pin_clips', { ids, pinState: true }).then(fetchClipCollectionSummary).catch((err) => {
+                    clipsApi.setPinned(ids, true).then(fetchClipCollectionSummary).catch((err) => {
                       console.error(err);
                       fetchClips();
                     });
@@ -1611,7 +1607,7 @@ export default function App() {
                         : clip);
                       return sortClipsForTimeline(updated);
                     });
-                    invoke('batch_pin_clips', { ids, pinState: false }).then(fetchClipCollectionSummary).catch((err) => {
+                    clipsApi.setPinned(ids, false).then(fetchClipCollectionSummary).catch((err) => {
                       console.error(err);
                       fetchClips();
                     });
@@ -1659,7 +1655,7 @@ export default function App() {
             viewPolicy={selectedClipViewPolicy}
             bins={bins}
             viewedBinId={isBinCollection ? selectedBinId : null}
-            pipelines={pipelines}
+            manualTransforms={manualTransforms}
             onUpdateClip={handlePreviewClipUpdate}
             onAssignBin={handleAssignBin}
             onRemoveBin={removeClipFromBin}
@@ -1755,11 +1751,7 @@ export default function App() {
           onCancel={() => setBinToDelete(null)}
           onConfirm={async (bin, disposition, destinationBinId) => {
             try {
-              await invoke('delete_bin', {
-                id: bin.id,
-                disposition,
-                destinationBinId,
-              });
+              await binsApi.delete(bin.id, disposition, destinationBinId);
               setBinToDelete(null);
               await Promise.all([fetchBins(), fetchClips(), fetchTrashedClips()]);
               if (selectedBinId === bin.id) {
@@ -1784,7 +1776,7 @@ export default function App() {
             handleUpdateClipNoteLocally(clip.id, note);
             setNotePromptClip(null);
             try {
-              await invoke('update_clip_note', { clipId: clip.id, note });
+              await clipsApi.updateNote(clip.id, note);
               await fetchClipCollectionSummary();
             } catch (error) {
               console.error(error);

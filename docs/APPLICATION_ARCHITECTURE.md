@@ -27,7 +27,14 @@ for unknown commands.
 
 Frontend code reaches durable capabilities through clients in `src/api`.
 Components and hooks own presentation state; capability clients own command
-names, request shapes, and response types.
+names, request shapes, and response types. Settings, Clips, Bins, Activity,
+Backup, Analysis, and Transforms have domain clients. Browser-mode behavior is
+split into matching handlers under `src/mocks/browser` instead of growing one
+parallel backend switch indefinitely.
+
+Non-English locale catalogs load on demand. The localization snapshot exposes
+catalog readiness, and application startup remains behind the splash until the
+selected catalog, settings, and initial library data are all ready.
 
 ## Compatibility boundaries
 
@@ -48,3 +55,7 @@ availability is tested separately from shared mutation behavior.
 
 `npm run test:architecture`, `npm run test:ipc`, and `npm run test:cli` protect
 these boundaries. `npm run test:all` remains the completion gate.
+
+The architecture audit also ratchets the remaining large integration modules.
+They may shrink as capabilities move out, but growing past their recorded line
+budgets requires extracting a boundary rather than adding more orchestration.

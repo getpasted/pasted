@@ -115,7 +115,7 @@ pub fn execute_transform(
     let mut clipboard = Clipboard::new().map_err(|error| error.to_string())?;
     let input = clipboard.get_text().map_err(|error| error.to_string())?;
     let outcome =
-        crate::transformation_service::execute_shortcut_pipeline(db, input, transform_ref)
+        crate::transformation_service::execute_shortcut_manual_transform(db, input, transform_ref)
             .map_err(|error| error.to_string())?;
     clipboard
         .set_text(&outcome.output)

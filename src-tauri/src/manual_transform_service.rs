@@ -6,18 +6,23 @@
 
 use rusqlite::Result;
 
-use crate::db::{DbState, Pipeline, PipelineStepInput};
+use crate::db::DbState;
 
-pub fn list(db: &DbState) -> Result<Vec<Pipeline>> {
+/// Application-facing names for the historical storage records. Keeping the
+/// aliases here prevents database vocabulary from leaking into adapters.
+pub type ManualTransform = crate::db::Pipeline;
+pub type ManualTransformStepInput = crate::db::PipelineStepInput;
+
+pub fn list(db: &DbState) -> Result<Vec<ManualTransform>> {
     db.get_pipelines()
 }
 
 pub fn create(
     db: &DbState,
     name: &str,
-    steps: &[PipelineStepInput],
+    steps: &[ManualTransformStepInput],
     shortcut: Option<&str>,
-) -> Result<Pipeline> {
+) -> Result<ManualTransform> {
     db.create_pipeline(name, steps, shortcut)
 }
 
@@ -25,9 +30,9 @@ pub fn update(
     db: &DbState,
     transform_ref: &str,
     name: &str,
-    steps: &[PipelineStepInput],
+    steps: &[ManualTransformStepInput],
     shortcut: Option<&str>,
-) -> Result<Pipeline> {
+) -> Result<ManualTransform> {
     db.update_pipeline(transform_ref, name, steps, shortcut)
 }
 
@@ -37,4 +42,8 @@ pub fn update_shortcut(db: &DbState, transform_ref: &str, shortcut: Option<&str>
 
 pub fn delete(db: &DbState, transform_ref: &str) -> Result<()> {
     db.delete_pipeline(transform_ref)
+}
+
+pub fn hotkeys(db: &DbState) -> Result<Vec<(String, String, String)>> {
+    db.get_pipeline_hotkeys()
 }

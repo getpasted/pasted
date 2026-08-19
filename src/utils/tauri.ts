@@ -2,6 +2,12 @@ import { invoke as tauriInvoke } from '@tauri-apps/api/core';
 import { CONTENT_TYPES } from './contentTypes';
 import { getClipFilePaths, getClipOriginKind } from '../types';
 import { clipMatchesSearch, parseClipSearch } from './clipSearch';
+import { handleActivityBrowserMock } from '../mocks/browser/activity';
+import { handleBackupBrowserMock } from '../mocks/browser/backup';
+import { handleAnalyticsBrowserMock } from '../mocks/browser/analytics';
+import { handleClipBrowserMock } from '../mocks/browser/clips';
+import { handleBinBrowserMock } from '../mocks/browser/bins';
+import { handleAnalysisBrowserMock } from '../mocks/browser/analysis';
 
 type MockClip = {
   id: number;
@@ -235,7 +241,7 @@ type MockPipeline = {
   }>;
 };
 
-let mockPipelines: MockPipeline[] = [
+let mockManualTransforms: MockPipeline[] = [
   {
     id: 1,
     stableRef: 'transform:mock-uppercase',
@@ -344,15 +350,15 @@ function mockSmartActionSuggestions(text: string) {
     email: /email|extract_emails/,
     phone: /phone|extract_phones/,
   };
-  const actions = mockPipelines
+  const actions = mockManualTransforms
     .slice(0, 256)
-    .flatMap((pipeline) => {
-      const searchable = `${pipeline.name} ${pipeline.steps.map((step) => step.operationRef).join(' ')}`.toLowerCase();
+    .flatMap((manualTransform) => {
+      const searchable = `${manualTransform.name} ${manualTransform.steps.map((step) => step.operationRef).join(' ')}`.toLowerCase();
       const reasons = signals.filter((signal) => signalPatterns[signal]?.test(searchable));
       return reasons.length ? [{
-        transformRef: pipeline.stableRef,
-        transformName: pipeline.name,
-        transformRevision: pipeline.revision,
+        transformRef: manualTransform.stableRef,
+        transformName: manualTransform.name,
+        transformRevision: manualTransform.revision,
         reasons,
       }] : [];
     })
@@ -366,19 +372,17 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
     return tauriInvoke<T>(cmd, args);
   }
   console.warn(`[safeInvoke mock] ${cmd}`);
+  for (const result of [
+    handleActivityBrowserMock(cmd),
+    handleBackupBrowserMock(cmd),
+    handleAnalyticsBrowserMock(cmd, mockClips),
+    handleClipBrowserMock(cmd, args, mockClips, withMockProtection),
+    handleBinBrowserMock(cmd, mockBins, mockClips),
+    handleAnalysisBrowserMock(cmd),
+  ]) {
+    if (result.matched) return result.value as T;
+  }
   switch (cmd) {
-    case 'get_clips': {
-      const offset = Math.max(0, Number(args?.offset ?? 0));
-      const limit = Math.max(1, Number(args?.limit ?? 10_000));
-      return mockClips
-        .filter((clip) => {
-          const binId = Number(args?.binId);
-          return clip.is_trashed === 0
-            && (!Number.isInteger(binId) || binId <= 0 || clip.bin_ids.includes(binId));
-        })
-        .slice(offset, offset + limit)
-        .map((clip) => ({ ...withMockProtection(clip), content_types: [...(clip.content_types ?? [])], bin_ids: [...clip.bin_ids] })) as unknown as T;
-    }
     case 'search_clips': {
       const request = (args?.request ?? {}) as Record<string, unknown>;
       const query = String(request.query ?? '');
@@ -414,40 +418,12 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
         offset,
       } as unknown as T;
     }
-    case 'get_bins':
-      return mockBins.map((bin) => ({
-        ...bin,
-      clip_count: mockClips.filter((clip) => clip.is_trashed === 0 && clip.bin_ids.includes(bin.id)).length,
-      })) as unknown as T;
-    case 'get_analytics_summary': {
-      const active = mockClips.filter((clip) => clip.is_trashed === 0);
-      const countBy = (values: string[]) => Object.entries(values.reduce<Record<string, number>>((counts, value) => {
-        counts[value] = (counts[value] ?? 0) + 1;
-        return counts;
-      }, {}));
-      return {
-        total_clips: active.length,
-        total_chars: active.reduce((total, clip) => total + clip.text_content.length, 0),
-        top_sources: countBy(active.map((clip) => clip.source)).map(([name, count]) => ({ name, count })),
-        clip_types: countBy(active.map((clip) => clip.content_type === 'image' || clip.content_type === 'file' ? clip.content_type : 'text'))
-          .map(([clip_type, count]) => ({ clip_type, count })),
-        file_formats: [],
-        content_types: countBy(active.flatMap((clip) => [...new Set(clip.content_types ?? [])]))
-          .map(([content_type, count]) => ({ content_type, count })),
-        daily_activity: [],
-      } as unknown as T;
-    }
     case 'get_manual_transforms':
-      return mockPipelines as unknown as T;
+      return mockManualTransforms as unknown as T;
     case 'get_content_classifiers':
       return mockClassifiers.map((classifier) => ({ ...classifier, patterns: [...classifier.patterns] })) as unknown as T;
     case 'get_content_extractors':
       return mockExtractors.map((extractor) => ({ ...extractor, recipe: structuredClone(extractor.recipe), defaultRecipe: extractor.defaultRecipe ? structuredClone(extractor.defaultRecipe) : null, defaults: extractor.defaults ? { ...extractor.defaults } : null })) as unknown as T;
-    case 'get_content_inspectors':
-      return [
-        { stableRef: 'inspector:structure-v1', name: 'Structure', description: 'Measures stable clip structure without retaining clipboard contents.', inputContract: 'clip', outputContract: 'structural_metadata', priority: 0, isBuiltin: true, engine: null, isAvailable: true, unavailableReason: null },
-        { stableRef: 'inspector:media-metadata-v1', name: 'Media Metadata', description: 'Reads bounded audio and video metadata locally.', inputContract: 'file_references', outputContract: 'media_metadata', priority: 10, isBuiltin: true, engine: 'ffprobe-cli-v1', isAvailable: true, unavailableReason: null },
-      ] as unknown as T;
     case 'choose_extractor_executable':
       return '/mock/bin/custom-extractor' as unknown as T;
     case 'choose_extractor_resource_file':
@@ -569,7 +545,7 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
         { stableRef: 'suggestion:smart-actions-v1', kind: 'suggestion', name: 'Smart Actions', description: 'Suggests saved Transforms from content-free analysis signals.', groupLabel: 'Content Analysis', icon: 'Lightbulb', enabled: null, isBuiltin: true, isArchived: false, sortOrder: 0, revision: 1, inputContract: 'analyzable_text+structural_metadata', outputContract: 'suggestions', analysisPass: 'suggest', participantContract: { stableRef: 'suggestion:smart-actions-v1', name: 'Smart Actions', pass: 'suggest', priority: 0, requires: ['analyzable_text', 'structural_metadata'], provides: ['suggestions'] }, typeRelations: [], createdAt: '', updatedAt: '', capabilities: { canEdit: false, canDuplicate: false, canDelete: false, canDisable: false, canRestore: false } },
         ...mockExtractors.map((extractor) => ({ stableRef: extractor.stableRef, kind: 'extractor', name: extractor.name, description: extractor.description, groupLabel: 'Content Analysis', icon: 'ScanText', enabled: extractor.enabled, isBuiltin: extractor.isBuiltin, isArchived: false, sortOrder: extractor.priority, revision: 1, inputContract: extractor.inputContract, outputContract: extractor.outputContract, analysisPass: 'extract', participantContract: { stableRef: extractor.stableRef, name: extractor.name, pass: 'extract', priority: extractor.priority, requires: [extractor.inputContract], provides: [extractor.outputContract, 'analyzable_text'] }, typeRelations: extractor.inputContract === 'image' ? [{ kind: 'accepts', typeId: 'image' }] : extractor.inputContract === 'file_references' ? [{ kind: 'accepts', typeId: 'file' }] : [], createdAt: '', updatedAt: '', capabilities: { canEdit: true, canDuplicate: true, canDelete: true, canDisable: true, canRestore: extractor.isBuiltin } })),
         ...mockClassifiers.map((classifier) => ({ stableRef: classifier.stable_ref, kind: 'classifier', name: classifier.name, description: classifier.description, groupLabel: null, icon: 'FileText', enabled: classifier.enabled, isBuiltin: classifier.is_builtin, isArchived: false, sortOrder: classifier.priority, revision: 1, inputContract: 'text', outputContract: `set_type:${classifier.content_type}`, analysisPass: 'classify', participantContract: { stableRef: classifier.stable_ref, name: classifier.name, pass: 'classify', priority: classifier.priority, requires: ['analyzable_text'], provides: ['classification'] }, typeRelations: [{ kind: 'classifies_as', typeId: classifier.content_type }], createdAt: '', updatedAt: '', capabilities: { canEdit: true, canDuplicate: true, canDelete: true, canDisable: true, canRestore: classifier.is_builtin } })),
-        ...mockPipelines.map((pipeline) => ({ stableRef: pipeline.stableRef, kind: 'transform', name: pipeline.name, description: '', groupLabel: 'Manual Transforms', icon: 'Workflow', enabled: null, isBuiltin: false, isArchived: false, sortOrder: pipeline.id, revision: pipeline.revision, inputContract: 'text', outputContract: 'preserve_type', analysisPass: null, createdAt: pipeline.createdAt, updatedAt: pipeline.updatedAt, capabilities: { canEdit: true, canDuplicate: true, canDelete: true, canDisable: false, canRestore: false } })),
+        ...mockManualTransforms.map((manualTransform) => ({ stableRef: manualTransform.stableRef, kind: 'transform', name: manualTransform.name, description: '', groupLabel: 'Manual Transforms', icon: 'Workflow', enabled: null, isBuiltin: false, isArchived: false, sortOrder: manualTransform.id, revision: manualTransform.revision, inputContract: 'text', outputContract: 'preserve_type', analysisPass: null, createdAt: manualTransform.createdAt, updatedAt: manualTransform.updatedAt, capabilities: { canEdit: true, canDuplicate: true, canDelete: true, canDisable: false, canRestore: false } })),
       ];
       return items.filter((item) => !kind || item.kind === kind) as unknown as T;
     }
@@ -1018,38 +994,6 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       updateMockSequentialStatus();
       return combined as unknown as T;
     }
-    case 'get_trashed_clips': {
-      const offset = Math.max(0, Number(args?.offset ?? 0));
-      const limit = Math.max(1, Number(args?.limit ?? 10_000));
-      return mockClips.filter((clip) => clip.is_trashed !== 0).slice(offset, offset + limit) as unknown as T;
-    }
-    case 'get_clip_collection_summary': {
-      const active = mockClips.filter((clip) => clip.is_trashed === 0);
-      const countBy = (key: 'content_type' | 'source') => [...active.reduce((counts, clip) => counts.set(String(clip[key]), (counts.get(String(clip[key])) ?? 0) + 1), new Map<string, number>())];
-      const contentTypeCounts = [...active.reduce((counts, clip) => {
-        [...new Set(clip.content_types ?? [])].forEach((contentType) => {
-          counts.set(contentType, (counts.get(contentType) ?? 0) + 1);
-        });
-        return counts;
-      }, new Map<string, number>())];
-      const fileFormatCounts = [...active.reduce((counts, clip) => {
-        [...new Set(clip.file_formats ?? [])].forEach((fileFormat) => {
-          counts.set(fileFormat, (counts.get(fileFormat) ?? 0) + 1);
-        });
-        return counts;
-      }, new Map<string, number>())];
-      return {
-        activeCount: active.length,
-        trashCount: mockClips.length - active.length,
-        pinnedCount: active.filter((clip) => clip.is_pinned).length,
-        protectedCount: active.filter((clip) => clip.is_protected).length,
-        notedCount: active.filter((clip) => Boolean(clip.note?.trim())).length,
-        clipTypeCounts: countBy('content_type').map(([clip_type, count]) => ({ clip_type, count })),
-        fileFormatCounts: fileFormatCounts.map(([file_format, count]) => ({ file_format, count })),
-        typeCounts: contentTypeCounts.map(([content_type, count]) => ({ content_type, count })),
-        sourceCounts: countBy('source').map(([name, count]) => ({ name, count })),
-      } as unknown as T;
-    }
     case 'is_clipboard_paused':
       return mockClipboardPaused as unknown as T;
     case 'get_all_app_settings':
@@ -1109,40 +1053,6 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
         skippedCount: 1,
         historyCapacityAdjustedTo: 1200,
       } as unknown as T;
-    case 'export_backup_file':
-      return `/mock/Pasted_Library_Archive_${new Date().toISOString().slice(0, 10)}.json` as unknown as T;
-    case 'choose_import_file':
-      return {
-        path: '/mock/Pasted_History_and_Organization.json',
-        name: 'Pasted_History_and_Organization.json',
-        kind: 'organization',
-        format: 'json',
-        sizeBytes: 184_320,
-        library: {
-          schemaVersion: 1,
-          clipCount: 248,
-          binCount: 7,
-          operationCount: 5,
-          transformCount: 12,
-          classifierCount: 4,
-          contentTypeCount: 9,
-        },
-      } as unknown as T;
-    case 'import_inspected_file':
-      return { importedCount: 248, duplicateCount: 0 } as unknown as T;
-    case 'export_full_backup_file':
-      return {
-        path: `/mock/Pasted_Full_Backup_${new Date().toISOString().slice(0, 10)}.pastedbackup`,
-        createdAt: new Date().toISOString(),
-        sizeBytes: 2_457_600,
-      } as unknown as T;
-    case 'restore_full_backup_file':
-      return {
-        recoveryPath: '/mock/Pasted_Pre_Restore.pastedbackup',
-        backupCreatedAt: new Date().toISOString(),
-      } as unknown as T;
-    case 'consume_pending_full_restore_client_state':
-      return null as unknown as T;
     case 'get_library_location':
       return mockLibraryLocation as unknown as T;
     case 'get_storage_protection':
@@ -1188,12 +1098,6 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
     }
     case 'get_operations':
       return mockOperations.map((operation) => ({ ...operation })) as unknown as T;
-    case 'get_activity_logs':
-      return [] as unknown as T;
-    case 'export_activity_json':
-      return JSON.stringify({ schemaVersion: 1, exportedAt: new Date().toISOString(), resource: { 'service.name': 'Pasted' }, entries: [] }, null, 2) as unknown as T;
-    case 'export_activity_csv':
-      return 'timestamp,observed_timestamp,event_name,severity_text,body,category,outcome,attributes_json\n' as unknown as T;
     case 'get_clip_versions':
       return [] as unknown as T;
     case 'get_clip_version_count':
@@ -1470,7 +1374,6 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
         clipIds: ids,
       } as unknown as T;
     }
-    case 'clear_activity_logs':
     case 'enforce_activity_retention':
     case 'enforce_clip_retention':
     case 'enforce_revision_retention':
@@ -1524,9 +1427,9 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       mockOperations = mockOperations.filter(({ id }) => id !== Number(args?.id));
       return undefined as unknown as T;
     case 'create_manual_transform': {
-      const id = Math.max(0, ...mockPipelines.map((pipeline) => pipeline.id)) + 1;
+      const id = Math.max(0, ...mockManualTransforms.map((manualTransform) => manualTransform.id)) + 1;
       const now = new Date().toISOString();
-      const pipeline = {
+      const manualTransform = {
         id,
         stableRef: `transform:mock-${id}`,
         name: String(args?.name ?? 'Untitled Transform'),
@@ -1536,31 +1439,31 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
         updatedAt: now,
         steps: Array.isArray(args?.steps) ? args.steps : [],
       };
-      mockPipelines.push(pipeline);
-      return pipeline as unknown as T;
+      mockManualTransforms.push(manualTransform);
+      return manualTransform as unknown as T;
     }
     case 'update_manual_transform': {
-      const pipeline = mockPipelines.find(({ stableRef }) => stableRef === String(args?.transformRef));
-      if (!pipeline) throw new Error('Transform was not found');
-      pipeline.name = String(args?.name ?? pipeline.name);
-      pipeline.steps = Array.isArray(args?.steps) ? args.steps as typeof pipeline.steps : pipeline.steps;
-      pipeline.hotkey = typeof args?.hotkey === 'string' ? args.hotkey : null;
-      pipeline.revision += 1;
-      pipeline.updatedAt = new Date().toISOString();
-      return pipeline as unknown as T;
+      const manualTransform = mockManualTransforms.find(({ stableRef }) => stableRef === String(args?.transformRef));
+      if (!manualTransform) throw new Error('Transform was not found');
+      manualTransform.name = String(args?.name ?? manualTransform.name);
+      manualTransform.steps = Array.isArray(args?.steps) ? args.steps as typeof manualTransform.steps : manualTransform.steps;
+      manualTransform.hotkey = typeof args?.hotkey === 'string' ? args.hotkey : null;
+      manualTransform.revision += 1;
+      manualTransform.updatedAt = new Date().toISOString();
+      return manualTransform as unknown as T;
     }
     case 'update_manual_transform_hotkey': {
-      const pipeline = mockPipelines.find(({ stableRef }) => stableRef === String(args?.transformRef));
-      if (pipeline) pipeline.hotkey = typeof args?.hotkey === 'string' ? args.hotkey : null;
+      const manualTransform = mockManualTransforms.find(({ stableRef }) => stableRef === String(args?.transformRef));
+      if (manualTransform) manualTransform.hotkey = typeof args?.hotkey === 'string' ? args.hotkey : null;
       return undefined as unknown as T;
     }
     case 'delete_manual_transform':
-      mockPipelines = mockPipelines.filter(({ stableRef }) => stableRef !== String(args?.transformRef));
+      mockManualTransforms = mockManualTransforms.filter(({ stableRef }) => stableRef !== String(args?.transformRef));
       return undefined as unknown as T;
     case 'get_transforms':
       return [
-        ...mockPipelines.map((pipeline) => ({
-          ...pipeline,
+        ...mockManualTransforms.map((manualTransform) => ({
+          ...manualTransform,
           authoringKind: 'manual',
           executionCharacter: 'replayable',
           connectionId: null,

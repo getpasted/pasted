@@ -15,8 +15,7 @@ use crate::db::{
     Bin, ClipItem, ClipMutationSummary, ClipSearchRequest, ClipSearchResult,
     ContentClassificationRescanReport, DbState, FactoryResetReport, FileFormatRescanReport,
     FullBackupInspection, IntelligenceConnection, IntelligenceConnectionUpdate,
-    LibraryArchiveInspection, Pipeline, PipelineStepInput, SavedTransform,
-    TransformClipApplication, TransformDefinition,
+    LibraryArchiveInspection, SavedTransform, TransformClipApplication, TransformDefinition,
 };
 use crate::features::{self, Feature};
 use crate::installation_diagnostics::InstallationDiagnostics;
@@ -2559,18 +2558,20 @@ pub fn update_bin(
 }
 
 #[tauri::command]
-pub fn get_manual_transforms(db: State<'_, Arc<DbState>>) -> Result<Vec<Pipeline>, String> {
+pub fn get_manual_transforms(
+    db: State<'_, Arc<DbState>>,
+) -> Result<Vec<crate::manual_transform_service::ManualTransform>, String> {
     crate::manual_transform_service::list(&db).map_err(|error| error.to_string())
 }
 
 #[tauri::command]
 pub fn create_manual_transform(
     name: String,
-    steps: Vec<PipelineStepInput>,
+    steps: Vec<crate::manual_transform_service::ManualTransformStepInput>,
     hotkey: Option<String>,
     db: State<'_, Arc<DbState>>,
     app: AppHandle,
-) -> Result<Pipeline, String> {
+) -> Result<crate::manual_transform_service::ManualTransform, String> {
     features::require(&db, Feature::Transformations)?;
     let has_hotkey = hotkey
         .as_deref()
@@ -2578,23 +2579,24 @@ pub fn create_manual_transform(
     if has_hotkey {
         features::require(&db, Feature::Hotkeys)?;
     }
-    let pipeline = crate::manual_transform_service::create(&db, &name, &steps, hotkey.as_deref())
-        .map_err(|error| error.to_string())?;
+    let manual_transform =
+        crate::manual_transform_service::create(&db, &name, &steps, hotkey.as_deref())
+            .map_err(|error| error.to_string())?;
     if has_hotkey {
         let _ = register_all_app_shortcuts(&app);
     }
-    Ok(pipeline)
+    Ok(manual_transform)
 }
 
 #[tauri::command]
 pub fn update_manual_transform(
     transform_ref: String,
     name: String,
-    steps: Vec<PipelineStepInput>,
+    steps: Vec<crate::manual_transform_service::ManualTransformStepInput>,
     hotkey: Option<String>,
     db: State<'_, Arc<DbState>>,
     app: AppHandle,
-) -> Result<Pipeline, String> {
+) -> Result<crate::manual_transform_service::ManualTransform, String> {
     features::require(&db, Feature::Transformations)?;
     let previous_shortcut = db
         .resolve_transform_definition(&transform_ref)
@@ -2605,7 +2607,7 @@ pub fn update_manual_transform(
     if hotkey_changed {
         features::require(&db, Feature::Hotkeys)?;
     }
-    let pipeline = crate::manual_transform_service::update(
+    let manual_transform = crate::manual_transform_service::update(
         &db,
         &transform_ref,
         &name,
@@ -2616,7 +2618,7 @@ pub fn update_manual_transform(
     if hotkey_changed {
         let _ = register_all_app_shortcuts(&app);
     }
-    Ok(pipeline)
+    Ok(manual_transform)
 }
 
 #[tauri::command]
@@ -2631,9 +2633,9 @@ pub fn update_manual_transform_hotkey(
     let previous = crate::manual_transform_service::list(&db)
         .map_err(|error| error.to_string())?
         .into_iter()
-        .find(|pipeline| {
-            pipeline.stable_ref == transform_ref
-                || pipeline.stable_ref.strip_prefix("transform:")
+        .find(|manual_transform| {
+            manual_transform.stable_ref == transform_ref
+                || manual_transform.stable_ref.strip_prefix("transform:")
                     == transform_ref
                         .strip_prefix("pipeline:")
                         .or_else(|| transform_ref.strip_prefix("transform:"))
@@ -2677,7 +2679,7 @@ pub fn delete_manual_transform(
 #[tauri::command]
 pub async fn preview_manual_transform_steps(
     input: String,
-    steps: Vec<PipelineStepInput>,
+    steps: Vec<crate::manual_transform_service::ManualTransformStepInput>,
     client_request_id: Option<String>,
     db: State<'_, Arc<DbState>>,
 ) -> Result<String, crate::transformation_service::ExecutionError> {

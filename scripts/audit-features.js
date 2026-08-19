@@ -15,6 +15,7 @@ const nativeMenu = read('src-tauri/src/app_menu.rs');
 const captureFeedbackWindow = read('src/components/CaptureFeedbackWindow.tsx');
 const clipboardMonitor = read('src-tauri/src/clipboard_monitor.rs');
 const hotkeyManager = read('src-tauri/src/hotkey_manager.rs');
+const manualTransformService = read('src-tauri/src/manual_transform_service.rs');
 const clipPreview = read('src/components/ClipPreview.tsx');
 const settingsHotkeys = read('src/components/SettingsHotkeysPanel.tsx');
 const cli = read('src-tauri/src/bin/pasted_cli.rs');
@@ -128,8 +129,10 @@ assert.match(hotkeyManager, /get_all_settings\(\)/,
   'Hotkey rebuilds must load settings in one database snapshot');
 assert.match(hotkeyManager, /get_bin_hotkeys\(\)/,
   'Hotkey rebuilds must not load full Bin records');
-assert.match(hotkeyManager, /get_pipeline_hotkeys\(\)/,
-  'Hotkey rebuilds must not load full Transform plans');
+assert.match(hotkeyManager, /manual_transform_service::hotkeys\(&db\)/,
+  'Hotkey rebuilds must enter through the Manual Transform application service');
+assert.match(manualTransformService, /db\.get_pipeline_hotkeys\(\)/,
+  'The Manual Transform service must isolate the historical hotkey storage API');
 assert.doesNotMatch(
   nativeCommands.match(/pub\(crate\) fn execute_clipboard_pipeline[\s\S]*?\n\}/)?.[0] ?? '',
   /thread::spawn/,

@@ -211,14 +211,14 @@ export interface ManualTransform {
   id: number;
   stableRef: string;
   name: string;
-  steps: PipelineStep[];
+  steps: ManualTransformStep[];
   hotkey?: string | null;
   revision: number;
   createdAt: string;
   updatedAt: string;
 }
 
-export interface PipelineStep {
+export interface ManualTransformStep {
   position: number;
   operationRef: string;
   configJson: string | null;
@@ -401,7 +401,7 @@ export interface TransformDefinition {
   createdAt: string;
   updatedAt: string;
   plan: TransformationPlan | null;
-  steps: PipelineStep[];
+  steps: ManualTransformStep[];
 }
 
 export interface ExecutePlanOutcome {
@@ -430,7 +430,7 @@ export type TransformExecutionDestination = 'preview' | 'replace' | 'copy' | 'pa
 
 export interface TransformationExecution {
   id: string;
-  targetKind: 'operation' | 'pipeline' | 'transform';
+  targetKind: 'operation' | 'transform';
   targetRef: string;
   targetRevision: number | null;
   sourceClipId: number | null;

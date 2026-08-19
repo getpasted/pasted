@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { safeInvoke as invoke } from '../utils/tauri';
+import { analysisApi } from '../api/analysis';
 import { CONTENT_TYPES, setRuntimeContentTypes } from '../utils/contentTypes';
 import { translate } from '../localization/runtime';
 
@@ -46,13 +46,13 @@ export function ContentTypeProvider({ children }: { children: ReactNode }) {
   const [definitions, setDefinitions] = useState(fallbackTypes);
   const [groups, setGroups] = useState(fallbackGroups);
   const refresh = useCallback(async () => {
-    const loaded = await invoke<RegisteredContentType[]>('get_content_types', { includeArchived: true });
+    const loaded = await analysisApi.listContentTypes<RegisteredContentType>();
     setRuntimeContentTypes(loaded);
     setDefinitions(loaded);
     return loaded;
   }, []);
   const refreshGroups = useCallback(async () => {
-    const loaded = await invoke<RegisteredContentTypeGroup[]>('get_content_type_groups', { includeArchived: true });
+    const loaded = await analysisApi.listContentTypeGroups<RegisteredContentTypeGroup>();
     setGroups(loaded);
     return loaded;
   }, []);

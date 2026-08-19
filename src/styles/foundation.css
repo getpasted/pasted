@@ -550,10 +550,10 @@ html[dir="rtl"] .tracking-widest {
     --status-warning: #d97706;
     --status-info: var(--accent-primary);
     --status-danger-contrast: #ffffff;
-    --pipeline-accent: #1598a8;
-    --pipeline-accent-bright: #22c7d8;
-    --pipeline-action: #087f8f;
-    --pipeline-action-hover: #0a7180;
+    --manual-transform-accent: #1598a8;
+    --manual-transform-accent-bright: #22c7d8;
+    --manual-transform-action: #087f8f;
+    --manual-transform-action-hover: #0a7180;
     --operation-accent: #c06a20;
     --operation-accent-bright: #e99a28;
     --operation-action: #a9520d;

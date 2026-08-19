@@ -6,17 +6,18 @@ import { useToast } from './ToastProvider';
 import { ActionButton } from './AppDialogLayout';
 import { collectBackupClientState } from '../utils/backupClientState';
 import { translate } from '../localization/runtime';
+import { backupApi } from '../api/backup';
 
 interface SettingsResetPanelProps {
   onRefreshBins?: () => void;
-  onRefreshPipelines?: () => void;
+  onRefreshManualTransforms?: () => void;
   onRefreshClips?: () => void;
   onRefreshTrashedClips?: () => void;
 }
 
 export function SettingsResetPanel({
   onRefreshBins,
-  onRefreshPipelines,
+  onRefreshManualTransforms,
   onRefreshClips,
   onRefreshTrashedClips,
 }: SettingsResetPanelProps) {
@@ -24,7 +25,7 @@ export function SettingsResetPanel({
   const [isResetOpen, setIsResetOpen] = useState(false);
 
   const handleExport = async () => {
-    await invoke('export_full_backup_file', { clientStateJson: collectBackupClientState() });
+    await backupApi.exportFull(collectBackupClientState());
   };
 
   const handleFactoryReset = async () => {
@@ -34,7 +35,7 @@ export function SettingsResetPanel({
       if (key?.startsWith('pasted_')) localStorage.removeItem(key);
     }
     onRefreshBins?.();
-    onRefreshPipelines?.();
+    onRefreshManualTransforms?.();
     onRefreshClips?.();
     onRefreshTrashedClips?.();
 

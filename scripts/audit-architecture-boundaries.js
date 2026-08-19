@@ -2,6 +2,12 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
 const read = (path) => fs.readFileSync(path, 'utf8');
+const lineCount = (path) => read(path).trimEnd().split(/\r?\n/).length;
+const readSourceTree = (directory) => fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+  const path = `${directory}/${entry.name}`;
+  if (entry.isDirectory()) return readSourceTree(path);
+  return /\.(?:ts|tsx)$/.test(entry.name) ? [{ path, source: read(path) }] : [];
+});
 const commands = read('src-tauri/src/commands.rs');
 const liveApp = read('src-tauri/src/live_app.rs');
 const clipboardActions = read('src-tauri/src/clipboard_actions.rs');
@@ -65,5 +71,44 @@ assert.doesNotMatch(read('src/components/TransformationsView.tsx'), /invoke\([^\
   'Transform views must not bypass the Transform capability client');
 assert.doesNotMatch(localizationRuntime, /import\.meta\.glob\([^)]*eager:\s*true/s,
   'Non-English locale catalogs must not inflate the startup bundle');
+assert.match(localizationRuntime, /catalogReady:\s*Boolean\(catalogs\[locale\]\)/,
+  'Lazy locale catalogs must expose explicit readiness');
+assert.match(read('src/App.tsx'), /!catalogReady \|\| !settingsHydrated \|\| !initialDataLoaded/,
+  'Application readiness must wait for the selected locale catalog');
+
+const sizeRatchets = new Map([
+  ['src-tauri/src/db.rs', 20_341],
+  ['src-tauri/src/commands.rs', 5_287],
+  ['src-tauri/src/bin/pasted_cli.rs', 5_040],
+  ['src/App.tsx', 1_814],
+  ['src/utils/tauri.ts', 1_569],
+]);
+for (const [path, maximum] of sizeRatchets) {
+  assert.ok(lineCount(path) <= maximum,
+    `${path} grew beyond its ${maximum}-line architecture ratchet; extract a capability instead`);
+}
+
+const centralizedCommands = [
+  'get_activity_logs', 'clear_activity_logs', 'export_activity_json', 'export_activity_csv',
+  'get_analytics_summary', 'export_backup_file', 'export_full_backup_file',
+  'restore_full_backup_file', 'choose_import_file', 'import_inspected_file',
+  'consume_pending_full_restore_client_state', 'get_clips', 'get_trashed_clips',
+  'get_clip_collection_summary', 'get_bins',
+];
+const presentationSource = readSourceTree('src')
+  .filter(({ path }) => !path.startsWith('src/api/')
+    && !path.startsWith('src/mocks/')
+    && path !== 'src/utils/tauri.ts')
+  .map(({ source }) => source)
+  .join('\n');
+for (const command of centralizedCommands) {
+  assert.doesNotMatch(presentationSource, new RegExp(`invoke(?:<[^;\\n]+?>)?\\(['"]${command}['"]`),
+    `${command} must be reached through its domain capability client`);
+}
+
+for (const handler of ['activity', 'analytics', 'analysis', 'backup', 'bins', 'clips']) {
+  assert.ok(fs.existsSync(`src/mocks/browser/${handler}.ts`),
+    `${handler} browser behavior must remain in a domain handler`);
+}
 
 console.log('Application architecture boundary audit passed.');
