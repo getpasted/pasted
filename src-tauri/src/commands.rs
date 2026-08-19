@@ -868,14 +868,13 @@ pub async fn get_file_clip_previews(
 
 #[tauri::command]
 pub fn get_clips(
-    search_query: Option<String>,
     bin_id: Option<i64>,
     only_pinned: bool,
     limit: Option<i64>,
     offset: Option<i64>,
     db: State<'_, Arc<DbState>>,
 ) -> Result<Vec<ClipItem>, String> {
-    db.get_clips_page(search_query.as_deref(), bin_id, only_pinned, limit, offset)
+    db.get_clips_page(bin_id, only_pinned, limit, offset)
         .map_err(|e| e.to_string())
 }
 

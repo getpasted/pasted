@@ -54,6 +54,7 @@ import { useLocalization } from './localization/LocalizationProvider';
 import { translate } from './localization/runtime';
 import { localizedSourceName } from './localization/presentation';
 import { MacRtlWindowControls } from './components/MacRtlWindowControls';
+import { SearchErrorNotice } from './components/SearchErrorNotice';
 
 const TRANSIENT_SCROLL_SURFACE_SELECTOR = [
   '.surface-scroll-region',
@@ -474,6 +475,8 @@ export default function App() {
     queuedIndexMap,
     searchTotalCount,
     isSearching,
+    searchFailed,
+    retrySearch,
     loadMoreSearchResults,
   } = useClipViews({
     allClips,
@@ -1449,13 +1452,20 @@ export default function App() {
                 }}
               >
                 {displayedClips.length === 0 && !isLoadingCurrentCollection ? (
+                  searchFailed && currentTab === 'search' ? (
+                    <div className="flex h-full items-center justify-center p-6">
+                      <SearchErrorNotice onRetry={retrySearch} />
+                    </div>
+                  ) : (
                   <EmptyClipList
                     currentTab={currentTab}
                     searchQuery={searchQuery}
                     selectedBin={selectedBinId === null ? undefined : binsById.get(selectedBinId)}
                   />
+                  )
                 ) : (
                   <>
+                  {searchFailed && currentTab === 'search' && <SearchErrorNotice onRetry={retrySearch} />}
                   {displayedClips.map((clip, index) => {
                   const queueIndex = isQueueCollection
                     ? index + 1

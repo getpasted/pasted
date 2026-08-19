@@ -1748,6 +1748,8 @@
   "component.settingsWelcomePanel.welcomeCopycat": "ברוכים הבאים, העתק",
   "component.sidebar.alreadyInThisBin": "כבר באוסף זה",
   "component.sidebar.bins": "אוספים",
+  "component.searchErrorNotice.retrySearch": "ניסיון חוזר",
+  "component.searchErrorNotice.searchCouldNotBeCompleted": "לא ניתן היה להשלים את החיפוש.",
   "component.sidebar.clearSearch": "ניקוי החיפוש",
   "component.sidebar.clearSearch2": "ניקוי החיפוש",
   "component.sidebar.clips": "קטעים",

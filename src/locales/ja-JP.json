@@ -1739,6 +1739,8 @@
   "component.settingsWelcomePanel.welcomeCopycat": "ようこそ、Copycat",
   "component.sidebar.alreadyInThisBin": "すでにこのコレクションにあります",
   "component.sidebar.bins": "コレクション",
+  "component.searchErrorNotice.retrySearch": "再試行",
+  "component.searchErrorNotice.searchCouldNotBeCompleted": "検索を完了できませんでした。",
   "component.sidebar.clearSearch": "検索をクリアする",
   "component.sidebar.clearSearch2": "検索をクリアする",
   "component.sidebar.clips": "クリップ",

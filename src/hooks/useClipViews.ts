@@ -5,6 +5,7 @@ import { sortClipsChronologically } from '../utils/clipOrder';
 import { clipMatchesSearch, parseClipSearch, type ClipSearchFeaturePolicy } from '../utils/clipSearch';
 import { getClipCollection, parseClipFacetRoute } from '../utils/clipCollections';
 import type { FeatureId } from '../utils/features';
+import { appendUniqueSearchPage } from '../utils/searchPagination';
 import { safeInvoke as invoke } from '../utils/tauri';
 
 interface ClipViewsInput {
@@ -29,6 +30,7 @@ interface AuthoritativeSearchResult {
   items: ClipItem[];
   totalCount: number;
   loading: boolean;
+  failed: boolean;
 }
 
 const SEARCH_PAGE_SIZE = 100;
@@ -156,7 +158,9 @@ export function useClipViews({
     items: [],
     totalCount: 0,
     loading: false,
+    failed: false,
   });
+  const [searchRevision, setSearchRevision] = useState(0);
   const searchLoadingRef = useRef(false);
 
   useEffect(() => {
@@ -165,12 +169,12 @@ export function useClipViews({
       setSearchResult((current) => (
         current.query === '' && current.items.length === 0 && current.totalCount === 0
           ? current
-          : { query: '', items: [], totalCount: 0, loading: false }
+          : { query: '', items: [], totalCount: 0, loading: false, failed: false }
       ));
       return;
     }
     let active = true;
-    setSearchResult({ query: normalizedSearchQuery, items: [], totalCount: 0, loading: true });
+    setSearchResult({ query: normalizedSearchQuery, items: [], totalCount: 0, loading: true, failed: false });
     searchLoadingRef.current = true;
     const timer = window.setTimeout(() => {
       invoke<ClipSearchResult>('search_clips', {
@@ -182,12 +186,13 @@ export function useClipViews({
             items: result.items,
             totalCount: result.totalCount,
             loading: false,
+            failed: false,
           });
         }
       }).catch((error) => {
         console.error('Failed to search clips:', error);
         if (active) {
-          setSearchResult({ query: normalizedSearchQuery, items: [], totalCount: 0, loading: false });
+          setSearchResult({ query: normalizedSearchQuery, items: [], totalCount: 0, loading: false, failed: true });
         }
       }).finally(() => {
         if (active) searchLoadingRef.current = false;
@@ -198,7 +203,7 @@ export function useClipViews({
       window.clearTimeout(timer);
     };
   // Refresh after clip updates so newly persisted OCR or transcription joins an active search.
-  }, [allClips, currentTab, features, normalizedSearchQuery, trashedClips]);
+  }, [allClips, currentTab, features, normalizedSearchQuery, searchRevision, trashedClips]);
 
   const loadMoreSearchResults = useCallback(async () => {
     if (currentTab !== 'search'
@@ -218,17 +223,17 @@ export function useClipViews({
       });
       setSearchResult((current) => {
         if (current.query !== normalizedSearchQuery) return current;
-        const existing = new Set(current.items.map((clip) => clip.id));
         return {
           query: current.query,
-          items: [...current.items, ...result.items.filter((clip) => !existing.has(clip.id))],
+          items: appendUniqueSearchPage(current.items, result.items),
           totalCount: result.totalCount,
           loading: false,
+          failed: false,
         };
       });
     } catch (error) {
       console.error('Failed to load more Search results:', error);
-      setSearchResult((current) => ({ ...current, loading: false }));
+      setSearchResult((current) => ({ ...current, loading: false, failed: true }));
     } finally {
       searchLoadingRef.current = false;
     }
@@ -299,6 +304,8 @@ export function useClipViews({
     queuedIndexMap,
     searchTotalCount: searchResult.query === normalizedSearchQuery ? searchResult.totalCount : 0,
     isSearching: searchResult.loading,
+    searchFailed: searchResult.failed,
+    retrySearch: () => setSearchRevision((revision) => revision + 1),
     loadMoreSearchResults,
     ...counts,
   };

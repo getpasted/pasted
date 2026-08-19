@@ -3371,7 +3371,7 @@ fn run_command(command: &str, args: &[String], db_path: PathBuf, conn: Connectio
                         eprintln!("Usage: pasted bin clips <bin-id> [--json]");
                         std::process::exit(2);
                     };
-                    let clips = db.get_clips(None, Some(bin_id), false)?;
+                    let clips = db.get_clips(Some(bin_id), false)?;
                     if args.iter().any(|argument| argument == "--json") {
                         println!(
                             "{}",
@@ -3871,7 +3871,7 @@ fn run_command(command: &str, args: &[String], db_path: PathBuf, conn: Connectio
             let clips = if trash {
                 db.get_trashed_clips_page(Some(limit), Some(offset))?
             } else {
-                db.get_clips_page(None, bin_id, pinned, Some(limit), Some(offset))?
+                db.get_clips_page(bin_id, pinned, Some(limit), Some(offset))?
             };
             if args.iter().any(|argument| argument == "--json") {
                 println!(
@@ -3918,10 +3918,22 @@ fn run_command(command: &str, args: &[String], db_path: PathBuf, conn: Connectio
             let source = option_value("--source");
             let json = args.iter().any(|argument| argument == "--json");
             let trash = args.iter().any(|argument| argument == "--trash");
-            let limit = option_value("--limit")
-                .and_then(|value| value.parse::<i64>().ok())
-                .unwrap_or(20)
-                .clamp(1, 10_000);
+            let limit = match option_value("--limit") {
+                Some(value) => match value.parse::<usize>() {
+                    Ok(value)
+                        if (1..=pasted_lib::db::MAX_CLIP_SEARCH_PAGE_SIZE).contains(&value) =>
+                    {
+                        value
+                    }
+                    _ => {
+                        return Err(rusqlite::Error::InvalidParameterName(format!(
+                            "--limit must be between 1 and {}",
+                            pasted_lib::db::MAX_CLIP_SEARCH_PAGE_SIZE
+                        )))
+                    }
+                },
+                None => 20,
+            };
             let offset = option_value("--offset")
                 .and_then(|value| value.parse::<i64>().ok())
                 .unwrap_or(0)
@@ -3941,7 +3953,7 @@ fn run_command(command: &str, args: &[String], db_path: PathBuf, conn: Connectio
                 file_formats: file_format.into_iter().collect(),
                 sources: source.into_iter().collect(),
                 trash,
-                limit: usize::try_from(limit).unwrap_or(20),
+                limit,
                 offset: usize::try_from(offset).unwrap_or(0),
             })?;
 

@@ -1739,6 +1739,8 @@
   "component.settingsWelcomePanel.welcomeCopycat": "Willkommen, Copycat.",
   "component.sidebar.alreadyInThisBin": "Bereits in dieser Sammlung",
   "component.sidebar.bins": "Sammlungen",
+  "component.searchErrorNotice.retrySearch": "Erneut versuchen",
+  "component.searchErrorNotice.searchCouldNotBeCompleted": "Die Suche konnte nicht abgeschlossen werden.",
   "component.sidebar.clearSearch": "Suche löschen",
   "component.sidebar.clearSearch2": "Suche löschen",
   "component.sidebar.clips": "Zwischenablage",

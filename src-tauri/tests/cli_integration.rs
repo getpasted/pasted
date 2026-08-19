@@ -545,6 +545,7 @@ fn search_uses_the_shared_paginated_contract_and_exact_collection_filters() {
             "--json",
         ],
     );
+    assert_eq!(first_page["schemaVersion"], 1);
     assert_eq!(first_page["totalCount"], 2);
     assert_eq!(first_page["limit"], 1);
     assert_eq!(first_page["offset"], 0);
@@ -571,6 +572,10 @@ fn search_uses_the_shared_paginated_contract_and_exact_collection_filters() {
 
     let partial_source = success_json(&database, &["search", "--source", "CLI", "--json"]);
     assert_eq!(partial_source["totalCount"], 0);
+    let oversized_page = run(&database, &["search", "--limit", "501", "--json"]);
+    assert!(!oversized_page.status.success());
+    assert!(String::from_utf8_lossy(&oversized_page.stderr)
+        .contains("--limit must be between 1 and 500"));
     clean_database(&database);
 }
 

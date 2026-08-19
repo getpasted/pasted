@@ -107,6 +107,7 @@ export interface ClipSearchRequest {
 }
 
 export interface ClipSearchResult {
+  schemaVersion: 1;
   items: ClipItem[];
   totalCount: number;
   limit: number;

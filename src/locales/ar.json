@@ -1775,6 +1775,8 @@
   "component.settingsWelcomePanel.welcomeCopycat": "مرحبًا، Copycat",
   "component.sidebar.alreadyInThisBin": "موجود بالفعل في هذه المجموعة",
   "component.sidebar.bins": "المجموعات",
+  "component.searchErrorNotice.retrySearch": "إعادة المحاولة",
+  "component.searchErrorNotice.searchCouldNotBeCompleted": "تعذر إكمال البحث.",
   "component.sidebar.clearSearch": "مسح البحث",
   "component.sidebar.clearSearch2": "مسح البحث",
   "component.sidebar.clips": "المقتطفات",

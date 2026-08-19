@@ -6,6 +6,7 @@ import { ClipItem, ClipSearchResult, getClipFileSummary } from '../types';
 import { OverflowText } from './OverflowText';
 import { SafeRasterImage } from './SafeRasterImage';
 import { translate } from '../localization/runtime';
+import { SearchErrorNotice } from './SearchErrorNotice';
 
 export const QuickHudWindow: React.FC = () => {
   const [hudAnchor, setHudAnchor] = useState({ flipped: false, x: 180 });
@@ -21,19 +22,24 @@ export const QuickHudWindow: React.FC = () => {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [pasteError, setPasteError] = useState('');
   const [isPasting, setIsPasting] = useState(false);
+  const [searchFailed, setSearchFailed] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const isPastingRef = useRef(false);
+  const fetchRevisionRef = useRef(0);
   const clipsRef = useRef(clips);
   const selectedIndexRef = useRef(selectedIndex);
   clipsRef.current = clips;
   selectedIndexRef.current = selectedIndex;
 
   const fetchClips = async () => {
+    const revision = ++fetchRevisionRef.current;
+    setSearchFailed(false);
     try {
       const result = await invoke<ClipSearchResult>('search_clips', {
         request: { query: search, limit: 9, offset: 0 },
       });
+      if (revision !== fetchRevisionRef.current) return;
       setClips(result.items);
       setSelectedIndex(0);
       if (!search) {
@@ -45,6 +51,7 @@ export const QuickHudWindow: React.FC = () => {
       }
     } catch (e) {
       console.error('Failed to fetch clips for HUD:', e);
+      if (revision === fetchRevisionRef.current) setSearchFailed(true);
     }
   };
   const fetchClipsRef = useRef(fetchClips);
@@ -200,7 +207,8 @@ export const QuickHudWindow: React.FC = () => {
           aria-busy={isPasting}
           className="custom-scrollbar flex-1 overflow-y-auto p-2 space-y-1.5"
         >
-          {clips.length === 0 ? (
+          {searchFailed && <SearchErrorNotice onRetry={() => void fetchClipsRef.current()} />}
+          {clips.length === 0 && !searchFailed ? (
             <div className="theme-text-subtle flex flex-col items-center justify-center h-48 text-center space-y-1.5 p-4">
               <Sparkles className="w-6 h-6" />
               <p className="theme-text-muted text-xs font-semibold">{translate('component.quickHudWindow.noMatchingClips')}</p>

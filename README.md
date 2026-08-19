@@ -78,7 +78,7 @@ pasted backup create Pasted.pastedbackup --json
 pasted transfer export Pasted-history.json --json
 ```
 
-Search is authoritative across the GUI, Quick HUD, and CLI. Collection-axis filters match exact values case-insensitively, ordinary terms remain partial matches, and paginated JSON search output includes `items`, `totalCount`, `limit`, and `offset` without exposing extracted OCR or transcript text.
+Search is authoritative across the GUI, Quick HUD, and CLI. Collection-axis filters match exact values case-insensitively, ordinary terms remain partial matches, and paginated JSON search output includes `schemaVersion`, `items`, `totalCount`, `limit`, and `offset` without exposing extracted OCR or transcript text. Search pages contain at most 500 items.
 
 The Analyzer command returns one versioned, privacy-safe preview across the applicable Inspector, Extractor, Classifier, and Suggestion participants. File Format inspection identifies formats from bounded byte signatures rather than filename extensions. Focused commands such as `pasted inspector`, `pasted extractor`, `pasted classifier`, and `pasted suggestion` expose the same contracts for automation and diagnostics.
 
