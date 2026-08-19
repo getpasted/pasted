@@ -25,6 +25,7 @@ interface BinModalProps {
   editingBin?: Bin | null;
   features: SmartBinFeatures;
   fileFormats: string[];
+  sources: string[];
   onClose: () => void;
   onRefreshBins: () => void;
 }
@@ -100,7 +101,9 @@ function SmartConditionTargetSelect({
             <MenuSubmenu
               label={section.label}
               open={activeSubmenu === section.target}
-              onOpenChange={(open) => setActiveSubmenu(open ? section.target : null)}
+              onOpenChange={(open) => setActiveSubmenu((current) => (
+                open ? section.target : current === section.target ? null : current
+              ))}
               panelClassName="w-64 max-h-72 overflow-y-auto"
             >
               {section.choices.map((choice, index) => <React.Fragment key={`${section.target}:${choice.value}`}>
@@ -228,6 +231,7 @@ export const BinModal: React.FC<BinModalProps> = ({
   editingBin,
   features,
   fileFormats,
+  sources,
   onClose,
   onRefreshBins,
 }) => {
@@ -462,6 +466,7 @@ export const BinModal: React.FC<BinModalProps> = ({
     const formatChoices = fileFormats.map((format) => ({ value: format, label: format.toUpperCase() }));
     const sourceChoices = [...new Set([
       ...(condition.target === 'source' && condition.value ? [condition.value] : []),
+      ...sources,
       ...installedApps,
     ])].map((source) => ({ value: source, label: source }));
     return [
