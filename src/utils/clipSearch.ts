@@ -1,125 +1,55 @@
 import type { ClipItem } from '../types';
 import { getClipFilePaths, getClipNoteSummary } from '../types';
+import type { FeatureId } from './features';
+import { parseClipSearch, type ClipSearchPlan } from './clipSearchGrammar';
+
+export { parseClipSearch } from './clipSearchGrammar';
+export type { ClipSearchPlan } from './clipSearchGrammar';
 
 export type ClipSearchHighlightField = 'source' | 'content' | 'note';
 
-export interface ClipSearchPlan {
-  sources: string[];
-  types: string[];
-  terms: string[];
-  requiresNote: boolean;
-  requiresPinned: boolean;
-  requiresProtected: boolean;
-  requiresTrashed: boolean;
-  hasIncompleteFilter: boolean;
-  regex: RegExp | null;
-  regexFallback: string | null;
-}
+export type ClipSearchFeaturePolicy = Pick<
+  Record<FeatureId, boolean>,
+  'clipTypes' | 'fileFormats' | 'types' | 'sources' | 'notes' | 'pinning' | 'protection'
+>;
 
-function tokenizeSearch(query: string) {
-  const tokens: string[] = [];
-  let token = '';
-  let quote: '"' | "'" | null = null;
-
-  for (const character of query) {
-    if (quote) {
-      if (character === quote) quote = null;
-      else token += character;
-      continue;
-    }
-    if (character === '"' || character === "'") {
-      quote = character;
-    } else if (/\s/.test(character)) {
-      if (token) tokens.push(token);
-      token = '';
-    } else {
-      token += character;
-    }
-  }
-  if (token) tokens.push(token);
-  return tokens;
-}
-
-export function parseClipSearch(rawQuery: string): ClipSearchPlan {
-  const trimmed = rawQuery.trim();
-  const plan: ClipSearchPlan = {
-    sources: [],
-    types: [],
-    terms: [],
-    requiresNote: false,
-    requiresPinned: false,
-    requiresProtected: false,
-    requiresTrashed: false,
-    hasIncompleteFilter: false,
-    regex: null,
-    regexFallback: null,
-  };
-
-  // Preserve the original behavior: everything after a leading regex: is the
-  // expression, including whitespace and characters that resemble filters.
-  if (trimmed.toLowerCase().startsWith('regex:')) {
-    const pattern = trimmed.slice(6);
-    if (!pattern.trim()) {
-      plan.hasIncompleteFilter = true;
-      return plan;
-    }
-    try {
-      plan.regex = new RegExp(pattern, 'i');
-    } catch {
-      plan.regexFallback = pattern.toLowerCase();
-    }
-    return plan;
-  }
-
-  tokenizeSearch(trimmed).forEach((token) => {
-    const lower = token.toLowerCase();
-    if (lower.startsWith('source:')) {
-      const value = lower.slice(7).trim();
-      if (value) plan.sources.push(value);
-      else plan.hasIncompleteFilter = true;
-    } else if (lower.startsWith('type:')) {
-      const value = lower.slice(5).trim();
-      if (value) plan.types.push(value);
-      else plan.hasIncompleteFilter = true;
-    } else if (lower === 'has:note') {
-      plan.requiresNote = true;
-    } else if (lower === 'is:pinned') {
-      plan.requiresPinned = true;
-    } else if (lower === 'is:protected') {
-      plan.requiresProtected = true;
-    } else if (lower === 'is:trashed') {
-      plan.requiresTrashed = true;
-    } else if (lower) {
-      plan.terms.push(lower);
-    }
-  });
-
-  return plan;
-}
-
-function searchableValues(clip: ClipItem) {
-  return [
+function searchableValues(clip: ClipItem, features?: ClipSearchFeaturePolicy) {
+  const values = [
     clip.text_content,
-    clip.source,
-    getClipNoteSummary(clip.note),
-    clip.content_type,
-    ...(clip.content_types ?? []),
     ...getClipFilePaths(clip),
-  ].filter((value): value is string => Boolean(value));
+  ];
+  if (!features || features.sources) values.push(clip.source);
+  if (!features || features.notes) values.push(getClipNoteSummary(clip.note));
+  if (!features || features.clipTypes) values.push(clip.content_type);
+  if (!features || features.types) values.push(...(clip.content_types ?? []));
+  if (!features || features.fileFormats) values.push(...(clip.file_formats ?? []));
+  return values.filter((value): value is string => Boolean(value));
 }
 
-export function clipMatchesSearch(clip: ClipItem, plan: ClipSearchPlan) {
+export function clipMatchesSearch(
+  clip: ClipItem,
+  plan: ClipSearchPlan,
+  features?: ClipSearchFeaturePolicy,
+) {
   if (plan.hasIncompleteFilter) return false;
-  const values = searchableValues(clip);
+  const values = searchableValues(clip, features);
   if (plan.regex) return values.some((value) => plan.regex?.test(value));
   if (plan.regexFallback !== null) {
     return values.some((value) => value.toLowerCase().includes(plan.regexFallback ?? ''));
   }
 
   const source = clip.source.toLowerCase();
-  const types = [clip.content_type, ...(clip.content_types ?? [])].map((value) => value.toLowerCase());
+  const clipType = clip.content_type.toLowerCase();
+  const contentTypes = (clip.content_types ?? []).map((value) => value.toLowerCase());
+  const formats = (clip.file_formats ?? []).map((value) => value.toLowerCase());
+  if (plan.sources.length > 0 && features && !features.sources) return false;
+  if (plan.clipTypes.length > 0 && features && !features.clipTypes) return false;
+  if (plan.contentTypes.length > 0 && features && !features.types) return false;
+  if (plan.formats.length > 0 && features && !features.fileFormats) return false;
   if (!plan.sources.every((value) => source.includes(value))) return false;
-  if (!plan.types.every((value) => types.some((type) => type.includes(value)))) return false;
+  if (!plan.clipTypes.every((value) => clipType.includes(value))) return false;
+  if (!plan.contentTypes.every((value) => contentTypes.some((type) => type.includes(value)))) return false;
+  if (!plan.formats.every((value) => formats.some((format) => format.includes(value)))) return false;
   if (plan.requiresNote && !clip.note?.trim()) return false;
   if (plan.requiresPinned && !clip.is_pinned) return false;
   if (plan.requiresProtected && !clip.is_protected) return false;

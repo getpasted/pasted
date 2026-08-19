@@ -41,4 +41,8 @@ const invalidBin = parseAppUiState({ currentTab: 'bin', selectedBinId: -1 });
 assert.equal(invalidBin.currentTab, 'all');
 assert.equal(invalidBin.selectedBinId, null);
 
+assert.equal(parseAppUiState({ currentTab: 'content_type-email' }).currentTab, 'content_type-email');
+assert.equal(parseAppUiState({ currentTab: 'file_format-pdf' }).currentTab, 'file_format-pdf');
+assert.equal(parseAppUiState({ currentTab: 'type-email' }).currentTab, 'all');
+
 console.log('App UI state route and subpage tests passed.');

@@ -334,7 +334,9 @@ export default function App() {
   useEffect(() => {
     if (
       ['all', 'sequential', 'pinned', 'protected', 'notes', 'trash', 'bin'].includes(currentTab)
-      || currentTab.startsWith('type-')
+      || currentTab.startsWith('clip_type-')
+      || currentTab.startsWith('content_type-')
+      || currentTab.startsWith('file_format-')
       || currentTab.startsWith('source-')
     ) {
       lastClipViewRef.current = { tab: currentTab, binId: currentTab === 'bin' ? selectedBinId : null };

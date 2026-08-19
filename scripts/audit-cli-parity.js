@@ -30,6 +30,13 @@ const extractorManager = read('src/components/ContentExtractorManagerDialog.tsx'
 const classifierManager = read('src/components/SettingsAnalysisPanel.tsx');
 const smartBins = read('src-tauri/src/smart_bins.rs');
 
+assert.match(cli, /pasted search \[query\] \[--clip TYPE\] \[--content TYPE\] \[--format FORMAT\] \[--source APP\]/,
+  'CLI search help must expose all four collection axes');
+assert.doesNotMatch(help, /pasted search[^\n]*--type TYPE/,
+  'GUI CLI help must not retain the ambiguous search --type flag');
+assert.match(cli, /"file_formats": file_formats/,
+  'CLI structured search output must expose verified File Formats');
+
 assert.match(commands, /pub async fn choose_extractor_executable/,
   'The native Extractor executable picker must not block the app command thread');
 for (const command of ['get_content_extractors', 'create_content_extractor_recipe', 'update_content_extractor_recipe', 'duplicate_content_extractor', 'restore_default_content_extractors']) {

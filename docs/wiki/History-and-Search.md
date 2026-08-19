@@ -15,14 +15,17 @@ Search is its own persistent collection. Leaving Search does not erase the query
 
 Supported helpers include:
 
+- `clip:` — structural Clip Type;
+- `content:` — current Content Type;
+- `format:` — verified File Format;
 - `source:` — capture source;
-- `type:` — Clip Type or any current Content Type;
 - `has:note` — clips with notes;
 - `is:pinned` — pinned clips;
 - `is:protected` — protected clips;
+- `is:trashed` — clips in Trash;
 - `regex:` — regular expression search.
 
-An incomplete helper such as `source:` is treated as incomplete rather than “match everything.” Arrow keys navigate results. `Esc` closes the helper menu; on an empty search it returns to the previous collection.
+The Clip Type, Content Type, File Format, and Source helpers follow their corresponding Functionality settings. An incomplete helper such as `source:` is treated as incomplete rather than “match everything.” Arrow keys navigate results. `Esc` closes the helper menu; on an empty search it returns to the previous collection.
 
 OCR text and stored transcripts participate in ordinary text search without replacing the original image or file references.
 

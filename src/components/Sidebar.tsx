@@ -50,8 +50,10 @@ import { useLocalization } from '../localization/LocalizationProvider';
 
 const SEARCH_HELPERS = [
   { prefix: 'regex:', get desc() { return translate('component.sidebar.regex'); } },
+  { prefix: 'clip:', get desc() { return translate('component.sidebar.clipTypes'); } },
+  { prefix: 'content:', get desc() { return translate('component.sidebar.contentTypes'); } },
+  { prefix: 'format:', get desc() { return translate('component.sidebar.fileFormats'); } },
   { prefix: 'source:', get desc() { return translate('component.sidebar.sources'); } },
-  { prefix: 'type:', get desc() { return translate('component.sidebar.contentTypes'); } },
   { prefix: 'has:note', get desc() { return translate('feature.notes.label'); } },
   { prefix: 'is:pinned', get desc() { return translate('collection.pinned'); } },
   { prefix: 'is:protected', get desc() { return translate('collection.protected'); } },
@@ -156,13 +158,17 @@ const SidebarComponent: React.FC<SidebarProps> = ({
   const searchMenuItemRefs = React.useRef<Array<HTMLButtonElement | null>>([]);
   const searchHelpers = React.useMemo(
     () => SEARCH_HELPERS.filter(({ prefix }) => {
+      if (prefix === 'clip:') return features.clipTypes;
+      if (prefix === 'content:') return features.types;
+      if (prefix === 'format:') return features.fileFormats;
+      if (prefix === 'source:') return features.sources;
       if (prefix === 'has:note') return features.notes;
       if (prefix === 'is:pinned') return features.pinning;
       if (prefix === 'is:protected') return features.protection;
       if (prefix === 'is:trashed') return features.trash;
       return true;
     }),
-    [features.notes, features.pinning, features.protection, features.trash],
+    [features.clipTypes, features.fileFormats, features.notes, features.pinning, features.protection, features.sources, features.trash, features.types],
   );
 
   const closeSearchMenu = (returnFocus = false) => {
@@ -347,7 +353,7 @@ const SidebarComponent: React.FC<SidebarProps> = ({
     return clipCollectionSummary.typeCounts.map(({ content_type: value, count }) => ({
       value,
       count,
-      route: clipFacetRoute('type', value),
+      route: clipFacetRoute('content_type', value),
       label: labels.get(value) ?? value.split('_').map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(' '),
     })).sort((left, right) => (order.get(left.value) ?? Number.MAX_SAFE_INTEGER) - (order.get(right.value) ?? Number.MAX_SAFE_INTEGER));
   }, [clipCollectionSummary.typeCounts, contentTypes, locale]);

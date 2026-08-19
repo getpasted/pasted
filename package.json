@@ -23,7 +23,7 @@
     "test:dates": "node --experimental-strip-types scripts/test-date-format.js",
     "test:errors": "node --experimental-strip-types scripts/test-error-message.ts",
     "test:docs": "node scripts/audit-documentation.js",
-    "test:collections": "node scripts/audit-clip-collections.js",
+    "test:collections": "node --experimental-strip-types scripts/test-clip-search.ts && node scripts/audit-clip-collections.js",
     "test:menus": "node scripts/audit-menu-system.js",
     "test:cli": "node scripts/audit-cli-parity.js && node scripts/audit-analysis-contracts.js && node scripts/audit-analysis-performance.js",
     "test:transformations": "node scripts/audit-transformations.js",

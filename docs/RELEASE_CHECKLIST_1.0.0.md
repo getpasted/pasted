@@ -25,7 +25,7 @@ Use the exact notarized DMG intended for publication. Do not substitute a develo
 
 - [ ] Empty collections use the correct icon and explanatory text without zero-count badges.
 - [ ] Copy text, an image, multiple files, and a PDF; each appears once with the expected preview and metadata.
-- [ ] Search, Smart Bins, manual Bin assignment, pinning, protection, notes, Trash, and restore behave correctly. Smart Bin exact and partial matches agree across the GUI and CLI, and each collection-axis Functionality toggle suspends and restores its related rules without deleting them.
+- [ ] Search, Smart Bins, manual Bin assignment, pinning, protection, notes, Trash, and restore behave correctly. Search keeps `clip:`, `content:`, `format:`, and `source:` distinct. Smart Bin exact and partial matches agree across the GUI and CLI, and each collection-axis Functionality toggle suspends and restores its related filters or rules without deleting them.
 - [ ] OCR explains its permission/state, processes eligible images, and remains searchable after relaunch.
 
 ## Content Analysis

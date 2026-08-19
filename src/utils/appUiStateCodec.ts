@@ -61,7 +61,7 @@ function clipIdentifier(value: unknown): number | null {
 function validTab(value: unknown): value is string {
   if (typeof value !== 'string' || value.length > 512) return false;
   if (STANDARD_TABS.has(value)) return true;
-  if (!value.startsWith('clip_type-') && !value.startsWith('file_format-') && !value.startsWith('type-') && !value.startsWith('source-')) return false;
+  if (!value.startsWith('clip_type-') && !value.startsWith('content_type-') && !value.startsWith('file_format-') && !value.startsWith('source-')) return false;
   const encodedValue = value.slice(value.indexOf('-') + 1);
   if (!encodedValue) return false;
   try {
