@@ -306,3 +306,16 @@ export function useClipViews({
     ...counts,
   };
 }
+
+export function useLiveClipSnapshot(
+  snapshot: ClipItem | null,
+  allClips: ClipItem[],
+  trashedClips: ClipItem[],
+) {
+  return useMemo(() => {
+    if (!snapshot) return null;
+    return allClips.find(({ id }) => id === snapshot.id)
+      ?? trashedClips.find(({ id }) => id === snapshot.id)
+      ?? snapshot;
+  }, [allClips, snapshot, trashedClips]);
+}

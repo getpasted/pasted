@@ -27,6 +27,7 @@ interface ClipActionsInput {
   fetchClips: () => Promise<void>;
   fetchTrashedClips: () => Promise<void>;
   fetchSequentialStatus: () => Promise<void>;
+  queuedIndexMap: Map<string, number>;
   onCollectionChanged: () => Promise<void>;
   keepTrashedClipsVisible: boolean;
   onClipsRepositioned?: (ids: number[]) => void;
@@ -47,6 +48,7 @@ export function useClipActions({
   fetchClips,
   fetchTrashedClips,
   fetchSequentialStatus,
+  queuedIndexMap,
   onCollectionChanged,
   keepTrashedClipsVisible,
   onClipsRepositioned,
@@ -538,6 +540,18 @@ export function useClipActions({
     }
   }, [fetchSequentialStatus]);
 
+  const toggleSequentialStack = useCallback(async (clip: ClipItem) => {
+    const item = clip.content_type === 'file' ? null : clip.text_content;
+    if (!item) return;
+    const queueIndex = queuedIndexMap.get(item);
+    if (queueIndex === undefined) {
+      await addToSequentialStack(clip);
+      return;
+    }
+    await invoke('remove_sequential_item_by_index', { index: queueIndex - 1 });
+    await fetchSequentialStatus();
+  }, [addToSequentialStack, fetchSequentialStatus, queuedIndexMap]);
+
   const updateClipNoteLocally = useCallback((clipId: number, note: string | null) => {
     setAllClips((previous) => previous.map((clip) => clip.id === clipId ? { ...clip, note } : clip));
     setSelectedClip((previous) => previous?.id === clipId ? { ...previous, note } : previous);
@@ -567,6 +581,7 @@ export function useClipActions({
     runManualTransformForClip,
     runTransformForClip,
     addToSequentialStack,
+    toggleSequentialStack,
     updateClipNoteLocally,
     deleteNoteFromClip,
     transformingClipIds,

@@ -23,7 +23,7 @@ import { OverflowText } from './components/OverflowText';
 import { handleWindowDragDoubleClick, startWindowDrag } from './utils/windowDrag';
 import { useColumnResize } from './hooks/useColumnResize';
 import { useAppSettings } from './hooks/useAppSettings';
-import { useClipViews } from './hooks/useClipViews';
+import { useClipViews, useLiveClipSnapshot } from './hooks/useClipViews';
 import { useClipBinDrag } from './hooks/useClipBinDrag';
 import { useStableVerticalReorder } from './hooks/useStableVerticalReorder';
 import { getClipViewPolicy } from './utils/clipViewPolicy';
@@ -904,12 +904,7 @@ export default function App() {
   }, [clearClipSelection]);
 
   const binsById = useMemo(() => new Map(bins.map((bin) => [bin.id, bin])), [bins]);
-  const currentContextMenuClip = useMemo(() => {
-    if (!contextMenu) return null;
-    return allClips.find((clip) => clip.id === contextMenu.clip.id)
-      ?? trashedClips.find((clip) => clip.id === contextMenu.clip.id)
-      ?? contextMenu.clip;
-  }, [allClips, contextMenu, trashedClips]);
+  const currentContextMenuClip = useLiveClipSnapshot(contextMenu?.clip ?? null, allClips, trashedClips);
   const selectedClipViewPolicy = getClipViewPolicy(currentTab, selectedClip);
   const hasRestrictedSelection = Array.from(selectedClipIds).some((id) => {
     const selected = displayedClips.find((clip) => clip.id === id);
@@ -928,6 +923,7 @@ export default function App() {
     removeClipFromBin,
     runTransformForClip: handleRunTransformForClip,
     addToSequentialStack: handleAddToSequentialStack,
+    toggleSequentialStack: handleToggleSequentialStack,
     updateClipNoteLocally: handleUpdateClipNoteLocally,
     deleteNoteFromClip: handleDeleteNoteFromClip,
     transformingClipIds,
@@ -947,6 +943,7 @@ export default function App() {
     fetchClips,
     fetchTrashedClips,
     fetchSequentialStatus,
+    queuedIndexMap,
     onCollectionChanged: fetchClipCollectionSummary,
     keepTrashedClipsVisible: currentTab === 'search',
     onClipsRepositioned: requestRepositionedClipReveal,
@@ -1702,17 +1699,7 @@ export default function App() {
           onAddNote={() => handlePromptAddNote(currentContextMenuClip)}
           onDeleteNote={() => handleDeleteNoteFromClip(currentContextMenuClip.id)}
           isQueued={Boolean(currentContextMenuClip.text_content && queuedIndexMap.has(currentContextMenuClip.text_content))}
-          onToggleQueue={() => {
-            const queueIndex = currentContextMenuClip.text_content
-              ? queuedIndexMap.get(currentContextMenuClip.text_content)
-              : undefined;
-            if (queueIndex !== undefined) {
-              void invoke('remove_sequential_item_by_index', { index: queueIndex - 1 })
-                .then(fetchSequentialStatus);
-            } else {
-              void handleAddToSequentialStack(currentContextMenuClip);
-            }
-          }}
+          onToggleQueue={() => void handleToggleSequentialStack(currentContextMenuClip)}
           onTogglePin={() => handleTogglePin(currentContextMenuClip.id)}
           onToggleProtected={() => handleToggleProtected(currentContextMenuClip.id)}
           onDelete={(e) => handleDeleteClip(currentContextMenuClip.id, e?.altKey)}

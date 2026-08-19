@@ -5,7 +5,7 @@ const read = (path) => fs.readFileSync(path, 'utf8');
 const englishCatalog = JSON.parse(read('src/locales/en.json'));
 const cli = read('src-tauri/src/bin/pasted_cli.rs');
 const help = read('src/components/HelpView.tsx');
-const database = read('src-tauri/src/db.rs');
+const database = `${read('src-tauri/src/db.rs')}\n${read('src-tauri/src/db/clip_protection.rs')}`;
 const libraryItems = read('src-tauri/src/library_items.rs');
 const commands = read('src-tauri/src/commands.rs');
 const analysis = read('src-tauri/src/content_analysis.rs');
