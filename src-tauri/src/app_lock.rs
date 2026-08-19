@@ -19,9 +19,13 @@ pub const IDLE_MINUTES_SETTING: &str = "appLockIdleMinutes";
 pub const LOCK_ON_SLEEP_SETTING: &str = "appLockOnSleep";
 pub const LOCK_ON_RESTART_SETTING: &str = "appLockOnRestart";
 pub const CAPTURE_WHILE_LOCKED_SETTING: &str = "appLockCaptureWhileLocked";
+#[cfg(any(target_os = "macos", test))]
 const AUTH_FAILED_ERROR: &str = "app_lock_auth_failed";
+#[cfg(any(target_os = "macos", test))]
 const AUTH_WATCH_FAILED_ERROR: &str = "app_lock_auth_watch_failed";
+#[cfg(any(target_os = "macos", test))]
 const AUTH_WATCH_UNAVAILABLE_ERROR: &str = "app_lock_auth_watch_unavailable";
+#[cfg(target_os = "macos")]
 const AUTH_TIMEOUT_ERROR: &str = "app_lock_auth_timeout";
 
 pub fn is_private_setting(key: &str) -> bool {
@@ -306,12 +310,14 @@ pub enum SystemAuthMethod {
     AppleWatch,
 }
 
+#[cfg(any(target_os = "macos", test))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct NativeAuthError {
     domain: String,
     code: i64,
 }
 
+#[cfg(any(target_os = "macos", test))]
 fn classify_native_auth_result(
     method: SystemAuthMethod,
     success: bool,
