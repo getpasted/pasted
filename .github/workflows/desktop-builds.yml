@@ -23,6 +23,12 @@ concurrency:
 permissions:
   contents: read
 
+# Preserve function names in CI failures without paying for full line-table
+# debug data in every dev/test artifact. Release packaging is unaffected.
+env:
+  CARGO_PROFILE_DEV_DEBUG: "1"
+  CARGO_PROFILE_TEST_DEBUG: "1"
+
 jobs:
   dependency-review:
     name: Review dependency changes
@@ -111,7 +117,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
-          shared-key: native-debug-linux
+          shared-key: native-debug1-linux
       - name: Install Linux test dependencies
         timeout-minutes: 8
         env:
@@ -185,7 +191,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
-          shared-key: native-debug-macos
+          shared-key: native-debug1-macos
       - name: Compile native tests and binaries
         run: cargo test --manifest-path src-tauri/Cargo.toml --no-run --locked
 
@@ -205,7 +211,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
-          shared-key: native-debug-linux
+          shared-key: native-debug1-linux
       - name: Install Linux build dependencies
         timeout-minutes: 8
         env:
@@ -237,7 +243,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
-          shared-key: native-debug-windows
+          shared-key: native-debug1-windows
       - name: Compile native tests and binaries
         run: cargo test --manifest-path src-tauri/Cargo.toml --no-run --locked
 
