@@ -104,6 +104,15 @@ function SmartConditionTargetSelect({
               onOpenChange={(open) => setActiveSubmenu((current) => (
                 open ? section.target : current === section.target ? null : current
               ))}
+              onSelect={() => {
+                onSelect(
+                  section.target,
+                  section.target === 'clip_type'
+                    ? condition.target === 'clip_type' ? condition.value : 'text'
+                    : condition.target === section.target ? condition.value : '',
+                );
+                close();
+              }}
               panelClassName="w-64 max-h-72 overflow-y-auto"
             >
               {section.choices.map((choice, index) => <React.Fragment key={`${section.target}:${choice.value}`}>
@@ -500,19 +509,6 @@ export const BinModal: React.FC<BinModalProps> = ({
           ? sourceChoices.map((choice) => ({ ...choice, disabled: !features.sources }))
           : [{ value: condition.value, label: condition.value || translate('component.binModal.noDetectedApps'), disabled: true }],
       }] : []),
-      {
-        target: 'origin_kind',
-        label: targetLabels.origin_kind,
-        choices: [
-          { value: 'clipboard_content', label: translate('component.binModal.clipboardContent') },
-          { value: 'file_reference', label: translate('component.binModal.fileReference') },
-          { value: 'screenshot', label: translate('component.binModal.screenshot') },
-          { value: 'command_line', label: translate('component.binModal.commandLine') },
-        ],
-      },
-      { target: 'contains', label: targetLabels.contains },
-      { target: 'file_extension', label: targetLabels.file_extension, dividerBefore: true },
-      { target: 'file_path', label: targetLabels.file_path },
     ];
   };
   const isDirty = JSON.stringify({
@@ -801,55 +797,13 @@ export const BinModal: React.FC<BinModalProps> = ({
                       className="min-w-0 flex-1"
                       compact
                     />
-                  ) : c.target === 'file_format' ? (
-                    <MenuSelect
+                  ) : c.target === 'file_format' || c.target === 'source' || c.target === 'content_type' ? (
+                    <input
+                      type="text"
+                      placeholder={targetLabels[c.target]}
                       value={c.value}
-                      onChange={(value) => handleUpdateCondition(c.id, { value })}
-                      options={fileFormats.length > 0
-                        ? [
-                          ...(!fileFormats.includes(c.value) && c.value
-                            ? [{ value: c.value, label: c.value.toUpperCase(), disabled: true }]
-                            : []),
-                          ...fileFormats.map((format) => ({ value: format, label: format.toUpperCase() })),
-                        ]
-                        : [{ value: c.value, label: c.value || translate('component.binModal.noDetectedFileFormats'), disabled: true }]}
-                      label={translate('component.binModal.fileFormat')}
-                      className="min-w-0 flex-1"
-                      compact
-                    />
-                  ) : c.target === 'source' ? (
-                    <MenuSelect
-                      value={c.value}
-                      onChange={(value) => handleUpdateCondition(c.id, { value })}
-                      options={installedApps.length > 0
-                        ? [
-                          ...(!installedApps.includes(c.value) && c.value ? [{ value: c.value, label: c.value }] : []),
-                          ...installedApps.map((appName) => ({ value: appName, label: appName })),
-                        ]
-                        : [{ value: c.value, label: c.value || translate('component.binModal.noDetectedApps'), disabled: true }]}
-                      label={translate('component.binModal.sourceApp')}
-                      className="min-w-0 flex-1"
-                      compact
-                    />
-                  ) : c.target === 'content_type' ? (
-                    <MenuSelect
-                      value={c.value}
-                      onChange={(value) => handleUpdateCondition(c.id, { value })}
-                      options={[
-                        ...(!activeContentTypes.some(({ id }) => id === c.value) && c.value
-                          ? [{ value: c.value, label: contentTypeLabel(c.value), disabled: true }]
-                          : []),
-                        ...activeContentTypes.map((type) => ({
-                        value: type.id,
-                        label: contentTypeLabel(type.id),
-                        group: (() => {
-                          const group = contentTypeGroups.find(({ id }) => id === type.group);
-                          return group ? localizedContentTypeGroupLabel(group.id, group.label, group.isBuiltin, group.defaults?.label) : type.group;
-                        })(),
-                      }))]}
-                      label={translate('component.binModal.contentType')}
-                      className="min-w-0 flex-1"
-                      compact
+                      onChange={(event) => handleUpdateCondition(c.id, { value: event.target.value })}
+                      className="min-w-0 flex-1 theme-input form-field-valid rounded-lg border px-3 py-1.5 text-xs font-semibold focus:outline-none"
                     />
                   ) : c.target === 'origin_kind' ? (
                     <MenuSelect

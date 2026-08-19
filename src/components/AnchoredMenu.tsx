@@ -249,6 +249,7 @@ interface MenuSubmenuProps {
   icon?: ReactNode;
   label: string;
   onOpenChange: (open: boolean) => void;
+  onSelect?: () => void;
   open: boolean;
   panelClassName?: string;
 }
@@ -258,6 +259,7 @@ export function MenuSubmenu({
   icon,
   label,
   onOpenChange,
+  onSelect,
   open,
   panelClassName = 'w-48',
 }: MenuSubmenuProps) {
@@ -313,7 +315,10 @@ export function MenuSubmenu({
         active={open}
         aria-haspopup="menu"
         aria-expanded={open}
-        onClick={() => onOpenChange(!open)}
+        onClick={() => {
+          if (onSelect) onSelect();
+          else onOpenChange(!open);
+        }}
         className="justify-between gap-3 px-3 py-1.5"
       >
         <span className="flex min-w-0 items-center gap-2.5">
