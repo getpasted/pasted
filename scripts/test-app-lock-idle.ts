@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { APP_LOCK_ACTIVITY_EVENTS, createIdleDeadline } from '../src/utils/idleDeadline.ts';
+import { appLockAuthErrorKey, authToggleDisabled } from '../src/utils/appLockPolicy.ts';
 
 let now = 0;
 let nextTimer = 1;
@@ -33,6 +34,13 @@ const advanceTo = (target: number) => {
 
 assert(APP_LOCK_ACTIVITY_EVENTS.includes('pointermove'));
 assert(APP_LOCK_ACTIVITY_EVENTS.includes('resize'));
+assert.equal(authToggleDisabled({ pending: false, appLockEnabled: true, methodConfigured: true, methodAvailable: false }), false,
+  'an unavailable configured method must remain possible to disable');
+assert.equal(authToggleDisabled({ pending: false, appLockEnabled: true, methodConfigured: false, methodAvailable: false }), true,
+  'an unavailable unconfigured method must not be enabled');
+assert.equal(appLockAuthErrorKey('app_lock_auth_watch_unavailable'), 'component.appLockScreen.appleWatchIsNotAvailable');
+assert.equal(appLockAuthErrorKey('app_lock_auth_watch_failed'), 'component.appLockScreen.appleWatchAuthenticationFailed');
+assert.equal(appLockAuthErrorKey('unknown_error'), null, 'unknown native errors must remain available to existing error handling');
 
 let elapsedCount = 0;
 const deadline = createIdleDeadline({

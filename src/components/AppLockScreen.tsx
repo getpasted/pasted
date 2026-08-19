@@ -4,6 +4,7 @@ import type { AppLockStatus } from '../hooks/useAppLock';
 import { ActionButton } from './AppDialogLayout';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { translate } from '../localization/runtime';
+import { appLockAuthErrorMessage } from '../utils/appLockAuth';
 
 export function AppLockScreen({
   status,
@@ -23,8 +24,10 @@ export function AppLockScreen({
   const [pending, setPending] = useState(false);
   const authenticationInFlight = useRef(false);
   const passphraseInput = useRef<HTMLInputElement>(null);
-  const showSystemAuth = status.systemAuthEnabled && status.systemAuthAvailable;
-  const showAppleWatch = status.appleWatchEnabled && status.appleWatchAvailable;
+  const showSystemAuth = status.systemAuthEnabled;
+  // Availability is a live reachability signal: a configured Watch may be
+  // temporarily locked or out of range. Keep the action available for retry.
+  const showAppleWatch = status.appleWatchEnabled;
 
   const run = async (action: () => Promise<unknown>) => {
     if (authenticationInFlight.current) return;
@@ -35,7 +38,7 @@ export function AppLockScreen({
       await action();
       setPassphrase('');
     } catch (cause) {
-      const detail = String(cause).replace(/^Error:\s*/, '');
+      const detail = appLockAuthErrorMessage(cause);
       // Canceling an operating-system authentication prompt is a normal way
       // to return to the passphrase form, not an error that needs repeating.
       if (detail !== 'Authentication canceled.') setError(detail);

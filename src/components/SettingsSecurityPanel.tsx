@@ -1,5 +1,5 @@
 import { FormEvent, useState } from 'react';
-import { LockKeyhole } from 'lucide-react';
+import { AlertCircle, LockKeyhole } from 'lucide-react';
 import { useAppLock } from '../hooks/useAppLock';
 import { AppDialog } from './AppDialog';
 import { ActionButton, AppDialogBody, AppDialogFooter, AppDialogHeader, AppDialogHeading } from './AppDialogLayout';
@@ -8,6 +8,8 @@ import { SettingsPanelHeader } from './SettingsPanelHeader';
 import { SettingsSubsectionHeader } from './SettingsSubsectionHeader';
 import { SettingsSwitch } from './SettingsSwitch';
 import { translate } from '../localization/runtime';
+import { appLockAuthErrorMessage } from '../utils/appLockAuth';
+import { authToggleDisabled } from '../utils/appLockPolicy';
 
 const IDLE_OPTIONS = [
   { value: '0', get label() { return translate('component.settingsSecurityPanel.never'); } },
@@ -18,7 +20,16 @@ const IDLE_OPTIONS = [
 ];
 
 function message(error: unknown) {
-  return String(error).replace(/^Error:\s*/, '');
+  return appLockAuthErrorMessage(error);
+}
+
+function ErrorNotice({ children }: { children: string }) {
+  return (
+    <div role="alert" className="theme-status-danger flex items-start gap-2 rounded-lg border px-3 py-2 text-[11px] leading-relaxed">
+      <AlertCircle aria-hidden="true" className="mt-px h-3.5 w-3.5 shrink-0" />
+      <span className="min-w-0">{children}</span>
+    </div>
+  );
 }
 
 export function SettingsSecurityPanel() {
@@ -30,6 +41,20 @@ export function SettingsSecurityPanel() {
   const [pending, setPending] = useState(false);
   const [credentialMode, setCredentialMode] = useState<'configure' | 'disable' | null>(null);
   const isMac = document.documentElement.dataset.platform === 'macos';
+  const systemAuthUnavailable = authToggleDisabled({
+    pending: false,
+    appLockEnabled: appLock.status.enabled,
+    methodConfigured: appLock.status.systemAuthEnabled,
+    methodAvailable: appLock.status.systemAuthAvailable,
+  });
+  const systemAuthToggleDisabled = pending || systemAuthUnavailable;
+  const appleWatchUnavailable = authToggleDisabled({
+    pending: false,
+    appLockEnabled: appLock.status.enabled,
+    methodConfigured: appLock.status.appleWatchEnabled,
+    methodAvailable: appLock.status.appleWatchAvailable,
+  });
+  const appleWatchToggleDisabled = pending || appleWatchUnavailable;
 
   const resetCredentials = () => {
     setCurrentPassphrase('');
@@ -103,20 +128,20 @@ export function SettingsSecurityPanel() {
             {appLock.status.enabled ? translate('component.settingsSecurityPanel.changePassphrase') : translate('component.settingsSecurityPanel.enableAppLock')}
           </ActionButton>
         </div>
-        {error && !credentialMode && <p role="alert" className="theme-danger-text">{error}</p>}
+        {error && !credentialMode && <ErrorNotice>{error}</ErrorNotice>}
       </div>
 
       <div className="theme-divider border-t" />
       <div className="space-y-4">
         <SettingsSubsectionHeader title={translate('component.settingsSecurityPanel.unlock')} description={translate('component.settingsSecurityPanel.biometricDataStaysWithTheOperatingSystem')} />
-          <div className={`flex items-start justify-between gap-4 ${!appLock.status.enabled || !appLock.status.systemAuthAvailable ? 'settings-disabled-row' : ''}`}>
+          <div className={`flex items-start justify-between gap-4 ${systemAuthUnavailable ? 'settings-disabled-row' : ''}`}>
             <div className="min-w-0 flex-1">
               <span className="theme-text-main block font-semibold">{translate('component.settingsSecurityPanel.unlockUsingMethod', { method: appLock.status.systemAuthLabel })}</span>
               <p className="theme-text-muted mt-0.5 text-[11px] leading-normal">{appLock.status.systemAuthAvailable ? translate('component.settingsSecurityPanel.theOperatingSystemReportsOnlyWhetherAuthenticationSucceeded') : translate('component.settingsSecurityPanel.notAvailableOnThisDeviceOrDesktopSession')}</p>
             </div>
             <SettingsSwitch
               checked={appLock.status.systemAuthEnabled}
-              disabled={pending || !appLock.status.enabled || !appLock.status.systemAuthAvailable}
+              disabled={systemAuthToggleDisabled}
               label={translate('component.settingsSecurityPanel.unlockUsingMethod', { method: appLock.status.systemAuthLabel })}
               onClick={() => {
                 setPending(true);
@@ -125,14 +150,14 @@ export function SettingsSecurityPanel() {
               }}
             />
           </div>
-          {isMac && <div className={`flex items-start justify-between gap-4 ${!appLock.status.enabled || !appLock.status.appleWatchAvailable ? 'settings-disabled-row' : ''}`}>
+          {isMac && <div className={`flex items-start justify-between gap-4 ${appleWatchUnavailable ? 'settings-disabled-row' : ''}`}>
             <div className="min-w-0 flex-1">
               <span className="theme-text-main block font-semibold">{translate('component.settingsSecurityPanel.unlockUsingAppleWatch')}</span>
               <p className="theme-text-muted mt-0.5 text-[11px] leading-normal">{appLock.status.appleWatchAvailable ? translate('component.settingsSecurityPanel.approveUnlockFromANearbyPairedAppleWatch') : translate('component.settingsSecurityPanel.notAvailableWithoutACompatiblePairedAppleWatch')}</p>
             </div>
             <SettingsSwitch
               checked={appLock.status.appleWatchEnabled}
-              disabled={pending || !appLock.status.enabled || !appLock.status.appleWatchAvailable}
+              disabled={appleWatchToggleDisabled}
               label={translate('component.settingsSecurityPanel.unlockUsingAppleWatch2')}
               onClick={() => {
                 setPending(true);
@@ -206,7 +231,7 @@ export function SettingsSecurityPanel() {
                   <input type="password" autoComplete="new-password" value={confirmation} onChange={(event) => setConfirmation(event.target.value)} className="theme-input w-full rounded-lg border px-3 py-2" />
                 </label>
               </>}
-              {error && <p role="alert" className="theme-danger-text">{error}</p>}
+              {error && <ErrorNotice>{error}</ErrorNotice>}
             </AppDialogBody>
             <AppDialogFooter>
               <ActionButton onClick={requestClose} disabled={pending}>{translate('common.cancel')}</ActionButton>
