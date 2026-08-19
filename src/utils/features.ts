@@ -161,7 +161,7 @@ export function enabledFeatureRecord(settings: AppSettings): Record<FeatureId, b
 export function featureForRoute(route: string): FeatureId | null {
   if (route.startsWith('clip_type-')) return 'clipTypes';
   if (route.startsWith('file_format-')) return 'fileFormats';
-  if (route.startsWith('type-')) return 'types';
+  if (route.startsWith('content_type-')) return 'types';
   if (route.startsWith('source-')) return 'sources';
   const tab = route.split(':', 1)[0];
   const routes: Record<string, FeatureId> = {

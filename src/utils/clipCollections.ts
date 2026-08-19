@@ -140,7 +140,7 @@ function localizeCollection(collection: ClipCollectionDefinition): ClipCollectio
   };
 }
 
-export type ClipFacetKind = 'clip_type' | 'file_format' | 'type' | 'source';
+export type ClipFacetKind = 'clip_type' | 'content_type' | 'file_format' | 'source';
 
 export function clipFacetRoute(kind: ClipFacetKind, value: string): string {
   return `${kind}-${encodeURIComponent(value)}`;
@@ -150,7 +150,7 @@ export function parseClipFacetRoute(route: string): { kind: ClipFacetKind; value
   const separator = route.indexOf('-');
   if (separator < 1) return null;
   const kind = route.slice(0, separator);
-  if (kind !== 'clip_type' && kind !== 'file_format' && kind !== 'type' && kind !== 'source') return null;
+  if (kind !== 'clip_type' && kind !== 'content_type' && kind !== 'file_format' && kind !== 'source') return null;
   try {
     return { kind, value: decodeURIComponent(route.slice(separator + 1)) };
   } catch {

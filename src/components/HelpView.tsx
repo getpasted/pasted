@@ -37,7 +37,7 @@ const CLI_COMMAND_GROUPS = [
       { usage: 'pasted copy "Hello"', get description() { return translate('component.helpView.saveATextClipOmitTheArgumentToReadStdin'); } },
       { usage: 'cat server.log | pasted copy', get description() { return translate('component.helpView.pipeBoundedTextIntoClipboardHistory'); } },
       { usage: 'pasted list [--limit N] [--offset N] [--bin ID | --pinned | --trash] [--json]', get description() { return translate('component.helpView.listABoundedPageFromHistoryTrashABinOrPinnedClips'); } },
-      { usage: 'pasted search [query] [--type TYPE] [--source APP] [--trash] [--limit N] [--offset N] [--json]', get description() { return translate('component.helpView.searchABoundedPageOfHistoryOrTrashWithContentTypeAnd'); } },
+      { usage: 'pasted search [query] [--clip TYPE] [--content TYPE] [--format FORMAT] [--source APP] [--trash] [--limit N] [--offset N] [--json]', get description() { return translate('component.helpView.searchABoundedPageOfHistoryOrTrashWithCollectionFilters'); } },
       { usage: 'pasted import sources [--json]', get description() { return translate('component.helpView.listSupportedExternalHistorySourcesAndTheirDetectedLocations'); } },
       { usage: 'pasted import <alfred|pastebot|pasta|paste|copyclip|maccy|flycut> [path] [--json]', get description() { return translate('component.helpView.mergeTextHistoryFromAnotherClipboardManagerSkippingDuplicates'); } },
       { usage: 'pasted retention [--count N] [--days N] [--trash-count N] [--trash-days N] [--log-count N] [--log-days N] [--revision-count N] [--json]', get description() { return translate('component.helpView.readOrUpdateHistoryTrashActivityAndRevisionRetention'); } },
@@ -285,7 +285,7 @@ export const HelpView: React.FC<HelpViewProps> = ({ activeTopic, onActiveTopicCh
                   <h4 className="theme-title text-xs font-bold">{translate('component.helpView.firstUsefulActions')}</h4>
                   <ul className="theme-text-main list-inside list-disc space-y-2 text-xs leading-relaxed">
                     <li>{translate('component.helpView.copyNormallyInAnotherAppToAddAnItemToHistory')}</li>
-                    <li>{translate('component.helpView.useSearchToFindClipContentContentTypesSourcesNotesOrStatus')}</li>
+                    <li>{translate('component.helpView.useSearchToFindClipContentAndCollectionMetadata')}</li>
                     <li>{translate('component.helpView.rightClickAClipForQueuePinProtectNoteBinTransformAnd')}</li>
                     <li>{translate('component.helpView.openSettingsFunctionalityToChooseTheSimpleOrFullExperience')}</li>
                   </ul>

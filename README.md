@@ -69,7 +69,7 @@ The GUI and CLI use the same local library and shared domain services. The compl
 
 ```sh
 pasted list --limit 20 --json
-pasted search --type link --json
+pasted search --content link --format pdf --json
 pasted analyzer run --stdin --json
 pasted inspector rescan --yes --json
 pasted extractor create --name "PDF Text" --recipe docs/examples/poppler-pdf-extractor.json --disabled --json

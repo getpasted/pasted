@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { Bin, ClipItem, SequentialStatus } from '../types';
 import { getClipFilePaths, getClipOriginKind } from '../types';
 import { sortClipsChronologically } from '../utils/clipOrder';
-import { clipMatchesSearch, parseClipSearch } from '../utils/clipSearch';
+import { clipMatchesSearch, parseClipSearch, type ClipSearchFeaturePolicy } from '../utils/clipSearch';
 import { getClipCollection, parseClipFacetRoute } from '../utils/clipCollections';
 import type { FeatureId } from '../utils/features';
 import { safeInvoke as invoke } from '../utils/tauri';
@@ -41,7 +41,7 @@ function canUseIndexedSearch(rawQuery: string) {
 
 function clipWithFeaturePolicy(
   clip: ClipItem,
-  features?: Pick<Record<FeatureId, boolean>, 'notes' | 'pinning' | 'protection'>,
+  features?: ClipSearchFeaturePolicy,
 ) {
   return features ? {
     ...clip,
@@ -54,12 +54,12 @@ function clipWithFeaturePolicy(
 export function applyClipSearch(
   items: ClipItem[],
   rawQuery: string,
-  features?: Pick<Record<FeatureId, boolean>, 'notes' | 'pinning' | 'protection'>,
+  features?: ClipSearchFeaturePolicy,
 ) {
   const trimmed = rawQuery.trim();
   if (!trimmed) return items;
   const plan = parseClipSearch(trimmed);
-  return items.filter((clip) => clipMatchesSearch(clipWithFeaturePolicy(clip, features), plan));
+  return items.filter((clip) => clipMatchesSearch(clipWithFeaturePolicy(clip, features), plan, features));
 }
 
 function matchesCondition(clip: ClipItem, condition: SmartCondition, features?: Record<FeatureId, boolean>) {
@@ -223,7 +223,7 @@ export function useClipViews({
       const metadataPlan = { ...parseClipSearch(normalizedSearchQuery), terms: [] };
       indexedSearchResult.clipIds.forEach((clipId) => {
         const clip = availableById.get(clipId);
-        if (clip && clipMatchesSearch(clipWithFeaturePolicy(clip, features), metadataPlan)) {
+        if (clip && clipMatchesSearch(clipWithFeaturePolicy(clip, features), metadataPlan, features)) {
           matchesById.set(clipId, clip);
         }
       });
@@ -236,7 +236,7 @@ export function useClipViews({
     if (facet?.kind === 'clip_type') {
       clips = clips.filter((clip) => clip.content_type === facet.value);
     }
-    if (facet?.kind === 'type') {
+    if (facet?.kind === 'content_type') {
       clips = clips.filter((clip) => (clip.content_types ?? []).includes(facet.value as ClipItem['content_type']));
     }
     if (facet?.kind === 'file_format') {
