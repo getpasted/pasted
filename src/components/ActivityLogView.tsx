@@ -28,6 +28,7 @@ import {
   Database,
   Radar,
   LockKeyhole,
+  Keyboard,
 } from 'lucide-react';
 import { ToolPageHeader } from './ToolPageHeader';
 import { MenuSelect } from './MenuSelect';
@@ -396,11 +397,25 @@ export const ActivityLogView: React.FC = () => {
             <span>{translate('component.activityLogView.hudPasted')}</span>
           </div>
         );
+      case 'app_hotkey_clip_pasted':
+        return (
+          <div className="theme-status-success flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold">
+            <Keyboard className="w-3.5 h-3.5" />
+            <span>{translate('component.activityLogView.clipHotkey')}</span>
+          </div>
+        );
       case 'hud_paste_failed':
         return (
           <div className="theme-status-danger flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold">
             <ClipboardPaste className="w-3.5 h-3.5" />
             <span>{translate('component.activityLogView.hudFailed')}</span>
+          </div>
+        );
+      case 'app_hotkey_clip_paste_failed':
+        return (
+          <div className="theme-status-danger flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold">
+            <Keyboard className="w-3.5 h-3.5" />
+            <span>{translate('component.activityLogView.clipHotkey')}</span>
           </div>
         );
       case 'trash_emptied':
@@ -432,6 +447,20 @@ export const ActivityLogView: React.FC = () => {
           </div>
         );
       }
+      case 'clip_hotkey_changed':
+        return (
+          <div className="theme-status-info flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold">
+            <Keyboard className="w-3.5 h-3.5" />
+            <span>{translate('component.activityLogView.clipHotkey')}</span>
+          </div>
+        );
+      case 'bin_protection_changed':
+        return (
+          <div className="theme-status-info flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold">
+            <ShieldCheck className="w-3.5 h-3.5" />
+            <span>{translate('component.activityLogView.binProtection')}</span>
+          </div>
+        );
       case 'clip_pinned':
       case 'clips_pinned':
       case 'clip_unpinned':
@@ -517,7 +546,10 @@ export const ActivityLogView: React.FC = () => {
     if (selectedTypeFilter === 'restored') return l.event_type === 'clip_restored' || l.event_type === 'clips_restored_all';
     if (selectedTypeFilter === 'revisions') return l.event_type === 'clip_revision_restored';
     if (selectedTypeFilter === 'purged') return l.event_type === 'clip_deleted' || l.event_type === 'trash_emptied' || l.event_type === 'clips_purged_all';
-    if (selectedTypeFilter === 'protection') return l.event_type === 'clip_protected_toggled' || l.event_type === 'clips_protected_toggled';
+    if (selectedTypeFilter === 'protection') return l.event_type === 'clip_protected_toggled'
+      || l.event_type === 'clips_protected_toggled'
+      || l.event_type === 'clip_hotkey_changed'
+      || l.event_type === 'bin_protection_changed';
     if (selectedTypeFilter === 'pinning') return l.event_type.includes('pinned');
     if (selectedTypeFilter === 'paused') return l.event_type === 'recording_auto_paused' || l.event_type === 'recording_manually_paused';
     if (selectedTypeFilter === 'resumed') return l.event_type === 'recording_auto_resumed' || l.event_type === 'recording_manually_resumed';

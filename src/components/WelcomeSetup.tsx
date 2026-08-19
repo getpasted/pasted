@@ -10,9 +10,9 @@ import { translate } from '../localization/runtime';
 
 const ONBOARDING_VERSION = 1;
 
-type SetupStep = 'welcome' | 'migration' | 'privacy' | 'shortcut' | 'ready';
+type SetupStep = 'welcome' | 'migration' | 'privacy' | 'hotkey' | 'ready';
 
-const STEPS: SetupStep[] = ['welcome', 'migration', 'privacy', 'shortcut', 'ready'];
+const STEPS: SetupStep[] = ['welcome', 'migration', 'privacy', 'hotkey', 'ready'];
 
 interface HotkeyCapabilityStatus {
   platform: string;
@@ -30,11 +30,15 @@ interface WelcomeSetupProps {
 }
 
 export function WelcomeSetup({ isOpen, settings, onUpdateSettings, onImported }: WelcomeSetupProps) {
+  const steps = useMemo(
+    () => settings.enableHotkeys ? STEPS : STEPS.filter((candidate) => candidate !== 'hotkey'),
+    [settings.enableHotkeys],
+  );
   const [step, setStep] = useState<SetupStep>('welcome');
   const [permission, setPermission] = useState<HotkeyCapabilityStatus | null>(null);
   const [importedCount, setImportedCount] = useState(0);
   const [backingError, setBackingError] = useState('');
-  const stepIndex = STEPS.indexOf(step);
+  const stepIndex = steps.indexOf(step);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -44,7 +48,11 @@ export function WelcomeSetup({ isOpen, settings, onUpdateSettings, onImported }:
   }, [isOpen]);
 
   useEffect(() => {
-    if (!isOpen || step !== 'shortcut') return undefined;
+    if (!settings.enableHotkeys && step === 'hotkey') setStep('ready');
+  }, [settings.enableHotkeys, step]);
+
+  useEffect(() => {
+    if (!isOpen || step !== 'hotkey') return undefined;
     let cancelled = false;
     const refresh = () => invoke<HotkeyCapabilityStatus>('get_hotkey_capability_status')
       .then((status) => {
@@ -59,7 +67,7 @@ export function WelcomeSetup({ isOpen, settings, onUpdateSettings, onImported }:
     };
   }, [isOpen, step]);
 
-  const shortcutLabel = useMemo(() => {
+  const hotkeyLabel = useMemo(() => {
     const value = settings.hudHotkey || 'Alt+Shift+V';
     return value
       .replace('Alt', navigator.platform.includes('Mac') ? '⌥' : 'Alt')
@@ -77,10 +85,10 @@ export function WelcomeSetup({ isOpen, settings, onUpdateSettings, onImported }:
       complete();
       return;
     }
-    setStep(STEPS[Math.min(STEPS.length - 1, stepIndex + 1)]);
+    setStep(steps[Math.min(steps.length - 1, stepIndex + 1)]);
   };
 
-  const goBack = () => setStep(STEPS[Math.max(0, stepIndex - 1)]);
+  const goBack = () => setStep(steps[Math.max(0, stepIndex - 1)]);
   const requestPermission = async () => {
     try {
       await invoke('request_accessibility_permission');
@@ -109,8 +117,8 @@ export function WelcomeSetup({ isOpen, settings, onUpdateSettings, onImported }:
       overlayClassName="welcome-setup-overlay p-5"
       panelClassName="welcome-setup-panel theme-panel w-full max-w-3xl overflow-hidden rounded-2xl border shadow-2xl"
     >
-      <div className="welcome-setup-progress" aria-label={translate('component.welcomeSetup.setupStepValueOfLength', { value: stepIndex + 1, length: STEPS.length })}>
-        {STEPS.map((candidate, index) => (
+      <div className="welcome-setup-progress" aria-label={translate('component.welcomeSetup.setupStepValueOfLength', { value: stepIndex + 1, length: steps.length })}>
+        {steps.map((candidate, index) => (
           <span key={candidate} className={index <= stepIndex ? 'is-complete' : ''} />
         ))}
       </div>
@@ -183,8 +191,8 @@ export function WelcomeSetup({ isOpen, settings, onUpdateSettings, onImported }:
           </div>
         )}
 
-        {step === 'shortcut' && (
-          <div className="welcome-setup-step welcome-setup-shortcut-step">
+        {settings.enableHotkeys && step === 'hotkey' && (
+          <div className="welcome-setup-step welcome-setup-hotkey-step">
             <div className="welcome-setup-heading">
               <span className="welcome-setup-heading-icon"><Command /></span>
               <div>
@@ -194,11 +202,11 @@ export function WelcomeSetup({ isOpen, settings, onUpdateSettings, onImported }:
               </div>
             </div>
             <div className="welcome-setup-content">
-              <div className="welcome-setup-shortcut-card">
-                <span className="welcome-setup-keycap">{shortcutLabel}</span>
+              <div className="welcome-setup-hotkey-card">
+                <span className="welcome-setup-keycap">{hotkeyLabel}</span>
                 <div>
                   <strong>{translate('component.welcomeSetup.hud')}</strong>
-                  <span>{permission?.state === 'ready' && permission.is_trusted ? translate('component.welcomeSetup.shortcutAccessIsReady') : translate('component.welcomeSetup.youCanChangeThisShortcutLaterInSettingsHotkeys')}</span>
+                  <span>{permission?.state === 'ready' && permission.is_trusted ? translate('component.welcomeSetup.hotkeyAccessIsReady') : translate('component.welcomeSetup.youCanChangeThisHotkeyLaterInSettingsHotkeys')}</span>
                 </div>
                 {permission?.platform === 'macos' && !permission.is_trusted && (
                   <ActionButton onClick={() => void requestPermission()}>

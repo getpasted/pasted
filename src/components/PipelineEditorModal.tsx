@@ -13,6 +13,7 @@ import { TransformationPreviewPanel } from './TransformationPreviewPanel';
 import { RegistryPanelHeader } from './RegistryPanelHeader';
 import { translate } from '../localization/runtime';
 import { localizedBuiltinName } from '../localization/presentation';
+import { useFeatures } from '../hooks/useFeatures';
 
 export interface PipelineEditorStep {
   id: string;
@@ -308,8 +309,9 @@ export const PipelineEditorModal: React.FC<PipelineEditorModalProps> = ({
   onClose,
   onSaveSuccess,
 }) => {
+  const features = useFeatures();
   const [pipelineName, setPipelineName] = useState('');
-  const [shortcut, setShortcut] = useState<string | null>(null);
+  const [hotkey, setHotkey] = useState<string | null>(null);
   const [steps, setSteps] = useState<PipelineEditorStep[]>([]);
   const [testInput, setTestInput] = useState('Hello there! :) https://example.com?utm_source=test');
   const [testOutput, setTestOutput] = useState('');
@@ -337,19 +339,19 @@ export const PipelineEditorModal: React.FC<PipelineEditorModalProps> = ({
     if (pipeline) {
       const nextSteps = pipeline.steps.map(pipelineStepToEditorStep);
       setPipelineName(pipeline.name);
-      setShortcut(pipeline.shortcut || null);
+      setHotkey(pipeline.hotkey || null);
       setSteps(nextSteps);
       initialSnapshotRef.current = JSON.stringify({
         pipelineName: pipeline.name,
-        shortcut: pipeline.shortcut || null,
+        hotkey: pipeline.hotkey || null,
         steps: nextSteps,
       });
     } else {
       const nextSteps = [createDefaultStep('builtin:smart_punctuation', null)];
       setPipelineName('');
-      setShortcut(null);
+      setHotkey(null);
       setSteps(nextSteps);
-      initialSnapshotRef.current = JSON.stringify({ pipelineName: '', shortcut: null, steps: nextSteps });
+      initialSnapshotRef.current = JSON.stringify({ pipelineName: '', hotkey: null, steps: nextSteps });
     }
     setSaveError('');
   }, [isOpen, pipeline]);
@@ -357,11 +359,11 @@ export const PipelineEditorModal: React.FC<PipelineEditorModalProps> = ({
   const handleReset = () => {
     if (pipeline) {
       setPipelineName(pipeline.name);
-      setShortcut(pipeline.shortcut || null);
+      setHotkey(pipeline.hotkey || null);
       setSteps(pipeline.steps.map(pipelineStepToEditorStep));
     } else {
       setPipelineName('');
-      setShortcut(null);
+      setHotkey(null);
       setSteps([createDefaultStep('builtin:smart_punctuation', null)]);
       setTestInput('Hello there! :) https://example.com?utm_source=test');
     }
@@ -469,13 +471,13 @@ export const PipelineEditorModal: React.FC<PipelineEditorModalProps> = ({
           pipelineRef: pipeline.stableRef,
           name: pipelineName.trim(),
           steps: compiledSteps,
-          shortcut,
+          hotkey: hotkey,
         });
       } else {
         await invoke('create_pipeline', {
           name: pipelineName.trim(),
           steps: compiledSteps,
-          shortcut,
+          hotkey: hotkey,
         });
       }
 
@@ -489,7 +491,7 @@ export const PipelineEditorModal: React.FC<PipelineEditorModalProps> = ({
   };
 
   if (!isOpen) return null;
-  const isDirty = JSON.stringify({ pipelineName, shortcut, steps }) !== initialSnapshotRef.current;
+  const isDirty = JSON.stringify({ pipelineName, hotkey, steps }) !== initialSnapshotRef.current;
 
   return (
     <AppDialog
@@ -508,7 +510,7 @@ export const PipelineEditorModal: React.FC<PipelineEditorModalProps> = ({
         <AppDialogBody className="space-y-6 relative">
           {/* Filter Metadata */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-            <div className="md:col-span-2">
+            <div className={features.hotkeys ? 'md:col-span-2' : 'md:col-span-3'}>
               <label className="mb-1 block text-xs font-semibold theme-text-muted">
                 {translate('common.name')}
               </label>
@@ -521,16 +523,16 @@ export const PipelineEditorModal: React.FC<PipelineEditorModalProps> = ({
                 autoFocus
               />
             </div>
-            <div>
+            {features.hotkeys && <div>
               <label className="mb-1 block text-xs font-semibold theme-text-muted">
-                {translate('component.pipelineEditorModal.shortcut')}
+                {translate('component.pipelineEditorModal.hotkey')}
               </label>
               <HotkeyRecorder
-                value={shortcut}
+                value={hotkey}
                 placeholder={translate('component.pipelineEditorModal.setHotkey')}
-                onChange={(newShortcut) => setShortcut(newShortcut)}
+                onChange={(newHotkey) => setHotkey(newHotkey)}
               />
-            </div>
+            </div>}
           </div>
 
           <TransformationPreviewPanel

@@ -10,7 +10,7 @@ Pasted stores every reusable Transform in `saved_transforms`. The record’s
 - `intent` is a planned Transform and may contain deterministic, semantic, or
   mixed steps.
 - `manual` is assembled directly from deterministic Operations and may have a
-  shortcut.
+  hotkey.
 
 Both forms use `transform:*` stable references, the same execution ledger,
 provenance, Bin binding, automation foreign key, backup collection, library

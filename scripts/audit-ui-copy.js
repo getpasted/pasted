@@ -108,13 +108,29 @@ for (const file of canonicalAnalysisCopyFiles) {
   }
 }
 assert.match(settingsHotkeys, /translate\('common\.reset'\)/, 'Hotkeys must use the shared Reset label');
+const hotkeySectionKeys = [
+  'component.settingsHotkeysPanel.actions',
+  'component.settingsHotkeysPanel.customBinHotkeys',
+  'component.settingsHotkeysPanel.clipHotkeysCount',
+  'component.settingsHotkeysPanel.savedTransformHotkeys',
+  'component.settingsHotkeysPanel.pasteClipsByPosition',
+];
+const hotkeySectionPositions = hotkeySectionKeys.map((key) => settingsHotkeys.indexOf(`translate('${key}'`));
+assert.ok(hotkeySectionPositions.every((position) => position >= 0), 'Hotkeys must render every configurable section');
+assert.deepEqual([...hotkeySectionPositions].sort((left, right) => left - right), hotkeySectionPositions,
+  'Hotkey sections must remain ordered Actions, Bins, Clips, Transforms, then HUD clip positions');
+const mainWindowAction = settingsHotkeys.indexOf("key: 'openMainWindowHotkey'");
+const lockAppAction = settingsHotkeys.indexOf("key: 'lockAppHotkey'");
+const queueAction = settingsHotkeys.indexOf("key: 'seqToggleHotkey'");
+assert.ok(mainWindowAction >= 0 && mainWindowAction < lockAppAction && lockAppAction < queueAction,
+  'Toggle Main Window and Lock App must lead the Actions group');
 assert.match(settingsFeatures, /translate\('component\.settingsFeaturesPanel\.chooseWhichFeaturesAreAvailable'\)/,
   'Functionality must keep its header description concise');
 assert.match(settingsFeatures, /<SettingsPanelNote>[\s\S]*translate\('component\.settingsFeaturesPanel\.simpleEnablesEssentialClipboardToolsFullEnablesEveryFeatureDisablingAFeature'\)[\s\S]*<\/SettingsPanelNote>/,
   'Functionality must move preset and preservation guidance into the shared Settings note well');
 for (const [menuId, topic, catalogKey, label] of [
   ['help.getting_started', 'getting-started', 'native.help.gettingStarted', 'Getting Started'],
-  ['help.shortcuts', 'shortcuts-hud', 'native.help.shortcuts', 'Shortcuts and HUD'],
+  ['help.shortcuts', 'shortcuts-hud', 'native.help.shortcuts', 'Hotkeys and HUD'],
   ['help.privacy', 'privacy-capture', 'native.help.privacy', 'Privacy and Capture'],
   ['help.deletion', 'deletion-recovery', 'native.help.deletion', 'Deletion and Recovery'],
   ['help.analysis', 'analysis', 'native.help.analysis', 'Content Analysis'],

@@ -29,6 +29,6 @@ npm run test:all
 
 ## Human release checks
 
-Some guarantees depend on the operating system and cannot be made credible by unit tests alone. The release candidate checklist therefore still requires clean-machine checks for Gatekeeper, Accessibility permission, global shortcuts, target-aware paste, launch at login, tray/Dock behavior, OCR permission, and actual DMG installation.
+Some guarantees depend on the operating system and cannot be made credible by unit tests alone. The release candidate checklist therefore still requires clean-machine checks for Gatekeeper, Accessibility permission, global hotkeys, target-aware paste, launch at login, tray/Dock behavior, OCR permission, and actual DMG installation.
 
 See [`RELEASE_CHECKLIST_1.0.0.md`](RELEASE_CHECKLIST_1.0.0.md) for the acceptance run and [`RELEASE_AUTOMATION.md`](RELEASE_AUTOMATION.md) for CI credential boundaries.

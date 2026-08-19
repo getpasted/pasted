@@ -9,7 +9,8 @@ The [Pasted Wiki](https://github.com/getpasted/pasted/wiki) covers installation,
 ## What Pasted does
 
 - Captures text, images, screenshots, PDFs, and copied file references in a searchable local history.
-- Organizes clips with manual Bins and Smart Bins across Clip Types, Content Types, byte-verified File Formats, and Sources, plus pinning, protection, notes, Trash, and persistent per-collection ordering.
+- Organizes clips with manual Bins and Smart Bins across Clip Types, Content Types, byte-verified File Formats, and Sources, plus pinning, explicit and inherited Bin protection, notes, Trash, and persistent per-collection ordering.
+- Assigns global hotkeys directly to durable clips for immediate paste-by-ID access; assigned clips are protected automatically.
 - Analyzes clips locally through bounded Inspect, Extract, Classify, and Suggest passes, with native macOS OCR, optional Tesseract OCR, ffprobe or MediaInfo media metadata, local whisper.cpp transcription, user-defined local Extractor recipes, editable Classifiers, content-free structural metadata, and Smart Action suggestions.
 - Previews common image files and the first page of copied PDFs without changing the copied file reference.
 - Records copies into a persistent Queue, then pastes the next item or the whole Queue into the previously focused app.
@@ -55,7 +56,7 @@ Pasted 1.0 supports macOS 13 or newer on Apple Silicon and Intel. Accessibility 
 | `1`–`9` | Paste the corresponding clip from the HUD |
 | `Esc` | Close the HUD or an open menu |
 
-Hotkeys can be changed or disabled in **Settings → Hotkeys**.
+Enable or disable all system-wide hotkeys under **Settings → Functionality → Hotkeys**. Individual assignments remain available under **Settings → Hotkeys** while the feature is enabled.
 
 ## CLI
 

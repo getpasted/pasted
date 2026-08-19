@@ -78,7 +78,7 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
       await invoke('create_pipeline', {
         name: `${pipeline.name} (Copy)`,
         steps: pipeline.steps,
-        shortcut: null,
+        hotkey: null,
       });
       soundManager.playCopySound();
       onRefreshPipelines();
@@ -167,7 +167,7 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
               stableRef: definition.stableRef,
               name: definition.name,
               steps: definition.steps,
-              shortcut: definition.shortcut,
+              hotkey: definition.hotkey,
               revision: definition.revision,
               createdAt: definition.createdAt,
               updatedAt: definition.updatedAt,
@@ -304,8 +304,8 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
           onDuplicatePipeline={(pipeline) => void handleDuplicatePipeline(pipeline)}
           onDeleteTransform={(transform) => setDeleteTarget({ kind: 'Transform', storage: 'saved', name: transform.name, ref: transform.stableRef })}
           onDeletePipeline={(pipeline) => setDeleteTarget({ kind: 'Transform', storage: 'manual', name: pipeline.name, ref: pipeline.stableRef })}
-          onPipelineShortcutChange={(pipeline, shortcut) => {
-            void invoke('update_pipeline_shortcut', { pipelineRef: pipeline.stableRef, shortcut })
+          onPipelineHotkeyChange={(pipeline, hotkey) => {
+            void invoke('update_pipeline_hotkey', { pipelineRef: pipeline.stableRef, hotkey })
               .then(onRefreshPipelines)
               .then(fetchTransforms)
               .catch(showActionError);

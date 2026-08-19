@@ -328,6 +328,7 @@ pub fn run() {
                 #[cfg(target_os = "macos")]
                 {
                     setup_window_vibrancy(&main_win);
+                    titlebar::install_focus_observers(&main_win)?;
                 }
             }
 
@@ -408,7 +409,7 @@ pub fn run() {
                 }
             }
 
-            // Register all saved HUD, Pipeline, and Bin shortcuts
+            // Register all saved HUD, Pipeline, Bin, and clip hotkeys.
             keyboard_layout::start_layout_monitor(app.handle().clone());
             let _ = commands::register_all_app_shortcuts(app.handle());
 
@@ -500,6 +501,12 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| {
+            if let tauri::WindowEvent::Focused(true) = event {
+                if let Some(webview) = window.app_handle().get_webview_window(window.label()) {
+                    let _ = webview
+                        .eval("document.documentElement.removeAttribute('data-window-inactive');");
+                }
+            }
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 let _ = window.hide();
                 api.prevent_close();
@@ -607,7 +614,7 @@ pub fn run() {
             commands::get_pipelines,
             commands::create_pipeline,
             commands::update_pipeline,
-            commands::update_pipeline_shortcut,
+            commands::update_pipeline_hotkey,
             commands::delete_pipeline,
             commands::preview_pipeline_steps,
             commands::get_operations,
@@ -666,8 +673,11 @@ pub fn run() {
             commands::get_clip_extraction_history,
             commands::search_clips,
             commands::extract_text_from_file_clip,
-            commands::register_hud_shortcut,
-            commands::update_bin_shortcut,
+            commands::register_hud_hotkey,
+            commands::update_bin_hotkey,
+            commands::update_bin_protection,
+            commands::get_clip_hotkey_assignments,
+            commands::update_clip_hotkey,
             commands::get_bin_transform_ref,
             commands::set_bin_transform_ref,
             commands::register_app_setting_hotkey,

@@ -355,6 +355,9 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
   const headerSpacingClass = isSmall ? 'mb-0.5' : isLarge ? 'mb-2' : 'mb-1';
   const noteSummary = features.notes ? getClipNoteSummary(clip.note) : '';
   const isTrashMode = viewPolicy.state === 'trash';
+  const isExplicitlyProtected = clip.is_explicitly_protected ?? clip.is_protected ?? false;
+  const inheritedProtectionOnly = Boolean(clip.is_protected) && !isExplicitlyProtected;
+  const protectionToggleDisabled = Boolean(clip.hotkey) || inheritedProtectionOnly;
   const attributeTintClass = isTrashMode
     ? 'clip-card-trashed'
     : features.protection && clip.is_protected
@@ -518,7 +521,11 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
             <span
               role="img"
               aria-label={translate('component.clipCard.protectedClip')}
-              title={translate('component.clipCard.protected')}
+              title={clip.hotkey
+                ? translate('component.clipCard.protectedByHotkey')
+                : inheritedProtectionOnly
+                  ? translate('component.clipCard.protectedByBin')
+                  : translate('component.clipCard.protected')}
               className="clip-meta-item clip-meta-icon-only clip-protected-accent"
             >
               <Shield className="clip-meta-icon" />
@@ -741,12 +748,17 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
                   e.stopPropagation();
                   onToggleProtected();
                 }}
+                disabled={protectionToggleDisabled}
                 className={`floating-action-button ${
                   clip.is_protected ? 'is-accent' : ''
                 }`}
-                title={clip.is_protected ? UI_COPY.unprotect : UI_COPY.protect}
+                title={clip.hotkey
+                  ? translate('component.clipPreview.removeHotkeyBeforeUnprotecting')
+                  : inheritedProtectionOnly
+                    ? translate('component.clipPreview.protectedByBin')
+                    : clip.is_protected ? UI_COPY.unprotect : UI_COPY.protect}
               >
-                {clip.is_protected ? (
+                {clip.is_protected && !protectionToggleDisabled ? (
                   <ShieldOff className="w-3.5 h-3.5" />
                 ) : (
                   <Shield className="w-3.5 h-3.5" />
@@ -788,6 +800,8 @@ export const ClipCard = React.memo(ClipCardComponent, (prevProps, nextProps) => 
   const nextBinIds = nextProps.clip.bin_ids ?? [];
   const previousContentTypes = prevProps.clip.content_types ?? [];
   const nextContentTypes = nextProps.clip.content_types ?? [];
+  const previousProtectingBinIds = prevProps.clip.protecting_bin_ids ?? [];
+  const nextProtectingBinIds = nextProps.clip.protecting_bin_ids ?? [];
   return (
     prevProps.clip.id === nextProps.clip.id &&
     prevProps.clip.content_hash === nextProps.clip.content_hash &&
@@ -801,6 +815,10 @@ export const ClipCard = React.memo(ClipCardComponent, (prevProps, nextProps) => 
     prevProps.clip.is_pinned === nextProps.clip.is_pinned &&
     prevProps.clip.pin_order === nextProps.clip.pin_order &&
     prevProps.clip.is_protected === nextProps.clip.is_protected &&
+    prevProps.clip.is_explicitly_protected === nextProps.clip.is_explicitly_protected &&
+    prevProps.clip.hotkey === nextProps.clip.hotkey &&
+    previousProtectingBinIds.length === nextProtectingBinIds.length &&
+    previousProtectingBinIds.every((id, index) => id === nextProtectingBinIds[index]) &&
     prevProps.clip.is_transformed === nextProps.clip.is_transformed &&
     prevProps.clip.note === nextProps.clip.note &&
     prevProps.clip.bin_id === nextProps.clip.bin_id &&
@@ -826,7 +844,8 @@ export const ClipCard = React.memo(ClipCardComponent, (prevProps, nextProps) => 
         && bin.name === nextBin.name
         && bin.icon === nextBin.icon
         && bin.color === nextBin.color
-        && bin.smart_rule === nextBin.smart_rule;
+        && bin.smart_rule === nextBin.smart_rule
+        && bin.protect_clips === nextBin.protect_clips;
     }) &&
     prevProps.rowHeight === nextProps.rowHeight &&
     prevProps.filePreviewMode === nextProps.filePreviewMode &&

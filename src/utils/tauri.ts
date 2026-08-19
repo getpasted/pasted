@@ -16,6 +16,9 @@ type MockClip = {
   line_count: number;
   is_pinned: number;
   is_protected: number;
+  is_explicitly_protected?: boolean;
+  protecting_bin_ids?: number[];
+  hotkey?: string | null;
   is_transformed?: number;
   pin_order: number;
   is_trashed: number;
@@ -33,6 +36,8 @@ type MockBin = {
   smart_rule: string | null;
   bin_type: string;
   clip_order?: number[];
+  protect_clips?: boolean;
+  hotkey?: string | null;
 };
 
 let mockClips: MockClip[] = [
@@ -97,6 +102,19 @@ let mockBins: MockBin[] = [
   { id: 1, name: 'My Manual Bin', icon: '📂', color: 'default', smart_rule: null, bin_type: 'category' },
   { id: 2, name: 'Work Bin', icon: '💼', color: '#10b981', smart_rule: '', bin_type: 'category' },
 ];
+
+function withMockProtection(clip: MockClip) {
+  const protectingBinIds = clip.bin_ids.filter((id) => (
+    mockBins.find((bin) => bin.id === id)?.protect_clips
+  ));
+  const explicitlyProtected = Boolean(clip.is_protected);
+  return {
+    ...clip,
+    is_explicitly_protected: explicitlyProtected,
+    is_protected: explicitlyProtected || Boolean(clip.hotkey) || protectingBinIds.length > 0,
+    protecting_bin_ids: protectingBinIds,
+  };
+}
 
 function mockClassifier<T extends { id: number; patterns: string[] }>(classifier: T) {
   return { ...classifier, defaults: { ...classifier, patterns: [...classifier.patterns] } };
@@ -206,7 +224,7 @@ const mockPipelines = [
     id: 1,
     stableRef: 'transform:mock-uppercase',
     name: 'Uppercase',
-    shortcut: null,
+    hotkey: null,
     revision: 1,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -216,7 +234,7 @@ const mockPipelines = [
     id: 2,
     stableRef: 'transform:mock-clean-url',
     name: 'Clean URL',
-    shortcut: null,
+    hotkey: null,
     revision: 1,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -331,7 +349,7 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
             && (!Number.isInteger(binId) || binId <= 0 || clip.bin_ids.includes(binId));
         })
         .slice(offset, offset + limit)
-        .map((clip) => ({ ...clip, content_types: [...(clip.content_types ?? [])], bin_ids: [...clip.bin_ids] })) as unknown as T;
+        .map((clip) => ({ ...withMockProtection(clip), content_types: [...(clip.content_types ?? [])], bin_ids: [...clip.bin_ids] })) as unknown as T;
     }
     case 'search_clips': {
       const request = (args?.request ?? {}) as Record<string, unknown>;
@@ -350,14 +368,15 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       const items = mockClips.filter((clip) => {
         if (Boolean(clip.is_trashed) !== plan.requiresTrashed) return false;
         const searchableText = mockFileSearchableText.get(clip.id)?.searchableText;
+        const protectedClip = withMockProtection(clip);
         const candidate = searchableText
-          ? { ...clip, text_content: `${clip.text_content}\n${searchableText}` }
-          : clip;
+          ? { ...protectedClip, text_content: `${clip.text_content}\n${searchableText}` }
+          : protectedClip;
         return clipMatchesSearch(candidate as unknown as import('../types').ClipItem, plan);
       });
       return {
         items: items.slice(offset, offset + limit).map((clip) => ({
-          ...clip,
+          ...withMockProtection(clip),
           content_types: [...(clip.content_types ?? [])],
           file_formats: [...(clip.file_formats ?? [])],
           bin_ids: [...clip.bin_ids],
@@ -1288,15 +1307,17 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
     }
     case 'create_bin': {
       const id = Math.max(0, ...mockBins.map((bin) => bin.id)) + 1;
-      mockBins.push({
+      const created = {
         id,
         name: typeof args?.name === 'string' ? args.name : 'Untitled Bin',
         icon: typeof args?.icon === 'string' ? args.icon : '📂',
         color: typeof args?.color === 'string' ? args.color : 'default',
         smart_rule: typeof args?.smartRule === 'string' ? args.smartRule : null,
         bin_type: 'category',
-      });
-      return id as unknown as T;
+        protect_clips: false,
+      };
+      mockBins.push(created);
+      return created as unknown as T;
     }
     case 'update_bin': {
       const bin = mockBins.find((item) => item.id === Number(args?.id));
@@ -1307,6 +1328,28 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
         bin.smart_rule = typeof args?.smartRule === 'string' ? args.smartRule : null;
       }
       return null as unknown as T;
+    }
+    case 'update_bin_protection': {
+      const bin = mockBins.find((item) => item.id === Number(args?.id));
+      if (bin && !bin.smart_rule) bin.protect_clips = Boolean(args?.protectClips);
+      return null as unknown as T;
+    }
+    case 'get_clip_hotkey_assignments':
+      return mockClips
+        .filter((clip) => Boolean(clip.hotkey))
+        .map((clip) => ({ clipId: clip.id, hotkey: clip.hotkey })) as unknown as T;
+    case 'update_clip_hotkey': {
+      const clip = mockClips.find((item) => item.id === Number(args?.clipId));
+      if (clip) {
+        clip.hotkey = typeof args?.hotkey === 'string' && args.hotkey.trim()
+          ? args.hotkey.trim()
+          : null;
+        if (clip.hotkey) {
+          clip.is_protected = 1;
+          clip.is_explicitly_protected = true;
+        }
+      }
+      return clip as unknown as T;
     }
     case 'delete_bin': {
       const id = Number(args?.id);

@@ -16,6 +16,7 @@ import { ClipBinPicker } from './ClipBinPicker';
 import { ClipNoteViewer } from './ClipNoteViewer';
 import { NoteRowItem } from './ClipNoteRow';
 import { OverflowText } from './OverflowText';
+import { HotkeyRecorder } from './HotkeyRecorder';
 import {
   Copy,
   ClipboardPaste,
@@ -827,6 +828,31 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
       ? parseColor(displayText, isColorContent)
       : null;
   const canTransformContent = clip.content_type !== 'image' && clip.content_type !== 'file';
+  const isExplicitlyProtected = clip.is_explicitly_protected ?? clip.is_protected ?? false;
+  const protectionIsInheritedOnly = Boolean(clip.is_protected) && !isExplicitlyProtected;
+  const protectionToggleDisabled = Boolean(clip.hotkey) || protectionIsInheritedOnly;
+
+  const handleHotkeyChange = async (hotkey: string | null) => {
+    try {
+      const updated = await invoke<ClipItem>('update_clip_hotkey', {
+        clipId: clip.id,
+        hotkey,
+      });
+      onUpdateClip(updated);
+      showToast({
+        tone: 'success',
+        message: hotkey
+          ? translate('component.clipPreview.hotkeyAssignedAndClipProtected')
+          : translate('component.clipPreview.hotkeyRemovedProtectionKept'),
+      });
+    } catch (error) {
+      console.error('Failed to update clip hotkey:', error);
+      showToast({
+        tone: 'error',
+        message: translate('component.clipPreview.clipHotkeyCouldNotBeRegistered'),
+      });
+    }
+  };
 
   const handleCopy = async () => {
     try {
@@ -1181,12 +1207,21 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
               {features.protection && <button
                 type="button"
                 onClick={() => onToggleProtected(clip.id)}
+                disabled={protectionToggleDisabled}
                 className={`clip-preview-action preview-protect-btn theme-focusable transition-colors ${clip.is_protected ? 'is-active' : ''}`}
-                title={clip.is_protected ? UI_COPY.unprotect : UI_COPY.protect}
-                aria-label={clip.is_protected ? UI_COPY.unprotect : UI_COPY.protect}
+                title={clip.hotkey
+                  ? translate('component.clipPreview.removeHotkeyBeforeUnprotecting')
+                  : protectionIsInheritedOnly
+                    ? translate('component.clipPreview.protectedByBin')
+                    : clip.is_protected ? UI_COPY.unprotect : UI_COPY.protect}
+                aria-label={clip.hotkey
+                  ? translate('component.clipPreview.removeHotkeyBeforeUnprotecting')
+                  : protectionIsInheritedOnly
+                    ? translate('component.clipPreview.protectedByBin')
+                    : clip.is_protected ? UI_COPY.unprotect : UI_COPY.protect}
                 aria-pressed={Boolean(clip.is_protected)}
               >
-                {clip.is_protected ? <ShieldOff /> : <Shield />}
+                {clip.is_protected && !protectionToggleDisabled ? <ShieldOff /> : <Shield />}
               </button>}
             </>
           )}
@@ -1235,6 +1270,15 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
           />
         </div>
 
+        {features.protection && features.hotkeys && (
+          <div className="ms-auto flex items-center ps-3">
+            <HotkeyRecorder
+              value={clip.hotkey ?? null}
+              onChange={(hotkey) => void handleHotkeyChange(hotkey)}
+            />
+          </div>
+        )}
+
       </div>
       ) : (
         <div className="preview-bin-bar px-4 py-2 flex items-center justify-between text-xs border-b" role="note">
@@ -1244,6 +1288,15 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
           </div>
         </div>
       ))}
+
+      {features.protection && features.hotkeys && !features.bins && viewPolicy.canOrganize && (
+        <div className="preview-bin-bar flex items-center justify-end border-b px-4 py-2 text-xs">
+          <HotkeyRecorder
+            value={clip.hotkey ?? null}
+            onChange={(hotkey) => void handleHotkeyChange(hotkey)}
+          />
+        </div>
+      )}
 
       {/* Multi-Note Container (Inline Input Row, Stable Animated Reordering, Non-Selectable) */}
       {features.notes && (notes.length > 0 || isAddingNote) && (

@@ -284,7 +284,7 @@
   line-height: 1.45;
 }
 
-.welcome-setup-shortcut-card {
+.welcome-setup-hotkey-card {
   display: flex;
   align-items: center;
   gap: 1rem;
@@ -309,13 +309,13 @@
   white-space: nowrap;
 }
 
-.welcome-setup-shortcut-card > div {
+.welcome-setup-hotkey-card > div {
   min-width: 0;
   flex: 1 1 auto;
 }
 
-.welcome-setup-shortcut-card strong,
-.welcome-setup-shortcut-card div span {
+.welcome-setup-hotkey-card strong,
+.welcome-setup-hotkey-card div span {
   display: block;
 }
 
@@ -478,7 +478,7 @@
   line-height: 1.45;
 }
 
-.welcome-setup-shortcut-card div span {
+.welcome-setup-hotkey-card div span {
   margin-top: 0.2rem;
   color: var(--text-muted);
   font-size: 0.7rem;
@@ -534,7 +534,7 @@
     flex-basis: 11rem;
   }
 
-  .welcome-setup-shortcut-card {
+  .welcome-setup-hotkey-card {
     align-items: stretch;
     flex-direction: column;
   }

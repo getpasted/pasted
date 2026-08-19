@@ -79,6 +79,9 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   const [transforms, setTransforms] = useState<SavedTransform[]>([]);
   const [isLoadingTransforms, setIsLoadingTransforms] = useState(false);
   const isAltPressed = useAltKeyPressed();
+  const isExplicitlyProtected = clip.is_explicitly_protected ?? clip.is_protected ?? false;
+  const inheritedProtectionOnly = Boolean(clip.is_protected) && !isExplicitlyProtected;
+  const protectionToggleDisabled = Boolean(clip.hotkey) || inheritedProtectionOnly;
 
   useEffect(() => {
     if (!features.transformations || !viewPolicy.canRunPipelines || clip.content_type === 'file') return;
@@ -306,14 +309,22 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
             onToggleProtected();
             onClose();
           }}
+          disabled={protectionToggleDisabled}
+          title={clip.hotkey
+            ? translate('component.clipPreview.removeHotkeyBeforeUnprotecting')
+            : inheritedProtectionOnly
+              ? translate('component.clipPreview.protectedByBin')
+              : undefined}
           className="theme-menu-item w-full flex items-center space-x-2.5 px-3 py-1.5 rounded-md"
         >
-          {clip.is_protected ? (
+          {clip.is_protected && !protectionToggleDisabled ? (
             <ShieldOff className="theme-text-muted w-3.5 h-3.5" />
           ) : (
             <Shield className="theme-status-info-text w-3.5 h-3.5" />
           )}
-          <span>{clip.is_protected ? translate('action.unprotect') : translate('action.protect')}</span>
+          <span>{protectionToggleDisabled
+            ? translate('component.contextMenu.protectedAutomatically')
+            : clip.is_protected ? translate('action.unprotect') : translate('action.protect')}</span>
         </button>
       )}
 

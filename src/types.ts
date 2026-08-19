@@ -82,6 +82,9 @@ export interface ClipItem {
   source: string;
   is_pinned: boolean;
   is_protected?: boolean;
+  is_explicitly_protected?: boolean | null;
+  protecting_bin_ids?: number[];
+  hotkey?: string | null;
   is_transformed?: boolean;
   pin_order?: number;
   bin_id: number | null;
@@ -179,7 +182,8 @@ export interface Bin {
   color: string;
   smart_rule?: string | null;
   bin_type?: 'category' | 'tag';
-  shortcut?: string | null;
+  hotkey?: string | null;
+  protect_clips?: boolean;
   clip_count?: number | null;
   clip_order?: number[];
   created_at: string;
@@ -208,7 +212,7 @@ export interface Pipeline {
   stableRef: string;
   name: string;
   steps: PipelineStep[];
-  shortcut?: string | null;
+  hotkey?: string | null;
   revision: number;
   createdAt: string;
   updatedAt: string;
@@ -379,7 +383,7 @@ export interface SavedTransform {
   name: string;
   plan: TransformationPlan;
   connectionId: string | null;
-  shortcut?: string | null;
+  hotkey?: string | null;
   revision: number;
   createdAt: string;
   updatedAt: string;
@@ -392,7 +396,7 @@ export interface TransformDefinition {
   authoringKind: 'intent' | 'manual';
   executionCharacter: 'replayable' | 'interpretive' | 'mixed';
   connectionId: string | null;
-  shortcut: string | null;
+  hotkey: string | null;
   revision: number;
   createdAt: string;
   updatedAt: string;
@@ -529,6 +533,7 @@ export interface AppSettings {
   enableQueue: boolean;
   enableRevisions: boolean;
   enableHud: boolean;
+  enableHotkeys: boolean;
   enableTransformations: boolean;
   enableTypes: boolean;
   enableSources: boolean;

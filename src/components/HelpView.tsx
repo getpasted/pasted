@@ -56,6 +56,7 @@ const CLI_COMMAND_GROUPS = [
       { usage: 'pasted clip restore-revision <id> <revision-id> [--json]', get description() { return translate('component.helpView.restoreAnEarlierClipRevisionAndItsRecordedOrganization'); } },
       { usage: 'pasted clip provenance <id> [--json]', get description() { return translate('component.helpView.inspectTheTransformThatProducedTheCurrentClipContent'); } },
       { usage: 'pasted clip copy|paste <id> [--json]', get description() { return translate('component.helpView.copyOrPasteASavedClipThroughTheRunningApp'); } },
+      { usage: 'pasted clip hotkey <id> <hotkey|none> [--json]', get description() { return translate('component.helpView.setOrClearAClipHotkeyAndProtectAssignments'); } },
       { usage: 'pasted clip pin|unpin <id>... [--json]', get description() { return translate('component.helpView.setPinStateExplicitlyForOneOrMoreClips'); } },
       { usage: 'pasted clip order-pinned <id>... [--json]', get description() { return translate('component.helpView.replaceTheCompletePinnedClipOrder'); } },
       { usage: 'pasted clip protect|unprotect <id>... [--json]', get description() { return translate('component.helpView.setProtectionExplicitlyForOneOrMoreClips'); } },
@@ -80,7 +81,8 @@ const CLI_COMMAND_GROUPS = [
       { usage: 'pasted bin clips <bin-id> [--json]', get description() { return translate('component.helpView.listABinSClipsInPersistentOrder'); } },
       { usage: 'pasted bin order <bin-id> <clip-id>... [--json]', get description() { return translate('component.helpView.replaceABinSCompleteSavedClipOrder'); } },
       { usage: 'pasted bin transform <id> <transform-ref|none> [--json]', get description() { return translate('component.helpView.setOrClearABinSDefaultTransform'); } },
-      { usage: 'pasted bin shortcut <id> <shortcut|none> [--json]', get description() { return translate('component.helpView.setOrClearABinShortcut'); } },
+      { usage: 'pasted bin hotkey <id> <hotkey|none> [--json]', get description() { return translate('component.helpView.setOrClearABinHotkey'); } },
+      { usage: 'pasted bin protect <id> <on|off> [--json]', get description() { return translate('component.helpView.setInheritedProtectionForAManualBin'); } },
       { usage: 'pasted transform list [--json]', get description() { return translate('component.helpView.listSavedAndManuallyBuiltTransforms'); } },
       { usage: 'pasted transform get <ref> [--json]', get description() { return translate('component.helpView.inspectOneCanonicalTransformDefinition'); } },
       { usage: 'pasted transform plan [--intent TEXT | --stdin] [--sample TEXT] [--json]', get description() { return translate('component.helpView.draftATransformPlanFromNaturalLanguageIntent'); } },
@@ -192,7 +194,7 @@ interface HelpTopicDefinition {
 
 const HELP_TOPICS: HelpTopicDefinition[] = [
   { id: 'getting-started', get label() { return translate('component.helpView.gettingStarted'); }, icon: BookOpen, iconClassName: 'theme-status-info-text' },
-  { id: 'shortcuts-hud', get label() { return translate('component.helpView.shortcutsAndHud'); }, icon: Keyboard, iconClassName: 'theme-status-success-text' },
+  { id: 'shortcuts-hud', get label() { return translate('component.helpView.hotkeysAndHud'); }, icon: Keyboard, iconClassName: 'theme-status-success-text' },
   { id: 'privacy-capture', get label() { return translate('component.helpView.privacyAndCapture'); }, icon: Shield, iconClassName: 'theme-status-warning-text' },
   { id: 'deletion-recovery', get label() { return translate('component.helpView.deletionAndRecovery'); }, icon: Trash2, iconClassName: 'theme-status-danger-text' },
   { id: 'analysis', get label() { return translate('component.helpView.contentAnalysis'); }, icon: Radar, iconClassName: 'theme-status-info-text' },
@@ -407,10 +409,10 @@ export const HelpView: React.FC<HelpViewProps> = ({ activeTopic, onActiveTopicCh
               <div>
                 <h3 className="theme-title text-lg font-bold flex items-center space-x-2">
                   <Keyboard className="w-5 h-5 theme-status-success-text" />
-                  <span>{translate('component.helpView.shortcutsAndHud')}</span>
+                  <span>{translate('component.helpView.hotkeysAndHud')}</span>
                 </h3>
                 <p className="theme-text-muted text-xs mt-1">
-                  {translate('component.helpView.useTheDefaultShortcutsBelowOrChangeAndDisableThemUnderSettings')}
+                  {translate('component.helpView.useTheDefaultHotkeysBelowOrChangeAndDisableThemUnderSettings')}
                 </p>
               </div>
 
@@ -431,7 +433,7 @@ export const HelpView: React.FC<HelpViewProps> = ({ activeTopic, onActiveTopicCh
                     <span>{translate('component.helpView.openHud')}</span>
                   </div>
                   <p className="theme-text-muted text-xs">
-                    {translate('component.helpView.openHudShortcutDescription', { shortcut: '⌥ Shift V' })}</p>
+                    {translate('component.helpView.openHudHotkeyDescription', { hotkey: '⌥ Shift V' })}</p>
                 </div>
 
               <div className="theme-panel p-4 rounded-xl border space-y-2">
@@ -464,8 +466,18 @@ export const HelpView: React.FC<HelpViewProps> = ({ activeTopic, onActiveTopicCh
                 </h3>
                 <p className="theme-text-muted text-xs mt-1">
                   {translate('component.helpView.controlWhichApplicationsAreRecordedAndHowCapturesAreConfirmedWithoutSending')}
-                </p>
-              </div>
+                  </p>
+                </div>
+
+              <div className="theme-panel p-4 rounded-xl border space-y-2">
+                  <div className="theme-status-info-text flex items-center space-x-2 text-xs font-bold">
+                    <Keyboard className="w-4 h-4" />
+                    <span>{translate('component.helpView.clipHotkeys')}</span>
+                  </div>
+                  <p className="theme-text-muted text-xs">
+                    {translate('component.helpView.clipHotkeyDescription')}
+                  </p>
+                </div>
 
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                 <section className="theme-panel space-y-3 rounded-xl border p-4">

@@ -1254,7 +1254,9 @@ export default function App() {
         bins={bins}
         clipCollectionSummary={clipCollectionSummary}
         features={enabledFeatures}
-        onRefreshBins={fetchBins}
+        onRefreshBins={() => {
+          void Promise.all([fetchBins(), fetchClips(), fetchClipCollectionSummary()]);
+        }}
         onOpenNewBinModal={handleOpenNewBinModal}
         onEditBin={handleEditBin}
         onDeleteBin={handleRequestDeleteBin}
@@ -1775,6 +1777,7 @@ export default function App() {
           clipTypes: enabledFeatures.clipTypes,
           fileFormats: enabledFeatures.fileFormats,
           sources: enabledFeatures.sources,
+          protection: enabledFeatures.protection,
           types: enabledFeatures.types,
         }}
         fileFormats={clipCollectionSummary.fileFormatCounts.map(({ file_format }) => file_format)}

@@ -10,6 +10,7 @@ interface SettingsTabsProps {
   showIntelligence?: boolean;
   showNotifications?: boolean;
   showSecurity?: boolean;
+  showHotkeys?: boolean;
 }
 
 const TABS = [
@@ -25,13 +26,14 @@ const TABS = [
   { id: 'about', get label() { return translate('component.settingsTabs.about'); }, Icon: Info },
 ] as const;
 
-export function SettingsTabs({ activeTab, onChange, showIntelligence = true, showNotifications = true, showSecurity = true }: SettingsTabsProps) {
+export function SettingsTabs({ activeTab, onChange, showIntelligence = true, showNotifications = true, showSecurity = true, showHotkeys = true }: SettingsTabsProps) {
   return (
     <nav className="theme-surface settings-tabs flex items-center gap-1 rounded-xl border p-1" aria-label={translate('component.settingsTabs.settingsSections')}>
       {TABS.filter(({ id }) => (
         (id !== 'intelligence' || showIntelligence)
         && (id !== 'notifications' || showNotifications)
         && (id !== 'security' || showSecurity)
+        && (id !== 'hotkeys' || showHotkeys)
       )).map(({ id, label, Icon }) => (
         <button
           key={id}

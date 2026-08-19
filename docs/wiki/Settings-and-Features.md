@@ -1,6 +1,6 @@
 # Settings and Features
 
-Pasted can be a full workspace or a small clipboard history. **Settings → Functionality** provides global gates for App Lock, Bins, Queue, pinning, protection, notes, Trash, Clip Types, Content Types, Sources, Transformations, Activity, CLI, OCR, Transcriptions, Revision History, content classification, HUD, and related tools.
+Pasted can be a full workspace or a small clipboard history. **Settings → Functionality** provides global gates for App Lock, Bins, Queue, pinning, protection, notes, Trash, Clip Types, Content Types, Sources, Transformations, Activity, CLI, OCR, Transcriptions, Revision History, content classification, HUD, Hotkeys, and related tools.
 
 Disabling a feature hides its active UI and preserves existing data unless the setting explicitly describes destruction. Related settings are hidden when they cannot apply.
 
@@ -24,6 +24,7 @@ Changing presets does not erase clips or supporting records. Feature cards with 
 - **OCR:** disabling it stops automatic OCR and hides the shipped Apple Vision and Tesseract recipes. Unrelated custom image Extractors remain manageable. Completed extracted text remains with its clips; re-enabling OCR resumes eligible image backfill.
 - **Transcriptions:** disabling it hides Whisper and audio transcription controls without hiding unrelated custom file Extractors. Completed transcripts remain stored.
 - **Transformations:** disabling it stops text workflows and Smart Action suggestions and hides Suggestions under Analysis.
+- **Hotkeys:** disabling it immediately unregisters every system-wide Pasted hotkey and hides hotkey configuration without deleting assignments. Re-enabling it restores eligible app, clip, Bin, and Transform hotkeys.
 - **Content Types:** disabling it hides semantic Content Type labels and calculated collections and suspends Content Type Smart Bin matches. Classifiers may still classify clips using the preserved registry. Structural presentation follows the separate Clip Types setting.
 - **Sources:** disabling it hides source metadata and calculated Source collections, stops icon resolution, and suspends Source Smart Bin matches. Attribution remains stored so re-enabling Sources is reversible.
 - **Insights:** disabling it hides library statistics. It does not change Analyzer execution or stored analysis results.
@@ -36,7 +37,7 @@ Feature gates control visibility and future behavior. Factory Reset, permanent d
 Other Settings pages cover:
 
 - **General:** layout, zoom, row height, retention, sounds, startup, previews, and OS integration;
-- **Hotkeys:** global shortcuts and platform permission status, including a configurable Lock Pasted action when App Lock is available;
+- **Hotkeys:** when enabled under Functionality, global hotkeys and platform permission status, including a configurable Lock Pasted action when App Lock is available;
 - **Security:** when App Lock is enabled under Functionality, passphrase setup, system authentication, immediate lock, restart and sleep policies, inactivity auto-lock, and capture behavior while locked;
 - **Intelligence:** detected and custom intelligence providers;
 - **App Exclusions:** applications that should block selected text, image, file, or hotkey behavior;

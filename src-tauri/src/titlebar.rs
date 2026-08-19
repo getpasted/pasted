@@ -178,6 +178,42 @@ pub fn set_titlebar_direction(window: tauri::WebviewWindow, rtl: bool) -> Result
 }
 
 #[cfg(target_os = "macos")]
+pub fn install_focus_observers(window: &tauri::WebviewWindow) -> Result<(), String> {
+    use block2::RcBlock;
+    use objc::runtime::Object;
+    use objc::{msg_send, sel, sel_impl};
+    use tauri::Manager;
+
+    let ns_window = window.ns_window().map_err(|error| error.to_string())? as usize;
+    let focused_window = window.clone();
+
+    window
+        .app_handle()
+        .run_on_main_thread(move || unsafe {
+            let center: *mut Object = msg_send![objc::class!(NSNotificationCenter), defaultCenter];
+            let did_become_key: *mut Object = msg_send![
+                objc::class!(NSString),
+                stringWithUTF8String: c"NSWindowDidBecomeKeyNotification".as_ptr()
+            ];
+            let focus_block: RcBlock<dyn Fn(*mut std::ffi::c_void)> =
+                RcBlock::new(move |_notification: *mut std::ffi::c_void| {
+                    let _ = focused_window
+                        .eval("document.documentElement.removeAttribute('data-window-inactive');");
+                });
+            let window_object = ns_window as *mut Object;
+            let queue: *mut Object = std::ptr::null_mut();
+            let _: *mut Object = msg_send![
+                center,
+                addObserverForName: did_become_key
+                object: window_object
+                queue: queue
+                usingBlock: &*focus_block
+            ];
+        })
+        .map_err(|error| error.to_string())
+}
+
+#[cfg(target_os = "macos")]
 fn configured_titlebar_double_click_action() -> TitlebarDoubleClickAction {
     use objc::runtime::Object;
     use objc::{msg_send, sel, sel_impl};

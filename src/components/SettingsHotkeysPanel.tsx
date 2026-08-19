@@ -22,14 +22,15 @@ interface SettingsHotkeysPanelProps {
 type HotkeyCapabilityStatus = {
   platform: 'macos' | 'windows' | 'linux' | 'unsupported';
   backend: 'macos' | 'windows' | 'x11' | 'wayland-portal' | 'unsupported';
-  state: 'checking' | 'ready' | 'conflict' | 'unavailable';
+  state: 'checking' | 'ready' | 'conflict' | 'unavailable' | 'disabled';
   is_trusted: boolean;
   is_dev_mode: boolean;
   configured_count: number;
   registered_count: number;
-  issues: Array<{ shortcut: string; description: string; message: string }>;
+  issues: Array<{ hotkey: string; description: string; message: string }>;
   bindings: Array<{ id: string; description: string; trigger: string }>;
 };
+type ClipHotkeyAssignment = { clipId: number; hotkey: string };
 let cachedHotkeyStatus: HotkeyCapabilityStatus | null = null;
 type HotkeySetting = keyof Pick<
   AppSettings,
@@ -72,13 +73,13 @@ const defaultHotkeys: Partial<AppSettings> = {
 };
 
 const actionHotkeys: Array<{ label: string; key: HotkeySetting; fallback?: string; feature?: 'queue' | 'transformations' | 'appLock' }> = [
+  { get label() { return translate('component.settingsHotkeysPanel.toggleMainWindow'); }, key: 'openMainWindowHotkey' },
+  { get label() { return translate('component.settingsHotkeysPanel.lockApp'); }, key: 'lockAppHotkey', fallback: 'Alt+Shift+L', feature: 'appLock' },
   { get label() { return translate('component.settingsHotkeysPanel.enableOrDisableQueue'); }, key: 'seqToggleHotkey', fallback: 'Alt+Shift+C', feature: 'queue' },
   { get label() { return translate('component.settingsHotkeysPanel.pasteNextItemFromQueue'); }, key: 'seqPopHotkey', fallback: 'Alt+Shift+X', feature: 'queue' },
   { get label() { return translate('component.settingsHotkeysPanel.copyWithLastAdvancedTransform'); }, key: 'copyLastPipelineHotkey', feature: 'transformations' },
   { get label() { return translate('component.settingsHotkeysPanel.pasteWithLastAdvancedTransform'); }, key: 'pasteLastPipelineHotkey', feature: 'transformations' },
   { get label() { return translate('component.settingsHotkeysPanel.openTransformations'); }, key: 'openTransformationsHotkey', feature: 'transformations' },
-  { get label() { return translate('component.settingsHotkeysPanel.toggleMainWindow'); }, key: 'openMainWindowHotkey' },
-  { get label() { return translate('component.settingsHotkeysPanel.lockApp'); }, key: 'lockAppHotkey', fallback: 'Alt+Shift+L', feature: 'appLock' },
 ];
 
 function HotkeyRow({ label, value, onChange }: { label: string; value: string | null; onChange: (value: string | null) => void }) {
@@ -100,6 +101,7 @@ export function SettingsHotkeysPanel({
 }: SettingsHotkeysPanelProps) {
   const { showToast } = useToast();
   const [hotkeyStatus, setHotkeyStatus] = useState<HotkeyCapabilityStatus | null>(cachedHotkeyStatus);
+  const [clipHotkeys, setClipHotkeys] = useState<ClipHotkeyAssignment[]>([]);
   const permissionRefreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const refreshHotkeyStatus = async () => {
@@ -118,20 +120,30 @@ export function SettingsHotkeysPanel({
     }
   };
 
+  const refreshClipHotkeys = async () => {
+    try {
+      setClipHotkeys(await invoke<ClipHotkeyAssignment[]>('get_clip_hotkey_assignments'));
+    } catch (error) {
+      console.error('Failed to load clip hotkeys:', error);
+    }
+  };
+
   useEffect(() => {
     void refreshHotkeyStatus();
+    void refreshClipHotkeys();
     let disposed = false;
     let unlisten: (() => void) | undefined;
-    void listen('hotkey-registration-changed', () => void refreshHotkeyStatus()).then((dispose) => {
+    void listen('hotkey-registration-changed', () => {
+      void refreshHotkeyStatus();
+      void refreshClipHotkeys();
+    }).then((dispose) => {
       if (disposed) dispose();
       else unlisten = dispose;
     }).catch(console.error);
-    const interval = window.setInterval(() => void refreshHotkeyStatus(), 10000);
     window.addEventListener('focus', refreshHotkeyStatus);
     return () => {
       disposed = true;
       unlisten?.();
-      window.clearInterval(interval);
       window.removeEventListener('focus', refreshHotkeyStatus);
       if (permissionRefreshTimer.current) clearTimeout(permissionRefreshTimer.current);
     };
@@ -147,7 +159,7 @@ export function SettingsHotkeysPanel({
     } catch (error) {
       onUpdateSettings({ [key]: previousValue });
       console.error(`Failed to register ${key}:`, error);
-      showToast({ tone: 'error', get message() { return translate('component.settingsHotkeysPanel.thatShortcutCouldNotBeRegisteredTryADifferentKeyCombination'); } });
+      showToast({ tone: 'error', get message() { return translate('component.settingsHotkeysPanel.thatHotkeyCouldNotBeRegisteredTryADifferentKeyCombination'); } });
     }
   };
 
@@ -159,11 +171,11 @@ export function SettingsHotkeysPanel({
     try {
       await invoke('register_app_setting_hotkeys', { values: defaultHotkeys });
       await refreshHotkeyStatus();
-      showToast({ tone: 'success', get message() { return translate('component.settingsHotkeysPanel.defaultShortcutsRestored'); } });
+      showToast({ tone: 'success', get message() { return translate('component.settingsHotkeysPanel.defaultHotkeysRestored'); } });
     } catch (error) {
       onUpdateSettings(previousValues);
       console.error('Failed to restore default hotkeys:', error);
-      showToast({ tone: 'error', get message() { return translate('component.settingsHotkeysPanel.someDefaultShortcutsCouldNotBeRegistered'); } });
+      showToast({ tone: 'error', get message() { return translate('component.settingsHotkeysPanel.someDefaultHotkeysCouldNotBeRegistered'); } });
     }
   };
 
@@ -198,13 +210,13 @@ export function SettingsHotkeysPanel({
     : hotkeyStatus?.backend === 'wayland-portal'
       ? (hotkeyStatus.state === 'unavailable'
           ? <>{translate('component.settingsHotkeysPanel.thisDesktopDoesNotProvideTheXdgGlobalShortcutsPortalSoSystem')}</>
-          : <>{translate('component.settingsHotkeysPanel.theDesktopSecurelyOwnsTheseShortcutsAndMayRequestApprovalOrChanges')}</>)
+          : <>{translate('component.settingsHotkeysPanel.theDesktopSecurelyOwnsTheseHotkeysAndMayRequestApprovalOrChanges')}</>)
       : hotkeyStatus?.backend === 'x11'
-        ? <>{translate('component.settingsHotkeysPanel.shortcutsRegisterDirectlyWithX11ConflictsWithTheDesktopOrAnotherApp')}</>
+        ? <>{translate('component.settingsHotkeysPanel.hotkeysRegisterDirectlyWithX11ConflictsWithTheDesktopOrAnotherApp')}</>
         : hotkeyStatus?.platform === 'windows'
-          ? <>{translate('component.settingsHotkeysPanel.shortcutsRegisterDirectlyWithWindowsReservedShortcutsAndConflictsWithOtherApps')}</>
+          ? <>{translate('component.settingsHotkeysPanel.hotkeysRegisterDirectlyWithWindowsReservedHotkeysAndConflictsWithOtherApps')}</>
           : isBrowserPreview
-            ? <>{translate('component.settingsHotkeysPanel.thisWindowCouldNotRegisterSystemWideShortcutsSoHotkeysMayNot')}</>
+            ? <>{translate('component.settingsHotkeysPanel.thisWindowCouldNotRegisterSystemWideHotkeysSoHotkeysMayNot')}</>
             : <>{translate('component.settingsHotkeysPanel.thisPlatformDoesNotCurrentlyProvideASupportedGlobalHotkeyBackend')}</>;
   const capabilityBadge = !hotkeyStatus || hotkeyStatus.state === 'checking'
     ? translate('component.settingsHotkeysPanel.checking')
@@ -228,7 +240,7 @@ export function SettingsHotkeysPanel({
       <SettingsPanelHeader
         icon={Keyboard}
         title={translate('component.settingsHotkeysPanel.hotkeys')}
-        description={translate('component.settingsHotkeysPanel.globalShortcutsBinActionsAndTransformTriggers')}
+        description={translate('component.settingsHotkeysPanel.globalHotkeysBinActionsAndTransformTriggers')}
         actions={(
           <ActionButton onClick={() => void restoreDefaults()}>
             <RotateCcw className="w-3.5 h-3.5" />
@@ -265,9 +277,9 @@ export function SettingsHotkeysPanel({
         {hasHotkeyIssues && (
           <ul className="theme-subtle-surface theme-divide divide-y overflow-hidden rounded-lg border" aria-label={translate('component.settingsHotkeysPanel.unavailableHotkeys')}>
             {hotkeyStatus!.issues.slice(0, 4).map((issue, index) => (
-              <li key={`${issue.description}-${issue.shortcut}-${index}`} className="flex items-start justify-between gap-3 px-2.5 py-2 text-[10px]">
+              <li key={`${issue.description}-${issue.hotkey}-${index}`} className="flex items-start justify-between gap-3 px-2.5 py-2 text-[10px]">
                 <OverflowText text={issue.description} className="min-w-0 truncate theme-text-main" />
-                {issue.shortcut && <kbd className="shrink-0 font-mono theme-text-muted">{issue.shortcut}</kbd>}
+                {issue.hotkey && <kbd className="shrink-0 font-mono theme-text-muted">{issue.hotkey}</kbd>}
               </li>
             ))}
           </ul>
@@ -284,38 +296,6 @@ export function SettingsHotkeysPanel({
         )}
       </div>
 
-      {settings.enableBins && <section className="space-y-2">
-        <h4 className="font-bold theme-text-muted uppercase tracking-wider text-[10px]">{translate('component.settingsHotkeysPanel.customBinHotkeys')}{bins.length})</h4>
-        <div className="theme-surface overflow-hidden rounded-xl border">
-          {bins.length === 0
-            ? <p className="theme-text-subtle p-2.5 text-[11px] italic">{translate('component.settingsHotkeysPanel.noCustomBinsCreatedYetCreateBinsInTheSidebarToAssign')}</p>
-            : bins.map((bin) => <HotkeyRow key={bin.id} label={bin.name} value={bin.shortcut ?? null} onChange={async (shortcut) => {
-              try {
-                await invoke('update_bin_shortcut', { id: bin.id, shortcut });
-                onRefreshBins?.();
-              } catch (error) {
-                console.error('Failed to update bin shortcut:', error);
-                showToast({ tone: 'error', get message() { return translate('component.settingsHotkeysPanel.thatBinShortcutCouldNotBeRegistered'); } });
-              }
-            }} />)}
-        </div>
-      </section>}
-
-      {settings.enableTransformations && pipelines.length > 0 && <section className="space-y-2">
-        <h4 className="font-bold theme-text-muted uppercase tracking-wider text-[10px]">{translate('component.settingsHotkeysPanel.savedTransformHotkeys')}{pipelines.length})</h4>
-        <div className="theme-surface overlay-scroll-region max-h-60 overflow-y-auto rounded-xl border">
-          {pipelines.map((pipeline) => <HotkeyRow key={pipeline.id} label={pipeline.name} value={pipeline.shortcut ?? null} onChange={async (shortcut) => {
-              try {
-                await invoke('update_pipeline_shortcut', { pipelineRef: pipeline.stableRef, shortcut });
-                onRefreshPipelines?.();
-              } catch (error) {
-                console.error('Failed to update Advanced Transform shortcut:', error);
-                showToast({ tone: 'error', get message() { return translate('component.settingsHotkeysPanel.thatAdvancedTransformShortcutCouldNotBeRegistered'); } });
-              }
-            }} />)}
-        </div>
-      </section>}
-
       <section className="space-y-2">
         <h4 className="font-bold theme-text-muted uppercase tracking-wider text-[10px]">{translate('component.settingsHotkeysPanel.actions')}</h4>
         <div className="theme-surface overflow-hidden rounded-xl border">
@@ -324,11 +304,11 @@ export function SettingsHotkeysPanel({
             const previousValue = settings.hudHotkey ?? 'Alt+Shift+V';
             onUpdateSettings({ hudHotkey: value });
             try {
-              await invoke('register_hud_shortcut', { shortcutStr: value });
+              await invoke('register_hud_hotkey', { hotkey: value });
             } catch (error) {
               onUpdateSettings({ hudHotkey: previousValue });
-              console.error('Failed to register HUD shortcut:', error);
-              showToast({ tone: 'error', get message() { return translate('component.settingsHotkeysPanel.thatShortcutCouldNotBeRegisteredTryADifferentKeyCombination'); } });
+              console.error('Failed to register HUD hotkey:', error);
+              showToast({ tone: 'error', get message() { return translate('component.settingsHotkeysPanel.thatHotkeyCouldNotBeRegisteredTryADifferentKeyCombination'); } });
             }
           }} />}
           {actionHotkeys.filter(({ feature }) => !feature || settings[feature === 'queue' ? 'enableQueue' : feature === 'transformations' ? 'enableTransformations' : 'enableAppLock']).map(({ label, key, fallback }) => (
@@ -336,6 +316,59 @@ export function SettingsHotkeysPanel({
           ))}
         </div>
       </section>
+
+      {settings.enableBins && <section className="space-y-2">
+        <h4 className="font-bold theme-text-muted uppercase tracking-wider text-[10px]">{translate('component.settingsHotkeysPanel.customBinHotkeys')}{bins.length})</h4>
+        <div className="theme-surface overflow-hidden rounded-xl border">
+          {bins.length === 0
+            ? <p className="theme-text-subtle p-2.5 text-[11px] italic">{translate('component.settingsHotkeysPanel.noCustomBinsCreatedYetCreateBinsInTheSidebarToAssign')}</p>
+            : bins.map((bin) => <HotkeyRow key={bin.id} label={bin.name} value={bin.hotkey ?? null} onChange={async (hotkey) => {
+              try {
+                await invoke('update_bin_hotkey', { id: bin.id, hotkey });
+                onRefreshBins?.();
+              } catch (error) {
+                console.error('Failed to update Bin hotkey:', error);
+                showToast({ tone: 'error', get message() { return translate('component.settingsHotkeysPanel.thatBinHotkeyCouldNotBeRegistered'); } });
+              }
+            }} />)}
+        </div>
+      </section>}
+
+      {settings.enableProtection && <section className="space-y-2">
+        <h4 className="font-bold theme-text-muted uppercase tracking-wider text-[10px]">{translate('component.settingsHotkeysPanel.clipHotkeysCount', { count: clipHotkeys.length })}</h4>
+        <div className="theme-surface overlay-scroll-region max-h-60 overflow-y-auto rounded-xl border">
+          {clipHotkeys.length === 0
+            ? <p className="theme-text-subtle p-2.5 text-[11px] italic">{translate('component.settingsHotkeysPanel.noClipHotkeys')}</p>
+            : clipHotkeys.map(({ clipId, hotkey }) => <HotkeyRow
+                key={clipId}
+                label={translate('component.settingsHotkeysPanel.clipNumber', { number: clipId })}
+                value={hotkey}
+                onChange={async (nextHotkey) => {
+                  try {
+                    await invoke('update_clip_hotkey', { clipId, hotkey: nextHotkey });
+                  } catch (error) {
+                    console.error('Failed to update clip hotkey:', error);
+                    showToast({ tone: 'error', get message() { return translate('component.settingsHotkeysPanel.thatClipHotkeyCouldNotBeRegistered'); } });
+                  }
+                }}
+              />)}
+        </div>
+      </section>}
+
+      {settings.enableTransformations && pipelines.length > 0 && <section className="space-y-2">
+        <h4 className="font-bold theme-text-muted uppercase tracking-wider text-[10px]">{translate('component.settingsHotkeysPanel.savedTransformHotkeys')}{pipelines.length})</h4>
+        <div className="theme-surface overlay-scroll-region max-h-60 overflow-y-auto rounded-xl border">
+          {pipelines.map((pipeline) => <HotkeyRow key={pipeline.id} label={pipeline.name} value={pipeline.hotkey ?? null} onChange={async (hotkey) => {
+              try {
+                await invoke('update_pipeline_hotkey', { pipelineRef: pipeline.stableRef, hotkey });
+                onRefreshPipelines?.();
+              } catch (error) {
+                console.error('Failed to update Advanced Transform hotkey:', error);
+                showToast({ tone: 'error', get message() { return translate('component.settingsHotkeysPanel.thatAdvancedTransformHotkeyCouldNotBeRegistered'); } });
+              }
+            }} />)}
+        </div>
+      </section>}
 
       <section className="space-y-2">
         <h4 className="font-bold theme-text-muted uppercase tracking-wider text-[10px]">{translate('component.settingsHotkeysPanel.pasteClipsByPosition')}</h4>

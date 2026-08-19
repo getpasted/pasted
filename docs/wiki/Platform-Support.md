@@ -12,7 +12,7 @@ Apple Vision OCR is built in on macOS. Optional Tesseract 5 OCR is detected from
 
 **Preview:** x86_64 AppImage, validated on SteamOS desktop mode.
 
-Pasted uses native decorated windows on Linux. X11 and Wayland are detected at runtime. Clipboard capture works without focusing the app on the validated SteamOS setup. Desktop-wide shortcuts and target-aware paste may be restricted by a Wayland compositor or portal; Pasted reports that condition without consuming Queue items.
+Pasted uses native decorated windows on Linux. X11 and Wayland are detected at runtime. Clipboard capture works without focusing the app on the validated SteamOS setup. Desktop-wide hotkeys and target-aware paste may be restricted by a Wayland compositor or portal; Pasted reports that condition without consuming Queue items.
 
 Local image OCR is available when Tesseract 5 is installed, normally through the distribution's `tesseract-ocr` package.
 

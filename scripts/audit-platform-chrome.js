@@ -14,6 +14,7 @@ const linuxThemeSource = fs.readFileSync('src-tauri/src/linux_native_theme.rs', 
 const windowDragSource = fs.readFileSync('src/utils/windowDrag.ts', 'utf8');
 const titlebarSource = fs.readFileSync('src-tauri/src/titlebar.rs', 'utf8');
 const rustLibSource = fs.readFileSync('src-tauri/src/lib.rs', 'utf8');
+const rtlWindowControlsSource = fs.readFileSync('src/components/MacRtlWindowControls.tsx', 'utf8');
 
 const windowByLabel = (config, label) => config.app.windows.find((window) => window.label === label);
 const baseMain = windowByLabel(baseConfig, 'main');
@@ -60,6 +61,38 @@ assert.ok(
 );
 assert.match(chromeCss, /html\[data-platform="macos"\] \.platform-macos-only/);
 assert.match(chromeCss, /html:not\(\[data-platform="macos"\]\) \.platform-framed-only/);
+const macWindowControlRule = chromeCss.match(/\.mac-window-control \{([\s\S]*?)\n\}/)?.[1] ?? '';
+const activeMacWindowControlRule = chromeCss.match(/\.mac-window-control:active \{([\s\S]*?)\n\}/)?.[1] ?? '';
+assert.match(macWindowControlRule, /flex:\s*0 0 14px;/, 'RTL traffic lights must retain a fixed layout footprint');
+assert.match(macWindowControlRule, /transition:[^;]*transform/, 'RTL traffic-light presses should animate');
+assert.match(
+  activeMacWindowControlRule,
+  /transform:\s*scale\(1\.23\);/,
+  'RTL traffic-light presses should grow visually without moving adjacent controls',
+);
+assert.match(
+  activeMacWindowControlRule,
+  /filter:\s*brightness\(1\.08\) saturate\(1\.06\);/,
+  'RTL traffic-light presses should brighten without changing their theme colors',
+);
+assert.doesNotMatch(
+  rtlWindowControlsSource,
+  /onFocusChanged|is-window-inactive/,
+  'RTL traffic-light focus styling should not wait for asynchronous React state',
+);
+assert.match(
+  chromeCss,
+  /html\[data-window-inactive\] \.mac-window-control \{[\s\S]*?--mac-window-control-fill:\s*var\(--mac-traffic-inactive\);/,
+  'Inactive RTL traffic lights should use the neutral macOS fill',
+);
+assert.match(rustLibSource, /WindowEvent::Focused\(true\)/);
+assert.match(rustLibSource, /removeAttribute\('data-window-inactive'\)/);
+assert.match(titlebarSource, /NSWindowDidBecomeKeyNotification/);
+assert.doesNotMatch(titlebarSource, /NSWindowDidResignKeyNotification/);
+assert.match(rustLibSource, /titlebar::install_focus_observers\(&main_win\)/);
+assert.match(mainSource, /markWindowActive[\s\S]*removeAttribute\('data-window-inactive'\)/);
+assert.match(mainSource, /addEventListener\('pointerdown', markWindowActive/);
+assert.match(mainSource, /addEventListener\('blur',[\s\S]*setAttribute\('data-window-inactive', ''\)/);
 assert.match(sidebarSource, /sidebar-titlebar-leading/);
 assert.match(
   sidebarSource,

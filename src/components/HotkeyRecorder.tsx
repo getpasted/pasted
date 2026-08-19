@@ -5,7 +5,7 @@ import { translate } from '../localization/runtime';
 
 interface HotkeyRecorderProps {
   value?: string | null;
-  onChange: (shortcut: string | null) => void;
+  onChange: (hotkey: string | null) => void;
   placeholder?: string;
 }
 
@@ -122,7 +122,7 @@ export const HotkeyRecorder: React.FC<HotkeyRecorderProps> = ({
           type="button"
           onClick={() => setIsRecording(true)}
           className="flex items-center space-x-1"
-          title={value ? translate('component.hotkeyRecorder.shortcutValue', { value: formatHotkeyDisplay(value) ?? value }) : translate('component.hotkeyRecorder.setShortcut')}
+          title={value ? translate('component.hotkeyRecorder.hotkeyValue', { value: formatHotkeyDisplay(value) ?? value }) : translate('component.hotkeyRecorder.setHotkey')}
         >
           <Keyboard className="hotkey-recorder-icon w-3.5 h-3.5 opacity-80 shrink-0" />
           {(isRecording || value || placeholder) && (
@@ -144,7 +144,7 @@ export const HotkeyRecorder: React.FC<HotkeyRecorderProps> = ({
               onChange(null);
             }}
             className="hotkey-recorder-clear ms-1.5 p-0.5 rounded transition-colors"
-            title={translate('component.hotkeyRecorder.clearShortcut')}
+            title={translate('component.hotkeyRecorder.clearHotkey')}
           >
             <X className="w-3 h-3" />
           </button>

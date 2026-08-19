@@ -14,6 +14,8 @@ When deleting a Bin, choose what happens to its clips:
 
 If the operation cannot finish, the Bin and clip relationships remain unchanged.
 
+Manual Bins and Tags can protect every assigned clip without changing any clip's explicit protection setting. Inherited protection applies immediately on assignment and disappears when the clip leaves its last protecting Bin, unless the clip is also explicitly protected or has an assigned hotkey. The Protected collection and `is:protected` search include both explicit and inherited protection. Smart Bins cannot confer protection because their membership is computed dynamically.
+
 ## Smart Bins
 
 Smart Bins match Clip Type, Content Type, File Format, or Source. Choose a known value or enter a custom stable ID or name, then match it exactly with **is** or partially with **contains**. Multiple conditions can match any or all.
@@ -37,3 +39,7 @@ Manual Bin order and per-Bin clip order persist across reloads, backups, and CLI
 ## Bin Transforms
 
 A Bin may run one saved Transform when a clip enters it. The original content and previous Bin can be recovered from Revision History when revisions are enabled.
+
+## Clip hotkeys
+
+Assign a global hotkey from the selected clip's detail view to paste that exact clip into the last external target. Assigning a hotkey explicitly protects the clip. Removing the hotkey leaves protection in place; remove the hotkey before explicitly unprotecting the clip.

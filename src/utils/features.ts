@@ -16,6 +16,7 @@ export type FeatureId =
   | 'queue'
   | 'revisions'
   | 'hud'
+  | 'hotkeys'
   | 'trash'
   | 'transformations'
   | 'activityLog'
@@ -40,6 +41,7 @@ export type FeatureSettingKey =
   | 'enableQueue'
   | 'enableRevisions'
   | 'enableHud'
+  | 'enableHotkeys'
   | 'enableTrash'
   | 'enableTransformations'
   | 'enableActivityLog'
@@ -112,6 +114,7 @@ export const FEATURE_DEFINITIONS: readonly FeatureDefinition[] = [
     caution: 'New edits and Transforms will not be reversible while Revision History is disabled.',
   },
   { id: 'hud', group: 'workflow', settingKey: 'enableHud', label: 'HUD', description: 'Open the compact keyboard-driven clipboard window.', simple: false },
+  { id: 'hotkeys', group: 'workflow', settingKey: 'enableHotkeys', label: 'Hotkeys', description: 'Assign and use system-wide hotkeys for actions, clips, Bins, and Transforms.', simple: false },
   {
     id: 'trash',
     group: 'library',
