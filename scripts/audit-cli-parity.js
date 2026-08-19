@@ -28,6 +28,7 @@ const storageSettings = read('src/components/SettingsSyncPanel.tsx');
 const tauriMock = read('src/utils/tauri.ts');
 const extractorManager = read('src/components/ContentExtractorManagerDialog.tsx');
 const classifierManager = read('src/components/SettingsAnalysisPanel.tsx');
+const smartBins = read('src-tauri/src/smart_bins.rs');
 
 assert.match(commands, /pub async fn choose_extractor_executable/,
   'The native Extractor executable picker must not block the app command thread');
@@ -520,6 +521,16 @@ for (const method of ['get_intelligence_connections', 'get_intelligence_connecti
 for (const method of ['get_bin', 'create_bin', 'update_bin', 'delete_bin', 'update_bin_shortcut', 'set_bin_transform_ref']) {
   assert.match(database, new RegExp(`pub fn ${method}`), `${method} must live in the shared database domain layer`);
   assert.match(cli, new RegExp(`db\\s*\\.${method}`), `${method} must be reused by the CLI`);
+}
+assert.match(database, /smart_bins::normalize_rule_json/,
+  'Shared Bin mutations must validate and normalize Smart Bin rules');
+assert.match(cli, /smart_bins::parse_rule_json/,
+  'The CLI must validate Smart Bin rules through the shared contract');
+assert.match(smartBins, /pub const CURRENT_TARGETS:[\s\S]*clip_type[\s\S]*content_type[\s\S]*file_format[\s\S]*source/,
+  'The Smart Bin contract must publish the four current collection axes');
+for (const [feature, target] of [['clipTypes', 'clip_type'], ['types', 'content_type'], ['fileFormats', 'file_format'], ['sources', 'source']]) {
+  assert.match(clipViews, new RegExp(`${target}[\\s\\S]{0,500}features\\?\\.${feature}|features\\?\\.${feature}[\\s\\S]{0,500}${target}`),
+    `GUI Smart Bin matching must honor the ${feature} Functionality setting`);
 }
 for (const method of ['update_clip_note', 'get_clip_versions_page', 'restore_clip_version', 'get_clip_transformation_provenance', 'purge_clip_permanently', 'empty_trash', 'get_analytics_summary']) {
   assert.match(database, new RegExp(`pub fn ${method}`), `${method} must live in the shared database domain layer`);

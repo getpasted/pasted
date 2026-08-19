@@ -90,4 +90,10 @@ for (const file of [
 const taxonomyGuide = readFileSync(join(repositoryRoot, 'docs/wiki/Classification-and-Types.md'), 'utf8');
 assert.ok(taxonomyGuide.includes('File Format'), 'Content Analysis guide must distinguish File Format');
 
+const smartBinContract = readFileSync(join(repositoryRoot, 'docs/wiki/Smart-Bin-Rule-Contract.md'), 'utf8');
+for (const target of ['clip_type', 'content_type', 'file_format', 'source']) {
+  assert.ok(smartBinContract.includes(`\`${target}\``), `Smart Bin contract must document ${target}`);
+}
+assert.ok(smartBinContract.includes('"version": 1'), 'Smart Bin contract must document its format version');
+
 console.log(`Documentation audit passed (${files.length} Markdown files checked).`);

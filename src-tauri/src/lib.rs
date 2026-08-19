@@ -43,6 +43,7 @@ mod paste_target;
 pub mod resource_limits;
 mod sequential_paste;
 pub mod settings_activity;
+pub mod smart_bins;
 pub mod storage_protection;
 pub mod suggestion_execution;
 pub mod third_party_licenses;

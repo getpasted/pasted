@@ -4,6 +4,7 @@
 - [Getting Started](Getting-Started)
 - [History and Search](History-and-Search)
 - [Bins and Organization](Bins-and-Organization)
+  - [Smart Bin Rule Contract](Smart-Bin-Rule-Contract)
 - [Queue and HUD](Queue-and-Quick-HUD)
 - [Transforms and Intelligence](Transforms-and-Intelligence)
 - [Files, OCR, and Previews](Files-OCR-and-Previews)

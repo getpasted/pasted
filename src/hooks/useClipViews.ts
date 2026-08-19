@@ -73,9 +73,9 @@ function matchesCondition(clip: ClipItem, condition: SmartCondition, features?: 
     return getClipFilePaths(clip).some((path) => path.toLowerCase().includes(expected));
   }
   if (condition.type === 'clip_type') {
-    return condition.operator === 'contains'
+    return Boolean(features?.clipTypes) && (condition.operator === 'contains'
       ? clip.content_type.toLowerCase().includes(expected)
-      : clip.content_type.toLowerCase() === expected;
+      : clip.content_type.toLowerCase() === expected);
   }
   if (condition.type === 'file_format') {
     return Boolean(features?.fileFormats)
@@ -84,10 +84,11 @@ function matchesCondition(clip: ClipItem, condition: SmartCondition, features?: 
         : fileFormat.toLowerCase() === expected);
   }
   if (condition.type === 'content_type') {
-    return (clip.content_types ?? []).some((contentType) => condition.operator === 'contains'
+    return Boolean(features?.types) && (clip.content_types ?? []).some((contentType) => condition.operator === 'contains'
       ? contentType.toLowerCase().includes(expected)
       : contentType.toLowerCase() === expected);
   }
+  if (condition.type === 'source' && !features?.sources) return false;
   const actual = condition.type === 'source'
     ? clip.source
     : condition.type === 'origin_kind'

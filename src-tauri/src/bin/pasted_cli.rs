@@ -3276,7 +3276,7 @@ fn run_command(command: &str, args: &[String], db_path: PathBuf, conn: Connectio
                         std::process::exit(2);
                     });
                     let smart_rule = argument_value(&args, "--smart-rule-json");
-                    validate_json_or_exit(smart_rule.as_deref(), "Smart Bin rule");
+                    validate_smart_bin_rule_or_exit(smart_rule.as_deref());
                     let bin = db.create_bin(
                         &name,
                         argument_value(&args, "--icon").as_deref().unwrap_or("📂"),
@@ -3306,7 +3306,7 @@ fn run_command(command: &str, args: &[String], db_path: PathBuf, conn: Connectio
                         "--clear-smart-rule",
                         current.smart_rule,
                     );
-                    validate_json_or_exit(smart_rule.as_deref(), "Smart Bin rule");
+                    validate_smart_bin_rule_or_exit(smart_rule.as_deref());
                     db.update_bin(
                         bin_id,
                         argument_value(&args, "--name")
@@ -4322,6 +4322,15 @@ fn validate_json_or_exit(value: Option<&str>, label: &str) {
     if let Some(value) = value {
         if let Err(error) = serde_json::from_str::<serde_json::Value>(value) {
             eprintln!("{label} must be valid JSON: {error}");
+            std::process::exit(2);
+        }
+    }
+}
+
+fn validate_smart_bin_rule_or_exit(value: Option<&str>) {
+    if let Some(value) = value {
+        if let Err(error) = pasted_lib::smart_bins::parse_rule_json(value) {
+            eprintln!("{error}");
             std::process::exit(2);
         }
     }

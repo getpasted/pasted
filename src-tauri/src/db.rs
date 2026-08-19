@@ -146,16 +146,54 @@ fn analysis_toggle_activity(
     ))
 }
 
+#[derive(Clone, Copy)]
+struct SmartBinFeaturePolicy {
+    clip_types: bool,
+    content_types: bool,
+    file_formats: bool,
+    sources: bool,
+}
+
+fn smart_bin_feature_policy(conn: &Connection) -> Result<SmartBinFeaturePolicy> {
+    conn.query_row(
+        "SELECT
+            NOT EXISTS(SELECT 1 FROM settings WHERE key = 'enableClipTypes' AND value IN ('false', '0')),
+            NOT EXISTS(SELECT 1 FROM settings WHERE key = 'enableTypes' AND value IN ('false', '0')),
+            NOT EXISTS(SELECT 1 FROM settings WHERE key = 'enableFileFormats' AND value IN ('false', '0')),
+            NOT EXISTS(SELECT 1 FROM settings WHERE key = 'enableSources' AND value IN ('false', '0'))",
+        [],
+        |row| {
+            Ok(SmartBinFeaturePolicy {
+                clip_types: row.get(0)?,
+                content_types: row.get(1)?,
+                file_formats: row.get(2)?,
+                sources: row.get(3)?,
+            })
+        },
+    )
+}
+
 fn push_smart_condition(
     kind: &str,
     operator: &str,
     value: &str,
-    file_formats_enabled: bool,
+    features: SmartBinFeaturePolicy,
     conditions: &mut Vec<String>,
     parameters: &mut Vec<Box<dyn ToSql>>,
 ) {
     let value = value.trim();
     if value.is_empty() {
+        return;
+    }
+    let enabled = match kind {
+        "clip_type" => features.clip_types,
+        "content_type" => features.content_types,
+        "file_format" => features.file_formats,
+        "source" => features.sources,
+        _ => true,
+    };
+    if !enabled {
+        conditions.push("0".into());
         return;
     }
     let contains = operator == "contains"
@@ -194,10 +232,6 @@ fn push_smart_condition(
             )"
         }
         "file_format" => {
-            if !file_formats_enabled {
-                conditions.push("0".into());
-                return;
-            }
             parameters.push(Box::new(
                 crate::content_inspection::FILE_FORMAT_INSPECTOR_REF.to_string(),
             ));
@@ -282,13 +316,7 @@ fn append_smart_bin_memberships(conn: &Connection, clips: &mut [ClipItem]) -> Re
         return Ok(());
     }
     let requested_ids = clips.iter().map(|clip| clip.id).collect::<HashSet<_>>();
-    let file_formats_enabled: bool = conn.query_row(
-        "SELECT NOT EXISTS(
-            SELECT 1 FROM settings WHERE key = 'enableFileFormats' AND value IN ('false', '0')
-         )",
-        [],
-        |row| row.get(0),
-    )?;
+    let features = smart_bin_feature_policy(conn)?;
     let mut memberships = HashMap::<i64, Vec<i64>>::new();
     let mut bins_statement = conn
         .prepare("SELECT id, smart_rule FROM bins WHERE smart_rule IS NOT NULL ORDER BY id ASC")?;
@@ -301,35 +329,20 @@ fn append_smart_bin_memberships(conn: &Connection, clips: &mut [ClipItem]) -> Re
     for (bin_id, smart_rule) in smart_bins {
         let mut conditions = Vec::new();
         let mut parameters: Vec<Box<dyn ToSql>> = Vec::new();
-        if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&smart_rule) {
-            if let Some(items) = parsed["conditions"].as_array() {
-                for condition in items {
-                    push_smart_condition(
-                        condition["type"].as_str().unwrap_or(""),
-                        condition["operator"].as_str().unwrap_or(""),
-                        condition["value"].as_str().unwrap_or(""),
-                        file_formats_enabled,
-                        &mut conditions,
-                        &mut parameters,
-                    );
-                }
-            } else {
+        let parsed = crate::smart_bins::parse_rule_json(&smart_rule).ok();
+        if let Some(rule) = parsed.as_ref() {
+            for condition in &rule.conditions {
                 push_smart_condition(
-                    parsed["type"].as_str().unwrap_or(""),
-                    parsed["operator"].as_str().unwrap_or(""),
-                    parsed["value"].as_str().unwrap_or(""),
-                    file_formats_enabled,
+                    &condition.target,
+                    &condition.operator,
+                    &condition.value,
+                    features,
                     &mut conditions,
                     &mut parameters,
                 );
             }
         }
-        let join = if serde_json::from_str::<serde_json::Value>(&smart_rule)
-            .ok()
-            .and_then(|rule| rule["match"].as_str().map(str::to_owned))
-            .as_deref()
-            == Some("all")
-        {
+        let join = if parsed.as_ref().is_some_and(|rule| rule.match_mode == "all") {
             " AND "
         } else {
             " OR "
@@ -1416,15 +1429,15 @@ pub struct FactoryResetReport {
 
 fn insert_default_bins(conn: &Connection) -> Result<()> {
     conn.execute(
-        "INSERT INTO bins (name, icon, color, smart_rule) VALUES ('Screenshots', '📸', '#ec4899', '{\"type\":\"origin_kind\",\"value\":\"screenshot\"}')",
+        "INSERT INTO bins (name, icon, color, smart_rule) VALUES ('Images', '🖼️', '#ec4899', '{\"version\":1,\"conditions\":[{\"type\":\"clip_type\",\"operator\":\"is\",\"value\":\"image\"}],\"match\":\"any\"}')",
         [],
     )?;
     conn.execute(
-        "INSERT INTO bins (name, icon, color, smart_rule) VALUES ('Links and web', 'Link', '#3b82f6', '{\"type\":\"content_type\",\"value\":\"link\"}')",
+        "INSERT INTO bins (name, icon, color, smart_rule) VALUES ('Links and Web', 'Link', '#3b82f6', '{\"version\":1,\"conditions\":[{\"type\":\"content_type\",\"operator\":\"is\",\"value\":\"link\"}],\"match\":\"any\"}')",
         [],
     )?;
     conn.execute(
-        "INSERT INTO bins (name, icon, color, smart_rule) VALUES ('Code Snippets', 'Code', '#10b981', '{\"type\":\"content_type\",\"value\":\"code\"}')",
+        "INSERT INTO bins (name, icon, color, smart_rule) VALUES ('Code Snippets', 'Code', '#10b981', '{\"version\":1,\"conditions\":[{\"type\":\"content_type\",\"operator\":\"is\",\"value\":\"code\"}],\"match\":\"any\"}')",
         [],
     )?;
     Ok(())
@@ -5627,13 +5640,7 @@ impl DbState {
         offset: Option<i64>,
     ) -> Result<Vec<ClipItem>> {
         let conn = self.conn.lock();
-        let file_formats_enabled: bool = conn.query_row(
-            "SELECT NOT EXISTS(
-                SELECT 1 FROM settings WHERE key = 'enableFileFormats' AND value IN ('false', '0')
-             )",
-            [],
-            |row| row.get(0),
-        )?;
+        let features = smart_bin_feature_policy(&conn)?;
 
         // Check if target bin has smart_rule
         let mut smart_rule_str: Option<String> = None;
@@ -5663,34 +5670,21 @@ impl DbState {
         }
 
         if let Some(ref sr_json) = smart_rule_str {
-            if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(sr_json) {
-                let match_mode = parsed["match"].as_str().unwrap_or("any");
-                let is_and = match_mode == "all";
-                let join_op = if is_and { " AND " } else { " OR " };
+            if let Ok(parsed) = crate::smart_bins::parse_rule_json(sr_json) {
+                let join_op = if parsed.match_mode == "all" {
+                    " AND "
+                } else {
+                    " OR "
+                };
 
                 let mut cond_sqls: Vec<String> = Vec::new();
 
-                if let Some(conds) = parsed["conditions"].as_array() {
-                    for cond in conds {
-                        let c_type = cond["type"].as_str().unwrap_or("");
-                        let c_val = cond["value"].as_str().unwrap_or("");
-                        push_smart_condition(
-                            c_type,
-                            cond["operator"].as_str().unwrap_or(""),
-                            c_val,
-                            file_formats_enabled,
-                            &mut cond_sqls,
-                            &mut query_params,
-                        );
-                    }
-                } else {
-                    let rule_type = parsed["type"].as_str().unwrap_or("");
-                    let rule_val = parsed["value"].as_str().unwrap_or("");
+                for condition in &parsed.conditions {
                     push_smart_condition(
-                        rule_type,
-                        parsed["operator"].as_str().unwrap_or(""),
-                        rule_val,
-                        file_formats_enabled,
+                        &condition.target,
+                        &condition.operator,
+                        &condition.value,
+                        features,
                         &mut cond_sqls,
                         &mut query_params,
                     );
@@ -7458,13 +7452,7 @@ impl DbState {
     #[allow(clippy::type_complexity)]
     pub fn get_bins(&self) -> Result<Vec<Bin>> {
         let conn = self.conn.lock();
-        let file_formats_enabled: bool = conn.query_row(
-            "SELECT NOT EXISTS(
-                SELECT 1 FROM settings WHERE key = 'enableFileFormats' AND value IN ('false', '0')
-             )",
-            [],
-            |row| row.get(0),
-        )?;
+        let features = smart_bin_feature_policy(&conn)?;
         let mut stmt = conn.prepare("SELECT id, name, icon, color, smart_rule, COALESCE(bin_type, 'category'), shortcut, created_at FROM bins ORDER BY id ASC")?;
         let bin_rows: Vec<(
             i64,
@@ -7493,35 +7481,22 @@ impl DbState {
         let mut bins = Vec::new();
         for (id, name, icon, color, smart_rule, bin_type, shortcut, created_at) in bin_rows {
             let count: i64 = if let Some(ref sr_json) = smart_rule {
-                if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(sr_json) {
-                    let match_mode = parsed["match"].as_str().unwrap_or("any");
-                    let is_and = match_mode == "all";
-                    let join_op = if is_and { " AND " } else { " OR " };
+                if let Ok(parsed) = crate::smart_bins::parse_rule_json(sr_json) {
+                    let join_op = if parsed.match_mode == "all" {
+                        " AND "
+                    } else {
+                        " OR "
+                    };
 
                     let mut cond_sqls: Vec<String> = Vec::new();
                     let mut query_params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
 
-                    if let Some(conds) = parsed["conditions"].as_array() {
-                        for cond in conds {
-                            let c_type = cond["type"].as_str().unwrap_or("");
-                            let c_val = cond["value"].as_str().unwrap_or("");
-                            push_smart_condition(
-                                c_type,
-                                cond["operator"].as_str().unwrap_or(""),
-                                c_val,
-                                file_formats_enabled,
-                                &mut cond_sqls,
-                                &mut query_params,
-                            );
-                        }
-                    } else {
-                        let rule_type = parsed["type"].as_str().unwrap_or("");
-                        let rule_val = parsed["value"].as_str().unwrap_or("");
+                    for condition in &parsed.conditions {
                         push_smart_condition(
-                            rule_type,
-                            parsed["operator"].as_str().unwrap_or(""),
-                            rule_val,
-                            file_formats_enabled,
+                            &condition.target,
+                            &condition.operator,
+                            &condition.value,
+                            features,
                             &mut cond_sqls,
                             &mut query_params,
                         );
@@ -7617,8 +7592,15 @@ impl DbState {
         text: &str,
         source: &str,
     ) -> Result<Vec<(i64, String)>> {
-        let file_formats_enabled =
-            crate::features::is_enabled(self, crate::features::Feature::FileFormats);
+        let features = SmartBinFeaturePolicy {
+            clip_types: crate::features::is_enabled(self, crate::features::Feature::ClipTypes),
+            content_types: crate::features::is_enabled(
+                self,
+                crate::features::Feature::ContentTypes,
+            ),
+            file_formats: crate::features::is_enabled(self, crate::features::Feature::FileFormats),
+            sources: crate::features::is_enabled(self, crate::features::Feature::Sources),
+        };
         let file_paths = if clip_type.eq_ignore_ascii_case("file") {
             serde_json::from_str::<Vec<String>>(text).unwrap_or_default()
         } else {
@@ -7639,7 +7621,7 @@ impl DbState {
         let mut matches = Vec::new();
         for row in rows {
             let (bin_id, rule_json, transform_id) = row?;
-            let Ok(rule) = serde_json::from_str::<serde_json::Value>(&rule_json) else {
+            let Ok(rule) = crate::smart_bins::parse_rule_json(&rule_json) else {
                 continue;
             };
             let condition_matches = |kind: &str, operator: &str, value: &str| {
@@ -7653,17 +7635,20 @@ impl DbState {
                     }
                 };
                 match kind {
-                    "clip_type" => text_matches(clip_type),
-                    "content_type" => content_types
-                        .iter()
-                        .any(|content_type| text_matches(content_type)),
+                    "clip_type" => features.clip_types && text_matches(clip_type),
+                    "content_type" => {
+                        features.content_types
+                            && content_types
+                                .iter()
+                                .any(|content_type| text_matches(content_type))
+                    }
                     "file_format" => {
-                        file_formats_enabled
+                        features.file_formats
                             && file_formats
                                 .iter()
                                 .any(|file_format| text_matches(file_format))
                     }
-                    "source" => text_matches(source),
+                    "source" => features.sources && text_matches(source),
                     "contains" => text.to_lowercase().contains(&value.to_lowercase()),
                     "origin_kind" => {
                         derived_origin_kind(clip_type, source).eq_ignore_ascii_case(value.trim())
@@ -7685,28 +7670,17 @@ impl DbState {
                     _ => false,
                 }
             };
-            let matched = if let Some(conditions) = rule["conditions"].as_array() {
-                let values = conditions
-                    .iter()
-                    .map(|condition| {
-                        condition_matches(
-                            condition["type"].as_str().unwrap_or(""),
-                            condition["operator"].as_str().unwrap_or(""),
-                            condition["value"].as_str().unwrap_or(""),
-                        )
-                    })
-                    .collect::<Vec<_>>();
-                if rule["match"].as_str() == Some("all") {
-                    values.iter().all(|v| *v)
-                } else {
-                    values.iter().any(|v| *v)
-                }
+            let values = rule
+                .conditions
+                .iter()
+                .map(|condition| {
+                    condition_matches(&condition.target, &condition.operator, &condition.value)
+                })
+                .collect::<Vec<_>>();
+            let matched = if rule.match_mode == "all" {
+                values.iter().all(|value| *value)
             } else {
-                condition_matches(
-                    rule["type"].as_str().unwrap_or(""),
-                    rule["operator"].as_str().unwrap_or(""),
-                    rule["value"].as_str().unwrap_or(""),
-                )
+                values.iter().any(|value| *value)
             };
             if matched {
                 matches.push((bin_id, format!("transform:{transform_id}")));
@@ -7723,6 +7697,10 @@ impl DbState {
         smart_rule: Option<&str>,
         bin_type: &str,
     ) -> Result<Bin> {
+        let smart_rule = smart_rule
+            .map(crate::smart_bins::normalize_rule_json)
+            .transpose()
+            .map_err(rusqlite::Error::InvalidParameterName)?;
         let conn = self.conn.lock();
         conn.execute(
             "INSERT INTO bins (name, icon, color, smart_rule, bin_type) VALUES (?1, ?2, ?3, ?4, ?5)",
@@ -8062,6 +8040,10 @@ impl DbState {
         color: &str,
         smart_rule: Option<&str>,
     ) -> Result<()> {
+        let smart_rule = smart_rule
+            .map(crate::smart_bins::normalize_rule_json)
+            .transpose()
+            .map_err(rusqlite::Error::InvalidParameterName)?;
         let conn = self.conn.lock();
         conn.execute(
             "UPDATE bins SET name = ?1, icon = ?2, color = ?3, smart_rule = ?4 WHERE id = ?5",
@@ -8746,7 +8728,7 @@ impl DbState {
                 )));
             }
             if let Some(rule) = bin.smart_rule.as_deref() {
-                serde_json::from_str::<serde_json::Value>(rule).map_err(|error| {
+                crate::smart_bins::parse_rule_json(rule).map_err(|error| {
                     rusqlite::Error::InvalidParameterName(format!(
                         "Transfer Bin {} has an invalid smart rule: {error}",
                         bin.id
@@ -9113,6 +9095,8 @@ impl DbState {
         for mut bin in payload.bins {
             if let Some(rule) = bin.smart_rule.as_mut() {
                 *rule = rule.replace("\"source_app\"", "\"source\"");
+                *rule = crate::smart_bins::normalize_rule_json(rule)
+                    .map_err(rusqlite::Error::InvalidParameterName)?;
             }
             let existing_id = tx.query_row(
                 "SELECT id FROM bins WHERE name = ?1 AND COALESCE(bin_type, 'category') = ?2 LIMIT 1",
@@ -14266,11 +14250,11 @@ mod tests {
                 .iter()
                 .map(|bin| bin.name.as_str())
                 .collect::<Vec<_>>(),
-            vec!["Screenshots", "Links and web", "Code Snippets"]
+            vec!["Images", "Links and Web", "Code Snippets"]
         );
         assert_eq!(
             default_bins[0].smart_rule.as_deref(),
-            Some("{\"type\":\"origin_kind\",\"value\":\"screenshot\"}")
+            Some("{\"version\":1,\"conditions\":[{\"type\":\"clip_type\",\"operator\":\"is\",\"value\":\"image\"}],\"match\":\"any\"}")
         );
         assert_eq!(
             default_bins.iter().map(|bin| bin.id).collect::<Vec<_>>(),
@@ -14724,6 +14708,50 @@ mod tests {
                 .id,
             email.id
         );
+
+        let clip_type_rule = serde_json::json!({
+            "conditions": [{"type": "clip_type", "operator": "is", "value": "text"}],
+            "match": "all"
+        })
+        .to_string();
+        let clip_type_bin = db
+            .create_bin("Text Clips", "📂", "default", Some(&clip_type_rule))
+            .unwrap();
+        assert_eq!(
+            db.get_clips(None, Some(clip_type_bin.id), false)
+                .unwrap()
+                .len(),
+            3
+        );
+
+        db.set_bin_transform_ref(exact_bin.id, Some("transform:source-test"))
+            .unwrap();
+        assert_eq!(
+            db.matching_smart_bin_transforms("text", &[], &[], "", "Safari")
+                .unwrap(),
+            vec![(exact_bin.id, "transform:source-test".into())]
+        );
+        db.save_setting("enableSources", "false").unwrap();
+        assert!(db
+            .get_clips(None, Some(exact_bin.id), false)
+            .unwrap()
+            .is_empty());
+        assert!(db
+            .matching_smart_bin_transforms("text", &[], &[], "", "Safari")
+            .unwrap()
+            .is_empty());
+        db.save_setting("enableSources", "true").unwrap();
+        db.save_setting("enableTypes", "false").unwrap();
+        assert!(db
+            .get_clips(None, Some(content_type_bin.id), false)
+            .unwrap()
+            .is_empty());
+        db.save_setting("enableTypes", "true").unwrap();
+        db.save_setting("enableClipTypes", "false").unwrap();
+        assert!(db
+            .get_clips(None, Some(clip_type_bin.id), false)
+            .unwrap()
+            .is_empty());
     }
 
     #[test]
