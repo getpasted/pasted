@@ -39,7 +39,12 @@ assert.match(
 );
 assert.match(
   desktopBuildWorkflow,
-  /validate-native:[\s\S]*?github\.event_name != 'pull_request'[\s\S]*?shared-key: native-debug-linux[\s\S]*?timeout-minutes: 8[\s\S]*?npm run test:native/,
+  /env:\s*\n\s*CARGO_PROFILE_DEV_DEBUG: "1"\s*\n\s*CARGO_PROFILE_TEST_DEBUG: "1"/,
+  'Native CI must retain function-level diagnostics without caching full debug line tables',
+);
+assert.match(
+  desktopBuildWorkflow,
+  /validate-native:[\s\S]*?github\.event_name != 'pull_request'[\s\S]*?shared-key: native-debug1-linux[\s\S]*?timeout-minutes: 8[\s\S]*?npm run test:native/,
   'Main-branch native validation must warm the shared Linux cache and bound dependency setup time',
 );
 assert.match(
@@ -49,17 +54,17 @@ assert.match(
 );
 assert.match(
   desktopBuildWorkflow,
-  /smoke-macos:\s*\n\s*name: Smoke macOS native[\s\S]*?needs\.validation-scope\.outputs\.native == 'true'[\s\S]*?shared-key: native-debug-macos[\s\S]*?cargo test/,
+  /smoke-macos:\s*\n\s*name: Smoke macOS native[\s\S]*?needs\.validation-scope\.outputs\.native == 'true'[\s\S]*?shared-key: native-debug1-macos[\s\S]*?cargo test/,
   'The statically named macOS smoke check must skip before runner allocation for frontend-only PRs',
 );
 assert.match(
   desktopBuildWorkflow,
-  /smoke-linux:\s*\n\s*name: Smoke Linux x86_64[\s\S]*?needs\.validation-scope\.outputs\.native == 'true'[\s\S]*?shared-key: native-debug-linux[\s\S]*?timeout-minutes: 8[\s\S]*?npm run test:native/,
+  /smoke-linux:\s*\n\s*name: Smoke Linux x86_64[\s\S]*?needs\.validation-scope\.outputs\.native == 'true'[\s\S]*?shared-key: native-debug1-linux[\s\S]*?timeout-minutes: 8[\s\S]*?npm run test:native/,
   'The Linux smoke check must reuse the default-branch native cache and run complete validation',
 );
 assert.match(
   desktopBuildWorkflow,
-  /smoke-windows:\s*\n\s*name: Smoke Windows x86_64[\s\S]*?needs\.validation-scope\.outputs\.native == 'true'[\s\S]*?shared-key: native-debug-windows[\s\S]*?cargo test/,
+  /smoke-windows:\s*\n\s*name: Smoke Windows x86_64[\s\S]*?needs\.validation-scope\.outputs\.native == 'true'[\s\S]*?shared-key: native-debug1-windows[\s\S]*?cargo test/,
   'The statically named Windows smoke check must skip before runner allocation for frontend-only PRs',
 );
 assert.match(
