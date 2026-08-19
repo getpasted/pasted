@@ -23,6 +23,9 @@ use crate::library_storage::{self, LibraryLocationInfo};
 use crate::sequential_paste::{SequentialQueueState, SequentialStatus};
 use crate::third_party_licenses::ThirdPartyLicenseDocument;
 
+pub(crate) mod activity;
+pub(crate) mod retention;
+
 #[cfg(target_os = "windows")]
 fn system_auth_window_handle(app: &AppHandle) -> Result<Option<isize>, String> {
     app.get_webview_window("main")
@@ -980,39 +983,6 @@ pub fn empty_trash(db: State<'_, Arc<DbState>>) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn get_activity_logs(
-    limit: Option<i64>,
-    offset: Option<i64>,
-    db: State<'_, Arc<DbState>>,
-) -> Result<Vec<crate::db::ActivityLog>, String> {
-    db.get_activity_logs(limit, offset)
-        .map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-pub fn clear_activity_logs(db: State<'_, Arc<DbState>>) -> Result<(), String> {
-    db.clear_activity_logs().map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-pub fn export_activity_json(db: State<'_, Arc<DbState>>) -> Result<String, String> {
-    let exported = db
-        .export_activity_json()
-        .map_err(|error| error.to_string())?;
-    let _ = db.log_activity("data_export_completed", "Exported Activity as JSON");
-    Ok(exported)
-}
-
-#[tauri::command]
-pub fn export_activity_csv(db: State<'_, Arc<DbState>>) -> Result<String, String> {
-    let exported = db
-        .export_activity_csv()
-        .map_err(|error| error.to_string())?;
-    let _ = db.log_activity("data_export_completed", "Exported Activity as CSV");
-    Ok(exported)
-}
-
-#[tauri::command]
 pub fn get_content_classifiers(
     db: State<'_, Arc<DbState>>,
 ) -> Result<Vec<crate::content_classification::Classifier>, String> {
@@ -1756,45 +1726,6 @@ pub fn set_app_lock_capture_while_locked(
     let status = crate::app_lock::status(&db, &state);
     let _ = app.emit("app-lock-changed", &status);
     Ok(status)
-}
-
-#[tauri::command]
-pub fn enforce_clip_retention(
-    keep_count: i64,
-    keep_age_days: i64,
-    db: State<'_, Arc<DbState>>,
-) -> Result<(), String> {
-    db.enforce_clip_retention(keep_count, keep_age_days)
-        .map_err(|error| error.to_string())
-}
-
-#[tauri::command]
-pub fn enforce_trash_retention(
-    keep_count: i64,
-    keep_age_days: i64,
-    db: State<'_, Arc<DbState>>,
-) -> Result<(), String> {
-    db.enforce_trash_retention(keep_count, keep_age_days)
-        .map_err(|error| error.to_string())
-}
-
-#[tauri::command]
-pub fn enforce_activity_retention(
-    keep_count: i64,
-    keep_age_days: i64,
-    db: State<'_, Arc<DbState>>,
-) -> Result<(), String> {
-    db.enforce_activity_retention(keep_count, keep_age_days)
-        .map_err(|error| error.to_string())
-}
-
-#[tauri::command]
-pub fn enforce_revision_retention(
-    keep_count: i64,
-    db: State<'_, Arc<DbState>>,
-) -> Result<(), String> {
-    db.enforce_revision_retention(keep_count)
-        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
