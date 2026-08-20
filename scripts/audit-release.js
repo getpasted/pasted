@@ -16,6 +16,12 @@ const packageScripts = packageJson.scripts ?? {};
 const gitignore = fs.readFileSync('.gitignore', 'utf8');
 const releaseWorkflow = fs.readFileSync('.github/workflows/desktop-release.yml', 'utf8');
 const desktopBuildWorkflow = fs.readFileSync('.github/workflows/desktop-builds.yml', 'utf8');
+const macosPackageJob = desktopBuildWorkflow.match(
+  /\n  package-macos:\n[\s\S]*?(?=\n  package-macos-artifact:)/,
+)?.[0];
+const desktopPackageJob = desktopBuildWorkflow.match(
+  /\n  package:\n[\s\S]*?(?=\n  package-macos:)/,
+)?.[0];
 const dependencyPolicyWorkflow = fs.readFileSync('.github/workflows/dependency-policy.yml', 'utf8');
 const universalMacCliBuild = fs.readFileSync('scripts/build-macos-universal-cli.sh', 'utf8');
 const thirdPartyLicenses = readJson('THIRD_PARTY_LICENSES.json');
@@ -67,25 +73,42 @@ assert.match(
   /smoke-windows:\s*\n\s*name: Smoke Windows x86_64[\s\S]*?needs\.validation-scope\.outputs\.native == 'true'[\s\S]*?shared-key: native-debug1-windows[\s\S]*?cargo test/,
   'The statically named Windows smoke check must skip before runner allocation for frontend-only PRs',
 );
+assert.ok(desktopPackageJob, 'Main desktop packaging must retain its platform matrix job');
 assert.match(
-  desktopBuildWorkflow,
-  /package:\s*\n\s*name: Package \$\{\{ matrix\.name \}\}[\s\S]*?always\(\)[\s\S]*?needs\.validate\.result == 'success'[\s\S]*?needs\.dependency-policy\.result == 'success'/,
-  'Main packaging must explicitly run after successful validation even when PR-only smoke jobs were skipped',
+  desktopPackageJob,
+  /name: Package \$\{\{ matrix\.name \}\}[\s\S]*?always\(\)[\s\S]*?needs\.validation-scope\.result == 'success'[\s\S]*?needs\.validate-frontend\.result == 'success'[\s\S]*?needs\.dependency-policy\.result == 'success'[\s\S]*?needs: \[validation-scope, validate-frontend, dependency-policy\]/,
+  'Main platform packaging must start after fast gates so it can overlap native validation',
+);
+assert.doesNotMatch(
+  desktopPackageJob,
+  /needs\.validate\.result/,
+  'Main platform packaging must not serialize behind the aggregate native validation job',
+);
+assert.ok(macosPackageJob, 'Main macOS packaging must use one shared-runner job');
+assert.match(
+  macosPackageJob,
+  /name: Package macOS universal CLI and DMG[\s\S]*?always\(\)[\s\S]*?needs\.validation-scope\.result == 'success'[\s\S]*?needs\.validate-frontend\.result == 'success'[\s\S]*?needs\.dependency-policy\.result == 'success'[\s\S]*?needs: \[validation-scope, validate-frontend, dependency-policy\]/,
+  'Main macOS packaging must start after fast gates so it can overlap native validation',
+);
+assert.doesNotMatch(
+  macosPackageJob,
+  /needs\.validate\.result/,
+  'Main macOS packaging must not serialize behind the aggregate native validation job',
+);
+assert.match(
+  macosPackageJob,
+  /shared-key: macos-universal-package[\s\S]*?build-macos-universal-cli\.sh[\s\S]*?tauri -- build --target universal-apple-darwin/,
+  'The macOS CLI and app must reuse one release target tree before the DMG is bundled',
+);
+assert.doesNotMatch(
+  macosPackageJob,
+  /actions\/download-artifact/,
+  'The macOS packaging job must retain its compiled CLI locally instead of restoring it on a fresh runner',
 );
 assert.match(
   desktopBuildWorkflow,
-  /package-macos-cli:\s*\n\s*name: Package macOS universal CLI[\s\S]*?always\(\)[\s\S]*?needs\.validate\.result == 'success'[\s\S]*?needs\.dependency-policy\.result == 'success'/,
-  'Main macOS packaging must explicitly run after successful validation despite skipped PR-only ancestors',
-);
-assert.match(
-  desktopBuildWorkflow,
-  /package-macos-dmg:\s*\n\s*name: Package macOS universal DMG[\s\S]*?always\(\)[\s\S]*?needs\.package-macos-cli\.result == 'success'/,
-  'The macOS DMG must run only after the universal CLI package succeeds',
-);
-assert.match(
-  desktopBuildWorkflow,
-  /package-macos-artifact:\s*\n\s*name: Audit macOS packaged artifact[\s\S]*?always\(\)[\s\S]*?needs\.package-macos-cli\.result == 'success'[\s\S]*?needs\.package-macos-dmg\.result == 'success'/,
-  'The macOS artifact audit must run after both package inputs succeed',
+  /package-macos-artifact:\s*\n\s*name: Audit macOS packaged artifact[\s\S]*?always\(\)[\s\S]*?needs\.package-macos\.result == 'success'[\s\S]*?needs: \[package-macos\]/,
+  'The macOS artifact audit must run after the consolidated package succeeds',
 );
 
 assert.equal(packageJson.name, 'pasted', 'Frontend package must use the Pasted product name');
@@ -218,9 +241,9 @@ assert.match(
   'The hosted macOS release must stage a universal CLI before Tauri bundles the universal app',
 );
 assert.match(
-  desktopBuildWorkflow,
-  /package-macos-dmg:[\s\S]*needs: \[package-macos-cli\][\s\S]*name: Pasted-macOS-universal-CLI[\s\S]*path: src-tauri\/target\/universal-apple-darwin\/release[\s\S]*tauri -- build --target universal-apple-darwin/,
-  'The post-merge macOS build must stage the universal CLI artifact before Tauri bundles the universal app',
+  macosPackageJob,
+  /build-macos-universal-cli\.sh[\s\S]*name: Pasted-macOS-universal-CLI[\s\S]*tauri -- build --target universal-apple-darwin[\s\S]*name: Pasted-macOS-universal-DMG/,
+  'The post-merge macOS job must preserve both artifacts while reusing compilation between them',
 );
 assert.match(
   releaseWorkflow,
