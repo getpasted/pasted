@@ -21,7 +21,7 @@ const settingsService = read('src-tauri/src/settings_service.rs');
 const settingsApi = read('src/api/settings.ts');
 const transformsApi = read('src/api/transforms.ts');
 const localizationRuntime = read('src/localization/runtime.ts');
-const cliRoot = read('src-tauri/src/bin/pasted_cli.rs');
+const cliRoot = read('src-tauri/src/bin/pasted.rs');
 const appRoot = read('src/App.tsx');
 const appNavigation = read('src/hooks/useAppNavigation.ts');
 const appShell = read('src/hooks/useAppShell.ts');
@@ -125,7 +125,7 @@ const sizeRatchets = new Map([
   ['src-tauri/src/commands/app_lock.rs', 322],
   ['src-tauri/src/commands/queue.rs', 160],
   ['src-tauri/src/commands/storage.rs', 170],
-  ['src-tauri/src/bin/pasted_cli.rs', 320],
+  ['src-tauri/src/bin/pasted.rs', 320],
   ['src/App.tsx', 950],
   ['src/hooks/useAppNavigation.ts', 175],
   ['src/hooks/useAppShell.ts', 130],
@@ -187,15 +187,15 @@ const cliAdapters = [
   'portability', 'registry', 'retention', 'settings', 'storage', 'suggestions', 'transforms',
 ];
 for (const adapter of cliAdapters) {
-  assert.ok(fs.existsSync(`src-tauri/src/bin/pasted_cli/commands/${adapter}.rs`),
+  assert.ok(fs.existsSync(`src-tauri/src/cli/commands/${adapter}.rs`),
     `${adapter} CLI commands must remain outside the CLI integration root`);
-  assert.ok(lineCount(`src-tauri/src/bin/pasted_cli/commands/${adapter}.rs`) <= 400,
+  assert.ok(lineCount(`src-tauri/src/cli/commands/${adapter}.rs`) <= 400,
     `${adapter} CLI adapter grew beyond 400 lines; split the capability again`);
 }
 for (const support of ['app_lock_support', 'common', 'extractor_support', 'retention_support', 'transform_support']) {
-  assert.ok(fs.existsSync(`src-tauri/src/bin/pasted_cli/commands/${support}.rs`),
+  assert.ok(fs.existsSync(`src-tauri/src/cli/commands/${support}.rs`),
     `${support} must keep shared CLI parsing and presentation outside the integration root`);
-  assert.ok(lineCount(`src-tauri/src/bin/pasted_cli/commands/${support}.rs`) <= 300,
+  assert.ok(lineCount(`src-tauri/src/cli/commands/${support}.rs`) <= 300,
     `${support} grew beyond 300 lines; separate its helper responsibilities`);
 }
 for (const dispatch of cliAdapters) {

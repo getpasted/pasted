@@ -31,7 +31,7 @@ use pasted_lib::transformation_service::{
 
 use cli_commands::json_error;
 
-#[path = "pasted_cli/commands/mod.rs"]
+#[path = "../cli/commands/mod.rs"]
 mod cli_commands;
 
 fn get_app_data_dir() -> PathBuf {

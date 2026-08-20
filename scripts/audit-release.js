@@ -156,8 +156,22 @@ assert.match(
   'Fresh installations must expose the native app menu and Dock/taskbar presence by default',
 );
 assert.match(cargoToml, /default-run\s*=\s*"pasted-app"/, 'Cargo must run the private GUI binary by default');
+assert.match(
+  cargoToml,
+  /autobins\s*=\s*false/,
+  'Cargo binary auto-discovery must stay disabled so CLI support modules are not mistaken for bundle executables',
+);
 assert.match(cargoToml, /name\s*=\s*"pasted-app"\s*\npath\s*=\s*"src\/main\.rs"/, 'Cargo must build the GUI as pasted-app');
-assert.match(cargoToml, /name\s*=\s*"pasted"\s*\npath\s*=\s*"src\/bin\/pasted_cli\.rs"/, 'Cargo must build the public CLI as pasted');
+assert.match(
+  cargoToml,
+  /name\s*=\s*"pasted"\s*\npath\s*=\s*"src\/bin\/pasted\.rs"/,
+  'The public CLI target name and entrypoint stem must both be pasted so Tauri bundles the built executable',
+);
+assert.deepEqual(
+  fs.readdirSync('src-tauri/src/bin').sort(),
+  ['pasted.rs'],
+  'Only executable entrypoints may live under src/bin because Tauri treats support modules as bundle binaries',
+);
 
 for (const scriptName of ['release:macos:local', 'release:macos', 'release:macos:verify']) {
   assert.equal(typeof packageScripts[scriptName], 'string', `Missing ${scriptName} release script`);
