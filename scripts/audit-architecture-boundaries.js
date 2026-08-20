@@ -11,6 +11,7 @@ const readSourceTree = (directory) => fs.readdirSync(directory, { withFileTypes:
 const commands = read('src-tauri/src/commands.rs');
 const appLockCommands = read('src-tauri/src/commands/app_lock.rs');
 const queueCommands = read('src-tauri/src/commands/queue.rs');
+const storageCommands = read('src-tauri/src/commands/storage.rs');
 const liveApp = read('src-tauri/src/live_app.rs');
 const clipboardActions = read('src-tauri/src/clipboard_actions.rs');
 const queueActions = read('src-tauri/src/queue_actions.rs');
@@ -54,6 +55,8 @@ assert.match(queueCommands, /queue_actions::paste_all/,
   'GUI Queue paste-all must use the shared Queue workflow');
 assert.match(appLockCommands, /app_lock::lock_enabled/,
   'GUI App Lock commands must use the shared App Lock workflow');
+assert.match(storageCommands, /pub async fn move_library[\s\S]*blocking_pick_folder/,
+  'Library relocation must keep its native folder picker behind an async command');
 assert.doesNotMatch(clipboardActions, /crate::commands::/,
   'Shared clipboard workflows must remain independent of GUI commands');
 assert.doesNotMatch(queueActions, /crate::commands::/,
@@ -118,9 +121,10 @@ assert.match(clipReordering, /useStableVerticalReorder\(/,
 
 const sizeRatchets = new Map([
   ['src-tauri/src/db.rs', 20_111],
-  ['src-tauri/src/commands.rs', 4_778],
+  ['src-tauri/src/commands.rs', 4_629],
   ['src-tauri/src/commands/app_lock.rs', 322],
   ['src-tauri/src/commands/queue.rs', 160],
+  ['src-tauri/src/commands/storage.rs', 170],
   ['src-tauri/src/bin/pasted_cli.rs', 320],
   ['src/App.tsx', 950],
   ['src/hooks/useAppNavigation.ts', 175],
@@ -173,7 +177,7 @@ for (const domain of ['clip_protection', 'retention', 'settings']) {
   assert.ok(fs.existsSync(`src-tauri/src/db/${domain}.rs`),
     `${domain} persistence must remain outside the database integration root`);
 }
-for (const adapter of ['activity', 'app_lock', 'queue', 'retention']) {
+for (const adapter of ['activity', 'app_lock', 'queue', 'retention', 'storage']) {
   assert.ok(fs.existsSync(`src-tauri/src/commands/${adapter}.rs`),
     `${adapter} GUI commands must remain outside the command integration root`);
 }
