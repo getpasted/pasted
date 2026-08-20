@@ -16,7 +16,12 @@ const types = read('src/types.ts');
 const analysisSettings = read('src/components/SettingsAnalysisPanel.tsx');
 const settingsModal = read('src/components/SettingsModal.tsx');
 const analysisExecution = read('src-tauri/src/analysis_execution.rs');
-const commands = read('src-tauri/src/commands.rs');
+const commands = [
+  'src-tauri/src/commands.rs',
+  'src-tauri/src/commands/analysis.rs',
+  'src-tauri/src/commands/content_registry.rs',
+  'src-tauri/src/commands/extractors.rs',
+].map(read).join('\n');
 const builtinLifecycleManager = read('src/components/BuiltinLifecycleManagerDialog.tsx');
 const analysisApi = read('src/api/analysis.ts');
 const extractorManager = read('src/components/ContentExtractorManagerDialog.tsx');

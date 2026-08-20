@@ -10,6 +10,9 @@ const readSourceTree = (directory) => fs.readdirSync(directory, { withFileTypes:
 });
 const commands = read('src-tauri/src/commands.rs');
 const appLockCommands = read('src-tauri/src/commands/app_lock.rs');
+const analysisCommands = read('src-tauri/src/commands/analysis.rs');
+const contentRegistryCommands = read('src-tauri/src/commands/content_registry.rs');
+const extractorCommands = read('src-tauri/src/commands/extractors.rs');
 const queueCommands = read('src-tauri/src/commands/queue.rs');
 const storageCommands = read('src-tauri/src/commands/storage.rs');
 const liveApp = read('src-tauri/src/live_app.rs');
@@ -55,6 +58,12 @@ assert.match(queueCommands, /queue_actions::paste_all/,
   'GUI Queue paste-all must use the shared Queue workflow');
 assert.match(appLockCommands, /app_lock::lock_enabled/,
   'GUI App Lock commands must use the shared App Lock workflow');
+assert.match(analysisCommands, /analysis_execution::analyze_(?:text|clip)/,
+  'GUI Analyzer commands must use the shared Analysis execution service');
+assert.match(extractorCommands, /pub async fn choose_extractor_executable[\s\S]*blocking_pick_file/,
+  'Extractor executable selection must keep its native picker behind an async command');
+assert.match(contentRegistryCommands, /db\.create_content_classifier/,
+  'GUI Content Registry commands must delegate classifier persistence to the shared database domain');
 assert.match(storageCommands, /pub async fn move_library[\s\S]*blocking_pick_folder/,
   'Library relocation must keep its native folder picker behind an async command');
 assert.doesNotMatch(clipboardActions, /crate::commands::/,
@@ -121,7 +130,10 @@ assert.match(clipReordering, /useStableVerticalReorder\(/,
 
 const sizeRatchets = new Map([
   ['src-tauri/src/db.rs', 20_111],
-  ['src-tauri/src/commands.rs', 4_629],
+  ['src-tauri/src/commands.rs', 4_157],
+  ['src-tauri/src/commands/analysis.rs', 100],
+  ['src-tauri/src/commands/content_registry.rs', 260],
+  ['src-tauri/src/commands/extractors.rs', 180],
   ['src-tauri/src/commands/app_lock.rs', 322],
   ['src-tauri/src/commands/queue.rs', 160],
   ['src-tauri/src/commands/storage.rs', 170],
@@ -177,7 +189,9 @@ for (const domain of ['clip_protection', 'retention', 'settings']) {
   assert.ok(fs.existsSync(`src-tauri/src/db/${domain}.rs`),
     `${domain} persistence must remain outside the database integration root`);
 }
-for (const adapter of ['activity', 'app_lock', 'queue', 'retention', 'storage']) {
+for (const adapter of [
+  'activity', 'analysis', 'app_lock', 'content_registry', 'extractors', 'queue', 'retention', 'storage',
+]) {
   assert.ok(fs.existsSync(`src-tauri/src/commands/${adapter}.rs`),
     `${adapter} GUI commands must remain outside the command integration root`);
 }
@@ -204,5 +218,10 @@ for (const dispatch of cliAdapters) {
 }
 assert.doesNotMatch(commands, /pub fn (?:save_setting|configure_clip_retention)/,
   'Database domain persistence must not move into the GUI command adapter');
+assert.doesNotMatch(
+  commands,
+  /pub (?:async )?fn (?:analyze_content|get_content_classifiers|get_content_extractors|create_content_type|create_content_classifier)/,
+  'The GUI command integration root must not reclaim Analysis capability adapters',
+);
 
 console.log('Application architecture boundary audit passed.');
