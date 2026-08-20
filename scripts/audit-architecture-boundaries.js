@@ -126,7 +126,7 @@ const sizeRatchets = new Map([
   ['src/hooks/useClipDragController.ts', 130],
   ['src/hooks/useClipReordering.ts', 100],
   ['src/components/AppDialogLayer.tsx', 210],
-  ['src/utils/tauri.ts', 1_569],
+  ['src/utils/tauri.ts', 1_305],
 ]);
 for (const [path, maximum] of sizeRatchets) {
   assert.ok(lineCount(path) <= maximum,
@@ -151,9 +151,16 @@ for (const command of centralizedCommands) {
     `${command} must be reached through its domain capability client`);
 }
 
-for (const handler of ['activity', 'analytics', 'analysis', 'backup', 'bins', 'clips']) {
+for (const handler of [
+  'activity', 'analytics', 'analysis', 'appState', 'backup', 'bins', 'clips',
+  'manualTransforms', 'queue',
+]) {
   assert.ok(fs.existsSync(`src/mocks/browser/${handler}.ts`),
     `${handler} browser behavior must remain in a domain handler`);
+}
+for (const handler of ['appState', 'manualTransforms', 'queue']) {
+  assert.ok(lineCount(`src/mocks/browser/${handler}.ts`) <= 160,
+    `${handler} browser handler grew beyond 160 lines; split the capability again`);
 }
 
 for (const domain of ['clip_protection', 'retention', 'settings']) {
