@@ -252,9 +252,12 @@ jobs:
     if: >-
       always() &&
       github.event_name != 'pull_request' &&
-      needs.validate.result == 'success' &&
+      needs.validation-scope.result == 'success' &&
+      needs.validate-frontend.result == 'success' &&
       needs.dependency-policy.result == 'success'
-    needs: [validate, dependency-policy]
+    # Package beside native validation instead of serializing two independent
+    # six-to-twelve-minute phases. The workflow still fails if either path fails.
+    needs: [validation-scope, validate-frontend, dependency-policy]
     strategy:
       fail-fast: false
       matrix:
@@ -359,50 +362,17 @@ jobs:
           path: ci-artifacts/*
           if-no-files-found: error
 
-  package-macos-cli:
-    name: Package macOS universal CLI
+  package-macos:
+    name: Package macOS universal CLI and DMG
     if: >-
       always() &&
       github.event_name != 'pull_request' &&
-      needs.validate.result == 'success' &&
+      needs.validation-scope.result == 'success' &&
+      needs.validate-frontend.result == 'success' &&
       needs.dependency-policy.result == 'success'
-    needs: [validate, dependency-policy]
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: aarch64-apple-darwin,x86_64-apple-darwin
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: src-tauri
-          shared-key: macos-universal-cli
-      - name: Build and sign macOS universal CLI
-        run: |
-          bash scripts/build-macos-universal-cli.sh
-          codesign \
-            --force \
-            --sign - \
-            src-tauri/target/universal-apple-darwin/release/pasted
-          codesign \
-            --verify \
-            --strict \
-            --verbose=2 \
-            src-tauri/target/universal-apple-darwin/release/pasted
-      - uses: actions/upload-artifact@v7
-        with:
-          name: Pasted-macOS-universal-CLI
-          path: src-tauri/target/universal-apple-darwin/release/pasted
-          if-no-files-found: error
-          retention-days: 1
-
-  package-macos-dmg:
-    name: Package macOS universal DMG
-    if: >-
-      always() &&
-      github.event_name != 'pull_request' &&
-      needs.package-macos-cli.result == 'success'
-    needs: [package-macos-cli]
+    # Keep release compilation parallel with native validation. This job only
+    # uploads ephemeral CI artifacts; the workflow remains red on any failure.
+    needs: [validation-scope, validate-frontend, dependency-policy]
     runs-on: macos-latest
     env:
       APPLE_SIGNING_IDENTITY: '-'
@@ -421,15 +391,28 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
-          shared-key: macos-universal-app
+          shared-key: macos-universal-package
       - run: npm ci
-      - uses: actions/download-artifact@v8
+      - name: Build and sign macOS universal CLI
+        run: |
+          bash scripts/build-macos-universal-cli.sh
+          codesign \
+            --force \
+            --sign - \
+            src-tauri/target/universal-apple-darwin/release/pasted
+          codesign \
+            --verify \
+            --strict \
+            --verbose=2 \
+            src-tauri/target/universal-apple-darwin/release/pasted
+      - uses: actions/upload-artifact@v7
         with:
           name: Pasted-macOS-universal-CLI
-          path: src-tauri/target/universal-apple-darwin/release
-      - name: Verify bundled macOS universal CLI
+          path: src-tauri/target/universal-apple-darwin/release/pasted
+          if-no-files-found: error
+          retention-days: 1
+      - name: Verify staged macOS universal CLI
         run: |
-          chmod +x src-tauri/target/universal-apple-darwin/release/pasted
           lipo \
             src-tauri/target/universal-apple-darwin/release/pasted \
             -verify_arch arm64 x86_64
@@ -456,9 +439,8 @@ jobs:
     if: >-
       always() &&
       github.event_name != 'pull_request' &&
-      needs.package-macos-cli.result == 'success' &&
-      needs.package-macos-dmg.result == 'success'
-    needs: [package-macos-cli, package-macos-dmg]
+      needs.package-macos.result == 'success'
+    needs: [package-macos]
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v7
