@@ -30,7 +30,9 @@ Components and hooks own presentation state; capability clients own command
 names, request shapes, and response types. Settings, Clips, Bins, Activity,
 Backup, Analysis, and Transforms have domain clients. Browser-mode behavior is
 split into matching handlers under `src/mocks/browser` instead of growing one
-parallel backend switch indefinitely.
+parallel backend switch indefinitely. App state, manual Transforms, Operations,
+and Queue behavior own their mock state inside those handlers so browser-mode
+mutations follow the same cohesive boundaries as native capabilities.
 
 Non-English locale catalogs load on demand. The localization snapshot exposes
 catalog readiness, and application startup remains behind the splash until the

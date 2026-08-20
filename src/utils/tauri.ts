@@ -8,6 +8,12 @@ import { handleAnalyticsBrowserMock } from '../mocks/browser/analytics';
 import { handleClipBrowserMock } from '../mocks/browser/clips';
 import { handleBinBrowserMock } from '../mocks/browser/bins';
 import { handleAnalysisBrowserMock } from '../mocks/browser/analysis';
+import { handleQueueBrowserMock } from '../mocks/browser/queue';
+import { handleAppStateBrowserMock } from '../mocks/browser/appState';
+import {
+  handleManualTransformBrowserMock,
+  mockManualTransforms,
+} from '../mocks/browser/manualTransforms';
 
 type MockClip = {
   id: number;
@@ -80,29 +86,6 @@ let mockClips: MockClip[] = [
     bin_ids: [],
   },
 ];
-
-const mockPlatformDescription = typeof navigator === 'undefined'
-  ? ''
-  : `${navigator.platform} ${navigator.userAgent}`;
-const mockSystemAuthLabel = /Mac|iPhone|iPad/i.test(mockPlatformDescription)
-  ? 'Touch ID'
-  : /Win/i.test(mockPlatformDescription)
-    ? 'Windows Hello'
-    : 'System authentication';
-
-let mockAppLockStatus = {
-  enabled: false,
-  locked: false,
-  systemAuthEnabled: false,
-  systemAuthAvailable: false,
-  systemAuthLabel: mockSystemAuthLabel,
-  appleWatchEnabled: false,
-  appleWatchAvailable: false,
-  idleMinutes: 5,
-  lockOnSleep: true,
-  lockOnRestart: true,
-  captureWhileLocked: true,
-};
 
 let mockBins: MockBin[] = [
   { id: 1, name: 'My Manual Bin', icon: '📂', color: 'default', smart_rule: null, bin_type: 'category' },
@@ -225,57 +208,6 @@ let mockLibraryLocation = {
   isDefault: true,
 };
 
-type MockPipeline = {
-  id: number;
-  stableRef: string;
-  name: string;
-  hotkey: string | null;
-  revision: number;
-  createdAt: string;
-  updatedAt: string;
-  steps: Array<{
-    position: number;
-    operationRef: string;
-    configJson: string | null;
-    failurePolicy: string;
-  }>;
-};
-
-let mockManualTransforms: MockPipeline[] = [
-  {
-    id: 1,
-    stableRef: 'transform:mock-uppercase',
-    name: 'Uppercase',
-    hotkey: null,
-    revision: 1,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    steps: [{ position: 0, operationRef: 'builtin:uppercase', configJson: null, failurePolicy: 'stop' }],
-  },
-  {
-    id: 2,
-    stableRef: 'transform:mock-clean-url',
-    name: 'Clean URL',
-    hotkey: null,
-    revision: 1,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    steps: [{ position: 0, operationRef: 'builtin:clean_url_tracking', configJson: null, failurePolicy: 'stop' }],
-  },
-];
-
-let mockOperations: Array<{
-  id: number;
-  stable_id: string;
-  name: string;
-  op_type: string;
-  config: string | null;
-  category: string;
-  created_at: string;
-}> = [];
-let mockSettings: Record<string, string> = {};
-let mockClipboardPaused = false;
-
 let mockIntelligenceConnections: Array<{
   id: string;
   name: string;
@@ -292,27 +224,6 @@ let mockIntelligenceConnections: Array<{
 let mockSavedTransforms: Array<Record<string, unknown>> = [];
 let mockClipTransformations = new Map<number, Record<string, unknown>>();
 let mockBinTransforms = new Map<number, string>();
-let mockSequentialStatus = {
-  is_active: false,
-  queue: [] as string[],
-  item_ids: [] as number[],
-  current_index: 0,
-  total_count: 0,
-};
-let mockSequentialNextItemId = 1;
-
-function updateMockSequentialStatus() {
-  mockSequentialStatus = {
-    ...mockSequentialStatus,
-    total_count: mockSequentialStatus.queue.length,
-  };
-  return {
-    ...mockSequentialStatus,
-    queue: [...mockSequentialStatus.queue],
-    item_ids: [...mockSequentialStatus.item_ids],
-  };
-}
-
 function assignMockClips(ids: number[], binId: number | null) {
   for (const clip of mockClips) {
     if (!ids.includes(clip.id) || clip.is_trashed !== 0) continue;
@@ -379,6 +290,9 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
     handleClipBrowserMock(cmd, args, mockClips, withMockProtection),
     handleBinBrowserMock(cmd, mockBins, mockClips),
     handleAnalysisBrowserMock(cmd),
+    handleQueueBrowserMock(cmd, args),
+    handleAppStateBrowserMock(cmd, args),
+    handleManualTransformBrowserMock(cmd, args),
   ]) {
     if (result.matched) return result.value as T;
   }
@@ -418,8 +332,6 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
         offset,
       } as unknown as T;
     }
-    case 'get_manual_transforms':
-      return mockManualTransforms as unknown as T;
     case 'get_content_classifiers':
       return mockClassifiers.map((classifier) => ({ ...classifier, patterns: [...classifier.patterns] })) as unknown as T;
     case 'get_content_extractors':
@@ -942,96 +854,8 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
     case 'copy_clip_by_id':
     case 'paste_text_to_frontmost':
       return null as unknown as T;
-    case 'get_sequential_status':
-      return updateMockSequentialStatus() as unknown as T;
-    case 'get_queue_paste_target':
-      return {
-        name: 'Browser',
-        automaticPasteAvailable: false,
-        unavailableReason: 'This window cannot send system-wide paste commands.',
-      } as unknown as T;
-    case 'start_sequential_paste':
-      mockSequentialStatus.is_active = true;
-      return updateMockSequentialStatus() as unknown as T;
-    case 'stop_sequential_paste':
-      mockSequentialStatus.is_active = false;
-      return updateMockSequentialStatus() as unknown as T;
-    case 'push_sequential_item':
-      mockSequentialStatus.queue.push(String(args?.item ?? ''));
-      mockSequentialStatus.item_ids.push(mockSequentialNextItemId++);
-      return updateMockSequentialStatus() as unknown as T;
-    case 'pop_sequential_paste': {
-      const item = mockSequentialStatus.queue.shift() ?? null;
-      mockSequentialStatus.item_ids.shift();
-      updateMockSequentialStatus();
-      return item as unknown as T;
-    }
-    case 'paste_sequential_item_by_index': {
-      const index = Number(args?.index ?? -1);
-      const [item] = mockSequentialStatus.queue.splice(index, 1);
-      mockSequentialStatus.item_ids.splice(index, 1);
-      updateMockSequentialStatus();
-      return (item ?? null) as unknown as T;
-    }
-    case 'remove_sequential_item_by_index':
-      mockSequentialStatus.queue.splice(Number(args?.index ?? -1), 1);
-      mockSequentialStatus.item_ids.splice(Number(args?.index ?? -1), 1);
-      return updateMockSequentialStatus() as unknown as T;
-    case 'reorder_sequential_items': {
-      const orderedIds = Array.isArray(args?.itemIds) ? args.itemIds.map(Number) : [];
-      const textById = new Map(mockSequentialStatus.item_ids.map((id, index) => [id, mockSequentialStatus.queue[index]]));
-      mockSequentialStatus.item_ids = orderedIds;
-      mockSequentialStatus.queue = orderedIds.map((id) => textById.get(id) ?? '');
-      return updateMockSequentialStatus() as unknown as T;
-    }
-    case 'paste_all_sequential': {
-      const combined = mockSequentialStatus.queue.length > 0
-        ? mockSequentialStatus.queue.join('\n\n')
-        : null;
-      mockSequentialStatus.queue = [];
-      mockSequentialStatus.item_ids = [];
-      mockSequentialStatus.is_active = false;
-      updateMockSequentialStatus();
-      return combined as unknown as T;
-    }
-    case 'is_clipboard_paused':
-      return mockClipboardPaused as unknown as T;
-    case 'get_all_app_settings':
-      return { ...mockSettings } as unknown as T;
-    case 'get_app_lock_status':
-      return { ...mockAppLockStatus } as unknown as T;
     case 'quit_app':
       return undefined as unknown as T;
-    case 'configure_app_lock':
-      mockAppLockStatus = { ...mockAppLockStatus, enabled: true, locked: false };
-      return { ...mockAppLockStatus } as unknown as T;
-    case 'disable_app_lock':
-      mockAppLockStatus = { ...mockAppLockStatus, enabled: false, locked: false, systemAuthEnabled: false, appleWatchEnabled: false };
-      return { ...mockAppLockStatus } as unknown as T;
-    case 'lock_app':
-      mockAppLockStatus = { ...mockAppLockStatus, locked: true };
-      return { ...mockAppLockStatus } as unknown as T;
-    case 'unlock_app':
-      mockAppLockStatus = { ...mockAppLockStatus, locked: false };
-      return { ...mockAppLockStatus } as unknown as T;
-    case 'set_app_lock_system_auth':
-      mockAppLockStatus = { ...mockAppLockStatus, systemAuthEnabled: Boolean(args?.enabled) };
-      return { ...mockAppLockStatus } as unknown as T;
-    case 'set_app_lock_apple_watch':
-      mockAppLockStatus = { ...mockAppLockStatus, appleWatchEnabled: Boolean(args?.enabled) };
-      return { ...mockAppLockStatus } as unknown as T;
-    case 'set_app_lock_idle_minutes':
-      mockAppLockStatus = { ...mockAppLockStatus, idleMinutes: Number(args?.minutes ?? 5) };
-      return { ...mockAppLockStatus } as unknown as T;
-    case 'set_app_lock_lock_on_sleep':
-      mockAppLockStatus = { ...mockAppLockStatus, lockOnSleep: Boolean(args?.enabled) };
-      return { ...mockAppLockStatus } as unknown as T;
-    case 'set_app_lock_lock_on_restart':
-      mockAppLockStatus = { ...mockAppLockStatus, lockOnRestart: Boolean(args?.enabled) };
-      return { ...mockAppLockStatus } as unknown as T;
-    case 'set_app_lock_capture_while_locked':
-      mockAppLockStatus = { ...mockAppLockStatus, captureWhileLocked: Boolean(args?.enabled) };
-      return { ...mockAppLockStatus } as unknown as T;
     case 'get_source_icons':
       return {} as unknown as T;
     case 'get_external_import_sources':
@@ -1096,8 +920,6 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       mockBinTransforms = new Map();
       return report as unknown as T;
     }
-    case 'get_operations':
-      return mockOperations.map((operation) => ({ ...operation })) as unknown as T;
     case 'get_clip_versions':
       return [] as unknown as T;
     case 'get_clip_version_count':
@@ -1327,19 +1149,29 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
     case 'batch_pin_clips': {
       const ids = Array.isArray(args?.ids) ? args.ids.map(Number).filter(Number.isInteger) : [];
       const pinState = Boolean(args?.pinState);
-      if (pinState) {
+      const changedIds = [...new Set(ids)].filter((id) => {
+        const clip = mockClips.find((item) => item.id === id);
+        return clip && Boolean(clip.is_pinned) !== pinState;
+      });
+      if (pinState && changedIds.length > 0) {
         for (const clip of mockClips) {
-          if (clip.is_pinned && !ids.includes(clip.id)) clip.pin_order += ids.length;
+          if (clip.is_pinned) clip.pin_order += changedIds.length;
         }
       }
-      ids.forEach((id, index) => {
+      changedIds.forEach((id, index) => {
         const clip = mockClips.find((item) => item.id === id);
         if (clip) {
           clip.is_pinned = pinState ? 1 : 0;
           clip.pin_order = pinState ? index : 0;
         }
       });
-      return null as unknown as T;
+      return {
+        action: pinState ? 'pin' : 'unpin',
+        requestedCount: ids.length,
+        changedCount: changedIds.length,
+        skippedCount: ids.length - changedIds.length,
+        clipIds: changedIds,
+      } as unknown as T;
     }
     case 'reorder_pinned_clips': {
       const ids = Array.isArray(args?.ids) ? args.ids.map(Number).filter(Number.isInteger) : [];
@@ -1386,80 +1218,6 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
     case 'set_titlebar_direction':
     case 'toggle_hud_window':
       return undefined as unknown as T;
-    case 'create_operation': {
-      const id = Math.max(0, ...mockOperations.map((operation) => operation.id)) + 1;
-      const operation = {
-        id,
-        stable_id: `custom:${id}`,
-        name: String(args?.name ?? 'Custom Operation'),
-        op_type: String(args?.opType ?? 'regex'),
-        config: typeof args?.config === 'string' ? args.config : null,
-        category: String(args?.category ?? 'Custom Operations'),
-        created_at: new Date().toISOString(),
-      };
-      mockOperations.push(operation);
-      return operation as unknown as T;
-    }
-    case 'update_operation': {
-      const operation = mockOperations.find(({ id }) => id === Number(args?.id));
-      if (operation) {
-        operation.name = String(args?.name ?? operation.name);
-        operation.op_type = String(args?.opType ?? operation.op_type);
-        operation.config = typeof args?.config === 'string' ? args.config : null;
-        operation.category = String(args?.category ?? operation.category);
-      }
-      return undefined as unknown as T;
-    }
-    case 'duplicate_operation': {
-      const source = mockOperations.find(({ stable_id }) => stable_id === String(args?.reference));
-      if (!source) throw new Error('Operation was not found');
-      const id = Math.max(0, ...mockOperations.map((operation) => operation.id)) + 1;
-      const duplicate = {
-        ...source,
-        id,
-        stable_id: `custom:${id}`,
-        name: String(args?.name ?? `${source.name} Copy`),
-      };
-      mockOperations.push(duplicate);
-      return duplicate as unknown as T;
-    }
-    case 'delete_operation':
-      mockOperations = mockOperations.filter(({ id }) => id !== Number(args?.id));
-      return undefined as unknown as T;
-    case 'create_manual_transform': {
-      const id = Math.max(0, ...mockManualTransforms.map((manualTransform) => manualTransform.id)) + 1;
-      const now = new Date().toISOString();
-      const manualTransform = {
-        id,
-        stableRef: `transform:mock-${id}`,
-        name: String(args?.name ?? 'Untitled Transform'),
-        hotkey: typeof args?.hotkey === 'string' ? args.hotkey : null,
-        revision: 1,
-        createdAt: now,
-        updatedAt: now,
-        steps: Array.isArray(args?.steps) ? args.steps : [],
-      };
-      mockManualTransforms.push(manualTransform);
-      return manualTransform as unknown as T;
-    }
-    case 'update_manual_transform': {
-      const manualTransform = mockManualTransforms.find(({ stableRef }) => stableRef === String(args?.transformRef));
-      if (!manualTransform) throw new Error('Transform was not found');
-      manualTransform.name = String(args?.name ?? manualTransform.name);
-      manualTransform.steps = Array.isArray(args?.steps) ? args.steps as typeof manualTransform.steps : manualTransform.steps;
-      manualTransform.hotkey = typeof args?.hotkey === 'string' ? args.hotkey : null;
-      manualTransform.revision += 1;
-      manualTransform.updatedAt = new Date().toISOString();
-      return manualTransform as unknown as T;
-    }
-    case 'update_manual_transform_hotkey': {
-      const manualTransform = mockManualTransforms.find(({ stableRef }) => stableRef === String(args?.transformRef));
-      if (manualTransform) manualTransform.hotkey = typeof args?.hotkey === 'string' ? args.hotkey : null;
-      return undefined as unknown as T;
-    }
-    case 'delete_manual_transform':
-      mockManualTransforms = mockManualTransforms.filter(({ stableRef }) => stableRef !== String(args?.transformRef));
-      return undefined as unknown as T;
     case 'get_transforms':
       return [
         ...mockManualTransforms.map((manualTransform) => ({
@@ -1499,30 +1257,8 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       return true as unknown as T;
     case 'paste_clip_by_id':
       return undefined as unknown as T;
-    case 'register_app_setting_hotkey':
-    case 'register_hud_hotkey': {
-      const key = String(args?.key ?? 'hudHotkey');
-      mockSettings[key] = String(args?.value ?? args?.hotkey ?? '');
-      return undefined as unknown as T;
-    }
-    case 'register_app_setting_hotkeys': {
-      const values = args?.values as Record<string, string> | undefined;
-      if (values) mockSettings = { ...mockSettings, ...values };
-      return undefined as unknown as T;
-    }
     case 'resolve_logical_shortcut_key':
       return String(args?.fallback ?? '') as unknown as T;
-    case 'save_app_setting':
-      mockSettings[String(args?.key ?? '')] = String(args?.value ?? '');
-      return undefined as unknown as T;
-    case 'save_app_settings': {
-      const values = args?.values as Record<string, string> | undefined;
-      if (values) mockSettings = { ...mockSettings, ...values };
-      return undefined as unknown as T;
-    }
-    case 'toggle_clipboard_pause':
-      mockClipboardPaused = !mockClipboardPaused;
-      return mockClipboardPaused as unknown as T;
     case 'remove_clip_bin': {
       const clip = mockClips.find(({ id }) => id === Number(args?.clipId));
       const binId = Number(args?.binId);
