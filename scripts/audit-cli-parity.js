@@ -16,6 +16,9 @@ const libraryItems = read('src-tauri/src/library_items.rs');
 const commands = [
   'src-tauri/src/commands.rs',
   'src-tauri/src/commands/activity.rs',
+  'src-tauri/src/commands/analysis.rs',
+  'src-tauri/src/commands/content_registry.rs',
+  'src-tauri/src/commands/extractors.rs',
   'src-tauri/src/commands/retention.rs',
 ].map(read).join('\n');
 const analysis = read('src-tauri/src/content_analysis.rs');
